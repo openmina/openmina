@@ -6,3 +6,4 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
