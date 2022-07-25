@@ -433,6 +433,7 @@ dependencies = [
 name = "mina-tree"
 version = "0.1.0"
 dependencies = [
+ "mina-hasher",
  "mina-signer",
 ]
 

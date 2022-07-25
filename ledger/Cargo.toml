@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
+mina-hasher = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}

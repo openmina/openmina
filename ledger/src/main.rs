@@ -64,7 +64,7 @@ impl Default for AuthRequired {
 }
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L49
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 struct Permissions<Controller> {
     edit_state: Controller,
     send: Controller,
@@ -77,6 +77,48 @@ struct Permissions<Controller> {
     set_token_symbol: Controller,
     increment_nonce: Controller,
     set_voting_for: Controller,
+}
+
+impl Default for Permissions<AuthRequired> {
+    fn default() -> Self {
+        Self::user_default()
+    }
+}
+
+impl Permissions<AuthRequired> {
+    fn user_default() -> Self {
+        use AuthRequired::*;
+        Self {
+            edit_state: Signature,
+            send: Signature,
+            receive: None,
+            set_delegate: Signature,
+            set_permissions: Signature,
+            set_verification_key: Signature,
+            set_zkapp_uri: Signature,
+            edit_sequence_state: Signature,
+            set_token_symbol: Signature,
+            increment_nonce: Signature,
+            set_voting_for: Signature,
+        }
+    }
+
+    fn empty() -> Self {
+        use AuthRequired::*;
+        Self {
+            edit_state: None,
+            send: None,
+            receive: None,
+            set_delegate: None,
+            set_permissions: None,
+            set_verification_key: None,
+            set_zkapp_uri: None,
+            edit_sequence_state: None,
+            set_token_symbol: None,
+            increment_nonce: None,
+            set_voting_for: None,
+        }
+    }
 }
 
 // TODO: Fill this struct
@@ -109,11 +151,33 @@ struct Account {
     pub zkapp_uri: String,                    // string
 }
 
+use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};
+
+impl Hashable for Account {
+    type D = ();
+
+    fn to_roinput(&self) -> ROInput {
+        let mut roi = ROInput::new();
+
+        roi.append_field(self.public_key.x);
+        roi.append_bool(self.public_key.is_odd);
+
+        roi
+    }
+
+    fn domain_string(_: ()) -> Option<String> {
+        Some("CodaAccount*********".to_string())
+    }
+}
+
+// mina_hasher::poseidon::
+
 impl Account {
     fn create() -> Self {
         Self {
             public_key: CompressedPubKey::from_address(
                 "B62qnzbXmRNo9q32n4SNu2mpB8e7FYYLH8NmaX6oFCBYjjQ8SbD7uzV",
+                // "B62qiTKpEPjGTSHZrtM8uXiKgn8So916pLmNJKDhKeyBQL9TDb3nvBG", // Public_key.Compressed.empty
             )
             .unwrap(),
             token_id: 0,
@@ -512,13 +576,15 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use mina_hasher::create_kimchi;
+
     use super::*;
 
     #[test]
     fn test_db() {
         let two: usize = 2;
 
-        for depth in 2..22 {
+        for depth in 2..17 {
             let mut db = Database::create(depth);
 
             for _ in 0..two.pow(depth as u32) {
@@ -622,5 +688,22 @@ mod tests {
         println!("ADDR={:?}", addr);
         addr.clear_after(6);
         println!("ADDR={:?}", addr);
+    }
+
+    #[test]
+    fn test_hash_account() {
+        let acc = Account::create();
+
+        let mut hasher = create_kimchi::<Account>(());
+        hasher.update(&acc);
+        let out = hasher.digest();
+
+        println!("kimchi={}", out.to_string());
+
+        let mut hasher = create_legacy::<Account>(());
+        hasher.update(&acc);
+        let out = hasher.digest();
+
+        println!("legacy={}", out.to_string());
     }
 }
