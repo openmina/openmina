@@ -8,3 +8,17 @@ edition = "2021"
 [dependencies]
 mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
 mina-hasher = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
+oracle = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
+mina-curves = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
+o1-utils = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
+bs58 = "0.4.0"
+
+# oracle = { path = "../oracle" }
+# mina-curves = { path = "../curves" }
+# o1-utils = { path = "../utils" }
+
+ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
+ark-serialize = { version = "0.3.0", features = [ "std" ] }
+
+bitvec = "1.0.0"
+hex = "0.4.3"

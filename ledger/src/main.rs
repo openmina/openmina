@@ -1,6 +1,12 @@
 #![allow(dead_code)]
 
+mod poseidon;
+
+use std::{default, str::FromStr};
+
+use ark_ff::Zero;
 use mina_signer::CompressedPubKey;
+use o1_utils::field_helpers::FieldHelpers;
 
 type PlaceHolder = ();
 
@@ -11,15 +17,51 @@ type Balance = u64;
 type Amount = u64;
 
 // TODO: Not sure if it's the correct type
-type TokenId = u64;
+// type TokenId = Fp;
+
+// TODO: Not sure if it's the correct type
+//       It seems that the token id is a simple number, but on ocaml when they
+//       convert it to/from string (base58), they add/remove the byte 0x1C:
+//       https://github.com/MinaProtocol/mina/blob/3a35532cb19d17583b63036bc50d8dde5460b791/src/lib/mina_base/account_id.ml#L30
+//       need more research
+#[derive(Clone, Debug)]
+struct TokenId(u64);
+
+impl Default for TokenId {
+    fn default() -> Self {
+        Self(1)
+    }
+}
 
 type Slot = u32;
 
 // TODO: Those types are `Field.t` in ocaml
 //       not sure how to represent them in Rust, they seem to be 256 bits
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/receipt.mli#L67
-type ReceiptChainHash = [u8; 32];
-type VotingFor = [u8; 32];
+// type VotingFor = [u8; 32];
+
+#[derive(Clone, Debug, Default)]
+struct VotingFor(Fp);
+
+#[derive(Clone, Debug)]
+struct ReceiptChainHash(Fp);
+
+fn empty_receipt_hash() -> Fp {
+    // Value of `Receipt.Chain_hash.empty` in Ocaml (`develop` branch)
+    // let empty_hex = "9be4b7c51ed9c2e4524727805fd36f5220fbfc70a749f62623b0ed2908433320";
+    // Fp::from_hex(&empty_hex).unwrap()
+
+    // Value of `Receipt.Chain_hash.empty` in Ocaml (`compatible` branch)
+    Fp::from_hex("0b143c0645497a5987a7b88f66340e03db943f0a0df48b69a3a82921ce97b10a").unwrap()
+}
+
+impl Default for ReceiptChainHash {
+    fn default() -> Self {
+        Self(empty_receipt_hash())
+    }
+}
+
+// CodaReceiptEmpty
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/account_timing.ml#L31-L34
 #[derive(Clone, Debug)]
@@ -48,18 +90,117 @@ enum TokenPermissions {
 }
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L10
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 enum AuthRequired {
     None,
     Either,
     Proof,
     Signature,
     Impossible,
+    Both, // Legacy only
 }
 
 impl Default for AuthRequired {
     fn default() -> Self {
         Self::None
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+struct AuthRequiredEncoded {
+    constant: bool,
+    signature_necessary: bool,
+    signature_sufficient: bool,
+}
+
+impl AuthRequired {
+    fn encode(self) -> AuthRequiredEncoded {
+        let (constant, signature_necessary, signature_sufficient) = match self {
+            AuthRequired::None => (true, false, true),
+            AuthRequired::Either => (false, false, true),
+            AuthRequired::Proof => (false, false, false),
+            AuthRequired::Signature => (false, true, true),
+            AuthRequired::Impossible => (true, true, false),
+            AuthRequired::Both => (false, true, false),
+        };
+
+        AuthRequiredEncoded {
+            constant,
+            signature_necessary,
+            signature_sufficient,
+        }
+    }
+}
+
+impl AuthRequiredEncoded {
+    fn decode(self) -> AuthRequired {
+        match (
+            self.constant,
+            self.signature_necessary,
+            self.signature_sufficient,
+        ) {
+            (true, _, false) => AuthRequired::Impossible,
+            (true, _, true) => AuthRequired::None,
+            (false, false, false) => AuthRequired::Proof,
+            (false, true, true) => AuthRequired::Signature,
+            (false, false, true) => AuthRequired::Either,
+            (false, true, false) => AuthRequired::Both,
+        }
+    }
+
+    fn to_bits(self) -> [bool; 3] {
+        [
+            self.constant,
+            self.signature_necessary,
+            self.signature_sufficient,
+        ]
+    }
+}
+
+#[derive(Clone, Debug)]
+struct PermissionsLegacy<Controller> {
+    stake: bool,
+    edit_state: Controller,
+    send: Controller,
+    receive: Controller,
+    set_delegate: Controller,
+    set_permissions: Controller,
+    set_verification_key: Controller,
+}
+
+impl PermissionsLegacy<AuthRequired> {
+    fn user_default() -> Self {
+        use AuthRequired::*;
+
+        Self {
+            stake: true,
+            edit_state: Signature,
+            send: Signature,
+            receive: None,
+            set_delegate: Signature,
+            set_permissions: Signature,
+            set_verification_key: Signature,
+        }
+    }
+
+    fn empty() -> Self {
+        use AuthRequired::*;
+
+        Self {
+            stake: false,
+            edit_state: None,
+            send: None,
+            receive: None,
+            set_delegate: None,
+            set_permissions: None,
+            set_verification_key: None,
+        }
+    }
+}
+
+impl Default for PermissionsLegacy<AuthRequired> {
+    fn default() -> Self {
+        Self::user_default()
     }
 }
 
@@ -146,12 +287,12 @@ struct Account {
     pub delegate: Option<CompressedPubKey>,   // Public_key.Compressed.t option
     pub voting_for: VotingFor,                // State_hash.t
     pub timing: Timing,                       // Timing.t
-    pub permissions: Permissions<AuthRequired>, // Permissions.t
+    pub permissions: PermissionsLegacy<AuthRequired>, // Permissions.t
     pub zkapp: Option<ZkAppAccount>,          // Zkapp_account.t
     pub zkapp_uri: String,                    // string
 }
 
-use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};
+use mina_hasher::{create_kimchi, create_legacy, Fp, Hashable, Hasher, ROInput};
 
 impl Hashable for Account {
     type D = ();
@@ -159,8 +300,101 @@ impl Hashable for Account {
     fn to_roinput(&self) -> ROInput {
         let mut roi = ROInput::new();
 
-        roi.append_field(self.public_key.x);
-        roi.append_bool(self.public_key.is_odd);
+        // Self::public_key
+        // roi.append_field(self.public_key.x);
+        // roi.append_bool(self.public_key.is_odd);
+
+        // Self::token_id
+        // roi.append_u64(self.token_id.0);
+
+        // Self::token_permissions
+        // match self.token_permissions {
+        //     TokenPermissions::TokenOwned { disable_new_accounts } => {
+        //         roi.append_bool(true);
+        //         roi.append_bool(disable_new_accounts);
+        //     },
+        //     TokenPermissions::NotOwned { account_disabled } => {
+        //         roi.append_bool(false);
+        //         roi.append_bool(account_disabled);
+        //     },
+        // }
+
+        // Self::balance
+        // roi.append_u64(self.balance);
+
+        // Self::token_symbol
+
+        // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
+        // assert!(self.token_symbol.len() <= 6);
+
+        // if !self.token_symbol.is_empty() {
+        //     let mut s = <[u8; 6]>::default();
+        //     let len = self.token_symbol.len();
+
+        //     s[..len].copy_from_slice(&self.token_symbol.as_bytes());
+        //     roi.append_bytes(self.token_symbol.as_bytes());
+        // } else {
+        //     roi.append_bytes(&[0; 6]);
+        // }
+
+        // Self::nonce
+        // roi.append_u32(self.nonce);
+
+        // Self::receipt_chain_hash
+        // roi.append_field(self.receipt_chain_hash.0);
+
+        // Self::delegate
+        // match self.delegate.as_ref() {
+        //     Some(delegate) => {
+        //         roi.append_field(delegate.x);
+        //         roi.append_bool(delegate.is_odd);
+        //     },
+        //     None => {
+        //         // Public_key.Compressed.empty
+        //         roi.append_field(Fp::zero());
+        //         roi.append_bool(false);
+        //     },
+        // }
+
+        // Self::voting_for
+        // roi.append_field(self.voting_for.0);
+
+        // Self::timing
+        // match self.timing {
+        //     Timing::Untimed => {
+        //         roi.append_bool(false);
+        //         roi.append_u64(0); // initial_minimum_balance
+        //         roi.append_u32(0); // cliff_time
+        //         roi.append_u64(0); // cliff_amount
+        //         roi.append_u32(1); // vesting_period
+        //         roi.append_u64(0); // vesting_increment
+        //     },
+        //     Timing::Timed { initial_minimum_balance, cliff_time, cliff_amount, vesting_period, vesting_increment } => {
+        //         roi.append_bool(true);
+        //         roi.append_u64(initial_minimum_balance);
+        //         roi.append_u32(cliff_time);
+        //         roi.append_u64(cliff_amount);
+        //         roi.append_u32(vesting_period);
+        //         roi.append_u64(vesting_increment);
+        //     },
+        // }
+
+        // Self::permissions
+        for auth in [
+            self.permissions.set_verification_key,
+            self.permissions.set_permissions,
+            self.permissions.set_delegate,
+            self.permissions.receive,
+            self.permissions.send,
+            self.permissions.edit_state,
+        ] {
+            for bit in auth.encode().to_bits() {
+                roi.append_bool(bit);
+            }
+        }
+        roi.append_bool(self.permissions.stake);
+
+        println!("ROINPUT={:?}", roi);
 
         roi
     }
@@ -174,24 +408,39 @@ impl Hashable for Account {
 
 impl Account {
     fn create() -> Self {
+        // use o1_utils::field_helpers::FieldHelpers;
+
+        // let token_id = bs58::decode("wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf").into_vec().unwrap();
+        // let token_id = Fp::from_bytes(&token_id).unwrap();
+
+        // println!("token_id={:?}", token_id.to_string());
+
+        // let t = bs58::encode(token_id).into_string();
+        // let t = bs58::encode(token_id.to_bytes()).into_string();
+        // println!("token_id={:?}", t);
+
+        let pubkey = CompressedPubKey::from_address(
+            "B62qnzbXmRNo9q32n4SNu2mpB8e7FYYLH8NmaX6oFCBYjjQ8SbD7uzV",
+            // "B62qiTKpEPjGTSHZrtM8uXiKgn8So916pLmNJKDhKeyBQL9TDb3nvBG", // Public_key.Compressed.empty
+        )
+        .unwrap();
+
         Self {
-            public_key: CompressedPubKey::from_address(
-                "B62qnzbXmRNo9q32n4SNu2mpB8e7FYYLH8NmaX6oFCBYjjQ8SbD7uzV",
-                // "B62qiTKpEPjGTSHZrtM8uXiKgn8So916pLmNJKDhKeyBQL9TDb3nvBG", // Public_key.Compressed.empty
-            )
-            .unwrap(),
-            token_id: 0,
+            public_key: pubkey.clone(),
+            token_id: TokenId::default(),
             token_permissions: TokenPermissions::NotOwned {
                 account_disabled: false,
             },
-            token_symbol: String::new(),
-            balance: 0,
-            nonce: 0,
+            token_symbol: "".to_string(),
+            // token_symbol: String::new(),
+            balance: 10101,
+            nonce: 62772,
             receipt_chain_hash: ReceiptChainHash::default(),
-            delegate: None,
+            delegate: Some(pubkey),
+            // delegate: None,
             voting_for: VotingFor::default(),
             timing: Timing::Untimed,
-            permissions: Permissions::default(),
+            permissions: PermissionsLegacy::user_default(),
             zkapp: None,
             zkapp_uri: String::new(),
         }
@@ -576,7 +825,9 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use ark_ff::Zero;
     use mina_hasher::create_kimchi;
+    use mina_signer::BaseField;
 
     use super::*;
 
@@ -705,5 +956,71 @@ mod tests {
         let out = hasher.digest();
 
         println!("legacy={}", out.to_string());
+
+        // let bytes: Vec<u8> = hex::decode("2033430829EDB02326F649A770FCFB20526FD35F80274752E4C2D91EC5B7E49B").unwrap();
+        // println!("STR  ={:?}", "2033430829EDB02326F649A770FCFB20526FD35F80274752E4C2D91EC5B7E49B");
+        // println!("LEN={:?} BYTES={:?}", bytes.len(), bytes);
+
+        // let bs = bs58::decode("2n1hGCgg3jCKQJzVBgfujGqyV6D9riKgq27zhXqYgTRVZM5kqfkm").into_vec().unwrap();
+        // let bsd = Fp::from_bytes(&bs);
+        // println!("BYTES={:?} BS={:?}", bs, bsd);
+
+        // let base = BaseField::from_bytes(&bytes);
+        // println!("BASE={:?}", base);
+
+        // use ark_serialize::CanonicalDeserialize;
+
+        // // let fp = Fp::from_hex(&"2033430829EDB02326F649A770FCFB20526FD35F80274752E4C2D91EC5B7E49B".to_lowercase()).unwrap();
+        // let fp = Fp::deserialize_uncompressed(&mut &*bytes);
+
+        // println!("FP={:?}", fp);
+
+        // let array = [true,true,false,true,true,false,false,true,false,false,true,false,false,true,true,true,true,true,true,false,true,true,false,true,true,false,true,false,false,false,true,true,false,true,true,true,true,false,false,false,true,false,false,true,true,false,true,true,false,true,false,false,false,false,true,true,false,false,true,false,false,true,true,true,false,true,false,false,true,false,true,false,true,true,true,false,false,false,true,false,true,true,true,false,false,true,false,false,false,false,false,false,false,false,false,true,true,true,true,true,true,false,true,false,true,true,false,false,true,false,true,true,true,true,true,true,false,true,true,false,false,true,false,false,true,false,true,false,false,false,false,false,false,true,false,false,true,true,false,true,true,true,true,true,false,false,true,true,true,true,true,true,false,false,false,false,true,true,true,false,true,true,true,false,false,true,false,true,true,false,false,true,false,false,true,false,false,true,true,false,true,true,true,true,false,true,true,false,false,true,false,false,true,true,false,false,false,true,false,false,false,false,false,false,true,true,false,true,true,false,true,true,false,true,true,true,true,false,false,true,false,true,false,false,false,false,false,true,false,false,false,false,true,true,false,false,false,false,true,false,true,true,false,false,true,true,false,false,false,false,false,false,false,true,false];
+
+        // let bytes = array
+        //     .iter()
+        //     .enumerate()
+        //     .fold(Fp::zero().to_bytes(), |mut bytes, (i, bit)| {
+        //         bytes[i / 8] |= (*bit as u8) << (i % 8);
+        //         bytes
+        //     });
+
+        // println!("LEN={:?} BYTES={:?}", bytes.len(), bytes);
+
+        // let fp = Fp::from_bits(&array).unwrap();
+        // println!("FP_BITS={:?}", fp);
+
+        // let fp = Fp::from_bytes(&bytes).unwrap();
+        // println!("FP_BYTES={:?}", fp);
+
+        // let hex = hex::encode(&bytes);
+        // println!("HEX={:?}", hex);
+        // let fp = Fp::from_hex(&hex).unwrap();
+        // println!("FP_HEX={:?}", fp);
+
+        // let empty = "9be4b7c51ed9c2e4524727805fd36f5220fbfc70a749f62623b0ed2908433320";
+        // let fp = Fp::from_hex(&hex).unwrap();
+        // println!("FP_HEX={:?}", fp);
+
+        // empty_receipt_hash();
+
+        // let prefix = "CodaReceiptEmpty";
+        // const MAX_DOMAIN_STRING_LEN: usize = 20;
+        // assert!(prefix.len() <= MAX_DOMAIN_STRING_LEN);
+        // let prefix = &prefix[..std::cmp::min(prefix.len(), MAX_DOMAIN_STRING_LEN)];
+        // let bytes = format!("{:*<MAX_DOMAIN_STRING_LEN$}", prefix);
+        // println!("LA={:?}", bytes)
+
+        // /// Transform domain prefix string to field element
+        // fn domain_prefix_to_field<F: PrimeField>(prefix: String) -> F {
+        //     const MAX_DOMAIN_STRING_LEN: usize = 20;
+        //     assert!(prefix.len() <= MAX_DOMAIN_STRING_LEN);
+        //     let prefix = &prefix[..std::cmp::min(prefix.len(), MAX_DOMAIN_STRING_LEN)];
+        //     let mut bytes = format!("{:*<MAX_DOMAIN_STRING_LEN$}", prefix)
+        //         .as_bytes()
+        //         .to_vec();
+        //     bytes.resize(F::size_in_bytes(), 0);
+        //     F::from_bytes(&bytes).expect("invalid domain bytes")
+        // }
     }
 }

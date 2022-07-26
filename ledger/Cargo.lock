@@ -433,8 +433,16 @@ dependencies = [
 name = "mina-tree"
 version = "0.1.0"
 dependencies = [
+ "ark-ff",
+ "ark-serialize",
+ "bitvec",
+ "bs58",
+ "hex",
+ "mina-curves",
  "mina-hasher",
  "mina-signer",
+ "o1-utils",
+ "oracle",
 ]
 
 [[package]]
