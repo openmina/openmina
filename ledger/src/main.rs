@@ -2,7 +2,7 @@
 
 mod poseidon;
 
-use std::{default, str::FromStr};
+use std::{default, str::FromStr, borrow::Cow};
 
 use ark_ff::Zero;
 use mina_signer::CompressedPubKey;
@@ -274,13 +274,54 @@ struct ZkAppAccount {
     proved_state: bool,
 }
 
+#[derive(Clone, Debug)]
+struct SnappAccount {
+    app_state: Vec<Fp>,
+    verification_key: Option<Fp>,
+}
+
+impl Default for SnappAccount {
+    fn default() -> Self {
+        Self { app_state: vec![Fp::zero(); 8], verification_key: None }
+    }
+}
+
+impl Hashable for SnappAccount {
+    type D = ();
+
+    fn to_roinput(&self) -> ROInput {
+        let mut roi = ROInput::new();
+
+        if let Some(vk) = self.verification_key.as_ref() {
+            roi.append_field(*vk);
+        } else {
+            roi.append_field(
+                // Value of `dummy_vk_hash`:
+                // https://github.com/MinaProtocol/mina/blob/4f765c866b81fa6fed66be52707fd91fd915041d/src/lib/mina_base/snapp_account.ml#L116
+                Fp::from_hex("77a430a03efafd14d72e1a3c45a1fdca8267fcce9a729a1d25128bb5dec69d3f").unwrap()
+            );
+        }
+
+        for field in &self.app_state {
+            roi.append_field(*field);
+        }
+
+        println!("ROInput={:?}", roi);
+
+        roi
+    }
+
+    fn domain_string(_domain_param: Self::D) -> Option<String> {
+        Some("CodaSnappAccount****".to_string())
+    }
+}
+
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
 #[derive(Clone, Debug)]
 struct Account {
     pub public_key: CompressedPubKey,         // Public_key.Compressed.t
     pub token_id: TokenId,                    // Token_id.t
     pub token_permissions: TokenPermissions,  // Token_permissions.t
-    pub token_symbol: TokenSymbol,            // Token_symbol.t
     pub balance: Balance,                     // Balance.t
     pub nonce: Nonce,                         // Nonce.t
     pub receipt_chain_hash: ReceiptChainHash, // Receipt.Chain_hash.t
@@ -288,8 +329,12 @@ struct Account {
     pub voting_for: VotingFor,                // State_hash.t
     pub timing: Timing,                       // Timing.t
     pub permissions: PermissionsLegacy<AuthRequired>, // Permissions.t
-    pub zkapp: Option<ZkAppAccount>,          // Zkapp_account.t
-    pub zkapp_uri: String,                    // string
+    pub snap: Option<SnappAccount>,
+
+    // Below fields are for `develop` branch
+    // pub token_symbol: TokenSymbol,            // Token_symbol.t
+    // pub zkapp: Option<ZkAppAccount>,          // Zkapp_account.t
+    // pub zkapp_uri: String,                    // string
 }
 
 use mina_hasher::{create_kimchi, create_legacy, Fp, Hashable, Hasher, ROInput};
@@ -380,19 +425,30 @@ impl Hashable for Account {
         // }
 
         // Self::permissions
-        for auth in [
-            self.permissions.set_verification_key,
-            self.permissions.set_permissions,
-            self.permissions.set_delegate,
-            self.permissions.receive,
-            self.permissions.send,
-            self.permissions.edit_state,
-        ] {
-            for bit in auth.encode().to_bits() {
-                roi.append_bool(bit);
-            }
-        }
-        roi.append_bool(self.permissions.stake);
+        // for auth in [
+        //     self.permissions.set_verification_key,
+        //     self.permissions.set_permissions,
+        //     self.permissions.set_delegate,
+        //     self.permissions.receive,
+        //     self.permissions.send,
+        //     self.permissions.edit_state,
+        // ] {
+        //     for bit in auth.encode().to_bits() {
+        //         roi.append_bool(bit);
+        //     }
+        // }
+        // roi.append_bool(self.permissions.stake);
+
+        // Self::snapp
+        let snapp_accout = match self.snap.as_ref() {
+            Some(snapp) => Cow::Borrowed(snapp),
+            None => Cow::Owned(SnappAccount::default()),
+        };
+        let mut hasher = create_legacy::<SnappAccount>(());
+        hasher.update(snapp_accout.as_ref());
+        let snapp_digest = hasher.digest();
+
+        roi.append_field(snapp_digest);
 
         println!("ROINPUT={:?}", roi);
 
@@ -431,7 +487,7 @@ impl Account {
             token_permissions: TokenPermissions::NotOwned {
                 account_disabled: false,
             },
-            token_symbol: "".to_string(),
+            // token_symbol: "".to_string(),
             // token_symbol: String::new(),
             balance: 10101,
             nonce: 62772,
@@ -441,8 +497,9 @@ impl Account {
             voting_for: VotingFor::default(),
             timing: Timing::Untimed,
             permissions: PermissionsLegacy::user_default(),
-            zkapp: None,
-            zkapp_uri: String::new(),
+            snap: None,
+            // zkapp: None,
+            // zkapp_uri: String::new(),
         }
     }
 }
@@ -956,6 +1013,13 @@ mod tests {
         let out = hasher.digest();
 
         println!("legacy={}", out.to_string());
+
+        // let fp = [true,true,true,false,true,true,true,false,false,false,true,false,false,true,false,true,false,false,false,false,true,true,false,false,false,false,false,false,false,true,false,true,false,true,true,true,true,true,false,false,false,true,false,true,true,true,true,true,true,false,true,true,true,true,true,true,false,false,true,false,true,false,false,false,true,true,true,false,true,false,true,true,false,true,true,true,false,true,false,false,false,true,false,true,true,false,false,false,false,false,true,true,true,true,false,false,true,false,true,false,false,false,true,false,true,false,false,false,false,true,false,true,true,false,true,true,true,true,true,true,false,true,false,true,false,false,true,true,false,true,false,false,false,false,false,true,true,true,true,false,false,true,true,false,false,false,true,true,true,true,true,true,false,true,true,true,false,false,true,true,false,true,false,true,true,false,false,true,false,true,false,false,true,true,true,false,false,true,false,true,true,false,false,true,true,false,true,true,true,false,false,false,true,false,true,false,false,true,false,false,false,true,false,false,true,false,false,false,true,true,false,true,false,false,false,true,true,false,true,false,true,true,false,true,false,true,true,true,true,false,true,true,false,true,true,false,false,false,true,true,true,false,true,true,true,false,false,true,true,true,true,true,true,true,false];
+
+        // let fp = Fp::from_bits(&fp).unwrap();
+        // println!("FP={:?}", fp.to_hex());
+
+        // let fp = Fp::from_hex(hex)
 
         // let bytes: Vec<u8> = hex::decode("2033430829EDB02326F649A770FCFB20526FD35F80274752E4C2D91EC5B7E49B").unwrap();
         // println!("STR  ={:?}", "2033430829EDB02326F649A770FCFB20526FD35F80274752E4C2D91EC5B7E49B");
