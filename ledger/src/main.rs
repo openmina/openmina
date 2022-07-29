@@ -345,28 +345,6 @@ impl Hashable for Account {
     fn to_roinput(&self) -> ROInput {
         let mut roi = ROInput::new();
 
-        // Self::public_key
-        // roi.append_field(self.public_key.x);
-        // roi.append_bool(self.public_key.is_odd);
-
-        // Self::token_id
-        // roi.append_u64(self.token_id.0);
-
-        // Self::token_permissions
-        // match self.token_permissions {
-        //     TokenPermissions::TokenOwned { disable_new_accounts } => {
-        //         roi.append_bool(true);
-        //         roi.append_bool(disable_new_accounts);
-        //     },
-        //     TokenPermissions::NotOwned { account_disabled } => {
-        //         roi.append_bool(false);
-        //         roi.append_bool(account_disabled);
-        //     },
-        // }
-
-        // Self::balance
-        // roi.append_u64(self.balance);
-
         // Self::token_symbol
 
         // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
@@ -382,63 +360,6 @@ impl Hashable for Account {
         //     roi.append_bytes(&[0; 6]);
         // }
 
-        // Self::nonce
-        // roi.append_u32(self.nonce);
-
-        // Self::receipt_chain_hash
-        // roi.append_field(self.receipt_chain_hash.0);
-
-        // Self::delegate
-        // match self.delegate.as_ref() {
-        //     Some(delegate) => {
-        //         roi.append_field(delegate.x);
-        //         roi.append_bool(delegate.is_odd);
-        //     },
-        //     None => {
-        //         // Public_key.Compressed.empty
-        //         roi.append_field(Fp::zero());
-        //         roi.append_bool(false);
-        //     },
-        // }
-
-        // Self::voting_for
-        // roi.append_field(self.voting_for.0);
-
-        // Self::timing
-        // match self.timing {
-        //     Timing::Untimed => {
-        //         roi.append_bool(false);
-        //         roi.append_u64(0); // initial_minimum_balance
-        //         roi.append_u32(0); // cliff_time
-        //         roi.append_u64(0); // cliff_amount
-        //         roi.append_u32(1); // vesting_period
-        //         roi.append_u64(0); // vesting_increment
-        //     },
-        //     Timing::Timed { initial_minimum_balance, cliff_time, cliff_amount, vesting_period, vesting_increment } => {
-        //         roi.append_bool(true);
-        //         roi.append_u64(initial_minimum_balance);
-        //         roi.append_u32(cliff_time);
-        //         roi.append_u64(cliff_amount);
-        //         roi.append_u32(vesting_period);
-        //         roi.append_u64(vesting_increment);
-        //     },
-        // }
-
-        // Self::permissions
-        // for auth in [
-        //     self.permissions.set_verification_key,
-        //     self.permissions.set_permissions,
-        //     self.permissions.set_delegate,
-        //     self.permissions.receive,
-        //     self.permissions.send,
-        //     self.permissions.edit_state,
-        // ] {
-        //     for bit in auth.encode().to_bits() {
-        //         roi.append_bool(bit);
-        //     }
-        // }
-        // roi.append_bool(self.permissions.stake);
-
         // Self::snapp
         let snapp_accout = match self.snap.as_ref() {
             Some(snapp) => Cow::Borrowed(snapp),
@@ -452,8 +373,200 @@ impl Hashable for Account {
 
         println!("ROINPUT={:?}", roi);
 
+        // Self::permissions
+        for auth in [
+            self.permissions.set_verification_key,
+            self.permissions.set_permissions,
+            self.permissions.set_delegate,
+            self.permissions.receive,
+            self.permissions.send,
+            self.permissions.edit_state,
+        ] {
+            for bit in auth.encode().to_bits() {
+                roi.append_bool(bit);
+            }
+        }
+        roi.append_bool(self.permissions.stake);
+
+        // Self::timing
+        match self.timing {
+            Timing::Untimed => {
+                roi.append_bool(false);
+                roi.append_u64(0); // initial_minimum_balance
+                roi.append_u32(0); // cliff_time
+                roi.append_u64(0); // cliff_amount
+                roi.append_u32(1); // vesting_period
+                roi.append_u64(0); // vesting_increment
+            },
+            Timing::Timed { initial_minimum_balance, cliff_time, cliff_amount, vesting_period, vesting_increment } => {
+                roi.append_bool(true);
+                roi.append_u64(initial_minimum_balance);
+                roi.append_u32(cliff_time);
+                roi.append_u64(cliff_amount);
+                roi.append_u32(vesting_period);
+                roi.append_u64(vesting_increment);
+            },
+        }
+
+        // Self::voting_for
+        roi.append_field(self.voting_for.0);
+
+        // Self::delegate
+        match self.delegate.as_ref() {
+            Some(delegate) => {
+                roi.append_field(delegate.x);
+                roi.append_bool(delegate.is_odd);
+            },
+            None => {
+                // Public_key.Compressed.empty
+                roi.append_field(Fp::zero());
+                roi.append_bool(false);
+            },
+        }
+
+        // Self::receipt_chain_hash
+        roi.append_field(self.receipt_chain_hash.0);
+
+        // Self::nonce
+        roi.append_u32(self.nonce);
+
+        // Self::balance
+        roi.append_u64(self.balance);
+
+        // Self::token_permissions
+        match self.token_permissions {
+            TokenPermissions::TokenOwned { disable_new_accounts } => {
+                roi.append_bool(true);
+                roi.append_bool(disable_new_accounts);
+            },
+            TokenPermissions::NotOwned { account_disabled } => {
+                roi.append_bool(false);
+                roi.append_bool(account_disabled);
+            },
+        }
+
+        // Self::token_id
+        roi.append_u64(self.token_id.0);
+
+        // Self::public_key
+        roi.append_field(self.public_key.x);
+        roi.append_bool(self.public_key.is_odd);
+
         roi
     }
+
+    // fn to_roinput(&self) -> ROInput {
+    //     let mut roi = ROInput::new();
+
+    //     // Self::public_key
+    //     roi.append_field(self.public_key.x);
+    //     roi.append_bool(self.public_key.is_odd);
+
+    //     // Self::token_id
+    //     roi.append_u64(self.token_id.0);
+
+    //     // Self::token_permissions
+    //     match self.token_permissions {
+    //         TokenPermissions::TokenOwned { disable_new_accounts } => {
+    //             roi.append_bool(true);
+    //             roi.append_bool(disable_new_accounts);
+    //         },
+    //         TokenPermissions::NotOwned { account_disabled } => {
+    //             roi.append_bool(false);
+    //             roi.append_bool(account_disabled);
+    //         },
+    //     }
+
+    //     // Self::balance
+    //     roi.append_u64(self.balance);
+
+    //     // Self::token_symbol
+
+    //     // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
+    //     // assert!(self.token_symbol.len() <= 6);
+
+    //     // if !self.token_symbol.is_empty() {
+    //     //     let mut s = <[u8; 6]>::default();
+    //     //     let len = self.token_symbol.len();
+
+    //     //     s[..len].copy_from_slice(&self.token_symbol.as_bytes());
+    //     //     roi.append_bytes(self.token_symbol.as_bytes());
+    //     // } else {
+    //     //     roi.append_bytes(&[0; 6]);
+    //     // }
+
+    //     // Self::nonce
+    //     roi.append_u32(self.nonce);
+
+    //     // Self::receipt_chain_hash
+    //     roi.append_field(self.receipt_chain_hash.0);
+
+    //     // Self::delegate
+    //     match self.delegate.as_ref() {
+    //         Some(delegate) => {
+    //             roi.append_field(delegate.x);
+    //             roi.append_bool(delegate.is_odd);
+    //         },
+    //         None => {
+    //             // Public_key.Compressed.empty
+    //             roi.append_field(Fp::zero());
+    //             roi.append_bool(false);
+    //         },
+    //     }
+
+    //     // Self::voting_for
+    //     roi.append_field(self.voting_for.0);
+
+    //     // Self::timing
+    //     match self.timing {
+    //         Timing::Untimed => {
+    //             roi.append_bool(false);
+    //             roi.append_u64(0); // initial_minimum_balance
+    //             roi.append_u32(0); // cliff_time
+    //             roi.append_u64(0); // cliff_amount
+    //             roi.append_u32(1); // vesting_period
+    //             roi.append_u64(0); // vesting_increment
+    //         },
+    //         Timing::Timed { initial_minimum_balance, cliff_time, cliff_amount, vesting_period, vesting_increment } => {
+    //             roi.append_bool(true);
+    //             roi.append_u64(initial_minimum_balance);
+    //             roi.append_u32(cliff_time);
+    //             roi.append_u64(cliff_amount);
+    //             roi.append_u32(vesting_period);
+    //             roi.append_u64(vesting_increment);
+    //         },
+    //     }
+
+    //     // Self::permissions
+    //     for auth in [
+    //         self.permissions.set_verification_key,
+    //         self.permissions.set_permissions,
+    //         self.permissions.set_delegate,
+    //         self.permissions.receive,
+    //         self.permissions.send,
+    //         self.permissions.edit_state,
+    //     ] {
+    //         for bit in auth.encode().to_bits() {
+    //             roi.append_bool(bit);
+    //         }
+    //     }
+    //     roi.append_bool(self.permissions.stake);
+
+    //     // Self::snapp
+    //     let snapp_accout = match self.snap.as_ref() {
+    //         Some(snapp) => Cow::Borrowed(snapp),
+    //         None => Cow::Owned(SnappAccount::default()),
+    //     };
+    //     let mut hasher = create_legacy::<SnappAccount>(());
+    //     hasher.update(snapp_accout.as_ref());
+    //     let snapp_digest = hasher.digest();
+
+    //     roi.append_field(snapp_digest);
+
+    //     println!("ROINPUT={:?}", roi);
+
+    //     roi
+    // }
 
     fn domain_string(_: ()) -> Option<String> {
         Some("CodaAccount*********".to_string())
