@@ -2,9 +2,9 @@
 
 mod poseidon;
 
-use std::{default, str::FromStr, borrow::Cow};
+use std::borrow::Cow;
 
-use ark_ff::{Zero, PrimeField};
+use ark_ff::Zero;
 use mina_signer::CompressedPubKey;
 use o1_utils::field_helpers::FieldHelpers;
 
@@ -103,7 +103,9 @@ enum TokenPermissions {
 
 impl Default for TokenPermissions {
     fn default() -> Self {
-        Self::NotOwned { account_disabled: false }
+        Self::NotOwned {
+            account_disabled: false,
+        }
     }
 }
 
@@ -300,7 +302,10 @@ struct SnappAccount {
 
 impl Default for SnappAccount {
     fn default() -> Self {
-        Self { app_state: vec![Fp::zero(); 8], verification_key: None }
+        Self {
+            app_state: vec![Fp::zero(); 8],
+            verification_key: None,
+        }
     }
 }
 
@@ -316,7 +321,8 @@ impl Hashable for SnappAccount {
             roi.append_field(
                 // Value of `dummy_vk_hash`:
                 // https://github.com/MinaProtocol/mina/blob/4f765c866b81fa6fed66be52707fd91fd915041d/src/lib/mina_base/snapp_account.ml#L116
-                Fp::from_hex("77a430a03efafd14d72e1a3c45a1fdca8267fcce9a729a1d25128bb5dec69d3f").unwrap()
+                Fp::from_hex("77a430a03efafd14d72e1a3c45a1fdca8267fcce9a729a1d25128bb5dec69d3f")
+                    .unwrap(),
             );
         }
 
@@ -348,14 +354,19 @@ struct Account {
     pub timing: Timing,                       // Timing.t
     pub permissions: PermissionsLegacy<AuthRequired>, // Permissions.t
     pub snap: Option<SnappAccount>,
-
     // Below fields are for `develop` branch
     // pub token_symbol: TokenSymbol,            // Token_symbol.t
     // pub zkapp: Option<ZkAppAccount>,          // Zkapp_account.t
     // pub zkapp_uri: String,                    // string
 }
 
-use mina_hasher::{create_kimchi, create_legacy, Fp, Hashable, Hasher, ROInput};
+use mina_hasher::{create_legacy, Fp, Hashable, Hasher, ROInput};
+
+fn get_hash_of<T: Hashable>(init_value: T::D, item: &T) -> Fp {
+    let mut hasher = create_legacy::<T>(init_value);
+    hasher.update(item);
+    hasher.digest()
+}
 
 impl Hashable for Account {
     type D = ();
@@ -383,9 +394,7 @@ impl Hashable for Account {
             Some(snapp) => Cow::Borrowed(snapp),
             None => Cow::Owned(SnappAccount::default()),
         };
-        let mut hasher = create_legacy::<SnappAccount>(());
-        hasher.update(snapp_accout.as_ref());
-        let snapp_digest = hasher.digest();
+        let snapp_digest = get_hash_of((), snapp_accout.as_ref());
 
         roi.append_field(snapp_digest);
 
@@ -415,15 +424,21 @@ impl Hashable for Account {
                 roi.append_u64(0); // cliff_amount
                 roi.append_u32(1); // vesting_period
                 roi.append_u64(0); // vesting_increment
-            },
-            Timing::Timed { initial_minimum_balance, cliff_time, cliff_amount, vesting_period, vesting_increment } => {
+            }
+            Timing::Timed {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } => {
                 roi.append_bool(true);
                 roi.append_u64(initial_minimum_balance);
                 roi.append_u32(cliff_time);
                 roi.append_u64(cliff_amount);
                 roi.append_u32(vesting_period);
                 roi.append_u64(vesting_increment);
-            },
+            }
         }
 
         // Self::voting_for
@@ -434,12 +449,12 @@ impl Hashable for Account {
             Some(delegate) => {
                 roi.append_field(delegate.x);
                 roi.append_bool(delegate.is_odd);
-            },
+            }
             None => {
                 // Public_key.Compressed.empty
                 roi.append_field(Fp::zero());
                 roi.append_bool(false);
-            },
+            }
         }
 
         // Self::receipt_chain_hash
@@ -453,14 +468,16 @@ impl Hashable for Account {
 
         // Self::token_permissions
         match self.token_permissions {
-            TokenPermissions::TokenOwned { disable_new_accounts } => {
+            TokenPermissions::TokenOwned {
+                disable_new_accounts,
+            } => {
                 roi.append_bool(true);
                 roi.append_bool(disable_new_accounts);
-            },
+            }
             TokenPermissions::NotOwned { account_disabled } => {
                 roi.append_bool(false);
                 roi.append_bool(account_disabled);
-            },
+            }
         }
 
         // Self::token_id
@@ -636,7 +653,10 @@ impl Account {
 
     fn empty() -> Self {
         Self {
-            public_key: CompressedPubKey { x: Fp::zero().into(), is_odd: false },
+            public_key: CompressedPubKey {
+                x: Fp::zero().into(),
+                is_odd: false,
+            },
             token_id: TokenId::default(),
             token_permissions: TokenPermissions::default(),
             balance: 0,
@@ -717,42 +737,23 @@ impl NodeOrLeaf {
         let node = match self {
             NodeOrLeaf::Node(node) => node,
             NodeOrLeaf::Leaf(leaf) => {
-                let account = &leaf.account;
-
-                let mut hasher = create_legacy::<Account>(());
-                hasher.update(account);
-                let h = hasher.digest();
-                println!("ACC={:?}", h.to_string());
-                return h;
-            },
+                return get_hash_of((), &*leaf.account);
+            }
         };
 
         let left_hash = match &node.left {
-            Some(left) => {
-                left.hash(depth - 1)
-            },
-            None => {
-                empty_hash_at_depth(depth)
-            },
+            Some(left) => left.hash(depth - 1),
+            None => empty_hash_at_depth(depth),
         };
 
         let right_hash = match &node.right {
-            Some(right) => {
-                right.hash(depth - 1)
-            },
-            None => {
-                empty_hash_at_depth(depth)
-            },
+            Some(right) => right.hash(depth - 1),
+            None => empty_hash_at_depth(depth),
         };
 
-        let mut hasher = create_legacy::<TwoHashes>(depth as u32);
-        hasher.update(&TwoHashes(left_hash, right_hash));
-        let hash = hasher.digest();
+        let hash = get_hash_of(depth as u32, &TwoHashes(left_hash, right_hash));
 
-        println!("depth={:?} HASH={:?}",
-                 depth,
-                 hash.to_string(),
-        );
+        println!("depth={:?} HASH={:?}", depth, hash.to_string(),);
 
         // println!("depth={:?} HASH={:?} left={:?} right={:?}",
         //          depth,
@@ -785,7 +786,10 @@ impl<'a> TryFrom<&'a str> for Address {
             return Err(());
         }
 
-        let mut addr = Address { inner: [0; 32], length: s.len()};
+        let mut addr = Address {
+            inner: [0; 32],
+            length: s.len(),
+        };
         for (index, c) in s.chars().enumerate() {
             if c == '1' {
                 addr.set(index);
@@ -1032,9 +1036,7 @@ enum DatabaseError {
 }
 
 fn account_empty_hash() -> Fp {
-    let mut hasher = create_legacy::<Account>(());
-    hasher.update(&Account::empty());
-    hasher.digest()
+    get_hash_of((), &Account::empty())
 }
 
 #[derive(Clone, Debug)]
@@ -1056,17 +1058,9 @@ impl Hashable for TwoHashes {
 }
 
 fn empty_hash_at_depth(depth: usize) -> Fp {
-    let mut hash = account_empty_hash();
-
-    for depth in 0..depth {
-        hash = {
-            let mut hasher = create_legacy::<TwoHashes>(depth  as u32);
-            hasher.update(&TwoHashes(hash, hash));
-            hasher.digest()
-        };
-    }
-
-    hash
+    (0..depth).fold(account_empty_hash(), |prev_hash, depth| {
+        get_hash_of(depth as u32, &TwoHashes(prev_hash, prev_hash))
+    })
 }
 
 impl Database {
@@ -1103,8 +1097,11 @@ impl Database {
         Ok(location)
     }
 
-    fn root_hash(&self) -> Option<Fp> {
-        self.root.as_ref().map(|root| root.hash(self.depth as usize - 1))
+    fn root_hash(&self) -> Fp {
+        match self.root.as_ref() {
+            Some(root) => root.hash(self.depth as usize - 1),
+            None => empty_hash_at_depth(self.depth as usize),
+        }
     }
 
     fn naccounts(&self) -> usize {
@@ -1140,9 +1137,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use ark_ff::Zero;
     use mina_hasher::create_kimchi;
-    use mina_signer::BaseField;
 
     use super::*;
 
@@ -1253,45 +1248,63 @@ mod tests {
     #[test]
     fn test_hash_empty() {
         let account_empty_hash = account_empty_hash();
-        assert_eq!(account_empty_hash.to_hex(), "70ccdba14f829608e59a37ed98ffcaeef06dad928d568a9adbde13e3dd104a20");
+        assert_eq!(
+            account_empty_hash.to_hex(),
+            "70ccdba14f829608e59a37ed98ffcaeef06dad928d568a9adbde13e3dd104a20"
+        );
 
         for (depth, s) in [
-            (0, "70ccdba14f829608e59a37ed98ffcaeef06dad928d568a9adbde13e3dd104a20"),
-            (5, "4590712e4bd873ba93d01b665940e0edc48db1a7c90859948b7799f45a443b15"),
-            (10, "ba083b16b757794c81233d4ebf1ab000ba4a174a8174c1e8ee8bf0846ec2e10d"),
-            (11, "5d65e7d5f4c5441ac614769b913400aa3201f3bf9c0f33441dbf0a33a1239822"),
-            (100, "0e4ecb6104658cf8c06fca64f7f1cb3b0f1a830ab50c8c7ed9de544b8e6b2530"),
-            (2000, "b05105f8281f75efaf3c6b324563685c8be3a01b1c7d3f314ae733d869d95209"),
+            (
+                0,
+                "70ccdba14f829608e59a37ed98ffcaeef06dad928d568a9adbde13e3dd104a20",
+            ),
+            (
+                5,
+                "4590712e4bd873ba93d01b665940e0edc48db1a7c90859948b7799f45a443b15",
+            ),
+            (
+                10,
+                "ba083b16b757794c81233d4ebf1ab000ba4a174a8174c1e8ee8bf0846ec2e10d",
+            ),
+            (
+                11,
+                "5d65e7d5f4c5441ac614769b913400aa3201f3bf9c0f33441dbf0a33a1239822",
+            ),
+            (
+                100,
+                "0e4ecb6104658cf8c06fca64f7f1cb3b0f1a830ab50c8c7ed9de544b8e6b2530",
+            ),
+            (
+                2000,
+                "b05105f8281f75efaf3c6b324563685c8be3a01b1c7d3f314ae733d869d95209",
+            ),
         ] {
             let hash = empty_hash_at_depth(depth);
             assert_eq!(hash.to_hex(), s, "invalid hash at depth={:?}", depth);
         }
     }
 
+    /// An empty tree produces the same hash than a tree full of empty accounts
     #[test]
     fn test_root_hash() {
-        for depth in 0..5 {
-            let hash = empty_hash_at_depth(depth);
-            println!("depth={:?} HASH={:?}", depth, hash.to_string());
+        let mut db = Database::create(4);
+        for _ in 0..16 {
+            db.create_account((), Account::empty()).unwrap();
         }
-
-        println!("DONE\n\n");
+        assert_eq!(db.create_account((), Account::empty()).unwrap_err(), DatabaseError::OutOfLeaves);
+        let hash = db.root_hash();
+        assert_eq!(hash.to_hex(), "2db7d27130b6fe46b95541a70bc69ac51d9ea02825f7a7ab41ec4c414989421e");
 
         let mut db = Database::create(4);
-
         for _ in 0..1 {
             db.create_account((), Account::empty()).unwrap();
         }
+        let hash = db.root_hash();
+        assert_eq!(hash.to_hex(), "2db7d27130b6fe46b95541a70bc69ac51d9ea02825f7a7ab41ec4c414989421e");
 
-        // assert!(db.create_account((), Account::empty()).is_err());
-
-        let hash = db.root_hash().unwrap();
-        println!("ROOT_HASH_4={:?}", hash.to_string());
-
-        // let mut db = Database::create(30);
-        // db.create_account((), Account::empty()).unwrap();
-        // let hash = db.root_hash().unwrap();
-        // println!("ROOT_HASH_30={:?}", hash.to_string());
+        let db = Database::create(4);
+        let hash = db.root_hash();
+        assert_eq!(hash.to_hex(), "2db7d27130b6fe46b95541a70bc69ac51d9ea02825f7a7ab41ec4c414989421e");
     }
 
     #[test]
