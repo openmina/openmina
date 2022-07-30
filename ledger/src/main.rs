@@ -4,7 +4,7 @@ mod poseidon;
 
 use std::{default, str::FromStr, borrow::Cow};
 
-use ark_ff::Zero;
+use ark_ff::{Zero, PrimeField};
 use mina_signer::CompressedPubKey;
 use o1_utils::field_helpers::FieldHelpers;
 
@@ -43,8 +43,20 @@ type Slot = u32;
 #[derive(Clone, Debug, Default)]
 struct VotingFor(Fp);
 
+impl VotingFor {
+    fn dummy() -> Self {
+        Self(Fp::zero())
+    }
+}
+
 #[derive(Clone, Debug)]
 struct ReceiptChainHash(Fp);
+
+impl ReceiptChainHash {
+    fn empty() -> Self {
+        Self(empty_receipt_hash())
+    }
+}
 
 fn empty_receipt_hash() -> Fp {
     // Value of `Receipt.Chain_hash.empty` in Ocaml (`develop` branch)
@@ -57,7 +69,7 @@ fn empty_receipt_hash() -> Fp {
 
 impl Default for ReceiptChainHash {
     fn default() -> Self {
-        Self(empty_receipt_hash())
+        Self::empty()
     }
 }
 
@@ -87,6 +99,12 @@ type Nonce = u32;
 enum TokenPermissions {
     TokenOwned { disable_new_accounts: bool },
     NotOwned { account_disabled: bool },
+}
+
+impl Default for TokenPermissions {
+    fn default() -> Self {
+        Self::NotOwned { account_disabled: false }
+    }
 }
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L10
@@ -615,6 +633,22 @@ impl Account {
             // zkapp_uri: String::new(),
         }
     }
+
+    fn empty() -> Self {
+        Self {
+            public_key: CompressedPubKey { x: Fp::zero().into(), is_odd: false },
+            token_id: TokenId::default(),
+            token_permissions: TokenPermissions::default(),
+            balance: 0,
+            nonce: 0,
+            receipt_chain_hash: ReceiptChainHash::empty(),
+            delegate: None,
+            voting_for: VotingFor::dummy(),
+            timing: Timing::Untimed,
+            permissions: PermissionsLegacy::user_default(),
+            snap: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -1123,6 +1157,21 @@ mod tests {
         println!("ADDR={:?}", addr);
         addr.clear_after(6);
         println!("ADDR={:?}", addr);
+    }
+
+    #[test]
+    fn test_hash_empty() {
+        let acc = Account::empty();
+
+        let mut hasher = create_legacy::<Account>(());
+        hasher.update(&acc);
+        let out = hasher.digest();
+
+
+        let bs = bs58::encode(&out.to_bytes()).into_string();
+        println!("EMPTY={:?} BS={:?}", out.to_string(), bs);
+        println!("BYTES={:?}", out.to_bytes());
+        println!("HEX={:?}", out.to_hex());
     }
 
     #[test]
