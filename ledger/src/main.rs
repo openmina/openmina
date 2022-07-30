@@ -982,6 +982,46 @@ enum DatabaseError {
     OutOfLeaves,
 }
 
+fn account_empty_hash() -> Fp {
+    let mut hasher = create_legacy::<Account>(());
+    hasher.update(&Account::empty());
+    hasher.digest()
+}
+
+fn empty_hash_at_depth(depth: usize) -> Fp {
+    #[derive(Clone, Debug)]
+    struct TwoHashes(Fp, Fp);
+
+    impl Hashable for TwoHashes {
+        type D = u32; // depth
+
+        fn to_roinput(&self) -> ROInput {
+            let mut roi = ROInput::new();
+            roi.append_field(self.0);
+            roi.append_field(self.1);
+            roi
+        }
+
+        fn domain_string(depth: Self::D) -> Option<String> {
+            Some(format!("CodaMklTree{:03}", depth))
+        }
+    }
+
+    fn hash_at_depth(hashes: TwoHashes, depth: u32) -> Fp {
+        let mut hasher = create_legacy::<TwoHashes>(depth);
+        hasher.update(&hashes);
+        hasher.digest()
+    }
+
+    let mut hash = account_empty_hash();
+
+    for depth in 0..depth {
+        hash = hash_at_depth(TwoHashes(hash, hash), depth as u32);
+    }
+
+    hash
+}
+
 impl Database {
     fn create(depth: u8) -> Self {
         assert!((1..0xfe).contains(&depth));
@@ -1161,17 +1201,20 @@ mod tests {
 
     #[test]
     fn test_hash_empty() {
-        let acc = Account::empty();
+        let account_empty_hash = account_empty_hash();
+        assert_eq!(account_empty_hash.to_hex(), "70ccdba14f829608e59a37ed98ffcaeef06dad928d568a9adbde13e3dd104a20");
 
-        let mut hasher = create_legacy::<Account>(());
-        hasher.update(&acc);
-        let out = hasher.digest();
-
-
-        let bs = bs58::encode(&out.to_bytes()).into_string();
-        println!("EMPTY={:?} BS={:?}", out.to_string(), bs);
-        println!("BYTES={:?}", out.to_bytes());
-        println!("HEX={:?}", out.to_hex());
+        for (depth, s) in [
+            (0, "70ccdba14f829608e59a37ed98ffcaeef06dad928d568a9adbde13e3dd104a20"),
+            (5, "4590712e4bd873ba93d01b665940e0edc48db1a7c90859948b7799f45a443b15"),
+            (10, "ba083b16b757794c81233d4ebf1ab000ba4a174a8174c1e8ee8bf0846ec2e10d"),
+            (11, "5d65e7d5f4c5441ac614769b913400aa3201f3bf9c0f33441dbf0a33a1239822"),
+            (100, "0e4ecb6104658cf8c06fca64f7f1cb3b0f1a830ab50c8c7ed9de544b8e6b2530"),
+            (2000, "b05105f8281f75efaf3c6b324563685c8be3a01b1c7d3f314ae733d869d95209"),
+        ] {
+            let hash = empty_hash_at_depth(depth);
+            assert_eq!(hash.to_hex(), s, "invalid hash at depth={:?}", depth);
+        }
     }
 
     #[test]
