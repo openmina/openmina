@@ -324,7 +324,7 @@ impl Hashable for SnappAccount {
             roi.append_field(*field);
         }
 
-        println!("ROInput={:?}", roi);
+        // println!("ROInput={:?}", roi);
 
         roi
     }
@@ -389,7 +389,7 @@ impl Hashable for Account {
 
         roi.append_field(snapp_digest);
 
-        println!("ROINPUT={:?}", roi);
+        // println!("ROINPUT={:?}", roi);
 
         // Self::permissions
         for auth in [
@@ -683,36 +683,69 @@ struct Database {
 }
 
 impl NodeOrLeaf {
-    fn add_to_path(&mut self, account: Account, path_iter: &mut AddressIterator) {
-        let direction = match path_iter.next() {
-            Some(direction) => direction,
-            None => {
-                *self = NodeOrLeaf::Leaf(Leaf {
-                    account: Box::new(account),
-                });
-                return;
-            }
-        };
+    fn add_to_path(node_or_leaf: &mut Self, account: Account, path: AddressIterator) {
+        let mut node_or_leaf = node_or_leaf;
 
+        for direction in path {
+            let node = match node_or_leaf {
+                NodeOrLeaf::Node(node) => node,
+                NodeOrLeaf::Leaf(_) => panic!("Expected node"),
+            };
+
+            let child = match direction {
+                Direction::Left => &mut node.left,
+                Direction::Right => &mut node.right,
+            };
+
+            let child = match child {
+                Some(child) => child,
+                None => {
+                    *child = Some(Box::new(NodeOrLeaf::Node(Node::default())));
+                    child.as_mut().unwrap()
+                }
+            };
+
+            node_or_leaf = &mut *child;
+        }
+
+        *node_or_leaf = NodeOrLeaf::Leaf(Leaf {
+            account: Box::new(account),
+        });
+    }
+
+    fn hash(&self, depth: usize) -> Fp {
         let node = match self {
             NodeOrLeaf::Node(node) => node,
-            NodeOrLeaf::Leaf(_) => panic!("Expected node"),
+            NodeOrLeaf::Leaf(leaf) => {
+                let account = &leaf.account;
+
+                let mut hasher = create_legacy::<Account>(());
+                hasher.update(account);
+                return hasher.digest();
+            },
         };
 
-        let child = match direction {
-            Direction::Left => &mut node.left,
-            Direction::Right => &mut node.right,
-        };
-
-        let child = match child {
-            Some(child) => child,
+        let left_hash = match &node.left {
+            Some(left) => {
+                left.hash(depth + 1)
+            },
             None => {
-                *child = Some(Box::new(NodeOrLeaf::Node(Node::default())));
-                child.as_mut().unwrap()
-            }
+                empty_hash_at_depth(depth + 1)
+            },
         };
 
-        child.add_to_path(account, path_iter);
+        let right_hash = match &node.right {
+            Some(right) => {
+                right.hash(depth + 1)
+            },
+            None => {
+                empty_hash_at_depth(depth + 1)
+            },
+        };
+
+        let mut hasher = create_legacy::<TwoHashes>(depth as u32);
+        hasher.update(&TwoHashes(left_hash, right_hash));
+        hasher.digest()
     }
 }
 
@@ -988,25 +1021,25 @@ fn account_empty_hash() -> Fp {
     hasher.digest()
 }
 
-fn empty_hash_at_depth(depth: usize) -> Fp {
-    #[derive(Clone, Debug)]
-    struct TwoHashes(Fp, Fp);
+#[derive(Clone, Debug)]
+struct TwoHashes(Fp, Fp);
 
-    impl Hashable for TwoHashes {
-        type D = u32; // depth
+impl Hashable for TwoHashes {
+    type D = u32; // depth
 
-        fn to_roinput(&self) -> ROInput {
-            let mut roi = ROInput::new();
-            roi.append_field(self.0);
-            roi.append_field(self.1);
-            roi
-        }
-
-        fn domain_string(depth: Self::D) -> Option<String> {
-            Some(format!("CodaMklTree{:03}", depth))
-        }
+    fn to_roinput(&self) -> ROInput {
+        let mut roi = ROInput::new();
+        roi.append_field(self.0);
+        roi.append_field(self.1);
+        roi
     }
 
+    fn domain_string(depth: Self::D) -> Option<String> {
+        Some(format!("CodaMklTree{:03}", depth))
+    }
+}
+
+fn empty_hash_at_depth(depth: usize) -> Fp {
     fn hash_at_depth(hashes: TwoHashes, depth: u32) -> Fp {
         let mut hasher = create_legacy::<TwoHashes>(depth);
         hasher.update(&hashes);
@@ -1048,12 +1081,16 @@ impl Database {
         };
 
         let root = self.root.as_mut().unwrap();
-        let mut path_iter = location.clone().into_iter();
-        root.add_to_path(account, &mut path_iter);
+        let path_iter = location.clone().into_iter();
+        NodeOrLeaf::add_to_path(root, account, path_iter);
 
         self.last_location = Some(location.clone());
 
         Ok(location)
+    }
+
+    fn root_hash(&self) -> Option<Fp> {
+        self.root.as_ref().map(|root| root.hash(0))
     }
 
     fn naccounts(&self) -> usize {
@@ -1215,6 +1252,15 @@ mod tests {
             let hash = empty_hash_at_depth(depth);
             assert_eq!(hash.to_hex(), s, "invalid hash at depth={:?}", depth);
         }
+    }
+
+    #[test]
+    fn test_root_hash() {
+        let mut db = Database::create(4);
+        db.create_account((), Account::create()).unwrap();
+
+        let hash = db.root_hash().unwrap();
+        println!("ROOT_HASH={:?}", hash.to_string());
     }
 
     #[test]
