@@ -694,6 +694,26 @@ struct Address {
     length: usize,
 }
 
+impl<'a> TryFrom<&'a str> for Address {
+    type Error = ();
+
+    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+        if s.len() >= 256 {
+            return Err(());
+        }
+
+        let mut addr = Address { inner: [0; 32], length: s.len()};
+        for (index, c) in s.chars().enumerate() {
+            if c == '1' {
+                addr.set(index);
+            } else if c != '0' {
+                return Err(());
+            }
+        }
+        Ok(addr)
+    }
+}
+
 impl PartialEq for Address {
     fn eq(&self, other: &Self) -> bool {
         if self.length != other.length {
@@ -1025,45 +1045,39 @@ mod tests {
     }
 
     #[test]
-    fn test_address() {
+    fn test_address_iter() {
         use Direction::*;
 
-        let mut inner: [u8; 32] = Default::default();
-        inner[0] = 0b10101010;
-
-        let addr = Address { inner, length: 8 };
+        let addr = Address::try_from("10101010").unwrap();
         assert_eq!(
             addr.iter().collect::<Vec<_>>(),
             &[Right, Left, Right, Left, Right, Left, Right, Left]
         );
 
-        let mut inner: [u8; 32] = Default::default();
-        inner[0] = 0b01010101;
-
-        let addr = Address { inner, length: 8 };
+        let addr = Address::try_from("01010101").unwrap();
         assert_eq!(
             addr.iter().collect::<Vec<_>>(),
             &[Left, Right, Left, Right, Left, Right, Left, Right]
         );
 
-        let mut inner: [u8; 32] = Default::default();
-        inner[0] = 0b01010101;
-
-        let addr = Address { inner, length: 9 };
+        let addr = Address::try_from("010101010").unwrap();
         assert_eq!(
             addr.iter().collect::<Vec<_>>(),
             &[Left, Right, Left, Right, Left, Right, Left, Right, Left]
         );
 
-        let mut inner: [u8; 32] = Default::default();
-        inner[0] = 0b01010101;
-        inner[1] = 0b01000000;
-
-        let addr = Address { inner, length: 10 };
+        let addr = Address::try_from("0101010101").unwrap();
         assert_eq!(
             addr.iter().collect::<Vec<_>>(),
             &[Left, Right, Left, Right, Left, Right, Left, Right, Left, Right]
         );
+
+        let addr = Address::try_from("").unwrap();
+        assert!(addr.iter().collect::<Vec<_>>().is_empty());
+
+        assert!(Address::try_from("0101010101a").is_err());
+        assert!(Address::try_from("0".repeat(255).as_str()).is_ok());
+        assert!(Address::try_from("0".repeat(256).as_str()).is_err());
     }
 
     #[test]
