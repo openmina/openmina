@@ -721,31 +721,47 @@ impl NodeOrLeaf {
 
                 let mut hasher = create_legacy::<Account>(());
                 hasher.update(account);
-                return hasher.digest();
+                let h = hasher.digest();
+                println!("ACC={:?}", h.to_string());
+                return h;
             },
         };
 
         let left_hash = match &node.left {
             Some(left) => {
-                left.hash(depth + 1)
+                left.hash(depth - 1)
             },
             None => {
-                empty_hash_at_depth(depth + 1)
+                empty_hash_at_depth(depth)
             },
         };
 
         let right_hash = match &node.right {
             Some(right) => {
-                right.hash(depth + 1)
+                right.hash(depth - 1)
             },
             None => {
-                empty_hash_at_depth(depth + 1)
+                empty_hash_at_depth(depth)
             },
         };
 
         let mut hasher = create_legacy::<TwoHashes>(depth as u32);
         hasher.update(&TwoHashes(left_hash, right_hash));
-        hasher.digest()
+        let hash = hasher.digest();
+
+        println!("depth={:?} HASH={:?}",
+                 depth,
+                 hash.to_string(),
+        );
+
+        // println!("depth={:?} HASH={:?} left={:?} right={:?}",
+        //          depth,
+        //          hash.to_string(),
+        //          left_hash.to_string(),
+        //          right_hash.to_string(),
+        // );
+
+        hash
     }
 }
 
@@ -1040,16 +1056,14 @@ impl Hashable for TwoHashes {
 }
 
 fn empty_hash_at_depth(depth: usize) -> Fp {
-    fn hash_at_depth(hashes: TwoHashes, depth: u32) -> Fp {
-        let mut hasher = create_legacy::<TwoHashes>(depth);
-        hasher.update(&hashes);
-        hasher.digest()
-    }
-
     let mut hash = account_empty_hash();
 
     for depth in 0..depth {
-        hash = hash_at_depth(TwoHashes(hash, hash), depth as u32);
+        hash = {
+            let mut hasher = create_legacy::<TwoHashes>(depth  as u32);
+            hasher.update(&TwoHashes(hash, hash));
+            hasher.digest()
+        };
     }
 
     hash
@@ -1090,7 +1104,7 @@ impl Database {
     }
 
     fn root_hash(&self) -> Option<Fp> {
-        self.root.as_ref().map(|root| root.hash(0))
+        self.root.as_ref().map(|root| root.hash(self.depth as usize - 1))
     }
 
     fn naccounts(&self) -> usize {
@@ -1256,11 +1270,28 @@ mod tests {
 
     #[test]
     fn test_root_hash() {
+        for depth in 0..5 {
+            let hash = empty_hash_at_depth(depth);
+            println!("depth={:?} HASH={:?}", depth, hash.to_string());
+        }
+
+        println!("DONE\n\n");
+
         let mut db = Database::create(4);
-        db.create_account((), Account::create()).unwrap();
+
+        for _ in 0..1 {
+            db.create_account((), Account::empty()).unwrap();
+        }
+
+        // assert!(db.create_account((), Account::empty()).is_err());
 
         let hash = db.root_hash().unwrap();
-        println!("ROOT_HASH={:?}", hash.to_string());
+        println!("ROOT_HASH_4={:?}", hash.to_string());
+
+        // let mut db = Database::create(30);
+        // db.create_account((), Account::empty()).unwrap();
+        // let hash = db.root_hash().unwrap();
+        // println!("ROOT_HASH_30={:?}", hash.to_string());
     }
 
     #[test]
