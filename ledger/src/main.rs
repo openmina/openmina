@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-mod poseidon;
+mod hash;
 
 use std::borrow::Cow;
 
@@ -1291,20 +1291,32 @@ mod tests {
         for _ in 0..16 {
             db.create_account((), Account::empty()).unwrap();
         }
-        assert_eq!(db.create_account((), Account::empty()).unwrap_err(), DatabaseError::OutOfLeaves);
+        assert_eq!(
+            db.create_account((), Account::empty()).unwrap_err(),
+            DatabaseError::OutOfLeaves
+        );
         let hash = db.root_hash();
-        assert_eq!(hash.to_hex(), "2db7d27130b6fe46b95541a70bc69ac51d9ea02825f7a7ab41ec4c414989421e");
+        assert_eq!(
+            hash.to_hex(),
+            "2db7d27130b6fe46b95541a70bc69ac51d9ea02825f7a7ab41ec4c414989421e"
+        );
 
         let mut db = Database::create(4);
         for _ in 0..1 {
             db.create_account((), Account::empty()).unwrap();
         }
         let hash = db.root_hash();
-        assert_eq!(hash.to_hex(), "2db7d27130b6fe46b95541a70bc69ac51d9ea02825f7a7ab41ec4c414989421e");
+        assert_eq!(
+            hash.to_hex(),
+            "2db7d27130b6fe46b95541a70bc69ac51d9ea02825f7a7ab41ec4c414989421e"
+        );
 
         let db = Database::create(4);
         let hash = db.root_hash();
-        assert_eq!(hash.to_hex(), "2db7d27130b6fe46b95541a70bc69ac51d9ea02825f7a7ab41ec4c414989421e");
+        assert_eq!(
+            hash.to_hex(),
+            "2db7d27130b6fe46b95541a70bc69ac51d9ea02825f7a7ab41ec4c414989421e"
+        );
     }
 
     #[test]
