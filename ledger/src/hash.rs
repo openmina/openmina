@@ -1,5 +1,16 @@
-use ark_ff::{Zero, One};
+use std::{
+    borrow::Cow,
+    io::{Cursor, Write},
+};
+
+use ark_ff::{One, Zero};
 use mina_hasher::Fp;
+use o1_utils::FieldHelpers;
+use oracle::{
+    constants::PlonkSpongeConstantsKimchi,
+    pasta,
+    poseidon::{ArithmeticSponge, Sponge},
+};
 
 #[derive(Debug)]
 enum Item {
@@ -21,7 +32,13 @@ impl Item {
 
     fn as_field(&self) -> Fp {
         match self {
-            Item::Bool(v) => if *v { Fp::one() } else { Fp::zero() },
+            Item::Bool(v) => {
+                if *v {
+                    Fp::one()
+                } else {
+                    Fp::zero()
+                }
+            }
             Item::U8(v) => (*v).into(),
             Item::U32(v) => (*v).into(),
             Item::U64(v) => (*v).into(),
@@ -35,26 +52,12 @@ struct Inputs {
     packeds: Vec<Item>,
 }
 
-// let pack_to_fields (type t) (module F : Field_intf with type t = t)
-//     ~(pow2 : int -> t) { field_elements; packeds } =
-//   let shift_left acc n = F.( * ) acc (pow2 n) in
-//   let open F in
-//   let packed_bits =
-//     let xs, acc, acc_n =
-//       Array.fold packeds ~init:([], zero, 0)
-//         ~f:(fun (xs, acc, acc_n) (x, n) ->
-//           let n' = Int.(n + acc_n) in
-//           if Int.(n' < size_in_bits) then (xs, shift_left acc n + x, n')
-//           else (acc :: xs, zero, 0) )
-//     in
-//     let xs = if acc_n > 0 then acc :: xs else xs in
-//     Array.of_list_rev xs
-//   in
-//   Array.append field_elements packed_bits
-
 impl Inputs {
     pub fn new() -> Self {
-        Self { fields: Vec::with_capacity(10), packeds: Vec::with_capacity(10) }
+        Self {
+            fields: Vec::with_capacity(16),
+            packeds: Vec::with_capacity(16),
+        }
     }
 
     pub fn append_bool(&mut self, value: bool) {
@@ -78,38 +81,85 @@ impl Inputs {
     }
 
     fn to_fields(&self) -> Vec<Fp> {
-        let two = 2u64;
-        let init_state = (Vec::with_capacity(16), Fp::zero(), 0);
+        let mut nbits = 0;
+        let mut current_field = Fp::zero();
+        let mut fields = Vec::with_capacity(16);
 
-        let (mut fields, fp, acc_n) = self.packeds.iter().fold(init_state, |mut acc, item| {
-            let item_nbits = item.nbits();
-            let n_prime = acc.2 + item_nbits;
+        for (item, item_nbits) in self.packeds.iter().map(|i| (i.as_field(), i.nbits())) {
+            nbits += item_nbits;
 
-            if n_prime < 255 {
-                let mult_by: Fp = two.pow(item_nbits).into();
-                let item2: Fp = item.as_field();
-                let fp = (acc.1 * mult_by) + item2;
-
-                println!("ADDING={:?}={:?}", item, item2);
-
-                (acc.0, fp, n_prime)
+            if nbits < 255 {
+                let multiply_by: Fp = 2u64.pow(item_nbits).into();
+                current_field = (current_field * multiply_by) + item;
             } else {
-                acc.0.push(acc.1);
-                (acc.0, Fp::zero(), 0)
+                fields.push(current_field);
+                current_field = item;
+                nbits = item_nbits;
             }
-        });
+        }
 
-        if acc_n > 0 {
-            fields.push(fp);
+        if nbits > 0 {
+            fields.push(current_field);
         }
 
         self.fields.iter().cloned().chain(fields).collect()
     }
 }
 
+fn param_to_field(param: Cow<str>) -> Fp {
+    if param.len() > 20 {
+        panic!("must be 20 byte maximum");
+    }
+
+    let param_bytes = param.as_ref().as_bytes();
+
+    let mut fp = <[u8; 32]>::default();
+    let mut cursor = Cursor::new(&mut fp[..]);
+
+    cursor.write(param_bytes).expect("write failed");
+
+    for _ in param_bytes.len()..20 {
+        cursor.write("*".as_bytes()).expect("write failed");
+    }
+
+    Fp::from_bytes(&fp).expect("Fp::from_bytes failed")
+}
+
+fn hash_with_kimchi(param: Cow<str>, inputs: Inputs) -> Fp {
+    let mut sponge =
+        ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
+
+    sponge.absorb(&[param_to_field(param)]);
+    sponge.squeeze();
+
+    sponge.absorb(&inputs.to_fields());
+    sponge.squeeze()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_param() {
+        for (s, hex) in [
+            (
+                "",
+                "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a000000000000000000000000",
+            ),
+            (
+                "hello",
+                "68656c6c6f2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a000000000000000000000000",
+            ),
+            (
+                "aaaaaaaaaaaaaaaaaaaa",
+                "6161616161616161616161616161616161616161000000000000000000000000",
+            ),
+        ] {
+            let field = param_to_field(Cow::Borrowed(s));
+            assert_eq!(field.to_hex(), hex);
+        }
+    }
 
     #[test]
     fn test_inputs() {
