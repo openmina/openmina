@@ -6,7 +6,7 @@ use crate::{
 };
 use mina_hasher::Fp;
 
-pub trait DatabaseTrait {
+pub trait TreeVersion {
     type Account: Debug + Clone;
 
     fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp;
@@ -14,10 +14,10 @@ pub trait DatabaseTrait {
     fn empty_hash_at_depth(depth: usize) -> Fp;
 }
 
-struct V2;
 struct V1;
+struct V2;
 
-impl DatabaseTrait for V2 {
+impl TreeVersion for V2 {
     type Account = Account;
 
     fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp {
@@ -35,7 +35,7 @@ impl DatabaseTrait for V2 {
     }
 }
 
-impl DatabaseTrait for V1 {
+impl TreeVersion for V1 {
     type Account = AccountLegacy;
 
     fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp {
@@ -80,18 +80,18 @@ impl DatabaseTrait for V1 {
 }
 
 #[derive(Clone, Debug)]
-enum NodeOrLeaf<T: DatabaseTrait> {
+enum NodeOrLeaf<T: TreeVersion> {
     Leaf(Leaf<T>),
     Node(Node<T>),
 }
 
 #[derive(Clone, Debug)]
-struct Node<T: DatabaseTrait> {
+struct Node<T: TreeVersion> {
     left: Option<Box<NodeOrLeaf<T>>>,
     right: Option<Box<NodeOrLeaf<T>>>,
 }
 
-impl<T: DatabaseTrait> Default for Node<T> {
+impl<T: TreeVersion> Default for Node<T> {
     fn default() -> Self {
         Self {
             left: None,
@@ -101,18 +101,18 @@ impl<T: DatabaseTrait> Default for Node<T> {
 }
 
 #[derive(Clone, Debug)]
-struct Leaf<T: DatabaseTrait> {
+struct Leaf<T: TreeVersion> {
     account: Box<T::Account>,
 }
 
 #[derive(Debug)]
-struct Database<T: DatabaseTrait> {
+struct Database<T: TreeVersion> {
     root: Option<NodeOrLeaf<T>>,
     depth: u8,
     last_location: Option<Address>,
 }
 
-impl<T: DatabaseTrait> NodeOrLeaf<T> {
+impl<T: TreeVersion> NodeOrLeaf<T> {
     fn add_to_path(node_or_leaf: &mut Self, account: T::Account, path: AddressIterator) {
         let mut node_or_leaf = node_or_leaf;
 
@@ -186,7 +186,7 @@ fn account_empty_hash() -> Fp {
     get_legacy_hash_of((), &AccountLegacy::empty())
 }
 
-impl<T: DatabaseTrait> Database<T> {
+impl<T: TreeVersion> Database<T> {
     fn create(depth: u8) -> Self {
         assert!((1..0xfe).contains(&depth));
 

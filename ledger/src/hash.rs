@@ -3,7 +3,7 @@ use std::{
     io::{Cursor, Write},
 };
 
-use ark_ff::{One, Zero};
+use ark_ff::{FromBytes, One, Zero};
 use mina_hasher::Fp;
 use o1_utils::FieldHelpers;
 use oracle::{
@@ -12,13 +12,35 @@ use oracle::{
     poseidon::{ArithmeticSponge, Sponge},
 };
 
-#[derive(Debug)]
 enum Item {
     Bool(bool),
     U8(u8),
     U32(u32),
+    U48([u8; 6]),
     U64(u64),
 }
+
+impl std::fmt::Debug for Item {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bool(arg0) => f.write_fmt(format_args!("{}", if *arg0 { 1 } else { 0 })),
+            Self::U8(arg0) => f.write_fmt(format_args!("{}", arg0)),
+            Self::U32(arg0) => f.write_fmt(format_args!("{}", arg0)),
+            Self::U48(arg0) => f.write_fmt(format_args!("{:?}", arg0)),
+            Self::U64(arg0) => f.write_fmt(format_args!("{}", arg0)),
+        }
+        // match self {
+        //     Self::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
+        //     Self::U8(arg0) => f.debug_tuple("U8").field(arg0).finish(),
+        //     Self::U32(arg0) => f.debug_tuple("U32").field(arg0).finish(),
+        //     Self::U48(arg0) => f.debug_tuple("U48").field(arg0).finish(),
+        //     Self::U64(arg0) => f.debug_tuple("U64").field(arg0).finish(),
+        // }
+    }
+}
+
+// 0,1,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1, 1,0,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1,
+// 0,1,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1, 1,0,1, 0,1,1, 0,1,1 ocaml
 
 impl Item {
     fn nbits(&self) -> u32 {
@@ -26,6 +48,7 @@ impl Item {
             Item::Bool(_) => 1,
             Item::U8(_) => 8,
             Item::U32(_) => 32,
+            Item::U48(_) => 48,
             Item::U64(_) => 64,
         }
     }
@@ -41,13 +64,18 @@ impl Item {
             }
             Item::U8(v) => (*v).into(),
             Item::U32(v) => (*v).into(),
+            Item::U48(v) => {
+                let mut bytes = <[u8; 32]>::default();
+                bytes[..6].copy_from_slice(&v[..]);
+                Fp::read(&bytes[..]).unwrap()
+            }
             Item::U64(v) => (*v).into(),
         }
     }
 }
 
 #[derive(Debug)]
-struct Inputs {
+pub struct Inputs {
     fields: Vec<Fp>,
     packeds: Vec<Item>,
 }
@@ -76,11 +104,15 @@ impl Inputs {
         self.packeds.push(Item::U64(value));
     }
 
-    pub fn append_fields(&mut self, value: Fp) {
+    pub fn append_u48(&mut self, value: [u8; 6]) {
+        self.packeds.push(Item::U48(value));
+    }
+
+    pub fn append_field(&mut self, value: Fp) {
         self.fields.push(value);
     }
 
-    fn to_fields(mut self) -> Vec<Fp> {
+    pub fn to_fields(mut self) -> Vec<Fp> {
         let mut nbits = 0;
         let mut current_field = Fp::zero();
 
