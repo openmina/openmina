@@ -55,8 +55,8 @@ struct Inputs {
 impl Inputs {
     pub fn new() -> Self {
         Self {
-            fields: Vec::with_capacity(16),
-            packeds: Vec::with_capacity(16),
+            fields: Vec::with_capacity(32),
+            packeds: Vec::with_capacity(32),
         }
     }
 
@@ -80,10 +80,9 @@ impl Inputs {
         self.fields.push(value);
     }
 
-    fn to_fields(&self) -> Vec<Fp> {
+    fn to_fields(mut self) -> Vec<Fp> {
         let mut nbits = 0;
         let mut current_field = Fp::zero();
-        let mut fields = Vec::with_capacity(16);
 
         for (item, item_nbits) in self.packeds.iter().map(|i| (i.as_field(), i.nbits())) {
             nbits += item_nbits;
@@ -92,17 +91,17 @@ impl Inputs {
                 let multiply_by: Fp = 2u64.pow(item_nbits).into();
                 current_field = (current_field * multiply_by) + item;
             } else {
-                fields.push(current_field);
+                self.fields.push(current_field);
                 current_field = item;
                 nbits = item_nbits;
             }
         }
 
         if nbits > 0 {
-            fields.push(current_field);
+            self.fields.push(current_field);
         }
 
-        self.fields.iter().cloned().chain(fields).collect()
+        self.fields
     }
 }
 
@@ -125,16 +124,27 @@ fn param_to_field(param: Cow<str>) -> Fp {
     Fp::from_bytes(&fp).expect("Fp::from_bytes failed")
 }
 
-fn hash_with_kimchi(param: Cow<str>, inputs: Inputs) -> Fp {
+pub fn hash_with_kimchi(param: Cow<str>, fields: &[Fp]) -> Fp {
     let mut sponge =
         ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
 
     sponge.absorb(&[param_to_field(param)]);
     sponge.squeeze();
 
-    sponge.absorb(&inputs.to_fields());
+    sponge.absorb(fields);
     sponge.squeeze()
 }
+
+// fn hash_with_kimchi(param: Cow<str>, inputs: Inputs) -> Fp {
+//     let mut sponge =
+//         ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
+
+//     sponge.absorb(&[param_to_field(param)]);
+//     sponge.squeeze();
+
+//     sponge.absorb(&inputs.to_fields());
+//     sponge.squeeze()
+// }
 
 #[cfg(test)]
 mod tests {
