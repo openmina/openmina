@@ -26,12 +26,14 @@ impl TreeVersion for V2 {
         crate::hash::hash_with_kimchi(Cow::Owned(param), &[left, right])
     }
 
-    fn hash_leaf(_leaf: &Self::Account) -> Fp {
-        todo!()
+    fn hash_leaf(leaf: &Self::Account) -> Fp {
+        leaf.hash()
     }
 
-    fn empty_hash_at_depth(_depth: usize) -> Fp {
-        todo!()
+    fn empty_hash_at_depth(depth: usize) -> Fp {
+        (0..depth).fold(Account::empty().hash(), |prev_hash, depth| {
+            Self::hash_node(depth, prev_hash, prev_hash)
+        })
     }
 }
 

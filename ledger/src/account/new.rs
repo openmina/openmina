@@ -124,6 +124,7 @@ impl Account {
             timing: Timing::Untimed,
             permissions: Permissions::user_default(),
             zkapp: None,
+            // zkapp_uri: "https://target/release/deps/mina_tree-6ee5ea26e91aacf6".to_string(),
             zkapp_uri: String::new(),
         }
     }
@@ -149,8 +150,29 @@ impl Account {
         }
     }
 
-    fn hash(&self) -> Fp {
+    pub fn hash(&self) -> Fp {
         let mut inputs = Inputs::new();
+
+        // Self::zkapp_uri
+        // Note: This doesn't cover when zkapp_uri is None, which
+        // is never the case for accounts
+        let field_zkapp_uri = {
+            let mut bits = vec![true; self.zkapp_uri.len() * 8 + 1];
+            for (i, c) in self.zkapp_uri.as_bytes().iter().enumerate() {
+                for j in 0..8 {
+                    bits[(i * 8) + j] = (c & (1 << j)) != 0;
+                }
+            }
+
+            let mut inputs = Inputs::new();
+            for bit in bits {
+                inputs.append_bool(bit);
+            }
+
+            hash_with_kimchi(Cow::Borrowed("MinaZkappUri"), &inputs.to_fields())
+        };
+
+        inputs.append_field(field_zkapp_uri);
 
         // // Self::token_symbol
 
@@ -177,23 +199,23 @@ impl Account {
 
         // Self::permissions
 
-        for auth in [
-            self.permissions.set_voting_for,
-            self.permissions.increment_nonce,
-            self.permissions.set_token_symbol,
-            self.permissions.edit_sequence_state,
-            self.permissions.set_zkapp_uri,
-            self.permissions.set_verification_key,
-            self.permissions.set_permissions,
-            self.permissions.set_delegate,
-            self.permissions.receive,
-            self.permissions.send,
-            self.permissions.edit_state,
-        ] {
-            for bit in auth.encode().to_bits() {
-                inputs.append_bool(bit);
-            }
-        }
+        // for auth in [
+        //     self.permissions.set_voting_for,
+        //     self.permissions.increment_nonce,
+        //     self.permissions.set_token_symbol,
+        //     self.permissions.edit_sequence_state,
+        //     self.permissions.set_zkapp_uri,
+        //     self.permissions.set_verification_key,
+        //     self.permissions.set_permissions,
+        //     self.permissions.set_delegate,
+        //     self.permissions.receive,
+        //     self.permissions.send,
+        //     self.permissions.edit_state,
+        // ] {
+        //     for bit in auth.encode().to_bits() {
+        //         inputs.append_bool(bit);
+        //     }
+        // }
 
         // // Self::timing
         // match self.timing {

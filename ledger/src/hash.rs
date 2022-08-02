@@ -83,8 +83,8 @@ pub struct Inputs {
 impl Inputs {
     pub fn new() -> Self {
         Self {
-            fields: Vec::with_capacity(32),
-            packeds: Vec::with_capacity(32),
+            fields: Vec::with_capacity(128),
+            packeds: Vec::with_capacity(128),
         }
     }
 
