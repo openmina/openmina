@@ -156,6 +156,21 @@ fn param_to_field(param: Cow<str>) -> Fp {
     Fp::from_bytes(&fp).expect("Fp::from_bytes failed")
 }
 
+fn param_to_field_noinputs(param: &str) -> Fp {
+    if param.len() > 32 {
+        panic!("must be 32 byte maximum");
+    }
+
+    let param_bytes = param.as_bytes();
+
+    let mut fp = <[u8; 32]>::default();
+    let mut cursor = Cursor::new(&mut fp[..]);
+
+    cursor.write(param_bytes).expect("write failed");
+
+    Fp::from_bytes(&fp).expect("Fp::from_bytes failed")
+}
+
 pub fn hash_with_kimchi(param: Cow<str>, fields: &[Fp]) -> Fp {
     let mut sponge =
         ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
@@ -164,6 +179,14 @@ pub fn hash_with_kimchi(param: Cow<str>, fields: &[Fp]) -> Fp {
     sponge.squeeze();
 
     sponge.absorb(fields);
+    sponge.squeeze()
+}
+
+pub fn hash_noinputs(param: &str) -> Fp {
+    let mut sponge =
+        ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
+
+    sponge.absorb(&[param_to_field_noinputs(param)]);
     sponge.squeeze()
 }
 

@@ -4,7 +4,7 @@ use ark_ff::Zero;
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
-use crate::hash::{hash_with_kimchi, Inputs};
+use crate::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
 use super::common::*;
 
@@ -73,12 +73,28 @@ impl Permissions<AuthRequired> {
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/zkapp_account.ml#L148-L170
 #[derive(Clone, Debug)]
 pub struct ZkAppAccount {
-    app_state: Vec<u8>,
-    verification: (),
+    app_state: Vec<Fp>,
+    verification_key: Option<Fp>,
     zkapp_version: u32,
-    sequence_state: (),
+    sequence_state: [Fp; 5],
     last_sequence_slot: Slot,
     proved_state: bool,
+}
+
+impl Default for ZkAppAccount {
+    fn default() -> Self {
+        Self {
+            app_state: vec![Fp::zero(); 8],
+            verification_key: None,
+            zkapp_version: 1,
+            sequence_state: {
+                let empty = hash_noinputs("MinaSnappSequenceEmpty");
+                [empty, empty, empty, empty, empty]
+            },
+            last_sequence_slot: 0,
+            proved_state: false,
+        }
+    }
 }
 
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
@@ -153,26 +169,62 @@ impl Account {
     pub fn hash(&self) -> Fp {
         let mut inputs = Inputs::new();
 
-        // Self::zkapp_uri
-        // Note: This doesn't cover when zkapp_uri is None, which
-        // is never the case for accounts
-        let field_zkapp_uri = {
-            let mut bits = vec![true; self.zkapp_uri.len() * 8 + 1];
-            for (i, c) in self.zkapp_uri.as_bytes().iter().enumerate() {
-                for j in 0..8 {
-                    bits[(i * 8) + j] = (c & (1 << j)) != 0;
-                }
-            }
-
-            let mut inputs = Inputs::new();
-            for bit in bits {
-                inputs.append_bool(bit);
-            }
-
-            hash_with_kimchi(Cow::Borrowed("MinaZkappUri"), &inputs.to_fields())
+        let zkapp = match self.zkapp.as_ref() {
+            Some(zkapp) => Cow::Borrowed(zkapp),
+            None => Cow::Owned(ZkAppAccount::default()),
         };
 
-        inputs.append_field(field_zkapp_uri);
+        let zkapp = zkapp.as_ref();
+
+        // Poly.Fields.fold ~init:[] ~app_state:(f app_state)
+        //   ~verification_key:
+        //     (f
+        //        (Fn.compose field
+        //           (Option.value_map ~default:(dummy_vk_hash ()) ~f:With_hash.hash) ) )
+        //   ~zkapp_version:(f Mina_numbers.Zkapp_version.to_input)
+        //   ~sequence_state:(f app_state)
+        //   ~last_sequence_slot:(f Mina_numbers.Global_slot.to_input)
+        //   ~proved_state:
+        //     (f (fun b -> Random_oracle.Input.Chunked.packed (field_of_bool b, 1)))
+        // |> List.reduce_exn ~f:append
+
+        let field_zkapp = {
+            let mut inputs = Inputs::new();
+            inputs.append_bool(zkapp.proved_state);
+            inputs.append_u32(zkapp.last_sequence_slot);
+            for fp in &zkapp.sequence_state {
+                inputs.append_field(*fp);
+            }
+            inputs.append_u32(zkapp.zkapp_version);
+            if let Some(vk) = zkapp.verification_key {
+                todo!();
+            } else {
+                hash_with_kimchi(Cow::Borrowed("CodaSideLoadedVk"), &[Fp::zero()])
+            };
+
+            hash_with_kimchi(Cow::Borrowed("CodaZkappAccount"), &inputs.to_fields())
+        };
+
+        // // Self::zkapp_uri
+        // // Note: This doesn't cover when zkapp_uri is None, which
+        // // is never the case for accounts
+        // let field_zkapp_uri = {
+        //     let mut bits = vec![true; self.zkapp_uri.len() * 8 + 1];
+        //     for (i, c) in self.zkapp_uri.as_bytes().iter().enumerate() {
+        //         for j in 0..8 {
+        //             bits[(i * 8) + j] = (c & (1 << j)) != 0;
+        //         }
+        //     }
+
+        //     let mut inputs = Inputs::new();
+        //     for bit in bits {
+        //         inputs.append_bool(bit);
+        //     }
+
+        //     hash_with_kimchi(Cow::Borrowed("MinaZkappUri"), &inputs.to_fields())
+        // };
+
+        // inputs.append_field(field_zkapp_uri);
 
         // // Self::token_symbol
 
@@ -299,6 +351,8 @@ impl Account {
 mod tests {
     use mina_hasher::{create_kimchi, create_legacy, Hasher};
 
+    use crate::hash::hash_noinputs;
+
     use super::*;
 
     #[test]
@@ -307,5 +361,11 @@ mod tests {
         let hash = acc.hash();
 
         println!("account_hash={}", hash.to_string());
+
+        let hash = hash_noinputs("MinaSnappSequenceEmpty");
+        println!("EMPTY={:?}", hash.to_string());
+
+        let hash = hash_with_kimchi(Cow::Borrowed("CodaSideLoadedVk"), &[Fp::zero()]);
+        println!("SIDELOADED={:?}", hash.to_string());
     }
 }
