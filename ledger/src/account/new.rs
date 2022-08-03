@@ -1,6 +1,6 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, str::FromStr};
 
-use ark_ff::Zero;
+use ark_ff::{One, Zero};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
@@ -69,12 +69,128 @@ impl Permissions<AuthRequired> {
     }
 }
 
+// type 'comm t =
+//   { sigma_comm : 'comm Plonk_types.Permuts_vec.Stable.V1.t
+//   ; coefficients_comm : 'comm Plonk_types.Columns_vec.Stable.V1.t
+//   ; generic_comm : 'comm
+//   ; psm_comm : 'comm
+//   ; complete_add_comm : 'comm
+//   ; mul_comm : 'comm
+//   ; emul_comm : 'comm
+//   ; endomul_scalar_comm : 'comm
+//   }
+
+// TODO: Not sure if the name is correct
+// It seems that a similar type exist in proof-systems: TODO
+#[derive(Copy, Clone, Debug)]
+struct CurveAffine(Fp, Fp);
+
+#[derive(Clone, Debug)]
+struct PlonkVerificationKeyEvals {
+    sigma_comm: [CurveAffine; 7],
+    coefficients_comm: [CurveAffine; 15],
+    generic_comm: CurveAffine,
+    psm_comm: CurveAffine,
+    complete_add_comm: CurveAffine,
+    mul_comm: CurveAffine,
+    emul_comm: CurveAffine,
+    endomul_scalar_comm: CurveAffine,
+}
+
+#[derive(Clone, Debug)]
+enum NProofVerified {
+    N0,
+    N1,
+    N2,
+}
+
+#[derive(Clone, Debug)]
+struct VerificationKey {
+    max_proofs_verified: NProofVerified,
+    wrap_index: PlonkVerificationKeyEvals,
+    wrap_vk: Option<()>,
+}
+
+impl VerificationKey {
+    // https://github.com/MinaProtocol/mina/blob/35b1702fbc295713f9bb46bb17e2d007bc2bab84/src/lib/pickles/side_loaded_verification_key.ml#L295-L309
+    fn dummy() -> Self {
+        let g = CurveAffine(
+            Fp::one(),
+            Fp::from_str(
+                "12418654782883325593414442427049395787963493412651469444558597405572177144507",
+            )
+            .unwrap(),
+        );
+        Self {
+            max_proofs_verified: NProofVerified::N2,
+            wrap_index: PlonkVerificationKeyEvals {
+                sigma_comm: [g; 7],
+                coefficients_comm: [g; 15],
+                generic_comm: g,
+                psm_comm: g,
+                complete_add_comm: g,
+                mul_comm: g,
+                emul_comm: g,
+                endomul_scalar_comm: g,
+            },
+            wrap_vk: None,
+        }
+    }
+
+    fn hash(&self) -> Fp {
+        let mut inputs = Inputs::new();
+
+        // https://github.com/MinaProtocol/mina/blob/35b1702fbc295713f9bb46bb17e2d007bc2bab84/src/lib/pickles_base/proofs_verified.ml#L108-L118
+        let bits = match self.max_proofs_verified {
+            NProofVerified::N0 => [true, false, false],
+            NProofVerified::N1 => [false, true, false],
+            NProofVerified::N2 => [false, false, true],
+        };
+
+        for bit in bits {
+            inputs.append_bool(bit);
+        }
+
+        let index = &self.wrap_index;
+
+        for field in index.sigma_comm {
+            inputs.append_field(field.0);
+            inputs.append_field(field.1);
+        }
+
+        for field in index.coefficients_comm {
+            inputs.append_field(field.0);
+            inputs.append_field(field.1);
+        }
+
+        inputs.append_field(index.generic_comm.0);
+        inputs.append_field(index.generic_comm.1);
+
+        inputs.append_field(index.psm_comm.0);
+        inputs.append_field(index.psm_comm.1);
+
+        inputs.append_field(index.complete_add_comm.0);
+        inputs.append_field(index.complete_add_comm.1);
+
+        inputs.append_field(index.mul_comm.0);
+        inputs.append_field(index.mul_comm.1);
+
+        inputs.append_field(index.emul_comm.0);
+        inputs.append_field(index.emul_comm.1);
+
+        inputs.append_field(index.endomul_scalar_comm.0);
+        inputs.append_field(index.endomul_scalar_comm.1);
+
+        hash_with_kimchi("CodaSideLoadedVk", &inputs.to_fields())
+    }
+}
+
 // TODO: Fill this struct
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/zkapp_account.ml#L148-L170
 #[derive(Clone, Debug)]
 pub struct ZkAppAccount {
     app_state: Vec<Fp>,
-    verification_key: Option<Fp>,
+    verification_key: Option<VerificationKey>,
     zkapp_version: u32,
     sequence_state: [Fp; 5],
     last_sequence_slot: Slot,
@@ -86,7 +202,7 @@ impl Default for ZkAppAccount {
         Self {
             app_state: vec![Fp::zero(); 8],
             verification_key: None,
-            zkapp_version: 1,
+            zkapp_version: 0,
             sequence_state: {
                 let empty = hash_noinputs("MinaSnappSequenceEmpty");
                 [empty, empty, empty, empty, empty]
@@ -190,20 +306,53 @@ impl Account {
 
         let field_zkapp = {
             let mut inputs = Inputs::new();
+
+            // for fp in &zkapp.app_state {
+            //     inputs.append_field(*fp);
+            // }
+            // let vk_hash = if let Some(vk) = zkapp.verification_key.as_ref() {
+            //     vk.hash()
+            // } else {
+            //     VerificationKey::dummy().hash()
+            // };
+            // inputs.append_field(vk_hash);
+            // inputs.append_u32(zkapp.zkapp_version);
+            // for fp in &zkapp.sequence_state {
+            //     inputs.append_field(*fp);
+            // }
+            // inputs.append_u32(zkapp.last_sequence_slot);
+            // inputs.append_bool(zkapp.proved_state);
+
             inputs.append_bool(zkapp.proved_state);
             inputs.append_u32(zkapp.last_sequence_slot);
             for fp in &zkapp.sequence_state {
                 inputs.append_field(*fp);
             }
             inputs.append_u32(zkapp.zkapp_version);
-            if let Some(vk) = zkapp.verification_key {
-                todo!();
+            let vk_hash = if let Some(vk) = zkapp.verification_key.as_ref() {
+                vk.hash()
             } else {
-                hash_with_kimchi(Cow::Borrowed("CodaSideLoadedVk"), &[Fp::zero()])
+                VerificationKey::dummy().hash()
             };
+            inputs.append_field(vk_hash);
+            for fp in &zkapp.app_state {
+                inputs.append_field(*fp);
+            }
 
-            hash_with_kimchi(Cow::Borrowed("CodaZkappAccount"), &inputs.to_fields())
+            // { app_state : 'app_state
+            // ; verification_key : 'vk
+            // ; zkapp_version : 'zkapp_version
+            // ; sequence_state : 'field Pickles_types.Vector.Vector_5.Stable.V1.t
+            // ; last_sequence_slot : 'slot
+            // ; proved_state : 'bool
+            // }
+
+            println!("INPUTSICI={:#?}", inputs);
+
+            hash_with_kimchi("CodaZkappAccount", &inputs.to_fields())
         };
+
+        inputs.append_field(field_zkapp);
 
         // // Self::zkapp_uri
         // // Note: This doesn't cover when zkapp_uri is None, which
@@ -221,7 +370,7 @@ impl Account {
         //         inputs.append_bool(bit);
         //     }
 
-        //     hash_with_kimchi(Cow::Borrowed("MinaZkappUri"), &inputs.to_fields())
+        //     hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
         // };
 
         // inputs.append_field(field_zkapp_uri);
@@ -343,13 +492,14 @@ impl Account {
 
         println!("INPUTS={:#?}", inputs);
 
-        hash_with_kimchi(Cow::Borrowed("CodaAccount"), &inputs.to_fields())
+        hash_with_kimchi("CodaAccount", &inputs.to_fields())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use mina_hasher::{create_kimchi, create_legacy, Hasher};
+    use o1_utils::FieldHelpers;
 
     use crate::hash::hash_noinputs;
 
@@ -361,11 +511,19 @@ mod tests {
         let hash = acc.hash();
 
         println!("account_hash={}", hash.to_string());
+        println!("account_hash={}", hash.to_hex());
 
-        let hash = hash_noinputs("MinaSnappSequenceEmpty");
-        println!("EMPTY={:?}", hash.to_string());
+        assert_eq!(
+            hash.to_hex(),
+            "9aec887ebf9d0fbd8f49e27fbe2fbda90bdf1eb0f945c6f6a58b126b59ddb23a"
+        );
+    }
 
-        let hash = hash_with_kimchi(Cow::Borrowed("CodaSideLoadedVk"), &[Fp::zero()]);
-        println!("SIDELOADED={:?}", hash.to_string());
+    #[test]
+    fn test_dummy_sideloaded_verification_key() {
+        assert_eq!(
+            VerificationKey::dummy().hash().to_hex(),
+            "bda165a90435d2ecd2577002c32ee361e08fb3bbcb0445c9316d36992a470323"
+        );
     }
 }

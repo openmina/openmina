@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Debug};
+use std::fmt::Debug;
 
 use crate::{
     account::{get_legacy_hash_of, Account, AccountLegacy},
@@ -23,7 +23,7 @@ impl TreeVersion for V2 {
     fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp {
         let param = format!("CodaMklTree{:03}", depth);
 
-        crate::hash::hash_with_kimchi(Cow::Owned(param), &[left, right])
+        crate::hash::hash_with_kimchi(param.as_str(), &[left, right])
     }
 
     fn hash_leaf(leaf: &Self::Account) -> Fp {

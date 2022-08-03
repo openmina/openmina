@@ -1,7 +1,4 @@
-use std::{
-    borrow::Cow,
-    io::{Cursor, Write},
-};
+use std::io::{Cursor, Write};
 
 use ark_ff::{FromBytes, One, Zero};
 use mina_hasher::Fp;
@@ -24,10 +21,10 @@ impl std::fmt::Debug for Item {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Bool(arg0) => f.write_fmt(format_args!("{}", if *arg0 { 1 } else { 0 })),
-            Self::U8(arg0) => f.write_fmt(format_args!("{}", arg0)),
-            Self::U32(arg0) => f.write_fmt(format_args!("{}", arg0)),
-            Self::U48(arg0) => f.write_fmt(format_args!("{:?}", arg0)),
-            Self::U64(arg0) => f.write_fmt(format_args!("{}", arg0)),
+            Self::U8(arg0) => f.write_fmt(format_args!("{}u8", arg0)),
+            Self::U32(arg0) => f.write_fmt(format_args!("{}u32", arg0)),
+            Self::U48(arg0) => f.write_fmt(format_args!("{:?}u48", arg0)),
+            Self::U64(arg0) => f.write_fmt(format_args!("{}u64", arg0)),
         }
         // match self {
         //     Self::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
@@ -137,12 +134,12 @@ impl Inputs {
     }
 }
 
-fn param_to_field(param: Cow<str>) -> Fp {
+fn param_to_field(param: &str) -> Fp {
     if param.len() > 20 {
         panic!("must be 20 byte maximum");
     }
 
-    let param_bytes = param.as_ref().as_bytes();
+    let param_bytes = param.as_bytes();
 
     let mut fp = <[u8; 32]>::default();
     let mut cursor = Cursor::new(&mut fp[..]);
@@ -171,7 +168,7 @@ fn param_to_field_noinputs(param: &str) -> Fp {
     Fp::from_bytes(&fp).expect("Fp::from_bytes failed")
 }
 
-pub fn hash_with_kimchi(param: Cow<str>, fields: &[Fp]) -> Fp {
+pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
     let mut sponge =
         ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
 
@@ -221,7 +218,7 @@ mod tests {
                 "6161616161616161616161616161616161616161000000000000000000000000",
             ),
         ] {
-            let field = param_to_field(Cow::Borrowed(s));
+            let field = param_to_field(s);
             assert_eq!(field.to_hex(), hex);
         }
     }
