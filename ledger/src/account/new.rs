@@ -242,17 +242,17 @@ impl Account {
         Self {
             public_key: pubkey.clone(),
             token_id: TokenId::default(),
-            token_permissions: TokenPermissions::NotOwned {
-                account_disabled: false,
-            },
-            token_symbol: "seb".to_string(),
+            token_permissions: TokenPermissions::default(),
+            token_symbol: String::new(),
+            // token_symbol: "seb".to_string(),
             // token_symbol: String::new(),
             balance: 10101,
-            nonce: 62772,
-            receipt_chain_hash: ReceiptChainHash::default(),
+            nonce: 0,
+            // nonce: 62772,
+            receipt_chain_hash: ReceiptChainHash::empty_v2(),
             delegate: Some(pubkey),
             // delegate: None,
-            voting_for: VotingFor::default(),
+            voting_for: VotingFor::dummy(),
             timing: Timing::Untimed,
             permissions: Permissions::user_default(),
             zkapp: None,
@@ -272,7 +272,7 @@ impl Account {
             token_symbol: String::new(),
             balance: 0,
             nonce: 0,
-            receipt_chain_hash: ReceiptChainHash::empty(),
+            receipt_chain_hash: ReceiptChainHash::empty_v2(),
             delegate: None,
             voting_for: VotingFor::dummy(),
             timing: Timing::Untimed,
@@ -285,6 +285,20 @@ impl Account {
     pub fn hash(&self) -> Fp {
         let mut inputs = Inputs::new();
 
+        // { public_key : 'pk
+        // ; token_id : 'id
+        // ; token_permissions : 'token_permissions
+        // ; token_symbol : 'token_symbol
+        // ; balance : 'amount
+        // ; nonce : 'nonce
+        // ; receipt_chain_hash : 'receipt_chain_hash
+        // ; delegate : 'delegate
+        // ; voting_for : 'state_hash
+        // ; timing : 'timing
+        // ; permissions : 'permissions
+        // ; zkapp : 'zkapp_opt
+        // ; zkapp_uri : 'zkapp_uri
+
         let zkapp = match self.zkapp.as_ref() {
             Some(zkapp) => Cow::Borrowed(zkapp),
             None => Cow::Owned(ZkAppAccount::default()),
@@ -292,17 +306,52 @@ impl Account {
 
         let zkapp = zkapp.as_ref();
 
-        // Poly.Fields.fold ~init:[] ~app_state:(f app_state)
-        //   ~verification_key:
-        //     (f
-        //        (Fn.compose field
-        //           (Option.value_map ~default:(dummy_vk_hash ()) ~f:With_hash.hash) ) )
-        //   ~zkapp_version:(f Mina_numbers.Zkapp_version.to_input)
-        //   ~sequence_state:(f app_state)
-        //   ~last_sequence_slot:(f Mina_numbers.Global_slot.to_input)
-        //   ~proved_state:
-        //     (f (fun b -> Random_oracle.Input.Chunked.packed (field_of_bool b, 1)))
-        // |> List.reduce_exn ~f:append
+        // // Poly.Fields.fold ~init:[] ~app_state:(f app_state)
+        // //   ~verification_key:
+        // //     (f
+        // //        (Fn.compose field
+        // //           (Option.value_map ~default:(dummy_vk_hash ()) ~f:With_hash.hash) ) )
+        // //   ~zkapp_version:(f Mina_numbers.Zkapp_version.to_input)
+        // //   ~sequence_state:(f app_state)
+        // //   ~last_sequence_slot:(f Mina_numbers.Global_slot.to_input)
+        // //   ~proved_state:
+        // //     (f (fun b -> Random_oracle.Input.Chunked.packed (field_of_bool b, 1)))
+        // // |> List.reduce_exn ~f:append
+
+        // // { public_key : 'pk
+        // // ; token_id : 'id
+        // // ; token_permissions : 'token_permissions
+        // // ; token_symbol : 'token_symbol
+        // // ; balance : 'amount
+        // // ; nonce : 'nonce
+        // // ; receipt_chain_hash : 'receipt_chain_hash
+        // // ; delegate : 'delegate
+        // // ; voting_for : 'state_hash
+        // // ; timing : 'timing
+        // // ; permissions : 'permissions
+        // // ; zkapp : 'zkapp_opt
+        // // ; zkapp_uri : 'zkapp_uri
+
+        // Self::zkapp_uri
+        // Note: This doesn't cover when zkapp_uri is None, which
+        // is never the case for accounts
+        let field_zkapp_uri = {
+            let mut bits = vec![true; self.zkapp_uri.len() * 8 + 1];
+            for (i, c) in self.zkapp_uri.as_bytes().iter().enumerate() {
+                for j in 0..8 {
+                    bits[(i * 8) + j] = (c & (1 << j)) != 0;
+                }
+            }
+
+            let mut inputs = Inputs::new();
+            for bit in bits {
+                inputs.append_bool(bit);
+            }
+
+            hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
+        };
+
+        inputs.append_field(field_zkapp_uri);
 
         let field_zkapp = {
             let mut inputs = Inputs::new();
@@ -354,147 +403,143 @@ impl Account {
 
         inputs.append_field(field_zkapp);
 
-        // // Self::zkapp_uri
-        // // Note: This doesn't cover when zkapp_uri is None, which
-        // // is never the case for accounts
-        // let field_zkapp_uri = {
-        //     let mut bits = vec![true; self.zkapp_uri.len() * 8 + 1];
-        //     for (i, c) in self.zkapp_uri.as_bytes().iter().enumerate() {
-        //         for j in 0..8 {
-        //             bits[(i * 8) + j] = (c & (1 << j)) != 0;
-        //         }
-        //     }
-
-        //     let mut inputs = Inputs::new();
-        //     for bit in bits {
-        //         inputs.append_bool(bit);
-        //     }
-
-        //     hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
-        // };
-
-        // inputs.append_field(field_zkapp_uri);
-
-        // // Self::token_symbol
-
-        // // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
-        // assert!(self.token_symbol.len() <= 6);
-
-        // let mut s = <[u8; 6]>::default();
-        // if !self.token_symbol.is_empty() {
-        //     let len = self.token_symbol.len();
-        //     s[..len].copy_from_slice(&self.token_symbol.as_bytes());
-        // }
-        // inputs.append_u48(s);
-
-        // // Self::snapp
-        // let snapp_accout = match self.snap.as_ref() {
-        //     Some(snapp) => Cow::Borrowed(snapp),
-        //     None => Cow::Owned(SnappAccount::default()),
-        // };
-        // let snapp_digest = get_legacy_hash_of((), snapp_accout.as_ref());
-
-        // inputs.append_field(snapp_digest);
-
-        // // println!("ROINPUT={:?}", inputs);
-
         // Self::permissions
 
-        // for auth in [
-        //     self.permissions.set_voting_for,
-        //     self.permissions.increment_nonce,
-        //     self.permissions.set_token_symbol,
-        //     self.permissions.edit_sequence_state,
-        //     self.permissions.set_zkapp_uri,
-        //     self.permissions.set_verification_key,
-        //     self.permissions.set_permissions,
-        //     self.permissions.set_delegate,
-        //     self.permissions.receive,
-        //     self.permissions.send,
-        //     self.permissions.edit_state,
-        // ] {
-        //     for bit in auth.encode().to_bits() {
-        //         inputs.append_bool(bit);
-        //     }
-        // }
+        for auth in [
+            self.permissions.set_voting_for,
+            self.permissions.increment_nonce,
+            self.permissions.set_token_symbol,
+            self.permissions.edit_sequence_state,
+            self.permissions.set_zkapp_uri,
+            self.permissions.set_verification_key,
+            self.permissions.set_permissions,
+            self.permissions.set_delegate,
+            self.permissions.receive,
+            self.permissions.send,
+            self.permissions.edit_state,
+        ] {
+            for bit in auth.encode().to_bits() {
+                inputs.append_bool(bit);
+            }
+        }
 
-        // // Self::timing
-        // match self.timing {
-        //     Timing::Untimed => {
-        //         inputs.append_bool(false);
-        //         inputs.append_u64(0); // initial_minimum_balance
-        //         inputs.append_u32(0); // cliff_time
-        //         inputs.append_u64(0); // cliff_amount
-        //         inputs.append_u32(1); // vesting_period
-        //         inputs.append_u64(0); // vesting_increment
-        //     }
-        //     Timing::Timed {
-        //         initial_minimum_balance,
-        //         cliff_time,
-        //         cliff_amount,
-        //         vesting_period,
-        //         vesting_increment,
-        //     } => {
-        //         inputs.append_bool(true);
-        //         inputs.append_u64(initial_minimum_balance);
-        //         inputs.append_u32(cliff_time);
-        //         inputs.append_u64(cliff_amount);
-        //         inputs.append_u32(vesting_period);
-        //         inputs.append_u64(vesting_increment);
-        //     }
-        // }
+        // Self::timing
+        match self.timing {
+            Timing::Untimed => {
+                inputs.append_bool(false);
+                inputs.append_u64(0); // initial_minimum_balance
+                inputs.append_u32(0); // cliff_time
+                inputs.append_u64(0); // cliff_amount
+                inputs.append_u32(1); // vesting_period
+                inputs.append_u64(0); // vesting_increment
+            }
+            Timing::Timed {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } => {
+                inputs.append_bool(true);
+                inputs.append_u64(initial_minimum_balance);
+                inputs.append_u32(cliff_time);
+                inputs.append_u64(cliff_amount);
+                inputs.append_u32(vesting_period);
+                inputs.append_u64(vesting_increment);
+            }
+        }
 
-        // // Self::voting_for
-        // inputs.append_field(self.voting_for.0);
+        // Self::voting_for
+        inputs.append_field(self.voting_for.0);
 
-        // // Self::delegate
-        // match self.delegate.as_ref() {
-        //     Some(delegate) => {
-        //         inputs.append_field(delegate.x);
-        //         inputs.append_bool(delegate.is_odd);
-        //     }
-        //     None => {
-        //         // Public_key.Compressed.empty
-        //         inputs.append_field(Fp::zero());
-        //         inputs.append_bool(false);
-        //     }
-        // }
+        // Self::delegate
+        match self.delegate.as_ref() {
+            Some(delegate) => {
+                inputs.append_field(delegate.x);
+                inputs.append_bool(delegate.is_odd);
+            }
+            None => {
+                // Public_key.Compressed.empty
+                inputs.append_field(Fp::zero());
+                inputs.append_bool(false);
+            }
+        }
 
-        // // Self::receipt_chain_hash
-        // inputs.append_field(self.receipt_chain_hash.0);
+        // Self::receipt_chain_hash
+        inputs.append_field(self.receipt_chain_hash.0);
 
-        // // Self::nonce
-        // inputs.append_u32(self.nonce);
+        // Self::nonce
+        inputs.append_u32(self.nonce);
 
-        // // Self::balance
-        // inputs.append_u64(self.balance);
+        // Self::balance
+        inputs.append_u64(self.balance);
 
-        // // Self::token_permissions
-        // match self.token_permissions {
-        //     TokenPermissions::TokenOwned {
-        //         disable_new_accounts,
-        //     } => {
-        //         inputs.append_bool(true);
-        //         inputs.append_bool(disable_new_accounts);
-        //     }
-        //     TokenPermissions::NotOwned { account_disabled } => {
-        //         inputs.append_bool(false);
-        //         inputs.append_bool(account_disabled);
-        //     }
-        // }
+        // Self::token_symbol
 
-        // // Self::token_id
-        // inputs.append_u64(self.token_id.0);
+        // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
+        assert!(self.token_symbol.len() <= 6);
 
-        // // Self::public_key
-        // inputs.append_field(self.public_key.x);
-        // inputs.append_bool(self.public_key.is_odd);
+        let mut s = <[u8; 6]>::default();
+        if !self.token_symbol.is_empty() {
+            let len = self.token_symbol.len();
+            s[..len].copy_from_slice(&self.token_symbol.as_bytes());
+        }
+        inputs.append_u48(s);
+
+        // Self::token_permissions
+        match self.token_permissions {
+            TokenPermissions::TokenOwned {
+                disable_new_accounts,
+            } => {
+                let bit = if disable_new_accounts { 1 } else { 0 };
+                let value = 0b10 & bit;
+                inputs.append_u2(value);
+            }
+            TokenPermissions::NotOwned { account_disabled } => {
+                let bit = if account_disabled { 1 } else { 0 };
+                let value = 0b00 & bit;
+                inputs.append_u2(value);
+            }
+        }
+
+        // Self::token_id
+        inputs.append_field(self.token_id.0.into());
+
+        // Self::public_key
+        inputs.append_field(self.public_key.x);
+        inputs.append_bool(self.public_key.is_odd);
 
         println!("INPUTS={:#?}", inputs);
 
         hash_with_kimchi("CodaAccount", &inputs.to_fields())
     }
 }
+
+// 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0,
+// 0u64, 0u32, 0u64, 1u32, 0u64, 1, 0u32, 10101u64, [0, 0, 0, 0, 0, 0]u48, 0, 0, 1u64, 1,  // old
+// 0u64, 0u32, 0u64, 1u32, 0u64, 1, 0u32, 10101u64, [0, 0, 0, 0, 0, 0]u48, 0u2, 1u64, 1,
+
+// ACC NFIELD=7
+// PACKEDS=       1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,64,32,64,32,64,1,32,   64,48,2,1
+// PACKEDS_FIELDS=0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,1,0,1,0,1,1,0,1,1,0,0,  0, 0, 1, 0,1, 0,10101, 0,0,1
+
+// 20639848968581348850513072699760590695338607317404146322838943866773129280073,
+// 22371316807638652529772065903909764704228252716310880671193348070876705445596,
+// 0,
+// 12795687574753918860435211718650774356736021150641296953959799735605507813255,
+// 14564582992068613478915821183083107733064540968050799295374021047658500056219,
+// 1,
+// 12795687574753918860435211718650774356736021150641296953959799735605507813255
+
+// 20639848968581348850513072699760590695338607317404146322838943866773129280073,
+// 22371316807638652529772065903909764704228252716310880671193348070876705445596,
+// 0,
+// 12795687574753918860435211718650774356736021150641296953959799735605507813255,
+// 14564582992068613478915821183083107733064540968050799295374021047658500056219,
+// 1,
+// 12795687574753918860435211718650774356736021150641296953959799735605507813255,
+// 46217053030958768133802289322136496847505421747041956226572709003265,
+// 178405961588244985132285768926616810082533377
 
 #[cfg(test)]
 mod tests {
@@ -515,7 +560,7 @@ mod tests {
 
         assert_eq!(
             hash.to_hex(),
-            "9aec887ebf9d0fbd8f49e27fbe2fbda90bdf1eb0f945c6f6a58b126b59ddb23a"
+            "29ed0b3d0e00d8e24a86752291e90834bcccfee0953441e29f83c89a8e51ef37"
         );
     }
 

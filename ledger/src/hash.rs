@@ -11,6 +11,7 @@ use oracle::{
 
 enum Item {
     Bool(bool),
+    U2(u8),
     U8(u8),
     U32(u32),
     U48([u8; 6]),
@@ -21,6 +22,7 @@ impl std::fmt::Debug for Item {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Bool(arg0) => f.write_fmt(format_args!("{}", if *arg0 { 1 } else { 0 })),
+            Self::U2(arg0) => f.write_fmt(format_args!("{}u2", arg0)),
             Self::U8(arg0) => f.write_fmt(format_args!("{}u8", arg0)),
             Self::U32(arg0) => f.write_fmt(format_args!("{}u32", arg0)),
             Self::U48(arg0) => f.write_fmt(format_args!("{:?}u48", arg0)),
@@ -43,6 +45,7 @@ impl Item {
     fn nbits(&self) -> u32 {
         match self {
             Item::Bool(_) => 1,
+            Item::U2(_) => 2,
             Item::U8(_) => 8,
             Item::U32(_) => 32,
             Item::U48(_) => 48,
@@ -59,6 +62,7 @@ impl Item {
                     Fp::zero()
                 }
             }
+            Item::U2(v) => (*v).into(),
             Item::U8(v) => (*v).into(),
             Item::U32(v) => (*v).into(),
             Item::U48(v) => {
@@ -71,22 +75,41 @@ impl Item {
     }
 }
 
-#[derive(Debug)]
 pub struct Inputs {
     fields: Vec<Fp>,
     packeds: Vec<Item>,
 }
 
+impl std::fmt::Debug for Inputs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Inputs")
+            .field(
+                "fields",
+                &self
+                    .fields
+                    .iter()
+                    .map(|f| f.to_string())
+                    .collect::<Vec<_>>(),
+            )
+            .field("packeds", &self.packeds)
+            .finish()
+    }
+}
+
 impl Inputs {
     pub fn new() -> Self {
         Self {
-            fields: Vec::with_capacity(128),
-            packeds: Vec::with_capacity(128),
+            fields: Vec::with_capacity(512),
+            packeds: Vec::with_capacity(512),
         }
     }
 
     pub fn append_bool(&mut self, value: bool) {
         self.packeds.push(Item::Bool(value));
+    }
+
+    pub fn append_u2(&mut self, value: u8) {
+        self.packeds.push(Item::U2(value));
     }
 
     pub fn append_u8(&mut self, value: u8) {
@@ -117,9 +140,21 @@ impl Inputs {
             nbits += item_nbits;
 
             if nbits < 255 {
-                let multiply_by: Fp = 2u64.pow(item_nbits).into();
+                let multiply_by = 2u128.checked_pow(item_nbits).unwrap();
+                // let multiply_by: Fp = 2u64.pow(item_nbits).into();
+                println!(
+                    "NBITS={:?} ITEM_NBITS={:? } ITEM={:?} MULT_BY={:?} CURRENT={:?} 2^64={:?}",
+                    nbits,
+                    item_nbits,
+                    item.to_string(),
+                    multiply_by,
+                    current_field.to_string(),
+                    2u128.pow(64),
+                );
+                let multiply_by: Fp = multiply_by.into();
                 current_field = (current_field * multiply_by) + item;
             } else {
+                println!("NEW FIELD = {:?}", current_field.to_string());
                 self.fields.push(current_field);
                 current_field = item;
                 nbits = item_nbits;
@@ -171,6 +206,11 @@ fn param_to_field_noinputs(param: &str) -> Fp {
 pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
     let mut sponge =
         ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
+
+    println!(
+        "RESULT_FIELDS={:#?}",
+        fields.iter().map(|f| f.to_string()).collect::<Vec<_>>()
+    );
 
     sponge.absorb(&[param_to_field(param)]);
     sponge.squeeze();

@@ -2,6 +2,8 @@ use ark_ff::Zero;
 use mina_hasher::Fp;
 use o1_utils::FieldHelpers;
 
+use crate::{hash::hash_noinputs, tree::TreeVersion};
+
 pub type Balance = u64;
 
 pub type Amount = u64;
@@ -43,15 +45,20 @@ impl ReceiptChainHash {
     pub fn empty() -> Self {
         Self(empty_receipt_hash())
     }
+
+    pub fn empty_v2() -> Self {
+        let empty = hash_noinputs("CodaReceiptEmpty");
+        Self(empty)
+    }
 }
 
 fn empty_receipt_hash() -> Fp {
     // Value of `Receipt.Chain_hash.empty` in Ocaml (`develop` branch)
-    // let empty_hex = "9be4b7c51ed9c2e4524727805fd36f5220fbfc70a749f62623b0ed2908433320";
-    // Fp::from_hex(&empty_hex).unwrap()
+    let empty_hex = "9be4b7c51ed9c2e4524727805fd36f5220fbfc70a749f62623b0ed2908433320";
+    Fp::from_hex(&empty_hex).unwrap()
 
     // Value of `Receipt.Chain_hash.empty` in Ocaml (`compatible` branch)
-    Fp::from_hex("0b143c0645497a5987a7b88f66340e03db943f0a0df48b69a3a82921ce97b10a").unwrap()
+    // Fp::from_hex("0b143c0645497a5987a7b88f66340e03db943f0a0df48b69a3a82921ce97b10a").unwrap()
 }
 
 impl Default for ReceiptChainHash {
