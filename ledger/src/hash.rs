@@ -2,7 +2,6 @@ use std::io::{Cursor, Write};
 
 use ark_ff::{FromBytes, One, Zero};
 use mina_hasher::Fp;
-use o1_utils::FieldHelpers;
 use oracle::{
     constants::PlonkSpongeConstantsKimchi,
     pasta,
@@ -30,9 +29,6 @@ impl std::fmt::Debug for Item {
         }
     }
 }
-
-// 0,1,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1, 1,0,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1,
-// 0,1,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1, 0,1,1, 1,0,1, 0,1,1, 0,1,1 ocaml
 
 impl Item {
     fn nbits(&self) -> u32 {
@@ -166,7 +162,7 @@ fn param_to_field(param: &str) -> Fp {
         cursor.write("*".as_bytes()).expect("write failed");
     }
 
-    Fp::from_bytes(&fp).expect("Fp::from_bytes failed")
+    Fp::read(&fp[..]).expect("fp read failed")
 }
 
 fn param_to_field_noinputs(param: &str) -> Fp {
@@ -181,7 +177,7 @@ fn param_to_field_noinputs(param: &str) -> Fp {
 
     cursor.write(param_bytes).expect("write failed");
 
-    Fp::from_bytes(&fp).expect("Fp::from_bytes failed")
+    Fp::read(&fp[..]).expect("fp read failed")
 }
 
 pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
@@ -205,6 +201,8 @@ pub fn hash_noinputs(param: &str) -> Fp {
 
 #[cfg(test)]
 mod tests {
+    use o1_utils::FieldHelpers;
+
     use super::*;
 
     #[test]

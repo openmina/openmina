@@ -1,85 +1,10 @@
 use std::fmt::Debug;
 
 use crate::{
-    account::{get_legacy_hash_of, Account, AccountLegacy},
     address::{Address, AddressIterator, Direction},
+    tree_version::TreeVersion,
 };
 use mina_hasher::Fp;
-
-pub trait TreeVersion {
-    type Account: Debug + Clone;
-
-    fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp;
-    fn hash_leaf(leaf: &Self::Account) -> Fp;
-    fn empty_hash_at_depth(depth: usize) -> Fp;
-}
-
-struct V1;
-struct V2;
-
-impl TreeVersion for V2 {
-    type Account = Account;
-
-    fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp {
-        let param = format!("CodaMklTree{:03}", depth);
-
-        crate::hash::hash_with_kimchi(param.as_str(), &[left, right])
-    }
-
-    fn hash_leaf(leaf: &Self::Account) -> Fp {
-        leaf.hash()
-    }
-
-    fn empty_hash_at_depth(depth: usize) -> Fp {
-        (0..depth).fold(Account::empty().hash(), |prev_hash, depth| {
-            Self::hash_node(depth, prev_hash, prev_hash)
-        })
-    }
-}
-
-impl TreeVersion for V1 {
-    type Account = AccountLegacy;
-
-    fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp {
-        use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};
-
-        #[derive(Clone)]
-        struct TwoHashes(Fp, Fp);
-
-        impl Hashable for TwoHashes {
-            type D = u32; // depth
-
-            fn to_roinput(&self) -> ROInput {
-                let mut roi = ROInput::new();
-                roi.append_field(self.0);
-                roi.append_field(self.1);
-                roi
-            }
-
-            fn domain_string(depth: Self::D) -> Option<String> {
-                Some(format!("CodaMklTree{:03}", depth))
-            }
-        }
-
-        let mut hasher = create_legacy::<TwoHashes>(depth as u32);
-        hasher.update(&TwoHashes(left, right));
-        hasher.digest()
-    }
-
-    fn hash_leaf(leaf: &Self::Account) -> Fp {
-        use mina_hasher::{create_legacy, Hasher};
-
-        let mut hasher = create_legacy::<AccountLegacy>(());
-        hasher.update(leaf);
-        hasher.digest()
-    }
-
-    fn empty_hash_at_depth(depth: usize) -> Fp {
-        (0..depth).fold(account_empty_hash(), |prev_hash, depth| {
-            Self::hash_node(depth, prev_hash, prev_hash)
-        })
-    }
-}
 
 #[derive(Clone, Debug)]
 enum NodeOrLeaf<T: TreeVersion> {
@@ -115,7 +40,7 @@ struct Database<T: TreeVersion> {
 }
 
 impl<T: TreeVersion> NodeOrLeaf<T> {
-    fn add_to_path(node_or_leaf: &mut Self, account: T::Account, path: AddressIterator) {
+    fn add_account_on_path(node_or_leaf: &mut Self, account: T::Account, path: AddressIterator) {
         let mut node_or_leaf = node_or_leaf;
 
         for direction in path {
@@ -150,7 +75,6 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
             NodeOrLeaf::Node(node) => node,
             NodeOrLeaf::Leaf(leaf) => {
                 return T::hash_leaf(&*leaf.account);
-                // return get_hash_of((), &*leaf.account);
             }
         };
 
@@ -164,28 +88,13 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
             None => T::empty_hash_at_depth(depth),
         };
 
-        let hash = T::hash_node(depth, left_hash, right_hash);
-
-        println!("depth={:?} HASH={:?}", depth, hash.to_string(),);
-
-        // println!("depth={:?} HASH={:?} left={:?} right={:?}",
-        //          depth,
-        //          hash.to_string(),
-        //          left_hash.to_string(),
-        //          right_hash.to_string(),
-        // );
-
-        hash
+        T::hash_node(depth, left_hash, right_hash)
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 enum DatabaseError {
     OutOfLeaves,
-}
-
-fn account_empty_hash() -> Fp {
-    get_legacy_hash_of((), &AccountLegacy::empty())
 }
 
 impl<T: TreeVersion> Database<T> {
@@ -215,7 +124,7 @@ impl<T: TreeVersion> Database<T> {
 
         let root = self.root.as_mut().unwrap();
         let path_iter = location.clone().into_iter();
-        NodeOrLeaf::add_to_path(root, account, path_iter);
+        NodeOrLeaf::add_account_on_path(root, account, path_iter);
 
         self.last_location = Some(location.clone());
 
@@ -229,6 +138,7 @@ impl<T: TreeVersion> Database<T> {
         }
     }
 
+    #[cfg(test)]
     fn naccounts(&self) -> usize {
         let mut naccounts = 0;
 
@@ -239,6 +149,7 @@ impl<T: TreeVersion> Database<T> {
         naccounts
     }
 
+    #[cfg(test)]
     fn naccounts_recursive(&self, elem: &NodeOrLeaf<T>, naccounts: &mut usize) {
         match elem {
             NodeOrLeaf::Leaf(_) => *naccounts += 1,
@@ -258,12 +169,15 @@ impl<T: TreeVersion> Database<T> {
 mod tests {
     use o1_utils::FieldHelpers;
 
-    use crate::account::AccountLegacy;
+    use crate::{
+        account::{Account, AccountLegacy},
+        tree_version::{account_empty_legacy_hash, V1, V2},
+    };
 
     use super::*;
 
     #[test]
-    fn test_db() {
+    fn test_legacy_db() {
         let two: usize = 2;
 
         for depth in 2..17 {
@@ -286,8 +200,31 @@ mod tests {
     }
 
     #[test]
-    fn test_hash_empty() {
-        let account_empty_hash = account_empty_hash();
+    fn test_db_v2() {
+        let two: usize = 2;
+
+        for depth in 2..17 {
+            let mut db = Database::<V2>::create(depth);
+
+            for _ in 0..two.pow(depth as u32) {
+                db.create_account((), Account::create()).unwrap();
+            }
+
+            let naccounts = db.naccounts();
+            assert_eq!(naccounts, two.pow(depth as u32));
+
+            assert_eq!(
+                db.create_account((), Account::create()).unwrap_err(),
+                DatabaseError::OutOfLeaves
+            );
+
+            println!("depth={:?} naccounts={:?}", depth, naccounts);
+        }
+    }
+
+    #[test]
+    fn test_legacy_hash_empty() {
+        let account_empty_hash = account_empty_legacy_hash();
         assert_eq!(
             account_empty_hash.to_hex(),
             "70ccdba14f829608e59a37ed98ffcaeef06dad928d568a9adbde13e3dd104a20"
@@ -324,9 +261,84 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_hash_empty() {
+        let account_empty_hash = Account::empty().hash();
+        assert_eq!(
+            account_empty_hash.to_hex(),
+            "976de129aebe3a7a4a6127bafad8fba19b75ae2517854133013d0f1ab87c2904"
+        );
+
+        for (depth, s) in [
+            (
+                0,
+                "976de129aebe3a7a4a6127bafad8fba19b75ae2517854133013d0f1ab87c2904",
+            ),
+            (
+                5,
+                "ab4bda63c3c9edf4deb113f2993724a1599a5588421530a9a862f5dbdbeded06",
+            ),
+            (
+                10,
+                "d753d0d1dc1211d97c903c53c5eb62a49bc370ddf63870aa26bfade7b47b5102",
+            ),
+            (
+                11,
+                "eab73d282c56c799bd42b18eb92fab18a90dcfac48c8866e19e2902d850b3731",
+            ),
+            (
+                100,
+                "3ec0aa90fa11f39482d347b18032d2292b3673807d5b4c6fc2aa73b98d875a2f",
+            ),
+            (
+                2000,
+                "031a2618a9592787596642ba88bfc502236221d0981facd2f3caf8648336ca12",
+            ),
+        ] {
+            let hash = V2::empty_hash_at_depth(depth);
+            assert_eq!(hash.to_hex(), s, "invalid hash at depth={:?}", depth);
+        }
+    }
+
     /// An empty tree produces the same hash than a tree full of empty accounts
     #[test]
-    fn test_root_hash() {
+    fn test_root_hash_v2() {
+        let mut db = Database::<V2>::create(4);
+        for _ in 0..16 {
+            db.create_account((), Account::empty()).unwrap();
+        }
+        assert_eq!(
+            db.create_account((), Account::empty()).unwrap_err(),
+            DatabaseError::OutOfLeaves
+        );
+        let hash = db.root_hash();
+        println!("ROOT_HASH={:?}", hash.to_string());
+        assert_eq!(
+            hash.to_hex(),
+            "169bada2f4bb2ea2b8189f47cf2b665e3e0fb135233242ae1b52794eb3fe7924"
+        );
+
+        let mut db = Database::<V2>::create(4);
+        for _ in 0..1 {
+            db.create_account((), Account::empty()).unwrap();
+        }
+        let hash = db.root_hash();
+        assert_eq!(
+            hash.to_hex(),
+            "169bada2f4bb2ea2b8189f47cf2b665e3e0fb135233242ae1b52794eb3fe7924"
+        );
+
+        let db = Database::<V2>::create(4);
+        let hash = db.root_hash();
+        assert_eq!(
+            hash.to_hex(),
+            "169bada2f4bb2ea2b8189f47cf2b665e3e0fb135233242ae1b52794eb3fe7924"
+        );
+    }
+
+    /// An empty tree produces the same hash than a tree full of empty accounts
+    #[test]
+    fn test_root_hash_legacy() {
         let mut db = Database::<V1>::create(4);
         for _ in 0..16 {
             db.create_account((), AccountLegacy::empty()).unwrap();
