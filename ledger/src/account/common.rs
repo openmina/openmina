@@ -2,7 +2,7 @@ use ark_ff::Zero;
 use mina_hasher::Fp;
 use o1_utils::FieldHelpers;
 
-use crate::{hash::hash_noinputs, tree::TreeVersion};
+use crate::hash::hash_noinputs;
 
 pub type Balance = u64;
 

@@ -226,7 +226,6 @@ impl Account {
     pub fn create() -> Self {
         let pubkey = CompressedPubKey::from_address(
             "B62qnzbXmRNo9q32n4SNu2mpB8e7FYYLH8NmaX6oFCBYjjQ8SbD7uzV",
-            // "B62qiTKpEPjGTSHZrtM8uXiKgn8So916pLmNJKDhKeyBQL9TDb3nvBG", // Public_key.Compressed.empty
         )
         .unwrap();
 
@@ -235,19 +234,14 @@ impl Account {
             token_id: TokenId::default(),
             token_permissions: TokenPermissions::default(),
             token_symbol: String::new(),
-            // token_symbol: "seb".to_string(),
-            // token_symbol: String::new(),
             balance: 10101,
             nonce: 0,
-            // nonce: 62772,
             receipt_chain_hash: ReceiptChainHash::empty(),
             delegate: Some(pubkey),
-            // delegate: None,
             voting_for: VotingFor::dummy(),
             timing: Timing::Untimed,
             permissions: Permissions::user_default(),
             zkapp: None,
-            // zkapp_uri: "https://target/release/deps/mina_tree-6ee5ea26e91aacf6".to_string(),
             zkapp_uri: String::new(),
         }
     }
@@ -452,6 +446,30 @@ mod tests {
         assert_eq!(
             hash.to_hex(),
             "29ed0b3d0e00d8e24a86752291e90834bcccfee0953441e29f83c89a8e51ef37"
+        );
+
+        let acc = Account {
+            public_key: CompressedPubKey::from_address(
+                "B62qnzbXmRNo9q32n4SNu2mpB8e7FYYLH8NmaX6oFCBYjjQ8SbD7uzV",
+            )
+            .unwrap(),
+            token_id: TokenId::default(),
+            token_permissions: TokenPermissions::default(),
+            token_symbol: "seb".to_string(),
+            balance: 10101,
+            nonce: 62772,
+            receipt_chain_hash: ReceiptChainHash::empty(),
+            delegate: None,
+            voting_for: VotingFor::dummy(),
+            timing: Timing::Untimed,
+            permissions: Permissions::user_default(),
+            zkapp: None,
+            zkapp_uri: "https://target/release/deps/mina_tree-6ee5ea26e91aacf6".to_string(),
+        };
+
+        assert_eq!(
+            acc.hash().to_hex(),
+            "080ed90fa2552976f8ec3ada5a5d613ef0f6741b7ae1c60573105c6a146c942f"
         );
     }
 
