@@ -420,7 +420,7 @@ impl AccountLegacy {
             token_permissions: TokenPermissions::default(),
             balance: 0,
             nonce: 0,
-            receipt_chain_hash: ReceiptChainHash::empty(),
+            receipt_chain_hash: ReceiptChainHash::empty_legacy(),
             delegate: None,
             voting_for: VotingFor::dummy(),
             timing: Timing::Untimed,

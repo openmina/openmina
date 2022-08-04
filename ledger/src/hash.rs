@@ -28,13 +28,6 @@ impl std::fmt::Debug for Item {
             Self::U48(arg0) => f.write_fmt(format_args!("{:?}u48", arg0)),
             Self::U64(arg0) => f.write_fmt(format_args!("{}u64", arg0)),
         }
-        // match self {
-        //     Self::Bool(arg0) => f.debug_tuple("Bool").field(arg0).finish(),
-        //     Self::U8(arg0) => f.debug_tuple("U8").field(arg0).finish(),
-        //     Self::U32(arg0) => f.debug_tuple("U32").field(arg0).finish(),
-        //     Self::U48(arg0) => f.debug_tuple("U48").field(arg0).finish(),
-        //     Self::U64(arg0) => f.debug_tuple("U64").field(arg0).finish(),
-        // }
     }
 }
 
@@ -99,8 +92,8 @@ impl std::fmt::Debug for Inputs {
 impl Inputs {
     pub fn new() -> Self {
         Self {
-            fields: Vec::with_capacity(512),
-            packeds: Vec::with_capacity(512),
+            fields: Vec::with_capacity(256),
+            packeds: Vec::with_capacity(256),
         }
     }
 
@@ -134,35 +127,23 @@ impl Inputs {
 
     pub fn to_fields(mut self) -> Vec<Fp> {
         let mut nbits = 0;
-        let mut current_field = Fp::zero();
+        let mut current = Fp::zero();
 
         for (item, item_nbits) in self.packeds.iter().map(|i| (i.as_field(), i.nbits())) {
             nbits += item_nbits;
 
             if nbits < 255 {
-                let multiply_by = 2u128.checked_pow(item_nbits).unwrap();
-                // let multiply_by: Fp = 2u64.pow(item_nbits).into();
-                println!(
-                    "NBITS={:?} ITEM_NBITS={:? } ITEM={:?} MULT_BY={:?} CURRENT={:?} 2^64={:?}",
-                    nbits,
-                    item_nbits,
-                    item.to_string(),
-                    multiply_by,
-                    current_field.to_string(),
-                    2u128.pow(64),
-                );
-                let multiply_by: Fp = multiply_by.into();
-                current_field = (current_field * multiply_by) + item;
+                let multiply_by: Fp = 2u128.checked_pow(item_nbits).unwrap().into();
+                current = (current * multiply_by) + item;
             } else {
-                println!("NEW FIELD = {:?}", current_field.to_string());
-                self.fields.push(current_field);
-                current_field = item;
+                self.fields.push(current);
+                current = item;
                 nbits = item_nbits;
             }
         }
 
         if nbits > 0 {
-            self.fields.push(current_field);
+            self.fields.push(current);
         }
 
         self.fields
@@ -207,11 +188,6 @@ pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
     let mut sponge =
         ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
 
-    println!(
-        "RESULT_FIELDS={:#?}",
-        fields.iter().map(|f| f.to_string()).collect::<Vec<_>>()
-    );
-
     sponge.absorb(&[param_to_field(param)]);
     sponge.squeeze();
 
@@ -226,17 +202,6 @@ pub fn hash_noinputs(param: &str) -> Fp {
     sponge.absorb(&[param_to_field_noinputs(param)]);
     sponge.squeeze()
 }
-
-// fn hash_with_kimchi(param: Cow<str>, inputs: Inputs) -> Fp {
-//     let mut sponge =
-//         ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
-
-//     sponge.absorb(&[param_to_field(param)]);
-//     sponge.squeeze();
-
-//     sponge.absorb(&inputs.to_fields());
-//     sponge.squeeze()
-// }
 
 #[cfg(test)]
 mod tests {
