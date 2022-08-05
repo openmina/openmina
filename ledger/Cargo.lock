@@ -169,6 +169,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "771fe0050b883fcc3ea2359b1a96bcfbc090b7116eae7c3c512c7a083fdf23d3"
 
 [[package]]
+name = "byteorder"
+version = "1.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
+
+[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -443,6 +449,8 @@ dependencies = [
  "mina-signer",
  "o1-utils",
  "oracle",
+ "serde",
+ "serde-binprot",
 ]
 
 [[package]]
@@ -666,6 +674,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc855a42c7967b7c369eb5860f7164ef1f6f81c20c7cc1141f2a604e18723b03"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-binprot"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "serde",
 ]
 
 [[package]]

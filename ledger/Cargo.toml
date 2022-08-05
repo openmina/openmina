@@ -12,6 +12,9 @@ oracle = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18
 mina-curves = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
 o1-utils = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
 bs58 = "0.4.0"
+serde-binprot = { path = "/home/sebastien/travaux/serde-binprot" }
+# serde-binprot = {git = "https://github.com/LaurentMazare/serde-binprot.git", rev = "98daaf8f0f5dc57ea7bc69594d963b30e02e8485"}
+serde = "1.0"
 
 # oracle = { path = "../oracle" }
 # mina-curves = { path = "../curves" }

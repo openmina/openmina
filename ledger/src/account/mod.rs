@@ -1,4 +1,5 @@
 mod account;
+mod binprot;
 mod common;
 mod legacy;
 

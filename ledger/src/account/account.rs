@@ -274,17 +274,14 @@ impl Account {
         // Note: This doesn't cover when zkapp_uri is None, which
         // is never the case for accounts
         let field_zkapp_uri = {
-            let mut bits = vec![true; self.zkapp_uri.len() * 8 + 1];
-            for (i, c) in self.zkapp_uri.as_bytes().iter().enumerate() {
+            let mut inputs = Inputs::new();
+
+            for c in self.zkapp_uri.as_bytes() {
                 for j in 0..8 {
-                    bits[(i * 8) + j] = (c & (1 << j)) != 0;
+                    inputs.append_bool((c & (1 << j)) != 0);
                 }
             }
-
-            let mut inputs = Inputs::new();
-            for bit in bits {
-                inputs.append_bool(bit);
-            }
+            inputs.append_bool(true);
 
             hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
         };
