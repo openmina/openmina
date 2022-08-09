@@ -5,6 +5,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+crate-type = ["staticlib", "cdylib"]
+
 [dependencies]
 mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
 mina-hasher = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
@@ -25,3 +28,5 @@ ark-serialize = { version = "0.3.0", features = [ "std" ] }
 
 bitvec = "1.0.0"
 hex = "0.4.3"
+
+ocaml-interop = "0.8"

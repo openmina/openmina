@@ -1,0 +1,18 @@
+(rule
+ (targets libmina_tree.a libmina_tree.so)
+ (deps (source_tree .))
+ (action
+  (no-infer
+   (progn
+    (run cargo build)
+    (run sh -c
+      "cp target/debug/libmina_tree.so ./libmina_tree.so 2> /dev/null || \
+       cp target/debug/libmina_tree.dylib ./libmina_tree.so")
+    (run cp target/debug/libmina_tree.a ./libmina_tree.a)
+   ))))
+
+(library
+ (name mina_tree)
+ (public_name mina_tree)
+ (c_library_flags -lpthread -lc -lm)
+ (foreign_archives mina_tree))
