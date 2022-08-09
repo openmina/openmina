@@ -70,7 +70,7 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
         });
     }
 
-    fn hash(&self, depth: usize) -> Fp {
+    fn hash(&self, depth: Option<usize>) -> Fp {
         let node = match self {
             NodeOrLeaf::Node(node) => node,
             NodeOrLeaf::Leaf(leaf) => {
@@ -78,13 +78,18 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
             }
         };
 
+        let depth = match depth {
+            Some(depth) => depth,
+            None => panic!("invalid depth"),
+        };
+
         let left_hash = match &node.left {
-            Some(left) => left.hash(depth - 1),
+            Some(left) => left.hash(depth.checked_sub(1)),
             None => T::empty_hash_at_depth(depth),
         };
 
         let right_hash = match &node.right {
-            Some(right) => right.hash(depth - 1),
+            Some(right) => right.hash(depth.checked_sub(1)),
             None => T::empty_hash_at_depth(depth),
         };
 
@@ -133,7 +138,7 @@ impl<T: TreeVersion> Database<T> {
 
     fn root_hash(&self) -> Fp {
         match self.root.as_ref() {
-            Some(root) => root.hash(self.depth as usize - 1),
+            Some(root) => root.hash(Some(self.depth as usize - 1)),
             None => T::empty_hash_at_depth(self.depth as usize),
         }
     }
@@ -180,7 +185,7 @@ mod tests {
     fn test_legacy_db() {
         let two: usize = 2;
 
-        for depth in 2..17 {
+        for depth in 2..15 {
             let mut db = Database::<V1>::create(depth);
 
             for _ in 0..two.pow(depth as u32) {
@@ -203,7 +208,7 @@ mod tests {
     fn test_db_v2() {
         let two: usize = 2;
 
-        for depth in 2..17 {
+        for depth in 2..15 {
             let mut db = Database::<V2>::create(depth);
 
             for _ in 0..two.pow(depth as u32) {

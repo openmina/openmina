@@ -307,7 +307,7 @@ mod tests {
         let two: usize = 2;
 
         // prev
-        for length in 5..25 {
+        for length in 5..23 {
             let mut addr = Address::last(length);
 
             println!("length={length} until={:?}", two.pow(length as u32));
@@ -321,7 +321,7 @@ mod tests {
         }
 
         // next
-        for length in 5..25 {
+        for length in 5..23 {
             let mut addr = Address::first(length);
 
             println!("length={length} until={:?}", two.pow(length as u32));

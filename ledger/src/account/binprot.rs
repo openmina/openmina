@@ -1,8 +1,27 @@
+use std::ops::Deref;
+
+use ark_ff::FromBytes;
+use mina_hasher::Fp;
+use mina_signer::CompressedPubKey;
 ///! Types generated with https://github.com/name-placeholder/bin-prot-rs
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize)]
 pub struct BigInt([u8; 32]);
+
+impl Deref for BigInt {
+    type Target = [u8; 32];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Into<Fp> for BigInt {
+    fn into(self) -> Fp {
+        Fp::read(&self.0[..]).unwrap()
+    }
+}
 
 impl<'de> Deserialize<'de> for BigInt {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -32,6 +51,15 @@ impl<'de> Deserialize<'de> for BigInt {
         }
 
         deserializer.deserialize_any(BigIntVisitor).map(BigInt)
+    }
+}
+
+impl Into<CompressedPubKey> for NonZeroCurvePointUncompressedStableV1 {
+    fn into(self) -> CompressedPubKey {
+        CompressedPubKey {
+            x: Fp::read(&self.x[..]).unwrap(),
+            is_odd: self.is_odd,
+        }
     }
 }
 

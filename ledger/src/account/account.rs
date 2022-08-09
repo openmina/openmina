@@ -1,8 +1,10 @@
 use std::{borrow::Cow, str::FromStr};
 
+use super::{BigInt, MinaBaseAccountBinableArgStableV2, MinaBasePermissionsAuthRequiredStableV2};
 use ark_ff::{One, Zero};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use serde::Deserialize;
 
 use crate::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
@@ -73,6 +75,12 @@ impl Permissions<AuthRequired> {
 // It seems that a similar type exist in proof-systems: TODO
 #[derive(Copy, Clone, Debug)]
 struct CurveAffine(Fp, Fp);
+
+impl From<(BigInt, BigInt)> for CurveAffine {
+    fn from((a, b): (BigInt, BigInt)) -> Self {
+        Self(a.into(), b.into())
+    }
+}
 
 // https://github.com/MinaProtocol/mina/blob/a6e5f182855b3f4b4afb0ea8636760e618e2f7a0/src/lib/pickles_types/plonk_verification_key_evals.ml#L9-L18
 #[derive(Clone, Debug)]
@@ -205,7 +213,8 @@ impl Default for ZkAppAccount {
 }
 
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
+#[serde(from = "MinaBaseAccountBinableArgStableV2")]
 pub struct Account {
     pub public_key: CompressedPubKey,         // Public_key.Compressed.t
     pub token_id: TokenId,                    // Token_id.t
@@ -220,6 +229,150 @@ pub struct Account {
     pub permissions: Permissions<AuthRequired>, // Permissions.t
     pub zkapp: Option<ZkAppAccount>,          // Zkapp_account.t
     pub zkapp_uri: String,                    // string
+}
+
+impl From<MinaBasePermissionsAuthRequiredStableV2> for AuthRequired {
+    fn from(auth: MinaBasePermissionsAuthRequiredStableV2) -> Self {
+        match auth {
+            MinaBasePermissionsAuthRequiredStableV2::None => Self::None,
+            MinaBasePermissionsAuthRequiredStableV2::Either => Self::Either,
+            MinaBasePermissionsAuthRequiredStableV2::Proof => Self::Proof,
+            MinaBasePermissionsAuthRequiredStableV2::Signature => Self::Signature,
+            MinaBasePermissionsAuthRequiredStableV2::Impossible => Self::Impossible,
+        }
+    }
+}
+
+impl From<MinaBaseAccountBinableArgStableV2> for Account {
+    fn from(acc: MinaBaseAccountBinableArgStableV2) -> Self {
+        Self {
+            public_key: acc.public_key.into(),
+            token_id: TokenId(1), // TODO
+            token_permissions: match acc.token_permissions {
+                super::MinaBaseTokenPermissionsStableV1::TokenOwned {
+                    disable_new_accounts,
+                } => TokenPermissions::TokenOwned {
+                    disable_new_accounts,
+                },
+                super::MinaBaseTokenPermissionsStableV1::NotOwned { account_disabled } => {
+                    TokenPermissions::NotOwned { account_disabled }
+                }
+            },
+            token_symbol: acc.token_symbol,
+            balance: acc.balance.try_into().unwrap(),
+            nonce: acc.nonce.try_into().unwrap(),
+            receipt_chain_hash: ReceiptChainHash(acc.receipt_chain_hash.into()),
+            delegate: acc.delegate.map(|d| d.into()),
+            voting_for: VotingFor(acc.voting_for.into()),
+            timing: match acc.timing {
+                super::MinaBaseAccountTimingStableV1::Untimed => Timing::Untimed,
+                super::MinaBaseAccountTimingStableV1::Timed {
+                    initial_minimum_balance,
+                    cliff_time,
+                    cliff_amount,
+                    vesting_period,
+                    vesting_increment,
+                } => Timing::Timed {
+                    initial_minimum_balance: initial_minimum_balance.try_into().unwrap(),
+                    cliff_time: cliff_time.try_into().unwrap(),
+                    cliff_amount: cliff_amount.try_into().unwrap(),
+                    vesting_period: vesting_period.try_into().unwrap(),
+                    vesting_increment: vesting_increment.try_into().unwrap(),
+                },
+            },
+            permissions: Permissions {
+                edit_state: acc.permissions.edit_state.into(),
+                send: acc.permissions.send.into(),
+                receive: acc.permissions.receive.into(),
+                set_delegate: acc.permissions.set_delegate.into(),
+                set_permissions: acc.permissions.set_permissions.into(),
+                set_verification_key: acc.permissions.set_verification_key.into(),
+                set_zkapp_uri: acc.permissions.set_zkapp_uri.into(),
+                edit_sequence_state: acc.permissions.edit_sequence_state.into(),
+                set_token_symbol: acc.permissions.set_token_symbol.into(),
+                increment_nonce: acc.permissions.increment_nonce.into(),
+                set_voting_for: acc.permissions.set_voting_for.into(),
+            },
+            zkapp: acc.zkapp.map(|zkapp| {
+                #[rustfmt::skip]
+                let state = [
+                    zkapp.app_state.0.into(),
+                    zkapp.app_state.1.0.into(),
+                    zkapp.app_state.1.1.0.into(),
+                    zkapp.app_state.1.1.1.0.into(),
+                    zkapp.app_state.1.1.1.1.0.into(),
+                    zkapp.app_state.1.1.1.1.1.0.into(),
+                    zkapp.app_state.1.1.1.1.1.1.0.into(),
+                    zkapp.app_state.1.1.1.1.1.1.1.0.into(),
+                ];
+
+                ZkAppAccount {
+                    app_state: state.to_vec(),
+                    #[rustfmt::skip]
+                    verification_key: zkapp.verification_key.map(|vk| {
+                        let sigma = [
+                            vk.wrap_index.sigma_comm.0.into(),
+                            vk.wrap_index.sigma_comm.1.0.into(),
+                            vk.wrap_index.sigma_comm.1.1.0.into(),
+                            vk.wrap_index.sigma_comm.1.1.1.0.into(),
+                            vk.wrap_index.sigma_comm.1.1.1.1.0.into(),
+                            vk.wrap_index.sigma_comm.1.1.1.1.1.0.into(),
+                            vk.wrap_index.sigma_comm.1.1.1.1.1.1.0.into(),
+                        ];
+
+                        let coefficients = [
+                            vk.wrap_index.coefficients_comm.0.into(),
+                            vk.wrap_index.coefficients_comm.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.1.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.1.1.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.1.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.1.1.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.1.1.1.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.1.1.1.1.1.0.into(),
+                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.1.1.1.1.1.1.0.into(),
+                        ];
+
+                        VerificationKey {
+                            max_proofs_verified: match vk.max_proofs_verified {
+                                super::PicklesBaseProofsVerifiedStableV1::N0 => ProofVerified::N0,
+                                super::PicklesBaseProofsVerifiedStableV1::N1 => ProofVerified::N1,
+                                super::PicklesBaseProofsVerifiedStableV1::N2 => ProofVerified::N2,
+                            },
+                            wrap_index: PlonkVerificationKeyEvals {
+                                sigma,
+                                coefficients,
+                                generic: vk.wrap_index.generic_comm.into(),
+                                psm: vk.wrap_index.psm_comm.into(),
+                                complete_add: vk.wrap_index.complete_add_comm.into(),
+                                mul: vk.wrap_index.mul_comm.into(),
+                                emul: vk.wrap_index.emul_comm.into(),
+                                endomul_scalar: vk.wrap_index.endomul_scalar_comm.into(),
+                            },
+                            wrap_vk: None,
+                        }
+                    }),
+                    zkapp_version: zkapp.zkapp_version.try_into().unwrap(),
+                    #[rustfmt::skip]
+                    sequence_state: [
+                        zkapp.sequence_state.0.into(),
+                        zkapp.sequence_state.1.0.into(),
+                        zkapp.sequence_state.1.1.0.into(),
+                        zkapp.sequence_state.1.1.1.0.into(),
+                        zkapp.sequence_state.1.1.1.1.0.into(),
+                    ],
+                    last_sequence_slot: zkapp.last_sequence_slot.try_into().unwrap(),
+                    proved_state: zkapp.proved_state,
+                }
+            }),
+            zkapp_uri: acc.zkapp_uri,
+        }
+    }
 }
 
 impl Account {
@@ -475,6 +628,26 @@ mod tests {
         assert_eq!(
             VerificationKey::dummy().hash().to_hex(),
             "bda165a90435d2ecd2577002c32ee361e08fb3bbcb0445c9316d36992a470323"
+        );
+    }
+
+    #[test]
+    fn test_from_deserialized_account() {
+        let bytes: &[u8] = &[
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 1, 0, 3, 115, 101, 98, 0, 0, 155, 228, 183, 197, 30, 217, 194,
+            228, 82, 71, 39, 128, 95, 211, 111, 82, 32, 251, 252, 112, 167, 73, 246, 38, 35, 176,
+            237, 41, 8, 67, 51, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
+        ];
+
+        // This deserialize to `MinaBaseAccountBinableArgStableV2` and convert to `Account`
+        let acc: Account = serde_binprot::from_slice(bytes).unwrap();
+
+        assert_eq!(
+            acc.hash().to_hex(),
+            "cd4ada5a40f80f5c96a8d53ca2e950bb5c6a99082feba43640eaad7d6161f439"
         );
     }
 }
