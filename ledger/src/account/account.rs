@@ -184,11 +184,10 @@ impl VerificationKey {
     }
 }
 
-// TODO: Fill this struct
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/zkapp_account.ml#L148-L170
 #[derive(Clone, Debug)]
 pub struct ZkAppAccount {
-    app_state: Vec<Fp>,
+    app_state: [Fp; 8],
     verification_key: Option<VerificationKey>,
     zkapp_version: u32,
     sequence_state: [Fp; 5],
@@ -199,7 +198,7 @@ pub struct ZkAppAccount {
 impl Default for ZkAppAccount {
     fn default() -> Self {
         Self {
-            app_state: vec![Fp::zero(); 8],
+            app_state: [Fp::zero(); 8],
             verification_key: None,
             zkapp_version: 0,
             sequence_state: {
@@ -295,7 +294,7 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
             },
             zkapp: acc.zkapp.map(|zkapp| {
                 #[rustfmt::skip]
-                let state = [
+                let app_state = [
                     zkapp.app_state.0.into(),
                     zkapp.app_state.1.0.into(),
                     zkapp.app_state.1.1.0.into(),
@@ -307,7 +306,7 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                 ];
 
                 ZkAppAccount {
-                    app_state: state.to_vec(),
+                    app_state,
                     #[rustfmt::skip]
                     verification_key: zkapp.verification_key.map(|vk| {
                         let sigma = [
