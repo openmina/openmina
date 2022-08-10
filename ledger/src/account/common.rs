@@ -1,4 +1,4 @@
-use ark_ff::Zero;
+use ark_ff::{One, Zero};
 use mina_hasher::Fp;
 use o1_utils::FieldHelpers;
 
@@ -7,20 +7,6 @@ use crate::hash::hash_noinputs;
 pub type Balance = u64;
 
 pub type Amount = u64;
-
-// TODO: Not sure if it's the correct type
-//       It seems that the token id is a simple number, but on ocaml when they
-//       convert it to/from string (base58), they add/remove the byte 0x1C:
-//       https://github.com/MinaProtocol/mina/blob/3a35532cb19d17583b63036bc50d8dde5460b791/src/lib/mina_base/account_id.ml#L30
-//       need more research
-#[derive(Clone, Debug)]
-pub struct TokenId(pub u64);
-
-impl Default for TokenId {
-    fn default() -> Self {
-        Self(1)
-    }
-}
 
 pub type Slot = u32;
 

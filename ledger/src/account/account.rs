@@ -10,6 +10,15 @@ use crate::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
 use super::common::*;
 
+#[derive(Clone, Debug)]
+pub struct TokenId(pub Fp);
+
+impl Default for TokenId {
+    fn default() -> Self {
+        Self(Fp::one())
+    }
+}
+
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/account.ml#L93
 pub type TokenSymbol = String;
 
@@ -246,7 +255,7 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
     fn from(acc: MinaBaseAccountBinableArgStableV2) -> Self {
         Self {
             public_key: acc.public_key.into(),
-            token_id: TokenId(1), // TODO
+            token_id: TokenId(acc.token_id.into()),
             token_permissions: match acc.token_permissions {
                 super::MinaBaseTokenPermissionsStableV1::TokenOwned {
                     disable_new_accounts,
@@ -258,8 +267,8 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                 }
             },
             token_symbol: acc.token_symbol,
-            balance: acc.balance.try_into().unwrap(),
-            nonce: acc.nonce.try_into().unwrap(),
+            balance: acc.balance as u64,
+            nonce: acc.nonce as u32,
             receipt_chain_hash: ReceiptChainHash(acc.receipt_chain_hash.into()),
             delegate: acc.delegate.map(|d| d.into()),
             voting_for: VotingFor(acc.voting_for.into()),
@@ -272,11 +281,11 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                     vesting_period,
                     vesting_increment,
                 } => Timing::Timed {
-                    initial_minimum_balance: initial_minimum_balance.try_into().unwrap(),
-                    cliff_time: cliff_time.try_into().unwrap(),
-                    cliff_amount: cliff_amount.try_into().unwrap(),
-                    vesting_period: vesting_period.try_into().unwrap(),
-                    vesting_increment: vesting_increment.try_into().unwrap(),
+                    initial_minimum_balance: initial_minimum_balance as u64,
+                    cliff_time: cliff_time as u32,
+                    cliff_amount: cliff_amount as u64,
+                    vesting_period: vesting_period as u32,
+                    vesting_increment: vesting_increment as u64,
                 },
             },
             permissions: Permissions {
@@ -356,7 +365,7 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                             wrap_vk: None,
                         }
                     }),
-                    zkapp_version: zkapp.zkapp_version.try_into().unwrap(),
+                    zkapp_version: zkapp.zkapp_version as u32,
                     #[rustfmt::skip]
                     sequence_state: [
                         zkapp.sequence_state.0.into(),
@@ -365,7 +374,7 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                         zkapp.sequence_state.1.1.1.0.into(),
                         zkapp.sequence_state.1.1.1.1.0.into(),
                     ],
-                    last_sequence_slot: zkapp.last_sequence_slot.try_into().unwrap(),
+                    last_sequence_slot: zkapp.last_sequence_slot as u32,
                     proved_state: zkapp.proved_state,
                 }
             }),
@@ -648,5 +657,31 @@ mod tests {
             acc.hash().to_hex(),
             "cd4ada5a40f80f5c96a8d53ca2e950bb5c6a99082feba43640eaad7d6161f439"
         );
+
+        let bytes = &[
+            176, 194, 45, 223, 254, 30, 162, 197, 122, 221, 132, 151, 117, 60, 70, 134, 41, 158,
+            116, 38, 124, 102, 236, 184, 238, 131, 107, 151, 247, 248, 28, 18, 0, 149, 229, 111,
+            200, 171, 208, 82, 180, 2, 73, 133, 192, 69, 102, 234, 26, 240, 98, 220, 178, 144, 145,
+            39, 106, 68, 31, 62, 115, 153, 45, 252, 11, 1, 0, 0, 252, 27, 35, 154, 15, 127, 164,
+            201, 170, 0, 155, 228, 183, 197, 30, 217, 194, 228, 82, 71, 39, 128, 95, 211, 111, 82,
+            32, 251, 252, 112, 167, 73, 246, 38, 35, 176, 237, 41, 8, 67, 51, 32, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
+            3, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
+        ];
+        let acc: Account = serde_binprot::from_slice(bytes).unwrap();
+
+        let h = acc.hash();
+        println!("STR={:?}", h.0);
+
+        assert_eq!(
+            acc.hash().to_hex(),
+            "5ba63ec61543287d3ed18c0525e4f66717ae59e04dfb4de3f9642df1ad30740f"
+        );
+
+        let fp = Fp::from_str(
+            "6989982961557644252722402794378511163775946371102905721368942795880969184859",
+        )
+        .unwrap();
+        println!("FP={:?}", fp.to_string());
     }
 }

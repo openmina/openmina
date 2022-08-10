@@ -9,6 +9,15 @@ use o1_utils::FieldHelpers;
 use super::common::*;
 
 #[derive(Clone, Debug)]
+pub struct TokenIdLegacy(pub u64);
+
+impl Default for TokenIdLegacy {
+    fn default() -> Self {
+        Self(1)
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct PermissionsLegacy<Controller> {
     pub stake: bool,
     pub edit_state: Controller,
@@ -105,7 +114,7 @@ impl Hashable for SnappAccount {
 #[derive(Clone, Debug)]
 pub struct AccountLegacy {
     pub public_key: CompressedPubKey,         // Public_key.Compressed.t
-    pub token_id: TokenId,                    // Token_id.t
+    pub token_id: TokenIdLegacy,              // Token_id.t
     pub token_permissions: TokenPermissions,  // Token_permissions.t
     pub balance: Balance,                     // Balance.t
     pub nonce: Nonce,                         // Nonce.t
@@ -390,7 +399,7 @@ impl AccountLegacy {
 
         Self {
             public_key: pubkey.clone(),
-            token_id: TokenId::default(),
+            token_id: TokenIdLegacy::default(),
             token_permissions: TokenPermissions::NotOwned {
                 account_disabled: false,
             },
@@ -416,7 +425,7 @@ impl AccountLegacy {
                 x: Fp::zero().into(),
                 is_odd: false,
             },
-            token_id: TokenId::default(),
+            token_id: TokenIdLegacy::default(),
             token_permissions: TokenPermissions::default(),
             balance: 0,
             nonce: 0,
