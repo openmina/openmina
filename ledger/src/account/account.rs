@@ -1,9 +1,10 @@
 use std::{borrow::Cow, str::FromStr};
 
 use super::{BigInt, MinaBaseAccountBinableArgStableV2, MinaBasePermissionsAuthRequiredStableV2};
-use ark_ff::{One, Zero};
+use ark_ff::{One, UniformRand, Zero};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use rand::{prelude::ThreadRng, Rng};
 use serde::{Deserialize, Serialize};
 
 use crate::hash::{hash_noinputs, hash_with_kimchi, Inputs};
@@ -592,6 +593,169 @@ impl Account {
 
         hash_with_kimchi("CodaAccount", &inputs.to_fields())
     }
+
+    fn rand() -> Self {
+        let mut rng = rand::thread_rng();
+        let rng = &mut rng;
+
+        let symbol: u64 = rng.gen();
+        let mut symbol = symbol.to_string();
+        symbol.truncate(6);
+
+        let zkapp_uri: u64 = rng.gen();
+        let mut zkapp_uri = zkapp_uri.to_string();
+        zkapp_uri.truncate(6);
+
+        let gen_perm = |rng: &mut ThreadRng| {
+            let n: u64 = rng.gen();
+            if n % 5 == 0 {
+                AuthRequired::Either
+            } else if n % 4 == 0 {
+                AuthRequired::Impossible
+            } else if n % 3 == 0 {
+                AuthRequired::None
+            } else if n % 2 == 0 {
+                AuthRequired::Proof
+            } else {
+                AuthRequired::Signature
+            }
+        };
+
+        Self {
+            public_key: CompressedPubKey {
+                x: Fp::rand(rng),
+                is_odd: rng.gen(),
+            },
+            token_id: TokenId(Fp::rand(rng)),
+            token_permissions: if rng.gen() {
+                TokenPermissions::NotOwned {
+                    account_disabled: rng.gen(),
+                }
+            } else {
+                TokenPermissions::TokenOwned {
+                    disable_new_accounts: rng.gen(),
+                }
+            },
+            token_symbol: symbol,
+            balance: rng.gen(),
+            nonce: rng.gen(),
+            receipt_chain_hash: ReceiptChainHash(Fp::rand(rng)),
+            delegate: if rng.gen() {
+                Some(CompressedPubKey {
+                    x: Fp::rand(rng),
+                    is_odd: rng.gen(),
+                })
+            } else {
+                None
+            },
+            voting_for: VotingFor(Fp::rand(rng)),
+            timing: if rng.gen() {
+                Timing::Untimed
+            } else {
+                Timing::Timed {
+                    initial_minimum_balance: rng.gen(),
+                    cliff_time: rng.gen(),
+                    cliff_amount: rng.gen(),
+                    vesting_period: rng.gen(),
+                    vesting_increment: rng.gen(),
+                }
+            },
+            permissions: Permissions {
+                edit_state: gen_perm(rng),
+                send: gen_perm(rng),
+                receive: gen_perm(rng),
+                set_delegate: gen_perm(rng),
+                set_permissions: gen_perm(rng),
+                set_verification_key: gen_perm(rng),
+                set_zkapp_uri: gen_perm(rng),
+                edit_sequence_state: gen_perm(rng),
+                set_token_symbol: gen_perm(rng),
+                increment_nonce: gen_perm(rng),
+                set_voting_for: gen_perm(rng),
+            },
+            zkapp: if rng.gen() {
+                let gen_curve = |rng: &mut ThreadRng| CurveAffine(Fp::rand(rng), Fp::rand(rng));
+
+                Some(ZkAppAccount {
+                    app_state: [
+                        Fp::rand(rng),
+                        Fp::rand(rng),
+                        Fp::rand(rng),
+                        Fp::rand(rng),
+                        Fp::rand(rng),
+                        Fp::rand(rng),
+                        Fp::rand(rng),
+                        Fp::rand(rng),
+                    ],
+                    verification_key: if rng.gen() {
+                        Some(VerificationKey {
+                            max_proofs_verified: {
+                                let n: u64 = rng.gen();
+
+                                if n % 3 == 0 {
+                                    ProofVerified::N2
+                                } else if n % 2 == 0 {
+                                    ProofVerified::N1
+                                } else {
+                                    ProofVerified::N0
+                                }
+                            },
+                            wrap_index: PlonkVerificationKeyEvals {
+                                sigma: [
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                ],
+                                coefficients: [
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                    gen_curve(rng),
+                                ],
+                                generic: gen_curve(rng),
+                                psm: gen_curve(rng),
+                                complete_add: gen_curve(rng),
+                                mul: gen_curve(rng),
+                                emul: gen_curve(rng),
+                                endomul_scalar: gen_curve(rng),
+                            },
+                            wrap_vk: None,
+                        })
+                    } else {
+                        None
+                    },
+                    zkapp_version: rng.gen(),
+                    sequence_state: [
+                        Fp::rand(rng),
+                        Fp::rand(rng),
+                        Fp::rand(rng),
+                        Fp::rand(rng),
+                        Fp::rand(rng),
+                    ],
+                    last_sequence_slot: rng.gen(),
+                    proved_state: rng.gen(),
+                })
+            } else {
+                None
+            },
+            zkapp_uri,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -690,5 +854,18 @@ mod tests {
         )
         .unwrap();
         println!("FP={:?}", fp.to_string());
+    }
+
+    #[test]
+    fn test_rand() {
+        for _ in 0..1000 {
+            let rand = Account::rand();
+            let hash = rand.hash();
+
+            let bytes = serde_binprot::to_vec(&rand).unwrap();
+            let rand2: Account = serde_binprot::from_slice(&bytes).unwrap();
+
+            assert_eq!(hash, rand2.hash());
+        }
     }
 }
