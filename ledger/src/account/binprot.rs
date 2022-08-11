@@ -1,13 +1,24 @@
 use std::ops::Deref;
 
-use ark_ff::FromBytes;
+use ark_ff::{FromBytes, ToBytes};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 ///! Types generated with https://github.com/name-placeholder/bin-prot-rs
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 
-#[derive(Debug, Serialize)]
-pub struct BigInt([u8; 32]);
+use super::{Account, AuthRequired};
+
+#[derive(Debug)]
+pub struct BigInt(pub [u8; 32]);
+
+impl Serialize for BigInt {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bytes(&self.0[..])
+    }
+}
 
 impl Deref for BigInt {
     type Target = [u8; 32];
@@ -59,6 +70,167 @@ impl Into<CompressedPubKey> for NonZeroCurvePointUncompressedStableV1 {
         CompressedPubKey {
             x: Fp::read(&self.x[..]).unwrap(),
             is_odd: self.is_odd,
+        }
+    }
+}
+
+impl From<CompressedPubKey> for NonZeroCurvePointUncompressedStableV1 {
+    fn from(v: CompressedPubKey) -> NonZeroCurvePointUncompressedStableV1 {
+        Self {
+            x: v.x.into(),
+            is_odd: v.is_odd,
+        }
+    }
+}
+
+impl From<Fp> for BigInt {
+    fn from(fp: Fp) -> Self {
+        let mut x = [0; 32];
+        fp.write(&mut x[..]).unwrap();
+        BigInt(x)
+    }
+}
+
+impl From<Account> for MinaBaseAccountBinableArgStableV2 {
+    fn from(acc: Account) -> Self {
+        Self {
+            public_key: acc.public_key.into(),
+            token_id: acc.token_id.0.into(),
+            token_permissions: match acc.token_permissions {
+                super::TokenPermissions::TokenOwned {
+                    disable_new_accounts,
+                } => MinaBaseTokenPermissionsStableV1::TokenOwned {
+                    disable_new_accounts,
+                },
+                super::TokenPermissions::NotOwned { account_disabled } => {
+                    MinaBaseTokenPermissionsStableV1::NotOwned { account_disabled }
+                }
+            },
+            token_symbol: acc.token_symbol,
+            balance: acc.balance as i64,
+            nonce: acc.nonce as i32,
+            receipt_chain_hash: acc.receipt_chain_hash.0.into(),
+            delegate: acc.delegate.map(|d| d.into()),
+            voting_for: acc.voting_for.0.into(),
+            timing: match acc.timing {
+                super::Timing::Untimed => MinaBaseAccountTimingStableV1::Untimed,
+                super::Timing::Timed {
+                    initial_minimum_balance,
+                    cliff_time,
+                    cliff_amount,
+                    vesting_period,
+                    vesting_increment,
+                } => MinaBaseAccountTimingStableV1::Timed {
+                    initial_minimum_balance: initial_minimum_balance as i64,
+                    cliff_time: cliff_time as i32,
+                    cliff_amount: cliff_amount as i64,
+                    vesting_period: vesting_period as i32,
+                    vesting_increment: vesting_increment as i64,
+                },
+            },
+            permissions: MinaBasePermissionsStableV2 {
+                edit_state: acc.permissions.edit_state.into(),
+                send: acc.permissions.send.into(),
+                receive: acc.permissions.receive.into(),
+                set_delegate: acc.permissions.set_delegate.into(),
+                set_permissions: acc.permissions.set_permissions.into(),
+                set_verification_key: acc.permissions.set_verification_key.into(),
+                set_zkapp_uri: acc.permissions.set_zkapp_uri.into(),
+                edit_sequence_state: acc.permissions.edit_sequence_state.into(),
+                set_token_symbol: acc.permissions.set_token_symbol.into(),
+                increment_nonce: acc.permissions.increment_nonce.into(),
+                set_voting_for: acc.permissions.set_voting_for.into(),
+            },
+            zkapp: acc.zkapp.map(|zkapp| {
+                let s = zkapp.app_state;
+                let app_state = (
+                    s[0].into(),
+                    (
+                        s[1].into(),
+                        (
+                            s[2].into(),
+                            (
+                                s[3].into(),
+                                (s[4].into(), (s[5].into(), (s[6].into(), (s[7].into(), ())))),
+                            ),
+                        ),
+                    ),
+                );
+
+                let verification_key = zkapp.verification_key.map(|vk| {
+                    let sigma = vk.wrap_index.sigma;
+                    let sigma = (
+                        sigma[0].into(),
+                        (
+                            sigma[1].into(),
+                            (sigma[2].into(), (sigma[3].into(), (sigma[4].into(), (sigma[5].into(), (sigma[6].into(), ()))))),
+                        ),
+                    );
+
+                    let coef = vk.wrap_index.coefficients;
+                    #[rustfmt::skip]
+                    let coef = {
+                        (
+                            coef[0].into(),
+                            (
+                                coef[1].into(), (coef[2].into(), (coef[3].into(), (coef[4].into(), (coef[5].into(), (coef[6].into(), (coef[7].into(), (coef[8].into(),
+                                (coef[9].into(), (coef[10].into(), (coef[11].into(), (coef[12].into(), (coef[13].into(), (coef[14].into(), ())))))))))))),
+                                ),
+                            ),
+                        )
+                    };
+
+                    MinaBaseVerificationKeyWireStableV1 {
+                        max_proofs_verified: match vk.max_proofs_verified {
+                            super::ProofVerified::N0 => PicklesBaseProofsVerifiedStableV1::N0,
+                            super::ProofVerified::N1 => PicklesBaseProofsVerifiedStableV1::N1,
+                            super::ProofVerified::N2 => PicklesBaseProofsVerifiedStableV1::N2,
+                        },
+                        wrap_index: MinaBaseVerificationKeyWireStableV1WrapIndex {
+                            sigma_comm: sigma,
+                            coefficients_comm: coef,
+                            generic_comm: vk.wrap_index.generic.into(),
+                            psm_comm: vk.wrap_index.psm.into(),
+                            complete_add_comm: vk.wrap_index.complete_add.into(),
+                            mul_comm: vk.wrap_index.mul.into(),
+                            emul_comm: vk.wrap_index.emul.into(),
+                            endomul_scalar_comm: vk.wrap_index.endomul_scalar.into()
+                        },
+                    }
+                });
+
+                let seq = zkapp.sequence_state;
+                let sequence_state = (
+                    seq[0].into(),
+                    (
+                        seq[1].into(),
+                        (seq[2].into(), (seq[3].into(), (seq[4].into(), ()))),
+                    ),
+                );
+
+                MinaBaseZkappAccountStableV2 {
+                    app_state,
+                    verification_key,
+                    zkapp_version: zkapp.zkapp_version as i32,
+                    sequence_state,
+                    last_sequence_slot: zkapp.last_sequence_slot as i32,
+                    proved_state: zkapp.proved_state,
+                }
+            }),
+            zkapp_uri: acc.zkapp_uri,
+        }
+    }
+}
+
+impl From<AuthRequired> for MinaBasePermissionsAuthRequiredStableV2 {
+    fn from(perms: AuthRequired) -> Self {
+        match perms {
+            AuthRequired::None => Self::None,
+            AuthRequired::Either => Self::Either,
+            AuthRequired::Proof => Self::Proof,
+            AuthRequired::Signature => Self::Signature,
+            AuthRequired::Impossible => Self::Impossible,
+            AuthRequired::Both => panic!("doesn't exist in `develop` branch"),
         }
     }
 }

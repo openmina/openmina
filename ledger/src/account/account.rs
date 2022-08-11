@@ -4,7 +4,7 @@ use super::{BigInt, MinaBaseAccountBinableArgStableV2, MinaBasePermissionsAuthRe
 use ark_ff::{One, Zero};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
@@ -25,17 +25,17 @@ pub type TokenSymbol = String;
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L49
 #[derive(Clone, Debug)]
 pub struct Permissions<Controller> {
-    edit_state: Controller,
-    send: Controller,
-    receive: Controller,
-    set_delegate: Controller,
-    set_permissions: Controller,
-    set_verification_key: Controller,
-    set_zkapp_uri: Controller,
-    edit_sequence_state: Controller,
-    set_token_symbol: Controller,
-    increment_nonce: Controller,
-    set_voting_for: Controller,
+    pub edit_state: Controller,
+    pub send: Controller,
+    pub receive: Controller,
+    pub set_delegate: Controller,
+    pub set_permissions: Controller,
+    pub set_verification_key: Controller,
+    pub set_zkapp_uri: Controller,
+    pub edit_sequence_state: Controller,
+    pub set_token_symbol: Controller,
+    pub increment_nonce: Controller,
+    pub set_voting_for: Controller,
 }
 
 impl Default for Permissions<AuthRequired> {
@@ -83,7 +83,7 @@ impl Permissions<AuthRequired> {
 // TODO: Not sure if the name is correct
 // It seems that a similar type exist in proof-systems: TODO
 #[derive(Copy, Clone, Debug)]
-struct CurveAffine(Fp, Fp);
+pub struct CurveAffine(Fp, Fp);
 
 impl From<(BigInt, BigInt)> for CurveAffine {
     fn from((a, b): (BigInt, BigInt)) -> Self {
@@ -91,32 +91,38 @@ impl From<(BigInt, BigInt)> for CurveAffine {
     }
 }
 
+impl From<CurveAffine> for (BigInt, BigInt) {
+    fn from(fps: CurveAffine) -> Self {
+        (fps.0.into(), fps.1.into())
+    }
+}
+
 // https://github.com/MinaProtocol/mina/blob/a6e5f182855b3f4b4afb0ea8636760e618e2f7a0/src/lib/pickles_types/plonk_verification_key_evals.ml#L9-L18
 #[derive(Clone, Debug)]
-struct PlonkVerificationKeyEvals {
-    sigma: [CurveAffine; 7],
-    coefficients: [CurveAffine; 15],
-    generic: CurveAffine,
-    psm: CurveAffine,
-    complete_add: CurveAffine,
-    mul: CurveAffine,
-    emul: CurveAffine,
-    endomul_scalar: CurveAffine,
+pub struct PlonkVerificationKeyEvals {
+    pub sigma: [CurveAffine; 7],
+    pub coefficients: [CurveAffine; 15],
+    pub generic: CurveAffine,
+    pub psm: CurveAffine,
+    pub complete_add: CurveAffine,
+    pub mul: CurveAffine,
+    pub emul: CurveAffine,
+    pub endomul_scalar: CurveAffine,
 }
 
 #[derive(Clone, Debug)]
-enum ProofVerified {
+pub enum ProofVerified {
     N0,
     N1,
     N2,
 }
 
 #[derive(Clone, Debug)]
-struct VerificationKey {
-    max_proofs_verified: ProofVerified,
-    wrap_index: PlonkVerificationKeyEvals,
+pub struct VerificationKey {
+    pub max_proofs_verified: ProofVerified,
+    pub wrap_index: PlonkVerificationKeyEvals,
     // `wrap_vk` is not used for hash inputs
-    wrap_vk: Option<()>,
+    pub wrap_vk: Option<()>,
 }
 
 impl VerificationKey {
@@ -196,12 +202,12 @@ impl VerificationKey {
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/zkapp_account.ml#L148-L170
 #[derive(Clone, Debug)]
 pub struct ZkAppAccount {
-    app_state: [Fp; 8],
-    verification_key: Option<VerificationKey>,
-    zkapp_version: u32,
-    sequence_state: [Fp; 5],
-    last_sequence_slot: Slot,
-    proved_state: bool,
+    pub app_state: [Fp; 8],
+    pub verification_key: Option<VerificationKey>,
+    pub zkapp_version: u32,
+    pub sequence_state: [Fp; 5],
+    pub last_sequence_slot: Slot,
+    pub proved_state: bool,
 }
 
 impl Default for ZkAppAccount {
@@ -221,8 +227,9 @@ impl Default for ZkAppAccount {
 }
 
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(from = "MinaBaseAccountBinableArgStableV2")]
+#[serde(into = "MinaBaseAccountBinableArgStableV2")]
 pub struct Account {
     pub public_key: CompressedPubKey,         // Public_key.Compressed.t
     pub token_id: TokenId,                    // Token_id.t

@@ -1,4 +1,4 @@
-use ark_ff::{One, Zero};
+use ark_ff::Zero;
 use mina_hasher::Fp;
 use o1_utils::FieldHelpers;
 

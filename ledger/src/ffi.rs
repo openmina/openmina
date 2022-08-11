@@ -1,14 +1,12 @@
-use std::{str::FromStr, cell::RefCell, sync::Mutex};
+use std::{str::FromStr, sync::Mutex};
 
 use mina_hasher::Fp;
 use ocaml_interop::{ocaml_export, OCaml, OCamlBytes, OCamlRef};
 use once_cell::sync::Lazy;
 
-use crate::{account::Account, tree_version::V2, tree::Database};
+use crate::{account::Account, tree::Database, tree_version::V2};
 
-static DATABASE: Lazy<Mutex<Database<V2>>> = Lazy::new(|| {
-    Mutex::new(Database::create(30))
-});
+static DATABASE: Lazy<Mutex<Database<V2>>> = Lazy::new(|| Mutex::new(Database::create(30)));
 
 ocaml_export! {
     fn rust_add_account(
@@ -36,6 +34,8 @@ ocaml_export! {
         println!("RUST BEGIN");
         let account_ref = rt.get(account);
         let account = account_ref.as_bytes();
+        let account_bytes = account;
+        let _account_len = account.len();
         let hash: String = hash.to_rust(rt);
         let hash = Fp::from_str(&hash).unwrap();
 
@@ -46,6 +46,17 @@ ocaml_export! {
 
         println!("provided={:?}", hash.to_string());
         println!("computed={:?}", account_hash.to_string());
+
+        let ser = serde_binprot::to_vec(&account).unwrap();
+
+        println!("from_ocaml={:?}", account_bytes);
+        println!("rust_ocaml={:?}", ser);
+
+        // assert_eq!(account_len, ser.len());
+
+        let account2: Account = serde_binprot::from_slice(&ser).unwrap();
+        let account_hash2 = account2.hash();
+        assert_eq!(account_hash, account_hash2);
 
         // println!("account={:?}", account);
         // println!("account_hash={:?}", account.hash().to_string());
