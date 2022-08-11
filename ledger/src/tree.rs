@@ -37,6 +37,7 @@ pub struct Database<T: TreeVersion> {
     root: Option<NodeOrLeaf<T>>,
     depth: u8,
     last_location: Option<Address>,
+    naccounts: usize,
 }
 
 impl<T: TreeVersion> NodeOrLeaf<T> {
@@ -110,6 +111,7 @@ impl<T: TreeVersion> Database<T> {
             depth,
             root: None,
             last_location: None,
+            naccounts: 0,
         }
     }
 
@@ -132,11 +134,13 @@ impl<T: TreeVersion> Database<T> {
         NodeOrLeaf::add_account_on_path(root, account, path_iter);
 
         self.last_location = Some(location.clone());
+        self.naccounts += 1;
 
         Ok(location)
     }
 
     pub fn root_hash(&self) -> Fp {
+        println!("naccounts={:?}", self.naccounts);
         match self.root.as_ref() {
             Some(root) => root.hash(Some(self.depth as usize - 1)),
             None => T::empty_hash_at_depth(self.depth as usize),

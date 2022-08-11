@@ -463,6 +463,7 @@ dependencies = [
  "ocaml-interop",
  "once_cell",
  "oracle",
+ "rand",
  "serde",
  "serde-binprot",
 ]
@@ -722,7 +723,7 @@ dependencies = [
 [[package]]
 name = "serde-binprot"
 version = "0.1.0"
-source = "git+https://github.com/name-placeholder/serde-binprot.git?branch=ledger#093d9361213f04fd2b365ca0aa323df1e9b9dcdc"
+source = "git+https://github.com/name-placeholder/serde-binprot.git?branch=ledger#e8dfdbee6a1cd16ab45f33c7c4b7e7133f860452"
 dependencies = [
  "byteorder",
  "serde",

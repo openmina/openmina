@@ -1,11 +1,11 @@
-use std::{borrow::Cow, str::FromStr};
+use std::{borrow::Cow, ops::Mul, str::FromStr};
 
 use super::{BigInt, MinaBaseAccountBinableArgStableV2, MinaBasePermissionsAuthRequiredStableV2};
-use ark_ff::{One, UniformRand, Zero};
+use ark_ff::{Field, One, UniformRand, Zero};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, Rng};
-use serde::{Deserialize, Serialize};
+use serde::{de::IntoDeserializer, Deserialize, Serialize};
 
 use crate::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
@@ -46,7 +46,7 @@ impl Default for Permissions<AuthRequired> {
 }
 
 impl Permissions<AuthRequired> {
-    fn user_default() -> Self {
+    pub fn user_default() -> Self {
         use AuthRequired::*;
         Self {
             edit_state: Signature,
@@ -63,7 +63,7 @@ impl Permissions<AuthRequired> {
         }
     }
 
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         use AuthRequired::*;
         Self {
             edit_state: None,
@@ -437,6 +437,8 @@ impl Account {
     }
 
     pub fn hash(&self) -> Fp {
+        // println!("account={:#?}", self);
+
         let mut inputs = Inputs::new();
 
         // Self::zkapp_uri
@@ -594,7 +596,7 @@ impl Account {
         hash_with_kimchi("CodaAccount", &inputs.to_fields())
     }
 
-    fn rand() -> Self {
+    pub fn rand() -> Self {
         let mut rng = rand::thread_rng();
         let rng = &mut rng;
 
@@ -674,7 +676,13 @@ impl Account {
                 set_voting_for: gen_perm(rng),
             },
             zkapp: if rng.gen() {
-                let gen_curve = |rng: &mut ThreadRng| CurveAffine(Fp::rand(rng), Fp::rand(rng));
+                let gen_curve = |rng: &mut ThreadRng| {
+                    let a = Fp::rand(rng);
+                    let two: Fp = 2.into();
+                    let b: Fp = a.mul(two);
+
+                    CurveAffine(a, b)
+                };
 
                 Some(ZkAppAccount {
                     app_state: [
@@ -841,9 +849,6 @@ mod tests {
         ];
         let acc: Account = serde_binprot::from_slice(bytes).unwrap();
 
-        let h = acc.hash();
-        println!("STR={:?}", h.0);
-
         assert_eq!(
             acc.hash().to_hex(),
             "5ba63ec61543287d3ed18c0525e4f66717ae59e04dfb4de3f9642df1ad30740f"
@@ -854,6 +859,35 @@ mod tests {
         )
         .unwrap();
         println!("FP={:?}", fp.to_string());
+
+        let bytes = &[
+            178, 29, 73, 50, 85, 80, 131, 166, 53, 11, 48, 224, 103, 89, 161, 207, 149, 31, 170,
+            21, 165, 181, 94, 18, 149, 177, 54, 71, 185, 77, 109, 49, 1, 144, 247, 164, 171, 110,
+            24, 3, 12, 25, 163, 63, 125, 83, 66, 174, 2, 160, 62, 45, 137, 185, 47, 16, 129, 145,
+            190, 203, 124, 35, 119, 251, 26, 1, 1, 6, 49, 50, 56, 54, 56, 56, 252, 29, 154, 218,
+            214, 79, 98, 177, 181, 253, 181, 152, 127, 0, 145, 177, 91, 155, 59, 239, 161, 174,
+            217, 42, 201, 30, 46, 11, 187, 88, 49, 5, 111, 254, 222, 87, 42, 45, 90, 1, 236, 173,
+            205, 215, 241, 20, 0, 77, 12, 197, 234, 69, 202, 22, 55, 50, 183, 255, 238, 8, 29, 79,
+            199, 92, 12, 146, 223, 105, 45, 135, 77, 89, 73, 141, 11, 137, 28, 54, 21, 0, 1, 4, 4,
+            1, 0, 4, 3, 4, 3, 2, 3, 0, 6, 49, 49, 56, 54, 54, 51,
+        ];
+        let acc: Account = serde_binprot::from_slice(bytes).unwrap();
+
+        println!("ACC={:#?}", acc);
+
+        let h = acc.hash();
+        println!("HASH={:?}", h.to_string());
+
+        assert_eq!(
+            acc.hash().to_hex(),
+            "8b76b2d012e0c873298b364c1d2c5f917015e022af172b26c78a1bb4a349c328"
+        );
+
+        // let fp = Fp::from_str(
+        //     "6989982961557644252722402794378511163775946371102905721368942795880969184859",
+        // )
+        // .unwrap();
+        // println!("FP={:?}", fp.to_string());
     }
 
     #[test]

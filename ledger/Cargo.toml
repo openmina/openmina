@@ -31,3 +31,4 @@ hex = "0.4.3"
 
 ocaml-interop = "0.8"
 once_cell = "1"
+rand = "0.8"
