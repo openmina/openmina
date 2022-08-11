@@ -575,12 +575,12 @@ impl Account {
             TokenPermissions::TokenOwned {
                 disable_new_accounts,
             } => {
-                let bit = if disable_new_accounts { 1 } else { 0 };
-                inputs.append_u2(0b10 & bit);
+                let bits = if disable_new_accounts { 0b10 } else { 0b00 };
+                inputs.append_u2(0b01 | bits);
             }
             TokenPermissions::NotOwned { account_disabled } => {
-                let bit = if account_disabled { 1 } else { 0 };
-                inputs.append_u2(0b00 & bit);
+                let bits = if account_disabled { 0b10 } else { 0b00 };
+                inputs.append_u2(0b00 | bits);
             }
         }
 
