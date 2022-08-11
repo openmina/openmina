@@ -33,7 +33,7 @@ struct Leaf<T: TreeVersion> {
 }
 
 #[derive(Debug)]
-struct Database<T: TreeVersion> {
+pub struct Database<T: TreeVersion> {
     root: Option<NodeOrLeaf<T>>,
     depth: u8,
     last_location: Option<Address>,
@@ -98,12 +98,12 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum DatabaseError {
+pub enum DatabaseError {
     OutOfLeaves,
 }
 
 impl<T: TreeVersion> Database<T> {
-    fn create(depth: u8) -> Self {
+    pub fn create(depth: u8) -> Self {
         assert!((1..0xfe).contains(&depth));
 
         Self {
@@ -113,7 +113,7 @@ impl<T: TreeVersion> Database<T> {
         }
     }
 
-    fn create_account(
+    pub fn create_account(
         &mut self,
         _account_id: (),
         account: T::Account,
@@ -136,7 +136,7 @@ impl<T: TreeVersion> Database<T> {
         Ok(location)
     }
 
-    fn root_hash(&self) -> Fp {
+    pub fn root_hash(&self) -> Fp {
         match self.root.as_ref() {
             Some(root) => root.hash(Some(self.depth as usize - 1)),
             None => T::empty_hash_at_depth(self.depth as usize),

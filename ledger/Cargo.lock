@@ -461,6 +461,7 @@ dependencies = [
  "mina-signer",
  "o1-utils",
  "ocaml-interop",
+ "once_cell",
  "oracle",
  "serde",
  "serde-binprot",
