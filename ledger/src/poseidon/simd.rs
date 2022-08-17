@@ -1,11 +1,13 @@
-
 #[cfg(test)]
 mod tests {
-    use std::{str::FromStr, ops::{Mul, Add}};
+    use std::{
+        ops::{Add, Mul},
+        str::FromStr,
+    };
 
     use ark_ff::{BigInteger256, One, PrimeField};
     use mina_hasher::Fp;
-    use packed_simd::{u64x4, f64x4, u64x8};
+    use packed_simd::{f64x4, u64x4, u64x8};
 
     // use super::*;
 
@@ -13,7 +15,10 @@ mod tests {
     fn test_basic() {
         let zero: u64x8 = u64x8::new(0, 0, 0, 0, 0, 0, 0, 0);
         println!("zero={:?}", zero);
-        println!("one ={:?}", u64x8::new(u64::MAX, 0, 0, 0, 0, 0, 0, 0) + u64x8::new(2, 0, 0, 0, 0, 0, 0, 0));
+        println!(
+            "one ={:?}",
+            u64x8::new(u64::MAX, 0, 0, 0, 0, 0, 0, 0) + u64x8::new(2, 0, 0, 0, 0, 0, 0, 0)
+        );
         println!("ten ={:?}", zero.add(1).mul(10));
 
         let fp = Fp::from_str(
@@ -49,17 +54,21 @@ mod tests {
         // let fsimd = fsimd * (n as f64);
         let fp: Fp = fp.mul(Fp::from(n));
 
-        let simd2 = simd2 % u64x8::new(
-            // 0xcc96987680000000,
-            // 0x11234c7e04a67c8d,
-            // 0x0,
-            // 0x2000000000000000,
+        let simd2 = simd2
+            % u64x8::new(
+                // 0xcc96987680000000,
+                // 0x11234c7e04a67c8d,
+                // 0x0,
+                // 0x2000000000000000,
                 0x992d30ed00000001,
                 0x224698fc094cf91b,
                 0x0,
                 0x4000000000000000,
-            0,0,0,0,
-        );
+                0,
+                0,
+                0,
+                0,
+            );
 
         // let simd2 = simd % 3;
 

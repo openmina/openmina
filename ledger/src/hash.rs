@@ -1,14 +1,9 @@
 use std::io::{Cursor, Write};
 
-use ark_ff::{FromBytes, One, Zero, BigInteger256, BigInteger};
+use ark_ff::{BigInteger, BigInteger256, FromBytes, One, Zero};
 use mina_hasher::Fp;
-use oracle::{
-    // constants::PlonkSpongeConstantsKimchi,
-    // pasta,
-    // poseidon::{ArithmeticSponge, Sponge},
-};
 
-use crate::poseidon::{ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge, static_params};
+use crate::poseidon::{static_params, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge};
 
 enum Item {
     Bool(bool),
@@ -188,8 +183,7 @@ fn param_to_field_noinputs(param: &str) -> Fp {
 }
 
 pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
-    let mut sponge =
-        ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
+    let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
 
     sponge.absorb(&[param_to_field(param)]);
     sponge.squeeze();
@@ -199,9 +193,8 @@ pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
 }
 
 pub fn hash_noinputs(param: &str) -> Fp {
-    let mut sponge =
-        ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
-        // ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
+    let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
+    // ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
 
     sponge.absorb(&[param_to_field_noinputs(param)]);
     sponge.squeeze()

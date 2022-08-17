@@ -1,11 +1,8 @@
-
-
 // use crate::constants::SpongeConstants;
 // use crate::permutation::{full_round, poseidon_block_cipher};
 use ark_ff::{Field, Zero};
 use mina_hasher::Fp;
 use once_cell::sync::Lazy;
-
 
 use std::str::FromStr;
 
@@ -900,18 +897,18 @@ fn apply_mds_matrix<F: Field, SC: SpongeConstants>(
 
     res
 
-        // params
-        //     .mds
-        //     .iter()
-        //     .map(|m| {
-        //         // assert_eq!(m.len(), 3);
-        //         // println!("LEN={:?}", m.len());
-        //         state
-        //             .iter()
-        //             .zip(m.iter())
-        //             .fold(F::zero(), |x, (s, &m)| m * s + x)
-        //     })
-        //     .collect()
+    // params
+    //     .mds
+    //     .iter()
+    //     .map(|m| {
+    //         // assert_eq!(m.len(), 3);
+    //         // println!("LEN={:?}", m.len());
+    //         state
+    //             .iter()
+    //             .zip(m.iter())
+    //             .fold(F::zero(), |x, (s, &m)| m * s + x)
+    //     })
+    //     .collect()
 }
 
 #[inline(never)]
