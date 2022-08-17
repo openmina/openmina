@@ -23,6 +23,11 @@ serde = "1.0"
 # mina-curves = { path = "../curves" }
 # o1-utils = { path = "../utils" }
 
+
+
+# ark-ff-new = { git = "https://github.com/arkworks-rs/algebra.git", features = [ "parallel", "asm", "std" ], package = "ark-ff" }
+# ark-serialize = { git = "https://github.com/arkworks-rs/algebra.git", features = [ "std" ] }
+
 ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
 ark-serialize = { version = "0.3.0", features = [ "std" ] }
 
@@ -32,3 +37,8 @@ hex = "0.4.3"
 ocaml-interop = "0.8"
 once_cell = "1"
 rand = "0.8"
+
+packed_simd = { version = "0.3", package = "packed_simd_2" }
+
+[profile.release]
+debug = true

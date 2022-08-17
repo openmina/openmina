@@ -1,12 +1,14 @@
 use std::io::{Cursor, Write};
 
-use ark_ff::{FromBytes, One, Zero};
+use ark_ff::{FromBytes, One, Zero, BigInteger256, BigInteger};
 use mina_hasher::Fp;
 use oracle::{
-    constants::PlonkSpongeConstantsKimchi,
-    pasta,
-    poseidon::{ArithmeticSponge, Sponge},
+    // constants::PlonkSpongeConstantsKimchi,
+    // pasta,
+    // poseidon::{ArithmeticSponge, Sponge},
 };
+
+use crate::poseidon::{ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge, static_params};
 
 enum Item {
     Bool(bool),
@@ -129,8 +131,13 @@ impl Inputs {
             nbits += item_nbits;
 
             if nbits < 255 {
-                let multiply_by: Fp = 2u128.checked_pow(item_nbits).unwrap().into();
-                current = (current * multiply_by) + item;
+                let mut cur: BigInteger256 = current.into();
+                cur.muln(item_nbits);
+                let cur: Fp = cur.into();
+                current = cur + item;
+
+                // let multiply_by: Fp = 2u128.checked_pow(item_nbits).unwrap().into();
+                // current = (current * multiply_by) + item;
             } else {
                 self.fields.push(current);
                 current = item;
@@ -182,7 +189,7 @@ fn param_to_field_noinputs(param: &str) -> Fp {
 
 pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
     let mut sponge =
-        ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
+        ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
 
     sponge.absorb(&[param_to_field(param)]);
     sponge.squeeze();
@@ -193,7 +200,8 @@ pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
 
 pub fn hash_noinputs(param: &str) -> Fp {
     let mut sponge =
-        ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
+        ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
+        // ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
 
     sponge.absorb(&[param_to_field_noinputs(param)]);
     sponge.squeeze()
