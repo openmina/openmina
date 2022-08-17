@@ -1,6 +1,6 @@
 // use crate::constants::SpongeConstants;
 // use crate::permutation::{full_round, poseidon_block_cipher};
-use ark_ff::{Field, Zero};
+use ark_ff::Field;
 use mina_hasher::Fp;
 use once_cell::sync::Lazy;
 
@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 mod simd;
 
-pub fn params() -> ArithmeticSpongeParams<Fp> {
+pub fn make_params() -> ArithmeticSpongeParams<Fp> {
     ArithmeticSpongeParams {
         mds: [
             [
@@ -832,7 +832,7 @@ pub fn params() -> ArithmeticSpongeParams<Fp> {
 
 /// the fp sponge params
 pub fn static_params() -> &'static ArithmeticSpongeParams<Fp> {
-    static PARAMS: Lazy<ArithmeticSpongeParams<Fp>> = Lazy::new(params);
+    static PARAMS: Lazy<ArithmeticSpongeParams<Fp>> = Lazy::new(make_params);
     &PARAMS
 }
 
@@ -883,32 +883,15 @@ fn apply_mds_matrix<F: Field, SC: SpongeConstants>(
     params: &ArithmeticSpongeParams<F>,
     state: &[F],
 ) -> [F; 3] {
-    // println!("apply_mds_matrix SC::PERM_FULL_MDS={:?}", SC::PERM_FULL_MDS);
-    let mut res = [F::zero(); 3];
+    let mut new_state = [F::zero(); 3];
 
-    for (i, m) in params.mds.iter().enumerate() {
-        for (s, m) in state.iter().zip(m) {
-            res[i].add_assign(*m * s);
-            // res[i] = *m * s + res[i];
+    for (i, sub_params) in params.mds.iter().enumerate() {
+        for (state, param) in state.iter().zip(sub_params) {
+            new_state[i].add_assign(*param * state);
         }
-
-        // state.iter().zip(m).fold(F::zero(), |x, (s, &m)| m * s + x);
     }
 
-    res
-
-    // params
-    //     .mds
-    //     .iter()
-    //     .map(|m| {
-    //         // assert_eq!(m.len(), 3);
-    //         // println!("LEN={:?}", m.len());
-    //         state
-    //             .iter()
-    //             .zip(m.iter())
-    //             .fold(F::zero(), |x, (s, &m)| m * s + x)
-    //     })
-    //     .collect()
+    new_state
 }
 
 #[inline(never)]
@@ -954,8 +937,9 @@ pub trait Sponge<Input: Field, Digest> {
 
 #[inline(never)]
 pub fn sbox<F: Field, SC: SpongeConstants>(mut x: F) -> F {
+    // Faster than calling x.pow(SC::PERM_SBOX)
     let a = x;
-    for _ in 0..6 {
+    for _ in 0..SC::PERM_SBOX - 1 {
         x.mul_assign(a);
     }
     x

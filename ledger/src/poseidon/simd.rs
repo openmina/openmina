@@ -1,3 +1,5 @@
+/// Tests only
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -5,11 +7,9 @@ mod tests {
         str::FromStr,
     };
 
-    use ark_ff::{BigInteger256, One, PrimeField};
+    use ark_ff::BigInteger256;
     use mina_hasher::Fp;
-    use packed_simd::{f64x4, u64x4, u64x8};
-
-    // use super::*;
+    use packed_simd::{u64x4, u64x8};
 
     #[test]
     fn test_basic() {

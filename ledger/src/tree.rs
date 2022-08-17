@@ -148,7 +148,7 @@ impl<T: TreeVersion> Database<T> {
     }
 
     #[cfg(test)]
-    fn naccounts(&self) -> usize {
+    pub fn naccounts(&self) -> usize {
         let mut naccounts = 0;
 
         if let Some(root) = self.root.as_ref() {

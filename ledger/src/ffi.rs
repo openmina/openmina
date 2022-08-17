@@ -4,11 +4,7 @@ use mina_hasher::Fp;
 use ocaml_interop::{ocaml_export, OCaml, OCamlBytes, OCamlRef, ToOCaml};
 use once_cell::sync::Lazy;
 
-use crate::{
-    account::{Account, Permissions, TokenPermissions},
-    tree::Database,
-    tree_version::V2,
-};
+use crate::{account::Account, tree::Database, tree_version::V2};
 
 static DATABASE: Lazy<Mutex<Database<V2>>> = Lazy::new(|| Mutex::new(Database::create(30)));
 

@@ -1,11 +1,11 @@
 use std::{borrow::Cow, ops::Mul, str::FromStr};
 
 use super::{BigInt, MinaBaseAccountBinableArgStableV2, MinaBasePermissionsAuthRequiredStableV2};
-use ark_ff::{Field, One, UniformRand, Zero};
+use ark_ff::{One, UniformRand, Zero};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, Rng};
-use serde::{de::IntoDeserializer, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 use crate::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
@@ -787,29 +787,29 @@ mod tests {
             "29ed0b3d0e00d8e24a86752291e90834bcccfee0953441e29f83c89a8e51ef37"
         );
 
-        // let acc = Account {
-        //     public_key: CompressedPubKey::from_address(
-        //         "B62qnzbXmRNo9q32n4SNu2mpB8e7FYYLH8NmaX6oFCBYjjQ8SbD7uzV",
-        //     )
-        //     .unwrap(),
-        //     token_id: TokenId::default(),
-        //     token_permissions: TokenPermissions::default(),
-        //     token_symbol: "seb".to_string(),
-        //     balance: 10101,
-        //     nonce: 62772,
-        //     receipt_chain_hash: ReceiptChainHash::empty(),
-        //     delegate: None,
-        //     voting_for: VotingFor::dummy(),
-        //     timing: Timing::Untimed,
-        //     permissions: Permissions::user_default(),
-        //     zkapp: None,
-        //     zkapp_uri: "https://target/release/deps/mina_tree-6ee5ea26e91aacf6".to_string(),
-        // };
+        let acc = Account {
+            public_key: CompressedPubKey::from_address(
+                "B62qnzbXmRNo9q32n4SNu2mpB8e7FYYLH8NmaX6oFCBYjjQ8SbD7uzV",
+            )
+            .unwrap(),
+            token_id: TokenId::default(),
+            token_permissions: TokenPermissions::default(),
+            token_symbol: "seb".to_string(),
+            balance: 10101,
+            nonce: 62772,
+            receipt_chain_hash: ReceiptChainHash::empty(),
+            delegate: None,
+            voting_for: VotingFor::dummy(),
+            timing: Timing::Untimed,
+            permissions: Permissions::user_default(),
+            zkapp: None,
+            zkapp_uri: "https://target/release/deps/mina_tree-6ee5ea26e91aacf6".to_string(),
+        };
 
-        // assert_eq!(
-        //     acc.hash().to_hex(),
-        //     "080ed90fa2552976f8ec3ada5a5d613ef0f6741b7ae1c60573105c6a146c942f"
-        // );
+        assert_eq!(
+            acc.hash().to_hex(),
+            "080ed90fa2552976f8ec3ada5a5d613ef0f6741b7ae1c60573105c6a146c942f"
+        );
     }
 
     #[test]
@@ -907,28 +907,54 @@ mod tests {
 
     #[test]
     fn test_rand_tree() {
+        use rayon::prelude::*;
+
         let mut db = Database::<V2>::create(20);
         let mut accounts = Vec::with_capacity(1000);
 
-        for _ in 0..10000 {
+        const NACCOUNTS: usize = 1000;
+
+        for _ in 0..NACCOUNTS {
             let rand = Account::rand();
             accounts.push(rand);
         }
 
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(16)
+            .build()
+            .unwrap();
+
+        let now = std::time::Instant::now();
+        let hashes = pool.install(|| {
+            accounts
+                .par_iter()
+                .map(|acc| acc.hash())
+                .collect::<Vec<_>>()
+        });
+
+        assert_eq!(hashes.len(), NACCOUNTS);
+        println!(
+            "elapsed to hash accounts in 16 threads: {:?}",
+            now.elapsed(),
+        );
+
+        let mut hashes = Vec::with_capacity(accounts.len());
         let now = std::time::Instant::now();
         for account in accounts.iter() {
-            account.hash();
+            hashes.push(account.hash());
         }
-        println!("elapsed to hash accounts: {:?}", now.elapsed());
+        assert_eq!(hashes.len(), NACCOUNTS);
+        println!("elapsed to hash accounts in 1 thread: {:?}", now.elapsed(),);
 
-        // let now = std::time::Instant::now();
-        // for account in accounts.into_iter() {
-        //     db.create_account((), account).unwrap();
-        // }
-        // println!("elapsed to insert in tree: {:?}", now.elapsed());
+        let now = std::time::Instant::now();
+        for account in accounts.into_iter() {
+            db.create_account((), account).unwrap();
+        }
+        assert_eq!(db.naccounts(), NACCOUNTS);
+        println!("elapsed to insert in tree: {:?}", now.elapsed());
 
-        // let now = std::time::Instant::now();
-        // db.root_hash();
-        // println!("root hash computed in {:?}", now.elapsed());
+        let now = std::time::Instant::now();
+        db.root_hash();
+        println!("root hash computed in {:?}", now.elapsed());
     }
 }
