@@ -2,6 +2,7 @@
 
 mod account;
 mod address;
+mod base;
 mod ffi;
 mod hash;
 mod poseidon;
