@@ -1,3 +1,5 @@
+use crate::base::AccountIndex;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Direction {
     Left,
@@ -239,6 +241,44 @@ impl Address {
 
         Some(prev)
     }
+
+    pub fn to_index(&self) -> AccountIndex {
+        let mut account_index: u64 = 0;
+        let nused_bytes = self.nused_bytes();
+        let mut shift = 0;
+
+        self.inner[0..nused_bytes]
+            .iter()
+            .rev()
+            .enumerate()
+            .for_each(|(index, byte)| {
+                let byte = *byte as u64;
+
+                if index == 0 && self.length % 8 != 0 {
+                    let first_shift = 8 - (self.length % 8);
+                    account_index |= byte >> first_shift;
+                    shift += self.length % 8;
+                } else {
+                    account_index |= byte << shift;
+                    shift += 8;
+                }
+            });
+
+        AccountIndex(account_index)
+    }
+
+    pub fn from_index(index: AccountIndex, length: usize) -> Self {
+        let index = index.0;
+        let mut addr = Address::first(length);
+
+        for bit_index in (0..length).rev() {
+            if index & (1 << bit_index) != 0 {
+                addr.set(length - (bit_index + 1));
+            }
+        }
+
+        addr
+    }
 }
 
 pub struct AddressIterator {
@@ -345,5 +385,21 @@ mod tests {
         println!("ADDR={:?}", addr);
         addr.clear_after(6);
         println!("ADDR={:?}", addr);
+    }
+
+    #[test]
+    fn test_address_index() {
+        for length in 1..20 {
+            let mut addr = Address::first(length);
+
+            for index in 0..2u64.pow(length as u32) - 1 {
+                let to_index = addr.to_index();
+
+                assert_eq!(to_index, AccountIndex(index));
+                assert_eq!(addr, Address::from_index(to_index, length));
+
+                addr = addr.next().unwrap();
+            }
+        }
     }
 }
