@@ -15,7 +15,9 @@ pub trait BaseLedger {
     fn to_list(&self) -> Vec<Account>;
 
     /// iterate over all indexes and accounts
-    fn iter(&self) -> TreeIterator;
+    fn iter<F>(&self, fun: F)
+    where
+        F: FnMut(&Account);
 
     /// fold over accounts in the ledger, passing the Merkle address
     fn fold<B, F>(&self, init: B, fun: F) -> B
@@ -133,12 +135,12 @@ pub enum GetOrCreated {
 
 pub enum BaseLedgerError {}
 
-pub struct TreeIterator {}
+// pub struct TreeIterator {}
 
-impl Iterator for TreeIterator {
-    type Item = Account;
+// impl Iterator for TreeIterator {
+//     type Item = Account;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        todo!()
-    }
-}
+//     fn next(&mut self) -> Option<Self::Item> {
+//         todo!()
+//     }
+// }

@@ -1,11 +1,18 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    ops::ControlFlow,
+    path::PathBuf,
+};
 
 use crate::{
-    account::{AccountId, AccountLegacy},
+    account::{Account, AccountId, AccountLegacy, TokenId},
     address::{Address, AddressIterator, Direction},
+    base::{AccountIndex, BaseLedger, BaseLedgerError, GetOrCreated},
     tree_version::{TreeVersion, V1, V2},
 };
 use mina_hasher::Fp;
+use mina_signer::CompressedPubKey;
 
 #[derive(Clone, Debug)]
 enum NodeOrLeaf<T: TreeVersion> {
@@ -109,7 +116,7 @@ impl Database<V2> {
     pub fn create_account(
         &mut self,
         _account_id: (),
-        account: crate::account::Account,
+        account: Account,
     ) -> Result<Address, DatabaseError> {
         if self.root.is_none() {
             self.root = Some(NodeOrLeaf::Node(Node::default()));
@@ -210,6 +217,389 @@ impl<T: TreeVersion> Database<T> {
                 };
             }
         }
+    }
+}
+
+impl Database<V2> {
+    fn to_list(&self) -> Vec<Account> {
+        let root = match self.root.as_ref() {
+            Some(root) => root,
+            None => return Vec::new(),
+        };
+
+        let mut accounts = Vec::with_capacity(100);
+
+        self.iter_recursive(root, &mut |acc| {
+            accounts.push(acc.clone());
+            ControlFlow::Continue(())
+        });
+
+        accounts
+    }
+
+    fn iter_recursive<F>(&self, elem: &NodeOrLeaf<V2>, fun: &mut F) -> ControlFlow<()>
+    where
+        F: FnMut(&Account) -> ControlFlow<()>,
+    {
+        match elem {
+            NodeOrLeaf::Leaf(leaf) => return fun(&leaf.account),
+            NodeOrLeaf::Node(node) => {
+                if let Some(left) = node.left.as_ref() {
+                    self.iter_recursive(left, fun)?;
+                };
+                if let Some(right) = node.right.as_ref() {
+                    self.iter_recursive(right, fun)?;
+                };
+                unreachable!()
+            }
+        }
+    }
+
+    fn iter<F>(&self, mut fun: F)
+    where
+        F: FnMut(&Account),
+    {
+        let root = match self.root.as_ref() {
+            Some(root) => root,
+            None => return,
+        };
+
+        self.iter_recursive(root, &mut |acc| {
+            fun(acc);
+            ControlFlow::Continue(())
+        });
+    }
+
+    fn fold<B, F>(&self, init: B, mut fun: F) -> B
+    where
+        F: FnMut(B, &Account) -> B,
+    {
+        let root = match self.root.as_ref() {
+            Some(root) => root,
+            None => return init,
+        };
+
+        let mut accum = Some(init);
+        self.iter_recursive(root, &mut |acc| {
+            let res = fun(accum.take().unwrap(), acc);
+            accum = Some(res);
+            ControlFlow::Continue(())
+        });
+
+        accum.unwrap()
+    }
+
+    fn fold_with_ignored_accounts<B, F>(
+        &self,
+        ignoreds: HashSet<AccountId>,
+        init: B,
+        mut fun: F,
+    ) -> B
+    where
+        F: FnMut(B, &Account) -> B,
+    {
+        self.fold(init, |accum, acc| {
+            let account_id = acc.id();
+
+            if !ignoreds.contains(&account_id) {
+                fun(accum, acc)
+            } else {
+                accum
+            }
+        })
+    }
+
+    fn fold_until<B, F>(&self, init: B, mut fun: F) -> B
+    where
+        F: FnMut(B, &Account) -> Option<B>,
+    {
+        let root = match self.root.as_ref() {
+            Some(root) => root,
+            None => return init,
+        };
+
+        let mut accum = Some(init);
+        self.iter_recursive(root, &mut |acc| {
+            let res = match fun(accum.take().unwrap(), acc) {
+                Some(res) => res,
+                None => return ControlFlow::Break(()),
+            };
+
+            accum = Some(res);
+            ControlFlow::Continue(())
+        });
+
+        accum.unwrap()
+    }
+
+    fn accounts(&self) -> HashSet<AccountId> {
+        self.id_to_addr.keys().cloned().collect()
+    }
+
+    fn token_owner(&self, token: TokenId) -> Option<AccountId> {
+        let root = self.root.as_ref()?;
+        let mut account_id = None;
+
+        self.iter_recursive(root, &mut |acc| {
+            if acc.token_id == token {
+                account_id = Some(acc.id());
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
+            }
+        });
+
+        account_id
+    }
+
+    // TODO: Not sure if it's a correct impl, ocaml seems to keep an index
+    fn token_owners(&self) -> HashSet<AccountId> {
+        let root = match self.root.as_ref() {
+            Some(root) => root,
+            None => return HashSet::default(),
+        };
+
+        let mut tokens = HashMap::with_capacity(self.naccounts());
+
+        self.iter_recursive(root, &mut |acc| {
+            let token = acc.token_id.clone();
+            let id = acc.id();
+
+            tokens.insert(token, id);
+
+            ControlFlow::Continue(())
+        });
+
+        tokens.into_values().collect()
+    }
+
+    fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
+        let root = match self.root.as_ref() {
+            Some(root) => root,
+            None => return HashSet::default(),
+        };
+
+        let mut set = HashSet::with_capacity(self.naccounts());
+
+        self.iter_recursive(root, &mut |acc| {
+            if acc.public_key == public_key {
+                set.insert(acc.token_id.clone());
+            }
+
+            ControlFlow::Continue(())
+        });
+
+        set
+    }
+
+    fn location_of_account(&self, account_id: AccountId) -> Option<Address> {
+        self.id_to_addr.get(&account_id).cloned()
+    }
+
+    fn location_of_account_batch(
+        &self,
+        account_ids: &[AccountId],
+    ) -> Vec<(AccountId, Option<Address>)> {
+        account_ids
+            .iter()
+            .map(|acc_id| {
+                let addr = self.id_to_addr.get(acc_id).cloned();
+                (acc_id.clone(), addr)
+            })
+            .collect()
+    }
+
+    fn get_or_create_account(
+        &mut self,
+        account_id: AccountId,
+        account: Account,
+    ) -> Result<GetOrCreated, BaseLedgerError> {
+        todo!()
+    }
+
+    fn close(&mut self) {
+        todo!()
+    }
+
+    fn last_filled(&self) -> Address {
+        todo!()
+    }
+
+    fn get_uuid(&self) -> crate::base::Uuid {
+        todo!()
+    }
+
+    fn get_directory(&self) -> Option<PathBuf> {
+        todo!()
+    }
+}
+
+impl BaseLedger for Database<V2> {
+    fn to_list(&self) -> Vec<Account> {
+        self.to_list()
+    }
+
+    fn iter<F>(&self, fun: F)
+    where
+        F: FnMut(&Account),
+    {
+        self.iter(fun)
+    }
+
+    fn fold<B, F>(&self, init: B, fun: F) -> B
+    where
+        F: FnMut(B, &Account) -> B,
+    {
+        self.fold(init, fun)
+    }
+
+    fn fold_with_ignored_accounts<B, F>(&self, ignoreds: HashSet<AccountId>, init: B, fun: F) -> B
+    where
+        F: FnMut(B, &Account) -> B,
+    {
+        self.fold_with_ignored_accounts(ignoreds, init, fun)
+    }
+
+    fn fold_until<B, F>(&self, init: B, fun: F) -> B
+    where
+        F: FnMut(B, &Account) -> Option<B>,
+    {
+        self.fold_until(init, fun)
+    }
+
+    fn accounts(&self) -> HashSet<AccountId> {
+        self.accounts()
+    }
+
+    fn token_owner(&self, token: TokenId) -> Option<AccountId> {
+        self.token_owner(token)
+    }
+
+    fn token_owners(&self) -> HashSet<AccountId> {
+        self.token_owners()
+    }
+
+    fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
+        self.tokens(public_key)
+    }
+
+    fn location_of_account(&self, account_id: AccountId) -> Option<Address> {
+        self.location_of_account(account_id)
+    }
+
+    fn location_of_account_batch(
+        &self,
+        account_ids: &[AccountId],
+    ) -> Vec<(AccountId, Option<Address>)> {
+        self.location_of_account_batch(account_ids)
+    }
+
+    fn get_or_create_account(
+        &mut self,
+        account_id: AccountId,
+        account: Account,
+    ) -> Result<GetOrCreated, BaseLedgerError> {
+        todo!()
+    }
+
+    fn close(&mut self) {
+        todo!()
+    }
+
+    fn last_filled(&self) -> Address {
+        todo!()
+    }
+
+    fn get_uuid(&self) -> crate::base::Uuid {
+        todo!()
+    }
+
+    fn get_directory(&self) -> Option<PathBuf> {
+        todo!()
+    }
+
+    fn get(&self, addr: Address) -> Option<Account> {
+        todo!()
+    }
+
+    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Account>)> {
+        todo!()
+    }
+
+    fn set(&mut self, addr: Address, account: Account) {
+        todo!()
+    }
+
+    fn set_batch(&mut self, list: &[(Address, Account)]) {
+        todo!()
+    }
+
+    fn get_at_index(&self, index: u64) -> Option<Account> {
+        todo!()
+    }
+
+    fn set_at_index(&mut self, index: AccountIndex, account: Account) -> Result<(), ()> {
+        todo!()
+    }
+
+    fn index_of_account(&self, account_id: AccountId) -> Option<AccountIndex> {
+        todo!()
+    }
+
+    fn merkle_root(&self) -> Fp {
+        todo!()
+    }
+
+    fn merkle_path(&self, addr: Address) -> AddressIterator {
+        todo!()
+    }
+
+    fn merkle_path_at_index(&self, index: AccountIndex) -> Option<AddressIterator> {
+        todo!()
+    }
+
+    fn remove_accounts(&mut self, ids: &[AccountId]) {
+        todo!()
+    }
+
+    fn detached_signal(&mut self) {
+        todo!()
+    }
+
+    fn depth(&self) -> u8 {
+        todo!()
+    }
+
+    fn num_accounts(&self) -> usize {
+        todo!()
+    }
+
+    fn merkle_path_at_addr(&self, addr: Address) -> Option<AddressIterator> {
+        todo!()
+    }
+
+    fn get_inner_hash_at_addr(&self, addr: Address) -> Result<Fp, ()> {
+        todo!()
+    }
+
+    fn set_inner_hash_at_addr(&mut self, addr: Address, hash: Fp) -> Result<(), ()> {
+        todo!()
+    }
+
+    fn set_all_accounts_rooted_at(
+        &mut self,
+        addr: Address,
+        accounts: &[Account],
+    ) -> Result<(), ()> {
+        todo!()
+    }
+
+    fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Account)>> {
+        todo!()
+    }
+
+    fn make_space_for(&mut self, space: usize) {
+        todo!()
     }
 }
 
