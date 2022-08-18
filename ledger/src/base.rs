@@ -6,6 +6,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     account::{Account, AccountId, TokenId},
     address::{Address, AddressIterator},
+    tree::DatabaseError,
 };
 
 pub type Uuid = (); // TODO
@@ -59,13 +60,13 @@ pub trait BaseLedger {
         &mut self,
         account_id: AccountId,
         account: Account,
-    ) -> Result<GetOrCreated, BaseLedgerError>;
+    ) -> Result<GetOrCreated, DatabaseError>;
 
     /// the ledger should not be used after calling [close]
     fn close(&mut self);
 
     /// for account locations in the ledger, the last (rightmost) filled location
-    fn last_filled(&self) -> Address;
+    fn last_filled(&self) -> Option<Address>;
 
     fn get_uuid(&self) -> Uuid;
 
@@ -80,7 +81,7 @@ pub trait BaseLedger {
 
     fn set_batch(&mut self, list: &[(Address, Account)]);
 
-    fn get_at_index(&self, index: u64) -> Option<Account>;
+    fn get_at_index(&self, index: AccountIndex) -> Option<Account>;
 
     fn set_at_index(&mut self, index: AccountIndex, account: Account) -> Result<(), ()>;
 
@@ -126,14 +127,16 @@ pub trait BaseLedger {
     fn make_space_for(&mut self, space: usize);
 }
 
-pub struct AccountIndex(u64);
+#[derive(Debug, PartialEq, Eq)]
+pub struct AccountIndex(pub u64);
 
+#[derive(Debug)]
 pub enum GetOrCreated {
     Added(Address),
     Existed(Address),
 }
 
-pub enum BaseLedgerError {}
+// pub enum BaseLedgerError {}
 
 // pub struct TreeIterator {}
 

@@ -977,7 +977,8 @@ mod tests {
 
         let now = std::time::Instant::now();
         for account in accounts.into_iter() {
-            db.create_account((), account).unwrap();
+            let id = account.id();
+            db.create_account(id, account).unwrap();
         }
         assert_eq!(db.naccounts(), NACCOUNTS);
         println!("elapsed to insert in tree: {:?}", now.elapsed());

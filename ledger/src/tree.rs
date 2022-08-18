@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     fmt::Debug,
     ops::ControlFlow,
@@ -8,7 +9,7 @@ use std::{
 use crate::{
     account::{Account, AccountId, AccountLegacy, TokenId},
     address::{Address, AddressIterator, Direction},
-    base::{AccountIndex, BaseLedger, BaseLedgerError, GetOrCreated},
+    base::{AccountIndex, BaseLedger, GetOrCreated},
     tree_version::{TreeVersion, V1, V2},
 };
 use mina_hasher::Fp;
@@ -49,9 +50,39 @@ pub struct Database<T: TreeVersion> {
     naccounts: usize,
 }
 
+impl NodeOrLeaf<V2> {
+    fn get_on_path(&self, path: AddressIterator) -> Option<&Account> {
+        let mut node_or_leaf = self;
+
+        for direction in path {
+            let node = match node_or_leaf {
+                NodeOrLeaf::Node(node) => node,
+                NodeOrLeaf::Leaf(_) => return None,
+            };
+
+            let child = match direction {
+                Direction::Left => &node.left,
+                Direction::Right => &node.right,
+            };
+
+            let child = match child {
+                Some(child) => child,
+                None => return None,
+            };
+
+            node_or_leaf = &*child;
+        }
+
+        match node_or_leaf {
+            NodeOrLeaf::Leaf(leaf) => Some(&leaf.account),
+            NodeOrLeaf::Node(_) => None,
+        }
+    }
+}
+
 impl<T: TreeVersion> NodeOrLeaf<T> {
-    fn add_account_on_path(node_or_leaf: &mut Self, account: T::Account, path: AddressIterator) {
-        let mut node_or_leaf = node_or_leaf;
+    fn add_account_on_path(&mut self, account: T::Account, path: AddressIterator) {
+        let mut node_or_leaf = self;
 
         for direction in path {
             let node = match node_or_leaf {
@@ -115,17 +146,15 @@ pub enum DatabaseError {
 impl Database<V2> {
     pub fn create_account(
         &mut self,
-        _account_id: (),
+        account_id: AccountId,
         account: Account,
-    ) -> Result<Address, DatabaseError> {
+    ) -> Result<GetOrCreated, DatabaseError> {
         if self.root.is_none() {
             self.root = Some(NodeOrLeaf::Node(Node::default()));
         }
 
-        let id = account.id();
-
-        if let Some(addr) = self.id_to_addr.get(&id).cloned() {
-            return Ok(addr);
+        if let Some(addr) = self.id_to_addr.get(&account_id).cloned() {
+            return Ok(GetOrCreated::Existed(addr));
         }
 
         let location = match self.last_location.as_ref() {
@@ -135,14 +164,14 @@ impl Database<V2> {
 
         let root = self.root.as_mut().unwrap();
         let path_iter = location.clone().into_iter();
-        NodeOrLeaf::add_account_on_path(root, account, path_iter);
+        root.add_account_on_path(account, path_iter);
 
         self.last_location = Some(location.clone());
         self.naccounts += 1;
 
-        self.id_to_addr.insert(id, location.clone());
+        self.id_to_addr.insert(account_id, location.clone());
 
-        Ok(location)
+        Ok(GetOrCreated::Added(location))
     }
 }
 
@@ -163,7 +192,7 @@ impl Database<V1> {
 
         let root = self.root.as_mut().unwrap();
         let path_iter = location.clone().into_iter();
-        NodeOrLeaf::add_account_on_path(root, account, path_iter);
+        root.add_account_on_path(account, path_iter);
 
         self.last_location = Some(location.clone());
         self.naccounts += 1;
@@ -413,16 +442,16 @@ impl Database<V2> {
         &mut self,
         account_id: AccountId,
         account: Account,
-    ) -> Result<GetOrCreated, BaseLedgerError> {
-        todo!()
+    ) -> Result<GetOrCreated, DatabaseError> {
+        self.create_account(account_id, account)
     }
 
     fn close(&mut self) {
         todo!()
     }
 
-    fn last_filled(&self) -> Address {
-        todo!()
+    fn last_filled(&self) -> Option<Address> {
+        self.last_location.clone()
     }
 
     fn get_uuid(&self) -> crate::base::Uuid {
@@ -430,7 +459,67 @@ impl Database<V2> {
     }
 
     fn get_directory(&self) -> Option<PathBuf> {
-        todo!()
+        None
+    }
+
+    fn get(&self, addr: Address) -> Option<Account> {
+        self.root.as_ref()?.get_on_path(addr.into_iter()).cloned()
+    }
+
+    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Account>)> {
+        let root = match self.root.as_ref() {
+            Some(root) => Cow::Borrowed(root),
+            None => Cow::Owned(NodeOrLeaf::Node(Node::default())),
+        };
+
+        addr.iter()
+            .map(|addr| (addr.clone(), root.get_on_path(addr.iter()).cloned()))
+            .collect()
+    }
+
+    fn set(&mut self, addr: Address, account: Account) {
+        if self.root.is_none() {
+            self.root = Some(NodeOrLeaf::Node(Node::default()));
+        }
+
+        let id = account.id();
+
+        let root = self.root.as_mut().unwrap();
+        root.add_account_on_path(account, addr.iter());
+
+        // TODO: Remove old one ?
+        self.id_to_addr.insert(id, addr);
+
+        // TODO: Should it modify Self::last_location and Self::naccounts ?
+    }
+
+    fn set_batch(&mut self, list: &[(Address, Account)]) {
+        for (addr, account) in list {
+            self.set(addr.clone(), account.clone());
+        }
+    }
+
+    fn get_at_index(&self, index: AccountIndex) -> Option<Account> {
+        let addr = Address::from_index(index, self.depth as usize);
+        self.get(addr)
+    }
+
+    fn set_at_index(&mut self, index: AccountIndex, account: Account) -> Result<(), ()> {
+        let addr = Address::from_index(index, self.depth as usize);
+        self.set(addr, account);
+        Ok(())
+    }
+
+    fn index_of_account(&self, account_id: AccountId) -> Option<AccountIndex> {
+        self.id_to_addr.get(&account_id).map(Address::to_index)
+    }
+
+    fn merkle_root(&self) -> Fp {
+        self.root_hash()
+    }
+
+    fn merkle_path(&self, addr: Address) -> AddressIterator {
+        addr.into_iter()
     }
 }
 
@@ -498,16 +587,16 @@ impl BaseLedger for Database<V2> {
         &mut self,
         account_id: AccountId,
         account: Account,
-    ) -> Result<GetOrCreated, BaseLedgerError> {
-        todo!()
+    ) -> Result<GetOrCreated, DatabaseError> {
+        self.get_or_create_account(account_id, account)
     }
 
     fn close(&mut self) {
         todo!()
     }
 
-    fn last_filled(&self) -> Address {
-        todo!()
+    fn last_filled(&self) -> Option<Address> {
+        self.last_filled()
     }
 
     fn get_uuid(&self) -> crate::base::Uuid {
@@ -515,43 +604,43 @@ impl BaseLedger for Database<V2> {
     }
 
     fn get_directory(&self) -> Option<PathBuf> {
-        todo!()
+        self.get_directory()
     }
 
     fn get(&self, addr: Address) -> Option<Account> {
-        todo!()
+        self.get(addr)
     }
 
     fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Account>)> {
-        todo!()
+        self.get_batch(addr)
     }
 
     fn set(&mut self, addr: Address, account: Account) {
-        todo!()
+        self.set(addr, account)
     }
 
     fn set_batch(&mut self, list: &[(Address, Account)]) {
-        todo!()
+        self.set_batch(list)
     }
 
-    fn get_at_index(&self, index: u64) -> Option<Account> {
-        todo!()
+    fn get_at_index(&self, index: AccountIndex) -> Option<Account> {
+        self.get_at_index(index)
     }
 
     fn set_at_index(&mut self, index: AccountIndex, account: Account) -> Result<(), ()> {
-        todo!()
+        self.set_at_index(index, account)
     }
 
     fn index_of_account(&self, account_id: AccountId) -> Option<AccountIndex> {
-        todo!()
+        self.index_of_account(account_id)
     }
 
     fn merkle_root(&self) -> Fp {
-        todo!()
+        self.merkle_root()
     }
 
     fn merkle_path(&self, addr: Address) -> AddressIterator {
-        todo!()
+        self.merkle_path(addr)
     }
 
     fn merkle_path_at_index(&self, index: AccountIndex) -> Option<AddressIterator> {
@@ -645,14 +734,18 @@ mod tests {
             let mut db = Database::<V2>::create(depth);
 
             for _ in 0..two.pow(depth as u32) {
-                db.create_account((), Account::rand()).unwrap();
+                let account = Account::rand();
+                let id = account.id();
+                db.create_account(id, account).unwrap();
             }
 
             let naccounts = db.naccounts();
             assert_eq!(naccounts, two.pow(depth as u32));
 
+            let account = Account::create();
+            let id = account.id();
             assert_eq!(
-                db.create_account((), Account::create()).unwrap_err(),
+                db.create_account(id, account).unwrap_err(),
                 DatabaseError::OutOfLeaves
             );
 

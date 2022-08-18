@@ -68,7 +68,8 @@ ocaml_export! {
         // println!("account_hash={:?}", account.hash().to_string());
 
         let mut db = DATABASE.lock().unwrap();
-        db.create_account((), account).unwrap();
+        let id = account.id();
+        db.create_account(id, account).unwrap();
 
         // println!("RUST END");
         OCaml::unit()

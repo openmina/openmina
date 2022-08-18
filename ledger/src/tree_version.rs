@@ -12,7 +12,10 @@ pub trait TreeVersion {
     fn empty_hash_at_depth(depth: usize) -> Fp;
 }
 
+#[derive(Clone)]
 pub struct V1;
+
+#[derive(Clone)]
 pub struct V2;
 
 impl TreeVersion for V2 {
