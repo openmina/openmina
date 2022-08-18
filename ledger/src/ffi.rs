@@ -49,7 +49,7 @@ ocaml_export! {
             assert_eq!(hash, account_hash);
         }
 
-        println!("hash={:?}", hash.to_string());
+        // println!("hash={:?}", hash.to_string());
         // println!("provided={:?}", hash.to_string());
         // println!("computed={:?}", account_hash.to_string());
 
@@ -78,10 +78,10 @@ ocaml_export! {
         let db = DATABASE.lock().unwrap();
         let hash = db.root_hash();
 
-
         let ocaml_hash: String = ocaml_hash.to_rust(rt);
         let ocaml_hash = Fp::from_str(&ocaml_hash).unwrap();
 
+        println!("naccounts ={:?}", db.naccounts());
         println!("rust_root_hash ={:?}", hash.to_string());
         println!("ocaml_root_hash={:?}", ocaml_hash.to_string());
 

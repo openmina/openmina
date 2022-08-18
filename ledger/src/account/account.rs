@@ -11,7 +11,7 @@ use crate::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
 use super::common::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TokenId(pub Fp);
 
 impl Default for TokenId {
@@ -227,6 +227,28 @@ impl Default for ZkAppAccount {
     }
 }
 
+#[derive(Clone, Debug, Eq)]
+pub struct AccountId {
+    pub public_key: CompressedPubKey,
+    pub token_id: TokenId,
+}
+
+impl std::hash::Hash for AccountId {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.public_key.x.hash(state);
+        self.public_key.is_odd.hash(state);
+        self.token_id.hash(state);
+    }
+}
+
+impl PartialEq for AccountId {
+    fn eq(&self, other: &Self) -> bool {
+        self.public_key.x == other.public_key.x
+            && self.public_key.is_odd == other.public_key.is_odd
+            && self.token_id.0 == other.token_id.0
+    }
+}
+
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(from = "MinaBaseAccountBinableArgStableV2")]
@@ -433,6 +455,13 @@ impl Account {
             permissions: Permissions::user_default(),
             zkapp: None,
             zkapp_uri: String::new(),
+        }
+    }
+
+    pub fn id(&self) -> AccountId {
+        AccountId {
+            public_key: self.public_key.clone(),
+            token_id: self.token_id.clone(),
         }
     }
 
@@ -912,7 +941,7 @@ mod tests {
         let mut db = Database::<V2>::create(20);
         let mut accounts = Vec::with_capacity(1000);
 
-        const NACCOUNTS: usize = 1000;
+        const NACCOUNTS: usize = 10000;
 
         for _ in 0..NACCOUNTS {
             let rand = Account::rand();
