@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use std::ops::Deref;
 
 use ark_ff::{FromBytes, ToBytes};
@@ -28,9 +30,9 @@ impl Deref for BigInt {
     }
 }
 
-impl Into<Fp> for BigInt {
-    fn into(self) -> Fp {
-        Fp::read(&self.0[..]).unwrap()
+impl From<BigInt> for Fp {
+    fn from(val: BigInt) -> Self {
+        Fp::read(&val.0[..]).unwrap()
     }
 }
 
@@ -65,11 +67,11 @@ impl<'de> Deserialize<'de> for BigInt {
     }
 }
 
-impl Into<CompressedPubKey> for NonZeroCurvePointUncompressedStableV1 {
-    fn into(self) -> CompressedPubKey {
+impl From<NonZeroCurvePointUncompressedStableV1> for CompressedPubKey {
+    fn from(val: NonZeroCurvePointUncompressedStableV1) -> Self {
         CompressedPubKey {
-            x: Fp::read(&self.x[..]).unwrap(),
-            is_odd: self.is_odd,
+            x: Fp::read(&val.x[..]).unwrap(),
+            is_odd: val.is_odd,
         }
     }
 }

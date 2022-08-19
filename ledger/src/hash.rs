@@ -119,6 +119,7 @@ impl Inputs {
         self.fields.push(value);
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_fields(mut self) -> Vec<Fp> {
         let mut nbits = 0;
         let mut current = Fp::zero();
@@ -159,10 +160,10 @@ fn param_to_field(param: &str) -> Fp {
     let mut fp = <[u8; 32]>::default();
     let mut cursor = Cursor::new(&mut fp[..]);
 
-    cursor.write(param_bytes).expect("write failed");
+    cursor.write_all(param_bytes).expect("write failed");
 
     for _ in param_bytes.len()..20 {
-        cursor.write("*".as_bytes()).expect("write failed");
+        cursor.write_all("*".as_bytes()).expect("write failed");
     }
 
     Fp::read(&fp[..]).expect("fp read failed")
@@ -178,7 +179,7 @@ fn param_to_field_noinputs(param: &str) -> Fp {
     let mut fp = <[u8; 32]>::default();
     let mut cursor = Cursor::new(&mut fp[..]);
 
-    cursor.write(param_bytes).expect("write failed");
+    cursor.write_all(param_bytes).expect("write failed");
 
     Fp::read(&fp[..]).expect("fp read failed")
 }

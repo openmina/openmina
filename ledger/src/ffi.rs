@@ -115,6 +115,7 @@ ocaml_export! {
     }
 }
 
+#[allow(clippy::let_and_return)]
 fn impl_rust_random_account() -> Vec<u8> {
     // println!("rust_random_account begin");
 

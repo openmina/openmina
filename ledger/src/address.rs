@@ -391,7 +391,7 @@ mod tests {
         );
 
         let addr = Address::try_from("").unwrap();
-        assert!(addr.iter().collect::<Vec<_>>().is_empty());
+        assert!(addr.iter().next().is_none());
 
         assert!(Address::try_from("0101010101a").is_err());
         assert!(Address::try_from("0".repeat(255).as_str()).is_ok());

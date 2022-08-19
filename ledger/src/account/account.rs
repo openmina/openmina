@@ -440,7 +440,7 @@ impl Account {
     pub fn empty() -> Self {
         Self {
             public_key: CompressedPubKey {
-                x: Fp::zero().into(),
+                x: Fp::zero(),
                 is_odd: false,
             },
             token_id: TokenId::default(),
@@ -597,7 +597,7 @@ impl Account {
         let mut s = <[u8; 6]>::default();
         if !self.token_symbol.is_empty() {
             let len = self.token_symbol.len();
-            s[..len].copy_from_slice(&self.token_symbol.as_bytes());
+            s[..len].copy_from_slice(self.token_symbol.as_bytes());
         }
         inputs.append_u48(s);
 
@@ -611,12 +611,12 @@ impl Account {
             }
             TokenPermissions::NotOwned { account_disabled } => {
                 let bits = if account_disabled { 0b10 } else { 0b00 };
-                inputs.append_u2(0b00 | bits);
+                inputs.append_u2(bits);
             }
         }
 
         // Self::token_id
-        inputs.append_field(self.token_id.0.into());
+        inputs.append_field(self.token_id.0);
 
         // Self::public_key
         inputs.append_field(self.public_key.x);
@@ -808,7 +808,7 @@ mod tests {
         let acc = Account::create();
         let hash = acc.hash();
 
-        println!("account_hash={}", hash.to_string());
+        println!("account_hash={}", hash);
         println!("account_hash={}", hash.to_hex());
 
         assert_eq!(

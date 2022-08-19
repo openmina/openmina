@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 mod account;
 mod binprot;
 mod common;

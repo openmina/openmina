@@ -598,7 +598,7 @@ impl BaseLedger for Database<V2> {
     }
 
     fn depth(&self) -> u8 {
-        self.depth.try_into().unwrap()
+        self.depth
     }
 
     fn num_accounts(&self) -> usize {
@@ -626,7 +626,7 @@ impl BaseLedger for Database<V2> {
         Ok(hash)
     }
 
-    fn set_inner_hash_at_addr(&mut self, addr: Address, hash: Fp) -> Result<(), ()> {
+    fn set_inner_hash_at_addr(&mut self, _addr: Address, _hash: Fp) -> Result<(), ()> {
         // No-op for now, because we don't store the hashes anywhere
         Ok(())
     }

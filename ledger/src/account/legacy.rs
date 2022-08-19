@@ -422,7 +422,7 @@ impl AccountLegacy {
     pub fn empty() -> Self {
         Self {
             public_key: CompressedPubKey {
-                x: Fp::zero().into(),
+                x: Fp::zero(),
                 is_odd: false,
             },
             token_id: TokenIdLegacy::default(),
