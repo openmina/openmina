@@ -263,9 +263,9 @@ impl Address {
                 let byte = *byte as u64;
 
                 if index == 0 && self.length % 8 != 0 {
-                    let first_shift = 8 - (self.length % 8);
-                    account_index |= byte >> first_shift;
-                    shift += self.length % 8;
+                    let nunused = self.length % 8;
+                    account_index |= byte >> (8 - nunused);
+                    shift += nunused;
                 } else {
                     account_index |= byte << shift;
                     shift += 8;
@@ -276,12 +276,12 @@ impl Address {
     }
 
     pub fn from_index(index: AccountIndex, length: usize) -> Self {
-        let index = index.0;
+        let account_index = index.0;
         let mut addr = Address::first(length);
 
-        for bit_index in (0..length).rev() {
-            if index & (1 << bit_index) != 0 {
-                addr.set(length - (bit_index + 1));
+        for (index, bit_index) in (0..length).rev().enumerate() {
+            if account_index & (1 << bit_index) != 0 {
+                addr.set(index);
             }
         }
 
@@ -289,6 +289,8 @@ impl Address {
     }
 
     pub fn iter_children(&self, length: usize) -> AddressChildrenIterator {
+        assert!(self.length <= length);
+
         let root_length = self.length;
         let mut current = self.clone();
 
@@ -304,6 +306,7 @@ impl Address {
         AddressChildrenIterator {
             current: Some(current),
             until,
+            nchildren: 2u64.pow(length as u32 - root_length as u32),
         }
     }
 }
@@ -332,6 +335,13 @@ impl Iterator for AddressIterator {
 pub struct AddressChildrenIterator {
     current: Option<Address>,
     until: Option<Address>,
+    nchildren: u64,
+}
+
+impl AddressChildrenIterator {
+    pub fn len(&self) -> usize {
+        self.nchildren as usize
+    }
 }
 
 impl Iterator for AddressChildrenIterator {
@@ -452,8 +462,10 @@ mod tests {
     #[test]
     fn test_address_children() {
         let root = Address::try_from("00").unwrap();
+        let iter_children = root.iter_children(4);
+        assert_eq!(iter_children.len(), 4);
         assert_eq!(
-            root.iter_children(4).collect::<Vec<_>>(),
+            iter_children.collect::<Vec<_>>(),
             &[
                 Address::try_from("0000").unwrap(),
                 Address::try_from("0001").unwrap(),
@@ -463,8 +475,10 @@ mod tests {
         );
 
         let root = Address::try_from("01").unwrap();
+        let iter_children = root.iter_children(4);
+        assert_eq!(iter_children.len(), 4);
         assert_eq!(
-            root.iter_children(4).collect::<Vec<_>>(),
+            iter_children.collect::<Vec<_>>(),
             &[
                 Address::try_from("0100").unwrap(),
                 Address::try_from("0101").unwrap(),
@@ -474,8 +488,10 @@ mod tests {
         );
 
         let root = Address::try_from("10").unwrap();
+        let iter_children = root.iter_children(4);
+        assert_eq!(iter_children.len(), 4);
         assert_eq!(
-            root.iter_children(4).collect::<Vec<_>>(),
+            iter_children.collect::<Vec<_>>(),
             &[
                 Address::try_from("1000").unwrap(),
                 Address::try_from("1001").unwrap(),
@@ -485,8 +501,10 @@ mod tests {
         );
 
         let root = Address::try_from("11").unwrap();
+        let iter_children = root.iter_children(4);
+        assert_eq!(iter_children.len(), 4);
         assert_eq!(
-            root.iter_children(4).collect::<Vec<_>>(),
+            iter_children.collect::<Vec<_>>(),
             &[
                 Address::try_from("1100").unwrap(),
                 Address::try_from("1101").unwrap(),
@@ -494,5 +512,9 @@ mod tests {
                 Address::try_from("1111").unwrap(),
             ]
         );
+
+        let root = Address::try_from("00").unwrap();
+        let iter_children = root.iter_children(6);
+        assert_eq!(iter_children.len(), 16);
     }
 }

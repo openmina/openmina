@@ -179,6 +179,27 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
 
         T::hash_node(depth, left_hash, right_hash)
     }
+
+    fn iter_recursive<F>(&self, fun: &mut F) -> ControlFlow<()>
+    where
+        F: FnMut(&T::Account) -> ControlFlow<()>,
+    {
+        match self {
+            NodeOrLeaf::Leaf(leaf) => match leaf.account.as_ref() {
+                Some(account) => fun(account),
+                None => ControlFlow::Continue(()),
+            },
+            NodeOrLeaf::Node(node) => {
+                if let Some(left) = node.left.as_ref() {
+                    left.iter_recursive(fun)?;
+                };
+                if let Some(right) = node.right.as_ref() {
+                    right.iter_recursive(fun)?;
+                };
+                ControlFlow::Continue(())
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -206,8 +227,7 @@ impl Database<V2> {
         };
 
         let root = self.root.as_mut().unwrap();
-        let path_iter = location.clone().into_iter();
-        root.add_account_on_path(account, path_iter);
+        root.add_account_on_path(account, location.iter());
 
         self.last_location = Some(location.clone());
         self.naccounts += 1;
@@ -290,27 +310,6 @@ impl<T: TreeVersion> Database<T> {
             }
         }
     }
-
-    fn iter_recursive<F>(&self, elem: &NodeOrLeaf<V2>, fun: &mut F) -> ControlFlow<()>
-    where
-        F: FnMut(&Account) -> ControlFlow<()>,
-    {
-        match elem {
-            NodeOrLeaf::Leaf(leaf) => match leaf.account.as_ref() {
-                Some(account) => fun(account),
-                None => ControlFlow::Continue(()),
-            },
-            NodeOrLeaf::Node(node) => {
-                if let Some(left) = node.left.as_ref() {
-                    self.iter_recursive(left, fun)?;
-                };
-                if let Some(right) = node.right.as_ref() {
-                    self.iter_recursive(right, fun)?;
-                };
-                ControlFlow::Continue(())
-            }
-        }
-    }
 }
 
 impl BaseLedger for Database<V2> {
@@ -322,7 +321,7 @@ impl BaseLedger for Database<V2> {
 
         let mut accounts = Vec::with_capacity(100);
 
-        self.iter_recursive(root, &mut |acc| {
+        root.iter_recursive(&mut |acc| {
             accounts.push(acc.clone());
             ControlFlow::Continue(())
         });
@@ -339,7 +338,7 @@ impl BaseLedger for Database<V2> {
             None => return,
         };
 
-        self.iter_recursive(root, &mut |acc| {
+        root.iter_recursive(&mut |acc| {
             fun(acc);
             ControlFlow::Continue(())
         });
@@ -355,7 +354,7 @@ impl BaseLedger for Database<V2> {
         };
 
         let mut accum = Some(init);
-        self.iter_recursive(root, &mut |acc| {
+        root.iter_recursive(&mut |acc| {
             let res = fun(accum.take().unwrap(), acc);
             accum = Some(res);
             ControlFlow::Continue(())
@@ -394,7 +393,7 @@ impl BaseLedger for Database<V2> {
         };
 
         let mut accum = Some(init);
-        self.iter_recursive(root, &mut |acc| {
+        root.iter_recursive(&mut |acc| {
             let res = match fun(accum.take().unwrap(), acc) {
                 Some(res) => res,
                 None => return ControlFlow::Break(()),
@@ -415,7 +414,7 @@ impl BaseLedger for Database<V2> {
         let root = self.root.as_ref()?;
         let mut account_id = None;
 
-        self.iter_recursive(root, &mut |acc| {
+        root.iter_recursive(&mut |acc| {
             if acc.token_id == token {
                 account_id = Some(acc.id());
                 ControlFlow::Break(())
@@ -436,7 +435,7 @@ impl BaseLedger for Database<V2> {
 
         let mut tokens = HashMap::with_capacity(self.naccounts);
 
-        self.iter_recursive(root, &mut |acc| {
+        root.iter_recursive(&mut |acc| {
             let token = acc.token_id.clone();
             let id = acc.id();
 
@@ -456,7 +455,7 @@ impl BaseLedger for Database<V2> {
 
         let mut set = HashSet::with_capacity(self.naccounts);
 
-        self.iter_recursive(root, &mut |acc| {
+        root.iter_recursive(&mut |acc| {
             if acc.public_key == public_key {
                 set.insert(acc.token_id.clone());
             }
