@@ -492,8 +492,8 @@ impl BaseLedger for Database<V2> {
         self.create_account(account_id, account)
     }
 
-    fn close(&mut self) {
-        todo!()
+    fn close(self) {
+        // Drop
     }
 
     fn last_filled(&self) -> Option<Address> {
@@ -529,14 +529,20 @@ impl BaseLedger for Database<V2> {
         }
 
         let id = account.id();
-
         let root = self.root.as_mut().unwrap();
-        root.add_account_on_path(account, addr.iter());
 
-        // TODO: Remove old one ?
+        // Remove account at the address and it's index
+        if let Some(account) = root.get_on_path(addr.iter()) {
+            let id = account.id();
+            self.id_to_addr.remove(&id);
+        } else {
+            self.naccounts += 1;
+        }
+
+        root.add_account_on_path(account, addr.iter());
         self.id_to_addr.insert(id, addr);
 
-        // TODO: Should it modify Self::last_location and Self::naccounts ?
+        // TODO: Should it modify Self::last_location ?
     }
 
     fn set_batch(&mut self, list: &[(Address, Account)]) {
@@ -622,7 +628,8 @@ impl BaseLedger for Database<V2> {
     }
 
     fn set_inner_hash_at_addr(&mut self, addr: Address, hash: Fp) -> Result<(), ()> {
-        todo!()
+        // No-op for now, because we don't store the hashes anywhere
+        Ok(())
     }
 
     fn set_all_accounts_rooted_at(
@@ -630,15 +637,45 @@ impl BaseLedger for Database<V2> {
         addr: Address,
         accounts: &[Account],
     ) -> Result<(), ()> {
-        todo!()
+        if addr.length() > self.depth as usize {
+            return Err(());
+        }
+
+        for (child_addr, account) in addr.iter_children(self.depth as usize).zip(accounts) {
+            self.set(child_addr, account.clone());
+        }
+
+        Ok(())
     }
 
     fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Account)>> {
-        todo!()
+        if addr.length() > self.depth as usize {
+            return None;
+        }
+
+        let root = match self.root.as_ref() {
+            Some(root) => root,
+            None => return None,
+        };
+
+        let mut accounts = Vec::with_capacity(1000); // TODO: compute nchildren
+        for child_addr in addr.iter_children(self.depth as usize) {
+            let account = match root.get_on_path(child_addr.iter()).cloned() {
+                Some(account) => account,
+                None => continue,
+            };
+            accounts.push((child_addr, account));
+        }
+
+        if accounts.is_empty() {
+            None
+        } else {
+            Some(accounts)
+        }
     }
 
-    fn make_space_for(&mut self, space: usize) {
-        todo!()
+    fn make_space_for(&mut self, _space: usize) {
+        // No op, we're in memory
     }
 }
 

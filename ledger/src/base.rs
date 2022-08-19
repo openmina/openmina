@@ -63,7 +63,7 @@ pub trait BaseLedger {
     ) -> Result<GetOrCreated, DatabaseError>;
 
     /// the ledger should not be used after calling [close]
-    fn close(&mut self);
+    fn close(self);
 
     /// for account locations in the ledger, the last (rightmost) filled location
     fn last_filled(&self) -> Option<Address>;

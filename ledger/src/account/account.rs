@@ -941,7 +941,7 @@ mod tests {
         let mut db = Database::<V2>::create(20);
         let mut accounts = Vec::with_capacity(1000);
 
-        const NACCOUNTS: usize = 10000;
+        const NACCOUNTS: usize = 1000;
 
         for _ in 0..NACCOUNTS {
             let rand = Account::rand();

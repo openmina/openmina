@@ -97,6 +97,10 @@ impl Address {
         }
     }
 
+    pub fn length(&self) -> usize {
+        self.length
+    }
+
     pub fn first(length: usize) -> Self {
         Self {
             inner: [0; 32],
@@ -283,6 +287,25 @@ impl Address {
 
         addr
     }
+
+    pub fn iter_children(&self, length: usize) -> AddressChildrenIterator {
+        let root_length = self.length;
+        let mut current = self.clone();
+
+        let until = current.next().map(|mut until| {
+            until.length = length;
+            until.clear_after(root_length);
+            until
+        });
+
+        current.length = length;
+        current.clear_after(root_length);
+
+        AddressChildrenIterator {
+            current: Some(current),
+            until,
+        }
+    }
 }
 
 pub struct AddressIterator {
@@ -303,6 +326,25 @@ impl Iterator for AddressIterator {
         self.iter_index += 1;
 
         Some(self.addr.get(iter_index))
+    }
+}
+
+pub struct AddressChildrenIterator {
+    current: Option<Address>,
+    until: Option<Address>,
+}
+
+impl Iterator for AddressChildrenIterator {
+    type Item = Address;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current == self.until {
+            return None;
+        }
+        let current = self.current.clone()?;
+        self.current = current.next();
+
+        Some(current)
     }
 }
 
@@ -405,5 +447,52 @@ mod tests {
                 addr = addr.next().unwrap();
             }
         }
+    }
+
+    #[test]
+    fn test_address_children() {
+        let root = Address::try_from("00").unwrap();
+        assert_eq!(
+            root.iter_children(4).collect::<Vec<_>>(),
+            &[
+                Address::try_from("0000").unwrap(),
+                Address::try_from("0001").unwrap(),
+                Address::try_from("0010").unwrap(),
+                Address::try_from("0011").unwrap(),
+            ]
+        );
+
+        let root = Address::try_from("01").unwrap();
+        assert_eq!(
+            root.iter_children(4).collect::<Vec<_>>(),
+            &[
+                Address::try_from("0100").unwrap(),
+                Address::try_from("0101").unwrap(),
+                Address::try_from("0110").unwrap(),
+                Address::try_from("0111").unwrap(),
+            ]
+        );
+
+        let root = Address::try_from("10").unwrap();
+        assert_eq!(
+            root.iter_children(4).collect::<Vec<_>>(),
+            &[
+                Address::try_from("1000").unwrap(),
+                Address::try_from("1001").unwrap(),
+                Address::try_from("1010").unwrap(),
+                Address::try_from("1011").unwrap(),
+            ]
+        );
+
+        let root = Address::try_from("11").unwrap();
+        assert_eq!(
+            root.iter_children(4).collect::<Vec<_>>(),
+            &[
+                Address::try_from("1100").unwrap(),
+                Address::try_from("1101").unwrap(),
+                Address::try_from("1110").unwrap(),
+                Address::try_from("1111").unwrap(),
+            ]
+        );
     }
 }
