@@ -15,7 +15,7 @@ pub type Slot = u32;
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/receipt.mli#L67
 // type VotingFor = [u8; 32];
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct VotingFor(pub Fp);
 
 impl VotingFor {
@@ -24,7 +24,7 @@ impl VotingFor {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReceiptChainHash(pub Fp);
 
 impl ReceiptChainHash {
@@ -51,7 +51,7 @@ impl Default for ReceiptChainHash {
 // CodaReceiptEmpty
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/account_timing.ml#L31-L34
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Timing {
     Untimed,
     Timed {
@@ -67,7 +67,7 @@ pub enum Timing {
 pub type Nonce = u32;
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/token_permissions.ml#L9
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TokenPermissions {
     TokenOwned { disable_new_accounts: bool },
     NotOwned { account_disabled: bool },
@@ -82,7 +82,7 @@ impl Default for TokenPermissions {
 }
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L10
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum AuthRequired {
     None,
     Either,

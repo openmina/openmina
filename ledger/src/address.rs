@@ -294,7 +294,7 @@ impl Address {
         let root_length = self.length;
         let mut current = self.clone();
 
-        let until = current.next().map(|mut until| {
+        let mut until = current.next().map(|mut until| {
             until.length = length;
             until.clear_after(root_length);
             until
@@ -303,8 +303,13 @@ impl Address {
         current.length = length;
         current.clear_after(root_length);
 
+        let current = Some(current);
+        if until == current {
+            until = None;
+        }
+
         AddressChildrenIterator {
-            current: Some(current),
+            current,
             until,
             nchildren: 2u64.pow(length as u32 - root_length as u32),
         }
@@ -332,6 +337,7 @@ impl Iterator for AddressIterator {
     }
 }
 
+#[derive(Debug)]
 pub struct AddressChildrenIterator {
     current: Option<Address>,
     until: Option<Address>,

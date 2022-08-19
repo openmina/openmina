@@ -1,4 +1,4 @@
-use std::{collections::HashSet, path::PathBuf};
+use std::{collections::HashSet, ops::Deref, path::PathBuf};
 
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
@@ -134,6 +134,26 @@ pub struct AccountIndex(pub u64);
 pub enum GetOrCreated {
     Added(Address),
     Existed(Address),
+}
+
+impl Deref for GetOrCreated {
+    type Target = Address;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            GetOrCreated::Added(addr) => addr,
+            GetOrCreated::Existed(addr) => addr,
+        }
+    }
+}
+
+impl From<GetOrCreated> for Address {
+    fn from(val: GetOrCreated) -> Self {
+        match val {
+            GetOrCreated::Added(addr) => addr,
+            GetOrCreated::Existed(addr) => addr,
+        }
+    }
 }
 
 // pub enum BaseLedgerError {}

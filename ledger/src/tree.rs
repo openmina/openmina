@@ -657,8 +657,10 @@ impl BaseLedger for Database<V2> {
             None => return None,
         };
 
-        let mut accounts = Vec::with_capacity(1000); // TODO: compute nchildren
-        for child_addr in addr.iter_children(self.depth as usize) {
+        let children = addr.iter_children(self.depth as usize);
+        let mut accounts = Vec::with_capacity(children.len());
+
+        for child_addr in children {
             let account = match root.get_on_path(child_addr.iter()).cloned() {
                 Some(account) => account,
                 None => continue,
@@ -888,3 +890,161 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod tests_ocaml {
+    use super::*;
+
+    // "add and retrieve an account"
+    #[test]
+    fn test_add_retrieve_account() {
+        let mut db = Database::<V2>::create(4);
+
+        let account = Account::rand();
+        let location = db.create_account(account.id(), account.clone()).unwrap();
+        let get_account = db.get(location.clone()).unwrap();
+
+        assert_eq!(account, get_account);
+    }
+
+    // "accounts are atomic"
+    #[test]
+    fn test_accounts_are_atomic() {
+        let mut db = Database::<V2>::create(4);
+
+        let account = Account::rand();
+        let location: Address = db
+            .create_account(account.id(), account.clone())
+            .unwrap()
+            .into();
+
+        db.set(location.clone(), account.clone());
+        let loc = db.location_of_account(account.id()).unwrap();
+
+        assert_eq!(location, loc);
+        assert_eq!(db.get(location), db.get(loc));
+    }
+
+    // "length"
+    #[test]
+    fn test_lengths() {
+        for naccounts in 50..100 {
+            let mut db = Database::<V2>::create(10);
+            let mut unique = HashSet::with_capacity(naccounts);
+
+            for _ in 0..naccounts {
+                let account = loop {
+                    let account = Account::rand();
+                    if unique.insert(account.id()) {
+                        break account;
+                    }
+                };
+
+                db.get_or_create_account(account.id(), account).unwrap();
+            }
+
+            assert_eq!(db.num_accounts(), naccounts);
+        }
+    }
+
+    // "get_or_create_acount does not update an account if key already""
+    #[test]
+    fn test_no_update_if_exist() {
+        let mut db = Database::<V2>::create(10);
+
+        let mut account1 = Account::rand();
+        account1.balance = 100;
+
+        let location1 = db
+            .get_or_create_account(account1.id(), account1.clone())
+            .unwrap();
+
+        let mut account2 = account1;
+        account2.balance = 200;
+
+        let location2 = db
+            .get_or_create_account(account2.id(), account2.clone())
+            .unwrap();
+
+        let addr1: Address = location1.clone();
+        let addr2: Address = location2.clone();
+
+        assert_eq!(addr1, addr2);
+        assert!(matches!(location2, GetOrCreated::Existed(_)));
+        assert_ne!(db.get(location1.into()).unwrap(), account2);
+    }
+
+    // "get_or_create_account t account = location_of_account account.key"
+    #[test]
+    fn test_location_of_account() {
+        for naccounts in 50..100 {
+            let mut db = Database::<V2>::create(10);
+
+            for _ in 0..naccounts {
+                let account = Account::rand();
+
+                let account_id = account.id();
+                let location = db
+                    .get_or_create_account(account_id.clone(), account)
+                    .unwrap();
+                let addr: Address = location.into();
+
+                assert_eq!(addr, db.location_of_account(account_id).unwrap());
+            }
+        }
+    }
+
+    // "set_inner_hash_at_addr_exn(address,hash);
+    //  get_inner_hash_at_addr_exn(address) = hash"
+    #[test]
+    fn test_set_inner_hash() {
+        // TODO
+    }
+
+    // "set_inner_hash_at_addr_exn(address,hash);
+    //  get_inner_hash_at_addr_exn(address) = hash"
+    #[test]
+    fn test_get_set_all_same_root_hash() {
+        let mut db = Database::<V2>::create(7);
+
+        for _ in 0..2u64.pow(7) {
+            let account = Account::rand();
+            db.get_or_create_account(account.id(), account).unwrap();
+        }
+
+        let merkle_root1 = db.merkle_root();
+
+        let root = Address::first(0);
+        let accounts = db.get_all_accounts_rooted_at(root.clone()).unwrap();
+        let accounts = accounts.into_iter().map(|acc| acc.1).collect::<Vec<_>>();
+        db.set_all_accounts_rooted_at(root, &accounts).unwrap();
+
+        let merkle_root2 = db.merkle_root();
+
+        assert_eq!(merkle_root1, merkle_root2);
+    }
+}
+
+// (* let%test_unit "If the entire database is full, let \ *)
+//    (*                  addresses_and_accounts = \ *)
+//    (*                  get_all_accounts_rooted_at_exn(address) in \ *)
+//    (*                  set_batch_accounts(addresses_and_accounts) won't cause \ *)
+//    (*                  any changes" = *)
+// (*     Test.with_instance (fun mdb -> *)
+// (*         let depth = MT.depth mdb in *)
+// (*         let max_height = Int.min depth 5 in *)
+// (*         Quickcheck.test (Direction.gen_var_length_list max_height) *)
+// (*           ~sexp_of:[%sexp_of: Direction.t List.t] ~f:(fun directions -> *)
+// (*             let address = *)
+// (*               let offset = depth - max_height in *)
+// (*               let padding = List.init offset ~f:(fun _ -> Direction.Left) in *)
+// (*               let padded_directions = List.concat [ padding; directions ] in *)
+// (*               MT.Addr.of_directions padded_directions *)
+// (*             in *)
+// (*             let old_merkle_root = MT.merkle_root mdb in *)
+// (*             let addresses_and_accounts = *)
+// (*               MT.get_all_accounts_rooted_at_exn mdb address *)
+// (*             in *)
+// (*             MT.set_batch_accounts mdb addresses_and_accounts ; *)
+// (*             let new_merkle_root = MT.merkle_root mdb in *)
+// (*             assert (Hash.equal old_merkle_root new_merkle_root) ) ) *)

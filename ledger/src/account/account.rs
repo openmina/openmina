@@ -24,7 +24,7 @@ impl Default for TokenId {
 pub type TokenSymbol = String;
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L49
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Permissions<Controller> {
     pub edit_state: Controller,
     pub send: Controller,
@@ -83,7 +83,7 @@ impl Permissions<AuthRequired> {
 
 // TODO: Not sure if the name is correct
 // It seems that a similar type exist in proof-systems: TODO
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct CurveAffine(Fp, Fp);
 
 impl From<(BigInt, BigInt)> for CurveAffine {
@@ -99,7 +99,7 @@ impl From<CurveAffine> for (BigInt, BigInt) {
 }
 
 // https://github.com/MinaProtocol/mina/blob/a6e5f182855b3f4b4afb0ea8636760e618e2f7a0/src/lib/pickles_types/plonk_verification_key_evals.ml#L9-L18
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlonkVerificationKeyEvals {
     pub sigma: [CurveAffine; 7],
     pub coefficients: [CurveAffine; 15],
@@ -111,14 +111,14 @@ pub struct PlonkVerificationKeyEvals {
     pub endomul_scalar: CurveAffine,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ProofVerified {
     N0,
     N1,
     N2,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerificationKey {
     pub max_proofs_verified: ProofVerified,
     pub wrap_index: PlonkVerificationKeyEvals,
@@ -201,7 +201,7 @@ impl VerificationKey {
 }
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/zkapp_account.ml#L148-L170
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ZkAppAccount {
     pub app_state: [Fp; 8],
     pub verification_key: Option<VerificationKey>,
@@ -250,7 +250,7 @@ impl PartialEq for AccountId {
 }
 
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(from = "MinaBaseAccountBinableArgStableV2")]
 #[serde(into = "MinaBaseAccountBinableArgStableV2")]
 pub struct Account {
