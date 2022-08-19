@@ -23,8 +23,8 @@ Each message implement `binprot::BinProtRead` trait, so e.g. for reading an
 external transition, use the following:
 
 ``` rust
-    let external_transition: MinaBlockExternalTransitionRawVersionedStable =
-        binprot::BinProtRead::binprot_read(&mut ptr).unwrap();
+    let external_transition =
+        MinaBlockExternalTransitionRawVersionedStable::binprot_read(&mut ptr)?;
 ```
 
 All types implement `serde` serialization, so they can be easily turned into
@@ -40,9 +40,9 @@ TODO
 
 ``` sh
 cargo run --bin mina-types -- ../mina/shapes-raw.txt gen \
-   --type Mina_block__Block.Stable.V2.t \
-   --type Network_pool__Transaction_pool.Diff_versioned.Stable.V2.t \
-   --type Network_pool__Snark_pool.Diff_versioned.Stable.V2.t \
+   --type Mina_block__External_transition.Raw_versioned__.Stable.V1.t \
+   --type Network_pool__Transaction_pool.Diff_versioned.Stable.V1.t \
+   --type Network_pool__Snark_pool.Diff_versioned.Stable.V1.t \
    --config default.toml \
    --out src/lib.rs
 ```
