@@ -2,26 +2,8 @@ use std::{fmt::Debug, marker::PhantomData};
 
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
-#[macro_export]
-macro_rules! version {
-    ($ty:ident, $ver:literal) => {
-        impl crate::versioned::VersionTrait for $ty {
-            const VERSION: crate::versioned::Ver = $ver;
-        }
-    };
-    ($ty:ident < $( $p:ident ),* $(,)?>, $ver:literal) => {
-        impl<$($p),*> crate::versioned::VersionTrait for $ty<$($p),*> {
-            const VERSION: crate::versioned::Ver = $ver;
-        }
-    };
-}
-
+/// `Bin_prot` uses integer to represent type version.
 pub type Ver = i32;
-
-/// Trait specifying version of a type.
-pub trait VersionTrait {
-    const VERSION: Ver;
-}
 
 /// Wrapper for a type that adds explicit version information.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
