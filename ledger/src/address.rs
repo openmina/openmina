@@ -111,6 +111,10 @@ impl Address {
         }
     }
 
+    pub fn is_root(&self) -> bool {
+        self.length == 0
+    }
+
     pub fn get(&self, index: usize) -> Direction {
         let byte_index = index / 8;
         let bit_index = index % 8;

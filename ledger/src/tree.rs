@@ -38,7 +38,7 @@ impl<T: TreeVersion> Default for Node<T> {
 
 #[derive(Clone, Debug)]
 struct Leaf<T: TreeVersion> {
-    account: Box<T::Account>,
+    account: Option<Box<T::Account>>,
 }
 
 #[derive(Debug)]
@@ -51,7 +51,7 @@ pub struct Database<T: TreeVersion> {
 }
 
 impl NodeOrLeaf<V2> {
-    fn get_on_path(&self, path: AddressIterator) -> Option<&Account> {
+    fn go_to(&self, path: AddressIterator) -> Option<&Self> {
         let mut node_or_leaf = self;
 
         for direction in path {
@@ -73,8 +73,48 @@ impl NodeOrLeaf<V2> {
             node_or_leaf = &*child;
         }
 
+        Some(node_or_leaf)
+    }
+
+    fn go_to_mut(&mut self, path: AddressIterator) -> Option<&mut Self> {
+        let mut node_or_leaf = self;
+
+        for direction in path {
+            let node = match node_or_leaf {
+                NodeOrLeaf::Node(node) => node,
+                NodeOrLeaf::Leaf(_) => return None,
+            };
+
+            let child = match direction {
+                Direction::Left => &mut node.left,
+                Direction::Right => &mut node.right,
+            };
+
+            let child = match child {
+                Some(child) => child,
+                None => return None,
+            };
+
+            node_or_leaf = &mut *child;
+        }
+
+        Some(node_or_leaf)
+    }
+
+    fn get_on_path(&self, path: AddressIterator) -> Option<&Account> {
+        let node_or_leaf = self.go_to(path)?;
+
         match node_or_leaf {
-            NodeOrLeaf::Leaf(leaf) => Some(&leaf.account),
+            NodeOrLeaf::Leaf(leaf) => Some(leaf.account.as_ref()?),
+            NodeOrLeaf::Node(_) => None,
+        }
+    }
+
+    fn get_mut_leaf_on_path(&mut self, path: AddressIterator) -> Option<&mut Leaf<V2>> {
+        let node_or_leaf = self.go_to_mut(path)?;
+
+        match node_or_leaf {
+            NodeOrLeaf::Leaf(leaf) => Some(leaf),
             NodeOrLeaf::Node(_) => None,
         }
     }
@@ -107,7 +147,7 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
         }
 
         *node_or_leaf = NodeOrLeaf::Leaf(Leaf {
-            account: Box::new(account),
+            account: Some(Box::new(account)),
         });
     }
 
@@ -115,7 +155,10 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
         let node = match self {
             NodeOrLeaf::Node(node) => node,
             NodeOrLeaf::Leaf(leaf) => {
-                return T::hash_leaf(&*leaf.account);
+                return match leaf.account.as_ref() {
+                    Some(account) => T::hash_leaf(account),
+                    None => T::empty_hash_at_depth(depth.unwrap()),
+                }
             }
         };
 
@@ -247,9 +290,30 @@ impl<T: TreeVersion> Database<T> {
             }
         }
     }
+
+    fn iter_recursive<F>(&self, elem: &NodeOrLeaf<V2>, fun: &mut F) -> ControlFlow<()>
+    where
+        F: FnMut(&Account) -> ControlFlow<()>,
+    {
+        match elem {
+            NodeOrLeaf::Leaf(leaf) => match leaf.account.as_ref() {
+                Some(account) => fun(account),
+                None => ControlFlow::Continue(()),
+            },
+            NodeOrLeaf::Node(node) => {
+                if let Some(left) = node.left.as_ref() {
+                    self.iter_recursive(left, fun)?;
+                };
+                if let Some(right) = node.right.as_ref() {
+                    self.iter_recursive(right, fun)?;
+                };
+                ControlFlow::Continue(())
+            }
+        }
+    }
 }
 
-impl Database<V2> {
+impl BaseLedger for Database<V2> {
     fn to_list(&self) -> Vec<Account> {
         let root = match self.root.as_ref() {
             Some(root) => root,
@@ -264,24 +328,6 @@ impl Database<V2> {
         });
 
         accounts
-    }
-
-    fn iter_recursive<F>(&self, elem: &NodeOrLeaf<V2>, fun: &mut F) -> ControlFlow<()>
-    where
-        F: FnMut(&Account) -> ControlFlow<()>,
-    {
-        match elem {
-            NodeOrLeaf::Leaf(leaf) => return fun(&leaf.account),
-            NodeOrLeaf::Node(node) => {
-                if let Some(left) = node.left.as_ref() {
-                    self.iter_recursive(left, fun)?;
-                };
-                if let Some(right) = node.right.as_ref() {
-                    self.iter_recursive(right, fun)?;
-                };
-                unreachable!()
-            }
-        }
     }
 
     fn iter<F>(&self, mut fun: F)
@@ -388,7 +434,7 @@ impl Database<V2> {
             None => return HashSet::default(),
         };
 
-        let mut tokens = HashMap::with_capacity(self.naccounts());
+        let mut tokens = HashMap::with_capacity(self.naccounts);
 
         self.iter_recursive(root, &mut |acc| {
             let token = acc.token_id.clone();
@@ -408,7 +454,7 @@ impl Database<V2> {
             None => return HashSet::default(),
         };
 
-        let mut set = HashSet::with_capacity(self.naccounts());
+        let mut set = HashSet::with_capacity(self.naccounts);
 
         self.iter_recursive(root, &mut |acc| {
             if acc.public_key == public_key {
@@ -521,134 +567,25 @@ impl Database<V2> {
     fn merkle_path(&self, addr: Address) -> AddressIterator {
         addr.into_iter()
     }
-}
-
-impl BaseLedger for Database<V2> {
-    fn to_list(&self) -> Vec<Account> {
-        self.to_list()
-    }
-
-    fn iter<F>(&self, fun: F)
-    where
-        F: FnMut(&Account),
-    {
-        self.iter(fun)
-    }
-
-    fn fold<B, F>(&self, init: B, fun: F) -> B
-    where
-        F: FnMut(B, &Account) -> B,
-    {
-        self.fold(init, fun)
-    }
-
-    fn fold_with_ignored_accounts<B, F>(&self, ignoreds: HashSet<AccountId>, init: B, fun: F) -> B
-    where
-        F: FnMut(B, &Account) -> B,
-    {
-        self.fold_with_ignored_accounts(ignoreds, init, fun)
-    }
-
-    fn fold_until<B, F>(&self, init: B, fun: F) -> B
-    where
-        F: FnMut(B, &Account) -> Option<B>,
-    {
-        self.fold_until(init, fun)
-    }
-
-    fn accounts(&self) -> HashSet<AccountId> {
-        self.accounts()
-    }
-
-    fn token_owner(&self, token: TokenId) -> Option<AccountId> {
-        self.token_owner(token)
-    }
-
-    fn token_owners(&self) -> HashSet<AccountId> {
-        self.token_owners()
-    }
-
-    fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
-        self.tokens(public_key)
-    }
-
-    fn location_of_account(&self, account_id: AccountId) -> Option<Address> {
-        self.location_of_account(account_id)
-    }
-
-    fn location_of_account_batch(
-        &self,
-        account_ids: &[AccountId],
-    ) -> Vec<(AccountId, Option<Address>)> {
-        self.location_of_account_batch(account_ids)
-    }
-
-    fn get_or_create_account(
-        &mut self,
-        account_id: AccountId,
-        account: Account,
-    ) -> Result<GetOrCreated, DatabaseError> {
-        self.get_or_create_account(account_id, account)
-    }
-
-    fn close(&mut self) {
-        todo!()
-    }
-
-    fn last_filled(&self) -> Option<Address> {
-        self.last_filled()
-    }
-
-    fn get_uuid(&self) -> crate::base::Uuid {
-        todo!()
-    }
-
-    fn get_directory(&self) -> Option<PathBuf> {
-        self.get_directory()
-    }
-
-    fn get(&self, addr: Address) -> Option<Account> {
-        self.get(addr)
-    }
-
-    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Account>)> {
-        self.get_batch(addr)
-    }
-
-    fn set(&mut self, addr: Address, account: Account) {
-        self.set(addr, account)
-    }
-
-    fn set_batch(&mut self, list: &[(Address, Account)]) {
-        self.set_batch(list)
-    }
-
-    fn get_at_index(&self, index: AccountIndex) -> Option<Account> {
-        self.get_at_index(index)
-    }
-
-    fn set_at_index(&mut self, index: AccountIndex, account: Account) -> Result<(), ()> {
-        self.set_at_index(index, account)
-    }
-
-    fn index_of_account(&self, account_id: AccountId) -> Option<AccountIndex> {
-        self.index_of_account(account_id)
-    }
-
-    fn merkle_root(&self) -> Fp {
-        self.merkle_root()
-    }
-
-    fn merkle_path(&self, addr: Address) -> AddressIterator {
-        self.merkle_path(addr)
-    }
 
     fn merkle_path_at_index(&self, index: AccountIndex) -> Option<AddressIterator> {
-        todo!()
+        let addr = Address::from_index(index, self.depth as usize);
+        Some(addr.into_iter())
     }
 
     fn remove_accounts(&mut self, ids: &[AccountId]) {
-        todo!()
+        let root = match self.root.as_mut() {
+            Some(root) => root,
+            None => return,
+        };
+
+        for addr in ids.iter().filter_map(|id| self.id_to_addr.get(id)) {
+            let leaf = match root.get_mut_leaf_on_path(addr.iter()) {
+                Some(leaf) => leaf,
+                None => continue,
+            };
+            leaf.account = None;
+        }
     }
 
     fn detached_signal(&mut self) {
@@ -656,19 +593,32 @@ impl BaseLedger for Database<V2> {
     }
 
     fn depth(&self) -> u8 {
-        todo!()
+        self.depth.try_into().unwrap()
     }
 
     fn num_accounts(&self) -> usize {
-        todo!()
+        self.naccounts
     }
 
     fn merkle_path_at_addr(&self, addr: Address) -> Option<AddressIterator> {
-        todo!()
+        Some(self.merkle_path(addr))
     }
 
     fn get_inner_hash_at_addr(&self, addr: Address) -> Result<Fp, ()> {
-        todo!()
+        let root = match self.root.as_ref() {
+            Some(root) => root,
+            None => todo!(),
+        };
+
+        // TODO: See how ocaml behaves when the address is at a non-created branch
+
+        let node_or_leaf = match root.go_to(addr.into_iter()) {
+            Some(node_or_leaf) => node_or_leaf,
+            None => todo!(),
+        };
+
+        let hash = node_or_leaf.hash(Some(self.depth as usize));
+        Ok(hash)
     }
 
     fn set_inner_hash_at_addr(&mut self, addr: Address, hash: Fp) -> Result<(), ()> {
