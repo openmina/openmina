@@ -92,7 +92,11 @@ pub struct VersionMismatchError {
 
 impl std::fmt::Display for VersionMismatchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "version mismatch, expected {}, actual {}", self.expected, self.actual)
+        write!(
+            f,
+            "version mismatch, expected {}, actual {}",
+            self.expected, self.actual
+        )
     }
 }
 
@@ -134,85 +138,96 @@ where
     }
 }
 
-
-
-/*
 #[cfg(test)]
 mod tests {
+    use binprot::{BinProtRead, BinProtWrite};
+    use binprot_derive::{BinProtRead, BinProtWrite};
     use serde::{Deserialize, Serialize};
 
-    use crate::versioned::{Ver, VersionTrait, Versioned, WithVersion};
+    use crate::versioned::Versioned;
 
+    fn binprot_read<T>(buf: &[u8]) -> Result<(T, &[u8]), binprot::Error>
+    where
+        T: BinProtRead,
+    {
+        let mut rest = buf;
+        let res = T::binprot_read(&mut rest)?;
+        Ok((res, rest))
+    }
 
-    #[test]
-    fn serde_versioned() {
-        #[derive(Debug, Serialize, Deserialize, PartialEq)]
-        struct Foo {
-            a: u8,
-            b: u32,
-        }
-
-        let foo = Foo { a: 0x7f, b: 0xffff };
-        let foo_bin_prot = b"\x7f\xfe\xff\xff";
-        let foo_v_bin_prot = b"\x01\x7f\xfe\xff\xff";
-        let foo_json = serde_json::json!({"a": 0x7f, "b": 0xffff});
-
-        let bytes = serde_binprot::to_vec(&foo).unwrap();
-        assert_eq!(&bytes, foo_bin_prot);
-
-        let json = serde_json::to_value(&foo).unwrap();
-        assert_eq!(json, foo_json);
-
-        let foo_de: Foo = serde_binprot::from_slice(foo_bin_prot).unwrap();
-        assert_eq!(foo_de, foo);
-
-        impl VersionTrait for Foo {
-            const VERSION: Ver = 1;
-        }
-        let foo = Versioned::from(foo);
-
-        let bytes = serde_binprot::to_vec(&foo).unwrap();
-        assert_eq!(&bytes, foo_v_bin_prot);
-
-        let json = serde_json::to_value(&foo).unwrap();
-        assert_eq!(json, foo_json);
-
-        let foo_de: Versioned<Foo> = serde_binprot::from_slice(foo_v_bin_prot).unwrap();
-        assert_eq!(foo_de.0, foo.0);
+    fn binprot_write<T>(t: &T) -> std::io::Result<Vec<u8>>
+    where
+        T: BinProtWrite,
+    {
+        let mut buf = Vec::new();
+        let _ = t.binprot_write(&mut buf)?;
+        Ok(buf)
     }
 
     #[test]
-    fn serde_with_version() {
-        #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    fn binprot() {
+        #[derive(Debug, Serialize, Deserialize, PartialEq, BinProtRead, BinProtWrite)]
         struct Foo {
             a: u8,
             b: u32,
         }
 
-        let foo = Foo { a: 0x7f, b: 0xffff };
-        let foo_bin_prot = b"\x7f\xfe\xff\xff";
-        let foo_v_bin_prot = b"\x02\x7f\xfe\xff\xff";
-        let foo_json = serde_json::json!({"a": 0x7f, "b": 0xffff});
+        for (foo, foo_bin_prot) in [
+            (Foo { a: 0x00, b: 0x00 }, b"\x00\x00" as &[u8]),
+            (Foo { a: 0x01, b: 0x01 }, b"\x01\x01"),
+            (Foo { a: 0x7f, b: 0x7fff }, b"\x7f\xfe\xff\x7f"),
+        ] {
+            let foo_json = serde_json::json!({"a": foo.a, "b": foo.b});
 
-        let bytes = serde_binprot::to_vec(&foo).unwrap();
-        assert_eq!(&bytes, foo_bin_prot);
+            let bytes = binprot_write(&foo).unwrap();
+            assert_eq!(&bytes, foo_bin_prot);
 
-        let json = serde_json::to_value(&foo).unwrap();
-        assert_eq!(json, foo_json);
+            let json = serde_json::to_value(&foo).unwrap();
+            assert_eq!(json, foo_json);
 
-        let foo_de: Foo = serde_binprot::from_slice(foo_bin_prot).unwrap();
-        assert_eq!(foo_de, foo);
+            let (foo_de, rest) = binprot_read::<Foo>(foo_bin_prot).unwrap();
+            assert_eq!(rest.len(), 0);
+            assert_eq!(&foo_de, &foo);
+        }
+    }
 
-        let foo: WithVersion<Foo, 2> = WithVersion(foo);
+    #[test]
+    fn binprot_versioned() {
+        #[derive(Debug, Serialize, Deserialize, PartialEq, BinProtRead, BinProtWrite)]
+        struct Foo {
+            a: u8,
+            b: u32,
+        }
 
-        let bytes = serde_binprot::to_vec(&foo).unwrap();
-        assert_eq!(&bytes, foo_v_bin_prot);
+        for (foo, foo_bin_prot) in [
+            (Foo { a: 0x00, b: 0x00 }, b"\x01\x00\x00" as &[u8]),
+            (Foo { a: 0x01, b: 0x01 }, b"\x01\x01\x01"),
+            (Foo { a: 0x7f, b: 0x7fff }, b"\x01\x7f\xfe\xff\x7f"),
+        ] {
+            type VersionedFoo = Versioned<Foo, 1>;
+            let foo_json = serde_json::json!({"a": foo.a, "b": foo.b});
+            let foo = Versioned::from(foo);
 
-        let json = serde_json::to_value(&foo).unwrap();
-        assert_eq!(json, foo_json);
+            let bytes = binprot_write(&foo).unwrap();
+            assert_eq!(&bytes, foo_bin_prot);
 
-        let foo_de: WithVersion<Foo, 2> = serde_binprot::from_slice(foo_v_bin_prot).unwrap();
-        assert_eq!(foo_de.0, foo.0);
+            let json = serde_json::to_value(&foo).unwrap();
+            assert_eq!(json, foo_json);
+
+            let (foo_de, rest) = binprot_read::<VersionedFoo>(foo_bin_prot).unwrap();
+            assert_eq!(rest.len(), 0);
+            assert_eq!(&foo_de, &foo);
+        }
+    }
+
+    #[test]
+    fn binprot_version_num_write() {
+        fn versioned<const V: i32>() -> Versioned<(), V> {
+            Versioned(())
+        }
+        assert_eq!(&binprot_write(&versioned::<0>()).unwrap(), b"\x00\x00");
+        assert_eq!(&binprot_write(&versioned::<1>()).unwrap(), b"\x01\x00");
+        assert_eq!(&binprot_write(&versioned::<0x7f>()).unwrap(), b"\x7f\x00");
+        assert_eq!(&binprot_write(&versioned::<0x80>()).unwrap(), b"\xfe\x80\x00\x00");
     }
 }
-*/
