@@ -6,9 +6,9 @@ name: CI
 on:
   # Triggers the workflow on push or pull request events but only for the "compatible" branch
   push:
-    branches: [ "compatible" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "compatible" ]
+    branches: [ "main" ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -36,9 +36,11 @@ jobs:
           command: doc
           args: --no-deps
 
+      # Adds redirection to the subdir with crate documentation
       - name: Add subdir redirection
         run: echo "<meta http-equiv=\"refresh\" content=\"0; url=mina_p2p_messages/index.html\">" > target/doc/index.html
 
+      # Uploads build artifacts
       - name: Upload files
         uses: actions/upload-pages-artifact@v1
         with:
