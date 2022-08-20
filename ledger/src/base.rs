@@ -1,4 +1,8 @@
-use std::{collections::HashSet, ops::Deref, path::PathBuf};
+use std::{
+    collections::HashSet,
+    ops::{ControlFlow, Deref},
+    path::PathBuf,
+};
 
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
@@ -34,7 +38,7 @@ pub trait BaseLedger {
     /// fold until `fun` returns `None`
     fn fold_until<B, F>(&self, init: B, fun: F) -> B
     where
-        F: FnMut(B, &Account) -> Option<B>;
+        F: FnMut(B, &Account) -> ControlFlow<B, B>;
 
     /// set of account ids associated with accounts
     fn accounts(&self) -> HashSet<AccountId>;
@@ -127,7 +131,7 @@ pub trait BaseLedger {
     fn make_space_for(&mut self, space: usize);
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AccountIndex(pub u64);
 
 #[derive(Debug)]

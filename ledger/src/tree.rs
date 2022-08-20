@@ -157,7 +157,7 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
             NodeOrLeaf::Leaf(leaf) => {
                 return match leaf.account.as_ref() {
                     Some(account) => T::hash_leaf(account),
-                    None => T::empty_hash_at_depth(depth.unwrap()),
+                    None => T::empty_hash_at_depth(0),
                 }
             }
         };
@@ -385,7 +385,7 @@ impl BaseLedger for Database<V2> {
 
     fn fold_until<B, F>(&self, init: B, mut fun: F) -> B
     where
-        F: FnMut(B, &Account) -> Option<B>,
+        F: FnMut(B, &Account) -> ControlFlow<B, B>,
     {
         let root = match self.root.as_ref() {
             Some(root) => root,
@@ -393,14 +393,15 @@ impl BaseLedger for Database<V2> {
         };
 
         let mut accum = Some(init);
-        root.iter_recursive(&mut |acc| {
-            let res = match fun(accum.take().unwrap(), acc) {
-                Some(res) => res,
-                None => return ControlFlow::Break(()),
-            };
-
-            accum = Some(res);
-            ControlFlow::Continue(())
+        root.iter_recursive(&mut |acc| match fun(accum.take().unwrap(), acc) {
+            ControlFlow::Continue(acc) => {
+                accum = Some(acc);
+                ControlFlow::Continue(())
+            }
+            ControlFlow::Break(acc) => {
+                accum = Some(acc);
+                ControlFlow::Break(())
+            }
         });
 
         accum.unwrap()
@@ -539,9 +540,16 @@ impl BaseLedger for Database<V2> {
         }
 
         root.add_account_on_path(account, addr.iter());
-        self.id_to_addr.insert(id, addr);
+        self.id_to_addr.insert(id, addr.clone());
 
-        // TODO: Should it modify Self::last_location ?
+        if self
+            .last_location
+            .as_ref()
+            .map(|l| l.to_index() < addr.to_index())
+            .unwrap_or(true)
+        {
+            self.last_location = Some(addr);
+        }
     }
 
     fn set_batch(&mut self, list: &[(Address, Account)]) {
@@ -893,6 +901,8 @@ mod tests {
 
 #[cfg(test)]
 mod tests_ocaml {
+    use rand::Rng;
+
     use super::*;
 
     // "add and retrieve an account"
@@ -1001,20 +1011,26 @@ mod tests_ocaml {
         // TODO
     }
 
-    // "set_inner_hash_at_addr_exn(address,hash);
-    //  get_inner_hash_at_addr_exn(address) = hash"
-    #[test]
-    fn test_get_set_all_same_root_hash() {
-        let mut db = Database::<V2>::create(7);
+    fn create_full_db(depth: usize) -> Database<V2> {
+        let mut db = Database::<V2>::create(depth as u8);
 
-        for _ in 0..2u64.pow(7) {
+        for _ in 0..2u64.pow(depth as u32) {
             let account = Account::rand();
             db.get_or_create_account(account.id(), account).unwrap();
         }
 
-        let merkle_root1 = db.merkle_root();
+        db
+    }
 
-        let root = Address::first(0);
+    // "set_inner_hash_at_addr_exn(address,hash);
+    //  get_inner_hash_at_addr_exn(address) = hash"
+    #[test]
+    fn test_get_set_all_same_root_hash() {
+        let mut db = create_full_db(7);
+
+        let merkle_root1 = db.merkle_root();
+        let root = Address::root();
+
         let accounts = db.get_all_accounts_rooted_at(root.clone()).unwrap();
         let accounts = accounts.into_iter().map(|acc| acc.1).collect::<Vec<_>>();
         db.set_all_accounts_rooted_at(root, &accounts).unwrap();
@@ -1023,28 +1039,278 @@ mod tests_ocaml {
 
         assert_eq!(merkle_root1, merkle_root2);
     }
-}
 
-// (* let%test_unit "If the entire database is full, let \ *)
-//    (*                  addresses_and_accounts = \ *)
-//    (*                  get_all_accounts_rooted_at_exn(address) in \ *)
-//    (*                  set_batch_accounts(addresses_and_accounts) won't cause \ *)
-//    (*                  any changes" = *)
-// (*     Test.with_instance (fun mdb -> *)
-// (*         let depth = MT.depth mdb in *)
-// (*         let max_height = Int.min depth 5 in *)
-// (*         Quickcheck.test (Direction.gen_var_length_list max_height) *)
-// (*           ~sexp_of:[%sexp_of: Direction.t List.t] ~f:(fun directions -> *)
-// (*             let address = *)
-// (*               let offset = depth - max_height in *)
-// (*               let padding = List.init offset ~f:(fun _ -> Direction.Left) in *)
-// (*               let padded_directions = List.concat [ padding; directions ] in *)
-// (*               MT.Addr.of_directions padded_directions *)
-// (*             in *)
-// (*             let old_merkle_root = MT.merkle_root mdb in *)
-// (*             let addresses_and_accounts = *)
-// (*               MT.get_all_accounts_rooted_at_exn mdb address *)
-// (*             in *)
-// (*             MT.set_batch_accounts mdb addresses_and_accounts ; *)
-// (*             let new_merkle_root = MT.merkle_root mdb in *)
-// (*             assert (Hash.equal old_merkle_root new_merkle_root) ) ) *)
+    // "set_inner_hash_at_addr_exn(address,hash);
+    //  get_inner_hash_at_addr_exn(address) = hash"
+    #[test]
+    fn test_set_batch_accounts_change_root_hash() {
+        const DEPTH: usize = 7;
+
+        for _ in 0..5 {
+            let mut db = create_full_db(DEPTH);
+
+            let addr = Address::rand(DEPTH);
+            let children = addr.iter_children(DEPTH);
+            let accounts = children
+                .map(|addr| (addr, Account::rand()))
+                .collect::<Vec<_>>();
+
+            let merkle_root1 = db.merkle_root();
+            db.set_batch_accounts(&accounts);
+            let merkle_root2 = db.merkle_root();
+
+            assert_ne!(merkle_root1, merkle_root2);
+        }
+    }
+
+    // "We can retrieve accounts by their by key after using
+    //  set_batch_accounts""
+    #[test]
+    fn test_retrieve_account_after_set_batch() {
+        const DEPTH: usize = 7;
+
+        let mut db = Database::<V2>::create(DEPTH as u8);
+
+        let mut addr = Address::root();
+        for _ in 0..63 {
+            let account = Account::rand();
+            addr = db
+                .get_or_create_account(account.id(), account)
+                .unwrap()
+                .into();
+        }
+
+        let last_location = db.last_filled().unwrap();
+        assert_eq!(addr, last_location);
+
+        let mut accounts = Vec::with_capacity(2u64.pow(DEPTH as u32) as usize);
+
+        while let Some(next_addr) = addr.next() {
+            accounts.push((next_addr.clone(), Account::rand()));
+            addr = next_addr;
+        }
+
+        db.set_batch_accounts(&accounts);
+
+        for (addr, account) in &accounts {
+            let account_id = account.id();
+            let location = db.location_of_account(account_id).unwrap();
+            let queried_account = db.get(location.clone()).unwrap();
+
+            assert_eq!(*addr, location);
+            assert_eq!(*account, queried_account);
+        }
+
+        let expected_last_location = last_location.to_index().0 + accounts.len() as u64;
+        let actual_last_location = db.last_filled().unwrap().to_index().0;
+
+        assert_eq!(expected_last_location, actual_last_location);
+    }
+
+    // "If the entire database is full,
+    //  set_all_accounts_rooted_at_exn(address,accounts);get_all_accounts_rooted_at_exn(address)
+    //  = accounts"
+    #[test]
+    fn test_set_accounts_rooted_equal_get_accounts_rooted() {
+        const DEPTH: usize = 7;
+
+        let mut db = create_full_db(DEPTH);
+
+        for _ in 0..5 {
+            let addr = Address::rand(DEPTH);
+            let children = addr.iter_children(DEPTH);
+            let accounts = children.map(|_| Account::rand()).collect::<Vec<_>>();
+
+            db.set_all_accounts_rooted_at(addr.clone(), &accounts)
+                .unwrap();
+            let list = db
+                .get_all_accounts_rooted_at(addr)
+                .unwrap()
+                .into_iter()
+                .map(|(_, acc)| acc)
+                .collect::<Vec<_>>();
+
+            assert!(!accounts.is_empty());
+            assert_eq!(accounts, list);
+        }
+    }
+
+    // "create_empty doesn't modify the hash"
+    #[test]
+    fn test_create_empty_doesnt_modify_hash() {
+        const DEPTH: usize = 7;
+
+        let mut db = Database::<V2>::create(DEPTH as u8);
+
+        let start_hash = db.merkle_root();
+
+        let account = Account::empty();
+        assert!(matches!(
+            db.get_or_create_account(account.id(), account).unwrap(),
+            GetOrCreated::Added(_)
+        ));
+
+        assert_eq!(start_hash, db.merkle_root());
+    }
+
+    // "get_at_index_exn t (index_of_account_exn t public_key) =
+    // account"
+    #[test]
+    fn test_get_indexed() {
+        const DEPTH: usize = 7;
+        const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
+
+        let mut db = Database::<V2>::create(DEPTH as u8);
+        let mut accounts = Vec::with_capacity(NACCOUNTS);
+
+        for _ in 0..NACCOUNTS {
+            let account = Account::rand();
+            accounts.push(account.clone());
+            db.get_or_create_account(account.id(), account).unwrap();
+        }
+
+        for account in accounts {
+            let account_id = account.id();
+            let index_of_account = db.index_of_account(account_id).unwrap();
+            let indexed_account = db.get_at_index(index_of_account).unwrap();
+            assert_eq!(account, indexed_account);
+        }
+    }
+
+    // "set_at_index_exn t index  account; get_at_index_exn t
+    // index = account"
+    #[test]
+    fn test_set_get_indexed_equal() {
+        const DEPTH: usize = 7;
+        const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
+
+        let mut db = create_full_db(DEPTH);
+
+        for _ in 0..50 {
+            let account = Account::rand();
+            let index = rand::thread_rng().gen_range(0..NACCOUNTS);
+            let index = AccountIndex(index as u64);
+
+            db.set_at_index(index.clone(), account.clone()).unwrap();
+            let at_index = db.get_at_index(index).unwrap();
+            assert_eq!(account, at_index);
+        }
+    }
+
+    // "iter"
+    #[test]
+    fn test_iter() {
+        const DEPTH: usize = 7;
+        const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
+
+        let mut db = Database::<V2>::create(DEPTH as u8);
+        let mut accounts = Vec::with_capacity(NACCOUNTS);
+
+        for _ in 0..NACCOUNTS {
+            let account = Account::rand();
+            accounts.push(account.clone());
+            db.get_or_create_account(account.id(), account).unwrap();
+        }
+
+        assert_eq!(accounts, db.to_list(),)
+    }
+
+    // "Add 2^d accounts (for testing, d is small)"
+    #[test]
+    fn test_retrieve() {
+        const DEPTH: usize = 7;
+        const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
+
+        let mut db = Database::<V2>::create(DEPTH as u8);
+        let mut accounts = Vec::with_capacity(NACCOUNTS);
+
+        for _ in 0..NACCOUNTS {
+            let account = Account::rand();
+            accounts.push(account.clone());
+            db.get_or_create_account(account.id(), account).unwrap();
+        }
+
+        let retrieved = db
+            .get_all_accounts_rooted_at(Address::root())
+            .unwrap()
+            .into_iter()
+            .map(|(_, acc)| acc)
+            .collect::<Vec<_>>();
+
+        assert_eq!(accounts, retrieved);
+    }
+
+    // "removing accounts restores Merkle root"
+    #[test]
+    fn test_remove_restore_root_hash() {
+        const DEPTH: usize = 7;
+        const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
+
+        let mut db = Database::<V2>::create(DEPTH as u8);
+
+        let root_hash = db.merkle_root();
+
+        let mut accounts = Vec::with_capacity(NACCOUNTS);
+
+        for _ in 0..NACCOUNTS {
+            let account = Account::rand();
+            accounts.push(account.id());
+            db.get_or_create_account(account.id(), account).unwrap();
+        }
+        assert_ne!(root_hash, db.merkle_root());
+
+        db.remove_accounts(&accounts);
+        assert_eq!(root_hash, db.merkle_root());
+    }
+
+    // "fold over account balances"
+    #[test]
+    fn test_fold_over_account_balance() {
+        const DEPTH: usize = 7;
+        const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
+
+        let mut db = Database::<V2>::create(DEPTH as u8);
+        let mut total_balance: u128 = 0;
+
+        for _ in 0..NACCOUNTS {
+            let account = Account::rand();
+            total_balance += account.balance as u128;
+            db.get_or_create_account(account.id(), account).unwrap();
+        }
+
+        let retrieved = db.fold(0u128, |acc, account| acc + account.balance as u128);
+        assert_eq!(total_balance, retrieved);
+    }
+
+    // "fold_until over account balances"
+    #[test]
+    fn test_fold_until_over_account_balance() {
+        const DEPTH: usize = 7;
+        const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
+
+        let mut db = Database::<V2>::create(DEPTH as u8);
+        let mut total_balance: u128 = 0;
+        let mut last_id: AccountId = Account::empty().id();
+
+        for i in 0..NACCOUNTS {
+            let account = Account::rand();
+            if i <= 30 {
+                total_balance += account.balance as u128;
+                last_id = account.id();
+            }
+            db.get_or_create_account(account.id(), account).unwrap();
+        }
+
+        let retrieved = db.fold_until(0u128, |mut acc, account| {
+            acc += account.balance as u128;
+
+            if account.id() != last_id {
+                ControlFlow::Continue(acc)
+            } else {
+                ControlFlow::Break(acc)
+            }
+        });
+
+        assert_eq!(total_balance, retrieved);
+    }
+}

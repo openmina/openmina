@@ -1,3 +1,5 @@
+use rand::Rng;
+
 use crate::base::AccountIndex;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -99,6 +101,13 @@ impl Address {
 
     pub fn length(&self) -> usize {
         self.length
+    }
+
+    pub fn root() -> Self {
+        Self {
+            inner: [0; 32],
+            length: 0,
+        }
     }
 
     pub fn first(length: usize) -> Self {
@@ -312,6 +321,14 @@ impl Address {
             current,
             until,
             nchildren: 2u64.pow(length as u32 - root_length as u32),
+        }
+    }
+
+    pub fn rand(max_depth: usize) -> Self {
+        let mut rng = rand::thread_rng();
+        Self {
+            inner: rng.gen(),
+            length: rng.gen_range(0..max_depth),
         }
     }
 }
