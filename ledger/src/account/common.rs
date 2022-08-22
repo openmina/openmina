@@ -10,11 +10,6 @@ pub type Amount = u64;
 
 pub type Slot = u32;
 
-// TODO: Those types are `Field.t` in ocaml
-//       not sure how to represent them in Rust, they seem to be 256 bits
-// https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/receipt.mli#L67
-// type VotingFor = [u8; 32];
-
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct VotingFor(pub Fp);
 

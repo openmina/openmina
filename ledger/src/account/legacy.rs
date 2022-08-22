@@ -8,7 +8,7 @@ use o1_utils::FieldHelpers;
 
 use super::common::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TokenIdLegacy(pub u64);
 
 impl Default for TokenIdLegacy {

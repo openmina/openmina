@@ -45,6 +45,7 @@ struct Leaf<T: TreeVersion> {
 pub struct Database<T: TreeVersion> {
     root: Option<NodeOrLeaf<T>>,
     id_to_addr: HashMap<AccountId, Address>,
+    token_to_account: HashMap<T::TokenId, AccountId>,
     depth: u8,
     last_location: Option<Address>,
     naccounts: usize,
@@ -157,8 +158,8 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
             NodeOrLeaf::Leaf(leaf) => {
                 return match leaf.account.as_ref() {
                     Some(account) => T::hash_leaf(account),
-                    None => T::empty_hash_at_depth(0),
-                }
+                    None => T::empty_hash_at_depth(0), // Empty account
+                };
             }
         };
 
@@ -167,12 +168,12 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
             None => panic!("invalid depth"),
         };
 
-        let left_hash = match &node.left {
+        let left_hash = match node.left.as_ref() {
             Some(left) => left.hash(depth.checked_sub(1)),
             None => T::empty_hash_at_depth(depth),
         };
 
-        let right_hash = match &node.right {
+        let right_hash = match node.right.as_ref() {
             Some(right) => right.hash(depth.checked_sub(1)),
             None => T::empty_hash_at_depth(depth),
         };
@@ -208,7 +209,7 @@ pub enum DatabaseError {
 }
 
 impl Database<V2> {
-    pub fn create_account(
+    fn create_account(
         &mut self,
         account_id: AccountId,
         account: Account,
@@ -221,6 +222,7 @@ impl Database<V2> {
             return Ok(GetOrCreated::Existed(addr));
         }
 
+        let token_id = account.token_id.clone();
         let location = match self.last_location.as_ref() {
             Some(last) => last.next().ok_or(DatabaseError::OutOfLeaves)?,
             None => Address::first(self.depth as usize),
@@ -232,6 +234,7 @@ impl Database<V2> {
         self.last_location = Some(location.clone());
         self.naccounts += 1;
 
+        self.token_to_account.insert(token_id, account_id.clone());
         self.id_to_addr.insert(account_id, location.clone());
 
         Ok(GetOrCreated::Added(location))
@@ -275,12 +278,12 @@ impl<T: TreeVersion> Database<T> {
             root: None,
             last_location: None,
             naccounts: 0,
-            id_to_addr: HashMap::with_capacity(max_naccounts as usize),
+            id_to_addr: HashMap::with_capacity(max_naccounts as usize / 2),
+            token_to_account: HashMap::with_capacity(max_naccounts as usize / 2),
         }
     }
 
     pub fn root_hash(&self) -> Fp {
-        println!("naccounts={:?}", self.naccounts);
         match self.root.as_ref() {
             Some(root) => root.hash(Some(self.depth as usize - 1)),
             None => T::empty_hash_at_depth(self.depth as usize),
@@ -321,8 +324,8 @@ impl BaseLedger for Database<V2> {
 
         let mut accounts = Vec::with_capacity(100);
 
-        root.iter_recursive(&mut |acc| {
-            accounts.push(acc.clone());
+        root.iter_recursive(&mut |account| {
+            accounts.push(account.clone());
             ControlFlow::Continue(())
         });
 
@@ -338,8 +341,8 @@ impl BaseLedger for Database<V2> {
             None => return,
         };
 
-        root.iter_recursive(&mut |acc| {
-            fun(acc);
+        root.iter_recursive(&mut |account| {
+            fun(account);
             ControlFlow::Continue(())
         });
     }
@@ -354,8 +357,8 @@ impl BaseLedger for Database<V2> {
         };
 
         let mut accum = Some(init);
-        root.iter_recursive(&mut |acc| {
-            let res = fun(accum.take().unwrap(), acc);
+        root.iter_recursive(&mut |account| {
+            let res = fun(accum.take().unwrap(), account);
             accum = Some(res);
             ControlFlow::Continue(())
         });
@@ -372,11 +375,11 @@ impl BaseLedger for Database<V2> {
     where
         F: FnMut(B, &Account) -> B,
     {
-        self.fold(init, |accum, acc| {
-            let account_id = acc.id();
+        self.fold(init, |accum, account| {
+            let account_id = account.id();
 
             if !ignoreds.contains(&account_id) {
-                fun(accum, acc)
+                fun(accum, account)
             } else {
                 accum
             }
@@ -393,13 +396,13 @@ impl BaseLedger for Database<V2> {
         };
 
         let mut accum = Some(init);
-        root.iter_recursive(&mut |acc| match fun(accum.take().unwrap(), acc) {
-            ControlFlow::Continue(acc) => {
-                accum = Some(acc);
+        root.iter_recursive(&mut |account| match fun(accum.take().unwrap(), account) {
+            ControlFlow::Continue(account) => {
+                accum = Some(account);
                 ControlFlow::Continue(())
             }
-            ControlFlow::Break(acc) => {
-                accum = Some(acc);
+            ControlFlow::Break(account) => {
+                accum = Some(account);
                 ControlFlow::Break(())
             }
         });
@@ -411,41 +414,12 @@ impl BaseLedger for Database<V2> {
         self.id_to_addr.keys().cloned().collect()
     }
 
-    fn token_owner(&self, token: TokenId) -> Option<AccountId> {
-        let root = self.root.as_ref()?;
-        let mut account_id = None;
-
-        root.iter_recursive(&mut |acc| {
-            if acc.token_id == token {
-                account_id = Some(acc.id());
-                ControlFlow::Break(())
-            } else {
-                ControlFlow::Continue(())
-            }
-        });
-
-        account_id
+    fn token_owner(&self, token_id: TokenId) -> Option<AccountId> {
+        self.token_to_account.get(&token_id).cloned()
     }
 
-    // TODO: Not sure if it's a correct impl, ocaml seems to keep an index
     fn token_owners(&self) -> HashSet<AccountId> {
-        let root = match self.root.as_ref() {
-            Some(root) => root,
-            None => return HashSet::default(),
-        };
-
-        let mut tokens = HashMap::with_capacity(self.naccounts);
-
-        root.iter_recursive(&mut |acc| {
-            let token = acc.token_id.clone();
-            let id = acc.id();
-
-            tokens.insert(token, id);
-
-            ControlFlow::Continue(())
-        });
-
-        tokens.into_values().collect()
+        self.token_to_account.values().cloned().collect()
     }
 
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
@@ -456,9 +430,9 @@ impl BaseLedger for Database<V2> {
 
         let mut set = HashSet::with_capacity(self.naccounts);
 
-        root.iter_recursive(&mut |acc| {
-            if acc.public_key == public_key {
-                set.insert(acc.token_id.clone());
+        root.iter_recursive(&mut |account| {
+            if account.public_key == public_key {
+                set.insert(account.token_id.clone());
             }
 
             ControlFlow::Continue(())
@@ -477,9 +451,9 @@ impl BaseLedger for Database<V2> {
     ) -> Vec<(AccountId, Option<Address>)> {
         account_ids
             .iter()
-            .map(|acc_id| {
-                let addr = self.id_to_addr.get(acc_id).cloned();
-                (acc_id.clone(), addr)
+            .map(|account_id| {
+                let addr = self.id_to_addr.get(account_id).cloned();
+                (account_id.clone(), addr)
             })
             .collect()
     }
@@ -535,12 +509,15 @@ impl BaseLedger for Database<V2> {
         if let Some(account) = root.get_on_path(addr.iter()) {
             let id = account.id();
             self.id_to_addr.remove(&id);
+            self.token_to_account.remove(&id.token_id);
         } else {
             self.naccounts += 1;
         }
 
-        root.add_account_on_path(account, addr.iter());
+        self.token_to_account
+            .insert(account.token_id.clone(), id.clone());
         self.id_to_addr.insert(id, addr.clone());
+        root.add_account_on_path(account, addr.iter());
 
         if self
             .last_location
@@ -592,12 +569,30 @@ impl BaseLedger for Database<V2> {
             None => return,
         };
 
-        for addr in ids.iter().filter_map(|id| self.id_to_addr.get(id)) {
+        for id in ids {
+            let addr = match self.id_to_addr.get(id) {
+                Some(addr) => addr,
+                None => continue,
+            };
+
             let leaf = match root.get_mut_leaf_on_path(addr.iter()) {
                 Some(leaf) => leaf,
                 None => continue,
             };
-            leaf.account = None;
+
+            let account = match leaf.account.take() {
+                Some(account) => account,
+                None => continue,
+            };
+
+            let id = account.id();
+            self.id_to_addr.remove(&id);
+            self.token_to_account.remove(&id.token_id);
+
+            self.naccounts = self
+                .naccounts
+                .checked_sub(1)
+                .expect("invalid naccounts counter");
         }
     }
 
@@ -926,7 +921,7 @@ mod tests_ocaml {
         let location: Address = db
             .create_account(account.id(), account.clone())
             .unwrap()
-            .into();
+            .addr();
 
         db.set(location.clone(), account.clone());
         let loc = db.location_of_account(account.id()).unwrap();
@@ -981,7 +976,7 @@ mod tests_ocaml {
 
         assert_eq!(addr1, addr2);
         assert!(matches!(location2, GetOrCreated::Existed(_)));
-        assert_ne!(db.get(location1.into()).unwrap(), account2);
+        assert_ne!(db.get(location1.addr()).unwrap(), account2);
     }
 
     // "get_or_create_account t account = location_of_account account.key"
@@ -997,7 +992,7 @@ mod tests_ocaml {
                 let location = db
                     .get_or_create_account(account_id.clone(), account)
                     .unwrap();
-                let addr: Address = location.into();
+                let addr: Address = location.addr();
 
                 assert_eq!(addr, db.location_of_account(account_id).unwrap());
             }
@@ -1077,7 +1072,7 @@ mod tests_ocaml {
             addr = db
                 .get_or_create_account(account.id(), account)
                 .unwrap()
-                .into();
+                .addr();
         }
 
         let last_location = db.last_filled().unwrap();

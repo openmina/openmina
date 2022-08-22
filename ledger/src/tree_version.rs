@@ -1,11 +1,12 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, hash::Hash};
 
 use mina_hasher::Fp;
 
-use crate::account::{get_legacy_hash_of, Account, AccountLegacy};
+use crate::account::{get_legacy_hash_of, Account, AccountLegacy, TokenId, TokenIdLegacy};
 
 pub trait TreeVersion {
     type Account: Debug + Clone;
+    type TokenId: Debug + Clone + Hash + PartialEq;
 
     fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp;
     fn hash_leaf(leaf: &Self::Account) -> Fp;
@@ -20,6 +21,7 @@ pub struct V2;
 
 impl TreeVersion for V2 {
     type Account = Account;
+    type TokenId = TokenId;
 
     fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp {
         let param = format!("CodaMklTree{:03}", depth);
@@ -45,6 +47,7 @@ impl TreeVersion for V2 {
 
 impl TreeVersion for V1 {
     type Account = AccountLegacy;
+    type TokenId = TokenIdLegacy;
 
     fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp {
         use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};

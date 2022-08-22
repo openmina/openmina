@@ -35,7 +35,7 @@ pub trait BaseLedger {
     where
         F: FnMut(B, &Account) -> B;
 
-    /// fold until `fun` returns `None`
+    /// fold until `fun` returns `ControlFlow::Stop`
     fn fold_until<B, F>(&self, init: B, fun: F) -> B
     where
         F: FnMut(B, &Account) -> ControlFlow<B, B>;
@@ -44,7 +44,7 @@ pub trait BaseLedger {
     fn accounts(&self) -> HashSet<AccountId>;
 
     /// Get the account id that owns a token.
-    fn token_owner(&self, token: TokenId) -> Option<AccountId>;
+    fn token_owner(&self, token_id: TokenId) -> Option<AccountId>;
 
     /// Get the set of all accounts which own a token.
     fn token_owners(&self) -> HashSet<AccountId>;
@@ -140,6 +140,15 @@ pub enum GetOrCreated {
     Existed(Address),
 }
 
+impl GetOrCreated {
+    pub fn addr(self) -> Address {
+        match self {
+            GetOrCreated::Added(addr) => addr,
+            GetOrCreated::Existed(addr) => addr,
+        }
+    }
+}
+
 impl Deref for GetOrCreated {
     type Target = Address;
 
@@ -150,24 +159,3 @@ impl Deref for GetOrCreated {
         }
     }
 }
-
-impl From<GetOrCreated> for Address {
-    fn from(val: GetOrCreated) -> Self {
-        match val {
-            GetOrCreated::Added(addr) => addr,
-            GetOrCreated::Existed(addr) => addr,
-        }
-    }
-}
-
-// pub enum BaseLedgerError {}
-
-// pub struct TreeIterator {}
-
-// impl Iterator for TreeIterator {
-//     type Item = Account;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         todo!()
-//     }
-// }

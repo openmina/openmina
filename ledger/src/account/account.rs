@@ -799,7 +799,7 @@ impl Account {
 mod tests {
     use o1_utils::FieldHelpers;
 
-    use crate::{tree::Database, tree_version::V2};
+    use crate::{base::BaseLedger, tree::Database, tree_version::V2};
 
     use super::*;
 
@@ -978,7 +978,7 @@ mod tests {
         let now = std::time::Instant::now();
         for account in accounts.into_iter() {
             let id = account.id();
-            db.create_account(id, account).unwrap();
+            db.get_or_create_account(id, account).unwrap();
         }
         assert_eq!(db.naccounts(), NACCOUNTS);
         println!("elapsed to insert in tree: {:?}", now.elapsed());
