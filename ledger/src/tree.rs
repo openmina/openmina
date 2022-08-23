@@ -56,19 +56,11 @@ impl NodeOrLeaf<V2> {
         let mut node_or_leaf = self;
 
         for direction in path {
-            let node = match node_or_leaf {
-                NodeOrLeaf::Node(node) => node,
-                NodeOrLeaf::Leaf(_) => return None,
-            };
+            let node = node_or_leaf.node()?;
 
             let child = match direction {
-                Direction::Left => &node.left,
-                Direction::Right => &node.right,
-            };
-
-            let child = match child {
-                Some(child) => child,
-                None => return None,
+                Direction::Left => node.left.as_ref()?,
+                Direction::Right => node.right.as_ref()?,
             };
 
             node_or_leaf = &*child;
@@ -81,19 +73,11 @@ impl NodeOrLeaf<V2> {
         let mut node_or_leaf = self;
 
         for direction in path {
-            let node = match node_or_leaf {
-                NodeOrLeaf::Node(node) => node,
-                NodeOrLeaf::Leaf(_) => return None,
-            };
+            let node = node_or_leaf.node_mut()?;
 
             let child = match direction {
-                Direction::Left => &mut node.left,
-                Direction::Right => &mut node.right,
-            };
-
-            let child = match child {
-                Some(child) => child,
-                None => return None,
+                Direction::Left => node.left.as_mut()?,
+                Direction::Right => node.right.as_mut()?,
             };
 
             node_or_leaf = &mut *child;
@@ -122,14 +106,25 @@ impl NodeOrLeaf<V2> {
 }
 
 impl<T: TreeVersion> NodeOrLeaf<T> {
+    fn node(&self) -> Option<&Node<T>> {
+        match self {
+            NodeOrLeaf::Node(node) => Some(node),
+            NodeOrLeaf::Leaf(_) => None,
+        }
+    }
+
+    fn node_mut(&mut self) -> Option<&mut Node<T>> {
+        match self {
+            NodeOrLeaf::Node(node) => Some(node),
+            NodeOrLeaf::Leaf(_) => None,
+        }
+    }
+
     fn add_account_on_path(&mut self, account: T::Account, path: AddressIterator) {
         let mut node_or_leaf = self;
 
         for direction in path {
-            let node = match node_or_leaf {
-                NodeOrLeaf::Node(node) => node,
-                NodeOrLeaf::Leaf(_) => panic!("Expected node"),
-            };
+            let node = node_or_leaf.node_mut().expect("Expected node");
 
             let child = match direction {
                 Direction::Left => &mut node.left,
@@ -1044,7 +1039,7 @@ mod tests_ocaml {
         for _ in 0..5 {
             let mut db = create_full_db(DEPTH);
 
-            let addr = Address::rand(DEPTH);
+            let addr = Address::rand_nonleaf(DEPTH);
             let children = addr.iter_children(DEPTH);
             let accounts = children
                 .map(|addr| (addr, Account::rand()))
@@ -1112,7 +1107,7 @@ mod tests_ocaml {
         let mut db = create_full_db(DEPTH);
 
         for _ in 0..5 {
-            let addr = Address::rand(DEPTH);
+            let addr = Address::rand_nonleaf(DEPTH);
             let children = addr.iter_children(DEPTH);
             let accounts = children.map(|_| Account::rand()).collect::<Vec<_>>();
 

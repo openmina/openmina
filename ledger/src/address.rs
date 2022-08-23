@@ -1,5 +1,3 @@
-use rand::Rng;
-
 use crate::base::AccountIndex;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -324,12 +322,17 @@ impl Address {
         }
     }
 
-    pub fn rand(max_depth: usize) -> Self {
+    #[cfg(test)]
+    pub fn rand_nonleaf(max_depth: usize) -> Self {
+        use rand::{Rng, RngCore};
+
         let mut rng = rand::thread_rng();
-        Self {
-            inner: rng.gen(),
-            length: rng.gen_range(0..max_depth),
-        }
+        let length = rng.gen_range(0..max_depth);
+
+        let mut inner = [0; 32];
+        rng.fill_bytes(&mut inner[0..(length / 8) + 1]);
+
+        Self { inner, length }
     }
 }
 
