@@ -13,7 +13,7 @@ use crate::{
     tree::DatabaseError,
 };
 
-pub type Uuid = (); // TODO
+pub type Uuid = u64;
 
 pub trait BaseLedger {
     /// list of accounts in the ledger
