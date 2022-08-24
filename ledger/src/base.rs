@@ -131,7 +131,7 @@ pub trait BaseLedger {
     fn make_space_for(&mut self, space: usize);
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AccountIndex(pub u64);
 
 #[derive(Debug)]

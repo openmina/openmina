@@ -19,6 +19,12 @@ use crate::{
 struct MaskInner {
     parent: Option<Mask>,
     inner: Database<V2>,
+    owning_account: HashMap<AccountIndex, Account>,
+    token_to_account: HashMap<TokenId, AccountId>,
+    id_to_addr: HashMap<AccountId, Address>,
+    last_location: Option<Address>,
+    depth: u8,
+    naccounts: usize,
     /// All childs of this mask
     childs: HashMap<Uuid, Mask>,
 }
@@ -85,15 +91,15 @@ impl Mask {
         })
     }
 
-    pub fn get_parent(&self) -> Mask {
-        self.with(|this| this.parent.clone().unwrap())
+    pub fn get_parent(&self) -> Option<Mask> {
+        self.with(|this| this.parent.clone())
     }
 
     pub fn unregister_mask(mask: Mask, behavior: UnregisterBehavior) {
         use UnregisterBehavior::*;
 
         assert!(mask.is_attached());
-        let parent = mask.get_parent();
+        let parent = mask.get_parent().unwrap();
 
         let trigger_detach_signal = matches!(behavior, Check | Recursive);
 
@@ -144,66 +150,148 @@ impl Mask {
 
         self.with(|this| this.childs.remove(&uuid))
     }
+
+    pub fn depth(&self) -> u8 {
+        self.with(|this| this.depth)
+    }
 }
 
 impl BaseLedger for Mask {
     fn to_list(&self) -> Vec<Account> {
-        todo!()
+        match self.get_parent() {
+            None => self.with(|this| this.inner.to_list()),
+            Some(parent) => {
+                let mut accounts = parent.to_list();
+
+                self.with(|this| {
+                    for (index, account) in this.owning_account.iter() {
+                        let index = index.0 as usize;
+                        accounts[index] = account.clone(); // TODO: Handle out of bound (extend the vec)
+                    }
+                });
+
+                accounts
+            }
+        }
     }
 
     fn iter<F>(&self, fun: F)
     where
         F: FnMut(&Account),
     {
-        todo!()
+        let accounts = self.to_list();
+        accounts.iter().for_each(fun)
     }
 
     fn fold<B, F>(&self, init: B, fun: F) -> B
     where
         F: FnMut(B, &Account) -> B,
     {
-        todo!()
+        let accounts = self.to_list();
+        accounts.iter().fold(init, fun)
     }
 
-    fn fold_with_ignored_accounts<B, F>(&self, ignoreds: HashSet<AccountId>, init: B, fun: F) -> B
+    fn fold_with_ignored_accounts<B, F>(
+        &self,
+        ignoreds: HashSet<AccountId>,
+        init: B,
+        mut fun: F,
+    ) -> B
     where
         F: FnMut(B, &Account) -> B,
     {
-        todo!()
+        let accounts = self.to_list();
+        accounts.iter().fold(init, |accum, account| {
+            if !ignoreds.contains(&account.id()) {
+                fun(accum, account)
+            } else {
+                accum
+            }
+        })
     }
 
-    fn fold_until<B, F>(&self, init: B, fun: F) -> B
+    fn fold_until<B, F>(&self, init: B, mut fun: F) -> B
     where
         F: FnMut(B, &Account) -> std::ops::ControlFlow<B, B>,
     {
-        todo!()
+        use std::ops::ControlFlow::*;
+
+        let accounts = self.to_list();
+        let mut accum = init;
+
+        for account in &accounts {
+            match fun(accum, account) {
+                Continue(acc) => accum = acc,
+                Break(acc) => {
+                    accum = acc;
+                    break;
+                }
+            }
+        }
+
+        accum
     }
 
     fn accounts(&self) -> HashSet<AccountId> {
-        todo!()
+        self.to_list()
+            .into_iter()
+            .map(|account| account.id())
+            .collect()
     }
 
     fn token_owner(&self, token_id: TokenId) -> Option<AccountId> {
-        todo!()
+        if let Some(account_id) = self.with(|this| this.token_to_account.get(&token_id).cloned()) {
+            return Some(account_id);
+        };
+
+        match self.get_parent() {
+            Some(parent) => parent.token_owner(token_id),
+            None => self.with(|this| this.inner.token_owner(token_id)),
+        }
     }
 
     fn token_owners(&self) -> HashSet<AccountId> {
-        todo!()
+        // TODO: Not sure if it's the correct impl
+        self.to_list()
+            .into_iter()
+            .map(|account| account.id())
+            .collect()
     }
 
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
-        todo!()
+        let mut set = HashSet::with_capacity(1024);
+
+        for account in self.to_list() {
+            if account.public_key == public_key {
+                set.insert(account.token_id);
+            }
+        }
+
+        set
     }
 
     fn location_of_account(&self, account_id: AccountId) -> Option<Address> {
-        todo!()
+        if let Some(addr) = self.with(|this| this.id_to_addr.get(&account_id).cloned()) {
+            return Some(addr);
+        }
+
+        match self.get_parent() {
+            Some(parent) => parent.location_of_account(account_id),
+            None => self.with(|this| this.inner.location_of_account(account_id)),
+        }
     }
 
     fn location_of_account_batch(
         &self,
         account_ids: &[AccountId],
     ) -> Vec<(AccountId, Option<Address>)> {
-        todo!()
+        account_ids
+            .iter()
+            .map(|account_id| {
+                let addr = self.location_of_account(account_id.clone());
+                (account_id.clone(), addr)
+            })
+            .collect()
     }
 
     fn get_or_create_account(
@@ -211,51 +299,139 @@ impl BaseLedger for Mask {
         account_id: AccountId,
         account: Account,
     ) -> Result<GetOrCreated, DatabaseError> {
-        todo!()
+        let accounts: HashMap<AccountId, u64> = self
+            .to_list()
+            .into_iter()
+            .enumerate()
+            .map(|(index, account)| (account.id(), index as u64))
+            .collect();
+
+        if let Some(index) = accounts.get(&account_id) {
+            let depth = self.depth();
+            return Ok(GetOrCreated::Existed(Address::from_index(
+                AccountIndex(*index),
+                depth as usize,
+            )));
+        };
+
+        self.with(|this| {
+            let location = match this.last_location.as_ref() {
+                Some(last) => last.next().ok_or(DatabaseError::OutOfLeaves).unwrap(),
+                None => Address::first(this.depth as usize),
+            };
+
+            let account_index: AccountIndex = location.to_index();
+            let token_id = account.token_id.clone();
+
+            this.id_to_addr.insert(account_id.clone(), location.clone());
+            this.last_location = Some(location.clone());
+            this.token_to_account.insert(token_id, account_id);
+            this.owning_account.insert(account_index, account);
+            this.naccounts += 1;
+
+            Ok(GetOrCreated::Added(location))
+        })
     }
 
     fn close(self) {
-        todo!()
+        // Drop
     }
 
     fn last_filled(&self) -> Option<Address> {
-        todo!()
+        match self.get_parent() {
+            Some(parent) => {
+                let last_filled_parent = parent.last_filled().unwrap();
+                let last_filled = self.with(|this| this.last_location.clone()).unwrap();
+
+                let last_filled_parent_index = last_filled_parent.to_index();
+                let last_filled_index = last_filled.to_index();
+
+                if last_filled_index > last_filled_parent_index {
+                    Some(last_filled)
+                } else {
+                    Some(last_filled_parent)
+                }
+            }
+            None => self.with(|this| this.inner.last_filled()),
+        }
     }
 
     fn get_uuid(&self) -> Uuid {
+        // TODO
         todo!()
     }
 
     fn get_directory(&self) -> Option<PathBuf> {
-        todo!()
+        None
     }
 
     fn get(&self, addr: Address) -> Option<Account> {
-        todo!()
+        let parent = match self.get_parent() {
+            None => return self.with(|this| this.inner.get(addr)),
+            Some(parent) => parent,
+        };
+
+        let account_index = addr.to_index();
+        if let Some(account) = self.with(|this| this.owning_account.get(&account_index).cloned()) {
+            return Some(account);
+        }
+
+        parent.get(addr)
     }
 
     fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Account>)> {
-        todo!()
+        addr.iter()
+            .map(|addr| (addr.clone(), self.get(addr.clone())))
+            .collect()
     }
 
     fn set(&mut self, addr: Address, account: Account) {
-        todo!()
+        let existing = self.get(addr.clone()).is_some();
+
+        self.with(|this| {
+            let account_index: AccountIndex = addr.to_index();
+            let account_id = account.id();
+            let token_id = account.token_id.clone();
+
+            this.owning_account.insert(account_index, account);
+            this.id_to_addr.insert(account_id.clone(), addr.clone());
+            this.token_to_account.insert(token_id, account_id);
+
+            if !existing {
+                this.naccounts += 1;
+                this.last_location = Some(addr);
+            }
+        })
     }
 
     fn set_batch(&mut self, list: &[(Address, Account)]) {
-        todo!()
+        for (addr, account) in list {
+            self.set(addr.clone(), account.clone())
+        }
     }
 
     fn get_at_index(&self, index: AccountIndex) -> Option<Account> {
-        todo!()
+        let addr = Address::from_index(index, self.depth() as usize);
+        self.get(addr)
     }
 
     fn set_at_index(&mut self, index: AccountIndex, account: Account) -> Result<(), ()> {
-        todo!()
+        let addr = Address::from_index(index, self.depth() as usize);
+        self.set(addr, account);
+        Ok(())
     }
 
     fn index_of_account(&self, account_id: AccountId) -> Option<AccountIndex> {
-        todo!()
+        let parent = match self.get_parent() {
+            Some(parent) => parent,
+            None => return self.with(|this| this.inner.index_of_account(account_id)),
+        };
+
+        if let Some(addr) = self.with(|this| this.id_to_addr.get(&account_id).cloned()) {
+            return Some(addr.to_index());
+        };
+
+        parent.index_of_account(account_id)
     }
 
     fn merkle_root(&self) -> Fp {
@@ -263,14 +439,34 @@ impl BaseLedger for Mask {
     }
 
     fn merkle_path(&self, addr: Address) -> AddressIterator {
-        todo!()
+        addr.into_iter()
     }
 
     fn merkle_path_at_index(&self, index: AccountIndex) -> Option<AddressIterator> {
-        todo!()
+        let addr = Address::from_index(index, self.depth() as usize);
+        Some(addr.into_iter())
     }
 
     fn remove_accounts(&mut self, ids: &[AccountId]) {
+        let parent = match self.get_parent() {
+            Some(parent) => parent,
+            None => return self.with(|this| this.inner.remove_accounts(ids)),
+        };
+
+        let (mask_keys, parent_keys): (Vec<_>, Vec<_>) = self.with(|this| {
+            ids.iter()
+                .cloned()
+                .partition(|id| this.id_to_addr.contains_key(id))
+        });
+
+        parent.with(|parent| {
+            parent.remove_accounts(&parent_keys);
+        });
+
+        // for parent_key in parent_keys {
+
+        // }
+
         todo!()
     }
 
@@ -279,7 +475,7 @@ impl BaseLedger for Mask {
     }
 
     fn depth(&self) -> u8 {
-        todo!()
+        self.depth()
     }
 
     fn num_accounts(&self) -> usize {
