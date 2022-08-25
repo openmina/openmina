@@ -323,7 +323,7 @@ impl BaseLedger for Mask {
         set
     }
 
-    fn location_of_account(&self, account_id: AccountId) -> Option<Address> {
+    fn location_of_account(&self, account_id: &AccountId) -> Option<Address> {
         if let Some(addr) = self.with(|this| this.id_to_addr.get(&account_id).cloned()) {
             return Some(addr);
         }
@@ -341,7 +341,7 @@ impl BaseLedger for Mask {
         account_ids
             .iter()
             .map(|account_id| {
-                let addr = self.location_of_account(account_id.clone());
+                let addr = self.location_of_account(account_id);
                 (account_id.clone(), addr)
             })
             .collect()
@@ -352,20 +352,9 @@ impl BaseLedger for Mask {
         account_id: AccountId,
         account: Account,
     ) -> Result<GetOrCreated, DatabaseError> {
-        let accounts: HashMap<AccountId, u64> = self
-            .to_list()
-            .into_iter()
-            .enumerate()
-            .map(|(index, account)| (account.id(), index as u64))
-            .collect();
-
-        if let Some(index) = accounts.get(&account_id) {
-            let depth = self.depth();
-            return Ok(GetOrCreated::Existed(Address::from_index(
-                AccountIndex(*index),
-                depth as usize,
-            )));
-        };
+        if let Some(addr) = self.location_of_account(&account_id) {
+            return Ok(GetOrCreated::Existed(addr));
+        }
 
         self.with(|this| {
             let location = match this.last_location.as_ref() {
@@ -419,17 +408,15 @@ impl BaseLedger for Mask {
     }
 
     fn get(&self, addr: Address) -> Option<Account> {
-        let parent = match self.get_parent() {
-            None => return self.with(|this| this.inner.get(addr)),
-            Some(parent) => parent,
-        };
-
         let account_index = addr.to_index();
         if let Some(account) = self.with(|this| this.owning_account.get(&account_index).cloned()) {
             return Some(account);
         }
 
-        parent.get(addr)
+        match self.get_parent() {
+            Some(parent) => parent.get(addr),
+            None => return self.with(|this| this.inner.get(addr)),
+        }
     }
 
     fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Account>)> {
@@ -475,16 +462,14 @@ impl BaseLedger for Mask {
     }
 
     fn index_of_account(&self, account_id: AccountId) -> Option<AccountIndex> {
-        let parent = match self.get_parent() {
-            Some(parent) => parent,
-            None => return self.with(|this| this.inner.index_of_account(account_id)),
-        };
-
         if let Some(addr) = self.with(|this| this.id_to_addr.get(&account_id).cloned()) {
             return Some(addr.to_index());
         };
 
-        parent.index_of_account(account_id)
+        match self.get_parent() {
+            Some(parent) => parent.index_of_account(account_id),
+            None => return self.with(|this| this.inner.index_of_account(account_id)),
+        }
     }
 
     fn merkle_root(&self) -> Fp {
@@ -501,16 +486,16 @@ impl BaseLedger for Mask {
     }
 
     fn remove_accounts(&mut self, ids: &[AccountId]) {
-        let parent = match self.get_parent() {
-            Some(parent) => parent,
-            None => return self.with(|this| this.inner.remove_accounts(ids)),
-        };
-
         let (mask_keys, parent_keys): (Vec<_>, Vec<_>) = self.with(|this| {
             ids.iter()
                 .cloned()
                 .partition(|id| this.id_to_addr.contains_key(id))
         });
+
+        let parent = match self.get_parent() {
+            Some(parent) => parent,
+            None => return self.with(|this| this.inner.remove_accounts(ids)),
+        };
 
         parent.with(|parent| {
             parent.remove_accounts(&parent_keys);

@@ -52,7 +52,7 @@ pub trait BaseLedger {
     /// Get all of the tokens for which a public key has accounts.
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId>;
 
-    fn location_of_account(&self, account_id: AccountId) -> Option<Address>;
+    fn location_of_account(&self, account_id: &AccountId) -> Option<Address>;
 
     fn location_of_account_batch(
         &self,

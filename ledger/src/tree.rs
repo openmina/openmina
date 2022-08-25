@@ -436,8 +436,8 @@ impl BaseLedger for Database<V2> {
         set
     }
 
-    fn location_of_account(&self, account_id: AccountId) -> Option<Address> {
-        self.id_to_addr.get(&account_id).cloned()
+    fn location_of_account(&self, account_id: &AccountId) -> Option<Address> {
+        self.id_to_addr.get(account_id).cloned()
     }
 
     fn location_of_account_batch(
@@ -919,7 +919,7 @@ mod tests_ocaml {
             .addr();
 
         db.set(location.clone(), account.clone());
-        let loc = db.location_of_account(account.id()).unwrap();
+        let loc = db.location_of_account(&account.id()).unwrap();
 
         assert_eq!(location, loc);
         assert_eq!(db.get(location), db.get(loc));
@@ -989,7 +989,7 @@ mod tests_ocaml {
                     .unwrap();
                 let addr: Address = location.addr();
 
-                assert_eq!(addr, db.location_of_account(account_id).unwrap());
+                assert_eq!(addr, db.location_of_account(&account_id).unwrap());
             }
         }
     }
@@ -1084,7 +1084,7 @@ mod tests_ocaml {
 
         for (addr, account) in &accounts {
             let account_id = account.id();
-            let location = db.location_of_account(account_id).unwrap();
+            let location = db.location_of_account(&account_id).unwrap();
             let queried_account = db.get(location.clone()).unwrap();
 
             assert_eq!(*addr, location);
