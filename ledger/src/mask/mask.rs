@@ -13,7 +13,7 @@ use crate::{
     address::{Address, AddressIterator},
     base::{AccountIndex, BaseLedger, GetOrCreated, Uuid},
     tree::{Database, DatabaseError},
-    tree_version::V2,
+    tree_version::{TreeVersion, V2},
 };
 
 struct MaskInner {
@@ -153,6 +153,59 @@ impl Mask {
 
     pub fn depth(&self) -> u8 {
         self.with(|this| this.depth)
+    }
+
+    fn emulate_tree_to_get_hash(&self) -> Fp {
+        let tree_depth = self.depth() as usize;
+        let naccounts = self.num_accounts();
+        let mut account_index = 0;
+
+        self.emulate_recursive(0, tree_depth, &mut account_index, naccounts as u64)
+    }
+
+    fn emulate_tree_to_get_hash_at(&self, addr: Address) -> Fp {
+        let tree_depth = self.depth() as usize;
+
+        let current_depth = addr.length();
+
+        let mut children = addr.iter_children(tree_depth);
+        let naccounts = children.len();
+
+        // First child
+        let mut account_index = children.next().unwrap().to_index().0 as u64;
+
+        self.emulate_recursive(
+            current_depth,
+            tree_depth,
+            &mut account_index,
+            naccounts as u64,
+        )
+    }
+
+    fn emulate_recursive(
+        &self,
+        current_depth: usize,
+        tree_depth: usize,
+        account_index: &mut u64,
+        naccounts: u64,
+    ) -> Fp {
+        if current_depth == tree_depth {
+            let account_addr = Address::from_index(AccountIndex(*account_index), tree_depth);
+            let account = self.get(account_addr).unwrap();
+
+            *account_index += 1;
+            return account.hash();
+        }
+
+        let left_hash =
+            self.emulate_recursive(current_depth + 1, tree_depth, account_index, naccounts);
+        let right_hash = if *account_index < naccounts {
+            self.emulate_recursive(current_depth + 1, tree_depth, account_index, naccounts)
+        } else {
+            V2::empty_hash_at_depth(tree_depth - current_depth)
+        };
+
+        V2::hash_node(tree_depth - current_depth, left_hash, right_hash)
     }
 }
 
@@ -435,7 +488,7 @@ impl BaseLedger for Mask {
     }
 
     fn merkle_root(&self) -> Fp {
-        todo!()
+        self.emulate_tree_to_get_hash()
     }
 
     fn merkle_path(&self, addr: Address) -> AddressIterator {
@@ -463,11 +516,15 @@ impl BaseLedger for Mask {
             parent.remove_accounts(&parent_keys);
         });
 
-        // for parent_key in parent_keys {
-
-        // }
-
-        todo!()
+        self.with(|this| {
+            for parent_key in mask_keys {
+                let addr = this.id_to_addr.remove(&parent_key).unwrap();
+                let account = this.owning_account.remove(&addr.to_index()).unwrap();
+                this.token_to_account.remove(&account.token_id).unwrap();
+                this.naccounts -= 1;
+                // TODO: Update Self::last_location
+            }
+        });
     }
 
     fn detached_signal(&mut self) {
@@ -479,18 +536,24 @@ impl BaseLedger for Mask {
     }
 
     fn num_accounts(&self) -> usize {
-        todo!()
+        self.with(|this| this.naccounts)
     }
 
     fn merkle_path_at_addr(&self, addr: Address) -> Option<AddressIterator> {
-        todo!()
+        Some(addr.into_iter())
     }
 
     fn get_inner_hash_at_addr(&self, addr: Address) -> Result<Fp, ()> {
-        todo!()
+        let self_depth = self.depth() as usize;
+
+        if addr.length() > self_depth {
+            return Err(());
+        }
+
+        Ok(self.emulate_tree_to_get_hash_at(addr))
     }
 
-    fn set_inner_hash_at_addr(&mut self, addr: Address, hash: Fp) -> Result<(), ()> {
+    fn set_inner_hash_at_addr(&mut self, _addr: Address, _hash: Fp) -> Result<(), ()> {
         todo!()
     }
 
@@ -499,14 +562,45 @@ impl BaseLedger for Mask {
         addr: Address,
         accounts: &[Account],
     ) -> Result<(), ()> {
-        todo!()
+        let self_depth = self.depth() as usize;
+
+        if addr.length() > self_depth {
+            return Err(());
+        }
+
+        for (child_addr, account) in addr.iter_children(self_depth).zip(accounts) {
+            self.set(child_addr, account.clone());
+        }
+
+        Ok(())
     }
 
     fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Account)>> {
-        todo!()
+        let self_depth = self.depth() as usize;
+
+        if addr.length() > self_depth {
+            return None;
+        }
+
+        let children = addr.iter_children(self_depth);
+        let mut accounts = Vec::with_capacity(children.len());
+
+        for child_addr in children {
+            let account = match self.get(child_addr.clone()) {
+                Some(account) => account,
+                None => continue,
+            };
+            accounts.push((child_addr, account));
+        }
+
+        if accounts.is_empty() {
+            None
+        } else {
+            Some(accounts)
+        }
     }
 
-    fn make_space_for(&mut self, space: usize) {
-        todo!()
+    fn make_space_for(&mut self, _space: usize) {
+        // No op, we're in memory
     }
 }
