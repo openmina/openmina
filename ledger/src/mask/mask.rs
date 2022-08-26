@@ -95,33 +95,34 @@ impl Mask {
         self.with(|this| this.parent.clone())
     }
 
-    pub fn unregister_mask(mask: Mask, behavior: UnregisterBehavior) {
+    /// Detach this mask from its parent
+    pub fn unregister_mask(&self, behavior: UnregisterBehavior) {
         use UnregisterBehavior::*;
 
-        assert!(mask.is_attached());
-        let parent = mask.get_parent().unwrap();
+        assert!(self.is_attached());
+        let parent = self.get_parent().unwrap();
 
         let trigger_detach_signal = matches!(behavior, Check | Recursive);
 
         match behavior {
             Check => {
                 assert!(
-                    !mask.children().is_empty(),
+                    !self.children().is_empty(),
                     "mask has children that must be unregistered first"
                 );
             }
             IPromiseIAmReparentingThisMask => (),
             Recursive => {
-                for child in mask.children() {
-                    Self::unregister_mask(child, Recursive);
+                for child in self.children() {
+                    child.unregister_mask(Recursive);
                 }
             }
         }
 
-        let removed = parent.remove_child(&mask);
+        let removed = parent.remove_child(&self);
         assert!(removed.is_some(), "Mask not a child of the parent");
 
-        mask.unset_parent(trigger_detach_signal);
+        self.unset_parent(trigger_detach_signal);
     }
 
     pub fn unset_parent(&self, trigger_detach_signal: bool) {
@@ -135,6 +136,90 @@ impl Mask {
         if trigger_detach_signal {
             // TODO: Async.Ivar.fill_if_empty t.detached_parent_signal () ;
         }
+    }
+
+    ///              o
+    ///             /
+    ///            /
+    ///   o --- o -
+    ///   ^     ^  \
+    ///  parent |   \
+    ///        mask  o
+    ///            children
+    ///
+    /// Removes the attached mask from its parent and attaches the children to the
+    /// parent instead. Raises an exception if the merkle roots of the mask and the
+    /// parent are not the same.
+    pub fn remove_and_reparent(&self) {
+        let parent = self.get_parent().expect("Mask doesn't have parent");
+        parent
+            .remove_child(self)
+            .expect("Parent doesn't have this mask as child");
+
+        // we can only reparent if merkle roots are the same
+        assert_eq!(parent.merkle_root(), self.merkle_root());
+
+        let children = self.children();
+
+        for child in &children {
+            child.unregister_mask(UnregisterBehavior::IPromiseIAmReparentingThisMask);
+        }
+
+        self.remove_parent();
+        // self.unregister_mask(UnregisterBehavior::IPromiseIAmReparentingThisMask);
+
+        for child in children {
+            parent.register_mask(child);
+        }
+
+        // TODO: Self should be removed/unallocated
+    }
+
+    /// get hash from mask, if present, else from its parent
+    pub fn get_hash(&self, addr: Address) -> Option<Fp> {
+        self.get_inner_hash_at_addr(addr).ok()
+    }
+
+    /// commit all state to the parent, flush state locally
+    pub fn commit(&self) {
+        let mut parent = self.get_parent().expect("Mask doesn't have parent");
+
+        let old_root_hash = self.merkle_root();
+        let depth = self.depth() as usize;
+
+        self.with(|this| {
+            for (index, account) in this.owning_account.iter() {
+                let addr = Address::from_index(index.clone(), depth);
+                parent.set(addr, account.clone());
+            }
+
+            this.owning_account.clear();
+            this.token_to_account.clear();
+            this.id_to_addr.clear();
+        });
+
+        // Parent merkle root after committing should be the same as the \
+        // old one in the mask
+        assert_eq!(old_root_hash, parent.merkle_root());
+    }
+
+    /// called when parent sets an account; update local state
+    ///
+    /// if the mask's parent sets an account, we can prune an entry in the mask
+    /// if the account in the parent is the same in the mask *)
+    pub fn parent_set_notify(&self, account: &Account) {
+        assert!(self.is_attached());
+
+        let account_id = account.id();
+
+        self.with(|this| {
+            let addr = match this.id_to_addr.remove(&account_id) {
+                Some(addr) => addr,
+                None => return,
+            };
+            let account = this.owning_account.remove(&addr.to_index()).unwrap();
+            this.token_to_account.remove(&account.token_id).unwrap();
+        })
     }
 
     pub fn children(&self) -> Vec<Mask> {
@@ -429,6 +514,10 @@ impl BaseLedger for Mask {
         let existing = self.get(addr.clone()).is_some();
 
         self.with(|this| {
+            for child in this.childs.values() {
+                child.parent_set_notify(&account)
+            }
+
             let account_index: AccountIndex = addr.to_index();
             let account_id = account.id();
             let token_id = account.token_id.clone();
