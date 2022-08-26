@@ -2,6 +2,7 @@ use std::{
     collections::HashSet,
     ops::{ControlFlow, Deref},
     path::PathBuf,
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use mina_hasher::Fp;
@@ -14,6 +15,12 @@ use crate::{
 };
 
 pub type Uuid = u64;
+
+static UUID_GENERATOR: AtomicU64 = AtomicU64::new(0);
+
+pub fn next_uuid() -> Uuid {
+    UUID_GENERATOR.fetch_add(1, Ordering::AcqRel)
+}
 
 pub trait BaseLedger {
     /// list of accounts in the ledger

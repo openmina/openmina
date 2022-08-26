@@ -9,7 +9,7 @@ use std::{
 use crate::{
     account::{Account, AccountId, AccountLegacy, TokenId},
     address::{Address, AddressIterator, Direction},
-    base::{AccountIndex, BaseLedger, GetOrCreated},
+    base::{next_uuid, AccountIndex, BaseLedger, GetOrCreated, Uuid},
     tree_version::{TreeVersion, V1, V2},
 };
 use mina_hasher::Fp;
@@ -49,6 +49,7 @@ pub struct Database<T: TreeVersion> {
     depth: u8,
     last_location: Option<Address>,
     naccounts: usize,
+    uuid: Uuid,
 }
 
 impl NodeOrLeaf<V2> {
@@ -275,6 +276,7 @@ impl<T: TreeVersion> Database<T> {
             naccounts: 0,
             id_to_addr: HashMap::with_capacity(max_naccounts as usize / 2),
             token_to_account: HashMap::with_capacity(max_naccounts as usize / 2),
+            uuid: next_uuid(),
         }
     }
 
@@ -470,7 +472,7 @@ impl BaseLedger for Database<V2> {
     }
 
     fn get_uuid(&self) -> crate::base::Uuid {
-        todo!()
+        self.uuid
     }
 
     fn get_directory(&self) -> Option<PathBuf> {

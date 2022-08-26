@@ -108,7 +108,7 @@ impl Address {
         }
     }
 
-    pub fn first(length: usize) -> Self {
+    pub const fn first(length: usize) -> Self {
         Self {
             inner: [0; 32],
             length,
