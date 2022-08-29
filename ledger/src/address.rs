@@ -76,6 +76,7 @@ impl std::fmt::Debug for Address {
         f.debug_struct("Address")
             .field("inner", &s)
             .field("length", &self.length)
+            .field("index", &self.to_index())
             .finish()
     }
 }

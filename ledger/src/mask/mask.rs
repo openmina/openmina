@@ -22,6 +22,7 @@ struct MaskInner {
     token_to_account: HashMap<TokenId, AccountId>,
     id_to_addr: HashMap<AccountId, Address>,
     last_location: Option<Address>,
+    first_location_in_mask: Option<Address>,
     depth: u8,
     naccounts: usize,
     /// All childs of this mask
@@ -37,6 +38,7 @@ impl std::fmt::Debug for MaskInner {
             .field("token_to_account", &self.token_to_account.len())
             .field("id_to_addr", &self.id_to_addr.len())
             .field("last_location", &self.last_location)
+            .field("first_location_in_mask", &self.first_location_in_mask)
             .field("depth", &self.depth)
             .field("naccounts", &self.naccounts)
             .field("childs", &self.childs.len())
@@ -80,6 +82,7 @@ impl Mask {
                 depth,
                 naccounts: 0,
                 childs: HashMap::with_capacity(2),
+                first_location_in_mask: None,
             })),
         }
     }
@@ -96,6 +99,7 @@ impl Mask {
                 depth: depth as u8,
                 naccounts: 0,
                 childs: HashMap::with_capacity(2),
+                first_location_in_mask: None,
             })),
         }
     }
@@ -249,14 +253,22 @@ impl Mask {
 
         let account_id = account.id();
 
-        self.with(|this| {
-            let addr = match this.id_to_addr.remove(&account_id) {
-                Some(addr) => addr,
-                None => return,
-            };
-            let account = this.owning_account.remove(&addr.to_index()).unwrap();
-            this.token_to_account.remove(&account.token_id).unwrap();
-        })
+        let own_account = match self.with(|this| {
+            this.id_to_addr
+                .get(&account_id)
+                .and_then(|addr| this.owning_account.get(&addr.to_index()))
+                .cloned()
+        }) {
+            Some(own) => own,
+            None => return,
+        };
+
+        if own_account != *account {
+            // Do not delete our account if it is different than the parent one
+            return;
+        }
+
+        self.remove_own_account(&[account_id]);
     }
 
     pub fn children(&self) -> Vec<Mask> {
@@ -333,6 +345,42 @@ impl Mask {
         V2::hash_node(tree_depth - current_depth, left_hash, right_hash)
     }
 
+    fn remove_own_account(&self, ids: &[AccountId]) {
+        self.with(|this| {
+            let mut addrs = ids
+                .iter()
+                .map(|account_id| this.id_to_addr.remove(&account_id).unwrap())
+                .collect::<Vec<_>>();
+            addrs.sort_by(|a, b| a.to_index().cmp(&b.to_index()));
+
+            for addr in addrs.iter().rev() {
+                let account = this.owning_account.remove(&addr.to_index()).unwrap();
+                this.token_to_account.remove(&account.token_id).unwrap();
+
+                if this
+                    .last_location
+                    .as_ref()
+                    .map(|last| last == addr)
+                    .unwrap_or(false)
+                {
+                    this.last_location = addr.prev();
+                }
+
+                if this
+                    .first_location_in_mask
+                    .as_ref()
+                    .map(|first| first == addr)
+                    .unwrap_or(false)
+                {
+                    this.last_location = None;
+                    this.first_location_in_mask = None;
+                }
+
+                this.naccounts -= 1;
+            }
+        });
+    }
+
     /// For tests only, check if the address is in the mask, without checking parent
     #[cfg(test)]
     fn test_is_in_mask(&self, addr: &Address) -> bool {
@@ -346,21 +394,17 @@ impl Mask {
 
 impl BaseLedger for Mask {
     fn to_list(&self) -> Vec<Account> {
-        match self.get_parent() {
-            None => self.with(|this| this.inner.to_list()),
-            Some(parent) => {
-                let mut accounts = parent.to_list();
+        let num_accounts = self.num_accounts();
+        let mut accounts = Vec::with_capacity(num_accounts);
+        let depth = self.depth() as usize;
 
-                self.with(|this| {
-                    for (index, account) in this.owning_account.iter() {
-                        let index = index.0 as usize;
-                        accounts[index] = account.clone(); // TODO: Handle out of bound (extend the vec)
-                    }
-                });
-
-                accounts
-            }
+        for index in 0..num_accounts {
+            let index = AccountIndex(index as u64);
+            let addr = Address::from_index(index, depth);
+            accounts.push(self.get(addr).unwrap_or_else(|| Account::empty()));
         }
+
+        accounts
     }
 
     fn iter<F>(&self, fun: F)
@@ -491,9 +535,11 @@ impl BaseLedger for Mask {
             return Ok(GetOrCreated::Existed(addr));
         }
 
+        let last_location = self.last_filled();
+
         self.with(|this| match this.parent {
             Some(_) => {
-                let location = match this.last_location.as_ref() {
+                let location = match last_location {
                     Some(last) => last.next().ok_or(DatabaseError::OutOfLeaves).unwrap(),
                     None => Address::first(this.depth as usize),
                 };
@@ -506,6 +552,10 @@ impl BaseLedger for Mask {
                 this.token_to_account.insert(token_id, account_id);
                 this.owning_account.insert(account_index, account);
                 this.naccounts += 1;
+
+                if this.first_location_in_mask.is_none() {
+                    this.first_location_in_mask = Some(location.clone());
+                }
 
                 Ok(GetOrCreated::Added(location))
             }
@@ -520,8 +570,15 @@ impl BaseLedger for Mask {
     fn last_filled(&self) -> Option<Address> {
         match self.get_parent() {
             Some(parent) => {
-                let last_filled_parent = parent.last_filled().unwrap();
-                let last_filled = self.with(|this| this.last_location.clone()).unwrap();
+                let last_filled_parent = match parent.last_filled() {
+                    Some(last) => last,
+                    None => return self.with(|this| this.last_location.clone()),
+                };
+
+                let last_filled = match self.with(|this| this.last_location.clone()) {
+                    Some(last) => last,
+                    None => return Some(last_filled_parent),
+                };
 
                 let last_filled_parent_index = last_filled_parent.to_index();
                 let last_filled_index = last_filled.to_index();
@@ -591,7 +648,16 @@ impl BaseLedger for Mask {
                         .map(|l| l.to_index() < addr.to_index())
                         .unwrap_or(true)
                     {
-                        this.last_location = Some(addr);
+                        this.last_location = Some(addr.clone());
+                    }
+
+                    if this
+                        .first_location_in_mask
+                        .as_ref()
+                        .map(|l| l.to_index() > addr.to_index())
+                        .unwrap_or(true)
+                    {
+                        this.first_location_in_mask = Some(addr);
                     }
                 }
                 None => {
@@ -643,28 +709,22 @@ impl BaseLedger for Mask {
     }
 
     fn remove_accounts(&mut self, ids: &[AccountId]) {
+        let mut parent = match self.get_parent() {
+            Some(parent) => parent,
+            None => return self.with(|this| this.inner.remove_accounts(ids)),
+        };
+
         let (mask_keys, parent_keys): (Vec<_>, Vec<_>) = self.with(|this| {
             ids.iter()
                 .cloned()
                 .partition(|id| this.id_to_addr.contains_key(id))
         });
 
-        let mut parent = match self.get_parent() {
-            Some(parent) => parent,
-            None => return self.with(|this| this.inner.remove_accounts(ids)),
-        };
+        if !parent_keys.is_empty() {
+            parent.remove_accounts(&parent_keys);
+        }
 
-        parent.remove_accounts(&parent_keys);
-
-        self.with(|this| {
-            for parent_key in mask_keys {
-                let addr = this.id_to_addr.remove(&parent_key).unwrap();
-                let account = this.owning_account.remove(&addr.to_index()).unwrap();
-                this.token_to_account.remove(&account.token_id).unwrap();
-                this.naccounts -= 1;
-                // TODO: Update Self::last_location
-            }
-        });
+        self.remove_own_account(&mask_keys);
     }
 
     fn detached_signal(&mut self) {
@@ -676,7 +736,10 @@ impl BaseLedger for Mask {
     }
 
     fn num_accounts(&self) -> usize {
-        self.with(|this| this.naccounts)
+        self.last_filled()
+            .map(|addr| addr.to_index().0 as usize + 1)
+            .unwrap_or(0)
+        // self.with(|this| this.naccounts)
     }
 
     fn merkle_path_at_addr(&self, addr: Address) -> Option<AddressIterator> {
@@ -1024,7 +1087,270 @@ mod tests_mask_ocaml {
         mask.remove_accounts(&accounts_ids);
         assert_eq!(root_hash0, mask.merkle_root());
     }
+
+    // "fold of addition over account balances in parent and mask"
+    #[test]
+    fn test_fold_of_addition_over_account_balance_in_parent_and_mask() {
+        let (mut root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let accounts = (0..10).map(|_| Account::rand()).collect::<Vec<_>>();
+        let balance = accounts
+            .iter()
+            .fold(0u128, |acc, account| acc + account.balance as u128);
+
+        let (accounts_parent, accounts_mask) = accounts.split_at(5);
+
+        for account in accounts_parent {
+            root.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+        for account in accounts_mask {
+            mask.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+
+        let retrieved_balance = mask.fold(0u128, |acc, account| acc + account.balance as u128);
+        assert_eq!(balance, retrieved_balance);
+    }
+
+    fn create_existing_account(mask: &mut Mask, account: Account) {
+        match mask
+            .get_or_create_account(account.id(), account.clone())
+            .unwrap()
+        {
+            GetOrCreated::Added(_) => panic!("Should add an existing account"),
+            GetOrCreated::Existed(addr) => {
+                mask.set(addr, account);
+            }
+        }
+    }
+
+    // "masking in to_list"
+    #[test]
+    fn test_masking_in_to_list() {
+        let (mut root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let mut accounts = (0..10).map(|_| Account::rand()).collect::<Vec<_>>();
+        // Make balances non-zero
+        accounts
+            .iter_mut()
+            .for_each(|account| account.balance = account.balance.checked_add(1).unwrap_or(1));
+
+        for account in &accounts {
+            root.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+
+        let parent_list = root.to_list();
+
+        // Make balances to zero for those same account
+        accounts.iter_mut().for_each(|account| account.balance = 0);
+
+        for account in accounts {
+            create_existing_account(&mut mask, account);
+        }
+
+        let mask_list = mask.to_list();
+
+        assert_eq!(parent_list.len(), mask_list.len());
+        // Same accounts and order
+        assert_eq!(
+            parent_list.iter().map(Account::id).collect::<Vec<_>>(),
+            mask_list.iter().map(Account::id).collect::<Vec<_>>(),
+        );
+        // Balances of mask are zero
+        assert_eq!(
+            mask_list
+                .iter()
+                .fold(0u128, |acc, account| acc + account.balance as u128),
+            0
+        );
+    }
+
+    // "masking in foldi"
+    #[test]
+    fn test_masking_in_to_foldi() {
+        let (mut root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let mut accounts = (0..10).map(|_| Account::rand()).collect::<Vec<_>>();
+        // Make balances non-zero
+        accounts
+            .iter_mut()
+            .for_each(|account| account.balance = account.balance.checked_add(1).unwrap_or(1));
+
+        for account in &accounts {
+            root.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+
+        let parent_sum_balance = root.fold(0u128, |acc, account| acc + account.balance as u128);
+        assert_ne!(parent_sum_balance, 0);
+
+        // Make balances to zero for those same account
+        accounts.iter_mut().for_each(|account| account.balance = 0);
+
+        for account in accounts {
+            create_existing_account(&mut mask, account);
+        }
+
+        let mask_sum_balance = mask.fold(0u128, |acc, account| acc + account.balance as u128);
+        assert_eq!(mask_sum_balance, 0);
+    }
+
+    // "create_empty doesn't modify the hash"
+    #[test]
+    fn test_create_empty_doesnt_modify_the_hash() {
+        let (root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let start_hash = mask.merkle_root();
+
+        let account = Account::empty();
+        mask.get_or_create_account(account.id(), account).unwrap();
+
+        assert_eq!(mask.num_accounts(), 1);
+        assert_eq!(start_hash, mask.merkle_root());
+    }
+
+    // "reuse of locations for removed accounts"
+    #[test]
+    fn test_reuse_of_locations_for_removed_accounts() {
+        let (root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let accounts = (0..10).map(|_| Account::rand()).collect::<Vec<_>>();
+        let accounts_ids = accounts.iter().map(Account::id).collect::<Vec<_>>();
+
+        assert!(mask.last_filled().is_none());
+        for account in accounts {
+            mask.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+        assert!(mask.last_filled().is_some());
+
+        mask.remove_accounts(&accounts_ids);
+        assert!(mask.last_filled().is_none());
+    }
+
+    // "num_accounts for unique keys in mask and parent"
+    #[test]
+    fn test_num_accounts_for_unique_keys_in_mask_and_parent() {
+        let (mut root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let accounts = (0..10).map(|_| Account::rand()).collect::<Vec<_>>();
+
+        for account in &accounts {
+            mask.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+
+        let mask_num_accounts_before = mask.num_accounts();
+
+        // Add same accounts to parent
+        for account in &accounts {
+            root.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+
+        let parent_num_accounts = root.num_accounts();
+        let mask_num_accounts_after = mask.num_accounts();
+
+        assert_eq!(accounts.len(), parent_num_accounts);
+        assert_eq!(parent_num_accounts, mask_num_accounts_before);
+        assert_eq!(parent_num_accounts, mask_num_accounts_after);
+    }
+
+    // "Mask reparenting works"
+    #[test]
+    fn test_mask_reparenting_works() {
+        let (mut root, mut layer1, mut layer2) = new_chain(DEPTH);
+
+        let acc1 = Account::rand();
+        let acc2 = Account::rand();
+        let acc3 = Account::rand();
+
+        let loc1 = root.get_or_create_account(acc1.id(), acc1).unwrap().addr();
+        let loc2 = layer1
+            .get_or_create_account(acc2.id(), acc2)
+            .unwrap()
+            .addr();
+        let loc3 = layer2
+            .get_or_create_account(acc3.id(), acc3)
+            .unwrap()
+            .addr();
+
+        // All accounts are accessible from layer2
+        assert!(layer2.get(loc1.clone()).is_some());
+        assert!(layer2.get(loc2.clone()).is_some());
+        assert!(layer2.get(loc3.clone()).is_some());
+
+        // acc1 is in root
+        assert!(root.get(loc1.clone()).is_some());
+
+        layer1.commit();
+
+        // acc2 is in root
+        assert!(root.get(loc2.clone()).is_some());
+
+        layer1.remove_and_reparent();
+
+        // acc1, acc2 are in root
+        assert!(root.get(loc1.clone()).is_some());
+        assert!(root.get(loc2.clone()).is_some());
+
+        // acc3 not in root
+        assert!(root.get(loc3.clone()).is_none());
+
+        // All accounts are accessible from layer2
+        assert!(layer2.get(loc1).is_some());
+        assert!(layer2.get(loc2).is_some());
+        assert!(layer2.get(loc3).is_some());
+    }
+
+    // "setting an account in the parent doesn't remove the masked
+    // copy if the mask is still dirty for that account"
+    #[test]
+    fn test_set_account_in_parent_doesnt_remove_if_mask_is_dirty() {
+        let (mut root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let mut account = Account::rand();
+        let mut account2 = account.clone();
+
+        account.balance = 10;
+        account2.balance = 5;
+
+        let loc = mask
+            .get_or_create_account(account.id(), account.clone())
+            .unwrap()
+            .addr();
+
+        root.set(loc.clone(), account2);
+
+        assert_eq!(mask.get(loc).unwrap(), account);
+    }
 }
+
+//   let%test_unit "setting an account in the parent doesn't remove the masked \
+//                  copy if the mask is still dirty for that account" =
+//     Test.with_instances (fun maskable mask ->
+//         let attached_mask = Maskable.register_mask maskable mask in
+//         let k = Account_id.gen_accounts 1 |> List.hd_exn in
+//         let acct1 = Account.create k (Balance.of_int 10) in
+//         let loc =
+//           Mask.Attached.get_or_create_account attached_mask k acct1
+//           |> Or_error.ok_exn |> snd
+//         in
+//         let acct2 = Account.create k (Balance.of_int 5) in
+//         Maskable.set maskable loc acct2 ;
+//         [%test_result: Account.t] ~message:"account in mask should be unchanged"
+//           ~expect:acct1
+//           (Mask.Attached.get attached_mask loc |> Option.value_exn) )
+// end
 
 // let%test_unit "get_all_accounts should preserve the ordering of accounts by \
 //                location with noncontiguous updates of accounts on the mask" =
