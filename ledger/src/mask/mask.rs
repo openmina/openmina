@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    ops::{Deref, DerefMut},
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -29,21 +28,23 @@ struct MaskInner {
     childs: HashMap<Uuid, Mask>,
 }
 
-impl Deref for MaskInner {
-    type Target = Database<V2>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+impl std::fmt::Debug for MaskInner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MaskInner")
+            .field("uuid", &self.inner.get_uuid())
+            .field("parent", &self.parent.as_ref().map(|p| p.uuid()))
+            .field("owning_account", &self.owning_account.len())
+            .field("token_to_account", &self.token_to_account.len())
+            .field("id_to_addr", &self.id_to_addr.len())
+            .field("last_location", &self.last_location)
+            .field("depth", &self.depth)
+            .field("naccounts", &self.naccounts)
+            .field("childs", &self.childs.len())
+            .finish()
     }
 }
 
-impl DerefMut for MaskInner {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
-    }
-}
-
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Mask {
     // Using a mutex for now but this can be replaced with a RefCell
     inner: Arc<Mutex<MaskInner>>,
@@ -112,7 +113,7 @@ impl Mask {
     }
 
     fn uuid(&self) -> Uuid {
-        self.with(|this| this.get_uuid())
+        self.with(|this| this.inner.get_uuid())
     }
 
     /// Make `mask` a child of `self`
@@ -490,22 +491,25 @@ impl BaseLedger for Mask {
             return Ok(GetOrCreated::Existed(addr));
         }
 
-        self.with(|this| {
-            let location = match this.last_location.as_ref() {
-                Some(last) => last.next().ok_or(DatabaseError::OutOfLeaves).unwrap(),
-                None => Address::first(this.depth as usize),
-            };
+        self.with(|this| match this.parent {
+            Some(_) => {
+                let location = match this.last_location.as_ref() {
+                    Some(last) => last.next().ok_or(DatabaseError::OutOfLeaves).unwrap(),
+                    None => Address::first(this.depth as usize),
+                };
 
-            let account_index: AccountIndex = location.to_index();
-            let token_id = account.token_id.clone();
+                let account_index: AccountIndex = location.to_index();
+                let token_id = account.token_id.clone();
 
-            this.id_to_addr.insert(account_id.clone(), location.clone());
-            this.last_location = Some(location.clone());
-            this.token_to_account.insert(token_id, account_id);
-            this.owning_account.insert(account_index, account);
-            this.naccounts += 1;
+                this.id_to_addr.insert(account_id.clone(), location.clone());
+                this.last_location = Some(location.clone());
+                this.token_to_account.insert(token_id, account_id);
+                this.owning_account.insert(account_index, account);
+                this.naccounts += 1;
 
-            Ok(GetOrCreated::Added(location))
+                Ok(GetOrCreated::Added(location))
+            }
+            None => this.inner.get_or_create_account(account_id, account),
         })
     }
 
@@ -645,14 +649,12 @@ impl BaseLedger for Mask {
                 .partition(|id| this.id_to_addr.contains_key(id))
         });
 
-        let parent = match self.get_parent() {
+        let mut parent = match self.get_parent() {
             Some(parent) => parent,
             None => return self.with(|this| this.inner.remove_accounts(ids)),
         };
 
-        parent.with(|parent| {
-            parent.remove_accounts(&parent_keys);
-        });
+        parent.remove_accounts(&parent_keys);
 
         self.with(|this| {
             for parent_key in mask_keys {
@@ -957,6 +959,70 @@ mod tests_mask_ocaml {
             .collect::<Vec<_>>();
 
         assert_eq!(accounts, retrieved_accounts);
+    }
+
+    // "removing accounts from mask restores Merkle root"
+    #[test]
+    fn test_removing_accounts_from_mask_restore_root_hash() {
+        let (root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let accounts = (0..5).map(|_| Account::rand()).collect::<Vec<_>>();
+        let accounts_ids = accounts.iter().map(Account::id).collect::<Vec<_>>();
+        let root_hash0 = mask.merkle_root();
+
+        for account in accounts {
+            mask.get_or_create_account(account.id(), account).unwrap();
+        }
+        assert_ne!(root_hash0, mask.merkle_root());
+
+        mask.remove_accounts(&accounts_ids);
+        assert_eq!(root_hash0, mask.merkle_root());
+    }
+
+    // "removing accounts from parent restores Merkle root"
+    #[test]
+    fn test_removing_accounts_from_parent_restore_root_hash() {
+        let (mut root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let accounts = (0..5).map(|_| Account::rand()).collect::<Vec<_>>();
+        let accounts_ids = accounts.iter().map(Account::id).collect::<Vec<_>>();
+        let root_hash0 = mask.merkle_root();
+
+        for account in accounts {
+            root.get_or_create_account(account.id(), account).unwrap();
+        }
+        assert_ne!(root_hash0, mask.merkle_root());
+
+        mask.remove_accounts(&accounts_ids);
+        assert_eq!(root_hash0, mask.merkle_root());
+    }
+
+    // "removing accounts from parent and mask restores Merkle root"
+    #[test]
+    fn test_removing_accounts_from_parent_and_mask_restore_root_hash() {
+        let (mut root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let accounts = (0..10).map(|_| Account::rand()).collect::<Vec<_>>();
+        let (accounts_parent, accounts_mask) = accounts.split_at(5);
+        let accounts_ids = accounts.iter().map(Account::id).collect::<Vec<_>>();
+
+        let root_hash0 = mask.merkle_root();
+
+        for account in accounts_parent {
+            root.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+        for account in accounts_mask {
+            mask.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+        assert_ne!(root_hash0, mask.merkle_root());
+
+        mask.remove_accounts(&accounts_ids);
+        assert_eq!(root_hash0, mask.merkle_root());
     }
 }
 
