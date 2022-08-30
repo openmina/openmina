@@ -60,7 +60,6 @@ impl Mask {
                 last_location: None,
                 first_location_in_mask: None,
                 depth: depth as u8,
-                naccounts: 0,
                 childs: HashMap::with_capacity(2),
                 uuid: next_uuid(),
             })),
@@ -73,53 +72,17 @@ impl Mask {
 
     /// Make `mask` a child of `self`
     pub fn register_mask(&self, mask: Mask) -> Mask {
-        let self_ptr = self.clone();
-
-        self.with(|this| {
-            let childs = match this {
-                MaskImpl::Root { childs, .. } => childs,
-                MaskImpl::Attached { childs, .. } => childs,
-            };
-
-            let old = childs.insert(mask.get_uuid(), mask.clone());
-            assert!(old.is_none(), "mask is already registered");
-
-            mask.set_parent(&self_ptr);
-            mask
-        })
+        let self_mask = self.clone();
+        self.with(|this| this.register_mask(self_mask, mask))
     }
 
     /// Detach this mask from its parent
     pub fn unregister_mask(&self, behavior: UnregisterBehavior) {
-        use UnregisterBehavior::*;
-
-        let parent = self.get_parent().unwrap();
-
-        let trigger_detach_signal = matches!(behavior, Check | Recursive);
-
-        match behavior {
-            Check => {
-                assert!(
-                    !self.children().is_empty(),
-                    "mask has children that must be unregistered first"
-                );
-            }
-            IPromiseIAmReparentingThisMask => (),
-            Recursive => {
-                for child in self.children() {
-                    child.unregister_mask(Recursive);
-                }
-            }
-        }
-
-        let removed = parent.remove_child(self);
-        assert!(removed.is_some(), "Mask not a child of the parent");
-
-        self.unset_parent(trigger_detach_signal);
+        self.with(|this| this.unregister_mask(behavior))
     }
 
-    pub fn remove_child(&self, child: &Mask) -> Option<Mask> {
-        self.with(|this| this.remove_child(child))
+    pub(super) fn remove_child_uuid(&self, uuid: Uuid) -> Option<Mask> {
+        self.with(|this| this.remove_child_uuid(uuid))
     }
 
     pub fn is_attached(&self) -> bool {
@@ -151,37 +114,12 @@ impl Mask {
     /// parent instead. Raises an exception if the merkle roots of the mask and the
     /// parent are not the same.
     pub fn remove_and_reparent(&self) {
-        let parent = self
-            .with(|this| this.get_parent())
-            .expect("Mask doesn't have parent");
-        parent
-            .remove_child(self)
-            .expect("Parent doesn't have this mask as child");
-
-        // we can only reparent if merkle roots are the same
-        assert_eq!(parent.merkle_root(), self.merkle_root());
-
-        let children = self.children();
-
-        for child in &children {
-            println!("child_uuid={:?}", child.get_uuid());
-            child.unregister_mask(UnregisterBehavior::IPromiseIAmReparentingThisMask);
-        }
-
-        self.remove_parent();
-        // self.unregister_mask(UnregisterBehavior::IPromiseIAmReparentingThisMask);
-
-        for child in children {
-            parent.register_mask(child);
-        }
-
-        // TODO: Self should be removed/unallocated
+        self.with(|this| this.remove_and_reparent())
     }
 
     /// get hash from mask, if present, else from its parent
     pub fn get_hash(&self, addr: Address) -> Option<Fp> {
         self.with(|this| this.get_hash(addr))
-        // self.get_inner_hash_at_addr(addr).ok()
     }
 
     /// commit all state to the parent, flush state locally

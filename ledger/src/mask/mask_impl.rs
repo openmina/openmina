@@ -10,6 +10,7 @@ use crate::{
     account::{Account, AccountId, TokenId},
     address::{Address, AddressIterator},
     base::{AccountIndex, BaseLedger, GetOrCreated, Uuid},
+    mask::UnregisterBehavior,
     tree::{Database, DatabaseError},
     tree_version::{TreeVersion, V2},
 };
@@ -29,7 +30,6 @@ pub(super) enum MaskImpl {
         last_location: Option<Address>,
         first_location_in_mask: Option<Address>,
         depth: u8,
-        naccounts: usize,
         childs: HashMap<Uuid, Mask>,
         uuid: Uuid,
     },
@@ -51,7 +51,6 @@ impl std::fmt::Debug for MaskImpl {
                 last_location,
                 first_location_in_mask,
                 depth,
-                naccounts,
                 childs,
                 uuid,
             } => f
@@ -64,7 +63,7 @@ impl std::fmt::Debug for MaskImpl {
                 .field("last_location", last_location)
                 .field("first_location_in_mask", first_location_in_mask)
                 .field("depth", depth)
-                .field("naccounts", naccounts)
+                .field("num_accounts", &self.num_accounts())
                 .field("childs", &childs.len())
                 .finish(),
         }
@@ -76,6 +75,78 @@ impl MaskImpl {
         match self {
             MaskImpl::Root { .. } => false,
             MaskImpl::Attached { parent, .. } => parent.is_some(),
+        }
+    }
+
+    /// Make `mask` a child of `self`
+    pub fn register_mask(&mut self, self_mask: Mask, mask: Mask) -> Mask {
+        let childs = match self {
+            MaskImpl::Root { childs, .. } => childs,
+            MaskImpl::Attached { childs, .. } => childs,
+        };
+
+        let old = childs.insert(mask.get_uuid(), mask.clone());
+        assert!(old.is_none(), "mask is already registered");
+
+        mask.set_parent(&self_mask);
+        mask
+    }
+
+    /// Detach this mask from its parent
+    pub fn unregister_mask(&mut self, behavior: UnregisterBehavior) {
+        use UnregisterBehavior::*;
+
+        let parent = self.get_parent().unwrap();
+
+        let trigger_detach_signal = matches!(behavior, Check | Recursive);
+
+        match behavior {
+            Check => {
+                assert!(
+                    !self.children().is_empty(),
+                    "mask has children that must be unregistered first"
+                );
+            }
+            IPromiseIAmReparentingThisMask => (),
+            Recursive => {
+                for child in self.children() {
+                    child.unregister_mask(Recursive);
+                }
+            }
+        }
+
+        let removed = parent.remove_child_uuid(self.uuid());
+        assert!(removed.is_some(), "Mask not a child of the parent");
+
+        self.unset_parent(trigger_detach_signal);
+    }
+
+    pub fn remove_and_reparent(&mut self) {
+        let root_hash = self.merkle_root();
+
+        let (parent, childs, uuid) = match self {
+            MaskImpl::Root { .. } => panic!("Cannot reparent a root mask"),
+            MaskImpl::Attached {
+                parent,
+                childs,
+                uuid,
+                ..
+            } => (parent, childs, *uuid),
+        };
+
+        let parent = parent.take().expect("Mask doesn't have parent");
+        let childs = std::mem::take(childs);
+
+        // we can only reparent if merkle roots are the same
+        assert_eq!(parent.merkle_root(), root_hash);
+
+        parent
+            .remove_child_uuid(uuid)
+            .expect("Parent doesn't have this mask as child");
+
+        for child in childs.values() {
+            child.remove_parent();
+            parent.register_mask(child.clone());
         }
     }
 
@@ -206,13 +277,12 @@ impl MaskImpl {
         }
     }
 
-    pub fn remove_child(&mut self, child: &Mask) -> Option<Mask> {
+    pub fn remove_child_uuid(&mut self, uuid: Uuid) -> Option<Mask> {
         let childs = match self {
             MaskImpl::Root { childs, .. } => childs,
             MaskImpl::Attached { childs, .. } => childs,
         };
 
-        let uuid = child.get_uuid();
         childs.remove(&uuid)
     }
 
@@ -288,7 +358,6 @@ impl MaskImpl {
                 id_to_addr,
                 last_location,
                 first_location_in_mask,
-                naccounts,
                 ..
             } => {
                 let mut addrs = ids
@@ -317,8 +386,6 @@ impl MaskImpl {
                         *last_location = None;
                         *first_location_in_mask = None;
                     }
-
-                    *naccounts -= 1;
                 }
             }
         }
@@ -342,12 +409,6 @@ impl MaskImpl {
             child.parent_set_notify(&account)
         }
 
-        if let MaskImpl::Root { database, .. } = self {
-            return database.set(addr, account);
-        };
-
-        let existing = self.get(addr.clone()).is_some();
-
         match self {
             MaskImpl::Root { database, .. } => database.set(addr, account),
             MaskImpl::Attached {
@@ -356,7 +417,6 @@ impl MaskImpl {
                 id_to_addr,
                 last_location,
                 first_location_in_mask,
-                naccounts,
                 ..
             } => {
                 let account_index: AccountIndex = addr.to_index();
@@ -366,10 +426,6 @@ impl MaskImpl {
                 owning_account.insert(account_index, account);
                 id_to_addr.insert(account_id.clone(), addr.clone());
                 token_to_account.insert(token_id, account_id);
-
-                if !existing {
-                    *naccounts += 1;
-                }
 
                 if last_location
                     .as_ref()
@@ -406,33 +462,50 @@ impl MaskImpl {
 impl BaseLedger for MaskImpl {
     fn to_list(&self) -> Vec<Account> {
         let depth = self.depth() as usize;
-        let num_accounts = self.num_accounts();
+        let num_accounts = self.num_accounts() as u64;
 
-        let mut accounts = Vec::with_capacity(num_accounts);
-
-        for index in 0..num_accounts {
-            let index = AccountIndex(index as u64);
-            let addr = Address::from_index(index, depth);
-            accounts.push(self.get(addr).unwrap_or_else(Account::empty));
-        }
-
-        accounts
+        (0..num_accounts)
+            .map(AccountIndex)
+            .map(|index| {
+                let addr = Address::from_index(index, depth);
+                self.get(addr).unwrap_or_else(Account::empty)
+            })
+            .collect()
     }
 
-    fn iter<F>(&self, fun: F)
+    fn iter<F>(&self, mut fun: F)
     where
         F: FnMut(&Account),
     {
-        let accounts = self.to_list();
-        accounts.iter().for_each(fun)
+        let depth = self.depth() as usize;
+        let num_accounts = self.num_accounts() as u64;
+
+        (0..num_accounts)
+            .map(AccountIndex)
+            .filter_map(|index| {
+                self.get(Address::from_index(index, depth))
+            })
+            .for_each(|account| fun(&account));
     }
 
-    fn fold<B, F>(&self, init: B, fun: F) -> B
+    fn fold<B, F>(&self, init: B, mut fun: F) -> B
     where
         F: FnMut(B, &Account) -> B,
     {
-        let accounts = self.to_list();
-        accounts.iter().fold(init, fun)
+        let depth = self.depth() as usize;
+        let num_accounts = self.num_accounts() as u64;
+        let mut accum = init;
+
+        for account in (0..num_accounts)
+            .map(AccountIndex)
+            .filter_map(|index| {
+                self.get(Address::from_index(index, depth))
+            })
+        {
+            accum = fun(accum, &account)
+        }
+
+        accum
     }
 
     fn fold_with_ignored_accounts<B, F>(
@@ -444,8 +517,7 @@ impl BaseLedger for MaskImpl {
     where
         F: FnMut(B, &Account) -> B,
     {
-        let accounts = self.to_list();
-        accounts.iter().fold(init, |accum, account| {
+        self.fold(init, |accum, account| {
             if !ignoreds.contains(&account.id()) {
                 fun(accum, account)
             } else {
@@ -460,16 +532,22 @@ impl BaseLedger for MaskImpl {
     {
         use std::ops::ControlFlow::*;
 
-        let accounts = self.to_list();
+        let depth = self.depth() as usize;
+        let num_accounts = self.num_accounts() as u64;
         let mut accum = init;
 
-        for account in &accounts {
-            match fun(accum, account) {
+        for account in (0..num_accounts)
+            .map(AccountIndex)
+            .filter_map(|index| {
+                self.get(Address::from_index(index, depth))
+            })
+        {
+            match fun(accum, &account) {
                 Continue(acc) => accum = acc,
                 Break(acc) => {
                     accum = acc;
                     break;
-                }
+                },
             }
         }
 
@@ -477,10 +555,13 @@ impl BaseLedger for MaskImpl {
     }
 
     fn accounts(&self) -> HashSet<AccountId> {
-        self.to_list()
-            .into_iter()
-            .map(|account| account.id())
-            .collect()
+        let mut set = HashSet::with_capacity(self.num_accounts());
+
+        self.iter(|account| {
+            set.insert(account.id());
+        });
+
+        set
     }
 
     fn token_owner(&self, token_id: TokenId) -> Option<AccountId> {
@@ -557,10 +638,6 @@ impl BaseLedger for MaskImpl {
             return Ok(GetOrCreated::Existed(addr));
         }
 
-        if let MaskImpl::Root { database, .. } = self {
-            return database.get_or_create_account(account_id, account);
-        };
-
         let last_filled = self.last_filled();
 
         match self {
@@ -572,7 +649,6 @@ impl BaseLedger for MaskImpl {
                 last_location,
                 first_location_in_mask,
                 depth,
-                naccounts,
                 ..
             } => {
                 let location = match last_filled {
@@ -587,7 +663,6 @@ impl BaseLedger for MaskImpl {
                 *last_location = Some(location.clone());
                 token_to_account.insert(token_id, account_id);
                 owning_account.insert(account_index, account);
-                *naccounts += 1;
 
                 if first_location_in_mask.is_none() {
                     *first_location_in_mask = Some(location.clone());
@@ -653,8 +728,7 @@ impl BaseLedger for MaskImpl {
             } => (parent, owning_account),
         };
 
-        let account_index = addr.to_index();
-        if let Some(account) = owning_account.get(&account_index).cloned() {
+        if let Some(account) = owning_account.get(&addr.to_index()).cloned() {
             return Some(account);
         }
 
@@ -749,7 +823,6 @@ impl BaseLedger for MaskImpl {
         self.last_filled()
             .map(|addr| addr.to_index().0 as usize + 1)
             .unwrap_or(0)
-        // self.with(|this| this.naccounts)
     }
 
     fn merkle_path_at_addr(&self, addr: Address) -> Option<AddressIterator> {
