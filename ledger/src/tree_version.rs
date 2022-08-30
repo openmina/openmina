@@ -36,12 +36,12 @@ impl TreeVersion for V2 {
     fn empty_hash_at_depth(depth: usize) -> Fp {
         // let now = std::time::Instant::now();
 
-        let res = (0..depth).fold(Account::empty().hash(), |prev_hash, depth| {
+        (0..depth).fold(Account::empty().hash(), |prev_hash, depth| {
             Self::hash_node(depth, prev_hash, prev_hash)
-        });
+        })
         // println!("empty_hash_at_depth={:?} {:?}", depth, now.elapsed());
 
-        res
+        // res
     }
 }
 

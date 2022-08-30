@@ -573,7 +573,7 @@ impl BaseLedger for Database<V2> {
             .iter()
             .map(|accound_id| self.id_to_addr.remove(accound_id).unwrap())
             .collect::<Vec<_>>();
-        addrs.sort_by(|a, b| a.to_index().cmp(&b.to_index()));
+        addrs.sort_by_key(|a| a.to_index());
 
         for addr in addrs.iter().rev() {
             let leaf = match root.get_mut_leaf_on_path(addr.iter()) {

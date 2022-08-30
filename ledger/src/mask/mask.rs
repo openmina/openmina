@@ -112,7 +112,7 @@ impl Mask {
             }
         }
 
-        let removed = parent.remove_child(&self);
+        let removed = parent.remove_child(self);
         assert!(removed.is_some(), "Mask not a child of the parent");
 
         self.unset_parent(trigger_detach_signal);
@@ -394,6 +394,7 @@ mod tests_mask_ocaml {
     use super::*;
 
     use rand::{thread_rng, Rng};
+
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 

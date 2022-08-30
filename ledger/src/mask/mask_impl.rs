@@ -293,9 +293,9 @@ impl MaskImpl {
             } => {
                 let mut addrs = ids
                     .iter()
-                    .map(|account_id| id_to_addr.remove(&account_id).unwrap())
+                    .map(|account_id| id_to_addr.remove(account_id).unwrap())
                     .collect::<Vec<_>>();
-                addrs.sort_by(|a, b| a.to_index().cmp(&b.to_index()));
+                addrs.sort_by_key(|a| a.to_index());
 
                 for addr in addrs.iter().rev() {
                     let account = owning_account.remove(&addr.to_index()).unwrap();
@@ -413,7 +413,7 @@ impl BaseLedger for MaskImpl {
         for index in 0..num_accounts {
             let index = AccountIndex(index as u64);
             let addr = Address::from_index(index, depth);
-            accounts.push(self.get(addr).unwrap_or_else(|| Account::empty()));
+            accounts.push(self.get(addr).unwrap_or_else(Account::empty));
         }
 
         accounts
@@ -528,7 +528,7 @@ impl BaseLedger for MaskImpl {
             } => (parent, id_to_addr),
         };
 
-        if let Some(addr) = id_to_addr.get(&account_id).cloned() {
+        if let Some(addr) = id_to_addr.get(account_id).cloned() {
             return Some(addr);
         }
 
