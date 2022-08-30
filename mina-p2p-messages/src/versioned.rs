@@ -9,6 +9,16 @@ pub type Ver = i32;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Versioned<T, const V: Ver>(T);
 
+impl<T, const V: Ver> Versioned<T, V> {
+    pub fn inner(&self) -> &T {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
 impl<T, const V: Ver> From<T> for Versioned<T, V> {
     fn from(t: T) -> Self {
         Self(t)
