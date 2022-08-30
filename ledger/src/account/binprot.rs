@@ -470,6 +470,9 @@ pub struct MinaBaseZkappAccountStableV2 {
 mod tests {
     use super::*;
 
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+
     #[test]
     fn test_deserialize_account() {
         let bytes: &[u8] = &[

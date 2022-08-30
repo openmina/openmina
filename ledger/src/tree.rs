@@ -723,6 +723,9 @@ impl BaseLedger for Database<V2> {
 mod tests {
     use o1_utils::FieldHelpers;
 
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+
     use crate::{
         account::{Account, AccountLegacy},
         tree_version::{account_empty_legacy_hash, V1, V2},
@@ -933,6 +936,9 @@ mod tests {
 #[cfg(test)]
 mod tests_ocaml {
     use rand::Rng;
+
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
 
     use super::*;
 

@@ -46,5 +46,10 @@ getrandom = { version = "0.2", features = ["js"] }
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 ocaml-interop = "0.8"
 
+[dev-dependencies]
+
+[target.'cfg(target_family = "wasm")'.dev-dependencies]
+wasm-bindgen-test = "0.3.0"
+
 [profile.release]
 debug = true

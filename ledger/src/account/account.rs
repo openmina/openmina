@@ -799,6 +799,9 @@ impl Account {
 mod tests {
     use o1_utils::FieldHelpers;
 
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+
     use crate::{base::BaseLedger, tree::Database, tree_version::V2};
 
     use super::*;
@@ -934,6 +937,7 @@ mod tests {
         }
     }
 
+    #[cfg(not(target_family = "wasm"))] // Use multiple threads
     #[test]
     fn test_rand_tree() {
         use rayon::prelude::*;

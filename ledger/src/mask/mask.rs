@@ -812,6 +812,9 @@ impl BaseLedger for Mask {
 mod tests_mask_ocaml {
     use super::*;
 
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+
     const DEPTH: usize = 4;
     const FIRST_LOC: Address = Address::first(DEPTH);
 

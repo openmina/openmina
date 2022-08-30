@@ -389,6 +389,9 @@ impl Iterator for AddressChildrenIterator {
 mod tests {
     use super::*;
 
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+
     #[test]
     fn test_address_iter() {
         use Direction::*;
