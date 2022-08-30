@@ -1,9 +1,11 @@
 #![allow(dead_code)]
 
+#[cfg(not(target_family = "wasm"))]
+mod ffi;
+
 mod account;
 mod address;
 mod base;
-mod ffi;
 mod hash;
 mod mask;
 mod poseidon;
