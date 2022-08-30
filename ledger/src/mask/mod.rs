@@ -1,7 +1,4 @@
 mod mask;
-mod maskable;
-mod masking;
+mod mask_impl;
 
 pub use mask::*;
-pub use maskable::*;
-pub use masking::*;
