@@ -812,6 +812,7 @@ impl BaseLedger for Mask {
 mod tests_mask_ocaml {
     use super::*;
 
+    use rand::{thread_rng, Rng};
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
@@ -1336,80 +1337,53 @@ mod tests_mask_ocaml {
 
         assert_eq!(mask.get(loc).unwrap(), account);
     }
+
+    // "get_all_accounts should preserve the ordering of accounts by
+    // location with noncontiguous updates of accounts on the mask"
+    #[test]
+    fn test_get_all_accounts_should_preserve_ordering() {
+        let (_root, mut layer1, mut layer2) = new_chain(DEPTH);
+
+        let accounts = make_full_accounts(DEPTH);
+
+        for account in &accounts {
+            layer1
+                .get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+
+        let mut updated_accounts = accounts.clone();
+        let mut rng = thread_rng();
+        let mut nmodified = 0;
+
+        for account in updated_accounts.iter_mut() {
+            if rng.gen::<u8>() >= 100 {
+                continue;
+            }
+            account.balance = rng.gen();
+
+            create_existing_account(&mut layer2, account.clone());
+            nmodified += 1;
+        }
+
+        assert!(nmodified > 0);
+        assert_eq!(
+            updated_accounts,
+            layer2
+                .get_all_accounts_rooted_at(Address::root())
+                .unwrap()
+                .into_iter()
+                .map(|(_, account)| account)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            accounts,
+            layer1
+                .get_all_accounts_rooted_at(Address::root())
+                .unwrap()
+                .into_iter()
+                .map(|(_, account)| account)
+                .collect::<Vec<_>>()
+        );
+    }
 }
-
-//   let%test_unit "setting an account in the parent doesn't remove the masked \
-//                  copy if the mask is still dirty for that account" =
-//     Test.with_instances (fun maskable mask ->
-//         let attached_mask = Maskable.register_mask maskable mask in
-//         let k = Account_id.gen_accounts 1 |> List.hd_exn in
-//         let acct1 = Account.create k (Balance.of_int 10) in
-//         let loc =
-//           Mask.Attached.get_or_create_account attached_mask k acct1
-//           |> Or_error.ok_exn |> snd
-//         in
-//         let acct2 = Account.create k (Balance.of_int 5) in
-//         Maskable.set maskable loc acct2 ;
-//         [%test_result: Account.t] ~message:"account in mask should be unchanged"
-//           ~expect:acct1
-//           (Mask.Attached.get attached_mask loc |> Option.value_exn) )
-// end
-
-// let%test_unit "get_all_accounts should preserve the ordering of accounts by \
-//                location with noncontiguous updates of accounts on the mask" =
-//   (* see similar test in test_database *)
-//   if Test.depth <= 8 then
-//     Test.with_chain (fun _ ~mask:mask1 ~mask_as_base:_ ~mask2 ->
-//         let num_accounts = 1 lsl Test.depth in
-//         let gen_values gen list_length =
-//           Quickcheck.random_value
-//             (Quickcheck.Generator.list_with_length list_length gen)
-//         in
-//         let account_ids = Account_id.gen_accounts num_accounts in
-//         let balances = gen_values Balance.gen num_accounts in
-//         let base_accounts =
-//           List.map2_exn account_ids balances ~f:(fun public_key balance ->
-//               Account.create public_key balance )
-//         in
-//         List.iter base_accounts ~f:(fun account ->
-//             ignore @@ create_new_account_exn mask1 account ) ;
-//         let num_subset =
-//           Quickcheck.random_value (Int.gen_incl 3 num_accounts)
-//         in
-//         let subset_indices, subset_accounts =
-//           List.permute
-//             (List.mapi base_accounts ~f:(fun index account ->
-//                  (index, account) ) )
-//           |> (Fn.flip List.take) num_subset
-//           |> List.unzip
-//         in
-//         let subset_balances = gen_values Balance.gen num_subset in
-//         let subset_updated_accounts =
-//           List.map2_exn subset_accounts subset_balances
-//             ~f:(fun account balance ->
-//               let updated_account = { account with balance } in
-//               ignore
-//                 ( create_existing_account_exn mask2 updated_account
-//                   : Test.Location.t ) ;
-//               updated_account )
-//         in
-//         let updated_accounts_map =
-//           Int.Map.of_alist_exn
-//             (List.zip_exn subset_indices subset_updated_accounts)
-//         in
-//         let expected_accounts =
-//           List.mapi base_accounts ~f:(fun index base_account ->
-//               Option.value
-//                 (Map.find updated_accounts_map index)
-//                 ~default:base_account )
-//         in
-//         let retrieved_accounts =
-//           List.map ~f:snd
-//           @@ Mask.Attached.get_all_accounts_rooted_at_exn mask2
-//                (Mask.Addr.root ())
-//         in
-//         assert (
-//           Int.equal
-//             (List.length base_accounts)
-//             (List.length retrieved_accounts) ) ;
-//         assert (List.equal Account.equal expected_accounts retrieved_accounts) )
