@@ -31,11 +31,11 @@ macro_rules! rpc_read_test {
         #[test]
         #[ignore = $reason]
         fn $name() {
-            utils::for_all(concat!($path, "/query"), |encoded| {
+            utils::for_all(concat!($path, "/query"), |_, encoded| {
                 utils::assert_binprot_read::<Message<<$ty as RpcMethod>::Query>>(&encoded)
             })
             .unwrap();
-            utils::for_all(concat!($path, "/response"), |encoded| {
+            utils::for_all(concat!($path, "/response"), |_, encoded| {
                 utils::assert_binprot_read::<Message<<$ty as RpcMethod>::Response>>(&encoded)
             })
             .unwrap();
@@ -44,11 +44,11 @@ macro_rules! rpc_read_test {
     ($name:ident, $path:expr, $ty:ty) => {
         #[test]
         fn $name() {
-            utils::for_all(concat!($path, "/query"), |encoded| {
+            utils::for_all(concat!($path, "/query"), |_, encoded| {
                 utils::assert_binprot_read::<Message<<$ty as RpcMethod>::Query>>(&encoded)
             })
             .unwrap();
-            utils::for_all(concat!($path, "/response"), |encoded| {
+            utils::for_all(concat!($path, "/response"), |_, encoded| {
                 utils::assert_binprot_read::<Message<<$ty as RpcMethod>::Response>>(&encoded)
             })
             .unwrap();
@@ -138,7 +138,7 @@ fn make_rpc_v2() {
         response: Option<Vec<u8>>,
     }
     let mut mapping: BTreeMap<i64, T> = BTreeMap::new();
-    utils::for_all("rpc-v2", |encoded| {
+    utils::for_all("rpc-v2", |_, encoded| {
         utils::stream_read_with::<MessageHeader, _>(&encoded, |header, slice| match header {
             Ok(MessageHeader::Heartbeat) => {}
             Ok(MessageHeader::Query(q)) => {

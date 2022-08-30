@@ -28,7 +28,7 @@ pub fn read(file: &str) -> std::io::Result<Vec<u8>> {
 
 pub fn for_all<F>(dir: &str, mut f: F) -> std::io::Result<()>
 where
-    F: FnMut(&[u8]),
+    F: FnMut(PathBuf, &[u8]),
 {
     let path = files_path(dir)?;
     let dir = std::fs::read_dir(path)?;
@@ -36,7 +36,8 @@ where
         let path = file?.path();
         if path.extension().map_or(false, |ext| ext == "bin") {
             println!("reading {path:?}...");
-            f(&read_file(&path)?);
+            let contents = read_file(&path)?;
+            f(path, &contents);
         }
     }
     Ok(())
@@ -112,13 +113,13 @@ macro_rules! binprot_read_test {
         #[test]
         #[ignore = $reason]
         fn $name() {
-            utils::for_all($path, |encoded| utils::assert_binprot_read::<$ty>(&encoded)).unwrap();
+            utils::for_all($path, |_, encoded| utils::assert_binprot_read::<$ty>(&encoded)).unwrap();
         }
     };
     ($name:ident, $path:expr, $ty:ty) => {
         #[test]
         fn $name() {
-            utils::for_all($path, |encoded| utils::assert_binprot_read::<$ty>(&encoded)).unwrap();
+            utils::for_all($path, |_, encoded| utils::assert_binprot_read::<$ty>(&encoded)).unwrap();
         }
     };
 }

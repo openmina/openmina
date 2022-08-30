@@ -8,7 +8,7 @@ mod utils;
 
 #[test]
 fn external_transition_v1() {
-    utils::for_all("v1/gossip/external-transition", |encoded| {
+    utils::for_all("v1/gossip/external-transition", |_, encoded| {
         utils::assert_binprot_read::<MinaBlockExternalTransitionRawVersionedStableV1Versioned>(
             &encoded,
         )
@@ -18,7 +18,7 @@ fn external_transition_v1() {
 
 #[test]
 fn snark_pool_diff() {
-    utils::for_all("v1/gossip/snark-pool-diff", |encoded| {
+    utils::for_all("v1/gossip/snark-pool-diff", |_, encoded| {
         utils::assert_binprot_read::<NetworkPoolSnarkPoolDiffVersionedStableV1Versioned>(&encoded)
     })
     .unwrap();
@@ -26,7 +26,7 @@ fn snark_pool_diff() {
 
 #[test]
 fn tx_pool_diff() {
-    utils::for_all("v1/gossip/tx-pool-diff", |encoded| {
+    utils::for_all("v1/gossip/tx-pool-diff", |_, encoded| {
         utils::assert_binprot_read::<NetworkPoolTransactionPoolDiffVersionedStableV1Versioned>(
             &encoded,
         )
@@ -36,7 +36,7 @@ fn tx_pool_diff() {
 
 #[test]
 fn gossip_v2() {
-    utils::for_all("v2/gossip", |encoded| {
+    utils::for_all("v2/gossip", |_, encoded| {
         use mina_p2p_messages::gossip::GossipNetMessageV2;
         utils::assert_binprot_read::<GossipNetMessageV2>(&encoded)
     })
