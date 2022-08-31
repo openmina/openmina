@@ -50,15 +50,13 @@ impl Mask {
         }
     }
 
-    pub fn new_child(depth: usize) -> Self {
+    pub fn new_unattached(depth: usize) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(MaskImpl::Attached {
-                parent: None,
+            inner: Arc::new(Mutex::new(MaskImpl::Unattached {
                 owning_account: Default::default(),
                 token_to_account: Default::default(),
                 id_to_addr: Default::default(),
                 last_location: None,
-                first_location_in_mask: None,
                 depth: depth as u8,
                 childs: HashMap::with_capacity(2),
                 uuid: next_uuid(),
@@ -133,10 +131,6 @@ impl Mask {
     /// if the account in the parent is the same in the mask *)
     pub fn parent_set_notify(&self, account: &Account) {
         self.with(|this| this.parent_set_notify(account))
-    }
-
-    pub fn children(&self) -> Vec<Mask> {
-        self.with(|this| this.children())
     }
 
     pub fn remove_parent(&self) -> Option<Mask> {
@@ -341,13 +335,13 @@ mod tests_mask_ocaml {
 
     fn new_instances(depth: usize) -> (Mask, Mask) {
         let db = Database::<V2>::create(depth as u8);
-        (Mask::new_root(db), Mask::new_child(depth))
+        (Mask::new_root(db), Mask::new_unattached(depth))
     }
 
     fn new_chain(depth: usize) -> (Mask, Mask, Mask) {
         let db = Database::<V2>::create(depth as u8);
-        let layer1 = Mask::new_child(depth);
-        let layer2 = Mask::new_child(depth);
+        let layer1 = Mask::new_unattached(depth);
+        let layer2 = Mask::new_unattached(depth);
 
         let root = Mask::new_root(db);
         let layer1 = root.register_mask(layer1);

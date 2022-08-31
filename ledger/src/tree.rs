@@ -566,9 +566,6 @@ impl BaseLedger for Database<V2> {
             None => return,
         };
 
-        // let mut addrs = mask_keys.iter().map(|account_id| this.id_to_addr.remove(&account_id).unwrap()).collect::<Vec<_>>();
-        // addrs.sort_by(|a, b| a.to_index().cmp(&b.to_index()));
-
         let mut addrs = ids
             .iter()
             .map(|accound_id| self.id_to_addr.remove(accound_id).unwrap())
@@ -604,32 +601,6 @@ impl BaseLedger for Database<V2> {
                 self.last_location = addr.prev();
             }
         }
-
-        // for id in ids {
-        //     let addr = match self.id_to_addr.get(id) {
-        //         Some(addr) => addr,
-        //         None => continue,
-        //     };
-
-        //     let leaf = match root.get_mut_leaf_on_path(addr.iter()) {
-        //         Some(leaf) => leaf,
-        //         None => continue,
-        //     };
-
-        //     let account = match leaf.account.take() {
-        //         Some(account) => account,
-        //         None => continue,
-        //     };
-
-        //     let id = account.id();
-        //     self.id_to_addr.remove(&id);
-        //     self.token_to_account.remove(&id.token_id);
-
-        //     self.naccounts = self
-        //         .naccounts
-        //         .checked_sub(1)
-        //         .expect("invalid naccounts counter");
-        // }
     }
 
     fn detached_signal(&mut self) {

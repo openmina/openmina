@@ -23,14 +23,22 @@ pub(super) enum MaskImpl {
         childs: HashMap<Uuid, Mask>,
     },
     Attached {
-        parent: Option<Mask>,
+        parent: Mask,
         owning_account: HashMap<AccountIndex, Account>,
         token_to_account: HashMap<TokenId, AccountId>,
         id_to_addr: HashMap<AccountId, Address>,
         last_location: Option<Address>,
-        first_location_in_mask: Option<Address>,
         depth: u8,
         childs: HashMap<Uuid, Mask>,
+        uuid: Uuid,
+    },
+    Unattached {
+        depth: u8,
+        childs: HashMap<Uuid, Mask>,
+        owning_account: HashMap<AccountIndex, Account>,
+        token_to_account: HashMap<TokenId, AccountId>,
+        id_to_addr: HashMap<AccountId, Address>,
+        last_location: Option<Address>,
         uuid: Uuid,
     },
 }
@@ -49,41 +57,56 @@ impl std::fmt::Debug for MaskImpl {
                 token_to_account,
                 id_to_addr,
                 last_location,
-                first_location_in_mask,
                 depth,
                 childs,
                 uuid,
             } => f
                 .debug_struct("Attached")
                 .field("uuid", uuid)
-                .field("parent", &parent.as_ref().map(|p| p.get_uuid()))
+                .field("parent", &parent.get_uuid())
                 .field("owning_account", &owning_account.len())
                 .field("token_to_account", &token_to_account.len())
                 .field("id_to_addr", &id_to_addr.len())
                 .field("last_location", last_location)
-                .field("first_location_in_mask", first_location_in_mask)
                 .field("depth", depth)
                 .field("num_accounts", &self.num_accounts())
                 .field("childs", &childs.len())
+                .finish(),
+            Self::Unattached {
+                depth,
+                childs,
+                owning_account,
+                token_to_account,
+                id_to_addr,
+                last_location,
+                uuid,
+            } => f
+                .debug_struct("Unattached")
+                .field("depth", depth)
+                .field("childs", &childs.len())
+                .field("owning_account", &owning_account.len())
+                .field("token_to_account", &token_to_account.len())
+                .field("id_to_addr", &id_to_addr.len())
+                .field("last_location", last_location)
+                .field("uuid", uuid)
                 .finish(),
         }
     }
 }
 
+use MaskImpl::*;
+
 impl MaskImpl {
     pub fn is_attached(&self) -> bool {
         match self {
-            MaskImpl::Root { .. } => false,
-            MaskImpl::Attached { parent, .. } => parent.is_some(),
+            Attached { .. } => true,
+            Root { .. } | Unattached { .. } => false,
         }
     }
 
     /// Make `mask` a child of `self`
     pub fn register_mask(&mut self, self_mask: Mask, mask: Mask) -> Mask {
-        let childs = match self {
-            MaskImpl::Root { childs, .. } => childs,
-            MaskImpl::Attached { childs, .. } => childs,
-        };
+        let childs = self.childs();
 
         let old = childs.insert(mask.get_uuid(), mask.clone());
         assert!(old.is_none(), "mask is already registered");
@@ -103,13 +126,13 @@ impl MaskImpl {
         match behavior {
             Check => {
                 assert!(
-                    !self.children().is_empty(),
+                    !self.childs().is_empty(),
                     "mask has children that must be unregistered first"
                 );
             }
             IPromiseIAmReparentingThisMask => (),
             Recursive => {
-                for child in self.children() {
+                for child in self.childs().values_mut() {
                     child.unregister_mask(Recursive);
                 }
             }
@@ -125,8 +148,9 @@ impl MaskImpl {
         let root_hash = self.merkle_root();
 
         let (parent, childs, uuid) = match self {
-            MaskImpl::Root { .. } => panic!("Cannot reparent a root mask"),
-            MaskImpl::Attached {
+            Root { .. } => panic!("Cannot reparent a root mask"),
+            Unattached { .. } => panic!("Cannot reparent a unattached mask"),
+            Attached {
                 parent,
                 childs,
                 uuid,
@@ -134,7 +158,6 @@ impl MaskImpl {
             } => (parent, childs, *uuid),
         };
 
-        let parent = parent.take().expect("Mask doesn't have parent");
         let childs = std::mem::take(childs);
 
         // we can only reparent if merkle roots are the same
@@ -148,14 +171,35 @@ impl MaskImpl {
             child.remove_parent();
             parent.register_mask(child.clone());
         }
+
+        self.remove_parent();
     }
 
     pub fn set_parent(&mut self, mask: &Mask) {
         match self {
-            MaskImpl::Root { .. } => panic!("set_parent() on a root"),
-            MaskImpl::Attached { parent, .. } => {
-                assert!(parent.is_none(), "mask is already attached");
-                *parent = Some(mask.clone());
+            Root { .. } => panic!("set_parent() on a root"),
+            Attached { .. } => panic!("mask is already attached"),
+            Unattached {
+                depth,
+                childs,
+                uuid,
+                owning_account,
+                token_to_account,
+                id_to_addr,
+                last_location,
+            } => {
+                use std::mem::take;
+
+                *self = Attached {
+                    parent: mask.clone(),
+                    owning_account: take(owning_account),
+                    token_to_account: take(token_to_account),
+                    id_to_addr: take(id_to_addr),
+                    last_location: take(last_location),
+                    depth: *depth,
+                    childs: take(childs),
+                    uuid: *uuid,
+                }
             }
         }
     }
@@ -166,8 +210,8 @@ impl MaskImpl {
 
     pub fn get_parent(&self) -> Option<Mask> {
         match self {
-            MaskImpl::Root { .. } => None,
-            MaskImpl::Attached { parent, .. } => parent.clone(),
+            Root { .. } | Unattached { .. } => None,
+            Attached { parent, .. } => Some(parent.clone()),
         }
     }
 
@@ -196,15 +240,15 @@ impl MaskImpl {
         let old_root_hash = self.merkle_root();
 
         match self {
-            MaskImpl::Root { .. } => panic!("commit on a root"),
-            MaskImpl::Attached {
+            Root { .. } => panic!("commit on a root"),
+            Unattached { .. } => panic!("commit on a unattached mask"),
+            Attached {
                 parent,
                 owning_account,
                 token_to_account,
                 id_to_addr,
                 ..
             } => {
-                let parent = parent.as_mut().expect("Mask doesn't have parent");
                 assert_ne!(parent.get_uuid(), self_uuid);
 
                 let accounts = {
@@ -233,8 +277,9 @@ impl MaskImpl {
         assert!(self.is_attached());
 
         match self {
-            MaskImpl::Root { .. } => panic!("parent_set_notify on a root"),
-            MaskImpl::Attached {
+            Root { .. } => panic!("parent_set_notify on a root"),
+            Unattached { .. } => panic!("parent_set_notify on an unattached"),
+            Attached {
                 owning_account,
                 id_to_addr,
                 ..
@@ -261,35 +306,67 @@ impl MaskImpl {
         }
     }
 
-    pub fn children(&self) -> Vec<Mask> {
-        let childs = match self {
-            MaskImpl::Root { childs, .. } => childs,
-            MaskImpl::Attached { childs, .. } => childs,
-        };
-
-        childs.values().cloned().collect()
-    }
-
     pub fn remove_parent(&mut self) -> Option<Mask> {
         match self {
-            MaskImpl::Root { .. } => panic!(),
-            MaskImpl::Attached { parent, .. } => parent.take(),
+            Root { .. } => panic!("remove_parent on a root"),
+            Unattached { .. } => panic!("remove_parent on an unattached"),
+            Attached { .. } => (),
+        }
+
+        let empty = Self::Unattached {
+            depth: Default::default(),
+            childs: Default::default(),
+            owning_account: Default::default(),
+            token_to_account: Default::default(),
+            id_to_addr: Default::default(),
+            last_location: Default::default(),
+            uuid: Default::default(),
+        };
+
+        match std::mem::replace(self, empty) {
+            Attached {
+                parent,
+                owning_account,
+                token_to_account,
+                id_to_addr,
+                last_location,
+                depth,
+                childs,
+                uuid,
+            } => {
+                *self = Self::Unattached {
+                    owning_account,
+                    token_to_account,
+                    id_to_addr,
+                    last_location,
+                    depth,
+                    childs,
+                    uuid,
+                };
+
+                Some(parent)
+            }
+            _ => None,
         }
     }
 
     pub fn remove_child_uuid(&mut self, uuid: Uuid) -> Option<Mask> {
-        let childs = match self {
-            MaskImpl::Root { childs, .. } => childs,
-            MaskImpl::Attached { childs, .. } => childs,
-        };
+        self.childs().remove(&uuid)
+    }
 
-        childs.remove(&uuid)
+    fn childs(&mut self) -> &mut HashMap<Uuid, Mask> {
+        match self {
+            Root { childs, .. } => childs,
+            Attached { childs, .. } => childs,
+            Unattached { childs, .. } => childs,
+        }
     }
 
     pub fn depth(&self) -> u8 {
         match self {
-            MaskImpl::Root { database, .. } => database.depth(),
-            MaskImpl::Attached { depth, .. } => *depth,
+            Root { database, .. } => database.depth(),
+            Attached { depth, .. } => *depth,
+            Unattached { depth, .. } => *depth,
         }
     }
 
@@ -351,13 +428,19 @@ impl MaskImpl {
 
     fn remove_own_account(&mut self, ids: &[AccountId]) {
         match self {
-            MaskImpl::Root { .. } => todo!(),
-            MaskImpl::Attached {
+            Root { .. } => todo!(),
+            Unattached {
                 owning_account,
                 token_to_account,
                 id_to_addr,
                 last_location,
-                first_location_in_mask,
+                ..
+            }
+            | Attached {
+                owning_account,
+                token_to_account,
+                id_to_addr,
+                last_location,
                 ..
             } => {
                 let mut addrs = ids
@@ -377,15 +460,10 @@ impl MaskImpl {
                     {
                         *last_location = addr.prev();
                     }
+                }
 
-                    if first_location_in_mask
-                        .as_ref()
-                        .map(|first| first == addr)
-                        .unwrap_or(false)
-                    {
-                        *last_location = None;
-                        *first_location_in_mask = None;
-                    }
+                if owning_account.is_empty() {
+                    *last_location = None;
                 }
             }
         }
@@ -397,12 +475,7 @@ impl MaskImpl {
         account: Account,
         child_to_ignore: Option<Uuid>,
     ) {
-        let childs = match self {
-            MaskImpl::Root { childs, .. } => childs,
-            MaskImpl::Attached { childs, .. } => childs,
-        };
-
-        for (uuid, child) in childs {
+        for (uuid, child) in self.childs() {
             if Some(*uuid) == child_to_ignore {
                 continue;
             }
@@ -410,13 +483,19 @@ impl MaskImpl {
         }
 
         match self {
-            MaskImpl::Root { database, .. } => database.set(addr, account),
-            MaskImpl::Attached {
+            Root { database, .. } => database.set(addr, account),
+            Unattached {
                 owning_account,
                 token_to_account,
                 id_to_addr,
                 last_location,
-                first_location_in_mask,
+                ..
+            }
+            | Attached {
+                owning_account,
+                token_to_account,
+                id_to_addr,
+                last_location,
                 ..
             } => {
                 let account_index: AccountIndex = addr.to_index();
@@ -432,15 +511,7 @@ impl MaskImpl {
                     .map(|l| l.to_index() < addr.to_index())
                     .unwrap_or(true)
                 {
-                    *last_location = Some(addr.clone());
-                }
-
-                if first_location_in_mask
-                    .as_ref()
-                    .map(|l| l.to_index() > addr.to_index())
-                    .unwrap_or(true)
-                {
-                    *first_location_in_mask = Some(addr);
+                    *last_location = Some(addr);
                 }
             }
         }
@@ -450,8 +521,8 @@ impl MaskImpl {
     #[cfg(test)]
     pub fn test_is_in_mask(&self, addr: &Address) -> bool {
         match self {
-            MaskImpl::Root { database, .. } => database.get(addr.clone()).is_some(),
-            MaskImpl::Attached { owning_account, .. } => {
+            Root { database, .. } => database.get(addr.clone()).is_some(),
+            Unattached { owning_account, .. } | Attached { owning_account, .. } => {
                 let index = addr.to_index();
                 owning_account.contains_key(&index)
             }
@@ -466,10 +537,7 @@ impl BaseLedger for MaskImpl {
 
         (0..num_accounts)
             .map(AccountIndex)
-            .map(|index| {
-                let addr = Address::from_index(index, depth);
-                self.get(addr).unwrap_or_else(Account::empty)
-            })
+            .filter_map(|index| self.get(Address::from_index(index, depth)))
             .collect()
     }
 
@@ -482,9 +550,7 @@ impl BaseLedger for MaskImpl {
 
         (0..num_accounts)
             .map(AccountIndex)
-            .filter_map(|index| {
-                self.get(Address::from_index(index, depth))
-            })
+            .filter_map(|index| self.get(Address::from_index(index, depth)))
             .for_each(|account| fun(&account));
     }
 
@@ -498,9 +564,7 @@ impl BaseLedger for MaskImpl {
 
         for account in (0..num_accounts)
             .map(AccountIndex)
-            .filter_map(|index| {
-                self.get(Address::from_index(index, depth))
-            })
+            .filter_map(|index| self.get(Address::from_index(index, depth)))
         {
             accum = fun(accum, &account)
         }
@@ -538,16 +602,14 @@ impl BaseLedger for MaskImpl {
 
         for account in (0..num_accounts)
             .map(AccountIndex)
-            .filter_map(|index| {
-                self.get(Address::from_index(index, depth))
-            })
+            .filter_map(|index| self.get(Address::from_index(index, depth)))
         {
             match fun(accum, &account) {
                 Continue(acc) => accum = acc,
                 Break(acc) => {
                     accum = acc;
                     break;
-                },
+                }
             }
         }
 
@@ -566,12 +628,15 @@ impl BaseLedger for MaskImpl {
 
     fn token_owner(&self, token_id: TokenId) -> Option<AccountId> {
         let (parent, token_to_account) = match self {
-            MaskImpl::Root { database, .. } => return database.token_owner(token_id),
-            MaskImpl::Attached {
+            Root { database, .. } => return database.token_owner(token_id),
+            Attached {
                 parent,
                 token_to_account,
                 ..
-            } => (parent, token_to_account),
+            } => (Some(parent), token_to_account),
+            Unattached {
+                token_to_account, ..
+            } => (None, token_to_account),
         };
 
         if let Some(account_id) = token_to_account.get(&token_id).cloned() {
@@ -603,10 +668,11 @@ impl BaseLedger for MaskImpl {
 
     fn location_of_account(&self, account_id: &AccountId) -> Option<Address> {
         let (parent, id_to_addr) = match self {
-            MaskImpl::Root { database, .. } => return database.location_of_account(account_id),
-            MaskImpl::Attached {
+            Root { database, .. } => return database.location_of_account(account_id),
+            Attached {
                 parent, id_to_addr, ..
-            } => (parent, id_to_addr),
+            } => (Some(parent), id_to_addr),
+            Unattached { id_to_addr, .. } => (None, id_to_addr),
         };
 
         if let Some(addr) = id_to_addr.get(account_id).cloned() {
@@ -641,13 +707,20 @@ impl BaseLedger for MaskImpl {
         let last_filled = self.last_filled();
 
         match self {
-            MaskImpl::Root { database, .. } => database.get_or_create_account(account_id, account),
-            MaskImpl::Attached {
+            Root { database, .. } => database.get_or_create_account(account_id, account),
+            Unattached {
                 owning_account,
                 token_to_account,
                 id_to_addr,
                 last_location,
-                first_location_in_mask,
+                depth,
+                ..
+            }
+            | Attached {
+                owning_account,
+                token_to_account,
+                id_to_addr,
+                last_location,
                 depth,
                 ..
             } => {
@@ -664,10 +737,6 @@ impl BaseLedger for MaskImpl {
                 token_to_account.insert(token_id, account_id);
                 owning_account.insert(account_index, account);
 
-                if first_location_in_mask.is_none() {
-                    *first_location_in_mask = Some(location.clone());
-                }
-
                 Ok(GetOrCreated::Added(location))
             }
         }
@@ -679,13 +748,14 @@ impl BaseLedger for MaskImpl {
 
     fn last_filled(&self) -> Option<Address> {
         match self {
-            MaskImpl::Root { database, .. } => database.last_filled(),
-            MaskImpl::Attached {
+            Root { database, .. } => database.last_filled(),
+            Unattached { last_location, .. } => last_location.clone(),
+            Attached {
                 parent,
                 last_location,
                 ..
             } => {
-                let last_filled_parent = match parent.as_ref().and_then(|p| p.last_filled()) {
+                let last_filled_parent = match parent.last_filled() {
                     Some(last) => last,
                     None => return last_location.clone(),
                 };
@@ -709,8 +779,8 @@ impl BaseLedger for MaskImpl {
 
     fn get_uuid(&self) -> Uuid {
         match self {
-            MaskImpl::Root { database, .. } => database.get_uuid(),
-            MaskImpl::Attached { uuid, .. } => *uuid,
+            Root { database, .. } => database.get_uuid(),
+            Attached { uuid, .. } | Unattached { uuid, .. } => *uuid,
         }
     }
 
@@ -720,12 +790,13 @@ impl BaseLedger for MaskImpl {
 
     fn get(&self, addr: Address) -> Option<Account> {
         let (parent, owning_account) = match self {
-            MaskImpl::Root { database, .. } => return database.get(addr),
-            MaskImpl::Attached {
+            Root { database, .. } => return database.get(addr),
+            Attached {
                 parent,
                 owning_account,
                 ..
-            } => (parent, owning_account),
+            } => (Some(parent), owning_account),
+            Unattached { owning_account, .. } => (None, owning_account),
         };
 
         if let Some(account) = owning_account.get(&addr.to_index()).cloned() {
@@ -764,10 +835,11 @@ impl BaseLedger for MaskImpl {
 
     fn index_of_account(&self, account_id: AccountId) -> Option<AccountIndex> {
         let (parent, id_to_addr) = match self {
-            MaskImpl::Root { database, .. } => return database.index_of_account(account_id),
-            MaskImpl::Attached {
+            Root { database, .. } => return database.index_of_account(account_id),
+            Attached {
                 parent, id_to_addr, ..
-            } => (parent, id_to_addr),
+            } => (Some(parent), id_to_addr),
+            Unattached { id_to_addr, .. } => (None, id_to_addr),
         };
 
         if let Some(addr) = id_to_addr.get(&account_id).cloned() {
@@ -792,8 +864,9 @@ impl BaseLedger for MaskImpl {
 
     fn remove_accounts(&mut self, ids: &[AccountId]) {
         match self {
-            MaskImpl::Root { database, .. } => database.remove_accounts(ids),
-            MaskImpl::Attached {
+            Root { database, .. } => database.remove_accounts(ids),
+            Unattached { .. } => self.remove_own_account(ids),
+            Attached {
                 parent, id_to_addr, ..
             } => {
                 let (mask_keys, parent_keys): (Vec<_>, Vec<_>) = ids
@@ -802,7 +875,6 @@ impl BaseLedger for MaskImpl {
                     .partition(|id| id_to_addr.contains_key(id));
 
                 if !parent_keys.is_empty() {
-                    let parent = parent.as_mut().expect("Parent missing");
                     parent.remove_accounts(&parent_keys);
                 }
 
