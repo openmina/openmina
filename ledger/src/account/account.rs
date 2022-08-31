@@ -802,6 +802,7 @@ mod tests {
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
+    #[cfg(not(target_family = "wasm"))]
     use crate::{base::BaseLedger, tree::Database, tree_version::V2};
 
     use super::*;
