@@ -93,14 +93,14 @@ pub enum Message<T> {
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
 pub struct QueryHeader {
-    tag: Tag,
-    version: i32,
-    id: QueryID,
+    pub tag: Tag,
+    pub version: i32,
+    pub id: QueryID,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
 pub struct ResponseHeader {
-    id: QueryID,
+    pub id: QueryID,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
