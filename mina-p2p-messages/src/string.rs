@@ -4,6 +4,18 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct String(Vec<u8>);
 
+impl AsRef<[u8]> for String {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl From<&str> for String {
+    fn from(source: &str) -> Self {
+        Self(source.as_bytes().to_vec())
+    }
+}
+
 impl Serialize for String {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

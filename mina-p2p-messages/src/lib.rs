@@ -5,6 +5,7 @@ pub mod bigint;
 pub mod char_;
 pub mod p2p;
 pub mod phantom;
+pub mod rpc;
 pub mod string;
 pub mod utils;
 pub mod versioned;
