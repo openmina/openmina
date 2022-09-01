@@ -1,12 +1,13 @@
 use binprot_derive::{BinProtRead, BinProtWrite};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-pub mod p2p;
-pub mod versioned;
 pub mod bigint;
-pub mod phantom;
 pub mod char_;
+pub mod p2p;
+pub mod phantom;
 pub mod string;
+pub mod utils;
+pub mod versioned;
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 #[serde(tag = "type", content = "message")]
