@@ -37,8 +37,20 @@ pub fn decode_string_from_slice(slice: &[u8]) -> Result<(String, usize), binprot
     Ok((decode_string(&mut ptr)?, slice.len() - ptr.len()))
 }
 
+/// Returns an OCaml-like string view from the slice containing `bin_prot`
+/// encoded bytes.
+pub fn decode_bstr_from_slice(slice: &[u8]) -> Result<&[u8], binprot::Error> {
+    let mut ptr = slice;
+    let len = binprot::Nat0::binprot_read(&mut ptr)?.0 as usize;
+    Ok(&ptr[..len])
+}
+
+
+
 #[cfg(test)]
 mod tests {
+    use crate::utils::decode_bstr_from_slice;
+
     use super::{decode_int_from_slice, decode_string_from_slice};
 
     #[test]
@@ -88,6 +100,21 @@ mod tests {
         for (b, s, l) in tests {
             let (string, len) = decode_string_from_slice(b).unwrap();
             assert_eq!((string.as_str(), len), (*s, *l));
+        }
+    }
+
+    #[test]
+    fn bstr() {
+        let tests: &[(&[u8], &[u8])] = &[
+            (b"\x00", b""),
+            (b"\x00\xff", b""),
+            (b"\x01a", b"a"),
+            (b"\x0bsome string", b"some string"),
+            (b"\x0bsome string with more bytes", b"some string"),
+        ];
+        for (b, s) in tests {
+            let bstr = decode_bstr_from_slice(b).unwrap();
+            assert_eq!(bstr, *s);
         }
     }
 }
