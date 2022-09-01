@@ -76,8 +76,12 @@ pub trait FromBinProtStream: BinProtRead + Sized {
     where
         R: Read,
     {
+        use std::io;
         let len = r.read_u64::<LittleEndian>()?;
-        Self::binprot_read(&mut r.take(len))
+        let mut r = r.take(len);
+        let v = Self::binprot_read(&mut r)?;
+        io::copy(&mut r, &mut io::sink())?;
+        Ok(v)
     }
 }
 
@@ -174,7 +178,7 @@ mod tests {
             (b"\x01\x00\x00\x00\x00\x00\x00\x00\x00", b"", 9),
             (b"\x02\x00\x00\x00\x00\x00\x00\x00\x01b", b"b", 10),
             (b"\x02\x00\x00\x00\x00\x00\x00\x00\x01bcdf", b"b", 10),
-            //(b"\x05\x00\x00\x00\x00\x00\x00\x00\x01bcdf", b"b", 13), does not work that way so far
+            (b"\x05\x00\x00\x00\x00\x00\x00\x00\x01bcdf", b"b", 13),
         ];
         for (b, s, l) in tests {
             let mut p = *b;

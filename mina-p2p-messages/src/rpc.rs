@@ -117,7 +117,7 @@ mod tests {
     use super::{MessageHeader, QueryHeader, ResponseHeader};
 
     #[test]
-    fn query_header() {
+    fn message_header() {
         for (s, m) in [
             (
                 "1e0000000000000001145f5f56657273696f6e65645f7270632e4d656e7501fd484f01000100",
@@ -146,6 +146,35 @@ mod tests {
             let mut p = s.as_slice();
             let msg = MessageHeader::read_from_stream(&mut p).unwrap();
             assert_eq!(msg, m);
+        }
+    }
+
+    #[test]
+    fn multiple_messages() {
+        let s = hex::decode(concat!(
+            "1e0000000000000001145f5f56657273696f6e65645f7270632e4d656e7501fd484f01000100",
+            "f80000000000000002fdec57010000feee000a166765745f736f6d655f69",
+            "6e697469616c5f706565727301336765745f7374616765645f6c65646765",
+            "725f6175785f616e645f70656e64696e675f636f696e62617365735f6174",
+            "5f686173680118616e737765725f73796e635f6c65646765725f71756572",
+            "79010c6765745f626573745f746970010c6765745f616e63657374727901",
+            "184765745f7472616e736974696f6e5f6b6e6f776c656467650114676574",
+            "5f7472616e736974696f6e5f636861696e011a6765745f7472616e736974",
+            "696f6e5f636861696e5f70726f6f66010a62616e5f6e6f74696679011067",
+            "65745f65706f63685f6c656467657201"
+        ))
+        .unwrap();
+
+        let mut p = s.as_slice();
+        for msg in [
+            MessageHeader::Query(QueryHeader {
+                tag: "__Versioned_rpc.Menu".into(),
+                version: 1,
+                id: 0x00014f48,
+            }),
+            MessageHeader::Response(ResponseHeader { id: 0x000157ec }),
+        ] {
+            assert_eq!(MessageHeader::read_from_stream(&mut p).unwrap(), msg);
         }
     }
 }
