@@ -1,6 +1,9 @@
 use std::io::Read;
 
-use binprot::BinProtRead;
+use binprot::{
+    byteorder::{LittleEndian, ReadBytesExt},
+    BinProtRead,
+};
 
 /// Decodes an integer from `bin_prot` encoded bytes provided by the given reader.
 pub fn decode_int<T, R>(r: &mut R) -> Result<T, binprot::Error>
@@ -45,11 +48,15 @@ pub fn decode_bstr_from_slice(slice: &[u8]) -> Result<&[u8], binprot::Error> {
     Ok(&ptr[..len])
 }
 
-
+/// Returns a slice of bytes of lenght specified by first 8 bytes in little endian.
+pub fn get_sized_slice(mut slice: &[u8]) -> Result<&[u8], binprot::Error> {
+    let len = (&mut slice).read_u64::<LittleEndian>()? as usize;
+    Ok(&slice[..len])
+}
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::decode_bstr_from_slice;
+    use crate::utils::{decode_bstr_from_slice, get_sized_slice};
 
     use super::{decode_int_from_slice, decode_string_from_slice};
 
@@ -115,6 +122,19 @@ mod tests {
         for (b, s) in tests {
             let bstr = decode_bstr_from_slice(b).unwrap();
             assert_eq!(bstr, *s);
+        }
+    }
+
+    #[test]
+    fn slice() {
+        let tests: &[(&[u8], &[u8])] = &[
+            (b"\x00\x00\x00\x00\x00\x00\x00\x00", b""),
+            (b"\x00\x00\x00\x00\x00\x00\x00\x00\xff", b""),
+            (b"\x01\x00\x00\x00\x00\x00\x00\x00\xff", b"\xff"),
+        ];
+        for (b, s) in tests {
+            let slice = get_sized_slice(b).unwrap();
+            assert_eq!(slice, *s);
         }
     }
 }
