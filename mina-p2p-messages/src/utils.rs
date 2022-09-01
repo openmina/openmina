@@ -65,13 +65,13 @@ pub fn get_sized_slice(mut slice: &[u8]) -> Result<&[u8], binprot::Error> {
 }
 
 pub trait FromBinProtStream: BinProtRead + Sized {
-    /// Decodes bytes from reader of byte stream into the specified type `T`. This
-    /// function assumes that the data is prepended with 8-bytes little endian
-    /// integer specirying the size.
+    /// Decodes bytes from reader of byte stream into the specified type `T`.
+    /// This function assumes that the data is prepended with 8-bytes little
+    /// endian integer specirying the size.
     ///
-    /// TODO: Even if not the whole portion of the stream is
-    /// read to decode to `T`, reader is set to the end of the current stream
-    /// portion, as specified by its size.
+    /// Even if not the whole portion of the stream is read to decode to `T`,
+    /// reader is set to the end of the current stream portion, as specified by
+    /// its size.
     fn read_from_stream<R>(r: &mut R) -> Result<Self, binprot::Error>
     where
         R: Read,
