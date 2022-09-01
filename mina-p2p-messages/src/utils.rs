@@ -48,11 +48,40 @@ pub fn decode_bstr_from_slice(slice: &[u8]) -> Result<&[u8], binprot::Error> {
     Ok(&ptr[..len])
 }
 
+/// Reads size of the next stream frame, specified by an 8-byte integer encoded as little-endian.
+pub fn decode_size<R>(r: &mut R) -> Result<usize, binprot::Error>
+where
+    R: Read,
+{
+    let len = r.read_u64::<LittleEndian>()?;
+    len.try_into()
+        .map_err(|_| binprot::Error::CustomError("integer conversion".into()))
+}
+
 /// Returns a slice of bytes of lenght specified by first 8 bytes in little endian.
 pub fn get_sized_slice(mut slice: &[u8]) -> Result<&[u8], binprot::Error> {
     let len = (&mut slice).read_u64::<LittleEndian>()? as usize;
     Ok(&slice[..len])
 }
+
+pub trait FromBinProtStream: BinProtRead + Sized {
+    /// Decodes bytes from reader of byte stream into the specified type `T`. This
+    /// function assumes that the data is prepended with 8-bytes little endian
+    /// integer specirying the size.
+    ///
+    /// TODO: Even if not the whole portion of the stream is
+    /// read to decode to `T`, reader is set to the end of the current stream
+    /// portion, as specified by its size.
+    fn read_from_stream<R>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        R: Read,
+    {
+        let len = r.read_u64::<LittleEndian>()?;
+        Self::binprot_read(&mut r.take(len))
+    }
+}
+
+impl<T> FromBinProtStream for T where T: BinProtRead {}
 
 #[cfg(test)]
 mod tests {
@@ -135,6 +164,22 @@ mod tests {
         for (b, s) in tests {
             let slice = get_sized_slice(b).unwrap();
             assert_eq!(slice, *s);
+        }
+    }
+
+    #[test]
+    fn stream() {
+        use super::FromBinProtStream;
+        let tests: &[(&[u8], &[u8], usize)] = &[
+            (b"\x01\x00\x00\x00\x00\x00\x00\x00\x00", b"", 9),
+            (b"\x02\x00\x00\x00\x00\x00\x00\x00\x01b", b"b", 10),
+            (b"\x02\x00\x00\x00\x00\x00\x00\x00\x01bcdf", b"b", 10),
+            //(b"\x05\x00\x00\x00\x00\x00\x00\x00\x01bcdf", b"b", 13), does not work that way so far
+        ];
+        for (b, s, l) in tests {
+            let mut p = *b;
+            let string = crate::string::String::read_from_stream(&mut p).unwrap();
+            assert_eq!((string.as_ref(), b.len() - p.len()), (*s, *l));
         }
     }
 }
