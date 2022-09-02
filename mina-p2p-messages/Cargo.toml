@@ -12,6 +12,7 @@ hex = "0.4.3"
 binprot = { version = "0.1.7" }
 binprot_derive = { version = "0.1.7" }
 thiserror = "1.0.32"
+derive_more = "0.99.17"
 
 [target.'cfg(fuzzing)'.dev-dependencies]
 #[dev-dependencies]
