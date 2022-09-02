@@ -1,0 +1,61 @@
+on: [push, pull_request]
+
+jobs:
+
+  wasm-tests:
+    name: wasm tests
+    strategy:
+      matrix:
+        mode:
+          -
+          - --release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          profile: minimal
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - run: wasm-pack test ${{ matrix.mode }} --node
+
+  native-tests:
+    name: native tests
+    strategy:
+      matrix:
+        mode:
+          -
+          - --release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          profile: minimal
+
+      - name: OCaml/Opam cache
+        id: ocaml-rs-opam-cache
+        uses: actions/cache@v2
+        with:
+          path: "~/.opam"
+          key: ocaml-rs-opam-4.14.0-ubuntu-latest
+      - name: Use OCaml 4.14.0
+        uses: avsm/setup-ocaml@v2
+        with:
+          ocaml-compiler: 4.14.0
+      - name: Set Opam env
+        run: opam env | tr '\n' ' ' >> $GITHUB_ENV
+      - name: Add Opam switch to PATH
+        run: opam var bin >> $GITHUB_PATH
+
+      - run: cargo test ${{ matrix.mode }}
