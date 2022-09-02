@@ -48,8 +48,9 @@ pub fn decode_bstr_from_slice(slice: &[u8]) -> Result<&[u8], binprot::Error> {
     Ok(&ptr[..len])
 }
 
-/// Reads size of the next stream frame, specified by an 8-byte integer encoded as little-endian.
-pub fn decode_size<R>(r: &mut R) -> Result<usize, binprot::Error>
+/// Reads size of the next stream frame, specified by an 8-byte integer encoded
+/// as little-endian.
+pub fn stream_decode_size<R>(r: &mut R) -> Result<usize, binprot::Error>
 where
     R: Read,
 {
@@ -58,7 +59,8 @@ where
         .map_err(|_| binprot::Error::CustomError("integer conversion".into()))
 }
 
-/// Returns a slice of bytes of lenght specified by first 8 bytes in little endian.
+/// Returns a slice of bytes of lenght specified by first 8 bytes in little
+/// endian.
 pub fn get_sized_slice(mut slice: &[u8]) -> Result<&[u8], binprot::Error> {
     let len = (&mut slice).read_u64::<LittleEndian>()? as usize;
     Ok(&slice[..len])
