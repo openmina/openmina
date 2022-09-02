@@ -11,7 +11,7 @@ mod tests {
     use mina_hasher::Fp;
     use packed_simd::{u64x4, u64x8};
 
-    #[test]
+    // #[test]
     fn test_basic() {
         let zero: u64x8 = u64x8::new(0, 0, 0, 0, 0, 0, 0, 0);
         println!("zero={:?}", zero);
