@@ -742,7 +742,7 @@ impl BaseLedger for MaskImpl {
         }
     }
 
-    fn close(self) {
+    fn close(&self) {
         // Drop
     }
 

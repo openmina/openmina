@@ -220,7 +220,7 @@ impl BaseLedger for Mask {
         self.with(|this| this.get_or_create_account(account_id, account))
     }
 
-    fn close(self) {
+    fn close(&self) {
         // Drop self
     }
 

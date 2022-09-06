@@ -1,14 +1,84 @@
-use std::{str::FromStr, sync::Mutex};
+use std::{str::FromStr, sync::Mutex, cell::RefCell, borrow::Borrow};
 
 use mina_hasher::Fp;
-use ocaml_interop::{ocaml_export, OCaml, OCamlBytes, OCamlRef, ToOCaml};
+use ocaml_interop::{ocaml_export, OCaml, OCamlBytes, OCamlRef, ToOCaml, OCamlInt, DynBox};
 use once_cell::sync::Lazy;
 
 use crate::{account::Account, base::BaseLedger, tree::Database, tree_version::V2};
 
 static DATABASE: Lazy<Mutex<Database<V2>>> = Lazy::new(|| Mutex::new(Database::create(30)));
 
+// #[derive(Clone)]
+struct DatabaseFFI(RefCell<Database<V2>>);
+
 ocaml_export! {
+    fn rust_database_create(
+        rt,
+        depth: OCamlRef<OCamlInt>
+    ) -> OCaml<DynBox<DatabaseFFI>> {
+        let depth: i64 = depth.to_rust(rt);
+        let depth: u8 = depth.try_into().unwrap();
+
+        let db = Database::<V2>::create(depth);
+        let db = DatabaseFFI(RefCell::new(db));
+
+        OCaml::box_value(rt, db)
+    }
+
+    fn rust_database_get_uuid(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>
+    ) -> OCaml<OCamlInt> {
+        let db = rt.get(db);
+        let db: &DatabaseFFI = db.borrow();
+
+        let uuid = db.0.borrow().get_uuid() as i64;
+
+        uuid.to_ocaml(rt)
+    }
+
+    fn rust_database_depth(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>
+    ) -> OCaml<OCamlInt> {
+        let db = rt.get(db);
+        let db: &DatabaseFFI = db.borrow();
+
+        let depth = db.0.borrow().depth() as i64;
+
+        depth.to_ocaml(rt)
+    }
+
+    fn rust_database_create_checkpoint(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>
+    ) -> OCaml<OCamlInt> {
+        let db = rt.get(db);
+        let _db: &DatabaseFFI = db.borrow();
+        todo!()
+    }
+
+    fn rust_database_make_checkpoint(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>
+    ) -> OCaml<OCamlInt> {
+        let db = rt.get(db);
+        let _db: &DatabaseFFI = db.borrow();
+        todo!()
+    }
+
+    fn rust_database_close(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>
+    ) {
+        let db = rt.get(db);
+        let db: &DatabaseFFI = db.borrow();
+        db.0.borrow().close();
+
+        OCaml::unit()
+        // todo!()
+    }
+
     fn rust_add_account(
         rt,
         account: OCamlRef<OCamlBytes>,

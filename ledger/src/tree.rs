@@ -463,7 +463,7 @@ impl BaseLedger for Database<V2> {
         self.create_account(account_id, account)
     }
 
-    fn close(self) {
+    fn close(&self) {
         // Drop
     }
 
@@ -867,6 +867,39 @@ mod tests {
     //         "169bada2f4bb2ea2b8189f47cf2b665e3e0fb135233242ae1b52794eb3fe7924"
     //     );
     // }
+
+    /// Accounts inserted in a different order produce different root hash
+    #[test]
+    fn test_root_hash_different_orders() {
+        let mut db = Database::<V2>::create(4);
+
+        let accounts = (0..16).map(|_| Account::rand()).collect::<Vec<_>>();
+
+        for account in &accounts {
+            db.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+        let root_hash_1 = db.merkle_root();
+
+        let mut db = Database::<V2>::create(4);
+        for account in accounts.iter().rev() {
+            db.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+        let root_hash_2 = db.merkle_root();
+
+        // Different orders, different root hash
+        assert_ne!(root_hash_1, root_hash_2);
+
+        let mut db = Database::<V2>::create(4);
+        for account in accounts {
+            db.get_or_create_account(account.id(), account).unwrap();
+        }
+        let root_hash_3 = db.merkle_root();
+
+        // Same orders, same root hash
+        assert_eq!(root_hash_1, root_hash_3);
+    }
 
     /// An empty tree produces the same hash than a tree full of empty accounts
     #[test]
