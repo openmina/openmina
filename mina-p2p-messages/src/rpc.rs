@@ -1,3 +1,5 @@
+use std::io::Read;
+
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
@@ -9,7 +11,7 @@ pub type QueryID = i64;
 pub type Sexp = (); // TODO
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, derive_more::From)]
-pub struct RpcResult<T>(Result<T, Error>);
+pub struct RpcResult<T, E>(Result<T, E>);
 
 /// Auxiliary type to encode [RpcResult]'s tag.
 #[derive(Debug, BinProtRead, BinProtWrite)]
@@ -18,9 +20,10 @@ enum Result_ {
     Err,
 }
 
-impl<T> BinProtRead for RpcResult<T>
+impl<T, E> BinProtRead for RpcResult<T, E>
 where
     T: BinProtRead,
+    E: BinProtRead,
 {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
     where
@@ -28,15 +31,16 @@ where
     {
         Ok(match Result_::binprot_read(r)? {
             Result_::Ok => Ok(T::binprot_read(r)?),
-            Result_::Err => Err(Error::binprot_read(r)?),
+            Result_::Err => Err(E::binprot_read(r)?),
         }
         .into())
     }
 }
 
-impl<T> BinProtWrite for RpcResult<T>
+impl<T, E> BinProtWrite for RpcResult<T, E>
 where
     T: BinProtWrite,
+    E: BinProtWrite,
 {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
         match &self.0 {
@@ -150,7 +154,7 @@ pub struct Query<T> {
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
 pub struct Response<T> {
     pub id: QueryID,
-    pub data: RpcResult<NeedsLength<T>>,
+    pub data: RpcResult<NeedsLength<T>, Error>,
 }
 
 /// RPC message.
@@ -190,6 +194,19 @@ pub enum MessageHeader {
     Heartbeat,
     Query(QueryHeader),
     Response(ResponseHeader),
+}
+
+pub trait RpcMethod {
+    const NAME: &'static str;
+    type Query;
+    type Response;
+}
+
+/// Reads binable (bin_prot-encoded) value from a stream, handles it and returns
+/// a result.
+pub trait BinableDecoder {
+    type Output;
+    fn handle(&self, r: Box<&mut dyn Read>) -> Self::Output;
 }
 
 #[cfg(test)]

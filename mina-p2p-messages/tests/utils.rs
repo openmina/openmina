@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::{fs::File, io::Read, path::{PathBuf, Path}};
+use std::{fs::File, io::Read, path::{PathBuf, Path}, fmt::Debug};
 
 use binprot::BinProtRead;
 
@@ -34,7 +34,23 @@ pub fn for_all<F>(dir: &str, mut f: F) -> std::io::Result<()> where F: FnMut(&[u
     Ok(())
 }
 
-pub fn assert_binprot_read<T>(mut buf: &[u8]) where T: BinProtRead {
-    assert!(T::binprot_read(&mut buf).is_ok());
+pub fn assert_binprot_read<T>(mut buf: &[u8]) where T: BinProtRead + Debug {
+    let res = T::binprot_read(&mut buf);
+    assert!(res.is_ok(), "{res:#?}");
     assert_eq!(buf.len(), 0);
+}
+
+#[macro_export]
+macro_rules! binprot_read_test {
+    ($name:ident, $path:expr, $ty:ty) => {
+        #[test]
+        fn $name() {
+            utils::for_all($path, |encoded| {
+                utils::assert_binprot_read::<$ty>(
+                    &encoded,
+                )
+            })
+            .unwrap();
+        }
+    }
 }
