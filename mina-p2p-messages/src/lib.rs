@@ -3,20 +3,20 @@ use serde::{Deserialize, Serialize};
 
 pub mod bigint;
 pub mod char_;
-pub mod p2p;
 pub mod phantom;
 pub mod rpc;
 pub mod string;
 pub mod utils;
+pub mod v1;
 pub mod versioned;
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 #[serde(tag = "type", content = "message")]
 pub enum GossipNetMessage {
     #[serde(rename = "external_transition")]
-    NewState(p2p::MinaBlockExternalTransitionRawVersionedStable),
+    NewState(v1::MinaBlockExternalTransitionRawVersionedStableV1Binable),
     #[serde(rename = "snark_pool_diff")]
-    SnarkPoolDiff(p2p::NetworkPoolSnarkPoolDiffVersionedStable),
+    SnarkPoolDiff(v1::NetworkPoolSnarkPoolDiffVersionedStableV1Binable),
     #[serde(rename = "transaction_pool_diff")]
-    TransactionPoolDiff(p2p::NetworkPoolTransactionPoolDiffVersionedStable),
+    TransactionPoolDiff(v1::NetworkPoolTransactionPoolDiffVersionedStableV1Binable),
 }
