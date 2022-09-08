@@ -89,7 +89,7 @@ pub struct ProofCarryingDataStableV1<A, B> {
 }
 pub type ProofCarryingDataStableV1Binable<A, B> = Versioned<ProofCarryingDataStableV1<A, B>, 1>;
 mina_rpc!(
-    GetBestTip,
+    GetBestTipV1,
     "get_best_tip",
     1,
     (),
