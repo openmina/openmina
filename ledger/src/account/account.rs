@@ -1,6 +1,9 @@
 use std::{borrow::Cow, ops::Mul, str::FromStr};
 
-use super::{BigInt, MinaBaseAccountBinableArgStableV2, MinaBasePermissionsAuthRequiredStableV2};
+use super::{
+    AccountIdV2, BigInt, MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,
+    MinaBasePermissionsAuthRequiredStableV2,
+};
 use ark_ff::{One, UniformRand, Zero};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
@@ -11,7 +14,9 @@ use crate::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
 use super::common::*;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "MinaBaseAccountIdDigestStableV1")]
+#[serde(into = "MinaBaseAccountIdDigestStableV1")]
 pub struct TokenId(pub Fp);
 
 impl Default for TokenId {
@@ -227,7 +232,9 @@ impl Default for ZkAppAccount {
     }
 }
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug, Eq, Serialize, Deserialize)]
+#[serde(from = "AccountIdV2")]
+#[serde(into = "AccountIdV2")]
 pub struct AccountId {
     pub public_key: CompressedPubKey,
     pub token_id: TokenId,

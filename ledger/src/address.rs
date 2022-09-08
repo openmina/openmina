@@ -323,6 +323,19 @@ impl Address {
         }
     }
 
+    pub fn to_string(&self) -> String {
+        let mut s = String::with_capacity(self.length());
+
+        for index in 0..self.length {
+            match self.get(index) {
+                Direction::Left => s.push('0'),
+                Direction::Right => s.push('1'),
+            }
+        }
+
+        s
+    }
+
     #[cfg(test)]
     pub fn rand_nonleaf(max_depth: usize) -> Self {
         use rand::{Rng, RngCore};

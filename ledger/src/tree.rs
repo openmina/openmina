@@ -197,6 +197,36 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
             }
         }
     }
+
+    fn iter_recursive_with_addr<F>(
+        &self,
+        index: &mut u64,
+        depth: u8,
+        fun: &mut F,
+    ) -> ControlFlow<()>
+    where
+        F: FnMut(Address, &T::Account) -> ControlFlow<()>,
+    {
+        match self {
+            NodeOrLeaf::Leaf(leaf) => {
+                let addr = Address::from_index(AccountIndex(*index), depth as usize);
+                *index += 1;
+                match leaf.account.as_ref() {
+                    Some(account) => fun(addr, account),
+                    None => ControlFlow::Continue(()),
+                }
+            }
+            NodeOrLeaf::Node(node) => {
+                if let Some(left) = node.left.as_ref() {
+                    left.iter_recursive_with_addr(index, depth, fun)?;
+                };
+                if let Some(right) = node.right.as_ref() {
+                    right.iter_recursive_with_addr(index, depth, fun)?;
+                };
+                ControlFlow::Continue(())
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -234,6 +264,24 @@ impl Database<V2> {
         self.id_to_addr.insert(account_id, location.clone());
 
         Ok(GetOrCreated::Added(location))
+    }
+
+    pub fn iter_with_addr<F>(&self, mut fun: F)
+    where
+        F: FnMut(Address, &Account),
+    {
+        let root = match self.root.as_ref() {
+            Some(root) => root,
+            None => return,
+        };
+
+        let mut index = 0;
+        let depth = self.depth;
+
+        root.iter_recursive_with_addr(&mut index, depth, &mut |addr, account| {
+            fun(addr, account);
+            ControlFlow::Continue(())
+        });
     }
 }
 

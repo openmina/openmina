@@ -51,5 +51,5 @@ module Rust = struct
 
   (* TODO: Make those method *)
   external database_foldi : database -> (addr -> bytes -> unit) -> unit = "rust_database_foldi"
-  external database_foldi_with_ignored_accounts : database -> account list -> (addr -> bytes -> unit) -> unit = "rust_database_foldi_with_ignored_accounts"
+  external database_foldi_with_ignored_accounts : database -> account_id list -> (addr -> bytes -> unit) -> unit = "rust_database_foldi_with_ignored_accounts"
 end

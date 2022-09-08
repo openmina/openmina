@@ -8,7 +8,7 @@ use mina_signer::CompressedPubKey;
 ///! Types generated with https://github.com/name-placeholder/bin-prot-rs
 use serde::{Deserialize, Serialize, Serializer};
 
-use super::{Account, AuthRequired};
+use super::{Account, AccountId, AuthRequired, TokenId};
 
 #[derive(Debug)]
 pub struct BigInt(pub [u8; 32]);
@@ -464,6 +464,44 @@ pub struct MinaBaseZkappAccountStableV2 {
     pub sequence_state: (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, ()))))),
     pub last_sequence_slot: MinaBaseAccountTimingStableV1Arg0,
     pub proved_state: bool,
+}
+
+// Following types were written manually
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AccountIdV2 {
+    pub public_key: NonZeroCurvePointUncompressedStableV1,
+    pub token_id: MinaBaseAccountIdDigestStableV1,
+}
+
+impl From<AccountId> for AccountIdV2 {
+    fn from(account_id: AccountId) -> Self {
+        Self {
+            public_key: account_id.public_key.into(),
+            token_id: account_id.token_id.0.into(),
+        }
+    }
+}
+
+impl From<AccountIdV2> for AccountId {
+    fn from(account_id: AccountIdV2) -> Self {
+        Self {
+            public_key: account_id.public_key.into(),
+            token_id: TokenId(account_id.token_id.into()),
+        }
+    }
+}
+
+impl From<TokenId> for MinaBaseAccountIdDigestStableV1 {
+    fn from(token_id: TokenId) -> Self {
+        token_id.0.into()
+    }
+}
+
+impl From<MinaBaseAccountIdDigestStableV1> for TokenId {
+    fn from(token_id: MinaBaseAccountIdDigestStableV1) -> Self {
+        Self(token_id.into())
+    }
 }
 
 #[cfg(test)]
