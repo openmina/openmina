@@ -247,10 +247,10 @@ pub trait BinableDecoder {
 /// bin_prot encoded data, following the message header. It simply decodes data
 /// wrapped in auxiliary types and returns unwrapped data.
 pub trait PayloadBinprotReader: RpcMethod {
-    fn read_query<R>(r: &mut R) -> Result<Self::Query, binprot::Error>
+    fn query_payload<R>(r: &mut R) -> Result<Self::Query, binprot::Error>
     where
         R: Read;
-    fn read_response<R>(r: &mut R) -> Result<Result<Self::Response, Error>, binprot::Error>
+    fn response_payload<R>(r: &mut R) -> Result<Result<Self::Response, Error>, binprot::Error>
     where
         R: Read;
 }
@@ -261,14 +261,14 @@ where
     T::Query: BinProtRead,
     T::Response: BinProtRead,
 {
-    fn read_query<R>(r: &mut R) -> Result<Self::Query, binprot::Error>
+    fn query_payload<R>(r: &mut R) -> Result<Self::Query, binprot::Error>
     where
         R: Read,
     {
         QueryPayload::<Self::Query>::binprot_read(r).map(|NeedsLength(v)| v)
     }
 
-    fn read_response<R>(r: &mut R) -> Result<Result<Self::Response, Error>, binprot::Error>
+    fn response_payload<R>(r: &mut R) -> Result<Result<Self::Response, Error>, binprot::Error>
     where
         R: Read,
     {
@@ -295,10 +295,10 @@ pub enum RpcDebuggerReaderError {
 /// version encoded, instead of [Response]. It simply decodes data wrapped in
 /// auxiliary types and returns unwrapped data.
 pub trait RpcDebuggerReader: RpcMethod {
-    fn read_query<R>(r: &mut R) -> Result<Self::Query, RpcDebuggerReaderError>
+    fn debugger_query<R>(r: &mut R) -> Result<Self::Query, RpcDebuggerReaderError>
     where
         R: Read;
-    fn read_response<R>(r: &mut R) -> Result<Result<Self::Response, Error>, RpcDebuggerReaderError>
+    fn debugger_response<R>(r: &mut R) -> Result<Result<Self::Response, Error>, RpcDebuggerReaderError>
     where
         R: Read;
 }
@@ -309,7 +309,7 @@ where
     T::Query: BinProtRead,
     T::Response: BinProtRead,
 {
-    fn read_query<R>(r: &mut R) -> Result<Self::Query, RpcDebuggerReaderError>
+    fn debugger_query<R>(r: &mut R) -> Result<Self::Query, RpcDebuggerReaderError>
     where
         R: Read,
     {
@@ -320,7 +320,7 @@ where
         }
     }
 
-    fn read_response<R>(r: &mut R) -> Result<Result<Self::Response, Error>, RpcDebuggerReaderError>
+    fn debugger_response<R>(r: &mut R) -> Result<Result<Self::Response, Error>, RpcDebuggerReaderError>
     where
         R: Read,
     {
