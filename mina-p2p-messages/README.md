@@ -36,13 +36,26 @@ JSON:
 
 ## Types Generation
 
-TODO
+The `bin-proto-rs` crate is used to automatically generate Mina wire types
+basing on their bin_prot shapes, stored in [shapes](shapes) folder. Currently
+only subset of types can be generated. Types currently known as essential are
+listed in the files [types-v1.txt](types-v1.txt) and
+[types-v2.txt](types-v2.txt).
+
+To generate Mina V1 types, use the following command:
 
 ``` sh
-cargo run --bin mina-types -- ../mina/shapes-raw.txt gen \
-   --type Mina_block__External_transition.Raw_versioned__.Stable.V1.t \
-   --type Network_pool__Transaction_pool.Diff_versioned.Stable.V1.t \
-   --type Network_pool__Snark_pool.Diff_versioned.Stable.V1.t \
+mina-types shapes/shapes-v1-mainnet-raw.txt gen \
+   $(cat types-v1.txt)
    --config default.toml \
-   --out src/lib.rs
+   --out src/v1.rs
+```
+
+To generate Mina V2 types, use the following command:
+
+``` sh
+mina-types shapes/shapes-v2-mainnet-raw.txt gen \
+   $(cat types-v2.txt)
+   --config default.toml \
+   --out src/v2.rs
 ```

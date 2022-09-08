@@ -1,0 +1,5 @@
+--type Mina_block__Block.Stable.V2.t
+--type Network_pool__Transaction_pool.Diff_versioned.Stable.V2.t
+--type Network_pool__Snark_pool.Diff_versioned.Stable.V2.t
+--type Mina_base__Sparse_ledger_base.Stable.V2.t
+--type Mina_base__Account.Stable.V2.t
