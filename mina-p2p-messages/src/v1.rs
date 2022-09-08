@@ -20,12 +20,35 @@ pub type NetworkPoolTransactionPoolDiffVersionedStableV1Binable =
 pub type NetworkPoolSnarkPoolDiffVersionedStableV1Binable =
     crate::versioned::Versioned<NetworkPoolSnarkPoolDiffVersionedStableV1BinableV1, 1i32>;
 
+/// **Origin**: `Mina_base__Account.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/account.ml:188:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account.ml#L188)
+pub type MinaBaseAccountStableV1Binable =
+    crate::versioned::Versioned<MinaBaseAccountStableV1BinableV1, 1i32>;
+
+/// **Origin**: `Network_peer__Peer.Stable.V1.t`
+///
+/// **Location**: [src/lib/network_peer/peer.ml:28:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_peer/peer.ml#L28)
+pub type NetworkPeerPeerStableV1Binable =
+    crate::versioned::Versioned<NetworkPeerPeerStableV1BinableV1, 1i32>;
+
+/// **Origin**: `Mina_base__Sync_ledger.Query.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/sync_ledger.ml:70:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sync_ledger.ml#L70)
+pub type MinaBaseSyncLedgerQueryStableV1Binable =
+    crate::versioned::Versioned<MinaBaseSyncLedgerQueryStableV1BinableV1, 1i32>;
+
+/// **Origin**: `Mina_base__Sync_ledger.Answer.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/sync_ledger.ml:55:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sync_ledger.ml#L55)
+pub type MinaBaseSyncLedgerAnswerStableV1Binable =
+    crate::versioned::Versioned<MinaBaseSyncLedgerAnswerStableV1BinableV1, 1i32>;
+
 /// **Origin**: `Mina_base__Sparse_ledger.Stable.V1.t`
 ///
 /// **Location**: [src/lib/mina_base/sparse_ledger.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sparse_ledger.ml#L8)
 pub type MinaBaseSparseLedgerStableV1Binable =
     crate::versioned::Versioned<MinaBaseSparseLedgerStableV1BinableV1, 1i32>;
-
 
 
 /// Location: [src/lib/mina_state/protocol_state.ml:16:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_state/protocol_state.ml#L16)
@@ -3409,54 +3432,6 @@ pub enum NetworkPoolSnarkPoolDiffVersionedStableV1BinableV1 {
     Empty,
 }
 
-/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:9:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L9)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub enum MinaBaseSparseLedgerStableV1BinableV1PolyV1TreeV1<Hash, Account> {
-    Account(Account),
-    Hash(Hash),
-    Node(
-        Hash,
-        Box<MinaBaseSparseLedgerStableV1BinableV1PolyV1TreeV1<Hash, Account>>,
-        Box<MinaBaseSparseLedgerStableV1BinableV1PolyV1TreeV1<Hash, Account>>,
-    ),
-}
-
-/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:9:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L9)
-pub type MinaBaseSparseLedgerStableV1BinableV1PolyV1Tree<Hash, Account> =
-    crate::versioned::Versioned<
-        MinaBaseSparseLedgerStableV1BinableV1PolyV1TreeV1<Hash, Account>,
-        1i32,
-    >;
-
-/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:30:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L30)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseSparseLedgerStableV1BinableV1PolyV1<Hash, Key, Account, TokenId> {
-    pub indexes: Vec<(Key, i32)>,
-    pub depth: i32,
-    pub tree: MinaBaseSparseLedgerStableV1BinableV1PolyV1Tree<Hash, Account>,
-    pub next_available_token: TokenId,
-}
-
-/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:30:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L30)
-pub type MinaBaseSparseLedgerStableV1BinableV1Poly<Hash, Key, Account, TokenId> =
-    crate::versioned::Versioned<
-        MinaBaseSparseLedgerStableV1BinableV1PolyV1<Hash, Key, Account, TokenId>,
-        1i32,
-    >;
-
-/// Location: [src/lib/mina_base/account_id.ml:9:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account_id.ml#L9)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseAccountIdStableV1BinableV1(
-    pub ConsensusProofOfStakeDataConsensusStateValueStableV1BinableV1PolyArg8,
-    pub MinaBaseTokenIdStableV1Binable,
-);
-
-/// **Origin**: `Mina_base__Account_id.Stable.V1.t`
-///
-/// **Location**: [src/lib/mina_base/account_id.ml:9:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account_id.ml#L9)
-pub type MinaBaseAccountIdStableV1Binable =
-    crate::versioned::Versioned<MinaBaseAccountIdStableV1BinableV1, 1i32>;
-
 /// Location: [src/lib/mina_base/account.ml:89:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account.ml#L89)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseAccountBinableArgStableV1BinableV1PolyV1<
@@ -3635,11 +3610,132 @@ pub type MinaBaseAccountBinableArgStableV1Binable =
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseAccountStableV1BinableV1(pub MinaBaseAccountBinableArgStableV1Binable);
 
-/// **Origin**: `Mina_base__Account.Stable.V1.t`
+/// Location: [src/lib/network_peer/peer.ml:10:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_peer/peer.ml#L10)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct NetworkPeerPeerIdStableV1BinableV1(pub crate::string::String);
+
+/// **Origin**: `Network_peer__Peer.Id.Stable.V1.t`
 ///
-/// **Location**: [src/lib/mina_base/account.ml:188:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account.ml#L188)
-pub type MinaBaseAccountStableV1Binable =
-    crate::versioned::Versioned<MinaBaseAccountStableV1BinableV1, 1i32>;
+/// **Location**: [src/lib/network_peer/peer.ml:10:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_peer/peer.ml#L10)
+pub type NetworkPeerPeerIdStableV1Binable =
+    crate::versioned::Versioned<NetworkPeerPeerIdStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/network_peer/peer.ml:28:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_peer/peer.ml#L28)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct NetworkPeerPeerStableV1BinableV1 {
+    pub host: crate::string::String,
+    pub libp2p_port: i32,
+    pub peer_id: NetworkPeerPeerIdStableV1Binable,
+}
+
+/// Location: [src/lib/syncable_ledger/syncable_ledger.ml:17:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/syncable_ledger/syncable_ledger.ml#L17)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaBaseSyncLedgerQueryStableV1BinableV1PolyV1<Addr> {
+    WhatChildHashes(Addr),
+    WhatContents(Addr),
+    NumAccounts,
+}
+
+/// Location: [src/lib/syncable_ledger/syncable_ledger.ml:17:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/syncable_ledger/syncable_ledger.ml#L17)
+pub type MinaBaseSyncLedgerQueryStableV1BinableV1Poly<Addr> =
+    crate::versioned::Versioned<MinaBaseSyncLedgerQueryStableV1BinableV1PolyV1<Addr>, 1i32>;
+
+/// Location: [src/lib/merkle_address/merkle_address.ml:48:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/merkle_address/merkle_address.ml#L48)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MerkleAddressBinableArgStableV1BinableV1(pub i32, pub crate::string::String);
+
+/// **Origin**: `Merkle_address.Binable_arg.Stable.V1.t`
+///
+/// **Location**: [src/lib/merkle_address/merkle_address.ml:48:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/merkle_address/merkle_address.ml#L48)
+pub type MerkleAddressBinableArgStableV1Binable =
+    crate::versioned::Versioned<MerkleAddressBinableArgStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/merkle_address/merkle_address.ml:58:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/merkle_address/merkle_address.ml#L58)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MerkleAddressStableV1BinableV1(pub MerkleAddressBinableArgStableV1Binable);
+
+/// **Origin**: `Merkle_address.Stable.V1.t`
+///
+/// **Location**: [src/lib/merkle_address/merkle_address.ml:58:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/merkle_address/merkle_address.ml#L58)
+pub type MerkleAddressStableV1Binable =
+    crate::versioned::Versioned<MerkleAddressStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/mina_base/sync_ledger.ml:70:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sync_ledger.ml#L70)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseSyncLedgerQueryStableV1BinableV1(
+    pub MinaBaseSyncLedgerQueryStableV1BinableV1Poly<MerkleAddressStableV1Binable>,
+);
+
+/// Location: [src/lib/syncable_ledger/syncable_ledger.ml:35:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/syncable_ledger/syncable_ledger.ml#L35)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaBaseSyncLedgerAnswerStableV1BinableV1PolyV1<Hash, Account> {
+    ChildHashesAre(Hash, Hash),
+    ContentsAre(Vec<Account>),
+    NumAccounts(i32, Hash),
+}
+
+/// Location: [src/lib/syncable_ledger/syncable_ledger.ml:35:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/syncable_ledger/syncable_ledger.ml#L35)
+pub type MinaBaseSyncLedgerAnswerStableV1BinableV1Poly<Hash, Account> = crate::versioned::Versioned<
+    MinaBaseSyncLedgerAnswerStableV1BinableV1PolyV1<Hash, Account>,
+    1i32,
+>;
+
+/// Location: [src/lib/mina_base/sync_ledger.ml:55:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sync_ledger.ml#L55)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseSyncLedgerAnswerStableV1BinableV1(
+    pub  MinaBaseSyncLedgerAnswerStableV1BinableV1Poly<
+        MinaBaseStagedLedgerHashNonSnarkStableV1BinableV1LedgerHash,
+        MinaBaseAccountStableV1Binable,
+    >,
+);
+
+/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:9:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L9)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaBaseSparseLedgerStableV1BinableV1PolyV1TreeV1<Hash, Account> {
+    Account(Account),
+    Hash(Hash),
+    Node(
+        Hash,
+        Box<MinaBaseSparseLedgerStableV1BinableV1PolyV1TreeV1<Hash, Account>>,
+        Box<MinaBaseSparseLedgerStableV1BinableV1PolyV1TreeV1<Hash, Account>>,
+    ),
+}
+
+/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:9:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L9)
+pub type MinaBaseSparseLedgerStableV1BinableV1PolyV1Tree<Hash, Account> =
+    crate::versioned::Versioned<
+        MinaBaseSparseLedgerStableV1BinableV1PolyV1TreeV1<Hash, Account>,
+        1i32,
+    >;
+
+/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:30:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L30)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseSparseLedgerStableV1BinableV1PolyV1<Hash, Key, Account, TokenId> {
+    pub indexes: Vec<(Key, i32)>,
+    pub depth: i32,
+    pub tree: MinaBaseSparseLedgerStableV1BinableV1PolyV1Tree<Hash, Account>,
+    pub next_available_token: TokenId,
+}
+
+/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:30:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L30)
+pub type MinaBaseSparseLedgerStableV1BinableV1Poly<Hash, Key, Account, TokenId> =
+    crate::versioned::Versioned<
+        MinaBaseSparseLedgerStableV1BinableV1PolyV1<Hash, Key, Account, TokenId>,
+        1i32,
+    >;
+
+/// Location: [src/lib/mina_base/account_id.ml:9:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account_id.ml#L9)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseAccountIdStableV1BinableV1(
+    pub ConsensusProofOfStakeDataConsensusStateValueStableV1BinableV1PolyArg8,
+    pub MinaBaseTokenIdStableV1Binable,
+);
+
+/// **Origin**: `Mina_base__Account_id.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/account_id.ml:9:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account_id.ml#L9)
+pub type MinaBaseAccountIdStableV1Binable =
+    crate::versioned::Versioned<MinaBaseAccountIdStableV1BinableV1, 1i32>;
 
 /// Location: [src/lib/mina_base/sparse_ledger.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sparse_ledger.ml#L8)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]

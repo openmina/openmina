@@ -1,7 +1,11 @@
+use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use rpc::RpcResult;
 use serde::{Deserialize, Serialize};
-use v1::MinaBaseSparseLedgerStableV1Binable;
+use v1::{
+    MinaBaseSparseLedgerStableV1Binable, MinaBlockExternalTransitionRawVersionedStableV1Binable,
+    NetworkPeerPeerIdStableV1Binable,
+};
 use versioned::Versioned;
 
 pub mod bigint;
@@ -14,6 +18,7 @@ pub mod v1;
 pub mod versioned;
 
 pub type LedgerHash = Versioned<bigint::BigInt, 1>;
+pub type StateBodyHash = Versioned<bigint::BigInt, 1>;
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 #[serde(tag = "type", content = "message")]
@@ -27,20 +32,26 @@ pub enum GossipNetMessage {
 }
 
 macro_rules! mina_rpc {
-    ($name:ident, $tag:literal, $query:ty, $response:ty) => {
+    ($name:ident, $tag:literal, $version:literal, $query:ty, $response:ty) => {
         pub struct $name;
         impl crate::rpc::RpcMethod for $name {
             const NAME: &'static str = $tag;
+            const VERSION: crate::versioned::Ver = $version;
             type Query = $query;
             type Response = $response;
         }
     };
 }
 
-mina_rpc!(GetEpochLedger, "get_epoch_ledger", LedgerHash, RpcResult<MinaBaseSparseLedgerStableV1Binable, string::String>);
+mina_rpc!(GetEpochLedger, "get_epoch_ledger", 1, LedgerHash, RpcResult<MinaBaseSparseLedgerStableV1Binable, string::String>);
 
-// pub struct NetworkPeer;
-// mina_rpc!(GetSomeInitialPeers, "get_some_initial_peers", (), Vec<NetworkPeer>);
+mina_rpc!(
+    GetSomeInitialPeersV1,
+    "get_some_initial_peers",
+    1,
+    (),
+    Vec<NetworkPeerPeerIdStableV1Binable>
+);
 
 // pub struct StateHash;
 // pub struct ScanState;
@@ -71,7 +82,29 @@ mina_rpc!(GetEpochLedger, "get_epoch_ledger", LedgerHash, RpcResult<MinaBaseSpar
 
 // mina_rpc!(BanNotify, "ban_notify", SystemTime, ());
 
-// mina_rpc!(GetBestTip, "get_best_tip", (), Option<ProofCarryingData<MinaBlockStable, (Vec<StateBodyHash>, MinaBlockStable)>>);
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct ProofCarryingDataStableV1<A, B> {
+    data: A,
+    proof: B,
+}
+pub type ProofCarryingDataStableV1Binable<A, B> = Versioned<ProofCarryingDataStableV1<A, B>, 1>;
+mina_rpc!(
+    GetBestTip,
+    "get_best_tip",
+    1,
+    (),
+    Option<
+        ProofCarryingDataStableV1Binable<
+            MinaBlockExternalTransitionRawVersionedStableV1Binable,
+            (
+                Vec<StateBodyHash>,
+                MinaBlockExternalTransitionRawVersionedStableV1Binable
+            ),
+        >,
+    >
+);
 
+// pub struct NodeStatusV1 {}
+// mina_rpc!(GetNodeStatus, "get_node_status", 1, (), Result<NodeStatus, Box<dyn std::error::Error>>);
 // pub struct NodeStatus {}
-// mina_rpc!(GetNodeStatus, "get_node_status", (), Result<NodeStatus, Box<dyn std::error::Error>>);
+// mina_rpc!(GetNodeStatus, "get_node_status", 2, (), Result<NodeStatus, Box<dyn std::error::Error>>);

@@ -171,6 +171,16 @@ pub struct Response<T> {
     pub data: ResponsePayload<T>,
 }
 
+/// RPC response in the form used by the Mina Network Debugger, with prepended
+/// RPC tag and version.
+#[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
+pub struct DebuggerResponse<T> {
+    pub tag: Tag,
+    pub version: Ver,
+    pub id: QueryID,
+    pub data: ResponsePayload<T>,
+}
+
 /// RPC message.
 ///
 /// ```ocaml
@@ -189,6 +199,13 @@ pub enum Message<T> {
     Heartbeat,
     Query(Query<T>),
     Response(Response<T>),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
+pub enum DebuggerMessage<T> {
+    Heartbeat,
+    Query(Query<T>),
+    Response(DebuggerResponse<T>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
@@ -212,6 +229,7 @@ pub enum MessageHeader {
 
 pub trait RpcMethod {
     const NAME: &'static str;
+    const VERSION: Ver;
     type Query;
     type Response;
 }
@@ -256,6 +274,61 @@ where
     {
         ResponsePayload::<Self::Response>::binprot_read(r)
             .map(|v| Result::from(v).map(|NeedsLength(v)| v))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RpcDebuggerReaderError {
+    #[error(transparent)]
+    BinProtError(#[from] binprot::Error),
+    #[error("Query expected")]
+    ExpectQuery,
+    #[error("Response expected")]
+    ExpectResponse,
+}
+
+/// Trait for reading RPC query and response in the format provided by the
+/// debugger.
+///
+/// This is a helper trait that makes it easier to decode data obtain from the
+/// Mina Network Debugger, that stores [DebuggerResponse] that has tag and
+/// version encoded, instead of [Response]. It simply decodes data wrapped in
+/// auxiliary types and returns unwrapped data.
+pub trait RpcDebuggerReader: RpcMethod {
+    fn read_query<R>(r: &mut R) -> Result<Self::Query, RpcDebuggerReaderError>
+    where
+        R: Read;
+    fn read_response<R>(r: &mut R) -> Result<Result<Self::Response, Error>, RpcDebuggerReaderError>
+    where
+        R: Read;
+}
+
+impl<T> RpcDebuggerReader for T
+where
+    T: RpcMethod,
+    T::Query: BinProtRead,
+    T::Response: BinProtRead,
+{
+    fn read_query<R>(r: &mut R) -> Result<Self::Query, RpcDebuggerReaderError>
+    where
+        R: Read,
+    {
+        if let Message::Query(query) = Message::<T::Query>::binprot_read(r)? {
+            Ok(query.data.0)
+        } else {
+            Err(RpcDebuggerReaderError::ExpectQuery)
+        }
+    }
+
+    fn read_response<R>(r: &mut R) -> Result<Result<Self::Response, Error>, RpcDebuggerReaderError>
+    where
+        R: Read,
+    {
+        if let Message::Response(response) = Message::<T::Response>::binprot_read(r)? {
+            Ok(Result::from(response.data).map(|v| v.0))
+        } else {
+            Err(RpcDebuggerReaderError::ExpectResponse)
+        }
     }
 }
 
@@ -315,9 +388,10 @@ pub trait RpcConverter: RpcMethod {
 
 impl<T, FQ, FR> RpcMethod for (T, FQ, FR)
 where
-    T: RpcMethod
+    T: RpcMethod,
 {
     const NAME: &'static str = T::NAME;
+    const VERSION: Ver = T::VERSION;
     type Query = T::Query;
     type Response = T::Response;
 }
