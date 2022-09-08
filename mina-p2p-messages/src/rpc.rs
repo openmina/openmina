@@ -10,7 +10,9 @@ pub type Tag = super::string::String;
 pub type QueryID = i64;
 pub type Sexp = (); // TODO
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, derive_more::From)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, PartialEq, Eq, derive_more::From, derive_more::Into,
+)]
 pub struct RpcResult<T, E>(Result<T, E>);
 
 /// Auxiliary type to encode [RpcResult]'s tag.
@@ -117,6 +119,12 @@ pub enum Error {
     Unknown_query_id(QueryID),
 }
 
+/// Type used for encoding RPC query payload.
+///
+/// Effectively this is the bin_prot encoding of the data prepended with `Nat0`
+/// encoding of its encoded size.
+pub type QueryPayload<T> = NeedsLength<T>;
+
 /// RPC query.
 ///
 /// ```ocaml
@@ -136,8 +144,14 @@ pub struct Query<T> {
     pub tag: Tag,
     pub version: Ver,
     pub id: QueryID,
-    pub data: NeedsLength<T>,
+    pub data: QueryPayload<T>,
 }
+
+/// Type used to encode response payload.
+///
+/// Response can be either successfull, consisting of the result value prepended
+/// with its lenght, or an error of type [Error].
+pub type ResponsePayload<T> = RpcResult<NeedsLength<T>, Error>;
 
 /// RPC response.
 ///
@@ -154,7 +168,7 @@ pub struct Query<T> {
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
 pub struct Response<T> {
     pub id: QueryID,
-    pub data: RpcResult<NeedsLength<T>, Error>,
+    pub data: ResponsePayload<T>,
 }
 
 /// RPC message.
@@ -207,6 +221,126 @@ pub trait RpcMethod {
 pub trait BinableDecoder {
     type Output;
     fn handle(&self, r: Box<&mut dyn Read>) -> Self::Output;
+}
+
+/// Trait for reading RPC query and response payloads.
+///
+/// This is a helper trait that makes it easier to decode raw payload data from
+/// bin_prot encoded data, following the message header. It simply decodes data
+/// wrapped in auxiliary types and returns unwrapped data.
+pub trait PayloadBinprotReader: RpcMethod {
+    fn read_query<R>(r: &mut R) -> Result<Self::Query, binprot::Error>
+    where
+        R: Read;
+    fn read_response<R>(r: &mut R) -> Result<Result<Self::Response, Error>, binprot::Error>
+    where
+        R: Read;
+}
+
+impl<T> PayloadBinprotReader for T
+where
+    T: RpcMethod,
+    T::Query: BinProtRead,
+    T::Response: BinProtRead,
+{
+    fn read_query<R>(r: &mut R) -> Result<Self::Query, binprot::Error>
+    where
+        R: Read,
+    {
+        QueryPayload::<Self::Query>::binprot_read(r).map(|NeedsLength(v)| v)
+    }
+
+    fn read_response<R>(r: &mut R) -> Result<Result<Self::Response, Error>, binprot::Error>
+    where
+        R: Read,
+    {
+        ResponsePayload::<Self::Response>::binprot_read(r)
+            .map(|v| Result::from(v).map(|NeedsLength(v)| v))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum JSONinifyError {
+    #[error(transparent)]
+    Binprot(#[from] binprot::Error),
+    #[error(transparent)]
+    JSON(#[from] serde_json::Error),
+}
+
+pub trait JSONinifyReader: RpcMethod {
+    fn read_query<R>(r: &mut R) -> Result<serde_json::Value, JSONinifyError>
+    where
+        R: Read;
+    fn read_response<R>(r: &mut R) -> Result<serde_json::Value, JSONinifyError>
+    where
+        R: Read;
+}
+
+impl<T> JSONinifyReader for T
+where
+    T: RpcMethod,
+    T::Query: BinProtRead + Serialize,
+    T::Response: BinProtRead + Serialize,
+{
+    fn read_query<R>(r: &mut R) -> Result<serde_json::Value, JSONinifyError>
+    where
+        R: Read,
+    {
+        let v = QueryPayload::<Self::Query>::binprot_read(r).map(|NeedsLength(v)| v)?;
+        let json = serde_json::to_value(&v)?;
+        Ok(json)
+    }
+
+    fn read_response<R>(r: &mut R) -> Result<serde_json::Value, JSONinifyError>
+    where
+        R: Read,
+    {
+        let v = ResponsePayload::<Self::Response>::binprot_read(r)
+            .map(|v| Result::from(v).map(|NeedsLength(v)| v))?;
+        let json = serde_json::to_value(&v)?;
+        Ok(json)
+    }
+}
+
+pub trait Converter {
+    type Output;
+    fn convert(self) -> Self::Output;
+}
+
+pub trait RpcConverter: RpcMethod {
+    type Output;
+    fn read_query(&self, r: Box<dyn Read>) -> Result<Self::Output, binprot::Error>;
+    fn read_response(&self, r: Box<dyn Read>) -> Result<Self::Output, binprot::Error>;
+}
+
+impl<T, FQ, FR> RpcMethod for (T, FQ, FR)
+where
+    T: RpcMethod
+{
+    const NAME: &'static str = T::NAME;
+    type Query = T::Query;
+    type Response = T::Response;
+}
+
+impl<T, FQ, FR, O> RpcConverter for (T, FQ, FR)
+where
+    T: RpcMethod,
+    T::Query: BinProtRead,
+    T::Response: BinProtRead,
+    FQ: Fn(T::Query) -> O,
+    FR: Fn(T::Query) -> O,
+{
+    type Output = O;
+
+    fn read_query(&self, mut r: Box<dyn Read>) -> Result<Self::Output, binprot::Error> {
+        let v = Self::Query::binprot_read(r.as_mut())?;
+        Ok(self.1(v))
+    }
+
+    fn read_response(&self, mut r: Box<dyn Read>) -> Result<Self::Output, binprot::Error> {
+        let v = Self::Query::binprot_read(r.as_mut())?;
+        Ok(self.2(v))
+    }
 }
 
 #[cfg(test)]
