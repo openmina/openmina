@@ -1,6 +1,6 @@
 use mina_p2p_messages::{
     rpc::{Message, RpcMethod, DebuggerMessage},
-    GetEpochLedger, GetBestTip,
+    GetEpochLedger, GetBestTipV1,
 };
 
 #[macro_use]
@@ -20,11 +20,11 @@ binprot_read_test!(
 binprot_read_test!(
     get_best_tip_query,
     "rpc-debugger/get-best-tip/query",
-    DebuggerMessage<<GetBestTip as RpcMethod>::Query>
+    DebuggerMessage<<GetBestTipV1 as RpcMethod>::Query>
 );
 
 binprot_read_test!(
     get_best_tip_response,
     "rpc-debugger/get-best-tip/response",
-    DebuggerMessage<<GetBestTip as RpcMethod>::Response>
+    DebuggerMessage<<GetBestTipV1 as RpcMethod>::Response>
 );
