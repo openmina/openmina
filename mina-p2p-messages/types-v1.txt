@@ -6,7 +6,9 @@
 
 
 --type Network_peer__Peer.Stable.V1.t
-
+--type Mina_base__Pending_coinbase.Stable.V1.t
+--type Mina_state__Protocol_state.Value.Stable.V1.t
 --type Mina_base__Sync_ledger.Query.Stable.V1.t
 --type Mina_base__Sync_ledger.Answer.Stable.V1.t
 --type Mina_base__Sparse_ledger.Stable.V1.t
+--type Consensus__Proof_of_stake.Data.Consensus_state.Value.Stable.V1.t
