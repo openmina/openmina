@@ -42,6 +42,18 @@ pub fn assert_binprot_read<T>(mut buf: &[u8]) where T: BinProtRead + Debug {
 
 #[macro_export]
 macro_rules! binprot_read_test {
+    (ignore($reason:literal), $name:ident, $path:expr, $ty:ty) => {
+        #[test]
+        #[ignore = $reason]
+        fn $name() {
+            utils::for_all($path, |encoded| {
+                utils::assert_binprot_read::<$ty>(
+                    &encoded,
+                )
+            })
+            .unwrap();
+        }
+    };
     ($name:ident, $path:expr, $ty:ty) => {
         #[test]
         fn $name() {
@@ -52,5 +64,5 @@ macro_rules! binprot_read_test {
             })
             .unwrap();
         }
-    }
+    };
 }

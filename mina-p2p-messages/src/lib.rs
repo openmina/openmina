@@ -3,13 +3,21 @@ use binprot_derive::{BinProtRead, BinProtWrite};
 use rpc::RpcResult;
 use serde::{Deserialize, Serialize};
 use v1::{
-    MinaBaseSparseLedgerStableV1Binable, MinaBlockExternalTransitionRawVersionedStableV1Binable,
+    ConsensusProofOfStakeDataConsensusStateValueStableV1Binable,
+    //TransactionSnarkScanStateStableV1Binable,
+    MinaBasePendingCoinbaseStableV1Binable,
+    MinaBaseSparseLedgerStableV1Binable,
+    MinaBaseSyncLedgerAnswerStableV1Binable,
+    MinaBaseSyncLedgerQueryStableV1Binable,
+    MinaBlockExternalTransitionRawVersionedStableV1Binable,
+    MinaStateProtocolStateValueStableV1Binable,
     NetworkPeerPeerIdStableV1Binable,
 };
 use versioned::Versioned;
 
 pub mod bigint;
 pub mod char_;
+pub mod core_error;
 pub mod phantom;
 pub mod rpc;
 pub mod string;
@@ -17,8 +25,9 @@ pub mod utils;
 pub mod v1;
 pub mod versioned;
 
-pub type LedgerHash = Versioned<bigint::BigInt, 1>;
-pub type StateBodyHash = Versioned<bigint::BigInt, 1>;
+pub type StateHashV1Binable = Versioned<bigint::BigInt, 1>;
+pub type StateBodyHashV1Binable = Versioned<bigint::BigInt, 1>;
+pub type LedgerHashV1Binable = Versioned<bigint::BigInt, 1>;
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 #[serde(tag = "type", content = "message")]
@@ -43,7 +52,7 @@ macro_rules! mina_rpc {
     };
 }
 
-mina_rpc!(GetEpochLedger, "get_epoch_ledger", 1, LedgerHash, RpcResult<MinaBaseSparseLedgerStableV1Binable, string::String>);
+mina_rpc!(GetEpochLedger, "get_epoch_ledger", 1, LedgerHashV1Binable, RpcResult<MinaBaseSparseLedgerStableV1Binable, string::String>);
 
 mina_rpc!(
     GetSomeInitialPeersV1,
@@ -53,32 +62,79 @@ mina_rpc!(
     Vec<NetworkPeerPeerIdStableV1Binable>
 );
 
-// pub struct StateHash;
-// pub struct ScanState;
-// pub struct LedgerHash;
-// pub struct PendingCoinbase;
-// pub struct ProtocolState;
-// mina_rpc!(GetStagedLedgerAuxAndPendingCoinbasesAtHash, "get_staged_ledger_aux_and_pending_coinbases_at_hash", StateHash, Option<(ScanState, LedgerHash, PendingCoinbase, Vec<ProtocolState>)>);
+// TODO implement TransactionSnarkScanStateStableV1Binable
+mina_rpc!(
+    GetStagedLedgerAuxAndPendingCoinbasesAtHashV1,
+    "get_staged_ledger_aux_and_pending_coinbases_at_hash",
+    1,
+    StateHashV1Binable,
+    Option<(
+        (), //TransactionSnarkScanStateStableV1Binable,
+        LedgerHashV1Binable,
+        MinaBasePendingCoinbaseStableV1Binable,
+        Vec<MinaStateProtocolStateValueStableV1Binable>
+    )>
+);
 
-// pub struct SyncLedgerQuery;
-// pub struct SyncLedgerAnswer;
-// mina_rpc!(AnswerSyncLedgerQuery, "answer_sync_ledger_query", (LedgerHash, SyncLedgerQuery),  Result<SyncLedgerAnswer, Box<dyn std::error::Error>>);
+mina_rpc!(
+    AnswerSyncLedgerQueryV1,
+    "answer_sync_ledger_query",
+    1,
+    (LedgerHashV1Binable, MinaBaseSyncLedgerQueryStableV1Binable),
+    RpcResult<MinaBaseSyncLedgerAnswerStableV1Binable, core_error::Error>
+);
 
-// pub struct MinaBlockStable;
-// mina_rpc!(GetTransitionChain, "get_transition_chain", Vec<StateHash>, Option<Vec<MinaBlockStable>>);
+mina_rpc!(
+    GetTransitionChainV1,
+    "get_transition_chain",
+    1,
+    Vec<StateHashV1Binable>,
+    Option<Vec<MinaBlockExternalTransitionRawVersionedStableV1Binable>>
+);
 
-// pub struct StateBodyHash;
-// mina_rpc!(GetTransitionChainProof, "get_transition_chain_proof", StateHash, Option<(StateHash, Vec<StateBodyHash>)>);
+mina_rpc!(
+    GetTransitionChainProofV1,
+    "get_transition_chain_proof",
+    1,
+    StateHashV1Binable,
+    Option<(StateHashV1Binable, Vec<StateBodyHashV1Binable>)>
+);
 
-// mina_rpc!(GetTransitionKnowledge, "Get_transition_knowledge", (), Vec<StateHash>);
+mina_rpc!(
+    GetTransitionKnowledgeV1,
+    "Get_transition_knowledge",
+    1,
+    (),
+    Vec<StateHashV1Binable>
+);
 
 // pub struct ConsensusDataConsensusStateValue;
-// pub struct WithHash<T, U>(PhantomData<T>, PhantomData<U>);
-// pub struct ProofCarryingData<T, U> {
-//     __1: PhantomData<T>,
-//     __2: PhantomData<U>,
-// }
-// mina_rpc!(GetAncestry, "get_ancestry", WithHash<ConsensusDataConsensusStateValue, StateHash>, Option<ProofCarryingData<MinaBlockStable, (Vec<StateBodyHash>, MinaBlockStable)>>);
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct WithHashV1<A, H> {
+    data: A,
+    hash: H,
+}
+pub type WithHashV1Binable<A, H> = Versioned<WithHashV1<A, H>, 1>;
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct ProofCarryingDataV1<A, B> {
+    data: A,
+    proof: B,
+}
+pub type ProofCarryingDataWithHashV1Binable<A, B> = Versioned<ProofCarryingDataV1<A, B>, 1>;
+
+mina_rpc!(
+    GetAncestryV1,
+    "get_ancestry",
+    1,
+    WithHashV1Binable<ConsensusProofOfStakeDataConsensusStateValueStableV1Binable, StateHashV1Binable>,
+    Option<
+        ProofCarryingDataWithHashV1Binable<
+            MinaBlockExternalTransitionRawVersionedStableV1Binable,
+            (Vec<StateBodyHashV1Binable>, MinaBlockExternalTransitionRawVersionedStableV1Binable)
+        >
+    >
+);
 
 // mina_rpc!(BanNotify, "ban_notify", SystemTime, ());
 
@@ -97,7 +153,7 @@ mina_rpc!(
         ProofCarryingDataStableV1Binable<
             MinaBlockExternalTransitionRawVersionedStableV1Binable,
             (
-                Vec<StateBodyHash>,
+                Vec<LedgerHashV1Binable>,
                 MinaBlockExternalTransitionRawVersionedStableV1Binable
             ),
         >,
