@@ -1,6 +1,8 @@
+use std::collections::BTreeMap;
+
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
-use rpc::RpcResult;
+use rpc::{JSONinifyPayloadReader, RpcMethod, RpcResult};
 use serde::{Deserialize, Serialize};
 use v1::{
     ConsensusProofOfStakeDataConsensusStateValueStableV1Binable,
@@ -164,3 +166,87 @@ mina_rpc!(
 // mina_rpc!(GetNodeStatus, "get_node_status", 1, (), Result<NodeStatus, Box<dyn std::error::Error>>);
 // pub struct NodeStatus {}
 // mina_rpc!(GetNodeStatus, "get_node_status", 2, (), Result<NodeStatus, Box<dyn std::error::Error>>);
+
+/// Registry for uniformly JSONifying RPC payload data.
+///
+/// ```
+/// let r = mina_p2p_messages::JSONifyPayloadRegistry::new();
+/// let mut d = &b"\x01\x00"[..];
+/// let jsonifier = r.get("get_some_initial_peers", 1).unwrap();
+/// let json = jsonifier.read_query(&mut d).unwrap();
+/// ```
+pub struct JSONifyPayloadRegistry {
+    table: BTreeMap<(&'static str, versioned::Ver), Box<dyn JSONinifyPayloadReader>>,
+}
+
+impl JSONifyPayloadRegistry {
+    pub fn new() -> Self {
+        let mut this = Self {
+            table: BTreeMap::new(),
+        };
+        this.insert(GetEpochLedger);
+        //this.insert(GetStagedLedgerAuxAndPendingCoinbasesAtHashV1);
+        this.insert(GetSomeInitialPeersV1);
+        this.insert(AnswerSyncLedgerQueryV1);
+        this.insert(GetTransitionChainV1);
+        this.insert(GetTransitionChainProofV1);
+        this.insert(GetTransitionKnowledgeV1);
+        this.insert(GetAncestryV1);
+        this.insert(GetBestTipV1);
+        this
+    }
+
+    pub fn get<'a>(
+        &'a self,
+        name: &'a str,
+        version: versioned::Ver,
+    ) -> Option<&'a dyn JSONinifyPayloadReader> {
+        self.table.get(&(name, version)).map(Box::as_ref)
+    }
+
+    fn insert<T>(&mut self, t: T)
+    where
+        T: RpcMethod + 'static,
+        T::Query: Serialize,
+        T::Response: Serialize,
+    {
+        self.table.insert((T::NAME, T::VERSION), Box::new(t));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::JSONifyPayloadRegistry;
+
+    #[test]
+    fn jsonify_registry_content() {
+        let r = JSONifyPayloadRegistry::new();
+        for (name, version) in [
+            ("get_epoch_ledger", 1),
+            ("get_some_initial_peers", 1),
+            //("get_staged_ledger_aux_and_pending_coinbases_at_hash", 1),
+            ("answer_sync_ledger_query", 1),
+            ("get_transition_chain", 1),
+            ("get_transition_chain_proof", 1),
+            ("Get_transition_knowledge", 1),
+            ("get_ancestry", 1),
+            ("get_best_tip", 1),
+        ] {
+            assert!(r.get(name, version).is_some());
+        }
+    }
+
+    #[test]
+    fn jsonify_registry_query() {
+        let r = JSONifyPayloadRegistry::new();
+        let payload =
+            hex::decode("220101e7dd9b0d45abb2e4dec2c5d22e1f1bd8ae5133047914209a0229e90a62ecfb0e")
+                .unwrap();
+        let mut ptr = payload.as_slice();
+        let jsonify = r.get("get_transition_chain", 1).unwrap();
+        let json = jsonify.read_query(&mut ptr).unwrap();
+        let expected =
+            serde_json::json!(["e7dd9b0d45abb2e4dec2c5d22e1f1bd8ae5133047914209a0229e90a62ecfb0e"]);
+        assert_eq!(json, expected);
+    }
+}

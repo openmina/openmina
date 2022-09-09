@@ -230,8 +230,8 @@ pub enum MessageHeader {
 pub trait RpcMethod {
     const NAME: &'static str;
     const VERSION: Ver;
-    type Query;
-    type Response;
+    type Query: BinProtRead;
+    type Response: BinProtRead;
 }
 
 /// Reads binable (bin_prot-encoded) value from a stream, handles it and returns
@@ -298,7 +298,9 @@ pub trait RpcDebuggerReader: RpcMethod {
     fn debugger_query<R>(r: &mut R) -> Result<Self::Query, RpcDebuggerReaderError>
     where
         R: Read;
-    fn debugger_response<R>(r: &mut R) -> Result<Result<Self::Response, Error>, RpcDebuggerReaderError>
+    fn debugger_response<R>(
+        r: &mut R,
+    ) -> Result<Result<Self::Response, Error>, RpcDebuggerReaderError>
     where
         R: Read;
 }
@@ -320,7 +322,9 @@ where
         }
     }
 
-    fn debugger_response<R>(r: &mut R) -> Result<Result<Self::Response, Error>, RpcDebuggerReaderError>
+    fn debugger_response<R>(
+        r: &mut R,
+    ) -> Result<Result<Self::Response, Error>, RpcDebuggerReaderError>
     where
         R: Read,
     {
@@ -340,35 +344,25 @@ pub enum JSONinifyError {
     JSON(#[from] serde_json::Error),
 }
 
-pub trait JSONinifyReader: RpcMethod {
-    fn read_query<R>(r: &mut R) -> Result<serde_json::Value, JSONinifyError>
-    where
-        R: Read;
-    fn read_response<R>(r: &mut R) -> Result<serde_json::Value, JSONinifyError>
-    where
-        R: Read;
+pub trait JSONinifyPayloadReader {
+    fn read_query(&self, r: &mut dyn Read) -> Result<serde_json::Value, JSONinifyError>;
+    fn read_response(&self, r: &mut dyn Read) -> Result<serde_json::Value, JSONinifyError>;
 }
 
-impl<T> JSONinifyReader for T
+impl<T> JSONinifyPayloadReader for T
 where
     T: RpcMethod,
     T::Query: BinProtRead + Serialize,
     T::Response: BinProtRead + Serialize,
 {
-    fn read_query<R>(r: &mut R) -> Result<serde_json::Value, JSONinifyError>
-    where
-        R: Read,
-    {
-        let v = QueryPayload::<Self::Query>::binprot_read(r).map(|NeedsLength(v)| v)?;
+    fn read_query(&self, r: &mut dyn Read) -> Result<serde_json::Value, JSONinifyError> {
+        let v = QueryPayload::<T::Query>::binprot_read(r).map(|NeedsLength(v)| v)?;
         let json = serde_json::to_value(&v)?;
         Ok(json)
     }
 
-    fn read_response<R>(r: &mut R) -> Result<serde_json::Value, JSONinifyError>
-    where
-        R: Read,
-    {
-        let v = ResponsePayload::<Self::Response>::binprot_read(r)
+    fn read_response(&self, r: &mut dyn Read) -> Result<serde_json::Value, JSONinifyError> {
+        let v = ResponsePayload::<T::Response>::binprot_read(r)
             .map(|v| Result::from(v).map(|NeedsLength(v)| v))?;
         let json = serde_json::to_value(&v)?;
         Ok(json)
