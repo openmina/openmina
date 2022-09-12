@@ -59,6 +59,14 @@ macro_rules! mina_rpc {
 }
 
 mina_rpc!(
+    VersionedRpcMenuV1,
+    "__Versioned_rpc.Menu",
+    1,
+    (),
+    Vec<(string::String, versioned::Ver)>
+);
+
+mina_rpc!(
     GetSomeInitialPeersV1,
     "get_some_initial_peers",
     1,
@@ -225,6 +233,7 @@ impl JSONifyPayloadRegistry {
         let mut this = Self {
             table: BTreeMap::new(),
         };
+        this.insert(VersionedRpcMenuV1);
         this.insert(GetSomeInitialPeersV1);
         this.insert(GetStagedLedgerAuxAndPendingCoinbasesAtHashV1);
         this.insert(AnswerSyncLedgerQueryV1);
@@ -266,6 +275,7 @@ mod tests {
     fn jsonify_registry_content() {
         let r = JSONifyPayloadRegistry::new();
         for (name, version) in [
+            ("__Versioned_rpc.Menu", 1),
             ("get_some_initial_peers", 1),
             ("get_staged_ledger_aux_and_pending_coinbases_at_hash", 1),
             ("answer_sync_ledger_query", 1),
