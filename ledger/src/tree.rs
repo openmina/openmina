@@ -9,7 +9,7 @@ use std::{
 use crate::{
     account::{Account, AccountId, AccountLegacy, TokenId},
     address::{Address, AddressIterator, Direction},
-    base::{next_uuid, AccountIndex, BaseLedger, GetOrCreated, Uuid, MerklePath},
+    base::{next_uuid, AccountIndex, BaseLedger, GetOrCreated, MerklePath, Uuid},
     tree_version::{TreeVersion, V1, V2},
 };
 use mina_hasher::Fp;

@@ -9,7 +9,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     account::{Account, AccountId, TokenId},
     address::{Address, AddressIterator},
-    base::{AccountIndex, BaseLedger, GetOrCreated, Uuid, MerklePath},
+    base::{AccountIndex, BaseLedger, GetOrCreated, MerklePath, Uuid},
     mask::UnregisterBehavior,
     tree::{Database, DatabaseError},
     tree_version::{TreeVersion, V2},
