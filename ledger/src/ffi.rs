@@ -19,7 +19,7 @@ use serde::Deserialize;
 use crate::{
     account::{Account, AccountId, NonZeroCurvePointUncompressedStableV1},
     address::Address,
-    base::{AccountIndex, BaseLedger},
+    base::{AccountIndex, BaseLedger, MerklePath},
     tree::Database,
     tree_version::V2,
 };
@@ -53,6 +53,18 @@ impl_to_ocaml_polymorphic_variant! {
     PolymorphicGetOrAdded {
         PolymorphicGetOrAdded::Added,
         PolymorphicGetOrAdded::Existed,
+    }
+}
+
+pub enum PolymorphicPath {
+    Left(String),
+    Right(String),
+}
+
+impl_to_ocaml_polymorphic_variant! {
+    PolymorphicPath {
+        PolymorphicPath::Left(hash: String),
+        PolymorphicPath::Right(hash: String),
     }
 }
 
@@ -785,10 +797,70 @@ ocaml_export! {
         accounts.to_ocaml(rt)
     }
 
-  // external database_merkle_path : database -> addr -> bytes list = "rust_database_merkle_path"
-  // external database_merkle_path_at_addr : database -> bytes -> bytes list = "rust_database_merkle_path_at_addr"
-  // external database_merkle_path_at_index : database -> int -> bytes list = "rust_database_merkle_path_at_index"
+    fn rust_database_merkle_path(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>,
+        addr: OCamlRef<String>,
+    ) -> OCaml<OCamlList<PolymorphicPath>> {
+        let addr = get_addr(rt, addr);
 
+        let path = with_db(rt, db, |db| {
+            db.merkle_path(addr)
+        }).iter()
+          .map(|path| {
+              match path {
+                  MerklePath::Left(hash) => PolymorphicPath::Left(hash.to_string()),
+                  MerklePath::Right(hash) => PolymorphicPath::Right(hash.to_string()),
+              }
+          })
+          .collect::<Vec<_>>();
+
+        path.to_ocaml(rt)
+    }
+
+    fn rust_database_merkle_path_at_addr(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>,
+        addr: OCamlRef<String>,
+    ) -> OCaml<OCamlList<PolymorphicPath>> {
+        let addr = get_addr(rt, addr);
+
+        let path = with_db(rt, db, |db| {
+            db.merkle_path(addr)
+        }).iter()
+          .map(|path| {
+              match path {
+                  MerklePath::Left(hash) => PolymorphicPath::Left(hash.to_string()),
+                  MerklePath::Right(hash) => PolymorphicPath::Right(hash.to_string()),
+              }
+          })
+          .collect::<Vec<_>>();
+
+        path.to_ocaml(rt)
+    }
+
+    fn rust_database_merkle_path_at_index(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>,
+        index: OCamlRef<OCamlInt>,
+    ) -> OCaml<OCamlList<PolymorphicPath>> {
+        let index = get_index(rt, index);
+
+        let path = with_db(rt, db, |db| {
+            let depth = db.depth();
+            let addr = Address::from_index(index, depth as usize);
+            db.merkle_path(addr)
+        }).iter()
+          .map(|path| {
+              match path {
+                  MerklePath::Left(hash) => PolymorphicPath::Left(hash.to_string()),
+                  MerklePath::Right(hash) => PolymorphicPath::Right(hash.to_string()),
+              }
+          })
+          .collect::<Vec<_>>();
+
+        path.to_ocaml(rt)
+    }
 }
 
 // database_create : int -> database = "rust_database_create"
