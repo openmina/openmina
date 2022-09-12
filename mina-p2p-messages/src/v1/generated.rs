@@ -2,6 +2,8 @@ use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
 
+use super::manual::*;
+
 /// **Origin**: `Mina_block__External_transition.Raw_versioned__.Stable.V1.t`
 ///
 /// **Location**: [src/lib/mina_block/external_transition.ml:31:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_block/external_transition.ml#L31)
@@ -32,6 +34,12 @@ pub type MinaBaseAccountStableV1Binable =
 pub type NetworkPeerPeerStableV1Binable =
     crate::versioned::Versioned<NetworkPeerPeerStableV1BinableV1, 1i32>;
 
+/// **Origin**: `Transaction_snark_scan_state.Stable.V1.t`
+///
+/// **Location**: [src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml:151:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L151)
+pub type TransactionSnarkScanStateStableV1Binable =
+    crate::versioned::Versioned<TransactionSnarkScanStateStableV1BinableV1, 1i32>;
+
 /// **Origin**: `Mina_base__Pending_coinbase.Stable.V1.t`
 ///
 /// **Location**: [src/lib/mina_base/pending_coinbase.ml:1237:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L1237)
@@ -51,11 +59,6 @@ pub type MinaBaseSyncLedgerQueryStableV1Binable =
 pub type MinaBaseSyncLedgerAnswerStableV1Binable =
     crate::versioned::Versioned<MinaBaseSyncLedgerAnswerStableV1BinableV1, 1i32>;
 
-/// **Origin**: `Mina_base__Sparse_ledger.Stable.V1.t`
-///
-/// **Location**: [src/lib/mina_base/sparse_ledger.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sparse_ledger.ml#L8)
-pub type MinaBaseSparseLedgerStableV1Binable =
-    crate::versioned::Versioned<MinaBaseSparseLedgerStableV1BinableV1, 1i32>;
 
 
 /// **Origin**: `Sync_status.T.Stable.V1.t`
@@ -3648,6 +3651,565 @@ pub struct NetworkPeerPeerStableV1BinableV1 {
     pub peer_id: NetworkPeerPeerIdStableV1Binable,
 }
 
+/// Location: [src/lib/non_empty_list/non_empty_list.ml:7:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/non_empty_list/non_empty_list.ml#L7)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesV1<A>(pub A, pub Vec<A>);
+
+/// Location: [src/lib/non_empty_list/non_empty_list.ml:7:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/non_empty_list/non_empty_list.ml#L7)
+pub type TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1Trees<A> =
+    crate::versioned::Versioned<
+        TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesV1<A>,
+        1i32,
+    >;
+
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:226:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L226)
+pub type TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0<MergeT, BaseT> =
+    crate::versioned::Versioned<
+        TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0V1<MergeT, BaseT>,
+        1i32,
+    >;
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:53:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L53)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct ParallelScanWeightStableV1BinableV1 {
+    pub base: i32,
+    pub merge: i32,
+}
+
+/// **Origin**: `Parallel_scan.Weight.Stable.V1.t`
+///
+/// **Location**: [src/lib/parallel_scan/parallel_scan.ml:53:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L53)
+pub type ParallelScanWeightStableV1Binable =
+    crate::versioned::Versioned<ParallelScanWeightStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:22:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L22)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct ParallelScanSequenceNumberStableV1BinableV1(pub i32);
+
+/// **Origin**: `Parallel_scan.Sequence_number.Stable.V1.t`
+///
+/// **Location**: [src/lib/parallel_scan/parallel_scan.ml:22:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L22)
+pub type ParallelScanSequenceNumberStableV1Binable =
+    crate::versioned::Versioned<ParallelScanSequenceNumberStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:35:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L35)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum ParallelScanJobStatusStableV1BinableV1 {
+    Todo,
+    Done,
+}
+
+/// **Origin**: `Parallel_scan.Job_status.Stable.V1.t`
+///
+/// **Location**: [src/lib/parallel_scan/parallel_scan.ml:35:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L35)
+pub type ParallelScanJobStatusStableV1Binable =
+    crate::versioned::Versioned<ParallelScanJobStatusStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:105:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L105)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg0V11V1Full0V1<Merge> {
+    pub left: Merge,
+    pub right: Merge,
+    pub seq_no: ParallelScanSequenceNumberStableV1Binable,
+    pub status: ParallelScanJobStatusStableV1Binable,
+}
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:105:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L105)
+pub type TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg0V11V1Full0<Merge> =
+    crate::versioned::Versioned<
+        TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg0V11V1Full0V1<Merge>,
+        1i32,
+    >;
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:120:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L120)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg0V11V1<Merge> {
+    Empty,
+    Part(Merge),
+    Full(TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg0V11V1Full0<Merge>),
+}
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:120:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L120)
+pub type TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg0V11<Merge> =
+    crate::versioned::Versioned<
+        TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg0V11V1<Merge>,
+        1i32,
+    >;
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:140:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L140)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg0V1<Merge>(
+    pub  (
+        ParallelScanWeightStableV1Binable,
+        ParallelScanWeightStableV1Binable,
+    ),
+    pub TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg0V11<Merge>,
+);
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:140:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L140)
+pub type TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg0<Merge> =
+    crate::versioned::Versioned<
+        TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg0V1<Merge>,
+        1i32,
+    >;
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:68:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L68)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg1V11V1Full0V1<Base> {
+    pub job: Base,
+    pub seq_no: ParallelScanSequenceNumberStableV1Binable,
+    pub status: ParallelScanJobStatusStableV1Binable,
+}
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:68:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L68)
+pub type TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg1V11V1Full0<Base> =
+    crate::versioned::Versioned<
+        TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg1V11V1Full0V1<Base>,
+        1i32,
+    >;
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:82:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L82)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg1V11V1<Base> {
+    Empty,
+    Full(TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg1V11V1Full0<Base>),
+}
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:82:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L82)
+pub type TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg1V11<Base> =
+    crate::versioned::Versioned<
+        TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg1V11V1<Base>,
+        1i32,
+    >;
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:93:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L93)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg1V1<Base>(
+    pub ParallelScanWeightStableV1Binable,
+    pub TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg1V11<Base>,
+);
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:93:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L93)
+pub type TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg1<Base> =
+    crate::versioned::Versioned<
+        TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg1V1<Base>,
+        1i32,
+    >;
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:782:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L782)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1<Merge, Base> {
+    pub trees: TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1Trees<
+        TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0<
+            TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg0<Merge>,
+            TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0Arg1<Base>,
+        >,
+    >,
+    pub acc: Option<(Merge, Vec<Base>)>,
+    pub curr_job_seq_no: i32,
+    pub max_base_jobs: i32,
+    pub delay: i32,
+}
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:782:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L782)
+pub type TransactionSnarkScanStateStableV1BinableV1PolyV1Poly<Merge, Base> =
+    crate::versioned::Versioned<
+        TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1<Merge, Base>,
+        1i32,
+    >;
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:800:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L800)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TransactionSnarkScanStateStableV1BinableV1PolyV1<Merge, Base>(
+    pub TransactionSnarkScanStateStableV1BinableV1PolyV1Poly<Merge, Base>,
+);
+
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:800:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L800)
+pub type TransactionSnarkScanStateStableV1BinableV1Poly<Merge, Base> = crate::versioned::Versioned<
+    TransactionSnarkScanStateStableV1BinableV1PolyV1<Merge, Base>,
+    1i32,
+>;
+
+/// Location: [src/lib/mina_base/sok_message.ml:7:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sok_message.ml#L7)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseSokMessageStableV1BinableV1 {
+    pub fee: CurrencyFeeStableV1Binable,
+    pub prover: ConsensusProofOfStakeDataConsensusStateValueStableV1BinableV1PolyArg8,
+}
+
+/// **Origin**: `Mina_base__Sok_message.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/sok_message.ml:7:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sok_message.ml#L7)
+pub type MinaBaseSokMessageStableV1Binable =
+    crate::versioned::Versioned<MinaBaseSokMessageStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml:63:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L63)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TransactionSnarkScanStateLedgerProofWithSokMessageStableV1BinableV1(
+    pub LedgerProofProdStableV1Binable,
+    pub MinaBaseSokMessageStableV1Binable,
+);
+
+/// **Origin**: `Transaction_snark_scan_state.Ledger_proof_with_sok_message.Stable.V1.t`
+///
+/// **Location**: [src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml:63:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L63)
+pub type TransactionSnarkScanStateLedgerProofWithSokMessageStableV1Binable =
+    crate::versioned::Versioned<
+        TransactionSnarkScanStateLedgerProofWithSokMessageStableV1BinableV1,
+        1i32,
+    >;
+
+/// Location: [src/lib/mina_base/transaction_logic.ml:44:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L44)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV1BinableV1 {
+    pub user_command: StagedLedgerDiffPreDiffWithAtMostTwoCoinbaseStableV1BinableV1PolyArg1<
+        MinaBaseSignedCommandStableV1Binable,
+    >,
+    pub previous_receipt_chain_hash:
+        MinaBaseSnappPredicateAccountStableV1BinableV1PolyArg0V1PolyArg0Dup1,
+    pub fee_payer_timing: MinaBaseAccountTimingStableV1Binable,
+    pub source_timing: Option<MinaBaseAccountTimingStableV1Binable>,
+}
+
+/// **Origin**: `Mina_base__Transaction_logic.Transaction_applied.Signed_command_applied.Common.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/transaction_logic.ml:44:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L44)
+pub type MinaBaseTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV1Binable =
+    crate::versioned::Versioned<
+        MinaBaseTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV1BinableV1,
+        1i32,
+    >;
+
+/// Location: [src/lib/mina_base/account_id.ml:9:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account_id.ml#L9)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseAccountIdStableV1BinableV1(
+    pub ConsensusProofOfStakeDataConsensusStateValueStableV1BinableV1PolyArg8,
+    pub MinaBaseTokenIdStableV1Binable,
+);
+
+/// **Origin**: `Mina_base__Account_id.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/account_id.ml:9:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account_id.ml#L9)
+pub type MinaBaseAccountIdStableV1Binable =
+    crate::versioned::Versioned<MinaBaseAccountIdStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/mina_base/transaction_logic.ml:61:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L61)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaBaseTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV1BinableV1 {
+    Payment {
+        previous_empty_accounts: Vec<MinaBaseAccountIdStableV1Binable>,
+    },
+    StakeDelegation {
+        previous_delegate:
+            Option<ConsensusProofOfStakeDataConsensusStateValueStableV1BinableV1PolyArg8>,
+    },
+    CreateNewToken {
+        created_token: MinaBaseTokenIdStableV1Binable,
+    },
+    CreateTokenAccount,
+    MintTokens,
+    Failed,
+}
+
+/// **Origin**: `Mina_base__Transaction_logic.Transaction_applied.Signed_command_applied.Body.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/transaction_logic.ml:61:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L61)
+pub type MinaBaseTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV1Binable =
+    crate::versioned::Versioned<
+        MinaBaseTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV1BinableV1,
+        1i32,
+    >;
+
+/// Location: [src/lib/mina_base/transaction_logic.ml:80:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L80)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseTransactionLogicTransactionAppliedSignedCommandAppliedStableV1BinableV1 {
+    pub common: MinaBaseTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV1Binable,
+    pub body: MinaBaseTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV1Binable,
+}
+
+/// **Origin**: `Mina_base__Transaction_logic.Transaction_applied.Signed_command_applied.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/transaction_logic.ml:80:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L80)
+pub type MinaBaseTransactionLogicTransactionAppliedSignedCommandAppliedStableV1Binable =
+    crate::versioned::Versioned<
+        MinaBaseTransactionLogicTransactionAppliedSignedCommandAppliedStableV1BinableV1,
+        1i32,
+    >;
+
+/// Location: [src/lib/mina_base/transaction_logic.ml:92:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L92)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseTransactionLogicTransactionAppliedSnappCommandAppliedStableV1BinableV1 {
+    pub accounts: Vec<(
+        MinaBaseAccountIdStableV1Binable,
+        Option<MinaBaseAccountStableV1Binable>,
+    )>,
+    pub command: StagedLedgerDiffPreDiffWithAtMostTwoCoinbaseStableV1BinableV1PolyArg1<
+        MinaBaseSnappCommandStableV1Binable,
+    >,
+}
+
+/// **Origin**: `Mina_base__Transaction_logic.Transaction_applied.Snapp_command_applied.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/transaction_logic.ml:92:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L92)
+pub type MinaBaseTransactionLogicTransactionAppliedSnappCommandAppliedStableV1Binable =
+    crate::versioned::Versioned<
+        MinaBaseTransactionLogicTransactionAppliedSnappCommandAppliedStableV1BinableV1,
+        1i32,
+    >;
+
+/// Location: [src/lib/mina_base/transaction_logic.ml:108:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L108)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaBaseTransactionLogicTransactionAppliedCommandAppliedStableV1BinableV1 {
+    SignedCommand(MinaBaseTransactionLogicTransactionAppliedSignedCommandAppliedStableV1Binable),
+    SnappCommand(MinaBaseTransactionLogicTransactionAppliedSnappCommandAppliedStableV1Binable),
+}
+
+/// **Origin**: `Mina_base__Transaction_logic.Transaction_applied.Command_applied.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/transaction_logic.ml:108:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L108)
+pub type MinaBaseTransactionLogicTransactionAppliedCommandAppliedStableV1Binable =
+    crate::versioned::Versioned<
+        MinaBaseTransactionLogicTransactionAppliedCommandAppliedStableV1BinableV1,
+        1i32,
+    >;
+
+/// Location: [src/lib/mina_base/fee_transfer.ml:8:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/fee_transfer.ml#L8)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseFeeTransferSingleStableV1BinableV1 {
+    pub receiver_pk: ConsensusProofOfStakeDataConsensusStateValueStableV1BinableV1PolyArg8,
+    pub fee: CurrencyFeeStableV1Binable,
+    pub fee_token: MinaBaseTokenIdStableV1Binable,
+}
+
+/// **Origin**: `Mina_base__Fee_transfer.Single.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/fee_transfer.ml:8:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/fee_transfer.ml#L8)
+pub type MinaBaseFeeTransferSingleStableV1Binable =
+    crate::versioned::Versioned<MinaBaseFeeTransferSingleStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/mina_base/fee_transfer.ml:57:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/fee_transfer.ml#L57)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseFeeTransferStableV1BinableV1(
+    pub TransactionSnarkWorkTStableV1BinableV1Proofs<MinaBaseFeeTransferSingleStableV1Binable>,
+);
+
+/// **Origin**: `Mina_base__Fee_transfer.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/fee_transfer.ml:57:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/fee_transfer.ml#L57)
+pub type MinaBaseFeeTransferStableV1Binable =
+    crate::versioned::Versioned<MinaBaseFeeTransferStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/mina_base/transaction_logic.ml:122:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L122)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseTransactionLogicTransactionAppliedFeeTransferAppliedStableV1BinableV1 {
+    pub fee_transfer: MinaBaseFeeTransferStableV1Binable,
+    pub previous_empty_accounts: Vec<MinaBaseAccountIdStableV1Binable>,
+    pub receiver_timing: MinaBaseAccountTimingStableV1Binable,
+    pub balances: MinaBaseTransactionStatusFeeTransferBalanceDataStableV1Binable,
+}
+
+/// **Origin**: `Mina_base__Transaction_logic.Transaction_applied.Fee_transfer_applied.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/transaction_logic.ml:122:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L122)
+pub type MinaBaseTransactionLogicTransactionAppliedFeeTransferAppliedStableV1Binable =
+    crate::versioned::Versioned<
+        MinaBaseTransactionLogicTransactionAppliedFeeTransferAppliedStableV1BinableV1,
+        1i32,
+    >;
+
+/// Location: [src/lib/mina_base/coinbase.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/coinbase.ml#L8)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseCoinbaseStableV1BinableV1 {
+    pub receiver: ConsensusProofOfStakeDataConsensusStateValueStableV1BinableV1PolyArg8,
+    pub amount: CurrencyAmountMakeStrStableV1Binable,
+    pub fee_transfer: Option<MinaBaseCoinbaseFeeTransferStableV1Binable>,
+}
+
+/// **Origin**: `Mina_base__Coinbase.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/coinbase.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/coinbase.ml#L8)
+pub type MinaBaseCoinbaseStableV1Binable =
+    crate::versioned::Versioned<MinaBaseCoinbaseStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/mina_base/transaction_logic.ml:139:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L139)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseTransactionLogicTransactionAppliedCoinbaseAppliedStableV1BinableV1 {
+    pub coinbase: MinaBaseCoinbaseStableV1Binable,
+    pub previous_empty_accounts: Vec<MinaBaseAccountIdStableV1Binable>,
+    pub receiver_timing: MinaBaseAccountTimingStableV1Binable,
+    pub balances: MinaBaseTransactionStatusCoinbaseBalanceDataStableV1Binable,
+}
+
+/// **Origin**: `Mina_base__Transaction_logic.Transaction_applied.Coinbase_applied.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/transaction_logic.ml:139:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L139)
+pub type MinaBaseTransactionLogicTransactionAppliedCoinbaseAppliedStableV1Binable =
+    crate::versioned::Versioned<
+        MinaBaseTransactionLogicTransactionAppliedCoinbaseAppliedStableV1BinableV1,
+        1i32,
+    >;
+
+/// Location: [src/lib/mina_base/transaction_logic.ml:156:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L156)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaBaseTransactionLogicTransactionAppliedVaryingStableV1BinableV1 {
+    Command(MinaBaseTransactionLogicTransactionAppliedCommandAppliedStableV1Binable),
+    FeeTransfer(MinaBaseTransactionLogicTransactionAppliedFeeTransferAppliedStableV1Binable),
+    Coinbase(MinaBaseTransactionLogicTransactionAppliedCoinbaseAppliedStableV1Binable),
+}
+
+/// **Origin**: `Mina_base__Transaction_logic.Transaction_applied.Varying.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/transaction_logic.ml:156:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L156)
+pub type MinaBaseTransactionLogicTransactionAppliedVaryingStableV1Binable =
+    crate::versioned::Versioned<
+        MinaBaseTransactionLogicTransactionAppliedVaryingStableV1BinableV1,
+        1i32,
+    >;
+
+/// Location: [src/lib/mina_base/transaction_logic.ml:170:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L170)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseTransactionLogicTransactionAppliedStableV1BinableV1 {
+    pub previous_hash: MinaBaseStagedLedgerHashNonSnarkStableV1BinableV1LedgerHash,
+    pub varying: MinaBaseTransactionLogicTransactionAppliedVaryingStableV1Binable,
+}
+
+/// **Origin**: `Mina_base__Transaction_logic.Transaction_applied.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/transaction_logic.ml:170:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_logic.ml#L170)
+pub type MinaBaseTransactionLogicTransactionAppliedStableV1Binable =
+    crate::versioned::Versioned<MinaBaseTransactionLogicTransactionAppliedStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/mina_base/snapp_predicate.ml:699:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/snapp_predicate.ml#L699)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseSnappPredicateProtocolStateViewStableV1BinableV1(
+    pub  MinaBaseSnappPredicateProtocolStateStableV1BinableV1Poly<
+        MinaBaseStagedLedgerHashNonSnarkStableV1BinableV1LedgerHash,
+        MinaBaseTokenIdStableV1Binable,
+        BlockTimeTimeStableV1Binable,
+        ConsensusProofOfStakeDataConsensusStateValueStableV1BinableV1PolyArg0,
+        (),
+        ConsensusGlobalSlotStableV1BinableV1PolyArg0,
+        CurrencyAmountMakeStrStableV1Binable,
+        ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1BinableV1Poly<
+            MinaBaseEpochLedgerValueStableV1BinableV1Poly<
+                MinaBaseStagedLedgerHashNonSnarkStableV1BinableV1LedgerHash,
+                CurrencyAmountMakeStrStableV1Binable,
+            >,
+            ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1BinableV1PolyArg1,
+            MinaStateProtocolStateValueStableV1BinableV1PolyArg0,
+            MinaStateProtocolStateValueStableV1BinableV1PolyArg0,
+            ConsensusProofOfStakeDataConsensusStateValueStableV1BinableV1PolyArg0,
+        >,
+    >,
+);
+
+/// **Origin**: `Mina_base__Snapp_predicate.Protocol_state.View.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/snapp_predicate.ml:699:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/snapp_predicate.ml#L699)
+pub type MinaBaseSnappPredicateProtocolStateViewStableV1Binable =
+    crate::versioned::Versioned<MinaBaseSnappPredicateProtocolStateViewStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/transaction_snark/transaction_snark.ml:51:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark/transaction_snark.ml#L51)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum TransactionSnarkPendingCoinbaseStackStateInitStackStableV1BinableV1 {
+    Base(MinaBasePendingCoinbaseStackVersionedStableV1Binable),
+    Merge,
+}
+
+/// **Origin**: `Transaction_snark.Pending_coinbase_stack_state.Init_stack.Stable.V1.t`
+///
+/// **Location**: [src/lib/transaction_snark/transaction_snark.ml:51:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark/transaction_snark.ml#L51)
+pub type TransactionSnarkPendingCoinbaseStackStateInitStackStableV1Binable =
+    crate::versioned::Versioned<
+        TransactionSnarkPendingCoinbaseStackStateInitStackStableV1BinableV1,
+        1i32,
+    >;
+
+/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:9:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L9)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaBaseSparseLedgerStableV1BinableV1PolyV1TreeV1<Hash, Account> {
+    Account(Account),
+    Hash(Hash),
+    Node(
+        Hash,
+        Box<MinaBaseSparseLedgerStableV1BinableV1PolyV1TreeV1<Hash, Account>>,
+        Box<MinaBaseSparseLedgerStableV1BinableV1PolyV1TreeV1<Hash, Account>>,
+    ),
+}
+
+/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:9:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L9)
+pub type MinaBaseSparseLedgerStableV1BinableV1PolyV1Tree<Hash, Account> =
+    crate::versioned::Versioned<
+        MinaBaseSparseLedgerStableV1BinableV1PolyV1TreeV1<Hash, Account>,
+        1i32,
+    >;
+
+/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:30:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L30)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseSparseLedgerStableV1BinableV1PolyV1<Hash, Key, Account, TokenId> {
+    pub indexes: Vec<(Key, i32)>,
+    pub depth: i32,
+    pub tree: MinaBaseSparseLedgerStableV1BinableV1PolyV1Tree<Hash, Account>,
+    pub next_available_token: TokenId,
+}
+
+/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:30:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L30)
+pub type MinaBaseSparseLedgerStableV1BinableV1Poly<Hash, Key, Account, TokenId> =
+    crate::versioned::Versioned<
+        MinaBaseSparseLedgerStableV1BinableV1PolyV1<Hash, Key, Account, TokenId>,
+        1i32,
+    >;
+
+/// Location: [src/lib/mina_base/sparse_ledger.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sparse_ledger.ml#L8)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseSparseLedgerStableV1BinableV1(
+    pub  MinaBaseSparseLedgerStableV1BinableV1Poly<
+        MinaBaseStagedLedgerHashNonSnarkStableV1BinableV1LedgerHash,
+        MinaBaseAccountIdStableV1Binable,
+        MinaBaseAccountStableV1Binable,
+        MinaBaseTokenIdStableV1Binable,
+    >,
+);
+
+/// **Origin**: `Mina_base__Sparse_ledger.Stable.V1.t`
+///
+/// **Location**: [src/lib/mina_base/sparse_ledger.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sparse_ledger.ml#L8)
+pub type MinaBaseSparseLedgerStableV1Binable =
+    crate::versioned::Versioned<MinaBaseSparseLedgerStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml:40:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L40)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TransactionSnarkScanStateTransactionWithWitnessStableV1BinableV1 {
+    pub transaction_with_info: MinaBaseTransactionLogicTransactionAppliedStableV1Binable,
+    pub state_hash: (
+        MinaStateProtocolStateValueStableV1BinableV1PolyArg0,
+        MinaBlockExternalTransitionRawVersionedStableV1BinableV1DeltaTransitionChainProofArg0,
+    ),
+    pub state_view: MinaBaseSnappPredicateProtocolStateViewStableV1Binable,
+    pub statement: TransactionSnarkStatementStableV1Binable,
+    pub init_stack: TransactionSnarkPendingCoinbaseStackStateInitStackStableV1Binable,
+    pub ledger_witness: MinaBaseSparseLedgerStableV1Binable,
+}
+
+/// **Origin**: `Transaction_snark_scan_state.Transaction_with_witness.Stable.V1.t`
+///
+/// **Location**: [src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml:40:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L40)
+pub type TransactionSnarkScanStateTransactionWithWitnessStableV1Binable =
+    crate::versioned::Versioned<
+        TransactionSnarkScanStateTransactionWithWitnessStableV1BinableV1,
+        1i32,
+    >;
+
+/// Location: [src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml:151:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L151)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TransactionSnarkScanStateStableV1BinableV1(
+    pub  TransactionSnarkScanStateStableV1BinableV1Poly<
+        TransactionSnarkScanStateLedgerProofWithSokMessageStableV1Binable,
+        TransactionSnarkScanStateTransactionWithWitnessStableV1Binable,
+    >,
+);
+
 /// Location: [src/lib/mina_base/pending_coinbase.ml:1225:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L1225)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePendingCoinbaseStableV1BinableV1PolyV1<Tree, StackId> {
@@ -3659,50 +4221,6 @@ pub struct MinaBasePendingCoinbaseStableV1BinableV1PolyV1<Tree, StackId> {
 /// Location: [src/lib/mina_base/pending_coinbase.ml:1225:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L1225)
 pub type MinaBasePendingCoinbaseStableV1BinableV1Poly<Tree, StackId> = crate::versioned::Versioned<
     MinaBasePendingCoinbaseStableV1BinableV1PolyV1<Tree, StackId>,
-    1i32,
->;
-
-/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:9:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L9)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub enum MinaBasePendingCoinbaseMerkleTreeVersionedStableV1BinableV1PolyV1TreeV1<Hash, Account> {
-    Account(Account),
-    Hash(Hash),
-    Node(
-        Hash,
-        Box<MinaBasePendingCoinbaseMerkleTreeVersionedStableV1BinableV1PolyV1TreeV1<Hash, Account>>,
-        Box<MinaBasePendingCoinbaseMerkleTreeVersionedStableV1BinableV1PolyV1TreeV1<Hash, Account>>,
-    ),
-}
-
-/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:9:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L9)
-pub type MinaBasePendingCoinbaseMerkleTreeVersionedStableV1BinableV1PolyV1Tree<Hash, Account> =
-    crate::versioned::Versioned<
-        MinaBasePendingCoinbaseMerkleTreeVersionedStableV1BinableV1PolyV1TreeV1<Hash, Account>,
-        1i32,
-    >;
-
-/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:30:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L30)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBasePendingCoinbaseMerkleTreeVersionedStableV1BinableV1PolyV1<
-    Hash,
-    Key,
-    Account,
-    TokenId,
-> {
-    pub indexes: Vec<(Key, i32)>,
-    pub depth: i32,
-    pub tree: MinaBasePendingCoinbaseMerkleTreeVersionedStableV1BinableV1PolyV1Tree<Hash, Account>,
-    pub next_available_token: TokenId,
-}
-
-/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:30:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L30)
-pub type MinaBasePendingCoinbaseMerkleTreeVersionedStableV1BinableV1Poly<
-    Hash,
-    Key,
-    Account,
-    TokenId,
-> = crate::versioned::Versioned<
-    MinaBasePendingCoinbaseMerkleTreeVersionedStableV1BinableV1PolyV1<Hash, Key, Account, TokenId>,
     1i32,
 >;
 
@@ -3719,7 +4237,7 @@ pub type MinaBasePendingCoinbaseStackIdStableV1Binable =
 /// Location: [src/lib/mina_base/pending_coinbase.ml:529:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L529)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePendingCoinbaseMerkleTreeVersionedStableV1BinableV1(
-    pub  MinaBasePendingCoinbaseMerkleTreeVersionedStableV1BinableV1Poly<
+    pub  MinaBaseSparseLedgerStableV1BinableV1Poly<
         MinaBasePendingCoinbaseHashVersionedStableV1Binable,
         MinaBasePendingCoinbaseStackIdStableV1Binable,
         MinaBasePendingCoinbaseStackVersionedStableV1Binable,
@@ -3800,30 +4318,6 @@ pub struct MinaBaseSyncLedgerAnswerStableV1BinableV1(
     pub  MinaBaseSyncLedgerAnswerStableV1BinableV1Poly<
         MinaBaseStagedLedgerHashNonSnarkStableV1BinableV1LedgerHash,
         MinaBaseAccountStableV1Binable,
-    >,
-);
-
-/// Location: [src/lib/mina_base/account_id.ml:9:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account_id.ml#L9)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseAccountIdStableV1BinableV1(
-    pub ConsensusProofOfStakeDataConsensusStateValueStableV1BinableV1PolyArg8,
-    pub MinaBaseTokenIdStableV1Binable,
-);
-
-/// **Origin**: `Mina_base__Account_id.Stable.V1.t`
-///
-/// **Location**: [src/lib/mina_base/account_id.ml:9:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account_id.ml#L9)
-pub type MinaBaseAccountIdStableV1Binable =
-    crate::versioned::Versioned<MinaBaseAccountIdStableV1BinableV1, 1i32>;
-
-/// Location: [src/lib/mina_base/sparse_ledger.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sparse_ledger.ml#L8)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseSparseLedgerStableV1BinableV1(
-    pub  MinaBasePendingCoinbaseMerkleTreeVersionedStableV1BinableV1Poly<
-        MinaBaseStagedLedgerHashNonSnarkStableV1BinableV1LedgerHash,
-        MinaBaseAccountIdStableV1Binable,
-        MinaBaseAccountStableV1Binable,
-        MinaBaseTokenIdStableV1Binable,
     >,
 );
 
