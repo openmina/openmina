@@ -58,6 +58,18 @@ pub type MinaBaseSparseLedgerStableV1Binable =
     crate::versioned::Versioned<MinaBaseSparseLedgerStableV1BinableV1, 1i32>;
 
 
+/// **Origin**: `Sync_status.T.Stable.V1.t`
+///
+/// **Location**: [src/lib/sync_status/sync_status.ml:54:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sync_status/sync_status.ml#L54)
+pub type SyncStatusTStableV1Binable =
+    crate::versioned::Versioned<SyncStatusTStableV1BinableV1, 1i32>;
+
+/// **Origin**: `Trust_system__Peer_status.Stable.V1.t`
+///
+/// **Location**: [src/lib/trust_system/peer_status.ml:6:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/trust_system/peer_status.ml#L6)
+pub type TrustSystemPeerStatusStableV1Binable =
+    crate::versioned::Versioned<TrustSystemPeerStatusStableV1BinableV1, 1i32>;
+
 
 /// Location: [src/lib/mina_state/protocol_state.ml:16:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_state/protocol_state.ml#L16)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
@@ -3814,3 +3826,35 @@ pub struct MinaBaseSparseLedgerStableV1BinableV1(
         MinaBaseTokenIdStableV1Binable,
     >,
 );
+
+/// Location: [src/lib/sync_status/sync_status.ml:54:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sync_status/sync_status.ml#L54)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[polymorphic_variant]
+pub enum SyncStatusTStableV1BinableV1 {
+    Connecting,
+    Listening,
+    Offline,
+    Bootstrap,
+    Synced,
+    Catchup,
+}
+
+/// Location: [src/lib/trust_system/banned_status.ml:7:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/trust_system/banned_status.ml#L7)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum TrustSystemBannedStatusStableV1BinableV1 {
+    Unbanned,
+    BannedUntil(f64),
+}
+
+/// **Origin**: `Trust_system__Banned_status.Stable.V1.t`
+///
+/// **Location**: [src/lib/trust_system/banned_status.ml:7:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/trust_system/banned_status.ml#L7)
+pub type TrustSystemBannedStatusStableV1Binable =
+    crate::versioned::Versioned<TrustSystemBannedStatusStableV1BinableV1, 1i32>;
+
+/// Location: [src/lib/trust_system/peer_status.ml:6:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/trust_system/peer_status.ml#L6)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TrustSystemPeerStatusStableV1BinableV1 {
+    pub trust: f64,
+    pub banned: TrustSystemBannedStatusStableV1Binable,
+}
