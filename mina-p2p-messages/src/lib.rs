@@ -14,12 +14,15 @@ use v1::{
     MinaBlockExternalTransitionRawVersionedStableV1Binable,
     MinaStateProtocolStateValueStableV1Binable,
     NetworkPeerPeerIdStableV1Binable,
+    PublicKeyCompressedStableV1Binable,
+    SyncStatusTStableV1Binable,
+    TrustSystemPeerStatusStableV1Binable,
 };
 use versioned::Versioned;
 
 pub mod bigint;
 pub mod char_;
-pub mod core_error;
+pub mod core;
 pub mod phantom;
 pub mod rpc;
 pub mod string;
@@ -43,7 +46,7 @@ pub enum GossipNetMessage {
 }
 
 macro_rules! mina_rpc {
-    ($name:ident, $tag:literal, $version:literal, $query:ty, $response:ty) => {
+    ($name:ident, $tag:literal, $version:literal, $query:ty, $response:ty $(,)?) => {
         pub struct $name;
         impl crate::rpc::RpcMethod for $name {
             const NAME: &'static str = $tag;
@@ -54,8 +57,6 @@ macro_rules! mina_rpc {
     };
 }
 
-mina_rpc!(GetEpochLedger, "get_epoch_ledger", 1, LedgerHashV1Binable, RpcResult<MinaBaseSparseLedgerStableV1Binable, string::String>);
-
 mina_rpc!(
     GetSomeInitialPeersV1,
     "get_some_initial_peers",
@@ -64,18 +65,20 @@ mina_rpc!(
     Vec<NetworkPeerPeerIdStableV1Binable>
 );
 
+pub type GetStagedLedgerAuxAndPendingCoinbasesAtHashV1Response = Option<(
+    (), //TransactionSnarkScanStateStableV1Binable,
+    LedgerHashV1Binable,
+    MinaBasePendingCoinbaseStableV1Binable,
+    Vec<MinaStateProtocolStateValueStableV1Binable>,
+)>;
+
 // TODO implement TransactionSnarkScanStateStableV1Binable
 mina_rpc!(
     GetStagedLedgerAuxAndPendingCoinbasesAtHashV1,
     "get_staged_ledger_aux_and_pending_coinbases_at_hash",
     1,
     StateHashV1Binable,
-    Option<(
-        (), //TransactionSnarkScanStateStableV1Binable,
-        LedgerHashV1Binable,
-        MinaBasePendingCoinbaseStableV1Binable,
-        Vec<MinaStateProtocolStateValueStableV1Binable>
-    )>
+    GetStagedLedgerAuxAndPendingCoinbasesAtHashV1Response,
 );
 
 mina_rpc!(
@@ -83,9 +86,8 @@ mina_rpc!(
     "answer_sync_ledger_query",
     1,
     (LedgerHashV1Binable, MinaBaseSyncLedgerQueryStableV1Binable),
-    RpcResult<MinaBaseSyncLedgerAnswerStableV1Binable, core_error::Error>
+    RpcResult<MinaBaseSyncLedgerAnswerStableV1Binable, core::Error>
 );
-
 mina_rpc!(
     GetTransitionChainV1,
     "get_transition_chain",
@@ -94,12 +96,14 @@ mina_rpc!(
     Option<Vec<MinaBlockExternalTransitionRawVersionedStableV1Binable>>
 );
 
+pub type GetTransitionChainProofV1Response =
+    Option<(StateHashV1Binable, Vec<StateBodyHashV1Binable>)>;
 mina_rpc!(
     GetTransitionChainProofV1,
     "get_transition_chain_proof",
     1,
     StateHashV1Binable,
-    Option<(StateHashV1Binable, Vec<StateBodyHashV1Binable>)>
+    GetTransitionChainProofV1Response,
 );
 
 mina_rpc!(
@@ -125,20 +129,28 @@ pub struct ProofCarryingDataV1<A, B> {
 }
 pub type ProofCarryingDataWithHashV1Binable<A, B> = Versioned<ProofCarryingDataV1<A, B>, 1>;
 
+pub type GetAncestryV1Query = WithHashV1Binable<
+    ConsensusProofOfStakeDataConsensusStateValueStableV1Binable,
+    StateHashV1Binable,
+>;
+pub type GetAncestryV1Response = Option<
+    ProofCarryingDataWithHashV1Binable<
+        MinaBlockExternalTransitionRawVersionedStableV1Binable,
+        (
+            Vec<StateBodyHashV1Binable>,
+            MinaBlockExternalTransitionRawVersionedStableV1Binable,
+        ),
+    >,
+>;
 mina_rpc!(
     GetAncestryV1,
     "get_ancestry",
     1,
-    WithHashV1Binable<ConsensusProofOfStakeDataConsensusStateValueStableV1Binable, StateHashV1Binable>,
-    Option<
-        ProofCarryingDataWithHashV1Binable<
-            MinaBlockExternalTransitionRawVersionedStableV1Binable,
-            (Vec<StateBodyHashV1Binable>, MinaBlockExternalTransitionRawVersionedStableV1Binable)
-        >
-    >
+    GetAncestryV1Query,
+    GetAncestryV1Response,
 );
 
-// mina_rpc!(BanNotify, "ban_notify", SystemTime, ());
+mina_rpc!(BanNotifyV1, "ban_notify", 1, core::Time, ());
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ProofCarryingDataStableV1<A, B> {
@@ -146,26 +158,54 @@ pub struct ProofCarryingDataStableV1<A, B> {
     proof: B,
 }
 pub type ProofCarryingDataStableV1Binable<A, B> = Versioned<ProofCarryingDataStableV1<A, B>, 1>;
-mina_rpc!(
-    GetBestTipV1,
-    "get_best_tip",
-    1,
-    (),
-    Option<
-        ProofCarryingDataStableV1Binable<
+pub type GetBestTipV1Response = Option<
+    ProofCarryingDataStableV1Binable<
+        MinaBlockExternalTransitionRawVersionedStableV1Binable,
+        (
+            Vec<LedgerHashV1Binable>,
             MinaBlockExternalTransitionRawVersionedStableV1Binable,
-            (
-                Vec<LedgerHashV1Binable>,
-                MinaBlockExternalTransitionRawVersionedStableV1Binable
-            ),
-        >,
-    >
-);
+        ),
+    >,
+>;
+mina_rpc!(GetBestTipV1, "get_best_tip", 1, (), GetBestTipV1Response);
 
-// pub struct NodeStatusV1 {}
-// mina_rpc!(GetNodeStatus, "get_node_status", 1, (), Result<NodeStatus, Box<dyn std::error::Error>>);
-// pub struct NodeStatus {}
-// mina_rpc!(GetNodeStatus, "get_node_status", 2, (), Result<NodeStatus, Box<dyn std::error::Error>>);
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct NodeStatusV1 {
+    node_ip_addr: core::InetAddrV1Binable,
+    node_peer_id: NetworkPeerPeerIdStableV1Binable,
+    sync_status: SyncStatusTStableV1Binable,
+    peers: Vec<NetworkPeerPeerIdStableV1Binable>,
+    block_producers: Vec<PublicKeyCompressedStableV1Binable>,
+    ban_statuses: Vec<(
+        NetworkPeerPeerIdStableV1Binable,
+        TrustSystemPeerStatusStableV1Binable,
+    )>,
+    k_block_hashes_and_timestamps: Vec<(StateHashV1Binable, string::String)>,
+    git_commit: string::String,
+    uptime_minutes: i32,
+}
+mina_rpc!(GetNodeStatusV1, "get_node_status", 1, (), RpcResult<NodeStatusV1, core::Error>);
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct NodeStatusV2 {
+    node_ip_addr: core::InetAddrV1Binable,
+    node_peer_id: NetworkPeerPeerIdStableV1Binable,
+    sync_status: SyncStatusTStableV1Binable,
+    peers: Vec<NetworkPeerPeerIdStableV1Binable>,
+    block_producers: Vec<PublicKeyCompressedStableV1Binable>,
+    protocol_state_hash: StateHashV1Binable,
+    ban_statuses: Vec<(
+        NetworkPeerPeerIdStableV1Binable,
+        TrustSystemPeerStatusStableV1Binable,
+    )>,
+    k_block_hashes_and_timestamps: Vec<(StateHashV1Binable, string::String)>,
+    git_commit: string::String,
+    uptime_minutes: i32,
+    block_height_opt: Option<i32>,
+}
+mina_rpc!(GetNodeStatusV2, "get_node_status", 2, (), RpcResult<NodeStatusV2, core::Error>);
+
+mina_rpc!(GetEpochLedger, "get_epoch_ledger", 1, LedgerHashV1Binable, RpcResult<MinaBaseSparseLedgerStableV1Binable, string::String>);
 
 /// Registry for uniformly JSONifying RPC payload data.
 ///
@@ -184,15 +224,18 @@ impl JSONifyPayloadRegistry {
         let mut this = Self {
             table: BTreeMap::new(),
         };
-        this.insert(GetEpochLedger);
-        //this.insert(GetStagedLedgerAuxAndPendingCoinbasesAtHashV1);
         this.insert(GetSomeInitialPeersV1);
+        // this.insert(GetStagedLedgerAuxAndPendingCoinbasesAtHashV1);
         this.insert(AnswerSyncLedgerQueryV1);
         this.insert(GetTransitionChainV1);
         this.insert(GetTransitionChainProofV1);
         this.insert(GetTransitionKnowledgeV1);
+        this.insert(BanNotifyV1);
         this.insert(GetAncestryV1);
         this.insert(GetBestTipV1);
+        this.insert(GetNodeStatusV1);
+        this.insert(GetNodeStatusV2);
+        this.insert(GetEpochLedger);
         this
     }
 
@@ -222,7 +265,6 @@ mod tests {
     fn jsonify_registry_content() {
         let r = JSONifyPayloadRegistry::new();
         for (name, version) in [
-            ("get_epoch_ledger", 1),
             ("get_some_initial_peers", 1),
             //("get_staged_ledger_aux_and_pending_coinbases_at_hash", 1),
             ("answer_sync_ledger_query", 1),
@@ -230,7 +272,11 @@ mod tests {
             ("get_transition_chain_proof", 1),
             ("Get_transition_knowledge", 1),
             ("get_ancestry", 1),
+            ("ban_notify", 1),
             ("get_best_tip", 1),
+            ("get_node_status", 1),
+            ("get_node_status", 2),
+            ("get_epoch_ledger", 1),
         ] {
             assert!(r.get(name, version).is_some());
         }

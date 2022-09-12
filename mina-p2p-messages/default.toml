@@ -19,7 +19,7 @@ versioned_type = "crate::versioned::Versioned"
 phantom_type = "crate::phantom::Phantom"
 
 [base_types.float]
-rust_id = 'f32'
+rust_id = 'f64'
 args_num = 'None'
 
 [base_types.kimchi_backend_bigint_32_V1]
