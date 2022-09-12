@@ -22,6 +22,11 @@ pub fn next_uuid() -> Uuid {
     UUID_GENERATOR.fetch_add(1, Ordering::AcqRel)
 }
 
+pub enum MerklePath {
+    Left(Fp),
+    Right(Fp),
+}
+
 pub trait BaseLedger {
     /// list of accounts in the ledger
     fn to_list(&self) -> Vec<Account>;
@@ -102,9 +107,9 @@ pub trait BaseLedger {
     /// than calculated dynamically
     fn merkle_root(&self) -> Fp;
 
-    fn merkle_path(&self, addr: Address) -> AddressIterator;
+    fn merkle_path(&self, addr: Address) -> Vec<MerklePath>;
 
-    fn merkle_path_at_index(&self, index: AccountIndex) -> Option<AddressIterator>;
+    fn merkle_path_at_index(&self, index: AccountIndex) -> Vec<MerklePath>;
 
     fn remove_accounts(&mut self, ids: &[AccountId]);
 
@@ -118,7 +123,7 @@ pub trait BaseLedger {
 
     fn num_accounts(&self) -> usize;
 
-    fn merkle_path_at_addr(&self, addr: Address) -> Option<AddressIterator>;
+    fn merkle_path_at_addr(&self, addr: Address) -> Vec<MerklePath>;
 
     fn get_inner_hash_at_addr(&self, addr: Address) -> Result<Fp, ()>;
 

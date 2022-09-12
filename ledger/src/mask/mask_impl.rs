@@ -9,7 +9,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     account::{Account, AccountId, TokenId},
     address::{Address, AddressIterator},
-    base::{AccountIndex, BaseLedger, GetOrCreated, Uuid},
+    base::{AccountIndex, BaseLedger, GetOrCreated, Uuid, MerklePath},
     mask::UnregisterBehavior,
     tree::{Database, DatabaseError},
     tree_version::{TreeVersion, V2},
@@ -853,13 +853,13 @@ impl BaseLedger for MaskImpl {
         self.emulate_tree_to_get_hash()
     }
 
-    fn merkle_path(&self, addr: Address) -> AddressIterator {
-        addr.into_iter()
+    fn merkle_path(&self, addr: Address) -> Vec<MerklePath> {
+        todo!()
     }
 
-    fn merkle_path_at_index(&self, index: AccountIndex) -> Option<AddressIterator> {
+    fn merkle_path_at_index(&self, index: AccountIndex) -> Vec<MerklePath> {
         let addr = Address::from_index(index, self.depth() as usize);
-        Some(addr.into_iter())
+        self.merkle_path(addr)
     }
 
     fn remove_accounts(&mut self, ids: &[AccountId]) {
@@ -897,8 +897,8 @@ impl BaseLedger for MaskImpl {
             .unwrap_or(0)
     }
 
-    fn merkle_path_at_addr(&self, addr: Address) -> Option<AddressIterator> {
-        Some(addr.into_iter())
+    fn merkle_path_at_addr(&self, addr: Address) -> Vec<MerklePath> {
+        self.merkle_path(addr)
     }
 
     fn get_inner_hash_at_addr(&self, addr: Address) -> Result<Fp, ()> {

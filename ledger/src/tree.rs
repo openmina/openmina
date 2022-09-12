@@ -9,7 +9,7 @@ use std::{
 use crate::{
     account::{Account, AccountId, AccountLegacy, TokenId},
     address::{Address, AddressIterator, Direction},
-    base::{next_uuid, AccountIndex, BaseLedger, GetOrCreated, Uuid},
+    base::{next_uuid, AccountIndex, BaseLedger, GetOrCreated, Uuid, MerklePath},
     tree_version::{TreeVersion, V1, V2},
 };
 use mina_hasher::Fp;
@@ -599,13 +599,15 @@ impl BaseLedger for Database<V2> {
         self.root_hash()
     }
 
-    fn merkle_path(&self, addr: Address) -> AddressIterator {
-        addr.into_iter()
+    fn merkle_path(&self, addr: Address) -> Vec<MerklePath> {
+        let mut path = Vec::with_capacity(addr.length());
+
+        path
     }
 
-    fn merkle_path_at_index(&self, index: AccountIndex) -> Option<AddressIterator> {
+    fn merkle_path_at_index(&self, index: AccountIndex) -> Vec<MerklePath> {
         let addr = Address::from_index(index, self.depth as usize);
-        Some(addr.into_iter())
+        self.merkle_path(addr)
     }
 
     fn remove_accounts(&mut self, ids: &[AccountId]) {
@@ -663,8 +665,8 @@ impl BaseLedger for Database<V2> {
         self.naccounts
     }
 
-    fn merkle_path_at_addr(&self, addr: Address) -> Option<AddressIterator> {
-        Some(self.merkle_path(addr))
+    fn merkle_path_at_addr(&self, addr: Address) -> Vec<MerklePath> {
+        self.merkle_path(addr)
     }
 
     fn get_inner_hash_at_addr(&self, addr: Address) -> Result<Fp, ()> {

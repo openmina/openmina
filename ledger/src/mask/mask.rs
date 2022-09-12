@@ -10,7 +10,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     account::{Account, AccountId, TokenId},
     address::{Address, AddressIterator},
-    base::{next_uuid, AccountIndex, BaseLedger, GetOrCreated, Uuid},
+    base::{next_uuid, AccountIndex, BaseLedger, GetOrCreated, Uuid, MerklePath},
     tree::{Database, DatabaseError},
     tree_version::V2,
 };
@@ -268,11 +268,11 @@ impl BaseLedger for Mask {
         self.with(|this| this.merkle_root())
     }
 
-    fn merkle_path(&self, addr: Address) -> AddressIterator {
+    fn merkle_path(&self, addr: Address) -> Vec<MerklePath> {
         self.with(|this| this.merkle_path(addr))
     }
 
-    fn merkle_path_at_index(&self, index: AccountIndex) -> Option<AddressIterator> {
+    fn merkle_path_at_index(&self, index: AccountIndex) -> Vec<MerklePath> {
         self.with(|this| this.merkle_path_at_index(index))
     }
 
@@ -292,7 +292,7 @@ impl BaseLedger for Mask {
         self.with(|this| this.num_accounts())
     }
 
-    fn merkle_path_at_addr(&self, addr: Address) -> Option<AddressIterator> {
+    fn merkle_path_at_addr(&self, addr: Address) -> Vec<MerklePath> {
         self.with(|this| this.merkle_path_at_addr(addr))
     }
 

@@ -44,7 +44,8 @@ packed_simd = { version = "0.3", package = "packed_simd_2" }
 getrandom = { version = "0.2", features = ["js"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-ocaml-interop = { git = "https://github.com/tezedge/ocaml-interop.git", branch = "closure-values" }
+ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values" }
+# ocaml-interop = { git = "https://github.com/tezedge/ocaml-interop.git", branch = "closure-values" }
 
 [dev-dependencies]
 

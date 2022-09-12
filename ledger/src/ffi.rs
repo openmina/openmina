@@ -11,7 +11,7 @@ use std::{
 use mina_hasher::Fp;
 use ocaml_interop::{
     impl_to_ocaml_polymorphic_variant, impl_to_ocaml_variant, ocaml_export, DynBox, OCaml,
-    OCamlBytes, OCamlInt, OCamlList, OCamlRef, OCamlRuntime, RawOCaml, ToOCaml,
+    OCamlBytes, OCamlInt, OCamlList, OCamlRef, OCamlRuntime, RawOCaml, ToOCaml, BoxRoot,
 };
 use once_cell::sync::Lazy;
 use serde::Deserialize;
