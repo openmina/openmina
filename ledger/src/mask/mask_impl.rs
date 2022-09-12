@@ -8,7 +8,7 @@ use mina_signer::CompressedPubKey;
 
 use crate::{
     account::{Account, AccountId, TokenId},
-    address::{Address, AddressIterator},
+    address::{Address, AddressIterator, Direction},
     base::{AccountIndex, BaseLedger, GetOrCreated, MerklePath, Uuid},
     mask::UnregisterBehavior,
     tree::{Database, DatabaseError},
@@ -421,6 +421,66 @@ impl MaskImpl {
             self.emulate_recursive(current_depth + 1, tree_depth, account_index, naccounts)
         } else {
             V2::empty_hash_at_depth(tree_depth - current_depth)
+        };
+
+        V2::hash_node(tree_depth - current_depth, left_hash, right_hash)
+    }
+
+    fn emulate_tree_to_get_merkle_path(
+        &self,
+        path: &mut AddressIterator,
+        merkle_path: &mut Vec<MerklePath>,
+    ) -> Fp {
+        let tree_depth = self.depth() as usize;
+        let naccounts = self.num_accounts();
+        let mut account_index = 0;
+
+        self.emulate_merkle_path_recursive(
+            0,
+            tree_depth,
+            &mut account_index,
+            naccounts as u64,
+            path,
+            merkle_path,
+        )
+    }
+
+    fn emulate_merkle_path_recursive(
+        &self,
+        current_depth: usize,
+        tree_depth: usize,
+        account_index: &mut u64,
+        naccounts: u64,
+        path: &mut AddressIterator,
+        merkle_path: &mut Vec<MerklePath>,
+    ) -> Fp {
+        let next_direction = path.next();
+
+        if current_depth == tree_depth {
+            let account_addr = Address::from_index(AccountIndex(*account_index), tree_depth);
+            let account = match self.get(account_addr) {
+                Some(account) => account,
+                None => return V2::empty_hash_at_depth(0),
+            };
+
+            *account_index += 1;
+            return account.hash();
+        }
+
+        let left_hash =
+            self.emulate_recursive(current_depth + 1, tree_depth, account_index, naccounts);
+        let right_hash = if *account_index < naccounts {
+            self.emulate_recursive(current_depth + 1, tree_depth, account_index, naccounts)
+        } else {
+            V2::empty_hash_at_depth(tree_depth - current_depth)
+        };
+
+        if let Some(direction) = next_direction {
+            let hash = match direction {
+                Direction::Left => MerklePath::Left(left_hash),
+                Direction::Right => MerklePath::Right(right_hash),
+            };
+            merkle_path.push(hash)
         };
 
         V2::hash_node(tree_depth - current_depth, left_hash, right_hash)
@@ -854,7 +914,12 @@ impl BaseLedger for MaskImpl {
     }
 
     fn merkle_path(&self, addr: Address) -> Vec<MerklePath> {
-        todo!()
+        let mut merkle_path = Vec::with_capacity(addr.length());
+        let mut path = addr.into_iter();
+
+        self.emulate_tree_to_get_merkle_path(&mut path, &mut merkle_path);
+
+        merkle_path
     }
 
     fn merkle_path_at_index(&self, index: AccountIndex) -> Vec<MerklePath> {

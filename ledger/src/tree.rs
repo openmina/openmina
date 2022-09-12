@@ -177,6 +177,50 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
         T::hash_node(depth, left_hash, right_hash)
     }
 
+    fn hash_at_path(
+        &self,
+        depth: Option<usize>,
+        path: &mut AddressIterator,
+        merkle_path: &mut Vec<MerklePath>,
+    ) -> Fp {
+        let next_direction = path.next();
+
+        let node = match self {
+            NodeOrLeaf::Node(node) => node,
+            NodeOrLeaf::Leaf(leaf) => {
+                return match leaf.account.as_ref() {
+                    Some(account) => T::hash_leaf(account),
+                    None => T::empty_hash_at_depth(0), // Empty account
+                };
+            }
+        };
+
+        let depth = match depth {
+            Some(depth) => depth,
+            None => panic!("invalid depth"),
+        };
+
+        let left_hash = match node.left.as_ref() {
+            Some(left) => left.hash(depth.checked_sub(1)),
+            None => T::empty_hash_at_depth(depth),
+        };
+
+        let right_hash = match node.right.as_ref() {
+            Some(right) => right.hash(depth.checked_sub(1)),
+            None => T::empty_hash_at_depth(depth),
+        };
+
+        if let Some(direction) = next_direction {
+            let hash = match direction {
+                Direction::Left => MerklePath::Left(left_hash),
+                Direction::Right => MerklePath::Right(right_hash),
+            };
+            merkle_path.push(hash)
+        };
+
+        T::hash_node(depth, left_hash, right_hash)
+    }
+
     fn iter_recursive<F>(&self, fun: &mut F) -> ControlFlow<()>
     where
         F: FnMut(&T::Account) -> ControlFlow<()>,
@@ -600,9 +644,17 @@ impl BaseLedger for Database<V2> {
     }
 
     fn merkle_path(&self, addr: Address) -> Vec<MerklePath> {
-        let mut path = Vec::with_capacity(addr.length());
+        let root = match self.root.as_ref() {
+            Some(root) => root,
+            None => return Vec::new(),
+        };
 
-        path
+        let mut merkle_path = Vec::with_capacity(addr.length());
+
+        let mut path = addr.into_iter();
+        root.hash_at_path(Some(self.depth as usize - 1), &mut path, &mut merkle_path);
+
+        merkle_path
     }
 
     fn merkle_path_at_index(&self, index: AccountIndex) -> Vec<MerklePath> {
