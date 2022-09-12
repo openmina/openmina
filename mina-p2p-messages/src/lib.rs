@@ -16,6 +16,7 @@ use v1::{
     NetworkPeerPeerIdStableV1Binable,
     PublicKeyCompressedStableV1Binable,
     SyncStatusTStableV1Binable,
+    TransactionSnarkScanStateStableV1Binable,
     TrustSystemPeerStatusStableV1Binable,
 };
 use versioned::Versioned;
@@ -66,7 +67,7 @@ mina_rpc!(
 );
 
 pub type GetStagedLedgerAuxAndPendingCoinbasesAtHashV1Response = Option<(
-    (), //TransactionSnarkScanStateStableV1Binable,
+    TransactionSnarkScanStateStableV1Binable,
     LedgerHashV1Binable,
     MinaBasePendingCoinbaseStableV1Binable,
     Vec<MinaStateProtocolStateValueStableV1Binable>,
@@ -225,7 +226,7 @@ impl JSONifyPayloadRegistry {
             table: BTreeMap::new(),
         };
         this.insert(GetSomeInitialPeersV1);
-        // this.insert(GetStagedLedgerAuxAndPendingCoinbasesAtHashV1);
+        this.insert(GetStagedLedgerAuxAndPendingCoinbasesAtHashV1);
         this.insert(AnswerSyncLedgerQueryV1);
         this.insert(GetTransitionChainV1);
         this.insert(GetTransitionChainProofV1);
@@ -239,9 +240,9 @@ impl JSONifyPayloadRegistry {
         this
     }
 
-    pub fn get<'a>(
+    pub fn get<'a, 'b: 'a>(
         &'a self,
-        name: &'a str,
+        name: &'b str,
         version: versioned::Ver,
     ) -> Option<&'a dyn JSONinifyPayloadReader> {
         self.table.get(&(name, version)).map(Box::as_ref)
@@ -266,7 +267,7 @@ mod tests {
         let r = JSONifyPayloadRegistry::new();
         for (name, version) in [
             ("get_some_initial_peers", 1),
-            //("get_staged_ledger_aux_and_pending_coinbases_at_hash", 1),
+            ("get_staged_ledger_aux_and_pending_coinbases_at_hash", 1),
             ("answer_sync_ledger_query", 1),
             ("get_transition_chain", 1),
             ("get_transition_chain_proof", 1),

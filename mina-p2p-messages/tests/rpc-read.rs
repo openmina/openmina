@@ -55,7 +55,6 @@ binprot_read_test!(
 );
 
 binprot_read_test!(
-    ignore("TransactionSnarkScanStateStableV1Binable is not implemented properly"),
     get_staged_ledger_aux_response,
     "rpc-debugger/get-staged-ledger-aux/response",
     DebuggerMessage<<GetStagedLedgerAuxAndPendingCoinbasesAtHashV1 as RpcMethod>::Response>
