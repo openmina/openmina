@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::versioned::Ver;
 
-pub type Tag = super::string::String;
+pub type Tag = super::string::CharString;
 pub type QueryID = i64;
 pub type Sexp = (); // TODO
 

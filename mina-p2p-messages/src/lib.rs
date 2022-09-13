@@ -63,7 +63,7 @@ mina_rpc!(
     "__Versioned_rpc.Menu",
     1,
     (),
-    Vec<(string::String, versioned::Ver)>
+    Vec<(string::CharString, versioned::Ver)>
 );
 
 mina_rpc!(
@@ -81,7 +81,6 @@ pub type GetStagedLedgerAuxAndPendingCoinbasesAtHashV1Response = Option<(
     Vec<MinaStateProtocolStateValueStableV1Binable>,
 )>;
 
-// TODO implement TransactionSnarkScanStateStableV1Binable
 mina_rpc!(
     GetStagedLedgerAuxAndPendingCoinbasesAtHashV1,
     "get_staged_ledger_aux_and_pending_coinbases_at_hash",
@@ -189,8 +188,8 @@ pub struct NodeStatusV1 {
         NetworkPeerPeerIdStableV1Binable,
         TrustSystemPeerStatusStableV1Binable,
     )>,
-    k_block_hashes_and_timestamps: Vec<(StateHashV1Binable, string::String)>,
-    git_commit: string::String,
+    k_block_hashes_and_timestamps: Vec<(StateHashV1Binable, string::CharString)>,
+    git_commit: string::CharString,
     uptime_minutes: i32,
 }
 mina_rpc!(GetNodeStatusV1, "get_node_status", 1, (), RpcResult<NodeStatusV1, core::Error>);
@@ -207,14 +206,14 @@ pub struct NodeStatusV2 {
         NetworkPeerPeerIdStableV1Binable,
         TrustSystemPeerStatusStableV1Binable,
     )>,
-    k_block_hashes_and_timestamps: Vec<(StateHashV1Binable, string::String)>,
-    git_commit: string::String,
+    k_block_hashes_and_timestamps: Vec<(StateHashV1Binable, string::CharString)>,
+    git_commit: string::CharString,
     uptime_minutes: i32,
     block_height_opt: Option<i32>,
 }
 mina_rpc!(GetNodeStatusV2, "get_node_status", 2, (), RpcResult<NodeStatusV2, core::Error>);
 
-mina_rpc!(GetEpochLedger, "get_epoch_ledger", 1, LedgerHashV1Binable, RpcResult<MinaBaseSparseLedgerStableV1Binable, string::String>);
+mina_rpc!(GetEpochLedger, "get_epoch_ledger", 1, LedgerHashV1Binable, RpcResult<MinaBaseSparseLedgerStableV1Binable, string::CharString>);
 
 /// Registry for uniformly JSONifying RPC payload data.
 ///
