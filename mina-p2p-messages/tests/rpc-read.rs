@@ -1,11 +1,23 @@
 use mina_p2p_messages::{
     rpc::{DebuggerMessage, Message, RpcMethod},
     AnswerSyncLedgerQueryV1, GetBestTipV1, GetEpochLedger,
-    GetStagedLedgerAuxAndPendingCoinbasesAtHashV1, GetTransitionChainV1, GetTransitionChainProofV1, GetAncestryV1, GetTransitionKnowledgeV1,
+    GetStagedLedgerAuxAndPendingCoinbasesAtHashV1, GetTransitionChainV1, GetTransitionChainProofV1, GetAncestryV1, GetTransitionKnowledgeV1, VersionedRpcMenuV1,
 };
 
 #[macro_use]
 mod utils;
+
+binprot_read_test!(
+    menu_query,
+    "rpc-debugger/menu/query",
+    DebuggerMessage<<VersionedRpcMenuV1 as RpcMethod>::Query>
+);
+
+binprot_read_test!(
+    menu_response,
+    "rpc-debugger/menu/response",
+    DebuggerMessage<<VersionedRpcMenuV1 as RpcMethod>::Response>
+);
 
 binprot_read_test!(
     get_epoch_ledger_query,
