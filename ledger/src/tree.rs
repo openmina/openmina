@@ -460,7 +460,7 @@ impl<T: TreeVersion> Database<T> {
             "DB depth={:?} uuid={:?} pid={:?} path={:?}",
             depth,
             uuid,
-            std::process::id(),
+            crate::util::pid(),
             path
         );
 
@@ -679,7 +679,7 @@ impl BaseLedger for Database<V2> {
     fn close(&self) {
         println!(
             "close pid={:?} uuid={:?} path={:?}",
-            std::process::id(),
+            crate::util::pid(),
             self.uuid,
             self.directory
         );

@@ -11,3 +11,4 @@ mod mask;
 mod poseidon;
 mod tree;
 mod tree_version;
+mod util;
