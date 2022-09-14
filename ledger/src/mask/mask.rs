@@ -228,7 +228,7 @@ impl BaseLedger for Mask {
         self.with(|this| this.last_filled())
     }
 
-    fn get_uuid(&self) -> u64 {
+    fn get_uuid(&self) -> Uuid {
         self.with(|this| this.get_uuid())
     }
 

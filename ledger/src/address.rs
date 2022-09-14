@@ -87,14 +87,17 @@ impl Address {
             addr: self.clone(),
             length: self.length,
             iter_index: 0,
+            iter_back_index: self.length,
         }
     }
 
     pub fn into_iter(self) -> AddressIterator {
+        let length = self.length;
         AddressIterator {
-            length: self.length,
+            length,
             addr: self,
             iter_index: 0,
+            iter_back_index: length,
         }
     }
 
@@ -275,6 +278,7 @@ impl Address {
                     account_index |= byte >> (8 - nunused);
                     shift += nunused;
                 } else {
+                    // account_index |= byte.checked_shl(shift as u32).unwrap_or_else(|| panic!("self={:?} byte={:?} shift={:?}", self, byte, shift));
                     account_index |= byte << shift;
                     shift += 8;
                 }
@@ -353,7 +357,16 @@ impl Address {
 pub struct AddressIterator {
     addr: Address,
     iter_index: usize,
+    iter_back_index: usize,
     length: usize,
+}
+
+impl DoubleEndedIterator for AddressIterator {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        let prev = self.iter_back_index.checked_sub(1)?;
+        self.iter_back_index = prev;
+        Some(self.addr.get(prev))
+    }
 }
 
 impl Iterator for AddressIterator {

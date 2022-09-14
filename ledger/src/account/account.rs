@@ -14,10 +14,16 @@ use crate::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
 use super::common::*;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(from = "MinaBaseAccountIdDigestStableV1")]
 #[serde(into = "MinaBaseAccountIdDigestStableV1")]
 pub struct TokenId(pub Fp);
+
+impl std::fmt::Debug for TokenId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("TokenId").field(&self.0.to_string()).finish()
+    }
+}
 
 impl Default for TokenId {
     fn default() -> Self {
@@ -232,12 +238,22 @@ impl Default for ZkAppAccount {
     }
 }
 
-#[derive(Clone, Debug, Eq, Serialize, Deserialize)]
+#[derive(Clone, Eq, Serialize, Deserialize)]
 #[serde(from = "AccountIdV2")]
 #[serde(into = "AccountIdV2")]
 pub struct AccountId {
     pub public_key: CompressedPubKey,
     pub token_id: TokenId,
+}
+
+impl std::fmt::Debug for AccountId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let pubkey = self.public_key.x.to_string();
+        f.debug_struct("AccountId")
+            .field("public_key", &pubkey)
+            .field("token_id", &self.token_id)
+            .finish()
+    }
 }
 
 impl std::hash::Hash for AccountId {

@@ -1,11 +1,12 @@
 use std::{
     borrow::Borrow,
     cell::{Ref, RefCell},
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     hash::Hash,
+    path::PathBuf,
     rc::Rc,
     str::FromStr,
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 
 use mina_hasher::Fp;
@@ -17,7 +18,7 @@ use once_cell::sync::Lazy;
 use serde::Deserialize;
 
 use crate::{
-    account::{Account, AccountId, NonZeroCurvePointUncompressedStableV1},
+    account::{Account, AccountId, BigInt, NonZeroCurvePointUncompressedStableV1},
     address::Address,
     base::{AccountIndex, BaseLedger, MerklePath},
     tree::Database,
@@ -27,7 +28,7 @@ use crate::{
 static DATABASE: Lazy<Mutex<Database<V2>>> = Lazy::new(|| Mutex::new(Database::create(30)));
 
 // #[derive(Clone)]
-struct DatabaseFFI(Rc<RefCell<Database<V2>>>);
+struct DatabaseFFI(Rc<RefCell<Option<Database<V2>>>>);
 
 fn with_db<F, R>(rt: &mut &mut OCamlRuntime, db: OCamlRef<DynBox<DatabaseFFI>>, fun: F) -> R
 where
@@ -37,7 +38,7 @@ where
     let db: &DatabaseFFI = db.borrow();
     let mut db = db.0.borrow_mut();
 
-    fun(&mut db)
+    fun(db.as_mut().unwrap())
 }
 
 struct MyOCamlClosure(*const RawOCaml);
@@ -57,14 +58,14 @@ impl_to_ocaml_polymorphic_variant! {
 }
 
 pub enum PolymorphicPath {
-    Left(String),
-    Right(String),
+    Left(Vec<u8>),
+    Right(Vec<u8>),
 }
 
 impl_to_ocaml_polymorphic_variant! {
     PolymorphicPath {
-        PolymorphicPath::Left(hash: String),
-        PolymorphicPath::Right(hash: String),
+        PolymorphicPath::Left(hash: OCamlBytes),
+        PolymorphicPath::Right(hash: OCamlBytes),
     }
 }
 
@@ -78,6 +79,11 @@ impl_to_ocaml_variant! {
         DatabaseErrorFFI::OutOfLeaves,
     }
 }
+
+static DB_CLOSED: Lazy<Mutex<HashMap<PathBuf, Database<V2>>>> =
+    Lazy::new(|| Mutex::new(HashMap::with_capacity(16)));
+
+// static DB_CLOSED: Arc<Mutex<Option<HashMap<PathBuf, Database<V2>>>>> = Arc::new(Mutex::new(None));
 
 fn get_list_of<'a, T>(
     rt: &'a mut &mut OCamlRuntime,
@@ -157,25 +163,49 @@ fn get_index(rt: &mut &mut OCamlRuntime, index: OCamlRef<OCamlInt>) -> AccountIn
     AccountIndex(index)
 }
 
+fn hash_to_ocaml(hash: Fp) -> Vec<u8> {
+    let hash: BigInt = hash.into();
+    serde_binprot::to_vec(&hash).unwrap()
+}
+
 fn get_cloned_db(
     rt: &mut &mut OCamlRuntime,
     db: OCamlRef<DynBox<DatabaseFFI>>,
-) -> Rc<RefCell<Database<V2>>> {
+) -> Rc<RefCell<Option<Database<V2>>>> {
     let db = rt.get(db);
     let db: &DatabaseFFI = db.borrow();
+    // let mut db = db.0.borrow_mut();
     Rc::clone(&db.0)
 }
 
 ocaml_export! {
     fn rust_database_create(
         rt,
-        depth: OCamlRef<OCamlInt>
+        depth: OCamlRef<OCamlInt>,
+        dir_name: OCamlRef<Option<String>>
     ) -> OCaml<DynBox<DatabaseFFI>> {
         let depth: i64 = depth.to_rust(rt);
         let depth: u8 = depth.try_into().unwrap();
 
-        let db = Database::<V2>::create(depth);
-        let db = DatabaseFFI(Rc::new(RefCell::new(db)));
+        let dir_name = rt.get(dir_name);
+        let dir_name = dir_name.to_rust::<Option<String>>().map(PathBuf::from);
+
+        let mut closed = DB_CLOSED.lock().unwrap();
+
+        let db = dir_name.as_ref().and_then(|dir_name| closed.remove(dir_name));
+
+
+        let db = match db {
+            Some(db) => {
+                assert_eq!(db.depth(), depth);
+                db
+            },
+            None => {
+                Database::<V2>::create_with_dir(depth, dir_name)
+            }
+        };
+
+        let db = DatabaseFFI(Rc::new(RefCell::new(Some(db))));
 
         OCaml::box_value(rt, db)
     }
@@ -183,18 +213,23 @@ ocaml_export! {
     fn rust_database_get_uuid(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>
-    ) -> OCaml<OCamlInt> {
+    ) -> OCaml<String> {
         let uuid = with_db(rt, db, |db| {
-            db.get_uuid() as i64
+            db.get_uuid()
         });
 
-        // let db = rt.get(db);
-        // let db: &DatabaseFFI = db.borrow();
-
-        // // TODO: Make it a 36 characters string
-        // let uuid = db.0.borrow().get_uuid() as i64;
-
         uuid.to_ocaml(rt)
+    }
+
+    fn rust_database_get_directory(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>
+    ) -> OCaml<Option<String>> {
+        let dir = with_db(rt, db, |db| {
+            db.get_directory().map(|d| d.into_os_string().into_string().unwrap())
+        });
+
+        dir.to_ocaml(rt)
     }
 
     fn rust_database_depth(
@@ -210,29 +245,82 @@ ocaml_export! {
 
     fn rust_database_create_checkpoint(
         rt,
-        db: OCamlRef<DynBox<DatabaseFFI>>
-    ) -> OCaml<OCamlInt> {
-        let db = rt.get(db);
-        let _db: &DatabaseFFI = db.borrow();
-        todo!()
+        db: OCamlRef<DynBox<DatabaseFFI>>,
+        directory_name: OCamlRef<String>,
+    ) -> OCaml<DynBox<DatabaseFFI>> {
+        let db = {
+            let db = rt.get(db);
+            let db: &DatabaseFFI = db.borrow();
+
+            let directory_name: String = directory_name.to_rust(rt);
+
+            {
+                let mut db = db.0.borrow_mut();
+                let db = db.as_mut().unwrap();
+                db.create_checkpoint(directory_name.clone());
+            }
+
+            let directory_name = PathBuf::from(directory_name);
+
+            let db: Ref<Option<Database<V2>>> = (*db.0).borrow();
+            let db_clone = db.as_ref().unwrap().clone_db(directory_name);
+
+            DatabaseFFI(Rc::new(RefCell::new(Some(db_clone))))
+        };
+
+        OCaml::box_value(rt, db)
     }
 
     fn rust_database_make_checkpoint(
         rt,
-        db: OCamlRef<DynBox<DatabaseFFI>>
-    ) -> OCaml<OCamlInt> {
+        db: OCamlRef<DynBox<DatabaseFFI>>,
+        directory_name: OCamlRef<String>,
+    ) {
         let db = rt.get(db);
-        let _db: &DatabaseFFI = db.borrow();
-        todo!()
+        let db: &DatabaseFFI = db.borrow();
+
+        let directory_name: String = directory_name.to_rust(rt);
+
+        {
+            let mut db = db.0.borrow_mut();
+            let db = db.as_mut().unwrap();
+            db.make_checkpoint(directory_name.clone());
+        }
+
+        let directory_name = PathBuf::from(directory_name);
+
+        let db: Ref<Option<Database<V2>>> = (*db.0).borrow();
+        let db_clone = db.as_ref().unwrap().clone_db(directory_name.clone());
+
+        let mut closed_dbs = DB_CLOSED.lock().unwrap();
+        closed_dbs.insert(directory_name, db_clone);
+
+        OCaml::unit()
     }
 
     fn rust_database_close(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>
     ) {
-        with_db(rt, db, |db| {
-            db.close();
-        });
+        let db = rt.get(db);
+        let db: &DatabaseFFI = db.borrow();
+
+        let path = {
+            let mut db_ref = db.0.borrow_mut();
+            let db_ref = db_ref.as_mut().unwrap();
+            db_ref.close();
+            db_ref.get_directory().unwrap()
+        };
+
+        let db = db.0.take().unwrap();
+        // let db: RefCell<Database<V2>> = Rc::try_unwrap(db).ok().unwrap();
+        // let db = db.into_inner();
+
+        let mut closed_dbs = DB_CLOSED.lock().unwrap();
+        closed_dbs.insert(path, db);
+
+        // with_db(rt, db, |db| {
+        // });
 
         OCaml::unit()
     }
@@ -421,13 +509,13 @@ ocaml_export! {
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
         addr: OCamlRef<String>,
-    ) -> OCaml<String> {
+    ) -> OCaml<OCamlBytes> {
         let addr = get_addr(rt, addr);
 
         let hash = with_db(rt, db, |db| {
             db.get_inner_hash_at_addr(addr)
         }).map(|hash| {
-              hash.to_string()
+              hash_to_ocaml(hash)
           })
           .unwrap();
 
@@ -664,9 +752,10 @@ ocaml_export! {
         ocaml_method: OCamlRef<fn(OCamlBytes)>,
     ) {
         let db = get_cloned_db(rt, db);
-        let db: Ref<Database<V2>> = (*db).borrow();
+        let db: Ref<Option<Database<V2>>> = (*db).borrow();
         let ocaml_method = ocaml_method.to_boxroot(rt);
 
+        let db = db.as_ref().unwrap();
         db.iter(|account| {
             let account: Vec<u8> = serde_binprot::to_vec(&account).unwrap();
 
@@ -682,9 +771,10 @@ ocaml_export! {
         ocaml_method: OCamlRef<fn(String, OCamlBytes)>,
     ) {
         let db = get_cloned_db(rt, db);
-        let db: Ref<Database<V2>> = (*db).borrow();
+        let db: Ref<Option<Database<V2>>> = (*db).borrow();
         let ocaml_method = ocaml_method.to_boxroot(rt);
 
+        let db = db.as_ref().unwrap();
         db.iter_with_addr(|addr, account| {
             let account: Vec<u8> = serde_binprot::to_vec(&account).unwrap();
             let addr = addr.to_string();
@@ -702,11 +792,12 @@ ocaml_export! {
         ocaml_method: OCamlRef<fn(String, OCamlBytes)>,
     ) {
         let db = get_cloned_db(rt, db);
-        let db: Ref<Database<V2>> = (*db).borrow();
+        let db: Ref<Option<Database<V2>>> = (*db).borrow();
         let ocaml_method = ocaml_method.to_boxroot(rt);
 
         let ignored_accounts = get_set_of::<AccountId>(rt, ignored_accounts);
 
+        let db = db.as_ref().unwrap();
         db.iter_with_addr(|addr, account| {
             if ignored_accounts.contains(&account.id()) {
                 return;
@@ -724,10 +815,12 @@ ocaml_export! {
     fn rust_database_merkle_root(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
-    ) -> OCaml<String> {
+    ) -> OCaml<OCamlBytes> {
         let hash = with_db(rt, db, |db| {
             db.merkle_root()
-        }).to_string();
+        });
+
+        let hash = hash_to_ocaml(hash);
 
         hash.to_ocaml(rt)
     }
@@ -806,11 +899,11 @@ ocaml_export! {
 
         let path = with_db(rt, db, |db| {
             db.merkle_path(addr)
-        }).iter()
+        }).into_iter()
           .map(|path| {
               match path {
-                  MerklePath::Left(hash) => PolymorphicPath::Left(hash.to_string()),
-                  MerklePath::Right(hash) => PolymorphicPath::Right(hash.to_string()),
+                  MerklePath::Left(hash) => PolymorphicPath::Left(hash_to_ocaml(hash)),
+                  MerklePath::Right(hash) => PolymorphicPath::Right(hash_to_ocaml(hash)),
               }
           })
           .collect::<Vec<_>>();
@@ -827,11 +920,11 @@ ocaml_export! {
 
         let path = with_db(rt, db, |db| {
             db.merkle_path(addr)
-        }).iter()
+        }).into_iter()
           .map(|path| {
               match path {
-                  MerklePath::Left(hash) => PolymorphicPath::Left(hash.to_string()),
-                  MerklePath::Right(hash) => PolymorphicPath::Right(hash.to_string()),
+                  MerklePath::Left(hash) => PolymorphicPath::Left(hash_to_ocaml(hash)),
+                  MerklePath::Right(hash) => PolymorphicPath::Right(hash_to_ocaml(hash)),
               }
           })
           .collect::<Vec<_>>();
@@ -850,11 +943,13 @@ ocaml_export! {
             let depth = db.depth();
             let addr = Address::from_index(index, depth as usize);
             db.merkle_path(addr)
-        }).iter()
+        }).into_iter()
           .map(|path| {
               match path {
-                  MerklePath::Left(hash) => PolymorphicPath::Left(hash.to_string()),
-                  MerklePath::Right(hash) => PolymorphicPath::Right(hash.to_string()),
+                  MerklePath::Left(hash) => PolymorphicPath::Left(hash_to_ocaml(hash)),
+                  MerklePath::Right(hash) => PolymorphicPath::Right(hash_to_ocaml(hash)),
+                  // MerklePath::Left(hash) => PolymorphicPath::Left(hash.to_string()),
+                  // MerklePath::Right(hash) => PolymorphicPath::Right(hash.to_string()),
               }
           })
           .collect::<Vec<_>>();

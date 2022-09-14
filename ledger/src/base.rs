@@ -14,17 +14,31 @@ use crate::{
     tree::DatabaseError,
 };
 
-pub type Uuid = u64;
+pub type Uuid = String;
 
 static UUID_GENERATOR: AtomicU64 = AtomicU64::new(0);
 
 pub fn next_uuid() -> Uuid {
-    UUID_GENERATOR.fetch_add(1, Ordering::AcqRel)
+    // use uuid::Uuid;
+    let uuid = uuid::Uuid::new_v4().to_string();
+    uuid
+
+    // "a".to_string()
+    // UUID_GENERATOR.fetch_add(1, Ordering::AcqRel)
 }
 
 pub enum MerklePath {
     Left(Fp),
     Right(Fp),
+}
+
+impl std::fmt::Debug for MerklePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Left(arg0) => f.debug_tuple("Left").field(&arg0.to_string()).finish(),
+            Self::Right(arg0) => f.debug_tuple("Right").field(&arg0.to_string()).finish(),
+        }
+    }
 }
 
 pub trait BaseLedger {

@@ -50,6 +50,7 @@ pub struct Database<T: TreeVersion> {
     last_location: Option<Address>,
     naccounts: usize,
     uuid: Uuid,
+    directory: PathBuf,
 }
 
 impl NodeOrLeaf<V2> {
@@ -201,19 +202,19 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
         };
 
         let left_hash = match node.left.as_ref() {
-            Some(left) => left.hash(depth.checked_sub(1)),
+            Some(left) => left.hash_at_path(depth.checked_sub(1), path, merkle_path),
             None => T::empty_hash_at_depth(depth),
         };
 
         let right_hash = match node.right.as_ref() {
-            Some(right) => right.hash(depth.checked_sub(1)),
+            Some(right) => right.hash_at_path(depth.checked_sub(1), path, merkle_path),
             None => T::empty_hash_at_depth(depth),
         };
 
         if let Some(direction) = next_direction {
             let hash = match direction {
-                Direction::Left => MerklePath::Left(left_hash),
-                Direction::Right => MerklePath::Right(right_hash),
+                Direction::Left => MerklePath::Left(right_hash),
+                Direction::Right => MerklePath::Right(left_hash),
             };
             merkle_path.push(hash)
         };
@@ -279,6 +280,19 @@ pub enum DatabaseError {
 }
 
 impl Database<V2> {
+    pub fn clone_db(&self, new_directory: PathBuf) -> Self {
+        Self {
+            root: self.root.clone(),
+            id_to_addr: self.id_to_addr.clone(),
+            token_to_account: self.token_to_account.clone(),
+            depth: self.depth.clone(),
+            last_location: self.last_location.clone(),
+            naccounts: self.naccounts.clone(),
+            uuid: next_uuid(),
+            directory: new_directory,
+        }
+    }
+
     fn create_account(
         &mut self,
         account_id: AccountId,
@@ -327,6 +341,74 @@ impl Database<V2> {
             ControlFlow::Continue(())
         });
     }
+
+    fn emulate_tree_to_get_hash_at(&self, addr: Address) -> Fp {
+        let tree_depth = self.depth() as usize;
+        let mut children = addr.iter_children(tree_depth);
+
+        // First child
+        let mut first_account_index = children.next().unwrap().to_index().0 as u64;
+        let mut nremaining = self
+            .naccounts()
+            .saturating_sub(first_account_index as usize);
+        let current_depth = tree_depth - addr.length();
+
+        self.emulate_recursive(
+            current_depth,
+            tree_depth,
+            &mut first_account_index,
+            &mut nremaining,
+            // nchildren as u64,
+        )
+    }
+
+    fn emulate_recursive(
+        &self,
+        current_depth: usize,
+        tree_depth: usize,
+        account_index: &mut u64,
+        nremaining: &mut usize,
+        // naccounts: u64,
+    ) -> Fp {
+        println!(
+            "recursive current_depth={:?} tree_depth={:?} account_index={:?} nremaining={:?}",
+            current_depth, tree_depth, account_index, nremaining
+        );
+        if current_depth == 0 {
+            let account_addr = Address::from_index(AccountIndex(*account_index), tree_depth);
+            *account_index += 1;
+            *nremaining = nremaining.saturating_sub(1);
+
+            let account = match self.get(account_addr) {
+                Some(account) => account,
+                None => return V2::empty_hash_at_depth(0),
+            };
+
+            return account.hash();
+        }
+
+        let left_hash = if *nremaining > 0 {
+            self.emulate_recursive(current_depth - 1, tree_depth, account_index, nremaining)
+        } else {
+            V2::empty_hash_at_depth(current_depth - 1)
+        };
+
+        let right_hash = if *nremaining > 0 {
+            self.emulate_recursive(current_depth - 1, tree_depth, account_index, nremaining)
+        } else {
+            V2::empty_hash_at_depth(current_depth - 1)
+        };
+
+        V2::hash_node(current_depth - 1, left_hash, right_hash)
+    }
+
+    pub fn create_checkpoint(&self, directory_name: String) {
+        println!("create_checkpoint {}", directory_name);
+    }
+
+    pub fn make_checkpoint(&self, directory_name: String) {
+        println!("make_checkpoint {}", directory_name);
+    }
 }
 
 impl Database<V1> {
@@ -356,10 +438,33 @@ impl Database<V1> {
 }
 
 impl<T: TreeVersion> Database<T> {
-    pub fn create(depth: u8) -> Self {
+    pub fn create_with_dir(depth: u8, dir_name: Option<PathBuf>) -> Self {
         assert!((1..0xfe).contains(&depth));
 
         let max_naccounts = 2u64.pow(depth.min(25) as u32);
+
+        let uuid = next_uuid();
+
+        let path = match dir_name {
+            Some(dir_name) => dir_name,
+            None => {
+                let directory = "minadb-".to_owned() + &uuid;
+
+                let mut path = PathBuf::from("/tmp");
+                path.push(&directory);
+                path
+            }
+        };
+
+        println!(
+            "DB depth={:?} uuid={:?} pid={:?} path={:?}",
+            depth,
+            uuid,
+            std::process::id(),
+            path
+        );
+
+        std::fs::create_dir_all(&path).ok();
 
         Self {
             depth,
@@ -368,8 +473,13 @@ impl<T: TreeVersion> Database<T> {
             naccounts: 0,
             id_to_addr: HashMap::with_capacity(max_naccounts as usize / 2),
             token_to_account: HashMap::with_capacity(max_naccounts as usize / 2),
-            uuid: next_uuid(),
+            uuid,
+            directory: path,
         }
+    }
+
+    pub fn create(depth: u8) -> Self {
+        Self::create_with_dir(depth, None)
     }
 
     pub fn root_hash(&self) -> Fp {
@@ -531,20 +641,31 @@ impl BaseLedger for Database<V2> {
     }
 
     fn location_of_account(&self, account_id: &AccountId) -> Option<Address> {
-        self.id_to_addr.get(account_id).cloned()
+        let res = self.id_to_addr.get(account_id).cloned();
+
+        println!("location_of_account id={:?}\n{:#?}", account_id, res);
+
+        res
     }
 
     fn location_of_account_batch(
         &self,
         account_ids: &[AccountId],
     ) -> Vec<(AccountId, Option<Address>)> {
-        account_ids
+        let res = account_ids
             .iter()
             .map(|account_id| {
                 let addr = self.id_to_addr.get(account_id).cloned();
                 (account_id.clone(), addr)
             })
-            .collect()
+            .collect();
+
+        println!(
+            "location_of_account_batch ids={:?}\n{:#?}",
+            account_ids, res
+        );
+
+        res
     }
 
     fn get_or_create_account(
@@ -556,6 +677,12 @@ impl BaseLedger for Database<V2> {
     }
 
     fn close(&self) {
+        println!(
+            "close pid={:?} uuid={:?} path={:?}",
+            std::process::id(),
+            self.uuid,
+            self.directory
+        );
         // Drop
     }
 
@@ -564,15 +691,21 @@ impl BaseLedger for Database<V2> {
     }
 
     fn get_uuid(&self) -> crate::base::Uuid {
-        self.uuid
+        self.uuid.clone()
     }
 
     fn get_directory(&self) -> Option<PathBuf> {
-        None
+        Some(self.directory.clone())
     }
 
     fn get(&self, addr: Address) -> Option<Account> {
-        self.root.as_ref()?.get_on_path(addr.into_iter()).cloned()
+        let acc = self.root.as_ref()?.get_on_path(addr.into_iter()).cloned();
+
+        // if let Some(account) = &acc {
+        //     println!("ACCOUNT{:?}", account.hash().to_string());
+        // };
+
+        acc
     }
 
     fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Account>)> {
@@ -581,9 +714,14 @@ impl BaseLedger for Database<V2> {
             None => Cow::Owned(NodeOrLeaf::Node(Node::default())),
         };
 
-        addr.iter()
+        let res = addr
+            .iter()
             .map(|addr| (addr.clone(), root.get_on_path(addr.iter()).cloned()))
-            .collect()
+            .collect();
+
+        println!("get_batch addrs={:?}\n{:#?}", addr, res);
+
+        res
     }
 
     fn set(&mut self, addr: Address, account: Account) {
@@ -619,7 +757,10 @@ impl BaseLedger for Database<V2> {
     }
 
     fn set_batch(&mut self, list: &[(Address, Account)]) {
+        println!("SET_BATCH {:?}", list.len());
+        // println!("SET_BATCH {:?} {:?}", list.len(), list);
         for (addr, account) in list {
+            assert_eq!(addr.length(), self.depth as usize, "addr={:?}", addr);
             self.set(addr.clone(), account.clone());
         }
     }
@@ -640,19 +781,61 @@ impl BaseLedger for Database<V2> {
     }
 
     fn merkle_root(&self) -> Fp {
-        self.root_hash()
+        let root = self.root_hash();
+
+        println!(
+            "uuid={:?} ROOT={} num_account={:?}",
+            self.get_uuid(),
+            root,
+            self.num_accounts()
+        );
+        // println!("PATH={:#?}", self.merkle_path(Address::first(self.depth as usize)));
+
+        // self.merkle_path(Address::first(self.depth as usize));
+
+        root
     }
 
     fn merkle_path(&self, addr: Address) -> Vec<MerklePath> {
-        let root = match self.root.as_ref() {
-            Some(root) => root,
-            None => return Vec::new(),
-        };
+        println!("merkle_path called depth={:?} addr={:?}", self.depth, addr);
 
         let mut merkle_path = Vec::with_capacity(addr.length());
-
+        let path_len = addr.length();
         let mut path = addr.into_iter();
+        let ledger_depth = self.depth() as usize;
+
+        let root = match self.root.as_ref() {
+            Some(root) => root,
+            None => {
+                for (index, direction) in path.rev().enumerate() {
+                    let index = ledger_depth - path_len + index;
+
+                    assert!(index < ledger_depth);
+
+                    let hash = V2::empty_hash_at_depth(index);
+
+                    merkle_path.push(match direction {
+                        Direction::Left => MerklePath::Left(hash),
+                        Direction::Right => MerklePath::Right(hash),
+                    });
+                }
+
+                // eprintln!("PATH={:#?}", merkle_path);
+                assert_eq!(merkle_path.len(), path_len);
+
+                return merkle_path;
+            }
+        };
+
+        // let first = self.get(Address::first(self.depth as usize));
+        // println!("HASH_FIRST_ACCOUNT={:?}", first.map(|a| a.hash().to_string()));
+        // println!("root_hash={}", self.merkle_root());
+
         root.hash_at_path(Some(self.depth as usize - 1), &mut path, &mut merkle_path);
+
+        // merkle_path.reverse();
+
+        // println!("MERKLE_PATH len={:?} ={:#?}", merkle_path.len(), merkle_path);
 
         merkle_path
     }
@@ -722,20 +905,11 @@ impl BaseLedger for Database<V2> {
     }
 
     fn get_inner_hash_at_addr(&self, addr: Address) -> Result<Fp, ()> {
-        let root = match self.root.as_ref() {
-            Some(root) => root,
-            None => todo!(),
-        };
+        let res = self.emulate_tree_to_get_hash_at(addr.clone());
 
-        // TODO: See how ocaml behaves when the address is at a non-created branch
+        println!("get_inner_hash_at_addr addr={:?} hash={}", addr, res);
 
-        let node_or_leaf = match root.go_to(addr.into_iter()) {
-            Some(node_or_leaf) => node_or_leaf,
-            None => todo!(),
-        };
-
-        let hash = node_or_leaf.hash(Some(self.depth as usize));
-        Ok(hash)
+        Ok(res)
     }
 
     fn set_inner_hash_at_addr(&mut self, _addr: Address, _hash: Fp) -> Result<(), ()> {
@@ -1455,5 +1629,115 @@ mod tests_ocaml {
         });
 
         assert_eq!(total_balance, retrieved);
+    }
+
+    // "fold_until over account balances"
+    #[test]
+    fn test_merkle_path() {
+        const DEPTH: usize = 4;
+        const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
+
+        println!("empty={}", Account::empty().hash());
+        println!("depth1={}", V2::empty_hash_at_depth(1));
+        println!("depth2={}", V2::empty_hash_at_depth(2));
+        println!("depth3={}", V2::empty_hash_at_depth(3));
+        println!("depth4={}", V2::empty_hash_at_depth(4));
+
+        // let db = Database::<V2>::create(DEPTH as u8);
+        // db.merkle_root();
+        // db.merkle_path(Address::first(DEPTH));
+
+        // println!("WITH_ACC");
+
+        // let mut db = Database::<V2>::create(DEPTH as u8);
+        // let mut account = Account::empty();
+        // account.token_symbol = "seb".to_string();
+        // db.get_or_create_account(account.id(), account).unwrap();
+        // db.merkle_root();
+
+        let mut db = Database::<V2>::create(DEPTH as u8);
+
+        // for _ in 0..NACCOUNTS {
+        //     let account = Account::rand();
+        //     db.get_or_create_account(account.id(), account).unwrap();
+        // }
+
+        db.merkle_root();
+
+        db.merkle_path(Address::first(DEPTH));
+
+        println!(
+            "INNER_AT_0={}",
+            db.get_inner_hash_at_addr(Address::try_from("0000").unwrap())
+                .unwrap()
+        );
+        println!(
+            "INNER_AT_0={}",
+            db.get_inner_hash_at_addr(Address::try_from("0001").unwrap())
+                .unwrap()
+        );
+        println!(
+            "INNER_AT_0={}",
+            db.get_inner_hash_at_addr(Address::try_from("0010").unwrap())
+                .unwrap()
+        );
+        println!(
+            "INNER_AT_0={}",
+            db.get_inner_hash_at_addr(Address::try_from("0101").unwrap())
+                .unwrap()
+        );
+
+        println!("A");
+        println!(
+            "INNER_AT_3={}",
+            db.get_inner_hash_at_addr(Address::try_from("000").unwrap())
+                .unwrap()
+        );
+        println!(
+            "INNER_AT_3={}",
+            db.get_inner_hash_at_addr(Address::try_from("001").unwrap())
+                .unwrap()
+        );
+        println!(
+            "INNER_AT_3={}",
+            db.get_inner_hash_at_addr(Address::try_from("010").unwrap())
+                .unwrap()
+        );
+        println!(
+            "INNER_AT_3={}",
+            db.get_inner_hash_at_addr(Address::try_from("101").unwrap())
+                .unwrap()
+        );
+
+        println!("A");
+        println!(
+            "INNER_AT_2={}",
+            db.get_inner_hash_at_addr(Address::try_from("10").unwrap())
+                .unwrap()
+        );
+        println!(
+            "INNER_AT_2={}",
+            db.get_inner_hash_at_addr(Address::try_from("01").unwrap())
+                .unwrap()
+        );
+
+        println!("A");
+        println!(
+            "INNER_AT_1={}",
+            db.get_inner_hash_at_addr(Address::try_from("1").unwrap())
+                .unwrap()
+        );
+        println!(
+            "INNER_AT_1={}",
+            db.get_inner_hash_at_addr(Address::try_from("0").unwrap())
+                .unwrap()
+        );
+
+        println!("A");
+        println!(
+            "INNER_AT_0={}",
+            db.get_inner_hash_at_addr(Address::try_from("").unwrap())
+                .unwrap()
+        );
     }
 }

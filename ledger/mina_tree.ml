@@ -11,12 +11,15 @@ type rust_dberror =
   | Out_of_leaves
   | Malformed_database
 
+type rust_path = [ `Left of bytes | `Right of bytes ]
+
 module Rust = struct
-  external database_create : int -> database = "rust_database_create"
+  external database_create : int -> string option -> database = "rust_database_create"
   external database_get_uuid : database -> string = "rust_database_get_uuid"
+  external database_get_directory : database -> string option = "rust_database_get_directory"
   external database_depth : database -> int = "rust_database_depth"
-  external database_create_checkpoint : database -> database = "rust_database_create_checkpoint"
-  external database_make_checkpoint : database -> unit = "rust_database_make_checkpoint"
+  external database_create_checkpoint : database -> string -> database = "rust_database_create_checkpoint"
+  external database_make_checkpoint : database -> string -> unit = "rust_database_make_checkpoint"
   external database_close : database -> unit = "rust_database_close"
   external database_get : database -> addr -> account option = "rust_database_get"
   external database_get_batch : database -> addr list -> (addr * (account option)) list = "rust_database_get_batch"
@@ -42,9 +45,9 @@ module Rust = struct
   (* external database_fold_until : database -> bytes -> (bytes -> bool) -> bytes = "rust_database_fold_until" *)
   external database_merkle_root : database -> bytes = "rust_database_merkle_root"
   external database_remove_accounts : database -> account_id list -> unit = "rust_database_remove_accounts"
-  external database_merkle_path : database -> addr -> bytes list = "rust_database_merkle_path"
-  external database_merkle_path_at_addr : database -> bytes -> bytes list = "rust_database_merkle_path_at_addr"
-  external database_merkle_path_at_index : database -> int -> bytes list = "rust_database_merkle_path_at_index"
+  external database_merkle_path : database -> addr -> rust_path list = "rust_database_merkle_path"
+  external database_merkle_path_at_addr : database -> addr -> rust_path list = "rust_database_merkle_path_at_addr"
+  external database_merkle_path_at_index : database -> int -> rust_path list = "rust_database_merkle_path_at_index"
   external database_set_all_accounts_rooted_at : database -> addr -> bytes list -> unit = "rust_database_set_all_accounts_rooted_at"
   external database_set_batch_accounts : database -> (addr * account) list -> unit = "rust_database_set_batch_accounts"
   external database_get_all_accounts_rooted_at : database -> addr -> (addr * account) list = "rust_database_get_all_accounts_rooted_at"

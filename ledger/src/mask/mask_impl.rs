@@ -155,7 +155,7 @@ impl MaskImpl {
                 childs,
                 uuid,
                 ..
-            } => (parent, childs, *uuid),
+            } => (parent, childs, uuid.clone()),
         };
 
         let childs = std::mem::take(childs);
@@ -198,7 +198,7 @@ impl MaskImpl {
                     last_location: take(last_location),
                     depth: *depth,
                     childs: take(childs),
-                    uuid: *uuid,
+                    uuid: uuid.clone(),
                 }
             }
         }
@@ -259,7 +259,7 @@ impl MaskImpl {
 
                 for (index, account) in accounts {
                     let addr = Address::from_index(index.clone(), depth);
-                    parent.set_impl(addr, account, Some(self_uuid));
+                    parent.set_impl(addr, account, Some(self_uuid.clone()));
                 }
 
                 // Parent merkle root after committing should be the same as the \
@@ -477,8 +477,8 @@ impl MaskImpl {
 
         if let Some(direction) = next_direction {
             let hash = match direction {
-                Direction::Left => MerklePath::Left(left_hash),
-                Direction::Right => MerklePath::Right(right_hash),
+                Direction::Left => MerklePath::Left(right_hash),
+                Direction::Right => MerklePath::Right(left_hash),
             };
             merkle_path.push(hash)
         };
@@ -536,7 +536,7 @@ impl MaskImpl {
         child_to_ignore: Option<Uuid>,
     ) {
         for (uuid, child) in self.childs() {
-            if Some(*uuid) == child_to_ignore {
+            if Some(uuid) == child_to_ignore.as_ref() {
                 continue;
             }
             child.parent_set_notify(&account)
@@ -840,7 +840,7 @@ impl BaseLedger for MaskImpl {
     fn get_uuid(&self) -> Uuid {
         match self {
             Root { database, .. } => database.get_uuid(),
-            Attached { uuid, .. } | Unattached { uuid, .. } => *uuid,
+            Attached { uuid, .. } | Unattached { uuid, .. } => uuid.clone(),
         }
     }
 
