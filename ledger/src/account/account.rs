@@ -223,7 +223,7 @@ impl Default for ZkAppAccount {
             verification_key: None,
             zkapp_version: 0,
             sequence_state: {
-                let empty = hash_noinputs("MinaSnappSequenceEmpty");
+                let empty = hash_noinputs("MinaZkappSequenceStateEmptyElt");
                 [empty, empty, empty, empty, empty]
             },
             last_sequence_slot: 0,
@@ -526,19 +526,18 @@ impl Account {
         inputs.append_field(field_zkapp);
 
         // Self::permissions
-
         for auth in [
-            self.permissions.set_voting_for,
-            self.permissions.increment_nonce,
-            self.permissions.set_token_symbol,
-            self.permissions.edit_sequence_state,
-            self.permissions.set_zkapp_uri,
-            self.permissions.set_verification_key,
-            self.permissions.set_permissions,
-            self.permissions.set_delegate,
-            self.permissions.receive,
-            self.permissions.send,
             self.permissions.edit_state,
+            self.permissions.send,
+            self.permissions.receive,
+            self.permissions.set_delegate,
+            self.permissions.set_permissions,
+            self.permissions.set_verification_key,
+            self.permissions.set_zkapp_uri,
+            self.permissions.edit_sequence_state,
+            self.permissions.set_token_symbol,
+            self.permissions.increment_nonce,
+            self.permissions.set_voting_for,
         ] {
             for bit in auth.encode().to_bits() {
                 inputs.append_bool(bit);
@@ -824,7 +823,7 @@ mod tests {
 
         assert_eq!(
             hash.to_hex(),
-            "29ed0b3d0e00d8e24a86752291e90834bcccfee0953441e29f83c89a8e51ef37"
+            "2379b4de8afddba072725f399f74795d1d860e1d28107db938c99e2441596818"
         );
 
         let acc = Account {
@@ -848,7 +847,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "080ed90fa2552976f8ec3ada5a5d613ef0f6741b7ae1c60573105c6a146c942f"
+            "d36179e3a5795a454d81465f708cdabcb36f87ce7228f4df4e9f0e7871616f24"
         );
     }
 
@@ -876,7 +875,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "cd4ada5a40f80f5c96a8d53ca2e950bb5c6a99082feba43640eaad7d6161f439"
+            "4f6f161e97bc05dd6425aeaeebac7a299d87fd832964c93fe83a75959fd0ea28"
         );
 
         let bytes = &[
@@ -893,7 +892,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "5ba63ec61543287d3ed18c0525e4f66717ae59e04dfb4de3f9642df1ad30740f"
+            "7f4b764ea55ffb8721e28d01d0fd9eafa438ca9ab9e10f6d9ffbcdde65a22822"
         );
 
         let fp = Fp::from_str(
@@ -922,7 +921,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "8b76b2d012e0c873298b364c1d2c5f917015e022af172b26c78a1bb4a349c328"
+            "f548e167a04113d847be5899a4e3307b132bdbb846ae530fc9029f78129ef022"
         );
 
         // let fp = Fp::from_str(
