@@ -1,7 +1,10 @@
 use mina_p2p_messages::{
-    rpc::{DebuggerMessage, Message, RpcMethod},
-    AnswerSyncLedgerQueryV1, GetBestTipV1, GetEpochLedger,
-    GetStagedLedgerAuxAndPendingCoinbasesAtHashV1, GetTransitionChainV1, GetTransitionChainProofV1, GetAncestryV1, GetTransitionKnowledgeV1, VersionedRpcMenuV1,
+    rpc::{
+        AnswerSyncLedgerQueryV1, GetAncestryV1, GetBestTipV1, GetEpochLedger,
+        GetStagedLedgerAuxAndPendingCoinbasesAtHashV1, GetTransitionChainProofV1,
+        GetTransitionChainV1, GetTransitionKnowledgeV1, VersionedRpcMenuV1,
+    },
+    rpc_kernel::{DebuggerMessage, Message, RpcMethod},
 };
 
 #[macro_use]
@@ -84,7 +87,6 @@ binprot_read_test!(
     DebuggerMessage<<AnswerSyncLedgerQueryV1 as RpcMethod>::Response>
 );
 
-
 binprot_read_test!(
     get_transition_chain_query,
     "rpc-debugger/get-transition-chain/query",
@@ -97,7 +99,6 @@ binprot_read_test!(
     DebuggerMessage<<GetTransitionChainV1 as RpcMethod>::Response>
 );
 
-
 binprot_read_test!(
     get_transition_chain_proof_query,
     "rpc-debugger/get-transition-chain-proof/query",
@@ -109,7 +110,6 @@ binprot_read_test!(
     "rpc-debugger/get-transition-chain-proof/response",
     DebuggerMessage<<GetTransitionChainProofV1 as RpcMethod>::Response>
 );
-
 
 binprot_read_test!(
     ignore("No test data"),
@@ -124,7 +124,6 @@ binprot_read_test!(
     "rpc-debugger/get-transition-knowledge/response",
     DebuggerMessage<<GetTransitionKnowledgeV1 as RpcMethod>::Response>
 );
-
 
 binprot_read_test!(
     get_ancestry_query,
