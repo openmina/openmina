@@ -643,7 +643,7 @@ impl BaseLedger for Database<V2> {
     fn location_of_account(&self, account_id: &AccountId) -> Option<Address> {
         let res = self.id_to_addr.get(account_id).cloned();
 
-        println!("location_of_account id={:?}\n{:#?}", account_id, res);
+        println!("location_of_account id={:?}\n{:?}", account_id, res);
 
         res
     }
@@ -652,7 +652,7 @@ impl BaseLedger for Database<V2> {
         &self,
         account_ids: &[AccountId],
     ) -> Vec<(AccountId, Option<Address>)> {
-        let res = account_ids
+        let res: Vec<_> = account_ids
             .iter()
             .map(|account_id| {
                 let addr = self.id_to_addr.get(account_id).cloned();
@@ -661,8 +661,10 @@ impl BaseLedger for Database<V2> {
             .collect();
 
         println!(
-            "location_of_account_batch ids={:?}\n{:#?}",
-            account_ids, res
+            "location_of_account_batch ids={:?}\nres={:?}={:?}",
+            account_ids,
+            res.len(),
+            res
         );
 
         res
@@ -714,12 +716,12 @@ impl BaseLedger for Database<V2> {
             None => Cow::Owned(NodeOrLeaf::Node(Node::default())),
         };
 
-        let res = addr
+        let res: Vec<_> = addr
             .iter()
             .map(|addr| (addr.clone(), root.get_on_path(addr.iter()).cloned()))
             .collect();
 
-        println!("get_batch addrs={:?}\n{:#?}", addr, res);
+        println!("get_batch addrs={:?}\nres={:?}={:?}", addr, res.len(), res);
 
         res
     }
@@ -781,13 +783,16 @@ impl BaseLedger for Database<V2> {
     }
 
     fn merkle_root(&self) -> Fp {
+        let now = std::time::Instant::now();
+
         let root = self.root_hash();
 
         println!(
-            "uuid={:?} ROOT={} num_account={:?}",
+            "uuid={:?} ROOT={} num_account={:?} elapsed={:?}",
             self.get_uuid(),
             root,
-            self.num_accounts()
+            self.num_accounts(),
+            now.elapsed(),
         );
         // println!("PATH={:#?}", self.merkle_path(Address::first(self.depth as usize)));
 
