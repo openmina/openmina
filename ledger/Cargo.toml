@@ -47,7 +47,7 @@ getrandom = { version = "0.2", features = ["js"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 # ocaml-interop = { path = "/home/sebastien/github/ocaml-interop" }
-ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values" }
+ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values-dbg" }
 # ocaml-interop = { git = "https://github.com/tezedge/ocaml-interop.git", branch = "closure-values" }
 
 [dev-dependencies]
