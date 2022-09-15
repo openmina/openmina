@@ -16,7 +16,7 @@ pub mod v1;
 pub mod v2;
 pub mod versioned;
 
-pub use gossip::GossipNetMessage;
+pub use gossip::GossipNetMessageV1;
 
 pub use rpc::JSONifyPayloadRegistry;
 pub use rpc_kernel::JSONinifyPayloadReader;
