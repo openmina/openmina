@@ -29,6 +29,7 @@ pub mod rpc;
 pub mod string;
 pub mod utils;
 pub mod v1;
+pub mod v2;
 pub mod versioned;
 
 pub type StateHashV1Binable = Versioned<bigint::BigInt, 1>;
