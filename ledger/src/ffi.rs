@@ -759,16 +759,29 @@ ocaml_export! {
         db: OCamlRef<DynBox<DatabaseFFI>>,
         ocaml_method: OCamlRef<fn(OCamlBytes)>,
     ) {
-        let db = get_cloned_db(rt, db);
-        let db: MutexGuard<Option<Database<V2>>> = db.lock().unwrap();
+        let (num_accounts, depth) = with_db(rt, db, |db| {
+            (db.num_accounts(), db.depth())
+        });
+
         let ocaml_method = ocaml_method.to_boxroot(rt);
 
-        let db = db.as_ref().unwrap();
-        db.iter(|account| {
-            let account: Vec<u8> = serde_binprot::to_vec(&account).unwrap();
+        for index in 0..num_accounts {
+            let index = AccountIndex(index as u64);
+            let addr = Address::from_index(index, depth as usize);
+
+            let account = with_db(rt, db, |db| {
+                db.get(addr)
+            });
+
+            let account = match account {
+                Some(account) => account,
+                None => continue,
+            };
+
+            let account = serde_binprot::to_vec(&account).unwrap();
 
             let _: Result<OCaml<()>, _> = ocaml_method.try_call(rt, &account);
-        });
+        }
 
         OCaml::unit()
     }
@@ -778,17 +791,30 @@ ocaml_export! {
         db: OCamlRef<DynBox<DatabaseFFI>>,
         ocaml_method: OCamlRef<fn(String, OCamlBytes)>,
     ) {
-        let db = get_cloned_db(rt, db);
-        let db: MutexGuard<Option<Database<V2>>> = db.lock().unwrap();
+        let (num_accounts, depth) = with_db(rt, db, |db| {
+            (db.num_accounts(), db.depth())
+        });
+
         let ocaml_method = ocaml_method.to_boxroot(rt);
 
-        let db = db.as_ref().unwrap();
-        db.iter_with_addr(|addr, account| {
-            let account: Vec<u8> = serde_binprot::to_vec(&account).unwrap();
+        for index in 0..num_accounts {
+            let index = AccountIndex(index as u64);
+            let addr = Address::from_index(index, depth as usize);
+
+            let account = with_db(rt, db, |db| {
+                db.get(addr.clone())
+            });
+
+            let account = match account {
+                Some(account) => account,
+                None => continue,
+            };
+
+            let account = serde_binprot::to_vec(&account).unwrap();
             let addr = addr.to_string();
 
             let _: Result<OCaml<()>, _> = ocaml_method.try_call(rt, &addr, &account);
-        });
+        }
 
         OCaml::unit()
     }
@@ -799,23 +825,35 @@ ocaml_export! {
         ignored_accounts: OCamlRef<OCamlList<OCamlBytes>>,
         ocaml_method: OCamlRef<fn(String, OCamlBytes)>,
     ) {
-        let db = get_cloned_db(rt, db);
-        let db: MutexGuard<Option<Database<V2>>> = db.lock().unwrap();
-        let ocaml_method = ocaml_method.to_boxroot(rt);
+        let (num_accounts, depth) = with_db(rt, db, |db| {
+            (db.num_accounts(), db.depth())
+        });
 
         let ignored_accounts = get_set_of::<AccountId>(rt, ignored_accounts);
+        let ocaml_method = ocaml_method.to_boxroot(rt);
 
-        let db = db.as_ref().unwrap();
-        db.iter_with_addr(|addr, account| {
+        for index in 0..num_accounts {
+            let index = AccountIndex(index as u64);
+            let addr = Address::from_index(index, depth as usize);
+
+            let account = with_db(rt, db, |db| {
+                db.get(addr.clone())
+            });
+
+            let account = match account {
+                Some(account) => account,
+                None => continue,
+            };
+
             if ignored_accounts.contains(&account.id()) {
-                return;
+                continue;
             }
 
-            let account: Vec<u8> = serde_binprot::to_vec(&account).unwrap();
+            let account = serde_binprot::to_vec(&account).unwrap();
             let addr = addr.to_string();
 
             let _: Result<OCaml<()>, _> = ocaml_method.try_call(rt, &addr, &account);
-        });
+        }
 
         OCaml::unit()
     }
