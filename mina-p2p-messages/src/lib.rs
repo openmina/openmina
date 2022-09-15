@@ -22,7 +22,7 @@ use v1::{
 use versioned::Versioned;
 
 pub mod bigint;
-pub mod char_;
+pub mod char;
 pub mod core;
 pub mod phantom;
 pub mod rpc;
