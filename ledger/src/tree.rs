@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    cell::RefCell,
     collections::{HashMap, HashSet},
     fmt::Debug,
     ops::ControlFlow,
@@ -51,6 +52,7 @@ pub struct Database<T: TreeVersion> {
     naccounts: usize,
     uuid: Uuid,
     directory: PathBuf,
+    root_hash: RefCell<Option<Fp>>,
 }
 
 impl NodeOrLeaf<V2> {
@@ -285,11 +287,12 @@ impl Database<V2> {
             root: self.root.clone(),
             id_to_addr: self.id_to_addr.clone(),
             token_to_account: self.token_to_account.clone(),
-            depth: self.depth.clone(),
+            depth: self.depth,
             last_location: self.last_location.clone(),
-            naccounts: self.naccounts.clone(),
+            naccounts: self.naccounts,
             uuid: next_uuid(),
             directory: new_directory,
+            root_hash: RefCell::new(*self.root_hash.borrow()),
         }
     }
 
@@ -320,6 +323,8 @@ impl Database<V2> {
 
         self.token_to_account.insert(token_id, account_id.clone());
         self.id_to_addr.insert(account_id, location.clone());
+
+        self.root_hash.borrow_mut().take();
 
         Ok(GetOrCreated::Added(location))
     }
@@ -475,6 +480,7 @@ impl<T: TreeVersion> Database<T> {
             token_to_account: HashMap::with_capacity(max_naccounts as usize / 2),
             uuid,
             directory: path,
+            root_hash: Default::default(),
         }
     }
 
@@ -675,7 +681,13 @@ impl BaseLedger for Database<V2> {
         account_id: AccountId,
         account: Account,
     ) -> Result<GetOrCreated, DatabaseError> {
-        self.create_account(account_id, account)
+        let res = self.create_account(account_id, account);
+
+        if let Ok(GetOrCreated::Added(_)) = res {
+            self.root_hash.borrow_mut().take();
+        };
+
+        res
     }
 
     fn close(&self) {
@@ -756,6 +768,8 @@ impl BaseLedger for Database<V2> {
         {
             self.last_location = Some(addr);
         }
+
+        self.root_hash.borrow_mut().take();
     }
 
     fn set_batch(&mut self, list: &[(Address, Account)]) {
@@ -775,6 +789,9 @@ impl BaseLedger for Database<V2> {
     fn set_at_index(&mut self, index: AccountIndex, account: Account) -> Result<(), ()> {
         let addr = Address::from_index(index, self.depth as usize);
         self.set(addr, account);
+
+        self.root_hash.borrow_mut().take();
+
         Ok(())
     }
 
@@ -785,7 +802,10 @@ impl BaseLedger for Database<V2> {
     fn merkle_root(&self) -> Fp {
         let now = std::time::Instant::now();
 
-        let root = self.root_hash();
+        let root = match *self.root_hash.borrow() {
+            Some(root) => root,
+            None => self.root_hash(),
+        };
 
         println!(
             "uuid={:?} ROOT={} num_account={:?} elapsed={:?}",
@@ -794,6 +814,9 @@ impl BaseLedger for Database<V2> {
             self.num_accounts(),
             now.elapsed(),
         );
+
+        self.root_hash.borrow_mut().replace(root);
+
         // println!("PATH={:#?}", self.merkle_path(Address::first(self.depth as usize)));
 
         // self.merkle_path(Address::first(self.depth as usize));
@@ -891,6 +914,8 @@ impl BaseLedger for Database<V2> {
                 self.last_location = addr.prev();
             }
         }
+
+        self.root_hash.borrow_mut().take();
     }
 
     fn detached_signal(&mut self) {
