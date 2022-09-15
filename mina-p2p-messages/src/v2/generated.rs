@@ -708,7 +708,7 @@ pub enum PicklesBaseProofsVerifiedStableV1 {
 ///
 /// **Location**: [src/lib/pickles/composition_types/branch_data.ml:24:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/composition_types/branch_data.ml#L24)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct CompositionTypesBranchDataMakeStrDomainLog2StableV1(pub crate::char_::Char);
+pub struct CompositionTypesBranchDataMakeStrDomainLog2StableV1(pub crate::char::Char);
 
 /// **Origin**: `Composition_types__Branch_data.Make_str.Stable.V1.t`
 ///

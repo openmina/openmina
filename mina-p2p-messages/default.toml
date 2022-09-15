@@ -63,7 +63,7 @@ rust_id = 'i64'
 args_num = 'None'
 
 [base_types.char]
-rust_id = 'crate::char_::Char'
+rust_id = 'crate::char::Char'
 args_num = 'None'
 
 [base_types.list]

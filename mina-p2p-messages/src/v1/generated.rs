@@ -1057,7 +1057,7 @@ pub type PicklesProofBranching2ReprStableV1BinableV1PolyV1StatementArg7Arg0<Chal
 
 /// Location: [src/lib/pickles/composition_types/index.ml:7:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/composition_types/index.ml#L7)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct CompositionTypesIndexStableV1BinableV1(pub crate::char_::Char);
+pub struct CompositionTypesIndexStableV1BinableV1(pub crate::char::Char);
 
 /// **Origin**: `Composition_types__Index.Stable.V1.t`
 ///
@@ -2494,7 +2494,7 @@ pub type PicklesBaseDomainStableV1Binable =
 
 /// Location: [src/lib/pickles_base/side_loaded_verification_key.ml:44:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles_base/side_loaded_verification_key.ml#L44)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct PicklesBaseSideLoadedVerificationKeyWidthStableV1BinableV1(pub crate::char_::Char);
+pub struct PicklesBaseSideLoadedVerificationKeyWidthStableV1BinableV1(pub crate::char::Char);
 
 /// **Origin**: `Pickles_base__Side_loaded_verification_key.Width.Stable.V1.t`
 ///
