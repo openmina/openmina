@@ -586,7 +586,7 @@ dependencies = [
 [[package]]
 name = "ocaml-interop"
 version = "0.8.8"
-source = "git+https://github.com/sebastiencs/ocaml-interop.git?branch=closure-values-dbg#59be41551b0bff197b6dabbc69c28f771e55a868"
+source = "git+https://github.com/sebastiencs/ocaml-interop.git?branch=closure-values-dbg#22410feff70180f08ba2602fcf0ec36912cfab88"
 dependencies = [
  "ocaml-boxroot-sys",
  "ocaml-sys",
