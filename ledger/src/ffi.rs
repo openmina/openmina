@@ -6,7 +6,7 @@ use std::{
     path::PathBuf,
     rc::Rc,
     str::FromStr,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use mina_hasher::Fp;
@@ -28,7 +28,7 @@ use crate::{
 static DATABASE: Lazy<Mutex<Database<V2>>> = Lazy::new(|| Mutex::new(Database::create(30)));
 
 // #[derive(Clone)]
-struct DatabaseFFI(Rc<RefCell<Option<Database<V2>>>>);
+struct DatabaseFFI(Arc<Mutex<Option<Database<V2>>>>);
 
 fn with_db<F, R>(rt: &mut &mut OCamlRuntime, db: OCamlRef<DynBox<DatabaseFFI>>, fun: F) -> R
 where
@@ -36,7 +36,7 @@ where
 {
     let db = rt.get(db);
     let db: &DatabaseFFI = db.borrow();
-    let mut db = db.0.borrow_mut();
+    let mut db = db.0.lock().unwrap();
 
     fun(db.as_mut().unwrap())
 }
@@ -171,11 +171,11 @@ fn hash_to_ocaml(hash: Fp) -> Vec<u8> {
 fn get_cloned_db(
     rt: &mut &mut OCamlRuntime,
     db: OCamlRef<DynBox<DatabaseFFI>>,
-) -> Rc<RefCell<Option<Database<V2>>>> {
+) -> Arc<Mutex<Option<Database<V2>>>> {
     let db = rt.get(db);
     let db: &DatabaseFFI = db.borrow();
     // let mut db = db.0.borrow_mut();
-    Rc::clone(&db.0)
+    Arc::clone(&db.0)
 }
 
 ocaml_export! {
@@ -205,7 +205,7 @@ ocaml_export! {
             }
         };
 
-        let db = DatabaseFFI(Rc::new(RefCell::new(Some(db))));
+        let db = DatabaseFFI(Arc::new(Mutex::new(Some(db))));
 
         OCaml::box_value(rt, db)
     }
@@ -255,17 +255,19 @@ ocaml_export! {
             let directory_name: String = directory_name.to_rust(rt);
 
             {
-                let mut db = db.0.borrow_mut();
+                let mut db = db.0.lock().unwrap();
                 let db = db.as_mut().unwrap();
                 db.create_checkpoint(directory_name.clone());
             }
 
             let directory_name = PathBuf::from(directory_name);
 
-            let db: Ref<Option<Database<V2>>> = (*db.0).borrow();
-            let db_clone = db.as_ref().unwrap().clone_db(directory_name);
+            let db_clone = {
+                let db: MutexGuard<Option<Database<V2>>> = (*db.0).lock().unwrap();
+                db.as_ref().unwrap().clone_db(directory_name)
+            };
 
-            DatabaseFFI(Rc::new(RefCell::new(Some(db_clone))))
+            DatabaseFFI(Arc::new(Mutex::new(Some(db_clone))))
         };
 
         OCaml::box_value(rt, db)
@@ -282,15 +284,17 @@ ocaml_export! {
         let directory_name: String = directory_name.to_rust(rt);
 
         {
-            let mut db = db.0.borrow_mut();
+            let mut db = db.0.lock().unwrap();
             let db = db.as_mut().unwrap();
             db.make_checkpoint(directory_name.clone());
         }
 
         let directory_name = PathBuf::from(directory_name);
 
-        let db: Ref<Option<Database<V2>>> = (*db.0).borrow();
-        let db_clone = db.as_ref().unwrap().clone_db(directory_name.clone());
+        let db_clone = {
+            let db: MutexGuard<Option<Database<V2>>> = (*db.0).lock().unwrap();
+            db.as_ref().unwrap().clone_db(directory_name.clone())
+        };
 
         let mut closed_dbs = DB_CLOSED.lock().unwrap();
         closed_dbs.insert(directory_name, db_clone);
@@ -306,13 +310,17 @@ ocaml_export! {
         let db: &DatabaseFFI = db.borrow();
 
         let path = {
-            let mut db_ref = db.0.borrow_mut();
+            let mut db_ref = db.0.lock().unwrap();
             let db_ref = db_ref.as_mut().unwrap();
             db_ref.close();
             db_ref.get_directory().unwrap()
         };
 
-        let db = db.0.take().unwrap();
+        let db = {
+            let mut db_ref = db.0.lock().unwrap();
+            db_ref.take().unwrap()
+        };
+
         // let db: RefCell<Database<V2>> = Rc::try_unwrap(db).ok().unwrap();
         // let db = db.into_inner();
 
@@ -752,7 +760,7 @@ ocaml_export! {
         ocaml_method: OCamlRef<fn(OCamlBytes)>,
     ) {
         let db = get_cloned_db(rt, db);
-        let db: Ref<Option<Database<V2>>> = (*db).borrow();
+        let db: MutexGuard<Option<Database<V2>>> = db.lock().unwrap();
         let ocaml_method = ocaml_method.to_boxroot(rt);
 
         let db = db.as_ref().unwrap();
@@ -771,7 +779,7 @@ ocaml_export! {
         ocaml_method: OCamlRef<fn(String, OCamlBytes)>,
     ) {
         let db = get_cloned_db(rt, db);
-        let db: Ref<Option<Database<V2>>> = (*db).borrow();
+        let db: MutexGuard<Option<Database<V2>>> = db.lock().unwrap();
         let ocaml_method = ocaml_method.to_boxroot(rt);
 
         let db = db.as_ref().unwrap();
@@ -792,7 +800,7 @@ ocaml_export! {
         ocaml_method: OCamlRef<fn(String, OCamlBytes)>,
     ) {
         let db = get_cloned_db(rt, db);
-        let db: Ref<Option<Database<V2>>> = (*db).borrow();
+        let db: MutexGuard<Option<Database<V2>>> = db.lock().unwrap();
         let ocaml_method = ocaml_method.to_boxroot(rt);
 
         let ignored_accounts = get_set_of::<AccountId>(rt, ignored_accounts);
