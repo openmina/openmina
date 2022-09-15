@@ -24,7 +24,7 @@ where
 
 #[test]
 fn gossip_message() {
-    fuzz(try_decode::<mina_p2p_messages::GossipNetMessage>);
+    fuzz(try_decode::<mina_p2p_messages::GossipNetMessageV1>);
 }
 
 #[test]
