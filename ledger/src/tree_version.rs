@@ -24,7 +24,7 @@ impl TreeVersion for V2 {
     type TokenId = TokenId;
 
     fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp {
-        let param = format!("CodaMklTree{:03}", depth);
+        let param = format!("MinaMklTree{:03}", depth);
 
         crate::hash::hash_with_kimchi(param.as_str(), &[left, right])
     }

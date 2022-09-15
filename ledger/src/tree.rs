@@ -1074,33 +1074,33 @@ mod tests {
         let account_empty_hash = Account::empty().hash();
         assert_eq!(
             account_empty_hash.to_hex(),
-            "27e0bcd12f2d03ef88f7b733c0edcee1b82c81cadb15ed70b0faf6fd701d2a15"
+            "d4d7b7ce909834320e88ec673845a34218e266aef76ae8b0762fef9c915c3a0f"
         );
 
         for (depth, s) in [
             (
                 0,
-                "27e0bcd12f2d03ef88f7b733c0edcee1b82c81cadb15ed70b0faf6fd701d2a15",
+                "d4d7b7ce909834320e88ec673845a34218e266aef76ae8b0762fef9c915c3a0f",
             ),
             (
                 5,
-                "634f07966c6de25a6b5153d28f24cf5f45bb2f90cc6d54bd601aa4ba7f319f22",
+                "8eb1532b8663c5af0841ea4287b360404bcd468510a8a7e4d1a602e1a565ad3f",
             ),
             (
                 10,
-                "29dc9c35041d25a70c9ef90fab4d05257f9fb73bf90202e0b15c7b2e13124d17",
+                "c3fb7a2eeb9008a80dcf6c4e9a07a47d27dda8026e3fd9bd8df78438801bfa14",
             ),
             (
                 11,
-                "573cb5bb84a9cc1b5403b31e48e9bce9cccfe63be94ea9c66671ab5b2852162a",
+                "f310151e53c916a3b682d28ed806ceb6f0c7be39aa54b8facfc4f4afc790083f",
             ),
             (
                 100,
-                "97539c708e2f269ac25c9ce8e5622bd0400798385f9416c3f78099f7f13bd70d",
+                "f32563e80fa14c9ce0d56d33f6fa361e4bbcffd7cc8478f68036110dfae88c3f",
             ),
             (
                 2000,
-                "cf990d33fb9266d7151e0c83b244a50e232fc1d9d3ae5180733a6f474f258f0e",
+                "b6f8c732dcfeb5acc3f684b2936a03553422d7ceac45ffd2f60992e3e87f3312",
             ),
         ] {
             let hash = V2::empty_hash_at_depth(depth);

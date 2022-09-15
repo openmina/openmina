@@ -207,7 +207,7 @@ impl VerificationKey {
         inputs.append_field(index.endomul_scalar.0);
         inputs.append_field(index.endomul_scalar.1);
 
-        hash_with_kimchi("CodaSideLoadedVk", &inputs.to_fields())
+        hash_with_kimchi("MinaSideLoadedVk", &inputs.to_fields())
     }
 }
 
@@ -536,7 +536,7 @@ impl Account {
                 inputs.append_field(*fp);
             }
 
-            hash_with_kimchi("CodaZkappAccount", &inputs.to_fields())
+            hash_with_kimchi("MinaZkappAccount", &inputs.to_fields())
         };
 
         inputs.append_field(field_zkapp);
@@ -644,7 +644,7 @@ impl Account {
         inputs.append_field(self.public_key.x);
         inputs.append_bool(self.public_key.is_odd);
 
-        hash_with_kimchi("CodaAccount", &inputs.to_fields())
+        hash_with_kimchi("MinaAccount", &inputs.to_fields())
     }
 
     pub fn rand() -> Self {
@@ -839,7 +839,7 @@ mod tests {
 
         assert_eq!(
             hash.to_hex(),
-            "2379b4de8afddba072725f399f74795d1d860e1d28107db938c99e2441596818"
+            "ec09b43d5361fd783c9f3cf345b03137ee6a0ddb51fd222b62e5acbe69cc740c"
         );
 
         let acc = Account {
@@ -863,7 +863,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "d36179e3a5795a454d81465f708cdabcb36f87ce7228f4df4e9f0e7871616f24"
+            "22cb73553edbcc0e1ca969fa918dde89ec6b30bb931670b6ec5a93eb42e9b93f"
         );
     }
 
@@ -871,7 +871,7 @@ mod tests {
     fn test_dummy_sideloaded_verification_key() {
         assert_eq!(
             VerificationKey::dummy().hash().to_hex(),
-            "bda165a90435d2ecd2577002c32ee361e08fb3bbcb0445c9316d36992a470323"
+            "b5d8852f07bb6daffbc4a68829141643f56ebd86a2a571e9d0e939e929fba40f"
         );
     }
 
@@ -891,7 +891,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "4f6f161e97bc05dd6425aeaeebac7a299d87fd832964c93fe83a75959fd0ea28"
+            "ef4a9480c5c12a814a36b8567ce962aac73a8475edb43ba60147108b7c49c201"
         );
 
         let bytes = &[
@@ -908,7 +908,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "7f4b764ea55ffb8721e28d01d0fd9eafa438ca9ab9e10f6d9ffbcdde65a22822"
+            "3c30eb17300547d3c75ca8d4c1d4ee725e02bc4b8d0d819d802d01bc75ddd435"
         );
 
         let fp = Fp::from_str(
@@ -937,7 +937,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "f548e167a04113d847be5899a4e3307b132bdbb846ae530fc9029f78129ef022"
+            "b6196dcded29743a39b067d0e3ac71bce76f25a2b53107b8a21225d438c6a428"
         );
 
         // let fp = Fp::from_str(
