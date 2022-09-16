@@ -31,6 +31,12 @@ impl Default for TokenId {
     }
 }
 
+impl From<u64> for TokenId {
+    fn from(num: u64) -> Self {
+        TokenId(Fp::from(num))
+    }
+}
+
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/account.ml#L93
 pub type TokenSymbol = String;
 
@@ -828,6 +834,11 @@ mod tests {
     use crate::{base::BaseLedger, tree::Database, tree_version::V2};
 
     use super::*;
+
+    #[test]
+    fn test_size_account() {
+        assert_eq!(std::mem::size_of::<Account>(), 2528);
+    }
 
     #[test]
     fn test_hash_account() {

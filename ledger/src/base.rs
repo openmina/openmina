@@ -32,6 +32,15 @@ pub enum MerklePath {
     Right(Fp),
 }
 
+impl MerklePath {
+    pub fn hash(&self) -> &Fp {
+        match self {
+            MerklePath::Left(h) => h,
+            MerklePath::Right(h) => h,
+        }
+    }
+}
+
 impl std::fmt::Debug for MerklePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

@@ -342,6 +342,65 @@ ocaml_export! {
         OCaml::unit()
     }
 
+    fn rust_get_random_account(
+        rt,
+        validate_account: OCamlRef<fn (OCamlBytes) -> ()>,
+    ) -> OCaml<OCamlBytes> {
+        let mut account;
+        let mut bytes;
+        let validate_account = validate_account.to_boxroot(rt);
+
+        loop {
+            account = Account::rand();
+            bytes = serde_binprot::to_vec(&account).unwrap();
+
+            if validate_account.try_call(rt, &bytes).is_ok() {
+                break;
+            }
+        }
+
+        println!("account={:?}", account.id());
+        std::thread::sleep_ms(2000);
+
+        bytes.to_ocaml(rt)
+    }
+
+    fn rust_test_random_accounts(
+        rt,
+        get_hash_fun: OCamlRef<fn (OCamlBytes) -> OCamlBytes>,
+    ) {
+        let get_hash_fun = get_hash_fun.to_boxroot(rt);
+        let mut nchecked = 0;
+
+        for _ in 0..10_000 {
+            let account = Account::rand();
+            let rust_hash = account.hash();
+
+            let bytes = serde_binprot::to_vec(&account).unwrap();
+            let ocaml_hash: OCaml<OCamlBytes> = match get_hash_fun.try_call(rt, &bytes) {
+                Ok(hash) => hash,
+                Err(_) => continue, // random account is invalid
+            };
+
+            let ocaml_hash: Vec<u8> = ocaml_hash.to_rust();
+            let ocaml_hash: BigInt = serde_binprot::from_slice(&ocaml_hash).unwrap();
+            let ocaml_hash: Fp = ocaml_hash.into();
+
+            if ocaml_hash != rust_hash {
+                println!("different hash ! bytes={:?}", account);
+                println!("ocaml_hash={}", ocaml_hash);
+                println!("rust_hash ={}", rust_hash);
+                panic!("account={:#?}", account);
+            }
+
+            nchecked += 1;
+        }
+
+        eprintln!("nchecked={:?}", nchecked);
+
+        OCaml::unit()
+    }
+
     fn rust_add_account_with_hash(
         rt,
         account: OCamlRef<OCamlBytes>,

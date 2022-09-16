@@ -12,6 +12,7 @@ use crate::{
     address::{Address, AddressIterator, Direction},
     base::{next_uuid, AccountIndex, BaseLedger, GetOrCreated, MerklePath, Uuid},
     tree_version::{TreeVersion, V1, V2},
+    util::FpExt,
 };
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
@@ -185,12 +186,14 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
         depth: Option<usize>,
         path: &mut AddressIterator,
         merkle_path: &mut Vec<MerklePath>,
+        on_path: bool,
     ) -> Fp {
-        let next_direction = path.next();
+        let next_direction = if on_path { path.next() } else { None };
 
         let node = match self {
             NodeOrLeaf::Node(node) => node,
             NodeOrLeaf::Leaf(leaf) => {
+                println!("DEPTH={:?}", depth);
                 return match leaf.account.as_ref() {
                     Some(account) => T::hash_leaf(account),
                     None => T::empty_hash_at_depth(0), // Empty account
@@ -200,18 +203,33 @@ impl<T: TreeVersion> NodeOrLeaf<T> {
 
         let depth = match depth {
             Some(depth) => depth,
-            None => panic!("invalid depth"),
+            None => return T::empty_hash_at_depth(0),
         };
 
+        let on_path_left = matches!(next_direction, Some(Direction::Left));
         let left_hash = match node.left.as_ref() {
-            Some(left) => left.hash_at_path(depth.checked_sub(1), path, merkle_path),
-            None => T::empty_hash_at_depth(depth),
+            Some(left) => left.hash_at_path(depth.checked_sub(1), path, merkle_path, on_path_left),
+            None => NodeOrLeaf::<T>::Node(Node {
+                left: None,
+                right: None,
+            })
+            .hash_at_path(depth.checked_sub(1), path, merkle_path, on_path_left),
         };
 
+        let on_path_right = matches!(next_direction, Some(Direction::Right));
         let right_hash = match node.right.as_ref() {
-            Some(right) => right.hash_at_path(depth.checked_sub(1), path, merkle_path),
-            None => T::empty_hash_at_depth(depth),
+            Some(right) => {
+                right.hash_at_path(depth.checked_sub(1), path, merkle_path, on_path_right)
+            }
+            None => NodeOrLeaf::<T>::Node(Node {
+                left: None,
+                right: None,
+            })
+            .hash_at_path(depth.checked_sub(1), path, merkle_path, on_path_right),
         };
+
+        println!("depth={:?} left={}", depth, left_hash.to_decimal());
+        println!("depth={:?} right={}", depth, right_hash.to_decimal());
 
         if let Some(direction) = next_direction {
             let hash = match direction {
@@ -859,7 +877,13 @@ impl BaseLedger for Database<V2> {
         // println!("HASH_FIRST_ACCOUNT={:?}", first.map(|a| a.hash().to_string()));
         // println!("root_hash={}", self.merkle_root());
 
-        root.hash_at_path(Some(self.depth as usize - 1), &mut path, &mut merkle_path);
+        println!("\nmerkle_path");
+        root.hash_at_path(
+            Some(self.depth as usize - 1),
+            &mut path,
+            &mut merkle_path,
+            true,
+        );
 
         // merkle_path.reverse();
 
@@ -1245,6 +1269,7 @@ mod tests {
 
 #[cfg(test)]
 mod tests_ocaml {
+    use o1_utils::FieldHelpers;
     use rand::Rng;
 
     #[cfg(target_family = "wasm")]
@@ -1661,9 +1686,136 @@ mod tests_ocaml {
         assert_eq!(total_balance, retrieved);
     }
 
-    // "fold_until over account balances"
     #[test]
     fn test_merkle_path() {
+        const DEPTH: usize = 4;
+        const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
+
+        let mut db = Database::<V2>::create(DEPTH as u8);
+
+        for index in 0..NACCOUNTS / 2 {
+            let mut account = Account::empty();
+            account.token_id = TokenId::from(index as u64);
+            let res = db.get_or_create_account(account.id(), account).unwrap();
+            assert!(matches!(res, GetOrCreated::Added(_)));
+        }
+
+        let expected = [
+            &[
+                "d4d7b7ce909834320e88ec673845a34218e266aef76ae8b0762fef9c915c3a0f",
+                "71298a5f73dd7d57f0ab0c4dacac55e2b2ce1c193edc2353835b269c2a9be13b",
+                "64d19228e63f9b57b028553f27f55ea097632017f37fd4af09f0ca35f82b7332",
+                "55b6cdf6bdb5c706c6dc2564e850d298e4cef8e341cc168048f1e74e1b4b281b",
+            ][..],
+            &[
+                "c5eb02a1d128c64711c49e37529579542d809f502af3e3e2770bc8fa4ca74412",
+                "71298a5f73dd7d57f0ab0c4dacac55e2b2ce1c193edc2353835b269c2a9be13b",
+                "64d19228e63f9b57b028553f27f55ea097632017f37fd4af09f0ca35f82b7332",
+                "55b6cdf6bdb5c706c6dc2564e850d298e4cef8e341cc168048f1e74e1b4b281b",
+            ][..],
+            &[
+                "4f2e586da9cb93d4616566321e9ad17ae67347a72376b6ccec7aedb9c3ced82e",
+                "f19a56d3eca39b57e18837af817f45936e0924db7efbbb57e63ae7398807ba2e",
+                "64d19228e63f9b57b028553f27f55ea097632017f37fd4af09f0ca35f82b7332",
+                "55b6cdf6bdb5c706c6dc2564e850d298e4cef8e341cc168048f1e74e1b4b281b",
+            ][..],
+            &[
+                "38647347399604e47925219669694bd7cd7701e872fa3d9ac4d39d5aca8f132a",
+                "f19a56d3eca39b57e18837af817f45936e0924db7efbbb57e63ae7398807ba2e",
+                "64d19228e63f9b57b028553f27f55ea097632017f37fd4af09f0ca35f82b7332",
+                "55b6cdf6bdb5c706c6dc2564e850d298e4cef8e341cc168048f1e74e1b4b281b",
+            ][..],
+            &[
+                "cd0744a5cfd8fe2d87521c892541dd6a71453fe783c2155ac8a440ad7a1cad2c",
+                "abe1d4fab2bdebf82cc7984d15d47d758de9c3dd2f69cdcaabb3a1fe27794d24",
+                "abe5bcdbdaed54618f00cab4e4c49c11eda843dce6ec041f532ee723cf80d626",
+                "55b6cdf6bdb5c706c6dc2564e850d298e4cef8e341cc168048f1e74e1b4b281b",
+            ][..],
+            &[
+                "d8df812fa7cce8f3947ea41b8ad3521785b5b6f3f131da67fa617b66913acd0f",
+                "abe1d4fab2bdebf82cc7984d15d47d758de9c3dd2f69cdcaabb3a1fe27794d24",
+                "abe5bcdbdaed54618f00cab4e4c49c11eda843dce6ec041f532ee723cf80d626",
+                "55b6cdf6bdb5c706c6dc2564e850d298e4cef8e341cc168048f1e74e1b4b281b",
+            ][..],
+            &[
+                "508811d43431391b810f672a1454add86952de9b0a21e914148a89e993521d15",
+                "22f9538d5ec69873bf6b44a282c15cc71f22fe07e316508778f1fbbc7e79b425",
+                "abe5bcdbdaed54618f00cab4e4c49c11eda843dce6ec041f532ee723cf80d626",
+                "55b6cdf6bdb5c706c6dc2564e850d298e4cef8e341cc168048f1e74e1b4b281b",
+            ],
+            &[
+                "bdfebc93f1171b0f0894a3e1fdf4248b07df335fc8ad7239b679eaab11074d0c",
+                "22f9538d5ec69873bf6b44a282c15cc71f22fe07e316508778f1fbbc7e79b425",
+                "abe5bcdbdaed54618f00cab4e4c49c11eda843dce6ec041f532ee723cf80d626",
+                "55b6cdf6bdb5c706c6dc2564e850d298e4cef8e341cc168048f1e74e1b4b281b",
+            ][..],
+            &[
+                "d4d7b7ce909834320e88ec673845a34218e266aef76ae8b0762fef9c915c3a0f",
+                "0621ecfccd1f4b6f29537e023cd007eeb04b056815bcba90ee8e5331941b572c",
+                "6cfac5c1603e77955841833596a94e1705aa3e15ecd5ab2a582f1156027b1231",
+                "83db2f65d14022f2070cb1eec617a2cf92990bc9ee5a683124875b97cd1b7029",
+            ][..],
+            &[
+                "d4d7b7ce909834320e88ec673845a34218e266aef76ae8b0762fef9c915c3a0f",
+                "0621ecfccd1f4b6f29537e023cd007eeb04b056815bcba90ee8e5331941b572c",
+                "6cfac5c1603e77955841833596a94e1705aa3e15ecd5ab2a582f1156027b1231",
+                "83db2f65d14022f2070cb1eec617a2cf92990bc9ee5a683124875b97cd1b7029",
+            ][..],
+            &[
+                "d4d7b7ce909834320e88ec673845a34218e266aef76ae8b0762fef9c915c3a0f",
+                "0621ecfccd1f4b6f29537e023cd007eeb04b056815bcba90ee8e5331941b572c",
+                "6cfac5c1603e77955841833596a94e1705aa3e15ecd5ab2a582f1156027b1231",
+                "83db2f65d14022f2070cb1eec617a2cf92990bc9ee5a683124875b97cd1b7029",
+            ][..],
+            &[
+                "d4d7b7ce909834320e88ec673845a34218e266aef76ae8b0762fef9c915c3a0f",
+                "0621ecfccd1f4b6f29537e023cd007eeb04b056815bcba90ee8e5331941b572c",
+                "6cfac5c1603e77955841833596a94e1705aa3e15ecd5ab2a582f1156027b1231",
+                "83db2f65d14022f2070cb1eec617a2cf92990bc9ee5a683124875b97cd1b7029",
+            ][..],
+            &[
+                "d4d7b7ce909834320e88ec673845a34218e266aef76ae8b0762fef9c915c3a0f",
+                "0621ecfccd1f4b6f29537e023cd007eeb04b056815bcba90ee8e5331941b572c",
+                "6cfac5c1603e77955841833596a94e1705aa3e15ecd5ab2a582f1156027b1231",
+                "83db2f65d14022f2070cb1eec617a2cf92990bc9ee5a683124875b97cd1b7029",
+            ][..],
+            &[
+                "d4d7b7ce909834320e88ec673845a34218e266aef76ae8b0762fef9c915c3a0f",
+                "0621ecfccd1f4b6f29537e023cd007eeb04b056815bcba90ee8e5331941b572c",
+                "6cfac5c1603e77955841833596a94e1705aa3e15ecd5ab2a582f1156027b1231",
+                "83db2f65d14022f2070cb1eec617a2cf92990bc9ee5a683124875b97cd1b7029",
+            ][..],
+            &[
+                "d4d7b7ce909834320e88ec673845a34218e266aef76ae8b0762fef9c915c3a0f",
+                "0621ecfccd1f4b6f29537e023cd007eeb04b056815bcba90ee8e5331941b572c",
+                "6cfac5c1603e77955841833596a94e1705aa3e15ecd5ab2a582f1156027b1231",
+                "83db2f65d14022f2070cb1eec617a2cf92990bc9ee5a683124875b97cd1b7029",
+            ][..],
+            &[
+                "d4d7b7ce909834320e88ec673845a34218e266aef76ae8b0762fef9c915c3a0f",
+                "0621ecfccd1f4b6f29537e023cd007eeb04b056815bcba90ee8e5331941b572c",
+                "6cfac5c1603e77955841833596a94e1705aa3e15ecd5ab2a582f1156027b1231",
+                "83db2f65d14022f2070cb1eec617a2cf92990bc9ee5a683124875b97cd1b7029",
+            ][..],
+        ];
+
+        let mut hashes = Vec::with_capacity(100);
+
+        let root = Address::root();
+        let nchild = root.iter_children(DEPTH);
+
+        for child in nchild {
+            let path = db.merkle_path(child);
+            let path = path.iter().map(|p| p.hash().to_hex()).collect::<Vec<_>>();
+            hashes.push(path);
+        }
+
+        assert_eq!(&expected[..], hashes.as_slice());
+    }
+
+    // "fold_until over account balances"
+    #[test]
+    fn test_merkle_path_test() {
         const DEPTH: usize = 4;
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
@@ -1696,78 +1848,78 @@ mod tests_ocaml {
 
         db.merkle_path(Address::first(DEPTH));
 
-        println!(
-            "INNER_AT_0={}",
-            db.get_inner_hash_at_addr(Address::try_from("0000").unwrap())
-                .unwrap()
-        );
-        println!(
-            "INNER_AT_0={}",
-            db.get_inner_hash_at_addr(Address::try_from("0001").unwrap())
-                .unwrap()
-        );
-        println!(
-            "INNER_AT_0={}",
-            db.get_inner_hash_at_addr(Address::try_from("0010").unwrap())
-                .unwrap()
-        );
-        println!(
-            "INNER_AT_0={}",
-            db.get_inner_hash_at_addr(Address::try_from("0101").unwrap())
-                .unwrap()
-        );
+        // println!(
+        //     "INNER_AT_0={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("0000").unwrap())
+        //         .unwrap()
+        // );
+        // println!(
+        //     "INNER_AT_0={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("0001").unwrap())
+        //         .unwrap()
+        // );
+        // println!(
+        //     "INNER_AT_0={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("0010").unwrap())
+        //         .unwrap()
+        // );
+        // println!(
+        //     "INNER_AT_0={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("0101").unwrap())
+        //         .unwrap()
+        // );
 
-        println!("A");
-        println!(
-            "INNER_AT_3={}",
-            db.get_inner_hash_at_addr(Address::try_from("000").unwrap())
-                .unwrap()
-        );
-        println!(
-            "INNER_AT_3={}",
-            db.get_inner_hash_at_addr(Address::try_from("001").unwrap())
-                .unwrap()
-        );
-        println!(
-            "INNER_AT_3={}",
-            db.get_inner_hash_at_addr(Address::try_from("010").unwrap())
-                .unwrap()
-        );
-        println!(
-            "INNER_AT_3={}",
-            db.get_inner_hash_at_addr(Address::try_from("101").unwrap())
-                .unwrap()
-        );
+        // println!("A");
+        // println!(
+        //     "INNER_AT_3={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("000").unwrap())
+        //         .unwrap()
+        // );
+        // println!(
+        //     "INNER_AT_3={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("001").unwrap())
+        //         .unwrap()
+        // );
+        // println!(
+        //     "INNER_AT_3={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("010").unwrap())
+        //         .unwrap()
+        // );
+        // println!(
+        //     "INNER_AT_3={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("101").unwrap())
+        //         .unwrap()
+        // );
 
-        println!("A");
-        println!(
-            "INNER_AT_2={}",
-            db.get_inner_hash_at_addr(Address::try_from("10").unwrap())
-                .unwrap()
-        );
-        println!(
-            "INNER_AT_2={}",
-            db.get_inner_hash_at_addr(Address::try_from("01").unwrap())
-                .unwrap()
-        );
+        // println!("A");
+        // println!(
+        //     "INNER_AT_2={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("10").unwrap())
+        //         .unwrap()
+        // );
+        // println!(
+        //     "INNER_AT_2={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("01").unwrap())
+        //         .unwrap()
+        // );
 
-        println!("A");
-        println!(
-            "INNER_AT_1={}",
-            db.get_inner_hash_at_addr(Address::try_from("1").unwrap())
-                .unwrap()
-        );
-        println!(
-            "INNER_AT_1={}",
-            db.get_inner_hash_at_addr(Address::try_from("0").unwrap())
-                .unwrap()
-        );
+        // println!("A");
+        // println!(
+        //     "INNER_AT_1={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("1").unwrap())
+        //         .unwrap()
+        // );
+        // println!(
+        //     "INNER_AT_1={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("0").unwrap())
+        //         .unwrap()
+        // );
 
-        println!("A");
-        println!(
-            "INNER_AT_0={}",
-            db.get_inner_hash_at_addr(Address::try_from("").unwrap())
-                .unwrap()
-        );
+        // println!("A");
+        // println!(
+        //     "INNER_AT_0={}",
+        //     db.get_inner_hash_at_addr(Address::try_from("").unwrap())
+        //         .unwrap()
+        // );
     }
 }

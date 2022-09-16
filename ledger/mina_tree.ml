@@ -55,4 +55,8 @@ module Rust = struct
   (* TODO: Make those method *)
   external database_foldi : database -> (addr -> bytes -> unit) -> unit = "rust_database_foldi"
   external database_foldi_with_ignored_accounts : database -> account_id list -> (addr -> bytes -> unit) -> unit = "rust_database_foldi_with_ignored_accounts"
+
+  (* For testing *)
+  external test_random_accounts : (bytes -> bytes) -> unit = "rust_test_random_accounts"
+  external get_random_account : (bytes -> unit) -> bytes = "rust_get_random_account"
 end
