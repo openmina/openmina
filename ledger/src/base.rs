@@ -128,7 +128,7 @@ pub trait BaseLedger {
 
     /// meant to be a fast operation: the root hash is stored, rather
     /// than calculated dynamically
-    fn merkle_root(&self) -> Fp;
+    fn merkle_root(&mut self) -> Fp;
 
     fn merkle_path(&mut self, addr: Address) -> Vec<MerklePath>;
 
@@ -148,7 +148,7 @@ pub trait BaseLedger {
 
     fn merkle_path_at_addr(&mut self, addr: Address) -> Vec<MerklePath>;
 
-    fn get_inner_hash_at_addr(&self, addr: Address) -> Result<Fp, ()>;
+    fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, ()>;
 
     fn set_inner_hash_at_addr(&mut self, addr: Address, hash: Fp) -> Result<(), ()>;
 

@@ -451,7 +451,7 @@ ocaml_export! {
     }
 
     fn rust_root_hash(rt, ocaml_hash: OCamlRef<String>) {
-        let db = DATABASE.lock().unwrap();
+        let mut db = DATABASE.lock().unwrap();
         let hash = db.root_hash();
 
         let ocaml_hash: String = ocaml_hash.to_rust(rt);

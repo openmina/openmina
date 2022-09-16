@@ -34,133 +34,50 @@ impl HashesMatrix {
         }
     }
 
-    fn get<I>(&self, index: I) -> Option<&Fp>
-    where
-        I: Into<TreeIndex>,
-    {
-        let index: TreeIndex = index.into();
-        let linear = index.to_linear_index();
+    fn get(&self, addr: &Address) -> Option<&Fp> {
+        let linear = addr.to_linear_index();
 
         self.matrix.get(linear)?.as_ref()
     }
 
-    fn set<I>(&mut self, index: I, hash: Fp)
-    where
-        I: Into<TreeIndex>,
-    {
-        let index: TreeIndex = index.into();
-        let linear = index.to_linear_index();
+    fn set(&mut self, addr: &Address, hash: Fp) {
+        let linear = addr.to_linear_index();
 
         if self.matrix.len() <= linear {
             self.matrix.resize(linear + 1, None);
         }
 
-        // assert!(self.matrix[linear].is_none());
+        assert!(self.matrix[linear].is_none());
         self.matrix[linear] = Some(hash)
     }
 
-    fn remove<I>(&mut self, index: I)
-    where
-        I: Into<TreeIndex>,
-    {
-        let index: TreeIndex = index.into();
-        let linear = index.to_linear_index();
+    fn remove(&mut self, addr: &Address) {
+        let linear = addr.to_linear_index();
+        self.remove_at_index(linear);
+    }
 
-        let hash = match self.matrix.get_mut(linear) {
+    fn remove_at_index(&mut self, index: usize) {
+        let hash = match self.matrix.get_mut(index) {
             Some(hash) => hash,
             None => return,
         };
 
-        hash.take();
+        if hash.is_some() {
+            *hash = None;
+        }
     }
 
     fn invalidate_hashes(&mut self, account_index: AccountIndex) {
-        let mut index = TreeIndex::from_account_index(account_index, self.ledger_depth);
+        let mut addr = Address::from_index(account_index, self.ledger_depth);
 
-        while !index.is_root() {
-            let linear = index.to_linear_index();
-
-            if linear < self.matrix.len() && self.matrix[linear].is_some() {
-                self.matrix[linear] = None;
+        loop {
+            let index = addr.to_linear_index();
+            self.remove_at_index(index);
+            addr = match addr.parent() {
+                Some(addr) => addr,
+                None => break,
             }
-
-            index = index.parent().unwrap();
         }
-    }
-}
-
-/// Indexing any node in the tree (root, hash, account)
-#[derive(Clone, Debug)]
-struct TreeIndex {
-    length: usize,
-    inner: u64,
-    ledger_depth: usize,
-}
-
-impl TreeIndex {
-    fn root(depth: usize) -> Self {
-        Self {
-            length: 0,
-            inner: 0,
-            ledger_depth: depth,
-        }
-    }
-
-    fn is_root(&self) -> bool {
-        self.length == 0
-    }
-
-    fn to_linear_index(&self) -> usize {
-        2usize.pow(self.length as u32) + self.inner as usize
-    }
-
-    fn down_left(&self) -> Self {
-        Self {
-            length: self.length + 1,
-            inner: self.inner << 1,
-            ledger_depth: self.ledger_depth,
-        }
-    }
-
-    fn parent(&self) -> Option<Self> {
-        if self.length == 0 {
-            None
-        } else {
-            Some(Self {
-                length: self.length - 1,
-                inner: self.inner >> 1,
-                ledger_depth: self.ledger_depth,
-            })
-        }
-    }
-
-    fn down_right(&self) -> Self {
-        Self {
-            length: self.length + 1,
-            inner: (self.inner << 1) + 1,
-            ledger_depth: self.ledger_depth,
-        }
-    }
-
-    fn is_account(&self) -> bool {
-        self.length == self.ledger_depth
-    }
-
-    fn from_account_index(index: AccountIndex, ledger_depth: usize) -> Self {
-        Self {
-            length: ledger_depth - 1,
-            inner: index.0,
-            ledger_depth,
-        }
-    }
-
-    fn to_account_index(&self) -> AccountIndex {
-        assert!(self.is_account());
-        AccountIndex(self.inner)
-    }
-
-    fn depth(&self) -> usize {
-        self.ledger_depth - self.length
     }
 }
 
@@ -261,118 +178,94 @@ impl Database<V2> {
             let addr = Address::from_index(index.into(), depth);
             fun(addr, account);
         }
-
-        // let root = match self.root.as_ref() {
-        //     Some(root) => root,
-        //     None => return,
-        // };
-
-        // let mut index = 0;
-        // let depth = self.depth;
-
-        // root.iter_recursive_with_addr(&mut index, depth, &mut |addr, account| {
-        //     fun(addr, account);
-        //     ControlFlow::Continue(())
-        // });
     }
 
-    fn emulate_tree_to_get_root_hash(&self) -> Fp {
-        let tree_depth = self.depth() as usize;
-        let current_depth = tree_depth;
+    fn emulate_tree_to_get_hash_at(&mut self, addr: Address) -> Fp {
+        if let Some(hash) = self.hashes_matrix.get(&addr) {
+            return *hash;
+        };
 
-        let mut first_account_index = 0;
-        let mut nremaining = self.naccounts;
-
-        self.emulate_recursive(
-            current_depth,
-            tree_depth,
-            &mut first_account_index,
-            &mut nremaining,
-        )
-    }
-
-    fn emulate_tree_to_get_hash_at(&self, addr: Address) -> Fp {
         let tree_depth = self.depth() as usize;
         let mut children = addr.iter_children(tree_depth);
 
         // First child
-        let mut first_account_index = children.next().unwrap().to_index().0 as u64;
+        let first_account_index = children.next().unwrap().to_index().0 as u64;
         let mut nremaining = self
             .naccounts()
             .saturating_sub(first_account_index as usize);
-        let current_depth = tree_depth - addr.length();
 
-        self.emulate_recursive(
-            current_depth,
-            tree_depth,
-            &mut first_account_index,
-            &mut nremaining,
-            // nchildren as u64,
-        )
+        self.emulate_recursive(addr, &mut nremaining)
     }
 
-    fn emulate_recursive(
-        &self,
-        current_depth: usize,
-        tree_depth: usize,
-        account_index: &mut u64,
-        nremaining: &mut usize,
-        // naccounts: u64,
-    ) -> Fp {
-        println!(
-            "recursive current_depth={:?} tree_depth={:?} account_index={:?} nremaining={:?}",
-            current_depth, tree_depth, account_index, nremaining
-        );
+    fn emulate_recursive(&mut self, addr: Address, nremaining: &mut usize) -> Fp {
+        let tree_depth = self.depth as usize;
+        let current_depth = tree_depth - addr.length();
+
+        // println!(
+        //     "recursive current_depth={:?} tree_depth={:?} account_index={:?} nremaining={:?}",
+        //     current_depth, tree_depth, account_index, nremaining
+        // );
+
         if current_depth == 0 {
-            let account_addr = Address::from_index(AccountIndex(*account_index), tree_depth);
-            *account_index += 1;
             *nremaining = nremaining.saturating_sub(1);
 
-            let account = match self.get(account_addr) {
-                Some(account) => account,
-                None => return V2::empty_hash_at_depth(0),
-            };
+            if let Some(hash) = self.hashes_matrix.get(&addr) {
+                return *hash;
+            }
 
-            return account.hash();
+            let account_hash = self
+                .get(addr.clone())
+                .map(|account| account.hash())
+                .unwrap_or_else(|| V2::empty_hash_at_depth(0));
+
+            self.hashes_matrix.set(&addr, account_hash);
+
+            return account_hash;
         }
 
-        let left_hash = if *nremaining > 0 {
-            self.emulate_recursive(current_depth - 1, tree_depth, account_index, nremaining)
-        } else {
-            V2::empty_hash_at_depth(current_depth - 1)
+        let mut get_child_hash = |addr: Address| {
+            if let Some(hash) = self.hashes_matrix.get(&addr) {
+                *hash
+            } else if *nremaining > 0 {
+                self.emulate_recursive(addr, nremaining)
+            } else {
+                V2::empty_hash_at_depth(current_depth - 1)
+            }
         };
 
-        let right_hash = if *nremaining > 0 {
-            self.emulate_recursive(current_depth - 1, tree_depth, account_index, nremaining)
-        } else {
-            V2::empty_hash_at_depth(current_depth - 1)
-        };
+        let left_hash = get_child_hash(addr.child_left());
+        let right_hash = get_child_hash(addr.child_right());
 
-        V2::hash_node(current_depth - 1, left_hash, right_hash)
+        match self.hashes_matrix.get(&addr) {
+            Some(hash) => *hash,
+            None => {
+                let hash = V2::hash_node(current_depth - 1, left_hash, right_hash);
+                self.hashes_matrix.set(&addr, hash);
+                hash
+            }
+        }
     }
 
     fn emulate_to_get_path(
         &mut self,
-        tree_index: TreeIndex,
+        addr: Address,
         path: &mut AddressIterator,
         merkle_path: &mut Vec<MerklePath>,
     ) -> Fp {
         let tree_depth = self.depth as usize;
 
-        if tree_index.is_account() {
-            if let Some(hash) = self.hashes_matrix.get(tree_index.clone()) {
+        if addr.length() == self.depth as usize {
+            if let Some(hash) = self.hashes_matrix.get(&addr) {
                 return *hash;
             }
 
-            let account_index = tree_index.to_account_index();
-            let addr = Address::from_index(account_index, tree_depth);
             let hash = self
-                .get(addr)
+                .get(addr.clone())
                 .as_ref()
                 .map(V2::hash_leaf)
                 .unwrap_or_else(|| V2::empty_hash_at_depth(0));
 
-            self.hashes_matrix.set(tree_index, hash);
+            self.hashes_matrix.set(&addr, hash);
 
             return hash;
         }
@@ -382,19 +275,19 @@ impl Database<V2> {
         // We go until the end of the path
         if let Some(direction) = next_direction.as_ref() {
             let tree_index = match direction {
-                Direction::Left => tree_index.down_left(),
-                Direction::Right => tree_index.down_right(),
+                Direction::Left => addr.child_left(),
+                Direction::Right => addr.child_right(),
             };
             self.emulate_to_get_path(tree_index, path, merkle_path);
         };
 
-        let mut get_child_hash = |index: TreeIndex| match self.hashes_matrix.get(index.clone()) {
+        let mut get_child_hash = |addr: Address| match self.hashes_matrix.get(&addr) {
             Some(hash) => *hash,
-            None => self.emulate_to_get_path(index, path, merkle_path),
+            None => self.emulate_to_get_path(addr, path, merkle_path),
         };
 
-        let left = get_child_hash(tree_index.down_left());
-        let right = get_child_hash(tree_index.down_right());
+        let left = get_child_hash(addr.child_left());
+        let right = get_child_hash(addr.child_right());
 
         if let Some(direction) = next_direction {
             let hash = match direction {
@@ -404,11 +297,12 @@ impl Database<V2> {
             merkle_path.push(hash);
         };
 
-        match self.hashes_matrix.get(tree_index.clone()) {
+        match self.hashes_matrix.get(&addr) {
             Some(hash) => *hash,
             None => {
-                let hash = V2::hash_node(tree_index.depth() - 1, left, right);
-                self.hashes_matrix.set(tree_index, hash);
+                let depth_in_tree = tree_depth - addr.length();
+                let hash = V2::hash_node(depth_in_tree - 1, left, right);
+                self.hashes_matrix.set(&addr, hash);
                 hash
             }
         }
@@ -499,8 +393,8 @@ impl Database<V2> {
         Self::create_with_dir(depth, None)
     }
 
-    pub fn root_hash(&self) -> Fp {
-        self.emulate_tree_to_get_root_hash()
+    pub fn root_hash(&mut self) -> Fp {
+        self.emulate_tree_to_get_hash_at(Address::root())
     }
 
     // Do not use
@@ -871,7 +765,7 @@ impl BaseLedger for Database<V2> {
         self.id_to_addr.get(&account_id).map(Address::to_index)
     }
 
-    fn merkle_root(&self) -> Fp {
+    fn merkle_root(&mut self) -> Fp {
         let now = crate::util::Instant::now();
 
         let root = self.root_hash();
@@ -903,9 +797,10 @@ impl BaseLedger for Database<V2> {
 
         let mut merkle_path = Vec::with_capacity(addr.length());
         let mut path = addr.into_iter();
-        let tree_index = TreeIndex::root(self.depth() as usize);
+        let addr = Address::root();
+        // let tree_index = TreeIndex::root(self.depth() as usize);
 
-        self.emulate_to_get_path(tree_index, &mut path, &mut merkle_path);
+        self.emulate_to_get_path(addr, &mut path, &mut merkle_path);
 
         merkle_path
     }
@@ -987,7 +882,7 @@ impl BaseLedger for Database<V2> {
         self.merkle_path(addr)
     }
 
-    fn get_inner_hash_at_addr(&self, addr: Address) -> Result<Fp, ()> {
+    fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, ()> {
         let res = self.emulate_tree_to_get_hash_at(addr.clone());
 
         println!("get_inner_hash_at_addr addr={:?} hash={}", addr, res);
@@ -1457,6 +1352,7 @@ mod tests_ocaml {
                 .collect::<Vec<_>>();
 
             let merkle_root1 = db.merkle_root();
+            println!("naccounts={:?}", accounts.len());
             db.set_batch_accounts(&accounts);
             let merkle_root2 = db.merkle_root();
 

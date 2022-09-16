@@ -229,7 +229,7 @@ impl MaskImpl {
     }
 
     /// get hash from mask, if present, else from its parent
-    pub fn get_hash(&self, addr: Address) -> Option<Fp> {
+    pub fn get_hash(&mut self, addr: Address) -> Option<Fp> {
         self.get_inner_hash_at_addr(addr).ok()
     }
 
@@ -909,7 +909,7 @@ impl BaseLedger for MaskImpl {
         parent.as_ref()?.index_of_account(account_id)
     }
 
-    fn merkle_root(&self) -> Fp {
+    fn merkle_root(&mut self) -> Fp {
         self.emulate_tree_to_get_hash()
     }
 
@@ -966,7 +966,7 @@ impl BaseLedger for MaskImpl {
         self.merkle_path(addr)
     }
 
-    fn get_inner_hash_at_addr(&self, addr: Address) -> Result<Fp, ()> {
+    fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, ()> {
         let self_depth = self.depth() as usize;
 
         if addr.length() > self_depth {

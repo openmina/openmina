@@ -264,7 +264,7 @@ impl BaseLedger for Mask {
         self.with(|this| this.index_of_account(account_id))
     }
 
-    fn merkle_root(&self) -> Fp {
+    fn merkle_root(&mut self) -> Fp {
         self.with(|this| this.merkle_root())
     }
 
@@ -296,7 +296,7 @@ impl BaseLedger for Mask {
         self.with(|this| this.merkle_path_at_addr(addr))
     }
 
-    fn get_inner_hash_at_addr(&self, addr: Address) -> Result<Fp, ()> {
+    fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, ()> {
         self.with(|this| this.get_inner_hash_at_addr(addr))
     }
 
@@ -403,7 +403,7 @@ mod tests_mask_ocaml {
     #[test]
     fn test_parent_mask_agree_on_hashes_set_parent_only() {
         let (mut root, mask) = new_instances(DEPTH);
-        let mask = root.register_mask(mask);
+        let mut mask = root.register_mask(mask);
 
         let account = Account::rand();
         root.set(FIRST_LOC, account);
@@ -490,8 +490,8 @@ mod tests_mask_ocaml {
     // "mask and parent agree on Merkle root before set"
     #[test]
     fn test_agree_on_root_hash_before_set() {
-        let (root, mask) = new_instances(DEPTH);
-        let mask = root.register_mask(mask);
+        let (mut root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
 
         assert_eq!(root.merkle_root(), mask.merkle_root());
     }

@@ -82,6 +82,12 @@ impl std::fmt::Debug for Address {
 }
 
 impl Address {
+    pub fn to_linear_index(&self) -> usize {
+        let index = self.to_index();
+
+        2usize.pow(self.length as u32) + index.0 as usize
+    }
+
     pub fn iter(&self) -> AddressIterator {
         AddressIterator {
             addr: self.clone(),
@@ -123,6 +129,31 @@ impl Address {
         Self {
             inner: [!0; 32],
             length,
+        }
+    }
+
+    pub fn child_left(&self) -> Self {
+        Self {
+            inner: self.inner,
+            length: self.length + 1,
+        }
+    }
+
+    pub fn child_right(&self) -> Self {
+        let mut child = self.child_left();
+        let last = child.length() - 1;
+        child.set(last);
+        child
+    }
+
+    pub fn parent(&self) -> Option<Self> {
+        if self.length == 0 {
+            None
+        } else {
+            Some(Self {
+                inner: self.inner,
+                length: self.length - 1,
+            })
         }
     }
 
@@ -262,6 +293,10 @@ impl Address {
     }
 
     pub fn to_index(&self) -> AccountIndex {
+        if self.length == 0 {
+            return AccountIndex(0);
+        }
+
         let mut account_index: u64 = 0;
         let nused_bytes = self.nused_bytes();
         let mut shift = 0;
@@ -278,7 +313,6 @@ impl Address {
                     account_index |= byte >> (8 - nunused);
                     shift += nunused;
                 } else {
-                    // account_index |= byte.checked_shl(shift as u32).unwrap_or_else(|| panic!("self={:?} byte={:?} shift={:?}", self, byte, shift));
                     account_index |= byte << shift;
                     shift += 8;
                 }
@@ -497,6 +531,15 @@ mod tests {
         println!("ADDR={:?}", addr);
         addr.clear_after(6);
         println!("ADDR={:?}", addr);
+    }
+
+    #[test]
+    fn test_address_show() {
+        let addr = Address::first(2);
+        println!("LA {:?}", addr);
+        let sec = addr.next().unwrap();
+        println!("LA {:?}", sec);
+        println!("LA {:?}", sec.child_left());
     }
 
     #[test]
