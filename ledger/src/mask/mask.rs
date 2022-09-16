@@ -268,11 +268,11 @@ impl BaseLedger for Mask {
         self.with(|this| this.merkle_root())
     }
 
-    fn merkle_path(&self, addr: Address) -> Vec<MerklePath> {
+    fn merkle_path(&mut self, addr: Address) -> Vec<MerklePath> {
         self.with(|this| this.merkle_path(addr))
     }
 
-    fn merkle_path_at_index(&self, index: AccountIndex) -> Vec<MerklePath> {
+    fn merkle_path_at_index(&mut self, index: AccountIndex) -> Vec<MerklePath> {
         self.with(|this| this.merkle_path_at_index(index))
     }
 
@@ -292,7 +292,7 @@ impl BaseLedger for Mask {
         self.with(|this| this.num_accounts())
     }
 
-    fn merkle_path_at_addr(&self, addr: Address) -> Vec<MerklePath> {
+    fn merkle_path_at_addr(&mut self, addr: Address) -> Vec<MerklePath> {
         self.with(|this| this.merkle_path_at_addr(addr))
     }
 

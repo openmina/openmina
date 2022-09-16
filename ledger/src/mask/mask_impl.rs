@@ -913,7 +913,7 @@ impl BaseLedger for MaskImpl {
         self.emulate_tree_to_get_hash()
     }
 
-    fn merkle_path(&self, addr: Address) -> Vec<MerklePath> {
+    fn merkle_path(&mut self, addr: Address) -> Vec<MerklePath> {
         let mut merkle_path = Vec::with_capacity(addr.length());
         let mut path = addr.into_iter();
 
@@ -922,7 +922,7 @@ impl BaseLedger for MaskImpl {
         merkle_path
     }
 
-    fn merkle_path_at_index(&self, index: AccountIndex) -> Vec<MerklePath> {
+    fn merkle_path_at_index(&mut self, index: AccountIndex) -> Vec<MerklePath> {
         let addr = Address::from_index(index, self.depth() as usize);
         self.merkle_path(addr)
     }
@@ -962,7 +962,7 @@ impl BaseLedger for MaskImpl {
             .unwrap_or(0)
     }
 
-    fn merkle_path_at_addr(&self, addr: Address) -> Vec<MerklePath> {
+    fn merkle_path_at_addr(&mut self, addr: Address) -> Vec<MerklePath> {
         self.merkle_path(addr)
     }
 

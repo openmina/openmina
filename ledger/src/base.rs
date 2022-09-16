@@ -130,9 +130,9 @@ pub trait BaseLedger {
     /// than calculated dynamically
     fn merkle_root(&self) -> Fp;
 
-    fn merkle_path(&self, addr: Address) -> Vec<MerklePath>;
+    fn merkle_path(&mut self, addr: Address) -> Vec<MerklePath>;
 
-    fn merkle_path_at_index(&self, index: AccountIndex) -> Vec<MerklePath>;
+    fn merkle_path_at_index(&mut self, index: AccountIndex) -> Vec<MerklePath>;
 
     fn remove_accounts(&mut self, ids: &[AccountId]);
 
@@ -146,7 +146,7 @@ pub trait BaseLedger {
 
     fn num_accounts(&self) -> usize;
 
-    fn merkle_path_at_addr(&self, addr: Address) -> Vec<MerklePath>;
+    fn merkle_path_at_addr(&mut self, addr: Address) -> Vec<MerklePath>;
 
     fn get_inner_hash_at_addr(&self, addr: Address) -> Result<Fp, ()>;
 
@@ -168,6 +168,25 @@ pub trait BaseLedger {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AccountIndex(pub u64);
+
+impl PartialEq<u64> for AccountIndex {
+    fn eq(&self, other: &u64) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<usize> for AccountIndex {
+    fn eq(&self, other: &usize) -> bool {
+        let other: u64 = (*other).try_into().unwrap();
+        self.0 == other
+    }
+}
+
+impl From<usize> for AccountIndex {
+    fn from(n: usize) -> Self {
+        Self(n.try_into().unwrap())
+    }
+}
 
 #[derive(Debug)]
 pub enum GetOrCreated {
