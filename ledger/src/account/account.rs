@@ -837,7 +837,13 @@ mod tests {
 
     #[test]
     fn test_size_account() {
-        assert_eq!(std::mem::size_of::<Account>(), 2528);
+        #[cfg(not(target_family = "wasm"))]
+        const SIZE: usize = 2528;
+
+        #[cfg(target_family = "wasm")]
+        const SIZE: usize = 2504;
+
+        assert_eq!(std::mem::size_of::<Account>(), SIZE);
     }
 
     #[test]

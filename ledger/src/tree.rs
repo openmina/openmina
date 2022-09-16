@@ -872,7 +872,7 @@ impl BaseLedger for Database<V2> {
     }
 
     fn merkle_root(&self) -> Fp {
-        let now = std::time::Instant::now();
+        let now = crate::util::Instant::now();
 
         let root = self.root_hash();
 

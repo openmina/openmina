@@ -1,6 +1,10 @@
 use ark_ff::PrimeField;
 use mina_hasher::Fp;
 
+mod time;
+
+pub use time::*;
+
 #[cfg(not(target_family = "wasm"))]
 pub fn pid() -> u32 {
     std::process::id()
