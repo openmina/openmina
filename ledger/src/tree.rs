@@ -24,6 +24,7 @@ struct Leaf<T: TreeVersion> {
 struct HashesMatrix {
     /// 2 dimensions matrix
     matrix: Vec<Option<Fp>>,
+    empty_hashes: Vec<Option<Fp>>,
     ledger_depth: usize,
 }
 
@@ -32,6 +33,7 @@ impl HashesMatrix {
         Self {
             matrix: Vec::with_capacity(2usize.pow(ledger_depth as u32)),
             ledger_depth,
+            empty_hashes: vec![None; ledger_depth],
         }
     }
 
@@ -79,6 +81,17 @@ impl HashesMatrix {
                 None => break,
             }
         }
+    }
+
+    fn empty_hash_at_depth(&mut self, depth: usize) -> Fp {
+        if let Some(Some(hash)) = self.empty_hashes.get(depth) {
+            return *hash;
+        };
+
+        let hash = V2::empty_hash_at_depth(depth);
+        self.empty_hashes[depth] = Some(hash);
+
+        hash
     }
 }
 
@@ -222,7 +235,7 @@ impl Database<V2> {
             let account_hash = self
                 .get(addr.clone())
                 .map(|account| account.hash())
-                .unwrap_or_else(|| V2::empty_hash_at_depth(0));
+                .unwrap_or_else(|| self.hashes_matrix.empty_hash_at_depth(0));
 
             self.hashes_matrix.set(&addr, account_hash);
 
@@ -235,7 +248,7 @@ impl Database<V2> {
             } else if addr.is_before(last_account) {
                 self.emulate_recursive(addr, last_account)
             } else {
-                V2::empty_hash_at_depth(current_depth - 1)
+                self.hashes_matrix.empty_hash_at_depth(current_depth - 1)
             }
         };
 
@@ -270,7 +283,7 @@ impl Database<V2> {
                 .get(addr.clone())
                 .as_ref()
                 .map(V2::hash_leaf)
-                .unwrap_or_else(|| V2::empty_hash_at_depth(0));
+                .unwrap_or_else(|| self.hashes_matrix.empty_hash_at_depth(0));
 
             self.hashes_matrix.set(&addr, hash);
 
@@ -296,7 +309,7 @@ impl Database<V2> {
                 if addr.is_before(last_account) {
                     self.emulate_to_get_path(addr, last_account, path, merkle_path)
                 } else {
-                    V2::empty_hash_at_depth(depth_in_tree - 1)
+                    self.hashes_matrix.empty_hash_at_depth(depth_in_tree - 1)
                 }
             }
         };
