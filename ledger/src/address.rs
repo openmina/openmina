@@ -141,8 +141,7 @@ impl Address {
 
     pub fn child_right(&self) -> Self {
         let mut child = self.child_left();
-        let last = child.length() - 1;
-        child.set(last);
+        child.set(child.length() - 1);
         child
     }
 
@@ -361,6 +360,17 @@ impl Address {
         }
     }
 
+    pub fn is_before(&self, other: &Address) -> bool {
+        assert!(self.length <= other.length);
+
+        let mut other = other.clone();
+        other.length = self.length;
+
+        self.to_index() <= other.to_index()
+
+        // self == &other
+    }
+
     pub fn to_string(&self) -> String {
         let mut s = String::with_capacity(self.length());
 
@@ -531,6 +541,22 @@ mod tests {
         println!("ADDR={:?}", addr);
         addr.clear_after(6);
         println!("ADDR={:?}", addr);
+    }
+
+    #[test]
+    fn test_address_can_reach() {
+        let addr = Address::try_from("00").unwrap();
+        assert!(addr.is_before(&Address::try_from("00").unwrap()));
+        assert!(addr.is_before(&Address::try_from("01").unwrap()));
+        assert!(addr.is_before(&Address::try_from("000").unwrap()));
+        assert!(addr.is_before(&Address::try_from("001").unwrap()));
+        assert!(addr.is_before(&Address::try_from("010").unwrap()));
+        assert!(addr.is_before(&Address::try_from("100").unwrap()));
+
+        let addr = Address::try_from("101").unwrap();
+        assert!(addr.is_before(&Address::try_from("10100").unwrap()));
+        assert!(addr.is_before(&Address::try_from("10111").unwrap()));
+        assert!(!addr.is_before(&Address::try_from("10011").unwrap()));
     }
 
     #[test]

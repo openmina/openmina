@@ -13,6 +13,7 @@ use crate::{
 };
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use o1_utils::FieldHelpers;
 
 #[derive(Clone, Debug)]
 struct Leaf<T: TreeVersion> {
@@ -185,19 +186,24 @@ impl Database<V2> {
             return *hash;
         };
 
-        let tree_depth = self.depth() as usize;
-        let mut children = addr.iter_children(tree_depth);
+        // let tree_depth = self.depth() as usize;
+        // let mut children = addr.iter_children(tree_depth);
 
-        // First child
-        let first_account_index = children.next().unwrap().to_index().0 as u64;
-        let mut nremaining = self
-            .naccounts()
-            .saturating_sub(first_account_index as usize);
+        // // First child
+        // let first_account_index = children.next().unwrap().to_index().0 as u64;
+        // let mut nremaining = self
+        //     .naccounts()
+        //     .saturating_sub(first_account_index as usize);
 
-        self.emulate_recursive(addr, &mut nremaining)
+        let last_account = self
+            .last_filled()
+            .unwrap_or_else(|| Address::first(self.depth as usize));
+
+        self.emulate_recursive(addr, &last_account)
     }
 
-    fn emulate_recursive(&mut self, addr: Address, nremaining: &mut usize) -> Fp {
+    // fn emulate_recursive(&mut self, addr: Address, nremaining: &mut usize) -> Fp {
+    fn emulate_recursive(&mut self, addr: Address, last_account: &Address) -> Fp {
         let tree_depth = self.depth as usize;
         let current_depth = tree_depth - addr.length();
 
@@ -207,7 +213,7 @@ impl Database<V2> {
         // );
 
         if current_depth == 0 {
-            *nremaining = nremaining.saturating_sub(1);
+            // *nremaining = nremaining.saturating_sub(1);
 
             if let Some(hash) = self.hashes_matrix.get(&addr) {
                 return *hash;
@@ -226,8 +232,8 @@ impl Database<V2> {
         let mut get_child_hash = |addr: Address| {
             if let Some(hash) = self.hashes_matrix.get(&addr) {
                 *hash
-            } else if *nremaining > 0 {
-                self.emulate_recursive(addr, nremaining)
+            } else if addr.is_before(last_account) {
+                self.emulate_recursive(addr, last_account)
             } else {
                 V2::empty_hash_at_depth(current_depth - 1)
             }
@@ -249,6 +255,7 @@ impl Database<V2> {
     fn emulate_to_get_path(
         &mut self,
         addr: Address,
+        last_account: &Address,
         path: &mut AddressIterator,
         merkle_path: &mut Vec<MerklePath>,
     ) -> Fp {
@@ -274,16 +281,24 @@ impl Database<V2> {
 
         // We go until the end of the path
         if let Some(direction) = next_direction.as_ref() {
-            let tree_index = match direction {
+            let child = match direction {
                 Direction::Left => addr.child_left(),
                 Direction::Right => addr.child_right(),
             };
-            self.emulate_to_get_path(tree_index, path, merkle_path);
+            self.emulate_to_get_path(child, last_account, path, merkle_path);
         };
+
+        let depth_in_tree = tree_depth - addr.length();
 
         let mut get_child_hash = |addr: Address| match self.hashes_matrix.get(&addr) {
             Some(hash) => *hash,
-            None => self.emulate_to_get_path(addr, path, merkle_path),
+            None => {
+                if addr.is_before(last_account) {
+                    self.emulate_to_get_path(addr, last_account, path, merkle_path)
+                } else {
+                    V2::empty_hash_at_depth(depth_in_tree - 1)
+                }
+            }
         };
 
         let left = get_child_hash(addr.child_left());
@@ -300,7 +315,6 @@ impl Database<V2> {
         match self.hashes_matrix.get(&addr) {
             Some(hash) => *hash,
             None => {
-                let depth_in_tree = tree_depth - addr.length();
                 let hash = V2::hash_node(depth_in_tree - 1, left, right);
                 self.hashes_matrix.set(&addr, hash);
                 hash
@@ -798,9 +812,14 @@ impl BaseLedger for Database<V2> {
         let mut merkle_path = Vec::with_capacity(addr.length());
         let mut path = addr.into_iter();
         let addr = Address::root();
+
+        let last_account = self
+            .last_filled()
+            .unwrap_or_else(|| Address::first(self.depth as usize));
+
         // let tree_index = TreeIndex::root(self.depth() as usize);
 
-        self.emulate_to_get_path(addr, &mut path, &mut merkle_path);
+        self.emulate_to_get_path(addr, &last_account, &mut path, &mut merkle_path);
 
         merkle_path
     }
@@ -1612,7 +1631,7 @@ mod tests_ocaml {
     }
 
     #[test]
-    fn test_merkle_path() {
+    fn test_merkle_path_long() {
         const DEPTH: usize = 4;
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
@@ -1627,6 +1646,8 @@ mod tests_ocaml {
             let res = db.get_or_create_account(account.id(), account).unwrap();
             assert!(matches!(res, GetOrCreated::Added(_)));
         }
+
+        println!("naccounts={:?}", db.last_filled());
 
         let expected = [
             &[
@@ -1742,6 +1763,16 @@ mod tests_ocaml {
         // println!("computed={:#?}", hashes);
 
         assert_eq!(&expected[..], hashes.as_slice());
+    }
+
+    // "fold_until over account balances"
+    #[test]
+    fn test_merkle_path_test2() {
+        const DEPTH: usize = 20;
+        const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
+
+        let mut db = Database::<V2>::create(DEPTH as u8);
+        db.merkle_path(Address::first(20));
     }
 
     // "fold_until over account balances"
