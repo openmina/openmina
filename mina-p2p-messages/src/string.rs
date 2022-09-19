@@ -3,21 +3,21 @@ use serde::{Deserialize, Serialize};
 
 /// String of bytes.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct String(Vec<u8>);
+pub struct ByteString(Vec<u8>);
 
-impl AsRef<[u8]> for String {
+impl AsRef<[u8]> for ByteString {
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
 
-impl From<&str> for String {
+impl From<&str> for ByteString {
     fn from(source: &str) -> Self {
         Self(source.as_bytes().to_vec())
     }
 }
 
-impl Serialize for String {
+impl Serialize for ByteString {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -26,7 +26,7 @@ impl Serialize for String {
     }
 }
 
-impl<'de> Deserialize<'de> for String {
+impl<'de> Deserialize<'de> for ByteString {
     fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -35,7 +35,7 @@ impl<'de> Deserialize<'de> for String {
     }
 }
 
-impl binprot::BinProtRead for String {
+impl binprot::BinProtRead for ByteString {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
     where
         Self: Sized,
@@ -47,7 +47,7 @@ impl binprot::BinProtRead for String {
     }
 }
 
-impl binprot::BinProtWrite for String {
+impl binprot::BinProtWrite for ByteString {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
         let _ = Nat0(self.0.len() as u64).binprot_write(w)?;
         let _ = w.write_all(&self.0)?;
@@ -58,6 +58,12 @@ impl binprot::BinProtWrite for String {
 /// Human-readable string.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CharString(Vec<u8>);
+
+impl CharString {
+    pub fn to_string_lossy(&self) -> std::string::String {
+        std::string::String::from_utf8_lossy(&self.0).into_owned()
+    }
+}
 
 impl AsRef<[u8]> for CharString {
     fn as_ref(&self) -> &[u8] {

@@ -43,7 +43,7 @@ rust_id = 'Vec'
 args_num = 'Single'
 
 [base_types.string]
-rust_id = 'crate::string::String'
+rust_id = 'crate::string::ByteString'
 args_num = 'None'
 
 [base_types.bool]

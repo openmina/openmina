@@ -197,7 +197,7 @@ pub type MinaBaseStagedLedgerHashNonSnarkStableV1BinableV1LedgerHash = crate::ve
 
 /// Location: [src/lib/mina_base/staged_ledger_hash.ml:15:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/staged_ledger_hash.ml#L15)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseStagedLedgerHashAuxHashStableV1BinableV1(pub crate::string::String);
+pub struct MinaBaseStagedLedgerHashAuxHashStableV1BinableV1(pub crate::string::ByteString);
 
 /// **Origin**: `Mina_base__Staged_ledger_hash.Aux_hash.Stable.V1.t`
 ///
@@ -207,7 +207,7 @@ pub type MinaBaseStagedLedgerHashAuxHashStableV1Binable =
 
 /// Location: [src/lib/mina_base/staged_ledger_hash.ml:59:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/staged_ledger_hash.ml#L59)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1BinableV1(pub crate::string::String);
+pub struct MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1BinableV1(pub crate::string::ByteString);
 
 /// **Origin**: `Mina_base__Staged_ledger_hash.Pending_coinbase_aux.Stable.V1.t`
 ///
@@ -410,7 +410,7 @@ pub type ConsensusProofOfStakeDataConsensusStateValueStableV1BinableV1PolyArg0 =
 
 /// Location: [src/lib/consensus/vrf/consensus_vrf.ml:170:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/vrf/consensus_vrf.ml#L170)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct ConsensusVrfOutputTruncatedStableV1BinableV1(pub crate::string::String);
+pub struct ConsensusVrfOutputTruncatedStableV1BinableV1(pub crate::string::ByteString);
 
 /// **Origin**: `Consensus_vrf.Output.Truncated.Stable.V1.t`
 ///
@@ -1795,7 +1795,7 @@ pub type MinaBaseFeeExcessStableV1Binable =
 
 /// Location: [src/lib/mina_base/sok_message.ml:25:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sok_message.ml#L25)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseSokMessageDigestStableV1BinableV1(pub crate::string::String);
+pub struct MinaBaseSokMessageDigestStableV1BinableV1(pub crate::string::ByteString);
 
 /// **Origin**: `Mina_base__Sok_message.Digest.Stable.V1.t`
 ///
@@ -2046,7 +2046,7 @@ pub type MinaNumbersNatMake32StableV1Binable =
 
 /// Location: [src/lib/mina_base/signed_command_memo.ml:16:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/signed_command_memo.ml#L16)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseSignedCommandMemoStableV1BinableV1(pub crate::string::String);
+pub struct MinaBaseSignedCommandMemoStableV1BinableV1(pub crate::string::ByteString);
 
 /// **Origin**: `Mina_base__Signed_command_memo.Stable.V1.t`
 ///
@@ -3635,7 +3635,7 @@ pub struct MinaBaseAccountStableV1BinableV1(pub MinaBaseAccountBinableArgStableV
 
 /// Location: [src/lib/network_peer/peer.ml:10:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_peer/peer.ml#L10)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct NetworkPeerPeerIdStableV1BinableV1(pub crate::string::String);
+pub struct NetworkPeerPeerIdStableV1BinableV1(pub crate::string::ByteString);
 
 /// **Origin**: `Network_peer__Peer.Id.Stable.V1.t`
 ///
@@ -3646,7 +3646,7 @@ pub type NetworkPeerPeerIdStableV1Binable =
 /// Location: [src/lib/network_peer/peer.ml:28:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_peer/peer.ml#L28)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct NetworkPeerPeerStableV1BinableV1 {
-    pub host: crate::string::String,
+    pub host: crate::string::ByteString,
     pub libp2p_port: i32,
     pub peer_id: NetworkPeerPeerIdStableV1Binable,
 }
@@ -4274,7 +4274,7 @@ pub type MinaBaseSyncLedgerQueryStableV1BinableV1Poly<Addr> =
 
 /// Location: [src/lib/merkle_address/merkle_address.ml:48:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/merkle_address/merkle_address.ml#L48)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MerkleAddressBinableArgStableV1BinableV1(pub i32, pub crate::string::String);
+pub struct MerkleAddressBinableArgStableV1BinableV1(pub i32, pub crate::string::ByteString);
 
 /// **Origin**: `Merkle_address.Binable_arg.Stable.V1.t`
 ///
