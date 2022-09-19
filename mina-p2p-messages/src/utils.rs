@@ -184,7 +184,7 @@ mod tests {
         ];
         for (b, s, l) in tests {
             let mut p = *b;
-            let string = crate::string::String::read_from_stream(&mut p).unwrap();
+            let string = crate::string::ByteString::read_from_stream(&mut p).unwrap();
             assert_eq!((string.as_ref(), b.len() - p.len()), (*s, *l));
         }
     }

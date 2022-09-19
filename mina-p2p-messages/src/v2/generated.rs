@@ -118,13 +118,13 @@ pub struct MinaBaseLedgerHash0StableV1(pub crate::bigint::BigInt);
 ///
 /// **Location**: [src/lib/mina_base/staged_ledger_hash.ml:16:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/staged_ledger_hash.ml#L16)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseStagedLedgerHashAuxHashStableV1(pub crate::string::String);
+pub struct MinaBaseStagedLedgerHashAuxHashStableV1(pub crate::string::ByteString);
 
 /// **Origin**: `Mina_base__Staged_ledger_hash.Pending_coinbase_aux.Stable.V1.t`
 ///
 /// **Location**: [src/lib/mina_base/staged_ledger_hash.ml:62:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/staged_ledger_hash.ml#L62)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1(pub crate::string::String);
+pub struct MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1(pub crate::string::ByteString);
 
 /// **Origin**: `Mina_base__Staged_ledger_hash.Non_snark.Stable.V1.t`
 ///
@@ -315,7 +315,7 @@ pub struct BlockTimeMakeStrTimeStableV1(pub i64);
 ///
 /// **Location**: [src/lib/consensus/body_reference.ml:17:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/body_reference.ml#L17)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct ConsensusBodyReferenceStableV1(pub crate::string::String);
+pub struct ConsensusBodyReferenceStableV1(pub crate::string::ByteString);
 
 /// **Origin**: `Mina_state__Blockchain_state.Value.Stable.V2.t`
 ///
@@ -369,7 +369,7 @@ pub struct ConsensusProofOfStakeDataConsensusStateValueStableV1PolyArg0(pub i32)
 ///
 /// **Location**: [src/lib/consensus/vrf/consensus_vrf.ml:167:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/vrf/consensus_vrf.ml#L167)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct ConsensusVrfOutputTruncatedStableV1(pub crate::string::String);
+pub struct ConsensusVrfOutputTruncatedStableV1(pub crate::string::ByteString);
 
 /// Location: [src/lib/consensus/global_slot.ml:11:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/global_slot.ml#L11)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
@@ -1134,7 +1134,7 @@ pub struct TransactionSnarkStatementWithSokStableV2(
         >,
         MinaBasePendingCoinbaseStackVersionedStableV1,
         MinaBaseFeeExcessStableV1,
-        crate::string::String,
+        crate::string::ByteString,
         MinaTransactionLogicPartiesLogicLocalStateValueStableV1,
     >,
 );
@@ -1217,7 +1217,7 @@ pub struct MinaBaseSignedCommandPayloadCommonStableV2PolyArg2(pub i32);
 ///
 /// **Location**: [src/lib/mina_base/signed_command_memo.ml:19:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/signed_command_memo.ml#L19)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseSignedCommandMemoMakeStrStableV1(pub crate::string::String);
+pub struct MinaBaseSignedCommandMemoMakeStrStableV1(pub crate::string::ByteString);
 
 /// **Origin**: `Mina_base__Signed_command_payload.Common.Stable.V2.t`
 ///
@@ -1489,8 +1489,8 @@ pub struct MinaBasePartyUpdateStableV1 {
     pub verification_key:
         MinaBasePartyUpdateStableV1AppStateArg0<MinaBaseVerificationKeyWireStableV1>,
     pub permissions: MinaBasePartyUpdateStableV1AppStateArg0<MinaBasePermissionsStableV2>,
-    pub zkapp_uri: MinaBasePartyUpdateStableV1AppStateArg0<crate::string::String>,
-    pub token_symbol: MinaBasePartyUpdateStableV1AppStateArg0<crate::string::String>,
+    pub zkapp_uri: MinaBasePartyUpdateStableV1AppStateArg0<crate::string::ByteString>,
+    pub token_symbol: MinaBasePartyUpdateStableV1AppStateArg0<crate::string::ByteString>,
     pub timing: MinaBasePartyUpdateStableV1AppStateArg0<MinaBasePartyUpdateTimingInfoStableV1>,
     pub voting_for: MinaBasePartyUpdateStableV1AppStateArg0<DataHashLibStateHashStableV1>,
 }
@@ -2000,7 +2000,7 @@ pub struct MinaBaseAccountBinableArgStableV2(
         NonZeroCurvePointUncompressedStableV1,
         MinaBaseAccountIdMakeStrDigestStableV1,
         MinaBaseTokenPermissionsStableV1,
-        crate::string::String,
+        crate::string::ByteString,
         CurrencyMakeStrBalanceStableV1,
         MinaBaseSignedCommandPayloadCommonStableV2PolyArg2,
         MinaBaseReceiptChainHashStableV1,
@@ -2009,6 +2009,6 @@ pub struct MinaBaseAccountBinableArgStableV2(
         MinaBaseAccountTimingStableV1,
         MinaBasePermissionsStableV2,
         Option<MinaBaseZkappAccountStableV2>,
-        crate::string::String,
+        crate::string::ByteString,
     >,
 );

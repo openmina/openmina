@@ -12,8 +12,8 @@ use crate::versioned::Versioned;
 /// TODO properly implement payloads.
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
 pub enum Info {
-    CouldNotConstruct(super::string::String), // of Sexp.t
-    String(super::string::String),            // of string
+    CouldNotConstruct(super::string::CharString), // of Sexp.t
+    String(super::string::CharString),            // of string
     Exn,                                      // of Binable_exn.V1.t
     Sexp,                                     // of Sexp.t
     TagSexp,       // of string * Sexp.t * Source_code_position.V1.t option
