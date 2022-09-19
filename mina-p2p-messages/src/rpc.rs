@@ -193,7 +193,7 @@ pub struct NodeStatusV2 {
 }
 mina_rpc!(GetNodeStatusV2, "get_node_status", 2, (), RpcResult<NodeStatusV2, core::Error>);
 
-mina_rpc!(GetEpochLedger, "get_epoch_ledger", 1, LedgerHashV1Binable, RpcResult<MinaBaseSparseLedgerStableV1Binable, CharString>);
+mina_rpc!(GetEpochLedgerV1, "get_epoch_ledger", 1, LedgerHashV1Binable, RpcResult<MinaBaseSparseLedgerStableV1Binable, CharString>);
 
 /// Registry for uniformly JSONifying RPC payload data.
 ///
@@ -224,7 +224,7 @@ impl JSONifyPayloadRegistry {
         this.insert(GetBestTipV1);
         this.insert(GetNodeStatusV1);
         this.insert(GetNodeStatusV2);
-        this.insert(GetEpochLedger);
+        this.insert(GetEpochLedgerV1);
         this
     }
 
