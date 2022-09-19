@@ -1,6 +1,6 @@
 use mina_p2p_messages::{
     rpc::{
-        AnswerSyncLedgerQueryV1, GetAncestryV1, GetBestTipV1, GetEpochLedger,
+        AnswerSyncLedgerQueryV1, GetAncestryV1, GetBestTipV1, GetEpochLedgerV1,
         GetStagedLedgerAuxAndPendingCoinbasesAtHashV1, GetTransitionChainProofV1,
         GetTransitionChainV1, GetTransitionKnowledgeV1, VersionedRpcMenuV1,
     },
@@ -25,12 +25,12 @@ binprot_read_test!(
 binprot_read_test!(
     get_epoch_ledger_query,
     "rpc/get-epoch-ledger/queries",
-    Message<<GetEpochLedger as RpcMethod>::Query>
+    Message<<GetEpochLedgerV1 as RpcMethod>::Query>
 );
 binprot_read_test!(
     get_epoch_ledger_response,
     "rpc/get-epoch-ledger/responses",
-    Message<<GetEpochLedger as RpcMethod>::Response>
+    Message<<GetEpochLedgerV1 as RpcMethod>::Response>
 );
 
 binprot_read_test!(
