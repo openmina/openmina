@@ -9,6 +9,13 @@ use std::{
 
 use binprot::BinProtRead;
 
+pub fn files_path<P: AsRef<Path>>(suffix: P) -> std::io::Result<PathBuf> {
+    let prefix = std::env::var("CARGO_MANIFEST_DIR").map_err(|_| {
+        std::io::Error::new(std::io::ErrorKind::NotFound, "CARGO_MANIFEST_DIR variable")
+    })?;
+    Ok(PathBuf::from(prefix).join("tests/files").join(suffix))
+}
+
 fn read_file(path: &Path) -> std::io::Result<Vec<u8>> {
     let mut buf = Vec::new();
     let _ = File::open(path)?.read_to_end(&mut buf)?;
@@ -16,27 +23,36 @@ fn read_file(path: &Path) -> std::io::Result<Vec<u8>> {
 }
 
 pub fn read(file: &str) -> std::io::Result<Vec<u8>> {
-    let prefix = std::env::var("CARGO_MANIFEST_DIR").map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::NotFound, "CARGO_MANIFEST_DIR variable")
-    })?;
-    let path = PathBuf::from(prefix).join("tests/files").join(file);
-    read_file(&path)
+    read_file(&files_path(file)?)
 }
 
 pub fn for_all<F>(dir: &str, mut f: F) -> std::io::Result<()>
 where
     F: FnMut(&[u8]),
 {
-    let prefix = std::env::var("CARGO_MANIFEST_DIR").map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::NotFound, "CARGO_MANIFEST_DIR variable")
-    })?;
-    let path = PathBuf::from(prefix).join("tests/files").join(dir);
+    let path = files_path(dir)?;
     let dir = std::fs::read_dir(path)?;
     for file in dir {
         let path = file?.path();
         if path.extension().map_or(false, |ext| ext == "bin") {
             println!("reading {path:?}...");
             f(&read_file(&path)?);
+        }
+    }
+    Ok(())
+}
+
+pub fn for_all_with_path<F>(dir: &str, mut f: F) -> std::io::Result<()>
+where
+    F: FnMut(&[u8], &Path),
+{
+    let path = files_path(dir)?;
+    let dir = std::fs::read_dir(path)?;
+    for file in dir {
+        let path = file?.path();
+        if path.extension().map_or(false, |ext| ext == "bin") {
+            println!("reading {path:?}...");
+            f(&read_file(&path)?, &path);
         }
     }
     Ok(())
@@ -66,15 +82,26 @@ where
 pub fn assert_stream_read_and<T, F>(buf: &[u8], f: F)
 where
     T: BinProtRead + Debug,
-    F: Fn(T),
+    F: Fn(Result<T, binprot::Error>),
 {
     use mina_p2p_messages::utils::FromBinProtStream;
     let mut p = buf;
     while !p.is_empty() {
-        match T::read_from_stream(&mut p) {
-            Ok(v) => f(v),
-            Err(e) => panic!("Error decoding: {e}"),
-        }
+        f(T::read_from_stream(&mut p))
+    }
+}
+
+pub fn stream_read_with<T, F>(buf: &[u8], mut f: F)
+where
+    T: BinProtRead + Debug,
+    F: FnMut(Result<T, binprot::Error>, &[u8]),
+{
+    use mina_p2p_messages::utils::FromBinProtStream;
+    let mut p = buf;
+    while !p.is_empty() {
+        let pp = p;
+        let res = T::read_from_stream(&mut p);
+        f(res, pp)
     }
 }
 

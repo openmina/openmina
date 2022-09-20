@@ -3,3 +3,13 @@
 --type Network_pool__Snark_pool.Diff_versioned.Stable.V2.t
 --type Mina_base__Sparse_ledger_base.Stable.V2.t
 --type Mina_base__Account.Stable.V2.t
+--type Network_peer__Peer.Stable.V1.t
+--type Transaction_snark_scan_state.Stable.V2.t
+--type Mina_base__Pending_coinbase.Stable.V2.t
+--type Mina_state__Protocol_state.Value.Stable.V2.t
+--type Mina_ledger__Sync_ledger.Query.Stable.V1.t
+--type Mina_ledger__Sync_ledger.Answer.Stable.V2.t
+--type Mina_base__Sparse_ledger_base.Stable.V2.t
+--type Consensus__Proof_of_stake.Data.Consensus_state.Value.Stable.V1.t
+--type Sync_status.T.Stable.V1.t
+--type Trust_system__Peer_status.Stable.V1.t
