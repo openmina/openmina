@@ -8,6 +8,8 @@ use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
 _blank_!();
+use super::manual::*;
+_blank_!();
 '''
 
 type_preamble = "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]"
@@ -17,6 +19,10 @@ poly_var_preamble = "#[polymorphic_variant]"
 versioned_type = "crate::versioned::Versioned"
 
 phantom_type = "crate::phantom::Phantom"
+
+skip = [
+       947,
+]
 
 [base_types.float]
 rust_id = 'f64'
