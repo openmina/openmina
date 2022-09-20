@@ -1046,7 +1046,7 @@ mod tests {
         let mut account = Account::rand();
         account.zkapp = None;
 
-        const NACCOUNTS: u64 = 10_000;
+        const NACCOUNTS: u64 = 130_000;
 
         for index in 0..NACCOUNTS {
             let mut account = account.clone();
@@ -1057,7 +1057,7 @@ mod tests {
 
         assert_eq!(db.naccounts, NACCOUNTS as usize);
 
-        println!("merkle_root={:?}", db.merkle_root());
+        // println!("merkle_root={:?}", db.merkle_root());
     }
 
     #[test]
