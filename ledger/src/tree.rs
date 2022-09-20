@@ -1044,7 +1044,7 @@ mod tests {
     fn test_db_full() {
         let mut db = Database::<V2>::create(20);
 
-        for _ in 0..10_000 {
+        for _ in 0..130_000 {
             let account = Account::rand();
             let id = account.id();
             db.create_account(id, account).unwrap();

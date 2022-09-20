@@ -1,0 +1,12 @@
+{
+  "goog:chromeOptions": {
+    "args": [
+	  "--disable-new-content-rendering-timeout",
+	  "--disable-timeouts-for-profiling",
+	  "--integration-test-timeout-minutes=0",
+	  "--ipc-connection-timeout=1000000",
+	  "--timeout=0",
+	  "--user-response-timeout=0"
+    ]
+  }
+}
