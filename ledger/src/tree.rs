@@ -984,7 +984,7 @@ mod tests {
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
     use crate::{
-        account::{Account, AccountLegacy},
+        account::{self, Account, AccountLegacy},
         tree_version::{account_empty_legacy_hash, V1, V2},
     };
 
@@ -1043,12 +1043,19 @@ mod tests {
     #[test]
     fn test_db_full() {
         let mut db = Database::<V2>::create(20);
+        let mut account = Account::rand();
+        account.zkapp = None;
 
-        for _ in 0..130_000 {
-            let account = Account::rand();
+        const NACCOUNTS: u64 = 10_000;
+
+        for index in 0..NACCOUNTS {
+            let mut account = account.clone();
+            account.token_id = TokenId::from(index as u64);
             let id = account.id();
             db.create_account(id, account).unwrap();
         }
+
+        assert_eq!(db.naccounts, NACCOUNTS as usize);
 
         println!("merkle_root={:?}", db.merkle_root());
     }
