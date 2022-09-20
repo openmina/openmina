@@ -5,10 +5,15 @@ jobs:
   wasm-tests:
     name: wasm tests
     strategy:
+      fail-fast: false
       matrix:
         mode:
           -
           - --release
+        driver:
+          - --headless --chrome
+          - --headless --firefox
+          - --node -- --features in_nodejs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -23,11 +28,12 @@ jobs:
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-      - run: wasm-pack test ${{ matrix.mode }} --node
+      - run: wasm-pack test ${{ matrix.mode }} ${{ matrix.driver }}
 
   native-tests:
     name: native tests
     strategy:
+      fail-fast: false
       matrix:
         mode:
           -

@@ -56,5 +56,10 @@ ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", bran
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"
 
+[features]
+# Add this feature to run tests in both nodejs and browser:
+# https://github.com/rustwasm/wasm-bindgen/issues/2571
+in_nodejs = []
+
 [profile.release]
 debug = true
