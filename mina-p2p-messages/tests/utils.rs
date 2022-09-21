@@ -42,9 +42,10 @@ where
     Ok(())
 }
 
-pub fn for_all_with_path<F>(dir: &str, mut f: F) -> std::io::Result<()>
+pub fn for_all_with_path<F, A>(dir: A, mut f: F) -> std::io::Result<()>
 where
     F: FnMut(&[u8], &Path),
+    A: AsRef<Path>,
 {
     let path = files_path(dir)?;
     let dir = std::fs::read_dir(path)?;
