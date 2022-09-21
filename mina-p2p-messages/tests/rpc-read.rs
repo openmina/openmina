@@ -2,8 +2,10 @@ use std::{
     collections::BTreeMap,
     fs::{self, File},
     io::Write,
+    path::PathBuf,
 };
 
+use binprot::BinProtRead;
 use mina_p2p_messages::{
     rpc::{
         AnswerSyncLedgerQueryV1, AnswerSyncLedgerQueryV2, GetAncestryV1, GetAncestryV2,
@@ -13,9 +15,11 @@ use mina_p2p_messages::{
         GetTransitionChainProofV1ForV2, GetTransitionChainV1, GetTransitionChainV2,
         GetTransitionKnowledgeV1, VersionedRpcMenuV1,
     },
-    rpc_kernel::{DebuggerMessage, Message, MessageHeader, RpcMethod},
+    rpc_kernel::{Message, MessageHeader, RpcMethod, Tag},
     utils::get_sized_slice,
+    versioned::Ver,
 };
+use utils::for_all_with_path;
 
 use crate::utils::files_path;
 
@@ -23,6 +27,20 @@ use crate::utils::files_path;
 mod utils;
 
 macro_rules! rpc_read_test {
+    (ignore($reason:literal), $name:ident, $path:expr, $ty:ty) => {
+        #[test]
+        #[ignore = $reason]
+        fn $name() {
+            utils::for_all(concat!($path, "/query"), |encoded| {
+                utils::assert_binprot_read::<Message<<$ty as RpcMethod>::Query>>(&encoded)
+            })
+            .unwrap();
+            utils::for_all(concat!($path, "/response"), |encoded| {
+                utils::assert_binprot_read::<Message<<$ty as RpcMethod>::Response>>(&encoded)
+            })
+            .unwrap();
+        }
+    };
     ($name:ident, $path:expr, $ty:ty) => {
         #[test]
         fn $name() {
@@ -38,41 +56,7 @@ macro_rules! rpc_read_test {
     };
 }
 
-macro_rules! rpc_read_debugger_test {
-    (ignore($reason:literal), $name:ident, $path:expr, $ty:ty) => {
-        #[test]
-        #[ignore = $reason]
-        fn $name() {
-            utils::for_all(concat!($path, "/query"), |encoded| {
-                utils::assert_binprot_read::<DebuggerMessage<<$ty as RpcMethod>::Query>>(&encoded)
-            })
-            .unwrap();
-            utils::for_all(concat!($path, "/response"), |encoded| {
-                utils::assert_binprot_read::<DebuggerMessage<<$ty as RpcMethod>::Response>>(
-                    &encoded,
-                )
-            })
-            .unwrap();
-        }
-    };
-    ($name:ident, $path:expr, $ty:ty) => {
-        #[test]
-        fn $name() {
-            utils::for_all(concat!($path, "/query"), |encoded| {
-                utils::assert_binprot_read::<DebuggerMessage<<$ty as RpcMethod>::Query>>(&encoded)
-            })
-            .unwrap();
-            utils::for_all(concat!($path, "/response"), |encoded| {
-                utils::assert_binprot_read::<DebuggerMessage<<$ty as RpcMethod>::Response>>(
-                    &encoded,
-                )
-            })
-            .unwrap();
-        }
-    };
-}
-
-rpc_read_debugger_test!(menu, "rpc-debugger/menu", VersionedRpcMenuV1);
+rpc_read_test!(menu, "rpc-debugger/menu", VersionedRpcMenuV1);
 
 rpc_read_test!(
     get_epoch_ledger_v1,
@@ -80,10 +64,10 @@ rpc_read_test!(
     GetEpochLedgerV1
 );
 
-rpc_read_debugger_test!(get_best_tip_v1, "rpc-debugger/get-best-tip", GetBestTipV1);
+rpc_read_test!(get_best_tip_v1, "rpc-debugger/get-best-tip", GetBestTipV1);
 rpc_read_test!(get_best_tip_v2, "v2/rpc/get-best-tip", GetBestTipV2);
 
-rpc_read_debugger_test!(
+rpc_read_test!(
     get_staged_ledger_aux_v1,
     "rpc-debugger/get-staged-ledger-aux",
     GetStagedLedgerAuxAndPendingCoinbasesAtHashV1
@@ -95,7 +79,7 @@ rpc_read_test!(
     GetStagedLedgerAuxAndPendingCoinbasesAtHashV2
 );
 
-rpc_read_debugger_test!(
+rpc_read_test!(
     answer_sync_ledger_v1,
     "rpc-debugger/answer-sync-ledger",
     AnswerSyncLedgerQueryV1
@@ -107,7 +91,7 @@ rpc_read_test!(
     AnswerSyncLedgerQueryV2
 );
 
-rpc_read_debugger_test!(
+rpc_read_test!(
     get_transition_chain_v1,
     "rpc-debugger/get-transition-chain",
     GetTransitionChainV1
@@ -119,7 +103,7 @@ rpc_read_test!(
     GetTransitionChainV2
 );
 
-rpc_read_debugger_test!(
+rpc_read_test!(
     get_transition_chain_proof_v1,
     "rpc-debugger/get-transition-chain-proof",
     GetTransitionChainProofV1
@@ -131,14 +115,14 @@ rpc_read_test!(
     GetTransitionChainProofV1ForV2
 );
 
-rpc_read_debugger_test!(
+rpc_read_test!(
     ignore("No test data"),
     get_transition_knowledge,
     "rpc-debugger/get-transition-knowledge",
     GetTransitionKnowledgeV1
 );
 
-rpc_read_debugger_test!(get_ancestry_v1, "rpc-debugger/get-ancestry", GetAncestryV1);
+rpc_read_test!(get_ancestry_v1, "rpc-debugger/get-ancestry", GetAncestryV1);
 
 rpc_read_test!(get_ancestry_v2, "v2/rpc/get-ancestry", GetAncestryV2);
 
@@ -198,5 +182,35 @@ fn make_rpc_v2() {
                 *c += 1;
             }
         }
+    }
+}
+
+#[test]
+#[ignore]
+fn debugger_to_wire() {
+    for d in [
+        "rpc-debugger/menu",
+        "rpc-debugger/get-best-tip",
+        "rpc-debugger/get-staged-ledger-aux",
+        "rpc-debugger/answer-sync-ledger",
+        "rpc-debugger/get-transition-chain",
+        "rpc-debugger/get-transition-chain-proof",
+        "rpc-debugger/get-transition-knowledge",
+        "rpc-debugger/get-ancestry",
+    ] {
+        for_all_with_path(&PathBuf::from(d).join("response"), |encoded, path| {
+            let mut p = &encoded[1..];
+            let tag = Tag::binprot_read(&mut p).unwrap().to_string_lossy();
+            let ver = Ver::binprot_read(&mut p).unwrap();
+            println!("{tag}:{ver}");
+            File::create(path)
+                .and_then(|mut f| {
+                    f.write(&encoded[..1])?;
+                    f.write_all(p)?;
+                    Ok(f)
+                })
+                .unwrap();
+        })
+        .unwrap()
     }
 }
