@@ -8,7 +8,7 @@ mod utils;
 
 #[test]
 fn external_transition_v1() {
-    utils::for_all("external-transition", |encoded| {
+    utils::for_all("v1/gossip/external-transition", |encoded| {
         utils::assert_binprot_read::<MinaBlockExternalTransitionRawVersionedStableV1Versioned>(
             &encoded,
         )
@@ -18,7 +18,7 @@ fn external_transition_v1() {
 
 #[test]
 fn snark_pool_diff() {
-    utils::for_all("snark-pool-diff", |encoded| {
+    utils::for_all("v1/gossip/snark-pool-diff", |encoded| {
         utils::assert_binprot_read::<NetworkPoolSnarkPoolDiffVersionedStableV1Versioned>(&encoded)
     })
     .unwrap();
@@ -26,7 +26,7 @@ fn snark_pool_diff() {
 
 #[test]
 fn tx_pool_diff() {
-    utils::for_all("tx-pool-diff", |encoded| {
+    utils::for_all("v1/gossip/tx-pool-diff", |encoded| {
         utils::assert_binprot_read::<NetworkPoolTransactionPoolDiffVersionedStableV1Versioned>(
             &encoded,
         )

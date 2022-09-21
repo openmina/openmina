@@ -56,7 +56,7 @@ macro_rules! rpc_read_test {
     };
 }
 
-rpc_read_test!(menu, "rpc-debugger/menu", VersionedRpcMenuV1);
+rpc_read_test!(menu, "v1/rpc/menu", VersionedRpcMenuV1);
 
 rpc_read_test!(
     get_epoch_ledger_v1,
@@ -64,12 +64,12 @@ rpc_read_test!(
     GetEpochLedgerV1
 );
 
-rpc_read_test!(get_best_tip_v1, "rpc-debugger/get-best-tip", GetBestTipV1);
+rpc_read_test!(get_best_tip_v1, "v1/rpc/get-best-tip", GetBestTipV1);
 rpc_read_test!(get_best_tip_v2, "v2/rpc/get-best-tip", GetBestTipV2);
 
 rpc_read_test!(
     get_staged_ledger_aux_v1,
-    "rpc-debugger/get-staged-ledger-aux",
+    "v1/rpc/get-staged-ledger-aux",
     GetStagedLedgerAuxAndPendingCoinbasesAtHashV1
 );
 
@@ -81,7 +81,7 @@ rpc_read_test!(
 
 rpc_read_test!(
     answer_sync_ledger_v1,
-    "rpc-debugger/answer-sync-ledger",
+    "v1/rpc/answer-sync-ledger",
     AnswerSyncLedgerQueryV1
 );
 
@@ -93,7 +93,7 @@ rpc_read_test!(
 
 rpc_read_test!(
     get_transition_chain_v1,
-    "rpc-debugger/get-transition-chain",
+    "v1/rpc/get-transition-chain",
     GetTransitionChainV1
 );
 
@@ -105,7 +105,7 @@ rpc_read_test!(
 
 rpc_read_test!(
     get_transition_chain_proof_v1,
-    "rpc-debugger/get-transition-chain-proof",
+    "v1/rpc/get-transition-chain-proof",
     GetTransitionChainProofV1
 );
 
@@ -118,11 +118,11 @@ rpc_read_test!(
 rpc_read_test!(
     ignore("No test data"),
     get_transition_knowledge,
-    "rpc-debugger/get-transition-knowledge",
+    "v1/rpc/get-transition-knowledge",
     GetTransitionKnowledgeV1
 );
 
-rpc_read_test!(get_ancestry_v1, "rpc-debugger/get-ancestry", GetAncestryV1);
+rpc_read_test!(get_ancestry_v1, "v1/rpc/get-ancestry", GetAncestryV1);
 
 rpc_read_test!(get_ancestry_v2, "v2/rpc/get-ancestry", GetAncestryV2);
 
@@ -189,14 +189,14 @@ fn make_rpc_v2() {
 #[ignore]
 fn debugger_to_wire() {
     for d in [
-        "rpc-debugger/menu",
-        "rpc-debugger/get-best-tip",
-        "rpc-debugger/get-staged-ledger-aux",
-        "rpc-debugger/answer-sync-ledger",
-        "rpc-debugger/get-transition-chain",
-        "rpc-debugger/get-transition-chain-proof",
-        "rpc-debugger/get-transition-knowledge",
-        "rpc-debugger/get-ancestry",
+        "v1/rpc/menu",
+        "v1/rpc/get-best-tip",
+        "v1/rpc/get-staged-ledger-aux",
+        "v1/rpc/answer-sync-ledger",
+        "v1/rpc/get-transition-chain",
+        "v1/rpc/get-transition-chain-proof",
+        "v1/rpc/get-transition-knowledge",
+        "v1/rpc/get-ancestry",
     ] {
         for_all_with_path(&PathBuf::from(d).join("response"), |encoded, path| {
             let mut p = &encoded[1..];
