@@ -38,7 +38,7 @@ fn tx_pool_diff() {
 fn gossip_v2() {
     utils::for_all("v2/gossip", |encoded| {
         use mina_p2p_messages::gossip::GossipNetMessageV2;
-        utils::assert_stream_read_and::<GossipNetMessageV2, _>(&encoded, |_| {})
+        utils::assert_binprot_read::<GossipNetMessageV2>(&encoded)
     })
     .unwrap();
 }
