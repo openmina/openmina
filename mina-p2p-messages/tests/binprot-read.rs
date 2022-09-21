@@ -1,7 +1,7 @@
 use mina_p2p_messages::v1::{
-    MinaBlockExternalTransitionRawVersionedStableV1Binable,
-    NetworkPoolSnarkPoolDiffVersionedStableV1Binable,
-    NetworkPoolTransactionPoolDiffVersionedStableV1Binable,
+    MinaBlockExternalTransitionRawVersionedStableV1Versioned,
+    NetworkPoolSnarkPoolDiffVersionedStableV1Versioned,
+    NetworkPoolTransactionPoolDiffVersionedStableV1Versioned,
 };
 
 mod utils;
@@ -9,7 +9,7 @@ mod utils;
 #[test]
 fn external_transition_v1() {
     utils::for_all("external-transition", |encoded| {
-        utils::assert_binprot_read::<MinaBlockExternalTransitionRawVersionedStableV1Binable>(
+        utils::assert_binprot_read::<MinaBlockExternalTransitionRawVersionedStableV1Versioned>(
             &encoded,
         )
     })
@@ -19,7 +19,7 @@ fn external_transition_v1() {
 #[test]
 fn snark_pool_diff() {
     utils::for_all("snark-pool-diff", |encoded| {
-        utils::assert_binprot_read::<NetworkPoolSnarkPoolDiffVersionedStableV1Binable>(&encoded)
+        utils::assert_binprot_read::<NetworkPoolSnarkPoolDiffVersionedStableV1Versioned>(&encoded)
     })
     .unwrap();
 }
@@ -27,7 +27,7 @@ fn snark_pool_diff() {
 #[test]
 fn tx_pool_diff() {
     utils::for_all("tx-pool-diff", |encoded| {
-        utils::assert_binprot_read::<NetworkPoolTransactionPoolDiffVersionedStableV1Binable>(
+        utils::assert_binprot_read::<NetworkPoolTransactionPoolDiffVersionedStableV1Versioned>(
             &encoded,
         )
     })

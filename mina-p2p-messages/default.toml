@@ -21,7 +21,8 @@ versioned_type = "crate::versioned::Versioned"
 phantom_type = "crate::phantom::Phantom"
 
 skip = [
-       947,
+       "TransactionSnarkScanStateStableV1VersionedV1PolyV1PolyV1TreesArg0V1",
+       "TransactionSnarkScanStateStableV2PolyTreesArg0"
 ]
 
 [base_types.float]
