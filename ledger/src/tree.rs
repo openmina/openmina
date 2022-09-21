@@ -1040,24 +1040,60 @@ mod tests {
         }
     }
 
+    #[cfg(target_family = "wasm")]
     #[test]
-    fn test_db_full() {
+    fn test_hashing_tree() {
+        use web_sys::console;
+
+        const NACCOUNTS: u64 = 1_000;
+
+        console::time_with_label("generate random accounts");
+
         let mut db = Database::<V2>::create(20);
-        let mut account = Account::rand();
-        account.zkapp = None;
 
-        const NACCOUNTS: u64 = 130_000;
+        console::log_1(&format!("{:?} accounts in nodejs", NACCOUNTS).into());
 
-        for index in 0..NACCOUNTS {
-            let mut account = account.clone();
+        let accounts = (0..NACCOUNTS).map(|_| Account::rand()).collect::<Vec<_>>();
+
+        for (index, mut account) in accounts.into_iter().enumerate() {
             account.token_id = TokenId::from(index as u64);
             let id = account.id();
             db.create_account(id, account).unwrap();
         }
 
+        console::time_end_with_label("generate random accounts");
         assert_eq!(db.naccounts, NACCOUNTS as usize);
 
-        // println!("merkle_root={:?}", db.merkle_root());
+        console::time_with_label("compute merkle root");
+        db.merkle_root();
+
+        console::time_end_with_label("compute merkle root");
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    #[test]
+    fn test_hashing_tree() {
+        const NACCOUNTS: u64 = 1_000;
+
+        let now = std::time::Instant::now();
+        let mut db = Database::<V2>::create(20);
+
+        println!("{:?} accounts natively", NACCOUNTS);
+
+        let accounts = (0..NACCOUNTS).map(|_| Account::rand()).collect::<Vec<_>>();
+
+        for (index, mut account) in accounts.into_iter().enumerate() {
+            account.token_id = TokenId::from(index as u64);
+            let id = account.id();
+            db.create_account(id, account).unwrap();
+        }
+
+        println!("generate random accounts {:?}", now.elapsed());
+        assert_eq!(db.naccounts, NACCOUNTS as usize);
+
+        let now = std::time::Instant::now();
+        db.merkle_root();
+        println!("compute merkle root {:?}", now.elapsed());
     }
 
     #[test]
