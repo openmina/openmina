@@ -14,8 +14,8 @@ use crate::versioned::Versioned;
 pub enum Info {
     CouldNotConstruct(super::string::CharString), // of Sexp.t
     String(super::string::CharString),            // of string
-    Exn,                                      // of Binable_exn.V1.t
-    Sexp,                                     // of Sexp.t
+    Exn,                                          // of Binable_exn.V1.t
+    Sexp,                                         // of Sexp.t
     TagSexp,       // of string * Sexp.t * Source_code_position.V1.t option
     TagT,          // of string * t
     TagArg,        // of string * Sexp.t * t

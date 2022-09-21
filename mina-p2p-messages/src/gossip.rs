@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
 use binprot_derive::{BinProtRead, BinProtWrite};
+use serde::{Deserialize, Serialize};
 
 use crate::{v1, v2};
 

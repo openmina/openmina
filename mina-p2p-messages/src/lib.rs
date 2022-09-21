@@ -1,7 +1,6 @@
 ///! Mina wire types, represented in Rust.
 ///!
 ///! This crate contains gossip network messages and RPCs.
-
 pub mod bigint;
 pub mod char;
 pub mod common;

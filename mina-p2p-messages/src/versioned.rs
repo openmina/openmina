@@ -228,6 +228,9 @@ mod tests {
         assert_eq!(&binprot_write(&versioned::<0>()).unwrap(), b"\x00\x00");
         assert_eq!(&binprot_write(&versioned::<1>()).unwrap(), b"\x01\x00");
         assert_eq!(&binprot_write(&versioned::<0x7f>()).unwrap(), b"\x7f\x00");
-        assert_eq!(&binprot_write(&versioned::<0x80>()).unwrap(), b"\xfe\x80\x00\x00");
+        assert_eq!(
+            &binprot_write(&versioned::<0x80>()).unwrap(),
+            b"\xfe\x80\x00\x00"
+        );
     }
 }

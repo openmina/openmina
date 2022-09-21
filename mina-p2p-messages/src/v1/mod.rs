@@ -1,5 +1,5 @@
-mod manual;
 mod generated;
+mod manual;
 
-pub use manual::*;
 pub use generated::*;
+pub use manual::*;
