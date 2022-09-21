@@ -13,7 +13,6 @@ use crate::{
 };
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
-use o1_utils::FieldHelpers;
 
 #[derive(Clone, Debug)]
 struct Leaf<T: TreeVersion> {
@@ -984,7 +983,7 @@ mod tests {
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
     use crate::{
-        account::{self, Account, AccountLegacy},
+        account::Account,
         tree_version::{account_empty_legacy_hash, V1, V2},
     };
 

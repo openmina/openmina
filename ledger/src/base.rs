@@ -2,7 +2,7 @@ use std::{
     collections::HashSet,
     ops::{ControlFlow, Deref},
     path::PathBuf,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::atomic::AtomicU64,
 };
 
 use mina_hasher::Fp;
@@ -20,8 +20,8 @@ static UUID_GENERATOR: AtomicU64 = AtomicU64::new(0);
 
 pub fn next_uuid() -> Uuid {
     // use uuid::Uuid;
-    let uuid = uuid::Uuid::new_v4().to_string();
-    uuid
+
+    uuid::Uuid::new_v4().to_string()
 
     // "a".to_string()
     // UUID_GENERATOR.fetch_add(1, Ordering::AcqRel)

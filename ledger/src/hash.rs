@@ -18,7 +18,7 @@ enum Item {
 impl std::fmt::Debug for Item {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Bool(arg0) => f.write_fmt(format_args!("{}", if *arg0 { 1 } else { 0 })),
+            Self::Bool(arg0) => f.write_fmt(format_args!("{}", i32::from(*arg0))),
             Self::U2(arg0) => f.write_fmt(format_args!("{}u2", arg0)),
             Self::U8(arg0) => f.write_fmt(format_args!("{}u8", arg0)),
             Self::U32(arg0) => f.write_fmt(format_args!("{}u32", arg0)),

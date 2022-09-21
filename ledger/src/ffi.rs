@@ -6,7 +6,7 @@ use std::{
     path::PathBuf,
     rc::Rc,
     str::FromStr,
-    sync::{Arc, Mutex},
+    sync::Mutex,
 };
 
 use mina_hasher::Fp;
@@ -360,7 +360,7 @@ ocaml_export! {
         }
 
         println!("account={:?}", account.id());
-        std::thread::sleep_ms(2000);
+        // std::thread::sleep_ms(2000);
 
         bytes.to_ocaml(rt)
     }

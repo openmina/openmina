@@ -371,6 +371,7 @@ impl Address {
         // self == &other
     }
 
+    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         let mut s = String::with_capacity(self.length());
 
