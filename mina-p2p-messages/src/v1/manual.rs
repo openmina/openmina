@@ -6,9 +6,9 @@ use crate::versioned::Versioned;
 
 ///! Manually implemented Mina types.
 
-pub type NonzeroCurvePointV1Binable = Versioned<Versioned<NonzeroCurvePointV1, 1>, 1>;
+pub type NonzeroCurvePointV1Versioned = Versioned<Versioned<NonzeroCurvePointV1, 1>, 1>;
 
-pub type PublicKeyCompressedStableV1Binable = NonzeroCurvePointV1Binable;
+pub type PublicKeyCompressedStableV1Versioned = NonzeroCurvePointV1Versioned;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct NonzeroCurvePointV1 {
@@ -18,13 +18,13 @@ pub struct NonzeroCurvePointV1 {
 
 /// Location: [src/lib/parallel_scan/parallel_scan.ml:226:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L226)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0V1<MergeT, BaseT> {
+pub enum TransactionSnarkScanStateStableV1VersionedV1PolyV1PolyV1TreesArg0V1<MergeT, BaseT> {
     Leaf(Vec<BaseT>),
     Node {
         depth: i32,
         value: Vec<MergeT>,
         sub_tree:
-            Box<TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0V1<MergeT, BaseT>>,
+            Box<TransactionSnarkScanStateStableV1VersionedV1PolyV1PolyV1TreesArg0V1<MergeT, BaseT>>,
     },
 }
 
@@ -35,7 +35,7 @@ enum _Tree {
 }
 
 impl<MergeT, BaseT> BinProtRead
-    for TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0V1<MergeT, BaseT>
+    for TransactionSnarkScanStateStableV1VersionedV1PolyV1PolyV1TreesArg0V1<MergeT, BaseT>
 where
     MergeT: BinProtRead,
     BaseT: BinProtRead,
@@ -87,7 +87,7 @@ where
 }
 
 impl<MergeT, BaseT> BinProtWrite
-    for TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0V1<MergeT, BaseT>
+    for TransactionSnarkScanStateStableV1VersionedV1PolyV1PolyV1TreesArg0V1<MergeT, BaseT>
 where
     MergeT: BinProtWrite,
     BaseT: BinProtWrite,

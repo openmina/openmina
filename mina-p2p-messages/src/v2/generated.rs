@@ -53,6 +53,7 @@ pub struct MinaBaseSparseLedgerBaseStableV2(
     >,
 );
 
+
 /// **Origin**: `Network_peer__Peer.Stable.V1.t`
 ///
 /// **Location**: [src/lib/network_peer/peer.ml:28:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_peer/peer.ml#L28)
@@ -91,6 +92,7 @@ pub struct MinaBasePendingCoinbaseStableV2(
     >,
 );
 
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 /// **Origin**: `Mina_ledger__Sync_ledger.Query.Stable.V1.t`
 ///
@@ -113,6 +115,8 @@ pub struct MinaLedgerSyncLedgerAnswerStableV2(
         MinaBaseAccountBinableArgStableV2,
     >,
 );
+
+
 
 /// **Origin**: `Sync_status.T.Stable.V1.t`
 ///
@@ -140,6 +144,7 @@ pub struct TrustSystemPeerStatusStableV1 {
     pub trust: f64,
     pub banned: TrustSystemBannedStatusStableV1,
 }
+
 
 /// Location: [src/lib/mina_state/protocol_state.ml:16:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_state/protocol_state.ml#L16)
 ///

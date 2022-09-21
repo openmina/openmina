@@ -7,11 +7,11 @@ use crate::{v1, v2};
 #[serde(tag = "type", content = "message")]
 pub enum GossipNetMessageV1 {
     #[serde(rename = "external_transition")]
-    NewState(v1::MinaBlockExternalTransitionRawVersionedStableV1Binable),
+    NewState(v1::MinaBlockExternalTransitionRawVersionedStableV1Versioned),
     #[serde(rename = "snark_pool_diff")]
-    SnarkPoolDiff(v1::NetworkPoolSnarkPoolDiffVersionedStableV1Binable),
+    SnarkPoolDiff(v1::NetworkPoolSnarkPoolDiffVersionedStableV1Versioned),
     #[serde(rename = "transaction_pool_diff")]
-    TransactionPoolDiff(v1::NetworkPoolTransactionPoolDiffVersionedStableV1Binable),
+    TransactionPoolDiff(v1::NetworkPoolTransactionPoolDiffVersionedStableV1Versioned),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite)]

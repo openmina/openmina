@@ -29,7 +29,7 @@ pub type Error = Info;
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq)]
 pub struct Time(f64);
 
-pub type InetAddrV1Binable = Versioned<InetAddrV1, 1>;
+pub type InetAddrV1Versioned = Versioned<InetAddrV1, 1>;
 
 #[derive(
     Clone, Debug, Serialize, Deserialize, PartialEq, Eq, derive_more::From, derive_more::Into,
