@@ -44,6 +44,14 @@ mina_rpc!(
     Vec<v1::NetworkPeerPeerIdStableV1Binable>
 );
 
+mina_rpc!(
+    GetSomeInitialPeersV1ForV2,
+    "get_some_initial_peers",
+    1,
+    (),
+    Vec<v2::NetworkPeerPeerIdStableV1>
+);
+
 pub type GetStagedLedgerAuxAndPendingCoinbasesAtHashV1Response = Option<(
     v1::TransactionSnarkScanStateStableV1Binable,
     LedgerHashV1Binable,
@@ -131,6 +139,14 @@ mina_rpc!(
     1,
     (),
     Vec<StateHashV1Binable>
+);
+
+mina_rpc!(
+    GetTransitionKnowledgeV1ForV2,
+    "Get_transition_knowledge",
+    1,
+    (),
+    Vec<StateHashV1>
 );
 
 // pub struct ConsensusDataConsensusStateValue;
@@ -264,7 +280,13 @@ pub struct JSONifyPayloadRegistry {
 }
 
 impl JSONifyPayloadRegistry {
+    #[deprecated = "Use `[v1]` or `[v2]` methods instead."]
     pub fn new() -> Self {
+        Self::v1()
+    }
+
+    /// Creates registry with Mina V1 specific RPC methods.
+    pub fn v1() -> Self {
         let mut this = Self {
             table: BTreeMap::new(),
         };
@@ -281,6 +303,27 @@ impl JSONifyPayloadRegistry {
         this.insert(GetNodeStatusV1);
         this.insert(GetNodeStatusV2);
         this.insert(GetEpochLedgerV1);
+        this
+    }
+
+    /// Creates registry with Mina V2 specific RPC methods.
+    pub fn v2() -> Self {
+        let mut this = Self {
+            table: BTreeMap::new(),
+        };
+        this.insert(VersionedRpcMenuV1);
+        this.insert(GetSomeInitialPeersV1ForV2);
+        this.insert(GetStagedLedgerAuxAndPendingCoinbasesAtHashV2);
+        this.insert(AnswerSyncLedgerQueryV2);
+        this.insert(GetTransitionChainV2);
+        this.insert(GetTransitionChainProofV1ForV2);
+        this.insert(GetTransitionKnowledgeV1ForV2);
+        this.insert(BanNotifyV1);
+        this.insert(GetAncestryV2);
+        this.insert(GetBestTipV2);
+        this.insert(GetNodeStatusV1);
+        this.insert(GetNodeStatusV2);
+        this.insert(GetEpochLedgerV2);
         this
     }
 
@@ -307,8 +350,8 @@ mod tests {
     use crate::JSONifyPayloadRegistry;
 
     #[test]
-    fn jsonify_registry_content() {
-        let r = JSONifyPayloadRegistry::new();
+    fn jsonify_registry_content_v1() {
+        let r = JSONifyPayloadRegistry::v1();
         for (name, version) in [
             ("__Versioned_rpc.Menu", 1),
             ("get_some_initial_peers", 1),
@@ -329,8 +372,30 @@ mod tests {
     }
 
     #[test]
+    fn jsonify_registry_content_v2() {
+        let r = JSONifyPayloadRegistry::v2();
+        for (name, version) in [
+            ("__Versioned_rpc.Menu", 1),
+            ("get_some_initial_peers", 1),
+            ("get_staged_ledger_aux_and_pending_coinbases_at_hash", 2),
+            ("answer_sync_ledger_query", 2),
+            ("get_transition_chain", 2),
+            ("get_transition_chain_proof", 1),
+            ("Get_transition_knowledge", 1),
+            ("get_ancestry", 2),
+            ("ban_notify", 1),
+            ("get_best_tip", 2),
+            ("get_node_status", 1),
+            ("get_node_status", 2),
+            ("get_epoch_ledger", 2),
+        ] {
+            assert!(r.get(name, version).is_some());
+        }
+    }
+
+    #[test]
     fn jsonify_registry_query() {
-        let r = JSONifyPayloadRegistry::new();
+        let r = JSONifyPayloadRegistry::v1();
         let payload =
             hex::decode("220101e7dd9b0d45abb2e4dec2c5d22e1f1bd8ae5133047914209a0229e90a62ecfb0e")
                 .unwrap();
