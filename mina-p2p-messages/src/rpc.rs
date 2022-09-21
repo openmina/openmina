@@ -8,22 +8,13 @@ use serde::{Deserialize, Serialize};
 use crate::common::*;
 use crate::core;
 use crate::rpc_kernel::*;
-use crate::v1::{
-    ConsensusProofOfStakeDataConsensusStateValueStableV1Binable,
-    MinaBasePendingCoinbaseStableV1Binable, MinaBaseSparseLedgerStableV1Binable,
-    MinaBaseSyncLedgerAnswerStableV1Binable, MinaBaseSyncLedgerQueryStableV1Binable,
-    MinaBlockExternalTransitionRawVersionedStableV1Binable,
-    MinaStateProtocolStateValueStableV1Binable, NetworkPeerPeerIdStableV1Binable,
-    PublicKeyCompressedStableV1Binable, SyncStatusTStableV1Binable,
-    TransactionSnarkScanStateStableV1Binable, TrustSystemPeerStatusStableV1Binable,
-};
-use crate::v2;
 use crate::{
     core::InetAddrV1Binable,
     string::CharString,
     v2::MinaBaseSparseLedgerBaseStableV2,
     versioned::{Ver, Versioned},
 };
+use crate::{v1, v2};
 
 macro_rules! mina_rpc {
     ($name:ident, $tag:literal, $version:literal, $query:ty, $response:ty $(,)?) => {
@@ -50,14 +41,14 @@ mina_rpc!(
     "get_some_initial_peers",
     1,
     (),
-    Vec<NetworkPeerPeerIdStableV1Binable>
+    Vec<v1::NetworkPeerPeerIdStableV1Binable>
 );
 
 pub type GetStagedLedgerAuxAndPendingCoinbasesAtHashV1Response = Option<(
-    TransactionSnarkScanStateStableV1Binable,
+    v1::TransactionSnarkScanStateStableV1Binable,
     LedgerHashV1Binable,
-    MinaBasePendingCoinbaseStableV1Binable,
-    Vec<MinaStateProtocolStateValueStableV1Binable>,
+    v1::MinaBasePendingCoinbaseStableV1Binable,
+    Vec<v1::MinaStateProtocolStateValueStableV1Binable>,
 )>;
 
 mina_rpc!(
@@ -87,16 +78,16 @@ mina_rpc!(
     AnswerSyncLedgerQueryV1,
     "answer_sync_ledger_query",
     1,
-    (LedgerHashV1Binable, MinaBaseSyncLedgerQueryStableV1Binable),
-    RpcResult<MinaBaseSyncLedgerAnswerStableV1Binable, core::Error>
+    (LedgerHashV1Binable, v1::MinaBaseSyncLedgerQueryStableV1Binable),
+    RpcResult<v1::MinaBaseSyncLedgerAnswerStableV1Binable, core::Error>
 );
 
 mina_rpc!(
     AnswerSyncLedgerQueryV2,
     "answer_sync_ledger_query",
     2,
-    (LedgerHashV1, crate::v2::MinaLedgerSyncLedgerQueryStableV1),
-    RpcResult<crate::v2::MinaLedgerSyncLedgerAnswerStableV2, core::Error>
+    (LedgerHashV1, v2::MinaLedgerSyncLedgerQueryStableV1),
+    RpcResult<v2::MinaLedgerSyncLedgerAnswerStableV2, core::Error>
 );
 
 mina_rpc!(
@@ -104,7 +95,7 @@ mina_rpc!(
     "get_transition_chain",
     1,
     Vec<StateHashV1Binable>,
-    Option<Vec<MinaBlockExternalTransitionRawVersionedStableV1Binable>>
+    Option<Vec<v1::MinaBlockExternalTransitionRawVersionedStableV1Binable>>
 );
 
 mina_rpc!(
@@ -112,7 +103,7 @@ mina_rpc!(
     "get_transition_chain",
     2,
     Vec<StateHashV1>,
-    Option<Vec<crate::v2::MinaBlockBlockStableV2>>
+    Option<Vec<v2::MinaBlockBlockStableV2>>
 );
 
 pub type GetTransitionChainProofV1Response =
@@ -158,15 +149,15 @@ pub struct ProofCarryingDataWithHashV1<A, B> {
 pub type ProofCarryingDataWithHashV1Binable<A, B> = Versioned<ProofCarryingDataWithHashV1<A, B>, 1>;
 
 pub type GetAncestryV1Query = WithHashV1Binable<
-    ConsensusProofOfStakeDataConsensusStateValueStableV1Binable,
+    v1::ConsensusProofOfStakeDataConsensusStateValueStableV1Binable,
     StateHashV1Binable,
 >;
 pub type GetAncestryV1Response = Option<
     ProofCarryingDataWithHashV1Binable<
-        MinaBlockExternalTransitionRawVersionedStableV1Binable,
+        v1::MinaBlockExternalTransitionRawVersionedStableV1Binable,
         (
             Vec<StateBodyHashV1Binable>,
-            MinaBlockExternalTransitionRawVersionedStableV1Binable,
+            v1::MinaBlockExternalTransitionRawVersionedStableV1Binable,
         ),
     >,
 >;
@@ -179,11 +170,11 @@ mina_rpc!(
 );
 
 pub type GetAncestryV2Query =
-    WithHashV1<crate::v2::ConsensusProofOfStakeDataConsensusStateValueStableV1, StateHashV1>;
+    WithHashV1<v2::ConsensusProofOfStakeDataConsensusStateValueStableV1, StateHashV1>;
 pub type GetAncestryV2Response = Option<
     ProofCarryingDataWithHashV1<
-        crate::v2::MinaBlockBlockStableV2,
-        (Vec<StateBodyHashV1>, crate::v2::MinaBlockBlockStableV2),
+        v2::MinaBlockBlockStableV2,
+        (Vec<StateBodyHashV1>, v2::MinaBlockBlockStableV2),
     >,
 >;
 mina_rpc!(
@@ -204,17 +195,17 @@ pub struct ProofCarryingDataStableV1<A, B> {
 pub type ProofCarryingDataStableV1Binable<A, B> = Versioned<ProofCarryingDataStableV1<A, B>, 1>;
 pub type GetBestTipV1Response = Option<
     ProofCarryingDataStableV1Binable<
-        MinaBlockExternalTransitionRawVersionedStableV1Binable,
+        v1::MinaBlockExternalTransitionRawVersionedStableV1Binable,
         (
             Vec<LedgerHashV1Binable>,
-            MinaBlockExternalTransitionRawVersionedStableV1Binable,
+            v1::MinaBlockExternalTransitionRawVersionedStableV1Binable,
         ),
     >,
 >;
 pub type GetBestTipV2Response = Option<
     ProofCarryingDataStableV1<
-        crate::v2::MinaBlockBlockStableV2,
-        (Vec<LedgerHashV1>, crate::v2::MinaBlockBlockStableV2),
+        v2::MinaBlockBlockStableV2,
+        (Vec<LedgerHashV1>, v2::MinaBlockBlockStableV2),
     >,
 >;
 mina_rpc!(GetBestTipV1, "get_best_tip", 1, (), GetBestTipV1Response);
@@ -223,13 +214,13 @@ mina_rpc!(GetBestTipV2, "get_best_tip", 2, (), GetBestTipV2Response);
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct NodeStatusV1 {
     node_ip_addr: InetAddrV1Binable,
-    node_peer_id: NetworkPeerPeerIdStableV1Binable,
-    sync_status: SyncStatusTStableV1Binable,
-    peers: Vec<NetworkPeerPeerIdStableV1Binable>,
-    block_producers: Vec<PublicKeyCompressedStableV1Binable>,
+    node_peer_id: v1::NetworkPeerPeerIdStableV1Binable,
+    sync_status: v1::SyncStatusTStableV1Binable,
+    peers: Vec<v1::NetworkPeerPeerIdStableV1Binable>,
+    block_producers: Vec<v1::PublicKeyCompressedStableV1Binable>,
     ban_statuses: Vec<(
-        NetworkPeerPeerIdStableV1Binable,
-        TrustSystemPeerStatusStableV1Binable,
+        v1::NetworkPeerPeerIdStableV1Binable,
+        v1::TrustSystemPeerStatusStableV1Binable,
     )>,
     k_block_hashes_and_timestamps: Vec<(StateHashV1Binable, CharString)>,
     git_commit: CharString,
@@ -240,14 +231,14 @@ mina_rpc!(GetNodeStatusV1, "get_node_status", 1, (), RpcResult<NodeStatusV1, cor
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct NodeStatusV2 {
     node_ip_addr: InetAddrV1Binable,
-    node_peer_id: NetworkPeerPeerIdStableV1Binable,
-    sync_status: SyncStatusTStableV1Binable,
-    peers: Vec<NetworkPeerPeerIdStableV1Binable>,
-    block_producers: Vec<PublicKeyCompressedStableV1Binable>,
+    node_peer_id: v1::NetworkPeerPeerIdStableV1Binable,
+    sync_status: v1::SyncStatusTStableV1Binable,
+    peers: Vec<v1::NetworkPeerPeerIdStableV1Binable>,
+    block_producers: Vec<v1::PublicKeyCompressedStableV1Binable>,
     protocol_state_hash: StateHashV1Binable,
     ban_statuses: Vec<(
-        NetworkPeerPeerIdStableV1Binable,
-        TrustSystemPeerStatusStableV1Binable,
+        v1::NetworkPeerPeerIdStableV1Binable,
+        v1::TrustSystemPeerStatusStableV1Binable,
     )>,
     k_block_hashes_and_timestamps: Vec<(StateHashV1Binable, CharString)>,
     git_commit: CharString,
@@ -256,7 +247,7 @@ pub struct NodeStatusV2 {
 }
 mina_rpc!(GetNodeStatusV2, "get_node_status", 2, (), RpcResult<NodeStatusV2, core::Error>);
 
-mina_rpc!(GetEpochLedgerV1, "get_epoch_ledger", 1, LedgerHashV1Binable, RpcResult<MinaBaseSparseLedgerStableV1Binable, CharString>);
+mina_rpc!(GetEpochLedgerV1, "get_epoch_ledger", 1, LedgerHashV1Binable, RpcResult<v1::MinaBaseSparseLedgerStableV1Binable, CharString>);
 
 mina_rpc!(GetEpochLedgerV2, "get_epoch_ledger", 2, LedgerHashV1, RpcResult<MinaBaseSparseLedgerBaseStableV2, CharString>);
 
