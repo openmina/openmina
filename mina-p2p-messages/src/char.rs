@@ -1,5 +1,5 @@
 use binprot::byteorder::{ReadBytesExt, WriteBytesExt};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Char(u8);

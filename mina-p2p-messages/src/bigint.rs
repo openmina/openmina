@@ -6,7 +6,8 @@ pub struct BigInt([u8; 32]);
 impl binprot::BinProtRead for BigInt {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
     where
-        Self: Sized {
+        Self: Sized,
+    {
         let mut buf = [0; 32];
         r.read_exact(&mut buf)?;
         Ok(Self(buf))
@@ -71,10 +72,10 @@ impl<'de> Deserialize<'de> for BigInt {
 
                 fn visit_borrowed_bytes<E>(self, _v: &'de [u8]) -> Result<Self::Value, E>
                 where
-                    E: serde::de::Error, {
+                    E: serde::de::Error,
+                {
                     todo!()
                 }
-
             }
             deserializer.deserialize_bytes(V).map(Self)
         }

@@ -17,5 +17,8 @@ fn vec() {
     let bytes = b"\x01\x01\x01\x7f";
     let mut r = &bytes[..];
     let foo: Foo = BinProtRead::binprot_read(&mut r).unwrap();
-    assert_eq!(foo, Versioned::from(FooV1(vec![Versioned::from(BarV1(0x7f))])));
+    assert_eq!(
+        foo,
+        Versioned::from(FooV1(vec![Versioned::from(BarV1(0x7f))]))
+    );
 }

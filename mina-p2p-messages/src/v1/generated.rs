@@ -46,7 +46,6 @@ pub type TransactionSnarkScanStateStableV1Binable =
 pub type MinaBasePendingCoinbaseStableV1Binable =
     crate::versioned::Versioned<MinaBasePendingCoinbaseStableV1BinableV1, 1i32>;
 
-
 /// **Origin**: `Mina_base__Sync_ledger.Query.Stable.V1.t`
 ///
 /// **Location**: [src/lib/mina_base/sync_ledger.ml:70:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sync_ledger.ml#L70)
@@ -59,8 +58,6 @@ pub type MinaBaseSyncLedgerQueryStableV1Binable =
 pub type MinaBaseSyncLedgerAnswerStableV1Binable =
     crate::versioned::Versioned<MinaBaseSyncLedgerAnswerStableV1BinableV1, 1i32>;
 
-
-
 /// **Origin**: `Sync_status.T.Stable.V1.t`
 ///
 /// **Location**: [src/lib/sync_status/sync_status.ml:54:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sync_status/sync_status.ml#L54)
@@ -72,7 +69,6 @@ pub type SyncStatusTStableV1Binable =
 /// **Location**: [src/lib/trust_system/peer_status.ml:6:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/trust_system/peer_status.ml#L6)
 pub type TrustSystemPeerStatusStableV1Binable =
     crate::versioned::Versioned<TrustSystemPeerStatusStableV1BinableV1, 1i32>;
-
 
 /// Location: [src/lib/mina_state/protocol_state.ml:16:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_state/protocol_state.ml#L16)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
@@ -207,7 +203,9 @@ pub type MinaBaseStagedLedgerHashAuxHashStableV1Binable =
 
 /// Location: [src/lib/mina_base/staged_ledger_hash.ml:59:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/staged_ledger_hash.ml#L59)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1BinableV1(pub crate::string::ByteString);
+pub struct MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1BinableV1(
+    pub crate::string::ByteString,
+);
 
 /// **Origin**: `Mina_base__Staged_ledger_hash.Pending_coinbase_aux.Stable.V1.t`
 ///
@@ -3661,7 +3659,6 @@ pub type TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1Trees<A> =
         TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesV1<A>,
         1i32,
     >;
-
 
 /// Location: [src/lib/parallel_scan/parallel_scan.ml:226:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L226)
 pub type TransactionSnarkScanStateStableV1BinableV1PolyV1PolyV1TreesArg0<MergeT, BaseT> =

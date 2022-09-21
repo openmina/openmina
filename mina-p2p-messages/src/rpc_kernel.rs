@@ -1,5 +1,4 @@
 ///! Partial implementation of Janestreet `core_rpc_kernel`.
-
 use std::io::Read;
 
 use binprot::{BinProtRead, BinProtWrite};
