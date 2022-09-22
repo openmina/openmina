@@ -4,6 +4,7 @@
 // https://github.com/rustwasm/wasm-bindgen/issues/2571
 #[cfg(not(feature = "in_nodejs"))]
 #[cfg(target_family = "wasm")]
+#[cfg(test)]
 mod wasm {
     use wasm_bindgen_test::*;
     wasm_bindgen_test_configure!(run_in_browser);
@@ -21,3 +22,14 @@ mod poseidon;
 mod tree;
 mod tree_version;
 mod util;
+
+pub use account::*;
+pub use account::*;
+pub use address::*;
+pub use base::*;
+pub use hash::*;
+pub use mask::*;
+pub use poseidon::*;
+pub use tree::*;
+pub use tree_version::*;
+pub use util::*;

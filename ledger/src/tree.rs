@@ -391,13 +391,13 @@ impl Database<V2> {
             }
         };
 
-        println!(
-            "DB depth={:?} uuid={:?} pid={:?} path={:?}",
-            depth,
-            uuid,
-            crate::util::pid(),
-            path
-        );
+        // println!(
+        //     "DB depth={:?} uuid={:?} pid={:?} path={:?}",
+        //     depth,
+        //     uuid,
+        //     crate::util::pid(),
+        //     path
+        // );
 
         std::fs::create_dir_all(&path).ok();
 
@@ -801,13 +801,13 @@ impl BaseLedger for Database<V2> {
         //     None => self.root_hash(),
         // };
 
-        println!(
-            "uuid={:?} ROOT={} num_account={:?} elapsed={:?}",
-            self.get_uuid(),
-            root,
-            self.num_accounts(),
-            now.elapsed(),
-        );
+        // println!(
+        //     "uuid={:?} ROOT={} num_account={:?} elapsed={:?}",
+        //     self.get_uuid(),
+        //     root,
+        //     self.num_accounts(),
+        //     now.elapsed(),
+        // );
 
         // self.root_hash.borrow_mut().replace(root);
 
