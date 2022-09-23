@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{v1, v2};
 
-#[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq)]
 #[serde(tag = "type", content = "message")]
 pub enum GossipNetMessageV1 {
     #[serde(rename = "external_transition")]
@@ -14,7 +14,7 @@ pub enum GossipNetMessageV1 {
     TransactionPoolDiff(v1::NetworkPoolTransactionPoolDiffVersionedStableV1Versioned),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq)]
 #[serde(tag = "type", content = "message")]
 pub enum GossipNetMessageV2 {
     #[serde(rename = "external_transition")]
