@@ -1,5 +1,5 @@
 use binprot::Nat0;
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Serialize};
 
 /// String of bytes.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -22,16 +22,41 @@ impl Serialize for ByteString {
     where
         S: serde::Serializer,
     {
+        if !serializer.is_human_readable() {
+            return self.0.serialize(serializer);
+        }
         serializer.serialize_str(&hex::encode(&self.0))
     }
 }
 
 impl<'de> Deserialize<'de> for ByteString {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        todo!()
+        if !deserializer.is_human_readable() {
+            return Vec::<u8>::deserialize(deserializer).map(Self);
+        }
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = Vec<u8>;
+
+            fn expecting(
+                &self,
+                formatter: &mut serde::__private::fmt::Formatter,
+            ) -> serde::__private::fmt::Result {
+                formatter.write_str("hex string")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                hex::decode(v)
+                    .map_err(|_| serde::de::Error::custom(format!("failed to decode hex str")))
+            }
+        }
+        deserializer.deserialize_str(V).map(Self)
     }
 }
 
@@ -77,11 +102,32 @@ impl From<&str> for CharString {
     }
 }
 
+impl PartialEq<[u8]> for CharString {
+    fn eq(&self, other: &[u8]) -> bool {
+        self.as_ref() == other
+    }
+}
+
+impl PartialEq<str> for CharString {
+    fn eq(&self, other: &str) -> bool {
+        self.as_ref() == other.as_bytes()
+    }
+}
+
+impl std::fmt::Display for CharString {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.to_string_lossy())
+    }
+}
+
 impl Serialize for CharString {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        if !serializer.is_human_readable() {
+            return self.0.serialize(serializer);
+        }
         let s = match std::string::String::from_utf8(self.0.clone()) {
             Ok(s) => s,
             Err(e) => return Err(serde::ser::Error::custom(format!("{e}"))),
@@ -91,11 +137,32 @@ impl Serialize for CharString {
 }
 
 impl<'de> Deserialize<'de> for CharString {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        todo!()
+        if !deserializer.is_human_readable() {
+            return Vec::<u8>::deserialize(deserializer).map(Self);
+        }
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = Vec<u8>;
+
+            fn expecting(
+                &self,
+                formatter: &mut serde::__private::fmt::Formatter,
+            ) -> serde::__private::fmt::Result {
+                formatter.write_str("string")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(v.as_bytes().to_vec())
+            }
+        }
+        deserializer.deserialize_str(V).map(Self)
     }
 }
 

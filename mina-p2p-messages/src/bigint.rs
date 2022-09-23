@@ -42,7 +42,7 @@ impl<'de> Deserialize<'de> for BigInt {
         if deserializer.is_human_readable() {
             struct V;
             impl<'de> serde::de::Visitor<'de> for V {
-                type Value = &'de str;
+                type Value = Vec<u8>;
 
                 fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                     formatter.write_str("hex string")
@@ -52,12 +52,19 @@ impl<'de> Deserialize<'de> for BigInt {
                 where
                     E: serde::de::Error,
                 {
-                    Ok(v)
+                    hex::decode(v)
+                        .map_err(|_| serde::de::Error::custom(format!("failed to decode hex str")))
+                }
+
+                fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+                {
+                    hex::decode(v)
+                        .map_err(|_| serde::de::Error::custom(format!("failed to decode hex str")))
                 }
             }
-            let s: &str = deserializer.deserialize_str(V)?;
-            let v = hex::decode(s)
-                .map_err(|_| serde::de::Error::custom(format!("failed to decode hex str")))?;
+            let v = deserializer.deserialize_str(V)?;
             v.try_into()
                 .map_err(|_| serde::de::Error::custom(format!("failed to convert vec to array")))
                 .map(Self)

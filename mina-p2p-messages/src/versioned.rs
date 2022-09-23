@@ -24,13 +24,12 @@ where
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            self.0.serialize(serializer)
-        } else {
-            let mut s = serializer.serialize_struct("MakeVersioned", 2)?;
-            s.serialize_field("version", &V)?;
-            s.serialize_field("t", &self.0)?;
-            s.end()
+            return self.0.serialize(serializer);
         }
+        let mut s = serializer.serialize_struct("MakeVersioned", 2)?;
+        s.serialize_field("version", &V)?;
+        s.serialize_field("t", &self.0)?;
+        s.end()
     }
 }
 
@@ -42,6 +41,9 @@ where
     where
         D: serde::Deserializer<'de>,
     {
+        if deserializer.is_human_readable() {
+            return T::deserialize(deserializer).map(Self);
+        }
         struct FieldsVisitor<T, const V: Ver>(PhantomData<T>);
         impl<'de, T, const V: Ver> serde::de::Visitor<'de> for FieldsVisitor<T, V>
         where

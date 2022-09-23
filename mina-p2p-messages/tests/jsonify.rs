@@ -1,5 +1,6 @@
 use binprot::BinProtRead;
 use mina_p2p_messages::{
+    gossip::GossipNetMessageV2,
     rpc::VersionedRpcMenuV1,
     rpc_kernel::{Message, RpcMethod},
 };
@@ -65,4 +66,15 @@ fn jsonify_rpc_menu() {
         }
     );
     assert_eq!(response_json, expected_json);
+}
+
+#[test]
+fn jsonify_gossip_v2_roundtrip() {
+    utils::for_all("v2/gossip", |mut encoded| {
+        let from_bin_prot = GossipNetMessageV2::binprot_read(&mut encoded).unwrap();
+        let json = serde_json::to_value(&from_bin_prot).unwrap();
+        let from_json = serde_json::from_value(json).unwrap();
+        assert_eq!(from_bin_prot, from_json);
+    })
+    .unwrap();
 }
