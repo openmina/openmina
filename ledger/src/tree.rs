@@ -1039,6 +1039,88 @@ mod tests {
         }
     }
 
+    // RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals" wasm-pack test --release --chrome -- -Z build-std=std,panic_abort -- hashing
+    #[cfg(target_family = "wasm")]
+    #[test]
+    fn test_hashing_tree_with_web_workers() {
+        use web_sys::console;
+
+        use std::time::Duration;
+        use wasm_thread as thread;
+
+        use crate::account;
+
+        let mut msg = format!("hello");
+
+        const NACCOUNTS: u64 = 1_000;
+        const NTHREADS: usize = 8;
+
+        let mut accounts = (0..NACCOUNTS).map(|_| Account::rand()).collect::<Vec<_>>();
+
+        use wasm_bindgen::prelude::*;
+
+        fn perf_to_duration(amt: f64) -> std::time::Duration {
+            let secs = (amt as u64) / 1_000;
+            let nanos = (((amt as u64) % 1_000) as u32) * 1_000_000;
+            std::time::Duration::new(secs, nanos)
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        #[wasm_bindgen(inline_js = r#"
+export function performance_now() {
+  return performance.now();
+}"#)]
+        extern "C" {
+            fn performance_now() -> f64;
+        }
+
+        thread::spawn(move || {
+            console::time_with_label("threads");
+            console::log_1(&format!("hello from first thread {:?}", thread::current().id()).into());
+
+            let start = performance_now();
+
+            let mut joins = Vec::with_capacity(NTHREADS);
+
+            for _ in 0..NTHREADS {
+                let accounts = accounts.split_off(accounts.len() - (NACCOUNTS as usize / NTHREADS));
+
+                let join = thread::spawn(move || {
+                    console::log_1(
+                        &format!("hello from thread {:?}", thread::current().id()).into(),
+                    );
+
+                    let hash = accounts.iter().map(|a| a.hash()).collect::<Vec<_>>();
+
+                    console::log_1(
+                        &format!("ending from thread {:?}", thread::current().id()).into(),
+                    );
+
+                    hash.len()
+                });
+
+                joins.push(join);
+            }
+
+            let nhashes: usize = joins.into_iter().map(|j| j.join().unwrap()).sum();
+
+            assert_eq!(nhashes, NACCOUNTS as usize);
+
+            let end = performance_now();
+
+            console::log_1(
+                &format!(
+                    "nhashes={:?} nthreads={:?} time={:?}",
+                    nhashes,
+                    NTHREADS,
+                    perf_to_duration(end - start)
+                )
+                .into(),
+            );
+            console::time_end_with_label("threads");
+        });
+    }
+
     #[cfg(target_family = "wasm")]
     #[test]
     fn test_hashing_tree() {

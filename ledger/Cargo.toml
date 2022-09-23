@@ -12,6 +12,9 @@ path = "src/bin/ledger.rs"
 [lib]
 crate-type = ["staticlib", "cdylib", "lib"]
 
+# For wasm on browser, add those flags:
+# https://stackoverflow.com/a/73023306
+
 [dependencies]
 mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
 mina-hasher = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"}
@@ -49,6 +52,8 @@ packed_simd = { version = "0.3", package = "packed_simd_2" }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
+wasm_thread = { version = "0.2", features = [ "es_modules" ] }
+wasm-bindgen = "0.2"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 # ocaml-interop = { path = "/home/sebastien/github/ocaml-interop" }
@@ -59,7 +64,7 @@ ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", bran
 
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"
-web-sys = { version = "0.3", features = [ "console" ] }
+web-sys = { version = "0.3", features = ["Blob", "DedicatedWorkerGlobalScope", "MessageEvent", "Url", "Worker", "WorkerType", "WorkerOptions", "console", "Window", "Performance" ] }
 
 [features]
 # Add this feature to run tests in both nodejs and browser:

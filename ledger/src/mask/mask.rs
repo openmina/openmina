@@ -99,14 +99,14 @@ impl Mask {
         self.with(|this| this.unset_parent(trigger_detach_signal))
     }
 
-    ///              o
-    ///             /
-    ///            /
-    ///   o --- o -
-    ///   ^     ^  \
-    ///  parent |   \
-    ///        mask  o
-    ///            children
+    /// //             o
+    /// //            /
+    /// //           /
+    /// //  o --- o -
+    /// //  ^     ^  \
+    /// // parent |   \
+    /// //       mask  o
+    /// //           children
     ///
     /// Removes the attached mask from its parent and attaches the children to the
     /// parent instead. Raises an exception if the merkle roots of the mask and the
