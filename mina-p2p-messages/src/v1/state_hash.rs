@@ -2,7 +2,11 @@ use std::fmt;
 
 use crate::bigint::BigInt;
 
-use super::generated::{MinaStateProtocolStateValueStableV1VersionedV1PolyArg0, MinaStateProtocolStateValueStableV1VersionedV1PolyArg0V1, MinaStateProtocolStateValueStableV1VersionedV1PolyArg0V1Poly};
+use super::generated::{
+    MinaStateProtocolStateValueStableV1VersionedV1PolyArg0,
+    MinaStateProtocolStateValueStableV1VersionedV1PolyArg0V1,
+    MinaStateProtocolStateValueStableV1VersionedV1PolyArg0V1Poly,
+};
 
 pub type StateHashStable = MinaStateProtocolStateValueStableV1VersionedV1PolyArg0;
 pub type StateHashStableV1 = MinaStateProtocolStateValueStableV1VersionedV1PolyArg0V1;

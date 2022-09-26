@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 
-use std::{path::{Path, PathBuf}, fs::File, io::Read};
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 pub fn files_path<P: AsRef<Path>>(suffix: P) -> std::io::Result<PathBuf> {
     let prefix = std::env::var("CARGO_MANIFEST_DIR").map_err(|_| {

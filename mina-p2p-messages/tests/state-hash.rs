@@ -11,8 +11,13 @@ mod tests {
     fn state_hash() {
         utils::for_all("v1/gossip/external-transition", |file_path, mut encoded| {
             let file_path = file_path.to_string_lossy();
-            let external_transition = MinaBlockExternalTransitionRawVersionedStableV1Versioned::binprot_read(&mut encoded).unwrap();
-            let json = serde_json::to_string_pretty(&external_transition.inner().protocol_state).unwrap();
+            let external_transition =
+                MinaBlockExternalTransitionRawVersionedStableV1Versioned::binprot_read(
+                    &mut encoded,
+                )
+                .unwrap();
+            let json =
+                serde_json::to_string_pretty(&external_transition.inner().protocol_state).unwrap();
             eprintln!("{json}");
             let mut hasher = mina_hasher::create_legacy(());
             let hash = external_transition.inner().protocol_state.hash(&mut hasher);

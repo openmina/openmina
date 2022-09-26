@@ -129,7 +129,9 @@ impl Hashable for generated::MinaBaseProtocolConstantsCheckedValueStableV1Versio
     }
 }
 
-impl Hashable for generated::ConsensusProofOfStakeDataConsensusStateValueStableV1VersionedV1PolyArg0V1 {
+impl Hashable
+    for generated::ConsensusProofOfStakeDataConsensusStateValueStableV1VersionedV1PolyArg0V1
+{
     type D = ();
 
     fn to_roinput(&self) -> ROInput {
@@ -323,7 +325,9 @@ impl Hashable for generated::ConsensusGlobalSlotStableV1VersionedV1PolyArg0V1 {
     }
 }
 
-impl Hashable for generated::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1VersionedV1 {
+impl Hashable
+    for generated::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1VersionedV1
+{
     type D = ();
 
     fn to_roinput(&self) -> ROInput {
@@ -380,7 +384,9 @@ impl Hashable for generated::MinaBaseStagedLedgerHashNonSnarkStableV1VersionedV1
     }
 }
 
-impl Hashable for generated::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1VersionedV1 {
+impl Hashable
+    for generated::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1VersionedV1
+{
     type D = ();
 
     fn to_roinput(&self) -> ROInput {
