@@ -113,13 +113,19 @@ macro_rules! binprot_read_test {
         #[test]
         #[ignore = $reason]
         fn $name() {
-            utils::for_all($path, |_, encoded| utils::assert_binprot_read::<$ty>(&encoded)).unwrap();
+            utils::for_all($path, |_, encoded| {
+                utils::assert_binprot_read::<$ty>(&encoded)
+            })
+            .unwrap();
         }
     };
     ($name:ident, $path:expr, $ty:ty) => {
         #[test]
         fn $name() {
-            utils::for_all($path, |_, encoded| utils::assert_binprot_read::<$ty>(&encoded)).unwrap();
+            utils::for_all($path, |_, encoded| {
+                utils::assert_binprot_read::<$ty>(&encoded)
+            })
+            .unwrap();
         }
     };
 }

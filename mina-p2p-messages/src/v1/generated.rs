@@ -60,7 +60,6 @@ pub type TransactionSnarkScanStateStableV1Versioned =
 pub type MinaBasePendingCoinbaseStableV1Versioned =
     crate::versioned::Versioned<MinaBasePendingCoinbaseStableV1VersionedV1, 1i32>;
 
-
 /// **Origin**: `Mina_base__Sync_ledger.Query.Stable.V1.t`
 ///
 /// **Location**: [src/lib/mina_base/sync_ledger.ml:70:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sync_ledger.ml#L70)
@@ -77,8 +76,6 @@ pub type MinaBaseSyncLedgerQueryStableV1Versioned =
 pub type MinaBaseSyncLedgerAnswerStableV1Versioned =
     crate::versioned::Versioned<MinaBaseSyncLedgerAnswerStableV1VersionedV1, 1i32>;
 
-
-
 /// **Origin**: `Sync_status.T.Stable.V1.t`
 ///
 /// **Location**: [src/lib/sync_status/sync_status.ml:54:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sync_status/sync_status.ml#L54)
@@ -94,7 +91,6 @@ pub type SyncStatusTStableV1Versioned =
 /// **Gid**: 804
 pub type TrustSystemPeerStatusStableV1Versioned =
     crate::versioned::Versioned<TrustSystemPeerStatusStableV1VersionedV1, 1i32>;
-
 
 /// Location: [src/lib/mina_state/protocol_state.ml:16:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_state/protocol_state.ml#L16)
 ///

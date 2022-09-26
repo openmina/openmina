@@ -162,7 +162,8 @@ pub struct ProofCarryingDataWithHashV1<A, B> {
     data: A,
     proof: B,
 }
-pub type ProofCarryingDataWithHashV1Versioned<A, B> = Versioned<ProofCarryingDataWithHashV1<A, B>, 1>;
+pub type ProofCarryingDataWithHashV1Versioned<A, B> =
+    Versioned<ProofCarryingDataWithHashV1<A, B>, 1>;
 
 pub type GetAncestryV1Query = WithHashV1Versioned<
     v1::ConsensusProofOfStakeDataConsensusStateValueStableV1Versioned,
