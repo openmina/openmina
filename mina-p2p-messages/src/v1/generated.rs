@@ -355,7 +355,7 @@ pub type MinaBaseStagedLedgerHashStableV1Versioned =
 /// Location: [src/lib/unsigned_extended/unsigned_extended.ml:76:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/unsigned_extended/unsigned_extended.ml#L76)
 ///
 /// Gid: 669
-pub struct UnsignedExtendedUInt64StableV1VersionedV1(pub i64);
+pub struct UnsignedExtendedUInt64StableV1VersionedV1(pub crate::number::Int64);
 
 /// **Origin**: `Unsigned_extended.UInt64.Stable.V1.t`
 ///
@@ -492,7 +492,7 @@ pub type ConsensusProofOfStakeDataConsensusStateValueStableV1VersionedV1Poly<
 /// Location: [src/lib/unsigned_extended/unsigned_extended.ml:126:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/unsigned_extended/unsigned_extended.ml#L126)
 ///
 /// Gid: 671
-pub struct UnsignedExtendedUInt32StableV1VersionedV1(pub i32);
+pub struct UnsignedExtendedUInt32StableV1VersionedV1(pub crate::number::Int32);
 
 /// **Origin**: `Unsigned_extended.UInt32.Stable.V1.t`
 ///
@@ -1144,7 +1144,7 @@ pub type PicklesProofBranching2ReprStableV1VersionedV1PolyV1StatementArg0<A> =
 /// Location: [src/lib/pickles/limb_vector/constant.ml:61:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/limb_vector/constant.ml#L61)
 ///
 /// Gid: 590
-pub struct LimbVectorConstantHex64StableV1VersionedV1(pub i64);
+pub struct LimbVectorConstantHex64StableV1VersionedV1(pub crate::number::Int64);
 
 /// **Origin**: `Limb_vector__Constant.Hex64.Stable.V1.t`
 ///
@@ -3113,7 +3113,7 @@ pub type PicklesSideLoadedVerificationKeyRStableV1VersionedV1PolyV1StepDataArg0<
 /// Gid: 563
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum PicklesBaseDomainStableV1VersionedV1 {
-    Pow2RootsOfUnity(i32),
+    Pow2RootsOfUnity(crate::number::Int32),
 }
 
 /// **Origin**: `Pickles_base__Domain.Stable.V1.t`
@@ -4188,9 +4188,9 @@ pub type MinaBlockExternalTransitionRawVersionedStableV1VersionedV1DeltaTransiti
 /// Gid: 1623
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ProtocolVersionStableV1VersionedV1 {
-    pub major: i32,
-    pub minor: i32,
-    pub patch: i32,
+    pub major: crate::number::Int32,
+    pub minor: crate::number::Int32,
+    pub patch: crate::number::Int32,
 }
 
 /// **Origin**: `Protocol_version.Stable.V1.t`
@@ -4548,7 +4548,7 @@ pub type NetworkPeerPeerIdStableV1Versioned =
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct NetworkPeerPeerStableV1VersionedV1 {
     pub host: crate::string::ByteString,
-    pub libp2p_port: i32,
+    pub libp2p_port: crate::number::Int32,
     pub peer_id: NetworkPeerPeerIdStableV1Versioned,
 }
 
@@ -4587,8 +4587,8 @@ pub type TransactionSnarkScanStateStableV1VersionedV1PolyV1PolyV1TreesArg0<Merge
 /// Gid: 1531
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ParallelScanWeightStableV1VersionedV1 {
-    pub base: i32,
-    pub merge: i32,
+    pub base: crate::number::Int32,
+    pub merge: crate::number::Int32,
 }
 
 /// **Origin**: `Parallel_scan.Weight.Stable.V1.t`
@@ -4603,7 +4603,7 @@ pub type ParallelScanWeightStableV1Versioned =
 /// Location: [src/lib/parallel_scan/parallel_scan.ml:22:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L22)
 ///
 /// Gid: 1525
-pub struct ParallelScanSequenceNumberStableV1VersionedV1(pub i32);
+pub struct ParallelScanSequenceNumberStableV1VersionedV1(pub crate::number::Int32);
 
 /// **Origin**: `Parallel_scan.Sequence_number.Stable.V1.t`
 ///
@@ -4758,9 +4758,9 @@ pub struct TransactionSnarkScanStateStableV1VersionedV1PolyV1PolyV1<Merge, Base>
         >,
     >,
     pub acc: Option<(Merge, Vec<Base>)>,
-    pub curr_job_seq_no: i32,
-    pub max_base_jobs: i32,
-    pub delay: i32,
+    pub curr_job_seq_no: crate::number::Int32,
+    pub max_base_jobs: crate::number::Int32,
+    pub delay: crate::number::Int32,
 }
 
 /// Location: [src/lib/parallel_scan/parallel_scan.ml:782:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L782)
@@ -5183,8 +5183,8 @@ pub type MinaBaseSparseLedgerStableV1VersionedV1PolyV1Tree<Hash, Account> =
 /// Gid: 766
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseSparseLedgerStableV1VersionedV1PolyV1<Hash, Key, Account, TokenId> {
-    pub indexes: Vec<(Key, i32)>,
-    pub depth: i32,
+    pub indexes: Vec<(Key, crate::number::Int32)>,
+    pub depth: crate::number::Int32,
     pub tree: MinaBaseSparseLedgerStableV1VersionedV1PolyV1Tree<Hash, Account>,
     pub next_available_token: TokenId,
 }
@@ -5280,7 +5280,7 @@ pub type MinaBasePendingCoinbaseStableV1VersionedV1Poly<Tree, StackId> =
 /// Location: [src/lib/mina_base/pending_coinbase.ml:104:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L104)
 ///
 /// Gid: 1234
-pub struct MinaBasePendingCoinbaseStackIdStableV1VersionedV1(pub i32);
+pub struct MinaBasePendingCoinbaseStackIdStableV1VersionedV1(pub crate::number::Int32);
 
 /// **Origin**: `Mina_base__Pending_coinbase.Stack_id.Stable.V1.t`
 ///
@@ -5344,7 +5344,10 @@ pub type MinaBaseSyncLedgerQueryStableV1VersionedV1Poly<Addr> =
 ///
 /// Gid: 789
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MerkleAddressBinableArgStableV1VersionedV1(pub i32, pub crate::string::ByteString);
+pub struct MerkleAddressBinableArgStableV1VersionedV1(
+    pub crate::number::Int32,
+    pub crate::string::ByteString,
+);
 
 /// **Origin**: `Merkle_address.Binable_arg.Stable.V1.t`
 ///
@@ -5383,7 +5386,7 @@ pub struct MinaBaseSyncLedgerQueryStableV1VersionedV1(
 pub enum MinaBaseSyncLedgerAnswerStableV1VersionedV1PolyV1<Hash, Account> {
     ChildHashesAre(Hash, Hash),
     ContentsAre(Vec<Account>),
-    NumAccounts(i32, Hash),
+    NumAccounts(crate::number::Int32, Hash),
 }
 
 /// Location: [src/lib/syncable_ledger/syncable_ledger.ml:35:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/syncable_ledger/syncable_ledger.ml#L35)
@@ -5426,7 +5429,7 @@ pub enum SyncStatusTStableV1VersionedV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum TrustSystemBannedStatusStableV1VersionedV1 {
     Unbanned,
-    BannedUntil(f64),
+    BannedUntil(crate::number::Float64),
 }
 
 /// **Origin**: `Trust_system__Banned_status.Stable.V1.t`
@@ -5442,6 +5445,6 @@ pub type TrustSystemBannedStatusStableV1Versioned =
 /// Gid: 802
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct TrustSystemPeerStatusStableV1VersionedV1 {
-    pub trust: f64,
+    pub trust: crate::number::Float64,
     pub banned: TrustSystemBannedStatusStableV1Versioned,
 }

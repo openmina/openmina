@@ -6,6 +6,7 @@ pub mod char;
 pub mod common;
 pub mod core;
 pub mod gossip;
+pub mod number;
 pub mod phantom;
 pub mod rpc;
 pub mod rpc_kernel;

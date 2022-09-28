@@ -26,7 +26,7 @@ skip = [
 ]
 
 [base_types.float]
-rust_id = 'f64'
+rust_id = 'crate::number::Float64'
 args_num = 'None'
 
 [base_types.kimchi_backend_bigint_32_V1]
@@ -58,15 +58,15 @@ rust_id = 'bool'
 args_num = 'None'
 
 [base_types.int]
-rust_id = 'i32'
+rust_id = 'crate::number::Int32'
 args_num = 'None'
 
 [base_types.int32]
-rust_id = 'i32'
+rust_id = 'crate::number::Int32'
 args_num = 'None'
 
 [base_types.int64]
-rust_id = 'i64'
+rust_id = 'crate::number::Int64'
 args_num = 'None'
 
 [base_types.char]
