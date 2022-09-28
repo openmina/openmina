@@ -98,3 +98,48 @@ fn jsonify_javascript_v1_roundtrip() {
     })
     .unwrap();
 }
+
+#[cfg(target_arch = "wasm32")]
+mod wasm {
+    use binprot::BinProtRead;
+    use mina_p2p_messages::{gossip::GossipNetMessageV2, number::Int64};
+
+    wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn jsonify_gossip_v2_roundtrip_wasm() {
+        let new_state = include_bytes!("files/v2/gossip/new_state.bin");
+        let snark_pool_diff = include_bytes!("files/v2/gossip/snark_pool_diff.bin");
+        let tx_pool_diff = include_bytes!("files/v2/gossip/transaction_pool_diff.bin");
+
+        for mut encoded in [&new_state[..], &snark_pool_diff[..], &tx_pool_diff[..]] {
+            let from_bin_prot = GossipNetMessageV2::binprot_read(&mut encoded).unwrap();
+            let json = serde_json::to_value(&from_bin_prot).unwrap();
+            let from_json = serde_json::from_value(json).unwrap();
+            assert_eq!(from_bin_prot, from_json);
+        }
+    }
+
+    use wasm_bindgen::prelude::wasm_bindgen;
+
+    #[wasm_bindgen(inline_js = r#"
+export function js_roundtrip(s) {
+  return JSON.stringify(JSON.parse(s))
+}
+"#)]
+    extern "C" {
+        fn js_roundtrip(s: &str) -> String;
+    }
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn integer_roundtrip_wasm() {
+        for i in [0_i64, 1, 256, 5688895253889439275] {
+            let int = Int64::from(i);
+            let json = serde_json::to_string(&int).unwrap();
+            let json_1 = js_roundtrip(&json);
+            let int_1 = serde_json::from_str(&json_1).unwrap();
+            assert_eq!(json, json_1);
+            assert_eq!(int, int_1);
+        }
+    }
+}

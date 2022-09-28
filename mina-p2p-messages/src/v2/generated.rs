@@ -61,7 +61,7 @@ pub struct MinaBaseSparseLedgerBaseStableV2(
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct NetworkPeerPeerStableV1 {
     pub host: crate::string::ByteString,
-    pub libp2p_port: i32,
+    pub libp2p_port: crate::number::Int32,
     pub peer_id: NetworkPeerPeerIdStableV1,
 }
 
@@ -137,7 +137,7 @@ pub enum SyncStatusTStableV1 {
 /// **Gid**: 815
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct TrustSystemPeerStatusStableV1 {
-    pub trust: f64,
+    pub trust: crate::number::Float64,
     pub banned: TrustSystemBannedStatusStableV1,
 }
 
@@ -349,7 +349,7 @@ pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1PolyArg3<Magni
 /// **Location**: [src/lib/currency/currency.ml:1030:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/currency/currency.ml#L1030)
 ///
 /// **Gid**: 554
-pub struct CurrencyMakeStrAmountMakeStrStableV1(pub i64);
+pub struct CurrencyMakeStrAmountMakeStrStableV1(pub crate::number::Int64);
 
 /// **Origin**: `Sgn.Stable.V1.t`
 ///
@@ -366,7 +366,9 @@ pub enum SgnStableV1 {
 /// Location: [src/lib/mina_numbers/nat.ml:258:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_numbers/nat.ml#L258)
 ///
 /// Gid: 545
-pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1PolyArg7(pub i32);
+pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1PolyArg7(
+    pub crate::number::Int32,
+);
 
 /// **Origin**: `Mina_base__Transaction_status.Failure.Stable.V2.t`
 ///
@@ -408,7 +410,7 @@ pub enum MinaBaseTransactionStatusFailureStableV2 {
     AccountReceiptChainHashPreconditionUnsatisfied,
     AccountDelegatePreconditionUnsatisfied,
     AccountSequenceStatePreconditionUnsatisfied,
-    AccountAppStatePreconditionUnsatisfied(i32),
+    AccountAppStatePreconditionUnsatisfied(crate::number::Int32),
     AccountProvedStatePreconditionUnsatisfied,
     AccountIsNewPreconditionUnsatisfied,
     ProtocolStatePreconditionUnsatisfied,
@@ -455,7 +457,7 @@ pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1(
 /// **Location**: [src/lib/block_time/block_time.ml:22:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/block_time/block_time.ml#L22)
 ///
 /// **Gid**: 595
-pub struct BlockTimeMakeStrTimeStableV1(pub i64);
+pub struct BlockTimeMakeStrTimeStableV1(pub crate::number::Int64);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 /// **Origin**: `Consensus__Body_reference.Stable.V1.t`
@@ -517,7 +519,7 @@ pub struct ConsensusProofOfStakeDataConsensusStateValueStableV1Poly<
 /// Location: [src/lib/mina_numbers/nat.ml:258:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_numbers/nat.ml#L258)
 ///
 /// Gid: 548
-pub struct ConsensusProofOfStakeDataConsensusStateValueStableV1PolyArg0(pub i32);
+pub struct ConsensusProofOfStakeDataConsensusStateValueStableV1PolyArg0(pub crate::number::Int32);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 /// **Origin**: `Consensus_vrf.Output.Truncated.Stable.V1.t`
@@ -540,7 +542,7 @@ pub struct ConsensusGlobalSlotStableV1Poly<SlotNumber, SlotsPerEpoch> {
 /// Location: [src/lib/mina_numbers/nat.ml:258:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_numbers/nat.ml#L258)
 ///
 /// Gid: 539
-pub struct ConsensusGlobalSlotStableV1PolyArg0(pub i32);
+pub struct ConsensusGlobalSlotStableV1PolyArg0(pub crate::number::Int32);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 /// **Origin**: `Consensus__Global_slot.Stable.V1.t`
@@ -843,7 +845,7 @@ pub struct PicklesProofProofsVerified2ReprStableV2PolyStatement<
 /// **Location**: [src/lib/pickles/limb_vector/constant.ml:60:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/limb_vector/constant.ml#L60)
 ///
 /// **Gid**: 513
-pub struct LimbVectorConstantHex64StableV1(pub i64);
+pub struct LimbVectorConstantHex64StableV1(pub crate::number::Int64);
 
 /// Location: [src/lib/crypto/kimchi_backend/common/scalar_challenge.ml:6:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/crypto/kimchi_backend/common/scalar_challenge.ml#L6)
 ///
@@ -1217,9 +1219,9 @@ pub struct MinaBaseStateBodyHashStableV1(pub crate::bigint::BigInt);
 /// **Gid**: 970
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ProtocolVersionStableV1 {
-    pub major: i32,
-    pub minor: i32,
-    pub patch: i32,
+    pub major: crate::number::Int32,
+    pub minor: crate::number::Int32,
+    pub patch: crate::number::Int32,
 }
 
 /// **Origin**: `Mina_block__Header.Stable.V2.t`
@@ -1255,7 +1257,7 @@ pub enum StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2PolyCoinbase<A>
 /// **Location**: [src/lib/currency/currency.ml:898:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/currency/currency.ml#L898)
 ///
 /// **Gid**: 553
-pub struct CurrencyMakeStrFeeStableV1(pub i64);
+pub struct CurrencyMakeStrFeeStableV1(pub crate::number::Int64);
 
 /// **Origin**: `Mina_base__Coinbase_fee_transfer.Make_str.Stable.V1.t`
 ///
@@ -1527,7 +1529,7 @@ pub struct MinaBaseSignedCommandPayloadCommonStableV2Poly<Fee, PublicKey, Nonce,
 /// Location: [src/lib/mina_numbers/nat.ml:258:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_numbers/nat.ml#L258)
 ///
 /// Gid: 536
-pub struct MinaBaseSignedCommandPayloadCommonStableV2PolyArg2(pub i32);
+pub struct MinaBaseSignedCommandPayloadCommonStableV2PolyArg2(pub crate::number::Int32);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 /// **Origin**: `Mina_base__Signed_command_memo.Make_str.Stable.V1.t`
@@ -2305,8 +2307,8 @@ pub enum MinaBaseSparseLedgerBaseStableV2PolyTree<Hash, Account> {
 /// Gid: 598
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseSparseLedgerBaseStableV2Poly<Hash, Key, Account> {
-    pub indexes: Vec<(Key, i32)>,
-    pub depth: i32,
+    pub indexes: Vec<(Key, crate::number::Int32)>,
+    pub depth: crate::number::Int32,
     pub tree: MinaBaseSparseLedgerBaseStableV2PolyTree<Hash, Account>,
 }
 
@@ -2424,7 +2426,7 @@ pub struct MinaBaseZkappStateValueStableV1(
 /// **Location**: [src/lib/mina_numbers/nat.ml:258:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_numbers/nat.ml#L258)
 ///
 /// **Gid**: 535
-pub struct MinaNumbersNatMake32StableV1(pub i32);
+pub struct MinaNumbersNatMake32StableV1(pub crate::number::Int32);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 /// **Origin**: `Mina_base__Zkapp_account.Stable.V2.t`
@@ -2494,8 +2496,8 @@ pub struct TransactionSnarkScanStateStableV2PolyTrees<A>(pub A, pub Vec<A>);
 /// **Gid**: 936
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ParallelScanWeightStableV1 {
-    pub base: i32,
-    pub merge: i32,
+    pub base: crate::number::Int32,
+    pub merge: crate::number::Int32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
@@ -2504,7 +2506,7 @@ pub struct ParallelScanWeightStableV1 {
 /// **Location**: [src/lib/parallel_scan/parallel_scan.ml:22:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L22)
 ///
 /// **Gid**: 934
-pub struct ParallelScanSequenceNumberStableV1(pub i32);
+pub struct ParallelScanSequenceNumberStableV1(pub crate::number::Int32);
 
 /// **Origin**: `Parallel_scan.Job_status.Stable.V1.t`
 ///
@@ -2587,9 +2589,9 @@ pub struct TransactionSnarkScanStateStableV2Poly<Merge, Base> {
         >,
     >,
     pub acc: Option<(Merge, Vec<Base>)>,
-    pub curr_job_seq_no: i32,
-    pub max_base_jobs: i32,
-    pub delay: i32,
+    pub curr_job_seq_no: crate::number::Int32,
+    pub max_base_jobs: crate::number::Int32,
+    pub delay: crate::number::Int32,
 }
 
 /// **Origin**: `Mina_base__Sok_message.Stable.V1.t`
@@ -2806,7 +2808,7 @@ pub struct MinaBasePendingCoinbaseStableV2Poly<Tree, StackId> {
 /// **Location**: [src/lib/mina_base/pending_coinbase.ml:101:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L101)
 ///
 /// **Gid**: 740
-pub struct MinaBasePendingCoinbaseStackIdStableV1(pub i32);
+pub struct MinaBasePendingCoinbaseStackIdStableV1(pub crate::number::Int32);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 /// **Origin**: `Mina_base__Pending_coinbase.Merkle_tree_versioned.Stable.V2.t`
@@ -2838,7 +2840,7 @@ pub enum MinaLedgerSyncLedgerQueryStableV1Poly<Addr> {
 ///
 /// **Gid**: 803
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MerkleAddressBinableArgStableV1(pub i32, pub crate::string::ByteString);
+pub struct MerkleAddressBinableArgStableV1(pub crate::number::Int32, pub crate::string::ByteString);
 
 /// Location: [src/lib/syncable_ledger/syncable_ledger.ml:35:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/syncable_ledger/syncable_ledger.ml#L35)
 ///
@@ -2847,7 +2849,7 @@ pub struct MerkleAddressBinableArgStableV1(pub i32, pub crate::string::ByteStrin
 pub enum MinaLedgerSyncLedgerAnswerStableV2Poly<Hash, Account> {
     ChildHashesAre(Hash, Hash),
     ContentsAre(Vec<Account>),
-    NumAccounts(i32, Hash),
+    NumAccounts(crate::number::Int32, Hash),
 }
 
 /// **Origin**: `Trust_system__Banned_status.Stable.V1.t`
@@ -2858,5 +2860,5 @@ pub enum MinaLedgerSyncLedgerAnswerStableV2Poly<Hash, Account> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum TrustSystemBannedStatusStableV1 {
     Unbanned,
-    BannedUntil(f64),
+    BannedUntil(crate::number::Float64),
 }
