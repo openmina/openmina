@@ -22,8 +22,16 @@ impl AsRef<[u8]> for BigInt {
 }
 
 #[cfg(feature = "hashing")]
-impl From<mina_hasher::Fp> for BigInt {
-    fn from(field: mina_hasher::Fp) -> Self {
+impl From<mina_curves::pasta::Fp> for BigInt {
+    fn from(field: mina_curves::pasta::Fp) -> Self {
+        use o1_utils::FieldHelpers;
+        Self(field.to_bytes().try_into().unwrap())
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl From<mina_curves::pasta::Fq> for BigInt {
+    fn from(field: mina_curves::pasta::Fq) -> Self {
         use o1_utils::FieldHelpers;
         Self(field.to_bytes().try_into().unwrap())
     }
