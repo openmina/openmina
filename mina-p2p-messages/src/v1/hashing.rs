@@ -38,7 +38,7 @@ impl Hashable for generated::UnsignedExtendedUInt32StableV1VersionedV1 {
 
     fn to_roinput(&self) -> ROInput {
         // TODO: should be u32 not i32?
-        ROInput::new().append_u32(self.0 as u32)
+        ROInput::new().append_u32(self.0.0 as u32)
     }
 
     fn domain_string(_: Self::D) -> Option<String> {
@@ -51,7 +51,7 @@ impl Hashable for generated::UnsignedExtendedUInt64StableV1VersionedV1 {
 
     fn to_roinput(&self) -> ROInput {
         // TODO: should be u64 not i64?
-        ROInput::new().append_u64(self.0 as u64)
+        ROInput::new().append_u64(self.0.0 as u64)
     }
 
     fn domain_string(_: Self::D) -> Option<String> {
@@ -217,7 +217,7 @@ impl Hashable for generated::MinaBaseTokenIdStableV1VersionedV1 {
 
     fn to_roinput(&self) -> ROInput {
         // TODO: should be u64 not i64?
-        ROInput::new().append_u64(self.0.inner().0.inner().0 as u64)
+        ROInput::new().append_u64(self.0.inner().0.inner().0.0 as u64)
     }
 
     fn domain_string(_: Self::D) -> Option<String> {
