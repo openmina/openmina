@@ -54,6 +54,14 @@ where
                 })
             }
 
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error, {
+                v.parse().map_err(|_| {
+                    serde::de::Error::custom(format!("failed to parse string as number"))
+                })
+            }
+
             fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
             where
                 E: serde::de::Error,
