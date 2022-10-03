@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct BigInt([u8; 32]);
+#[derive(Clone, Debug, PartialEq, derive_more::From, derive_more::Into)]
+pub struct BigInt(Box<[u8; 32]>);
 
 impl BigInt {
     #[cfg(feature = "hashing")]
@@ -17,7 +17,7 @@ impl BigInt {
 
 impl AsRef<[u8]> for BigInt {
     fn as_ref(&self) -> &[u8] {
-        &self.0
+        &self.0.as_ref()[..]
     }
 }
 
@@ -25,7 +25,7 @@ impl AsRef<[u8]> for BigInt {
 impl From<mina_curves::pasta::Fp> for BigInt {
     fn from(field: mina_curves::pasta::Fp) -> Self {
         use o1_utils::FieldHelpers;
-        Self(field.to_bytes().try_into().unwrap())
+        Self(Box::new(field.to_bytes().try_into().unwrap()))
     }
 }
 
@@ -33,7 +33,7 @@ impl From<mina_curves::pasta::Fp> for BigInt {
 impl From<mina_curves::pasta::Fq> for BigInt {
     fn from(field: mina_curves::pasta::Fq) -> Self {
         use o1_utils::FieldHelpers;
-        Self(field.to_bytes().try_into().unwrap())
+        Self(Box::new(field.to_bytes().try_into().unwrap()))
     }
 }
 
@@ -44,13 +44,13 @@ impl binprot::BinProtRead for BigInt {
     {
         let mut buf = [0; 32];
         r.read_exact(&mut buf)?;
-        Ok(Self(buf))
+        Ok(Self(Box::new(buf)))
     }
 }
 
 impl binprot::BinProtWrite for BigInt {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        w.write_all(&self.0)?;
+        w.write_all(&self.0[..])?;
         Ok(())
     }
 }
@@ -61,9 +61,9 @@ impl Serialize for BigInt {
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            serializer.serialize_str(&hex::encode(&self.0))
+            serializer.serialize_str(&hex::encode(&self.0[..]))
         } else {
-            serializer.serialize_bytes(&self.0)
+            serializer.serialize_bytes(&self.0[..])
         }
     }
 }
@@ -101,7 +101,6 @@ impl<'de> Deserialize<'de> for BigInt {
             let v = deserializer.deserialize_str(V)?;
             v.try_into()
                 .map_err(|_| serde::de::Error::custom(format!("failed to convert vec to array")))
-                .map(Self)
         } else {
             struct V;
             impl<'de> serde::de::Visitor<'de> for V {
@@ -118,8 +117,10 @@ impl<'de> Deserialize<'de> for BigInt {
                     todo!()
                 }
             }
-            deserializer.deserialize_bytes(V).map(Self)
+            deserializer.deserialize_bytes(V)
         }
+        .map(Box::new)
+        .map(Self)
     }
 }
 
