@@ -6,7 +6,9 @@ use once_cell::sync::Lazy;
 
 use std::str::FromStr;
 
+#[cfg(not(target_family = "wasm"))]
 mod fp;
+
 mod simd;
 
 pub fn make_params() -> ArithmeticSpongeParams<Fp> {
