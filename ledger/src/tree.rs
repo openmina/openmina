@@ -211,11 +211,11 @@ impl Database<V2> {
             .last_filled()
             .unwrap_or_else(|| Address::first(self.depth as usize));
 
-        self.emulate_recursive(addr, &last_account)
+        self.emulate_tree_recursive(addr, &last_account)
     }
 
     // fn emulate_recursive(&mut self, addr: Address, nremaining: &mut usize) -> Fp {
-    fn emulate_recursive(&mut self, addr: Address, last_account: &Address) -> Fp {
+    fn emulate_tree_recursive(&mut self, addr: Address, last_account: &Address) -> Fp {
         let tree_depth = self.depth as usize;
         let current_depth = tree_depth - addr.length();
 
@@ -245,7 +245,7 @@ impl Database<V2> {
             if let Some(hash) = self.hashes_matrix.get(&addr) {
                 *hash
             } else if addr.is_before(last_account) {
-                self.emulate_recursive(addr, last_account)
+                self.emulate_tree_recursive(addr, last_account)
             } else {
                 self.hashes_matrix.empty_hash_at_depth(current_depth - 1)
             }
@@ -264,7 +264,7 @@ impl Database<V2> {
         }
     }
 
-    fn emulate_to_get_path(
+    fn emulate_tree_to_get_path(
         &mut self,
         addr: Address,
         last_account: &Address,
@@ -297,7 +297,7 @@ impl Database<V2> {
                 Direction::Left => addr.child_left(),
                 Direction::Right => addr.child_right(),
             };
-            self.emulate_to_get_path(child, last_account, path, merkle_path);
+            self.emulate_tree_to_get_path(child, last_account, path, merkle_path);
         };
 
         let depth_in_tree = tree_depth - addr.length();
@@ -306,7 +306,7 @@ impl Database<V2> {
             Some(hash) => *hash,
             None => {
                 if addr.is_before(last_account) {
-                    self.emulate_to_get_path(addr, last_account, path, merkle_path)
+                    self.emulate_tree_to_get_path(addr, last_account, path, merkle_path)
                 } else {
                     self.hashes_matrix.empty_hash_at_depth(depth_in_tree - 1)
                 }
@@ -831,7 +831,7 @@ impl BaseLedger for Database<V2> {
 
         // let tree_index = TreeIndex::root(self.depth() as usize);
 
-        self.emulate_to_get_path(addr, &last_account, &mut path, &mut merkle_path);
+        self.emulate_tree_to_get_path(addr, &last_account, &mut path, &mut merkle_path);
 
         merkle_path
     }

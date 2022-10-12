@@ -375,7 +375,7 @@ impl MaskImpl {
         let naccounts = self.num_accounts();
         let mut account_index = 0;
 
-        self.emulate_recursive(0, tree_depth, &mut account_index, naccounts as u64)
+        self.emulate_tree_recursive(0, tree_depth, &mut account_index, naccounts as u64)
     }
 
     fn emulate_tree_to_get_hash_at(&self, addr: Address) -> Fp {
@@ -389,7 +389,7 @@ impl MaskImpl {
         // First child
         let mut account_index = children.next().unwrap().to_index().0 as u64;
 
-        self.emulate_recursive(
+        self.emulate_tree_recursive(
             current_depth,
             tree_depth,
             &mut account_index,
@@ -397,7 +397,7 @@ impl MaskImpl {
         )
     }
 
-    fn emulate_recursive(
+    fn emulate_tree_recursive(
         &self,
         current_depth: usize,
         tree_depth: usize,
@@ -416,9 +416,9 @@ impl MaskImpl {
         }
 
         let left_hash =
-            self.emulate_recursive(current_depth + 1, tree_depth, account_index, naccounts);
+            self.emulate_tree_recursive(current_depth + 1, tree_depth, account_index, naccounts);
         let right_hash = if *account_index < naccounts {
-            self.emulate_recursive(current_depth + 1, tree_depth, account_index, naccounts)
+            self.emulate_tree_recursive(current_depth + 1, tree_depth, account_index, naccounts)
         } else {
             V2::empty_hash_at_depth(tree_depth - current_depth)
         };
@@ -468,9 +468,9 @@ impl MaskImpl {
         }
 
         let left_hash =
-            self.emulate_recursive(current_depth + 1, tree_depth, account_index, naccounts);
+            self.emulate_tree_recursive(current_depth + 1, tree_depth, account_index, naccounts);
         let right_hash = if *account_index < naccounts {
-            self.emulate_recursive(current_depth + 1, tree_depth, account_index, naccounts)
+            self.emulate_tree_recursive(current_depth + 1, tree_depth, account_index, naccounts)
         } else {
             V2::empty_hash_at_depth(tree_depth - current_depth)
         };
