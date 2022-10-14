@@ -85,7 +85,7 @@ impl Address {
     pub fn to_linear_index(&self) -> usize {
         let index = self.to_index();
 
-        2usize.pow(self.length as u32) + index.0 as usize
+        2usize.pow(self.length as u32) + index.0 as usize - 1
     }
 
     pub fn iter(&self) -> AddressIterator {
@@ -371,6 +371,19 @@ impl Address {
         // self == &other
     }
 
+    pub fn is_parent_of(&self, other: &Address) -> bool {
+        if self.length == 0 {
+            return true;
+        }
+
+        assert!(self.length <= other.length);
+
+        let mut other = other.clone();
+        other.length = self.length;
+
+        self == &other
+    }
+
     #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         let mut s = String::with_capacity(self.length());
@@ -582,6 +595,20 @@ mod tests {
 
                 addr = addr.next().unwrap();
             }
+        }
+    }
+
+    #[test]
+    fn test_address_linear() {
+        for (index, s) in [
+            "", "0", "1", "00", "01", "10", "11", "000", "001", "010", "011", "100", "101", "110",
+            "111",
+        ]
+        .iter()
+        .enumerate()
+        {
+            let addr = Address::try_from(*s).unwrap();
+            assert_eq!(index, addr.to_linear_index());
         }
     }
 

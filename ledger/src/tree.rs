@@ -19,41 +19,82 @@ struct Leaf<T: TreeVersion> {
     account: Option<Box<T::Account>>,
 }
 
-#[derive(Debug)]
-struct HashesMatrix {
+#[derive(Default)]
+pub struct HashesMatrix {
     /// 2 dimensions matrix
     matrix: Vec<Option<Fp>>,
     empty_hashes: Vec<Option<Fp>>,
     ledger_depth: usize,
+    nhashes: usize,
+}
+
+impl Debug for HashesMatrix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const SPACES: &[usize] = &[
+            0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192,
+        ];
+
+        let mut s = String::with_capacity(self.matrix.len() * 2);
+        let mut spaces = SPACES;
+        let mut current = 0;
+        let naccounts = 2u64.pow(self.ledger_depth as u32) as usize;
+
+        for h in self.matrix.iter() {
+            let c = if h.is_some() { 'I' } else { '0' };
+            s.push(c);
+
+            if current == spaces[0] && current != naccounts {
+                s.push(' ');
+                current = 0;
+                spaces = &spaces[1..];
+            }
+
+            current += 1;
+        }
+
+        f.debug_struct("HashesMatrix")
+            .field("matrix", &s)
+            .field("matrix_len", &self.matrix.len())
+            // .field("real_matrix", &real)
+            // .field("empty_hashes", &self.empty_hashes)
+            // .field("ledger_depth", &self.ledger_depth)
+            .field("nhashes", &self.nhashes)
+            .field("capacity", &self.matrix.capacity())
+            .finish()
+    }
 }
 
 impl HashesMatrix {
-    fn new(ledger_depth: usize) -> Self {
+    pub fn new(ledger_depth: usize) -> Self {
+        let capacity = 2 * 2usize.pow(ledger_depth as u32) - 1;
+
         Self {
-            matrix: Vec::with_capacity(2usize.pow(ledger_depth as u32)),
+            matrix: vec![None; capacity],
             ledger_depth,
             empty_hashes: vec![None; ledger_depth],
+            nhashes: 0,
         }
     }
 
-    fn get(&self, addr: &Address) -> Option<&Fp> {
+    pub fn get(&self, addr: &Address) -> Option<&Fp> {
         let linear = addr.to_linear_index();
 
         self.matrix.get(linear)?.as_ref()
     }
 
-    fn set(&mut self, addr: &Address, hash: Fp) {
+    pub fn set(&mut self, addr: &Address, hash: Fp) {
         let linear = addr.to_linear_index();
 
-        if self.matrix.len() <= linear {
-            self.matrix.resize(linear + 1, None);
-        }
+        // if self.matrix.len() <= linear {
+        //     self.matrix.resize(linear + 1, None);
+        // }
 
         assert!(self.matrix[linear].is_none());
-        self.matrix[linear] = Some(hash)
+        self.matrix[linear] = Some(hash);
+        self.nhashes += 1;
     }
 
-    fn remove(&mut self, addr: &Address) {
+    pub fn remove(&mut self, addr: &Address) {
         let linear = addr.to_linear_index();
         self.remove_at_index(linear);
     }
@@ -65,11 +106,12 @@ impl HashesMatrix {
         };
 
         if hash.is_some() {
+            self.nhashes -= 1;
             *hash = None;
         }
     }
 
-    fn invalidate_hashes(&mut self, account_index: AccountIndex) {
+    pub fn invalidate_hashes(&mut self, account_index: AccountIndex) {
         let mut addr = Address::from_index(account_index, self.ledger_depth);
 
         loop {
@@ -82,7 +124,7 @@ impl HashesMatrix {
         }
     }
 
-    fn empty_hash_at_depth(&mut self, depth: usize) -> Fp {
+    pub fn empty_hash_at_depth(&mut self, depth: usize) -> Fp {
         if let Some(Some(hash)) = self.empty_hashes.get(depth) {
             return *hash;
         };
@@ -94,10 +136,9 @@ impl HashesMatrix {
     }
 }
 
-#[derive(Debug)]
 pub struct Database<T: TreeVersion> {
     accounts: Vec<Option<T::Account>>,
-    hashes_matrix: HashesMatrix,
+    pub hashes_matrix: HashesMatrix,
     id_to_addr: HashMap<AccountId, Address>,
     token_to_account: HashMap<T::TokenId, AccountId>,
     depth: u8,
@@ -105,6 +146,22 @@ pub struct Database<T: TreeVersion> {
     naccounts: usize,
     uuid: Uuid,
     directory: PathBuf,
+}
+
+impl<T: TreeVersion> Debug for Database<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Database")
+            // .field("accounts", &self.accounts)
+            .field("hashes_matrix", &self.hashes_matrix)
+            // .field("id_to_addr", &self.id_to_addr)
+            // .field("token_to_account", &self.token_to_account)
+            // .field("depth", &self.depth)
+            // .field("last_location", &self.last_location)
+            .field("naccounts", &self.naccounts)
+            .field("uuid", &self.uuid)
+            .field("directory", &self.directory)
+            .finish()
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -683,6 +740,21 @@ impl BaseLedger for Database<V2> {
         Some(self.directory.clone())
     }
 
+    fn get_account_hash(&mut self, account_index: AccountIndex) -> Option<Fp> {
+        let addr = Address::from_index(account_index, self.depth as usize);
+
+        if let Some(hash) = self.hashes_matrix.get(&addr) {
+            return Some(*hash);
+        }
+
+        let account = self.get(addr.clone())?;
+        let hash = account.hash();
+
+        self.hashes_matrix.set(&addr, hash);
+
+        Some(hash)
+    }
+
     fn get(&self, addr: Address) -> Option<Account> {
         let index = addr.to_index();
         let index: usize = index.0 as usize;
@@ -977,6 +1049,7 @@ impl BaseLedger for Database<V2> {
 
 #[cfg(test)]
 mod tests {
+    use ark_ff::One;
     use o1_utils::FieldHelpers;
 
     #[cfg(target_family = "wasm")]
@@ -1011,6 +1084,41 @@ mod tests {
     //         println!("depth={:?} naccounts={:?}", depth, naccounts);
     //     }
     // }
+
+    #[test]
+    fn test_matrix() {
+        const DEPTH: usize = 4;
+
+        let mut matrix = HashesMatrix::new(DEPTH);
+        let one = Fp::one();
+
+        for index in 0..16 {
+            let account_index = AccountIndex::from(index);
+            let addr = Address::from_index(account_index, DEPTH);
+            matrix.set(&addr, one);
+
+            println!("{:?} MATRIX {:#?}", index + 1, matrix);
+        }
+
+        let addr = Address::root();
+
+        matrix.set(&addr, one);
+        println!("{:?} MATRIX {:#?}", "root", matrix);
+
+        matrix.set(&addr.child_left(), one);
+        println!("{:?} MATRIX {:#?}", "root", matrix);
+        matrix.set(&addr.child_right(), one);
+        println!("{:?} MATRIX {:#?}", "root", matrix);
+
+        matrix.set(&addr.child_left().child_left(), one);
+        println!("{:?} MATRIX {:#?}", "root", matrix);
+        matrix.set(&addr.child_left().child_right(), one);
+        println!("{:?} MATRIX {:#?}", "root", matrix);
+        matrix.set(&addr.child_right().child_left(), one);
+        println!("{:?} MATRIX {:#?}", "root", matrix);
+        matrix.set(&addr.child_right().child_right(), one);
+        println!("{:?} MATRIX {:#?}", "root", matrix);
+    }
 
     #[test]
     fn test_db_v2() {

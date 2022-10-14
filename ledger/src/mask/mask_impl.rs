@@ -13,6 +13,7 @@ use crate::{
     mask::UnregisterBehavior,
     tree::{Database, DatabaseError},
     tree_version::{TreeVersion, V2},
+    HashesMatrix,
 };
 
 use super::Mask;
@@ -30,6 +31,7 @@ pub(super) enum MaskImpl {
         last_location: Option<Address>,
         depth: u8,
         childs: HashMap<Uuid, Mask>,
+        hashes: HashesMatrix,
         uuid: Uuid,
     },
     Unattached {
@@ -39,6 +41,7 @@ pub(super) enum MaskImpl {
         token_to_account: HashMap<TokenId, AccountId>,
         id_to_addr: HashMap<AccountId, Address>,
         last_location: Option<Address>,
+        hashes: HashesMatrix,
         uuid: Uuid,
     },
 }
@@ -48,8 +51,9 @@ impl std::fmt::Debug for MaskImpl {
         match self {
             Self::Root { database, childs } => f
                 .debug_struct("Root")
-                .field("database", &database.get_uuid())
-                .field("childs", childs)
+                .field("database_uuid", &database.get_uuid())
+                .field("database", &database)
+                .field("childs", &childs.len())
                 .finish(),
             Self::Attached {
                 parent,
@@ -59,6 +63,7 @@ impl std::fmt::Debug for MaskImpl {
                 last_location,
                 depth,
                 childs,
+                hashes,
                 uuid,
             } => f
                 .debug_struct("Attached")
@@ -71,6 +76,7 @@ impl std::fmt::Debug for MaskImpl {
                 .field("depth", depth)
                 .field("num_accounts", &self.num_accounts())
                 .field("childs", &childs.len())
+                .field("hashes_matrix", &hashes)
                 .finish(),
             Self::Unattached {
                 depth,
@@ -79,6 +85,7 @@ impl std::fmt::Debug for MaskImpl {
                 token_to_account,
                 id_to_addr,
                 last_location,
+                hashes,
                 uuid,
             } => f
                 .debug_struct("Unattached")
@@ -89,6 +96,7 @@ impl std::fmt::Debug for MaskImpl {
                 .field("id_to_addr", &id_to_addr.len())
                 .field("last_location", last_location)
                 .field("uuid", uuid)
+                .field("hashes_matrix", &hashes)
                 .finish(),
         }
     }
@@ -96,7 +104,23 @@ impl std::fmt::Debug for MaskImpl {
 
 use MaskImpl::*;
 
+/// For debug purpose only
+#[derive(Debug)]
+pub enum MaskImplShort {
+    Root______(Uuid),
+    Attached__(Uuid),
+    Unattached(Uuid),
+}
+
 impl MaskImpl {
+    pub fn short(&self) -> MaskImplShort {
+        match self {
+            Root { database, .. } => MaskImplShort::Root______(database.get_uuid()),
+            Attached { uuid, .. } => MaskImplShort::Attached__(uuid.clone()),
+            Unattached { uuid, .. } => MaskImplShort::Unattached(uuid.clone()),
+        }
+    }
+
     pub fn is_attached(&self) -> bool {
         match self {
             Attached { .. } => true,
@@ -187,6 +211,7 @@ impl MaskImpl {
                 token_to_account,
                 id_to_addr,
                 last_location,
+                hashes,
             } => {
                 use std::mem::take;
 
@@ -198,6 +223,7 @@ impl MaskImpl {
                     last_location: take(last_location),
                     depth: *depth,
                     childs: take(childs),
+                    hashes: take(hashes),
                     uuid: uuid.clone(),
                 }
             }
@@ -320,6 +346,7 @@ impl MaskImpl {
             token_to_account: Default::default(),
             id_to_addr: Default::default(),
             last_location: Default::default(),
+            hashes: Default::default(),
             uuid: Default::default(),
         };
 
@@ -332,6 +359,7 @@ impl MaskImpl {
                 last_location,
                 depth,
                 childs,
+                hashes,
                 uuid,
             } => {
                 *self = Self::Unattached {
@@ -341,6 +369,7 @@ impl MaskImpl {
                     last_location,
                     depth,
                     childs,
+                    hashes,
                     uuid,
                 };
 
@@ -362,6 +391,117 @@ impl MaskImpl {
         }
     }
 
+    fn get_cached_hash(&self, addr: &Address) -> Option<&Fp> {
+        let matrix = match self {
+            Root { database, .. } => &database.hashes_matrix,
+            Attached { hashes, .. } => hashes,
+            Unattached { hashes, .. } => hashes,
+        };
+
+        matrix.get(addr)
+    }
+
+    fn set_cached_hash(&mut self, addr: &Address, hash: Fp) {
+        let matrix = match self {
+            Root { database, .. } => &mut database.hashes_matrix,
+            Attached { hashes, .. } => hashes,
+            Unattached { hashes, .. } => hashes,
+        };
+
+        matrix.set(addr, hash);
+    }
+
+    pub fn empty_hash_at_depth(&mut self, depth: usize) -> Fp {
+        let matrix = match self {
+            Root { database, .. } => &mut database.hashes_matrix,
+            Attached { hashes, .. } => hashes,
+            Unattached { hashes, .. } => hashes,
+        };
+
+        matrix.empty_hash_at_depth(depth)
+    }
+
+    fn invalidate_hashes(&mut self, account_index: AccountIndex) {
+        let matrix = match self {
+            Root { database, .. } => &mut database.hashes_matrix,
+            Attached { hashes, .. } => hashes,
+            Unattached { hashes, .. } => hashes,
+        };
+
+        matrix.invalidate_hashes(account_index)
+    }
+
+    pub fn compute_hash_or_parent(&mut self, addr: Address, last_account: &Address) -> Fp {
+        let (matrix, own, parent) = match self {
+            Root { database, .. } => return database.get_inner_hash_at_addr(addr).unwrap(),
+            Attached {
+                hashes,
+                id_to_addr,
+                parent,
+                ..
+            } => (hashes, id_to_addr, Some(parent)),
+            Unattached {
+                hashes, id_to_addr, ..
+            } => (hashes, id_to_addr, None),
+        };
+
+        if let Some(hash) = matrix.get(&addr).cloned() {
+            return hash;
+        }
+
+        // Check if we have any children accounts in our mask
+        // When we don't have accounts here, delegate to parent
+        // TODO: Make that faster
+        let hash = if own.values().any(|a| addr.is_parent_of(a)) {
+            // let hash = if (addr.is_root() && !own.is_empty()) || own.values().any(|a| addr.is_parent_of(a)) {
+            self.emulate_tree_recursive(addr, last_account)
+        } else {
+            let parent = parent.as_ref().unwrap();
+            parent.with(|parent| parent.emulate_tree_recursive(addr.clone(), last_account))
+        };
+
+        hash
+    }
+
+    pub fn compute_hash_or_parent_for_merkle_path(
+        &mut self,
+        addr: Address,
+        last_account: &Address,
+        path: &mut AddressIterator,
+        merkle_path: &mut Vec<MerklePath>,
+    ) -> Fp {
+        let (matrix, own, parent) = match self {
+            Root { database, .. } => return database.get_inner_hash_at_addr(addr).unwrap(),
+            Attached {
+                hashes,
+                id_to_addr,
+                parent,
+                ..
+            } => (hashes, id_to_addr, Some(parent)),
+            Unattached {
+                hashes, id_to_addr, ..
+            } => (hashes, id_to_addr, None),
+        };
+
+        if let Some(hash) = matrix.get(&addr).cloned() {
+            return hash;
+        }
+
+        // Check if we have any children accounts in our mask
+        // When we don't have accounts here, delegate to parent
+        // TODO: Make that faster
+        let hash = if own.values().any(|a| addr.is_parent_of(a)) {
+            self.emulate_merkle_path_recursive(addr, last_account, path, merkle_path)
+        } else {
+            let parent = parent.as_ref().unwrap();
+            parent.with(|parent| {
+                parent.emulate_merkle_path_recursive(addr, last_account, path, merkle_path)
+            })
+        };
+
+        hash
+    }
+
     pub fn depth(&self) -> u8 {
         match self {
             Root { database, .. } => database.depth(),
@@ -370,120 +510,116 @@ impl MaskImpl {
         }
     }
 
-    fn emulate_tree_to_get_hash(&self) -> Fp {
-        let tree_depth = self.depth() as usize;
-        let naccounts = self.num_accounts();
-        let mut account_index = 0;
-
-        self.emulate_tree_recursive(0, tree_depth, &mut account_index, naccounts as u64)
-    }
-
-    fn emulate_tree_to_get_hash_at(&self, addr: Address) -> Fp {
-        let tree_depth = self.depth() as usize;
-
-        let current_depth = addr.length();
-
-        let mut children = addr.iter_children(tree_depth);
-        let naccounts = children.len();
-
-        // First child
-        let mut account_index = children.next().unwrap().to_index().0 as u64;
-
-        self.emulate_tree_recursive(
-            current_depth,
-            tree_depth,
-            &mut account_index,
-            naccounts as u64,
-        )
-    }
-
-    fn emulate_tree_recursive(
-        &self,
-        current_depth: usize,
-        tree_depth: usize,
-        account_index: &mut u64,
-        naccounts: u64,
-    ) -> Fp {
-        if current_depth == tree_depth {
-            let account_addr = Address::from_index(AccountIndex(*account_index), tree_depth);
-            let account = match self.get(account_addr) {
-                Some(account) => account,
-                None => return V2::empty_hash_at_depth(0),
-            };
-
-            *account_index += 1;
-            return account.hash();
-        }
-
-        let left_hash =
-            self.emulate_tree_recursive(current_depth + 1, tree_depth, account_index, naccounts);
-        let right_hash = if *account_index < naccounts {
-            self.emulate_tree_recursive(current_depth + 1, tree_depth, account_index, naccounts)
-        } else {
-            V2::empty_hash_at_depth(tree_depth - current_depth)
+    fn emulate_tree_to_get_hash_at(&mut self, addr: Address) -> Fp {
+        if let Some(hash) = self.get_cached_hash(&addr) {
+            return *hash;
         };
 
-        V2::hash_node(tree_depth - current_depth, left_hash, right_hash)
+        let last_account = self
+            .last_filled()
+            .unwrap_or_else(|| Address::first(self.depth() as usize));
+
+        self.compute_hash_or_parent(addr, &last_account)
+        // self.emulate_tree_recursive(addr, &last_account)
     }
 
-    fn emulate_tree_to_get_merkle_path(
-        &self,
-        path: &mut AddressIterator,
-        merkle_path: &mut Vec<MerklePath>,
-    ) -> Fp {
+    // fn emulate_recursive(&mut self, addr: Address, nremaining: &mut usize) -> Fp {
+    fn emulate_tree_recursive(&mut self, addr: Address, last_account: &Address) -> Fp {
         let tree_depth = self.depth() as usize;
-        let naccounts = self.num_accounts();
-        let mut account_index = 0;
+        let current_depth = tree_depth - addr.length();
 
-        self.emulate_merkle_path_recursive(
-            0,
-            tree_depth,
-            &mut account_index,
-            naccounts as u64,
-            path,
-            merkle_path,
-        )
+        if current_depth == 0 {
+            return self
+                .get_account_hash(addr.to_index())
+                .unwrap_or_else(|| self.empty_hash_at_depth(0));
+        }
+
+        let mut get_child_hash = |addr: Address| {
+            if let Some(hash) = self.get_cached_hash(&addr) {
+                *hash
+            } else if addr.is_before(last_account) {
+                self.compute_hash_or_parent(addr, last_account)
+            } else {
+                self.empty_hash_at_depth(current_depth - 1)
+            }
+        };
+
+        let left_hash = get_child_hash(addr.child_left());
+        let right_hash = get_child_hash(addr.child_right());
+
+        match self.get_cached_hash(&addr) {
+            Some(hash) => *hash,
+            None => {
+                let hash = V2::hash_node(current_depth - 1, left_hash, right_hash);
+                self.set_cached_hash(&addr, hash);
+                hash
+            }
+        }
     }
 
     fn emulate_merkle_path_recursive(
-        &self,
-        current_depth: usize,
-        tree_depth: usize,
-        account_index: &mut u64,
-        naccounts: u64,
+        &mut self,
+        addr: Address,
+        last_account: &Address,
         path: &mut AddressIterator,
         merkle_path: &mut Vec<MerklePath>,
     ) -> Fp {
-        let next_direction = path.next();
+        let tree_depth = self.depth() as usize;
 
-        if current_depth == tree_depth {
-            let account_addr = Address::from_index(AccountIndex(*account_index), tree_depth);
-            let account = match self.get(account_addr) {
-                Some(account) => account,
-                None => return V2::empty_hash_at_depth(0),
-            };
-
-            *account_index += 1;
-            return account.hash();
+        if addr.length() == tree_depth {
+            return self
+                .get_account_hash(addr.to_index())
+                .unwrap_or_else(|| self.empty_hash_at_depth(0));
         }
 
-        let left_hash =
-            self.emulate_tree_recursive(current_depth + 1, tree_depth, account_index, naccounts);
-        let right_hash = if *account_index < naccounts {
-            self.emulate_tree_recursive(current_depth + 1, tree_depth, account_index, naccounts)
-        } else {
-            V2::empty_hash_at_depth(tree_depth - current_depth)
+        let next_direction = path.next();
+
+        // We go until the end of the path
+        if let Some(direction) = next_direction.as_ref() {
+            let child = match direction {
+                Direction::Left => addr.child_left(),
+                Direction::Right => addr.child_right(),
+            };
+            self.emulate_merkle_path_recursive(child, last_account, path, merkle_path);
         };
+
+        let depth_in_tree = tree_depth - addr.length();
+
+        let mut get_child_hash = |addr: Address| match self.get_cached_hash(&addr) {
+            Some(hash) => *hash,
+            None => {
+                if addr.is_before(last_account) {
+                    self.compute_hash_or_parent_for_merkle_path(
+                        addr,
+                        last_account,
+                        path,
+                        merkle_path,
+                    )
+                } else {
+                    self.empty_hash_at_depth(depth_in_tree - 1)
+                }
+            }
+        };
+
+        let left = get_child_hash(addr.child_left());
+        let right = get_child_hash(addr.child_right());
 
         if let Some(direction) = next_direction {
             let hash = match direction {
-                Direction::Left => MerklePath::Left(right_hash),
-                Direction::Right => MerklePath::Right(left_hash),
+                Direction::Left => MerklePath::Left(right),
+                Direction::Right => MerklePath::Right(left),
             };
-            merkle_path.push(hash)
+            merkle_path.push(hash);
         };
 
-        V2::hash_node(tree_depth - current_depth, left_hash, right_hash)
+        match self.get_cached_hash(&addr) {
+            Some(hash) => *hash,
+            None => {
+                let hash = V2::hash_node(depth_in_tree - 1, left, right);
+                self.set_cached_hash(&addr, hash);
+                hash
+            }
+        }
     }
 
     fn remove_own_account(&mut self, ids: &[AccountId]) {
@@ -494,6 +630,7 @@ impl MaskImpl {
                 token_to_account,
                 id_to_addr,
                 last_location,
+                hashes,
                 ..
             }
             | Attached {
@@ -501,6 +638,7 @@ impl MaskImpl {
                 token_to_account,
                 id_to_addr,
                 last_location,
+                hashes,
                 ..
             } => {
                 let mut addrs = ids
@@ -510,7 +648,10 @@ impl MaskImpl {
                 addrs.sort_by_key(|a| a.to_index());
 
                 for addr in addrs.iter().rev() {
-                    let account = owning_account.remove(&addr.to_index()).unwrap();
+                    let account_index = addr.to_index();
+                    hashes.invalidate_hashes(account_index.clone());
+
+                    let account = owning_account.remove(&account_index).unwrap();
                     token_to_account.remove(&account.token_id).unwrap();
 
                     if last_location
@@ -562,7 +703,7 @@ impl MaskImpl {
                 let account_id = account.id();
                 let token_id = account.token_id.clone();
 
-                owning_account.insert(account_index, account);
+                owning_account.insert(account_index.clone(), account);
                 id_to_addr.insert(account_id.clone(), addr.clone());
                 token_to_account.insert(token_id, account_id);
 
@@ -573,7 +714,19 @@ impl MaskImpl {
                 {
                     *last_location = Some(addr);
                 }
+
+                self.invalidate_hashes(account_index);
             }
+        }
+    }
+
+    fn recurse_on_childs<F>(&mut self, fun: &mut F)
+    where
+        F: FnMut(&mut Mask),
+    {
+        for child in self.childs().values_mut() {
+            fun(child);
+            child.with(|child| child.recurse_on_childs(fun));
         }
     }
 
@@ -766,8 +919,8 @@ impl BaseLedger for MaskImpl {
 
         let last_filled = self.last_filled();
 
-        match self {
-            Root { database, .. } => database.get_or_create_account(account_id, account),
+        let result = match self {
+            Root { database, .. } => database.get_or_create_account(account_id, account)?,
             Unattached {
                 owning_account,
                 token_to_account,
@@ -785,7 +938,7 @@ impl BaseLedger for MaskImpl {
                 ..
             } => {
                 let location = match last_filled {
-                    Some(last) => last.next().ok_or(DatabaseError::OutOfLeaves).unwrap(),
+                    Some(last) => last.next().ok_or(DatabaseError::OutOfLeaves)?,
                     None => Address::first(*depth as usize),
                 };
 
@@ -795,11 +948,23 @@ impl BaseLedger for MaskImpl {
                 id_to_addr.insert(account_id.clone(), location.clone());
                 *last_location = Some(location.clone());
                 token_to_account.insert(token_id, account_id);
-                owning_account.insert(account_index, account);
+                owning_account.insert(account_index.clone(), account);
 
-                Ok(GetOrCreated::Added(location))
+                self.invalidate_hashes(account_index);
+
+                GetOrCreated::Added(location)
             }
-        }
+        };
+
+        // let addr = result.clone();
+        // let account_index = addr.to_index();
+        // self.recurse_on_childs(&mut |child| {
+        //     child.with(|child| {
+        //         child.invalidate_hashes(account_index.clone());
+        //     })
+        // });
+
+        Ok(result)
     }
 
     fn close(&self) {
@@ -846,6 +1011,40 @@ impl BaseLedger for MaskImpl {
 
     fn get_directory(&self) -> Option<PathBuf> {
         None
+    }
+
+    fn get_account_hash(&mut self, account_index: AccountIndex) -> Option<Fp> {
+        let (mut parent, owning_account, matrix, depth) = match self {
+            Root { database, .. } => return database.get_account_hash(account_index),
+            Attached {
+                parent,
+                owning_account,
+                hashes,
+                depth,
+                ..
+            } => (Some(parent), owning_account, hashes, depth),
+            Unattached {
+                owning_account,
+                hashes,
+                depth,
+                ..
+            } => (None, owning_account, hashes, depth),
+        };
+
+        if let Some(account) = owning_account.get(&account_index).cloned() {
+            let addr = Address::from_index(account_index, *depth as usize);
+
+            if let Some(hash) = matrix.get(&addr).cloned() {
+                return Some(hash);
+            }
+
+            let hash = account.hash();
+            matrix.set(&addr, hash);
+
+            return Some(hash);
+        }
+
+        parent.as_mut()?.get_account_hash(account_index)
     }
 
     fn get(&self, addr: Address) -> Option<Account> {
@@ -910,14 +1109,30 @@ impl BaseLedger for MaskImpl {
     }
 
     fn merkle_root(&mut self) -> Fp {
-        self.emulate_tree_to_get_hash()
+        self.emulate_tree_to_get_hash_at(Address::root())
+        // self.emulate_tree_to_get_hash()
     }
 
     fn merkle_path(&mut self, addr: Address) -> Vec<MerklePath> {
+        if let Root { database, .. } = self {
+            return database.merkle_path(addr);
+        };
+
         let mut merkle_path = Vec::with_capacity(addr.length());
         let mut path = addr.into_iter();
+        let addr = Address::root();
 
-        self.emulate_tree_to_get_merkle_path(&mut path, &mut merkle_path);
+        let last_account = self
+            .last_filled()
+            .unwrap_or_else(|| Address::first(self.depth() as usize));
+
+        self.compute_hash_or_parent_for_merkle_path(
+            addr,
+            &last_account,
+            &mut path,
+            &mut merkle_path,
+        );
+        // self.emulate_merkle_path_recursive(addr, &last_account, &mut path, &mut merkle_path);
 
         merkle_path
     }

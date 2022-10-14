@@ -13,6 +13,7 @@ use crate::{
     base::{next_uuid, AccountIndex, BaseLedger, GetOrCreated, MerklePath, Uuid},
     tree::{Database, DatabaseError},
     tree_version::V2,
+    HashesMatrix,
 };
 
 use super::mask_impl::MaskImpl;
@@ -31,7 +32,7 @@ pub enum UnregisterBehavior {
 }
 
 impl Mask {
-    fn with<F, R>(&self, fun: F) -> R
+    pub(super) fn with<F, R>(&self, fun: F) -> R
     where
         F: FnOnce(&mut MaskImpl) -> R,
     {
@@ -60,6 +61,7 @@ impl Mask {
                 depth: depth as u8,
                 childs: HashMap::with_capacity(2),
                 uuid: next_uuid(),
+                hashes: HashesMatrix::new(depth),
             })),
         }
     }
@@ -234,6 +236,10 @@ impl BaseLedger for Mask {
 
     fn get_directory(&self) -> Option<PathBuf> {
         self.with(|this| this.get_directory())
+    }
+
+    fn get_account_hash(&mut self, account_index: AccountIndex) -> Option<Fp> {
+        self.with(|this| this.get_account_hash(account_index))
     }
 
     fn get(&self, addr: Address) -> Option<Account> {

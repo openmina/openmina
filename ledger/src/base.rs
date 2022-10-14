@@ -164,6 +164,9 @@ pub trait BaseLedger {
     fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Account)>>;
 
     fn make_space_for(&mut self, space: usize);
+
+    // Following are internal methods, they might be better in a private trait
+    fn get_account_hash(&mut self, account_index: AccountIndex) -> Option<Fp>;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
