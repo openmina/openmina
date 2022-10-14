@@ -16,7 +16,7 @@ jobs:
       RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--max-memory=4294967296"
       RUST_LOG: wasm_bindgen_test_runner
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
@@ -41,7 +41,7 @@ jobs:
           - --release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
@@ -52,7 +52,7 @@ jobs:
 
       - name: OCaml/Opam cache
         id: ocaml-rs-opam-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: "~/.opam"
           key: ocaml-rs-opam-4.14.0-ubuntu-latest
