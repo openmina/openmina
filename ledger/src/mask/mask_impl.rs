@@ -453,11 +453,11 @@ impl MaskImpl {
         // When we don't have accounts here, delegate to parent
         // TODO: Make that faster
         let hash = if own.values().any(|a| addr.is_parent_of(a)) {
-            // let hash = if (addr.is_root() && !own.is_empty()) || own.values().any(|a| addr.is_parent_of(a)) {
             self.emulate_tree_recursive(addr, last_account)
         } else {
+            // Recurse to parents until we found a mask having accounts on this address
             let parent = parent.as_ref().unwrap();
-            parent.with(|parent| parent.emulate_tree_recursive(addr.clone(), last_account))
+            parent.with(|parent| parent.compute_hash_or_parent(addr.clone(), last_account))
         };
 
         hash
@@ -493,9 +493,10 @@ impl MaskImpl {
         let hash = if own.values().any(|a| addr.is_parent_of(a)) {
             self.emulate_merkle_path_recursive(addr, last_account, path, merkle_path)
         } else {
+            // Recurse to parents until we found a mask having accounts on this address
             let parent = parent.as_ref().unwrap();
             parent.with(|parent| {
-                parent.emulate_merkle_path_recursive(addr, last_account, path, merkle_path)
+                parent.compute_hash_or_parent_for_merkle_path(addr, last_account, path, merkle_path)
             })
         };
 
