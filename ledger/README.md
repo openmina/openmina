@@ -9,9 +9,9 @@ cargo test --release
 
 ## Run tests on wasm:
 ```bash
-wasm-pack test --release --node -- --features in_nodejs # nodejs
-wasm-pack test --release --chrome --headless # browser chrome
-wasm-pack test --release --firefox --headless # browser firefox
+export RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--max-memory=4294967296"
+wasm-pack test --release --chrome --headless -- -Z build-std=std,panic_abort # browser chrome
+wasm-pack test --release --firefox --headless -- -Z build-std=std,panic_abort # browser firefox
 ```
 
 
