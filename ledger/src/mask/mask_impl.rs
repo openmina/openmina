@@ -273,6 +273,7 @@ impl MaskImpl {
                 owning_account,
                 token_to_account,
                 id_to_addr,
+                hashes,
                 ..
             } => {
                 assert_ne!(parent.get_uuid(), self_uuid);
@@ -280,6 +281,7 @@ impl MaskImpl {
                 let accounts = {
                     token_to_account.clear();
                     id_to_addr.clear();
+                    hashes.clear();
                     std::mem::take(owning_account)
                 };
 
@@ -299,8 +301,12 @@ impl MaskImpl {
     ///
     /// if the mask's parent sets an account, we can prune an entry in the mask
     /// if the account in the parent is the same in the mask *)
-    pub fn parent_set_notify(&mut self, account: &Account) {
+    pub fn parent_set_notify(&mut self, account_index: AccountIndex, account: &Account) {
         assert!(self.is_attached());
+
+        for child in self.childs().values() {
+            child.parent_set_notify(account_index.clone(), &account)
+        }
 
         match self {
             Root { .. } => panic!("parent_set_notify on a root"),
@@ -308,6 +314,7 @@ impl MaskImpl {
             Attached {
                 owning_account,
                 id_to_addr,
+                hashes,
                 ..
             } => {
                 let account_id = account.id();
@@ -326,6 +333,8 @@ impl MaskImpl {
                     // Do not delete our account if it is different than the parent one
                     return;
                 }
+
+                hashes.invalidate_hashes(account_index.clone());
 
                 self.remove_own_account(&[account_id]);
             }
@@ -677,11 +686,13 @@ impl MaskImpl {
         account: Account,
         child_to_ignore: Option<Uuid>,
     ) {
+        let account_index = addr.to_index();
+
         for (uuid, child) in self.childs() {
             if Some(uuid) == child_to_ignore.as_ref() {
                 continue;
             }
-            child.parent_set_notify(&account)
+            child.parent_set_notify(account_index.clone(), &account)
         }
 
         match self {
@@ -700,7 +711,6 @@ impl MaskImpl {
                 last_location,
                 ..
             } => {
-                let account_index: AccountIndex = addr.to_index();
                 let account_id = account.id();
                 let token_id = account.token_id.clone();
 
@@ -721,13 +731,36 @@ impl MaskImpl {
         }
     }
 
+    pub(super) fn remove_accounts_without_notif(&mut self, ids: &[AccountId]) {
+        match self {
+            Root { database, .. } => database.remove_accounts(ids),
+            Unattached { .. } => self.remove_own_account(ids),
+            Attached {
+                parent, id_to_addr, ..
+            } => {
+                let (mask_keys, parent_keys): (Vec<_>, Vec<_>) = ids
+                    .iter()
+                    .cloned()
+                    .partition(|id| id_to_addr.contains_key(id));
+
+                if !parent_keys.is_empty() {
+                    parent.remove_accounts_without_notif(&parent_keys);
+                }
+
+                self.remove_own_account(&mask_keys);
+            }
+        }
+    }
+
     fn recurse_on_childs<F>(&mut self, fun: &mut F)
     where
-        F: FnMut(&mut Mask),
+        F: FnMut(&mut MaskImpl),
     {
         for child in self.childs().values_mut() {
-            fun(child);
-            child.with(|child| child.recurse_on_childs(fun));
+            child.with(|child| {
+                fun(child);
+                child.recurse_on_childs(fun)
+            });
         }
     }
 
@@ -740,6 +773,15 @@ impl MaskImpl {
                 let index = addr.to_index();
                 owning_account.contains_key(&index)
             }
+        }
+    }
+
+    /// For tests only
+    #[cfg(test)]
+    pub fn test_matrix(&self) -> &HashesMatrix {
+        match self {
+            Root { database, .. } => &database.hashes_matrix,
+            Unattached { hashes, .. } | Attached { hashes, .. } => hashes,
         }
     }
 }
@@ -1144,24 +1186,21 @@ impl BaseLedger for MaskImpl {
     }
 
     fn remove_accounts(&mut self, ids: &[AccountId]) {
-        match self {
-            Root { database, .. } => database.remove_accounts(ids),
-            Unattached { .. } => self.remove_own_account(ids),
-            Attached {
-                parent, id_to_addr, ..
-            } => {
-                let (mask_keys, parent_keys): (Vec<_>, Vec<_>) = ids
-                    .iter()
-                    .cloned()
-                    .partition(|id| id_to_addr.contains_key(id));
+        let indexes: Vec<_> = ids
+            .iter()
+            .filter_map(|id| {
+                let addr = self.location_of_account(id)?;
+                Some(addr.to_index())
+            })
+            .collect();
 
-                if !parent_keys.is_empty() {
-                    parent.remove_accounts(&parent_keys);
-                }
+        self.remove_accounts_without_notif(ids);
 
-                self.remove_own_account(&mask_keys);
+        self.recurse_on_childs(&mut |child| {
+            for index in &indexes {
+                child.invalidate_hashes(index.clone());
             }
-        }
+        });
     }
 
     fn detached_signal(&mut self) {

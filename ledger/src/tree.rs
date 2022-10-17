@@ -28,6 +28,18 @@ pub struct HashesMatrix {
     nhashes: usize,
 }
 
+#[cfg(test)]
+impl Clone for HashesMatrix {
+    fn clone(&self) -> Self {
+        Self {
+            matrix: self.matrix.clone(),
+            empty_hashes: self.empty_hashes.clone(),
+            ledger_depth: self.ledger_depth.clone(),
+            nhashes: self.nhashes.clone(),
+        }
+    }
+}
+
 impl Debug for HashesMatrix {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         const SPACES: &[usize] = &[
@@ -133,6 +145,12 @@ impl HashesMatrix {
         self.empty_hashes[depth] = Some(hash);
 
         hash
+    }
+
+    pub fn clear(&mut self) {
+        self.matrix.clear();
+        self.empty_hashes.clear();
+        self.nhashes = 0;
     }
 }
 

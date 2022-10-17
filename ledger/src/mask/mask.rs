@@ -131,8 +131,8 @@ impl Mask {
     ///
     /// if the mask's parent sets an account, we can prune an entry in the mask
     /// if the account in the parent is the same in the mask *)
-    pub fn parent_set_notify(&self, account: &Account) {
-        self.with(|this| this.parent_set_notify(account))
+    pub fn parent_set_notify(&self, account_index: AccountIndex, account: &Account) {
+        self.with(|this| this.parent_set_notify(account_index, account))
     }
 
     pub fn remove_parent(&self) -> Option<Mask> {
@@ -147,10 +147,20 @@ impl Mask {
         self.with(|this| this.set_impl(addr, account, ignore))
     }
 
+    pub(super) fn remove_accounts_without_notif(&mut self, ids: &[AccountId]) {
+        self.with(|this| this.remove_accounts_without_notif(ids))
+    }
+
     /// For tests only, check if the address is in the mask, without checking parent
     #[cfg(test)]
     fn test_is_in_mask(&self, addr: &Address) -> bool {
         self.with(|this| this.test_is_in_mask(addr))
+    }
+
+    /// For tests only
+    #[cfg(test)]
+    fn test_matrix(&self) -> HashesMatrix {
+        self.with(|this| this.test_matrix().clone())
     }
 }
 
@@ -328,6 +338,83 @@ impl BaseLedger for Mask {
 }
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+    use o1_utils::FieldHelpers;
+    use tests_mask_ocaml::*;
+
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+
+    // "Mask reparenting works"
+    #[test]
+    fn test_masks_cached_hashes() {
+        let (mut root, mut layer1, mut layer2) = new_chain(DEPTH);
+
+        let acc1 = Account::rand();
+        let acc2 = Account::rand();
+        let acc3 = Account::rand();
+
+        let _loc1 = root.get_or_create_account(acc1.id(), acc1).unwrap().addr();
+        let _loc2 = layer1
+            .get_or_create_account(acc2.id(), acc2.clone())
+            .unwrap()
+            .addr();
+        let _loc3 = layer2
+            .get_or_create_account(acc3.id(), acc3)
+            .unwrap()
+            .addr();
+
+        let root_hash = layer2.merkle_root();
+
+        println!("root={:#?}", root.test_matrix());
+        println!("layer1={:#?}", layer1.test_matrix());
+        println!("layer2={:#?}", layer2.test_matrix());
+
+        println!("hash={:?}", root_hash.to_hex());
+
+        println!("remove acc2");
+
+        layer1.remove_accounts(&[acc2.id()]);
+
+        println!("root={:#?}", root.test_matrix());
+        println!("layer1={:#?}", layer1.test_matrix());
+        println!("layer2={:#?}", layer2.test_matrix());
+
+        println!("hash={:?}", layer2.merkle_root().to_hex());
+
+        assert_ne!(root_hash, layer2.merkle_root());
+
+        // // All accounts are accessible from layer2
+        // assert!(layer2.get(loc1.clone()).is_some());
+        // assert!(layer2.get(loc2.clone()).is_some());
+        // assert!(layer2.get(loc3.clone()).is_some());
+
+        // // acc1 is in root
+        // assert!(root.get(loc1.clone()).is_some());
+
+        // layer1.commit();
+
+        // // acc2 is in root
+        // assert!(root.get(loc2.clone()).is_some());
+
+        // layer1.remove_and_reparent();
+
+        // // acc1, acc2 are in root
+        // assert!(root.get(loc1.clone()).is_some());
+        // assert!(root.get(loc2.clone()).is_some());
+
+        // // acc3 not in root
+        // assert!(root.get(loc3.clone()).is_none());
+
+        // // All accounts are accessible from layer2
+        // assert!(layer2.get(loc1).is_some());
+        // assert!(layer2.get(loc2).is_some());
+        // assert!(layer2.get(loc3).is_some());
+    }
+}
+
+#[cfg(test)]
 mod tests_mask_ocaml {
     use super::*;
 
@@ -336,15 +423,15 @@ mod tests_mask_ocaml {
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
-    const DEPTH: usize = 4;
-    const FIRST_LOC: Address = Address::first(DEPTH);
+    pub const DEPTH: usize = 4;
+    pub const FIRST_LOC: Address = Address::first(DEPTH);
 
     fn new_instances(depth: usize) -> (Mask, Mask) {
         let db = Database::<V2>::create(depth as u8);
         (Mask::new_root(db), Mask::new_unattached(depth))
     }
 
-    fn new_chain(depth: usize) -> (Mask, Mask, Mask) {
+    pub fn new_chain(depth: usize) -> (Mask, Mask, Mask) {
         let db = Database::<V2>::create(depth as u8);
         let layer1 = Mask::new_unattached(depth);
         let layer2 = Mask::new_unattached(depth);
