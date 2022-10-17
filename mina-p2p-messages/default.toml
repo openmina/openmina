@@ -22,7 +22,7 @@ phantom_type = "crate::phantom::Phantom"
 
 skip = [
        "TransactionSnarkScanStateStableV1VersionedV1PolyV1PolyV1TreesArg0V1",
-       "TransactionSnarkScanStateStableV2PolyTreesArg0"
+       "TransactionSnarkScanStateStableV2TreesArg0"
 ]
 
 [base_types.float]
