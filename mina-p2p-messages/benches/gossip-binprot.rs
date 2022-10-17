@@ -1,4 +1,4 @@
-//#![cfg(benchmarks)]
+#![cfg(benchmarks)]
 #![feature(test)]
 
 use binprot::{BinProtRead, BinProtWrite};
