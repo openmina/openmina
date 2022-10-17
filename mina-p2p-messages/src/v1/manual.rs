@@ -93,16 +93,52 @@ where
     BaseT: BinProtWrite,
 {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        match self {
-            Self::Leaf(leaf) => leaf.iter().try_for_each(|b| b.binprot_write(w)),
-            Self::Node {
-                depth,
-                value,
-                sub_tree,
-            } => {
-                depth.binprot_write(w)?;
-                value.iter().try_for_each(|b| b.binprot_write(w))?;
-                sub_tree.binprot_write(w)
+        let mut curr = self;
+        let mut curr_depth = 0;
+        loop {
+            match curr {
+                Self::Leaf(leaf) => {
+                    let len = 1 << curr_depth;
+                    if leaf.len() != len {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            format!(
+                                "Invalid leaf data lenght, expecting {len}, got {}",
+                                leaf.len()
+                            ),
+                        ));
+                    }
+                    _Tree::Leaf.binprot_write(w)?;
+                    leaf.iter().try_for_each(|b| b.binprot_write(w))?;
+                    return Ok(());
+                }
+                Self::Node {
+                    depth,
+                    value,
+                    sub_tree,
+                } => {
+                    if depth != &curr_depth {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            format!("Invalid depth, expecting {curr_depth}, got {depth}"),
+                        ));
+                    }
+                    if value.len() != (1 << curr_depth) {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            format!(
+                                "Invalid node data lenght, expecting {}, got {}",
+                                1 << curr_depth,
+                                value.len()
+                            ),
+                        ));
+                    }
+                    _Tree::Node.binprot_write(w)?;
+                    depth.binprot_write(w)?;
+                    value.iter().try_for_each(|b| b.binprot_write(w))?;
+                    curr = sub_tree;
+                    curr_depth += 1;
+                }
             }
         }
     }
