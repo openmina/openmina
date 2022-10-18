@@ -4,21 +4,255 @@ use serde::{Deserialize, Serialize};
 
 use super::manual::*;
 
-/// OCaml name: `Mina_base__Account.Token_symbol.Stable.V1`
+
+/// **OCaml name**: `Mina_block__Block.Stable.V2`
+///
+/// Gid: `974`
+/// Location: [src/lib/mina_block/block.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_block/block.ml#L8)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBlockBlockStableV2 {
+    pub header: MinaBlockHeaderStableV2,
+    pub body: StagedLedgerDiffBodyStableV1,
+}
+
+/// **OCaml name**: `Network_pool__Transaction_pool.Diff_versioned.Stable.V2`
+///
+/// Gid: `1001`
+/// Location: [src/lib/network_pool/transaction_pool.ml:47:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_pool/transaction_pool.ml#L47)
+///
+///
+/// Gid: `167`
+/// Location: [src/std_internal.ml:131:2](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/std_internal.ml#L131)
+/// Args: MinaBaseUserCommandStableV2
+///
+///
+/// Gid: `50`
+/// Location: [src/list0.ml:6:0](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/list0.ml#L6)
+/// Args: MinaBaseUserCommandStableV2
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct NetworkPoolTransactionPoolDiffVersionedStableV2(pub Vec<MinaBaseUserCommandStableV2>);
+
+/// **OCaml name**: `Network_pool__Snark_pool.Diff_versioned.Stable.V2`
+///
+/// Gid: `1007`
+/// Location: [src/lib/network_pool/snark_pool.ml:732:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_pool/snark_pool.ml#L732)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum NetworkPoolSnarkPoolDiffVersionedStableV2 {
+    AddSolvedWork(
+        TransactionSnarkWorkStatementStableV2,
+        NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1,
+    ),
+    Empty,
+}
+
+/// **OCaml name**: `Mina_base__Sparse_ledger_base.Stable.V2`
+///
+/// Gid: `774`
+/// Location: [src/lib/mina_base/sparse_ledger_base.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sparse_ledger_base.ml#L8)
+///
+///
+/// Gid: `598`
+/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:38:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L38)
+/// Args: MinaBaseLedgerHash0StableV1 , MinaBaseAccountIdMakeStrStableV2 , MinaBaseAccountBinableArgStableV2
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseSparseLedgerBaseStableV2 {
+    pub indexes: Vec<(MinaBaseAccountIdMakeStrStableV2, crate::number::Int32)>,
+    pub depth: crate::number::Int32,
+    pub tree: MinaBaseSparseLedgerBaseStableV2Tree,
+}
+
+/// **OCaml name**: `Mina_base__Account.Binable_arg.Stable.V2`
+///
+/// Gid: `670`
+/// Location: [src/lib/mina_base/account.ml:313:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account.ml#L313)
+///
+///
+/// Gid: `667`
+/// Location: [src/lib/mina_base/account.ml:226:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account.ml#L226)
+/// Args: NonZeroCurvePointUncompressedStableV1 , MinaBaseAccountIdMakeStrDigestStableV1 , MinaBaseTokenPermissionsStableV1 , MinaBaseAccountTokenSymbolStableV1 , CurrencyMakeStrBalanceStableV1 , UnsignedExtendedUInt32StableV1 , MinaBaseReceiptChainHashStableV1 , Option < NonZeroCurvePointUncompressedStableV1 > , DataHashLibStateHashStableV1 , MinaBaseAccountTimingStableV1 , MinaBasePermissionsStableV2 , Option < MinaBaseZkappAccountStableV2 > , crate :: string :: ByteString
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseAccountBinableArgStableV2 {
+    pub public_key: NonZeroCurvePointUncompressedStableV1,
+    pub token_id: MinaBaseAccountIdMakeStrDigestStableV1,
+    pub token_permissions: MinaBaseTokenPermissionsStableV1,
+    pub token_symbol: MinaBaseAccountTokenSymbolStableV1,
+    pub balance: CurrencyMakeStrBalanceStableV1,
+    pub nonce: UnsignedExtendedUInt32StableV1,
+    pub receipt_chain_hash: MinaBaseReceiptChainHashStableV1,
+    pub delegate: Option<NonZeroCurvePointUncompressedStableV1>,
+    pub voting_for: DataHashLibStateHashStableV1,
+    pub timing: MinaBaseAccountTimingStableV1,
+    pub permissions: MinaBasePermissionsStableV2,
+    pub zkapp: Option<MinaBaseZkappAccountStableV2>,
+    pub zkapp_uri: crate::string::ByteString,
+}
+
+/// **OCaml name**: `Network_peer__Peer.Stable.V1`
+///
+/// Gid: `810`
+/// Location: [src/lib/network_peer/peer.ml:28:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_peer/peer.ml#L28)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct NetworkPeerPeerStableV1 {
+    pub host: crate::string::ByteString,
+    pub libp2p_port: crate::number::Int32,
+    pub peer_id: NetworkPeerPeerIdStableV1,
+}
+
+/// **OCaml name**: `Transaction_snark_scan_state.Stable.V2`
+///
+/// Gid: `951`
+/// Location: [src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml:153:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L153)
+///
+///
+/// Gid: `948`
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:803:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L803)
+/// Args: TransactionSnarkScanStateLedgerProofWithSokMessageStableV2 , TransactionSnarkScanStateTransactionWithWitnessStableV2
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TransactionSnarkScanStateStableV2 {
+    pub trees: (
+        TransactionSnarkScanStateStableV2TreesA,
+        Vec<TransactionSnarkScanStateStableV2TreesA>,
+    ),
+    pub acc: Option<(
+        TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
+        Vec<TransactionSnarkScanStateTransactionWithWitnessStableV2>,
+    )>,
+    pub curr_job_seq_no: crate::number::Int32,
+    pub max_base_jobs: crate::number::Int32,
+    pub delay: crate::number::Int32,
+}
+
+/// **OCaml name**: `Mina_base__Pending_coinbase.Stable.V2`
+///
+/// Gid: `766`
+/// Location: [src/lib/mina_base/pending_coinbase.ml:1238:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L1238)
+///
+///
+/// Gid: `765`
+/// Location: [src/lib/mina_base/pending_coinbase.ml:1226:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L1226)
+/// Args: MinaBasePendingCoinbaseMerkleTreeVersionedStableV2 , MinaBasePendingCoinbaseStackIdStableV1
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBasePendingCoinbaseStableV2 {
+    pub tree: MinaBasePendingCoinbaseMerkleTreeVersionedStableV2,
+    pub pos_list: Vec<MinaBasePendingCoinbaseStackIdStableV1>,
+    pub new_pos: MinaBasePendingCoinbaseStackIdStableV1,
+}
+
+/// **OCaml name**: `Mina_state__Protocol_state.Value.Stable.V2`
+///
+/// Gid: `871`
+/// Location: [src/lib/mina_state/protocol_state.ml:177:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_state/protocol_state.ml#L177)
+///
+///
+/// Gid: `867`
+/// Location: [src/lib/mina_state/protocol_state.ml:16:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_state/protocol_state.ml#L16)
+/// Args: DataHashLibStateHashStableV1 , MinaStateProtocolStateBodyValueStableV2
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaStateProtocolStateValueStableV2 {
+    pub previous_state_hash: DataHashLibStateHashStableV1,
+    pub body: MinaStateProtocolStateBodyValueStableV2,
+}
+
+/// **OCaml name**: `Mina_ledger__Sync_ledger.Query.Stable.V1`
+///
+/// Gid: `828`
+/// Location: [src/lib/mina_ledger/sync_ledger.ml:71:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_ledger/sync_ledger.ml#L71)
+///
+///
+/// Gid: `817`
+/// Location: [src/lib/syncable_ledger/syncable_ledger.ml:17:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/syncable_ledger/syncable_ledger.ml#L17)
+/// Args: MerkleAddressBinableArgStableV1
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaLedgerSyncLedgerQueryStableV1 {
+    WhatChildHashes(MerkleAddressBinableArgStableV1),
+    WhatContents(MerkleAddressBinableArgStableV1),
+    NumAccounts,
+}
+
+/// **OCaml name**: `Mina_ledger__Sync_ledger.Answer.Stable.V2`
+///
+/// Gid: `827`
+/// Location: [src/lib/mina_ledger/sync_ledger.ml:56:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_ledger/sync_ledger.ml#L56)
+///
+///
+/// Gid: `818`
+/// Location: [src/lib/syncable_ledger/syncable_ledger.ml:35:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/syncable_ledger/syncable_ledger.ml#L35)
+/// Args: MinaBaseLedgerHash0StableV1 , MinaBaseAccountBinableArgStableV2
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaLedgerSyncLedgerAnswerStableV2 {
+    ChildHashesAre(MinaBaseLedgerHash0StableV1, MinaBaseLedgerHash0StableV1),
+    ContentsAre(Vec<MinaBaseAccountBinableArgStableV2>),
+    NumAccounts(crate::number::Int32, MinaBaseLedgerHash0StableV1),
+}
+
+/// **OCaml name**: `Consensus__Proof_of_stake.Data.Consensus_state.Value.Stable.V1`
+///
+/// Gid: `859`
+/// Location: [src/lib/consensus/proof_of_stake.ml:1722:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/proof_of_stake.ml#L1722)
+///
+///
+/// Gid: `858`
+/// Location: [src/lib/consensus/proof_of_stake.ml:1687:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/proof_of_stake.ml#L1687)
+/// Args: UnsignedExtendedUInt32StableV1 , ConsensusVrfOutputTruncatedStableV1 , CurrencyMakeStrAmountMakeStrStableV1 , ConsensusGlobalSlotStableV1 , UnsignedExtendedUInt32StableV1 , ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 , ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 , bool , NonZeroCurvePointUncompressedStableV1
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct ConsensusProofOfStakeDataConsensusStateValueStableV1 {
+    pub blockchain_length: UnsignedExtendedUInt32StableV1,
+    pub epoch_count: UnsignedExtendedUInt32StableV1,
+    pub min_window_density: UnsignedExtendedUInt32StableV1,
+    pub sub_window_densities: Vec<UnsignedExtendedUInt32StableV1>,
+    pub last_vrf_output: ConsensusVrfOutputTruncatedStableV1,
+    pub total_currency: CurrencyMakeStrAmountMakeStrStableV1,
+    pub curr_global_slot: ConsensusGlobalSlotStableV1,
+    pub global_slot_since_genesis: UnsignedExtendedUInt32StableV1,
+    pub staking_epoch_data: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
+    pub next_epoch_data: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+    pub has_ancestor_in_same_checkpoint_window: bool,
+    pub block_stake_winner: NonZeroCurvePointUncompressedStableV1,
+    pub block_creator: NonZeroCurvePointUncompressedStableV1,
+    pub coinbase_receiver: NonZeroCurvePointUncompressedStableV1,
+    pub supercharge_coinbase: bool,
+}
+
+/// **OCaml name**: `Sync_status.T.Stable.V1`
+///
+/// Gid: `1031`
+/// Location: [src/lib/sync_status/sync_status.ml:54:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sync_status/sync_status.ml#L54)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[polymorphic_variant]
+pub enum SyncStatusTStableV1 {
+    Connecting,
+    Listening,
+    Offline,
+    Bootstrap,
+    Synced,
+    Catchup,
+}
+
+/// **OCaml name**: `Trust_system__Peer_status.Stable.V1`
+///
+/// Gid: `815`
+/// Location: [src/lib/trust_system/peer_status.ml:6:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/trust_system/peer_status.ml#L6)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TrustSystemPeerStatusStableV1 {
+    pub trust: crate::number::Float64,
+    pub banned: TrustSystemBannedStatusStableV1,
+}
+
+/// **OCaml name**: `Mina_base__Account.Token_symbol.Stable.V1`
 ///
 /// Gid: `73`
 /// Location: [src/string.ml:14:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/string.ml#L14)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseAccountTokenSymbolStableV1(pub crate::string::ByteString);
 
-/// OCaml name: `Unsigned_extended.UInt32.Stable.V1`
+/// **OCaml name**: `Unsigned_extended.UInt32.Stable.V1`
 ///
 /// Gid: `119`
 /// Location: [src/int32.ml:6:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/int32.ml#L6)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct UnsignedExtendedUInt32StableV1(pub crate::number::Int32);
 
-/// OCaml name: `Unsigned_extended.UInt64.Stable.V1`
+/// **OCaml name**: `Unsigned_extended.UInt64.Stable.V1`
 ///
 /// Gid: `125`
 /// Location: [src/int64.ml:6:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/int64.ml#L6)
@@ -391,7 +625,7 @@ pub struct PicklesProofProofsVerified2ReprStableV2Proof {
     pub openings: PicklesProofProofsVerified2ReprStableV2ProofOpenings,
 }
 
-/// OCaml name: `Pickles_base__Proofs_verified.Stable.V1`
+/// **OCaml name**: `Pickles_base__Proofs_verified.Stable.V1`
 ///
 /// Gid: `505`
 /// Location: [src/lib/pickles_base/proofs_verified.ml:7:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles_base/proofs_verified.ml#L7)
@@ -402,14 +636,14 @@ pub enum PicklesBaseProofsVerifiedStableV1 {
     N2,
 }
 
-/// OCaml name: `Limb_vector__Constant.Hex64.Stable.V1`
+/// **OCaml name**: `Limb_vector__Constant.Hex64.Stable.V1`
 ///
 /// Gid: `513`
 /// Location: [src/lib/pickles/limb_vector/constant.ml:60:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/limb_vector/constant.ml#L60)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct LimbVectorConstantHex64StableV1(pub UnsignedExtendedUInt64StableV1);
 
-/// OCaml name: `Composition_types__Branch_data.Make_str.Domain_log2.Stable.V1`
+/// **OCaml name**: `Composition_types__Branch_data.Make_str.Domain_log2.Stable.V1`
 ///
 /// Gid: `514`
 /// Location: [src/lib/pickles/composition_types/branch_data.ml:24:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/composition_types/branch_data.ml#L24)
@@ -424,7 +658,7 @@ pub struct LimbVectorConstantHex64StableV1(pub UnsignedExtendedUInt64StableV1);
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct CompositionTypesBranchDataMakeStrDomainLog2StableV1(pub crate::char::Char);
 
-/// OCaml name: `Composition_types__Branch_data.Make_str.Stable.V1`
+/// **OCaml name**: `Composition_types__Branch_data.Make_str.Stable.V1`
 ///
 /// Gid: `515`
 /// Location: [src/lib/pickles/composition_types/branch_data.ml:51:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/composition_types/branch_data.ml#L51)
@@ -445,7 +679,7 @@ pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorSt
         PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge,
 }
 
-/// OCaml name: `Composition_types__Digest.Constant.Stable.V1`
+/// **OCaml name**: `Composition_types__Digest.Constant.Stable.V1`
 ///
 /// Gid: `517`
 /// Location: [src/lib/pickles/composition_types/digest.ml:13:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/composition_types/digest.ml#L13)
@@ -547,7 +781,7 @@ pub struct PicklesProofProofsVerified2ReprStableV2Statement {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof { pub app_state : () , pub challenge_polynomial_commitments : Vec < (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) > , pub old_bulletproof_challenges : Vec < (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , () ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) > , }
 
-/// OCaml name: `Pickles__Reduced_messages_for_next_proof_over_same_field.Wrap.Challenges_vector.Stable.V2`
+/// **OCaml name**: `Pickles__Reduced_messages_for_next_proof_over_same_field.Wrap.Challenges_vector.Stable.V2`
 ///
 /// Gid: `527`
 /// Location: [src/lib/pickles/reduced_messages_for_next_proof_over_same_field.ml:53:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/reduced_messages_for_next_proof_over_same_field.ml#L53)
@@ -559,7 +793,7 @@ pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof { pub
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2 (pub PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , pub (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , () ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ;
 
-/// OCaml name: `Mina_base__Verification_key_wire.Stable.V1`
+/// **OCaml name**: `Mina_base__Verification_key_wire.Stable.V1`
 ///
 /// Gid: `528`
 /// Location: [src/lib/pickles/side_loaded_verification_key.ml:170:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/side_loaded_verification_key.ml#L170)
@@ -574,7 +808,7 @@ pub struct MinaBaseVerificationKeyWireStableV1 {
     pub wrap_index: MinaBaseVerificationKeyWireStableV1WrapIndex,
 }
 
-/// OCaml name: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2`
+/// **OCaml name**: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2`
 ///
 /// Gid: `531`
 /// Location: [src/lib/pickles/proof.ml:340:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/proof.ml#L340)
@@ -590,7 +824,7 @@ pub struct PicklesProofProofsVerified2ReprStableV2 {
     pub proof: PicklesProofProofsVerified2ReprStableV2Proof,
 }
 
-/// OCaml name: `Pickles__Proof.Proofs_verified_max.Stable.V2`
+/// **OCaml name**: `Pickles__Proof.Proofs_verified_max.Stable.V2`
 ///
 /// Gid: `532`
 /// Location: [src/lib/pickles/proof.ml:413:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/proof.ml#L413)
@@ -606,14 +840,14 @@ pub struct PicklesProofProofsVerifiedMaxStableV2 {
     pub proof: PicklesProofProofsVerified2ReprStableV2Proof,
 }
 
-/// OCaml name: `Mina_numbers__Nat.Make32.Stable.V1`
+/// **OCaml name**: `Mina_numbers__Nat.Make32.Stable.V1`
 ///
 /// Gid: `535`
 /// Location: [src/lib/mina_numbers/nat.ml:258:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_numbers/nat.ml#L258)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaNumbersNatMake32StableV1(pub UnsignedExtendedUInt32StableV1);
 
-/// OCaml name: `Sgn.Stable.V1`
+/// **OCaml name**: `Sgn.Stable.V1`
 ///
 /// Gid: `551`
 /// Location: [src/lib/sgn/sgn.ml:9:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sgn/sgn.ml#L9)
@@ -645,35 +879,35 @@ pub struct MinaBaseFeeExcessStableV1Fee {
     pub sgn: SgnStableV1,
 }
 
-/// OCaml name: `Currency.Make_str.Fee.Stable.V1`
+/// **OCaml name**: `Currency.Make_str.Fee.Stable.V1`
 ///
 /// Gid: `553`
 /// Location: [src/lib/currency/currency.ml:898:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/currency/currency.ml#L898)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct CurrencyMakeStrFeeStableV1(pub UnsignedExtendedUInt64StableV1);
 
-/// OCaml name: `Currency.Make_str.Amount.Make_str.Stable.V1`
+/// **OCaml name**: `Currency.Make_str.Amount.Make_str.Stable.V1`
 ///
 /// Gid: `554`
 /// Location: [src/lib/currency/currency.ml:1030:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/currency/currency.ml#L1030)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct CurrencyMakeStrAmountMakeStrStableV1(pub UnsignedExtendedUInt64StableV1);
 
-/// OCaml name: `Currency.Make_str.Balance.Stable.V1`
+/// **OCaml name**: `Currency.Make_str.Balance.Stable.V1`
 ///
 /// Gid: `555`
 /// Location: [src/lib/currency/currency.ml:1072:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/currency/currency.ml#L1072)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct CurrencyMakeStrBalanceStableV1(pub CurrencyMakeStrAmountMakeStrStableV1);
 
-/// OCaml name: `Blake2.Make.Stable.V1`
+/// **OCaml name**: `Blake2.Make.Stable.V1`
 ///
 /// Gid: `556`
 /// Location: [src/binable0.ml:120:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/binable0.ml#L120)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct Blake2MakeStableV1(pub crate::string::ByteString);
 
-/// OCaml name: `Non_zero_curve_point.Uncompressed.Stable.V1`
+/// **OCaml name**: `Non_zero_curve_point.Uncompressed.Stable.V1`
 ///
 /// Gid: `565`
 /// Location: [src/lib/non_zero_curve_point/non_zero_curve_point.ml:44:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/non_zero_curve_point/non_zero_curve_point.ml#L44)
@@ -688,14 +922,14 @@ pub struct NonZeroCurvePointUncompressedStableV1 {
     pub is_odd: bool,
 }
 
-/// OCaml name: `Data_hash_lib__State_hash.Stable.V1`
+/// **OCaml name**: `Data_hash_lib__State_hash.Stable.V1`
 ///
 /// Gid: `586`
 /// Location: [src/lib/data_hash_lib/state_hash.ml:44:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/data_hash_lib/state_hash.ml#L44)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct DataHashLibStateHashStableV1(pub crate::bigint::BigInt);
 
-/// OCaml name: `Block_time.Make_str.Time.Stable.V1`
+/// **OCaml name**: `Block_time.Make_str.Time.Stable.V1`
 ///
 /// Gid: `595`
 /// Location: [src/lib/block_time/block_time.ml:22:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/block_time/block_time.ml#L22)
@@ -746,14 +980,14 @@ pub enum TransactionSnarkWorkTStableV2Proofs {
     Two((LedgerProofProdStableV2, LedgerProofProdStableV2)),
 }
 
-/// OCaml name: `Mina_base__Account_id.Make_str.Digest.Stable.V1`
+/// **OCaml name**: `Mina_base__Account_id.Make_str.Digest.Stable.V1`
 ///
 /// Gid: `601`
 /// Location: [src/lib/mina_base/account_id.ml:64:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account_id.ml#L64)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseAccountIdMakeStrDigestStableV1(pub crate::bigint::BigInt);
 
-/// OCaml name: `Mina_base__Account_id.Make_str.Stable.V2`
+/// **OCaml name**: `Mina_base__Account_id.Make_str.Stable.V2`
 ///
 /// Gid: `606`
 /// Location: [src/lib/mina_base/account_id.ml:147:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account_id.ml#L147)
@@ -763,7 +997,7 @@ pub struct MinaBaseAccountIdMakeStrStableV2(
     pub MinaBaseAccountIdMakeStrDigestStableV1,
 );
 
-/// OCaml name: `Mina_base__Account_timing.Stable.V1`
+/// **OCaml name**: `Mina_base__Account_timing.Stable.V1`
 ///
 /// Gid: `612`
 /// Location: [src/lib/mina_base/account_timing.ml:30:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account_timing.ml#L30)
@@ -784,7 +1018,7 @@ pub enum MinaBaseAccountTimingStableV1 {
     },
 }
 
-/// OCaml name: `Mina_base__Signature.Stable.V1`
+/// **OCaml name**: `Mina_base__Signature.Stable.V1`
 ///
 /// Gid: `615`
 /// Location: [src/lib/mina_base/signature.ml:18:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/signature.ml#L18)
@@ -796,7 +1030,7 @@ pub enum MinaBaseAccountTimingStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseSignatureStableV1(pub crate::bigint::BigInt, pub crate::bigint::BigInt);
 
-/// OCaml name: `Mina_base__Control.Stable.V2`
+/// **OCaml name**: `Mina_base__Control.Stable.V2`
 ///
 /// Gid: `616`
 /// Location: [src/lib/mina_base/control.ml:11:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/control.ml#L11)
@@ -807,7 +1041,7 @@ pub enum MinaBaseControlStableV2 {
     NoneGiven,
 }
 
-/// OCaml name: `Mina_base__Fee_excess.Stable.V1`
+/// **OCaml name**: `Mina_base__Fee_excess.Stable.V1`
 ///
 /// Gid: `618`
 /// Location: [src/lib/mina_base/fee_excess.ml:123:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/fee_excess.ml#L123)
@@ -824,7 +1058,7 @@ pub struct MinaBaseFeeExcessStableV1 {
     pub fee_excess_r: MinaBaseFeeExcessStableV1Fee,
 }
 
-/// OCaml name: `Mina_base__Payment_payload.Stable.V2`
+/// **OCaml name**: `Mina_base__Payment_payload.Stable.V2`
 ///
 /// Gid: `620`
 /// Location: [src/lib/mina_base/payment_payload.ml:27:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/payment_payload.ml#L27)
@@ -840,14 +1074,14 @@ pub struct MinaBasePaymentPayloadStableV2 {
     pub amount: CurrencyMakeStrAmountMakeStrStableV1,
 }
 
-/// OCaml name: `Mina_base__Ledger_hash0.Stable.V1`
+/// **OCaml name**: `Mina_base__Ledger_hash0.Stable.V1`
 ///
 /// Gid: `623`
 /// Location: [src/lib/mina_base/ledger_hash0.ml:17:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/ledger_hash0.ml#L17)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseLedgerHash0StableV1(pub crate::bigint::BigInt);
 
-/// OCaml name: `Mina_base__Permissions.Auth_required.Stable.V2`
+/// **OCaml name**: `Mina_base__Permissions.Auth_required.Stable.V2`
 ///
 /// Gid: `626`
 /// Location: [src/lib/mina_base/permissions.ml:53:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/permissions.ml#L53)
@@ -860,7 +1094,7 @@ pub enum MinaBasePermissionsAuthRequiredStableV2 {
     Impossible,
 }
 
-/// OCaml name: `Mina_base__Permissions.Stable.V2`
+/// **OCaml name**: `Mina_base__Permissions.Stable.V2`
 ///
 /// Gid: `628`
 /// Location: [src/lib/mina_base/permissions.ml:352:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/permissions.ml#L352)
@@ -884,7 +1118,7 @@ pub struct MinaBasePermissionsStableV2 {
     pub set_voting_for: MinaBasePermissionsAuthRequiredStableV2,
 }
 
-/// OCaml name: `Mina_base__Signed_command_memo.Make_str.Stable.V1`
+/// **OCaml name**: `Mina_base__Signed_command_memo.Make_str.Stable.V1`
 ///
 /// Gid: `629`
 /// Location: [src/lib/mina_base/signed_command_memo.ml:19:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/signed_command_memo.ml#L19)
@@ -899,7 +1133,7 @@ pub struct MinaBasePermissionsStableV2 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseSignedCommandMemoMakeStrStableV1(pub crate::string::ByteString);
 
-/// OCaml name: `Mina_base__Stake_delegation.Stable.V1`
+/// **OCaml name**: `Mina_base__Stake_delegation.Stable.V1`
 ///
 /// Gid: `630`
 /// Location: [src/lib/mina_base/stake_delegation.ml:9:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/stake_delegation.ml#L9)
@@ -911,7 +1145,7 @@ pub enum MinaBaseStakeDelegationStableV1 {
     },
 }
 
-/// OCaml name: `Mina_base__Signed_command_payload.Common.Stable.V2`
+/// **OCaml name**: `Mina_base__Signed_command_payload.Common.Stable.V2`
 ///
 /// Gid: `633`
 /// Location: [src/lib/mina_base/signed_command_payload.ml:80:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/signed_command_payload.ml#L80)
@@ -929,7 +1163,7 @@ pub struct MinaBaseSignedCommandPayloadCommonStableV2 {
     pub memo: MinaBaseSignedCommandMemoMakeStrStableV1,
 }
 
-/// OCaml name: `Mina_base__Signed_command_payload.Body.Stable.V2`
+/// **OCaml name**: `Mina_base__Signed_command_payload.Body.Stable.V2`
 ///
 /// Gid: `635`
 /// Location: [src/lib/mina_base/signed_command_payload.ml:190:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/signed_command_payload.ml#L190)
@@ -939,7 +1173,7 @@ pub enum MinaBaseSignedCommandPayloadBodyStableV2 {
     StakeDelegation(MinaBaseStakeDelegationStableV1),
 }
 
-/// OCaml name: `Mina_base__Signed_command_payload.Stable.V2`
+/// **OCaml name**: `Mina_base__Signed_command_payload.Stable.V2`
 ///
 /// Gid: `637`
 /// Location: [src/lib/mina_base/signed_command_payload.ml:275:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/signed_command_payload.ml#L275)
@@ -954,7 +1188,7 @@ pub struct MinaBaseSignedCommandPayloadStableV2 {
     pub body: MinaBaseSignedCommandPayloadBodyStableV2,
 }
 
-/// OCaml name: `Mina_base__Signed_command.Make_str.Stable.V2`
+/// **OCaml name**: `Mina_base__Signed_command.Make_str.Stable.V2`
 ///
 /// Gid: `639`
 /// Location: [src/lib/mina_base/signed_command.ml:39:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/signed_command.ml#L39)
@@ -970,21 +1204,21 @@ pub struct MinaBaseSignedCommandMakeStrStableV2 {
     pub signature: MinaBaseSignatureStableV1,
 }
 
-/// OCaml name: `Mina_base__Receipt.Chain_hash.Stable.V1`
+/// **OCaml name**: `Mina_base__Receipt.Chain_hash.Stable.V1`
 ///
 /// Gid: `643`
 /// Location: [src/lib/mina_base/receipt.ml:31:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/receipt.ml#L31)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseReceiptChainHashStableV1(pub crate::bigint::BigInt);
 
-/// OCaml name: `Mina_base__State_body_hash.Stable.V1`
+/// **OCaml name**: `Mina_base__State_body_hash.Stable.V1`
 ///
 /// Gid: `648`
 /// Location: [src/lib/mina_base/state_body_hash.ml:19:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/state_body_hash.ml#L19)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseStateBodyHashStableV1(pub crate::bigint::BigInt);
 
-/// OCaml name: `Mina_base__Token_permissions.Stable.V1`
+/// **OCaml name**: `Mina_base__Token_permissions.Stable.V1`
 ///
 /// Gid: `653`
 /// Location: [src/lib/mina_base/token_permissions.ml:9:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/token_permissions.ml#L9)
@@ -1159,7 +1393,7 @@ pub enum MinaBaseZkappPreconditionAccountStableV2StateA {
     Ignore,
 }
 
-/// OCaml name: `Mina_base__Zkapp_state.Value.Stable.V1`
+/// **OCaml name**: `Mina_base__Zkapp_state.Value.Stable.V1`
 ///
 /// Gid: `659`
 /// Location: [src/lib/mina_base/zkapp_state.ml:50:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/zkapp_state.ml#L50)
@@ -1189,7 +1423,7 @@ pub struct MinaBaseZkappStateValueStableV1(
     ),
 );
 
-/// OCaml name: `Mina_base__Zkapp_account.Stable.V2`
+/// **OCaml name**: `Mina_base__Zkapp_account.Stable.V2`
 ///
 /// Gid: `661`
 /// Location: [src/lib/mina_base/zkapp_account.ml:216:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/zkapp_account.ml#L216)
@@ -1217,32 +1451,6 @@ pub struct MinaBaseZkappAccountStableV2 {
     pub proved_state: bool,
 }
 
-/// OCaml name: `Mina_base__Account.Binable_arg.Stable.V2`
-///
-/// Gid: `670`
-/// Location: [src/lib/mina_base/account.ml:313:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account.ml#L313)
-///
-///
-/// Gid: `667`
-/// Location: [src/lib/mina_base/account.ml:226:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account.ml#L226)
-/// Args: NonZeroCurvePointUncompressedStableV1 , MinaBaseAccountIdMakeStrDigestStableV1 , MinaBaseTokenPermissionsStableV1 , MinaBaseAccountTokenSymbolStableV1 , CurrencyMakeStrBalanceStableV1 , UnsignedExtendedUInt32StableV1 , MinaBaseReceiptChainHashStableV1 , Option < NonZeroCurvePointUncompressedStableV1 > , DataHashLibStateHashStableV1 , MinaBaseAccountTimingStableV1 , MinaBasePermissionsStableV2 , Option < MinaBaseZkappAccountStableV2 > , crate :: string :: ByteString
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseAccountBinableArgStableV2 {
-    pub public_key: NonZeroCurvePointUncompressedStableV1,
-    pub token_id: MinaBaseAccountIdMakeStrDigestStableV1,
-    pub token_permissions: MinaBaseTokenPermissionsStableV1,
-    pub token_symbol: MinaBaseAccountTokenSymbolStableV1,
-    pub balance: CurrencyMakeStrBalanceStableV1,
-    pub nonce: UnsignedExtendedUInt32StableV1,
-    pub receipt_chain_hash: MinaBaseReceiptChainHashStableV1,
-    pub delegate: Option<NonZeroCurvePointUncompressedStableV1>,
-    pub voting_for: DataHashLibStateHashStableV1,
-    pub timing: MinaBaseAccountTimingStableV1,
-    pub permissions: MinaBasePermissionsStableV2,
-    pub zkapp: Option<MinaBaseZkappAccountStableV2>,
-    pub zkapp_uri: crate::string::ByteString,
-}
-
 /// Derived name: `Mina_base__Zkapp_precondition.Protocol_state.Epoch_data.Stable.V1#epoch_ledger`
 ///
 /// Gid: `671`
@@ -1254,7 +1462,7 @@ pub struct MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger {
     pub total_currency: MinaBaseZkappPreconditionProtocolStateStableV1Amount,
 }
 
-/// OCaml name: `Mina_base__Epoch_ledger.Value.Stable.V1`
+/// **OCaml name**: `Mina_base__Epoch_ledger.Value.Stable.V1`
 ///
 /// Gid: `672`
 /// Location: [src/lib/mina_base/epoch_ledger.ml:23:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/epoch_ledger.ml#L23)
@@ -1269,14 +1477,14 @@ pub struct MinaBaseEpochLedgerValueStableV1 {
     pub total_currency: CurrencyMakeStrAmountMakeStrStableV1,
 }
 
-/// OCaml name: `Mina_base__Epoch_seed.Stable.V1`
+/// **OCaml name**: `Mina_base__Epoch_seed.Stable.V1`
 ///
 /// Gid: `675`
 /// Location: [src/lib/mina_base/epoch_seed.ml:18:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/epoch_seed.ml#L18)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseEpochSeedStableV1(pub crate::bigint::BigInt);
 
-/// OCaml name: `Mina_base__Transaction_status.Failure.Stable.V2`
+/// **OCaml name**: `Mina_base__Transaction_status.Failure.Stable.V2`
 ///
 /// Gid: `680`
 /// Location: [src/lib/mina_base/transaction_status.ml:9:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_status.ml#L9)
@@ -1323,7 +1531,7 @@ pub enum MinaBaseTransactionStatusFailureStableV2 {
     InvalidFeeExcess,
 }
 
-/// OCaml name: `Mina_base__Transaction_status.Failure.Collection.Stable.V1`
+/// **OCaml name**: `Mina_base__Transaction_status.Failure.Collection.Stable.V1`
 ///
 /// Gid: `682`
 /// Location: [src/lib/mina_base/transaction_status.ml:71:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_status.ml#L71)
@@ -1342,7 +1550,7 @@ pub struct MinaBaseTransactionStatusFailureCollectionStableV1(
     pub Vec<Vec<MinaBaseTransactionStatusFailureStableV2>>,
 );
 
-/// OCaml name: `Mina_base__Transaction_status.Stable.V2`
+/// **OCaml name**: `Mina_base__Transaction_status.Stable.V2`
 ///
 /// Gid: `683`
 /// Location: [src/lib/mina_base/transaction_status.ml:423:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/transaction_status.ml#L423)
@@ -1460,7 +1668,7 @@ pub enum MinaBaseZkappPreconditionProtocolStateStableV1Length {
     Ignore,
 }
 
-/// OCaml name: `Mina_base__Zkapp_precondition.Account.Stable.V2`
+/// **OCaml name**: `Mina_base__Zkapp_precondition.Account.Stable.V2`
 ///
 /// Gid: `686`
 /// Location: [src/lib/mina_base/zkapp_precondition.ml:474:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/zkapp_precondition.ml#L474)
@@ -1497,7 +1705,7 @@ pub struct MinaBaseZkappPreconditionAccountStableV2 {
     pub is_new: MinaBaseZkappPreconditionAccountStableV2ProvedState,
 }
 
-/// OCaml name: `Mina_base__Zkapp_precondition.Protocol_state.Epoch_data.Stable.V1`
+/// **OCaml name**: `Mina_base__Zkapp_precondition.Protocol_state.Epoch_data.Stable.V1`
 ///
 /// Gid: `687`
 /// Location: [src/lib/mina_base/zkapp_precondition.ml:790:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/zkapp_precondition.ml#L790)
@@ -1515,7 +1723,7 @@ pub struct MinaBaseZkappPreconditionProtocolStateEpochDataStableV1 {
     pub epoch_length: MinaBaseZkappPreconditionProtocolStateStableV1Length,
 }
 
-/// OCaml name: `Mina_base__Zkapp_precondition.Protocol_state.Stable.V1`
+/// **OCaml name**: `Mina_base__Zkapp_precondition.Protocol_state.Stable.V1`
 ///
 /// Gid: `689`
 /// Location: [src/lib/mina_base/zkapp_precondition.ml:970:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/zkapp_precondition.ml#L970)
@@ -1538,7 +1746,7 @@ pub struct MinaBaseZkappPreconditionProtocolStateStableV1 {
     pub next_epoch_data: MinaBaseZkappPreconditionProtocolStateEpochDataStableV1,
 }
 
-/// OCaml name: `Mina_base__Party.Call_type.Stable.V1`
+/// **OCaml name**: `Mina_base__Party.Call_type.Stable.V1`
 ///
 /// Gid: `696`
 /// Location: [src/lib/mina_base/party.ml:27:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L27)
@@ -1548,7 +1756,7 @@ pub enum MinaBasePartyCallTypeStableV1 {
     DelegateCall,
 }
 
-/// OCaml name: `Mina_base__Party.Update.Timing_info.Stable.V1`
+/// **OCaml name**: `Mina_base__Party.Update.Timing_info.Stable.V1`
 ///
 /// Gid: `697`
 /// Location: [src/lib/mina_base/party.ml:64:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L64)
@@ -1561,7 +1769,7 @@ pub struct MinaBasePartyUpdateTimingInfoStableV1 {
     pub vesting_increment: CurrencyMakeStrAmountMakeStrStableV1,
 }
 
-/// OCaml name: `Mina_base__Party.Update.Stable.V1`
+/// **OCaml name**: `Mina_base__Party.Update.Stable.V1`
 ///
 /// Gid: `698`
 /// Location: [src/lib/mina_base/party.ml:219:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L219)
@@ -1598,7 +1806,7 @@ pub struct MinaBasePartyUpdateStableV1 {
     pub voting_for: MinaBasePartyUpdateStableV1VotingFor,
 }
 
-/// OCaml name: `Mina_base__Party.Account_precondition.Stable.V1`
+/// **OCaml name**: `Mina_base__Party.Account_precondition.Stable.V1`
 ///
 /// Gid: `699`
 /// Location: [src/lib/mina_base/party.ml:510:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L510)
@@ -1609,7 +1817,7 @@ pub enum MinaBasePartyAccountPreconditionStableV1 {
     Accept,
 }
 
-/// OCaml name: `Mina_base__Party.Preconditions.Stable.V1`
+/// **OCaml name**: `Mina_base__Party.Preconditions.Stable.V1`
 ///
 /// Gid: `700`
 /// Location: [src/lib/mina_base/party.ml:653:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L653)
@@ -1619,7 +1827,7 @@ pub struct MinaBasePartyPreconditionsStableV1 {
     pub account: MinaBasePartyAccountPreconditionStableV1,
 }
 
-/// OCaml name: `Mina_base__Party.Body.Events'.Stable.V1`
+/// **OCaml name**: `Mina_base__Party.Body.Events'.Stable.V1`
 ///
 /// Gid: `701`
 /// Location: [src/lib/mina_base/party.ml:729:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L729)
@@ -1636,7 +1844,7 @@ pub struct MinaBasePartyPreconditionsStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePartyBodyEventsStableV1(pub Vec<Vec<crate::bigint::BigInt>>);
 
-/// OCaml name: `Mina_base__Party.Body.Wire.Stable.V1`
+/// **OCaml name**: `Mina_base__Party.Body.Wire.Stable.V1`
 ///
 /// Gid: `702`
 /// Location: [src/lib/mina_base/party.ml:741:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L741)
@@ -1655,7 +1863,7 @@ pub struct MinaBasePartyBodyWireStableV1 {
     pub caller: MinaBasePartyCallTypeStableV1,
 }
 
-/// OCaml name: `Mina_base__Party.Body.Fee_payer.Stable.V1`
+/// **OCaml name**: `Mina_base__Party.Body.Fee_payer.Stable.V1`
 ///
 /// Gid: `706`
 /// Location: [src/lib/mina_base/party.ml:963:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L963)
@@ -1667,7 +1875,7 @@ pub struct MinaBasePartyBodyFeePayerStableV1 {
     pub nonce: UnsignedExtendedUInt32StableV1,
 }
 
-/// OCaml name: `Mina_base__Party.T.Wire.Stable.V1`
+/// **OCaml name**: `Mina_base__Party.T.Wire.Stable.V1`
 ///
 /// Gid: `709`
 /// Location: [src/lib/mina_base/party.ml:1281:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L1281)
@@ -1677,7 +1885,7 @@ pub struct MinaBasePartyTWireStableV1 {
     pub authorization: MinaBaseControlStableV2,
 }
 
-/// OCaml name: `Mina_base__Party.Fee_payer.Stable.V1`
+/// **OCaml name**: `Mina_base__Party.Fee_payer.Stable.V1`
 ///
 /// Gid: `711`
 /// Location: [src/lib/mina_base/party.ml:1355:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L1355)
@@ -1721,7 +1929,7 @@ pub struct MinaBasePartiesTStableV1OtherPartiesAA {
     pub calls: Vec<MinaBasePartiesTStableV1OtherPartiesAACallsA>,
 }
 
-/// OCaml name: `Mina_base__Parties.T.Stable.V1`
+/// **OCaml name**: `Mina_base__Parties.T.Stable.V1`
 ///
 /// Gid: `722`
 /// Location: [src/lib/mina_base/parties.ml:876:12](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/parties.ml#L876)
@@ -1787,7 +1995,7 @@ pub struct StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B {
     pub status: MinaBaseTransactionStatusStableV2,
 }
 
-/// OCaml name: `Mina_base__User_command.Stable.V2`
+/// **OCaml name**: `Mina_base__User_command.Stable.V2`
 ///
 /// Gid: `731`
 /// Location: [src/lib/mina_base/user_command.ml:67:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/user_command.ml#L67)
@@ -1802,7 +2010,7 @@ pub enum MinaBaseUserCommandStableV2 {
     Parties(MinaBasePartiesTStableV1),
 }
 
-/// OCaml name: `Mina_base__Fee_transfer.Make_str.Single.Stable.V2`
+/// **OCaml name**: `Mina_base__Fee_transfer.Make_str.Single.Stable.V2`
 ///
 /// Gid: `735`
 /// Location: [src/lib/mina_base/fee_transfer.ml:19:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/fee_transfer.ml#L19)
@@ -1813,7 +2021,7 @@ pub struct MinaBaseFeeTransferMakeStrSingleStableV2 {
     pub fee_token: MinaBaseAccountIdMakeStrDigestStableV1,
 }
 
-/// OCaml name: `Mina_base__Fee_transfer.Make_str.Stable.V2`
+/// **OCaml name**: `Mina_base__Fee_transfer.Make_str.Stable.V2`
 ///
 /// Gid: `736`
 /// Location: [src/lib/mina_base/fee_transfer.ml:68:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/fee_transfer.ml#L68)
@@ -1834,7 +2042,7 @@ pub enum MinaBaseFeeTransferMakeStrStableV2 {
     ),
 }
 
-/// OCaml name: `Mina_base__Coinbase_fee_transfer.Make_str.Stable.V1`
+/// **OCaml name**: `Mina_base__Coinbase_fee_transfer.Make_str.Stable.V1`
 ///
 /// Gid: `737`
 /// Location: [src/lib/mina_base/coinbase_fee_transfer.ml:15:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/coinbase_fee_transfer.ml#L15)
@@ -1844,7 +2052,7 @@ pub struct MinaBaseCoinbaseFeeTransferMakeStrStableV1 {
     pub fee: CurrencyMakeStrFeeStableV1,
 }
 
-/// OCaml name: `Mina_base__Coinbase.Make_str.Stable.V1`
+/// **OCaml name**: `Mina_base__Coinbase.Make_str.Stable.V1`
 ///
 /// Gid: `738`
 /// Location: [src/lib/mina_base/coinbase.ml:17:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/coinbase.ml#L17)
@@ -1855,7 +2063,7 @@ pub struct MinaBaseCoinbaseMakeStrStableV1 {
     pub fee_transfer: Option<MinaBaseCoinbaseFeeTransferMakeStrStableV1>,
 }
 
-/// OCaml name: `Mina_base__Pending_coinbase.Stack_id.Stable.V1`
+/// **OCaml name**: `Mina_base__Pending_coinbase.Stack_id.Stable.V1`
 ///
 /// Gid: `740`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:101:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L101)
@@ -1870,21 +2078,21 @@ pub struct MinaBaseCoinbaseMakeStrStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePendingCoinbaseStackIdStableV1(pub crate::number::Int32);
 
-/// OCaml name: `Mina_base__Pending_coinbase.Coinbase_stack.Stable.V1`
+/// **OCaml name**: `Mina_base__Pending_coinbase.Coinbase_stack.Stable.V1`
 ///
 /// Gid: `743`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:152:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L152)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePendingCoinbaseCoinbaseStackStableV1(pub crate::bigint::BigInt);
 
-/// OCaml name: `Mina_base__Pending_coinbase.Stack_hash.Stable.V1`
+/// **OCaml name**: `Mina_base__Pending_coinbase.Stack_hash.Stable.V1`
 ///
 /// Gid: `748`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:212:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L212)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePendingCoinbaseStackHashStableV1(pub crate::bigint::BigInt);
 
-/// OCaml name: `Mina_base__Pending_coinbase.State_stack.Stable.V1`
+/// **OCaml name**: `Mina_base__Pending_coinbase.State_stack.Stable.V1`
 ///
 /// Gid: `752`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:247:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L247)
@@ -1899,14 +2107,14 @@ pub struct MinaBasePendingCoinbaseStateStackStableV1 {
     pub curr: MinaBasePendingCoinbaseStackHashStableV1,
 }
 
-/// OCaml name: `Mina_base__Pending_coinbase.Hash_builder.Stable.V1`
+/// **OCaml name**: `Mina_base__Pending_coinbase.Hash_builder.Stable.V1`
 ///
 /// Gid: `755`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:358:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L358)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePendingCoinbaseHashBuilderStableV1(pub crate::bigint::BigInt);
 
-/// OCaml name: `Mina_base__Pending_coinbase.Stack_versioned.Stable.V1`
+/// **OCaml name**: `Mina_base__Pending_coinbase.Stack_versioned.Stable.V1`
 ///
 /// Gid: `762`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:504:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L504)
@@ -1921,7 +2129,7 @@ pub struct MinaBasePendingCoinbaseStackVersionedStableV1 {
     pub state: MinaBasePendingCoinbaseStateStackStableV1,
 }
 
-/// OCaml name: `Mina_base__Pending_coinbase.Hash_versioned.Stable.V1`
+/// **OCaml name**: `Mina_base__Pending_coinbase.Hash_versioned.Stable.V1`
 ///
 /// Gid: `763`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:517:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L517)
@@ -1930,7 +2138,7 @@ pub struct MinaBasePendingCoinbaseHashVersionedStableV1(
     pub MinaBasePendingCoinbaseHashBuilderStableV1,
 );
 
-/// OCaml name: `Mina_base__Pending_coinbase.Merkle_tree_versioned.Stable.V2`
+/// **OCaml name**: `Mina_base__Pending_coinbase.Merkle_tree_versioned.Stable.V2`
 ///
 /// Gid: `764`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:529:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L529)
@@ -1946,23 +2154,7 @@ pub struct MinaBasePendingCoinbaseMerkleTreeVersionedStableV2 {
     pub tree: MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree,
 }
 
-/// OCaml name: `Mina_base__Pending_coinbase.Stable.V2`
-///
-/// Gid: `766`
-/// Location: [src/lib/mina_base/pending_coinbase.ml:1238:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L1238)
-///
-///
-/// Gid: `765`
-/// Location: [src/lib/mina_base/pending_coinbase.ml:1226:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/pending_coinbase.ml#L1226)
-/// Args: MinaBasePendingCoinbaseMerkleTreeVersionedStableV2 , MinaBasePendingCoinbaseStackIdStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBasePendingCoinbaseStableV2 {
-    pub tree: MinaBasePendingCoinbaseMerkleTreeVersionedStableV2,
-    pub pos_list: Vec<MinaBasePendingCoinbaseStackIdStableV1>,
-    pub new_pos: MinaBasePendingCoinbaseStackIdStableV1,
-}
-
-/// OCaml name: `Mina_base__Staged_ledger_hash.Aux_hash.Stable.V1`
+/// **OCaml name**: `Mina_base__Staged_ledger_hash.Aux_hash.Stable.V1`
 ///
 /// Gid: `767`
 /// Location: [src/lib/mina_base/staged_ledger_hash.ml:16:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/staged_ledger_hash.ml#L16)
@@ -1977,7 +2169,7 @@ pub struct MinaBasePendingCoinbaseStableV2 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseStagedLedgerHashAuxHashStableV1(pub crate::string::ByteString);
 
-/// OCaml name: `Mina_base__Staged_ledger_hash.Pending_coinbase_aux.Stable.V1`
+/// **OCaml name**: `Mina_base__Staged_ledger_hash.Pending_coinbase_aux.Stable.V1`
 ///
 /// Gid: `768`
 /// Location: [src/lib/mina_base/staged_ledger_hash.ml:62:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/staged_ledger_hash.ml#L62)
@@ -1992,7 +2184,7 @@ pub struct MinaBaseStagedLedgerHashAuxHashStableV1(pub crate::string::ByteString
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1(pub crate::string::ByteString);
 
-/// OCaml name: `Mina_base__Staged_ledger_hash.Non_snark.Stable.V1`
+/// **OCaml name**: `Mina_base__Staged_ledger_hash.Non_snark.Stable.V1`
 ///
 /// Gid: `769`
 /// Location: [src/lib/mina_base/staged_ledger_hash.ml:98:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/staged_ledger_hash.ml#L98)
@@ -2003,7 +2195,7 @@ pub struct MinaBaseStagedLedgerHashNonSnarkStableV1 {
     pub pending_coinbase_aux: MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1,
 }
 
-/// OCaml name: `Mina_base__Staged_ledger_hash.Stable.V1`
+/// **OCaml name**: `Mina_base__Staged_ledger_hash.Stable.V1`
 ///
 /// Gid: `771`
 /// Location: [src/lib/mina_base/staged_ledger_hash.ml:202:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/staged_ledger_hash.ml#L202)
@@ -2018,30 +2210,14 @@ pub struct MinaBaseStagedLedgerHashStableV1 {
     pub pending_coinbase_hash: MinaBasePendingCoinbaseHashVersionedStableV1,
 }
 
-/// OCaml name: `Mina_base__Stack_frame.Digest.Stable.V1`
+/// **OCaml name**: `Mina_base__Stack_frame.Digest.Stable.V1`
 ///
 /// Gid: `773`
 /// Location: [src/lib/mina_base/stack_frame.ml:55:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/stack_frame.ml#L55)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseStackFrameDigestStableV1(pub crate::bigint::BigInt);
 
-/// OCaml name: `Mina_base__Sparse_ledger_base.Stable.V2`
-///
-/// Gid: `774`
-/// Location: [src/lib/mina_base/sparse_ledger_base.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sparse_ledger_base.ml#L8)
-///
-///
-/// Gid: `598`
-/// Location: [src/lib/sparse_ledger_lib/sparse_ledger.ml:38:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sparse_ledger_lib/sparse_ledger.ml#L38)
-/// Args: MinaBaseLedgerHash0StableV1 , MinaBaseAccountIdMakeStrStableV2 , MinaBaseAccountBinableArgStableV2
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseSparseLedgerBaseStableV2 {
-    pub indexes: Vec<(MinaBaseAccountIdMakeStrStableV2, crate::number::Int32)>,
-    pub depth: crate::number::Int32,
-    pub tree: MinaBaseSparseLedgerBaseStableV2Tree,
-}
-
-/// OCaml name: `Mina_base__Sok_message.Stable.V1`
+/// **OCaml name**: `Mina_base__Sok_message.Stable.V1`
 ///
 /// Gid: `775`
 /// Location: [src/lib/mina_base/sok_message.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/sok_message.ml#L8)
@@ -2051,7 +2227,7 @@ pub struct MinaBaseSokMessageStableV1 {
     pub prover: NonZeroCurvePointUncompressedStableV1,
 }
 
-/// OCaml name: `Mina_base__Protocol_constants_checked.Value.Stable.V1`
+/// **OCaml name**: `Mina_base__Protocol_constants_checked.Value.Stable.V1`
 ///
 /// Gid: `776`
 /// Location: [src/lib/mina_base/protocol_constants_checked.ml:22:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/protocol_constants_checked.ml#L22)
@@ -2069,21 +2245,21 @@ pub struct MinaBaseProtocolConstantsCheckedValueStableV1 {
     pub genesis_state_timestamp: BlockTimeMakeStrTimeStableV1,
 }
 
-/// OCaml name: `Mina_base__Proof.Stable.V2`
+/// **OCaml name**: `Mina_base__Proof.Stable.V2`
 ///
 /// Gid: `777`
 /// Location: [src/lib/mina_base/proof.ml:12:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/proof.ml#L12)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseProofStableV2(pub PicklesProofProofsVerified2ReprStableV2);
 
-/// OCaml name: `Mina_base__Call_stack_digest.Stable.V1`
+/// **OCaml name**: `Mina_base__Call_stack_digest.Stable.V1`
 ///
 /// Gid: `779`
 /// Location: [src/lib/mina_base/call_stack_digest.ml:6:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/call_stack_digest.ml#L6)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseCallStackDigestStableV1(pub crate::bigint::BigInt);
 
-/// OCaml name: `Mina_base__Fee_with_prover.Stable.V1`
+/// **OCaml name**: `Mina_base__Fee_with_prover.Stable.V1`
 ///
 /// Gid: `780`
 /// Location: [src/lib/mina_base/fee_with_prover.ml:7:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/fee_with_prover.ml#L7)
@@ -2093,7 +2269,7 @@ pub struct MinaBaseFeeWithProverStableV1 {
     pub prover: NonZeroCurvePointUncompressedStableV1,
 }
 
-/// OCaml name: `Mina_transaction_logic__Parties_logic.Local_state.Value.Stable.V1`
+/// **OCaml name**: `Mina_transaction_logic__Parties_logic.Local_state.Value.Stable.V1`
 ///
 /// Gid: `792`
 /// Location: [src/lib/transaction_logic/parties_logic.ml:216:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_logic/parties_logic.ml#L216)
@@ -2116,7 +2292,7 @@ pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1 {
     pub failure_status_tbl: MinaBaseTransactionStatusFailureCollectionStableV1,
 }
 
-/// OCaml name: `Mina_transaction_logic.Transaction_applied.Signed_command_applied.Common.Stable.V2`
+/// **OCaml name**: `Mina_transaction_logic.Transaction_applied.Signed_command_applied.Common.Stable.V2`
 ///
 /// Gid: `794`
 /// Location: [src/lib/transaction_logic/mina_transaction_logic.ml:17:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_logic/mina_transaction_logic.ml#L17)
@@ -2126,7 +2302,7 @@ pub struct MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStabl
         MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2UserCommand,
 }
 
-/// OCaml name: `Mina_transaction_logic.Transaction_applied.Signed_command_applied.Body.Stable.V2`
+/// **OCaml name**: `Mina_transaction_logic.Transaction_applied.Signed_command_applied.Body.Stable.V2`
 ///
 /// Gid: `795`
 /// Location: [src/lib/transaction_logic/mina_transaction_logic.ml:31:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_logic/mina_transaction_logic.ml#L31)
@@ -2141,7 +2317,7 @@ pub enum MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2 
     Failed,
 }
 
-/// OCaml name: `Mina_transaction_logic.Transaction_applied.Signed_command_applied.Stable.V2`
+/// **OCaml name**: `Mina_transaction_logic.Transaction_applied.Signed_command_applied.Stable.V2`
 ///
 /// Gid: `796`
 /// Location: [src/lib/transaction_logic/mina_transaction_logic.ml:46:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_logic/mina_transaction_logic.ml#L46)
@@ -2151,7 +2327,7 @@ pub struct MinaTransactionLogicTransactionAppliedSignedCommandAppliedStableV2 {
     pub body: MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2,
 }
 
-/// OCaml name: `Mina_transaction_logic.Transaction_applied.Parties_applied.Stable.V1`
+/// **OCaml name**: `Mina_transaction_logic.Transaction_applied.Parties_applied.Stable.V1`
 ///
 /// Gid: `797`
 /// Location: [src/lib/transaction_logic/mina_transaction_logic.ml:58:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_logic/mina_transaction_logic.ml#L58)
@@ -2165,7 +2341,7 @@ pub struct MinaTransactionLogicTransactionAppliedPartiesAppliedStableV1 {
     pub new_accounts: Vec<MinaBaseAccountIdMakeStrStableV2>,
 }
 
-/// OCaml name: `Mina_transaction_logic.Transaction_applied.Command_applied.Stable.V2`
+/// **OCaml name**: `Mina_transaction_logic.Transaction_applied.Command_applied.Stable.V2`
 ///
 /// Gid: `798`
 /// Location: [src/lib/transaction_logic/mina_transaction_logic.ml:75:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_logic/mina_transaction_logic.ml#L75)
@@ -2175,7 +2351,7 @@ pub enum MinaTransactionLogicTransactionAppliedCommandAppliedStableV2 {
     Parties(MinaTransactionLogicTransactionAppliedPartiesAppliedStableV1),
 }
 
-/// OCaml name: `Mina_transaction_logic.Transaction_applied.Fee_transfer_applied.Stable.V2`
+/// **OCaml name**: `Mina_transaction_logic.Transaction_applied.Fee_transfer_applied.Stable.V2`
 ///
 /// Gid: `799`
 /// Location: [src/lib/transaction_logic/mina_transaction_logic.ml:89:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_logic/mina_transaction_logic.ml#L89)
@@ -2186,7 +2362,7 @@ pub struct MinaTransactionLogicTransactionAppliedFeeTransferAppliedStableV2 {
     pub burned_tokens: CurrencyMakeStrAmountMakeStrStableV1,
 }
 
-/// OCaml name: `Mina_transaction_logic.Transaction_applied.Coinbase_applied.Stable.V2`
+/// **OCaml name**: `Mina_transaction_logic.Transaction_applied.Coinbase_applied.Stable.V2`
 ///
 /// Gid: `800`
 /// Location: [src/lib/transaction_logic/mina_transaction_logic.ml:105:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_logic/mina_transaction_logic.ml#L105)
@@ -2197,7 +2373,7 @@ pub struct MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2 {
     pub burned_tokens: CurrencyMakeStrAmountMakeStrStableV1,
 }
 
-/// OCaml name: `Mina_transaction_logic.Transaction_applied.Varying.Stable.V2`
+/// **OCaml name**: `Mina_transaction_logic.Transaction_applied.Varying.Stable.V2`
 ///
 /// Gid: `801`
 /// Location: [src/lib/transaction_logic/mina_transaction_logic.ml:121:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_logic/mina_transaction_logic.ml#L121)
@@ -2208,7 +2384,7 @@ pub enum MinaTransactionLogicTransactionAppliedVaryingStableV2 {
     Coinbase(MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2),
 }
 
-/// OCaml name: `Mina_transaction_logic.Transaction_applied.Stable.V2`
+/// **OCaml name**: `Mina_transaction_logic.Transaction_applied.Stable.V2`
 ///
 /// Gid: `802`
 /// Location: [src/lib/transaction_logic/mina_transaction_logic.ml:135:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_logic/mina_transaction_logic.ml#L135)
@@ -2218,14 +2394,14 @@ pub struct MinaTransactionLogicTransactionAppliedStableV2 {
     pub varying: MinaTransactionLogicTransactionAppliedVaryingStableV2,
 }
 
-/// OCaml name: `Merkle_address.Binable_arg.Stable.V1`
+/// **OCaml name**: `Merkle_address.Binable_arg.Stable.V1`
 ///
 /// Gid: `803`
 /// Location: [src/lib/merkle_address/merkle_address.ml:48:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/merkle_address/merkle_address.ml#L48)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MerkleAddressBinableArgStableV1(pub crate::number::Int32, pub crate::string::ByteString);
 
-/// OCaml name: `Network_peer__Peer.Id.Stable.V1`
+/// **OCaml name**: `Network_peer__Peer.Id.Stable.V1`
 ///
 /// Gid: `809`
 /// Location: [src/lib/network_peer/peer.ml:10:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_peer/peer.ml#L10)
@@ -2240,18 +2416,7 @@ pub struct MerkleAddressBinableArgStableV1(pub crate::number::Int32, pub crate::
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct NetworkPeerPeerIdStableV1(pub crate::string::ByteString);
 
-/// OCaml name: `Network_peer__Peer.Stable.V1`
-///
-/// Gid: `810`
-/// Location: [src/lib/network_peer/peer.ml:28:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_peer/peer.ml#L28)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct NetworkPeerPeerStableV1 {
-    pub host: crate::string::ByteString,
-    pub libp2p_port: crate::number::Int32,
-    pub peer_id: NetworkPeerPeerIdStableV1,
-}
-
-/// OCaml name: `Trust_system__Banned_status.Stable.V1`
+/// **OCaml name**: `Trust_system__Banned_status.Stable.V1`
 ///
 /// Gid: `814`
 /// Location: [src/lib/trust_system/banned_status.ml:6:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/trust_system/banned_status.ml#L6)
@@ -2261,49 +2426,7 @@ pub enum TrustSystemBannedStatusStableV1 {
     BannedUntil(crate::number::Float64),
 }
 
-/// OCaml name: `Trust_system__Peer_status.Stable.V1`
-///
-/// Gid: `815`
-/// Location: [src/lib/trust_system/peer_status.ml:6:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/trust_system/peer_status.ml#L6)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct TrustSystemPeerStatusStableV1 {
-    pub trust: crate::number::Float64,
-    pub banned: TrustSystemBannedStatusStableV1,
-}
-
-/// OCaml name: `Mina_ledger__Sync_ledger.Answer.Stable.V2`
-///
-/// Gid: `827`
-/// Location: [src/lib/mina_ledger/sync_ledger.ml:56:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_ledger/sync_ledger.ml#L56)
-///
-///
-/// Gid: `818`
-/// Location: [src/lib/syncable_ledger/syncable_ledger.ml:35:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/syncable_ledger/syncable_ledger.ml#L35)
-/// Args: MinaBaseLedgerHash0StableV1 , MinaBaseAccountBinableArgStableV2
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub enum MinaLedgerSyncLedgerAnswerStableV2 {
-    ChildHashesAre(MinaBaseLedgerHash0StableV1, MinaBaseLedgerHash0StableV1),
-    ContentsAre(Vec<MinaBaseAccountBinableArgStableV2>),
-    NumAccounts(crate::number::Int32, MinaBaseLedgerHash0StableV1),
-}
-
-/// OCaml name: `Mina_ledger__Sync_ledger.Query.Stable.V1`
-///
-/// Gid: `828`
-/// Location: [src/lib/mina_ledger/sync_ledger.ml:71:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_ledger/sync_ledger.ml#L71)
-///
-///
-/// Gid: `817`
-/// Location: [src/lib/syncable_ledger/syncable_ledger.ml:17:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/syncable_ledger/syncable_ledger.ml#L17)
-/// Args: MerkleAddressBinableArgStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub enum MinaLedgerSyncLedgerQueryStableV1 {
-    WhatChildHashes(MerkleAddressBinableArgStableV1),
-    WhatContents(MerkleAddressBinableArgStableV1),
-    NumAccounts,
-}
-
-/// OCaml name: `Consensus_vrf.Output.Truncated.Stable.V1`
+/// **OCaml name**: `Consensus_vrf.Output.Truncated.Stable.V1`
 ///
 /// Gid: `829`
 /// Location: [src/lib/consensus/vrf/consensus_vrf.ml:167:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/vrf/consensus_vrf.ml#L167)
@@ -2318,14 +2441,14 @@ pub enum MinaLedgerSyncLedgerQueryStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ConsensusVrfOutputTruncatedStableV1(pub crate::string::ByteString);
 
-/// OCaml name: `Consensus__Body_reference.Stable.V1`
+/// **OCaml name**: `Consensus__Body_reference.Stable.V1`
 ///
 /// Gid: `843`
 /// Location: [src/lib/consensus/body_reference.ml:17:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/body_reference.ml#L17)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ConsensusBodyReferenceStableV1(pub Blake2MakeStableV1);
 
-/// OCaml name: `Consensus__Global_slot.Stable.V1`
+/// **OCaml name**: `Consensus__Global_slot.Stable.V1`
 ///
 /// Gid: `848`
 /// Location: [src/lib/consensus/global_slot.ml:21:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/global_slot.ml#L21)
@@ -2340,7 +2463,7 @@ pub struct ConsensusGlobalSlotStableV1 {
     pub slots_per_epoch: UnsignedExtendedUInt32StableV1,
 }
 
-/// OCaml name: `Consensus__Proof_of_stake.Data.Epoch_data.Staking_value_versioned.Value.Stable.V1`
+/// **OCaml name**: `Consensus__Proof_of_stake.Data.Epoch_data.Staking_value_versioned.Value.Stable.V1`
 ///
 /// Gid: `856`
 /// Location: [src/lib/consensus/proof_of_stake.ml:1054:12](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/proof_of_stake.ml#L1054)
@@ -2358,7 +2481,7 @@ pub struct ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 
     pub epoch_length: UnsignedExtendedUInt32StableV1,
 }
 
-/// OCaml name: `Consensus__Proof_of_stake.Data.Epoch_data.Next_value_versioned.Value.Stable.V1`
+/// **OCaml name**: `Consensus__Proof_of_stake.Data.Epoch_data.Next_value_versioned.Value.Stable.V1`
 ///
 /// Gid: `857`
 /// Location: [src/lib/consensus/proof_of_stake.ml:1078:12](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/proof_of_stake.ml#L1078)
@@ -2374,34 +2497,6 @@ pub struct ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
     pub start_checkpoint: DataHashLibStateHashStableV1,
     pub lock_checkpoint: DataHashLibStateHashStableV1,
     pub epoch_length: UnsignedExtendedUInt32StableV1,
-}
-
-/// OCaml name: `Consensus__Proof_of_stake.Data.Consensus_state.Value.Stable.V1`
-///
-/// Gid: `859`
-/// Location: [src/lib/consensus/proof_of_stake.ml:1722:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/proof_of_stake.ml#L1722)
-///
-///
-/// Gid: `858`
-/// Location: [src/lib/consensus/proof_of_stake.ml:1687:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/consensus/proof_of_stake.ml#L1687)
-/// Args: UnsignedExtendedUInt32StableV1 , ConsensusVrfOutputTruncatedStableV1 , CurrencyMakeStrAmountMakeStrStableV1 , ConsensusGlobalSlotStableV1 , UnsignedExtendedUInt32StableV1 , ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 , ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 , bool , NonZeroCurvePointUncompressedStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct ConsensusProofOfStakeDataConsensusStateValueStableV1 {
-    pub blockchain_length: UnsignedExtendedUInt32StableV1,
-    pub epoch_count: UnsignedExtendedUInt32StableV1,
-    pub min_window_density: UnsignedExtendedUInt32StableV1,
-    pub sub_window_densities: Vec<UnsignedExtendedUInt32StableV1>,
-    pub last_vrf_output: ConsensusVrfOutputTruncatedStableV1,
-    pub total_currency: CurrencyMakeStrAmountMakeStrStableV1,
-    pub curr_global_slot: ConsensusGlobalSlotStableV1,
-    pub global_slot_since_genesis: UnsignedExtendedUInt32StableV1,
-    pub staking_epoch_data: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-    pub next_epoch_data: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
-    pub has_ancestor_in_same_checkpoint_window: bool,
-    pub block_stake_winner: NonZeroCurvePointUncompressedStableV1,
-    pub block_creator: NonZeroCurvePointUncompressedStableV1,
-    pub coinbase_receiver: NonZeroCurvePointUncompressedStableV1,
-    pub supercharge_coinbase: bool,
 }
 
 /// Derived name: `Mina_state__Blockchain_state.Value.Stable.V2#registers`
@@ -2428,7 +2523,7 @@ pub struct TransactionSnarkStatementWithSokStableV2Source {
     pub local_state: MinaTransactionLogicPartiesLogicLocalStateValueStableV1,
 }
 
-/// OCaml name: `Mina_state__Blockchain_state.Value.Stable.V2`
+/// **OCaml name**: `Mina_state__Blockchain_state.Value.Stable.V2`
 ///
 /// Gid: `864`
 /// Location: [src/lib/mina_state/blockchain_state.ml:43:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_state/blockchain_state.ml#L43)
@@ -2446,7 +2541,7 @@ pub struct MinaStateBlockchainStateValueStableV2 {
     pub body_reference: ConsensusBodyReferenceStableV1,
 }
 
-/// OCaml name: `Mina_state__Protocol_state.Body.Value.Stable.V2`
+/// **OCaml name**: `Mina_state__Protocol_state.Body.Value.Stable.V2`
 ///
 /// Gid: `870`
 /// Location: [src/lib/mina_state/protocol_state.ml:53:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_state/protocol_state.ml#L53)
@@ -2463,22 +2558,7 @@ pub struct MinaStateProtocolStateBodyValueStableV2 {
     pub constants: MinaBaseProtocolConstantsCheckedValueStableV1,
 }
 
-/// OCaml name: `Mina_state__Protocol_state.Value.Stable.V2`
-///
-/// Gid: `871`
-/// Location: [src/lib/mina_state/protocol_state.ml:177:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_state/protocol_state.ml#L177)
-///
-///
-/// Gid: `867`
-/// Location: [src/lib/mina_state/protocol_state.ml:16:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_state/protocol_state.ml#L16)
-/// Args: DataHashLibStateHashStableV1 , MinaStateProtocolStateBodyValueStableV2
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaStateProtocolStateValueStableV2 {
-    pub previous_state_hash: DataHashLibStateHashStableV1,
-    pub body: MinaStateProtocolStateBodyValueStableV2,
-}
-
-/// OCaml name: `Transaction_snark.Pending_coinbase_stack_state.Init_stack.Stable.V1`
+/// **OCaml name**: `Transaction_snark.Pending_coinbase_stack_state.Init_stack.Stable.V1`
 ///
 /// Gid: `899`
 /// Location: [src/lib/transaction_snark/transaction_snark.ml:56:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark/transaction_snark.ml#L56)
@@ -2488,7 +2568,7 @@ pub enum TransactionSnarkPendingCoinbaseStackStateInitStackStableV1 {
     Merge,
 }
 
-/// OCaml name: `Transaction_snark.Statement.Stable.V2`
+/// **OCaml name**: `Transaction_snark.Statement.Stable.V2`
 ///
 /// Gid: `905`
 /// Location: [src/lib/transaction_snark/transaction_snark.ml:205:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark/transaction_snark.ml#L205)
@@ -2506,7 +2586,7 @@ pub struct TransactionSnarkStatementStableV2 {
     pub sok_digest: (),
 }
 
-/// OCaml name: `Transaction_snark.Statement.With_sok.Stable.V2`
+/// **OCaml name**: `Transaction_snark.Statement.With_sok.Stable.V2`
 ///
 /// Gid: `906`
 /// Location: [src/lib/transaction_snark/transaction_snark.ml:223:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark/transaction_snark.ml#L223)
@@ -2524,14 +2604,14 @@ pub struct TransactionSnarkStatementWithSokStableV2 {
     pub sok_digest: MinaBaseAccountTokenSymbolStableV1,
 }
 
-/// OCaml name: `Transaction_snark.Proof.Stable.V2`
+/// **OCaml name**: `Transaction_snark.Proof.Stable.V2`
 ///
 /// Gid: `909`
 /// Location: [src/lib/transaction_snark/transaction_snark.ml:378:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark/transaction_snark.ml#L378)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct TransactionSnarkProofStableV2(pub PicklesProofProofsVerified2ReprStableV2);
 
-/// OCaml name: `Transaction_snark.Stable.V2`
+/// **OCaml name**: `Transaction_snark.Stable.V2`
 ///
 /// Gid: `910`
 /// Location: [src/lib/transaction_snark/transaction_snark.ml:389:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark/transaction_snark.ml#L389)
@@ -2541,14 +2621,14 @@ pub struct TransactionSnarkStableV2 {
     pub proof: TransactionSnarkProofStableV2,
 }
 
-/// OCaml name: `Ledger_proof.Prod.Stable.V2`
+/// **OCaml name**: `Ledger_proof.Prod.Stable.V2`
 ///
 /// Gid: `913`
 /// Location: [src/lib/ledger_proof/ledger_proof.ml:10:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/ledger_proof/ledger_proof.ml#L10)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct LedgerProofProdStableV2(pub TransactionSnarkStableV2);
 
-/// OCaml name: `Transaction_snark_work.Statement.Stable.V2`
+/// **OCaml name**: `Transaction_snark_work.Statement.Stable.V2`
 ///
 /// Gid: `915`
 /// Location: [src/lib/transaction_snark_work/transaction_snark_work.ml:23:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark_work/transaction_snark_work.ml#L23)
@@ -2569,7 +2649,7 @@ pub enum TransactionSnarkWorkStatementStableV2 {
     ),
 }
 
-/// OCaml name: `Transaction_snark_work.T.Stable.V2`
+/// **OCaml name**: `Transaction_snark_work.T.Stable.V2`
 ///
 /// Gid: `919`
 /// Location: [src/lib/transaction_snark_work/transaction_snark_work.ml:82:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark_work/transaction_snark_work.ml#L82)
@@ -2608,14 +2688,14 @@ pub enum StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase {
     One(Option<StagedLedgerDiffDiffFtStableV1>),
 }
 
-/// OCaml name: `Staged_ledger_diff__Diff.Ft.Stable.V1`
+/// **OCaml name**: `Staged_ledger_diff__Diff.Ft.Stable.V1`
 ///
 /// Gid: `922`
 /// Location: [src/lib/staged_ledger_diff/diff.ml:67:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/staged_ledger_diff/diff.ml#L67)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct StagedLedgerDiffDiffFtStableV1(pub MinaBaseCoinbaseFeeTransferMakeStrStableV1);
 
-/// OCaml name: `Staged_ledger_diff__Diff.Pre_diff_with_at_most_two_coinbase.Stable.V2`
+/// **OCaml name**: `Staged_ledger_diff__Diff.Pre_diff_with_at_most_two_coinbase.Stable.V2`
 ///
 /// Gid: `925`
 /// Location: [src/lib/staged_ledger_diff/diff.ml:147:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/staged_ledger_diff/diff.ml#L147)
@@ -2632,7 +2712,7 @@ pub struct StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2 {
     pub internal_command_statuses: Vec<MinaBaseTransactionStatusStableV2>,
 }
 
-/// OCaml name: `Staged_ledger_diff__Diff.Pre_diff_with_at_most_one_coinbase.Stable.V2`
+/// **OCaml name**: `Staged_ledger_diff__Diff.Pre_diff_with_at_most_one_coinbase.Stable.V2`
 ///
 /// Gid: `926`
 /// Location: [src/lib/staged_ledger_diff/diff.ml:166:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/staged_ledger_diff/diff.ml#L166)
@@ -2649,7 +2729,7 @@ pub struct StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2 {
     pub internal_command_statuses: Vec<MinaBaseTransactionStatusStableV2>,
 }
 
-/// OCaml name: `Staged_ledger_diff__Diff.Diff.Stable.V2`
+/// **OCaml name**: `Staged_ledger_diff__Diff.Diff.Stable.V2`
 ///
 /// Gid: `927`
 /// Location: [src/lib/staged_ledger_diff/diff.ml:185:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/staged_ledger_diff/diff.ml#L185)
@@ -2659,7 +2739,7 @@ pub struct StagedLedgerDiffDiffDiffStableV2(
     pub Option<StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2>,
 );
 
-/// OCaml name: `Staged_ledger_diff__Diff.Stable.V2`
+/// **OCaml name**: `Staged_ledger_diff__Diff.Stable.V2`
 ///
 /// Gid: `928`
 /// Location: [src/lib/staged_ledger_diff/diff.ml:202:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/staged_ledger_diff/diff.ml#L202)
@@ -2668,7 +2748,7 @@ pub struct StagedLedgerDiffDiffStableV2 {
     pub diff: StagedLedgerDiffDiffDiffStableV2,
 }
 
-/// OCaml name: `Staged_ledger_diff__Body.Stable.V1`
+/// **OCaml name**: `Staged_ledger_diff__Body.Stable.V1`
 ///
 /// Gid: `929`
 /// Location: [src/lib/staged_ledger_diff/body.ml:12:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/staged_ledger_diff/body.ml#L12)
@@ -2677,7 +2757,7 @@ pub struct StagedLedgerDiffBodyStableV1 {
     pub staged_ledger_diff: StagedLedgerDiffDiffStableV2,
 }
 
-/// OCaml name: `Parallel_scan.Sequence_number.Stable.V1`
+/// **OCaml name**: `Parallel_scan.Sequence_number.Stable.V1`
 ///
 /// Gid: `934`
 /// Location: [src/lib/parallel_scan/parallel_scan.ml:22:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L22)
@@ -2692,7 +2772,7 @@ pub struct StagedLedgerDiffBodyStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ParallelScanSequenceNumberStableV1(pub crate::number::Int32);
 
-/// OCaml name: `Parallel_scan.Job_status.Stable.V1`
+/// **OCaml name**: `Parallel_scan.Job_status.Stable.V1`
 ///
 /// Gid: `935`
 /// Location: [src/lib/parallel_scan/parallel_scan.ml:35:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L35)
@@ -2702,7 +2782,7 @@ pub enum ParallelScanJobStatusStableV1 {
     Done,
 }
 
-/// OCaml name: `Parallel_scan.Weight.Stable.V1`
+/// **OCaml name**: `Parallel_scan.Weight.Stable.V1`
 ///
 /// Gid: `936`
 /// Location: [src/lib/parallel_scan/parallel_scan.ml:53:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L53)
@@ -2760,7 +2840,7 @@ pub enum TransactionSnarkScanStateStableV2TreesAMergeT1 {
     Full(TransactionSnarkScanStateStableV2TreesAMergeT1Full0),
 }
 
-/// OCaml name: `Transaction_snark_scan_state.Transaction_with_witness.Stable.V2`
+/// **OCaml name**: `Transaction_snark_scan_state.Transaction_with_witness.Stable.V2`
 ///
 /// Gid: `949`
 /// Location: [src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml:40:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L40)
@@ -2773,7 +2853,7 @@ pub struct TransactionSnarkScanStateTransactionWithWitnessStableV2 {
     pub ledger_witness: MinaBaseSparseLedgerBaseStableV2,
 }
 
-/// OCaml name: `Transaction_snark_scan_state.Ledger_proof_with_sok_message.Stable.V2`
+/// **OCaml name**: `Transaction_snark_scan_state.Ledger_proof_with_sok_message.Stable.V2`
 ///
 /// Gid: `950`
 /// Location: [src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml:61:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L61)
@@ -2783,31 +2863,7 @@ pub struct TransactionSnarkScanStateLedgerProofWithSokMessageStableV2(
     pub MinaBaseSokMessageStableV1,
 );
 
-/// OCaml name: `Transaction_snark_scan_state.Stable.V2`
-///
-/// Gid: `951`
-/// Location: [src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml:153:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L153)
-///
-///
-/// Gid: `948`
-/// Location: [src/lib/parallel_scan/parallel_scan.ml:803:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L803)
-/// Args: TransactionSnarkScanStateLedgerProofWithSokMessageStableV2 , TransactionSnarkScanStateTransactionWithWitnessStableV2
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct TransactionSnarkScanStateStableV2 {
-    pub trees: (
-        TransactionSnarkScanStateStableV2TreesA,
-        Vec<TransactionSnarkScanStateStableV2TreesA>,
-    ),
-    pub acc: Option<(
-        TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
-        Vec<TransactionSnarkScanStateTransactionWithWitnessStableV2>,
-    )>,
-    pub curr_job_seq_no: crate::number::Int32,
-    pub max_base_jobs: crate::number::Int32,
-    pub delay: crate::number::Int32,
-}
-
-/// OCaml name: `Protocol_version.Stable.V1`
+/// **OCaml name**: `Protocol_version.Stable.V1`
 ///
 /// Gid: `970`
 /// Location: [src/lib/protocol_version/protocol_version.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/protocol_version/protocol_version.ml#L8)
@@ -2818,7 +2874,7 @@ pub struct ProtocolVersionStableV1 {
     pub patch: crate::number::Int32,
 }
 
-/// OCaml name: `Mina_block__Header.Stable.V2`
+/// **OCaml name**: `Mina_block__Header.Stable.V2`
 ///
 /// Gid: `973`
 /// Location: [src/lib/mina_block/header.ml:14:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_block/header.ml#L14)
@@ -2834,16 +2890,6 @@ pub struct MinaBlockHeaderStableV2 {
     pub proposed_protocol_version_opt: Option<ProtocolVersionStableV1>,
 }
 
-/// OCaml name: `Mina_block__Block.Stable.V2`
-///
-/// Gid: `974`
-/// Location: [src/lib/mina_block/block.ml:8:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_block/block.ml#L8)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBlockBlockStableV2 {
-    pub header: MinaBlockHeaderStableV2,
-    pub body: StagedLedgerDiffBodyStableV1,
-}
-
 /// Derived name: `Network_pool__Snark_pool.Diff_versioned.Stable.V2#Add_solved_work#1`
 ///
 /// Gid: `1000`
@@ -2853,49 +2899,4 @@ pub struct MinaBlockBlockStableV2 {
 pub struct NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1 {
     pub proof: TransactionSnarkWorkTStableV2Proofs,
     pub fee: MinaBaseFeeWithProverStableV1,
-}
-
-/// OCaml name: `Network_pool__Transaction_pool.Diff_versioned.Stable.V2`
-///
-/// Gid: `1001`
-/// Location: [src/lib/network_pool/transaction_pool.ml:47:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_pool/transaction_pool.ml#L47)
-///
-///
-/// Gid: `167`
-/// Location: [src/std_internal.ml:131:2](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/std_internal.ml#L131)
-/// Args: MinaBaseUserCommandStableV2
-///
-///
-/// Gid: `50`
-/// Location: [src/list0.ml:6:0](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/list0.ml#L6)
-/// Args: MinaBaseUserCommandStableV2
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct NetworkPoolTransactionPoolDiffVersionedStableV2(pub Vec<MinaBaseUserCommandStableV2>);
-
-/// OCaml name: `Network_pool__Snark_pool.Diff_versioned.Stable.V2`
-///
-/// Gid: `1007`
-/// Location: [src/lib/network_pool/snark_pool.ml:732:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/network_pool/snark_pool.ml#L732)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub enum NetworkPoolSnarkPoolDiffVersionedStableV2 {
-    AddSolvedWork(
-        TransactionSnarkWorkStatementStableV2,
-        NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1,
-    ),
-    Empty,
-}
-
-/// OCaml name: `Sync_status.T.Stable.V1`
-///
-/// Gid: `1031`
-/// Location: [src/lib/sync_status/sync_status.ml:54:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/sync_status/sync_status.ml#L54)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-#[polymorphic_variant]
-pub enum SyncStatusTStableV1 {
-    Connecting,
-    Listening,
-    Offline,
-    Bootstrap,
-    Synced,
-    Catchup,
 }
