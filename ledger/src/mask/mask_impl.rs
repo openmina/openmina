@@ -319,6 +319,8 @@ impl MaskImpl {
             } => {
                 let account_id = account.id();
 
+                hashes.invalidate_hashes(account_index.clone());
+
                 let own_account = match {
                     id_to_addr
                         .get(&account_id)
@@ -333,8 +335,6 @@ impl MaskImpl {
                     // Do not delete our account if it is different than the parent one
                     return;
                 }
-
-                hashes.invalidate_hashes(account_index.clone());
 
                 self.remove_own_account(&[account_id]);
             }
@@ -1240,13 +1240,13 @@ impl BaseLedger for MaskImpl {
         addr: Address,
         accounts: &[Account],
     ) -> Result<(), ()> {
-        let self_depth = self.depth() as usize;
+        let depth = self.depth() as usize;
 
-        if addr.length() > self_depth {
+        if addr.length() > depth {
             return Err(());
         }
 
-        for (child_addr, account) in addr.iter_children(self_depth).zip(accounts) {
+        for (child_addr, account) in addr.iter_children(depth).zip(accounts) {
             self.set(child_addr, account.clone());
         }
 

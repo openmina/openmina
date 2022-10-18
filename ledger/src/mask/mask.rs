@@ -340,77 +340,49 @@ impl BaseLedger for Mask {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use o1_utils::FieldHelpers;
     use tests_mask_ocaml::*;
 
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
-    // "Mask reparenting works"
+    // Make sure hashes are correctly invalided in masks (parents/childs)
     #[test]
     fn test_masks_cached_hashes() {
-        let (mut root, mut layer1, mut layer2) = new_chain(DEPTH);
+        for case in 0..2 {
+            let (mut root, mut layer1, mut layer2) = new_chain(DEPTH);
 
-        let acc1 = Account::rand();
-        let acc2 = Account::rand();
-        let acc3 = Account::rand();
+            let acc1 = Account::rand();
+            let acc2 = Account::rand();
+            let acc3 = Account::rand();
 
-        let _loc1 = root.get_or_create_account(acc1.id(), acc1).unwrap().addr();
-        let _loc2 = layer1
-            .get_or_create_account(acc2.id(), acc2.clone())
-            .unwrap()
-            .addr();
-        let _loc3 = layer2
-            .get_or_create_account(acc3.id(), acc3)
-            .unwrap()
-            .addr();
+            let _loc1 = root.get_or_create_account(acc1.id(), acc1).unwrap().addr();
+            let _loc2 = layer1
+                .get_or_create_account(acc2.id(), acc2.clone())
+                .unwrap()
+                .addr();
+            let _loc3 = layer2
+                .get_or_create_account(acc3.id(), acc3)
+                .unwrap()
+                .addr();
 
-        let root_hash = layer2.merkle_root();
+            let root_hash = layer2.merkle_root();
 
-        println!("root={:#?}", root.test_matrix());
-        println!("layer1={:#?}", layer1.test_matrix());
-        println!("layer2={:#?}", layer2.test_matrix());
+            // Different cases where is should result in a different hash for the childs
 
-        println!("hash={:?}", root_hash.to_hex());
+            if case == 0 {
+                layer1.remove_accounts(&[acc2.id()]);
+            } else if case == 1 {
+                let account_index = AccountIndex::from(1);
+                let addr = Address::from_index(account_index, DEPTH);
+                let new_account = Account::rand();
 
-        println!("remove acc2");
+                assert_ne!(layer1.get(addr.clone()).unwrap(), new_account);
 
-        layer1.remove_accounts(&[acc2.id()]);
+                layer1.set(addr, new_account);
+            }
 
-        println!("root={:#?}", root.test_matrix());
-        println!("layer1={:#?}", layer1.test_matrix());
-        println!("layer2={:#?}", layer2.test_matrix());
-
-        println!("hash={:?}", layer2.merkle_root().to_hex());
-
-        assert_ne!(root_hash, layer2.merkle_root());
-
-        // // All accounts are accessible from layer2
-        // assert!(layer2.get(loc1.clone()).is_some());
-        // assert!(layer2.get(loc2.clone()).is_some());
-        // assert!(layer2.get(loc3.clone()).is_some());
-
-        // // acc1 is in root
-        // assert!(root.get(loc1.clone()).is_some());
-
-        // layer1.commit();
-
-        // // acc2 is in root
-        // assert!(root.get(loc2.clone()).is_some());
-
-        // layer1.remove_and_reparent();
-
-        // // acc1, acc2 are in root
-        // assert!(root.get(loc1.clone()).is_some());
-        // assert!(root.get(loc2.clone()).is_some());
-
-        // // acc3 not in root
-        // assert!(root.get(loc3.clone()).is_none());
-
-        // // All accounts are accessible from layer2
-        // assert!(layer2.get(loc1).is_some());
-        // assert!(layer2.get(loc2).is_some());
-        // assert!(layer2.get(loc3).is_some());
+            assert_ne!(root_hash, layer2.merkle_root(), "case {:?}", case);
+        }
     }
 }
 
