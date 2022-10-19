@@ -1,4 +1,3 @@
-use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
 
@@ -39,8 +38,10 @@ pub struct NetworkPoolTransactionPoolDiffVersionedStableV2(pub Vec<MinaBaseUserC
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum NetworkPoolSnarkPoolDiffVersionedStableV2 {
     AddSolvedWork(
-        TransactionSnarkWorkStatementStableV2,
-        NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1,
+        Box<(
+            TransactionSnarkWorkStatementStableV2,
+            NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1,
+        )>,
     ),
     Empty,
 }
@@ -943,7 +944,7 @@ pub struct BlockTimeMakeStrTimeStableV1(pub UnsignedExtendedUInt64StableV1);
 /// Args: MinaBaseLedgerHash0StableV1 , MinaBaseAccountBinableArgStableV2
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBaseSparseLedgerBaseStableV2Tree {
-    Account(MinaBaseAccountBinableArgStableV2),
+    Account(Box<MinaBaseAccountBinableArgStableV2>),
     Hash(MinaBaseLedgerHash0StableV1),
     Node(
         MinaBaseLedgerHash0StableV1,
@@ -1036,7 +1037,7 @@ pub struct MinaBaseSignatureStableV1(pub crate::bigint::BigInt, pub crate::bigin
 /// Location: [src/lib/mina_base/control.ml:11:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/control.ml#L11)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBaseControlStableV2 {
-    Proof(PicklesProofProofsVerifiedMaxStableV2),
+    Proof(Box<PicklesProofProofsVerifiedMaxStableV2>),
     Signature(MinaBaseSignatureStableV1),
     NoneGiven,
 }
@@ -1257,7 +1258,7 @@ pub enum MinaBasePartyUpdateStableV1TokenSymbol {
 /// Args: MinaBasePartyUpdateTimingInfoStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBasePartyUpdateStableV1Timing {
-    Set(MinaBasePartyUpdateTimingInfoStableV1),
+    Set(Box<MinaBasePartyUpdateTimingInfoStableV1>),
     Keep,
 }
 
@@ -1268,7 +1269,7 @@ pub enum MinaBasePartyUpdateStableV1Timing {
 /// Args: MinaBasePermissionsStableV2
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBasePartyUpdateStableV1Permissions {
-    Set(MinaBasePermissionsStableV2),
+    Set(Box<MinaBasePermissionsStableV2>),
     Keep,
 }
 
@@ -1279,7 +1280,7 @@ pub enum MinaBasePartyUpdateStableV1Permissions {
 /// Args: MinaBaseVerificationKeyWireStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBasePartyUpdateStableV1VerificationKey {
-    Set(MinaBaseVerificationKeyWireStableV1),
+    Set(Box<MinaBaseVerificationKeyWireStableV1>),
     Keep,
 }
 
@@ -1812,7 +1813,7 @@ pub struct MinaBasePartyUpdateStableV1 {
 /// Location: [src/lib/mina_base/party.ml:510:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L510)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBasePartyAccountPreconditionStableV1 {
-    Full(MinaBaseZkappPreconditionAccountStableV2),
+    Full(Box<MinaBaseZkappPreconditionAccountStableV2>),
     Nonce(UnsignedExtendedUInt32StableV1),
     Accept,
 }
@@ -2792,13 +2793,13 @@ pub struct ParallelScanWeightStableV1 {
     pub merge: crate::number::Int32,
 }
 
-/// Derived name: `Transaction_snark_scan_state.Stable.V2#trees#a#base_t#1#Full#0`
+/// Derived name: `Transaction_snark_scan_state.Stable.V2#trees#a#base_t#1#Full`
 ///
 /// Gid: `937`
 /// Location: [src/lib/parallel_scan/parallel_scan.ml:68:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L68)
 /// Args: TransactionSnarkScanStateTransactionWithWitnessStableV2
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct TransactionSnarkScanStateStableV2TreesABaseT1Full0 {
+pub struct TransactionSnarkScanStateStableV2TreesABaseT1Full {
     pub job: TransactionSnarkScanStateTransactionWithWitnessStableV2,
     pub seq_no: ParallelScanSequenceNumberStableV1,
     pub status: ParallelScanJobStatusStableV1,
@@ -2812,16 +2813,16 @@ pub struct TransactionSnarkScanStateStableV2TreesABaseT1Full0 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum TransactionSnarkScanStateStableV2TreesABaseT1 {
     Empty,
-    Full(TransactionSnarkScanStateStableV2TreesABaseT1Full0),
+    Full(Box<TransactionSnarkScanStateStableV2TreesABaseT1Full>),
 }
 
-/// Derived name: `Transaction_snark_scan_state.Stable.V2#trees#a#merge_t#1#Full#0`
+/// Derived name: `Transaction_snark_scan_state.Stable.V2#trees#a#merge_t#1#Full`
 ///
 /// Gid: `940`
 /// Location: [src/lib/parallel_scan/parallel_scan.ml:112:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L112)
 /// Args: TransactionSnarkScanStateLedgerProofWithSokMessageStableV2
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct TransactionSnarkScanStateStableV2TreesAMergeT1Full0 {
+pub struct TransactionSnarkScanStateStableV2TreesAMergeT1Full {
     pub left: TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
     pub right: TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
     pub seq_no: ParallelScanSequenceNumberStableV1,
@@ -2836,8 +2837,8 @@ pub struct TransactionSnarkScanStateStableV2TreesAMergeT1Full0 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum TransactionSnarkScanStateStableV2TreesAMergeT1 {
     Empty,
-    Part(TransactionSnarkScanStateLedgerProofWithSokMessageStableV2),
-    Full(TransactionSnarkScanStateStableV2TreesAMergeT1Full0),
+    Part(Box<TransactionSnarkScanStateLedgerProofWithSokMessageStableV2>),
+    Full(Box<TransactionSnarkScanStateStableV2TreesAMergeT1Full>),
 }
 
 /// **OCaml name**: `Transaction_snark_scan_state.Transaction_with_witness.Stable.V2`

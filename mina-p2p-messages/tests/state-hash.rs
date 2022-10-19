@@ -3,7 +3,6 @@ mod utils;
 
 #[cfg(feature = "hashing")]
 mod tests {
-    use super::*;
     use binprot::BinProtRead;
     use mina_p2p_messages::v1::MinaBlockExternalTransitionRawVersionedStableV1Versioned;
 
