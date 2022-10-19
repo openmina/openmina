@@ -1,6 +1,6 @@
 [package]
 name = "mina-p2p-messages"
-version = "0.6.3"
+version = "0.6.4"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -9,8 +9,8 @@ edition = "2021"
 serde = { version = "1.0.142", features = ["derive"] }
 serde_json = { version = "1.0.83" }
 hex = "0.4.3"
-binprot = { version = "0.1.7" }
-binprot_derive = { version = "0.1.7" }
+binprot = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
+binprot_derive = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 thiserror = "1.0.32"
 derive_more = "0.99.17"
 bs58 = {version = "0.4", features = ["check"]}
