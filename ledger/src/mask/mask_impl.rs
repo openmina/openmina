@@ -656,7 +656,7 @@ impl MaskImpl {
                     .iter()
                     .map(|account_id| id_to_addr.remove(account_id).unwrap())
                     .collect::<Vec<_>>();
-                addrs.sort_by_key(|a| a.to_index());
+                addrs.sort_by_key(Address::to_index);
 
                 for addr in addrs.iter().rev() {
                     let account_index = addr.to_index();

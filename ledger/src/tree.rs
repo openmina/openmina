@@ -294,26 +294,10 @@ impl Database<V2> {
         let tree_depth = self.depth as usize;
         let current_depth = tree_depth - addr.length();
 
-        // println!(
-        //     "recursive current_depth={:?} tree_depth={:?} account_index={:?} nremaining={:?}",
-        //     current_depth, tree_depth, account_index, nremaining
-        // );
-
         if current_depth == 0 {
-            // *nremaining = nremaining.saturating_sub(1);
-
-            if let Some(hash) = self.hashes_matrix.get(&addr) {
-                return *hash;
-            }
-
-            let account_hash = self
-                .get(addr.clone())
-                .map(|account| account.hash())
+            return self
+                .get_account_hash(addr.to_index())
                 .unwrap_or_else(|| self.hashes_matrix.empty_hash_at_depth(0));
-
-            self.hashes_matrix.set(&addr, account_hash);
-
-            return account_hash;
         }
 
         let mut get_child_hash = |addr: Address| {
@@ -349,19 +333,9 @@ impl Database<V2> {
         let tree_depth = self.depth as usize;
 
         if addr.length() == self.depth as usize {
-            if let Some(hash) = self.hashes_matrix.get(&addr) {
-                return *hash;
-            }
-
-            let hash = self
-                .get(addr.clone())
-                .as_ref()
-                .map(V2::hash_leaf)
+            return self
+                .get_account_hash(addr.to_index())
                 .unwrap_or_else(|| self.hashes_matrix.empty_hash_at_depth(0));
-
-            self.hashes_matrix.set(&addr, hash);
-
-            return hash;
         }
 
         let next_direction = path.next();
@@ -380,7 +354,9 @@ impl Database<V2> {
         let mut get_child_hash = |addr: Address| match self.hashes_matrix.get(&addr) {
             Some(hash) => *hash,
             None => {
-                if addr.is_before(last_account) {
+                if let Some(hash) = self.hashes_matrix.get(&addr) {
+                    *hash
+                } else if addr.is_before(last_account) {
                     self.emulate_tree_to_get_path(addr, last_account, path, merkle_path)
                 } else {
                     self.hashes_matrix.empty_hash_at_depth(depth_in_tree - 1)
@@ -882,9 +858,9 @@ impl BaseLedger for Database<V2> {
     }
 
     fn merkle_root(&mut self) -> Fp {
-        let now = crate::util::Instant::now();
+        // let now = crate::util::Instant::now();
 
-        let root = self.root_hash();
+        self.root_hash()
 
         // let root = match *self.root_hash.borrow() {
         //     Some(root) => root,
@@ -905,7 +881,7 @@ impl BaseLedger for Database<V2> {
 
         // self.merkle_path(Address::first(self.depth as usize));
 
-        root
+        // root
     }
 
     fn merkle_path(&mut self, addr: Address) -> Vec<MerklePath> {
@@ -941,7 +917,7 @@ impl BaseLedger for Database<V2> {
             .iter()
             .map(|accound_id| self.id_to_addr.remove(accound_id).unwrap())
             .collect::<Vec<_>>();
-        addrs.sort_by_key(|a| a.to_index());
+        addrs.sort_by_key(Address::to_index);
 
         for addr in addrs.iter().rev() {
             // let leaf = match root.get_mut_leaf_on_path(addr.iter()) {
