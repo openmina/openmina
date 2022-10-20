@@ -1,5 +1,7 @@
 
 type database
+type mask
+
 type addr = string
 type account = bytes
 type token_id = bytes
@@ -13,7 +15,57 @@ type rust_dberror =
 
 type rust_path = [ `Left of bytes | `Right of bytes ]
 
+type rust_grandchildren = [ `Check | `Recursive | `I_promise_I_am_reparenting_this_mask ]
+
 module Rust = struct
+  external mask_create : int -> mask = "rust_mask_create"
+  external mask_get_directory : mask -> string option = "rust_mask_get_directory"
+  external mask_get_uuid : mask -> string = "rust_mask_get_uuid"
+  external mask_depth : mask -> int = "rust_mask_depth"
+  external mask_close : mask -> unit = "rust_mask_close"
+  external mask_get : mask -> addr -> account option = "rust_mask_get"
+  external mask_get_batch : mask -> addr list -> (addr * (account option)) list = "rust_mask_get_batch"
+  external mask_get_list : mask -> bytes list = "rust_mask_get_list"
+  external mask_accounts : mask -> bytes list = "rust_mask_accounts"
+  external mask_get_inner_hash_at_addr : mask -> addr -> bytes = "rust_mask_get_inner_hash_at_addr"
+  external mask_set_inner_hash_at_addr : mask -> addr -> bytes -> unit = "rust_mask_set_inner_hash_at_addr"
+  external mask_get_at_index : mask -> int -> account = "rust_mask_get_at_index"
+  external mask_iter : mask -> (int -> bytes -> unit) -> unit = "rust_mask_iter"
+  external mask_location_of_account : mask -> account_id -> addr option = "rust_mask_location_of_account"
+  external mask_location_of_account_batch : mask -> account_id list -> (account_id * (addr option)) list = "rust_mask_location_of_account_batch"
+  external mask_last_filled : mask -> addr option = "rust_mask_last_filled"
+  external mask_token_owners : mask -> bytes list = "rust_mask_token_owners"
+  external mask_token_owner : mask -> token_id -> account_id option = "rust_mask_token_owner"
+  external mask_tokens : mask -> pubkey -> token_id list = "rust_mask_tokens"
+  external mask_set : mask -> addr -> account -> unit = "rust_mask_set"
+  external mask_index_of_account : mask -> account_id -> int = "rust_mask_index_of_account"
+  external mask_set_at_index : mask -> int -> account -> unit = "rust_mask_set_at_index"
+  external mask_get_or_create_account : mask -> account_id -> account -> (([ `Added | `Existed ] * addr), rust_dberror) result = "rust_mask_get_or_create_account"
+  external mask_num_accounts : mask -> int = "rust_mask_num_accounts"
+  (* external mask_fold_with_ignored_accounts : mask -> bytes list -> bytes -> (bytes -> unit) -> bytes = "rust_mask_fold_with_ignored_accounts" *)
+  (* external mask_fold : mask -> bytes -> (bytes -> unit) -> bytes = "rust_mask_fold" *)
+  (* external mask_fold_until : mask -> bytes -> (bytes -> bool) -> bytes = "rust_mask_fold_until" *)
+  external mask_merkle_root : mask -> bytes = "rust_mask_merkle_root"
+  external mask_remove_accounts : mask -> account_id list -> unit = "rust_mask_remove_accounts"
+  external mask_merkle_path : mask -> addr -> rust_path list = "rust_mask_merkle_path"
+  external mask_merkle_path_at_addr : mask -> addr -> rust_path list = "rust_mask_merkle_path_at_addr"
+  external mask_merkle_path_at_index : mask -> int -> rust_path list = "rust_mask_merkle_path_at_index"
+  external mask_set_all_accounts_rooted_at : mask -> addr -> bytes list -> unit = "rust_mask_set_all_accounts_rooted_at"
+  external mask_set_batch_accounts : mask -> (addr * account) list -> unit = "rust_mask_set_batch_accounts"
+  external mask_get_all_accounts_rooted_at : mask -> addr -> (addr * account) list = "rust_mask_get_all_accounts_rooted_at"
+  (* TODO: Make those method *)
+  external mask_foldi : mask -> (addr -> bytes -> unit) -> unit = "rust_mask_foldi"
+  external mask_foldi_with_ignored_accounts : mask -> account_id list -> (addr -> bytes -> unit) -> unit = "rust_mask_foldi_with_ignored_accounts"
+
+  external mask_get_parent : mask -> mask = "rust_mask_get_parent"
+  external mask_get_hash : mask -> addr -> bytes = "rust_mask_get_hash"
+  external mask_commit : mask -> unit = "rust_mask_commit"
+  external mask_copy : mask -> mask = "rust_mask_copy"
+  external mask_set_parent : mask -> mask -> mask = "rust_mask_set_parent"
+  external mask_register_mask : mask -> mask -> mask = "rust_mask_register_mask"
+  external mask_unregister_mask : mask -> rust_grandchildren -> mask = "rust_mask_unregister_mask"
+  external mask_remove_and_reparent : mask -> mask -> unit = "rust_mask_remove_and_reparent"
+
   external database_create : int -> string option -> database = "rust_database_create"
   external database_get_uuid : database -> string = "rust_database_get_uuid"
   external database_get_directory : database -> string option = "rust_database_get_directory"
