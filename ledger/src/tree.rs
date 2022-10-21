@@ -28,7 +28,6 @@ pub struct HashesMatrix {
     nhashes: usize,
 }
 
-#[cfg(test)]
 impl Clone for HashesMatrix {
     fn clone(&self) -> Self {
         Self {
@@ -154,6 +153,7 @@ impl HashesMatrix {
     }
 }
 
+#[derive(Clone)]
 pub struct Database<T: TreeVersion> {
     accounts: Vec<Option<T::Account>>,
     pub hashes_matrix: HashesMatrix,

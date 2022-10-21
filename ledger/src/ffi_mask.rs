@@ -6,7 +6,7 @@ use std::{
     path::PathBuf,
     rc::Rc,
     str::FromStr,
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 
 use mina_hasher::Fp;
@@ -23,7 +23,7 @@ use crate::{
     base::{AccountIndex, BaseLedger, MerklePath},
     tree::Database,
     tree_version::V2,
-    Mask,
+    Mask, UnregisterBehavior,
 };
 
 // #[derive(Clone)]
@@ -74,6 +74,13 @@ impl_to_ocaml_variant! {
     DatabaseErrorFFI {
         DatabaseErrorFFI::OutOfLeaves,
     }
+}
+
+// type rust_grandchildren = [ `Check | `Recursive | `I_promise_I_am_reparenting_this_mask ]
+pub enum PolymorphicGrandchildren {
+    Check,
+    Recursive,
+    I_promise_I_am_reparenting_this_mask,
 }
 
 // static DB_CLOSED: Lazy<Mutex<HashMap<PathBuf, Database<V2>>>> =
@@ -187,6 +194,110 @@ ocaml_export! {
         let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
 
         OCaml::box_value(rt, mask)
+    }
+
+    fn rust_mask_copy(
+        rt,
+        mask: OCamlRef<DynBox<MaskFFI>>
+    ) -> OCaml<DynBox<MaskFFI>> {
+        let mask = with_mask(rt, mask, |mask| {
+            mask.clone()
+        });
+        let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
+
+        OCaml::box_value(rt, mask)
+    }
+
+    fn rust_mask_set_parent(
+        rt,
+        mask: OCamlRef<DynBox<MaskFFI>>,
+        parent: OCamlRef<DynBox<MaskFFI>>
+    ) -> OCaml<DynBox<MaskFFI>> {
+        let parent = {
+            let parent = rt.get(parent);
+            let parent: &MaskFFI = parent.borrow();
+            let parent = parent.0.borrow_mut();
+            (*parent).as_ref().unwrap().clone()
+        };
+
+        let mask = with_mask(rt, mask, |mask| {
+            mask.set_parent(&parent)
+        });
+        let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
+
+        OCaml::box_value(rt, mask)
+    }
+
+    fn rust_mask_register_mask(
+        rt,
+        mask: OCamlRef<DynBox<MaskFFI>>,
+        mask2: OCamlRef<DynBox<MaskFFI>>
+    ) -> OCaml<DynBox<MaskFFI>> {
+        let bt = backtrace::Backtrace::new();
+
+        println!("AAA bt={:#?}", bt);
+        let mask2 = {
+            let mask2 = rt.get(mask2);
+            let mask2: &MaskFFI = mask2.borrow();
+            let mask2 = mask2.0.borrow_mut();
+            println!("BBB {:p}", Arc::as_ptr(&mask2.borrow().as_ref().unwrap().inner));
+            (*mask2).as_ref().unwrap().clone()
+        };
+
+        let mask = with_mask(rt, mask, |mask| {
+            mask.register_mask(mask2)
+        });
+        println!("CCC");
+
+        let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
+
+        OCaml::box_value(rt, mask)
+    }
+
+    fn rust_mask_unregister_mask(
+        rt,
+        mask: OCamlRef<DynBox<MaskFFI>>,
+        behavior: OCamlRef<PolymorphicGrandchildren>
+    ) -> OCaml<DynBox<MaskFFI>> {
+        let behavior = rt.get(behavior);
+
+        let behavior = ocaml_interop::ocaml_unpack_variant! {
+            behavior => {
+                Check => UnregisterBehavior::Check,
+                Recursive => UnregisterBehavior::Recursive,
+                I_promise_I_am_reparenting_this_mask => UnregisterBehavior::IPromiseIAmReparentingThisMask,
+            }
+        }.unwrap();
+
+        let mask = with_mask(rt, mask, |mask| {
+            mask.unregister_mask(behavior)
+        });
+
+        let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
+
+        OCaml::box_value(rt, mask)
+    }
+
+    fn rust_mask_remove_and_reparent(
+        rt,
+        mask: OCamlRef<DynBox<MaskFFI>>
+    ) {
+        with_mask(rt, mask, |mask| {
+            mask.remove_and_reparent()
+        });
+
+        OCaml::unit()
+    }
+
+    fn rust_mask_commit(
+        rt,
+        mask: OCamlRef<DynBox<MaskFFI>>
+    ) {
+        with_mask(rt, mask, |mask| {
+            mask.commit()
+        });
+
+        OCaml::unit()
     }
 
     fn rust_mask_get_uuid(

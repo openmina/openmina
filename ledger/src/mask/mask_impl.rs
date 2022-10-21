@@ -18,7 +18,8 @@ use crate::{
 
 use super::Mask;
 
-pub(super) enum MaskImpl {
+#[derive(Clone)]
+pub enum MaskImpl {
     Root {
         database: Database<V2>,
         childs: HashMap<Uuid, Mask>,

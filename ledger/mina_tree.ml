@@ -62,15 +62,15 @@ module Rust = struct
   external mask_foldi : mask -> (addr -> bytes -> unit) -> unit = "rust_mask_foldi"
   external mask_foldi_with_ignored_accounts : mask -> account_id list -> (addr -> bytes -> unit) -> unit = "rust_mask_foldi_with_ignored_accounts"
 
-  external mask_get_parent : mask -> mask = "rust_mask_get_parent"
-  external mask_get_hash : mask -> addr -> bytes = "rust_mask_get_hash"
+  (* external mask_get_parent : mask -> mask = "rust_mask_get_parent" *)
+  (* external mask_get_hash : mask -> addr -> bytes = "rust_mask_get_hash" *)
   external mask_commit : mask -> unit = "rust_mask_commit"
   external mask_copy : mask -> mask = "rust_mask_copy"
-  external mask_set_parent : mask -> mask -> mask = "rust_mask_set_parent"
+  (* external mask_set_parent : mask -> mask -> mask = "rust_mask_set_parent" *)
   (* external mask_register_mask : mask -> mask -> mask = "rust_mask_register_mask" *)
   (* external mask_register_mask : any_mask -> unattached_mask -> attached_mask = "rust_mask_register_mask" *)
-  external mask_unregister_mask : mask -> rust_grandchildren -> mask = "rust_mask_unregister_mask"
-  external mask_remove_and_reparent : mask -> mask -> unit = "rust_mask_remove_and_reparent"
+  (* external mask_unregister_mask : mask -> rust_grandchildren -> mask = "rust_mask_unregister_mask"
+   * external mask_remove_and_reparent : mask -> mask -> unit = "rust_mask_remove_and_reparent" *)
 
   external database_create : int -> string option -> database = "rust_database_create"
   external database_get_uuid : database -> string = "rust_database_get_uuid"

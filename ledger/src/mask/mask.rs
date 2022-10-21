@@ -21,7 +21,7 @@ use super::mask_impl::MaskImpl;
 #[derive(Clone, Debug)]
 pub struct Mask {
     // Using a mutex for now but this can be replaced with a RefCell
-    inner: Arc<Mutex<MaskImpl>>,
+    pub inner: Arc<Mutex<MaskImpl>>,
 }
 
 #[derive(Debug)]
@@ -52,7 +52,7 @@ impl Mask {
     }
 
     pub fn new_unattached(depth: usize) -> Self {
-        Self {
+        let res = Self {
             inner: Arc::new(Mutex::new(MaskImpl::Unattached {
                 owning_account: Default::default(),
                 token_to_account: Default::default(),
@@ -63,7 +63,14 @@ impl Mask {
                 uuid: next_uuid(),
                 hashes: HashesMatrix::new(depth),
             })),
-        }
+        };
+
+        println!(
+            "mask created = {:p}",
+            Arc::<Mutex<MaskImpl>>::as_ptr(&res.inner)
+        );
+
+        res
     }
 
     pub fn set_parent(&self, parent: &Mask) -> Mask {
@@ -72,15 +79,26 @@ impl Mask {
         this
     }
 
+    pub fn copy(&self) -> Mask {
+        let mask = self.with(|this| this.clone());
+        Self {
+            inner: Arc::new(Mutex::new(mask)),
+        }
+    }
+
     /// Make `mask` a child of `self`
     pub fn register_mask(&self, mask: Mask) -> Mask {
+        println!("self={:p} mask={:p}", &self.inner, &mask.inner);
+
         let self_mask = self.clone();
         self.with(|this| this.register_mask(self_mask, mask))
     }
 
     /// Detach this mask from its parent
-    pub fn unregister_mask(&self, behavior: UnregisterBehavior) {
-        self.with(|this| this.unregister_mask(behavior))
+    pub fn unregister_mask(&self, behavior: UnregisterBehavior) -> Mask {
+        let this = self.clone();
+        self.with(|this| this.unregister_mask(behavior));
+        this
     }
 
     pub(super) fn remove_child_uuid(&self, uuid: Uuid) -> Option<Mask> {
