@@ -66,8 +66,10 @@ impl Mask {
         }
     }
 
-    pub fn set_parent(&self, parent: &Mask) {
-        self.with(|this| this.set_parent(parent))
+    pub fn set_parent(&self, parent: &Mask) -> Mask {
+        let this = self.clone();
+        self.with(|this| this.set_parent(parent));
+        this
     }
 
     /// Make `mask` a child of `self`

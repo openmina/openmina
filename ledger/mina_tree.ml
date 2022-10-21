@@ -18,6 +18,11 @@ type rust_path = [ `Left of bytes | `Right of bytes ]
 type rust_grandchildren = [ `Check | `Recursive | `I_promise_I_am_reparenting_this_mask ]
 
 module Rust = struct
+
+  (* type unattached_mask *)
+  (* type attached_mask *)
+  (* type any_mask *)
+
   external mask_create : int -> mask = "rust_mask_create"
   external mask_get_directory : mask -> string option = "rust_mask_get_directory"
   external mask_get_uuid : mask -> string = "rust_mask_get_uuid"
@@ -62,7 +67,8 @@ module Rust = struct
   external mask_commit : mask -> unit = "rust_mask_commit"
   external mask_copy : mask -> mask = "rust_mask_copy"
   external mask_set_parent : mask -> mask -> mask = "rust_mask_set_parent"
-  external mask_register_mask : mask -> mask -> mask = "rust_mask_register_mask"
+  (* external mask_register_mask : mask -> mask -> mask = "rust_mask_register_mask" *)
+  (* external mask_register_mask : any_mask -> unattached_mask -> attached_mask = "rust_mask_register_mask" *)
   external mask_unregister_mask : mask -> rust_grandchildren -> mask = "rust_mask_unregister_mask"
   external mask_remove_and_reparent : mask -> mask -> unit = "rust_mask_remove_and_reparent"
 

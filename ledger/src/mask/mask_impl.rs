@@ -199,7 +199,7 @@ impl MaskImpl {
         self.remove_parent();
     }
 
-    pub fn set_parent(&mut self, mask: &Mask) {
+    pub fn set_parent(&mut self, parent: &Mask) {
         match self {
             Root { .. } => panic!("set_parent() on a root"),
             Attached { .. } => panic!("mask is already attached"),
@@ -216,7 +216,7 @@ impl MaskImpl {
                 use std::mem::take;
 
                 *self = Attached {
-                    parent: mask.clone(),
+                    parent: parent.clone(),
                     owning_account: take(owning_account),
                     token_to_account: take(token_to_account),
                     id_to_addr: take(id_to_addr),
@@ -1260,16 +1260,10 @@ impl BaseLedger for MaskImpl {
             return None;
         }
 
-        let children = addr.iter_children(self_depth);
-        let mut accounts = Vec::with_capacity(children.len());
-
-        for child_addr in children {
-            let account = match self.get(child_addr.clone()) {
-                Some(account) => account,
-                None => continue,
-            };
-            accounts.push((child_addr, account));
-        }
+        let accounts = addr
+            .iter_children(self_depth)
+            .filter_map(|addr| Some((addr.clone(), self.get(addr)?)))
+            .collect::<Vec<_>>();
 
         if accounts.is_empty() {
             None

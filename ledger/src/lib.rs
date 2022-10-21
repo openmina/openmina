@@ -13,6 +13,9 @@ mod wasm {
 #[cfg(not(target_family = "wasm"))]
 mod ffi;
 
+#[cfg(not(target_family = "wasm"))]
+mod ffi_mask;
+
 mod account;
 mod address;
 mod base;
