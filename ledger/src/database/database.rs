@@ -485,11 +485,11 @@ export function performance_now() {
         for (index, mut account) in accounts.into_iter().enumerate() {
             account.token_id = TokenId::from(index as u64);
             let id = account.id();
-            db.create_account(id, account).unwrap();
+            db.get_or_create_account(id, account).unwrap();
         }
 
         console::time_end_with_label("generate random accounts");
-        assert_eq!(db.naccounts, NACCOUNTS as usize);
+        assert_eq!(db.naccounts(), NACCOUNTS as usize);
 
         console::time_with_label("compute merkle root");
         db.merkle_root();
