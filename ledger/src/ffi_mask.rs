@@ -1,28 +1,19 @@
 use std::{
-    borrow::Borrow,
-    cell::{Ref, RefCell},
-    collections::{HashMap, HashSet},
-    hash::Hash,
-    path::PathBuf,
-    rc::Rc,
-    str::FromStr,
-    sync::{Arc, Mutex},
+    borrow::Borrow, cell::RefCell, collections::HashSet, hash::Hash, rc::Rc, str::FromStr,
+    sync::Arc,
 };
 
 use mina_hasher::Fp;
 use ocaml_interop::{
     impl_to_ocaml_polymorphic_variant, impl_to_ocaml_variant, ocaml_export, DynBox, OCaml,
-    OCamlBytes, OCamlInt, OCamlList, OCamlRef, OCamlRuntime, RawOCaml, ToOCaml,
+    OCamlBytes, OCamlInt, OCamlList, OCamlRef, OCamlRuntime, ToOCaml,
 };
-use once_cell::sync::Lazy;
 use serde::Deserialize;
 
 use crate::{
     account::{Account, AccountId, BigInt, NonZeroCurvePointUncompressedStableV1},
     address::Address,
     base::{AccountIndex, BaseLedger, MerklePath},
-    tree::Database,
-    tree_version::V2,
     Mask, UnregisterBehavior,
 };
 
@@ -33,9 +24,18 @@ fn with_mask<F, R>(rt: &mut &mut OCamlRuntime, mask: OCamlRef<DynBox<MaskFFI>>, 
 where
     F: FnOnce(&mut Mask) -> R,
 {
+    println!("111");
     let mask = rt.get(mask);
+    println!("222");
     let mask: &MaskFFI = mask.borrow();
+    println!("333");
     let mut mask = mask.0.borrow_mut();
+
+    println!(
+        "with_mask {:p}",
+        Arc::as_ptr(&mask.borrow().as_ref().unwrap().inner)
+    );
+
     // let mut db = db.0.borrow_mut();
 
     fun(mask.as_mut().unwrap())
@@ -243,11 +243,12 @@ ocaml_export! {
             println!("BBB {:p}", Arc::as_ptr(&mask2.borrow().as_ref().unwrap().inner));
             (*mask2).as_ref().unwrap().clone()
         };
+        println!("CCC");
 
         let mask = with_mask(rt, mask, |mask| {
             mask.register_mask(mask2)
         });
-        println!("CCC");
+        println!("DDD");
 
         let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
 
