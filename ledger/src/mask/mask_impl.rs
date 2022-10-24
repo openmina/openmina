@@ -10,8 +10,8 @@ use crate::{
     account::{Account, AccountId, TokenId},
     address::{Address, AddressIterator, Direction},
     base::{AccountIndex, BaseLedger, GetOrCreated, MerklePath, Uuid},
+    database::{Database, DatabaseError},
     mask::UnregisterBehavior,
-    tree::{Database, DatabaseError},
     tree_version::{TreeVersion, V2},
     HashesMatrix,
 };
@@ -401,19 +401,19 @@ impl MaskImpl {
         }
     }
 
-    fn get_cached_hash(&self, addr: &Address) -> Option<&Fp> {
+    fn get_cached_hash(&self, addr: &Address) -> Option<Fp> {
         let matrix = match self {
-            Root { database, .. } => &database.hashes_matrix,
+            Root { database, .. } => return database.get_cached_hash(addr),
             Attached { hashes, .. } => hashes,
             Unattached { hashes, .. } => hashes,
         };
 
-        matrix.get(addr)
+        matrix.get(addr).copied()
     }
 
     fn set_cached_hash(&mut self, addr: &Address, hash: Fp) {
         let matrix = match self {
-            Root { database, .. } => &mut database.hashes_matrix,
+            Root { database, .. } => return database.set_cached_hash(addr, hash),
             Attached { hashes, .. } => hashes,
             Unattached { hashes, .. } => hashes,
         };
@@ -423,7 +423,7 @@ impl MaskImpl {
 
     pub fn empty_hash_at_depth(&mut self, depth: usize) -> Fp {
         let matrix = match self {
-            Root { database, .. } => &mut database.hashes_matrix,
+            Root { database, .. } => return database.empty_hash_at_depth(depth),
             Attached { hashes, .. } => hashes,
             Unattached { hashes, .. } => hashes,
         };
@@ -433,7 +433,7 @@ impl MaskImpl {
 
     fn invalidate_hashes(&mut self, account_index: AccountIndex) {
         let matrix = match self {
-            Root { database, .. } => &mut database.hashes_matrix,
+            Root { database, .. } => return database.invalidate_hashes(account_index),
             Attached { hashes, .. } => hashes,
             Unattached { hashes, .. } => hashes,
         };
@@ -523,7 +523,7 @@ impl MaskImpl {
 
     fn emulate_tree_to_get_hash_at(&mut self, addr: Address) -> Fp {
         if let Some(hash) = self.get_cached_hash(&addr) {
-            return *hash;
+            return hash;
         };
 
         let last_account = self
@@ -547,7 +547,7 @@ impl MaskImpl {
 
         let mut get_child_hash = |addr: Address| {
             if let Some(hash) = self.get_cached_hash(&addr) {
-                *hash
+                hash
             } else if addr.is_before(last_account) {
                 self.compute_hash_or_parent(addr, last_account)
             } else {
@@ -559,7 +559,7 @@ impl MaskImpl {
         let right_hash = get_child_hash(addr.child_right());
 
         match self.get_cached_hash(&addr) {
-            Some(hash) => *hash,
+            Some(hash) => hash,
             None => {
                 let hash = V2::hash_node(current_depth - 1, left_hash, right_hash);
                 self.set_cached_hash(&addr, hash);
@@ -597,7 +597,7 @@ impl MaskImpl {
         let depth_in_tree = tree_depth - addr.length();
 
         let mut get_child_hash = |addr: Address| match self.get_cached_hash(&addr) {
-            Some(hash) => *hash,
+            Some(hash) => hash,
             None => {
                 if addr.is_before(last_account) {
                     self.compute_hash_or_parent_for_merkle_path(
@@ -624,7 +624,7 @@ impl MaskImpl {
         };
 
         match self.get_cached_hash(&addr) {
-            Some(hash) => *hash,
+            Some(hash) => hash,
             None => {
                 let hash = V2::hash_node(depth_in_tree - 1, left, right);
                 self.set_cached_hash(&addr, hash);
@@ -779,10 +779,10 @@ impl MaskImpl {
 
     /// For tests only
     #[cfg(test)]
-    pub fn test_matrix(&self) -> &HashesMatrix {
+    pub fn test_matrix(&self) -> HashesMatrix {
         match self {
-            Root { database, .. } => &database.hashes_matrix,
-            Unattached { hashes, .. } | Attached { hashes, .. } => hashes,
+            Root { database, .. } => database.test_matrix(),
+            Unattached { hashes, .. } | Attached { hashes, .. } => hashes.clone(),
         }
     }
 }
@@ -1000,6 +1000,8 @@ impl BaseLedger for MaskImpl {
             }
         };
 
+        eprintln!("get_or_create_account added");
+
         // let addr = result.clone();
         // let account_index = addr.to_index();
         // self.recurse_on_childs(&mut |child| {
@@ -1054,7 +1056,11 @@ impl BaseLedger for MaskImpl {
     }
 
     fn get_directory(&self) -> Option<PathBuf> {
-        None
+        match self {
+            Root { database, .. } => database.get_directory(),
+            Attached { parent, .. } => parent.get_directory(),
+            Unattached { .. } => None,
+        }
     }
 
     fn get_account_hash(&mut self, account_index: AccountIndex) -> Option<Fp> {
@@ -1153,8 +1159,13 @@ impl BaseLedger for MaskImpl {
     }
 
     fn merkle_root(&mut self) -> Fp {
-        self.emulate_tree_to_get_hash_at(Address::root())
+        // eprintln!("MERKLE_ROOT={:?}", self.short());
+        let hash = self.emulate_tree_to_get_hash_at(Address::root());
         // self.emulate_tree_to_get_hash()
+
+        eprintln!("merkle_root={}", hash);
+
+        hash
     }
 
     fn merkle_path(&mut self, addr: Address) -> Vec<MerklePath> {

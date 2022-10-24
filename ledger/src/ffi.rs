@@ -21,14 +21,14 @@ use crate::{
     account::{Account, AccountId, BigInt, NonZeroCurvePointUncompressedStableV1},
     address::Address,
     base::{AccountIndex, BaseLedger, MerklePath},
-    tree::Database,
+    database::Database,
     tree_version::V2,
 };
 
 static DATABASE: Lazy<Mutex<Database<V2>>> = Lazy::new(|| Mutex::new(Database::create(30)));
 
 // #[derive(Clone)]
-struct DatabaseFFI(Rc<RefCell<Option<Database<V2>>>>);
+pub struct DatabaseFFI(pub Rc<RefCell<Option<Database<V2>>>>);
 
 fn with_db<F, R>(rt: &mut &mut OCamlRuntime, db: OCamlRef<DynBox<DatabaseFFI>>, fun: F) -> R
 where
@@ -190,7 +190,7 @@ ocaml_export! {
         let dir_name = rt.get(dir_name);
         let dir_name = dir_name.to_rust::<Option<String>>().map(PathBuf::from);
 
-        let mut closed = DB_CLOSED.lock().unwrap();
+        let mut closed = DB_CLOSED.try_lock().unwrap();
 
         let db = dir_name.as_ref().and_then(|dir_name| closed.remove(dir_name));
 
@@ -292,7 +292,7 @@ ocaml_export! {
         let db: Ref<Option<Database<V2>>> = (*db.0).borrow();
         let db_clone = db.as_ref().unwrap().clone_db(directory_name.clone());
 
-        let mut closed_dbs = DB_CLOSED.lock().unwrap();
+        let mut closed_dbs = DB_CLOSED.try_lock().unwrap();
         closed_dbs.insert(directory_name, db_clone);
 
         OCaml::unit()
@@ -316,7 +316,7 @@ ocaml_export! {
         // let db: RefCell<Database<V2>> = Rc::try_unwrap(db).ok().unwrap();
         // let db = db.into_inner();
 
-        let mut closed_dbs = DB_CLOSED.lock().unwrap();
+        let mut closed_dbs = DB_CLOSED.try_lock().unwrap();
         closed_dbs.insert(path, db);
 
         // with_db(rt, db, |db| {
@@ -775,7 +775,7 @@ ocaml_export! {
         });
 
         use crate::base::GetOrCreated::*;
-        use crate::tree::DatabaseError::*;
+        use crate::database::DatabaseError::*;
 
         let result = match result {
             Ok(value) => {

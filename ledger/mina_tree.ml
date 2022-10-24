@@ -66,6 +66,7 @@ module Rust = struct
   (* external mask_get_hash : mask -> addr -> bytes = "rust_mask_get_hash" *)
   external mask_commit : mask -> unit = "rust_mask_commit"
   external mask_copy : mask -> mask = "rust_mask_copy"
+
   (* external mask_set_parent : mask -> mask -> mask = "rust_mask_set_parent" *)
   (* external mask_register_mask : mask -> mask -> mask = "rust_mask_register_mask" *)
   (* external mask_register_mask : any_mask -> unattached_mask -> attached_mask = "rust_mask_register_mask" *)

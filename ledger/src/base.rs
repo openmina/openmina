@@ -11,7 +11,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     account::{Account, AccountId, TokenId},
     address::Address,
-    tree::DatabaseError,
+    database::DatabaseError,
 };
 
 pub type Uuid = String;

@@ -11,7 +11,7 @@ use crate::{
     account::{Account, AccountId, TokenId},
     address::Address,
     base::{next_uuid, AccountIndex, BaseLedger, GetOrCreated, MerklePath, Uuid},
-    tree::{Database, DatabaseError},
+    database::{Database, DatabaseError},
     tree_version::V2,
     HashesMatrix,
 };
@@ -36,7 +36,7 @@ impl Mask {
     where
         F: FnOnce(&mut MaskImpl) -> R,
     {
-        let mut inner = self.inner.lock().expect("lock failed");
+        let mut inner = self.inner.try_lock().expect("lock failed");
         fun(&mut inner)
     }
 }
@@ -65,10 +65,10 @@ impl Mask {
             })),
         };
 
-        println!(
-            "mask created = {:p}",
-            Arc::<Mutex<MaskImpl>>::as_ptr(&res.inner)
-        );
+        // println!(
+        //     "mask created = {:p}",
+        //     Arc::<Mutex<MaskImpl>>::as_ptr(&res.inner)
+        // );
 
         res
     }
@@ -88,7 +88,7 @@ impl Mask {
 
     /// Make `mask` a child of `self`
     pub fn register_mask(&self, mask: Mask) -> Mask {
-        println!("self={:p} mask={:p}", &self.inner, &mask.inner);
+        // println!("self={:p} mask={:p}", &self.inner, &mask.inner);
 
         let self_mask = self.clone();
         self.with(|this| this.register_mask(self_mask, mask))
@@ -180,7 +180,7 @@ impl Mask {
     /// For tests only
     #[cfg(test)]
     fn test_matrix(&self) -> HashesMatrix {
-        self.with(|this| this.test_matrix().clone())
+        self.with(|this| this.test_matrix())
     }
 }
 

@@ -14,6 +14,7 @@ use crate::{
     account::{Account, AccountId, BigInt, NonZeroCurvePointUncompressedStableV1},
     address::Address,
     base::{AccountIndex, BaseLedger, MerklePath},
+    ffi::DatabaseFFI,
     Mask, UnregisterBehavior,
 };
 
@@ -24,17 +25,17 @@ fn with_mask<F, R>(rt: &mut &mut OCamlRuntime, mask: OCamlRef<DynBox<MaskFFI>>, 
 where
     F: FnOnce(&mut Mask) -> R,
 {
-    println!("111");
+    // println!("111");
     let mask = rt.get(mask);
-    println!("222");
+    // println!("222");
     let mask: &MaskFFI = mask.borrow();
-    println!("333");
+    // println!("333");
     let mut mask = mask.0.borrow_mut();
 
-    println!(
-        "with_mask {:p}",
-        Arc::as_ptr(&mask.borrow().as_ref().unwrap().inner)
-    );
+    // println!(
+    //     "with_mask {:p}",
+    //     Arc::as_ptr(&mask.borrow().as_ref().unwrap().inner)
+    // );
 
     // let mut db = db.0.borrow_mut();
 
@@ -196,6 +197,51 @@ ocaml_export! {
         OCaml::box_value(rt, mask)
     }
 
+    fn rust_cast_database_to_mask(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>
+    ) -> OCaml<DynBox<MaskFFI>> {
+        // let bt = backtrace::Backtrace::new();
+        // eprintln!("rust_cast_database_to_mask bt={:#?}", bt);
+
+        let db = {
+            let db = rt.get(db);
+            let db: &DatabaseFFI = db.borrow();
+
+            // eprintln!("CAST_DATABASE_TO_MASK PTR={:p}", Rc::as_ptr(&db.0));
+
+            let db = db.0.borrow_mut();
+            let db = db.as_ref().unwrap().clone();
+
+            db
+        };
+
+        // eprintln!("AAA");
+        let mask = Mask::new_root(db);
+        let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
+        // eprintln!("BBB");
+
+        OCaml::box_value(rt, mask)
+    }
+
+    fn rust_cast(
+        rt,
+        mask: OCamlRef<DynBox<MaskFFI>>
+    ) -> OCaml<DynBox<MaskFFI>> {
+        // let bt = backtrace::Backtrace::new();
+        // eprintln!("rust_cast bt={:#?}", bt);
+
+        let mask = rt.get(mask);
+
+        // let mask = with_mask(rt, mask, |mask| {
+        //     mask.clone()
+        // });
+        // let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
+
+        mask
+        // OCaml::box_value(rt, mask)
+    }
+
     fn rust_mask_copy(
         rt,
         mask: OCamlRef<DynBox<MaskFFI>>
@@ -235,20 +281,20 @@ ocaml_export! {
     ) -> OCaml<DynBox<MaskFFI>> {
         let bt = backtrace::Backtrace::new();
 
-        println!("AAA bt={:#?}", bt);
+        // println!("AAA bt={:#?}", bt);
         let mask2 = {
             let mask2 = rt.get(mask2);
             let mask2: &MaskFFI = mask2.borrow();
             let mask2 = mask2.0.borrow_mut();
-            println!("BBB {:p}", Arc::as_ptr(&mask2.borrow().as_ref().unwrap().inner));
+            // println!("BBB {:p}", Arc::as_ptr(&mask2.borrow().as_ref().unwrap().inner));
             (*mask2).as_ref().unwrap().clone()
         };
-        println!("CCC");
+        // println!("CCC");
 
         let mask = with_mask(rt, mask, |mask| {
             mask.register_mask(mask2)
         });
-        println!("DDD");
+        // println!("DDD");
 
         let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
 
@@ -634,7 +680,7 @@ ocaml_export! {
         });
 
         use crate::base::GetOrCreated::*;
-        use crate::tree::DatabaseError::*;
+        use crate::database::DatabaseError::*;
 
         let result = match result {
             Ok(value) => {
