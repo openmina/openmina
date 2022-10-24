@@ -214,7 +214,7 @@ impl MaskImpl {
                 last_location,
                 hashes,
             } => {
-                use std::mem::take;
+                use std::mem::{replace, take};
 
                 *self = Attached {
                     parent: parent.clone(),
@@ -224,7 +224,7 @@ impl MaskImpl {
                     last_location: take(last_location),
                     depth: *depth,
                     childs: take(childs),
-                    hashes: take(hashes),
+                    hashes: replace(hashes, HashesMatrix::new(*depth as usize)),
                     uuid: uuid.clone(),
                 }
             }
@@ -356,7 +356,7 @@ impl MaskImpl {
             token_to_account: Default::default(),
             id_to_addr: Default::default(),
             last_location: Default::default(),
-            hashes: Default::default(),
+            hashes: HashesMatrix::new(self.depth() as usize),
             uuid: Default::default(),
         };
 
