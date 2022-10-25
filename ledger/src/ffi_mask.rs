@@ -314,7 +314,7 @@ ocaml_export! {
                 Recursive => UnregisterBehavior::Recursive,
                 I_promise_I_am_reparenting_this_mask => UnregisterBehavior::IPromiseIAmReparentingThisMask,
             }
-        }.unwrap();
+        }.unwrap_or(UnregisterBehavior::Check);
 
         let mask = with_mask(rt, mask, |mask| {
             mask.unregister_mask(behavior)
