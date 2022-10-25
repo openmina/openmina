@@ -1170,6 +1170,8 @@ impl BaseLedger for MaskImpl {
     }
 
     fn merkle_path(&mut self, addr: Address) -> Vec<MerklePath> {
+        eprintln!("merkle_path short={:?}", self.short());
+
         if let Root { database, .. } = self {
             return database.merkle_path(addr);
         };
@@ -1181,6 +1183,8 @@ impl BaseLedger for MaskImpl {
         let last_account = self
             .last_filled()
             .unwrap_or_else(|| Address::first(self.depth() as usize));
+
+        eprintln!("merkle_path last_account={:?}", last_account);
 
         self.compute_hash_or_parent_for_merkle_path(
             addr,

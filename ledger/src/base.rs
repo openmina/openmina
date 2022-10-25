@@ -27,6 +27,7 @@ pub fn next_uuid() -> Uuid {
     // UUID_GENERATOR.fetch_add(1, Ordering::AcqRel)
 }
 
+#[derive(PartialEq, Eq)]
 pub enum MerklePath {
     Left(Fp),
     Right(Fp),
