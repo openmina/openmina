@@ -147,9 +147,18 @@ impl HashesMatrix {
     }
 
     pub fn clear(&mut self) {
-        self.matrix.clear();
-        self.empty_hashes.clear();
-        self.nhashes = 0;
+        let ledger_depth = self.ledger_depth;
+        let capacity = 2 * 2usize.pow(ledger_depth as u32) - 1;
+
+        *self = Self {
+            matrix: vec![None; capacity],
+            ledger_depth,
+            empty_hashes: vec![None; ledger_depth],
+            nhashes: 0,
+        }
+        // self.matrix.clear();
+        // self.empty_hashes.clear();
+        // self.nhashes = 0;
     }
 }
 

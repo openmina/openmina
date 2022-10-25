@@ -442,7 +442,7 @@ ocaml_export! {
         // println!("account={:?}", account);
         // println!("account_hash={:?}", account.hash().to_string());
 
-        let mut db = DATABASE.lock().unwrap();
+        let mut db = DATABASE.try_lock().unwrap();
         let id = account.id();
         db.get_or_create_account(id, account).unwrap();
 
@@ -451,7 +451,7 @@ ocaml_export! {
     }
 
     fn rust_root_hash(rt, ocaml_hash: OCamlRef<String>) {
-        let mut db = DATABASE.lock().unwrap();
+        let mut db = DATABASE.try_lock().unwrap();
         let hash = db.root_hash();
 
         let ocaml_hash: String = ocaml_hash.to_rust(rt);

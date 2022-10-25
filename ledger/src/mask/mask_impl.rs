@@ -293,7 +293,7 @@ impl MaskImpl {
 
                 // Parent merkle root after committing should be the same as the \
                 // old one in the mask
-                assert_eq!(old_root_hash, parent.merkle_root());
+                assert_eq!(old_root_hash, parent.merkle_root()); // TODO: Assert this only in #[cfg(test)]
             }
         }
     }
