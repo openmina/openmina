@@ -151,8 +151,9 @@ impl MaskImpl {
         match behavior {
             Check => {
                 assert!(
-                    !self.childs().is_empty(),
-                    "mask has children that must be unregistered first"
+                    self.childs().is_empty(),
+                    "mask has {} children that must be unregistered first",
+                    self.childs().len()
                 );
             }
             IPromiseIAmReparentingThisMask => (),
