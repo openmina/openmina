@@ -305,7 +305,9 @@ impl BaseLedger for Mask {
     }
 
     fn merkle_path(&mut self, addr: Address) -> Vec<MerklePath> {
+        let addr_length = addr.length();
         let res = self.with(|this| this.merkle_path(addr.clone()));
+        assert_eq!(res.len(), addr_length);
 
         println!(
             "merkle_path addr={:?} path_len={:?} path={:?}",
@@ -413,6 +415,27 @@ mod tests {
             assert_ne!(root_hash, layer2.merkle_root(), "case {:?}", case);
         }
     }
+
+    #[test]
+    fn test_cached_merkle_path() {
+        let (mut root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let account = Account::rand();
+        let addr = Address::first(DEPTH);
+
+        mask.set(addr.clone(), account.clone());
+        mask.merkle_root();
+        let mask_merkle_path = mask.merkle_path(addr.clone());
+
+        root.set(addr.clone(), account.clone());
+        root.merkle_root();
+        let root_merkle_path = root.merkle_path(addr.clone());
+
+        assert!(!mask_merkle_path.is_empty());
+        assert_eq!(mask_merkle_path, root_merkle_path);
+        println!("path={:?}", mask_merkle_path);
+    }
 }
 
 #[cfg(test)]
@@ -427,7 +450,7 @@ mod tests_mask_ocaml {
     pub const DEPTH: usize = 4;
     pub const FIRST_LOC: Address = Address::first(DEPTH);
 
-    fn new_instances(depth: usize) -> (Mask, Mask) {
+    pub fn new_instances(depth: usize) -> (Mask, Mask) {
         let db = Database::<V2>::create(depth as u8);
         (Mask::new_root(db), Mask::new_unattached(depth))
     }
@@ -579,6 +602,26 @@ mod tests_mask_ocaml {
         let (root, mask) = new_instances(DEPTH);
         let mask = root.register_mask(mask);
         mask.unregister_mask(UnregisterBehavior::Recursive);
+    }
+
+    // "mask and parent agree on Merkle path"
+    #[test]
+    fn test_mask_and_parent_agree_on_merkle_path() {
+        let (mut root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let account = Account::rand();
+        let addr = Address::first(DEPTH);
+
+        mask.set(addr.clone(), account.clone());
+        let mask_merkle_path = mask.merkle_path(addr.clone());
+
+        root.set(addr.clone(), account.clone());
+        let root_merkle_path = root.merkle_path(addr.clone());
+
+        assert!(!mask_merkle_path.is_empty());
+        assert_eq!(mask_merkle_path, root_merkle_path);
+        println!("path={:?}", mask_merkle_path);
     }
 
     // "mask and parent agree on Merkle root before set"

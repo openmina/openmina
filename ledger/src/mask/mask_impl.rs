@@ -480,6 +480,7 @@ impl MaskImpl {
         last_account: &Address,
         path: &mut AddressIterator,
         merkle_path: &mut Vec<MerklePath>,
+        first: bool,
     ) -> Fp {
         let (matrix, own, parent) = match self {
             Root { database, .. } => return database.get_inner_hash_at_addr(addr).unwrap(),
@@ -494,8 +495,10 @@ impl MaskImpl {
             } => (hashes, id_to_addr, None),
         };
 
-        if let Some(hash) = matrix.get(&addr).cloned() {
-            return hash;
+        if !first {
+            if let Some(hash) = matrix.get(&addr).cloned() {
+                return hash;
+            }
         }
 
         // Check if we have any children accounts in our mask
@@ -507,7 +510,13 @@ impl MaskImpl {
             // Recurse to parents until we found a mask having accounts on this address
             let parent = parent.as_ref().unwrap();
             parent.with(|parent| {
-                parent.compute_hash_or_parent_for_merkle_path(addr, last_account, path, merkle_path)
+                parent.compute_hash_or_parent_for_merkle_path(
+                    addr,
+                    last_account,
+                    path,
+                    merkle_path,
+                    first,
+                )
             })
         };
 
@@ -606,6 +615,7 @@ impl MaskImpl {
                         last_account,
                         path,
                         merkle_path,
+                        false,
                     )
                 } else {
                     self.empty_hash_at_depth(depth_in_tree - 1)
@@ -1191,6 +1201,7 @@ impl BaseLedger for MaskImpl {
             &last_account,
             &mut path,
             &mut merkle_path,
+            true,
         );
         // self.emulate_merkle_path_recursive(addr, &last_account, &mut path, &mut merkle_path);
 
