@@ -114,6 +114,7 @@ pub enum MaskImplShort {
 }
 
 impl MaskImpl {
+    /// For debug purpose only
     pub fn short(&self) -> MaskImplShort {
         match self {
             Root { database, .. } => MaskImplShort::Root______(database.get_uuid()),

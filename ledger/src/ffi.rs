@@ -30,6 +30,15 @@ static DATABASE: Lazy<Mutex<Database<V2>>> = Lazy::new(|| Mutex::new(Database::c
 // #[derive(Clone)]
 pub struct DatabaseFFI(pub Rc<RefCell<Option<Database<V2>>>>);
 
+impl Drop for DatabaseFFI {
+    fn drop(&mut self) {
+        let mask_id = RefCell::borrow(&self.0)
+            .as_ref()
+            .map(|mask| mask.get_uuid());
+        eprintln!("rust_database_drop {:?}", mask_id);
+    }
+}
+
 fn with_db<F, R>(rt: &mut &mut OCamlRuntime, db: OCamlRef<DynBox<DatabaseFFI>>, fun: F) -> R
 where
     F: FnOnce(&mut Database<V2>) -> R,

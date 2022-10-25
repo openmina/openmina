@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
     ops::ControlFlow,
     path::PathBuf,
@@ -22,7 +22,8 @@ struct Leaf<T: TreeVersion> {
 // #[derive(Default)]
 pub struct HashesMatrix {
     /// 2 dimensions matrix
-    matrix: Vec<Option<Fp>>,
+    // matrix: Vec<Option<Fp>>,
+    matrix: BTreeMap<u32, Fp>,
     empty_hashes: Vec<Option<Fp>>,
     ledger_depth: usize,
     nhashes: usize,
@@ -41,46 +42,47 @@ impl Clone for HashesMatrix {
 
 impl Debug for HashesMatrix {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        const SPACES: &[usize] = &[
-            0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192,
-        ];
+        // const SPACES: &[usize] = &[
+        //     0, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192,
+        // ];
 
-        let mut s = String::with_capacity(self.matrix.len() * 2);
-        let mut spaces = SPACES;
-        let mut current = 0;
-        let naccounts = 2u64.pow(self.ledger_depth as u32) as usize;
+        // let mut s = String::with_capacity(self.matrix.len() * 2);
+        // let mut spaces = SPACES;
+        // let mut current = 0;
+        // let naccounts = 2u64.pow(self.ledger_depth as u32) as usize;
 
-        for h in self.matrix.iter() {
-            let c = if h.is_some() { 'I' } else { '0' };
-            s.push(c);
+        // for h in self.matrix.iter() {
+        //     let c = if h.is_some() { 'I' } else { '0' };
+        //     s.push(c);
 
-            if current == spaces[0] && current != naccounts {
-                s.push(' ');
-                current = 0;
-                spaces = &spaces[1..];
-            }
+        //     if current == spaces[0] && current != naccounts {
+        //         s.push(' ');
+        //         current = 0;
+        //         spaces = &spaces[1..];
+        //     }
 
-            current += 1;
-        }
+        //     current += 1;
+        // }
 
         f.debug_struct("HashesMatrix")
-            .field("matrix", &s)
+            // .field("matrix", &s)
             .field("matrix_len", &self.matrix.len())
             // .field("real_matrix", &real)
             // .field("empty_hashes", &self.empty_hashes)
             // .field("ledger_depth", &self.ledger_depth)
             .field("nhashes", &self.nhashes)
-            .field("capacity", &self.matrix.capacity())
+            // .field("capacity", &self.matrix.capacity())
             .finish()
     }
 }
 
 impl HashesMatrix {
     pub fn new(ledger_depth: usize) -> Self {
-        let capacity = 2 * 2usize.pow(ledger_depth as u32) - 1;
+        // let capacity = 2 * 2usize.pow(ledger_depth as u32) - 1;
 
         Self {
-            matrix: vec![None; capacity],
+            // matrix: vec![None; capacity],
+            matrix: BTreeMap::new(),
             ledger_depth,
             empty_hashes: vec![None; ledger_depth],
             nhashes: 0,
@@ -90,7 +92,9 @@ impl HashesMatrix {
     pub fn get(&self, addr: &Address) -> Option<&Fp> {
         let linear = addr.to_linear_index();
 
-        self.matrix.get(linear)?.as_ref()
+        // self.matrix.get(linear)?.as_ref()
+        let linear: u32 = linear.try_into().unwrap();
+        self.matrix.get(&linear)
     }
 
     pub fn set(&mut self, addr: &Address, hash: Fp) {
@@ -100,8 +104,11 @@ impl HashesMatrix {
         //     self.matrix.resize(linear + 1, None);
         // }
 
-        assert!(self.matrix[linear].is_none());
-        self.matrix[linear] = Some(hash);
+        // assert!(self.matrix[linear].is_none());
+        // self.matrix[linear] = Some(hash);
+        let linear: u32 = linear.try_into().unwrap();
+        let old = self.matrix.insert(linear, hash);
+        assert!(old.is_none());
         self.nhashes += 1;
     }
 
@@ -111,15 +118,21 @@ impl HashesMatrix {
     }
 
     fn remove_at_index(&mut self, index: usize) {
-        let hash = match self.matrix.get_mut(index) {
-            Some(hash) => hash,
-            None => return,
-        };
-
-        if hash.is_some() {
+        let linear: u32 = index.try_into().unwrap();
+        let old = self.matrix.remove(&linear);
+        if old.is_some() {
             self.nhashes -= 1;
-            *hash = None;
         }
+
+        // let hash = match self.matrix.get_mut(index) {
+        //     Some(hash) => hash,
+        //     None => return,
+        // };
+
+        // if hash.is_some() {
+        //     self.nhashes -= 1;
+        //     *hash = None;
+        // }
     }
 
     pub fn invalidate_hashes(&mut self, account_index: AccountIndex) {
@@ -148,10 +161,11 @@ impl HashesMatrix {
 
     pub fn clear(&mut self) {
         let ledger_depth = self.ledger_depth;
-        let capacity = 2 * 2usize.pow(ledger_depth as u32) - 1;
+        // let capacity = 2 * 2usize.pow(ledger_depth as u32) - 1;
 
         *self = Self {
-            matrix: vec![None; capacity],
+            // matrix: vec![None; capacity],
+            matrix: BTreeMap::new(),
             ledger_depth,
             empty_hashes: vec![None; ledger_depth],
             nhashes: 0,

@@ -15,11 +15,18 @@ use crate::{
     address::Address,
     base::{AccountIndex, BaseLedger, MerklePath},
     ffi::DatabaseFFI,
-    Mask, UnregisterBehavior,
+    Mask, UnregisterBehavior, Uuid,
 };
 
 // #[derive(Clone)]
 struct MaskFFI(Rc<RefCell<Option<Mask>>>);
+
+impl Drop for MaskFFI {
+    fn drop(&mut self) {
+        let mask_id = RefCell::borrow(&self.0).as_ref().map(|mask| mask.short());
+        eprintln!("rust_mask_drop {:?}", mask_id);
+    }
+}
 
 fn with_mask<F, R>(rt: &mut &mut OCamlRuntime, mask: OCamlRef<DynBox<MaskFFI>>, fun: F) -> R
 where

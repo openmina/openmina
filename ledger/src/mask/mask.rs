@@ -16,7 +16,7 @@ use crate::{
     HashesMatrix,
 };
 
-use super::mask_impl::MaskImpl;
+use super::mask_impl::{MaskImpl, MaskImplShort};
 
 #[derive(Clone, Debug)]
 pub struct Mask {
@@ -169,6 +169,10 @@ impl Mask {
 
     pub(super) fn remove_accounts_without_notif(&mut self, ids: &[AccountId]) {
         self.with(|this| this.remove_accounts_without_notif(ids))
+    }
+
+    pub fn short(&self) -> MaskImplShort {
+        self.with(|this| this.short())
     }
 
     /// For tests only, check if the address is in the mask, without checking parent
