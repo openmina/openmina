@@ -29,3 +29,19 @@ jobs:
         with:
           command: test
           args: --test decode-alloc -- decode_alloc --exact --nocapture --ignored -- --load-baseline=tests/decode-alloc/mem-benchmarks
+
+  tests-wasm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Run memory allocations benchmarks
+        run: wasm-pack test --node . --test decode-alloc -- decode_alloc_wasm
