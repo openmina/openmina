@@ -27,6 +27,35 @@ fn decode_alloc() -> Result<(), BenchmarkError> {
     Ok(())
 }
 
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen_test::wasm_bindgen_test]
+fn decode_alloc_wasm() -> Result<(), BenchmarkError> {
+    use alloc_test::mem_bench_cmp_with_toml;
+    let limits = limits();
+    mem_bench_cmp_with_toml!(
+        tx_pool_diff,
+        Some(include_str!(
+            "decode-alloc/mem-benchmarks/tx_pool_diff.wasm.toml"
+        )),
+        &limits
+    )?;
+    mem_bench_cmp_with_toml!(
+        staged_ledger,
+        Some(include_str!(
+            "decode-alloc/mem-benchmarks/staged_ledger.wasm.toml"
+        )),
+        &limits
+    )?;
+    mem_bench_cmp_with_toml!(
+        incoming_rpc,
+        Some(include_str!(
+            "decode-alloc/mem-benchmarks/incoming_rpc.wasm.toml"
+        )),
+        &limits
+    )?;
+    Ok(())
+}
+
 fn tx_pool_diff() {
     const BYTES: &[u8] = include_bytes!("files/v2/gossip/new_state.bin");
     let mut p = BYTES;
@@ -76,8 +105,7 @@ fn incoming_rpc_one_by_one() {
 mod utils;
 
 pub fn staged_ledger() {
-    static ENCODED: &[u8] =
-        include_bytes!("files/v2/rpc/get-staged-ledger-aux/response/00.bin");
+    static ENCODED: &[u8] = include_bytes!("files/v2/rpc/get-staged-ledger-aux/response/00.bin");
     let mut p = ENCODED;
     Message::<<GetStagedLedgerAuxAndPendingCoinbasesAtHashV2 as RpcMethod>::Response>::binprot_read(
         &mut p,
