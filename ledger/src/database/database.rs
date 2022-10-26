@@ -16,6 +16,9 @@ use crate::{
     TreeVersion,
 };
 
+#[cfg(test)]
+use crate::HashesMatrix;
+
 use super::database_impl::DatabaseImpl;
 
 #[derive(Debug, PartialEq, Eq)]

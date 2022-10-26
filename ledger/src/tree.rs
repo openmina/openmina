@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::{
     address::Address,
-    base::{AccountIndex, BaseLedger},
+    base::AccountIndex,
     tree_version::{TreeVersion, V2},
 };
 use mina_hasher::Fp;

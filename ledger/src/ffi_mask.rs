@@ -82,6 +82,7 @@ impl_to_ocaml_variant! {
 }
 
 // type rust_grandchildren = [ `Check | `Recursive | `I_promise_I_am_reparenting_this_mask ]
+#[allow(non_camel_case_types)]
 pub enum PolymorphicGrandchildren {
     Check,
     Recursive,
