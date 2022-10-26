@@ -1,8 +1,6 @@
 use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     path::PathBuf,
-    rc::Rc,
     sync::{Arc, Mutex},
 };
 
@@ -12,10 +10,9 @@ use mina_signer::CompressedPubKey;
 use crate::{
     account::{Account, AccountId, TokenId},
     address::Address,
-    base::{next_uuid, AccountIndex, BaseLedger, GetOrCreated, MerklePath, Uuid},
+    base::{AccountIndex, BaseLedger, GetOrCreated, MerklePath, Uuid},
     // tree::{Database, DatabaseError},
     tree_version::V2,
-    HashesMatrix,
     TreeVersion,
 };
 

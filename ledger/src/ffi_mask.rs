@@ -1,7 +1,4 @@
-use std::{
-    borrow::Borrow, cell::RefCell, collections::HashSet, hash::Hash, rc::Rc, str::FromStr,
-    sync::Arc,
-};
+use std::{borrow::Borrow, cell::RefCell, collections::HashSet, hash::Hash, rc::Rc, str::FromStr};
 
 use mina_hasher::Fp;
 use ocaml_interop::{
@@ -15,7 +12,7 @@ use crate::{
     address::Address,
     base::{AccountIndex, BaseLedger, MerklePath},
     ffi::DatabaseFFI,
-    Mask, UnregisterBehavior, Uuid,
+    Mask, UnregisterBehavior,
 };
 
 // #[derive(Clone)]
