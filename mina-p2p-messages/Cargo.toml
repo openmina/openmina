@@ -27,6 +27,10 @@ fuzzcheck = "0.12.1"
 gloo-utils = "0.1.5"
 wasm-bindgen = "0.2.83"
 anyhow = "1.0.65"
+toml = "0.5.9"
+clap = { version = "4.0.18", features = ["derive"] }
+alloc-test = { git = "https://github.com/name-placeholder/alloc-test.git" }
+
 
 [features]
 hashing = ["mina-hasher", "mina-curves", "o1-utils", "sha2"]
