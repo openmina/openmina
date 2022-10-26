@@ -283,7 +283,7 @@ ocaml_export! {
         mask: OCamlRef<DynBox<MaskFFI>>,
         mask2: OCamlRef<DynBox<MaskFFI>>
     ) -> OCaml<DynBox<MaskFFI>> {
-        let bt = backtrace::Backtrace::new();
+        // let bt = backtrace::Backtrace::new();
 
         // println!("AAA bt={:#?}", bt);
         let mask2 = {

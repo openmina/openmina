@@ -172,7 +172,7 @@ impl MaskImpl {
     }
 
     pub fn remove_and_reparent(&mut self) {
-        let root_hash = self.merkle_root();
+        // let root_hash = self.merkle_root();
 
         let (parent, childs, uuid) = match self {
             Root { .. } => panic!("Cannot reparent a root mask"),
@@ -188,7 +188,7 @@ impl MaskImpl {
         let childs = std::mem::take(childs);
 
         // we can only reparent if merkle roots are the same
-        assert_eq!(parent.merkle_root(), root_hash);
+        // assert_eq!(parent.merkle_root(), root_hash);
 
         parent
             .remove_child_uuid(uuid)
@@ -266,7 +266,7 @@ impl MaskImpl {
     pub fn commit(&mut self) {
         let depth = self.depth() as usize;
         let self_uuid = self.uuid();
-        let old_root_hash = self.merkle_root();
+        // let old_root_hash = self.merkle_root();
 
         match self {
             Root { .. } => panic!("commit on a root"),
@@ -295,7 +295,7 @@ impl MaskImpl {
 
                 // Parent merkle root after committing should be the same as the \
                 // old one in the mask
-                assert_eq!(old_root_hash, parent.merkle_root()); // TODO: Assert this only in #[cfg(test)]
+                // assert_eq!(old_root_hash, parent.merkle_root()); // TODO: Assert this only in #[cfg(test)]
             }
         }
     }
