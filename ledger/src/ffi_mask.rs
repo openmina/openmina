@@ -355,6 +355,16 @@ ocaml_export! {
         OCaml::unit()
     }
 
+    fn rust_print_backtrace(
+        rt,
+        _int: OCamlRef<OCamlInt>
+    ) {
+        let bt = backtrace::Backtrace::new();
+        eprintln!("rust_print_backtrace BACKTRACE={:#?}", bt);
+
+        OCaml::unit()
+    }
+
     fn rust_mask_get_uuid(
         rt,
         mask: OCamlRef<DynBox<MaskFFI>>
