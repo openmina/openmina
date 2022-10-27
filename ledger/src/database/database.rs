@@ -40,7 +40,7 @@ pub struct Database<T: TreeVersion> {
 // }
 
 impl Database<V2> {
-    pub(super) fn with<F, R>(&self, fun: F) -> R
+    pub fn with<F, R>(&self, fun: F) -> R
     where
         F: FnOnce(&mut DatabaseImpl<V2>) -> R,
     {

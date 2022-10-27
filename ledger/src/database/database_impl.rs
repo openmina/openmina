@@ -152,7 +152,7 @@ impl DatabaseImpl<V2> {
     }
 
     // fn emulate_recursive(&mut self, addr: Address, nremaining: &mut usize) -> Fp {
-    fn emulate_tree_recursive(&mut self, addr: Address, last_account: &Address) -> Fp {
+    pub fn emulate_tree_recursive(&mut self, addr: Address, last_account: &Address) -> Fp {
         let tree_depth = self.depth as usize;
         let current_depth = tree_depth - addr.length();
 
@@ -185,7 +185,7 @@ impl DatabaseImpl<V2> {
         }
     }
 
-    fn emulate_tree_to_get_path(
+    pub fn emulate_tree_to_get_path(
         &mut self,
         addr: Address,
         last_account: &Address,

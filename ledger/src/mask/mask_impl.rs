@@ -445,7 +445,9 @@ impl MaskImpl {
 
     pub fn compute_hash_or_parent(&mut self, addr: Address, last_account: &Address) -> Fp {
         let (matrix, own, parent) = match self {
-            Root { database, .. } => return database.get_inner_hash_at_addr(addr).unwrap(),
+            Root { database, .. } => {
+                return database.with(|db| db.emulate_tree_recursive(addr, last_account));
+            }
             Attached {
                 hashes,
                 id_to_addr,
@@ -484,7 +486,10 @@ impl MaskImpl {
         first: bool,
     ) -> Fp {
         let (matrix, own, parent) = match self {
-            Root { database, .. } => return database.get_inner_hash_at_addr(addr).unwrap(),
+            Root { database, .. } => {
+                return database
+                    .with(|db| db.emulate_tree_to_get_path(addr, last_account, path, merkle_path));
+            }
             Attached {
                 hashes,
                 id_to_addr,
@@ -1175,13 +1180,15 @@ impl BaseLedger for MaskImpl {
         let hash = self.emulate_tree_to_get_hash_at(Address::root());
         // self.emulate_tree_to_get_hash()
 
-        eprintln!("merkle_root={}", hash);
+        let num_accounts = self.num_accounts();
+        eprintln!("merkle_root={} num_accounts={:?}", hash, num_accounts);
 
         hash
     }
 
     fn merkle_path(&mut self, addr: Address) -> Vec<MerklePath> {
         eprintln!("merkle_path short={:?}", self.short());
+        // eprintln!("merkle_path num_accounts={:?} addr={:?}", self.num_accounts(), addr);
 
         if let Root { database, .. } = self {
             return database.merkle_path(addr);
@@ -1195,7 +1202,7 @@ impl BaseLedger for MaskImpl {
             .last_filled()
             .unwrap_or_else(|| Address::first(self.depth() as usize));
 
-        eprintln!("merkle_path last_account={:?}", last_account);
+        // eprintln!("merkle_path last_account={:?}", last_account);
 
         self.compute_hash_or_parent_for_merkle_path(
             addr,

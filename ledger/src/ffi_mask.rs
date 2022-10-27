@@ -3,7 +3,7 @@ use std::{borrow::Borrow, cell::RefCell, collections::HashSet, hash::Hash, rc::R
 use mina_hasher::Fp;
 use ocaml_interop::{
     impl_to_ocaml_polymorphic_variant, impl_to_ocaml_variant, ocaml_export, DynBox, OCaml,
-    OCamlBytes, OCamlInt, OCamlList, OCamlRef, OCamlRuntime, ToOCaml,
+    OCamlBytes, OCamlException, OCamlInt, OCamlList, OCamlRef, OCamlRuntime, ToOCaml,
 };
 use serde::Deserialize;
 
@@ -192,6 +192,9 @@ ocaml_export! {
         rt,
         depth: OCamlRef<OCamlInt>,
     ) -> OCaml<DynBox<MaskFFI>> {
+        // let bt = backtrace::Backtrace::new();
+        // eprintln!("BACKTRACE={:#?}", bt);
+
         let depth: i64 = depth.to_rust(rt);
         let depth: usize = depth.try_into().unwrap();
 
@@ -727,7 +730,7 @@ ocaml_export! {
     fn rust_mask_iter(
         rt,
         mask: OCamlRef<DynBox<MaskFFI>>,
-        ocaml_method: OCamlRef<fn(OCamlBytes)>,
+        ocaml_method: OCamlRef<fn(OCamlInt, OCamlBytes)>,
     ) {
         let (num_accounts, depth) = with_mask(rt, mask, |mask| {
             (mask.num_accounts(), mask.depth())
@@ -736,8 +739,8 @@ ocaml_export! {
         let ocaml_method = ocaml_method.to_boxroot(rt);
 
         for index in 0..num_accounts {
-            let index = AccountIndex(index as u64);
-            let addr = Address::from_index(index, depth as usize);
+            let account_index = AccountIndex(index as u64);
+            let addr = Address::from_index(account_index, depth as usize);
 
             let account = with_mask(rt, mask, |mask| {
                 mask.get(addr)
@@ -750,7 +753,8 @@ ocaml_export! {
 
             let account = serde_binprot::to_vec(&account).unwrap();
 
-            let _: Result<OCaml<()>, _> = ocaml_method.try_call(rt, &account);
+            let index = index as i64;
+            let _: Result<OCaml<()>, OCamlException> = ocaml_method.try_call(rt, &index, &account);
         }
 
         OCaml::unit()

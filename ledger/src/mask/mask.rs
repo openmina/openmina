@@ -313,12 +313,12 @@ impl BaseLedger for Mask {
         let res = self.with(|this| this.merkle_path(addr.clone()));
         assert_eq!(res.len(), addr_length);
 
-        println!(
-            "merkle_path addr={:?} path_len={:?} path={:?}",
-            addr,
-            res.len(),
-            res
-        );
+        // println!(
+        //     "merkle_path addr={:?} path_len={:?} path={:?}",
+        //     addr,
+        //     res.len(),
+        //     res
+        // );
 
         res
     }
@@ -379,6 +379,68 @@ mod tests {
 
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
+
+    #[test]
+    fn test_merkle_path_one_account() {
+        let (mut root, mask) = new_instances(DEPTH);
+        let mut mask = root.register_mask(mask);
+
+        let account = Account::rand();
+
+        let addr = root
+            .get_or_create_account(account.id(), account)
+            .unwrap()
+            .addr();
+
+        let path = mask.merkle_path(addr);
+        assert_eq!(path.len(), DEPTH);
+    }
+
+    #[test]
+    fn test_masks() {
+        const DEPTH: usize = 20;
+
+        let root = Mask::new_unattached(DEPTH);
+        let mask = Mask::new_unattached(DEPTH);
+
+        let mut mask = root.register_mask(mask);
+
+        let accounts: Vec<_> = (0..18).map(|_| Account::rand()).collect();
+
+        for account in &accounts {
+            mask.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+
+        let mask_paths: Vec<_> = (0..18)
+            .map(|index| {
+                let index: AccountIndex = index.into();
+                let addr = Address::from_index(index, DEPTH);
+                mask.merkle_path(addr)
+            })
+            .collect();
+
+        let mask_root_hash = mask.merkle_root();
+
+        let mut db = Database::create(DEPTH as u8);
+        for account in &accounts {
+            db.get_or_create_account(account.id(), account.clone())
+                .unwrap();
+        }
+
+        let db_paths: Vec<_> = (0..18)
+            .map(|index| {
+                let index: AccountIndex = index.into();
+                let addr = Address::from_index(index, DEPTH);
+                mask.merkle_path(addr)
+            })
+            .collect();
+
+        let db_root_hash = db.merkle_root();
+
+        assert_eq!(mask_root_hash, db_root_hash);
+        assert_eq!(mask_paths, db_paths);
+    }
 
     // Make sure hashes are correctly invalided in masks (parents/childs)
     #[test]

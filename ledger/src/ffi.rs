@@ -203,6 +203,7 @@ ocaml_export! {
 
         let db = dir_name.as_ref().and_then(|dir_name| closed.remove(dir_name));
 
+        eprintln!("rust_database_create={:?} reuse={:?}", dir_name, db.is_some());
 
         let db = match db {
             Some(db) => {
@@ -320,6 +321,8 @@ ocaml_export! {
             db_ref.close();
             db_ref.get_directory().unwrap()
         };
+
+        eprintln!("rust_database_close={:?}", path);
 
         let db = db.0.take().unwrap();
         // let db: RefCell<Database<V2>> = Rc::try_unwrap(db).ok().unwrap();
