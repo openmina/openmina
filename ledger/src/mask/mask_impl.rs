@@ -12,13 +12,13 @@ use crate::{
     base::{AccountIndex, BaseLedger, GetOrCreated, MerklePath, Uuid},
     database::{Database, DatabaseError},
     mask::UnregisterBehavior,
+    next_uuid,
     tree_version::{TreeVersion, V2},
     HashesMatrix,
 };
 
 use super::Mask;
 
-#[derive(Clone)]
 pub enum MaskImpl {
     Root {
         database: Database<V2>,
@@ -45,6 +45,57 @@ pub enum MaskImpl {
         hashes: HashesMatrix,
         uuid: Uuid,
     },
+}
+
+impl Clone for MaskImpl {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Root { database, childs } => Self::Root {
+                database: database.clone_db(database.get_directory().unwrap()),
+                childs: childs.clone(),
+            },
+            Self::Attached {
+                parent,
+                owning_account,
+                token_to_account,
+                id_to_addr,
+                last_location,
+                depth,
+                childs,
+                hashes,
+                uuid: _,
+            } => Self::Attached {
+                parent: parent.clone(),
+                owning_account: owning_account.clone(),
+                token_to_account: token_to_account.clone(),
+                id_to_addr: id_to_addr.clone(),
+                last_location: last_location.clone(),
+                depth: depth.clone(),
+                childs: childs.clone(),
+                hashes: hashes.clone(),
+                uuid: next_uuid(),
+            },
+            Self::Unattached {
+                depth,
+                childs,
+                owning_account,
+                token_to_account,
+                id_to_addr,
+                last_location,
+                hashes,
+                uuid: _,
+            } => Self::Unattached {
+                depth: depth.clone(),
+                childs: childs.clone(),
+                owning_account: owning_account.clone(),
+                token_to_account: token_to_account.clone(),
+                id_to_addr: id_to_addr.clone(),
+                last_location: last_location.clone(),
+                hashes: hashes.clone(),
+                uuid: next_uuid(),
+            },
+        }
+    }
 }
 
 impl std::fmt::Debug for MaskImpl {
