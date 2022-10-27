@@ -192,8 +192,8 @@ ocaml_export! {
         rt,
         depth: OCamlRef<OCamlInt>,
     ) -> OCaml<DynBox<MaskFFI>> {
-        // let bt = backtrace::Backtrace::new();
-        // eprintln!("BACKTRACE={:#?}", bt);
+        let bt = backtrace::Backtrace::new();
+        eprintln!("BACKTRACE={:#?}", bt);
 
         let depth: i64 = depth.to_rust(rt);
         let depth: usize = depth.try_into().unwrap();
