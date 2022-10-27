@@ -548,7 +548,7 @@ impl BaseLedger for DatabaseImpl<V2> {
     fn location_of_account(&self, account_id: &AccountId) -> Option<Address> {
         let res = self.id_to_addr.get(account_id).cloned();
 
-        println!("location_of_account id={:?}\n{:?}", account_id, res);
+        // println!("location_of_account id={:?}\n{:?}", account_id, res);
 
         res
     }

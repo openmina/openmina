@@ -545,7 +545,7 @@ ocaml_export! {
             addr.to_string()
         });
 
-        eprintln!("rust_mask_location_of_account is_some={:?} addr={:?}", addr.is_some(), a);
+        eprintln!("rust_mask_location_of_account is_some={:?} addr={:?} account_id={:?}", addr.is_some(), a, account_id);
 
         addr.to_ocaml(rt)
     }
