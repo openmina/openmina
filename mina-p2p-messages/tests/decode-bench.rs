@@ -1,4 +1,4 @@
-use std::{alloc::System, io::Read};
+use std::io::Read;
 
 use mina_p2p_messages::gossip::GossipNetMessageV2;
 
@@ -7,16 +7,24 @@ use binprot::BinProtRead;
 use alloc_test::{
     alloc::{
         compare::{AllocThresholds, AllocThresholdsBuilder, AllocThresholdsError},
-        measure::{trace_allocs, MemoryStats, MemoryTracingHooks},
+        measure::{trace_allocs, MemoryStats},
     },
-    alloc_bench, alloc_bench_cmp_with_toml,
+    alloc_bench,
+    perf::compare::{PerfThresholds, PerfThresholdsBuilder, PerfThresholdsError},
+    perf_bench,
     threshold::{CheckThresholdError, Threshold},
 };
 use mina_p2p_messages::{rpc::*, rpc_kernel::*, string::CharString, versioned::Ver};
 
+#[cfg(debug)]
 #[global_allocator]
-static ALLOCATOR: alloc_test::alloc::allocator::TracingAllocator<MemoryTracingHooks, System> =
-    alloc_test::alloc::default_tracing_allocator();
+static ALLOCATOR: alloc_test::alloc::allocator::TracingAllocator<
+    alloc_test::alloc::allocator::MemoryTracingHooks,
+    std::alloc::System,
+> = alloc_test::alloc::default_tracing_allocator();
+
+#[cfg(target_family = "wasm")]
+wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 fn limits() -> AllocThresholds {
     let r = Threshold::ratio(1, 20);
@@ -28,39 +36,108 @@ fn limits() -> AllocThresholds {
         .unwrap()
 }
 
+fn perf_limits() -> PerfThresholds {
+    let r = Threshold::ratio(1, 20);
+    PerfThresholdsBuilder::default().mean(r).build().unwrap()
+}
+
 #[test]
 #[ignore = "Memory allocation benchmark test should be run individually"]
 fn decode_alloc() -> Result<(), CheckThresholdError<AllocThresholdsError>> {
     let limits = limits();
     alloc_bench!(tx_pool_diff, &limits)?;
+    alloc_bench!(snark_pool_diff, &limits)?;
+    alloc_bench!(new_state, &limits)?;
     alloc_bench!(staged_ledger, &limits)?;
     alloc_bench!(incoming_rpc, &limits)?;
+    Ok(())
+}
+
+#[test]
+#[ignore = "Memory allocation benchmark test should be run individually"]
+fn decode_perf() -> Result<(), CheckThresholdError<PerfThresholdsError>> {
+    let limits = perf_limits();
+    perf_bench!(snark_pool_diff, &limits)?;
+    perf_bench!(new_state, &limits)?;
+    perf_bench!(staged_ledger, &limits)?;
+    perf_bench!(incoming_rpc, &limits)?;
     Ok(())
 }
 
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen_test::wasm_bindgen_test]
 fn decode_alloc_wasm() -> Result<(), CheckThresholdError<AllocThresholdsError>> {
+    use alloc_test::alloc_bench_cmp_with_toml;
     let limits = limits();
     alloc_bench_cmp_with_toml!(
         tx_pool_diff,
-        include_str!("decode-alloc/mem-benchmarks/tx_pool_diff.wasm.toml"),
-        &limits,
+        // include_str!("decode-bench/alloc/tx_pool_diff.wasm.toml"),
+        // &limits,
+    )?;
+    alloc_bench_cmp_with_toml!(
+        snark_pool_diff,
+        // include_str!("decode-bench/alloc/snark_pool_diff.wasm.toml"),
+        // &limits,
+    )?;
+    alloc_bench_cmp_with_toml!(
+        new_state,
+        // include_str!("decode-bench/alloc/new_state.wasm.toml"),
+        // &limits,
     )?;
     alloc_bench_cmp_with_toml!(
         staged_ledger,
-        include_str!("decode-alloc/mem-benchmarks/staged_ledger.wasm.toml"),
+        include_str!("decode-bench/alloc/staged_ledger.wasm.toml"),
         &limits,
     )?;
     alloc_bench_cmp_with_toml!(
         incoming_rpc,
-        include_str!("decode-alloc/mem-benchmarks/incoming_rpc.wasm.toml"),
+        include_str!("decode-bench/alloc/incoming_rpc.wasm.toml"),
         &limits,
     )?;
     Ok(())
 }
 
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen_test::wasm_bindgen_test]
+fn decode_perf_wasm() -> Result<(), CheckThresholdError<PerfThresholdsError>> {
+    use alloc_test::perf_bench_cmp_with_toml;
+    let limits = perf_limits();
+    perf_bench_cmp_with_toml!(
+        snark_pool_diff,
+        // include_str!("decode-bench/perf/snark_pool_diff.wasm.toml"),
+        // &limits,
+    )?;
+    perf_bench_cmp_with_toml!(
+        new_state,
+        // include_str!("decode-bench/perf/new_state.wasm.toml"),
+        // &limits,
+    )?;
+    perf_bench_cmp_with_toml!(
+        staged_ledger,
+        // include_str!("decode-bench/perf/staged_ledger.wasm.toml"),
+        // &limits,
+    )?;
+    perf_bench_cmp_with_toml!(
+        incoming_rpc,
+        // include_str!("decode-bench/perf/incoming_rpc.wasm.toml"),
+        // &limits,
+    )?;
+    Ok(())
+}
+
 fn tx_pool_diff() {
+    const BYTES: &[u8] = include_bytes!("files/v2/gossip/transaction_pool_diff.bin");
+    let mut p = BYTES;
+    GossipNetMessageV2::binprot_read(&mut p).unwrap();
+}
+
+fn snark_pool_diff() {
+    const BYTES: &[u8] = include_bytes!("files/v2/gossip/snark_pool_diff.bin");
+    let mut p = BYTES;
+    GossipNetMessageV2::binprot_read(&mut p).unwrap();
+}
+
+fn new_state() {
     const BYTES: &[u8] = include_bytes!("files/v2/gossip/new_state.bin");
     let mut p = BYTES;
     GossipNetMessageV2::binprot_read(&mut p).unwrap();

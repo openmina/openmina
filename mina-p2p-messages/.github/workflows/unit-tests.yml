@@ -28,7 +28,13 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --test decode-alloc -- decode_alloc --exact --nocapture --ignored -- --load-baseline=tests/decode-alloc/mem-benchmarks
+          args: --test decode-bench -- decode_alloc --exact --nocapture --ignored -- --load-baseline=tests/decode-bench/alloc
+
+      - name: Run performance benchmarks
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --test decode-bench -- decode_perf --exact --nocapture --ignored -- --load-baseline=tests/decode-bench/perf
 
   tests-wasm:
     runs-on: ubuntu-latest
@@ -44,4 +50,7 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Run memory allocations benchmarks
-        run: wasm-pack test --node . --test decode-alloc -- decode_alloc_wasm
+        run: wasm-pack test --firefox --headless . --test decode-bench -- decode_alloc_wasm
+
+      - name: Run memory allocations benchmarks
+        run: wasm-pack test --release --firefox --headless . --test decode-bench -- decode_perf_wasm

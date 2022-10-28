@@ -1,0 +1,5 @@
+current = 0
+peak = 370
+total_size = 370
+total_num = 8
+reallocs = 0
