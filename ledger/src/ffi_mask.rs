@@ -417,13 +417,16 @@ ocaml_export! {
     ) -> OCaml<Option<OCamlBytes>> {
         let addr = get_addr(rt, addr);
 
+        let mut acc = None;
+
         let account = with_mask(rt, mask, |mask| {
             mask.get(addr.clone())
         }).map(|account| {
+            acc = Some(account.clone());
             serde_binprot::to_vec(&account).unwrap()
         });
 
-        eprintln!("rust_mask_get is_some={:?} addr={:?}", account.is_some(), addr);
+        eprintln!("rust_mask_get is_some={:?} addr={:?} account={:?}", account.is_some(), addr, acc);
 
         account.to_ocaml(rt)
     }
@@ -547,15 +550,18 @@ ocaml_export! {
         let account_id = get(rt, account_id);
 
         let mut a = None;
+        let mut acc = None;
 
         let addr = with_mask(rt, mask, |mask| {
             mask.location_of_account(&account_id)
         }).map(|addr| {
             a = Some(addr.clone());
+            acc = Some(with_mask(rt, mask, |mask| mask.get(addr.clone()).unwrap()));
+
             addr.to_string()
         });
 
-        eprintln!("rust_mask_location_of_account is_some={:?} addr={:?} account_id={:?}", addr.is_some(), a, account_id);
+        eprintln!("rust_mask_location_of_account is_some={:?} addr={:?} account={:?}", addr.is_some(), a, acc);
 
         addr.to_ocaml(rt)
     }
