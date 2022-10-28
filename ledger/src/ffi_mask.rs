@@ -274,7 +274,7 @@ ocaml_export! {
         };
 
         let mask = with_mask(rt, mask, |mask| {
-            mask.set_parent(&parent)
+            mask.set_parent(&parent, None)
         });
         let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
 

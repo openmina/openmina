@@ -73,9 +73,9 @@ impl Mask {
         res
     }
 
-    pub fn set_parent(&self, parent: &Mask) -> Mask {
+    pub fn set_parent(&self, parent: &Mask, parent_last_filled: Option<Option<Address>>) -> Mask {
         let this = self.clone();
-        self.with(|this| this.set_parent(parent));
+        self.with(|this| this.set_parent(parent, parent_last_filled));
         this
     }
 

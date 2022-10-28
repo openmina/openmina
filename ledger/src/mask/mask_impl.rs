@@ -188,7 +188,9 @@ impl MaskImpl {
         let old = childs.insert(mask.get_uuid(), mask.clone());
         assert!(old.is_none(), "mask is already registered");
 
-        mask.set_parent(&self_mask);
+        let parent_last_filled = self.last_filled();
+
+        mask.set_parent(&self_mask, Some(parent_last_filled));
         mask
     }
 
@@ -253,7 +255,7 @@ impl MaskImpl {
         self.remove_parent();
     }
 
-    pub fn set_parent(&mut self, parent: &Mask) {
+    pub fn set_parent(&mut self, parent: &Mask, parent_last_filled: Option<Option<Address>>) {
         match self {
             Root { .. } => panic!("set_parent() on a root"),
             Attached { .. } => panic!("mask is already attached"),
@@ -279,7 +281,16 @@ impl MaskImpl {
                     childs: take(childs),
                     hashes: replace(hashes, HashesMatrix::new(*depth as usize)),
                     uuid: uuid.clone(),
-                }
+                };
+
+                let last_filled = match parent_last_filled {
+                    Some(last_filled) => last_filled,
+                    None => self.last_filled(), // This will lock the parent,
+                };
+
+                if let Attached { last_location, .. } = self {
+                    *last_location = last_filled;
+                };
             }
         }
     }
