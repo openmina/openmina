@@ -658,6 +658,8 @@ ocaml_export! {
         addr: OCamlRef<String>,
         account: OCamlRef<OCamlBytes>,
     ) {
+        eprintln!("backtrace=\n{}", short_backtrace());
+
         let addr = get_addr(rt, addr);
         let account = get(rt, account);
 
