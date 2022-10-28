@@ -22,12 +22,14 @@ jobs:
       - name: Build debug
         uses: actions-rs/cargo@v1
         with:
-          command: build --tests
+          command: build
+          args: --tests
 
       - name: Build release
         uses: actions-rs/cargo@v1
         with:
-          command: build --release --tests
+          command: build
+          args: --release --tests
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
@@ -55,6 +57,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: wasm32-unknown-unknown
 
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
@@ -62,12 +65,14 @@ jobs:
       - name: Build debug
         uses: actions-rs/cargo@v1
         with:
-          command: build --tests --target=wasm32-unknown-unknown
+          command: build
+          args: --tests --target=wasm32-unknown-unknown
 
       - name: Build release
         uses: actions-rs/cargo@v1
         with:
-          command: build --release --tests --target=wasm32-unknown-unknown
+          command: build
+          args: --release --tests --target=wasm32-unknown-unknown
 
       - name: Run memory allocations benchmarks
         run: wasm-pack test --firefox --headless . --test decode_alloc -- decode_alloc_wasm
