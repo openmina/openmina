@@ -542,6 +542,8 @@ ocaml_export! {
         mask: OCamlRef<DynBox<MaskFFI>>,
         account_id: OCamlRef<OCamlBytes>
     ) -> OCaml<Option<String>> {
+        eprintln!("backtrace=\n{}", short_backtrace());
+
         let account_id = get(rt, account_id);
 
         let mut a = None;
@@ -563,6 +565,8 @@ ocaml_export! {
         mask: OCamlRef<DynBox<MaskFFI>>,
         account_ids: OCamlRef<OCamlList<OCamlBytes>>
     ) -> OCaml<OCamlList<(OCamlBytes, Option<String>)>> {
+        eprintln!("backtrace=\n{}", short_backtrace());
+
         let account_ids = get_list_of::<AccountId>(rt, account_ids);
 
         let addrs = with_mask(rt, mask, |mask| {
