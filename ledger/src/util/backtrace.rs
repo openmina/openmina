@@ -37,7 +37,7 @@ pub fn short_backtrace() -> String {
                     .unwrap_or(false));
         })
         .take_while(|(_, (_, name, _))| {
-            name.as_ref().and_then(|n| n.as_str()) != Some("caml_start_program")
+            name.as_ref().and_then(|n| n.as_str()) != Some("caml_program")
         })
     {
         match (name, filename, line) {
