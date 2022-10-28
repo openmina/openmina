@@ -1,8 +1,10 @@
 use ark_ff::PrimeField;
 use mina_hasher::Fp;
 
+mod backtrace;
 mod time;
 
+pub use crate::util::backtrace::*;
 pub use time::*;
 
 #[cfg(not(target_family = "wasm"))]

@@ -22,6 +22,7 @@ use crate::{
     address::Address,
     base::{AccountIndex, BaseLedger, MerklePath},
     database::Database,
+    short_backtrace,
     tree_version::V2,
 };
 
@@ -193,8 +194,7 @@ ocaml_export! {
         depth: OCamlRef<OCamlInt>,
         dir_name: OCamlRef<Option<String>>
     ) -> OCaml<DynBox<DatabaseFFI>> {
-        let bt = backtrace::Backtrace::new();
-        eprintln!("BACKTRACE={:#?}", bt);
+        eprintln!("backtrace=\n{}", short_backtrace());
 
         let depth: i64 = depth.to_rust(rt);
         let depth: u8 = depth.try_into().unwrap();

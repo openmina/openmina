@@ -12,7 +12,7 @@ use crate::{
     address::Address,
     base::{AccountIndex, BaseLedger, MerklePath},
     ffi::DatabaseFFI,
-    Mask, UnregisterBehavior,
+    short_backtrace, Mask, UnregisterBehavior,
 };
 
 // #[derive(Clone)]
@@ -192,8 +192,7 @@ ocaml_export! {
         rt,
         depth: OCamlRef<OCamlInt>,
     ) -> OCaml<DynBox<MaskFFI>> {
-        let bt = backtrace::Backtrace::new();
-        eprintln!("BACKTRACE={:#?}", bt);
+        eprintln!("backtrace=\n{}", short_backtrace());
 
         let depth: i64 = depth.to_rust(rt);
         let depth: usize = depth.try_into().unwrap();
@@ -359,8 +358,7 @@ ocaml_export! {
         rt,
         _int: OCamlRef<OCamlInt>
     ) {
-        let bt = backtrace::Backtrace::new();
-        eprintln!("rust_print_backtrace BACKTRACE={:#?}", bt);
+        eprintln!("rust_print_backtrace=\n{}", short_backtrace());
 
         OCaml::unit()
     }
