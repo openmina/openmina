@@ -48,18 +48,18 @@ fn decode_alloc_wasm() -> Result<(), CheckThresholdError<AllocThresholdsError>> 
     let limits = limits();
     alloc_bench_cmp_with_toml!(
         tx_pool_diff,
-        // include_str!("decode-bench/alloc/tx_pool_diff.wasm.toml"),
-        // &limits,
+        include_str!("decode-bench/alloc/tx_pool_diff.wasm.toml"),
+        &limits,
     )?;
     alloc_bench_cmp_with_toml!(
         snark_pool_diff,
-        // include_str!("decode-bench/alloc/snark_pool_diff.wasm.toml"),
-        // &limits,
+        include_str!("decode-bench/alloc/snark_pool_diff.wasm.toml"),
+        &limits,
     )?;
     alloc_bench_cmp_with_toml!(
         new_state,
-        // include_str!("decode-bench/alloc/new_state.wasm.toml"),
-        // &limits,
+        include_str!("decode-bench/alloc/new_state.wasm.toml"),
+        &limits,
     )?;
     alloc_bench_cmp_with_toml!(
         staged_ledger,
