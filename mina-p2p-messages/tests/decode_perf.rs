@@ -11,7 +11,7 @@ use alloc_test::{
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 fn perf_limits() -> PerfThresholds {
-    let r = Threshold::ratio(1, 20);
+    let r = Threshold::ratio(1, 5);
     PerfThresholdsBuilder::default().mean(r).build().unwrap()
 }
 
