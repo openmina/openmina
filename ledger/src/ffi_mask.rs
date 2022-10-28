@@ -415,6 +415,8 @@ ocaml_export! {
         mask: OCamlRef<DynBox<MaskFFI>>,
         addr: OCamlRef<String>,
     ) -> OCaml<Option<OCamlBytes>> {
+        eprintln!("backtrace=\n{}", short_backtrace());
+
         let addr = get_addr(rt, addr);
 
         let mut acc = None;
@@ -854,6 +856,8 @@ ocaml_export! {
         rt,
         mask: OCamlRef<DynBox<MaskFFI>>,
     ) -> OCaml<OCamlBytes> {
+        eprintln!("backtrace=\n{}", short_backtrace());
+
         let hash = with_mask(rt, mask, |mask| {
             mask.merkle_root()
         });
