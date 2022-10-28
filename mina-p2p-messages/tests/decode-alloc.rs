@@ -1,15 +1,26 @@
-use std::io::Read;
+use std::{alloc::System, io::Read};
 
 use mina_p2p_messages::gossip::GossipNetMessageV2;
 
 use binprot::BinProtRead;
 
-#[global_allocator]
-static ALLOCATOR: alloc_test::TracingAllocator = alloc_test::default_tracing_allocator();
+use alloc_test::{
+    alloc::{
+        compare::{AllocThresholds, AllocThresholdsBuilder, AllocThresholdsError},
+        measure::{trace_allocs, MemoryStats, MemoryTracingHooks},
+    },
+    alloc_bench, alloc_bench_cmp_with_toml,
+    threshold::{CheckThresholdError, Threshold},
+};
+use mina_p2p_messages::{rpc::*, rpc_kernel::*, string::CharString, versioned::Ver};
 
-fn limits() -> AllocLimits {
-    let r = Limit::ratio(1, 20);
-    AllocLimitsBuilder::default()
+#[global_allocator]
+static ALLOCATOR: alloc_test::alloc::allocator::TracingAllocator<MemoryTracingHooks, System> =
+    alloc_test::alloc::default_tracing_allocator();
+
+fn limits() -> AllocThresholds {
+    let r = Threshold::ratio(1, 20);
+    AllocThresholdsBuilder::default()
         .peak(r)
         .total_size(r)
         .total_num(r)
@@ -19,39 +30,32 @@ fn limits() -> AllocLimits {
 
 #[test]
 #[ignore = "Memory allocation benchmark test should be run individually"]
-fn decode_alloc() -> Result<(), BenchmarkError> {
+fn decode_alloc() -> Result<(), CheckThresholdError<AllocThresholdsError>> {
     let limits = limits();
-    mem_bench!(tx_pool_diff, &limits)?;
-    mem_bench!(staged_ledger, &limits)?;
-    mem_bench!(incoming_rpc, &limits)?;
+    alloc_bench!(tx_pool_diff, &limits)?;
+    alloc_bench!(staged_ledger, &limits)?;
+    alloc_bench!(incoming_rpc, &limits)?;
     Ok(())
 }
 
 #[cfg(target_family = "wasm")]
 #[wasm_bindgen_test::wasm_bindgen_test]
-fn decode_alloc_wasm() -> Result<(), BenchmarkError> {
-    use alloc_test::mem_bench_cmp_with_toml;
+fn decode_alloc_wasm() -> Result<(), CheckThresholdError<AllocThresholdsError>> {
     let limits = limits();
-    mem_bench_cmp_with_toml!(
+    alloc_bench_cmp_with_toml!(
         tx_pool_diff,
-        Some(include_str!(
-            "decode-alloc/mem-benchmarks/tx_pool_diff.wasm.toml"
-        )),
-        &limits
+        include_str!("decode-alloc/mem-benchmarks/tx_pool_diff.wasm.toml"),
+        &limits,
     )?;
-    mem_bench_cmp_with_toml!(
+    alloc_bench_cmp_with_toml!(
         staged_ledger,
-        Some(include_str!(
-            "decode-alloc/mem-benchmarks/staged_ledger.wasm.toml"
-        )),
-        &limits
+        include_str!("decode-alloc/mem-benchmarks/staged_ledger.wasm.toml"),
+        &limits,
     )?;
-    mem_bench_cmp_with_toml!(
+    alloc_bench_cmp_with_toml!(
         incoming_rpc,
-        Some(include_str!(
-            "decode-alloc/mem-benchmarks/incoming_rpc.wasm.toml"
-        )),
-        &limits
+        include_str!("decode-alloc/mem-benchmarks/incoming_rpc.wasm.toml"),
+        &limits,
     )?;
     Ok(())
 }
@@ -112,12 +116,6 @@ pub fn staged_ledger() {
     )
     .unwrap();
 }
-
-use alloc_test::{
-    cmp::{AllocLimits, AllocLimitsBuilder, Limit},
-    mem_bench, trace_allocs, BenchmarkError, MemoryStats,
-};
-use mina_p2p_messages::{rpc::*, rpc_kernel::*, string::CharString, versioned::Ver};
 
 fn read_rpc_tag_version<R: Read>(read: &mut R) -> Result<(CharString, Ver), binprot::Error> {
     Ok((CharString::binprot_read(read)?, Ver::binprot_read(read)?))
