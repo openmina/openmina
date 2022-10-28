@@ -315,13 +315,13 @@ ocaml_export! {
     ) -> OCaml<DynBox<MaskFFI>> {
         let behavior = rt.get(behavior);
 
-        let behavior = ocaml_interop::ocaml_unpack_variant! {
+        let behavior = ocaml_interop::ocaml_unpack_polymorphic_variant! {
             behavior => {
                 Check => UnregisterBehavior::Check,
                 Recursive => UnregisterBehavior::Recursive,
                 I_promise_I_am_reparenting_this_mask => UnregisterBehavior::IPromiseIAmReparentingThisMask,
             }
-        }.unwrap_or(UnregisterBehavior::Check);
+        }.unwrap();
 
         let mask = with_mask(rt, mask, |mask| {
             mask.unregister_mask(behavior)
