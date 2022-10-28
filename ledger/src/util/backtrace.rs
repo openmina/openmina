@@ -29,9 +29,10 @@ pub fn short_backtrace() -> String {
                     .and_then(|n| n.as_str())
                     .map(|name| {
                         name.starts_with("camlAsync_")
-                            || name.starts_with("camlBase_")
-                            || name.starts_with("camlCore_")
-                            || name.starts_with("camlCamlinternalLazy_")
+                            || name.starts_with("camlBase__")
+                            || name.starts_with("camlCore__")
+                            || name.starts_with("camlCamlinternalLazy__")
+                            || name.starts_with("camlO1trace__") // This belongs to the mina repo, but useless to us
                     })
                     .unwrap_or(false));
         })
@@ -42,12 +43,12 @@ pub fn short_backtrace() -> String {
         match (name, filename, line) {
             (Some(name), None, None) => writeln!(&mut s, " {:>3} - {}", index, name).unwrap(),
             (Some(name), Some(filename), None) => {
-                writeln!(&mut s, " {:>3} - {:60} ({:?})", index, name, filename).unwrap();
+                writeln!(&mut s, " {:>3} - {:80} ({:?})", index, name, filename).unwrap();
             }
             (Some(name), Some(filename), Some(line)) => {
                 writeln!(
                     &mut s,
-                    " {:>3} - {:60} ({:?}:{:?})",
+                    " {:>3} - {:80} ({:?}:{:?})",
                     index, name, filename, line
                 )
                 .unwrap();
