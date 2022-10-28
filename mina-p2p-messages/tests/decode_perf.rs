@@ -33,23 +33,23 @@ fn decode_perf_wasm() -> Result<(), CheckThresholdError<PerfThresholdsError>> {
     let limits = perf_limits();
     perf_bench_cmp_with_toml!(
         snark_pool_diff,
-        // include_str!("decode-bench/perf/snark_pool_diff.wasm.toml"),
-        // &limits,
+        include_str!("decode-bench/perf/snark_pool_diff.wasm.toml"),
+        &limits,
     )?;
     perf_bench_cmp_with_toml!(
         new_state,
-        // include_str!("decode-bench/perf/new_state.wasm.toml"),
-        // &limits,
+        include_str!("decode-bench/perf/new_state.wasm.toml"),
+        &limits,
     )?;
     perf_bench_cmp_with_toml!(
         staged_ledger,
-        // include_str!("decode-bench/perf/staged_ledger.wasm.toml"),
-        // &limits,
+        include_str!("decode-bench/perf/staged_ledger.wasm.toml"),
+        &limits,
     )?;
     perf_bench_cmp_with_toml!(
         incoming_rpc,
-        // include_str!("decode-bench/perf/incoming_rpc.wasm.toml"),
-        // &limits,
+        include_str!("decode-bench/perf/incoming_rpc.wasm.toml"),
+        &limits,
     )?;
     Ok(())
 }
