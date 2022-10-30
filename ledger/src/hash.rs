@@ -194,6 +194,13 @@ pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
     sponge.squeeze()
 }
 
+pub fn hash_fields(fields: &[Fp]) -> Fp {
+    let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
+
+    sponge.absorb(fields);
+    sponge.squeeze()
+}
+
 pub fn hash_noinputs(param: &str) -> Fp {
     let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
     // ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());

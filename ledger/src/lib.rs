@@ -26,6 +26,7 @@ mod poseidon;
 mod tree;
 mod tree_version;
 mod util;
+mod verify_block;
 
 pub use account::*;
 pub use account::*;
@@ -38,3 +39,4 @@ pub use poseidon::*;
 pub use tree::*;
 pub use tree_version::*;
 pub use util::*;
+pub use verify_block::*;

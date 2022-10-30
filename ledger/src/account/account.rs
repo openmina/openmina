@@ -101,7 +101,7 @@ impl Permissions<AuthRequired> {
 // TODO: Not sure if the name is correct
 // It seems that a similar type exist in proof-systems: TODO
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct CurveAffine(Fp, Fp);
+pub struct CurveAffine(pub Fp, pub Fp);
 
 impl From<(BigInt, BigInt)> for CurveAffine {
     fn from((a, b): (BigInt, BigInt)) -> Self {
