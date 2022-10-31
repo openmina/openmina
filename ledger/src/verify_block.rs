@@ -12,6 +12,8 @@ pub struct MessagesForNextWrapProof {
 }
 
 impl MessagesForNextWrapProof {
+    /// Implementation of `to_field_elements`
+    /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/composition_types/composition_types.ml#L356
     pub fn to_fields(&self) -> Vec<Fq> {
         const NFIELDS: usize = 32;
 
@@ -143,6 +145,7 @@ pub fn hash_messages_for_next_step_proof(msg: &MessagesForNextStepProof) -> [u64
     bigint.0
 }
 
+/// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/wrap_hack.ml#L50
 pub fn hash_messages_for_next_wrap_proof(msg: &MessagesForNextWrapProof) -> [u64; 4] {
     let fields: Vec<Fq> = msg.to_fields();
     let field: Fq = hash_fields(&fields);
