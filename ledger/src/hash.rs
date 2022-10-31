@@ -1,10 +1,13 @@
 use std::io::{Cursor, Write};
 
-use ark_ff::{BigInteger, BigInteger256, FromBytes, One, Zero};
+use ark_ff::{BigInteger, BigInteger256, Field, FromBytes, One, Zero};
 use mina_hasher::Fp;
 
 // use oracle::{poseidon::{ArithmeticSponge, Sponge}, constants::PlonkSpongeConstantsKimchi, pasta::fp_kimchi::static_params};
-use crate::poseidon::{static_params, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge};
+use crate::{
+    poseidon::{static_params, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge},
+    SpongeParamsForField,
+};
 
 enum Item {
     Bool(bool),
@@ -194,8 +197,8 @@ pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
     sponge.squeeze()
 }
 
-pub fn hash_fields(fields: &[Fp]) -> Fp {
-    let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
+pub fn hash_fields<F: Field + SpongeParamsForField<F>>(fields: &[F]) -> F {
+    let mut sponge = ArithmeticSponge::<F, PlonkSpongeConstantsKimchi>::new(F::get_params());
 
     sponge.absorb(fields);
     sponge.squeeze()

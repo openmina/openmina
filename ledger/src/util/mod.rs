@@ -1,4 +1,5 @@
 use ark_ff::PrimeField;
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 
 mod backtrace;
@@ -22,6 +23,14 @@ pub trait FpExt {
 }
 
 impl FpExt for Fp {
+    fn to_decimal(&self) -> String {
+        let r = self.into_repr();
+        let bigint: num_bigint::BigUint = r.into();
+        bigint.to_string()
+    }
+}
+
+impl FpExt for Fq {
     fn to_decimal(&self) -> String {
         let r = self.into_repr();
         let bigint: num_bigint::BigUint = r.into();

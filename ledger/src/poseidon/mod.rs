@@ -1,6 +1,7 @@
 // use crate::constants::SpongeConstants;
 // use crate::permutation::{full_round, poseidon_block_cipher};
 use ark_ff::Field;
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use once_cell::sync::Lazy;
 
@@ -9,7 +10,10 @@ use std::str::FromStr;
 #[cfg(not(target_family = "wasm"))]
 mod fp;
 
+mod fq_params;
 mod simd;
+
+pub use fq_params::*;
 
 pub fn make_params() -> ArithmeticSpongeParams<Fp> {
     ArithmeticSpongeParams {
@@ -961,6 +965,22 @@ pub struct ArithmeticSpongeParams<F: Field> {
     pub round_constants: [[F; 3]; 55],
     pub mds: [[F; 3]; 3],
     // pub mds: Vec<Vec<F>>,
+}
+
+pub trait SpongeParamsForField<F: Field> {
+    fn get_params() -> &'static ArithmeticSpongeParams<F>;
+}
+
+impl SpongeParamsForField<Fp> for Fp {
+    fn get_params() -> &'static ArithmeticSpongeParams<Fp> {
+        static_params()
+    }
+}
+
+impl SpongeParamsForField<Fq> for Fq {
+    fn get_params() -> &'static ArithmeticSpongeParams<Fq> {
+        static_fq_params()
+    }
 }
 
 #[derive(Clone)]
