@@ -1,26 +1,37 @@
 use std::str::FromStr;
 
-use ark_ff::{BigInteger256, PrimeField};
+use ark_ff::{BigInteger256, PrimeField, UniformRand};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 
 use crate::{hash_fields, CurveAffine, PlonkVerificationKeyEvals};
 
 pub struct MessagesForNextWrapProof {
-    challenge_polynomial_commitment: (Fq, Fq), // TODO: Make `crate::CurveAffine` generic over the field
+    challenge_polynomial_commitment: CurveAffine<Fq>,
     old_bulletproof_challenges: [[Fq; 15]; 2],
 }
 
 impl MessagesForNextWrapProof {
+    /// Implementation of `hash_messages_for_next_wrap_proof`
+    /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/wrap_hack.ml#L50
+    pub fn hash(&self) -> [u64; 4] {
+        let fields: Vec<Fq> = self.to_fields();
+        let field: Fq = hash_fields(&fields);
+
+        let bigint: BigInteger256 = field.into_repr();
+        bigint.0
+    }
+
     /// Implementation of `to_field_elements`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/composition_types/composition_types.ml#L356
-    pub fn to_fields(&self) -> Vec<Fq> {
+    fn to_fields(&self) -> Vec<Fq> {
         const NFIELDS: usize = 32;
 
         let mut fields = Vec::with_capacity(NFIELDS);
 
-        assert!(self.old_bulletproof_challenges.len() <= 2);
-        let padding = 2 - self.old_bulletproof_challenges.len();
+        let padding = 2usize
+            .checked_sub(self.old_bulletproof_challenges.len())
+            .expect("old_bulletproof_challenges must be of length <= 2");
 
         // TODO: Currently `Self::old_bulletproof_challenges` is always of length 2
         for _ in 0..padding {
@@ -65,19 +76,50 @@ impl MessagesForNextWrapProof {
             f("4799483385651443229337780097631636300491234601736019220096005875687579936102"),
         ]
     }
+
+    pub fn rand() -> Self {
+        let mut rng = rand::thread_rng();
+        let rng = &mut rng;
+
+        Self {
+            challenge_polynomial_commitment: CurveAffine::rand(rng),
+            old_bulletproof_challenges: [
+                (0..15)
+                    .map(|_| Fq::rand(rng))
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap(),
+                (0..15)
+                    .map(|_| Fq::rand(rng))
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap(),
+            ],
+        }
+    }
 }
 
 pub struct MessagesForNextStepProof {
     pub app_state: [Fp; 1],
     pub dlog_plonk_index: PlonkVerificationKeyEvals,
-    pub challenge_polynomial_commitments: [CurveAffine; 2],
+    pub challenge_polynomial_commitments: [CurveAffine<Fp>; 2],
     pub old_bulletproof_challenges: [[Fp; 16]; 2],
 }
 
 impl MessagesForNextStepProof {
+    /// Implementation of `hash_messages_for_next_step_proof`
+    /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L33
+    pub fn hash(&self) -> [u64; 4] {
+        let fields: Vec<Fp> = self.to_fields();
+        let field: Fp = hash_fields(&fields);
+
+        let bigint: BigInteger256 = field.into_repr();
+        bigint.0
+    }
+
     /// Implementation of `to_field_elements`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/composition_types/composition_types.ml#L493
-    pub fn to_fields(&self) -> Vec<Fp> {
+    fn to_fields(&self) -> Vec<Fp> {
         const NFIELDS: usize = 93;
 
         let mut fields = Vec::with_capacity(NFIELDS);
@@ -134,24 +176,29 @@ impl MessagesForNextStepProof {
 
         fields
     }
-}
 
-/// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L33
-pub fn hash_messages_for_next_step_proof(msg: &MessagesForNextStepProof) -> [u64; 4] {
-    let fields: Vec<Fp> = msg.to_fields();
-    let field: Fp = hash_fields(&fields);
+    pub fn rand() -> Self {
+        let mut rng = rand::thread_rng();
+        let rng = &mut rng;
 
-    let bigint: BigInteger256 = field.into_repr();
-    bigint.0
-}
-
-/// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/wrap_hack.ml#L50
-pub fn hash_messages_for_next_wrap_proof(msg: &MessagesForNextWrapProof) -> [u64; 4] {
-    let fields: Vec<Fq> = msg.to_fields();
-    let field: Fq = hash_fields(&fields);
-
-    let bigint: BigInteger256 = field.into_repr();
-    bigint.0
+        Self {
+            app_state: [Fp::rand(rng); 1],
+            dlog_plonk_index: PlonkVerificationKeyEvals::rand(rng),
+            challenge_polynomial_commitments: [CurveAffine::rand(rng), CurveAffine::rand(rng)],
+            old_bulletproof_challenges: [
+                (0..16)
+                    .map(|_| Fp::rand(rng))
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap(),
+                (0..16)
+                    .map(|_| Fp::rand(rng))
+                    .collect::<Vec<_>>()
+                    .try_into()
+                    .unwrap(),
+            ],
+        }
+    }
 }
 
 #[cfg(test)]
@@ -174,7 +221,7 @@ mod tests {
         let f = |s| Fq::from_str(s).unwrap();
 
         let msg = MessagesForNextWrapProof {
-            challenge_polynomial_commitment: (
+            challenge_polynomial_commitment: CurveAffine(
                 f("16532551020203634961537860963115487481903930386300757307992520042262635136291"),
                 f("21100728972294604822455258471387856325840198334043671900379056042685907098611"),
             ),
@@ -257,7 +304,7 @@ mod tests {
         // Make sure that we got the same list of fields as in OCaml
         assert_eq!(fields_str, OCAML_LIST_FIELDS);
 
-        let result = hash_messages_for_next_wrap_proof(&msg);
+        let result = msg.hash();
 
         const OCAML_RESULT: [u64; 4] = [
             -2757079307213834418i64 as u64,
@@ -461,7 +508,7 @@ CurveAffine(f("21022521418477672796138321373890300031459566700970481245425917589
         // Make sure that we got the same list of fields as in OCaml
         assert_eq!(fields_str, OCAML_LIST_FIELDS);
 
-        let result = hash_messages_for_next_step_proof(&msg);
+        let result = msg.hash();
         const OCAML_RESULT: [u64; 4] = [
             7912308706379928291,
             8689988569980666660,

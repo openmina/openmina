@@ -1,10 +1,10 @@
-use std::{borrow::Cow, ops::Mul, str::FromStr};
+use std::{borrow::Cow, str::FromStr};
 
 use super::{
     AccountIdV2, BigInt, MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,
     MinaBasePermissionsAuthRequiredStableV2,
 };
-use ark_ff::{One, UniformRand, Zero};
+use ark_ff::{Field, One, UniformRand, Zero};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, Rng};
@@ -101,16 +101,35 @@ impl Permissions<AuthRequired> {
 // TODO: Not sure if the name is correct
 // It seems that a similar type exist in proof-systems: TODO
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct CurveAffine(pub Fp, pub Fp);
+pub struct CurveAffine<F: Field>(pub F, pub F);
 
-impl From<(BigInt, BigInt)> for CurveAffine {
+impl<F> CurveAffine<F>
+where
+    F: Field + UniformRand + From<i32>,
+{
+    pub fn rand(rng: &mut ThreadRng) -> Self {
+        let a = F::rand(rng);
+        let two: F = 2.into();
+        let b: F = a.mul(two);
+
+        Self(a, b)
+    }
+}
+
+impl<F> From<(BigInt, BigInt)> for CurveAffine<F>
+where
+    F: Field + From<BigInt>,
+{
     fn from((a, b): (BigInt, BigInt)) -> Self {
         Self(a.into(), b.into())
     }
 }
 
-impl From<CurveAffine> for (BigInt, BigInt) {
-    fn from(fps: CurveAffine) -> Self {
+impl<F> From<CurveAffine<F>> for (BigInt, BigInt)
+where
+    F: Field + Into<BigInt>,
+{
+    fn from(fps: CurveAffine<F>) -> Self {
         (fps.0.into(), fps.1.into())
     }
 }
@@ -118,14 +137,53 @@ impl From<CurveAffine> for (BigInt, BigInt) {
 // https://github.com/MinaProtocol/mina/blob/a6e5f182855b3f4b4afb0ea8636760e618e2f7a0/src/lib/pickles_types/plonk_verification_key_evals.ml#L9-L18
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlonkVerificationKeyEvals {
-    pub sigma: [CurveAffine; 7],
-    pub coefficients: [CurveAffine; 15],
-    pub generic: CurveAffine,
-    pub psm: CurveAffine,
-    pub complete_add: CurveAffine,
-    pub mul: CurveAffine,
-    pub emul: CurveAffine,
-    pub endomul_scalar: CurveAffine,
+    pub sigma: [CurveAffine<Fp>; 7],
+    pub coefficients: [CurveAffine<Fp>; 15],
+    pub generic: CurveAffine<Fp>,
+    pub psm: CurveAffine<Fp>,
+    pub complete_add: CurveAffine<Fp>,
+    pub mul: CurveAffine<Fp>,
+    pub emul: CurveAffine<Fp>,
+    pub endomul_scalar: CurveAffine<Fp>,
+}
+
+impl PlonkVerificationKeyEvals {
+    pub fn rand(rng: &mut ThreadRng) -> Self {
+        Self {
+            sigma: [
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+            ],
+            coefficients: [
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+                CurveAffine::rand(rng),
+            ],
+            generic: CurveAffine::rand(rng),
+            psm: CurveAffine::rand(rng),
+            complete_add: CurveAffine::rand(rng),
+            mul: CurveAffine::rand(rng),
+            emul: CurveAffine::rand(rng),
+            endomul_scalar: CurveAffine::rand(rng),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -733,14 +791,6 @@ impl Account {
                 set_voting_for: gen_perm(rng),
             },
             zkapp: if rng.gen() {
-                let gen_curve = |rng: &mut ThreadRng| {
-                    let a = Fp::rand(rng);
-                    let two: Fp = 2.into();
-                    let b: Fp = a.mul(two);
-
-                    CurveAffine(a, b)
-                };
-
                 Some(ZkAppAccount {
                     app_state: [
                         Fp::rand(rng),
@@ -765,40 +815,7 @@ impl Account {
                                     ProofVerified::N0
                                 }
                             },
-                            wrap_index: PlonkVerificationKeyEvals {
-                                sigma: [
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                ],
-                                coefficients: [
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                    gen_curve(rng),
-                                ],
-                                generic: gen_curve(rng),
-                                psm: gen_curve(rng),
-                                complete_add: gen_curve(rng),
-                                mul: gen_curve(rng),
-                                emul: gen_curve(rng),
-                                endomul_scalar: gen_curve(rng),
-                            },
+                            wrap_index: PlonkVerificationKeyEvals::rand(rng),
                             wrap_vk: None,
                         })
                     } else {

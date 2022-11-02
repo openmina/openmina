@@ -13,12 +13,10 @@ mod wasm {
 #[cfg(not(target_family = "wasm"))]
 mod ffi;
 
-#[cfg(not(target_family = "wasm"))]
-mod ffi_mask;
-
 mod account;
 mod address;
 mod base;
+mod blocks;
 mod database;
 mod hash;
 mod mask;
@@ -26,12 +24,12 @@ mod poseidon;
 mod tree;
 mod tree_version;
 mod util;
-mod verify_block;
 
 pub use account::*;
 pub use account::*;
 pub use address::*;
 pub use base::*;
+pub use blocks::*;
 pub use database::*;
 pub use hash::*;
 pub use mask::*;
@@ -39,4 +37,3 @@ pub use poseidon::*;
 pub use tree::*;
 pub use tree_version::*;
 pub use util::*;
-pub use verify_block::*;
