@@ -1,0 +1,12 @@
+[package]
+name = "p2p"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+serde = "1.0.147"
+strum = "0.24.1"
+strum_macros = "0.24.3"
+
+redux = { git = "https://github.com/name-placeholder/redux-rs.git", features = ["serde"] }
