@@ -2,88 +2,13 @@ use std::{fmt::Display, marker::PhantomData, str::FromStr};
 
 use ark_ff::One;
 use mina_hasher::Fp;
+use mina_signer::CompressedPubKey;
 use serde::{de::Visitor, Deserialize, Serialize};
 
 use crate::{
     BigInt, CurveAffine, MessagesForNextStepProof, MinaBaseVerificationKeyWireStableV1WrapIndex,
     PlonkVerificationKeyEvals,
 };
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Number<T>(pub T);
-
-pub type Int32 = Number<i32>;
-pub type Int64 = Number<i64>;
-pub type Float64 = Number<f64>;
-
-impl<T> Serialize for Number<T>
-where
-    T: Serialize + Display,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        if !serializer.is_human_readable() {
-            return self.0.serialize(serializer);
-        }
-        serializer.serialize_str(&self.0.to_string())
-    }
-}
-
-impl<'de, T> Deserialize<'de> for Number<T>
-where
-    T: Deserialize<'de> + FromStr,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        if !deserializer.is_human_readable() {
-            return T::deserialize(deserializer).map(Self);
-        }
-        struct V<T>(PhantomData<T>);
-        impl<'de, T> Visitor<'de> for V<T>
-        where
-            T: FromStr,
-        {
-            type Value = T;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("stringified number")
-            }
-
-            fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                v.parse().map_err(|_| {
-                    serde::de::Error::custom(format!("failed to parse string as number"))
-                })
-            }
-
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                v.parse().map_err(|_| {
-                    serde::de::Error::custom(format!("failed to parse string as number"))
-                })
-            }
-
-            fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                v.parse().map_err(|_| {
-                    serde::de::Error::custom(format!("failed to parse string as number"))
-                })
-            }
-        }
-        deserializer
-            .deserialize_string(V::<T>(Default::default()))
-            .map(Self)
-    }
-}
 
 /// String of bytes.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -266,7 +191,7 @@ pub enum MinaBaseTransactionStatusFailureStableV2 {
     AccountReceiptChainHashPreconditionUnsatisfied,
     AccountDelegatePreconditionUnsatisfied,
     AccountSequenceStatePreconditionUnsatisfied,
-    AccountAppStatePreconditionUnsatisfied(Int32),
+    AccountAppStatePreconditionUnsatisfied(i32),
     AccountProvedStatePreconditionUnsatisfied,
     AccountIsNewPreconditionUnsatisfied,
     ProtocolStatePreconditionUnsatisfied,
@@ -397,7 +322,7 @@ pub struct MinaStateProtocolStateBodyValueStableV2 {
 }
 
 #[rustfmt::skip]
-type SixteenInt = (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, ()))))))))))))))));
+type SixteenBigInt = (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, ()))))))))))))))));
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
@@ -408,7 +333,7 @@ pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
     // pub challenge_polynomial_commitments: Vec<(BigInt, BigInt)>,
     // pub challenge_polynomial_commitments: Vec<(BigInt, BigInt)>,
     // pub old_bulletproof_challenges: Vec<Vec<BigInt>>,
-    pub old_bulletproof_challenges: (SixteenInt, (SixteenInt, ())),
+    pub old_bulletproof_challenges: (SixteenBigInt, (SixteenBigInt, ())),
 }
 
 impl From<PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof>
@@ -518,6 +443,7 @@ mod tests {
     use std::str::FromStr;
 
     use mina_curves::pasta::Fq;
+    use o1_utils::FieldHelpers;
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
@@ -534,6 +460,10 @@ mod tests {
         println!("LEN={:?}", bytes.len());
 
         let result: MessagesForNextStepProof = serde_binprot::from_slice(&bytes).unwrap();
-        println!("RESULT={:?}", result);
+        println!("RESULT={:#?}", result);
+
+        // for int in result.old_bulletproof_challenges.iter().flat_map(|s| s) {
+        //     println!("old={}", int.to_hex());
+        // }
     }
 }
