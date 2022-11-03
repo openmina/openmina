@@ -1,12 +1,15 @@
 #![allow(clippy::type_complexity)]
 
-use std::ops::Deref;
+use std::{marker::PhantomData, ops::Deref};
 
-use ark_ff::{FromBytes, ToBytes};
+use ark_ff::{BigInteger256, FromBytes, PrimeField, ToBytes};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use o1_utils::FieldHelpers;
 ///! Types generated with https://github.com/name-placeholder/bin-prot-rs
 use serde::{Deserialize, Serialize, Serializer};
+
+use crate::FpExt;
 
 use super::{Account, AccountId, AuthRequired, TokenId};
 
@@ -33,6 +36,22 @@ impl Deref for BigInt {
 impl From<BigInt> for Fp {
     fn from(val: BigInt) -> Self {
         Fp::read(&val.0[..]).unwrap()
+        // match Fp::read(&val.0[..]) {
+        //     Ok(ok) => ok,
+        //     Err(e) => {
+        //         eprintln!("ERR={:?}", e);
+        //         eprintln!("VALUE LEN={:?} V={:?}", val.0.len(), val);
+
+        //         let bigint = BigInteger256::read(&val.0[..]).unwrap();
+        //         println!("BIGINT={:?}", bigint);
+        //         println!("BIGINT={:?}", bigint.to_string());
+        //         // let fp = Fp::from(bigint);
+        //         // let fp = Fp::from_bits;
+        //         // println!("FP={:?}", fp);
+
+        //         panic!()
+        //     },
+        // }
     }
 }
 

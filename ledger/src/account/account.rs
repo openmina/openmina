@@ -145,7 +145,7 @@ pub struct PlonkVerificationKeyEvals {
     pub mul: CurveAffine<Fp>,
     pub emul: CurveAffine<Fp>,
     pub endomul_scalar: CurveAffine<Fp>,
-}
+} // 28 CurveAffine, 56 Fp
 
 impl PlonkVerificationKeyEvals {
     pub fn rand(rng: &mut ThreadRng) -> Self {

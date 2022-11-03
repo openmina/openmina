@@ -25,7 +25,9 @@ o1-utils = {git = "https://github.com/o1-labs/proof-systems", rev = "041f48f6f3f
 bs58 = "0.4.0"
 serde-binprot = { git = "https://github.com/name-placeholder/serde-binprot.git", branch = "ledger" }
 # serde-binprot = {git = "https://github.com/LaurentMazare/serde-binprot.git", rev = "98daaf8f0f5dc57ea7bc69594d963b30e02e8485"}
+# serde-binprot = { path = "/home/sebastien/travaux/serde-binprot" }
 serde = "1.0"
+# mina-p2p-messages = { path = "/home/sebastien/github/mina-p2p-messages-rs" }
 
 # oracle = { path = "../oracle" }
 # mina-curves = { path = "../curves" }
@@ -59,9 +61,10 @@ wasm-bindgen = "0.2"
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 # ocaml-interop = { path = "/home/sebastien/github/ocaml-interop" }
 ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values-dbg" }
-# ocaml-interop = { git = "https://github.com/tezedge/ocaml-interop.git", branch = "closure-values" }
+# ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values" }
 
 [dev-dependencies]
+base64 = "0.13"
 
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"
