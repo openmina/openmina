@@ -29,6 +29,8 @@ serde-binprot = { git = "https://github.com/name-placeholder/serde-binprot.git",
 serde = "1.0"
 # mina-p2p-messages = { path = "/home/sebastien/github/mina-p2p-messages-rs" }
 
+sha2 = "0.10"
+
 # oracle = { path = "../oracle" }
 # mina-curves = { path = "../curves" }
 # o1-utils = { path = "../utils" }

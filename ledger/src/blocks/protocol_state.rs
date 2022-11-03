@@ -1,10 +1,14 @@
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use o1_utils::FieldHelpers;
+use sha2::{Digest, Sha256};
+
+use crate::{hash_with_kimchi, Inputs};
 
 pub struct StagedLedgerHashNonSnark {
     pub ledger_hash: Fp,
-    pub aux_hash: Fp,             // TODO: In binprot it's a string ?
-    pub pending_coinbase_aux: Fp, // TODO: In binprot it's a string ?
+    pub aux_hash: [u8; 32],             // TODO: In binprot it's a string ?
+    pub pending_coinbase_aux: [u8; 32], // TODO: In binprot it's a string ?
 }
 
 pub struct StagedLedgerHash {
@@ -142,7 +146,39 @@ pub struct ProtocolStateBody {
     pub constants: ProtocolConstants,
 }
 
+impl ProtocolStateBody {
+    pub fn hash(&self) -> Fp {
+        let mut inputs = Inputs::new();
+
+        let staged = &self.blockchain_state.staged_ledger_hash;
+
+        let non_stark = &staged.non_snark;
+
+        let mut hasher = Sha256::new();
+
+        hasher.update(&non_stark.ledger_hash.to_bytes());
+        hasher.update(&non_stark.aux_hash.to_bytes());
+        hasher.update(&non_stark.pending_coinbase_aux.to_bytes());
+
+        let hash = hasher.finalize();
+
+        println!("HASH={:?}", hash);
+
+        // inputs.append_field(self.blockchain_state.staged_ledger_hash);
+
+        hash_with_kimchi("MinaProtoStateBody", &inputs.to_fields())
+    }
+}
+
 pub struct ProtocolState {
     pub previous_state_hash: Fp,
     pub body: ProtocolStateBody,
+}
+
+impl ProtocolState {
+    pub fn hash(&self) -> Fp {
+        let mut inputs = Inputs::new();
+
+        todo!()
+    }
 }

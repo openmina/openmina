@@ -683,6 +683,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde-binprot",
+ "sha2",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-test",

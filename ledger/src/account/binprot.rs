@@ -35,6 +35,7 @@ impl Deref for BigInt {
 
 impl From<BigInt> for Fp {
     fn from(val: BigInt) -> Self {
+        assert_eq!(val.0.len(), 32);
         Fp::read(&val.0[..]).unwrap()
         // match Fp::read(&val.0[..]) {
         //     Ok(ok) => ok,
