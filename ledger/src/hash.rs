@@ -122,6 +122,16 @@ impl Inputs {
         self.fields.push(value);
     }
 
+    pub fn append_bytes(&mut self, value: &[u8]) {
+        const BITS: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
+
+        for byte in value {
+            for bit in BITS {
+                self.append_bool(byte & bit != 0);
+            }
+        }
+    }
+
     #[allow(clippy::wrong_self_convention)]
     pub fn to_fields(mut self) -> Vec<Fp> {
         let mut nbits = 0;

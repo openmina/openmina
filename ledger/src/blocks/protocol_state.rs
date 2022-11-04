@@ -1,3 +1,6 @@
+use std::fmt::format;
+
+use ark_ff::{BigInteger256, PrimeField};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 use o1_utils::FieldHelpers;
@@ -110,7 +113,7 @@ pub struct ConsensusState {
     pub epoch_count: u32,
     pub min_window_density: u32,
     pub sub_window_densities: Vec<u32>,
-    pub last_vrf_output: Fp, // TODO: In binprot it's a string ?
+    pub last_vrf_output: [u8; 32], // TODO: In binprot it's a string ?
     pub total_currency: i64,
     pub curr_global_slot: ConsensusGlobalSlot,
     pub global_slot_since_genesis: u32,
@@ -128,7 +131,7 @@ pub struct BlockchainState {
     pub genesis_ledger_hash: Fp,
     pub registers: BlockchainStateRegisters,
     pub timestamp: u64,
-    pub body_reference: Fp, // TODO: In binprot it's a string ?
+    pub body_reference: [u8; 32], // TODO: In binprot it's a string ?
 }
 
 pub struct ProtocolConstants {
@@ -156,13 +159,46 @@ impl ProtocolStateBody {
 
         let mut hasher = Sha256::new();
 
-        hasher.update(&non_stark.ledger_hash.to_bytes());
-        hasher.update(&non_stark.aux_hash.to_bytes());
-        hasher.update(&non_stark.pending_coinbase_aux.to_bytes());
+        let mut ledger_hash_bytes: [u8; 32] = [0; 32];
+
+        {
+            let ledger_hash: BigInteger256 = non_stark.ledger_hash.into_repr();
+            let ledger_hash_iter = ledger_hash.0.iter().rev();
+
+            for (bytes, limb) in ledger_hash_bytes.chunks_exact_mut(8).zip(ledger_hash_iter) {
+                let mut limb = limb.to_ne_bytes();
+                limb.reverse();
+                bytes.copy_from_slice(&limb);
+            }
+        }
+
+        hasher.update(ledger_hash_bytes);
+        hasher.update(non_stark.aux_hash);
+        hasher.update(non_stark.pending_coinbase_aux);
 
         let hash = hasher.finalize();
+        let hash_hex = hash
+            .iter()
+            .map(|c| format!("{:02x}", c))
+            .collect::<Vec<_>>()
+            .join("");
 
-        println!("HASH={:?}", hash);
+        assert_eq!(
+            hash_hex,
+            "92440ee201db866f0285ba8770a02f86663488981f9ff9a5d39b89bfeb97022a"
+        );
+
+        println!(
+            "HASH={:?}",
+            hash.iter()
+                .map(|c| format!("{:x}", c))
+                .collect::<Vec<_>>()
+                .join("")
+        );
+
+        inputs.append_bytes(&hash);
+
+        println!("INPUTS={:?}", inputs);
 
         // inputs.append_field(self.blockchain_state.staged_ledger_hash);
 
@@ -179,6 +215,8 @@ impl ProtocolState {
     pub fn hash(&self) -> Fp {
         let mut inputs = Inputs::new();
 
-        todo!()
+        let body = self.body.hash();
+
+        hash_with_kimchi("MinaProtoState", &inputs.to_fields())
     }
 }

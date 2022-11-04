@@ -448,7 +448,9 @@ impl From<MinaStateProtocolStateValueStableV2> for ProtocolState {
                                 .non_snark
                                 .aux_hash
                                 .0
-                                .into(),
+                                 .0
+                                .try_into()
+                                .unwrap(),
                             pending_coinbase_aux: value
                                 .body
                                 .blockchain_state
@@ -456,7 +458,9 @@ impl From<MinaStateProtocolStateValueStableV2> for ProtocolState {
                                 .non_snark
                                 .pending_coinbase_aux
                                 .0
-                                .into(),
+                                 .0
+                                .try_into()
+                                .unwrap(),
                         },
                         pending_coinbase_hash: value
                             .body
@@ -560,7 +564,15 @@ impl From<MinaStateProtocolStateValueStableV2> for ProtocolState {
                         },
                     },
                     timestamp: value.body.blockchain_state.timestamp.0 .0 as u64,
-                    body_reference: value.body.blockchain_state.body_reference.0 .0.into(),
+                    body_reference: value
+                        .body
+                        .blockchain_state
+                        .body_reference
+                        .0
+                         .0
+                         .0
+                        .try_into()
+                        .unwrap(),
                 },
                 consensus_state: ConsensusState {
                     blockchain_length: value.body.consensus_state.blockchain_length.0 as u32,
@@ -573,7 +585,14 @@ impl From<MinaStateProtocolStateValueStableV2> for ProtocolState {
                         .iter()
                         .map(|i| i.0 as u32)
                         .collect(),
-                    last_vrf_output: value.body.consensus_state.last_vrf_output.0.into(),
+                    last_vrf_output: value
+                        .body
+                        .consensus_state
+                        .last_vrf_output
+                        .0
+                         .0
+                        .try_into()
+                        .unwrap(),
                     total_currency: value.body.consensus_state.total_currency.0,
                     curr_global_slot: ConsensusGlobalSlot {
                         slot_number: value.body.consensus_state.curr_global_slot.slot_number.0
@@ -691,6 +710,7 @@ impl From<PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof>
         eprintln!("FROM START");
 
         let protocol_state = ProtocolState::from(value.app_state);
+        protocol_state.hash();
 
         Self {
             app_state: [Fp::one(); 1],
@@ -853,7 +873,7 @@ mod tests {
         let our_values = result
             .old_bulletproof_challenges
             .iter()
-            .flat_map(|f| f)
+            .flatten()
             .map(|f| f.to_hex())
             .collect::<Vec<_>>();
 
