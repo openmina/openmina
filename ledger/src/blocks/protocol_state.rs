@@ -2,6 +2,7 @@ use ark_ff::{BigInteger256, PrimeField, UniformRand};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 use rand::{rngs::ThreadRng, Rng};
+use serde::{Deserialize, Serialize};
 use sha2::{
     digest::{generic_array::GenericArray, typenum::U32},
     Digest, Sha256,
@@ -9,7 +10,7 @@ use sha2::{
 
 use crate::{hash_with_kimchi, Inputs};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct StagedLedgerHashNonSnark {
     pub ledger_hash: Fp,
     pub aux_hash: [u8; 32],             // TODO: In binprot it's a string ?
@@ -40,25 +41,25 @@ impl StagedLedgerHashNonSnark {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct StagedLedgerHash {
     pub non_snark: StagedLedgerHashNonSnark,
     pub pending_coinbase_hash: Fp,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Sgn {
     Pos,
     Neg,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Excess {
     pub magnitude: i64,
     pub sgn: Sgn,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TransactionFailure {
     Predicate,
     SourceNotPresent,
@@ -101,7 +102,7 @@ pub enum TransactionFailure {
     InvalidFeeExcess,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct LocalState {
     pub stack_frame: Fp,
     pub call_stack: Fp,
@@ -115,26 +116,26 @@ pub struct LocalState {
     pub failure_status_tbl: Vec<Vec<TransactionFailure>>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BlockchainStateRegisters {
     pub ledger: Fp,
     pub pending_coinbase_stack: (),
     pub local_state: LocalState,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ConsensusGlobalSlot {
     pub slot_number: u32,
     pub slots_per_epoch: u32,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct EpochLedger {
     pub hash: Fp,
     pub total_currency: i64,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct DataStaking {
     pub ledger: EpochLedger,
     pub seed: Fp,
@@ -143,7 +144,7 @@ pub struct DataStaking {
     pub epoch_length: u32,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ConsensusState {
     pub blockchain_length: u32,
     pub epoch_count: u32,
@@ -162,7 +163,7 @@ pub struct ConsensusState {
     pub supercharge_coinbase: bool,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BlockchainState {
     pub staged_ledger_hash: StagedLedgerHash,
     pub genesis_ledger_hash: Fp,
@@ -171,7 +172,7 @@ pub struct BlockchainState {
     pub body_reference: [u8; 32], // TODO: In binprot it's a string ?
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ProtocolConstants {
     pub k: u32,
     pub slots_per_epoch: u32,
@@ -180,7 +181,7 @@ pub struct ProtocolConstants {
     pub genesis_state_timestamp: u64,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ProtocolStateBody {
     pub genesis_state_hash: Fp,
     pub blockchain_state: BlockchainState,
@@ -280,7 +281,7 @@ impl ProtocolStateBody {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ProtocolState {
     pub previous_state_hash: Fp,
     pub body: ProtocolStateBody,
@@ -385,7 +386,13 @@ impl ProtocolState {
                     },
                     supercharge_coinbase: rng.gen(),
                 },
-                constants: todo!(),
+                constants: ProtocolConstants {
+                    k: rng.gen(),
+                    slots_per_epoch: rng.gen(),
+                    slots_per_sub_window: rng.gen(),
+                    delta: rng.gen(),
+                    genesis_state_timestamp: rng.gen(),
+                },
             },
         }
     }

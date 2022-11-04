@@ -9,7 +9,7 @@ use o1_utils::FieldHelpers;
 ///! Types generated with https://github.com/name-placeholder/bin-prot-rs
 use serde::{Deserialize, Serialize, Serializer};
 
-use crate::FpExt;
+use crate::{FpExt, PlonkVerificationKeyEvals, VerificationKey};
 
 use super::{Account, AccountId, AuthRequired, TokenId};
 
@@ -179,47 +179,19 @@ impl From<Account> for MinaBaseAccountBinableArgStableV2 {
                     ),
                 );
 
-                let verification_key = zkapp.verification_key.map(|vk| {
-                    let sigma = vk.wrap_index.sigma;
-                    let sigma = (
-                        sigma[0].into(),
-                        (
-                            sigma[1].into(),
-                            (sigma[2].into(), (sigma[3].into(), (sigma[4].into(), (sigma[5].into(), (sigma[6].into(), ()))))),
-                        ),
-                    );
-
-                    let coef = vk.wrap_index.coefficients;
-                    #[rustfmt::skip]
-                    let coef = {
-                        (
-                            coef[0].into(),
-                            (
-                                coef[1].into(), (coef[2].into(), (coef[3].into(), (coef[4].into(), (coef[5].into(), (coef[6].into(), (coef[7].into(), (coef[8].into(),
-                                (coef[9].into(), (coef[10].into(), (coef[11].into(), (coef[12].into(), (coef[13].into(), (coef[14].into(), ())))))))))))),
-                                ),
+                let verification_key =
+                    zkapp
+                        .verification_key
+                        .map(|vk| MinaBaseVerificationKeyWireStableV1 {
+                            max_proofs_verified: match vk.max_proofs_verified {
+                                super::ProofVerified::N0 => PicklesBaseProofsVerifiedStableV1::N0,
+                                super::ProofVerified::N1 => PicklesBaseProofsVerifiedStableV1::N1,
+                                super::ProofVerified::N2 => PicklesBaseProofsVerifiedStableV1::N2,
+                            },
+                            wrap_index: MinaBaseVerificationKeyWireStableV1WrapIndex::from(
+                                vk.wrap_index,
                             ),
-                        )
-                    };
-
-                    MinaBaseVerificationKeyWireStableV1 {
-                        max_proofs_verified: match vk.max_proofs_verified {
-                            super::ProofVerified::N0 => PicklesBaseProofsVerifiedStableV1::N0,
-                            super::ProofVerified::N1 => PicklesBaseProofsVerifiedStableV1::N1,
-                            super::ProofVerified::N2 => PicklesBaseProofsVerifiedStableV1::N2,
-                        },
-                        wrap_index: MinaBaseVerificationKeyWireStableV1WrapIndex {
-                            sigma_comm: sigma,
-                            coefficients_comm: coef,
-                            generic_comm: vk.wrap_index.generic.into(),
-                            psm_comm: vk.wrap_index.psm.into(),
-                            complete_add_comm: vk.wrap_index.complete_add.into(),
-                            mul_comm: vk.wrap_index.mul.into(),
-                            emul_comm: vk.wrap_index.emul.into(),
-                            endomul_scalar_comm: vk.wrap_index.endomul_scalar.into()
-                        },
-                    }
-                });
+                        });
 
                 let seq = zkapp.sequence_state;
                 let sequence_state = (
@@ -467,6 +439,49 @@ pub struct MinaBaseVerificationKeyWireStableV1WrapIndex {
 pub struct MinaBaseVerificationKeyWireStableV1 {
     pub max_proofs_verified: PicklesBaseProofsVerifiedStableV1,
     pub wrap_index: MinaBaseVerificationKeyWireStableV1WrapIndex,
+}
+
+impl From<PlonkVerificationKeyEvals> for MinaBaseVerificationKeyWireStableV1WrapIndex {
+    fn from(vk: PlonkVerificationKeyEvals) -> Self {
+        let sigma = vk.sigma;
+        let sigma = (
+            sigma[0].into(),
+            (
+                sigma[1].into(),
+                (
+                    sigma[2].into(),
+                    (
+                        sigma[3].into(),
+                        (sigma[4].into(), (sigma[5].into(), (sigma[6].into(), ()))),
+                    ),
+                ),
+            ),
+        );
+
+        let coef = vk.coefficients;
+        #[rustfmt::skip]
+        let coef = {
+            (
+                coef[0].into(),
+                (
+                    coef[1].into(), (coef[2].into(), (coef[3].into(), (coef[4].into(), (coef[5].into(), (coef[6].into(), (coef[7].into(), (coef[8].into(),
+                                                                                                                                           (coef[9].into(), (coef[10].into(), (coef[11].into(), (coef[12].into(), (coef[13].into(), (coef[14].into(), ())))))))))))),
+                    ),
+                ),
+            )
+        };
+
+        Self {
+            sigma_comm: sigma,
+            coefficients_comm: coef,
+            generic_comm: vk.generic.into(),
+            psm_comm: vk.psm.into(),
+            complete_add_comm: vk.complete_add.into(),
+            mul_comm: vk.mul.into(),
+            emul_comm: vk.emul.into(),
+            endomul_scalar_comm: vk.endomul_scalar.into(),
+        }
+    }
 }
 
 /// Origin: Mina_numbers__Nat.Make32.Stable.V1.t

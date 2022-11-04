@@ -3,7 +3,7 @@ use std::str::FromStr;
 use ark_ff::{BigInteger256, PrimeField, UniformRand};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{hash_fields, CurveAffine, PlonkVerificationKeyEvals};
 use crate::{PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof, ProtocolState};
@@ -101,8 +101,9 @@ impl MessagesForNextWrapProof {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(from = "PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof")]
+#[serde(into = "PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof")]
 pub struct MessagesForNextStepProof {
     pub protocol_state: ProtocolState,
     pub dlog_plonk_index: PlonkVerificationKeyEvals,
