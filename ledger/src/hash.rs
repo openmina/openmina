@@ -6,7 +6,7 @@ use mina_hasher::Fp;
 // use oracle::{poseidon::{ArithmeticSponge, Sponge}, constants::PlonkSpongeConstantsKimchi, pasta::fp_kimchi::static_params};
 use crate::{
     poseidon::{static_params, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge},
-    SpongeParamsForField,
+    FpExt, SpongeParamsForField,
 };
 
 enum Item {
@@ -21,12 +21,12 @@ enum Item {
 impl std::fmt::Debug for Item {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Bool(arg0) => f.write_fmt(format_args!("{}", i32::from(*arg0))),
-            Self::U2(arg0) => f.write_fmt(format_args!("{}u2", arg0)),
-            Self::U8(arg0) => f.write_fmt(format_args!("{}u8", arg0)),
-            Self::U32(arg0) => f.write_fmt(format_args!("{}u32", arg0)),
-            Self::U48(arg0) => f.write_fmt(format_args!("{:?}u48", arg0)),
-            Self::U64(arg0) => f.write_fmt(format_args!("{}u64", arg0)),
+            Self::Bool(arg0) => f.write_fmt(format_args!("{}_bool", i32::from(*arg0))),
+            Self::U2(arg0) => f.write_fmt(format_args!("{}_u2", arg0)),
+            Self::U8(arg0) => f.write_fmt(format_args!("{}_u8", arg0)),
+            Self::U32(arg0) => f.write_fmt(format_args!("{}_u32", arg0)),
+            Self::U48(arg0) => f.write_fmt(format_args!("{:?}_u48", arg0)),
+            Self::U64(arg0) => f.write_fmt(format_args!("{}_u64", arg0)),
         }
     }
 }
@@ -74,14 +74,14 @@ impl std::fmt::Debug for Inputs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Inputs")
             .field(
-                "fields",
+                &format!("fields[{:?}]", self.fields.len()),
                 &self
                     .fields
                     .iter()
-                    .map(|f| f.to_string())
+                    .map(|f| f.to_decimal())
                     .collect::<Vec<_>>(),
             )
-            .field("packeds", &self.packeds)
+            .field(&format!("packeds[{:?}]", self.packeds.len()), &self.packeds)
             .finish()
     }
 }
