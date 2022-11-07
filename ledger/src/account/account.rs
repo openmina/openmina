@@ -1,23 +1,39 @@
-use std::{borrow::Cow, str::FromStr};
+use std::{borrow::Cow, io::Cursor, str::FromStr};
 
 use super::{
     AccountIdV2, BigInt, MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,
     MinaBasePermissionsAuthRequiredStableV2,
 };
 use ark_ff::{Field, One, UniformRand, Zero};
+use binprot::{BinProtRead, BinProtWrite};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, Rng};
-use serde::{Deserialize, Serialize};
 
 use crate::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
 use super::common::*;
 
-#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(from = "MinaBaseAccountIdDigestStableV1")]
-#[serde(into = "MinaBaseAccountIdDigestStableV1")]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct TokenId(pub Fp);
+
+impl binprot::BinProtRead for TokenId {
+    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+    {
+        let token_id = MinaBaseAccountIdDigestStableV1::binprot_read(r)?;
+        Ok(token_id.into())
+    }
+}
+
+impl binprot::BinProtWrite for TokenId {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        let token_id: MinaBaseAccountIdDigestStableV1 = self.clone().into();
+        token_id.binprot_write(w)?;
+        Ok(())
+    }
+}
 
 impl std::fmt::Debug for TokenId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -302,12 +318,28 @@ impl Default for ZkAppAccount {
     }
 }
 
-#[derive(Clone, Eq, Serialize, Deserialize)]
-#[serde(from = "AccountIdV2")]
-#[serde(into = "AccountIdV2")]
+#[derive(Clone, Eq)]
 pub struct AccountId {
     pub public_key: CompressedPubKey,
     pub token_id: TokenId,
+}
+
+impl binprot::BinProtRead for AccountId {
+    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+    {
+        let account_id = AccountIdV2::binprot_read(r)?;
+        Ok(account_id.into())
+    }
+}
+
+impl binprot::BinProtWrite for AccountId {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        let account_id: AccountIdV2 = self.clone().into();
+        account_id.binprot_write(w)?;
+        Ok(())
+    }
 }
 
 impl std::fmt::Debug for AccountId {
@@ -337,9 +369,7 @@ impl PartialEq for AccountId {
 }
 
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(from = "MinaBaseAccountBinableArgStableV2")]
-#[serde(into = "MinaBaseAccountBinableArgStableV2")]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Account {
     pub public_key: CompressedPubKey,         // Public_key.Compressed.t
     pub token_id: TokenId,                    // Token_id.t
@@ -354,6 +384,24 @@ pub struct Account {
     pub permissions: Permissions<AuthRequired>, // Permissions.t
     pub zkapp: Option<ZkAppAccount>,          // Zkapp_account.t
     pub zkapp_uri: String,                    // string
+}
+
+impl binprot::BinProtRead for Account {
+    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+    {
+        let account = MinaBaseAccountBinableArgStableV2::binprot_read(r)?;
+        Ok(account.into())
+    }
+}
+
+impl binprot::BinProtWrite for Account {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        let account: MinaBaseAccountBinableArgStableV2 = self.clone().into();
+        account.binprot_write(w)?;
+        Ok(())
+    }
 }
 
 impl From<MinaBasePermissionsAuthRequiredStableV2> for AuthRequired {
@@ -522,6 +570,17 @@ impl Account {
             zkapp: None,
             zkapp_uri: String::new(),
         }
+    }
+
+    pub fn deserialize(bytes: &[u8]) -> Self {
+        let mut cursor = Cursor::new(bytes);
+        Account::binprot_read(&mut cursor).unwrap()
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(10000);
+        self.binprot_write(&mut bytes).unwrap();
+        bytes
     }
 
     pub fn empty() -> Self {
@@ -921,7 +980,7 @@ mod tests {
         ];
 
         // This deserialize to `MinaBaseAccountBinableArgStableV2` and convert to `Account`
-        let acc: Account = serde_binprot::from_slice(bytes).unwrap();
+        let acc: Account = Account::deserialize(bytes);
 
         assert_eq!(
             acc.hash().to_hex(),
@@ -938,7 +997,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
             3, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
         ];
-        let acc: Account = serde_binprot::from_slice(bytes).unwrap();
+        let acc: Account = Account::deserialize(bytes);
 
         assert_eq!(
             acc.hash().to_hex(),
@@ -962,7 +1021,7 @@ mod tests {
             199, 92, 12, 146, 223, 105, 45, 135, 77, 89, 73, 141, 11, 137, 28, 54, 21, 0, 1, 4, 4,
             1, 0, 4, 3, 4, 3, 2, 3, 0, 6, 49, 49, 56, 54, 54, 51,
         ];
-        let acc: Account = serde_binprot::from_slice(bytes).unwrap();
+        let acc: Account = Account::deserialize(bytes);
 
         println!("ACC={:#?}", acc);
 
@@ -987,8 +1046,8 @@ mod tests {
             let rand = Account::rand();
             let hash = rand.hash();
 
-            let bytes = serde_binprot::to_vec(&rand).unwrap();
-            let rand2: Account = serde_binprot::from_slice(&bytes).unwrap();
+            let bytes = Account::serialize(&rand);
+            let rand2: Account = Account::deserialize(&bytes);
 
             assert_eq!(hash, rand2.hash());
         }

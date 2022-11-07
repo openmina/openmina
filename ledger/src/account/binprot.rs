@@ -1,27 +1,34 @@
 #![allow(clippy::type_complexity)]
 
-use std::{marker::PhantomData, ops::Deref};
+use std::ops::Deref;
 
-use ark_ff::{BigInteger256, FromBytes, PrimeField, ToBytes};
+///! Types generated with https://github.com/name-placeholder/bin-prot-rs
+use crate::PlonkVerificationKeyEvals;
+use ark_ff::{FromBytes, ToBytes};
+use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
-use o1_utils::FieldHelpers;
-///! Types generated with https://github.com/name-placeholder/bin-prot-rs
-use serde::{Deserialize, Serialize, Serializer};
-
-use crate::{FpExt, PlonkVerificationKeyEvals, VerificationKey};
 
 use super::{Account, AccountId, AuthRequired, TokenId};
 
 #[derive(Debug)]
 pub struct BigInt(pub [u8; 32]);
 
-impl Serialize for BigInt {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl binprot::BinProtRead for BigInt {
+    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
     where
-        S: Serializer,
+        Self: Sized,
     {
-        serializer.serialize_bytes(&self.0[..])
+        let mut buf = [0; 32];
+        r.read_exact(&mut buf)?;
+        Ok(Self(buf))
+    }
+}
+
+impl binprot::BinProtWrite for BigInt {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        w.write_all(&self.0[..])?;
+        Ok(())
     }
 }
 
@@ -53,37 +60,6 @@ impl From<BigInt> for Fp {
         //         panic!()
         //     },
         // }
-    }
-}
-
-impl<'de> Deserialize<'de> for BigInt {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use serde::de::{Error, Visitor};
-
-        struct BigIntVisitor;
-
-        impl<'de> Visitor<'de> for BigIntVisitor {
-            type Value = [u8; 32];
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(formatter, "a slice containing 32 bytes")
-            }
-
-            fn visit_bytes<E>(self, slice: &[u8]) -> Result<Self::Value, E>
-            where
-                E: Error,
-            {
-                slice
-                    .get(..32)
-                    .and_then(|v| v.try_into().ok())
-                    .ok_or_else(|| E::invalid_length(slice.len(), &"32 bytes"))
-            }
-        }
-
-        deserializer.deserialize_any(BigIntVisitor).map(BigInt)
     }
 }
 
@@ -232,7 +208,7 @@ impl From<AuthRequired> for MinaBasePermissionsAuthRequiredStableV2 {
 /// Origin: Mina_base__Account.Binable_arg.Stable.V2.t
 /// Location: [src/lib/mina_base/account.ml:313:6](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/mina_base/account.ml#L313)
 /// Location: [src/lib/mina_base/account.ml:226:6](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/mina_base/account.ml#L226)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(BinProtRead, BinProtWrite, Debug)]
 pub struct MinaBaseAccountBinableArgStableV2 {
     pub public_key: NonZeroCurvePointUncompressedStableV1,
     pub token_id: MinaBaseAccountIdDigestStableV1,
@@ -252,7 +228,7 @@ pub struct MinaBaseAccountBinableArgStableV2 {
 /// Origin: Non_zero_curve_point.Uncompressed.Stable.V1.t
 /// Location: [src/lib/non_zero_curve_point/non_zero_curve_point.ml:44:6](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/non_zero_curve_point/non_zero_curve_point.ml#L44)
 /// Location: [src/lib/non_zero_curve_point/compressed_poly.ml:13:6](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/non_zero_curve_point/compressed_poly.ml#L13)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(BinProtRead, BinProtWrite, Debug)]
 pub struct NonZeroCurvePointUncompressedStableV1 {
     pub x: BigInt,
     pub is_odd: bool,
@@ -264,7 +240,7 @@ pub type MinaBaseAccountIdDigestStableV1 = BigInt;
 
 /// Origin: Mina_base__Token_permissions.Stable.V1.t
 /// Location: [src/lib/mina_base/token_permissions.ml:9:4](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/mina_base/token_permissions.ml#L9)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(BinProtRead, BinProtWrite, Debug)]
 pub enum MinaBaseTokenPermissionsStableV1 {
     TokenOwned { disable_new_accounts: bool },
     NotOwned { account_disabled: bool },
@@ -307,7 +283,7 @@ pub type MinaBaseAccountTimingStableV1Arg0 = UnsignedExtendedUInt32StableV1;
 /// Origin: Mina_base__Account_timing.Stable.V1.t
 /// Location: [src/lib/mina_base/account_timing.ml:30:4](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/mina_base/account_timing.ml#L30)
 /// Location: [src/lib/mina_base/account_timing.ml:13:6](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/mina_base/account_timing.ml#L13)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(BinProtRead, BinProtWrite, Debug)]
 pub enum MinaBaseAccountTimingStableV1 {
     Untimed,
     Timed {
@@ -321,7 +297,7 @@ pub enum MinaBaseAccountTimingStableV1 {
 
 /// Origin: Mina_base__Permissions.Auth_required.Stable.V2.t
 /// Location: [src/lib/mina_base/permissions.ml:53:6](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/mina_base/permissions.ml#L53)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(BinProtRead, BinProtWrite, Debug)]
 pub enum MinaBasePermissionsAuthRequiredStableV2 {
     None,
     Either,
@@ -333,7 +309,7 @@ pub enum MinaBasePermissionsAuthRequiredStableV2 {
 /// Origin: Mina_base__Permissions.Stable.V2.t
 /// Location: [src/lib/mina_base/permissions.ml:350:4](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/mina_base/permissions.ml#L350)
 /// Location: [src/lib/mina_base/permissions.ml:319:6](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/mina_base/permissions.ml#L319)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(BinProtRead, BinProtWrite, Debug)]
 pub struct MinaBasePermissionsStableV2 {
     pub edit_state: MinaBasePermissionsAuthRequiredStableV2,
     pub send: MinaBasePermissionsAuthRequiredStableV2,
@@ -361,7 +337,7 @@ pub type MinaBaseZkappStateValueStableV1 = (
 
 /// Origin: Pickles_base__Proofs_verified.Stable.V1.t
 /// Location: [src/lib/pickles_base/proofs_verified.ml:7:4](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/pickles_base/proofs_verified.ml#L7)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(BinProtRead, BinProtWrite, Debug)]
 pub enum PicklesBaseProofsVerifiedStableV1 {
     N0,
     N1,
@@ -369,7 +345,7 @@ pub enum PicklesBaseProofsVerifiedStableV1 {
 }
 
 /// Location: [src/lib/pickles_types/plonk_verification_key_evals.ml:9:4](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/pickles_types/plonk_verification_key_evals.ml#L9)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(BinProtRead, BinProtWrite, Debug)]
 pub struct MinaBaseVerificationKeyWireStableV1WrapIndex {
     pub sigma_comm: (
         (BigInt, BigInt),
@@ -435,7 +411,7 @@ pub struct MinaBaseVerificationKeyWireStableV1WrapIndex {
 /// Origin: Mina_base__Verification_key_wire.Stable.V1.t
 /// Location: [src/lib/pickles/side_loaded_verification_key.ml:169:6](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/pickles/side_loaded_verification_key.ml#L169)
 /// Location: [src/lib/pickles_base/side_loaded_verification_key.ml:150:6](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/pickles_base/side_loaded_verification_key.ml#L150)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(BinProtRead, BinProtWrite, Debug)]
 pub struct MinaBaseVerificationKeyWireStableV1 {
     pub max_proofs_verified: PicklesBaseProofsVerifiedStableV1,
     pub wrap_index: MinaBaseVerificationKeyWireStableV1WrapIndex,
@@ -491,7 +467,7 @@ pub type MinaNumbersNatMake32StableV1 = UnsignedExtendedUInt32StableV1;
 /// Origin: Mina_base__Zkapp_account.Stable.V2.t
 /// Location: [src/lib/mina_base/zkapp_account.ml:149:4](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/mina_base/zkapp_account.ml#L149)
 /// Location: [src/lib/mina_base/zkapp_account.ml:115:6](https://github.com/MinaProtocol/mina/blob/b14f0da9ebae87acd8764388ab4681ca10f07c89/src/lib/mina_base/zkapp_account.ml#L115)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(BinProtRead, BinProtWrite, Debug)]
 pub struct MinaBaseZkappAccountStableV2 {
     pub app_state: MinaBaseZkappStateValueStableV1,
     pub verification_key: Option<MinaBaseVerificationKeyWireStableV1>,
@@ -503,7 +479,7 @@ pub struct MinaBaseZkappAccountStableV2 {
 
 // Following types were written manually
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(BinProtRead, BinProtWrite, Debug)]
 pub struct AccountIdV2 {
     pub public_key: NonZeroCurvePointUncompressedStableV1,
     pub token_id: MinaBaseAccountIdDigestStableV1,
@@ -558,7 +534,7 @@ mod tests {
         ];
 
         println!("len={:?}", bytes.len());
-        let result: MinaBaseAccountBinableArgStableV2 = serde_binprot::from_slice(bytes).unwrap();
+        let result: Account = Account::deserialize(bytes);
         println!("account={:#?}", result);
     }
 }

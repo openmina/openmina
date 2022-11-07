@@ -1,8 +1,8 @@
 use ark_ff::{BigInteger256, PrimeField, UniformRand};
+use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 use rand::{rngs::ThreadRng, Rng};
-use serde::{Deserialize, Serialize};
 use sha2::{
     digest::{generic_array::GenericArray, typenum::U32},
     Digest, Sha256,
@@ -59,7 +59,7 @@ pub struct Excess {
     pub sgn: Sgn,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(BinProtRead, BinProtWrite, Clone, Debug)]
 pub enum TransactionFailure {
     Predicate,
     SourceNotPresent,

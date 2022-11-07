@@ -4,7 +4,7 @@ mod binprot;
 mod common;
 mod legacy;
 
+pub use self::binprot::*;
 pub use account::*;
-pub use binprot::*;
 pub use common::*;
 pub use legacy::*;

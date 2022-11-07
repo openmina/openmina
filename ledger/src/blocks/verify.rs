@@ -3,7 +3,6 @@ use std::str::FromStr;
 use ark_ff::{BigInteger256, PrimeField, UniformRand};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
-use serde::{Deserialize, Serialize};
 
 use crate::{hash_fields, CurveAffine, PlonkVerificationKeyEvals};
 use crate::{PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof, ProtocolState};
@@ -101,14 +100,31 @@ impl MessagesForNextWrapProof {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(from = "PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof")]
-#[serde(into = "PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof")]
+#[derive(Clone, Debug)]
 pub struct MessagesForNextStepProof {
     pub protocol_state: ProtocolState,
     pub dlog_plonk_index: PlonkVerificationKeyEvals,
     pub challenge_polynomial_commitments: [CurveAffine<Fp>; 2],
     pub old_bulletproof_challenges: [[Fp; 16]; 2],
+}
+
+impl binprot::BinProtRead for MessagesForNextStepProof {
+    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+    {
+        let msg = PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof::binprot_read(r)?;
+        Ok(msg.into())
+    }
+}
+
+impl binprot::BinProtWrite for MessagesForNextStepProof {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        let msg: PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof =
+            self.clone().into();
+        msg.binprot_write(w)?;
+        Ok(())
+    }
 }
 
 impl MessagesForNextStepProof {
@@ -208,8 +224,9 @@ impl MessagesForNextStepProof {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::{io::Cursor, str::FromStr};
 
+    use binprot::BinProtRead;
     use mina_curves::pasta::Fq;
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
@@ -330,7 +347,9 @@ mod tests {
         let s = "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";
 
         let bytes = base64::decode(s).unwrap();
-        let msg: MessagesForNextStepProof = serde_binprot::from_slice(&bytes).unwrap();
+        let mut cursor = Cursor::new(bytes);
+        let msg = MessagesForNextStepProof::binprot_read(&mut cursor).unwrap();
+        // let msg: MessagesForNextStepProof = serde_binprot::from_slice(&bytes).unwrap();
 
         let fields = msg.to_fields();
         let fields_str: Vec<String> = fields.iter().map(Fp::to_decimal).collect();

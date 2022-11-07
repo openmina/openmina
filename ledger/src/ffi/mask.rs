@@ -1,16 +1,16 @@
-use std::{borrow::Borrow, cell::RefCell, collections::HashSet, hash::Hash, rc::Rc, str::FromStr};
+use std::{borrow::Borrow, cell::RefCell, rc::Rc, str::FromStr};
 
 use mina_hasher::Fp;
 use ocaml_interop::{
     impl_to_ocaml_polymorphic_variant, impl_to_ocaml_variant, ocaml_export, DynBox, OCaml,
     OCamlBytes, OCamlException, OCamlInt, OCamlList, OCamlRef, OCamlRuntime, ToOCaml,
 };
-use serde::Deserialize;
 
 use crate::{
-    account::{Account, AccountId, BigInt, NonZeroCurvePointUncompressedStableV1},
+    account::{Account, AccountId, NonZeroCurvePointUncompressedStableV1},
     address::Address,
     base::{AccountIndex, BaseLedger, MerklePath},
+    ffi::util::*,
     ffi::DatabaseFFI,
     short_backtrace, Mask, UnregisterBehavior,
 };
@@ -94,88 +94,88 @@ pub enum PolymorphicGrandchildren {
 
 // static DB_CLOSED: Arc<Mutex<Option<HashMap<PathBuf, Database<V2>>>>> = Arc::new(Mutex::new(None));
 
-fn get_list_of<'a, T>(
-    rt: &'a mut &mut OCamlRuntime,
-    list: OCamlRef<OCamlList<OCamlBytes>>,
-) -> Vec<T>
-where
-    T: Deserialize<'a>,
-{
-    let mut list_ref = rt.get(list);
-    let mut list = Vec::with_capacity(2048);
+// fn get_list_of<'a, T>(
+//     rt: &'a mut &mut OCamlRuntime,
+//     list: OCamlRef<OCamlList<OCamlBytes>>,
+// ) -> Vec<T>
+// where
+//     T: BinProtRead,
+// {
+//     let mut list_ref = rt.get(list);
+//     let mut list = Vec::with_capacity(2048);
 
-    while let Some((head, tail)) = list_ref.uncons() {
-        let object: T = serde_binprot::from_slice(head.as_bytes()).unwrap();
-        list.push(object);
-        list_ref = tail;
-    }
+//     while let Some((head, tail)) = list_ref.uncons() {
+//         let object: T = serde_binprot::from_slice(head.as_bytes()).unwrap();
+//         list.push(object);
+//         list_ref = tail;
+//     }
 
-    list
-}
+//     list
+// }
 
-fn get_set_of<'a, T>(
-    rt: &'a mut &mut OCamlRuntime,
-    list: OCamlRef<OCamlList<OCamlBytes>>,
-) -> HashSet<T>
-where
-    T: Deserialize<'a> + Hash + Eq,
-{
-    let mut list_ref = rt.get(list);
-    let mut set = HashSet::with_capacity(2048);
+// fn get_set_of<'a, T>(
+//     rt: &'a mut &mut OCamlRuntime,
+//     list: OCamlRef<OCamlList<OCamlBytes>>,
+// ) -> HashSet<T>
+// where
+//     T: Deserialize<'a> + Hash + Eq,
+// {
+//     let mut list_ref = rt.get(list);
+//     let mut set = HashSet::with_capacity(2048);
 
-    while let Some((head, tail)) = list_ref.uncons() {
-        let object: T = serde_binprot::from_slice(head.as_bytes()).unwrap();
-        set.insert(object);
-        list_ref = tail;
-    }
+//     while let Some((head, tail)) = list_ref.uncons() {
+//         let object: T = serde_binprot::from_slice(head.as_bytes()).unwrap();
+//         set.insert(object);
+//         list_ref = tail;
+//     }
 
-    set
-}
+//     set
+// }
 
-fn get_list_addr_account<'a>(
-    rt: &'a mut &mut OCamlRuntime,
-    list: OCamlRef<OCamlList<(String, OCamlBytes)>>,
-) -> Vec<(Address, Account)> {
-    let mut list_ref = rt.get(list);
-    let mut list = Vec::with_capacity(2048);
+// fn get_list_addr_account<'a>(
+//     rt: &'a mut &mut OCamlRuntime,
+//     list: OCamlRef<OCamlList<(String, OCamlBytes)>>,
+// ) -> Vec<(Address, Account)> {
+//     let mut list_ref = rt.get(list);
+//     let mut list = Vec::with_capacity(2048);
 
-    while let Some((head, tail)) = list_ref.uncons() {
-        let addr = head.fst().as_str();
-        let account = head.snd().as_bytes();
+//     while let Some((head, tail)) = list_ref.uncons() {
+//         let addr = head.fst().as_str();
+//         let account = head.snd().as_bytes();
 
-        let addr = Address::try_from(addr).unwrap();
-        let object: Account = serde_binprot::from_slice(account).unwrap();
-        list.push((addr, object));
+//         let addr = Address::try_from(addr).unwrap();
+//         let object: Account = serde_binprot::from_slice(account).unwrap();
+//         list.push((addr, object));
 
-        list_ref = tail;
-    }
+//         list_ref = tail;
+//     }
 
-    list
-}
+//     list
+// }
 
-fn get_addr(rt: &mut &mut OCamlRuntime, addr: OCamlRef<String>) -> Address {
-    let addr_ref = rt.get(addr);
-    Address::try_from(addr_ref.as_str()).unwrap()
-}
+// fn get_addr(rt: &mut &mut OCamlRuntime, addr: OCamlRef<String>) -> Address {
+//     let addr_ref = rt.get(addr);
+//     Address::try_from(addr_ref.as_str()).unwrap()
+// }
 
-fn get<'a, T>(rt: &'a mut &mut OCamlRuntime, object: OCamlRef<OCamlBytes>) -> T
-where
-    T: Deserialize<'a>,
-{
-    let object_ref = rt.get(object);
-    serde_binprot::from_slice(object_ref.as_bytes()).unwrap()
-}
+// fn get<'a, T>(rt: &'a mut &mut OCamlRuntime, object: OCamlRef<OCamlBytes>) -> T
+// where
+//     T: Deserialize<'a>,
+// {
+//     let object_ref = rt.get(object);
+//     serde_binprot::from_slice(object_ref.as_bytes()).unwrap()
+// }
 
-fn get_index(rt: &mut &mut OCamlRuntime, index: OCamlRef<OCamlInt>) -> AccountIndex {
-    let index: i64 = index.to_rust(rt);
-    let index: u64 = index.try_into().unwrap();
-    AccountIndex(index)
-}
+// fn get_index(rt: &mut &mut OCamlRuntime, index: OCamlRef<OCamlInt>) -> AccountIndex {
+//     let index: i64 = index.to_rust(rt);
+//     let index: u64 = index.try_into().unwrap();
+//     AccountIndex(index)
+// }
 
-fn hash_to_ocaml(hash: Fp) -> Vec<u8> {
-    let hash: BigInt = hash.into();
-    serde_binprot::to_vec(&hash).unwrap()
-}
+// fn hash_to_ocaml(hash: Fp) -> Vec<u8> {
+//     let hash: BigInt = hash.into();
+//     serialize(&hash).unwrap()
+// }
 
 fn get_cloned_mask(
     rt: &mut &mut OCamlRuntime,
@@ -425,7 +425,7 @@ ocaml_export! {
             mask.get(addr.clone())
         }).map(|account| {
             acc = Some(account.clone());
-            serde_binprot::to_vec(&account).unwrap()
+            account.serialize()
         });
 
         eprintln!("rust_mask_get is_some={:?} addr={:?} account={:?}", account.is_some(), addr, acc);
@@ -452,7 +452,7 @@ ocaml_export! {
         }).into_iter()
           .map(|(addr, opt_account)| {
               let addr = addr.to_string();
-              let opt_account = opt_account.map(|acc| serde_binprot::to_vec(&acc).unwrap());
+              let opt_account = opt_account.map(|acc| acc.serialize());
               (addr, opt_account)
           })
           .collect();
@@ -469,7 +469,7 @@ ocaml_export! {
             mask.to_list()
         }).into_iter()
           .map(|account| {
-              serde_binprot::to_vec(&account).unwrap()
+              serialize(&account)
           })
           .collect();
 
@@ -485,7 +485,7 @@ ocaml_export! {
             mask.accounts()
         }).into_iter()
           .map(|account_id| {
-              serde_binprot::to_vec(&account_id).unwrap()
+              serialize(&account_id)
           })
           .collect();
 
@@ -537,7 +537,7 @@ ocaml_export! {
         let account = with_mask(rt, mask, |mask| {
             mask.get_at_index(index).unwrap()
         });
-        let account = serde_binprot::to_vec(&account).unwrap();
+        let account = serialize(&account);
 
         account.to_ocaml(rt)
     }
@@ -581,7 +581,7 @@ ocaml_export! {
             mask.location_of_account_batch(&account_ids)
         }).into_iter()
           .map(|(account_id, opt_addr)| {
-              let account_id = serde_binprot::to_vec(&account_id).unwrap();
+              let account_id = serialize(&account_id);
               let addr = opt_addr.map(|addr| addr.to_string());
               (account_id, addr)
         })
@@ -611,7 +611,7 @@ ocaml_export! {
             mask.token_owners()
         }).iter()
           .map(|account_id| {
-              serde_binprot::to_vec(account_id).unwrap()
+              serialize(account_id)
         })
           .collect::<Vec<_>>();
 
@@ -628,7 +628,7 @@ ocaml_export! {
         let owner = with_mask(rt, mask, |mask| {
             mask.token_owner(token_id)
         }).map(|account_id| {
-            serde_binprot::to_vec(&account_id).unwrap()
+            serialize(&account_id)
         });
 
         owner.to_ocaml(rt)
@@ -645,7 +645,7 @@ ocaml_export! {
             mask.tokens(pubkey.into())
         }).iter()
           .map(|token_id| {
-            serde_binprot::to_vec(token_id).unwrap()
+            serialize(token_id)
         })
           .collect::<Vec<_>>();
 
@@ -773,7 +773,7 @@ ocaml_export! {
                 None => continue,
             };
 
-            let account = serde_binprot::to_vec(&account).unwrap();
+            let account = serialize(&account);
 
             let index = index as i64;
             let _: Result<OCaml<()>, OCamlException> = ocaml_method.try_call(rt, &index, &account);
@@ -806,7 +806,7 @@ ocaml_export! {
                 None => continue,
             };
 
-            let account = serde_binprot::to_vec(&account).unwrap();
+            let account = serialize(&account);
             let addr = addr.to_string();
 
             let _: Result<OCaml<()>, _> = ocaml_method.try_call(rt, &addr, &account);
@@ -845,7 +845,7 @@ ocaml_export! {
                 continue;
             }
 
-            let account = serde_binprot::to_vec(&account).unwrap();
+            let account = serialize(&account);
             let addr = addr.to_string();
 
             let _: Result<OCaml<()>, _> = ocaml_method.try_call(rt, &addr, &account);
@@ -926,7 +926,7 @@ ocaml_export! {
           .iter()
             .map(|(addr, account)| {
               let addr = addr.to_string();
-              let account = serde_binprot::to_vec(account).unwrap();
+              let account = serialize(account);
               (addr, account)
             })
             .collect::<Vec<_>>();
@@ -1049,7 +1049,7 @@ fn impl_rust_random_account() -> Vec<u8> {
     // println!("rust_random_account begin");
 
     let account = Account::rand();
-    let ser = serde_binprot::to_vec(&account).unwrap();
+    let ser = serialize(&account);
 
     // let ser: Vec<u8> = vec![
     //     178, 29, 73, 50, 85, 80, 131, 166, 53, 11, 48, 224, 103, 89, 161, 207, 149, 31, 170, 21,
@@ -1080,7 +1080,7 @@ fn impl_rust_random_account() -> Vec<u8> {
 
     // // println!("ACCOUNT={:#?}", account2);
 
-    // let ser = serde_binprot::to_vec(&account).unwrap();
+    // let ser = serialize(&account).unwrap();
 
     // println!("rust_random_account end");
 

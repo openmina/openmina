@@ -26,7 +26,6 @@ mod tree_version;
 mod util;
 
 pub use account::*;
-pub use account::*;
 pub use address::*;
 pub use base::*;
 pub use blocks::*;

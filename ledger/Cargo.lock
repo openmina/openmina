@@ -180,6 +180,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "binprot"
+version = "0.1.8"
+source = "git+https://github.com/name-placeholder/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
+dependencies = [
+ "binprot_derive",
+ "byteorder",
+ "md5",
+]
+
+[[package]]
+name = "binprot_derive"
+version = "0.1.7"
+source = "git+https://github.com/name-placeholder/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "bitvec"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -603,6 +622,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "md5"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
+
+[[package]]
 name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -666,6 +691,8 @@ dependencies = [
  "ark-serialize",
  "backtrace",
  "base64",
+ "binprot",
+ "binprot_derive",
  "bitvec",
  "bs58",
  "getrandom",
@@ -681,8 +708,6 @@ dependencies = [
  "packed_simd_2",
  "rand",
  "rayon",
- "serde",
- "serde-binprot",
  "sha2",
  "uuid",
  "wasm-bindgen",
@@ -993,15 +1018,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f747710de3dcd43b88c9168773254e809d8ddbdf9653b84e2554ab219f17860"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde-binprot"
-version = "0.1.0"
-source = "git+https://github.com/name-placeholder/serde-binprot.git?branch=ledger#e8dfdbee6a1cd16ab45f33c7c4b7e7133f860452"
-dependencies = [
- "byteorder",
- "serde",
 ]
 
 [[package]]
