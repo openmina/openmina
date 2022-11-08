@@ -10,8 +10,20 @@ use crate::{
 };
 
 /// String of bytes.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ByteString(Vec<u8>);
+
+impl std::fmt::Debug for ByteString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = self
+            .0
+            .iter()
+            .map(|b| format!("{:02X}", b))
+            .collect::<Vec<_>>()
+            .join("");
+        f.debug_tuple("ByteString").field(&s).finish()
+    }
+}
 
 impl binprot::BinProtRead for ByteString {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
@@ -984,7 +996,11 @@ impl From<PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof>
 mod tests {
     use std::io::Cursor;
 
+    use ark_ff::One;
+    use mina_curves::pasta::FpParameters;
+    use mina_hasher::Fp;
     use o1_utils::FieldHelpers;
+    use rand::Rng;
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
@@ -992,6 +1008,50 @@ mod tests {
     use binprot::{BinProtRead, BinProtWrite};
 
     use super::*;
+
+    #[test]
+    fn test_rand_fp() {
+        let mut nvalid = 0;
+        let mut rng = rand::thread_rng();
+        let one = Fp::one();
+
+        // impl<P: $FpParameters> $Fp<P> {
+        //     #[inline(always)]
+        //     pub(crate) fn is_valid(&self) -> bool {
+        //         self.0 < P::MODULUS
+        //     }
+
+        //     #[inline]
+        //     fn reduce(&mut self) {
+        //         if !self.is_valid() {
+        //             self.0.sub_noborrow(&P::MODULUS);
+        //         }
+        //     }
+        // }
+
+        // let fp = Fp::from_hex(&"516D6F2B70353633376D4E694A38333848466277356D7969686E5A7151634E62".to_lowercase()).unwrap();
+
+        let mut rng = rand::thread_rng();
+
+        for _ in 0..100000 {
+            let n: Fp = rng.gen();
+
+            // let n = Fp::rand(&mut rng);
+            // let n1 = n.clone();
+
+            if n.0 < <FpParameters as ark_ff::FpParameters>::MODULUS {
+                nvalid += 1;
+            }
+
+            // n.mul_assign(one);
+            // if n1.0 == n.0 {
+            //     nvalid += 1;
+            // }
+            // assert_ne!(n1, n);
+        }
+
+        println!("valid={:?}", nvalid);
+    }
 
     #[test]
     fn test_serialize_messages_for_next_step_proof() {

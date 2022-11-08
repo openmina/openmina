@@ -1,4 +1,4 @@
-use ark_ff::{BigInteger256, PrimeField, UniformRand};
+use ark_ff::{BigInteger256, One, PrimeField, UniformRand};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
@@ -342,7 +342,7 @@ impl ProtocolState {
                     min_window_density: rng.gen(),
                     sub_window_densities: {
                         let n = rng.gen::<u8>() % 20;
-                        (0..n).map(|_| rng.gen()).collect()
+                        (0..n.max(1)).map(|_| rng.gen()).collect()
                     },
                     last_vrf_output: rng.gen(),
                     total_currency: rng.gen(),
@@ -356,9 +356,9 @@ impl ProtocolState {
                             hash: Fp::rand(rng),
                             total_currency: rng.gen(),
                         },
-                        seed: rng.gen(),
-                        start_checkpoint: rng.gen(),
-                        lock_checkpoint: rng.gen(),
+                        seed: Fp::rand(rng),
+                        start_checkpoint: Fp::rand(rng),
+                        lock_checkpoint: Fp::rand(rng),
                         epoch_length: rng.gen(),
                     },
                     next_epoch_data: DataStaking {
@@ -366,9 +366,9 @@ impl ProtocolState {
                             hash: Fp::rand(rng),
                             total_currency: rng.gen(),
                         },
-                        seed: rng.gen(),
-                        start_checkpoint: rng.gen(),
-                        lock_checkpoint: rng.gen(),
+                        seed: Fp::rand(rng),
+                        start_checkpoint: Fp::rand(rng),
+                        lock_checkpoint: Fp::rand(rng),
                         epoch_length: rng.gen(),
                     },
                     has_ancestor_in_same_checkpoint_window: rng.gen(),

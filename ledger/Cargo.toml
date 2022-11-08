@@ -29,6 +29,7 @@ binprot = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5b
 binprot_derive = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 
 sha2 = "0.10"
+base64 = "0.13"
 
 # oracle = { path = "../oracle" }
 # mina-curves = { path = "../curves" }
@@ -65,7 +66,6 @@ ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", bran
 # ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values" }
 
 [dev-dependencies]
-base64 = "0.13"
 
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"

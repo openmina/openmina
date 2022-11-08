@@ -11,8 +11,19 @@ use mina_signer::CompressedPubKey;
 
 use super::{Account, AccountId, AuthRequired, TokenId};
 
-#[derive(Debug)]
 pub struct BigInt(pub [u8; 32]);
+
+impl std::fmt::Debug for BigInt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = self
+            .0
+            .iter()
+            .map(|b| format!("{:02X}", b))
+            .collect::<Vec<_>>()
+            .join("");
+        f.debug_tuple("BigInt").field(&s).finish()
+    }
+}
 
 impl binprot::BinProtRead for BigInt {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
