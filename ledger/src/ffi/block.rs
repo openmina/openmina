@@ -59,7 +59,7 @@ ocaml_export! {
         bytes.to_ocaml(rt)
     }
 
-    fn rust_hash_message_for_wrap_step_proof(
+    fn rust_hash_message_for_next_wrap_proof(
         rt,
         bytes: OCamlRef<OCamlBytes>,
         ocaml_hash: OCamlRef<OCamlList<String>>,
