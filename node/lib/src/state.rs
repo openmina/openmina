@@ -17,7 +17,7 @@ pub struct State {
 impl State {
     pub fn new() -> Self {
         Self {
-            p2p: P2pState {},
+            p2p: P2pState::new(),
 
             last_action: ActionMeta::ZERO,
             applied_actions_count: 0,
