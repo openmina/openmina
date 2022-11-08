@@ -4,12 +4,35 @@ use ark_ff::{BigInteger256, PrimeField, UniformRand};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 
-use crate::{hash_fields, CurveAffine, PlonkVerificationKeyEvals};
+use crate::{
+    hash_fields, CurveAffine, PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
+    PlonkVerificationKeyEvals,
+};
 use crate::{PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof, ProtocolState};
 
+#[derive(Clone, Debug)]
 pub struct MessagesForNextWrapProof {
-    challenge_polynomial_commitment: CurveAffine<Fq>,
-    old_bulletproof_challenges: [[Fq; 15]; 2],
+    pub challenge_polynomial_commitment: CurveAffine<Fq>,
+    pub old_bulletproof_challenges: [[Fq; 15]; 2],
+}
+
+impl binprot::BinProtRead for MessagesForNextWrapProof {
+    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+    {
+        let msg = PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof::binprot_read(r)?;
+        Ok(msg.into())
+    }
+}
+
+impl binprot::BinProtWrite for MessagesForNextWrapProof {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        let msg: PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof =
+            self.clone().into();
+        msg.binprot_write(w)?;
+        Ok(())
+    }
 }
 
 impl MessagesForNextWrapProof {

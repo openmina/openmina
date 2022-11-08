@@ -3,10 +3,11 @@ use binprot_derive::{BinProtRead, BinProtWrite};
 
 use crate::{
     BigInt, BlockchainState, BlockchainStateRegisters, ConsensusGlobalSlot, ConsensusState,
-    DataStaking, EpochLedger, Excess, LocalState, MessagesForNextStepProof,
-    MinaBaseVerificationKeyWireStableV1WrapIndex, NonZeroCurvePointUncompressedStableV1,
-    PlonkVerificationKeyEvals, ProtocolConstants, ProtocolState, ProtocolStateBody, Sgn,
-    StagedLedgerHash, StagedLedgerHashNonSnark, TransactionFailure,
+    CurveAffine, DataStaking, EpochLedger, Excess, LocalState, MessagesForNextStepProof,
+    MessagesForNextWrapProof, MinaBaseVerificationKeyWireStableV1WrapIndex,
+    NonZeroCurvePointUncompressedStableV1, PlonkVerificationKeyEvals, ProtocolConstants,
+    ProtocolState, ProtocolStateBody, Sgn, StagedLedgerHash, StagedLedgerHashNonSnark,
+    TransactionFailure,
 };
 
 /// String of bytes.
@@ -259,6 +260,95 @@ pub struct MinaStateProtocolStateBodyValueStableV2 {
     pub blockchain_state: MinaStateBlockchainStateValueStableV2,
     pub consensus_state: ConsensusProofOfStakeDataConsensusStateValueStableV1,
     pub constants: MinaBaseProtocolConstantsCheckedValueStableV1,
+}
+
+#[rustfmt::skip]
+type FifteenBigInt = (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, ())))))))))))))));
+
+#[derive(BinProtRead, BinProtWrite, Debug)]
+pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof {
+    pub challenge_polynomial_commitments: (BigInt, BigInt),
+    pub old_bulletproof_challenges: (FifteenBigInt, (FifteenBigInt, ())),
+}
+
+impl From<MessagesForNextWrapProof>
+    for PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof
+{
+    fn from(value: MessagesForNextWrapProof) -> Self {
+        Self {
+            challenge_polynomial_commitments: (
+                value.challenge_polynomial_commitment.0.into(),
+                value.challenge_polynomial_commitment.1.into(),
+            ),
+            old_bulletproof_challenges: {
+                let a = value.old_bulletproof_challenges[0];
+                #[rustfmt::skip]
+                let a = (a[0].into(), (a[1].into(), (a[2].into(), (a[3].into(), (a[4].into(),
+                        (a[5].into(), (a[6].into(), (a[7].into(), (a[8].into(), (a[9].into(),
+                        (a[10].into(), (a[11].into(), (a[12].into(), (a[13].into(),
+                        (a[14].into(), ())))))))))))))));
+
+                let b = value.old_bulletproof_challenges[1];
+                #[rustfmt::skip]
+                let b = (b[0].into(), (b[1].into(), (b[2].into(), (b[3].into(), (b[4].into(),
+                        (b[5].into(), (b[6].into(), (b[7].into(), (b[8].into(), (b[9].into(),
+                        (b[10].into(), (b[11].into(), (b[12].into(), (b[13].into(),
+                        (b[14].into(), ())))))))))))))));
+
+                (a, (b, ()))
+            },
+        }
+    }
+}
+
+impl From<PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof>
+    for MessagesForNextWrapProof
+{
+    fn from(value: PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof) -> Self {
+        Self {
+            challenge_polynomial_commitment: CurveAffine(
+                value.challenge_polynomial_commitments.0.into(),
+                value.challenge_polynomial_commitments.1.into(),
+            ),
+            #[rustfmt::skip]
+            old_bulletproof_challenges: [
+                [
+                    value.old_bulletproof_challenges.0.0.into(),
+                    value.old_bulletproof_challenges.0.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.1.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.1.1.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.1.1.1.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.1.1.1.1.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.0.1.1.1.1.1.1.1.1.1.1.1.1.1.1.0.into(),
+                ],
+                [
+                    value.old_bulletproof_challenges.1.0.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.1.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.1.1.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.1.1.1.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.1.1.1.1.1.1.1.1.1.1.1.0.into(),
+                    value.old_bulletproof_challenges.1.0.1.1.1.1.1.1.1.1.1.1.1.1.1.1.0.into(),
+                ]
+            ],
+        }
+    }
 }
 
 #[rustfmt::skip]

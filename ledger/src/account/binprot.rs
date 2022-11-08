@@ -6,6 +6,7 @@ use std::ops::Deref;
 use crate::PlonkVerificationKeyEvals;
 use ark_ff::{FromBytes, ToBytes};
 use binprot_derive::{BinProtRead, BinProtWrite};
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
@@ -55,22 +56,13 @@ impl From<BigInt> for Fp {
     fn from(val: BigInt) -> Self {
         assert_eq!(val.0.len(), 32);
         Fp::read(&val.0[..]).unwrap()
-        // match Fp::read(&val.0[..]) {
-        //     Ok(ok) => ok,
-        //     Err(e) => {
-        //         eprintln!("ERR={:?}", e);
-        //         eprintln!("VALUE LEN={:?} V={:?}", val.0.len(), val);
+    }
+}
 
-        //         let bigint = BigInteger256::read(&val.0[..]).unwrap();
-        //         println!("BIGINT={:?}", bigint);
-        //         println!("BIGINT={:?}", bigint.to_string());
-        //         // let fp = Fp::from(bigint);
-        //         // let fp = Fp::from_bits;
-        //         // println!("FP={:?}", fp);
-
-        //         panic!()
-        //     },
-        // }
+impl From<BigInt> for Fq {
+    fn from(val: BigInt) -> Self {
+        assert_eq!(val.0.len(), 32);
+        Fq::read(&val.0[..]).unwrap()
     }
 }
 
@@ -94,6 +86,14 @@ impl From<CompressedPubKey> for NonZeroCurvePointUncompressedStableV1 {
 
 impl From<Fp> for BigInt {
     fn from(fp: Fp) -> Self {
+        let mut x = [0; 32];
+        fp.write(&mut x[..]).unwrap();
+        BigInt(x)
+    }
+}
+
+impl From<Fq> for BigInt {
+    fn from(fp: Fq) -> Self {
         let mut x = [0; 32];
         fp.write(&mut x[..]).unwrap();
         BigInt(x)
