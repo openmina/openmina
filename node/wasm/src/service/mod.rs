@@ -1,9 +1,12 @@
 use redux::Instant;
 
-use libp2p::futures::channel::mpsc;
-use libp2p::futures::stream::StreamExt;
+use ::libp2p::futures::channel::mpsc;
+use ::libp2p::futures::stream::StreamExt;
 
 use lib::event_source::Event;
+
+pub mod libp2p;
+use self::libp2p::Libp2pService;
 
 pub struct EventReceiver {
     rx: mpsc::Receiver<Event>,
@@ -52,10 +55,13 @@ impl From<mpsc::Receiver<Event>> for EventReceiver {
 pub struct NodeWasmService {
     pub event_source_sender: mpsc::Sender<Event>,
     pub event_source_receiver: EventReceiver,
+
+    pub libp2p: Libp2pService,
 }
 
 impl lib::Service for NodeWasmService {}
 
+impl redux::Service for NodeWasmService {}
 impl lib::service::TimeService for NodeWasmService {
     fn monotonic_time(&mut self) -> Instant {
         redux::Instant::now()
