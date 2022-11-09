@@ -17,6 +17,12 @@ impl From<Vec<u8>> for ByteString {
     }
 }
 
+impl From<&[u8]> for ByteString {
+    fn from(source: &[u8]) -> Self {
+        Self(source.to_vec())
+    }
+}
+
 impl From<&str> for ByteString {
     fn from(source: &str) -> Self {
         Self(source.as_bytes().to_vec())
