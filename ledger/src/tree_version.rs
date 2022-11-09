@@ -60,8 +60,8 @@ impl TreeVersion for V1 {
 
             fn to_roinput(&self) -> ROInput {
                 let mut roi = ROInput::new();
-                roi.append_field(self.0);
-                roi.append_field(self.1);
+                roi = roi.append_field(self.0);
+                roi = roi.append_field(self.1);
                 roi
             }
 

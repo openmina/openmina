@@ -1,266 +1,12 @@
-use binprot::Nat0;
 use binprot_derive::{BinProtRead, BinProtWrite};
 
 use crate::{
     BigInt, BlockchainState, BlockchainStateRegisters, ConsensusGlobalSlot, ConsensusState,
     CurveAffine, DataStaking, EpochLedger, Excess, LocalState, MessagesForNextStepProof,
     MessagesForNextWrapProof, MinaBaseVerificationKeyWireStableV1WrapIndex,
-    NonZeroCurvePointUncompressedStableV1, PlonkVerificationKeyEvals, ProtocolConstants,
-    ProtocolState, ProtocolStateBody, Sgn, StagedLedgerHash, StagedLedgerHashNonSnark,
-    TransactionFailure,
+    PlonkVerificationKeyEvals, ProtocolConstants, ProtocolState, ProtocolStateBody, Sgn,
+    StagedLedgerHash, StagedLedgerHashNonSnark,
 };
-
-/// String of bytes.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ByteString(Vec<u8>);
-
-impl std::fmt::Debug for ByteString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = self
-            .0
-            .iter()
-            .map(|b| format!("{:02X}", b))
-            .collect::<Vec<_>>()
-            .join("");
-        f.debug_tuple("ByteString").field(&s).finish()
-    }
-}
-
-impl binprot::BinProtRead for ByteString {
-    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
-    where
-        Self: Sized,
-    {
-        let len = Nat0::binprot_read(r)?;
-        let mut buf: Vec<u8> = vec![0u8; len.0 as usize];
-        r.read_exact(&mut buf)?;
-        Ok(Self(buf))
-    }
-}
-
-impl binprot::BinProtWrite for ByteString {
-    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        let _ = Nat0(self.0.len() as u64).binprot_write(w)?;
-        let _ = w.write_all(&self.0)?;
-        Ok(())
-    }
-}
-
-impl From<[u8; 32]> for ByteString {
-    fn from(value: [u8; 32]) -> Self {
-        Self(Vec::from(value))
-    }
-}
-
-impl AsRef<[u8]> for ByteString {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl From<Vec<u8>> for ByteString {
-    fn from(source: Vec<u8>) -> Self {
-        Self(source)
-    }
-}
-
-impl From<&str> for ByteString {
-    fn from(source: &str) -> Self {
-        Self(source.as_bytes().to_vec())
-    }
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct DataHashLibStateHashStableV1(pub BigInt);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBaseLedgerHash0StableV1(pub BigInt);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBaseStagedLedgerHashAuxHashStableV1(pub ByteString);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1(pub ByteString);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBaseStagedLedgerHashNonSnarkStableV1 {
-    pub ledger_hash: MinaBaseLedgerHash0StableV1,
-    pub aux_hash: MinaBaseStagedLedgerHashAuxHashStableV1,
-    pub pending_coinbase_aux: MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaStateProtocolStateValueStableV2 {
-    pub previous_state_hash: DataHashLibStateHashStableV1,
-    pub body: MinaStateProtocolStateBodyValueStableV2,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBasePendingCoinbaseHashBuilderStableV1(pub BigInt);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBasePendingCoinbaseHashVersionedStableV1(
-    pub MinaBasePendingCoinbaseHashBuilderStableV1,
-);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBaseStagedLedgerHashStableV1 {
-    pub non_snark: MinaBaseStagedLedgerHashNonSnarkStableV1,
-    pub pending_coinbase_hash: MinaBasePendingCoinbaseHashVersionedStableV1,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct UnsignedExtendedUInt64StableV1(pub i64);
-// pub struct UnsignedExtendedUInt64StableV1(pub Int64);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct CurrencyMakeStrAmountMakeStrStableV1(pub i64);
-// pub struct CurrencyMakeStrAmountMakeStrStableV1(pub UnsignedExtendedUInt64StableV1);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub enum SgnStableV1 {
-    Pos,
-    Neg,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1Excess {
-    pub magnitude: CurrencyMakeStrAmountMakeStrStableV1,
-    pub sgn: SgnStableV1,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBaseStackFrameDigestStableV1(pub BigInt);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBaseCallStackDigestStableV1(pub BigInt);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBaseAccountIdMakeStrDigestStableV1(pub BigInt);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct UnsignedExtendedUInt32StableV1(pub i32);
-// pub struct UnsignedExtendedUInt32StableV1(pub Int32);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBaseTransactionStatusFailureCollectionStableV1(pub Vec<Vec<TransactionFailure>>);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1 {
-    pub stack_frame: MinaBaseStackFrameDigestStableV1,
-    pub call_stack: MinaBaseCallStackDigestStableV1,
-    pub transaction_commitment: BigInt,
-    pub full_transaction_commitment: BigInt,
-    pub token_id: MinaBaseAccountIdMakeStrDigestStableV1,
-    pub excess: MinaTransactionLogicPartiesLogicLocalStateValueStableV1Excess,
-    pub ledger: MinaBaseLedgerHash0StableV1,
-    pub success: bool,
-    pub party_index: UnsignedExtendedUInt32StableV1,
-    pub failure_status_tbl: MinaBaseTransactionStatusFailureCollectionStableV1,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaStateBlockchainStateValueStableV2Registers {
-    pub ledger: MinaBaseLedgerHash0StableV1,
-    pub pending_coinbase_stack: (),
-    pub local_state: MinaTransactionLogicPartiesLogicLocalStateValueStableV1,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct BlockTimeMakeStrTimeStableV1(pub UnsignedExtendedUInt64StableV1);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct Blake2MakeStableV1(pub ByteString);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct ConsensusBodyReferenceStableV1(pub Blake2MakeStableV1);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaStateBlockchainStateValueStableV2 {
-    pub staged_ledger_hash: MinaBaseStagedLedgerHashStableV1,
-    pub genesis_ledger_hash: MinaBaseLedgerHash0StableV1,
-    pub registers: MinaStateBlockchainStateValueStableV2Registers,
-    pub timestamp: BlockTimeMakeStrTimeStableV1,
-    pub body_reference: ConsensusBodyReferenceStableV1,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct ConsensusVrfOutputTruncatedStableV1(pub ByteString);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct ConsensusGlobalSlotStableV1 {
-    pub slot_number: UnsignedExtendedUInt32StableV1,
-    pub slots_per_epoch: UnsignedExtendedUInt32StableV1,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBaseEpochLedgerValueStableV1 {
-    pub hash: MinaBaseLedgerHash0StableV1,
-    pub total_currency: CurrencyMakeStrAmountMakeStrStableV1,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBaseEpochSeedStableV1(pub BigInt);
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
-    pub ledger: MinaBaseEpochLedgerValueStableV1,
-    pub seed: MinaBaseEpochSeedStableV1,
-    pub start_checkpoint: DataHashLibStateHashStableV1,
-    pub lock_checkpoint: DataHashLibStateHashStableV1,
-    pub epoch_length: UnsignedExtendedUInt32StableV1,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
-    pub ledger: MinaBaseEpochLedgerValueStableV1,
-    pub seed: MinaBaseEpochSeedStableV1,
-    pub start_checkpoint: DataHashLibStateHashStableV1,
-    pub lock_checkpoint: DataHashLibStateHashStableV1,
-    pub epoch_length: UnsignedExtendedUInt32StableV1,
-}
-
-// #[derive(BinProtRead, BinProtWrite, Debug)]
-// pub struct NonZeroCurvePointUncompressedStableV1 {
-//     pub x: BigInt,
-//     pub is_odd: bool,
-// }
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct ConsensusProofOfStakeDataConsensusStateValueStableV1 {
-    pub blockchain_length: UnsignedExtendedUInt32StableV1,
-    pub epoch_count: UnsignedExtendedUInt32StableV1,
-    pub min_window_density: UnsignedExtendedUInt32StableV1,
-    pub sub_window_densities: Vec<UnsignedExtendedUInt32StableV1>,
-    pub last_vrf_output: ConsensusVrfOutputTruncatedStableV1,
-    pub total_currency: CurrencyMakeStrAmountMakeStrStableV1,
-    pub curr_global_slot: ConsensusGlobalSlotStableV1,
-    pub global_slot_since_genesis: UnsignedExtendedUInt32StableV1,
-    pub staking_epoch_data: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-    pub next_epoch_data: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
-    pub has_ancestor_in_same_checkpoint_window: bool,
-    pub block_stake_winner: NonZeroCurvePointUncompressedStableV1,
-    pub block_creator: NonZeroCurvePointUncompressedStableV1,
-    pub coinbase_receiver: NonZeroCurvePointUncompressedStableV1,
-    pub supercharge_coinbase: bool,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaBaseProtocolConstantsCheckedValueStableV1 {
-    pub k: UnsignedExtendedUInt32StableV1,
-    pub slots_per_epoch: UnsignedExtendedUInt32StableV1,
-    pub slots_per_sub_window: UnsignedExtendedUInt32StableV1,
-    pub delta: UnsignedExtendedUInt32StableV1,
-    pub genesis_state_timestamp: BlockTimeMakeStrTimeStableV1,
-}
-
-#[derive(BinProtRead, BinProtWrite, Debug)]
-pub struct MinaStateProtocolStateBodyValueStableV2 {
-    pub genesis_state_hash: DataHashLibStateHashStableV1,
-    pub blockchain_state: MinaStateBlockchainStateValueStableV2,
-    pub consensus_state: ConsensusProofOfStakeDataConsensusStateValueStableV1,
-    pub constants: MinaBaseProtocolConstantsCheckedValueStableV1,
-}
 
 #[rustfmt::skip]
 type FifteenBigInt = (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, ())))))))))))))));
@@ -356,14 +102,15 @@ type SixteenBigInt = (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigInt, (BigI
 
 #[derive(BinProtRead, BinProtWrite, Debug)]
 pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
-    pub protocol_state: MinaStateProtocolStateValueStableV2,
+    pub protocol_state: mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2,
     pub dlog_plonk_index: MinaBaseVerificationKeyWireStableV1WrapIndex,
     pub challenge_polynomial_commitments: ((BigInt, BigInt), ((BigInt, BigInt), ())),
     pub old_bulletproof_challenges: (SixteenBigInt, (SixteenBigInt, ())),
 }
 
-impl From<ProtocolState> for MinaStateProtocolStateValueStableV2 {
+impl From<ProtocolState> for mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2 {
     fn from(value: ProtocolState) -> Self {
+        use mina_p2p_messages::v2::*;
         Self {
             previous_state_hash: DataHashLibStateHashStableV1(value.previous_state_hash.into()),
             body: MinaStateProtocolStateBodyValueStableV2 {
@@ -389,6 +136,7 @@ impl From<ProtocolState> for MinaStateProtocolStateValueStableV2 {
                                     .staged_ledger_hash
                                     .non_snark
                                     .aux_hash
+                                    .as_ref()
                                     .into(),
                             ),
                             pending_coinbase_aux:
@@ -399,6 +147,7 @@ impl From<ProtocolState> for MinaStateProtocolStateValueStableV2 {
                                         .staged_ledger_hash
                                         .non_snark
                                         .pending_coinbase_aux
+                                        .as_ref()
                                         .into(),
                                 ),
                         },
@@ -465,13 +214,16 @@ impl From<ProtocolState> for MinaStateProtocolStateValueStableV2 {
                             ),
                             excess: MinaTransactionLogicPartiesLogicLocalStateValueStableV1Excess {
                                 magnitude: CurrencyMakeStrAmountMakeStrStableV1(
-                                    value
-                                        .body
-                                        .blockchain_state
-                                        .registers
-                                        .local_state
-                                        .excess
-                                        .magnitude,
+                                    UnsignedExtendedUInt64StableV1(
+                                        value
+                                            .body
+                                            .blockchain_state
+                                            .registers
+                                            .local_state
+                                            .excess
+                                            .magnitude
+                                            .into(),
+                                    ),
                                 ),
                                 sgn: match value
                                     .body
@@ -501,7 +253,8 @@ impl From<ProtocolState> for MinaStateProtocolStateValueStableV2 {
                                     .blockchain_state
                                     .registers
                                     .local_state
-                                    .party_index,
+                                    .party_index
+                                    .into(),
                             ),
                             failure_status_tbl: MinaBaseTransactionStatusFailureCollectionStableV1(
                                 value
@@ -515,45 +268,48 @@ impl From<ProtocolState> for MinaStateProtocolStateValueStableV2 {
                         },
                     },
                     timestamp: BlockTimeMakeStrTimeStableV1(UnsignedExtendedUInt64StableV1(
-                        value.body.blockchain_state.timestamp as i64,
+                        (value.body.blockchain_state.timestamp as i64).into(),
                     )),
                     body_reference: ConsensusBodyReferenceStableV1(Blake2MakeStableV1(
-                        value.body.blockchain_state.body_reference.into(),
+                        value.body.blockchain_state.body_reference.as_ref().into(),
                     )),
                 },
                 consensus_state: ConsensusProofOfStakeDataConsensusStateValueStableV1 {
                     blockchain_length: UnsignedExtendedUInt32StableV1(
-                        value.body.consensus_state.blockchain_length as i32,
+                        (value.body.consensus_state.blockchain_length as i32).into(),
                     ),
                     epoch_count: UnsignedExtendedUInt32StableV1(
-                        value.body.consensus_state.epoch_count as i32,
+                        (value.body.consensus_state.epoch_count as i32).into(),
                     ),
                     min_window_density: UnsignedExtendedUInt32StableV1(
-                        value.body.consensus_state.min_window_density as i32,
+                        (value.body.consensus_state.min_window_density as i32).into(),
                     ),
                     sub_window_densities: value
                         .body
                         .consensus_state
                         .sub_window_densities
                         .iter()
-                        .map(|v| UnsignedExtendedUInt32StableV1(*v as i32))
+                        .map(|v| UnsignedExtendedUInt32StableV1((*v as i32).into()))
                         .collect(),
                     last_vrf_output: ConsensusVrfOutputTruncatedStableV1(
-                        value.body.consensus_state.last_vrf_output.into(),
+                        value.body.consensus_state.last_vrf_output.as_ref().into(),
                     ),
                     total_currency: CurrencyMakeStrAmountMakeStrStableV1(
-                        value.body.consensus_state.total_currency,
+                        UnsignedExtendedUInt64StableV1(
+                            value.body.consensus_state.total_currency.into(),
+                        ),
                     ),
                     curr_global_slot: ConsensusGlobalSlotStableV1 {
                         slot_number: UnsignedExtendedUInt32StableV1(
-                            value.body.consensus_state.curr_global_slot.slot_number as i32,
+                            (value.body.consensus_state.curr_global_slot.slot_number as i32).into(),
                         ),
                         slots_per_epoch: UnsignedExtendedUInt32StableV1(
-                            value.body.consensus_state.curr_global_slot.slots_per_epoch as i32,
+                            (value.body.consensus_state.curr_global_slot.slots_per_epoch as i32)
+                                .into(),
                         ),
                     },
                     global_slot_since_genesis: UnsignedExtendedUInt32StableV1(
-                        value.body.consensus_state.global_slot_since_genesis as i32,
+                        (value.body.consensus_state.global_slot_since_genesis as i32).into(),
                     ),
                     staking_epoch_data:
                         ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
@@ -568,12 +324,15 @@ impl From<ProtocolState> for MinaStateProtocolStateValueStableV2 {
                                         .into(),
                                 ),
                                 total_currency: CurrencyMakeStrAmountMakeStrStableV1(
-                                    value
-                                        .body
-                                        .consensus_state
-                                        .staking_epoch_data
-                                        .ledger
-                                        .total_currency,
+                                    UnsignedExtendedUInt64StableV1(
+                                        value
+                                            .body
+                                            .consensus_state
+                                            .staking_epoch_data
+                                            .ledger
+                                            .total_currency
+                                            .into(),
+                                    ),
                                 ),
                             },
                             seed: MinaBaseEpochSeedStableV1(
@@ -596,7 +355,8 @@ impl From<ProtocolState> for MinaStateProtocolStateValueStableV2 {
                                     .into(),
                             ),
                             epoch_length: UnsignedExtendedUInt32StableV1(
-                                value.body.consensus_state.staking_epoch_data.epoch_length as i32,
+                                (value.body.consensus_state.staking_epoch_data.epoch_length as i32)
+                                    .into(),
                             ),
                         },
                     next_epoch_data:
@@ -612,12 +372,15 @@ impl From<ProtocolState> for MinaStateProtocolStateValueStableV2 {
                                         .into(),
                                 ),
                                 total_currency: CurrencyMakeStrAmountMakeStrStableV1(
-                                    value
-                                        .body
-                                        .consensus_state
-                                        .next_epoch_data
-                                        .ledger
-                                        .total_currency,
+                                    UnsignedExtendedUInt64StableV1(
+                                        value
+                                            .body
+                                            .consensus_state
+                                            .next_epoch_data
+                                            .ledger
+                                            .total_currency
+                                            .into(),
+                                    ),
                                 ),
                             },
                             seed: MinaBaseEpochSeedStableV1(
@@ -640,7 +403,8 @@ impl From<ProtocolState> for MinaStateProtocolStateValueStableV2 {
                                     .into(),
                             ),
                             epoch_length: UnsignedExtendedUInt32StableV1(
-                                value.body.consensus_state.next_epoch_data.epoch_length as i32,
+                                (value.body.consensus_state.next_epoch_data.epoch_length as i32)
+                                    .into(),
                             ),
                         },
                     has_ancestor_in_same_checkpoint_window: value
@@ -653,17 +417,19 @@ impl From<ProtocolState> for MinaStateProtocolStateValueStableV2 {
                     supercharge_coinbase: value.body.consensus_state.supercharge_coinbase,
                 },
                 constants: MinaBaseProtocolConstantsCheckedValueStableV1 {
-                    k: UnsignedExtendedUInt32StableV1(value.body.constants.k as i32),
+                    k: UnsignedExtendedUInt32StableV1((value.body.constants.k as i32).into()),
                     slots_per_epoch: UnsignedExtendedUInt32StableV1(
-                        value.body.constants.slots_per_epoch as i32,
+                        (value.body.constants.slots_per_epoch as i32).into(),
                     ),
                     slots_per_sub_window: UnsignedExtendedUInt32StableV1(
-                        value.body.constants.slots_per_sub_window as i32,
+                        (value.body.constants.slots_per_sub_window as i32).into(),
                     ),
-                    delta: UnsignedExtendedUInt32StableV1(value.body.constants.delta as i32),
+                    delta: UnsignedExtendedUInt32StableV1(
+                        (value.body.constants.delta as i32).into(),
+                    ),
                     genesis_state_timestamp: BlockTimeMakeStrTimeStableV1(
                         UnsignedExtendedUInt64StableV1(
-                            value.body.constants.genesis_state_timestamp as i64,
+                            (value.body.constants.genesis_state_timestamp as i64).into(),
                         ),
                     ),
                 },
@@ -672,189 +438,106 @@ impl From<ProtocolState> for MinaStateProtocolStateValueStableV2 {
     }
 }
 
-impl From<MinaStateProtocolStateValueStableV2> for ProtocolState {
-    fn from(value: MinaStateProtocolStateValueStableV2) -> Self {
+impl From<mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2> for ProtocolState {
+    fn from(value: mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2) -> Self {
         Self {
             previous_state_hash: value.previous_state_hash.0.into(),
             body: ProtocolStateBody {
                 genesis_state_hash: value.body.genesis_state_hash.0.into(),
                 blockchain_state: BlockchainState {
-                    staged_ledger_hash: StagedLedgerHash {
-                        non_snark: StagedLedgerHashNonSnark {
-                            ledger_hash: value
-                                .body
-                                .blockchain_state
-                                .staged_ledger_hash
-                                .non_snark
-                                .ledger_hash
-                                .0
-                                .into(),
-                            aux_hash: value
-                                .body
-                                .blockchain_state
-                                .staged_ledger_hash
-                                .non_snark
-                                .aux_hash
-                                .0
-                                 .0
-                                .try_into()
-                                .unwrap(),
-                            pending_coinbase_aux: value
-                                .body
-                                .blockchain_state
-                                .staged_ledger_hash
-                                .non_snark
-                                .pending_coinbase_aux
-                                .0
-                                 .0
-                                .try_into()
-                                .unwrap(),
-                        },
-                        pending_coinbase_hash: value
-                            .body
-                            .blockchain_state
-                            .staged_ledger_hash
-                            .pending_coinbase_hash
-                            .0
-                             .0
-                            .into(),
+                    staged_ledger_hash: {
+                        let staged = &value.body.blockchain_state.staged_ledger_hash;
+                        StagedLedgerHash {
+                            non_snark: StagedLedgerHashNonSnark {
+                                ledger_hash: staged.non_snark.ledger_hash.0.clone().into(),
+                                aux_hash: staged.non_snark.aux_hash.0.as_ref().try_into().unwrap(),
+                                pending_coinbase_aux: staged
+                                    .non_snark
+                                    .pending_coinbase_aux
+                                    .0
+                                    .as_ref()
+                                    .try_into()
+                                    .unwrap(),
+                            },
+                            pending_coinbase_hash: staged.pending_coinbase_hash.0 .0.clone().into(),
+                        }
                     },
                     genesis_ledger_hash: value.body.blockchain_state.genesis_ledger_hash.0.into(),
                     registers: BlockchainStateRegisters {
                         ledger: value.body.blockchain_state.registers.ledger.0.into(),
                         pending_coinbase_stack: (),
-                        local_state: LocalState {
-                            stack_frame: value
-                                .body
-                                .blockchain_state
-                                .registers
-                                .local_state
-                                .stack_frame
-                                .0
-                                .into(),
-                            call_stack: value
-                                .body
-                                .blockchain_state
-                                .registers
-                                .local_state
-                                .call_stack
-                                .0
-                                .into(),
-                            transaction_commitment: value
-                                .body
-                                .blockchain_state
-                                .registers
-                                .local_state
-                                .transaction_commitment
-                                .into(),
-                            full_transaction_commitment: value
-                                .body
-                                .blockchain_state
-                                .registers
-                                .local_state
-                                .full_transaction_commitment
-                                .into(),
-                            token_id: value
-                                .body
-                                .blockchain_state
-                                .registers
-                                .local_state
-                                .token_id
-                                .0
-                                .into(),
-                            excess: Excess {
-                                magnitude: value
-                                    .body
-                                    .blockchain_state
-                                    .registers
-                                    .local_state
-                                    .excess
-                                    .magnitude
-                                    .0,
-                                sgn: match value
-                                    .body
-                                    .blockchain_state
-                                    .registers
-                                    .local_state
-                                    .excess
-                                    .sgn
-                                {
-                                    SgnStableV1::Pos => Sgn::Pos,
-                                    SgnStableV1::Neg => Sgn::Neg,
+                        local_state: {
+                            let local = value.body.blockchain_state.registers.local_state.clone();
+                            LocalState {
+                                stack_frame: local.stack_frame.0.into(),
+                                call_stack: local.call_stack.0.into(),
+                                transaction_commitment: local.transaction_commitment.into(),
+                                full_transaction_commitment: local
+                                    .full_transaction_commitment
+                                    .into(),
+                                token_id: local.token_id.0.into(),
+                                excess: Excess {
+                                    magnitude: local.excess.magnitude.0 .0 .0,
+                                    sgn: match &local.excess.sgn {
+                                        mina_p2p_messages::v2::SgnStableV1::Pos => Sgn::Pos,
+                                        mina_p2p_messages::v2::SgnStableV1::Neg => Sgn::Neg,
+                                    },
                                 },
-                            },
-                            ledger: value
-                                .body
-                                .blockchain_state
-                                .registers
-                                .local_state
-                                .ledger
-                                .0
-                                .into(),
-                            success: value.body.blockchain_state.registers.local_state.success,
-                            party_index: value
-                                .body
-                                .blockchain_state
-                                .registers
-                                .local_state
-                                .party_index
-                                .0,
-                            failure_status_tbl: value
-                                .body
-                                .blockchain_state
-                                .registers
-                                .local_state
-                                .failure_status_tbl
-                                .0
-                                .clone(),
+                                ledger: local.ledger.0.into(),
+                                success: value.body.blockchain_state.registers.local_state.success,
+                                party_index: local.party_index.0 .0,
+                                failure_status_tbl: local.failure_status_tbl.0.clone(),
+                            }
                         },
                     },
-                    timestamp: value.body.blockchain_state.timestamp.0 .0 as u64,
+                    timestamp: value.body.blockchain_state.timestamp.0 .0 .0 as u64,
                     body_reference: value
                         .body
                         .blockchain_state
                         .body_reference
                         .0
                          .0
-                         .0
+                        .as_ref()
                         .try_into()
                         .unwrap(),
                 },
                 consensus_state: ConsensusState {
-                    blockchain_length: value.body.consensus_state.blockchain_length.0 as u32,
-                    epoch_count: value.body.consensus_state.epoch_count.0 as u32,
-                    min_window_density: value.body.consensus_state.min_window_density.0 as u32,
+                    blockchain_length: value.body.consensus_state.blockchain_length.0 .0 as u32,
+                    epoch_count: value.body.consensus_state.epoch_count.0 .0 as u32,
+                    min_window_density: value.body.consensus_state.min_window_density.0 .0 as u32,
                     sub_window_densities: value
                         .body
                         .consensus_state
                         .sub_window_densities
                         .iter()
-                        .map(|i| i.0 as u32)
+                        .map(|i| i.0 .0 as u32)
                         .collect(),
                     last_vrf_output: value
                         .body
                         .consensus_state
                         .last_vrf_output
                         .0
-                         .0
+                        .as_ref()
                         .try_into()
                         .unwrap(),
-                    total_currency: value.body.consensus_state.total_currency.0,
+                    total_currency: value.body.consensus_state.total_currency.0 .0 .0,
                     curr_global_slot: ConsensusGlobalSlot {
-                        slot_number: value.body.consensus_state.curr_global_slot.slot_number.0
+                        slot_number: value.body.consensus_state.curr_global_slot.slot_number.0 .0
                             as u32,
                         slots_per_epoch: value
                             .body
                             .consensus_state
                             .curr_global_slot
                             .slots_per_epoch
-                            .0 as u32,
+                            .0
+                             .0 as u32,
                     },
                     global_slot_since_genesis: value
                         .body
                         .consensus_state
                         .global_slot_since_genesis
-                        .0 as u32,
+                        .0
+                         .0 as u32,
                     staking_epoch_data: DataStaking {
                         ledger: EpochLedger {
                             hash: value
@@ -871,7 +554,9 @@ impl From<MinaStateProtocolStateValueStableV2> for ProtocolState {
                                 .staking_epoch_data
                                 .ledger
                                 .total_currency
-                                .0,
+                                .0
+                                 .0
+                                 .0,
                         },
                         seed: value.body.consensus_state.staking_epoch_data.seed.0.into(),
                         start_checkpoint: value
@@ -888,8 +573,13 @@ impl From<MinaStateProtocolStateValueStableV2> for ProtocolState {
                             .lock_checkpoint
                             .0
                             .into(),
-                        epoch_length: value.body.consensus_state.staking_epoch_data.epoch_length.0
-                            as u32,
+                        epoch_length: value
+                            .body
+                            .consensus_state
+                            .staking_epoch_data
+                            .epoch_length
+                            .0
+                             .0 as u32,
                     },
                     next_epoch_data: DataStaking {
                         ledger: EpochLedger {
@@ -907,7 +597,9 @@ impl From<MinaStateProtocolStateValueStableV2> for ProtocolState {
                                 .next_epoch_data
                                 .ledger
                                 .total_currency
-                                .0,
+                                .0
+                                 .0
+                                 .0,
                         },
                         seed: value.body.consensus_state.next_epoch_data.seed.0.into(),
                         start_checkpoint: value
@@ -924,7 +616,7 @@ impl From<MinaStateProtocolStateValueStableV2> for ProtocolState {
                             .lock_checkpoint
                             .0
                             .into(),
-                        epoch_length: value.body.consensus_state.next_epoch_data.epoch_length.0
+                        epoch_length: value.body.consensus_state.next_epoch_data.epoch_length.0 .0
                             as u32,
                     },
                     has_ancestor_in_same_checkpoint_window: value
@@ -937,11 +629,11 @@ impl From<MinaStateProtocolStateValueStableV2> for ProtocolState {
                     supercharge_coinbase: value.body.consensus_state.supercharge_coinbase,
                 },
                 constants: ProtocolConstants {
-                    k: value.body.constants.k.0 as u32,
-                    slots_per_epoch: value.body.constants.slots_per_epoch.0 as u32,
-                    slots_per_sub_window: value.body.constants.slots_per_sub_window.0 as u32,
-                    delta: value.body.constants.delta.0 as u32,
-                    genesis_state_timestamp: value.body.constants.genesis_state_timestamp.0 .0
+                    k: value.body.constants.k.0 .0 as u32,
+                    slots_per_epoch: value.body.constants.slots_per_epoch.0 .0 as u32,
+                    slots_per_sub_window: value.body.constants.slots_per_sub_window.0 .0 as u32,
+                    delta: value.body.constants.delta.0 .0 as u32,
+                    genesis_state_timestamp: value.body.constants.genesis_state_timestamp.0 .0 .0
                         as u64,
                 },
             },
@@ -1087,7 +779,7 @@ mod tests {
     use std::io::Cursor;
 
     use ark_ff::One;
-    use mina_curves::pasta::FpParameters;
+    use mina_curves::pasta::fields::FpParameters;
     use mina_hasher::Fp;
     use o1_utils::FieldHelpers;
     use rand::Rng;

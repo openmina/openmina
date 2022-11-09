@@ -58,7 +58,7 @@ dependencies = [
  "num-traits",
  "paste",
  "rayon",
- "rustc_version",
+ "rustc_version 0.3.3",
  "zeroize",
 ]
 
@@ -221,6 +221,15 @@ dependencies = [
 
 [[package]]
 name = "block-buffer"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
+name = "block-buffer"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69cce20737498f97b993470a6e536b8523f0af7892a4f928cceb1ac5e52ebe7e"
@@ -233,6 +242,9 @@ name = "bs58"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "771fe0050b883fcc3ea2359b1a96bcfbc090b7116eae7c3c512c7a083fdf23d3"
+dependencies = [
+ "sha2 0.9.9",
+]
 
 [[package]]
 name = "bumpalo"
@@ -282,6 +294,12 @@ dependencies = [
  "cfg-if",
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "convert_case"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "cpufeatures"
@@ -400,6 +418,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_more"
+version = "0.99.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
+dependencies = [
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "rustc_version 0.4.0",
+ "syn",
+]
+
+[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -414,7 +445,7 @@ version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2fb860ca6fafa5552fb6d0e816a69c8e49f0908bf524e30a90d97c85892d506"
 dependencies = [
- "block-buffer",
+ "block-buffer 0.10.3",
  "crypto-common",
  "subtle",
 ]
@@ -592,6 +623,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
+name = "itoa"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4217ad341ebadf8d8e724e264f13e593e0648f5b3e94b3896a5df283be015ecc"
+
+[[package]]
 name = "js-sys"
 version = "0.3.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -645,7 +682,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a#041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"
+source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -654,7 +691,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a#041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"
+source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -665,9 +702,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "mina-p2p-messages"
+version = "0.6.4"
+source = "git+https://github.com/name-placeholder/mina-p2p-messages-rs?rev=732863abee3e2c97356710ae58782471e769e77e#732863abee3e2c97356710ae58782471e769e77e"
+dependencies = [
+ "binprot",
+ "binprot_derive",
+ "bs58",
+ "derive_more",
+ "hex",
+ "mina-curves",
+ "mina-hasher",
+ "mina-signer",
+ "o1-utils",
+ "serde",
+ "serde_json",
+ "sha2 0.10.5",
+ "thiserror",
+]
+
+[[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a#041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"
+source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -679,7 +736,7 @@ dependencies = [
  "mina-hasher",
  "o1-utils",
  "rand",
- "sha2",
+ "sha2 0.10.5",
  "thiserror",
 ]
 
@@ -699,6 +756,7 @@ dependencies = [
  "hex",
  "mina-curves",
  "mina-hasher",
+ "mina-p2p-messages",
  "mina-signer",
  "num-bigint",
  "o1-utils",
@@ -708,7 +766,7 @@ dependencies = [
  "packed_simd_2",
  "rand",
  "rayon",
- "sha2",
+ "sha2 0.10.5",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-test",
@@ -768,7 +826,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a#041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"
+source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -780,7 +838,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_with",
- "sha2",
+ "sha2 0.10.5",
  "thiserror",
 ]
 
@@ -828,9 +886,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f7254b99e31cad77da24b08ebf628882739a608578bb1bcdfc1f9c21260d7c0"
 
 [[package]]
+name = "opaque-debug"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
+
+[[package]]
 name = "oracle"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a#041f48f6f3f18bae3bbbe6ec06cfcd03d0e5ec8a"
+source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -978,8 +1042,23 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0dfe2087c51c460008730de8b57e6a320782fbfb312e1f4d520e6c6fae155ee"
 dependencies = [
- "semver",
+ "semver 0.11.0",
 ]
+
+[[package]]
+name = "rustc_version"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
+dependencies = [
+ "semver 1.0.14",
+]
+
+[[package]]
+name = "ryu"
+version = "1.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4501abdff3ae82a1c1b477a17252eb69cee9e66eb915c1abaa4f44d873df9f09"
 
 [[package]]
 name = "scoped-tls"
@@ -1001,6 +1080,12 @@ checksum = "f301af10236f6df4160f7c3f04eec6dbc70ace82d23326abad5edee88801c6b6"
 dependencies = [
  "semver-parser",
 ]
+
+[[package]]
+name = "semver"
+version = "1.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e25dfac463d778e353db5be2449d1cce89bd6fd23c9f1ea21310ce6e5a1b29c4"
 
 [[package]]
 name = "semver-parser"
@@ -1032,6 +1117,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_json"
+version = "1.0.87"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ce777b7b150d76b9cf60d28b55f5847135a003f7d7350c6be7a773508ce7d45"
+dependencies = [
+ "itoa",
+ "ryu",
+ "serde",
+]
+
+[[package]]
 name = "serde_with"
 version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1051,6 +1147,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "sha2"
+version = "0.9.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d58a1e1bf39749807d89cf2d98ac2dfa0ff1cb3faa38fbb64dd88ac8013d800"
+dependencies = [
+ "block-buffer 0.9.0",
+ "cfg-if",
+ "cpufeatures",
+ "digest 0.9.0",
+ "opaque-debug",
 ]
 
 [[package]]

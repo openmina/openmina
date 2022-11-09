@@ -1,6 +1,6 @@
-use ark_ff::{BigInteger256, One, PrimeField, UniformRand};
-use binprot_derive::{BinProtRead, BinProtWrite};
+use ark_ff::{BigInteger256, PrimeField, UniformRand};
 use mina_hasher::Fp;
+use mina_p2p_messages::v2::MinaBaseTransactionStatusFailureStableV2;
 use mina_signer::CompressedPubKey;
 use rand::{rngs::ThreadRng, Rng};
 use sha2::{
@@ -59,49 +59,6 @@ pub struct Excess {
     pub sgn: Sgn,
 }
 
-#[derive(BinProtRead, BinProtWrite, Clone, Debug)]
-pub enum TransactionFailure {
-    Predicate,
-    SourceNotPresent,
-    ReceiverNotPresent,
-    AmountInsufficientToCreateAccount,
-    CannotPayCreationFeeInToken,
-    SourceInsufficientBalance,
-    SourceMinimumBalanceViolation,
-    ReceiverAlreadyExists,
-    TokenOwnerNotCaller,
-    Overflow,
-    GlobalExcessOverflow,
-    LocalExcessOverflow,
-    SignedCommandOnZkappAccount,
-    ZkappAccountNotPresent,
-    UpdateNotPermittedBalance,
-    UpdateNotPermittedTimingExistingAccount,
-    UpdateNotPermittedDelegate,
-    UpdateNotPermittedAppState,
-    UpdateNotPermittedVerificationKey,
-    UpdateNotPermittedSequenceState,
-    UpdateNotPermittedZkappUri,
-    UpdateNotPermittedTokenSymbol,
-    UpdateNotPermittedPermissions,
-    UpdateNotPermittedNonce,
-    UpdateNotPermittedVotingFor,
-    PartiesReplayCheckFailed,
-    FeePayerNonceMustIncrease,
-    FeePayerMustBeSigned,
-    AccountBalancePreconditionUnsatisfied,
-    AccountNoncePreconditionUnsatisfied,
-    AccountReceiptChainHashPreconditionUnsatisfied,
-    AccountDelegatePreconditionUnsatisfied,
-    AccountSequenceStatePreconditionUnsatisfied,
-    AccountAppStatePreconditionUnsatisfied(i32),
-    AccountProvedStatePreconditionUnsatisfied,
-    AccountIsNewPreconditionUnsatisfied,
-    ProtocolStatePreconditionUnsatisfied,
-    IncorrectNonce,
-    InvalidFeeExcess,
-}
-
 #[derive(Clone, Debug)]
 pub struct LocalState {
     pub stack_frame: Fp,
@@ -113,7 +70,7 @@ pub struct LocalState {
     pub ledger: Fp,
     pub success: bool,
     pub party_index: i32,
-    pub failure_status_tbl: Vec<Vec<TransactionFailure>>,
+    pub failure_status_tbl: Vec<Vec<MinaBaseTransactionStatusFailureStableV2>>,
 }
 
 #[derive(Clone, Debug)]

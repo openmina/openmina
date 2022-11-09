@@ -86,9 +86,9 @@ impl Hashable for SnappAccount {
         let mut roi = ROInput::new();
 
         if let Some(vk) = self.verification_key.as_ref() {
-            roi.append_field(*vk);
+            roi = roi.append_field(*vk);
         } else {
-            roi.append_field(
+            roi = roi.append_field(
                 // Value of `dummy_vk_hash`:
                 // https://github.com/MinaProtocol/mina/blob/4f765c866b81fa6fed66be52707fd91fd915041d/src/lib/mina_base/snapp_account.ml#L116
                 Fp::from_hex("77a430a03efafd14d72e1a3c45a1fdca8267fcce9a729a1d25128bb5dec69d3f")
@@ -97,7 +97,7 @@ impl Hashable for SnappAccount {
         }
 
         for field in &self.app_state {
-            roi.append_field(*field);
+            roi = roi.append_field(*field);
         }
 
         // println!("ROInput={:?}", roi);
@@ -164,7 +164,7 @@ impl Hashable for AccountLegacy {
         };
         let snapp_digest = get_legacy_hash_of((), snapp_accout.as_ref());
 
-        roi.append_field(snapp_digest);
+        roi = roi.append_field(snapp_digest);
 
         // println!("ROINPUT={:?}", roi);
 
@@ -178,20 +178,20 @@ impl Hashable for AccountLegacy {
             self.permissions.edit_state,
         ] {
             for bit in auth.encode().to_bits() {
-                roi.append_bool(bit);
+                roi = roi.append_bool(bit);
             }
         }
-        roi.append_bool(self.permissions.stake);
+        roi = roi.append_bool(self.permissions.stake);
 
         // Self::timing
         match self.timing {
             Timing::Untimed => {
-                roi.append_bool(false);
-                roi.append_u64(0); // initial_minimum_balance
-                roi.append_u32(0); // cliff_time
-                roi.append_u64(0); // cliff_amount
-                roi.append_u32(1); // vesting_period
-                roi.append_u64(0); // vesting_increment
+                roi = roi.append_bool(false);
+                roi = roi.append_u64(0); // initial_minimum_balance
+                roi = roi.append_u32(0); // cliff_time
+                roi = roi.append_u64(0); // cliff_amount
+                roi = roi.append_u32(1); // vesting_period
+                roi = roi.append_u64(0); // vesting_increment
             }
             Timing::Timed {
                 initial_minimum_balance,
@@ -200,60 +200,60 @@ impl Hashable for AccountLegacy {
                 vesting_period,
                 vesting_increment,
             } => {
-                roi.append_bool(true);
-                roi.append_u64(initial_minimum_balance);
-                roi.append_u32(cliff_time);
-                roi.append_u64(cliff_amount);
-                roi.append_u32(vesting_period);
-                roi.append_u64(vesting_increment);
+                roi = roi.append_bool(true);
+                roi = roi.append_u64(initial_minimum_balance);
+                roi = roi.append_u32(cliff_time);
+                roi = roi.append_u64(cliff_amount);
+                roi = roi.append_u32(vesting_period);
+                roi = roi.append_u64(vesting_increment);
             }
         }
 
         // Self::voting_for
-        roi.append_field(self.voting_for.0);
+        roi = roi.append_field(self.voting_for.0);
 
         // Self::delegate
         match self.delegate.as_ref() {
             Some(delegate) => {
-                roi.append_field(delegate.x);
-                roi.append_bool(delegate.is_odd);
+                roi = roi.append_field(delegate.x);
+                roi = roi.append_bool(delegate.is_odd);
             }
             None => {
                 // Public_key.Compressed.empty
-                roi.append_field(Fp::zero());
-                roi.append_bool(false);
+                roi = roi.append_field(Fp::zero());
+                roi = roi.append_bool(false);
             }
         }
 
         // Self::receipt_chain_hash
-        roi.append_field(self.receipt_chain_hash.0);
+        roi = roi.append_field(self.receipt_chain_hash.0);
 
         // Self::nonce
-        roi.append_u32(self.nonce);
+        roi = roi.append_u32(self.nonce);
 
         // Self::balance
-        roi.append_u64(self.balance);
+        roi = roi.append_u64(self.balance);
 
         // Self::token_permissions
         match self.token_permissions {
             TokenPermissions::TokenOwned {
                 disable_new_accounts,
             } => {
-                roi.append_bool(true);
-                roi.append_bool(disable_new_accounts);
+                roi = roi.append_bool(true);
+                roi = roi.append_bool(disable_new_accounts);
             }
             TokenPermissions::NotOwned { account_disabled } => {
-                roi.append_bool(false);
-                roi.append_bool(account_disabled);
+                roi = roi.append_bool(false);
+                roi = roi.append_bool(account_disabled);
             }
         }
 
         // Self::token_id
-        roi.append_u64(self.token_id.0);
+        roi = roi.append_u64(self.token_id.0);
 
         // Self::public_key
-        roi.append_field(self.public_key.x);
-        roi.append_bool(self.public_key.is_odd);
+        roi = roi.append_field(self.public_key.x);
+        roi = roi.append_bool(self.public_key.is_odd);
 
         roi
     }
