@@ -37,6 +37,21 @@ impl From<mina_curves::pasta::Fq> for BigInt {
     }
 }
 
+#[cfg(feature = "hashing")]
+impl From<BigInt> for mina_curves::pasta::Fp {
+    fn from(bigint: BigInt) -> Self {
+        bigint.to_fp().unwrap()
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl From<BigInt> for mina_curves::pasta::Fq {
+    fn from(bigint: BigInt) -> Self {
+        use o1_utils::FieldHelpers;
+        mina_curves::pasta::Fq::from_bytes(bigint.0.as_ref()).unwrap()
+    }
+}
+
 impl binprot::BinProtRead for BigInt {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
     where

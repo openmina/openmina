@@ -16,9 +16,10 @@ derive_more = "0.99.17"
 bs58 = {version = "0.4", features = ["check"]}
 sha2 = { version = "0.10.2", optional = true }
 
-mina-hasher = { git = "https://github.com/o1-labs/proof-systems", optional = true }
-mina-curves = { git = "https://github.com/o1-labs/proof-systems", optional = true }
-o1-utils = { git = "https://github.com/o1-labs/proof-systems", optional = true }
+mina-hasher = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }
+mina-curves = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }
+mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }
+o1-utils = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }
 
 [target.'cfg(fuzzing)'.dev-dependencies]
 fuzzcheck = "0.12.1"
@@ -33,7 +34,7 @@ alloc-test = { git = "https://github.com/name-placeholder/alloc-test.git" }
 
 
 [features]
-hashing = ["mina-hasher", "mina-curves", "o1-utils", "sha2"]
+hashing = ["mina-hasher", "mina-curves", "mina-signer", "o1-utils", "sha2"]
 
 [target.wasm32-unknown-unknown.dev-dependencies]
 web-sys = { version = "0.3.60", features = ["console"] }

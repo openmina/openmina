@@ -6,6 +6,7 @@ pub mod char;
 pub mod common;
 pub mod core;
 pub mod gossip;
+pub mod keys;
 pub mod number;
 pub mod phantom;
 pub mod rpc;
