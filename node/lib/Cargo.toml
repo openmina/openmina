@@ -9,7 +9,9 @@ serde = "1.0.147"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 derive_more = "0.99.17"
+thiserror = "1.0.37"
 
 redux = { git = "https://github.com/name-placeholder/redux-rs.git", features = ["serde"] }
 
+shared = { path = "../shared" }
 p2p = { path = "../p2p" }

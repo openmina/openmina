@@ -15,6 +15,7 @@ pub use service::Service;
 
 pub mod event_source;
 pub mod p2p;
+pub mod rpc;
 
 pub type Store<S> = redux::Store<State, S, Action>;
 

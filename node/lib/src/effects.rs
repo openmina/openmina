@@ -1,5 +1,6 @@
 use crate::event_source::event_source_effects;
 use crate::p2p::p2p_effects;
+use crate::rpc::rpc_effects;
 use crate::{Action, ActionWithMeta, Service, Store};
 
 pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
@@ -11,6 +12,9 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         }
         Action::P2p(action) => {
             p2p_effects(store, meta.with_action(action));
+        }
+        Action::Rpc(action) => {
+            rpc_effects(store, meta.with_action(action));
         }
     }
 }
