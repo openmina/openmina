@@ -14,10 +14,12 @@ wasm-timer = { git = "https://github.com/fusetim/wasm-timer", branch = "tim-add-
 cfg-if = "1.0.0"
 derive_more = "0.99.17"
 serde = "1.0.147"
+gloo-utils = "0.1"
 log = { version ="0.4.17", features = ["max_level_trace", "release_max_level_trace"] }
 wasm-logger = "0.2.0"
 libp2p = { git = "https://github.com/name-placeholder/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
 redux = { git = "https://github.com/name-placeholder/redux-rs.git", features = ["serde"] }
 mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messages-rs", branch = "main", features = ["hashing"] }
 
+shared = { path = "../shared" }
 lib = { path = "../lib" }

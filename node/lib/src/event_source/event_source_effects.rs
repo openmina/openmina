@@ -2,6 +2,7 @@ use crate::action::CheckTimeoutsAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingErrorAction, P2pConnectionOutgoingSuccessAction,
 };
+use crate::rpc::{RpcGlobalStateGetAction, RpcRequest};
 use crate::{Service, Store};
 
 use super::{
@@ -36,6 +37,11 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         }
                     },
                 },
+            },
+            Event::Rpc(rpc_id, e) => match e {
+                RpcRequest::GetState => {
+                    store.dispatch(RpcGlobalStateGetAction { rpc_id });
+                }
             },
         },
         EventSourceAction::WaitTimeout(_) => {

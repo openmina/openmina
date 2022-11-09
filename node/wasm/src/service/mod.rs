@@ -8,6 +8,9 @@ use lib::event_source::Event;
 pub mod libp2p;
 use self::libp2p::Libp2pService;
 
+pub mod rpc;
+use self::rpc::RpcService;
+
 pub struct EventReceiver {
     rx: mpsc::Receiver<Event>,
     queue: Vec<Event>,
@@ -57,10 +60,10 @@ pub struct NodeWasmService {
     pub event_source_receiver: EventReceiver,
 
     pub libp2p: Libp2pService,
+    pub rpc: RpcService,
 }
 
 impl lib::Service for NodeWasmService {}
-
 impl redux::Service for NodeWasmService {}
 impl lib::service::TimeService for NodeWasmService {
     fn monotonic_time(&mut self) -> Instant {

@@ -4,6 +4,7 @@ pub type ActionWithMeta = redux::ActionWithMeta<Action>;
 
 pub use crate::event_source::EventSourceAction;
 pub use crate::p2p::P2pAction;
+pub use crate::rpc::RpcAction;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Action {
@@ -11,6 +12,7 @@ pub enum Action {
     EventSource(EventSourceAction),
 
     P2p(P2pAction),
+    Rpc(RpcAction),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

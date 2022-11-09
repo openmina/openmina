@@ -3,11 +3,13 @@ use serde::{Deserialize, Serialize};
 
 pub use p2p::P2pState;
 
+use crate::rpc::RpcState;
 use crate::ActionWithMeta;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct State {
     pub p2p: P2pState,
+    pub rpc: RpcState,
 
     // TODO(binier): include action kind in `last_action`.
     pub last_action: ActionMeta,
@@ -18,6 +20,7 @@ impl State {
     pub fn new() -> Self {
         Self {
             p2p: P2pState::new(),
+            rpc: RpcState::new(),
 
             last_action: ActionMeta::ZERO,
             applied_actions_count: 0,
