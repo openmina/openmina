@@ -1,8 +1,9 @@
 use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
 
-use super::manual::*;
+use crate::pseq::PaddedSeq;
 
+use super::manual::*;
 
 /// **OCaml name**: `Mina_block__Block.Stable.V2`
 ///
@@ -605,10 +606,7 @@ pub struct MinaBaseVerificationKeyWireStableV1WrapIndex {
 /// Args: (LimbVectorConstantHex64StableV1 , (LimbVectorConstantHex64StableV1 , () ,) ,)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
-    pub inner: (
-        LimbVectorConstantHex64StableV1,
-        (LimbVectorConstantHex64StableV1, ()),
-    ),
+    pub inner: PaddedSeq<LimbVectorConstantHex64StableV1, 2>,
 }
 
 /// Derived name: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2#proof`
@@ -725,7 +723,15 @@ pub struct PicklesProofProofsVerified2ReprStableV2StatementPlonk {
 /// Location: [src/lib/pickles/composition_types/composition_types.ml:206:10](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/composition_types/composition_types.ml#L206)
 /// Args: PicklesProofProofsVerified2ReprStableV2StatementPlonk , PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge , PicklesProofProofsVerified2ReprStableV2StatementFp , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , () ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) , CompositionTypesBranchDataMakeStrStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues { pub plonk : PicklesProofProofsVerified2ReprStableV2StatementPlonk , pub combined_inner_product : PicklesProofProofsVerified2ReprStableV2StatementFp , pub b : PicklesProofProofsVerified2ReprStableV2StatementFp , pub xi : PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge , pub bulletproof_challenges : (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , () ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) , pub branch_data : CompositionTypesBranchDataMakeStrStableV1 , }
+pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues {
+    pub plonk: PicklesProofProofsVerified2ReprStableV2StatementPlonk,
+    pub combined_inner_product: PicklesProofProofsVerified2ReprStableV2StatementFp,
+    pub b: PicklesProofProofsVerified2ReprStableV2StatementFp,
+    pub xi: PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge,
+    pub bulletproof_challenges:
+        PaddedSeq<PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A, 16>,
+    pub branch_data: CompositionTypesBranchDataMakeStrStableV1,
+}
 
 /// Derived name: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2#messages_for_next_wrap_proof`
 ///
@@ -780,7 +786,13 @@ pub struct PicklesProofProofsVerified2ReprStableV2Statement {
 /// Location: [src/lib/pickles/reduced_messages_for_next_proof_over_same_field.ml:16:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/reduced_messages_for_next_proof_over_same_field.ml#L16)
 /// Args: () , Vec < (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) > , Vec < (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , () ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) >
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof { pub app_state : () , pub challenge_polynomial_commitments : Vec < (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) > , pub old_bulletproof_challenges : Vec < (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , () ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) > , }
+pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
+    pub app_state: (),
+    pub challenge_polynomial_commitments: Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
+    pub old_bulletproof_challenges: Vec<
+        PaddedSeq<PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A, 16>,
+    >,
+}
 
 /// **OCaml name**: `Pickles__Reduced_messages_for_next_proof_over_same_field.Wrap.Challenges_vector.Stable.V2`
 ///
@@ -792,7 +804,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof { pub
 /// Location: [src/lib/crypto/kimchi_backend/pasta/basic.ml:32:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/crypto/kimchi_backend/pasta/basic.ml#L32)
 /// Args: PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2 (pub PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , pub (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , () ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ;
+pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2(
+    pub PaddedSeq<PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A, 15>,
+);
 
 /// **OCaml name**: `Mina_base__Verification_key_wire.Stable.V1`
 ///

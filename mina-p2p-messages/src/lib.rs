@@ -16,6 +16,7 @@ pub mod utils;
 pub mod v1;
 pub mod v2;
 pub mod versioned;
+pub mod pseq;
 
 pub use gossip::GossipNetMessageV1;
 
