@@ -9,6 +9,7 @@ use std::{
 };
 
 use mina_hasher::Fp;
+use mina_p2p_messages::{bigint::BigInt, v2::NonZeroCurvePointUncompressedStableV1};
 use ocaml_interop::{
     impl_to_ocaml_polymorphic_variant, impl_to_ocaml_variant, ocaml_export, DynBox, OCaml,
     OCamlBytes, OCamlInt, OCamlList, OCamlRef, OCamlRuntime, RawOCaml, ToOCaml,
@@ -16,7 +17,7 @@ use ocaml_interop::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    account::{Account, AccountId, BigInt, NonZeroCurvePointUncompressedStableV1},
+    account::{Account, AccountId},
     address::Address,
     base::{AccountIndex, BaseLedger, MerklePath},
     database::Database,

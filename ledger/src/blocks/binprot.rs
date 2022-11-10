@@ -1,11 +1,11 @@
 use binprot_derive::{BinProtRead, BinProtWrite};
+use mina_p2p_messages::{bigint::BigInt, v2::MinaBaseVerificationKeyWireStableV1WrapIndex};
 
 use crate::{
-    BigInt, BlockchainState, BlockchainStateRegisters, ConsensusGlobalSlot, ConsensusState,
-    CurveAffine, DataStaking, EpochLedger, Excess, LocalState, MessagesForNextStepProof,
-    MessagesForNextWrapProof, MinaBaseVerificationKeyWireStableV1WrapIndex,
-    PlonkVerificationKeyEvals, ProtocolConstants, ProtocolState, ProtocolStateBody, Sgn,
-    StagedLedgerHash, StagedLedgerHashNonSnark,
+    BlockchainState, BlockchainStateRegisters, ConsensusGlobalSlot, ConsensusState, CurveAffine,
+    DataStaking, EpochLedger, Excess, LocalState, MessagesForNextStepProof,
+    MessagesForNextWrapProof, PlonkVerificationKeyEvals, ProtocolConstants, ProtocolState,
+    ProtocolStateBody, Sgn, StagedLedgerHash, StagedLedgerHashNonSnark,
 };
 
 #[rustfmt::skip]

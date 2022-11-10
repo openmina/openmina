@@ -2,9 +2,10 @@ use std::{collections::HashSet, hash::Hash, io::Cursor};
 
 use binprot::{BinProtRead, BinProtWrite};
 use mina_hasher::Fp;
+use mina_p2p_messages::bigint::BigInt;
 use ocaml_interop::*;
 
-use crate::{Account, AccountIndex, Address, BigInt};
+use crate::{Account, AccountIndex, Address};
 
 pub fn deserialize<T: BinProtRead>(bytes: &[u8]) -> T {
     let mut cursor = Cursor::new(bytes);

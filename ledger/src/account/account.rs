@@ -1,12 +1,17 @@
 use std::{borrow::Cow, io::Cursor, str::FromStr};
 
-use super::{
-    AccountIdV2, BigInt, MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,
-    MinaBasePermissionsAuthRequiredStableV2,
-};
 use ark_ff::{Field, One, UniformRand, Zero};
 use binprot::{BinProtRead, BinProtWrite};
 use mina_hasher::Fp;
+use mina_p2p_messages::{
+    bigint::BigInt,
+    v2::{
+        MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdMakeStrDigestStableV1,
+        MinaBaseAccountIdMakeStrStableV2, MinaBaseAccountTimingStableV1,
+        MinaBasePermissionsAuthRequiredStableV2, MinaBaseTokenPermissionsStableV1,
+        PicklesBaseProofsVerifiedStableV1,
+    },
+};
 use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, Rng};
 
@@ -22,14 +27,14 @@ impl binprot::BinProtRead for TokenId {
     where
         Self: Sized,
     {
-        let token_id = MinaBaseAccountIdDigestStableV1::binprot_read(r)?;
+        let token_id = MinaBaseAccountIdMakeStrDigestStableV1::binprot_read(r)?;
         Ok(token_id.into())
     }
 }
 
 impl binprot::BinProtWrite for TokenId {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        let token_id: MinaBaseAccountIdDigestStableV1 = self.clone().into();
+        let token_id: MinaBaseAccountIdMakeStrDigestStableV1 = self.clone().into();
         token_id.binprot_write(w)?;
         Ok(())
     }
@@ -329,14 +334,14 @@ impl binprot::BinProtRead for AccountId {
     where
         Self: Sized,
     {
-        let account_id = AccountIdV2::binprot_read(r)?;
+        let account_id = MinaBaseAccountIdMakeStrStableV2::binprot_read(r)?;
         Ok(account_id.into())
     }
 }
 
 impl binprot::BinProtWrite for AccountId {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        let account_id: AccountIdV2 = self.clone().into();
+        let account_id: MinaBaseAccountIdMakeStrStableV2 = self.clone().into();
         account_id.binprot_write(w)?;
         Ok(())
     }
@@ -420,37 +425,37 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
     fn from(acc: MinaBaseAccountBinableArgStableV2) -> Self {
         Self {
             public_key: acc.public_key.into(),
-            token_id: TokenId(acc.token_id.into()),
+            token_id: TokenId(acc.token_id.0.into()),
             token_permissions: match acc.token_permissions {
-                super::MinaBaseTokenPermissionsStableV1::TokenOwned {
+                MinaBaseTokenPermissionsStableV1::TokenOwned {
                     disable_new_accounts,
                 } => TokenPermissions::TokenOwned {
                     disable_new_accounts,
                 },
-                super::MinaBaseTokenPermissionsStableV1::NotOwned { account_disabled } => {
+                MinaBaseTokenPermissionsStableV1::NotOwned { account_disabled } => {
                     TokenPermissions::NotOwned { account_disabled }
                 }
             },
-            token_symbol: acc.token_symbol,
-            balance: acc.balance as u64,
-            nonce: acc.nonce as u32,
-            receipt_chain_hash: ReceiptChainHash(acc.receipt_chain_hash.into()),
+            token_symbol: acc.token_symbol.0.try_into().unwrap(),
+            balance: acc.balance.0 .0 .0 .0 as u64,
+            nonce: acc.nonce.0 .0 as u32,
+            receipt_chain_hash: ReceiptChainHash(acc.receipt_chain_hash.0.into()),
             delegate: acc.delegate.map(|d| d.into()),
-            voting_for: VotingFor(acc.voting_for.into()),
+            voting_for: VotingFor(acc.voting_for.0.into()),
             timing: match acc.timing {
-                super::MinaBaseAccountTimingStableV1::Untimed => Timing::Untimed,
-                super::MinaBaseAccountTimingStableV1::Timed {
+                MinaBaseAccountTimingStableV1::Untimed => Timing::Untimed,
+                MinaBaseAccountTimingStableV1::Timed {
                     initial_minimum_balance,
                     cliff_time,
                     cliff_amount,
                     vesting_period,
                     vesting_increment,
                 } => Timing::Timed {
-                    initial_minimum_balance: initial_minimum_balance as u64,
-                    cliff_time: cliff_time as u32,
-                    cliff_amount: cliff_amount as u64,
-                    vesting_period: vesting_period as u32,
-                    vesting_increment: vesting_increment as u64,
+                    initial_minimum_balance: initial_minimum_balance.0 .0 .0 .0 as u64,
+                    cliff_time: cliff_time.0 .0 as u32,
+                    cliff_amount: cliff_amount.0 .0 .0 as u64,
+                    vesting_period: vesting_period.0 .0 as u32,
+                    vesting_increment: vesting_increment.0 .0 .0 as u64,
                 },
             },
             permissions: Permissions {
@@ -513,9 +518,9 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
 
                         VerificationKey {
                             max_proofs_verified: match vk.max_proofs_verified {
-                                super::PicklesBaseProofsVerifiedStableV1::N0 => ProofVerified::N0,
-                                super::PicklesBaseProofsVerifiedStableV1::N1 => ProofVerified::N1,
-                                super::PicklesBaseProofsVerifiedStableV1::N2 => ProofVerified::N2,
+                                PicklesBaseProofsVerifiedStableV1::N0 => ProofVerified::N0,
+                                PicklesBaseProofsVerifiedStableV1::N1 => ProofVerified::N1,
+                                PicklesBaseProofsVerifiedStableV1::N2 => ProofVerified::N2,
                             },
                             wrap_index: PlonkVerificationKeyEvals {
                                 sigma,
@@ -530,7 +535,7 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                             wrap_vk: None,
                         }
                     }),
-                    zkapp_version: zkapp.zkapp_version as u32,
+                    zkapp_version: zkapp.zkapp_version.0 .0 .0 as u32,
                     #[rustfmt::skip]
                     sequence_state: [
                         zkapp.sequence_state.0.into(),
@@ -539,11 +544,11 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                         zkapp.sequence_state.1.1.1.0.into(),
                         zkapp.sequence_state.1.1.1.1.0.into(),
                     ],
-                    last_sequence_slot: zkapp.last_sequence_slot as u32,
+                    last_sequence_slot: zkapp.last_sequence_slot.0 .0 as u32,
                     proved_state: zkapp.proved_state,
                 }
             }),
-            zkapp_uri: acc.zkapp_uri,
+            zkapp_uri: acc.zkapp_uri.try_into().unwrap(),
         }
     }
 }
