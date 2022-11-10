@@ -1,7 +1,7 @@
-mod binprot;
+mod conv;
 mod protocol_state;
 mod verify;
 
-pub use self::binprot::*;
+pub use conv::*;
 pub use protocol_state::*;
 pub use verify::*;

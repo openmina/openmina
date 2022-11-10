@@ -704,7 +704,7 @@ dependencies = [
 [[package]]
 name = "mina-p2p-messages"
 version = "0.6.4"
-source = "git+https://github.com/name-placeholder/mina-p2p-messages-rs?rev=732863abee3e2c97356710ae58782471e769e77e#732863abee3e2c97356710ae58782471e769e77e"
+source = "git+https://github.com/name-placeholder/mina-p2p-messages-rs?rev=ff0bdb3fa90c7c0159d187cfc495c5a8d2afc54f#ff0bdb3fa90c7c0159d187cfc495c5a8d2afc54f"
 dependencies = [
  "binprot",
  "binprot_derive",
