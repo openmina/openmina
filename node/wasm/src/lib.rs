@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::time::Duration;
 
 use gloo_utils::format::JsValueSerdeExt;
@@ -5,6 +6,7 @@ use libp2p::futures::channel::{mpsc, oneshot};
 use libp2p::futures::select_biased;
 use libp2p::futures::FutureExt;
 use libp2p::futures::{SinkExt, StreamExt};
+use libp2p::multiaddr::{Multiaddr, Protocol as MultiaddrProtocol};
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
@@ -15,11 +17,12 @@ use lib::event_source::{
 };
 use lib::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
 use lib::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use lib::p2p::PeerId;
 use lib::rpc::RpcRequest;
 
 mod service;
 use service::libp2p::Libp2pService;
-use service::rpc::RpcService;
+use service::rpc::{RpcP2pConnectionOutgoingResponse, RpcService, RpcStateGetResponse};
 pub use service::NodeWasmService;
 
 pub type Store = lib::Store<NodeWasmService>;
@@ -39,6 +42,7 @@ pub async fn run(mut node: Node) {
             peer_id: target_peer_id.parse().unwrap(),
             addrs: vec![target_node_addr.parse().unwrap()],
         },
+        rpc_id: None,
     });
     loop {
         let service = &mut node.store_mut().service;
@@ -104,20 +108,50 @@ pub struct JsHandle {
 
 #[wasm_bindgen]
 impl JsHandle {
-    async fn rpc_oneshot_request<T>(&mut self, req: RpcRequest) -> JsValue
+    pub fn is_peer_id_valid(&self, id: &str) -> Result<(), String> {
+        id.parse::<lib::p2p::PeerId>()
+            .map(|_| ())
+            .map_err(|err| err.to_string())
+    }
+
+    async fn rpc_oneshot_request<T>(&self, req: RpcRequest) -> Option<T>
     where
         T: 'static + Serialize,
     {
         let (tx, rx) = oneshot::channel::<T>();
         let responder = Box::new(tx);
-        self.rpc_sender
-            .send(WasmRpcRequest { req, responder })
-            .await;
-        JsValue::from_serde(&rx.await.ok()).unwrap()
+        let mut sender = self.rpc_sender.clone();
+        sender.send(WasmRpcRequest { req, responder }).await;
+
+        rx.await.ok()
     }
 
-    pub async fn global_state_get(&mut self) -> JsValue {
+    pub async fn global_state_get(&self) -> JsValue {
         let req = RpcRequest::GetState;
-        self.rpc_oneshot_request::<Box<lib::State>>(req).await
+        let res = self.rpc_oneshot_request::<RpcStateGetResponse>(req).await;
+        JsValue::from_serde(&res).unwrap()
     }
+
+    pub async fn peer_connect(&self, addr: String) -> Result<String, JsValue> {
+        let addr = Multiaddr::from_str(&addr).map_err(|err| err.to_string())?;
+        let peer_id =
+            peer_id_from_addr(&addr).ok_or_else(|| "Multiaddr missing PeerId".to_string())?;
+
+        let req = RpcRequest::P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts {
+            peer_id,
+            addrs: vec![addr],
+        });
+        self.rpc_oneshot_request::<RpcP2pConnectionOutgoingResponse>(req)
+            .await
+            .ok_or_else(|| JsValue::from("state machine shut down"))??;
+
+        Ok(peer_id.to_string())
+    }
+}
+
+fn peer_id_from_addr(addr: &Multiaddr) -> Option<PeerId> {
+    addr.iter().find_map(|p| match p {
+        MultiaddrProtocol::P2p(id) => PeerId::from_multihash(id).ok(),
+        _ => None,
+    })
 }

@@ -12,3 +12,5 @@ pub use rpc_effects::*;
 
 mod rpc_service;
 pub use rpc_service::*;
+
+pub use shared::requests::{RpcId, RpcIdType};

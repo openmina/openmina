@@ -4,6 +4,9 @@ use slab::Slab;
 mod request_id;
 pub use request_id::{RequestId, RequestIdType};
 
+mod rpc_id;
+pub use rpc_id::{RpcId, RpcIdType};
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct PendingRequest<Request> {
     counter: usize,

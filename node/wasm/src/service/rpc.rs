@@ -9,6 +9,9 @@ use shared::requests::PendingRequests;
 
 use crate::{NodeWasmService, WasmRpcRequest};
 
+pub type RpcStateGetResponse = Box<State>;
+pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
+
 pub struct RpcService {
     pending: PendingRequests<RpcIdType, Box<dyn std::any::Any>>,
 
@@ -54,10 +57,25 @@ impl lib::rpc::RpcService for NodeWasmService {
         let entry = self.rpc.pending.remove(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
         let chan = chan
-            .downcast::<oneshot::Sender<Box<State>>>()
+            .downcast::<oneshot::Sender<RpcStateGetResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
         // TODO(binier): don't ignore error
         let _ = chan.send(Box::new(response.clone()));
+        Ok(())
+    }
+
+    fn respond_p2p_connection_outgoing(
+        &mut self,
+        rpc_id: RpcId,
+        response: Result<(), String>,
+    ) -> Result<(), RespondError> {
+        let entry = self.rpc.pending.remove(rpc_id);
+        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
+        let chan = chan
+            .downcast::<oneshot::Sender<RpcP2pConnectionOutgoingResponse>>()
+            .or(Err(RespondError::UnexpectedResponseType))?;
+        // TODO(binier): don't ignore error
+        let _ = chan.send(response);
         Ok(())
     }
 }

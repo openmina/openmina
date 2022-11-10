@@ -10,19 +10,30 @@ impl P2pConnectionOutgoingState {
                 *self = Self::Init {
                     time: meta.time(),
                     addrs: content.opts.addrs.clone(),
+                    rpc_id: content.rpc_id,
                 };
             }
             P2pConnectionOutgoingAction::Pending(_) => {
-                *self = Self::Pending { time: meta.time() };
+                let rpc_id = self.rpc_id();
+                *self = Self::Pending {
+                    time: meta.time(),
+                    rpc_id,
+                };
             }
             P2pConnectionOutgoingAction::Error(content) => {
+                let rpc_id = self.rpc_id();
                 *self = Self::Error {
                     time: meta.time(),
                     error: content.error.clone(),
+                    rpc_id,
                 };
             }
             P2pConnectionOutgoingAction::Success(_) => {
-                *self = Self::Success { time: meta.time() };
+                let rpc_id = self.rpc_id();
+                *self = Self::Success {
+                    time: meta.time(),
+                    rpc_id,
+                };
             }
         }
     }
