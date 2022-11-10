@@ -404,7 +404,7 @@ mod tests {
         let jsonify = r.get("get_transition_chain", 1).unwrap();
         let json = jsonify.read_query(&mut ptr).unwrap();
         let expected =
-            serde_json::json!(["e7dd9b0d45abb2e4dec2c5d22e1f1bd8ae5133047914209a0229e90a62ecfb0e"]);
+            serde_json::json!(["0xe7dd9b0d45abb2e4dec2c5d22e1f1bd8ae5133047914209a0229e90a62ecfb0e"]);
         assert_eq!(json, expected);
     }
 }
