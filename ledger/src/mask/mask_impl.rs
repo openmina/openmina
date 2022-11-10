@@ -70,7 +70,7 @@ impl Clone for MaskImpl {
                 token_to_account: token_to_account.clone(),
                 id_to_addr: id_to_addr.clone(),
                 last_location: last_location.clone(),
-                depth: depth.clone(),
+                depth: *depth,
                 childs: childs.clone(),
                 hashes: hashes.clone(),
                 uuid: next_uuid(),
@@ -85,7 +85,7 @@ impl Clone for MaskImpl {
                 hashes,
                 uuid: _,
             } => Self::Unattached {
-                depth: depth.clone(),
+                depth: *depth,
                 childs: childs.clone(),
                 owning_account: owning_account.clone(),
                 token_to_account: token_to_account.clone(),
@@ -370,7 +370,7 @@ impl MaskImpl {
         assert!(self.is_attached());
 
         for child in self.childs().values() {
-            child.parent_set_notify(account_index.clone(), &account)
+            child.parent_set_notify(account_index.clone(), account)
         }
 
         match self {
@@ -384,7 +384,7 @@ impl MaskImpl {
             } => {
                 let account_id = account.id();
 
-                hashes.invalidate_hashes(account_index.clone());
+                hashes.invalidate_hashes(account_index);
 
                 let own_account = match {
                     id_to_addr

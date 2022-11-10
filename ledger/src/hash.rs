@@ -70,6 +70,12 @@ pub struct Inputs {
     packeds: Vec<Item>,
 }
 
+impl Default for Inputs {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl std::fmt::Debug for Inputs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Inputs")

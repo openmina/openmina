@@ -81,6 +81,22 @@ impl std::fmt::Debug for Address {
     }
 }
 
+impl IntoIterator for Address {
+    type Item = Direction;
+
+    type IntoIter = AddressIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let length = self.length;
+        AddressIterator {
+            length,
+            addr: self,
+            iter_index: 0,
+            iter_back_index: length,
+        }
+    }
+}
+
 impl Address {
     pub fn to_linear_index(&self) -> usize {
         let index = self.to_index();
@@ -94,16 +110,6 @@ impl Address {
             length: self.length,
             iter_index: 0,
             iter_back_index: self.length,
-        }
-    }
-
-    pub fn into_iter(self) -> AddressIterator {
-        let length = self.length;
-        AddressIterator {
-            length,
-            addr: self,
-            iter_index: 0,
-            iter_back_index: length,
         }
     }
 

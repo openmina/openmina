@@ -27,8 +27,8 @@ impl Clone for HashesMatrix {
         Self {
             matrix: self.matrix.clone(),
             empty_hashes: self.empty_hashes.clone(),
-            ledger_depth: self.ledger_depth.clone(),
-            nhashes: self.nhashes.clone(),
+            ledger_depth: self.ledger_depth,
+            nhashes: self.nhashes,
         }
     }
 }

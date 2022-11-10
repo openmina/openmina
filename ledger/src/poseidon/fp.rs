@@ -265,15 +265,22 @@ impl Fp {
 }
 
 fn cmp(a: &BigInt, b: &BigInt) -> Ordering {
-    for i in 0..4 {
-        let a = &a[4 - i - 1];
-        let b = &b[4 - i - 1];
-        if a < b {
-            return Ordering::Less;
-        } else if a > b {
-            return Ordering::Greater;
-        }
+    let a_rev = a.iter().rev();
+    let b_rev = b.iter().rev();
+
+    if let Some((a, b)) = a_rev.zip(b_rev).find(|(a, b)| a != b) {
+        return a.cmp(b);
     }
+
+    // for i in 0..4 {
+    //     let a = &a[4 - i - 1];
+    //     let b = &b[4 - i - 1];
+    //     if a < b {
+    //         return Ordering::Less;
+    //     } else if a > b {
+    //         return Ordering::Greater;
+    //     }
+    // }
     Ordering::Equal
 }
 

@@ -52,7 +52,7 @@ impl Mask {
     }
 
     pub fn new_unattached(depth: usize) -> Self {
-        let res = Self {
+        Self {
             inner: Arc::new(Mutex::new(MaskImpl::Unattached {
                 owning_account: Default::default(),
                 token_to_account: Default::default(),
@@ -63,14 +63,7 @@ impl Mask {
                 uuid: next_uuid(),
                 hashes: HashesMatrix::new(depth),
             })),
-        };
-
-        // println!(
-        //     "mask created = {:p}",
-        //     Arc::<Mutex<MaskImpl>>::as_ptr(&res.inner)
-        // );
-
-        res
+        }
     }
 
     pub fn set_parent(&self, parent: &Mask, parent_last_filled: Option<Option<Address>>) -> Mask {
