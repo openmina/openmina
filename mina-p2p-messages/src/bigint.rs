@@ -76,7 +76,10 @@ impl Serialize for BigInt {
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            serializer.serialize_str(&hex::encode(&self.0[..]))
+            let mut hex = [0_u8; 32 * 2 + 2];
+            hex[..2].copy_from_slice(b"0x");
+            hex::encode_to_slice(&self.0[..], &mut hex[2..]).unwrap();
+            serializer.serialize_str(String::from_utf8_lossy(&hex).as_ref())
         } else {
             serializer.serialize_bytes(&self.0[..])
         }
@@ -101,16 +104,24 @@ impl<'de> Deserialize<'de> for BigInt {
                 where
                     E: serde::de::Error,
                 {
-                    hex::decode(v)
-                        .map_err(|_| serde::de::Error::custom(format!("failed to decode hex str")))
+                    match v.strip_prefix("0x") {
+                        Some(v) => hex::decode(v).map_err(|_| {
+                            serde::de::Error::custom(format!("failed to decode hex str: {v}"))
+                        }),
+                        None => Err(serde::de::Error::custom(format!("mising 0x prefix"))),
+                    }
                 }
 
                 fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
                 where
                     E: serde::de::Error,
                 {
-                    hex::decode(v)
-                        .map_err(|_| serde::de::Error::custom(format!("failed to decode hex str")))
+                    match v.strip_prefix("0x") {
+                        Some(v) => hex::decode(v).map_err(|_| {
+                            serde::de::Error::custom(format!("failed to decode hex str: {v}"))
+                        }),
+                        None => Err(serde::de::Error::custom(format!("mising 0x prefix"))),
+                    }
                 }
             }
             let v = deserializer.deserialize_str(V)?;
@@ -153,13 +164,24 @@ impl mina_hasher::Hashable for BigInt {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
+    use binprot::{BinProtRead, BinProtWrite};
+
     use super::BigInt;
 
+    fn to_binprot(v: &BigInt) -> Vec<u8> {
+        let mut w = Vec::new();
+        v.binprot_write(&mut w).unwrap();
+        w
+    }
+
+    fn from_binprot(mut b: &[u8]) -> BigInt {
+        BigInt::binprot_read(&mut b).unwrap()
+    }
+
     fn from_byte(b: u8) -> BigInt {
-        BigInt([b; 32])
+        BigInt(Box::new([b; 32]))
     }
 
     fn from_bytes<'a, I>(it: I) -> BigInt
@@ -170,7 +192,7 @@ mod tests {
         let mut bytes = [0; 32];
         let it = it.into_iter().cycle();
         bytes.iter_mut().zip(it).for_each(|(b, i)| *b = *i);
-        BigInt(bytes)
+        BigInt(Box::new(bytes))
     }
 
     #[test]
@@ -183,8 +205,8 @@ mod tests {
         ];
 
         for bigint in bigints {
-            let binprot = serde_binprot::to_vec(&bigint).unwrap();
-            assert_eq!(binprot.as_slice(), &bigint.0);
+            let binprot = to_binprot(&bigint);
+            assert_eq!(binprot.as_slice(), bigint.0.as_ref());
         }
     }
 
@@ -198,9 +220,40 @@ mod tests {
         ];
 
         for bigint in bigints {
-            let deser: BigInt = serde_binprot::from_slice(&bigint.0).unwrap();
+            let deser: BigInt = from_binprot(bigint.0.as_ref());
             assert_eq!(&bigint.0, &deser.0);
         }
     }
+
+    #[test]
+    fn to_json() {
+        let bigints = [
+            from_byte(0),
+            from_byte(1),
+            from_byte(0xff),
+            from_bytes(&[0, 1, 2, 3, 4]),
+        ];
+
+        for bigint in bigints {
+            let json = serde_json::to_string(&bigint).unwrap();
+            let json_exp = format!(r#""0x{}""#, hex::encode(bigint.0.as_ref()));
+            assert_eq!(json, json_exp);
+        }
+    }
+
+    #[test]
+    fn from_json() {
+        let bigints = [
+            from_byte(0),
+            from_byte(1),
+            from_byte(0xff),
+            from_bytes(&[0, 1, 2, 3, 4]),
+        ];
+
+        for bigint in bigints {
+            let json = format!(r#""0x{}""#, hex::encode(bigint.0.as_ref()));
+            let bigint_exp = serde_json::from_str(&json).unwrap();
+            assert_eq!(bigint, bigint_exp);
+        }
+    }
 }
-*/
