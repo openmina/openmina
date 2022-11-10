@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+
 use super::RpcId;
 
 pub type RpcActionWithMeta = redux::ActionWithMeta<RpcAction>;
@@ -8,6 +10,11 @@ pub type RpcActionWithMetaRef<'a> = redux::ActionWithMeta<&'a RpcAction>;
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum RpcAction {
     GlobalStateGet(RpcGlobalStateGetAction),
+
+    P2pConnectionOutgoingInit(RpcP2pConnectionOutgoingInitAction),
+    P2pConnectionOutgoingPending(RpcP2pConnectionOutgoingPendingAction),
+    P2pConnectionOutgoingError(RpcP2pConnectionOutgoingErrorAction),
+    P2pConnectionOutgoingSuccess(RpcP2pConnectionOutgoingSuccessAction),
 
     Finish(RpcFinishAction),
 }
@@ -19,22 +26,95 @@ pub struct RpcGlobalStateGetAction {
 
 impl redux::EnablingCondition<crate::State> for RpcGlobalStateGetAction {}
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcP2pConnectionOutgoingInitAction {
+    pub rpc_id: RpcId,
+    pub opts: P2pConnectionOutgoingInitOpts,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcP2pConnectionOutgoingInitAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        !state.rpc.requests.contains_key(&self.rpc_id)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcP2pConnectionOutgoingPendingAction {
+    pub rpc_id: RpcId,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcP2pConnectionOutgoingPendingAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .rpc
+            .requests
+            .get(&self.rpc_id)
+            .map_or(false, |v| v.status.is_init())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcP2pConnectionOutgoingErrorAction {
+    pub rpc_id: RpcId,
+    pub error: String,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcP2pConnectionOutgoingErrorAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .rpc
+            .requests
+            .get(&self.rpc_id)
+            .map_or(false, |v| v.status.is_pending())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcP2pConnectionOutgoingSuccessAction {
+    pub rpc_id: RpcId,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcP2pConnectionOutgoingSuccessAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .rpc
+            .requests
+            .get(&self.rpc_id)
+            .map_or(false, |v| v.status.is_pending())
+    }
+}
+
 /// Finish/Cleanup rpc request.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcFinishAction {
     pub rpc_id: RpcId,
 }
 
-impl redux::EnablingCondition<crate::State> for RpcFinishAction {}
-
-impl From<RpcGlobalStateGetAction> for crate::Action {
-    fn from(value: RpcGlobalStateGetAction) -> Self {
-        Self::Rpc(value.into())
+impl redux::EnablingCondition<crate::State> for RpcFinishAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .rpc
+            .requests
+            .get(&self.rpc_id)
+            .map_or(false, |v| v.status.is_finished())
     }
 }
 
-impl From<RpcFinishAction> for crate::Action {
-    fn from(value: RpcFinishAction) -> Self {
-        Self::Rpc(value.into())
-    }
+macro_rules! impl_into_global_action {
+    ($a:ty) => {
+        impl From<$a> for crate::Action {
+            fn from(value: $a) -> Self {
+                Self::Rpc(value.into())
+            }
+        }
+    };
 }
+
+impl_into_global_action!(RpcGlobalStateGetAction);
+
+impl_into_global_action!(RpcP2pConnectionOutgoingInitAction);
+impl_into_global_action!(RpcP2pConnectionOutgoingPendingAction);
+impl_into_global_action!(RpcP2pConnectionOutgoingErrorAction);
+impl_into_global_action!(RpcP2pConnectionOutgoingSuccessAction);
+
+impl_into_global_action!(RpcFinishAction);

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use shared::requests::RpcId;
+
 pub type P2pConnectionOutgoingActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a P2pConnectionOutgoingAction>;
 
@@ -25,6 +27,7 @@ impl P2pConnectionOutgoingAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pConnectionOutgoingInitAction {
     pub opts: P2pConnectionOutgoingInitOpts,
+    pub rpc_id: Option<RpcId>,
 }
 
 impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingInitAction {

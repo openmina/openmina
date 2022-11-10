@@ -3,6 +3,8 @@ use thiserror::Error;
 
 use crate::State;
 
+use super::RpcId;
+
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
 pub enum RespondError {
     #[error("unknown rpc id")]
@@ -11,16 +13,11 @@ pub enum RespondError {
     UnexpectedResponseType,
 }
 
-#[derive(Serialize, Deserialize, Debug, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct RpcIdType;
-impl shared::requests::RequestIdType for RpcIdType {
-    fn request_id_type() -> &'static str {
-        "RpcId"
-    }
-}
-
-pub type RpcId = shared::requests::RequestId<RpcIdType>;
-
-pub trait RpcService {
+pub trait RpcService: redux::Service {
     fn respond_state_get(&mut self, rpc_id: RpcId, response: &State) -> Result<(), RespondError>;
+    fn respond_p2p_connection_outgoing(
+        &mut self,
+        rpc_id: RpcId,
+        response: Result<(), String>,
+    ) -> Result<(), RespondError>;
 }
