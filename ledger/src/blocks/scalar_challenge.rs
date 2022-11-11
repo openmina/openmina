@@ -45,9 +45,9 @@ impl ScalarChallenge {
     }
 
     fn iter_bits(&self) -> ScalarChallengeBitsIterator {
-        let a: u128 = self.inner[0].reverse_bits() as u128;
-        let b: u128 = self.inner[1].reverse_bits() as u128;
-        let num: u128 = (a << 64) | b;
+        let a: u128 = self.inner[0] as u128;
+        let b: u128 = self.inner[1] as u128;
+        let num: u128 = (a | (b << 64)).reverse_bits();
 
         let mut bits = [false; 128];
         for (index, bit) in bits.iter_mut().enumerate() {
