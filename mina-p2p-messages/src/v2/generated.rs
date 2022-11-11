@@ -291,87 +291,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvalsLookupA {
 /// Args: (Vec < crate :: bigint :: BigInt > , Vec < crate :: bigint :: BigInt > ,)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
-    pub w: (
-        (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-        (
-            (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-            (
-                (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-                (
-                    (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-                    (
-                        (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-                        (
-                            (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-                            (
-                                (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-                                (
-                                    (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-                                    (
-                                        (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-                                        (
-                                            (
-                                                Vec<crate::bigint::BigInt>,
-                                                Vec<crate::bigint::BigInt>,
-                                            ),
-                                            (
-                                                (
-                                                    Vec<crate::bigint::BigInt>,
-                                                    Vec<crate::bigint::BigInt>,
-                                                ),
-                                                (
-                                                    (
-                                                        Vec<crate::bigint::BigInt>,
-                                                        Vec<crate::bigint::BigInt>,
-                                                    ),
-                                                    (
-                                                        (
-                                                            Vec<crate::bigint::BigInt>,
-                                                            Vec<crate::bigint::BigInt>,
-                                                        ),
-                                                        (
-                                                            (
-                                                                Vec<crate::bigint::BigInt>,
-                                                                Vec<crate::bigint::BigInt>,
-                                                            ),
-                                                            (
-                                                                (
-                                                                    Vec<crate::bigint::BigInt>,
-                                                                    Vec<crate::bigint::BigInt>,
-                                                                ),
-                                                                (),
-                                                            ),
-                                                        ),
-                                                    ),
-                                                ),
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-    ),
+    pub w: PaddedSeq<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>), 15>,
     pub z: (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-    pub s: (
-        (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-        (
-            (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-            (
-                (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-                (
-                    (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-                    (
-                        (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-                        ((Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>), ()),
-                    ),
-                ),
-            ),
-        ),
-    ),
+    pub s: PaddedSeq<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>), 6>,
     pub generic_selector: (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
     pub poseidon_selector: (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
     pub lookup: Option<PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvalsLookupA>,
@@ -447,64 +369,7 @@ pub struct PicklesProofProofsVerified2ReprStableV2ProofMessagesLookupA {
 /// Args: (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct PicklesProofProofsVerified2ReprStableV2ProofMessages {
-    pub w_comm: (
-        Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
-        (
-            Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
-            (
-                Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
-                (
-                    Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
-                    (
-                        Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
-                        (
-                            Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
-                            (
-                                Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
-                                (
-                                    Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
-                                    (
-                                        Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
-                                        (
-                                            Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
-                                            (
-                                                Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
-                                                (
-                                                    Vec<(
-                                                        crate::bigint::BigInt,
-                                                        crate::bigint::BigInt,
-                                                    )>,
-                                                    (
-                                                        Vec<(
-                                                            crate::bigint::BigInt,
-                                                            crate::bigint::BigInt,
-                                                        )>,
-                                                        (
-                                                            Vec<(
-                                                                crate::bigint::BigInt,
-                                                                crate::bigint::BigInt,
-                                                            )>,
-                                                            (
-                                                                Vec<(
-                                                                    crate::bigint::BigInt,
-                                                                    crate::bigint::BigInt,
-                                                                )>,
-                                                                (),
-                                                            ),
-                                                        ),
-                                                    ),
-                                                ),
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-    ),
+    pub w_comm: PaddedSeq<Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>, 15>,
     pub z_comm: Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
     pub t_comm: Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
     pub lookup: Option<PicklesProofProofsVerified2ReprStableV2ProofMessagesLookupA>,
@@ -517,80 +382,8 @@ pub struct PicklesProofProofsVerified2ReprStableV2ProofMessages {
 /// Args: (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseVerificationKeyWireStableV1WrapIndex {
-    pub sigma_comm: (
-        (crate::bigint::BigInt, crate::bigint::BigInt),
-        (
-            (crate::bigint::BigInt, crate::bigint::BigInt),
-            (
-                (crate::bigint::BigInt, crate::bigint::BigInt),
-                (
-                    (crate::bigint::BigInt, crate::bigint::BigInt),
-                    (
-                        (crate::bigint::BigInt, crate::bigint::BigInt),
-                        (
-                            (crate::bigint::BigInt, crate::bigint::BigInt),
-                            ((crate::bigint::BigInt, crate::bigint::BigInt), ()),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-    ),
-    pub coefficients_comm: (
-        (crate::bigint::BigInt, crate::bigint::BigInt),
-        (
-            (crate::bigint::BigInt, crate::bigint::BigInt),
-            (
-                (crate::bigint::BigInt, crate::bigint::BigInt),
-                (
-                    (crate::bigint::BigInt, crate::bigint::BigInt),
-                    (
-                        (crate::bigint::BigInt, crate::bigint::BigInt),
-                        (
-                            (crate::bigint::BigInt, crate::bigint::BigInt),
-                            (
-                                (crate::bigint::BigInt, crate::bigint::BigInt),
-                                (
-                                    (crate::bigint::BigInt, crate::bigint::BigInt),
-                                    (
-                                        (crate::bigint::BigInt, crate::bigint::BigInt),
-                                        (
-                                            (crate::bigint::BigInt, crate::bigint::BigInt),
-                                            (
-                                                (crate::bigint::BigInt, crate::bigint::BigInt),
-                                                (
-                                                    (crate::bigint::BigInt, crate::bigint::BigInt),
-                                                    (
-                                                        (
-                                                            crate::bigint::BigInt,
-                                                            crate::bigint::BigInt,
-                                                        ),
-                                                        (
-                                                            (
-                                                                crate::bigint::BigInt,
-                                                                crate::bigint::BigInt,
-                                                            ),
-                                                            (
-                                                                (
-                                                                    crate::bigint::BigInt,
-                                                                    crate::bigint::BigInt,
-                                                                ),
-                                                                (),
-                                                            ),
-                                                        ),
-                                                    ),
-                                                ),
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-    ),
+    pub sigma_comm: PaddedSeq<(crate::bigint::BigInt, crate::bigint::BigInt), 7>,
+    pub coefficients_comm: PaddedSeq<(crate::bigint::BigInt, crate::bigint::BigInt), 15>,
     pub generic_comm: (crate::bigint::BigInt, crate::bigint::BigInt),
     pub psm_comm: (crate::bigint::BigInt, crate::bigint::BigInt),
     pub complete_add_comm: (crate::bigint::BigInt, crate::bigint::BigInt),
@@ -683,16 +476,7 @@ pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorSt
 /// Gid: `517`
 /// Location: [src/lib/pickles/composition_types/digest.ml:13:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/composition_types/digest.ml#L13)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct CompositionTypesDigestConstantStableV1(
-    pub LimbVectorConstantHex64StableV1,
-    pub  (
-        LimbVectorConstantHex64StableV1,
-        (
-            LimbVectorConstantHex64StableV1,
-            (LimbVectorConstantHex64StableV1, ()),
-        ),
-    ),
-);
+pub struct CompositionTypesDigestConstantStableV1(PaddedSeq<LimbVectorConstantHex64StableV1, 4>);
 
 /// Derived name: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2#statement#plonk`
 ///
@@ -703,14 +487,8 @@ pub struct CompositionTypesDigestConstantStableV1(
 pub struct PicklesProofProofsVerified2ReprStableV2StatementPlonk {
     pub alpha:
         PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge,
-    pub beta: (
-        LimbVectorConstantHex64StableV1,
-        (LimbVectorConstantHex64StableV1, ()),
-    ),
-    pub gamma: (
-        LimbVectorConstantHex64StableV1,
-        (LimbVectorConstantHex64StableV1, ()),
-    ),
+    pub beta: PaddedSeq<LimbVectorConstantHex64StableV1, 2>,
+    pub gamma: PaddedSeq<LimbVectorConstantHex64StableV1, 2>,
     pub zeta: PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge,
     pub joint_combiner: Option<
         PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge,
@@ -741,13 +519,8 @@ pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredVal
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof {
     pub challenge_polynomial_commitment: (crate::bigint::BigInt, crate::bigint::BigInt),
-    pub old_bulletproof_challenges: (
-        PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2,
-        (
-            PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2,
-            (),
-        ),
-    ),
+    pub old_bulletproof_challenges:
+        PaddedSeq<PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2, 2>,
 }
 
 /// Derived name: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2#statement#proof_state`
@@ -1418,25 +1191,7 @@ pub enum MinaBaseZkappPreconditionAccountStableV2StateA {
 /// Location: [src/lib/mina_base/zkapp_state.ml:17:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/zkapp_state.ml#L17)
 /// Args: crate :: bigint :: BigInt
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseZkappStateValueStableV1(
-    pub crate::bigint::BigInt,
-    pub  (
-        crate::bigint::BigInt,
-        (
-            crate::bigint::BigInt,
-            (
-                crate::bigint::BigInt,
-                (
-                    crate::bigint::BigInt,
-                    (
-                        crate::bigint::BigInt,
-                        (crate::bigint::BigInt, (crate::bigint::BigInt, ())),
-                    ),
-                ),
-            ),
-        ),
-    ),
-);
+pub struct MinaBaseZkappStateValueStableV1(PaddedSeq<crate::bigint::BigInt, 8>);
 
 /// **OCaml name**: `Mina_base__Zkapp_account.Stable.V2`
 ///
@@ -1452,16 +1207,7 @@ pub struct MinaBaseZkappAccountStableV2 {
     pub app_state: MinaBaseZkappStateValueStableV1,
     pub verification_key: Option<MinaBaseVerificationKeyWireStableV1>,
     pub zkapp_version: MinaNumbersNatMake32StableV1,
-    pub sequence_state: (
-        crate::bigint::BigInt,
-        (
-            crate::bigint::BigInt,
-            (
-                crate::bigint::BigInt,
-                (crate::bigint::BigInt, (crate::bigint::BigInt, ())),
-            ),
-        ),
-    ),
+    pub sequence_state: PaddedSeq<crate::bigint::BigInt, 5>,
     pub last_sequence_slot: UnsignedExtendedUInt32StableV1,
     pub proved_state: bool,
 }
@@ -1693,28 +1439,7 @@ pub struct MinaBaseZkappPreconditionAccountStableV2 {
     pub nonce: MinaBaseZkappPreconditionProtocolStateStableV1Length,
     pub receipt_chain_hash: MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash,
     pub delegate: MinaBaseZkappPreconditionAccountStableV2Delegate,
-    pub state: (
-        MinaBaseZkappPreconditionAccountStableV2StateA,
-        (
-            MinaBaseZkappPreconditionAccountStableV2StateA,
-            (
-                MinaBaseZkappPreconditionAccountStableV2StateA,
-                (
-                    MinaBaseZkappPreconditionAccountStableV2StateA,
-                    (
-                        MinaBaseZkappPreconditionAccountStableV2StateA,
-                        (
-                            MinaBaseZkappPreconditionAccountStableV2StateA,
-                            (
-                                MinaBaseZkappPreconditionAccountStableV2StateA,
-                                (MinaBaseZkappPreconditionAccountStableV2StateA, ()),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-    ),
+    pub state: PaddedSeq<MinaBaseZkappPreconditionAccountStableV2StateA, 8>,
     pub sequence_state: MinaBaseZkappPreconditionAccountStableV2StateA,
     pub proved_state: MinaBaseZkappPreconditionAccountStableV2ProvedState,
     pub is_new: MinaBaseZkappPreconditionAccountStableV2ProvedState,
@@ -1790,28 +1515,7 @@ pub struct MinaBasePartyUpdateTimingInfoStableV1 {
 /// Location: [src/lib/mina_base/party.ml:219:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L219)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePartyUpdateStableV1 {
-    pub app_state: (
-        MinaBasePartyUpdateStableV1AppStateA,
-        (
-            MinaBasePartyUpdateStableV1AppStateA,
-            (
-                MinaBasePartyUpdateStableV1AppStateA,
-                (
-                    MinaBasePartyUpdateStableV1AppStateA,
-                    (
-                        MinaBasePartyUpdateStableV1AppStateA,
-                        (
-                            MinaBasePartyUpdateStableV1AppStateA,
-                            (
-                                MinaBasePartyUpdateStableV1AppStateA,
-                                (MinaBasePartyUpdateStableV1AppStateA, ()),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-    ),
+    pub app_state: PaddedSeq<MinaBasePartyUpdateStableV1AppStateA, 8>,
     pub delegate: MinaBasePartyUpdateStableV1Delegate,
     pub verification_key: MinaBasePartyUpdateStableV1VerificationKey,
     pub permissions: MinaBasePartyUpdateStableV1Permissions,
