@@ -15,10 +15,15 @@ cfg-if = "1.0.0"
 derive_more = "0.99.17"
 serde = "1.0.147"
 gloo-utils = "0.1"
+serde_with = { version = "2.0.1", features = ["json"] }
+serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
+rand = "0.8.0"
 log = { version ="0.4.17", features = ["max_level_trace", "release_max_level_trace"] }
 wasm-logger = "0.2.0"
 libp2p = { git = "https://github.com/name-placeholder/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
 redux = { git = "https://github.com/name-placeholder/redux-rs.git", features = ["serde"] }
+mina-hasher = { git = "https://github.com/o1-labs/proof-systems" }
+mina-signer = { git = "https://github.com/o1-labs/proof-systems" }
 mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messages-rs", branch = "main", features = ["hashing"] }
 
 shared = { path = "../shared" }
