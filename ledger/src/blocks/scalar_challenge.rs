@@ -22,25 +22,21 @@ impl Iterator for ScalarChallengeBitsIterator {
 }
 
 pub fn endo() -> Fp {
-    // That's a constant
+    // That's a constant but it seems to be computed somewhere.
+    // TODO: Find where it's computed
     Fp::from_str("8503465768106391777493614032514048814691664078728891710322960303815233784505")
         .unwrap()
 }
 
 impl ScalarChallenge {
     fn iter_bits(&self) -> ScalarChallengeBitsIterator {
+        let a: u128 = self.inner[0].reverse_bits() as u128;
+        let b: u128 = self.inner[1].reverse_bits() as u128;
+        let num: u128 = (a << 64) | b;
+
         let mut bits = [false; 128];
-
-        let n = self.inner[1].reverse_bits();
-        for index in 0..64 {
-            let bit = n >> index & 1;
-            bits[index] = bit != 0;
-        }
-
-        let n = self.inner[0].reverse_bits();
-        for index in 0..64 {
-            let bit = n >> index & 1;
-            bits[index + 64] = bit != 0;
+        for (index, bit) in bits.iter_mut().enumerate() {
+            *bit = ((num >> index) & 1) != 0;
         }
 
         ScalarChallengeBitsIterator {
@@ -50,7 +46,7 @@ impl ScalarChallenge {
 
     /// Implemention of `to_field_constant`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/scalar_challenge.ml#L139
-    pub fn to_fields(&self, endo: &Fp) -> Fp {
+    pub fn to_field(&self, endo: &Fp) -> Fp {
         let mut a: Fp = 2.into();
         let mut b: Fp = 2.into();
         let one: Fp = 1.into();
@@ -59,13 +55,13 @@ impl ScalarChallenge {
         for (first, second) in self.iter_bits() {
             let s = if first { one } else { neg_one };
 
-            a = a + a;
-            b = b + b;
+            a += a;
+            b += b;
 
             if second {
-                a = a + s;
+                a += s;
             } else {
-                b = b + s;
+                b += s;
             }
         }
 
@@ -100,7 +96,7 @@ mod tests {
         let endo = endo();
         println!("ENDO={:?}", endo.to_decimal());
 
-        let scalar_challenge = scalar_challenge.to_fields(&endo);
+        let scalar_challenge = scalar_challenge.to_field(&endo);
         println!("RES={:?}", scalar_challenge.to_decimal());
 
         assert_eq!(
