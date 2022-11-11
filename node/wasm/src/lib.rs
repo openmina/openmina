@@ -1,17 +1,17 @@
 use std::str::FromStr;
 use std::time::Duration;
 
+use futures::channel::{mpsc, oneshot};
+use futures::{select_biased, FutureExt, SinkExt, StreamExt};
 use gloo_utils::format::JsValueSerdeExt;
-use libp2p::futures::channel::{mpsc, oneshot};
-use libp2p::futures::select_biased;
-use libp2p::futures::FutureExt;
-use libp2p::futures::{SinkExt, StreamExt};
+use libp2p::futures;
 use libp2p::multiaddr::{Multiaddr, Protocol as MultiaddrProtocol};
+use libp2p::wasm_ext::ffi::ManualConnector as JsManualConnector;
 use mina_signer::{NetworkId, PubKey, Signer};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::spawn_local;
+use wasm_bindgen_futures::{future_to_promise, spawn_local, JsFuture};
 
 use lib::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
@@ -40,6 +40,38 @@ pub type Node = lib::Node<NodeWasmService>;
 fn keypair_from_bs58check_secret_key(encoded_sec: &str) -> Result<mina_signer::Keypair, JsValue> {
     mina_signer::Keypair::from_hex(encoded_sec)
         .map_err(|err| format!("Invalid Private Key: {}", err).into())
+}
+
+#[wasm_bindgen]
+pub struct ManualConnector {
+    inner: JsManualConnector,
+    rpc_sender: RpcSender,
+}
+
+#[wasm_bindgen]
+impl ManualConnector {
+    pub async fn dial(&mut self, peer_id: String) -> Result<js_sys::Promise, JsValue> {
+        let inner: JsManualConnector = self.inner.clone().into();
+        let addr = format!("/p2p-webrtc-direct/p2p/{}", peer_id);
+        let peer_id_str = peer_id;
+        let peer_id = PeerId::from_str(&peer_id_str).map_err(|e| e.to_string())?;
+        let maddr: Multiaddr = addr
+            .parse()
+            .map_err(|err: libp2p::multiaddr::Error| err.to_string())?;
+        let rpc = self.rpc_sender.clone();
+        spawn_local(async move {
+            rpc.peer_connect(P2pConnectionOutgoingInitOpts {
+                peer_id,
+                addrs: vec![maddr],
+            })
+            .await;
+        });
+        Ok(inner.dial(peer_id_str))
+    }
+
+    pub fn listen(&self) -> JsValue {
+        self.inner.listen()
+    }
 }
 
 /// Runs endless loop.
@@ -92,10 +124,11 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
     wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
     let (tx, rx) = mpsc::channel(1024);
 
+    let (libp2p, manual_connector) = Libp2pService::run(tx.clone()).await;
     let service = NodeWasmService {
         event_source_sender: tx.clone(),
         event_source_receiver: rx.into(),
-        libp2p: Libp2pService::run(tx.clone()).await,
+        libp2p,
         rpc: RpcService::new(),
     };
     let state = lib::State::new();
@@ -105,8 +138,9 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
     spawn_local(run(node));
     Ok(JsHandle {
         sender: tx,
-        rpc_sender,
+        rpc: RpcSender::new(rpc_sender),
         signer: Box::new(mina_signer::create_legacy(NetworkId::TESTNET)),
+        manual_connector,
     })
 }
 
@@ -115,31 +149,57 @@ pub struct WasmRpcRequest {
     pub responder: Box<dyn std::any::Any>,
 }
 
-#[wasm_bindgen]
-pub struct JsHandle {
-    sender: mpsc::Sender<Event>,
-    rpc_sender: mpsc::Sender<WasmRpcRequest>,
-
-    signer: Box<dyn Signer<Transaction>>,
+#[derive(Clone)]
+pub struct RpcSender {
+    tx: mpsc::Sender<WasmRpcRequest>,
 }
 
-impl JsHandle {
-    async fn rpc_oneshot_request<T>(&self, req: RpcRequest) -> Option<T>
+impl RpcSender {
+    pub fn new(tx: mpsc::Sender<WasmRpcRequest>) -> Self {
+        Self { tx }
+    }
+
+    pub async fn oneshot_request<T>(&self, req: RpcRequest) -> Option<T>
     where
         T: 'static + Serialize,
     {
         let (tx, rx) = oneshot::channel::<T>();
         let responder = Box::new(tx);
-        let mut sender = self.rpc_sender.clone();
+        let mut sender = self.tx.clone();
         sender.send(WasmRpcRequest { req, responder }).await;
 
         rx.await.ok()
     }
 
+    pub async fn peer_connect(
+        &self,
+        opts: P2pConnectionOutgoingInitOpts,
+    ) -> Result<String, JsValue> {
+        let peer_id = opts.peer_id;
+        let req = RpcRequest::P2pConnectionOutgoing(opts);
+        self.oneshot_request::<RpcP2pConnectionOutgoingResponse>(req)
+            .await
+            .ok_or_else(|| JsValue::from("state machine shut down"))??;
+
+        Ok(peer_id.to_string())
+    }
+}
+
+#[wasm_bindgen]
+pub struct JsHandle {
+    sender: mpsc::Sender<Event>,
+    rpc: RpcSender,
+
+    signer: Box<dyn Signer<Transaction>>,
+    manual_connector: JsManualConnector,
+}
+
+impl JsHandle {
     pub async fn pubsub_publish(&self, topic: PubsubTopic, msg: GossipNetMessageV1) -> JsValue {
         let req = RpcRequest::P2pPubsubPublish(topic, msg);
         let res = self
-            .rpc_oneshot_request::<RpcP2pPubsubPublishResponse>(req)
+            .rpc
+            .oneshot_request::<RpcP2pPubsubPublishResponse>(req)
             .await;
         JsValue::from_serde(&res).unwrap()
     }
@@ -147,6 +207,13 @@ impl JsHandle {
 
 #[wasm_bindgen]
 impl JsHandle {
+    pub fn manual_connector(&self) -> ManualConnector {
+        ManualConnector {
+            inner: self.manual_connector.clone().into(),
+            rpc_sender: self.rpc.clone(),
+        }
+    }
+
     pub fn is_peer_id_valid(&self, id: &str) -> Result<(), String> {
         id.parse::<lib::p2p::PeerId>()
             .map(|_| ())
@@ -155,7 +222,7 @@ impl JsHandle {
 
     pub async fn global_state_get(&self) -> JsValue {
         let req = RpcRequest::GetState;
-        let res = self.rpc_oneshot_request::<RpcStateGetResponse>(req).await;
+        let res = self.rpc.oneshot_request::<RpcStateGetResponse>(req).await;
         JsValue::from_serde(&res).unwrap()
     }
 
@@ -164,15 +231,12 @@ impl JsHandle {
         let peer_id =
             peer_id_from_addr(&addr).ok_or_else(|| "Multiaddr missing PeerId".to_string())?;
 
-        let req = RpcRequest::P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts {
-            peer_id,
-            addrs: vec![addr],
-        });
-        self.rpc_oneshot_request::<RpcP2pConnectionOutgoingResponse>(req)
+        self.rpc
+            .peer_connect(P2pConnectionOutgoingInitOpts {
+                peer_id,
+                addrs: vec![addr],
+            })
             .await
-            .ok_or_else(|| JsValue::from("state machine shut down"))??;
-
-        Ok(peer_id.to_string())
     }
 
     #[wasm_bindgen(js_name = pubsub_publish)]
@@ -180,7 +244,8 @@ impl JsHandle {
         let topic = PubsubTopic::from_str(&topic).map_err(|err| err.to_string())?;
         let msg = msg.into_serde().map_err(|err| err.to_string())?;
         let req = RpcRequest::P2pPubsubPublish(topic, msg);
-        self.rpc_oneshot_request::<RpcP2pPubsubPublishResponse>(req)
+        self.rpc
+            .oneshot_request::<RpcP2pPubsubPublishResponse>(req)
             .await;
         Ok(())
     }
