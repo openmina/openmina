@@ -25,6 +25,7 @@ impl P2pState {
                 let P2pPeerStatus::Connecting(state) = &mut peer.status else { return };
                 state.reducer(meta.with_action(action));
             }
+            P2pAction::Pubsub(_) => {}
         }
     }
 }

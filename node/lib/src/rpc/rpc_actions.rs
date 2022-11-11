@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use p2p::pubsub::{GossipNetMessageV1, PubsubTopic};
 
 use super::RpcId;
 
@@ -15,6 +16,8 @@ pub enum RpcAction {
     P2pConnectionOutgoingPending(RpcP2pConnectionOutgoingPendingAction),
     P2pConnectionOutgoingError(RpcP2pConnectionOutgoingErrorAction),
     P2pConnectionOutgoingSuccess(RpcP2pConnectionOutgoingSuccessAction),
+
+    P2pPubsubMessagePublish(RpcP2pPubsubMessagePublishAction),
 
     Finish(RpcFinishAction),
 }
@@ -84,6 +87,19 @@ impl redux::EnablingCondition<crate::State> for RpcP2pConnectionOutgoingSuccessA
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcP2pPubsubMessagePublishAction {
+    pub rpc_id: RpcId,
+    pub topic: PubsubTopic,
+    pub message: GossipNetMessageV1,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcP2pPubsubMessagePublishAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        true
+    }
+}
+
 /// Finish/Cleanup rpc request.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcFinishAction {
@@ -116,5 +132,7 @@ impl_into_global_action!(RpcP2pConnectionOutgoingInitAction);
 impl_into_global_action!(RpcP2pConnectionOutgoingPendingAction);
 impl_into_global_action!(RpcP2pConnectionOutgoingErrorAction);
 impl_into_global_action!(RpcP2pConnectionOutgoingSuccessAction);
+
+impl_into_global_action!(RpcP2pPubsubMessagePublishAction);
 
 impl_into_global_action!(RpcFinishAction);

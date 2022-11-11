@@ -2,12 +2,16 @@ use crate::action::CheckTimeoutsAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingErrorAction, P2pConnectionOutgoingSuccessAction,
 };
-use crate::rpc::{RpcGlobalStateGetAction, RpcP2pConnectionOutgoingInitAction, RpcRequest};
+use crate::p2p::pubsub::P2pPubsubBytesReceivedAction;
+use crate::rpc::{
+    RpcGlobalStateGetAction, RpcP2pConnectionOutgoingInitAction, RpcP2pPubsubMessagePublishAction,
+    RpcRequest,
+};
 use crate::{Service, Store};
 
 use super::{
     Event, EventSourceAction, EventSourceActionWithMeta, EventSourceNewEventAction,
-    P2pConnectionEvent, P2pEvent,
+    P2pConnectionEvent, P2pEvent, P2pPubsubEvent,
 };
 
 pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourceActionWithMeta) {
@@ -37,6 +41,21 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         }
                     },
                 },
+                P2pEvent::Pubsub(e) => match e {
+                    P2pPubsubEvent::BytesReceived {
+                        author,
+                        sender,
+                        topic,
+                        bytes,
+                    } => {
+                        store.dispatch(P2pPubsubBytesReceivedAction {
+                            author,
+                            sender,
+                            topic,
+                            bytes,
+                        });
+                    }
+                },
             },
             Event::Rpc(rpc_id, e) => match e {
                 RpcRequest::GetState => {
@@ -44,6 +63,13 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 }
                 RpcRequest::P2pConnectionOutgoing(opts) => {
                     store.dispatch(RpcP2pConnectionOutgoingInitAction { rpc_id, opts });
+                }
+                RpcRequest::P2pPubsubPublish(topic, message) => {
+                    store.dispatch(RpcP2pPubsubMessagePublishAction {
+                        rpc_id,
+                        topic,
+                        message,
+                    });
                 }
             },
         },

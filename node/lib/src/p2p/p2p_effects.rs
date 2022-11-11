@@ -3,6 +3,7 @@ use crate::{Service, Store};
 
 use super::connection::outgoing::P2pConnectionOutgoingAction;
 use super::connection::P2pConnectionAction;
+use super::pubsub::P2pPubsubAction;
 use super::{P2pAction, P2pActionWithMeta};
 
 pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) {
@@ -36,6 +37,23 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     // action.effects(&meta, store);
                 }
             },
+        },
+        P2pAction::Pubsub(action) => match action {
+            P2pPubsubAction::MessagePublish(action) => {
+                action.effects(&meta, store);
+            }
+            P2pPubsubAction::BytesPublish(action) => {
+                let rpc_id = action.rpc_id;
+                action.effects(&meta, store);
+                if let Some(rpc_id) = rpc_id {
+                    // TODO(binier)
+                    let _ = store.service.respond_p2p_publish(rpc_id, Ok(()));
+                }
+            }
+            P2pPubsubAction::BytesReceived(action) => {
+                action.effects(&meta, store);
+            }
+            P2pPubsubAction::MessageReceived(_) => {}
         },
     }
 }

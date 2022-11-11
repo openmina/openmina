@@ -20,4 +20,9 @@ pub trait RpcService: redux::Service {
         rpc_id: RpcId,
         response: Result<(), String>,
     ) -> Result<(), RespondError>;
+    fn respond_p2p_publish(
+        &mut self,
+        rpc_id: RpcId,
+        response: Result<(), String>,
+    ) -> Result<(), RespondError>;
 }
