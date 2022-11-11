@@ -1,4 +1,5 @@
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
+use crate::p2p::pubsub::P2pPubsubMessagePublishAction;
 use crate::Store;
 
 use super::{
@@ -38,6 +39,13 @@ pub fn rpc_effects<S: RpcService>(store: &mut Store<S>, action: RpcActionWithMet
                 .respond_p2p_connection_outgoing(content.rpc_id, Ok(()));
             store.dispatch(RpcFinishAction {
                 rpc_id: content.rpc_id,
+            });
+        }
+        RpcAction::P2pPubsubMessagePublish(content) => {
+            store.dispatch(P2pPubsubMessagePublishAction {
+                topic: content.topic,
+                message: content.message,
+                rpc_id: Some(content.rpc_id),
             });
         }
         RpcAction::Finish(_) => {}

@@ -1,4 +1,5 @@
 pub mod connection;
+pub mod pubsub;
 
 mod p2p_actions;
 pub use p2p_actions::*;

@@ -15,14 +15,18 @@ use lib::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
     EventSourceWaitTimeoutAction,
 };
-use lib::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
-use lib::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use lib::p2p::connection::outgoing::{
+    P2pConnectionOutgoingInitAction, P2pConnectionOutgoingInitOpts,
+};
+use lib::p2p::pubsub::{GossipNetMessageV1, PubsubTopic};
 use lib::p2p::PeerId;
 use lib::rpc::RpcRequest;
 
 mod service;
 use service::libp2p::Libp2pService;
-use service::rpc::{RpcP2pConnectionOutgoingResponse, RpcService, RpcStateGetResponse};
+use service::rpc::{
+    RpcP2pConnectionOutgoingResponse, RpcP2pPubsubPublishResponse, RpcService, RpcStateGetResponse,
+};
 pub use service::NodeWasmService;
 
 pub type Store = lib::Store<NodeWasmService>;
@@ -106,14 +110,7 @@ pub struct JsHandle {
     rpc_sender: mpsc::Sender<WasmRpcRequest>,
 }
 
-#[wasm_bindgen]
 impl JsHandle {
-    pub fn is_peer_id_valid(&self, id: &str) -> Result<(), String> {
-        id.parse::<lib::p2p::PeerId>()
-            .map(|_| ())
-            .map_err(|err| err.to_string())
-    }
-
     async fn rpc_oneshot_request<T>(&self, req: RpcRequest) -> Option<T>
     where
         T: 'static + Serialize,
@@ -124,6 +121,23 @@ impl JsHandle {
         sender.send(WasmRpcRequest { req, responder }).await;
 
         rx.await.ok()
+    }
+
+    pub async fn pubsub_publish(&self, topic: PubsubTopic, msg: GossipNetMessageV1) -> JsValue {
+        let req = RpcRequest::P2pPubsubPublish(topic, msg);
+        let res = self
+            .rpc_oneshot_request::<RpcP2pPubsubPublishResponse>(req)
+            .await;
+        JsValue::from_serde(&res).unwrap()
+    }
+}
+
+#[wasm_bindgen]
+impl JsHandle {
+    pub fn is_peer_id_valid(&self, id: &str) -> Result<(), String> {
+        id.parse::<lib::p2p::PeerId>()
+            .map(|_| ())
+            .map_err(|err| err.to_string())
     }
 
     pub async fn global_state_get(&self) -> JsValue {
@@ -146,6 +160,16 @@ impl JsHandle {
             .ok_or_else(|| JsValue::from("state machine shut down"))??;
 
         Ok(peer_id.to_string())
+    }
+
+    #[wasm_bindgen(js_name = pubsub_publish)]
+    pub async fn js_pubsub_publish(&self, topic: String, msg: JsValue) -> Result<(), JsValue> {
+        let topic = PubsubTopic::from_str(&topic).map_err(|err| err.to_string())?;
+        let msg = msg.into_serde().map_err(|err| err.to_string())?;
+        let req = RpcRequest::P2pPubsubPublish(topic, msg);
+        self.rpc_oneshot_request::<RpcP2pPubsubPublishResponse>(req)
+            .await;
+        Ok(())
     }
 }
 

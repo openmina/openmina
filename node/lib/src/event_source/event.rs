@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::p2p::pubsub::PubsubTopic;
+use crate::p2p::PeerId;
 use crate::rpc::{RpcId, RpcRequest};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -12,9 +14,20 @@ pub enum Event {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pEvent {
     Connection(P2pConnectionEvent),
+    Pubsub(P2pPubsubEvent),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pConnectionEvent {
     OutgoingInit(crate::p2p::PeerId, Result<(), String>),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pPubsubEvent {
+    BytesReceived {
+        author: PeerId,
+        sender: PeerId,
+        topic: PubsubTopic,
+        bytes: Vec<u8>,
+    },
 }

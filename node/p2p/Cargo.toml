@@ -13,4 +13,6 @@ binprot = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5b
 redux = { git = "https://github.com/name-placeholder/redux-rs.git", features = ["serde"] }
 libp2p = { git = "https://github.com/name-placeholder/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
 
+mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messages-rs", branch = "main", features = ["hashing"] }
+
 shared = { path = "../shared" }

@@ -1,6 +1,7 @@
 pub use ::p2p::*;
 
 pub mod connection;
+pub mod pubsub;
 
 mod p2p_effects;
 pub use p2p_effects::*;

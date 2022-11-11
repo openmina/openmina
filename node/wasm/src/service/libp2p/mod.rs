@@ -1,7 +1,6 @@
 use std::convert::Infallible;
 use std::time::Duration;
 
-use lib::service::P2pConnectionService;
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport;
 use libp2p::core::transport::upgrade;
@@ -19,7 +18,9 @@ use libp2p::{build_multiaddr, PeerId, Swarm, Transport};
 
 pub use mina_p2p_messages::GossipNetMessageV1 as GossipNetMessage;
 
-use lib::event_source::{Event, P2pConnectionEvent, P2pEvent};
+use lib::event_source::{Event, P2pConnectionEvent, P2pEvent, P2pPubsubEvent};
+use lib::p2p::pubsub::PubsubTopic;
+use lib::service::{P2pConnectionService, P2pPubsubService};
 
 mod behavior;
 pub use behavior::Event as BehaviourEvent;
@@ -40,10 +41,9 @@ pub enum Cmd {
     Disconnect(PeerId),
 }
 
-#[derive(serde::Deserialize, Debug)]
-#[serde(tag = "type", content = "data")]
+#[derive(Debug)]
 pub enum CmdSendMessage {
-    Gossipsub(GossipNetMessage),
+    Gossipsub(PubsubTopic, Vec<u8>),
 }
 
 pub struct Libp2pService {
@@ -159,8 +159,8 @@ impl Libp2pService {
                                 // TODO(binier)
                                 swarm.disconnect_peer_id(peer_id);
                             }
-                            Some(Cmd::SendMessage(CmdSendMessage::Gossipsub(msg))) => {
-                                todo!();
+                            Some(Cmd::SendMessage(CmdSendMessage::Gossipsub(topic, msg))) => {
+                                swarm.behaviour_mut().gossipsub.publish(topic, msg).unwrap();
                             }
                             None => break,
                         }
@@ -221,7 +221,13 @@ impl Libp2pService {
                     message_id,
                     message,
                 }) => {
-                    // TODO(binier)
+                    let event = Event::P2p(P2pEvent::Pubsub(P2pPubsubEvent::BytesReceived {
+                        author: message.source.unwrap(),
+                        sender: propagation_source,
+                        topic: message.topic.as_str().parse().unwrap(),
+                        bytes: message.data,
+                    }));
+                    swarm.behaviour_mut().event_source_sender.send(event).await;
                 }
                 event => {
                     log::trace!("Ignored behavior Event: {:?}", event);
@@ -246,6 +252,16 @@ impl P2pConnectionService for NodeWasmService {
         let mut tx = self.libp2p.cmd_sender.clone();
         spawn_local(async move {
             tx.send(cmd).await;
+        });
+    }
+}
+
+impl P2pPubsubService for NodeWasmService {
+    fn publish(&mut self, topic: PubsubTopic, bytes: Vec<u8>) {
+        let mut tx = self.libp2p.cmd_sender.clone();
+        spawn_local(async move {
+            tx.send(Cmd::SendMessage(CmdSendMessage::Gossipsub(topic, bytes)))
+                .await;
         });
     }
 }
