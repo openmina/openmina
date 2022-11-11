@@ -7,7 +7,9 @@ use libp2p::futures::select_biased;
 use libp2p::futures::FutureExt;
 use libp2p::futures::{SinkExt, StreamExt};
 use libp2p::multiaddr::{Multiaddr, Protocol as MultiaddrProtocol};
+use mina_signer::{NetworkId, PubKey, Signer};
 use serde::Serialize;
+use serde_with::{serde_as, DisplayFromStr};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
@@ -29,8 +31,16 @@ use service::rpc::{
 };
 pub use service::NodeWasmService;
 
+mod transaction;
+pub use transaction::Transaction;
+
 pub type Store = lib::Store<NodeWasmService>;
 pub type Node = lib::Node<NodeWasmService>;
+
+fn keypair_from_bs58check_secret_key(encoded_sec: &str) -> Result<mina_signer::Keypair, JsValue> {
+    mina_signer::Keypair::from_hex(encoded_sec)
+        .map_err(|err| format!("Invalid Private Key: {}", err).into())
+}
 
 /// Runs endless loop.
 ///
@@ -96,6 +106,7 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
     Ok(JsHandle {
         sender: tx,
         rpc_sender,
+        signer: Box::new(mina_signer::create_legacy(NetworkId::TESTNET)),
     })
 }
 
@@ -108,6 +119,8 @@ pub struct WasmRpcRequest {
 pub struct JsHandle {
     sender: mpsc::Sender<Event>,
     rpc_sender: mpsc::Sender<WasmRpcRequest>,
+
+    signer: Box<dyn Signer<Transaction>>,
 }
 
 impl JsHandle {
@@ -170,6 +183,59 @@ impl JsHandle {
         self.rpc_oneshot_request::<RpcP2pPubsubPublishResponse>(req)
             .await;
         Ok(())
+    }
+
+    pub fn generate_account_keys(&self) -> JsValue {
+        let mut r = rand::rngs::OsRng::default();
+        let keypair = mina_signer::Keypair::rand(&mut r);
+        let priv_key = keypair.to_hex();
+        let pub_key = keypair.get_address();
+        JsValue::from_serde(&serde_json::json!({
+            "priv_key": priv_key,
+            "pub_key": pub_key,
+        }))
+        .unwrap()
+    }
+
+    pub async fn payment_sign_and_inject(&mut self, data: JsValue) -> Result<JsValue, JsValue> {
+        #[serde_as]
+        #[derive(serde::Deserialize)]
+        struct Payment {
+            priv_key: String,
+            to: String,
+            #[serde_as(as = "DisplayFromStr")]
+            amount: u64,
+            #[serde_as(as = "DisplayFromStr")]
+            fee: u64,
+            #[serde_as(as = "DisplayFromStr")]
+            nonce: u32,
+            memo: Option<String>,
+        }
+
+        let data: Payment = data
+            .into_serde()
+            .map_err(|err| format!("Deserialize Error: {}", err))?;
+        let keypair = keypair_from_bs58check_secret_key(&data.priv_key)?;
+        let to =
+            PubKey::from_address(&data.to).map_err(|err| format!("Bad `to` address: {}", err))?;
+
+        let mut tx = Transaction::new_payment(
+            keypair.public.clone(),
+            to,
+            data.amount * 1_000_000_000,
+            data.fee * 1_000_000_000,
+            data.nonce,
+        );
+        if let Some(memo) = data.memo.filter(|s| !s.is_empty()) {
+            tx = tx.set_memo_str(&memo);
+        }
+        let sig = self.signer.sign(&keypair, &tx);
+
+        let msg = tx.to_gossipsub_v1_msg(sig);
+        log::info!("created transaction pool message: {:?}", msg);
+        self.pubsub_publish(PubsubTopic::CodaConsensusMessage, msg)
+            .await;
+        Ok(JsValue::NULL)
     }
 }
 
