@@ -104,7 +104,7 @@ impl Libp2pService {
         ))
     }
 
-    pub async fn run(event_source_sender: mpsc::Sender<Event>) -> Self {
+    pub async fn run(event_source_sender: mpsc::Sender<Event>) -> (Self, JsManualConnector) {
         let gossipsub_topic = "coda/consensus-messages/0.0.1";
         let topics_iter = IntoIterator::into_iter([
             gossipsub_topic,
@@ -169,7 +169,7 @@ impl Libp2pService {
             }
         });
 
-        Self { cmd_sender }
+        (Self { cmd_sender }, manual_connector)
     }
 
     async fn handle_event<E: std::error::Error>(
