@@ -778,7 +778,6 @@ impl From<PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof>
 mod tests {
     use std::io::Cursor;
 
-    use ark_ff::One;
     use mina_curves::pasta::fields::FpParameters;
     use mina_hasher::Fp;
     use o1_utils::FieldHelpers;
@@ -794,8 +793,8 @@ mod tests {
     #[test]
     fn test_rand_fp() {
         let mut nvalid = 0;
-        let mut rng = rand::thread_rng();
-        let one = Fp::one();
+        // let rng = rand::thread_rng();
+        // let one = Fp::one();
 
         // impl<P: $FpParameters> $Fp<P> {
         //     #[inline(always)]
