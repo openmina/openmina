@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use ark_ff::{BigInteger256, PrimeField};
-use bitvec::macros::internal::funty::Fundamental;
 use mina_curves::pasta::Fq;
 
 use crate::ProofVerified;
@@ -50,17 +49,9 @@ struct PreparedStatement {
     messages_for_next_step_proof: [u64; 4],
 }
 
-fn two_u64_to_field(v: &[u64; 2]) -> Fq {
+fn u64_to_field<const N: usize>(v: &[u64; N]) -> Fq {
     let mut bigint: [u64; 4] = [0; 4];
-    bigint[..2].copy_from_slice(v);
-
-    let bigint = BigInteger256(bigint);
-    Fq::from_repr(bigint).unwrap()
-}
-
-fn four_u64_to_field(v: &[u64; 4]) -> Fq {
-    let mut bigint: [u64; 4] = [0; 4];
-    bigint.copy_from_slice(v);
+    bigint[..N].copy_from_slice(v);
 
     let bigint = BigInteger256(bigint);
     Fq::from_repr(bigint).unwrap()
@@ -69,7 +60,7 @@ fn four_u64_to_field(v: &[u64; 4]) -> Fq {
 impl PreparedStatement {
     /// Implementation of `tock_unpadded_public_input_of_statement`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L202
-    pub fn to_fields(&self) -> Vec<Fq> {
+    pub fn to_public_input(&self) -> Vec<Fq> {
         let PreparedStatement {
             proof_state:
                 ProofState {
@@ -90,7 +81,7 @@ impl PreparedStatement {
                                     endomul_scalar,
                                     perm,
                                     generic,
-                                    lookup,
+                                    lookup: _, // `lookup` is of type `()`
                                 },
                             combined_inner_product,
                             b,
@@ -110,46 +101,62 @@ impl PreparedStatement {
 
         let f = |s| Fq::from_str(s).unwrap();
 
+        // We sort the fields in the same order as here:
+        // https://github.com/MinaProtocol/mina/blob/c824be7d80db1d290e0d48cbc920182d07de0330/src/lib/pickles/composition_types/composition_types.ml#L739
+
         let mut fields = Vec::with_capacity(47);
 
-        fields.push(f(combined_inner_product));
-        fields.push(f(b));
-        fields.push(f(zeta_to_srs_length));
-        fields.push(f(zeta_to_domain_size));
-        fields.push(f(poseidon_selector));
-        fields.push(f(vbmul));
-        fields.push(f(complete_add));
-        fields.push(f(endomul));
-        fields.push(f(endomul_scalar));
-        fields.push(f(perm));
-
-        let generics: Vec<_> = generic.iter().map(|g| f(g)).collect();
-        fields.extend_from_slice(&generics);
-
-        fields.push(two_u64_to_field(beta));
-        fields.push(two_u64_to_field(gamma));
-        fields.push(two_u64_to_field(alpha));
-        fields.push(two_u64_to_field(zeta));
-        fields.push(two_u64_to_field(xi));
-
-        fields.push(four_u64_to_field(sponge_digest_before_evaluations));
-        fields.push(four_u64_to_field(messages_for_next_wrap_proof));
-        fields.push(four_u64_to_field(messages_for_next_step_proof));
-
-        for challenge in bulletproof_challenges {
-            fields.push(two_u64_to_field(challenge));
+        // Fp
+        {
+            fields.push(f(combined_inner_product));
+            fields.push(f(b));
+            fields.push(f(zeta_to_srs_length));
+            fields.push(f(zeta_to_domain_size));
+            fields.push(f(poseidon_selector));
+            fields.push(f(vbmul));
+            fields.push(f(complete_add));
+            fields.push(f(endomul));
+            fields.push(f(endomul_scalar));
+            fields.push(f(perm));
+            fields.extend(generic.iter().map(|g| f(g)));
         }
 
-        // https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles_base/proofs_verified.ml#L58
-        let proofs_verified = match proofs_verified {
-            ProofVerified::N0 => 0b00,
-            ProofVerified::N1 => 0b10,
-            ProofVerified::N2 => 0b11,
-        };
-        let domain_log2 = domain_log2.as_u64();
-        let num: u64 = (domain_log2 << 2) | proofs_verified;
+        // Challenge
+        {
+            fields.push(u64_to_field(beta));
+            fields.push(u64_to_field(gamma));
+        }
 
-        fields.push(two_u64_to_field(&[num, 0]));
+        // Scalar challenge
+        {
+            fields.push(u64_to_field(alpha));
+            fields.push(u64_to_field(zeta));
+            fields.push(u64_to_field(xi));
+        }
+
+        // Digest
+        {
+            fields.push(u64_to_field(sponge_digest_before_evaluations));
+            fields.push(u64_to_field(messages_for_next_wrap_proof));
+            fields.push(u64_to_field(messages_for_next_step_proof));
+        }
+
+        fields.extend(bulletproof_challenges.iter().map(u64_to_field));
+
+        // Index
+        {
+            // https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles_base/proofs_verified.ml#L58
+            let proofs_verified = match proofs_verified {
+                ProofVerified::N0 => 0b00,
+                ProofVerified::N1 => 0b10, // TODO: Make sure that it's not `0b01`, bits might be reversed
+                ProofVerified::N2 => 0b11,
+            };
+            // https://github.com/MinaProtocol/mina/blob/c824be7d80db1d290e0d48cbc920182d07de0330/src/lib/pickles/composition_types/branch_data.ml#L63
+            let domain_log2 = *domain_log2 as u64;
+            let branch_data: u64 = (domain_log2 << 2) | proofs_verified;
+
+            fields.push(u64_to_field(&[branch_data]));
+        }
 
         // TODO: Not sure how that padding works, check further
         fields.push(0.into());
@@ -254,7 +261,7 @@ mod tests {
             ],
         };
 
-        let fields = prepared_statement.to_fields();
+        let fields = prepared_statement.to_public_input();
         let fields_str: Vec<_> = fields.iter().map(|f| f.to_decimal()).collect();
 
         const OCAML_RESULT: &[&str] = &[
