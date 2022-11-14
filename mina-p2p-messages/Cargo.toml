@@ -13,7 +13,7 @@ binprot = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5b
 binprot_derive = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 thiserror = "1.0.32"
 derive_more = "0.99.17"
-bs58 = {version = "0.4", features = ["check"]}
+bs58 = { version = "0.4", features = ["check"] }
 sha2 = { version = "0.10.2", optional = true }
 
 mina-hasher = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }

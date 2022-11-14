@@ -74,14 +74,14 @@ pub struct MinaBaseSparseLedgerBaseStableV2 {
 /// Args: NonZeroCurvePointUncompressedStableV1 , MinaBaseAccountIdMakeStrDigestStableV1 , MinaBaseTokenPermissionsStableV1 , MinaBaseAccountTokenSymbolStableV1 , CurrencyMakeStrBalanceStableV1 , UnsignedExtendedUInt32StableV1 , MinaBaseReceiptChainHashStableV1 , Option < NonZeroCurvePointUncompressedStableV1 > , DataHashLibStateHashStableV1 , MinaBaseAccountTimingStableV1 , MinaBasePermissionsStableV2 , Option < MinaBaseZkappAccountStableV2 > , crate :: string :: ByteString
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseAccountBinableArgStableV2 {
-    pub public_key: NonZeroCurvePointUncompressedStableV1,
-    pub token_id: MinaBaseAccountIdMakeStrDigestStableV1,
+    pub public_key: NonZeroCurvePoint,
+    pub token_id: TokenIdKeyHash,
     pub token_permissions: MinaBaseTokenPermissionsStableV1,
     pub token_symbol: MinaBaseAccountTokenSymbolStableV1,
     pub balance: CurrencyMakeStrBalanceStableV1,
     pub nonce: UnsignedExtendedUInt32StableV1,
     pub receipt_chain_hash: MinaBaseReceiptChainHashStableV1,
-    pub delegate: Option<NonZeroCurvePointUncompressedStableV1>,
+    pub delegate: Option<NonZeroCurvePoint>,
     pub voting_for: DataHashLibStateHashStableV1,
     pub timing: MinaBaseAccountTimingStableV1,
     pub permissions: MinaBasePermissionsStableV2,
@@ -151,7 +151,7 @@ pub struct MinaBasePendingCoinbaseStableV2 {
 /// Args: DataHashLibStateHashStableV1 , MinaStateProtocolStateBodyValueStableV2
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaStateProtocolStateValueStableV2 {
-    pub previous_state_hash: DataHashLibStateHashStableV1,
+    pub previous_state_hash: StateHash,
     pub body: MinaStateProtocolStateBodyValueStableV2,
 }
 
@@ -202,16 +202,16 @@ pub struct ConsensusProofOfStakeDataConsensusStateValueStableV1 {
     pub epoch_count: UnsignedExtendedUInt32StableV1,
     pub min_window_density: UnsignedExtendedUInt32StableV1,
     pub sub_window_densities: Vec<UnsignedExtendedUInt32StableV1>,
-    pub last_vrf_output: ConsensusVrfOutputTruncatedStableV1,
+    pub last_vrf_output: VrfTruncatedOutput,
     pub total_currency: CurrencyMakeStrAmountMakeStrStableV1,
     pub curr_global_slot: ConsensusGlobalSlotStableV1,
     pub global_slot_since_genesis: UnsignedExtendedUInt32StableV1,
     pub staking_epoch_data: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
     pub next_epoch_data: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     pub has_ancestor_in_same_checkpoint_window: bool,
-    pub block_stake_winner: NonZeroCurvePointUncompressedStableV1,
-    pub block_creator: NonZeroCurvePointUncompressedStableV1,
-    pub coinbase_receiver: NonZeroCurvePointUncompressedStableV1,
+    pub block_stake_winner: NonZeroCurvePoint,
+    pub block_creator: NonZeroCurvePoint,
+    pub coinbase_receiver: NonZeroCurvePoint,
     pub supercharge_coinbase: bool,
 }
 
@@ -733,6 +733,7 @@ pub struct BlockTimeMakeStrTimeStableV1(pub UnsignedExtendedUInt64StableV1);
 pub enum MinaBaseSparseLedgerBaseStableV2Tree {
     Account(Box<MinaBaseAccountBinableArgStableV2>),
     Hash(MinaBaseLedgerHash0StableV1),
+    //Hash(LedgerHash),
     Node(
         MinaBaseLedgerHash0StableV1,
         Box<MinaBaseSparseLedgerBaseStableV2Tree>,
@@ -781,7 +782,7 @@ pub struct MinaBaseAccountIdMakeStrDigestStableV1(pub crate::bigint::BigInt);
 /// Location: [src/lib/mina_base/account_id.ml:147:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/account_id.ml#L147)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseAccountIdMakeStrStableV2(
-    pub NonZeroCurvePointUncompressedStableV1,
+    pub NonZeroCurvePoint,
     pub MinaBaseAccountIdMakeStrDigestStableV1,
 );
 
@@ -857,8 +858,8 @@ pub struct MinaBaseFeeExcessStableV1 {
 /// Args: NonZeroCurvePointUncompressedStableV1 , CurrencyMakeStrAmountMakeStrStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePaymentPayloadStableV2 {
-    pub source_pk: NonZeroCurvePointUncompressedStableV1,
-    pub receiver_pk: NonZeroCurvePointUncompressedStableV1,
+    pub source_pk: NonZeroCurvePoint,
+    pub receiver_pk: NonZeroCurvePoint,
     pub amount: CurrencyMakeStrAmountMakeStrStableV1,
 }
 
@@ -928,8 +929,8 @@ pub struct MinaBaseSignedCommandMemoMakeStrStableV1(pub crate::string::ByteStrin
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBaseStakeDelegationStableV1 {
     SetDelegate {
-        delegator: NonZeroCurvePointUncompressedStableV1,
-        new_delegate: NonZeroCurvePointUncompressedStableV1,
+        delegator: NonZeroCurvePoint,
+        new_delegate: NonZeroCurvePoint,
     },
 }
 
@@ -945,7 +946,7 @@ pub enum MinaBaseStakeDelegationStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseSignedCommandPayloadCommonStableV2 {
     pub fee: CurrencyMakeStrFeeStableV1,
-    pub fee_payer_pk: NonZeroCurvePointUncompressedStableV1,
+    pub fee_payer_pk: NonZeroCurvePoint,
     pub nonce: UnsignedExtendedUInt32StableV1,
     pub valid_until: UnsignedExtendedUInt32StableV1,
     pub memo: MinaBaseSignedCommandMemoMakeStrStableV1,
@@ -988,7 +989,7 @@ pub struct MinaBaseSignedCommandPayloadStableV2 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseSignedCommandMakeStrStableV2 {
     pub payload: MinaBaseSignedCommandPayloadStableV2,
-    pub signer: NonZeroCurvePointUncompressedStableV1,
+    pub signer: NonZeroCurvePoint,
     pub signature: MinaBaseSignatureStableV1,
 }
 
@@ -1078,7 +1079,7 @@ pub enum MinaBasePartyUpdateStableV1VerificationKey {
 /// Args: NonZeroCurvePointUncompressedStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBasePartyUpdateStableV1Delegate {
-    Set(NonZeroCurvePointUncompressedStableV1),
+    Set(NonZeroCurvePoint),
     Keep,
 }
 
@@ -1111,7 +1112,7 @@ pub enum MinaBasePartyUpdateStableV1ZkappUri {
 /// Args: DataHashLibStateHashStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint {
-    Check(DataHashLibStateHashStableV1),
+    Check(StateHash),
     Ignore,
 }
 
@@ -1122,7 +1123,7 @@ pub enum MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint 
 /// Args: MinaBaseEpochSeedStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed {
-    Check(MinaBaseEpochSeedStableV1),
+    Check(EpochSeed),
     Ignore,
 }
 
@@ -1155,7 +1156,7 @@ pub enum MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash {
 /// Args: NonZeroCurvePointUncompressedStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionAccountStableV2Delegate {
-    Check(NonZeroCurvePointUncompressedStableV1),
+    Check(NonZeroCurvePoint),
     Ignore,
 }
 
@@ -1234,7 +1235,7 @@ pub struct MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger {
 /// Args: MinaBaseLedgerHash0StableV1 , CurrencyMakeStrAmountMakeStrStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseEpochLedgerValueStableV1 {
-    pub hash: MinaBaseLedgerHash0StableV1,
+    pub hash: LedgerHash,
     pub total_currency: CurrencyMakeStrAmountMakeStrStableV1,
 }
 
@@ -1569,8 +1570,8 @@ pub struct MinaBasePartyBodyEventsStableV1(pub Vec<Vec<crate::bigint::BigInt>>);
 /// Location: [src/lib/mina_base/party.ml:741:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L741)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePartyBodyWireStableV1 {
-    pub public_key: NonZeroCurvePointUncompressedStableV1,
-    pub token_id: MinaBaseAccountIdMakeStrDigestStableV1,
+    pub public_key: NonZeroCurvePoint,
+    pub token_id: TokenIdKeyHash,
     pub update: MinaBasePartyUpdateStableV1,
     pub balance_change: MinaTransactionLogicPartiesLogicLocalStateValueStableV1Excess,
     pub increment_nonce: bool,
@@ -1588,7 +1589,7 @@ pub struct MinaBasePartyBodyWireStableV1 {
 /// Location: [src/lib/mina_base/party.ml:963:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/party.ml#L963)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePartyBodyFeePayerStableV1 {
-    pub public_key: NonZeroCurvePointUncompressedStableV1,
+    pub public_key: NonZeroCurvePoint,
     pub fee: CurrencyMakeStrFeeStableV1,
     pub valid_until: Option<UnsignedExtendedUInt32StableV1>,
     pub nonce: UnsignedExtendedUInt32StableV1,
@@ -1735,7 +1736,7 @@ pub enum MinaBaseUserCommandStableV2 {
 /// Location: [src/lib/mina_base/fee_transfer.ml:19:8](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/fee_transfer.ml#L19)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseFeeTransferMakeStrSingleStableV2 {
-    pub receiver_pk: NonZeroCurvePointUncompressedStableV1,
+    pub receiver_pk: NonZeroCurvePoint,
     pub fee: CurrencyMakeStrFeeStableV1,
     pub fee_token: MinaBaseAccountIdMakeStrDigestStableV1,
 }
@@ -1767,7 +1768,7 @@ pub enum MinaBaseFeeTransferMakeStrStableV2 {
 /// Location: [src/lib/mina_base/coinbase_fee_transfer.ml:15:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/coinbase_fee_transfer.ml#L15)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseCoinbaseFeeTransferMakeStrStableV1 {
-    pub receiver_pk: NonZeroCurvePointUncompressedStableV1,
+    pub receiver_pk: NonZeroCurvePoint,
     pub fee: CurrencyMakeStrFeeStableV1,
 }
 
@@ -1777,7 +1778,7 @@ pub struct MinaBaseCoinbaseFeeTransferMakeStrStableV1 {
 /// Location: [src/lib/mina_base/coinbase.ml:17:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/coinbase.ml#L17)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseCoinbaseMakeStrStableV1 {
-    pub receiver: NonZeroCurvePointUncompressedStableV1,
+    pub receiver: NonZeroCurvePoint,
     pub amount: CurrencyMakeStrAmountMakeStrStableV1,
     pub fee_transfer: Option<MinaBaseCoinbaseFeeTransferMakeStrStableV1>,
 }
@@ -1909,8 +1910,8 @@ pub struct MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1(pub crate::string:
 /// Location: [src/lib/mina_base/staged_ledger_hash.ml:98:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/mina_base/staged_ledger_hash.ml#L98)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseStagedLedgerHashNonSnarkStableV1 {
-    pub ledger_hash: MinaBaseLedgerHash0StableV1,
-    pub aux_hash: MinaBaseStagedLedgerHashAuxHashStableV1,
+    pub ledger_hash: LedgerHash,
+    pub aux_hash: StagedLedgerHashAuxHash,
     pub pending_coinbase_aux: MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1,
 }
 
@@ -1943,7 +1944,7 @@ pub struct MinaBaseStackFrameDigestStableV1(pub crate::bigint::BigInt);
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseSokMessageStableV1 {
     pub fee: CurrencyMakeStrFeeStableV1,
-    pub prover: NonZeroCurvePointUncompressedStableV1,
+    pub prover: NonZeroCurvePoint,
 }
 
 /// **OCaml name**: `Mina_base__Protocol_constants_checked.Value.Stable.V1`
@@ -1985,7 +1986,7 @@ pub struct MinaBaseCallStackDigestStableV1(pub crate::bigint::BigInt);
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseFeeWithProverStableV1 {
     pub fee: CurrencyMakeStrFeeStableV1,
-    pub prover: NonZeroCurvePointUncompressedStableV1,
+    pub prover: NonZeroCurvePoint,
 }
 
 /// **OCaml name**: `Mina_transaction_logic__Parties_logic.Local_state.Value.Stable.V1`
@@ -2003,7 +2004,7 @@ pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1 {
     pub call_stack: MinaBaseCallStackDigestStableV1,
     pub transaction_commitment: crate::bigint::BigInt,
     pub full_transaction_commitment: crate::bigint::BigInt,
-    pub token_id: MinaBaseAccountIdMakeStrDigestStableV1,
+    pub token_id: TokenIdKeyHash,
     pub excess: MinaTransactionLogicPartiesLogicLocalStateValueStableV1Excess,
     pub ledger: MinaBaseLedgerHash0StableV1,
     pub success: bool,
@@ -2031,7 +2032,7 @@ pub enum MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2 
         new_accounts: Vec<MinaBaseAccountIdMakeStrStableV2>,
     },
     StakeDelegation {
-        previous_delegate: Option<NonZeroCurvePointUncompressedStableV1>,
+        previous_delegate: Option<NonZeroCurvePoint>,
     },
     Failed,
 }
@@ -2109,7 +2110,7 @@ pub enum MinaTransactionLogicTransactionAppliedVaryingStableV2 {
 /// Location: [src/lib/transaction_logic/mina_transaction_logic.ml:135:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/transaction_logic/mina_transaction_logic.ml#L135)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaTransactionLogicTransactionAppliedStableV2 {
-    pub previous_hash: MinaBaseLedgerHash0StableV1,
+    pub previous_hash: LedgerHash,
     pub varying: MinaTransactionLogicTransactionAppliedVaryingStableV2,
 }
 
@@ -2194,9 +2195,9 @@ pub struct ConsensusGlobalSlotStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
     pub ledger: MinaBaseEpochLedgerValueStableV1,
-    pub seed: MinaBaseEpochSeedStableV1,
-    pub start_checkpoint: DataHashLibStateHashStableV1,
-    pub lock_checkpoint: DataHashLibStateHashStableV1,
+    pub seed: EpochSeed,
+    pub start_checkpoint: StateHash,
+    pub lock_checkpoint: StateHash,
     pub epoch_length: UnsignedExtendedUInt32StableV1,
 }
 
@@ -2212,9 +2213,9 @@ pub struct ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
     pub ledger: MinaBaseEpochLedgerValueStableV1,
-    pub seed: MinaBaseEpochSeedStableV1,
-    pub start_checkpoint: DataHashLibStateHashStableV1,
-    pub lock_checkpoint: DataHashLibStateHashStableV1,
+    pub seed: EpochSeed,
+    pub start_checkpoint: StateHash,
+    pub lock_checkpoint: StateHash,
     pub epoch_length: UnsignedExtendedUInt32StableV1,
 }
 
@@ -2254,7 +2255,7 @@ pub struct TransactionSnarkStatementWithSokStableV2Source {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaStateBlockchainStateValueStableV2 {
     pub staged_ledger_hash: MinaBaseStagedLedgerHashStableV1,
-    pub genesis_ledger_hash: MinaBaseLedgerHash0StableV1,
+    pub genesis_ledger_hash: LedgerHash,
     pub registers: MinaStateBlockchainStateValueStableV2Registers,
     pub timestamp: BlockTimeMakeStrTimeStableV1,
     pub body_reference: ConsensusBodyReferenceStableV1,
@@ -2271,7 +2272,7 @@ pub struct MinaStateBlockchainStateValueStableV2 {
 /// Args: DataHashLibStateHashStableV1 , MinaStateBlockchainStateValueStableV2 , ConsensusProofOfStakeDataConsensusStateValueStableV1 , MinaBaseProtocolConstantsCheckedValueStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaStateProtocolStateBodyValueStableV2 {
-    pub genesis_state_hash: DataHashLibStateHashStableV1,
+    pub genesis_state_hash: StateHash,
     pub blockchain_state: MinaStateBlockchainStateValueStableV2,
     pub consensus_state: ConsensusProofOfStakeDataConsensusStateValueStableV1,
     pub constants: MinaBaseProtocolConstantsCheckedValueStableV1,
@@ -2376,7 +2377,7 @@ pub enum TransactionSnarkWorkStatementStableV2 {
 pub struct TransactionSnarkWorkTStableV2 {
     pub fee: CurrencyMakeStrFeeStableV1,
     pub proofs: TransactionSnarkWorkTStableV2Proofs,
-    pub prover: NonZeroCurvePointUncompressedStableV1,
+    pub prover: NonZeroCurvePoint,
 }
 
 /// Derived name: `Staged_ledger_diff__Diff.Pre_diff_with_at_most_two_coinbase.Stable.V2#coinbase`
