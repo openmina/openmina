@@ -2,7 +2,13 @@ use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
 
+use crate::{b58::AsBase58Check, versioned::Versioned};
+
 use super::{
+    ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1,
+    MinaBaseAccountIdMakeStrDigestStableV1, MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
+    MinaBasePendingCoinbaseHashVersionedStableV1, MinaBaseStagedLedgerHashAuxHashStableV1,
+    MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1, NonZeroCurvePointUncompressedStableV1,
     ParallelScanWeightStableV1, TransactionSnarkScanStateStableV2TreesABaseT1,
     TransactionSnarkScanStateStableV2TreesAMergeT1,
 };
@@ -141,5 +147,108 @@ impl BinProtWrite for TransactionSnarkScanStateStableV2TreesA {
                 }
             }
         }
+    }
+}
+
+macro_rules! hash {
+    ($name:ident, $ty:ty, $version:expr, $version_byte:ident) => {
+        impl From<Versioned<$ty, $version>> for $ty {
+            fn from(source: Versioned<$ty, $version>) -> Self {
+                source.into_inner()
+            }
+        }
+
+        pub type $name =
+            AsBase58Check<$ty, Versioned<$ty, $version>, { $crate::b58version::$version_byte }>;
+    };
+    ($name:ident, $ty:ty, $version_byte:ident) => {
+        impl From<Versioned<$ty, 1>> for $ty {
+            fn from(source: Versioned<$ty, 1>) -> Self {
+                source.into_inner()
+            }
+        }
+
+        pub type $name =
+            AsBase58Check<$ty, Versioned<$ty, 1>, { $crate::b58version::$version_byte }>;
+    };
+}
+
+hash!(LedgerHash, MinaBaseLedgerHash0StableV1, LEDGER_HASH);
+hash!(
+    StagedLedgerHashAuxHash,
+    MinaBaseStagedLedgerHashAuxHashStableV1,
+    STAGED_LEDGER_HASH_AUX_HASH
+);
+hash!(EpochSeed, MinaBaseEpochSeedStableV1, EPOCH_SEED);
+hash!(
+    StagedLedgerHashPendingCoinbaseAux,
+    MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1,
+    STAGED_LEDGER_HASH_PENDING_COINBASE_AUX
+);
+hash!(StateHash, DataHashLibStateHashStableV1, STATE_HASH);
+hash!(
+    PendingCoinbaseHash,
+    MinaBasePendingCoinbaseHashVersionedStableV1,
+    RECEIPT_CHAIN_HASH
+);
+hash!(
+    TokenIdKeyHash,
+    MinaBaseAccountIdMakeStrDigestStableV1,
+    TOKEN_ID_KEY
+);
+hash!(
+    VrfTruncatedOutput,
+    ConsensusVrfOutputTruncatedStableV1,
+    VRF_TRUNCATED_OUTPUT
+);
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct NonZeroCurvePointWithVersions {
+    x: Versioned<crate::bigint::BigInt, 1>,
+    is_odd: bool,
+}
+
+impl From<NonZeroCurvePointUncompressedStableV1> for Versioned<NonZeroCurvePointWithVersions, 1> {
+    fn from(source: NonZeroCurvePointUncompressedStableV1) -> Self {
+        NonZeroCurvePointWithVersions {
+            x: source.x.into(),
+            is_odd: source.is_odd,
+        }
+        .into()
+    }
+}
+
+impl From<Versioned<NonZeroCurvePointWithVersions, 1>> for NonZeroCurvePointUncompressedStableV1 {
+    fn from(source: Versioned<NonZeroCurvePointWithVersions, 1>) -> Self {
+        let source = source.into_inner();
+        Self {
+            x: source.x.into_inner(),
+            is_odd: source.is_odd,
+        }
+    }
+}
+
+pub type NonZeroCurvePoint = AsBase58Check<
+    NonZeroCurvePointUncompressedStableV1,
+    Versioned<NonZeroCurvePointWithVersions, 1>,
+    { crate::b58version::NON_ZERO_CURVE_POINT_COMPRESSED },
+>;
+
+#[cfg(test)]
+mod tests {
+    use super::NonZeroCurvePoint;
+
+    #[test]
+    fn non_zero_curve_point() {
+        let b58 = r#""B62qkUHaJUHERZuCHQhXCQ8xsGBqyYSgjQsKnKN5HhSJecakuJ4pYyk""#;
+
+        let v = serde_json::from_str::<NonZeroCurvePoint>(&b58)
+            .unwrap()
+            .into_inner();
+        assert_eq!(v.is_odd, false);
+        assert_eq!(
+            &hex::encode(&v.x),
+            "3c2b5b48c22dc8b8c9d2c9d76a2ceaaf02beabb364301726c3f8e989653af513"
+        );
     }
 }
