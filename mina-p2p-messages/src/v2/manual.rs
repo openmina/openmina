@@ -1,16 +1,16 @@
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize};
 
-use crate::{b58::AsBase58Check, versioned::Versioned};
+use crate::{b58::AsBase58Check, bigint::BigInt, versioned::Versioned};
 
 use super::{
     ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1,
     MinaBaseAccountIdMakeStrDigestStableV1, MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
     MinaBasePendingCoinbaseHashVersionedStableV1, MinaBaseStagedLedgerHashAuxHashStableV1,
     MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1, NonZeroCurvePointUncompressedStableV1,
-    ParallelScanWeightStableV1, TransactionSnarkScanStateStableV2TreesABaseT1,
-    TransactionSnarkScanStateStableV2TreesAMergeT1,
+    ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
+    TransactionSnarkScanStateStableV2TreesABaseT1, TransactionSnarkScanStateStableV2TreesAMergeT1,
 };
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
@@ -250,5 +250,78 @@ mod tests {
             &hex::encode(&v.x),
             "3c2b5b48c22dc8b8c9d2c9d76a2ceaaf02beabb364301726c3f8e989653af513"
         );
+    }
+}
+
+const SHIFTED_VALUE: &str = "Shifted_value";
+
+impl Serialize for PicklesProofProofsVerified2ReprStableV2StatementFp {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            let mut serializer = serializer.serialize_tuple(2)?;
+            match self {
+                PicklesProofProofsVerified2ReprStableV2StatementFp::ShiftedValue(v) => {
+                    serializer.serialize_element(SHIFTED_VALUE)?;
+                    serializer.serialize_element(v)?;
+                }
+            }
+            serializer.end()
+        } else {
+            match self {
+                PicklesProofProofsVerified2ReprStableV2StatementFp::ShiftedValue(v) => serializer
+                    .serialize_newtype_variant(
+                        "PicklesProofProofsVerified2ReprStableV2StatementFp",
+                        0,
+                        "ShiftedValue",
+                        v,
+                    ),
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PicklesProofProofsVerified2ReprStableV2StatementFp {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = PicklesProofProofsVerified2ReprStableV2StatementFp;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("tuple of tag and value")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                match seq.next_element::<String>()? {
+                    Some(v) if &v == SHIFTED_VALUE => {}
+                    Some(v) => {
+                        return Err(serde::de::Error::custom(format!(
+                            "expecting `{SHIFTED_VALUE}`, got `{v}`"
+                        )))
+                    }
+                    None => return Err(serde::de::Error::custom("expecting a tag")),
+                }
+                match seq.next_element::<BigInt>()? {
+                    Some(v) => {
+                        Ok(PicklesProofProofsVerified2ReprStableV2StatementFp::ShiftedValue(v))
+                    }
+                    None => return Err(serde::de::Error::custom("expecting a value")),
+                }
+            }
+        }
+
+        if deserializer.is_human_readable() {
+            deserializer.deserialize_tuple(2, V)
+        } else {
+            todo!()
+        }
     }
 }

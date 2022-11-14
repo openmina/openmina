@@ -266,7 +266,7 @@ pub struct UnsignedExtendedUInt64StableV1(pub crate::number::Int64);
 /// Gid: `458`
 /// Location: [src/lib/pickles_types/shifted_value.ml:94:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles_types/shifted_value.ml#L94)
 /// Args: crate :: bigint :: BigInt
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
 pub enum PicklesProofProofsVerified2ReprStableV2StatementFp {
     ShiftedValue(crate::bigint::BigInt),
 }
