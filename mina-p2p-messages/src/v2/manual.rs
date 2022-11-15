@@ -151,7 +151,7 @@ impl BinProtWrite for TransactionSnarkScanStateStableV2TreesA {
 }
 
 macro_rules! hash {
-    ($name:ident, $ty:ty, $version:expr, $version_byte:ident) => {
+    ($name:ident, versioned($ty:ty, $version:expr), $version_byte:ident) => {
         impl From<Versioned<$ty, $version>> for $ty {
             fn from(source: Versioned<$ty, $version>) -> Self {
                 source.into_inner()
@@ -161,44 +161,40 @@ macro_rules! hash {
         pub type $name =
             AsBase58Check<$ty, Versioned<$ty, $version>, { $crate::b58version::$version_byte }>;
     };
+    ($name:ident, versioned $ty:ty, $version_byte:ident) => {
+        hash!($name, versioned($ty, 1), $version_byte);
+    };
     ($name:ident, $ty:ty, $version_byte:ident) => {
-        impl From<Versioned<$ty, 1>> for $ty {
-            fn from(source: Versioned<$ty, 1>) -> Self {
-                source.into_inner()
-            }
-        }
-
-        pub type $name =
-            AsBase58Check<$ty, Versioned<$ty, 1>, { $crate::b58version::$version_byte }>;
+        pub type $name = AsBase58Check<$ty, $ty, { $crate::b58version::$version_byte }>;
     };
 }
 
-hash!(LedgerHash, MinaBaseLedgerHash0StableV1, LEDGER_HASH);
+hash!(LedgerHash, versioned MinaBaseLedgerHash0StableV1, LEDGER_HASH);
 hash!(
     StagedLedgerHashAuxHash,
     MinaBaseStagedLedgerHashAuxHashStableV1,
     STAGED_LEDGER_HASH_AUX_HASH
 );
-hash!(EpochSeed, MinaBaseEpochSeedStableV1, EPOCH_SEED);
+hash!(EpochSeed, versioned MinaBaseEpochSeedStableV1, EPOCH_SEED);
 hash!(
     StagedLedgerHashPendingCoinbaseAux,
     MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1,
     STAGED_LEDGER_HASH_PENDING_COINBASE_AUX
 );
-hash!(StateHash, DataHashLibStateHashStableV1, STATE_HASH);
+hash!(StateHash, versioned DataHashLibStateHashStableV1, STATE_HASH);
 hash!(
     PendingCoinbaseHash,
-    MinaBasePendingCoinbaseHashVersionedStableV1,
+    versioned MinaBasePendingCoinbaseHashVersionedStableV1,
     RECEIPT_CHAIN_HASH
 );
-pub type TokenIdKeyHash = AsBase58Check<
+hash!(
+    TokenIdKeyHash,
     MinaBaseAccountIdMakeStrDigestStableV1,
-    MinaBaseAccountIdMakeStrDigestStableV1,
-    { crate::b58version::TOKEN_ID_KEY },
->;
+    TOKEN_ID_KEY
+);
 hash!(
     VrfTruncatedOutput,
-    ConsensusVrfOutputTruncatedStableV1,
+    versioned ConsensusVrfOutputTruncatedStableV1,
     VRF_TRUNCATED_OUTPUT
 );
 
@@ -236,31 +232,89 @@ pub type NonZeroCurvePoint = AsBase58Check<
 
 #[cfg(test)]
 mod tests {
-    use crate::{bigint::BigInt, v2::MinaBaseAccountIdMakeStrDigestStableV1};
+    use binprot::BinProtWrite;
+    use serde::{Serialize, de::DeserializeOwned};
 
-    use super::{NonZeroCurvePoint, TokenIdKeyHash};
+    use super::*;
 
-    #[test]
-    fn token_id() {
-        let b58 = r#""wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf""#;
-        let mut x = [0; 32];
-        x[0] = 1;
+    fn base58check_test<T: Serialize + DeserializeOwned + BinProtWrite>(b58: &str, hex: &str) {
+        let bin: T = serde_json::from_value(serde_json::json!(b58)).unwrap();
+        let json = serde_json::to_value(&bin).unwrap();
 
-        let b = TokenIdKeyHash::from(MinaBaseAccountIdMakeStrDigestStableV1(BigInt::from(
-            Box::new(x),
-        )));
-        let json = serde_json::to_string_pretty(&b).unwrap();
+        let mut binprot = Vec::new();
+        bin.binprot_write(&mut binprot).unwrap();
 
-        assert_eq!(b58, &json);
+        // println!("{b58} => {}", hex::encode(&binprot));
+        // println!("{hex} => {}", json.as_str().unwrap());
 
-        let v = serde_json::from_str::<TokenIdKeyHash>(&b58)
-            .unwrap()
-            .into_inner();
-        assert_eq!(
-            &hex::encode(v.0.as_ref()),
-            "0100000000000000000000000000000000000000000000000000000000000000"
-        );
+        assert_eq!(hex::encode(&binprot), hex);
+        assert_eq!(json.as_str().unwrap(), b58);
     }
+
+    macro_rules! b58t {
+        ($name:ident, $ty:ty, $b58:expr, $hex:expr) => {
+            #[test]
+            fn $name() {
+                base58check_test::<$ty>($b58, $hex);
+            }
+        };
+    }
+
+    b58t!(
+        ledger_hash,
+        LedgerHash,
+        "jwrPvAMUNo3EKT2puUk5Fxz6B7apRAoKNTGpAA49t3TRSfzvdrL",
+        "636f5b2d67278e17bc4343c7c23fb4991f8cf0bbbfd8558615b124d5d6254801"
+    );
+
+    b58t!(
+        staged_ledger_hash_aux_hash,
+        StagedLedgerHashAuxHash,
+        "36DghpXjs8tswr8NCeWkLmsSW52gH98qbuAXcfFsr6ykCdvjKwoF",
+        "20d9b3ceaed3f1dc7a13fcd88585fefadb86475d83e89828a7099e2ee5506d173c"
+    );
+
+    b58t!(
+        epoch_seed,
+        EpochSeed,
+        "2vajKi2Cxx58mByzxbJA3G6gYh1j2BoizW4zzoLcZa3kYECjhaXV",
+        "4d8802db5beb98f13e10475ddc9e718f6890613276331c062f5d71b915d6941d"
+    );
+
+    b58t!(
+        staged_ledger_hash_pending_coinbase_aux,
+        StagedLedgerHashPendingCoinbaseAux,
+        "3EoSZGcx4LkUtnsEwaZfUt5VcXjJbiDKybGTbTjFsZT5MBKzH3eU",
+        "20ea3c01998507afba1adb2a8d14831fd5af3ff687078bfc0c68916abc98e76384"
+    );
+
+    b58t!(
+        state_hash,
+        StateHash,
+        "3NL7AkynW6hbDrhHTAht1GLG563Fo9fdcEQk1zEyy5XedC6aZTeB",
+        "8d67aadd018581a812623915b13d5c3a6da7dfe8a195172d9bbd206810bc2329"
+    );
+
+    b58t!(
+        pending_coinbase_hash,
+        PendingCoinbaseHash,
+        "2n2EEn3yH1oRU8tCXTjw7dJKHQVcFTkfeDCTpBzum3sZcssPeaVM",
+        "e23a19254e600402e4474371450d498c75a9b3e28c34160d489af61c255f722c"
+    );
+
+    b58t!(
+        token_id_key,
+        TokenIdKeyHash,
+        "wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf",
+        "0100000000000000000000000000000000000000000000000000000000000000"
+    );
+
+    b58t!(
+        vrf_truncated_output,
+        VrfTruncatedOutput,
+        "EiRsUVp6UYoeNkuVJq5TMtJZ36SU2jDN1UdEjy19heG6jwSAeEMKL",
+        "206b989c94427dbaa87f7ad558b9a2f8311589fbed43146b2aa7c0ab0f334e1b03"
+    );
 
     #[test]
     fn non_zero_curve_point() {

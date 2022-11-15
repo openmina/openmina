@@ -1912,7 +1912,7 @@ pub struct MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1(pub crate::string:
 pub struct MinaBaseStagedLedgerHashNonSnarkStableV1 {
     pub ledger_hash: LedgerHash,
     pub aux_hash: StagedLedgerHashAuxHash,
-    pub pending_coinbase_aux: MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1,
+    pub pending_coinbase_aux: StagedLedgerHashPendingCoinbaseAux,
 }
 
 /// **OCaml name**: `Mina_base__Staged_ledger_hash.Stable.V1`
@@ -1927,7 +1927,7 @@ pub struct MinaBaseStagedLedgerHashNonSnarkStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseStagedLedgerHashStableV1 {
     pub non_snark: MinaBaseStagedLedgerHashNonSnarkStableV1,
-    pub pending_coinbase_hash: MinaBasePendingCoinbaseHashVersionedStableV1,
+    pub pending_coinbase_hash: PendingCoinbaseHash,
 }
 
 /// **OCaml name**: `Mina_base__Stack_frame.Digest.Stable.V1`
@@ -2006,7 +2006,7 @@ pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1 {
     pub full_transaction_commitment: crate::bigint::BigInt,
     pub token_id: TokenIdKeyHash,
     pub excess: MinaTransactionLogicPartiesLogicLocalStateValueStableV1Excess,
-    pub ledger: MinaBaseLedgerHash0StableV1,
+    pub ledger: LedgerHash,
     pub success: bool,
     pub party_index: UnsignedExtendedUInt32StableV1,
     pub failure_status_tbl: MinaBaseTransactionStatusFailureCollectionStableV1,
@@ -2226,7 +2226,7 @@ pub struct ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
 /// Args: MinaBaseLedgerHash0StableV1 , () , MinaTransactionLogicPartiesLogicLocalStateValueStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaStateBlockchainStateValueStableV2Registers {
-    pub ledger: MinaBaseLedgerHash0StableV1,
+    pub ledger: LedgerHash,
     pub pending_coinbase_stack: (),
     pub local_state: MinaTransactionLogicPartiesLogicLocalStateValueStableV1,
 }
@@ -2238,7 +2238,7 @@ pub struct MinaStateBlockchainStateValueStableV2Registers {
 /// Args: MinaBaseLedgerHash0StableV1 , MinaBasePendingCoinbaseStackVersionedStableV1 , MinaTransactionLogicPartiesLogicLocalStateValueStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct TransactionSnarkStatementWithSokStableV2Source {
-    pub ledger: MinaBaseLedgerHash0StableV1,
+    pub ledger: LedgerHash,
     pub pending_coinbase_stack: MinaBasePendingCoinbaseStackVersionedStableV1,
     pub local_state: MinaTransactionLogicPartiesLogicLocalStateValueStableV1,
 }
