@@ -81,6 +81,18 @@ impl<'de, T: RequestIdType> Deserialize<'de> for RequestId<T> {
     }
 }
 
+impl<T: RequestIdType> fmt::Display for RequestId<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}({}:{})",
+            T::request_id_type(),
+            self.locator,
+            self.counter
+        )
+    }
+}
+
 impl<T: RequestIdType> fmt::Debug for RequestId<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct(T::request_id_type())

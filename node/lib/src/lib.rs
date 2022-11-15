@@ -1,5 +1,5 @@
 mod action;
-pub use action::{Action, ActionWithMeta};
+pub use action::{Action, ActionWithMeta, ActionWithMetaRef};
 
 mod state;
 pub use state::State;
@@ -14,6 +14,7 @@ pub mod service;
 pub use service::Service;
 
 pub mod event_source;
+pub mod logger;
 pub mod p2p;
 pub mod rpc;
 

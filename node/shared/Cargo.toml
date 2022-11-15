@@ -7,3 +7,8 @@ license = "Apache-2.0"
 [dependencies]
 serde = "1.0.147"
 slab = { version = "0.4.7", features = ["serde"] }
+tracing = { version = "0.1", features = ["std"] }
+redux = { git = "https://github.com/name-placeholder/redux-rs.git", features = ["serde"] }
+
+mina-hasher = { git = "https://github.com/o1-labs/proof-systems" }
+mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messages-rs", branch = "main", features = ["hashing"] }

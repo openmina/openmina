@@ -9,7 +9,6 @@ serde = "1.0.147"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 derive_more = "0.99.17"
-tracing = "0.1"
 binprot = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 redux = { git = "https://github.com/name-placeholder/redux-rs.git", features = ["serde"] }
 libp2p = { git = "https://github.com/name-placeholder/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
