@@ -176,12 +176,10 @@ impl Libp2pService {
         swarm: &mut Swarm<Behaviour>,
         event: SwarmEvent<BehaviourEvent, E>,
     ) {
-        log::trace!("event {:?}", event);
         match event {
             SwarmEvent::ConnectionEstablished {
                 peer_id, endpoint, ..
             } => {
-                log::info!("Connected to {}", peer_id);
                 let event = if endpoint.is_dialer() {
                     Event::P2p(P2pEvent::Connection(P2pConnectionEvent::OutgoingInit(
                         peer_id,
@@ -194,7 +192,11 @@ impl Libp2pService {
                 swarm.behaviour_mut().event_source_sender.send(event).await;
             }
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
-                log::info!("Disconnected from {}", peer_id);
+                tracing::info!(
+                    kind = "PeerDisconnected",
+                    summary = format!("peer_id {}", peer_id),
+                    peer_id = peer_id.to_string()
+                )
                 // TODO(binier)
             }
             SwarmEvent::OutgoingConnectionError { peer_id, error } => {
@@ -213,6 +215,10 @@ impl Libp2pService {
                 error,
                 ..
             } => {
+                tracing::info!(
+                    kind = "PeerConnectionIncomingError",
+                    summary = format!("peer_addr {}", send_back_addr.to_string())
+                );
                 // TODO(binier)
             }
             SwarmEvent::Behaviour(event) => match event {
@@ -230,11 +236,17 @@ impl Libp2pService {
                     swarm.behaviour_mut().event_source_sender.send(event).await;
                 }
                 event => {
-                    log::trace!("Ignored behavior Event: {:?}", event);
+                    tracing::trace!(
+                        kind = "IgnoredLibp2pBehaviorEvent",
+                        event = format!("{:?}", event)
+                    );
                 }
             },
             event => {
-                log::trace!("Ignored Swarm Event: {:?}", event);
+                tracing::trace!(
+                    kind = "IgnoredLibp2pSwarmEvent",
+                    event = format!("{:?}", event)
+                );
             }
         }
     }
