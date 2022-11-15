@@ -2008,7 +2008,7 @@ pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1 {
     pub excess: MinaTransactionLogicPartiesLogicLocalStateValueStableV1Excess,
     pub ledger: LedgerHash,
     pub success: bool,
-    pub party_index: UnsignedExtendedUInt32StableV1,
+    pub account_update_index: UnsignedExtendedUInt32StableV1,
     pub failure_status_tbl: MinaBaseTransactionStatusFailureCollectionStableV1,
 }
 
