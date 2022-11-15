@@ -76,9 +76,12 @@ impl Serialize for BigInt {
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
+            // TODO get rid of copying
+            let mut rev = self.0.as_ref().clone();
+            rev[..].reverse();
             let mut hex = [0_u8; 32 * 2 + 2];
             hex[..2].copy_from_slice(b"0x");
-            hex::encode_to_slice(&self.0[..], &mut hex[2..]).unwrap();
+            hex::encode_to_slice(rev, &mut hex[2..]).unwrap();
             serializer.serialize_str(String::from_utf8_lossy(&hex).as_ref())
         } else {
             serializer.serialize_bytes(&self.0[..])
@@ -117,9 +120,14 @@ impl<'de> Deserialize<'de> for BigInt {
                     E: serde::de::Error,
                 {
                     match v.strip_prefix("0x") {
-                        Some(v) => hex::decode(v).map_err(|_| {
-                            serde::de::Error::custom(format!("failed to decode hex str: {v}"))
-                        }),
+                        Some(v) => hex::decode(v)
+                            .map_err(|_| {
+                                serde::de::Error::custom(format!("failed to decode hex str: {v}"))
+                            })
+                            .map(|mut v| {
+                                v.reverse();
+                                v
+                            }),
                         None => Err(serde::de::Error::custom(format!("mising 0x prefix"))),
                     }
                 }
@@ -236,7 +244,9 @@ mod tests {
 
         for bigint in bigints {
             let json = serde_json::to_string(&bigint).unwrap();
-            let json_exp = format!(r#""0x{}""#, hex::encode(bigint.0.as_ref()));
+            let mut v = bigint.0.as_ref().clone();
+            v.reverse();
+            let json_exp = format!(r#""0x{}""#, hex::encode(v));
             assert_eq!(json, json_exp);
         }
     }
