@@ -3,7 +3,6 @@
 use std::marker::PhantomData;
 
 use binprot::{BinProtRead, BinProtWrite};
-use mina_hasher::Hashable;
 use serde::{Deserialize, Serialize};
 
 /// Before encoding, data is prepended with the version byte.
@@ -163,6 +162,7 @@ where
             let binprot = decode(&b58, V).map_err(|e| {
                 serde::de::Error::custom(format!("Failed to construct from base58check: {e}"))
             })?;
+            println!("=== {}", hex::encode(&binprot));
             let binable = U::binprot_read(&mut &binprot[1..]).map_err(|e| {
                 serde::de::Error::custom(format!("Failed to construct from base58check: {e}"))
             })?;
@@ -175,7 +175,7 @@ where
 }
 
 #[cfg(feature = "hashing")]
-impl<T: Hashable, U, const V: u8> Hashable for AsBase58Check<T, U, V> {
+impl<T: mina_hasher::Hashable, U, const V: u8> mina_hasher::Hashable for AsBase58Check<T, U, V> {
     type D = T::D;
 
     fn to_roinput(&self) -> mina_hasher::ROInput {
