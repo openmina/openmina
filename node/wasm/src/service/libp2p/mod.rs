@@ -180,6 +180,12 @@ impl Libp2pService {
             SwarmEvent::ConnectionEstablished {
                 peer_id, endpoint, ..
             } => {
+                shared::log::info!(
+                    shared::log::system_time();
+                    kind = "PeerConnected",
+                    summary = format!("peer_id: {}", peer_id),
+                    peer_id = peer_id.to_string()
+                );
                 let event = if endpoint.is_dialer() {
                     Event::P2p(P2pEvent::Connection(P2pConnectionEvent::OutgoingInit(
                         peer_id,
@@ -192,11 +198,12 @@ impl Libp2pService {
                 swarm.behaviour_mut().event_source_sender.send(event).await;
             }
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
-                tracing::info!(
+                shared::log::info!(
+                    shared::log::system_time();
                     kind = "PeerDisconnected",
-                    summary = format!("peer_id {}", peer_id),
+                    summary = format!("peer_id: {}", peer_id),
                     peer_id = peer_id.to_string()
-                )
+                );
                 // TODO(binier)
             }
             SwarmEvent::OutgoingConnectionError { peer_id, error } => {
@@ -215,9 +222,10 @@ impl Libp2pService {
                 error,
                 ..
             } => {
-                tracing::info!(
+                shared::log::info!(
+                    shared::log::system_time();
                     kind = "PeerConnectionIncomingError",
-                    summary = format!("peer_addr {}", send_back_addr.to_string())
+                    summary = format!("peer_addr: {}", send_back_addr.to_string())
                 );
                 // TODO(binier)
             }
@@ -236,14 +244,16 @@ impl Libp2pService {
                     swarm.behaviour_mut().event_source_sender.send(event).await;
                 }
                 event => {
-                    tracing::trace!(
+                    shared::log::trace!(
+                        shared::log::system_time();
                         kind = "IgnoredLibp2pBehaviorEvent",
                         event = format!("{:?}", event)
                     );
                 }
             },
             event => {
-                tracing::trace!(
+                shared::log::trace!(
+                    shared::log::system_time();
                     kind = "IgnoredLibp2pSwarmEvent",
                     event = format!("{:?}", event)
                 );

@@ -5,6 +5,7 @@ use std::fmt;
 use std::rc::Rc;
 
 use serde::Serialize;
+use shared::log::inner as tracing;
 use tracing::field::{Field, Visit};
 use tracing::{Level, Subscriber};
 use tracing_subscriber::layer::Context;

@@ -6,11 +6,11 @@ license = "Apache-2.0"
 
 [dependencies]
 serde = "1.0.147"
+serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
 strum = "0.24.1"
 strum_macros = "0.24.3"
 derive_more = "0.99.17"
 thiserror = "1.0.37"
-tracing = "0.1"
 redux = { git = "https://github.com/name-placeholder/redux-rs.git", features = ["serde"] }
 libp2p = { git = "https://github.com/name-placeholder/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
 

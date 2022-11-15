@@ -125,7 +125,7 @@ pub async fn run(mut node: Node) {
 #[wasm_bindgen(js_name = start)]
 pub async fn wasm_start() -> Result<JsHandle, JsValue> {
     let logger_config = logging::InMemLoggerConfig {
-        max_level: tracing::Level::DEBUG,
+        max_level: shared::log::inner::Level::DEBUG,
         max_len: 256,
     };
     let logs = logging::setup_global_logger(logger_config);
@@ -315,9 +315,10 @@ impl JsHandle {
         let sig = self.signer.borrow_mut().sign(&keypair, &tx);
 
         let msg = tx.to_gossipsub_v1_msg(sig);
-        tracing::info!(
+        shared::log::info!(
+            shared::log::system_time();
             summary = "created transaction pool message: {:?}",
-            msg = serde_json::to_string(&msg).ok()
+            message = serde_json::to_string(&msg).ok()
         );
         self.pubsub_publish(PubsubTopic::CodaConsensusMessage, msg)
             .await;
