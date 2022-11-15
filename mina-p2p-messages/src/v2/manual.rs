@@ -191,11 +191,11 @@ hash!(
     MinaBasePendingCoinbaseHashVersionedStableV1,
     RECEIPT_CHAIN_HASH
 );
-hash!(
-    TokenIdKeyHash,
+pub type TokenIdKeyHash = AsBase58Check<
     MinaBaseAccountIdMakeStrDigestStableV1,
-    TOKEN_ID_KEY
-);
+    MinaBaseAccountIdMakeStrDigestStableV1,
+    { crate::b58version::TOKEN_ID_KEY },
+>;
 hash!(
     VrfTruncatedOutput,
     ConsensusVrfOutputTruncatedStableV1,
@@ -236,7 +236,31 @@ pub type NonZeroCurvePoint = AsBase58Check<
 
 #[cfg(test)]
 mod tests {
-    use super::NonZeroCurvePoint;
+    use crate::{bigint::BigInt, v2::MinaBaseAccountIdMakeStrDigestStableV1};
+
+    use super::{NonZeroCurvePoint, TokenIdKeyHash};
+
+    #[test]
+    fn token_id() {
+        let b58 = r#""wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf""#;
+        let mut x = [0; 32];
+        x[0] = 1;
+
+        let b = TokenIdKeyHash::from(MinaBaseAccountIdMakeStrDigestStableV1(BigInt::from(
+            Box::new(x),
+        )));
+        let json = serde_json::to_string_pretty(&b).unwrap();
+
+        assert_eq!(b58, &json);
+
+        let v = serde_json::from_str::<TokenIdKeyHash>(&b58)
+            .unwrap()
+            .into_inner();
+        assert_eq!(
+            &hex::encode(v.0.as_ref()),
+            "0100000000000000000000000000000000000000000000000000000000000000"
+        );
+    }
 
     #[test]
     fn non_zero_curve_point() {
