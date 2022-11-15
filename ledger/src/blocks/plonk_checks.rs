@@ -1,7 +1,7 @@
 use ark_ff::{Field, One};
 use mina_hasher::Fp;
 
-use crate::FpExt;
+use crate::{FpExt, ScalarsEnv};
 
 pub struct PlonkMinimal {
     alpha: Fp,
@@ -14,36 +14,30 @@ pub struct PlonkMinimal {
 type TwoFields = [Fp; 2];
 
 pub struct EvalsInCircuit {
-    w: [TwoFields; 15],
-    z: TwoFields,
-    s: [TwoFields; 6],
-    generic_selector: TwoFields,
-    poseidon_selector: TwoFields,
-    lookup: Option<()>,
-}
-
-pub struct ScalarsEnv {
-    zk_polynomial: Fp,
-    zeta_to_n_minus_1: Fp,
-    srs_length_log2: u64,
+    pub w: [TwoFields; 15],
+    pub z: TwoFields,
+    pub s: [TwoFields; 6],
+    pub generic_selector: TwoFields,
+    pub poseidon_selector: TwoFields,
+    pub lookup: Option<()>,
 }
 
 // Result of `plonk_derive`
 #[derive(Debug)]
 pub struct InCircuit {
-    alpha: Fp,
-    beta: Fp,
-    gamma: Fp,
-    zeta: Fp,
-    zeta_to_domain_size: ShiftedValue<Fp>,
-    zeta_to_srs_length: ShiftedValue<Fp>,
-    poseidon_selector: ShiftedValue<Fp>,
-    vbmul: (),
-    complete_add: (),
-    endomul: (),
-    endomul_scalar: (),
-    perm: ShiftedValue<Fp>,
-    generic: [ShiftedValue<Fp>; 9],
+    pub alpha: Fp,
+    pub beta: Fp,
+    pub gamma: Fp,
+    pub zeta: Fp,
+    pub zeta_to_domain_size: ShiftedValue<Fp>,
+    pub zeta_to_srs_length: ShiftedValue<Fp>,
+    pub poseidon_selector: ShiftedValue<Fp>,
+    pub vbmul: (),
+    pub complete_add: (),
+    pub endomul: (),
+    pub endomul_scalar: (),
+    pub perm: ShiftedValue<Fp>,
+    pub generic: [ShiftedValue<Fp>; 9],
 }
 
 pub struct Shift<F: Field> {
