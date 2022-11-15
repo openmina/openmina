@@ -1,4 +1,5 @@
 use ark_ff::{Field, One};
+use kimchi::proof::ProofEvaluations;
 use mina_hasher::Fp;
 
 use crate::{FpExt, ScalarsEnv};
@@ -103,7 +104,7 @@ const PERM_ALPHA0: usize = 21;
 
 pub fn derive_plonk(
     env: ScalarsEnv,
-    evals: EvalsInCircuit,
+    evals: ProofEvaluations<TwoFields>,
     minimal: PlonkMinimal,
     shift: Shift<Fp>,
 ) -> InCircuit {
@@ -217,7 +218,7 @@ mod tests {
             ),
             srs_length_log2: 16,
         };
-        let evals = EvalsInCircuit {
+        let evals = ProofEvaluations {
             w: [
                 [
                     f("6289128557598946688693552667439393426405656688717900311656646754749459718720"),
