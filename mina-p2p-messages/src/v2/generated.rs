@@ -456,7 +456,7 @@ pub struct CompositionTypesBranchDataMakeStrDomainLog2StableV1(pub crate::char::
 /// Location: [src/lib/pickles/composition_types/branch_data.ml:51:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/pickles/composition_types/branch_data.ml#L51)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct CompositionTypesBranchDataMakeStrStableV1 {
-    pub proofs_verified: PicklesBaseProofsVerifiedStableV1,
+    pub proofs_verified: (PicklesBaseProofsVerifiedStableV1, ),
     pub domain_log2: CompositionTypesBranchDataMakeStrDomainLog2StableV1,
 }
 
@@ -653,7 +653,7 @@ pub enum SgnStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1Excess {
     pub magnitude: CurrencyMakeStrAmountMakeStrStableV1,
-    pub sgn: SgnStableV1,
+    pub sgn: (SgnStableV1, ),
 }
 
 /// Derived name: `Mina_base__Fee_excess.Stable.V1#fee`
@@ -664,7 +664,7 @@ pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1Excess {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseFeeExcessStableV1Fee {
     pub magnitude: CurrencyMakeStrFeeStableV1,
-    pub sgn: SgnStableV1,
+    pub sgn: (SgnStableV1, ),
 }
 
 /// **OCaml name**: `Currency.Make_str.Fee.Stable.V1`
