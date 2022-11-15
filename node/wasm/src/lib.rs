@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -30,6 +31,8 @@ use service::rpc::{
     RpcP2pConnectionOutgoingResponse, RpcP2pPubsubPublishResponse, RpcService, RpcStateGetResponse,
 };
 pub use service::NodeWasmService;
+
+pub mod logging;
 
 mod transaction;
 pub use transaction::Transaction;
@@ -121,7 +124,12 @@ pub async fn run(mut node: Node) {
 
 #[wasm_bindgen(js_name = start)]
 pub async fn wasm_start() -> Result<JsHandle, JsValue> {
-    wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
+    let logger_config = logging::InMemLoggerConfig {
+        max_level: tracing::Level::DEBUG,
+        max_len: 256,
+    };
+    let logs = logging::setup_global_logger(logger_config);
+
     let (tx, rx) = mpsc::channel(1024);
 
     let (libp2p, manual_connector) = Libp2pService::run(tx.clone()).await;
@@ -136,11 +144,14 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
     let rpc_sender = node.store_mut().service.wasm_rpc_req_sender().clone();
 
     spawn_local(run(node));
+
+    let signer = Box::new(mina_signer::create_legacy(NetworkId::TESTNET));
     Ok(JsHandle {
         sender: tx,
         rpc: RpcSender::new(rpc_sender),
-        signer: Box::new(mina_signer::create_legacy(NetworkId::TESTNET)),
+        signer: RefCell::new(signer),
         manual_connector,
+        logs,
     })
 }
 
@@ -190,8 +201,9 @@ pub struct JsHandle {
     sender: mpsc::Sender<Event>,
     rpc: RpcSender,
 
-    signer: Box<dyn Signer<Transaction>>,
+    signer: RefCell<Box<dyn Signer<Transaction>>>,
     manual_connector: JsManualConnector,
+    logs: logging::InMemLogs,
 }
 
 impl JsHandle {
@@ -207,6 +219,12 @@ impl JsHandle {
 
 #[wasm_bindgen]
 impl JsHandle {
+    pub async fn logs_range(&self, cursor: Option<usize>, limit: Option<usize>) -> JsValue {
+        // TODO(binier): maybe somehow we could return Vec<logging::InMemLog>
+        let logs = self.logs.get_range(cursor, limit.unwrap_or(128));
+        JsValue::from_serde(&logs).unwrap()
+    }
+
     pub fn manual_connector(&self) -> ManualConnector {
         ManualConnector {
             inner: self.manual_connector.clone().into(),
@@ -262,7 +280,7 @@ impl JsHandle {
         .unwrap()
     }
 
-    pub async fn payment_sign_and_inject(&mut self, data: JsValue) -> Result<JsValue, JsValue> {
+    pub async fn payment_sign_and_inject(&self, data: JsValue) -> Result<JsValue, JsValue> {
         #[serde_as]
         #[derive(serde::Deserialize)]
         struct Payment {
@@ -294,10 +312,13 @@ impl JsHandle {
         if let Some(memo) = data.memo.filter(|s| !s.is_empty()) {
             tx = tx.set_memo_str(&memo);
         }
-        let sig = self.signer.sign(&keypair, &tx);
+        let sig = self.signer.borrow_mut().sign(&keypair, &tx);
 
         let msg = tx.to_gossipsub_v1_msg(sig);
-        log::info!("created transaction pool message: {:?}", msg);
+        tracing::info!(
+            summary = "created transaction pool message: {:?}",
+            msg = serde_json::to_string(&msg).ok()
+        );
         self.pubsub_publish(PubsubTopic::CodaConsensusMessage, msg)
             .await;
         Ok(JsValue::NULL)
