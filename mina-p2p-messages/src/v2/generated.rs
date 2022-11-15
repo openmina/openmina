@@ -202,7 +202,7 @@ pub struct ConsensusProofOfStakeDataConsensusStateValueStableV1 {
     pub epoch_count: UnsignedExtendedUInt32StableV1,
     pub min_window_density: UnsignedExtendedUInt32StableV1,
     pub sub_window_densities: Vec<UnsignedExtendedUInt32StableV1>,
-    pub last_vrf_output: VrfTruncatedOutput,
+    pub last_vrf_output: ConsensusVrfOutputTruncatedStableV1,
     pub total_currency: CurrencyMakeStrAmountMakeStrStableV1,
     pub curr_global_slot: ConsensusGlobalSlotStableV1,
     pub global_slot_since_genesis: UnsignedExtendedUInt32StableV1,
@@ -2158,7 +2158,7 @@ pub enum TrustSystemBannedStatusStableV1 {
 ///
 /// Gid: `83`
 /// Location: [src/string.ml:44:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/string.ml#L44)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
 pub struct ConsensusVrfOutputTruncatedStableV1(pub crate::string::ByteString);
 
 /// **OCaml name**: `Consensus__Body_reference.Stable.V1`

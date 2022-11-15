@@ -2,7 +2,7 @@ use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize};
 
-use crate::{b58::AsBase58Check, bigint::BigInt, versioned::Versioned};
+use crate::{b58::AsBase58Check, bigint::BigInt, string::ByteString, versioned::Versioned};
 
 use super::{
     ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1,
@@ -192,11 +192,6 @@ hash!(
     MinaBaseAccountIdMakeStrDigestStableV1,
     TOKEN_ID_KEY
 );
-hash!(
-    VrfTruncatedOutput,
-    versioned ConsensusVrfOutputTruncatedStableV1,
-    VRF_TRUNCATED_OUTPUT
-);
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct NonZeroCurvePointWithVersions {
@@ -233,7 +228,7 @@ pub type NonZeroCurvePoint = AsBase58Check<
 #[cfg(test)]
 mod tests {
     use binprot::BinProtWrite;
-    use serde::{Serialize, de::DeserializeOwned};
+    use serde::{de::DeserializeOwned, Serialize};
 
     use super::*;
 
@@ -311,8 +306,8 @@ mod tests {
 
     b58t!(
         vrf_truncated_output,
-        VrfTruncatedOutput,
-        "EiRsUVp6UYoeNkuVJq5TMtJZ36SU2jDN1UdEjy19heG6jwSAeEMKL",
+        ConsensusVrfOutputTruncatedStableV1,
+        "a5iclEJ9uqh_etVYuaL4MRWJ--1DFGsqp8CrDzNOGwM=",
         "206b989c94427dbaa87f7ad558b9a2f8311589fbed43146b2aa7c0ab0f334e1b03"
     );
 
@@ -401,5 +396,36 @@ impl<'de> Deserialize<'de> for PicklesProofProofsVerified2ReprStableV2StatementF
         } else {
             todo!()
         }
+    }
+}
+
+impl Serialize for ConsensusVrfOutputTruncatedStableV1 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            let base64 = base64::encode_config(&self.0, base64::URL_SAFE);
+            base64.serialize(serializer)
+        } else {
+            todo!()
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            let base64 = String::deserialize(deserializer)?;
+            base64::decode_config(&base64, base64::URL_SAFE)
+                .map(ByteString::from)
+                .map_err(|e| serde::de::Error::custom(format!("Error deserializing vrf: {e}")))
+        } else {
+            todo!()
+        }
+        .map(Self)
     }
 }

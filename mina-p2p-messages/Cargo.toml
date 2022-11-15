@@ -20,6 +20,7 @@ mina-hasher = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776
 mina-curves = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }
 mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }
 o1-utils = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }
+base64 = "0.13.1"
 
 [target.'cfg(fuzzing)'.dev-dependencies]
 fuzzcheck = "0.12.1"
