@@ -42,11 +42,11 @@ jobs:
           command: test
           args: --test decode_alloc -- decode_alloc --exact --nocapture --ignored -- --load-baseline=tests/decode-bench/alloc
 
-      - name: Run performance benchmarks
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --release --test decode_perf -- decode_perf --exact --nocapture --ignored -- --load-baseline=tests/decode-bench/perf
+      # - name: Run performance benchmarks
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: test
+      #     args: --release --test decode_perf -- decode_perf --exact --nocapture --ignored -- --load-baseline=tests/decode-bench/perf
 
   tests-wasm:
     runs-on: ubuntu-latest
@@ -77,5 +77,5 @@ jobs:
       - name: Run memory allocations benchmarks
         run: wasm-pack test --firefox --headless . --test decode_alloc -- decode_alloc_wasm
 
-      - name: Run performance benchmarks
-        run: wasm-pack test --release --firefox --headless . --test decode_perf -- decode_perf_wasm
+      # - name: Run performance benchmarks
+      #   run: wasm-pack test --release --firefox --headless . --test decode_perf -- decode_perf_wasm
