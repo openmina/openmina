@@ -457,9 +457,14 @@ mod tests {
         linearization::{constraints_expr, linearization_columns},
     };
     use mina_hasher::Fp;
+    use sha2::{Digest, Sha256};
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
+    /// Code originally used to generate OCaml code
+    /// We use the same method to generate our Rust code
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/crypto/kimchi_bindings/stubs/src/linearization.rs#L11
     #[test]
     fn generate_plonk() {
         let lookup_configuration = None;
@@ -476,18 +481,32 @@ mod tests {
         // consistent when printing.
         index_terms.sort_by(|(x, _), (y, _)| x.cmp(y));
 
-        let mut other_terms: Vec<(String, String)> = index_terms
+        let other_terms: Vec<(String, String)> = index_terms
             .iter()
             .map(|(col, expr)| (format!("{:?}", col), expr.ocaml_str()))
             .collect();
 
         // Convert to Rust code
-        for (v, terms) in &mut other_terms {
+        for (v, terms) in &other_terms {
             // Replace "let a = b in " with "let a = { b };", to make the output a Rust syntax
-            *terms = terms.replace(" in ", "};");
-            *terms = terms.replace('=', "={");
+            let terms = terms.replace(" in ", "};");
+            let terms = terms.replace('=', "={");
 
-            println!("VALUE={:?} TERMS=\n{}\n", v, terms);
+            // Code is copy/paste from this output
+            println!("value={:?} code=\n{}\n", v, terms);
         }
+
+        let mut hasher = Sha256::new();
+        other_terms.iter().for_each(|v| {
+            hasher.update(v.0.as_bytes());
+            hasher.update(v.1.as_bytes());
+        });
+        let hash = hex::encode(hasher.finalize());
+
+        // Make sure the generated code doesn't change if we update the `proof-systems` dependency
+        assert_eq!(
+            hash,
+            "0ff81eaa4363bd171885b56ec8f5fe30453d4371d47168891d3351fd0884d42f"
+        );
     }
 }
