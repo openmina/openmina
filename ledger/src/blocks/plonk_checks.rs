@@ -2,17 +2,23 @@ use ark_ff::{Field, One};
 use kimchi::proof::ProofEvaluations;
 use mina_hasher::Fp;
 
-use crate::{FpExt, ScalarsEnv};
+use crate::{complete_add, endo_mul, endo_mul_scalar, var_base_mul, FpExt};
 
 pub struct PlonkMinimal {
-    alpha: Fp,
-    beta: Fp,
-    gamma: Fp,
-    zeta: Fp,
-    joint_combiner: Option<Fp>,
+    pub alpha: Fp,
+    pub beta: Fp,
+    pub gamma: Fp,
+    pub zeta: Fp,
+    pub joint_combiner: Option<Fp>,
 }
 
 type TwoFields = [Fp; 2];
+
+pub struct ScalarsEnv {
+    pub zk_polynomial: Fp,
+    pub zeta_to_n_minus_1: Fp,
+    pub srs_length_log2: u64,
+}
 
 pub struct EvalsInCircuit {
     pub w: [TwoFields; 15],
@@ -33,10 +39,10 @@ pub struct InCircuit {
     pub zeta_to_domain_size: ShiftedValue<Fp>,
     pub zeta_to_srs_length: ShiftedValue<Fp>,
     pub poseidon_selector: ShiftedValue<Fp>,
-    pub vbmul: (),
-    pub complete_add: (),
-    pub endomul: (),
-    pub endomul_scalar: (),
+    pub vbmul: ShiftedValue<Fp>,
+    pub complete_add: ShiftedValue<Fp>,
+    pub endomul: ShiftedValue<Fp>,
+    pub endomul_scalar: ShiftedValue<Fp>,
     pub perm: ShiftedValue<Fp>,
     pub generic: [ShiftedValue<Fp>; 9],
 }
@@ -50,6 +56,7 @@ impl<F> Shift<F>
 where
     F: Field + From<i32>,
 {
+    /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L121
     pub fn create() -> Self {
         let c = (0..255).fold(F::one(), |accum, _| accum + accum) + F::one();
 
@@ -76,18 +83,21 @@ impl<F> ShiftedValue<F>
 where
     F: Field,
 {
+    /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L127
     pub fn of_field(field: F, shift: &Shift<F>) -> Self {
         Self {
             shifted: (field - shift.c) * shift.scale,
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L131
     pub fn to_field(&self, shift: &Shift<F>) -> F {
         self.shifted + self.shifted + shift.c
     }
 }
 
-fn alpha_pows(alpha: Fp) -> Vec<Fp> {
+/// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L141
+pub fn alpha_pows(alpha: Fp) -> Vec<Fp> {
     let mut alphas = vec![Fp::one(); 71];
 
     alphas[1] = alpha;
@@ -98,8 +108,7 @@ fn alpha_pows(alpha: Fp) -> Vec<Fp> {
     alphas
 }
 
-// (** The offset of the powers of alpha for the permutation.
-// (see https://github.com/o1-labs/proof-systems/blob/516b16fc9b0fdcab5c608cd1aea07c0c66b6675d/kimchi/src/index.rs#L190) *)
+/// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L218
 const PERM_ALPHA0: usize = 21;
 
 pub fn derive_plonk(
@@ -116,17 +125,14 @@ pub fn derive_plonk(
     let beta = minimal.beta;
     let gamma = minimal.gamma;
 
+    // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L397
     let perm = evals.s.iter().enumerate().fold(
         evals.z[1] * beta * alpha_pow(PERM_ALPHA0) * zkp,
         |accum, (index, elem)| accum * (gamma + (beta * elem[0]) + w0[index]),
     );
     let perm = -perm;
 
-    assert_eq!(
-        perm.to_decimal(),
-        "19044702798261916648212947625291167220618812169945749443615394554030486970860"
-    );
-
+    // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L402
     let generic = {
         let [l1, r1, o1, l2, r2, o2, ..] = w0;
         let m1 = l1 * r1;
@@ -134,34 +140,14 @@ pub fn derive_plonk(
         [evals.generic_selector[0], l1, r1, o1, m1, l2, r2, o2, m2]
     };
 
-    let generic_str: Vec<_> = generic.iter().map(|f| f.to_decimal()).collect();
-
-    assert_eq!(
-        generic_str,
-        [
-            "21284673669227882794919992407172292293537574509733523059283928016664652610788",
-            "6289128557598946688693552667439393426405656688717900311656646754749459718720",
-            "13310290304507948299374922965790520471341407062194282657371827929238607707213",
-            "1004170231282419143892553232264207846476468710370262861712645500613730936589",
-            "15150790296177960929414487297153101860700158390677339253760697272293036304665",
-            "14235022520036276432047767790226929227376034059765238012530447329202034471184",
-            "217270972334916519789201407484219134254562938054977741353993356478916733888",
-            "20724860985472235937562434615223247979133698324833013342416503003953673114269",
-            "24200041580744839739423211669514669963664543698649902585075673089186733619679",
-        ]
-    );
-
     let zeta_to_domain_size = env.zeta_to_n_minus_1 + Fp::one();
+    // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L46
     let zeta_to_srs_length = (0..env.srs_length_log2).fold(minimal.zeta, |accum, _| accum * accum);
 
-    assert_eq!(
-        zeta_to_domain_size.to_decimal(),
-        "19992360331803571005450582443613456929944945612236598221548387723463412653400"
-    );
-    assert_eq!(
-        zeta_to_srs_length.to_decimal(),
-        "19992360331803571005450582443613456929944945612236598221548387723463412653400"
-    );
+    let complete_add = complete_add(&evals, &minimal);
+    let vbmul = var_base_mul(&evals, &minimal);
+    let endomul = endo_mul(&evals, &minimal);
+    let endomul_scalar = endo_mul_scalar(&evals, &minimal);
 
     // Shift values
     let shift = |f| ShiftedValue::of_field(f, &shift);
@@ -174,10 +160,10 @@ pub fn derive_plonk(
         zeta_to_domain_size: shift(zeta_to_domain_size),
         zeta_to_srs_length: shift(zeta_to_srs_length),
         poseidon_selector: shift(evals.poseidon_selector[0]),
-        vbmul: (),
-        complete_add: (),
-        endomul: (),
-        endomul_scalar: (),
+        vbmul: shift(vbmul),
+        complete_add: shift(complete_add),
+        endomul: shift(endomul),
+        endomul_scalar: shift(endomul_scalar),
         perm: shift(perm),
         generic: generic.map(shift),
     }
@@ -381,6 +367,23 @@ mod tests {
         assert_eq!(
             perm.shifted.to_decimal(),
             "23996362553795482752052846938731572092036494641475074785875316421561912520951"
+        );
+
+        assert_eq!(
+            complete_add.shifted.to_decimal(),
+            "25922772146036107832349768103654536495710983785678446578187694836830607595414",
+        );
+        assert_eq!(
+            vbmul.shifted.to_decimal(),
+            "28215784507806213626095422113975086465418154941914519667351031525311316574704",
+        );
+        assert_eq!(
+            endomul.shifted.to_decimal(),
+            "13064695703283280169401378869933492390852015768221327952370116298712909203140",
+        );
+        assert_eq!(
+            endomul_scalar.shifted.to_decimal(),
+            "28322098634896565337442184680409326841751743190638136318667225694677236113253",
         );
 
         let generic_str = generic.map(|f| f.shifted.to_decimal());
