@@ -2,8 +2,6 @@ use ark_ff::{BigInteger256, Field, FromBytes, PrimeField};
 use kimchi::proof::ProofEvaluations;
 use mina_hasher::Fp;
 
-use crate::{alpha_pows, PlonkMinimal};
-
 pub enum CurrOrNext {
     Curr,
     Next,
@@ -62,20 +60,15 @@ where
     }
 }
 
-fn get_alpha_pow(minimal: &PlonkMinimal) -> impl Fn(usize) -> Fp {
-    let alpha_pows = alpha_pows(minimal.alpha);
-    move |i: usize| alpha_pows[i]
-}
-
 // Actual methods
 
 #[allow(unused_parens)]
-pub fn complete_add(evals: &ProofEvaluations<[Fp; 2]>, minimal: &PlonkMinimal) -> Fp {
+pub fn complete_add(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp {
     use Column::*;
     use CurrOrNext::*;
 
     let var = get_var(evals);
-    let alpha_pow = get_alpha_pow(minimal);
+    let alpha_pow = |i: usize| powers_of_alpha[i];
 
     // Auto-generated code with the test `generate_plonk`
     let x_0 = { (cell(var(Witness(2), Curr)) - cell(var(Witness(0), Curr))) };
@@ -108,12 +101,12 @@ pub fn complete_add(evals: &ProofEvaluations<[Fp; 2]>, minimal: &PlonkMinimal) -
 }
 
 #[allow(unused_parens)]
-pub fn var_base_mul(evals: &ProofEvaluations<[Fp; 2]>, minimal: &PlonkMinimal) -> Fp {
+pub fn var_base_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp {
     use Column::*;
     use CurrOrNext::*;
 
     let var = get_var(evals);
-    let alpha_pow = get_alpha_pow(minimal);
+    let alpha_pow = |i: usize| powers_of_alpha[i];
 
     // Auto-generated code with the test `generate_plonk`
     let x_0 = { (cell(var(Witness(7), Next)) * cell(var(Witness(7), Next))) };
@@ -300,12 +293,12 @@ pub fn var_base_mul(evals: &ProofEvaluations<[Fp; 2]>, minimal: &PlonkMinimal) -
 }
 
 #[allow(unused_parens)]
-pub fn endo_mul(evals: &ProofEvaluations<[Fp; 2]>, minimal: &PlonkMinimal) -> Fp {
+pub fn endo_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp {
     use Column::*;
     use CurrOrNext::*;
 
     let var = get_var(evals);
-    let alpha_pow = get_alpha_pow(minimal);
+    let alpha_pow = |i: usize| powers_of_alpha[i];
     let endo_coefficient: Fp = oracle::sponge::endo_coefficient();
 
     // Auto-generated code with the test `generate_plonk`
@@ -380,12 +373,12 @@ pub fn endo_mul(evals: &ProofEvaluations<[Fp; 2]>, minimal: &PlonkMinimal) -> Fp
 
 #[allow(unused_parens)]
 #[rustfmt::skip] // See below
-pub fn endo_mul_scalar(evals: &ProofEvaluations<[Fp; 2]>, minimal: &PlonkMinimal) -> Fp {
+pub fn endo_mul_scalar(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp {
     use Column::*;
     use CurrOrNext::*;
 
     let var = get_var(evals);
-    let alpha_pow = get_alpha_pow(minimal);
+    let alpha_pow = |i: usize| powers_of_alpha[i];
 
     // Auto-generated code with the test `generate_plonk`
     let x_0 = {
@@ -483,16 +476,16 @@ mod tests {
         // consistent when printing.
         index_terms.sort_by(|(x, _), (y, _)| x.cmp(y));
 
-        let mut other_terms: Vec<_> = index_terms
+        let mut other_terms: Vec<(String, String)> = index_terms
             .iter()
-            .map(|(col, expr)| (format!("{:?}", col), format!("{}", expr.ocaml_str())))
+            .map(|(col, expr)| (format!("{:?}", col), expr.ocaml_str()))
             .collect();
 
         // Convert to Rust code
         for (v, terms) in &mut other_terms {
             // Replace "let a = b in " with "let a = { b };", to make the output a Rust syntax
             *terms = terms.replace(" in ", "};");
-            *terms = terms.replace("=", "={");
+            *terms = terms.replace('=', "={");
 
             println!("VALUE={:?} TERMS=\n{}\n", v, terms);
         }
