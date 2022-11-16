@@ -20,15 +20,6 @@ pub struct ScalarsEnv {
     pub srs_length_log2: u64,
 }
 
-pub struct EvalsInCircuit {
-    pub w: [TwoFields; 15],
-    pub z: TwoFields,
-    pub s: [TwoFields; 6],
-    pub generic_selector: TwoFields,
-    pub poseidon_selector: TwoFields,
-    pub lookup: Option<()>,
-}
-
 // Result of `plonk_derive`
 #[derive(Debug)]
 pub struct InCircuit {

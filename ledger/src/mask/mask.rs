@@ -487,9 +487,9 @@ mod tests {
         mask.merkle_root();
         let mask_merkle_path = mask.merkle_path(addr.clone());
 
-        root.set(addr.clone(), account.clone());
+        root.set(addr.clone(), account);
         root.merkle_root();
-        let root_merkle_path = root.merkle_path(addr.clone());
+        let root_merkle_path = root.merkle_path(addr);
 
         assert!(!mask_merkle_path.is_empty());
         assert_eq!(mask_merkle_path, root_merkle_path);
@@ -675,8 +675,8 @@ mod tests_mask_ocaml {
         mask.set(addr.clone(), account.clone());
         let mask_merkle_path = mask.merkle_path(addr.clone());
 
-        root.set(addr.clone(), account.clone());
-        let root_merkle_path = root.merkle_path(addr.clone());
+        root.set(addr.clone(), account);
+        let root_merkle_path = root.merkle_path(addr);
 
         assert!(!mask_merkle_path.is_empty());
         assert_eq!(mask_merkle_path, root_merkle_path);

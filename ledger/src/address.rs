@@ -459,6 +459,10 @@ impl AddressChildrenIterator {
     pub fn len(&self) -> usize {
         self.nchildren as usize
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl Iterator for AddressChildrenIterator {

@@ -35,7 +35,7 @@ ocaml_export! {
 
     fn rust_get_random_message(
         rt,
-        validate_msg: OCamlRef<fn (OCamlBytes) -> ()>,
+        _validate_msg: OCamlRef<fn (OCamlBytes) -> ()>,
     ) -> OCaml<OCamlBytes> {
         let msg = MessagesForNextStepProof::rand();
         let bytes = serialize(&msg);
@@ -48,7 +48,7 @@ ocaml_export! {
 
     fn rust_get_random_wrap_message(
         rt,
-        validate_msg: OCamlRef<fn (OCamlBytes) -> ()>,
+        _validate_msg: OCamlRef<fn (OCamlBytes) -> ()>,
     ) -> OCaml<OCamlBytes> {
         let msg = MessagesForNextWrapProof::rand();
         let bytes = serialize(&msg);

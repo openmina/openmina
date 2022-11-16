@@ -193,6 +193,7 @@ impl Fp {
         }
     }
 
+    #[allow(clippy::wrong_self_convention)]
     fn into_repr(&self) -> BigInt {
         let mut tmp = self.0;
         let mut r = tmp;

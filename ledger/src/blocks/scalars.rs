@@ -62,6 +62,7 @@ where
 
 // Actual methods
 
+#[allow(clippy::double_parens)]
 #[allow(unused_parens)]
 pub fn complete_add(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp {
     use Column::*;
@@ -100,6 +101,7 @@ pub fn complete_add(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -
         + (alpha_pow(6) * ((x_1 * cell(var(Witness(9), Curr))) - cell(var(Witness(6), Curr)))))
 }
 
+#[allow(clippy::double_parens)]
 #[allow(unused_parens)]
 pub fn var_base_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp {
     use Column::*;
@@ -292,6 +294,7 @@ pub fn var_base_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -
                 - ((cell(var(Witness(13), Curr)) - cell(var(Witness(0), Next))) * x_14))))
 }
 
+#[allow(clippy::double_parens)]
 #[allow(unused_parens)]
 pub fn endo_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp {
     use Column::*;
@@ -371,6 +374,7 @@ pub fn endo_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp
                 - cell(var(Witness(6), Next)))))
 }
 
+#[allow(clippy::double_parens)]
 #[allow(unused_parens)]
 #[rustfmt::skip] // See below
 pub fn endo_mul_scalar(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp {
