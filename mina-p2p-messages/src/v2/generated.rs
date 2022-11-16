@@ -86,7 +86,6 @@ pub struct MinaBaseAccountBinableArgStableV2 {
     pub timing: MinaBaseAccountTimingStableV1,
     pub permissions: MinaBasePermissionsStableV2,
     pub zkapp: Option<MinaBaseZkappAccountStableV2>,
-    pub zkapp_uri: crate::string::ByteString,
 }
 
 /// **OCaml name**: `Network_peer__Peer.Stable.V1`
@@ -1264,6 +1263,8 @@ pub enum MinaBaseTransactionStatusFailureStableV2 {
     Overflow,
     GlobalExcessOverflow,
     LocalExcessOverflow,
+    LocalSupplyIncreaseOverflow,
+    GlobalSupplyIncreaseOverflow,
     SignedCommandOnZkappAccount,
     ZkappAccountNotPresent,
     UpdateNotPermittedBalance,
@@ -1277,7 +1278,7 @@ pub enum MinaBaseTransactionStatusFailureStableV2 {
     UpdateNotPermittedPermissions,
     UpdateNotPermittedNonce,
     UpdateNotPermittedVotingFor,
-    PartiesReplayCheckFailed,
+    ZkappCommandReplayCheckFailed,
     FeePayerNonceMustIncrease,
     FeePayerMustBeSigned,
     AccountBalancePreconditionUnsatisfied,
@@ -1291,6 +1292,7 @@ pub enum MinaBaseTransactionStatusFailureStableV2 {
     ProtocolStatePreconditionUnsatisfied,
     IncorrectNonce,
     InvalidFeeExcess,
+    Cancelled,
 }
 
 /// **OCaml name**: `Mina_base__Transaction_status.Failure.Collection.Stable.V1`
@@ -1581,6 +1583,14 @@ pub struct MinaBasePartyBodyWireStableV1 {
     pub preconditions: MinaBasePartyPreconditionsStableV1,
     pub use_full_commitment: bool,
     pub caller: MinaBasePartyCallTypeStableV1,
+    pub authorization_kind: AuthorizationKind,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum AuthorizationKind {
+    NoneGiven,
+    Signature,
+    Proof
 }
 
 /// **OCaml name**: `Mina_base__Party.Body.Fee_payer.Stable.V1`
@@ -2006,6 +2016,7 @@ pub struct MinaTransactionLogicPartiesLogicLocalStateValueStableV1 {
     pub full_transaction_commitment: crate::bigint::BigInt,
     pub token_id: TokenIdKeyHash,
     pub excess: MinaTransactionLogicPartiesLogicLocalStateValueStableV1Excess,
+    pub supply_increase: MinaTransactionLogicPartiesLogicLocalStateValueStableV1Excess,
     pub ledger: LedgerHash,
     pub success: bool,
     pub account_update_index: UnsignedExtendedUInt32StableV1,
