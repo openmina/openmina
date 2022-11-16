@@ -1,0 +1,80 @@
+generate_comments = true
+blank_lines = true
+git_prefix = "https://github.com/Minaprotocol/mina/blob/32a9161/"
+wrap_internal_types = true
+
+preamble = '''
+use binprot::{BinProtRead, BinProtWrite};
+use binprot_derive::{BinProtRead, BinProtWrite};
+use serde::{Deserialize, Serialize};
+_blank_!();
+use crate::pseq::PaddedSeq;
+_blank_!();
+use super::manual::*;
+_blank_!();
+'''
+
+type_preamble = "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]"
+
+poly_var_preamble = "#[polymorphic_variant]"
+
+versioned_type = "crate::versioned::Versioned"
+
+phantom_type = "crate::phantom::Phantom"
+
+skip = [
+       "TransactionSnarkScanStateStableV1VersionedV1PolyV1PolyV1TreesArg0V1",
+       "TransactionSnarkScanStateStableV2TreesA"
+]
+
+[base_types.float]
+rust_id = 'crate::number::Float64'
+args_num = 'None'
+
+[base_types.kimchi_backend_bigint_32_V1]
+rust_id = 'crate::bigint::BigInt'
+args_num = 'None'
+
+[base_types.zexe_backend_bigint_32]
+rust_id = 'crate::bigint::BigInt'
+args_num = 'None'
+
+[base_types.unit]
+rust_id = '()'
+args_num = 'None'
+
+[base_types.option]
+rust_id = 'Option'
+args_num = 'Single'
+
+[base_types.array]
+rust_id = 'Vec'
+args_num = 'Single'
+
+[base_types.string]
+rust_id = 'crate::string::ByteString'
+args_num = 'None'
+
+[base_types.bool]
+rust_id = 'bool'
+args_num = 'None'
+
+[base_types.int]
+rust_id = 'crate::number::Int32'
+args_num = 'None'
+
+[base_types.int32]
+rust_id = 'crate::number::Int32'
+args_num = 'None'
+
+[base_types.int64]
+rust_id = 'crate::number::Int64'
+args_num = 'None'
+
+[base_types.char]
+rust_id = 'crate::char::Char'
+args_num = 'None'
+
+[base_types.list]
+rust_id = 'Vec'
+args_num = 'Single'

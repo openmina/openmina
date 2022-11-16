@@ -6,7 +6,7 @@ use crate::{b58::AsBase58Check, bigint::BigInt, string::ByteString, versioned::V
 
 use super::{
     ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1,
-    MinaBaseAccountIdMakeStrDigestStableV1, MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
+    MinaBaseAccountIdDigestStableV1, MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
     MinaBasePendingCoinbaseHashVersionedStableV1, MinaBaseStagedLedgerHashAuxHashStableV1,
     MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1, NonZeroCurvePointUncompressedStableV1,
     ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
@@ -189,7 +189,7 @@ hash!(
 );
 hash!(
     TokenIdKeyHash,
-    MinaBaseAccountIdMakeStrDigestStableV1,
+    MinaBaseAccountIdDigestStableV1,
     TOKEN_ID_KEY
 );
 
