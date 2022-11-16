@@ -1,8 +1,9 @@
-use mina_p2p_messages::v1::{
+use binprot::BinProtRead;
+use mina_p2p_messages::{v1::{
     MinaBlockExternalTransitionRawVersionedStableV1Versioned,
     NetworkPoolSnarkPoolDiffVersionedStableV1Versioned,
     NetworkPoolTransactionPoolDiffVersionedStableV1Versioned,
-};
+}, gossip::GossipNetMessageV2};
 
 mod utils;
 
@@ -41,4 +42,13 @@ fn gossip_v2() {
         utils::assert_binprot_read::<GossipNetMessageV2>(&encoded)
     })
     .unwrap();
+}
+
+
+#[test]
+fn g() {
+    let binprot = include_bytes!("files/test_data_2.bin");
+    GossipNetMessageV2::binprot_read(&mut &binprot[..]).unwrap();
+    let binprot = include_bytes!("files/test_data_3.bin");
+    GossipNetMessageV2::binprot_read(&mut &binprot[..]).unwrap();
 }
