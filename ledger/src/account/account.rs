@@ -696,7 +696,7 @@ mod tests {
         const SIZE: usize = 2528;
 
         #[cfg(target_family = "wasm")]
-        const SIZE: usize = 2504;
+        const SIZE: usize = 2496;
 
         assert_eq!(std::mem::size_of::<Account>(), SIZE);
     }

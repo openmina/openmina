@@ -1067,7 +1067,7 @@ mod tests_mask_ocaml {
         let mut nmodified = 0;
 
         for account in updated_accounts.iter_mut() {
-            if rng.gen::<u8>() >= 100 {
+            if rng.gen::<u8>() >= 150 {
                 continue;
             }
             account.balance = rng.gen();
