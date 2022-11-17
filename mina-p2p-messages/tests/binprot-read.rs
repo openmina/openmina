@@ -43,12 +43,3 @@ fn gossip_v2() {
     })
     .unwrap();
 }
-
-
-#[test]
-fn g() {
-    let binprot = include_bytes!("files/test_data_2.bin");
-    GossipNetMessageV2::binprot_read(&mut &binprot[..]).unwrap();
-    let binprot = include_bytes!("files/test_data_3.bin");
-    GossipNetMessageV2::binprot_read(&mut &binprot[..]).unwrap();
-}
