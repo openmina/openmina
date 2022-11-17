@@ -129,6 +129,8 @@ impl Inputs {
     pub fn append_bytes(&mut self, value: &[u8]) {
         const BITS: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
 
+        self.packeds.reserve(value.len() * 8);
+
         for byte in value {
             for bit in BITS {
                 self.append_bool(byte & bit != 0);
@@ -147,7 +149,7 @@ impl Inputs {
             if nbits < 255 {
                 current.muln(item_nbits);
 
-                // Addition, but we use bitwise 'or' because we know bits of
+                // Addition, but we use 'bitwise or' because we know bits of
                 // `current` are zero (we just shift-left them)
                 current = BigInteger256([
                     current.0[0] | item.0[0],
