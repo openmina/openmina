@@ -404,7 +404,7 @@ mod tests {
         )
         .unwrap();
 
-        let alphas: Vec<Fp> = powers_of_alpha(n);
+        let alphas: Box<[Fp; NPOWERS_OF_ALPHA]> = powers_of_alpha(n);
         let alphas_str: Vec<String> = alphas.iter().map(|f| f.to_decimal()).collect();
 
         const OCAML_RESULT: &[&str] = &[
