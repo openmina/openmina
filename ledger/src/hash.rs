@@ -1,5 +1,3 @@
-use std::io::{Cursor, Write};
-
 use ark_ff::{BigInteger, BigInteger256, Field, FromBytes};
 use mina_hasher::Fp;
 
@@ -172,38 +170,37 @@ impl Inputs {
     }
 }
 
-fn param_to_field(param: &str) -> Fp {
-    if param.len() > 20 {
-        panic!("must be 20 byte maximum");
-    }
-
+fn param_to_field_impl(param: &str, default: [u8; 32]) -> Fp {
     let param_bytes = param.as_bytes();
+    let len = param_bytes.len();
 
-    let mut fp = <[u8; 32]>::default();
-    let mut cursor = Cursor::new(&mut fp[..]);
-
-    cursor.write_all(param_bytes).expect("write failed");
-
-    for _ in param_bytes.len()..20 {
-        cursor.write_all("*".as_bytes()).expect("write failed");
-    }
+    let mut fp = default;
+    fp[..len].copy_from_slice(param_bytes);
 
     Fp::read(&fp[..]).expect("fp read failed")
 }
 
+fn param_to_field(param: &str) -> Fp {
+    const DEFAULT: [u8; 32] = [
+        b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*',
+        b'*', b'*', b'*', b'*', b'*', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    ];
+
+    if param.len() > 20 {
+        panic!("must be 20 byte maximum");
+    }
+
+    param_to_field_impl(param, DEFAULT)
+}
+
 fn param_to_field_noinputs(param: &str) -> Fp {
+    const DEFAULT: [u8; 32] = [0; 32];
+
     if param.len() > 32 {
         panic!("must be 32 byte maximum");
     }
 
-    let param_bytes = param.as_bytes();
-
-    let mut fp = <[u8; 32]>::default();
-    let mut cursor = Cursor::new(&mut fp[..]);
-
-    cursor.write_all(param_bytes).expect("write failed");
-
-    Fp::read(&fp[..]).expect("fp read failed")
+    param_to_field_impl(param, DEFAULT)
 }
 
 pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
