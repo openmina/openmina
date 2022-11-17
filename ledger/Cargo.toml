@@ -24,8 +24,9 @@ o1-utils = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6
 kimchi = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a"}
 
 bs58 = "0.4.0"
-mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messages-rs", rev = "ff0bdb3fa90c7c0159d187cfc495c5a8d2afc54f", features = ["hashing"] }
+mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messages-rs", rev = "a084b6d1c338772166fd386ecaba958d2caea654", features = ["hashing"] }
 # mina-p2p-messages = { path = "/home/sebastien/github/mina-p2p-messages-rs", features = ["hashing"] }
+# mina-p2p-messages = { path = "/tmp/mina-p2p-messages-rs", features = ["hashing"] }
 
 binprot = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 binprot_derive = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }

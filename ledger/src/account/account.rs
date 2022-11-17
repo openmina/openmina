@@ -260,6 +260,7 @@ pub struct ZkAppAccount {
     pub sequence_state: [Fp; 5],
     pub last_sequence_slot: Slot,
     pub proved_state: bool,
+    pub zkapp_uri: String,
 }
 
 impl Default for ZkAppAccount {
@@ -274,6 +275,7 @@ impl Default for ZkAppAccount {
             },
             last_sequence_slot: 0,
             proved_state: false,
+            zkapp_uri: String::new(),
         }
     }
 }
@@ -325,7 +327,6 @@ pub struct Account {
     pub timing: Timing,                       // Timing.t
     pub permissions: Permissions<AuthRequired>, // Permissions.t
     pub zkapp: Option<ZkAppAccount>,          // Zkapp_account.t
-    pub zkapp_uri: String,                    // string
 }
 
 impl Account {
@@ -348,7 +349,6 @@ impl Account {
             timing: Timing::Untimed,
             permissions: Permissions::user_default(),
             zkapp: None,
-            zkapp_uri: String::new(),
         }
     }
 
@@ -380,7 +380,6 @@ impl Account {
             timing: Timing::Untimed,
             permissions: Permissions::user_default(),
             zkapp: None,
-            zkapp_uri: String::new(),
         }
     }
 
@@ -396,24 +395,6 @@ impl Account {
 
         let mut inputs = Inputs::new();
 
-        // Self::zkapp_uri
-        // Note: This doesn't cover when zkapp_uri is None, which
-        // is never the case for accounts
-        let field_zkapp_uri = {
-            let mut inputs = Inputs::new();
-
-            for c in self.zkapp_uri.as_bytes() {
-                for j in 0..8 {
-                    inputs.append_bool((c & (1 << j)) != 0);
-                }
-            }
-            inputs.append_bool(true);
-
-            hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
-        };
-
-        inputs.append_field(field_zkapp_uri);
-
         // Self::zkapp
         let field_zkapp = {
             let zkapp = match self.zkapp.as_ref() {
@@ -423,6 +404,24 @@ impl Account {
             let zkapp = zkapp.as_ref();
 
             let mut inputs = Inputs::new();
+
+            // Self::zkapp_uri
+            // Note: This doesn't cover when zkapp_uri is None, which
+            // is never the case for accounts
+            let field_zkapp_uri = {
+                let mut inputs = Inputs::new();
+
+                for c in zkapp.zkapp_uri.as_bytes() {
+                    for j in 0..8 {
+                        inputs.append_bool((c & (1 << j)) != 0);
+                    }
+                }
+                inputs.append_bool(true);
+
+                hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
+            };
+
+            inputs.append_field(field_zkapp_uri);
 
             inputs.append_bool(zkapp.proved_state);
             inputs.append_u32(zkapp.last_sequence_slot);
@@ -670,11 +669,11 @@ impl Account {
                     ],
                     last_sequence_slot: rng.gen(),
                     proved_state: rng.gen(),
+                    zkapp_uri,
                 })
             } else {
                 None
             },
-            zkapp_uri,
         }
     }
 }
@@ -712,7 +711,7 @@ mod tests {
 
         assert_eq!(
             hash.to_hex(),
-            "ec09b43d5361fd783c9f3cf345b03137ee6a0ddb51fd222b62e5acbe69cc740c"
+            "82a455aa81f57fca2f0b40662ecd6ee6a73dc181fda2f0e233d35813cc5b2b12"
         );
 
         let acc = Account {
@@ -731,12 +730,11 @@ mod tests {
             timing: Timing::Untimed,
             permissions: Permissions::user_default(),
             zkapp: None,
-            zkapp_uri: "https://target/release/deps/mina_tree-6ee5ea26e91aacf6".to_string(),
         };
 
         assert_eq!(
             acc.hash().to_hex(),
-            "22cb73553edbcc0e1ca969fa918dde89ec6b30bb931670b6ec5a93eb42e9b93f"
+            "fc040a2d79358b092265687701b182b5e32eb000b47d0fa7e394cb8193086d2e"
         );
     }
 
@@ -764,7 +762,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "ef4a9480c5c12a814a36b8567ce962aac73a8475edb43ba60147108b7c49c201"
+            "2e03fd55707e58f82cf5d57ace864ca8cb50a10744d0b127905c0e623bf27214"
         );
 
         let bytes = &[
@@ -781,7 +779,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "3c30eb17300547d3c75ca8d4c1d4ee725e02bc4b8d0d819d802d01bc75ddd435"
+            "1f084f56133cb3735f3e6ffc3dda945a6e8446fef2746662bae99d8249ebcc16"
         );
 
         let fp = Fp::from_str(
@@ -810,7 +808,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "b6196dcded29743a39b067d0e3ac71bce76f25a2b53107b8a21225d438c6a428"
+            "7e820d3d22f7406151f0f031ab509cc326eba01f447f3e21a74f41fbcdf89714"
         );
 
         // let fp = Fp::from_str(

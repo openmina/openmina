@@ -69,8 +69,10 @@ pub struct LocalState {
     pub excess: Excess,
     pub ledger: Fp,
     pub success: bool,
-    pub party_index: i32,
+    // pub party_index: i32,
+    pub supply_increase: Excess,
     pub failure_status_tbl: Vec<Vec<MinaBaseTransactionStatusFailureStableV2>>,
+    pub account_update_index: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -187,7 +189,10 @@ impl ProtocolStateBody {
                 // let sgn_to_bool = function Sgn.Pos -> true | Neg -> false
                 inputs.append_bool(matches!(reg.local_state.excess.sgn, Sgn::Pos));
                 inputs.append_field(reg.local_state.ledger);
-                inputs.append_u32(reg.local_state.party_index as u32);
+
+                // TODO
+                // inputs.append_u32(reg.local_state.party_index as u32);
+
                 inputs.append_bool(reg.local_state.success);
             }
             inputs.append_u64(self.blockchain_state.timestamp);
@@ -286,8 +291,12 @@ impl ProtocolState {
                             },
                             ledger: Fp::rand(rng),
                             success: rng.gen(),
-                            party_index: rng.gen(),
                             failure_status_tbl: Vec::new(), // Not used for hashing
+                            supply_increase: Excess {
+                                magnitude: rng.gen(),
+                                sgn: if rng.gen() { Sgn::Pos } else { Sgn::Neg },
+                            },
+                            account_update_index: rng.gen(),
                         },
                     },
                     timestamp: rng.gen(),

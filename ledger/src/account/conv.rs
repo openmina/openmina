@@ -3,11 +3,12 @@
 use ark_ff::Field;
 use mina_p2p_messages::{
     bigint::BigInt,
+    pseq::PaddedSeq,
     v2::{
-        MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdMakeStrDigestStableV1,
-        MinaBaseAccountIdMakeStrStableV2, MinaBaseAccountTimingStableV1,
+        MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,
+        MinaBaseAccountIdStableV2, MinaBaseAccountTimingStableV1,
         MinaBasePermissionsAuthRequiredStableV2, MinaBaseTokenPermissionsStableV1,
-        PicklesBaseProofsVerifiedStableV1,
+        NonZeroCurvePointUncompressedStableV1, PicklesBaseProofsVerifiedStableV1, TokenIdKeyHash,
     },
 };
 
@@ -23,14 +24,16 @@ impl binprot::BinProtRead for TokenId {
     where
         Self: Sized,
     {
-        let token_id = MinaBaseAccountIdMakeStrDigestStableV1::binprot_read(r)?;
+        let token_id = TokenIdKeyHash::binprot_read(r)?;
+        let token_id: MinaBaseAccountIdDigestStableV1 = token_id.into_inner();
         Ok(token_id.into())
     }
 }
 
 impl binprot::BinProtWrite for TokenId {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        let token_id: MinaBaseAccountIdMakeStrDigestStableV1 = self.clone().into();
+        let token_id: MinaBaseAccountIdDigestStableV1 = self.clone().into();
+        let token_id: TokenIdKeyHash = token_id.into();
         token_id.binprot_write(w)?;
         Ok(())
     }
@@ -59,14 +62,14 @@ impl binprot::BinProtRead for AccountId {
     where
         Self: Sized,
     {
-        let account_id = MinaBaseAccountIdMakeStrStableV2::binprot_read(r)?;
+        let account_id = MinaBaseAccountIdStableV2::binprot_read(r)?;
         Ok(account_id.into())
     }
 }
 
 impl binprot::BinProtWrite for AccountId {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        let account_id: MinaBaseAccountIdMakeStrStableV2 = self.clone().into();
+        let account_id: MinaBaseAccountIdStableV2 = self.clone().into();
         account_id.binprot_write(w)?;
         Ok(())
     }
@@ -77,8 +80,14 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
         use mina_p2p_messages::v2::*;
 
         Self {
-            public_key: acc.public_key.into(),
-            token_id: MinaBaseAccountIdMakeStrDigestStableV1(acc.token_id.0.into()),
+            public_key: {
+                let public_key: NonZeroCurvePointUncompressedStableV1 = acc.public_key.into();
+                public_key.into()
+            },
+            token_id: {
+                let token_id: MinaBaseAccountIdDigestStableV1 = acc.token_id.into();
+                token_id.into()
+            },
             token_permissions: match acc.token_permissions {
                 super::TokenPermissions::TokenOwned {
                     disable_new_accounts,
@@ -89,13 +98,16 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
                     MinaBaseTokenPermissionsStableV1::NotOwned { account_disabled }
                 }
             },
-            token_symbol: MinaBaseAccountTokenSymbolStableV1(acc.token_symbol.as_bytes().into()),
-            balance: CurrencyMakeStrBalanceStableV1(CurrencyMakeStrAmountMakeStrStableV1(
-                UnsignedExtendedUInt64StableV1((acc.balance as i64).into()),
+            token_symbol: MinaBaseSokMessageDigestStableV1(acc.token_symbol.as_bytes().into()),
+            balance: CurrencyBalanceStableV1(CurrencyAmountStableV1(
+                UnsignedExtendedUInt64Int64ForVersionTagsStableV1((acc.balance as i64).into()),
             )),
             nonce: UnsignedExtendedUInt32StableV1((acc.nonce as i32).into()),
             receipt_chain_hash: MinaBaseReceiptChainHashStableV1(acc.receipt_chain_hash.0.into()),
-            delegate: acc.delegate.map(|d| d.into()),
+            delegate: acc.delegate.map(|delegate| {
+                let delegate: NonZeroCurvePointUncompressedStableV1 = delegate.into();
+                delegate.into()
+            }),
             voting_for: DataHashLibStateHashStableV1(acc.voting_for.0.into()),
             timing: match acc.timing {
                 super::Timing::Untimed => MinaBaseAccountTimingStableV1::Untimed,
@@ -106,18 +118,22 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
                     vesting_period,
                     vesting_increment,
                 } => MinaBaseAccountTimingStableV1::Timed {
-                    initial_minimum_balance: CurrencyMakeStrBalanceStableV1(
-                        CurrencyMakeStrAmountMakeStrStableV1(UnsignedExtendedUInt64StableV1(
+                    initial_minimum_balance: CurrencyBalanceStableV1(CurrencyAmountStableV1(
+                        UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
                             (initial_minimum_balance as i64).into(),
-                        )),
-                    ),
+                        ),
+                    )),
                     cliff_time: UnsignedExtendedUInt32StableV1((cliff_time as i32).into()),
-                    cliff_amount: CurrencyMakeStrAmountMakeStrStableV1(
-                        UnsignedExtendedUInt64StableV1((cliff_amount as i64).into()),
+                    cliff_amount: CurrencyAmountStableV1(
+                        UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+                            (cliff_amount as i64).into(),
+                        ),
                     ),
                     vesting_period: UnsignedExtendedUInt32StableV1((vesting_period as i32).into()),
-                    vesting_increment: CurrencyMakeStrAmountMakeStrStableV1(
-                        UnsignedExtendedUInt64StableV1((vesting_increment as i64).into()),
+                    vesting_increment: CurrencyAmountStableV1(
+                        UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+                            (vesting_increment as i64).into(),
+                        ),
                     ),
                 },
             },
@@ -136,19 +152,7 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
             },
             zkapp: acc.zkapp.map(|zkapp| {
                 let s = zkapp.app_state;
-                let app_state = MinaBaseZkappStateValueStableV1(
-                    s[0].into(),
-                    (
-                        s[1].into(),
-                        (
-                            s[2].into(),
-                            (
-                                s[3].into(),
-                                (s[4].into(), (s[5].into(), (s[6].into(), (s[7].into(), ())))),
-                            ),
-                        ),
-                    ),
-                );
+                let app_state = MinaBaseZkappStateValueStableV1(PaddedSeq(s.map(|v| v.into())));
 
                 let verification_key =
                     zkapp
@@ -165,13 +169,7 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
                         });
 
                 let seq = zkapp.sequence_state;
-                let sequence_state = (
-                    seq[0].into(),
-                    (
-                        seq[1].into(),
-                        (seq[2].into(), (seq[3].into(), (seq[4].into(), ()))),
-                    ),
-                );
+                let sequence_state = PaddedSeq(seq.map(|v| v.into()));
 
                 MinaBaseZkappAccountStableV2 {
                     app_state,
@@ -184,9 +182,9 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
                         (zkapp.last_sequence_slot as i32).into(),
                     ),
                     proved_state: zkapp.proved_state,
+                    zkapp_uri: zkapp.zkapp_uri.as_bytes().into(),
                 }
             }),
-            zkapp_uri: acc.zkapp_uri.as_bytes().into(),
         }
     }
 }
@@ -209,32 +207,10 @@ impl From<PlonkVerificationKeyEvals>
 {
     fn from(vk: PlonkVerificationKeyEvals) -> Self {
         let sigma = vk.sigma;
-        let sigma = (
-            sigma[0].into(),
-            (
-                sigma[1].into(),
-                (
-                    sigma[2].into(),
-                    (
-                        sigma[3].into(),
-                        (sigma[4].into(), (sigma[5].into(), (sigma[6].into(), ()))),
-                    ),
-                ),
-            ),
-        );
+        let sigma = PaddedSeq(sigma.map(|v| v.into()));
 
         let coef = vk.coefficients;
-        #[rustfmt::skip]
-        let coef = {
-            (
-                coef[0].into(),
-                (
-                    coef[1].into(), (coef[2].into(), (coef[3].into(), (coef[4].into(), (coef[5].into(), (coef[6].into(), (coef[7].into(), (coef[8].into(),
-                    (coef[9].into(), (coef[10].into(), (coef[11].into(), (coef[12].into(), (coef[13].into(), (coef[14].into(), ())))))))))))),
-                    ),
-                ),
-            )
-        };
+        let coef = PaddedSeq(coef.map(|v| v.into()));
 
         Self {
             sigma_comm: sigma,
@@ -251,29 +227,30 @@ impl From<PlonkVerificationKeyEvals>
 
 // // Following types were written manually
 
-impl From<AccountId> for mina_p2p_messages::v2::MinaBaseAccountIdMakeStrStableV2 {
+impl From<AccountId> for mina_p2p_messages::v2::MinaBaseAccountIdStableV2 {
     fn from(account_id: AccountId) -> Self {
-        Self(account_id.public_key.into(), account_id.token_id.into())
+        let public_key: NonZeroCurvePointUncompressedStableV1 = account_id.public_key.into();
+        Self(public_key.into(), account_id.token_id.into())
     }
 }
 
-impl From<mina_p2p_messages::v2::MinaBaseAccountIdMakeStrStableV2> for AccountId {
-    fn from(account_id: mina_p2p_messages::v2::MinaBaseAccountIdMakeStrStableV2) -> Self {
+impl From<mina_p2p_messages::v2::MinaBaseAccountIdStableV2> for AccountId {
+    fn from(account_id: mina_p2p_messages::v2::MinaBaseAccountIdStableV2) -> Self {
         Self {
-            public_key: account_id.0.into(),
+            public_key: account_id.0.into_inner().into(),
             token_id: account_id.1.into(),
         }
     }
 }
 
-impl From<TokenId> for mina_p2p_messages::v2::MinaBaseAccountIdMakeStrDigestStableV1 {
+impl From<TokenId> for mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1 {
     fn from(token_id: TokenId) -> Self {
         Self(token_id.0.into())
     }
 }
 
-impl From<mina_p2p_messages::v2::MinaBaseAccountIdMakeStrDigestStableV1> for TokenId {
-    fn from(token_id: mina_p2p_messages::v2::MinaBaseAccountIdMakeStrDigestStableV1) -> Self {
+impl From<mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1> for TokenId {
+    fn from(token_id: mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1) -> Self {
         Self(token_id.0.into())
     }
 }
@@ -311,8 +288,8 @@ impl From<MinaBasePermissionsAuthRequiredStableV2> for AuthRequired {
 impl From<MinaBaseAccountBinableArgStableV2> for Account {
     fn from(acc: MinaBaseAccountBinableArgStableV2) -> Self {
         Self {
-            public_key: acc.public_key.into(),
-            token_id: TokenId(acc.token_id.0.into()),
+            public_key: acc.public_key.into_inner().into(),
+            token_id: acc.token_id.into_inner().into(),
             token_permissions: match acc.token_permissions {
                 MinaBaseTokenPermissionsStableV1::TokenOwned {
                     disable_new_accounts,
@@ -327,7 +304,7 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
             balance: acc.balance.0 .0 .0 .0 as u64,
             nonce: acc.nonce.0 .0 as u32,
             receipt_chain_hash: ReceiptChainHash(acc.receipt_chain_hash.0.into()),
-            delegate: acc.delegate.map(|d| d.into()),
+            delegate: acc.delegate.map(|d| d.into_inner().into()),
             voting_for: VotingFor(acc.voting_for.0.into()),
             timing: match acc.timing {
                 MinaBaseAccountTimingStableV1::Untimed => Timing::Untimed,
@@ -359,49 +336,13 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                 set_voting_for: acc.permissions.set_voting_for.into(),
             },
             zkapp: acc.zkapp.map(|zkapp| {
-                #[rustfmt::skip]
-                let app_state = [
-                    zkapp.app_state.0.into(),
-                    zkapp.app_state.1.0.into(),
-                    zkapp.app_state.1.1.0.into(),
-                    zkapp.app_state.1.1.1.0.into(),
-                    zkapp.app_state.1.1.1.1.0.into(),
-                    zkapp.app_state.1.1.1.1.1.0.into(),
-                    zkapp.app_state.1.1.1.1.1.1.0.into(),
-                    zkapp.app_state.1.1.1.1.1.1.1.0.into(),
-                ];
+                let app_state = zkapp.app_state.0 .0.map(|v| v.into());
 
                 ZkAppAccount {
                     app_state,
-                    #[rustfmt::skip]
                     verification_key: zkapp.verification_key.map(|vk| {
-                        let sigma = [
-                            vk.wrap_index.sigma_comm.0.into(),
-                            vk.wrap_index.sigma_comm.1.0.into(),
-                            vk.wrap_index.sigma_comm.1.1.0.into(),
-                            vk.wrap_index.sigma_comm.1.1.1.0.into(),
-                            vk.wrap_index.sigma_comm.1.1.1.1.0.into(),
-                            vk.wrap_index.sigma_comm.1.1.1.1.1.0.into(),
-                            vk.wrap_index.sigma_comm.1.1.1.1.1.1.0.into(),
-                        ];
-
-                        let coefficients = [
-                            vk.wrap_index.coefficients_comm.0.into(),
-                            vk.wrap_index.coefficients_comm.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.1.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.1.1.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.1.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.1.1.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.1.1.1.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.1.1.1.1.1.0.into(),
-                            vk.wrap_index.coefficients_comm.1.1.1.1.1.1.1.1.1.1.1.1.1.1.0.into(),
-                        ];
+                        let sigma = vk.wrap_index.sigma_comm.0.map(|v| v.into());
+                        let coefficients = vk.wrap_index.coefficients_comm.0.map(|v| v.into());
 
                         VerificationKey {
                             max_proofs_verified: match vk.max_proofs_verified {
@@ -423,19 +364,12 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                         }
                     }),
                     zkapp_version: zkapp.zkapp_version.0 .0 .0 as u32,
-                    #[rustfmt::skip]
-                    sequence_state: [
-                        zkapp.sequence_state.0.into(),
-                        zkapp.sequence_state.1.0.into(),
-                        zkapp.sequence_state.1.1.0.into(),
-                        zkapp.sequence_state.1.1.1.0.into(),
-                        zkapp.sequence_state.1.1.1.1.0.into(),
-                    ],
+                    sequence_state: zkapp.sequence_state.0.map(|v| v.into()),
                     last_sequence_slot: zkapp.last_sequence_slot.0 .0 as u32,
                     proved_state: zkapp.proved_state,
+                    zkapp_uri: zkapp.zkapp_uri.try_into().unwrap(),
                 }
             }),
-            zkapp_uri: acc.zkapp_uri.try_into().unwrap(),
         }
     }
 }

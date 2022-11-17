@@ -803,8 +803,9 @@ dependencies = [
 [[package]]
 name = "mina-p2p-messages"
 version = "0.6.4"
-source = "git+https://github.com/name-placeholder/mina-p2p-messages-rs?rev=ff0bdb3fa90c7c0159d187cfc495c5a8d2afc54f#ff0bdb3fa90c7c0159d187cfc495c5a8d2afc54f"
+source = "git+https://github.com/name-placeholder/mina-p2p-messages-rs?rev=a084b6d1c338772166fd386ecaba958d2caea654#a084b6d1c338772166fd386ecaba958d2caea654"
 dependencies = [
+ "base64",
  "binprot",
  "binprot_derive",
  "bs58",
