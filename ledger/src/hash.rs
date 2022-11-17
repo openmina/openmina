@@ -43,22 +43,22 @@ impl Item {
         }
     }
 
-    fn as_field(&self) -> Fp {
+    fn as_bigint(&self) -> BigInteger256 {
         match self {
             Item::Bool(v) => {
                 if *v {
-                    Fp::one()
+                    1.into()
                 } else {
-                    Fp::zero()
+                    0.into()
                 }
             }
-            Item::U2(v) => (*v).into(),
-            Item::U8(v) => (*v).into(),
-            Item::U32(v) => (*v).into(),
+            Item::U2(v) => (*v as u64).into(),
+            Item::U8(v) => (*v as u64).into(),
+            Item::U32(v) => (*v as u64).into(),
             Item::U48(v) => {
                 let mut bytes = <[u8; 32]>::default();
                 bytes[..6].copy_from_slice(&v[..]);
-                Fp::read(&bytes[..]).unwrap()
+                BigInteger256::read(&bytes[..]).unwrap()
             }
             Item::U64(v) => (*v).into(),
         }
@@ -141,28 +141,30 @@ impl Inputs {
     #[allow(clippy::wrong_self_convention)]
     pub fn to_fields(mut self) -> Vec<Fp> {
         let mut nbits = 0;
-        let mut current = Fp::zero();
+        let mut current: BigInteger256 = 0.into();
 
-        for (item, item_nbits) in self.packeds.iter().map(|i| (i.as_field(), i.nbits())) {
+        for (item, item_nbits) in self.packeds.iter().map(|i| (i.as_bigint(), i.nbits())) {
             nbits += item_nbits;
 
             if nbits < 255 {
-                let mut cur: BigInteger256 = current.into();
-                cur.muln(item_nbits);
-                let cur: Fp = cur.into();
-                current = cur + item;
+                current.muln(item_nbits);
 
-                // let multiply_by: Fp = 2u128.checked_pow(item_nbits).unwrap().into();
-                // current = (current * multiply_by) + item;
+                // Addition, but we use bitwise 'or' because we know bits of `current` are zero (we just shift-left them)
+                current = BigInteger256([
+                    current.0[0] | item.0[0],
+                    current.0[1] | item.0[1],
+                    current.0[2] | item.0[2],
+                    current.0[3] | item.0[3],
+                ]);
             } else {
-                self.fields.push(current);
+                self.fields.push(current.into());
                 current = item;
                 nbits = item_nbits;
             }
         }
 
         if nbits > 0 {
-            self.fields.push(current);
+            self.fields.push(current.into());
         }
 
         self.fields
