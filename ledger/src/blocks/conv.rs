@@ -3,9 +3,9 @@ use mina_p2p_messages::{bigint::BigInt, v2::MinaBaseVerificationKeyWireStableV1W
 
 use crate::{
     BlockchainState, BlockchainStateRegisters, ConsensusGlobalSlot, ConsensusState, CurveAffine,
-    DataStaking, EpochLedger, Excess, LocalState, MessagesForNextStepProof,
-    MessagesForNextWrapProof, PlonkVerificationKeyEvals, ProtocolConstants, ProtocolState,
-    ProtocolStateBody, Sgn, StagedLedgerHash, StagedLedgerHashNonSnark,
+    DataStaking, EpochLedger, LocalState, MessagesForNextStepProof, MessagesForNextWrapProof,
+    PlonkVerificationKeyEvals, ProtocolConstants, ProtocolState, ProtocolStateBody, Sgn,
+    SignedAmount, StagedLedgerHash, StagedLedgerHashNonSnark,
 };
 
 #[rustfmt::skip]
@@ -521,7 +521,7 @@ impl From<mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2> for Protoc
                                     .full_transaction_commitment
                                     .into(),
                                 token_id: local.token_id.into_inner().0.into(),
-                                excess: Excess {
+                                excess: SignedAmount {
                                     magnitude: local.excess.magnitude.0 .0 .0,
                                     sgn: match &local.excess.sgn.0 {
                                         mina_p2p_messages::v2::SgnStableV1::Pos => Sgn::Pos,
@@ -531,7 +531,7 @@ impl From<mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2> for Protoc
                                 ledger: local.ledger.into_inner().0.into(),
                                 success: value.body.blockchain_state.registers.local_state.success,
                                 failure_status_tbl: local.failure_status_tbl.0.clone(),
-                                supply_increase: Excess {
+                                supply_increase: SignedAmount {
                                     magnitude: local.supply_increase.magnitude.0 .0 .0,
                                     sgn: match &local.supply_increase.sgn.0 {
                                         mina_p2p_messages::v2::SgnStableV1::Pos => Sgn::Pos,

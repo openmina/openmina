@@ -54,7 +54,7 @@ pub enum Sgn {
 }
 
 #[derive(Clone, Debug)]
-pub struct Excess {
+pub struct SignedAmount {
     pub magnitude: i64,
     pub sgn: Sgn,
 }
@@ -66,11 +66,11 @@ pub struct LocalState {
     pub transaction_commitment: Fp,
     pub full_transaction_commitment: Fp,
     pub token_id: Fp,
-    pub excess: Excess,
+    pub excess: SignedAmount,
     pub ledger: Fp,
     pub success: bool,
     // pub party_index: i32,
-    pub supply_increase: Excess,
+    pub supply_increase: SignedAmount,
     pub failure_status_tbl: Vec<Vec<MinaBaseTransactionStatusFailureStableV2>>,
     pub account_update_index: u32,
 }
@@ -285,14 +285,14 @@ impl ProtocolState {
                             transaction_commitment: Fp::rand(rng),
                             full_transaction_commitment: Fp::rand(rng),
                             token_id: Fp::rand(rng),
-                            excess: Excess {
+                            excess: SignedAmount {
                                 magnitude: rng.gen(),
                                 sgn: if rng.gen() { Sgn::Pos } else { Sgn::Neg },
                             },
                             ledger: Fp::rand(rng),
                             success: rng.gen(),
                             failure_status_tbl: Vec::new(), // Not used for hashing
-                            supply_increase: Excess {
+                            supply_increase: SignedAmount {
                                 magnitude: rng.gen(),
                                 sgn: if rng.gen() { Sgn::Pos } else { Sgn::Neg },
                             },
