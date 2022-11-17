@@ -86,8 +86,12 @@ impl<T> BinProtWrite for NeedsLength<T>
 where
     T: BinProtWrite,
 {
-    fn binprot_write<W: std::io::Write>(&self, _w: &mut W) -> std::io::Result<()> {
-        todo!("need also BinProtSized")
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        let mut buf = Vec::new();
+        self.0.binprot_write(&mut buf)?;
+        binprot::Nat0(buf.len() as u64).binprot_write(w)?;
+        w.write_all(&buf)?;
+        Ok(())
     }
 }
 
@@ -182,6 +186,15 @@ pub struct DebuggerResponse<T> {
     pub data: ResponsePayload<T>,
 }
 
+impl<T> From<DebuggerResponse<T>> for Response<T> {
+    fn from(source: DebuggerResponse<T>) -> Self {
+        Response {
+            id: source.id,
+            data: source.data,
+        }
+    }
+}
+
 /// RPC message.
 ///
 /// ```ocaml
@@ -207,6 +220,16 @@ pub enum DebuggerMessage<T> {
     Heartbeat,
     Query(Query<T>),
     Response(DebuggerResponse<T>),
+}
+
+impl<T> From<DebuggerMessage<T>> for Message<T> {
+    fn from(source: DebuggerMessage<T>) -> Self {
+        match source {
+            DebuggerMessage::Heartbeat => Message::Heartbeat,
+            DebuggerMessage::Query(query) => Message::Query(query),
+            DebuggerMessage::Response(response) => Message::Response(response.into()),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
