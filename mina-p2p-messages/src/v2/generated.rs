@@ -239,6 +239,16 @@ pub struct TrustSystemPeerStatusStableV1 {
     pub banned: TrustSystemBannedStatusStableV1,
 }
 
+/// **OCaml name**: `Blockchain_snark__Blockchain.Stable.V2`
+///
+/// Gid: `995`
+/// Location: [src/lib/blockchain_snark/blockchain.ml:8:4](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/blockchain_snark/blockchain.ml#L8)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct BlockchainSnarkBlockchainStableV2 {
+    pub state: MinaStateProtocolStateValueStableV2,
+    pub proof: MinaBaseProofStableV2,
+}
+
 /// **OCaml name**: `Mina_base__Sok_message.Make_str.Digest.Stable.V1`
 ///
 /// Gid: `73`
