@@ -942,7 +942,7 @@ pub struct MinaBasePermissionsStableV2 {
 /// Gid: `83`
 /// Location: [src/string.ml:44:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/string.ml#L44)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseSignedCommandMemoStableV1(pub crate::string::ByteString);
+pub struct MinaBaseSignedCommandMemoStableV1(pub crate::string::CharString);
 
 /// **OCaml name**: `Mina_base__Stake_delegation.Stable.V1`
 ///
