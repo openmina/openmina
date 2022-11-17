@@ -186,13 +186,11 @@ impl ProtocolStateBody {
                 inputs.append_field(reg.local_state.full_transaction_commitment);
                 inputs.append_field(reg.local_state.token_id);
                 inputs.append_u64(reg.local_state.excess.magnitude as u64);
-                // let sgn_to_bool = function Sgn.Pos -> true | Neg -> false
                 inputs.append_bool(matches!(reg.local_state.excess.sgn, Sgn::Pos));
+                inputs.append_u64(reg.local_state.supply_increase.magnitude as u64);
+                inputs.append_bool(matches!(reg.local_state.supply_increase.sgn, Sgn::Pos));
                 inputs.append_field(reg.local_state.ledger);
-
-                // TODO
-                // inputs.append_u32(reg.local_state.party_index as u32);
-
+                inputs.append_u32(reg.local_state.account_update_index);
                 inputs.append_bool(reg.local_state.success);
             }
             inputs.append_u64(self.blockchain_state.timestamp);

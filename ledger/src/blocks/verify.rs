@@ -247,9 +247,8 @@ impl MessagesForNextStepProof {
 
 #[cfg(test)]
 mod tests {
-    use std::{io::Cursor, str::FromStr};
+    use std::str::FromStr;
 
-    use binprot::BinProtRead;
     use mina_curves::pasta::Fq;
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;

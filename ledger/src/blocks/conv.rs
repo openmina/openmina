@@ -835,12 +835,11 @@ mod tests {
 
     use mina_curves::pasta::fields::FpParameters;
     use mina_hasher::Fp;
-    use o1_utils::FieldHelpers;
+
     use rand::Rng;
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
-    use crate::FpExt;
     use binprot::{BinProtRead, BinProtWrite};
 
     use super::*;
