@@ -1,6 +1,6 @@
 use std::io::{Cursor, Write};
 
-use ark_ff::{BigInteger, BigInteger256, Field, FromBytes, One, Zero};
+use ark_ff::{BigInteger, BigInteger256, Field, FromBytes};
 use mina_hasher::Fp;
 
 // use oracle::{poseidon::{ArithmeticSponge, Sponge}, constants::PlonkSpongeConstantsKimchi, pasta::fp_kimchi::static_params};
@@ -149,7 +149,8 @@ impl Inputs {
             if nbits < 255 {
                 current.muln(item_nbits);
 
-                // Addition, but we use bitwise 'or' because we know bits of `current` are zero (we just shift-left them)
+                // Addition, but we use bitwise 'or' because we know bits of
+                // `current` are zero (we just shift-left them)
                 current = BigInteger256([
                     current.0[0] | item.0[0],
                     current.0[1] | item.0[1],
