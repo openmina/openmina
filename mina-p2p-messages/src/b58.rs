@@ -162,7 +162,6 @@ where
             let binprot = decode(&b58, V).map_err(|e| {
                 serde::de::Error::custom(format!("Failed to construct from base58check: {e}"))
             })?;
-            println!("=== {}", hex::encode(&binprot));
             let binable = U::binprot_read(&mut &binprot[1..]).map_err(|e| {
                 serde::de::Error::custom(format!("Failed to construct from base58check: {e}"))
             })?;
