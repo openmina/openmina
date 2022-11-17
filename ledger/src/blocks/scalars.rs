@@ -1,4 +1,4 @@
-use ark_ff::{BigInteger256, Field, FromBytes, PrimeField};
+use ark_ff::{BigInteger256, Field, FromBytes};
 use kimchi::proof::ProofEvaluations;
 use mina_hasher::Fp;
 
@@ -37,11 +37,12 @@ fn field(mut s: &str) -> Fp {
         s = &s[2..];
     }
 
-    let mut bytes: Vec<u8> = hex::decode(s).unwrap();
+    let mut bytes = <[u8; 32]>::default();
+    hex::decode_to_slice(s, &mut bytes).unwrap();
     bytes.reverse();
 
     let bigint = BigInteger256::read(&bytes[..]).unwrap();
-    Fp::from_repr(bigint).unwrap()
+    bigint.into()
 }
 
 fn get_var<F>(evals: &ProofEvaluations<[F; 2]>) -> impl Fn(Column, CurrOrNext) -> F + '_
