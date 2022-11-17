@@ -482,7 +482,7 @@ pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorSt
 /// Gid: `523`
 /// Location: [src/lib/pickles/composition_types/digest.ml:13:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/pickles/composition_types/digest.ml#L13)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct CompositionTypesDigestConstantStableV1(PaddedSeq<LimbVectorConstantHex64StableV1, 4>);
+pub struct CompositionTypesDigestConstantStableV1(pub PaddedSeq<LimbVectorConstantHex64StableV1, 4>);
 
 /// Derived name: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2#statement#plonk`
 ///
@@ -1293,7 +1293,7 @@ pub enum MinaBaseZkappPreconditionAccountStableV2StateA {
 /// Location: [src/lib/mina_base/zkapp_state.ml:17:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/zkapp_state.ml#L17)
 /// Args: crate :: bigint :: BigInt
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseZkappStateValueStableV1(PaddedSeq<crate::bigint::BigInt, 8>);
+pub struct MinaBaseZkappStateValueStableV1(pub PaddedSeq<crate::bigint::BigInt, 8>);
 
 /// **OCaml name**: `Mina_base__Zkapp_account.Stable.V2`
 ///
