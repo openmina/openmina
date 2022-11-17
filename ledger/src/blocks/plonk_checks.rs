@@ -87,12 +87,15 @@ where
     }
 }
 
-/// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L141
-fn powers_of_alpha(alpha: Fp) -> Vec<Fp> {
-    // The OCaml code computes until alpha^71, but we don't need that much here
-    const NPOWERS: usize = PERM_ALPHA0 + 1;
+/// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L218
+const PERM_ALPHA0: usize = 21;
 
-    let mut alphas = vec![Fp::one(); NPOWERS];
+pub const NPOWERS_OF_ALPHA: usize = PERM_ALPHA0 + 1;
+
+/// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L141
+fn powers_of_alpha(alpha: Fp) -> Box<[Fp; NPOWERS_OF_ALPHA]> {
+    // The OCaml code computes until alpha^71, but we don't need that much here
+    let mut alphas = Box::new([Fp::one(); NPOWERS_OF_ALPHA]);
 
     alphas[1] = alpha;
     for i in 2..alphas.len() {
@@ -101,9 +104,6 @@ fn powers_of_alpha(alpha: Fp) -> Vec<Fp> {
 
     alphas
 }
-
-/// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L218
-const PERM_ALPHA0: usize = 21;
 
 pub fn derive_plonk(
     env: ScalarsEnv,

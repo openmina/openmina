@@ -2,6 +2,8 @@ use ark_ff::{BigInteger256, Field, FromBytes};
 use kimchi::proof::ProofEvaluations;
 use mina_hasher::Fp;
 
+use crate::NPOWERS_OF_ALPHA;
+
 pub enum CurrOrNext {
     Curr,
     Next,
@@ -9,7 +11,7 @@ pub enum CurrOrNext {
 
 pub enum Column {
     Witness(usize),
-    Poseidon,
+    // Poseidon,
 }
 
 // Helpers methods
@@ -56,8 +58,8 @@ where
     |col: Column, row: CurrOrNext| match (col, row) {
         (Witness(i), Curr) => evals.w[i][0],
         (Witness(i), Next) => evals.w[i][1],
-        (Poseidon, Curr) => evals.poseidon_selector[0],
-        (Poseidon, Next) => evals.poseidon_selector[1],
+        // (Poseidon, Curr) => evals.poseidon_selector[0],
+        // (Poseidon, Next) => evals.poseidon_selector[1],
     }
 }
 
@@ -65,7 +67,10 @@ where
 
 #[allow(clippy::double_parens)]
 #[allow(unused_parens)]
-pub fn complete_add(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp {
+pub fn complete_add(
+    evals: &ProofEvaluations<[Fp; 2]>,
+    powers_of_alpha: &[Fp; NPOWERS_OF_ALPHA],
+) -> Fp {
     use Column::*;
     use CurrOrNext::*;
 
@@ -104,7 +109,10 @@ pub fn complete_add(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -
 
 #[allow(clippy::double_parens)]
 #[allow(unused_parens)]
-pub fn var_base_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp {
+pub fn var_base_mul(
+    evals: &ProofEvaluations<[Fp; 2]>,
+    powers_of_alpha: &[Fp; NPOWERS_OF_ALPHA],
+) -> Fp {
     use Column::*;
     use CurrOrNext::*;
 
@@ -297,7 +305,7 @@ pub fn var_base_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -
 
 #[allow(clippy::double_parens)]
 #[allow(unused_parens)]
-pub fn endo_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp {
+pub fn endo_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp; NPOWERS_OF_ALPHA]) -> Fp {
     use Column::*;
     use CurrOrNext::*;
 
@@ -378,7 +386,7 @@ pub fn endo_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp
 #[allow(clippy::double_parens)]
 #[allow(unused_parens)]
 #[rustfmt::skip] // See below
-pub fn endo_mul_scalar(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp]) -> Fp {
+pub fn endo_mul_scalar(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp; NPOWERS_OF_ALPHA]) -> Fp {
     use Column::*;
     use CurrOrNext::*;
 
