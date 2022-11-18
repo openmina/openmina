@@ -13,21 +13,18 @@ pub fn tx_pool_diff() {
     GossipNetMessageV2::binprot_read(&mut p).unwrap();
 }
 
-#[allow(dead_code)]
 pub fn snark_pool_diff() {
     const BYTES: &[u8] = include_bytes!("files/v2/gossip/snark_pool_diff.bin");
     let mut p = BYTES;
     GossipNetMessageV2::binprot_read(&mut p).unwrap();
 }
 
-#[allow(dead_code)]
 pub fn new_state() {
     const BYTES: &[u8] = include_bytes!("files/v2/gossip/new_state.bin");
     let mut p = BYTES;
     GossipNetMessageV2::binprot_read(&mut p).unwrap();
 }
 
-#[allow(dead_code)]
 pub fn incoming_rpc() {
     static STREAM: &[u8] = include_bytes!("files/v2/rpc/catchup_in.bin");
     let mut p = STREAM;

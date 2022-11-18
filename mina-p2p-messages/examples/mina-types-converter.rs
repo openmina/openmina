@@ -10,13 +10,13 @@ use clap::{Parser, ValueEnum};
 use mina_p2p_messages::{
     gossip::GossipNetMessageV2,
     rpc_kernel::{DebuggerMessage, Message},
-    utils::FromBinProtStream,
+    utils::{FromBinProtStream, Greedy},
     v2::{
         MinaBlockBlockStableV2, NetworkPoolSnarkPoolDiffVersionedStableV2,
         NetworkPoolTransactionPoolDiffVersionedStableV2,
     },
 };
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -237,46 +237,6 @@ macro_rules! converter {
             )),*],
         }
     };
-}
-
-#[derive(Clone, Debug)]
-pub struct Greedy(Vec<u8>);
-
-impl Serialize for Greedy {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let hex = hex::encode(&self.0);
-        hex.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Greedy {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let hex = String::deserialize(deserializer)?;
-        Ok(Self(hex::decode(&hex).unwrap()))
-    }
-}
-
-impl BinProtRead for Greedy {
-    fn binprot_read<R: Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
-    where
-        Self: Sized,
-    {
-        let mut buf = Vec::new();
-        r.read_to_end(&mut buf)?;
-        Ok(Self(buf))
-    }
-}
-
-impl BinProtWrite for Greedy {
-    fn binprot_write<W: Write>(&self, w: &mut W) -> std::io::Result<()> {
-        w.write_all(&self.0)
-    }
 }
 
 fn converters() -> Vec<Converter> {
