@@ -482,7 +482,9 @@ pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorSt
 /// Gid: `523`
 /// Location: [src/lib/pickles/composition_types/digest.ml:13:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/pickles/composition_types/digest.ml#L13)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct CompositionTypesDigestConstantStableV1(pub PaddedSeq<LimbVectorConstantHex64StableV1, 4>);
+pub struct CompositionTypesDigestConstantStableV1(
+    pub PaddedSeq<LimbVectorConstantHex64StableV1, 4>,
+);
 
 /// Derived name: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2#statement#plonk`
 ///
@@ -583,7 +585,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
 /// Location: [src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml:32:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml#L32)
 /// Args: PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2 (pub PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , pub (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , (PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , () ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ,) ;
+pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2(
+    pub PaddedSeq<PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A, 15>,
+);
 
 /// **OCaml name**: `Mina_base__Verification_key_wire.Stable.V1`
 ///
@@ -2641,10 +2645,7 @@ pub struct ProtocolVersionStableV1 {
 pub struct MinaBlockHeaderStableV2 {
     pub protocol_state: MinaStateProtocolStateValueStableV2,
     pub protocol_state_proof: MinaBaseProofStableV2,
-    pub delta_block_chain_proof: (
-        StateHash,
-        Vec<MinaBaseStateBodyHashStableV1>,
-    ),
+    pub delta_block_chain_proof: (StateHash, Vec<MinaBaseStateBodyHashStableV1>),
     pub current_protocol_version: ProtocolVersionStableV1,
     pub proposed_protocol_version_opt: Option<ProtocolVersionStableV1>,
 }
