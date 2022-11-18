@@ -1,14 +1,20 @@
 mod decode_bench;
+use std::collections::BTreeMap;
+use std::fs;
+
+use binprot::BinProtWrite;
 use decode_bench::*;
 
 use alloc_test::alloc::measure::MemoryTracingHooks;
 use alloc_test::{
-    alloc::{
-        compare::{AllocThresholds, AllocThresholdsBuilder, AllocThresholdsError},
-    },
+    alloc::compare::{AllocThresholds, AllocThresholdsBuilder, AllocThresholdsError},
     alloc_bench,
     threshold::{CheckThresholdError, Threshold},
 };
+use mina_p2p_messages::rpc_kernel::Message;
+use mina_p2p_messages::utils::{FromBinProtStream, Greedy};
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 
 #[global_allocator]
 static ALLOCATOR: alloc_test::alloc::allocator::TracingAllocator<
@@ -72,4 +78,70 @@ fn decode_alloc_wasm() -> Result<(), CheckThresholdError<AllocThresholdsError>> 
         &limits,
     )?;
     Ok(())
+}
+
+#[test]
+fn decode_alloc_check_inputs() {
+    tx_pool_diff();
+    snark_pool_diff();
+    new_state();
+    staged_ledger();
+    incoming_rpc();
+}
+
+mod utils;
+
+#[test]
+#[ignore = "Utility to combine catchup RPC messages into a sequence"]
+fn collect_incoming_rpcs() {
+    let mut queries = BTreeMap::new();
+    utils::for_all("v2/rpc/catchup-messages/out", |path, mut bytes| {
+        let modified = fs::metadata(&path).unwrap().modified().unwrap();
+        while !bytes.is_empty() {
+            if let Some(b) =
+                bytes.strip_prefix(b"\x07\x00\x00\x00\x00\x00\x00\x00\x02\xfd\x52\x50\x43\x00\x01")
+            {
+                bytes = b;
+                continue;
+            }
+            if let Message::Query(q) = Message::<Greedy>::read_from_stream(&mut bytes).unwrap() {
+                let key = q.id;
+                queries.insert(key, (modified, q));
+            }
+        }
+    })
+    .unwrap();
+
+    let mut pairs = Vec::new();
+    utils::for_all("v2/rpc/catchup-messages/in", |path, mut bytes| {
+        let modified = fs::metadata(&path).unwrap().modified().unwrap();
+        while !bytes.is_empty() {
+            if let Some(b) =
+                bytes.strip_prefix(b"\x07\x00\x00\x00\x00\x00\x00\x00\x02\xfd\x52\x50\x43\x00\x01")
+            {
+                bytes = b;
+                continue;
+            }
+            if let Message::Response(r) = Message::<Greedy>::read_from_stream(&mut bytes).unwrap() {
+                let (qm, q) = queries.remove(&r.id).unwrap();
+                pairs.push((qm, q, modified, r));
+            }
+        }
+    })
+    .unwrap();
+
+    pairs.sort_by_key(|(qm, _, _, _)| *qm);
+
+    let mut out = fs::File::create(utils::files_path("v2/rpc/catchup_in1.bin").unwrap()).unwrap();
+    for (qm, q, rm, r) in pairs {
+        println!(
+            "{}, duration is {:?}, queried at {} and reply received at {}",
+            q.tag.to_string_lossy(),
+            rm.duration_since(qm).unwrap(),
+            OffsetDateTime::from(qm).format(&Rfc3339).unwrap(),
+            OffsetDateTime::from(rm).format(&Rfc3339).unwrap(),
+        );
+        (q.tag, q.version).binprot_write(&mut out).unwrap();
+        Message::Response(r).binprot_write(&mut out).unwrap();
+    }
 }

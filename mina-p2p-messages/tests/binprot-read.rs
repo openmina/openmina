@@ -1,9 +1,8 @@
-use binprot::BinProtRead;
-use mina_p2p_messages::{v1::{
+use mina_p2p_messages::v1::{
     MinaBlockExternalTransitionRawVersionedStableV1Versioned,
     NetworkPoolSnarkPoolDiffVersionedStableV1Versioned,
     NetworkPoolTransactionPoolDiffVersionedStableV1Versioned,
-}, gossip::GossipNetMessageV2};
+};
 
 mod utils;
 
