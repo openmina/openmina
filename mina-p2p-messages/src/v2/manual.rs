@@ -276,8 +276,8 @@ mod tests {
     b58t!(
         staged_ledger_hash_aux_hash,
         StagedLedgerHashAuxHash,
-        "36DghpXjs8tswr8NCeWkLmsSW52gH98qbuAXcfFsr6ykCdvjKwoF",
-        "20d9b3ceaed3f1dc7a13fcd88585fefadb86475d83e89828a7099e2ee5506d173c"
+        "UbhWTJLi4JM5bizFQVPvfMbjh4tCiTUTrNhedn8WdMPR1KHKJh",
+        "203294e118730ad8b7c0f2ab6d74d244eec02cfef221790bb1274fdb3b97854e50"
     );
 
     b58t!(
@@ -290,8 +290,8 @@ mod tests {
     b58t!(
         staged_ledger_hash_pending_coinbase_aux,
         StagedLedgerHashPendingCoinbaseAux,
-        "3EoSZGcx4LkUtnsEwaZfUt5VcXjJbiDKybGTbTjFsZT5MBKzH3eU",
-        "20ea3c01998507afba1adb2a8d14831fd5af3ff687078bfc0c68916abc98e76384"
+        "XgkNHpgSvmF7CyRBGUzcwvCD9daBRhZUDLg3xTvohmTX1mRqHR",
+        "20c922885bfeda2c2568e32fcc595fe0ad2292dcf756be637545bc553f7f7028e8"
     );
 
     b58t!(
