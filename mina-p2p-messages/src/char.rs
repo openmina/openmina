@@ -25,6 +25,13 @@ impl<'de> Deserialize<'de> for Char {
     where
         D: serde::Deserializer<'de>,
     {
+        fn str_to_char(v: &str) -> Result<u8, &str> {
+            if v.len() != 1 {
+                return Err("incorrect length");
+            }
+            let ch = v.chars().next().unwrap();
+            (ch as u32).try_into().map_err(|_| "incorrect char")
+        }
         if deserializer.is_human_readable() {
             struct V;
             impl<'de> Visitor<'de> for V {
@@ -38,13 +45,14 @@ impl<'de> Deserialize<'de> for Char {
                 where
                     E: serde::de::Error,
                 {
-                    if v.len() != 1 {
-                        return Err(serde::de::Error::custom("incorrect length"));
-                    }
-                    let ch = v.chars().next().unwrap();
-                    Ok((ch as u32)
-                        .try_into()
-                        .map_err(|_| serde::de::Error::custom("incorrect char"))?)
+                    str_to_char(&v).map_err(serde::de::Error::custom)
+                }
+
+                fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+                {
+                    str_to_char(v).map_err(serde::de::Error::custom)
                 }
             }
 

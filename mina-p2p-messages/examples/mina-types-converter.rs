@@ -13,7 +13,7 @@ use mina_p2p_messages::{
     utils::{FromBinProtStream, Greedy},
     v2::{
         MinaBlockBlockStableV2, NetworkPoolSnarkPoolDiffVersionedStableV2,
-        NetworkPoolTransactionPoolDiffVersionedStableV2,
+        NetworkPoolTransactionPoolDiffVersionedStableV2, BlockchainSnarkBlockchainStableV2,
     },
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -203,6 +203,7 @@ macro_rules! formatter {
 fn formatters() -> Vec<Formatter> {
     vec![
         formatter!("gossip", GossipNetMessageV2),
+        formatter!("blockchain", BlockchainSnarkBlockchainStableV2),
         formatter!("rpc-generic-debugger", DebuggerMessage<Greedy>),
     ]
 }

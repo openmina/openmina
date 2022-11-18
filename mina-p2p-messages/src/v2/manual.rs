@@ -2,13 +2,15 @@ use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize};
 
-use crate::{b58::AsBase58Check, bigint::BigInt, string::ByteString, versioned::Versioned};
+use crate::{
+    b58::Base58CheckOfBinProt, b58::Base58CheckOfBytes, bigint::BigInt, string::ByteString,
+    versioned::Versioned,
+};
 
 use super::{
     ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1,
     MinaBaseAccountIdDigestStableV1, MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
-    MinaBasePendingCoinbaseHashVersionedStableV1, MinaBaseStagedLedgerHashAuxHashStableV1,
-    MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1, NonZeroCurvePointUncompressedStableV1,
+    MinaBasePendingCoinbaseHashVersionedStableV1, NonZeroCurvePointUncompressedStableV1,
     ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
     TransactionSnarkScanStateStableV2TreesABaseT1, TransactionSnarkScanStateStableV2TreesAMergeT1,
 };
@@ -150,7 +152,7 @@ impl BinProtWrite for TransactionSnarkScanStateStableV2TreesA {
     }
 }
 
-macro_rules! hash {
+macro_rules! base58check_of_binprot {
     ($name:ident, versioned($ty:ty, $version:expr), $version_byte:ident) => {
         impl From<Versioned<$ty, $version>> for $ty {
             fn from(source: Versioned<$ty, $version>) -> Self {
@@ -158,36 +160,45 @@ macro_rules! hash {
             }
         }
 
-        pub type $name =
-            AsBase58Check<$ty, Versioned<$ty, $version>, { $crate::b58version::$version_byte }>;
+        pub type $name = Base58CheckOfBinProt<
+            $ty,
+            Versioned<$ty, $version>,
+            { $crate::b58version::$version_byte },
+        >;
     };
     ($name:ident, versioned $ty:ty, $version_byte:ident) => {
-        hash!($name, versioned($ty, 1), $version_byte);
+        base58check_of_binprot!($name, versioned($ty, 1), $version_byte);
     };
     ($name:ident, $ty:ty, $version_byte:ident) => {
-        pub type $name = AsBase58Check<$ty, $ty, { $crate::b58version::$version_byte }>;
+        pub type $name = Base58CheckOfBinProt<$ty, $ty, { $crate::b58version::$version_byte }>;
     };
 }
 
-hash!(LedgerHash, versioned MinaBaseLedgerHash0StableV1, LEDGER_HASH);
-hash!(
+macro_rules! base58check_of_bytes {
+    ($name:ident, $ty:ty, $version_byte:ident) => {
+        pub type $name = Base58CheckOfBytes<$ty, { $crate::b58version::$version_byte }>;
+    };
+}
+
+base58check_of_binprot!(LedgerHash, versioned MinaBaseLedgerHash0StableV1, LEDGER_HASH);
+base58check_of_bytes!(
     StagedLedgerHashAuxHash,
-    MinaBaseStagedLedgerHashAuxHashStableV1,
+    crate::string::ByteString,
     STAGED_LEDGER_HASH_AUX_HASH
 );
-hash!(EpochSeed, versioned MinaBaseEpochSeedStableV1, EPOCH_SEED);
-hash!(
+base58check_of_binprot!(EpochSeed, versioned MinaBaseEpochSeedStableV1, EPOCH_SEED);
+base58check_of_bytes!(
     StagedLedgerHashPendingCoinbaseAux,
-    MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1,
+    crate::string::ByteString,
     STAGED_LEDGER_HASH_PENDING_COINBASE_AUX
 );
-hash!(StateHash, versioned DataHashLibStateHashStableV1, STATE_HASH);
-hash!(
+base58check_of_binprot!(StateHash, versioned DataHashLibStateHashStableV1, STATE_HASH);
+base58check_of_binprot!(
     PendingCoinbaseHash,
     versioned MinaBasePendingCoinbaseHashVersionedStableV1,
     RECEIPT_CHAIN_HASH
 );
-hash!(
+base58check_of_binprot!(
     TokenIdKeyHash,
     MinaBaseAccountIdDigestStableV1,
     TOKEN_ID_KEY
@@ -219,7 +230,7 @@ impl From<Versioned<NonZeroCurvePointWithVersions, 1>> for NonZeroCurvePointUnco
     }
 }
 
-pub type NonZeroCurvePoint = AsBase58Check<
+pub type NonZeroCurvePoint = Base58CheckOfBinProt<
     NonZeroCurvePointUncompressedStableV1,
     Versioned<NonZeroCurvePointWithVersions, 1>,
     { crate::b58version::NON_ZERO_CURVE_POINT_COMPRESSED },

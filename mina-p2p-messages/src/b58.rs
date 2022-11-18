@@ -3,6 +3,8 @@
 use std::marker::PhantomData;
 
 use binprot::{BinProtRead, BinProtWrite};
+use binprot_derive::{BinProtRead, BinProtWrite};
+use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 /// Before encoding, data is prepended with the version byte.
@@ -78,12 +80,12 @@ where
     }
 }
 
-/// Wrapper that uses base58check serialization for the wrapped type for human
-/// readable serializer.
+/// Wrapper that uses base58check of binprot serialization for the wrapped type
+/// for human readable serializer.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct AsBase58Check<T, U, const V: u8>(T, PhantomData<U>);
+pub struct Base58CheckOfBinProt<T, U, const V: u8>(T, PhantomData<U>);
 
-impl<T, U, const V: u8> Clone for AsBase58Check<T, U, V>
+impl<T, U, const V: u8> Clone for Base58CheckOfBinProt<T, U, V>
 where
     T: Clone,
 {
@@ -92,19 +94,19 @@ where
     }
 }
 
-impl<T, U, const V: u8> From<T> for AsBase58Check<T, U, V> {
+impl<T, U, const V: u8> From<T> for Base58CheckOfBinProt<T, U, V> {
     fn from(source: T) -> Self {
-        AsBase58Check(source, Default::default())
+        Base58CheckOfBinProt(source, Default::default())
     }
 }
 
-impl<T, U, const V: u8> AsBase58Check<T, U, V> {
+impl<T, U, const V: u8> Base58CheckOfBinProt<T, U, V> {
     pub fn into_inner(self) -> T {
         self.0
     }
 }
 
-impl<T, U, const V: u8> BinProtRead for AsBase58Check<T, U, V>
+impl<T, U, const V: u8> BinProtRead for Base58CheckOfBinProt<T, U, V>
 where
     T: BinProtRead,
 {
@@ -116,7 +118,7 @@ where
     }
 }
 
-impl<T, U, const V: u8> BinProtWrite for AsBase58Check<T, U, V>
+impl<T, U, const V: u8> BinProtWrite for Base58CheckOfBinProt<T, U, V>
 where
     T: BinProtWrite,
 {
@@ -125,7 +127,7 @@ where
     }
 }
 
-impl<T, U, const V: u8> Serialize for AsBase58Check<T, U, V>
+impl<T, U, const V: u8> Serialize for Base58CheckOfBinProt<T, U, V>
 where
     T: Clone + Serialize,
     U: From<T> + BinProtWrite + std::fmt::Debug,
@@ -148,7 +150,7 @@ where
     }
 }
 
-impl<'de, T, U, const V: u8> serde::Deserialize<'de> for AsBase58Check<T, U, V>
+impl<'de, T, U, const V: u8> serde::Deserialize<'de> for Base58CheckOfBinProt<T, U, V>
 where
     T: From<U> + Deserialize<'de>,
     U: BinProtRead,
@@ -173,8 +175,74 @@ where
     }
 }
 
+/// Wrapper that uses base58check of byte representation for the wrapped type
+/// for human readable serializer.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, From, BinProtRead, BinProtWrite)]
+pub struct Base58CheckOfBytes<T, const V: u8>(T);
+
+impl<T, const V: u8> Base58CheckOfBytes<T, V> {
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T, const V: u8> Serialize for Base58CheckOfBytes<T, V>
+where
+    T: Serialize + AsRef<[u8]> + std::fmt::Debug,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            let encoded = encode(self.0.as_ref(), V);
+            serializer.serialize_str(&encoded)
+        } else {
+            self.0.serialize(serializer)
+        }
+    }
+}
+
+impl<'de, T, const V: u8> serde::Deserialize<'de> for Base58CheckOfBytes<T, V>
+where
+    T: for <'a> From<&'a [u8]> + Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            let b58: String = Deserialize::deserialize(deserializer)?;
+            let bytes = decode(&b58, V).map_err(|e| {
+                serde::de::Error::custom(format!("Failed to construct from base58check: {e}"))
+            })?;
+            Ok(T::from(&bytes[1..]))
+        } else {
+            T::deserialize(deserializer)
+        }
+        .map(Self)
+    }
+}
+
 #[cfg(feature = "hashing")]
-impl<T: mina_hasher::Hashable, U, const V: u8> mina_hasher::Hashable for AsBase58Check<T, U, V> {
+impl<T: mina_hasher::Hashable, U, const V: u8> mina_hasher::Hashable
+    for Base58CheckOfBinProt<T, U, V>
+{
+    type D = T::D;
+
+    fn to_roinput(&self) -> mina_hasher::ROInput {
+        self.0.to_roinput()
+    }
+
+    fn domain_string(domain_param: Self::D) -> Option<String> {
+        T::domain_string(domain_param)
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl<T: mina_hasher::Hashable, const V: u8> mina_hasher::Hashable
+    for Base58CheckOfBytes<T, V>
+{
     type D = T::D;
 
     fn to_roinput(&self) -> mina_hasher::ROInput {
@@ -194,7 +262,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        b58::{AsBase58Check, Base58CheckVersion},
+        b58::{Base58CheckOfBinProt, Base58CheckVersion},
         bigint::BigInt,
         versioned::Versioned,
     };
@@ -296,7 +364,7 @@ mod tests {
 
         #[derive(Debug, Serialize, Deserialize, PartialEq)]
         struct Foo {
-            b: AsBase58Check<BinableV2, Versioned<BinableV1, 1>, 0x10>,
+            b: Base58CheckOfBinProt<BinableV2, Versioned<BinableV1, 1>, 0x10>,
         }
 
         let b = Foo {
