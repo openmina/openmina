@@ -10,6 +10,15 @@ impl BigInt {
         mina_hasher::Fp::from_bytes(self.0.as_ref())
     }
 
+    #[cfg(feature = "hashing")]
+    pub fn to_field<F>(&self) -> F
+    where
+        F: ark_ff::Field
+    {
+        let mut slice: &[u8] = self.0.as_ref();
+        F::read(&mut slice).expect("Conversion BigInt to Field failed")
+    }
+
     pub fn iter_bytes<'a>(&'a self) -> impl 'a + DoubleEndedIterator<Item = u8> {
         self.0.iter().cloned()
     }
