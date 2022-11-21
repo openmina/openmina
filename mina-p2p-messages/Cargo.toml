@@ -22,6 +22,8 @@ mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776
 o1-utils = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }
 base64 = "0.13.1"
 
+ark-ff = { version = "0.3.0", features = [ "parallel", "asm" ], optional = true }
+
 [target.'cfg(fuzzing)'.dev-dependencies]
 fuzzcheck = "0.12.1"
 
@@ -36,7 +38,7 @@ time = { version = "0.3.17", features = ["formatting"] }
 
 
 [features]
-hashing = ["mina-hasher", "mina-curves", "mina-signer", "o1-utils", "sha2"]
+hashing = ["mina-hasher", "mina-curves", "mina-signer", "o1-utils", "sha2", "ark-ff"]
 
 [target.wasm32-unknown-unknown.dev-dependencies]
 web-sys = { version = "0.3.60", features = ["console"] }
