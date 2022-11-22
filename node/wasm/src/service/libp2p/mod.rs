@@ -1,6 +1,8 @@
 use std::convert::Infallible;
 use std::time::Duration;
 
+use wasm_bindgen_futures::spawn_local;
+
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport;
 use libp2p::core::transport::upgrade;
@@ -20,14 +22,18 @@ pub use mina_p2p_messages::GossipNetMessageV1 as GossipNetMessage;
 
 use lib::event_source::{Event, P2pConnectionEvent, P2pEvent, P2pPubsubEvent};
 use lib::p2p::pubsub::PubsubTopic;
-use lib::service::{P2pConnectionService, P2pPubsubService};
+use lib::p2p::rpc::{P2pRpcId, P2pRpcRequest};
+use lib::service::{P2pConnectionService, P2pPubsubService, P2pRpcService};
 
 mod behavior;
 pub use behavior::Event as BehaviourEvent;
 pub use behavior::*;
-use wasm_bindgen_futures::spawn_local;
+
+pub mod rpc;
 
 use crate::NodeWasmService;
+
+use self::rpc::RpcBehaviour;
 
 /// Type alias for libp2p transport
 pub type P2PTransport = (PeerId, StreamMuxerBox);
@@ -44,6 +50,7 @@ pub enum Cmd {
 #[derive(Debug)]
 pub enum CmdSendMessage {
     Gossipsub(PubsubTopic, Vec<u8>),
+    RpcRequest(PeerId, P2pRpcId, P2pRpcRequest),
 }
 
 pub struct Libp2pService {
@@ -132,6 +139,7 @@ impl Libp2pService {
             //     config.keypair.public(),
             // )),
             gossipsub,
+            rpc: RpcBehaviour::new(),
 
             event_source_sender,
         };
@@ -159,8 +167,14 @@ impl Libp2pService {
                                 // TODO(binier)
                                 swarm.disconnect_peer_id(peer_id);
                             }
-                            Some(Cmd::SendMessage(CmdSendMessage::Gossipsub(topic, msg))) => {
-                                swarm.behaviour_mut().gossipsub.publish(topic, msg).unwrap();
+                            Some(Cmd::SendMessage(msg)) => match msg {
+                                CmdSendMessage::Gossipsub(topic, msg) => {
+                                    swarm.behaviour_mut().gossipsub.publish(topic, msg).unwrap();
+                                }
+                                CmdSendMessage::RpcRequest(peer_id, id, req) => {
+                                    // TODO(binier): handle if is_some
+                                    swarm.behaviour_mut().rpc.send_request(peer_id, id, req);
+                                }
                             }
                             None => break,
                         }
@@ -202,7 +216,8 @@ impl Libp2pService {
                     shared::log::system_time();
                     kind = "PeerDisconnected",
                     summary = format!("peer_id: {}", peer_id),
-                    peer_id = peer_id.to_string()
+                    peer_id = peer_id.to_string(),
+                    cause = format!("{:?}", cause)
                 );
                 // TODO(binier)
             }
@@ -243,7 +258,11 @@ impl Libp2pService {
                     }));
                     swarm.behaviour_mut().event_source_sender.send(event).await;
                 }
-                event => {
+                BehaviourEvent::Rpc(event) => {
+                    let event = Event::P2p(P2pEvent::Rpc(event));
+                    swarm.behaviour_mut().event_source_sender.send(event).await;
+                }
+                _ => {
                     shared::log::trace!(
                         shared::log::system_time();
                         kind = "IgnoredLibp2pBehaviorEvent",
@@ -284,6 +303,18 @@ impl P2pPubsubService for NodeWasmService {
         spawn_local(async move {
             tx.send(Cmd::SendMessage(CmdSendMessage::Gossipsub(topic, bytes)))
                 .await;
+        });
+    }
+}
+
+impl P2pRpcService for NodeWasmService {
+    fn outgoing_init(&mut self, peer_id: PeerId, id: P2pRpcId, req: P2pRpcRequest) {
+        let mut tx = self.libp2p.cmd_sender.clone();
+        spawn_local(async move {
+            tx.send(Cmd::SendMessage(CmdSendMessage::RpcRequest(
+                peer_id, id, req,
+            )))
+            .await;
         });
     }
 }

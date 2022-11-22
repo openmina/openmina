@@ -1,0 +1,189 @@
+mod p2p_rpc_state;
+pub use p2p_rpc_state::*;
+
+mod p2p_rpc_actions;
+pub use p2p_rpc_actions::*;
+
+mod p2p_rpc_reducer;
+pub use p2p_rpc_reducer::*;
+
+mod p2p_rpc_service;
+pub use p2p_rpc_service::*;
+
+use std::io;
+
+use binprot::{BinProtRead, BinProtWrite};
+use libp2p::futures::io::{AsyncRead, AsyncReadExt};
+use mina_p2p_messages::{
+    rpc::VersionedRpcMenuV1,
+    rpc_kernel::{QueryHeader, QueryID, Response, ResponseHeader, RpcMethod, RpcResultKind},
+};
+use serde::{Deserialize, Serialize};
+
+use crate::PeerId;
+
+#[derive(Hash, Ord, PartialOrd, Eq, PartialEq)]
+pub struct P2pRpcIdType;
+impl shared::requests::RequestIdType for P2pRpcIdType {
+    fn request_id_type() -> &'static str {
+        "P2pRpcId"
+    }
+}
+
+pub type P2pRpcId = shared::requests::RequestId<P2pRpcIdType>;
+pub type P2pRpcIncomingId = u64;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pRpcOutgoingError {
+    ConnectionClosed,
+    UnsupportedProtocol,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pRpcEvent {
+    OutgoingResponse(PeerId, P2pRpcId, P2pRpcResponse),
+    OutgoingError(PeerId, P2pRpcId, P2pRpcOutgoingError),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pRpcRequest {
+    MenuGet(<VersionedRpcMenuV1 as RpcMethod>::Query),
+}
+
+impl P2pRpcRequest {
+    pub fn kind(&self) -> P2pRpcKind {
+        match self {
+            Self::MenuGet(_) => P2pRpcKind::MenuGet,
+        }
+    }
+
+    fn write_msg_impl<T, W>(w: &mut W, id: P2pRpcId, data: &T::Query) -> io::Result<()>
+    where
+        T: RpcMethod,
+        W: io::Write,
+    {
+        let header = QueryHeader {
+            tag: T::NAME.into(),
+            version: T::VERSION,
+            id: id.counter() as QueryID,
+        };
+        header.binprot_write(w)?;
+        binprot::binprot_write_with_size(data, w)
+    }
+
+    pub fn write_msg<W: io::Write>(&self, id: P2pRpcId, w: &mut W) -> io::Result<()> {
+        match self {
+            Self::MenuGet(data) => Self::write_msg_impl::<VersionedRpcMenuV1, _>(w, id, data),
+        }
+    }
+}
+
+pub enum P2pRpcKind {
+    MenuGet,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pRpcResponse {
+    MenuGet(<VersionedRpcMenuV1 as RpcMethod>::Response),
+}
+
+impl P2pRpcResponse {
+    fn write_msg_impl<T, W>(w: &mut W, id: P2pRpcId, data: &T::Response) -> io::Result<()>
+    where
+        T: RpcMethod,
+        W: io::Write,
+        // TODO(binier): optimize. extra clone here.
+        T::Response: Clone,
+    {
+        let resp = Response {
+            id: id.counter() as QueryID,
+            // TODO(binier): optimize. extra clone here.
+            data: Ok(data.clone().into()).into(),
+        };
+        resp.binprot_write(w)
+    }
+
+    pub fn write_msg<W: io::Write>(&self, id: P2pRpcId, w: &mut W) -> io::Result<()> {
+        match self {
+            Self::MenuGet(res) => Self::write_msg_impl::<VersionedRpcMenuV1, _>(w, id, res),
+        }
+    }
+
+    pub async fn async_read_msg<R: AsyncRead + Unpin>(
+        kind: P2pRpcKind,
+        r: &mut R,
+    ) -> Result<Self, binprot::Error> {
+        let mut buf = [0; 11];
+        r.read_exact(&mut buf).await?;
+        let mut b = &buf[..];
+
+        let header = ResponseHeader::binprot_read(&mut b)?;
+        let result_kind = RpcResultKind::binprot_read(&mut b)?;
+        let payload_len = if b.len() == 9 {
+            binprot::Nat0::binprot_read(&mut b)?.0 as usize
+        } else {
+            let mut buf = [0; 9];
+            let n = if b.is_empty() {
+                0
+            } else {
+                (&mut buf[0..b.len()]).clone_from_slice(b);
+                b = &[];
+                b.len()
+            };
+            r.read_exact(&mut buf[n..]).await?;
+            binprot::Nat0::binprot_read(&mut &buf[..])?.0 as usize
+        };
+        // TODO(bineir): [SECURITY] limit max len.
+        let payload_bytes = {
+            let mut buf = vec![0; payload_len];
+            (&mut buf[0..b.len()]).clone_from_slice(b);
+            r.read(&mut buf[b.len()..]).await?;
+            buf
+        };
+
+        Ok(match kind {
+            P2pRpcKind::MenuGet => match result_kind {
+                RpcResultKind::Ok => {
+                    Self::MenuGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
+                }
+                RpcResultKind::Err => {
+                    let err = mina_p2p_messages::rpc_kernel::Error::binprot_read(
+                        &mut &payload_bytes[..],
+                    )?;
+                    let err = format!("{:?}", err);
+                    return Err(binprot::Error::CustomError(err.into()));
+                }
+            },
+        })
+    }
+}
+
+#[test]
+fn decode_menu_response() {
+    let bytes = [
+        5, 0, 254, 238, 0, 10, 22, 103, 101, 116, 95, 115, 111, 109, 101, 95, 105, 110, 105, 116,
+        105, 97, 108, 95, 112, 101, 101, 114, 115, 1, 51, 103, 101, 116, 95, 115, 116, 97, 103,
+        101, 100, 95, 108, 101, 100, 103, 101, 114, 95, 97, 117, 120, 95, 97, 110, 100, 95, 112,
+        101, 110, 100, 105, 110, 103, 95, 99, 111, 105, 110, 98, 97, 115, 101, 115, 95, 97, 116,
+        95, 104, 97, 115, 104, 1, 24, 97, 110, 115, 119, 101, 114, 95, 115, 121, 110, 99, 95, 108,
+        101, 100, 103, 101, 114, 95, 113, 117, 101, 114, 121, 1, 12, 103, 101, 116, 95, 98, 101,
+        115, 116, 95, 116, 105, 112, 1, 12, 103, 101, 116, 95, 97, 110, 99, 101, 115, 116, 114,
+        121, 1, 24, 71, 101, 116, 95, 116, 114, 97, 110, 115, 105, 116, 105, 111, 110, 95, 107,
+        110, 111, 119, 108, 101, 100, 103, 101, 1, 20, 103, 101, 116, 95, 116, 114, 97, 110, 115,
+        105, 116, 105, 111, 110, 95, 99, 104, 97, 105, 110, 1, 26, 103, 101, 116, 95, 116, 114, 97,
+        110, 115, 105, 116, 105, 111, 110, 95, 99, 104, 97, 105, 110, 95, 112, 114, 111, 111, 102,
+        1, 10, 98, 97, 110, 95, 110, 111, 116, 105, 102, 121, 1, 16, 103, 101, 116, 95, 101, 112,
+        111, 99, 104, 95, 108, 101, 100, 103, 101, 114, 1,
+    ];
+    let mut b = &bytes[..];
+
+    let res = libp2p::futures::executor::block_on(P2pRpcResponse::async_read_msg(
+        P2pRpcKind::MenuGet,
+        &mut b,
+    ));
+    dbg!(&res);
+    assert!(res.is_ok());
+    match res.unwrap() {
+        P2pRpcResponse::MenuGet(v) => assert_eq!(v.len(), 10),
+    };
+}
