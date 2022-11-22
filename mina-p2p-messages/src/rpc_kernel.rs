@@ -18,7 +18,7 @@ pub struct RpcResult<T, E>(Result<T, E>);
 
 /// Auxiliary type to encode [RpcResult]'s tag.
 #[derive(Debug, BinProtRead, BinProtWrite)]
-enum Result_ {
+pub enum RpcResultKind {
     Ok,
     Err,
 }
@@ -32,9 +32,9 @@ where
     where
         Self: Sized,
     {
-        Ok(match Result_::binprot_read(r)? {
-            Result_::Ok => Ok(T::binprot_read(r)?),
-            Result_::Err => Err(E::binprot_read(r)?),
+        Ok(match RpcResultKind::binprot_read(r)? {
+            RpcResultKind::Ok => Ok(T::binprot_read(r)?),
+            RpcResultKind::Err => Err(E::binprot_read(r)?),
         }
         .into())
     }
@@ -48,11 +48,11 @@ where
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
         match &self.0 {
             Ok(v) => {
-                Result_::Ok.binprot_write(w)?;
+                RpcResultKind::Ok.binprot_write(w)?;
                 v.binprot_write(w)?;
             }
             Err(e) => {
-                Result_::Err.binprot_write(w)?;
+                RpcResultKind::Err.binprot_write(w)?;
                 e.binprot_write(w)?;
             }
         }
@@ -155,7 +155,7 @@ pub struct Query<T> {
 /// Type used to encode response payload.
 ///
 /// Response can be either successfull, consisting of the result value prepended
-/// with its lenght, or an error of type [Error].
+/// with its length, or an error of type [Error].
 pub type ResponsePayload<T> = RpcResult<NeedsLength<T>, Error>;
 
 /// RPC response.
@@ -254,8 +254,8 @@ pub enum MessageHeader {
 pub trait RpcMethod {
     const NAME: &'static str;
     const VERSION: Ver;
-    type Query: BinProtRead;
-    type Response: BinProtRead;
+    type Query: BinProtRead + BinProtWrite;
+    type Response: BinProtRead + BinProtWrite;
 }
 
 /// Reads binable (bin_prot-encoded) value from a stream, handles it and returns

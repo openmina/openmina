@@ -48,15 +48,17 @@ where
 
             fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
             where
-                E: serde::de::Error, {
+                E: serde::de::Error,
+            {
                 v.parse().map_err(|_| {
                     serde::de::Error::custom(format!("failed to parse string as number"))
                 })
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-                where
-                    E: serde::de::Error, {
+            where
+                E: serde::de::Error,
+            {
                 v.parse().map_err(|_| {
                     serde::de::Error::custom(format!("failed to parse string as number"))
                 })

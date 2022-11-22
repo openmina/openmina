@@ -4,7 +4,7 @@ use binprot::{
     byteorder::{LittleEndian, ReadBytesExt},
     BinProtRead, BinProtWrite,
 };
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Decodes an integer from `bin_prot` encoded bytes provided by the given reader.
 pub fn decode_int<T, R>(r: &mut R) -> Result<T, binprot::Error>
@@ -90,7 +90,6 @@ pub trait FromBinProtStream: BinProtRead + Sized {
 
 impl<T> FromBinProtStream for T where T: BinProtRead {}
 
-
 #[derive(Clone, Debug)]
 pub struct Greedy(Vec<u8>);
 
@@ -130,8 +129,6 @@ impl BinProtWrite for Greedy {
         w.write_all(&self.0)
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
