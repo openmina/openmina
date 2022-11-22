@@ -9,6 +9,22 @@ pub type Int32 = Number<i32>;
 pub type Int64 = Number<i64>;
 pub type Float64 = Number<f64>;
 
+impl<T> std::ops::Deref for Number<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Int32 {
+    pub fn as_u32(&self) -> u32 { self.0 as u32 }
+}
+
+impl Int64 {
+    pub fn as_u64(&self) -> u64 { self.0 as u64 }
+}
+
 impl<T> Serialize for Number<T>
 where
     T: Serialize + Display,
