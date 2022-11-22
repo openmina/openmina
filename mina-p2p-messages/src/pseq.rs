@@ -5,6 +5,14 @@ use serde::ser::SerializeTuple;
 #[derive(Clone, Debug, PartialEq)]
 pub struct PaddedSeq<T, const N: usize>(pub [T; N]);
 
+impl<T, const N: usize> std::ops::Deref for PaddedSeq<T, N> {
+    type Target = [T; N];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl<T: BinProtRead, const N: usize> binprot::BinProtRead for PaddedSeq<T, N> {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
     where

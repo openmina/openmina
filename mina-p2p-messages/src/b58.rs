@@ -100,6 +100,14 @@ impl<T, U, const V: u8> From<T> for Base58CheckOfBinProt<T, U, V> {
     }
 }
 
+impl<T, U, const V: u8> std::ops::Deref for Base58CheckOfBinProt<T, U, V> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl<T, U, const V: u8> Base58CheckOfBinProt<T, U, V> {
     pub fn into_inner(self) -> T {
         self.0

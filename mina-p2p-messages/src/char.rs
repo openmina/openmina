@@ -2,7 +2,7 @@ use binprot::byteorder::{ReadBytesExt, WriteBytesExt};
 use serde::{de::Visitor, Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Char(u8);
+pub struct Char(pub u8);
 
 impl Serialize for Char {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
