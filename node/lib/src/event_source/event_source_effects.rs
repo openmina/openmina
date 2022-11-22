@@ -15,7 +15,7 @@ use super::{
 };
 
 pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourceActionWithMeta) {
-    let (action, _) = action.split();
+    let (action, meta) = action.split();
     match action {
         EventSourceAction::ProcessEvents(_) => {
             // process max 1024 events at a time.
@@ -56,6 +56,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         });
                     }
                 },
+                P2pEvent::Rpc(e) => {
+                    shared::log::warn!(meta.time(); kind = "UnhandledP2pRpcEvent", event = format!("{:?}", e));
+                }
             },
             Event::Rpc(rpc_id, e) => match e {
                 RpcRequest::GetState => {

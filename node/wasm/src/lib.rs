@@ -317,7 +317,7 @@ impl JsHandle {
         let msg = tx.to_gossipsub_v1_msg(sig);
         shared::log::info!(
             shared::log::system_time();
-            summary = "created transaction pool message: {:?}",
+            summary = "created transaction pool message",
             message = serde_json::to_string(&msg).ok()
         );
         self.pubsub_publish(PubsubTopic::CodaConsensusMessage, msg)
