@@ -12,7 +12,9 @@ pub enum GossipNetMessageV1 {
     TransactionPoolDiff(v1::NetworkPoolTransactionPoolDiffVersionedStableV1Versioned),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, From, TryInto)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, From, TryInto,
+)]
 #[serde(tag = "type", content = "message", rename_all = "snake_case")]
 pub enum GossipNetMessageV2 {
     NewState(v2::MinaBlockBlockStableV2),

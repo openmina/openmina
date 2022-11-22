@@ -205,7 +205,7 @@ where
 
 impl<'de, T, const V: u8> serde::Deserialize<'de> for Base58CheckOfBytes<T, V>
 where
-    T: for <'a> From<&'a [u8]> + Deserialize<'de>,
+    T: for<'a> From<&'a [u8]> + Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -240,9 +240,7 @@ impl<T: mina_hasher::Hashable, U, const V: u8> mina_hasher::Hashable
 }
 
 #[cfg(feature = "hashing")]
-impl<T: mina_hasher::Hashable, const V: u8> mina_hasher::Hashable
-    for Base58CheckOfBytes<T, V>
-{
+impl<T: mina_hasher::Hashable, const V: u8> mina_hasher::Hashable for Base58CheckOfBytes<T, V> {
     type D = T::D;
 
     fn to_roinput(&self) -> mina_hasher::ROInput {

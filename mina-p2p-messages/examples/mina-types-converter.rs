@@ -12,8 +12,8 @@ use mina_p2p_messages::{
     rpc_kernel::{DebuggerMessage, Message},
     utils::{FromBinProtStream, Greedy},
     v2::{
-        MinaBlockBlockStableV2, NetworkPoolSnarkPoolDiffVersionedStableV2,
-        NetworkPoolTransactionPoolDiffVersionedStableV2, BlockchainSnarkBlockchainStableV2,
+        BlockchainSnarkBlockchainStableV2, MinaBlockBlockStableV2,
+        NetworkPoolSnarkPoolDiffVersionedStableV2, NetworkPoolTransactionPoolDiffVersionedStableV2,
     },
 };
 use serde::{de::DeserializeOwned, Serialize};

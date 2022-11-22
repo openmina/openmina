@@ -403,8 +403,9 @@ mod tests {
         let mut ptr = payload.as_slice();
         let jsonify = r.get("get_transition_chain", 1).unwrap();
         let json = jsonify.read_query(&mut ptr).unwrap();
-        let expected =
-            serde_json::json!(["0x0efbec620ae929029a201479043351aed81b1f2ed2c5c2dee4b2ab450d9bdde7"]);
+        let expected = serde_json::json!([
+            "0x0efbec620ae929029a201479043351aed81b1f2ed2c5c2dee4b2ab450d9bdde7"
+        ]);
         assert_eq!(json, expected);
     }
 }

@@ -1,4 +1,3 @@
-
 #[cfg(feature = "hashing")]
 impl From<crate::v2::NonZeroCurvePointUncompressedStableV1> for mina_signer::CompressedPubKey {
     fn from(val: crate::v2::NonZeroCurvePointUncompressedStableV1) -> Self {
