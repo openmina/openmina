@@ -3,6 +3,7 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingErrorAction, P2pConnectionOutgoingSuccessAction,
 };
 use crate::p2p::pubsub::P2pPubsubBytesReceivedAction;
+use crate::p2p::rpc::outgoing::{P2pRpcOutgoingErrorAction, P2pRpcOutgoingSuccessAction};
 use crate::rpc::{
     RpcGlobalStateGetAction, RpcP2pConnectionOutgoingInitAction, RpcP2pPubsubMessagePublishAction,
     RpcRequest,
@@ -11,7 +12,7 @@ use crate::{Service, Store};
 
 use super::{
     Event, EventSourceAction, EventSourceActionWithMeta, EventSourceNewEventAction,
-    P2pConnectionEvent, P2pEvent, P2pPubsubEvent,
+    P2pConnectionEvent, P2pEvent, P2pPubsubEvent, P2pRpcEvent,
 };
 
 pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourceActionWithMeta) {
@@ -56,9 +57,22 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         });
                     }
                 },
-                P2pEvent::Rpc(e) => {
-                    shared::log::warn!(meta.time(); kind = "UnhandledP2pRpcEvent", event = format!("{:?}", e));
-                }
+                P2pEvent::Rpc(e) => match e {
+                    P2pRpcEvent::OutgoingError(peer_id, rpc_id, error) => {
+                        store.dispatch(P2pRpcOutgoingErrorAction {
+                            peer_id,
+                            rpc_id,
+                            error,
+                        });
+                    }
+                    P2pRpcEvent::OutgoingResponse(peer_id, rpc_id, response) => {
+                        store.dispatch(P2pRpcOutgoingSuccessAction {
+                            peer_id,
+                            rpc_id,
+                            response,
+                        });
+                    }
+                },
             },
             Event::Rpc(rpc_id, e) => match e {
                 RpcRequest::GetState => {

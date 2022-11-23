@@ -15,4 +15,11 @@ impl P2pConnectionState {
             Self::Outgoing(v) => v.rpc_id(),
         }
     }
+
+    pub fn is_success(&self) -> bool {
+        match self {
+            Self::Outgoing(P2pConnectionOutgoingState::Success { .. }) => true,
+            Self::Outgoing(_) => false,
+        }
+    }
 }
