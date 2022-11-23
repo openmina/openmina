@@ -12,6 +12,10 @@ mod p2p_state;
 pub use p2p_state::*;
 
 mod p2p_reducer;
+pub use p2p_reducer::*;
+
+mod p2p_effects;
+pub use p2p_effects::*;
 
 pub use libp2p::PeerId;
 

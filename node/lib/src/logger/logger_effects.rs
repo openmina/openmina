@@ -1,6 +1,8 @@
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::pubsub::{GossipNetMessageV1, P2pPubsubAction};
+use crate::p2p::rpc::outgoing::P2pRpcOutgoingAction;
+use crate::p2p::rpc::P2pRpcAction;
 use crate::p2p::P2pAction;
 use crate::{Action, ActionWithMetaRef, Service, Store};
 
@@ -57,7 +59,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     _ => {}
                 },
             },
-
+            P2pAction::PeerReady(_) => {}
             P2pAction::Pubsub(action) => match action {
                 P2pPubsubAction::MessagePublish(action) => {
                     shared::log::info!(
@@ -79,6 +81,46 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     );
                 }
                 _ => {}
+            },
+            P2pAction::Rpc(action) => match action {
+                P2pRpcAction::Outgoing(action) => match action {
+                    P2pRpcOutgoingAction::Init(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = "P2pRpcOutgoingInit",
+                            summary = format!("peer_id: {}, rpc_id: {}, kind: {:?}", action.peer_id, action.rpc_id, action.request.kind()),
+                            peer_id = action.peer_id.to_string(),
+                            rpc_id = action.rpc_id.to_string(),
+                            request = serde_json::to_string(&action.request).ok()
+                        );
+                    }
+                    P2pRpcOutgoingAction::Error(action) => {
+                        let req = None.or_else(|| {
+                            let p = store.state().p2p.get_ready_peer(&action.peer_id)?;
+                            Some(p.rpc.outgoing.get(action.rpc_id)?.request())
+                        });
+                        shared::log::warn!(
+                            meta.time();
+                            kind = "P2pRpcOutgoingError",
+                            summary = format!("peer_id: {}, rpc_id: {}", action.peer_id, action.rpc_id),
+                            peer_id = action.peer_id.to_string(),
+                            rpc_id = action.rpc_id.to_string(),
+                            request = serde_json::to_string(&req).ok(),
+                            error = format!("{:?}", action.error)
+                        );
+                    }
+                    P2pRpcOutgoingAction::Success(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = "P2pRpcOutgoingSuccess",
+                            summary = format!("peer_id: {}, rpc_id: {}, kind: {:?}", action.peer_id, action.rpc_id, action.response.kind()),
+                            peer_id = action.peer_id.to_string(),
+                            rpc_id = action.rpc_id.to_string(),
+                            response = serde_json::to_string(&action.response).ok()
+                        );
+                    }
+                    _ => {}
+                },
             },
         },
         _ => {}

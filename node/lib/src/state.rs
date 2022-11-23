@@ -1,8 +1,7 @@
 use redux::{ActionMeta, Timestamp};
 use serde::{Deserialize, Serialize};
 
-pub use p2p::P2pState;
-
+pub use crate::p2p::P2pState;
 use crate::rpc::RpcState;
 use crate::ActionWithMeta;
 

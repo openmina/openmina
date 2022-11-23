@@ -1,3 +1,5 @@
+pub mod outgoing;
+
 mod p2p_rpc_state;
 pub use p2p_rpc_state::*;
 
@@ -78,8 +80,15 @@ impl P2pRpcRequest {
     }
 }
 
+impl Default for P2pRpcRequest {
+    fn default() -> Self {
+        Self::MenuGet(())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub enum P2pRpcKind {
-    MenuGet,
+    MenuGet = 0,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -88,6 +97,12 @@ pub enum P2pRpcResponse {
 }
 
 impl P2pRpcResponse {
+    pub fn kind(&self) -> P2pRpcKind {
+        match self {
+            Self::MenuGet(_) => P2pRpcKind::MenuGet,
+        }
+    }
+
     fn write_msg_impl<T, W>(w: &mut W, id: P2pRpcId, data: &T::Response) -> io::Result<()>
     where
         T: RpcMethod,
