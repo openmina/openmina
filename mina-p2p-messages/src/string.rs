@@ -5,6 +5,14 @@ use serde::{de::Visitor, Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ByteString(Vec<u8>);
 
+impl std::ops::Deref for ByteString {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl AsRef<[u8]> for ByteString {
     fn as_ref(&self) -> &[u8] {
         &self.0
