@@ -17,7 +17,7 @@ use std::io;
 use binprot::{BinProtRead, BinProtWrite};
 use libp2p::futures::io::{AsyncRead, AsyncReadExt};
 use mina_p2p_messages::{
-    rpc::VersionedRpcMenuV1,
+    rpc::{GetTransitionChainV1, GetTransitionKnowledgeV1, VersionedRpcMenuV1},
     rpc_kernel::{QueryHeader, QueryID, Response, ResponseHeader, RpcMethod, RpcResultKind},
 };
 use serde::{Deserialize, Serialize};
@@ -50,12 +50,16 @@ pub enum P2pRpcEvent {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcRequest {
     MenuGet(<VersionedRpcMenuV1 as RpcMethod>::Query),
+    TransitionKnowledgeGet(<GetTransitionKnowledgeV1 as RpcMethod>::Query),
+    TransitionChainGet(<GetTransitionChainV1 as RpcMethod>::Query),
 }
 
 impl P2pRpcRequest {
     pub fn kind(&self) -> P2pRpcKind {
         match self {
             Self::MenuGet(_) => P2pRpcKind::MenuGet,
+            Self::TransitionKnowledgeGet(_) => P2pRpcKind::TransitionKnowledgeGet,
+            Self::TransitionChainGet(_) => P2pRpcKind::TransitionChainGet,
         }
     }
 
@@ -76,6 +80,12 @@ impl P2pRpcRequest {
     pub fn write_msg<W: io::Write>(&self, id: P2pRpcId, w: &mut W) -> io::Result<()> {
         match self {
             Self::MenuGet(data) => Self::write_msg_impl::<VersionedRpcMenuV1, _>(w, id, data),
+            Self::TransitionKnowledgeGet(data) => {
+                Self::write_msg_impl::<GetTransitionKnowledgeV1, _>(w, id, data)
+            }
+            Self::TransitionChainGet(data) => {
+                Self::write_msg_impl::<GetTransitionChainV1, _>(w, id, data)
+            }
         }
     }
 }
@@ -89,17 +99,23 @@ impl Default for P2pRpcRequest {
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub enum P2pRpcKind {
     MenuGet = 0,
+    TransitionKnowledgeGet,
+    TransitionChainGet,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcResponse {
     MenuGet(<VersionedRpcMenuV1 as RpcMethod>::Response),
+    TransitionKnowledgeGet(<GetTransitionKnowledgeV1 as RpcMethod>::Response),
+    TransitionChainGet(<GetTransitionChainV1 as RpcMethod>::Response),
 }
 
 impl P2pRpcResponse {
     pub fn kind(&self) -> P2pRpcKind {
         match self {
             Self::MenuGet(_) => P2pRpcKind::MenuGet,
+            Self::TransitionKnowledgeGet(_) => P2pRpcKind::TransitionKnowledgeGet,
+            Self::TransitionChainGet(_) => P2pRpcKind::TransitionChainGet,
         }
     }
 
@@ -121,6 +137,12 @@ impl P2pRpcResponse {
     pub fn write_msg<W: io::Write>(&self, id: P2pRpcId, w: &mut W) -> io::Result<()> {
         match self {
             Self::MenuGet(res) => Self::write_msg_impl::<VersionedRpcMenuV1, _>(w, id, res),
+            Self::TransitionKnowledgeGet(res) => {
+                Self::write_msg_impl::<GetTransitionKnowledgeV1, _>(w, id, res)
+            }
+            Self::TransitionChainGet(res) => {
+                Self::write_msg_impl::<GetTransitionChainV1, _>(w, id, res)
+            }
         }
     }
 
@@ -156,19 +178,22 @@ impl P2pRpcResponse {
             buf
         };
 
+        if matches!(result_kind, RpcResultKind::Err) {
+            let err = mina_p2p_messages::rpc_kernel::Error::binprot_read(&mut &payload_bytes[..])?;
+            let err = format!("{:?}", err);
+            return Err(binprot::Error::CustomError(err.into()));
+        }
+
         Ok(match kind {
-            P2pRpcKind::MenuGet => match result_kind {
-                RpcResultKind::Ok => {
-                    Self::MenuGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
-                }
-                RpcResultKind::Err => {
-                    let err = mina_p2p_messages::rpc_kernel::Error::binprot_read(
-                        &mut &payload_bytes[..],
-                    )?;
-                    let err = format!("{:?}", err);
-                    return Err(binprot::Error::CustomError(err.into()));
-                }
-            },
+            P2pRpcKind::MenuGet => {
+                Self::MenuGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
+            }
+            P2pRpcKind::TransitionKnowledgeGet => {
+                Self::TransitionKnowledgeGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
+            }
+            P2pRpcKind::TransitionChainGet => {
+                Self::TransitionChainGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
+            }
         })
     }
 }
@@ -200,5 +225,6 @@ fn decode_menu_response() {
     assert!(res.is_ok());
     match res.unwrap() {
         P2pRpcResponse::MenuGet(v) => assert_eq!(v.len(), 10),
+        _ => panic!("unexpected decoded result"),
     };
 }
