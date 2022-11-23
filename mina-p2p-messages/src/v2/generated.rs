@@ -1,6 +1,6 @@
 use binprot_derive::{BinProtRead, BinProtWrite};
-use serde::{Deserialize, Serialize};
 use derive_more::Deref;
+use serde::{Deserialize, Serialize};
 
 use crate::pseq::PaddedSeq;
 
