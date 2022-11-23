@@ -39,7 +39,9 @@ pub struct P2pRpcOutgoingInitAction {
 impl redux::EnablingCondition<crate::P2pState> for P2pRpcOutgoingInitAction {
     fn is_enabled(&self, state: &crate::P2pState) -> bool {
         state.get_ready_peer(&self.peer_id).map_or(false, |p| {
-            p.rpc.supports(self.request.kind()) && p.rpc.outgoing.next_req_id() == self.rpc_id
+            // TODO(binier): uncomment once menu is saved in state.
+            // p.rpc.supports(self.request.kind()) && p.rpc.outgoing.next_req_id() == self.rpc_id
+            p.rpc.outgoing.next_req_id() == self.rpc_id
         })
     }
 }
