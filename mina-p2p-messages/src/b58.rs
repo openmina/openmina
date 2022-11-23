@@ -194,6 +194,14 @@ impl<T, const V: u8> Base58CheckOfBytes<T, V> {
     }
 }
 
+impl<T, const V: u8> std::ops::Deref for Base58CheckOfBytes<T, V> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl<T, const V: u8> Serialize for Base58CheckOfBytes<T, V>
 where
     T: Serialize + AsRef<[u8]> + std::fmt::Debug,
