@@ -18,11 +18,15 @@ impl<T> std::ops::Deref for Number<T> {
 }
 
 impl Int32 {
-    pub fn as_u32(&self) -> u32 { self.0 as u32 }
+    pub fn as_u32(&self) -> u32 {
+        self.0 as u32
+    }
 }
 
 impl Int64 {
-    pub fn as_u64(&self) -> u64 { self.0 as u64 }
+    pub fn as_u64(&self) -> u64 {
+        self.0 as u64
+    }
 }
 
 impl<T> Serialize for Number<T>

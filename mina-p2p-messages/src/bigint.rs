@@ -13,7 +13,7 @@ impl BigInt {
     #[cfg(feature = "hashing")]
     pub fn to_field<F>(&self) -> F
     where
-        F: ark_ff::Field
+        F: ark_ff::Field,
     {
         let mut slice: &[u8] = self.0.as_ref();
         F::read(&mut slice).expect("Conversion BigInt to Field failed")
