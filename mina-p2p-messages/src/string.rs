@@ -124,6 +124,18 @@ impl AsRef<[u8]> for CharString {
     }
 }
 
+impl From<Vec<u8>> for CharString {
+    fn from(source: Vec<u8>) -> Self {
+        Self(source)
+    }
+}
+
+impl From<&[u8]> for CharString {
+    fn from(source: &[u8]) -> Self {
+        Self(source.to_vec())
+    }
+}
+
 impl From<&str> for CharString {
     fn from(source: &str) -> Self {
         Self(source.as_bytes().to_vec())
