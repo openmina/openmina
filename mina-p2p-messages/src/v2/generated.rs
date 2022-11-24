@@ -2631,7 +2631,7 @@ pub struct TransactionSnarkScanStateLedgerProofWithSokMessageStableV2(
 ///
 /// Gid: `1053`
 /// Location: [src/lib/protocol_version/protocol_version.ml:14:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/protocol_version/protocol_version.ml#L14)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
 pub struct ProtocolVersionStableV1 {
     pub major: crate::number::Int32,
     pub minor: crate::number::Int32,

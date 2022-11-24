@@ -129,19 +129,15 @@ impl<'de> Deserialize<'de> for BigInt {
                     E: serde::de::Error,
                 {
                     match v.strip_prefix("0x") {
-                        Some(v) => hex::decode(v)
-                            .map_err(|_| {
-                                serde::de::Error::custom(format!("failed to decode hex str: {v}"))
-                            })
-                            .map(|mut v| {
-                                v.reverse();
-                                v
-                            }),
+                        Some(v) => hex::decode(v).map_err(|_| {
+                            serde::de::Error::custom(format!("failed to decode hex str: {v}"))
+                        }),
                         None => Err(serde::de::Error::custom(format!("mising 0x prefix"))),
                     }
                 }
             }
-            let v = deserializer.deserialize_str(V)?;
+            let mut v = deserializer.deserialize_str(V)?;
+            v.reverse();
             v.try_into()
                 .map_err(|_| serde::de::Error::custom(format!("failed to convert vec to array")))
         } else {

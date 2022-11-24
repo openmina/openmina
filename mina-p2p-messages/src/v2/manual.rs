@@ -12,7 +12,8 @@ use super::{
     MinaBaseAccountIdDigestStableV1, MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
     MinaBasePendingCoinbaseHashVersionedStableV1, NonZeroCurvePointUncompressedStableV1,
     ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
-    TransactionSnarkScanStateStableV2TreesABaseT1, TransactionSnarkScanStateStableV2TreesAMergeT1,
+    ProtocolVersionStableV1, TransactionSnarkScanStateStableV2TreesABaseT1,
+    TransactionSnarkScanStateStableV2TreesAMergeT1,
 };
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
@@ -438,5 +439,52 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
             todo!()
         }
         .map(Self)
+    }
+}
+
+impl<'de> Deserialize<'de> for ProtocolVersionStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            let s = String::deserialize(deserializer)?;
+
+            let err = || serde::de::Error::custom(format!("incorrect protocol version '{}'", s));
+
+            let parse_number =
+                |s: Option<&str>| s.and_then(|s| s.parse::<i32>().ok()).ok_or_else(err);
+
+            let mut versions = s.split('.');
+            let major = parse_number(versions.next())?.into();
+            let minor = parse_number(versions.next())?.into();
+            let patch = parse_number(versions.next())?.into();
+
+            if versions.next().is_some() {
+                return Err(err()); // We expect the format "major.minor.patch"
+            }
+
+            Ok(Self {
+                major,
+                minor,
+                patch,
+            })
+        } else {
+            todo!()
+        }
+    }
+}
+
+impl Serialize for ProtocolVersionStableV1 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            let s = format!("{}.{}.{}", *self.major, *self.minor, *self.patch);
+            s.serialize(serializer)
+        } else {
+            todo!()
+        }
     }
 }
