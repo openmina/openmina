@@ -3,13 +3,10 @@
 //! receives a request and sends a response, whereas the
 //! outbound upgrade send a request and receives a response.
 
-use binprot::{BinProtRead, BinProtWrite};
 use lib::p2p::rpc::{P2pRpcId, P2pRpcIncomingId, P2pRpcRequest, P2pRpcResponse};
 use libp2p::core::upgrade::{InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use libp2p::futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use libp2p::swarm::NegotiatedSubstream;
-use mina_p2p_messages::rpc::VersionedRpcMenuV1;
-use mina_p2p_messages::rpc_kernel::{Response, ResponseHeader, ResponsePayload, RpcMethod};
 use std::{fmt, io};
 
 /// Response substream upgrade protocol.
@@ -112,8 +109,6 @@ impl OutboundUpgrade<NegotiatedSubstream> for RequestProtocol {
             const PREFIX: &'static [u8] =
                 b"\x07\x00\x00\x00\x00\x00\x00\x00\x02\xfd\x52\x50\x43\x00\x01";
             io.write_all(PREFIX).await?;
-            io.write_all(b"\x01\x00\x00\x00\x00\x00\x00\x00\x00")
-                .await?;
             io.write_all(b"\x1a\x00\x00\x00\x00\x00\x00\x00\x01")
                 .await?;
             io.write_all(&encoded).await?;
@@ -121,9 +116,15 @@ impl OutboundUpgrade<NegotiatedSubstream> for RequestProtocol {
 
             let mut prefix = [0; PREFIX.len()];
             io.read_exact(&mut prefix).await?;
-            // 18bytes for the extra bytes after `PREFIX`, maybe they are
-            // part of it?
-            io.read_exact(&mut [0; 18]).await?;
+
+            // ignore heartbeats
+            for _ in 0..16 {
+                let mut b = [0; 9];
+                io.read_exact(&mut b).await?;
+                if b != [1, 0, 0, 0, 0, 0, 0, 0, 0] {
+                    break;
+                }
+            }
 
             if &prefix != PREFIX {
                 return Err(io::Error::new(io::ErrorKind::Other, "RPC prefix mismatch"));

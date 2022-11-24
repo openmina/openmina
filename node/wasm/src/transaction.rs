@@ -6,10 +6,18 @@ use mina_p2p_messages::{
     bigint::BigInt,
     gossip::GossipNetMessageV2,
     number::Number,
-    string::{ByteString, CharString},
-    v2::{NetworkPoolTransactionPoolDiffVersionedStableV2, MinaBaseUserCommandStableV2, MinaBaseSignedCommandStableV2, MinaBaseSignedCommandPayloadStableV2, MinaBaseSignedCommandPayloadCommonStableV2, MinaBaseSignedCommandPayloadBodyStableV2, MinaBasePaymentPayloadStableV2, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1, CurrencyAmountStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1, CurrencyFeeStableV1, UnsignedExtendedUInt32StableV1, MinaBaseSignedCommandMemoStableV1, MinaBaseSignatureStableV1},
+    string::CharString,
+    v2::{
+        CurrencyAmountStableV1, CurrencyFeeStableV1, MinaBasePaymentPayloadStableV2,
+        MinaBaseSignatureStableV1, MinaBaseSignedCommandMemoStableV1,
+        MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandPayloadCommonStableV2,
+        MinaBaseSignedCommandPayloadStableV2, MinaBaseSignedCommandStableV2,
+        MinaBaseUserCommandStableV2, NetworkPoolTransactionPoolDiffVersionedStableV2,
+        NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1, UnsignedExtendedUInt32StableV1,
+        UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+    },
 };
-use mina_signer::{CompressedPubKey, Keypair, NetworkId, PubKey, Signature};
+use mina_signer::{CompressedPubKey, NetworkId, PubKey, Signature};
 
 const MEMO_BYTES: usize = 34;
 const TAG_BITS: usize = 3;
@@ -132,9 +140,7 @@ impl Transaction {
         self
     }
 
-    fn pub_key_to_p2p_type(
-        key: CompressedPubKey,
-    ) -> NonZeroCurvePoint {
+    fn pub_key_to_p2p_type(key: CompressedPubKey) -> NonZeroCurvePoint {
         let v = NonZeroCurvePointUncompressedStableV1 {
             x: BigInt::from(key.x),
             is_odd: key.is_odd,
@@ -176,10 +182,7 @@ impl Transaction {
         };
         let body = MinaBaseSignedCommandPayloadBodyStableV2::Payment(v);
 
-        let payload = MinaBaseSignedCommandPayloadStableV2 {
-            common,
-            body,
-        };
+        let payload = MinaBaseSignedCommandPayloadStableV2 { common, body };
 
         let signature = MinaBaseSignatureStableV1(sig.rx.into(), sig.s.into());
 

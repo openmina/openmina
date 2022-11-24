@@ -163,9 +163,10 @@ impl P2pRpcResponse {
             let n = if b.is_empty() {
                 0
             } else {
-                (&mut buf[0..b.len()]).clone_from_slice(b);
+                let n = b.len();
+                (&mut buf[0..n]).clone_from_slice(b);
                 b = &[];
-                b.len()
+                n
             };
             r.read_exact(&mut buf[n..]).await?;
             binprot::Nat0::binprot_read(&mut &buf[..])?.0 as usize
@@ -173,8 +174,11 @@ impl P2pRpcResponse {
         // TODO(bineir): [SECURITY] limit max len.
         let payload_bytes = {
             let mut buf = vec![0; payload_len];
-            (&mut buf[0..b.len()]).clone_from_slice(b);
-            r.read(&mut buf[b.len()..]).await?;
+            let n = b.len().min(payload_len);
+            if n > 0 {
+                (&mut buf[0..n]).clone_from_slice(&b[0..n]);
+            }
+            r.read(&mut buf[n..]).await?;
             buf
         };
 
