@@ -21,7 +21,7 @@ use lib::event_source::{
 use lib::p2p::connection::outgoing::{
     P2pConnectionOutgoingInitAction, P2pConnectionOutgoingInitOpts,
 };
-use lib::p2p::pubsub::{GossipNetMessageV1, PubsubTopic};
+use lib::p2p::pubsub::{GossipNetMessageV2, PubsubTopic};
 use lib::p2p::PeerId;
 use lib::rpc::RpcRequest;
 
@@ -207,7 +207,7 @@ pub struct JsHandle {
 }
 
 impl JsHandle {
-    pub async fn pubsub_publish(&self, topic: PubsubTopic, msg: GossipNetMessageV1) -> JsValue {
+    pub async fn pubsub_publish(&self, topic: PubsubTopic, msg: GossipNetMessageV2) -> JsValue {
         let req = RpcRequest::P2pPubsubPublish(topic, msg);
         let res = self
             .rpc
@@ -314,7 +314,7 @@ impl JsHandle {
         }
         let sig = self.signer.borrow_mut().sign(&keypair, &tx);
 
-        let msg = tx.to_gossipsub_v1_msg(sig);
+        let msg = tx.to_gossipsub_v2_msg(sig);
         shared::log::info!(
             shared::log::system_time();
             summary = "created transaction pool message",

@@ -10,7 +10,7 @@ pub use p2p_pubsub_effects::*;
 mod p2p_pubsub_service;
 pub use p2p_pubsub_service::*;
 
-pub use mina_p2p_messages::GossipNetMessageV1;
+pub use mina_p2p_messages::gossip::GossipNetMessageV2;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PubsubTopic {

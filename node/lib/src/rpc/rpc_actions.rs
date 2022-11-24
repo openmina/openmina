@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-use p2p::pubsub::{GossipNetMessageV1, PubsubTopic};
+use p2p::pubsub::{GossipNetMessageV2, PubsubTopic};
 
 use super::RpcId;
 
@@ -91,7 +91,7 @@ impl redux::EnablingCondition<crate::State> for RpcP2pConnectionOutgoingSuccessA
 pub struct RpcP2pPubsubMessagePublishAction {
     pub rpc_id: RpcId,
     pub topic: PubsubTopic,
-    pub message: GossipNetMessageV1,
+    pub message: GossipNetMessageV2,
 }
 
 impl redux::EnablingCondition<crate::State> for RpcP2pPubsubMessagePublishAction {

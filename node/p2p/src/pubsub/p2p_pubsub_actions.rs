@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use shared::requests::RpcId;
 
-use super::{GossipNetMessageV1, PubsubTopic};
+use super::{GossipNetMessageV2, PubsubTopic};
 
 pub type P2pPubsubActionWithMeta = redux::ActionWithMeta<P2pPubsubAction>;
 pub type P2pPubsubActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pPubsubAction>;
@@ -19,7 +19,7 @@ pub enum P2pPubsubAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pPubsubMessagePublishAction {
     pub topic: PubsubTopic,
-    pub message: GossipNetMessageV1,
+    pub message: GossipNetMessageV2,
     pub rpc_id: Option<RpcId>,
 }
 
@@ -61,7 +61,7 @@ pub struct P2pPubsubMessageReceivedAction {
     pub author: crate::PeerId,
     pub sender: crate::PeerId,
     pub topic: PubsubTopic,
-    pub message: GossipNetMessageV1,
+    pub message: GossipNetMessageV2,
 }
 
 impl redux::EnablingCondition<crate::P2pState> for P2pPubsubMessageReceivedAction {

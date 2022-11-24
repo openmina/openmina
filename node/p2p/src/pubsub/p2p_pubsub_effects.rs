@@ -1,7 +1,7 @@
 use redux::ActionMeta;
 
 use super::{
-    GossipNetMessageV1, P2pPubsubBytesPublishAction, P2pPubsubBytesReceivedAction,
+    GossipNetMessageV2, P2pPubsubBytesPublishAction, P2pPubsubBytesReceivedAction,
     P2pPubsubMessagePublishAction, P2pPubsubMessageReceivedAction, P2pPubsubService,
 };
 
@@ -52,7 +52,7 @@ impl P2pPubsubBytesReceivedAction {
         let len = u64::from_le_bytes(self.bytes[0..8].try_into().unwrap());
         let data = &self.bytes[8..];
         assert_eq!(len, data.len() as u64);
-        let message: GossipNetMessageV1 = binprot::BinProtRead::binprot_read(&mut &*data).unwrap();
+        let message: GossipNetMessageV2 = binprot::BinProtRead::binprot_read(&mut &*data).unwrap();
 
         store.dispatch(P2pPubsubMessageReceivedAction {
             author: self.author,
