@@ -17,7 +17,7 @@ use std::io;
 use binprot::{BinProtRead, BinProtWrite};
 use libp2p::futures::io::{AsyncRead, AsyncReadExt};
 use mina_p2p_messages::{
-    rpc::{GetTransitionChainV1, GetTransitionKnowledgeV1, VersionedRpcMenuV1},
+    rpc::{GetTransitionChainV2, GetTransitionKnowledgeV1ForV2, VersionedRpcMenuV1},
     rpc_kernel::{QueryHeader, QueryID, Response, ResponseHeader, RpcMethod, RpcResultKind},
 };
 use serde::{Deserialize, Serialize};
@@ -50,8 +50,8 @@ pub enum P2pRpcEvent {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcRequest {
     MenuGet(<VersionedRpcMenuV1 as RpcMethod>::Query),
-    TransitionKnowledgeGet(<GetTransitionKnowledgeV1 as RpcMethod>::Query),
-    TransitionChainGet(<GetTransitionChainV1 as RpcMethod>::Query),
+    TransitionKnowledgeGet(<GetTransitionKnowledgeV1ForV2 as RpcMethod>::Query),
+    TransitionChainGet(<GetTransitionChainV2 as RpcMethod>::Query),
 }
 
 impl P2pRpcRequest {
@@ -81,10 +81,10 @@ impl P2pRpcRequest {
         match self {
             Self::MenuGet(data) => Self::write_msg_impl::<VersionedRpcMenuV1, _>(w, id, data),
             Self::TransitionKnowledgeGet(data) => {
-                Self::write_msg_impl::<GetTransitionKnowledgeV1, _>(w, id, data)
+                Self::write_msg_impl::<GetTransitionKnowledgeV1ForV2, _>(w, id, data)
             }
             Self::TransitionChainGet(data) => {
-                Self::write_msg_impl::<GetTransitionChainV1, _>(w, id, data)
+                Self::write_msg_impl::<GetTransitionChainV2, _>(w, id, data)
             }
         }
     }
@@ -106,8 +106,8 @@ pub enum P2pRpcKind {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcResponse {
     MenuGet(<VersionedRpcMenuV1 as RpcMethod>::Response),
-    TransitionKnowledgeGet(<GetTransitionKnowledgeV1 as RpcMethod>::Response),
-    TransitionChainGet(<GetTransitionChainV1 as RpcMethod>::Response),
+    TransitionKnowledgeGet(<GetTransitionKnowledgeV1ForV2 as RpcMethod>::Response),
+    TransitionChainGet(<GetTransitionChainV2 as RpcMethod>::Response),
 }
 
 impl P2pRpcResponse {
@@ -138,10 +138,10 @@ impl P2pRpcResponse {
         match self {
             Self::MenuGet(res) => Self::write_msg_impl::<VersionedRpcMenuV1, _>(w, id, res),
             Self::TransitionKnowledgeGet(res) => {
-                Self::write_msg_impl::<GetTransitionKnowledgeV1, _>(w, id, res)
+                Self::write_msg_impl::<GetTransitionKnowledgeV1ForV2, _>(w, id, res)
             }
             Self::TransitionChainGet(res) => {
-                Self::write_msg_impl::<GetTransitionChainV1, _>(w, id, res)
+                Self::write_msg_impl::<GetTransitionChainV2, _>(w, id, res)
             }
         }
     }
