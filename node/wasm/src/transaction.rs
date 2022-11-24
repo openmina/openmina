@@ -6,33 +6,8 @@ use mina_p2p_messages::{
     bigint::BigInt,
     gossip::GossipNetMessageV2,
     number::Number,
-    string::ByteString,
-    v1::{
-        ConsensusGlobalSlotStableV1VersionedV1PolyArg0V1,
-        ConsensusProofOfStakeDataConsensusStateValueStableV1VersionedV1PolyArg8,
-        ConsensusProofOfStakeDataConsensusStateValueStableV1VersionedV1PolyArg8V1,
-        ConsensusProofOfStakeDataConsensusStateValueStableV1VersionedV1PolyArg8V1Poly,
-        ConsensusProofOfStakeDataConsensusStateValueStableV1VersionedV1PolyArg8V1PolyPolyV1,
-        CurrencyAmountMakeStrStableV1VersionedV1, CurrencyFeeStableV1VersionedV1,
-        MinaBasePaymentPayloadStableV1VersionedV1, MinaBasePaymentPayloadStableV1VersionedV1PolyV1,
-        MinaBaseSignatureStableV1VersionedV1, MinaBaseSignatureStableV1VersionedV1PolyV1,
-        MinaBaseSignedCommandMemoStableV1VersionedV1,
-        MinaBaseSignedCommandPayloadBodyBinableArgStableV1VersionedV1,
-        MinaBaseSignedCommandPayloadBodyStableV1VersionedV1,
-        MinaBaseSignedCommandPayloadCommonBinableArgStableV1VersionedV1,
-        MinaBaseSignedCommandPayloadCommonBinableArgStableV1VersionedV1PolyV1,
-        MinaBaseSignedCommandPayloadCommonStableV1VersionedV1,
-        MinaBaseSignedCommandPayloadStableV1VersionedV1,
-        MinaBaseSignedCommandPayloadStableV1VersionedV1PolyV1,
-        MinaBaseSignedCommandStableV1VersionedV1, MinaBaseSignedCommandStableV1VersionedV1PolyV1,
-        MinaBaseTokenIdStableV1VersionedV1, MinaBaseUserCommandStableV1VersionedV1,
-        MinaBaseUserCommandStableV1VersionedV1PolyV1, MinaNumbersNatMake32StableV1VersionedV1,
-        MinaNumbersNatMake64StableV1VersionedV1,
-        NetworkPoolTransactionPoolDiffVersionedStableV1VersionedV1,
-        NonZeroCurvePointUncompressedStableV1Versioned,
-        NonZeroCurvePointUncompressedStableV1VersionedV1,
-        UnsignedExtendedUInt32StableV1VersionedV1, UnsignedExtendedUInt64StableV1VersionedV1,
-    },
+    string::{ByteString, CharString},
+    v2::{NetworkPoolTransactionPoolDiffVersionedStableV2, MinaBaseUserCommandStableV2, MinaBaseSignedCommandStableV2, MinaBaseSignedCommandPayloadStableV2, MinaBaseSignedCommandPayloadCommonStableV2, MinaBaseSignedCommandPayloadBodyStableV2, MinaBasePaymentPayloadStableV2, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1, CurrencyAmountStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1, CurrencyFeeStableV1, UnsignedExtendedUInt32StableV1, MinaBaseSignedCommandMemoStableV1, MinaBaseSignatureStableV1},
 };
 use mina_signer::{CompressedPubKey, Keypair, NetworkId, PubKey, Signature};
 
@@ -159,85 +134,62 @@ impl Transaction {
 
     fn pub_key_to_p2p_type(
         key: CompressedPubKey,
-    ) -> ConsensusProofOfStakeDataConsensusStateValueStableV1VersionedV1PolyArg8 {
-        let v =
-            ConsensusProofOfStakeDataConsensusStateValueStableV1VersionedV1PolyArg8V1PolyPolyV1 {
-                x: BigInt::from(key.x),
-                is_odd: key.is_odd,
-            };
-        let v =
-            ConsensusProofOfStakeDataConsensusStateValueStableV1VersionedV1PolyArg8V1Poly(v.into());
-        ConsensusProofOfStakeDataConsensusStateValueStableV1VersionedV1PolyArg8V1(v).into()
+    ) -> NonZeroCurvePoint {
+        let v = NonZeroCurvePointUncompressedStableV1 {
+            x: BigInt::from(key.x),
+            is_odd: key.is_odd,
+        };
+        v.into()
     }
 
     pub fn to_gossipsub_v2_msg(self, sig: Signature) -> GossipNetMessageV2 {
-        todo!()
-        // let from = Self::pub_key_to_p2p_type(self.source_pk.clone());
-        // let to = Self::pub_key_to_p2p_type(self.receiver_pk.clone());
+        let from = Self::pub_key_to_p2p_type(self.source_pk.clone());
+        let to = Self::pub_key_to_p2p_type(self.receiver_pk.clone());
 
-        // let v = UnsignedExtendedUInt64StableV1VersionedV1(Number(self.fee_token as i64));
-        // let v = MinaNumbersNatMake64StableV1VersionedV1(v.into());
-        // let fee_token_id = MinaBaseTokenIdStableV1VersionedV1(v.into());
+        let v = Number(self.fee as i64);
+        let v = UnsignedExtendedUInt64Int64ForVersionTagsStableV1(v);
+        let fee = CurrencyFeeStableV1(v);
 
-        // let v = UnsignedExtendedUInt64StableV1VersionedV1(Number(self.fee as i64));
-        // let fee = CurrencyFeeStableV1VersionedV1(v.into());
+        let nonce = UnsignedExtendedUInt32StableV1(Number(self.nonce as i32));
 
-        // let v = UnsignedExtendedUInt32StableV1VersionedV1(Number(self.nonce as i32));
-        // let nonce = MinaNumbersNatMake32StableV1VersionedV1(v.into());
+        let valid_until = UnsignedExtendedUInt32StableV1(Number(self.valid_until as i32));
 
-        // let v = UnsignedExtendedUInt32StableV1VersionedV1(Number(self.valid_until as i32));
-        // let valid_until_slot = ConsensusGlobalSlotStableV1VersionedV1PolyArg0V1(v.into());
+        let v = CharString::from(&self.memo[..]);
+        let memo = MinaBaseSignedCommandMemoStableV1(v);
 
-        // // TODO(zura): add from_bytes method to ByteString.
-        // let v = ByteString::from(self.memo.to_vec());
-        // let memo = MinaBaseSignedCommandMemoStableV1VersionedV1(v);
+        let common = MinaBaseSignedCommandPayloadCommonStableV2 {
+            fee,
+            fee_payer_pk: from.clone(),
+            nonce,
+            valid_until,
+            memo,
+        };
 
-        // let v = MinaBaseSignedCommandPayloadCommonBinableArgStableV1VersionedV1PolyV1 {
-        //     fee: fee.into(),
-        //     fee_token: fee_token_id.into(),
-        //     fee_payer_pk: from.clone(),
-        //     nonce: nonce.into(),
-        //     valid_until: valid_until_slot.into(),
-        //     memo: memo.into(),
-        // };
-        // let v = MinaBaseSignedCommandPayloadCommonBinableArgStableV1VersionedV1(v.into());
-        // let common = MinaBaseSignedCommandPayloadCommonStableV1VersionedV1(v.into());
+        let v = Number(self.amount as i64);
+        let v = UnsignedExtendedUInt64Int64ForVersionTagsStableV1(v);
+        let amount = CurrencyAmountStableV1(v);
 
-        // let v = UnsignedExtendedUInt64StableV1VersionedV1(Number(self.token_id as i64));
-        // let v = MinaNumbersNatMake64StableV1VersionedV1(v.into());
-        // let token_id = MinaBaseTokenIdStableV1VersionedV1(v.into());
+        let v = MinaBasePaymentPayloadStableV2 {
+            source_pk: from.clone(),
+            receiver_pk: from.clone(),
+            amount,
+        };
+        let body = MinaBaseSignedCommandPayloadBodyStableV2::Payment(v);
 
-        // let v = UnsignedExtendedUInt64StableV1VersionedV1(Number(self.amount as i64));
-        // let amount = CurrencyAmountMakeStrStableV1VersionedV1(v.into());
+        let payload = MinaBaseSignedCommandPayloadStableV2 {
+            common,
+            body,
+        };
 
-        // let v = MinaBasePaymentPayloadStableV1VersionedV1PolyV1 {
-        //     source_pk: from.clone(),
-        //     receiver_pk: to.clone(),
-        //     token_id: token_id.into(),
-        //     amount: amount.into(),
-        // };
-        // let v = MinaBasePaymentPayloadStableV1VersionedV1(v.into());
-        // let v = MinaBaseSignedCommandPayloadBodyBinableArgStableV1VersionedV1::Payment(v.into());
-        // let body = MinaBaseSignedCommandPayloadBodyStableV1VersionedV1(v.into());
+        let signature = MinaBaseSignatureStableV1(sig.rx.into(), sig.s.into());
 
-        // let v = MinaBaseSignedCommandPayloadStableV1VersionedV1PolyV1 {
-        //     common: common.into(),
-        //     body: body.into(),
-        // };
-        // let payload = MinaBaseSignedCommandPayloadStableV1VersionedV1(v.into());
-
-        // let v = MinaBaseSignatureStableV1VersionedV1PolyV1(sig.rx.into(), sig.s.into());
-        // let signature = MinaBaseSignatureStableV1VersionedV1(v.into());
-
-        // let v = MinaBaseSignedCommandStableV1VersionedV1PolyV1 {
-        //     payload: payload.into(),
-        //     signer: NonZeroCurvePointUncompressedStableV1VersionedV1(from.clone()).into(),
-        //     signature: signature.into(),
-        // };
-        // let v = MinaBaseSignedCommandStableV1VersionedV1(v.into());
-        // let v = MinaBaseUserCommandStableV1VersionedV1PolyV1::SignedCommand(v.into());
-        // let v = MinaBaseUserCommandStableV1VersionedV1(v.into());
-        // let v = NetworkPoolTransactionPoolDiffVersionedStableV1VersionedV1(vec![v.into()]);
-        // GossipNetMessageV2::TransactionPoolDiff(v.into())
+        let v = MinaBaseSignedCommandStableV2 {
+            payload,
+            signer: from.clone(),
+            signature,
+        };
+        let v = MinaBaseUserCommandStableV2::SignedCommand(v);
+        let v = NetworkPoolTransactionPoolDiffVersionedStableV2(vec![v]);
+        GossipNetMessageV2::TransactionPoolDiff(v)
     }
 }
