@@ -12,13 +12,13 @@ use libp2p::gossipsub::{
     Gossipsub, GossipsubConfigBuilder, GossipsubEvent, IdentTopic, MessageAuthenticity,
 };
 use libp2p::identity::{self, Keypair};
-use libp2p::mplex::MplexConfig;
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::{SwarmBuilder, SwarmEvent};
 use libp2p::wasm_ext::ffi::ManualConnector as JsManualConnector;
+use libp2p::yamux::YamuxConfig;
 use libp2p::{build_multiaddr, PeerId, Swarm, Transport};
 
-pub use mina_p2p_messages::GossipNetMessageV1 as GossipNetMessage;
+pub use mina_p2p_messages::gossip::GossipNetMessageV2 as GossipNetMessage;
 
 use lib::event_source::{Event, P2pConnectionEvent, P2pEvent, P2pPubsubEvent};
 use lib::p2p::pubsub::PubsubTopic;
@@ -83,9 +83,9 @@ impl Libp2pService {
             }
         };
 
-        let mplex_config = {
-            let mut c = MplexConfig::new();
-            c.set_protocol_name(b"/coda/mplex/1.0.0");
+        let yamux_config = {
+            let mut c = YamuxConfig::default();
+            c.set_protocol_name(b"/coda/yamux/1.0.0");
             c
         };
 
@@ -103,7 +103,7 @@ impl Libp2pService {
                 })
                 .upgrade(upgrade::Version::V1)
                 .as_authenticated()
-                .multiplex(mplex_config)
+                .multiplex(yamux_config)
                 .timeout(Duration::from_secs(60))
                 .boxed(),
             peer_id,

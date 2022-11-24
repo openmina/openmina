@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-use crate::p2p::pubsub::{GossipNetMessageV1, PubsubTopic};
+use crate::p2p::pubsub::{GossipNetMessageV2, PubsubTopic};
 
 use super::RpcId;
 
@@ -17,7 +17,7 @@ pub struct RpcRequestState {
 pub enum RpcRequest {
     GetState,
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
-    P2pPubsubPublish(PubsubTopic, GossipNetMessageV1),
+    P2pPubsubPublish(PubsubTopic, GossipNetMessageV2),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -1,40 +1,28 @@
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
-use crate::p2p::pubsub::{GossipNetMessageV1, P2pPubsubAction};
+use crate::p2p::pubsub::{GossipNetMessageV2, P2pPubsubAction};
 use crate::p2p::rpc::outgoing::P2pRpcOutgoingAction;
 use crate::p2p::rpc::P2pRpcAction;
 use crate::p2p::P2pAction;
 use crate::{Action, ActionWithMetaRef, Service, Store};
 
-fn gossipnet_message_summary(msg: &GossipNetMessageV1) -> String {
+fn gossipnet_message_summary(msg: &GossipNetMessageV2) -> String {
     match msg {
-        GossipNetMessageV1::NewState(transition) => {
+        GossipNetMessageV2::NewState(transition) => {
             let height = transition
-                .inner()
+                .header
                 .protocol_state
-                .inner()
-                .0
-                .inner()
                 .body
-                .inner()
-                .0
-                .inner()
                 .consensus_state
-                .inner()
-                .0
-                .inner()
                 .blockchain_length
-                .inner()
-                .0
-                .inner()
                 .0
                  .0;
             format!("NewState) height: {}", height)
         }
-        GossipNetMessageV1::SnarkPoolDiff(_) => {
+        GossipNetMessageV2::SnarkPoolDiff(_) => {
             format!("Gossipsub::SnarkPoolDiff")
         }
-        GossipNetMessageV1::TransactionPoolDiff(_) => {
+        GossipNetMessageV2::TransactionPoolDiff(_) => {
             format!("Gossipsub::TransactionPoolDiff")
         }
     }
