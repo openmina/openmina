@@ -102,7 +102,6 @@ impl OutboundUpgrade<NegotiatedSubstream> for RequestProtocol {
         protocol: Self::Info,
     ) -> Self::Future {
         async move {
-            shared::log::info!(shared::log::system_time(); kind = "WriteReq");
             let mut encoded = vec![];
             self.request.write_msg(self.request_id, &mut encoded)?;
 

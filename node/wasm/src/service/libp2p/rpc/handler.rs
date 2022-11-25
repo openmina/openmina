@@ -130,7 +130,6 @@ impl ConnectionHandler for RequestResponseHandler {
     type InboundOpenInfo = P2pRpcIncomingId;
 
     fn listen_protocol(&self) -> SubstreamProtocol<Self::InboundProtocol, Self::InboundOpenInfo> {
-        shared::log::info!(shared::log::system_time(); kind = "ListenProtocol");
         // A channel for notifying the handler when the inbound
         // upgrade received the request.
         let (rq_send, rq_recv) = oneshot::channel();
@@ -163,7 +162,6 @@ impl ConnectionHandler for RequestResponseHandler {
     }
 
     fn inject_fully_negotiated_inbound(&mut self, sent: bool, request_id: P2pRpcIncomingId) {
-        shared::log::info!(shared::log::system_time(); kind = "NegotiatedInbound");
         if sent {
             self.pending_events
                 .push_back(RequestResponseHandlerEvent::ResponseSent(request_id))
@@ -174,7 +172,6 @@ impl ConnectionHandler for RequestResponseHandler {
     }
 
     fn inject_fully_negotiated_outbound(&mut self, response: P2pRpcResponse, request_id: P2pRpcId) {
-        shared::log::info!(shared::log::system_time(); kind = "NegotiatedOutbound");
         self.pending_events
             .push_back(RequestResponseHandlerEvent::Response {
                 request_id,
@@ -183,7 +180,6 @@ impl ConnectionHandler for RequestResponseHandler {
     }
 
     fn inject_event(&mut self, request: Self::InEvent) {
-        shared::log::info!(shared::log::system_time(); kind = "InjectRpcEvent", event = format!("{:?}", request));
         self.outbound.push_back(request);
     }
 
