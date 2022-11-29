@@ -1,7 +1,11 @@
 use binprot::BinProtRead;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaBlockHeaderStableV2;
-use snark::{accumulator_check::accumulator_check, transition_chain, verifier::get_verifier_index};
+use snark::{
+    accumulator_check::{accumulator_check, get_srs},
+    transition_chain,
+    verifier::get_verifier_index,
+};
 
 fn get_delta_block_chain_proof(header: &MinaBlockHeaderStableV2) -> (Fp, Vec<Fp>) {
     let delta_block_chain_proof = &header.delta_block_chain_proof;
@@ -20,6 +24,7 @@ fn main() {
     assert!(std::env::args().len() > 1);
 
     let verifier_index = get_verifier_index();
+    let srs = get_srs();
 
     for arg in std::env::args().skip(1) {
         let file = std::fs::read(&arg).unwrap();
@@ -35,7 +40,7 @@ fn main() {
             transition_chain::verify(target_hash, get_delta_block_chain_proof(&header));
         assert!(transition_chain.is_some());
 
-        let accum_check = accumulator_check(&header.protocol_state_proof.0);
+        let accum_check = accumulator_check(&srs, &header.protocol_state_proof.0);
         let verified = snark::verify(header, &verifier_index);
 
         assert!(accum_check && verified);

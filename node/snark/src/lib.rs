@@ -324,7 +324,7 @@ pub fn verify(header: MinaBlockHeaderStableV2, verifier_index: &VerifierIndex) -
 
 #[cfg(test)]
 mod tests {
-    use crate::accumulator_check::accumulator_check;
+    use crate::accumulator_check::{accumulator_check, get_srs};
     use crate::verifier::get_verifier_index;
     use binprot::BinProtRead;
 
@@ -335,7 +335,13 @@ mod tests {
 
     #[test]
     fn test_verification() {
+        let now = std::time::Instant::now();
         let verifier_index = get_verifier_index();
+        println!("get_verifier_index={:?}", now.elapsed());
+
+        let now = std::time::Instant::now();
+        let srs = get_srs();
+        println!("get_srs={:?}", now.elapsed());
 
         let files = [
             include_bytes!("data/2128.binprot"),
@@ -346,8 +352,13 @@ mod tests {
         for file in files {
             let header = MinaBlockHeaderStableV2::binprot_read(&mut file.as_slice()).unwrap();
 
-            let accum_check = accumulator_check(&header.protocol_state_proof.0);
+            let now = std::time::Instant::now();
+            let accum_check = accumulator_check(&srs, &header.protocol_state_proof.0);
+            println!("accumulator_check={:?}", now.elapsed());
+
+            let now = std::time::Instant::now();
             let verified = verify(header, &verifier_index);
+            println!("snark::verify={:?}", now.elapsed());
 
             assert!(accum_check && verified);
         }
