@@ -5,7 +5,7 @@ use mina_p2p_messages::v2::{
     CompositionTypesBranchDataStableV1, PicklesBaseProofsVerifiedStableV1,
 };
 
-use crate::u64_to_field;
+use crate::utils::u64_to_field;
 
 use super::plonk_checks::ShiftedValue;
 

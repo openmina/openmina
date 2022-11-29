@@ -16,8 +16,8 @@ use serde_with::serde_as;
 
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
+use super::VerifierIndex;
 use crate::public_input::scalars::field_from_hex;
-use crate::VerifierIndex;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct VerifierIndexOcaml<G: CommitmentCurve + KimchiCurve + AffineCurve> {
@@ -86,7 +86,7 @@ struct PolynomialCommitment {
 }
 
 pub fn get_verifier_index() -> VerifierIndex {
-    let verifier_index_str = include_str!("data/verifier_index.json");
+    let verifier_index_str = include_str!("../data/verifier_index.json");
 
     let verifier_index_json: VerifierIndexOcaml<Pallas> =
         serde_json::from_str(verifier_index_str).unwrap();
