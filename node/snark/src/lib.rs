@@ -49,6 +49,7 @@ pub mod accumulator_check;
 pub mod hash;
 mod prover;
 mod public_input;
+#[cfg(target_family = "wasm")]
 pub mod rayon;
 pub mod transition_chain;
 mod urs_utils;
