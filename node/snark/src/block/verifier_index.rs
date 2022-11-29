@@ -12,7 +12,6 @@ use mina_curves::pasta::{Fq, Pallas, VestaParameters};
 
 use once_cell::sync::OnceCell;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_with::serde_as;
 
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
@@ -29,7 +28,6 @@ struct VerifierIndexOcaml<G: CommitmentCurve + KimchiCurve + AffineCurve> {
 const PERMUTS: usize = 7;
 const COLUMNS: usize = 15;
 
-#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Evals {
     sigma_comm: [PolynomialCommitment; PERMUTS],
@@ -44,7 +42,6 @@ struct Evals {
 }
 
 #[allow(dead_code)]
-#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Index<G: KimchiCurve> {
     domain: DomainOcaml,

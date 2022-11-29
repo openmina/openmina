@@ -4,13 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "snark"
+name = "snark-bin"
 path = "src/bin/main.rs"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-
-# [workspace]
 
 [dependencies]
 kimchi = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a"}
@@ -22,35 +20,29 @@ mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776
 oracle = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a"}
 
 serde = "1.0"
-rmp-serde = "1.0.0"
-serde_with = "1.10.0"
 serde_json = { version = "1.0", features = ["float_roundtrip"] }
-ark-ff = { version = "0.3.0", features = [ "parallel", "asm" ] }
-ark-ec = { version = "0.3.0", features = [ "parallel" ] }
-ark-poly = { version = "0.3.0", features = [ "parallel" ] }
-once_cell = "1.10.0"
+ark-ff = { version = "0.3", features = [ "parallel", "asm" ] }
+ark-ec = { version = "0.3", features = [ "parallel" ] }
+ark-poly = { version = "0.3", features = [ "parallel" ] }
+once_cell = "1.10"
 hex = "0.4"
-num = "0.4"
 mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messages-rs", branch = "main", features = ["hashing"] }
-# mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messages-rs", rev = "fbd0342d4b8c857783c671415e1f45ac260f53a1", features = ["hashing"] }
 # mina-p2p-messages = { path = "../mina-p2p-messages-rs", features = ["hashing"] }
 binprot = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 sha2 = "0.10"
 num-bigint = "0.4"
 
-# urs_utils
-rand = "0.8.0"
+rand = "0.8"
 rayon = "1.5"
-# itertools = "0.10"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 wasm-bindgen = "0.2"
 getrandom = { version = "0.2", features = ["js"] }
 wasm-bindgen-rayon = { version = "1.0", features = ["no-bundler"] }
-wasm-bindgen-futures = "0.4.33"
-js-sys = "0.3.59"
-web-sys = { version = "0.3", features = ["Blob", "DedicatedWorkerGlobalScope", "MessageEvent", "Url", "Worker", "WorkerType", "WorkerOptions", "console", "Window", "Performance" ] }
-futures-util = "0.3.25"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["console"] }
+futures-util = "0.3"
 
 [dev-dependencies]
 
