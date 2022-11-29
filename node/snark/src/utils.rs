@@ -1,4 +1,4 @@
-use ark_ff::{Field, PrimeField};
+use ark_ff::{BigInteger256, Field, PrimeField};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::{
@@ -44,6 +44,17 @@ impl SpongeParamsForField<Fq> for Fq {
     fn get_params() -> &'static ArithmeticSpongeParams<Fq> {
         kimchi::oracle::pasta::fq_kimchi::static_params()
     }
+}
+
+pub fn u64_to_field<F, const N: usize>(v: &[u64; N]) -> F
+where
+    F: Field + From<BigInteger256>,
+{
+    let mut bigint: [u64; 4] = [0; 4];
+    bigint[..N].copy_from_slice(v);
+
+    let bigint = BigInteger256(bigint);
+    F::from(bigint)
 }
 
 pub fn extract_polynomial_commitment<F: Field, const N: usize>(

@@ -1,11 +1,7 @@
 use binprot::BinProtRead;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaBlockHeaderStableV2;
-use snark::{
-    accumulator_check::{accumulator_check, get_srs},
-    transition_chain,
-    verifier::get_verifier_index,
-};
+use snark::{accumulator_check, get_srs, get_verifier_index, transition_chain, verify};
 
 fn get_delta_block_chain_proof(header: &MinaBlockHeaderStableV2) -> (Fp, Vec<Fp>) {
     let delta_block_chain_proof = &header.delta_block_chain_proof;
@@ -41,7 +37,7 @@ fn main() {
         assert!(transition_chain.is_some());
 
         let accum_check = accumulator_check(&srs, &header.protocol_state_proof.0);
-        let verified = snark::verify(header, &verifier_index);
+        let verified = verify(header, &verifier_index);
 
         assert!(accum_check && verified);
         println!("{} valid", arg);

@@ -7,9 +7,11 @@ use kimchi::{
 };
 use mina_curves::pasta::Pallas;
 
-use crate::{public_input::scalar_challenge::endo_fq, utils::extract_bulletproof, ProverProof};
+use crate::{public_input::scalar_challenge::endo_fq, utils::extract_bulletproof};
 use mina_curves::pasta::Fq;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
+
+use super::ProverProof;
 
 fn first<T>(tuple: &(T, T)) -> &T {
     &tuple.0

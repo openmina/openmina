@@ -7,10 +7,8 @@ use mina_curves::pasta::{Pallas, Vesta, VestaParameters};
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
 
-use crate::{
-    public_input::scalar_challenge::{endo_fp, ScalarChallenge},
-    urs_utils,
-};
+use super::urs_utils;
+use crate::public_input::scalar_challenge::{endo_fp, ScalarChallenge};
 
 const OTHER_URS_LENGTH: usize = 65536;
 
