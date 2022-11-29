@@ -5,6 +5,7 @@ members = [
     "node/shared",
     "node/p2p",
     "node/lib",
+    "node/snark",
     "node/wasm"
 ]
 
