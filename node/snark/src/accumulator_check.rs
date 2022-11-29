@@ -1,8 +1,9 @@
 use std::array;
 
+use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use commitment_dlog::{commitment::CommitmentCurve, srs::SRS};
 use kimchi::curve::KimchiCurve;
-use mina_curves::pasta::{Pallas, Vesta};
+use mina_curves::pasta::{Pallas, Vesta, VestaParameters};
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
 
@@ -13,7 +14,15 @@ use crate::{
 
 const OTHER_URS_LENGTH: usize = 65536;
 
-pub fn accumulator_check(proof: &PicklesProofProofsVerified2ReprStableV2) -> bool {
+pub fn get_srs() -> SRS<GroupAffine<VestaParameters>> {
+    // We need an URS with 65536 points (should be in the other verfifier index - step?)
+    SRS::<<Pallas as KimchiCurve>::OtherCurve>::create(OTHER_URS_LENGTH)
+}
+
+pub fn accumulator_check(
+    urs: &SRS<GroupAffine<VestaParameters>>,
+    proof: &PicklesProofProofsVerified2ReprStableV2,
+) -> bool {
     // accumulator check
     // Note:
     // comms: statement.proof_state.messages_for_next_wrap_proof.challenge_polynomial_commitment
@@ -41,10 +50,8 @@ pub fn accumulator_check(proof: &PicklesProofProofsVerified2ReprStableV2) -> boo
         .challenge_polynomial_commitment;
     let acc_comm: Vesta = of_coord(acc_comm);
 
-    // We need an URS with 65536 points (should be in the other verfifier index - step?)
-    let other_urs = SRS::<<Pallas as KimchiCurve>::OtherCurve>::create(OTHER_URS_LENGTH);
     let acc_check =
-        urs_utils::batch_dlog_accumulator_check(&other_urs, &[acc_comm], &bulletproof_challenges);
+        urs_utils::batch_dlog_accumulator_check(urs, &[acc_comm], &bulletproof_challenges);
 
     if !acc_check {
         println!("accumulator_check failed");
