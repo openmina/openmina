@@ -6,7 +6,10 @@ use ark_ec::AffineCurve;
 use commitment_dlog::{commitment::CommitmentCurve, srs::SRS, PolyComm};
 
 use kimchi::{
-    curve::KimchiCurve, linearization::expr_linearization, verifier_index::LookupVerifierIndex,
+    circuits::polynomials::permutation::{zk_polynomial, zk_w3},
+    curve::KimchiCurve,
+    linearization::expr_linearization,
+    verifier_index::LookupVerifierIndex,
 };
 use mina_curves::pasta::{Fq, Pallas, VestaParameters};
 
@@ -137,11 +140,24 @@ fn make_verifier_index(index: &VerifierIndexOcaml<Pallas>) -> VerifierIndex {
 
     let public: usize = index.index.public;
 
+    // https://github.com/o1-labs/proof-systems/blob/2702b09063c7a48131173d78b6cf9408674fd67e/kimchi/src/verifier_index.rs#L310-L314
+    let srs = {
+        let mut srs = SRS::create(max_poly_size);
+        srs.add_lagrange_basis(domain);
+        Arc::new(srs)
+    };
+
+    // https://github.com/o1-labs/proof-systems/blob/2702b09063c7a48131173d78b6cf9408674fd67e/kimchi/src/verifier_index.rs#L319
+    let zkpm = zk_polynomial(domain);
+
+    // https://github.com/o1-labs/proof-systems/blob/2702b09063c7a48131173d78b6cf9408674fd67e/kimchi/src/verifier_index.rs#L324
+    let w = zk_w3(domain);
+
     VerifierIndex {
         domain,
         max_poly_size,
         max_quot_size,
-        srs: Default::default(),
+        srs: OnceCell::from(srs),
         public,
         prev_challenges,
         sigma_comm,
@@ -158,8 +174,8 @@ fn make_verifier_index(index: &VerifierIndexOcaml<Pallas>) -> VerifierIndex {
         foreign_field_add_comm: None,
         xor_comm: None,
         shift,
-        zkpm: Default::default(),
-        w: Default::default(),
+        zkpm: OnceCell::from(zkpm),
+        w: OnceCell::from(w),
         endo,
         lookup_index: None,
         linearization,
