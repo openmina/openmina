@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 pub type EventSourceActionWithMeta = redux::ActionWithMeta<EventSourceAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum EventSourceAction {
     ProcessEvents(EventSourceProcessEventsAction),
     NewEvent(EventSourceNewEventAction),

@@ -17,6 +17,7 @@ pub mod event_source;
 pub mod logger;
 pub mod p2p;
 pub mod rpc;
+pub mod snark;
 
 pub type Store<S> = redux::Store<State, S, Action>;
 

@@ -17,3 +17,4 @@ mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messag
 
 shared = { path = "../shared" }
 p2p = { path = "../p2p" }
+snark = { path = "../snark" }

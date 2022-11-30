@@ -33,6 +33,8 @@ use service::rpc::{
 pub use service::NodeWasmService;
 
 pub mod logging;
+use logging::LogLevel;
+pub mod rayon;
 
 mod transaction;
 pub use transaction::Transaction;
@@ -129,8 +131,55 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
         max_len: 256,
     };
     let logs = logging::setup_global_logger(logger_config);
+    {
+        let logs = logs.clone();
+        std::panic::set_hook(Box::new(move |info| {
+            let logs = logs.get_range(None, usize::MAX);
+            for log in logs.iter().rev() {
+                let data = JsValue::from_serde(log).unwrap();
+                match log.level() {
+                    LogLevel::Trace => {
+                        web_sys::console::trace_1(&data);
+                    }
+                    LogLevel::Debug => {
+                        web_sys::console::debug_1(&data);
+                    }
+                    LogLevel::Info => {
+                        web_sys::console::info_1(&data);
+                    }
+                    LogLevel::Warn => {
+                        web_sys::console::warn_1(&data);
+                    }
+                    LogLevel::Error => {
+                        web_sys::console::error_1(&data);
+                    }
+                }
+                web_sys::console::error_2(&"PANIC!".into(), &format!("{:?}", info).into());
+            }
+        }));
+    }
 
     let (tx, rx) = mpsc::channel(1024);
+
+    if let Err(ref e) = rayon::init_rayon().await {
+        shared::log::error!(shared::log::system_time();
+            kind = "FatalError",
+            summary = "failed to initialize threadpool",
+            error = format!("{:?}", e));
+        panic!("FatalError");
+    }
+
+    let verifier_index = {
+        shared::log::info!(shared::log::system_time();
+            kind = "SnarkVerifierIndexInit",
+            summary = "initialize block verifier index");
+        let (tx, rx) = oneshot::channel();
+        ::rayon::spawn(move || {
+            let index = lib::snark::get_verifier_index();
+            tx.send(index);
+        });
+        rx.await.unwrap()
+    };
 
     let (libp2p, manual_connector) = Libp2pService::run(tx.clone()).await;
     let service = NodeWasmService {
@@ -139,7 +188,7 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
         libp2p,
         rpc: RpcService::new(),
     };
-    let state = lib::State::new();
+    let state = lib::State::new(verifier_index);
     let mut node = lib::Node::new(state, service);
     let rpc_sender = node.store_mut().service.wasm_rpc_req_sender().clone();
 
