@@ -16,7 +16,7 @@ struct Leaf<T: TreeVersion> {
 pub struct HashesMatrix {
     /// 2 dimensions matrix
     // matrix: Vec<Option<Fp>>,
-    matrix: BTreeMap<u32, Fp>,
+    matrix: BTreeMap<u64, Fp>,
     empty_hashes: Vec<Option<Fp>>,
     ledger_depth: usize,
     nhashes: usize,
@@ -86,7 +86,7 @@ impl HashesMatrix {
         let linear = addr.to_linear_index();
 
         // self.matrix.get(linear)?.as_ref()
-        let linear: u32 = linear.try_into().unwrap();
+        let linear: u64 = linear.try_into().unwrap();
         self.matrix.get(&linear)
     }
 
@@ -99,7 +99,7 @@ impl HashesMatrix {
 
         // assert!(self.matrix[linear].is_none());
         // self.matrix[linear] = Some(hash);
-        let linear: u32 = linear.try_into().unwrap();
+        let linear: u64 = linear.try_into().unwrap();
         let old = self.matrix.insert(linear, hash);
         assert!(old.is_none());
         self.nhashes += 1;
@@ -111,7 +111,7 @@ impl HashesMatrix {
     }
 
     fn remove_at_index(&mut self, index: usize) {
-        let linear: u32 = index.try_into().unwrap();
+        let linear: u64 = index.try_into().unwrap();
         let old = self.matrix.remove(&linear);
         if old.is_some() {
             self.nhashes -= 1;
