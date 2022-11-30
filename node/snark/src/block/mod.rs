@@ -7,5 +7,5 @@ mod urs_utils;
 pub mod verification;
 pub mod verifier_index;
 
-type VerifierIndex = kimchi::verifier_index::VerifierIndex<Pallas>;
-type ProverProof = kimchi::proof::ProverProof<Pallas>;
+pub type VerifierIndex = kimchi::verifier_index::VerifierIndex<Pallas>;
+pub type ProverProof = kimchi::proof::ProverProof<Pallas>;

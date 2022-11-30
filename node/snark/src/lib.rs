@@ -1,13 +1,3 @@
-#[cfg(target_family = "wasm")]
-#[cfg(test)]
-mod wasm {
-    use wasm_bindgen_test::*;
-    wasm_bindgen_test_configure!(run_in_browser);
-}
-
-#[cfg(target_family = "wasm")]
-pub mod rayon;
-
 mod block;
 pub mod hash;
 mod public_input;
@@ -18,4 +8,23 @@ pub use block::{
     transition_chain,
     verification::verify,
     verifier_index::get_verifier_index,
+    VerifierIndex,
 };
+
+pub mod block_verify;
+
+mod snark_actions;
+pub use snark_actions::*;
+
+mod snark_state;
+pub use snark_state::*;
+
+mod snark_reducer;
+pub use snark_reducer::*;
+
+use redux::SubStore;
+pub trait SnarkStore<GlobalState>:
+    SubStore<GlobalState, SnarkState, SubAction = SnarkAction>
+{
+}
+impl<S, T: SubStore<S, SnarkState, SubAction = SnarkAction>> SnarkStore<S> for T {}

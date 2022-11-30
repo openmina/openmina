@@ -35,6 +35,7 @@ pub fn setup_global_logger(config: InMemLoggerConfig) -> InMemLogs {
 }
 
 #[derive(Serialize, Debug, Clone, Copy)]
+#[wasm_bindgen]
 pub enum LogLevel {
     Trace,
     Debug,
@@ -92,6 +93,10 @@ impl InMemLogs {
     }
 }
 
+// TODO(binier): might be unsafe if used in webworkers.
+unsafe impl Send for InMemLogs {}
+unsafe impl Sync for InMemLogs {}
+
 #[derive(Serialize, Debug, Clone)]
 #[wasm_bindgen]
 pub struct InMemLog {
@@ -125,6 +130,10 @@ impl InMemLog {
 
     pub fn id(&self) -> usize {
         self.id
+    }
+
+    pub fn level(&self) -> LogLevel {
+        self.level
     }
 
     pub fn as_json(&self) -> String {
@@ -165,6 +174,7 @@ pub struct InMemLogger {
 
 // In wasm there are no threads, so we impl these traits in order to
 // satisfy tracing library's requirements.
+// TODO(binier): might be unsafe if used in webworkers.
 unsafe impl Send for InMemLogger {}
 unsafe impl Sync for InMemLogger {}
 

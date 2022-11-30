@@ -2,12 +2,15 @@ use redux::{ActionMeta, Timestamp};
 use serde::{Deserialize, Serialize};
 
 pub use crate::p2p::P2pState;
-use crate::rpc::RpcState;
+pub use crate::rpc::RpcState;
+pub use crate::snark::SnarkState;
+use crate::snark::VerifierIndex;
 use crate::ActionWithMeta;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct State {
     pub p2p: P2pState,
+    pub snark: SnarkState,
     pub rpc: RpcState,
 
     // TODO(binier): include action kind in `last_action`.
@@ -16,9 +19,10 @@ pub struct State {
 }
 
 impl State {
-    pub fn new() -> Self {
+    pub fn new(verifier_index: VerifierIndex) -> Self {
         Self {
             p2p: P2pState::new(),
+            snark: SnarkState::new(verifier_index),
             rpc: RpcState::new(),
 
             last_action: ActionMeta::ZERO,

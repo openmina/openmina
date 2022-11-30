@@ -76,3 +76,13 @@ impl lib::service::EventSourceService for NodeWasmService {
         self.event_source_receiver.try_next()
     }
 }
+
+impl lib::service::SnarkBlockVerifyService for NodeWasmService {
+    fn verify_init(
+        &mut self,
+        req_id: lib::snark::block_verify::SnarkBlockVerifyId,
+        block: &mina_p2p_messages::v2::MinaBlockHeaderStableV2,
+    ) {
+        // TODO(binier)
+    }
+}

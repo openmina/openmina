@@ -25,7 +25,6 @@ impl P2pRpcOutgoingAction {
             Self::Success(v) => &v.peer_id,
             Self::Finish(v) => &v.peer_id,
         }
-        // match self {}
     }
 }
 
