@@ -33,12 +33,32 @@ where
     where
         A: Into<P2pAction> + redux::EnablingCondition<crate::State>,
     {
-        crate::Store::dispatch(self, action)
+        crate::Store::sub_dispatch(self, action)
     }
 }
 
-impl<A: Into<P2pAction>> From<A> for crate::Action {
-    fn from(value: A) -> Self {
-        Self::P2p(value.into())
-    }
+macro_rules! impl_into_global_action {
+    ($a:ty) => {
+        impl From<$a> for crate::Action {
+            fn from(value: $a) -> Self {
+                Self::P2p(value.into())
+            }
+        }
+    };
 }
+
+impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingInitAction);
+impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingPendingAction);
+impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingErrorAction);
+impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingSuccessAction);
+
+impl_into_global_action!(pubsub::P2pPubsubMessagePublishAction);
+impl_into_global_action!(pubsub::P2pPubsubBytesPublishAction);
+impl_into_global_action!(pubsub::P2pPubsubBytesReceivedAction);
+impl_into_global_action!(pubsub::P2pPubsubMessageReceivedAction);
+
+impl_into_global_action!(rpc::outgoing::P2pRpcOutgoingInitAction);
+impl_into_global_action!(rpc::outgoing::P2pRpcOutgoingPendingAction);
+impl_into_global_action!(rpc::outgoing::P2pRpcOutgoingErrorAction);
+impl_into_global_action!(rpc::outgoing::P2pRpcOutgoingSuccessAction);
+impl_into_global_action!(rpc::outgoing::P2pRpcOutgoingFinishAction);
