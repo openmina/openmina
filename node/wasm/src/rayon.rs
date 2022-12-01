@@ -1,7 +1,4 @@
-use js_sys::Promise;
 use wasm_bindgen::JsValue;
-use wasm_bindgen_futures::JsFuture;
-use wasm_bindgen_rayon::init_thread_pool;
 
 fn get_num_cpus() -> usize {
     use wasm_bindgen::prelude::*;
@@ -21,9 +18,19 @@ fn get_num_cpus() -> usize {
 pub async fn init_rayon() -> Result<(), JsValue> {
     let num_cpus = get_num_cpus();
 
-    let thread_pool: Promise = init_thread_pool(num_cpus);
-
-    &JsFuture::from(thread_pool).await?;
+    wasm_thread::spawn(move || {
+        rayon::ThreadPoolBuilder::new()
+            .spawn_handler(|thread| {
+                wasm_thread::spawn(move || thread.run());
+                Ok(())
+            })
+            .num_threads(num_cpus.max(2) - 1)
+            .build_global()
+            .map_err(|e| format!("{:?}", e))
+    })
+    .join_async()
+    .await
+    .unwrap()?;
 
     Ok(())
 }
