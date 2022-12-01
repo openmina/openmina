@@ -306,6 +306,7 @@ mod tests {
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
+    #[cfg(not(target_family = "wasm"))]
     #[test]
     fn test_verification() {
         let now = std::time::Instant::now();
@@ -335,5 +336,75 @@ mod tests {
 
             assert!(accum_check && verified);
         }
+    }
+
+    #[cfg(target_family = "wasm")]
+    #[test]
+    fn test_verification_web() {
+        use wasm_bindgen_futures::spawn_local;
+        use wasm_bindgen_test::console_log;
+
+        fn perf_to_duration(amt: f64) -> std::time::Duration {
+            let secs = (amt as u64) / 1_000;
+            let nanos = (((amt as u64) % 1_000) as u32) * 1_000_000;
+            std::time::Duration::new(secs, nanos)
+        }
+
+        #[wasm_bindgen::prelude::wasm_bindgen(inline_js = r#"
+export function performance_now() {
+  return performance.now();
+}"#)]
+        extern "C" {
+            fn performance_now() -> f64;
+        }
+
+        fn measure<R>(label: &str, fun: impl Fn() -> R) -> R {
+            let start = performance_now();
+            // console::time_with_label(label);
+            let result = fun();
+            let end = performance_now();
+            console_log!("{}: {:?}", label, perf_to_duration(end - start));
+            result
+        }
+
+        wasm_thread::spawn(move || {
+            spawn_local(async {
+                console_log!("initializing rayon");
+                crate::rayon::init_rayon().await;
+                console_log!("rayon initialized");
+            });
+            // Throw to make sure our future really spawn:
+            // https://github.com/rustwasm/wasm-bindgen/issues/2945
+            wasm_bindgen::throw_str("throwned");
+        });
+
+        wasm_thread::spawn(move || {
+            console_log!("waiting worker...");
+            wasm_thread::sleep(std::time::Duration::from_secs(2));
+            console_log!("getting verifier and srs...");
+
+            let verifier_index = measure("get_verifier", || get_verifier_index());
+            let srs = measure("srs", || get_srs());
+
+            let files = [
+                include_bytes!("../data/2128.binprot"),
+                include_bytes!("../data/2132.binprot"),
+                include_bytes!("../data/2133.binprot"),
+            ];
+
+            console_log!("verifying blocks...");
+            for file in files {
+                measure("1 block verified in", || {
+                    let header =
+                        MinaBlockHeaderStableV2::binprot_read(&mut file.as_slice()).unwrap();
+
+                    let accum_check = accumulator_check(&srs, &header.protocol_state_proof.0);
+
+                    let verified = verify(header, &verifier_index);
+
+                    assert!(accum_check && verified);
+                });
+            }
+        });
     }
 }
