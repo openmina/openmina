@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::VerifierIndex;
+use crate::SnarkConfig;
 
 use super::block_verify::SnarkBlockVerifyState;
 
@@ -10,9 +10,12 @@ pub struct SnarkState {
 }
 
 impl SnarkState {
-    pub fn new(verifier_index: VerifierIndex) -> Self {
+    pub fn new(config: SnarkConfig) -> Self {
         Self {
-            block_verify: SnarkBlockVerifyState::new(verifier_index),
+            block_verify: SnarkBlockVerifyState::new(
+                config.block_verifier_index,
+                config.block_verifier_srs,
+            ),
         }
     }
 }

@@ -8,13 +8,16 @@ pub use block::{
     transition_chain,
     verification::verify,
     verifier_index::get_verifier_index,
-    VerifierIndex,
+    VerifierIndex, VerifierSRS,
 };
 
 pub mod block_verify;
 
 mod snark_actions;
 pub use snark_actions::*;
+
+mod snark_config;
+pub use snark_config::*;
 
 mod snark_state;
 pub use snark_state::*;

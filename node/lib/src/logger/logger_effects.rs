@@ -1,3 +1,6 @@
+use snark::block_verify::SnarkBlockVerifyAction;
+use snark::SnarkAction;
+
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::pubsub::{GossipNetMessageV2, P2pPubsubAction};
@@ -109,6 +112,69 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     }
                     _ => {}
                 },
+            },
+        },
+        Action::Snark(action) => match action {
+            SnarkAction::BlockVerify(action) => match action {
+                SnarkBlockVerifyAction::Init(action) => {
+                    let height = action
+                        .block
+                        .protocol_state
+                        .body
+                        .consensus_state
+                        .blockchain_length
+                        .0
+                         .0;
+                    shared::log::info!(
+                        meta.time();
+                        kind = "SnarkBlockVerifyInit",
+                        summary = format!("height: {}, req_id: {}", height, action.req_id),
+                        req_id = action.req_id.to_string(),
+                        block = serde_json::to_string(&action.block).ok()
+                    );
+                }
+                SnarkBlockVerifyAction::Error(action) => {
+                    let jobs = &store.state().snark.block_verify.jobs;
+                    let Some(job) = jobs.get(action.req_id) else { return };
+                    let block = job.block();
+
+                    let height = block
+                        .protocol_state
+                        .body
+                        .consensus_state
+                        .blockchain_length
+                        .0
+                         .0;
+                    shared::log::info!(
+                        meta.time();
+                        kind = "SnarkBlockVerifyError",
+                        summary = format!("height: {}, req_id: {}", height, action.req_id),
+                        req_id = action.req_id.to_string(),
+                        block = serde_json::to_string(&block).ok(),
+                        error = format!("{:?}", action.error)
+                    );
+                }
+                SnarkBlockVerifyAction::Success(action) => {
+                    let jobs = &store.state().snark.block_verify.jobs;
+                    let Some(job) = jobs.get(action.req_id) else { return };
+                    let block = job.block();
+
+                    let height = block
+                        .protocol_state
+                        .body
+                        .consensus_state
+                        .blockchain_length
+                        .0
+                         .0;
+                    shared::log::info!(
+                        meta.time();
+                        kind = "SnarkBlockVerifySuccess",
+                        summary = format!("height: {}, req_id: {}", height, action.req_id),
+                        req_id = action.req_id.to_string(),
+                        block = serde_json::to_string(&block).ok()
+                    );
+                }
+                _ => {}
             },
         },
         _ => {}

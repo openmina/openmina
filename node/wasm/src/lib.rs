@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::channel::{mpsc, oneshot};
@@ -12,7 +13,7 @@ use mina_signer::{NetworkId, PubKey, Signer};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::{future_to_promise, spawn_local, JsFuture};
+use wasm_bindgen_futures::spawn_local;
 
 use lib::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
@@ -169,15 +170,15 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
         panic!("FatalError");
     }
 
-    let verifier_index = {
-        shared::log::info!(shared::log::system_time();
-            kind = "SnarkVerifierIndexGetInit",
-            summary = "initialize block verifier index");
+    let storage = web_sys::window().and_then(|window| window.local_storage().ok().flatten());
 
-        let storage = web_sys::window().and_then(|window| window.local_storage().ok().flatten());
+    async fn cached_value<T, F>(storage: Option<&web_sys::Storage>, key: &'static str, calc: F) -> T
+    where
+        T: Send + 'static + serde::Serialize + for<'a> serde::Deserialize<'a>,
+        F: Send + 'static + FnOnce() -> T,
+    {
         let cached = storage
-            .as_ref()
-            .and_then(|s| s.get("verifier_index").ok()?)
+            .and_then(|s| s.get(key).ok()?)
             .and_then(|json| serde_json::from_str(&json).ok());
 
         match cached {
@@ -185,21 +186,44 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
             None => {
                 let (tx, rx) = oneshot::channel();
                 ::rayon::spawn(move || {
-                    tx.send(lib::snark::get_verifier_index());
+                    tx.send(calc());
                 });
                 let index = rx.await.unwrap();
                 if let Some(s) = storage {
-                    s.set("verifier_index", &serde_json::to_string(&index).unwrap());
+                    s.set(key, &serde_json::to_string(&index).unwrap());
                 }
                 index
             }
         }
-    };
+    }
 
     shared::log::info!(shared::log::system_time();
-        kind = "SnarkVerifierIndexGetSuccess",
-        summary = "initialize block verifier index successful",
-        verifier_index = serde_json::to_string(&verifier_index).ok());
+        kind = "SnarkBlockVerifyIndexGetInit",
+        summary = "get block verifier index");
+
+    let block_verifier_index = cached_value(
+        storage.as_ref(),
+        "block_verifier_index",
+        lib::snark::get_verifier_index,
+    )
+    .await;
+
+    shared::log::info!(shared::log::system_time();
+        kind = "SnarkBlockVerifyIndexGetSuccess",
+        summary = "get block verifier index successful",
+        block_verifier_index = serde_json::to_string(&block_verifier_index).ok());
+
+    shared::log::info!(shared::log::system_time();
+        kind = "SnarkBlockVerifySRSGetInit",
+        summary = "get block verifier srs");
+
+    let block_verifier_srs =
+        cached_value(storage.as_ref(), "block_verifier_srs", lib::snark::get_srs).await;
+
+    shared::log::info!(shared::log::system_time();
+        kind = "SnarkBlockVerifySRSGetSuccess",
+        summary = "get block verifier srs successful",
+        verifier_srs = serde_json::to_string(&block_verifier_srs).ok());
 
     let (libp2p, manual_connector) = Libp2pService::run(tx.clone()).await;
     let service = NodeWasmService {
@@ -208,7 +232,12 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
         libp2p,
         rpc: RpcService::new(),
     };
-    let state = lib::State::new(verifier_index);
+    let state = lib::State::new(lib::Config {
+        snark: lib::snark::SnarkConfig {
+            block_verifier_index: Arc::new(block_verifier_index),
+            block_verifier_srs: Arc::new(block_verifier_srs),
+        },
+    });
     let mut node = lib::Node::new(state, service);
     let rpc_sender = node.store_mut().service.wasm_rpc_req_sender().clone();
 

@@ -13,7 +13,10 @@ impl SnarkBlockVerifyInitAction {
         SnarkBlockVerifyPendingAction: redux::EnablingCondition<S>,
     {
         let req_id = self.req_id;
-        store.service().verify_init(req_id, &self.block);
+        let verifier_index = store.state().block_verify.verifier_index.clone();
+        store
+            .service()
+            .verify_init(req_id, verifier_index, &self.block);
         store.dispatch(SnarkBlockVerifyPendingAction { req_id });
     }
 }

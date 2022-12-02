@@ -22,7 +22,7 @@ oracle = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef
 
 strum_macros = "0.24.3"
 derive_more = "0.99.17"
-serde = "1.0"
+serde = { version = "1.0", features = ["rc"] }
 serde_json = { version = "1.0", features = ["float_roundtrip"] }
 ark-ff = { version = "0.3", features = [ "parallel", "asm" ] }
 ark-ec = { version = "0.3", features = [ "parallel" ] }
