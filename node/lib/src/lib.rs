@@ -1,6 +1,9 @@
 mod action;
 pub use action::{Action, ActionWithMeta, ActionWithMetaRef};
 
+mod config;
+pub use config::Config;
+
 mod state;
 pub use state::State;
 

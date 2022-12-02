@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use redux::Instant;
 
 use ::libp2p::futures::channel::mpsc;
@@ -81,6 +83,7 @@ impl lib::service::SnarkBlockVerifyService for NodeWasmService {
     fn verify_init(
         &mut self,
         req_id: lib::snark::block_verify::SnarkBlockVerifyId,
+        verifier_index: Arc<lib::snark::VerifierIndex>,
         block: &mina_p2p_messages::v2::MinaBlockHeaderStableV2,
     ) {
         // TODO(binier)

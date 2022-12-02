@@ -1,22 +1,26 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 use mina_p2p_messages::v2::MinaBlockHeaderStableV2;
 use shared::requests::PendingRequests;
 
-use crate::VerifierIndex;
+use crate::{VerifierIndex, VerifierSRS};
 
 use super::{SnarkBlockVerifyId, SnarkBlockVerifyIdType};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkBlockVerifyState {
-    pub verifier_index: VerifierIndex,
+    pub verifier_index: Arc<VerifierIndex>,
+    pub verifier_srs: Arc<VerifierSRS>,
     pub jobs: PendingRequests<SnarkBlockVerifyIdType, SnarkBlockVerifyStatus>,
 }
 
 impl SnarkBlockVerifyState {
-    pub fn new(verifier_index: VerifierIndex) -> Self {
+    pub fn new(verifier_index: Arc<VerifierIndex>, verifier_srs: Arc<VerifierSRS>) -> Self {
         Self {
             verifier_index,
+            verifier_srs,
             jobs: Default::default(),
         }
     }

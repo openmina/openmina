@@ -1,9 +1,8 @@
 use std::array;
 
-use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use commitment_dlog::{commitment::CommitmentCurve, srs::SRS};
 use kimchi::curve::KimchiCurve;
-use mina_curves::pasta::{Pallas, Vesta, VestaParameters};
+use mina_curves::pasta::{Pallas, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
 
@@ -12,13 +11,13 @@ use crate::public_input::scalar_challenge::{endo_fp, ScalarChallenge};
 
 const OTHER_URS_LENGTH: usize = 65536;
 
-pub fn get_srs() -> SRS<GroupAffine<VestaParameters>> {
+pub fn get_srs() -> super::VerifierSRS {
     // We need an URS with 65536 points (should be in the other verfifier index - step?)
     SRS::<<Pallas as KimchiCurve>::OtherCurve>::create(OTHER_URS_LENGTH)
 }
 
 pub fn accumulator_check(
-    urs: &SRS<GroupAffine<VestaParameters>>,
+    urs: &super::VerifierSRS,
     proof: &PicklesProofProofsVerified2ReprStableV2,
 ) -> bool {
     // accumulator check

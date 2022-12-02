@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 pub use crate::p2p::P2pState;
 pub use crate::rpc::RpcState;
 pub use crate::snark::SnarkState;
-use crate::snark::VerifierIndex;
 use crate::ActionWithMeta;
+pub use crate::Config;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct State {
@@ -19,10 +19,10 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(verifier_index: VerifierIndex) -> Self {
+    pub fn new(config: Config) -> Self {
         Self {
             p2p: P2pState::new(),
-            snark: SnarkState::new(verifier_index),
+            snark: SnarkState::new(config.snark),
             rpc: RpcState::new(),
 
             last_action: ActionMeta::ZERO,
