@@ -171,15 +171,35 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
 
     let verifier_index = {
         shared::log::info!(shared::log::system_time();
-            kind = "SnarkVerifierIndexInit",
+            kind = "SnarkVerifierIndexGetInit",
             summary = "initialize block verifier index");
-        let (tx, rx) = oneshot::channel();
-        ::rayon::spawn(move || {
-            let index = lib::snark::get_verifier_index();
-            tx.send(index);
-        });
-        rx.await.unwrap()
+
+        let storage = web_sys::window().and_then(|window| window.local_storage().ok().flatten());
+        let cached = storage
+            .as_ref()
+            .and_then(|s| s.get("verifier_index").ok()?)
+            .and_then(|json| serde_json::from_str(&json).ok());
+
+        match cached {
+            Some(cached) => cached,
+            None => {
+                let (tx, rx) = oneshot::channel();
+                ::rayon::spawn(move || {
+                    tx.send(lib::snark::get_verifier_index());
+                });
+                let index = rx.await.unwrap();
+                if let Some(s) = storage {
+                    s.set("verifier_index", &serde_json::to_string(&index).unwrap());
+                }
+                index
+            }
+        }
     };
+
+    shared::log::info!(shared::log::system_time();
+        kind = "SnarkVerifierIndexGetSuccess",
+        summary = "initialize block verifier index successful",
+        verifier_index = serde_json::to_string(&verifier_index).ok());
 
     let (libp2p, manual_connector) = Libp2pService::run(tx.clone()).await;
     let service = NodeWasmService {
