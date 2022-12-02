@@ -7,7 +7,7 @@ use shared::requests::PendingRequests;
 
 use crate::{VerifierIndex, VerifierSRS};
 
-use super::{SnarkBlockVerifyId, SnarkBlockVerifyIdType};
+use super::{SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyIdType};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkBlockVerifyState {
@@ -29,9 +29,6 @@ impl SnarkBlockVerifyState {
         self.jobs.next_req_id()
     }
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum SnarkBlockVerifyError {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkBlockVerifyStatus {
@@ -61,7 +58,7 @@ impl SnarkBlockVerifyStatus {
     }
 
     pub fn is_pending(&self) -> bool {
-        matches!(self, Self::Init { .. })
+        matches!(self, Self::Pending { .. })
     }
 
     pub fn is_finished(&self) -> bool {

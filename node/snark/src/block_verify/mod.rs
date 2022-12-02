@@ -13,6 +13,8 @@ pub use snark_block_verify_effects::*;
 mod snark_block_verify_service;
 pub use snark_block_verify_service::*;
 
+use serde::{Deserialize, Serialize};
+
 #[derive(Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct SnarkBlockVerifyIdType;
 impl shared::requests::RequestIdType for SnarkBlockVerifyIdType {
@@ -22,3 +24,9 @@ impl shared::requests::RequestIdType for SnarkBlockVerifyIdType {
 }
 
 pub type SnarkBlockVerifyId = shared::requests::RequestId<SnarkBlockVerifyIdType>;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum SnarkBlockVerifyError {
+    AccumulatorCheckFailed,
+    VerificationFailed,
+}
