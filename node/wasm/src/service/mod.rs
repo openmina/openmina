@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
-use redux::Instant;
-
 use ::libp2p::futures::channel::mpsc;
 use ::libp2p::futures::stream::StreamExt;
+use ::libp2p::futures::SinkExt;
+use redux::Instant;
+use wasm_bindgen_futures::spawn_local;
 
-use lib::event_source::Event;
+use lib::event_source::{Event, SnarkEvent};
+use lib::snark::block_verify::SnarkBlockVerifyError;
 
 pub mod libp2p;
 use self::libp2p::Libp2pService;
@@ -84,8 +86,29 @@ impl lib::service::SnarkBlockVerifyService for NodeWasmService {
         &mut self,
         req_id: lib::snark::block_verify::SnarkBlockVerifyId,
         verifier_index: Arc<lib::snark::VerifierIndex>,
+        verifier_srs: Arc<lib::snark::VerifierSRS>,
         block: &mina_p2p_messages::v2::MinaBlockHeaderStableV2,
     ) {
-        // TODO(binier)
+        let mut tx = self.event_source_sender.clone();
+        // TODO(binier): pass block as `Arc` to avoid extra cloning.
+        let block = Arc::new(block.clone());
+
+        rayon::spawn_fifo(move || {
+            let result = {
+                if !lib::snark::accumulator_check(&verifier_srs, &block.protocol_state_proof) {
+                    Err(SnarkBlockVerifyError::AccumulatorCheckFailed)
+                // TODO(binier): [PERF] verify should take block by reference?
+                } else if !lib::snark::verify((*block).clone(), &verifier_index) {
+                    Err(SnarkBlockVerifyError::VerificationFailed)
+                } else {
+                    Ok(())
+                }
+            };
+
+            spawn_local(async move {
+                tx.send(SnarkEvent::BlockVerify(req_id, result).into())
+                    .await;
+            });
+        });
     }
 }

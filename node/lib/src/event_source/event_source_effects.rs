@@ -1,3 +1,5 @@
+use snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
+
 use crate::action::CheckTimeoutsAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingErrorAction, P2pConnectionOutgoingSuccessAction,
@@ -12,7 +14,7 @@ use crate::{Service, Store};
 
 use super::{
     Event, EventSourceAction, EventSourceActionWithMeta, EventSourceNewEventAction,
-    P2pConnectionEvent, P2pEvent, P2pPubsubEvent, P2pRpcEvent,
+    P2pConnectionEvent, P2pEvent, P2pPubsubEvent, P2pRpcEvent, SnarkEvent,
 };
 
 pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourceActionWithMeta) {
@@ -71,6 +73,16 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             rpc_id,
                             response,
                         });
+                    }
+                },
+            },
+            Event::Snark(event) => match event {
+                SnarkEvent::BlockVerify(req_id, result) => match result {
+                    Err(error) => {
+                        store.dispatch(SnarkBlockVerifyErrorAction { req_id, error });
+                    }
+                    Ok(()) => {
+                        store.dispatch(SnarkBlockVerifySuccessAction { req_id });
                     }
                 },
             },

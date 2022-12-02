@@ -4,10 +4,12 @@ use crate::p2p::pubsub::PubsubTopic;
 pub use crate::p2p::rpc::P2pRpcEvent;
 use crate::p2p::PeerId;
 use crate::rpc::{RpcId, RpcRequest};
+use crate::snark::block_verify::{SnarkBlockVerifyError, SnarkBlockVerifyId};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum Event {
     P2p(P2pEvent),
+    Snark(SnarkEvent),
     Rpc(RpcId, RpcRequest),
 }
 
@@ -32,4 +34,9 @@ pub enum P2pPubsubEvent {
         topic: PubsubTopic,
         bytes: Vec<u8>,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum SnarkEvent {
+    BlockVerify(SnarkBlockVerifyId, Result<(), SnarkBlockVerifyError>),
 }

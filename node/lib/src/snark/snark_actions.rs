@@ -36,3 +36,15 @@ impl From<SnarkBlockVerifyInitAction> for crate::Action {
         Self::Snark(a.into())
     }
 }
+
+impl From<SnarkBlockVerifyErrorAction> for crate::Action {
+    fn from(a: SnarkBlockVerifyErrorAction) -> Self {
+        Self::Snark(a.into())
+    }
+}
+
+impl From<SnarkBlockVerifySuccessAction> for crate::Action {
+    fn from(a: SnarkBlockVerifySuccessAction) -> Self {
+        Self::Snark(a.into())
+    }
+}
