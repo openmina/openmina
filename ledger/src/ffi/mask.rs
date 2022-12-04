@@ -722,6 +722,7 @@ ocaml_export! {
         let account = get(rt, account);
 
         eprintln!("mask_get_or_create_account={:?}", account_id);
+        eprintln!("backtrace=\n{}", short_backtrace());
 
         let result = with_mask(rt, mask, |mask| {
             mask.get_or_create_account(account_id, account)
