@@ -564,7 +564,8 @@ ocaml_export! {
             addr.to_string()
         });
 
-        elog!("rust_mask_location_of_account is_some={:?} addr={:?} account={:?}", addr.is_some(), a, acc);
+        eprintln!("rust_mask_location_of_account is_some={:?} addr={:?}", addr.is_some(), a);
+        // eprintln!("rust_mask_location_of_account is_some={:?} addr={:?} account={:?}", addr.is_some(), a, acc);
 
         addr.to_ocaml(rt)
     }
@@ -577,6 +578,8 @@ ocaml_export! {
         elog!("backtrace=\n{}", short_backtrace());
 
         let account_ids = get_list_of::<AccountId>(rt, account_ids);
+
+        eprintln!("mask_location_of_account_batch={:?}", account_ids);
 
         let addrs = with_mask(rt, mask, |mask| {
             mask.location_of_account_batch(&account_ids)
@@ -680,6 +683,8 @@ ocaml_export! {
     ) -> OCaml<OCamlInt> {
         let account_id = get(rt, account_id);
 
+        eprintln!("mask_index_of_account={:?}", account_id);
+
         let index = with_mask(rt, mask, |mask| {
             mask.index_of_account(account_id)
         }).map(|index| {
@@ -714,6 +719,8 @@ ocaml_export! {
     ) -> OCaml<Result<(PolymorphicGetOrAdded, String), DatabaseErrorFFI>> {
         let account_id = get(rt, account_id);
         let account = get(rt, account);
+
+        eprintln!("mask_get_or_create_account={:?}", account_id);
 
         let result = with_mask(rt, mask, |mask| {
             mask.get_or_create_account(account_id, account)
@@ -876,6 +883,8 @@ ocaml_export! {
         account_ids: OCamlRef<OCamlList<OCamlBytes>>,
     ) {
         let account_ids = get_list_of(rt, account_ids);
+
+        eprintln!("remove_accounts={:?}", account_ids);
 
         with_mask(rt, mask, |mask| {
             mask.remove_accounts(&account_ids)
