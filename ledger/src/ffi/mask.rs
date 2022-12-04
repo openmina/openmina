@@ -255,7 +255,10 @@ ocaml_export! {
         mask: OCamlRef<DynBox<MaskFFI>>
     ) -> OCaml<DynBox<MaskFFI>> {
         let mask = with_mask(rt, mask, |mask| {
-            mask.clone()
+            let uuid = mask.get_uuid();
+            let copy = mask.copy();
+            assert_ne!(uuid, copy.get_uuid());
+            copy
         });
         let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
 
