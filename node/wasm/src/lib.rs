@@ -172,6 +172,7 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
 
     let storage = web_sys::window().and_then(|window| window.local_storage().ok().flatten());
 
+    // TODO(binier): LocalStorage is too small. Use IndexDB instead.
     async fn cached_value<T, F>(storage: Option<&web_sys::Storage>, key: &'static str, calc: F) -> T
     where
         T: Send + 'static + serde::Serialize + for<'a> serde::Deserialize<'a>,
@@ -189,9 +190,12 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
                     tx.send(calc());
                 });
                 let index = rx.await.unwrap();
-                if let Some(s) = storage {
-                    s.set(key, &serde_json::to_string(&index).unwrap());
-                }
+                // TODO(binier): for now, deserialized verifier_index
+                // doesn't work for verification. Uncomment to cache
+                // it once it's fixed.
+                // if let Some(s) = storage {
+                //     s.set(key, &serde_json::to_string(&index).unwrap());
+                // }
                 index
             }
         }
