@@ -391,7 +391,7 @@ impl Account {
     }
 
     pub fn hash(&self) -> Fp {
-        // println!("account={:#?}", self);
+        // elog!("account={:#?}", self);
 
         let mut inputs = Inputs::new();
 
@@ -706,8 +706,8 @@ mod tests {
         let acc = Account::create();
         let hash = acc.hash();
 
-        println!("account_hash={}", hash);
-        println!("account_hash={}", hash.to_hex());
+        elog!("account_hash={}", hash);
+        elog!("account_hash={}", hash.to_hex());
 
         assert_eq!(
             hash.to_hex(),
@@ -786,7 +786,7 @@ mod tests {
             "6989982961557644252722402794378511163775946371102905721368942795880969184859",
         )
         .unwrap();
-        println!("FP={:?}", fp.to_string());
+        elog!("FP={:?}", fp.to_string());
 
         let bytes = &[
             178, 29, 73, 50, 85, 80, 131, 166, 53, 11, 48, 224, 103, 89, 161, 207, 149, 31, 170,
@@ -801,10 +801,10 @@ mod tests {
         ];
         let acc: Account = Account::deserialize(bytes);
 
-        println!("ACC={:#?}", acc);
+        elog!("ACC={:#?}", acc);
 
         let h = acc.hash();
-        println!("HASH={:?}", h.to_string());
+        elog!("HASH={:?}", h.to_string());
 
         assert_eq!(
             acc.hash().to_hex(),
@@ -815,7 +815,7 @@ mod tests {
         //     "6989982961557644252722402794378511163775946371102905721368942795880969184859",
         // )
         // .unwrap();
-        // println!("FP={:?}", fp.to_string());
+        // elog!("FP={:?}", fp.to_string());
     }
 
     #[test]
@@ -860,7 +860,7 @@ mod tests {
         });
 
         assert_eq!(hashes.len(), NACCOUNTS);
-        println!(
+        elog!(
             "elapsed to hash accounts in 16 threads: {:?}",
             now.elapsed(),
         );
@@ -871,7 +871,7 @@ mod tests {
             hashes.push(account.hash());
         }
         assert_eq!(hashes.len(), NACCOUNTS);
-        println!("elapsed to hash accounts in 1 thread: {:?}", now.elapsed(),);
+        elog!("elapsed to hash accounts in 1 thread: {:?}", now.elapsed(),);
 
         let now = std::time::Instant::now();
         for account in accounts.into_iter() {
@@ -879,10 +879,10 @@ mod tests {
             db.get_or_create_account(id, account).unwrap();
         }
         assert_eq!(db.naccounts(), NACCOUNTS);
-        println!("elapsed to insert in tree: {:?}", now.elapsed());
+        elog!("elapsed to insert in tree: {:?}", now.elapsed());
 
         let now = std::time::Instant::now();
         db.root_hash();
-        println!("root hash computed in {:?}", now.elapsed());
+        elog!("root hash computed in {:?}", now.elapsed());
     }
 }

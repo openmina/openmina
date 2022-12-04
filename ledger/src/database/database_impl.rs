@@ -248,11 +248,11 @@ impl DatabaseImpl<V2> {
     }
 
     pub fn create_checkpoint(&self, directory_name: String) {
-        println!("create_checkpoint {}", directory_name);
+        elog!("create_checkpoint {}", directory_name);
     }
 
     pub fn make_checkpoint(&self, directory_name: String) {
-        println!("make_checkpoint {}", directory_name);
+        elog!("make_checkpoint {}", directory_name);
     }
 
     pub fn get_cached_hash(&self, addr: &Address) -> Option<Fp> {
@@ -320,7 +320,7 @@ impl DatabaseImpl<V2> {
             }
         };
 
-        // println!(
+        // elog!(
         //     "DB depth={:?} uuid={:?} pid={:?} path={:?}",
         //     depth,
         //     uuid,
@@ -548,7 +548,7 @@ impl BaseLedger for DatabaseImpl<V2> {
     fn location_of_account(&self, account_id: &AccountId) -> Option<Address> {
         let res = self.id_to_addr.get(account_id).cloned();
 
-        // println!("location_of_account id={:?}\n{:?}", account_id, res);
+        // elog!("location_of_account id={:?}\n{:?}", account_id, res);
 
         res
     }
@@ -565,7 +565,7 @@ impl BaseLedger for DatabaseImpl<V2> {
             })
             .collect();
 
-        println!(
+        elog!(
             "location_of_account_batch ids={:?}\nres={:?}={:?}",
             account_ids,
             res.len(),
@@ -591,7 +591,7 @@ impl BaseLedger for DatabaseImpl<V2> {
     }
 
     fn close(&self) {
-        println!(
+        elog!(
             "close pid={:?} uuid={:?} path={:?}",
             crate::util::pid(),
             self.uuid,
@@ -636,7 +636,7 @@ impl BaseLedger for DatabaseImpl<V2> {
         // let acc = self.root.as_ref()?.get_on_path(addr.into_iter()).cloned();
 
         // if let Some(account) = &acc {
-        //     println!("ACCOUNT{:?}", account.hash().to_string());
+        //     elog!("ACCOUNT{:?}", account.hash().to_string());
         // };
 
         // acc
@@ -658,7 +658,7 @@ impl BaseLedger for DatabaseImpl<V2> {
         //     .map(|addr| (addr.clone(), root.get_on_path(addr.iter()).cloned()))
         //     .collect();
 
-        println!("get_batch addrs={:?}\nres={:?}={:?}", addr, res.len(), res);
+        elog!("get_batch addrs={:?}\nres={:?}={:?}", addr, res.len(), res);
 
         res
     }
@@ -709,8 +709,8 @@ impl BaseLedger for DatabaseImpl<V2> {
     }
 
     fn set_batch(&mut self, list: &[(Address, Account)]) {
-        println!("SET_BATCH {:?}", list.len());
-        // println!("SET_BATCH {:?} {:?}", list.len(), list);
+        elog!("SET_BATCH {:?}", list.len());
+        // elog!("SET_BATCH {:?} {:?}", list.len(), list);
         for (addr, account) in list {
             assert_eq!(addr.length(), self.depth as usize, "addr={:?}", addr);
             self.set(addr.clone(), account.clone());
@@ -745,7 +745,7 @@ impl BaseLedger for DatabaseImpl<V2> {
         //     None => self.root_hash(),
         // };
 
-        // println!(
+        // elog!(
         //     "uuid={:?} ROOT={} num_account={:?} elapsed={:?}",
         //     self.get_uuid(),
         //     root,
@@ -755,7 +755,7 @@ impl BaseLedger for DatabaseImpl<V2> {
 
         // self.root_hash.borrow_mut().replace(root);
 
-        // println!("PATH={:#?}", self.merkle_path(Address::first(self.depth as usize)));
+        // elog!("PATH={:#?}", self.merkle_path(Address::first(self.depth as usize)));
 
         // self.merkle_path(Address::first(self.depth as usize));
 
@@ -763,7 +763,7 @@ impl BaseLedger for DatabaseImpl<V2> {
     }
 
     fn merkle_path(&mut self, addr: Address) -> Vec<MerklePath> {
-        println!("merkle_path called depth={:?} addr={:?}", self.depth, addr);
+        elog!("merkle_path called depth={:?} addr={:?}", self.depth, addr);
 
         let mut merkle_path = Vec::with_capacity(addr.length());
         let mut path = addr.into_iter();
@@ -860,7 +860,7 @@ impl BaseLedger for DatabaseImpl<V2> {
     fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, ()> {
         let res = self.emulate_tree_to_get_hash_at(addr.clone());
 
-        println!("get_inner_hash_at_addr addr={:?} hash={}", addr, res);
+        elog!("get_inner_hash_at_addr addr={:?} hash={}", addr, res);
 
         Ok(res)
     }

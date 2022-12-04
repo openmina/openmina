@@ -530,7 +530,7 @@ mod tests {
                 fp.mul_assign(field);
             }
         }
-        println!("ours={:?} {:?}", now.elapsed(), fp.0);
+        elog!("ours={:?} {:?}", now.elapsed(), fp.0);
 
         let mut mina_fp = mina_fps[0];
 
@@ -540,7 +540,7 @@ mod tests {
                 mina_fp.mul_assign(field);
             }
         }
-        println!("mina={:?} {:?}", now.elapsed(), mina_fp.0);
+        elog!("mina={:?} {:?}", now.elapsed(), mina_fp.0);
 
         assert_eq!(fp.0, mina_fp.0 .0);
 

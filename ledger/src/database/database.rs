@@ -319,7 +319,7 @@ mod tests {
     //             DatabaseError::OutOfLeaves
     //         );
 
-    //         println!("depth={:?} naccounts={:?}", depth, naccounts);
+    //         elog!("depth={:?} naccounts={:?}", depth, naccounts);
     //     }
     // }
 
@@ -335,27 +335,27 @@ mod tests {
             let addr = Address::from_index(account_index, DEPTH);
             matrix.set(&addr, one);
 
-            println!("{:?} MATRIX {:#?}", index + 1, matrix);
+            elog!("{:?} MATRIX {:#?}", index + 1, matrix);
         }
 
         let addr = Address::root();
 
         matrix.set(&addr, one);
-        println!("{:?} MATRIX {:#?}", "root", matrix);
+        elog!("{:?} MATRIX {:#?}", "root", matrix);
 
         matrix.set(&addr.child_left(), one);
-        println!("{:?} MATRIX {:#?}", "root", matrix);
+        elog!("{:?} MATRIX {:#?}", "root", matrix);
         matrix.set(&addr.child_right(), one);
-        println!("{:?} MATRIX {:#?}", "root", matrix);
+        elog!("{:?} MATRIX {:#?}", "root", matrix);
 
         matrix.set(&addr.child_left().child_left(), one);
-        println!("{:?} MATRIX {:#?}", "root", matrix);
+        elog!("{:?} MATRIX {:#?}", "root", matrix);
         matrix.set(&addr.child_left().child_right(), one);
-        println!("{:?} MATRIX {:#?}", "root", matrix);
+        elog!("{:?} MATRIX {:#?}", "root", matrix);
         matrix.set(&addr.child_right().child_left(), one);
-        println!("{:?} MATRIX {:#?}", "root", matrix);
+        elog!("{:?} MATRIX {:#?}", "root", matrix);
         matrix.set(&addr.child_right().child_right(), one);
-        println!("{:?} MATRIX {:#?}", "root", matrix);
+        elog!("{:?} MATRIX {:#?}", "root", matrix);
     }
 
     #[test]
@@ -381,7 +381,7 @@ mod tests {
                 DatabaseError::OutOfLeaves
             );
 
-            println!("depth={:?} naccounts={:?}", depth, naccounts);
+            elog!("depth={:?} naccounts={:?}", depth, naccounts);
         }
     }
 
@@ -505,7 +505,7 @@ export function performance_now() {
         let now = std::time::Instant::now();
         let mut db = Database::<V2>::create(20);
 
-        println!("{:?} accounts natively", NACCOUNTS);
+        elog!("{:?} accounts natively", NACCOUNTS);
 
         let accounts = (0..NACCOUNTS).map(|_| Account::rand()).collect::<Vec<_>>();
 
@@ -515,12 +515,12 @@ export function performance_now() {
             db.get_or_create_account(id, account).unwrap();
         }
 
-        println!("generate random accounts {:?}", now.elapsed());
+        elog!("generate random accounts {:?}", now.elapsed());
         assert_eq!(db.naccounts(), NACCOUNTS as usize);
 
         let now = std::time::Instant::now();
         db.merkle_root();
-        println!("compute merkle root {:?}", now.elapsed());
+        elog!("compute merkle root {:?}", now.elapsed());
     }
 
     #[test]
@@ -598,7 +598,7 @@ export function performance_now() {
     //         DatabaseError::OutOfLeaves
     //     );
     //     let hash = db.root_hash();
-    //     println!("ROOT_HASH={:?}", hash.to_string());
+    //     elog!("ROOT_HASH={:?}", hash.to_string());
     //     assert_eq!(
     //         hash.to_hex(),
     //         "169bada2f4bb2ea2b8189f47cf2b665e3e0fb135233242ae1b52794eb3fe7924"
@@ -856,7 +856,7 @@ mod tests_ocaml {
                 .collect::<Vec<_>>();
 
             let merkle_root1 = db.merkle_root();
-            println!("naccounts={:?}", accounts.len());
+            elog!("naccounts={:?}", accounts.len());
             db.set_batch_accounts(&accounts);
             let merkle_root2 = db.merkle_root();
 
@@ -1126,13 +1126,13 @@ mod tests_ocaml {
             let mut account = Account::empty();
             account.token_id = TokenId::from(index as u64);
 
-            // println!("account{}={}", index, account.hash().to_hex());
+            // elog!("account{}={}", index, account.hash().to_hex());
 
             let res = db.get_or_create_account(account.id(), account).unwrap();
             assert!(matches!(res, GetOrCreated::Added(_)));
         }
 
-        println!("naccounts={:?}", db.last_filled());
+        elog!("naccounts={:?}", db.last_filled());
 
         let expected = [
             &[
@@ -1244,8 +1244,8 @@ mod tests_ocaml {
             hashes.push(path);
         }
 
-        // println!("expected={:#?}", expected);
-        // println!("computed={:#?}", hashes);
+        // elog!("expected={:#?}", expected);
+        // elog!("computed={:#?}", hashes);
 
         assert_eq!(&expected[..], hashes.as_slice());
     }
@@ -1266,17 +1266,17 @@ mod tests_ocaml {
         const DEPTH: usize = 4;
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
-        println!("empty={}", Account::empty().hash());
-        println!("depth1={}", V2::empty_hash_at_depth(1));
-        println!("depth2={}", V2::empty_hash_at_depth(2));
-        println!("depth3={}", V2::empty_hash_at_depth(3));
-        println!("depth4={}", V2::empty_hash_at_depth(4));
+        elog!("empty={}", Account::empty().hash());
+        elog!("depth1={}", V2::empty_hash_at_depth(1));
+        elog!("depth2={}", V2::empty_hash_at_depth(2));
+        elog!("depth3={}", V2::empty_hash_at_depth(3));
+        elog!("depth4={}", V2::empty_hash_at_depth(4));
 
         // let db = Database::<V2>::create(DEPTH as u8);
         // db.merkle_root();
         // db.merkle_path(Address::first(DEPTH));
 
-        // println!("WITH_ACC");
+        // elog!("WITH_ACC");
 
         // let mut db = Database::<V2>::create(DEPTH as u8);
         // let mut account = Account::empty();
@@ -1295,75 +1295,75 @@ mod tests_ocaml {
 
         db.merkle_path(Address::first(DEPTH));
 
-        // println!(
+        // elog!(
         //     "INNER_AT_0={}",
         //     db.get_inner_hash_at_addr(Address::try_from("0000").unwrap())
         //         .unwrap()
         // );
-        // println!(
+        // elog!(
         //     "INNER_AT_0={}",
         //     db.get_inner_hash_at_addr(Address::try_from("0001").unwrap())
         //         .unwrap()
         // );
-        // println!(
+        // elog!(
         //     "INNER_AT_0={}",
         //     db.get_inner_hash_at_addr(Address::try_from("0010").unwrap())
         //         .unwrap()
         // );
-        // println!(
+        // elog!(
         //     "INNER_AT_0={}",
         //     db.get_inner_hash_at_addr(Address::try_from("0101").unwrap())
         //         .unwrap()
         // );
 
-        // println!("A");
-        // println!(
+        // elog!("A");
+        // elog!(
         //     "INNER_AT_3={}",
         //     db.get_inner_hash_at_addr(Address::try_from("000").unwrap())
         //         .unwrap()
         // );
-        // println!(
+        // elog!(
         //     "INNER_AT_3={}",
         //     db.get_inner_hash_at_addr(Address::try_from("001").unwrap())
         //         .unwrap()
         // );
-        // println!(
+        // elog!(
         //     "INNER_AT_3={}",
         //     db.get_inner_hash_at_addr(Address::try_from("010").unwrap())
         //         .unwrap()
         // );
-        // println!(
+        // elog!(
         //     "INNER_AT_3={}",
         //     db.get_inner_hash_at_addr(Address::try_from("101").unwrap())
         //         .unwrap()
         // );
 
-        // println!("A");
-        // println!(
+        // elog!("A");
+        // elog!(
         //     "INNER_AT_2={}",
         //     db.get_inner_hash_at_addr(Address::try_from("10").unwrap())
         //         .unwrap()
         // );
-        // println!(
+        // elog!(
         //     "INNER_AT_2={}",
         //     db.get_inner_hash_at_addr(Address::try_from("01").unwrap())
         //         .unwrap()
         // );
 
-        // println!("A");
-        // println!(
+        // elog!("A");
+        // elog!(
         //     "INNER_AT_1={}",
         //     db.get_inner_hash_at_addr(Address::try_from("1").unwrap())
         //         .unwrap()
         // );
-        // println!(
+        // elog!(
         //     "INNER_AT_1={}",
         //     db.get_inner_hash_at_addr(Address::try_from("0").unwrap())
         //         .unwrap()
         // );
 
-        // println!("A");
-        // println!(
+        // elog!("A");
+        // elog!(
         //     "INNER_AT_0={}",
         //     db.get_inner_hash_at_addr(Address::try_from("").unwrap())
         //         .unwrap()

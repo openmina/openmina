@@ -19,14 +19,14 @@ ocaml_export! {
             ocaml_hash_ref = tail;
         }
 
-        eprintln!("RESULT_OCAML={:?}", ocaml_hash);
+        elog!("RESULT_OCAML={:?}", ocaml_hash);
 
         let bytes = rt.get(bytes);
 
         let msg: MessagesForNextStepProof = deserialize(bytes.as_bytes());
         let rust_hash = msg.hash();
 
-        eprintln!("RESULT_RUST_={:?}", rust_hash);
+        elog!("RESULT_RUST_={:?}", rust_hash);
 
         assert_eq!(&rust_hash[..], ocaml_hash);
 
@@ -41,7 +41,7 @@ ocaml_export! {
         let bytes = serialize(&msg);
 
         // let s = bytes.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join("");
-        // eprintln!("BYTES={:?}", s);
+        // elog!("BYTES={:?}", s);
 
         bytes.to_ocaml(rt)
     }
@@ -54,7 +54,7 @@ ocaml_export! {
         let bytes = serialize(&msg);
 
         // let s = bytes.iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join("");
-        // eprintln!("BYTES={:?}", s);
+        // elog!("BYTES={:?}", s);
 
         bytes.to_ocaml(rt)
     }
@@ -74,14 +74,14 @@ ocaml_export! {
             ocaml_hash_ref = tail;
         }
 
-        eprintln!("RESULT_OCAML={:?}", ocaml_hash);
+        elog!("RESULT_OCAML={:?}", ocaml_hash);
 
         let bytes = rt.get(bytes);
 
         let msg: MessagesForNextWrapProof = deserialize(bytes.as_bytes());
         let rust_hash = msg.hash();
 
-        eprintln!("RESULT_RUST_={:?}", rust_hash);
+        elog!("RESULT_RUST_={:?}", rust_hash);
 
         assert_eq!(&rust_hash[..], ocaml_hash);
 
@@ -100,7 +100,7 @@ ocaml_export! {
     //         msg = MessagesForNextStepProof::rand();
     //         bytes = serialize(&msg);
 
-    //         println!("LOOP");
+    //         elog!("LOOP");
 
     //         if validate_msg.try_call(rt, &bytes).is_ok() {
     //             break;

@@ -1,5 +1,22 @@
 #![allow(dead_code)]
 
+// Unused, we don't want to print on stdout
+// /// Print logs on stdout with the prefix `[ledger]`
+// macro_rules! log {
+//     () => (elog!("[ledger]"));
+//     ($($arg:tt)*) => ({
+//         println!("[ledger] {}", format_args!($($arg)*))
+//     })
+// }
+
+/// Print logs on stderr with the prefix `[ledger]`
+macro_rules! elog {
+    () => (elog!("[ledger]"));
+    ($($arg:tt)*) => ({
+        eprintln!("[ledger] {}", format_args!($($arg)*));
+    })
+}
+
 // We need a feature to tests both nodejs and browser
 // https://github.com/rustwasm/wasm-bindgen/issues/2571
 #[cfg(not(feature = "in_nodejs"))]

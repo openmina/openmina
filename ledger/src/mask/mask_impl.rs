@@ -1079,7 +1079,7 @@ impl BaseLedger for MaskImpl {
             }
         };
 
-        eprintln!("get_or_create_account added");
+        elog!("get_or_create_account added");
 
         // let addr = result.clone();
         // let account_index = addr.to_index();
@@ -1238,19 +1238,19 @@ impl BaseLedger for MaskImpl {
     }
 
     fn merkle_root(&mut self) -> Fp {
-        // eprintln!("MERKLE_ROOT={:?}", self.short());
+        // elog!("MERKLE_ROOT={:?}", self.short());
         let hash = self.emulate_tree_to_get_hash_at(Address::root());
         // self.emulate_tree_to_get_hash()
 
         let num_accounts = self.num_accounts();
-        eprintln!("merkle_root={} num_accounts={:?}", hash, num_accounts);
+        elog!("merkle_root={} num_accounts={:?}", hash, num_accounts);
 
         hash
     }
 
     fn merkle_path(&mut self, addr: Address) -> Vec<MerklePath> {
-        eprintln!("merkle_path short={:?}", self.short());
-        // eprintln!("merkle_path num_accounts={:?} addr={:?}", self.num_accounts(), addr);
+        elog!("merkle_path short={:?}", self.short());
+        // elog!("merkle_path num_accounts={:?} addr={:?}", self.num_accounts(), addr);
 
         if let Root { database, .. } = self {
             return database.merkle_path(addr);
@@ -1264,7 +1264,7 @@ impl BaseLedger for MaskImpl {
             .last_filled()
             .unwrap_or_else(|| Address::first(self.depth() as usize));
 
-        // eprintln!("merkle_path last_account={:?}", last_account);
+        // elog!("merkle_path last_account={:?}", last_account);
 
         self.compute_hash_or_parent_for_merkle_path(
             addr,

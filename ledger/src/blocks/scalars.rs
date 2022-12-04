@@ -506,7 +506,7 @@ mod tests {
             let terms = terms.replace('=', "={");
 
             // Code is copy/paste from this output
-            println!("value={:?} code=\n{}\n", v, terms);
+            elog!("value={:?} code=\n{}\n", v, terms);
         }
 
         let mut hasher = Sha256::new();

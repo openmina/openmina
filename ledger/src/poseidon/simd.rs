@@ -14,12 +14,12 @@ mod tests {
     // #[test]
     fn test_basic() {
         let zero: u64x8 = u64x8::new(0, 0, 0, 0, 0, 0, 0, 0);
-        println!("zero={:?}", zero);
-        println!(
+        elog!("zero={:?}", zero);
+        elog!(
             "one ={:?}",
             u64x8::new(u64::MAX, 0, 0, 0, 0, 0, 0, 0) + u64x8::new(2, 0, 0, 0, 0, 0, 0, 0)
         );
-        println!("ten ={:?}", zero.add(1).mul(10));
+        elog!("ten ={:?}", zero.add(1).mul(10));
 
         let fp = Fp::from_str(
             "12035446894107573964500871153637039653510326950134440362813193268448863222019",
@@ -29,8 +29,8 @@ mod tests {
         let bigref = bigint.as_ref();
 
         // let one = Fp::one();
-        // println!("one={:?}", one);
-        // println!("one={:?}", one.into_repr());
+        // elog!("one={:?}", one);
+        // elog!("one={:?}", one.into_repr());
 
         assert_eq!(bigref.len(), 4);
 
@@ -41,12 +41,12 @@ mod tests {
         let simd2: u64x8 = u64x8::from_slice_unaligned(&abc[..]);
         // let fsimd: f64x4 = f64x4::from_slice_unaligned(&bigref.iter().map(|f| *f as f64).collect::<Vec<_>>());
 
-        println!("simd  ={:?}", simd);
-        println!("simd2  ={:?}", simd2);
-        // println!("fsimd  ={:?}", simd);
-        println!("fp    ={:?}", fp);
-        println!("bigint={:?}", bigint);
-        println!("ref   ={:?}\n", bigref);
+        elog!("simd  ={:?}", simd);
+        elog!("simd2  ={:?}", simd2);
+        // elog!("fsimd  ={:?}", simd);
+        elog!("fp    ={:?}", fp);
+        elog!("bigint={:?}", bigint);
+        elog!("ref   ={:?}\n", bigref);
 
         let n = 2;
         let simd = simd * n;
@@ -72,17 +72,17 @@ mod tests {
 
         // let simd2 = simd % 3;
 
-        println!("simd  ={:?}", simd);
-        println!("simd2 ={:?}", simd2);
-        // // println!("fsimd  ={:?}", fsimd);
-        println!("fp    ={:?}", fp);
-        println!("bigint={:?}", fp.0);
+        elog!("simd  ={:?}", simd);
+        elog!("simd2 ={:?}", simd2);
+        // // elog!("fsimd  ={:?}", fsimd);
+        elog!("fp    ={:?}", fp);
+        elog!("bigint={:?}", fp.0);
         let bigint: BigInteger256 = fp.into();
-        println!("bigint2={:?}", bigint);
+        elog!("bigint2={:?}", bigint);
         // let bigint3 = BigInteger256::new([simd.extract(0), simd.extract(1), simd.extract(2), simd.extract(3)]);
         // let fp2: Fp = bigint3.into();
-        // println!("bigint3={:?}", bigint3);
-        // println!("fp2={:?}", fp2);
+        // elog!("bigint3={:?}", bigint3);
+        // elog!("fp2={:?}", fp2);
         // // Fp::read(&[simd.extract(0), simd.extract(1), simd.extract(2), simd.extract(3)][..]);
 
         // let acc = Account::create();

@@ -22,7 +22,7 @@ struct MaskFFI(Rc<RefCell<Option<Mask>>>);
 impl Drop for MaskFFI {
     fn drop(&mut self) {
         let mask_id = RefCell::borrow(&self.0).as_ref().map(|mask| mask.short());
-        eprintln!("rust_mask_drop {:?}", mask_id);
+        elog!("rust_mask_drop {:?}", mask_id);
     }
 }
 
@@ -30,14 +30,14 @@ fn with_mask<F, R>(rt: &mut &mut OCamlRuntime, mask: OCamlRef<DynBox<MaskFFI>>, 
 where
     F: FnOnce(&mut Mask) -> R,
 {
-    // println!("111");
+    // elog!("111");
     let mask = rt.get(mask);
-    // println!("222");
+    // elog!("222");
     let mask: &MaskFFI = mask.borrow();
-    // println!("333");
+    // elog!("333");
     let mut mask = mask.0.borrow_mut();
 
-    // println!(
+    // elog!(
     //     "with_mask {:p}",
     //     Arc::as_ptr(&mask.borrow().as_ref().unwrap().inner)
     // );
@@ -193,7 +193,7 @@ ocaml_export! {
         rt,
         depth: OCamlRef<OCamlInt>,
     ) -> OCaml<DynBox<MaskFFI>> {
-        eprintln!("backtrace=\n{}", short_backtrace());
+        elog!("backtrace=\n{}", short_backtrace());
 
         let depth: i64 = depth.to_rust(rt);
         let depth: usize = depth.try_into().unwrap();
@@ -210,13 +210,13 @@ ocaml_export! {
         db: OCamlRef<DynBox<DatabaseFFI>>
     ) -> OCaml<DynBox<MaskFFI>> {
         // let bt = backtrace::Backtrace::new();
-        // eprintln!("rust_cast_database_to_mask bt={:#?}", bt);
+        // elog!("rust_cast_database_to_mask bt={:#?}", bt);
 
         let db = {
             let db = rt.get(db);
             let db: &DatabaseFFI = db.borrow();
 
-            // eprintln!("CAST_DATABASE_TO_MASK PTR={:p}", Rc::as_ptr(&db.0));
+            // elog!("CAST_DATABASE_TO_MASK PTR={:p}", Rc::as_ptr(&db.0));
 
             let db = db.0.borrow_mut();
             let db = db.as_ref().unwrap().clone();
@@ -224,10 +224,10 @@ ocaml_export! {
             db
         };
 
-        // eprintln!("AAA");
+        // elog!("AAA");
         let mask = Mask::new_root(db);
         let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
-        // eprintln!("BBB");
+        // elog!("BBB");
 
         OCaml::box_value(rt, mask)
     }
@@ -237,7 +237,7 @@ ocaml_export! {
         mask: OCamlRef<DynBox<MaskFFI>>
     ) -> OCaml<DynBox<MaskFFI>> {
         // let bt = backtrace::Backtrace::new();
-        // eprintln!("rust_cast bt={:#?}", bt);
+        // elog!("rust_cast bt={:#?}", bt);
 
         let mask = rt.get(mask);
 
@@ -289,20 +289,20 @@ ocaml_export! {
     ) -> OCaml<DynBox<MaskFFI>> {
         // let bt = backtrace::Backtrace::new();
 
-        // println!("AAA bt={:#?}", bt);
+        // elog!("AAA bt={:#?}", bt);
         let mask2 = {
             let mask2 = rt.get(mask2);
             let mask2: &MaskFFI = mask2.borrow();
             let mask2 = mask2.0.borrow_mut();
-            // println!("BBB {:p}", Arc::as_ptr(&mask2.borrow().as_ref().unwrap().inner));
+            // elog!("BBB {:p}", Arc::as_ptr(&mask2.borrow().as_ref().unwrap().inner));
             (*mask2).as_ref().unwrap().clone()
         };
-        // println!("CCC");
+        // elog!("CCC");
 
         let mask = with_mask(rt, mask, |mask| {
             mask.register_mask(mask2)
         });
-        // println!("DDD");
+        // elog!("DDD");
 
         let mask = MaskFFI(Rc::new(RefCell::new(Some(mask))));
 
@@ -359,7 +359,7 @@ ocaml_export! {
         rt,
         _int: OCamlRef<OCamlInt>
     ) {
-        eprintln!("rust_print_backtrace=\n{}", short_backtrace());
+        elog!("rust_print_backtrace=\n{}", short_backtrace());
 
         OCaml::unit()
     }
@@ -416,7 +416,7 @@ ocaml_export! {
         mask: OCamlRef<DynBox<MaskFFI>>,
         addr: OCamlRef<String>,
     ) -> OCaml<Option<OCamlBytes>> {
-        eprintln!("backtrace=\n{}", short_backtrace());
+        elog!("backtrace=\n{}", short_backtrace());
 
         let addr = get_addr(rt, addr);
 
@@ -429,7 +429,7 @@ ocaml_export! {
             account.serialize()
         });
 
-        eprintln!("rust_mask_get is_some={:?} addr={:?} account={:?}", account.is_some(), addr, acc);
+        elog!("rust_mask_get is_some={:?} addr={:?} account={:?}", account.is_some(), addr, acc);
 
         account.to_ocaml(rt)
     }
@@ -548,7 +548,7 @@ ocaml_export! {
         mask: OCamlRef<DynBox<MaskFFI>>,
         account_id: OCamlRef<OCamlBytes>
     ) -> OCaml<Option<String>> {
-        eprintln!("backtrace=\n{}", short_backtrace());
+        elog!("backtrace=\n{}", short_backtrace());
 
         let account_id = get(rt, account_id);
 
@@ -564,7 +564,7 @@ ocaml_export! {
             addr.to_string()
         });
 
-        eprintln!("rust_mask_location_of_account is_some={:?} addr={:?} account={:?}", addr.is_some(), a, acc);
+        elog!("rust_mask_location_of_account is_some={:?} addr={:?} account={:?}", addr.is_some(), a, acc);
 
         addr.to_ocaml(rt)
     }
@@ -574,7 +574,7 @@ ocaml_export! {
         mask: OCamlRef<DynBox<MaskFFI>>,
         account_ids: OCamlRef<OCamlList<OCamlBytes>>
     ) -> OCaml<OCamlList<(OCamlBytes, Option<String>)>> {
-        eprintln!("backtrace=\n{}", short_backtrace());
+        elog!("backtrace=\n{}", short_backtrace());
 
         let account_ids = get_list_of::<AccountId>(rt, account_ids);
 
@@ -659,12 +659,12 @@ ocaml_export! {
         addr: OCamlRef<String>,
         account: OCamlRef<OCamlBytes>,
     ) {
-        eprintln!("backtrace=\n{}", short_backtrace());
+        elog!("backtrace=\n{}", short_backtrace());
 
         let addr = get_addr(rt, addr);
         let account = get(rt, account);
 
-        eprintln!("rust_mask_set addr={:?}", addr);
+        elog!("rust_mask_set addr={:?}", addr);
 
         with_mask(rt, mask, |mask| {
             mask.set(addr, account)
@@ -859,7 +859,7 @@ ocaml_export! {
         rt,
         mask: OCamlRef<DynBox<MaskFFI>>,
     ) -> OCaml<OCamlBytes> {
-        eprintln!("backtrace=\n{}", short_backtrace());
+        elog!("backtrace=\n{}", short_backtrace());
 
         let hash = with_mask(rt, mask, |mask| {
             mask.merkle_root()
@@ -1047,7 +1047,7 @@ ocaml_export! {
 
 #[allow(clippy::let_and_return)]
 fn impl_rust_random_account() -> Vec<u8> {
-    // println!("rust_random_account begin");
+    // elog!("rust_random_account begin");
 
     let account = Account::rand();
     let ser = serialize(&account);
@@ -1070,7 +1070,7 @@ fn impl_rust_random_account() -> Vec<u8> {
 
     // // let account_hash2 = account2.hash();
 
-    // // println!("HASH2={:?}", account_hash2.to_string());
+    // // elog!("HASH2={:?}", account_hash2.to_string());
 
     // // let mut account2 = Account::empty();
 
@@ -1079,11 +1079,11 @@ fn impl_rust_random_account() -> Vec<u8> {
     // // // account2.token_permissions = account.token_permissions;
     // // account2.token_permissions = TokenPermissions::TokenOwned { disable_new_accounts: false };
 
-    // // println!("ACCOUNT={:#?}", account2);
+    // // elog!("ACCOUNT={:#?}", account2);
 
     // let ser = serialize(&account).unwrap();
 
-    // println!("rust_random_account end");
+    // elog!("rust_random_account end");
 
     ser
 }

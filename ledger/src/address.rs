@@ -530,7 +530,7 @@ mod tests {
         for length in 5..23 {
             let mut addr = Address::last(length);
 
-            println!("length={length} until={:?}", two.pow(length as u32));
+            elog!("length={length} until={:?}", two.pow(length as u32));
             for _ in 0..two.pow(length as u32) - 1 {
                 let prev = addr.prev().unwrap();
                 assert_eq!(prev.next().unwrap(), addr);
@@ -544,7 +544,7 @@ mod tests {
         for length in 5..23 {
             let mut addr = Address::first(length);
 
-            println!("length={length} until={:?}", two.pow(length as u32));
+            elog!("length={length} until={:?}", two.pow(length as u32));
             for _ in 0..two.pow(length as u32) - 1 {
                 let next = addr.next().unwrap();
                 assert_eq!(next.prev().unwrap(), addr);
@@ -562,9 +562,9 @@ mod tests {
         inner[1] = 0b11111111;
 
         let mut addr = Address { inner, length: 12 };
-        println!("ADDR={:?}", addr);
+        elog!("ADDR={:?}", addr);
         addr.clear_after(6);
-        println!("ADDR={:?}", addr);
+        elog!("ADDR={:?}", addr);
     }
 
     #[test]
@@ -586,10 +586,10 @@ mod tests {
     #[test]
     fn test_address_show() {
         let addr = Address::first(2);
-        println!("LA {:?}", addr);
+        elog!("LA {:?}", addr);
         let sec = addr.next().unwrap();
-        println!("LA {:?}", sec);
-        println!("LA {:?}", sec.child_left());
+        elog!("LA {:?}", sec);
+        elog!("LA {:?}", sec.child_left());
     }
 
     #[test]

@@ -885,7 +885,7 @@ mod tests {
             // assert_ne!(n1, n);
         }
 
-        println!("valid={:?}", nvalid);
+        elog!("valid={:?}", nvalid);
     }
 
     #[test]

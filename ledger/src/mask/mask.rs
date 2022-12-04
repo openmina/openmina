@@ -81,7 +81,7 @@ impl Mask {
 
     /// Make `mask` a child of `self`
     pub fn register_mask(&self, mask: Mask) -> Mask {
-        // println!("self={:p} mask={:p}", &self.inner, &mask.inner);
+        // elog!("self={:p} mask={:p}", &self.inner, &mask.inner);
 
         let self_mask = self.clone();
         self.with(|this| this.register_mask(self_mask, mask))
@@ -306,7 +306,7 @@ impl BaseLedger for Mask {
         let res = self.with(|this| this.merkle_path(addr.clone()));
         assert_eq!(res.len(), addr_length);
 
-        // println!(
+        // elog!(
         //     "merkle_path addr={:?} path_len={:?} path={:?}",
         //     addr,
         //     res.len(),
@@ -493,7 +493,7 @@ mod tests {
 
         assert!(!mask_merkle_path.is_empty());
         assert_eq!(mask_merkle_path, root_merkle_path);
-        println!("path={:?}", mask_merkle_path);
+        elog!("path={:?}", mask_merkle_path);
     }
 }
 
@@ -680,7 +680,7 @@ mod tests_mask_ocaml {
 
         assert!(!mask_merkle_path.is_empty());
         assert_eq!(mask_merkle_path, root_merkle_path);
-        println!("path={:?}", mask_merkle_path);
+        elog!("path={:?}", mask_merkle_path);
     }
 
     // "mask and parent agree on Merkle root before set"

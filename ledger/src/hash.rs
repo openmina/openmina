@@ -271,8 +271,8 @@ mod tests {
         inputs.append_u32(1); // vesting_period
         inputs.append_u64(0); // vesting_increment
 
-        println!("INPUTS={:?}", inputs);
-        println!("FIELDS={:?}", inputs.to_fields());
+        elog!("INPUTS={:?}", inputs);
+        elog!("FIELDS={:?}", inputs.to_fields());
 
         // // Self::timing
         // match self.timing {

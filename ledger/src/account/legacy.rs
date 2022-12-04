@@ -100,7 +100,7 @@ impl Hashable for SnappAccount {
             roi = roi.append_field(*field);
         }
 
-        // println!("ROInput={:?}", roi);
+        // elog!("ROInput={:?}", roi);
 
         roi
     }
@@ -166,7 +166,7 @@ impl Hashable for AccountLegacy {
 
         roi = roi.append_field(snapp_digest);
 
-        // println!("ROINPUT={:?}", roi);
+        // elog!("ROINPUT={:?}", roi);
 
         // Self::permissions
         for auth in [
@@ -366,7 +366,7 @@ impl Hashable for AccountLegacy {
 
     //     roi.append_field(snapp_digest);
 
-    //     println!("ROINPUT={:?}", roi);
+    //     elog!("ROINPUT={:?}", roi);
 
     //     roi
     // }
@@ -385,11 +385,11 @@ impl AccountLegacy {
         // let token_id = bs58::decode("wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf").into_vec().unwrap();
         // let token_id = Fp::from_bytes(&token_id).unwrap();
 
-        // println!("token_id={:?}", token_id.to_string());
+        // elog!("token_id={:?}", token_id.to_string());
 
         // let t = bs58::encode(token_id).into_string();
         // let t = bs58::encode(token_id.to_bytes()).into_string();
-        // println!("token_id={:?}", t);
+        // elog!("token_id={:?}", t);
 
         let pubkey = CompressedPubKey::from_address(
             "B62qnzbXmRNo9q32n4SNu2mpB8e7FYYLH8NmaX6oFCBYjjQ8SbD7uzV",

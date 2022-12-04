@@ -1055,7 +1055,7 @@ impl<F: Field, SC: SpongeConstants> Sponge<F, F> for ArithmeticSponge<F, SC> {
     #[inline(never)]
     fn squeeze(&mut self) -> F {
         // assert_eq!(self.state.len(), 3);
-        // println!("NSTATE={:?}", self.state.len());
+        // elog!("NSTATE={:?}", self.state.len());
         match self.sponge_state {
             SpongeState::Squeezed(n) => {
                 if n == self.rate {

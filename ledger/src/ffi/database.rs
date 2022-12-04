@@ -36,7 +36,7 @@ impl Drop for DatabaseFFI {
         let mask_id = RefCell::borrow(&self.0)
             .as_ref()
             .map(|mask| mask.get_uuid());
-        eprintln!("rust_database_drop {:?}", mask_id);
+        elog!("rust_database_drop {:?}", mask_id);
     }
 }
 
@@ -111,7 +111,7 @@ ocaml_export! {
         depth: OCamlRef<OCamlInt>,
         dir_name: OCamlRef<Option<String>>
     ) -> OCaml<DynBox<DatabaseFFI>> {
-        eprintln!("backtrace=\n{}", short_backtrace());
+        elog!("backtrace=\n{}", short_backtrace());
 
         let depth: i64 = depth.to_rust(rt);
         let depth: u8 = depth.try_into().unwrap();
@@ -123,7 +123,7 @@ ocaml_export! {
 
         let db = dir_name.as_ref().and_then(|dir_name| closed.remove(dir_name));
 
-        eprintln!("rust_database_create={:?} reuse={:?}", dir_name, db.is_some());
+        elog!("rust_database_create={:?} reuse={:?}", dir_name, db.is_some());
 
         let db = match db {
             Some(db) => {
@@ -242,7 +242,7 @@ ocaml_export! {
             db_ref.get_directory().unwrap()
         };
 
-        eprintln!("rust_database_close={:?}", path);
+        elog!("rust_database_close={:?}", path);
 
         let db = db.0.take().unwrap();
         // let db: RefCell<Database<V2>> = Rc::try_unwrap(db).ok().unwrap();
@@ -261,16 +261,16 @@ ocaml_export! {
         rt,
         account: OCamlRef<OCamlBytes>,
     ) {
-        println!("RUST BEGIN");
+        elog!("RUST BEGIN");
         let account_ref = rt.get(account);
         let account = account_ref.as_bytes();
 
         let account: Account = Account::deserialize(account);
 
-        println!("account={:?}", account);
-        println!("account_hash={:?}", account.hash().to_string());
+        elog!("account={:?}", account);
+        elog!("account_hash={:?}", account.hash().to_string());
 
-        println!("RUST END 1");
+        elog!("RUST END 1");
         OCaml::unit()
     }
 
@@ -291,7 +291,7 @@ ocaml_export! {
             }
         }
 
-        println!("account={:?}", account.id());
+        elog!("account={:?}", account.id());
         // std::thread::sleep_ms(2000);
 
         bytes.to_ocaml(rt)
@@ -319,16 +319,16 @@ ocaml_export! {
             let ocaml_hash: Fp = ocaml_hash.into();
 
             if ocaml_hash != rust_hash {
-                println!("different hash ! bytes={:?}", account);
-                println!("ocaml_hash={}", ocaml_hash);
-                println!("rust_hash ={}", rust_hash);
+                elog!("different hash ! bytes={:?}", account);
+                elog!("ocaml_hash={}", ocaml_hash);
+                elog!("rust_hash ={}", rust_hash);
                 panic!("account={:#?}", account);
             }
 
             nchecked += 1;
         }
 
-        eprintln!("nchecked={:?}", nchecked);
+        elog!("nchecked={:?}", nchecked);
 
         OCaml::unit()
     }
@@ -338,7 +338,7 @@ ocaml_export! {
         account: OCamlRef<OCamlBytes>,
         hash: OCamlRef<String>,
     ) {
-        // println!("RUST BEGIN");
+        // elog!("RUST BEGIN");
         let account_ref = rt.get(account);
         let account = account_ref.as_bytes();
         let account_bytes = account;
@@ -350,20 +350,20 @@ ocaml_export! {
         let account_hash = account.hash();
 
         if hash != account_hash {
-            println!("different hash ! bytes={:?}", account_bytes);
-            println!("ocaml_hash={:?}", hash.to_string());
-            println!("rust_hash ={:?}", account_hash.to_string());
+            elog!("different hash ! bytes={:?}", account_bytes);
+            elog!("ocaml_hash={:?}", hash.to_string());
+            elog!("rust_hash ={:?}", account_hash.to_string());
             assert_eq!(hash, account_hash);
         }
 
-        // println!("hash={:?}", hash.to_string());
-        // println!("provided={:?}", hash.to_string());
-        // println!("computed={:?}", account_hash.to_string());
+        // elog!("hash={:?}", hash.to_string());
+        // elog!("provided={:?}", hash.to_string());
+        // elog!("computed={:?}", account_hash.to_string());
 
         let ser = account.serialize();
 
-        // println!("from_ocaml={:?}", account_bytes);
-        // println!("rust_ocaml={:?}", ser);
+        // elog!("from_ocaml={:?}", account_bytes);
+        // elog!("rust_ocaml={:?}", ser);
 
         // assert_eq!(account_len, ser.len());
 
@@ -371,14 +371,14 @@ ocaml_export! {
         let account_hash2 = account2.hash();
         assert_eq!(account_hash, account_hash2);
 
-        // println!("account={:?}", account);
-        // println!("account_hash={:?}", account.hash().to_string());
+        // elog!("account={:?}", account);
+        // elog!("account_hash={:?}", account.hash().to_string());
 
         let mut db = DATABASE.try_lock().unwrap();
         let id = account.id();
         db.get_or_create_account(id, account).unwrap();
 
-        // println!("RUST END");
+        // elog!("RUST END");
         OCaml::unit()
     }
 
@@ -389,9 +389,9 @@ ocaml_export! {
         let ocaml_hash: String = ocaml_hash.to_rust(rt);
         let ocaml_hash = Fp::from_str(&ocaml_hash).unwrap();
 
-        println!("naccounts ={:?}", db.naccounts());
-        println!("rust_root_hash ={:?}", hash.to_string());
-        println!("ocaml_root_hash={:?}", ocaml_hash.to_string());
+        elog!("naccounts ={:?}", db.naccounts());
+        elog!("rust_root_hash ={:?}", hash.to_string());
+        elog!("ocaml_root_hash={:?}", ocaml_hash.to_string());
 
         assert_eq!(hash, ocaml_hash);
 
@@ -400,7 +400,7 @@ ocaml_export! {
 
     fn rust_random_account(rt, _unused: OCamlRef<String>) -> OCaml<OCamlBytes> {
         let res = impl_rust_random_account();
-        // println!("rust_random_account begin");
+        // elog!("rust_random_account begin");
 
         // // let account = Account::rand();
         // // let ser = serde_binprot::to_vec(&account).unwrap();
@@ -411,12 +411,12 @@ ocaml_export! {
 
         // let account_hash2 = account2.hash();
 
-        // println!("HASH2={:?}", account_hash2.to_string());
+        // elog!("HASH2={:?}", account_hash2.to_string());
 
         // let ser = serde_binprot::to_vec(&account2).unwrap();
 
 
-        // println!("rust_random_account end");
+        // elog!("rust_random_account end");
 
         res.to_ocaml(rt)
     }
@@ -1031,7 +1031,7 @@ ocaml_export! {
 
 #[allow(clippy::let_and_return)]
 fn impl_rust_random_account() -> Vec<u8> {
-    // println!("rust_random_account begin");
+    // elog!("rust_random_account begin");
 
     let account = Account::rand();
     let ser = serialize(&account);
@@ -1054,7 +1054,7 @@ fn impl_rust_random_account() -> Vec<u8> {
 
     // // let account_hash2 = account2.hash();
 
-    // // println!("HASH2={:?}", account_hash2.to_string());
+    // // elog!("HASH2={:?}", account_hash2.to_string());
 
     // // let mut account2 = Account::empty();
 
@@ -1063,11 +1063,11 @@ fn impl_rust_random_account() -> Vec<u8> {
     // // // account2.token_permissions = account.token_permissions;
     // // account2.token_permissions = TokenPermissions::TokenOwned { disable_new_accounts: false };
 
-    // // println!("ACCOUNT={:#?}", account2);
+    // // elog!("ACCOUNT={:#?}", account2);
 
     // let ser = serialize(&account)
 
-    // println!("rust_random_account end");
+    // elog!("rust_random_account end");
 
     ser
 }

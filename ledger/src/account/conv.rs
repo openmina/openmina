@@ -392,8 +392,8 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
         ];
 
-        println!("len={:?}", bytes.len());
+        elog!("len={:?}", bytes.len());
         let result: Account = Account::deserialize(bytes);
-        println!("account={:#?}", result);
+        elog!("account={:#?}", result);
     }
 }
