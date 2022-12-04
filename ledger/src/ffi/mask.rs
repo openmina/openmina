@@ -567,7 +567,7 @@ ocaml_export! {
             addr.to_string()
         });
 
-        eprintln!("rust_mask_location_of_account is_some={:?} account_id={:?} addr={:?}", addr.is_some(), account_id, a);
+        // eprintln!("rust_mask_location_of_account is_some={:?} account_id={:?} addr={:?}", addr.is_some(), account_id, a);
 
         // eprintln!("rust_mask_location_of_account is_some={:?} addr={:?} account={:?}", addr.is_some(), a, acc);
 
@@ -583,7 +583,7 @@ ocaml_export! {
 
         let account_ids = get_list_of::<AccountId>(rt, account_ids);
 
-        eprintln!("mask_location_of_account_batch={:?}", account_ids);
+        // eprintln!("mask_location_of_account_batch={:?}", account_ids);
 
         let addrs = with_mask(rt, mask, |mask| {
             mask.location_of_account_batch(&account_ids)
@@ -687,7 +687,7 @@ ocaml_export! {
     ) -> OCaml<OCamlInt> {
         let account_id = get(rt, account_id);
 
-        eprintln!("mask_index_of_account={:?}", account_id);
+        // eprintln!("mask_index_of_account={:?}", account_id);
 
         let index = with_mask(rt, mask, |mask| {
             mask.index_of_account(account_id)
@@ -724,8 +724,8 @@ ocaml_export! {
         let account_id = get(rt, account_id);
         let account = get(rt, account);
 
-        eprintln!("mask_get_or_create_account={:?}", account_id);
-        eprintln!("backtrace=\n{}", short_backtrace());
+        // eprintln!("mask_get_or_create_account={:?}", account_id);
+        // eprintln!("backtrace=\n{}", short_backtrace());
 
         let result = with_mask(rt, mask, |mask| {
             mask.get_or_create_account(account_id, account)
@@ -889,7 +889,7 @@ ocaml_export! {
     ) {
         let account_ids = get_list_of(rt, account_ids);
 
-        eprintln!("remove_accounts={:?}", account_ids);
+        // eprintln!("remove_accounts={:?}", account_ids);
 
         with_mask(rt, mask, |mask| {
             mask.remove_accounts(&account_ids)

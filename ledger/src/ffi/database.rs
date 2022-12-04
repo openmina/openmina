@@ -553,7 +553,7 @@ ocaml_export! {
     ) -> OCaml<Option<String>> {
         let account_id = get(rt, account_id);
 
-        eprintln!("database_location_of_account={:?}", account_id);
+        // eprintln!("database_location_of_account={:?}", account_id);
 
         let addr = with_db(rt, db, |db| {
             db.location_of_account(&account_id)
@@ -571,7 +571,7 @@ ocaml_export! {
     ) -> OCaml<OCamlList<(OCamlBytes, Option<String>)>> {
         let account_ids = get_list_of::<AccountId>(rt, account_ids);
 
-        eprintln!("database_location_of_account_batch={:?}", account_ids);
+        // eprintln!("database_location_of_account_batch={:?}", account_ids);
 
         let addrs = with_db(rt, db, |db| {
             db.location_of_account_batch(&account_ids)
@@ -671,7 +671,7 @@ ocaml_export! {
     ) -> OCaml<OCamlInt> {
         let account_id = get(rt, account_id);
 
-        eprintln!("database_index_of_account={:?}", account_id);
+        // eprintln!("database_index_of_account={:?}", account_id);
 
         let index = with_db(rt, db, |db| {
             db.index_of_account(account_id)
@@ -708,7 +708,7 @@ ocaml_export! {
         let account_id = get(rt, account_id);
         let account = get(rt, account);
 
-        eprintln!("database_get_or_create_account={:?}", account_id);
+        // eprintln!("database_get_or_create_account={:?}", account_id);
 
         let result = with_db(rt, db, |db| {
             db.get_or_create_account(account_id, account)
@@ -869,7 +869,7 @@ ocaml_export! {
     ) {
         let account_ids = get_list_of(rt, account_ids);
 
-        eprintln!("database_remove_account={:?}", account_ids);
+        // eprintln!("database_remove_account={:?}", account_ids);
 
         with_db(rt, db, |db| {
             db.remove_accounts(&account_ids)
