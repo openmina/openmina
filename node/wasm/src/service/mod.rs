@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ::libp2p::futures::channel::mpsc;
+use ::libp2p::futures::channel::{mpsc, oneshot};
 use ::libp2p::futures::stream::StreamExt;
 use ::libp2p::futures::SinkExt;
 use redux::Instant;
@@ -93,6 +93,7 @@ impl lib::service::SnarkBlockVerifyService for NodeWasmService {
         // TODO(binier): pass block as `Arc` to avoid extra cloning.
         let block = Arc::new(block.clone());
 
+        let (mut tx, rx) = oneshot::channel();
         rayon::spawn_fifo(move || {
             let result = {
                 if !lib::snark::accumulator_check(&verifier_srs, &block.protocol_state_proof) {
@@ -105,10 +106,17 @@ impl lib::service::SnarkBlockVerifyService for NodeWasmService {
                 }
             };
 
-            spawn_local(async move {
-                tx.send(SnarkEvent::BlockVerify(req_id, result).into())
-                    .await;
-            });
+            let _ = tx.send(result);
+        });
+
+        let mut tx = self.event_source_sender.clone();
+        spawn_local(async move {
+            let result = match rx.await {
+                Ok(v) => v,
+                Err(_) => Err(SnarkBlockVerifyError::ValidatorThreadCrashed),
+            };
+            tx.send(SnarkEvent::BlockVerify(req_id, result).into())
+                .await;
         });
     }
 }

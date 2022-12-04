@@ -29,4 +29,5 @@ pub type SnarkBlockVerifyId = shared::requests::RequestId<SnarkBlockVerifyIdType
 pub enum SnarkBlockVerifyError {
     AccumulatorCheckFailed,
     VerificationFailed,
+    ValidatorThreadCrashed,
 }
