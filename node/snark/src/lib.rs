@@ -5,6 +5,7 @@ pub mod utils;
 
 pub use block::{
     accumulator_check::{accumulator_check, get_srs},
+    caching::{srs_from_bytes, srs_to_bytes, verifier_index_from_bytes, verifier_index_to_bytes},
     transition_chain,
     verification::verify,
     verifier_index::get_verifier_index,

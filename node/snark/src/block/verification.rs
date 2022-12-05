@@ -299,7 +299,13 @@ pub fn verify(header: MinaBlockHeaderStableV2, verifier_index: &VerifierIndex) -
 mod tests {
     use binprot::BinProtRead;
 
-    use crate::{accumulator_check, get_srs, get_verifier_index};
+    use crate::{
+        accumulator_check,
+        block::caching::{
+            srs_from_bytes, srs_to_bytes, verifier_index_from_bytes, verifier_index_to_bytes,
+        },
+        get_srs, get_verifier_index,
+    };
 
     use super::*;
 
@@ -314,7 +320,27 @@ mod tests {
 
         let now = std::time::Instant::now();
         let srs = get_srs();
-        println!("get_srs={:?}", now.elapsed());
+        println!("get_srs={:?}\n", now.elapsed());
+
+        let now = std::time::Instant::now();
+        let bytes = verifier_index_to_bytes(&verifier_index);
+        println!("verifier_elapsed={:?}", now.elapsed());
+        println!("verifier_length={:?}", bytes.len());
+        assert_eq!(bytes.len(), 5328359);
+
+        let now = std::time::Instant::now();
+        let verifier_index = verifier_index_from_bytes(&bytes);
+        println!("verifier_deserialize_elapsed={:?}\n", now.elapsed());
+
+        let now = std::time::Instant::now();
+        let bytes = srs_to_bytes(&srs);
+        println!("srs_elapsed={:?}", now.elapsed());
+        println!("srs_length={:?}", bytes.len());
+        assert_eq!(bytes.len(), 5308593);
+
+        let now = std::time::Instant::now();
+        let srs = srs_from_bytes(&bytes);
+        println!("deserialize_elapsed={:?}\n", now.elapsed());
 
         let files = [
             include_bytes!("../data/2128.binprot"),
