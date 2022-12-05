@@ -47,17 +47,46 @@ impl From<mina_curves::pasta::Fq> for BigInt {
 }
 
 #[cfg(feature = "hashing")]
+impl From<&mina_curves::pasta::Fp> for BigInt {
+    fn from(field: &mina_curves::pasta::Fp) -> Self {
+        use o1_utils::FieldHelpers;
+        Self(Box::new(field.to_bytes().try_into().unwrap()))
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl From<&mina_curves::pasta::Fq> for BigInt {
+    fn from(field: &mina_curves::pasta::Fq) -> Self {
+        use o1_utils::FieldHelpers;
+        Self(Box::new(field.to_bytes().try_into().unwrap()))
+    }
+}
+
+#[cfg(feature = "hashing")]
 impl From<BigInt> for mina_curves::pasta::Fp {
     fn from(bigint: BigInt) -> Self {
-        bigint.to_fp().unwrap()
+        bigint.to_field()
     }
 }
 
 #[cfg(feature = "hashing")]
 impl From<BigInt> for mina_curves::pasta::Fq {
     fn from(bigint: BigInt) -> Self {
-        use o1_utils::FieldHelpers;
-        mina_curves::pasta::Fq::from_bytes(bigint.0.as_ref()).unwrap()
+        bigint.to_field()
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl From<&BigInt> for mina_curves::pasta::Fp {
+    fn from(bigint: &BigInt) -> Self {
+        bigint.to_field()
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl From<&BigInt> for mina_curves::pasta::Fq {
+    fn from(bigint: &BigInt) -> Self {
+        bigint.to_field()
     }
 }
 
@@ -149,11 +178,14 @@ impl<'de> Deserialize<'de> for BigInt {
                     formatter.write_str("sequence of 32 bytes")
                 }
 
-                fn visit_borrowed_bytes<E>(self, _v: &'de [u8]) -> Result<Self::Value, E>
+                fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
                 where
                     E: serde::de::Error,
                 {
-                    todo!()
+                    let v: [u8; 32] = v
+                        .try_into()
+                        .map_err(|_| serde::de::Error::custom("expecting 32 bytes".to_string()))?;
+                    Ok(v)
                 }
             }
             deserializer.deserialize_bytes(V)
