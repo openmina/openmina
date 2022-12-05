@@ -35,6 +35,7 @@ mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messag
 binprot = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 sha2 = "0.10"
 num-bigint = "0.4"
+bincode = "1.3.3"
 
 rand = "0.8"
 rayon = "1.5"

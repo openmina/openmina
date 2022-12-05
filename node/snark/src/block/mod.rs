@@ -2,6 +2,7 @@ use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use kimchi::mina_curves::pasta::{Pallas, VestaParameters};
 
 pub mod accumulator_check;
+pub mod caching;
 mod prover;
 pub mod transition_chain;
 mod urs_utils;
