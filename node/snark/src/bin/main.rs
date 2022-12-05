@@ -37,7 +37,7 @@ fn main() {
         assert!(transition_chain.is_some());
 
         let accum_check = accumulator_check(&srs, &header.protocol_state_proof.0);
-        let verified = verify(header, &verifier_index);
+        let verified = verify(&header, &verifier_index);
 
         assert!(accum_check && verified);
         println!("{} valid", arg);
