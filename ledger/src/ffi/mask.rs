@@ -362,7 +362,7 @@ ocaml_export! {
         rt,
         _int: OCamlRef<OCamlInt>
     ) {
-        elog!("rust_print_backtrace=\n{}", short_backtrace());
+        eprintln!("rust_print_backtrace=\n{}", short_backtrace());
 
         OCaml::unit()
     }
