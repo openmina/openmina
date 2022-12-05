@@ -170,8 +170,6 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
         panic!("FatalError");
     }
 
-    let storage = web_sys::window().and_then(|window| window.local_storage().ok().flatten());
-
     // TODO(binier): LocalStorage is too small. Use IndexDB instead.
     async fn cached_value<T, F>(storage: Option<&web_sys::Storage>, key: &'static str, calc: F) -> T
     where
@@ -201,51 +199,55 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
         }
     }
 
-    shared::log::info!(shared::log::system_time();
-        kind = "SnarkBlockVerifyIndexGetInit",
-        summary = "get block verifier index");
-
-    let block_verifier_index = cached_value(
-        storage.as_ref(),
-        "block_verifier_index",
-        lib::snark::get_verifier_index,
-    )
-    .await;
-
-    shared::log::info!(shared::log::system_time();
-        kind = "SnarkBlockVerifyIndexGetSuccess",
-        summary = "get block verifier index successful",
-        block_verifier_index = serde_json::to_string(&block_verifier_index).ok());
-
-    shared::log::info!(shared::log::system_time();
-        kind = "SnarkBlockVerifySRSGetInit",
-        summary = "get block verifier srs");
-
-    let block_verifier_srs =
-        cached_value(storage.as_ref(), "block_verifier_srs", lib::snark::get_srs).await;
-
-    shared::log::info!(shared::log::system_time();
-        kind = "SnarkBlockVerifySRSGetSuccess",
-        summary = "get block verifier srs successful",
-        verifier_srs = serde_json::to_string(&block_verifier_srs).ok());
-
     let (libp2p, manual_connector) = Libp2pService::run(tx.clone()).await;
-    let service = NodeWasmService {
+    let mut service = NodeWasmService {
         event_source_sender: tx.clone(),
         event_source_receiver: rx.into(),
         libp2p,
         rpc: RpcService::new(),
     };
-    let state = lib::State::new(lib::Config {
-        snark: lib::snark::SnarkConfig {
-            block_verifier_index: Arc::new(block_verifier_index),
-            block_verifier_srs: Arc::new(block_verifier_srs),
-        },
-    });
-    let mut node = lib::Node::new(state, service);
-    let rpc_sender = node.store_mut().service.wasm_rpc_req_sender().clone();
+    let rpc_sender = service.wasm_rpc_req_sender().clone();
 
-    spawn_local(run(node));
+    spawn_local(async move {
+        let storage = web_sys::window().and_then(|window| window.local_storage().ok().flatten());
+
+        shared::log::info!(shared::log::system_time();
+            kind = "SnarkBlockVerifyIndexGetInit",
+            summary = "get block verifier index");
+
+        let block_verifier_index = cached_value(
+            storage.as_ref(),
+            "block_verifier_index",
+            lib::snark::get_verifier_index,
+        )
+        .await;
+
+        shared::log::info!(shared::log::system_time();
+            kind = "SnarkBlockVerifyIndexGetSuccess",
+            summary = "get block verifier index successful",
+            block_verifier_index = serde_json::to_string(&block_verifier_index).ok());
+
+        shared::log::info!(shared::log::system_time();
+            kind = "SnarkBlockVerifySRSGetInit",
+            summary = "get block verifier srs");
+
+        let block_verifier_srs =
+            cached_value(storage.as_ref(), "block_verifier_srs", lib::snark::get_srs).await;
+
+        shared::log::info!(shared::log::system_time();
+            kind = "SnarkBlockVerifySRSGetSuccess",
+            summary = "get block verifier srs successful",
+            verifier_srs = serde_json::to_string(&block_verifier_srs).ok());
+
+        let state = lib::State::new(lib::Config {
+            snark: lib::snark::SnarkConfig {
+                block_verifier_index: Arc::new(block_verifier_index),
+                block_verifier_srs: Arc::new(block_verifier_srs),
+            },
+        });
+        let mut node = lib::Node::new(state, service);
+        run(node).await;
+    });
 
     let signer = Box::new(mina_signer::create_legacy(NetworkId::TESTNET));
     Ok(JsHandle {
