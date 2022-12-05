@@ -98,8 +98,7 @@ impl lib::service::SnarkBlockVerifyService for NodeWasmService {
             let result = {
                 if !lib::snark::accumulator_check(&verifier_srs, &block.protocol_state_proof) {
                     Err(SnarkBlockVerifyError::AccumulatorCheckFailed)
-                // TODO(binier): [PERF] verify should take block by reference?
-                } else if !lib::snark::verify((*block).clone(), &verifier_index) {
+                } else if !lib::snark::verify(&block, &verifier_index) {
                     Err(SnarkBlockVerifyError::VerificationFailed)
                 } else {
                     Ok(())

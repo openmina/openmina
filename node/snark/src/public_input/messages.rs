@@ -99,14 +99,14 @@ impl MessagesForNextWrapProof {
 }
 
 #[derive(Clone, Debug)]
-pub struct MessagesForNextStepProof {
-    pub protocol_state: MinaStateProtocolStateValueStableV2,
+pub struct MessagesForNextStepProof<'a> {
+    pub protocol_state: &'a MinaStateProtocolStateValueStableV2,
     pub dlog_plonk_index: PlonkVerificationKeyEvals,
     pub challenge_polynomial_commitments: [CurveAffine<Fp>; 2],
     pub old_bulletproof_challenges: [[Fp; 16]; 2],
 }
 
-impl MessagesForNextStepProof {
+impl MessagesForNextStepProof<'_> {
     /// Implementation of `hash_messages_for_next_step_proof`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L33
     pub fn hash(&self) -> [u64; 4] {

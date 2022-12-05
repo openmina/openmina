@@ -118,11 +118,11 @@ fn make_scalars_env(minimal: &PlonkMinimal) -> ScalarsEnv {
     }
 }
 
-fn get_message_for_next_step_proof(
+fn get_message_for_next_step_proof<'a>(
     messages_for_next_step_proof: &PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof,
     verifier_index: &VerifierIndex,
-    protocol_state: MinaStateProtocolStateValueStableV2,
-) -> MessagesForNextStepProof {
+    protocol_state: &'a MinaStateProtocolStateValueStableV2,
+) -> MessagesForNextStepProof<'a> {
     let msg_for_next_step_proof = &messages_for_next_step_proof;
     let challenge_polynomial_commitments: [CurveAffine<Fp>; 2] =
         extract_polynomial_commitment(&msg_for_next_step_proof.challenge_polynomial_commitments);
@@ -255,8 +255,8 @@ fn verify_with(verifier_index: &VerifierIndex, prover: &ProverProof) -> Result<(
     )
 }
 
-pub fn verify(header: MinaBlockHeaderStableV2, verifier_index: &VerifierIndex) -> bool {
-    let protocol_state = header.protocol_state;
+pub fn verify(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierIndex) -> bool {
+    let protocol_state = &header.protocol_state;
     let proof = &header.protocol_state_proof.0;
 
     let DataForPublicInput { evals, minimal } = extract_data_for_public_input(proof);
@@ -356,7 +356,7 @@ mod tests {
             println!("accumulator_check={:?}", now.elapsed());
 
             let now = std::time::Instant::now();
-            let verified = verify(header, &verifier_index);
+            let verified = verify(&header, &verifier_index);
             println!("snark::verify={:?}", now.elapsed());
 
             assert!(accum_check && verified);
