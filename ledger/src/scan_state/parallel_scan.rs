@@ -111,7 +111,9 @@ enum Tree<B, M> {
     Node {
         depth: u64,
         value: M,
-        sub_tree: Rc<Tree<(base::Base, base::Base), (merge::Merge, merge::Merge)>>,
+        // sub_tree: Rc<Tree<base::Base, merge::Merge>>,
+        // sub_tree: Rc<Tree<(base::Base, base::Base), (merge::Merge, merge::Merge)>>,
+        sub_tree: Rc<Tree<(B, B), (M, M)>>,
     },
 }
 
@@ -125,4 +127,55 @@ struct ParallelScan {
     /// transaction_capacity_log_2
     max_base_jobs: u64,
     delay: u64,
+}
+
+impl<B, M> Tree<B, M> {
+    fn map_depth<F1, F2>(&self, fun_merge: F1, fun_base: F2) -> Self
+    where
+        F1: Fn(u64, &M) -> M,
+        F2: Fn(&B) -> B,
+    {
+        match self {
+            Tree::Leaf(base) => {
+                Self::Leaf(fun_base(base))
+            },
+            Tree::Node { depth, value, sub_tree } => {
+                let value = fun_merge(*depth, value);
+                let sub_tree = sub_tree.map_depth(|i, (x, y)| {
+                    (fun_merge(i, x), fun_merge(i, y))
+                }, |(x, y)| {
+                    (fun_base(x), fun_base(y))
+                });
+
+                Self::Node {
+                    depth: *depth,
+                    value,
+                    sub_tree: Rc::new(sub_tree),
+                }
+            },
+        }
+    }
+
+  // (*mapi where i is the level of the tree*)
+  // let rec map_depth :
+  //     type a_merge b_merge c_base d_base.
+  //        f_merge:(int -> a_merge -> b_merge)
+  //     -> f_base:(c_base -> d_base)
+  //     -> (a_merge, c_base) t
+  //     -> (b_merge, d_base) t =
+  //  fun ~f_merge ~f_base tree ->
+  //   match tree with
+  //   | Leaf d ->
+  //       Leaf (f_base d)
+  //   | Node { depth; value; sub_tree } ->
+  //       Node
+  //         { depth
+  //         ; value = f_merge depth value
+  //         ; sub_tree =
+  //             map_depth
+  //               ~f_merge:(fun i (x, y) -> (f_merge i x, f_merge i y))
+  //               ~f_base:(fun (x, y) -> (f_base x, f_base y))
+  //               sub_tree
+  //         }
+
 }
