@@ -1,4 +1,9 @@
-use std::rc::Rc;
+use std::ops::ControlFlow;
+use std::{fmt::Debug, rc::Rc};
+
+use ControlFlow::{Break, Continue};
+
+// type ControlFlow<T> = std::ops::ControlFlow<T, T>;
 
 /// Sequence number for jobs in the scan state that corresponds to the order in
 /// which they were added
@@ -104,6 +109,16 @@ struct SpaceSpartition {
     second: Option<(u64, u64)>,
 }
 
+trait WithVTable<T>: Debug {
+    fn by_ref(&self) -> &T;
+}
+
+impl<T: Debug> WithVTable<T> for T {
+    fn by_ref(&self) -> &Self {
+        self
+    }
+}
+
 /// A single tree with number of leaves = max_base_jobs = 2**transaction_capacity_log_2
 #[derive(Debug)]
 enum Tree<B, M> {
@@ -111,9 +126,7 @@ enum Tree<B, M> {
     Node {
         depth: u64,
         value: M,
-        // sub_tree: Rc<Tree<base::Base, merge::Merge>>,
-        // sub_tree: Rc<Tree<(base::Base, base::Base), (merge::Merge, merge::Merge)>>,
-        sub_tree: Rc<Tree<(B, B), (M, M)>>,
+        sub_tree: Rc<dyn WithVTable<Tree<(B, B), (M, M)>>>,
     },
 }
 
@@ -129,53 +142,261 @@ struct ParallelScan {
     delay: u64,
 }
 
-impl<B, M> Tree<B, M> {
-    fn map_depth<F1, F2>(&self, fun_merge: F1, fun_base: F2) -> Self
+impl<B, M> Tree<B, M>
+where
+    B: Debug + 'static,
+    M: Debug + 'static,
+{
+    /// mapi where i is the level of the tree
+    fn map_depth<FunMerge, FunBase>(&self, fun_merge: FunMerge, fun_base: FunBase) -> Self
     where
-        F1: Fn(u64, &M) -> M,
-        F2: Fn(&B) -> B,
+        FunMerge: Fn(u64, &M) -> M,
+        FunBase: Fn(&B) -> B,
     {
         match self {
-            Tree::Leaf(base) => {
-                Self::Leaf(fun_base(base))
-            },
-            Tree::Node { depth, value, sub_tree } => {
-                let value = fun_merge(*depth, value);
-                let sub_tree = sub_tree.map_depth(|i, (x, y)| {
-                    (fun_merge(i, x), fun_merge(i, y))
-                }, |(x, y)| {
-                    (fun_base(x), fun_base(y))
-                });
+            Tree::Leaf(base) => Self::Leaf(fun_base(&base)),
+            Tree::Node {
+                depth,
+                value,
+                sub_tree,
+            } => Self::Node {
+                depth: *depth,
+                value: fun_merge(*depth, &value),
+                sub_tree: {
+                    let sub_tree: &Tree<(B, B), (M, M)> = (&**sub_tree).by_ref();
 
-                Self::Node {
-                    depth: *depth,
-                    value,
-                    sub_tree: Rc::new(sub_tree),
-                }
+                    let sub_tree = sub_tree.map_depth(
+                        |i, (x, y)| (fun_merge(i, x), fun_merge(i, y)),
+                        |(x, y)| (fun_base(x), fun_base(y)),
+                    );
+
+                    Rc::new(sub_tree)
+                },
             },
         }
     }
 
-  // (*mapi where i is the level of the tree*)
-  // let rec map_depth :
-  //     type a_merge b_merge c_base d_base.
-  //        f_merge:(int -> a_merge -> b_merge)
-  //     -> f_base:(c_base -> d_base)
-  //     -> (a_merge, c_base) t
-  //     -> (b_merge, d_base) t =
-  //  fun ~f_merge ~f_base tree ->
-  //   match tree with
-  //   | Leaf d ->
-  //       Leaf (f_base d)
-  //   | Node { depth; value; sub_tree } ->
-  //       Node
-  //         { depth
-  //         ; value = f_merge depth value
-  //         ; sub_tree =
-  //             map_depth
-  //               ~f_merge:(fun i (x, y) -> (f_merge i x, f_merge i y))
-  //               ~f_base:(fun (x, y) -> (f_base x, f_base y))
-  //               sub_tree
-  //         }
+    fn map<FunMerge, FunBase>(&self, fun_merge: FunMerge, fun_base: FunBase) -> Self
+    where
+        FunMerge: Fn(&M) -> M,
+        FunBase: Fn(&B) -> B,
+    {
+        self.map_depth(|_, m| fun_merge(m), fun_base)
+    }
 
+    fn fold_depth_until_prime<Accum, Final, FunMerge, FunBase>(
+        &self,
+        fun_merge: FunMerge,
+        fun_base: FunBase,
+        init: Accum,
+    ) -> ControlFlow<Final, Accum>
+    where
+        FunMerge: Fn(u64, Accum, &M) -> ControlFlow<Final, Accum>,
+        FunBase: Fn(Accum, &B) -> ControlFlow<Final, Accum>,
+    {
+        match self {
+            Tree::Leaf(base) => fun_base(init, base),
+            Tree::Node {
+                depth,
+                value,
+                sub_tree,
+            } => {
+                let accum = fun_merge(*depth, init, value)?;
+
+                let sub_tree: &Tree<(B, B), (M, M)> = (&**sub_tree).by_ref();
+
+                sub_tree.fold_depth_until_prime(
+                    |i, accum, (x, y)| {
+                        let accum = fun_merge(i, accum, x)?;
+                        fun_merge(i, accum, y)
+                    },
+                    |accum, (x, y)| {
+                        let accum = fun_base(accum, x)?;
+                        fun_base(accum, y)
+                    },
+                    accum,
+                )
+            }
+        }
+    }
+
+    fn fold_depth_until<Accum, Final, FunFinish, FunMerge, FunBase>(
+        &self,
+        fun_merge: FunMerge,
+        fun_base: FunBase,
+        fun_finish: FunFinish,
+        init: Accum,
+    ) -> Final
+    where
+        FunMerge: Fn(u64, Accum, &M) -> ControlFlow<Final, Accum>,
+        FunBase: Fn(Accum, &B) -> ControlFlow<Final, Accum>,
+        FunFinish: Fn(Accum) -> Final,
+    {
+        match self.fold_depth_until_prime(fun_merge, fun_base, init) {
+            Continue(accum) => fun_finish(accum),
+            Break(value) => value,
+        }
+    }
+
+    fn fold_depth<Accum, FunMerge, FunBase>(
+        &self,
+        fun_merge: FunMerge,
+        fun_base: FunBase,
+        init: Accum,
+    ) -> Accum
+    where
+        FunMerge: Fn(u64, Accum, &M) -> Accum,
+        FunBase: Fn(Accum, &B) -> Accum,
+    {
+        self.fold_depth_until(
+            |i, accum, a| Continue(fun_merge(i, accum, a)),
+            |accum, d| Continue(fun_base(accum, d)),
+            |x| x,
+            init,
+        )
+    }
+
+    fn fold<Accum, FunMerge, FunBase>(
+        &self,
+        fun_merge: FunMerge,
+        fun_base: FunBase,
+        init: Accum,
+    ) -> Accum
+    where
+        FunMerge: Fn(Accum, &M) -> Accum,
+        FunBase: Fn(Accum, &B) -> Accum,
+    {
+        self.fold_depth(|_, accum, a| fun_merge(accum, a), fun_base, init)
+    }
+
+    fn fold_until<Accum, Final, FunFinish, FunMerge, FunBase>(
+        &self,
+        fun_merge: FunMerge,
+        fun_base: FunBase,
+        fun_finish: FunFinish,
+        init: Accum,
+    ) -> Final
+    where
+        FunMerge: Fn(Accum, &M) -> ControlFlow<Final, Accum>,
+        FunBase: Fn(Accum, &B) -> ControlFlow<Final, Accum>,
+        FunFinish: Fn(Accum) -> Final,
+    {
+        self.fold_depth_until(
+            |_, accum, a| fun_merge(accum, a),
+            fun_base,
+            fun_finish,
+            init,
+        )
+    }
+
+    fn update_split<Data, FunJobs, FunWeight, FunMerge, FunBase, Weight>(
+        &self,
+        fun_merge: FunMerge,
+        fun_base: FunBase,
+        weight_merge: FunWeight,
+        jobs: Data,
+        update_level: u64,
+        jobs_split: FunJobs,
+    ) -> Result<Self, ()>
+    where
+        FunMerge: Fn(Data, u64, &M) -> Result<M, ()>,
+        FunBase: Fn(Data, &B) -> Result<B, ()>,
+        FunWeight: Fn(&M) -> (Weight, Weight),
+        FunJobs: Fn((Weight, Weight), Data) -> (Data, Data),
+        Data: Clone,
+    {
+        match self {
+            Tree::Leaf(d) => fun_base(jobs, d).map(Self::Leaf),
+            Tree::Node {
+                depth,
+                value,
+                sub_tree,
+            } => {
+                let depth = *depth;
+                let (weight_left_subtree, weight_right_subtree) = weight_merge(value);
+
+                let value = fun_merge(jobs.clone(), depth, value)?;
+
+                let sub_tree = if update_level == depth {
+                    Rc::clone(&sub_tree)
+                } else {
+                    let new_jobs_list =
+                        jobs_split((weight_left_subtree, weight_right_subtree), jobs);
+
+                    let sub_tree: &Tree<(B, B), (M, M)> = (&**sub_tree).by_ref();
+
+                    let sub_tree = sub_tree.update_split(
+                        |(b1, b2), i, (x, y)| {
+                            let left = fun_merge(b1, i, x)?;
+                            let right = fun_merge(b2, i, y)?;
+                            Ok((left, right))
+                        },
+                        |(b1, b2), (x, y)| {
+                            let left = fun_base(b1, x)?;
+                            let right = fun_base(b2, y)?;
+                            Ok((left, right))
+                        },
+                        |(a, b)| (weight_merge(a), weight_merge(b)),
+                        new_jobs_list,
+                        update_level,
+                        |(x, y), (a, b)| (jobs_split(x, a), jobs_split(y, b)),
+                    )?;
+
+                    Rc::new(sub_tree)
+                };
+
+                Ok(Self::Node {
+                    depth,
+                    value,
+                    sub_tree,
+                })
+            }
+        }
+    }
+
+    fn update_accumulate<Data, FunMerge, FunBase>(
+        &self,
+        fun_merge: FunMerge,
+        fun_base: FunBase,
+    ) -> (Self, Data)
+    where
+        FunMerge: Fn((Data, Data), &M) -> (M, Data),
+        FunBase: Fn(&B) -> (B, Data),
+        Data: Clone,
+    {
+        fn transpose<A, B, C, D>((x1, y1): (A, B), (x2, y2): (C, D)) -> ((A, C), (B, D)) {
+            ((x1, x2), (y1, y2))
+        }
+
+        match self {
+            Tree::Leaf(d) => {
+                let (new_base, count_list) = fun_base(d);
+                (Self::Leaf(new_base), count_list)
+            }
+            Tree::Node {
+                depth,
+                value,
+                sub_tree,
+            } => {
+                let sub_tree: &Tree<(B, B), (M, M)> = (&**sub_tree).by_ref();
+
+                let (sub_tree, counts) = sub_tree.update_accumulate(
+                    |(b1, b2), (x, y)| transpose(fun_merge(b1, x), fun_merge(b2, y)),
+                    |(x, y)| transpose(fun_base(x), fun_base(y)),
+                );
+
+                let (value, count_list) = fun_merge(counts, value);
+
+                let depth = *depth;
+                let sub_tree = Rc::new(sub_tree);
+
+                let tree = Self::Node {
+                    depth,
+                    value,
+                    sub_tree,
+                };
+                (tree, count_list)
+            }
+        }
+    }
 }
