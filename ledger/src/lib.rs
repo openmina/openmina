@@ -38,6 +38,7 @@ mod database;
 mod hash;
 mod mask;
 mod poseidon;
+mod scan_state;
 mod tree;
 mod tree_version;
 mod util;
