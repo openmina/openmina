@@ -106,18 +106,18 @@ struct SpaceSpartition {
 
 /// A single tree with number of leaves = max_base_jobs = 2**transaction_capacity_log_2
 #[derive(Debug)]
-enum Tree {
-    Leaf(base::Base),
+enum Tree<B, M> {
+    Leaf(B),
     Node {
         depth: u64,
-        value: merge::Merge,
-        sub_tree: Rc<Tree>,
+        value: M,
+        sub_tree: Rc<Tree<(base::Base, base::Base), (merge::Merge, merge::Merge)>>,
     },
 }
 
 #[derive(Debug)]
 struct ParallelScan {
-    trees: Vec<Tree>,
+    trees: Vec<Tree<base::Base, merge::Merge>>,
     /// last emitted proof and the corresponding transactions
     acc: Option<(MergeJob, Vec<BaseJob>)>,
     /// Sequence number for the jobs added every block
