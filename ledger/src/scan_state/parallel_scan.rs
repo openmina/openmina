@@ -7,12 +7,12 @@ use ControlFlow::{Break, Continue};
 
 /// Sequence number for jobs in the scan state that corresponds to the order in
 /// which they were added
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 struct SequenceNumber(u64);
 
 /// Each node on the tree is viewed as a job that needs to be completed. When a
 /// job is completed, it creates a new "Todo" job and marks the old job as "Done"
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum JobStatus {
     Todo,
     Done,
@@ -21,38 +21,38 @@ enum JobStatus {
 /// The number of new jobs- base and merge that can be added to this tree.
 /// Each node has a weight associated to it and the
 /// new jobs received are distributed across the tree based on this number.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Weight {
     base: u64,
     merge: u64,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct BaseJob(); // TODO
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct MergeJob(); // TODO
 
 /// For base proofs (Proving new transactions)
 mod base {
     use super::*;
 
-    #[derive(Debug)]
-    struct Record {
-        job: BaseJob,
-        seq_no: SequenceNumber,
-        state: JobStatus,
+    #[derive(Clone, Debug)]
+    pub(super) struct Record {
+        pub job: BaseJob,
+        pub seq_no: SequenceNumber,
+        pub state: JobStatus,
     }
 
-    #[derive(Debug)]
-    enum Job {
+    #[derive(Clone, Debug)]
+    pub(super) enum Job {
         Empty,
         Full(Record),
     }
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub(super) struct Base {
-        weight: Weight,
-        job: Job,
+        pub weight: Weight,
+        pub job: Job,
     }
 }
 
@@ -60,26 +60,27 @@ mod base {
 mod merge {
     use super::*;
 
-    #[derive(Debug)]
-    struct Record {
-        left: MergeJob,
-        right: MergeJob,
-        seq_no: SequenceNumber,
-        state: JobStatus,
+    #[derive(Clone, Debug)]
+    pub(super) struct Record {
+        pub left: MergeJob,
+        pub right: MergeJob,
+        pub seq_no: SequenceNumber,
+        pub state: JobStatus,
     }
 
-    #[derive(Debug)]
-    enum Job {
+    #[derive(Clone, Debug)]
+    pub(super) enum Job {
         Empty,
         Part(MergeJob), // left
         Full(Record),
     }
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub(super) struct Merge {
-        weight_left: Weight,
-        weight_right: Weight,
-        job: Job,
+        pub weight: (Weight, Weight),
+        // pub weight_left: Weight,
+        // pub weight_right: Weight,
+        pub job: Job,
     }
 }
 
@@ -91,7 +92,7 @@ enum AvailableJob {
 }
 
 /// New jobs to be added (including new transactions or new merge jobs)
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum Job {
     Base(BaseJob),
     Merge(MergeJob),
@@ -289,7 +290,7 @@ where
         )
     }
 
-    fn update_split<Data, FunJobs, FunWeight, FunMerge, FunBase, Weight>(
+    fn update_split<Data, FunJobs, FunWeight, FunMerge, FunBase, Weight, R>(
         &self,
         fun_merge: FunMerge,
         fun_base: FunBase,
@@ -297,16 +298,21 @@ where
         jobs: Data,
         update_level: u64,
         jobs_split: FunJobs,
-    ) -> Result<Self, ()>
+    ) -> Result<(Self, Option<R>), ()>
     where
-        FunMerge: Fn(Data, u64, &M) -> Result<M, ()>,
-        FunBase: Fn(Data, &B) -> Result<B, ()>,
+        FunMerge: Fn(Data, u64, M) -> Result<(M, Option<R>), ()>,
+        FunBase: Fn(Data, B) -> Result<B, ()>,
         FunWeight: Fn(&M) -> (Weight, Weight),
         FunJobs: Fn((Weight, Weight), Data) -> (Data, Data),
         Data: Clone,
+        M: Clone,
+        B: Clone,
     {
         match self {
-            Tree::Leaf(d) => fun_base(jobs, d).map(Self::Leaf),
+            Tree::Leaf(d) => {
+                let res = fun_base(jobs, d.clone()).map(Self::Leaf)?;
+                Ok((res, None))
+            }
             Tree::Node {
                 depth,
                 value,
@@ -315,7 +321,7 @@ where
                 let depth = *depth;
                 let (weight_left_subtree, weight_right_subtree) = weight_merge(value);
 
-                let value = fun_merge(jobs.clone(), depth, value)?;
+                let value = fun_merge(jobs.clone(), depth, value.clone())?;
 
                 let sub_tree = if update_level == depth {
                     Rc::clone(&sub_tree)
@@ -329,7 +335,7 @@ where
                         |(b1, b2), i, (x, y)| {
                             let left = fun_merge(b1, i, x)?;
                             let right = fun_merge(b2, i, y)?;
-                            Ok((left, right))
+                            Ok(((left.0, right.0), left.1.zip(right.1)))
                         },
                         |(b1, b2), (x, y)| {
                             let left = fun_base(b1, x)?;
@@ -342,14 +348,17 @@ where
                         |(x, y), (a, b)| (jobs_split(x, a), jobs_split(y, b)),
                     )?;
 
-                    Rc::new(sub_tree)
+                    Rc::new(sub_tree.0)
                 };
 
-                Ok(Self::Node {
-                    depth,
-                    value,
-                    sub_tree,
-                })
+                Ok((
+                    Self::Node {
+                        depth,
+                        value: value.0,
+                        sub_tree,
+                    },
+                    value.1,
+                ))
             }
         }
     }
@@ -398,5 +407,280 @@ where
                 (tree, count_list)
             }
         }
+    }
+    // FunMerge: Fn(Data, u64, &M) -> Result<M, ()>,
+}
+
+impl Tree<base::Base, merge::Merge>
+// where
+//     B: Debug + 'static,
+// M: Debug + 'static,
+{
+    fn update<WeightLens, WeightLensSet>(
+        &self,
+        completed_jobs: Vec<Job>,
+        update_level: u64,
+        sequence_no: SequenceNumber,
+        weight_lens: WeightLens,
+        weight_lens_set: WeightLensSet,
+    ) -> Result<(Self, Option<base::Base>), ()>
+    where
+        WeightLens: Fn(&Weight) -> u64,
+        WeightLensSet: Fn(&Weight, u64) -> Weight,
+        // M: Clone,
+    {
+        let add_merges = |jobs: Vec<Job>, current_level: u64, merge_job: merge::Merge|
+                     -> Result<(merge::Merge, Option<MergeJob>), ()>
+            // |jobs: &[Job], current_level: u64, (weight, m): ((Weight, Weight), merge::Job)|
+            //  -> Result<(((Weight, Weight), merge::Job), Option<MergeJob>), ()>
+        {
+            let weight = merge_job.weight;
+            // let weight = (merge_job.weight_left, merge_job.weight_right);
+            // let w1 = &merge_job.weight_left;
+            // let w2 = &merge_job.weight_right;
+            let m = merge_job.job;
+
+            let (w1, w2) = (&weight.0, &weight.1);
+            let (left, right) = (weight_lens(w1), weight_lens(w2));
+
+            use merge::Job::{Empty, Full, Part};
+            use Job::{Base, Merge};
+
+            if current_level == update_level - 1 {
+                // Create new jobs from the completed ones
+                let (new_weight, new_m) = match (&jobs[..], m) {
+                    ([], m) => (weight, m),
+                    ([Merge(a), Merge(b)], Empty) => {
+                        let w1 = weight_lens_set(w1, left - 1);
+                        let w2 = weight_lens_set(w2, right - 1);
+
+                        (
+                            (w1, w2),
+                            Full(merge::Record {
+                                left: a.clone(),
+                                right: b.clone(),
+                                seq_no: sequence_no,
+                                state: JobStatus::Todo,
+                            }),
+                        )
+                    }
+                    ([Merge(a)], Empty) => {
+                        let w1 = weight_lens_set(w1, left - 1);
+                        let w2 = weight_lens_set(w2, right);
+
+                        ((w1, w2), Part(a.clone()))
+                    }
+                    ([Merge(b)], Part(a)) => {
+                        let w1 = weight_lens_set(w1, left);
+                        let w2 = weight_lens_set(w2, right - 1);
+
+                        (
+                            (w1, w2),
+                            Full(merge::Record {
+                                left: a.clone(),
+                                right: b.clone(),
+                                seq_no: sequence_no,
+                                state: JobStatus::Todo,
+                            }),
+                        )
+                    }
+                    ([Base(_)], Empty) => {
+                        // Depending on whether this is the first or second of the two base jobs
+
+                        let weight = if left == 0 {
+                            let w1 = weight_lens_set(w1, left);
+                            let w2 = weight_lens_set(w2, right - 1);
+                            (w1, w2)
+                        } else {
+                            let w1 = weight_lens_set(w1, left - 1);
+                            let w2 = weight_lens_set(w2, right);
+                            (w1, w2)
+                        };
+
+                        (weight, Empty)
+                    }
+                    ([Base(_), Base(_)], Empty) => {
+                        let w1 = weight_lens_set(w1, left - 1);
+                        let w2 = weight_lens_set(w2, right - 1);
+
+                        ((w1, w2), Empty)
+                    }
+                    (xs, m) => {
+                        panic!(
+                            "Got {} jobs when updating level {} and when one of the merge \
+                             nodes at level {} is {:?}",
+                            xs.len(),
+                            update_level,
+                            current_level,
+                            m
+                        );
+                    }
+                };
+
+                Ok((merge::Merge {
+                    weight: new_weight,
+                    job: new_m,
+                }, None::<MergeJob>))
+
+                // Ok(((new_weight, new_m), None::<MergeJob>))
+            } else if current_level == update_level {
+                // Mark completed jobs as Done
+
+                match (jobs.as_slice(), m) {
+                    (
+                        [Merge(a)],
+                        Full(
+                            mut x @ merge::Record {
+                                state: JobStatus::Todo,
+                                ..
+                            },
+                        ),
+                    ) => {
+                        x.state = JobStatus::Done;
+                        let new_job = Full(x);
+
+                        let (scan_result, weight) = if current_level == 0 {
+                            let w1 = weight_lens_set(w1, 0);
+                            let w2 = weight_lens_set(w2, 0);
+
+                            (Some(a.clone()), (w1, w2))
+                        } else {
+                            (None, weight)
+                        };
+
+                        Ok((merge::Merge {
+                            weight,
+                            job: new_job,
+                        }, scan_result))
+                        // Ok(((weight, new_job), scan_result))
+                    }
+                    ([], m) => Ok((merge::Merge { weight, job: m }, None)),
+                    // ([], m) => Ok(((weight, m), None)),
+                    (xs, m) => {
+                        panic!(
+                            "Got {} jobs when updating level {} and when one of the merge \
+                             nodes at level {} is {:?}",
+                            xs.len(),
+                            update_level,
+                            current_level,
+                            m
+                        );
+                    }
+                }
+            } else if current_level < update_level - 1 {
+                // Update the job count for all the level above
+                match jobs.as_slice() {
+                    [] => Ok((merge::Merge { weight, job: m }, None)),
+                    // [] => Ok(((weight, m), None)),
+                    _ => {
+                        let jobs_length = jobs.len() as u64;
+                        let jobs_sent_left = jobs_length.min(left);
+                        let jobs_sent_right = (jobs_length - jobs_sent_left).min(right);
+
+                        let w1 = weight_lens_set(w1, left - jobs_sent_left);
+                        let w2 = weight_lens_set(w2, right - jobs_sent_right);
+                        let weight = (w1, w2);
+
+                        Ok((merge::Merge { weight, job: m }, None))
+                        // Ok((((w1, w2), m), None))
+                    }
+                }
+            } else {
+                Ok((merge::Merge { weight, job: m }, None))
+                // Ok(((weight, m), None))
+            }
+        };
+
+        // let add_bases = |jobs: &[Job], (w, d): (Weight, base::Job)| {
+        let add_bases = |jobs: Vec<Job>, base: base::Base| {
+            use base::Job::{Empty, Full};
+            use Job::{Base, Merge};
+
+            let w = base.weight;
+            let d = base.job;
+
+            let weight = weight_lens(&w);
+            match (jobs.as_slice(), d) {
+                ([], d) => {
+                    let base = base::Base { weight: w, job: d };
+                    Ok::<_, ()>(base)
+                }
+                // ([], d) => (w, d),
+                ([Base(d)], Empty) => {
+                    let w = weight_lens_set(&w, weight - 1);
+
+                    let base = base::Base {
+                        weight: w,
+                        job: Full(base::Record {
+                            job: d.clone(),
+                            seq_no: sequence_no,
+                            state: JobStatus::Done,
+                        }),
+                    };
+
+                    Ok(base)
+                    // (
+                    //     w,
+                    //     Full(base::Record {
+                    //         job: d.clone(),
+                    //         seq_no: sequence_no,
+                    //         state: JobStatus::Done,
+                    //     }),
+                    // )
+                }
+                ([Merge(_)], Full(mut b)) => {
+                    b.state = JobStatus::Done;
+
+                    let base = base::Base {
+                        weight: w,
+                        job: Full(b),
+                    };
+
+                    Ok(base)
+
+                    // (w, Full(b))
+                }
+                (xs, d) => {
+                    panic!(
+                        "Got {} jobs when updating level {} and when one of the base nodes \
+                         is {:?}",
+                        xs.len(),
+                        update_level,
+                        d
+                    );
+                }
+            }
+        };
+
+        let jobs = completed_jobs;
+        self.update_split(
+            add_merges,
+            add_bases,
+            |m| {
+                m.weight.clone() // TODO: Not sure if it's correct
+            },
+            jobs,
+            update_level,
+            |(w1, w2), a| {
+                let l = weight_lens(&w1);
+                let r = weight_lens(&w2);
+
+                let take =
+                    |v: &[Job], n: u64| v.iter().take(n as usize).cloned().collect::<Vec<Job>>();
+                let drop =
+                    |v: &[Job], n: u64| v.iter().skip(n as usize).cloned().collect::<Vec<Job>>();
+
+                (take(a.as_slice(), l), take(&drop(a.as_slice(), l), r))
+            },
+        );
+
+        // let jobs = completed_jobs in
+        // update_split ~f_merge:add_merges ~f_base:add_bases tree ~weight_merge:fst
+        //   ~jobs ~update_level ~jobs_split:(fun (w1, w2) a ->
+        //     let l = weight_lens.get w1 in
+        //     let r = weight_lens.get w2 in
+        //     (List.take a l, List.take (List.drop a l) r) )
+
+        todo!()
     }
 }
