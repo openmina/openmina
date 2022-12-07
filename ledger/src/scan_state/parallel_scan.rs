@@ -1,6 +1,9 @@
 use std::ops::ControlFlow;
 use std::{fmt::Debug, rc::Rc};
 
+use sha2::digest::generic_array::GenericArray;
+use sha2::digest::typenum::U32;
+use sha2::{Digest, Sha256};
 use ControlFlow::{Break, Continue};
 
 // type ControlFlow<T> = std::ops::ControlFlow<T, T>;
@@ -16,6 +19,15 @@ struct SequenceNumber(u64);
 enum JobStatus {
     Todo,
     Done,
+}
+
+impl JobStatus {
+    fn to_string(&self) -> &'static str {
+        match self {
+            JobStatus::Todo => "Todo",
+            JobStatus::Done => "Done",
+        }
+    }
 }
 
 /// The number of new jobs- base and merge that can be added to this tree.
@@ -97,6 +109,34 @@ mod base {
         pub weight: Weight,
         pub job: Job,
     }
+
+    impl Record {
+        pub fn map<F: Fn(&BaseJob) -> BaseJob>(&self, fun: F) -> Self {
+            Self {
+                job: fun(&self.job),
+                seq_no: self.seq_no.clone(),
+                state: self.state.clone(),
+            }
+        }
+    }
+
+    impl Job {
+        pub fn map<F: Fn(&BaseJob) -> BaseJob>(&self, fun: F) -> Self {
+            match self {
+                Job::Empty => Self::Empty,
+                Job::Full(r) => Job::Full(r.map(fun)),
+            }
+        }
+    }
+
+    impl Base {
+        pub fn map<F: Fn(&BaseJob) -> BaseJob>(&self, fun: F) -> Self {
+            Self {
+                weight: self.weight.clone(),
+                job: self.job.map(fun),
+            }
+        }
+    }
 }
 
 /// For merge proofs: Merging two base proofs or two merge proofs
@@ -124,6 +164,36 @@ mod merge {
         // pub weight_left: Weight,
         // pub weight_right: Weight,
         pub job: Job,
+    }
+
+    impl Record {
+        pub fn map<F: Fn(&MergeJob) -> MergeJob>(&self, fun: F) -> Self {
+            Self {
+                left: fun(&self.left),
+                right: fun(&self.right),
+                seq_no: self.seq_no.clone(),
+                state: self.state.clone(),
+            }
+        }
+    }
+
+    impl Job {
+        pub fn map<F: Fn(&MergeJob) -> MergeJob>(&self, fun: F) -> Self {
+            match self {
+                Job::Empty => Self::Empty,
+                Job::Part(j) => Job::Part(fun(j)),
+                Job::Full(r) => Job::Full(r.map(fun)),
+            }
+        }
+    }
+
+    impl Merge {
+        pub fn map<F: Fn(&MergeJob) -> MergeJob>(&self, fun: F) -> Self {
+            Self {
+                weight: self.weight.clone(),
+                job: self.job.map(fun),
+            }
+        }
     }
 }
 
@@ -187,7 +257,7 @@ struct ParallelScan {
     /// last emitted proof and the corresponding transactions
     acc: Option<(MergeJob, Vec<BaseJob>)>,
     /// Sequence number for the jobs added every block
-    curr_job_seq_no: u64,
+    curr_job_seq_no: SequenceNumber,
     /// transaction_capacity_log_2
     max_base_jobs: u64,
     delay: u64,
@@ -467,17 +537,15 @@ where
             }
         }
     }
-    // FunMerge: Fn(Data, u64, &M) -> Result<M, ()>,
 }
 
 impl Tree<base::Base, merge::Merge> {
-    fn update<WeightLens, WeightLensSet>(
+    fn update<WeightLensSet>(
         &self,
         completed_jobs: Vec<Job>,
         update_level: u64,
         sequence_no: SequenceNumber,
-        weight_lens: WeightLens,
-        weight_lens_set: WeightLensSet,
+        lens: WeightLens,
     ) -> Result<(Self, Option<MergeJob>), ()>
     where
         WeightLens: Fn(&Weight) -> u64,
@@ -497,15 +565,15 @@ impl Tree<base::Base, merge::Merge> {
             let m = merge_job.job;
 
             let (w1, w2) = (&weight.0, &weight.1);
-            let (left, right) = (weight_lens(w1), weight_lens(w2));
+            let (left, right) = (*lens.get(w1), *lens.get(w2));
 
             if current_level == update_level - 1 {
                 // Create new jobs from the completed ones
                 let (new_weight, new_m) = match (&jobs[..], m) {
                     ([], m) => (weight, m),
                     ([Merge(a), Merge(b)], Empty) => {
-                        let w1 = weight_lens_set(w1, left - 1);
-                        let w2 = weight_lens_set(w2, right - 1);
+                        let w1 = lens.set(w1, left - 1);
+                        let w2 = lens.set(w2, right - 1);
 
                         (
                             (w1, w2),
@@ -518,14 +586,14 @@ impl Tree<base::Base, merge::Merge> {
                         )
                     }
                     ([Merge(a)], Empty) => {
-                        let w1 = weight_lens_set(w1, left - 1);
-                        let w2 = weight_lens_set(w2, right);
+                        let w1 = lens.set(w1, left - 1);
+                        let w2 = lens.set(w2, right);
 
                         ((w1, w2), Part(a.clone()))
                     }
                     ([Merge(b)], Part(a)) => {
-                        let w1 = weight_lens_set(w1, left);
-                        let w2 = weight_lens_set(w2, right - 1);
+                        let w1 = lens.set(w1, left);
+                        let w2 = lens.set(w2, right - 1);
 
                         (
                             (w1, w2),
@@ -541,20 +609,20 @@ impl Tree<base::Base, merge::Merge> {
                         // Depending on whether this is the first or second of the two base jobs
 
                         let weight = if left == 0 {
-                            let w1 = weight_lens_set(w1, left);
-                            let w2 = weight_lens_set(w2, right - 1);
+                            let w1 = lens.set(w1, left);
+                            let w2 = lens.set(w2, right - 1);
                             (w1, w2)
                         } else {
-                            let w1 = weight_lens_set(w1, left - 1);
-                            let w2 = weight_lens_set(w2, right);
+                            let w1 = lens.set(w1, left - 1);
+                            let w2 = lens.set(w2, right);
                             (w1, w2)
                         };
 
                         (weight, Empty)
                     }
                     ([Base(_), Base(_)], Empty) => {
-                        let w1 = weight_lens_set(w1, left - 1);
-                        let w2 = weight_lens_set(w2, right - 1);
+                        let w1 = lens.set(w1, left - 1);
+                        let w2 = lens.set(w2, right - 1);
 
                         ((w1, w2), Empty)
                     }
@@ -594,8 +662,8 @@ impl Tree<base::Base, merge::Merge> {
                         let new_job = Full(x);
 
                         let (scan_result, weight) = if current_level == 0 {
-                            let w1 = weight_lens_set(w1, 0);
-                            let w2 = weight_lens_set(w2, 0);
+                            let w1 = lens.set(w1, 0);
+                            let w2 = lens.set(w2, 0);
 
                             (Some(a.clone()), (w1, w2))
                         } else {
@@ -632,8 +700,8 @@ impl Tree<base::Base, merge::Merge> {
                         let jobs_sent_left = jobs_length.min(left);
                         let jobs_sent_right = (jobs_length - jobs_sent_left).min(right);
 
-                        let w1 = weight_lens_set(w1, left - jobs_sent_left);
-                        let w2 = weight_lens_set(w2, right - jobs_sent_right);
+                        let w1 = lens.set(w1, left - jobs_sent_left);
+                        let w2 = lens.set(w2, right - jobs_sent_right);
                         let weight = (w1, w2);
 
                         Ok((merge::Merge { weight, job: m }, None))
@@ -651,11 +719,11 @@ impl Tree<base::Base, merge::Merge> {
             let w = base.weight;
             let d = base.job;
 
-            let weight = weight_lens(&w);
+            let weight = lens.get(&w);
             match (jobs.as_slice(), d) {
                 ([], d) => Ok(base::Base { weight: w, job: d }),
                 ([Base(d)], Empty) => {
-                    let w = weight_lens_set(&w, weight - 1);
+                    let w = lens.set(&w, weight - 1);
 
                     Ok(base::Base {
                         weight: w,
@@ -693,8 +761,8 @@ impl Tree<base::Base, merge::Merge> {
             completed_jobs,
             update_level,
             |(w1, w2), a| {
-                let l = weight_lens(&w1) as usize;
-                let r = weight_lens(&w2) as usize;
+                let l = *lens.get(&w1) as usize;
+                let r = *lens.get(&w2) as usize;
                 let a = a.as_slice();
 
                 let take = |v: &[Job], n| v.iter().take(n).cloned().collect::<Vec<Job>>();
@@ -970,6 +1038,67 @@ impl Tree<base::Base, merge::Merge> {
             Tree::Leaf(base) => base.weight.base,
         }
     }
+
+    fn create_tree_for_level(
+        level: i64,
+        depth: u64,
+        merge_job: merge::Job,
+        base_job: base::Job,
+    ) -> Self {
+        fn go<B, M>(d: u64, fun_merge: impl Fn(u64) -> M, base: B, depth: u64) -> Tree<B, M>
+        where
+            B: Debug + Clone + 'static,
+            M: Debug + 'static,
+        {
+            if d >= depth {
+                Tree::Leaf(base)
+            } else {
+                let sub_tree = go(
+                    d + 1,
+                    |i| (fun_merge(i), fun_merge(i)),
+                    (base.clone(), base),
+                    depth,
+                );
+                Tree::Node {
+                    depth: d,
+                    value: fun_merge(d),
+                    sub_tree: Rc::new(sub_tree),
+                }
+            }
+        }
+
+        let base_weight = if level == -1 {
+            Weight::zero()
+        } else {
+            Weight { base: 1, merge: 0 }
+        };
+
+        go(
+            0,
+            |d: u64| {
+                let weight = if level == -1 {
+                    (Weight::zero(), Weight::zero())
+                } else {
+                    let x = 2u64.pow(level as u32) / 2u64.pow(d as u32 + 1);
+                    (Weight { base: x, merge: 0 }, Weight { base: x, merge: 0 })
+                };
+                merge::Merge {
+                    weight,
+                    job: merge_job.clone(),
+                }
+            },
+            base::Base {
+                weight: base_weight,
+                job: base_job,
+            },
+            depth,
+        )
+    }
+
+    fn create_tree(depth: u64) -> Self {
+        let level: i64 = depth.try_into().unwrap();
+        Self::create_tree_for_level(level, depth, merge::Job::Empty, base::Job::Empty)
+    }
 }
 
 impl ParallelScan {
@@ -999,6 +1128,185 @@ impl ParallelScan {
             curr_job_seq_no: self.curr_job_seq_no.clone(),
             max_base_jobs: self.max_base_jobs,
             delay: self.delay,
+        }
+    }
+
+    fn empty(max_base_jobs: u64, delay: u64) -> Self {
+        let depth = ceil_log2(max_base_jobs);
+        let first_tree = Tree::create_tree(depth);
+
+        let mut trees = Vec::with_capacity(32);
+        trees.push(first_tree);
+
+        Self {
+            trees,
+            acc: None,
+            curr_job_seq_no: SequenceNumber(0),
+            max_base_jobs,
+            delay,
+        }
+    }
+
+    fn map<F1, F2>(&self, f1: F1, f2: F2) -> Self
+    where
+        F1: Fn(&MergeJob) -> MergeJob,
+        F2: Fn(&BaseJob) -> BaseJob,
+    {
+        let trees = self
+            .trees
+            .iter()
+            .map(|tree| tree.map_depth(|_, m| m.map(&f1), |a| a.map(&f2)))
+            .collect();
+
+        let acc = self
+            .acc
+            .as_ref()
+            .map(|(m, bs)| (f1(m), bs.iter().map(&f2).collect()));
+
+        Self {
+            trees,
+            acc,
+            curr_job_seq_no: self.curr_job_seq_no.clone(),
+            max_base_jobs: self.max_base_jobs,
+            delay: self.delay,
+        }
+    }
+
+    fn hash<FunMerge, FunBase>(
+        &self,
+        fun_merge: FunMerge,
+        fun_base: FunBase,
+    ) -> GenericArray<u8, U32>
+    where
+        FunMerge: Fn(&MergeJob) -> String,
+        FunBase: Fn(&BaseJob) -> String,
+    {
+        let Self {
+            trees,
+            acc,
+            curr_job_seq_no,
+            max_base_jobs,
+            delay,
+        } = self.with_leaner_trees();
+
+        fn tree_hash<F1, F2>(
+            tree: &Tree<base::Base, merge::Merge>,
+            sha: &mut Sha256,
+            mut fun_merge: F1,
+            mut fun_base: F2,
+        ) where
+            F1: FnMut(&mut Sha256, &merge::Merge),
+            F2: FnMut(&mut Sha256, &base::Base),
+        {
+            for job in tree.to_hashable_jobs() {
+                match &job {
+                    HashableJob::Base(base) => fun_base(sha, base),
+                    HashableJob::Merge(merge) => fun_merge(sha, merge),
+                }
+            }
+        }
+
+        let mut sha: Sha256 = Sha256::new();
+
+        trees.iter().for_each(|tree| {
+            let w_to_string = |w: &Weight| format!("{}{}", w.base, w.merge);
+            let ww_to_string =
+                |(w1, w2): &(Weight, Weight)| format!("{}{}", w_to_string(w1), w_to_string(w2));
+
+            let fun_merge = |sha: &mut Sha256, m: &merge::Merge| {
+                let w = &m.weight;
+
+                match &m.job {
+                    merge::Job::Empty => {
+                        let s = format!("{}Empty", ww_to_string(w));
+                        sha.update(s);
+                    }
+                    merge::Job::Full(merge::Record {
+                        left,
+                        right,
+                        seq_no,
+                        state,
+                    }) => {
+                        let s = format!("{}Full{}{}", ww_to_string(w), seq_no.0, state.to_string());
+                        sha.update(s);
+                        sha.update(fun_merge(left));
+                        sha.update(fun_merge(right));
+                    }
+                    merge::Job::Part(j) => {
+                        let s = format!("{}Part", ww_to_string(w));
+                        sha.update(s);
+                        sha.update(fun_merge(j));
+                    }
+                }
+            };
+
+            let fun_base = |sha: &mut Sha256, m: &base::Base| {
+                let w = &m.weight;
+
+                match &m.job {
+                    base::Job::Empty => {
+                        sha.update(format!("{}Empty", w_to_string(w)));
+                    }
+                    base::Job::Full(base::Record { job, seq_no, state }) => {
+                        let s = format!("{}Full{}{}", w_to_string(w), seq_no.0, state.to_string());
+                        sha.update(s);
+                        sha.update(fun_base(job));
+                    }
+                }
+            };
+
+            tree_hash(tree, &mut sha, fun_merge, fun_base);
+        });
+
+        match &acc {
+            Some((a, d_lst)) => {
+                let mut s = String::with_capacity(256);
+
+                s.push_str(&fun_merge(a));
+                for j in d_lst {
+                    s.push_str(&fun_base(j));
+                }
+
+                sha.update(s);
+            }
+            None => {
+                sha.update("None");
+            }
+        };
+
+        sha.update(format!("{}", curr_job_seq_no.0));
+        sha.update(format!("{}", max_base_jobs));
+        sha.update(format!("{}", delay));
+
+        sha.finalize()
+    }
+}
+
+fn ceil_log2(n: u64) -> u64 {
+    // let ceil_log2 i =
+    //   if i <= 0
+    //   then raise_s (Sexp.message "[Int.ceil_log2] got invalid input" [ "", sexp_of_int i ]);
+    //   if i = 1 then 0 else num_bits - clz (i - 1)
+
+    assert!(n > 0);
+    if n == 1 {
+        0
+    } else {
+        u64::BITS as u64 - (n - 1).leading_zeros() as u64
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ceil_log2() {
+        for a in 1..50u64 {
+            let v = (a as f32).log2().ceil() as u64;
+            let w = ceil_log2(a);
+            // println!("{} {} {}", a, v, w);
+            assert_eq!(v, w);
         }
     }
 }
