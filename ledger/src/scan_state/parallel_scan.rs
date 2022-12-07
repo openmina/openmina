@@ -82,6 +82,12 @@ impl Lens for WeightLens {
     }
 }
 
+#[derive(Debug)]
+enum WorkForTree {
+    Current,
+    Next,
+}
+
 #[derive(Clone, Debug)]
 struct BaseJob(); // TODO
 #[derive(Clone, Debug)]
@@ -241,7 +247,7 @@ impl<T: Debug> WithVTable<T> for T {
 }
 
 /// A single tree with number of leaves = max_base_jobs = 2**transaction_capacity_log_2
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum Tree<B, M> {
     Leaf(B),
     Node {
@@ -251,7 +257,7 @@ enum Tree<B, M> {
     },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct ParallelScan {
     trees: Vec<Tree<base::Base, merge::Merge>>,
     /// last emitted proof and the corresponding transactions
@@ -540,17 +546,13 @@ where
 }
 
 impl Tree<base::Base, merge::Merge> {
-    fn update<WeightLensSet>(
+    fn update(
         &self,
         completed_jobs: Vec<Job>,
         update_level: u64,
         sequence_no: SequenceNumber,
         lens: WeightLens,
-    ) -> Result<(Self, Option<MergeJob>), ()>
-    where
-        WeightLens: Fn(&Weight) -> u64,
-        WeightLensSet: Fn(&Weight, u64) -> Weight,
-    {
+    ) -> Result<(Self, Option<MergeJob>), ()> {
         let add_merges = |jobs: Vec<Job>,
                           current_level: u64,
                           merge_job: merge::Merge|
@@ -1280,6 +1282,234 @@ impl ParallelScan {
 
         sha.finalize()
     }
+
+    fn fold_chronological_until<Accum, Final, FunMerge, FunBase, FunFinish>(
+        &self,
+        init: Accum,
+        fun_merge: FunMerge,
+        fun_base: FunBase,
+        fun_finish: FunFinish,
+    ) -> Final
+    where
+        FunMerge: Fn(Accum, &merge::Merge) -> ControlFlow<Final, Accum>,
+        FunBase: Fn(Accum, &base::Base) -> ControlFlow<Final, Accum>,
+        FunFinish: Fn(Accum) -> Final,
+    {
+        let mut accum = init;
+
+        for tree in self.trees.iter().rev() {
+            match tree.fold_depth_until_prime(|_, acc, m| fun_merge(acc, m), &fun_base, accum) {
+                Continue(acc) => accum = acc,
+                Break(v) => return v,
+            }
+        }
+
+        fun_finish(accum)
+    }
+
+    fn fold_chronological<Accum, FunMerge, FunBase>(
+        &self,
+        init: Accum,
+        fun_merge: FunMerge,
+        fun_base: FunBase,
+    ) -> Accum
+    where
+        FunMerge: Fn(Accum, &merge::Merge) -> Accum,
+        FunBase: Fn(Accum, &base::Base) -> Accum,
+    {
+        self.fold_chronological_until(
+            init,
+            |acc, a| Continue(fun_merge(acc, a)),
+            |acc, d| Continue(fun_base(acc, d)),
+            |v| v,
+        )
+    }
+
+    fn max_trees(&self) -> u64 {
+        ((ceil_log2(self.max_base_jobs) + 1) * (self.delay + 1)) + 1
+    }
+
+    fn work_for_tree(&self, data_tree: WorkForTree) -> Vec<AvailableJob> {
+        let delay = self.delay + 1;
+
+        // TODO: Not sure if skip(1) is correct below
+        let trees = match data_tree {
+            WorkForTree::Current => &self.trees[1..],
+            WorkForTree::Next => &self.trees,
+        };
+
+        work(trees, self.max_base_jobs, delay)
+    }
+
+    /// work on all the level and all the trees
+    fn all_work(&self) -> Vec<AvailableJob> {
+        let depth = ceil_log2(self.max_base_jobs);
+        // TODO: Not sure if it's correct
+        let mut set1 = self.work_for_tree(WorkForTree::Current);
+
+        let mut this = self.clone();
+        this.trees.reserve(self.delay as usize + 1);
+
+        let mut other_set = Vec::with_capacity(256);
+        for _ in 0..self.delay + 1 {
+            this.trees.insert(0, Tree::create_tree(depth));
+            let mut work = this.work_for_tree(WorkForTree::Current);
+            other_set.append(&mut work);
+        }
+
+        if set1.is_empty() {
+            other_set
+        } else {
+            set1.append(&mut other_set);
+            set1
+        }
+    }
+
+    fn work_for_next_update(&self, data_count: u64) -> Vec<Vec<AvailableJob>> {
+        let delay = self.delay + 1;
+        let current_tree_space = self.trees[0].available_space() as usize;
+
+        let mut set1 = work(&self.trees[1..], delay, self.max_base_jobs);
+        let count = data_count.min(self.max_base_jobs) as usize;
+
+        if current_tree_space < count {
+            let mut set2 = work(&self.trees, delay, self.max_base_jobs);
+            set2.truncate((count - current_tree_space) * 2);
+
+            vec![set1, set2]
+                .into_iter()
+                .filter(|v| !v.is_empty())
+                .collect()
+        } else {
+            set1.truncate(2 * count);
+
+            if set1.is_empty() {
+                vec![]
+            } else {
+                vec![set1]
+            }
+        }
+    }
+
+    fn free_space_on_current_tree(&self) -> u64 {
+        self.trees[0].available_space()
+    }
+}
+
+// let add_merge_jobs :
+//     completed_jobs:'merge list -> ('base, 'merge, _) State_or_error.t =
+//  fun ~completed_jobs ->
+//   let open State_or_error.Let_syntax in
+//   if List.length completed_jobs = 0 then return None
+//   else
+//     let%bind state = State_or_error.get in
+//     let delay = state.delay + 1 in
+//     let depth = Int.ceil_log2 state.max_base_jobs in
+//     let merge_jobs = List.map completed_jobs ~f:(fun j -> Job.Merge j) in
+//     let jobs_required = work_for_tree state ~data_tree:`Current in
+//     let%bind () =
+//       check
+//         (List.length merge_jobs > List.length jobs_required)
+//         ~message:
+//           (sprintf
+//              !"More work than required: Required- %d got- %d"
+//              (List.length jobs_required)
+//              (List.length merge_jobs) )
+//     in
+//     let curr_tree, to_be_updated_trees =
+//       (Non_empty_list.head state.trees, Non_empty_list.tail state.trees)
+//     in
+//     let%bind updated_trees, result_opt, _ =
+//       let res =
+//         List.foldi to_be_updated_trees
+//           ~init:(Ok ([], None, merge_jobs))
+//           ~f:(fun i acc tree ->
+//             let open Or_error.Let_syntax in
+//             let%bind trees, scan_result, jobs = acc in
+//             if i % delay = delay - 1 && not (List.is_empty jobs) then
+//               (*Every nth (n=delay) tree*)
+//               match
+//                 Tree.update
+//                   (List.take jobs (Tree.required_job_count tree))
+//                   ~update_level:(depth - (i / delay))
+//                   ~sequence_no:state.curr_job_seq_no ~weight_lens:Weight.merge
+//                   tree
+//               with
+//               | Ok (tree', scan_result') ->
+//                   Ok
+//                     ( tree' :: trees
+//                     , scan_result'
+//                     , List.drop jobs (Tree.required_job_count tree) )
+//               | Error e ->
+//                   Error
+//                     (Error.tag_arg e "Error while adding merge jobs to tree"
+//                        ("tree_number", i) [%sexp_of: string * int] )
+//             else Ok (tree :: trees, scan_result, jobs) )
+//       in
+//       match res with
+//       | Ok res ->
+//           State_or_error.return res
+//       | Error e ->
+//           return_error e ([], None, [])
+//     in
+//     let updated_trees, result_opt =
+//       let updated_trees, result_opt =
+//         Option.value_map result_opt
+//           ~default:(List.rev updated_trees, None)
+//           ~f:(fun res ->
+//             match updated_trees with
+//             | [] ->
+//                 ([], None)
+//             | t :: ts ->
+//                 let tree_data = Tree.base_jobs t in
+//                 (List.rev ts, Some (res, tree_data)) )
+//       in
+//       if
+//         Option.is_some result_opt
+//         || List.length (curr_tree :: updated_trees) < max_trees state
+//            && List.length completed_jobs = List.length jobs_required
+//         (*exact number of jobs*)
+//       then (List.map updated_trees ~f:(Tree.reset_weights `Merge), result_opt)
+//       else (updated_trees, result_opt)
+//     in
+//     let all_trees = cons curr_tree updated_trees in
+//     let%map _ = State_or_error.put { state with trees = all_trees } in
+//     result_opt
+
+fn work_to_do(trees: &[&Tree<base::Base, merge::Merge>], max_base_jobs: u64) -> Vec<AvailableJob> {
+    let depth = ceil_log2(max_base_jobs);
+    trees
+        .iter()
+        .enumerate()
+        .map(|(i, tree)| {
+            let level = depth - i as u64;
+            tree.jobs_on_level(depth, level)
+        })
+        .flatten()
+        .collect()
+}
+
+fn work<'a, I>(trees: I, delay: u64, max_base_jobs: u64) -> Vec<AvailableJob>
+where
+    I: IntoIterator<Item = &'a Tree<base::Base, merge::Merge>>,
+{
+    let depth = ceil_log2(max_base_jobs) as usize;
+    let delay = delay as usize;
+
+    let work_trees: Vec<_> = trees
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, t)| {
+            if i % delay == delay - 1 {
+                Some(t)
+            } else {
+                None
+            }
+        })
+        .take(depth + 1)
+        .collect();
+
+    work_to_do(&work_trees, max_base_jobs)
 }
 
 fn ceil_log2(n: u64) -> u64 {
