@@ -1403,27 +1403,27 @@ where
     }
 
     /// work on all the level and all the trees
-    fn all_work(&self) -> Vec<AvailableJob<BaseJob, MergeJob>> {
+    fn all_work(&self) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
         let depth = ceil_log2(self.max_base_jobs);
         // TODO: Not sure if it's correct
-        let mut set1 = self.work_for_tree(WorkForTree::Current);
+        let set1 = self.work_for_tree(WorkForTree::Current);
 
         let mut this = self.clone();
         this.trees.reserve(self.delay as usize + 1);
 
         let mut other_set = Vec::with_capacity(256);
+        other_set.push(set1);
+
         for _ in 0..self.delay + 1 {
             this.trees.insert(0, Tree::create_tree(depth));
-            let mut work = this.work_for_tree(WorkForTree::Current);
-            other_set.append(&mut work);
+            let work = this.work_for_tree(WorkForTree::Current);
+
+            if !work.is_empty() {
+                other_set.push(work);
+            }
         }
 
-        if set1.is_empty() {
-            other_set
-        } else {
-            set1.append(&mut other_set);
-            set1
-        }
+        other_set
     }
 
     fn work_for_next_update(&self, data_count: u64) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
@@ -1746,7 +1746,7 @@ where
         self.update_helper(data, completed_jobs)
     }
 
-    fn all_jobs(&self) -> Vec<AvailableJob<BaseJob, MergeJob>> {
+    fn all_jobs(&self) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
         self.all_work()
     }
 
@@ -1828,6 +1828,7 @@ where
         self.trees.iter().rev().flat_map(Tree::base_jobs).collect()
     }
 
+    // #[cfg(test)]
     fn job_count(&self) -> (f64, f64) {
         use JobStatus::{Done, Todo};
 
@@ -1927,6 +1928,97 @@ fn ceil_log2(n: u64) -> u64 {
     }
 }
 
+fn flatten<T>(v: Vec<Vec<T>>) -> Vec<T> {
+    v.into_iter().flatten().collect()
+}
+
+// #[cfg(test)]
+fn assert_job_count<B, M>(
+    s1: &ParallelScan<B, M>,
+    s2: &ParallelScan<B, M>,
+    completed_job_count: f64,
+    base_job_count: f64,
+    value_emitted: bool,
+) where
+    B: Debug + Clone + 'static,
+    M: Debug + Clone + 'static,
+{
+    let (todo_before, done_before) = s1.job_count();
+    let (todo_after, done_after) = s2.job_count();
+
+    // ordered list of jobs that is actually called when distributing work
+    let all_jobs = flatten(s2.all_jobs());
+
+    // list of jobs
+
+    let all_jobs_expected = s2
+        .trees
+        .iter()
+        .fold(Vec::with_capacity(s2.trees.len()), |mut acc, tree| {
+            let mut records = tree.jobs_records();
+            acc.append(&mut records);
+            acc
+        })
+        .into_iter()
+        .filter(|job| match job {
+            Job::Base(base::Record {
+                state: JobStatus::Todo,
+                ..
+            }) => true,
+            Job::Merge(merge::Record {
+                state: JobStatus::Todo,
+                ..
+            }) => true,
+            _ => false,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(all_jobs.len(), all_jobs_expected.len());
+
+    let expected_todo_after = {
+        let new_jobs = if value_emitted {
+            (completed_job_count - 1.0) / 2.0
+        } else {
+            completed_job_count / 2.0
+        };
+        todo_before + base_job_count - completed_job_count + new_jobs
+    };
+
+    let expected_done_after = {
+        let jobs_from_delete_tree = if value_emitted {
+            ((2 * s1.max_base_jobs) - 1) as f64
+        } else {
+            0.0
+        };
+        done_before + completed_job_count - jobs_from_delete_tree
+    };
+
+    assert_eq!(todo_after, expected_todo_after);
+    assert_eq!(done_after, expected_done_after);
+}
+
+fn test_update<B, M>(
+    s1: ParallelScan<B, M>,
+    data: Vec<B>,
+    completed_jobs: Vec<M>,
+) -> (Option<(M, Vec<B>)>, ParallelScan<B, M>)
+where
+    B: Debug + Clone + 'static,
+    M: Debug + Clone + 'static,
+{
+    let mut s2 = s1.clone();
+    let result_opt = s2.update(data.clone(), completed_jobs.clone()).unwrap();
+
+    assert_job_count(
+        &s1,
+        &s2,
+        completed_jobs.len() as f64,
+        data.len() as f64,
+        result_opt.is_some(),
+    );
+    (result_opt, s2)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1940,4 +2032,98 @@ mod tests {
             assert_eq!(v, w);
         }
     }
+
+    #[test]
+    fn always_max_base_jobs() {
+        const MAX_BASE_JOS: u64 = 512;
+
+        let mut state = ParallelScan::<usize, usize>::empty(MAX_BASE_JOS, 3);
+        let mut expected_result: Vec<Vec<usize>> = vec![vec![]];
+
+        for i in 0..100 {
+            let data: Vec<_> = (0..MAX_BASE_JOS as usize)
+                .into_iter()
+                .map(|j| i + j)
+                .collect();
+
+            expected_result.push(data.clone());
+
+            let work: Vec<_> = state
+                .work_for_next_update(data.len() as u64)
+                .into_iter()
+                .flatten()
+                .collect();
+
+            let new_merges: Vec<_> = work
+                .iter()
+                .map(|job| match job {
+                    AvailableJob::Base(i) => *i,
+                    AvailableJob::Merge { left, right } => *left + *right,
+                })
+                .collect();
+
+            let (result_opt, s) = test_update(state, data, new_merges);
+
+            let (expected_result_, remaining_expected_results) = {
+                match result_opt {
+                    None => ((0, vec![]), expected_result.clone()),
+                    Some(_) => {
+                        if expected_result.is_empty() {
+                            ((0, vec![]), vec![])
+                        } else {
+                            let first = expected_result[0].clone();
+                            let sum: usize = first.iter().sum();
+
+                            ((sum, first), expected_result[1..].to_vec())
+                        }
+                    }
+                }
+            };
+
+            assert_eq!(
+                result_opt.unwrap_or(expected_result_.clone()),
+                expected_result_
+            );
+
+            expected_result = remaining_expected_results;
+            state = s;
+        }
+    }
 }
+
+// let%test_unit "always max base jobs" =
+//   let max_base_jobs = 512 in
+//   let state = empty ~max_base_jobs ~delay:3 in
+//   let _t' =
+//     List.foldi ~init:([], state) (List.init 100 ~f:Fn.id)
+//       ~f:(fun i (expected_results, t) _ ->
+//         let data = List.init max_base_jobs ~f:(fun j -> i + j) in
+//         let expected_results = data :: expected_results in
+//         let work =
+//           work_for_next_update t ~data_count:(List.length data)
+//           |> List.concat
+//         in
+//         let new_merges =
+//           List.map work ~f:(fun job ->
+//               match job with Base i -> i | Merge (i, j) -> i + j )
+//         in
+//         let result_opt, t' =
+//           test_update ~data ~completed_jobs:new_merges t
+//         in
+//         let expected_result, remaining_expected_results =
+//           Option.value_map result_opt
+//             ~default:((0, []), expected_results)
+//             ~f:(fun _ ->
+//               match List.rev expected_results with
+//               | [] ->
+//                   ((0, []), [])
+//               | x :: xs ->
+//                   ((List.sum (module Int) x ~f:Fn.id, x), List.rev xs) )
+//         in
+//         assert (
+//           [%equal: int * int list]
+//             (Option.value ~default:expected_result result_opt)
+//             expected_result ) ;
+//         (remaining_expected_results, t') )
+//   in
+//   ()
