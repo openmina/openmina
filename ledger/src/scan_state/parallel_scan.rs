@@ -27,10 +27,10 @@ impl SequenceNumber {
     }
 }
 
-impl<'a, 'b> std::ops::Sub<&'a SequenceNumber> for &'b SequenceNumber {
+impl std::ops::Sub for &'_ SequenceNumber {
     type Output = SequenceNumber;
 
-    fn sub(self, rhs: &'a SequenceNumber) -> Self::Output {
+    fn sub(self, rhs: &'_ SequenceNumber) -> Self::Output {
         SequenceNumber(self.0 - rhs.0)
     }
 }
@@ -110,35 +110,30 @@ enum WorkForTree {
     Next,
 }
 
-#[derive(Clone, Debug)]
-struct BaseJob(); // TODO
-#[derive(Clone, Debug)]
-struct MergeJob(); // TODO
-
 /// For base proofs (Proving new transactions)
 mod base {
     use super::*;
 
     #[derive(Clone, Debug)]
-    pub(super) struct Record {
+    pub(super) struct Record<BaseJob> {
         pub job: BaseJob,
         pub seq_no: SequenceNumber,
         pub state: JobStatus,
     }
 
     #[derive(Clone, Debug)]
-    pub(super) enum Job {
+    pub(super) enum Job<BaseJob> {
         Empty,
-        Full(Record),
+        Full(Record<BaseJob>),
     }
 
     #[derive(Clone, Debug)]
-    pub(super) struct Base {
+    pub(super) struct Base<BaseJob> {
         pub weight: Weight,
-        pub job: Job,
+        pub job: Job<BaseJob>,
     }
 
-    impl Record {
+    impl<BaseJob: Clone> Record<BaseJob> {
         pub fn map<F: Fn(&BaseJob) -> BaseJob>(&self, fun: F) -> Self {
             Self {
                 job: fun(&self.job),
@@ -156,7 +151,7 @@ mod base {
         }
     }
 
-    impl Job {
+    impl<BaseJob: Clone> Job<BaseJob> {
         pub fn map<F: Fn(&BaseJob) -> BaseJob>(&self, fun: F) -> Self {
             match self {
                 Job::Empty => Self::Empty,
@@ -165,7 +160,7 @@ mod base {
         }
     }
 
-    impl Base {
+    impl<BaseJob: Clone> Base<BaseJob> {
         pub fn map<F: Fn(&BaseJob) -> BaseJob>(&self, fun: F) -> Self {
             Self {
                 weight: self.weight.clone(),
@@ -190,14 +185,14 @@ mod merge {
     use super::*;
 
     #[derive(Clone, Debug)]
-    pub(super) struct Record {
+    pub(super) struct Record<MergeJob> {
         pub left: MergeJob,
         pub right: MergeJob,
         pub seq_no: SequenceNumber,
         pub state: JobStatus,
     }
 
-    impl Record {
+    impl<MergeJob: Clone> Record<MergeJob> {
         pub fn with_seq_no(&self, no: SequenceNumber) -> Self {
             Self {
                 seq_no: no,
@@ -209,21 +204,19 @@ mod merge {
     }
 
     #[derive(Clone, Debug)]
-    pub(super) enum Job {
+    pub(super) enum Job<MergeJob> {
         Empty,
         Part(MergeJob), // left
-        Full(Record),
+        Full(Record<MergeJob>),
     }
 
     #[derive(Clone, Debug)]
-    pub(super) struct Merge {
+    pub(super) struct Merge<MergeJob> {
         pub weight: (Weight, Weight),
-        // pub weight_left: Weight,
-        // pub weight_right: Weight,
-        pub job: Job,
+        pub job: Job<MergeJob>,
     }
 
-    impl Record {
+    impl<MergeJob> Record<MergeJob> {
         pub fn map<F: Fn(&MergeJob) -> MergeJob>(&self, fun: F) -> Self {
             Self {
                 left: fun(&self.left),
@@ -234,7 +227,7 @@ mod merge {
         }
     }
 
-    impl Job {
+    impl<MergeJob> Job<MergeJob> {
         pub fn map<F: Fn(&MergeJob) -> MergeJob>(&self, fun: F) -> Self {
             match self {
                 Job::Empty => Self::Empty,
@@ -244,7 +237,7 @@ mod merge {
         }
     }
 
-    impl Merge {
+    impl<MergeJob: Clone> Merge<MergeJob> {
         pub fn map<F: Fn(&MergeJob) -> MergeJob>(&self, fun: F) -> Self {
             Self {
                 weight: self.weight.clone(),
@@ -266,23 +259,16 @@ mod merge {
 
 /// All the jobs on a tree that can be done. Base.Full and Merge.Full
 #[derive(Debug)]
-enum AvailableJob {
+enum AvailableJob<BaseJob, MergeJob> {
     Base(BaseJob),
     Merge { left: MergeJob, right: MergeJob },
 }
 
 /// New jobs to be added (including new transactions or new merge jobs)
 #[derive(Clone, Debug)]
-enum Job {
+enum Job<BaseJob, MergeJob> {
     Base(BaseJob),
     Merge(MergeJob),
-}
-
-/// New jobs to be added (including new transactions or new merge jobs)
-#[derive(Clone, Debug)]
-enum HashableJob<B, M> {
-    Base(B),
-    Merge(M),
 }
 
 /// Space available and number of jobs required to enqueue data.
@@ -319,8 +305,8 @@ enum Tree<B, M> {
 }
 
 #[derive(Clone, Debug)]
-struct ParallelScan {
-    trees: Vec<Tree<base::Base, merge::Merge>>,
+struct ParallelScan<BaseJob, MergeJob> {
+    trees: Vec<Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>>,
     /// last emitted proof and the corresponding transactions
     acc: Option<(MergeJob, Vec<BaseJob>)>,
     /// Sequence number for the jobs added every block
@@ -344,8 +330,8 @@ where
     /// mapi where i is the level of the tree
     fn map_depth<FunMerge, FunBase>(&self, fun_merge: FunMerge, fun_base: FunBase) -> Self
     where
-        FunMerge: Fn(u64, &M) -> M,
-        FunBase: Fn(&B) -> B,
+        FunMerge: for<'a> Fn(u64, &'a M) -> M,
+        FunBase: for<'a> Fn(&'a B) -> B,
     {
         match self {
             Tree::Leaf(base) => Self::Leaf(fun_base(&base)),
@@ -606,18 +592,22 @@ where
     }
 }
 
-impl Tree<base::Base, merge::Merge> {
+impl<BaseJob, MergeJob> Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>
+where
+    BaseJob: Clone + Debug + 'static,
+    MergeJob: Clone + Debug + 'static,
+{
     fn update(
         &self,
-        completed_jobs: Vec<Job>,
+        completed_jobs: Vec<Job<BaseJob, MergeJob>>,
         update_level: u64,
         sequence_no: SequenceNumber,
         lens: WeightLens,
     ) -> Result<(Self, Option<MergeJob>), ()> {
-        let add_merges = |jobs: Vec<Job>,
+        let add_merges = |jobs: Vec<Job<BaseJob, MergeJob>>,
                           current_level: u64,
-                          merge_job: merge::Merge|
-         -> Result<(merge::Merge, Option<MergeJob>), ()> {
+                          merge_job: merge::Merge<MergeJob>|
+         -> Result<(merge::Merge<MergeJob>, Option<MergeJob>), ()> {
             use merge::{
                 Job::{Empty, Full, Part},
                 Record,
@@ -775,7 +765,7 @@ impl Tree<base::Base, merge::Merge> {
             }
         };
 
-        let add_bases = |jobs: Vec<Job>, base: base::Base| {
+        let add_bases = |jobs: Vec<Job<BaseJob, MergeJob>>, base: base::Base<BaseJob>| {
             use base::Job::{Empty, Full};
             use Job::{Base, Merge};
 
@@ -828,9 +818,11 @@ impl Tree<base::Base, merge::Merge> {
                 let r = *lens.get(&w2) as usize;
                 let a = a.as_slice();
 
-                let take = |v: &[Job], n| v.iter().take(n).cloned().collect::<Vec<Job>>();
-                let take_at =
-                    |v: &[Job], skip, n| v.iter().skip(skip).take(n).cloned().collect::<Vec<Job>>();
+                let take =
+                    |v: &[Job<BaseJob, MergeJob>], n| v.iter().take(n).cloned().collect::<Vec<_>>();
+                let take_at = |v: &[Job<BaseJob, MergeJob>], skip, n| {
+                    v.iter().skip(skip).take(n).cloned().collect::<Vec<_>>()
+                };
 
                 (take(a, l), take_at(a, l, r))
             },
@@ -838,7 +830,7 @@ impl Tree<base::Base, merge::Merge> {
     }
 
     fn reset_weights(&self, reset_kind: ResetKind) -> Self {
-        let fun_base = |base: &base::Base| {
+        let fun_base = |base: &base::Base<BaseJob>| {
             let set_one = |lens: WeightLens, weight: &Weight| lens.set(weight, 1);
             let set_zero = |lens: WeightLens, weight: &Weight| lens.set(weight, 0);
 
@@ -890,7 +882,8 @@ impl Tree<base::Base, merge::Merge> {
             (base, (new_weight, dummy_right_for_base_nodes))
         };
 
-        let fun_merge = |lst: ((Weight, Weight), (Weight, Weight)), merge: &merge::Merge| {
+        let fun_merge = |lst: ((Weight, Weight), (Weight, Weight)),
+                         merge: &merge::Merge<MergeJob>| {
             let ((w1, w2), (w3, w4)) = &lst;
 
             let reset = |lens: WeightLens, w: &Weight, ww: &Weight| {
@@ -941,7 +934,7 @@ impl Tree<base::Base, merge::Merge> {
         result
     }
 
-    fn jobs_on_level(&self, depth: u64, level: u64) -> Vec<AvailableJob> {
+    fn jobs_on_level(&self, depth: u64, level: u64) -> Vec<AvailableJob<BaseJob, MergeJob>> {
         use JobStatus::Todo;
 
         self.fold_depth(
@@ -989,7 +982,7 @@ impl Tree<base::Base, merge::Merge> {
         )
     }
 
-    fn to_hashable_jobs(&self) -> Vec<HashableJob<base::Base, merge::Merge>> {
+    fn to_hashable_jobs(&self) -> Vec<Job<base::Base<BaseJob>, merge::Merge<MergeJob>>> {
         use JobStatus::Done;
 
         self.fold(
@@ -997,7 +990,7 @@ impl Tree<base::Base, merge::Merge> {
                 match &a.job {
                     merge::Job::Full(merge::Record { state: Done, .. }) => {}
                     _ => {
-                        acc.push(HashableJob::Merge(a.clone()));
+                        acc.push(Job::Merge(a.clone()));
                     }
                 }
                 acc
@@ -1006,7 +999,7 @@ impl Tree<base::Base, merge::Merge> {
                 match &d.job {
                     base::Job::Full(base::Record { state: Done, .. }) => {}
                     _ => {
-                        acc.push(HashableJob::Base(d.clone()));
+                        acc.push(Job::Base(d.clone()));
                     }
                 }
                 acc
@@ -1015,21 +1008,21 @@ impl Tree<base::Base, merge::Merge> {
         )
     }
 
-    fn jobs_records(&self) -> Vec<HashableJob<base::Record, merge::Record>> {
+    fn jobs_records(&self) -> Vec<Job<base::Record<BaseJob>, merge::Record<MergeJob>>> {
         self.fold(
-            |mut acc, a: &merge::Merge| {
+            |mut acc, a: &merge::Merge<MergeJob>| {
                 match &a.job {
                     merge::Job::Full(x) => {
-                        acc.push(HashableJob::Merge(x.clone()));
+                        acc.push(Job::Merge(x.clone()));
                     }
                     _ => {}
                 }
                 acc
             },
-            |mut acc, d: &base::Base| {
+            |mut acc, d: &base::Base<BaseJob>| {
                 match &d.job {
                     base::Job::Full(j) => {
-                        acc.push(HashableJob::Base(j.clone()));
+                        acc.push(Job::Base(j.clone()));
                     }
                     _ => {}
                 }
@@ -1069,7 +1062,7 @@ impl Tree<base::Base, merge::Merge> {
         )
     }
 
-    fn leaves(&self) -> Vec<base::Base> {
+    fn leaves(&self) -> Vec<base::Base<BaseJob>> {
         self.fold_depth(
             |_, acc, _| acc,
             |mut acc, d| {
@@ -1105,8 +1098,8 @@ impl Tree<base::Base, merge::Merge> {
     fn create_tree_for_level(
         level: i64,
         depth: u64,
-        merge_job: merge::Job,
-        base_job: base::Job,
+        merge_job: merge::Job<MergeJob>,
+        base_job: base::Job<BaseJob>,
     ) -> Self {
         fn go<B, M>(d: u64, fun_merge: impl Fn(u64) -> M, base: B, depth: u64) -> Tree<B, M>
         where
@@ -1164,7 +1157,11 @@ impl Tree<base::Base, merge::Merge> {
     }
 }
 
-impl ParallelScan {
+impl<BaseJob, MergeJob> ParallelScan<BaseJob, MergeJob>
+where
+    BaseJob: Debug + Clone + 'static,
+    MergeJob: Debug + Clone + 'static,
+{
     fn with_leaner_trees(&self) -> Self {
         use JobStatus::Done;
 
@@ -1252,19 +1249,21 @@ impl ParallelScan {
             delay,
         } = self.with_leaner_trees();
 
-        fn tree_hash<F1, F2>(
-            tree: &Tree<base::Base, merge::Merge>,
+        fn tree_hash<BaseJob, MergeJob, F1, F2>(
+            tree: &Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>,
             sha: &mut Sha256,
             mut fun_merge: F1,
             mut fun_base: F2,
         ) where
-            F1: FnMut(&mut Sha256, &merge::Merge),
-            F2: FnMut(&mut Sha256, &base::Base),
+            F1: FnMut(&mut Sha256, &merge::Merge<MergeJob>),
+            F2: FnMut(&mut Sha256, &base::Base<BaseJob>),
+            BaseJob: Debug + Clone + 'static,
+            MergeJob: Debug + Clone + 'static,
         {
             for job in tree.to_hashable_jobs() {
                 match &job {
-                    HashableJob::Base(base) => fun_base(sha, base),
-                    HashableJob::Merge(merge) => fun_merge(sha, merge),
+                    Job::Base(base) => fun_base(sha, base),
+                    Job::Merge(merge) => fun_merge(sha, merge),
                 }
             }
         }
@@ -1276,7 +1275,7 @@ impl ParallelScan {
             let ww_to_string =
                 |(w1, w2): &(Weight, Weight)| format!("{}{}", w_to_string(w1), w_to_string(w2));
 
-            let fun_merge = |sha: &mut Sha256, m: &merge::Merge| {
+            let fun_merge = |sha: &mut Sha256, m: &merge::Merge<MergeJob>| {
                 let w = &m.weight;
 
                 match &m.job {
@@ -1303,7 +1302,7 @@ impl ParallelScan {
                 }
             };
 
-            let fun_base = |sha: &mut Sha256, m: &base::Base| {
+            let fun_base = |sha: &mut Sha256, m: &base::Base<BaseJob>| {
                 let w = &m.weight;
 
                 match &m.job {
@@ -1352,8 +1351,8 @@ impl ParallelScan {
         fun_finish: FunFinish,
     ) -> Final
     where
-        FunMerge: Fn(Accum, &merge::Merge) -> ControlFlow<Final, Accum>,
-        FunBase: Fn(Accum, &base::Base) -> ControlFlow<Final, Accum>,
+        FunMerge: Fn(Accum, &merge::Merge<MergeJob>) -> ControlFlow<Final, Accum>,
+        FunBase: Fn(Accum, &base::Base<BaseJob>) -> ControlFlow<Final, Accum>,
         FunFinish: Fn(Accum) -> Final,
     {
         let mut accum = init;
@@ -1375,8 +1374,8 @@ impl ParallelScan {
         fun_base: FunBase,
     ) -> Accum
     where
-        FunMerge: Fn(Accum, &merge::Merge) -> Accum,
-        FunBase: Fn(Accum, &base::Base) -> Accum,
+        FunMerge: Fn(Accum, &merge::Merge<MergeJob>) -> Accum,
+        FunBase: Fn(Accum, &base::Base<BaseJob>) -> Accum,
     {
         self.fold_chronological_until(
             init,
@@ -1390,7 +1389,7 @@ impl ParallelScan {
         ((ceil_log2(self.max_base_jobs) + 1) * (self.delay + 1)) + 1
     }
 
-    fn work_for_tree(&self, data_tree: WorkForTree) -> Vec<AvailableJob> {
+    fn work_for_tree(&self, data_tree: WorkForTree) -> Vec<AvailableJob<BaseJob, MergeJob>> {
         let delay = self.delay + 1;
 
         // TODO: Not sure if skip(1) is correct below
@@ -1403,7 +1402,7 @@ impl ParallelScan {
     }
 
     /// work on all the level and all the trees
-    fn all_work(&self) -> Vec<AvailableJob> {
+    fn all_work(&self) -> Vec<AvailableJob<BaseJob, MergeJob>> {
         let depth = ceil_log2(self.max_base_jobs);
         // TODO: Not sure if it's correct
         let mut set1 = self.work_for_tree(WorkForTree::Current);
@@ -1426,7 +1425,7 @@ impl ParallelScan {
         }
     }
 
-    fn work_for_next_update(&self, data_count: u64) -> Vec<Vec<AvailableJob>> {
+    fn work_for_next_update(&self, data_count: u64) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
         let delay = self.delay + 1;
         let current_tree_space = self.trees[0].available_space() as usize;
 
@@ -1606,12 +1605,12 @@ impl ParallelScan {
 
         let new_seq = |seq: &SequenceNumber| (seq - &oldest_seq_no).incr();
 
-        let fun_merge = |m: &merge::Merge| match &m.job {
+        let fun_merge = |m: &merge::Merge<MergeJob>| match &m.job {
             merge::Job::Full(merge::Record { seq_no, .. }) => m.with_seq_no(new_seq(seq_no)),
             _ => m.clone(),
         };
 
-        let fun_base = |m: &base::Base| match &m.job {
+        let fun_base = |m: &base::Base<BaseJob>| match &m.job {
             base::Job::Full(base::Record { seq_no, .. }) => m.with_seq_no(new_seq(seq_no)),
             _ => m.clone(),
         };
@@ -1746,15 +1745,15 @@ impl ParallelScan {
         self.update_helper(data, completed_jobs)
     }
 
-    fn all_jobs(&self) -> Vec<AvailableJob> {
+    fn all_jobs(&self) -> Vec<AvailableJob<BaseJob, MergeJob>> {
         self.all_work()
     }
 
-    fn jobs_for_next_update(&self) -> Vec<Vec<AvailableJob>> {
+    fn jobs_for_next_update(&self) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
         self.work_for_next_update(self.max_base_jobs)
     }
 
-    fn jobs_for_slots(&self, slots: u64) -> Vec<Vec<AvailableJob>> {
+    fn jobs_for_slots(&self, slots: u64) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
         self.work_for_next_update(slots)
     }
 
@@ -1770,7 +1769,7 @@ impl ParallelScan {
         self.curr_job_seq_no.clone()
     }
 
-    fn base_jobs_on_latest_tree(&self) -> Vec<AvailableJob> {
+    fn base_jobs_on_latest_tree(&self) -> Vec<AvailableJob<BaseJob, MergeJob>> {
         let depth = ceil_log2(self.max_base_jobs);
         let level = depth;
 
@@ -1782,7 +1781,7 @@ impl ParallelScan {
     }
 
     // 0-based indexing, so 0 indicates next-to-latest tree
-    fn base_jobs_on_earlier_tree(&self, index: usize) -> Vec<AvailableJob> {
+    fn base_jobs_on_earlier_tree(&self, index: usize) -> Vec<AvailableJob<BaseJob, MergeJob>> {
         let depth = ceil_log2(self.max_base_jobs);
         let level = depth;
 
@@ -1865,9 +1864,14 @@ impl ParallelScan {
     }
 }
 
-fn work_to_do<'a, I>(trees: I, max_base_jobs: u64) -> Vec<AvailableJob>
+fn work_to_do<'a, BaseJob, MergeJob, I>(
+    trees: I,
+    max_base_jobs: u64,
+) -> Vec<AvailableJob<BaseJob, MergeJob>>
 where
-    I: Iterator<Item = &'a Tree<base::Base, merge::Merge>>,
+    I: Iterator<Item = &'a Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>>,
+    BaseJob: Debug + Clone + 'static,
+    MergeJob: Debug + Clone + 'static,
 {
     let depth = ceil_log2(max_base_jobs);
 
@@ -1880,9 +1884,15 @@ where
         .collect()
 }
 
-fn work<'a, I>(trees: I, delay: u64, max_base_jobs: u64) -> Vec<AvailableJob>
+fn work<'a, BaseJob, MergeJob, I>(
+    trees: I,
+    delay: u64,
+    max_base_jobs: u64,
+) -> Vec<AvailableJob<BaseJob, MergeJob>>
 where
-    I: IntoIterator<Item = &'a Tree<base::Base, merge::Merge>>,
+    I: IntoIterator<Item = &'a Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>>,
+    BaseJob: Debug + Clone + 'static,
+    MergeJob: Debug + Clone + 'static,
 {
     let depth = ceil_log2(max_base_jobs) as usize;
     let delay = delay as usize;
