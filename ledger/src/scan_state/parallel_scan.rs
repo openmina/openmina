@@ -599,12 +599,12 @@ where
 {
     fn update(
         &self,
-        completed_jobs: Vec<Job<BaseJob, MergeJob>>,
+        completed_jobs: &[Job<BaseJob, MergeJob>],
         update_level: u64,
         sequence_no: SequenceNumber,
         lens: WeightLens,
     ) -> Result<(Self, Option<MergeJob>), ()> {
-        let add_merges = |jobs: Vec<Job<BaseJob, MergeJob>>,
+        let add_merges = |jobs: &[Job<BaseJob, MergeJob>],
                           current_level: u64,
                           merge_job: merge::Merge<MergeJob>|
          -> Result<(merge::Merge<MergeJob>, Option<MergeJob>), ()> {
@@ -701,7 +701,7 @@ where
             } else if current_level == update_level {
                 // Mark completed jobs as Done
 
-                match (jobs.as_slice(), m) {
+                match (jobs, m) {
                     (
                         [Merge(a)],
                         Full(
@@ -746,7 +746,7 @@ where
                 }
             } else if current_level < update_level - 1 {
                 // Update the job count for all the level above
-                match jobs.as_slice() {
+                match jobs {
                     [] => Ok((merge::Merge { weight, job: m }, None)),
                     _ => {
                         let jobs_length = jobs.len() as u64;
@@ -765,7 +765,7 @@ where
             }
         };
 
-        let add_bases = |jobs: Vec<Job<BaseJob, MergeJob>>, base: base::Base<BaseJob>| {
+        let add_bases = |jobs: &[Job<BaseJob, MergeJob>], base: base::Base<BaseJob>| {
             use base::Job::{Empty, Full};
             use Job::{Base, Merge};
 
@@ -773,7 +773,7 @@ where
             let d = base.job;
 
             let weight = lens.get(&w);
-            match (jobs.as_slice(), d) {
+            match (jobs, d) {
                 ([], d) => Ok(base::Base { weight: w, job: d }),
                 ([Base(d)], Empty) => {
                     let w = lens.set(&w, weight - 1);
@@ -813,16 +813,17 @@ where
             |merge| merge.weight.clone(),
             completed_jobs,
             update_level,
-            |(w1, w2), a| {
+            |(w1, w2), a: &[Job<BaseJob, MergeJob>]| {
                 let l = *lens.get(&w1) as usize;
                 let r = *lens.get(&w2) as usize;
-                let a = a.as_slice();
 
-                let take =
-                    |v: &[Job<BaseJob, MergeJob>], n| v.iter().take(n).cloned().collect::<Vec<_>>();
-                let take_at = |v: &[Job<BaseJob, MergeJob>], skip, n| {
-                    v.iter().skip(skip).take(n).cloned().collect::<Vec<_>>()
-                };
+                fn take<T>(slice: &[T], n: usize) -> &[T] {
+                    slice.get(..n).unwrap_or(slice)
+                }
+
+                fn take_at<T>(slice: &[T], skip: usize, n: usize) -> &[T] {
+                    slice.get(skip..).map(|s| take(s, n)).unwrap_or(&[])
+                }
 
                 (take(a, l), take_at(a, l, r))
             },
@@ -1457,7 +1458,7 @@ where
 
     fn add_merge_jobs(
         &mut self,
-        completed_jobs: Vec<MergeJob>,
+        completed_jobs: &[MergeJob],
     ) -> Result<Option<(MergeJob, Vec<BaseJob>)>, ()> {
         fn take<T>(slice: &[T], n: usize) -> &[T] {
             slice.get(..n).unwrap_or(slice)
@@ -1476,7 +1477,7 @@ where
         let depth = ceil_log2(self.max_base_jobs);
 
         let completed_jobs_len = completed_jobs.len();
-        let merge_jobs: Vec<_> = completed_jobs.into_iter().map(Job::Merge).collect();
+        let merge_jobs: Vec<_> = completed_jobs.iter().cloned().map(Job::Merge).collect();
         let jobs_required = self.work_for_tree(WorkForTree::Current);
 
         assert!(
@@ -1497,7 +1498,7 @@ where
                 // Every nth (n=delay) tree
                 if (i % udelay == udelay - 1) && !jobs.is_empty() {
                     let nrequired = tree.required_job_count() as usize;
-                    let completed_jobs = take(jobs, nrequired).to_owned();
+                    let completed_jobs = take(jobs, nrequired);
                     let i = i as u64;
 
                     let (tree, result) = tree.update(
@@ -1571,7 +1572,7 @@ where
 
         let (tree, _) = tree
             .update(
-                base_jobs,
+                &base_jobs,
                 depth,
                 self.curr_job_seq_no.clone(),
                 WeightLens::Base,
@@ -1714,12 +1715,12 @@ where
         let (jobs1, jobs2) = split(&completed_jobs, required_jobs_for_current_tree);
 
         // update first set of jobs and data
-        let result_opt = self.add_merge_jobs(jobs1.to_vec())?;
+        let result_opt = self.add_merge_jobs(jobs1)?;
         self.add_data(data1.to_vec())?;
 
         // update second set of jobs and data.
         // This will be empty if all the data fit in the current tree
-        self.add_merge_jobs(jobs2.to_vec())?;
+        self.add_merge_jobs(jobs2)?;
         self.add_data(data2.to_vec())?;
 
         // update the latest emitted value
