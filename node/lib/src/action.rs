@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 pub type ActionWithMeta = redux::ActionWithMeta<Action>;
 pub type ActionWithMetaRef<'a> = redux::ActionWithMeta<&'a Action>;
 
+pub use crate::consensus::ConsensusAction;
 pub use crate::event_source::EventSourceAction;
 pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
@@ -15,6 +16,7 @@ pub enum Action {
 
     P2p(P2pAction),
     Snark(SnarkAction),
+    Consensus(ConsensusAction),
     Rpc(RpcAction),
 }
 

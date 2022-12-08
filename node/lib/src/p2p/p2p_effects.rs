@@ -1,6 +1,7 @@
 use mina_p2p_messages::gossip::GossipNetMessageV2;
-use snark::block_verify::SnarkBlockVerifyInitAction;
+use snark::hash::state_hash;
 
+use crate::consensus::ConsensusBlockReceivedAction;
 use crate::rpc::{RpcP2pConnectionOutgoingErrorAction, RpcP2pConnectionOutgoingSuccessAction};
 use crate::{Service, Store};
 
@@ -61,11 +62,11 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             P2pPubsubAction::BytesReceived(action) => {
                 action.effects(&meta, store);
             }
-            P2pPubsubAction::MessageReceived(action) => match &action.message {
-                GossipNetMessageV2::NewState(m) => {
-                    store.dispatch(SnarkBlockVerifyInitAction {
-                        req_id: store.state().snark.block_verify.next_req_id(),
-                        block: m.header.clone(),
+            P2pPubsubAction::MessageReceived(action) => match action.message {
+                GossipNetMessageV2::NewState(block) => {
+                    store.dispatch(ConsensusBlockReceivedAction {
+                        hash: state_hash(&block),
+                        header: block.header,
                     });
                 }
                 _ => {}
