@@ -14,13 +14,14 @@ binprot_derive = { git = "https://github.com/name-placeholder/binprot-rs", rev =
 thiserror = "1.0.32"
 derive_more = "0.99.17"
 bs58 = { version = "0.4", features = ["check"] }
+base64 = "0.13.1"
 sha2 = { version = "0.10.2", optional = true }
+blake2 = { version = "0.10.5", optional = true }
 
 mina-hasher = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }
 mina-curves = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }
 mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }
 o1-utils = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a", optional = true }
-base64 = "0.13.1"
 
 ark-ff = { version = "0.3.0", features = [ "parallel", "asm" ], optional = true }
 
@@ -38,7 +39,7 @@ time = { version = "0.3.17", features = ["formatting"] }
 
 
 [features]
-hashing = ["mina-hasher", "mina-curves", "mina-signer", "o1-utils", "sha2", "ark-ff"]
+hashing = ["mina-hasher", "mina-curves", "mina-signer", "o1-utils", "sha2", "blake2", "ark-ff"]
 
 [target.wasm32-unknown-unknown.dev-dependencies]
 web-sys = { version = "0.3.60", features = ["console"] }

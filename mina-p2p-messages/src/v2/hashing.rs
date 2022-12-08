@@ -19,3 +19,15 @@ impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1 {
         hasher.finalize()
     }
 }
+
+impl generated::ConsensusVrfOutputTruncatedStableV1 {
+    pub fn blake2b(&self) -> Vec<u8> {
+        use blake2::{
+            digest::{Update, VariableOutput},
+            Blake2bVar,
+        };
+        let mut hasher = Blake2bVar::new(32).expect("Invalid Blake2bVar output size");
+        hasher.update(&self.0);
+        hasher.finalize_boxed().to_vec()
+    }
+}
