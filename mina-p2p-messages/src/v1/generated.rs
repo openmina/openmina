@@ -113,10 +113,14 @@ pub type MinaStateProtocolStateValueStableV1VersionedV1Poly<StateHash, Body> =
 /// Location: [src/lib/data_hash_lib/state_hash.ml:43:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/data_hash_lib/state_hash.ml#L43)
 ///
 /// Gid: 715
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BinProtRead, BinProtWrite,
+)]
 pub struct MinaStateProtocolStateValueStableV1VersionedV1PolyArg0V1Poly(pub crate::bigint::BigInt);
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BinProtRead, BinProtWrite,
+)]
 /// Location: [src/lib/data_hash_lib/state_hash.ml:42:4](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/data_hash_lib/state_hash.ml#L42)
 ///
 /// Gid: 718
