@@ -21,10 +21,10 @@ pub struct ResponseProtocol {
 
 impl UpgradeInfo for ResponseProtocol {
     type Info = &'static str;
-    type InfoIter = std::iter::Once<Self::Info>;
+    type InfoIter = std::iter::Empty<Self::Info>;
 
     fn protocol_info(&self) -> Self::InfoIter {
-        std::iter::once(super::RPC_PROTOCOL_NAME)
+        std::iter::empty()
     }
 }
 
