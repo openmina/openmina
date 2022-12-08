@@ -12,6 +12,9 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
         Action::Snark(a) => {
             state.snark.reducer(meta.with_action(a));
         }
+        Action::Consensus(a) => {
+            state.consensus.reducer(meta.with_action(a));
+        }
         Action::Rpc(a) => {
             state.rpc.reducer(meta.with_action(a));
         }

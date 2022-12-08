@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use mina_p2p_messages::v2::MinaBlockHeaderStableV2;
+use shared::block::BlockHeaderWithHash;
 
 use super::{SnarkBlockVerifyError, SnarkBlockVerifyId};
 
@@ -19,7 +19,7 @@ pub enum SnarkBlockVerifyAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkBlockVerifyInitAction {
     pub req_id: SnarkBlockVerifyId,
-    pub block: MinaBlockHeaderStableV2,
+    pub block: BlockHeaderWithHash,
 }
 
 impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifyInitAction {

@@ -1,3 +1,4 @@
+use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::logger::logger_effects;
 use crate::p2p::p2p_effects;
@@ -19,6 +20,9 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         }
         Action::Snark(action) => {
             snark_effects(store, meta.with_action(action));
+        }
+        Action::Consensus(action) => {
+            consensus_effects(store, meta.with_action(action));
         }
         Action::Rpc(action) => {
             rpc_effects(store, meta.with_action(action));

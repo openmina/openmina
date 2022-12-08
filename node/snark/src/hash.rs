@@ -1,10 +1,12 @@
 #![allow(unused)]
 
-use ark_ff::{BigInteger, BigInteger256, Field, FromBytes};
+use ark_ff::{BigInteger, BigInteger256, Field, FromBytes, PrimeField};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
-
-use ark_ff::PrimeField;
+use mina_p2p_messages::v1::StateHashStable;
+use mina_p2p_messages::v2::{
+    MinaBlockBlockStableV2, MinaBlockHeaderStableV2, MinaStateProtocolStateValueStableV2,
+};
 use oracle::{
     constants::PlonkSpongeConstantsKimchi,
     pasta::fp_kimchi::static_params,
@@ -234,6 +236,36 @@ pub fn hash_noinputs(param: &str) -> Fp {
 
     sponge.absorb(&[param_to_field_noinputs(param)]);
     sponge.squeeze()
+}
+
+pub trait StateHashable {
+    fn as_hashable(&self) -> &MinaStateProtocolStateValueStableV2;
+}
+
+impl StateHashable for MinaBlockBlockStableV2 {
+    fn as_hashable(&self) -> &MinaStateProtocolStateValueStableV2 {
+        &self.header.as_hashable()
+    }
+}
+
+impl StateHashable for MinaBlockHeaderStableV2 {
+    fn as_hashable(&self) -> &MinaStateProtocolStateValueStableV2 {
+        &self.protocol_state
+    }
+}
+
+impl StateHashable for MinaStateProtocolStateValueStableV2 {
+    fn as_hashable(&self) -> &MinaStateProtocolStateValueStableV2 {
+        self
+    }
+}
+
+pub fn state_hash<T: StateHashable>(t: &T) -> StateHashStable {
+    use crate::public_input::protocol_state::MinaHash;
+    use mina_p2p_messages::v1::StateHashStableV1;
+
+    let field = t.as_hashable().hash();
+    StateHashStableV1::from_bigint(field.into()).into()
 }
 
 #[cfg(test)]

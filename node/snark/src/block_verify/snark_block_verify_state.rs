@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use mina_p2p_messages::v2::MinaBlockHeaderStableV2;
-use shared::requests::PendingRequests;
+use shared::{block::BlockHeaderWithHash, requests::PendingRequests};
 
 use crate::{VerifierIndex, VerifierSRS};
 
@@ -35,20 +34,20 @@ pub enum SnarkBlockVerifyStatus {
     Init {
         time: redux::Timestamp,
         // TODO(binier): use Rc<_> or Arc<_>,
-        block: MinaBlockHeaderStableV2,
+        block: BlockHeaderWithHash,
     },
     Pending {
         time: redux::Timestamp,
-        block: MinaBlockHeaderStableV2,
+        block: BlockHeaderWithHash,
     },
     Error {
         time: redux::Timestamp,
-        block: MinaBlockHeaderStableV2,
+        block: BlockHeaderWithHash,
         error: SnarkBlockVerifyError,
     },
     Success {
         time: redux::Timestamp,
-        block: MinaBlockHeaderStableV2,
+        block: BlockHeaderWithHash,
     },
 }
 
@@ -65,7 +64,7 @@ impl SnarkBlockVerifyStatus {
         matches!(self, Self::Error { .. } | Self::Success { .. })
     }
 
-    pub fn block(&self) -> &MinaBlockHeaderStableV2 {
+    pub fn block(&self) -> &BlockHeaderWithHash {
         match self {
             Self::Init { block, .. } => block,
             Self::Pending { block, .. } => block,

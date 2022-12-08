@@ -16,6 +16,7 @@ pub use effects::effects;
 pub mod service;
 pub use service::Service;
 
+pub mod consensus;
 pub mod event_source;
 pub mod logger;
 pub mod p2p;

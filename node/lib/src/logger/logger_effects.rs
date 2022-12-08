@@ -1,12 +1,12 @@
-use snark::block_verify::SnarkBlockVerifyAction;
-use snark::SnarkAction;
-
+use crate::action::ConsensusAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::pubsub::{GossipNetMessageV2, P2pPubsubAction};
 use crate::p2p::rpc::outgoing::P2pRpcOutgoingAction;
 use crate::p2p::rpc::P2pRpcAction;
 use crate::p2p::P2pAction;
+use crate::snark::block_verify::SnarkBlockVerifyAction;
+use crate::snark::SnarkAction;
 use crate::{Action, ActionWithMetaRef, Service, Store};
 
 fn gossipnet_message_summary(msg: &GossipNetMessageV2) -> String {
@@ -119,6 +119,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 SnarkBlockVerifyAction::Init(action) => {
                     let height = action
                         .block
+                        .header
                         .protocol_state
                         .body
                         .consensus_state
@@ -139,6 +140,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     let block = job.block();
 
                     let height = block
+                        .header
                         .protocol_state
                         .body
                         .consensus_state
@@ -160,6 +162,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     let block = job.block();
 
                     let height = block
+                        .header
                         .protocol_state
                         .body
                         .consensus_state
@@ -176,6 +179,21 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 }
                 _ => {}
             },
+        },
+        Action::Consensus(a) => match a {
+            ConsensusAction::BestTipUpdate(_) => {
+                let prev = store.state().consensus.previous_best_tip();
+                let tip = store.state().consensus.best_tip();
+                shared::log::info!(
+                    meta.time();
+                    kind = "ConsensusBestTipTransition",
+                    summary = format!("old_height: {:?}, new_height: {:?}", prev.map(|b| b.height()), tip.map(|b| b.height())),
+                    old_hash = prev.map(|b| b.hash.to_string()),
+                    new_hash = tip.map(|b| b.hash.to_string()),
+                    status = serde_json::to_string(&tip.map(|b| b.status)).ok(),
+                );
+            }
+            _ => {}
         },
         _ => {}
     }
