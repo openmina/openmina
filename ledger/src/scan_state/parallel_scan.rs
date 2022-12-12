@@ -1,5 +1,5 @@
+use std::fmt::Debug;
 use std::ops::ControlFlow;
-use std::{fmt::Debug, rc::Rc};
 
 use sha2::digest::generic_array::GenericArray;
 use sha2::digest::typenum::U32;
@@ -293,33 +293,41 @@ impl<T: Debug> WithVTable<T> for T {
     }
 }
 
+#[derive(Clone, Debug)]
+enum Value<B, M> {
+    Leaf(B),
+    Node(M),
+}
+
 /// A single tree with number of leaves = max_base_jobs = 2**transaction_capacity_log_2
 #[derive(Clone, Debug)]
-enum Tree<B, M> {
-    Leaf(B),
-    Node {
-        depth: u64,
-        value: M,
-        sub_tree: Rc<dyn WithVTable<Tree<(B, B), (M, M)>>>,
-    },
+struct Tree<B, M> {
+    values: Vec<Value<B, M>>,
 }
 
-#[derive(Clone, Debug)]
-struct ParallelScan<BaseJob, MergeJob> {
-    trees: Vec<Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>>,
-    /// last emitted proof and the corresponding transactions
-    acc: Option<(MergeJob, Vec<BaseJob>)>,
-    /// Sequence number for the jobs added every block
-    curr_job_seq_no: SequenceNumber,
-    /// transaction_capacity_log_2
-    max_base_jobs: u64,
-    delay: u64,
-}
+mod btree {
+    pub fn depth_at(index: usize) -> u64 {
+        // Get the depth from its index (in the array)
+        // TODO: Find if there is a faster way to get that
+        let depth = ((index + 1) as f32).log2().floor() as u32;
+        depth as u64
+    }
 
-enum ResetKind {
-    Base,
-    Merge,
-    Both,
+    pub fn child_left(index: usize) -> usize {
+        (index * 2) + 1
+    }
+
+    pub fn child_right(index: usize) -> usize {
+        (index * 2) + 2
+    }
+
+    pub fn parent(index: usize) -> Option<usize> {
+        Some(index.checked_sub(1)? / 2)
+    }
+
+    pub fn range_at_depth(_index: usize) -> std::ops::Range<usize> {
+        todo!() // TODO https://stackoverflow.com/a/45291818/5717561
+    }
 }
 
 impl<B, M> Tree<B, M>
@@ -328,32 +336,22 @@ where
     M: Debug + 'static,
 {
     /// mapi where i is the level of the tree
-    fn map_depth<FunMerge, FunBase>(&self, fun_merge: FunMerge, fun_base: FunBase) -> Self
+    fn map_depth<FunMerge, FunBase>(&self, fun_merge: &FunMerge, fun_base: &FunBase) -> Self
     where
         FunMerge: for<'a> Fn(u64, &'a M) -> M,
         FunBase: for<'a> Fn(&'a B) -> B,
     {
-        match self {
-            Tree::Leaf(base) => Self::Leaf(fun_base(&base)),
-            Tree::Node {
-                depth,
-                value,
-                sub_tree,
-            } => Self::Node {
-                depth: *depth,
-                value: fun_merge(*depth, &value),
-                sub_tree: {
-                    let sub_tree: &Tree<(B, B), (M, M)> = (&**sub_tree).by_ref();
+        let values = self
+            .values
+            .iter()
+            .enumerate()
+            .map(|(index, value)| match value {
+                Value::Leaf(base) => Value::Leaf(fun_base(base)),
+                Value::Node(merge) => Value::Node(fun_merge(btree::depth_at(index), merge)),
+            })
+            .collect();
 
-                    let sub_tree = sub_tree.map_depth(
-                        |i, (x, y)| (fun_merge(i, x), fun_merge(i, y)),
-                        |(x, y)| (fun_base(x), fun_base(y)),
-                    );
-
-                    Rc::new(sub_tree)
-                },
-            },
-        }
+        Self { values }
     }
 
     fn map<FunMerge, FunBase>(&self, fun_merge: FunMerge, fun_base: FunBase) -> Self
@@ -361,44 +359,30 @@ where
         FunMerge: Fn(&M) -> M,
         FunBase: Fn(&B) -> B,
     {
-        self.map_depth(|_, m| fun_merge(m), fun_base)
+        self.map_depth(&|_, m| fun_merge(m), &fun_base)
     }
 
     /// foldi where i is the cur_level
     fn fold_depth_until_prime<Accum, Final, FunMerge, FunBase>(
         &self,
-        fun_merge: FunMerge,
-        fun_base: FunBase,
+        fun_merge: &FunMerge,
+        fun_base: &FunBase,
         init: Accum,
     ) -> ControlFlow<Final, Accum>
     where
         FunMerge: Fn(u64, Accum, &M) -> ControlFlow<Final, Accum>,
         FunBase: Fn(Accum, &B) -> ControlFlow<Final, Accum>,
     {
-        match self {
-            Tree::Leaf(base) => fun_base(init, base),
-            Tree::Node {
-                depth,
-                value,
-                sub_tree,
-            } => {
-                let accum = fun_merge(*depth, init, value)?;
+        let mut accum = init;
 
-                let sub_tree: &Tree<(B, B), (M, M)> = (&**sub_tree).by_ref();
-
-                sub_tree.fold_depth_until_prime(
-                    |i, accum, (x, y)| {
-                        let accum = fun_merge(i, accum, x)?;
-                        fun_merge(i, accum, y)
-                    },
-                    |accum, (x, y)| {
-                        let accum = fun_base(accum, x)?;
-                        fun_base(accum, y)
-                    },
-                    accum,
-                )
-            }
+        for (index, value) in self.values.iter().enumerate() {
+            accum = match value {
+                Value::Leaf(base) => fun_base(accum, base)?,
+                Value::Node(merge) => fun_merge(btree::depth_at(index), accum, merge)?,
+            };
         }
+
+        Continue(accum)
     }
 
     fn fold_depth_until<Accum, Final, FunFinish, FunMerge, FunBase>(
@@ -413,7 +397,7 @@ where
         FunBase: Fn(Accum, &B) -> ControlFlow<Final, Accum>,
         FunFinish: Fn(Accum) -> Final,
     {
-        match self.fold_depth_until_prime(fun_merge, fun_base, init) {
+        match self.fold_depth_until_prime(&fun_merge, &fun_base, init) {
             Continue(accum) => fun_finish(accum),
             Break(value) => value,
         }
@@ -472,124 +456,134 @@ where
 
     fn update_split<Data, FunJobs, FunWeight, FunMerge, FunBase, Weight, R>(
         &self,
-        fun_merge: FunMerge,
-        fun_base: FunBase,
-        weight_merge: FunWeight,
-        jobs: Data,
+        fun_merge: &FunMerge,
+        fun_base: &FunBase,
+        weight_merge: &FunWeight,
+        jobs: &[Data],
         update_level: u64,
-        jobs_split: FunJobs,
+        jobs_split: &FunJobs,
     ) -> Result<(Self, Option<R>), ()>
     where
-        FunMerge: Fn(Data, u64, M) -> Result<(M, Option<R>), ()>,
-        FunBase: Fn(Data, B) -> Result<B, ()>,
+        FunMerge: Fn(&[Data], u64, M) -> Result<(M, Option<R>), ()>,
+        FunBase: Fn(&[Data], B) -> Result<B, ()>,
         FunWeight: Fn(&M) -> (Weight, Weight),
-        FunJobs: Fn((Weight, Weight), Data) -> (Data, Data),
+        FunJobs: Fn((Weight, Weight), &[Data]) -> (&[Data], &[Data]),
         Data: Clone,
         M: Clone,
         B: Clone,
     {
-        match self {
-            Tree::Leaf(d) => {
-                let res = fun_base(jobs, d.clone()).map(Self::Leaf)?;
-                Ok((res, None))
+        let mut values = Vec::with_capacity(self.values.len());
+        let mut jobs_per_index = vec![None; self.values.len()];
+        let mut scan_result = None;
+
+        jobs_per_index[0] = Some(jobs);
+
+        for (index, value) in self.values.iter().enumerate() {
+            let depth = btree::depth_at(index);
+
+            if depth > update_level {
+                values.push(value.clone());
+                continue;
             }
-            Tree::Node {
-                depth,
-                value,
-                sub_tree,
-            } => {
-                let depth = *depth;
-                let (weight_left_subtree, weight_right_subtree) = weight_merge(value);
-                // update the jobs at the current level
-                let (value, scan_result) = fun_merge(jobs.clone(), depth, value.clone())?;
-                // get the updated subtree
-                let sub_tree = if update_level == depth {
-                    Rc::clone(&sub_tree)
-                } else {
-                    // split the jobs for the next level
-                    let new_jobs_list =
-                        jobs_split((weight_left_subtree, weight_right_subtree), jobs);
 
-                    let sub_tree: &Tree<(B, B), (M, M)> = (&**sub_tree).by_ref();
+            let jobs_for_this = jobs_per_index[index].take().unwrap();
 
-                    let sub_tree = sub_tree.update_split(
-                        |(b1, b2), i, (x, y)| {
-                            let left = fun_merge(b1, i, x)?;
-                            let right = fun_merge(b2, i, y)?;
-                            Ok(((left.0, right.0), left.1.zip(right.1)))
-                        },
-                        |(b1, b2), (x, y)| {
-                            let left = fun_base(b1, x)?;
-                            let right = fun_base(b2, y)?;
-                            Ok((left, right))
-                        },
-                        |(a, b)| (weight_merge(a), weight_merge(b)),
-                        new_jobs_list,
-                        update_level,
-                        |(x, y), (a, b)| (jobs_split(x, a), jobs_split(y, b)),
-                    )?;
+            let value = match value {
+                Value::Leaf(base) => Value::Leaf(fun_base(jobs_for_this, base.clone())?),
+                Value::Node(merge) => {
+                    let (jobs_left, jobs_right) = jobs_split(weight_merge(merge), jobs_for_this);
 
-                    Rc::new(sub_tree.0)
-                };
+                    jobs_per_index[btree::child_left(index)] = Some(jobs_left);
+                    jobs_per_index[btree::child_right(index)] = Some(jobs_right);
 
-                Ok((
-                    Self::Node {
-                        depth,
-                        value,
-                        sub_tree,
-                    },
-                    scan_result,
-                ))
-            }
+                    let (value, result) = fun_merge(jobs_for_this, depth, merge.clone())?;
+
+                    if scan_result.is_none() {
+                        scan_result = Some(result);
+                    }
+
+                    Value::Node(value)
+                }
+            };
+
+            values.push(value);
         }
+
+        Ok(((Self { values }), scan_result.flatten()))
     }
 
     fn update_accumulate<Data, FunMerge, FunBase>(
         &self,
-        fun_merge: FunMerge,
-        fun_base: FunBase,
+        fun_merge: &FunMerge,
+        fun_base: &FunBase,
     ) -> (Self, Data)
     where
         FunMerge: Fn((Data, Data), &M) -> (M, Data),
         FunBase: Fn(&B) -> (B, Data),
         Data: Clone,
     {
-        fn transpose<A, B, C, D>((x1, y1): (A, B), (x2, y2): (C, D)) -> ((A, C), (B, D)) {
-            ((x1, x2), (y1, y2))
-        }
+        let mut datas = vec![None; self.values.len()];
 
-        match self {
-            Tree::Leaf(d) => {
-                let (new_base, count_list) = fun_base(d);
-                (Self::Leaf(new_base), count_list)
-            }
-            Tree::Node {
-                depth,
-                value,
-                sub_tree,
-            } => {
-                let sub_tree: &Tree<(B, B), (M, M)> = (&**sub_tree).by_ref();
+        let childs_of = |data: &mut [Option<Data>], index: usize| -> Option<(Data, Data)> {
+            let left = data
+                .get_mut(btree::child_left(index))
+                .and_then(Option::take)?;
+            let right = data
+                .get_mut(btree::child_right(index))
+                .and_then(Option::take)?;
 
-                // get the updated subtree
-                let (sub_tree, counts) = sub_tree.update_accumulate(
-                    |(b1, b2), (x, y)| transpose(fun_merge(b1, x), fun_merge(b2, y)),
-                    |(x, y)| transpose(fun_base(x), fun_base(y)),
-                );
+            Some((left, right))
+        };
 
-                let (value, count_list) = fun_merge(counts, value);
+        let mut values: Vec<_> = self
+            .values
+            .iter()
+            .enumerate()
+            .rev()
+            .map(|(index, value)| match value {
+                Value::Leaf(base) => {
+                    let (new_base, count_list) = fun_base(base);
+                    datas[index] = Some(count_list);
+                    Value::Leaf(new_base)
+                }
+                Value::Node(merge) => {
+                    let (left, right) = childs_of(datas.as_mut(), index).unwrap();
+                    let (value, count_list) = fun_merge((left, right), merge);
+                    datas[index] = Some(count_list);
+                    Value::Node(value)
+                }
+            })
+            .collect();
 
-                let depth = *depth;
-                let sub_tree = Rc::new(sub_tree);
+        values.reverse();
 
-                let tree = Self::Node {
-                    depth,
-                    value,
-                    sub_tree,
-                };
-                (tree, count_list)
-            }
-        }
+        (Self { values }, datas[0].take().unwrap())
     }
+
+    fn iter(&self) -> impl Iterator<Item = (u64, &Value<B, M>)> {
+        self.values
+            .iter()
+            .enumerate()
+            .map(|(index, value)| (btree::depth_at(index), value))
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ParallelScan<BaseJob, MergeJob> {
+    trees: Vec<Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>>,
+    /// last emitted proof and the corresponding transactions
+    acc: Option<(MergeJob, Vec<BaseJob>)>,
+    /// Sequence number for the jobs added every block
+    curr_job_seq_no: SequenceNumber,
+    /// transaction_capacity_log_2
+    max_base_jobs: u64,
+    delay: u64,
+}
+
+enum ResetKind {
+    Base,
+    Merge,
+    Both,
 }
 
 impl<BaseJob, MergeJob> Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>
@@ -617,10 +611,11 @@ where
             let weight = merge_job.weight;
             let m = merge_job.job;
 
-            let (w1, w2) = (&weight.0, &weight.1);
+            let (w1, w2) = &weight;
             let (left, right) = (*lens.get(w1), *lens.get(w2));
 
-            if current_level == update_level - 1 {
+            // println!("current_level={} update_level={}", current_level, update_level);
+            if update_level > 0 && current_level == update_level - 1 {
                 // Create new jobs from the completed ones
                 let (new_weight, new_m) = match (&jobs[..], m) {
                     ([], m) => (weight, m),
@@ -744,7 +739,7 @@ where
                         );
                     }
                 }
-            } else if current_level < update_level - 1 {
+            } else if update_level > 0 && (current_level < update_level - 1) {
                 // Update the job count for all the level above
                 match jobs {
                     [] => Ok((merge::Merge { weight, job: m }, None)),
@@ -773,6 +768,8 @@ where
             let d = base.job;
 
             let weight = lens.get(&w);
+
+            // println!("add_bases jobs={:?} w={}", jobs.len(), weight);
             match (jobs, d) {
                 ([], d) => Ok(base::Base { weight: w, job: d }),
                 ([Base(d)], Empty) => {
@@ -783,7 +780,7 @@ where
                         job: Full(base::Record {
                             job: d.clone(),
                             seq_no: sequence_no.clone(),
-                            state: JobStatus::Done,
+                            state: JobStatus::Todo,
                         }),
                     })
                 }
@@ -808,22 +805,16 @@ where
         };
 
         self.update_split(
-            add_merges,
-            add_bases,
-            |merge| merge.weight.clone(),
+            &add_merges,
+            &add_bases,
+            &|merge| merge.weight.clone(),
             completed_jobs,
             update_level,
-            |(w1, w2), a: &[Job<BaseJob, MergeJob>]| {
+            &|(w1, w2), a: &[Job<BaseJob, MergeJob>]| {
                 let l = *lens.get(&w1) as usize;
                 let r = *lens.get(&w2) as usize;
 
-                fn take<T>(slice: &[T], n: usize) -> &[T] {
-                    slice.get(..n).unwrap_or(slice)
-                }
-
-                fn take_at<T>(slice: &[T], skip: usize, n: usize) -> &[T] {
-                    slice.get(skip..).map(|s| take(s, n)).unwrap_or(&[])
-                }
+                // println!("split l={} r={} len={}", l, r, a.len());
 
                 (take(a, l), take_at(a, l, r))
             },
@@ -862,12 +853,12 @@ where
             let weight = &base.weight;
             let (new_weight, dummy_right_for_base_nodes) = match reset_kind {
                 ResetKind::Merge => (
-                    update_merge_weight(&weight),
-                    set_zero(WeightLens::Merge, &weight),
+                    update_merge_weight(weight),
+                    set_zero(WeightLens::Merge, weight),
                 ),
                 ResetKind::Base => (
-                    update_base_weight(&weight),
-                    set_zero(WeightLens::Base, &weight),
+                    update_base_weight(weight),
+                    set_zero(WeightLens::Base, weight),
                 ),
                 ResetKind::Both => {
                     let w = update_base_weight(weight);
@@ -931,51 +922,72 @@ where
             (merge, ww)
         };
 
-        let (result, _) = self.update_accumulate(fun_merge, fun_base);
+        let (result, _) = self.update_accumulate(&fun_merge, &fun_base);
         result
     }
 
     fn jobs_on_level(&self, depth: u64, level: u64) -> Vec<AvailableJob<BaseJob, MergeJob>> {
         use JobStatus::Todo;
 
+        // self.iter()
+        //     .filter(|(d, _)| *d == depth)
+        //     .filter_map(|(_, value)| match value {
+        //         Value::Leaf(base::Base {
+        //             job:
+        //                 base::Job::Full(base::Record {
+        //                     job, state: Todo, ..
+        //                 }),
+        //             ..
+        //         }) => Some(AvailableJob::Base(job.clone())),
+        //         Value::Node(merge::Merge {
+        //             job:
+        //                 merge::Job::Full(merge::Record {
+        //                     left,
+        //                     right,
+        //                     state: Todo,
+        //                     ..
+        //                 }),
+        //             ..
+        //         }) => Some(AvailableJob::Merge {
+        //             left: left.clone(),
+        //             right: right.clone(),
+        //         }),
+        //         _ => None,
+        //     })
+        //     .collect::<Vec<_>>();
+
         self.fold_depth(
             |i, mut acc, a| {
                 use merge::{Job::Full, Record};
 
-                match (i == level, &a.job) {
-                    (
-                        true,
-                        Full(Record {
-                            left,
-                            right,
-                            state: Todo,
-                            ..
-                        }),
-                    ) => {
-                        let job = AvailableJob::Merge {
-                            left: left.clone(),
-                            right: right.clone(),
-                        };
-                        acc.push(job);
-                    }
-                    _ => {}
+                if let (
+                    true,
+                    Full(Record {
+                        left,
+                        right,
+                        state: Todo,
+                        ..
+                    }),
+                ) = (i == level, &a.job)
+                {
+                    acc.push(AvailableJob::Merge {
+                        left: left.clone(),
+                        right: right.clone(),
+                    });
                 };
                 acc
             },
             |mut acc, d| {
                 use base::{Job::Full, Record};
 
-                match (level == depth, &d.job) {
-                    (
-                        true,
-                        Full(Record {
-                            job, state: Todo, ..
-                        }),
-                    ) => {
-                        let job = AvailableJob::Base(job.clone());
-                        acc.push(job);
-                    }
-                    _ => {}
+                if let (
+                    true,
+                    Full(Record {
+                        job, state: Todo, ..
+                    }),
+                ) = (level == depth, &d.job)
+                {
+                    acc.push(AvailableJob::Base(job.clone()));
                 }
                 acc
             },
@@ -1012,20 +1024,14 @@ where
     fn jobs_records(&self) -> Vec<Job<base::Record<BaseJob>, merge::Record<MergeJob>>> {
         self.fold(
             |mut acc, a: &merge::Merge<MergeJob>| {
-                match &a.job {
-                    merge::Job::Full(x) => {
-                        acc.push(Job::Merge(x.clone()));
-                    }
-                    _ => {}
+                if let merge::Job::Full(x) = &a.job {
+                    acc.push(Job::Merge(x.clone()));
                 }
                 acc
             },
             |mut acc, d: &base::Base<BaseJob>| {
-                match &d.job {
-                    base::Job::Full(j) => {
-                        acc.push(Job::Base(j.clone()));
-                    }
-                    _ => {}
+                if let base::Job::Full(j) = &d.job {
+                    acc.push(Job::Base(j.clone()));
                 }
                 acc
             },
@@ -1077,22 +1083,22 @@ where
     }
 
     fn required_job_count(&self) -> u64 {
-        match self {
-            Tree::Node { value, .. } => {
+        match &self.values[0] {
+            Value::Node(value) => {
                 let (w1, w2) = &value.weight;
                 w1.merge + w2.merge
             }
-            Tree::Leaf(base) => base.weight.merge,
+            Value::Leaf(base) => base.weight.merge,
         }
     }
 
     fn available_space(&self) -> u64 {
-        match self {
-            Tree::Node { value, .. } => {
+        match &self.values[0] {
+            Value::Node(value) => {
                 let (w1, w2) = &value.weight;
                 w1.base + w2.base
             }
-            Tree::Leaf(base) => base.weight.base,
+            Value::Leaf(base) => base.weight.base,
         }
     }
 
@@ -1102,54 +1108,52 @@ where
         merge_job: merge::Job<MergeJob>,
         base_job: base::Job<BaseJob>,
     ) -> Self {
-        fn go<B, M>(d: u64, fun_merge: impl Fn(u64) -> M, base: B, depth: u64) -> Tree<B, M>
-        where
-            B: Debug + Clone + 'static,
-            M: Debug + 'static,
-        {
-            if d >= depth {
-                Tree::Leaf(base)
-            } else {
-                let sub_tree = go(
-                    d + 1,
-                    |i| (fun_merge(i), fun_merge(i)),
-                    (base.clone(), base),
-                    depth,
-                );
-                Tree::Node {
-                    depth: d,
-                    value: fun_merge(d),
-                    sub_tree: Rc::new(sub_tree),
-                }
-            }
-        }
-
         let base_weight = if level == -1 {
             Weight::zero()
         } else {
             Weight { base: 1, merge: 0 }
         };
 
-        go(
-            0,
-            |d: u64| {
-                let weight = if level == -1 {
-                    (Weight::zero(), Weight::zero())
+        let make_base = || base::Base {
+            weight: base_weight.clone(),
+            job: base_job.clone(),
+        };
+
+        let make_merge = |d: u64| {
+            let weight = if level == -1 {
+                (Weight::zero(), Weight::zero())
+            } else {
+                let x = 2u64.pow(level as u32) / 2u64.pow(d as u32 + 1);
+                (Weight { base: x, merge: 0 }, Weight { base: x, merge: 0 })
+            };
+            merge::Merge {
+                weight,
+                job: merge_job.clone(),
+            }
+        };
+
+        let nnodes = 2u64.pow((depth + 1) as u32) - 1;
+
+        let values: Vec<_> = (0..nnodes)
+            .into_iter()
+            .map(|index| {
+                let node_depth = btree::depth_at(index as usize);
+
+                if node_depth == depth {
+                    Value::Leaf(make_base())
                 } else {
-                    let x = 2u64.pow(level as u32) / 2u64.pow(d as u32 + 1);
-                    (Weight { base: x, merge: 0 }, Weight { base: x, merge: 0 })
-                };
-                merge::Merge {
-                    weight,
-                    job: merge_job.clone(),
+                    Value::Node(make_merge(node_depth))
                 }
-            },
-            base::Base {
-                weight: base_weight,
-                job: base_job,
-            },
-            depth,
-        )
+            })
+            .collect();
+
+        // println!("first={:?}", values[0]);
+
+        // println!("nnodes={:?} len={:?} nbases={:?}", nnodes, values.len(), values.iter().filter(|v| {
+        //   matches!(v, Value::Leaf(_))
+        // }).count());
+
+        Self { values }
     }
 
     fn create_tree(depth: u64) -> Self {
@@ -1194,6 +1198,8 @@ where
 
     fn empty(max_base_jobs: u64, delay: u64) -> Self {
         let depth = ceil_log2(max_base_jobs);
+        println!("empty depth={:?}", depth);
+
         let first_tree = Tree::create_tree(depth);
 
         let mut trees = Vec::with_capacity(32);
@@ -1216,7 +1222,7 @@ where
         let trees = self
             .trees
             .iter()
-            .map(|tree| tree.map_depth(|_, m| m.map(&f1), |a| a.map(&f2)))
+            .map(|tree| tree.map_depth(&|_, m| m.map(&f1), &|a| a.map(&f2)))
             .collect();
 
         let acc = self
@@ -1261,6 +1267,7 @@ where
             BaseJob: Debug + Clone + 'static,
             MergeJob: Debug + Clone + 'static,
         {
+            // println!("hashable_jobs={:?}", tree.to_hashable_jobs().len());
             for job in tree.to_hashable_jobs() {
                 match &job {
                     Job::Base(base) => fun_base(sha, base),
@@ -1282,6 +1289,7 @@ where
                 match &m.job {
                     merge::Job::Empty => {
                         let s = format!("{}Empty", ww_to_string(w));
+                        // println!("s={}", s);
                         sha.update(s);
                     }
                     merge::Job::Full(merge::Record {
@@ -1291,12 +1299,14 @@ where
                         state,
                     }) => {
                         let s = format!("{}Full{}{}", ww_to_string(w), seq_no.0, state.to_string());
+                        // println!("s={}", s);
                         sha.update(s);
                         sha.update(fun_merge(left));
                         sha.update(fun_merge(right));
                     }
                     merge::Job::Part(j) => {
                         let s = format!("{}Part", ww_to_string(w));
+                        // println!("s={}", s);
                         sha.update(s);
                         sha.update(fun_merge(j));
                     }
@@ -1308,10 +1318,13 @@ where
 
                 match &m.job {
                     base::Job::Empty => {
-                        sha.update(format!("{}Empty", w_to_string(w)));
+                        let s = format!("{}Empty", w_to_string(w));
+                        // println!("s={}", s);
+                        sha.update(s);
                     }
                     base::Job::Full(base::Record { job, seq_no, state }) => {
                         let s = format!("{}Full{}{}", w_to_string(w), seq_no.0, state.to_string());
+                        // println!("s={}", s);
                         sha.update(s);
                         sha.update(fun_base(job));
                     }
@@ -1330,12 +1343,17 @@ where
                     s.push_str(&fun_base(j));
                 }
 
+                // println!("acc={}", s);
+
                 sha.update(s);
             }
             None => {
+                // println!("acc=None");
                 sha.update("None");
             }
         };
+
+        // println!("curr_job_seq_no={} max_base_jobs={} delay={}", curr_job_seq_no.0, max_base_jobs, delay);
 
         sha.update(format!("{}", curr_job_seq_no.0));
         sha.update(format!("{}", max_base_jobs));
@@ -1359,7 +1377,7 @@ where
         let mut accum = init;
 
         for tree in self.trees.iter().rev() {
-            match tree.fold_depth_until_prime(|_, acc, m| fun_merge(acc, m), &fun_base, accum) {
+            match tree.fold_depth_until_prime(&|_, acc, m| fun_merge(acc, m), &fun_base, accum) {
                 Continue(acc) => accum = acc,
                 Break(v) => return v,
             }
@@ -1399,7 +1417,9 @@ where
             WorkForTree::Next => &self.trees,
         };
 
-        work(trees, self.max_base_jobs, delay)
+        // println!("WORK_FOR_TREE len={} delay={}", trees.len(), delay);
+
+        work(trees, delay, self.max_base_jobs)
     }
 
     /// work on all the level and all the trees
@@ -1407,16 +1427,30 @@ where
         let depth = ceil_log2(self.max_base_jobs);
         // TODO: Not sure if it's correct
         let set1 = self.work_for_tree(WorkForTree::Current);
+        // let setaaa = self.work_for_tree(WorkForTree::Next);
+
+        println!(
+            "ntrees={} delay={} set1={}",
+            self.trees.len(),
+            self.delay,
+            set1.len()
+        );
+        // println!("ntrees={} set1={} setaa={}", self.trees.len(), set1.len(), setaaa.len());
 
         let mut this = self.clone();
         this.trees.reserve(self.delay as usize + 1);
+
+        // println!("set1={:?}", set1.len());
 
         let mut other_set = Vec::with_capacity(256);
         other_set.push(set1);
 
         for _ in 0..self.delay + 1 {
+            println!("trees={}", this.trees.len());
             this.trees.insert(0, Tree::create_tree(depth));
             let work = this.work_for_tree(WorkForTree::Current);
+
+            println!("work={}", work.len());
 
             if !work.is_empty() {
                 other_set.push(work);
@@ -1425,6 +1459,32 @@ where
 
         other_set
     }
+
+    // let all_work :
+    //     type merge base. (merge, base) t -> (merge, base) Available_job.t list list
+    //     =
+    //  fun t ->
+    //   let depth = Int.ceil_log2 t.max_base_jobs in
+    //   Printf.eprintf "ntrees=%d\n%!" (Non_empty_list.length t.trees);
+    //   let set1 = work_for_tree t ~data_tree:`Current in
+    //   let _, other_sets =
+    //     List.fold ~init:(t, [])
+    //       (List.init ~f:Fn.id (t.delay + 1))
+    //       ~f:(fun (t, work_list) _ ->
+    //         Printf.eprintf "trees=%d\n%!" (Non_empty_list.length t.trees);
+    //         let trees' = Non_empty_list.cons (create_tree ~depth) t.trees in
+    //         let t' = { t with trees = trees' } in
+    //         let work = work_for_tree t' ~data_tree:`Current in
+    //         Printf.eprintf "work=%d\n%!" (List.length work);
+    //         match work_for_tree t' ~data_tree:`Current with
+    //         | [] ->
+    //             (t', work_list)
+    //         | work ->
+    //             (t', work :: work_list) )
+    //   in
+    //   Printf.eprintf "set1=%d\n%!" (List.length set1);
+    //   if List.is_empty set1 then List.rev other_sets
+    //   else set1 :: List.rev other_sets
 
     fn work_for_next_update(&self, data_count: u64) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
         let delay = self.delay + 1;
@@ -1481,7 +1541,7 @@ where
         let jobs_required = self.work_for_tree(WorkForTree::Current);
 
         assert!(
-            merge_jobs.len() > jobs_required.len(),
+            merge_jobs.len() <= jobs_required.len(),
             "More work than required"
         );
 
@@ -1564,10 +1624,17 @@ where
         let available_space = tree.available_space() as usize;
 
         assert!(
-            data_len > available_space,
+            data_len <= available_space,
             "Data count ({}) exceeded available space ({})",
             data_len,
             available_space
+        );
+
+        println!(
+            "base_jobs={:?} available_space={:?} depth={:?}",
+            base_jobs.len(),
+            available_space,
+            depth
         );
 
         let (tree, _) = tree
@@ -1579,7 +1646,7 @@ where
             )
             .expect("Error while adding a base job to the tree");
 
-        let mut updated_trees = if data_len == available_space {
+        let updated_trees = if data_len == available_space {
             let new_tree = Tree::create_tree(depth);
             let tree = tree.reset_weights(ResetKind::Both);
             vec![new_tree, tree]
@@ -1588,8 +1655,25 @@ where
             vec![tree]
         };
 
-        // TODO: Not sure if `Non_empty_list.append` is correct here
-        self.trees.append(&mut updated_trees);
+        println!(
+            "updated_trees={} self_trees={:?}",
+            updated_trees.len(),
+            self.trees.len()
+        );
+
+        // println!("WORK1={:?}", work(updated_trees.as_slice(), self.delay + 1, self.max_base_jobs));
+        // println!("WORK2={:?}", work(self.trees.as_slice(), self.delay + 1, self.max_base_jobs));
+
+        // self.trees.append(&mut updated_trees);
+
+        // let tail = &self.trees[1..];
+        // self.trees = updated_trees.into_iter().zip(tail.iter().cloned().collect()).collect();
+
+        let mut old = std::mem::replace(&mut self.trees, updated_trees);
+        old.remove(0);
+        self.trees.append(&mut old);
+
+        // println!("WORK3={:?}", work(self.trees.as_slice(), self.delay + 1, self.max_base_jobs));
 
         Ok(())
     }
@@ -1670,25 +1754,27 @@ where
         let data_count = data.len() as u64;
 
         assert!(
-            data_count > self.max_base_jobs,
+            data_count <= self.max_base_jobs,
             "Data count ({}) exceeded maximum ({})",
             data_count,
             self.max_base_jobs
         );
 
-        let required_jobs: Vec<_> = self
+        let required_jobs_count = self
             .work_for_next_update(data_count)
             .into_iter()
             .flatten()
-            .collect();
+            .count();
 
         {
-            let required = (required_jobs.len() + 1) / 2;
+            let required = (required_jobs_count + 1) / 2;
             let got = (completed_jobs.len() + 1) / 2;
+
+            println!("required={:?} got={:?}", required, got);
 
             let max_base_jobs = self.max_base_jobs as usize;
             assert!(
-                got < required && data.len() > max_base_jobs - required + got,
+                !(got < required && data.len() > max_base_jobs - required + got),
                 "Insufficient jobs (Data count {}): Required- {} got- {}",
                 data_count,
                 required,
@@ -1710,9 +1796,25 @@ where
         // This also requires merge jobs to be done on two different set of trees*)
 
         let (data1, data2) = split(&data, available_space as usize);
+
+        println!(
+            "delay={} available_space={} data1={} data2={}",
+            delay,
+            available_space,
+            data1.len(),
+            data2.len()
+        );
+
         let required_jobs_for_current_tree =
             work(&self.trees[1..], delay, self.max_base_jobs).len();
         let (jobs1, jobs2) = split(&completed_jobs, required_jobs_for_current_tree);
+
+        println!(
+            "required_jobs_for_current_tree={} jobs1={} jobs2={}",
+            required_jobs_for_current_tree,
+            jobs1.len(),
+            jobs2.len()
+        );
 
         // update first set of jobs and data
         let result_opt = self.add_merge_jobs(jobs1)?;
@@ -1729,7 +1831,7 @@ where
         };
 
         assert!(
-            self.trees.len() > self.max_trees() as usize,
+            self.trees.len() <= self.max_trees() as usize,
             "Tree list length ({}) exceeded maximum ({})",
             self.trees.len(),
             self.max_trees()
@@ -1877,7 +1979,12 @@ where
 {
     let depth = ceil_log2(max_base_jobs);
 
+    let trees: Vec<_> = trees.collect();
+
+    println!("work_to_do length={}", trees.len());
+
     trees
+        .iter()
         .enumerate()
         .flat_map(|(i, tree)| {
             let level = depth - i as u64;
@@ -1899,6 +2006,8 @@ where
     let depth = ceil_log2(max_base_jobs) as usize;
     let delay = delay as usize;
 
+    println!("WORK_DELAY={}", delay);
+
     let work_trees = trees
         .into_iter()
         .enumerate()
@@ -1912,6 +2021,14 @@ where
         .take(depth + 1);
 
     work_to_do(work_trees, max_base_jobs)
+}
+
+fn take<T>(slice: &[T], n: usize) -> &[T] {
+    slice.get(..n).unwrap_or(slice)
+}
+
+fn take_at<T>(slice: &[T], skip: usize, n: usize) -> &[T] {
+    slice.get(skip..).map(|s| take(s, n)).unwrap_or(&[])
 }
 
 fn ceil_log2(n: u64) -> u64 {
@@ -1943,15 +2060,29 @@ fn assert_job_count<B, M>(
     B: Debug + Clone + 'static,
     M: Debug + Clone + 'static,
 {
+    // println!("s1={:#?}", s1);
+    // println!("s2={:?}", s2);
+
     let (todo_before, done_before) = s1.job_count();
     let (todo_after, done_after) = s2.job_count();
+
+    println!(
+        "before todo={:?} done={:?}",
+        s1.job_count().0,
+        s1.job_count().1
+    );
+    println!(
+        "after  todo={:?} done={:?}",
+        s2.job_count().0,
+        s2.job_count().1
+    );
 
     // ordered list of jobs that is actually called when distributing work
     let all_jobs = flatten(s2.all_jobs());
 
     // list of jobs
 
-    let all_jobs_expected = s2
+    let all_jobs_expected_count = s2
         .trees
         .iter()
         .fold(Vec::with_capacity(s2.trees.len()), |mut acc, tree| {
@@ -1971,9 +2102,15 @@ fn assert_job_count<B, M>(
             }) => true,
             _ => false,
         })
-        .collect::<Vec<_>>();
+        .count();
 
-    assert_eq!(all_jobs.len(), all_jobs_expected.len());
+    println!(
+        "all_jobs={} all_jobs_expected={}",
+        all_jobs.len(),
+        all_jobs_expected_count
+    );
+
+    assert_eq!(all_jobs.len(), all_jobs_expected_count);
 
     let expected_todo_after = {
         let new_jobs = if value_emitted {
@@ -2006,8 +2143,15 @@ where
     B: Debug + Clone + 'static,
     M: Debug + Clone + 'static,
 {
+    println!(
+        "completed_jobs_len={:?} data_len={:?}",
+        completed_jobs.len(),
+        data.len()
+    );
     let mut s2 = s1.clone();
     let result_opt = s2.update(data.clone(), completed_jobs.clone()).unwrap();
+
+    // println!("hash_s1={:?}", hash(&s1));
 
     assert_job_count(
         &s1,
@@ -2019,8 +2163,18 @@ where
     (result_opt, s2)
 }
 
+fn int_to_string(u: &usize) -> String {
+    u.to_string()
+}
+
+fn hash(state: &ParallelScan<usize, usize>) -> String {
+    hex::encode(state.hash(int_to_string, int_to_string))
+}
+
 #[cfg(test)]
 mod tests {
+    use rand::{distributions::Standard, prelude::Distribution, Rng};
+
     use super::*;
 
     #[test]
@@ -2037,10 +2191,21 @@ mod tests {
     fn always_max_base_jobs() {
         const MAX_BASE_JOS: u64 = 512;
 
+        // let int_to_string = |i: &usize| i.to_string();
+
+        let state = ParallelScan::<usize, usize>::empty(8, 3);
+        // println!("STATE len={:?} ={:#?}", state.trees.len(), state);
+        println!("hash={:?}", hash(&state));
+
         let mut state = ParallelScan::<usize, usize>::empty(MAX_BASE_JOS, 3);
-        let mut expected_result: Vec<Vec<usize>> = vec![vec![]];
+        let mut expected_result: Vec<Vec<usize>> = vec![];
+
+        // println!("hash={:?}", hex::encode(state.hash(int_to_string, int_to_string)));
+        // println!("hash={:?}", state.hash(int_to_string, int_to_string));
 
         for i in 0..100 {
+            println!("####### LOOP {:?} #########", i);
+
             let data: Vec<_> = (0..MAX_BASE_JOS as usize)
                 .into_iter()
                 .map(|j| i + j)
@@ -2062,12 +2227,24 @@ mod tests {
                 })
                 .collect();
 
+            println!("work={:?} new_merges={:?}", work.len(), new_merges.len());
+            println!("hash_s1={:?}", hash(&state));
+
+            // let mut s2 = state.clone();
+            // let result_opt = s2.update(data.clone(), new_merges.clone()).unwrap();
+            // println!("hash_s2={:?}", hash(&s2));
+
             let (result_opt, s) = test_update(state, data, new_merges);
+
+            // assert!(result_opt.is_none());
 
             let (expected_result_, remaining_expected_results) = {
                 match result_opt {
                     None => ((0, vec![]), expected_result.clone()),
-                    Some(_) => {
+                    Some(ref r) => {
+                        println!("RESULT_OPT.0={} len={}", r.0, r.1.len());
+                        // println!("expected_result={:?}", expected_result);
+                        // Printf.eprintf "RESULT_OPT.0=%d len=%d\n%!" a (List.length l);
                         if expected_result.is_empty() {
                             ((0, vec![]), vec![])
                         } else {
@@ -2081,49 +2258,199 @@ mod tests {
             };
 
             assert_eq!(
-                result_opt.unwrap_or(expected_result_.clone()),
-                expected_result_
+                result_opt.as_ref().unwrap_or(&expected_result_),
+                &expected_result_
             );
 
             expected_result = remaining_expected_results;
             state = s;
         }
     }
+
+    #[test]
+    fn random_base_jobs() {
+        const MAX_BASE_JOS: usize = 512;
+
+        let mut state = ParallelScan::<usize, usize>::empty(MAX_BASE_JOS as u64, 3);
+        let mut rng = rand::thread_rng();
+        let expected_result = (MAX_BASE_JOS, vec![1usize; MAX_BASE_JOS]);
+
+        for _ in 0..1_000 {
+            let mut data = vec![1; rng.gen_range(0..=30)];
+            data.truncate(MAX_BASE_JOS);
+            let data_len = data.len();
+
+            println!("list_length={}", data_len);
+
+            let work: Vec<_> = state
+                .work_for_next_update(data_len as u64)
+                .into_iter()
+                .flatten()
+                .take(data_len * 2)
+                .collect();
+            let new_merges: Vec<_> = work
+                .iter()
+                .map(|job| match job {
+                    AvailableJob::Base(i) => *i,
+                    AvailableJob::Merge { left, right } => left + right,
+                })
+                .collect();
+
+            let (result_opt, s) = test_update(state, data, new_merges);
+
+            assert_eq!(
+                result_opt.as_ref().unwrap_or(&expected_result),
+                &expected_result
+            );
+
+            state = s;
+        }
+    }
+
+    fn gen<FunDone, FunAcc, B, M>(fun_job_done: FunDone, fun_acc: FunAcc) -> ParallelScan<B, M>
+    where
+        FunDone: Fn(&AvailableJob<B, M>) -> M,
+        FunAcc: Fn(Option<(M, Vec<B>)>, (M, Vec<B>)) -> Option<(M, Vec<B>)>,
+        B: Debug + Clone + 'static,
+        M: Debug + Clone + 'static,
+        Standard: Distribution<B>,
+    {
+        let mut rng = rand::thread_rng();
+
+        let depth = rng.gen_range(2..=5);
+        let delay = rng.gen_range(0..=3);
+
+        let max_base_jobs = 2u64.pow(depth);
+
+        let mut s = ParallelScan::<B, M>::empty(max_base_jobs, delay);
+
+        let ndatas = rng.gen_range(1..=20);
+        let datas: Vec<Vec<B>> = (1..ndatas)
+            .map(|_| {
+                std::iter::repeat_with(|| rng.gen())
+                    .take(max_base_jobs as usize)
+                    .collect()
+            })
+            .collect();
+
+        for data in datas {
+            let jobs = flatten(s.work_for_next_update(data.len() as u64));
+
+            let jobs_done: Vec<M> = jobs.iter().map(&fun_job_done).collect();
+            let old_tuple = s.acc.clone();
+
+            let res_opt = s.update(data, jobs_done).unwrap();
+
+            if let Some(res) = res_opt {
+                let tuple = if old_tuple.is_some() {
+                    old_tuple
+                } else {
+                    s.acc.clone()
+                };
+
+                s.acc = fun_acc(tuple, res);
+            }
+        }
+
+        s
+    }
+
+    fn fun_merge_up(
+        state: Option<(usize, Vec<usize>)>,
+        mut x: (usize, Vec<usize>),
+    ) -> Option<(usize, Vec<usize>)> {
+        let mut acc = state?;
+        acc.1.append(&mut x.1);
+        Some((acc.0 + x.0, acc.1))
+    }
+
+    fn job_done(job: &AvailableJob<usize, usize>) -> usize {
+        match job {
+            AvailableJob::Base(x) => *x,
+            AvailableJob::Merge { left, right } => left + right,
+        }
+    }
+
+    #[test]
+    fn split_on_if_enqueuing_onto_the_next_queue() {
+        let mut rng = rand::thread_rng();
+
+        let p = 4;
+        let max_base_jobs = 2u64.pow(p);
+
+        for _ in 0..100000 {
+            let state = ParallelScan::<usize, usize>::empty(max_base_jobs, 1);
+            println!("hash_state={:?}", hash(&state));
+            let i = rng.gen_range(0..max_base_jobs);
+
+            let data: Vec<usize> = (0..i as usize).collect();
+
+            let partition = state.partition_if_overflowing();
+            let jobs = flatten(state.work_for_next_update(data.len() as u64));
+
+            let jobs_done: Vec<usize> = jobs.iter().map(job_done).collect();
+
+            let tree_count_before = state.trees.len();
+
+            let (_, s) = test_update(state, data, jobs_done);
+
+            println!("second={:?}", partition.second.is_some());
+
+            match partition.second {
+                None => {
+                    let tree_count_after = s.trees.len();
+                    let expected_tree_count = if partition.first.0 == i {
+                        tree_count_before + 1
+                    } else {
+                        tree_count_before
+                    };
+                    assert_eq!(tree_count_after, expected_tree_count);
+                }
+                Some(_) => {
+                    let tree_count_after = s.trees.len();
+                    let expected_tree_count = if i > partition.first.0 {
+                        tree_count_before + 1
+                    } else {
+                        tree_count_before
+                    };
+                    assert_eq!(tree_count_after, expected_tree_count);
+                }
+            }
+
+            // state = s;
+        }
+    }
 }
 
-// let%test_unit "always max base jobs" =
-//   let max_base_jobs = 512 in
-//   let state = empty ~max_base_jobs ~delay:3 in
-//   let _t' =
-//     List.foldi ~init:([], state) (List.init 100 ~f:Fn.id)
-//       ~f:(fun i (expected_results, t) _ ->
-//         let data = List.init max_base_jobs ~f:(fun j -> i + j) in
-//         let expected_results = data :: expected_results in
-//         let work =
-//           work_for_next_update t ~data_count:(List.length data)
-//           |> List.concat
-//         in
-//         let new_merges =
-//           List.map work ~f:(fun job ->
-//               match job with Base i -> i | Merge (i, j) -> i + j )
-//         in
-//         let result_opt, t' =
-//           test_update ~data ~completed_jobs:new_merges t
-//         in
-//         let expected_result, remaining_expected_results =
-//           Option.value_map result_opt
-//             ~default:((0, []), expected_results)
-//             ~f:(fun _ ->
-//               match List.rev expected_results with
-//               | [] ->
-//                   ((0, []), [])
-//               | x :: xs ->
-//                   ((List.sum (module Int) x ~f:Fn.id, x), List.rev xs) )
-//         in
-//         assert (
-//           [%equal: int * int list]
-//             (Option.value ~default:expected_result result_opt)
-//             expected_result ) ;
-//         (remaining_expected_results, t') )
-//   in
-//   ()
+// let%test_unit "Split only if enqueuing onto the next queue" =
+//   let p = 4 in
+//   let max_base_jobs = Int.pow 2 p in
+//   let g = Int.gen_incl 0 max_base_jobs in
+//   let state = State.empty ~max_base_jobs ~delay:1 in
+//   Quickcheck.test g ~trials:1000 ~f:(fun i ->
+//       let data = List.init i ~f:Int64.of_int in
+//       let partition = partition_if_overflowing state in
+//       let jobs =
+//         List.concat
+//         @@ work_for_next_update state ~data_count:(List.length data)
+//       in
+//       let jobs_done = List.map jobs ~f:job_done in
+//       let tree_count_before = Non_empty_list.length state.trees in
+//       let _, state =
+//         test_update ~data state ~completed_jobs:jobs_done
+//       in
+//       match partition.second with
+//       | None ->
+//           let tree_count_after = Non_empty_list.length state.trees in
+//           let expected_tree_count =
+//             if i = fst partition.first then tree_count_before + 1
+//             else tree_count_before
+//           in
+//           assert (tree_count_after = expected_tree_count)
+//       | Some _ ->
+//           let tree_count_after = Non_empty_list.length state.trees in
+//           let expected_tree_count =
+//             if i > fst partition.first then tree_count_before + 1
+//             else tree_count_before
+//           in
+//           assert (tree_count_after = expected_tree_count) )
