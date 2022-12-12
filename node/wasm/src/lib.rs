@@ -84,7 +84,7 @@ impl ManualConnector {
 ///
 /// Doesn't exit.
 pub async fn run(mut node: Node) {
-    let target_peer_id = "QmegiCDEULhpyW55B2qQNMSURWBKSR72445DS6JgQsfkPj";
+    let target_peer_id = "QmTyRcQ5oM4ZByekkKyh1EDVNy7Xvh32UdGKAMBqPTiUSR";
     let target_node_addr = format!(
         "/dns4/webrtc.webnode.openmina.com/tcp/443/http/p2p-webrtc-direct/p2p/{}",
         target_peer_id
