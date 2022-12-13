@@ -13,6 +13,8 @@ pub use block::{
     VerifierIndex, VerifierSRS,
 };
 
+pub use merkle_path::{verify_merkle_path, MerklePath};
+
 pub mod block_verify;
 
 mod snark_actions;
