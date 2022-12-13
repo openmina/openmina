@@ -1,4 +1,4 @@
-use std::{borrow::Cow, io::Cursor, str::FromStr};
+use std::{borrow::Cow, fmt::Write, io::Cursor, str::FromStr};
 
 use ark_ff::{Field, One, UniformRand, Zero};
 use binprot::{BinProtRead, BinProtWrite};
@@ -6,7 +6,10 @@ use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, Rng};
 
-use crate::hash::{hash_noinputs, hash_with_kimchi, Inputs};
+use crate::{
+    hash::{hash_noinputs, hash_with_kimchi, Inputs},
+    MerklePath,
+};
 
 use super::common::*;
 
@@ -678,6 +681,26 @@ impl Account {
     }
 }
 
+fn verify_merkle_path(account: &Account, merkle_path: &[MerklePath]) -> Fp {
+    let account_hash = account.hash();
+    let mut param = String::with_capacity(16);
+
+    merkle_path
+        .iter()
+        .enumerate()
+        .fold(account_hash, |accum, (depth, path)| {
+            let hashes = match path {
+                MerklePath::Left(right) => [accum, *right],
+                MerklePath::Right(left) => [*left, accum],
+            };
+
+            param.clear();
+            write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
+
+            crate::hash::hash_with_kimchi(param.as_str(), &hashes)
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use o1_utils::FieldHelpers;
@@ -884,5 +907,35 @@ mod tests {
         let now = std::time::Instant::now();
         db.root_hash();
         elog!("root hash computed in {:?}", now.elapsed());
+    }
+
+    #[test]
+    fn test_verify_merkle_path() {
+        let mut account = Account::empty();
+        account.token_id = 202.into();
+        account.token_symbol = "token".to_string();
+
+        let f = |s: &str| Fp::from_str(s).unwrap();
+
+        let merkle_path = [
+            MerklePath::Right(f(
+                "18227536250766436420332506719307927763848621557295827586492752720030361639151",
+            )),
+            MerklePath::Left(f(
+                "19058089777055582893709373756417201639841391101434051152781561397928725072682",
+            )),
+            MerklePath::Left(f(
+                "14567363183521815157220528341758405505341431484217567976728226651987143469014",
+            )),
+            MerklePath::Left(f(
+                "24964477018986196734411365850696768955131362119835160146013237098764675419844",
+            )),
+        ];
+
+        let root_hash = verify_merkle_path(&account, &merkle_path[..]);
+        let expected_root_hash =
+            f("15669071938119177277046978685444858793777121704378331620682194305905804366005");
+
+        assert_eq!(root_hash, expected_root_hash);
     }
 }
