@@ -1,5 +1,6 @@
 mod block;
 pub mod hash;
+mod merkle_path;
 mod public_input;
 pub mod utils;
 
