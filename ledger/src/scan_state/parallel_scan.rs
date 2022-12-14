@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
+use std::io::Write;
 use std::ops::ControlFlow;
 
 use sha2::digest::generic_array::GenericArray;
@@ -43,7 +44,7 @@ enum JobStatus {
 }
 
 impl JobStatus {
-    fn to_string(&self) -> &'static str {
+    fn as_str(&self) -> &'static str {
         match self {
             JobStatus::Todo => "Todo",
             JobStatus::Done => "Done",
@@ -1301,8 +1302,8 @@ where
         fun_base: FunBase,
     ) -> GenericArray<u8, U32>
     where
-        FunMerge: Fn(&MergeJob) -> String,
-        FunBase: Fn(&BaseJob) -> String,
+        FunMerge: Fn(&mut Vec<u8>, &MergeJob),
+        FunBase: Fn(&mut Vec<u8>, &BaseJob),
     {
         let Self {
             trees,
@@ -1312,41 +1313,60 @@ where
             delay,
         } = self.with_leaner_trees();
 
-        fn tree_hash<BaseJob, MergeJob, F1, F2>(
-            tree: &Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>,
-            sha: &mut Sha256,
-            mut fun_merge: F1,
-            mut fun_base: F2,
-        ) where
-            F1: FnMut(&mut Sha256, &merge::Merge<MergeJob>),
-            F2: FnMut(&mut Sha256, &base::Base<BaseJob>),
-            BaseJob: Debug + Clone + 'static,
-            MergeJob: Debug + Clone + 'static,
-        {
-            // println!("hashable_jobs={:?}", tree.to_hashable_jobs().len());
-            for job in tree.to_hashable_jobs() {
-                match &job {
-                    Job::Base(base) => fun_base(sha, base),
-                    Job::Merge(merge) => fun_merge(sha, merge),
-                }
-            }
-        }
-
         let mut sha: Sha256 = Sha256::new();
+        let mut buffer = Vec::with_capacity(128 * 1024);
+        let buffer = &mut buffer;
 
-        trees.iter().for_each(|tree| {
-            let w_to_string = |w: &Weight| format!("{}{}", w.base, w.merge);
-            let ww_to_string =
-                |(w1, w2): &(Weight, Weight)| format!("{}{}", w_to_string(w1), w_to_string(w2));
+        let add_weight =
+            |buffer: &mut Vec<u8>, w: &Weight| write!(buffer, "{}{}", w.base, w.merge).unwrap();
 
-            let fun_merge = |sha: &mut Sha256, m: &merge::Merge<MergeJob>| {
-                let w = &m.weight;
+        let add_two_weights = |buffer: &mut Vec<u8>, (w1, w2): &(Weight, Weight)| {
+            add_weight(buffer, w1);
+            add_weight(buffer, w2);
+        };
 
-                match &m.job {
+        let call_fun_merge = |buffer: &mut Vec<u8>, fun_merge: &FunMerge, job: &MergeJob| {
+            buffer.clear();
+            fun_merge(buffer, job);
+        };
+
+        let call_fun_base = |buffer: &mut Vec<u8>, fun_base: &FunBase, job: &BaseJob| {
+            buffer.clear();
+            fun_base(buffer, job);
+        };
+
+        for job in trees.iter().flat_map(|tree| tree.to_hashable_jobs()) {
+            buffer.clear();
+
+            match &job {
+                Job::Base(base) => match &base.job {
+                    base::Job::Empty => {
+                        add_weight(buffer, &base.weight);
+                        write!(buffer, "Empty").unwrap();
+                        sha.update(buffer.as_slice());
+                    }
+                    base::Job::Full(base::Record { job, seq_no, state }) => {
+                        add_weight(buffer, &base.weight);
+                        write!(buffer, "Full{}{}", seq_no.0, state.as_str()).unwrap();
+                        sha.update(buffer.as_slice());
+
+                        call_fun_base(buffer, &fun_base, job);
+                        sha.update(buffer.as_slice());
+                    }
+                },
+                Job::Merge(merge) => match &merge.job {
                     merge::Job::Empty => {
-                        let s = format!("{}Empty", ww_to_string(w));
-                        // println!("s={}", s);
-                        sha.update(s);
+                        add_two_weights(buffer, &merge.weight);
+                        write!(buffer, "Empty").unwrap();
+                        sha.update(buffer.as_slice());
+                    }
+                    merge::Job::Part(job) => {
+                        add_two_weights(buffer, &merge.weight);
+                        write!(buffer, "Part").unwrap();
+                        sha.update(buffer.as_slice());
+
+                        call_fun_merge(buffer, &fun_merge, job);
+                        sha.update(buffer.as_slice());
                     }
                     merge::Job::Full(merge::Record {
                         left,
@@ -1354,66 +1374,39 @@ where
                         seq_no,
                         state,
                     }) => {
-                        let s = format!("{}Full{}{}", ww_to_string(w), seq_no.0, state.to_string());
-                        // println!("s={}", s);
-                        sha.update(s);
-                        sha.update(fun_merge(left));
-                        sha.update(fun_merge(right));
-                    }
-                    merge::Job::Part(j) => {
-                        let s = format!("{}Part", ww_to_string(w));
-                        // println!("s={}", s);
-                        sha.update(s);
-                        sha.update(fun_merge(j));
-                    }
-                }
-            };
+                        add_two_weights(buffer, &merge.weight);
+                        write!(buffer, "Full{}{}", seq_no.0, state.as_str()).unwrap();
+                        sha.update(buffer.as_slice());
 
-            let fun_base = |sha: &mut Sha256, m: &base::Base<BaseJob>| {
-                let w = &m.weight;
+                        call_fun_merge(buffer, &fun_merge, left);
+                        sha.update(buffer.as_slice());
 
-                match &m.job {
-                    base::Job::Empty => {
-                        let s = format!("{}Empty", w_to_string(w));
-                        // println!("s={}", s);
-                        sha.update(s);
+                        call_fun_merge(buffer, &fun_merge, right);
+                        sha.update(buffer.as_slice());
                     }
-                    base::Job::Full(base::Record { job, seq_no, state }) => {
-                        let s = format!("{}Full{}{}", w_to_string(w), seq_no.0, state.to_string());
-                        // println!("s={}", s);
-                        sha.update(s);
-                        sha.update(fun_base(job));
-                    }
-                }
-            };
+                },
+            }
+        }
 
-            tree_hash(tree, &mut sha, fun_merge, fun_base);
-        });
-
+        buffer.clear();
         match &acc {
             Some((a, d_lst)) => {
-                let mut s = String::with_capacity(256);
+                fun_merge(buffer, a);
 
-                s.push_str(&fun_merge(a));
                 for j in d_lst {
-                    s.push_str(&fun_base(j));
+                    fun_base(buffer, j);
                 }
 
-                // println!("acc={}", s);
-
-                sha.update(s);
+                sha.update(&buffer);
             }
             None => {
-                // println!("acc=None");
                 sha.update("None");
             }
         };
 
-        // println!("curr_job_seq_no={} max_base_jobs={} delay={}", curr_job_seq_no.0, max_base_jobs, delay);
-
-        sha.update(format!("{}", curr_job_seq_no.0));
-        sha.update(format!("{}", max_base_jobs));
-        sha.update(format!("{}", delay));
+        buffer.clear();
+        write!(buffer, "{}{}{}", curr_job_seq_no.0, max_base_jobs, delay).unwrap();
+        sha.update(&buffer);
 
         sha.finalize()
     }
@@ -2216,8 +2209,12 @@ fn int_to_string(u: &usize) -> String {
     u.to_string()
 }
 
-fn sint_to_string(i: &i64) -> String {
-    i.to_string()
+// fn sint_to_string(i: &i64) -> String {
+//     i.to_string()
+// }
+
+fn sint_to_string(buffer: &mut Vec<u8>, i: &i64) {
+    write!(buffer, "{}", i).unwrap();
 }
 
 fn hash(state: &ParallelScan<i64, i64>) -> String {
