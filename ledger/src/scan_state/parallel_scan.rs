@@ -2254,6 +2254,7 @@ mod tests {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/parallel_scan/parallel_scan.ml#L1525
     #[test]
     fn always_max_base_jobs() {
         const MAX_BASE_JOS: u64 = 512;
@@ -2334,6 +2335,7 @@ mod tests {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/parallel_scan/parallel_scan.ml#L1562
     #[test]
     fn random_base_jobs() {
         const MAX_BASE_JOS: usize = 512;
@@ -2456,6 +2458,9 @@ mod tests {
         }
     }
 
+    /// scan (+) over ints
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/parallel_scan/parallel_scan.ml#L1677
     #[test]
     fn split_on_if_enqueuing_onto_the_next_queue() {
         let mut rng = rand::thread_rng();
@@ -2504,6 +2509,7 @@ mod tests {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/parallel_scan/parallel_scan.ml#L1722
     #[test]
     fn sequence_number_reset() {
         let p = 3;
@@ -2677,6 +2683,7 @@ mod tests {
         rec
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/parallel_scan/parallel_scan.ml#L1803
     #[test]
     fn scan_can_be_initialized_from_intermediate_state() {
         for _ in 0..10 {
@@ -2734,6 +2741,9 @@ mod tests {
         }
     }
 
+    /// scan (+) over ints, map from string
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/parallel_scan/parallel_scan.ml#L1879
     #[test]
     fn scan_behaves_like_a_fold_long_term() {
         fn fun_merge_up(
@@ -2792,6 +2802,10 @@ mod tests {
         assert_eq!(after_3n, expected);
     }
 
+    /// scan performs operation in correct order with \
+    /// non-commutative semigroup
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/parallel_scan/parallel_scan.ml#L1917
     #[test]
     fn scan_concat_over_strings() {
         fn fun_merge_up(
