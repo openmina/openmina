@@ -11,7 +11,7 @@ use ControlFlow::{Break, Continue};
 /// Sequence number for jobs in the scan state that corresponds to the order in
 /// which they were added
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-struct SequenceNumber(u64);
+pub(super) struct SequenceNumber(u64);
 
 impl SequenceNumber {
     fn zero() -> Self {
@@ -38,7 +38,7 @@ impl std::ops::Sub for &'_ SequenceNumber {
 /// Each node on the tree is viewed as a job that needs to be completed. When a
 /// job is completed, it creates a new "Todo" job and marks the old job as "Done"
 #[derive(Clone, Debug)]
-enum JobStatus {
+pub(super) enum JobStatus {
     Todo,
     Done,
 }
@@ -56,7 +56,7 @@ impl JobStatus {
 /// Each node has a weight associated to it and the
 /// new jobs received are distributed across the tree based on this number.
 #[derive(Clone)]
-struct Weight {
+pub(super) struct Weight {
     base: u64,
     merge: u64,
 }
@@ -265,7 +265,7 @@ mod merge {
 
 /// All the jobs on a tree that can be done. Base.Full and Merge.Full
 #[derive(Debug)]
-enum AvailableJob<BaseJob, MergeJob> {
+pub(super) enum AvailableJob<BaseJob, MergeJob> {
     Base(BaseJob),
     Merge { left: MergeJob, right: MergeJob },
 }
@@ -284,7 +284,7 @@ enum Job<BaseJob, MergeJob> {
 /// then remaining number of slots on a new tree and the corresponding
 /// job count.
 #[derive(Debug)]
-struct SpacePartition {
+pub(super) struct SpacePartition {
     first: (u64, u64),
     second: Option<(u64, u64)>,
 }
@@ -626,7 +626,7 @@ where
 }
 
 #[derive(Clone, Debug)]
-struct ParallelScan<BaseJob, MergeJob> {
+pub(super) struct ParallelScan<BaseJob, MergeJob> {
     trees: Vec<Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>>,
     /// last emitted proof and the corresponding transactions
     acc: Option<(MergeJob, Vec<BaseJob>)>,
@@ -637,7 +637,7 @@ struct ParallelScan<BaseJob, MergeJob> {
     delay: u64,
 }
 
-enum ResetKind {
+pub(super) enum ResetKind {
     Base,
     Merge,
     Both,
@@ -1253,7 +1253,7 @@ where
         }
     }
 
-    fn empty(max_base_jobs: u64, delay: u64) -> Self {
+    pub fn empty(max_base_jobs: u64, delay: u64) -> Self {
         let depth = ceil_log2(max_base_jobs);
         // println!("empty depth={:?}", depth);
 
