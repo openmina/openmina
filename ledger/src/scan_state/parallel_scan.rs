@@ -7,8 +7,6 @@ use sha2::digest::typenum::U32;
 use sha2::{Digest, Sha256};
 use ControlFlow::{Break, Continue};
 
-// type ControlFlow<T> = std::ops::ControlFlow<T, T>;
-
 /// Sequence number for jobs in the scan state that corresponds to the order in
 /// which they were added
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -377,8 +375,6 @@ mod btree {
     }
 
     pub fn range_at_depth(depth: u64) -> std::ops::Range<usize> {
-        // https://stackoverflow.com/a/45291818/5717561
-
         if depth == 0 {
             return 0..1;
         }
@@ -2203,15 +2199,8 @@ where
     B: Debug + Clone + 'static,
     M: Debug + Clone + 'static,
 {
-    // println!(
-    //     "completed_jobs_len={:?} data_len={:?}",
-    //     completed_jobs.len(),
-    //     data.len()
-    // );
     let mut s2 = s1.clone();
     let result_opt = s2.update(data.clone(), completed_jobs.clone()).unwrap();
-
-    // println!("hash_s1={:?}", hash(&s1));
 
     assert_job_count(
         s1,
@@ -2239,7 +2228,7 @@ fn hash(state: &ParallelScan<i64, i64>) -> String {
 mod tests {
     use std::sync::{
         atomic::{AtomicBool, Ordering::Relaxed},
-        mpsc::{sync_channel, Receiver, Sender},
+        mpsc::{sync_channel, Receiver, SyncSender},
         Arc,
     };
 
@@ -2589,15 +2578,17 @@ mod tests {
         );
     }
 
-    fn step_on_free_space<F, FAcc>(
-        state: &mut ParallelScan<i64, i64>,
-        w: &Sender<Option<(i64, Vec<i64>)>>,
-        mut ds: Vec<i64>,
+    fn step_on_free_space<F, FAcc, B, M>(
+        state: &mut ParallelScan<B, M>,
+        w: &SyncSender<Option<(M, Vec<B>)>>,
+        mut ds: Vec<B>,
         f: F,
         f_acc: FAcc,
     ) where
-        F: Fn(&AvailableJob<i64, i64>) -> i64,
-        FAcc: Fn(Option<(i64, Vec<i64>)>, (i64, Vec<i64>)) -> Option<(i64, Vec<i64>)>,
+        F: Fn(&AvailableJob<B, M>) -> M,
+        FAcc: Fn(Option<(M, Vec<B>)>, (M, Vec<B>)) -> Option<(M, Vec<B>)>,
+        B: Debug + Clone + 'static,
+        M: Debug + Clone + 'static,
     {
         loop {
             let data = take(&ds, state.max_base_jobs as usize);
@@ -2636,47 +2627,52 @@ mod tests {
         }
     }
 
-    fn do_steps<F, FAcc>(
-        state: &mut ParallelScan<i64, i64>,
-        recv: &Receiver<i64>,
+    fn do_steps<F, FAcc, B, M>(
+        state: &mut ParallelScan<B, M>,
+        recv: &Receiver<B>,
         f: F,
         f_acc: FAcc,
-        w: Sender<Option<(i64, Vec<i64>)>>,
+        w: SyncSender<Option<(M, Vec<B>)>>,
     ) where
-        F: Fn(&AvailableJob<i64, i64>) -> i64,
-        FAcc: Fn(Option<(i64, Vec<i64>)>, (i64, Vec<i64>)) -> Option<(i64, Vec<i64>)>,
+        F: Fn(&AvailableJob<B, M>) -> M,
+        FAcc: Fn(Option<(M, Vec<B>)>, (M, Vec<B>)) -> Option<(M, Vec<B>)>,
+        B: Debug + Clone + 'static,
+        M: Debug + Clone + 'static,
     {
         let data = recv.recv().unwrap();
         step_on_free_space(state, &w, vec![data], &f, &f_acc);
     }
 
-    // fn scan<F, FAcc>(
-    //     data: &[usize],
-    //     depth: u64,
-    //     f: F,
-    //     f_acc: FAcc,
-    // )
-    // where
-    //     F: Fn(&AvailableJob<usize, usize>) -> usize,
-    //     FAcc: Fn(Option<(usize, Vec<usize>)>, (usize, Vec<usize>)) -> Option<(usize, Vec<usize>)>,
-    // {
-    //     let mut s = ParallelScan::<usize, usize>::empty(2u64.pow(depth as u32), 1);
-    //     let mut w: Option<(usize, Vec<usize>)> = None; // TODO
-
-    //     do_steps(&mut s, data, f, f_acc, &w)
-    // }
-
-    fn step_repeatedly<F, FAcc>(
-        state: &mut ParallelScan<i64, i64>,
-        data: &Receiver<i64>,
+    fn scan<F, FAcc, B, M>(
+        s: &mut ParallelScan<B, M>,
+        data: &Receiver<B>,
         f: F,
         f_acc: FAcc,
-    ) -> Receiver<Option<(i64, Vec<i64>)>>
+    ) -> Receiver<Option<(M, Vec<B>)>>
     where
-        F: Fn(&AvailableJob<i64, i64>) -> i64,
-        FAcc: Fn(Option<(i64, Vec<i64>)>, (i64, Vec<i64>)) -> Option<(i64, Vec<i64>)>,
+        F: Fn(&AvailableJob<B, M>) -> M,
+        FAcc: Fn(Option<(M, Vec<B>)>, (M, Vec<B>)) -> Option<(M, Vec<B>)>,
+        B: Debug + Clone + 'static,
+        M: Debug + Clone + 'static,
     {
-        let (send, rec) = std::sync::mpsc::channel::<Option<(i64, Vec<i64>)>>();
+        let (send, rec) = std::sync::mpsc::sync_channel::<Option<(M, Vec<B>)>>(1);
+        do_steps(s, data, f, f_acc, send);
+        rec
+    }
+
+    fn step_repeatedly<F, FAcc, B, M>(
+        state: &mut ParallelScan<B, M>,
+        data: &Receiver<B>,
+        f: F,
+        f_acc: FAcc,
+    ) -> Receiver<Option<(M, Vec<B>)>>
+    where
+        F: Fn(&AvailableJob<B, M>) -> M,
+        FAcc: Fn(Option<(M, Vec<B>)>, (M, Vec<B>)) -> Option<(M, Vec<B>)>,
+        B: Debug + Clone + 'static,
+        M: Debug + Clone + 'static,
+    {
+        let (send, rec) = std::sync::mpsc::sync_channel::<Option<(M, Vec<B>)>>(1);
         do_steps(state, data, f, f_acc, send);
         rec
     }
@@ -2686,12 +2682,9 @@ mod tests {
         for _ in 0..10 {
             let mut state = gen(job_done, fun_merge_up);
 
-            println!("hash_state={:?}", hash(&state));
             println!("state={:#?}", state);
 
             let do_one_next = Arc::new(AtomicBool::new(false));
-
-            // let mut do_one_next = false;
 
             let do_one_next_clone = Arc::clone(&do_one_next);
             let (send, recv) = sync_channel(1);
@@ -2713,14 +2706,9 @@ mod tests {
             let parallelism = state.max_base_jobs * ceil_log2(state.max_base_jobs);
             let old_acc = state.acc.as_ref().cloned().unwrap_or((0, vec![]));
 
-            println!("old={:?}", old_acc.0);
-
-            // let state = Arc::new(Mutex::new(state));
-
             let fill_some_zero =
                 |state: &mut ParallelScan<i64, i64>, v: i64, r: &Receiver<i64>| -> i64 {
                     (0..parallelism * parallelism).fold(v, |acc, _| {
-                        // println!("v={}", acc);
                         let pipe = step_repeatedly(state, r, job_done, fun_merge_up);
 
                         match pipe.recv() {
@@ -2731,58 +2719,139 @@ mod tests {
                     })
                 };
 
-            // println!("state_before={:#?}", state.lock());
-
-            // std::thread::sleep_ms(200);
-
-            // for _ in 0..10 {
             let v = fill_some_zero(&mut state, 0, &one_then_zeros);
-            //     println!("v={}", v);
-            // }
-            // std::thread::sleep_ms(200);
-            println!("hash_state={:?}", hash(&state));
-
-            println!("trees_len={}", state.trees.len());
-
-            // println!("state_after={:#?}", state.lock());
 
             do_one_next.store(true, Relaxed);
 
-            println!("getting acc");
             let acc = { state.acc.clone().unwrap() };
 
-            println!("acc.0={} old_acc.0={}", acc.0, old_acc.0);
             assert_ne!(acc.0, old_acc.0);
 
-            println!("hash_state={:?}", hash(&state));
-
-            println!("V={}", v);
             fill_some_zero(&mut state, v, &one_then_zeros);
-            println!("hash_state={:?}", hash(&state));
 
             let acc_plus_one = { state.acc.unwrap() };
-
-            println!("acc_plus_one.0={}", acc_plus_one.0);
-
-            assert_eq!(acc_plus_one.0, acc.0 + 1);
-
-            // assert (Int64.(equal (fst acc_plus_one) (fst acc + one)))
-
-            // let acc_plus_one = !s.acc |> Option.value_exn in
-
-            println!("OK");
-
-            // assert (not ([%equal: int64] (fst acc) (fst old_acc))) ;
-
-            // let acc = !s.acc |> Option.value_exn in
-
-            // let old_acc =
-            //   !s.acc |> Option.value ~default:Int64.(zero, [])
-            // in
-
-            // let parallelism =
-            //   !s.max_base_jobs * Int.ceil_log2 !s.max_base_jobs
-            // in
+            assert_eq!(acc_plus_one.0, acc.0.wrapping_add(1));
         }
+    }
+
+    #[test]
+    fn scan_behaves_like_a_fold_long_term() {
+        fn fun_merge_up(
+            tuple: Option<(i64, Vec<String>)>,
+            mut x: (i64, Vec<String>),
+        ) -> Option<(i64, Vec<String>)> {
+            let mut acc = tuple?;
+            acc.1.append(&mut x.1);
+
+            Some((acc.0.wrapping_add(x.0), acc.1))
+        }
+
+        fn job_done(job: &AvailableJob<String, i64>) -> i64 {
+            match job {
+                AvailableJob::Base(x) => x.parse().unwrap(),
+                AvailableJob::Merge { left, right } => left.wrapping_add(*right),
+            }
+        }
+
+        let (send, recv) = sync_channel(1);
+
+        let depth = 7;
+        let count: i64 = 1000;
+
+        std::thread::spawn(move || {
+            let mut count = count;
+            let x = count;
+            loop {
+                let next = if count <= 0 {
+                    "0".to_string()
+                } else {
+                    (x - count).to_string()
+                };
+
+                count -= 1;
+
+                if send.send(next).is_err() {
+                    return;
+                }
+            }
+        });
+
+        let mut s = ParallelScan::<String, i64>::empty(2u64.pow(depth as u32), 1);
+
+        let after_3n = (0..4 * count).fold(0i64, |acc, _| {
+            let result = scan(&mut s, &recv, job_done, fun_merge_up);
+            match result.recv() {
+                Ok(Some((v, _))) => v,
+                Ok(None) => acc,
+                Err(_) => acc,
+            }
+        });
+
+        let expected = (0..count).fold(0i64, |a, b| a.wrapping_add(b));
+
+        assert_eq!(after_3n, expected);
+    }
+
+    #[test]
+    fn scan_concat_over_strings() {
+        fn fun_merge_up(
+            tuple: Option<(String, Vec<String>)>,
+            mut x: (String, Vec<String>),
+        ) -> Option<(String, Vec<String>)> {
+            let mut acc = tuple?;
+            acc.1.append(&mut x.1);
+
+            Some((format!("{}{}", acc.0, x.0), acc.1))
+        }
+
+        fn job_done(job: &AvailableJob<String, String>) -> String {
+            match job {
+                AvailableJob::Base(x) => x.clone(),
+                AvailableJob::Merge { left, right } => {
+                    format!("{}{}", left, right)
+                }
+            }
+        }
+
+        let (send, recv) = sync_channel(1);
+
+        let depth = 7;
+        let count: i64 = 100;
+
+        std::thread::spawn(move || {
+            let mut count = count;
+            let x = count;
+            loop {
+                let next = if count <= 0 {
+                    "".to_string()
+                } else {
+                    let n = (x - count).to_string();
+                    format!("{},", n)
+                };
+
+                count -= 1;
+
+                if send.send(next).is_err() {
+                    return;
+                }
+            }
+        });
+
+        let mut s = ParallelScan::<String, String>::empty(2u64.pow(depth as u32), 1);
+
+        let after_3n = (0..42 * count).fold(String::new(), |acc, _| {
+            let result = scan(&mut s, &recv, job_done, fun_merge_up);
+            match result.recv() {
+                Ok(Some((v, _))) => v,
+                Ok(None) => acc,
+                Err(_) => acc,
+            }
+        });
+
+        let expected = (0..count)
+            .map(|i| format!("{},", i))
+            .fold(String::new(), |a, b| format!("{}{}", a, b));
+
+        assert_eq!(after_3n, expected);
     }
 }
