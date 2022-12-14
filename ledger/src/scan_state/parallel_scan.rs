@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::ops::ControlFlow;
 
@@ -55,10 +56,16 @@ impl JobStatus {
 /// The number of new jobs- base and merge that can be added to this tree.
 /// Each node has a weight associated to it and the
 /// new jobs received are distributed across the tree based on this number.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct Weight {
     base: u64,
     merge: u64,
+}
+
+impl Debug for Weight {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{ base: {} merge: {} }}", self.base, self.merge)
+    }
 }
 
 impl Weight {
@@ -300,12 +307,56 @@ enum Value<B, M> {
 }
 
 /// A single tree with number of leaves = max_base_jobs = 2**transaction_capacity_log_2
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct Tree<B, M> {
     values: Vec<Value<B, M>>,
 }
 
+impl<B, M> Debug for Tree<base::Base<B>, merge::Merge<M>>
+where
+    B: Debug,
+    M: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        enum BaseOrMerge<'a, B, M> {
+            Base(&'a base::Base<B>),
+            Merge(&'a merge::Merge<M>),
+        }
+
+        impl<'a, B, M> Debug for BaseOrMerge<'a, B, M>
+        where
+            B: Debug,
+            M: Debug,
+        {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    Self::Base(arg0) => write!(f, "{:?}", arg0),
+                    Self::Merge(arg0) => write!(f, "{:?}", arg0),
+                }
+            }
+        }
+
+        let mut by_depth = BTreeMap::<usize, Vec<_>>::default();
+
+        for (index, v) in self.values.iter().enumerate() {
+            let vec = by_depth.entry(btree::depth_at(index) as usize).or_default();
+            let v = match v {
+                Value::Leaf(b) => BaseOrMerge::Base(b),
+                Value::Node(m) => BaseOrMerge::Merge(m),
+            };
+            vec.push(v);
+        }
+
+        for (depth, values) in by_depth.iter() {
+            writeln!(f, "depth={} {:#?}", depth, values)?;
+        }
+
+        Ok(())
+    }
+}
+
 mod btree {
+    // https://stackoverflow.com/a/31147495/5717561
     pub fn depth_at(index: usize) -> u64 {
         // Get the depth from its index (in the array)
         // TODO: Find if there is a faster way to get that
@@ -325,8 +376,17 @@ mod btree {
         Some(index.checked_sub(1)? / 2)
     }
 
-    pub fn range_at_depth(_index: usize) -> std::ops::Range<usize> {
-        todo!() // TODO https://stackoverflow.com/a/45291818/5717561
+    pub fn range_at_depth(depth: u64) -> std::ops::Range<usize> {
+        // https://stackoverflow.com/a/45291818/5717561
+
+        if depth == 0 {
+            return 0..1;
+        }
+
+        let start = (1 << depth) - 1;
+        let end = (1 << (depth + 1)) - 1;
+
+        start..end
     }
 }
 
@@ -1198,7 +1258,7 @@ where
 
     fn empty(max_base_jobs: u64, delay: u64) -> Self {
         let depth = ceil_log2(max_base_jobs);
-        println!("empty depth={:?}", depth);
+        // println!("empty depth={:?}", depth);
 
         let first_tree = Tree::create_tree(depth);
 
@@ -1429,12 +1489,12 @@ where
         let set1 = self.work_for_tree(WorkForTree::Current);
         // let setaaa = self.work_for_tree(WorkForTree::Next);
 
-        println!(
-            "ntrees={} delay={} set1={}",
-            self.trees.len(),
-            self.delay,
-            set1.len()
-        );
+        // println!(
+        //     "ntrees={} delay={} set1={}",
+        //     self.trees.len(),
+        //     self.delay,
+        //     set1.len()
+        // );
         // println!("ntrees={} set1={} setaa={}", self.trees.len(), set1.len(), setaaa.len());
 
         let mut this = self.clone();
@@ -1446,11 +1506,11 @@ where
         other_set.push(set1);
 
         for _ in 0..self.delay + 1 {
-            println!("trees={}", this.trees.len());
+            // println!("trees={}", this.trees.len());
             this.trees.insert(0, Tree::create_tree(depth));
             let work = this.work_for_tree(WorkForTree::Current);
 
-            println!("work={}", work.len());
+            // println!("work={}", work.len());
 
             if !work.is_empty() {
                 other_set.push(work);
@@ -1630,12 +1690,12 @@ where
             available_space
         );
 
-        println!(
-            "base_jobs={:?} available_space={:?} depth={:?}",
-            base_jobs.len(),
-            available_space,
-            depth
-        );
+        // println!(
+        //     "base_jobs={:?} available_space={:?} depth={:?}",
+        //     base_jobs.len(),
+        //     available_space,
+        //     depth
+        // );
 
         let (tree, _) = tree
             .update(
@@ -1655,11 +1715,11 @@ where
             vec![tree]
         };
 
-        println!(
-            "updated_trees={} self_trees={:?}",
-            updated_trees.len(),
-            self.trees.len()
-        );
+        // println!(
+        //     "updated_trees={} self_trees={:?}",
+        //     updated_trees.len(),
+        //     self.trees.len()
+        // );
 
         // println!("WORK1={:?}", work(updated_trees.as_slice(), self.delay + 1, self.max_base_jobs));
         // println!("WORK2={:?}", work(self.trees.as_slice(), self.delay + 1, self.max_base_jobs));
@@ -1770,7 +1830,7 @@ where
             let required = (required_jobs_count + 1) / 2;
             let got = (completed_jobs.len() + 1) / 2;
 
-            println!("required={:?} got={:?}", required, got);
+            // println!("required={:?} got={:?}", required, got);
 
             let max_base_jobs = self.max_base_jobs as usize;
             assert!(
@@ -1797,24 +1857,24 @@ where
 
         let (data1, data2) = split(&data, available_space as usize);
 
-        println!(
-            "delay={} available_space={} data1={} data2={}",
-            delay,
-            available_space,
-            data1.len(),
-            data2.len()
-        );
+        // println!(
+        //     "delay={} available_space={} data1={} data2={}",
+        //     delay,
+        //     available_space,
+        //     data1.len(),
+        //     data2.len()
+        // );
 
         let required_jobs_for_current_tree =
             work(&self.trees[1..], delay, self.max_base_jobs).len();
         let (jobs1, jobs2) = split(&completed_jobs, required_jobs_for_current_tree);
 
-        println!(
-            "required_jobs_for_current_tree={} jobs1={} jobs2={}",
-            required_jobs_for_current_tree,
-            jobs1.len(),
-            jobs2.len()
-        );
+        // println!(
+        //     "required_jobs_for_current_tree={} jobs1={} jobs2={}",
+        //     required_jobs_for_current_tree,
+        //     jobs1.len(),
+        //     jobs2.len()
+        // );
 
         // update first set of jobs and data
         let result_opt = self.add_merge_jobs(jobs1)?;
@@ -1981,7 +2041,7 @@ where
 
     let trees: Vec<_> = trees.collect();
 
-    println!("work_to_do length={}", trees.len());
+    // println!("work_to_do length={}", trees.len());
 
     trees
         .iter()
@@ -2006,7 +2066,7 @@ where
     let depth = ceil_log2(max_base_jobs) as usize;
     let delay = delay as usize;
 
-    println!("WORK_DELAY={}", delay);
+    // println!("WORK_DELAY={}", delay);
 
     let work_trees = trees
         .into_iter()
@@ -2066,16 +2126,16 @@ fn assert_job_count<B, M>(
     let (todo_before, done_before) = s1.job_count();
     let (todo_after, done_after) = s2.job_count();
 
-    println!(
-        "before todo={:?} done={:?}",
-        s1.job_count().0,
-        s1.job_count().1
-    );
-    println!(
-        "after  todo={:?} done={:?}",
-        s2.job_count().0,
-        s2.job_count().1
-    );
+    // println!(
+    //     "before todo={:?} done={:?}",
+    //     s1.job_count().0,
+    //     s1.job_count().1
+    // );
+    // println!(
+    //     "after  todo={:?} done={:?}",
+    //     s2.job_count().0,
+    //     s2.job_count().1
+    // );
 
     // ordered list of jobs that is actually called when distributing work
     let all_jobs = flatten(s2.all_jobs());
@@ -2104,11 +2164,11 @@ fn assert_job_count<B, M>(
         })
         .count();
 
-    println!(
-        "all_jobs={} all_jobs_expected={}",
-        all_jobs.len(),
-        all_jobs_expected_count
-    );
+    // println!(
+    //     "all_jobs={} all_jobs_expected={}",
+    //     all_jobs.len(),
+    //     all_jobs_expected_count
+    // );
 
     assert_eq!(all_jobs.len(), all_jobs_expected_count);
 
@@ -2135,7 +2195,7 @@ fn assert_job_count<B, M>(
 }
 
 fn test_update<B, M>(
-    s1: ParallelScan<B, M>,
+    s1: &ParallelScan<B, M>,
     data: Vec<B>,
     completed_jobs: Vec<M>,
 ) -> (Option<(M, Vec<B>)>, ParallelScan<B, M>)
@@ -2143,18 +2203,18 @@ where
     B: Debug + Clone + 'static,
     M: Debug + Clone + 'static,
 {
-    println!(
-        "completed_jobs_len={:?} data_len={:?}",
-        completed_jobs.len(),
-        data.len()
-    );
+    // println!(
+    //     "completed_jobs_len={:?} data_len={:?}",
+    //     completed_jobs.len(),
+    //     data.len()
+    // );
     let mut s2 = s1.clone();
     let result_opt = s2.update(data.clone(), completed_jobs.clone()).unwrap();
 
     // println!("hash_s1={:?}", hash(&s1));
 
     assert_job_count(
-        &s1,
+        s1,
         &s2,
         completed_jobs.len() as f64,
         data.len() as f64,
@@ -2167,13 +2227,23 @@ fn int_to_string(u: &usize) -> String {
     u.to_string()
 }
 
-fn hash(state: &ParallelScan<usize, usize>) -> String {
-    hex::encode(state.hash(int_to_string, int_to_string))
+fn sint_to_string(i: &i64) -> String {
+    i.to_string()
+}
+
+fn hash(state: &ParallelScan<i64, i64>) -> String {
+    hex::encode(state.hash(sint_to_string, sint_to_string))
 }
 
 #[cfg(test)]
 mod tests {
-    use rand::{distributions::Standard, prelude::Distribution, Rng};
+    use std::sync::{
+        atomic::{AtomicBool, Ordering::Relaxed},
+        mpsc::{sync_channel, Receiver, Sender},
+        Arc,
+    };
+
+    use rand::Rng;
 
     use super::*;
 
@@ -2188,14 +2258,22 @@ mod tests {
     }
 
     #[test]
+    fn test_range_at_depth() {
+        for depth in 0..10u64 {
+            let range = btree::range_at_depth(depth);
+            println!("depth={} range={:?}", depth, range);
+        }
+    }
+
+    #[test]
     fn always_max_base_jobs() {
         const MAX_BASE_JOS: u64 = 512;
 
         // let int_to_string = |i: &usize| i.to_string();
 
-        let state = ParallelScan::<usize, usize>::empty(8, 3);
+        // let state = ParallelScan::<usize, usize>::empty(8, 3);
         // println!("STATE len={:?} ={:#?}", state.trees.len(), state);
-        println!("hash={:?}", hash(&state));
+        // println!("hash={:?}", hash(&state));
 
         let mut state = ParallelScan::<usize, usize>::empty(MAX_BASE_JOS, 3);
         let mut expected_result: Vec<Vec<usize>> = vec![];
@@ -2228,13 +2306,13 @@ mod tests {
                 .collect();
 
             println!("work={:?} new_merges={:?}", work.len(), new_merges.len());
-            println!("hash_s1={:?}", hash(&state));
+            // println!("hash_s1={:?}", hash(&state));
 
             // let mut s2 = state.clone();
             // let result_opt = s2.update(data.clone(), new_merges.clone()).unwrap();
             // println!("hash_s2={:?}", hash(&s2));
 
-            let (result_opt, s) = test_update(state, data, new_merges);
+            let (result_opt, s) = test_update(&state, data, new_merges);
 
             // assert!(result_opt.is_none());
 
@@ -2296,7 +2374,7 @@ mod tests {
                 })
                 .collect();
 
-            let (result_opt, s) = test_update(state, data, new_merges);
+            let (result_opt, s) = test_update(&state, data, new_merges);
 
             assert_eq!(
                 result_opt.as_ref().unwrap_or(&expected_result),
@@ -2307,25 +2385,22 @@ mod tests {
         }
     }
 
-    fn gen<FunDone, FunAcc, B, M>(fun_job_done: FunDone, fun_acc: FunAcc) -> ParallelScan<B, M>
+    fn gen<FunDone, FunAcc>(fun_job_done: FunDone, fun_acc: FunAcc) -> ParallelScan<i64, i64>
     where
-        FunDone: Fn(&AvailableJob<B, M>) -> M,
-        FunAcc: Fn(Option<(M, Vec<B>)>, (M, Vec<B>)) -> Option<(M, Vec<B>)>,
-        B: Debug + Clone + 'static,
-        M: Debug + Clone + 'static,
-        Standard: Distribution<B>,
+        FunDone: Fn(&AvailableJob<i64, i64>) -> i64,
+        FunAcc: Fn(Option<(i64, Vec<i64>)>, (i64, Vec<i64>)) -> Option<(i64, Vec<i64>)>,
     {
         let mut rng = rand::thread_rng();
 
-        let depth = rng.gen_range(2..=5);
+        let depth = rng.gen_range(2..5);
         let delay = rng.gen_range(0..=3);
 
         let max_base_jobs = 2u64.pow(depth);
 
-        let mut s = ParallelScan::<B, M>::empty(max_base_jobs, delay);
+        let mut s = ParallelScan::<i64, i64>::empty(max_base_jobs, delay);
 
-        let ndatas = rng.gen_range(1..=20);
-        let datas: Vec<Vec<B>> = (1..ndatas)
+        let ndatas = rng.gen_range(2..=20);
+        let datas: Vec<Vec<i64>> = (1..ndatas)
             .map(|_| {
                 std::iter::repeat_with(|| rng.gen())
                     .take(max_base_jobs as usize)
@@ -2333,10 +2408,24 @@ mod tests {
             })
             .collect();
 
+        // let datas = vec![
+        //     // vec![-58823712978749242i64 as i64, 25103, 33363641, -1611555993190i64 as i64]
+        //     // std::iter::repeat_with(|| rng.gen_range(0..1000))
+        //     std::iter::repeat_with(|| rng.gen())
+        //     // std::iter::repeat_with(|| 1)
+        //         .take(max_base_jobs as usize)
+        //         .collect::<Vec<_>>()
+        // ];
+
         for data in datas {
+            println!("ndata={}", data.len());
+
             let jobs = flatten(s.work_for_next_update(data.len() as u64));
 
-            let jobs_done: Vec<M> = jobs.iter().map(&fun_job_done).collect();
+            let jobs_done: Vec<i64> = jobs.iter().map(&fun_job_done).collect();
+
+            println!("jobs_donea={}", jobs_done.len());
+
             let old_tuple = s.acc.clone();
 
             let res_opt = s.update(data, jobs_done).unwrap();
@@ -2350,24 +2439,31 @@ mod tests {
 
                 s.acc = fun_acc(tuple, res);
             }
+            println!("s.acc.is_some={:?}", s.acc.is_some());
         }
 
         s
     }
 
     fn fun_merge_up(
-        state: Option<(usize, Vec<usize>)>,
-        mut x: (usize, Vec<usize>),
-    ) -> Option<(usize, Vec<usize>)> {
+        state: Option<(i64, Vec<i64>)>,
+        mut x: (i64, Vec<i64>),
+    ) -> Option<(i64, Vec<i64>)> {
         let mut acc = state?;
         acc.1.append(&mut x.1);
-        Some((acc.0 + x.0, acc.1))
+        Some((acc.0.wrapping_add(x.0), acc.1))
     }
 
-    fn job_done(job: &AvailableJob<usize, usize>) -> usize {
+    fn job_done(job: &AvailableJob<i64, i64>) -> i64 {
         match job {
             AvailableJob::Base(x) => *x,
-            AvailableJob::Merge { left, right } => left + right,
+            // AvailableJob::Merge { left, right } => left + right,
+            AvailableJob::Merge { left, right } => {
+                // let left = *left as i64;
+                // let right = *right as i64;
+                left.wrapping_add(*right)
+                // left + right
+            }
         }
     }
 
@@ -2379,20 +2475,20 @@ mod tests {
         let max_base_jobs = 2u64.pow(p);
 
         for _ in 0..100000 {
-            let state = ParallelScan::<usize, usize>::empty(max_base_jobs, 1);
+            let state = ParallelScan::<i64, i64>::empty(max_base_jobs, 1);
             println!("hash_state={:?}", hash(&state));
             let i = rng.gen_range(0..max_base_jobs);
 
-            let data: Vec<usize> = (0..i as usize).collect();
+            let data: Vec<i64> = (0..i as i64).collect();
 
             let partition = state.partition_if_overflowing();
             let jobs = flatten(state.work_for_next_update(data.len() as u64));
 
-            let jobs_done: Vec<usize> = jobs.iter().map(job_done).collect();
+            let jobs_done: Vec<i64> = jobs.iter().map(job_done).collect();
 
             let tree_count_before = state.trees.len();
 
-            let (_, s) = test_update(state, data, jobs_done);
+            let (_, s) = test_update(&state, data, jobs_done);
 
             println!("second={:?}", partition.second.is_some());
 
@@ -2416,41 +2512,277 @@ mod tests {
                     assert_eq!(tree_count_after, expected_tree_count);
                 }
             }
+        }
+    }
 
-            // state = s;
+    #[test]
+    fn sequence_number_reset() {
+        let p = 3;
+        let max_base_jobs = 2u64.pow(p);
+
+        let jobs = |state: &ParallelScan<i64, i64>| -> Vec<Vec<Job<base::Record<i64>, merge::Record<i64>>>> {
+            state.trees.iter().map(|t| t.jobs_records()).rev().collect()
+        };
+
+        let verify_sequence_number = |state: &ParallelScan<i64, i64>| {
+            let mut state = state.clone();
+            state.reset_seq_no();
+
+            let jobs_list = jobs(&state);
+
+            let depth = ceil_log2(max_base_jobs + 1);
+
+            for (i, jobs) in jobs_list.iter().enumerate() {
+                // each tree has jobs up till a level below the older tree
+                //  and have the following sequence numbers after reset
+                //             4
+                //         3       3
+                //       2   2   2   2
+                //      1 1 1 1 1 1 1 1
+
+                let cur_levels = depth - i as u64;
+
+                let seq_sum = (0..cur_levels).fold(0, |acc, j| {
+                    let j = j + i as u64;
+                    acc + (2u64.pow(j as u32) * (depth - j))
+                });
+
+                let offset = i as u64;
+
+                let sum_of_all_seq_numbers: u64 = jobs
+                    .iter()
+                    .map(|job| match job {
+                        Job::Base(base::Record { seq_no, .. }) => seq_no.0 - offset,
+                        Job::Merge(merge::Record { seq_no, .. }) => seq_no.0 - offset,
+                    })
+                    .sum();
+
+                dbg!(sum_of_all_seq_numbers, seq_sum);
+                assert_eq!(sum_of_all_seq_numbers, seq_sum);
+            }
+        };
+
+        let mut state = ParallelScan::<i64, i64>::empty(max_base_jobs, 0);
+        let mut counter = 0;
+
+        for _ in 0..50 {
+            let jobs = flatten(state.jobs_for_next_update());
+            let jobs_done: Vec<_> = jobs.iter().map(job_done).collect();
+            let data: Vec<i64> = (0..max_base_jobs as i64).collect();
+
+            let (res_opt, s) = test_update(&state, data, jobs_done);
+
+            state = s;
+
+            if res_opt.is_some() {
+                if counter > p {
+                    verify_sequence_number(&state);
+                } else {
+                    counter += 1;
+                }
+            };
+        }
+
+        assert_eq!(
+            hash(&state),
+            "931a0dc0a488289000c195ae361138cc713deddc179b5d22bfa6344508d0cfb5"
+        );
+    }
+
+    fn step_on_free_space<F, FAcc>(
+        state: &mut ParallelScan<i64, i64>,
+        w: &Sender<Option<(i64, Vec<i64>)>>,
+        mut ds: Vec<i64>,
+        f: F,
+        f_acc: FAcc,
+    ) where
+        F: Fn(&AvailableJob<i64, i64>) -> i64,
+        FAcc: Fn(Option<(i64, Vec<i64>)>, (i64, Vec<i64>)) -> Option<(i64, Vec<i64>)>,
+    {
+        loop {
+            let data = take(&ds, state.max_base_jobs as usize);
+
+            let jobs = flatten(state.work_for_next_update(data.len() as u64));
+            let jobs_done: Vec<_> = jobs.iter().map(&f).collect();
+
+            let old_tuple = state.acc.clone();
+
+            let (res_opt, mut s) = test_update(state, data.to_vec(), jobs_done);
+
+            let s = match res_opt {
+                Some(x) => {
+                    let tuple = if old_tuple.is_some() {
+                        f_acc(old_tuple, x)
+                    } else {
+                        s.acc.clone()
+                    };
+                    s.acc = tuple;
+                    s
+                }
+                None => s,
+            };
+
+            w.send(s.acc.clone()).unwrap();
+
+            *state = s;
+
+            let rem_ds = ds.get(state.max_base_jobs as usize..).unwrap_or(&[]);
+
+            if rem_ds.is_empty() {
+                return;
+            } else {
+                ds = rem_ds.to_vec();
+            }
+        }
+    }
+
+    fn do_steps<F, FAcc>(
+        state: &mut ParallelScan<i64, i64>,
+        recv: &Receiver<i64>,
+        f: F,
+        f_acc: FAcc,
+        w: Sender<Option<(i64, Vec<i64>)>>,
+    ) where
+        F: Fn(&AvailableJob<i64, i64>) -> i64,
+        FAcc: Fn(Option<(i64, Vec<i64>)>, (i64, Vec<i64>)) -> Option<(i64, Vec<i64>)>,
+    {
+        let data = recv.recv().unwrap();
+        step_on_free_space(state, &w, vec![data], &f, &f_acc);
+    }
+
+    // fn scan<F, FAcc>(
+    //     data: &[usize],
+    //     depth: u64,
+    //     f: F,
+    //     f_acc: FAcc,
+    // )
+    // where
+    //     F: Fn(&AvailableJob<usize, usize>) -> usize,
+    //     FAcc: Fn(Option<(usize, Vec<usize>)>, (usize, Vec<usize>)) -> Option<(usize, Vec<usize>)>,
+    // {
+    //     let mut s = ParallelScan::<usize, usize>::empty(2u64.pow(depth as u32), 1);
+    //     let mut w: Option<(usize, Vec<usize>)> = None; // TODO
+
+    //     do_steps(&mut s, data, f, f_acc, &w)
+    // }
+
+    fn step_repeatedly<F, FAcc>(
+        state: &mut ParallelScan<i64, i64>,
+        data: &Receiver<i64>,
+        f: F,
+        f_acc: FAcc,
+    ) -> Receiver<Option<(i64, Vec<i64>)>>
+    where
+        F: Fn(&AvailableJob<i64, i64>) -> i64,
+        FAcc: Fn(Option<(i64, Vec<i64>)>, (i64, Vec<i64>)) -> Option<(i64, Vec<i64>)>,
+    {
+        let (send, rec) = std::sync::mpsc::channel::<Option<(i64, Vec<i64>)>>();
+        do_steps(state, data, f, f_acc, send);
+        rec
+    }
+
+    #[test]
+    fn scan_can_be_initialized_from_intermediate_state() {
+        for _ in 0..10 {
+            let mut state = gen(job_done, fun_merge_up);
+
+            println!("hash_state={:?}", hash(&state));
+            println!("state={:#?}", state);
+
+            let do_one_next = Arc::new(AtomicBool::new(false));
+
+            // let mut do_one_next = false;
+
+            let do_one_next_clone = Arc::clone(&do_one_next);
+            let (send, recv) = sync_channel(1);
+
+            std::thread::spawn(move || loop {
+                let v = if do_one_next_clone.load(Relaxed) {
+                    do_one_next_clone.store(false, Relaxed);
+                    1i64
+                } else {
+                    0i64
+                };
+                if send.send(v).is_err() {
+                    return;
+                }
+            });
+
+            let one_then_zeros = recv;
+
+            let parallelism = state.max_base_jobs * ceil_log2(state.max_base_jobs);
+            let old_acc = state.acc.as_ref().cloned().unwrap_or((0, vec![]));
+
+            println!("old={:?}", old_acc.0);
+
+            // let state = Arc::new(Mutex::new(state));
+
+            let fill_some_zero =
+                |state: &mut ParallelScan<i64, i64>, v: i64, r: &Receiver<i64>| -> i64 {
+                    (0..parallelism * parallelism).fold(v, |acc, _| {
+                        // println!("v={}", acc);
+                        let pipe = step_repeatedly(state, r, job_done, fun_merge_up);
+
+                        match pipe.recv() {
+                            Ok(Some((v, _))) => v,
+                            Ok(None) => acc,
+                            Err(_) => acc,
+                        }
+                    })
+                };
+
+            // println!("state_before={:#?}", state.lock());
+
+            // std::thread::sleep_ms(200);
+
+            // for _ in 0..10 {
+            let v = fill_some_zero(&mut state, 0, &one_then_zeros);
+            //     println!("v={}", v);
+            // }
+            // std::thread::sleep_ms(200);
+            println!("hash_state={:?}", hash(&state));
+
+            println!("trees_len={}", state.trees.len());
+
+            // println!("state_after={:#?}", state.lock());
+
+            do_one_next.store(true, Relaxed);
+
+            println!("getting acc");
+            let acc = { state.acc.clone().unwrap() };
+
+            println!("acc.0={} old_acc.0={}", acc.0, old_acc.0);
+            assert_ne!(acc.0, old_acc.0);
+
+            println!("hash_state={:?}", hash(&state));
+
+            println!("V={}", v);
+            fill_some_zero(&mut state, v, &one_then_zeros);
+            println!("hash_state={:?}", hash(&state));
+
+            let acc_plus_one = { state.acc.unwrap() };
+
+            println!("acc_plus_one.0={}", acc_plus_one.0);
+
+            assert_eq!(acc_plus_one.0, acc.0 + 1);
+
+            // assert (Int64.(equal (fst acc_plus_one) (fst acc + one)))
+
+            // let acc_plus_one = !s.acc |> Option.value_exn in
+
+            println!("OK");
+
+            // assert (not ([%equal: int64] (fst acc) (fst old_acc))) ;
+
+            // let acc = !s.acc |> Option.value_exn in
+
+            // let old_acc =
+            //   !s.acc |> Option.value ~default:Int64.(zero, [])
+            // in
+
+            // let parallelism =
+            //   !s.max_base_jobs * Int.ceil_log2 !s.max_base_jobs
+            // in
         }
     }
 }
-
-// let%test_unit "Split only if enqueuing onto the next queue" =
-//   let p = 4 in
-//   let max_base_jobs = Int.pow 2 p in
-//   let g = Int.gen_incl 0 max_base_jobs in
-//   let state = State.empty ~max_base_jobs ~delay:1 in
-//   Quickcheck.test g ~trials:1000 ~f:(fun i ->
-//       let data = List.init i ~f:Int64.of_int in
-//       let partition = partition_if_overflowing state in
-//       let jobs =
-//         List.concat
-//         @@ work_for_next_update state ~data_count:(List.length data)
-//       in
-//       let jobs_done = List.map jobs ~f:job_done in
-//       let tree_count_before = Non_empty_list.length state.trees in
-//       let _, state =
-//         test_update ~data state ~completed_jobs:jobs_done
-//       in
-//       match partition.second with
-//       | None ->
-//           let tree_count_after = Non_empty_list.length state.trees in
-//           let expected_tree_count =
-//             if i = fst partition.first then tree_count_before + 1
-//             else tree_count_before
-//           in
-//           assert (tree_count_after = expected_tree_count)
-//       | Some _ ->
-//           let tree_count_after = Non_empty_list.length state.trees in
-//           let expected_tree_count =
-//             if i > fst partition.first then tree_count_before + 1
-//             else tree_count_before
-//           in
-//           assert (tree_count_after = expected_tree_count) )
