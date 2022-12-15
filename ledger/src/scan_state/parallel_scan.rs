@@ -1305,6 +1305,8 @@ where
         FunMerge: Fn(&mut Vec<u8>, &MergeJob),
         FunBase: Fn(&mut Vec<u8>, &BaseJob),
     {
+        const BUFFER_CAPACITY: usize = 128 * 1024;
+
         let Self {
             trees,
             acc,
@@ -1314,7 +1316,7 @@ where
         } = self.with_leaner_trees();
 
         let mut sha: Sha256 = Sha256::new();
-        let mut buffer = Vec::with_capacity(128 * 1024);
+        let mut buffer = Vec::with_capacity(BUFFER_CAPACITY);
         let buffer = &mut buffer;
 
         let add_weight =
@@ -1325,17 +1327,7 @@ where
             add_weight(buffer, w2);
         };
 
-        let call_fun_merge = |buffer: &mut Vec<u8>, fun_merge: &FunMerge, job: &MergeJob| {
-            buffer.clear();
-            fun_merge(buffer, job);
-        };
-
-        let call_fun_base = |buffer: &mut Vec<u8>, fun_base: &FunBase, job: &BaseJob| {
-            buffer.clear();
-            fun_base(buffer, job);
-        };
-
-        for job in trees.iter().flat_map(|tree| tree.to_hashable_jobs()) {
+        for job in trees.iter().flat_map(Tree::to_hashable_jobs) {
             buffer.clear();
 
             match &job {
@@ -1343,30 +1335,24 @@ where
                     base::Job::Empty => {
                         add_weight(buffer, &base.weight);
                         write!(buffer, "Empty").unwrap();
-                        sha.update(buffer.as_slice());
                     }
                     base::Job::Full(base::Record { job, seq_no, state }) => {
                         add_weight(buffer, &base.weight);
                         write!(buffer, "Full{}{}", seq_no.0, state.as_str()).unwrap();
-                        sha.update(buffer.as_slice());
 
-                        call_fun_base(buffer, &fun_base, job);
-                        sha.update(buffer.as_slice());
+                        fun_base(buffer, job);
                     }
                 },
                 Job::Merge(merge) => match &merge.job {
                     merge::Job::Empty => {
                         add_two_weights(buffer, &merge.weight);
                         write!(buffer, "Empty").unwrap();
-                        sha.update(buffer.as_slice());
                     }
                     merge::Job::Part(job) => {
                         add_two_weights(buffer, &merge.weight);
                         write!(buffer, "Part").unwrap();
-                        sha.update(buffer.as_slice());
 
-                        call_fun_merge(buffer, &fun_merge, job);
-                        sha.update(buffer.as_slice());
+                        fun_merge(buffer, job);
                     }
                     merge::Job::Full(merge::Record {
                         left,
@@ -1376,23 +1362,25 @@ where
                     }) => {
                         add_two_weights(buffer, &merge.weight);
                         write!(buffer, "Full{}{}", seq_no.0, state.as_str()).unwrap();
-                        sha.update(buffer.as_slice());
 
-                        call_fun_merge(buffer, &fun_merge, left);
-                        sha.update(buffer.as_slice());
-
-                        call_fun_merge(buffer, &fun_merge, right);
-                        sha.update(buffer.as_slice());
+                        fun_merge(buffer, left);
+                        fun_merge(buffer, right);
                     }
                 },
             }
+
+            sha.update(buffer.as_slice());
+
+            // TODO: Remove this assert once we know it's a good capacity
+            //       (buffer is not resized for serialization)
+            assert_eq!(buffer.capacity(), BUFFER_CAPACITY);
         }
 
-        buffer.clear();
         match &acc {
             Some((a, d_lst)) => {
-                fun_merge(buffer, a);
+                buffer.clear();
 
+                fun_merge(buffer, a);
                 for j in d_lst {
                     fun_base(buffer, j);
                 }
@@ -2223,10 +2211,13 @@ fn hash(state: &ParallelScan<i64, i64>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{
-        atomic::{AtomicBool, Ordering::Relaxed},
-        mpsc::{sync_channel, Receiver, SyncSender},
-        Arc,
+    use std::{
+        array,
+        sync::{
+            atomic::{AtomicBool, Ordering::Relaxed},
+            mpsc::{sync_channel, Receiver, SyncSender},
+            Arc,
+        },
     };
 
     use rand::Rng;
@@ -2243,12 +2234,50 @@ mod tests {
         }
     }
 
+    // Make sure that sha256 produces same result when data is splitted or not
+    #[test]
+    fn test_sha256() {
+        let array: [u8; 2 * 1024] = array::from_fn(|i| (i % 256) as u8);
+        let mut slice = &array[..];
+
+        let mut sha256 = sha2::Sha256::new();
+        for byte in slice.iter().copied() {
+            sha256.update(&[byte][..]);
+        }
+        let first = sha256.finalize();
+
+        let mut sha256 = sha2::Sha256::new();
+        let mut n = 1;
+        while !slice.is_empty() {
+            sha256.update(slice.get(..n).unwrap_or(slice));
+            slice = slice.get(n..).unwrap_or(&[]);
+
+            n += 2;
+        }
+        let second = sha256.finalize();
+
+        assert_eq!(first, second);
+    }
+
     #[test]
     fn test_range_at_depth() {
-        for depth in 0..10u64 {
-            let range = btree::range_at_depth(depth);
-            println!("depth={} range={:?}", depth, range);
-        }
+        let ranges: Vec<_> = (0..10u64).map(btree::range_at_depth).collect();
+
+        assert_eq!(
+            ranges,
+            [
+                0..1,
+                1..3,
+                3..7,
+                7..15,
+                15..31,
+                31..63,
+                63..127,
+                127..255,
+                255..511,
+                511..1023,
+            ]
+        );
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/parallel_scan/parallel_scan.ml#L1525
