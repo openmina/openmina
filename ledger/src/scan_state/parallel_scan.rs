@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::fmt::Debug;
 use std::io::Write;
 use std::ops::ControlFlow;
@@ -530,10 +530,14 @@ where
         B: Clone,
     {
         let mut values = Vec::with_capacity(self.values.len());
-        let mut jobs_per_index = vec![None; self.values.len()];
         let mut scan_result = None;
 
-        jobs_per_index[0] = Some(jobs);
+        // Because our tree is a perfect binary tree, two values pushed
+        // at the back of `jobs_fifo` by a node will be popped by its
+        // left and right children, respectively
+        let mut jobs_fifo = VecDeque::with_capacity(self.values.len());
+
+        jobs_fifo.push_back(jobs);
 
         for (index, value) in self.values.iter().enumerate() {
             let depth = btree::depth_at(index);
@@ -543,15 +547,14 @@ where
                 continue;
             }
 
-            let jobs_for_this = jobs_per_index[index].take().unwrap();
+            let jobs_for_this = jobs_fifo.pop_front().unwrap();
 
             let value = match value {
                 Value::Leaf(base) => Value::Leaf(fun_base(jobs_for_this, base.clone())?),
                 Value::Node(merge) => {
                     let (jobs_left, jobs_right) = jobs_split(weight_merge(merge), jobs_for_this);
-
-                    jobs_per_index[btree::child_left(index)] = Some(jobs_left);
-                    jobs_per_index[btree::child_right(index)] = Some(jobs_right);
+                    jobs_fifo.push_back(jobs_left);
+                    jobs_fifo.push_back(jobs_right);
 
                     let (value, result) = fun_merge(jobs_for_this, depth, merge.clone())?;
 
@@ -565,6 +568,8 @@ where
 
             values.push(value);
         }
+
+        assert_eq!(jobs_fifo.capacity(), self.values.len());
 
         Ok(((Self { values }), scan_result.flatten()))
     }
