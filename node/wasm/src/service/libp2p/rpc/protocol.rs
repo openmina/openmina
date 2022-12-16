@@ -3,6 +3,7 @@
 //! receives a request and sends a response, whereas the
 //! outbound upgrade send a request and receives a response.
 
+use binprot::BinProtWrite;
 use lib::p2p::rpc::{P2pRpcId, P2pRpcIncomingId, P2pRpcRequest, P2pRpcResponse};
 use libp2p::core::upgrade::{InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use libp2p::futures::{channel::oneshot, future::BoxFuture, prelude::*};
@@ -108,8 +109,11 @@ impl OutboundUpgrade<NegotiatedSubstream> for RequestProtocol {
             const PREFIX: &'static [u8] =
                 b"\x07\x00\x00\x00\x00\x00\x00\x00\x02\xfd\x52\x50\x43\x00\x01";
             io.write_all(PREFIX).await?;
-            io.write_all(b"\x1a\x00\x00\x00\x00\x00\x00\x00\x01")
-                .await?;
+            let mut len_bytes = [0; 9];
+            len_bytes[0..8].copy_from_slice(&(encoded.len() as u64 + 1).to_le_bytes());
+            len_bytes[8] = 1;
+
+            io.write_all(&len_bytes).await?;
             io.write_all(&encoded).await?;
             io.flush().await?;
 
