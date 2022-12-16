@@ -1,32 +1,32 @@
 use mina_hasher::Fp;
-use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, LedgerProofProdStableV2,
-    TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
-    TransactionSnarkStatementWithSokStableV2,
-};
 use mina_signer::CompressedPubKey;
 
 use crate::scan_state::{
-    currency::{Amount, Signed},
     fee_excess::FeeExcess,
+    scan_state::transaction_snark::{LedgerProofWithSokMessage, SokMessage, Statement},
 };
 
-use super::parallel_scan::ParallelScan;
+use self::transaction_snark::LedgerProof;
+
+use super::{currency::Fee, parallel_scan::ParallelScan};
 // use super::parallel_scan::AvailableJob;
 
 pub use super::parallel_scan::SpacePartition;
 
-type LedgerProof = LedgerProofProdStableV2;
-type LedgerProofWithSokMessage = TransactionSnarkScanStateLedgerProofWithSokMessageStableV2;
+// type LedgerProof = LedgerProofProdStableV2;
+// type LedgerProofWithSokMessage = TransactionSnarkScanStateLedgerProofWithSokMessageStableV2;
 // type TransactionWithWitness = TransactionSnarkScanStateTransactionWithWitnessStableV2;
 
 pub type AvailableJob = super::parallel_scan::AvailableJob<
     transaction_snark::TransactionWithWitness,
-    LedgerProofWithSokMessage,
+    transaction_snark::LedgerProofWithSokMessage,
 >;
 
 pub struct ScanState {
-    state: ParallelScan<transaction_snark::TransactionWithWitness, LedgerProofWithSokMessage>,
+    state: ParallelScan<
+        transaction_snark::TransactionWithWitness,
+        transaction_snark::LedgerProofWithSokMessage,
+    >,
 }
 
 pub mod transaction_snark {
@@ -35,30 +35,102 @@ pub mod transaction_snark {
         MinaBasePendingCoinbaseStackVersionedStableV1, MinaBaseSparseLedgerBaseStableV2,
         MinaBaseStateBodyHashStableV1, MinaTransactionLogicTransactionAppliedStableV2,
         MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, StateHash,
-        TransactionSnarkPendingCoinbaseStackStateInitStackStableV1,
+        TransactionSnarkPendingCoinbaseStackStateInitStackStableV1, TransactionSnarkProofStableV2,
+    };
+    use mina_signer::CompressedPubKey;
+
+    use crate::{
+        hash_noinputs,
+        scan_state::{
+            currency::{Amount, Signed},
+            fee_excess::FeeExcess,
+        },
     };
 
-    use crate::scan_state::{
-        currency::{Amount, Signed},
-        fee_excess::FeeExcess,
-    };
+    use super::Fee;
 
     type LedgerHash = Fp;
 
     #[derive(Debug, Clone)]
-    pub struct Source {
+    pub struct Registers {
         pub ledger: LedgerHash,
         pub pending_coinbase_stack: MinaBasePendingCoinbaseStackVersionedStableV1,
         pub local_state: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L188
+    fn empty_pending_coinbase() -> Fp {
+        hash_noinputs("CoinbaseStack")
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L658
+    fn connected(
+        first: &MinaBasePendingCoinbaseStackVersionedStableV1,
+        second: &MinaBasePendingCoinbaseStackVersionedStableV1,
+        prev: Option<&MinaBasePendingCoinbaseStackVersionedStableV1>,
+    ) -> bool {
+        // same as old stack or second could be a new stack with empty data
+        let coinbase_stack_connected = (first.data == second.data) || {
+            let second: Fp = second.data.to_field();
+            second == empty_pending_coinbase()
+        };
+
+        // 1. same as old stack or
+        // 2. new stack initialized with the stack state of last block. Not possible to know this unless we track
+        //    all the stack states because they are updated once per block (init=curr)
+        // 3. [second] could be a new stack initialized with the latest state of [first] or
+        // 4. [second] starts from the previous state of [first]. This is not available in either [first] or [second] *)
+        let state_stack_connected = first.state == second.state
+            || second.state.init == second.state.curr
+            || first.state.curr == second.state.curr
+            || prev
+                .map(|prev| prev.state.curr == second.state.curr)
+                .unwrap_or(true);
+
+        coinbase_stack_connected && state_stack_connected
+    }
+
+    impl Registers {
+        /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_snark/transaction_snark.ml#L350
+        pub fn check_equal(&self, other: &Self) -> bool {
+            self.ledger == other.ledger
+                && self.local_state == other.local_state
+                && connected(
+                    &self.pending_coinbase_stack,
+                    &other.pending_coinbase_stack,
+                    None,
+                )
+        }
+    }
+
     #[derive(Debug, Clone)]
     pub struct Statement {
-        pub source: Source,
-        pub target: Source,
+        pub source: Registers,
+        pub target: Registers,
         pub supply_increase: Signed<Amount>,
         pub fee_excess: FeeExcess,
-        pub sok_digest: (),
+        pub sok_digest: Option<Vec<u8>>,
+    }
+
+    impl Statement {
+        /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_snark/transaction_snark.ml#L348
+        pub fn merge(&self, s2: &Statement) -> Self {
+            let fee_excess = FeeExcess::combine(&self.fee_excess, &s2.fee_excess);
+            let supply_increase = self
+                .supply_increase
+                .add(&s2.supply_increase)
+                .expect("Error adding supply_increase");
+
+            assert!(self.target.check_equal(&s2.source));
+
+            Self {
+                source: self.source.clone(),
+                target: s2.target.clone(),
+                supply_increase,
+                fee_excess,
+                sok_digest: None,
+            }
+        }
     }
 
     #[derive(Debug, Clone)]
@@ -68,6 +140,61 @@ pub mod transaction_snark {
         pub statement: Statement,
         pub init_stack: TransactionSnarkPendingCoinbaseStackStateInitStackStableV1,
         pub ledger_witness: MinaBaseSparseLedgerBaseStableV2,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct TransactionSnark {
+        pub statement: Statement,
+        pub proof: TransactionSnarkProofStableV2,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct LedgerProof(pub TransactionSnark);
+
+    impl LedgerProof {
+        pub fn create(statement: Statement, proof: TransactionSnarkProofStableV2) -> Self {
+            Self(TransactionSnark { statement, proof })
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct SokMessage {
+        pub fee: Fee,
+        pub prover: CompressedPubKey,
+    }
+
+    impl SokMessage {
+        pub fn create(fee: Fee, prover: CompressedPubKey) -> Self {
+            Self { fee, prover }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct LedgerProofWithSokMessage {
+        pub proof: LedgerProof,
+        pub sok_message: SokMessage,
+    }
+
+    #[derive(Debug, Clone)]
+    pub enum OneOrTwo<T> {
+        One(T),
+        Two((T, T)),
+    }
+
+    impl<T> OneOrTwo<T> {
+        pub fn len(&self) -> usize {
+            match self {
+                OneOrTwo::One(_) => 1,
+                OneOrTwo::Two(_) => 2,
+            }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct Work {
+        pub fee: Fee,
+        pub proofs: OneOrTwo<LedgerProof>,
+        pub prover: CompressedPubKey,
     }
 }
 
@@ -105,115 +232,138 @@ pub struct GenesisConstants {
     fork: Option<ForkConstants>, // Fork_constants.t option,
 }
 
-struct Fee(u64);
-
 fn completed_work_to_scanable_work(
     job: AvailableJob,
-    (fee, current_proof, prover): (CurrencyFeeStableV1, LedgerProof, CompressedPubKey),
+    (fee, current_proof, prover): (Fee, LedgerProof, CompressedPubKey),
 ) -> LedgerProofWithSokMessage {
     use super::parallel_scan::AvailableJob::{Base, Merge};
     use transaction_snark::TransactionWithWitness;
 
-    let sok_digest = &current_proof.0.statement.sok_digest.0;
+    let sok_digest = &current_proof.0.statement.sok_digest;
     let proof = &current_proof.0.proof;
 
     match job {
         Base(TransactionWithWitness { statement, .. }) => {
-            todo!()
-            // let statement_with_sok = TransactionSnarkStatementWithSokStableV2 {
-            //     source: statement.source,
-            //     target: statement.target,
-            //     supply_increase: statement.supply_increase,
-            //     fee_excess: statement.fee_excess,
-            //     sok_digest: MinaBaseSokMessageDigestStableV1(sok_digest.clone()),
-            // };
+            // todo!()
 
-            // let ledger_proof = LedgerProofProdStableV2(TransactionSnarkStableV2 {
-            //     statement: statement_with_sok,
-            //     proof: proof.clone(),
-            // });
+            assert!(sok_digest.is_some());
 
-            // let prover: NonZeroCurvePointUncompressedStableV1 = prover.into();
-            // let sok = MinaBaseSokMessageStableV1 {
-            //     fee,
-            //     prover: prover.into(),
-            // };
+            let statement_with_sok = transaction_snark::Statement {
+                source: statement.source,
+                target: statement.target,
+                supply_increase: statement.supply_increase,
+                fee_excess: statement.fee_excess,
+                sok_digest: sok_digest.clone(),
+            };
 
-            // TransactionSnarkScanStateLedgerProofWithSokMessageStableV2(ledger_proof, sok)
+            let ledger_proof = LedgerProof::create(statement_with_sok, proof.clone());
+            let sok_message = SokMessage::create(fee, prover);
+
+            LedgerProofWithSokMessage {
+                proof: ledger_proof,
+                sok_message,
+            }
         }
         Merge {
             left: proof1,
             right: proof2,
         } => {
-            let s1: &TransactionSnarkStatementWithSokStableV2 = &proof1.0 .0.statement;
-            let s2: &TransactionSnarkStatementWithSokStableV2 = &proof2.0 .0.statement;
+            let s1: &Statement = &proof1.proof.0.statement;
+            let s2: &Statement = &proof2.proof.0.statement;
 
-            let s1_fee_excess: FeeExcess = (&s1.fee_excess).into();
-            let s2_fee_excess: FeeExcess = (&s2.fee_excess).into();
+            let fee_excess = FeeExcess::combine(&s1.fee_excess, &s2.fee_excess);
 
-            let fee_excess = FeeExcess::combine(&s1_fee_excess, &s2_fee_excess);
-
-            let s1_supply_increase: Signed<Amount> = (&s1.supply_increase).into();
-            let s2_supply_increase: Signed<Amount> = (&s2.supply_increase).into();
-
-            let supply_increase = s1_supply_increase
-                .add(&s2_supply_increase)
+            let supply_increase = s1
+                .supply_increase
+                .add(&s2.supply_increase)
                 .expect("Error adding supply_increases");
 
             if s1.target.pending_coinbase_stack != s2.source.pending_coinbase_stack {
                 panic!("Invalid pending coinbase stack state");
             }
 
-            // let statement = TransactionSnarkStatementStableV2 {
-            //     source: s1.source.clone(),
-            //     target: s2.target.clone(),
-            //     supply_increase,
-            //     fee_excess,
-            //     sok_digest: (),
-            // };
+            let statement = Statement {
+                source: s1.source.clone(),
+                target: s2.target.clone(),
+                supply_increase,
+                fee_excess,
+                sok_digest: None,
+            };
 
-            todo!()
+            let ledger_proof = LedgerProof::create(statement, proof.clone());
+            let sok_message = SokMessage::create(fee, prover);
+
+            LedgerProofWithSokMessage {
+                proof: ledger_proof,
+                sok_message,
+            }
         }
     }
 }
 
-// let completed_work_to_scanable_work (job : job) (fee, current_proof, prover) :
-//     Ledger_proof_with_sok_message.t Or_error.t =
-//   let sok_digest = Ledger_proof.sok_digest current_proof
-//   and proof = Ledger_proof.underlying_proof current_proof in
-//   match job with
-//   | Base { statement; _ } ->
-//       let ledger_proof = Ledger_proof.create ~statement ~sok_digest ~proof in
-//       Ok (ledger_proof, Sok_message.create ~fee ~prover)
-//   | Merge ((p, _), (p', _)) ->
-//       let open Or_error.Let_syntax in
-//       (*
-//       let%map statement =
-//         Transaction_snark.Statement.merge (Ledger_proof.statement p)
-//           (Ledger_proof.statement p')
-//       in *)
-//       let s = Ledger_proof.statement p and s' = Ledger_proof.statement p' in
-//       let option lab =
-//         Option.value_map ~default:(Or_error.error_string lab) ~f:(fun x -> Ok x)
-//       in
-//       let%map fee_excess = Fee_excess.combine s.fee_excess s'.fee_excess
-//       and supply_increase =
-//         Amount.Signed.add s.supply_increase s'.supply_increase
-//         |> option "Error adding supply_increases"
-//       and _valid_pending_coinbase_stack =
-//         if
-//           Pending_coinbase.Stack.equal s.target.pending_coinbase_stack
-//             s'.source.pending_coinbase_stack
-//         then Ok ()
-//         else Or_error.error_string "Invalid pending coinbase stack state"
-//       in
-//       let statement : Transaction_snark.Statement.t =
-//         { source = s.source
-//         ; target = s'.target
-//         ; supply_increase
-//         ; fee_excess
-//         ; sok_digest = ()
-//         }
-//       in
-//       ( Ledger_proof.create ~statement ~sok_digest ~proof
-//       , Sok_message.create ~fee ~prover )
+fn total_proofs(works: &[transaction_snark::Work]) -> usize {
+    works.iter().map(|work| work.proofs.len()).sum()
+}
+
+#[derive(Debug, Clone)]
+pub enum StatementCheck {
+    Partial,
+    Full, // TODO: The fn returns a protocol state
+}
+
+#[derive(Debug, Clone)]
+pub struct Verifier;
+
+impl Verifier {
+    pub fn verify() {
+        todo!()
+    }
+}
+
+impl ScanState {
+    pub fn scan_statement(
+        &self,
+        constraint_constants: &GenesisConstants,
+        statement_check: StatementCheck,
+        verifier: &Verifier,
+    ) -> Result<Statement, ()> {
+        struct Acc(Option<(Statement, Vec<LedgerProofWithSokMessage>)>);
+
+        let merge_acc = |proofs: Vec<LedgerProofWithSokMessage>, acc: Acc, s2: Statement| {
+            assert!(s2.sok_digest.is_none());
+            assert!(acc
+                .0
+                .as_ref()
+                .map(|v| v.0.sok_digest.is_none())
+                .unwrap_or(true));
+
+            match acc.0 {
+                None => Some((s2, proofs)),
+                Some((p1, ps)) => {
+                    todo!()
+                }
+            }
+        };
+
+        // let merge_acc ~proofs (acc : Acc.t) s2 : Acc.t Deferred.Or_error.t =
+        //   Timer.time timer (sprintf "merge_acc:%s" __LOC__) (fun () ->
+        //       with_error "Bad merge proof" ~f:(fun () ->
+        //           match acc with
+        //           | None ->
+        //               return (Some (s2, proofs))
+        //           | Some (s1, ps) ->
+        //               let%bind merged_statement =
+        //                 Deferred.return (Transaction_snark.Statement.merge s1 s2)
+        //               in
+        //               let%map () = yield_occasionally () in
+        //               Some (merged_statement, proofs @ ps) ) )
+        // in
+
+        todo!()
+    }
+}
+
+// let scan_statement ~constraint_constants tree ~statement_check ~verifier :
+//     ( Transaction_snark.Statement.t
+//     , [ `Error of Error.t | `Empty ] )
+//     Deferred.Result.t =

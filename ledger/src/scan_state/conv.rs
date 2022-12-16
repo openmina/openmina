@@ -1,8 +1,11 @@
 use mina_p2p_messages::v2::{
-    CurrencyAmountStableV1, CurrencyFeeStableV1, MinaBaseFeeExcessStableV1,
-    MinaBaseFeeExcessStableV1Fee, MinaBaseLedgerHash0StableV1,
+    CurrencyAmountStableV1, CurrencyFeeStableV1, LedgerProofProdStableV2,
+    MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee, MinaBaseLedgerHash0StableV1,
+    MinaBaseSokMessageDigestStableV1, MinaBaseSokMessageStableV1,
     MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount, SgnStableV1,
-    TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStatementStableV2,
+    TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
+    TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
+    TransactionSnarkStatementStableV2, TransactionSnarkStatementWithSokStableV2,
     TransactionSnarkStatementWithSokStableV2Source,
     UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
@@ -10,7 +13,10 @@ use mina_p2p_messages::v2::{
 use super::{
     currency::{Amount, Fee, Sgn, Signed},
     fee_excess::FeeExcess,
-    scan_state::transaction_snark::{Source, Statement, TransactionWithWitness},
+    scan_state::transaction_snark::{
+        LedgerProof, LedgerProofWithSokMessage, Registers, SokMessage, Statement, TransactionSnark,
+        TransactionWithWitness,
+    },
 };
 
 impl From<&CurrencyAmountStableV1> for Amount {
@@ -123,7 +129,7 @@ impl From<&FeeExcess> for MinaBaseFeeExcessStableV1 {
     }
 }
 
-impl From<&TransactionSnarkStatementWithSokStableV2Source> for Source {
+impl From<&TransactionSnarkStatementWithSokStableV2Source> for Registers {
     fn from(value: &TransactionSnarkStatementWithSokStableV2Source) -> Self {
         Self {
             ledger: value.ledger.to_field(),
@@ -140,7 +146,34 @@ impl From<&TransactionSnarkStatementStableV2> for Statement {
             target: (&value.target).into(),
             supply_increase: (&value.supply_increase).into(),
             fee_excess: (&value.fee_excess).into(),
-            sok_digest: (),
+            sok_digest: None,
+        }
+    }
+}
+
+impl From<&TransactionSnarkStatementWithSokStableV2> for Statement {
+    fn from(value: &TransactionSnarkStatementWithSokStableV2) -> Self {
+        Self {
+            source: (&value.source).into(),
+            target: (&value.target).into(),
+            supply_increase: (&value.supply_increase).into(),
+            fee_excess: (&value.fee_excess).into(),
+            sok_digest: Some(value.sok_digest.to_vec()),
+        }
+    }
+}
+
+impl From<&Statement> for TransactionSnarkStatementWithSokStableV2 {
+    fn from(value: &Statement) -> Self {
+        assert!(value.sok_digest.is_some());
+        Self {
+            source: (&value.source).into(),
+            target: (&value.target).into(),
+            supply_increase: (&value.supply_increase).into(),
+            fee_excess: (&value.fee_excess).into(),
+            sok_digest: MinaBaseSokMessageDigestStableV1(
+                value.sok_digest.as_ref().unwrap().as_slice().into(),
+            ),
         }
     }
 }
@@ -157,8 +190,8 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
     }
 }
 
-impl From<&Source> for TransactionSnarkStatementWithSokStableV2Source {
-    fn from(value: &Source) -> Self {
+impl From<&Registers> for TransactionSnarkStatementWithSokStableV2Source {
+    fn from(value: &Registers) -> Self {
         Self {
             ledger: MinaBaseLedgerHash0StableV1(value.ledger.into()).into(),
             pending_coinbase_stack: value.pending_coinbase_stack.clone(),
@@ -194,6 +227,87 @@ impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithW
 impl binprot::BinProtWrite for TransactionWithWitness {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
         let p2p: TransactionSnarkScanStateTransactionWithWitnessStableV2 = self.into();
+        p2p.binprot_write(w)
+    }
+}
+
+impl From<&TransactionSnarkStableV2> for TransactionSnark {
+    fn from(value: &TransactionSnarkStableV2) -> Self {
+        Self {
+            statement: (&value.statement).into(),
+            proof: value.proof.clone(),
+        }
+    }
+}
+
+impl From<&TransactionSnark> for TransactionSnarkStableV2 {
+    fn from(value: &TransactionSnark) -> Self {
+        Self {
+            statement: (&value.statement).into(),
+            proof: value.proof.clone(),
+        }
+    }
+}
+
+impl From<&LedgerProofProdStableV2> for LedgerProof {
+    fn from(value: &LedgerProofProdStableV2) -> Self {
+        Self((&value.0).into())
+    }
+}
+
+impl From<&LedgerProof> for LedgerProofProdStableV2 {
+    fn from(value: &LedgerProof) -> Self {
+        Self((&value.0).into())
+    }
+}
+
+impl binprot::BinProtWrite for LedgerProof {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        let p2p: LedgerProofProdStableV2 = self.into();
+        p2p.binprot_write(w)
+    }
+}
+
+impl From<&MinaBaseSokMessageStableV1> for SokMessage {
+    fn from(value: &MinaBaseSokMessageStableV1) -> Self {
+        Self {
+            fee: (&value.fee).into(),
+            prover: (&value.prover).into(),
+        }
+    }
+}
+
+impl From<&SokMessage> for MinaBaseSokMessageStableV1 {
+    fn from(value: &SokMessage) -> Self {
+        Self {
+            fee: (&value.fee).into(),
+            prover: (&value.prover).into(),
+        }
+    }
+}
+
+impl From<&LedgerProofWithSokMessage>
+    for TransactionSnarkScanStateLedgerProofWithSokMessageStableV2
+{
+    fn from(value: &LedgerProofWithSokMessage) -> Self {
+        Self((&value.proof).into(), (&value.sok_message).into())
+    }
+}
+
+impl From<&TransactionSnarkScanStateLedgerProofWithSokMessageStableV2>
+    for LedgerProofWithSokMessage
+{
+    fn from(value: &TransactionSnarkScanStateLedgerProofWithSokMessageStableV2) -> Self {
+        Self {
+            proof: (&value.0).into(),
+            sok_message: (&value.1).into(),
+        }
+    }
+}
+
+impl binprot::BinProtWrite for LedgerProofWithSokMessage {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        let p2p: TransactionSnarkScanStateLedgerProofWithSokMessageStableV2 = self.into();
         p2p.binprot_write(w)
     }
 }
