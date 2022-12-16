@@ -61,7 +61,7 @@ where
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, derive_more::From)]
-pub struct NeedsLength<T>(T);
+pub struct NeedsLength<T>(pub T);
 
 impl<T> BinProtRead for NeedsLength<T>
 where
