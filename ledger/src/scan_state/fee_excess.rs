@@ -31,18 +31,16 @@
 //! Port of the implementation from:
 //! https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_excess.ml#L1
 
-use mina_p2p_messages::v2::MinaBaseFeeExcessStableV1;
-
 use crate::TokenId;
 
 use super::currency::{Fee, Magnitude, Signed};
 
 #[derive(Debug, Clone)]
 pub struct FeeExcess {
-    fee_token_l: TokenId,
-    fee_excess_l: Signed<Fee>,
-    fee_token_r: TokenId,
-    fee_excess_r: Signed<Fee>,
+    pub(super) fee_token_l: TokenId,
+    pub(super) fee_excess_l: Signed<Fee>,
+    pub(super) fee_token_r: TokenId,
+    pub(super) fee_excess_r: Signed<Fee>,
 }
 
 impl FeeExcess {
@@ -179,27 +177,5 @@ fn eliminate_fee_excess<'a>(
                 {:?} was nonzero",
             fee_token_m, fee_excess_m
         )
-    }
-}
-
-impl From<&MinaBaseFeeExcessStableV1> for FeeExcess {
-    fn from(value: &MinaBaseFeeExcessStableV1) -> Self {
-        Self {
-            fee_token_l: (&value.fee_token_l.0).into(),
-            fee_excess_l: (&value.fee_excess_l).into(),
-            fee_token_r: (&value.fee_token_r.0).into(),
-            fee_excess_r: (&value.fee_excess_r).into(),
-        }
-    }
-}
-
-impl From<&FeeExcess> for MinaBaseFeeExcessStableV1 {
-    fn from(value: &FeeExcess) -> Self {
-        Self {
-            fee_token_l: (&value.fee_token_l).into(),
-            fee_excess_l: (&value.fee_excess_l).into(),
-            fee_token_r: (&value.fee_token_r).into(),
-            fee_excess_r: (&value.fee_excess_r).into(),
-        }
     }
 }

@@ -1,10 +1,8 @@
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, LedgerProofProdStableV2, MinaBaseSokMessageDigestStableV1,
-    MinaBaseSokMessageStableV1, NonZeroCurvePointUncompressedStableV1,
+    CurrencyFeeStableV1, LedgerProofProdStableV2,
     TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
-    TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
-    TransactionSnarkStatementStableV2, TransactionSnarkStatementWithSokStableV2,
+    TransactionSnarkStatementWithSokStableV2,
 };
 use mina_signer::CompressedPubKey;
 
@@ -31,16 +29,13 @@ pub struct ScanState {
     state: ParallelScan<transaction_snark::TransactionWithWitness, LedgerProofWithSokMessage>,
 }
 
-mod transaction_snark {
+pub mod transaction_snark {
     use mina_hasher::Fp;
     use mina_p2p_messages::v2::{
-        MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseStackVersionedStableV1,
-        MinaBaseSparseLedgerBaseStableV2, MinaBaseStateBodyHashStableV1,
-        MinaTransactionLogicTransactionAppliedStableV2,
+        MinaBasePendingCoinbaseStackVersionedStableV1, MinaBaseSparseLedgerBaseStableV2,
+        MinaBaseStateBodyHashStableV1, MinaTransactionLogicTransactionAppliedStableV2,
         MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, StateHash,
         TransactionSnarkPendingCoinbaseStackStateInitStackStableV1,
-        TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStatementStableV2,
-        TransactionSnarkStatementWithSokStableV2Source,
     };
 
     use crate::scan_state::{
@@ -73,81 +68,6 @@ mod transaction_snark {
         pub statement: Statement,
         pub init_stack: TransactionSnarkPendingCoinbaseStackStateInitStackStableV1,
         pub ledger_witness: MinaBaseSparseLedgerBaseStableV2,
-    }
-
-    impl From<&TransactionSnarkStatementWithSokStableV2Source> for Source {
-        fn from(value: &TransactionSnarkStatementWithSokStableV2Source) -> Self {
-            Self {
-                ledger: value.ledger.to_field(),
-                pending_coinbase_stack: value.pending_coinbase_stack.clone(),
-                local_state: value.local_state.clone(),
-            }
-        }
-    }
-
-    impl From<&TransactionSnarkStatementStableV2> for Statement {
-        fn from(value: &TransactionSnarkStatementStableV2) -> Self {
-            Self {
-                source: (&value.source).into(),
-                target: (&value.target).into(),
-                supply_increase: (&value.supply_increase).into(),
-                fee_excess: (&value.fee_excess).into(),
-                sok_digest: (),
-            }
-        }
-    }
-
-    impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for TransactionWithWitness {
-        fn from(value: &TransactionSnarkScanStateTransactionWithWitnessStableV2) -> Self {
-            Self {
-                transaction_with_info: value.transaction_with_info.clone(),
-                state_hash: value.state_hash.clone(),
-                statement: (&value.statement).into(),
-                init_stack: value.init_stack.clone(),
-                ledger_witness: value.ledger_witness.clone(),
-            }
-        }
-    }
-
-    impl From<&Source> for TransactionSnarkStatementWithSokStableV2Source {
-        fn from(value: &Source) -> Self {
-            Self {
-                ledger: MinaBaseLedgerHash0StableV1(value.ledger.into()).into(),
-                pending_coinbase_stack: value.pending_coinbase_stack.clone(),
-                local_state: value.local_state.clone(),
-            }
-        }
-    }
-
-    impl From<&Statement> for TransactionSnarkStatementStableV2 {
-        fn from(value: &Statement) -> Self {
-            Self {
-                source: (&value.source).into(),
-                target: (&value.target).into(),
-                supply_increase: (&value.supply_increase).into(),
-                fee_excess: (&value.fee_excess).into(),
-                sok_digest: (),
-            }
-        }
-    }
-
-    impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithWitnessStableV2 {
-        fn from(value: &TransactionWithWitness) -> Self {
-            Self {
-                transaction_with_info: value.transaction_with_info.clone(),
-                state_hash: value.state_hash.clone(),
-                statement: (&value.statement).into(),
-                init_stack: value.init_stack.clone(),
-                ledger_witness: value.ledger_witness.clone(),
-            }
-        }
-    }
-
-    impl binprot::BinProtWrite for TransactionWithWitness {
-        fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-            let p2p: TransactionSnarkScanStateTransactionWithWitnessStableV2 = self.into();
-            p2p.binprot_write(w)
-        }
     }
 }
 
