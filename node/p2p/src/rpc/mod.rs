@@ -74,7 +74,11 @@ impl P2pRpcRequest {
             id: id.counter() as QueryID,
         };
         header.binprot_write(w)?;
-        binprot::binprot_write_with_size(data, w)
+
+        let mut buf = Vec::new();
+        data.binprot_write(&mut buf)?;
+        binprot::Nat0(buf.len() as u64).binprot_write(w)?;
+        w.write_all(&buf)
     }
 
     pub fn write_msg<W: io::Write>(&self, id: P2pRpcId, w: &mut W) -> io::Result<()> {
