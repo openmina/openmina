@@ -18,7 +18,7 @@ use binprot::{BinProtRead, BinProtWrite};
 use libp2p::futures::io::{AsyncRead, AsyncReadExt};
 use mina_p2p_messages::{
     rpc::{
-        GetBestTipV2, GetTransitionChainV2, GetTransitionKnowledgeV1ForV2,
+        AnswerSyncLedgerQueryV2, GetBestTipV2, GetTransitionChainV2, GetTransitionKnowledgeV1ForV2,
         VersionedRpcMenuV1,
     },
     rpc_kernel::{QueryHeader, QueryID, Response, ResponseHeader, RpcMethod, RpcResultKind},
@@ -56,6 +56,7 @@ pub enum P2pRpcRequest {
     BestTipGet(<GetBestTipV2 as RpcMethod>::Query),
     TransitionKnowledgeGet(<GetTransitionKnowledgeV1ForV2 as RpcMethod>::Query),
     TransitionChainGet(<GetTransitionChainV2 as RpcMethod>::Query),
+    LedgerQuery(<AnswerSyncLedgerQueryV2 as RpcMethod>::Query),
 }
 
 impl P2pRpcRequest {
@@ -65,6 +66,7 @@ impl P2pRpcRequest {
             Self::BestTipGet(_) => P2pRpcKind::BestTipGet,
             Self::TransitionKnowledgeGet(_) => P2pRpcKind::TransitionKnowledgeGet,
             Self::TransitionChainGet(_) => P2pRpcKind::TransitionChainGet,
+            Self::LedgerQuery(_) => P2pRpcKind::LedgerQuery,
         }
     }
 
@@ -96,6 +98,9 @@ impl P2pRpcRequest {
             Self::TransitionChainGet(data) => {
                 Self::write_msg_impl::<GetTransitionChainV2, _>(w, id, data)
             }
+            Self::LedgerQuery(data) => {
+                Self::write_msg_impl::<AnswerSyncLedgerQueryV2, _>(w, id, data)
+            }
         }
     }
 }
@@ -112,6 +117,7 @@ pub enum P2pRpcKind {
     BestTipGet,
     TransitionKnowledgeGet,
     TransitionChainGet,
+    LedgerQuery,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -120,6 +126,7 @@ pub enum P2pRpcResponse {
     BestTipGet(<GetBestTipV2 as RpcMethod>::Response),
     TransitionKnowledgeGet(<GetTransitionKnowledgeV1ForV2 as RpcMethod>::Response),
     TransitionChainGet(<GetTransitionChainV2 as RpcMethod>::Response),
+    LedgerQuery(<AnswerSyncLedgerQueryV2 as RpcMethod>::Response),
 }
 
 impl P2pRpcResponse {
@@ -129,6 +136,7 @@ impl P2pRpcResponse {
             Self::BestTipGet(_) => P2pRpcKind::BestTipGet,
             Self::TransitionKnowledgeGet(_) => P2pRpcKind::TransitionKnowledgeGet,
             Self::TransitionChainGet(_) => P2pRpcKind::TransitionChainGet,
+            Self::LedgerQuery(_) => P2pRpcKind::LedgerQuery,
         }
     }
 
@@ -156,6 +164,9 @@ impl P2pRpcResponse {
             }
             Self::TransitionChainGet(res) => {
                 Self::write_msg_impl::<GetTransitionChainV2, _>(w, id, res)
+            }
+            Self::LedgerQuery(res) => {
+                Self::write_msg_impl::<AnswerSyncLedgerQueryV2, _>(w, id, res)
             }
         }
     }
@@ -214,6 +225,9 @@ impl P2pRpcResponse {
             }
             P2pRpcKind::TransitionChainGet => {
                 Self::TransitionChainGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
+            }
+            P2pRpcKind::LedgerQuery => {
+                Self::LedgerQuery(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
             }
         })
     }
