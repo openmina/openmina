@@ -803,11 +803,13 @@ dependencies = [
 [[package]]
 name = "mina-p2p-messages"
 version = "0.6.4"
-source = "git+https://github.com/name-placeholder/mina-p2p-messages-rs?rev=a084b6d1c338772166fd386ecaba958d2caea654#a084b6d1c338772166fd386ecaba958d2caea654"
+source = "git+https://github.com/name-placeholder/mina-p2p-messages-rs#adba4ce621fe8c90ed5c21371b941f5ed707c6bd"
 dependencies = [
+ "ark-ff",
  "base64",
  "binprot",
  "binprot_derive",
+ "blake2",
  "bs58",
  "derive_more",
  "hex",
@@ -976,7 +978,6 @@ dependencies = [
 [[package]]
 name = "ocaml-interop"
 version = "0.8.8"
-source = "git+https://github.com/sebastiencs/ocaml-interop.git?branch=closure-values-dbg#22410feff70180f08ba2602fcf0ec36912cfab88"
 dependencies = [
  "ocaml-boxroot-sys",
  "ocaml-sys",
