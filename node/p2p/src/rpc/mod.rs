@@ -17,7 +17,10 @@ use std::io;
 use binprot::{BinProtRead, BinProtWrite};
 use libp2p::futures::io::{AsyncRead, AsyncReadExt};
 use mina_p2p_messages::{
-    rpc::{GetTransitionChainV2, GetTransitionKnowledgeV1ForV2, VersionedRpcMenuV1},
+    rpc::{
+        GetBestTipV2, GetTransitionChainV2, GetTransitionKnowledgeV1ForV2,
+        VersionedRpcMenuV1,
+    },
     rpc_kernel::{QueryHeader, QueryID, Response, ResponseHeader, RpcMethod, RpcResultKind},
 };
 use serde::{Deserialize, Serialize};
@@ -50,6 +53,7 @@ pub enum P2pRpcEvent {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcRequest {
     MenuGet(<VersionedRpcMenuV1 as RpcMethod>::Query),
+    BestTipGet(<GetBestTipV2 as RpcMethod>::Query),
     TransitionKnowledgeGet(<GetTransitionKnowledgeV1ForV2 as RpcMethod>::Query),
     TransitionChainGet(<GetTransitionChainV2 as RpcMethod>::Query),
 }
@@ -58,6 +62,7 @@ impl P2pRpcRequest {
     pub fn kind(&self) -> P2pRpcKind {
         match self {
             Self::MenuGet(_) => P2pRpcKind::MenuGet,
+            Self::BestTipGet(_) => P2pRpcKind::BestTipGet,
             Self::TransitionKnowledgeGet(_) => P2pRpcKind::TransitionKnowledgeGet,
             Self::TransitionChainGet(_) => P2pRpcKind::TransitionChainGet,
         }
@@ -84,6 +89,7 @@ impl P2pRpcRequest {
     pub fn write_msg<W: io::Write>(&self, id: P2pRpcId, w: &mut W) -> io::Result<()> {
         match self {
             Self::MenuGet(data) => Self::write_msg_impl::<VersionedRpcMenuV1, _>(w, id, data),
+            Self::BestTipGet(data) => Self::write_msg_impl::<GetBestTipV2, _>(w, id, data),
             Self::TransitionKnowledgeGet(data) => {
                 Self::write_msg_impl::<GetTransitionKnowledgeV1ForV2, _>(w, id, data)
             }
@@ -103,6 +109,7 @@ impl Default for P2pRpcRequest {
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
 pub enum P2pRpcKind {
     MenuGet = 0,
+    BestTipGet,
     TransitionKnowledgeGet,
     TransitionChainGet,
 }
@@ -110,6 +117,7 @@ pub enum P2pRpcKind {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcResponse {
     MenuGet(<VersionedRpcMenuV1 as RpcMethod>::Response),
+    BestTipGet(<GetBestTipV2 as RpcMethod>::Response),
     TransitionKnowledgeGet(<GetTransitionKnowledgeV1ForV2 as RpcMethod>::Response),
     TransitionChainGet(<GetTransitionChainV2 as RpcMethod>::Response),
 }
@@ -118,6 +126,7 @@ impl P2pRpcResponse {
     pub fn kind(&self) -> P2pRpcKind {
         match self {
             Self::MenuGet(_) => P2pRpcKind::MenuGet,
+            Self::BestTipGet(_) => P2pRpcKind::BestTipGet,
             Self::TransitionKnowledgeGet(_) => P2pRpcKind::TransitionKnowledgeGet,
             Self::TransitionChainGet(_) => P2pRpcKind::TransitionChainGet,
         }
@@ -141,6 +150,7 @@ impl P2pRpcResponse {
     pub fn write_msg<W: io::Write>(&self, id: P2pRpcId, w: &mut W) -> io::Result<()> {
         match self {
             Self::MenuGet(res) => Self::write_msg_impl::<VersionedRpcMenuV1, _>(w, id, res),
+            Self::BestTipGet(res) => Self::write_msg_impl::<GetBestTipV2, _>(w, id, res),
             Self::TransitionKnowledgeGet(res) => {
                 Self::write_msg_impl::<GetTransitionKnowledgeV1ForV2, _>(w, id, res)
             }
@@ -195,6 +205,9 @@ impl P2pRpcResponse {
         Ok(match kind {
             P2pRpcKind::MenuGet => {
                 Self::MenuGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
+            }
+            P2pRpcKind::BestTipGet => {
+                Self::BestTipGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
             }
             P2pRpcKind::TransitionKnowledgeGet => {
                 Self::TransitionKnowledgeGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)

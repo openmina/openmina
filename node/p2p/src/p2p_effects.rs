@@ -18,5 +18,13 @@ impl P2pPeerReadyAction {
             },
             request: P2pRpcRequest::MenuGet(()),
         });
+        store.dispatch(P2pRpcOutgoingInitAction {
+            peer_id: self.peer_id,
+            rpc_id: match store.state().get_ready_peer(&self.peer_id) {
+                Some(p) => p.rpc.outgoing.next_req_id(),
+                None => return,
+            },
+            request: P2pRpcRequest::BestTipGet(()),
+        });
     }
 }
