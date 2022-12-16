@@ -265,7 +265,7 @@ mod merge {
 
 /// All the jobs on a tree that can be done. Base.Full and Merge.Full
 #[derive(Debug)]
-pub(super) enum AvailableJob<BaseJob, MergeJob> {
+pub enum AvailableJob<BaseJob, MergeJob> {
     Base(BaseJob),
     Merge { left: MergeJob, right: MergeJob },
 }
@@ -284,7 +284,7 @@ enum Job<BaseJob, MergeJob> {
 /// then remaining number of slots on a new tree and the corresponding
 /// job count.
 #[derive(Debug)]
-pub(super) struct SpacePartition {
+pub struct SpacePartition {
     first: (u64, u64),
     second: Option<(u64, u64)>,
 }
@@ -1301,7 +1301,7 @@ where
         }
     }
 
-    fn hash<FunMerge, FunBase>(
+    pub fn hash<FunMerge, FunBase>(
         &self,
         fun_merge: FunMerge,
         fun_base: FunBase,

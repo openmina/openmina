@@ -255,6 +255,24 @@ impl From<mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1> for TokenId {
     }
 }
 
+impl From<&mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1> for TokenId {
+    fn from(token_id: &mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1) -> Self {
+        Self(token_id.0.to_field())
+    }
+}
+
+impl From<&TokenId> for mina_p2p_messages::v2::MinaBaseTokenIdStableV2 {
+    fn from(token_id: &TokenId) -> Self {
+        Self(MinaBaseAccountIdDigestStableV1(token_id.0.into()))
+    }
+}
+
+impl From<&mina_p2p_messages::v2::MinaBaseTokenIdStableV2> for TokenId {
+    fn from(token_id: &mina_p2p_messages::v2::MinaBaseTokenIdStableV2) -> Self {
+        Self((&token_id.0 .0).into())
+    }
+}
+
 impl binprot::BinProtRead for Account {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
     where
