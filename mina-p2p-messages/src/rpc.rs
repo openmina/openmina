@@ -206,8 +206,8 @@ mina_rpc!(BanNotifyV1, "ban_notify", 1, core::Time, ());
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ProofCarryingDataStableV1<A, B> {
-    data: A,
-    proof: B,
+    pub data: A,
+    pub proof: B,
 }
 pub type ProofCarryingDataStableV1Versioned<A, B> = Versioned<ProofCarryingDataStableV1<A, B>, 1>;
 pub type GetBestTipV1Response = Option<
