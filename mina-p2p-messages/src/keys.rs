@@ -17,3 +17,24 @@ impl From<mina_signer::CompressedPubKey> for crate::v2::NonZeroCurvePointUncompr
         }
     }
 }
+
+#[cfg(feature = "hashing")]
+impl From<&crate::v2::NonZeroCurvePoint> for mina_signer::CompressedPubKey {
+    fn from(val: &crate::v2::NonZeroCurvePoint) -> Self {
+        mina_signer::CompressedPubKey {
+            x: (&val.x).into(),
+            is_odd: val.is_odd,
+        }
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl From<&mina_signer::CompressedPubKey> for crate::v2::NonZeroCurvePoint {
+    fn from(v: &mina_signer::CompressedPubKey) -> crate::v2::NonZeroCurvePoint {
+        let key = crate::v2::NonZeroCurvePointUncompressedStableV1 {
+            x: (&v.x).into(),
+            is_odd: v.is_odd,
+        };
+        key.into()
+    }
+}
