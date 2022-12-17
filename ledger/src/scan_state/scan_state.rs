@@ -12,7 +12,7 @@ use crate::scan_state::{
 
 use self::transaction_snark::LedgerProof;
 
-use super::{currency::Fee, parallel_scan::ParallelScan};
+use super::{currency::Fee, parallel_scan::ParallelScan, transaction_logic::WithStatus};
 // use super::parallel_scan::AvailableJob;
 
 pub use super::parallel_scan::SpacePartition;
@@ -48,6 +48,7 @@ pub mod transaction_snark {
         scan_state::{
             currency::{Amount, Signed},
             fee_excess::FeeExcess,
+            transaction_logic::transaction_applied::TransactionApplied,
         },
     };
 
@@ -149,7 +150,7 @@ pub mod transaction_snark {
 
     #[derive(Debug, Clone)]
     pub struct TransactionWithWitness {
-        pub transaction_with_info: MinaTransactionLogicTransactionAppliedStableV2,
+        pub transaction_with_info: TransactionApplied,
         pub state_hash: (StateHash, MinaBaseStateBodyHashStableV1),
         pub statement: Statement,
         pub init_stack: TransactionSnarkPendingCoinbaseStackStateInitStackStableV1,
@@ -218,16 +219,17 @@ pub mod transaction_snark {
 
 impl ScanState {
     pub fn hash(&self) {
-        use binprot::BinProtWrite;
+        todo!()
 
-        self.state.hash(
-            |buffer, proof| {
-                proof.binprot_write(buffer).unwrap();
-            },
-            |buffer, transaction| {
-                transaction.binprot_write(buffer).unwrap();
-            },
-        );
+        // use binprot::BinProtWrite;
+        // self.state.hash(
+        //     |buffer, proof| {
+        //         proof.binprot_write(buffer).unwrap();
+        //     },
+        //     |buffer, transaction| {
+        //         transaction.binprot_write(buffer).unwrap();
+        //     },
+        // );
     }
 }
 
@@ -266,6 +268,12 @@ fn create_expected_statement<F>(
     F: Fn(&StateHash) -> &MinaStateProtocolStateValueStableV2,
 {
     let source_merkle_root = ledger_witness.merkle_root();
+
+    let WithStatus {
+        data: transaction, ..
+    } = transaction_with_info.transaction();
+
+    let protocol_state = get_state(&state_hash.0);
 }
 
 // let create_expected_statement ~constraint_constants

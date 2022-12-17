@@ -53,9 +53,34 @@ pub enum TransactionFailure {
     Cancelled,
 }
 
-pub type WithStatus<T> = Result<T, TransactionFailure>;
+/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L452
+#[derive(Debug, Clone)]
+pub enum TransactionStatus {
+    Applied,
+    Failed(TransactionFailure),
+}
+
+/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_status.ml#L6
+#[derive(Debug, Clone)]
+pub struct WithStatus<T> {
+    pub data: T,
+    pub status: TransactionStatus,
+}
+
+impl<T> WithStatus<T> {
+    pub fn map<F, R>(&self, fun: F) -> WithStatus<R>
+    where
+        F: Fn(&T) -> R,
+    {
+        WithStatus {
+            data: fun(&self.data),
+            status: self.status.clone(),
+        }
+    }
+}
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_transfer.ml#L19
+#[derive(Debug, Clone)]
 pub struct FeeTransfer {
     receiver_pk: CompressedPubKey,
     fee: Fee,
@@ -63,6 +88,7 @@ pub struct FeeTransfer {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/coinbase.ml#L17
+#[derive(Debug, Clone)]
 pub struct Coinbase {
     receiver: CompressedPubKey,
     amount: Amount,
@@ -70,6 +96,7 @@ pub struct Coinbase {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signature.mli#L11
+#[derive(Debug, Clone)]
 pub struct Signature((Fp, (Fp, Fp)));
 
 pub type Memo = Vec<u8>;
@@ -80,6 +107,7 @@ pub mod signed_command {
     use super::*;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L75
+    #[derive(Debug, Clone)]
     pub struct Common {
         fee: Fee,
         fee_token: TokenId,
@@ -90,6 +118,7 @@ pub mod signed_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/payment_payload.ml#L40
+    #[derive(Debug, Clone)]
     pub struct PaymentPayload {
         source_pk: CompressedPubKey,
         receiver_pk: CompressedPubKey,
@@ -97,6 +126,7 @@ pub mod signed_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/stake_delegation.ml#L11
+    #[derive(Debug, Clone)]
     pub enum StakeDelegation {
         SetDelegate {
             delegator: CompressedPubKey,
@@ -105,17 +135,20 @@ pub mod signed_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.mli#L24
+    #[derive(Debug, Clone)]
     pub enum Body {
         Payment(PaymentPayload),
         StakeDelegation(StakeDelegation),
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.mli#L165
+    #[derive(Debug, Clone)]
     pub struct SignedCommandPayload {
         common: Common,
         body: Body,
     }
 
+    #[derive(Debug, Clone)]
     pub struct SignedCommand {
         payload: SignedCommandPayload,
         signer: CompressedPubKey,
@@ -132,15 +165,18 @@ pub mod zkapp_command {
     use super::*;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L834
+    #[derive(Debug, Clone)]
     pub struct Events(Vec<Vec<Fp>>);
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_basic.ml#L100
+    #[derive(Debug, Clone)]
     pub enum SetOrKeep<T> {
         Set(T),
         Kepp,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L319
+    #[derive(Debug, Clone)]
     pub struct Update {
         app_state: [SetOrKeep<Fp>; 8],
         delegate: SetOrKeep<CompressedPubKey>,
@@ -154,12 +190,14 @@ pub mod zkapp_command {
 
     // TODO: This could be std::ops::Range ?
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L23
+    #[derive(Debug, Clone)]
     pub struct ClosedInterval<T> {
         lower: T,
         upper: T,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_basic.ml#L232
+    #[derive(Debug, Clone)]
     pub enum OrIgnore<T> {
         Check(T),
         Ignore,
@@ -172,22 +210,27 @@ pub mod zkapp_command {
     pub type EqData<T> = OrIgnore<T>;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L178
+    #[derive(Debug, Clone)]
     pub struct Numeric<T>(OrIgnore<ClosedInterval<T>>);
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/block_time/intf.ml#L55
     // TODO: Not sure if it's `u64`, but OCaml has methods `of_int64` and `to_in64`
+    #[derive(Debug, Clone)]
     pub struct BlockTime(u64);
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_numbers/length.mli#L2
+    #[derive(Debug, Clone)]
     pub struct Length(u32);
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/epoch_ledger.ml#L9
+    #[derive(Debug, Clone)]
     pub struct EpochLedger {
         hash: Hash<Fp>,
         total_currency: Numeric<Amount>,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L797
+    #[derive(Debug, Clone)]
     pub struct EpochData {
         ledger: EpochLedger,
         seed: Hash<Fp>,
@@ -197,6 +240,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L977
+    #[derive(Debug, Clone)]
     pub struct ZkAppPreconditions {
         snarked_ledger_hash: Hash<Fp>,
         timestamp: Numeric<BlockTime>,
@@ -211,9 +255,11 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_numbers/account_nonce.mli#L2
+    #[derive(Debug, Clone)]
     pub struct AccountNonce(u32);
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L478
+    #[derive(Debug, Clone)]
     pub struct Account {
         balance: Numeric<Balance>,
         nonce: Numeric<AccountNonce>,
@@ -226,6 +272,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L613
+    #[derive(Debug, Clone)]
     pub enum AccountPreconditions {
         Full(Box<Account>),
         Nonce(AccountNonce),
@@ -233,12 +280,14 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L758
+    #[derive(Debug, Clone)]
     pub struct Preconditions {
         network: ZkAppPreconditions,
         account: AccountPreconditions,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L27
+    #[derive(Debug, Clone)]
     pub enum AuthorizationKind {
         NoneGiven,
         Signature,
@@ -246,6 +295,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L955
+    #[derive(Debug, Clone)]
     pub struct Body {
         public_key: CompressedPubKey,
         token_id: TokenId,
@@ -262,12 +312,14 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/pickles/pickles_intf.ml#L316
+    #[derive(Debug, Clone)]
     pub struct SideLoadedProof {
         // Side_loaded.Proof
         // TODO: Not sure what type this is yet...
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/control.ml#L11
+    #[derive(Debug, Clone)]
     pub enum Control {
         Proof(SideLoadedProof),
         Signature(Signature),
@@ -275,6 +327,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1437
+    #[derive(Debug, Clone)]
     pub struct AccountUpdate {
         body: Body,
         authorization: Control,
@@ -284,6 +337,7 @@ pub mod zkapp_command {
     // Digest.Forest.Stable.V1.t = Fp
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L49
+    #[derive(Debug, Clone)]
     pub struct Tree {
         account_update: AccountUpdate,
         account_update_digest: Fp,
@@ -291,15 +345,18 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_stack_hash.ml#L6
+    #[derive(Debug, Clone)]
     pub struct WithStackHash {
         elt: Tree,
         hash: Fp,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L345
+    #[derive(Debug, Clone)]
     pub struct CallForest(Vec<WithStackHash>);
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1081
+    #[derive(Debug, Clone)]
     pub struct FeePayerBody {
         public_key: CompressedPubKey,
         fee: Fee,
@@ -308,12 +365,14 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1484
+    #[derive(Debug, Clone)]
     pub struct FeePayer {
         body: FeePayerBody,
         authorization: Signature,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L959
+    #[derive(Debug, Clone)]
     pub struct ZkAppCommand {
         fee_payer: FeePayer,
         account_updates: CallForest,
@@ -332,30 +391,79 @@ pub enum Transaction {
     Coinbase(Coinbase),
 }
 
-mod transaction_applied {
-    use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedStableV2;
+pub mod transaction_applied {
+    use crate::{Account, AccountId};
 
     use super::*;
 
-    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L639
-    fn transaction(
-        transaction: &MinaTransactionLogicTransactionAppliedStableV2,
-    ) -> WithStatus<Transaction> {
-        todo!()
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L17
+    #[derive(Debug, Clone)]
+    pub struct SignedCommandApplied {
+        user_command: WithStatus<signed_command::SignedCommand>,
     }
 
-    // let transaction : t -> Transaction.t With_status.t =
-    //  fun { varying; _ } ->
-    //   match varying with
-    //   | Command (Signed_command uc) ->
-    //       With_status.map uc.common.user_command ~f:(fun cmd ->
-    //           Transaction.Command (User_command.Signed_command cmd) )
-    //   | Command (Zkapp_command s) ->
-    //       With_status.map s.command ~f:(fun c ->
-    //           Transaction.Command (User_command.Zkapp_command c) )
-    //   | Fee_transfer f ->
-    //       With_status.map f.fee_transfer ~f:(fun f ->
-    //           Transaction.Fee_transfer f )
-    //   | Coinbase c ->
-    //       With_status.map c.coinbase ~f:(fun c -> Transaction.Coinbase c)
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L65
+    #[derive(Debug, Clone)]
+    pub struct ZkappCommandApplied {
+        accounts: Vec<(AccountId, Option<Account>)>,
+        command: WithStatus<zkapp_command::ZkAppCommand>,
+        new_accounts: Vec<AccountId>,
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L82
+    #[derive(Debug, Clone)]
+    pub enum CommandApplied {
+        SignedCommand(Box<SignedCommandApplied>),
+        ZkappCommand(Box<ZkappCommandApplied>),
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L96
+    #[derive(Debug, Clone)]
+    pub struct FeeTransferApplied {
+        fee_transfer: WithStatus<FeeTransfer>,
+        new_accounts: Vec<AccountId>,
+        burned_tokens: Amount,
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L112
+    #[derive(Debug, Clone)]
+    pub struct CoinbaseApplied {
+        coinbase: WithStatus<Coinbase>,
+        new_accounts: Vec<AccountId>,
+        burned_tokens: Amount,
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L142
+    #[derive(Debug, Clone)]
+    pub enum Varying {
+        Command(CommandApplied),
+        FeeTransfer(FeeTransferApplied),
+        Coinbase(CoinbaseApplied),
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L142
+    #[derive(Debug, Clone)]
+    pub struct TransactionApplied {
+        previous_hash: Fp,
+        varying: Varying,
+    }
+
+    impl TransactionApplied {
+        /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L639
+        pub fn transaction(&self) -> WithStatus<Transaction> {
+            use CommandApplied::*;
+            use Varying::*;
+
+            match &self.varying {
+                Command(SignedCommand(cmd)) => cmd
+                    .user_command
+                    .map(|c| Transaction::Command(UserCommand::SignedCommand(Box::new(c.clone())))),
+                Command(ZkappCommand(cmd)) => cmd
+                    .command
+                    .map(|c| Transaction::Command(UserCommand::ZkAppCommand(Box::new(c.clone())))),
+                FeeTransfer(f) => f.fee_transfer.map(|f| Transaction::FeeTransfer(f.clone())),
+                Coinbase(c) => c.coinbase.map(|c| Transaction::Coinbase(c.clone())),
+            }
+        }
+    }
 }
