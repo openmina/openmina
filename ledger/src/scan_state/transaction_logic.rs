@@ -55,12 +55,14 @@ pub enum TransactionFailure {
 
 pub type WithStatus<T> = Result<T, TransactionFailure>;
 
+/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_transfer.ml#L19
 pub struct FeeTransfer {
     receiver_pk: CompressedPubKey,
     fee: Fee,
     fee_token: TokenId,
 }
 
+/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/coinbase.ml#L17
 pub struct Coinbase {
     receiver: CompressedPubKey,
     amount: Amount,
@@ -200,8 +202,8 @@ pub mod zkapp_command {
         timestamp: Numeric<BlockTime>,
         blockchain_length: Numeric<Length>,
         min_window_density: Numeric<Length>,
-        last_vrf_output: (), // TODO: It's not defined yet in OCAml
-        total_current: Numeric<Amount>,
+        last_vrf_output: (), // It's not defined in OCAml
+        total_currency: Numeric<Amount>,
         global_slot_since_hard_fork: Numeric<Slot>,
         global_slot_since_genesis: Numeric<Slot>,
         staking_epoch_data: EpochData,
@@ -211,6 +213,7 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_numbers/account_nonce.mli#L2
     pub struct AccountNonce(u32);
 
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L478
     pub struct Account {
         balance: Numeric<Balance>,
         nonce: Numeric<AccountNonce>,
@@ -296,9 +299,23 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L345
     pub struct CallForest(Vec<WithStackHash>);
 
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1081
+    pub struct FeePayerBody {
+        public_key: CompressedPubKey,
+        fee: Fee,
+        valid_until: Option<Slot>,
+        nonce: AccountNonce,
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1484
+    pub struct FeePayer {
+        body: FeePayerBody,
+        authorization: Signature,
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L959
     pub struct ZkAppCommand {
-        fee_payer: CompressedPubKey,
+        fee_payer: FeePayer,
         account_updates: CallForest,
         memo: Memo,
     }
