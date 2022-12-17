@@ -14,8 +14,8 @@ use super::{
     currency::{Amount, Fee, Sgn, Signed},
     fee_excess::FeeExcess,
     scan_state::transaction_snark::{
-        LedgerProof, LedgerProofWithSokMessage, Registers, SokMessage, Statement, TransactionSnark,
-        TransactionWithWitness,
+        LedgerProof, LedgerProofWithSokMessage, LedgerWitness, Registers, SokMessage, Statement,
+        TransactionSnark, TransactionWithWitness,
     },
 };
 
@@ -185,7 +185,7 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
             state_hash: value.state_hash.clone(),
             statement: (&value.statement).into(),
             init_stack: value.init_stack.clone(),
-            ledger_witness: value.ledger_witness.clone(),
+            ledger_witness: LedgerWitness, // value.ledger_witness.clone(),
         }
     }
 }
@@ -219,7 +219,7 @@ impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithW
             state_hash: value.state_hash.clone(),
             statement: (&value.statement).into(),
             init_stack: value.init_stack.clone(),
-            ledger_witness: value.ledger_witness.clone(),
+            ledger_witness: todo!(), // value.ledger_witness.clone(),
         }
     }
 }

@@ -106,3 +106,28 @@ impl Magnitude for Amount {
         Self(self.0.abs_diff(rhs.0))
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Balance(pub(super) u64);
+
+impl Magnitude for Balance {
+    fn zero() -> Self {
+        Self(0)
+    }
+
+    fn is_zero(&self) -> bool {
+        self.0 == 0
+    }
+
+    fn checked_add(&self, rhs: &Self) -> Option<Self> {
+        self.0.checked_add(rhs.0).map(Self)
+    }
+
+    fn checked_sub(&self, rhs: &Self) -> Option<Self> {
+        self.0.checked_sub(rhs.0).map(Self)
+    }
+
+    fn abs_diff(&self, rhs: &Self) -> Self {
+        Self(self.0.abs_diff(rhs.0))
+    }
+}

@@ -11,7 +11,7 @@ use ControlFlow::{Break, Continue};
 /// Sequence number for jobs in the scan state that corresponds to the order in
 /// which they were added
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(super) struct SequenceNumber(u64);
+pub struct SequenceNumber(u64);
 
 impl SequenceNumber {
     fn zero() -> Self {
@@ -38,7 +38,7 @@ impl std::ops::Sub for &'_ SequenceNumber {
 /// Each node on the tree is viewed as a job that needs to be completed. When a
 /// job is completed, it creates a new "Todo" job and marks the old job as "Done"
 #[derive(Clone, Debug)]
-pub(super) enum JobStatus {
+pub enum JobStatus {
     Todo,
     Done,
 }
@@ -117,18 +117,18 @@ enum WorkForTree {
 }
 
 /// For base proofs (Proving new transactions)
-mod base {
+pub mod base {
     use super::*;
 
     #[derive(Clone, Debug)]
-    pub(super) struct Record<BaseJob> {
+    pub struct Record<BaseJob> {
         pub job: BaseJob,
         pub seq_no: SequenceNumber,
         pub state: JobStatus,
     }
 
     #[derive(Clone, Debug)]
-    pub(super) enum Job<BaseJob> {
+    pub enum Job<BaseJob> {
         Empty,
         Full(Record<BaseJob>),
     }
@@ -187,11 +187,11 @@ mod base {
 }
 
 /// For merge proofs: Merging two base proofs or two merge proofs
-mod merge {
+pub mod merge {
     use super::*;
 
     #[derive(Clone, Debug)]
-    pub(super) struct Record<MergeJob> {
+    pub struct Record<MergeJob> {
         pub left: MergeJob,
         pub right: MergeJob,
         pub seq_no: SequenceNumber,
@@ -210,7 +210,7 @@ mod merge {
     }
 
     #[derive(Clone, Debug)]
-    pub(super) enum Job<MergeJob> {
+    pub enum Job<MergeJob> {
         Empty,
         Part(MergeJob), // left
         Full(Record<MergeJob>),
