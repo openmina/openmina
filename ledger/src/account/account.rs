@@ -34,6 +34,12 @@ impl From<u64> for TokenId {
     }
 }
 
+impl TokenId {
+    pub fn is_default(&self) -> bool {
+        self == &Self::default()
+    }
+}
+
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/account.ml#L93
 pub type TokenSymbol = String;
 
@@ -289,6 +295,15 @@ pub struct AccountId {
     pub token_id: TokenId,
 }
 
+impl AccountId {
+    pub fn new(public_key: CompressedPubKey, token_id: TokenId) -> Self {
+        Self {
+            public_key,
+            token_id,
+        }
+    }
+}
+
 impl std::fmt::Debug for AccountId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let pubkey = self.public_key.x.to_string();
@@ -348,6 +363,30 @@ impl Account {
             nonce: 0,
             receipt_chain_hash: ReceiptChainHash::empty(),
             delegate: Some(pubkey),
+            voting_for: VotingFor::dummy(),
+            timing: Timing::Untimed,
+            permissions: Permissions::user_default(),
+            zkapp: None,
+        }
+    }
+
+    pub fn create_with(account_id: AccountId, balance: Balance) -> Self {
+        let delegate = if account_id.token_id.is_default() {
+            // Only allow delegation if this account is for the default token.
+            Some(account_id.public_key.clone())
+        } else {
+            None
+        };
+
+        Self {
+            public_key: account_id.public_key,
+            token_id: account_id.token_id,
+            token_permissions: TokenPermissions::default(),
+            token_symbol: String::new(),
+            balance,
+            nonce: 0,
+            receipt_chain_hash: ReceiptChainHash::empty(),
+            delegate,
             voting_for: VotingFor::dummy(),
             timing: Timing::Untimed,
             permissions: Permissions::user_default(),

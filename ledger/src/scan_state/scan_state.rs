@@ -12,7 +12,11 @@ use crate::scan_state::{
 
 use self::transaction_snark::LedgerProof;
 
-use super::{currency::Fee, parallel_scan::ParallelScan, transaction_logic::WithStatus};
+use super::{
+    currency::Fee,
+    parallel_scan::ParallelScan,
+    transaction_logic::{local_state::LocalState, protocol_state::protocol_state_view, WithStatus},
+};
 // use super::parallel_scan::AvailableJob;
 
 pub use super::parallel_scan::SpacePartition;
@@ -239,7 +243,7 @@ pub struct ForkConstants {
     previous_global_slot: u32, // Mina_numbers.Global_slot.Stable.Latest.t,
 }
 
-pub struct GenesisConstants {
+pub struct ConstraintConstants {
     sub_windows_per_window: u64,
     ledger_depth: u64,
     work_delay: u64,
@@ -255,7 +259,7 @@ pub struct GenesisConstants {
 // type GetState = impl Fn(&StateHash) -> MinaStateProtocolStateValueStableV2;
 
 fn create_expected_statement<F>(
-    constraint_constants: &GenesisConstants,
+    constraint_constants: &ConstraintConstants,
     get_state: F,
     TransactionWithWitness {
         transaction_with_info,
@@ -274,6 +278,9 @@ fn create_expected_statement<F>(
     } = transaction_with_info.transaction();
 
     let protocol_state = get_state(&state_hash.0);
+    let state_view = protocol_state_view(protocol_state);
+
+    let empty_local_state = LocalState::empty();
 }
 
 // let create_expected_statement ~constraint_constants
@@ -434,7 +441,7 @@ impl Verifier {
 impl ScanState {
     pub fn scan_statement(
         &self,
-        constraint_constants: &GenesisConstants,
+        constraint_constants: &ConstraintConstants,
         statement_check: StatementCheck,
         verifier: &Verifier,
     ) -> Result<Statement, ()> {

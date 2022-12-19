@@ -107,6 +107,20 @@ impl Magnitude for Amount {
     }
 }
 
+impl Amount {
+    pub fn of_fee(fee: &Fee) -> Self {
+        Self(fee.0)
+    }
+
+    pub fn as_u64(&self) -> u64 {
+        self.0
+    }
+
+    pub fn from_u64(amount: u64) -> Self {
+        Self(amount)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Balance(pub(super) u64);
 
@@ -129,5 +143,15 @@ impl Magnitude for Balance {
 
     fn abs_diff(&self, rhs: &Self) -> Self {
         Self(self.0.abs_diff(rhs.0))
+    }
+}
+
+impl Balance {
+    pub fn sub_amount(&self, amount: Amount) -> Option<Self> {
+        self.0.checked_sub(amount.0).map(Self)
+    }
+
+    pub fn as_u64(&self) -> u64 {
+        self.0
     }
 }
