@@ -12,6 +12,12 @@ impl redux::EnablingCondition<crate::State> for outgoing::P2pRpcOutgoingPendingA
     }
 }
 
+impl redux::EnablingCondition<crate::State> for outgoing::P2pRpcOutgoingReceivedAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
+
 impl redux::EnablingCondition<crate::State> for outgoing::P2pRpcOutgoingErrorAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)

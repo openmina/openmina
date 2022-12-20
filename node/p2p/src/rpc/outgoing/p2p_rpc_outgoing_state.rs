@@ -33,9 +33,15 @@ pub enum P2pRpcOutgoingStatus {
         time: redux::Timestamp,
         request: P2pRpcRequest,
     },
+    Received {
+        time: redux::Timestamp,
+        request: P2pRpcRequest,
+        response: P2pRpcResponse,
+    },
     Error {
         time: redux::Timestamp,
         request: P2pRpcRequest,
+        response: Option<P2pRpcResponse>,
         error: P2pRpcOutgoingError,
     },
     Success {
@@ -51,7 +57,11 @@ impl P2pRpcOutgoingStatus {
     }
 
     pub fn is_pending(&self) -> bool {
-        matches!(self, Self::Init { .. })
+        matches!(self, Self::Pending { .. })
+    }
+
+    pub fn is_received(&self) -> bool {
+        matches!(self, Self::Received { .. })
     }
 
     pub fn is_finished(&self) -> bool {
@@ -62,6 +72,7 @@ impl P2pRpcOutgoingStatus {
         match self {
             Self::Init { request, .. } => request,
             Self::Pending { request, .. } => request,
+            Self::Received { request, .. } => request,
             Self::Error { request, .. } => request,
             Self::Success { request, .. } => request,
         }

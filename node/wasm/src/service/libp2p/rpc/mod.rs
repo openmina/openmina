@@ -455,7 +455,7 @@ impl NetworkBehaviour for RpcBehaviour {
                         P2pRpcEvent::OutgoingError(
                             peer,
                             request_id,
-                            P2pRpcOutgoingError::UnsupportedProtocol,
+                            P2pRpcOutgoingError::ProtocolUnsupported,
                         ),
                     ));
             }

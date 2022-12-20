@@ -59,6 +59,7 @@ impl_into_global_action!(pubsub::P2pPubsubMessageReceivedAction);
 
 impl_into_global_action!(rpc::outgoing::P2pRpcOutgoingInitAction);
 impl_into_global_action!(rpc::outgoing::P2pRpcOutgoingPendingAction);
+impl_into_global_action!(rpc::outgoing::P2pRpcOutgoingReceivedAction);
 impl_into_global_action!(rpc::outgoing::P2pRpcOutgoingErrorAction);
 impl_into_global_action!(rpc::outgoing::P2pRpcOutgoingSuccessAction);
 impl_into_global_action!(rpc::outgoing::P2pRpcOutgoingFinishAction);

@@ -85,6 +85,16 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             request = serde_json::to_string(&action.request).ok()
                         );
                     }
+                    P2pRpcOutgoingAction::Received(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = "P2pRpcOutgoingReceived",
+                            summary = format!("peer_id: {}, rpc_id: {}, kind: {:?}", action.peer_id, action.rpc_id, action.response.kind()),
+                            peer_id = action.peer_id.to_string(),
+                            rpc_id = action.rpc_id.to_string(),
+                            response = serde_json::to_string(&action.response).ok()
+                        );
+                    }
                     P2pRpcOutgoingAction::Error(action) => {
                         let req = None.or_else(|| {
                             let p = store.state().p2p.get_ready_peer(&action.peer_id)?;
@@ -104,10 +114,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         shared::log::info!(
                             meta.time();
                             kind = "P2pRpcOutgoingSuccess",
-                            summary = format!("peer_id: {}, rpc_id: {}, kind: {:?}", action.peer_id, action.rpc_id, action.response.kind()),
+                            summary = format!("peer_id: {}, rpc_id: {}", action.peer_id, action.rpc_id),
                             peer_id = action.peer_id.to_string(),
                             rpc_id = action.rpc_id.to_string(),
-                            response = serde_json::to_string(&action.response).ok()
                         );
                     }
                     _ => {}

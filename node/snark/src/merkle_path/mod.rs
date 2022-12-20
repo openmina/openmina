@@ -1,24 +1,19 @@
 use std::fmt::Write;
 
-use mina_hasher::Fp;
+use mina_p2p_messages::{bigint::BigInt, v2::MerkleTreeNode};
 
 use crate::public_input::protocol_state::MinaHash;
 
 mod account;
 
-pub enum MerklePath {
-    Left(Fp),
-    Right(Fp),
-}
-
 /// Computes the root hash of the merkle tree with an account and its merkle path
 ///
 /// - The output of this method should be compared with the expected root hash
 /// - Caller must ensure that the length of `merkle_path` is equal to the depth of the tree
-pub fn verify_merkle_path(
+pub fn calc_merkle_root_hash(
     account: &mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2,
-    merkle_path: &[MerklePath],
-) -> Fp {
+    merkle_path: &[MerkleTreeNode],
+) -> BigInt {
     let account_hash = account.hash();
     let mut param = String::with_capacity(16);
 
@@ -26,9 +21,10 @@ pub fn verify_merkle_path(
         .iter()
         .enumerate()
         .fold(account_hash, |child, (depth, path)| {
+            // TODO(binier): panics!
             let hashes = match path {
-                MerklePath::Left(right) => [child, *right],
-                MerklePath::Right(left) => [*left, child],
+                MerkleTreeNode::Left(right) => [child, right.to_fp().unwrap()],
+                MerkleTreeNode::Right(left) => [left.to_fp().unwrap(), child],
             };
 
             param.clear();
@@ -36,6 +32,7 @@ pub fn verify_merkle_path(
 
             crate::hash::hash_with_kimchi(param.as_str(), &hashes)
         })
+        .into()
 }
 
 #[cfg(test)]
@@ -43,6 +40,7 @@ mod tests {
     use binprot::BinProtRead;
     use std::str::FromStr;
 
+    use mina_hasher::Fp;
     use mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2;
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
@@ -65,26 +63,26 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0,
         ];
 
-        let f = |s: &str| Fp::from_str(s).unwrap();
+        let f = |s: &str| Fp::from_str(s).unwrap().into();
 
         let merkle_path = [
-            MerklePath::Right(f(
+            MerkleTreeNode::Right(f(
                 "18227536250766436420332506719307927763848621557295827586492752720030361639151",
             )),
-            MerklePath::Left(f(
+            MerkleTreeNode::Left(f(
                 "19058089777055582893709373756417201639841391101434051152781561397928725072682",
             )),
-            MerklePath::Left(f(
+            MerkleTreeNode::Left(f(
                 "14567363183521815157220528341758405505341431484217567976728226651987143469014",
             )),
-            MerklePath::Left(f(
+            MerkleTreeNode::Left(f(
                 "24964477018986196734411365850696768955131362119835160146013237098764675419844",
             )),
         ];
 
         let account = MinaBaseAccountBinableArgStableV2::binprot_read(&mut ACCOUNT_BYTES).unwrap();
 
-        let root_hash = verify_merkle_path(&account, &merkle_path[..]);
+        let root_hash = calc_merkle_root_hash(&account, &merkle_path[..]);
         let expected_root_hash =
             f("15669071938119177277046978685444858793777121704378331620682194305905804366005");
 

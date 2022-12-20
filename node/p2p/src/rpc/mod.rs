@@ -17,11 +17,13 @@ use std::io;
 use binprot::{BinProtRead, BinProtWrite};
 use libp2p::futures::io::{AsyncRead, AsyncReadExt};
 use mina_p2p_messages::{
+    bigint::BigInt,
     rpc::{
         AnswerSyncLedgerQueryV2, GetBestTipV2, GetTransitionChainV2, GetTransitionKnowledgeV1ForV2,
         VersionedRpcMenuV1,
     },
     rpc_kernel::{QueryHeader, QueryID, Response, ResponseHeader, RpcMethod, RpcResultKind},
+    v2::MinaLedgerSyncLedgerAnswerStableV2,
 };
 use serde::{Deserialize, Serialize};
 
@@ -38,16 +40,23 @@ impl shared::requests::RequestIdType for P2pRpcIdType {
 pub type P2pRpcId = shared::requests::RequestId<P2pRpcIdType>;
 pub type P2pRpcIncomingId = u64;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
 pub enum P2pRpcOutgoingError {
     ConnectionClosed,
-    UnsupportedProtocol,
+    ProtocolUnsupported,
+    ResponseInvalid(P2pRpcResponseInvalidError),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcEvent {
     OutgoingResponse(PeerId, P2pRpcId, P2pRpcResponse),
     OutgoingError(PeerId, P2pRpcId, P2pRpcOutgoingError),
+}
+
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
+pub enum P2pRpcResponseInvalidError {
+    UnexpectedResponseKind,
+    LedgerHashMismatch { expected: BigInt, found: BigInt },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -101,6 +110,38 @@ impl P2pRpcRequest {
             Self::LedgerQuery(data) => {
                 Self::write_msg_impl::<AnswerSyncLedgerQueryV2, _>(w, id, data)
             }
+        }
+    }
+
+    pub fn validate_response(
+        &self,
+        resp: &P2pRpcResponse,
+    ) -> Result<(), P2pRpcResponseInvalidError> {
+        if self.kind() != resp.kind() {
+            return Err(P2pRpcResponseInvalidError::UnexpectedResponseKind);
+        }
+        match self {
+            Self::LedgerQuery((expected_ledger_hash, _)) => {
+                let P2pRpcResponse::LedgerQuery(resp) = resp else { unreachable!() };
+                match &resp.0 {
+                    Ok(answer) => match answer {
+                        MinaLedgerSyncLedgerAnswerStableV2::AccountWithPath(account, path) => {
+                            let hash = snark::calc_merkle_root_hash(account, path);
+                            if expected_ledger_hash != &hash {
+                                Err(P2pRpcResponseInvalidError::LedgerHashMismatch {
+                                    expected: expected_ledger_hash.clone(),
+                                    found: hash,
+                                })
+                            } else {
+                                Ok(())
+                            }
+                        }
+                        _ => Ok(()),
+                    },
+                    Err(_) => Ok(()),
+                }
+            }
+            _ => Ok(()),
         }
     }
 }
@@ -230,6 +271,12 @@ impl P2pRpcResponse {
                 Self::LedgerQuery(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
             }
         })
+    }
+}
+
+impl Default for P2pRpcResponse {
+    fn default() -> Self {
+        Self::MenuGet(vec![])
     }
 }
 
