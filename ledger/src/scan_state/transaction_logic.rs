@@ -99,13 +99,13 @@ impl<T> WithStatus<T> {
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_transfer.ml#L19
 #[derive(Debug, Clone)]
-pub struct FeeTransferInner {
+pub struct SingleFeeTransfer {
     receiver_pk: CompressedPubKey,
     fee: Fee,
     fee_token: TokenId,
 }
 
-impl FeeTransferInner {
+impl SingleFeeTransfer {
     pub fn receiver(&self) -> AccountId {
         AccountId {
             public_key: self.receiver_pk.clone(),
@@ -116,10 +116,10 @@ impl FeeTransferInner {
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_transfer.ml#L68
 #[derive(Debug, Clone)]
-pub struct FeeTransfer(OneOrTwo<FeeTransferInner>);
+pub struct FeeTransfer(OneOrTwo<SingleFeeTransfer>);
 
 impl std::ops::Deref for FeeTransfer {
-    type Target = OneOrTwo<FeeTransferInner>;
+    type Target = OneOrTwo<SingleFeeTransfer>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -143,12 +143,27 @@ impl FeeTransfer {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct CoinbaseFeeTransfer {
+    pub receiver_pk: CompressedPubKey,
+    pub fee: Fee,
+}
+
+impl CoinbaseFeeTransfer {
+    pub fn receiver(&self) -> AccountId {
+        AccountId {
+            public_key: self.receiver_pk.clone(),
+            token_id: TokenId::default(),
+        }
+    }
+}
+
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/coinbase.ml#L17
 #[derive(Debug, Clone)]
 pub struct Coinbase {
-    receiver: CompressedPubKey,
-    amount: Amount,
-    fee_transfer: FeeTransfer,
+    pub receiver: CompressedPubKey,
+    pub amount: Amount,
+    pub fee_transfer: Option<CoinbaseFeeTransfer>,
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signature.mli#L11
@@ -534,9 +549,9 @@ pub mod transaction_applied {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L112
     #[derive(Debug, Clone)]
     pub struct CoinbaseApplied {
-        coinbase: WithStatus<Coinbase>,
-        new_accounts: Vec<AccountId>,
-        burned_tokens: Amount,
+        pub coinbase: WithStatus<Coinbase>,
+        pub new_accounts: Vec<AccountId>,
+        pub burned_tokens: Amount,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L142
@@ -744,8 +759,8 @@ where
     let txn_global_slot = &txn_state_view.global_slot_since_genesis;
 
     match transaction {
-        Command(SignedCommand(cmd)) => todo!(),
-        Command(ZkAppCommand(cmd)) => todo!(),
+        Command(SignedCommand(_cmd)) => todo!(),
+        Command(ZkAppCommand(_cmd)) => todo!(),
         FeeTransfer(fee_transfer) => apply_fee_transfer(
             constraint_constants,
             txn_global_slot,
@@ -753,11 +768,180 @@ where
             fee_transfer,
         )
         .map(Varying::FeeTransfer),
-        Coinbase(_) => todo!(),
+        Coinbase(coinbase) => {
+            apply_coinbase(constraint_constants, txn_global_slot, &mut ledger, coinbase)
+                .map(Varying::Coinbase)
+        }
     }
     .map(|varying| TransactionApplied {
         previous_hash,
         varying,
+    })
+}
+
+/// Structure of the failure status:
+///  I. No fee transfer and coinbase transfer fails: [[failure]]
+///  II. With fee transfer-
+///   Both fee transfer and coinbase fails:
+///     [[failure-of-fee-transfer]; [failure-of-coinbase]]
+///   Fee transfer succeeds and coinbase fails:
+///     [[];[failure-of-coinbase]]
+///   Fee transfer fails and coinbase succeeds:
+///     [[failure-of-fee-transfer];[]]
+///
+/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L2022
+fn apply_coinbase<L>(
+    constraint_constants: &ConstraintConstants,
+    txn_global_slot: &Slot,
+    ledger: &mut L,
+    coinbase: Coinbase,
+) -> Result<transaction_applied::CoinbaseApplied, String>
+where
+    L: BaseLedger,
+{
+    let Coinbase {
+        receiver,
+        amount: coinbase_amount,
+        fee_transfer,
+    } = &coinbase;
+
+    let (
+        receiver_reward,
+        new_accounts1,
+        transferee_update,
+        transferee_timing_prev,
+        failures1,
+        burned_tokens1,
+    ) = match fee_transfer {
+        None => (
+            coinbase_amount.clone(),
+            None,
+            None,
+            None,
+            vec![],
+            Amount::zero(),
+        ),
+        Some(
+            ft @ CoinbaseFeeTransfer {
+                receiver_pk: transferee,
+                fee,
+            },
+        ) => {
+            assert_ne!(transferee, receiver);
+
+            let transferee_id = ft.receiver();
+            let fee = Amount::of_fee(fee);
+
+            let receiver_reward = coinbase_amount
+                .checked_sub(&fee)
+                .ok_or_else(|| "Coinbase fee transfer too large".to_string())?;
+
+            let (transferee_account, action, can_receive) =
+                has_permission_to_receive(ledger, &transferee_id);
+            let new_accounts = get_new_accounts(action, transferee_id.clone());
+
+            let timing = update_timing_when_no_deduction(txn_global_slot, &transferee_account)?;
+
+            let balance = {
+                let amount = sub_account_creation_fee(constraint_constants, action, fee.clone())?;
+                add_amount(Balance(transferee_account.balance), amount)?
+            };
+
+            if can_receive.0 {
+                let (_, mut transferee_account, transferee_location) =
+                    get_or_create(ledger, &transferee_id)?;
+
+                transferee_account.balance = balance.0;
+                transferee_account.timing = timing;
+
+                let timing = transferee_account.timing.clone();
+
+                (
+                    receiver_reward,
+                    new_accounts,
+                    Some((transferee_location, transferee_account)),
+                    Some(timing),
+                    vec![],
+                    Amount::zero(),
+                )
+            } else {
+                (
+                    receiver_reward,
+                    None,
+                    None,
+                    None,
+                    vec![TransactionFailure::Update_not_permitted_balance],
+                    fee,
+                )
+            }
+        }
+    };
+
+    let receiver_id = AccountId::new(receiver.clone(), TokenId::default());
+    let (receiver_account, action2, can_receive) = has_permission_to_receive(ledger, &receiver_id);
+    let new_accounts2 = get_new_accounts(action2, receiver_id.clone());
+
+    // Note: Updating coinbase receiver timing only if there is no fee transfer.
+    // This is so as to not add any extra constraints in transaction snark for checking
+    // "receiver" timings. This is OK because timing rules will not be violated when
+    // balance increases and will be checked whenever an amount is deducted from the
+    // account (#5973)
+
+    let coinbase_receiver_timing = match transferee_timing_prev {
+        None => update_timing_when_no_deduction(txn_global_slot, &receiver_account)?,
+        Some(_) => receiver_account.timing.clone(),
+    };
+
+    let receiver_balance = {
+        let amount =
+            sub_account_creation_fee(constraint_constants, action2, receiver_reward.clone())?;
+        add_amount(Balance(receiver_account.balance), amount)?
+    };
+
+    let (failures2, burned_tokens2) = if can_receive.0 {
+        let (_action2, mut receiver_account, receiver_location) =
+            get_or_create(ledger, &receiver_id)?;
+
+        receiver_account.balance = receiver_balance.0;
+        receiver_account.timing = coinbase_receiver_timing;
+
+        ledger.set(receiver_location, receiver_account);
+
+        (vec![], Amount::zero())
+    } else {
+        (
+            vec![TransactionFailure::Update_not_permitted_balance],
+            receiver_reward,
+        )
+    };
+
+    if let Some((addr, account)) = transferee_update {
+        ledger.set(addr, account);
+    };
+
+    let burned_tokens = burned_tokens1
+        .checked_add(&burned_tokens2)
+        .ok_or_else(|| "burned tokens overflow".to_string())?;
+
+    let failures = vec![failures1, failures2];
+    let status = if failures.iter().all(Vec::is_empty) {
+        TransactionStatus::Applied
+    } else {
+        TransactionStatus::Failed(failures)
+    };
+
+    let new_accounts: Vec<_> = [new_accounts1, new_accounts2]
+        .into_iter()
+        .flatten()
+        .collect();
+
+    Ok(transaction_applied::CoinbaseApplied {
+        coinbase: WithStatus {
+            data: coinbase.clone(),
+            status,
+        },
+        new_accounts,
+        burned_tokens,
     })
 }
 
@@ -906,7 +1090,7 @@ where
 
                 ledger.set(loc, account);
 
-                let new_accounts: Vec<_> = [new_accounts].into_iter().flatten().collect();
+                let new_accounts: Vec<_> = new_accounts.into_iter().collect();
                 Ok((new_accounts, vec![], Amount::zero()))
             } else {
                 Ok((vec![], single_failure(), Amount::of_fee(&fee_transfer.fee)))
@@ -936,7 +1120,7 @@ where
 
                     ledger.set(l1, a1);
 
-                    let new_accounts: Vec<_> = [new_accounts1].into_iter().flatten().collect();
+                    let new_accounts: Vec<_> = new_accounts1.into_iter().collect();
                     Ok((new_accounts, vec![vec![], vec![]], Amount::zero()))
                 } else {
                     // failure for each fee transfer single
@@ -1045,7 +1229,7 @@ where
 
     let init_account = Account::initialize(receiver_account_id);
 
-    match ledger.location_of_account(&receiver_account_id) {
+    match ledger.location_of_account(receiver_account_id) {
         None => {
             // new account, check that default permissions allow receiving
             let perm = init_account.has_permission_to(Receive);
@@ -1073,8 +1257,8 @@ fn validate_time(valid_until: &Slot, current_global_slot: &Slot) -> Result<(), S
 }
 
 pub fn apply_user_command_unchecked<L>(
-    constraint_constants: &ConstraintConstants,
-    txn_state_view: &ProtocolStateView,
+    _constraint_constants: &ConstraintConstants,
+    _txn_state_view: &ProtocolStateView,
     txn_global_slot: &Slot,
     ledger: &mut L,
     user_command: SignedCommand,
@@ -1083,9 +1267,9 @@ where
     L: BaseLedger,
 {
     let SignedCommand {
-        payload,
+        payload: _,
         signer: signer_pk,
-        signature,
+        signature: _,
     } = &user_command;
     let current_global_slot = txn_global_slot;
 
@@ -1093,8 +1277,8 @@ where
     validate_time(&valid_until, current_global_slot)?;
 
     // Fee-payer information
-    let fee_payer = user_command.fee_payer();
-    let (fee_payer_location, fee_payer_account) =
+    let _fee_payer = user_command.fee_payer();
+    let (_fee_payer_location, _fee_payer_account) =
         pay_fee(&user_command, signer_pk, ledger, current_global_slot)?;
 
     // TODO: The rest is implemented on the branch `transaction_fuzzer`
