@@ -488,3 +488,12 @@ impl Serialize for ProtocolVersionStableV1 {
         }
     }
 }
+
+pub type MerkleTreePath = Vec<MerkleTreeNode>;
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[polymorphic_variant]
+pub enum MerkleTreeNode {
+    Left(BigInt),
+    Right(BigInt),
+}

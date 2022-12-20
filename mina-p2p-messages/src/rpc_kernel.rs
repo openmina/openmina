@@ -14,7 +14,7 @@ pub type Sexp = (); // TODO
 #[derive(
     Clone, Debug, Serialize, Deserialize, PartialEq, Eq, derive_more::From, derive_more::Into,
 )]
-pub struct RpcResult<T, E>(Result<T, E>);
+pub struct RpcResult<T, E>(pub Result<T, E>);
 
 /// Auxiliary type to encode [RpcResult]'s tag.
 #[derive(Debug, BinProtRead, BinProtWrite)]
