@@ -2,12 +2,15 @@ use mina_hasher::Fp;
 use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
 use mina_signer::CompressedPubKey;
 
-use crate::scan_state::{
-    fee_excess::FeeExcess,
-    parallel_scan::{base, merge, JobStatus},
-    scan_state::transaction_snark::{
-        LedgerProofWithSokMessage, SokMessage, Statement, TransactionWithWitness,
+use crate::{
+    scan_state::{
+        fee_excess::FeeExcess,
+        parallel_scan::{base, merge, JobStatus},
+        scan_state::transaction_snark::{
+            LedgerProofWithSokMessage, SokMessage, Statement, TransactionWithWitness,
+        },
     },
+    BaseLedger,
 };
 
 use self::transaction_snark::LedgerProof;
@@ -15,7 +18,9 @@ use self::transaction_snark::LedgerProof;
 use super::{
     currency::Fee,
     parallel_scan::ParallelScan,
-    transaction_logic::{local_state::LocalState, protocol_state::protocol_state_view, WithStatus},
+    transaction_logic::{
+        apply_transaction, local_state::LocalState, protocol_state::protocol_state_view, WithStatus,
+    },
 };
 // use super::parallel_scan::AvailableJob;
 
@@ -54,6 +59,7 @@ pub mod transaction_snark {
             fee_excess::FeeExcess,
             transaction_logic::transaction_applied::TransactionApplied,
         },
+        Mask,
     };
 
     use super::Fee;
@@ -158,7 +164,7 @@ pub mod transaction_snark {
         pub state_hash: (StateHash, MinaBaseStateBodyHashStableV1),
         pub statement: Statement,
         pub init_stack: TransactionSnarkPendingCoinbaseStackStateInitStackStableV1,
-        pub ledger_witness: LedgerWitness,
+        pub ledger_witness: Mask,
     }
 
     #[derive(Debug, Clone)]
@@ -211,6 +217,34 @@ pub mod transaction_snark {
                 OneOrTwo::Two(_) => 2,
             }
         }
+
+        pub fn iter(&self) -> OneOrTwoIter<T> {
+            let array = match self {
+                OneOrTwo::One(a) => [Some(a), None],
+                OneOrTwo::Two((a, b)) => [Some(a), Some(b)],
+            };
+
+            OneOrTwoIter {
+                inner: array,
+                index: 0,
+            }
+        }
+    }
+
+    pub struct OneOrTwoIter<'a, T> {
+        inner: [Option<&'a T>; 2],
+        index: usize,
+    }
+
+    impl<'a, T> Iterator for OneOrTwoIter<'a, T> {
+        type Item = &'a T;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let value = self.inner.get(self.index)?.as_ref()?;
+            self.index += 1;
+
+            Some(value)
+        }
     }
 
     #[derive(Debug, Clone)]
@@ -244,16 +278,16 @@ pub struct ForkConstants {
 }
 
 pub struct ConstraintConstants {
-    sub_windows_per_window: u64,
-    ledger_depth: u64,
-    work_delay: u64,
-    block_window_duration_ms: u64,
-    transaction_capacity_log_2: u64,
-    pending_coinbase_depth: u64,
-    coinbase_amount: u64, // Currency.Amount.Stable.Latest.t,
-    supercharged_coinbase_factor: u64,
-    account_creation_fee: u64,   // Currency.Fee.Stable.Latest.t,
-    fork: Option<ForkConstants>, // Fork_constants.t option,
+    pub sub_windows_per_window: u64,
+    pub ledger_depth: u64,
+    pub work_delay: u64,
+    pub block_window_duration_ms: u64,
+    pub transaction_capacity_log_2: u64,
+    pub pending_coinbase_depth: u64,
+    pub coinbase_amount: u64, // Currency.Amount.Stable.Latest.t,
+    pub supercharged_coinbase_factor: u64,
+    pub account_creation_fee: Fee,   // Currency.Fee.Stable.Latest.t,
+    pub fork: Option<ForkConstants>, // Fork_constants.t option,
 }
 
 // type GetState = impl Fn(&StateHash) -> MinaStateProtocolStateValueStableV2;
@@ -271,6 +305,7 @@ fn create_expected_statement<F>(
 ) where
     F: Fn(&StateHash) -> &MinaStateProtocolStateValueStableV2,
 {
+    let mut ledger_witness = ledger_witness.clone();
     let source_merkle_root = ledger_witness.merkle_root();
 
     let WithStatus {
@@ -281,6 +316,13 @@ fn create_expected_statement<F>(
     let state_view = protocol_state_view(protocol_state);
 
     let empty_local_state = LocalState::empty();
+
+    apply_transaction(
+        constraint_constants,
+        &state_view,
+        ledger_witness,
+        transaction,
+    );
 }
 
 // let create_expected_statement ~constraint_constants

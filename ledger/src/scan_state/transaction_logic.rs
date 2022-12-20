@@ -1,21 +1,22 @@
 use mina_hasher::Fp;
-use mina_signer::{CompressedPubKey, Signature as SS};
+use mina_signer::CompressedPubKey;
 
 use crate::{
-    scan_state::currency::Magnitude, Account, AccountId, Address, BaseLedger, GetOrCreated,
-    ReceiptChainHash, Timing, TokenId,
+    scan_state::{currency::Magnitude, transaction_logic::transaction_applied::Varying},
+    Account, AccountId, Address, BaseLedger, GetOrCreated, ReceiptChainHash, Timing, TokenId,
 };
 
 use self::{
     protocol_state::ProtocolStateView,
     signed_command::{SignedCommand, SignedCommandPayload},
+    transaction_applied::TransactionApplied,
     transaction_union_payload::TransactionUnionPayload,
     zkapp_command::AccountNonce,
 };
 
 use super::{
     currency::{Amount, Balance, Fee},
-    scan_state::ConstraintConstants,
+    scan_state::{transaction_snark::OneOrTwo, ConstraintConstants},
 };
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L9
@@ -66,11 +67,15 @@ pub enum TransactionFailure {
     Cancelled,
 }
 
+pub fn single_failure() -> Vec<Vec<TransactionFailure>> {
+    vec![vec![TransactionFailure::Update_not_permitted_balance]]
+}
+
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L452
 #[derive(Debug, Clone)]
 pub enum TransactionStatus {
     Applied,
-    Failed(TransactionFailure),
+    Failed(Vec<Vec<TransactionFailure>>),
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_status.ml#L6
@@ -94,10 +99,48 @@ impl<T> WithStatus<T> {
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_transfer.ml#L19
 #[derive(Debug, Clone)]
-pub struct FeeTransfer {
+pub struct FeeTransferInner {
     receiver_pk: CompressedPubKey,
     fee: Fee,
     fee_token: TokenId,
+}
+
+impl FeeTransferInner {
+    pub fn receiver(&self) -> AccountId {
+        AccountId {
+            public_key: self.receiver_pk.clone(),
+            token_id: self.fee_token.clone(),
+        }
+    }
+}
+
+/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_transfer.ml#L68
+#[derive(Debug, Clone)]
+pub struct FeeTransfer(OneOrTwo<FeeTransferInner>);
+
+impl std::ops::Deref for FeeTransfer {
+    type Target = OneOrTwo<FeeTransferInner>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl FeeTransfer {
+    pub fn fee_tokens(&self) -> impl Iterator<Item = &TokenId> {
+        self.0.iter().map(|fee_transfer| &fee_transfer.fee_token)
+    }
+
+    pub fn receiver_pks(&self) -> impl Iterator<Item = &CompressedPubKey> {
+        self.0.iter().map(|fee_transfer| &fee_transfer.receiver_pk)
+    }
+
+    pub fn receivers(&self) -> impl Iterator<Item = AccountId> + '_ {
+        self.0.iter().map(|fee_transfer| AccountId {
+            public_key: fee_transfer.receiver_pk.clone(),
+            token_id: fee_transfer.fee_token.clone(),
+        })
+    }
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/coinbase.ml#L17
@@ -483,9 +526,9 @@ pub mod transaction_applied {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L96
     #[derive(Debug, Clone)]
     pub struct FeeTransferApplied {
-        fee_transfer: WithStatus<FeeTransfer>,
-        new_accounts: Vec<AccountId>,
-        burned_tokens: Amount,
+        pub fee_transfer: WithStatus<FeeTransfer>,
+        pub new_accounts: Vec<AccountId>,
+        pub burned_tokens: Amount,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L112
@@ -507,8 +550,8 @@ pub mod transaction_applied {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L142
     #[derive(Debug, Clone)]
     pub struct TransactionApplied {
-        previous_hash: Fp,
-        varying: Varying,
+        pub previous_hash: Fp,
+        pub varying: Varying,
     }
 
     impl TransactionApplied {
@@ -688,19 +731,333 @@ pub mod local_state {
 pub fn apply_transaction<L>(
     constraint_constants: &ConstraintConstants,
     txn_state_view: &ProtocolStateView,
-    ledger: &mut L,
+    mut ledger: L,
     transaction: Transaction,
-) where
+) -> Result<TransactionApplied, String>
+where
     L: BaseLedger,
 {
+    use Transaction::*;
+    use UserCommand::*;
+
     let previous_hash = ledger.merkle_root();
     let txn_global_slot = &txn_state_view.global_slot_since_genesis;
 
     match transaction {
-        Transaction::Command(UserCommand::SignedCommand(cmd)) => todo!(),
-        Transaction::Command(UserCommand::ZkAppCommand(cmd)) => todo!(),
-        Transaction::FeeTransfer(_) => todo!(),
-        Transaction::Coinbase(_) => todo!(),
+        Command(SignedCommand(cmd)) => todo!(),
+        Command(ZkAppCommand(cmd)) => todo!(),
+        FeeTransfer(fee_transfer) => apply_fee_transfer(
+            constraint_constants,
+            txn_global_slot,
+            &mut ledger,
+            fee_transfer,
+        )
+        .map(Varying::FeeTransfer),
+        Coinbase(_) => todo!(),
+    }
+    .map(|varying| TransactionApplied {
+        previous_hash,
+        varying,
+    })
+}
+
+/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L1991
+fn apply_fee_transfer<L>(
+    constraint_constants: &ConstraintConstants,
+    txn_global_slot: &Slot,
+    ledger: &mut L,
+    fee_transfer: FeeTransfer,
+) -> Result<transaction_applied::FeeTransferApplied, String>
+where
+    L: BaseLedger,
+{
+    let (new_accounts, failures, burned_tokens) = process_fee_transfer(
+        ledger,
+        &fee_transfer,
+        |action, _, balance, fee| {
+            let amount = {
+                let amount = Amount::of_fee(fee);
+                sub_account_creation_fee(constraint_constants, action, amount)?
+            };
+            add_amount(balance, amount)
+        },
+        |account| update_timing_when_no_deduction(txn_global_slot, account),
+    )?;
+
+    let status = if failures.iter().all(Vec::is_empty) {
+        TransactionStatus::Applied
+    } else {
+        TransactionStatus::Failed(failures)
+    };
+
+    Ok(transaction_applied::FeeTransferApplied {
+        fee_transfer: WithStatus {
+            data: fee_transfer,
+            status,
+        },
+        new_accounts,
+        burned_tokens,
+    })
+}
+
+/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L607
+fn sub_account_creation_fee(
+    constraint_constants: &ConstraintConstants,
+    action: AccountState,
+    amount: Amount,
+) -> Result<Amount, String> {
+    let fee = &constraint_constants.account_creation_fee;
+
+    match action {
+        AccountState::Added => {
+            if let Some(amount) = amount.checked_sub(&Amount::of_fee(fee)) {
+                return Ok(amount);
+            }
+            Err(format!(
+                "Error subtracting account creation fee {:?}; transaction amount {:?} insufficient",
+                fee, amount
+            ))
+        }
+        AccountState::Existed => Ok(amount),
+    }
+}
+
+fn update_timing_when_no_deduction(
+    txn_global_slot: &Slot,
+    account: &Account,
+) -> Result<Timing, String> {
+    validate_timing(account, Amount::zero(), txn_global_slot)
+}
+
+/// TODO: Move this to the ledger
+/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_ledger/ledger.ml#L311
+fn get_or_create<L>(
+    ledger: &mut L,
+    account_id: &AccountId,
+) -> Result<(AccountState, Account, Address), String>
+where
+    L: BaseLedger,
+{
+    let location = ledger
+        .get_or_create_account(account_id.clone(), Account::initialize(account_id))
+        .map_err(|e| format!("{:?}", e))?;
+
+    let action = match location {
+        GetOrCreated::Added(_) => AccountState::Added,
+        GetOrCreated::Existed(_) => AccountState::Existed,
+    };
+
+    let addr = location.addr();
+
+    let account = ledger
+        .get(addr.clone())
+        .expect("get_or_create: Account was not found in the ledger after creation");
+
+    Ok((action, account, addr))
+}
+
+fn get_new_accounts<T>(action: AccountState, data: T) -> Option<T> {
+    match action {
+        AccountState::Added => Some(data),
+        AccountState::Existed => None,
+    }
+}
+
+/// Structure of the failure status:
+///  I. Only one fee transfer in the transaction (`One) and it fails:
+///     [[failure]]
+///  II. Two fee transfers in the transaction (`Two)-
+///   Both fee transfers fail:
+///     [[failure-of-first-fee-transfer]; [failure-of-second-fee-transfer]]
+///   First succeeds and second one fails:
+///     [[];[failure-of-second-fee-transfer]]
+///   First fails and second succeeds:
+///     [[failure-of-first-fee-transfer];[]]
+fn process_fee_transfer<L, FunBalance, FunTiming>(
+    ledger: &mut L,
+    fee_transfer: &FeeTransfer,
+    modify_balance: FunBalance,
+    modify_timing: FunTiming,
+) -> Result<(Vec<AccountId>, Vec<Vec<TransactionFailure>>, Amount), String>
+where
+    L: BaseLedger,
+    FunTiming: Fn(&Account) -> Result<Timing, String>,
+    FunBalance: Fn(AccountState, &AccountId, Balance, &Fee) -> Result<Balance, String>,
+{
+    if !fee_transfer.fee_tokens().all(TokenId::is_default) {
+        return Err("Cannot pay fees in non-default tokens.".to_string());
+    }
+
+    match &**fee_transfer {
+        OneOrTwo::One(fee_transfer) => {
+            let account_id = fee_transfer.receiver();
+            let (a, action, can_receive) = has_permission_to_receive(ledger, &account_id);
+
+            let timing = modify_timing(&a)?;
+            let balance =
+                modify_balance(action, &account_id, Balance(a.balance), &fee_transfer.fee)?;
+
+            if can_receive.0 {
+                let (_, mut account, loc) = get_or_create(ledger, &account_id)?;
+                let new_accounts = get_new_accounts(action, account_id.clone());
+
+                account.balance = balance.0;
+                account.timing = timing;
+
+                ledger.set(loc, account);
+
+                let new_accounts: Vec<_> = [new_accounts].into_iter().flatten().collect();
+                Ok((new_accounts, vec![], Amount::zero()))
+            } else {
+                Ok((vec![], single_failure(), Amount::of_fee(&fee_transfer.fee)))
+            }
+        }
+        OneOrTwo::Two((fee_transfer1, fee_transfer2)) => {
+            let account_id1 = fee_transfer1.receiver();
+            let (a1, action1, can_receive1) = has_permission_to_receive(ledger, &account_id1);
+
+            let account_id2 = fee_transfer2.receiver();
+
+            if account_id1 == account_id2 {
+                let fee = fee_transfer1
+                    .fee
+                    .checked_add(&fee_transfer2.fee)
+                    .ok_or_else(|| "Overflow".to_string())?;
+
+                let timing = modify_timing(&a1)?;
+                let balance = modify_balance(action1, &account_id1, Balance(a1.balance), &fee)?;
+
+                if can_receive1.0 {
+                    let (_, mut a1, l1) = get_or_create(ledger, &account_id1)?;
+                    let new_accounts1 = get_new_accounts(action1, account_id1);
+
+                    a1.balance = balance.0;
+                    a1.timing = timing;
+
+                    ledger.set(l1, a1);
+
+                    let new_accounts: Vec<_> = [new_accounts1].into_iter().flatten().collect();
+                    Ok((new_accounts, vec![vec![], vec![]], Amount::zero()))
+                } else {
+                    // failure for each fee transfer single
+
+                    Ok((
+                        vec![],
+                        vec![
+                            vec![TransactionFailure::Update_not_permitted_balance],
+                            vec![TransactionFailure::Update_not_permitted_balance],
+                        ],
+                        Amount::of_fee(&fee),
+                    ))
+                }
+            } else {
+                let (a2, action2, can_receive2) = has_permission_to_receive(ledger, &account_id2);
+
+                let balance1 = modify_balance(
+                    action1,
+                    &account_id1,
+                    Balance(a1.balance),
+                    &fee_transfer1.fee,
+                )?;
+
+                // Note: Not updating the timing field of a1 to avoid additional check
+                // in transactions snark (check_timing for "receiver"). This is OK
+                // because timing rules will not be violated when balance increases
+                // and will be checked whenever an amount is deducted from the account. (#5973)*)
+
+                let timing2 = modify_timing(&a2)?;
+                let balance2 = modify_balance(
+                    action2,
+                    &account_id2,
+                    Balance(a2.balance),
+                    &fee_transfer2.fee,
+                )?;
+
+                let (new_accounts1, failures1, burned_tokens1) = if can_receive1.0 {
+                    let (_, mut a1, l1) = get_or_create(ledger, &account_id1)?;
+                    let new_accounts1 = get_new_accounts(action1, account_id1);
+
+                    a1.balance = balance1.0;
+                    ledger.set(l1, a1);
+
+                    (new_accounts1, vec![], Amount::zero())
+                } else {
+                    (
+                        None,
+                        vec![TransactionFailure::Update_not_permitted_balance],
+                        Amount::of_fee(&fee_transfer1.fee),
+                    )
+                };
+
+                let (new_accounts2, failures2, burned_tokens2) = if can_receive2.0 {
+                    let (_, mut a2, l2) = get_or_create(ledger, &account_id2)?;
+                    let new_accounts2 = get_new_accounts(action2, account_id2);
+
+                    a2.balance = balance2.0;
+                    a2.timing = timing2;
+
+                    ledger.set(l2, a2);
+
+                    (new_accounts2, vec![], Amount::zero())
+                } else {
+                    (
+                        None,
+                        vec![TransactionFailure::Update_not_permitted_balance],
+                        Amount::of_fee(&fee_transfer2.fee),
+                    )
+                };
+
+                let burned_tokens = burned_tokens1
+                    .checked_add(&burned_tokens2)
+                    .ok_or_else(|| "burned tokens overflow".to_string())?;
+
+                let new_accounts: Vec<_> = [new_accounts1, new_accounts2]
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                let failures: Vec<_> = [failures1, failures2].into_iter().collect();
+
+                Ok((new_accounts, failures, burned_tokens))
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+enum AccountState {
+    Added,
+    Existed,
+}
+
+#[derive(Debug)]
+struct HasPermissionToReceive(bool);
+
+/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L1852
+fn has_permission_to_receive<L>(
+    ledger: &mut L,
+    receiver_account_id: &AccountId,
+) -> (Account, AccountState, HasPermissionToReceive)
+where
+    L: BaseLedger,
+{
+    use crate::PermissionTo::*;
+    use AccountState::*;
+
+    let init_account = Account::initialize(receiver_account_id);
+
+    match ledger.location_of_account(&receiver_account_id) {
+        None => {
+            // new account, check that default permissions allow receiving
+            let perm = init_account.has_permission_to(Receive);
+            (init_account, Added, HasPermissionToReceive(perm))
+        }
+        Some(location) => match ledger.get(location) {
+            None => panic!("Ledger location with no account"),
+            Some(receiver_account) => {
+                let perm = receiver_account.has_permission_to(Receive);
+                (receiver_account, Existed, HasPermissionToReceive(perm))
+            }
+        },
     }
 }
 
@@ -746,8 +1103,6 @@ where
 }
 
 fn pay_fee<L>(
-    // constraint_constants: &ConstraintConstants,
-    // txn_state_view: &ProtocolStateView,
     user_command: &SignedCommand,
     signer_pk: &CompressedPubKey,
     ledger: &mut L,
@@ -1198,20 +1553,11 @@ fn sub_amount(balance: Balance, amount: Amount) -> Result<Balance, String> {
         .ok_or_else(|| "insufficient funds".to_string())
 }
 
-//     let%bind () = validate_nonces nonce account.nonce in
-//     let%map timing =
-//       validate_timing ~txn_amount:fee ~txn_global_slot:current_global_slot
-//         ~account
-//     in
-//     ( location
-//     , { account with
-//         balance
-//       ; nonce = Account.Nonce.succ account.nonce
-//       ; receipt_chain_hash =
-//           Receipt.Chain_hash.cons_signed_command_payload command
-//             account.receipt_chain_hash
-//       ; timing
-//       } )
+fn add_amount(balance: Balance, amount: Amount) -> Result<Balance, String> {
+    balance
+        .add_amount(amount)
+        .ok_or_else(|| "overflow".to_string())
+}
 
 pub enum ExistingOrNew {
     Existing(Address),
@@ -1236,297 +1582,3 @@ where
         )),
     }
 }
-
-//     let%map () =
-//       (* TODO: Remove this check and update the transaction snark once we have
-//          an exchange rate mechanism. See issue #4447.
-//       *)
-//       if Token_id.equal fee_token Token_id.default then return ()
-//       else
-//         Or_error.errorf
-//           "Cannot create transactions with fee_token different from the \
-//            default"
-//     in
-//     ()
-//   in
-//   let%map loc, account' =
-//     pay_fee' ~command:(Signed_command_payload user_command.payload) ~nonce
-//       ~fee_payer
-//       ~fee:(Signed_command.fee user_command)
-//       ~ledger ~current_global_slot
-//   in
-//   (loc, account')
-
-// let apply_user_command_unchecked
-//     ~(constraint_constants : Genesis_constants.Constraint_constants.t)
-//     ~txn_global_slot ledger
-//     ({ payload; signer; signature = _ } as user_command : Signed_command.t) =
-//   let open Or_error.Let_syntax in
-//   let signer_pk = Public_key.compress signer in
-//   let current_global_slot = txn_global_slot in
-//   let%bind () =
-//     validate_time
-//       ~valid_until:(Signed_command.valid_until user_command)
-//       ~current_global_slot
-//   in
-//   (* Fee-payer information *)
-//   let fee_payer = Signed_command.fee_payer user_command in
-//   let%bind fee_payer_location, fee_payer_account =
-//     pay_fee ~user_command ~signer_pk ~ledger ~current_global_slot
-//   in
-//   let%bind () =
-//     if Account.has_permission ~to_:`Send fee_payer_account then Ok ()
-//     else
-//       Or_error.error_string
-//         Transaction_status.Failure.(describe Update_not_permitted_balance)
-//   in
-//   (* Charge the fee. This must happen, whether or not the command itself
-//      succeeds, to ensure that the network is compensated for processing this
-//      command.
-//   *)
-//   let%bind () =
-//     set_with_location ledger fee_payer_location fee_payer_account
-//   in
-//   let source = Signed_command.source user_command in
-//   let receiver = Signed_command.receiver user_command in
-//   let exception Reject of Error.t in
-//   let ok_or_reject = function Ok x -> x | Error err -> raise (Reject err) in
-//   let compute_updates () =
-//     let open Result.Let_syntax in
-//     (* Compute the necessary changes to apply the command, failing if any of
-//        the conditions are not met.
-//     *)
-//     match payload.body with
-//     | Stake_delegation _ ->
-//         let receiver_location, _receiver_account =
-//           (* Check that receiver account exists. *)
-//           get_with_location ledger receiver |> ok_or_reject
-//         in
-//         let source_location, source_account =
-//           get_with_location ledger source |> ok_or_reject
-//         in
-//         let%bind () =
-//           if Account.has_permission ~to_:`Set_delegate source_account then
-//             Ok ()
-//           else Error Transaction_status.Failure.Update_not_permitted_delegate
-//         in
-//         let%bind () =
-//           match (source_location, receiver_location) with
-//           | `Existing _, `Existing _ ->
-//               return ()
-//           | `New, _ ->
-//               Result.fail Transaction_status.Failure.Source_not_present
-//           | _, `New ->
-//               Result.fail Transaction_status.Failure.Receiver_not_present
-//         in
-//         let previous_delegate = source_account.delegate in
-//         (* Timing is always valid, but we need to record any switch from
-//            timed to untimed here to stay in sync with the snark.
-//         *)
-//         let%map timing =
-//           validate_timing ~txn_amount:Amount.zero
-//             ~txn_global_slot:current_global_slot ~account:source_account
-//           |> Result.map_error ~f:timing_error_to_user_command_status
-//         in
-//         let source_account =
-//           { source_account with
-//             delegate = Some (Account_id.public_key receiver)
-//           ; timing
-//           }
-//         in
-//         ( [ (source_location, source_account) ]
-//         , Transaction_applied.Signed_command_applied.Body.Stake_delegation
-//             { previous_delegate } )
-//     | Payment { amount; _ } ->
-//        (* Printf.eprintf "MY_LOG.getting_location\n%!"; *)
-//         let receiver_location, receiver_account =
-//           get_with_location ledger receiver |> ok_or_reject
-//         in
-//        (* Printf.eprintf "MY_LOG.got location\n%!"; *)
-//         let%bind () =
-//           if Account.has_permission ~to_:`Receive receiver_account then Ok ()
-//           else Error Transaction_status.Failure.Update_not_permitted_balance
-//         in
-//         let%bind source_location, source_account =
-//           let ret =
-//             if Account_id.equal source receiver then
-//               (*just check if the timing needs updating*)
-//               let%bind location, account =
-//                 match receiver_location with
-//                 | `Existing _ ->
-//                     return (receiver_location, receiver_account)
-//                 | `New ->
-//                     Result.fail Transaction_status.Failure.Source_not_present
-//               in
-//               let%map timing =
-//                 validate_timing ~txn_amount:amount
-//                   ~txn_global_slot:current_global_slot ~account
-//                 |> Result.map_error ~f:timing_error_to_user_command_status
-//               in
-//               (location, { account with timing })
-//             else
-//               let location, account =
-//                 get_with_location ledger source |> ok_or_reject
-//               in
-//               let%bind () =
-//                 match location with
-//                 | `Existing _ ->
-//                     return ()
-//                 | `New ->
-//                     Result.fail Transaction_status.Failure.Source_not_present
-//               in
-//               let%bind timing =
-//                 validate_timing ~txn_amount:amount
-//                   ~txn_global_slot:current_global_slot ~account
-//                 |> Result.map_error ~f:timing_error_to_user_command_status
-//               in
-//               let%map balance =
-//                 Result.map_error (sub_amount account.balance amount)
-//                   ~f:(fun _ ->
-//                     Transaction_status.Failure.Source_insufficient_balance )
-//               in
-//               (location, { account with timing; balance })
-//           in
-//           if Account_id.equal fee_payer source then
-//             (* Don't process transactions with insufficient balance from the
-//                fee-payer.
-//             *)
-//             match ret with
-//             | Ok x ->
-//                 Ok x
-//             | Error failure ->
-//                 raise
-//                   (Reject
-//                      (Error.createf "%s"
-//                         (Transaction_status.Failure.describe failure) ) )
-//           else ret
-//         in
-//         let%bind () =
-//           if Account.has_permission ~to_:`Send source_account then Ok ()
-//           else Error Transaction_status.Failure.Update_not_permitted_balance
-//         in
-//         (* Charge the account creation fee. *)
-//         let%bind receiver_amount =
-//           (* Printf.eprintf "Amount_insufficient_to_create_account HERE222\n%!" ; *)
-//           match receiver_location with
-//           | `Existing _ ->
-//               (* Printf.eprintf *)
-//               (*   "MY_LOG.apply_user_command_unchecked existing\n%!" ; *)
-//               return amount
-//           | `New ->
-//              (* Subtract the creation fee from the transaction amount. *)
-
-//               sub_account_creation_fee ~constraint_constants `Added amount
-//               |> Result.map_error ~f:(fun _ ->
-//                      Transaction_status.Failure
-//                      .Amount_insufficient_to_create_account )
-//         in
-//         (* Printf.eprintf *)
-//         (*   "MY_LOG.apply_user_command_unchecked receiver_amount=%d\n%!" *)
-//         (*   (Amount.to_int receiver_amount) ; *)
-//         let%map receiver_account =
-//           incr_balance receiver_account receiver_amount
-//         in
-//         let new_accounts =
-//           match receiver_location with
-//           | `Existing _ ->
-//               []
-//           | `New ->
-//               [ receiver ]
-//         in
-//         (* let receiver_loc = *)
-//         (*   match receiver_location with *)
-//         (*   | `Existing _ -> *)
-//         (*       "Existing" *)
-//         (*   | `New -> *)
-//         (*       "New" *)
-//         (* in *)
-//         (* let source_loc = *)
-//         (*   match source_location with *)
-//         (*   | `Existing _ -> *)
-//         (*       "Existing" *)
-//         (*   | `New -> *)
-//         (*       "New" *)
-//         (* in *)
-//         (* Printf.eprintf *)
-//         (*   "MY_LOG.apply_user_command_unchecked applied receiver=%s source=%s!\n%!" *)
-//         (*   receiver_loc source_loc ; *)
-//         ( [ (receiver_location, receiver_account)
-//           ; (source_location, source_account)
-//           ]
-//         , Transaction_applied.Signed_command_applied.Body.Payment
-//             { new_accounts } )
-//   in
-//   match compute_updates () with
-//   | Ok (located_accounts, applied_body) ->
-//       (* Printf.eprintf "compute_updates ok\n%!" ; *)
-//       (* Update the ledger. *)
-//       let%bind () =
-//         List.fold located_accounts ~init:(Ok ())
-//           ~f:(fun acc (location, account) ->
-//             let%bind () = acc in
-//             set_with_location ledger location account )
-//       in
-//       let applied_common : Transaction_applied.Signed_command_applied.Common.t
-//           =
-//         { user_command = { data = user_command; status = Applied } }
-//       in
-//       (* Printf.eprintf "compute_updates ok2\n%!" ; *)
-//       return
-//         ( { common = applied_common; body = applied_body }
-//           : Transaction_applied.Signed_command_applied.t )
-//   | Error failure ->
-//       (* Printf.eprintf "compute_updates err=%s\n%!" *)
-//       (*   (Transaction_status.Failure.to_string failure) ; *)
-//       (* Do not update the ledger. Except for the fee payer which is already updated *)
-//       let applied_common : Transaction_applied.Signed_command_applied.Common.t
-//           =
-//         { user_command =
-//             { data = user_command
-//             ; status =
-//                 Failed
-//                   (Transaction_status.Failure.Collection.of_single_failure
-//                      failure )
-//             }
-//         }
-//       in
-//       return
-//         ( { common = applied_common; body = Failed }
-//           : Transaction_applied.Signed_command_applied.t )
-//   | exception Reject err ->
-//       (* Printf.eprintf "compute_updates exception\n%!" ; *)
-//       (* TODO: These transactions should never reach this stage, this error
-//          should be fatal.
-//       *)
-//       Error err
-
-// let apply_transaction ~constraint_constants
-//     ~(txn_state_view : Zkapp_precondition.Protocol_state.View.t) ledger
-//     (t : Transaction.t) =
-//   let previous_hash = merkle_root ledger in
-//   let txn_global_slot = txn_state_view.global_slot_since_genesis in
-//   Or_error.map
-//     ( match t with
-//     | Command (Signed_command txn) ->
-//         (* Printf.eprintf "MY_LOG.APPLY_TRANSACTION.SIGNED_COMMAND\n%!" ; *)
-//         Or_error.map
-//           (apply_user_command_unchecked ~constraint_constants ~txn_global_slot
-//              ledger txn ) ~f:(fun applied ->
-//             Transaction_applied.Varying.Command (Signed_command applied) )
-//     | Command (Zkapp_command txn) ->
-//         (* Printf.eprintf "MY_LOG.APPLY_TRANSACTION.ZKAPP_COMMAND\n%!" ; *)
-//         Or_error.map
-//           (apply_zkapp_command_unchecked ~state_view:txn_state_view
-//              ~constraint_constants ledger txn ) ~f:(fun (applied, _) ->
-//             Transaction_applied.Varying.Command (Zkapp_command applied) )
-//     | Fee_transfer t ->
-//         (* Printf.eprintf "MY_LOG.APPLY_TRANSACTION.FREE_TRANSFER\n%!" ; *)
-//         Or_error.map
-//           (apply_fee_transfer ~constraint_constants ~txn_global_slot ledger t)
-//           ~f:(fun applied -> Transaction_applied.Varying.Fee_transfer applied)
-//     | Coinbase t ->
-//         (* Printf.eprintf "MY_LOG.APPLY_TRANSACTION.COINBASE\n%!" ; *)
-//         Or_error.map
-//           (apply_coinbase ~constraint_constants ~txn_global_slot ledger t)
-//           ~f:(fun applied -> Transaction_applied.Varying.Coinbase applied) )
-//     ~f:(fun varying -> { Transaction_applied.previous_hash; varying })

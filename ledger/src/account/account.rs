@@ -330,6 +330,38 @@ impl PartialEq for AccountId {
     }
 }
 
+#[derive(Debug)]
+pub enum PermissionTo {
+    Send,
+    Receive,
+    SetDelegate,
+}
+
+#[derive(Debug)]
+pub enum ControlTag {
+    Proof,
+    Signature,
+    NoneGiven,
+}
+
+pub fn check_permission(auth: AuthRequired, tag: ControlTag) -> bool {
+    use AuthRequired::*;
+    use ControlTag as Tag;
+
+    match (auth, tag) {
+        (Impossible, _) => false,
+        (None, _) => true,
+        (Proof, Tag::Proof) => true,
+        (Signature, Tag::Signature) => true,
+        // The signatures and proofs have already been checked by this point.
+        (Either, Tag::Proof | Tag::Signature) => true,
+        (Signature, Tag::Proof) => false,
+        (Proof, Tag::Signature) => false,
+        (Proof | Signature | Either, Tag::NoneGiven) => false,
+        (Both, _) => unimplemented!("check_permission with `Both` Not implemented in OCaml"),
+    }
+}
+
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Account {
@@ -394,6 +426,10 @@ impl Account {
         }
     }
 
+    pub fn initialize(account_id: &AccountId) -> Self {
+        Self::create_with(account_id.clone(), 0)
+    }
+
     pub fn deserialize(bytes: &[u8]) -> Self {
         let mut cursor = Cursor::new(bytes);
         Account::binprot_read(&mut cursor).unwrap()
@@ -429,6 +465,19 @@ impl Account {
         AccountId {
             public_key: self.public_key.clone(),
             token_id: self.token_id.clone(),
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account.ml#L623
+    pub fn has_permission_to(&self, to: PermissionTo) -> bool {
+        match to {
+            PermissionTo::Send => check_permission(self.permissions.send, ControlTag::Signature),
+            PermissionTo::Receive => {
+                check_permission(self.permissions.receive, ControlTag::NoneGiven)
+            }
+            PermissionTo::SetDelegate => {
+                check_permission(self.permissions.set_delegate, ControlTag::Signature)
+            }
         }
     }
 

@@ -151,6 +151,10 @@ impl Balance {
         self.0.checked_sub(amount.0).map(Self)
     }
 
+    pub fn add_amount(&self, amount: Amount) -> Option<Self> {
+        self.0.checked_add(amount.0).map(Self)
+    }
+
     pub fn as_u64(&self) -> u64 {
         self.0
     }
