@@ -172,7 +172,7 @@ pub struct Signature((Fp, (Fp, Fp)));
 
 pub type Memo = Vec<u8>;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Slot(pub(super) u32);
 
 impl rand::distributions::Distribution<Slot> for rand::distributions::Standard {
@@ -258,7 +258,7 @@ pub mod signed_command {
 
     impl SignedCommand {
         pub fn valid_until(&self) -> Slot {
-            self.payload.common.valid_until.clone()
+            self.payload.common.valid_until
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L322
@@ -273,11 +273,11 @@ pub mod signed_command {
         }
 
         pub fn fee(&self) -> Fee {
-            self.payload.common.fee.clone()
+            self.payload.common.fee
         }
 
         pub fn nonce(&self) -> Nonce {
-            self.payload.common.nonce.clone()
+            self.payload.common.nonce
         }
     }
 }
@@ -380,7 +380,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_numbers/account_nonce.mli#L2
-    #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
     pub struct Nonce(pub(super) u32);
 
     impl Nonce {
@@ -846,14 +846,7 @@ where
         failures1,
         burned_tokens1,
     ) = match fee_transfer {
-        None => (
-            coinbase_amount.clone(),
-            None,
-            None,
-            None,
-            vec![],
-            Amount::zero(),
-        ),
+        None => (*coinbase_amount, None, None, None, vec![], Amount::zero()),
         Some(
             ft @ CoinbaseFeeTransfer {
                 receiver_pk: transferee,
@@ -876,7 +869,7 @@ where
             let timing = update_timing_when_no_deduction(txn_global_slot, &transferee_account)?;
 
             let balance = {
-                let amount = sub_account_creation_fee(constraint_constants, action, fee.clone())?;
+                let amount = sub_account_creation_fee(constraint_constants, action, fee)?;
                 add_amount(transferee_account.balance, amount)?
             };
 
@@ -926,8 +919,7 @@ where
     };
 
     let receiver_balance = {
-        let amount =
-            sub_account_creation_fee(constraint_constants, action2, receiver_reward.clone())?;
+        let amount = sub_account_creation_fee(constraint_constants, action2, receiver_reward)?;
         add_amount(receiver_account.balance, amount)?
     };
 
@@ -1360,9 +1352,9 @@ where
     };
 
     let fee = Amount::of_fee(&fee);
-    let balance = sub_amount(account.balance.clone(), fee.clone())?;
+    let balance = sub_amount(account.balance, fee)?;
 
-    validate_nonces(nonce, account.nonce.clone())?;
+    validate_nonces(nonce, account.nonce)?;
     let timing = validate_timing(&account, fee, current_global_slot)?;
 
     account.balance = balance;
@@ -1432,11 +1424,11 @@ pub mod transaction_union_payload {
 
             Self {
                 common: Common {
-                    fee: payload.common.fee.clone(),
+                    fee: payload.common.fee,
                     fee_token: TokenId::default(),
                     fee_payer_pk: payload.common.fee_payer_pk.clone(),
-                    nonce: payload.common.nonce.clone(),
-                    valid_until: payload.common.valid_until.clone(),
+                    nonce: payload.common.nonce,
+                    valid_until: payload.common.valid_until,
                     memo: payload.common.memo.clone(),
                 },
                 body: match &payload.body {
@@ -1449,7 +1441,7 @@ pub mod transaction_union_payload {
                         source_pk: source_pk.clone(),
                         receiver_pk: receiver_pk.clone(),
                         token_id: TokenId::default(),
-                        amount: amount.clone(),
+                        amount: *amount,
                         token_locked: false,
                     },
                     StakeDelegation(StakeDelegationPayload::SetDelegate {
@@ -1591,7 +1583,7 @@ fn validate_timing_with_min_balance(
     use TimingValidation::*;
 
     let (possibly_error, timing, min_balance) =
-        validate_timing_with_min_balance_impl(account, txn_amount.clone(), txn_global_slot);
+        validate_timing_with_min_balance_impl(account, txn_amount, txn_global_slot);
 
     match possibly_error {
         InsufficientBalance(true) => Err(format!(
@@ -1652,7 +1644,7 @@ fn validate_timing_with_min_balance_impl(
             vesting_period,
             vesting_increment,
         } => {
-            let account_balance = account.balance.clone();
+            let account_balance = account.balance;
             let initial_minimum_balance = initial_minimum_balance;
 
             let (invalid_balance, invalid_timing, curr_min_balance) =
@@ -1662,7 +1654,7 @@ fn validate_timing_with_min_balance_impl(
                         // but:
                         // * we don't use it anywhere in this error case; and
                         // * we don't want to waste time computing it if it will be unused.
-                        (true, false, initial_minimum_balance.clone())
+                        (true, false, *initial_minimum_balance)
                     }
                     Some(proposed_new_balance) => {
                         let cliff_time = cliff_time;
@@ -1671,12 +1663,12 @@ fn validate_timing_with_min_balance_impl(
                         let vesting_increment = vesting_increment;
 
                         let curr_min_balance = account_min_balance_at_slot(
-                            txn_global_slot.clone(),
-                            cliff_time.clone(),
-                            cliff_amount.clone(),
-                            vesting_period.clone(),
-                            vesting_increment.clone(),
-                            initial_minimum_balance.clone(),
+                            *txn_global_slot,
+                            *cliff_time,
+                            *cliff_amount,
+                            *vesting_period,
+                            *vesting_increment,
+                            *initial_minimum_balance,
                         );
 
                         if proposed_new_balance < curr_min_balance {

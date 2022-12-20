@@ -45,8 +45,7 @@ pub struct ScanState {
 pub mod transaction_snark {
     use mina_hasher::Fp;
     use mina_p2p_messages::v2::{
-        MinaBasePendingCoinbaseStackVersionedStableV1, MinaBaseSparseLedgerBaseStableV2,
-        MinaBaseStateBodyHashStableV1, MinaTransactionLogicTransactionAppliedStableV2,
+        MinaBasePendingCoinbaseStackVersionedStableV1, MinaBaseStateBodyHashStableV1,
         MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, StateHash,
         TransactionSnarkPendingCoinbaseStackStateInitStackStableV1, TransactionSnarkProofStableV2,
     };
@@ -298,15 +297,15 @@ fn create_expected_statement<F>(
     TransactionWithWitness {
         transaction_with_info,
         state_hash,
-        statement,
-        init_stack,
+        statement: _,
+        init_stack: _,
         ledger_witness,
     }: &TransactionWithWitness,
 ) where
     F: Fn(&StateHash) -> &MinaStateProtocolStateValueStableV2,
 {
     let mut ledger_witness = ledger_witness.clone();
-    let source_merkle_root = ledger_witness.merkle_root();
+    let _source_merkle_root = ledger_witness.merkle_root();
 
     let WithStatus {
         data: transaction, ..
@@ -315,7 +314,7 @@ fn create_expected_statement<F>(
     let protocol_state = get_state(&state_hash.0);
     let state_view = protocol_state_view(protocol_state);
 
-    let empty_local_state = LocalState::empty();
+    let _empty_local_state = LocalState::empty();
 
     apply_transaction(
         constraint_constants,
@@ -500,7 +499,7 @@ impl ScanState {
             match acc.0 {
                 None => Some((s2.clone(), proofs)),
                 Some((s1, mut ps)) => {
-                    let merged_statement = s1.merge(&s2);
+                    let merged_statement = s1.merge(s2);
                     proofs.append(&mut ps);
                     Some((merged_statement, proofs))
                 }

@@ -57,7 +57,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Fee(pub(super) u64);
 
 impl Magnitude for Fee {
@@ -82,7 +82,7 @@ impl Magnitude for Fee {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Amount(pub(super) u64);
 
 impl Magnitude for Amount {
@@ -121,7 +121,7 @@ impl Amount {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Balance(pub(super) u64);
 
 impl Magnitude for Balance {
@@ -173,5 +173,11 @@ impl rand::distributions::Distribution<Balance> for rand::distributions::Standar
 impl rand::distributions::Distribution<Amount> for rand::distributions::Standard {
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Amount {
         Amount(rng.next_u64())
+    }
+}
+
+impl rand::distributions::Distribution<Fee> for rand::distributions::Standard {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Fee {
+        Fee(rng.next_u64())
     }
 }
