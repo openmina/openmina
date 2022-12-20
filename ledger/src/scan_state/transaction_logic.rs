@@ -11,7 +11,7 @@ use self::{
     signed_command::{SignedCommand, SignedCommandPayload},
     transaction_applied::TransactionApplied,
     transaction_union_payload::TransactionUnionPayload,
-    zkapp_command::AccountNonce,
+    zkapp_command::Nonce,
 };
 
 use super::{
@@ -175,13 +175,27 @@ pub type Memo = Vec<u8>;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Slot(pub(super) u32);
 
+impl rand::distributions::Distribution<Slot> for rand::distributions::Standard {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Slot {
+        Slot(rng.next_u32())
+    }
+}
+
 impl Slot {
     pub fn is_zero(&self) -> bool {
         self.0 == 0
     }
 
+    pub fn zero() -> Self {
+        Self(0)
+    }
+
     pub fn as_u32(&self) -> u32 {
         self.0
+    }
+
+    pub fn from_u32(slot: u32) -> Self {
+        Self(slot)
     }
 }
 
@@ -191,7 +205,7 @@ pub struct Index(pub(super) u32);
 pub mod signed_command {
     use crate::AccountId;
 
-    use super::{zkapp_command::AccountNonce, *};
+    use super::{zkapp_command::Nonce, *};
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L75
     #[derive(Debug, Clone)]
@@ -199,7 +213,7 @@ pub mod signed_command {
         pub fee: Fee,
         pub fee_token: TokenId,
         pub fee_payer_pk: CompressedPubKey,
-        pub nonce: AccountNonce,
+        pub nonce: Nonce,
         pub valid_until: Slot,
         pub memo: Memo,
     }
@@ -262,7 +276,7 @@ pub mod signed_command {
             self.payload.common.fee.clone()
         }
 
-        pub fn nonce(&self) -> AccountNonce {
+        pub fn nonce(&self) -> Nonce {
             self.payload.common.nonce.clone()
         }
     }
@@ -271,7 +285,7 @@ pub mod signed_command {
 pub mod zkapp_command {
     use crate::{
         scan_state::currency::{Balance, Signed},
-        AuthRequired, Permissions, Slot, Timing, TokenSymbol, VerificationKey,
+        AuthRequired, Permissions, Timing, TokenSymbol, VerificationKey,
     };
 
     use super::*;
@@ -367,15 +381,34 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_numbers/account_nonce.mli#L2
     #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-    pub struct AccountNonce(pub(super) u32);
+    pub struct Nonce(pub(super) u32);
 
-    impl AccountNonce {
+    impl Nonce {
         pub fn is_zero(&self) -> bool {
             self.0 == 0
         }
 
+        pub fn zero() -> Self {
+            Self(0)
+        }
+
         pub fn as_u32(&self) -> u32 {
             self.0
+        }
+
+        pub fn from_u32(nonce: u32) -> Self {
+            Self(nonce)
+        }
+
+        // TODO: Not sure if OCaml wraps around here
+        pub fn incr(&self) -> Self {
+            Self(self.0.wrapping_add(1))
+        }
+    }
+
+    impl rand::distributions::Distribution<Nonce> for rand::distributions::Standard {
+        fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Nonce {
+            Nonce(rng.next_u32())
         }
     }
 
@@ -383,7 +416,7 @@ pub mod zkapp_command {
     #[derive(Debug, Clone)]
     pub struct Account {
         balance: Numeric<Balance>,
-        nonce: Numeric<AccountNonce>,
+        nonce: Numeric<Nonce>,
         receipt_chain_hash: Hash<Fp>, // TODO: Should be type `ReceiptChainHash`
         delegate: EqData<CompressedPubKey>,
         state: [EqData<Fp>; 8],
@@ -396,7 +429,7 @@ pub mod zkapp_command {
     #[derive(Debug, Clone)]
     pub enum AccountPreconditions {
         Full(Box<Account>),
-        Nonce(AccountNonce),
+        Nonce(Nonce),
         Accept,
     }
 
@@ -482,7 +515,7 @@ pub mod zkapp_command {
         public_key: CompressedPubKey,
         fee: Fee,
         valid_until: Option<Slot>,
-        nonce: AccountNonce,
+        nonce: Nonce,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1484
@@ -844,14 +877,14 @@ where
 
             let balance = {
                 let amount = sub_account_creation_fee(constraint_constants, action, fee.clone())?;
-                add_amount(Balance(transferee_account.balance), amount)?
+                add_amount(transferee_account.balance, amount)?
             };
 
             if can_receive.0 {
                 let (_, mut transferee_account, transferee_location) =
                     get_or_create(ledger, &transferee_id)?;
 
-                transferee_account.balance = balance.0;
+                transferee_account.balance = balance;
                 transferee_account.timing = timing;
 
                 let timing = transferee_account.timing.clone();
@@ -895,14 +928,14 @@ where
     let receiver_balance = {
         let amount =
             sub_account_creation_fee(constraint_constants, action2, receiver_reward.clone())?;
-        add_amount(Balance(receiver_account.balance), amount)?
+        add_amount(receiver_account.balance, amount)?
     };
 
     let (failures2, burned_tokens2) = if can_receive.0 {
         let (_action2, mut receiver_account, receiver_location) =
             get_or_create(ledger, &receiver_id)?;
 
-        receiver_account.balance = receiver_balance.0;
+        receiver_account.balance = receiver_balance;
         receiver_account.timing = coinbase_receiver_timing;
 
         ledger.set(receiver_location, receiver_account);
@@ -1078,14 +1111,13 @@ where
             let (a, action, can_receive) = has_permission_to_receive(ledger, &account_id);
 
             let timing = modify_timing(&a)?;
-            let balance =
-                modify_balance(action, &account_id, Balance(a.balance), &fee_transfer.fee)?;
+            let balance = modify_balance(action, &account_id, a.balance, &fee_transfer.fee)?;
 
             if can_receive.0 {
                 let (_, mut account, loc) = get_or_create(ledger, &account_id)?;
                 let new_accounts = get_new_accounts(action, account_id.clone());
 
-                account.balance = balance.0;
+                account.balance = balance;
                 account.timing = timing;
 
                 ledger.set(loc, account);
@@ -1109,13 +1141,13 @@ where
                     .ok_or_else(|| "Overflow".to_string())?;
 
                 let timing = modify_timing(&a1)?;
-                let balance = modify_balance(action1, &account_id1, Balance(a1.balance), &fee)?;
+                let balance = modify_balance(action1, &account_id1, a1.balance, &fee)?;
 
                 if can_receive1.0 {
                     let (_, mut a1, l1) = get_or_create(ledger, &account_id1)?;
                     let new_accounts1 = get_new_accounts(action1, account_id1);
 
-                    a1.balance = balance.0;
+                    a1.balance = balance;
                     a1.timing = timing;
 
                     ledger.set(l1, a1);
@@ -1137,12 +1169,8 @@ where
             } else {
                 let (a2, action2, can_receive2) = has_permission_to_receive(ledger, &account_id2);
 
-                let balance1 = modify_balance(
-                    action1,
-                    &account_id1,
-                    Balance(a1.balance),
-                    &fee_transfer1.fee,
-                )?;
+                let balance1 =
+                    modify_balance(action1, &account_id1, a1.balance, &fee_transfer1.fee)?;
 
                 // Note: Not updating the timing field of a1 to avoid additional check
                 // in transactions snark (check_timing for "receiver"). This is OK
@@ -1150,18 +1178,14 @@ where
                 // and will be checked whenever an amount is deducted from the account. (#5973)*)
 
                 let timing2 = modify_timing(&a2)?;
-                let balance2 = modify_balance(
-                    action2,
-                    &account_id2,
-                    Balance(a2.balance),
-                    &fee_transfer2.fee,
-                )?;
+                let balance2 =
+                    modify_balance(action2, &account_id2, a2.balance, &fee_transfer2.fee)?;
 
                 let (new_accounts1, failures1, burned_tokens1) = if can_receive1.0 {
                     let (_, mut a1, l1) = get_or_create(ledger, &account_id1)?;
                     let new_accounts1 = get_new_accounts(action1, account_id1);
 
-                    a1.balance = balance1.0;
+                    a1.balance = balance1;
                     ledger.set(l1, a1);
 
                     (new_accounts1, vec![], Amount::zero())
@@ -1177,7 +1201,7 @@ where
                     let (_, mut a2, l2) = get_or_create(ledger, &account_id2)?;
                     let new_accounts2 = get_new_accounts(action2, account_id2);
 
-                    a2.balance = balance2.0;
+                    a2.balance = balance2;
                     a2.timing = timing2;
 
                     ledger.set(l2, a2);
@@ -1319,7 +1343,7 @@ where
 
 fn pay_fee_impl<L>(
     command: &SignedCommandPayload,
-    nonce: AccountNonce,
+    nonce: Nonce,
     fee_payer: AccountId,
     fee: Fee,
     ledger: &mut L,
@@ -1336,13 +1360,13 @@ where
     };
 
     let fee = Amount::of_fee(&fee);
-    let balance = sub_amount(Balance(account.balance), fee.clone())?;
+    let balance = sub_amount(account.balance.clone(), fee.clone())?;
 
-    validate_nonces(nonce, AccountNonce(account.nonce))?;
+    validate_nonces(nonce, account.nonce.clone())?;
     let timing = validate_timing(&account, fee, current_global_slot)?;
 
-    account.balance = balance.as_u64();
-    account.nonce = account.nonce.wrapping_add(1); // TODO: Not sure if OCaml wraps
+    account.balance = balance;
+    account.nonce = account.nonce.incr(); // TODO: Not sure if OCaml wraps
     account.receipt_chain_hash = cons_signed_command_payload(command, account.receipt_chain_hash);
     account.timing = timing;
 
@@ -1373,7 +1397,7 @@ pub mod transaction_union_payload {
         fee: Fee,
         fee_token: TokenId,
         fee_payer_pk: CompressedPubKey,
-        nonce: AccountNonce,
+        nonce: Nonce,
         valid_until: Slot,
         memo: Memo,
     }
@@ -1538,7 +1562,7 @@ fn cons_signed_command_payload(
     ReceiptChainHash(hasher.digest())
 }
 
-fn validate_nonces(txn_nonce: AccountNonce, account_nonce: AccountNonce) -> Result<(), String> {
+fn validate_nonces(txn_nonce: Nonce, account_nonce: Nonce) -> Result<(), String> {
     if account_nonce == txn_nonce {
         return Ok(());
     }
@@ -1605,10 +1629,10 @@ fn validate_timing_with_min_balance_impl(
     use crate::Timing::*;
     use TimingValidation::*;
 
-    match account.timing {
+    match &account.timing {
         Untimed => {
             // no time restrictions
-            match Balance(account.balance).sub_amount(txn_amount) {
+            match account.balance.sub_amount(txn_amount) {
                 None => (
                     InsufficientBalance(true),
                     Untimed,
@@ -1628,8 +1652,8 @@ fn validate_timing_with_min_balance_impl(
             vesting_period,
             vesting_increment,
         } => {
-            let account_balance = Balance(account.balance);
-            let initial_minimum_balance = Balance(initial_minimum_balance);
+            let account_balance = account.balance.clone();
+            let initial_minimum_balance = initial_minimum_balance;
 
             let (invalid_balance, invalid_timing, curr_min_balance) =
                 match account_balance.sub_amount(txn_amount) {
@@ -1638,21 +1662,21 @@ fn validate_timing_with_min_balance_impl(
                         // but:
                         // * we don't use it anywhere in this error case; and
                         // * we don't want to waste time computing it if it will be unused.
-                        (true, false, initial_minimum_balance)
+                        (true, false, initial_minimum_balance.clone())
                     }
                     Some(proposed_new_balance) => {
-                        let cliff_time = Slot(cliff_time);
-                        let cliff_amount = Amount(cliff_amount);
-                        let vesting_period = Slot(vesting_period);
-                        let vesting_increment = Amount(vesting_increment);
+                        let cliff_time = cliff_time;
+                        let cliff_amount = cliff_amount;
+                        let vesting_period = vesting_period;
+                        let vesting_increment = vesting_increment;
 
                         let curr_min_balance = account_min_balance_at_slot(
                             txn_global_slot.clone(),
-                            cliff_time,
-                            cliff_amount,
-                            vesting_period,
-                            vesting_increment,
-                            initial_minimum_balance,
+                            cliff_time.clone(),
+                            cliff_amount.clone(),
+                            vesting_period.clone(),
+                            vesting_increment.clone(),
+                            initial_minimum_balance.clone(),
                         );
 
                         if proposed_new_balance < curr_min_balance {
@@ -1762,7 +1786,7 @@ where
         },
         None => Ok((
             ExistingOrNew::New,
-            Account::create_with(account_id.clone(), 0),
+            Account::create_with(account_id.clone(), Balance::zero()),
         )),
     }
 }

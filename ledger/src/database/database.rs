@@ -701,6 +701,8 @@ mod tests_ocaml {
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
+    use crate::scan_state::currency::Balance;
+
     use super::*;
 
     // "add and retrieve an account"
@@ -763,14 +765,14 @@ mod tests_ocaml {
         let mut db = Database::<V2>::create(10);
 
         let mut account1 = Account::rand();
-        account1.balance = 100;
+        account1.balance = Balance::from_u64(100);
 
         let location1 = db
             .get_or_create_account(account1.id(), account1.clone())
             .unwrap();
 
         let mut account2 = account1;
-        account2.balance = 200;
+        account2.balance = Balance::from_u64(200);
 
         let location2 = db
             .get_or_create_account(account2.id(), account2.clone())
@@ -1075,11 +1077,11 @@ mod tests_ocaml {
 
         for _ in 0..NACCOUNTS {
             let account = Account::rand();
-            total_balance += account.balance as u128;
+            total_balance += account.balance.as_u64() as u128;
             db.get_or_create_account(account.id(), account).unwrap();
         }
 
-        let retrieved = db.fold(0u128, |acc, account| acc + account.balance as u128);
+        let retrieved = db.fold(0u128, |acc, account| acc + account.balance.as_u64() as u128);
         assert_eq!(total_balance, retrieved);
     }
 
@@ -1096,14 +1098,14 @@ mod tests_ocaml {
         for i in 0..NACCOUNTS {
             let account = Account::rand();
             if i <= 30 {
-                total_balance += account.balance as u128;
+                total_balance += account.balance.as_u64() as u128;
                 last_id = account.id();
             }
             db.get_or_create_account(account.id(), account).unwrap();
         }
 
         let retrieved = db.fold_until(0u128, |mut acc, account| {
-            acc += account.balance as u128;
+            acc += account.balance.as_u64() as u128;
 
             if account.id() != last_id {
                 ControlFlow::Continue(acc)

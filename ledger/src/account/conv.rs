@@ -13,6 +13,10 @@ use mina_p2p_messages::{
 };
 
 use crate::{
+    scan_state::{
+        currency::{Amount, Balance},
+        transaction_logic::{zkapp_command::Nonce, Slot},
+    },
     CurveAffine, Permissions, PlonkVerificationKeyEvals, ProofVerified, ReceiptChainHash, Timing,
     TokenPermissions, VerificationKey, VotingFor, ZkAppAccount,
 };
@@ -100,9 +104,11 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
             },
             token_symbol: MinaBaseSokMessageDigestStableV1(acc.token_symbol.as_bytes().into()),
             balance: CurrencyBalanceStableV1(CurrencyAmountStableV1(
-                UnsignedExtendedUInt64Int64ForVersionTagsStableV1((acc.balance as i64).into()),
+                UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+                    (acc.balance.as_u64() as i64).into(),
+                ),
             )),
-            nonce: UnsignedExtendedUInt32StableV1((acc.nonce as i32).into()),
+            nonce: UnsignedExtendedUInt32StableV1((acc.nonce.as_u32() as i32).into()),
             receipt_chain_hash: MinaBaseReceiptChainHashStableV1(acc.receipt_chain_hash.0.into()),
             delegate: acc.delegate.map(|delegate| {
                 let delegate: NonZeroCurvePointUncompressedStableV1 = delegate.into();
@@ -120,19 +126,21 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
                 } => MinaBaseAccountTimingStableV1::Timed {
                     initial_minimum_balance: CurrencyBalanceStableV1(CurrencyAmountStableV1(
                         UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                            (initial_minimum_balance as i64).into(),
+                            (initial_minimum_balance.as_u64() as i64).into(),
                         ),
                     )),
-                    cliff_time: UnsignedExtendedUInt32StableV1((cliff_time as i32).into()),
+                    cliff_time: UnsignedExtendedUInt32StableV1((cliff_time.as_u32() as i32).into()),
                     cliff_amount: CurrencyAmountStableV1(
                         UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                            (cliff_amount as i64).into(),
+                            (cliff_amount.as_u64() as i64).into(),
                         ),
                     ),
-                    vesting_period: UnsignedExtendedUInt32StableV1((vesting_period as i32).into()),
+                    vesting_period: UnsignedExtendedUInt32StableV1(
+                        (vesting_period.as_u32() as i32).into(),
+                    ),
                     vesting_increment: CurrencyAmountStableV1(
                         UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                            (vesting_increment as i64).into(),
+                            (vesting_increment.as_u64() as i64).into(),
                         ),
                     ),
                 },
@@ -179,7 +187,7 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
                     )),
                     sequence_state,
                     last_sequence_slot: UnsignedExtendedUInt32StableV1(
-                        (zkapp.last_sequence_slot as i32).into(),
+                        (zkapp.last_sequence_slot.as_u32() as i32).into(),
                     ),
                     proved_state: zkapp.proved_state,
                     zkapp_uri: zkapp.zkapp_uri.as_bytes().into(),
@@ -319,8 +327,8 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                 }
             },
             token_symbol: acc.token_symbol.0.try_into().unwrap(),
-            balance: acc.balance.0 .0 .0 .0 as u64,
-            nonce: acc.nonce.0 .0 as u32,
+            balance: Balance::from_u64(acc.balance.0 .0 .0 .0 as u64),
+            nonce: Nonce::from_u32(acc.nonce.0 .0 as u32),
             receipt_chain_hash: ReceiptChainHash(acc.receipt_chain_hash.0.into()),
             delegate: acc.delegate.map(|d| d.into_inner().into()),
             voting_for: VotingFor(acc.voting_for.0.into()),
@@ -333,11 +341,11 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                     vesting_period,
                     vesting_increment,
                 } => Timing::Timed {
-                    initial_minimum_balance: initial_minimum_balance.0 .0 .0 .0 as u64,
-                    cliff_time: cliff_time.0 .0 as u32,
-                    cliff_amount: cliff_amount.0 .0 .0 as u64,
-                    vesting_period: vesting_period.0 .0 as u32,
-                    vesting_increment: vesting_increment.0 .0 .0 as u64,
+                    initial_minimum_balance: Balance::from_u64(initial_minimum_balance.as_u64()),
+                    cliff_time: Slot::from_u32(cliff_time.as_u32()),
+                    cliff_amount: Amount::from_u64(cliff_amount.as_u64()),
+                    vesting_period: Slot::from_u32(vesting_period.as_u32()),
+                    vesting_increment: Amount::from_u64(vesting_increment.as_u64()),
                 },
             },
             permissions: Permissions {
@@ -383,7 +391,7 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                     }),
                     zkapp_version: zkapp.zkapp_version.0 .0 .0 as u32,
                     sequence_state: zkapp.sequence_state.0.map(|v| v.into()),
-                    last_sequence_slot: zkapp.last_sequence_slot.0 .0 as u32,
+                    last_sequence_slot: Slot::from_u32(zkapp.last_sequence_slot.as_u32()),
                     proved_state: zkapp.proved_state,
                     zkapp_uri: zkapp.zkapp_uri.try_into().unwrap(),
                 }

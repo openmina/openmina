@@ -8,6 +8,10 @@ use rand::{prelude::ThreadRng, Rng};
 
 use crate::{
     hash::{hash_noinputs, hash_with_kimchi, Inputs},
+    scan_state::{
+        currency::{Balance, Magnitude},
+        transaction_logic::{zkapp_command::Nonce, Slot},
+    },
     MerklePath,
 };
 
@@ -282,7 +286,7 @@ impl Default for ZkAppAccount {
                 let empty = hash_noinputs("MinaZkappSequenceStateEmptyElt");
                 [empty, empty, empty, empty, empty]
             },
-            last_sequence_slot: 0,
+            last_sequence_slot: Slot::zero(),
             proved_state: false,
             zkapp_uri: String::new(),
         }
@@ -391,8 +395,8 @@ impl Account {
             token_id: TokenId::default(),
             token_permissions: TokenPermissions::default(),
             token_symbol: String::new(),
-            balance: 10101,
-            nonce: 0,
+            balance: Balance::from_u64(10101),
+            nonce: Nonce::zero(),
             receipt_chain_hash: ReceiptChainHash::empty(),
             delegate: Some(pubkey),
             voting_for: VotingFor::dummy(),
@@ -416,7 +420,7 @@ impl Account {
             token_permissions: TokenPermissions::default(),
             token_symbol: String::new(),
             balance,
-            nonce: 0,
+            nonce: Nonce::zero(),
             receipt_chain_hash: ReceiptChainHash::empty(),
             delegate,
             voting_for: VotingFor::dummy(),
@@ -427,7 +431,7 @@ impl Account {
     }
 
     pub fn initialize(account_id: &AccountId) -> Self {
-        Self::create_with(account_id.clone(), 0)
+        Self::create_with(account_id.clone(), Balance::zero())
     }
 
     pub fn deserialize(bytes: &[u8]) -> Self {
@@ -450,8 +454,8 @@ impl Account {
             token_id: TokenId::default(),
             token_permissions: TokenPermissions::default(),
             token_symbol: String::new(),
-            balance: 0,
-            nonce: 0,
+            balance: Balance::zero(),
+            nonce: Nonce::zero(),
             receipt_chain_hash: ReceiptChainHash::empty(),
             delegate: None,
             voting_for: VotingFor::dummy(),
@@ -515,7 +519,7 @@ impl Account {
             inputs.append_field(field_zkapp_uri);
 
             inputs.append_bool(zkapp.proved_state);
-            inputs.append_u32(zkapp.last_sequence_slot);
+            inputs.append_u32(zkapp.last_sequence_slot.as_u32());
             for fp in &zkapp.sequence_state {
                 inputs.append_field(*fp);
             }
@@ -554,7 +558,7 @@ impl Account {
         }
 
         // Self::timing
-        match self.timing {
+        match &self.timing {
             Timing::Untimed => {
                 inputs.append_bool(false);
                 inputs.append_u64(0); // initial_minimum_balance
@@ -571,11 +575,11 @@ impl Account {
                 vesting_increment,
             } => {
                 inputs.append_bool(true);
-                inputs.append_u64(initial_minimum_balance);
-                inputs.append_u32(cliff_time);
-                inputs.append_u64(cliff_amount);
-                inputs.append_u32(vesting_period);
-                inputs.append_u64(vesting_increment);
+                inputs.append_u64(initial_minimum_balance.as_u64());
+                inputs.append_u32(cliff_time.as_u32());
+                inputs.append_u64(cliff_amount.as_u64());
+                inputs.append_u32(vesting_period.as_u32());
+                inputs.append_u64(vesting_increment.as_u64());
             }
         }
 
@@ -599,10 +603,10 @@ impl Account {
         inputs.append_field(self.receipt_chain_hash.0);
 
         // Self::nonce
-        inputs.append_u32(self.nonce);
+        inputs.append_u32(self.nonce.as_u32());
 
         // Self::balance
-        inputs.append_u64(self.balance);
+        inputs.append_u64(self.balance.as_u64());
 
         // Self::token_symbol
 
@@ -833,8 +837,8 @@ mod tests {
             token_id: TokenId::default(),
             token_permissions: TokenPermissions::default(),
             token_symbol: "seb".to_string(),
-            balance: 10101,
-            nonce: 62772,
+            balance: Balance::from_u64(10101),
+            nonce: Nonce::from_u32(62772),
             receipt_chain_hash: ReceiptChainHash::empty(),
             delegate: None,
             voting_for: VotingFor::dummy(),

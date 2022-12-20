@@ -499,6 +499,8 @@ mod tests {
 
 #[cfg(test)]
 mod tests_mask_ocaml {
+    use crate::scan_state::currency::{Balance, Magnitude};
+
     use super::*;
 
     use rand::{thread_rng, Rng};
@@ -811,7 +813,7 @@ mod tests_mask_ocaml {
         let accounts = (0..10).map(|_| Account::rand()).collect::<Vec<_>>();
         let balance = accounts
             .iter()
-            .fold(0u128, |acc, account| acc + account.balance as u128);
+            .fold(0u128, |acc, account| acc + account.balance.as_u64() as u128);
 
         let (accounts_parent, accounts_mask) = accounts.split_at(5);
 
@@ -824,7 +826,8 @@ mod tests_mask_ocaml {
                 .unwrap();
         }
 
-        let retrieved_balance = mask.fold(0u128, |acc, account| acc + account.balance as u128);
+        let retrieved_balance =
+            mask.fold(0u128, |acc, account| acc + account.balance.as_u64() as u128);
         assert_eq!(balance, retrieved_balance);
     }
 
@@ -848,9 +851,10 @@ mod tests_mask_ocaml {
 
         let mut accounts = (0..10).map(|_| Account::rand()).collect::<Vec<_>>();
         // Make balances non-zero
-        accounts
-            .iter_mut()
-            .for_each(|account| account.balance = account.balance.checked_add(1).unwrap_or(1));
+        let one = Balance::from_u64(1);
+        accounts.iter_mut().for_each(|account| {
+            account.balance = account.balance.checked_add(&one).unwrap_or(one.clone())
+        });
 
         for account in &accounts {
             root.get_or_create_account(account.id(), account.clone())
@@ -860,7 +864,9 @@ mod tests_mask_ocaml {
         let parent_list = root.to_list();
 
         // Make balances to zero for those same account
-        accounts.iter_mut().for_each(|account| account.balance = 0);
+        accounts
+            .iter_mut()
+            .for_each(|account| account.balance = Balance::zero());
 
         for account in accounts {
             create_existing_account(&mut mask, account);
@@ -878,7 +884,7 @@ mod tests_mask_ocaml {
         assert_eq!(
             mask_list
                 .iter()
-                .fold(0u128, |acc, account| acc + account.balance as u128),
+                .fold(0u128, |acc, account| acc + account.balance.as_u64() as u128),
             0
         );
     }
@@ -891,26 +897,31 @@ mod tests_mask_ocaml {
 
         let mut accounts = (0..10).map(|_| Account::rand()).collect::<Vec<_>>();
         // Make balances non-zero
-        accounts
-            .iter_mut()
-            .for_each(|account| account.balance = account.balance.checked_add(1).unwrap_or(1));
+        let one = Balance::from_u64(1);
+        accounts.iter_mut().for_each(|account| {
+            account.balance = account.balance.checked_add(&one).unwrap_or(one.clone())
+        });
 
         for account in &accounts {
             root.get_or_create_account(account.id(), account.clone())
                 .unwrap();
         }
 
-        let parent_sum_balance = root.fold(0u128, |acc, account| acc + account.balance as u128);
+        let parent_sum_balance =
+            root.fold(0u128, |acc, account| acc + account.balance.as_u64() as u128);
         assert_ne!(parent_sum_balance, 0);
 
         // Make balances to zero for those same account
-        accounts.iter_mut().for_each(|account| account.balance = 0);
+        accounts
+            .iter_mut()
+            .for_each(|account| account.balance = Balance::zero());
 
         for account in accounts {
             create_existing_account(&mut mask, account);
         }
 
-        let mask_sum_balance = mask.fold(0u128, |acc, account| acc + account.balance as u128);
+        let mask_sum_balance =
+            mask.fold(0u128, |acc, account| acc + account.balance.as_u64() as u128);
         assert_eq!(mask_sum_balance, 0);
     }
 
@@ -1035,8 +1046,8 @@ mod tests_mask_ocaml {
         let mut account = Account::rand();
         let mut account2 = account.clone();
 
-        account.balance = 10;
-        account2.balance = 5;
+        account.balance = Balance::from_u64(10);
+        account2.balance = Balance::from_u64(5);
 
         let loc = mask
             .get_or_create_account(account.id(), account.clone())

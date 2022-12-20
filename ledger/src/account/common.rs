@@ -2,13 +2,19 @@ use ark_ff::Zero;
 use mina_hasher::Fp;
 use o1_utils::FieldHelpers;
 
-use crate::hash::hash_noinputs;
+use crate::{
+    hash::hash_noinputs,
+    scan_state::{
+        currency::{Amount, Balance},
+        transaction_logic::Slot,
+    },
+};
 
-pub type Balance = u64;
+// pub type Balance = u64;
 
-pub type Amount = u64;
+// pub type Amount = u64;
 
-pub type Slot = u32;
+// pub type Slot = u32;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct VotingFor(pub Fp);
@@ -59,7 +65,7 @@ pub enum Timing {
 }
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_numbers/intf.ml#L155
-pub type Nonce = u32;
+// pub type Nonce = u32;
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/token_permissions.ml#L9
 #[derive(Clone, Debug, PartialEq, Eq)]

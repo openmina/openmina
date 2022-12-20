@@ -6,6 +6,9 @@ use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};
 use mina_signer::CompressedPubKey;
 use o1_utils::FieldHelpers;
 
+use crate::scan_state::currency::{Balance, Magnitude};
+use crate::scan_state::transaction_logic::zkapp_command::Nonce;
+
 use super::common::*;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -184,7 +187,7 @@ impl Hashable for AccountLegacy {
         roi = roi.append_bool(self.permissions.stake);
 
         // Self::timing
-        match self.timing {
+        match &self.timing {
             Timing::Untimed => {
                 roi = roi.append_bool(false);
                 roi = roi.append_u64(0); // initial_minimum_balance
@@ -201,11 +204,11 @@ impl Hashable for AccountLegacy {
                 vesting_increment,
             } => {
                 roi = roi.append_bool(true);
-                roi = roi.append_u64(initial_minimum_balance);
-                roi = roi.append_u32(cliff_time);
-                roi = roi.append_u64(cliff_amount);
-                roi = roi.append_u32(vesting_period);
-                roi = roi.append_u64(vesting_increment);
+                roi = roi.append_u64(initial_minimum_balance.as_u64());
+                roi = roi.append_u32(cliff_time.as_u32());
+                roi = roi.append_u64(cliff_amount.as_u64());
+                roi = roi.append_u32(vesting_period.as_u32());
+                roi = roi.append_u64(vesting_increment.as_u64());
             }
         }
 
@@ -229,10 +232,10 @@ impl Hashable for AccountLegacy {
         roi = roi.append_field(self.receipt_chain_hash.0);
 
         // Self::nonce
-        roi = roi.append_u32(self.nonce);
+        roi = roi.append_u32(self.nonce.as_u32());
 
         // Self::balance
-        roi = roi.append_u64(self.balance);
+        roi = roi.append_u64(self.balance.as_u64());
 
         // Self::token_permissions
         match self.token_permissions {
@@ -405,8 +408,8 @@ impl AccountLegacy {
             },
             // token_symbol: "".to_string(),
             // token_symbol: String::new(),
-            balance: 10101,
-            nonce: 62772,
+            balance: Balance::from_u64(10101),
+            nonce: Nonce::from_u32(62772),
             receipt_chain_hash: ReceiptChainHash::default(),
             delegate: Some(pubkey),
             // delegate: None,
@@ -427,8 +430,8 @@ impl AccountLegacy {
             },
             token_id: TokenIdLegacy::default(),
             token_permissions: TokenPermissions::default(),
-            balance: 0,
-            nonce: 0,
+            balance: Balance::zero(),
+            nonce: Nonce::zero(),
             receipt_chain_hash: ReceiptChainHash::empty_legacy(),
             delegate: None,
             voting_for: VotingFor::dummy(),

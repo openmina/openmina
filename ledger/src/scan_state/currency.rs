@@ -158,4 +158,20 @@ impl Balance {
     pub fn as_u64(&self) -> u64 {
         self.0
     }
+
+    pub fn from_u64(balance: u64) -> Self {
+        Self(balance)
+    }
+}
+
+impl rand::distributions::Distribution<Balance> for rand::distributions::Standard {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Balance {
+        Balance(rng.next_u64())
+    }
+}
+
+impl rand::distributions::Distribution<Amount> for rand::distributions::Standard {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Amount {
+        Amount(rng.next_u64())
+    }
 }
