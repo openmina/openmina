@@ -169,6 +169,7 @@ pub enum MinaLedgerSyncLedgerQueryStableV1 {
     WhatChildHashes(MerkleAddressBinableArgStableV1),
     WhatContents(MerkleAddressBinableArgStableV1),
     NumAccounts,
+    WhatAccountWithPath(NonZeroCurvePoint, TokenIdKeyHash),
 }
 
 /// **OCaml name**: `Mina_ledger__Sync_ledger.Answer.Stable.V2`
@@ -185,6 +186,7 @@ pub enum MinaLedgerSyncLedgerAnswerStableV2 {
     ChildHashesAre(MinaBaseLedgerHash0StableV1, MinaBaseLedgerHash0StableV1),
     ContentsAre(Vec<MinaBaseAccountBinableArgStableV2>),
     NumAccounts(crate::number::Int32, MinaBaseLedgerHash0StableV1),
+    AccountWithPath(MinaBaseAccountBinableArgStableV2, super::MerkleTreePath),
 }
 
 /// **OCaml name**: `Consensus__Proof_of_stake.Make_str.Data.Consensus_state.Value.Stable.V1`
@@ -2660,4 +2662,11 @@ pub struct MinaBlockHeaderStableV2 {
 pub struct NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1 {
     pub proof: TransactionSnarkWorkTStableV2Proofs,
     pub fee: MinaBaseFeeWithProverStableV1,
+}
+
+#[test]
+fn tst() {
+    let addr: MinaBaseSignatureStableV1 =
+        serde_json::from_str("\"B62qmQsEHcsPUs5xdtHKjEmWqqhUPRSF2GNmdguqnNvpEZpKftPC69e\"")
+            .unwrap();
 }

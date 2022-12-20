@@ -4,6 +4,10 @@ use serde::{Deserialize, Serialize};
 pub struct BigInt(Box<[u8; 32]>);
 
 impl BigInt {
+    pub fn one() -> Self {
+        mina_curves::pasta::Fp::from(1u64).into()
+    }
+
     #[cfg(feature = "hashing")]
     pub fn to_fp(&self) -> Result<mina_hasher::Fp, o1_utils::field_helpers::FieldHelpersError> {
         use o1_utils::FieldHelpers;
