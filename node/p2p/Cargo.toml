@@ -16,3 +16,4 @@ libp2p = { git = "https://github.com/name-placeholder/rust-libp2p", branch="webr
 mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messages-rs", branch = "main", features = ["hashing"] }
 
 shared = { path = "../shared" }
+snark = { path = "../snark" }

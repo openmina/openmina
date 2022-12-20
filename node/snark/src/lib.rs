@@ -13,7 +13,7 @@ pub use block::{
     VerifierIndex, VerifierSRS,
 };
 
-pub use merkle_path::{verify_merkle_path, MerklePath};
+pub use merkle_path::calc_merkle_root_hash;
 
 pub mod block_verify;
 

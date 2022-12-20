@@ -11,6 +11,7 @@ pub type P2pRpcOutgoingActionWithMeta = redux::ActionWithMeta<P2pRpcOutgoingActi
 pub enum P2pRpcOutgoingAction {
     Init(P2pRpcOutgoingInitAction),
     Pending(P2pRpcOutgoingPendingAction),
+    Received(P2pRpcOutgoingReceivedAction),
     Error(P2pRpcOutgoingErrorAction),
     Success(P2pRpcOutgoingSuccessAction),
     Finish(P2pRpcOutgoingFinishAction),
@@ -21,6 +22,7 @@ impl P2pRpcOutgoingAction {
         match self {
             Self::Init(v) => &v.peer_id,
             Self::Pending(v) => &v.peer_id,
+            Self::Received(v) => &v.peer_id,
             Self::Error(v) => &v.peer_id,
             Self::Success(v) => &v.peer_id,
             Self::Finish(v) => &v.peer_id,
@@ -61,6 +63,27 @@ impl redux::EnablingCondition<crate::P2pState> for P2pRpcOutgoingPendingAction {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pRpcOutgoingReceivedAction {
+    pub peer_id: crate::PeerId,
+    pub rpc_id: P2pRpcId,
+    pub response: P2pRpcResponse,
+}
+
+impl redux::EnablingCondition<crate::P2pState> for P2pRpcOutgoingReceivedAction {
+    fn is_enabled(&self, state: &crate::P2pState) -> bool {
+        state
+            .get_ready_peer(&self.peer_id)
+            .and_then(|p| p.rpc.outgoing.get(self.rpc_id))
+            .map_or(false, |v| match v {
+                P2pRpcOutgoingStatus::Pending { request, .. } => {
+                    request.kind() == self.response.kind()
+                }
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pRpcOutgoingErrorAction {
     pub peer_id: crate::PeerId,
     pub rpc_id: P2pRpcId,
@@ -72,7 +95,18 @@ impl redux::EnablingCondition<crate::P2pState> for P2pRpcOutgoingErrorAction {
         state
             .get_ready_peer(&self.peer_id)
             .and_then(|p| p.rpc.outgoing.get(self.rpc_id))
-            .map_or(false, |v| v.is_pending())
+            .map_or(false, |v| match v {
+                P2pRpcOutgoingStatus::Pending { .. } => true,
+                P2pRpcOutgoingStatus::Received {
+                    request, response, ..
+                } => match &self.error {
+                    P2pRpcOutgoingError::ResponseInvalid(err) => {
+                        Err(err) == request.validate_response(response).as_ref()
+                    }
+                    _ => true,
+                },
+                _ => false,
+            })
     }
 }
 
@@ -80,7 +114,6 @@ impl redux::EnablingCondition<crate::P2pState> for P2pRpcOutgoingErrorAction {
 pub struct P2pRpcOutgoingSuccessAction {
     pub peer_id: crate::PeerId,
     pub rpc_id: P2pRpcId,
-    pub response: P2pRpcResponse,
 }
 
 impl redux::EnablingCondition<crate::P2pState> for P2pRpcOutgoingSuccessAction {
@@ -89,9 +122,9 @@ impl redux::EnablingCondition<crate::P2pState> for P2pRpcOutgoingSuccessAction {
             .get_ready_peer(&self.peer_id)
             .and_then(|p| p.rpc.outgoing.get(self.rpc_id))
             .map_or(false, |v| match v {
-                P2pRpcOutgoingStatus::Pending { request, .. } => {
-                    request.kind() == self.response.kind()
-                }
+                P2pRpcOutgoingStatus::Received {
+                    request, response, ..
+                } => request.validate_response(response).is_ok(),
                 _ => false,
             })
     }
@@ -124,6 +157,7 @@ macro_rules! impl_into_p2p_action {
 
 impl_into_p2p_action!(P2pRpcOutgoingInitAction);
 impl_into_p2p_action!(P2pRpcOutgoingPendingAction);
+impl_into_p2p_action!(P2pRpcOutgoingReceivedAction);
 impl_into_p2p_action!(P2pRpcOutgoingErrorAction);
 impl_into_p2p_action!(P2pRpcOutgoingSuccessAction);
 impl_into_p2p_action!(P2pRpcOutgoingFinishAction);

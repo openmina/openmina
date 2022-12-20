@@ -4,6 +4,7 @@ use snark::hash::state_hash;
 use crate::consensus::ConsensusBlockReceivedAction;
 use crate::p2p::rpc::P2pRpcResponse;
 use crate::rpc::{RpcP2pConnectionOutgoingErrorAction, RpcP2pConnectionOutgoingSuccessAction};
+use crate::snark::hash::state_hash;
 use crate::{Service, Store};
 
 use super::connection::outgoing::P2pConnectionOutgoingAction;
@@ -79,17 +80,32 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     action.effects(&meta, store);
                 }
                 P2pRpcOutgoingAction::Pending(_) => {}
+                P2pRpcOutgoingAction::Received(action) => {
+                    action.effects(&meta, store);
+                }
                 P2pRpcOutgoingAction::Error(action) => {
                     action.effects(&meta, store);
                 }
                 P2pRpcOutgoingAction::Success(action) => {
-                    if let P2pRpcResponse::BestTipGet(Some(resp)) = &action.response {
-                        // TODO(binier): maybe we need to validate best_tip proof (`resp.proof`)?
-                        let header = resp.data.header.clone();
-                        store.dispatch(ConsensusBlockReceivedAction {
-                            hash: state_hash(&header),
-                            header,
-                        });
+                    let Some(peer) = store.state().p2p.peers.get(&action.peer_id) else { return };
+                    let Some(peer) = peer.status.as_ready() else { return };
+
+                    let (_, resp) = match peer.rpc.outgoing.get(action.rpc_id) {
+                        Some(P2pRpcOutgoingStatus::Success {
+                            request, response, ..
+                        }) => (request, response),
+                        _ => return,
+                    };
+                    match resp {
+                        P2pRpcResponse::BestTipGet(Some(resp)) => {
+                            // TODO(binier): maybe we need to validate best_tip proof (`resp.proof`)?
+                            let header = resp.data.header.clone();
+                            store.dispatch(ConsensusBlockReceivedAction {
+                                hash: state_hash(&header),
+                                header,
+                            });
+                        }
+                        _ => {}
                     }
                     action.effects(&meta, store);
                 }

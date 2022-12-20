@@ -26,6 +26,20 @@ impl P2pRpcOutgoingState {
                     };
                 }
             }
+            P2pRpcOutgoingAction::Received(action) => {
+                if let Some(req) = self.get_mut(action.rpc_id) {
+                    *req = match req {
+                        P2pRpcOutgoingStatus::Pending { request, .. } => {
+                            P2pRpcOutgoingStatus::Received {
+                                time: meta.time(),
+                                request: std::mem::take(request),
+                                response: action.response.clone(),
+                            }
+                        }
+                        _ => return,
+                    };
+                }
+            }
             P2pRpcOutgoingAction::Error(action) => {
                 if let Some(req) = self.get_mut(action.rpc_id) {
                     *req = match req {
@@ -33,9 +47,18 @@ impl P2pRpcOutgoingState {
                             P2pRpcOutgoingStatus::Error {
                                 time: meta.time(),
                                 request: std::mem::take(request),
+                                response: None,
                                 error: action.error.clone(),
                             }
                         }
+                        P2pRpcOutgoingStatus::Received {
+                            request, response, ..
+                        } => P2pRpcOutgoingStatus::Error {
+                            time: meta.time(),
+                            request: std::mem::take(request),
+                            response: Some(std::mem::take(response)),
+                            error: action.error.clone(),
+                        },
                         _ => return,
                     };
                 }
@@ -43,13 +66,13 @@ impl P2pRpcOutgoingState {
             P2pRpcOutgoingAction::Success(action) => {
                 if let Some(req) = self.get_mut(action.rpc_id) {
                     *req = match req {
-                        P2pRpcOutgoingStatus::Pending { request, .. } => {
-                            P2pRpcOutgoingStatus::Success {
-                                time: meta.time(),
-                                request: std::mem::take(request),
-                                response: action.response.clone(),
-                            }
-                        }
+                        P2pRpcOutgoingStatus::Received {
+                            request, response, ..
+                        } => P2pRpcOutgoingStatus::Success {
+                            time: meta.time(),
+                            request: std::mem::take(request),
+                            response: std::mem::take(response),
+                        },
                         _ => return,
                     };
                 }

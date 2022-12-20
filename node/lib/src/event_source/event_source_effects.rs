@@ -1,15 +1,14 @@
-use snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
-
 use crate::action::CheckTimeoutsAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingErrorAction, P2pConnectionOutgoingSuccessAction,
 };
 use crate::p2p::pubsub::P2pPubsubBytesReceivedAction;
-use crate::p2p::rpc::outgoing::{P2pRpcOutgoingErrorAction, P2pRpcOutgoingSuccessAction};
+use crate::p2p::rpc::outgoing::{P2pRpcOutgoingErrorAction, P2pRpcOutgoingReceivedAction};
 use crate::rpc::{
     RpcGlobalStateGetAction, RpcP2pConnectionOutgoingInitAction, RpcP2pPubsubMessagePublishAction,
     RpcRequest,
 };
+use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
 use crate::{Service, Store};
 
 use super::{
@@ -68,7 +67,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         });
                     }
                     P2pRpcEvent::OutgoingResponse(peer_id, rpc_id, response) => {
-                        store.dispatch(P2pRpcOutgoingSuccessAction {
+                        store.dispatch(P2pRpcOutgoingReceivedAction {
                             peer_id,
                             rpc_id,
                             response,
