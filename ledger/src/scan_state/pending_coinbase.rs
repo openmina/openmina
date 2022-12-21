@@ -1,10 +1,13 @@
-use std::{collections::HashMap, marker::PhantomData};
+use std::{collections::HashMap, fmt::Write, marker::PhantomData};
 
 use ark_ff::Zero;
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use sha2::{Digest, Sha256};
 
-use crate::{hash_noinputs, hash_with_kimchi, Inputs};
+use crate::{hash_noinputs, hash_with_kimchi, Address, Inputs, MerklePath};
+
+use self::merkle_tree::MiniMerkleTree;
 
 use super::{
     currency::{Amount, Magnitude},
@@ -15,11 +18,12 @@ use super::{
 pub struct StackId(u64);
 
 impl StackId {
-    pub fn incr_by_one(&self) -> Result<Self, String> {
+    pub fn incr_by_one(&self) -> Self {
         self.0
             .checked_add(1)
             .map(Self)
             .ok_or_else(|| "Stack_id overflow".to_string())
+            .unwrap()
     }
 
     pub fn zero() -> Self {
@@ -43,7 +47,7 @@ impl CoinbaseData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct CoinbaseStack(Fp);
 
 impl CoinbaseStack {
@@ -73,7 +77,7 @@ impl CoinbaseStack {
 
 type StackHash = Fp;
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct StateStack {
     init: StackHash,
     curr: StackHash,
@@ -133,22 +137,57 @@ pub mod update {
     }
 }
 
-#[derive(Debug)]
-struct Stack {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Stack {
     data: CoinbaseStack,
     state: StateStack,
 }
 
 impl Stack {
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self {
             data: CoinbaseStack::empty(),
             state: StateStack::empty(),
         }
     }
+
+    pub fn push_coinbase(&self, cb: Coinbase) -> Self {
+        Self {
+            data: self.data.push(cb),
+            state: self.state.clone(),
+        }
+    }
+
+    pub fn push_state(&self, state_body_hash: Fp) -> Self {
+        Self {
+            data: self.data.clone(),
+            state: self.state.push(state_body_hash),
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L658
+    pub fn connected(first: &Self, second: &Self, prev: Option<&Self>) -> bool {
+        // same as old stack or second could be a new stack with empty data
+        let coinbase_stack_connected =
+            (first.data == second.data) || { second.data == CoinbaseStack::empty() };
+
+        // 1. same as old stack or
+        // 2. new stack initialized with the stack state of last block. Not possible to know this unless we track
+        //    all the stack states because they are updated once per block (init=curr)
+        // 3. [second] could be a new stack initialized with the latest state of [first] or
+        // 4. [second] starts from the previous state of [first]. This is not available in either [first] or [second] *)
+        let state_stack_connected = first.state == second.state
+            || second.state.init == second.state.curr
+            || first.state.curr == second.state.curr
+            || prev
+                .map(|prev| prev.state.curr == second.state.curr)
+                .unwrap_or(true);
+
+        coinbase_stack_connected && state_stack_connected
+    }
 }
 
-struct PendingCoinbase {
+pub struct PendingCoinbase {
     tree: merkle_tree::MiniMerkleTree<StackId, Stack, StackHasher>,
     pos_list: Vec<StackId>,
     new_pos: StackId,
@@ -179,6 +218,170 @@ impl merkle_tree::TreeHasher<Stack> for StackHasher {
     }
 }
 
+impl PendingCoinbase {
+    pub fn create(depth: usize) -> Self {
+        let mut tree = MiniMerkleTree::create(depth);
+
+        let nstacks = 2u64.pow(depth as u32);
+        let mut stack_id = StackId::zero();
+
+        tree.fill_with((0..nstacks).map(|_| {
+            let this_id = stack_id;
+            stack_id = stack_id.incr_by_one();
+            (this_id, Stack::empty())
+        }));
+
+        Self {
+            tree,
+            pos_list: Vec::with_capacity(128),
+            new_pos: StackId::zero(),
+        }
+    }
+
+    pub fn merkle_root(&mut self) -> Fp {
+        self.tree.merkle_root()
+    }
+
+    fn get_stack(&self, addr: Address) -> &Stack {
+        self.tree.get_exn(addr)
+    }
+
+    fn path(&mut self, addr: Address) -> Vec<MerklePath> {
+        self.tree.path_exn(addr)
+    }
+
+    fn find_index(&self, key: StackId) -> Address {
+        self.tree.find_index_exn(key)
+    }
+
+    fn next_index(&self, depth: usize) -> StackId {
+        if self.new_pos.0 == (2u64.pow(depth as u32) - 1) {
+            StackId::zero()
+        } else {
+            self.new_pos.incr_by_one()
+        }
+    }
+
+    fn next_stack_id(&self, depth: usize, is_new_stack: bool) -> StackId {
+        if is_new_stack {
+            self.next_index(depth)
+        } else {
+            self.new_pos
+        }
+    }
+
+    fn incr_index(&mut self, depth: usize, is_new_stack: bool) {
+        if is_new_stack {
+            let new_pos = self.next_index(depth);
+            self.pos_list.push(new_pos);
+            self.new_pos = new_pos;
+        }
+    }
+
+    fn set_stack(&mut self, depth: usize, addr: Address, stack: Stack, is_new_stack: bool) {
+        self.tree.set_exn(addr, stack);
+        self.incr_index(depth, is_new_stack);
+    }
+
+    fn latest_stack_id(&self, is_new_stack: bool) -> StackId {
+        if is_new_stack {
+            self.new_pos
+        } else {
+            self.pos_list.last().cloned().unwrap_or_else(StackId::zero)
+        }
+    }
+
+    fn current_stack_id(&self) -> Option<StackId> {
+        self.pos_list.last().cloned()
+    }
+
+    fn current_stack(&self) -> &Stack {
+        let prev_stack_id = self.current_stack_id().unwrap_or_else(StackId::zero);
+        let addr = self.tree.find_index_exn(prev_stack_id);
+        self.tree.get_exn(addr)
+    }
+
+    fn latest_stack(&self, is_new_stack: bool) -> Stack {
+        let key = self.latest_stack_id(is_new_stack);
+        let addr = self.tree.find_index_exn(key);
+        let mut res = self.tree.get_exn(addr).clone();
+        if is_new_stack {
+            let prev_stack = self.current_stack();
+            res.state = StateStack::create(prev_stack.state.curr);
+        }
+        res
+    }
+
+    fn oldest_stack_id(&self) -> Option<StackId> {
+        self.pos_list.first().cloned()
+    }
+
+    fn remove_oldest_stack_id(&mut self) {
+        todo!()
+    }
+
+    fn oldest_stack(&self) -> &Stack {
+        let key = self.oldest_stack_id().unwrap_or_else(StackId::zero);
+        let addr = self.find_index(key);
+        self.get_stack(addr)
+    }
+
+    fn update_stack<F>(&mut self, depth: usize, is_new_stack: bool, fun: F)
+    where
+        F: FnOnce(&Stack) -> Stack,
+    {
+        let key = self.latest_stack_id(is_new_stack);
+        let stack_addr = self.find_index(key);
+        let stack_before = self.get_stack(stack_addr.clone());
+        let stack_after = fun(stack_before);
+        // state hash in "after" stack becomes previous state hash at top level
+        self.set_stack(depth, stack_addr, stack_after, is_new_stack);
+    }
+
+    fn add_coinbase(&mut self, depth: usize, coinbase: Coinbase, is_new_stack: bool) {
+        self.update_stack(depth, is_new_stack, |stack| stack.push_coinbase(coinbase))
+    }
+
+    fn add_state(&mut self, depth: usize, state_body_hash: Fp, is_new_stack: bool) {
+        self.update_stack(depth, is_new_stack, |stack| {
+            stack.push_state(state_body_hash)
+        })
+    }
+
+    fn update_coinbase_stack(&mut self, depth: usize, stack: Stack, is_new_stack: bool) {
+        self.update_stack(depth, is_new_stack, |_| stack)
+    }
+
+    fn remove_coinbase_stack(&mut self, depth: usize) -> Stack {
+        let oldest_stack_id = if !self.pos_list.is_empty() {
+            self.pos_list.remove(0) // TODO: Use `VecDeque`
+        } else {
+            panic!("No coinbase stack-with-state-hash to pop");
+        };
+        let stack_addr = self.find_index(oldest_stack_id);
+        let stack = self.get_stack(stack_addr.clone()).clone();
+        self.set_stack(depth, stack_addr, Stack::empty(), false);
+        stack
+    }
+
+    fn hash_extra(&self) -> String {
+        let mut s = String::with_capacity(64 * 1024);
+        for pos in &self.pos_list {
+            write!(&mut s, "{}", pos.0).unwrap();
+        }
+
+        let mut sha = Sha256::new();
+        sha.update(s.as_bytes());
+
+        s.clear();
+        write!(&mut s, "{}", self.new_pos.0).unwrap();
+        sha.update(s);
+
+        let digest = sha.finalize();
+        hex::encode(digest) // TODO: Not sure how OCaml encode it
+    }
+}
+
 /// Keep it a bit generic, in case we need a merkle tree somewhere else
 pub mod merkle_tree {
     use crate::{Address, AddressIterator, Direction, HashesMatrix, MerklePath};
@@ -203,10 +406,9 @@ pub mod merkle_tree {
     where
         K: Eq + std::hash::Hash,
         H: TreeHasher<V>,
+        V: PartialEq,
     {
         pub fn create(depth: usize) -> Self {
-            assert!(depth < u64::BITS as usize); // Less than `Address` nbits
-
             let max_values = 2u64.pow(depth as u32) as usize;
 
             Self {
@@ -215,6 +417,21 @@ pub mod merkle_tree {
                 depth,
                 hashes_matrix: HashesMatrix::new(depth),
                 _hasher: PhantomData,
+            }
+        }
+
+        pub fn fill_with<I>(&mut self, data: I)
+        where
+            I: Iterator<Item = (K, V)>,
+        {
+            assert!(self.values.is_empty());
+
+            let mut addr = Address::first(self.depth);
+
+            for (key, value) in data {
+                self.values.push(value);
+                self.indexes.insert(key, addr.clone());
+                addr = addr.next().unwrap();
             }
         }
 
@@ -235,13 +452,20 @@ pub mod merkle_tree {
             assert_eq!(addr.length(), self.depth);
             let index = addr.to_index().0 as usize;
 
+            let mut invalidate = true;
+
             match index.cmp(&self.values.len()) {
-                Less => self.values[index] = value,
+                Less => {
+                    invalidate = self.values[index] != value;
+                    self.values[index] = value
+                }
                 Equal => self.values.push(value),
                 Greater => panic!("wrong use of `set_exn`"),
             }
 
-            self.hashes_matrix.invalidate_hashes(addr.to_index());
+            if invalidate {
+                self.hashes_matrix.invalidate_hashes(addr.to_index());
+            }
         }
 
         pub fn find_index_exn(&self, key: K) -> Address {
