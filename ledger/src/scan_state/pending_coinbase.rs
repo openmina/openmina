@@ -70,6 +70,7 @@ impl CoinbaseStack {
         Self(hash)
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L188
     pub fn empty() -> Self {
         Self(hash_noinputs("CoinbaseStack"))
     }

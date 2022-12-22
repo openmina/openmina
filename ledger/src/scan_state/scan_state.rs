@@ -1,5 +1,5 @@
 use mina_hasher::Fp;
-use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
+use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
 use mina_signer::CompressedPubKey;
 
 use crate::{
@@ -46,15 +46,10 @@ pub struct ScanState {
 
 pub mod transaction_snark {
     use mina_hasher::Fp;
-    use mina_p2p_messages::v2::{
-        MinaBasePendingCoinbaseStackVersionedStableV1, MinaBaseStateBodyHashStableV1,
-        MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, StateHash,
-        TransactionSnarkPendingCoinbaseStackStateInitStackStableV1, TransactionSnarkProofStableV2,
-    };
+    use mina_p2p_messages::v2::TransactionSnarkProofStableV2;
     use mina_signer::CompressedPubKey;
 
     use crate::{
-        hash_noinputs,
         scan_state::{
             currency::{Amount, Signed},
             fee_excess::FeeExcess,
@@ -68,43 +63,11 @@ pub mod transaction_snark {
 
     type LedgerHash = Fp;
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Registers {
         pub ledger: LedgerHash,
         pub pending_coinbase_stack: pending_coinbase::Stack,
         pub local_state: LocalState,
-    }
-
-    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L188
-    fn empty_pending_coinbase() -> Fp {
-        hash_noinputs("CoinbaseStack")
-    }
-
-    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L658
-    pub fn connected(
-        first: &MinaBasePendingCoinbaseStackVersionedStableV1,
-        second: &MinaBasePendingCoinbaseStackVersionedStableV1,
-        prev: Option<&MinaBasePendingCoinbaseStackVersionedStableV1>,
-    ) -> bool {
-        // same as old stack or second could be a new stack with empty data
-        let coinbase_stack_connected = (first.data == second.data) || {
-            let second: Fp = second.data.to_field();
-            second == empty_pending_coinbase()
-        };
-
-        // 1. same as old stack or
-        // 2. new stack initialized with the stack state of last block. Not possible to know this unless we track
-        //    all the stack states because they are updated once per block (init=curr)
-        // 3. [second] could be a new stack initialized with the latest state of [first] or
-        // 4. [second] starts from the previous state of [first]. This is not available in either [first] or [second] *)
-        let state_stack_connected = first.state == second.state
-            || second.state.init == second.state.curr
-            || first.state.curr == second.state.curr
-            || prev
-                .map(|prev| prev.state.curr == second.state.curr)
-                .unwrap_or(true);
-
-        coinbase_stack_connected && state_stack_connected
     }
 
     impl Registers {
@@ -120,7 +83,7 @@ pub mod transaction_snark {
         }
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Statement {
         pub source: Registers,
         pub target: Registers,
@@ -131,22 +94,22 @@ pub mod transaction_snark {
 
     impl Statement {
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_snark/transaction_snark.ml#L348
-        pub fn merge(&self, s2: &Statement) -> Self {
-            let fee_excess = FeeExcess::combine(&self.fee_excess, &s2.fee_excess);
+        pub fn merge(&self, s2: &Statement) -> Result<Self, String> {
+            let fee_excess = FeeExcess::combine(&self.fee_excess, &s2.fee_excess)?;
             let supply_increase = self
                 .supply_increase
                 .add(&s2.supply_increase)
-                .expect("Error adding supply_increase");
+                .ok_or_else(|| "Error adding supply_increase".to_string())?;
 
             assert!(self.target.check_equal(&s2.source));
 
-            Self {
+            Ok(Self {
                 source: self.source.clone(),
                 target: s2.target.clone(),
                 supply_increase,
                 fee_excess,
                 sok_digest: None,
-            }
+            })
         }
     }
 
@@ -387,9 +350,8 @@ where
 fn completed_work_to_scanable_work(
     job: AvailableJob,
     (fee, current_proof, prover): (Fee, LedgerProof, CompressedPubKey),
-) -> LedgerProofWithSokMessage {
+) -> Result<LedgerProofWithSokMessage, String> {
     use super::parallel_scan::AvailableJob::{Base, Merge};
-    use transaction_snark::TransactionWithWitness;
 
     let sok_digest = &current_proof.0.statement.sok_digest;
     let proof = &current_proof.0.proof;
@@ -411,10 +373,10 @@ fn completed_work_to_scanable_work(
             let ledger_proof = LedgerProof::create(statement_with_sok, proof.clone());
             let sok_message = SokMessage::create(fee, prover);
 
-            LedgerProofWithSokMessage {
+            Ok(LedgerProofWithSokMessage {
                 proof: ledger_proof,
                 sok_message,
-            }
+            })
         }
         Merge {
             left: proof1,
@@ -423,7 +385,7 @@ fn completed_work_to_scanable_work(
             let s1: &Statement = &proof1.proof.0.statement;
             let s2: &Statement = &proof2.proof.0.statement;
 
-            let fee_excess = FeeExcess::combine(&s1.fee_excess, &s2.fee_excess);
+            let fee_excess = FeeExcess::combine(&s1.fee_excess, &s2.fee_excess)?;
 
             let supply_increase = s1
                 .supply_increase
@@ -445,10 +407,10 @@ fn completed_work_to_scanable_work(
             let ledger_proof = LedgerProof::create(statement, proof.clone());
             let sok_message = SokMessage::create(fee, prover);
 
-            LedgerProofWithSokMessage {
+            Ok(LedgerProofWithSokMessage {
                 proof: ledger_proof,
                 sok_message,
-            }
+            })
         }
     }
 }
@@ -457,10 +419,9 @@ fn total_proofs(works: &[transaction_snark::Work]) -> usize {
     works.iter().map(|work| work.proofs.len()).sum()
 }
 
-#[derive(Debug, Clone)]
 pub enum StatementCheck {
     Partial,
-    Full, // TODO: The fn returns a protocol state
+    Full(Box<dyn Fn(&Fp) -> &MinaStateProtocolStateValueStableV2>), // TODO: The fn returns a protocol state
 }
 
 #[derive(Debug, Clone)]
@@ -478,10 +439,13 @@ impl ScanState {
         constraint_constants: &ConstraintConstants,
         statement_check: StatementCheck,
         verifier: &Verifier,
-    ) -> Result<Statement, ()> {
+    ) -> Result<Statement, String> {
         struct Acc(Option<(Statement, Vec<LedgerProofWithSokMessage>)>);
 
-        let merge_acc = |mut proofs: Vec<LedgerProofWithSokMessage>, acc: Acc, s2: &Statement| {
+        let merge_acc = |mut proofs: Vec<LedgerProofWithSokMessage>,
+                         acc: Acc,
+                         s2: &Statement|
+         -> Result<Acc, String> {
             assert!(s2.sok_digest.is_none());
             assert!(acc
                 .0
@@ -490,36 +454,39 @@ impl ScanState {
                 .unwrap_or(true));
 
             match acc.0 {
-                None => Some((s2.clone(), proofs)),
+                None => Ok(Acc(Some((s2.clone(), proofs)))),
                 Some((s1, mut ps)) => {
-                    let merged_statement = s1.merge(s2);
+                    let merged_statement = s1.merge(s2)?;
                     proofs.append(&mut ps);
-                    Some((merged_statement, proofs))
+                    Ok(Acc(Some((merged_statement, proofs))))
                 }
             }
         };
 
-        let merge_pc = |acc: Option<Statement>, s2: Statement| match acc {
-            None => Some(s2),
-            Some(s1) => {
-                if !pending_coinbase::Stack::connected(
-                    &s1.target.pending_coinbase_stack,
-                    &s2.source.pending_coinbase_stack,
-                    Some(&s1.source.pending_coinbase_stack),
-                ) {
-                    panic!(
-                        "Base merge proof: invalid pending coinbase \
-                         transition s1: {:?} s2: {:?}",
-                        s1, s2
-                    )
+        let merge_pc =
+            |acc: Option<Statement>, s2: &Statement| -> Result<Option<Statement>, String> {
+                match acc {
+                    None => Ok(Some(s2.clone())),
+                    Some(s1) => {
+                        if !pending_coinbase::Stack::connected(
+                            &s1.target.pending_coinbase_stack,
+                            &s2.source.pending_coinbase_stack,
+                            Some(&s1.source.pending_coinbase_stack),
+                        ) {
+                            return Err(format!(
+                                "Base merge proof: invalid pending coinbase \
+                             transition s1: {:?} s2: {:?}",
+                                s1, s2
+                            ));
+                        }
+                        Ok(Some(s2.clone()))
+                    }
                 }
-                Some(s2)
-            }
-        };
+            };
 
-        let fold_step_a = |acc_statement: Acc,
-                           acc_pc: (),
-                           job: merge::Job<LedgerProofWithSokMessage>| {
+        let fold_step_a = |(acc_statement, acc_pc): (Acc, Option<Statement>),
+                           job: &merge::Job<LedgerProofWithSokMessage>|
+         -> Result<(Acc, Option<Statement>), String> {
             use merge::{
                 Job::{Empty, Full, Part},
                 Record,
@@ -529,28 +496,32 @@ impl ScanState {
             match job {
                 Part(ref ledger @ LedgerProofWithSokMessage { ref proof, .. }) => {
                     let statement = proof.statement();
-                    let acc_stmt = merge_acc(vec![ledger.clone()], acc_statement, statement);
-                    (Acc(acc_stmt), acc_pc)
+                    let acc_stmt = merge_acc(vec![ledger.clone()], acc_statement, statement)?;
+                    Ok((acc_stmt, acc_pc))
                 }
-                Empty | Full(Record { state: Done, .. }) => (acc_statement, acc_pc),
+                Empty | Full(Record { state: Done, .. }) => Ok((acc_statement, acc_pc)),
                 Full(Record { left, right, .. }) => {
                     let LedgerProofWithSokMessage { proof: proof1, .. } = &left;
                     let LedgerProofWithSokMessage { proof: proof2, .. } = &right;
 
                     let stmt1 = proof1.statement();
                     let stmt2 = proof2.statement();
-                    let merged_statement = stmt1.merge(stmt2);
+                    let merged_statement = stmt1.merge(stmt2)?;
 
-                    let acc_stmt = merge_acc(vec![left, right], acc_statement, &merged_statement);
+                    let acc_stmt = merge_acc(
+                        vec![left.clone(), right.clone()],
+                        acc_statement,
+                        &merged_statement,
+                    )?;
 
-                    (Acc(acc_stmt), acc_pc)
+                    Ok((acc_stmt, acc_pc))
                 }
             }
         };
 
-        let fold_step_d = |acc_statement: Acc,
-                           acc_pc: Option<Statement>,
-                           job: base::Job<TransactionWithWitness>| {
+        let fold_step_d = |(acc_statement, acc_pc): (Acc, Option<Statement>),
+                           job: &base::Job<TransactionWithWitness>|
+         -> Result<(Acc, Option<Statement>), String> {
             use base::{
                 Job::{Empty, Full},
                 Record,
@@ -558,88 +529,71 @@ impl ScanState {
             use JobStatus::Done;
 
             match job {
-                Empty => (acc_statement, acc_pc),
+                Empty => Ok((acc_statement, acc_pc)),
                 Full(Record {
                     state: Done,
                     job: transaction,
                     ..
                 }) => {
-                    let acc_pc = merge_pc(acc_pc, transaction.statement);
-                    (acc_statement, acc_pc)
+                    let acc_pc = merge_pc(acc_pc, &transaction.statement)?;
+                    Ok((acc_statement, acc_pc))
                 }
                 Full(Record {
                     job: transaction, ..
                 }) => {
                     use StatementCheck::{Full, Partial};
 
-                    match statement_check {
-                        Full => {
-                            todo!()
-                        }
-                        Partial => todo!(),
-                    }
+                    let expected_statement = match &statement_check {
+                        Full(get_state) => create_expected_statement(
+                            constraint_constants,
+                            &**get_state,
+                            transaction,
+                        )?,
+                        Partial => transaction.statement.clone(),
+                    };
 
-                    todo!()
+                    if transaction.statement == expected_statement {
+                        let acc_stmt =
+                            merge_acc(Vec::new(), acc_statement, &transaction.statement)?;
+                        let acc_pc = merge_pc(acc_pc, &transaction.statement)?;
+
+                        Ok((acc_stmt, acc_pc))
+                    } else {
+                        Err(format!(
+                            "Bad base statement expected: {:#?} got: {:#?}",
+                            transaction.statement, expected_statement
+                        ))
+                    }
                 }
             }
         };
 
-        todo!()
+        let res = self.state.fold_chronological_until_err(
+            (Acc(None), None),
+            |acc, merge::Merge { weight: _, job }| fold_step_a(acc, job),
+            |acc, base::Base { weight: _, job }| fold_step_d(acc, job),
+            |v| v,
+        )?;
+
+        match res {
+            (Acc(None), _) => Err("Empty".to_string()),
+            (Acc(Some((res, proofs))), _) => {
+                todo!()
+            }
+        }
+
+        // match res with
+        // | Ok (None, _) ->
+        //     Deferred.return (Error `Empty)
+        // | Ok (Some (res, proofs), _) -> (
+        //     match%map.Deferred Verifier.verify ~verifier proofs with
+        //     | Ok true ->
+        //         Ok res
+        //     | Ok false ->
+        //         Error (`Error (Error.of_string "Bad proofs"))
+        //     | Error e ->
+        //         Error (`Error e) )
+        // | Error e ->
+        //     Deferred.return (Error (`Error e))
     }
 }
-// let fold_step_d (acc_statement, acc_pc) job =
-//   match job with
-//   | Parallel_scan.Base.Job.Empty ->
-//       return (acc_statement, acc_pc)
-//   | Full
-//       { status = Parallel_scan.Job_status.Done
-//       ; job = (transaction : Transaction_with_witness.t)
-//       ; _
-//       } ->
-//       let%map acc_pc =
-//         Deferred.return (merge_pc acc_pc transaction.statement)
-//       in
-//       (acc_statement, acc_pc)
-//   | Full { job = transaction; _ } ->
-//       with_error "Bad base statement" ~f:(fun () ->
-//           let%bind expected_statement =
-//             match statement_check with
-//             | `Full get_state ->
-//                 let%bind result =
-//                   Timer.time timer
-//                     (sprintf "create_expected_statement:%s" __LOC__)
-//                     (fun () ->
-//                       Deferred.return
-//                         (create_expected_statement ~constraint_constants
-//                            ~get_state transaction ) )
-//                 in
-//                 let%map () = yield_always () in
-//                 result
-//             | `Partial ->
-//                 return transaction.statement
-//           in
-//           let%bind () = yield_always () in
-//           if
-//             Transaction_snark.Statement.equal transaction.statement
-//               expected_statement
-//           then
-//             let%bind acc_stmt =
-//               merge_acc ~proofs:[] acc_statement transaction.statement
-//             in
-//             let%map acc_pc =
-//               merge_pc acc_pc transaction.statement |> Deferred.return
-//             in
-//             (acc_stmt, acc_pc)
-//           else
-//             Deferred.Or_error.error_string
-//               (sprintf
-//                  !"Bad base statement expected: \
-//                    %{sexp:Transaction_snark.Statement.t} got: \
-//                    %{sexp:Transaction_snark.Statement.t}"
-//                  transaction.statement expected_statement ) )
-// in
-
-// let scan_statement ~constraint_constants tree ~statement_check ~verifier :
-//     ( Transaction_snark.Statement.t
-//     , [ `Error of Error.t | `Empty ] )
-//     Deferred.Result.t =

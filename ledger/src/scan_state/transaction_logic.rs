@@ -144,7 +144,7 @@ impl FeeTransfer {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/e5183ca1dde1c085b4c5d37d1d9987e24c294c32/src/lib/mina_base/fee_transfer.ml#L109
-    pub fn fee_excess(&self) -> FeeExcess {
+    pub fn fee_excess(&self) -> Result<FeeExcess, String> {
         let one_or_two = self.0.map(|SingleFeeTransfer { fee, fee_token, .. }| {
             (fee_token.clone(), Signed::<Fee>::of_unsigned(*fee).negate())
         });
@@ -606,16 +606,14 @@ impl Transaction {
         match self {
             Command(SignedCommand(cmd)) => Ok(cmd.fee_excess()),
             Command(ZkAppCommand(cmd)) => Ok(cmd.fee_excess()),
-            FeeTransfer(ft) => Ok(ft.fee_excess()),
+            FeeTransfer(ft) => ft.fee_excess(),
             Coinbase(cb) => cb.fee_excess(),
         }
     }
 }
 
 pub mod transaction_applied {
-    use crate::{
-        scan_state::transaction_logic::signed_command::PaymentPayload, Account, AccountId,
-    };
+    use crate::{Account, AccountId};
 
     use super::*;
 

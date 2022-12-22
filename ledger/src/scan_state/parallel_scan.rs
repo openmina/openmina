@@ -56,7 +56,7 @@ impl JobStatus {
 /// Each node has a weight associated to it and the
 /// new jobs received are distributed across the tree based on this number.
 #[derive(Clone)]
-pub(super) struct Weight {
+pub struct Weight {
     base: u64,
     merge: u64,
 }
@@ -134,7 +134,7 @@ pub mod base {
     }
 
     #[derive(Clone, Debug)]
-    pub(super) struct Base<BaseJob> {
+    pub struct Base<BaseJob> {
         pub weight: Weight,
         pub job: Job<BaseJob>,
     }
@@ -217,7 +217,7 @@ pub mod merge {
     }
 
     #[derive(Clone, Debug)]
-    pub(super) struct Merge<MergeJob> {
+    pub struct Merge<MergeJob> {
         pub weight: (Weight, Weight),
         pub job: Job<MergeJob>,
     }
@@ -440,6 +440,29 @@ where
         }
 
         Continue(accum)
+    }
+
+    /// foldi where i is the cur_level
+    fn fold_depth_until_prime_err<Accum, FunMerge, FunBase>(
+        &self,
+        fun_merge: &FunMerge,
+        fun_base: &FunBase,
+        init: Accum,
+    ) -> Result<Accum, String>
+    where
+        FunMerge: Fn(u64, Accum, &M) -> Result<Accum, String>,
+        FunBase: Fn(Accum, &B) -> Result<Accum, String>,
+    {
+        let mut accum = init;
+
+        for (index, value) in self.values.iter().enumerate() {
+            accum = match value {
+                Value::Leaf(base) => fun_base(accum, base)?,
+                Value::Node(merge) => fun_merge(btree::depth_at(index), accum, merge)?,
+            };
+        }
+
+        Ok(accum)
     }
 
     fn fold_depth_until<Accum, Final, FunFinish, FunMerge, FunBase>(
@@ -1404,7 +1427,7 @@ where
         sha.finalize()
     }
 
-    fn fold_chronological_until<Accum, Final, FunMerge, FunBase, FunFinish>(
+    pub fn fold_chronological_until<Accum, Final, FunMerge, FunBase, FunFinish>(
         &self,
         init: Accum,
         fun_merge: FunMerge,
@@ -1426,6 +1449,31 @@ where
         }
 
         fun_finish(accum)
+    }
+
+    pub fn fold_chronological_until_err<Accum, FunMerge, FunBase, FunFinish>(
+        &self,
+        init: Accum,
+        fun_merge: FunMerge,
+        fun_base: FunBase,
+        fun_finish: FunFinish,
+    ) -> Result<Accum, String>
+    where
+        FunMerge: Fn(Accum, &merge::Merge<MergeJob>) -> Result<Accum, String>,
+        FunBase: Fn(Accum, &base::Base<BaseJob>) -> Result<Accum, String>,
+        FunFinish: Fn(Accum) -> Accum,
+    {
+        let mut accum = init;
+
+        for tree in self.trees.iter().rev() {
+            match tree.fold_depth_until_prime_err(&|_, acc, m| fun_merge(acc, m), &fun_base, accum)
+            {
+                Ok(acc) => accum = acc,
+                Err(e) => return Err(e),
+            }
+        }
+
+        Ok(fun_finish(accum))
     }
 
     fn fold_chronological<Accum, FunMerge, FunBase>(

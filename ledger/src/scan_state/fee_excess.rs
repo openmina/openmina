@@ -38,7 +38,7 @@ use super::{
     scan_state::transaction_snark::OneOrTwo,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FeeExcess {
     pub(super) fee_token_l: TokenId,
     pub(super) fee_excess_l: Signed<Fee>,
@@ -57,7 +57,7 @@ impl FeeExcess {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/e5183ca1dde1c085b4c5d37d1d9987e24c294c32/src/lib/mina_base/fee_excess.ml#L536
-    pub fn of_one_or_two(excesses: OneOrTwo<(TokenId, Signed<Fee>)>) -> Self {
+    pub fn of_one_or_two(excesses: OneOrTwo<(TokenId, Signed<Fee>)>) -> Result<Self, String> {
         match excesses {
             OneOrTwo::One((fee_token_l, fee_excess_l)) => Self {
                 fee_token_l,
@@ -91,7 +91,7 @@ impl FeeExcess {
     /// - if the fee tokens are the same, the excesses are combined
     ///
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_excess.ml#L301
-    fn rebalance(&self) -> Self {
+    fn rebalance(&self) -> Result<Self, String> {
         let Self {
             fee_token_l,
             fee_excess_l,
@@ -110,10 +110,10 @@ impl FeeExcess {
         let (fee_excess_l, fee_excess_r) = if fee_token_l == fee_token_r {
             match fee_excess_l.add(fee_excess_r) {
                 Some(fee_excess_l) => (fee_excess_l, Signed::<Fee>::zero()),
-                None => panic!("Error adding fees: overflow"),
+                None => return Err("Error adding fees: overflow".to_string()),
             }
         } else {
-            (fee_excess_l.clone(), fee_excess_r.clone())
+            (*fee_excess_l, *fee_excess_r)
         };
 
         // Use the default token if the excess is zero.
@@ -131,12 +131,12 @@ impl FeeExcess {
             fee_token_r.clone()
         };
 
-        Self {
+        Ok(Self {
             fee_token_l,
             fee_excess_l,
             fee_token_r,
             fee_excess_r,
-        }
+        })
     }
 
     /// Combine the fee excesses from two transitions.
@@ -155,14 +155,14 @@ impl FeeExcess {
             fee_token_r: fee_token2_r,
             fee_excess_r: fee_excess2_r,
         }: &Self,
-    ) -> Self {
+    ) -> Result<Self, String> {
         // Eliminate fee_excess1_r.
         // [1l; 1r; 2l; 2r] -> [1l; 2l; 2r]
         let ((fee_token1_l, fee_excess1_l), (fee_token2_l, fee_excess2_l)) = eliminate_fee_excess(
             (fee_token1_l, fee_excess1_l),
             (fee_token1_r, fee_excess1_r),
             (fee_token2_l, fee_excess2_l),
-        );
+        )?;
 
         // Eliminate fee_excess2_l.
         // [1l; 2l; 2r] -> [1l; 2r]
@@ -170,7 +170,7 @@ impl FeeExcess {
             (fee_token1_l, &fee_excess1_l),
             (fee_token2_l, &fee_excess2_l),
             (fee_token2_r, fee_excess2_r),
-        );
+        )?;
 
         Self {
             fee_token_l: fee_token1_l.clone(),
@@ -190,33 +190,25 @@ fn eliminate_fee_excess<'a>(
     (fee_token_l, fee_excess_l): (&'a TokenId, &'a Signed<Fee>),
     (fee_token_m, fee_excess_m): (&'a TokenId, &'a Signed<Fee>),
     (fee_token_r, fee_excess_r): (&'a TokenId, &'a Signed<Fee>),
-) -> ((&'a TokenId, Signed<Fee>), (&'a TokenId, Signed<Fee>)) {
-    let add_err = |x: &Signed<Fee>, y: &Signed<Fee>| -> Signed<Fee> {
-        x.add(y).expect("Error adding fees: Overflow")
+) -> Result<((&'a TokenId, Signed<Fee>), (&'a TokenId, Signed<Fee>)), String> {
+    let add_err = |x: &Signed<Fee>, y: &Signed<Fee>| -> Result<Signed<Fee>, String> {
+        x.add(y)
+            .ok_or_else(|| "Error adding fees: Overflow".to_string())
     };
 
     if fee_token_l == fee_token_m || fee_excess_l.magnitude.is_zero() {
-        let fee_excess_l = add_err(fee_excess_l, fee_excess_m);
-        (
-            (fee_token_m, fee_excess_l),
-            (fee_token_r, fee_excess_r.clone()),
-        )
+        let fee_excess_l = add_err(fee_excess_l, fee_excess_m)?;
+        Ok(((fee_token_m, fee_excess_l), (fee_token_r, *fee_excess_r)))
     } else if fee_token_r == fee_token_m || fee_excess_r.magnitude.is_zero() {
-        let fee_excess_r = add_err(fee_excess_r, fee_excess_m);
-        (
-            (fee_token_l, fee_excess_l.clone()),
-            (fee_token_m, fee_excess_r),
-        )
+        let fee_excess_r = add_err(fee_excess_r, fee_excess_m)?;
+        Ok(((fee_token_l, *fee_excess_l), (fee_token_m, fee_excess_r)))
     } else if fee_excess_m.magnitude.is_zero() {
-        (
-            (fee_token_l, fee_excess_l.clone()),
-            (fee_token_r, fee_excess_r.clone()),
-        )
+        Ok(((fee_token_l, *fee_excess_l), (fee_token_r, *fee_excess_r)))
     } else {
-        panic!(
+        Err(format!(
             "Error eliminating fee excess: Excess for token {:?} \
-                {:?} was nonzero",
+             {:?} was nonzero",
             fee_token_m, fee_excess_m
-        )
+        ))
     }
 }
