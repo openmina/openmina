@@ -1,7 +1,7 @@
 use mina_p2p_messages::gossip::GossipNetMessageV2;
-use snark::hash::state_hash;
 
 use crate::consensus::ConsensusBlockReceivedAction;
+use crate::p2p::rpc::outgoing::P2pRpcOutgoingStatus;
 use crate::p2p::rpc::P2pRpcResponse;
 use crate::rpc::{RpcP2pConnectionOutgoingErrorAction, RpcP2pConnectionOutgoingSuccessAction};
 use crate::snark::hash::state_hash;
