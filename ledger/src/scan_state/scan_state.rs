@@ -428,8 +428,12 @@ pub enum StatementCheck {
 pub struct Verifier;
 
 impl Verifier {
-    pub fn verify() {
-        todo!()
+    pub fn verify(&self, _proofs: &[LedgerProofWithSokMessage]) -> Result<bool, String> {
+        // Implement verification later
+        //
+        // https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/pickles/pickles.ml#L1122
+        // https://viable-systems.slack.com/archives/D01SVA87PQC/p1671715846448749
+        Ok(true)
     }
 }
 
@@ -577,23 +581,11 @@ impl ScanState {
 
         match res {
             (Acc(None), _) => Err("Empty".to_string()),
-            (Acc(Some((res, proofs))), _) => {
-                todo!()
-            }
+            (Acc(Some((res, proofs))), _) => match verifier.verify(proofs.as_slice()) {
+                Ok(true) => Ok(res),
+                Ok(false) => Err("Bad proofs".to_string()),
+                Err(e) => Err(e),
+            },
         }
-
-        // match res with
-        // | Ok (None, _) ->
-        //     Deferred.return (Error `Empty)
-        // | Ok (Some (res, proofs), _) -> (
-        //     match%map.Deferred Verifier.verify ~verifier proofs with
-        //     | Ok true ->
-        //         Ok res
-        //     | Ok false ->
-        //         Error (`Error (Error.of_string "Bad proofs"))
-        //     | Error e ->
-        //         Error (`Error e) )
-        // | Error e ->
-        //     Deferred.return (Error (`Error e))
     }
 }
