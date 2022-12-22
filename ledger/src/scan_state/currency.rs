@@ -6,6 +6,15 @@ pub enum Sgn {
     Neg,
 }
 
+impl Sgn {
+    fn negate(&self) -> Self {
+        match self {
+            Sgn::Pos => Sgn::Neg,
+            Sgn::Neg => Sgn::Pos,
+        }
+    }
+}
+
 pub trait Magnitude
 where
     Self: Sized,
@@ -25,8 +34,27 @@ pub struct Signed<T: Magnitude> {
 
 impl<T> Signed<T>
 where
-    T: Magnitude + PartialOrd + Ord,
+    T: Magnitude + PartialOrd + Ord + Clone,
 {
+    pub fn create(magnitude: T, sgn: Sgn) -> Self {
+        Self { magnitude, sgn }
+    }
+
+    pub fn of_unsigned(magnitude: T) -> Self {
+        Self::create(magnitude, Sgn::Pos)
+    }
+
+    pub fn negate(&self) -> Self {
+        if self.magnitude.is_zero() {
+            Self::zero()
+        } else {
+            Self {
+                magnitude: self.magnitude.clone(),
+                sgn: self.sgn.negate(),
+            }
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/currency/currency.ml#L441
     pub fn zero() -> Self {
         Self {
@@ -79,6 +107,12 @@ impl Magnitude for Fee {
 
     fn abs_diff(&self, rhs: &Self) -> Self {
         Self(self.0.abs_diff(rhs.0))
+    }
+}
+
+impl Fee {
+    pub fn as_u64(&self) -> u64 {
+        self.0
     }
 }
 

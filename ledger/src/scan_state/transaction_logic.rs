@@ -15,12 +15,13 @@ use self::{
 };
 
 use super::{
-    currency::{Amount, Balance, Fee},
+    currency::{Amount, Balance, Fee, Signed},
+    fee_excess::FeeExcess,
     scan_state::{transaction_snark::OneOrTwo, ConstraintConstants},
 };
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L9
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum TransactionFailure {
     Predicate,
@@ -141,6 +142,14 @@ impl FeeTransfer {
             token_id: fee_transfer.fee_token.clone(),
         })
     }
+
+    /// https://github.com/MinaProtocol/mina/blob/e5183ca1dde1c085b4c5d37d1d9987e24c294c32/src/lib/mina_base/fee_transfer.ml#L109
+    pub fn fee_excess(&self) -> FeeExcess {
+        let one_or_two = self.0.map(|SingleFeeTransfer { fee, fee_token, .. }| {
+            (fee_token.clone(), Signed::<Fee>::of_unsigned(*fee).negate())
+        });
+        FeeExcess::of_one_or_two(one_or_two)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -164,6 +173,27 @@ pub struct Coinbase {
     pub receiver: CompressedPubKey,
     pub amount: Amount,
     pub fee_transfer: Option<CoinbaseFeeTransfer>,
+}
+
+impl Coinbase {
+    fn expected_supply_increase(&self) -> Result<Amount, String> {
+        let Self {
+            amount,
+            fee_transfer,
+            ..
+        } = self;
+
+        match fee_transfer {
+            None => Ok(*amount),
+            Some(CoinbaseFeeTransfer { fee, .. }) => amount
+                .checked_sub(&Amount::of_fee(fee))
+                .ok_or_else(|| "Coinbase underflow".to_string()),
+        }
+    }
+
+    pub fn fee_excess(&self) -> Result<FeeExcess, String> {
+        self.expected_supply_increase().map(|_| FeeExcess::empty())
+    }
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signature.mli#L11
@@ -199,7 +229,7 @@ impl Slot {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Index(pub(super) u32);
 
 pub mod signed_command {
@@ -278,6 +308,10 @@ pub mod signed_command {
 
         pub fn nonce(&self) -> Nonce {
             self.payload.common.nonce
+        }
+
+        pub fn fee_excess(&self) -> FeeExcess {
+            FeeExcess::of_single((self.fee_token(), Signed::<Fee>::of_unsigned(self.fee())))
         }
     }
 }
@@ -532,6 +566,25 @@ pub mod zkapp_command {
         account_updates: CallForest,
         memo: Memo,
     }
+
+    impl ZkAppCommand {
+        pub fn fee_payer(&self) -> AccountId {
+            let public_key = self.fee_payer.body.public_key.clone();
+            AccountId::new(public_key, self.fee_token())
+        }
+
+        pub fn fee_token(&self) -> TokenId {
+            TokenId::default()
+        }
+
+        pub fn fee(&self) -> Fee {
+            self.fee_payer.body.fee
+        }
+
+        pub fn fee_excess(&self) -> FeeExcess {
+            FeeExcess::of_single((self.fee_token(), Signed::<Fee>::of_unsigned(self.fee())))
+        }
+    }
 }
 
 pub enum UserCommand {
@@ -545,15 +598,64 @@ pub enum Transaction {
     Coinbase(Coinbase),
 }
 
+impl Transaction {
+    pub fn fee_excess(&self) -> Result<FeeExcess, String> {
+        use Transaction::*;
+        use UserCommand::*;
+
+        match self {
+            Command(SignedCommand(cmd)) => Ok(cmd.fee_excess()),
+            Command(ZkAppCommand(cmd)) => Ok(cmd.fee_excess()),
+            FeeTransfer(ft) => Ok(ft.fee_excess()),
+            Coinbase(cb) => cb.fee_excess(),
+        }
+    }
+}
+
 pub mod transaction_applied {
-    use crate::{Account, AccountId};
+    use crate::{
+        scan_state::transaction_logic::signed_command::PaymentPayload, Account, AccountId,
+    };
 
     use super::*;
 
-    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L17
-    #[derive(Debug, Clone)]
-    pub struct SignedCommandApplied {
-        user_command: WithStatus<signed_command::SignedCommand>,
+    pub mod signed_command_applied {
+        use super::*;
+
+        #[derive(Debug, Clone)]
+        pub struct Common {
+            pub user_command: WithStatus<signed_command::SignedCommand>,
+        }
+
+        #[derive(Debug, Clone)]
+        pub enum Body {
+            Payments {
+                new_accounts: Vec<AccountId>,
+            },
+            StakeDelegation {
+                previous_delegate: Option<CompressedPubKey>,
+            },
+            Failed,
+        }
+
+        #[derive(Debug, Clone)]
+        pub struct SignedCommandApplied {
+            pub common: Common,
+            pub body: Body,
+        }
+    }
+
+    pub use signed_command_applied::SignedCommandApplied;
+
+    impl SignedCommandApplied {
+        pub fn new_accounts(&self) -> &[AccountId] {
+            use signed_command_applied::Body::*;
+
+            match &self.body {
+                Payments { new_accounts } => new_accounts.as_slice(),
+                StakeDelegation { .. } | Failed => &[],
+            }
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L65
@@ -610,6 +712,7 @@ pub mod transaction_applied {
 
             match &self.varying {
                 Command(SignedCommand(cmd)) => cmd
+                    .common
                     .user_command
                     .map(|c| Transaction::Command(UserCommand::SignedCommand(Box::new(c.clone())))),
                 Command(ZkappCommand(cmd)) => cmd
@@ -618,6 +721,60 @@ pub mod transaction_applied {
                 FeeTransfer(f) => f.fee_transfer.map(|f| Transaction::FeeTransfer(f.clone())),
                 Coinbase(c) => c.coinbase.map(|c| Transaction::Coinbase(c.clone())),
             }
+        }
+
+        pub fn burned_tokens(&self) -> Amount {
+            match &self.varying {
+                Varying::Command(_) => Amount::zero(),
+                Varying::FeeTransfer(f) => f.burned_tokens,
+                Varying::Coinbase(c) => c.burned_tokens,
+            }
+        }
+
+        pub fn new_accounts(&self) -> &[AccountId] {
+            use CommandApplied::*;
+            use Varying::*;
+
+            match &self.varying {
+                Command(SignedCommand(cmd)) => cmd.new_accounts(),
+                Command(ZkappCommand(cmd)) => cmd.new_accounts.as_slice(),
+                FeeTransfer(f) => f.new_accounts.as_slice(),
+                Coinbase(cb) => cb.new_accounts.as_slice(),
+            }
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/e5183ca1dde1c085b4c5d37d1d9987e24c294c32/src/lib/transaction_logic/mina_transaction_logic.ml#L176
+        pub fn supply_increase(
+            &self,
+            constraint_constants: &ConstraintConstants,
+        ) -> Result<Signed<Amount>, String> {
+            let burned_tokens = Signed::<Amount>::of_unsigned(self.burned_tokens());
+
+            let account_creation_fees = {
+                let account_creation_fee_int = constraint_constants.account_creation_fee.as_u64();
+                let num_accounts_created = self.new_accounts().len() as u64;
+
+                // int type is OK, no danger of overflow
+                let amount = account_creation_fee_int
+                    .checked_mul(num_accounts_created)
+                    .unwrap();
+                Signed::<Amount>::of_unsigned(Amount::from_u64(amount))
+            };
+
+            let expected_supply_increase = match &self.varying {
+                Varying::Coinbase(cb) => cb.coinbase.data.expected_supply_increase()?,
+                _ => Amount::zero(),
+            };
+            let expected_supply_increase = Signed::<Amount>::of_unsigned(expected_supply_increase);
+
+            // TODO: Make sure it's correct
+            let total = [burned_tokens, account_creation_fees]
+                .into_iter()
+                .fold(Some(expected_supply_increase), |total, amt| {
+                    amt.negate().add(&total?)
+                });
+
+            total.ok_or_else(|| "overflow".to_string())
         }
     }
 }
@@ -738,6 +895,7 @@ pub mod local_state {
         }
     }
 
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct LocalState {
         stack_frame: Fp,
         call_stack: Fp,

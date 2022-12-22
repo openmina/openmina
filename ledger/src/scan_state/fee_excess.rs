@@ -33,7 +33,10 @@
 
 use crate::TokenId;
 
-use super::currency::{Fee, Magnitude, Signed};
+use super::{
+    currency::{Fee, Magnitude, Signed},
+    scan_state::transaction_snark::OneOrTwo,
+};
 
 #[derive(Debug, Clone)]
 pub struct FeeExcess {
@@ -44,6 +47,44 @@ pub struct FeeExcess {
 }
 
 impl FeeExcess {
+    pub fn empty() -> Self {
+        Self {
+            fee_token_l: TokenId::default(),
+            fee_excess_l: Signed::<Fee>::zero(),
+            fee_token_r: TokenId::default(),
+            fee_excess_r: Signed::<Fee>::zero(),
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/e5183ca1dde1c085b4c5d37d1d9987e24c294c32/src/lib/mina_base/fee_excess.ml#L536
+    pub fn of_one_or_two(excesses: OneOrTwo<(TokenId, Signed<Fee>)>) -> Self {
+        match excesses {
+            OneOrTwo::One((fee_token_l, fee_excess_l)) => Self {
+                fee_token_l,
+                fee_excess_l,
+                fee_token_r: TokenId::default(),
+                fee_excess_r: Signed::<Fee>::zero(),
+            },
+            OneOrTwo::Two(((fee_token_l, fee_excess_l), (fee_token_r, fee_excess_r))) => Self {
+                fee_token_l,
+                fee_excess_l,
+                fee_token_r,
+                fee_excess_r,
+            },
+        }
+        .rebalance()
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/e5183ca1dde1c085b4c5d37d1d9987e24c294c32/src/lib/mina_base/fee_excess.ml#L526
+    pub fn of_single((fee_token_l, fee_excess_l): (TokenId, Signed<Fee>)) -> Self {
+        Self {
+            fee_token_l,
+            fee_excess_l,
+            fee_token_r: TokenId::default(),
+            fee_excess_r: Signed::<Fee>::zero(),
+        }
+    }
+
     /// 'Rebalance' to a canonical form, where
     /// - if there is only 1 nonzero excess, it is to the left
     /// - any zero fee excess has the default token

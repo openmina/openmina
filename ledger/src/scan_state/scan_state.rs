@@ -6,6 +6,7 @@ use crate::{
     scan_state::{
         fee_excess::FeeExcess,
         parallel_scan::{base, merge, JobStatus},
+        pending_coinbase,
         scan_state::transaction_snark::{
             LedgerProofWithSokMessage, SokMessage, Statement, TransactionWithWitness,
         },
@@ -13,13 +14,14 @@ use crate::{
     BaseLedger,
 };
 
-use self::transaction_snark::LedgerProof;
+use self::transaction_snark::{LedgerProof, Registers};
 
 use super::{
     currency::Fee,
     parallel_scan::ParallelScan,
     transaction_logic::{
-        apply_transaction, local_state::LocalState, protocol_state::protocol_state_view, WithStatus,
+        apply_transaction, local_state::LocalState, protocol_state::protocol_state_view,
+        Transaction, WithStatus,
     },
 };
 // use super::parallel_scan::AvailableJob;
@@ -56,7 +58,8 @@ pub mod transaction_snark {
         scan_state::{
             currency::{Amount, Signed},
             fee_excess::FeeExcess,
-            transaction_logic::transaction_applied::TransactionApplied,
+            pending_coinbase,
+            transaction_logic::{local_state::LocalState, transaction_applied::TransactionApplied},
         },
         Mask,
     };
@@ -68,8 +71,8 @@ pub mod transaction_snark {
     #[derive(Debug, Clone)]
     pub struct Registers {
         pub ledger: LedgerHash,
-        pub pending_coinbase_stack: MinaBasePendingCoinbaseStackVersionedStableV1,
-        pub local_state: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
+        pub pending_coinbase_stack: pending_coinbase::Stack,
+        pub local_state: LocalState,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L188
@@ -109,7 +112,7 @@ pub mod transaction_snark {
         pub fn check_equal(&self, other: &Self) -> bool {
             self.ledger == other.ledger
                 && self.local_state == other.local_state
-                && connected(
+                && pending_coinbase::Stack::connected(
                     &self.pending_coinbase_stack,
                     &other.pending_coinbase_stack,
                     None,
@@ -147,22 +150,20 @@ pub mod transaction_snark {
         }
     }
 
-    /// TODO: Use a `Mask` here
+    // TransactionSnarkPendingCoinbaseStackStateInitStackStableV1
     #[derive(Debug, Clone)]
-    pub struct LedgerWitness;
-
-    impl LedgerWitness {
-        pub fn merkle_root(&self) -> Fp {
-            todo!()
-        }
+    pub enum InitStack {
+        Base(pending_coinbase::Stack),
+        Merge,
     }
 
     #[derive(Debug, Clone)]
     pub struct TransactionWithWitness {
         pub transaction_with_info: TransactionApplied,
-        pub state_hash: (StateHash, MinaBaseStateBodyHashStableV1),
+        pub state_hash: (Fp, Fp), // (StateHash, StateBodyHash)
+        // pub state_hash: (StateHash, MinaBaseStateBodyHashStableV1),
         pub statement: Statement,
-        pub init_stack: TransactionSnarkPendingCoinbaseStackStateInitStackStableV1,
+        pub init_stack: InitStack,
         pub ledger_witness: Mask,
     }
 
@@ -228,6 +229,16 @@ pub mod transaction_snark {
                 index: 0,
             }
         }
+
+        pub fn map<F, R>(&self, fun: F) -> OneOrTwo<R>
+        where
+            F: Fn(&T) -> R,
+        {
+            match self {
+                OneOrTwo::One(one) => OneOrTwo::One(fun(one)),
+                OneOrTwo::Two((a, b)) => OneOrTwo::Two((fun(a), fun(b))),
+            }
+        }
     }
 
     pub struct OneOrTwoIter<'a, T> {
@@ -289,23 +300,23 @@ pub struct ConstraintConstants {
     pub fork: Option<ForkConstants>, // Fork_constants.t option,
 }
 
-// type GetState = impl Fn(&StateHash) -> MinaStateProtocolStateValueStableV2;
-
+/// https://github.com/MinaProtocol/mina/blob/e5183ca1dde1c085b4c5d37d1d9987e24c294c32/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L175
 fn create_expected_statement<F>(
     constraint_constants: &ConstraintConstants,
     get_state: F,
     TransactionWithWitness {
         transaction_with_info,
         state_hash,
-        statement: _,
-        init_stack: _,
+        statement,
+        init_stack,
         ledger_witness,
     }: &TransactionWithWitness,
-) where
-    F: Fn(&StateHash) -> &MinaStateProtocolStateValueStableV2,
+) -> Result<Statement, String>
+where
+    F: Fn(&Fp) -> &MinaStateProtocolStateValueStableV2,
 {
     let mut ledger_witness = ledger_witness.clone();
-    let _source_merkle_root = ledger_witness.merkle_root();
+    let source_merkle_root = ledger_witness.merkle_root();
 
     let WithStatus {
         data: transaction, ..
@@ -314,82 +325,64 @@ fn create_expected_statement<F>(
     let protocol_state = get_state(&state_hash.0);
     let state_view = protocol_state_view(protocol_state);
 
-    let _empty_local_state = LocalState::empty();
+    let empty_local_state = LocalState::empty();
 
-    apply_transaction(
+    let coinbase = match &transaction {
+        Transaction::Coinbase(coinbase) => Some(coinbase.clone()),
+        _ => None,
+    };
+    // Keep the error, in OCaml it is throwned later
+    let fee_excess_with_err = transaction.fee_excess();
+
+    let applied_transaction = apply_transaction(
         constraint_constants,
         &state_view,
-        ledger_witness,
+        ledger_witness.clone(),
         transaction,
-    );
-}
+    )?;
 
-// let create_expected_statement ~constraint_constants
-//     ~(get_state : State_hash.t -> Mina_state.Protocol_state.value Or_error.t)
-//     { Transaction_with_witness.transaction_with_info
-//     ; state_hash
-//     ; ledger_witness
-//     ; init_stack
-//     ; statement
-//     } =
-//   let open Or_error.Let_syntax in
-//   let source_merkle_root =
-//     Frozen_ledger_hash.of_ledger_hash
-//     @@ Sparse_ledger.merkle_root ledger_witness
-//   in
-//   let { With_status.data = transaction; status = _ } =
-//     Ledger.Transaction_applied.transaction transaction_with_info
-//   in
-//   let%bind protocol_state = get_state (fst state_hash) in
-//   let state_view = Mina_state.Protocol_state.Body.view protocol_state.body in
-//   let empty_local_state = Mina_state.Local_state.empty () in
-//   let%bind after, applied_transaction =
-//     Or_error.try_with (fun () ->
-//         Sparse_ledger.apply_transaction ~constraint_constants
-//           ~txn_state_view:state_view ledger_witness transaction )
-//     |> Or_error.join
-//   in
-//   let target_merkle_root =
-//     Sparse_ledger.merkle_root after |> Frozen_ledger_hash.of_ledger_hash
-//   in
-//   let%bind pending_coinbase_before =
-//     match init_stack with
-//     | Base source ->
-//         Ok source
-//     | Merge ->
-//         Or_error.errorf
-//           !"Invalid init stack in Pending coinbase stack state . Expected Base \
-//             found Merge"
-//   in
-//   let pending_coinbase_after =
-//     let state_body_hash = snd state_hash in
-//     let pending_coinbase_with_state =
-//       Pending_coinbase.Stack.push_state state_body_hash pending_coinbase_before
-//     in
-//     match transaction with
-//     | Coinbase c ->
-//         Pending_coinbase.Stack.push_coinbase c pending_coinbase_with_state
-//     | _ ->
-//         pending_coinbase_with_state
-//   in
-//   let%bind fee_excess = Transaction.fee_excess transaction in
-//   let%map supply_increase =
-//     Ledger.Transaction_applied.supply_increase applied_transaction
-//   in
-//   { Transaction_snark.Statement.source =
-//       { ledger = source_merkle_root
-//       ; pending_coinbase_stack = statement.source.pending_coinbase_stack
-//       ; local_state = empty_local_state
-//       }
-//   ; target =
-//       { ledger = target_merkle_root
-//       ; pending_coinbase_stack = pending_coinbase_after
-//       ; local_state = empty_local_state
-//       }
-//   ; fee_excess
-//   ; supply_increase
-//   ; sok_digest = ()
-//   }
+    let target_merkle_root = ledger_witness.merkle_root();
+
+    let pending_coinbase_before = match init_stack {
+        transaction_snark::InitStack::Base(source) => source,
+        transaction_snark::InitStack::Merge => {
+            return Err(
+                "Invalid init stack in Pending coinbase stack state . Expected Base found Merge"
+                    .to_string(),
+            );
+        }
+    };
+
+    let pending_coinbase_after = {
+        let state_body_hash = state_hash.1;
+
+        let pending_coinbase_with_state = pending_coinbase_before.push_state(state_body_hash);
+
+        match coinbase {
+            Some(cb) => pending_coinbase_with_state.push_coinbase(cb),
+            None => pending_coinbase_with_state,
+        }
+    };
+
+    let fee_excess = fee_excess_with_err?;
+    let supply_increase = applied_transaction.supply_increase(constraint_constants)?;
+
+    Ok(Statement {
+        source: Registers {
+            ledger: source_merkle_root,
+            pending_coinbase_stack: statement.source.pending_coinbase_stack.clone(),
+            local_state: empty_local_state.clone(),
+        },
+        target: Registers {
+            ledger: target_merkle_root,
+            pending_coinbase_stack: pending_coinbase_after,
+            local_state: empty_local_state,
+        },
+        supply_increase,
+        fee_excess,
+        sok_digest: None,
+    })
+}
 
 fn completed_work_to_scanable_work(
     job: AvailableJob,
@@ -509,7 +502,7 @@ impl ScanState {
         let merge_pc = |acc: Option<Statement>, s2: Statement| match acc {
             None => Some(s2),
             Some(s1) => {
-                if !transaction_snark::connected(
+                if !pending_coinbase::Stack::connected(
                     &s1.target.pending_coinbase_stack,
                     &s2.source.pending_coinbase_stack,
                     Some(&s1.source.pending_coinbase_stack),
