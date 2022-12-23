@@ -587,11 +587,13 @@ pub mod zkapp_command {
     }
 }
 
+#[derive(Debug)]
 pub enum UserCommand {
     SignedCommand(Box<signed_command::SignedCommand>),
     ZkAppCommand(Box<zkapp_command::ZkAppCommand>),
 }
 
+#[derive(Debug)]
 pub enum Transaction {
     Command(UserCommand),
     FeeTransfer(FeeTransfer),
@@ -774,6 +776,23 @@ pub mod transaction_applied {
 
             total.ok_or_else(|| "overflow".to_string())
         }
+    }
+}
+
+pub mod transaction_witness {
+    use mina_p2p_messages::v2::MinaStateProtocolStateBodyValueStableV2;
+
+    use crate::{scan_state::pending_coinbase::Stack, Mask};
+
+    use super::*;
+
+    #[derive(Debug)]
+    pub struct TransactionWitness {
+        pub transaction: Transaction,
+        pub ledger: Mask,
+        pub protocol_state_body: MinaStateProtocolStateBodyValueStableV2,
+        pub init_stack: Stack,
+        pub status: TransactionStatus,
     }
 }
 

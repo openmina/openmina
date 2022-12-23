@@ -11,16 +11,18 @@ use crate::{
             LedgerProofWithSokMessage, SokMessage, Statement, TransactionWithWitness,
         },
     },
-    BaseLedger,
+    BaseLedger, Mask,
 };
 
-use self::transaction_snark::{LedgerProof, Registers};
+use self::transaction_snark::{InitStack, LedgerProof, OneOrTwo, Registers};
 
 use super::{
     currency::Fee,
     parallel_scan::ParallelScan,
+    snark_work,
     transaction_logic::{
         apply_transaction, local_state::LocalState, protocol_state::protocol_state_view,
+        transaction_applied::TransactionApplied, transaction_witness::TransactionWitness, Slot,
         Transaction, WithStatus,
     },
 };
@@ -111,6 +113,10 @@ pub mod transaction_snark {
                 sok_digest: None,
             })
         }
+    }
+
+    pub mod work {
+        pub type Statement = super::OneOrTwo<super::Statement>;
     }
 
     // TransactionSnarkPendingCoinbaseStackStateInitStackStableV1
@@ -588,4 +594,281 @@ impl ScanState {
             },
         }
     }
+
+    fn check_invariants(
+        &self,
+        constraint_constants: &ConstraintConstants,
+        statement_check: StatementCheck,
+        verifier: &Verifier,
+        _error_prefix: &'static str,
+        _registers_begin: Option<Registers>,
+        _registers_end: Registers,
+    ) -> Result<(), String> {
+        // TODO: OCaml does much more than this (pretty printing error)
+        match self.scan_statement(constraint_constants, statement_check, verifier) {
+            Ok(_) => Ok(()),
+            Err(s) => Err(s),
+        }
+    }
+
+    fn statement_of_job(job: &AvailableJob) -> Option<Statement> {
+        use super::parallel_scan::AvailableJob::{Base, Merge};
+
+        match job {
+            Base(TransactionWithWitness { statement, .. }) => Some(statement.clone()),
+            Merge { left, right } => {
+                let LedgerProofWithSokMessage { proof: p1, .. } = left;
+                let LedgerProofWithSokMessage { proof: p2, .. } = right;
+
+                p1.statement().merge(p2.statement()).ok()
+            }
+        }
+    }
+
+    fn create(work_delay: u64, transaction_capacity_log_2: u64) -> Self {
+        let k = 2u64.pow(transaction_capacity_log_2 as u32);
+
+        Self {
+            state: ParallelScan::empty(k, work_delay),
+        }
+    }
+
+    fn empty(constraint_constants: &ConstraintConstants) {
+        let work_delay = constraint_constants.work_delay;
+        let transaction_capacity_log_2 = constraint_constants.transaction_capacity_log_2;
+
+        Self::create(work_delay, transaction_capacity_log_2);
+    }
+
+    fn extract_txns(
+        txns_with_witnesses: &[TransactionWithWitness],
+    ) -> Vec<(WithStatus<Transaction>, Fp)> {
+        txns_with_witnesses
+            .iter()
+            .map(|txns_with_witnesses: &TransactionWithWitness| {
+                let txn = txns_with_witnesses.transaction_with_info.transaction();
+                let state_hash = txns_with_witnesses.state_hash.0;
+                (txn, state_hash)
+            })
+            .collect()
+    }
+
+    fn latest_ledger_proof(
+        &self,
+    ) -> Option<(
+        &LedgerProofWithSokMessage,
+        Vec<(WithStatus<Transaction>, Fp)>,
+    )> {
+        let (proof, txns_with_witnesses) = self.state.last_emitted_value()?;
+        Some((proof, Self::extract_txns(txns_with_witnesses.as_slice())))
+    }
+
+    fn free_space(&self) -> u64 {
+        self.state.free_space()
+    }
+
+    fn all_jobs(&self) -> Vec<Vec<AvailableJob>> {
+        self.state.all_jobs()
+    }
+
+    fn next_on_new_tree(&self) -> bool {
+        self.state.next_on_new_tree()
+    }
+
+    fn base_jobs_on_latest_tree(&self) -> Vec<AvailableJob> {
+        self.state.base_jobs_on_latest_tree()
+    }
+
+    fn base_jobs_on_earlier_tree(&self, index: usize) -> Vec<AvailableJob> {
+        self.state.base_jobs_on_earlier_tree(index)
+    }
+
+    fn staged_transactions(&self) -> Vec<WithStatus<Transaction>> {
+        self.state
+            .pending_data()
+            .into_iter()
+            .map(|transaction_with_witness| {
+                transaction_with_witness.transaction_with_info.transaction()
+            })
+            .collect()
+    }
+
+    fn staged_transactions_with_protocol_states<F>(
+        &self,
+        get_state: F,
+    ) -> Vec<(WithStatus<Transaction>, MinaStateProtocolStateValueStableV2)>
+    where
+        F: Fn(&Fp) -> &MinaStateProtocolStateValueStableV2,
+    {
+        self.state
+            .pending_data()
+            .into_iter()
+            .map(|transaction_with_witness| {
+                let txn = transaction_with_witness.transaction_with_info.transaction();
+                let protocol_state = get_state(&transaction_with_witness.state_hash.0);
+                (txn, protocol_state.clone())
+            })
+            .collect()
+    }
+
+    fn partition_if_overflowing(&self) -> SpacePartition {
+        let bundle_count = |work_count: u64| (work_count + 1) / 2;
+        let SpacePartition {
+            first: (slots, job_count),
+            second,
+        } = self.state.partition_if_overflowing();
+
+        SpacePartition {
+            first: (slots, bundle_count(job_count)),
+            second: second.map(|(slots, job_count)| (slots, bundle_count(job_count))),
+        }
+    }
+
+    fn extract_from_job(job: AvailableJob) -> Extracted {
+        use super::parallel_scan::AvailableJob::{Base, Merge};
+
+        match job {
+            Base(d) => Extracted::First {
+                transaction_with_info: d.transaction_with_info,
+                statement: Box::new(d.statement),
+                state_hash: d.state_hash,
+                ledger_witness: d.ledger_witness,
+                init_stack: d.init_stack,
+            },
+            Merge {
+                left: LedgerProofWithSokMessage { proof: p1, .. },
+                right: LedgerProofWithSokMessage { proof: p2, .. },
+            } => Extracted::Second(Box::new((p1, p2))),
+        }
+    }
+
+    fn all_work_statements_exn(&self) -> Vec<transaction_snark::work::Statement> {
+        let work_seqs = self.all_jobs();
+
+        let s = |job: &AvailableJob| Self::statement_of_job(job).unwrap();
+
+        work_seqs
+            .iter()
+            .flat_map(|work_seq| group_list(work_seq, s))
+            .collect()
+    }
+
+    fn required_work_pairs(&self, slots: u64) -> Vec<OneOrTwo<AvailableJob>> {
+        let work_list = self.state.jobs_for_slots(slots);
+        work_list
+            .iter()
+            .flat_map(|works| group_list(works, |job| job.clone()))
+            .collect()
+    }
+
+    fn k_work_pairs_for_new_diff(&self, k: u64) -> Vec<OneOrTwo<AvailableJob>> {
+        let work_list = self.state.jobs_for_next_update();
+        work_list
+            .iter()
+            .flat_map(|works| group_list(works, |job| job.clone()))
+            .take(k as usize)
+            .collect()
+    }
+
+    // Always the same pairing of jobs
+    fn work_statements_for_new_diff(&self) -> Vec<transaction_snark::work::Statement> {
+        let work_list = self.state.jobs_for_next_update();
+
+        let s = |job: &AvailableJob| Self::statement_of_job(job).unwrap();
+
+        work_list
+            .iter()
+            .flat_map(|works| group_list(works, s))
+            .collect()
+    }
+
+    fn all_work_pairs<F>(&self, get_state: F) -> Result<Vec<OneOrTwo<()>>, String>
+    where
+        F: Fn(&Fp) -> &MinaStateProtocolStateValueStableV2,
+    {
+        let all_jobs = self.all_jobs();
+
+        let single_spec = |job: AvailableJob| match Self::extract_from_job(job) {
+            Extracted::First {
+                transaction_with_info,
+                statement,
+                state_hash,
+                ledger_witness,
+                init_stack,
+            } => {
+                let witness = {
+                    let WithStatus {
+                        data: transaction,
+                        status,
+                    } = transaction_with_info.transaction();
+
+                    let protocol_state_body = {
+                        let state = get_state(&state_hash.0);
+                        state.body.clone()
+                    };
+
+                    let init_stack = match init_stack {
+                        InitStack::Base(x) => x,
+                        InitStack::Merge => return Err("init_stack was Merge".to_string()),
+                    };
+
+                    TransactionWitness {
+                        transaction,
+                        ledger: ledger_witness,
+                        protocol_state_body,
+                        init_stack,
+                        status,
+                    }
+                };
+
+                Ok(snark_work::spec::Work::Transition((statement, witness)))
+            }
+            Extracted::Second(s) => {
+                let merged = s.0.statement().merge(s.1.statement())?;
+                Ok(snark_work::spec::Work::Merge((merged, s)))
+            }
+        };
+
+        // for a in group_list(all_jobs, fun)
+
+        todo!()
+    }
+}
+
+//   List.fold_until all_jobs ~init:[]
+//     ~finish:(fun lst -> Ok lst)
+//     ~f:(fun acc jobs ->
+//       let specs_list : 'a One_or_two.t list Or_error.t =
+//         List.fold ~init:(Ok []) (One_or_two.group_list jobs)
+//           ~f:(fun acc' pair ->
+//             let%bind acc' = acc' in
+//             let%map spec = One_or_two.Or_error.map ~f:single_spec pair in
+//             spec :: acc' )
+//       in
+//       match specs_list with
+//       | Ok list ->
+//           Continue (acc @ List.rev list)
+//       | Error e ->
+//           Stop (Error e) )
+
+fn group_list<'a, F, T, R>(slice: &'a [T], fun: F) -> impl Iterator<Item = OneOrTwo<R>> + '_
+where
+    F: Fn(&'a T) -> R + 'a,
+{
+    slice.chunks(2).map(move |subslice| match subslice {
+        [a, b] => OneOrTwo::Two((fun(a), fun(b))),
+        [a] => OneOrTwo::One(fun(a)),
+        _ => panic!(),
+    })
+}
+
+pub enum Extracted {
+    First {
+        transaction_with_info: TransactionApplied,
+        statement: Box<Statement>,
+        state_hash: (Fp, Fp),
+        ledger_witness: Mask,
+        init_stack: InitStack,
+    },
+    Second(Box<(LedgerProof, LedgerProof)>),
 }

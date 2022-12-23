@@ -264,7 +264,7 @@ pub mod merge {
 }
 
 /// All the jobs on a tree that can be done. Base.Full and Merge.Full
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum AvailableJob<BaseJob, MergeJob> {
     Base(BaseJob),
     Merge { left: MergeJob, right: MergeJob },
@@ -285,8 +285,8 @@ enum Job<BaseJob, MergeJob> {
 /// job count.
 #[derive(Debug)]
 pub struct SpacePartition {
-    first: (u64, u64),
-    second: Option<(u64, u64)>,
+    pub first: (u64, u64),
+    pub second: Option<(u64, u64)>,
 }
 
 trait WithVTable<T>: Debug {
@@ -1938,23 +1938,23 @@ where
         self.update_helper(data, completed_jobs)
     }
 
-    fn all_jobs(&self) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
+    pub fn all_jobs(&self) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
         self.all_work()
     }
 
-    fn jobs_for_next_update(&self) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
+    pub fn jobs_for_next_update(&self) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
         self.work_for_next_update(self.max_base_jobs)
     }
 
-    fn jobs_for_slots(&self, slots: u64) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
+    pub fn jobs_for_slots(&self, slots: u64) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
         self.work_for_next_update(slots)
     }
 
-    fn free_space(&self) -> u64 {
+    pub fn free_space(&self) -> u64 {
         self.max_base_jobs
     }
 
-    fn last_emitted_value(&self) -> Option<&(MergeJob, Vec<BaseJob>)> {
+    pub fn last_emitted_value(&self) -> Option<&(MergeJob, Vec<BaseJob>)> {
         self.acc.as_ref()
     }
 
@@ -1962,7 +1962,7 @@ where
         self.curr_job_seq_no.clone()
     }
 
-    fn base_jobs_on_latest_tree(&self) -> Vec<AvailableJob<BaseJob, MergeJob>> {
+    pub fn base_jobs_on_latest_tree(&self) -> Vec<AvailableJob<BaseJob, MergeJob>> {
         let depth = ceil_log2(self.max_base_jobs);
         let level = depth;
 
@@ -1974,7 +1974,7 @@ where
     }
 
     // 0-based indexing, so 0 indicates next-to-latest tree
-    fn base_jobs_on_earlier_tree(&self, index: usize) -> Vec<AvailableJob<BaseJob, MergeJob>> {
+    pub fn base_jobs_on_earlier_tree(&self, index: usize) -> Vec<AvailableJob<BaseJob, MergeJob>> {
         let depth = ceil_log2(self.max_base_jobs);
         let level = depth;
 
@@ -1990,7 +1990,7 @@ where
         }
     }
 
-    fn partition_if_overflowing(&self) -> SpacePartition {
+    pub fn partition_if_overflowing(&self) -> SpacePartition {
         let cur_tree_space = self.free_space_on_current_tree();
 
         // Check actual work count because it would be zero initially
@@ -2011,12 +2011,12 @@ where
         }
     }
 
-    fn next_on_new_tree(&self) -> bool {
+    pub fn next_on_new_tree(&self) -> bool {
         let curr_tree_space = self.free_space_on_current_tree();
         curr_tree_space == self.max_base_jobs
     }
 
-    fn pending_data(&self) -> Vec<BaseJob> {
+    pub fn pending_data(&self) -> Vec<BaseJob> {
         self.trees.iter().rev().flat_map(Tree::base_jobs).collect()
     }
 
