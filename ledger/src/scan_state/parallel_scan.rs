@@ -1930,7 +1930,7 @@ where
         Ok(result_opt)
     }
 
-    fn update(
+    pub fn update(
         &mut self,
         data: Vec<BaseJob>,
         completed_jobs: Vec<MergeJob>,

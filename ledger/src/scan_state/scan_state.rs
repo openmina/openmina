@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
 use mina_signer::CompressedPubKey;
@@ -22,7 +24,7 @@ use super::{
     snark_work,
     transaction_logic::{
         apply_transaction, local_state::LocalState, protocol_state::protocol_state_view,
-        transaction_applied::TransactionApplied, transaction_witness::TransactionWitness, Slot,
+        transaction_applied::TransactionApplied, transaction_witness::TransactionWitness,
         Transaction, WithStatus,
     },
 };
@@ -83,6 +85,17 @@ pub mod transaction_snark {
                     None,
                 )
         }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_state/registers.ml#L47
+        pub fn connected(r1: &Self, r2: &Self) -> bool {
+            r1.ledger == r2.ledger
+                && r1.local_state == r2.local_state
+                && pending_coinbase::Stack::connected(
+                    &r1.pending_coinbase_stack,
+                    &r2.pending_coinbase_stack,
+                    None,
+                )
+        }
     }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
@@ -116,7 +129,17 @@ pub mod transaction_snark {
     }
 
     pub mod work {
-        pub type Statement = super::OneOrTwo<super::Statement>;
+        use super::*;
+
+        pub type Statement = OneOrTwo<super::Statement>;
+
+        pub struct Work {
+            pub fee: Fee,
+            pub proofs: OneOrTwo<LedgerProof>,
+            pub prover: CompressedPubKey,
+        }
+
+        pub type Unchecked = Work;
     }
 
     // TransactionSnarkPendingCoinbaseStackStateInitStackStableV1
@@ -199,6 +222,18 @@ pub mod transaction_snark {
             }
         }
 
+        pub fn into_iter(self) -> OneOrTwoIntoIter<T> {
+            let array = match self {
+                OneOrTwo::One(a) => [Some(a), None],
+                OneOrTwo::Two((a, b)) => [Some(a), Some(b)],
+            };
+
+            OneOrTwoIntoIter {
+                inner: array,
+                index: 0,
+            }
+        }
+
         pub fn map<F, R>(&self, fun: F) -> OneOrTwo<R>
         where
             F: Fn(&T) -> R,
@@ -206,6 +241,26 @@ pub mod transaction_snark {
             match self {
                 OneOrTwo::One(one) => OneOrTwo::One(fun(one)),
                 OneOrTwo::Two((a, b)) => OneOrTwo::Two((fun(a), fun(b))),
+            }
+        }
+
+        pub fn into_map<F, R>(self, fun: F) -> OneOrTwo<R>
+        where
+            F: Fn(T) -> R,
+        {
+            match self {
+                OneOrTwo::One(one) => OneOrTwo::One(fun(one)),
+                OneOrTwo::Two((a, b)) => OneOrTwo::Two((fun(a), fun(b))),
+            }
+        }
+
+        pub fn into_map_err<F, R, E>(self, fun: F) -> Result<OneOrTwo<R>, E>
+        where
+            F: Fn(T) -> Result<R, E>,
+        {
+            match self {
+                OneOrTwo::One(one) => Ok(OneOrTwo::One(fun(one)?)),
+                OneOrTwo::Two((a, b)) => Ok(OneOrTwo::Two((fun(a)?, fun(b)?))),
             }
         }
     }
@@ -226,11 +281,20 @@ pub mod transaction_snark {
         }
     }
 
-    #[derive(Debug, Clone)]
-    pub struct Work {
-        pub fee: Fee,
-        pub proofs: OneOrTwo<LedgerProof>,
-        pub prover: CompressedPubKey,
+    pub struct OneOrTwoIntoIter<T> {
+        inner: [Option<T>; 2],
+        index: usize,
+    }
+
+    impl<T> Iterator for OneOrTwoIntoIter<T> {
+        type Item = T;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let value = self.inner.get_mut(self.index)?.take()?;
+            self.index += 1;
+
+            Some(value)
+        }
     }
 }
 
@@ -421,7 +485,7 @@ fn completed_work_to_scanable_work(
     }
 }
 
-fn total_proofs(works: &[transaction_snark::Work]) -> usize {
+fn total_proofs(works: &[transaction_snark::work::Work]) -> usize {
     works.iter().map(|work| work.proofs.len()).sum()
 }
 
@@ -782,7 +846,10 @@ impl ScanState {
             .collect()
     }
 
-    fn all_work_pairs<F>(&self, get_state: F) -> Result<Vec<OneOrTwo<()>>, String>
+    fn all_work_pairs<F>(
+        &self,
+        get_state: F,
+    ) -> Result<Vec<OneOrTwo<snark_work::spec::Work>>, String>
     where
         F: Fn(&Fp) -> &MinaStateProtocolStateValueStableV2,
     {
@@ -829,27 +896,78 @@ impl ScanState {
             }
         };
 
-        // for a in group_list(all_jobs, fun)
+        all_jobs
+            .iter()
+            .flat_map(|jobs| {
+                group_list(jobs.as_slice(), |j| j.clone())
+                    .map(|group| group.into_map_err(single_spec))
+            })
+            .collect()
+    }
 
-        todo!()
+    fn fill_work_and_enqueue_transactions(
+        &mut self,
+        transactions: Vec<TransactionWithWitness>,
+        work: Vec<transaction_snark::work::Unchecked>,
+    ) -> Result<Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>, String> {
+        let fill_in_transaction_snark_work =
+            |works: Vec<transaction_snark::work::Work>| -> Result<Vec<LedgerProofWithSokMessage>, String>
+        {
+            let next_jobs = self
+                .state
+                .jobs_for_next_update()
+                .into_iter()
+                .flatten()
+                .take(total_proofs(&works));
+
+            let works = works.into_iter().flat_map(|transaction_snark::work::Work { fee, proofs, prover }| {
+                proofs.into_map(|proof| (fee, proof, prover.clone())).into_iter()
+            });
+
+            next_jobs.zip(works).map(|(job, work)| completed_work_to_scanable_work(job, work)).collect()
+        };
+
+        let old_proof = self.state.last_emitted_value().cloned();
+        let work_list = fill_in_transaction_snark_work(work)?;
+
+        let proof_opt = self.state.update(transactions, work_list).unwrap();
+
+        match proof_opt {
+            None => Ok(None),
+            Some((LedgerProofWithSokMessage { proof, .. }, txns_with_witnesses)) => {
+                let curr_source = &proof.statement().source;
+
+                // TODO(OCaml): get genesis ledger hash if the old_proof is none
+
+                let prev_target = old_proof
+                    .as_ref()
+                    .map(|p| &p.0.proof.statement().target)
+                    .unwrap_or(curr_source);
+
+                // prev_target is connected to curr_source- Order of the arguments is
+                // important here
+
+                if Registers::connected(prev_target, curr_source) {
+                    Ok(Some((proof, Self::extract_txns(&txns_with_witnesses))))
+                } else {
+                    Err("Unexpected ledger proof emitted".to_string())
+                }
+            }
+        }
+    }
+
+    fn required_state_hashes(&self) -> HashSet<Fp> {
+        self.state
+            .pending_data()
+            .iter()
+            .map(|t| t.state_hash.0)
+            .collect()
+    }
+
+    fn check_required_protocol_states(&self, _protocol_states: ()) {
+        todo!() // Not sure what is the type of `protocol_states` here
     }
 }
-
-//   List.fold_until all_jobs ~init:[]
-//     ~finish:(fun lst -> Ok lst)
-//     ~f:(fun acc jobs ->
-//       let specs_list : 'a One_or_two.t list Or_error.t =
-//         List.fold ~init:(Ok []) (One_or_two.group_list jobs)
-//           ~f:(fun acc' pair ->
-//             let%bind acc' = acc' in
-//             let%map spec = One_or_two.Or_error.map ~f:single_spec pair in
-//             spec :: acc' )
-//       in
-//       match specs_list with
-//       | Ok list ->
-//           Continue (acc @ List.rev list)
-//       | Error e ->
-//           Stop (Error e) )
 
 fn group_list<'a, F, T, R>(slice: &'a [T], fun: F) -> impl Iterator<Item = OneOrTwo<R>> + '_
 where
