@@ -4,6 +4,8 @@ use shared::requests::PendingRequests;
 
 use crate::rpc::{P2pRpcIdType, P2pRpcOutgoingError, P2pRpcRequest, P2pRpcResponse};
 
+use super::P2pRpcRequestor;
+
 type P2pRpcOutgoingContainer = PendingRequests<P2pRpcIdType, P2pRpcOutgoingStatus>;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -28,25 +30,30 @@ pub enum P2pRpcOutgoingStatus {
     Init {
         time: redux::Timestamp,
         request: P2pRpcRequest,
+        requestor: P2pRpcRequestor,
     },
     Pending {
         time: redux::Timestamp,
         request: P2pRpcRequest,
+        requestor: P2pRpcRequestor,
     },
     Received {
         time: redux::Timestamp,
         request: P2pRpcRequest,
+        requestor: P2pRpcRequestor,
         response: P2pRpcResponse,
     },
     Error {
         time: redux::Timestamp,
         request: P2pRpcRequest,
+        requestor: P2pRpcRequestor,
         response: Option<P2pRpcResponse>,
         error: P2pRpcOutgoingError,
     },
     Success {
         time: redux::Timestamp,
         request: P2pRpcRequest,
+        requestor: P2pRpcRequestor,
         response: P2pRpcResponse,
     },
 }

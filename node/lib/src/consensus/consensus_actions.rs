@@ -1,4 +1,7 @@
-use mina_p2p_messages::{v1::StateHashStable, v2::MinaBlockHeaderStableV2};
+use std::sync::Arc;
+
+use mina_p2p_messages::v2::MinaBlockBlockStableV2;
+use mina_p2p_messages::v2::StateHash;
 use serde::{Deserialize, Serialize};
 
 use crate::snark::block_verify::SnarkBlockVerifyId;
@@ -19,14 +22,15 @@ pub enum ConsensusAction {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsensusBlockReceivedAction {
-    pub hash: StateHashStable,
-    pub header: MinaBlockHeaderStableV2,
+    pub hash: StateHash,
+    pub block: Arc<MinaBlockBlockStableV2>,
 }
 
 impl redux::EnablingCondition<crate::State> for ConsensusBlockReceivedAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state.consensus.best_tip().map_or(true, |tip| {
             let height = self
+                .block
                 .header
                 .protocol_state
                 .body
@@ -43,7 +47,7 @@ impl redux::EnablingCondition<crate::State> for ConsensusBlockReceivedAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsensusBlockSnarkVerifyPendingAction {
     pub req_id: SnarkBlockVerifyId,
-    pub hash: StateHashStable,
+    pub hash: StateHash,
 }
 
 impl redux::EnablingCondition<crate::State> for ConsensusBlockSnarkVerifyPendingAction {
@@ -59,7 +63,7 @@ impl redux::EnablingCondition<crate::State> for ConsensusBlockSnarkVerifyPending
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsensusBlockSnarkVerifySuccessAction {
-    pub hash: StateHashStable,
+    pub hash: StateHash,
 }
 
 impl redux::EnablingCondition<crate::State> for ConsensusBlockSnarkVerifySuccessAction {
@@ -74,7 +78,7 @@ impl redux::EnablingCondition<crate::State> for ConsensusBlockSnarkVerifySuccess
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsensusShortRangeForkResolveAction {
-    pub hash: StateHashStable,
+    pub hash: StateHash,
 }
 
 impl redux::EnablingCondition<crate::State> for ConsensusShortRangeForkResolveAction {
@@ -87,7 +91,7 @@ impl redux::EnablingCondition<crate::State> for ConsensusShortRangeForkResolveAc
             .map_or(false, |block| match state.consensus.best_tip() {
                 Some(tip) => is_short_range_fork(
                     &tip.header.protocol_state.body,
-                    &block.header.protocol_state.body,
+                    &block.block.header.protocol_state.body,
                 ),
                 None => true,
             })
@@ -96,7 +100,7 @@ impl redux::EnablingCondition<crate::State> for ConsensusShortRangeForkResolveAc
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsensusBestTipUpdateAction {
-    pub hash: StateHashStable,
+    pub hash: StateHash,
 }
 
 impl redux::EnablingCondition<crate::State> for ConsensusBestTipUpdateAction {

@@ -1,7 +1,17 @@
-use shared::block::BlockHeaderWithHash;
+use mina_p2p_messages::{
+    bigint::BigInt,
+    v2::{
+        MinaBaseAccountIdDigestStableV1, MinaLedgerSyncLedgerQueryStableV1, NonZeroCurvePoint,
+        NonZeroCurvePointUncompressedStableV1, TokenIdKeyHash,
+    },
+};
+use p2p::rpc::{outgoing::P2pRpcOutgoingInitAction, P2pRpcId, P2pRpcRequest};
 
-use crate::snark::block_verify::SnarkBlockVerifyInitAction;
 use crate::Store;
+use crate::{
+    snark::block_verify::SnarkBlockVerifyInitAction,
+    watched_accounts::WatchedAccountsBlockTransactionsIncludedAction,
+};
 
 use super::{
     ConsensusAction, ConsensusActionWithMeta, ConsensusBestTipUpdateAction,
@@ -16,10 +26,7 @@ pub fn consensus_effects<S: redux::Service>(store: &mut Store<S>, action: Consen
             let req_id = store.state().snark.block_verify.next_req_id();
             store.dispatch(SnarkBlockVerifyInitAction {
                 req_id,
-                block: BlockHeaderWithHash {
-                    hash: action.hash.clone(),
-                    header: action.header,
-                },
+                block: (action.hash.clone(), action.block).into(),
             });
             store.dispatch(ConsensusBlockSnarkVerifyPendingAction {
                 req_id,
@@ -33,6 +40,15 @@ pub fn consensus_effects<S: redux::Service>(store: &mut Store<S>, action: Consen
         ConsensusAction::ShortRangeForkResolve(a) => {
             store.dispatch(ConsensusBestTipUpdateAction { hash: a.hash });
         }
-        ConsensusAction::BestTipUpdate(_) => {}
+        ConsensusAction::BestTipUpdate(_) => {
+            if let Some(block) = store.state().consensus.best_tip_block_with_hash() {
+                for pub_key in store.state().watched_accounts.accounts() {
+                    store.dispatch(WatchedAccountsBlockTransactionsIncludedAction {
+                        pub_key,
+                        block: block.clone(),
+                    });
+                }
+            }
+        }
     }
 }

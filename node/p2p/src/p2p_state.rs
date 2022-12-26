@@ -5,7 +5,7 @@ use libp2p::PeerId;
 
 use shared::requests::RpcId;
 
-use crate::rpc::P2pRpcState;
+use crate::rpc::{P2pRpcId, P2pRpcState};
 
 use super::connection::P2pConnectionState;
 use super::P2pConfig;
@@ -38,6 +38,15 @@ impl P2pState {
     /// or if peer doesn't exist.
     pub fn get_ready_peer_mut(&mut self, peer_id: &PeerId) -> Option<&mut P2pPeerStatusReady> {
         self.peers.get_mut(peer_id)?.status.as_ready_mut()
+    }
+
+    /// Get peer which has least pending rpcs to initiate new rpc.
+    pub fn get_free_peer_id_for_rpc(&self) -> Option<(PeerId, P2pRpcId)> {
+        self.peers
+            .iter()
+            .filter_map(|(id, p)| Some((id, p.status.as_ready()?)))
+            .min_by(|a, b| a.1.rpc.outgoing.len().cmp(&b.1.rpc.outgoing.len()))
+            .map(|(id, p)| (id.clone(), p.rpc.outgoing.next_req_id()))
     }
 }
 

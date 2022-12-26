@@ -8,6 +8,7 @@ pub use crate::event_source::EventSourceAction;
 pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
 pub use crate::snark::SnarkAction;
+pub use crate::watched_accounts::WatchedAccountsAction;
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum Action {
@@ -18,6 +19,8 @@ pub enum Action {
     Snark(SnarkAction),
     Consensus(ConsensusAction),
     Rpc(RpcAction),
+
+    WatchedAccounts(WatchedAccountsAction),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

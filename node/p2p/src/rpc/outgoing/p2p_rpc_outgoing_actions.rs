@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::rpc::{P2pRpcId, P2pRpcOutgoingError, P2pRpcRequest, P2pRpcResponse};
 
-use super::P2pRpcOutgoingStatus;
+use super::{P2pRpcOutgoingStatus, P2pRpcRequestor};
 
 pub type P2pRpcOutgoingActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pRpcOutgoingAction>;
 pub type P2pRpcOutgoingActionWithMeta = redux::ActionWithMeta<P2pRpcOutgoingAction>;
@@ -35,6 +35,7 @@ pub struct P2pRpcOutgoingInitAction {
     pub peer_id: crate::PeerId,
     pub rpc_id: P2pRpcId,
     pub request: P2pRpcRequest,
+    pub requestor: P2pRpcRequestor,
 }
 
 impl redux::EnablingCondition<crate::P2pState> for P2pRpcOutgoingInitAction {

@@ -5,6 +5,7 @@ pub use crate::consensus::ConsensusState;
 pub use crate::p2p::P2pState;
 pub use crate::rpc::RpcState;
 pub use crate::snark::SnarkState;
+use crate::watched_accounts::WatchedAccountsState;
 use crate::ActionWithMeta;
 pub use crate::Config;
 
@@ -14,6 +15,8 @@ pub struct State {
     pub snark: SnarkState,
     pub consensus: ConsensusState,
     pub rpc: RpcState,
+
+    pub watched_accounts: WatchedAccountsState,
 
     // TODO(binier): include action kind in `last_action`.
     pub last_action: ActionMeta,
@@ -27,6 +30,8 @@ impl State {
             snark: SnarkState::new(config.snark),
             consensus: ConsensusState::new(),
             rpc: RpcState::new(),
+
+            watched_accounts: WatchedAccountsState::new(),
 
             last_action: ActionMeta::ZERO,
             applied_actions_count: 0,

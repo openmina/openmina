@@ -128,7 +128,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 SnarkBlockVerifyAction::Init(action) => {
                     let height = action
                         .block
-                        .header
+                        .header_ref()
                         .protocol_state
                         .body
                         .consensus_state
@@ -149,7 +149,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     let block = job.block();
 
                     let height = block
-                        .header
+                        .header_ref()
                         .protocol_state
                         .body
                         .consensus_state
@@ -171,7 +171,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     let block = job.block();
 
                     let height = block
-                        .header
+                        .header_ref()
                         .protocol_state
                         .body
                         .consensus_state
