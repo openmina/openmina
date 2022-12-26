@@ -73,7 +73,7 @@ pub fn single_failure() -> Vec<Vec<TransactionFailure>> {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L452
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TransactionStatus {
     Applied,
     Failed(Vec<Vec<TransactionFailure>>),
@@ -265,6 +265,20 @@ pub mod signed_command {
         },
     }
 
+    impl StakeDelegationPayload {
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/stake_delegation.ml#L30
+        pub fn source(&self) -> AccountId {
+            let Self::SetDelegate { delegator, .. } = self;
+            AccountId::new(delegator.clone(), TokenId::default())
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/stake_delegation.ml#L24
+        pub fn receiver(&self) -> AccountId {
+            let Self::SetDelegate { new_delegate, .. } = self;
+            AccountId::new(new_delegate.clone(), TokenId::default())
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.mli#L24
     #[derive(Debug, Clone)]
     pub enum Body {
@@ -306,12 +320,44 @@ pub mod signed_command {
             self.payload.common.fee
         }
 
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command_payload.ml#L243
+        pub fn source(&self) -> AccountId {
+            match &self.payload.body {
+                Body::Payment(payload) => {
+                    AccountId::new(payload.source_pk.clone(), TokenId::default())
+                }
+                Body::StakeDelegation(payload) => payload.source(),
+            }
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command_payload.ml#L250
+        pub fn receiver(&self) -> AccountId {
+            match &self.payload.body {
+                Body::Payment(payload) => {
+                    AccountId::new(payload.receiver_pk.clone(), TokenId::default())
+                }
+                Body::StakeDelegation(payload) => payload.receiver(),
+            }
+        }
+
         pub fn nonce(&self) -> Nonce {
             self.payload.common.nonce
         }
 
         pub fn fee_excess(&self) -> FeeExcess {
             FeeExcess::of_single((self.fee_token(), Signed::<Fee>::of_unsigned(self.fee())))
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command_payload.ml#L354
+        pub fn accounts_accessed(&self, status: TransactionStatus) -> Vec<AccountId> {
+            use TransactionStatus::*;
+
+            match status {
+                Applied => {
+                    vec![self.fee_payer(), self.source(), self.receiver()]
+                }
+                Failed(_) => vec![self.fee_payer()],
+            }
         }
     }
 }
@@ -521,6 +567,13 @@ pub mod zkapp_command {
         authorization: Control,
     }
 
+    impl AccountUpdate {
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/account_update.ml#L1535
+        pub fn account_id(&self) -> AccountId {
+            AccountId::new(self.body.public_key.clone(), self.body.token_id.clone())
+        }
+    }
+
     // Digest.Account_update.Stable.V1.t = Fp
     // Digest.Forest.Stable.V1.t = Fp
 
@@ -529,7 +582,7 @@ pub mod zkapp_command {
     pub struct Tree {
         account_update: AccountUpdate,
         account_update_digest: Fp,
-        calls: Vec<WithStackHash>,
+        calls: CallForest,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_stack_hash.ml#L6
@@ -542,6 +595,28 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L345
     #[derive(Debug, Clone)]
     pub struct CallForest(pub Vec<WithStackHash>);
+
+    impl CallForest {
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L68
+        fn fold_impl<A, F>(&self, init: A, fun: &F) -> A
+        where
+            F: Fn(A, &AccountUpdate) -> A,
+        {
+            let mut accum = init;
+            for elem in &self.0 {
+                accum = fun(accum, &elem.elt.account_update);
+                accum = elem.elt.calls.fold_impl(accum, fun);
+            }
+            accum
+        }
+
+        pub fn fold<A, F>(&self, init: A, fun: F) -> A
+        where
+            F: Fn(A, &AccountUpdate) -> A,
+        {
+            self.fold_impl(init, &fun)
+        }
+    }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1081
     #[derive(Debug, Clone)]
@@ -584,6 +659,26 @@ pub mod zkapp_command {
         pub fn fee_excess(&self) -> FeeExcess {
             FeeExcess::of_single((self.fee_token(), Signed::<Fee>::of_unsigned(self.fee())))
         }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L1241
+        pub fn accounts_accessed(&self, status: TransactionStatus) -> Vec<AccountId> {
+            use TransactionStatus::*;
+
+            match status {
+                Applied => {
+                    let mut ids = self.account_updates.fold(
+                        Vec::with_capacity(256),
+                        |mut accum, account_update| {
+                            accum.push(account_update.account_id());
+                            accum
+                        },
+                    );
+                    ids.dedup(); // TODO In Rust it should be sorted for `dedup` to work. Find a solution to this
+                    ids
+                }
+                Failed(_) => vec![self.fee_payer()],
+            }
+        }
     }
 }
 
@@ -591,6 +686,21 @@ pub mod zkapp_command {
 pub enum UserCommand {
     SignedCommand(Box<signed_command::SignedCommand>),
     ZkAppCommand(Box<zkapp_command::ZkAppCommand>),
+}
+
+impl UserCommand {
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/user_command.ml#L203
+    pub fn accounts_accessed(&self, status: TransactionStatus) -> Vec<AccountId> {
+        match self {
+            UserCommand::SignedCommand(cmd) => cmd.accounts_accessed(status),
+            UserCommand::ZkAppCommand(cmd) => cmd.accounts_accessed(status),
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/user_command.ml#L210
+    pub fn accounts_referenced(&self) -> Vec<AccountId> {
+        self.accounts_accessed(TransactionStatus::Applied)
+    }
 }
 
 #[derive(Debug)]
@@ -720,6 +830,19 @@ pub mod transaction_applied {
                     .map(|c| Transaction::Command(UserCommand::ZkAppCommand(Box::new(c.clone())))),
                 FeeTransfer(f) => f.fee_transfer.map(|f| Transaction::FeeTransfer(f.clone())),
                 Coinbase(c) => c.coinbase.map(|c| Transaction::Coinbase(c.clone())),
+            }
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L662
+        pub fn transaction_status(&self) -> &TransactionStatus {
+            use CommandApplied::*;
+            use Varying::*;
+
+            match &self.varying {
+                Command(SignedCommand(cmd)) => &cmd.common.user_command.status,
+                Command(ZkappCommand(cmd)) => &cmd.command.status,
+                FeeTransfer(f) => &f.fee_transfer.status,
+                Coinbase(c) => &c.coinbase.status,
             }
         }
 

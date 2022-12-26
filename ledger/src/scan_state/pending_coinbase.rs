@@ -47,6 +47,11 @@ impl CoinbaseData {
     }
 }
 
+pub struct StackState {
+    pub source: Stack,
+    pub target: Stack,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct CoinbaseStack(Fp);
 
@@ -188,12 +193,14 @@ impl Stack {
     }
 }
 
+#[derive(Clone)]
 pub struct PendingCoinbase {
     tree: merkle_tree::MiniMerkleTree<StackId, Stack, StackHasher>,
     pos_list: Vec<StackId>,
     new_pos: StackId,
 }
 
+#[derive(Clone)]
 struct StackHasher;
 
 impl merkle_tree::TreeHasher<Stack> for StackHasher {
@@ -395,6 +402,7 @@ pub mod merkle_tree {
         fn merge_hash(depth: usize, left: Fp, right: Fp) -> Fp;
     }
 
+    #[derive(Clone)]
     pub struct MiniMerkleTree<K, V, H> {
         values: Vec<V>,
         indexes: HashMap<K, Address>,

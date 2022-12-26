@@ -21,6 +21,7 @@ where
 {
     fn abs_diff(&self, rhs: &Self) -> Self;
     fn checked_add(&self, rhs: &Self) -> Option<Self>;
+    fn checked_mul(&self, rhs: &Self) -> Option<Self>;
     fn checked_sub(&self, rhs: &Self) -> Option<Self>;
     fn is_zero(&self) -> bool;
     fn zero() -> Self;
@@ -101,6 +102,10 @@ impl Magnitude for Fee {
         self.0.checked_add(rhs.0).map(Self)
     }
 
+    fn checked_mul(&self, rhs: &Self) -> Option<Self> {
+        self.0.checked_mul(rhs.0).map(Self)
+    }
+
     fn checked_sub(&self, rhs: &Self) -> Option<Self> {
         self.0.checked_sub(rhs.0).map(Self)
     }
@@ -132,6 +137,10 @@ impl Magnitude for Amount {
         self.0.checked_add(rhs.0).map(Self)
     }
 
+    fn checked_mul(&self, rhs: &Self) -> Option<Self> {
+        self.0.checked_mul(rhs.0).map(Self)
+    }
+
     fn checked_sub(&self, rhs: &Self) -> Option<Self> {
         self.0.checked_sub(rhs.0).map(Self)
     }
@@ -153,6 +162,11 @@ impl Amount {
     pub fn from_u64(amount: u64) -> Self {
         Self(amount)
     }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/currency/currency.ml#L379
+    pub fn scale(&self, n: u64) -> Option<Self> {
+        self.checked_mul(&Self::from_u64(n))
+    }
 }
 
 #[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -169,6 +183,10 @@ impl Magnitude for Balance {
 
     fn checked_add(&self, rhs: &Self) -> Option<Self> {
         self.0.checked_add(rhs.0).map(Self)
+    }
+
+    fn checked_mul(&self, rhs: &Self) -> Option<Self> {
+        self.0.checked_mul(rhs.0).map(Self)
     }
 
     fn checked_sub(&self, rhs: &Self) -> Option<Self> {

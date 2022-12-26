@@ -19,7 +19,7 @@ use crate::{
 use self::transaction_snark::{InitStack, LedgerProof, OneOrTwo, Registers};
 
 use super::{
-    currency::Fee,
+    currency::{Amount, Fee},
     parallel_scan::ParallelScan,
     snark_work,
     transaction_logic::{
@@ -41,6 +41,7 @@ pub type AvailableJob = super::parallel_scan::AvailableJob<
     transaction_snark::LedgerProofWithSokMessage,
 >;
 
+#[derive(Clone)]
 pub struct ScanState {
     state: ParallelScan<
         transaction_snark::TransactionWithWitness,
@@ -299,7 +300,7 @@ pub mod transaction_snark {
 }
 
 impl ScanState {
-    pub fn hash(&self) {
+    pub fn hash(&self) -> Fp {
         todo!()
 
         // use binprot::BinProtWrite;
@@ -329,7 +330,7 @@ pub struct ConstraintConstants {
     pub block_window_duration_ms: u64,
     pub transaction_capacity_log_2: u64,
     pub pending_coinbase_depth: u64,
-    pub coinbase_amount: u64, // Currency.Amount.Stable.Latest.t,
+    pub coinbase_amount: Amount, // Currency.Amount.Stable.Latest.t,
     pub supercharged_coinbase_factor: u64,
     pub account_creation_fee: Fee,   // Currency.Fee.Stable.Latest.t,
     pub fork: Option<ForkConstants>, // Fork_constants.t option,
@@ -699,11 +700,11 @@ impl ScanState {
         }
     }
 
-    fn empty(constraint_constants: &ConstraintConstants) {
+    pub fn empty(constraint_constants: &ConstraintConstants) -> Self {
         let work_delay = constraint_constants.work_delay;
         let transaction_capacity_log_2 = constraint_constants.transaction_capacity_log_2;
 
-        Self::create(work_delay, transaction_capacity_log_2);
+        Self::create(work_delay, transaction_capacity_log_2)
     }
 
     fn extract_txns(
@@ -759,7 +760,7 @@ impl ScanState {
             .collect()
     }
 
-    fn staged_transactions_with_protocol_states<F>(
+    pub fn staged_transactions_with_protocol_states<F>(
         &self,
         get_state: F,
     ) -> Vec<(WithStatus<Transaction>, MinaStateProtocolStateValueStableV2)>
