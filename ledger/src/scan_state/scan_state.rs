@@ -65,7 +65,7 @@ pub mod transaction_snark {
 
     use super::Fee;
 
-    type LedgerHash = Fp;
+    pub type LedgerHash = Fp;
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Registers {
@@ -314,12 +314,14 @@ impl ScanState {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct ForkConstants {
     previous_state_hash: Fp,   // Pickles.Backend.Tick.Field.Stable.Latest.t,
     previous_length: u32,      // Mina_numbers.Length.Stable.Latest.t,
     previous_global_slot: u32, // Mina_numbers.Global_slot.Stable.Latest.t,
 }
 
+#[derive(Clone, Debug)]
 pub struct ConstraintConstants {
     pub sub_windows_per_window: u64,
     pub ledger_depth: u64,
@@ -659,13 +661,13 @@ impl ScanState {
         }
     }
 
-    fn check_invariants(
+    pub fn check_invariants(
         &self,
         constraint_constants: &ConstraintConstants,
         statement_check: StatementCheck,
         verifier: &Verifier,
         _error_prefix: &'static str,
-        _registers_begin: Option<Registers>,
+        _registers_begin: Option<&Registers>,
         _registers_end: Registers,
     ) -> Result<(), String> {
         // TODO: OCaml does much more than this (pretty printing error)
@@ -717,7 +719,7 @@ impl ScanState {
             .collect()
     }
 
-    fn latest_ledger_proof(
+    pub fn latest_ledger_proof(
         &self,
     ) -> Option<(
         &LedgerProofWithSokMessage,
@@ -806,7 +808,7 @@ impl ScanState {
         }
     }
 
-    fn all_work_statements_exn(&self) -> Vec<transaction_snark::work::Statement> {
+    pub fn all_work_statements_exn(&self) -> Vec<transaction_snark::work::Statement> {
         let work_seqs = self.all_jobs();
 
         let s = |job: &AvailableJob| Self::statement_of_job(job).unwrap();
@@ -846,7 +848,7 @@ impl ScanState {
             .collect()
     }
 
-    fn all_work_pairs<F>(
+    pub fn all_work_pairs<F>(
         &self,
         get_state: F,
     ) -> Result<Vec<OneOrTwo<snark_work::spec::Work>>, String>

@@ -302,7 +302,7 @@ impl PendingCoinbase {
         self.tree.get_exn(addr)
     }
 
-    fn latest_stack(&self, is_new_stack: bool) -> Stack {
+    pub fn latest_stack(&self, is_new_stack: bool) -> Stack {
         let key = self.latest_stack_id(is_new_stack);
         let addr = self.tree.find_index_exn(key);
         let mut res = self.tree.get_exn(addr).clone();

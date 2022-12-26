@@ -39,6 +39,7 @@ mod hash;
 mod mask;
 mod poseidon;
 pub mod scan_state;
+pub mod staged_ledger;
 mod tree;
 mod tree_version;
 mod util;
