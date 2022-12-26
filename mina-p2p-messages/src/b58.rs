@@ -1,5 +1,6 @@
 //! Base58check encoding/decoding.
 
+use std::fmt;
 use std::marker::PhantomData;
 
 use binprot::{BinProtRead, BinProtWrite};
@@ -135,6 +136,23 @@ where
     }
 }
 
+impl<T, U, const V: u8> fmt::Display for Base58CheckOfBinProt<T, U, V>
+where
+    T: Clone,
+    U: From<T> + BinProtWrite,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut binprot = Vec::new();
+        let from = U::from(self.0.clone());
+        from.binprot_write(&mut binprot).map_err(|e| {
+            serde::ser::Error::custom(format!("Failed to convert to base58check: {e}"))
+        })?;
+        let encoded = encode(&binprot, V);
+
+        write!(f, "{}", encoded)
+    }
+}
+
 impl<T, U, const V: u8> Serialize for Base58CheckOfBinProt<T, U, V>
 where
     T: Clone + Serialize,
@@ -145,13 +163,7 @@ where
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            let mut binprot = Vec::new();
-            let from = U::from(self.0.clone());
-            from.binprot_write(&mut binprot).map_err(|e| {
-                serde::ser::Error::custom(format!("Failed to convert to base58check: {e}"))
-            })?;
-            let encoded = encode(&binprot, V);
-            serializer.serialize_str(&encoded)
+            serializer.serialize_str(&self.to_string())
         } else {
             self.0.serialize(serializer)
         }

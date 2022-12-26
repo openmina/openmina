@@ -730,7 +730,9 @@ pub struct CurrencyBalanceStableV1(pub CurrencyAmountStableV1);
 /// Gid: `586`
 /// Location: [src/lib/non_zero_curve_point/compressed_poly.ml:13:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/non_zero_curve_point/compressed_poly.ml#L13)
 /// Args: crate :: bigint :: BigInt , bool
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BinProtRead, BinProtWrite,
+)]
 pub struct NonZeroCurvePointUncompressedStableV1 {
     pub x: crate::bigint::BigInt,
     pub is_odd: bool,
@@ -740,7 +742,19 @@ pub struct NonZeroCurvePointUncompressedStableV1 {
 ///
 /// Gid: `616`
 /// Location: [src/lib/data_hash_lib/state_hash.ml:44:4](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/data_hash_lib/state_hash.ml#L44)
-#[derive(Clone, Debug, Deref, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone,
+    Debug,
+    Deref,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+)]
 pub struct DataHashLibStateHashStableV1(pub crate::bigint::BigInt);
 
 /// **OCaml name**: `Block_time.Make_str.Time.Stable.V1`
@@ -2662,11 +2676,4 @@ pub struct MinaBlockHeaderStableV2 {
 pub struct NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1 {
     pub proof: TransactionSnarkWorkTStableV2Proofs,
     pub fee: MinaBaseFeeWithProverStableV1,
-}
-
-#[test]
-fn tst() {
-    let addr: MinaBaseSignatureStableV1 =
-        serde_json::from_str("\"B62qmQsEHcsPUs5xdtHKjEmWqqhUPRSF2GNmdguqnNvpEZpKftPC69e\"")
-            .unwrap();
 }

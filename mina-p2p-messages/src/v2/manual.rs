@@ -205,7 +205,9 @@ base58check_of_binprot!(
     TOKEN_ID_KEY
 );
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BinProtRead, BinProtWrite,
+)]
 pub struct NonZeroCurvePointWithVersions {
     x: Versioned<crate::bigint::BigInt, 1>,
     is_odd: bool,
