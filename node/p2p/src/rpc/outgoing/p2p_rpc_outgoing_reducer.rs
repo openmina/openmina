@@ -11,17 +11,19 @@ impl P2pRpcOutgoingState {
                 self.add(P2pRpcOutgoingStatus::Init {
                     time: meta.time(),
                     request: action.request.clone(),
+                    requestor: action.requestor.clone(),
                 });
             }
             P2pRpcOutgoingAction::Pending(action) => {
                 if let Some(req) = self.get_mut(action.rpc_id) {
                     *req = match req {
-                        P2pRpcOutgoingStatus::Init { request, .. } => {
-                            P2pRpcOutgoingStatus::Pending {
-                                time: meta.time(),
-                                request: std::mem::take(request),
-                            }
-                        }
+                        P2pRpcOutgoingStatus::Init {
+                            request, requestor, ..
+                        } => P2pRpcOutgoingStatus::Pending {
+                            time: meta.time(),
+                            request: std::mem::take(request),
+                            requestor: std::mem::take(requestor),
+                        },
                         _ => return,
                     };
                 }
@@ -29,13 +31,14 @@ impl P2pRpcOutgoingState {
             P2pRpcOutgoingAction::Received(action) => {
                 if let Some(req) = self.get_mut(action.rpc_id) {
                     *req = match req {
-                        P2pRpcOutgoingStatus::Pending { request, .. } => {
-                            P2pRpcOutgoingStatus::Received {
-                                time: meta.time(),
-                                request: std::mem::take(request),
-                                response: action.response.clone(),
-                            }
-                        }
+                        P2pRpcOutgoingStatus::Pending {
+                            request, requestor, ..
+                        } => P2pRpcOutgoingStatus::Received {
+                            time: meta.time(),
+                            request: std::mem::take(request),
+                            requestor: std::mem::take(requestor),
+                            response: action.response.clone(),
+                        },
                         _ => return,
                     };
                 }
@@ -43,19 +46,24 @@ impl P2pRpcOutgoingState {
             P2pRpcOutgoingAction::Error(action) => {
                 if let Some(req) = self.get_mut(action.rpc_id) {
                     *req = match req {
-                        P2pRpcOutgoingStatus::Pending { request, .. } => {
-                            P2pRpcOutgoingStatus::Error {
-                                time: meta.time(),
-                                request: std::mem::take(request),
-                                response: None,
-                                error: action.error.clone(),
-                            }
-                        }
-                        P2pRpcOutgoingStatus::Received {
-                            request, response, ..
+                        P2pRpcOutgoingStatus::Pending {
+                            request, requestor, ..
                         } => P2pRpcOutgoingStatus::Error {
                             time: meta.time(),
                             request: std::mem::take(request),
+                            requestor: std::mem::take(requestor),
+                            response: None,
+                            error: action.error.clone(),
+                        },
+                        P2pRpcOutgoingStatus::Received {
+                            request,
+                            requestor,
+                            response,
+                            ..
+                        } => P2pRpcOutgoingStatus::Error {
+                            time: meta.time(),
+                            request: std::mem::take(request),
+                            requestor: std::mem::take(requestor),
                             response: Some(std::mem::take(response)),
                             error: action.error.clone(),
                         },
@@ -67,10 +75,14 @@ impl P2pRpcOutgoingState {
                 if let Some(req) = self.get_mut(action.rpc_id) {
                     *req = match req {
                         P2pRpcOutgoingStatus::Received {
-                            request, response, ..
+                            request,
+                            requestor,
+                            response,
+                            ..
                         } => P2pRpcOutgoingStatus::Success {
                             time: meta.time(),
                             request: std::mem::take(request),
+                            requestor: std::mem::take(requestor),
                             response: std::mem::take(response),
                         },
                         _ => return,

@@ -20,7 +20,7 @@ pub fn snark_effects<S: Service>(store: &mut Store<S>, action: SnarkActionWithMe
                 let req = store.state().snark.block_verify.jobs.get(a.req_id);
                 let Some(req) = req else { return };
                 store.dispatch(ConsensusBlockSnarkVerifySuccessAction {
-                    hash: req.block().hash.clone(),
+                    hash: req.block().hash_ref().clone(),
                 });
                 a.effects(&meta, store);
             }

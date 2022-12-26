@@ -1,17 +1,17 @@
 use serde::{Deserialize, Serialize};
 
-pub use mina_p2p_messages::v1::StateHashStable as BlockHash;
 pub use mina_p2p_messages::v2::MinaBlockBlockStableV2 as Block;
 pub use mina_p2p_messages::v2::MinaBlockHeaderStableV2 as BlockHeader;
+pub use mina_p2p_messages::v2::StateHash as BlockHash;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BlockWithHash {
+pub struct BlockWithHash<T: AsRef<Block>> {
     pub hash: BlockHash,
-    pub block: Block,
+    pub block: T,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BlockHeaderWithHash {
+pub struct BlockHeaderWithHash<T: AsRef<BlockHeader>> {
     pub hash: BlockHash,
-    pub header: BlockHeader,
+    pub header: T,
 }

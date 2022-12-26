@@ -4,6 +4,7 @@ use crate::logger::logger_effects;
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
+use crate::watched_accounts::watched_accounts_effects;
 use crate::{Action, ActionWithMeta, Service, Store};
 
 pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
@@ -26,6 +27,9 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         }
         Action::Rpc(action) => {
             rpc_effects(store, meta.with_action(action));
+        }
+        Action::WatchedAccounts(action) => {
+            watched_accounts_effects(store, meta.with_action(action));
         }
     }
 }

@@ -2,11 +2,13 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use shared::{block::BlockHeaderWithHash, requests::PendingRequests};
+use shared::requests::PendingRequests;
 
 use crate::{VerifierIndex, VerifierSRS};
 
-use super::{SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyIdType};
+use super::{
+    SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyIdType, VerifiableBlockWithHash,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkBlockVerifyState {
@@ -34,20 +36,20 @@ pub enum SnarkBlockVerifyStatus {
     Init {
         time: redux::Timestamp,
         // TODO(binier): use Rc<_> or Arc<_>,
-        block: BlockHeaderWithHash,
+        block: VerifiableBlockWithHash,
     },
     Pending {
         time: redux::Timestamp,
-        block: BlockHeaderWithHash,
+        block: VerifiableBlockWithHash,
     },
     Error {
         time: redux::Timestamp,
-        block: BlockHeaderWithHash,
+        block: VerifiableBlockWithHash,
         error: SnarkBlockVerifyError,
     },
     Success {
         time: redux::Timestamp,
-        block: BlockHeaderWithHash,
+        block: VerifiableBlockWithHash,
     },
 }
 
@@ -64,7 +66,7 @@ impl SnarkBlockVerifyStatus {
         matches!(self, Self::Error { .. } | Self::Success { .. })
     }
 
-    pub fn block(&self) -> &BlockHeaderWithHash {
+    pub fn block(&self) -> &VerifiableBlockWithHash {
         match self {
             Self::Init { block, .. } => block,
             Self::Pending { block, .. } => block,

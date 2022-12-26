@@ -1,8 +1,9 @@
+use std::sync::Arc;
+
+use mina_p2p_messages::v2::StateHash;
 use serde::{Deserialize, Serialize};
 
-use shared::block::BlockHeaderWithHash;
-
-use super::{SnarkBlockVerifyError, SnarkBlockVerifyId};
+use super::{SnarkBlockVerifyError, SnarkBlockVerifyId, VerifiableBlockWithHash};
 
 pub type SnarkBlockVerifyActionWithMeta = redux::ActionWithMeta<SnarkBlockVerifyAction>;
 pub type SnarkBlockVerifyActionWithMetaRef<'a> = redux::ActionWithMeta<&'a SnarkBlockVerifyAction>;
@@ -19,7 +20,7 @@ pub enum SnarkBlockVerifyAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkBlockVerifyInitAction {
     pub req_id: SnarkBlockVerifyId,
-    pub block: BlockHeaderWithHash,
+    pub block: VerifiableBlockWithHash,
 }
 
 impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifyInitAction {

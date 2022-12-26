@@ -7,7 +7,7 @@ use redux::Instant;
 use wasm_bindgen_futures::spawn_local;
 
 use lib::event_source::{Event, SnarkEvent};
-use lib::snark::block_verify::SnarkBlockVerifyError;
+use lib::snark::block_verify::{SnarkBlockVerifyError, VerifiableBlockWithHash};
 
 pub mod libp2p;
 use self::libp2p::Libp2pService;
@@ -87,18 +87,17 @@ impl lib::service::SnarkBlockVerifyService for NodeWasmService {
         req_id: lib::snark::block_verify::SnarkBlockVerifyId,
         verifier_index: Arc<lib::snark::VerifierIndex>,
         verifier_srs: Arc<lib::snark::VerifierSRS>,
-        block: &mina_p2p_messages::v2::MinaBlockHeaderStableV2,
+        block: VerifiableBlockWithHash,
     ) {
         let mut tx = self.event_source_sender.clone();
-        // TODO(binier): pass block as `Arc` to avoid extra cloning.
-        let block = Arc::new(block.clone());
 
         let (mut tx, rx) = oneshot::channel();
         rayon::spawn_fifo(move || {
+            let header = block.header_ref();
             let result = {
-                if !lib::snark::accumulator_check(&verifier_srs, &block.protocol_state_proof) {
+                if !lib::snark::accumulator_check(&verifier_srs, &header.protocol_state_proof) {
                     Err(SnarkBlockVerifyError::AccumulatorCheckFailed)
-                } else if !lib::snark::verify(&block, &verifier_index) {
+                } else if !lib::snark::verify(header, &verifier_index) {
                     Err(SnarkBlockVerifyError::VerificationFailed)
                 } else {
                     Ok(())

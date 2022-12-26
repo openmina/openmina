@@ -12,7 +12,7 @@ impl ConsensusState {
                 self.blocks.insert(
                     a.hash.clone(),
                     ConsensusBlockState {
-                        header: a.header.clone(),
+                        block: a.block.clone(),
                         status: ConsensusBlockStatus::Received { time: meta.time() },
                     },
                 );
@@ -37,7 +37,7 @@ impl ConsensusState {
                         Some(tip) => (Some(tip.hash.clone()), {
                             let tip_cs = &tip.header.protocol_state.body.consensus_state;
                             let candidate_cs =
-                                &candidate.header.protocol_state.body.consensus_state;
+                                &candidate.block.header.protocol_state.body.consensus_state;
                             if tip_cs.blockchain_length.0 < candidate_cs.blockchain_length.0 {
                                 ConsensusShortRangeForkDecisionUseReason::LongerChain.into()
                             } else if tip_cs.blockchain_length.0 == candidate_cs.blockchain_length.0

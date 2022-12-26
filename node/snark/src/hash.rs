@@ -3,9 +3,9 @@
 use ark_ff::{BigInteger, BigInteger256, Field, FromBytes, PrimeField};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
-use mina_p2p_messages::v1::StateHashStable;
 use mina_p2p_messages::v2::{
-    MinaBlockBlockStableV2, MinaBlockHeaderStableV2, MinaStateProtocolStateValueStableV2,
+    DataHashLibStateHashStableV1, MinaBlockBlockStableV2, MinaBlockHeaderStableV2,
+    MinaStateProtocolStateValueStableV2, StateHash,
 };
 use oracle::{
     constants::PlonkSpongeConstantsKimchi,
@@ -260,12 +260,12 @@ impl StateHashable for MinaStateProtocolStateValueStableV2 {
     }
 }
 
-pub fn state_hash<T: StateHashable>(t: &T) -> StateHashStable {
+pub fn state_hash<T: StateHashable>(t: &T) -> StateHash {
     use crate::public_input::protocol_state::MinaHash;
     use mina_p2p_messages::v1::StateHashStableV1;
 
     let field = t.as_hashable().hash();
-    StateHashStableV1::from_bigint(field.into()).into()
+    DataHashLibStateHashStableV1(field.into()).into()
 }
 
 #[cfg(test)]

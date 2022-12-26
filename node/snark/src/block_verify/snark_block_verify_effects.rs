@@ -17,7 +17,7 @@ impl SnarkBlockVerifyInitAction {
         let verifier_srs = store.state().block_verify.verifier_srs.clone();
         store
             .service()
-            .verify_init(req_id, verifier_index, verifier_srs, &self.block.header);
+            .verify_init(req_id, verifier_index, verifier_srs, self.block.clone());
         store.dispatch(SnarkBlockVerifyPendingAction { req_id });
     }
 }

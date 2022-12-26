@@ -140,7 +140,7 @@ impl Transaction {
         self
     }
 
-    fn pub_key_to_p2p_type(key: CompressedPubKey) -> NonZeroCurvePoint {
+    pub fn pub_key_to_p2p_type(key: CompressedPubKey) -> NonZeroCurvePoint {
         let v = NonZeroCurvePointUncompressedStableV1 {
             x: BigInt::from(key.x),
             is_odd: key.is_odd,

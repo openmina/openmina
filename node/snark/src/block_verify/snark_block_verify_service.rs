@@ -4,7 +4,7 @@ use mina_p2p_messages::v2::MinaBlockHeaderStableV2;
 
 use crate::{VerifierIndex, VerifierSRS};
 
-use super::SnarkBlockVerifyId;
+use super::{SnarkBlockVerifyId, VerifiableBlockWithHash};
 
 pub trait SnarkBlockVerifyService: redux::Service {
     fn verify_init(
@@ -12,6 +12,6 @@ pub trait SnarkBlockVerifyService: redux::Service {
         req_id: SnarkBlockVerifyId,
         verifier_index: Arc<VerifierIndex>,
         verifier_srs: Arc<VerifierSRS>,
-        block: &MinaBlockHeaderStableV2,
+        block: VerifiableBlockWithHash,
     );
 }
