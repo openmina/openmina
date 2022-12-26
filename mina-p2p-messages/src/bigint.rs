@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct BigInt(Box<[u8; 32]>);
 
 impl BigInt {
+    #[cfg(feature = "hashing")]
     pub fn one() -> Self {
         mina_curves::pasta::Fp::from(1u64).into()
     }
