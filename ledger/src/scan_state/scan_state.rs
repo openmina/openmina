@@ -14,7 +14,7 @@ use crate::{
         },
     },
     staged_ledger::sparse_ledger::SparseLedger,
-    Account, AccountId, BaseLedger, Mask,
+    Account, AccountId,
 };
 
 use self::transaction_snark::{InitStack, LedgerProof, OneOrTwo, Registers};
@@ -63,7 +63,7 @@ pub mod transaction_snark {
             transaction_logic::{local_state::LocalState, transaction_applied::TransactionApplied},
         },
         staged_ledger::sparse_ledger::SparseLedger,
-        Account, AccountId, Mask,
+        Account, AccountId,
     };
 
     use super::Fee;

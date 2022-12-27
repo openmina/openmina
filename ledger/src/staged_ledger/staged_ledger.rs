@@ -1,7 +1,9 @@
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
+use mina_signer::CompressedPubKey;
 
 use crate::{
+    decompress_pk,
     scan_state::{
         currency::{Amount, Fee, Magnitude},
         pending_coinbase::{PendingCoinbase, Stack, StackState},
@@ -33,6 +35,7 @@ pub struct StackStateWithInitStack {
     pub init_stack: Stack,
 }
 
+/// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L23
 pub enum StagedLedgerError {
     NonZeroFeeExcess,
     InvalidProofs,
@@ -43,7 +46,7 @@ pub enum StagedLedgerError {
         transaction: WithStatus<Transaction>,
         got: TransactionStatus,
     },
-    InvalidPublicKey,
+    InvalidPublicKey(CompressedPubKey),
     Unexpected(String),
 }
 
@@ -500,15 +503,16 @@ impl StagedLedger {
         Ok((applied_txn, statement, state))
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L560
     fn apply_transaction_and_get_witness(
         constraint_constants: &ConstraintConstants,
-        mut ledger: Mask,
+        ledger: Mask,
         pending_coinbase_stack_state: StackStateWithInitStack,
         transaction: Transaction,
         status: Option<TransactionStatus>,
         txn_state_view: &ProtocolStateView,
         state_and_body_hash: (Fp, Fp),
-    ) -> Result<(), StagedLedgerError> {
+    ) -> Result<(TransactionWithWitness, StackStateWithInitStack), StagedLedgerError> {
         let account_ids = |transaction: &Transaction| -> Vec<AccountId> {
             match transaction {
                 Transaction::Command(cmd) => cmd.accounts_referenced(),
@@ -549,90 +553,58 @@ impl StagedLedger {
             }
         };
 
-        TransactionWithWitness {
+        let witness = TransactionWithWitness {
             transaction_with_info: applied_txn,
             state_hash: state_and_body_hash,
             statement,
             init_stack: InitStack::Base(pending_coinbase_stack_state.init_stack),
-            ledger_witness: todo!(),
+            ledger_witness,
         };
 
-        Ok(())
+        Ok((witness, updated_pending_coinbase_stack_state))
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L611
+    fn update_ledger_and_get_statements(
+        constraint_constants: &ConstraintConstants,
+        ledger: Mask,
+        current_stack: Stack,
+        transactions: Vec<WithStatus<Transaction>>,
+        current_state_view: &ProtocolStateView,
+        state_and_body_hash: (Fp, Fp),
+    ) -> Result<(Vec<TransactionWithWitness>, Stack), StagedLedgerError> {
+        let current_stack_with_state = current_stack.push_state(state_and_body_hash.1);
+        let mut witnesses = Vec::with_capacity(transactions.len());
+
+        let mut pending_coinbase_stack_state = StackStateWithInitStack {
+            pc: StackState {
+                source: current_stack.clone(),
+                target: current_stack_with_state,
+            },
+            init_stack: current_stack,
+        };
+
+        for transaction in transactions {
+            let public_keys = transaction.data.public_keys();
+
+            if let Some(pk) = public_keys.iter().find(|pk| decompress_pk(pk).is_none()) {
+                return Err(StagedLedgerError::InvalidPublicKey(pk.clone()));
+            }
+
+            let (value, updated) = Self::apply_transaction_and_get_witness(
+                constraint_constants,
+                ledger.clone(),
+                pending_coinbase_stack_state,
+                transaction.data,
+                Some(transaction.status),
+                current_state_view,
+                state_and_body_hash,
+            )?;
+
+            witnesses.push(value);
+            pending_coinbase_stack_state = updated;
+        }
+
+        Ok((witnesses, pending_coinbase_stack_state.pc.target))
     }
 }
-
-// let apply_transaction_and_get_witness ~constraint_constants ledger
-//     pending_coinbase_stack_state s status txn_state_view state_and_body_hash =
-//   (* Core.Printf.eprintf "MY_LOG.APPLY_TRANSACTION_AND_GET_WITNESS\n%!" ; *)
-//   let open Deferred.Result.Let_syntax in
-//   let account_ids : Transaction.t -> _ = function
-//     | Fee_transfer t ->
-//         Fee_transfer.receivers t
-//     | Command t ->
-//         let t = (t :> User_command.t) in
-//         User_command.accounts_referenced t
-//     | Coinbase c ->
-//         let ft_receivers =
-//           Option.map ~f:Coinbase.Fee_transfer.receiver c.fee_transfer
-//           |> Option.to_list
-//         in
-//         Account_id.create c.receiver Token_id.default :: ft_receivers
-//   in
-//   (* Core.Printf.eprintf "MY_LOG.APPLY_TRANSACTION_AND_GET_WITNESS_111\n%!" ; *)
-//   let ledger_witness =
-//     O1trace.sync_thread "create_ledger_witness" (fun () ->
-//         Sparse_ledger.of_ledger_subset_exn ledger (account_ids s) )
-//   in
-//   (* Core.Printf.eprintf "MY_LOG.APPLY_TRANSACTION_AND_GET_WITNESS_222\n%!" ; *)
-//   let%bind () = yield_result () in
-
-//   let%bind applied_txn, statement, updated_pending_coinbase_stack_state =
-//     O1trace.sync_thread "apply_transaction_to_scan_state" (fun () ->
-//         apply_transaction_and_get_statement ~constraint_constants ledger
-//           pending_coinbase_stack_state s txn_state_view )
-//     |> Deferred.return
-//   in
-//   (* Core.Printf.eprintf "MY_LOG.APPLY_TRANSACTION_AND_GET_STATEMENT.AAA\n%!" ; *)
-//   let%bind () = yield_result () in
-//   (* Core.Printf.eprintf "MY_LOG.APPLY_TRANSACTION_AND_GET_STATEMENT.BBB\n%!" ; *)
-//   let%map () =
-//     match status with
-//     | None ->
-//         (* Core.Printf.eprintf *)
-//         (*   "MY_LOG.APPLY_TRANSACTION_AND_GET_STATEMENT.NONE\n%!" ; *)
-//         return ()
-//     | Some status ->
-//         (* Validate that command status matches. *)
-//         let got_status =
-//           Ledger.Transaction_applied.transaction_status applied_txn
-//         in
-//         (* Core.Printf.eprintf *)
-//         (*   "MY_LOG.APPLY_TRANSACTION_AND_GET_STATEMENT STATUS=%s GOT_STATUS=%s\n\ *)
-//         (*    %!" *)
-//         (*   ( match status with *)
-//         (*   | Transaction_status.Applied -> *)
-//         (*       "applied" *)
-//         (*   | Transaction_status.Failed _e -> *)
-//         (*       "failed" ) *)
-//         (*   ( match got_status with *)
-//         (*   | Transaction_status.Applied -> *)
-//         (*       "applied" *)
-//         (*   | Transaction_status.Failed _ -> *)
-//         (*       "failed" ) ; *)
-//         if Transaction_status.equal status got_status then (
-//           (* Core.Printf.eprintf *)
-//           (*   "MY_LOG.APPLY_TRANSACTION_AND_GET_STATEMENT.EQUAL\n%!" ; *)
-//           return () )
-//         else
-//           Deferred.Result.fail
-//             (Staged_ledger_error.Mismatched_statuses
-//                ({ With_status.data = s; status }, got_status) )
-//   in
-//   (* Core.Printf.eprintf "MY_LOG.APPLY_TRANSACTION_AND_GET_STATEMENT.SUCCESS\n%!" ; *)
-//   ( { Scan_state.Transaction_with_witness.transaction_with_info = applied_txn
-//     ; state_hash = state_and_body_hash
-//     ; ledger_witness
-//     ; init_stack = Base pending_coinbase_stack_state.init_stack
-//     ; statement
-//     }
-//   , updated_pending_coinbase_stack_state )

@@ -4,7 +4,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     scan_state::{currency::Magnitude, transaction_logic::transaction_applied::Varying},
     staged_ledger::sparse_ledger::{LedgerIntf, SparseLedger},
-    Account, AccountId, Address, BaseLedger, GetOrCreated, ReceiptChainHash, Timing, TokenId,
+    Account, AccountId, Address, ReceiptChainHash, Timing, TokenId,
 };
 
 use self::{
@@ -195,6 +195,24 @@ impl Coinbase {
     pub fn fee_excess(&self) -> Result<FeeExcess, String> {
         self.expected_supply_increase().map(|_| FeeExcess::empty())
     }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/coinbase.ml#L39
+    pub fn receiver(&self) -> AccountId {
+        AccountId::new(self.receiver.clone(), TokenId::default())
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/coinbase.ml#L51
+    pub fn accounts_accessed(&self) -> Vec<AccountId> {
+        let mut ids = Vec::with_capacity(2);
+
+        ids.push(self.receiver());
+
+        if let Some(fee_transfer) = self.fee_transfer.as_ref() {
+            ids.push(fee_transfer.receiver());
+        };
+
+        ids
+    }
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signature.mli#L11
@@ -273,10 +291,22 @@ pub mod signed_command {
             AccountId::new(delegator.clone(), TokenId::default())
         }
 
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/stake_delegation.ml#L28
+        pub fn source_pk(&self) -> CompressedPubKey {
+            let Self::SetDelegate { delegator, .. } = self;
+            delegator.clone()
+        }
+
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/stake_delegation.ml#L24
         pub fn receiver(&self) -> AccountId {
             let Self::SetDelegate { new_delegate, .. } = self;
             AccountId::new(new_delegate.clone(), TokenId::default())
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/stake_delegation.ml#L22
+        pub fn receiver_pk(&self) -> CompressedPubKey {
+            let Self::SetDelegate { new_delegate, .. } = self;
+            new_delegate.clone()
         }
     }
 
@@ -312,6 +342,11 @@ pub mod signed_command {
             AccountId::new(public_key, TokenId::default())
         }
 
+        /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L320
+        pub fn fee_payer_pk(&self) -> CompressedPubKey {
+            self.payload.common.fee_payer_pk.clone()
+        }
+
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L318
         pub fn fee_token(&self) -> TokenId {
             TokenId::default()
@@ -331,6 +366,14 @@ pub mod signed_command {
             }
         }
 
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command_payload.ml#L227
+        pub fn source_pk(&self) -> CompressedPubKey {
+            match &self.payload.body {
+                Body::Payment(payload) => payload.source_pk.clone(),
+                Body::StakeDelegation(payload) => payload.source_pk(),
+            }
+        }
+
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command_payload.ml#L250
         pub fn receiver(&self) -> AccountId {
             match &self.payload.body {
@@ -338,6 +381,14 @@ pub mod signed_command {
                     AccountId::new(payload.receiver_pk.clone(), TokenId::default())
                 }
                 Body::StakeDelegation(payload) => payload.receiver(),
+            }
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command_payload.ml#L234
+        pub fn receiver_pk(&self) -> CompressedPubKey {
+            match &self.payload.body {
+                Body::Payment(payload) => payload.receiver_pk.clone(),
+                Body::StakeDelegation(payload) => payload.receiver_pk(),
             }
         }
 
@@ -680,6 +731,11 @@ pub mod zkapp_command {
                 Failed(_) => vec![self.fee_payer()],
             }
         }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L1251
+        pub fn accounts_referenced(&self) -> Vec<AccountId> {
+            self.accounts_accessed(TransactionStatus::Applied)
+        }
     }
 }
 
@@ -721,6 +777,23 @@ impl Transaction {
             Command(ZkAppCommand(cmd)) => Ok(cmd.fee_excess()),
             FeeTransfer(ft) => ft.fee_excess(),
             Coinbase(cb) => cb.fee_excess(),
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/transaction/transaction.ml#L85
+    pub fn public_keys(&self) -> Vec<CompressedPubKey> {
+        use Transaction::*;
+        use UserCommand::*;
+
+        let to_pks = |ids: Vec<AccountId>| ids.into_iter().map(|id| id.public_key).collect();
+
+        match self {
+            Command(SignedCommand(cmd)) => {
+                vec![cmd.fee_payer_pk(), cmd.source_pk(), cmd.receiver_pk()]
+            }
+            Command(ZkAppCommand(cmd)) => to_pks(cmd.accounts_referenced()),
+            FeeTransfer(ft) => ft.receiver_pks().cloned().collect(),
+            Coinbase(cb) => to_pks(cb.accounts_accessed()),
         }
     }
 }
@@ -906,7 +979,7 @@ pub mod transaction_applied {
 pub mod transaction_witness {
     use mina_p2p_messages::v2::MinaStateProtocolStateBodyValueStableV2;
 
-    use crate::{scan_state::pending_coinbase::Stack, Mask};
+    use crate::scan_state::pending_coinbase::Stack;
 
     use super::*;
 
