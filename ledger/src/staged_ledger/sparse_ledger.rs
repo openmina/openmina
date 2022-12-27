@@ -1,13 +1,15 @@
 use std::collections::{BTreeMap, HashMap};
 
+use ark_ff::Zero;
 use mina_hasher::Fp;
+use mina_signer::CompressedPubKey;
 
 use crate::{
-    Account, AccountId, AccountIndex, Address, AddressIterator, Direction, HashesMatrix,
-    MerklePath, TreeVersion, V2,
+    scan_state::transaction_logic::AccountState, Account, AccountId, AccountIndex, Address,
+    AddressIterator, BaseLedger, Direction, HashesMatrix, Mask, MerklePath, TreeVersion, V2,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SparseLedger<K, V> {
     values: BTreeMap<AccountIndex, V>,
     indexes: HashMap<K, Address>,
@@ -26,6 +28,42 @@ impl SparseLedger<AccountId, Account> {
             depth,
             hashes_matrix,
         }
+    }
+
+    pub fn of_ledger_subset_exn(oledger: Mask, keys: &[AccountId]) -> Self {
+        use crate::GetOrCreated::{Added, Existed};
+
+        let mut ledger = oledger.copy();
+        let mut sparse = Self::create(
+            ledger.depth() as usize,
+            BaseLedger::merkle_root(&mut ledger),
+        );
+
+        for key in keys {
+            match BaseLedger::location_of_account(&ledger, key) {
+                Some(addr) => {
+                    let account = BaseLedger::get(&ledger, addr.clone()).unwrap();
+                    let merkle_path = ledger.merkle_path(addr);
+                    sparse.add_path(&merkle_path, key.clone(), account);
+                }
+                None => {
+                    let addr = match ledger
+                        .get_or_create_account(key.clone(), Account::empty())
+                        .unwrap()
+                    {
+                        Added(addr) => addr,
+                        Existed(_) => panic!("create_empty for a key already present"),
+                    };
+
+                    let merkle_path = ledger.merkle_path(addr);
+                    sparse.add_path(&merkle_path, key.clone(), Account::empty());
+                }
+            }
+        }
+
+        assert_eq!(BaseLedger::merkle_root(&mut ledger), sparse.merkle_root());
+
+        sparse
     }
 
     pub fn iteri<F>(&self, fun: F)
@@ -76,14 +114,14 @@ impl SparseLedger<AccountId, Account> {
         self.values.insert(index, account);
     }
 
-    fn get(&self, addr: Address) -> Option<&Account> {
+    fn get(&self, addr: &Address) -> Option<&Account> {
         assert_eq!(addr.length(), self.depth);
 
         let index = addr.to_index();
         self.values.get(&index)
     }
 
-    pub fn get_exn(&self, addr: Address) -> &Account {
+    pub fn get_exn(&self, addr: &Address) -> &Account {
         self.get(addr).unwrap()
     }
 
@@ -115,7 +153,7 @@ impl SparseLedger<AccountId, Account> {
             return *hash;
         }
 
-        let hash = match self.get(addr.clone()) {
+        let hash = match self.get(&addr) {
             Some(value) => V2::hash_leaf(value),
             None => V2::empty_hash_at_depth(0),
         };
@@ -212,5 +250,122 @@ impl SparseLedger<AccountId, Account> {
         let right_hash = get_child_hash(addr.child_right());
 
         self.get_node_hash(&addr, left_hash, right_hash)
+    }
+
+    fn location_of_account_impl(&self, account_id: &AccountId) -> Option<Address> {
+        self.indexes.get(account_id).cloned()
+    }
+}
+
+/// Trait used in transaction logic, on the ledger witness (`SparseLedger`)
+///
+/// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/ledger_intf.ml
+/// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml
+pub trait LedgerIntf {
+    fn get(&self, addr: &Address) -> Option<Account>;
+    fn location_of_account(&self, account_id: &AccountId) -> Option<Address>;
+    fn set(&mut self, addr: &Address, account: Account);
+    fn get_or_create(
+        &mut self,
+        account_id: &AccountId,
+    ) -> Result<(AccountState, Account, Address), String>;
+    fn create_new_account(&mut self, account_id: AccountId, account: Account) -> Result<(), ()>;
+    fn remove_accounts_exn(&mut self, account_ids: &[AccountId]);
+    fn merkle_root(&mut self) -> Fp;
+    fn empty(depth: usize) -> Self;
+    fn create_masked(&self) -> Self;
+    fn apply_mask(&self, mask: Self);
+}
+
+impl LedgerIntf for SparseLedger<AccountId, Account> {
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L58
+    fn get(&self, addr: &Address) -> Option<Account> {
+        let account = self.get(addr)?;
+
+        if account.public_key == CompressedPubKey::empty() {
+            None
+        } else {
+            Some(account.clone())
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L66
+    fn location_of_account(&self, account_id: &AccountId) -> Option<Address> {
+        let addr = self.indexes.get(account_id)?;
+        let account = self.get(addr)?;
+
+        if account.public_key == CompressedPubKey::empty() {
+            None
+        } else {
+            Some(addr.clone())
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L75
+    fn set(&mut self, addr: &Address, account: Account) {
+        self.set_exn(addr.clone(), account);
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L96
+    fn get_or_create(
+        &mut self,
+        account_id: &AccountId,
+    ) -> Result<(AccountState, Account, Address), String> {
+        let addr = self
+            .indexes
+            .get(account_id)
+            .ok_or_else(|| "failed".to_string())?;
+        let account = self.get(addr).ok_or_else(|| "failed".to_string())?;
+
+        let addr = addr.clone();
+        if account.public_key == CompressedPubKey::empty() {
+            let public_key = account_id.public_key.clone();
+            let mut account = account.clone();
+
+            account.delegate = Some(public_key.clone());
+            account.public_key = public_key;
+            account.token_id = account_id.token_id.clone();
+
+            self.set(&addr, account.clone());
+            Ok((AccountState::Added, account, addr))
+        } else {
+            Ok((AccountState::Existed, account.clone(), addr))
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L109
+    fn create_new_account(&mut self, account_id: AccountId, to_set: Account) -> Result<(), ()> {
+        let addr = self.indexes.get(&account_id).ok_or(())?;
+        let account = self.get(addr).ok_or(())?;
+
+        if account.public_key == CompressedPubKey::empty() {
+            let addr = addr.clone();
+            self.set(&addr, to_set);
+        }
+
+        Ok(())
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L112
+    fn remove_accounts_exn(&mut self, _account_ids: &[AccountId]) {
+        unimplemented!("remove_accounts_exn: not implemented")
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L115
+    fn merkle_root(&mut self) -> Fp {
+        self.merkle_root()
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L142
+    fn empty(depth: usize) -> Self {
+        Self::create(depth, Fp::zero())
+    }
+
+    fn create_masked(&self) -> Self {
+        todo!()
+    }
+
+    fn apply_mask(&self, _mask: Self) {
+        todo!()
     }
 }

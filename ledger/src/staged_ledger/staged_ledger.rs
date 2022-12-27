@@ -7,7 +7,8 @@ use crate::{
         pending_coinbase::{PendingCoinbase, Stack, StackState},
         scan_state::{
             transaction_snark::{
-                work, LedgerHash, LedgerProofWithSokMessage, OneOrTwo, Registers, Statement,
+                work, InitStack, LedgerHash, LedgerProofWithSokMessage, OneOrTwo, Registers,
+                Statement, TransactionWithWitness,
             },
             ConstraintConstants, ScanState, StatementCheck, Verifier,
         },
@@ -23,11 +24,52 @@ use crate::{
     AccountId, BaseLedger, Mask, TokenId,
 };
 
+use super::sparse_ledger::SparseLedger;
+
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#470
+#[derive(Clone, Debug)]
 pub struct StackStateWithInitStack {
     pub pc: StackState,
     pub init_stack: Stack,
 }
+
+pub enum StagedLedgerError {
+    NonZeroFeeExcess,
+    InvalidProofs,
+    CouldntReachVerifier,
+    PreDiff,
+    InsufficientWork,
+    MismatchedStatuses {
+        transaction: WithStatus<Transaction>,
+        got: TransactionStatus,
+    },
+    InvalidPublicKey,
+    Unexpected(String),
+}
+
+impl From<String> for StagedLedgerError {
+    fn from(value: String) -> Self {
+        Self::Unexpected(value)
+    }
+}
+
+// module Staged_ledger_error = struct
+//   type t =
+//     | Non_zero_fee_excess of
+//         Scan_state.Space_partition.t * Transaction.t With_status.t list
+//     | Invalid_proofs of
+//         ( Ledger_proof.t
+//         * Transaction_snark.Statement.t
+//         * Mina_base.Sok_message.t )
+//         list
+//     | Couldn't_reach_verifier of Error.t
+//     | Pre_diff of Pre_diff_info.Error.t
+//     | Insufficient_work of string
+//     | Mismatched_statuses of
+//         Transaction.t With_status.t * Transaction_status.t
+//     | Invalid_public_key of Public_key.Compressed.t
+//     | Unexpected of Error.t
+//   [@@deriving sexp]
 
 pub struct StagedLedger {
     scan_state: ScanState,
@@ -109,7 +151,7 @@ impl StagedLedger {
         let pending_coinbase_stack = pending_coinbase_collection.latest_stack(false);
 
         scan_state.check_invariants(
-            &constraint_constants,
+            constraint_constants,
             StatementCheck::Full(Box::new(get_state)),
             &verifier,
             "Staged_ledger.of_scan_state_and_ledger",
@@ -191,7 +233,7 @@ impl StagedLedger {
             let txn_with_info = apply_transaction(
                 constraint_constants,
                 &protocol_state_view(&protocol_state),
-                snarked_ledger.clone(),
+                &mut snarked_ledger,
                 tx.data,
             )?;
 
@@ -406,7 +448,7 @@ impl StagedLedger {
         pending_coinbase_stack_state: StackStateWithInitStack,
         transaction: Transaction,
         txn_state_view: &ProtocolStateView,
-    ) -> Result<(TransactionApplied, Statement, StackStateWithInitStack), String> {
+    ) -> Result<(TransactionApplied, Statement, StackStateWithInitStack), StagedLedgerError> {
         let fee_excess = transaction.fee_excess()?;
 
         let source_merkle_root = ledger.merkle_root();
@@ -422,7 +464,7 @@ impl StagedLedger {
         let applied_txn = apply_transaction(
             constraint_constants,
             txn_state_view,
-            ledger.clone(),
+            &mut ledger,
             transaction,
         )
         .map_err(|e| format!("Error when applying transaction: {:?}", e))?;
@@ -463,10 +505,10 @@ impl StagedLedger {
         mut ledger: Mask,
         pending_coinbase_stack_state: StackStateWithInitStack,
         transaction: Transaction,
-        status: TransactionStatus,
+        status: Option<TransactionStatus>,
         txn_state_view: &ProtocolStateView,
         state_and_body_hash: (Fp, Fp),
-    ) {
+    ) -> Result<(), StagedLedgerError> {
         let account_ids = |transaction: &Transaction| -> Vec<AccountId> {
             match transaction {
                 Transaction::Command(cmd) => cmd.accounts_referenced(),
@@ -483,6 +525,39 @@ impl StagedLedger {
                 }
             }
         };
+
+        let ledger_witness =
+            SparseLedger::of_ledger_subset_exn(ledger.clone(), &account_ids(&transaction));
+
+        let (applied_txn, statement, updated_pending_coinbase_stack_state) =
+            Self::apply_transaction_and_get_statement(
+                constraint_constants,
+                ledger,
+                pending_coinbase_stack_state.clone(),
+                transaction,
+                txn_state_view,
+            )?;
+
+        if let Some(status) = status.as_ref() {
+            let got_status = applied_txn.transaction_status();
+
+            if status != got_status {
+                return Err(StagedLedgerError::MismatchedStatuses {
+                    transaction: applied_txn.transaction(),
+                    got: got_status.clone(),
+                });
+            }
+        };
+
+        TransactionWithWitness {
+            transaction_with_info: applied_txn,
+            state_hash: state_and_body_hash,
+            statement,
+            init_stack: InitStack::Base(pending_coinbase_stack_state.init_stack),
+            ledger_witness: todo!(),
+        };
+
+        Ok(())
     }
 }
 

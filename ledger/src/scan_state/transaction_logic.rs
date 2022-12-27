@@ -3,6 +3,7 @@ use mina_signer::CompressedPubKey;
 
 use crate::{
     scan_state::{currency::Magnitude, transaction_logic::transaction_applied::Varying},
+    staged_ledger::sparse_ledger::{LedgerIntf, SparseLedger},
     Account, AccountId, Address, BaseLedger, GetOrCreated, ReceiptChainHash, Timing, TokenId,
 };
 
@@ -912,7 +913,7 @@ pub mod transaction_witness {
     #[derive(Debug)]
     pub struct TransactionWitness {
         pub transaction: Transaction,
-        pub ledger: Mask,
+        pub ledger: SparseLedger<AccountId, Account>,
         pub protocol_state_body: MinaStateProtocolStateBodyValueStableV2,
         pub init_stack: Stack,
         pub status: TransactionStatus,
@@ -1077,11 +1078,11 @@ pub mod local_state {
 pub fn apply_transaction<L>(
     constraint_constants: &ConstraintConstants,
     txn_state_view: &ProtocolStateView,
-    mut ledger: L,
+    ledger: &mut L,
     transaction: Transaction,
 ) -> Result<TransactionApplied, String>
 where
-    L: BaseLedger,
+    L: LedgerIntf,
 {
     use Transaction::*;
     use UserCommand::*;
@@ -1092,15 +1093,12 @@ where
     match transaction {
         Command(SignedCommand(_cmd)) => todo!(),
         Command(ZkAppCommand(_cmd)) => todo!(),
-        FeeTransfer(fee_transfer) => apply_fee_transfer(
-            constraint_constants,
-            txn_global_slot,
-            &mut ledger,
-            fee_transfer,
-        )
-        .map(Varying::FeeTransfer),
+        FeeTransfer(fee_transfer) => {
+            apply_fee_transfer(constraint_constants, txn_global_slot, ledger, fee_transfer)
+                .map(Varying::FeeTransfer)
+        }
         Coinbase(coinbase) => {
-            apply_coinbase(constraint_constants, txn_global_slot, &mut ledger, coinbase)
+            apply_coinbase(constraint_constants, txn_global_slot, ledger, coinbase)
                 .map(Varying::Coinbase)
         }
     }
@@ -1128,7 +1126,7 @@ fn apply_coinbase<L>(
     coinbase: Coinbase,
 ) -> Result<transaction_applied::CoinbaseApplied, String>
 where
-    L: BaseLedger,
+    L: LedgerIntf,
 {
     let Coinbase {
         receiver,
@@ -1173,7 +1171,7 @@ where
 
             if can_receive.0 {
                 let (_, mut transferee_account, transferee_location) =
-                    get_or_create(ledger, &transferee_id)?;
+                    ledger.get_or_create(&transferee_id)?;
 
                 transferee_account.balance = balance;
                 transferee_account.timing = timing;
@@ -1223,12 +1221,12 @@ where
 
     let (failures2, burned_tokens2) = if can_receive.0 {
         let (_action2, mut receiver_account, receiver_location) =
-            get_or_create(ledger, &receiver_id)?;
+            ledger.get_or_create(&receiver_id)?;
 
         receiver_account.balance = receiver_balance;
         receiver_account.timing = coinbase_receiver_timing;
 
-        ledger.set(receiver_location, receiver_account);
+        ledger.set(&receiver_location, receiver_account);
 
         (vec![], Amount::zero())
     } else {
@@ -1239,7 +1237,7 @@ where
     };
 
     if let Some((addr, account)) = transferee_update {
-        ledger.set(addr, account);
+        ledger.set(&addr, account);
     };
 
     let burned_tokens = burned_tokens1
@@ -1276,7 +1274,7 @@ fn apply_fee_transfer<L>(
     fee_transfer: FeeTransfer,
 ) -> Result<transaction_applied::FeeTransferApplied, String>
 where
-    L: BaseLedger,
+    L: LedgerIntf,
 {
     let (new_accounts, failures, burned_tokens) = process_fee_transfer(
         ledger,
@@ -1336,32 +1334,32 @@ fn update_timing_when_no_deduction(
     validate_timing(account, Amount::zero(), txn_global_slot)
 }
 
-/// TODO: Move this to the ledger
-/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_ledger/ledger.ml#L311
-fn get_or_create<L>(
-    ledger: &mut L,
-    account_id: &AccountId,
-) -> Result<(AccountState, Account, Address), String>
-where
-    L: BaseLedger,
-{
-    let location = ledger
-        .get_or_create_account(account_id.clone(), Account::initialize(account_id))
-        .map_err(|e| format!("{:?}", e))?;
+// /// TODO: Move this to the ledger
+// /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_ledger/ledger.ml#L311
+// fn get_or_create<L>(
+//     ledger: &mut L,
+//     account_id: &AccountId,
+// ) -> Result<(AccountState, Account, Address), String>
+// where
+//     L: LedgerIntf,
+// {
+//     let location = ledger
+//         .get_or_create_account(account_id.clone(), Account::initialize(account_id))
+//         .map_err(|e| format!("{:?}", e))?;
 
-    let action = match location {
-        GetOrCreated::Added(_) => AccountState::Added,
-        GetOrCreated::Existed(_) => AccountState::Existed,
-    };
+//     let action = match location {
+//         GetOrCreated::Added(_) => AccountState::Added,
+//         GetOrCreated::Existed(_) => AccountState::Existed,
+//     };
 
-    let addr = location.addr();
+//     let addr = location.addr();
 
-    let account = ledger
-        .get(addr.clone())
-        .expect("get_or_create: Account was not found in the ledger after creation");
+//     let account = ledger
+//         .get(addr.clone())
+//         .expect("get_or_create: Account was not found in the ledger after creation");
 
-    Ok((action, account, addr))
-}
+//     Ok((action, account, addr))
+// }
 
 fn get_new_accounts<T>(action: AccountState, data: T) -> Option<T> {
     match action {
@@ -1387,7 +1385,7 @@ fn process_fee_transfer<L, FunBalance, FunTiming>(
     modify_timing: FunTiming,
 ) -> Result<(Vec<AccountId>, Vec<Vec<TransactionFailure>>, Amount), String>
 where
-    L: BaseLedger,
+    L: LedgerIntf,
     FunTiming: Fn(&Account) -> Result<Timing, String>,
     FunBalance: Fn(AccountState, &AccountId, Balance, &Fee) -> Result<Balance, String>,
 {
@@ -1404,13 +1402,13 @@ where
             let balance = modify_balance(action, &account_id, a.balance, &fee_transfer.fee)?;
 
             if can_receive.0 {
-                let (_, mut account, loc) = get_or_create(ledger, &account_id)?;
+                let (_, mut account, loc) = ledger.get_or_create(&account_id)?;
                 let new_accounts = get_new_accounts(action, account_id.clone());
 
                 account.balance = balance;
                 account.timing = timing;
 
-                ledger.set(loc, account);
+                ledger.set(&loc, account);
 
                 let new_accounts: Vec<_> = new_accounts.into_iter().collect();
                 Ok((new_accounts, vec![], Amount::zero()))
@@ -1434,13 +1432,13 @@ where
                 let balance = modify_balance(action1, &account_id1, a1.balance, &fee)?;
 
                 if can_receive1.0 {
-                    let (_, mut a1, l1) = get_or_create(ledger, &account_id1)?;
+                    let (_, mut a1, l1) = ledger.get_or_create(&account_id1)?;
                     let new_accounts1 = get_new_accounts(action1, account_id1);
 
                     a1.balance = balance;
                     a1.timing = timing;
 
-                    ledger.set(l1, a1);
+                    ledger.set(&l1, a1);
 
                     let new_accounts: Vec<_> = new_accounts1.into_iter().collect();
                     Ok((new_accounts, vec![vec![], vec![]], Amount::zero()))
@@ -1472,11 +1470,11 @@ where
                     modify_balance(action2, &account_id2, a2.balance, &fee_transfer2.fee)?;
 
                 let (new_accounts1, failures1, burned_tokens1) = if can_receive1.0 {
-                    let (_, mut a1, l1) = get_or_create(ledger, &account_id1)?;
+                    let (_, mut a1, l1) = ledger.get_or_create(&account_id1)?;
                     let new_accounts1 = get_new_accounts(action1, account_id1);
 
                     a1.balance = balance1;
-                    ledger.set(l1, a1);
+                    ledger.set(&l1, a1);
 
                     (new_accounts1, vec![], Amount::zero())
                 } else {
@@ -1488,13 +1486,13 @@ where
                 };
 
                 let (new_accounts2, failures2, burned_tokens2) = if can_receive2.0 {
-                    let (_, mut a2, l2) = get_or_create(ledger, &account_id2)?;
+                    let (_, mut a2, l2) = ledger.get_or_create(&account_id2)?;
                     let new_accounts2 = get_new_accounts(action2, account_id2);
 
                     a2.balance = balance2;
                     a2.timing = timing2;
 
-                    ledger.set(l2, a2);
+                    ledger.set(&l2, a2);
 
                     (new_accounts2, vec![], Amount::zero())
                 } else {
@@ -1522,7 +1520,7 @@ where
 }
 
 #[derive(Copy, Clone, Debug)]
-enum AccountState {
+pub enum AccountState {
     Added,
     Existed,
 }
@@ -1536,7 +1534,7 @@ fn has_permission_to_receive<L>(
     receiver_account_id: &AccountId,
 ) -> (Account, AccountState, HasPermissionToReceive)
 where
-    L: BaseLedger,
+    L: LedgerIntf,
 {
     use crate::PermissionTo::*;
     use AccountState::*;
@@ -1549,7 +1547,7 @@ where
             let perm = init_account.has_permission_to(Receive);
             (init_account, Added, HasPermissionToReceive(perm))
         }
-        Some(location) => match ledger.get(location) {
+        Some(location) => match ledger.get(&location) {
             None => panic!("Ledger location with no account"),
             Some(receiver_account) => {
                 let perm = receiver_account.has_permission_to(Receive);
@@ -1578,7 +1576,7 @@ pub fn apply_user_command_unchecked<L>(
     user_command: SignedCommand,
 ) -> Result<(), String>
 where
-    L: BaseLedger,
+    L: LedgerIntf,
 {
     let SignedCommand {
         payload: _,
@@ -1607,7 +1605,7 @@ fn pay_fee<L>(
     current_global_slot: &Slot,
 ) -> Result<(ExistingOrNew, Account), String>
 where
-    L: BaseLedger,
+    L: LedgerIntf,
 {
     let nonce = user_command.nonce();
     let fee_payer = user_command.fee_payer();
@@ -1640,7 +1638,7 @@ fn pay_fee_impl<L>(
     current_global_slot: &Slot,
 ) -> Result<(ExistingOrNew, Account), String>
 where
-    L: BaseLedger,
+    L: LedgerIntf,
 {
     // Fee-payer information
     let (location, mut account) = get_with_location(ledger, &fee_payer)?;
@@ -2067,10 +2065,10 @@ fn get_with_location<L>(
     account_id: &AccountId,
 ) -> Result<(ExistingOrNew, Account), String>
 where
-    L: BaseLedger,
+    L: LedgerIntf,
 {
     match ledger.location_of_account(account_id) {
-        Some(location) => match ledger.get(location.clone()) {
+        Some(location) => match ledger.get(&location) {
             Some(account) => Ok((ExistingOrNew::Existing(location), account)),
             None => panic!("Ledger location with no account"),
         },

@@ -13,7 +13,8 @@ use crate::{
             LedgerProofWithSokMessage, SokMessage, Statement, TransactionWithWitness,
         },
     },
-    BaseLedger, Mask,
+    staged_ledger::sparse_ledger::SparseLedger,
+    Account, AccountId, BaseLedger, Mask,
 };
 
 use self::transaction_snark::{InitStack, LedgerProof, OneOrTwo, Registers};
@@ -61,7 +62,8 @@ pub mod transaction_snark {
             pending_coinbase,
             transaction_logic::{local_state::LocalState, transaction_applied::TransactionApplied},
         },
-        Mask,
+        staged_ledger::sparse_ledger::SparseLedger,
+        Account, AccountId, Mask,
     };
 
     use super::Fee;
@@ -157,7 +159,7 @@ pub mod transaction_snark {
         // pub state_hash: (StateHash, MinaBaseStateBodyHashStableV1),
         pub statement: Statement,
         pub init_stack: InitStack,
-        pub ledger_witness: Mask,
+        pub ledger_witness: SparseLedger<AccountId, Account>,
     }
 
     #[derive(Debug, Clone)]
@@ -373,7 +375,7 @@ where
     let applied_transaction = apply_transaction(
         constraint_constants,
         &state_view,
-        ledger_witness.clone(),
+        &mut ledger_witness,
         transaction,
     )?;
 
@@ -988,7 +990,7 @@ pub enum Extracted {
         transaction_with_info: TransactionApplied,
         statement: Box<Statement>,
         state_hash: (Fp, Fp),
-        ledger_witness: Mask,
+        ledger_witness: SparseLedger<AccountId, Account>,
         init_stack: InitStack,
     },
     Second(Box<(LedgerProof, LedgerProof)>),

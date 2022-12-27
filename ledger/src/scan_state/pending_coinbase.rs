@@ -47,6 +47,7 @@ impl CoinbaseData {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct StackState {
     pub source: Stack,
     pub target: Stack,

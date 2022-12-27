@@ -12,6 +12,8 @@ use crate::{
     account::{Account, AccountId, TokenId},
     address::Address,
     database::DatabaseError,
+    scan_state::transaction_logic::AccountState,
+    staged_ledger::sparse_ledger::LedgerIntf,
 };
 
 pub type Uuid = String;
@@ -215,5 +217,76 @@ impl Deref for GetOrCreated {
             GetOrCreated::Added(addr) => addr,
             GetOrCreated::Existed(addr) => addr,
         }
+    }
+}
+
+impl<T> LedgerIntf for T
+where
+    T: BaseLedger,
+{
+    fn get(&self, addr: &Address) -> Option<Account> {
+        BaseLedger::get(self, addr.clone())
+    }
+
+    fn location_of_account(&self, account_id: &AccountId) -> Option<Address> {
+        BaseLedger::location_of_account(self, account_id)
+    }
+
+    fn set(&mut self, addr: &Address, account: Account) {
+        BaseLedger::set(self, addr.clone(), account)
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_ledger/ledger.ml#L311
+    fn get_or_create(
+        &mut self,
+        account_id: &AccountId,
+    ) -> Result<(AccountState, Account, Address), String> {
+        let location = BaseLedger::get_or_create_account(
+            self,
+            account_id.clone(),
+            Account::initialize(account_id),
+        )
+        .map_err(|e| format!("{:?}", e))?;
+
+        let action = match location {
+            GetOrCreated::Added(_) => AccountState::Added,
+            GetOrCreated::Existed(_) => AccountState::Existed,
+        };
+
+        let addr = location.addr();
+        let account = BaseLedger::get(self, addr.clone()).ok_or_else(|| {
+            "get_or_create: Account was not found in the ledger after creation".to_string()
+        })?;
+
+        Ok((action, account, addr))
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_ledger/ledger.ml#L304
+    fn create_new_account(&mut self, account_id: AccountId, account: Account) -> Result<(), ()> {
+        match BaseLedger::get_or_create_account(self, account_id, account).unwrap() {
+            GetOrCreated::Added(_) => {}
+            GetOrCreated::Existed(_) => panic!(),
+        }
+        Ok(())
+    }
+
+    fn remove_accounts_exn(&mut self, account_ids: &[AccountId]) {
+        BaseLedger::remove_accounts(self, account_ids)
+    }
+
+    fn merkle_root(&mut self) -> Fp {
+        BaseLedger::merkle_root(self)
+    }
+
+    fn empty(_depth: usize) -> Self {
+        todo!()
+    }
+
+    fn create_masked(&self) -> Self {
+        todo!()
+    }
+
+    fn apply_mask(&self, _mask: Self) {
+        todo!()
     }
 }
