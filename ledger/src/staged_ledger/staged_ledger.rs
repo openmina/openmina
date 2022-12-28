@@ -24,7 +24,7 @@ use crate::{
             local_state::LocalState,
             protocol_state::{protocol_state_view, ProtocolStateView},
             transaction_applied::TransactionApplied,
-            Transaction, TransactionStatus, WithStatus,
+            valid, verifiable, Transaction, TransactionStatus, UserCommand, WithStatus,
         },
     },
     split_at, AccountId, BaseLedger, Mask, TokenId,
@@ -983,5 +983,38 @@ impl StagedLedger {
                 },
             ),
         })
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1016
+    fn forget_prediff_info<B, C, D>(
+        a: Vec<WithStatus<valid::Transaction>>,
+        b: B,
+        c: C,
+        d: D,
+    ) -> (Vec<WithStatus<Transaction>>, B, C, D) {
+        (
+            a.iter()
+                .map(|with_status| with_status.map(|t| t.forget()))
+                .collect(),
+            b,
+            c,
+            d,
+        )
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1020
+    fn check_commands(
+        ledger: Mask,
+        verifier: &Verifier,
+        cs: Vec<UserCommand>,
+    ) -> Result<(), StagedLedgerError> {
+        let cmds: Vec<verifiable::UserCommand> =
+            cs.iter().map(|cmd| cmd.to_verifiable(&ledger)).collect();
+
+        let _xs = verifier.verify_commands(cmds)?;
+
+        // TODO: OCaml does check the list `xs`
+
+        Ok(())
     }
 }

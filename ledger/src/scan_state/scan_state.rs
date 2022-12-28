@@ -26,7 +26,7 @@ use super::{
     transaction_logic::{
         apply_transaction, local_state::LocalState, protocol_state::protocol_state_view,
         transaction_applied::TransactionApplied, transaction_witness::TransactionWitness,
-        Transaction, WithStatus,
+        verifiable, Transaction, WithStatus,
     },
 };
 // use super::parallel_scan::AvailableJob;
@@ -521,6 +521,11 @@ impl Verifier {
         // https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/pickles/pickles.ml#L1122
         // https://viable-systems.slack.com/archives/D01SVA87PQC/p1671715846448749
         Ok(true)
+    }
+
+    pub fn verify_commands(&self, cmds: Vec<verifiable::UserCommand>) -> Result<Vec<()>, String> {
+        // TODO
+        Ok(Vec::new())
     }
 }
 

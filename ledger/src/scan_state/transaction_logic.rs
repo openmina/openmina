@@ -4,7 +4,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     scan_state::{currency::Magnitude, transaction_logic::transaction_applied::Varying},
     staged_ledger::sparse_ledger::{LedgerIntf, SparseLedger},
-    Account, AccountId, Address, ReceiptChainHash, Timing, TokenId,
+    Account, AccountId, Address, BaseLedger, ReceiptChainHash, Timing, TokenId, VerificationKey,
 };
 
 use self::{
@@ -95,6 +95,52 @@ impl<T> WithStatus<T> {
         WithStatus {
             data: fun(&self.data),
             status: self.status.clone(),
+        }
+    }
+}
+
+pub mod valid {
+    use super::*;
+
+    #[derive(Debug)]
+    pub struct VerificationKeyHash(Fp);
+
+    #[derive(Debug)]
+    pub enum UserCommand {
+        SignedCommand(Box<super::signed_command::SignedCommand>),
+        ZkAppCommand {
+            zkapp_command: Box<super::zkapp_command::ZkAppCommand>,
+            verification_keys: Vec<(AccountId, VerificationKeyHash)>,
+        },
+    }
+
+    impl UserCommand {
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/user_command.ml#L277
+        fn forget_check(&self) -> super::UserCommand {
+            match self {
+                UserCommand::SignedCommand(cmd) => super::UserCommand::SignedCommand(cmd.clone()),
+                UserCommand::ZkAppCommand { zkapp_command, .. } => {
+                    super::UserCommand::ZkAppCommand(zkapp_command.clone())
+                }
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    pub enum Transaction {
+        Command(UserCommand),
+        FeeTransfer(super::FeeTransfer),
+        Coinbase(super::Coinbase),
+    }
+
+    impl Transaction {
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/transaction/transaction.ml#L61
+        pub fn forget(&self) -> super::Transaction {
+            match self {
+                Transaction::Command(cmd) => super::Transaction::Command(cmd.forget_check()),
+                Transaction::FeeTransfer(ft) => super::Transaction::FeeTransfer(ft.clone()),
+                Transaction::Coinbase(cb) => super::Transaction::Coinbase(cb.clone()),
+            }
         }
     }
 }
@@ -631,42 +677,58 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L49
     #[derive(Debug, Clone)]
-    pub struct Tree {
-        account_update: AccountUpdate,
+    pub struct Tree<Data> {
+        account_update: (AccountUpdate, Data),
         account_update_digest: Fp,
-        calls: CallForest,
+        calls: CallForest<Data>,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_stack_hash.ml#L6
     #[derive(Debug, Clone)]
-    pub struct WithStackHash {
-        elt: Tree,
+    pub struct WithStackHash<Data> {
+        elt: Tree<Data>,
         pub stack_hash: Fp,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L345
     #[derive(Debug, Clone)]
-    pub struct CallForest(pub Vec<WithStackHash>);
+    pub struct CallForest<Data>(pub Vec<WithStackHash<Data>>);
 
-    impl CallForest {
+    impl<Data> CallForest<Data> {
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L68
-        fn fold_impl<A, F>(&self, init: A, fun: &F) -> A
-        where
-            F: Fn(A, &AccountUpdate) -> A,
-        {
-            let mut accum = init;
-            for elem in &self.0 {
-                accum = fun(accum, &elem.elt.account_update);
-                accum = elem.elt.calls.fold_impl(accum, fun);
-            }
-            accum
-        }
-
         pub fn fold<A, F>(&self, init: A, fun: F) -> A
         where
             F: Fn(A, &AccountUpdate) -> A,
         {
-            self.fold_impl(init, &fun)
+            let fun = &fun;
+
+            let mut accum = init;
+            for elem in &self.0 {
+                accum = fun(accum, &elem.elt.account_update.0);
+                accum = elem.elt.calls.fold(accum, fun);
+            }
+            accum
+        }
+
+        pub fn map_to<F, VK>(&self, fun: F) -> CallForest<VK>
+        where
+            F: Fn(&AccountUpdate) -> (AccountUpdate, VK),
+        {
+            let fun = &fun;
+
+            CallForest::<VK>(
+                self.0
+                    .iter()
+                    .map(|item| WithStackHash::<VK> {
+                        elt: Tree::<VK> {
+                            account_update: fun(&item.elt.account_update.0),
+                            account_update_digest: item.elt.account_update_digest,
+                            calls: item.elt.calls.map_to(fun),
+                        },
+                        stack_hash: item.stack_hash,
+                    })
+                    .collect(),
+            )
         }
     }
 
@@ -689,9 +751,9 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L959
     #[derive(Debug, Clone)]
     pub struct ZkAppCommand {
-        fee_payer: FeePayer,
-        account_updates: CallForest,
-        memo: Memo,
+        pub fee_payer: FeePayer,
+        pub account_updates: CallForest<()>,
+        pub memo: Memo,
     }
 
     impl ZkAppCommand {
@@ -737,6 +799,28 @@ pub mod zkapp_command {
             self.accounts_accessed(TransactionStatus::Applied)
         }
     }
+
+    pub mod verifiable {
+        use super::*;
+        use crate::VerificationKey;
+
+        #[derive(Debug, Clone)]
+        pub struct ZkAppCommand {
+            pub fee_payer: FeePayer,
+            pub account_updates: CallForest<Option<VerificationKey>>,
+            pub memo: Memo,
+        }
+    }
+}
+
+pub mod verifiable {
+    use super::*;
+
+    #[derive(Debug)]
+    pub enum UserCommand {
+        SignedCommand(Box<signed_command::SignedCommand>),
+        ZkAppCommand(Box<zkapp_command::verifiable::ZkAppCommand>),
+    }
 }
 
 #[derive(Debug)]
@@ -757,6 +841,35 @@ impl UserCommand {
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/user_command.ml#L210
     pub fn accounts_referenced(&self) -> Vec<AccountId> {
         self.accounts_accessed(TransactionStatus::Applied)
+    }
+
+    pub fn to_verifiable(&self, ledger: &impl BaseLedger) -> verifiable::UserCommand {
+        let find_vk = |acc: &zkapp_command::AccountUpdate| -> Option<VerificationKey> {
+            let account_id = acc.account_id();
+            let addr = ledger.location_of_account(&account_id)?;
+            let account = ledger.get(addr)?;
+            account.zkapp.as_ref()?.verification_key.clone()
+        };
+
+        match self {
+            UserCommand::SignedCommand(cmd) => verifiable::UserCommand::SignedCommand(cmd.clone()),
+            UserCommand::ZkAppCommand(cmd) => {
+                let zkapp_command::ZkAppCommand {
+                    fee_payer,
+                    account_updates,
+                    memo,
+                } = &**cmd;
+
+                let zkapp = zkapp_command::verifiable::ZkAppCommand {
+                    fee_payer: fee_payer.clone(),
+                    account_updates: account_updates
+                        .map_to(|account_update| (account_update.clone(), find_vk(account_update))),
+                    memo: memo.clone(),
+                };
+
+                verifiable::UserCommand::ZkAppCommand(Box::new(zkapp))
+            }
+        }
     }
 }
 
@@ -1078,7 +1191,7 @@ pub mod local_state {
     pub struct StackFrame {
         caller: TokenId,
         caller_caller: TokenId,
-        calls: CallForest, // TODO
+        calls: CallForest<()>, // TODO
     }
 
     impl StackFrame {
