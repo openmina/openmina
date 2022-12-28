@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcRequestor {
     WatchedAccount(NonZeroCurvePoint, StateHash),
+    Interval,
     Other,
 }
 

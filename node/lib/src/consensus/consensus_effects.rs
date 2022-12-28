@@ -50,5 +50,6 @@ pub fn consensus_effects<S: redux::Service>(store: &mut Store<S>, action: Consen
                 }
             }
         }
+        ConsensusAction::BestTipHistoryUpdate(_) => {}
     }
 }

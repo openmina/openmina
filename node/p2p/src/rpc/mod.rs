@@ -152,7 +152,7 @@ impl Default for P2pRpcRequest {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum P2pRpcKind {
     MenuGet = 0,
     BestTipGet,

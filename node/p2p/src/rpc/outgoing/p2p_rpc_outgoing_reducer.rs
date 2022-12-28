@@ -1,6 +1,8 @@
+use crate::rpc::P2pRpcKind;
+
 use super::{
     P2pRpcOutgoingAction, P2pRpcOutgoingActionWithMetaRef, P2pRpcOutgoingState,
-    P2pRpcOutgoingStatus,
+    P2pRpcOutgoingStats, P2pRpcOutgoingStatus,
 };
 
 impl P2pRpcOutgoingState {
@@ -13,6 +15,12 @@ impl P2pRpcOutgoingState {
                     request: action.request.clone(),
                     requestor: action.requestor.clone(),
                 });
+                let stats = self.stats.entry(action.request.kind()).or_insert_with(|| {
+                    P2pRpcOutgoingStats {
+                        last_requested: meta.time(),
+                    }
+                });
+                stats.last_requested = meta.time();
             }
             P2pRpcOutgoingAction::Pending(action) => {
                 if let Some(req) = self.get_mut(action.rpc_id) {

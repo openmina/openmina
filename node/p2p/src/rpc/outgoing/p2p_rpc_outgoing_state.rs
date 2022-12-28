@@ -1,27 +1,39 @@
+use std::collections::BTreeMap;
+
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use shared::requests::PendingRequests;
 
-use crate::rpc::{P2pRpcIdType, P2pRpcOutgoingError, P2pRpcRequest, P2pRpcResponse};
+use crate::rpc::{P2pRpcIdType, P2pRpcKind, P2pRpcOutgoingError, P2pRpcRequest, P2pRpcResponse};
 
 use super::P2pRpcRequestor;
 
 type P2pRpcOutgoingContainer = PendingRequests<P2pRpcIdType, P2pRpcOutgoingStatus>;
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pRpcOutgoingStats {
+    pub last_requested: Timestamp,
+}
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
-pub struct P2pRpcOutgoingState(P2pRpcOutgoingContainer);
+pub struct P2pRpcOutgoingState {
+    list: P2pRpcOutgoingContainer,
+    /// TODO(binier): maybe use stack based array like for menu.
+    pub stats: BTreeMap<P2pRpcKind, P2pRpcOutgoingStats>,
+}
 
 impl std::ops::Deref for P2pRpcOutgoingState {
     type Target = P2pRpcOutgoingContainer;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.list
     }
 }
 
 impl std::ops::DerefMut for P2pRpcOutgoingState {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.list
     }
 }
 
