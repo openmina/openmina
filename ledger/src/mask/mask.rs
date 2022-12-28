@@ -66,6 +66,11 @@ impl Mask {
         }
     }
 
+    pub fn make_child(&self) -> Mask {
+        let new_mask = Mask::new_unattached(self.depth() as usize);
+        self.register_mask(new_mask)
+    }
+
     pub fn set_parent(&self, parent: &Mask, parent_last_filled: Option<Option<Address>>) -> Mask {
         let this = self.clone();
         self.with(|this| this.set_parent(parent, parent_last_filled));

@@ -6,13 +6,17 @@ use crate::{
     decompress_pk,
     scan_state::{
         currency::{Amount, Fee, Magnitude},
-        pending_coinbase::{PendingCoinbase, Stack, StackState},
+        fee_excess::FeeExcess,
+        pending_coinbase::{
+            update::{Action, StackUpdate, Update},
+            PendingCoinbase, Stack, StackState,
+        },
         scan_state::{
             transaction_snark::{
-                work, InitStack, LedgerHash, LedgerProofWithSokMessage, OneOrTwo, Registers,
-                Statement, TransactionWithWitness,
+                work, InitStack, LedgerHash, LedgerProof, LedgerProofWithSokMessage, OneOrTwo,
+                Registers, SokMessage, Statement, TransactionWithWitness,
             },
-            ConstraintConstants, ScanState, StatementCheck, Verifier,
+            AvailableJob, ConstraintConstants, ScanState, SpacePartition, StatementCheck, Verifier,
         },
         snark_work::spec,
         transaction_logic::{
@@ -23,7 +27,7 @@ use crate::{
             Transaction, TransactionStatus, WithStatus,
         },
     },
-    AccountId, BaseLedger, Mask, TokenId,
+    split_at, AccountId, BaseLedger, Mask, TokenId,
 };
 
 use super::sparse_ledger::SparseLedger;
@@ -35,13 +39,17 @@ pub struct StackStateWithInitStack {
     pub init_stack: Stack,
 }
 
+pub enum PreDiffError {
+    CoinbaseError(&'static str),
+}
+
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L23
 pub enum StagedLedgerError {
-    NonZeroFeeExcess,
+    NonZeroFeeExcess(Vec<WithStatus<Transaction>>, SpacePartition),
     InvalidProofs,
     CouldntReachVerifier,
-    PreDiff,
-    InsufficientWork,
+    PreDiff(PreDiffError),
+    InsufficientWork(String),
     MismatchedStatuses {
         transaction: WithStatus<Transaction>,
         got: TransactionStatus,
@@ -73,6 +81,14 @@ impl From<String> for StagedLedgerError {
 //     | Invalid_public_key of Public_key.Compressed.t
 //     | Unexpected of Error.t
 //   [@@deriving sexp]
+
+struct DiffResult {
+    hash_after_applying: StagedLedgerHash,
+    ledger_proof: Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>,
+    pending_coinbase_update: (bool, Update),
+}
+
+struct StagedLedgerHash;
 
 pub struct StagedLedger {
     scan_state: ScanState,
@@ -237,7 +253,7 @@ impl StagedLedger {
                 constraint_constants,
                 &protocol_state_view(&protocol_state),
                 &mut snarked_ledger,
-                tx.data,
+                &tx.data,
             )?;
 
             let computed_status = txn_with_info.transaction_status();
@@ -358,7 +374,7 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#403
-    fn hash(&self) -> Fp {
+    fn hash(&self) -> StagedLedgerHash {
         todo!()
     }
 
@@ -411,7 +427,7 @@ impl StagedLedger {
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#456
     fn working_stack(
-        pending_coinbase_collection: PendingCoinbase,
+        pending_coinbase_collection: &PendingCoinbase,
         is_new_stack: bool,
     ) -> Result<Stack, String> {
         Ok(pending_coinbase_collection.latest_stack(is_new_stack))
@@ -449,7 +465,7 @@ impl StagedLedger {
         constraint_constants: &ConstraintConstants,
         mut ledger: Mask,
         pending_coinbase_stack_state: StackStateWithInitStack,
-        transaction: Transaction,
+        transaction: &Transaction,
         txn_state_view: &ProtocolStateView,
     ) -> Result<(TransactionApplied, Statement, StackStateWithInitStack), StagedLedgerError> {
         let fee_excess = transaction.fee_excess()?;
@@ -457,10 +473,10 @@ impl StagedLedger {
         let source_merkle_root = ledger.merkle_root();
 
         let pending_coinbase_target =
-            Self::push_coinbase(pending_coinbase_stack_state.pc.target, &transaction);
+            Self::push_coinbase(pending_coinbase_stack_state.pc.target, transaction);
 
         let new_init_stack =
-            Self::push_coinbase(pending_coinbase_stack_state.init_stack, &transaction);
+            Self::push_coinbase(pending_coinbase_stack_state.init_stack, transaction);
 
         let empty_local_state = LocalState::empty();
 
@@ -508,8 +524,8 @@ impl StagedLedger {
         constraint_constants: &ConstraintConstants,
         ledger: Mask,
         pending_coinbase_stack_state: StackStateWithInitStack,
-        transaction: Transaction,
-        status: Option<TransactionStatus>,
+        transaction: &Transaction,
+        status: Option<&TransactionStatus>,
         txn_state_view: &ProtocolStateView,
         state_and_body_hash: (Fp, Fp),
     ) -> Result<(TransactionWithWitness, StackStateWithInitStack), StagedLedgerError> {
@@ -531,7 +547,7 @@ impl StagedLedger {
         };
 
         let ledger_witness =
-            SparseLedger::of_ledger_subset_exn(ledger.clone(), &account_ids(&transaction));
+            SparseLedger::of_ledger_subset_exn(ledger.clone(), &account_ids(transaction));
 
         let (applied_txn, statement, updated_pending_coinbase_stack_state) =
             Self::apply_transaction_and_get_statement(
@@ -542,7 +558,7 @@ impl StagedLedger {
                 txn_state_view,
             )?;
 
-        if let Some(status) = status.as_ref() {
+        if let Some(status) = status {
             let got_status = applied_txn.transaction_status();
 
             if status != got_status {
@@ -569,7 +585,7 @@ impl StagedLedger {
         constraint_constants: &ConstraintConstants,
         ledger: Mask,
         current_stack: Stack,
-        transactions: Vec<WithStatus<Transaction>>,
+        transactions: &[WithStatus<Transaction>],
         current_state_view: &ProtocolStateView,
         state_and_body_hash: (Fp, Fp),
     ) -> Result<(Vec<TransactionWithWitness>, Stack), StagedLedgerError> {
@@ -595,8 +611,8 @@ impl StagedLedger {
                 constraint_constants,
                 ledger.clone(),
                 pending_coinbase_stack_state,
-                transaction.data,
-                Some(transaction.status),
+                &transaction.data,
+                Some(&transaction.status),
                 current_state_view,
                 state_and_body_hash,
             )?;
@@ -606,5 +622,366 @@ impl StagedLedger {
         }
 
         Ok((witnesses, pending_coinbase_stack_state.pc.target))
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L164
+    fn verify(
+        _logger: (),
+        _verifier: &Verifier,
+        _job_msg_proofs: Vec<(AvailableJob, SokMessage, LedgerProof)>,
+    ) -> Result<(), StagedLedgerError> {
+        todo!()
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L654
+    fn check_completed_works(
+        logger: (),
+        verifier: &Verifier,
+        scan_state: &ScanState,
+        completed_works: Vec<work::Work>,
+    ) -> Result<(), StagedLedgerError> {
+        let work_count = completed_works.len() as u64;
+        let jobs_pairs = scan_state.k_work_pairs_for_new_diff(work_count);
+
+        let job_msg_proofs: Vec<(AvailableJob, SokMessage, LedgerProof)> = jobs_pairs
+            .into_iter()
+            .zip(completed_works)
+            .flat_map(|(jobs, work)| {
+                let message = SokMessage::create(work.fee, work.prover);
+                OneOrTwo::zip(jobs, work.proofs)
+                    .into_map(|(job, proof)| (job, message.clone(), proof))
+                    .into_iter()
+            })
+            .collect();
+
+        Self::verify(logger, verifier, job_msg_proofs)
+    }
+
+    /// The total fee excess caused by any diff should be zero. In the case where
+    /// the slots are split into two partitions, total fee excess of the transactions
+    /// to be enqueued on each of the partitions should be zero respectively
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L674
+    fn check_zero_fee_excess(
+        scan_state: &ScanState,
+        data: &[TransactionWithWitness],
+    ) -> Result<(), StagedLedgerError> {
+        let partitions = scan_state.partition_if_overflowing();
+
+        let txns_from_data = |data: &[TransactionWithWitness]| -> Vec<WithStatus<Transaction>> {
+            data.iter()
+                .map(|tx| tx.transaction_with_info.transaction())
+                .collect::<Vec<_>>()
+        };
+
+        let total_fee_excess = |txns: &[WithStatus<Transaction>]| {
+            txns.iter().try_fold(FeeExcess::empty(), |accum, txn| {
+                let fee_excess = txn.data.fee_excess()?;
+                FeeExcess::combine(&accum, &fee_excess)
+            })
+        };
+
+        let check = |data: &[TransactionWithWitness],
+                     slots: &SpacePartition|
+         -> Result<(), StagedLedgerError> {
+            let txns = txns_from_data(data);
+            let fee_excess = total_fee_excess(&txns)?;
+
+            if fee_excess.is_zero() {
+                Ok(())
+            } else {
+                Err(StagedLedgerError::NonZeroFeeExcess(txns, slots.clone()))
+            }
+        };
+
+        let (first, second) = split_at(data, partitions.first.0 as usize);
+
+        check(first, &partitions)?;
+
+        if partitions.second.is_some() {
+            check(second, &partitions)?;
+        };
+
+        Ok(())
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L712
+    fn update_coinbase_stack_and_get_data(
+        constraint_constants: &ConstraintConstants,
+        scan_state: &ScanState,
+        ledger: Mask,
+        pending_coinbase_collection: &mut PendingCoinbase,
+        transactions: Vec<WithStatus<Transaction>>,
+        current_state_view: &ProtocolStateView,
+        state_and_body_hash: (Fp, Fp),
+    ) -> Result<(bool, Vec<TransactionWithWitness>, Action, StackUpdate), StagedLedgerError> {
+        let coinbase_exists = |txns: &[WithStatus<Transaction>]| {
+            txns.iter()
+                .any(|tx| matches!(tx.data, Transaction::Coinbase(_)))
+        };
+
+        let SpacePartition {
+            first: (slots, _),
+            second,
+        } = scan_state.partition_if_overflowing();
+
+        if !transactions.is_empty() {
+            if second.is_none() {
+                // Single partition:
+                // 1.Check if a new stack is required and get a working stack [working_stack]
+                // 2.create data for enqueuing onto the scan state *)
+
+                let is_new_stack = scan_state.next_on_new_tree();
+                let working_stack = Self::working_stack(pending_coinbase_collection, is_new_stack)?;
+
+                let (data, updated_stack) = Self::update_ledger_and_get_statements(
+                    constraint_constants,
+                    ledger,
+                    working_stack,
+                    &transactions,
+                    current_state_view,
+                    state_and_body_hash,
+                )?;
+
+                Ok((
+                    is_new_stack,
+                    data,
+                    Action::One,
+                    StackUpdate::One(updated_stack),
+                ))
+            } else {
+                // Two partition:
+                // Assumption: Only one of the partition will have coinbase transaction(s)in it.
+                // 1. Get the latest stack for coinbase in the first set of transactions
+                // 2. get the first set of scan_state data[data1]
+                // 3. get a new stack for the second partion because the second set of transactions would start from the begining of the next tree in the scan_state
+                // 4. Initialize the new stack with the state from the first stack
+                // 5. get the second set of scan_state data[data2]*)
+
+                let (txns_for_partition1, txns_for_partition2) =
+                    split_at(transactions.as_slice(), slots as usize);
+
+                let coinbase_in_first_partition = coinbase_exists(txns_for_partition1);
+
+                let working_stack1 = Self::working_stack(pending_coinbase_collection, false)?;
+                // Push the new state to the state_stack from the previous block even in the second stack
+                let working_stack2 = Stack::create_with(&working_stack1);
+
+                let (mut data1, updated_stack1) = Self::update_ledger_and_get_statements(
+                    constraint_constants,
+                    ledger.clone(),
+                    working_stack1,
+                    txns_for_partition1,
+                    current_state_view,
+                    state_and_body_hash,
+                )?;
+
+                let (mut data2, updated_stack2) = Self::update_ledger_and_get_statements(
+                    constraint_constants,
+                    ledger,
+                    working_stack2,
+                    txns_for_partition2,
+                    current_state_view,
+                    state_and_body_hash,
+                )?;
+
+                let second_has_data = !txns_for_partition2.is_empty();
+
+                let (pending_coinbase_action, stack_update) =
+                    match (coinbase_in_first_partition, second_has_data) {
+                        (true, true) => {
+                            (
+                                Action::TwoCoinbaseInFirst,
+                                StackUpdate::Two((updated_stack1, updated_stack2)),
+                            )
+                            // updated_stack2 does not have coinbase and but has the state from the previous stack
+                        }
+                        (true, false) => {
+                            // updated_stack1 has some new coinbase but parition 2 has no
+                            // data and so we have only one stack to update
+                            (Action::One, StackUpdate::One(updated_stack1))
+                        }
+                        (false, true) => {
+                            // updated_stack1 just has the new state. [updated stack2] might have coinbase,
+                            // definitely has some data and therefore will have a non-dummy state.
+                            (
+                                Action::TwoCoinbaseInSecond,
+                                StackUpdate::Two((updated_stack1, updated_stack2)),
+                            )
+                        }
+                        (false, false) => {
+                            // a diff consists of only non-coinbase transactions. This is
+                            // currently not possible because a diff will have a coinbase
+                            // at the very least, so don't update anything?*)
+                            (Action::None, StackUpdate::None)
+                        }
+                    };
+
+                data1.append(&mut data2);
+                let data = data1;
+
+                Ok((false, data, pending_coinbase_action, stack_update))
+            }
+        } else {
+            Ok((false, Vec::new(), Action::None, StackUpdate::None))
+        }
+    }
+
+    /// update the pending_coinbase tree with the updated/new stack and delete the oldest stack if a proof was emitted
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L806
+    fn update_pending_coinbase_collection(
+        depth: usize,
+        pending_coinbase: &mut PendingCoinbase,
+        stack_update: StackUpdate,
+        is_new_stack: bool,
+        ledger_proof: &Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>,
+    ) -> Result<(), StagedLedgerError> {
+        // Deleting oldest stack if proof emitted
+        if let Some((proof, _)) = ledger_proof {
+            let oldest_stack = pending_coinbase.remove_coinbase_stack(depth)?;
+            let ledger_proof_stack = &proof.statement().target.pending_coinbase_stack;
+
+            if &oldest_stack != ledger_proof_stack {
+                return Err("Pending coinbase stack of the ledger proof did not \
+                     match the oldest stack in the pending coinbase tree."
+                    .to_string())?;
+            }
+        };
+
+        match stack_update {
+            StackUpdate::None => {}
+            StackUpdate::One(stack1) => {
+                pending_coinbase.update_coinbase_stack(depth, stack1, is_new_stack)?;
+            }
+            StackUpdate::Two((stack1, stack2)) => {
+                // The case when some of the transactions go into the old tree and
+                // remaining on to the new tree
+                pending_coinbase.update_coinbase_stack(depth, stack1, false)?;
+                pending_coinbase.update_coinbase_stack(depth, stack2, true)?;
+            }
+        };
+
+        Ok(())
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L855
+    fn coinbase_for_blockchain_snark(amounts: &[Amount]) -> Result<Amount, StagedLedgerError> {
+        match amounts {
+            [] => Ok(Amount::zero()),
+            [amount] => Ok(*amount),
+            [amount1, _amount2] => Ok(*amount1),
+            _ => Err(StagedLedgerError::PreDiff(PreDiffError::CoinbaseError(
+                "More than two coinbase parts",
+            ))),
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L868
+    fn apply_diff(
+        &mut self,
+        _logger: (),
+        skip_verification: Option<bool>,
+        pre_diff_info: (
+            Vec<WithStatus<Transaction>>,
+            Vec<work::Work>,
+            usize,
+            Vec<Amount>,
+        ),
+        constraint_constants: &ConstraintConstants,
+        current_state_view: &ProtocolStateView,
+        state_and_body_hash: (Fp, Fp),
+        log_prefix: &'static str,
+    ) -> Result<DiffResult, StagedLedgerError> {
+        let skip_verification = skip_verification.unwrap_or(false);
+
+        let max_throughput = 2u64.pow(constraint_constants.transaction_capacity_log_2 as u32);
+
+        let (_spots_available, _proofs_waiting) = {
+            let jobs = self.scan_state.all_work_statements_exn();
+            let free_space = self.scan_state.free_space();
+            (free_space.min(max_throughput), jobs.len())
+        };
+
+        let mut new_ledger = self.ledger.make_child();
+
+        let (transactions, works, _commands_count, coinbases) = pre_diff_info;
+
+        let (is_new_stack, data, stack_update_in_snark, stack_update) =
+            Self::update_coinbase_stack_and_get_data(
+                constraint_constants,
+                &self.scan_state,
+                new_ledger.clone(),
+                &mut self.pending_coinbase_collection,
+                transactions,
+                current_state_view,
+                state_and_body_hash,
+            )?;
+
+        let slots = data.len();
+        let work_count = works.len();
+        let required_pairs = self.scan_state.work_statements_for_new_diff();
+
+        {
+            let required = required_pairs.len();
+            if work_count < required
+                && data.len() > (self.scan_state.free_space() as usize - required + work_count)
+            {
+                return Err(StagedLedgerError::InsufficientWork(format!(
+                    "Insufficient number of transaction snark work (slots \
+                     occupying: {})  required {}, got {}",
+                    slots, required, work_count
+                )));
+            }
+        }
+
+        let res_opt = {
+            self.scan_state
+                .fill_work_and_enqueue_transactions(data, works)
+                .map_err(|e| {
+                    format!(
+                        "{}: Unexpected error when applying diff data $data to \
+                     the scan_state: {:?}",
+                        log_prefix, e
+                    )
+                })?
+            // TODO: OCaml print the error in json format here
+        };
+
+        Self::update_pending_coinbase_collection(
+            constraint_constants.pending_coinbase_depth as usize,
+            &mut self.pending_coinbase_collection,
+            stack_update,
+            is_new_stack,
+            &res_opt,
+        )?;
+
+        let coinbase_amount = Self::coinbase_for_blockchain_snark(&coinbases)?;
+
+        let latest_pending_coinbase_stack = self.pending_coinbase_collection.latest_stack(false);
+
+        if !skip_verification {
+            Self::verify_scan_state_after_apply(
+                constraint_constants,
+                latest_pending_coinbase_stack,
+                new_ledger.merkle_root(),
+                &self.scan_state,
+            )?;
+        }
+
+        self.ledger = new_ledger;
+        self.constraint_constants = constraint_constants.clone();
+
+        Ok(DiffResult {
+            hash_after_applying: self.hash(),
+            ledger_proof: res_opt,
+            pending_coinbase_update: (
+                is_new_stack,
+                Update {
+                    action: stack_update_in_snark,
+                    coinbase_amount,
+                },
+            ),
+        })
     }
 }

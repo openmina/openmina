@@ -1152,7 +1152,7 @@ pub fn apply_transaction<L>(
     constraint_constants: &ConstraintConstants,
     txn_state_view: &ProtocolStateView,
     ledger: &mut L,
-    transaction: Transaction,
+    transaction: &Transaction,
 ) -> Result<TransactionApplied, String>
 where
     L: LedgerIntf,
@@ -1196,7 +1196,7 @@ fn apply_coinbase<L>(
     constraint_constants: &ConstraintConstants,
     txn_global_slot: &Slot,
     ledger: &mut L,
-    coinbase: Coinbase,
+    coinbase: &Coinbase,
 ) -> Result<transaction_applied::CoinbaseApplied, String>
 where
     L: LedgerIntf,
@@ -1344,7 +1344,7 @@ fn apply_fee_transfer<L>(
     constraint_constants: &ConstraintConstants,
     txn_global_slot: &Slot,
     ledger: &mut L,
-    fee_transfer: FeeTransfer,
+    fee_transfer: &FeeTransfer,
 ) -> Result<transaction_applied::FeeTransferApplied, String>
 where
     L: LedgerIntf,
@@ -1370,7 +1370,7 @@ where
 
     Ok(transaction_applied::FeeTransferApplied {
         fee_transfer: WithStatus {
-            data: fee_transfer,
+            data: fee_transfer.clone(),
             status,
         },
         new_accounts,

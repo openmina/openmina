@@ -129,9 +129,16 @@ pub mod update {
     }
 
     #[derive(Debug)]
+    pub enum StackUpdate {
+        None,
+        One(super::Stack),
+        Two((super::Stack, super::Stack)),
+    }
+
+    #[derive(Debug)]
     pub struct Update {
-        action: Action,
-        coinbase_amount: Amount,
+        pub action: Action,
+        pub coinbase_amount: Amount,
     }
 
     impl Update {
@@ -169,6 +176,14 @@ impl Stack {
         Self {
             data: self.data.clone(),
             state: self.state.push(state_body_hash),
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/pending_coinbase.ml#L651
+    pub fn create_with(other: &Self) -> Self {
+        Self {
+            state: StateStack::create(other.state.curr),
+            ..Self::empty()
         }
     }
 
@@ -357,20 +372,26 @@ impl PendingCoinbase {
         })
     }
 
-    fn update_coinbase_stack(&mut self, depth: usize, stack: Stack, is_new_stack: bool) {
-        self.update_stack(depth, is_new_stack, |_| stack)
+    pub fn update_coinbase_stack(
+        &mut self,
+        depth: usize,
+        stack: Stack,
+        is_new_stack: bool,
+    ) -> Result<(), String> {
+        self.update_stack(depth, is_new_stack, |_| stack);
+        Ok(())
     }
 
-    fn remove_coinbase_stack(&mut self, depth: usize) -> Stack {
+    pub fn remove_coinbase_stack(&mut self, depth: usize) -> Result<Stack, String> {
         let oldest_stack_id = if !self.pos_list.is_empty() {
             self.pos_list.remove(0) // TODO: Use `VecDeque`
         } else {
-            panic!("No coinbase stack-with-state-hash to pop");
+            return Err("No coinbase stack-with-state-hash to pop".to_string());
         };
         let stack_addr = self.find_index(oldest_stack_id);
         let stack = self.get_stack(stack_addr.clone()).clone();
         self.set_stack(depth, stack_addr, Stack::empty(), false);
-        stack
+        Ok(stack)
     }
 
     fn hash_extra(&self) -> String {

@@ -283,7 +283,7 @@ enum Job<BaseJob, MergeJob> {
 /// second = If the current-tree space is less than <max_base_jobs>
 /// then remaining number of slots on a new tree and the corresponding
 /// job count.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SpacePartition {
     pub first: (u64, u64),
     pub second: Option<(u64, u64)>,

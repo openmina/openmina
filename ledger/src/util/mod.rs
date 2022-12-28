@@ -42,7 +42,7 @@ impl FpExt for Fq {
 }
 
 /// Not sure if it's correct
-/// I took the code from:
+/// I used the same code as there:
 /// https://github.com/o1-labs/proof-systems/blob/226de4aeb11b8814327ab832e4fccdce5585f473/signer/src/pubkey.rs#L95-L106
 pub fn decompress_pk(pk: &CompressedPubKey) -> Option<PubKey> {
     let y_parity = pk.is_odd;
@@ -60,4 +60,20 @@ pub fn decompress_pk(pk: &CompressedPubKey) -> Option<PubKey> {
 
     // Safe now because we checked point pt is on curve
     Some(PubKey::from_point_unsafe(pt))
+}
+
+pub fn take<T>(slice: &[T], n: usize) -> &[T] {
+    slice.get(..n).unwrap_or(slice)
+}
+
+pub fn take_at<T>(slice: &[T], skip: usize, n: usize) -> &[T] {
+    slice.get(skip..).map(|s| take(s, n)).unwrap_or(&[])
+}
+
+pub fn split_at<T>(slice: &[T], at: usize) -> (&[T], &[T]) {
+    if at <= slice.len() {
+        slice.split_at(at)
+    } else {
+        (slice, &[])
+    }
 }

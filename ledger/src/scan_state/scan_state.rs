@@ -266,6 +266,18 @@ pub mod transaction_snark {
                 OneOrTwo::Two((a, b)) => Ok(OneOrTwo::Two((fun(a)?, fun(b)?))),
             }
         }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/one_or_two/one_or_two.ml#L54
+        pub fn zip<B>(a: OneOrTwo<T>, b: OneOrTwo<B>) -> OneOrTwo<(T, B)> {
+            use OneOrTwo::*;
+
+            match (a, b) {
+                (One(a), One(b)) => One((a, b)),
+                (Two((a1, a2)), Two((b1, b2))) => Two(((a1, b1), (a2, b2))),
+                (One(_), Two(_)) => panic!("One_or_two.zip mismatched"),
+                (Two(_), One(_)) => panic!("One_or_two.zip mismatched"),
+            }
+        }
     }
 
     pub struct OneOrTwoIter<'a, T> {
@@ -376,7 +388,7 @@ where
         constraint_constants,
         &state_view,
         &mut ledger_witness,
-        transaction,
+        &transaction,
     )?;
 
     let target_merkle_root = ledger_witness.merkle_root();
@@ -732,7 +744,7 @@ impl ScanState {
         Some((proof, Self::extract_txns(txns_with_witnesses.as_slice())))
     }
 
-    fn free_space(&self) -> u64 {
+    pub fn free_space(&self) -> u64 {
         self.state.free_space()
     }
 
@@ -740,7 +752,7 @@ impl ScanState {
         self.state.all_jobs()
     }
 
-    fn next_on_new_tree(&self) -> bool {
+    pub fn next_on_new_tree(&self) -> bool {
         self.state.next_on_new_tree()
     }
 
@@ -780,7 +792,7 @@ impl ScanState {
             .collect()
     }
 
-    fn partition_if_overflowing(&self) -> SpacePartition {
+    pub fn partition_if_overflowing(&self) -> SpacePartition {
         let bundle_count = |work_count: u64| (work_count + 1) / 2;
         let SpacePartition {
             first: (slots, job_count),
@@ -830,7 +842,7 @@ impl ScanState {
             .collect()
     }
 
-    fn k_work_pairs_for_new_diff(&self, k: u64) -> Vec<OneOrTwo<AvailableJob>> {
+    pub fn k_work_pairs_for_new_diff(&self, k: u64) -> Vec<OneOrTwo<AvailableJob>> {
         let work_list = self.state.jobs_for_next_update();
         work_list
             .iter()
@@ -840,7 +852,7 @@ impl ScanState {
     }
 
     // Always the same pairing of jobs
-    fn work_statements_for_new_diff(&self) -> Vec<transaction_snark::work::Statement> {
+    pub fn work_statements_for_new_diff(&self) -> Vec<transaction_snark::work::Statement> {
         let work_list = self.state.jobs_for_next_update();
 
         let s = |job: &AvailableJob| Self::statement_of_job(job).unwrap();
@@ -910,7 +922,7 @@ impl ScanState {
             .collect()
     }
 
-    fn fill_work_and_enqueue_transactions(
+    pub fn fill_work_and_enqueue_transactions(
         &mut self,
         transactions: Vec<TransactionWithWitness>,
         work: Vec<transaction_snark::work::Unchecked>,

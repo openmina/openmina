@@ -56,6 +56,10 @@ impl FeeExcess {
         }
     }
 
+    pub fn is_zero(&self) -> bool {
+        self == &Self::empty()
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/e5183ca1dde1c085b4c5d37d1d9987e24c294c32/src/lib/mina_base/fee_excess.ml#L536
     pub fn of_one_or_two(excesses: OneOrTwo<(TokenId, Signed<Fee>)>) -> Result<Self, String> {
         match excesses {
