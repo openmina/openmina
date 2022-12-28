@@ -40,6 +40,14 @@ impl P2pState {
         self.peers.get_mut(peer_id)?.status.as_ready_mut()
     }
 
+    pub fn ready_peers(&self) -> Vec<PeerId> {
+        self.peers
+            .iter()
+            .filter(|(_, p)| p.status.as_ready().is_some())
+            .map(|(id, _)| id.clone())
+            .collect()
+    }
+
     /// Get peer which has least pending rpcs to initiate new rpc.
     pub fn get_free_peer_id_for_rpc(&self) -> Option<(PeerId, P2pRpcId)> {
         self.peers

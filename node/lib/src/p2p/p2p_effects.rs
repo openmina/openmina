@@ -1,12 +1,13 @@
+use std::collections::VecDeque;
+
 use mina_p2p_messages::gossip::GossipNetMessageV2;
 use mina_p2p_messages::v2::MinaLedgerSyncLedgerAnswerStableV2;
-use p2p::rpc::outgoing::P2pRpcRequestor;
 
-use crate::consensus::ConsensusBlockReceivedAction;
-use crate::p2p::rpc::outgoing::P2pRpcOutgoingStatus;
+use crate::consensus::{ConsensusBestTipHistoryUpdateAction, ConsensusBlockReceivedAction};
+use crate::p2p::rpc::outgoing::{P2pRpcOutgoingStatus, P2pRpcRequestor};
 use crate::p2p::rpc::P2pRpcResponse;
 use crate::rpc::{RpcP2pConnectionOutgoingErrorAction, RpcP2pConnectionOutgoingSuccessAction};
-use crate::snark::hash::state_hash;
+use crate::snark::hash::{state_hash, state_hash_from_hashes};
 use crate::watched_accounts::WatchedAccountsBlockLedgerQuerySuccessAction;
 use crate::{Service, Store};
 
@@ -72,6 +73,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     store.dispatch(ConsensusBlockReceivedAction {
                         hash: state_hash(&block),
                         block: block.into(),
+                        history: None,
                     });
                 }
                 _ => {}
@@ -104,12 +106,60 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     };
                     match resp {
                         P2pRpcResponse::BestTipGet(Some(resp)) => {
-                            // TODO(binier): maybe we need to validate best_tip proof (`resp.proof`)?
                             let block = resp.data.clone();
-                            store.dispatch(ConsensusBlockReceivedAction {
-                                hash: state_hash(&block),
-                                block: block.into(),
-                            });
+                            // reconstruct hashes
+                            let (body_hashes, oldest_block) = &resp.proof;
+                            let history = {
+                                let mut v = VecDeque::with_capacity(body_hashes.len());
+                                v.push_front(state_hash(oldest_block));
+                                v
+                            };
+                            let history = body_hashes
+                                .iter()
+                                .take(body_hashes.len().max(1) - 1)
+                                .fold(history, |mut history, body_hash| {
+                                    let pred_hash = history.front().unwrap();
+                                    let hash = state_hash_from_hashes(
+                                        pred_hash.clone(),
+                                        body_hash.clone(),
+                                    );
+                                    history.push_front(hash);
+                                    history
+                                });
+
+                            let expected_hash = state_hash(&block);
+                            if let Some((pred_hash, body_hash)) =
+                                history.front().zip(body_hashes.last())
+                            {
+                                let hash =
+                                    state_hash_from_hashes(pred_hash.clone(), body_hash.clone());
+                                if hash != expected_hash {
+                                    shared::warn!(meta.time();
+                                        kind = "P2pRpcBestTipHashMismatch",
+                                        response = serde_json::to_string(resp).ok(),
+                                        expected_hash = expected_hash.to_string(),
+                                        calculated_hash = hash.to_string(),
+                                        calculated_history = serde_json::to_string(&history).ok());
+                                    return;
+                                }
+                            }
+
+                            if Some(&expected_hash) == store.state().consensus.best_tip.as_ref() {
+                                if history.is_empty() {
+                                    return;
+                                }
+                                store.dispatch(ConsensusBestTipHistoryUpdateAction {
+                                    tip_hash: expected_hash,
+                                    history: history.into(),
+                                });
+                            } else {
+                                store.dispatch(ConsensusBlockReceivedAction {
+                                    hash: expected_hash,
+                                    block: block.into(),
+                                    history: Some(history.into())
+                                        .filter(|v: &Vec<_>| !v.is_empty()),
+                                });
+                            }
                         }
                         P2pRpcResponse::LedgerQuery(resp) => match &resp.0 {
                             Ok(MinaLedgerSyncLedgerAnswerStableV2::AccountWithPath(

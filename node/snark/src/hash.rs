@@ -4,8 +4,8 @@ use ark_ff::{BigInteger, BigInteger256, Field, FromBytes, PrimeField};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
-    DataHashLibStateHashStableV1, MinaBlockBlockStableV2, MinaBlockHeaderStableV2,
-    MinaStateProtocolStateValueStableV2, StateHash,
+    DataHashLibStateHashStableV1, MinaBaseStateBodyHashStableV1, MinaBlockBlockStableV2,
+    MinaBlockHeaderStableV2, MinaStateProtocolStateValueStableV2, StateHash,
 };
 use oracle::{
     constants::PlonkSpongeConstantsKimchi,
@@ -13,7 +13,10 @@ use oracle::{
     poseidon::{ArithmeticSponge, Sponge},
 };
 
-use crate::utils::{FpExt, SpongeParamsForField};
+use crate::{
+    public_input::protocol_state::hashes_abstract,
+    utils::{FpExt, SpongeParamsForField},
+};
 
 enum Item {
     Bool(bool),
@@ -265,6 +268,14 @@ pub fn state_hash<T: StateHashable>(t: &T) -> StateHash {
     use mina_p2p_messages::v1::StateHashStableV1;
 
     let field = t.as_hashable().hash();
+    DataHashLibStateHashStableV1(field.into()).into()
+}
+
+pub fn state_hash_from_hashes(
+    previous_state_hash: StateHash,
+    body_hash: MinaBaseStateBodyHashStableV1,
+) -> StateHash {
+    let field = hashes_abstract(previous_state_hash.0.to_field(), body_hash.0.to_field());
     DataHashLibStateHashStableV1(field.into()).into()
 }
 

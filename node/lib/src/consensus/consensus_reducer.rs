@@ -1,7 +1,7 @@
 use super::{
     ConsensusAction, ConsensusActionWithMetaRef, ConsensusBlockState, ConsensusBlockStatus,
-    ConsensusShortRangeForkDecisionIgnoreReason, ConsensusShortRangeForkDecisionUseReason,
-    ConsensusState,
+    ConsensusShortRangeForkDecision, ConsensusShortRangeForkDecisionIgnoreReason,
+    ConsensusShortRangeForkDecisionUseReason, ConsensusState,
 };
 
 impl ConsensusState {
@@ -14,6 +14,7 @@ impl ConsensusState {
                     ConsensusBlockState {
                         block: a.block.clone(),
                         status: ConsensusBlockStatus::Received { time: meta.time() },
+                        history: a.history.clone(),
                     },
                 );
             }
@@ -33,7 +34,9 @@ impl ConsensusState {
             ConsensusAction::ShortRangeForkResolve(a) => {
                 let candidate_hash = &a.hash;
                 if let Some(candidate) = self.blocks.get(candidate_hash) {
-                    let (best_tip_hash, decision) = match self.best_tip() {
+                    let (best_tip_hash, decision): (_, ConsensusShortRangeForkDecision) = match self
+                        .best_tip()
+                    {
                         Some(tip) => (Some(tip.hash.clone()), {
                             let tip_cs = &tip.header.protocol_state.body.consensus_state;
                             let candidate_cs =
@@ -72,6 +75,10 @@ impl ConsensusState {
                     };
 
                     if let Some(candidate) = self.blocks.get_mut(candidate_hash) {
+                        if !decision.use_as_best_tip() {
+                            candidate.history.take();
+                        }
+
                         candidate.status = ConsensusBlockStatus::ShortRangeForkResolve {
                             time: meta.time(),
                             compared_with: best_tip_hash,
@@ -82,6 +89,25 @@ impl ConsensusState {
             }
             ConsensusAction::BestTipUpdate(a) => {
                 self.best_tip = Some(a.hash.clone());
+
+                if let Some(tip) = self.blocks.get_mut(&a.hash) {
+                    let pred_level = match tip.height().checked_sub(1) {
+                        Some(v) => v as u32,
+                        None => return,
+                    };
+                    if let Some(history) = tip.history.take() {
+                        self.update_best_tip_history(pred_level, &history);
+                    }
+                }
+            }
+            ConsensusAction::BestTipHistoryUpdate(a) => {
+                if let Some(tip) = self.blocks.get_mut(&a.tip_hash) {
+                    let pred_level = match tip.height().checked_sub(1) {
+                        Some(v) => v as u32,
+                        None => return,
+                    };
+                    self.update_best_tip_history(pred_level, &a.history);
+                }
             }
         }
     }

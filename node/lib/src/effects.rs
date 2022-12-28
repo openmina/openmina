@@ -2,6 +2,8 @@ use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::logger::logger_effects;
 use crate::p2p::p2p_effects;
+use crate::p2p::rpc::outgoing::{P2pRpcOutgoingInitAction, P2pRpcRequestor};
+use crate::p2p::rpc::P2pRpcRequest;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
 use crate::watched_accounts::watched_accounts_effects;
@@ -12,7 +14,19 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
     logger_effects(store, meta.clone().with_action(&action));
     match action {
-        Action::CheckTimeouts(_) => {}
+        Action::CheckTimeouts(_) => {
+            for peer_id in store.state().p2p.ready_peers() {
+                store.dispatch(P2pRpcOutgoingInitAction {
+                    peer_id,
+                    rpc_id: match store.state().p2p.get_ready_peer(&peer_id) {
+                        Some(p) => p.rpc.outgoing.next_req_id(),
+                        None => return,
+                    },
+                    request: P2pRpcRequest::BestTipGet(()),
+                    requestor: P2pRpcRequestor::Interval,
+                });
+            }
+        }
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));
         }

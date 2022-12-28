@@ -18,12 +18,15 @@ pub enum ConsensusAction {
     BlockSnarkVerifySuccess(ConsensusBlockSnarkVerifySuccessAction),
     ShortRangeForkResolve(ConsensusShortRangeForkResolveAction),
     BestTipUpdate(ConsensusBestTipUpdateAction),
+    BestTipHistoryUpdate(ConsensusBestTipHistoryUpdateAction),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsensusBlockReceivedAction {
     pub hash: StateHash,
     pub block: Arc<MinaBlockBlockStableV2>,
+    // Sorted from newest to oldest block starting with predecessor hash.
+    pub history: Option<Vec<StateHash>>,
 }
 
 impl redux::EnablingCondition<crate::State> for ConsensusBlockReceivedAction {
@@ -111,6 +114,19 @@ impl redux::EnablingCondition<crate::State> for ConsensusBestTipUpdateAction {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ConsensusBestTipHistoryUpdateAction {
+    pub tip_hash: StateHash,
+    // Sorted from newest to oldest block starting with predecessor hash.
+    pub history: Vec<StateHash>,
+}
+
+impl redux::EnablingCondition<crate::State> for ConsensusBestTipHistoryUpdateAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state.consensus.best_tip.as_ref() == Some(&self.tip_hash)
+    }
+}
+
 macro_rules! impl_into_global_action {
     ($a:ty) => {
         impl From<$a> for crate::Action {
@@ -126,3 +142,4 @@ impl_into_global_action!(ConsensusBlockSnarkVerifyPendingAction);
 impl_into_global_action!(ConsensusBlockSnarkVerifySuccessAction);
 impl_into_global_action!(ConsensusShortRangeForkResolveAction);
 impl_into_global_action!(ConsensusBestTipUpdateAction);
+impl_into_global_action!(ConsensusBestTipHistoryUpdateAction);

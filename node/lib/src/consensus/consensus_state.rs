@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{
@@ -80,12 +80,36 @@ impl ConsensusBlockStatus {
 pub struct ConsensusBlockState {
     pub block: Arc<MinaBlockBlockStableV2>,
     pub status: ConsensusBlockStatus,
+    /// Set temporarily when we receive best tip. Is removed once we
+    /// are done processing the block.
+    pub history: Option<Vec<StateHash>>,
+}
+
+impl ConsensusBlockState {
+    pub fn height(&self) -> i32 {
+        self.block
+            .header
+            .protocol_state
+            .body
+            .consensus_state
+            .blockchain_length
+            .0
+             .0
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BestTipHistory {
+    chain: VecDeque<StateHash>,
+    /// Level of the first block in `chain`.
+    top_level: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsensusState {
     pub blocks: BTreeMap<StateHash, ConsensusBlockState>,
     pub best_tip: Option<StateHash>,
+    pub best_tip_history: BestTipHistory,
 }
 
 impl ConsensusState {
@@ -93,6 +117,10 @@ impl ConsensusState {
         Self {
             blocks: BTreeMap::new(),
             best_tip: None,
+            best_tip_history: BestTipHistory {
+                chain: Default::default(),
+                top_level: 0,
+            },
         }
     }
 
@@ -120,13 +148,13 @@ impl ConsensusState {
     pub fn previous_best_tip(&self) -> Option<BlockRef<'_>> {
         self.best_tip.as_ref().and_then(|hash| {
             let block = &*self.blocks.get(hash)?;
-            let pred_hash = block.status.compared_with()?;
-            let pred = self.blocks.get(pred_hash)?;
+            let prev_hash = block.status.compared_with()?;
+            let prev = self.blocks.get(prev_hash)?;
             Some(BlockRef {
-                hash: pred_hash,
-                header: &pred.block.header,
-                body: &pred.block.body.staged_ledger_diff,
-                status: &pred.status,
+                hash: prev_hash,
+                header: &prev.block.header,
+                body: &prev.block.body.staged_ledger_diff,
+                status: &prev.status,
             })
         })
     }
@@ -143,6 +171,38 @@ impl ConsensusState {
                 ..
             } => decision.use_as_best_tip() && &self.best_tip == compared_with,
         }
+    }
+
+    pub fn update_best_tip_history(&mut self, new_level: u32, new_history: &[StateHash]) {
+        let mut cur_level = self.best_tip_history.top_level;
+        if new_level < cur_level {
+            return;
+        }
+
+        while let Some(hash) = self.best_tip_history.chain.pop_front() {
+            let i = (new_level - cur_level) as usize;
+            let new_hash = match new_history.get(i) {
+                Some(v) => v,
+                None => {
+                    self.best_tip_history.chain.clear();
+                    cur_level = 0;
+                    break;
+                }
+            };
+            if &hash == new_hash {
+                self.best_tip_history.chain.push_front(hash);
+                break;
+            }
+
+            cur_level -= 1;
+        }
+
+        self.best_tip_history.top_level = new_level;
+        new_history
+            .iter()
+            .take((new_level - cur_level) as usize)
+            .rev()
+            .for_each(|hash| self.best_tip_history.chain.push_front(hash.clone()));
     }
 }
 
@@ -163,5 +223,52 @@ impl<'a> BlockRef<'a> {
             .blockchain_length
             .0
              .0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hashes() -> Vec<StateHash> {
+        IntoIterator::into_iter([
+            "3NKxvqipR18tYFpE54XoXT1y6vN67UjCNxv1ovpo2H4aYUfPQbhS",
+            "3NKyFBN868VkPrLXui6E34QMpfhgkS1aED5a8HhfS26JoZfdgtCL",
+            "3NLQV2E7qEDmZkpaGvxnmGYmsyGFiQBccRQTsgz3jcvEdBzCXgon",
+            "3NK5mH9WGPZWpW2QP7tH8TmUMAh4YEfwPyYMkkuhaPASUvHeb4P8",
+            "3NLZKTrmPQVYQ3KwXyPFwSVegrZTUKJv2LyBJGqNGC3v5ZnU9yQu",
+            "3NLgKTSRDeuyFxnmqbc7MbvmYYWc8GeHaYuSKA8KHjmVyNmUGTbv",
+            "3NL6pccNfWQZSS1djdkqgqS2iQkrjqdhonT29ZLDHdjwTZCGTf8E",
+            "3NLe7NDvwNxj1e9bwkiXd8MJXoseyDkwfXSsH9BkhG6wt4ySE46C",
+        ])
+        .map(|h| serde_json::from_str(&format!("\"{}\"", h)).unwrap())
+        .collect()
+    }
+
+    #[test]
+    fn test_update_best_tip_history() {
+        let hashes = hashes();
+        let n = hashes.len();
+        let mut state = ConsensusState::new();
+
+        state.update_best_tip_history(100, &hashes[6..]);
+        assert_eq!(state.best_tip_history.top_level, 100);
+        assert_eq!(state.best_tip_history.chain, &hashes[6..]);
+
+        state.update_best_tip_history(101, &hashes[5..]);
+        assert_eq!(state.best_tip_history.top_level, 101);
+        assert_eq!(state.best_tip_history.chain, &hashes[5..]);
+
+        state.update_best_tip_history(103, &hashes[3..]);
+        assert_eq!(state.best_tip_history.top_level, 103);
+        assert_eq!(state.best_tip_history.chain, &hashes[3..]);
+
+        state.update_best_tip_history(104, &hashes[2..(n - 1)]);
+        assert_eq!(state.best_tip_history.top_level, 104);
+        assert_eq!(state.best_tip_history.chain, &hashes[2..]);
+
+        state.update_best_tip_history(106, &hashes[..(n - 3)]);
+        assert_eq!(state.best_tip_history.top_level, 106);
+        assert_eq!(state.best_tip_history.chain, &hashes[..]);
     }
 }
