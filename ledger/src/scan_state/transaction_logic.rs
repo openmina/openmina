@@ -696,26 +696,29 @@ pub mod zkapp_command {
 
     impl<Data> CallForest<Data> {
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L68
-        pub fn fold<A, F>(&self, init: A, fun: F) -> A
+        fn fold_impl<A, F>(&self, init: A, fun: &F) -> A
         where
             F: Fn(A, &AccountUpdate) -> A,
         {
-            let fun = &fun;
-
             let mut accum = init;
             for elem in &self.0 {
                 accum = fun(accum, &elem.elt.account_update.0);
-                accum = elem.elt.calls.fold(accum, fun);
+                accum = elem.elt.calls.fold_impl(accum, fun);
             }
             accum
         }
 
-        pub fn map_to<F, VK>(&self, fun: F) -> CallForest<VK>
+        pub fn fold<A, F>(&self, init: A, fun: F) -> A
+        where
+            F: Fn(A, &AccountUpdate) -> A,
+        {
+            self.fold_impl(init, &fun)
+        }
+
+        fn map_to_impl<F, VK>(&self, fun: &F) -> CallForest<VK>
         where
             F: Fn(&AccountUpdate) -> (AccountUpdate, VK),
         {
-            let fun = &fun;
-
             CallForest::<VK>(
                 self.0
                     .iter()
@@ -723,12 +726,19 @@ pub mod zkapp_command {
                         elt: Tree::<VK> {
                             account_update: fun(&item.elt.account_update.0),
                             account_update_digest: item.elt.account_update_digest,
-                            calls: item.elt.calls.map_to(fun),
+                            calls: item.elt.calls.map_to_impl(fun),
                         },
                         stack_hash: item.stack_hash,
                     })
                     .collect(),
             )
+        }
+
+        pub fn map_to<F, VK>(&self, fun: F) -> CallForest<VK>
+        where
+            F: Fn(&AccountUpdate) -> (AccountUpdate, VK),
+        {
+            self.map_to_impl(&fun)
         }
     }
 
