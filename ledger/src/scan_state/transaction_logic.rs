@@ -823,7 +823,7 @@ pub mod verifiable {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum UserCommand {
     SignedCommand(Box<signed_command::SignedCommand>),
     ZkAppCommand(Box<zkapp_command::ZkAppCommand>),

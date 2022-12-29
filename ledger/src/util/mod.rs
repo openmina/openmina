@@ -77,3 +77,12 @@ pub fn split_at<T>(slice: &[T], at: usize) -> (&[T], &[T]) {
         (slice, &[])
     }
 }
+
+pub fn split_at_vec<T>(mut vec: Vec<T>, at: usize) -> (Vec<T>, Vec<T>) {
+    if at <= vec.len() {
+        let vec2 = vec.split_off(at);
+        (vec, vec2)
+    } else {
+        (vec, Vec::new())
+    }
+}

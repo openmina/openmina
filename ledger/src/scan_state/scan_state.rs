@@ -136,6 +136,7 @@ pub mod transaction_snark {
 
         pub type Statement = OneOrTwo<super::Statement>;
 
+        #[derive(Clone)]
         pub struct Work {
             pub fee: Fee,
             pub proofs: OneOrTwo<LedgerProof>,
@@ -143,6 +144,8 @@ pub mod transaction_snark {
         }
 
         pub type Unchecked = Work;
+
+        pub type Checked = Work;
     }
 
     // TransactionSnarkPendingCoinbaseStackStateInitStackStableV1
@@ -523,7 +526,7 @@ impl Verifier {
         Ok(true)
     }
 
-    pub fn verify_commands(&self, cmds: Vec<verifiable::UserCommand>) -> Result<Vec<()>, String> {
+    pub fn verify_commands(&self, _cmds: Vec<verifiable::UserCommand>) -> Result<Vec<()>, String> {
         // TODO
         Ok(Vec::new())
     }
