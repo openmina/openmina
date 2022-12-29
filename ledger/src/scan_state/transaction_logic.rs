@@ -97,6 +97,16 @@ impl<T> WithStatus<T> {
             status: self.status.clone(),
         }
     }
+
+    pub fn into_map<F, R>(self, fun: F) -> WithStatus<R>
+    where
+        F: Fn(T) -> R,
+    {
+        WithStatus {
+            data: fun(self.data),
+            status: self.status,
+        }
+    }
 }
 
 pub mod valid {
@@ -160,6 +170,14 @@ impl SingleFeeTransfer {
             token_id: self.fee_token.clone(),
         }
     }
+
+    pub fn create(receiver_pk: CompressedPubKey, fee: Fee, fee_token: TokenId) -> Self {
+        Self {
+            receiver_pk,
+            fee,
+            fee_token,
+        }
+    }
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_transfer.ml#L68
@@ -197,6 +215,25 @@ impl FeeTransfer {
         });
         FeeExcess::of_one_or_two(one_or_two)
     }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/fee_transfer.ml#L84
+    pub fn of_singles(singles: OneOrTwo<SingleFeeTransfer>) -> Result<Self, String> {
+        match singles {
+            OneOrTwo::One(a) => Ok(Self(OneOrTwo::One(a))),
+            OneOrTwo::Two((one, two)) => {
+                if one.fee_token == two.fee_token {
+                    Ok(Self(OneOrTwo::Two((one, two))))
+                } else {
+                    // Necessary invariant for the transaction snark: we should never have
+                    // fee excesses in multiple tokens simultaneously.
+                    return Err(format!(
+                        "Cannot combine single fee transfers with incompatible tokens: {:?} <> {:?}",
+                        one, two
+                    ));
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -223,6 +260,39 @@ pub struct Coinbase {
 }
 
 impl Coinbase {
+    fn is_valid(&self) -> bool {
+        match &self.fee_transfer {
+            None => true,
+            Some(CoinbaseFeeTransfer { fee, .. }) => Amount::of_fee(fee) <= self.amount,
+        }
+    }
+
+    pub fn create(
+        amount: Amount,
+        receiver: CompressedPubKey,
+        fee_transfer: Option<CoinbaseFeeTransfer>,
+    ) -> Result<Coinbase, String> {
+        let mut this = Self {
+            receiver: receiver.clone(),
+            amount,
+            fee_transfer,
+        };
+
+        if this.is_valid() {
+            let adjusted_fee_transfer = this.fee_transfer.as_ref().and_then(|ft| {
+                if receiver != ft.receiver_pk {
+                    Some(ft.clone())
+                } else {
+                    None
+                }
+            });
+            this.fee_transfer = adjusted_fee_transfer;
+            Ok(this)
+        } else {
+            Err("Coinbase.create: invalid coinbase".to_string())
+        }
+    }
+
     fn expected_supply_increase(&self) -> Result<Amount, String> {
         let Self {
             amount,
@@ -851,6 +921,14 @@ impl UserCommand {
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/user_command.ml#L210
     pub fn accounts_referenced(&self) -> Vec<AccountId> {
         self.accounts_accessed(TransactionStatus::Applied)
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/user_command.ml#L192
+    pub fn fee(&self) -> Fee {
+        match self {
+            UserCommand::SignedCommand(cmd) => cmd.fee(),
+            UserCommand::ZkAppCommand(cmd) => cmd.fee(),
+        }
     }
 
     pub fn to_verifiable(&self, ledger: &impl BaseLedger) -> verifiable::UserCommand {

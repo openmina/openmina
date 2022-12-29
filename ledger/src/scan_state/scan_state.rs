@@ -532,6 +532,9 @@ impl Verifier {
     }
 }
 
+#[derive(Debug)]
+pub enum VerifierError {}
+
 impl ScanState {
     pub fn scan_statement(
         &self,
@@ -994,7 +997,7 @@ impl ScanState {
     }
 }
 
-fn group_list<'a, F, T, R>(slice: &'a [T], fun: F) -> impl Iterator<Item = OneOrTwo<R>> + '_
+pub fn group_list<'a, F, T, R>(slice: &'a [T], fun: F) -> impl Iterator<Item = OneOrTwo<R>> + '_
 where
     F: Fn(&'a T) -> R + 'a,
 {

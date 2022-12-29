@@ -1,12 +1,14 @@
 use crate::{
     scan_state::{
-        scan_state::transaction_snark::work,
+        scan_state::{transaction_snark::work, VerifierError},
         transaction_logic::{
             valid, CoinbaseFeeTransfer, TransactionStatus, UserCommand, WithStatus,
         },
     },
     split_at_vec,
 };
+
+use super::pre_diff_info::PreDiffError;
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L5
 #[derive(Debug)]
@@ -17,25 +19,28 @@ pub enum AtMostTwo<T> {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L20
+#[derive(Debug)]
 pub enum AtMostOne<T> {
     Zero,
     One(Option<T>),
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L37
+#[derive(Debug)]
 pub struct PreDiffTwo<A, B> {
-    completed_works: Vec<A>,
-    commands: Vec<B>,
-    coinbase: AtMostTwo<CoinbaseFeeTransfer>,
-    internal_command_statuses: Vec<TransactionStatus>,
+    pub completed_works: Vec<A>,
+    pub commands: Vec<B>,
+    pub coinbase: AtMostTwo<CoinbaseFeeTransfer>,
+    pub internal_command_statuses: Vec<TransactionStatus>,
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L54
+#[derive(Debug)]
 pub struct PreDiffOne<A, B> {
-    completed_works: Vec<A>,
-    commands: Vec<B>,
-    coinbase: AtMostOne<CoinbaseFeeTransfer>,
-    internal_command_statuses: Vec<TransactionStatus>,
+    pub completed_works: Vec<A>,
+    pub commands: Vec<B>,
+    pub coinbase: AtMostOne<CoinbaseFeeTransfer>,
+    pub internal_command_statuses: Vec<TransactionStatus>,
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L68
@@ -78,11 +83,11 @@ impl Diff {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff.ml#L333
-    fn validate_commands<F>(self, check: F) -> Result<with_valid_signatures::Diff, ()>
+    pub fn validate_commands<F>(self, check: F) -> Result<with_valid_signatures::Diff, PreDiffError>
     where
-        F: Fn(Vec<&UserCommand>) -> Result<Vec<valid::UserCommand>, ()>,
+        F: Fn(Vec<&UserCommand>) -> Result<Vec<valid::UserCommand>, VerifierError>,
     {
-        let validate = |cmds: Vec<WithStatus<UserCommand>>| -> Result<Vec<WithStatus<valid::UserCommand>>, ()> {
+        let validate = |cmds: Vec<WithStatus<UserCommand>>| -> Result<Vec<WithStatus<valid::UserCommand>>, VerifierError> {
             let valids = check(cmds.iter().map(|c| &c.data).collect())?;
             Ok(valids.into_iter().zip(cmds).map(|(data, c)| {
                 WithStatus { data, status: c.status  }
@@ -115,16 +120,18 @@ impl Diff {
     }
 }
 
-mod with_valid_signatures_and_proofs {
+pub mod with_valid_signatures_and_proofs {
     use crate::scan_state::transaction_logic::valid;
 
     use super::*;
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L123
-    type PreDiffWithAtMostTwoCoinbase = PreDiffTwo<work::Checked, WithStatus<valid::Transaction>>;
+    pub type PreDiffWithAtMostTwoCoinbase =
+        PreDiffTwo<work::Checked, WithStatus<valid::Transaction>>;
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L129
-    type PreDiffWithAtMostOneCoinbase = PreDiffOne<work::Checked, WithStatus<valid::Transaction>>;
+    pub type PreDiffWithAtMostOneCoinbase =
+        PreDiffOne<work::Checked, WithStatus<valid::Transaction>>;
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L140
     pub struct Diff {
@@ -135,7 +142,7 @@ mod with_valid_signatures_and_proofs {
     }
 }
 
-mod with_valid_signatures {
+pub mod with_valid_signatures {
     use super::*;
     use crate::scan_state::transaction_logic::valid;
 
