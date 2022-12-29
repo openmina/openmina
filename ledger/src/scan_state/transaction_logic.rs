@@ -12,6 +12,7 @@ use self::{
     signed_command::{SignedCommand, SignedCommandPayload},
     transaction_applied::TransactionApplied,
     transaction_union_payload::TransactionUnionPayload,
+    valid::VerificationKeyHash,
     zkapp_command::Nonce,
 };
 
@@ -122,16 +123,13 @@ pub trait GenericTransaction: Sized {
 pub mod valid {
     use super::*;
 
-    #[derive(Debug)]
-    pub struct VerificationKeyHash(Fp);
+    #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+    pub struct VerificationKeyHash(pub Fp);
 
     #[derive(Debug)]
     pub enum UserCommand {
         SignedCommand(Box<super::signed_command::SignedCommand>),
-        ZkAppCommand {
-            zkapp_command: Box<super::zkapp_command::ZkAppCommand>,
-            verification_keys: Vec<(AccountId, VerificationKeyHash)>,
-        },
+        ZkAppCommand(Box<super::zkapp_command::valid::ZkAppCommand>),
     }
 
     impl UserCommand {
@@ -139,8 +137,8 @@ pub mod valid {
         fn forget_check(&self) -> super::UserCommand {
             match self {
                 UserCommand::SignedCommand(cmd) => super::UserCommand::SignedCommand(cmd.clone()),
-                UserCommand::ZkAppCommand { zkapp_command, .. } => {
-                    super::UserCommand::ZkAppCommand(zkapp_command.clone())
+                UserCommand::ZkAppCommand(cmd) => {
+                    super::UserCommand::ZkAppCommand(Box::new(cmd.zkapp_command.clone()))
                 }
             }
         }
@@ -150,7 +148,7 @@ pub mod valid {
         fn fee(&self) -> Fee {
             match self {
                 UserCommand::SignedCommand(cmd) => cmd.fee(),
-                UserCommand::ZkAppCommand { zkapp_command, .. } => zkapp_command.fee(),
+                UserCommand::ZkAppCommand(cmd) => cmd.zkapp_command.fee(),
             }
         }
     }
@@ -399,7 +397,7 @@ impl Slot {
 pub struct Index(pub(super) u32);
 
 pub mod signed_command {
-    use crate::AccountId;
+    use crate::{decompress_pk, AccountId};
 
     use super::{zkapp_command::Nonce, *};
 
@@ -557,6 +555,18 @@ pub mod signed_command {
                 }
                 Failed(_) => vec![self.fee_payer()],
             }
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command.ml#L401
+        pub fn public_keys(&self) -> [CompressedPubKey; 3] {
+            [self.fee_payer_pk(), self.source_pk(), self.receiver_pk()]
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command.ml#L407
+        pub fn check_valid_keys(&self) -> bool {
+            self.public_keys()
+                .iter()
+                .all(|pk| decompress_pk(pk).is_some())
         }
     }
 }
@@ -797,35 +807,35 @@ pub mod zkapp_command {
 
     impl<Data> CallForest<Data> {
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L68
-        fn fold_impl<A, F>(&self, init: A, fun: &F) -> A
+        fn fold_impl<A, F>(&self, init: A, fun: &mut F) -> A
         where
-            F: Fn(A, &AccountUpdate) -> A,
+            F: FnMut(A, &(AccountUpdate, Data)) -> A,
         {
             let mut accum = init;
             for elem in &self.0 {
-                accum = fun(accum, &elem.elt.account_update.0);
+                accum = fun(accum, &elem.elt.account_update);
                 accum = elem.elt.calls.fold_impl(accum, fun);
             }
             accum
         }
 
-        pub fn fold<A, F>(&self, init: A, fun: F) -> A
+        pub fn fold<A, F>(&self, init: A, mut fun: F) -> A
         where
-            F: Fn(A, &AccountUpdate) -> A,
+            F: FnMut(A, &(AccountUpdate, Data)) -> A,
         {
-            self.fold_impl(init, &fun)
+            self.fold_impl(init, &mut fun)
         }
 
         fn map_to_impl<F, VK>(&self, fun: &F) -> CallForest<VK>
         where
-            F: Fn(&AccountUpdate) -> (AccountUpdate, VK),
+            F: Fn(&(AccountUpdate, Data)) -> (AccountUpdate, VK),
         {
             CallForest::<VK>(
                 self.0
                     .iter()
                     .map(|item| WithStackHash::<VK> {
                         elt: Tree::<VK> {
-                            account_update: fun(&item.elt.account_update.0),
+                            account_update: fun(&item.elt.account_update),
                             account_update_digest: item.elt.account_update_digest,
                             calls: item.elt.calls.map_to_impl(fun),
                         },
@@ -837,7 +847,7 @@ pub mod zkapp_command {
 
         pub fn map_to<F, VK>(&self, fun: F) -> CallForest<VK>
         where
-            F: Fn(&AccountUpdate) -> (AccountUpdate, VK),
+            F: Fn(&(AccountUpdate, Data)) -> (AccountUpdate, VK),
         {
             self.map_to_impl(&fun)
         }
@@ -893,7 +903,7 @@ pub mod zkapp_command {
                 Applied => {
                     let mut ids = self.account_updates.fold(
                         Vec::with_capacity(256),
-                        |mut accum, account_update| {
+                        |mut accum, (account_update, _)| {
                             accum.push(account_update.account_id());
                             accum
                         },
@@ -909,17 +919,75 @@ pub mod zkapp_command {
         pub fn accounts_referenced(&self) -> Vec<AccountId> {
             self.accounts_accessed(TransactionStatus::Applied)
         }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L1346
+        pub fn of_verifiable(verifiable: verifiable::ZkAppCommand) -> Self {
+            Self {
+                fee_payer: verifiable.fee_payer,
+                account_updates: verifiable
+                    .account_updates
+                    .map_to(|(acc, _)| (acc.clone(), ())),
+                memo: verifiable.memo,
+            }
+        }
     }
 
     pub mod verifiable {
         use super::*;
-        use crate::VerificationKey;
+        use crate::{scan_state::transaction_logic::valid::VerificationKeyHash, VerificationKey};
 
         #[derive(Debug, Clone)]
         pub struct ZkAppCommand {
             pub fee_payer: FeePayer,
-            pub account_updates: CallForest<Option<VerificationKey>>,
+            pub account_updates: CallForest<Option<(VerificationKey, VerificationKeyHash)>>,
             pub memo: Memo,
+        }
+    }
+
+    pub mod valid {
+        use std::collections::HashMap;
+
+        use crate::scan_state::transaction_logic::valid::VerificationKeyHash;
+
+        use super::*;
+
+        #[derive(Debug)]
+        pub struct ZkAppCommand {
+            pub zkapp_command: super::ZkAppCommand,
+            pub verification_keys: Vec<(AccountId, VerificationKeyHash)>,
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L1486
+        pub fn of_verifiable(cmd: verifiable::ZkAppCommand) -> Option<ZkAppCommand> {
+            use AuthorizationKind as AK;
+            use Control as C;
+
+            let mut keys = HashMap::with_capacity(256);
+
+            cmd.account_updates.fold(Some(()), |accum, (p, vk_opt)| {
+                accum?;
+
+                match (&p.authorization, &p.body.authorization_kind) {
+                    (C::NoneGiven, AK::NoneGiven)
+                    | (C::Proof(_), AK::Proof)
+                    | (C::Signature(_), AK::Signature) => {
+                        // continue
+                    }
+                    _ => return None,
+                }
+
+                if let C::Proof(_) = &p.authorization {
+                    let (_, hash) = vk_opt.as_ref()?;
+                    keys.insert(p.account_id(), hash.clone());
+                };
+
+                accum
+            })?;
+
+            Some(ZkAppCommand {
+                zkapp_command: super::ZkAppCommand::of_verifiable(cmd),
+                verification_keys: keys.into_iter().collect(),
+            })
         }
     }
 }
@@ -931,6 +999,14 @@ pub mod verifiable {
     pub enum UserCommand {
         SignedCommand(Box<signed_command::SignedCommand>),
         ZkAppCommand(Box<zkapp_command::verifiable::ZkAppCommand>),
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command.ml#L436
+    pub fn check_only_for_signature(cmd: Box<signed_command::SignedCommand>) -> valid::UserCommand {
+        // TODO implement actual verification
+        // https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command.ml#L396
+
+        valid::UserCommand::SignedCommand(cmd)
     }
 }
 
@@ -981,8 +1057,14 @@ impl UserCommand {
 
                 let zkapp = zkapp_command::verifiable::ZkAppCommand {
                     fee_payer: fee_payer.clone(),
-                    account_updates: account_updates
-                        .map_to(|account_update| (account_update.clone(), find_vk(account_update))),
+                    account_updates: account_updates.map_to(|(account_update, _)| {
+                        let with_hash = find_vk(account_update).map(|vk| {
+                            let hash = vk.hash();
+                            (vk, VerificationKeyHash(hash))
+                        });
+
+                        (account_update.clone(), with_hash)
+                    }),
                     memo: memo.clone(),
                 };
 

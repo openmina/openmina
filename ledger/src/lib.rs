@@ -43,6 +43,7 @@ pub mod staged_ledger;
 mod tree;
 mod tree_version;
 mod util;
+pub mod verifier;
 
 pub use account::*;
 pub use address::*;

@@ -14,6 +14,7 @@ use crate::{
         },
     },
     staged_ledger::sparse_ledger::SparseLedger,
+    verifier::Verifier,
     Account, AccountId,
 };
 
@@ -513,30 +514,6 @@ pub enum StatementCheck {
     Partial,
     Full(Box<dyn Fn(&Fp) -> &MinaStateProtocolStateValueStableV2>), // TODO: The fn returns a protocol state
 }
-
-#[derive(Debug, Clone)]
-pub struct Verifier;
-
-impl Verifier {
-    pub fn verify(&self, _proofs: &[LedgerProofWithSokMessage]) -> Result<bool, String> {
-        // Implement verification later
-        //
-        // https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/pickles/pickles.ml#L1122
-        // https://viable-systems.slack.com/archives/D01SVA87PQC/p1671715846448749
-        Ok(true)
-    }
-
-    pub fn verify_commands(
-        &self,
-        _cmds: Vec<verifiable::UserCommand>,
-    ) -> Result<Vec<()>, VerifierError> {
-        // TODO
-        Ok(Vec::new())
-    }
-}
-
-#[derive(Debug)]
-pub enum VerifierError {}
 
 impl ScanState {
     pub fn scan_statement(

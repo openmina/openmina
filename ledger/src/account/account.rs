@@ -216,7 +216,7 @@ impl VerificationKey {
         }
     }
 
-    fn hash(&self) -> Fp {
+    pub fn hash(&self) -> Fp {
         let mut inputs = Inputs::new();
 
         // https://github.com/MinaProtocol/mina/blob/35b1702fbc295713f9bb46bb17e2d007bc2bab84/src/lib/pickles_base/proofs_verified.ml#L108-L118

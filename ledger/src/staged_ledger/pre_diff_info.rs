@@ -5,12 +5,13 @@ use mina_signer::CompressedPubKey;
 use crate::{
     scan_state::{
         currency::{Amount, Fee, Magnitude},
-        scan_state::{group_list, transaction_snark::work, ConstraintConstants, VerifierError},
+        scan_state::{group_list, transaction_snark::work, ConstraintConstants},
         transaction_logic::{
             valid, Coinbase, CoinbaseFeeTransfer, FeeTransfer, GenericCommand, GenericTransaction,
             SingleFeeTransfer, TransactionStatus, UserCommand, WithStatus,
         },
     },
+    verifier::VerifierError,
     TokenId,
 };
 

@@ -16,8 +16,7 @@ use crate::{
                 work, InitStack, LedgerHash, LedgerProof, LedgerProofWithSokMessage, OneOrTwo,
                 Registers, SokMessage, Statement, TransactionWithWitness,
             },
-            AvailableJob, ConstraintConstants, ScanState, SpacePartition, StatementCheck, Verifier,
-            VerifierError,
+            AvailableJob, ConstraintConstants, ScanState, SpacePartition, StatementCheck,
         },
         snark_work::spec,
         transaction_logic::{
@@ -28,7 +27,9 @@ use crate::{
             valid, verifiable, Transaction, TransactionStatus, UserCommand, WithStatus,
         },
     },
-    split_at, AccountId, BaseLedger, Mask, TokenId,
+    split_at,
+    verifier::{Verifier, VerifierError},
+    AccountId, BaseLedger, Mask, TokenId,
 };
 
 use super::{diff::Diff, pre_diff_info::PreDiffError, sparse_ledger::SparseLedger};
@@ -1018,11 +1019,11 @@ impl StagedLedger {
         let cmds: Vec<verifiable::UserCommand> =
             cs.iter().map(|cmd| cmd.to_verifiable(&ledger)).collect();
 
-        let _xs = verifier.verify_commands(cmds)?;
+        let xs = verifier.verify_commands(cmds)?;
 
         // TODO: OCaml does check the list `xs`
 
-        Ok(Vec::new())
+        Ok(xs)
     }
 
     fn apply(

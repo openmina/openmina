@@ -1,11 +1,12 @@
 use crate::{
     scan_state::{
-        scan_state::{transaction_snark::work, VerifierError},
+        scan_state::transaction_snark::work,
         transaction_logic::{
             valid, CoinbaseFeeTransfer, TransactionStatus, UserCommand, WithStatus,
         },
     },
     split_at_vec,
+    verifier::VerifierError,
 };
 
 use super::pre_diff_info::PreDiffError;
