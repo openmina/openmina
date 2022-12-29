@@ -127,11 +127,11 @@ pub mod with_valid_signatures_and_proofs {
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L123
     pub type PreDiffWithAtMostTwoCoinbase =
-        PreDiffTwo<work::Checked, WithStatus<valid::Transaction>>;
+        PreDiffTwo<work::Checked, WithStatus<valid::UserCommand>>;
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L129
     pub type PreDiffWithAtMostOneCoinbase =
-        PreDiffOne<work::Checked, WithStatus<valid::Transaction>>;
+        PreDiffOne<work::Checked, WithStatus<valid::UserCommand>>;
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L140
     pub struct Diff {
@@ -144,7 +144,14 @@ pub mod with_valid_signatures_and_proofs {
 
 pub mod with_valid_signatures {
     use super::*;
-    use crate::scan_state::transaction_logic::valid;
+    use crate::{
+        scan_state::{
+            currency::{Amount, Magnitude},
+            scan_state::ConstraintConstants,
+            transaction_logic::valid,
+        },
+        staged_ledger::staged_ledger::StagedLedger,
+    };
 
     pub type PreDiffWithAtMostTwoCoinbase = PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>;
 
@@ -155,5 +162,29 @@ pub mod with_valid_signatures {
             PreDiffWithAtMostTwoCoinbase,
             Option<PreDiffWithAtMostOneCoinbase>,
         ),
+    }
+
+    impl Diff {
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff.ml#L278
+        pub fn coinbase(
+            &self,
+            constraint_constants: &ConstraintConstants,
+            supercharge_coinbase: bool,
+        ) -> Option<Amount> {
+            let (first_pre_diff, second_pre_diff_opt) = &self.diff;
+            let coinbase_amount =
+                StagedLedger::coinbase_amount(supercharge_coinbase, constraint_constants);
+
+            match (
+                &first_pre_diff.coinbase,
+                second_pre_diff_opt
+                    .as_ref()
+                    .map(|s| &s.coinbase)
+                    .unwrap_or(&AtMostOne::Zero),
+            ) {
+                (AtMostTwo::Zero, AtMostOne::Zero) => Some(Amount::zero()),
+                _ => coinbase_amount,
+            }
+        }
     }
 }

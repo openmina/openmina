@@ -854,6 +854,7 @@ dependencies = [
  "binprot_derive",
  "bitvec",
  "bs58",
+ "derive_more",
  "getrandom",
  "hex",
  "kimchi",

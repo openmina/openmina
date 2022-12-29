@@ -526,7 +526,10 @@ impl Verifier {
         Ok(true)
     }
 
-    pub fn verify_commands(&self, _cmds: Vec<verifiable::UserCommand>) -> Result<Vec<()>, String> {
+    pub fn verify_commands(
+        &self,
+        _cmds: Vec<verifiable::UserCommand>,
+    ) -> Result<Vec<()>, VerifierError> {
         // TODO
         Ok(Vec::new())
     }

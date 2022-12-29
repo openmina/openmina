@@ -17,6 +17,7 @@ use crate::{
                 Registers, SokMessage, Statement, TransactionWithWitness,
             },
             AvailableJob, ConstraintConstants, ScanState, SpacePartition, StatementCheck, Verifier,
+            VerifierError,
         },
         snark_work::spec,
         transaction_logic::{
@@ -30,7 +31,7 @@ use crate::{
     split_at, AccountId, BaseLedger, Mask, TokenId,
 };
 
-use super::{diff::Diff, sparse_ledger::SparseLedger};
+use super::{diff::Diff, pre_diff_info::PreDiffError, sparse_ledger::SparseLedger};
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#470
 #[derive(Clone, Debug)]
@@ -39,9 +40,9 @@ pub struct StackStateWithInitStack {
     pub init_stack: Stack,
 }
 
-pub enum PreDiffError {
-    CoinbaseError(&'static str),
-}
+// pub enum PreDiffError {
+//     CoinbaseError(&'static str),
+// }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L23
 pub enum StagedLedgerError {
@@ -61,6 +62,12 @@ pub enum StagedLedgerError {
 impl From<String> for StagedLedgerError {
     fn from(value: String) -> Self {
         Self::Unexpected(value)
+    }
+}
+
+impl From<PreDiffError> for StagedLedgerError {
+    fn from(value: PreDiffError) -> Self {
+        Self::PreDiff(value)
     }
 }
 
@@ -447,7 +454,7 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#477
-    fn coinbase_amount(
+    pub fn coinbase_amount(
         supercharge_coinbase: bool,
         constraint_constants: &ConstraintConstants,
     ) -> Option<Amount> {
@@ -872,7 +879,7 @@ impl StagedLedger {
             [amount] => Ok(*amount),
             [amount1, _amount2] => Ok(*amount1),
             _ => Err(StagedLedgerError::PreDiff(PreDiffError::CoinbaseError(
-                "More than two coinbase parts",
+                "More than two coinbase parts".to_string(),
             ))),
         }
     }
@@ -1006,8 +1013,8 @@ impl StagedLedger {
     fn check_commands(
         ledger: Mask,
         verifier: &Verifier,
-        cs: Vec<UserCommand>,
-    ) -> Result<(), StagedLedgerError> {
+        cs: Vec<&UserCommand>,
+    ) -> Result<Vec<valid::UserCommand>, VerifierError> {
         let cmds: Vec<verifiable::UserCommand> =
             cs.iter().map(|cmd| cmd.to_verifiable(&ledger)).collect();
 
@@ -1015,7 +1022,7 @@ impl StagedLedger {
 
         // TODO: OCaml does check the list `xs`
 
-        Ok(())
+        Ok(Vec::new())
     }
 
     fn apply(
@@ -1035,6 +1042,13 @@ impl StagedLedger {
         if skip_verification.is_none() {
             Self::check_completed_works(logger, verifier, &self.scan_state, work)?;
         }
+
+        witness.get(
+            |cmd| Self::check_commands(self.ledger.clone(), verifier, cmd),
+            constraint_constants,
+            coinbase_receiver,
+            supercharge_coinbase,
+        )?;
 
         Ok(())
     }

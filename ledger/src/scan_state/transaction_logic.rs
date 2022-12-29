@@ -109,6 +109,16 @@ impl<T> WithStatus<T> {
     }
 }
 
+pub trait GenericCommand {
+    fn fee(&self) -> Fee;
+}
+
+pub trait GenericTransaction: Sized {
+    fn is_fee_transfer(&self) -> bool;
+    fn is_coinbase(&self) -> bool;
+    fn is_command(&self) -> bool;
+}
+
 pub mod valid {
     use super::*;
 
@@ -136,7 +146,28 @@ pub mod valid {
         }
     }
 
-    #[derive(Debug)]
+    impl GenericCommand for UserCommand {
+        fn fee(&self) -> Fee {
+            match self {
+                UserCommand::SignedCommand(cmd) => cmd.fee(),
+                UserCommand::ZkAppCommand { zkapp_command, .. } => zkapp_command.fee(),
+            }
+        }
+    }
+
+    impl GenericTransaction for Transaction {
+        fn is_fee_transfer(&self) -> bool {
+            matches!(self, Transaction::FeeTransfer(_))
+        }
+        fn is_coinbase(&self) -> bool {
+            matches!(self, Transaction::Coinbase(_))
+        }
+        fn is_command(&self) -> bool {
+            matches!(self, Transaction::Command(_))
+        }
+    }
+
+    #[derive(Debug, derive_more::From)]
     pub enum Transaction {
         Command(UserCommand),
         FeeTransfer(super::FeeTransfer),
