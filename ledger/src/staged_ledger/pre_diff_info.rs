@@ -8,14 +8,14 @@ use crate::{
         scan_state::{group_list, transaction_snark::work, ConstraintConstants},
         transaction_logic::{
             valid, Coinbase, CoinbaseFeeTransfer, FeeTransfer, GenericCommand, GenericTransaction,
-            SingleFeeTransfer, TransactionStatus, UserCommand, WithStatus,
+            SingleFeeTransfer, Transaction, TransactionStatus, UserCommand, WithStatus,
         },
     },
     verifier::VerifierError,
     TokenId,
 };
 
-use super::diff::{self, with_valid_signatures, PreDiffOne, PreDiffTwo};
+use super::diff::{self, with_valid_signatures_and_proofs, PreDiffOne, PreDiffTwo};
 
 #[derive(Debug)]
 pub enum PreDiffError {
@@ -188,7 +188,7 @@ where
 }
 
 #[derive(Debug, Eq)]
-struct HashableCompressedPubKey(CompressedPubKey);
+pub struct HashableCompressedPubKey(pub CompressedPubKey);
 
 impl PartialEq for HashableCompressedPubKey {
     fn eq(&self, other: &Self) -> bool {
@@ -318,189 +318,188 @@ struct TransactionData<T> {
     fee_transfers: Vec<FeeTransfer>,
 }
 
-impl diff::Diff {
-    fn get_transaction_data<Cmd, Tx>(
-        constraint_constants: &ConstraintConstants,
-        coinbase_parts: CoinbaseParts,
-        receiver: &CompressedPubKey,
-        coinbase_amount: Amount,
-        commands: Vec<WithStatus<Cmd>>,
-        completed_works: &[work::Unchecked],
-    ) -> Result<TransactionData<Cmd>, PreDiffError>
-    where
-        Cmd: GenericCommand,
-        Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer>,
-    {
-        let coinbases = create_coinbase(
-            constraint_constants,
-            coinbase_parts,
-            receiver.clone(),
-            coinbase_amount,
-        )?;
+fn get_transaction_data<Cmd, Tx>(
+    constraint_constants: &ConstraintConstants,
+    coinbase_parts: CoinbaseParts,
+    receiver: &CompressedPubKey,
+    coinbase_amount: Amount,
+    commands: Vec<WithStatus<Cmd>>,
+    completed_works: &[work::Unchecked],
+) -> Result<TransactionData<Cmd>, PreDiffError>
+where
+    Cmd: GenericCommand,
+    Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer>,
+{
+    let coinbases = create_coinbase(
+        constraint_constants,
+        coinbase_parts,
+        receiver.clone(),
+        coinbase_amount,
+    )?;
 
-        let coinbase_fts: Vec<CoinbaseFeeTransfer> = coinbases
-            .iter()
-            .flat_map(|cb| cb.fee_transfer.clone().into_iter())
-            .collect();
+    let coinbase_fts: Vec<CoinbaseFeeTransfer> = coinbases
+        .iter()
+        .flat_map(|cb| cb.fee_transfer.clone().into_iter())
+        .collect();
 
-        let coinbase_work_fees: Fee =
-            sum_fees(&coinbase_fts, |ft| ft.fee).expect("OCaml throw here");
+    let coinbase_work_fees: Fee = sum_fees(&coinbase_fts, |ft| ft.fee).expect("OCaml throw here");
 
-        let txn_works_others: Vec<&work::Work> = completed_works
-            .iter()
-            .filter(|w| &w.prover != receiver)
-            .collect();
+    let txn_works_others: Vec<&work::Work> = completed_works
+        .iter()
+        .filter(|w| &w.prover != receiver)
+        .collect();
 
-        let delta: Fee = fee_remainder(commands.as_slice(), &txn_works_others, coinbase_work_fees)?;
+    let delta: Fee = fee_remainder(commands.as_slice(), &txn_works_others, coinbase_work_fees)?;
 
-        let fee_transfers: Vec<FeeTransfer> =
-            create_fee_transfers(txn_works_others, delta, receiver, coinbase_fts)?;
+    let fee_transfers: Vec<FeeTransfer> =
+        create_fee_transfers(txn_works_others, delta, receiver, coinbase_fts)?;
 
-        Ok(TransactionData {
-            commands,
-            coinbases,
-            fee_transfers,
-        })
-    }
+    Ok(TransactionData {
+        commands,
+        coinbases,
+        fee_transfers,
+    })
+}
 
-    fn get_individual_info<Cmd, Tx>(
-        constraint_constants: &ConstraintConstants,
-        coinbase_parts: CoinbaseParts,
-        receiver: &CompressedPubKey,
-        coinbase_amount: Amount,
-        commands: Vec<WithStatus<Cmd>>,
-        completed_works: Vec<work::Unchecked>,
-        internal_command_statuses: Vec<TransactionStatus>,
-    ) -> Result<PreDiffInfo<Tx>, PreDiffError>
-    where
-        Cmd: GenericCommand,
-        Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer> + From<Cmd>,
-    {
-        let TransactionData {
-            commands,
-            coinbases: coinbase_parts,
-            fee_transfers,
-        } = Self::get_transaction_data::<Cmd, Tx>(
-            constraint_constants,
-            coinbase_parts,
-            receiver,
-            coinbase_amount,
-            commands,
-            &completed_works,
-        )?;
+fn get_individual_info<Cmd, Tx>(
+    constraint_constants: &ConstraintConstants,
+    coinbase_parts: CoinbaseParts,
+    receiver: &CompressedPubKey,
+    coinbase_amount: Amount,
+    commands: Vec<WithStatus<Cmd>>,
+    completed_works: Vec<work::Unchecked>,
+    internal_command_statuses: Vec<TransactionStatus>,
+) -> Result<PreDiffInfo<Tx>, PreDiffError>
+where
+    Cmd: GenericCommand,
+    Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer> + From<Cmd>,
+{
+    let TransactionData {
+        commands,
+        coinbases: coinbase_parts,
+        fee_transfers,
+    } = get_transaction_data::<Cmd, Tx>(
+        constraint_constants,
+        coinbase_parts,
+        receiver,
+        coinbase_amount,
+        commands,
+        &completed_works,
+    )?;
 
-        let commands_count = commands.len();
-        let coinbases_amount: Vec<Amount> = coinbase_parts.iter().map(|cb| cb.amount).collect();
+    let commands_count = commands.len();
+    let coinbases_amount: Vec<Amount> = coinbase_parts.iter().map(|cb| cb.amount).collect();
 
-        let internal_commands: Vec<Tx> = coinbase_parts
-            .into_iter()
-            .map(Into::into)
-            .chain(fee_transfers.into_iter().map(Into::into))
-            .collect();
+    let internal_commands: Vec<Tx> = coinbase_parts
+        .into_iter()
+        .map(Into::into)
+        .chain(fee_transfers.into_iter().map(Into::into))
+        .collect();
 
-        let internal_commands_with_statuses: Vec<WithStatus<Tx>> = internal_command_statuses
-            .into_iter()
-            .zip(internal_commands)
-            .map(|(status, cmd)| {
-                if cmd.is_coinbase() || cmd.is_fee_transfer() {
-                    Ok(WithStatus { data: cmd, status })
-                } else {
-                    Err(PreDiffError::InternalCommandStatusMismatch)
-                }
-            })
-            .collect::<Result<_, _>>()?;
-
-        let transactions: Vec<WithStatus<Tx>> = commands
-            .into_iter()
-            .map(|cmd| cmd.into_map(Into::into))
-            .chain(internal_commands_with_statuses)
-            .collect();
-
-        Ok(PreDiffInfo {
-            transactions,
-            work: completed_works,
-            commands_count,
-            coinbases: coinbases_amount,
-        })
-    }
-
-    fn get_impl<Cmd, Tx>(
-        constraint_constants: &ConstraintConstants,
-        diff: (
-            PreDiffTwo<work::Work, WithStatus<Cmd>>,
-            Option<PreDiffOne<work::Work, WithStatus<Cmd>>>,
-        ),
-        coinbase_receiver: CompressedPubKey,
-        coinbase_amount: Option<Amount>,
-    ) -> Result<(Vec<WithStatus<Tx>>, Vec<work::Work>, usize, Vec<Amount>), PreDiffError>
-    where
-        Cmd: GenericCommand,
-        Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer> + From<Cmd>,
-    {
-        let coinbase_amount = match coinbase_amount {
-            Some(amount) => amount,
-            None => {
-                return Err(PreDiffError::CoinbaseError(format!(
-                    "Overflow when calculating coinbase amount: Supercharged \
-                 coinbase factor ({:?}) x coinbase amount ({:?})",
-                    constraint_constants.supercharged_coinbase_factor,
-                    constraint_constants.coinbase_amount,
-                )))
+    let internal_commands_with_statuses: Vec<WithStatus<Tx>> = internal_command_statuses
+        .into_iter()
+        .zip(internal_commands)
+        .map(|(status, cmd)| {
+            if cmd.is_coinbase() || cmd.is_fee_transfer() {
+                Ok(WithStatus { data: cmd, status })
+            } else {
+                Err(PreDiffError::InternalCommandStatusMismatch)
             }
+        })
+        .collect::<Result<_, _>>()?;
+
+    let transactions: Vec<WithStatus<Tx>> = commands
+        .into_iter()
+        .map(|cmd| cmd.into_map(Into::into))
+        .chain(internal_commands_with_statuses)
+        .collect();
+
+    Ok(PreDiffInfo {
+        transactions,
+        work: completed_works,
+        commands_count,
+        coinbases: coinbases_amount,
+    })
+}
+
+fn get_impl<Cmd, Tx>(
+    constraint_constants: &ConstraintConstants,
+    diff: (
+        PreDiffTwo<work::Work, WithStatus<Cmd>>,
+        Option<PreDiffOne<work::Work, WithStatus<Cmd>>>,
+    ),
+    coinbase_receiver: CompressedPubKey,
+    coinbase_amount: Option<Amount>,
+) -> Result<(Vec<WithStatus<Tx>>, Vec<work::Work>, usize, Vec<Amount>), PreDiffError>
+where
+    Cmd: GenericCommand,
+    Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer> + From<Cmd>,
+{
+    let coinbase_amount = match coinbase_amount {
+        Some(amount) => amount,
+        None => {
+            return Err(PreDiffError::CoinbaseError(format!(
+                "Overflow when calculating coinbase amount: Supercharged \
+                 coinbase factor ({:?}) x coinbase amount ({:?})",
+                constraint_constants.supercharged_coinbase_factor,
+                constraint_constants.coinbase_amount,
+            )))
+        }
+    };
+
+    let apply_pre_diff_with_at_most_two = |t1: PreDiffTwo<_, _>| {
+        let coinbase_parts = match t1.coinbase {
+            diff::AtMostTwo::Zero => CoinbaseParts::Zero,
+            diff::AtMostTwo::One(x) => CoinbaseParts::One(x),
+            diff::AtMostTwo::Two(x) => CoinbaseParts::Two(x),
         };
 
-        let apply_pre_diff_with_at_most_two = |t1: PreDiffTwo<_, _>| {
-            let coinbase_parts = match t1.coinbase {
-                diff::AtMostTwo::Zero => CoinbaseParts::Zero,
-                diff::AtMostTwo::One(x) => CoinbaseParts::One(x),
-                diff::AtMostTwo::Two(x) => CoinbaseParts::Two(x),
-            };
+        get_individual_info::<Cmd, Tx>(
+            constraint_constants,
+            coinbase_parts,
+            &coinbase_receiver,
+            coinbase_amount,
+            t1.commands,
+            t1.completed_works,
+            t1.internal_command_statuses,
+        )
+    };
 
-            Self::get_individual_info::<Cmd, Tx>(
-                constraint_constants,
-                coinbase_parts,
-                &coinbase_receiver,
-                coinbase_amount,
-                t1.commands,
-                t1.completed_works,
-                t1.internal_command_statuses,
-            )
+    let apply_pre_diff_with_at_most_one = |t2: PreDiffOne<_, _>| {
+        let coinbase_added = match t2.coinbase {
+            diff::AtMostOne::Zero => CoinbaseParts::Zero,
+            diff::AtMostOne::One(x) => CoinbaseParts::One(x),
         };
+        get_individual_info::<Cmd, Tx>(
+            constraint_constants,
+            coinbase_added,
+            &coinbase_receiver,
+            coinbase_amount,
+            t2.commands,
+            t2.completed_works,
+            t2.internal_command_statuses,
+        )
+    };
 
-        let apply_pre_diff_with_at_most_one = |t2: PreDiffOne<_, _>| {
-            let coinbase_added = match t2.coinbase {
-                diff::AtMostOne::Zero => CoinbaseParts::Zero,
-                diff::AtMostOne::One(x) => CoinbaseParts::One(x),
-            };
-            Self::get_individual_info::<Cmd, Tx>(
-                constraint_constants,
-                coinbase_added,
-                &coinbase_receiver,
-                coinbase_amount,
-                t2.commands,
-                t2.completed_works,
-                t2.internal_command_statuses,
-            )
-        };
+    check_coinbase(&diff)?;
 
-        check_coinbase(&diff)?;
+    let p1 = apply_pre_diff_with_at_most_two(diff.0)?;
 
-        let p1 = apply_pre_diff_with_at_most_two(diff.0)?;
+    let p2 = if let Some(d) = diff.1 {
+        apply_pre_diff_with_at_most_one(d)?
+    } else {
+        PreDiffInfo::empty()
+    };
 
-        let p2 = if let Some(d) = diff.1 {
-            apply_pre_diff_with_at_most_one(d)?
-        } else {
-            PreDiffInfo::empty()
-        };
+    Ok((
+        p1.transactions.into_iter().chain(p2.transactions).collect(),
+        p1.work.into_iter().chain(p2.work).collect(),
+        p1.commands_count + p2.commands_count,
+        p1.coinbases.into_iter().chain(p2.coinbases).collect(),
+    ))
+}
 
-        Ok((
-            p1.transactions.into_iter().chain(p2.transactions).collect(),
-            p1.work.into_iter().chain(p2.work).collect(),
-            p1.commands_count + p2.commands_count,
-            p1.coinbases.into_iter().chain(p2.coinbases).collect(),
-        ))
-    }
-
+impl diff::Diff {
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L457
     pub fn get<F>(
         self,
@@ -522,9 +521,60 @@ impl diff::Diff {
     {
         let diff = self.validate_commands(check)?;
 
-        let coinbase_amount = diff.coinbase(constraint_constants, supercharge_coinbase);
+        let coinbase_amount =
+            diff::coinbase(&diff.diff, constraint_constants, supercharge_coinbase);
 
-        Self::get_impl::<valid::UserCommand, valid::Transaction>(
+        get_impl::<valid::UserCommand, valid::Transaction>(
+            constraint_constants,
+            diff.diff,
+            coinbase_receiver,
+            coinbase_amount,
+        )
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L481
+    pub fn get_transactions(
+        self,
+        constraint_constants: &ConstraintConstants,
+        coinbase_receiver: CompressedPubKey,
+        supercharge_coinbase: bool,
+    ) -> Result<Vec<WithStatus<Transaction>>, PreDiffError> {
+        let coinbase_amount =
+            diff::coinbase(&self.diff, constraint_constants, supercharge_coinbase);
+
+        let (transactions, _, _, _) = get_impl::<UserCommand, Transaction>(
+            constraint_constants,
+            self.diff,
+            coinbase_receiver,
+            coinbase_amount,
+        )?;
+
+        Ok(transactions)
+    }
+}
+
+impl with_valid_signatures_and_proofs::Diff {
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L472
+    pub fn get_unchecked(
+        self,
+        constraint_constants: &ConstraintConstants,
+        coinbase_receiver: CompressedPubKey,
+        supercharge_coinbase: bool,
+    ) -> Result<
+        (
+            Vec<WithStatus<valid::Transaction>>,
+            Vec<work::Work>,
+            usize,
+            Vec<Amount>,
+        ),
+        PreDiffError,
+    > {
+        let diff = self.forget_proof_checks();
+
+        let coinbase_amount =
+            diff::coinbase(&diff.diff, constraint_constants, supercharge_coinbase);
+
+        get_impl::<valid::UserCommand, valid::Transaction>(
             constraint_constants,
             diff.diff,
             coinbase_receiver,

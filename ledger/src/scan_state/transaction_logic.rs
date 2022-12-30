@@ -272,6 +272,10 @@ pub struct CoinbaseFeeTransfer {
 }
 
 impl CoinbaseFeeTransfer {
+    pub fn create(receiver_pk: CompressedPubKey, fee: Fee) -> Self {
+        Self { receiver_pk, fee }
+    }
+
     pub fn receiver(&self) -> AccountId {
         AccountId {
             public_key: self.receiver_pk.clone(),
@@ -970,9 +974,7 @@ pub mod zkapp_command {
                 match (&p.authorization, &p.body.authorization_kind) {
                     (C::NoneGiven, AK::NoneGiven)
                     | (C::Proof(_), AK::Proof)
-                    | (C::Signature(_), AK::Signature) => {
-                        // continue
-                    }
+                    | (C::Signature(_), AK::Signature) => {}
                     _ => return None,
                 }
 
@@ -980,8 +982,7 @@ pub mod zkapp_command {
                     let (_, hash) = vk_opt.as_ref()?;
                     keys.insert(p.account_id(), hash.clone());
                 };
-
-                accum
+                Some(())
             })?;
 
             Some(ZkAppCommand {
@@ -1074,7 +1075,28 @@ impl UserCommand {
     }
 }
 
-#[derive(Debug)]
+impl GenericCommand for UserCommand {
+    fn fee(&self) -> Fee {
+        match self {
+            UserCommand::SignedCommand(cmd) => cmd.fee(),
+            UserCommand::ZkAppCommand(cmd) => cmd.fee(),
+        }
+    }
+}
+
+impl GenericTransaction for Transaction {
+    fn is_fee_transfer(&self) -> bool {
+        matches!(self, Transaction::FeeTransfer(_))
+    }
+    fn is_coinbase(&self) -> bool {
+        matches!(self, Transaction::Coinbase(_))
+    }
+    fn is_command(&self) -> bool {
+        matches!(self, Transaction::Command(_))
+    }
+}
+
+#[derive(Debug, derive_more::From)]
 pub enum Transaction {
     Command(UserCommand),
     FeeTransfer(FeeTransfer),

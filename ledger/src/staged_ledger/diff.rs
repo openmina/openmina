@@ -1,6 +1,7 @@
 use crate::{
     scan_state::{
-        scan_state::transaction_snark::work,
+        currency::{Amount, Magnitude},
+        scan_state::{transaction_snark::work, ConstraintConstants},
         transaction_logic::{
             valid, CoinbaseFeeTransfer, TransactionStatus, UserCommand, WithStatus,
         },
@@ -9,7 +10,7 @@ use crate::{
     verifier::VerifierError,
 };
 
-use super::pre_diff_info::PreDiffError;
+use super::{pre_diff_info::PreDiffError, staged_ledger::StagedLedger};
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L5
 #[derive(Debug)]
@@ -52,7 +53,7 @@ type PreDiffWithAtMostOneCoinbase = PreDiffOne<work::Work, WithStatus<UserComman
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L107
 pub struct Diff {
-    diff: (
+    pub diff: (
         PreDiffWithAtMostTwoCoinbase,
         Option<PreDiffWithAtMostOneCoinbase>,
     ),
@@ -141,18 +142,42 @@ pub mod with_valid_signatures_and_proofs {
             Option<PreDiffWithAtMostOneCoinbase>,
         ),
     }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff.ml#L268
+    fn forget_cw(list: Vec<work::Checked>) -> Vec<work::Unchecked> {
+        list.into_iter().map(work::Checked::forget).collect()
+    }
+
+    impl Diff {
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff.ml#L373
+        pub fn forget_proof_checks(self) -> super::with_valid_signatures::Diff {
+            let d1 = self.diff.0;
+
+            let p1 = with_valid_signatures::PreDiffWithAtMostTwoCoinbase {
+                completed_works: forget_cw(d1.completed_works),
+                commands: d1.commands,
+                coinbase: d1.coinbase,
+                internal_command_statuses: d1.internal_command_statuses,
+            };
+
+            let p2 = self
+                .diff
+                .1
+                .map(|d2| with_valid_signatures::PreDiffWithAtMostOneCoinbase {
+                    completed_works: forget_cw(d2.completed_works),
+                    commands: d2.commands,
+                    coinbase: d2.coinbase,
+                    internal_command_statuses: d2.internal_command_statuses,
+                });
+
+            super::with_valid_signatures::Diff { diff: (p1, p2) }
+        }
+    }
 }
 
 pub mod with_valid_signatures {
     use super::*;
-    use crate::{
-        scan_state::{
-            currency::{Amount, Magnitude},
-            scan_state::ConstraintConstants,
-            transaction_logic::valid,
-        },
-        staged_ledger::staged_ledger::StagedLedger,
-    };
+    use crate::scan_state::transaction_logic::valid;
 
     pub type PreDiffWithAtMostTwoCoinbase = PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>;
 
@@ -164,28 +189,25 @@ pub mod with_valid_signatures {
             Option<PreDiffWithAtMostOneCoinbase>,
         ),
     }
+}
 
-    impl Diff {
-        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff.ml#L278
-        pub fn coinbase(
-            &self,
-            constraint_constants: &ConstraintConstants,
-            supercharge_coinbase: bool,
-        ) -> Option<Amount> {
-            let (first_pre_diff, second_pre_diff_opt) = &self.diff;
-            let coinbase_amount =
-                StagedLedger::coinbase_amount(supercharge_coinbase, constraint_constants);
+/// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff.ml#L278
+pub fn coinbase<A, B>(
+    diff: &(PreDiffTwo<A, B>, Option<PreDiffOne<A, B>>),
+    constraint_constants: &ConstraintConstants,
+    supercharge_coinbase: bool,
+) -> Option<Amount> {
+    let (first_pre_diff, second_pre_diff_opt) = &diff;
+    let coinbase_amount = StagedLedger::coinbase_amount(supercharge_coinbase, constraint_constants);
 
-            match (
-                &first_pre_diff.coinbase,
-                second_pre_diff_opt
-                    .as_ref()
-                    .map(|s| &s.coinbase)
-                    .unwrap_or(&AtMostOne::Zero),
-            ) {
-                (AtMostTwo::Zero, AtMostOne::Zero) => Some(Amount::zero()),
-                _ => coinbase_amount,
-            }
-        }
+    match (
+        &first_pre_diff.coinbase,
+        second_pre_diff_opt
+            .as_ref()
+            .map(|s| &s.coinbase)
+            .unwrap_or(&AtMostOne::Zero),
+    ) {
+        (AtMostTwo::Zero, AtMostOne::Zero) => Some(Amount::zero()),
+        _ => coinbase_amount,
     }
 }

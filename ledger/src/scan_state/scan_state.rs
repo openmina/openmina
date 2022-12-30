@@ -27,7 +27,7 @@ use super::{
     transaction_logic::{
         apply_transaction, local_state::LocalState, protocol_state::protocol_state_view,
         transaction_applied::TransactionApplied, transaction_witness::TransactionWitness,
-        verifiable, Transaction, WithStatus,
+        Transaction, WithStatus,
     },
 };
 // use super::parallel_scan::AvailableJob;
@@ -137,7 +137,7 @@ pub mod transaction_snark {
 
         pub type Statement = OneOrTwo<super::Statement>;
 
-        #[derive(Clone)]
+        #[derive(Debug, Clone)]
         pub struct Work {
             pub fee: Fee,
             pub proofs: OneOrTwo<LedgerProof>,
@@ -147,6 +147,19 @@ pub mod transaction_snark {
         pub type Unchecked = Work;
 
         pub type Checked = Work;
+
+        impl Work {
+            pub fn statement(&self) -> Statement {
+                self.proofs.map(|p| p.statement().clone())
+            }
+        }
+
+        impl Checked {
+            /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/transaction_snark_work/transaction_snark_work.ml#L121
+            pub fn forget(self) -> Unchecked {
+                self
+            }
+        }
     }
 
     // TransactionSnarkPendingCoinbaseStackStateInitStackStableV1
@@ -203,7 +216,7 @@ pub mod transaction_snark {
         pub sok_message: SokMessage,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum OneOrTwo<T> {
         One(T),
         Two((T, T)),

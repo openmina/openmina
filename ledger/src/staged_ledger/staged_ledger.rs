@@ -32,7 +32,11 @@ use crate::{
     AccountId, BaseLedger, Mask, TokenId,
 };
 
-use super::{diff::Diff, pre_diff_info::PreDiffError, sparse_ledger::SparseLedger};
+use super::{
+    diff::{with_valid_signatures_and_proofs, Diff},
+    pre_diff_info::PreDiffError,
+    sparse_ledger::SparseLedger,
+};
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#470
 #[derive(Clone, Debug)]
@@ -97,6 +101,11 @@ struct DiffResult {
 }
 
 struct StagedLedgerHash;
+
+enum SkipVerification {
+    All,
+    Proofs,
+}
 
 pub struct StagedLedger {
     scan_state: ScanState,
@@ -995,10 +1004,7 @@ impl StagedLedger {
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1016
     fn forget_prediff_info<B, C, D>(
-        a: Vec<WithStatus<valid::Transaction>>,
-        b: B,
-        c: C,
-        d: D,
+        (a, b, c, d): (Vec<WithStatus<valid::Transaction>>, B, C, D),
     ) -> (Vec<WithStatus<Transaction>>, B, C, D) {
         (
             a.iter()
@@ -1037,73 +1043,56 @@ impl StagedLedger {
         state_and_body_hash: (Fp, Fp),
         coinbase_receiver: CompressedPubKey,
         supercharge_coinbase: bool,
-    ) -> Result<(), StagedLedgerError> {
+    ) -> Result<DiffResult, StagedLedgerError> {
         let work = witness.completed_works();
 
         if skip_verification.is_none() {
             Self::check_completed_works(logger, verifier, &self.scan_state, work)?;
         }
 
-        witness.get(
+        let prediff = witness.get(
             |cmd| Self::check_commands(self.ledger.clone(), verifier, cmd),
             constraint_constants,
             coinbase_receiver,
             supercharge_coinbase,
         )?;
 
-        Ok(())
+        self.apply_diff(
+            logger,
+            skip_verification.map(|s| matches!(s, SkipVerification::All)),
+            Self::forget_prediff_info(prediff),
+            constraint_constants,
+            current_state_view,
+            state_and_body_hash,
+            "apply_diff",
+        )
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1095
+    fn apply_diff_unchecked(
+        &mut self,
+        constraint_constants: &ConstraintConstants,
+        sl_diff: with_valid_signatures_and_proofs::Diff,
+        logger: (),
+        current_state_view: &ProtocolStateView,
+        state_and_body_hash: (Fp, Fp),
+        coinbase_receiver: CompressedPubKey,
+        supercharge_coinbase: bool,
+    ) -> Result<DiffResult, StagedLedgerError> {
+        let prediff = sl_diff.get_unchecked(
+            constraint_constants,
+            coinbase_receiver,
+            supercharge_coinbase,
+        )?;
+
+        self.apply_diff(
+            logger,
+            None,
+            Self::forget_prediff_info(prediff),
+            constraint_constants,
+            current_state_view,
+            state_and_body_hash,
+            "apply_diff_unchecked",
+        )
     }
 }
-
-enum SkipVerification {
-    All,
-    Proofs,
-}
-
-// let apply ?skip_verification ~constraint_constants t
-//     (witness : Staged_ledger_diff.t) ~logger ~verifier ~current_state_view
-//     ~state_and_body_hash ~coinbase_receiver ~supercharge_coinbase =
-//   let open Deferred.Result.Let_syntax in
-//   let work = Staged_ledger_diff.completed_works witness in
-//   let%bind () =
-//     O1trace.thread "check_completed_works" (fun () ->
-//         match skip_verification with
-//         | Some `All | Some `Proofs ->
-//             return ()
-//         | None ->
-//             check_completed_works ~logger ~verifier t.scan_state work )
-//   in
-//   let%bind prediff =
-//     Pre_diff_info.get witness ~constraint_constants ~coinbase_receiver
-//       ~supercharge_coinbase
-//       ~check:(check_commands t.ledger ~verifier)
-//     |> Deferred.map
-//          ~f:
-//            (Result.map_error ~f:(fun error ->
-//                 Staged_ledger_error.Pre_diff error ) )
-//   in
-//   let apply_diff_start_time = Core.Time.now () in
-//   let%map ((_, _, `Staged_ledger new_staged_ledger, _) as res) =
-//     apply_diff
-//       ~skip_verification:
-//         ([%equal: [ `All | `Proofs ] option] skip_verification (Some `All))
-//       ~constraint_constants t
-//       (forget_prediff_info prediff)
-//       ~logger ~current_state_view ~state_and_body_hash
-//       ~log_prefix:"apply_diff"
-//   in
-//   [%log debug]
-//     ~metadata:
-//       [ ( "time_elapsed"
-//         , `Float Core.Time.(Span.to_ms @@ diff (now ()) apply_diff_start_time)
-//         )
-//       ]
-//     "Staged_ledger.apply_diff take $time_elapsed" ;
-//   let () =
-//     Or_error.iter_error (update_metrics new_staged_ledger witness)
-//       ~f:(fun e ->
-//         [%log error]
-//           ~metadata:[ ("error", Error_json.error_to_yojson e) ]
-//           !"Error updating metrics after applying staged_ledger diff: $error" )
-//   in
-//   res
