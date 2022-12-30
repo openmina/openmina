@@ -13,7 +13,7 @@ use crate::{
 use super::{pre_diff_info::PreDiffError, staged_ledger::StagedLedger};
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L5
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum AtMostTwo<T> {
     Zero,
     One(Option<T>),

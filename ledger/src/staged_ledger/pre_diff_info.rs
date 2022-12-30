@@ -187,7 +187,7 @@ where
         .ok_or(PreDiffError::InsufficientFee((budget, total_work_fee)))
 }
 
-#[derive(Debug, Eq)]
+#[derive(Clone, Debug, Eq, derive_more::From)]
 pub struct HashableCompressedPubKey(pub CompressedPubKey);
 
 impl PartialEq for HashableCompressedPubKey {
@@ -213,6 +213,33 @@ impl PartialOrd for HashableCompressedPubKey {
     }
 }
 
+pub fn fee_transfers_map<I, T>(singles: I) -> Option<HashMap<HashableCompressedPubKey, Fee>>
+where
+    I: IntoIterator<Item = (T, Fee)>,
+    T: Into<HashableCompressedPubKey>,
+{
+    use std::collections::hash_map::Entry::{Occupied, Vacant};
+
+    let singles = singles.into_iter();
+
+    let mut map = HashMap::with_capacity(singles.size_hint().0);
+
+    for (pk, fee) in singles {
+        let pk: HashableCompressedPubKey = pk.into();
+
+        match map.entry(pk) {
+            Occupied(mut entry) => {
+                entry.insert(fee.checked_add(entry.get())?);
+            }
+            Vacant(e) => {
+                e.insert(fee);
+            }
+        }
+    }
+
+    Some(map)
+}
+
 /// TODO: This method is a mess, need to add tests
 ///
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L199
@@ -222,7 +249,7 @@ fn create_fee_transfers(
     public_key: &CompressedPubKey,
     coinbase_fts: Vec<CoinbaseFeeTransfer>,
 ) -> Result<Vec<FeeTransfer>, PreDiffError> {
-    use std::collections::hash_map::Entry::{Occupied, Vacant};
+    use std::collections::hash_map::Entry::Occupied;
 
     let mut singles = Vec::with_capacity(completed_works.len() + 1);
     if !delta.is_zero() {
@@ -239,21 +266,8 @@ fn create_fee_transfers(
         },
     ));
 
-    let mut singles_map = HashMap::with_capacity(singles.len());
-
-    for (pk, fee) in singles {
-        match singles_map.entry(pk) {
-            Occupied(mut entry) => {
-                entry.insert(
-                    fee.checked_add(entry.get())
-                        .ok_or_else(|| PreDiffError::Unexpected("fee overflow".to_string()))?,
-                );
-            }
-            Vacant(e) => {
-                e.insert(fee);
-            }
-        }
-    }
+    let mut singles_map = fee_transfers_map(singles)
+        .ok_or_else(|| PreDiffError::Unexpected("fee overflow".to_string()))?;
 
     for CoinbaseFeeTransfer {
         receiver_pk,

@@ -428,12 +428,13 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#446
-    fn sum_fees<T, F>(fees: &[T], fun: F) -> Result<Fee, String>
+    pub fn sum_fees<'a, I, T: 'a, F>(fees: I, fun: F) -> Result<Fee, String>
     where
-        F: Fn(&T) -> Fee,
+        I: IntoIterator<Item = &'a T>,
+        F: Fn(&'a T) -> Fee,
     {
         let mut accum = Fee::zero();
-        for fee in fees {
+        for fee in fees.into_iter() {
             accum = match accum.checked_add(&fun(fee)) {
                 Some(accum) => accum,
                 None => return Err("Fee overflow".to_string()),

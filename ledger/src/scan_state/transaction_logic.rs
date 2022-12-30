@@ -126,7 +126,7 @@ pub mod valid {
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
     pub struct VerificationKeyHash(pub Fp);
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub enum UserCommand {
         SignedCommand(Box<super::signed_command::SignedCommand>),
         ZkAppCommand(Box<super::zkapp_command::valid::ZkAppCommand>),
@@ -955,7 +955,7 @@ pub mod zkapp_command {
 
         use super::*;
 
-        #[derive(Debug)]
+        #[derive(Clone, Debug)]
         pub struct ZkAppCommand {
             pub zkapp_command: super::ZkAppCommand,
             pub verification_keys: Vec<(AccountId, VerificationKeyHash)>,
