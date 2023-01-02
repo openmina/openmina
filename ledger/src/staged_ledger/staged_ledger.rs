@@ -1474,7 +1474,84 @@ impl StagedLedger {
         epoch_ledger: &SparseLedger<AccountId, Account>,
         global_slot: Slot,
     ) -> bool {
-        !epoch_ledger
-            .has_locked_tokens_exn(global_slot, { AccountId::new(winner, TokenId::default()) })
+        !epoch_ledger.has_locked_tokens_exn(global_slot, AccountId::new(winner, TokenId::default()))
     }
+
+    fn validate_account_update_proofs(logger: ()) {}
 }
+
+// let validate_account_update_proofs ~logger ~validating_ledger
+//     (txn : User_command.Valid.t) =
+//   let open Result.Let_syntax in
+//   let get_verification_keys account_ids =
+//     List.fold_until account_ids ~init:Account_id.Map.empty
+//       ~f:(fun acc id ->
+//         let get_vk () =
+//           let open Option.Let_syntax in
+//           let%bind loc =
+//             Transaction_snark.Transaction_validator.Hashless_ledger
+//             .location_of_account validating_ledger id
+//           in
+//           let%bind account =
+//             Transaction_snark.Transaction_validator.Hashless_ledger.get
+//               validating_ledger loc
+//           in
+//           let%bind zkapp = account.zkapp in
+//           let%map vk = zkapp.verification_key in
+//           vk.hash
+//         in
+//         match get_vk () with
+//         | Some vk ->
+//             Continue (Account_id.Map.update acc id ~f:(fun _ -> vk))
+//         | None ->
+//             [%log error]
+//               ~metadata:[ ("account_id", Account_id.to_yojson id) ]
+//               "Staged_ledger_diff creation: Verification key not found for \
+//                account_update with proof authorization and account_id \
+//                $account_id" ;
+//             Stop Account_id.Map.empty )
+//       ~finish:Fn.id
+//   in
+//   match txn with
+//   | Zkapp_command p ->
+//       let%map checked_verification_keys =
+//         Account_id.Map.of_alist_or_error p.verification_keys
+//       in
+//       let proof_zkapp_command =
+//         Zkapp_command.Call_forest.fold ~init:Account_id.Set.empty
+//           p.zkapp_command.account_updates ~f:(fun acc p ->
+//             if
+//               Control.(Tag.equal Proof (tag (Account_update.authorization p)))
+//             then Account_id.Set.add acc (Account_update.account_id p)
+//             else acc )
+//       in
+//       let current_verification_keys =
+//         get_verification_keys (Account_id.Set.to_list proof_zkapp_command)
+//       in
+//       if
+//         Account_id.Set.length proof_zkapp_command
+//         = Account_id.Map.length checked_verification_keys
+//         && Account_id.Map.equal
+//              Zkapp_command.Valid.Verification_key_hash.equal
+//              checked_verification_keys current_verification_keys
+//       then true
+//       else (
+//         [%log error]
+//           ~metadata:
+//             [ ( "checked_verification_keys"
+//               , [%to_yojson:
+//                   (Account_id.t * Zkapp_command.Valid.Verification_key_hash.t)
+//                   list]
+//                   (Account_id.Map.to_alist checked_verification_keys) )
+//             ; ( "current_verification_keys"
+//               , [%to_yojson:
+//                   (Account_id.t * Zkapp_command.Valid.Verification_key_hash.t)
+//                   list]
+//                   (Account_id.Map.to_alist current_verification_keys) )
+//             ]
+//           "Staged_ledger_diff creation: Verifcation keys used for verifying \
+//            proofs $checked_verification_keys and verification keys in the \
+//            ledger $current_verification_keys don't match" ;
+//         false )
+//   | _ ->
+//       Ok true

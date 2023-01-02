@@ -297,13 +297,15 @@ impl SparseLedger<AccountId, Account> {
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/ledger_intf.ml
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml
 pub trait LedgerIntf {
-    fn get(&self, addr: &Address) -> Option<Account>;
-    fn location_of_account(&self, account_id: &AccountId) -> Option<Address>;
-    fn set(&mut self, addr: &Address, account: Account);
+    type Location;
+
+    fn get(&self, addr: &Self::Location) -> Option<Account>;
+    fn location_of_account(&self, account_id: &AccountId) -> Option<Self::Location>;
+    fn set(&mut self, addr: &Self::Location, account: Account);
     fn get_or_create(
         &mut self,
         account_id: &AccountId,
-    ) -> Result<(AccountState, Account, Address), String>;
+    ) -> Result<(AccountState, Account, Self::Location), String>;
     fn create_new_account(&mut self, account_id: AccountId, account: Account) -> Result<(), ()>;
     fn remove_accounts_exn(&mut self, account_ids: &[AccountId]);
     fn merkle_root(&mut self) -> Fp;
@@ -313,8 +315,10 @@ pub trait LedgerIntf {
 }
 
 impl LedgerIntf for SparseLedger<AccountId, Account> {
+    type Location = Address;
+
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L58
-    fn get(&self, addr: &Address) -> Option<Account> {
+    fn get(&self, addr: &Self::Location) -> Option<Account> {
         let account = self.get(addr)?;
 
         if account.public_key == CompressedPubKey::empty() {
@@ -325,7 +329,7 @@ impl LedgerIntf for SparseLedger<AccountId, Account> {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L66
-    fn location_of_account(&self, account_id: &AccountId) -> Option<Address> {
+    fn location_of_account(&self, account_id: &AccountId) -> Option<Self::Location> {
         let addr = self.indexes.get(account_id)?;
         let account = self.get(addr)?;
 
@@ -337,7 +341,7 @@ impl LedgerIntf for SparseLedger<AccountId, Account> {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L75
-    fn set(&mut self, addr: &Address, account: Account) {
+    fn set(&mut self, addr: &Self::Location, account: Account) {
         self.set_exn(addr.clone(), account);
     }
 
@@ -345,7 +349,7 @@ impl LedgerIntf for SparseLedger<AccountId, Account> {
     fn get_or_create(
         &mut self,
         account_id: &AccountId,
-    ) -> Result<(AccountState, Account, Address), String> {
+    ) -> Result<(AccountState, Account, Self::Location), String> {
         let addr = self
             .indexes
             .get(account_id)

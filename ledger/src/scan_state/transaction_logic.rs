@@ -2007,14 +2007,33 @@ where
     Ok(())
 }
 
-fn pay_fee<L>(
+pub fn apply_user_command<L>(
+    constraint_constants: &ConstraintConstants,
+    txn_state_view: &ProtocolStateView,
+    txn_global_slot: &Slot,
+    ledger: &mut L,
+    user_command: SignedCommand,
+) -> Result<(), String>
+where
+    L: LedgerIntf,
+{
+    apply_user_command_unchecked(
+        constraint_constants,
+        txn_state_view,
+        txn_global_slot,
+        ledger,
+        user_command,
+    )
+}
+
+fn pay_fee<L, Loc>(
     user_command: &SignedCommand,
     signer_pk: &CompressedPubKey,
     ledger: &mut L,
     current_global_slot: &Slot,
-) -> Result<(ExistingOrNew, Account), String>
+) -> Result<(ExistingOrNew<Loc>, Account), String>
 where
-    L: LedgerIntf,
+    L: LedgerIntf<Location = Loc>,
 {
     let nonce = user_command.nonce();
     let fee_payer = user_command.fee_payer();
@@ -2038,16 +2057,16 @@ where
     )
 }
 
-fn pay_fee_impl<L>(
+fn pay_fee_impl<L, Loc>(
     command: &SignedCommandPayload,
     nonce: Nonce,
     fee_payer: AccountId,
     fee: Fee,
     ledger: &mut L,
     current_global_slot: &Slot,
-) -> Result<(ExistingOrNew, Account), String>
+) -> Result<(ExistingOrNew<Loc>, Account), String>
 where
-    L: LedgerIntf,
+    L: LedgerIntf<Location = Loc>,
 {
     // Fee-payer information
     let (location, mut account) = get_with_location(ledger, &fee_payer)?;
@@ -2464,17 +2483,17 @@ fn add_amount(balance: Balance, amount: Amount) -> Result<Balance, String> {
         .ok_or_else(|| "overflow".to_string())
 }
 
-pub enum ExistingOrNew {
-    Existing(Address),
+pub enum ExistingOrNew<Loc> {
+    Existing(Loc),
     New,
 }
 
-fn get_with_location<L>(
+fn get_with_location<L, Loc>(
     ledger: &mut L,
     account_id: &AccountId,
-) -> Result<(ExistingOrNew, Account), String>
+) -> Result<(ExistingOrNew<Loc>, Account), String>
 where
-    L: LedgerIntf,
+    L: LedgerIntf<Location = Loc>,
 {
     match ledger.location_of_account(account_id) {
         Some(location) => match ledger.get(&location) {

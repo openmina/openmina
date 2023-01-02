@@ -224,6 +224,8 @@ impl<T> LedgerIntf for T
 where
     T: BaseLedger,
 {
+    type Location = Address;
+
     fn get(&self, addr: &Address) -> Option<Account> {
         BaseLedger::get(self, addr.clone())
     }
