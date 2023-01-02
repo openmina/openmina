@@ -325,65 +325,138 @@ fn check_coinbase<A, B>(
     }
 }
 
-pub fn compute_statuses<F>(
+fn generate_statuses<F, Cmd, Tx>(
+    constraint_constants: &ConstraintConstants,
+    coinbase_parts: CoinbaseParts,
+    receiver: &CompressedPubKey,
+    coinbase_amount: Amount,
+    commands: &[WithStatus<Cmd>],
+    completed_works: &[work::Unchecked],
+    generate_status: F,
+) -> Result<(Vec<WithStatus<Cmd>>, Vec<TransactionStatus>), PreDiffError>
+where
+    Cmd: GenericCommand + Clone,
+    F: Fn(Transaction) -> Result<TransactionStatus, String>,
+    Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer>,
+{
+    let TransactionData {
+        commands,
+        coinbases,
+        fee_transfers,
+    } = get_transaction_data::<Cmd, Tx>(
+        constraint_constants,
+        coinbase_parts,
+        receiver,
+        coinbase_amount,
+        commands.to_vec(),
+        completed_works,
+    )?;
+
+    let transactions = commands
+        .into_iter()
+        .map(|cmd| {
+            let status = generate_status(Transaction::Command(cmd.data.forget()))?;
+
+            Ok(WithStatus {
+                data: cmd.data,
+                status,
+            })
+        })
+        .collect::<Result<Vec<_>, PreDiffError>>()?;
+
+    // Order of application is user-commands, coinbase, fee transfers. See [get_individual_info]
+
+    let internal_commands = coinbases
+        .into_iter()
+        .map(Transaction::Coinbase)
+        .chain(fee_transfers.into_iter().map(Transaction::FeeTransfer));
+
+    let internal_command_statuses = internal_commands
+        .map(|cmd| Ok(generate_status(cmd)?))
+        .collect::<Result<Vec<_>, PreDiffError>>()?;
+
+    Ok((transactions, internal_command_statuses))
+}
+
+pub fn compute_statuses<F, Tx>(
     constraint_constants: &ConstraintConstants,
     diff: (
         PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>,
-        Option<super::diff::PreDiffOne<work::Work, WithStatus<valid::UserCommand>>>,
+        Option<PreDiffOne<work::Work, WithStatus<valid::UserCommand>>>,
     ),
     coinbase_receiver: CompressedPubKey,
     coinbase_amount: Amount,
     generate_status: F,
-) where
+) -> Result<
+    (
+        PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>,
+        Option<PreDiffOne<work::Work, WithStatus<valid::UserCommand>>>,
+    ),
+    PreDiffError,
+>
+where
     F: Fn(Transaction) -> Result<TransactionStatus, String>,
+    Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer>,
 {
-}
+    let get_statuses_pre_diff_with_at_most_two =
+        |t1: PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>| {
+            let coinbase_parts = match &t1.coinbase {
+                diff::AtMostTwo::Zero => CoinbaseParts::Zero,
+                diff::AtMostTwo::One(x) => CoinbaseParts::One(x.clone()),
+                diff::AtMostTwo::Two(x) => CoinbaseParts::Two(x.clone()),
+            };
 
-// let compute_statuses (type c)
-//     ~(constraint_constants : Genesis_constants.Constraint_constants.t) ~diff
-//     ~coinbase_receiver ~coinbase_amount ~generate_status ~(forget : c -> _) =
-//   let open Result.Let_syntax in
-//   let get_statuses_pre_diff_with_at_most_two
-//       (t1 : (_, c With_status.t) Pre_diff_two.t) =
-//     let coinbase_parts =
-//       match t1.coinbase with Zero -> `Zero | One x -> `One x | Two x -> `Two x
-//     in
-//     let%map commands, internal_command_statuses =
-//       generate_statuses ~constraint_constants ~generate_status coinbase_parts
-//         ~receiver:coinbase_receiver t1.commands t1.completed_works
-//         ~coinbase_amount ~forget
-//     in
-//     ( { commands
-//       ; completed_works = t1.completed_works
-//       ; coinbase = t1.coinbase
-//       ; internal_command_statuses
-//       }
-//       : _ Pre_diff_two.t )
-//   in
-//   let get_statuses_pre_diff_with_at_most_one
-//       (t2 : (_, c With_status.t) Pre_diff_one.t) =
-//     let coinbase_added =
-//       match t2.coinbase with Zero -> `Zero | One x -> `One x
-//     in
-//     let%map commands, internal_command_statuses =
-//       generate_statuses ~constraint_constants ~generate_status coinbase_added
-//         ~receiver:coinbase_receiver t2.commands t2.completed_works
-//         ~coinbase_amount ~forget
-//     in
-//     Some
-//       ( { commands
-//         ; completed_works = t2.completed_works
-//         ; coinbase = t2.coinbase
-//         ; internal_command_statuses
-//         }
-//         : _ Pre_diff_one.t )
-//   in
-//   let%bind p1 = get_statuses_pre_diff_with_at_most_two (fst diff) in
-//   let%map p2 =
-//     Option.value_map ~f:get_statuses_pre_diff_with_at_most_one (snd diff)
-//       ~default:(Ok None)
-//   in
-//   (p1, p2)
+            let (commands, internal_command_statuses) = generate_statuses::<_, _, Tx>(
+                constraint_constants,
+                coinbase_parts,
+                &coinbase_receiver,
+                coinbase_amount,
+                &t1.commands,
+                &t1.completed_works,
+                &generate_status,
+            )?;
+
+            Ok::<_, PreDiffError>(PreDiffTwo {
+                completed_works: t1.completed_works,
+                commands,
+                coinbase: t1.coinbase,
+                internal_command_statuses,
+            })
+        };
+
+    let get_statuses_pre_diff_with_at_most_one =
+        |t2: PreDiffOne<work::Work, WithStatus<valid::UserCommand>>| {
+            let coinbase_added = match &t2.coinbase {
+                diff::AtMostOne::Zero => CoinbaseParts::Zero,
+                diff::AtMostOne::One(x) => CoinbaseParts::One(x.clone()),
+            };
+
+            let (commands, internal_command_statuses) = generate_statuses::<_, _, Tx>(
+                constraint_constants,
+                coinbase_added,
+                &coinbase_receiver,
+                coinbase_amount,
+                &t2.commands,
+                &t2.completed_works,
+                &generate_status,
+            )?;
+
+            Ok::<_, PreDiffError>(PreDiffOne {
+                completed_works: t2.completed_works,
+                commands,
+                coinbase: t2.coinbase,
+                internal_command_statuses,
+            })
+        };
+
+    let p1 = get_statuses_pre_diff_with_at_most_two(diff.0)?;
+    let p2 = match diff.1 {
+        Some(d2) => Some(get_statuses_pre_diff_with_at_most_one(d2)?),
+        None => None,
+    };
+
+    Ok((p1, p2))
+}
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L237
 struct TransactionData<T> {

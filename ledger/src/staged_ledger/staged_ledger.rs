@@ -34,17 +34,13 @@ use crate::{
         },
     },
     split_at, split_at_vec,
-    staged_ledger::resources::IncreaseBy,
-    take,
+    staged_ledger::{pre_diff_info, resources::IncreaseBy},
     verifier::{Verifier, VerifierError},
-    Account, AccountId, BaseLedger, Mask, TokenId, VerificationKey,
+    Account, AccountId, BaseLedger, Mask, TokenId,
 };
 
 use super::{
-    diff::{
-        with_valid_signatures_and_proofs, AtMostOne, AtMostTwo, Diff, PreDiffTwo,
-        PreDiffWithAtMostTwoCoinbase,
-    },
+    diff::{with_valid_signatures_and_proofs, AtMostOne, AtMostTwo, Diff, PreDiffTwo},
     diff_creation_log::{DiffCreationLog, Partition},
     pre_diff_info::PreDiffError,
     resources::Resources,
@@ -1111,6 +1107,7 @@ impl StagedLedger {
         )
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1580
     fn check_constraints_and_update(
         constraint_constants: &ConstraintConstants,
         resources: &mut Resources,
@@ -1160,6 +1157,7 @@ impl StagedLedger {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1624
     fn one_prediff(
         constraint_constants: &ConstraintConstants,
         cw_seq: Vec<work::Unchecked>,
@@ -1198,12 +1196,13 @@ impl StagedLedger {
         (init_resources, log)
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1643
     fn generate(
         constraint_constants: &ConstraintConstants,
         logger: (),
         cw_seq: Vec<work::Unchecked>,
         ts_seq: Vec<WithStatus<valid::UserCommand>>,
-        receiver: CompressedPubKey,
+        receiver: &CompressedPubKey,
         is_coinbase_receiver_new: bool,
         supercharge_coinbase: bool,
         partitions: scan_state::SpacePartition,
@@ -1306,7 +1305,7 @@ impl StagedLedger {
                 constraint_constants,
                 work,
                 res.discarded.commands_rev,
-                &receiver,
+                receiver,
                 add_coinbase,
                 partition,
                 logger,
@@ -1326,7 +1325,7 @@ impl StagedLedger {
                     constraint_constants,
                     cw_seq,
                     ts_seq,
-                    &receiver,
+                    receiver,
                     true,
                     partitions.first,
                     logger,
@@ -1345,7 +1344,7 @@ impl StagedLedger {
                     constraint_constants,
                     cw_seq_1.clone(),
                     ts_seq.clone(),
-                    &receiver,
+                    receiver,
                     false,
                     partitions.first,
                     logger,
@@ -1370,7 +1369,7 @@ impl StagedLedger {
                             constraint_constants,
                             cw_seq_1.clone(),
                             ts_seq.clone(),
-                            &receiver,
+                            receiver,
                             true,
                             partitions.first,
                             logger,
@@ -1390,7 +1389,7 @@ impl StagedLedger {
                                 constraint_constants,
                                 cw_seq_1.clone(),
                                 ts_seq.clone(),
-                                &receiver,
+                                receiver,
                                 true,
                                 partitions.first,
                                 logger,
@@ -1411,7 +1410,7 @@ impl StagedLedger {
                         constraint_constants,
                         cw_seq_1.clone(),
                         ts_seq.clone(),
-                        &receiver,
+                        receiver,
                         true,
                         partitions.first,
                         logger,
@@ -1474,6 +1473,7 @@ impl StagedLedger {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1781
     fn can_apply_supercharged_coinbase_exn(
         winner: CompressedPubKey,
         epoch_ledger: &SparseLedger<AccountId, Account>,
@@ -1482,6 +1482,7 @@ impl StagedLedger {
         !epoch_ledger.has_locked_tokens_exn(global_slot, AccountId::new(winner, TokenId::default()))
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1787
     fn validate_account_update_proofs(
         _logger: (),
         validating_ledger: &HashlessLedger,
@@ -1555,6 +1556,7 @@ impl StagedLedger {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1863
     fn create_diff<F>(
         &self,
         constraint_constants: &ConstraintConstants,
@@ -1565,7 +1567,14 @@ impl StagedLedger {
         transactions_by_fee: Vec<valid::UserCommand>,
         get_completed_work: F,
         supercharge_coinbase: bool,
-    ) where
+    ) -> Result<
+        (
+            with_valid_signatures_and_proofs::Diff,
+            Vec<(valid::UserCommand, String)>,
+        ),
+        PreDiffError,
+    >
+    where
         F: Fn(&work::Statement) -> Option<work::Checked>,
     {
         use super::sparse_ledger::LedgerIntf;
@@ -1669,12 +1678,14 @@ impl StagedLedger {
         valid_on_this_ledger.reverse();
         invalid_on_this_ledger.reverse();
 
+        let valid_on_this_ledger_len = valid_on_this_ledger.len();
+
         let (diff, log) = Self::generate(
             constraint_constants,
             logger,
             completed_works_seq,
             valid_on_this_ledger,
-            coinbase_receiver,
+            &coinbase_receiver,
             is_coinbase_receiver_new,
             supercharge_coinbase,
             partitions,
@@ -1687,42 +1698,83 @@ impl StagedLedger {
                 let mut status_ledger = HashlessLedger::create(self.ledger.clone());
                 status_ledger.apply_transaction(constraint_constants, current_state_view, &txn)
             };
+
+            pre_diff_info::compute_statuses::<_, valid::Transaction>(
+                constraint_constants,
+                diff,
+                coinbase_receiver,
+                Self::coinbase_amount(supercharge_coinbase, constraint_constants)
+                    .expect("OCaml throws here"),
+                generate_status,
+            )?
         };
+
+        println!(
+            "Number of proofs ready for purchase: {} Number of user \
+             commands ready to be included: {} Diff creation log: {:#?}",
+            proof_count,
+            valid_on_this_ledger_len,
+            log.iter().map(|l| &l.summary).collect::<Vec<_>>()
+        );
+
+        if log_block_creation {
+            println!("Detailed diff creation log: {:#?}", {
+                let mut details = log.iter().map(|l| &l.detail).collect::<Vec<_>>();
+                details.reverse();
+                details
+            })
+        }
+
+        let diff = with_valid_signatures_and_proofs::Diff { diff };
+
+        Ok((diff, invalid_on_this_ledger))
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L2024
+    fn latest_block_accounts_created(&self, previous_block_state_hash: Fp) -> Vec<AccountId> {
+        use scan_state::transaction_logic::transaction_applied::signed_command_applied::Body;
+        use scan_state::transaction_logic::transaction_applied::CommandApplied;
+        use scan_state::transaction_logic::transaction_applied::Varying;
+
+        let block_transactions_applied = {
+            let f = |TransactionWithWitness {
+                         transaction_with_info,
+                         state_hash: (leaf_block_hash, _),
+                         ..
+                     }: TransactionWithWitness| {
+                if leaf_block_hash == previous_block_state_hash {
+                    Some(transaction_with_info.varying)
+                } else {
+                    None
+                }
+            };
+
+            let latest = self
+                .scan_state
+                .base_jobs_on_latest_tree()
+                .into_iter()
+                .filter_map(f);
+
+            let earlier = self
+                .scan_state
+                .base_jobs_on_earlier_tree(0)
+                .into_iter()
+                .filter_map(f);
+
+            latest.chain(earlier)
+        };
+
+        block_transactions_applied
+            .flat_map(|cmd| match cmd {
+                Varying::Command(CommandApplied::SignedCommand(cmd)) => match cmd.body {
+                    Body::Payments { new_accounts } => new_accounts,
+                    Body::StakeDelegation { .. } => Vec::new(),
+                    Body::Failed => Vec::new(),
+                },
+                Varying::Command(CommandApplied::ZkappCommand(cmd)) => cmd.new_accounts,
+                Varying::FeeTransfer(ft) => ft.new_accounts,
+                Varying::Coinbase(cb) => cb.new_accounts,
+            })
+            .collect::<Vec<_>>()
     }
 }
-
-//       let%map diff =
-//         (* Fill in the statuses for commands. *)
-//         let generate_status =
-//           let status_ledger = Transaction_validator.create t.ledger in
-//           fun txn ->
-//             O1trace.sync_thread "get_transaction__status" (fun () ->
-//                 Transaction_validator.apply_transaction ~constraint_constants
-//                   status_ledger ~txn_state_view:current_state_view txn )
-//         in
-//         Pre_diff_info.compute_statuses ~constraint_constants ~diff
-//           ~coinbase_amount:
-//             (Option.value_exn
-//                (coinbase_amount ~constraint_constants ~supercharge_coinbase) )
-//           ~coinbase_receiver ~generate_status
-//           ~forget:User_command.forget_check
-//       in
-//       let summaries, detailed = List.unzip log in
-//       [%log debug]
-//         "Number of proofs ready for purchase: $proof_count Number of user \
-//          commands ready to be included: $txn_count Diff creation log: \
-//          $diff_log"
-//         ~metadata:
-//           [ ("proof_count", `Int proof_count)
-//           ; ("txn_count", `Int (Sequence.length valid_on_this_ledger))
-//           ; ("diff_log", Diff_creation_log.summary_list_to_yojson summaries)
-//           ] ;
-//       if log_block_creation then
-//         [%log debug] "Detailed diff creation log: $diff_log"
-//           ~metadata:
-//             [ ( "diff_log"
-//               , Diff_creation_log.detail_list_to_yojson
-//                   (List.map ~f:List.rev detailed) )
-//             ] ;
-//       ( { Staged_ledger_diff.With_valid_signatures_and_proofs.diff }
-//       , invalid_on_this_ledger ) )

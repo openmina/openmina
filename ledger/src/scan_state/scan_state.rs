@@ -760,11 +760,11 @@ impl ScanState {
         self.state.next_on_new_tree()
     }
 
-    fn base_jobs_on_latest_tree(&self) -> Vec<AvailableJob> {
+    pub fn base_jobs_on_latest_tree(&self) -> Vec<TransactionWithWitness> {
         self.state.base_jobs_on_latest_tree()
     }
 
-    fn base_jobs_on_earlier_tree(&self, index: usize) -> Vec<AvailableJob> {
+    pub fn base_jobs_on_earlier_tree(&self, index: usize) -> Vec<TransactionWithWitness> {
         self.state.base_jobs_on_earlier_tree(index)
     }
 

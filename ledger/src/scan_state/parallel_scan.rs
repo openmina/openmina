@@ -1962,19 +1962,22 @@ where
         self.curr_job_seq_no.clone()
     }
 
-    pub fn base_jobs_on_latest_tree(&self) -> Vec<AvailableJob<BaseJob, MergeJob>> {
+    pub fn base_jobs_on_latest_tree(&self) -> Vec<BaseJob> {
         let depth = ceil_log2(self.max_base_jobs);
         let level = depth;
 
         self.trees[0]
             .jobs_on_level(depth, level)
             .into_iter()
-            .filter(|job| matches!(job, AvailableJob::Base(_)))
+            .filter_map(|job| match job {
+                AvailableJob::Base(base) => Some(base),
+                AvailableJob::Merge { .. } => None,
+            })
             .collect()
     }
 
     // 0-based indexing, so 0 indicates next-to-latest tree
-    pub fn base_jobs_on_earlier_tree(&self, index: usize) -> Vec<AvailableJob<BaseJob, MergeJob>> {
+    pub fn base_jobs_on_earlier_tree(&self, index: usize) -> Vec<BaseJob> {
         let depth = ceil_log2(self.max_base_jobs);
         let level = depth;
 
@@ -1985,7 +1988,10 @@ where
             Some(tree) => tree
                 .jobs_on_level(depth, level)
                 .into_iter()
-                .filter(|job| matches!(job, AvailableJob::Base(_)))
+                .filter_map(|job| match job {
+                    AvailableJob::Base(base) => Some(base),
+                    AvailableJob::Merge { .. } => None,
+                })
                 .collect(),
         }
     }

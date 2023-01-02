@@ -274,8 +274,8 @@ mod detail {
 
 #[derive(Clone, Debug)]
 pub struct DiffCreationLog {
-    summary: Summary,
-    detail: Detail,
+    pub summary: Summary,
+    pub detail: Detail,
 }
 
 type LogList = Vec<DiffCreationLog>;

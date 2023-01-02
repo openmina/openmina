@@ -7,9 +7,8 @@ use crate::{
     scan_state::{
         scan_state::ConstraintConstants,
         transaction_logic::{
-            self, protocol_state::ProtocolStateView, signed_command::SignedCommand,
-            transaction_applied::TransactionApplied, AccountState, Slot, Transaction,
-            TransactionStatus,
+            self, protocol_state::ProtocolStateView, signed_command::SignedCommand, AccountState,
+            Slot, Transaction, TransactionStatus,
         },
     },
     Account, AccountId, Address, Mask,
@@ -153,7 +152,7 @@ impl LedgerIntf for HashlessLedger {
         }
     }
 
-    fn remove_accounts_exn(&mut self, account_ids: &[crate::AccountId]) {
+    fn remove_accounts_exn(&mut self, _account_ids: &[crate::AccountId]) {
         panic!("hashless_ledger: bug in transaction_logic")
     }
 
@@ -173,7 +172,7 @@ impl LedgerIntf for HashlessLedger {
         }
     }
 
-    fn apply_mask(&self, mask: Self) {
+    fn apply_mask(&self, _mask: Self) {
         todo!()
     }
 }

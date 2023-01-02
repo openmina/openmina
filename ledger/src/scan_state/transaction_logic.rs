@@ -4,7 +4,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     scan_state::{currency::Magnitude, transaction_logic::transaction_applied::Varying},
     staged_ledger::sparse_ledger::{LedgerIntf, SparseLedger},
-    Account, AccountId, Address, BaseLedger, ReceiptChainHash, Timing, TokenId, VerificationKey,
+    Account, AccountId, BaseLedger, ReceiptChainHash, Timing, TokenId, VerificationKey,
 };
 
 use self::{
@@ -112,6 +112,7 @@ impl<T> WithStatus<T> {
 
 pub trait GenericCommand {
     fn fee(&self) -> Fee;
+    fn forget(&self) -> UserCommand;
 }
 
 pub trait GenericTransaction: Sized {
@@ -149,6 +150,15 @@ pub mod valid {
             match self {
                 UserCommand::SignedCommand(cmd) => cmd.fee(),
                 UserCommand::ZkAppCommand(cmd) => cmd.zkapp_command.fee(),
+            }
+        }
+
+        fn forget(&self) -> super::UserCommand {
+            match self {
+                UserCommand::SignedCommand(cmd) => super::UserCommand::SignedCommand(cmd.clone()),
+                UserCommand::ZkAppCommand(cmd) => {
+                    super::UserCommand::ZkAppCommand(Box::new(cmd.zkapp_command.clone()))
+                }
             }
         }
     }
@@ -1082,6 +1092,10 @@ impl GenericCommand for UserCommand {
             UserCommand::ZkAppCommand(cmd) => cmd.fee(),
         }
     }
+
+    fn forget(&self) -> UserCommand {
+        self.clone()
+    }
 }
 
 impl GenericTransaction for Transaction {
@@ -1183,7 +1197,7 @@ pub mod transaction_applied {
     pub struct ZkappCommandApplied {
         accounts: Vec<(AccountId, Option<Account>)>,
         command: WithStatus<zkapp_command::ZkAppCommand>,
-        new_accounts: Vec<AccountId>,
+        pub new_accounts: Vec<AccountId>,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L82
@@ -1687,7 +1701,7 @@ where
 {
     let (new_accounts, failures, burned_tokens) = process_fee_transfer(
         ledger,
-        &fee_transfer,
+        fee_transfer,
         |action, _, balance, fee| {
             let amount = {
                 let amount = Amount::of_fee(fee);
