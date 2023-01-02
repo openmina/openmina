@@ -8,7 +8,7 @@ use crate::{
 };
 
 use self::detail::Detail;
-use self::summary::{Partition, Summary};
+use self::summary::Summary;
 
 type CountAndFee = (u64, Fee);
 
@@ -28,36 +28,36 @@ pub enum Reason {
     End,
 }
 
+#[derive(Clone, Debug)]
+pub enum Partition {
+    First,
+    Second,
+}
+
 mod summary {
 
     use super::*;
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct Resources {
         pub completed_work: CountAndFee,
         pub commands: CountAndFee,
         pub coinbase_work_fees: AtMostTwo<Fee>,
     }
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct CommandConstraints {
         insufficient_work: u64,
         insufficient_space: u64,
     }
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct CompletedWorkConstraints {
         insufficient_fees: u64,
         extra_work: u64,
     }
 
-    #[derive(Debug)]
-    pub enum Partition {
-        First,
-        Second,
-    }
-
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct Summary {
         partition: Partition,
         start_resources: Resources,
@@ -196,7 +196,7 @@ mod detail {
         coinbase: AtMostTwo<Fee>,
     }
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct Detail(Vec<Line>);
 
     impl Detail {
@@ -272,8 +272,8 @@ mod detail {
     }
 }
 
-#[derive(Debug)]
-struct DiffCreationLog {
+#[derive(Clone, Debug)]
+pub struct DiffCreationLog {
     summary: Summary,
     detail: Detail,
 }
@@ -314,7 +314,7 @@ impl DiffCreationLog {
         self.summary.discard_command(why);
     }
 
-    fn end_log(
+    pub fn end_log(
         &mut self,
         completed_work: &[work::Checked],
         commands: &[WithStatus<valid::UserCommand>],

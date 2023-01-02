@@ -10,7 +10,7 @@ use crate::{
     hash::{hash_noinputs, hash_with_kimchi, Inputs},
     scan_state::{
         currency::{Balance, Magnitude},
-        transaction_logic::{zkapp_command::Nonce, Slot},
+        transaction_logic::{account_min_balance_at_slot, zkapp_command::Nonce, Slot},
     },
     MerklePath,
 };
@@ -469,6 +469,30 @@ impl Account {
         AccountId {
             public_key: self.public_key.clone(),
             token_id: self.token_id.clone(),
+        }
+    }
+
+    pub fn has_locked_tokens(&self, global_slot: Slot) -> bool {
+        match self.timing {
+            Timing::Untimed => false,
+            Timing::Timed {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } => {
+                let curr_min_balance = account_min_balance_at_slot(
+                    global_slot,
+                    cliff_time,
+                    cliff_amount,
+                    vesting_period,
+                    vesting_increment,
+                    initial_minimum_balance,
+                );
+
+                !curr_min_balance.is_zero()
+            }
         }
     }
 

@@ -46,10 +46,10 @@ pub struct PreDiffOne<A, B> {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L68
-type PreDiffWithAtMostTwoCoinbase = PreDiffTwo<work::Work, WithStatus<UserCommand>>;
+pub type PreDiffWithAtMostTwoCoinbase = PreDiffTwo<work::Work, WithStatus<UserCommand>>;
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L82
-type PreDiffWithAtMostOneCoinbase = PreDiffOne<work::Work, WithStatus<UserCommand>>;
+pub type PreDiffWithAtMostOneCoinbase = PreDiffOne<work::Work, WithStatus<UserCommand>>;
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L107
 pub struct Diff {

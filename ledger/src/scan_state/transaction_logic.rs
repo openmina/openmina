@@ -2405,7 +2405,7 @@ fn validate_timing_with_min_balance_impl(
 }
 
 // TODO: This should be in `account.rs`
-fn account_min_balance_at_slot(
+pub fn account_min_balance_at_slot(
     global_slot: Slot,
     cliff_time: Slot,
     cliff_amount: Amount,

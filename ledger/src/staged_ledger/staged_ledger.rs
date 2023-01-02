@@ -5,6 +5,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     decompress_pk,
     scan_state::{
+        self,
         currency::{Amount, Fee, Magnitude},
         fee_excess::FeeExcess,
         pending_coinbase::{
@@ -24,17 +25,25 @@ use crate::{
             local_state::LocalState,
             protocol_state::{protocol_state_view, ProtocolStateView},
             transaction_applied::TransactionApplied,
-            valid, verifiable, Transaction, TransactionStatus, UserCommand, WithStatus,
+            valid, verifiable, CoinbaseFeeTransfer, Slot, Transaction, TransactionStatus,
+            UserCommand, WithStatus,
         },
     },
-    split_at,
+    split_at, split_at_vec,
+    staged_ledger::resources::IncreaseBy,
+    take,
     verifier::{Verifier, VerifierError},
-    AccountId, BaseLedger, Mask, TokenId,
+    Account, AccountId, BaseLedger, Mask, TokenId,
 };
 
 use super::{
-    diff::{with_valid_signatures_and_proofs, Diff},
+    diff::{
+        with_valid_signatures_and_proofs, AtMostOne, AtMostTwo, Diff, PreDiffTwo,
+        PreDiffWithAtMostTwoCoinbase,
+    },
+    diff_creation_log::{DiffCreationLog, Partition},
     pre_diff_info::PreDiffError,
+    resources::Resources,
     sparse_ledger::SparseLedger,
 };
 
@@ -1095,5 +1104,377 @@ impl StagedLedger {
             state_and_body_hash,
             "apply_diff_unchecked",
         )
+    }
+
+    fn check_constraints_and_update(
+        constraint_constants: &ConstraintConstants,
+        resources: &mut Resources,
+        log: &mut DiffCreationLog,
+    ) {
+        use super::diff_creation_log::Reason::*;
+
+        if resources.slots_occupied() == 0 {
+            // Done
+        } else if resources.work_constraint_satisfied() {
+            // There's enough work. Check if they satisfy other constraints
+            if resources.budget_sufficient() {
+                if resources.space_constraint_satisfied() {
+                    return;
+                } else if resources.worked_more(constraint_constants) {
+                    // There are too many fee_transfers(from the proofs)
+                    // occupying the slots. discard one and check
+                    let work_opt = resources.discard_last_work(constraint_constants);
+                    if let Some(work) = work_opt {
+                        log.discard_completed_work(ExtraWork, &work);
+                    };
+                    Self::check_constraints_and_update(constraint_constants, resources, log);
+                } else {
+                    // Well, there's no space; discard a user command
+                    let uc_opt = resources.discard_user_command();
+                    if let Some(uc) = uc_opt {
+                        log.discard_command(NoSpace, &uc.data);
+                    };
+                    Self::check_constraints_and_update(constraint_constants, resources, log);
+                }
+            } else {
+                // insufficient budget; reduce the cost
+                let work_opt = resources.discard_last_work(constraint_constants);
+                if let Some(work) = work_opt {
+                    log.discard_completed_work(InsufficientFees, &work);
+                };
+                Self::check_constraints_and_update(constraint_constants, resources, log);
+            }
+        } else {
+            // There isn't enough work for the transactions. Discard a
+            // transaction and check again
+            let uc_opt = resources.discard_user_command();
+            if let Some(uc) = uc_opt {
+                log.discard_command(NoWork, &uc.data);
+            };
+            Self::check_constraints_and_update(constraint_constants, resources, log);
+        }
+    }
+
+    fn one_prediff(
+        constraint_constants: &ConstraintConstants,
+        cw_seq: Vec<work::Unchecked>,
+        ts_seq: Vec<WithStatus<valid::UserCommand>>,
+        receiver: &CompressedPubKey,
+        add_coinbase: bool,
+        slot_job_count: (u64, u64),
+        logger: (),
+        is_coinbase_receiver_new: bool,
+        partition: Partition,
+        supercharge_coinbase: bool,
+    ) -> (Resources, DiffCreationLog) {
+        let mut init_resources = Resources::init(
+            constraint_constants,
+            ts_seq,
+            cw_seq,
+            slot_job_count,
+            receiver.clone(),
+            add_coinbase,
+            supercharge_coinbase,
+            logger,
+            is_coinbase_receiver_new,
+        );
+
+        let mut log = DiffCreationLog::init(
+            &init_resources.completed_work_rev,
+            &init_resources.commands_rev,
+            &init_resources.coinbase,
+            partition,
+            slot_job_count.0,
+            slot_job_count.1,
+        );
+
+        Self::check_constraints_and_update(constraint_constants, &mut init_resources, &mut log);
+
+        (init_resources, log)
+    }
+
+    fn generate(
+        constraint_constants: &ConstraintConstants,
+        logger: (),
+        cw_seq: Vec<work::Unchecked>,
+        ts_seq: Vec<WithStatus<valid::UserCommand>>,
+        receiver: CompressedPubKey,
+        is_coinbase_receiver_new: bool,
+        supercharge_coinbase: bool,
+        partitions: scan_state::SpacePartition,
+    ) -> (
+        (
+            PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>,
+            Option<super::diff::PreDiffOne<work::Work, WithStatus<valid::UserCommand>>>,
+        ),
+        Vec<DiffCreationLog>,
+    ) {
+        let pre_diff_with_one =
+            |mut res: Resources| -> with_valid_signatures_and_proofs::PreDiffWithAtMostOneCoinbase {
+                let to_at_most_one = |two: AtMostTwo<CoinbaseFeeTransfer>| match two {
+                    AtMostTwo::Zero => AtMostOne::Zero,
+                    AtMostTwo::One(v) => AtMostOne::One(v),
+                    AtMostTwo::Two(_) => {
+                        eprintln!(
+                            "Error creating staged ledger diff: Should have at most one \
+                             coinbase in the second pre_diff"
+                        );
+                        AtMostOne::Zero
+                    }
+                };
+
+                // We have to reverse here because we only know they work in THIS order
+                with_valid_signatures_and_proofs::PreDiffWithAtMostOneCoinbase {
+                    commands: {
+                        res.commands_rev.reverse();
+                        res.commands_rev
+                    },
+                    completed_works: {
+                        res.completed_work_rev.reverse();
+                        res.completed_work_rev
+                    },
+                    coinbase: to_at_most_one(res.coinbase),
+                    internal_command_statuses: {
+                        // updated later based on application result
+                        Vec::new()
+                    },
+                }
+            };
+
+        let pre_diff_with_two =
+            |mut res: Resources| -> with_valid_signatures_and_proofs::PreDiffWithAtMostTwoCoinbase {
+                with_valid_signatures_and_proofs::PreDiffWithAtMostTwoCoinbase {
+                    commands: {
+                        res.commands_rev.reverse();
+                        res.commands_rev
+                    },
+                    completed_works: {
+                        res.completed_work_rev.reverse();
+                        res.completed_work_rev
+                    },
+                    coinbase: res.coinbase,
+                    internal_command_statuses: {
+                        // updated later based on application result
+                        Vec::new()
+                    },
+                }
+            };
+
+        let end_log = |(res, log): &mut (Resources, DiffCreationLog)| {
+            log.end_log(&res.completed_work_rev, &res.commands_rev, &res.coinbase)
+        };
+
+        let make_diff = |mut res1: (Resources, DiffCreationLog),
+                         res2: Option<(Resources, DiffCreationLog)>|
+         -> (
+            (
+                PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>,
+                Option<super::diff::PreDiffOne<work::Work, WithStatus<valid::UserCommand>>>,
+            ),
+            Vec<DiffCreationLog>,
+        ) {
+            match res2 {
+                Some(mut res2) => {
+                    end_log(&mut res1);
+                    end_log(&mut res2);
+
+                    (
+                        (pre_diff_with_two(res1.0), Some(pre_diff_with_one(res2.0))),
+                        vec![res1.1, res2.1],
+                    )
+                }
+                None => {
+                    end_log(&mut res1);
+                    ((pre_diff_with_two(res1.0), None), vec![res1.1])
+                }
+            }
+        };
+
+        let has_no_commands = |res: &Resources| -> bool { res.commands_rev.is_empty() };
+
+        let second_pre_diff = |res: Resources,
+                               partition: (u64, u64),
+                               add_coinbase: bool,
+                               work: Vec<work::Unchecked>|
+         -> (Resources, DiffCreationLog) {
+            Self::one_prediff(
+                constraint_constants,
+                work,
+                res.discarded.commands_rev,
+                &receiver,
+                add_coinbase,
+                partition,
+                logger,
+                is_coinbase_receiver_new,
+                Partition::Second,
+                supercharge_coinbase,
+            )
+        };
+
+        let is_empty = |res: &Resources| has_no_commands(res) && res.coinbase_added() == 0;
+
+        // Partitioning explained in PR #687 (Mina repo)
+
+        match partitions.second {
+            None => {
+                let (res, log) = Self::one_prediff(
+                    constraint_constants,
+                    cw_seq,
+                    ts_seq,
+                    &receiver,
+                    true,
+                    partitions.first,
+                    logger,
+                    is_coinbase_receiver_new,
+                    Partition::First,
+                    supercharge_coinbase,
+                );
+                make_diff((res, log), None)
+            }
+            Some(y) => {
+                assert!(cw_seq.len() as u64 <= partitions.first.1 + y.1);
+
+                let (cw_seq_1, cw_seq_2) = split_at_vec(cw_seq, partitions.first.1 as usize);
+
+                let (res, log1) = Self::one_prediff(
+                    constraint_constants,
+                    cw_seq_1.clone(),
+                    ts_seq.clone(),
+                    &receiver,
+                    false,
+                    partitions.first,
+                    logger,
+                    is_coinbase_receiver_new,
+                    Partition::First,
+                    supercharge_coinbase,
+                );
+
+                let incr_coinbase_and_compute = |mut res: Resources,
+                                                 count: IncreaseBy|
+                 -> (
+                    (Resources, DiffCreationLog),
+                    Option<(Resources, DiffCreationLog)>,
+                ) {
+                    res.incr_coinbase_part_by(constraint_constants, count);
+
+                    if res.space_available() {
+                        // All slots could not be filled either because of budget
+                        // constraints or not enough work done. Don't create the second
+                        // prediff instead recompute first diff with just once coinbase
+                        let res = Self::one_prediff(
+                            constraint_constants,
+                            cw_seq_1.clone(),
+                            ts_seq.clone(),
+                            &receiver,
+                            true,
+                            partitions.first,
+                            logger,
+                            is_coinbase_receiver_new,
+                            Partition::First,
+                            supercharge_coinbase,
+                        );
+
+                        (res, None)
+                    } else {
+                        let (res2, log2) = second_pre_diff(res.clone(), y, false, cw_seq_2.clone());
+
+                        if is_empty(&res2) {
+                            // Don't create the second prediff instead recompute first
+                            // diff with just once coinbase
+                            let res = Self::one_prediff(
+                                constraint_constants,
+                                cw_seq_1.clone(),
+                                ts_seq.clone(),
+                                &receiver,
+                                true,
+                                partitions.first,
+                                logger,
+                                is_coinbase_receiver_new,
+                                Partition::First,
+                                supercharge_coinbase,
+                            );
+
+                            (res, None)
+                        } else {
+                            ((res, log1.clone()), Some((res2, log2)))
+                        }
+                    }
+                };
+
+                let try_with_coinbase = || -> (Resources, DiffCreationLog) {
+                    Self::one_prediff(
+                        constraint_constants,
+                        cw_seq_1.clone(),
+                        ts_seq.clone(),
+                        &receiver,
+                        true,
+                        partitions.first,
+                        logger,
+                        is_coinbase_receiver_new,
+                        Partition::First,
+                        supercharge_coinbase,
+                    )
+                };
+
+                let (res1, res2) = if res.commands_rev.is_empty() {
+                    let res = try_with_coinbase();
+                    (res, None)
+                } else {
+                    match res.available_space() {
+                        0 => {
+                            // generate the next prediff with a coinbase at least
+                            let res2 = second_pre_diff(res.clone(), y, true, cw_seq_2);
+                            ((res, log1), Some(res2))
+                        }
+                        1 => {
+                            // There's a slot available in the first partition, fill it
+                            // with coinbase and create another pre_diff for the slots
+                            // in the second partiton with the remaining user commands and work
+
+                            incr_coinbase_and_compute(res, IncreaseBy::One)
+                        }
+                        2 => {
+                            // There are two slots which cannot be filled using user commands,
+                            // so we split the coinbase into two parts and fill those two spots
+
+                            incr_coinbase_and_compute(res, IncreaseBy::Two)
+                        }
+                        _ => {
+                            // Too many slots left in the first partition. Either there wasn't
+                            // enough work to add transactions or there weren't enough
+                            // transactions. Create a new pre_diff for just the first partition
+
+                            let res = try_with_coinbase();
+                            (res, None)
+                        }
+                    }
+                };
+
+                let coinbase_added = res1.0.coinbase_added()
+                    + res2
+                        .as_ref()
+                        .map(|(res, _)| res.coinbase_added())
+                        .unwrap_or(0);
+
+                if coinbase_added > 0 {
+                    make_diff(res1, res2)
+                } else {
+                    // Coinbase takes priority over user-commands. Create a diff in
+                    // partitions.first with coinbase first and user commands if possible
+
+                    let res = try_with_coinbase();
+                    make_diff(res, None)
+                }
+            }
+        }
+    }
+
+    fn can_apply_supercharged_coinbase_exn(
+        winner: CompressedPubKey,
+        epoch_ledger: &SparseLedger<AccountId, Account>,
+        global_slot: Slot,
+    ) -> bool {
+        !epoch_ledger
+            .has_locked_tokens_exn(global_slot, { AccountId::new(winner, TokenId::default()) })
     }
 }

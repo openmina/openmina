@@ -5,8 +5,9 @@ use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
 use crate::{
-    scan_state::transaction_logic::AccountState, Account, AccountId, AccountIndex, Address,
-    AddressIterator, BaseLedger, Direction, HashesMatrix, Mask, MerklePath, TreeVersion, V2,
+    scan_state::transaction_logic::{AccountState, Slot},
+    Account, AccountId, AccountIndex, Address, AddressIterator, BaseLedger, Direction,
+    HashesMatrix, Mask, MerklePath, TreeVersion, V2,
 };
 
 #[derive(Clone, Debug)]
@@ -64,6 +65,40 @@ impl SparseLedger<AccountId, Account> {
         assert_eq!(BaseLedger::merkle_root(&mut ledger), sparse.merkle_root());
 
         sparse
+    }
+
+    fn get_or_initialize_exn(
+        &self,
+        account_id: &AccountId,
+        addr: &Address,
+    ) -> (AccountState, Account) {
+        let mut account = self.get_exn(addr).clone();
+
+        if account.public_key == CompressedPubKey::empty() {
+            let public_key = account_id.public_key.clone();
+            let token_id = account_id.token_id.clone();
+
+            // Only allow delegation if this account is for the default token.
+            let delegate = if token_id.is_default() {
+                Some(public_key.clone())
+            } else {
+                None
+            };
+
+            account.delegate = delegate;
+            account.public_key = public_key;
+            account.token_id = token_id;
+
+            (AccountState::Added, account)
+        } else {
+            (AccountState::Existed, account)
+        }
+    }
+
+    pub fn has_locked_tokens_exn(&self, global_slot: Slot, account_id: AccountId) -> bool {
+        let addr = self.find_index_exn(account_id.clone());
+        let (_, account) = self.get_or_initialize_exn(&account_id, &addr);
+        account.has_locked_tokens(global_slot)
     }
 
     pub fn iteri<F>(&self, fun: F)
