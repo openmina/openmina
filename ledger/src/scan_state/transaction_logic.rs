@@ -134,7 +134,7 @@ pub mod valid {
 
     impl UserCommand {
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/user_command.ml#L277
-        fn forget_check(&self) -> super::UserCommand {
+        pub fn forget_check(&self) -> super::UserCommand {
             match self {
                 UserCommand::SignedCommand(cmd) => super::UserCommand::SignedCommand(cmd.clone()),
                 UserCommand::ZkAppCommand(cmd) => {
@@ -777,7 +777,7 @@ pub mod zkapp_command {
     #[derive(Debug, Clone)]
     pub struct AccountUpdate {
         body: Body,
-        authorization: Control,
+        pub authorization: Control,
     }
 
     impl AccountUpdate {

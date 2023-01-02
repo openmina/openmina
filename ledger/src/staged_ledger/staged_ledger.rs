@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
 use mina_signer::CompressedPubKey;
@@ -25,15 +27,17 @@ use crate::{
             local_state::LocalState,
             protocol_state::{protocol_state_view, ProtocolStateView},
             transaction_applied::TransactionApplied,
-            valid, verifiable, CoinbaseFeeTransfer, Slot, Transaction, TransactionStatus,
-            UserCommand, WithStatus,
+            valid::{self, VerificationKeyHash},
+            verifiable,
+            zkapp_command::Control,
+            CoinbaseFeeTransfer, Slot, Transaction, TransactionStatus, UserCommand, WithStatus,
         },
     },
     split_at, split_at_vec,
     staged_ledger::resources::IncreaseBy,
     take,
     verifier::{Verifier, VerifierError},
-    Account, AccountId, BaseLedger, Mask, TokenId,
+    Account, AccountId, BaseLedger, Mask, TokenId, VerificationKey,
 };
 
 use super::{
@@ -45,6 +49,7 @@ use super::{
     pre_diff_info::PreDiffError,
     resources::Resources,
     sparse_ledger::SparseLedger,
+    transaction_validator::HashlessLedger,
 };
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#470
@@ -1477,81 +1482,247 @@ impl StagedLedger {
         !epoch_ledger.has_locked_tokens_exn(global_slot, AccountId::new(winner, TokenId::default()))
     }
 
-    fn validate_account_update_proofs(logger: ()) {}
+    fn validate_account_update_proofs(
+        _logger: (),
+        validating_ledger: &HashlessLedger,
+        txn: &valid::UserCommand,
+    ) -> bool {
+        use super::sparse_ledger::LedgerIntf;
+
+        let get_verification_keys = |account_ids: &HashSet<AccountId>| {
+            let get_vk = |account_id: &AccountId| -> Option<VerificationKeyHash> {
+                let addr = validating_ledger.location_of_account(account_id)?;
+                let account = validating_ledger.get(&addr)?;
+                let vk = account.zkapp.as_ref()?.verification_key.as_ref()?;
+                // TODO: In OCaml this is a field (using `WithHash`)
+                Some(VerificationKeyHash(vk.hash()))
+            };
+
+            let mut map = HashMap::with_capacity(128);
+
+            for id in account_ids {
+                match get_vk(id) {
+                    Some(vk) => {
+                        map.insert(id.clone(), vk);
+                    }
+                    None => {
+                        eprintln!(
+                            "Staged_ledger_diff creation: Verification key not found for \
+                             account_update with proof authorization and account_id \
+                             {:?}",
+                            id
+                        );
+                        return HashMap::new();
+                    }
+                }
+            }
+
+            map
+        };
+
+        match txn {
+            valid::UserCommand::ZkAppCommand(p) => {
+                let checked_verification_keys: HashMap<AccountId, VerificationKeyHash> =
+                    p.verification_keys.iter().cloned().collect();
+
+                let proof_zkapp_command = p.zkapp_command.account_updates.fold(
+                    HashSet::with_capacity(128),
+                    |mut accum, (update, _)| {
+                        if let Control::Proof(_) = &update.authorization {
+                            accum.insert(update.account_id());
+                        }
+                        accum
+                    },
+                );
+
+                let current_verification_keys = get_verification_keys(&proof_zkapp_command);
+
+                if proof_zkapp_command.len() == checked_verification_keys.len()
+                    && checked_verification_keys == current_verification_keys
+                {
+                    true
+                } else {
+                    eprintln!(
+                        "Staged_ledger_diff creation: Verifcation keys used for verifying \
+                             proofs {:#?} and verification keys in the \
+                             ledger {:#?} don't match",
+                        checked_verification_keys, current_verification_keys
+                    );
+                    false
+                }
+            }
+            valid::UserCommand::SignedCommand(_) => true,
+        }
+    }
+
+    fn create_diff<F>(
+        &self,
+        constraint_constants: &ConstraintConstants,
+        log_block_creation: Option<bool>,
+        coinbase_receiver: CompressedPubKey,
+        logger: (),
+        current_state_view: &ProtocolStateView,
+        transactions_by_fee: Vec<valid::UserCommand>,
+        get_completed_work: F,
+        supercharge_coinbase: bool,
+    ) where
+        F: Fn(&work::Statement) -> Option<work::Checked>,
+    {
+        use super::sparse_ledger::LedgerIntf;
+
+        let log_block_creation = log_block_creation.unwrap_or(false);
+
+        let mut validating_ledger = HashlessLedger::create(self.ledger.clone());
+
+        let is_new_account = |pk: &CompressedPubKey| {
+            validating_ledger
+                .location_of_account(&AccountId::new(pk.clone(), TokenId::default()))
+                .is_none()
+        };
+
+        let is_coinbase_receiver_new = is_new_account(&coinbase_receiver);
+
+        if supercharge_coinbase {
+            println!("No locked tokens in the delegator/delegatee account, applying supercharged coinbase");
+        }
+
+        let partitions = self.scan_state.partition_if_overflowing();
+        let work_to_do = self.scan_state.work_statements_for_new_diff();
+
+        let mut completed_works_seq = Vec::with_capacity(work_to_do.len());
+        let mut proof_count = 0;
+
+        for work in work_to_do {
+            match get_completed_work(&work) {
+                Some(cw_checked) => {
+                    // If new provers can't pay the account-creation-fee then discard
+                    // their work unless their fee is zero in which case their account
+                    // won't be created. This is to encourage using an existing accounts
+                    // for snarking.
+                    // This also imposes new snarkers to have a min fee until one of
+                    // their snarks are purchased and their accounts get created*)
+
+                    if cw_checked.fee.is_zero()
+                        || cw_checked.fee >= constraint_constants.account_creation_fee
+                        || !(is_new_account(&cw_checked.prover))
+                    {
+                        proof_count += cw_checked.proofs.len();
+                        completed_works_seq.push(cw_checked);
+                    } else {
+                        eprintln!(
+                            "Staged_ledger_diff creation: Snark fee {:?} \
+                             insufficient to create the snark worker account",
+                            cw_checked.fee,
+                        );
+                        break;
+                    }
+                }
+                None => {
+                    eprintln!(
+                        "Staged_ledger_diff creation: No snark work found for {:#?}",
+                        work
+                    );
+                    break;
+                }
+            }
+        }
+
+        // Transactions in reverse order for faster removal if there is no space when creating the diff
+
+        let length = transactions_by_fee.len();
+        let mut valid_on_this_ledger = Vec::with_capacity(length);
+        let mut invalid_on_this_ledger = Vec::with_capacity(length);
+        let mut count = 0;
+
+        for txn in transactions_by_fee {
+            let res = Self::validate_account_update_proofs(logger, &validating_ledger, &txn)
+                .then_some(())
+                .ok_or_else(|| "Verification key mismatch".to_string())
+                .and_then(|_| {
+                    let txn = Transaction::Command(txn.forget_check());
+                    validating_ledger.apply_transaction(
+                        constraint_constants,
+                        current_state_view,
+                        &txn,
+                    )
+                });
+
+            match res {
+                Err(e) => {
+                    eprintln!(
+                        "Staged_ledger_diff creation: Skipping user command: {:#?} due to error: {:?}",
+                        txn, e
+                    );
+                    invalid_on_this_ledger.push((txn, e));
+                }
+                Ok(status) => {
+                    let txn_with_status = WithStatus { data: txn, status };
+                    valid_on_this_ledger.push(txn_with_status);
+                    count += 1;
+                    if count >= self.scan_state.free_space() {
+                        break;
+                    }
+                }
+            }
+        }
+
+        valid_on_this_ledger.reverse();
+        invalid_on_this_ledger.reverse();
+
+        let (diff, log) = Self::generate(
+            constraint_constants,
+            logger,
+            completed_works_seq,
+            valid_on_this_ledger,
+            coinbase_receiver,
+            is_coinbase_receiver_new,
+            supercharge_coinbase,
+            partitions,
+        );
+
+        let diff = {
+            // Fill in the statuses for commands.
+
+            let generate_status = |txn: Transaction| -> Result<TransactionStatus, String> {
+                let mut status_ledger = HashlessLedger::create(self.ledger.clone());
+                status_ledger.apply_transaction(constraint_constants, current_state_view, &txn)
+            };
+        };
+    }
 }
 
-// let validate_account_update_proofs ~logger ~validating_ledger
-//     (txn : User_command.Valid.t) =
-//   let open Result.Let_syntax in
-//   let get_verification_keys account_ids =
-//     List.fold_until account_ids ~init:Account_id.Map.empty
-//       ~f:(fun acc id ->
-//         let get_vk () =
-//           let open Option.Let_syntax in
-//           let%bind loc =
-//             Transaction_snark.Transaction_validator.Hashless_ledger
-//             .location_of_account validating_ledger id
-//           in
-//           let%bind account =
-//             Transaction_snark.Transaction_validator.Hashless_ledger.get
-//               validating_ledger loc
-//           in
-//           let%bind zkapp = account.zkapp in
-//           let%map vk = zkapp.verification_key in
-//           vk.hash
+//       let%map diff =
+//         (* Fill in the statuses for commands. *)
+//         let generate_status =
+//           let status_ledger = Transaction_validator.create t.ledger in
+//           fun txn ->
+//             O1trace.sync_thread "get_transaction__status" (fun () ->
+//                 Transaction_validator.apply_transaction ~constraint_constants
+//                   status_ledger ~txn_state_view:current_state_view txn )
 //         in
-//         match get_vk () with
-//         | Some vk ->
-//             Continue (Account_id.Map.update acc id ~f:(fun _ -> vk))
-//         | None ->
-//             [%log error]
-//               ~metadata:[ ("account_id", Account_id.to_yojson id) ]
-//               "Staged_ledger_diff creation: Verification key not found for \
-//                account_update with proof authorization and account_id \
-//                $account_id" ;
-//             Stop Account_id.Map.empty )
-//       ~finish:Fn.id
-//   in
-//   match txn with
-//   | Zkapp_command p ->
-//       let%map checked_verification_keys =
-//         Account_id.Map.of_alist_or_error p.verification_keys
+//         Pre_diff_info.compute_statuses ~constraint_constants ~diff
+//           ~coinbase_amount:
+//             (Option.value_exn
+//                (coinbase_amount ~constraint_constants ~supercharge_coinbase) )
+//           ~coinbase_receiver ~generate_status
+//           ~forget:User_command.forget_check
 //       in
-//       let proof_zkapp_command =
-//         Zkapp_command.Call_forest.fold ~init:Account_id.Set.empty
-//           p.zkapp_command.account_updates ~f:(fun acc p ->
-//             if
-//               Control.(Tag.equal Proof (tag (Account_update.authorization p)))
-//             then Account_id.Set.add acc (Account_update.account_id p)
-//             else acc )
-//       in
-//       let current_verification_keys =
-//         get_verification_keys (Account_id.Set.to_list proof_zkapp_command)
-//       in
-//       if
-//         Account_id.Set.length proof_zkapp_command
-//         = Account_id.Map.length checked_verification_keys
-//         && Account_id.Map.equal
-//              Zkapp_command.Valid.Verification_key_hash.equal
-//              checked_verification_keys current_verification_keys
-//       then true
-//       else (
-//         [%log error]
+//       let summaries, detailed = List.unzip log in
+//       [%log debug]
+//         "Number of proofs ready for purchase: $proof_count Number of user \
+//          commands ready to be included: $txn_count Diff creation log: \
+//          $diff_log"
+//         ~metadata:
+//           [ ("proof_count", `Int proof_count)
+//           ; ("txn_count", `Int (Sequence.length valid_on_this_ledger))
+//           ; ("diff_log", Diff_creation_log.summary_list_to_yojson summaries)
+//           ] ;
+//       if log_block_creation then
+//         [%log debug] "Detailed diff creation log: $diff_log"
 //           ~metadata:
-//             [ ( "checked_verification_keys"
-//               , [%to_yojson:
-//                   (Account_id.t * Zkapp_command.Valid.Verification_key_hash.t)
-//                   list]
-//                   (Account_id.Map.to_alist checked_verification_keys) )
-//             ; ( "current_verification_keys"
-//               , [%to_yojson:
-//                   (Account_id.t * Zkapp_command.Valid.Verification_key_hash.t)
-//                   list]
-//                   (Account_id.Map.to_alist current_verification_keys) )
-//             ]
-//           "Staged_ledger_diff creation: Verifcation keys used for verifying \
-//            proofs $checked_verification_keys and verification keys in the \
-//            ledger $current_verification_keys don't match" ;
-//         false )
-//   | _ ->
-//       Ok true
+//             [ ( "diff_log"
+//               , Diff_creation_log.detail_list_to_yojson
+//                   (List.map ~f:List.rev detailed) )
+//             ] ;
+//       ( { Staged_ledger_diff.With_valid_signatures_and_proofs.diff }
+//       , invalid_on_this_ledger ) )

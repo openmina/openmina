@@ -325,6 +325,66 @@ fn check_coinbase<A, B>(
     }
 }
 
+pub fn compute_statuses<F>(
+    constraint_constants: &ConstraintConstants,
+    diff: (
+        PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>,
+        Option<super::diff::PreDiffOne<work::Work, WithStatus<valid::UserCommand>>>,
+    ),
+    coinbase_receiver: CompressedPubKey,
+    coinbase_amount: Amount,
+    generate_status: F,
+) where
+    F: Fn(Transaction) -> Result<TransactionStatus, String>,
+{
+}
+
+// let compute_statuses (type c)
+//     ~(constraint_constants : Genesis_constants.Constraint_constants.t) ~diff
+//     ~coinbase_receiver ~coinbase_amount ~generate_status ~(forget : c -> _) =
+//   let open Result.Let_syntax in
+//   let get_statuses_pre_diff_with_at_most_two
+//       (t1 : (_, c With_status.t) Pre_diff_two.t) =
+//     let coinbase_parts =
+//       match t1.coinbase with Zero -> `Zero | One x -> `One x | Two x -> `Two x
+//     in
+//     let%map commands, internal_command_statuses =
+//       generate_statuses ~constraint_constants ~generate_status coinbase_parts
+//         ~receiver:coinbase_receiver t1.commands t1.completed_works
+//         ~coinbase_amount ~forget
+//     in
+//     ( { commands
+//       ; completed_works = t1.completed_works
+//       ; coinbase = t1.coinbase
+//       ; internal_command_statuses
+//       }
+//       : _ Pre_diff_two.t )
+//   in
+//   let get_statuses_pre_diff_with_at_most_one
+//       (t2 : (_, c With_status.t) Pre_diff_one.t) =
+//     let coinbase_added =
+//       match t2.coinbase with Zero -> `Zero | One x -> `One x
+//     in
+//     let%map commands, internal_command_statuses =
+//       generate_statuses ~constraint_constants ~generate_status coinbase_added
+//         ~receiver:coinbase_receiver t2.commands t2.completed_works
+//         ~coinbase_amount ~forget
+//     in
+//     Some
+//       ( { commands
+//         ; completed_works = t2.completed_works
+//         ; coinbase = t2.coinbase
+//         ; internal_command_statuses
+//         }
+//         : _ Pre_diff_one.t )
+//   in
+//   let%bind p1 = get_statuses_pre_diff_with_at_most_two (fst diff) in
+//   let%map p2 =
+//     Option.value_map ~f:get_statuses_pre_diff_with_at_most_one (snd diff)
+//       ~default:(Ok None)
+//   in
+//   (p1, p2)
+
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L237
 struct TransactionData<T> {
     commands: Vec<WithStatus<T>>,
