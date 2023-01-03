@@ -1,3 +1,4 @@
+use mina_p2p_messages::v2::NonZeroCurvePoint;
 use serde::{Deserialize, Serialize};
 
 use p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -18,6 +19,8 @@ pub enum RpcAction {
     P2pConnectionOutgoingSuccess(RpcP2pConnectionOutgoingSuccessAction),
 
     P2pPubsubMessagePublish(RpcP2pPubsubMessagePublishAction),
+
+    WatchedAccountsAdd(RpcWatchedAccountsAddAction),
 
     Finish(RpcFinishAction),
 }
@@ -100,6 +103,18 @@ impl redux::EnablingCondition<crate::State> for RpcP2pPubsubMessagePublishAction
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcWatchedAccountsAddAction {
+    pub rpc_id: RpcId,
+    pub pub_key: NonZeroCurvePoint,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcWatchedAccountsAddAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        true
+    }
+}
+
 /// Finish/Cleanup rpc request.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcFinishAction {
@@ -134,5 +149,7 @@ impl_into_global_action!(RpcP2pConnectionOutgoingErrorAction);
 impl_into_global_action!(RpcP2pConnectionOutgoingSuccessAction);
 
 impl_into_global_action!(RpcP2pPubsubMessagePublishAction);
+
+impl_into_global_action!(RpcWatchedAccountsAddAction);
 
 impl_into_global_action!(RpcFinishAction);

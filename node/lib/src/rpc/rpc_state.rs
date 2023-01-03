@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use mina_p2p_messages::v2::NonZeroCurvePoint;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -18,6 +19,7 @@ pub enum RpcRequest {
     GetState,
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
     P2pPubsubPublish(PubsubTopic, GossipNetMessageV2),
+    WatchedAccountsAdd(NonZeroCurvePoint),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

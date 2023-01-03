@@ -25,4 +25,9 @@ pub trait RpcService: redux::Service {
         rpc_id: RpcId,
         response: Result<(), String>,
     ) -> Result<(), RespondError>;
+    fn respond_watched_accounts_add(
+        &mut self,
+        rpc_id: RpcId,
+        response: bool,
+    ) -> Result<(), RespondError>;
 }
