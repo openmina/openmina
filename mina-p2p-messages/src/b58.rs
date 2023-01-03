@@ -2,6 +2,7 @@
 
 use std::fmt;
 use std::marker::PhantomData;
+use std::str::FromStr;
 
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
@@ -153,6 +154,20 @@ where
     }
 }
 
+impl<T, U, const V: u8> FromStr for Base58CheckOfBinProt<T, U, V>
+where
+    U: BinProtRead,
+    T: From<U>,
+{
+    type Err = FromBase58CheckError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let binprot = decode(s, V)?;
+        let binable = U::binprot_read(&mut &binprot[1..])?;
+        Ok(T::from(binable).into())
+    }
+}
+
 impl<T, U, const V: u8> Serialize for Base58CheckOfBinProt<T, U, V>
 where
     T: Clone + Serialize,
@@ -181,17 +196,10 @@ where
     {
         if deserializer.is_human_readable() {
             let b58: String = Deserialize::deserialize(deserializer)?;
-            let binprot = decode(&b58, V).map_err(|e| {
-                serde::de::Error::custom(format!("Failed to construct from base58check: {e}"))
-            })?;
-            let binable = U::binprot_read(&mut &binprot[1..]).map_err(|e| {
-                serde::de::Error::custom(format!("Failed to construct from base58check: {e}"))
-            })?;
-            Ok(binable.into())
+            Ok(b58.parse().map_err(|err| serde::de::Error::custom(err))?)
         } else {
-            T::deserialize(deserializer)
+            T::deserialize(deserializer).map(|v| Self(v, Default::default()))
         }
-        .map(|v| Self(v, Default::default()))
     }
 }
 

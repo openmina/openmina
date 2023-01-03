@@ -222,7 +222,10 @@ pub type GetBestTipV1Response = Option<
 pub type GetBestTipV2Response = Option<
     ProofCarryingDataStableV1<
         v2::MinaBlockBlockStableV2,
-        (Vec<v2::MinaBaseStateBodyHashStableV1>, v2::MinaBlockBlockStableV2),
+        (
+            Vec<v2::MinaBaseStateBodyHashStableV1>,
+            v2::MinaBlockBlockStableV2,
+        ),
     >,
 >;
 mina_rpc!(GetBestTipV1, "get_best_tip", 1, (), GetBestTipV1Response);
