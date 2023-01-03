@@ -119,6 +119,11 @@ impl Fee {
     pub fn as_u64(&self) -> u64 {
         self.0
     }
+
+    #[cfg(test)]
+    pub const fn from_u64(fee: u64) -> Self {
+        Self(fee)
+    }
 }
 
 #[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -159,7 +164,7 @@ impl Amount {
         self.0
     }
 
-    pub fn from_u64(amount: u64) -> Self {
+    pub const fn from_u64(amount: u64) -> Self {
         Self(amount)
     }
 

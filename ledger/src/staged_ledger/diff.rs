@@ -21,14 +21,14 @@ pub enum AtMostTwo<T> {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L20
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum AtMostOne<T> {
     Zero,
     One(Option<T>),
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L37
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PreDiffTwo<A, B> {
     pub completed_works: Vec<A>,
     pub commands: Vec<B>,
@@ -37,7 +37,7 @@ pub struct PreDiffTwo<A, B> {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L54
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PreDiffOne<A, B> {
     pub completed_works: Vec<A>,
     pub commands: Vec<B>,
@@ -52,6 +52,7 @@ pub type PreDiffWithAtMostTwoCoinbase = PreDiffTwo<work::Work, WithStatus<UserCo
 pub type PreDiffWithAtMostOneCoinbase = PreDiffOne<work::Work, WithStatus<UserCommand>>;
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L107
+#[derive(Debug, Clone)]
 pub struct Diff {
     pub diff: (
         PreDiffWithAtMostTwoCoinbase,
@@ -171,6 +172,35 @@ pub mod with_valid_signatures_and_proofs {
                 });
 
             super::with_valid_signatures::Diff { diff: (p1, p2) }
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff.ml#L419
+        pub fn forget(self) -> super::Diff {
+            let d1 = self.diff.0;
+            let p1 = super::PreDiffWithAtMostTwoCoinbase {
+                completed_works: forget_cw(d1.completed_works),
+                commands: d1
+                    .commands
+                    .into_iter()
+                    .map(|c| c.map(|c| c.forget_check()))
+                    .collect(),
+                coinbase: d1.coinbase,
+                internal_command_statuses: d1.internal_command_statuses,
+            };
+
+            let d2 = self.diff.1;
+            let p2 = d2.map(|d2| super::PreDiffWithAtMostOneCoinbase {
+                completed_works: forget_cw(d2.completed_works),
+                commands: d2
+                    .commands
+                    .into_iter()
+                    .map(|c| c.map(|c| c.forget_check()))
+                    .collect(),
+                coinbase: d2.coinbase,
+                internal_command_statuses: d2.internal_command_statuses,
+            });
+
+            super::Diff { diff: (p1, p2) }
         }
     }
 }

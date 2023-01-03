@@ -60,6 +60,7 @@ pub struct StackStateWithInitStack {
 // }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L23
+#[derive(Debug)]
 pub enum StagedLedgerError {
     NonZeroFeeExcess(Vec<WithStatus<Transaction>>, SpacePartition),
     InvalidProofs,
@@ -1777,4 +1778,138 @@ impl StagedLedger {
             })
             .collect::<Vec<_>>()
     }
+}
+
+#[cfg(test)]
+mod tests_ocaml {
+    use ark_ff::UniformRand;
+    use once_cell::sync::Lazy;
+    use rand::Rng;
+
+    use super::*;
+
+    // const
+
+    static SELF_PK: Lazy<CompressedPubKey> = Lazy::new(|| {
+        let mut rng = rand::thread_rng();
+
+        CompressedPubKey {
+            x: Fp::rand(&mut rng),
+            is_odd: rng.gen(),
+        }
+    });
+
+    static COINBASE_RECEIVER: Lazy<CompressedPubKey> = Lazy::new(|| {
+        let mut rng = rand::thread_rng();
+
+        CompressedPubKey {
+            x: Fp::rand(&mut rng),
+            is_odd: rng.gen(),
+        }
+    });
+
+    /// Same values when we run `dune runtest src/lib/staged_ledger -f`
+    const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
+        sub_windows_per_window: 11,
+        ledger_depth: 35,
+        work_delay: 2,
+        block_window_duration_ms: 180000,
+        transaction_capacity_log_2: 7,
+        pending_coinbase_depth: 5,
+        coinbase_amount: Amount::from_u64(720000000000),
+        supercharged_coinbase_factor: 2,
+        account_creation_fee: Fee::from_u64(1000000000),
+        fork: None,
+    };
+
+    const LOGGER: () = ();
+
+    const VERIFIER: Verifier = Verifier;
+
+    fn supercharge_coinbase(ledger: Mask, winner: CompressedPubKey, global_slot: Slot) -> bool {
+        // using staged ledger to confirm coinbase amount is correctly generated
+
+        let epoch_ledger = SparseLedger::of_ledger_subset_exn(
+            ledger,
+            &[AccountId::new(winner.clone(), TokenId::default())],
+        );
+
+        StagedLedger::can_apply_supercharged_coinbase_exn(winner, &epoch_ledger, global_slot)
+    }
+
+    /// Functor for testing with different instantiated staged ledger modules.
+    fn create_and_apply_with_state_body_hash<F>(
+        coinbase_receiver: Option<CompressedPubKey>,
+        winner: Option<CompressedPubKey>,
+        current_state_view: &ProtocolStateView,
+        state_and_body_hash: (Fp, Fp),
+        sl: &mut StagedLedger,
+        txns: Vec<valid::UserCommand>,
+        stmt_to_work: F,
+    ) -> (
+        Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>,
+        Diff,
+        bool,
+        Update,
+        bool,
+    )
+    where
+        F: Fn(&work::Statement) -> Option<work::Unchecked>,
+    {
+        let coinbase_receiver = coinbase_receiver.unwrap_or_else(|| COINBASE_RECEIVER.clone());
+        let winner = winner.unwrap_or_else(|| SELF_PK.clone());
+
+        let supercharge_coinbase = supercharge_coinbase(
+            sl.ledger.clone(),
+            winner,
+            current_state_view.global_slot_since_genesis,
+        );
+
+        let (diff, _invalid_txns) = sl
+            .create_diff(
+                &CONSTRAINT_CONSTANTS,
+                None,
+                coinbase_receiver.clone(),
+                LOGGER,
+                current_state_view,
+                txns,
+                stmt_to_work,
+                supercharge_coinbase,
+            )
+            .unwrap();
+
+        let diff = diff.forget();
+
+        let DiffResult {
+            hash_after_applying: hash,
+            ledger_proof,
+            pending_coinbase_update: (is_new_stack, pc_update),
+        } = sl
+            .apply(
+                None,
+                &CONSTRAINT_CONSTANTS,
+                diff.clone(),
+                LOGGER,
+                &VERIFIER,
+                current_state_view,
+                state_and_body_hash,
+                coinbase_receiver,
+                supercharge_coinbase,
+            )
+            .unwrap();
+
+        // assert_eq!(hash, )
+
+        (
+            ledger_proof,
+            diff,
+            is_new_stack,
+            pc_update,
+            supercharge_coinbase,
+        )
+    }
+
+    //   assert (Staged_ledger_hash.equal hash (Sl.hash sl')) ;
+    //   sl := sl' ;
+    //   (ledger_proof, diff', is_new_stack, pc_update, supercharge_coinbase)
 }
