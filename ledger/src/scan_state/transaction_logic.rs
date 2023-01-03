@@ -24,54 +24,54 @@ use super::{
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L9
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(non_camel_case_types)]
+// #[allow(non_camel_case_types)]
 pub enum TransactionFailure {
     Predicate,
-    Source_not_present,
-    Receiver_not_present,
-    Amount_insufficient_to_create_account,
-    Cannot_pay_creation_fee_in_token,
-    Source_insufficient_balance,
-    Source_minimum_balance_violation,
-    Receiver_already_exists,
-    Token_owner_not_caller,
+    SourceNotPresent,
+    ReceiverNotPresent,
+    AmountInsufficientToCreateAccount,
+    CannotPayCreationFeeInToken,
+    SourceInsufficientBalance,
+    SourceMinimumBalanceViolation,
+    ReceiverAlreadyExists,
+    TokenOwnerNotCaller,
     Overflow,
-    Global_excess_overflow,
-    Local_excess_overflow,
-    Local_supply_increase_overflow,
-    Global_supply_increase_overflow,
-    Signed_command_on_zkapp_account,
-    Zkapp_account_not_present,
-    Update_not_permitted_balance,
-    Update_not_permitted_timing_existing_account,
-    Update_not_permitted_delegate,
-    Update_not_permitted_app_state,
-    Update_not_permitted_verification_key,
-    Update_not_permitted_sequence_state,
-    Update_not_permitted_zkapp_uri,
-    Update_not_permitted_token_symbol,
-    Update_not_permitted_permissions,
-    Update_not_permitted_nonce,
-    Update_not_permitted_voting_for,
-    Zkapp_command_replay_check_failed,
-    Fee_payer_nonce_must_increase,
-    Fee_payer_must_be_signed,
-    Account_balance_precondition_unsatisfied,
-    Account_nonce_precondition_unsatisfied,
-    Account_receipt_chain_hash_precondition_unsatisfied,
-    Account_delegate_precondition_unsatisfied,
-    Account_sequence_state_precondition_unsatisfied,
-    Account_app_state_precondition_unsatisfied(i64),
-    Account_proved_state_precondition_unsatisfied,
-    Account_is_new_precondition_unsatisfied,
-    Protocol_state_precondition_unsatisfied,
-    Incorrect_nonce,
-    Invalid_fee_excess,
+    GlobalExcessOverflow,
+    LocalExcessOverflow,
+    LocalSupplyIncreaseOverflow,
+    GlobalSupplyIncreaseOverflow,
+    SignedCommandOnZkappAccount,
+    ZkappAccountNotPresent,
+    UpdateNotPermittedBalance,
+    UpdateNotPermittedTimingExistingAccount,
+    UpdateNotPermittedDelegate,
+    UpdateNotPermittedAppState,
+    UpdateNotPermittedVerificationKey,
+    UpdateNotPermittedSequenceState,
+    UpdateNotPermittedZkappUri,
+    UpdateNotPermittedTokenSymbol,
+    UpdateNotPermittedPermissions,
+    UpdateNotPermittedNonce,
+    UpdateNotPermittedVotingFor,
+    ZkappCommandReplayCheckFailed,
+    FeePayerNonceMustIncrease,
+    FeePayerMustBeSigned,
+    AccountBalancePreconditionUnsatisfied,
+    AccountNoncePreconditionUnsatisfied,
+    AccountReceiptChainHashPreconditionUnsatisfied,
+    AccountDelegatePreconditionUnsatisfied,
+    AccountSequenceStatePreconditionUnsatisfied,
+    AccountAppStatePreconditionUnsatisfied(i64),
+    AccountProvedStatePreconditionUnsatisfied,
+    AccountIsNewPreconditionUnsatisfied,
+    ProtocolStatePreconditionUnsatisfied,
+    IncorrectNonce,
+    InvalidFeeExcess,
     Cancelled,
 }
 
 pub fn single_failure() -> Vec<Vec<TransactionFailure>> {
-    vec![vec![TransactionFailure::Update_not_permitted_balance]]
+    vec![vec![TransactionFailure::UpdateNotPermittedBalance]]
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L452
@@ -1461,17 +1461,17 @@ pub mod local_state {
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct LocalState {
-        stack_frame: Fp,
-        call_stack: Fp,
-        transaction_commitment: Fp,
-        full_transaction_commitment: Fp,
-        token_id: TokenId,
-        excess: Signed<Amount>,
-        supply_increase: Signed<Amount>,
-        ledger: Fp,
-        success: bool,
-        account_update_index: Index,
-        failure_status_tbl: Vec<Vec<TransactionFailure>>,
+        pub(super) stack_frame: Fp,
+        pub(super) call_stack: Fp,
+        pub(super) transaction_commitment: Fp,
+        pub(super) full_transaction_commitment: Fp,
+        pub(super) token_id: TokenId,
+        pub(super) excess: Signed<Amount>,
+        pub(super) supply_increase: Signed<Amount>,
+        pub(super) ledger: Fp,
+        pub(super) success: bool,
+        pub(super) account_update_index: Index,
+        pub(super) failure_status_tbl: Vec<Vec<TransactionFailure>>,
     }
 
     impl LocalState {
@@ -1615,7 +1615,7 @@ where
                     None,
                     None,
                     None,
-                    vec![TransactionFailure::Update_not_permitted_balance],
+                    vec![TransactionFailure::UpdateNotPermittedBalance],
                     fee,
                 )
             }
@@ -1654,7 +1654,7 @@ where
         (vec![], Amount::zero())
     } else {
         (
-            vec![TransactionFailure::Update_not_permitted_balance],
+            vec![TransactionFailure::UpdateNotPermittedBalance],
             receiver_reward,
         )
     };
@@ -1871,8 +1871,8 @@ where
                     Ok((
                         vec![],
                         vec![
-                            vec![TransactionFailure::Update_not_permitted_balance],
-                            vec![TransactionFailure::Update_not_permitted_balance],
+                            vec![TransactionFailure::UpdateNotPermittedBalance],
+                            vec![TransactionFailure::UpdateNotPermittedBalance],
                         ],
                         Amount::of_fee(&fee),
                     ))
@@ -1903,7 +1903,7 @@ where
                 } else {
                     (
                         None,
-                        vec![TransactionFailure::Update_not_permitted_balance],
+                        vec![TransactionFailure::UpdateNotPermittedBalance],
                         Amount::of_fee(&fee_transfer1.fee),
                     )
                 };
@@ -1921,7 +1921,7 @@ where
                 } else {
                     (
                         None,
-                        vec![TransactionFailure::Update_not_permitted_balance],
+                        vec![TransactionFailure::UpdateNotPermittedBalance],
                         Amount::of_fee(&fee_transfer2.fee),
                     )
                 };

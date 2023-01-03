@@ -7,16 +7,16 @@ use mina_p2p_messages::v2::{
     TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
     TransactionSnarkStatementStableV2, TransactionSnarkStatementWithSokStableV2,
     TransactionSnarkStatementWithSokStableV2Source,
-    UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+    UnsignedExtendedUInt64Int64ForVersionTagsStableV1, MinaBasePendingCoinbaseStackVersionedStableV1, MinaBaseAccountIdDigestStableV1, MinaBaseTransactionStatusFailureStableV2,
 };
 
 use super::{
     currency::{Amount, Fee, Sgn, Signed},
     fee_excess::FeeExcess,
     scan_state::transaction_snark::{
-        LedgerProof, LedgerProofWithSokMessage, LedgerWitness, Registers, SokMessage, Statement,
+        LedgerProof, LedgerProofWithSokMessage, Registers, SokMessage, Statement,
         TransactionSnark, TransactionWithWitness,
-    },
+    }, pending_coinbase, transaction_logic::{local_state::LocalState, Index, TransactionFailure, transaction_applied::{TransactionApplied, self}},
 };
 
 impl From<&CurrencyAmountStableV1> for Amount {
@@ -129,12 +129,92 @@ impl From<&FeeExcess> for MinaBaseFeeExcessStableV1 {
     }
 }
 
+impl From<&MinaBasePendingCoinbaseStackVersionedStableV1> for pending_coinbase::Stack {
+    fn from(value: &MinaBasePendingCoinbaseStackVersionedStableV1) -> Self {
+        Self {
+            data: pending_coinbase::CoinbaseStack(value.data.0.to_field()),
+            state: pending_coinbase::StateStack {
+                init: value.state.init.0.to_field(),
+                curr: value.state.curr.0.to_field(),
+            },
+        }
+    }
+}
+
+impl From<&MinaBaseTransactionStatusFailureStableV2> for TransactionFailure {
+    fn from(value: &MinaBaseTransactionStatusFailureStableV2) -> Self {
+        use MinaBaseTransactionStatusFailureStableV2 as P2P;
+
+        match value {
+            P2P::Predicate => Self::Predicate,
+            P2P::SourceNotPresent => Self::SourceNotPresent,
+            P2P::ReceiverNotPresent => Self::ReceiverNotPresent,
+            P2P::AmountInsufficientToCreateAccount => Self::AmountInsufficientToCreateAccount,
+            P2P::CannotPayCreationFeeInToken => Self::CannotPayCreationFeeInToken,
+            P2P::SourceInsufficientBalance => Self::SourceInsufficientBalance,
+            P2P::SourceMinimumBalanceViolation => Self::SourceMinimumBalanceViolation,
+            P2P::ReceiverAlreadyExists => Self::ReceiverAlreadyExists,
+            P2P::TokenOwnerNotCaller => Self::TokenOwnerNotCaller,
+            P2P::Overflow => Self::Overflow,
+            P2P::GlobalExcessOverflow => Self::GlobalExcessOverflow,
+            P2P::LocalExcessOverflow => Self::LocalExcessOverflow,
+            P2P::LocalSupplyIncreaseOverflow => Self::LocalSupplyIncreaseOverflow,
+            P2P::GlobalSupplyIncreaseOverflow => Self::GlobalSupplyIncreaseOverflow,
+            P2P::SignedCommandOnZkappAccount => Self::SignedCommandOnZkappAccount,
+            P2P::ZkappAccountNotPresent => Self::ZkappAccountNotPresent,
+            P2P::UpdateNotPermittedBalance => Self::UpdateNotPermittedBalance,
+            P2P::UpdateNotPermittedTimingExistingAccount => Self::UpdateNotPermittedTimingExistingAccount,
+            P2P::UpdateNotPermittedDelegate => Self::UpdateNotPermittedDelegate,
+            P2P::UpdateNotPermittedAppState => Self::UpdateNotPermittedAppState,
+            P2P::UpdateNotPermittedVerificationKey => Self::UpdateNotPermittedVerificationKey,
+            P2P::UpdateNotPermittedSequenceState => Self::UpdateNotPermittedSequenceState,
+            P2P::UpdateNotPermittedZkappUri => Self::UpdateNotPermittedZkappUri,
+            P2P::UpdateNotPermittedTokenSymbol => Self::UpdateNotPermittedTokenSymbol,
+            P2P::UpdateNotPermittedPermissions => Self::UpdateNotPermittedPermissions,
+            P2P::UpdateNotPermittedNonce => Self::UpdateNotPermittedNonce,
+            P2P::UpdateNotPermittedVotingFor => Self::UpdateNotPermittedVotingFor,
+            P2P::ZkappCommandReplayCheckFailed => Self::ZkappCommandReplayCheckFailed,
+            P2P::FeePayerNonceMustIncrease => Self::FeePayerNonceMustIncrease,
+            P2P::FeePayerMustBeSigned => Self::FeePayerMustBeSigned,
+            P2P::AccountBalancePreconditionUnsatisfied => Self::AccountBalancePreconditionUnsatisfied,
+            P2P::AccountNoncePreconditionUnsatisfied => Self::AccountNoncePreconditionUnsatisfied,
+            P2P::AccountReceiptChainHashPreconditionUnsatisfied => Self::AccountReceiptChainHashPreconditionUnsatisfied,
+            P2P::AccountDelegatePreconditionUnsatisfied => Self::AccountDelegatePreconditionUnsatisfied,
+            P2P::AccountSequenceStatePreconditionUnsatisfied => Self::AccountSequenceStatePreconditionUnsatisfied,
+            P2P::AccountAppStatePreconditionUnsatisfied(v) => Self::AccountAppStatePreconditionUnsatisfied(v.as_u32() as i64),
+            P2P::AccountProvedStatePreconditionUnsatisfied => Self::AccountProvedStatePreconditionUnsatisfied,
+            P2P::AccountIsNewPreconditionUnsatisfied => Self::AccountIsNewPreconditionUnsatisfied,
+            P2P::ProtocolStatePreconditionUnsatisfied => Self::ProtocolStatePreconditionUnsatisfied,
+            P2P::IncorrectNonce => Self::IncorrectNonce,
+            P2P::InvalidFeeExcess => Self::InvalidFeeExcess,
+            P2P::Cancelled => Self::Cancelled,
+        }
+    }
+}
+
 impl From<&TransactionSnarkStatementWithSokStableV2Source> for Registers {
     fn from(value: &TransactionSnarkStatementWithSokStableV2Source) -> Self {
         Self {
             ledger: value.ledger.to_field(),
-            pending_coinbase_stack: value.pending_coinbase_stack.clone(),
-            local_state: value.local_state.clone(),
+            pending_coinbase_stack: (&value.pending_coinbase_stack).into(),
+            local_state: LocalState {
+                stack_frame: value.local_state.stack_frame.0.to_field(),
+                call_stack: value.local_state.call_stack.0.to_field(),
+                transaction_commitment: value.local_state.transaction_commitment.to_field(),
+                full_transaction_commitment: value.local_state.full_transaction_commitment.to_field(),
+                token_id: {
+                    let id: MinaBaseAccountIdDigestStableV1 = value.local_state.token_id.into_inner();
+                    id.into()
+                },
+                excess: (&value.local_state.excess).into(),
+                supply_increase: (&value.local_state.supply_increase).into(),
+                ledger: value.local_state.ledger.0.to_field(),
+                success: value.local_state.success,
+                account_update_index: Index(value.local_state.account_update_index.0.as_u32()),
+                failure_status_tbl: value.local_state.failure_status_tbl.0.iter().map(|s| {
+                    s.iter().map(|s| s.into()).collect()
+                }).collect(),
+            },
         }
     }
 }
@@ -180,12 +260,37 @@ impl From<&Statement> for TransactionSnarkStatementWithSokStableV2 {
 
 impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for TransactionWithWitness {
     fn from(value: &TransactionSnarkScanStateTransactionWithWitnessStableV2) -> Self {
+        use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedVaryingStableV2::*;
+        use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedCommandAppliedStableV2::*;
+        use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2::*;
+        use transaction_applied::signed_command_applied;
+
         Self {
-            transaction_with_info: value.transaction_with_info.clone(),
+            transaction_with_info: TransactionApplied {
+                previous_hash: value.transaction_with_info.previous_hash.into_inner().to_field(),
+                varying: transaction_applied::Varying::Command(match value.transaction_with_info.varying {
+                    Command(cmd) => match cmd {
+                        SignedCommand(cmd) => transaction_applied::CommandApplied::SignedCommand(Box::new(transaction_applied::SignedCommandApplied {
+                            common: todo!(),
+                            body: match cmd.body {
+                                Payment { new_accounts } => signed_command_applied::Body::Payments { new_accounts: new_accounts.iter().cloned().map(Into::into).collect() },
+                                StakeDelegation { previous_delegate } => signed_command_applied::Body::StakeDelegation { previous_delegate: previous_delegate.as_ref().map(|d| {
+                                    d.into()
+                                })},
+                                Failed => signed_command_applied::Body::Failed,
+                            },
+                        })),
+                        ZkappCommand(_) => todo!(),
+                    },
+                    FeeTransfer(_) => todo!(),
+                    Coinbase(_) => todo!(),
+                }),
+            },
+            // transaction_with_info: value.transaction_with_info.clone(),
             state_hash: value.state_hash.clone(),
             statement: (&value.statement).into(),
             init_stack: value.init_stack.clone(),
-            ledger_witness: LedgerWitness, // value.ledger_witness.clone(),
+            ledger_witness: todo!(), // value.ledger_witness.clone(),
         }
     }
 }

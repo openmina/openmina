@@ -54,7 +54,7 @@ pub struct StackState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct CoinbaseStack(Fp);
+pub(super) struct CoinbaseStack(pub(super) Fp);
 
 impl CoinbaseStack {
     pub fn push(&self, cb: Coinbase) -> Self {
@@ -85,9 +85,9 @@ impl CoinbaseStack {
 type StackHash = Fp;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct StateStack {
-    init: StackHash,
-    curr: StackHash,
+pub(super) struct StateStack {
+    pub(super) init: StackHash,
+    pub(super) curr: StackHash,
 }
 
 impl StateStack {
