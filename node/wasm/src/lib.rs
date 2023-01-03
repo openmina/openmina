@@ -9,6 +9,7 @@ use gloo_utils::format::JsValueSerdeExt;
 use libp2p::futures;
 use libp2p::multiaddr::{Multiaddr, Protocol as MultiaddrProtocol};
 use libp2p::wasm_ext::ffi::ManualConnector as JsManualConnector;
+use mina_p2p_messages::v2::NonZeroCurvePoint;
 use mina_signer::{NetworkId, PubKey, Signer};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
@@ -30,6 +31,7 @@ mod service;
 use service::libp2p::Libp2pService;
 use service::rpc::{
     RpcP2pConnectionOutgoingResponse, RpcP2pPubsubPublishResponse, RpcService, RpcStateGetResponse,
+    RpcWatchedAccountsAddResponse,
 };
 pub use service::NodeWasmService;
 
@@ -427,6 +429,31 @@ impl JsHandle {
         self.pubsub_publish(PubsubTopic::CodaConsensusMessage, msg)
             .await;
         Ok(JsValue::NULL)
+    }
+
+    #[wasm_bindgen]
+    pub fn watched_accounts(&self) -> WatchedAccounts {
+        WatchedAccounts {
+            rpc: self.rpc.clone(),
+        }
+    }
+}
+
+#[wasm_bindgen]
+pub struct WatchedAccounts {
+    rpc: RpcSender,
+}
+
+#[wasm_bindgen]
+impl WatchedAccounts {
+    pub async fn add(&self, pub_key: String) -> Result<bool, String> {
+        let pub_key = NonZeroCurvePoint::from_str(&pub_key).map_err(|err| err.to_string())?;
+        let req = RpcRequest::WatchedAccountsAdd(pub_key);
+        let resp = self
+            .rpc
+            .oneshot_request::<RpcWatchedAccountsAddResponse>(req)
+            .await;
+        resp.ok_or("rpc request dropped".into())
     }
 }
 

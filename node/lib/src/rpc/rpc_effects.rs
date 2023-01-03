@@ -1,6 +1,9 @@
-use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
 use crate::p2p::pubsub::P2pPubsubMessagePublishAction;
 use crate::Store;
+use crate::{
+    p2p::connection::outgoing::P2pConnectionOutgoingInitAction,
+    watched_accounts::WatchedAccountsAddAction,
+};
 
 use super::{
     RpcAction, RpcActionWithMeta, RpcFinishAction, RpcP2pConnectionOutgoingPendingAction,
@@ -12,12 +15,12 @@ pub fn rpc_effects<S: RpcService>(store: &mut Store<S>, action: RpcActionWithMet
 
     match action {
         RpcAction::GlobalStateGet(action) => {
-            store
+            let _ = store
                 .service
                 .respond_state_get(action.rpc_id, store.state.get());
         }
-        RpcAction::P2pConnectionOutgoingInit(content) => {
-            let (rpc_id, opts) = (content.rpc_id, content.opts);
+        RpcAction::P2pConnectionOutgoingInit(action) => {
+            let (rpc_id, opts) = (action.rpc_id, action.opts);
             store.dispatch(P2pConnectionOutgoingInitAction {
                 opts,
                 rpc_id: Some(rpc_id),
@@ -25,27 +28,35 @@ pub fn rpc_effects<S: RpcService>(store: &mut Store<S>, action: RpcActionWithMet
             store.dispatch(RpcP2pConnectionOutgoingPendingAction { rpc_id });
         }
         RpcAction::P2pConnectionOutgoingPending(_) => {}
-        RpcAction::P2pConnectionOutgoingError(content) => {
-            store
+        RpcAction::P2pConnectionOutgoingError(action) => {
+            let _ = store
                 .service
-                .respond_p2p_connection_outgoing(content.rpc_id, Err(content.error));
+                .respond_p2p_connection_outgoing(action.rpc_id, Err(action.error));
             store.dispatch(RpcFinishAction {
-                rpc_id: content.rpc_id,
+                rpc_id: action.rpc_id,
             });
         }
-        RpcAction::P2pConnectionOutgoingSuccess(content) => {
-            store
+        RpcAction::P2pConnectionOutgoingSuccess(action) => {
+            let _ = store
                 .service
-                .respond_p2p_connection_outgoing(content.rpc_id, Ok(()));
+                .respond_p2p_connection_outgoing(action.rpc_id, Ok(()));
             store.dispatch(RpcFinishAction {
-                rpc_id: content.rpc_id,
+                rpc_id: action.rpc_id,
             });
         }
-        RpcAction::P2pPubsubMessagePublish(content) => {
+        RpcAction::WatchedAccountsAdd(action) => {
+            let enabled = store.dispatch(WatchedAccountsAddAction {
+                pub_key: action.pub_key.clone(),
+            });
+            let _ = store
+                .service
+                .respond_watched_accounts_add(action.rpc_id, enabled);
+        }
+        RpcAction::P2pPubsubMessagePublish(action) => {
             store.dispatch(P2pPubsubMessagePublishAction {
-                topic: content.topic,
-                message: content.message,
-                rpc_id: Some(content.rpc_id),
+                topic: action.topic,
+                message: action.message,
+                rpc_id: Some(action.rpc_id),
             });
         }
         RpcAction::Finish(_) => {}

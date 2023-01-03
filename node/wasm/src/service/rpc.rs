@@ -12,6 +12,7 @@ use crate::{NodeWasmService, WasmRpcRequest};
 pub type RpcStateGetResponse = Box<State>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcP2pPubsubPublishResponse = Result<(), String>;
+pub type RpcWatchedAccountsAddResponse = bool;
 
 pub struct RpcService {
     pending: PendingRequests<RpcIdType, Box<dyn std::any::Any>>,
@@ -89,6 +90,21 @@ impl lib::rpc::RpcService for NodeWasmService {
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
         let chan = chan
             .downcast::<oneshot::Sender<RpcP2pPubsubPublishResponse>>()
+            .or(Err(RespondError::UnexpectedResponseType))?;
+        // TODO(binier): don't ignore error
+        let _ = chan.send(response);
+        Ok(())
+    }
+
+    fn respond_watched_accounts_add(
+        &mut self,
+        rpc_id: RpcId,
+        response: bool,
+    ) -> Result<(), RespondError> {
+        let entry = self.rpc.pending.remove(rpc_id);
+        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
+        let chan = chan
+            .downcast::<oneshot::Sender<RpcWatchedAccountsAddResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
         // TODO(binier): don't ignore error
         let _ = chan.send(response);
