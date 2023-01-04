@@ -25,13 +25,13 @@ use lib::p2p::connection::outgoing::{
 };
 use lib::p2p::pubsub::{GossipNetMessageV2, PubsubTopic};
 use lib::p2p::PeerId;
-use lib::rpc::RpcRequest;
+use lib::rpc::{RpcRequest, WatchedAccountsGetError};
 
 mod service;
 use service::libp2p::Libp2pService;
 use service::rpc::{
     RpcP2pConnectionOutgoingResponse, RpcP2pPubsubPublishResponse, RpcService, RpcStateGetResponse,
-    RpcWatchedAccountsAddResponse,
+    RpcWatchedAccountsAddResponse, RpcWatchedAccountsGetResponse,
 };
 pub use service::NodeWasmService;
 
@@ -454,6 +454,25 @@ impl WatchedAccounts {
             .oneshot_request::<RpcWatchedAccountsAddResponse>(req)
             .await;
         resp.ok_or("rpc request dropped".into())
+    }
+
+    pub async fn get(&self, pub_key: String) -> Result<JsValue, String> {
+        let pub_key = NonZeroCurvePoint::from_str(&pub_key).map_err(|err| err.to_string())?;
+        loop {
+            let req = RpcRequest::WatchedAccountsGet(pub_key.clone());
+            let resp = self
+                .rpc
+                .oneshot_request::<RpcWatchedAccountsGetResponse>(req)
+                .await;
+            let resp = resp.ok_or("rpc request dropped".to_string())?;
+            match resp {
+                Err(WatchedAccountsGetError::NotReady) => {
+                    wasm_timer::Delay::new(Duration::from_millis(1000)).await;
+                }
+                Ok(v) => return Ok(JsValue::from_serde(&v).map_err(|err| err.to_string())?),
+                Err(err) => return Err(err.to_string()),
+            }
+        }
     }
 }
 

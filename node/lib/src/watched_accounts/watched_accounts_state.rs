@@ -17,6 +17,7 @@ pub struct WatchedAccountBlockInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "state")]
 pub enum WatchedAccountBlockState {
     /// Relevant transactions to the account has been included in the block.
     TransactionsInBlockBody {
@@ -46,6 +47,22 @@ impl WatchedAccountBlockState {
             Self::TransactionsInBlockBody { block, .. } => block,
             Self::LedgerAccountGetPending { block, .. } => block,
             Self::LedgerAccountGetSuccess { block, .. } => block,
+        }
+    }
+
+    pub fn transactions(&self) -> &[StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B] {
+        match self {
+            Self::TransactionsInBlockBody { transactions, .. } => transactions,
+            Self::LedgerAccountGetPending { transactions, .. } => transactions,
+            Self::LedgerAccountGetSuccess { transactions, .. } => transactions,
+        }
+    }
+
+    pub fn ledger_account(&self) -> Option<&MinaBaseAccountBinableArgStableV2> {
+        match self {
+            Self::TransactionsInBlockBody { .. } => None,
+            Self::LedgerAccountGetPending { .. } => None,
+            Self::LedgerAccountGetSuccess { ledger_account, .. } => Some(ledger_account),
         }
     }
 }

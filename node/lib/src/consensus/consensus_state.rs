@@ -105,6 +105,17 @@ pub struct BestTipHistory {
     top_level: u32,
 }
 
+impl BestTipHistory {
+    pub fn bottom_level(&self) -> u32 {
+        self.top_level.saturating_sub(self.chain.len() as u32)
+    }
+
+    pub fn contains(&self, level: u32, hash: &StateHash) -> bool {
+        let Some(i) = self.top_level.checked_sub(level) else { return false };
+        self.chain.get(i as usize) == Some(hash)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsensusState {
     pub blocks: BTreeMap<StateHash, ConsensusBlockState>,
@@ -203,6 +214,35 @@ impl ConsensusState {
             .take((new_level - cur_level) as usize)
             .rev()
             .for_each(|hash| self.best_tip_history.chain.push_front(hash.clone()));
+    }
+
+    pub fn is_best_tip_and_history_linked(&self) -> bool {
+        let Some(best_tip) = self.best_tip() else { return false };
+
+        let pred_hash = &best_tip.header.protocol_state.previous_state_hash;
+        let history = &self.best_tip_history;
+
+        Some(pred_hash) == self.best_tip_history.chain.front()
+    }
+
+    /// Returns `None` if answer can't be known at the moment.
+    pub fn is_part_of_main_chain(&self, level: u32, hash: &StateHash) -> Option<bool> {
+        let best_tip = self.best_tip()?;
+        if level == best_tip.height() as u32 {
+            return Some(hash == best_tip.hash);
+        }
+
+        let history = &self.best_tip_history;
+
+        if !self.is_best_tip_and_history_linked() {
+            return None;
+        }
+
+        if level >= history.bottom_level() && level <= history.top_level {
+            return Some(history.contains(level, hash));
+        }
+
+        None
     }
 }
 
