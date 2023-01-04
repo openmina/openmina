@@ -21,6 +21,7 @@ pub enum RpcAction {
     P2pPubsubMessagePublish(RpcP2pPubsubMessagePublishAction),
 
     WatchedAccountsAdd(RpcWatchedAccountsAddAction),
+    WatchedAccountsGet(RpcWatchedAccountsGetAction),
 
     Finish(RpcFinishAction),
 }
@@ -115,6 +116,18 @@ impl redux::EnablingCondition<crate::State> for RpcWatchedAccountsAddAction {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcWatchedAccountsGetAction {
+    pub rpc_id: RpcId,
+    pub pub_key: NonZeroCurvePoint,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcWatchedAccountsGetAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        true
+    }
+}
+
 /// Finish/Cleanup rpc request.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcFinishAction {
@@ -151,5 +164,6 @@ impl_into_global_action!(RpcP2pConnectionOutgoingSuccessAction);
 impl_into_global_action!(RpcP2pPubsubMessagePublishAction);
 
 impl_into_global_action!(RpcWatchedAccountsAddAction);
+impl_into_global_action!(RpcWatchedAccountsGetAction);
 
 impl_into_global_action!(RpcFinishAction);

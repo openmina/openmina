@@ -31,6 +31,7 @@ impl RpcState {
             }
             RpcAction::P2pPubsubMessagePublish(_) => {}
             RpcAction::WatchedAccountsAdd(_) => {}
+            RpcAction::WatchedAccountsGet(_) => {}
             RpcAction::Finish(action) => {
                 self.requests.remove(&action.rpc_id);
             }

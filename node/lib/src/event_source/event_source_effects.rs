@@ -6,7 +6,7 @@ use crate::p2p::pubsub::P2pPubsubBytesReceivedAction;
 use crate::p2p::rpc::outgoing::{P2pRpcOutgoingErrorAction, P2pRpcOutgoingReceivedAction};
 use crate::rpc::{
     RpcGlobalStateGetAction, RpcP2pConnectionOutgoingInitAction, RpcP2pPubsubMessagePublishAction,
-    RpcRequest, RpcWatchedAccountsAddAction,
+    RpcRequest, RpcWatchedAccountsAddAction, RpcWatchedAccountsGetAction,
 };
 use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
 use crate::{Service, Store};
@@ -101,6 +101,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 }
                 RpcRequest::WatchedAccountsAdd(pub_key) => {
                     store.dispatch(RpcWatchedAccountsAddAction { rpc_id, pub_key });
+                }
+                RpcRequest::WatchedAccountsGet(pub_key) => {
+                    store.dispatch(RpcWatchedAccountsGetAction { rpc_id, pub_key });
                 }
             },
         },

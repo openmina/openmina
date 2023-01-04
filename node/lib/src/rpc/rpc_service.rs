@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use crate::State;
 
-use super::RpcId;
+use super::{RpcId, WatchedAccountInfo};
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
 pub enum RespondError {
@@ -11,6 +11,14 @@ pub enum RespondError {
     UnknownRpcId,
     #[error("unexpected response type")]
     UnexpectedResponseType,
+}
+
+#[derive(Error, Serialize, Deserialize, Debug, Clone)]
+pub enum WatchedAccountsGetError {
+    #[error("requested account isn't being watched")]
+    NotWatching,
+    #[error("not ready to respond, try again later")]
+    NotReady,
 }
 
 pub trait RpcService: redux::Service {
@@ -29,5 +37,10 @@ pub trait RpcService: redux::Service {
         &mut self,
         rpc_id: RpcId,
         response: bool,
+    ) -> Result<(), RespondError>;
+    fn respond_watched_accounts_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: Result<WatchedAccountInfo, WatchedAccountsGetError>,
     ) -> Result<(), RespondError>;
 }
