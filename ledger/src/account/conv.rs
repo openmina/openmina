@@ -7,7 +7,8 @@ use mina_p2p_messages::{
     v2::{
         MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,
         MinaBaseAccountIdStableV2, MinaBaseAccountTimingStableV1,
-        MinaBasePermissionsAuthRequiredStableV2, MinaBaseTokenPermissionsStableV1,
+        MinaBasePermissionsAuthRequiredStableV2, MinaBasePermissionsStableV2,
+        MinaBaseTokenPermissionsStableV1, MinaBaseVerificationKeyWireStableV1,
         NonZeroCurvePointUncompressedStableV1, PicklesBaseProofsVerifiedStableV1, TokenIdKeyHash,
     },
 };
@@ -61,6 +62,24 @@ where
     }
 }
 
+impl<F> From<&(BigInt, BigInt)> for CurveAffine<F>
+where
+    F: Field + From<BigInt>,
+{
+    fn from((a, b): &(BigInt, BigInt)) -> Self {
+        Self(a.to_field(), b.to_field())
+    }
+}
+
+impl<F> From<&CurveAffine<F>> for (BigInt, BigInt)
+where
+    F: Field + Into<BigInt>,
+{
+    fn from(fps: &CurveAffine<F>) -> Self {
+        (fps.0.into(), fps.1.into())
+    }
+}
+
 impl binprot::BinProtRead for AccountId {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
     where
@@ -76,6 +95,119 @@ impl binprot::BinProtWrite for AccountId {
         let account_id: MinaBaseAccountIdStableV2 = self.clone().into();
         account_id.binprot_write(w)?;
         Ok(())
+    }
+}
+
+pub fn array_into<'a, T, U, const N: usize>(value: &'a [T; N]) -> [U; N]
+where
+    T: 'a,
+    U: From<&'a T>,
+{
+    std::array::from_fn(|i| U::from(&value[i]))
+}
+
+pub fn array_into_with<'a, T, U, F, const N: usize>(value: &'a [T; N], fun: F) -> [U; N]
+where
+    T: 'a,
+    F: Fn(&T) -> U,
+{
+    std::array::from_fn(|i| fun(&value[i]))
+}
+
+impl From<&MinaBaseVerificationKeyWireStableV1> for VerificationKey {
+    fn from(vk: &MinaBaseVerificationKeyWireStableV1) -> Self {
+        let sigma = array_into(&vk.wrap_index.sigma_comm);
+        let coefficients = array_into(&vk.wrap_index.coefficients_comm);
+
+        VerificationKey {
+            max_proofs_verified: match vk.max_proofs_verified {
+                PicklesBaseProofsVerifiedStableV1::N0 => ProofVerified::N0,
+                PicklesBaseProofsVerifiedStableV1::N1 => ProofVerified::N1,
+                PicklesBaseProofsVerifiedStableV1::N2 => ProofVerified::N2,
+            },
+            wrap_index: PlonkVerificationKeyEvals {
+                sigma,
+                coefficients,
+                generic: (&vk.wrap_index.generic_comm).into(),
+                psm: (&vk.wrap_index.psm_comm).into(),
+                complete_add: (&vk.wrap_index.complete_add_comm).into(),
+                mul: (&vk.wrap_index.mul_comm).into(),
+                emul: (&vk.wrap_index.emul_comm).into(),
+                endomul_scalar: (&vk.wrap_index.endomul_scalar_comm).into(),
+            },
+            wrap_vk: None,
+        }
+    }
+}
+
+impl From<&VerificationKey> for MinaBaseVerificationKeyWireStableV1 {
+    fn from(vk: &VerificationKey) -> Self {
+        Self {
+            max_proofs_verified: match vk.max_proofs_verified {
+                super::ProofVerified::N0 => PicklesBaseProofsVerifiedStableV1::N0,
+                super::ProofVerified::N1 => PicklesBaseProofsVerifiedStableV1::N1,
+                super::ProofVerified::N2 => PicklesBaseProofsVerifiedStableV1::N2,
+            },
+            wrap_index: (&vk.wrap_index).into(),
+        }
+    }
+}
+
+impl From<&MinaBaseAccountTimingStableV1> for Timing {
+    fn from(timing: &MinaBaseAccountTimingStableV1) -> Self {
+        match timing {
+            MinaBaseAccountTimingStableV1::Untimed => Timing::Untimed,
+            MinaBaseAccountTimingStableV1::Timed {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } => Timing::Timed {
+                initial_minimum_balance: Balance::from_u64(initial_minimum_balance.as_u64()),
+                cliff_time: Slot::from_u32(cliff_time.as_u32()),
+                cliff_amount: Amount::from_u64(cliff_amount.as_u64()),
+                vesting_period: Slot::from_u32(vesting_period.as_u32()),
+                vesting_increment: Amount::from_u64(vesting_increment.as_u64()),
+            },
+        }
+    }
+}
+
+impl From<&Timing> for MinaBaseAccountTimingStableV1 {
+    fn from(timing: &Timing) -> Self {
+        use mina_p2p_messages::v2::*;
+
+        match timing {
+            super::Timing::Untimed => MinaBaseAccountTimingStableV1::Untimed,
+            super::Timing::Timed {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } => MinaBaseAccountTimingStableV1::Timed {
+                initial_minimum_balance: CurrencyBalanceStableV1(CurrencyAmountStableV1(
+                    UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+                        (initial_minimum_balance.as_u64() as i64).into(),
+                    ),
+                )),
+                cliff_time: UnsignedExtendedUInt32StableV1((cliff_time.as_u32() as i32).into()),
+                cliff_amount: CurrencyAmountStableV1(
+                    UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+                        (cliff_amount.as_u64() as i64).into(),
+                    ),
+                ),
+                vesting_period: UnsignedExtendedUInt32StableV1(
+                    (vesting_period.as_u32() as i32).into(),
+                ),
+                vesting_increment: CurrencyAmountStableV1(
+                    UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+                        (vesting_increment.as_u64() as i64).into(),
+                    ),
+                ),
+            },
+        }
     }
 }
 
@@ -115,66 +247,13 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
                 delegate.into()
             }),
             voting_for: DataHashLibStateHashStableV1(acc.voting_for.0.into()),
-            timing: match acc.timing {
-                super::Timing::Untimed => MinaBaseAccountTimingStableV1::Untimed,
-                super::Timing::Timed {
-                    initial_minimum_balance,
-                    cliff_time,
-                    cliff_amount,
-                    vesting_period,
-                    vesting_increment,
-                } => MinaBaseAccountTimingStableV1::Timed {
-                    initial_minimum_balance: CurrencyBalanceStableV1(CurrencyAmountStableV1(
-                        UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                            (initial_minimum_balance.as_u64() as i64).into(),
-                        ),
-                    )),
-                    cliff_time: UnsignedExtendedUInt32StableV1((cliff_time.as_u32() as i32).into()),
-                    cliff_amount: CurrencyAmountStableV1(
-                        UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                            (cliff_amount.as_u64() as i64).into(),
-                        ),
-                    ),
-                    vesting_period: UnsignedExtendedUInt32StableV1(
-                        (vesting_period.as_u32() as i32).into(),
-                    ),
-                    vesting_increment: CurrencyAmountStableV1(
-                        UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                            (vesting_increment.as_u64() as i64).into(),
-                        ),
-                    ),
-                },
-            },
-            permissions: MinaBasePermissionsStableV2 {
-                edit_state: acc.permissions.edit_state.into(),
-                send: acc.permissions.send.into(),
-                receive: acc.permissions.receive.into(),
-                set_delegate: acc.permissions.set_delegate.into(),
-                set_permissions: acc.permissions.set_permissions.into(),
-                set_verification_key: acc.permissions.set_verification_key.into(),
-                set_zkapp_uri: acc.permissions.set_zkapp_uri.into(),
-                edit_sequence_state: acc.permissions.edit_sequence_state.into(),
-                set_token_symbol: acc.permissions.set_token_symbol.into(),
-                increment_nonce: acc.permissions.increment_nonce.into(),
-                set_voting_for: acc.permissions.set_voting_for.into(),
-            },
+            timing: (&acc.timing).into(),
+            permissions: (&acc.permissions).into(),
             zkapp: acc.zkapp.map(|zkapp| {
                 let s = zkapp.app_state;
                 let app_state = MinaBaseZkappStateValueStableV1(PaddedSeq(s.map(|v| v.into())));
 
-                let verification_key =
-                    zkapp
-                        .verification_key
-                        .map(|vk| MinaBaseVerificationKeyWireStableV1 {
-                            max_proofs_verified: match vk.max_proofs_verified {
-                                super::ProofVerified::N0 => PicklesBaseProofsVerifiedStableV1::N0,
-                                super::ProofVerified::N1 => PicklesBaseProofsVerifiedStableV1::N1,
-                                super::ProofVerified::N2 => PicklesBaseProofsVerifiedStableV1::N2,
-                            },
-                            wrap_index: MinaBaseVerificationKeyWireStableV1WrapIndex::from(
-                                vk.wrap_index,
-                            ),
-                        });
+                let verification_key = zkapp.verification_key.as_ref().map(|vk| vk.into());
 
                 let seq = zkapp.sequence_state;
                 let sequence_state = PaddedSeq(seq.map(|v| v.into()));
@@ -197,8 +276,8 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
     }
 }
 
-impl From<AuthRequired> for mina_p2p_messages::v2::MinaBasePermissionsAuthRequiredStableV2 {
-    fn from(perms: AuthRequired) -> Self {
+impl From<&AuthRequired> for mina_p2p_messages::v2::MinaBasePermissionsAuthRequiredStableV2 {
+    fn from(perms: &AuthRequired) -> Self {
         match perms {
             AuthRequired::None => Self::None,
             AuthRequired::Either => Self::Either,
@@ -210,15 +289,12 @@ impl From<AuthRequired> for mina_p2p_messages::v2::MinaBasePermissionsAuthRequir
     }
 }
 
-impl From<PlonkVerificationKeyEvals>
+impl From<&PlonkVerificationKeyEvals>
     for mina_p2p_messages::v2::MinaBaseVerificationKeyWireStableV1WrapIndex
 {
-    fn from(vk: PlonkVerificationKeyEvals) -> Self {
-        let sigma = vk.sigma;
-        let sigma = PaddedSeq(sigma.map(|v| v.into()));
-
-        let coef = vk.coefficients;
-        let coef = PaddedSeq(coef.map(|v| v.into()));
+    fn from(vk: &PlonkVerificationKeyEvals) -> Self {
+        let sigma = PaddedSeq(array_into(&vk.sigma));
+        let coef = PaddedSeq(array_into(&vk.coefficients));
 
         Self {
             sigma_comm: sigma,
@@ -308,14 +384,50 @@ impl binprot::BinProtWrite for Account {
     }
 }
 
-impl From<MinaBasePermissionsAuthRequiredStableV2> for AuthRequired {
-    fn from(auth: MinaBasePermissionsAuthRequiredStableV2) -> Self {
+impl From<&MinaBasePermissionsAuthRequiredStableV2> for AuthRequired {
+    fn from(auth: &MinaBasePermissionsAuthRequiredStableV2) -> Self {
         match auth {
             MinaBasePermissionsAuthRequiredStableV2::None => Self::None,
             MinaBasePermissionsAuthRequiredStableV2::Either => Self::Either,
             MinaBasePermissionsAuthRequiredStableV2::Proof => Self::Proof,
             MinaBasePermissionsAuthRequiredStableV2::Signature => Self::Signature,
             MinaBasePermissionsAuthRequiredStableV2::Impossible => Self::Impossible,
+        }
+    }
+}
+
+impl From<&MinaBasePermissionsStableV2> for Permissions<AuthRequired> {
+    fn from(perms: &MinaBasePermissionsStableV2) -> Self {
+        Permissions {
+            edit_state: (&perms.edit_state).into(),
+            send: (&perms.send).into(),
+            receive: (&perms.receive).into(),
+            set_delegate: (&perms.set_delegate).into(),
+            set_permissions: (&perms.set_permissions).into(),
+            set_verification_key: (&perms.set_verification_key).into(),
+            set_zkapp_uri: (&perms.set_zkapp_uri).into(),
+            edit_sequence_state: (&perms.edit_sequence_state).into(),
+            set_token_symbol: (&perms.set_token_symbol).into(),
+            increment_nonce: (&perms.increment_nonce).into(),
+            set_voting_for: (&perms.set_voting_for).into(),
+        }
+    }
+}
+
+impl From<&Permissions<AuthRequired>> for MinaBasePermissionsStableV2 {
+    fn from(perms: &Permissions<AuthRequired>) -> Self {
+        MinaBasePermissionsStableV2 {
+            edit_state: (&perms.edit_state).into(),
+            send: (&perms.send).into(),
+            receive: (&perms.receive).into(),
+            set_delegate: (&perms.set_delegate).into(),
+            set_permissions: (&perms.set_permissions).into(),
+            set_verification_key: (&perms.set_verification_key).into(),
+            set_zkapp_uri: (&perms.set_zkapp_uri).into(),
+            edit_sequence_state: (&perms.edit_sequence_state).into(),
+            set_token_symbol: (&perms.set_token_symbol).into(),
+            increment_nonce: (&perms.increment_nonce).into(),
+            set_voting_for: (&perms.set_voting_for).into(),
         }
     }
 }
@@ -341,63 +453,14 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
             receipt_chain_hash: ReceiptChainHash(acc.receipt_chain_hash.0.into()),
             delegate: acc.delegate.map(|d| d.into_inner().into()),
             voting_for: VotingFor(acc.voting_for.0.into()),
-            timing: match acc.timing {
-                MinaBaseAccountTimingStableV1::Untimed => Timing::Untimed,
-                MinaBaseAccountTimingStableV1::Timed {
-                    initial_minimum_balance,
-                    cliff_time,
-                    cliff_amount,
-                    vesting_period,
-                    vesting_increment,
-                } => Timing::Timed {
-                    initial_minimum_balance: Balance::from_u64(initial_minimum_balance.as_u64()),
-                    cliff_time: Slot::from_u32(cliff_time.as_u32()),
-                    cliff_amount: Amount::from_u64(cliff_amount.as_u64()),
-                    vesting_period: Slot::from_u32(vesting_period.as_u32()),
-                    vesting_increment: Amount::from_u64(vesting_increment.as_u64()),
-                },
-            },
-            permissions: Permissions {
-                edit_state: acc.permissions.edit_state.into(),
-                send: acc.permissions.send.into(),
-                receive: acc.permissions.receive.into(),
-                set_delegate: acc.permissions.set_delegate.into(),
-                set_permissions: acc.permissions.set_permissions.into(),
-                set_verification_key: acc.permissions.set_verification_key.into(),
-                set_zkapp_uri: acc.permissions.set_zkapp_uri.into(),
-                edit_sequence_state: acc.permissions.edit_sequence_state.into(),
-                set_token_symbol: acc.permissions.set_token_symbol.into(),
-                increment_nonce: acc.permissions.increment_nonce.into(),
-                set_voting_for: acc.permissions.set_voting_for.into(),
-            },
+            timing: (&acc.timing).into(),
+            permissions: (&acc.permissions).into(),
             zkapp: acc.zkapp.map(|zkapp| {
                 let app_state = zkapp.app_state.0 .0.map(|v| v.into());
 
                 ZkAppAccount {
                     app_state,
-                    verification_key: zkapp.verification_key.map(|vk| {
-                        let sigma = vk.wrap_index.sigma_comm.0.map(|v| v.into());
-                        let coefficients = vk.wrap_index.coefficients_comm.0.map(|v| v.into());
-
-                        VerificationKey {
-                            max_proofs_verified: match vk.max_proofs_verified {
-                                PicklesBaseProofsVerifiedStableV1::N0 => ProofVerified::N0,
-                                PicklesBaseProofsVerifiedStableV1::N1 => ProofVerified::N1,
-                                PicklesBaseProofsVerifiedStableV1::N2 => ProofVerified::N2,
-                            },
-                            wrap_index: PlonkVerificationKeyEvals {
-                                sigma,
-                                coefficients,
-                                generic: vk.wrap_index.generic_comm.into(),
-                                psm: vk.wrap_index.psm_comm.into(),
-                                complete_add: vk.wrap_index.complete_add_comm.into(),
-                                mul: vk.wrap_index.mul_comm.into(),
-                                emul: vk.wrap_index.emul_comm.into(),
-                                endomul_scalar: vk.wrap_index.endomul_scalar_comm.into(),
-                            },
-                            wrap_vk: None,
-                        }
-                    }),
+                    verification_key: zkapp.verification_key.map(|vk| (&vk).into()),
                     zkapp_version: zkapp.zkapp_version.0 .0 .0 as u32,
                     sequence_state: zkapp.sequence_state.0.map(|v| v.into()),
                     last_sequence_slot: Slot::from_u32(zkapp.last_sequence_slot.as_u32()),

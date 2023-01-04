@@ -594,7 +594,7 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L834
     #[derive(Debug, Clone)]
-    pub struct Events(Vec<Vec<Fp>>);
+    pub struct Events(pub Vec<Vec<Fp>>);
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_basic.ml#L100
     #[derive(Debug, Clone)]
@@ -645,9 +645,21 @@ pub mod zkapp_command {
     #[derive(Debug, Clone)]
     pub struct BlockTime(pub(super) u64);
 
+    impl BlockTime {
+        pub fn from_u64(n: u64) -> Self {
+            Self(n)
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_numbers/length.mli#L2
     #[derive(Debug, Clone)]
     pub struct Length(pub(super) u32);
+
+    impl Length {
+        pub fn from_u32(n: u32) -> Self {
+            Self(n)
+        }
+    }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/epoch_ledger.ml#L9
     #[derive(Debug, Clone)]
@@ -659,7 +671,7 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L797
     #[derive(Debug, Clone)]
     pub struct EpochData {
-        ledger: EpochLedger,
+        pub(crate) ledger: EpochLedger,
         seed: Hash<Fp>,
         start_checkpoint: Hash<Fp>,
         lock_checkpoint: Hash<Fp>,
@@ -738,7 +750,7 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L758
     #[derive(Debug, Clone)]
     pub struct Preconditions {
-        network: ZkAppPreconditions,
+        pub(crate) network: ZkAppPreconditions,
         account: AccountPreconditions,
     }
 
@@ -761,7 +773,7 @@ pub mod zkapp_command {
         events: Events,
         sequence_events: Events,
         call_data: Fp,
-        preconditions: Preconditions,
+        pub(crate) preconditions: Preconditions,
         use_full_commitment: bool,
         caller: TokenId,
         authorization_kind: AuthorizationKind,
