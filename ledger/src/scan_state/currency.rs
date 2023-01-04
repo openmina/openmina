@@ -74,8 +74,8 @@ where
         } else {
             let sgn = match self.magnitude.cmp(&rhs.magnitude) {
                 Less => rhs.sgn,
-                Equal => self.sgn,
-                Greater => return Some(Self::zero()),
+                Greater => self.sgn,
+                Equal => return Some(Self::zero()),
             };
             let magnitude = self.magnitude.abs_diff(&rhs.magnitude);
 
