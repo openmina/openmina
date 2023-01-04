@@ -251,6 +251,15 @@ impl From<mina_p2p_messages::v2::MinaBaseAccountIdStableV2> for AccountId {
     }
 }
 
+impl From<&mina_p2p_messages::v2::MinaBaseAccountIdStableV2> for AccountId {
+    fn from(account_id: &mina_p2p_messages::v2::MinaBaseAccountIdStableV2) -> Self {
+        Self {
+            public_key: account_id.0.clone().into_inner().into(),
+            token_id: account_id.1.clone().into(),
+        }
+    }
+}
+
 impl From<TokenId> for mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1 {
     fn from(token_id: TokenId) -> Self {
         Self(token_id.0.into())

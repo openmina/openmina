@@ -375,7 +375,7 @@ impl Coinbase {
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signature.mli#L11
 #[derive(Debug, Clone)]
-pub struct Signature((Fp, (Fp, Fp)));
+pub struct Signature(pub(super) (Fp, Fp)); // TODO: Not sure if it's correct
 
 pub type Memo = Vec<u8>;
 
@@ -785,7 +785,7 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1437
     #[derive(Debug, Clone)]
     pub struct AccountUpdate {
-        body: Body,
+        pub(crate) body: Body,
         pub authorization: Control,
     }
 
@@ -803,7 +803,7 @@ pub mod zkapp_command {
     #[derive(Debug, Clone)]
     pub struct Tree<Data> {
         account_update: (AccountUpdate, Data),
-        account_update_digest: Fp,
+        account_update_digest: Option<Fp>,
         calls: CallForest<Data>,
     }
 
@@ -811,7 +811,7 @@ pub mod zkapp_command {
     #[derive(Debug, Clone)]
     pub struct WithStackHash<Data> {
         elt: Tree<Data>,
-        pub stack_hash: Fp,
+        pub stack_hash: Option<Fp>,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L345
@@ -1451,7 +1451,7 @@ pub mod local_state {
 
             let field = match self.calls.0.get(0) {
                 None => Fp::zero(),
-                Some(call) => call.stack_hash,
+                Some(call) => call.stack_hash.unwrap_or_else(|| Fp::zero()),
             };
             inputs.append_field(field);
 

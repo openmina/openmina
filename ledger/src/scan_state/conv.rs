@@ -7,8 +7,10 @@ use mina_p2p_messages::v2::{
     TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
     TransactionSnarkStatementStableV2, TransactionSnarkStatementWithSokStableV2,
     TransactionSnarkStatementWithSokStableV2Source,
-    UnsignedExtendedUInt64Int64ForVersionTagsStableV1, MinaBasePendingCoinbaseStackVersionedStableV1, MinaBaseAccountIdDigestStableV1, MinaBaseTransactionStatusFailureStableV2,
+    UnsignedExtendedUInt64Int64ForVersionTagsStableV1, MinaBasePendingCoinbaseStackVersionedStableV1, MinaBaseAccountIdDigestStableV1, MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2, MinaBaseTransactionStatusFailureCollectionStableV1, MinaBaseAccountUpdateFeePayerStableV1, MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA, MinaBaseAccountUpdateTWireStableV1,
 };
+
+use crate::{AccountId, Account, scan_state::transaction_logic::{WithStatus, zkapp_command::{self, CallForest}}};
 
 use super::{
     currency::{Amount, Fee, Sgn, Signed},
@@ -16,7 +18,7 @@ use super::{
     scan_state::transaction_snark::{
         LedgerProof, LedgerProofWithSokMessage, Registers, SokMessage, Statement,
         TransactionSnark, TransactionWithWitness,
-    }, pending_coinbase, transaction_logic::{local_state::LocalState, Index, TransactionFailure, transaction_applied::{TransactionApplied, self}},
+    }, pending_coinbase, transaction_logic::{local_state::LocalState, Index, TransactionFailure, transaction_applied::{TransactionApplied, self}, TransactionStatus, zkapp_command::{FeePayer, FeePayerBody, Nonce, WithStackHash, AccountUpdate}, Slot, Signature},
 };
 
 impl From<&CurrencyAmountStableV1> for Amount {
@@ -192,6 +194,57 @@ impl From<&MinaBaseTransactionStatusFailureStableV2> for TransactionFailure {
     }
 }
 
+impl From<&TransactionFailure> for MinaBaseTransactionStatusFailureStableV2 {
+    fn from(value: &TransactionFailure) -> Self {
+        use TransactionFailure as P2P;
+
+        match value {
+            P2P::Predicate => Self::Predicate,
+            P2P::SourceNotPresent => Self::SourceNotPresent,
+            P2P::ReceiverNotPresent => Self::ReceiverNotPresent,
+            P2P::AmountInsufficientToCreateAccount => Self::AmountInsufficientToCreateAccount,
+            P2P::CannotPayCreationFeeInToken => Self::CannotPayCreationFeeInToken,
+            P2P::SourceInsufficientBalance => Self::SourceInsufficientBalance,
+            P2P::SourceMinimumBalanceViolation => Self::SourceMinimumBalanceViolation,
+            P2P::ReceiverAlreadyExists => Self::ReceiverAlreadyExists,
+            P2P::TokenOwnerNotCaller => Self::TokenOwnerNotCaller,
+            P2P::Overflow => Self::Overflow,
+            P2P::GlobalExcessOverflow => Self::GlobalExcessOverflow,
+            P2P::LocalExcessOverflow => Self::LocalExcessOverflow,
+            P2P::LocalSupplyIncreaseOverflow => Self::LocalSupplyIncreaseOverflow,
+            P2P::GlobalSupplyIncreaseOverflow => Self::GlobalSupplyIncreaseOverflow,
+            P2P::SignedCommandOnZkappAccount => Self::SignedCommandOnZkappAccount,
+            P2P::ZkappAccountNotPresent => Self::ZkappAccountNotPresent,
+            P2P::UpdateNotPermittedBalance => Self::UpdateNotPermittedBalance,
+            P2P::UpdateNotPermittedTimingExistingAccount => Self::UpdateNotPermittedTimingExistingAccount,
+            P2P::UpdateNotPermittedDelegate => Self::UpdateNotPermittedDelegate,
+            P2P::UpdateNotPermittedAppState => Self::UpdateNotPermittedAppState,
+            P2P::UpdateNotPermittedVerificationKey => Self::UpdateNotPermittedVerificationKey,
+            P2P::UpdateNotPermittedSequenceState => Self::UpdateNotPermittedSequenceState,
+            P2P::UpdateNotPermittedZkappUri => Self::UpdateNotPermittedZkappUri,
+            P2P::UpdateNotPermittedTokenSymbol => Self::UpdateNotPermittedTokenSymbol,
+            P2P::UpdateNotPermittedPermissions => Self::UpdateNotPermittedPermissions,
+            P2P::UpdateNotPermittedNonce => Self::UpdateNotPermittedNonce,
+            P2P::UpdateNotPermittedVotingFor => Self::UpdateNotPermittedVotingFor,
+            P2P::ZkappCommandReplayCheckFailed => Self::ZkappCommandReplayCheckFailed,
+            P2P::FeePayerNonceMustIncrease => Self::FeePayerNonceMustIncrease,
+            P2P::FeePayerMustBeSigned => Self::FeePayerMustBeSigned,
+            P2P::AccountBalancePreconditionUnsatisfied => Self::AccountBalancePreconditionUnsatisfied,
+            P2P::AccountNoncePreconditionUnsatisfied => Self::AccountNoncePreconditionUnsatisfied,
+            P2P::AccountReceiptChainHashPreconditionUnsatisfied => Self::AccountReceiptChainHashPreconditionUnsatisfied,
+            P2P::AccountDelegatePreconditionUnsatisfied => Self::AccountDelegatePreconditionUnsatisfied,
+            P2P::AccountSequenceStatePreconditionUnsatisfied => Self::AccountSequenceStatePreconditionUnsatisfied,
+            P2P::AccountAppStatePreconditionUnsatisfied(v) => Self::AccountAppStatePreconditionUnsatisfied((*v as i32).into()),
+            P2P::AccountProvedStatePreconditionUnsatisfied => Self::AccountProvedStatePreconditionUnsatisfied,
+            P2P::AccountIsNewPreconditionUnsatisfied => Self::AccountIsNewPreconditionUnsatisfied,
+            P2P::ProtocolStatePreconditionUnsatisfied => Self::ProtocolStatePreconditionUnsatisfied,
+            P2P::IncorrectNonce => Self::IncorrectNonce,
+            P2P::InvalidFeeExcess => Self::InvalidFeeExcess,
+            P2P::Cancelled => Self::Cancelled,
+        }
+    }
+}
+
 impl From<&TransactionSnarkStatementWithSokStableV2Source> for Registers {
     fn from(value: &TransactionSnarkStatementWithSokStableV2Source) -> Self {
         Self {
@@ -258,6 +311,98 @@ impl From<&Statement> for TransactionSnarkStatementWithSokStableV2 {
     }
 }
 
+impl From<&MinaBaseTransactionStatusStableV2> for TransactionStatus {
+    fn from(value: &MinaBaseTransactionStatusStableV2) -> Self {
+        match value {
+            MinaBaseTransactionStatusStableV2::Applied => Self::Applied,
+            MinaBaseTransactionStatusStableV2::Failed(faileds) => Self::Failed(faileds.0.iter().map(|s| {
+                s.iter().map(Into::into).collect()
+            }).collect()),
+        }
+    }
+}
+
+impl From<&TransactionStatus> for MinaBaseTransactionStatusStableV2 {
+    fn from(value: &TransactionStatus) -> Self {
+        match value {
+            TransactionStatus::Applied => Self::Applied,
+            TransactionStatus::Failed(faileds) => Self::Failed(MinaBaseTransactionStatusFailureCollectionStableV1(faileds.iter().map(|s| {
+                s.iter().map(Into::into).collect()
+            }).collect())),
+        }
+    }
+}
+
+impl From<&MinaBaseAccountUpdateFeePayerStableV1> for FeePayer {
+    fn from(value: &MinaBaseAccountUpdateFeePayerStableV1) -> Self {
+        Self {
+            body: FeePayerBody {
+                public_key: value.body.public_key.into_inner().into(),
+                fee: Fee::from_u64(value.body.fee.as_u64()),
+                valid_until: value.body.valid_until.as_ref().map(|until| {
+                    Slot::from_u32(until.as_u32())
+                }),
+                nonce: Nonce::from_u32(value.body.nonce.as_u32()),
+            },
+            authorization: Signature((
+                value.authorization.0.to_field(),
+                value.authorization.1.to_field()
+            )),
+        }
+    }
+}
+
+impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
+    fn from(value: &MinaBaseAccountUpdateTWireStableV1) -> Self {
+        Self {
+            body: zkapp_command::Body {
+                public_key: value.body.public_key.into_inner().into(),
+                token_id: value.body.token_id.into_inner().into(),
+                update: zkapp_command::Update {
+                    app_state: todo!(),
+                    delegate: todo!(),
+                    verification_key: todo!(),
+                    permissions: todo!(),
+                    zkapp_uri: todo!(),
+                    token_symbol: todo!(),
+                    timing: todo!(),
+                    voting_for: todo!(),
+                },
+                balance_change: todo!(),
+                increment_nonce: todo!(),
+                events: todo!(),
+                sequence_events: todo!(),
+                call_data: todo!(),
+                preconditions: todo!(),
+                use_full_commitment: todo!(),
+                caller: todo!(),
+                authorization_kind: todo!(),
+            },
+            authorization: todo!(),
+        }
+    }
+}
+
+impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>> for CallForest<()> {
+    fn from(value: &Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>) -> Self {
+        Self(
+            value.iter().map(|update| {
+                WithStackHash {
+                    elt: zkapp_command::Tree {
+                        account_update: (AccountUpdate {
+                            body: todo!(),
+                            authorization: todo!(),
+                        }, ()),
+                        account_update_digest: None,
+                        calls: (&update.elt.calls).into(),
+                    },
+                    stack_hash: None,
+                }
+            }).collect()
+        )
+    }
+}
+
 impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for TransactionWithWitness {
     fn from(value: &TransactionSnarkScanStateTransactionWithWitnessStableV2) -> Self {
         use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedVaryingStableV2::*;
@@ -280,7 +425,27 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                                 Failed => signed_command_applied::Body::Failed,
                             },
                         })),
-                        ZkappCommand(_) => todo!(),
+                        ZkappCommand(cmd) => transaction_applied::CommandApplied::ZkappCommand(Box::new(transaction_applied::ZkappCommandApplied {
+                            accounts: cmd.accounts.iter().map(|(id, account_opt)| {
+                                let id: AccountId = id.into();
+                                // TODO: Don't clone here
+                                let account: Option<Account> = account_opt.as_ref().map(|acc| acc.clone().into());
+
+                                (id, account)
+                            }).collect(),
+                            command: WithStatus {
+                                data: zkapp_command::ZkAppCommand {
+                                    fee_payer: (&cmd.command.data.fee_payer).into(),
+                                    account_updates: CallForest(cmd.command.data.account_updates.iter().map(|upd| {
+                                        // upd.elt
+                                        todo!()
+                                    }).collect()),
+                                    memo: todo!(),
+                                },
+                                status: (&cmd.command.status).into(),
+                            },
+                            new_accounts: todo!(),
+                        })),
                     },
                     FeeTransfer(_) => todo!(),
                     Coinbase(_) => todo!(),

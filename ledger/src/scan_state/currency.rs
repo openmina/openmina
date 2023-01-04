@@ -120,7 +120,6 @@ impl Fee {
         self.0
     }
 
-    #[cfg(test)]
     pub const fn from_u64(fee: u64) -> Self {
         Self(fee)
     }
