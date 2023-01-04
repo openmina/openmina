@@ -1962,7 +1962,7 @@ where
         self.curr_job_seq_no.clone()
     }
 
-    pub fn base_jobs_on_latest_tree(&self) -> Vec<BaseJob> {
+    pub fn base_jobs_on_latest_tree(&self) -> impl Iterator<Item = BaseJob> {
         let depth = ceil_log2(self.max_base_jobs);
         let level = depth;
 
@@ -1973,26 +1973,30 @@ where
                 AvailableJob::Base(base) => Some(base),
                 AvailableJob::Merge { .. } => None,
             })
-            .collect()
     }
 
     // 0-based indexing, so 0 indicates next-to-latest tree
-    pub fn base_jobs_on_earlier_tree(&self, index: usize) -> Vec<BaseJob> {
+    pub fn base_jobs_on_earlier_tree(&self, index: usize) -> impl Iterator<Item = BaseJob> {
         let depth = ceil_log2(self.max_base_jobs);
         let level = depth;
 
         let earlier_trees = &self.trees[1..];
 
+        let base_job = |job| match job {
+            AvailableJob::Base(base) => Some(base),
+            AvailableJob::Merge { .. } => None,
+        };
+
         match earlier_trees.get(index) {
-            None => vec![],
+            None => {
+                // Use `Vec::new().into_iter().filter_map` to returns same concrete type
+                // than the `Some(_)` branch
+                Vec::new().into_iter().filter_map(base_job)
+            }
             Some(tree) => tree
                 .jobs_on_level(depth, level)
                 .into_iter()
-                .filter_map(|job| match job {
-                    AvailableJob::Base(base) => Some(base),
-                    AvailableJob::Merge { .. } => None,
-                })
-                .collect(),
+                .filter_map(base_job),
         }
     }
 
@@ -2075,12 +2079,12 @@ where
 {
     let depth = ceil_log2(max_base_jobs);
 
-    let trees: Vec<_> = trees.collect();
+    // let trees: Vec<_> = trees.collect();
 
     // println!("work_to_do length={}", trees.len());
 
     trees
-        .iter()
+        // .iter()
         .enumerate()
         .flat_map(|(i, tree)| {
             let level = depth - i as u64;

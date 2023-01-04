@@ -91,7 +91,7 @@ enum CoinbaseParts {
 fn create_coinbase(
     constraint_constants: &ConstraintConstants,
     coinbase_parts: CoinbaseParts,
-    receiver: CompressedPubKey,
+    receiver: &CompressedPubKey,
     coinbase_amount: Amount,
 ) -> Result<Vec<Coinbase>, PreDiffError> {
     let coinbase_or_error = |cb: Result<Coinbase, String>| -> Result<Coinbase, PreDiffError> {
@@ -129,7 +129,7 @@ fn create_coinbase(
         CoinbaseParts::Zero => vec![],
         CoinbaseParts::One(x) => vec![coinbase_or_error(Coinbase::create(
             coinbase_amount,
-            receiver,
+            receiver.clone(),
             x,
         ))?],
         CoinbaseParts::Two(None) => two_parts(
@@ -157,19 +157,20 @@ fn create_coinbase(
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L166
-fn sum_fees<T, F>(xs: &[T], fun: F) -> Result<Fee, PreDiffError>
+fn sum_fees<I, T, F>(xs: I, fun: F) -> Result<Fee, PreDiffError>
 where
     F: Fn(&T) -> Fee,
+    I: IntoIterator<Item = T>,
 {
-    xs.iter()
-        .try_fold(Fee::zero(), |acc, elem| acc.checked_add(&fun(elem)))
+    xs.into_iter()
+        .try_fold(Fee::zero(), |acc, elem| acc.checked_add(&fun(&elem)))
         .ok_or_else(|| PreDiffError::Unexpected("Fee overflow".to_string()))
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L179
-fn fee_remainder<Cmd>(
+fn fee_remainder<'a, Cmd>(
     commands: &[WithStatus<Cmd>],
-    completed_works: &[&work::Unchecked],
+    completed_works: impl IntoIterator<Item = &'a work::Unchecked>,
     coinbase_fee: Fee,
 ) -> Result<Fee, PreDiffError>
 where
@@ -243,28 +244,28 @@ where
 /// TODO: This method is a mess, need to add tests
 ///
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L199
-fn create_fee_transfers(
-    completed_works: Vec<&work::Unchecked>,
+fn create_fee_transfers<'a>(
+    completed_works: impl Iterator<Item = &'a work::Unchecked>,
     delta: Fee,
     public_key: &CompressedPubKey,
-    coinbase_fts: Vec<CoinbaseFeeTransfer>,
+    coinbase_fts: impl Iterator<Item = &'a CoinbaseFeeTransfer>,
 ) -> Result<Vec<FeeTransfer>, PreDiffError> {
     use std::collections::hash_map::Entry::Occupied;
 
-    let mut singles = Vec::with_capacity(completed_works.len() + 1);
+    let mut singles = Vec::with_capacity(256); // Should be `completed_works.len() + 1`
     if !delta.is_zero() {
         singles.push((HashableCompressedPubKey(public_key.clone()), delta));
     }
 
-    singles.extend(completed_works.iter().filter_map(
-        |&work::Unchecked { fee, prover, .. }| {
+    singles.extend(
+        completed_works.filter_map(|work::Unchecked { fee, prover, .. }| {
             if fee.is_zero() {
                 None
             } else {
                 Some((HashableCompressedPubKey(prover.clone()), *fee))
             }
-        },
-    ));
+        }),
+    );
 
     let mut singles_map = fee_transfers_map(singles)
         .ok_or_else(|| PreDiffError::Unexpected("fee overflow".to_string()))?;
@@ -274,10 +275,12 @@ fn create_fee_transfers(
         fee: cb_fee,
     } in coinbase_fts
     {
-        if let Occupied(mut entry) = singles_map.entry(HashableCompressedPubKey(receiver_pk)) {
+        if let Occupied(mut entry) =
+            singles_map.entry(HashableCompressedPubKey(receiver_pk.clone()))
+        {
             let new_fee = entry
                 .get()
-                .checked_sub(&cb_fee)
+                .checked_sub(cb_fee)
                 .ok_or_else(|| PreDiffError::Unexpected("fee underflow".to_string()))?;
 
             if !new_fee.is_zero() {
@@ -480,26 +483,29 @@ where
     let coinbases = create_coinbase(
         constraint_constants,
         coinbase_parts,
-        receiver.clone(),
+        receiver,
         coinbase_amount,
     )?;
 
-    let coinbase_fts: Vec<CoinbaseFeeTransfer> = coinbases
-        .iter()
-        .flat_map(|cb| cb.fee_transfer.clone().into_iter())
-        .collect();
+    let coinbase_fts_iterator = coinbases.iter().flat_map(|cb| cb.fee_transfer.iter());
 
-    let coinbase_work_fees: Fee = sum_fees(&coinbase_fts, |ft| ft.fee).expect("OCaml throw here");
+    let coinbase_work_fees: Fee =
+        sum_fees(coinbase_fts_iterator.clone(), |ft| ft.fee).expect("OCaml throw here");
 
-    let txn_works_others: Vec<&work::Work> = completed_works
-        .iter()
-        .filter(|w| &w.prover != receiver)
-        .collect();
+    let txn_works_others_iterator = completed_works.iter().filter(|w| &w.prover != receiver);
 
-    let delta: Fee = fee_remainder(commands.as_slice(), &txn_works_others, coinbase_work_fees)?;
+    let delta: Fee = fee_remainder(
+        commands.as_slice(),
+        txn_works_others_iterator.clone(),
+        coinbase_work_fees,
+    )?;
 
-    let fee_transfers: Vec<FeeTransfer> =
-        create_fee_transfers(txn_works_others, delta, receiver, coinbase_fts)?;
+    let fee_transfers: Vec<FeeTransfer> = create_fee_transfers(
+        txn_works_others_iterator,
+        delta,
+        receiver,
+        coinbase_fts_iterator,
+    )?;
 
     Ok(TransactionData {
         commands,
@@ -537,13 +543,12 @@ where
     let commands_count = commands.len();
     let coinbases_amount: Vec<Amount> = coinbase_parts.iter().map(|cb| cb.amount).collect();
 
-    let internal_commands: Vec<Tx> = coinbase_parts
+    let internal_commands = coinbase_parts
         .into_iter()
-        .map(Into::into)
-        .chain(fee_transfers.into_iter().map(Into::into))
-        .collect();
+        .map(Tx::from)
+        .chain(fee_transfers.into_iter().map(Into::into));
 
-    let internal_commands_with_statuses: Vec<WithStatus<Tx>> = internal_command_statuses
+    let internal_commands_with_statuses = internal_command_statuses
         .into_iter()
         .zip(internal_commands)
         .map(|(status, cmd)| {
@@ -552,14 +557,13 @@ where
             } else {
                 Err(PreDiffError::InternalCommandStatusMismatch)
             }
-        })
-        .collect::<Result<_, _>>()?;
+        });
 
     let transactions: Vec<WithStatus<Tx>> = commands
         .into_iter()
-        .map(|cmd| cmd.into_map(Into::into))
+        .map(|cmd| Ok(cmd.into_map(Into::into)))
         .chain(internal_commands_with_statuses)
-        .collect();
+        .collect::<Result<_, _>>()?;
 
     Ok(PreDiffInfo {
         transactions,

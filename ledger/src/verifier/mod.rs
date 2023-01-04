@@ -28,8 +28,8 @@ impl Verifier {
             .map(common::check)
             .map(|cmd| {
                 match cmd {
-                common::CheckResult::Valid(cmd) => Ok(cmd),
-                e => Err(e)
+                    common::CheckResult::Valid(cmd) => Ok(cmd),
+                    e => Err(e)
                 // common::CheckResult::ValidAssuming(_) => todo!(),
                 // common::CheckResult::InvalidKeys(_) => todo!(),
                 // common::CheckResult::InvalidSignature(_) => todo!(),
@@ -70,7 +70,8 @@ pub mod common {
         match cmd {
             SignedCommand(cmd) => {
                 if !cmd.check_valid_keys() {
-                    CheckResult::InvalidKeys(cmd.public_keys().to_vec())
+                    let public_keys = cmd.public_keys().into_iter().cloned().collect();
+                    CheckResult::InvalidKeys(public_keys)
                 } else {
                     // TODO: Implement rest
                     CheckResult::Valid(verifiable::check_only_for_signature(cmd))

@@ -24,7 +24,6 @@ use super::{
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L9
 #[derive(Debug, Clone, PartialEq, Eq)]
-// #[allow(non_camel_case_types)]
 pub enum TransactionFailure {
     Predicate,
     SourceNotPresent,
@@ -451,9 +450,9 @@ pub mod signed_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/stake_delegation.ml#L28
-        pub fn source_pk(&self) -> CompressedPubKey {
+        pub fn source_pk(&self) -> &CompressedPubKey {
             let Self::SetDelegate { delegator, .. } = self;
-            delegator.clone()
+            delegator
         }
 
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/stake_delegation.ml#L24
@@ -463,9 +462,9 @@ pub mod signed_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/stake_delegation.ml#L22
-        pub fn receiver_pk(&self) -> CompressedPubKey {
+        pub fn receiver_pk(&self) -> &CompressedPubKey {
             let Self::SetDelegate { new_delegate, .. } = self;
-            new_delegate.clone()
+            new_delegate
         }
     }
 
@@ -502,8 +501,8 @@ pub mod signed_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L320
-        pub fn fee_payer_pk(&self) -> CompressedPubKey {
-            self.payload.common.fee_payer_pk.clone()
+        pub fn fee_payer_pk(&self) -> &CompressedPubKey {
+            &self.payload.common.fee_payer_pk
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L318
@@ -526,9 +525,9 @@ pub mod signed_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command_payload.ml#L227
-        pub fn source_pk(&self) -> CompressedPubKey {
+        pub fn source_pk(&self) -> &CompressedPubKey {
             match &self.payload.body {
-                Body::Payment(payload) => payload.source_pk.clone(),
+                Body::Payment(payload) => &payload.source_pk,
                 Body::StakeDelegation(payload) => payload.source_pk(),
             }
         }
@@ -544,9 +543,9 @@ pub mod signed_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command_payload.ml#L234
-        pub fn receiver_pk(&self) -> CompressedPubKey {
+        pub fn receiver_pk(&self) -> &CompressedPubKey {
             match &self.payload.body {
-                Body::Payment(payload) => payload.receiver_pk.clone(),
+                Body::Payment(payload) => &payload.receiver_pk,
                 Body::StakeDelegation(payload) => payload.receiver_pk(),
             }
         }
@@ -572,14 +571,14 @@ pub mod signed_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command.ml#L401
-        pub fn public_keys(&self) -> [CompressedPubKey; 3] {
+        pub fn public_keys(&self) -> [&CompressedPubKey; 3] {
             [self.fee_payer_pk(), self.source_pk(), self.receiver_pk()]
         }
 
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command.ml#L407
         pub fn check_valid_keys(&self) -> bool {
             self.public_keys()
-                .iter()
+                .into_iter()
                 .all(|pk| decompress_pk(pk).is_some())
         }
     }
@@ -1138,9 +1137,10 @@ impl Transaction {
         let to_pks = |ids: Vec<AccountId>| ids.into_iter().map(|id| id.public_key).collect();
 
         match self {
-            Command(SignedCommand(cmd)) => {
-                vec![cmd.fee_payer_pk(), cmd.source_pk(), cmd.receiver_pk()]
-            }
+            Command(SignedCommand(cmd)) => [cmd.fee_payer_pk(), cmd.source_pk(), cmd.receiver_pk()]
+                .into_iter()
+                .cloned()
+                .collect(),
             Command(ZkAppCommand(cmd)) => to_pks(cmd.accounts_referenced()),
             FeeTransfer(ft) => ft.receiver_pks().cloned().collect(),
             Coinbase(cb) => to_pks(cb.accounts_accessed()),

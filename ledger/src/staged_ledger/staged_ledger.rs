@@ -1750,17 +1750,9 @@ impl StagedLedger {
                 }
             };
 
-            let latest = self
-                .scan_state
-                .base_jobs_on_latest_tree()
-                .into_iter()
-                .filter_map(f);
+            let latest = self.scan_state.base_jobs_on_latest_tree().filter_map(f);
 
-            let earlier = self
-                .scan_state
-                .base_jobs_on_earlier_tree(0)
-                .into_iter()
-                .filter_map(f);
+            let earlier = self.scan_state.base_jobs_on_earlier_tree(0).filter_map(f);
 
             latest.chain(earlier)
         };
