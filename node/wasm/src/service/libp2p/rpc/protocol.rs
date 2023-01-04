@@ -120,22 +120,23 @@ impl OutboundUpgrade<NegotiatedSubstream> for RequestProtocol {
             let mut prefix = [0; PREFIX.len()];
             io.read_exact(&mut prefix).await?;
 
-            // ignore heartbeats
-            for _ in 0..16 {
-                let mut b = [0; 9];
-                io.read_exact(&mut b).await?;
-                if b != [1, 0, 0, 0, 0, 0, 0, 0, 0] {
-                    break;
-                }
-            }
-
             if &prefix != PREFIX {
                 return Err(io::Error::new(io::ErrorKind::Other, "RPC prefix mismatch"));
             }
 
-            P2pRpcResponse::async_read_msg(self.request.kind(), &mut io)
-                .await
-                .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
+            loop {
+                let mut b = [0; 9];
+                io.read_exact(&mut b).await?;
+                // if not heartbeat
+                if b != [1, 0, 0, 0, 0, 0, 0, 0, 0] {
+                    // TODO(binier): [SECURITY] make bounded
+                    let len = u64::from_le_bytes(b[..8].try_into().unwrap());
+                    let mut b = vec![0; len as usize];
+                    io.read_exact(&mut b).await?;
+                    break P2pRpcResponse::read_msg(self.request.kind(), &mut &b[..])
+                        .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+                }
+            }
         }
         .boxed()
     }

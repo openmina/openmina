@@ -15,14 +15,15 @@ pub use p2p_rpc_service::*;
 use std::io;
 
 use binprot::{BinProtRead, BinProtWrite};
-use libp2p::futures::io::{AsyncRead, AsyncReadExt};
 use mina_p2p_messages::{
     bigint::BigInt,
     rpc::{
         AnswerSyncLedgerQueryV2, GetBestTipV2, GetTransitionChainV2, GetTransitionKnowledgeV1ForV2,
         VersionedRpcMenuV1,
     },
-    rpc_kernel::{QueryHeader, QueryID, Response, ResponseHeader, RpcMethod, RpcResultKind},
+    rpc_kernel::{
+        QueryHeader, QueryID, Response, ResponseHeader, RpcMethod, RpcResultKind,
+    },
     v2::MinaLedgerSyncLedgerAnswerStableV2,
 };
 use serde::{Deserialize, Serialize};
@@ -212,64 +213,27 @@ impl P2pRpcResponse {
         }
     }
 
-    pub async fn async_read_msg<R: AsyncRead + Unpin>(
-        kind: P2pRpcKind,
-        r: &mut R,
-    ) -> Result<Self, binprot::Error> {
-        let mut buf = [0; 11];
-        r.read_exact(&mut buf).await?;
-        let mut b = &buf[..];
-
-        let header = ResponseHeader::binprot_read(&mut b)?;
-        let result_kind = RpcResultKind::binprot_read(&mut b)?;
-        let payload_len = if b.len() == 9 {
-            binprot::Nat0::binprot_read(&mut b)?.0 as usize
-        } else {
-            let mut buf = [0; 9];
-            let n = if b.is_empty() {
-                0
-            } else {
-                let n = b.len();
-                (&mut buf[0..n]).clone_from_slice(b);
-                b = &[];
-                n
-            };
-            r.read_exact(&mut buf[n..]).await?;
-            binprot::Nat0::binprot_read(&mut &buf[..])?.0 as usize
-        };
-        // TODO(bineir): [SECURITY] limit max len.
-        let payload_bytes = {
-            let mut buf = vec![0; payload_len];
-            let n = b.len().min(payload_len);
-            if n > 0 {
-                (&mut buf[0..n]).clone_from_slice(&b[0..n]);
-            }
-            r.read(&mut buf[n..]).await?;
-            buf
-        };
+    pub fn read_msg<R: io::Read>(kind: P2pRpcKind, r: &mut R) -> Result<Self, binprot::Error> {
+        let header = ResponseHeader::binprot_read(r)?;
+        let result_kind = RpcResultKind::binprot_read(r)?;
 
         if matches!(result_kind, RpcResultKind::Err) {
-            let err = mina_p2p_messages::rpc_kernel::Error::binprot_read(&mut &payload_bytes[..])?;
+            let err = mina_p2p_messages::rpc_kernel::Error::binprot_read(r)?;
             let err = format!("{:?}", err);
             return Err(binprot::Error::CustomError(err.into()));
         }
+        let _payload_len = binprot::Nat0::binprot_read(r)?.0 as usize;
 
         Ok(match kind {
-            P2pRpcKind::MenuGet => {
-                Self::MenuGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
-            }
-            P2pRpcKind::BestTipGet => {
-                Self::BestTipGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
-            }
+            P2pRpcKind::MenuGet => Self::MenuGet(BinProtRead::binprot_read(r)?),
+            P2pRpcKind::BestTipGet => Self::BestTipGet(BinProtRead::binprot_read(r)?),
             P2pRpcKind::TransitionKnowledgeGet => {
-                Self::TransitionKnowledgeGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
+                Self::TransitionKnowledgeGet(BinProtRead::binprot_read(r)?)
             }
             P2pRpcKind::TransitionChainGet => {
-                Self::TransitionChainGet(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
+                Self::TransitionChainGet(BinProtRead::binprot_read(r)?)
             }
-            P2pRpcKind::LedgerQuery => {
-                Self::LedgerQuery(BinProtRead::binprot_read(&mut &payload_bytes[..])?)
-            }
+            P2pRpcKind::LedgerQuery => Self::LedgerQuery(BinProtRead::binprot_read(r)?),
         })
     }
 }
@@ -299,10 +263,7 @@ fn decode_menu_response() {
     ];
     let mut b = &bytes[..];
 
-    let res = libp2p::futures::executor::block_on(P2pRpcResponse::async_read_msg(
-        P2pRpcKind::MenuGet,
-        &mut b,
-    ));
+    let res = P2pRpcResponse::read_msg(P2pRpcKind::MenuGet, &mut &b[..]);
     dbg!(&res);
     assert!(res.is_ok());
     match res.unwrap() {
