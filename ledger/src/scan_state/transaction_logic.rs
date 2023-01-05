@@ -597,7 +597,7 @@ pub mod zkapp_command {
             conv::AsAccountUpdateWithHash,
             currency::{Balance, Signed},
         },
-        AuthRequired, Permissions, Timing, TokenSymbol, VerificationKey,
+        AuthRequired, Inputs, Permissions, Timing, TokenSymbol, VerificationKey,
     };
 
     use super::*;
@@ -610,7 +610,7 @@ pub mod zkapp_command {
     #[derive(Debug, Clone)]
     pub enum SetOrKeep<T> {
         Set(T),
-        Kepp,
+        Keep,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L319
@@ -820,7 +820,59 @@ pub mod zkapp_command {
         pub fn account_id(&self) -> AccountId {
             AccountId::new(self.body.public_key.clone(), self.body.token_id.clone())
         }
+
+        pub fn digest(&self) {
+            // Only the body is used
+            let body = &self.body;
+
+            let mut inputs = Inputs::new();
+
+            inputs.append_field(body.public_key.x);
+            inputs.append_bool(body.public_key.is_odd);
+
+            inputs.append_field(body.token_id.0);
+
+            // `Body::update`
+            {
+                let update = &body.update;
+
+                for state in &update.app_state {
+                    let (fp, is_some) = match state {
+                        SetOrKeep::Set(s) => (*s, true),
+                        SetOrKeep::Keep => (Fp::zero(), false),
+                    };
+                    inputs.append_field(fp);
+                    inputs.append_bool(is_some);
+                }
+
+                let (pk, is_some) = match &update.delegate {
+                    SetOrKeep::Set(pk) => (pk.clone(), true),
+                    SetOrKeep::Keep => (CompressedPubKey::empty(), false),
+                };
+                inputs.append_field(pk.x);
+                inputs.append_bool(pk.is_odd);
+                inputs.append_bool(is_some);
+
+                // update.verification_key;
+            }
+            // inputs.append_bool(value)
+        }
     }
+
+    // List.reduce_exn ~f:Random_oracle_input.Chunked.append
+    //   [ Public_key.Compressed.to_input public_key
+    //   ; Token_id.to_input token_id
+    //   ; Update.to_input update
+    //   ; Amount.Signed.to_input balance_change
+    //   ; Random_oracle_input.Chunked.packed (field_of_bool increment_nonce, 1)
+    //   ; Events.to_input events
+    //   ; Sequence_events.to_input sequence_events
+    //   ; Random_oracle_input.Chunked.field call_data
+    //   ; Preconditions.to_input preconditions
+    //   ; Random_oracle_input.Chunked.packed (field_of_bool use_full_commitment, 1)
+    //   ; Token_id.to_input caller
+    //   ; Authorization_kind.to_input authorization_kind
+    //   ]
 
     // Digest.Account_update.Stable.V1.t = Fp
     // Digest.Forest.Stable.V1.t = Fp

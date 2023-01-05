@@ -622,35 +622,35 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
                 update: zkapp_command::Update {
                     app_state: std::array::from_fn(|i| match &value.body.update.app_state[i] {
                         AppState::Set(bigint) => SetOrKeep::Set(bigint.to_field()),
-                        AppState::Keep => SetOrKeep::Kepp,
+                        AppState::Keep => SetOrKeep::Keep,
                     }),
                     delegate: match &value.body.update.delegate {
                         Delegate::Set(v) => SetOrKeep::Set(v.clone().into()),
-                        Delegate::Keep => SetOrKeep::Kepp,
+                        Delegate::Keep => SetOrKeep::Keep,
                     },
                     verification_key: match &value.body.update.verification_key {
                         VK::Set(vk) => SetOrKeep::Set((&**vk).into()),
-                        VK::Keep => SetOrKeep::Kepp,
+                        VK::Keep => SetOrKeep::Keep,
                     },
                     permissions: match &value.body.update.permissions {
                         Perm::Set(perms) => SetOrKeep::Set((&**perms).into()),
-                        Perm::Keep => SetOrKeep::Kepp,
+                        Perm::Keep => SetOrKeep::Keep,
                     },
                     zkapp_uri: match &value.body.update.zkapp_uri {
                         Uri::Set(s) => SetOrKeep::Set(s.clone().try_into().unwrap()),
-                        Uri::Keep => SetOrKeep::Kepp,
+                        Uri::Keep => SetOrKeep::Keep,
                     },
                     token_symbol: match &value.body.update.token_symbol {
                         Symbol::Set(s) => SetOrKeep::Set(s.0.clone().try_into().unwrap()),
-                        Symbol::Keep => SetOrKeep::Kepp,
+                        Symbol::Keep => SetOrKeep::Keep,
                     },
                     timing: match &value.body.update.timing {
                         Timing::Set(timing) => SetOrKeep::Set((&**timing).into()),
-                        Timing::Keep => SetOrKeep::Kepp,
+                        Timing::Keep => SetOrKeep::Keep,
                     },
                     voting_for: match &value.body.update.voting_for {
                         Voting::Set(bigint) => SetOrKeep::Set(bigint.to_field()),
-                        Voting::Keep => SetOrKeep::Kepp,
+                        Voting::Keep => SetOrKeep::Keep,
                     },
                 },
                 balance_change: Signed::<Amount> {
