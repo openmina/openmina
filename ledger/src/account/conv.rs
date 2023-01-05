@@ -19,7 +19,7 @@ use crate::{
         transaction_logic::{zkapp_command::Nonce, Slot},
     },
     CurveAffine, Permissions, PlonkVerificationKeyEvals, ProofVerified, ReceiptChainHash, Timing,
-    TokenPermissions, VerificationKey, VotingFor, ZkAppAccount,
+    TokenPermissions, TokenSymbol, VerificationKey, VotingFor, ZkAppAccount,
 };
 
 use super::{Account, AccountId, AuthRequired, TokenId};
@@ -447,7 +447,10 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                     TokenPermissions::NotOwned { account_disabled }
                 }
             },
-            token_symbol: acc.token_symbol.0.try_into().unwrap(),
+            token_symbol: {
+                let s: String = acc.token_symbol.0.try_into().unwrap();
+                TokenSymbol::from(s)
+            },
             balance: Balance::from_u64(acc.balance.0 .0 .0 .0 as u64),
             nonce: Nonce::from_u32(acc.nonce.0 .0 as u32),
             receipt_chain_hash: ReceiptChainHash(acc.receipt_chain_hash.0.into()),
@@ -465,7 +468,7 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                     sequence_state: zkapp.sequence_state.0.map(|v| v.into()),
                     last_sequence_slot: Slot::from_u32(zkapp.last_sequence_slot.as_u32()),
                     proved_state: zkapp.proved_state,
-                    zkapp_uri: zkapp.zkapp_uri.try_into().unwrap(),
+                    zkapp_uri: (&zkapp.zkapp_uri).try_into().unwrap(),
                 }
             }),
         }

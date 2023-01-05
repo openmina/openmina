@@ -12,7 +12,7 @@ use crate::{
         currency::{Balance, Magnitude},
         transaction_logic::{account_min_balance_at_slot, zkapp_command::Nonce, Slot},
     },
-    MerklePath,
+    MerklePath, ToInputs,
 };
 
 use super::common::*;
@@ -45,7 +45,38 @@ impl TokenId {
 }
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/account.ml#L93
-pub type TokenSymbol = String;
+#[derive(Clone, Debug, PartialEq, Eq, derive_more::Deref, derive_more::From)]
+pub struct TokenSymbol(String);
+
+impl Default for TokenSymbol {
+    fn default() -> Self {
+        // empty string
+        // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account.ml#L133
+        Self(String::new())
+    }
+}
+
+impl TryFrom<&mina_p2p_messages::string::ByteString> for TokenSymbol {
+    type Error = std::string::FromUtf8Error;
+
+    fn try_from(value: &mina_p2p_messages::string::ByteString) -> Result<Self, Self::Error> {
+        Ok(Self(value.clone().try_into()?))
+    }
+}
+
+impl ToInputs for TokenSymbol {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
+        assert!(self.len() <= 6);
+
+        let mut s = <[u8; 6]>::default();
+        if !self.is_empty() {
+            let len = self.len();
+            s[..len].copy_from_slice(self.as_bytes());
+        }
+        inputs.append_u48(s);
+    }
+}
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L49
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -61,6 +92,28 @@ pub struct Permissions<Controller> {
     pub set_token_symbol: Controller,
     pub increment_nonce: Controller,
     pub set_voting_for: Controller,
+}
+
+impl ToInputs for Permissions<AuthRequired> {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        for auth in [
+            self.edit_state,
+            self.send,
+            self.receive,
+            self.set_delegate,
+            self.set_permissions,
+            self.set_verification_key,
+            self.set_zkapp_uri,
+            self.edit_sequence_state,
+            self.set_token_symbol,
+            self.increment_nonce,
+            self.set_voting_for,
+        ] {
+            for bit in auth.encode().to_bits() {
+                inputs.append_bool(bit);
+            }
+        }
+    }
 }
 
 impl Default for Permissions<AuthRequired> {
@@ -264,6 +317,59 @@ impl VerificationKey {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ZkAppUri(String);
+
+impl ZkAppUri {
+    pub fn new() -> Self {
+        Self(String::new())
+    }
+}
+
+impl ToInputs for Option<&ZkAppUri> {
+    /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L313
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let field_zkapp_uri = {
+            let mut inputs = Inputs::new();
+
+            match self {
+                Some(zkapp_uri) => {
+                    for c in zkapp_uri.0.as_bytes() {
+                        for j in 0..8 {
+                            inputs.append_bool((c & (1 << j)) != 0);
+                        }
+                    }
+                    inputs.append_bool(true);
+                }
+                None => {
+                    inputs.append_field(Fp::zero());
+                    inputs.append_field(Fp::zero());
+                }
+            }
+
+            hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
+        };
+
+        inputs.append_field(field_zkapp_uri);
+    }
+}
+
+impl std::ops::Deref for ZkAppUri {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl TryFrom<&mina_p2p_messages::string::ByteString> for ZkAppUri {
+    type Error = std::string::FromUtf8Error;
+
+    fn try_from(value: &mina_p2p_messages::string::ByteString) -> Result<Self, Self::Error> {
+        Ok(Self(value.clone().try_into()?))
+    }
+}
+
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/zkapp_account.ml#L148-L170
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ZkAppAccount {
@@ -273,7 +379,7 @@ pub struct ZkAppAccount {
     pub sequence_state: [Fp; 5],
     pub last_sequence_slot: Slot,
     pub proved_state: bool,
-    pub zkapp_uri: String,
+    pub zkapp_uri: ZkAppUri,
 }
 
 impl Default for ZkAppAccount {
@@ -288,7 +394,7 @@ impl Default for ZkAppAccount {
             },
             last_sequence_slot: Slot::zero(),
             proved_state: false,
-            zkapp_uri: String::new(),
+            zkapp_uri: ZkAppUri::new(),
         }
     }
 }
@@ -398,7 +504,7 @@ impl Account {
             public_key: pubkey.clone(),
             token_id: TokenId::default(),
             token_permissions: TokenPermissions::default(),
-            token_symbol: String::new(),
+            token_symbol: TokenSymbol::default(),
             balance: Balance::from_u64(10101),
             nonce: Nonce::zero(),
             receipt_chain_hash: ReceiptChainHash::empty(),
@@ -422,7 +528,7 @@ impl Account {
             public_key: account_id.public_key,
             token_id: account_id.token_id,
             token_permissions: TokenPermissions::default(),
-            token_symbol: String::new(),
+            token_symbol: TokenSymbol::default(),
             balance,
             nonce: Nonce::zero(),
             receipt_chain_hash: ReceiptChainHash::empty(),
@@ -457,7 +563,7 @@ impl Account {
             },
             token_id: TokenId::default(),
             token_permissions: TokenPermissions::default(),
-            token_symbol: String::new(),
+            token_symbol: TokenSymbol::default(),
             balance: Balance::zero(),
             nonce: Nonce::zero(),
             receipt_chain_hash: ReceiptChainHash::empty(),
@@ -529,22 +635,7 @@ impl Account {
             let mut inputs = Inputs::new();
 
             // Self::zkapp_uri
-            // Note: This doesn't cover when zkapp_uri is None, which
-            // is never the case for accounts
-            let field_zkapp_uri = {
-                let mut inputs = Inputs::new();
-
-                for c in zkapp.zkapp_uri.as_bytes() {
-                    for j in 0..8 {
-                        inputs.append_bool((c & (1 << j)) != 0);
-                    }
-                }
-                inputs.append_bool(true);
-
-                hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
-            };
-
-            inputs.append_field(field_zkapp_uri);
+            inputs.append(&Some(&zkapp.zkapp_uri));
 
             inputs.append_bool(zkapp.proved_state);
             inputs.append_u32(zkapp.last_sequence_slot.as_u32());
@@ -566,24 +657,7 @@ impl Account {
 
         inputs.append_field(field_zkapp);
 
-        // Self::permissions
-        for auth in [
-            self.permissions.edit_state,
-            self.permissions.send,
-            self.permissions.receive,
-            self.permissions.set_delegate,
-            self.permissions.set_permissions,
-            self.permissions.set_verification_key,
-            self.permissions.set_zkapp_uri,
-            self.permissions.edit_sequence_state,
-            self.permissions.set_token_symbol,
-            self.permissions.increment_nonce,
-            self.permissions.set_voting_for,
-        ] {
-            for bit in auth.encode().to_bits() {
-                inputs.append_bool(bit);
-            }
-        }
+        inputs.append(&self.permissions);
 
         // Self::timing
         match &self.timing {
@@ -714,7 +788,7 @@ impl Account {
                     disable_new_accounts: rng.gen(),
                 }
             },
-            token_symbol: symbol,
+            token_symbol: TokenSymbol(symbol),
             balance: rng.gen(),
             nonce: rng.gen(),
             receipt_chain_hash: ReceiptChainHash(Fp::rand(rng)),
@@ -792,7 +866,7 @@ impl Account {
                     ],
                     last_sequence_slot: rng.gen(),
                     proved_state: rng.gen(),
-                    zkapp_uri,
+                    zkapp_uri: ZkAppUri(zkapp_uri),
                 })
             } else {
                 None
@@ -864,7 +938,7 @@ mod tests {
             .unwrap(),
             token_id: TokenId::default(),
             token_permissions: TokenPermissions::default(),
-            token_symbol: "seb".to_string(),
+            token_symbol: TokenSymbol::from("seb".to_string()),
             balance: Balance::from_u64(10101),
             nonce: Nonce::from_u32(62772),
             receipt_chain_hash: ReceiptChainHash::empty(),
@@ -1033,7 +1107,7 @@ mod tests {
     fn test_verify_merkle_path() {
         let mut account = Account::empty();
         account.token_id = 202.into();
-        account.token_symbol = "token".to_string();
+        account.token_symbol = TokenSymbol::from("token".to_string());
 
         let f = |s: &str| Fp::from_str(s).unwrap();
 

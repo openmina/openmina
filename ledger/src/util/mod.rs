@@ -86,3 +86,26 @@ pub fn split_at_vec<T>(mut vec: Vec<T>, at: usize) -> (Vec<T>, Vec<T>) {
         (vec, Vec::new())
     }
 }
+
+// `std::borrow::Cow` has a `ToOwned` constraints
+pub enum MyCow<'a, T> {
+    Borrow(&'a T),
+    Own(T),
+}
+
+impl<'a, T> std::ops::Deref for MyCow<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
+    }
+}
+
+impl<'a, T> AsRef<T> for MyCow<'a, T> {
+    fn as_ref(&self) -> &T {
+        match self {
+            MyCow::Borrow(v) => v,
+            MyCow::Own(v) => v,
+        }
+    }
+}

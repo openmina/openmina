@@ -597,7 +597,7 @@ pub mod zkapp_command {
             conv::AsAccountUpdateWithHash,
             currency::{Balance, Signed},
         },
-        AuthRequired, Inputs, Permissions, Timing, TokenSymbol, VerificationKey,
+        AuthRequired, Inputs, Permissions, ToInputs, TokenSymbol, VerificationKey, ZkAppUri,
     };
 
     use super::*;
@@ -606,6 +606,42 @@ pub mod zkapp_command {
     #[derive(Debug, Clone)]
     pub struct Events(pub Vec<Vec<Fp>>);
 
+    /// Note: It's a different one than in the normal `Account`
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L163
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct Timing {
+        pub initial_minimum_balance: Balance,
+        pub cliff_time: Slot,
+        pub cliff_amount: Amount,
+        pub vesting_period: Slot,
+        pub vesting_increment: Amount,
+    }
+
+    impl Timing {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L208
+        fn dummy() -> Self {
+            Self {
+                initial_minimum_balance: Balance::zero(),
+                cliff_time: Slot::zero(),
+                cliff_amount: Amount::zero(),
+                vesting_period: Slot::zero(),
+                vesting_increment: Amount::zero(),
+            }
+        }
+    }
+
+    impl ToInputs for Timing {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L199
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            inputs.append_u64(self.initial_minimum_balance.as_u64());
+            inputs.append_u32(self.cliff_time.as_u32());
+            inputs.append_u64(self.cliff_amount.as_u64());
+            inputs.append_u32(self.vesting_period.as_u32());
+            inputs.append_u64(self.vesting_increment.as_u64());
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_basic.ml#L100
     #[derive(Debug, Clone)]
     pub enum SetOrKeep<T> {
@@ -613,14 +649,58 @@ pub mod zkapp_command {
         Keep,
     }
 
+    impl<T> SetOrKeep<T> {
+        fn map<'a, F, U>(&'a self, fun: F) -> SetOrKeep<U>
+        where
+            F: FnOnce(&'a T) -> U,
+        {
+            match self {
+                SetOrKeep::Set(v) => SetOrKeep::Set(fun(v)),
+                SetOrKeep::Keep => SetOrKeep::Keep,
+            }
+        }
+    }
+
+    impl<T, F, U> ToInputs for (&SetOrKeep<T>, F)
+    where
+        T: ToInputs,
+        U: ToInputs,
+        F: Fn() -> U,
+    {
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            match &self.0 {
+                SetOrKeep::Set(this) => {
+                    this.to_inputs(inputs);
+                    inputs.append_bool(true);
+                }
+                SetOrKeep::Keep => {
+                    self.1().to_inputs(inputs);
+                    inputs.append_bool(false);
+                }
+            };
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct WithHash<T> {
+        pub data: T,
+        pub hash: Fp,
+    }
+
+    impl<T> ToInputs for WithHash<T> {
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            inputs.append_field(self.hash);
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L319
     #[derive(Debug, Clone)]
     pub struct Update {
         pub app_state: [SetOrKeep<Fp>; 8],
         pub delegate: SetOrKeep<CompressedPubKey>,
-        pub verification_key: SetOrKeep<VerificationKey>,
+        pub verification_key: SetOrKeep<WithHash<VerificationKey>>,
         pub permissions: SetOrKeep<Permissions<AuthRequired>>,
-        pub zkapp_uri: SetOrKeep<String>,
+        pub zkapp_uri: SetOrKeep<ZkAppUri>,
         pub token_symbol: SetOrKeep<TokenSymbol>,
         pub timing: SetOrKeep<Timing>,
         pub voting_for: SetOrKeep<Fp>,
@@ -827,34 +907,29 @@ pub mod zkapp_command {
 
             let mut inputs = Inputs::new();
 
-            inputs.append_field(body.public_key.x);
-            inputs.append_bool(body.public_key.is_odd);
-
-            inputs.append_field(body.token_id.0);
+            inputs.append(&body.public_key);
+            inputs.append(&body.token_id);
 
             // `Body::update`
             {
                 let update = &body.update;
 
                 for state in &update.app_state {
-                    let (fp, is_some) = match state {
-                        SetOrKeep::Set(s) => (*s, true),
-                        SetOrKeep::Keep => (Fp::zero(), false),
-                    };
-                    inputs.append_field(fp);
-                    inputs.append_bool(is_some);
+                    inputs.append(&(state, Fp::zero));
                 }
 
-                let (pk, is_some) = match &update.delegate {
-                    SetOrKeep::Set(pk) => (pk.clone(), true),
-                    SetOrKeep::Keep => (CompressedPubKey::empty(), false),
-                };
-                inputs.append_field(pk.x);
-                inputs.append_bool(pk.is_odd);
-                inputs.append_bool(is_some);
-
-                // update.verification_key;
+                inputs.append(&(&update.delegate, CompressedPubKey::empty));
+                inputs.append(&(&update.verification_key, Fp::zero));
+                inputs.append(&(&update.permissions, Permissions::user_default));
+                inputs.append(&(&update.zkapp_uri.map(Some), || Option::<&ZkAppUri>::None));
+                inputs.append(&(&update.token_symbol, TokenSymbol::default));
+                inputs.append(&(&update.timing, Timing::dummy));
+                inputs.append(&(&update.voting_for, Fp::zero));
             }
+
+            inputs.append(&body.balance_change);
+            inputs.append_bool(body.increment_nonce);
+
             // inputs.append_bool(value)
         }
     }

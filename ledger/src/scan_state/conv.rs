@@ -26,7 +26,7 @@ use crate::{
         zkapp_command::{self, AuthorizationKind, CallForest},
         WithStatus,
     },
-    Account, AccountId, Timing, TokenId,
+    Account, AccountId, TokenId, VerificationKey,
 };
 
 use super::{
@@ -40,7 +40,9 @@ use super::{
     transaction_logic::{
         local_state::LocalState,
         transaction_applied::{self, TransactionApplied},
-        zkapp_command::{AccountUpdate, FeePayer, FeePayerBody, Nonce, SetOrKeep, WithStackHash},
+        zkapp_command::{
+            AccountUpdate, FeePayer, FeePayerBody, Nonce, SetOrKeep, WithHash, WithStackHash,
+        },
         Index, Signature, Slot, TransactionFailure, TransactionStatus,
     },
 };
@@ -423,10 +425,10 @@ impl From<&MinaBaseAccountUpdateFeePayerStableV1> for FeePayer {
     }
 }
 
-impl From<&MinaBaseAccountUpdateUpdateTimingInfoStableV1> for Timing {
+impl From<&MinaBaseAccountUpdateUpdateTimingInfoStableV1> for zkapp_command::Timing {
     fn from(t: &MinaBaseAccountUpdateUpdateTimingInfoStableV1) -> Self {
         // TODO: The account update doesn't have `Self::Untimed`
-        Timing::Timed {
+        Self {
             initial_minimum_balance: Balance::from_u64(t.initial_minimum_balance.as_u64()),
             cliff_time: Slot::from_u32(t.cliff_time.as_u32()),
             cliff_amount: Amount::from_u64(t.cliff_amount.as_u64()),
@@ -604,6 +606,12 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
     }
 }
 
+/// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/verification_key_wire.ml#L37
+fn of_vk(data: VerificationKey) -> WithHash<VerificationKey> {
+    let hash = data.hash();
+    WithHash { data, hash }
+}
+
 impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
     fn from(value: &MinaBaseAccountUpdateTWireStableV1) -> Self {
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Delegate as Delegate;
@@ -629,7 +637,7 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
                         Delegate::Keep => SetOrKeep::Keep,
                     },
                     verification_key: match &value.body.update.verification_key {
-                        VK::Set(vk) => SetOrKeep::Set((&**vk).into()),
+                        VK::Set(vk) => SetOrKeep::Set(of_vk((&**vk).into())),
                         VK::Keep => SetOrKeep::Keep,
                     },
                     permissions: match &value.body.update.permissions {
@@ -637,11 +645,11 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
                         Perm::Keep => SetOrKeep::Keep,
                     },
                     zkapp_uri: match &value.body.update.zkapp_uri {
-                        Uri::Set(s) => SetOrKeep::Set(s.clone().try_into().unwrap()),
+                        Uri::Set(s) => SetOrKeep::Set(s.try_into().unwrap()),
                         Uri::Keep => SetOrKeep::Keep,
                     },
                     token_symbol: match &value.body.update.token_symbol {
-                        Symbol::Set(s) => SetOrKeep::Set(s.0.clone().try_into().unwrap()),
+                        Symbol::Set(s) => SetOrKeep::Set((&s.0).try_into().unwrap()),
                         Symbol::Keep => SetOrKeep::Keep,
                     },
                     timing: match &value.body.update.timing {

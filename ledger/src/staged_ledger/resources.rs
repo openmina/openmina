@@ -2,10 +2,13 @@ use std::collections::HashMap;
 
 use mina_signer::CompressedPubKey;
 
-use crate::scan_state::{
-    currency::{Amount, Fee, Magnitude},
-    scan_state::{transaction_snark::work, ConstraintConstants},
-    transaction_logic::{valid, CoinbaseFeeTransfer, GenericCommand, WithStatus},
+use crate::{
+    scan_state::{
+        currency::{Amount, Fee, Magnitude},
+        scan_state::{transaction_snark::work, ConstraintConstants},
+        transaction_logic::{valid, CoinbaseFeeTransfer, GenericCommand, WithStatus},
+    },
+    MyCow,
 };
 
 use super::{
@@ -299,21 +302,6 @@ impl Resources {
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1335
     fn reselect_coinbase_work(&mut self, constraint_constants: &ConstraintConstants) {
-        // `std::borrow::Cow` has a `ToOwned` constraints
-        enum MyCow<'a, T> {
-            Borrow(&'a T),
-            Own(T),
-        }
-
-        impl<'a, T> AsRef<T> for MyCow<'a, T> {
-            fn as_ref(&self) -> &T {
-                match self {
-                    MyCow::Borrow(v) => v,
-                    MyCow::Own(v) => v,
-                }
-            }
-        }
-
         let cw_unchecked = |works: &[work::Unchecked]| {
             works.iter().map(|w| w.clone().forget()).collect::<Vec<_>>()
         };

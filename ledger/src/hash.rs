@@ -1,9 +1,11 @@
 use ark_ff::{BigInteger, BigInteger256, Field, FromBytes};
 use mina_hasher::Fp;
+use mina_signer::CompressedPubKey;
 
 // use oracle::{poseidon::{ArithmeticSponge, Sponge}, constants::PlonkSpongeConstantsKimchi, pasta::fp_kimchi::static_params};
 use crate::{
     poseidon::{static_params, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge},
+    scan_state::currency,
     FpExt, SpongeParamsForField,
 };
 
@@ -138,6 +140,13 @@ impl Inputs {
         }
     }
 
+    pub fn append<T>(&mut self, value: &T)
+    where
+        T: ToInputs,
+    {
+        value.to_inputs(self);
+    }
+
     #[allow(clippy::wrong_self_convention)]
     pub fn to_fields(mut self) -> Vec<Fp> {
         let mut nbits = 0;
@@ -228,6 +237,60 @@ pub fn hash_noinputs(param: &str) -> Fp {
 
     sponge.absorb(&[param_to_field_noinputs(param)]);
     sponge.squeeze()
+}
+
+pub trait ToInputs {
+    fn to_inputs(&self, inputs: &mut Inputs);
+}
+
+impl ToInputs for Fp {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        inputs.append_field(*self);
+    }
+}
+
+impl ToInputs for CompressedPubKey {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        inputs.append_field(self.x);
+        inputs.append_bool(self.is_odd);
+    }
+}
+
+impl ToInputs for crate::TokenId {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        inputs.append_field(self.0);
+    }
+}
+
+impl ToInputs for currency::Amount {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        inputs.append_u64(self.as_u64());
+    }
+}
+
+impl ToInputs for currency::Fee {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        inputs.append_u64(self.as_u64());
+    }
+}
+
+impl ToInputs for currency::Balance {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        inputs.append_u64(self.as_u64());
+    }
+}
+
+impl<T> ToInputs for currency::Signed<T>
+where
+    T: currency::Magnitude,
+    T: ToInputs,
+{
+    /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/currency/currency.ml#L453
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        self.magnitude.to_inputs(inputs);
+        let sgn = matches!(self.sgn, currency::Sgn::Pos);
+        inputs.append_bool(sgn);
+    }
 }
 
 #[cfg(test)]
