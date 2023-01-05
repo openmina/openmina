@@ -306,6 +306,10 @@ impl AccountId {
             token_id,
         }
     }
+
+    pub fn derive_token_id(&self) -> TokenId {
+        todo!()
+    }
 }
 
 impl std::fmt::Debug for AccountId {

@@ -585,8 +585,18 @@ pub mod signed_command {
 }
 
 pub mod zkapp_command {
+    use ark_ff::Zero;
+    use mina_p2p_messages::v2::{
+        MinaBaseAccountUpdateTWireStableV1,
+        MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
+    };
+
     use crate::{
-        scan_state::currency::{Balance, Signed},
+        hash_with_kimchi,
+        scan_state::{
+            conv::AsAccountUpdateWithHash,
+            currency::{Balance, Signed},
+        },
         AuthRequired, Permissions, Timing, TokenSymbol, VerificationKey,
     };
 
@@ -606,22 +616,22 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L319
     #[derive(Debug, Clone)]
     pub struct Update {
-        app_state: [SetOrKeep<Fp>; 8],
-        delegate: SetOrKeep<CompressedPubKey>,
-        verification_key: SetOrKeep<VerificationKey>,
-        permissions: SetOrKeep<Permissions<AuthRequired>>,
-        zkapp_uri: SetOrKeep<String>,
-        token_symbol: SetOrKeep<TokenSymbol>,
-        timing: SetOrKeep<Timing>,
-        voting_for: SetOrKeep<Fp>,
+        pub app_state: [SetOrKeep<Fp>; 8],
+        pub delegate: SetOrKeep<CompressedPubKey>,
+        pub verification_key: SetOrKeep<VerificationKey>,
+        pub permissions: SetOrKeep<Permissions<AuthRequired>>,
+        pub zkapp_uri: SetOrKeep<String>,
+        pub token_symbol: SetOrKeep<TokenSymbol>,
+        pub timing: SetOrKeep<Timing>,
+        pub voting_for: SetOrKeep<Fp>,
     }
 
     // TODO: This could be std::ops::Range ?
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L23
     #[derive(Debug, Clone)]
     pub struct ClosedInterval<T> {
-        lower: T,
-        upper: T,
+        pub lower: T,
+        pub upper: T,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_basic.ml#L232
@@ -664,33 +674,33 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/epoch_ledger.ml#L9
     #[derive(Debug, Clone)]
     pub struct EpochLedger {
-        hash: Hash<Fp>,
-        total_currency: Numeric<Amount>,
+        pub hash: Hash<Fp>,
+        pub total_currency: Numeric<Amount>,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L797
     #[derive(Debug, Clone)]
     pub struct EpochData {
         pub(crate) ledger: EpochLedger,
-        seed: Hash<Fp>,
-        start_checkpoint: Hash<Fp>,
-        lock_checkpoint: Hash<Fp>,
-        epoch_length: Numeric<Length>,
+        pub seed: Hash<Fp>,
+        pub start_checkpoint: Hash<Fp>,
+        pub lock_checkpoint: Hash<Fp>,
+        pub epoch_length: Numeric<Length>,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L977
     #[derive(Debug, Clone)]
     pub struct ZkAppPreconditions {
-        snarked_ledger_hash: Hash<Fp>,
-        timestamp: Numeric<BlockTime>,
-        blockchain_length: Numeric<Length>,
-        min_window_density: Numeric<Length>,
-        last_vrf_output: (), // It's not defined in OCAml
-        total_currency: Numeric<Amount>,
-        global_slot_since_hard_fork: Numeric<Slot>,
-        global_slot_since_genesis: Numeric<Slot>,
-        staking_epoch_data: EpochData,
-        next_epoch_data: EpochData,
+        pub snarked_ledger_hash: Hash<Fp>,
+        pub timestamp: Numeric<BlockTime>,
+        pub blockchain_length: Numeric<Length>,
+        pub min_window_density: Numeric<Length>,
+        pub last_vrf_output: (), // It's not defined in OCAml
+        pub total_currency: Numeric<Amount>,
+        pub global_slot_since_hard_fork: Numeric<Slot>,
+        pub global_slot_since_genesis: Numeric<Slot>,
+        pub staking_epoch_data: EpochData,
+        pub next_epoch_data: EpochData,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_numbers/account_nonce.mli#L2
@@ -729,14 +739,14 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L478
     #[derive(Debug, Clone)]
     pub struct Account {
-        balance: Numeric<Balance>,
-        nonce: Numeric<Nonce>,
-        receipt_chain_hash: Hash<Fp>, // TODO: Should be type `ReceiptChainHash`
-        delegate: EqData<CompressedPubKey>,
-        state: [EqData<Fp>; 8],
-        sequence_state: EqData<Fp>,
-        proved_state: EqData<bool>,
-        is_new: EqData<bool>,
+        pub balance: Numeric<Balance>,
+        pub nonce: Numeric<Nonce>,
+        pub receipt_chain_hash: Hash<Fp>, // TODO: Should be type `ReceiptChainHash`
+        pub delegate: EqData<CompressedPubKey>,
+        pub state: [EqData<Fp>; 8],
+        pub sequence_state: EqData<Fp>,
+        pub proved_state: EqData<bool>,
+        pub is_new: EqData<bool>,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L613
@@ -751,7 +761,7 @@ pub mod zkapp_command {
     #[derive(Debug, Clone)]
     pub struct Preconditions {
         pub(crate) network: ZkAppPreconditions,
-        account: AccountPreconditions,
+        pub account: AccountPreconditions,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L27
@@ -765,26 +775,30 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L955
     #[derive(Debug, Clone)]
     pub struct Body {
-        public_key: CompressedPubKey,
-        token_id: TokenId,
-        update: Update,
-        balance_change: Signed<Amount>,
-        increment_nonce: bool,
-        events: Events,
-        sequence_events: Events,
-        call_data: Fp,
+        pub public_key: CompressedPubKey,
+        pub token_id: TokenId,
+        pub update: Update,
+        pub balance_change: Signed<Amount>,
+        pub increment_nonce: bool,
+        pub events: Events,
+        pub sequence_events: Events,
+        pub call_data: Fp,
         pub(crate) preconditions: Preconditions,
-        use_full_commitment: bool,
-        caller: TokenId,
-        authorization_kind: AuthorizationKind,
+        pub use_full_commitment: bool,
+        pub caller: TokenId,
+        pub authorization_kind: AuthorizationKind,
     }
 
+    /// Notes:
+    /// The type in OCaml is this one:
+    /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/pickles/proof.ml#L401
+    ///
+    /// For now we use the type from `mina_p2p_messages`, but we need to use our own.
+    /// Lots of inner types are (BigInt, Bigint) which should be replaced with `Pallas<_>` etc.
+    /// Also, in OCaml it has custom `{to/from}_binable` implementation.
+    ///
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/pickles/pickles_intf.ml#L316
-    #[derive(Debug, Clone)]
-    pub struct SideLoadedProof {
-        // Side_loaded.Proof
-        // TODO: Not sure what type this is yet...
-    }
+    pub type SideLoadedProof = mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/control.ml#L11
     #[derive(Debug, Clone)]
@@ -814,21 +828,44 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L49
     #[derive(Debug, Clone)]
     pub struct Tree<Data> {
-        account_update: (AccountUpdate, Data),
-        account_update_digest: Option<Fp>,
-        calls: CallForest<Data>,
+        pub account_update: (AccountUpdate, Data),
+        pub account_update_digest: Fp,
+        pub calls: CallForest<Data>,
+    }
+
+    impl<Data> Tree<Data> {
+        fn digest(&self) -> Fp {
+            let stack_hash = match self.calls.0.first() {
+                Some(e) => e.stack_hash,
+                None => Fp::zero(),
+            };
+
+            // self.account_update_digest should have been updated in `CallForest::accumulate_hashes`
+            assert_ne!(self.account_update_digest, Fp::zero());
+
+            hash_with_kimchi(
+                "MinaAcctUpdateNode",
+                &[self.account_update_digest, stack_hash],
+            )
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_stack_hash.ml#L6
     #[derive(Debug, Clone)]
     pub struct WithStackHash<Data> {
-        elt: Tree<Data>,
-        pub stack_hash: Option<Fp>,
+        pub elt: Tree<Data>,
+        pub stack_hash: Fp,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L345
     #[derive(Debug, Clone)]
     pub struct CallForest<Data>(pub Vec<WithStackHash<Data>>);
+
+    #[derive(Clone)]
+    struct CallForestContext {
+        caller: TokenId,
+        this: TokenId,
+    }
 
     impl<Data> CallForest<Data> {
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L68
@@ -876,22 +913,138 @@ pub mod zkapp_command {
         {
             self.map_to_impl(&fun)
         }
+
+        fn add_callers_impl<F, Update>(
+            &mut self,
+            wired: &[Update],
+            current_context: CallForestContext,
+            account_update_id: &F,
+        ) where
+            Update: AsAccountUpdateWithHash,
+            F: Fn(&MinaBaseAccountUpdateTWireStableV1) -> TokenId,
+        {
+            use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1::{
+                Call, DelegateCall,
+            };
+
+            assert_eq!(self.0.len(), wired.len());
+
+            self.0.iter_mut().zip(wired).for_each(|(elem, wired)| {
+                let WithStackHash {
+                    elt:
+                        Tree::<Data> {
+                            account_update,
+                            calls,
+                            ..
+                        },
+                    ..
+                } = elem;
+
+                let child_context = match &wired.elt().account_update.body.caller {
+                    DelegateCall => current_context.clone(),
+                    Call => CallForestContext {
+                        caller: current_context.this.clone(),
+                        this: account_update_id(&wired.elt().account_update),
+                    },
+                };
+
+                account_update.0.body.caller = child_context.caller.clone();
+                calls.add_callers_impl(&wired.elt().calls, child_context, account_update_id);
+            });
+        }
+
+        /// Delegate_call means, preserve the current caller.
+        ///
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L616
+        pub fn add_callers<F>(
+            &mut self,
+            wired: &[MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA],
+            null_id: TokenId,
+            account_update_id: F,
+        ) where
+            F: Fn(&MinaBaseAccountUpdateTWireStableV1) -> TokenId,
+        {
+            let current_context = CallForestContext {
+                caller: null_id.clone(),
+                this: null_id,
+            };
+
+            self.add_callers_impl(wired, current_context, &account_update_id);
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L583
+        pub fn accumulate_hashes<F>(&mut self, hash_account_update: &F)
+        where
+            F: Fn(&AccountUpdate) -> Fp,
+        {
+            /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L293
+            fn cons(hash: Fp, h_tl: Fp) -> Fp {
+                hash_with_kimchi("MinaAcctUpdateCons", &[hash, h_tl])
+            }
+
+            /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L561
+            fn hash<T>(elem: Option<&WithStackHash<T>>) -> Fp {
+                match elem {
+                    Some(next) => next.stack_hash,
+                    None => Fp::zero(),
+                }
+            }
+
+            // We traverse the list in reverse here (to get same behavior as OCaml recursivity)
+            // We use indexes to make the borrow checker happy
+
+            for index in (0..self.0.len()).rev() {
+                let elem = &mut self.0[index];
+                let WithStackHash {
+                    elt:
+                        Tree::<Data> {
+                            account_update,
+                            account_update_digest,
+                            calls,
+                            ..
+                        },
+                    ..
+                } = elem;
+
+                calls.accumulate_hashes(hash_account_update);
+                *account_update_digest = hash_account_update(&account_update.0);
+
+                let node_hash = elem.elt.digest();
+                let hash = hash(self.0.get(index + 1));
+
+                self.0[index].stack_hash = cons(node_hash, hash);
+            }
+        }
+
+        pub fn of_wire(
+            &mut self,
+            wired: &[MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA],
+        ) {
+            self.add_callers(wired, TokenId::default(), |update| {
+                let public_key: CompressedPubKey = (&update.body.public_key).into();
+                let token_id: TokenId = (&*update.body.token_id).into();
+
+                AccountId::new(public_key, token_id).derive_token_id()
+            });
+
+            self.accumulate_hashes(&|update| todo!());
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1081
     #[derive(Debug, Clone)]
     pub struct FeePayerBody {
-        public_key: CompressedPubKey,
-        fee: Fee,
-        valid_until: Option<Slot>,
-        nonce: Nonce,
+        pub public_key: CompressedPubKey,
+        pub fee: Fee,
+        pub valid_until: Option<Slot>,
+        pub nonce: Nonce,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1484
     #[derive(Debug, Clone)]
     pub struct FeePayer {
-        body: FeePayerBody,
-        authorization: Signature,
+        pub body: FeePayerBody,
+        pub authorization: Signature,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L959
@@ -1207,8 +1360,8 @@ pub mod transaction_applied {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L65
     #[derive(Debug, Clone)]
     pub struct ZkappCommandApplied {
-        accounts: Vec<(AccountId, Option<Account>)>,
-        command: WithStatus<zkapp_command::ZkAppCommand>,
+        pub accounts: Vec<(AccountId, Option<Account>)>,
+        pub command: WithStatus<zkapp_command::ZkAppCommand>,
         pub new_accounts: Vec<AccountId>,
     }
 
@@ -1463,7 +1616,7 @@ pub mod local_state {
 
             let field = match self.calls.0.get(0) {
                 None => Fp::zero(),
-                Some(call) => call.stack_hash.unwrap_or_else(|| Fp::zero()),
+                Some(call) => call.stack_hash,
             };
             inputs.append_field(field);
 
@@ -1473,17 +1626,17 @@ pub mod local_state {
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct LocalState {
-        pub(super) stack_frame: Fp,
-        pub(super) call_stack: Fp,
-        pub(super) transaction_commitment: Fp,
-        pub(super) full_transaction_commitment: Fp,
-        pub(super) token_id: TokenId,
-        pub(super) excess: Signed<Amount>,
-        pub(super) supply_increase: Signed<Amount>,
-        pub(super) ledger: Fp,
-        pub(super) success: bool,
-        pub(super) account_update_index: Index,
-        pub(super) failure_status_tbl: Vec<Vec<TransactionFailure>>,
+        pub stack_frame: Fp,
+        pub call_stack: Fp,
+        pub transaction_commitment: Fp,
+        pub full_transaction_commitment: Fp,
+        pub token_id: TokenId,
+        pub excess: Signed<Amount>,
+        pub supply_increase: Signed<Amount>,
+        pub ledger: Fp,
+        pub success: bool,
+        pub account_update_index: Index,
+        pub failure_status_tbl: Vec<Vec<TransactionFailure>>,
     }
 
     impl LocalState {

@@ -153,8 +153,8 @@ pub mod update {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Stack {
-    data: CoinbaseStack,
-    state: StateStack,
+    pub(super) data: CoinbaseStack,
+    pub(super) state: StateStack,
 }
 
 impl Stack {
