@@ -861,6 +861,10 @@ pub mod zkapp_command {
             Self(n)
         }
 
+        pub fn as_u64(&self) -> u64 {
+            self.0
+        }
+
         fn min() -> Self {
             Self(0)
         }
@@ -883,6 +887,10 @@ pub mod zkapp_command {
     impl Length {
         pub fn from_u32(n: u32) -> Self {
             Self(n)
+        }
+
+        pub fn as_u32(&self) -> u32 {
+            self.0
         }
 
         fn min() -> Self {

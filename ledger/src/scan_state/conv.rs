@@ -1,18 +1,21 @@
 #![allow(unused_variables, unreachable_code)]
 
+use mina_hasher::Fp;
 use mina_p2p_messages::{
     pseq::PaddedSeq,
     v2::{
-        CurrencyAmountStableV1, CurrencyBalanceStableV1, CurrencyFeeStableV1,
-        DataHashLibStateHashStableV1, LedgerProofProdStableV2, MinaBaseAccountIdDigestStableV1,
-        MinaBaseAccountIdStableV2, MinaBaseAccountUpdateBodyEventsStableV1,
-        MinaBaseAccountUpdateBodyFeePayerStableV1, MinaBaseAccountUpdateBodyWireStableV1,
-        MinaBaseAccountUpdateCallTypeStableV1, MinaBaseAccountUpdateFeePayerStableV1,
-        MinaBaseAccountUpdatePreconditionsStableV1, MinaBaseAccountUpdateTWireStableV1,
-        MinaBaseAccountUpdateUpdateStableV1, MinaBaseAccountUpdateUpdateStableV1AppStateA,
+        BlockTimeTimeStableV1, CurrencyAmountStableV1, CurrencyBalanceStableV1,
+        CurrencyFeeStableV1, DataHashLibStateHashStableV1, EpochSeed, LedgerProofProdStableV2,
+        MinaBaseAccountIdDigestStableV1, MinaBaseAccountIdStableV2,
+        MinaBaseAccountUpdateBodyEventsStableV1, MinaBaseAccountUpdateBodyFeePayerStableV1,
+        MinaBaseAccountUpdateBodyWireStableV1, MinaBaseAccountUpdateCallTypeStableV1,
+        MinaBaseAccountUpdateFeePayerStableV1, MinaBaseAccountUpdatePreconditionsStableV1,
+        MinaBaseAccountUpdateTWireStableV1, MinaBaseAccountUpdateUpdateStableV1,
+        MinaBaseAccountUpdateUpdateStableV1AppStateA,
         MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseCallStackDigestStableV1,
-        MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee, MinaBaseFeeTransferSingleStableV2,
-        MinaBaseFeeTransferStableV2, MinaBaseLedgerHash0StableV1, MinaBasePaymentPayloadStableV2,
+        MinaBaseEpochSeedStableV1, MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee,
+        MinaBaseFeeTransferSingleStableV2, MinaBaseFeeTransferStableV2,
+        MinaBaseLedgerHash0StableV1, MinaBasePaymentPayloadStableV2,
         MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseStackHashStableV1,
         MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
         MinaBaseSignatureStableV1, MinaBaseSignedCommandMemoStableV1,
@@ -27,7 +30,12 @@ use mina_p2p_messages::{
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA,
         MinaBaseZkappPreconditionProtocolStateEpochDataStableV1,
+        MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger,
+        MinaBaseZkappPreconditionProtocolStateStableV1,
+        MinaBaseZkappPreconditionProtocolStateStableV1AmountA,
         MinaBaseZkappPreconditionProtocolStateStableV1Length,
+        MinaBaseZkappPreconditionProtocolStateStableV1LengthA,
+        MinaBaseZkappPreconditionProtocolStateStableV1TimeA,
         MinaTransactionLogicTransactionAppliedCommandAppliedStableV2,
         MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2,
         MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2,
@@ -39,7 +47,7 @@ use mina_p2p_messages::{
         MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command,
         MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
         MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount, SgnStableV1,
-        TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
+        StateHash, TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
         TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
         TransactionSnarkStatementStableV2, TransactionSnarkStatementWithSokStableV2,
         TransactionSnarkStatementWithSokStableV2Source, UnsignedExtendedUInt32StableV1,
@@ -69,7 +77,8 @@ use super::{
         local_state::LocalState,
         transaction_applied::{self, TransactionApplied},
         zkapp_command::{
-            AccountUpdate, FeePayer, FeePayerBody, Nonce, SetOrKeep, WithHash, WithStackHash,
+            AccountUpdate, BlockTime, FeePayer, FeePayerBody, Nonce, SetOrKeep, WithHash,
+            WithStackHash,
         },
         FeeTransfer, Index, Signature, SingleFeeTransfer, Slot, TransactionFailure,
         TransactionStatus,
@@ -142,6 +151,12 @@ impl From<&Nonce> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
 
 impl From<&Slot> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
     fn from(value: &Slot) -> Self {
+        Self((value.as_u32() as i32).into())
+    }
+}
+
+impl From<&zkapp_command::Length> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
+    fn from(value: &zkapp_command::Length) -> Self {
         Self((value.as_u32() as i32).into())
     }
 }
@@ -532,7 +547,26 @@ impl From<&MinaBaseZkappPreconditionProtocolStateStableV1Length>
                 lower: Length::from_u32(length.lower.0.as_u32()),
                 upper: Length::from_u32(length.upper.0.as_u32()),
             }),
-            MLength::Ignore => todo!(),
+            MLength::Ignore => Numeric::Ignore,
+        }
+    }
+}
+
+impl From<&zkapp_command::Numeric<zkapp_command::Length>>
+    for MinaBaseZkappPreconditionProtocolStateStableV1Length
+{
+    fn from(value: &zkapp_command::Numeric<zkapp_command::Length>) -> Self {
+        use zkapp_command::Numeric;
+        use MinaBaseZkappPreconditionProtocolStateStableV1Length as MLength;
+
+        match value {
+            Numeric::Check(length) => {
+                MLength::Check(MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
+                    lower: (&length.lower).into(),
+                    upper: (&length.upper).into(),
+                })
+            }
+            Numeric::Ignore => MLength::Ignore,
         }
     }
 }
@@ -570,6 +604,60 @@ impl From<&MinaBaseZkappPreconditionProtocolStateEpochDataStableV1> for zkapp_co
             lock_checkpoint: match &value.lock_checkpoint {
                 Start::Check(start) => OrIgnore::Check(start.to_field()),
                 Start::Ignore => OrIgnore::Ignore,
+            },
+            epoch_length: (&value.epoch_length).into(),
+        }
+    }
+}
+
+fn fp_to_epochseed(value: &Fp) -> EpochSeed {
+    let hash: MinaBaseEpochSeedStableV1 = MinaBaseEpochSeedStableV1(value.into());
+    hash.into()
+}
+
+fn fp_to_statehash(value: &Fp) -> StateHash {
+    let hash: DataHashLibStateHashStableV1 = DataHashLibStateHashStableV1(value.into());
+    hash.into()
+}
+
+impl From<&zkapp_command::EpochData> for MinaBaseZkappPreconditionProtocolStateEpochDataStableV1 {
+    fn from(value: &zkapp_command::EpochData) -> Self {
+        use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed as Seed;
+        use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint as Start;
+        use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Amount as MAmount;
+        use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash as Hash;
+        use zkapp_command::OrIgnore;
+
+        Self {
+            ledger: MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger {
+                hash: match &value.ledger.hash {
+                    OrIgnore::Check(hash) => Hash::Check({
+                        let hash = MinaBaseLedgerHash0StableV1(hash.into());
+                        hash.into()
+                    }),
+                    OrIgnore::Ignore => Hash::Ignore,
+                },
+                total_currency: match &value.ledger.total_currency {
+                    OrIgnore::Check(amount) => {
+                        MAmount::Check(MinaBaseZkappPreconditionProtocolStateStableV1AmountA {
+                            lower: amount.lower.into(),
+                            upper: amount.upper.into(),
+                        })
+                    }
+                    OrIgnore::Ignore => MAmount::Ignore,
+                },
+            },
+            seed: match &value.seed {
+                OrIgnore::Check(seed) => Seed::Check(fp_to_epochseed(seed)),
+                OrIgnore::Ignore => Seed::Ignore,
+            },
+            start_checkpoint: match &value.start_checkpoint {
+                OrIgnore::Check(start) => Start::Check(fp_to_statehash(start)),
+                OrIgnore::Ignore => Start::Ignore,
+            },
+            lock_checkpoint: match &value.lock_checkpoint {
+                OrIgnore::Check(start) => Start::Check(fp_to_statehash(start)),
+                OrIgnore::Ignore => Start::Ignore,
             },
             epoch_length: (&value.epoch_length).into(),
         }
@@ -684,6 +772,138 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
                 }
                 MAccount::Accept => AccountPreconditions::Accept,
             },
+        }
+    }
+}
+
+impl From<&BlockTime> for BlockTimeTimeStableV1 {
+    fn from(value: &BlockTime) -> Self {
+        Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+            (value.as_u64() as i64).into(),
+        ))
+    }
+}
+
+impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsStableV1 {
+    fn from(value: &zkapp_command::Preconditions) -> Self {
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateAccountPreconditionStableV1 as MAccount;
+        use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Amount as MAmount;
+        use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash as Ledger;
+        use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Time as Time;
+        use zkapp_command::AccountPreconditions;
+        use zkapp_command::{BlockTime, ClosedInterval, Numeric, OrIgnore};
+        use MinaBaseZkappPreconditionProtocolStateStableV1Length as MLength;
+
+        Self {
+            network: MinaBaseZkappPreconditionProtocolStateStableV1 {
+                snarked_ledger_hash: match &value.network.snarked_ledger_hash {
+                    OrIgnore::Check(hash) => Ledger::Check({
+                        let hash = MinaBaseLedgerHash0StableV1(hash.into());
+                        hash.into()
+                    }),
+                    OrIgnore::Ignore => Ledger::Ignore,
+                },
+                timestamp: match &value.network.timestamp {
+                    OrIgnore::Check(time) => {
+                        Time::Check(MinaBaseZkappPreconditionProtocolStateStableV1TimeA {
+                            lower: (&time.lower).into(),
+                            upper: (&time.upper).into(),
+                        })
+                    }
+                    OrIgnore::Ignore => Time::Ignore,
+                },
+                blockchain_length: (&value.network.blockchain_length).into(),
+                min_window_density: (&value.network.min_window_density).into(),
+                last_vrf_output: value.network.last_vrf_output,
+                total_currency: match &value.network.total_currency {
+                    OrIgnore::Check(amount) => {
+                        MAmount::Check(MinaBaseZkappPreconditionProtocolStateStableV1AmountA {
+                            lower: amount.lower.into(),
+                            upper: amount.upper.into(),
+                        })
+                    }
+                    OrIgnore::Ignore => MAmount::Ignore,
+                },
+                global_slot_since_hard_fork: match &value.network.global_slot_since_hard_fork {
+                    Numeric::Check(length) => {
+                        MLength::Check(MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
+                            lower: (&length.lower).into(),
+                            upper: (&length.upper).into(),
+                        })
+                    }
+                    Numeric::Ignore => MLength::Ignore,
+                },
+                global_slot_since_genesis: match &value.network.global_slot_since_genesis {
+                    Numeric::Check(length) => {
+                        MLength::Check(MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
+                            lower: (&length.lower).into(),
+                            upper: (&length.upper).into(),
+                        })
+                    }
+                    Numeric::Ignore => MLength::Ignore,
+                },
+                staking_epoch_data: (&value.network.staking_epoch_data).into(),
+                next_epoch_data: (&value.network.staking_epoch_data).into(),
+            },
+            account: todo!(),
+            // account: match &value.account {
+            //     AccountPreconditions::Full(account) => {
+            //         use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Balance as MBalance;
+            //         use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Delegate as Delegate;
+            //         use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ProvedState as Proved;
+            //         use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash as Receipt;
+            //         use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2StateA as State;
+            //         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Length as MNonce;
+
+            //         let account = &**account;
+            //         MAccount::Full(Box::new(zkapp_command::Account {
+            //             balance: match &account.balance {
+            //                 MBalance::Check(balance) => OrIgnore::Check(ClosedInterval {
+            //                     lower: Balance::from_u64(balance.lower.0.as_u64()),
+            //                     upper: Balance::from_u64(balance.upper.0.as_u64()),
+            //                 }),
+            //                 MBalance::Ignore => OrIgnore::Ignore,
+            //             },
+            //             nonce: match &account.nonce {
+            //                 MNonce::Check(balance) => OrIgnore::Check(ClosedInterval {
+            //                     lower: Nonce::from_u32(balance.lower.0.as_u32()),
+            //                     upper: Nonce::from_u32(balance.upper.0.as_u32()),
+            //                 }),
+            //                 MNonce::Ignore => OrIgnore::Ignore,
+            //             },
+            //             receipt_chain_hash: match &account.receipt_chain_hash {
+            //                 Receipt::Check(hash) => OrIgnore::Check(hash.to_field()),
+            //                 Receipt::Ignore => OrIgnore::Ignore,
+            //             },
+            //             delegate: match &account.delegate {
+            //                 Delegate::Check(delegate) => {
+            //                     OrIgnore::Check(delegate.clone().into_inner().into())
+            //                 }
+            //                 Delegate::Ignore => OrIgnore::Ignore,
+            //             },
+            //             state: array_into_with(&account.state, |s| match s {
+            //                 State::Check(s) => OrIgnore::Check(s.to_field()),
+            //                 State::Ignore => OrIgnore::Ignore,
+            //             }),
+            //             sequence_state: match &account.sequence_state {
+            //                 State::Check(s) => OrIgnore::Check(s.to_field()),
+            //                 State::Ignore => OrIgnore::Ignore,
+            //             },
+            //             proved_state: match account.proved_state {
+            //                 Proved::Check(state) => OrIgnore::Check(state),
+            //                 Proved::Ignore => OrIgnore::Ignore,
+            //             },
+            //             is_new: match account.is_new {
+            //                 Proved::Check(state) => OrIgnore::Check(state),
+            //                 Proved::Ignore => OrIgnore::Ignore,
+            //             },
+            //         }))
+            //     }
+            //     MAccount::Nonce(nonce) => {
+            //         AccountPreconditions::Nonce(Nonce::from_u32(nonce.as_u32()))
+            //     }
+            //     AccountPreconditions::Accept => MAccount::Accept,
+            // },
         }
     }
 }
@@ -928,8 +1148,8 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTWireStableV1 {
                         .collect(),
                 ),
                 call_data: value.body.call_data.into(),
-                preconditions: todo!(), // TODO
-                // preconditions: (&value.body.preconditions).into(),
+                // preconditions: todo!(), // TODO
+                preconditions: (&value.body.preconditions).into(),
                 use_full_commitment: value.body.use_full_commitment,
                 caller: MinaBaseAccountUpdateCallTypeStableV1::Call, // Modified later with `to_wire`
                 authorization_kind: match value.body.authorization_kind {
