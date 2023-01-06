@@ -1,31 +1,56 @@
 #![allow(unused_variables, unreachable_code)]
 
-use mina_p2p_messages::v2::{
-    CurrencyAmountStableV1, CurrencyFeeStableV1, LedgerProofProdStableV2,
-    MinaBaseAccountIdDigestStableV1, MinaBaseAccountUpdateFeePayerStableV1,
-    MinaBaseAccountUpdatePreconditionsStableV1, MinaBaseAccountUpdateTWireStableV1,
-    MinaBaseAccountUpdateUpdateStableV1AppStateA, MinaBaseAccountUpdateUpdateTimingInfoStableV1,
-    MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee, MinaBaseFeeTransferSingleStableV2,
-    MinaBaseFeeTransferStableV2, MinaBaseLedgerHash0StableV1,
-    MinaBasePendingCoinbaseStackVersionedStableV1, MinaBaseSokMessageDigestStableV1,
-    MinaBaseSokMessageStableV1, MinaBaseTransactionStatusFailureCollectionStableV1,
-    MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2,
-    MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
-    MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
-    MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA,
-    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1,
-    MinaBaseZkappPreconditionProtocolStateStableV1Length,
-    MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount, SgnStableV1,
-    TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
-    TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
-    TransactionSnarkStatementStableV2, TransactionSnarkStatementWithSokStableV2,
-    TransactionSnarkStatementWithSokStableV2Source,
-    UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+use mina_p2p_messages::{
+    pseq::PaddedSeq,
+    v2::{
+        CurrencyAmountStableV1, CurrencyBalanceStableV1, CurrencyFeeStableV1,
+        DataHashLibStateHashStableV1, LedgerProofProdStableV2, MinaBaseAccountIdDigestStableV1,
+        MinaBaseAccountIdStableV2, MinaBaseAccountUpdateBodyEventsStableV1,
+        MinaBaseAccountUpdateBodyFeePayerStableV1, MinaBaseAccountUpdateBodyWireStableV1,
+        MinaBaseAccountUpdateCallTypeStableV1, MinaBaseAccountUpdateFeePayerStableV1,
+        MinaBaseAccountUpdatePreconditionsStableV1, MinaBaseAccountUpdateTWireStableV1,
+        MinaBaseAccountUpdateUpdateStableV1, MinaBaseAccountUpdateUpdateStableV1AppStateA,
+        MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseCallStackDigestStableV1,
+        MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee, MinaBaseFeeTransferSingleStableV2,
+        MinaBaseFeeTransferStableV2, MinaBaseLedgerHash0StableV1, MinaBasePaymentPayloadStableV2,
+        MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseStackHashStableV1,
+        MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
+        MinaBaseSignatureStableV1, MinaBaseSignedCommandMemoStableV1,
+        MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandPayloadCommonStableV2,
+        MinaBaseSignedCommandPayloadStableV2, MinaBaseSignedCommandStableV2,
+        MinaBaseSokMessageDigestStableV1, MinaBaseSokMessageStableV1, MinaBaseStackFrameStableV1,
+        MinaBaseStakeDelegationStableV1, MinaBaseStateBodyHashStableV1,
+        MinaBaseTransactionStatusFailureCollectionStableV1,
+        MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2,
+        MinaBaseZkappCommandTStableV1WireStableV1,
+        MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
+        MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
+        MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA,
+        MinaBaseZkappPreconditionProtocolStateEpochDataStableV1,
+        MinaBaseZkappPreconditionProtocolStateStableV1Length,
+        MinaTransactionLogicTransactionAppliedCommandAppliedStableV2,
+        MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2,
+        MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2,
+        MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2UserCommand,
+        MinaTransactionLogicTransactionAppliedSignedCommandAppliedStableV2,
+        MinaTransactionLogicTransactionAppliedStableV2,
+        MinaTransactionLogicTransactionAppliedVaryingStableV2,
+        MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1,
+        MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command,
+        MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
+        MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount, SgnStableV1,
+        TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
+        TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
+        TransactionSnarkStatementStableV2, TransactionSnarkStatementWithSokStableV2,
+        TransactionSnarkStatementWithSokStableV2Source, UnsignedExtendedUInt32StableV1,
+        UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+    },
 };
 
 use crate::{
     array_into_with,
     scan_state::transaction_logic::{
+        signed_command::StakeDelegationPayload,
         zkapp_command::{self, AuthorizationKind, CallForest},
         WithStatus,
     },
@@ -57,8 +82,22 @@ impl From<CurrencyAmountStableV1> for Amount {
     }
 }
 
+impl From<CurrencyAmountStableV1> for Balance {
+    fn from(value: CurrencyAmountStableV1) -> Self {
+        Self(value.as_u64())
+    }
+}
+
 impl From<Amount> for CurrencyAmountStableV1 {
     fn from(value: Amount) -> Self {
+        Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+            (value.0 as i64).into(),
+        ))
+    }
+}
+
+impl From<Balance> for CurrencyAmountStableV1 {
+    fn from(value: Balance) -> Self {
         Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
             (value.0 as i64).into(),
         ))
@@ -92,6 +131,18 @@ impl From<&Signed<Amount>>
 impl From<&CurrencyFeeStableV1> for Fee {
     fn from(value: &CurrencyFeeStableV1) -> Self {
         Self(value.as_u64())
+    }
+}
+
+impl From<&Nonce> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
+    fn from(value: &Nonce) -> Self {
+        Self((value.as_u32() as i32).into())
+    }
+}
+
+impl From<&Slot> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
+    fn from(value: &Slot) -> Self {
+        Self((value.as_u32() as i32).into())
     }
 }
 
@@ -429,15 +480,42 @@ impl From<&MinaBaseAccountUpdateFeePayerStableV1> for FeePayer {
     }
 }
 
+impl From<&FeePayer> for MinaBaseAccountUpdateFeePayerStableV1 {
+    fn from(value: &FeePayer) -> Self {
+        Self {
+            body: MinaBaseAccountUpdateBodyFeePayerStableV1 {
+                public_key: (&value.body.public_key).into(),
+                fee: (&value.body.fee).into(),
+                valid_until: value.body.valid_until.as_ref().map(|until| until.into()),
+                nonce: (&value.body.nonce).into(),
+            },
+            authorization: (&value.authorization).into(),
+        }
+    }
+}
+
 impl From<&MinaBaseAccountUpdateUpdateTimingInfoStableV1> for zkapp_command::Timing {
     fn from(t: &MinaBaseAccountUpdateUpdateTimingInfoStableV1) -> Self {
-        // TODO: The account update doesn't have `Self::Untimed`
         Self {
             initial_minimum_balance: Balance::from_u64(t.initial_minimum_balance.as_u64()),
             cliff_time: Slot::from_u32(t.cliff_time.as_u32()),
             cliff_amount: Amount::from_u64(t.cliff_amount.as_u64()),
             vesting_period: Slot::from_u32(t.vesting_period.as_u32()),
             vesting_increment: Amount::from_u64(t.vesting_increment.as_u64()),
+        }
+    }
+}
+
+impl From<&zkapp_command::Timing> for MinaBaseAccountUpdateUpdateTimingInfoStableV1 {
+    fn from(t: &zkapp_command::Timing) -> Self {
+        Self {
+            initial_minimum_balance: CurrencyBalanceStableV1(t.initial_minimum_balance.into()),
+            cliff_time: UnsignedExtendedUInt32StableV1((t.cliff_time.as_u32() as i32).into()),
+            cliff_amount: t.cliff_amount.into(),
+            vesting_period: UnsignedExtendedUInt32StableV1(
+                (t.vesting_period.as_u32() as i32).into(),
+            ),
+            vesting_increment: t.vesting_increment.into(),
         }
     }
 }
@@ -776,6 +854,141 @@ impl AsAccountUpdateWithHash for MinaBaseZkappCommandTStableV1WireStableV1Accoun
     }
 }
 
+impl From<&AccountUpdate> for MinaBaseAccountUpdateTWireStableV1 {
+    fn from(value: &AccountUpdate) -> Self {
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Delegate as Delegate;
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Permissions as Perm;
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Timing as Timing;
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1TokenSymbol as Symbol;
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1VerificationKey as VK;
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1VotingFor as Voting;
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1ZkappUri as Uri;
+        use MinaBaseAccountUpdateUpdateStableV1AppStateA as AppState;
+
+        Self {
+            body: MinaBaseAccountUpdateBodyWireStableV1 {
+                public_key: (&value.body.public_key).into(),
+                token_id: (&value.body.token_id).into(),
+                update: MinaBaseAccountUpdateUpdateStableV1 {
+                    app_state: PaddedSeq(std::array::from_fn(|i| match &value.body.update.app_state[i] {
+                        SetOrKeep::Set(bigint) => AppState::Set(bigint.into()),
+                        SetOrKeep::Keep => AppState::Keep,
+                    })),
+                    delegate: match &value.body.update.delegate {
+                        SetOrKeep::Set(v) => Delegate::Set(v.clone().into()),
+                        SetOrKeep::Keep => Delegate::Keep,
+                    },
+                    verification_key: match &value.body.update.verification_key {
+                        SetOrKeep::Set(vk) => VK::Set(Box::new((&vk.data).into())),
+                        SetOrKeep::Keep => VK::Keep,
+                    },
+                    permissions: match &value.body.update.permissions {
+                        SetOrKeep::Set(perms) => Perm::Set(Box::new(perms.into())),
+                        SetOrKeep::Keep => Perm::Keep,
+                    },
+                    zkapp_uri: match &value.body.update.zkapp_uri {
+                        SetOrKeep::Set(s) => Uri::Set(s.into()),
+                        SetOrKeep::Keep => Uri::Keep,
+                    },
+                    token_symbol: match &value.body.update.token_symbol {
+                        SetOrKeep::Set(s) => Symbol::Set(MinaBaseSokMessageDigestStableV1(s.into())),
+                        SetOrKeep::Keep => Symbol::Keep,
+                    },
+                    timing: match &value.body.update.timing {
+                        SetOrKeep::Set(timing) => Timing::Set(Box::new(timing.into())),
+                        SetOrKeep::Keep => Timing::Keep,
+                    },
+                    voting_for: match &value.body.update.voting_for {
+                        SetOrKeep::Set(bigint) => Voting::Set(DataHashLibStateHashStableV1(bigint.into())),
+                        SetOrKeep::Keep => Voting::Keep,
+                    },
+                },
+                balance_change: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount {
+                    magnitude: value.body.balance_change.magnitude.clone().into(),
+                    sgn: ((&value.body.balance_change.sgn).into(),),
+                },
+                increment_nonce: value.body.increment_nonce,
+                events: MinaBaseAccountUpdateBodyEventsStableV1(
+                    value
+                        .body
+                        .events
+                        .0
+                        .iter()
+                        .map(|e| e.iter().map(|e| e.into()).collect())
+                        .collect(),
+                ),
+                sequence_events: MinaBaseAccountUpdateBodyEventsStableV1(
+                    value
+                        .body
+                        .sequence_events
+                        .0
+                        .0
+                        .iter()
+                        .map(|e| e.iter().map(|e| e.into()).collect())
+                        .collect(),
+                ),
+                call_data: value.body.call_data.into(),
+                preconditions: todo!(), // TODO
+                // preconditions: (&value.body.preconditions).into(),
+                use_full_commitment: value.body.use_full_commitment,
+                caller: MinaBaseAccountUpdateCallTypeStableV1::Call, // Modified later with `to_wire`
+                authorization_kind: match value.body.authorization_kind {
+                    AuthorizationKind::NoneGiven => mina_p2p_messages::v2::MinaBaseAccountUpdateAuthorizationKindStableV1::NoneGiven ,
+                    AuthorizationKind::Signature => mina_p2p_messages::v2::MinaBaseAccountUpdateAuthorizationKindStableV1::Signature ,
+                    AuthorizationKind::Proof => mina_p2p_messages::v2::MinaBaseAccountUpdateAuthorizationKindStableV1::Proof ,
+                },
+            },
+            authorization: match &value.authorization {
+                zkapp_command::Control::Proof(proof) => mina_p2p_messages::v2::MinaBaseControlStableV2::Proof(Box::new(proof.clone())),
+                zkapp_command::Control::Signature(sig) => mina_p2p_messages::v2::MinaBaseControlStableV2::Signature(sig.into()),
+                zkapp_command::Control::NoneGiven => mina_p2p_messages::v2::MinaBaseControlStableV2::NoneGiven,
+            },
+        }
+    }
+}
+
+/// Childs
+impl From<&CallForest<()>>
+    for Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>
+{
+    fn from(value: &CallForest<()>) -> Self {
+        value
+            .0
+            .iter()
+            .map(
+                |update| MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA {
+                    elt: Box::new(MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
+                        account_update: (&update.elt.account_update.0).into(),
+                        account_update_digest: (),
+                        calls: (&update.elt.calls).into(),
+                    }),
+                    stack_hash: (),
+                },
+            )
+            .collect()
+    }
+}
+
+/// Root
+impl From<&CallForest<()>> for Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA> {
+    fn from(value: &CallForest<()>) -> Self {
+        value
+            .0
+            .iter()
+            .map(
+                |update| MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA {
+                    elt: MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
+                        account_update: (&update.elt.account_update.0).into(),
+                        account_update_digest: (),
+                        calls: (&update.elt.calls).into(),
+                    },
+                    stack_hash: (),
+                },
+            )
+            .collect()
+    }
+}
+
 impl From<&MinaBaseFeeTransferSingleStableV2> for SingleFeeTransfer {
     fn from(value: &MinaBaseFeeTransferSingleStableV2) -> Self {
         Self {
@@ -815,6 +1028,7 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                             transaction_applied::CommandApplied::SignedCommand(Box::new(
                                 transaction_applied::SignedCommandApplied {
                                     common: todo!(),
+
                                     body: match cmd.body {
                                         Payment { new_accounts } => {
                                             signed_command_applied::Body::Payments {
@@ -896,10 +1110,8 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                 },
             },
             state_hash: {
-                let state = value.state_hash.0.to_field();
-                let body = value.state_hash.1.to_field();
-
-                (state, body)
+                let (state, body) = &value.state_hash;
+                (state.to_field(), body.to_field())
             },
             statement: (&value.statement).into(),
             init_stack: match &value.init_stack {
@@ -917,12 +1129,62 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
     }
 }
 
+impl From<&TokenId> for mina_p2p_messages::v2::TokenIdKeyHash {
+    fn from(value: &TokenId) -> Self {
+        let id: MinaBaseAccountIdDigestStableV1 = value.clone().into();
+        id.into()
+    }
+}
+
 impl From<&Registers> for TransactionSnarkStatementWithSokStableV2Source {
     fn from(value: &Registers) -> Self {
         Self {
             ledger: MinaBaseLedgerHash0StableV1(value.ledger.into()).into(),
-            pending_coinbase_stack: todo!(),
-            local_state: todo!(),
+            pending_coinbase_stack: MinaBasePendingCoinbaseStackVersionedStableV1 {
+                data: MinaBasePendingCoinbaseCoinbaseStackStableV1(
+                    value.pending_coinbase_stack.data.0.into(),
+                ),
+                state: MinaBasePendingCoinbaseStateStackStableV1 {
+                    init: MinaBasePendingCoinbaseStackHashStableV1(
+                        value.pending_coinbase_stack.state.init.into(),
+                    ),
+                    curr: MinaBasePendingCoinbaseStackHashStableV1(
+                        value.pending_coinbase_stack.state.curr.into(),
+                    ),
+                },
+            },
+            local_state: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
+                stack_frame: MinaBaseStackFrameStableV1(value.local_state.stack_frame.into()),
+                call_stack: MinaBaseCallStackDigestStableV1(value.local_state.call_stack.into()),
+                transaction_commitment: value.local_state.transaction_commitment.into(),
+                full_transaction_commitment: value.local_state.full_transaction_commitment.into(),
+                token_id: (&value.local_state.token_id).into(),
+                excess: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount {
+                    magnitude: value.local_state.excess.magnitude.into(),
+                    sgn: ((&value.local_state.excess.sgn).into(),),
+                },
+                supply_increase:
+                    MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount {
+                        magnitude: value.local_state.supply_increase.magnitude.into(),
+                        sgn: ((&value.local_state.supply_increase.sgn).into(),),
+                    },
+                ledger: {
+                    let hash = MinaBaseLedgerHash0StableV1(value.local_state.ledger.into());
+                    hash.into()
+                },
+                success: value.local_state.success,
+                account_update_index: UnsignedExtendedUInt32StableV1(
+                    (value.local_state.account_update_index.0 as i32).into(),
+                ),
+                failure_status_tbl: MinaBaseTransactionStatusFailureCollectionStableV1(
+                    value
+                        .local_state
+                        .failure_status_tbl
+                        .iter()
+                        .map(|s| s.iter().map(|s| s.into()).collect())
+                        .collect(),
+                ),
+            },
         }
     }
 }
@@ -939,13 +1201,131 @@ impl From<&Statement> for TransactionSnarkStatementStableV2 {
     }
 }
 
+impl From<&Signature> for MinaBaseSignatureStableV1 {
+    fn from(value: &Signature) -> Self {
+        Self(value.0 .0.into(), value.0 .1.into())
+    }
+}
+
+impl From<&MinaBaseSignatureStableV1> for Signature {
+    fn from(value: &MinaBaseSignatureStableV1) -> Self {
+        Self((value.0.to_field(), value.1.to_field()))
+    }
+}
+
 impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithWitnessStableV2 {
     fn from(value: &TransactionWithWitness) -> Self {
+        use super::scan_state::transaction_snark::InitStack;
+        use mina_p2p_messages::v2::TransactionSnarkPendingCoinbaseStackStateInitStackStableV1::{
+            Base, Merge,
+        };
+
         Self {
-            transaction_with_info: todo!(),
-            state_hash: todo!(),
+            transaction_with_info: MinaTransactionLogicTransactionAppliedStableV2 {
+                previous_hash: {
+                    let hash = MinaBaseLedgerHash0StableV1(
+                        value.transaction_with_info.previous_hash.into(),
+                    );
+                    hash.into()
+                },
+                varying: match &value.transaction_with_info.varying {
+                    transaction_applied::Varying::Command(
+                        transaction_applied::CommandApplied::SignedCommand(cmd),
+                    ) => {
+                        MinaTransactionLogicTransactionAppliedVaryingStableV2::Command(
+                            MinaTransactionLogicTransactionAppliedCommandAppliedStableV2::SignedCommand(
+                                MinaTransactionLogicTransactionAppliedSignedCommandAppliedStableV2 {
+                                    common: MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2 {
+                                        user_command: MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2UserCommand {
+                                            data: MinaBaseSignedCommandStableV2 {
+                                                payload: MinaBaseSignedCommandPayloadStableV2 {
+                                                    common: MinaBaseSignedCommandPayloadCommonStableV2 {
+                                                        fee: (&cmd.common.user_command.data.payload.common.fee).into(),
+                                                        fee_payer_pk: (&cmd.common.user_command.data.payload.common.fee_payer_pk).into(),
+                                                        nonce: (&cmd.common.user_command.data.payload.common.nonce).into(),
+                                                        valid_until: (&cmd.common.user_command.data.payload.common.valid_until).into(),
+                                                        memo: MinaBaseSignedCommandMemoStableV1(cmd.common.user_command.data.payload.common.memo.as_slice().into()),
+                                                    },
+                                                    body: match &cmd.common.user_command.data.payload.body {
+                                                        crate::scan_state::transaction_logic::signed_command::Body::Payment(payload) => MinaBaseSignedCommandPayloadBodyStableV2::Payment(MinaBasePaymentPayloadStableV2 {
+                                                            source_pk: (&payload.source_pk).into(),
+                                                            receiver_pk: (&payload.receiver_pk).into(),
+                                                            amount: payload.amount.into(),
+                                                        }),
+                                                        crate::scan_state::transaction_logic::signed_command::Body::StakeDelegation(StakeDelegationPayload::SetDelegate { delegator, new_delegate }) =>
+                                                            MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(MinaBaseStakeDelegationStableV1::SetDelegate {
+                                                                delegator: delegator.into(),
+                                                                new_delegate: new_delegate.into()
+                                                            }),
+                                                    },
+                                                },
+                                                signer: (&cmd.common.user_command.data.signer).into(),
+                                                signature: (&cmd.common.user_command.data.signature).into(),
+                                            },
+                                            status: match &cmd.common.user_command.status {
+                                                TransactionStatus::Applied => MinaBaseTransactionStatusStableV2::Applied,
+                                                TransactionStatus::Failed(failures) => MinaBaseTransactionStatusStableV2::Failed(MinaBaseTransactionStatusFailureCollectionStableV1(failures.iter().map(|f| {
+                                                    f.iter().map(Into::into).collect()
+                                                }).collect())),
+                                            },
+                                        },
+                                    },
+                                    body: match &cmd.body {
+                                        transaction_applied::signed_command_applied::Body::Payments { new_accounts } =>
+                                            MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2::Payment {
+                                            new_accounts: new_accounts.iter().cloned().map(Into::into).collect(),
+                                        },
+                                        transaction_applied::signed_command_applied::Body::StakeDelegation { previous_delegate } =>
+                                            MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2::StakeDelegation {
+                                            previous_delegate: previous_delegate.as_ref().map(Into::into)
+                                        },
+                                        transaction_applied::signed_command_applied::Body::Failed =>
+                                            MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2::Failed,
+                                    },
+                                }))
+                    }
+                    transaction_applied::Varying::Command(
+                        transaction_applied::CommandApplied::ZkappCommand(cmd),
+                    ) =>
+                        MinaTransactionLogicTransactionAppliedVaryingStableV2::Command(
+                            MinaTransactionLogicTransactionAppliedCommandAppliedStableV2::ZkappCommand(MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1 {
+                                accounts: cmd.accounts.iter().map(|(id, account_opt)| {
+                                    let id: MinaBaseAccountIdStableV2 = id.clone().into();
+                                    let account_opt = account_opt.as_ref().map(|acc| acc.clone().into());
+                                    (id, account_opt)
+                                }).collect(),
+                                command: MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command {
+                                    data: MinaBaseZkappCommandTStableV1WireStableV1 {
+                                        fee_payer: (&cmd.command.data.fee_payer).into(),
+                                        account_updates: (&cmd.command.data.account_updates).into(),
+                                        memo: todo!(),
+                                    },
+                                    status: todo!(),
+                                },
+                                new_accounts: todo!(),
+                            })
+                        ),
+                    transaction_applied::Varying::FeeTransfer(_) => todo!(),
+                    transaction_applied::Varying::Coinbase(_) => todo!(),
+                },
+            },
+            state_hash: {
+                let (state, body) = &value.state_hash;
+                let state = DataHashLibStateHashStableV1(state.into());
+
+                (state.into(), MinaBaseStateBodyHashStableV1(body.into()))
+            },
             statement: (&value.statement).into(),
-            init_stack: todo!(),
+            init_stack: match &value.init_stack {
+                InitStack::Base(base) => Base(MinaBasePendingCoinbaseStackVersionedStableV1 {
+                    data: MinaBasePendingCoinbaseCoinbaseStackStableV1(base.data.0.into()),
+                    state: MinaBasePendingCoinbaseStateStackStableV1 {
+                        init: MinaBasePendingCoinbaseStackHashStableV1(base.state.init.into()),
+                        curr: MinaBasePendingCoinbaseStackHashStableV1(base.state.curr.into()),
+                    },
+                }),
+                InitStack::Merge => Merge,
+            },
             ledger_witness: todo!(), // value.ledger_witness.clone(),
         }
     }

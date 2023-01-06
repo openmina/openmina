@@ -64,6 +64,12 @@ impl TryFrom<&mina_p2p_messages::string::ByteString> for TokenSymbol {
     }
 }
 
+impl From<&TokenSymbol> for mina_p2p_messages::string::ByteString {
+    fn from(value: &TokenSymbol) -> Self {
+        value.0.as_bytes().into()
+    }
+}
+
 impl ToInputs for TokenSymbol {
     fn to_inputs(&self, inputs: &mut Inputs) {
         // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
@@ -367,6 +373,12 @@ impl TryFrom<&mina_p2p_messages::string::ByteString> for ZkAppUri {
 
     fn try_from(value: &mina_p2p_messages::string::ByteString) -> Result<Self, Self::Error> {
         Ok(Self(value.clone().try_into()?))
+    }
+}
+
+impl From<&ZkAppUri> for mina_p2p_messages::string::ByteString {
+    fn from(value: &ZkAppUri) -> Self {
+        Self::from(value.0.as_bytes())
     }
 }
 
