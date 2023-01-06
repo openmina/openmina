@@ -433,7 +433,6 @@ pub mod signed_command {
     #[derive(Debug, Clone)]
     pub struct Common {
         pub fee: Fee,
-        pub fee_token: TokenId,
         pub fee_payer_pk: CompressedPubKey,
         pub nonce: Nonce,
         pub valid_until: Slot,

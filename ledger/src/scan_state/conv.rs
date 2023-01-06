@@ -64,7 +64,7 @@ use mina_p2p_messages::{
 use crate::{
     array_into_with,
     scan_state::transaction_logic::{
-        signed_command::StakeDelegationPayload,
+        signed_command::{PaymentPayload, StakeDelegationPayload},
         zkapp_command::{self, AuthorizationKind, CallForest},
         WithStatus,
     },
@@ -159,6 +159,18 @@ impl From<&CurrencyFeeStableV1> for Fee {
 impl From<&Nonce> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
     fn from(value: &Nonce) -> Self {
         Self((value.as_u32() as i32).into())
+    }
+}
+
+impl From<&mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1> for Nonce {
+    fn from(value: &mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1) -> Self {
+        Self::from_u32(value.as_u32())
+    }
+}
+
+impl From<&mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1> for Slot {
+    fn from(value: &mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1) -> Self {
+        Self::from_u32(value.as_u32())
     }
 }
 
@@ -1293,9 +1305,42 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                         SignedCommand(cmd) => transaction_applied::Varying::Command(
                             transaction_applied::CommandApplied::SignedCommand(Box::new(
                                 transaction_applied::SignedCommandApplied {
-                                    common: todo!(),
-
-                                    body: match cmd.body {
+                                    common: transaction_applied::signed_command_applied::Common {
+                                        user_command: WithStatus {
+                                            data: transaction_logic::signed_command::SignedCommand {
+                                                payload: transaction_logic::signed_command::SignedCommandPayload {
+                                                    common: transaction_logic::signed_command::Common {
+                                                        fee: (&cmd.common.user_command.data.payload.common.fee).into(),
+                                                        fee_payer_pk: (&cmd.common.user_command.data.payload.common.fee_payer_pk).into(),
+                                                        nonce: (&cmd.common.user_command.data.payload.common.nonce).into(),
+                                                        valid_until: (&cmd.common.user_command.data.payload.common.valid_until).into(),
+                                                        memo: (&cmd.common.user_command.data.payload.common.memo).into(),
+                                                    },
+                                                    body: match &cmd.common.user_command.data.payload.body {
+                                                        MinaBaseSignedCommandPayloadBodyStableV2::Payment(payload) =>
+                                                            transaction_logic::signed_command::Body::Payment(PaymentPayload {
+                                                                source_pk: (&payload.source_pk).into(),
+                                                                receiver_pk: (&payload.receiver_pk).into(),
+                                                                amount: payload.amount.clone().into(),
+                                                            }),
+                                                        MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(
+                                                            MinaBaseStakeDelegationStableV1::SetDelegate { delegator, new_delegate }
+                                                        ) =>
+                                                            transaction_logic::signed_command::Body::StakeDelegation(
+                                                                StakeDelegationPayload::SetDelegate {
+                                                                    delegator: delegator.into(),
+                                                                    new_delegate: new_delegate.into(),
+                                                                }
+                                                            ),
+                                                    },
+                                                },
+                                                signer: (&cmd.common.user_command.data.signer).into(),
+                                                signature: (&cmd.common.user_command.data.signature).into(),
+                                            },
+                                            status: (&cmd.common.user_command.status).into(),
+                                        },
+                                    },
+                                    body: match &cmd.body {
                                         Payment { new_accounts } => {
                                             signed_command_applied::Body::Payments {
                                                 new_accounts: new_accounts
@@ -1630,7 +1675,7 @@ impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithW
                 }),
                 InitStack::Merge => Merge,
             },
-            ledger_witness: todo!(), // value.ledger_witness.clone(),
+            ledger_witness: (&value.ledger_witness).into(),
         }
     }
 }
