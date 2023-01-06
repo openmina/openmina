@@ -175,6 +175,12 @@ pub trait BaseLedger {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AccountIndex(pub u64);
 
+impl AccountIndex {
+    pub fn as_u64(&self) -> u64 {
+        self.0
+    }
+}
+
 impl PartialEq<u64> for AccountIndex {
     fn eq(&self, other: &u64) -> bool {
         self.0 == *other

@@ -377,7 +377,8 @@ impl Coinbase {
 #[derive(Debug, Clone)]
 pub struct Signature(pub(super) (Fp, Fp)); // TODO: Not sure if it's correct
 
-pub type Memo = Vec<u8>;
+#[derive(Debug, Clone, derive_more::Deref, derive_more::From)]
+pub struct Memo(Vec<u8>);
 
 #[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Slot(pub(super) u32);
@@ -2889,7 +2890,7 @@ pub mod transaction_union_payload {
                 roi = roi.append_u32(self.common.valid_until.0);
 
                 // memo
-                roi = roi.append_bytes(&self.common.memo);
+                roi = roi.append_bytes(&self.common.memo.0.as_slice());
             }
 
             // Self.body

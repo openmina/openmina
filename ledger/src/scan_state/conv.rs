@@ -3,6 +3,7 @@
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     pseq::PaddedSeq,
+    string::CharString,
     v2::{
         BlockTimeTimeStableV1, CurrencyAmountStableV1, CurrencyBalanceStableV1,
         CurrencyFeeStableV1, DataHashLibStateHashStableV1, EpochSeed, LedgerProofProdStableV2,
@@ -13,22 +14,23 @@ use mina_p2p_messages::{
         MinaBaseAccountUpdateTWireStableV1, MinaBaseAccountUpdateUpdateStableV1,
         MinaBaseAccountUpdateUpdateStableV1AppStateA,
         MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseCallStackDigestStableV1,
-        MinaBaseEpochSeedStableV1, MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee,
-        MinaBaseFeeTransferSingleStableV2, MinaBaseFeeTransferStableV2,
-        MinaBaseLedgerHash0StableV1, MinaBasePaymentPayloadStableV2,
+        MinaBaseCoinbaseFeeTransferStableV1, MinaBaseCoinbaseStableV1, MinaBaseEpochSeedStableV1,
+        MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee, MinaBaseFeeTransferSingleStableV2,
+        MinaBaseFeeTransferStableV2, MinaBaseLedgerHash0StableV1, MinaBasePaymentPayloadStableV2,
         MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseStackHashStableV1,
         MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
-        MinaBaseSignatureStableV1, MinaBaseSignedCommandMemoStableV1,
-        MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandPayloadCommonStableV2,
-        MinaBaseSignedCommandPayloadStableV2, MinaBaseSignedCommandStableV2,
-        MinaBaseSokMessageDigestStableV1, MinaBaseSokMessageStableV1, MinaBaseStackFrameStableV1,
-        MinaBaseStakeDelegationStableV1, MinaBaseStateBodyHashStableV1,
-        MinaBaseTransactionStatusFailureCollectionStableV1,
+        MinaBaseReceiptChainHashStableV1, MinaBaseSignatureStableV1,
+        MinaBaseSignedCommandMemoStableV1, MinaBaseSignedCommandPayloadBodyStableV2,
+        MinaBaseSignedCommandPayloadCommonStableV2, MinaBaseSignedCommandPayloadStableV2,
+        MinaBaseSignedCommandStableV2, MinaBaseSokMessageDigestStableV1,
+        MinaBaseSokMessageStableV1, MinaBaseStackFrameStableV1, MinaBaseStakeDelegationStableV1,
+        MinaBaseStateBodyHashStableV1, MinaBaseTransactionStatusFailureCollectionStableV1,
         MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2,
         MinaBaseZkappCommandTStableV1WireStableV1,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA,
+        MinaBaseZkappPreconditionAccountStableV2, MinaBaseZkappPreconditionAccountStableV2BalanceA,
         MinaBaseZkappPreconditionProtocolStateEpochDataStableV1,
         MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger,
         MinaBaseZkappPreconditionProtocolStateStableV1,
@@ -36,7 +38,11 @@ use mina_p2p_messages::{
         MinaBaseZkappPreconditionProtocolStateStableV1Length,
         MinaBaseZkappPreconditionProtocolStateStableV1LengthA,
         MinaBaseZkappPreconditionProtocolStateStableV1TimeA,
+        MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2,
+        MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2Coinbase,
         MinaTransactionLogicTransactionAppliedCommandAppliedStableV2,
+        MinaTransactionLogicTransactionAppliedFeeTransferAppliedStableV2,
+        MinaTransactionLogicTransactionAppliedFeeTransferAppliedStableV2FeeTransfer,
         MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2,
         MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2,
         MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2UserCommand,
@@ -74,13 +80,14 @@ use super::{
         TransactionWithWitness,
     },
     transaction_logic::{
+        self,
         local_state::LocalState,
         transaction_applied::{self, TransactionApplied},
         zkapp_command::{
             AccountUpdate, BlockTime, FeePayer, FeePayerBody, Nonce, SetOrKeep, WithHash,
             WithStackHash,
         },
-        FeeTransfer, Index, Signature, SingleFeeTransfer, Slot, TransactionFailure,
+        FeeTransfer, Index, Memo, Signature, SingleFeeTransfer, Slot, TransactionFailure,
         TransactionStatus,
     },
 };
@@ -102,6 +109,12 @@ impl From<Amount> for CurrencyAmountStableV1 {
         Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
             (value.0 as i64).into(),
         ))
+    }
+}
+
+impl From<&Balance> for CurrencyBalanceStableV1 {
+    fn from(value: &Balance) -> Self {
+        Self((*value).into())
     }
 }
 
@@ -671,7 +684,7 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash as Ledger;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Time as Time;
         use zkapp_command::AccountPreconditions;
-        use zkapp_command::{BlockTime, ClosedInterval, Numeric, OrIgnore};
+        use zkapp_command::{ClosedInterval, Numeric, OrIgnore};
         use MinaBaseZkappPreconditionProtocolStateStableV1Length as MLength;
 
         Self {
@@ -791,7 +804,7 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash as Ledger;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Time as Time;
         use zkapp_command::AccountPreconditions;
-        use zkapp_command::{BlockTime, ClosedInterval, Numeric, OrIgnore};
+        use zkapp_command::{Numeric, OrIgnore};
         use MinaBaseZkappPreconditionProtocolStateStableV1Length as MLength;
 
         Self {
@@ -845,65 +858,66 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
                 staking_epoch_data: (&value.network.staking_epoch_data).into(),
                 next_epoch_data: (&value.network.staking_epoch_data).into(),
             },
-            account: todo!(),
-            // account: match &value.account {
-            //     AccountPreconditions::Full(account) => {
-            //         use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Balance as MBalance;
-            //         use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Delegate as Delegate;
-            //         use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ProvedState as Proved;
-            //         use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash as Receipt;
-            //         use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2StateA as State;
-            //         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Length as MNonce;
+            account: match &value.account {
+                AccountPreconditions::Full(account) => {
+                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Balance as MBalance;
+                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Delegate as Delegate;
+                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ProvedState as Proved;
+                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash as Receipt;
+                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2StateA as State;
+                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Length as MNonce;
 
-            //         let account = &**account;
-            //         MAccount::Full(Box::new(zkapp_command::Account {
-            //             balance: match &account.balance {
-            //                 MBalance::Check(balance) => OrIgnore::Check(ClosedInterval {
-            //                     lower: Balance::from_u64(balance.lower.0.as_u64()),
-            //                     upper: Balance::from_u64(balance.upper.0.as_u64()),
-            //                 }),
-            //                 MBalance::Ignore => OrIgnore::Ignore,
-            //             },
-            //             nonce: match &account.nonce {
-            //                 MNonce::Check(balance) => OrIgnore::Check(ClosedInterval {
-            //                     lower: Nonce::from_u32(balance.lower.0.as_u32()),
-            //                     upper: Nonce::from_u32(balance.upper.0.as_u32()),
-            //                 }),
-            //                 MNonce::Ignore => OrIgnore::Ignore,
-            //             },
-            //             receipt_chain_hash: match &account.receipt_chain_hash {
-            //                 Receipt::Check(hash) => OrIgnore::Check(hash.to_field()),
-            //                 Receipt::Ignore => OrIgnore::Ignore,
-            //             },
-            //             delegate: match &account.delegate {
-            //                 Delegate::Check(delegate) => {
-            //                     OrIgnore::Check(delegate.clone().into_inner().into())
-            //                 }
-            //                 Delegate::Ignore => OrIgnore::Ignore,
-            //             },
-            //             state: array_into_with(&account.state, |s| match s {
-            //                 State::Check(s) => OrIgnore::Check(s.to_field()),
-            //                 State::Ignore => OrIgnore::Ignore,
-            //             }),
-            //             sequence_state: match &account.sequence_state {
-            //                 State::Check(s) => OrIgnore::Check(s.to_field()),
-            //                 State::Ignore => OrIgnore::Ignore,
-            //             },
-            //             proved_state: match account.proved_state {
-            //                 Proved::Check(state) => OrIgnore::Check(state),
-            //                 Proved::Ignore => OrIgnore::Ignore,
-            //             },
-            //             is_new: match account.is_new {
-            //                 Proved::Check(state) => OrIgnore::Check(state),
-            //                 Proved::Ignore => OrIgnore::Ignore,
-            //             },
-            //         }))
-            //     }
-            //     MAccount::Nonce(nonce) => {
-            //         AccountPreconditions::Nonce(Nonce::from_u32(nonce.as_u32()))
-            //     }
-            //     AccountPreconditions::Accept => MAccount::Accept,
-            // },
+                    let account = &**account;
+                    MAccount::Full(Box::new(MinaBaseZkappPreconditionAccountStableV2 {
+                        balance: match &account.balance {
+                            OrIgnore::Check(balance) => {
+                                MBalance::Check(MinaBaseZkappPreconditionAccountStableV2BalanceA {
+                                    lower: (&balance.lower).into(),
+                                    upper: (&balance.upper).into(),
+                                })
+                            }
+                            OrIgnore::Ignore => MBalance::Ignore,
+                        },
+                        nonce: match &account.nonce {
+                            OrIgnore::Check(nonce) => MNonce::Check(
+                                MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
+                                    lower: (&nonce.lower).into(),
+                                    upper: (&nonce.upper).into(),
+                                },
+                            ),
+                            OrIgnore::Ignore => MNonce::Ignore,
+                        },
+                        receipt_chain_hash: match &account.receipt_chain_hash {
+                            OrIgnore::Check(hash) => {
+                                Receipt::Check(MinaBaseReceiptChainHashStableV1(hash.into()))
+                            }
+                            OrIgnore::Ignore => Receipt::Ignore,
+                        },
+                        delegate: match &account.delegate {
+                            OrIgnore::Check(delegate) => Delegate::Check(delegate.into()),
+                            OrIgnore::Ignore => Delegate::Ignore,
+                        },
+                        state: PaddedSeq(array_into_with(&account.state, |s| match s {
+                            OrIgnore::Check(s) => State::Check(s.into()),
+                            OrIgnore::Ignore => State::Ignore,
+                        })),
+                        sequence_state: match &account.sequence_state {
+                            OrIgnore::Check(s) => State::Check(s.into()),
+                            OrIgnore::Ignore => State::Ignore,
+                        },
+                        proved_state: match account.proved_state {
+                            OrIgnore::Check(state) => Proved::Check(state),
+                            OrIgnore::Ignore => Proved::Ignore,
+                        },
+                        is_new: match account.is_new {
+                            OrIgnore::Check(state) => Proved::Check(state),
+                            OrIgnore::Ignore => Proved::Ignore,
+                        },
+                    }))
+                }
+                AccountPreconditions::Nonce(nonce) => MAccount::Nonce(nonce.into()),
+                AccountPreconditions::Accept => MAccount::Accept,
+            },
         }
     }
 }
@@ -1012,7 +1026,6 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
 impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>> for CallForest<()> {
     fn from(value: &Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>) -> Self {
         use ark_ff::Zero;
-        use mina_hasher::Fp;
 
         Self(
             value
@@ -1034,7 +1047,6 @@ impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>>
 impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>> for CallForest<()> {
     fn from(value: &Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>) -> Self {
         use ark_ff::Zero;
-        use mina_hasher::Fp;
 
         let values = value
             .iter()
@@ -1124,7 +1136,7 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTWireStableV1 {
                     },
                 },
                 balance_change: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount {
-                    magnitude: value.body.balance_change.magnitude.clone().into(),
+                    magnitude: value.body.balance_change.magnitude.into(),
                     sgn: ((&value.body.balance_change.sgn).into(),),
                 },
                 increment_nonce: value.body.increment_nonce,
@@ -1148,7 +1160,6 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTWireStableV1 {
                         .collect(),
                 ),
                 call_data: value.body.call_data.into(),
-                // preconditions: todo!(), // TODO
                 preconditions: (&value.body.preconditions).into(),
                 use_full_commitment: value.body.use_full_commitment,
                 caller: MinaBaseAccountUpdateCallTypeStableV1::Call, // Modified later with `to_wire`
@@ -1192,6 +1203,8 @@ impl From<&CallForest<()>>
 /// Root
 impl From<&CallForest<()>> for Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA> {
     fn from(value: &CallForest<()>) -> Self {
+        // TODO: to_wire
+
         value
             .0
             .iter()
@@ -1219,6 +1232,16 @@ impl From<&MinaBaseFeeTransferSingleStableV2> for SingleFeeTransfer {
     }
 }
 
+impl From<&SingleFeeTransfer> for MinaBaseFeeTransferSingleStableV2 {
+    fn from(value: &SingleFeeTransfer) -> Self {
+        Self {
+            receiver_pk: (&value.receiver_pk).into(),
+            fee: (&value.fee).into(),
+            fee_token: (&value.fee_token).into(),
+        }
+    }
+}
+
 impl From<&MinaBaseFeeTransferStableV2> for FeeTransfer {
     fn from(value: &MinaBaseFeeTransferStableV2) -> Self {
         use super::scan_state::transaction_snark::OneOrTwo::{One, Two};
@@ -1227,6 +1250,29 @@ impl From<&MinaBaseFeeTransferStableV2> for FeeTransfer {
             MinaBaseFeeTransferStableV2::One(ft) => FeeTransfer(One(ft.into())),
             MinaBaseFeeTransferStableV2::Two((a, b)) => FeeTransfer(Two((a.into(), b.into()))),
         }
+    }
+}
+
+impl From<&FeeTransfer> for MinaBaseFeeTransferStableV2 {
+    fn from(value: &FeeTransfer) -> Self {
+        use super::scan_state::transaction_snark::OneOrTwo::{One, Two};
+
+        match &value.0 {
+            One(ft) => MinaBaseFeeTransferStableV2::One(ft.into()),
+            Two((a, b)) => MinaBaseFeeTransferStableV2::Two((a.into(), b.into())),
+        }
+    }
+}
+
+impl From<&MinaBaseSignedCommandMemoStableV1> for Memo {
+    fn from(value: &MinaBaseSignedCommandMemoStableV1) -> Self {
+        Self::from(value.0.as_ref().to_vec())
+    }
+}
+
+impl From<&Memo> for MinaBaseSignedCommandMemoStableV1 {
+    fn from(value: &Memo) -> Self {
+        Self(CharString::from(value.as_slice().to_vec()))
     }
 }
 
@@ -1291,7 +1337,7 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                                             fee_payer: (&cmd.command.data.fee_payer).into(),
                                             account_updates: (&cmd.command.data.account_updates)
                                                 .into(),
-                                            memo: cmd.command.data.memo.0.as_ref().to_vec(),
+                                            memo: (&cmd.command.data.memo).into(),
                                         },
                                         status: (&cmd.command.status).into(),
                                     },
@@ -1433,6 +1479,26 @@ impl From<&MinaBaseSignatureStableV1> for Signature {
     }
 }
 
+impl From<&transaction_logic::Coinbase> for MinaBaseCoinbaseStableV1 {
+    fn from(value: &transaction_logic::Coinbase) -> Self {
+        Self {
+            receiver: (&value.receiver).into(),
+            amount: value.amount.into(),
+            fee_transfer: value.fee_transfer.as_ref().map(|ft| {
+                MinaBaseCoinbaseFeeTransferStableV1 {
+                    receiver_pk: (&ft.receiver_pk).into(),
+                    fee: (&ft.fee).into(),
+                }
+            }),
+        }
+    }
+}
+
+pub fn to_ledger_hash(value: &Fp) -> mina_p2p_messages::v2::LedgerHash {
+    let hash = MinaBaseLedgerHash0StableV1(value.into());
+    hash.into()
+}
+
 impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithWitnessStableV2 {
     fn from(value: &TransactionWithWitness) -> Self {
         use super::scan_state::transaction_snark::InitStack;
@@ -1467,27 +1533,25 @@ impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithW
                                                         memo: MinaBaseSignedCommandMemoStableV1(cmd.common.user_command.data.payload.common.memo.as_slice().into()),
                                                     },
                                                     body: match &cmd.common.user_command.data.payload.body {
-                                                        crate::scan_state::transaction_logic::signed_command::Body::Payment(payload) => MinaBaseSignedCommandPayloadBodyStableV2::Payment(MinaBasePaymentPayloadStableV2 {
-                                                            source_pk: (&payload.source_pk).into(),
-                                                            receiver_pk: (&payload.receiver_pk).into(),
-                                                            amount: payload.amount.into(),
-                                                        }),
-                                                        crate::scan_state::transaction_logic::signed_command::Body::StakeDelegation(StakeDelegationPayload::SetDelegate { delegator, new_delegate }) =>
-                                                            MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(MinaBaseStakeDelegationStableV1::SetDelegate {
-                                                                delegator: delegator.into(),
-                                                                new_delegate: new_delegate.into()
+                                                        crate::scan_state::transaction_logic::signed_command::Body::Payment(payload) =>
+                                                            MinaBaseSignedCommandPayloadBodyStableV2::Payment(MinaBasePaymentPayloadStableV2 {
+                                                                source_pk: (&payload.source_pk).into(),
+                                                                receiver_pk: (&payload.receiver_pk).into(),
+                                                                amount: payload.amount.into(),
                                                             }),
+                                                        crate::scan_state::transaction_logic::signed_command::Body::StakeDelegation(
+                                                            StakeDelegationPayload::SetDelegate { delegator, new_delegate }) =>
+                                                            MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(
+                                                                MinaBaseStakeDelegationStableV1::SetDelegate {
+                                                                    delegator: delegator.into(),
+                                                                    new_delegate: new_delegate.into()
+                                                                }),
                                                     },
                                                 },
                                                 signer: (&cmd.common.user_command.data.signer).into(),
                                                 signature: (&cmd.common.user_command.data.signature).into(),
                                             },
-                                            status: match &cmd.common.user_command.status {
-                                                TransactionStatus::Applied => MinaBaseTransactionStatusStableV2::Applied,
-                                                TransactionStatus::Failed(failures) => MinaBaseTransactionStatusStableV2::Failed(MinaBaseTransactionStatusFailureCollectionStableV1(failures.iter().map(|f| {
-                                                    f.iter().map(Into::into).collect()
-                                                }).collect())),
-                                            },
+                                            status: (&cmd.common.user_command.status).into(),
                                         },
                                     },
                                     body: match &cmd.body {
@@ -1508,7 +1572,8 @@ impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithW
                         transaction_applied::CommandApplied::ZkappCommand(cmd),
                     ) =>
                         MinaTransactionLogicTransactionAppliedVaryingStableV2::Command(
-                            MinaTransactionLogicTransactionAppliedCommandAppliedStableV2::ZkappCommand(MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1 {
+                            MinaTransactionLogicTransactionAppliedCommandAppliedStableV2::ZkappCommand(
+                                MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1 {
                                 accounts: cmd.accounts.iter().map(|(id, account_opt)| {
                                     let id: MinaBaseAccountIdStableV2 = id.clone().into();
                                     let account_opt = account_opt.as_ref().map(|acc| acc.clone().into());
@@ -1518,15 +1583,34 @@ impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithW
                                     data: MinaBaseZkappCommandTStableV1WireStableV1 {
                                         fee_payer: (&cmd.command.data.fee_payer).into(),
                                         account_updates: (&cmd.command.data.account_updates).into(),
-                                        memo: todo!(),
+                                        memo: (&cmd.command.data.memo).into(),
                                     },
-                                    status: todo!(),
+                                    status: (&cmd.command.status).into(),
                                 },
-                                new_accounts: todo!(),
+                                new_accounts: cmd.new_accounts.iter().cloned().map(Into::into).collect(),
                             })
                         ),
-                    transaction_applied::Varying::FeeTransfer(_) => todo!(),
-                    transaction_applied::Varying::Coinbase(_) => todo!(),
+                    transaction_applied::Varying::FeeTransfer(ft) =>
+                        MinaTransactionLogicTransactionAppliedVaryingStableV2::FeeTransfer(
+                            MinaTransactionLogicTransactionAppliedFeeTransferAppliedStableV2 {
+                                fee_transfer: MinaTransactionLogicTransactionAppliedFeeTransferAppliedStableV2FeeTransfer {
+                                    data: (&ft.fee_transfer.data).into(),
+                                    status: (&ft.fee_transfer.status).into(),
+                                },
+                                new_accounts: ft.new_accounts.iter().cloned().map(Into::into).collect(),
+                                burned_tokens: ft.burned_tokens.into(),
+                            }),
+                    transaction_applied::Varying::Coinbase(cb) =>
+                        MinaTransactionLogicTransactionAppliedVaryingStableV2::Coinbase(
+                            MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2 {
+                                coinbase: MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2Coinbase {
+                                    data: (&cb.coinbase.data).into(),
+                                    status: (&cb.coinbase.status).into(),
+                                },
+                                new_accounts: cb.new_accounts.iter().cloned().map(Into::into).collect(),
+                                burned_tokens: cb.burned_tokens.into(),
+                            }
+                        ),
                 },
             },
             state_hash: {

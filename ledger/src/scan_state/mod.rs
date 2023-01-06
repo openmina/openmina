@@ -1,4 +1,4 @@
-mod conv;
+pub mod conv;
 pub mod currency;
 pub mod fee_excess;
 mod parallel_scan;
