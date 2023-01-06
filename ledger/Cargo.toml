@@ -33,6 +33,7 @@ binprot_derive = { git = "https://github.com/name-placeholder/binprot-rs", rev =
 
 sha2 = "0.10"
 base64 = "0.13"
+static_assertions = "1.1"
 
 # oracle = { path = "../oracle" }
 # mina-curves = { path = "../curves" }

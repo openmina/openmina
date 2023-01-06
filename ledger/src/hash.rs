@@ -262,6 +262,12 @@ impl ToInputs for crate::TokenId {
     }
 }
 
+impl ToInputs for bool {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        inputs.append_bool(*self);
+    }
+}
+
 impl ToInputs for currency::Amount {
     fn to_inputs(&self, inputs: &mut Inputs) {
         inputs.append_u64(self.as_u64());

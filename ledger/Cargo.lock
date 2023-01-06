@@ -212,9 +212,9 @@ dependencies = [
 
 [[package]]
 name = "blake2"
-version = "0.10.4"
+version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9cf849ee05b2ee5fba5e36f97ff8ec2533916700fc0758d40d92136a42f3388"
+checksum = "b12e5fd123190ce1c2e559308a94c9bacad77907d4c6005d9e58fe1a0689e55e"
 dependencies = [
  "digest 0.10.3",
 ]
@@ -803,7 +803,7 @@ dependencies = [
 [[package]]
 name = "mina-p2p-messages"
 version = "0.6.4"
-source = "git+https://github.com/name-placeholder/mina-p2p-messages-rs#a255ad2ef1f1f12712375ccc637611731375f74b"
+source = "git+https://github.com/name-placeholder/mina-p2p-messages-rs#ea3a4362f6beb0bffc4c8b236dc3e473e2fc93b6"
 dependencies = [
  "ark-ff",
  "base64",
@@ -871,6 +871,7 @@ dependencies = [
  "rand",
  "rayon",
  "sha2 0.10.5",
+ "static_assertions",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-test",
@@ -979,6 +980,7 @@ dependencies = [
 [[package]]
 name = "ocaml-interop"
 version = "0.8.8"
+source = "git+https://github.com/sebastiencs/ocaml-interop.git?branch=closure-values-dbg#22410feff70180f08ba2602fcf0ec36912cfab88"
 dependencies = [
  "ocaml-boxroot-sys",
  "ocaml-sys",

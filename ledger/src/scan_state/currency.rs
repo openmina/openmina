@@ -171,6 +171,14 @@ impl Amount {
     pub fn scale(&self, n: u64) -> Option<Self> {
         self.checked_mul(&Self::from_u64(n))
     }
+
+    pub fn min() -> Self {
+        Self(0)
+    }
+
+    pub fn max() -> Self {
+        Self(u64::MAX)
+    }
 }
 
 #[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -217,6 +225,14 @@ impl Balance {
 
     pub fn from_u64(balance: u64) -> Self {
         Self(balance)
+    }
+
+    pub fn min() -> Self {
+        Self(0)
+    }
+
+    pub fn max() -> Self {
+        Self(u64::MAX)
     }
 }
 

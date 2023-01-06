@@ -1,3 +1,5 @@
+#![allow(unused_variables, unreachable_code)]
+
 use mina_p2p_messages::v2::{
     CurrencyAmountStableV1, CurrencyFeeStableV1, LedgerProofProdStableV2,
     MinaBaseAccountIdDigestStableV1, MinaBaseAccountUpdateFeePayerStableV1,
@@ -675,7 +677,7 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
                         .map(|e| e.iter().map(|e| e.to_field()).collect())
                         .collect(),
                 ),
-                sequence_events: zkapp_command::Events(
+                sequence_events: zkapp_command::SequenceEvents(zkapp_command::Events(
                     value
                         .body
                         .sequence_events
@@ -683,7 +685,7 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
                         .iter()
                         .map(|e| e.iter().map(|e| e.to_field()).collect())
                         .collect(),
-                ),
+                )),
                 call_data: value.body.call_data.to_field(),
                 preconditions: (&value.body.preconditions).into(),
                 use_full_commitment: value.body.use_full_commitment,

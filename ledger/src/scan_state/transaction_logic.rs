@@ -4,7 +4,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     scan_state::{currency::Magnitude, transaction_logic::transaction_applied::Varying},
     staged_ledger::sparse_ledger::{LedgerIntf, SparseLedger},
-    Account, AccountId, BaseLedger, ReceiptChainHash, Timing, TokenId, VerificationKey,
+    Account, AccountId, BaseLedger, ReceiptChainHash, Timing, ToInputs, TokenId, VerificationKey,
 };
 
 use self::{
@@ -382,6 +382,12 @@ pub type Memo = Vec<u8>;
 #[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Slot(pub(super) u32);
 
+impl ToInputs for Slot {
+    fn to_inputs(&self, inputs: &mut crate::Inputs) {
+        inputs.append_u32(self.0);
+    }
+}
+
 impl rand::distributions::Distribution<Slot> for rand::distributions::Standard {
     fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Slot {
         Slot(rng.next_u32())
@@ -403,6 +409,14 @@ impl Slot {
 
     pub fn from_u32(slot: u32) -> Self {
         Self(slot)
+    }
+
+    fn min() -> Self {
+        Self(0)
+    }
+
+    fn max() -> Self {
+        Self(u32::MAX)
     }
 }
 
@@ -590,14 +604,15 @@ pub mod zkapp_command {
         MinaBaseAccountUpdateTWireStableV1,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
     };
+    use static_assertions::assert_eq_size_val;
 
     use crate::{
-        hash_with_kimchi,
+        hash_noinputs, hash_with_kimchi,
         scan_state::{
             conv::AsAccountUpdateWithHash,
             currency::{Balance, Signed},
         },
-        AuthRequired, Inputs, Permissions, ToInputs, TokenSymbol, VerificationKey, ZkAppUri,
+        AuthRequired, Inputs, MyCow, Permissions, ToInputs, TokenSymbol, VerificationKey, ZkAppUri,
     };
 
     use super::*;
@@ -605,6 +620,69 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L834
     #[derive(Debug, Clone)]
     pub struct Events(pub Vec<Vec<Fp>>);
+
+    /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L155
+    #[derive(Debug, Clone)]
+    pub struct SequenceEvents(pub Events);
+
+    /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L23
+    trait MakeEvents {
+        const SALT_PHRASE: &'static str;
+        const HASH_PREFIX: &'static str;
+        const DERIVER_NAME: (); // Unused here for now
+
+        fn events(&self) -> &Events;
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L100
+    impl MakeEvents for Events {
+        const SALT_PHRASE: &'static str = "MinaZkappEventsEmpty";
+        const HASH_PREFIX: &'static str = "MinaZkappEvents";
+        const DERIVER_NAME: () = ();
+        fn events(&self) -> &Events {
+            self
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L156
+    impl MakeEvents for SequenceEvents {
+        const SALT_PHRASE: &'static str = "MinaZkappSequenceEmpty";
+        const HASH_PREFIX: &'static str = "MinaZkappSeqEvents";
+        const DERIVER_NAME: () = ();
+        fn events(&self) -> &Events {
+            &self.0
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L52
+    fn events_to_inputs<E>(e: &E, inputs: &mut Inputs)
+    where
+        E: MakeEvents,
+    {
+        fn hash_event(event: &[Fp]) -> Fp {
+            hash_with_kimchi("MinaZkappEvent", event)
+        }
+
+        let init = hash_noinputs(E::SALT_PHRASE);
+
+        let field = e.events().0.iter().rfold(init, |accum, elem| {
+            hash_with_kimchi(E::HASH_PREFIX, &[accum, hash_event(elem)])
+        });
+
+        inputs.append_field(field);
+    }
+
+    impl ToInputs for Events {
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            events_to_inputs(self, inputs);
+        }
+    }
+
+    impl ToInputs for SequenceEvents {
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            events_to_inputs(self, inputs);
+        }
+    }
 
     /// Note: It's a different one than in the normal `Account`
     ///
@@ -634,11 +712,19 @@ pub mod zkapp_command {
     impl ToInputs for Timing {
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L199
         fn to_inputs(&self, inputs: &mut Inputs) {
-            inputs.append_u64(self.initial_minimum_balance.as_u64());
-            inputs.append_u32(self.cliff_time.as_u32());
-            inputs.append_u64(self.cliff_amount.as_u64());
-            inputs.append_u32(self.vesting_period.as_u32());
-            inputs.append_u64(self.vesting_increment.as_u64());
+            let Timing {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } = self;
+
+            inputs.append_u64(initial_minimum_balance.as_u64());
+            inputs.append_u32(cliff_time.as_u32());
+            inputs.append_u64(cliff_amount.as_u64());
+            inputs.append_u32(vesting_period.as_u32());
+            inputs.append_u64(vesting_increment.as_u64());
         }
     }
 
@@ -661,21 +747,22 @@ pub mod zkapp_command {
         }
     }
 
-    impl<T, F, U> ToInputs for (&SetOrKeep<T>, F)
+    impl<T, F> ToInputs for (&SetOrKeep<T>, F)
     where
         T: ToInputs,
-        U: ToInputs,
-        F: Fn() -> U,
+        F: Fn() -> T,
     {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_basic.ml#L223
         fn to_inputs(&self, inputs: &mut Inputs) {
             match &self.0 {
                 SetOrKeep::Set(this) => {
-                    this.to_inputs(inputs);
                     inputs.append_bool(true);
+                    this.to_inputs(inputs);
                 }
                 SetOrKeep::Keep => {
-                    self.1().to_inputs(inputs);
                     inputs.append_bool(false);
+                    let default = self.1();
+                    default.to_inputs(inputs);
                 }
             };
         }
@@ -685,12 +772,6 @@ pub mod zkapp_command {
     pub struct WithHash<T> {
         pub data: T,
         pub hash: Fp,
-    }
-
-    impl<T> ToInputs for WithHash<T> {
-        fn to_inputs(&self, inputs: &mut Inputs) {
-            inputs.append_field(self.hash);
-        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L319
@@ -714,11 +795,45 @@ pub mod zkapp_command {
         pub upper: T,
     }
 
+    impl<T> ToInputs for ClosedInterval<T>
+    where
+        T: ToInputs,
+    {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_precondition.ml#L37
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            let ClosedInterval { lower, upper } = self;
+
+            lower.to_inputs(inputs);
+            upper.to_inputs(inputs);
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_basic.ml#L232
     #[derive(Debug, Clone)]
     pub enum OrIgnore<T> {
         Check(T),
         Ignore,
+    }
+
+    impl<T, F> ToInputs for (&OrIgnore<T>, F)
+    where
+        T: ToInputs,
+        F: Fn() -> T,
+    {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_precondition.ml#L414
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            match &self.0 {
+                OrIgnore::Check(this) => {
+                    inputs.append_bool(true);
+                    this.to_inputs(inputs);
+                }
+                OrIgnore::Ignore => {
+                    inputs.append_bool(false);
+                    let default = self.1();
+                    default.to_inputs(inputs);
+                }
+            };
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L439
@@ -735,9 +850,23 @@ pub mod zkapp_command {
     #[derive(Debug, Clone)]
     pub struct BlockTime(pub(super) u64);
 
+    impl ToInputs for BlockTime {
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            inputs.append_u64(self.0);
+        }
+    }
+
     impl BlockTime {
         pub fn from_u64(n: u64) -> Self {
             Self(n)
+        }
+
+        fn min() -> Self {
+            Self(0)
+        }
+
+        fn max() -> Self {
+            Self(u64::MAX)
         }
     }
 
@@ -745,9 +874,23 @@ pub mod zkapp_command {
     #[derive(Debug, Clone)]
     pub struct Length(pub(super) u32);
 
+    impl ToInputs for Length {
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            inputs.append_u32(self.0);
+        }
+    }
+
     impl Length {
         pub fn from_u32(n: u32) -> Self {
             Self(n)
+        }
+
+        fn min() -> Self {
+            Self(0)
+        }
+
+        fn max() -> Self {
+            Self(u32::MAX)
         }
     }
 
@@ -768,6 +911,40 @@ pub mod zkapp_command {
         pub epoch_length: Numeric<Length>,
     }
 
+    impl ToInputs for EpochData {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_precondition.ml#L875
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            let EpochData {
+                ledger,
+                seed,
+                start_checkpoint,
+                lock_checkpoint,
+                epoch_length,
+            } = self;
+
+            {
+                let EpochLedger {
+                    hash,
+                    total_currency,
+                } = ledger;
+
+                inputs.append(&(hash, Fp::zero));
+                inputs.append(&(total_currency, || ClosedInterval {
+                    lower: Amount::min(),
+                    upper: Amount::max(),
+                }));
+            }
+
+            inputs.append(&(seed, Fp::zero));
+            inputs.append(&(start_checkpoint, Fp::zero));
+            inputs.append(&(lock_checkpoint, Fp::zero));
+            inputs.append(&(epoch_length, || ClosedInterval {
+                lower: Length::min(),
+                upper: Length::max(),
+            }));
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L977
     #[derive(Debug, Clone)]
     pub struct ZkAppPreconditions {
@@ -783,9 +960,65 @@ pub mod zkapp_command {
         pub next_epoch_data: EpochData,
     }
 
+    impl ToInputs for ZkAppPreconditions {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_precondition.ml#L1052
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            let ZkAppPreconditions {
+                snarked_ledger_hash,
+                timestamp,
+                blockchain_length,
+                min_window_density,
+                last_vrf_output,
+                total_currency,
+                global_slot_since_hard_fork,
+                global_slot_since_genesis,
+                staking_epoch_data,
+                next_epoch_data,
+            } = &self;
+
+            assert_eq_size_val!(*last_vrf_output, ());
+
+            let default_length = || ClosedInterval {
+                lower: Length::min(),
+                upper: Length::max(),
+            };
+
+            let default_slot = || ClosedInterval {
+                lower: Slot::min(),
+                upper: Slot::max(),
+            };
+
+            inputs.append(&(snarked_ledger_hash, Fp::zero));
+            inputs.append(&(timestamp, || ClosedInterval {
+                lower: BlockTime::min(),
+                upper: BlockTime::max(),
+            }));
+
+            inputs.append(&(blockchain_length, default_length));
+            inputs.append(&(min_window_density, default_length));
+
+            inputs.append(&(total_currency, || ClosedInterval {
+                lower: Amount::min(),
+                upper: Amount::max(),
+            }));
+
+            inputs.append(&(global_slot_since_hard_fork, default_slot));
+            inputs.append(&(global_slot_since_genesis, default_slot));
+
+            inputs.append(staking_epoch_data);
+            inputs.append(next_epoch_data);
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_numbers/account_nonce.mli#L2
     #[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
     pub struct Nonce(pub(super) u32);
+
+    impl ToInputs for Nonce {
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            inputs.append_u32(self.0);
+        }
+    }
 
     impl Nonce {
         pub fn is_zero(&self) -> bool {
@@ -808,6 +1041,14 @@ pub mod zkapp_command {
         pub fn incr(&self) -> Self {
             Self(self.0.wrapping_add(1))
         }
+
+        pub fn min() -> Self {
+            Self(0)
+        }
+
+        pub fn max() -> Self {
+            Self(u32::MAX)
+        }
     }
 
     impl rand::distributions::Distribution<Nonce> for rand::distributions::Standard {
@@ -829,12 +1070,83 @@ pub mod zkapp_command {
         pub is_new: EqData<bool>,
     }
 
+    impl Account {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_precondition.ml#L525
+        pub fn accept() -> Self {
+            Self {
+                balance: Numeric::Ignore,
+                nonce: Numeric::Ignore,
+                receipt_chain_hash: Hash::Ignore,
+                delegate: EqData::Ignore,
+                state: std::array::from_fn(|_| EqData::Ignore),
+                sequence_state: EqData::Ignore,
+                proved_state: EqData::Ignore,
+                is_new: EqData::Ignore,
+            }
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L613
     #[derive(Debug, Clone)]
     pub enum AccountPreconditions {
         Full(Box<Account>),
         Nonce(Nonce),
         Accept,
+    }
+
+    impl ToInputs for AccountPreconditions {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L635
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_precondition.ml#L568
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            let account = match self {
+                AccountPreconditions::Full(account) => MyCow::Borrow(&**account),
+                AccountPreconditions::Nonce(nonce) => {
+                    let mut account = Account::accept();
+                    account.nonce = Numeric::Check(ClosedInterval {
+                        lower: *nonce,
+                        upper: *nonce,
+                    });
+                    MyCow::Own(account)
+                }
+                AccountPreconditions::Accept => MyCow::Own(Account::accept()),
+            };
+
+            let Account {
+                balance,
+                nonce,
+                receipt_chain_hash,
+                delegate,
+                state,
+                sequence_state,
+                proved_state,
+                is_new,
+            } = account.as_ref();
+
+            inputs.append(&(balance, || ClosedInterval {
+                lower: Balance::min(),
+                upper: Balance::max(),
+            }));
+
+            inputs.append(&(nonce, || ClosedInterval {
+                lower: Nonce::min(),
+                upper: Nonce::max(),
+            }));
+
+            inputs.append(&(receipt_chain_hash, Fp::zero));
+            inputs.append(&(delegate, CompressedPubKey::empty));
+
+            state.iter().for_each(|s| {
+                inputs.append(&(s, Fp::zero));
+            });
+
+            // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L168
+            inputs.append(&(sequence_state, || {
+                hash_noinputs("MinaZkappSequenceStateEmptyElt")
+            }));
+
+            inputs.append(&(proved_state, || false));
+            inputs.append(&(is_new, || false));
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L758
@@ -844,12 +1156,37 @@ pub mod zkapp_command {
         pub account: AccountPreconditions,
     }
 
+    impl ToInputs for Preconditions {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L776
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            let Self { network, account } = self;
+            network.to_inputs(inputs);
+            account.to_inputs(inputs);
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L27
     #[derive(Debug, Clone)]
     pub enum AuthorizationKind {
         NoneGiven,
         Signature,
         Proof,
+    }
+
+    impl ToInputs for AuthorizationKind {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L110
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            // bits: [is_signed, is_proved]
+            let bits = match self {
+                AuthorizationKind::NoneGiven => [false, false],
+                AuthorizationKind::Signature => [true, false],
+                AuthorizationKind::Proof => [false, true],
+            };
+
+            for bit in bits {
+                inputs.append_bool(bit);
+            }
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L955
@@ -861,7 +1198,7 @@ pub mod zkapp_command {
         pub balance_change: Signed<Amount>,
         pub increment_nonce: bool,
         pub events: Events,
-        pub sequence_events: Events,
+        pub sequence_events: SequenceEvents,
         pub call_data: Fp,
         pub(crate) preconditions: Preconditions,
         pub use_full_commitment: bool,
@@ -901,53 +1238,71 @@ pub mod zkapp_command {
             AccountId::new(self.body.public_key.clone(), self.body.token_id.clone())
         }
 
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L1327
         pub fn digest(&self) {
             // Only the body is used
-            let body = &self.body;
+            let Self {
+                body,
+                authorization: _,
+            } = self;
+
+            let Body {
+                public_key,
+                token_id,
+                update,
+                balance_change,
+                increment_nonce,
+                events,
+                sequence_events,
+                call_data,
+                preconditions,
+                use_full_commitment,
+                caller,
+                authorization_kind,
+            } = body;
 
             let mut inputs = Inputs::new();
 
-            inputs.append(&body.public_key);
-            inputs.append(&body.token_id);
+            inputs.append(public_key);
+            inputs.append(token_id);
 
             // `Body::update`
             {
-                let update = &body.update;
+                let Update {
+                    app_state,
+                    delegate,
+                    verification_key,
+                    permissions,
+                    zkapp_uri,
+                    token_symbol,
+                    timing,
+                    voting_for,
+                } = update;
 
-                for state in &update.app_state {
+                for state in app_state {
                     inputs.append(&(state, Fp::zero));
                 }
 
-                inputs.append(&(&update.delegate, CompressedPubKey::empty));
-                inputs.append(&(&update.verification_key, Fp::zero));
-                inputs.append(&(&update.permissions, Permissions::user_default));
-                inputs.append(&(&update.zkapp_uri.map(Some), || Option::<&ZkAppUri>::None));
-                inputs.append(&(&update.token_symbol, TokenSymbol::default));
-                inputs.append(&(&update.timing, Timing::dummy));
-                inputs.append(&(&update.voting_for, Fp::zero));
+                inputs.append(&(delegate, CompressedPubKey::empty));
+                inputs.append(&(&verification_key.map(|w| w.hash), Fp::zero));
+                inputs.append(&(permissions, Permissions::user_default));
+                inputs.append(&(&zkapp_uri.map(Some), || Option::<&ZkAppUri>::None));
+                inputs.append(&(token_symbol, TokenSymbol::default));
+                inputs.append(&(timing, Timing::dummy));
+                inputs.append(&(voting_for, Fp::zero));
             }
 
-            inputs.append(&body.balance_change);
-            inputs.append_bool(body.increment_nonce);
-
-            // inputs.append_bool(value)
+            inputs.append(balance_change);
+            inputs.append(increment_nonce);
+            inputs.append(events);
+            inputs.append(sequence_events);
+            inputs.append(call_data);
+            inputs.append(preconditions);
+            inputs.append(use_full_commitment);
+            inputs.append(caller);
+            inputs.append(authorization_kind);
         }
     }
-
-    // List.reduce_exn ~f:Random_oracle_input.Chunked.append
-    //   [ Public_key.Compressed.to_input public_key
-    //   ; Token_id.to_input token_id
-    //   ; Update.to_input update
-    //   ; Amount.Signed.to_input balance_change
-    //   ; Random_oracle_input.Chunked.packed (field_of_bool increment_nonce, 1)
-    //   ; Events.to_input events
-    //   ; Sequence_events.to_input sequence_events
-    //   ; Random_oracle_input.Chunked.field call_data
-    //   ; Preconditions.to_input preconditions
-    //   ; Random_oracle_input.Chunked.packed (field_of_bool use_full_commitment, 1)
-    //   ; Token_id.to_input caller
-    //   ; Authorization_kind.to_input authorization_kind
-    //   ]
 
     // Digest.Account_update.Stable.V1.t = Fp
     // Digest.Forest.Stable.V1.t = Fp
@@ -1154,7 +1509,7 @@ pub mod zkapp_command {
                 AccountId::new(public_key, token_id).derive_token_id()
             });
 
-            self.accumulate_hashes(&|update| todo!());
+            self.accumulate_hashes(&|_update| todo!());
         }
     }
 
