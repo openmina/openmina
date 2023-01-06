@@ -12,8 +12,7 @@ use self::{
     signed_command::{SignedCommand, SignedCommandPayload},
     transaction_applied::TransactionApplied,
     transaction_union_payload::TransactionUnionPayload,
-    valid::VerificationKeyHash,
-    zkapp_command::Nonce,
+    zkapp_command::{Nonce, WithHash},
 };
 
 use super::{
@@ -1611,12 +1610,12 @@ pub mod zkapp_command {
 
     pub mod verifiable {
         use super::*;
-        use crate::{scan_state::transaction_logic::valid::VerificationKeyHash, VerificationKey};
+        use crate::VerificationKey;
 
         #[derive(Debug, Clone)]
         pub struct ZkAppCommand {
             pub fee_payer: FeePayer,
-            pub account_updates: CallForest<Option<(VerificationKey, VerificationKeyHash)>>,
+            pub account_updates: CallForest<Option<WithHash<VerificationKey>>>,
             pub memo: Memo,
         }
     }
@@ -1652,8 +1651,8 @@ pub mod zkapp_command {
                 }
 
                 if let C::Proof(_) = &p.authorization {
-                    let (_, hash) = vk_opt.as_ref()?;
-                    keys.insert(p.account_id(), hash.clone());
+                    let hash = vk_opt.as_ref()?.hash;
+                    keys.insert(p.account_id(), VerificationKeyHash(hash));
                 };
                 Some(())
             })?;
@@ -1712,6 +1711,7 @@ impl UserCommand {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/user_command.ml#L162
     pub fn to_verifiable(&self, ledger: &impl BaseLedger) -> verifiable::UserCommand {
         let find_vk = |acc: &zkapp_command::AccountUpdate| -> Option<VerificationKey> {
             let account_id = acc.account_id();
@@ -1732,12 +1732,12 @@ impl UserCommand {
                 let zkapp = zkapp_command::verifiable::ZkAppCommand {
                     fee_payer: fee_payer.clone(),
                     account_updates: account_updates.map_to(|(account_update, _)| {
-                        let with_hash = find_vk(account_update).map(|vk| {
+                        let vk_with_hash = find_vk(account_update).map(|vk| {
                             let hash = vk.hash();
-                            (vk, VerificationKeyHash(hash))
+                            WithHash { data: vk, hash }
                         });
 
-                        (account_update.clone(), with_hash)
+                        (account_update.clone(), vk_with_hash)
                     }),
                     memo: memo.clone(),
                 };
@@ -2889,7 +2889,7 @@ pub mod transaction_union_payload {
                 roi = roi.append_u32(self.common.valid_until.0);
 
                 // memo
-                roi = roi.append_bytes(&self.common.memo.0.as_slice());
+                roi = roi.append_bytes(self.common.memo.0.as_slice());
             }
 
             // Self.body
