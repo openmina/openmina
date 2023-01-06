@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::connection::P2pConnectionAction;
+use super::disconnection::P2pDisconnectionAction;
 use super::pubsub::P2pPubsubAction;
 use super::rpc::P2pRpcAction;
 
@@ -10,6 +11,7 @@ pub type P2pActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pAction>;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pAction {
     Connection(P2pConnectionAction),
+    Disconnection(P2pDisconnectionAction),
     PeerReady(P2pPeerReadyAction),
     Pubsub(P2pPubsubAction),
     Rpc(P2pRpcAction),

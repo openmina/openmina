@@ -218,9 +218,7 @@ impl ConsensusState {
 
     pub fn is_best_tip_and_history_linked(&self) -> bool {
         let Some(best_tip) = self.best_tip() else { return false };
-
         let pred_hash = &best_tip.header.protocol_state.previous_state_hash;
-        let history = &self.best_tip_history;
 
         Some(pred_hash) == self.best_tip_history.chain.front()
     }

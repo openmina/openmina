@@ -13,6 +13,13 @@ impl P2pConnectionOutgoingState {
                     rpc_id: content.rpc_id,
                 };
             }
+            P2pConnectionOutgoingAction::Reconnect(content) => {
+                *self = Self::Init {
+                    time: meta.time(),
+                    addrs: content.opts.addrs.clone(),
+                    rpc_id: content.rpc_id,
+                };
+            }
             P2pConnectionOutgoingAction::Pending(_) => {
                 let rpc_id = self.rpc_id();
                 *self = Self::Pending {

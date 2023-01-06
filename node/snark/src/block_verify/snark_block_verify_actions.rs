@@ -1,6 +1,3 @@
-use std::sync::Arc;
-
-use mina_p2p_messages::v2::StateHash;
 use serde::{Deserialize, Serialize};
 
 use super::{SnarkBlockVerifyError, SnarkBlockVerifyId, VerifiableBlockWithHash};

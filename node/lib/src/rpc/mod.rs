@@ -13,10 +13,7 @@ pub use rpc_effects::*;
 mod rpc_service;
 pub use rpc_service::*;
 
-use mina_p2p_messages::v2::{
-    MinaBaseAccountBinableArgStableV2, NonZeroCurvePoint,
-    StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,
-};
+use mina_p2p_messages::v2::{MinaBaseAccountBinableArgStableV2, NonZeroCurvePoint};
 use serde::{Deserialize, Serialize};
 pub use shared::requests::{RpcId, RpcIdType};
 

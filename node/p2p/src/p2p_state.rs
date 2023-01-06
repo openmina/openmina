@@ -60,6 +60,7 @@ impl P2pState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pPeerState {
+    pub dial_addrs: Vec<libp2p::Multiaddr>,
     pub status: P2pPeerStatus,
 }
 
@@ -75,6 +76,7 @@ impl P2pPeerState {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pPeerStatus {
     Connecting(P2pConnectionState),
+    Disconnected { time: redux::Timestamp },
 
     Ready(P2pPeerStatusReady),
 }

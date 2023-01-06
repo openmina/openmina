@@ -24,6 +24,7 @@ pub enum P2pEvent {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pConnectionEvent {
     OutgoingInit(crate::p2p::PeerId, Result<(), String>),
+    Closed(crate::p2p::PeerId),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

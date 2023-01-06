@@ -13,7 +13,7 @@ use super::{
 };
 
 pub fn rpc_effects<S: RpcService>(store: &mut Store<S>, action: RpcActionWithMeta) {
-    let (action, meta) = action.split();
+    let (action, _) = action.split();
 
     match action {
         RpcAction::GlobalStateGet(action) => {
@@ -55,7 +55,6 @@ pub fn rpc_effects<S: RpcService>(store: &mut Store<S>, action: RpcActionWithMet
                 .respond_watched_accounts_add(action.rpc_id, enabled);
         }
         RpcAction::WatchedAccountsGet(action) => {
-            let state = store.state.get();
             let result = get_account_info(store.state(), &action.pub_key);
 
             let _ = store

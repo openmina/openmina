@@ -1,5 +1,3 @@
-use crate::rpc::P2pRpcKind;
-
 use super::{
     P2pRpcOutgoingAction, P2pRpcOutgoingActionWithMetaRef, P2pRpcOutgoingState,
     P2pRpcOutgoingStats, P2pRpcOutgoingStatus,

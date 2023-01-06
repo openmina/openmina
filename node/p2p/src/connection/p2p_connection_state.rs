@@ -16,6 +16,13 @@ impl P2pConnectionState {
         }
     }
 
+    pub fn is_error(&self) -> bool {
+        match self {
+            Self::Outgoing(P2pConnectionOutgoingState::Error { .. }) => true,
+            Self::Outgoing(_) => false,
+        }
+    }
+
     pub fn is_success(&self) -> bool {
         match self {
             Self::Outgoing(P2pConnectionOutgoingState::Success { .. }) => true,

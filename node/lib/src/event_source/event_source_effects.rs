@@ -2,6 +2,7 @@ use crate::action::CheckTimeoutsAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingErrorAction, P2pConnectionOutgoingSuccessAction,
 };
+use crate::p2p::disconnection::P2pDisconnectionFinishAction;
 use crate::p2p::pubsub::P2pPubsubBytesReceivedAction;
 use crate::p2p::rpc::outgoing::{P2pRpcOutgoingErrorAction, P2pRpcOutgoingReceivedAction};
 use crate::rpc::{
@@ -17,7 +18,7 @@ use super::{
 };
 
 pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourceActionWithMeta) {
-    let (action, meta) = action.split();
+    let (action, _) = action.split();
     match action {
         EventSourceAction::ProcessEvents(_) => {
             // process max 1024 events at a time.
@@ -42,6 +43,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             store.dispatch(P2pConnectionOutgoingSuccessAction { peer_id });
                         }
                     },
+                    P2pConnectionEvent::Closed(peer_id) => {
+                        store.dispatch(P2pDisconnectionFinishAction { peer_id });
+                    }
                 },
                 P2pEvent::Pubsub(e) => match e {
                     P2pPubsubEvent::BytesReceived {
