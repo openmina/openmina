@@ -1,6 +1,7 @@
 pub use ::p2p::*;
 
 pub mod connection;
+pub mod disconnection;
 pub mod pubsub;
 pub mod rpc;
 
@@ -48,9 +49,13 @@ macro_rules! impl_into_global_action {
 }
 
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingInitAction);
+impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingReconnectAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingPendingAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingErrorAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingSuccessAction);
+
+impl_into_global_action!(disconnection::P2pDisconnectionInitAction);
+impl_into_global_action!(disconnection::P2pDisconnectionFinishAction);
 
 impl_into_global_action!(pubsub::P2pPubsubMessagePublishAction);
 impl_into_global_action!(pubsub::P2pPubsubBytesPublishAction);

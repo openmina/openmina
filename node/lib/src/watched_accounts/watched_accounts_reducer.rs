@@ -6,7 +6,7 @@ use super::{
 
 impl WatchedAccountsState {
     pub fn reducer(&mut self, action: WatchedAccountsActionWithMetaRef<'_>) {
-        let (action, meta) = action.split();
+        let (action, _) = action.split();
         match action {
             WatchedAccountsAction::Add(action) => {
                 self.insert(

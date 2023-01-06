@@ -99,7 +99,7 @@ pub struct RpcP2pPubsubMessagePublishAction {
 }
 
 impl redux::EnablingCondition<crate::State> for RpcP2pPubsubMessagePublishAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, _: &crate::State) -> bool {
         true
     }
 }
@@ -111,7 +111,7 @@ pub struct RpcWatchedAccountsAddAction {
 }
 
 impl redux::EnablingCondition<crate::State> for RpcWatchedAccountsAddAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, _: &crate::State) -> bool {
         true
     }
 }
@@ -123,7 +123,7 @@ pub struct RpcWatchedAccountsGetAction {
 }
 
 impl redux::EnablingCondition<crate::State> for RpcWatchedAccountsGetAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, _: &crate::State) -> bool {
         true
     }
 }

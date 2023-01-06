@@ -4,6 +4,7 @@ use mina_p2p_messages::gossip::GossipNetMessageV2;
 use mina_p2p_messages::v2::MinaLedgerSyncLedgerAnswerStableV2;
 
 use crate::consensus::{ConsensusBestTipHistoryUpdateAction, ConsensusBlockReceivedAction};
+use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::rpc::outgoing::{P2pRpcOutgoingStatus, P2pRpcRequestor};
 use crate::p2p::rpc::P2pRpcResponse;
 use crate::rpc::{RpcP2pConnectionOutgoingErrorAction, RpcP2pConnectionOutgoingSuccessAction};
@@ -25,6 +26,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
         P2pAction::Connection(action) => match action {
             P2pConnectionAction::Outgoing(action) => match action {
                 P2pConnectionOutgoingAction::Init(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pConnectionOutgoingAction::Reconnect(action) => {
                     action.effects(&meta, store);
                 }
                 P2pConnectionOutgoingAction::Pending(_) => {
@@ -49,6 +53,10 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     action.effects(&meta, store);
                 }
             },
+        },
+        P2pAction::Disconnection(action) => match action {
+            P2pDisconnectionAction::Init(action) => action.effects(&meta, store),
+            P2pDisconnectionAction::Finish(action) => {}
         },
         P2pAction::PeerReady(action) => {
             action.effects(&meta, store);
@@ -162,19 +170,20 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             }
                         }
                         P2pRpcResponse::LedgerQuery(resp) => match &resp.0 {
-                            Ok(MinaLedgerSyncLedgerAnswerStableV2::AccountWithPath(
-                                account,
-                                path,
-                            )) => match requestor.clone() {
-                                P2pRpcRequestor::WatchedAccount(pub_key, block_hash) => {
-                                    store.dispatch(WatchedAccountsBlockLedgerQuerySuccessAction {
-                                        pub_key,
-                                        block_hash,
-                                        ledger_account: account.clone(),
-                                    });
+                            Ok(MinaLedgerSyncLedgerAnswerStableV2::AccountWithPath(account, _)) => {
+                                match requestor.clone() {
+                                    P2pRpcRequestor::WatchedAccount(pub_key, block_hash) => {
+                                        store.dispatch(
+                                            WatchedAccountsBlockLedgerQuerySuccessAction {
+                                                pub_key,
+                                                block_hash,
+                                                ledger_account: account.clone(),
+                                            },
+                                        );
+                                    }
+                                    _ => {}
                                 }
-                                _ => {}
-                            },
+                            }
                             _ => {}
                         },
                         _ => {}

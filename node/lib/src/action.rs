@@ -27,7 +27,7 @@ pub enum Action {
 pub struct CheckTimeoutsAction {}
 
 impl redux::EnablingCondition<crate::State> for CheckTimeoutsAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, _: &crate::State) -> bool {
         true
     }
 }

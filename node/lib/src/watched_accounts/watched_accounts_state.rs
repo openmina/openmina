@@ -103,6 +103,10 @@ impl WatchedAccountsState {
         }
     }
 
+    pub fn contains(&self, key: &NonZeroCurvePoint) -> bool {
+        self.list.contains_key(key)
+    }
+
     pub fn get(&self, key: &NonZeroCurvePoint) -> Option<&WatchedAccountState> {
         self.list.get(key)
     }

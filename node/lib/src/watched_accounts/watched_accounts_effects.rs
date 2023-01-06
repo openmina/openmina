@@ -18,7 +18,7 @@ pub fn watched_accounts_effects<S: redux::Service>(
     store: &mut Store<S>,
     action: WatchedAccountsActionWithMeta,
 ) {
-    let (action, meta) = action.split();
+    let (action, _) = action.split();
 
     match action {
         WatchedAccountsAction::Add(_) => {}

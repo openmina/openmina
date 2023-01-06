@@ -1,6 +1,9 @@
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::logger::logger_effects;
+use crate::p2p::connection::outgoing::{
+    P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingReconnectAction,
+};
 use crate::p2p::p2p_effects;
 use crate::p2p::rpc::outgoing::{P2pRpcOutgoingInitAction, P2pRpcRequestor};
 use crate::p2p::rpc::P2pRpcRequest;
@@ -25,6 +28,23 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                     request: P2pRpcRequest::BestTipGet(()),
                     requestor: P2pRpcRequestor::Interval,
                 });
+            }
+
+            let reconnect_actions: Vec<_> = store
+                .state()
+                .p2p
+                .peers
+                .iter()
+                .map(|(id, p)| P2pConnectionOutgoingReconnectAction {
+                    opts: P2pConnectionOutgoingInitOpts {
+                        peer_id: id.clone(),
+                        addrs: p.dial_addrs.clone(),
+                    },
+                    rpc_id: None,
+                })
+                .collect();
+            for action in reconnect_actions {
+                store.dispatch(action);
             }
         }
         Action::EventSource(action) => {

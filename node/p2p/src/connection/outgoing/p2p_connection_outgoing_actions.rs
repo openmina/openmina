@@ -8,6 +8,7 @@ pub type P2pConnectionOutgoingActionWithMetaRef<'a> =
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pConnectionOutgoingAction {
     Init(P2pConnectionOutgoingInitAction),
+    Reconnect(P2pConnectionOutgoingReconnectAction),
     Pending(P2pConnectionOutgoingPendingAction),
     Error(P2pConnectionOutgoingErrorAction),
     Success(P2pConnectionOutgoingSuccessAction),
@@ -17,6 +18,7 @@ impl P2pConnectionOutgoingAction {
     pub fn peer_id(&self) -> &crate::PeerId {
         match self {
             Self::Init(v) => &v.opts.peer_id,
+            Self::Reconnect(v) => &v.opts.peer_id,
             Self::Pending(v) => &v.peer_id,
             Self::Error(v) => &v.peer_id,
             Self::Success(v) => &v.peer_id,
@@ -33,6 +35,26 @@ pub struct P2pConnectionOutgoingInitAction {
 impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingInitAction {
     fn is_enabled(&self, state: &crate::P2pState) -> bool {
         !state.peers.contains_key(&self.opts.peer_id)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingReconnectAction {
+    pub opts: P2pConnectionOutgoingInitOpts,
+    pub rpc_id: Option<RpcId>,
+}
+
+impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingReconnectAction {
+    fn is_enabled(&self, state: &crate::P2pState) -> bool {
+        state
+            .peers
+            .get(&self.opts.peer_id)
+            .filter(|p| !p.dial_addrs.is_empty() && p.dial_addrs == self.opts.addrs)
+            .map_or(false, |p| match &p.status {
+                P2pPeerStatus::Connecting(s) => s.is_error(),
+                P2pPeerStatus::Disconnected { .. } => true,
+                P2pPeerStatus::Ready(_) => false,
+            })
     }
 }
 
@@ -135,6 +157,12 @@ use super::P2pConnectionOutgoingState;
 
 impl From<P2pConnectionOutgoingInitAction> for crate::P2pAction {
     fn from(a: P2pConnectionOutgoingInitAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
+
+impl From<P2pConnectionOutgoingReconnectAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingReconnectAction) -> Self {
         Self::Connection(P2pConnectionAction::Outgoing(a.into()))
     }
 }

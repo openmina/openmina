@@ -43,7 +43,8 @@ pub struct WatchedAccountsBlockTransactionsIncludedAction {
 impl redux::EnablingCondition<crate::State> for WatchedAccountsBlockTransactionsIncludedAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         let diff = &self.block.block.body.staged_ledger_diff.diff;
-        super::account_relevant_transactions_in_diff_iter(&self.pub_key, diff).any(|_| true)
+        state.watched_accounts.contains(&self.pub_key)
+            && super::account_relevant_transactions_in_diff_iter(&self.pub_key, diff).any(|_| true)
     }
 }
 

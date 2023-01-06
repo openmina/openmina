@@ -22,4 +22,11 @@ impl P2pConnectionAction {
             Self::Outgoing(_) => false,
         }
     }
+
+    pub fn dial_addrs(&self) -> &[libp2p::Multiaddr] {
+        match self {
+            Self::Outgoing(P2pConnectionOutgoingAction::Init(a)) => &a.opts.addrs,
+            Self::Outgoing(_) => &[],
+        }
+    }
 }

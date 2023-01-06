@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use mina_p2p_messages::v2::MinaBlockHeaderStableV2;
-
 use crate::{VerifierIndex, VerifierSRS};
 
 use super::{SnarkBlockVerifyId, VerifiableBlockWithHash};

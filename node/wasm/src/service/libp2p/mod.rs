@@ -23,7 +23,9 @@ pub use mina_p2p_messages::gossip::GossipNetMessageV2 as GossipNetMessage;
 use lib::event_source::{Event, P2pConnectionEvent, P2pEvent, P2pPubsubEvent};
 use lib::p2p::pubsub::PubsubTopic;
 use lib::p2p::rpc::{P2pRpcId, P2pRpcRequest};
-use lib::service::{P2pConnectionService, P2pPubsubService, P2pRpcService};
+use lib::service::{
+    P2pConnectionService, P2pDisconnectionService, P2pPubsubService, P2pRpcService,
+};
 
 mod behavior;
 pub use behavior::Event as BehaviourEvent;
@@ -164,8 +166,7 @@ impl Libp2pService {
                                 swarm.dial(maddr).unwrap();
                             }
                             Some(Cmd::Disconnect(peer_id)) => {
-                                // TODO(binier)
-                                swarm.disconnect_peer_id(peer_id);
+                                let _ = swarm.disconnect_peer_id(peer_id);
                             }
                             Some(Cmd::SendMessage(msg)) => match msg {
                                 CmdSendMessage::Gossipsub(topic, msg) => {
@@ -212,6 +213,10 @@ impl Libp2pService {
                 swarm.behaviour_mut().event_source_sender.send(event).await;
             }
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
+                let event = Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Closed(peer_id)));
+                swarm.behaviour_mut().event_source_sender.send(event).await;
+
+                // TODO(binier): move to log effects
                 shared::log::info!(
                     shared::log::system_time();
                     kind = "PeerDisconnected",
@@ -219,7 +224,6 @@ impl Libp2pService {
                     peer_id = peer_id.to_string(),
                     cause = format!("{:?}", cause)
                 );
-                // TODO(binier)
             }
             SwarmEvent::OutgoingConnectionError { peer_id, error } => {
                 let peer_id = match peer_id {
@@ -290,6 +294,16 @@ impl P2pConnectionService for NodeWasmService {
             .addresses(opts.addrs)
             .build();
         let cmd = Cmd::Dial(opts);
+        let mut tx = self.libp2p.cmd_sender.clone();
+        spawn_local(async move {
+            tx.send(cmd).await;
+        });
+    }
+}
+
+impl P2pDisconnectionService for NodeWasmService {
+    fn disconnect(&mut self, peer_id: PeerId) {
+        let cmd = Cmd::Disconnect(peer_id);
         let mut tx = self.libp2p.cmd_sender.clone();
         spawn_local(async move {
             tx.send(cmd).await;

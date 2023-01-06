@@ -14,7 +14,7 @@ impl P2pPubsubMessagePublishAction {
         let mut encoded = vec![0; 8];
         match binprot::BinProtWrite::binprot_write(&self.message, &mut encoded) {
             Ok(_) => {}
-            Err(err) => {
+            Err(_err) => {
                 // TODO(binier)
                 return;
                 // log::error!("Failed to encode GossipSub Message: {:?}", err);

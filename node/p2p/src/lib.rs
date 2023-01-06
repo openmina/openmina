@@ -1,4 +1,5 @@
 pub mod connection;
+pub mod disconnection;
 pub mod pubsub;
 pub mod rpc;
 

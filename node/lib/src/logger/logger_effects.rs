@@ -1,6 +1,7 @@
 use crate::action::ConsensusAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
+use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::pubsub::{GossipNetMessageV2, P2pPubsubAction};
 use crate::p2p::rpc::outgoing::P2pRpcOutgoingAction;
 use crate::p2p::rpc::P2pRpcAction;
@@ -38,6 +39,24 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         Action::P2p(action) => match action {
             P2pAction::Connection(action) => match action {
                 P2pConnectionAction::Outgoing(action) => match action {
+                    P2pConnectionOutgoingAction::Init(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = "PeerConnectionOutgoingInit",
+                            summary = format!("peer_id: {}", action.opts.peer_id),
+                            peer_id = action.opts.peer_id.to_string(),
+                            addrs = format!("{:?}", action.opts.addrs),
+                        );
+                    }
+                    P2pConnectionOutgoingAction::Reconnect(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = "PeerReconnect",
+                            summary = format!("peer_id: {}", action.opts.peer_id),
+                            peer_id = action.opts.peer_id.to_string(),
+                            addrs = format!("{:?}", action.opts.addrs),
+                        );
+                    }
                     P2pConnectionOutgoingAction::Error(action) => {
                         shared::log::info!(
                             meta.time();
@@ -49,6 +68,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     }
                     _ => {}
                 },
+            },
+            P2pAction::Disconnection(action) => match action {
+                _ => {}
             },
             P2pAction::PeerReady(_) => {}
             P2pAction::Pubsub(action) => match action {
