@@ -292,6 +292,63 @@ impl SparseLedger<AccountId, Account> {
     }
 }
 
+impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2>
+    for SparseLedger<AccountId, Account>
+{
+    fn from(value: &mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2) -> Self {
+        use mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2Tree;
+        use mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2Tree::{Account, Hash, Node};
+
+        fn build_matrix(
+            matrix: &mut HashesMatrix,
+            addr: Address,
+            node: &MinaBaseSparseLedgerBaseStableV2Tree,
+            values: &mut BTreeMap<AccountIndex, crate::Account>,
+        ) {
+            match node {
+                Account(account) => {
+                    // TODO: Don't clone the account here
+                    values.insert(addr.to_index(), (**account).clone().into());
+                }
+                Hash(hash) => {
+                    matrix.set(&addr, hash.to_field());
+                }
+                Node(hash, left, right) => {
+                    matrix.set(&addr, hash.to_field());
+                    build_matrix(matrix, addr.child_left(), left, values);
+                    build_matrix(matrix, addr.child_right(), right, values);
+                }
+            }
+        }
+
+        let depth = value.depth.as_u32() as usize;
+        let mut indexes = HashMap::with_capacity(value.indexes.len());
+        let mut hashes_matrix = HashesMatrix::new(depth);
+        let mut values = BTreeMap::new();
+
+        for (account_id, index) in &value.indexes {
+            let account_id: AccountId = account_id.into();
+            let index = AccountIndex::from(index.as_u32() as usize);
+
+            indexes.insert(account_id, Address::from_index(index, depth));
+        }
+
+        build_matrix(
+            &mut hashes_matrix,
+            Address::root(),
+            &value.tree,
+            &mut values,
+        );
+
+        Self {
+            values,
+            indexes,
+            hashes_matrix,
+            depth,
+        }
+    }
+}
+
 /// Trait used in transaction logic, on the ledger witness (`SparseLedger`), or on mask
 ///
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/ledger_intf.ml

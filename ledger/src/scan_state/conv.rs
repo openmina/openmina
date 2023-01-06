@@ -5,11 +5,12 @@ use mina_p2p_messages::v2::{
     MinaBaseAccountIdDigestStableV1, MinaBaseAccountUpdateFeePayerStableV1,
     MinaBaseAccountUpdatePreconditionsStableV1, MinaBaseAccountUpdateTWireStableV1,
     MinaBaseAccountUpdateUpdateStableV1AppStateA, MinaBaseAccountUpdateUpdateTimingInfoStableV1,
-    MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee, MinaBaseFeeTransferStableV2,
-    MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseStackVersionedStableV1,
-    MinaBaseSokMessageDigestStableV1, MinaBaseSokMessageStableV1,
-    MinaBaseTransactionStatusFailureCollectionStableV1, MinaBaseTransactionStatusFailureStableV2,
-    MinaBaseTransactionStatusStableV2, MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
+    MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee, MinaBaseFeeTransferSingleStableV2,
+    MinaBaseFeeTransferStableV2, MinaBaseLedgerHash0StableV1,
+    MinaBasePendingCoinbaseStackVersionedStableV1, MinaBaseSokMessageDigestStableV1,
+    MinaBaseSokMessageStableV1, MinaBaseTransactionStatusFailureCollectionStableV1,
+    MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2,
+    MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
     MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
     MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA,
     MinaBaseZkappPreconditionProtocolStateEpochDataStableV1,
@@ -19,7 +20,7 @@ use mina_p2p_messages::v2::{
     TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
     TransactionSnarkStatementStableV2, TransactionSnarkStatementWithSokStableV2,
     TransactionSnarkStatementWithSokStableV2Source,
-    UnsignedExtendedUInt64Int64ForVersionTagsStableV1, MinaBaseFeeTransferSingleStableV2,
+    UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 
 use crate::{
@@ -45,7 +46,8 @@ use super::{
         zkapp_command::{
             AccountUpdate, FeePayer, FeePayerBody, Nonce, SetOrKeep, WithHash, WithStackHash,
         },
-        FeeTransfer, Index, Signature, Slot, TransactionFailure, TransactionStatus, SingleFeeTransfer,
+        FeeTransfer, Index, Signature, SingleFeeTransfer, Slot, TransactionFailure,
+        TransactionStatus,
     },
 };
 
@@ -910,7 +912,7 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                 }),
                 Merge => InitStack::Merge,
             },
-            ledger_witness: todo!(), // value.ledger_witness.clone(),
+            ledger_witness: (&value.ledger_witness).into(),
         }
     }
 }
