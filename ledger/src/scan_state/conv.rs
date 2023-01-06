@@ -5,11 +5,11 @@ use mina_p2p_messages::v2::{
     MinaBaseAccountIdDigestStableV1, MinaBaseAccountUpdateFeePayerStableV1,
     MinaBaseAccountUpdatePreconditionsStableV1, MinaBaseAccountUpdateTWireStableV1,
     MinaBaseAccountUpdateUpdateStableV1AppStateA, MinaBaseAccountUpdateUpdateTimingInfoStableV1,
-    MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee, MinaBaseLedgerHash0StableV1,
-    MinaBasePendingCoinbaseStackVersionedStableV1, MinaBaseSokMessageDigestStableV1,
-    MinaBaseSokMessageStableV1, MinaBaseTransactionStatusFailureCollectionStableV1,
-    MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2,
-    MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
+    MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee, MinaBaseFeeTransferStableV2,
+    MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseStackVersionedStableV1,
+    MinaBaseSokMessageDigestStableV1, MinaBaseSokMessageStableV1,
+    MinaBaseTransactionStatusFailureCollectionStableV1, MinaBaseTransactionStatusFailureStableV2,
+    MinaBaseTransactionStatusStableV2, MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
     MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
     MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA,
     MinaBaseZkappPreconditionProtocolStateEpochDataStableV1,
@@ -19,7 +19,7 @@ use mina_p2p_messages::v2::{
     TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
     TransactionSnarkStatementStableV2, TransactionSnarkStatementWithSokStableV2,
     TransactionSnarkStatementWithSokStableV2Source,
-    UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+    UnsignedExtendedUInt64Int64ForVersionTagsStableV1, MinaBaseFeeTransferSingleStableV2,
 };
 
 use crate::{
@@ -45,7 +45,7 @@ use super::{
         zkapp_command::{
             AccountUpdate, FeePayer, FeePayerBody, Nonce, SetOrKeep, WithHash, WithStackHash,
         },
-        Index, Signature, Slot, TransactionFailure, TransactionStatus,
+        FeeTransfer, Index, Signature, Slot, TransactionFailure, TransactionStatus, SingleFeeTransfer,
     },
 };
 
@@ -736,19 +736,24 @@ impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>> for Ca
         use ark_ff::Zero;
         use mina_hasher::Fp;
 
-        Self(
-            value
-                .iter()
-                .map(|update| WithStackHash {
-                    elt: zkapp_command::Tree {
-                        account_update: ((&update.elt.account_update).into(), ()),
-                        account_update_digest: Fp::zero(), // replaced later
-                        calls: (&update.elt.calls).into(),
-                    },
-                    stack_hash: Fp::zero(), // replaced later
-                })
-                .collect(),
-        )
+        let values = value
+            .iter()
+            .map(|update| WithStackHash {
+                elt: zkapp_command::Tree {
+                    account_update: ((&update.elt.account_update).into(), ()),
+                    account_update_digest: Fp::zero(), // replaced later in `of_wire`
+                    calls: (&update.elt.calls).into(),
+                },
+                stack_hash: Fp::zero(), // replaced later in `of_wire`
+            })
+            .collect();
+
+        // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L1113-L1115
+
+        let mut call_forest = CallForest(values);
+        call_forest.of_wire(value);
+
+        call_forest
     }
 }
 
@@ -769,47 +774,70 @@ impl AsAccountUpdateWithHash for MinaBaseZkappCommandTStableV1WireStableV1Accoun
     }
 }
 
+impl From<&MinaBaseFeeTransferSingleStableV2> for SingleFeeTransfer {
+    fn from(value: &MinaBaseFeeTransferSingleStableV2) -> Self {
+        Self {
+            receiver_pk: (&value.receiver_pk).into(),
+            fee: Fee::from_u64(value.fee.as_u64()),
+            fee_token: (&value.fee_token).into(),
+        }
+    }
+}
+
+impl From<&MinaBaseFeeTransferStableV2> for FeeTransfer {
+    fn from(value: &MinaBaseFeeTransferStableV2) -> Self {
+        use super::scan_state::transaction_snark::OneOrTwo::{One, Two};
+
+        match value {
+            MinaBaseFeeTransferStableV2::One(ft) => FeeTransfer(One(ft.into())),
+            MinaBaseFeeTransferStableV2::Two((a, b)) => FeeTransfer(Two((a.into(), b.into()))),
+        }
+    }
+}
+
 impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for TransactionWithWitness {
     fn from(value: &TransactionSnarkScanStateTransactionWithWitnessStableV2) -> Self {
         use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedVaryingStableV2::*;
         use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedCommandAppliedStableV2::*;
         use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2::*;
+        use mina_p2p_messages::v2::TransactionSnarkPendingCoinbaseStackStateInitStackStableV1::{Base, Merge};
+        use crate::scan_state::scan_state::transaction_snark::InitStack;
         use transaction_applied::signed_command_applied;
 
         Self {
             transaction_with_info: TransactionApplied {
                 previous_hash: value.transaction_with_info.previous_hash.to_field(),
-                varying: transaction_applied::Varying::Command(
-                    match &value.transaction_with_info.varying {
-                        Command(cmd) => match cmd {
-                            SignedCommand(cmd) => {
-                                transaction_applied::CommandApplied::SignedCommand(Box::new(
-                                    transaction_applied::SignedCommandApplied {
-                                        common: todo!(),
-                                        body: match cmd.body {
-                                            Payment { new_accounts } => {
-                                                signed_command_applied::Body::Payments {
-                                                    new_accounts: new_accounts
-                                                        .iter()
-                                                        .cloned()
-                                                        .map(Into::into)
-                                                        .collect(),
-                                                }
+                varying: match &value.transaction_with_info.varying {
+                    Command(cmd) => match cmd {
+                        SignedCommand(cmd) => transaction_applied::Varying::Command(
+                            transaction_applied::CommandApplied::SignedCommand(Box::new(
+                                transaction_applied::SignedCommandApplied {
+                                    common: todo!(),
+                                    body: match cmd.body {
+                                        Payment { new_accounts } => {
+                                            signed_command_applied::Body::Payments {
+                                                new_accounts: new_accounts
+                                                    .iter()
+                                                    .cloned()
+                                                    .map(Into::into)
+                                                    .collect(),
                                             }
-                                            StakeDelegation { previous_delegate } => {
-                                                signed_command_applied::Body::StakeDelegation {
-                                                    previous_delegate: previous_delegate
-                                                        .as_ref()
-                                                        .map(|d| d.into()),
-                                                }
+                                        }
+                                        StakeDelegation { previous_delegate } => {
+                                            signed_command_applied::Body::StakeDelegation {
+                                                previous_delegate: previous_delegate
+                                                    .as_ref()
+                                                    .map(|d| d.into()),
                                             }
-                                            Failed => signed_command_applied::Body::Failed,
-                                        },
+                                        }
+                                        Failed => signed_command_applied::Body::Failed,
                                     },
-                                ))
-                            }
-                            ZkappCommand(cmd) => transaction_applied::CommandApplied::ZkappCommand(
-                                Box::new(transaction_applied::ZkappCommandApplied {
+                                },
+                            )),
+                        ),
+                        ZkappCommand(cmd) => transaction_applied::Varying::Command(
+                            transaction_applied::CommandApplied::ZkappCommand(Box::new(
+                                transaction_applied::ZkappCommandApplied {
                                     accounts: cmd
                                         .accounts
                                         .iter()
@@ -825,34 +853,63 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                                     command: WithStatus {
                                         data: zkapp_command::ZkAppCommand {
                                             fee_payer: (&cmd.command.data.fee_payer).into(),
-                                            account_updates: CallForest(
-                                                cmd.command
-                                                    .data
-                                                    .account_updates
-                                                    .iter()
-                                                    .map(|upd| {
-                                                        // upd.elt
-                                                        todo!()
-                                                    })
-                                                    .collect(),
-                                            ),
-                                            memo: todo!(),
+                                            account_updates: (&cmd.command.data.account_updates)
+                                                .into(),
+                                            memo: cmd.command.data.memo.0.as_ref().to_vec(),
                                         },
                                         status: (&cmd.command.status).into(),
                                     },
-                                    new_accounts: todo!(),
-                                }),
-                            ),
-                        },
-                        FeeTransfer(_) => todo!(),
-                        Coinbase(_) => todo!(),
+                                    new_accounts: cmd.new_accounts.iter().map(Into::into).collect(),
+                                },
+                            )),
+                        ),
                     },
-                ),
+                    FeeTransfer(ft) => transaction_applied::Varying::FeeTransfer(
+                        transaction_applied::FeeTransferApplied {
+                            fee_transfer: WithStatus {
+                                data: (&ft.fee_transfer.data).into(),
+                                status: (&ft.fee_transfer.status).into(),
+                            },
+                            new_accounts: ft.new_accounts.iter().map(Into::into).collect(),
+                            burned_tokens: ft.burned_tokens.clone().into(),
+                        },
+                    ),
+                    Coinbase(cb) => transaction_applied::Varying::Coinbase(transaction_applied::CoinbaseApplied {
+                        coinbase: WithStatus {
+                            data: crate::scan_state::transaction_logic::Coinbase {
+                                receiver: (&cb.coinbase.data.receiver).into(),
+                                amount: cb.coinbase.data.amount.clone().into(),
+                                fee_transfer: cb.coinbase.data.fee_transfer.as_ref().map(|ft| {
+                                    crate::scan_state::transaction_logic::CoinbaseFeeTransfer {
+                                        receiver_pk: (&ft.receiver_pk).into(),
+                                        fee: Fee::from_u64(ft.fee.as_u64()),
+                                    }
+                                }),
+                            },
+                            status: (&cb.coinbase.status).into(),
+                        },
+                        new_accounts: cb.new_accounts.iter().map(Into::into).collect(),
+                        burned_tokens: cb.burned_tokens.clone().into(),
+                    }),
+                },
             },
-            // transaction_with_info: value.transaction_with_info.clone(),
-            state_hash: todo!(),
+            state_hash: {
+                let state = value.state_hash.0.to_field();
+                let body = value.state_hash.1.to_field();
+
+                (state, body)
+            },
             statement: (&value.statement).into(),
-            init_stack: todo!(),
+            init_stack: match &value.init_stack {
+                Base(base) => InitStack::Base(pending_coinbase::Stack {
+                    data: pending_coinbase::CoinbaseStack(base.data.to_field()),
+                    state: pending_coinbase::StateStack {
+                        init: base.state.init.to_field(),
+                        curr: base.state.curr.to_field(),
+                    },
+                }),
+                Merge => InitStack::Merge,
+            },
             ledger_witness: todo!(), // value.ledger_witness.clone(),
         }
     }

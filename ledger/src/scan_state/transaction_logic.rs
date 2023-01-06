@@ -196,9 +196,9 @@ pub mod valid {
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_transfer.ml#L19
 #[derive(Debug, Clone)]
 pub struct SingleFeeTransfer {
-    receiver_pk: CompressedPubKey,
-    fee: Fee,
-    fee_token: TokenId,
+    pub receiver_pk: CompressedPubKey,
+    pub fee: Fee,
+    pub fee_token: TokenId,
 }
 
 impl SingleFeeTransfer {
@@ -220,7 +220,7 @@ impl SingleFeeTransfer {
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_transfer.ml#L68
 #[derive(Debug, Clone)]
-pub struct FeeTransfer(OneOrTwo<SingleFeeTransfer>);
+pub struct FeeTransfer(pub(super) OneOrTwo<SingleFeeTransfer>);
 
 impl std::ops::Deref for FeeTransfer {
     type Target = OneOrTwo<SingleFeeTransfer>;
@@ -1232,14 +1232,9 @@ pub mod zkapp_command {
         pub authorization: Control,
     }
 
-    impl AccountUpdate {
-        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/account_update.ml#L1535
-        pub fn account_id(&self) -> AccountId {
-            AccountId::new(self.body.public_key.clone(), self.body.token_id.clone())
-        }
-
-        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L1327
-        pub fn digest(&self) {
+    impl ToInputs for AccountUpdate {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L1297
+        fn to_inputs(&self, inputs: &mut Inputs) {
             // Only the body is used
             let Self {
                 body,
@@ -1260,8 +1255,6 @@ pub mod zkapp_command {
                 caller,
                 authorization_kind,
             } = body;
-
-            let mut inputs = Inputs::new();
 
             inputs.append(public_key);
             inputs.append(token_id);
@@ -1301,6 +1294,21 @@ pub mod zkapp_command {
             inputs.append(use_full_commitment);
             inputs.append(caller);
             inputs.append(authorization_kind);
+        }
+    }
+
+    impl AccountUpdate {
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/account_update.ml#L1535
+        pub fn account_id(&self) -> AccountId {
+            AccountId::new(self.body.public_key.clone(), self.body.token_id.clone())
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L1327
+        pub fn digest(&self) -> Fp {
+            let mut inputs = Inputs::new();
+
+            self.to_inputs(&mut inputs);
+            hash_with_kimchi("MinaZkappBody", &inputs.to_fields())
         }
     }
 
@@ -1498,18 +1506,19 @@ pub mod zkapp_command {
             }
         }
 
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L1079
         pub fn of_wire(
             &mut self,
             wired: &[MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA],
         ) {
-            self.add_callers(wired, TokenId::default(), |update| {
-                let public_key: CompressedPubKey = (&update.body.public_key).into();
-                let token_id: TokenId = (&*update.body.token_id).into();
+            self.add_callers(wired, TokenId::default(), |wired_update| {
+                let public_key: CompressedPubKey = (&wired_update.body.public_key).into();
+                let token_id: TokenId = (&*wired_update.body.token_id).into();
 
                 AccountId::new(public_key, token_id).derive_token_id()
             });
 
-            self.accumulate_hashes(&|_update| todo!());
+            self.accumulate_hashes(&|account_update| account_update.digest());
         }
     }
 
