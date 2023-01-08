@@ -94,8 +94,16 @@ impl Mask {
 
     /// Detach this mask from its parent
     pub fn unregister_mask(&self, behavior: UnregisterBehavior) -> Mask {
+        self.unregister_mask_impl(behavior, true)
+    }
+
+    pub(super) fn unregister_mask_impl(
+        &self,
+        behavior: UnregisterBehavior,
+        remove_from_parent: bool,
+    ) -> Mask {
         let this = self.clone();
-        self.with(|this| this.unregister_mask(behavior));
+        self.with(|this| this.unregister_mask(behavior, remove_from_parent));
         this
     }
 
@@ -438,6 +446,25 @@ mod tests {
 
         assert_eq!(mask_root_hash, db_root_hash);
         assert_eq!(mask_paths, db_paths);
+    }
+
+    #[test]
+    fn test_masks_unregister_recursive() {
+        let (_root, layer1, layer2) = new_chain(DEPTH);
+
+        let layer3 = layer2.make_child();
+        let layer4 = layer2.make_child();
+
+        for mask in [&layer1, &layer2, &layer3, &layer4] {
+            assert!(mask.get_parent().is_some());
+        }
+
+        // This should not panic
+        layer1.unregister_mask(UnregisterBehavior::Recursive);
+
+        for mask in [&layer1, &layer2, &layer3, &layer4] {
+            assert!(mask.get_parent().is_none());
+        }
     }
 
     // Make sure hashes are correctly invalided in masks (parents/childs)

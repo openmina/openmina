@@ -195,7 +195,7 @@ impl MaskImpl {
     }
 
     /// Detach this mask from its parent
-    pub fn unregister_mask(&mut self, behavior: UnregisterBehavior) {
+    pub fn unregister_mask(&mut self, behavior: UnregisterBehavior, remove_from_parent: bool) {
         use UnregisterBehavior::*;
 
         let parent = self.get_parent().unwrap();
@@ -213,13 +213,16 @@ impl MaskImpl {
             IPromiseIAmReparentingThisMask => (),
             Recursive => {
                 for child in self.childs().values_mut() {
-                    child.unregister_mask(Recursive);
+                    child.unregister_mask_impl(Recursive, false);
                 }
             }
         }
 
-        let removed = parent.remove_child_uuid(self.uuid());
-        assert!(removed.is_some(), "Mask not a child of the parent");
+        // Remove only when our parent is not unregistering us
+        if remove_from_parent {
+            let removed = parent.remove_child_uuid(self.uuid());
+            assert!(removed.is_some(), "Mask not a child of the parent");
+        }
 
         self.unset_parent(trigger_detach_signal);
     }
