@@ -42,6 +42,7 @@ use crate::{
 use super::{
     diff::{with_valid_signatures_and_proofs, AtMostOne, AtMostTwo, Diff, PreDiffTwo},
     diff_creation_log::{DiffCreationLog, Partition},
+    hash::StagedLedgerHash,
     pre_diff_info::PreDiffError,
     resources::Resources,
     sparse_ledger::SparseLedger,
@@ -110,8 +111,6 @@ struct DiffResult {
     ledger_proof: Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>,
     pending_coinbase_update: (bool, Update),
 }
-
-struct StagedLedgerHash;
 
 enum SkipVerification {
     All,
@@ -402,8 +401,12 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#403
-    fn hash(&self) -> StagedLedgerHash {
-        todo!()
+    fn hash(&mut self) -> StagedLedgerHash {
+        StagedLedgerHash::of_aux_ledger_and_coinbase_hash(
+            self.scan_state.hash(),
+            self.ledger.merkle_root(),
+            &mut self.pending_coinbase_collection,
+        )
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#422
@@ -1774,7 +1777,7 @@ impl StagedLedger {
 
 #[cfg(test)]
 mod tests_ocaml {
-    use ark_ff::UniformRand;
+    use ark_ff::{UniformRand, Zero};
     use once_cell::sync::Lazy;
     use rand::Rng;
 
@@ -1890,7 +1893,7 @@ mod tests_ocaml {
             )
             .unwrap();
 
-        // assert_eq!(hash, )
+        assert_eq!(hash, sl.hash());
 
         (
             ledger_proof,

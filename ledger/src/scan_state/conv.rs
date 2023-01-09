@@ -1015,7 +1015,7 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
                 call_data: value.body.call_data.to_field(),
                 preconditions: (&value.body.preconditions).into(),
                 use_full_commitment: value.body.use_full_commitment,
-                caller: TokenId::default(), // TODO: `of_wire`
+                caller: TokenId::default(), // Modified later with `of_wire`
                 authorization_kind: match value.body.authorization_kind {
                     mina_p2p_messages::v2::MinaBaseAccountUpdateAuthorizationKindStableV1::NoneGiven => AuthorizationKind::NoneGiven,
                     mina_p2p_messages::v2::MinaBaseAccountUpdateAuthorizationKindStableV1::Signature => AuthorizationKind::Signature,
@@ -1084,17 +1084,24 @@ impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>> for Ca
 /// We need this trait because `mina-p2p-messages` contains different types for the same data
 pub trait AsAccountUpdateWithHash {
     fn elt(&self) -> &MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA;
+    fn elt_mut(&mut self) -> &mut MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA;
 }
 
 impl AsAccountUpdateWithHash for MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA {
     fn elt(&self) -> &MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
         &self.elt
     }
+    fn elt_mut(&mut self) -> &mut MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
+        &mut self.elt
+    }
 }
 
 impl AsAccountUpdateWithHash for MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA {
     fn elt(&self) -> &MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
         &self.elt
+    }
+    fn elt_mut(&mut self) -> &mut MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
+        &mut self.elt
     }
 }
 
@@ -1215,9 +1222,7 @@ impl From<&CallForest<()>>
 /// Root
 impl From<&CallForest<()>> for Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA> {
     fn from(value: &CallForest<()>) -> Self {
-        // TODO: to_wire
-
-        value
+        let mut wired: Vec<_> = value
             .0
             .iter()
             .map(
@@ -1230,7 +1235,10 @@ impl From<&CallForest<()>> for Vec<MinaBaseZkappCommandTStableV1WireStableV1Acco
                     stack_hash: (),
                 },
             )
-            .collect()
+            .collect();
+
+        value.to_wire(&mut wired);
+        wired
     }
 }
 
@@ -1717,12 +1725,12 @@ impl From<&LedgerProof> for LedgerProofProdStableV2 {
     }
 }
 
-impl binprot::BinProtWrite for LedgerProof {
-    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        let p2p: LedgerProofProdStableV2 = self.into();
-        p2p.binprot_write(w)
-    }
-}
+// impl binprot::BinProtWrite for LedgerProof {
+//     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+//         let p2p: LedgerProofProdStableV2 = self.into();
+//         p2p.binprot_write(w)
+//     }
+// }
 
 impl From<&MinaBaseSokMessageStableV1> for SokMessage {
     fn from(value: &MinaBaseSokMessageStableV1) -> Self {

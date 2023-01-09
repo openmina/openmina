@@ -753,14 +753,16 @@ pub mod zkapp_command {
     {
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_basic.ml#L223
         fn to_inputs(&self, inputs: &mut Inputs) {
-            match &self.0 {
+            let (set_or_keep, default_fn) = self;
+
+            match set_or_keep {
                 SetOrKeep::Set(this) => {
                     inputs.append_bool(true);
                     this.to_inputs(inputs);
                 }
                 SetOrKeep::Keep => {
                     inputs.append_bool(false);
-                    let default = self.1();
+                    let default = default_fn();
                     default.to_inputs(inputs);
                 }
             };
@@ -821,14 +823,16 @@ pub mod zkapp_command {
     {
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_precondition.ml#L414
         fn to_inputs(&self, inputs: &mut Inputs) {
-            match &self.0 {
+            let (or_ignore, default_fn) = self;
+
+            match or_ignore {
                 OrIgnore::Check(this) => {
                     inputs.append_bool(true);
                     this.to_inputs(inputs);
                 }
                 OrIgnore::Ignore => {
                     inputs.append_bool(false);
-                    let default = self.1();
+                    let default = default_fn();
                     default.to_inputs(inputs);
                 }
             };
@@ -1456,14 +1460,13 @@ pub mod zkapp_command {
         pub fn add_callers<F>(
             &mut self,
             wired: &[MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA],
-            null_id: TokenId,
             account_update_id: F,
         ) where
             F: Fn(&MinaBaseAccountUpdateTWireStableV1) -> TokenId,
         {
             let current_context = CallForestContext {
-                caller: null_id.clone(),
-                this: null_id,
+                caller: TokenId::default(),
+                this: TokenId::default(),
             };
 
             self.add_callers_impl(wired, current_context, &account_update_id);
@@ -1513,12 +1516,62 @@ pub mod zkapp_command {
             }
         }
 
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L672
+        fn remove_callers_impl<Update>(
+            &self,
+            wired: &mut [Update],
+            is_top_level: bool,
+            parent_caller: &TokenId,
+        ) where
+            Update: AsAccountUpdateWithHash,
+        {
+            use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1::{
+                Call, DelegateCall,
+            };
+
+            let call_type = |account_caller: &TokenId| {
+                if is_top_level {
+                    Call
+                } else if account_caller == parent_caller {
+                    DelegateCall
+                } else {
+                    Call
+                }
+            };
+
+            wired.iter_mut().zip(&self.0).for_each(|(wired, this)| {
+                let WithStackHash {
+                    elt:
+                        Tree::<Data> {
+                            account_update,
+                            calls,
+                            ..
+                        },
+                    ..
+                } = this;
+
+                let wired = wired.elt_mut();
+                let account_caller = &account_update.0.body.caller;
+
+                wired.account_update.body.caller = call_type(account_caller);
+
+                calls.remove_callers_impl(&mut wired.calls, false, account_caller);
+            });
+        }
+
+        fn remove_callers(
+            &self,
+            wired: &mut [MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA],
+        ) {
+            self.remove_callers_impl(wired, true, &TokenId::default());
+        }
+
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L1079
         pub fn of_wire(
             &mut self,
             wired: &[MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA],
         ) {
-            self.add_callers(wired, TokenId::default(), |wired_update| {
+            self.add_callers(wired, |wired_update| {
                 let public_key: CompressedPubKey = (&wired_update.body.public_key).into();
                 let token_id: TokenId = (&*wired_update.body.token_id).into();
 
@@ -1526,6 +1579,14 @@ pub mod zkapp_command {
             });
 
             self.accumulate_hashes(&|account_update| account_update.digest());
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L1096
+        pub fn to_wire(
+            &self,
+            wired: &mut [MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA],
+        ) {
+            self.remove_callers(wired);
         }
     }
 

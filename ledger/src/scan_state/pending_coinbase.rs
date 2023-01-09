@@ -5,7 +5,10 @@ use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 use sha2::{Digest, Sha256};
 
-use crate::{hash_noinputs, hash_with_kimchi, Address, Inputs, MerklePath};
+use crate::{
+    hash_noinputs, hash_with_kimchi, staged_ledger::hash::PendingCoinbaseAux, Address, Inputs,
+    MerklePath,
+};
 
 use self::merkle_tree::MiniMerkleTree;
 
@@ -394,7 +397,7 @@ impl PendingCoinbase {
         Ok(stack)
     }
 
-    fn hash_extra(&self) -> String {
+    pub fn hash_extra(&self) -> PendingCoinbaseAux {
         let mut s = String::with_capacity(64 * 1024);
         for pos in &self.pos_list {
             write!(&mut s, "{}", pos.0).unwrap();
@@ -408,7 +411,7 @@ impl PendingCoinbase {
         sha.update(s);
 
         let digest = sha.finalize();
-        hex::encode(digest) // TODO: Not sure how OCaml encode it
+        PendingCoinbaseAux(digest.into())
     }
 }
 

@@ -13,7 +13,7 @@ use crate::{
             LedgerProofWithSokMessage, SokMessage, Statement, TransactionWithWitness,
         },
     },
-    staged_ledger::sparse_ledger::SparseLedger,
+    staged_ledger::{hash::AuxHash, sparse_ledger::SparseLedger},
     verifier::Verifier,
     Account, AccountId,
 };
@@ -331,18 +331,19 @@ pub mod transaction_snark {
 }
 
 impl ScanState {
-    pub fn hash(&self) -> Fp {
-        todo!()
+    pub fn hash(&self) -> AuxHash {
+        use binprot::BinProtWrite;
 
-        // use binprot::BinProtWrite;
-        // self.state.hash(
-        //     |buffer, proof| {
-        //         proof.binprot_write(buffer).unwrap();
-        //     },
-        //     |buffer, transaction| {
-        //         transaction.binprot_write(buffer).unwrap();
-        //     },
-        // );
+        let digest = self.state.hash(
+            |buffer, proof| {
+                proof.binprot_write(buffer).unwrap();
+            },
+            |buffer, transaction| {
+                transaction.binprot_write(buffer).unwrap();
+            },
+        );
+
+        AuxHash(digest.into())
     }
 }
 
