@@ -138,7 +138,8 @@ mod tests {
         let memo = bs58::decode("E4Yd67s51QN9DZVDy8JKPEoNGykMsYQ5KRiKpZHiLZTjA8dB9SnFT")
             .with_check(Some(0x14))
             .into_vec()
-            .unwrap();
+            .unwrap()[1..]
+            .to_vec();
         let v = CharString::from(&memo[..]);
         let memo = generated::MinaBaseSignedCommandMemoStableV1(v);
 
@@ -156,7 +157,7 @@ mod tests {
 
         let v = generated::MinaBasePaymentPayloadStableV2 {
             source_pk: from.clone(),
-            receiver_pk: from.clone(),
+            receiver_pk: to.clone(),
             amount,
         };
         let body = generated::MinaBaseSignedCommandPayloadBodyStableV2::Payment(v);
@@ -176,17 +177,17 @@ mod tests {
 
     #[test]
     fn test_payment_hash_1() {
-        let expected_hash = "CkpYQLmrrWcvRhVEG1AzKMu3hVVxpZ1ghjewmVAWzf9npCVMS6jZ3";
+        let expected_hash = "CkpYVhMRYP3zfgpHzKJfJoHNkL9dNTgpA9zKQ8y2X533Pm9yZdN8q";
         let expected_tx_hash: TransactionHash = expected_hash.parse().unwrap();
         dbg!(expected_tx_hash);
 
         assert_eq!(
             tx_hash(
-                "B62qrztYfPinaKqpXaYGY6QJ3SSW2NNKs7SajBLF1iFNXW9BoALN2Aq",
-                "B62qrJKtrMJCFDaYTqaxpY5KU1XuwSiL1ZtWteNFKxsmW9xZzG3cYX2",
-                100000000,
-                250000000,
-                3073,
+                "B62qp3B9VW1ir5qL1MWRwr6ecjC2NZbGr8vysGeme9vXGcFXTMNXb2t",
+                "B62qieNixrVNNK3G6nNviFa77yTCbR4tfCcm7w7H8LqTjFoqvdEfF4W",
+                1500000,
+                75495949,
+                25646,
                 -1
             ),
             expected_hash
