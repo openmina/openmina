@@ -6,8 +6,7 @@ use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};
 use mina_signer::CompressedPubKey;
 use o1_utils::FieldHelpers;
 
-use crate::scan_state::currency::{Balance, Magnitude};
-use crate::scan_state::transaction_logic::zkapp_command::Nonce;
+use crate::scan_state::currency::{Balance, Magnitude, Nonce};
 
 use super::common::*;
 

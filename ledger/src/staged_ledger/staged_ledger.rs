@@ -8,7 +8,7 @@ use crate::{
     decompress_pk,
     scan_state::{
         self,
-        currency::{Amount, Fee, Magnitude},
+        currency::{Amount, Fee, Magnitude, Slot},
         fee_excess::FeeExcess,
         pending_coinbase::{
             update::{Action, StackUpdate, Update},
@@ -30,7 +30,7 @@ use crate::{
             valid::{self, VerificationKeyHash},
             verifiable,
             zkapp_command::Control,
-            CoinbaseFeeTransfer, Slot, Transaction, TransactionStatus, UserCommand, WithStatus,
+            CoinbaseFeeTransfer, Transaction, TransactionStatus, UserCommand, WithStatus,
         },
     },
     split_at, split_at_vec,

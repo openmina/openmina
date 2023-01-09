@@ -14,10 +14,7 @@ use mina_p2p_messages::{
 };
 
 use crate::{
-    scan_state::{
-        currency::{Amount, Balance},
-        transaction_logic::{zkapp_command::Nonce, Slot},
-    },
+    scan_state::currency::{Amount, Balance, Nonce, Slot},
     CurveAffine, Permissions, PlonkVerificationKeyEvals, ProofVerified, ReceiptChainHash, Timing,
     TokenPermissions, TokenSymbol, VerificationKey, VotingFor, ZkAppAccount,
 };

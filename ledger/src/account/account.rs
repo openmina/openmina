@@ -9,8 +9,8 @@ use rand::{prelude::ThreadRng, Rng};
 use crate::{
     hash::{hash_noinputs, hash_with_kimchi, Inputs},
     scan_state::{
-        currency::{Balance, Magnitude},
-        transaction_logic::{account_min_balance_at_slot, zkapp_command::Nonce, Slot},
+        currency::{Balance, Magnitude, Nonce, Slot},
+        transaction_logic::account_min_balance_at_slot,
     },
     MerklePath, ToInputs,
 };

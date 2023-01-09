@@ -5,10 +5,7 @@ use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
 use crate::{
-    scan_state::{
-        conv::to_ledger_hash,
-        transaction_logic::{AccountState, Slot},
-    },
+    scan_state::{conv::to_ledger_hash, currency::Slot, transaction_logic::AccountState},
     Account, AccountId, AccountIndex, Address, AddressIterator, BaseLedger, Direction,
     HashesMatrix, Mask, MerklePath, TreeVersion, V2,
 };

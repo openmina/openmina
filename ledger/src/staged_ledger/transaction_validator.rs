@@ -5,10 +5,11 @@ use mina_hasher::Fp;
 
 use crate::{
     scan_state::{
+        currency::Slot,
         scan_state::ConstraintConstants,
         transaction_logic::{
             self, protocol_state::ProtocolStateView, signed_command::SignedCommand, AccountState,
-            Slot, Transaction, TransactionStatus,
+            Transaction, TransactionStatus,
         },
     },
     Account, AccountId, Address, Mask,

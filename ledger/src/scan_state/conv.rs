@@ -63,16 +63,19 @@ use mina_p2p_messages::{
 
 use crate::{
     array_into_with,
-    scan_state::transaction_logic::{
-        signed_command::{PaymentPayload, StakeDelegationPayload},
-        zkapp_command::{self, AuthorizationKind, CallForest},
-        WithStatus,
+    scan_state::{
+        currency::BlockTime,
+        transaction_logic::{
+            signed_command::{PaymentPayload, StakeDelegationPayload},
+            zkapp_command::{self, AuthorizationKind, CallForest},
+            WithStatus,
+        },
     },
     Account, AccountId, TokenId, VerificationKey,
 };
 
 use super::{
-    currency::{Amount, Balance, Fee, Sgn, Signed},
+    currency::{Amount, Balance, Fee, Index, Length, Nonce, Sgn, Signed, Slot},
     fee_excess::FeeExcess,
     pending_coinbase,
     scan_state::transaction_snark::{
@@ -84,11 +87,9 @@ use super::{
         local_state::LocalState,
         transaction_applied::{self, TransactionApplied},
         zkapp_command::{
-            AccountUpdate, BlockTime, FeePayer, FeePayerBody, Nonce, SetOrKeep, WithHash,
-            WithStackHash,
+            AccountUpdate, FeePayer, FeePayerBody, SetOrKeep, WithHash, WithStackHash,
         },
-        FeeTransfer, Index, Memo, Signature, SingleFeeTransfer, Slot, TransactionFailure,
-        TransactionStatus,
+        FeeTransfer, Memo, Signature, SingleFeeTransfer, TransactionFailure, TransactionStatus,
     },
 };
 
@@ -180,8 +181,8 @@ impl From<&Slot> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
     }
 }
 
-impl From<&zkapp_command::Length> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
-    fn from(value: &zkapp_command::Length) -> Self {
+impl From<&Length> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
+    fn from(value: &Length) -> Self {
         Self((value.as_u32() as i32).into())
     }
 }
@@ -561,10 +562,10 @@ impl From<&zkapp_command::Timing> for MinaBaseAccountUpdateUpdateTimingInfoStabl
 }
 
 impl From<&MinaBaseZkappPreconditionProtocolStateStableV1Length>
-    for zkapp_command::Numeric<zkapp_command::Length>
+    for zkapp_command::Numeric<Length>
 {
     fn from(value: &MinaBaseZkappPreconditionProtocolStateStableV1Length) -> Self {
-        use zkapp_command::{ClosedInterval, Length, Numeric};
+        use zkapp_command::{ClosedInterval, Numeric};
         use MinaBaseZkappPreconditionProtocolStateStableV1Length as MLength;
 
         match value {
@@ -577,10 +578,10 @@ impl From<&MinaBaseZkappPreconditionProtocolStateStableV1Length>
     }
 }
 
-impl From<&zkapp_command::Numeric<zkapp_command::Length>>
+impl From<&zkapp_command::Numeric<Length>>
     for MinaBaseZkappPreconditionProtocolStateStableV1Length
 {
-    fn from(value: &zkapp_command::Numeric<zkapp_command::Length>) -> Self {
+    fn from(value: &zkapp_command::Numeric<Length>) -> Self {
         use zkapp_command::Numeric;
         use MinaBaseZkappPreconditionProtocolStateStableV1Length as MLength;
 

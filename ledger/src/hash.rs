@@ -268,24 +268,6 @@ impl ToInputs for bool {
     }
 }
 
-impl ToInputs for currency::Amount {
-    fn to_inputs(&self, inputs: &mut Inputs) {
-        inputs.append_u64(self.as_u64());
-    }
-}
-
-impl ToInputs for currency::Fee {
-    fn to_inputs(&self, inputs: &mut Inputs) {
-        inputs.append_u64(self.as_u64());
-    }
-}
-
-impl ToInputs for currency::Balance {
-    fn to_inputs(&self, inputs: &mut Inputs) {
-        inputs.append_u64(self.as_u64());
-    }
-}
-
 impl<T> ToInputs for currency::Signed<T>
 where
     T: currency::Magnitude,

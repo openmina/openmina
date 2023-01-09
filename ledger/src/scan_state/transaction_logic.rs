@@ -4,7 +4,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     scan_state::{currency::Magnitude, transaction_logic::transaction_applied::Varying},
     staged_ledger::sparse_ledger::{LedgerIntf, SparseLedger},
-    Account, AccountId, BaseLedger, ReceiptChainHash, Timing, ToInputs, TokenId, VerificationKey,
+    Account, AccountId, BaseLedger, ReceiptChainHash, Timing, TokenId, VerificationKey,
 };
 
 use self::{
@@ -12,11 +12,11 @@ use self::{
     signed_command::{SignedCommand, SignedCommandPayload},
     transaction_applied::TransactionApplied,
     transaction_union_payload::TransactionUnionPayload,
-    zkapp_command::{Nonce, WithHash},
+    zkapp_command::WithHash,
 };
 
 use super::{
-    currency::{Amount, Balance, Fee, Signed},
+    currency::{Amount, Balance, Fee, Nonce, Signed, Slot},
     fee_excess::FeeExcess,
     scan_state::{transaction_snark::OneOrTwo, ConstraintConstants},
 };
@@ -379,54 +379,10 @@ pub struct Signature(pub(super) (Fp, Fp)); // TODO: Not sure if it's correct
 #[derive(Debug, Clone, derive_more::Deref, derive_more::From)]
 pub struct Memo(Vec<u8>);
 
-#[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Slot(pub(super) u32);
-
-impl ToInputs for Slot {
-    fn to_inputs(&self, inputs: &mut crate::Inputs) {
-        inputs.append_u32(self.0);
-    }
-}
-
-impl rand::distributions::Distribution<Slot> for rand::distributions::Standard {
-    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Slot {
-        Slot(rng.next_u32())
-    }
-}
-
-impl Slot {
-    pub fn is_zero(&self) -> bool {
-        self.0 == 0
-    }
-
-    pub fn zero() -> Self {
-        Self(0)
-    }
-
-    pub fn as_u32(&self) -> u32 {
-        self.0
-    }
-
-    pub fn from_u32(slot: u32) -> Self {
-        Self(slot)
-    }
-
-    fn min() -> Self {
-        Self(0)
-    }
-
-    fn max() -> Self {
-        Self(u32::MAX)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Index(pub(super) u32);
-
 pub mod signed_command {
-    use crate::{decompress_pk, AccountId};
+    use crate::{decompress_pk, scan_state::currency::Slot, AccountId};
 
-    use super::{zkapp_command::Nonce, *};
+    use super::*;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L75
     #[derive(Debug, Clone)]
@@ -609,7 +565,7 @@ pub mod zkapp_command {
         hash_noinputs, hash_with_kimchi,
         scan_state::{
             conv::AsAccountUpdateWithHash,
-            currency::{Balance, Signed},
+            currency::{Balance, BlockTime, Length, Signed, Slot},
         },
         AuthRequired, Inputs, MyCow, Permissions, ToInputs, TokenSymbol, VerificationKey, ZkAppUri,
     };
@@ -848,63 +804,6 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L178
     pub type Numeric<T> = OrIgnore<ClosedInterval<T>>;
 
-    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/block_time/intf.ml#L55
-    // TODO: Not sure if it's `u64`, but OCaml has methods `of_int64` and `to_in64`
-    #[derive(Debug, Clone)]
-    pub struct BlockTime(pub(super) u64);
-
-    impl ToInputs for BlockTime {
-        fn to_inputs(&self, inputs: &mut Inputs) {
-            inputs.append_u64(self.0);
-        }
-    }
-
-    impl BlockTime {
-        pub fn from_u64(n: u64) -> Self {
-            Self(n)
-        }
-
-        pub fn as_u64(&self) -> u64 {
-            self.0
-        }
-
-        fn min() -> Self {
-            Self(0)
-        }
-
-        fn max() -> Self {
-            Self(u64::MAX)
-        }
-    }
-
-    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_numbers/length.mli#L2
-    #[derive(Debug, Clone)]
-    pub struct Length(pub(super) u32);
-
-    impl ToInputs for Length {
-        fn to_inputs(&self, inputs: &mut Inputs) {
-            inputs.append_u32(self.0);
-        }
-    }
-
-    impl Length {
-        pub fn from_u32(n: u32) -> Self {
-            Self(n)
-        }
-
-        pub fn as_u32(&self) -> u32 {
-            self.0
-        }
-
-        fn min() -> Self {
-            Self(0)
-        }
-
-        fn max() -> Self {
-            Self(u32::MAX)
-        }
-    }
-
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/epoch_ledger.ml#L9
     #[derive(Debug, Clone)]
     pub struct EpochLedger {
@@ -1018,53 +917,6 @@ pub mod zkapp_command {
 
             inputs.append(staking_epoch_data);
             inputs.append(next_epoch_data);
-        }
-    }
-
-    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_numbers/account_nonce.mli#L2
-    #[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-    pub struct Nonce(pub(super) u32);
-
-    impl ToInputs for Nonce {
-        fn to_inputs(&self, inputs: &mut Inputs) {
-            inputs.append_u32(self.0);
-        }
-    }
-
-    impl Nonce {
-        pub fn is_zero(&self) -> bool {
-            self.0 == 0
-        }
-
-        pub fn zero() -> Self {
-            Self(0)
-        }
-
-        pub fn as_u32(&self) -> u32 {
-            self.0
-        }
-
-        pub fn from_u32(nonce: u32) -> Self {
-            Self(nonce)
-        }
-
-        // TODO: Not sure if OCaml wraps around here
-        pub fn incr(&self) -> Self {
-            Self(self.0.wrapping_add(1))
-        }
-
-        pub fn min() -> Self {
-            Self(0)
-        }
-
-        pub fn max() -> Self {
-            Self(u32::MAX)
-        }
-    }
-
-    impl rand::distributions::Distribution<Nonce> for rand::distributions::Standard {
-        fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Nonce {
-            Nonce(rng.next_u32())
         }
     }
 
@@ -2071,10 +1923,9 @@ pub mod transaction_witness {
 pub mod protocol_state {
     use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
 
-    use super::{
-        zkapp_command::{BlockTime, Length},
-        *,
-    };
+    use crate::scan_state::currency::{BlockTime, Length, Slot};
+
+    use super::*;
 
     #[derive(Debug, Clone)]
     pub struct EpochLedger {
@@ -2146,7 +1997,11 @@ pub mod protocol_state {
 pub mod local_state {
     use ark_ff::Zero;
 
-    use crate::{hash_with_kimchi, scan_state::currency::Signed, Inputs};
+    use crate::{
+        hash_with_kimchi,
+        scan_state::currency::{Index, Signed},
+        Inputs,
+    };
 
     use super::{zkapp_command::CallForest, *};
 

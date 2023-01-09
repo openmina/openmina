@@ -4,10 +4,7 @@ use o1_utils::FieldHelpers;
 
 use crate::{
     hash::hash_noinputs,
-    scan_state::{
-        currency::{Amount, Balance},
-        transaction_logic::Slot,
-    },
+    scan_state::currency::{Amount, Balance, Slot},
 };
 
 // pub type Balance = u64;
