@@ -6,6 +6,8 @@ use std::time::Duration;
 use futures::channel::{mpsc, oneshot};
 use futures::{select_biased, FutureExt, SinkExt, StreamExt};
 use gloo_utils::format::JsValueSerdeExt;
+use js_sys::{Promise, Uint8Array};
+use lib::snark::{srs_from_bytes, verifier_index_from_bytes};
 use libp2p::futures;
 use libp2p::multiaddr::{Multiaddr, Protocol as MultiaddrProtocol};
 use libp2p::wasm_ext::ffi::ManualConnector as JsManualConnector;
@@ -13,8 +15,9 @@ use mina_p2p_messages::v2::NonZeroCurvePoint;
 use mina_signer::{NetworkId, PubKey, Signer};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
+use sha2::{Digest, Sha256};
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::spawn_local;
+use wasm_bindgen_futures::{spawn_local, JsFuture};
 
 use lib::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
@@ -42,6 +45,11 @@ pub mod rayon;
 mod transaction;
 pub use transaction::Transaction;
 
+const BLOCK_VERIFIER_INDEX_HASH: &'static str =
+    "0969aacaf7f492ddf0799f3dba190d83fbbd02df6e416c403bc061437dda2dfd";
+const BLOCK_VERIFIER_SRS_HASH: &'static str =
+    "330931dc866652e9d0cfc2dcda096e976f32783f340d4593b6e8e6bef3a7a19b";
+
 pub type Store = lib::Store<NodeWasmService>;
 pub type Node = lib::Node<NodeWasmService>;
 
@@ -58,7 +66,7 @@ pub struct ManualConnector {
 
 #[wasm_bindgen]
 impl ManualConnector {
-    pub async fn dial(&mut self, peer_id: String) -> Result<js_sys::Promise, JsValue> {
+    pub async fn dial(&mut self, peer_id: String) -> Result<Promise, JsValue> {
         let inner: JsManualConnector = self.inner.clone().into();
         let addr = format!("/p2p-webrtc-direct/p2p/{}", peer_id);
         let peer_id_str = peer_id;
@@ -127,8 +135,33 @@ pub async fn run(mut node: Node) {
     }
 }
 
+#[wasm_bindgen]
+pub struct WasmConfig {
+    block_verifier_index: Option<JsFuture>,
+    block_verifier_srs: Option<JsFuture>,
+}
+
+#[wasm_bindgen]
+impl WasmConfig {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self {
+            block_verifier_index: None,
+            block_verifier_srs: None,
+        }
+    }
+
+    pub fn set_block_verifier_index(&mut self, value: Option<Promise>) {
+        self.block_verifier_index = value.map(|p| p.into());
+    }
+
+    pub fn set_block_verifier_srs(&mut self, value: Option<Promise>) {
+        self.block_verifier_srs = value.map(|p| p.into());
+    }
+}
+
 #[wasm_bindgen(js_name = start)]
-pub async fn wasm_start() -> Result<JsHandle, JsValue> {
+pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
     let logger_config = logging::InMemLoggerConfig {
         max_level: shared::log::inner::Level::DEBUG,
         max_len: 256,
@@ -217,12 +250,41 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
             kind = "SnarkBlockVerifyIndexGetInit",
             summary = "get block verifier index");
 
-        let block_verifier_index = cached_value(
-            storage.as_ref(),
-            "block_verifier_index",
-            lib::snark::get_verifier_index,
-        )
-        .await;
+        let promise = config.block_verifier_index;
+        let block_verifier_index = std::future::ready(())
+            .then(move |_| async {
+                let v = promise?.await.ok()?;
+                let bytes = Uint8Array::new(&v).to_vec();
+
+                let mut hasher = Sha256::new();
+                hasher.update(&bytes);
+                let hash = hex::encode(&hasher.finalize());
+
+                if hash != BLOCK_VERIFIER_INDEX_HASH {
+                    shared::log::info!(shared::log::system_time();
+                        kind = "SnarkBlockVerifyIndexFetchError",
+                        summary = "hash mismatch",
+                        expected = BLOCK_VERIFIER_INDEX_HASH,
+                        found = hash);
+                    return None;
+                }
+
+                Some(verifier_index_from_bytes(&bytes))
+            })
+            .then(|opt| async {
+                match opt {
+                    Some(v) => v,
+                    None => {
+                        cached_value(
+                            storage.as_ref(),
+                            "block_verifier_index",
+                            lib::snark::get_verifier_index,
+                        )
+                        .await
+                    }
+                }
+            })
+            .await;
 
         shared::log::info!(shared::log::system_time();
             kind = "SnarkBlockVerifyIndexGetSuccess",
@@ -233,8 +295,37 @@ pub async fn wasm_start() -> Result<JsHandle, JsValue> {
             kind = "SnarkBlockVerifySRSGetInit",
             summary = "get block verifier srs");
 
-        let block_verifier_srs =
-            cached_value(storage.as_ref(), "block_verifier_srs", lib::snark::get_srs).await;
+        let promise = config.block_verifier_srs;
+        let block_verifier_srs = std::future::ready(())
+            .then(move |_| async {
+                let v = promise?.await.ok()?;
+                let bytes = Uint8Array::new(&v).to_vec();
+
+                let mut hasher = Sha256::new();
+                hasher.update(&bytes);
+                let hash = hex::encode(&hasher.finalize());
+
+                if hash != BLOCK_VERIFIER_SRS_HASH {
+                    shared::log::info!(shared::log::system_time();
+                        kind = "SnarkBlockVerifySRSFetchError",
+                        summary = "hash mismatch",
+                        expected = BLOCK_VERIFIER_SRS_HASH,
+                        found = hash);
+                    return None;
+                }
+
+                Some(srs_from_bytes(&bytes))
+            })
+            .then(|opt| async {
+                match opt {
+                    Some(v) => v,
+                    None => {
+                        cached_value(storage.as_ref(), "block_verifier_srs", lib::snark::get_srs)
+                            .await
+                    }
+                }
+            })
+            .await;
 
         shared::log::info!(shared::log::system_time();
             kind = "SnarkBlockVerifySRSGetSuccess",
