@@ -565,7 +565,7 @@ pub mod zkapp_command {
         hash_noinputs, hash_with_kimchi,
         scan_state::{
             conv::AsAccountUpdateWithHash,
-            currency::{Balance, BlockTime, Length, Signed, Slot},
+            currency::{Balance, BlockTime, Length, MinMax, Signed, Slot},
         },
         AuthRequired, Inputs, MyCow, Permissions, ToInputs, TokenSymbol, VerificationKey, ZkAppUri,
     };
@@ -752,6 +752,18 @@ pub mod zkapp_command {
         pub upper: T,
     }
 
+    impl<T> ClosedInterval<T>
+    where
+        T: MinMax,
+    {
+        fn min_max() -> Self {
+            Self {
+                lower: T::min(),
+                upper: T::max(),
+            }
+        }
+    }
+
     impl<T> ToInputs for ClosedInterval<T>
     where
         T: ToInputs,
@@ -839,19 +851,13 @@ pub mod zkapp_command {
                 } = ledger;
 
                 inputs.append(&(hash, Fp::zero));
-                inputs.append(&(total_currency, || ClosedInterval {
-                    lower: Amount::min(),
-                    upper: Amount::max(),
-                }));
+                inputs.append(&(total_currency, ClosedInterval::min_max));
             }
 
             inputs.append(&(seed, Fp::zero));
             inputs.append(&(start_checkpoint, Fp::zero));
             inputs.append(&(lock_checkpoint, Fp::zero));
-            inputs.append(&(epoch_length, || ClosedInterval {
-                lower: Length::min(),
-                upper: Length::max(),
-            }));
+            inputs.append(&(epoch_length, ClosedInterval::min_max));
         }
     }
 
@@ -888,32 +894,14 @@ pub mod zkapp_command {
 
             assert_eq_size_val!(*last_vrf_output, ());
 
-            let default_length = || ClosedInterval {
-                lower: Length::min(),
-                upper: Length::max(),
-            };
-
-            let default_slot = || ClosedInterval {
-                lower: Slot::min(),
-                upper: Slot::max(),
-            };
-
             inputs.append(&(snarked_ledger_hash, Fp::zero));
-            inputs.append(&(timestamp, || ClosedInterval {
-                lower: BlockTime::min(),
-                upper: BlockTime::max(),
-            }));
+            inputs.append(&(timestamp, ClosedInterval::min_max));
 
-            inputs.append(&(blockchain_length, default_length));
-            inputs.append(&(min_window_density, default_length));
-
-            inputs.append(&(total_currency, || ClosedInterval {
-                lower: Amount::min(),
-                upper: Amount::max(),
-            }));
-
-            inputs.append(&(global_slot_since_hard_fork, default_slot));
-            inputs.append(&(global_slot_since_genesis, default_slot));
+            inputs.append(&(blockchain_length, ClosedInterval::min_max));
+            inputs.append(&(min_window_density, ClosedInterval::min_max));
+            inputs.append(&(total_currency, ClosedInterval::min_max));
+            inputs.append(&(global_slot_since_hard_fork, ClosedInterval::min_max));
+            inputs.append(&(global_slot_since_genesis, ClosedInterval::min_max));
 
             inputs.append(staking_epoch_data);
             inputs.append(next_epoch_data);
@@ -985,16 +973,8 @@ pub mod zkapp_command {
                 is_new,
             } = account.as_ref();
 
-            inputs.append(&(balance, || ClosedInterval {
-                lower: Balance::min(),
-                upper: Balance::max(),
-            }));
-
-            inputs.append(&(nonce, || ClosedInterval {
-                lower: Nonce::min(),
-                upper: Nonce::max(),
-            }));
-
+            inputs.append(&(balance, ClosedInterval::min_max));
+            inputs.append(&(nonce, ClosedInterval::min_max));
             inputs.append(&(receipt_chain_hash, Fp::zero));
             inputs.append(&(delegate, CompressedPubKey::empty));
 
