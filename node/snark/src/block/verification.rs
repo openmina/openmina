@@ -297,6 +297,8 @@ pub fn verify(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierIndex) 
 
 #[cfg(test)]
 mod tests {
+    use std::{hash::{Hash, Hasher}, collections::hash_map::DefaultHasher};
+
     use binprot::BinProtRead;
 
     use crate::{
@@ -361,5 +363,24 @@ mod tests {
 
             assert!(accum_check && verified);
         }
+    }
+
+    #[test]
+    fn test_verifier_index_deterministic() {
+        let mut nruns = 0;
+        let nruns = &mut nruns;
+
+        let mut hash_verifier_index = || {
+            *nruns += 1;
+            let verifier_index = get_verifier_index();
+            let bytes = verifier_index_to_bytes(&verifier_index);
+
+            let mut hasher = DefaultHasher::new();
+            bytes.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        assert_eq!(hash_verifier_index(), hash_verifier_index());
+        assert_eq!(*nruns, 2);
     }
 }

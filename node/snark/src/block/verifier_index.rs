@@ -6,7 +6,7 @@ use ark_ec::AffineCurve;
 use commitment_dlog::{commitment::CommitmentCurve, srs::SRS, PolyComm};
 
 use kimchi::{
-    circuits::polynomials::permutation::{zk_polynomial, zk_w3},
+    circuits::{polynomials::permutation::{zk_polynomial, zk_w3}, expr::Linearization},
     curve::KimchiCurve,
     linearization::expr_linearization,
     verifier_index::LookupVerifierIndex,
@@ -136,7 +136,16 @@ fn make_verifier_index(index: &VerifierIndexOcaml<Pallas>) -> VerifierIndex {
 
     let (endo, _) = kimchi::commitment_dlog::srs::endos::<GroupAffine<VestaParameters>>();
 
-    let (linearization, powers_of_alpha) = expr_linearization(false, false, None, false, false);
+    let (mut linearization, powers_of_alpha) = expr_linearization(false, false, None, false, false);
+
+    let linearization = Linearization {
+        constant_term: linearization.constant_term,
+        index_terms: {
+            // Make the verifier index deterministic
+            linearization.index_terms.sort_by_key(|&(columns, _)| columns);
+            linearization.index_terms
+        },
+    };
 
     let public: usize = index.index.public;
 
