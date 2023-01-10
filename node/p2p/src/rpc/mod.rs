@@ -21,9 +21,7 @@ use mina_p2p_messages::{
         AnswerSyncLedgerQueryV2, GetBestTipV2, GetTransitionChainV2, GetTransitionKnowledgeV1ForV2,
         VersionedRpcMenuV1,
     },
-    rpc_kernel::{
-        QueryHeader, QueryID, Response, ResponseHeader, RpcMethod, RpcResultKind,
-    },
+    rpc_kernel::{QueryHeader, QueryID, Response, ResponseHeader, RpcMethod, RpcResultKind},
     v2::MinaLedgerSyncLedgerAnswerStableV2,
 };
 use serde::{Deserialize, Serialize};
