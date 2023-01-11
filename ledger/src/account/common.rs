@@ -1,6 +1,6 @@
 use ark_ff::Zero;
 use mina_hasher::Fp;
-use o1_utils::FieldHelpers;
+use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
 
 use crate::{
     hash::hash_noinputs,
@@ -27,17 +27,17 @@ pub struct ReceiptChainHash(pub Fp);
 
 impl ReceiptChainHash {
     pub fn empty_legacy() -> Self {
-        Self(empty_receipt_hash_legacy())
+        // Value of `Receipt.Chain_hash.empty` in Ocaml (`compatible` branch)
+        Self::from_hex("0b143c0645497a5987a7b88f66340e03db943f0a0df48b69a3a82921ce97b10a").unwrap()
     }
 
     pub fn empty() -> Self {
         Self(hash_noinputs("CodaReceiptEmpty"))
     }
-}
 
-fn empty_receipt_hash_legacy() -> Fp {
-    // Value of `Receipt.Chain_hash.empty` in Ocaml (`compatible` branch)
-    Fp::from_hex("0b143c0645497a5987a7b88f66340e03db943f0a0df48b69a3a82921ce97b10a").unwrap()
+    pub fn from_hex(s: &str) -> Result<Self, FieldHelpersError> {
+        Fp::from_hex(s).map(|fp| Self(fp))
+    }
 }
 
 impl Default for ReceiptChainHash {

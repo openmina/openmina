@@ -3125,6 +3125,8 @@ where
 mod tests {
     use std::str::FromStr;
 
+    use o1_utils::FieldHelpers;
+
     use super::{
         signed_command::{Body, Common, PaymentPayload},
         *,
@@ -3167,6 +3169,46 @@ mod tests {
 
         let next = "11119245469205697592341599081188990695704663506019727849135180468159777463297";
         let next_receipt_chain_hash = ReceiptChainHash(Fp::from_str(next).unwrap());
+
+        let result = cons_signed_command_payload(&tx, prev_receipt_chain_hash);
+        assert_eq!(result, next_receipt_chain_hash);
+    }
+
+    #[test]
+    fn test_receipt_hash_update() {
+        let from = pub_key("B62qmnY6m4c6bdgSPnQGZriSaj9vuSjsfh6qkveGTsFX3yGA5ywRaja");
+        let to = pub_key("B62qjVQLxt9nYMWGn45mkgwYfcz8e8jvjNCBo11VKJb7vxDNwv5QLPS");
+
+        let common = Common {
+            fee: Fee::from_u64(14500000),
+            fee_payer_pk: from.clone(),
+            nonce: Nonce::from_u32(15),
+            valid_until: Slot::from_u32(-1i32 as u32),
+            memo: Memo::from(vec![
+                1, 7, 84, 104, 101, 32, 49, 48, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ]),
+        };
+
+        let body = Body::Payment(PaymentPayload {
+            source_pk: from,
+            receiver_pk: to,
+            amount: Amount::from_u64(2354000000),
+        });
+
+        let tx = SignedCommandPayload { common, body };
+
+        let mut prev =
+            hex::decode("09ac04c9965b885acfc9c54141dbecfc63b2394a4532ea2c598d086b894bfb14")
+                .unwrap();
+        prev.reverse();
+        let prev_receipt_chain_hash = ReceiptChainHash(Fp::from_bytes(&prev).unwrap());
+
+        let mut next =
+            hex::decode("0735169b96af4385c7345c94d4d65f83823309e95f72752d3f9d84f4282a53ac")
+                .unwrap();
+        next.reverse();
+        let next_receipt_chain_hash = ReceiptChainHash(Fp::from_bytes(&next).unwrap());
 
         let result = cons_signed_command_payload(&tx, prev_receipt_chain_hash);
         assert_eq!(result, next_receipt_chain_hash);
