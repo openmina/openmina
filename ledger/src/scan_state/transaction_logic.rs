@@ -2796,8 +2796,6 @@ pub mod transaction_union_payload {
             }
         }
 
-        /// TODO: Needs to be tested, the order might be reversed
-        ///
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_union_payload.ml#L309
         pub fn to_input_legacy(&self) -> LegacyInput {
             let mut roi = LegacyInput::new();
@@ -2842,6 +2840,9 @@ pub mod transaction_union_payload {
                 // receiver_pk
                 roi = roi.append_field(self.body.receiver_pk.x);
                 roi = roi.append_bool(self.body.receiver_pk.is_odd);
+
+                // default token_id
+                roi = roi.append_u64(1);
 
                 // amount
                 roi = roi.append_u64(self.body.amount.0);
@@ -3117,5 +3118,55 @@ where
             ExistingOrNew::New,
             Account::create_with(account_id.clone(), Balance::zero()),
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::{
+        signed_command::{Body, Common, PaymentPayload},
+        *,
+    };
+
+    fn pub_key(address: &str) -> CompressedPubKey {
+        mina_signer::PubKey::from_address(address)
+            .unwrap()
+            .into_compressed()
+    }
+
+    #[test]
+    fn test_cons_receipt_hash_ocaml() {
+        let from = pub_key("B62qr71UxuyKpkSKYceCPsjw14nuaeLwWKZdMqaBMPber5AAF6nkowS");
+        let to = pub_key("B62qnvGVnU7FXdy8GdkxL7yciZ8KattyCdq5J6mzo5NCxjgQPjL7BTH");
+
+        let common = Common {
+            fee: Fee::from_u64(9758327274353182341),
+            fee_payer_pk: from.clone(),
+            nonce: Nonce::from_u32(1609569868),
+            valid_until: Slot::from_u32(2127252111),
+            memo: Memo::from(vec![
+                1, 32, 101, 26, 225, 104, 115, 118, 55, 102, 76, 118, 108, 78, 114, 50, 0, 115,
+                110, 108, 53, 75, 109, 112, 50, 110, 88, 97, 76, 66, 76, 81, 235, 79,
+            ]),
+        };
+
+        let body = Body::Payment(PaymentPayload {
+            source_pk: from,
+            receiver_pk: to,
+            amount: Amount::from_u64(1155659205107036493),
+        });
+
+        let tx = SignedCommandPayload { common, body };
+
+        let prev = "4918218371695029984164006552208340844155171097348169027410983585063546229555";
+        let prev_receipt_chain_hash = ReceiptChainHash(Fp::from_str(prev).unwrap());
+
+        let next = "11119245469205697592341599081188990695704663506019727849135180468159777463297";
+        let next_receipt_chain_hash = ReceiptChainHash(Fp::from_str(next).unwrap());
+
+        let result = cons_signed_command_payload(&tx, prev_receipt_chain_hash);
+        assert_eq!(result, next_receipt_chain_hash);
     }
 }
