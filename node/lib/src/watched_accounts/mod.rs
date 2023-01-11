@@ -42,7 +42,7 @@ pub fn is_transaction_affecting_account(
 pub fn account_relevant_transactions_in_diff_iter<'a>(
     pub_key: &'a NonZeroCurvePoint,
     diff: &'a StagedLedgerDiffDiffDiffStableV2,
-) -> impl 'a + Iterator<Item = StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B> {
+) -> impl 'a + Iterator<Item = Transaction> {
     let iter_0 = diff.0.commands.iter();
     let iter_1: Box<
         dyn Iterator<Item = &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>,
@@ -53,5 +53,9 @@ pub fn account_relevant_transactions_in_diff_iter<'a>(
     iter_0
         .chain(iter_1)
         .filter(|tx| is_transaction_affecting_account(pub_key, tx))
-        .cloned()
+        .map(|tx| Transaction {
+            hash: tx.data.hash().ok(),
+            data: tx.data.clone(),
+            status: tx.status.clone(),
+        })
 }

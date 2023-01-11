@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use mina_p2p_messages::v2::{
-    LedgerHash, MinaBaseAccountBinableArgStableV2, NonZeroCurvePoint,
-    StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B, StateHash,
+    LedgerHash, MinaBaseAccountBinableArgStableV2, MinaBaseTransactionStatusStableV2,
+    MinaBaseUserCommandStableV2, NonZeroCurvePoint, StateHash, TransactionHash,
 };
 use serde::{Deserialize, Serialize};
 
@@ -17,26 +17,33 @@ pub struct WatchedAccountBlockInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Transaction {
+    pub hash: Option<TransactionHash>,
+    pub data: MinaBaseUserCommandStableV2,
+    pub status: MinaBaseTransactionStatusStableV2,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "state")]
 pub enum WatchedAccountBlockState {
     /// Relevant transactions to the account has been included in the block.
     TransactionsInBlockBody {
         block: WatchedAccountBlockInfo,
         /// Transactions included in the block ordered by nonce from low to high.
-        transactions: Vec<StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>,
+        transactions: Vec<Transaction>,
     },
     /// Get account data from the ledger pending.
     LedgerAccountGetPending {
         block: WatchedAccountBlockInfo,
         /// Transactions included in the block ordered by nonce from low to high.
-        transactions: Vec<StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>,
+        transactions: Vec<Transaction>,
         p2p_rpc_id: P2pRpcId,
     },
     /// Get account data from the ledger success.
     LedgerAccountGetSuccess {
         block: WatchedAccountBlockInfo,
         /// Transactions included in the block ordered by nonce from low to high.
-        transactions: Vec<StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>,
+        transactions: Vec<Transaction>,
         ledger_account: MinaBaseAccountBinableArgStableV2,
     },
 }
@@ -50,7 +57,7 @@ impl WatchedAccountBlockState {
         }
     }
 
-    pub fn transactions(&self) -> &[StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B] {
+    pub fn transactions(&self) -> &[Transaction] {
         match self {
             Self::TransactionsInBlockBody { transactions, .. } => transactions,
             Self::LedgerAccountGetPending { transactions, .. } => transactions,
