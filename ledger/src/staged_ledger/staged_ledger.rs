@@ -1778,8 +1778,19 @@ impl StagedLedger {
 #[cfg(test)]
 mod tests_ocaml {
     use ark_ff::{UniformRand, Zero};
+    use mina_curves::pasta::PallasParameters;
+    use mina_signer::{CurvePoint, Keypair, Signer};
     use once_cell::sync::Lazy;
-    use rand::Rng;
+    use rand::{seq::SliceRandom, Rng};
+
+    use crate::scan_state::{
+        currency::Nonce,
+        transaction_logic::{
+            signed_command::{PaymentPayload, SignedCommand, SignedCommandPayload},
+            transaction_union_payload::TransactionUnionPayload,
+            Memo, Signature,
+        },
+    };
 
     use super::*;
 
@@ -1904,7 +1915,284 @@ mod tests_ocaml {
         )
     }
 
-    //   assert (Staged_ledger_hash.equal hash (Sl.hash sl')) ;
-    //   sl := sl' ;
-    //   (ledger_proof, diff', is_new_stack, pc_update, supercharge_coinbase)
+    #[derive(Debug)]
+    struct LedgerInitialState {
+        state: Vec<(Keypair, Amount, Nonce, crate::account::Timing)>,
+    }
+
+    fn gen_keypair() -> Keypair {
+        let mut rng = rand::thread_rng();
+        Keypair::rand(&mut rng)
+    }
+
+    fn gen<T>(n_accounts: usize, fun: impl FnMut() -> T) -> Vec<T> {
+        std::iter::repeat_with(fun)
+            .take(n_accounts)
+            .collect::<Vec<_>>()
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/3a78f0e0c1343d14e2729c8b00205baa2ec70c93/src/lib/mina_ledger/ledger.ml#L408
+    fn gen_initial_ledger_state() -> LedgerInitialState {
+        let mut rng = rand::thread_rng();
+
+        let n_accounts = rng.gen_range(2..10);
+
+        let keypairs = gen(n_accounts, gen_keypair);
+        let balances = gen(n_accounts, || {
+            let balance: u64 = rng.gen_range(500_000_000..1_000_000_000);
+            Amount::from_u64(balance.checked_mul(1_000_000_000).unwrap())
+        });
+        let nonces = gen(n_accounts, || {
+            let nonce: u32 = rng.gen_range(0..1000);
+            Nonce::from_u32(nonce)
+        });
+
+        let state = keypairs
+            .into_iter()
+            .zip(balances)
+            .zip(nonces)
+            .map(|((keypair, balance), nonce)| {
+                (keypair, balance, nonce, crate::account::Timing::Untimed)
+            })
+            .collect();
+
+        LedgerInitialState { state }
+    }
+
+    /// How many blocks do we need to fully exercise the ledger
+    /// behavior and produce one ledger proof *)
+    const MIN_BLOCKS_FOR_FIRST_SNARKED_LEDGER_GENERIC: usize =
+        (CONSTRAINT_CONSTANTS.transaction_capacity_log_2 as usize + 1)
+            * (CONSTRAINT_CONSTANTS.work_delay as usize + 1)
+            + 1;
+
+    const TRANSACTION_CAPACITY: usize =
+        2u64.pow(CONSTRAINT_CONSTANTS.transaction_capacity_log_2 as u32) as usize;
+
+    // let transaction_capacity =
+    //   Int.pow 2 constraint_constants.transaction_capacity_log_2
+
+    /// n-1 extra blocks for n ledger proofs since we are already producing one
+    /// proof *)
+    fn max_blocks_for_coverage(n: usize) -> usize {
+        MIN_BLOCKS_FOR_FIRST_SNARKED_LEDGER_GENERIC + n - 1
+    }
+
+    enum SignKind {
+        Fake,
+        Real,
+    }
+
+    /// [gen_division n k] generates a list of [k] integers which sum to [n]
+    /// val gen_division : int -> int -> int list Generator.t
+    fn gen_division(n: usize, k: usize) -> Vec<usize> {
+        // TODO: Improve that
+
+        let mut rng = rand::thread_rng();
+        let mut sum = 0;
+
+        let vec = (0..k)
+            .map(|index| {
+                let int = rng.gen_range(1..n / k);
+
+                let int = if index == k - 1 {
+                    n - sum
+                } else {
+                    int.min(n - sum)
+                };
+
+                sum += int;
+                int
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(vec.len(), k);
+        assert_eq!(vec.iter().sum::<usize>(), n);
+
+        vec
+    }
+
+    fn gen_division_currency(amount: Amount, k: usize) -> Vec<Amount> {
+        let amount = amount.as_u64() as usize;
+        gen_division(amount, k)
+            .into_iter()
+            .map(|amount| Amount::from_u64(amount as u64))
+            .collect()
+    }
+
+    /// Generate a valid sequence of payments based on the initial state of a
+    /// ledger. Use this together with Ledger.gen_initial_ledger_state.
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3a78f0e0c1343d14e2729c8b00205baa2ec70c93/src/lib/mina_base/signed_command.ml#L246
+    fn signed_command_sequence(
+        length: usize,
+        sign_kind: SignKind,
+        ledger: &LedgerInitialState,
+    ) -> Vec<valid::SignedCommand> {
+        use scan_state::transaction_logic::signed_command::Body;
+
+        let mut rng = rand::thread_rng();
+        let n_commands = length;
+
+        if n_commands == 0 {
+            return vec![];
+        }
+
+        let n_accounts = ledger.state.len();
+
+        let (command_senders, mut currency_splits) = loop {
+            println!("try");
+
+            // How many commands will be issued from each account?
+            let command_splits = gen_division(n_commands, n_accounts);
+
+            // List of payment senders in the final order.
+            let mut command_senders = command_splits
+                .iter()
+                .enumerate()
+                .flat_map(|(idx, cmds)| vec![idx; *cmds])
+                .collect::<Vec<_>>();
+            command_senders.shuffle(&mut rng);
+
+            // within the accounts, how will the currency be split into separate
+            // payments?
+            let currency_splits = (0..n_accounts)
+                .map(|i| {
+                    let spend_all: bool = rng.gen();
+                    let (_, balance, _, _) = &ledger.state[i];
+                    let amount_to_spend = if spend_all {
+                        *balance
+                    } else {
+                        Amount::from_u64(balance.as_u64() / 2)
+                    };
+
+                    gen_division_currency(amount_to_spend, command_splits[i])
+                })
+                .collect::<Vec<_>>();
+
+            // We need to ensure each command has enough currency for a fee of 2
+            // or more, so it'll be enough to buy the requisite transaction
+            // snarks. It's important that the backtracking from filter goes and
+            // redraws command_splits as well as currency_splits, so we don't get
+            // stuck in a situation where it's very unlikely for the predicate to
+            // pass.
+            if currency_splits.iter().all(|list| {
+                list.iter()
+                    .all(|amount| amount >= &Amount::from_u64(2_000_000_000))
+            }) {
+                break (command_senders, currency_splits);
+            }
+        };
+
+        let account_nonces: Vec<Nonce> =
+            ledger.state.iter().map(|(_, _, nonce, _)| *nonce).collect();
+
+        command_senders
+            .into_iter()
+            .map(|sender| {
+                loop {
+                    let (this_split, rest_splits) = currency_splits[sender].split_at(1);
+                    let this_split = this_split[0];
+
+                    let (sender_pk, _, _, _) = &ledger.state[sender];
+
+                    currency_splits[sender] = rest_splits.to_vec();
+
+                    let nonce = account_nonces[sender];
+
+                    // println!("this={:?}", this_split);
+                    let min = 6000000000;
+                    let fee =
+                        rng.gen_range(min..(10000000000.min(this_split.as_u64()).max(min + 1)));
+                    let fee = Fee::from_u64(fee);
+
+                    let amount = match this_split.checked_sub(&Amount::of_fee(&fee)) {
+                        Some(amount) => amount,
+                        None => continue,
+                    };
+
+                    let receiver = {
+                        // Take random item in `ledger.state`
+                        let (kp, _, _, _) = ledger.state.choose(&mut rng).unwrap();
+                        kp.public.into_compressed()
+                    };
+
+                    let memo = Memo::dummy();
+
+                    let payload = {
+                        let sender_pk = sender_pk.public.into_compressed();
+
+                        SignedCommandPayload::create(
+                            fee,
+                            sender_pk.clone(),
+                            nonce,
+                            None,
+                            memo,
+                            Body::Payment(PaymentPayload {
+                                source_pk: sender_pk,
+                                receiver_pk: receiver,
+                                amount,
+                            }),
+                        )
+                    };
+
+                    let signature = match sign_kind {
+                        SignKind::Fake => Signature::dummy(),
+                        SignKind::Real => {
+                            // let tx = TransactionUnionPayload::of_user_command_payload(&payload);
+                            // let signature_testnet = create "CodaSignature"
+                            // let signature_mainnet = create "MinaSignatureMainnet"
+                            // mina_signer::create_kimchi("CodaSignature")
+                            //     .sign(sender_pk, &tx.to_input_legacy());
+
+                            // TODO
+                            Signature::dummy()
+                        }
+                    };
+
+                    return SignedCommand {
+                        payload,
+                        signer: sender_pk.public.into_compressed(),
+                        signature,
+                    };
+                }
+            })
+            .collect()
+    }
+
+    fn gen_at_capacity_fixed_blocks(
+        extra_block_count: usize,
+    ) -> (
+        LedgerInitialState,
+        Vec<valid::SignedCommand>,
+        Vec<Option<usize>>,
+    ) {
+        let state = gen_initial_ledger_state();
+        let iters = max_blocks_for_coverage(extra_block_count);
+        let total_cmds = TRANSACTION_CAPACITY * iters;
+
+        let cmds = signed_command_sequence(total_cmds, SignKind::Real, &state);
+        assert_eq!(cmds.len(), total_cmds);
+
+        (state, cmds, vec![None; iters])
+    }
+
+    #[test]
+    fn staged() {
+        gen_at_capacity_fixed_blocks(3);
+    }
+
+    // let gen_at_capacity_fixed_blocks extra_block_count :
+    //     (Ledger.init_state * User_command.Valid.t list * int option list)
+    //     Quickcheck.Generator.t =
+    //   let open Quickcheck.Generator.Let_syntax in
+    //   let%bind ledger_init_state = Ledger.gen_initial_ledger_state in
+    //   let iters = max_blocks_for_coverage extra_block_count in
+    //   let total_cmds = transaction_capacity * iters in
+    //   let%bind cmds =
+    //     User_command.Valid.Gen.sequence ~length:total_cmds ~sign_type:`Real
+    //       ledger_init_state
+    //   in
+    //   assert (List.length cmds = total_cmds) ;
+    //   return (ledger_init_state, cmds, List.init iters ~f:(Fn.const None))
 }

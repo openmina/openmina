@@ -1,3 +1,4 @@
+use ark_ff::One;
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
@@ -125,9 +126,11 @@ pub mod valid {
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
     pub struct VerificationKeyHash(pub Fp);
 
+    pub type SignedCommand = super::signed_command::SignedCommand;
+
     #[derive(Clone, Debug)]
     pub enum UserCommand {
-        SignedCommand(Box<super::signed_command::SignedCommand>),
+        SignedCommand(Box<SignedCommand>),
         ZkAppCommand(Box<super::zkapp_command::valid::ZkAppCommand>),
     }
 
@@ -376,8 +379,22 @@ impl Coinbase {
 #[derive(Debug, Clone)]
 pub struct Signature(pub(super) (Fp, Fp)); // TODO: Not sure if it's correct
 
+impl Signature {
+    pub fn dummy() -> Self {
+        Self((Fp::one(), Fp::one()))
+    }
+}
+
 #[derive(Debug, Clone, derive_more::Deref, derive_more::From)]
 pub struct Memo(Vec<u8>);
+
+impl Memo {
+    /// https://github.com/MinaProtocol/mina/blob/3a78f0e0c1343d14e2729c8b00205baa2ec70c93/src/lib/mina_base/signed_command_memo.ml#L151
+    pub fn dummy() -> Self {
+        // TODO
+        Self(vec![0; 34])
+    }
+}
 
 pub mod signed_command {
     use crate::{decompress_pk, scan_state::currency::Slot, AccountId};
@@ -451,10 +468,32 @@ pub mod signed_command {
         pub body: Body,
     }
 
+    impl SignedCommandPayload {
+        pub fn create(
+            fee: Fee,
+            fee_payer_pk: CompressedPubKey,
+            nonce: Nonce,
+            valid_until: Option<Slot>,
+            memo: Memo,
+            body: Body,
+        ) -> Self {
+            Self {
+                common: Common {
+                    fee,
+                    fee_payer_pk,
+                    nonce,
+                    valid_until: valid_until.unwrap_or_else(Slot::max),
+                    memo,
+                },
+                body,
+            }
+        }
+    }
+
     #[derive(Debug, Clone)]
     pub struct SignedCommand {
         pub payload: SignedCommandPayload,
-        pub signer: CompressedPubKey,
+        pub signer: CompressedPubKey, // TODO: This should be a `mina_signer::PubKey`
         pub signature: Signature,
     }
 
