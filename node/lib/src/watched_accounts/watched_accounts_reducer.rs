@@ -1,20 +1,42 @@
 use super::{
     account_relevant_transactions_in_diff_iter, WatchedAccountBlockInfo, WatchedAccountBlockState,
-    WatchedAccountState, WatchedAccountsAction, WatchedAccountsActionWithMetaRef,
-    WatchedAccountsState,
+    WatchedAccountLedgerInitialState, WatchedAccountState, WatchedAccountsAction,
+    WatchedAccountsActionWithMetaRef, WatchedAccountsState,
 };
 
 impl WatchedAccountsState {
     pub fn reducer(&mut self, action: WatchedAccountsActionWithMetaRef<'_>) {
-        let (action, _) = action.split();
+        let (action, meta) = action.split();
         match action {
             WatchedAccountsAction::Add(action) => {
                 self.insert(
                     action.pub_key.clone(),
                     WatchedAccountState {
+                        initial_state: WatchedAccountLedgerInitialState::Idle { time: meta.time() },
                         blocks: Default::default(),
                     },
                 );
+            }
+            WatchedAccountsAction::LedgerInitialStateGetInit(_) => {}
+            WatchedAccountsAction::LedgerInitialStateGetPending(action) => {
+                let Some(account) = self.get_mut(&action.pub_key) else { return };
+                account.blocks.clear();
+
+                account.initial_state = WatchedAccountLedgerInitialState::Pending {
+                    time: meta.time(),
+                    block: action.block.clone(),
+                    peer_id: action.peer_id,
+                    p2p_rpc_id: action.p2p_rpc_id,
+                };
+            }
+            WatchedAccountsAction::LedgerInitialStateGetSuccess(action) => {
+                let Some(account) = self.get_mut(&action.pub_key) else { return };
+                let Some(block) = account.initial_state.block() else { return };
+                account.initial_state = WatchedAccountLedgerInitialState::Success {
+                    time: meta.time(),
+                    block: block.clone(),
+                    data: action.data.clone(),
+                };
             }
             WatchedAccountsAction::TransactionsIncludedInBlock(action) => {
                 let block = &action.block;

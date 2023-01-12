@@ -41,6 +41,10 @@ where
         self.len() == 0
     }
 
+    pub fn counter(&self) -> usize {
+        self.counter
+    }
+
     #[inline]
     pub fn last_added_req_id(&self) -> RequestId<IdType> {
         self.last_added_req_id

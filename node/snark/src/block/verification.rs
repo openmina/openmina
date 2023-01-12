@@ -297,7 +297,10 @@ pub fn verify(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierIndex) 
 
 #[cfg(test)]
 mod tests {
-    use std::{hash::{Hash, Hasher}, collections::hash_map::DefaultHasher};
+    use std::{
+        collections::hash_map::DefaultHasher,
+        hash::{Hash, Hasher},
+    };
 
     use binprot::BinProtRead;
 

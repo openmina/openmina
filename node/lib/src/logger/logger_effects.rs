@@ -108,12 +108,18 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         );
                     }
                     P2pRpcOutgoingAction::Received(action) => {
+                        let requestor = None.or_else(|| {
+                            let p = store.state().p2p.get_ready_peer(&action.peer_id)?;
+                            Some(p.rpc.outgoing.get(action.rpc_id)?.requestor())
+                        });
+                        let Some(requestor) = requestor else { return };
                         shared::log::info!(
                             meta.time();
                             kind = "P2pRpcOutgoingReceived",
                             summary = format!("peer_id: {}, rpc_id: {}, kind: {:?}", action.peer_id, action.rpc_id, action.response.kind()),
                             peer_id = action.peer_id.to_string(),
                             rpc_id = action.rpc_id.to_string(),
+                            requestor = format!("{:?}", requestor),
                             response = serde_json::to_string(&action.response).ok()
                         );
                     }

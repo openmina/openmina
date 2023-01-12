@@ -1,14 +1,7 @@
-use mina_p2p_messages::{
-    bigint::BigInt,
-    v2::{
-        MinaBaseAccountIdDigestStableV1, MinaLedgerSyncLedgerQueryStableV1, NonZeroCurvePoint,
-        NonZeroCurvePointUncompressedStableV1, TokenIdKeyHash,
-    },
-};
-use p2p::rpc::{outgoing::P2pRpcOutgoingInitAction, P2pRpcId, P2pRpcRequest};
-
+use crate::watched_accounts::WatchedAccountsLedgerInitialStateGetInitAction;
 use crate::Store;
 use crate::{
+    p2p::rpc::{outgoing::P2pRpcOutgoingInitAction, P2pRpcId, P2pRpcRequest},
     snark::block_verify::SnarkBlockVerifyInitAction,
     watched_accounts::WatchedAccountsBlockTransactionsIncludedAction,
 };
@@ -43,6 +36,9 @@ pub fn consensus_effects<S: redux::Service>(store: &mut Store<S>, action: Consen
         ConsensusAction::BestTipUpdate(_) => {
             if let Some(block) = store.state().consensus.best_tip_block_with_hash() {
                 for pub_key in store.state().watched_accounts.accounts() {
+                    store.dispatch(WatchedAccountsLedgerInitialStateGetInitAction {
+                        pub_key: pub_key.clone(),
+                    });
                     store.dispatch(WatchedAccountsBlockTransactionsIncludedAction {
                         pub_key,
                         block: block.clone(),

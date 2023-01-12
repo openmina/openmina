@@ -98,6 +98,13 @@ fn get_account_info(
         .peekable();
 
     let data = blocks_iter.peek().and_then(|b| b.ledger_account());
+    let data = data.or_else(|| {
+        if blocks_iter.peek().is_none() {
+            account.initial_state.data()
+        } else {
+            None
+        }
+    });
 
     Ok(WatchedAccountInfo {
         latest_state: data.cloned(),
