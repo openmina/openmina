@@ -84,7 +84,7 @@ where
 
 /// Wrapper that uses base58check of binprot serialization for the wrapped type
 /// for human readable serializer.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct Base58CheckOfBinProt<T, U, const V: u8>(T, PhantomData<U>);
 
 impl<T, U, const V: u8> Clone for Base58CheckOfBinProt<T, U, V>
@@ -151,6 +151,16 @@ where
         let encoded = encode(&binprot, V);
 
         write!(f, "{}", encoded)
+    }
+}
+
+impl<T, U, const V: u8> fmt::Debug for Base58CheckOfBinProt<T, U, V>
+where
+    T: Serialize + Clone,
+    U: From<T> + BinProtWrite,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
