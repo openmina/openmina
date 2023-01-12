@@ -460,12 +460,12 @@ pub mod merkle_tree {
         {
             assert!(self.values.is_empty());
 
-            let mut addr = Address::first(self.depth);
+            let mut addr = Some(Address::first(self.depth));
 
             for (key, value) in data {
                 self.values.push(value);
-                self.indexes.insert(key, addr.clone());
-                addr = addr.next().unwrap();
+                self.indexes.insert(key, addr.clone().unwrap());
+                addr = addr.as_ref().and_then(Address::next);
             }
         }
 
