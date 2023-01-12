@@ -15,9 +15,15 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcRequestor {
-    WatchedAccount(NonZeroCurvePoint, StateHash),
+    WatchedAccount(P2pRpcRequestorWatchedAccount),
     Interval,
     Other,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pRpcRequestorWatchedAccount {
+    BlockLedgerGet(NonZeroCurvePoint, StateHash),
+    LedgerInitialGet(NonZeroCurvePoint),
 }
 
 impl Default for P2pRpcRequestor {

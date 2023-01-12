@@ -53,7 +53,11 @@ impl P2pState {
         self.peers
             .iter()
             .filter_map(|(id, p)| Some((id, p.status.as_ready()?)))
-            .min_by(|a, b| a.1.rpc.outgoing.len().cmp(&b.1.rpc.outgoing.len()))
+            .min_by(|a, b| {
+                let pending_cmp = a.1.rpc.outgoing.len().cmp(&b.1.rpc.outgoing.len());
+                let counter_cmp = a.1.rpc.outgoing.counter().cmp(&b.1.rpc.outgoing.counter());
+                pending_cmp.then(counter_cmp)
+            })
             .map(|(id, p)| (id.clone(), p.rpc.outgoing.next_req_id()))
     }
 }

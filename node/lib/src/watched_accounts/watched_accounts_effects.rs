@@ -3,15 +3,16 @@ use mina_p2p_messages::{
     v2::{MinaBaseAccountIdDigestStableV1, MinaLedgerSyncLedgerQueryStableV1},
 };
 use p2p::rpc::{
-    outgoing::{P2pRpcOutgoingInitAction, P2pRpcRequestor},
+    outgoing::{P2pRpcOutgoingInitAction, P2pRpcRequestor, P2pRpcRequestorWatchedAccount},
     P2pRpcRequest,
 };
 
 use crate::Store;
 
 use super::{
-    WatchedAccountsAction, WatchedAccountsActionWithMeta,
+    WatchedAccountBlockInfo, WatchedAccountsAction, WatchedAccountsActionWithMeta,
     WatchedAccountsBlockLedgerQueryInitAction, WatchedAccountsBlockLedgerQueryPendingAction,
+    WatchedAccountsLedgerInitialStateGetPendingAction,
 };
 
 pub fn watched_accounts_effects<S: redux::Service>(
@@ -28,6 +29,51 @@ pub fn watched_accounts_effects<S: redux::Service>(
                 block_hash: action.block.hash,
             });
         }
+        WatchedAccountsAction::LedgerInitialStateGetInit(action) => {
+            let Some((peer_id, p2p_rpc_id)) = store.state().p2p.get_free_peer_id_for_rpc() else { return };
+            let block = {
+                let Some(block) = store.state().consensus.best_tip() else { return };
+                WatchedAccountBlockInfo {
+                    level: block.height() as u32,
+                    hash: block.hash.clone(),
+                    pred_hash: block.header.protocol_state.previous_state_hash.clone(),
+                    staged_ledger_hash: block
+                        .header
+                        .protocol_state
+                        .body
+                        .blockchain_state
+                        .staged_ledger_hash
+                        .non_snark
+                        .ledger_hash
+                        .clone(),
+                }
+            };
+
+            let token_id = MinaBaseAccountIdDigestStableV1(BigInt::one());
+
+            store.dispatch(P2pRpcOutgoingInitAction {
+                peer_id: peer_id.clone(),
+                rpc_id: p2p_rpc_id,
+                request: P2pRpcRequest::LedgerQuery((
+                    block.staged_ledger_hash.0.clone(),
+                    MinaLedgerSyncLedgerQueryStableV1::WhatAccountWithPath(
+                        action.pub_key.clone(),
+                        token_id.into(),
+                    ),
+                )),
+                requestor: P2pRpcRequestor::WatchedAccount(
+                    P2pRpcRequestorWatchedAccount::LedgerInitialGet(action.pub_key.clone()),
+                ),
+            });
+            store.dispatch(WatchedAccountsLedgerInitialStateGetPendingAction {
+                pub_key: action.pub_key,
+                block,
+                peer_id,
+                p2p_rpc_id,
+            });
+        }
+        WatchedAccountsAction::LedgerInitialStateGetPending(_) => {}
+        WatchedAccountsAction::LedgerInitialStateGetSuccess(_) => {}
         WatchedAccountsAction::BlockLedgerQueryInit(action) => {
             let Some((peer_id, p2p_rpc_id)) = store.state().p2p.get_free_peer_id_for_rpc() else { return };
             let ledger_hash = {
@@ -48,8 +94,10 @@ pub fn watched_accounts_effects<S: redux::Service>(
                     ),
                 )),
                 requestor: P2pRpcRequestor::WatchedAccount(
-                    action.pub_key.clone(),
-                    action.block_hash.clone(),
+                    P2pRpcRequestorWatchedAccount::BlockLedgerGet(
+                        action.pub_key.clone(),
+                        action.block_hash.clone(),
+                    ),
                 ),
             });
             store.dispatch(WatchedAccountsBlockLedgerQueryPendingAction {

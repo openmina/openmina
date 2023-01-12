@@ -9,7 +9,7 @@ use shared::block::BlockWithHash;
 use crate::p2p::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 
-use super::WatchedAccountBlockState;
+use super::{WatchedAccountBlockInfo, WatchedAccountBlockState, WatchedAccountLedgerInitialState};
 
 pub type WatchedAccountsActionWithMeta = redux::ActionWithMeta<WatchedAccountsAction>;
 pub type WatchedAccountsActionWithMetaRef<'a> = redux::ActionWithMeta<&'a WatchedAccountsAction>;
@@ -17,6 +17,11 @@ pub type WatchedAccountsActionWithMetaRef<'a> = redux::ActionWithMeta<&'a Watche
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum WatchedAccountsAction {
     Add(WatchedAccountsAddAction),
+
+    LedgerInitialStateGetInit(WatchedAccountsLedgerInitialStateGetInitAction),
+    LedgerInitialStateGetPending(WatchedAccountsLedgerInitialStateGetPendingAction),
+    LedgerInitialStateGetSuccess(WatchedAccountsLedgerInitialStateGetSuccessAction),
+
     TransactionsIncludedInBlock(WatchedAccountsBlockTransactionsIncludedAction),
     BlockLedgerQueryInit(WatchedAccountsBlockLedgerQueryInitAction),
     BlockLedgerQueryPending(WatchedAccountsBlockLedgerQueryPendingAction),
@@ -34,6 +39,70 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsAddAction {
     }
 }
 
+fn should_request_ledger_initial_state(state: &crate::State, pub_key: &NonZeroCurvePoint) -> bool {
+    state
+        .watched_accounts
+        .get(pub_key)
+        .filter(|_| state.consensus.best_tip.is_some())
+        .map_or(false, |a| match &a.initial_state {
+            WatchedAccountLedgerInitialState::Idle { .. } => true,
+            WatchedAccountLedgerInitialState::Error { .. } => true,
+            WatchedAccountLedgerInitialState::Pending { block, .. } => {
+                let Some(best_tip) = state.consensus.best_tip() else { return false };
+                &block.hash != best_tip.hash
+            }
+            WatchedAccountLedgerInitialState::Success { block, .. } => !state
+                .consensus
+                .is_part_of_main_chain(block.level, &block.hash)
+                .unwrap_or(true),
+        })
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WatchedAccountsLedgerInitialStateGetInitAction {
+    pub pub_key: NonZeroCurvePoint,
+}
+
+impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStateGetInitAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        should_request_ledger_initial_state(state, &self.pub_key)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WatchedAccountsLedgerInitialStateGetPendingAction {
+    pub pub_key: NonZeroCurvePoint,
+    pub block: WatchedAccountBlockInfo,
+    pub peer_id: PeerId,
+    pub p2p_rpc_id: P2pRpcId,
+}
+
+impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStateGetPendingAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        should_request_ledger_initial_state(state, &self.pub_key)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WatchedAccountsLedgerInitialStateGetSuccessAction {
+    pub pub_key: NonZeroCurvePoint,
+    pub data: Option<MinaBaseAccountBinableArgStableV2>,
+}
+
+impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStateGetSuccessAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .watched_accounts
+            .get(&self.pub_key)
+            .map_or(false, |a| {
+                matches!(
+                    &a.initial_state,
+                    WatchedAccountLedgerInitialState::Pending { .. }
+                )
+            })
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountsBlockTransactionsIncludedAction {
     pub pub_key: NonZeroCurvePoint,
@@ -43,7 +112,10 @@ pub struct WatchedAccountsBlockTransactionsIncludedAction {
 impl redux::EnablingCondition<crate::State> for WatchedAccountsBlockTransactionsIncludedAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         let diff = &self.block.block.body.staged_ledger_diff.diff;
-        state.watched_accounts.contains(&self.pub_key)
+        state
+            .watched_accounts
+            .get(&self.pub_key)
+            .map_or(false, |v| v.initial_state.is_success())
             && super::account_relevant_transactions_in_diff_iter(&self.pub_key, diff).any(|_| true)
     }
 }
@@ -122,6 +194,11 @@ macro_rules! impl_into_global_action {
 }
 
 impl_into_global_action!(WatchedAccountsAddAction);
+
+impl_into_global_action!(WatchedAccountsLedgerInitialStateGetInitAction);
+impl_into_global_action!(WatchedAccountsLedgerInitialStateGetPendingAction);
+impl_into_global_action!(WatchedAccountsLedgerInitialStateGetSuccessAction);
+
 impl_into_global_action!(WatchedAccountsBlockTransactionsIncludedAction);
 impl_into_global_action!(WatchedAccountsBlockLedgerQueryInitAction);
 impl_into_global_action!(WatchedAccountsBlockLedgerQueryPendingAction);

@@ -7,6 +7,7 @@ use mina_p2p_messages::v2::{
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::rpc::P2pRpcId;
+use crate::p2p::PeerId;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountBlockInfo {
@@ -21,6 +22,48 @@ pub struct Transaction {
     pub hash: Option<TransactionHash>,
     pub data: MinaBaseUserCommandStableV2,
     pub status: MinaBaseTransactionStatusStableV2,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "state")]
+pub enum WatchedAccountLedgerInitialState {
+    Idle {
+        time: redux::Timestamp,
+    },
+    Pending {
+        time: redux::Timestamp,
+        block: WatchedAccountBlockInfo,
+        peer_id: PeerId,
+        p2p_rpc_id: P2pRpcId,
+    },
+    Error {
+        time: redux::Timestamp,
+    },
+    Success {
+        time: redux::Timestamp,
+        block: WatchedAccountBlockInfo,
+        data: Option<MinaBaseAccountBinableArgStableV2>,
+    },
+}
+
+impl WatchedAccountLedgerInitialState {
+    pub fn block(&self) -> Option<&WatchedAccountBlockInfo> {
+        match self {
+            Self::Pending { block, .. } => Some(block),
+            _ => None,
+        }
+    }
+
+    pub fn data(&self) -> Option<&MinaBaseAccountBinableArgStableV2> {
+        match self {
+            Self::Success { data, .. } => data.as_ref(),
+            _ => None,
+        }
+    }
+
+    pub fn is_success(&self) -> bool {
+        matches!(self, Self::Success { .. })
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -76,6 +119,8 @@ impl WatchedAccountBlockState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountState {
+    pub initial_state: WatchedAccountLedgerInitialState,
+
     /// Blocks in which account updates has happened.
     pub blocks: VecDeque<WatchedAccountBlockState>,
     // /// Pending transactions which haven't been included in any blocks.

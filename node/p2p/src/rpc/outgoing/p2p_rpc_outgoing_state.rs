@@ -96,4 +96,14 @@ impl P2pRpcOutgoingStatus {
             Self::Success { request, .. } => request,
         }
     }
+
+    pub fn requestor(&self) -> &P2pRpcRequestor {
+        match self {
+            Self::Init { requestor, .. } => requestor,
+            Self::Pending { requestor, .. } => requestor,
+            Self::Received { requestor, .. } => requestor,
+            Self::Error { requestor, .. } => requestor,
+            Self::Success { requestor, .. } => requestor,
+        }
+    }
 }

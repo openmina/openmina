@@ -5,11 +5,15 @@ use mina_p2p_messages::v2::MinaLedgerSyncLedgerAnswerStableV2;
 
 use crate::consensus::{ConsensusBestTipHistoryUpdateAction, ConsensusBlockReceivedAction};
 use crate::p2p::disconnection::P2pDisconnectionAction;
-use crate::p2p::rpc::outgoing::{P2pRpcOutgoingStatus, P2pRpcRequestor};
+use crate::p2p::rpc::outgoing::{
+    P2pRpcOutgoingStatus, P2pRpcRequestor, P2pRpcRequestorWatchedAccount,
+};
 use crate::p2p::rpc::P2pRpcResponse;
 use crate::rpc::{RpcP2pConnectionOutgoingErrorAction, RpcP2pConnectionOutgoingSuccessAction};
 use crate::snark::hash::{state_hash, state_hash_from_hashes};
-use crate::watched_accounts::WatchedAccountsBlockLedgerQuerySuccessAction;
+use crate::watched_accounts::{
+    WatchedAccountsBlockLedgerQuerySuccessAction, WatchedAccountsLedgerInitialStateGetSuccessAction,
+};
 use crate::{Service, Store};
 
 use super::connection::outgoing::P2pConnectionOutgoingAction;
@@ -170,14 +174,31 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             }
                         }
                         P2pRpcResponse::LedgerQuery(resp) => match &resp.0 {
-                            Ok(MinaLedgerSyncLedgerAnswerStableV2::AccountWithPath(account, _)) => {
+                            Ok(MinaLedgerSyncLedgerAnswerStableV2::AccountWithPath(result)) => {
                                 match requestor.clone() {
-                                    P2pRpcRequestor::WatchedAccount(pub_key, block_hash) => {
+                                    P2pRpcRequestor::WatchedAccount(
+                                        P2pRpcRequestorWatchedAccount::BlockLedgerGet(
+                                            pub_key,
+                                            block_hash,
+                                        ),
+                                    ) => {
+                                        if let Some((account, _)) = result {
+                                            store.dispatch(
+                                                WatchedAccountsBlockLedgerQuerySuccessAction {
+                                                    pub_key,
+                                                    block_hash,
+                                                    ledger_account: account.clone(),
+                                                },
+                                            );
+                                        }
+                                    }
+                                    P2pRpcRequestor::WatchedAccount(
+                                        P2pRpcRequestorWatchedAccount::LedgerInitialGet(pub_key),
+                                    ) => {
                                         store.dispatch(
-                                            WatchedAccountsBlockLedgerQuerySuccessAction {
-                                                pub_key,
-                                                block_hash,
-                                                ledger_account: account.clone(),
+                                            WatchedAccountsLedgerInitialStateGetSuccessAction {
+                                                pub_key: pub_key.clone(),
+                                                data: result.as_ref().map(|v| v.0.clone()),
                                             },
                                         );
                                     }
