@@ -35,6 +35,7 @@ mod address;
 mod base;
 // mod blocks;
 mod database;
+pub mod dummy;
 mod hash;
 mod mask;
 mod poseidon;

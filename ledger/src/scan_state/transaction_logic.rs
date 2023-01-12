@@ -128,7 +128,7 @@ pub mod valid {
 
     pub type SignedCommand = super::signed_command::SignedCommand;
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, PartialEq)]
     pub enum UserCommand {
         SignedCommand(Box<SignedCommand>),
         ZkAppCommand(Box<super::zkapp_command::valid::ZkAppCommand>),
@@ -376,7 +376,7 @@ impl Coinbase {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signature.mli#L11
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Signature(pub(super) (Fp, Fp)); // TODO: Not sure if it's correct
 
 impl Signature {
@@ -385,7 +385,7 @@ impl Signature {
     }
 }
 
-#[derive(Debug, Clone, derive_more::Deref, derive_more::From)]
+#[derive(Debug, Clone, derive_more::Deref, derive_more::From, PartialEq, Eq)]
 pub struct Memo(Vec<u8>);
 
 impl Memo {
@@ -402,7 +402,7 @@ pub mod signed_command {
     use super::*;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L75
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Common {
         pub fee: Fee,
         pub fee_payer_pk: CompressedPubKey,
@@ -412,7 +412,7 @@ pub mod signed_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/payment_payload.ml#L40
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct PaymentPayload {
         pub source_pk: CompressedPubKey,
         pub receiver_pk: CompressedPubKey,
@@ -420,7 +420,7 @@ pub mod signed_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/stake_delegation.ml#L11
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum StakeDelegationPayload {
         SetDelegate {
             delegator: CompressedPubKey,
@@ -455,14 +455,14 @@ pub mod signed_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.mli#L24
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum Body {
         Payment(PaymentPayload),
         StakeDelegation(StakeDelegationPayload),
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.mli#L165
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct SignedCommandPayload {
         pub common: Common,
         pub body: Body,
@@ -490,7 +490,7 @@ pub mod signed_command {
         }
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct SignedCommand {
         pub payload: SignedCommandPayload,
         pub signer: CompressedPubKey, // TODO: This should be a `mina_signer::PubKey`
@@ -612,11 +612,11 @@ pub mod zkapp_command {
     use super::*;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L834
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Events(pub Vec<Vec<Fp>>);
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L155
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct SequenceEvents(pub Events);
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L23
@@ -723,7 +723,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_basic.ml#L100
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum SetOrKeep<T> {
         Set(T),
         Keep,
@@ -764,14 +764,14 @@ pub mod zkapp_command {
         }
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct WithHash<T> {
         pub data: T,
         pub hash: Fp,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L319
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Update {
         pub app_state: [SetOrKeep<Fp>; 8],
         pub delegate: SetOrKeep<CompressedPubKey>,
@@ -785,7 +785,7 @@ pub mod zkapp_command {
 
     // TODO: This could be std::ops::Range ?
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L23
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct ClosedInterval<T> {
         pub lower: T,
         pub upper: T,
@@ -817,7 +817,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_basic.ml#L232
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum OrIgnore<T> {
         Check(T),
         Ignore,
@@ -856,14 +856,14 @@ pub mod zkapp_command {
     pub type Numeric<T> = OrIgnore<ClosedInterval<T>>;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/epoch_ledger.ml#L9
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct EpochLedger {
         pub hash: Hash<Fp>,
         pub total_currency: Numeric<Amount>,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L797
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct EpochData {
         pub(crate) ledger: EpochLedger,
         pub seed: Hash<Fp>,
@@ -901,7 +901,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L977
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct ZkAppPreconditions {
         pub snarked_ledger_hash: Hash<Fp>,
         pub timestamp: Numeric<BlockTime>,
@@ -948,7 +948,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L478
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Account {
         pub balance: Numeric<Balance>,
         pub nonce: Numeric<Nonce>,
@@ -977,7 +977,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L613
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum AccountPreconditions {
         Full(Box<Account>),
         Nonce(Nonce),
@@ -1032,7 +1032,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L758
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Preconditions {
         pub(crate) network: ZkAppPreconditions,
         pub account: AccountPreconditions,
@@ -1048,7 +1048,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L27
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum AuthorizationKind {
         NoneGiven,
         Signature,
@@ -1072,7 +1072,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L955
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Body {
         pub public_key: CompressedPubKey,
         pub token_id: TokenId,
@@ -1100,7 +1100,7 @@ pub mod zkapp_command {
     pub type SideLoadedProof = mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/control.ml#L11
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub enum Control {
         Proof(SideLoadedProof),
         Signature(Signature),
@@ -1108,7 +1108,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1437
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct AccountUpdate {
         pub(crate) body: Body,
         pub authorization: Control,
@@ -1198,7 +1198,7 @@ pub mod zkapp_command {
     // Digest.Forest.Stable.V1.t = Fp
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L49
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct Tree<Data> {
         pub account_update: (AccountUpdate, Data),
         pub account_update_digest: Fp,
@@ -1223,14 +1223,14 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_stack_hash.ml#L6
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct WithStackHash<Data> {
         pub elt: Tree<Data>,
         pub stack_hash: Fp,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L345
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct CallForest<Data>(pub Vec<WithStackHash<Data>>);
 
     #[derive(Clone)]
@@ -1462,7 +1462,7 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1081
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct FeePayerBody {
         pub public_key: CompressedPubKey,
         pub fee: Fee,
@@ -1471,14 +1471,14 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1484
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct FeePayer {
         pub body: FeePayerBody,
         pub authorization: Signature,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L959
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct ZkAppCommand {
         pub fee_payer: FeePayer,
         pub account_updates: CallForest<()>,
@@ -1559,7 +1559,7 @@ pub mod zkapp_command {
 
         use super::*;
 
-        #[derive(Clone, Debug)]
+        #[derive(Clone, Debug, PartialEq)]
         pub struct ZkAppCommand {
             pub zkapp_command: super::ZkAppCommand,
             pub verification_keys: Vec<(AccountId, VerificationKeyHash)>,
@@ -1615,7 +1615,7 @@ pub mod verifiable {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum UserCommand {
     SignedCommand(Box<signed_command::SignedCommand>),
     ZkAppCommand(Box<zkapp_command::ZkAppCommand>),
@@ -1948,17 +1948,17 @@ pub mod protocol_state {
 
     #[derive(Debug, Clone)]
     pub struct EpochLedger {
-        hash: Fp,
-        total_currency: Amount,
+        pub hash: Fp,
+        pub total_currency: Amount,
     }
 
     #[derive(Debug, Clone)]
     pub struct EpochData {
-        ledger: EpochLedger,
-        seed: Fp,
-        start_checkpoint: Fp,
-        lock_checkpoint: Fp,
-        epoch_length: Length,
+        pub ledger: EpochLedger,
+        pub seed: Fp,
+        pub start_checkpoint: Fp,
+        pub lock_checkpoint: Fp,
+        pub epoch_length: Length,
     }
 
     #[derive(Debug, Clone)]

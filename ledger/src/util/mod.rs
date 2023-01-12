@@ -66,6 +66,10 @@ pub fn take<T>(slice: &[T], n: usize) -> &[T] {
     slice.get(..n).unwrap_or(slice)
 }
 
+pub fn drop<T>(slice: &[T], n: usize) -> &[T] {
+    slice.get(n..).unwrap_or(&[])
+}
+
 pub fn take_at<T>(slice: &[T], skip: usize, n: usize) -> &[T] {
     slice.get(skip..).map(|s| take(s, n)).unwrap_or(&[])
 }

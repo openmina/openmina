@@ -1777,19 +1777,24 @@ impl StagedLedger {
 
 #[cfg(test)]
 mod tests_ocaml {
+    use std::str::FromStr;
+
     use ark_ff::{UniformRand, Zero};
-    use mina_curves::pasta::PallasParameters;
-    use mina_signer::{CurvePoint, Keypair, Signer};
+    use mina_signer::Keypair;
     use once_cell::sync::Lazy;
     use rand::{seq::SliceRandom, Rng};
 
-    use crate::scan_state::{
-        currency::Nonce,
-        transaction_logic::{
-            signed_command::{PaymentPayload, SignedCommand, SignedCommandPayload},
-            transaction_union_payload::TransactionUnionPayload,
-            Memo, Signature,
+    use crate::{
+        dummy,
+        scan_state::{
+            currency::{Balance, BlockTime, Length, Nonce},
+            transaction_logic::{
+                protocol_state::{EpochData, EpochLedger},
+                signed_command::{PaymentPayload, SignedCommand, SignedCommandPayload},
+                Memo, Signature,
+            },
         },
+        util,
     };
 
     use super::*;
@@ -2166,20 +2171,24 @@ mod tests_ocaml {
         length: usize,
         sign_kind: SignKind,
         ledger: &LedgerInitialState,
-    ) -> Vec<valid::SignedCommand> {
+    ) -> Vec<valid::UserCommand> {
         // Not clean but it's what OCaml does when an exception is throwned, if I understand correctly
-        loop {
+        for _ in 0..100 {
             if let Ok(commands) = signed_command_sequence_impl(length, sign_kind, ledger) {
-                return commands;
+                return commands
+                    .into_iter()
+                    .map(|cmd| valid::UserCommand::SignedCommand(Box::new(cmd)))
+                    .collect();
             };
         }
+        panic!("Failed to generate random user commands");
     }
 
     fn gen_at_capacity_fixed_blocks(
         extra_block_count: usize,
     ) -> (
         LedgerInitialState,
-        Vec<valid::SignedCommand>,
+        Vec<valid::UserCommand>,
         Vec<Option<usize>>,
     ) {
         let state = gen_initial_ledger_state();
@@ -2192,22 +2201,421 @@ mod tests_ocaml {
         (state, cmds, vec![None; iters])
     }
 
-    #[test]
-    fn staged() {
-        gen_at_capacity_fixed_blocks(3);
+    fn apply_initialize_ledger_state(mask: &mut Mask, init_state: &LedgerInitialState) {
+        use crate::staged_ledger::sparse_ledger::LedgerIntf;
+
+        for (kp, balance, nonce, timing) in &init_state.state {
+            let pk_compressed = kp.public.into_compressed();
+            let account_id = AccountId::new(pk_compressed, TokenId::default());
+            let mut account = Account::initialize(&account_id);
+            account.balance = Balance::from_u64(balance.as_u64());
+            account.nonce = *nonce;
+            account.timing = timing.clone();
+
+            mask.create_new_account(account_id, account).unwrap();
+        }
     }
 
-    // let gen_at_capacity_fixed_blocks extra_block_count :
-    //     (Ledger.init_state * User_command.Valid.t list * int option list)
-    //     Quickcheck.Generator.t =
-    //   let open Quickcheck.Generator.Let_syntax in
-    //   let%bind ledger_init_state = Ledger.gen_initial_ledger_state in
-    //   let iters = max_blocks_for_coverage extra_block_count in
-    //   let total_cmds = transaction_capacity * iters in
-    //   let%bind cmds =
-    //     User_command.Valid.Gen.sequence ~length:total_cmds ~sign_type:`Real
-    //       ledger_init_state
-    //   in
-    //   assert (List.length cmds = total_cmds) ;
-    //   return (ledger_init_state, cmds, List.init iters ~f:(Fn.const None))
+    /// Run the given function inside of the Deferred monad, with a staged
+    ///   ledger and a separate test ledger, after applying the given
+    ///   init_state to both. In the below tests we apply the same commands to
+    ///   the staged and test ledgers, and verify they are in the same state.
+    fn async_with_given_ledger<F>(mask: Mask, fun: F)
+    where
+        F: Fn(StagedLedger, Mask),
+    {
+        let test_mask = mask.make_child();
+        let sl = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask).unwrap();
+        fun(sl, test_mask.clone());
+        test_mask.unregister_mask(crate::UnregisterBehavior::Check);
+    }
+
+    /// populate the ledger from an initial state before running the function
+    fn async_with_ledgers<F>(ledger_init_state: &LedgerInitialState, fun: F)
+    where
+        F: Fn(StagedLedger, Mask),
+    {
+        let mut ephemeral_ledger = Mask::new_unattached(CONSTRAINT_CONSTANTS.ledger_depth as usize);
+
+        apply_initialize_ledger_state(&mut ephemeral_ledger, ledger_init_state);
+        async_with_given_ledger(ephemeral_ledger, fun);
+    }
+
+    /// Get the public keys from a ledger init state.
+    fn init_pks(init: &LedgerInitialState) -> Vec<AccountId> {
+        init.state
+            .iter()
+            .map(|(kp, _, _, _)| AccountId::new(kp.public.into_compressed(), TokenId::default()))
+            .collect()
+    }
+
+    #[derive(Copy, Debug, Clone)]
+    enum NumProvers {
+        One,
+        Many,
+    }
+
+    /// Abstraction for the pattern of taking a list of commands and applying it
+    /// in chunks up to a given max size.
+    fn iter_cmds_acc<A, F>(
+        cmds: Vec<valid::UserCommand>,
+        cmd_iters: Vec<Option<usize>>,
+        acc: A,
+        mut fun: F,
+    ) -> A
+    where
+        F: FnMut(
+            Vec<valid::UserCommand>, // all remaining commands
+            Option<usize>,           // Current chunk size.
+            Vec<valid::UserCommand>, // Sequence of commands to apply.
+            A,
+        ) -> (Diff, A),
+    {
+        match cmd_iters.first() {
+            None => acc,
+            Some(count_opt) => {
+                let cmds_this_iter_max = match count_opt {
+                    None => &cmds,
+                    Some(count) => {
+                        assert!(*count <= cmds.len());
+                        util::take(&cmds, *count)
+                    }
+                };
+
+                let (diff, acc) = fun(cmds.clone(), *count_opt, cmds_this_iter_max.to_vec(), acc);
+
+                let cmds_applied_count = diff.commands().len();
+
+                let cmds = util::drop(&cmds, cmds_applied_count).to_vec();
+                let counts_rest = cmd_iters[1..].to_vec();
+
+                iter_cmds_acc(cmds, counts_rest, acc, fun)
+            }
+        }
+    }
+
+    /// Same values when we run `dune runtest src/lib/staged_ledger -f`
+    fn dummy_state_view(global_slot_since_genesis: Option<Slot>) -> ProtocolStateView {
+        // TODO: Use OCaml implementation, not hardcoded value
+
+        let f = |s: &str| Fp::from_str(s).unwrap();
+
+        ProtocolStateView {
+            snarked_ledger_hash: f("19095410909873291354237217869735884756874834695933531743203428046904386166496"),
+            timestamp: BlockTime::from_u64(1600251300000),
+            blockchain_length: Length::from_u32(1),
+            min_window_density: Length::from_u32(77),
+            last_vrf_output: (),
+            total_currency: Amount::from_u64(10016100000000000),
+            global_slot_since_hard_fork: Slot::from_u32(0),
+            global_slot_since_genesis: global_slot_since_genesis.unwrap_or_else(Slot::zero),
+            staking_epoch_data: EpochData {
+                ledger: EpochLedger {
+                    hash: f("19095410909873291354237217869735884756874834695933531743203428046904386166496"),
+                    total_currency: Amount::from_u64(10016100000000000),
+                },
+                seed: Fp::zero(),
+                start_checkpoint: Fp::zero(),
+                lock_checkpoint: Fp::zero(),
+                epoch_length: Length::from_u32(1),
+            },
+            next_epoch_data: EpochData {
+                ledger: EpochLedger {
+                    hash: f("19095410909873291354237217869735884756874834695933531743203428046904386166496"),
+                    total_currency: Amount::from_u64(10016100000000000),
+                },
+                seed: f("18512313064034685696641580142878809378857342939026666126913761777372978255172"),
+                start_checkpoint: Fp::zero(),
+                lock_checkpoint: f("9196091926153144288494889289330016873963015481670968646275122329689722912273"),
+                epoch_length: Length::from_u32(2),
+            }
+        }
+    }
+
+    fn create_and_apply<F>(
+        coinbase_receiver: Option<CompressedPubKey>,
+        winner: Option<CompressedPubKey>,
+        sl: &mut StagedLedger,
+        txns: Vec<valid::UserCommand>,
+        stmt_to_work: F,
+    ) -> (
+        Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>,
+        Diff,
+    )
+    where
+        F: Fn(&work::Statement) -> Option<work::Checked>,
+    {
+        let (ledger_proof, diff, _, _, _) = create_and_apply_with_state_body_hash(
+            coinbase_receiver,
+            winner,
+            &dummy_state_view(None),
+            (Fp::zero(), Fp::zero()),
+            sl,
+            txns,
+            stmt_to_work,
+        );
+        (ledger_proof, diff)
+    }
+
+    /// Fee excess at top level ledger proofs should always be zero
+    fn assert_fee_excess(proof: &Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>) {
+        if let Some((proof, _txns)) = proof {
+            assert!(proof.statement().fee_excess.is_zero());
+        };
+    }
+
+    fn coinbase_first_prediff(
+        v: &AtMostTwo<CoinbaseFeeTransfer>,
+    ) -> (usize, Vec<&CoinbaseFeeTransfer>) {
+        match v {
+            AtMostTwo::Zero => (0, vec![]),
+            AtMostTwo::One(None) => (1, vec![]),
+            AtMostTwo::One(Some(ft)) => (1, vec![ft]),
+            AtMostTwo::Two(None) => (2, vec![]),
+            AtMostTwo::Two(Some((ft, None))) => (2, vec![ft]),
+            AtMostTwo::Two(Some((ft, Some(ft2)))) => (2, vec![ft, ft2]),
+        }
+    }
+
+    fn coinbase_second_prediff(
+        v: &AtMostOne<CoinbaseFeeTransfer>,
+    ) -> (usize, Vec<&CoinbaseFeeTransfer>) {
+        match v {
+            AtMostOne::Zero => (0, vec![]),
+            AtMostOne::One(None) => (1, vec![]),
+            AtMostOne::One(Some(ft)) => (1, vec![ft]),
+        }
+    }
+
+    fn coinbase_count(sl_diff: &Diff) -> usize {
+        coinbase_first_prediff(&sl_diff.diff.0.coinbase).0
+            + sl_diff
+                .diff
+                .1
+                .as_ref()
+                .map(|d| coinbase_second_prediff(&d.coinbase).0)
+                .unwrap_or(0)
+    }
+
+    fn coinbase_cost(sl_diff: &Diff) -> Fee {
+        let first = coinbase_first_prediff(&sl_diff.diff.0.coinbase).1;
+        let snd = sl_diff
+            .diff
+            .1
+            .as_ref()
+            .map(|d| coinbase_second_prediff(&d.coinbase).1)
+            .unwrap_or_default();
+
+        first
+            .into_iter()
+            .chain(snd)
+            .fold(Fee::zero(), |total, ft| total.checked_add(&ft.fee).unwrap())
+    }
+
+    /// Assert the given staged ledger is in the correct state after applying
+    /// the first n user commands passed to the given base ledger. Checks the
+    /// states of the block producer account and user accounts but ignores
+    /// snark workers for simplicity.
+    fn assert_ledger(
+        test_ledger: Mask,
+        coinbase_cost: Fee,
+        staged_ledger: &StagedLedger,
+        cmds_all: Vec<valid::UserCommand>,
+        cmds_used: usize,
+        pks_to_check: &[AccountId],
+    ) {
+        let producer_account_id = AccountId::new(COINBASE_RECEIVER.clone(), TokenId::default());
+        let producer_account = test_ledger
+            .location_of_account(&producer_account_id)
+            .and_then(|loc| test_ledger.get(loc));
+
+        let is_producer_acc_new = producer_account.is_some();
+        let old_producer_balance = match producer_account.as_ref() {
+            Some(account) => account.balance,
+            None => Balance::zero(),
+        };
+
+        let mut test_ledger = test_ledger;
+
+        for cmd in util::take(&cmds_all, cmds_used) {
+            let cmd = cmd.forget_check();
+            let tx = Transaction::Command(cmd);
+
+            apply_transaction(
+                &CONSTRAINT_CONSTANTS,
+                &dummy_state_view(None),
+                &mut test_ledger,
+                &tx,
+            )
+            .unwrap();
+        }
+
+        let get_account_exn = |ledger: &Mask, id: &AccountId| {
+            let loc = ledger.location_of_account(id).unwrap();
+            ledger.get(loc).unwrap()
+        };
+
+        // Check the user accounts in the updated staged ledger are as
+        // expected.
+
+        for id in pks_to_check {
+            let expect = get_account_exn(&test_ledger, id);
+            let actual = get_account_exn(&staged_ledger.ledger, id);
+            assert_eq!(expect, actual);
+        }
+
+        // We only test that the block producer got the coinbase reward here, since calculating
+        // the exact correct amount depends on the snark fees and tx fees.
+        let producer_balance_with_coinbase = {
+            let total_cost = if is_producer_acc_new {
+                coinbase_cost
+                    .checked_add(&CONSTRAINT_CONSTANTS.account_creation_fee)
+                    .unwrap()
+            } else {
+                coinbase_cost
+            };
+
+            let reward = CONSTRAINT_CONSTANTS
+                .coinbase_amount
+                .checked_sub(&Amount::of_fee(&total_cost))
+                .unwrap();
+
+            old_producer_balance.add_amount(reward).unwrap()
+        };
+
+        let new_producer_balance =
+            get_account_exn(&staged_ledger.ledger, &producer_account_id).balance;
+
+        assert_eq!(new_producer_balance, producer_balance_with_coinbase);
+    }
+
+    /// Generic test framework.
+    fn test_simple<F>(
+        account_ids_to_check: Vec<AccountId>,
+        cmds: Vec<valid::UserCommand>,
+        cmd_iters: Vec<Option<usize>>,
+        mut sl: StagedLedger,
+        // Number of ledger proofs expected
+        expected_proof_count: Option<usize>,
+        allow_failure: Option<bool>,
+        test_mask: Mask,
+        provers: NumProvers,
+        stmt_to_work: &F,
+    ) where
+        F: Fn(&work::Statement) -> Option<work::Checked>,
+    {
+        println!("test_simple");
+
+        let allow_failure = allow_failure.unwrap_or(false);
+
+        let total_ledger_proofs = iter_cmds_acc(
+            cmds,
+            cmd_iters,
+            0,
+            |cmds_left, count_opt, cmds_this_iter, mut proof_count| {
+                let (ledger_proof, diff) =
+                    create_and_apply(None, None, &mut sl, cmds_this_iter.clone(), stmt_to_work);
+
+                for cmd in diff.commands() {
+                    if let TransactionStatus::Failed(e) = &cmd.status {
+                        panic!(
+                            "Transaction application failed for command {:#?}. Failures {:#?}",
+                            cmd, e
+                        );
+                    };
+                }
+
+                if ledger_proof.is_some() {
+                    proof_count += 1;
+                }
+
+                assert_fee_excess(&ledger_proof);
+
+                let cmds_applied_this_iter = diff.commands().len();
+
+                let cb = coinbase_count(&diff);
+
+                match provers {
+                    NumProvers::One => assert_eq!(cb, 1),
+                    NumProvers::Many => assert!(cb > 0 && cb < 3),
+                }
+
+                if count_opt.is_some() {
+                    // There is an edge case where cmds_applied_this_iter = 0, when
+                    // there is only enough space for coinbase transactions.
+                    assert!(cmds_applied_this_iter <= cmds_this_iter.len());
+
+                    let cmds = diff
+                        .commands()
+                        .into_iter()
+                        .map(|w| w.data)
+                        .collect::<Vec<_>>();
+                    let cmds2 = util::take(&cmds_this_iter, cmds_applied_this_iter)
+                        .iter()
+                        .map(|c| c.forget_check())
+                        .collect::<Vec<_>>();
+                    assert_eq!(cmds, cmds2);
+                };
+
+                let coinbase_cost = coinbase_cost(&diff);
+
+                assert_ledger(
+                    test_mask.clone(),
+                    coinbase_cost,
+                    &sl,
+                    cmds_left,
+                    cmds_applied_this_iter,
+                    &account_ids_to_check,
+                );
+
+                (diff, proof_count)
+            },
+        );
+
+        // Should have enough blocks to generate at least expected_proof_count
+        // proofs
+        if let Some(expected_proof_count) = expected_proof_count {
+            debug_assert_eq!(total_ledger_proofs, expected_proof_count);
+        };
+    }
+
+    fn proofs(stmt: &work::Statement) -> OneOrTwo<LedgerProof> {
+        stmt.map(|statement| {
+            LedgerProof::create(statement.clone(), dummy::dummy_transaction_proof())
+        })
+    }
+
+    fn stmt_to_work_random_prover(stmt: &work::Statement) -> Option<work::Checked> {
+        let mut rng = rand::thread_rng();
+        // TODO: In OCaml it is "deterministic"
+        let prover = Keypair::rand(&mut rng).public.into_compressed();
+
+        Some(work::Checked {
+            fee: CONSTRAINT_CONSTANTS.account_creation_fee,
+            proofs: proofs(stmt),
+            prover,
+        })
+    }
+
+    /// Max throughput-ledger proof count-fixed blocks
+    // #[test]
+    fn max_throughput_ledger_proof_count_fixed_blocks() {
+        const EXPECTED_PROOF_COUNT: usize = 3;
+
+        let (ledger_init_state, cmds, iters) = gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
+
+        async_with_ledgers(&ledger_init_state, |sl, test_mask| {
+            test_simple(
+                init_pks(&ledger_init_state),
+                cmds.to_vec(),
+                iters.to_vec(),
+                sl,
+                Some(EXPECTED_PROOF_COUNT),
+                None,
+                test_mask,
+                NumProvers::Many,
+                &stmt_to_work_random_prover,
+            )
+        });
+    }
 }
