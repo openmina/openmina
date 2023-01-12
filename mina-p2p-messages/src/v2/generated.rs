@@ -186,7 +186,7 @@ pub enum MinaLedgerSyncLedgerAnswerStableV2 {
     ChildHashesAre(MinaBaseLedgerHash0StableV1, MinaBaseLedgerHash0StableV1),
     ContentsAre(Vec<MinaBaseAccountBinableArgStableV2>),
     NumAccounts(crate::number::Int32, MinaBaseLedgerHash0StableV1),
-    AccountWithPath(MinaBaseAccountBinableArgStableV2, super::MerkleTreePath),
+    AccountWithPath(Option<(MinaBaseAccountBinableArgStableV2, super::MerkleTreePath)>),
 }
 
 /// **OCaml name**: `Consensus__Proof_of_stake.Make_str.Data.Consensus_state.Value.Stable.V1`
