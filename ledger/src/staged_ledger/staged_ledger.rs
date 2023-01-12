@@ -1978,6 +1978,7 @@ mod tests_ocaml {
         MIN_BLOCKS_FOR_FIRST_SNARKED_LEDGER_GENERIC + n - 1
     }
 
+    #[derive(Debug, Copy, Clone)]
     enum SignKind {
         Fake,
         Real,
@@ -1993,7 +1994,7 @@ mod tests_ocaml {
 
         let vec = (0..k)
             .map(|index| {
-                let int = rng.gen_range(1..n / k);
+                let int = rng.gen_range(1..(n / k) - 1);
 
                 let int = if index == k - 1 {
                     n - sum
@@ -2020,29 +2021,23 @@ mod tests_ocaml {
             .collect()
     }
 
-    /// Generate a valid sequence of payments based on the initial state of a
-    /// ledger. Use this together with Ledger.gen_initial_ledger_state.
-    ///
-    /// https://github.com/MinaProtocol/mina/blob/3a78f0e0c1343d14e2729c8b00205baa2ec70c93/src/lib/mina_base/signed_command.ml#L246
-    fn signed_command_sequence(
+    fn signed_command_sequence_impl(
         length: usize,
         sign_kind: SignKind,
         ledger: &LedgerInitialState,
-    ) -> Vec<valid::SignedCommand> {
+    ) -> Result<Vec<valid::SignedCommand>, ()> {
         use scan_state::transaction_logic::signed_command::Body;
 
         let mut rng = rand::thread_rng();
         let n_commands = length;
 
         if n_commands == 0 {
-            return vec![];
+            return Ok(vec![]);
         }
 
         let n_accounts = ledger.state.len();
 
         let (command_senders, mut currency_splits) = loop {
-            println!("try");
-
             // How many commands will be issued from each account?
             let command_splits = gen_division(n_commands, n_accounts);
 
@@ -2077,8 +2072,10 @@ mod tests_ocaml {
             // stuck in a situation where it's very unlikely for the predicate to
             // pass.
             if currency_splits.iter().all(|list| {
-                list.iter()
-                    .all(|amount| amount >= &Amount::from_u64(2_000_000_000))
+                !list.is_empty()
+                    && list
+                        .iter()
+                        .all(|amount| amount >= &Amount::from_u64(2_000_000_000))
             }) {
                 break (command_senders, currency_splits);
             }
@@ -2090,74 +2087,92 @@ mod tests_ocaml {
         command_senders
             .into_iter()
             .map(|sender| {
-                loop {
-                    let (this_split, rest_splits) = currency_splits[sender].split_at(1);
-                    let this_split = this_split[0];
-
-                    let (sender_pk, _, _, _) = &ledger.state[sender];
-
-                    currency_splits[sender] = rest_splits.to_vec();
-
-                    let nonce = account_nonces[sender];
-
-                    // println!("this={:?}", this_split);
-                    let min = 6000000000;
-                    let fee =
-                        rng.gen_range(min..(10000000000.min(this_split.as_u64()).max(min + 1)));
-                    let fee = Fee::from_u64(fee);
-
-                    let amount = match this_split.checked_sub(&Amount::of_fee(&fee)) {
-                        Some(amount) => amount,
-                        None => continue,
-                    };
-
-                    let receiver = {
-                        // Take random item in `ledger.state`
-                        let (kp, _, _, _) = ledger.state.choose(&mut rng).unwrap();
-                        kp.public.into_compressed()
-                    };
-
-                    let memo = Memo::dummy();
-
-                    let payload = {
-                        let sender_pk = sender_pk.public.into_compressed();
-
-                        SignedCommandPayload::create(
-                            fee,
-                            sender_pk.clone(),
-                            nonce,
-                            None,
-                            memo,
-                            Body::Payment(PaymentPayload {
-                                source_pk: sender_pk,
-                                receiver_pk: receiver,
-                                amount,
-                            }),
-                        )
-                    };
-
-                    let signature = match sign_kind {
-                        SignKind::Fake => Signature::dummy(),
-                        SignKind::Real => {
-                            // let tx = TransactionUnionPayload::of_user_command_payload(&payload);
-                            // let signature_testnet = create "CodaSignature"
-                            // let signature_mainnet = create "MinaSignatureMainnet"
-                            // mina_signer::create_kimchi("CodaSignature")
-                            //     .sign(sender_pk, &tx.to_input_legacy());
-
-                            // TODO
-                            Signature::dummy()
-                        }
-                    };
-
-                    return SignedCommand {
-                        payload,
-                        signer: sender_pk.public.into_compressed(),
-                        signature,
-                    };
+                if currency_splits[sender].is_empty() {
+                    return Err(());
                 }
+
+                let (this_split, rest_splits) = currency_splits[sender].split_at(1);
+                let this_split = this_split[0];
+
+                let (sender_pk, _, _, _) = &ledger.state[sender];
+
+                currency_splits[sender] = rest_splits.to_vec();
+
+                let nonce = account_nonces[sender];
+
+                // println!("this={:?}", this_split);
+                let min = 6000000000;
+                let fee = rng.gen_range(min..(10000000000.min(this_split.as_u64()).max(min + 1)));
+                let fee = Fee::from_u64(fee);
+
+                let amount = match this_split.checked_sub(&Amount::of_fee(&fee)) {
+                    Some(amount) => amount,
+                    None => return Err(()),
+                };
+
+                let receiver = {
+                    // Take random item in `ledger.state`
+                    let (kp, _, _, _) = ledger.state.choose(&mut rng).unwrap();
+                    kp.public.into_compressed()
+                };
+
+                let memo = Memo::dummy();
+
+                let payload = {
+                    let sender_pk = sender_pk.public.into_compressed();
+
+                    SignedCommandPayload::create(
+                        fee,
+                        sender_pk.clone(),
+                        nonce,
+                        None,
+                        memo,
+                        Body::Payment(PaymentPayload {
+                            source_pk: sender_pk,
+                            receiver_pk: receiver,
+                            amount,
+                        }),
+                    )
+                };
+
+                let signature = match sign_kind {
+                    SignKind::Fake => Signature::dummy(),
+                    SignKind::Real => {
+                        // let tx = TransactionUnionPayload::of_user_command_payload(&payload);
+                        // let signature_testnet = create "CodaSignature"
+                        // let signature_mainnet = create "MinaSignatureMainnet"
+                        // mina_signer::create_kimchi("CodaSignature")
+                        //     .sign(sender_pk, &tx.to_input_legacy());
+
+                        // TODO
+                        Signature::dummy()
+                    }
+                };
+
+                Ok(SignedCommand {
+                    payload,
+                    signer: sender_pk.public.into_compressed(),
+                    signature,
+                })
             })
-            .collect()
+            .collect::<Result<Vec<_>, ()>>()
+    }
+
+    /// Generate a valid sequence of payments based on the initial state of a
+    /// ledger. Use this together with Ledger.gen_initial_ledger_state.
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3a78f0e0c1343d14e2729c8b00205baa2ec70c93/src/lib/mina_base/signed_command.ml#L246
+    fn signed_command_sequence(
+        length: usize,
+        sign_kind: SignKind,
+        ledger: &LedgerInitialState,
+    ) -> Vec<valid::SignedCommand> {
+        // Not clean but it's what OCaml does when an exception is throwned, if I understand correctly
+        loop {
+            if let Ok(commands) = signed_command_sequence_impl(length, sign_kind, ledger) {
+                return commands;
+            };
+        }
     }
 
     fn gen_at_capacity_fixed_blocks(
