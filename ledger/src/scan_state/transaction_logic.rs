@@ -3260,11 +3260,7 @@ fn validate_timing_with_min_balance_impl(
                     Untimed,
                     MinBalance(Balance::zero()),
                 ),
-                Some(_) => (
-                    InsufficientBalance(false),
-                    Untimed,
-                    MinBalance(Balance::zero()),
-                ),
+                Some(_) => (InvalidTiming(false), Untimed, MinBalance(Balance::zero())),
             }
         }
         Timed {
