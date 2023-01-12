@@ -17,6 +17,7 @@ use crate::{
 
 use super::sparse_ledger::LedgerIntf;
 
+#[derive(Clone, Debug)]
 pub enum Location {
     Ours(AccountId),
     Theirs(Address),
@@ -77,13 +78,13 @@ impl HashlessLedger {
         txn_state_view: &ProtocolStateView,
         txn_global_slot: &Slot,
         user_command: SignedCommand,
-    ) -> Result<(), String> {
+    ) -> Result<transaction_logic::transaction_applied::SignedCommandApplied, String> {
         transaction_logic::apply_user_command(
             constraint_constants,
             txn_state_view,
             txn_global_slot,
             self,
-            user_command,
+            &user_command,
         )
     }
 }

@@ -5,7 +5,8 @@ use mina_signer::CompressedPubKey;
 use crate::{
     scan_state::{currency::Magnitude, transaction_logic::transaction_applied::Varying},
     staged_ledger::sparse_ledger::{LedgerIntf, SparseLedger},
-    Account, AccountId, BaseLedger, ReceiptChainHash, Timing, TokenId, VerificationKey,
+    Account, AccountId, BaseLedger, PermissionTo, ReceiptChainHash, Timing, TokenId,
+    VerificationKey,
 };
 
 use self::{
@@ -67,6 +68,81 @@ pub enum TransactionFailure {
     IncorrectNonce,
     InvalidFeeExcess,
     Cancelled,
+}
+
+impl ToString for TransactionFailure {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Predicate => "Predicate".to_string(),
+            Self::SourceNotPresent => "Source_not_present".to_string(),
+            Self::ReceiverNotPresent => "Receiver_not_present".to_string(),
+            Self::AmountInsufficientToCreateAccount => {
+                "Amount_insufficient_to_create_account".to_string()
+            }
+            Self::CannotPayCreationFeeInToken => "Cannot_pay_creation_fee_in_token".to_string(),
+            Self::SourceInsufficientBalance => "Source_insufficient_balance".to_string(),
+            Self::SourceMinimumBalanceViolation => "Source_minimum_balance_violation".to_string(),
+            Self::ReceiverAlreadyExists => "Receiver_already_exists".to_string(),
+            Self::TokenOwnerNotCaller => "Token_owner_not_caller".to_string(),
+            Self::Overflow => "Overflow".to_string(),
+            Self::GlobalExcessOverflow => "Global_excess_overflow".to_string(),
+            Self::LocalExcessOverflow => "Local_excess_overflow".to_string(),
+            Self::LocalSupplyIncreaseOverflow => "Local_supply_increase_overflow".to_string(),
+            Self::GlobalSupplyIncreaseOverflow => "Global_supply_increase_overflow".to_string(),
+            Self::SignedCommandOnZkappAccount => "Signed_command_on_zkapp_account".to_string(),
+            Self::ZkappAccountNotPresent => "Zkapp_account_not_present".to_string(),
+            Self::UpdateNotPermittedBalance => "Update_not_permitted_balance".to_string(),
+            Self::UpdateNotPermittedTimingExistingAccount => {
+                "Update_not_permitted_timing_existing_account".to_string()
+            }
+            Self::UpdateNotPermittedDelegate => "update_not_permitted_delegate".to_string(),
+            Self::UpdateNotPermittedAppState => "Update_not_permitted_app_state".to_string(),
+            Self::UpdateNotPermittedVerificationKey => {
+                "Update_not_permitted_verification_key".to_string()
+            }
+            Self::UpdateNotPermittedSequenceState => {
+                "Update_not_permitted_sequence_state".to_string()
+            }
+            Self::UpdateNotPermittedZkappUri => "Update_not_permitted_zkapp_uri".to_string(),
+            Self::UpdateNotPermittedTokenSymbol => "Update_not_permitted_token_symbol".to_string(),
+            Self::UpdateNotPermittedPermissions => "Update_not_permitted_permissions".to_string(),
+            Self::UpdateNotPermittedNonce => "Update_not_permitted_nonce".to_string(),
+            Self::UpdateNotPermittedVotingFor => "Update_not_permitted_voting_for".to_string(),
+            Self::ZkappCommandReplayCheckFailed => "Zkapp_command_replay_check_failed".to_string(),
+            Self::FeePayerNonceMustIncrease => "Fee_payer_nonce_must_increase".to_string(),
+            Self::FeePayerMustBeSigned => "Fee_payer_must_be_signed".to_string(),
+            Self::AccountBalancePreconditionUnsatisfied => {
+                "Account_balance_precondition_unsatisfied".to_string()
+            }
+            Self::AccountNoncePreconditionUnsatisfied => {
+                "Account_nonce_precondition_unsatisfied".to_string()
+            }
+            Self::AccountReceiptChainHashPreconditionUnsatisfied => {
+                "Account_receipt_chain_hash_precondition_unsatisfied".to_string()
+            }
+            Self::AccountDelegatePreconditionUnsatisfied => {
+                "Account_delegate_precondition_unsatisfied".to_string()
+            }
+            Self::AccountSequenceStatePreconditionUnsatisfied => {
+                "Account_sequence_state_precondition_unsatisfied".to_string()
+            }
+            Self::AccountAppStatePreconditionUnsatisfied(i) => {
+                format!("Account_app_state_{}_precondition_unsatisfied", i)
+            }
+            Self::AccountProvedStatePreconditionUnsatisfied => {
+                "Account_proved_state_precondition_unsatisfied".to_string()
+            }
+            Self::AccountIsNewPreconditionUnsatisfied => {
+                "Account_is_new_precondition_unsatisfied".to_string()
+            }
+            Self::ProtocolStatePreconditionUnsatisfied => {
+                "Protocol_state_precondition_unsatisfied".to_string()
+            }
+            Self::IncorrectNonce => "Incorrect_nonce".to_string(),
+            Self::InvalidFeeExcess => "Invalid_fee_excess".to_string(),
+            Self::Cancelled => "Cancelled".to_string(),
+        }
+    }
 }
 
 pub fn single_failure() -> Vec<Vec<TransactionFailure>> {
@@ -2113,7 +2189,18 @@ where
     let txn_global_slot = &txn_state_view.global_slot_since_genesis;
 
     match transaction {
-        Command(SignedCommand(_cmd)) => todo!(),
+        Command(SignedCommand(cmd)) => apply_user_command(
+            constraint_constants,
+            txn_state_view,
+            txn_global_slot,
+            ledger,
+            cmd,
+        )
+        .map(|applied| {
+            Varying::Command(transaction_applied::CommandApplied::SignedCommand(
+                Box::new(applied),
+            ))
+        }),
         Command(ZkAppCommand(_cmd)) => todo!(),
         FeeTransfer(fee_transfer) => {
             apply_fee_transfer(constraint_constants, txn_global_slot, ledger, fee_transfer)
@@ -2590,13 +2677,176 @@ fn validate_time(valid_until: &Slot, current_global_slot: &Slot) -> Result<(), S
     ))
 }
 
+// TODO: See below
+pub fn timing_error_to_user_command_status(
+    timing_result: Result<Timing, String>,
+) -> Result<Timing, TransactionFailure> {
+    match timing_result {
+        Ok(timing) => Ok(timing),
+        Err(_e) => Err(TransactionFailure::SourceInsufficientBalance),
+        // Err(("minbal", _)) => return Err(TransactionFailure::SourceMinimumBalanceViolation),
+        // Err(_) => panic!("Unexpected timed account validation error"),
+    }
+}
+
+// pub fn timing_error_to_user_command_status(
+//     timing_result: Result<Timing, (&str, String)>,
+// ) -> Result<Timing, TransactionFailure> {
+//     match timing_result {
+//         Ok(timing) => Ok(timing),
+//         Err(("nsf", _)) => return Err(TransactionFailure::SourceInsufficientBalance),
+//         Err(("minbal", _)) => return Err(TransactionFailure::SourceMinimumBalanceViolation),
+//         Err(_) => panic!("Unexpected timed account validation error"),
+//     }
+// }
+
+pub struct Updates<Location> {
+    pub located_accounts: Vec<(ExistingOrNew<Location>, Account)>,
+    pub applied_body: transaction_applied::signed_command_applied::Body,
+}
+
+pub fn compute_updates<L>(
+    constraint_constants: &ConstraintConstants,
+    source: AccountId,
+    receiver: AccountId,
+    ledger: &mut L,
+    current_global_slot: Slot,
+    user_command: &SignedCommand,
+) -> Result<Updates<L::Location>, TransactionFailure>
+where
+    L: LedgerIntf,
+{
+    match &user_command.payload.body {
+        signed_command::Body::StakeDelegation(_) => {
+            let (source_location, mut source_account) = get_with_location(ledger, &source).unwrap();
+
+            if source_account.has_permission_to(PermissionTo::SetDelegate) == false {
+                return Err(TransactionFailure::UpdateNotPermittedDelegate);
+            }
+
+            if let ExistingOrNew::New = source_location {
+                return Err(TransactionFailure::SourceNotPresent);
+            }
+
+            let (receiver_location, _) = get_with_location(ledger, &receiver).unwrap();
+
+            if let ExistingOrNew::New = receiver_location {
+                return Err(TransactionFailure::ReceiverNotPresent);
+            }
+
+            let previous_delegate = source_account.delegate.clone();
+            let timing = timing_error_to_user_command_status(validate_timing(
+                &source_account,
+                Amount::zero(),
+                &current_global_slot,
+            ))?;
+
+            source_account.delegate = Some(receiver.public_key.clone());
+            source_account.timing = timing;
+
+            Ok(Updates {
+                located_accounts: vec![(source_location, source_account)],
+                applied_body: transaction_applied::signed_command_applied::Body::StakeDelegation {
+                    previous_delegate,
+                },
+            })
+        }
+        signed_command::Body::Payment(payment) => {
+            let (receiver_location, mut receiver_account) =
+                get_with_location(ledger, &receiver).unwrap();
+
+            if receiver_account.has_permission_to(PermissionTo::Receive) == false {
+                return Err(TransactionFailure::UpdateNotPermittedBalance);
+            }
+
+            let (source_location, source_account) = if source == receiver {
+                let addr = match receiver_location.clone() {
+                    ExistingOrNew::Existing(addr) => addr,
+                    ExistingOrNew::New => return Err(TransactionFailure::SourceNotPresent),
+                };
+
+                let timing = timing_error_to_user_command_status(validate_timing(
+                    &receiver_account,
+                    payment.amount,
+                    &current_global_slot,
+                ))?;
+
+                receiver_account.timing = timing;
+
+                (ExistingOrNew::Existing(addr), receiver_account.clone())
+            } else {
+                let (location, mut account) = get_with_location(ledger, &source).unwrap();
+
+                if let ExistingOrNew::New = location {
+                    return Err(TransactionFailure::SourceNotPresent);
+                }
+
+                let timing = timing_error_to_user_command_status(validate_timing(
+                    &account,
+                    payment.amount,
+                    &current_global_slot,
+                ))?;
+
+                let balance = match account.balance.sub_amount(payment.amount) {
+                    Some(balance) => balance,
+                    None => return Err(TransactionFailure::SourceInsufficientBalance),
+                };
+
+                account.timing = timing;
+                account.balance = balance;
+
+                (location, account)
+            };
+
+            if source_account.has_permission_to(PermissionTo::Send) == false {
+                return Err(TransactionFailure::UpdateNotPermittedBalance);
+            }
+
+            let receiver_amount = match &receiver_location {
+                ExistingOrNew::Existing(_) => payment.amount,
+                ExistingOrNew::New => {
+                    match payment
+                        .amount
+                        .checked_sub(&Amount::of_fee(&constraint_constants.account_creation_fee))
+                    {
+                        Some(amount) => amount,
+                        None => return Err(TransactionFailure::AmountInsufficientToCreateAccount),
+                    }
+                }
+            };
+
+            let balance = match receiver_account.balance.add_amount(receiver_amount) {
+                Some(balance) => balance,
+                None => return Err(TransactionFailure::Overflow),
+            };
+
+            let new_accounts = match receiver_location {
+                ExistingOrNew::New => vec![receiver.clone()],
+                ExistingOrNew::Existing(_) => vec![],
+            };
+
+            receiver_account.balance = balance;
+
+            Ok(Updates {
+                located_accounts: vec![
+                    (receiver_location, receiver_account),
+                    (source_location, source_account),
+                ],
+                applied_body: transaction_applied::signed_command_applied::Body::Payments {
+                    new_accounts,
+                },
+            })
+        }
+    }
+}
+
 pub fn apply_user_command_unchecked<L>(
-    _constraint_constants: &ConstraintConstants,
-    _txn_state_view: &ProtocolStateView,
+    constraint_constants: &ConstraintConstants,
+    txn_state_view: &ProtocolStateView,
     txn_global_slot: &Slot,
     ledger: &mut L,
-    user_command: SignedCommand,
-) -> Result<(), String>
+    user_command: &SignedCommand,
+) -> Result<transaction_applied::SignedCommandApplied, String>
 where
     L: LedgerIntf,
 {
@@ -2612,12 +2862,54 @@ where
 
     // Fee-payer information
     let _fee_payer = user_command.fee_payer();
-    let (_fee_payer_location, _fee_payer_account) =
+    let (fee_payer_location, fee_payer_account) =
         pay_fee(&user_command, signer_pk, ledger, current_global_slot)?;
 
-    // TODO: The rest is implemented on the branch `transaction_fuzzer`
+    if !fee_payer_account.has_permission_to(PermissionTo::Send) {
+        return Err(TransactionFailure::UpdateNotPermittedBalance.to_string());
+    }
 
-    Ok(())
+    set_with_location(ledger, &fee_payer_location, fee_payer_account)?;
+
+    let source = user_command.source();
+    let receiver = user_command.receiver();
+
+    match compute_updates(
+        constraint_constants,
+        source,
+        receiver,
+        ledger,
+        *current_global_slot,
+        &user_command,
+    ) {
+        Ok(Updates {
+            located_accounts,
+            applied_body,
+        }) => {
+            for (location, account) in located_accounts {
+                set_with_location(ledger, &location, account)?;
+            }
+
+            Ok(transaction_applied::SignedCommandApplied {
+                common: transaction_applied::signed_command_applied::Common {
+                    user_command: WithStatus::<SignedCommand> {
+                        data: user_command.clone(),
+                        status: TransactionStatus::Applied,
+                    },
+                },
+                body: applied_body,
+            })
+        }
+        Err(failure) => Ok(transaction_applied::SignedCommandApplied {
+            common: transaction_applied::signed_command_applied::Common {
+                user_command: WithStatus::<SignedCommand> {
+                    data: user_command.clone(),
+                    status: TransactionStatus::Failed(vec![vec![failure]]),
+                },
+            },
+            body: transaction_applied::signed_command_applied::Body::Failed,
+        }),
+    }
 }
 
 pub fn apply_user_command<L>(
@@ -2625,8 +2917,8 @@ pub fn apply_user_command<L>(
     txn_state_view: &ProtocolStateView,
     txn_global_slot: &Slot,
     ledger: &mut L,
-    user_command: SignedCommand,
-) -> Result<(), String>
+    user_command: &SignedCommand,
+) -> Result<transaction_applied::SignedCommandApplied, String>
 where
     L: LedgerIntf,
 {
@@ -3097,17 +3389,18 @@ fn add_amount(balance: Balance, amount: Amount) -> Result<Balance, String> {
         .ok_or_else(|| "overflow".to_string())
 }
 
+#[derive(Clone)]
 pub enum ExistingOrNew<Loc> {
     Existing(Loc),
     New,
 }
 
-fn get_with_location<L, Loc>(
+fn get_with_location<L>(
     ledger: &mut L,
     account_id: &AccountId,
-) -> Result<(ExistingOrNew<Loc>, Account), String>
+) -> Result<(ExistingOrNew<L::Location>, Account), String>
 where
-    L: LedgerIntf<Location = Loc>,
+    L: LedgerIntf,
 {
     match ledger.location_of_account(account_id) {
         Some(location) => match ledger.get(&location) {
@@ -3118,6 +3411,25 @@ where
             ExistingOrNew::New,
             Account::create_with(account_id.clone(), Balance::zero()),
         )),
+    }
+}
+
+pub fn set_with_location<L>(
+    ledger: &mut L,
+    location: &ExistingOrNew<L::Location>,
+    account: Account,
+) -> Result<(), String>
+where
+    L: LedgerIntf,
+{
+    match location {
+        ExistingOrNew::Existing(location) => {
+            ledger.set(location, account);
+            Ok(())
+        }
+        ExistingOrNew::New => ledger
+            .create_new_account(account.id(), account)
+            .map_err(|_| "set_with_location".to_string()),
     }
 }
 
