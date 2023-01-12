@@ -3136,6 +3136,8 @@ mod tests {
             .into_compressed()
     }
 
+    /// Test using same values as here:
+    /// https://github.com/MinaProtocol/mina/blob/3a78f0e0c1343d14e2729c8b00205baa2ec70c93/src/lib/mina_base/receipt.ml#L136
     #[test]
     fn test_cons_receipt_hash_ocaml() {
         let from = pub_key("B62qr71UxuyKpkSKYceCPsjw14nuaeLwWKZdMqaBMPber5AAF6nkowS");
