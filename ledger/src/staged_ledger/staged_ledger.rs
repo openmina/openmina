@@ -662,7 +662,8 @@ impl StagedLedger {
         _verifier: &Verifier,
         _job_msg_proofs: Vec<(AvailableJob, SokMessage, LedgerProof)>,
     ) -> Result<(), StagedLedgerError> {
-        todo!()
+        // TODO
+        Ok(())
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L654
@@ -1801,23 +1802,10 @@ mod tests_ocaml {
 
     // const
 
-    static SELF_PK: Lazy<CompressedPubKey> = Lazy::new(|| {
-        let mut rng = rand::thread_rng();
+    static SELF_PK: Lazy<CompressedPubKey> = Lazy::new(|| gen_keypair().public.into_compressed());
 
-        CompressedPubKey {
-            x: Fp::rand(&mut rng),
-            is_odd: rng.gen(),
-        }
-    });
-
-    static COINBASE_RECEIVER: Lazy<CompressedPubKey> = Lazy::new(|| {
-        let mut rng = rand::thread_rng();
-
-        CompressedPubKey {
-            x: Fp::rand(&mut rng),
-            is_odd: rng.gen(),
-        }
-    });
+    static COINBASE_RECEIVER: Lazy<CompressedPubKey> =
+        Lazy::new(|| gen_keypair().public.into_compressed());
 
     /// Same values when we run `dune runtest src/lib/staged_ledger -f`
     const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
