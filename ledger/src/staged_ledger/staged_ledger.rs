@@ -1780,7 +1780,7 @@ impl StagedLedger {
 mod tests_ocaml {
     use std::str::FromStr;
 
-    use ark_ff::{UniformRand, Zero};
+    use ark_ff::Zero;
     use mina_signer::Keypair;
     use once_cell::sync::Lazy;
     use rand::{seq::SliceRandom, Rng};
@@ -2074,7 +2074,7 @@ mod tests_ocaml {
             }
         };
 
-        let account_nonces: Vec<Nonce> =
+        let mut account_nonces: Vec<Nonce> =
             ledger.state.iter().map(|(_, _, nonce, _)| *nonce).collect();
 
         command_senders
@@ -2092,6 +2092,7 @@ mod tests_ocaml {
                 currency_splits[sender] = rest_splits.to_vec();
 
                 let nonce = account_nonces[sender];
+                account_nonces[sender] = nonce.incr();
 
                 // println!("this={:?}", this_split);
                 let min = 6000000000;
