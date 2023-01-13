@@ -16,12 +16,12 @@ crate-type = ["staticlib", "cdylib", "lib"]
 # https://stackoverflow.com/a/73023306
 
 [dependencies]
-mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a"}
-mina-hasher = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a"}
-oracle = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a"}
-mina-curves = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a"}
-o1-utils = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a"}
-kimchi = {git = "https://github.com/o1-labs/proof-systems", rev = "bb0bb776ba6ef39750ac92557947a81c2144b63a"}
+mina-hasher = { git = "https://github.com/name-placeholder/proof-systems", branch = "ledger" }
+mina-signer = { git = "https://github.com/name-placeholder/proof-systems", branch = "ledger" }
+mina-curves = { git = "https://github.com/name-placeholder/proof-systems", branch = "ledger" }
+o1-utils = { git = "https://github.com/name-placeholder/proof-systems", branch = "ledger" }
+kimchi = { git = "https://github.com/name-placeholder/proof-systems", branch = "ledger" }
+oracle = { git = "https://github.com/name-placeholder/proof-systems", branch = "ledger" }
 
 bs58 = "0.4.0"
 mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messages-rs", features = ["hashing"] }
@@ -41,11 +41,12 @@ static_assertions = "1.1"
 
 
 
-# ark-ff-new = { git = "https://github.com/arkworks-rs/algebra.git", features = [ "parallel", "asm", "std" ], package = "ark-ff" }
-# ark-serialize = { git = "https://github.com/arkworks-rs/algebra.git", features = [ "std" ] }
+# ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
+# ark-serialize = { version = "0.3.0", features = [ "std" ] }
 
-ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
-ark-serialize = { version = "0.3.0", features = [ "std" ] }
+ark-ff = { git = "https://github.com/name-placeholder/algebra", branch = "openmina", features = [ "parallel", "asm", "std" ] }
+ark-serialize = { git = "https://github.com/name-placeholder/algebra", branch = "openmina", features = [ "std" ] }
+
 rayon = "1"
 
 bitvec = "1.0.0"
@@ -83,3 +84,27 @@ in_nodejs = []
 
 [profile.release]
 debug = true
+
+[patch.crates-io]
+ark-ff = { git = "https://github.com/name-placeholder/algebra", branch = "openmina" }
+ark-ec = { git = "https://github.com/name-placeholder/algebra", branch = "openmina" }
+ark-poly = { git = "https://github.com/name-placeholder/algebra", branch = "openmina" }
+ark-serialize = { git = "https://github.com/name-placeholder/algebra", branch = "openmina" }
+# ark-ff = { path = "/home/sebastien/github/algebra/ff" }
+# ark-ec = { path = "/home/sebastien/github/algebra/ec" }
+# ark-poly = { path = "/home/sebastien/github/algebra/poly" }
+# ark-serialize = { path = "/home/sebastien/github/algebra/serialize" }
+
+[patch.'https://github.com/o1-labs/proof-systems']
+mina-hasher = { git = "https://github.com/name-placeholder/proof-systems", branch = "ledger" }
+mina-signer = { git = "https://github.com/name-placeholder/proof-systems", branch = "ledger" }
+mina-curves = { git = "https://github.com/name-placeholder/proof-systems", branch = "ledger" }
+o1-utils = { git = "https://github.com/name-placeholder/proof-systems", branch = "ledger" }
+kimchi = { git = "https://github.com/name-placeholder/proof-systems", branch = "ledger" }
+oracle = { git = "https://github.com/name-placeholder/proof-systems", branch = "ledger" }
+# mina-hasher = { path = "/home/sebastien/github/proof-systems/hasher" }
+# mina-signer = { path = "/home/sebastien/github/proof-systems/signer" }
+# mina-curves = { path = "/home/sebastien/github/proof-systems/curves" }
+# o1-utils = { path = "/home/sebastien/github/proof-systems/utils" }
+# kimchi = { path = "/home/sebastien/github/proof-systems/kimchi" }
+# oracle = { path = "/home/sebastien/github/proof-systems/oracle" }

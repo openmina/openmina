@@ -17,14 +17,8 @@ use crate::{
 
 use super::common::*;
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TokenId(pub Fp);
-
-impl std::fmt::Debug for TokenId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("TokenId").field(&self.0.to_string()).finish()
-    }
-}
 
 impl Default for TokenId {
     fn default() -> Self {
@@ -432,9 +426,8 @@ impl AccountId {
 
 impl std::fmt::Debug for AccountId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let pubkey = self.public_key.x.to_string();
         f.debug_struct("AccountId")
-            .field("public_key", &pubkey)
+            .field("public_key", &self.public_key)
             .field("token_id", &self.token_id)
             .finish()
     }

@@ -1,4 +1,7 @@
-use std::cmp::Ordering::{Equal, Greater, Less};
+use std::{
+    cmp::Ordering::{Equal, Greater, Less},
+    fmt::Write,
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Sgn {
@@ -124,8 +127,14 @@ macro_rules! impl_number {
         $(impl_number!({$name64, u64, as_u64, from_u64, next_u64, append_u64},);)+
     };
     ($({ $name:ident, $inner:ty, $as_name:ident, $from_name:ident, $next_name:ident, $append_name:ident },)*) => ($(
-        #[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
         pub struct $name(pub(super) $inner);
+
+        impl std::fmt::Debug for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_fmt(format_args!("{}({:?})", stringify!($name), self.0))
+            }
+        }
 
         impl Magnitude for $name {
             fn zero() -> Self {

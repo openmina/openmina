@@ -461,8 +461,15 @@ impl Signature {
     }
 }
 
-#[derive(Debug, Clone, derive_more::Deref, derive_more::From, PartialEq, Eq)]
+#[derive(Clone, derive_more::Deref, derive_more::From, PartialEq, Eq)]
 pub struct Memo(Vec<u8>);
+
+impl std::fmt::Debug for Memo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = String::from_utf8_lossy(&self.0);
+        f.write_fmt(format_args!("{:?}", s))
+    }
+}
 
 impl Memo {
     /// https://github.com/MinaProtocol/mina/blob/3a78f0e0c1343d14e2729c8b00205baa2ec70c93/src/lib/mina_base/signed_command_memo.ml#L151

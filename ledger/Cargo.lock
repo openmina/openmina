@@ -31,8 +31,7 @@ dependencies = [
 [[package]]
 name = "ark-ec"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dea978406c4b1ca13c2db2373b05cc55429c3575b8b21f1b9ee859aa5b03dd42"
+source = "git+https://github.com/name-placeholder/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -46,8 +45,7 @@ dependencies = [
 [[package]]
 name = "ark-ff"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b3235cc41ee7a12aaaf2c575a2ad7b46713a8a50bda2fc3b003a04845c05dd6"
+source = "git+https://github.com/name-placeholder/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "ark-ff-asm",
  "ark-ff-macros",
@@ -65,8 +63,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-asm"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db02d390bf6643fb404d3d22d31aee1c4bc4459600aef9113833d17e786c6e44"
+source = "git+https://github.com/name-placeholder/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "quote",
  "syn",
@@ -75,8 +72,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-macros"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db2fd794a08ccb318058009eefdf15bcaaaaf6f8161eb3345f907222bac38b20"
+source = "git+https://github.com/name-placeholder/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "num-bigint",
  "num-traits",
@@ -87,8 +83,7 @@ dependencies = [
 [[package]]
 name = "ark-poly"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b0f78f47537c2f15706db7e98fe64cc1711dbf9def81218194e17239e53e5aa"
+source = "git+https://github.com/name-placeholder/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -101,8 +96,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d6c2b318ee6e10f8c2853e73a83adc0ccb88995aa978d8a3408d492ab2ee671"
+source = "git+https://github.com/name-placeholder/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "ark-serialize-derive",
  "ark-std",
@@ -112,8 +106,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize-derive"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8dd4e5f0bf8285d5ed538d27fab7411f3e297908fd93c62195de8bee3f199e82"
+source = "git+https://github.com/name-placeholder/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -267,7 +260,7 @@ checksum = "c1db59621ec70f09c5e9b597b220c7a2b43611f4710dc03ceb8748637775692c"
 [[package]]
 name = "cairo"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/name-placeholder/proof-systems?branch=ledger#6c426c01cab8aca2c6ec71fa2c6e17e851c94c60"
 dependencies = [
  "ark-ff",
  "hex",
@@ -289,7 +282,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "commitment_dlog"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/name-placeholder/proof-systems?branch=ledger#6c426c01cab8aca2c6ec71fa2c6e17e851c94c60"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -635,7 +628,7 @@ checksum = "22030e2c5a68ec659fde1e949a745124b48e6fa8b045b7ed5bd1fe4ccc5c4e5d"
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/name-placeholder/proof-systems?branch=ledger#6c426c01cab8aca2c6ec71fa2c6e17e851c94c60"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -705,7 +698,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/name-placeholder/proof-systems?branch=ledger#6c426c01cab8aca2c6ec71fa2c6e17e851c94c60"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -781,7 +774,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/name-placeholder/proof-systems?branch=ledger#6c426c01cab8aca2c6ec71fa2c6e17e851c94c60"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -790,7 +783,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/name-placeholder/proof-systems?branch=ledger#6c426c01cab8aca2c6ec71fa2c6e17e851c94c60"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -826,7 +819,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/name-placeholder/proof-systems?branch=ledger#6c426c01cab8aca2c6ec71fa2c6e17e851c94c60"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -943,7 +936,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/name-placeholder/proof-systems?branch=ledger#6c426c01cab8aca2c6ec71fa2c6e17e851c94c60"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -1011,7 +1004,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 [[package]]
 name = "oracle"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/name-placeholder/proof-systems?branch=ledger#6c426c01cab8aca2c6ec71fa2c6e17e851c94c60"
 dependencies = [
  "ark-ec",
  "ark-ff",
