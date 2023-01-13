@@ -102,13 +102,23 @@ pub mod transaction_snark {
         }
     }
 
+    #[derive(Debug, Clone, PartialEq, Eq, derive_more::Deref)]
+    pub struct SokDigest(pub Vec<u8>);
+
+    impl Default for SokDigest {
+        /// https://github.com/MinaProtocol/mina/blob/3a78f0e0c1343d14e2729c8b00205baa2ec70c93/src/lib/mina_base/sok_message.ml#L76
+        fn default() -> Self {
+            Self(vec![0; 32])
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Statement {
         pub source: Registers,
         pub target: Registers,
         pub supply_increase: Signed<Amount>,
         pub fee_excess: FeeExcess,
-        pub sok_digest: Option<Vec<u8>>,
+        pub sok_digest: Option<SokDigest>,
     }
 
     impl Statement {
@@ -189,7 +199,14 @@ pub mod transaction_snark {
     pub struct LedgerProof(pub TransactionSnark);
 
     impl LedgerProof {
-        pub fn create(statement: Statement, proof: TransactionSnarkProofStableV2) -> Self {
+        pub fn create(
+            mut statement: Statement,
+            sok_digest: SokDigest,
+            proof: TransactionSnarkProofStableV2,
+        ) -> Self {
+            assert!(statement.sok_digest.is_none());
+
+            statement.sok_digest = Some(sok_digest);
             Self(TransactionSnark { statement, proof })
         }
 
@@ -458,24 +475,14 @@ fn completed_work_to_scanable_work(
 ) -> Result<LedgerProofWithSokMessage, String> {
     use super::parallel_scan::AvailableJob::{Base, Merge};
 
-    let sok_digest = &current_proof.0.statement.sok_digest;
+    let sok_digest = current_proof.0.statement.sok_digest;
+    assert!(sok_digest.is_some());
+
     let proof = &current_proof.0.proof;
 
     match job {
         Base(TransactionWithWitness { statement, .. }) => {
-            // todo!()
-
-            assert!(sok_digest.is_some());
-
-            let statement_with_sok = transaction_snark::Statement {
-                source: statement.source,
-                target: statement.target,
-                supply_increase: statement.supply_increase,
-                fee_excess: statement.fee_excess,
-                sok_digest: sok_digest.clone(),
-            };
-
-            let ledger_proof = LedgerProof::create(statement_with_sok, proof.clone());
+            let ledger_proof = LedgerProof::create(statement, sok_digest.unwrap(), proof.clone());
             let sok_message = SokMessage::create(fee, prover);
 
             Ok(LedgerProofWithSokMessage {
@@ -509,7 +516,7 @@ fn completed_work_to_scanable_work(
                 sok_digest: None,
             };
 
-            let ledger_proof = LedgerProof::create(statement, proof.clone());
+            let ledger_proof = LedgerProof::create(statement, sok_digest.unwrap(), proof.clone());
             let sok_message = SokMessage::create(fee, prover);
 
             Ok(LedgerProofWithSokMessage {

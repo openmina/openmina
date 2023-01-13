@@ -79,8 +79,8 @@ use super::{
     fee_excess::FeeExcess,
     pending_coinbase,
     scan_state::transaction_snark::{
-        LedgerProof, LedgerProofWithSokMessage, Registers, SokMessage, Statement, TransactionSnark,
-        TransactionWithWitness,
+        LedgerProof, LedgerProofWithSokMessage, Registers, SokDigest, SokMessage, Statement,
+        TransactionSnark, TransactionWithWitness,
     },
     transaction_logic::{
         self,
@@ -449,7 +449,7 @@ impl From<&TransactionSnarkStatementWithSokStableV2> for Statement {
             target: (&value.target).into(),
             supply_increase: (&value.supply_increase).into(),
             fee_excess: (&value.fee_excess).into(),
-            sok_digest: Some(value.sok_digest.to_vec()),
+            sok_digest: Some(SokDigest(value.sok_digest.to_vec())),
         }
     }
 }

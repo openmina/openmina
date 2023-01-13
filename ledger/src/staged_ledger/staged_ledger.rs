@@ -1789,6 +1789,7 @@ mod tests_ocaml {
         dummy,
         scan_state::{
             currency::{Balance, BlockTime, Length, Nonce},
+            scan_state::transaction_snark::SokDigest,
             transaction_logic::{
                 protocol_state::{EpochData, EpochLedger},
                 signed_command::{PaymentPayload, SignedCommand, SignedCommandPayload},
@@ -2570,7 +2571,11 @@ mod tests_ocaml {
 
     fn proofs(stmt: &work::Statement) -> OneOrTwo<LedgerProof> {
         stmt.map(|statement| {
-            LedgerProof::create(statement.clone(), dummy::dummy_transaction_proof())
+            LedgerProof::create(
+                statement.clone(),
+                SokDigest::default(),
+                dummy::dummy_transaction_proof(),
+            )
         })
     }
 
