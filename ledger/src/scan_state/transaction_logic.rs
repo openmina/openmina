@@ -2877,7 +2877,7 @@ where
     // Fee-payer information
     let _fee_payer = user_command.fee_payer();
     let (fee_payer_location, fee_payer_account) =
-        pay_fee(&user_command, signer_pk, ledger, current_global_slot)?;
+        pay_fee(user_command, signer_pk, ledger, current_global_slot)?;
 
     if !fee_payer_account.has_permission_to(PermissionTo::Send) {
         return Err(TransactionFailure::UpdateNotPermittedBalance.to_string());
@@ -2894,7 +2894,7 @@ where
         receiver,
         ledger,
         *current_global_slot,
-        &user_command,
+        user_command,
     ) {
         Ok(Updates {
             located_accounts,
@@ -2976,16 +2976,16 @@ where
     )
 }
 
-fn pay_fee_impl<L, Loc>(
+fn pay_fee_impl<L>(
     command: &SignedCommandPayload,
     nonce: Nonce,
     fee_payer: AccountId,
     fee: Fee,
     ledger: &mut L,
     current_global_slot: &Slot,
-) -> Result<(ExistingOrNew<Loc>, Account), String>
+) -> Result<(ExistingOrNew<L::Location>, Account), String>
 where
-    L: LedgerIntf<Location = Loc>,
+    L: LedgerIntf,
 {
     // Fee-payer information
     let (location, mut account) = get_with_location(ledger, &fee_payer)?;
@@ -3399,7 +3399,7 @@ fn add_amount(balance: Balance, amount: Amount) -> Result<Balance, String> {
         .ok_or_else(|| "overflow".to_string())
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ExistingOrNew<Loc> {
     Existing(Loc),
     New,

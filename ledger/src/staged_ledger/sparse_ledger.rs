@@ -457,7 +457,7 @@ impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2>
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/ledger_intf.ml
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml
 pub trait LedgerIntf {
-    type Location: Clone;
+    type Location: Clone + std::fmt::Debug;
 
     fn get(&self, addr: &Self::Location) -> Option<Account>;
     fn location_of_account(&self, account_id: &AccountId) -> Option<Self::Location>;

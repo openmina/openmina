@@ -1698,9 +1698,9 @@ impl StagedLedger {
 
         let diff = {
             // Fill in the statuses for commands.
+            let mut status_ledger = HashlessLedger::create(self.ledger.clone());
 
-            let generate_status = |txn: Transaction| -> Result<TransactionStatus, String> {
-                let mut status_ledger = HashlessLedger::create(self.ledger.clone());
+            let mut generate_status = |txn: Transaction| -> Result<TransactionStatus, String> {
                 status_ledger.apply_transaction(constraint_constants, current_state_view, &txn)
             };
 
@@ -1710,7 +1710,7 @@ impl StagedLedger {
                 coinbase_receiver,
                 Self::coinbase_amount(supercharge_coinbase, constraint_constants)
                     .expect("OCaml throws here"),
-                generate_status,
+                &mut generate_status,
             )?
         };
 

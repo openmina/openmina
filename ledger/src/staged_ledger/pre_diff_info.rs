@@ -335,11 +335,11 @@ fn generate_statuses<F, Cmd, Tx>(
     coinbase_amount: Amount,
     commands: &[WithStatus<Cmd>],
     completed_works: &[work::Unchecked],
-    generate_status: F,
+    generate_status: &mut F,
 ) -> Result<(Vec<WithStatus<Cmd>>, Vec<TransactionStatus>), PreDiffError>
 where
     Cmd: GenericCommand + Clone,
-    F: Fn(Transaction) -> Result<TransactionStatus, String>,
+    F: FnMut(Transaction) -> Result<TransactionStatus, String>,
     Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer>,
 {
     let TransactionData {
@@ -389,7 +389,7 @@ pub fn compute_statuses<F, Tx>(
     ),
     coinbase_receiver: CompressedPubKey,
     coinbase_amount: Amount,
-    generate_status: F,
+    generate_status: &mut F,
 ) -> Result<
     (
         PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>,
@@ -398,11 +398,11 @@ pub fn compute_statuses<F, Tx>(
     PreDiffError,
 >
 where
-    F: Fn(Transaction) -> Result<TransactionStatus, String>,
+    F: FnMut(Transaction) -> Result<TransactionStatus, String>,
     Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer>,
 {
     let get_statuses_pre_diff_with_at_most_two =
-        |t1: PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>| {
+        |t1: PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>, generate_status: &mut F| {
             let coinbase_parts = match &t1.coinbase {
                 diff::AtMostTwo::Zero => CoinbaseParts::Zero,
                 diff::AtMostTwo::One(x) => CoinbaseParts::One(x.clone()),
@@ -416,7 +416,7 @@ where
                 coinbase_amount,
                 &t1.commands,
                 &t1.completed_works,
-                &generate_status,
+                generate_status,
             )?;
 
             Ok::<_, PreDiffError>(PreDiffTwo {
@@ -428,7 +428,7 @@ where
         };
 
     let get_statuses_pre_diff_with_at_most_one =
-        |t2: PreDiffOne<work::Work, WithStatus<valid::UserCommand>>| {
+        |t2: PreDiffOne<work::Work, WithStatus<valid::UserCommand>>, generate_status: &mut F| {
             let coinbase_added = match &t2.coinbase {
                 diff::AtMostOne::Zero => CoinbaseParts::Zero,
                 diff::AtMostOne::One(x) => CoinbaseParts::One(x.clone()),
@@ -441,7 +441,7 @@ where
                 coinbase_amount,
                 &t2.commands,
                 &t2.completed_works,
-                &generate_status,
+                generate_status,
             )?;
 
             Ok::<_, PreDiffError>(PreDiffOne {
@@ -452,9 +452,9 @@ where
             })
         };
 
-    let p1 = get_statuses_pre_diff_with_at_most_two(diff.0)?;
+    let p1 = get_statuses_pre_diff_with_at_most_two(diff.0, generate_status)?;
     let p2 = match diff.1 {
-        Some(d2) => Some(get_statuses_pre_diff_with_at_most_one(d2)?),
+        Some(d2) => Some(get_statuses_pre_diff_with_at_most_one(d2, generate_status)?),
         None => None,
     };
 
