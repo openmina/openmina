@@ -969,6 +969,8 @@ impl StagedLedger {
             }
         }
 
+        Self::check_zero_fee_excess(&self.scan_state, &data)?;
+
         let res_opt = {
             self.scan_state
                 .fill_work_and_enqueue_transactions(data, works)
