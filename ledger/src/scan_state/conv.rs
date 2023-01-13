@@ -430,41 +430,38 @@ impl From<&TransactionSnarkStatementWithSokStableV2Source> for Registers {
     }
 }
 
-impl From<&TransactionSnarkStatementStableV2> for Statement {
+impl From<&TransactionSnarkStatementStableV2> for Statement<()> {
     fn from(value: &TransactionSnarkStatementStableV2) -> Self {
         Self {
             source: (&value.source).into(),
             target: (&value.target).into(),
             supply_increase: (&value.supply_increase).into(),
             fee_excess: (&value.fee_excess).into(),
-            sok_digest: None,
+            sok_digest: (),
         }
     }
 }
 
-impl From<&TransactionSnarkStatementWithSokStableV2> for Statement {
+impl From<&TransactionSnarkStatementWithSokStableV2> for Statement<SokDigest> {
     fn from(value: &TransactionSnarkStatementWithSokStableV2) -> Self {
         Self {
             source: (&value.source).into(),
             target: (&value.target).into(),
             supply_increase: (&value.supply_increase).into(),
             fee_excess: (&value.fee_excess).into(),
-            sok_digest: Some(SokDigest(value.sok_digest.to_vec())),
+            sok_digest: SokDigest(value.sok_digest.to_vec()),
         }
     }
 }
 
-impl From<&Statement> for TransactionSnarkStatementWithSokStableV2 {
-    fn from(value: &Statement) -> Self {
-        assert!(value.sok_digest.is_some());
+impl From<&Statement<SokDigest>> for TransactionSnarkStatementWithSokStableV2 {
+    fn from(value: &Statement<SokDigest>) -> Self {
         Self {
             source: (&value.source).into(),
             target: (&value.target).into(),
             supply_increase: (&value.supply_increase).into(),
             fee_excess: (&value.fee_excess).into(),
-            sok_digest: MinaBaseSokMessageDigestStableV1(
-                value.sok_digest.as_ref().unwrap().as_slice().into(),
-            ),
+            sok_digest: MinaBaseSokMessageDigestStableV1(value.sok_digest.as_slice().into()),
         }
     }
 }
@@ -1509,8 +1506,8 @@ impl From<&Registers> for TransactionSnarkStatementWithSokStableV2Source {
     }
 }
 
-impl From<&Statement> for TransactionSnarkStatementStableV2 {
-    fn from(value: &Statement) -> Self {
+impl From<&Statement<()>> for TransactionSnarkStatementStableV2 {
+    fn from(value: &Statement<()>) -> Self {
         Self {
             source: (&value.source).into(),
             target: (&value.target).into(),
@@ -1696,7 +1693,7 @@ impl binprot::BinProtWrite for TransactionWithWitness {
     }
 }
 
-impl From<&TransactionSnarkStableV2> for TransactionSnark {
+impl From<&TransactionSnarkStableV2> for TransactionSnark<SokDigest> {
     fn from(value: &TransactionSnarkStableV2) -> Self {
         Self {
             statement: (&value.statement).into(),
@@ -1705,8 +1702,8 @@ impl From<&TransactionSnarkStableV2> for TransactionSnark {
     }
 }
 
-impl From<&TransactionSnark> for TransactionSnarkStableV2 {
-    fn from(value: &TransactionSnark) -> Self {
+impl From<&TransactionSnark<SokDigest>> for TransactionSnarkStableV2 {
+    fn from(value: &TransactionSnark<SokDigest>) -> Self {
         Self {
             statement: (&value.statement).into(),
             proof: value.proof.clone(),

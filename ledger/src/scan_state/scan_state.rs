@@ -113,17 +113,17 @@ pub mod transaction_snark {
     }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct Statement {
+    pub struct Statement<D> {
         pub source: Registers,
         pub target: Registers,
         pub supply_increase: Signed<Amount>,
         pub fee_excess: FeeExcess,
-        pub sok_digest: Option<SokDigest>,
+        pub sok_digest: D,
     }
 
-    impl Statement {
+    impl Statement<()> {
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_snark/transaction_snark.ml#L348
-        pub fn merge(&self, s2: &Statement) -> Result<Self, String> {
+        pub fn merge(&self, s2: &Statement<()>) -> Result<Self, String> {
             let fee_excess = FeeExcess::combine(&self.fee_excess, &s2.fee_excess)?;
             let supply_increase = self
                 .supply_increase
@@ -137,7 +137,7 @@ pub mod transaction_snark {
                 target: s2.target.clone(),
                 supply_increase,
                 fee_excess,
-                sok_digest: None,
+                sok_digest: (),
             })
         }
     }
@@ -145,7 +145,7 @@ pub mod transaction_snark {
     pub mod work {
         use super::*;
 
-        pub type Statement = OneOrTwo<super::Statement>;
+        pub type Statement = OneOrTwo<super::Statement<()>>;
 
         #[derive(Debug, Clone)]
         pub struct Work {
@@ -160,7 +160,16 @@ pub mod transaction_snark {
 
         impl Work {
             pub fn statement(&self) -> Statement {
-                self.proofs.map(|p| p.statement().clone())
+                self.proofs.map(|p| {
+                    let statement = p.statement();
+                    super::Statement::<()> {
+                        source: statement.source,
+                        target: statement.target,
+                        supply_increase: statement.supply_increase,
+                        fee_excess: statement.fee_excess,
+                        sok_digest: (),
+                    }
+                })
             }
         }
 
@@ -184,33 +193,50 @@ pub mod transaction_snark {
         pub transaction_with_info: TransactionApplied,
         pub state_hash: (Fp, Fp), // (StateHash, StateBodyHash)
         // pub state_hash: (StateHash, MinaBaseStateBodyHashStableV1),
-        pub statement: Statement,
+        pub statement: Statement<()>,
         pub init_stack: InitStack,
         pub ledger_witness: SparseLedger<AccountId, Account>,
     }
 
     #[derive(Debug, Clone)]
-    pub struct TransactionSnark {
-        pub statement: Statement,
+    pub struct TransactionSnark<D> {
+        pub statement: Statement<D>,
         pub proof: TransactionSnarkProofStableV2,
     }
 
     #[derive(Debug, Clone)]
-    pub struct LedgerProof(pub TransactionSnark);
+    pub struct LedgerProof(pub TransactionSnark<SokDigest>);
 
     impl LedgerProof {
         pub fn create(
-            mut statement: Statement,
+            statement: Statement<()>,
             sok_digest: SokDigest,
             proof: TransactionSnarkProofStableV2,
         ) -> Self {
-            assert!(statement.sok_digest.is_none());
+            let statement = Statement::<SokDigest> {
+                source: statement.source,
+                target: statement.target,
+                supply_increase: statement.supply_increase,
+                fee_excess: statement.fee_excess,
+                sok_digest,
+            };
 
-            statement.sok_digest = Some(sok_digest);
             Self(TransactionSnark { statement, proof })
         }
 
-        pub fn statement(&self) -> &Statement {
+        pub fn statement(&self) -> Statement<()> {
+            let statement = &self.0.statement;
+
+            Statement::<()> {
+                source: statement.source.clone(),
+                target: statement.target.clone(),
+                supply_increase: statement.supply_increase,
+                fee_excess: statement.fee_excess.clone(),
+                sok_digest: (),
+            }
+        }
+
+        pub fn statement_ref(&self) -> &Statement<SokDigest> {
             &self.0.statement
         }
     }
@@ -396,7 +422,7 @@ fn create_expected_statement<F>(
         init_stack,
         ledger_witness,
     }: &TransactionWithWitness,
-) -> Result<Statement, String>
+) -> Result<Statement<()>, String>
 where
     F: Fn(&Fp) -> &MinaStateProtocolStateValueStableV2,
 {
@@ -465,7 +491,7 @@ where
         },
         supply_increase,
         fee_excess,
-        sok_digest: None,
+        sok_digest: (),
     })
 }
 
@@ -476,13 +502,12 @@ fn completed_work_to_scanable_work(
     use super::parallel_scan::AvailableJob::{Base, Merge};
 
     let sok_digest = current_proof.0.statement.sok_digest;
-    assert!(sok_digest.is_some());
 
     let proof = &current_proof.0.proof;
 
     match job {
         Base(TransactionWithWitness { statement, .. }) => {
-            let ledger_proof = LedgerProof::create(statement, sok_digest.unwrap(), proof.clone());
+            let ledger_proof = LedgerProof::create(statement, sok_digest, proof.clone());
             let sok_message = SokMessage::create(fee, prover);
 
             Ok(LedgerProofWithSokMessage {
@@ -494,8 +519,8 @@ fn completed_work_to_scanable_work(
             left: proof1,
             right: proof2,
         } => {
-            let s1: &Statement = &proof1.proof.0.statement;
-            let s2: &Statement = &proof2.proof.0.statement;
+            let s1 = proof1.proof.statement();
+            let s2 = proof2.proof.statement();
 
             let fee_excess = FeeExcess::combine(&s1.fee_excess, &s2.fee_excess)?;
 
@@ -509,14 +534,14 @@ fn completed_work_to_scanable_work(
             }
 
             let statement = Statement {
-                source: s1.source.clone(),
-                target: s2.target.clone(),
+                source: s1.source,
+                target: s2.target,
                 supply_increase,
                 fee_excess,
-                sok_digest: None,
+                sok_digest: (),
             };
 
-            let ledger_proof = LedgerProof::create(statement, sok_digest.unwrap(), proof.clone());
+            let ledger_proof = LedgerProof::create(statement, sok_digest, proof.clone());
             let sok_message = SokMessage::create(fee, prover);
 
             Ok(LedgerProofWithSokMessage {
@@ -542,20 +567,13 @@ impl ScanState {
         constraint_constants: &ConstraintConstants,
         statement_check: StatementCheck,
         verifier: &Verifier,
-    ) -> Result<Statement, String> {
-        struct Acc(Option<(Statement, Vec<LedgerProofWithSokMessage>)>);
+    ) -> Result<Statement<()>, String> {
+        struct Acc(Option<(Statement<()>, Vec<LedgerProofWithSokMessage>)>);
 
         let merge_acc = |mut proofs: Vec<LedgerProofWithSokMessage>,
                          acc: Acc,
-                         s2: &Statement|
+                         s2: &Statement<()>|
          -> Result<Acc, String> {
-            assert!(s2.sok_digest.is_none());
-            assert!(acc
-                .0
-                .as_ref()
-                .map(|v| v.0.sok_digest.is_none())
-                .unwrap_or(true));
-
             match acc.0 {
                 None => Ok(Acc(Some((s2.clone(), proofs)))),
                 Some((s1, mut ps)) => {
@@ -566,30 +584,31 @@ impl ScanState {
             }
         };
 
-        let merge_pc =
-            |acc: Option<Statement>, s2: &Statement| -> Result<Option<Statement>, String> {
-                match acc {
-                    None => Ok(Some(s2.clone())),
-                    Some(s1) => {
-                        if !pending_coinbase::Stack::connected(
-                            &s1.target.pending_coinbase_stack,
-                            &s2.source.pending_coinbase_stack,
-                            Some(&s1.source.pending_coinbase_stack),
-                        ) {
-                            return Err(format!(
-                                "Base merge proof: invalid pending coinbase \
+        let merge_pc = |acc: Option<Statement<()>>,
+                        s2: &Statement<()>|
+         -> Result<Option<Statement<()>>, String> {
+            match acc {
+                None => Ok(Some(s2.clone())),
+                Some(s1) => {
+                    if !pending_coinbase::Stack::connected(
+                        &s1.target.pending_coinbase_stack,
+                        &s2.source.pending_coinbase_stack,
+                        Some(&s1.source.pending_coinbase_stack),
+                    ) {
+                        return Err(format!(
+                            "Base merge proof: invalid pending coinbase \
                              transition s1: {:?} s2: {:?}",
-                                s1, s2
-                            ));
-                        }
-                        Ok(Some(s2.clone()))
+                            s1, s2
+                        ));
                     }
+                    Ok(Some(s2.clone()))
                 }
-            };
+            }
+        };
 
-        let fold_step_a = |(acc_statement, acc_pc): (Acc, Option<Statement>),
+        let fold_step_a = |(acc_statement, acc_pc): (Acc, Option<Statement<()>>),
                            job: &merge::Job<LedgerProofWithSokMessage>|
-         -> Result<(Acc, Option<Statement>), String> {
+         -> Result<(Acc, Option<Statement<()>>), String> {
             use merge::{
                 Job::{Empty, Full, Part},
                 Record,
@@ -599,7 +618,7 @@ impl ScanState {
             match job {
                 Part(ref ledger @ LedgerProofWithSokMessage { ref proof, .. }) => {
                     let statement = proof.statement();
-                    let acc_stmt = merge_acc(vec![ledger.clone()], acc_statement, statement)?;
+                    let acc_stmt = merge_acc(vec![ledger.clone()], acc_statement, &statement)?;
                     Ok((acc_stmt, acc_pc))
                 }
                 Empty | Full(Record { state: Done, .. }) => Ok((acc_statement, acc_pc)),
@@ -609,7 +628,7 @@ impl ScanState {
 
                     let stmt1 = proof1.statement();
                     let stmt2 = proof2.statement();
-                    let merged_statement = stmt1.merge(stmt2)?;
+                    let merged_statement = stmt1.merge(&stmt2)?;
 
                     let acc_stmt = merge_acc(
                         vec![left.clone(), right.clone()],
@@ -622,9 +641,9 @@ impl ScanState {
             }
         };
 
-        let fold_step_d = |(acc_statement, acc_pc): (Acc, Option<Statement>),
+        let fold_step_d = |(acc_statement, acc_pc): (Acc, Option<Statement<()>>),
                            job: &base::Job<TransactionWithWitness>|
-         -> Result<(Acc, Option<Statement>), String> {
+         -> Result<(Acc, Option<Statement<()>>), String> {
             use base::{
                 Job::{Empty, Full},
                 Record,
@@ -704,7 +723,7 @@ impl ScanState {
         }
     }
 
-    fn statement_of_job(job: &AvailableJob) -> Option<Statement> {
+    fn statement_of_job(job: &AvailableJob) -> Option<Statement<()>> {
         use super::parallel_scan::AvailableJob::{Base, Merge};
 
         match job {
@@ -713,7 +732,7 @@ impl ScanState {
                 let LedgerProofWithSokMessage { proof: p1, .. } = left;
                 let LedgerProofWithSokMessage { proof: p2, .. } = right;
 
-                p1.statement().merge(p2.statement()).ok()
+                p1.statement().merge(&p2.statement()).ok()
             }
         }
     }
@@ -923,7 +942,7 @@ impl ScanState {
                 Ok(snark_work::spec::Work::Transition((statement, witness)))
             }
             Extracted::Second(s) => {
-                let merged = s.0.statement().merge(s.1.statement())?;
+                let merged = s.0.statement().merge(&s.1.statement())?;
                 Ok(snark_work::spec::Work::Merge((merged, s)))
             }
         };
@@ -973,7 +992,7 @@ impl ScanState {
 
                 let prev_target = old_proof
                     .as_ref()
-                    .map(|p| &p.0.proof.statement().target)
+                    .map(|p| &p.0.proof.statement_ref().target)
                     .unwrap_or(curr_source);
 
                 // prev_target is connected to curr_source- Order of the arguments is
@@ -1015,7 +1034,7 @@ where
 pub enum Extracted {
     First {
         transaction_with_info: TransactionApplied,
-        statement: Box<Statement>,
+        statement: Box<Statement<()>>,
         state_hash: (Fp, Fp),
         ledger_witness: SparseLedger<AccountId, Account>,
         init_stack: InitStack,

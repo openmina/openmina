@@ -154,7 +154,7 @@ impl StagedLedger {
             Vec<(WithStatus<Transaction>, Fp)>,
         ),
     ) -> &Registers {
-        &proof_with_msg.proof.statement().target
+        &proof_with_msg.proof.statement_ref().target
     }
 
     fn verify_scan_state_after_apply(
@@ -499,7 +499,8 @@ impl StagedLedger {
         pending_coinbase_stack_state: StackStateWithInitStack,
         transaction: &Transaction,
         txn_state_view: &ProtocolStateView,
-    ) -> Result<(TransactionApplied, Statement, StackStateWithInitStack), StagedLedgerError> {
+    ) -> Result<(TransactionApplied, Statement<()>, StackStateWithInitStack), StagedLedgerError>
+    {
         let fee_excess = transaction.fee_excess()?;
 
         let source_merkle_root = ledger.merkle_root();
@@ -537,7 +538,7 @@ impl StagedLedger {
             },
             supply_increase,
             fee_excess,
-            sok_digest: None,
+            sok_digest: (),
         };
 
         let state = StackStateWithInitStack {
