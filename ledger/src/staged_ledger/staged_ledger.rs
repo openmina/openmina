@@ -1585,7 +1585,7 @@ impl StagedLedger {
     {
         use super::sparse_ledger::LedgerIntf;
 
-        let log_block_creation = log_block_creation.unwrap_or(false);
+        let _log_block_creation = log_block_creation.unwrap_or(false);
 
         let mut validating_ledger = HashlessLedger::create(self.ledger.clone());
 
@@ -1598,7 +1598,7 @@ impl StagedLedger {
         let is_coinbase_receiver_new = is_new_account(&coinbase_receiver);
 
         if supercharge_coinbase {
-            println!("No locked tokens in the delegator/delegatee account, applying supercharged coinbase");
+            // println!("No locked tokens in the delegator/delegatee account, applying supercharged coinbase");
         }
 
         let partitions = self.scan_state.partition_if_overflowing();
@@ -1684,9 +1684,9 @@ impl StagedLedger {
         valid_on_this_ledger.reverse();
         invalid_on_this_ledger.reverse();
 
-        let valid_on_this_ledger_len = valid_on_this_ledger.len();
+        let _valid_on_this_ledger_len = valid_on_this_ledger.len();
 
-        let (diff, log) = Self::generate(
+        let (diff, _log) = Self::generate(
             constraint_constants,
             logger,
             completed_works_seq,
@@ -1715,21 +1715,22 @@ impl StagedLedger {
             )?
         };
 
-        println!(
-            "Number of proofs ready for purchase: {} Number of user \
-             commands ready to be included: {} Diff creation log: {:#?}",
-            proof_count,
-            valid_on_this_ledger_len,
-            log.iter().map(|l| &l.summary).collect::<Vec<_>>()
-        );
+        let _ = proof_count;
+        // println!(
+        //     "Number of proofs ready for purchase: {} Number of user \
+        //      commands ready to be included: {} Diff creation log: {:#?}",
+        //     proof_count,
+        //     valid_on_this_ledger_len,
+        //     log.iter().map(|l| &l.summary).collect::<Vec<_>>()
+        // );
 
-        if log_block_creation {
-            println!("Detailed diff creation log: {:#?}", {
-                let mut details = log.iter().map(|l| &l.detail).collect::<Vec<_>>();
-                details.reverse();
-                details
-            })
-        }
+        // if log_block_creation {
+        //     println!("Detailed diff creation log: {:#?}", {
+        //         let mut details = log.iter().map(|l| &l.detail).collect::<Vec<_>>();
+        //         details.reverse();
+        //         details
+        //     })
+        // }
 
         let diff = with_valid_signatures_and_proofs::Diff { diff };
 
@@ -1845,7 +1846,7 @@ mod tests_ocaml {
         current_state_view: &ProtocolStateView,
         state_and_body_hash: (Fp, Fp),
         sl: &mut StagedLedger,
-        txns: Vec<valid::UserCommand>,
+        txns: &[valid::UserCommand],
         stmt_to_work: F,
     ) -> (
         Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>,
@@ -1873,7 +1874,7 @@ mod tests_ocaml {
                 coinbase_receiver.clone(),
                 LOGGER,
                 current_state_view,
-                txns,
+                txns.to_vec(),
                 stmt_to_work,
                 supercharge_coinbase,
             )
@@ -2249,16 +2250,16 @@ mod tests_ocaml {
     /// Abstraction for the pattern of taking a list of commands and applying it
     /// in chunks up to a given max size.
     fn iter_cmds_acc<A, F>(
-        cmds: Vec<valid::UserCommand>,
-        cmd_iters: Vec<Option<usize>>,
+        cmds: &[valid::UserCommand],
+        cmd_iters: &[Option<usize>],
         acc: A,
         mut fun: F,
     ) -> A
     where
         F: FnMut(
-            Vec<valid::UserCommand>, // all remaining commands
-            Option<usize>,           // Current chunk size.
-            Vec<valid::UserCommand>, // Sequence of commands to apply.
+            &[valid::UserCommand], // all remaining commands
+            Option<usize>,         // Current chunk size.
+            &[valid::UserCommand], // Sequence of commands to apply.
             A,
         ) -> (Diff, A),
     {
@@ -2266,21 +2267,21 @@ mod tests_ocaml {
             None => acc,
             Some(count_opt) => {
                 let cmds_this_iter_max = match count_opt {
-                    None => &cmds,
+                    None => cmds,
                     Some(count) => {
                         assert!(*count <= cmds.len());
-                        util::take(&cmds, *count)
+                        util::take(cmds, *count)
                     }
                 };
 
-                let (diff, acc) = fun(cmds.clone(), *count_opt, cmds_this_iter_max.to_vec(), acc);
+                let (diff, acc) = fun(cmds, *count_opt, cmds_this_iter_max, acc);
 
                 let cmds_applied_count = diff.commands().len();
 
-                let cmds = util::drop(&cmds, cmds_applied_count).to_vec();
-                let counts_rest = cmd_iters[1..].to_vec();
+                let cmds = util::drop(cmds, cmds_applied_count).to_vec();
+                let counts_rest = &cmd_iters[1..];
 
-                iter_cmds_acc(cmds, counts_rest, acc, fun)
+                iter_cmds_acc(&cmds, counts_rest, acc, fun)
             }
         }
     }
@@ -2327,7 +2328,7 @@ mod tests_ocaml {
         coinbase_receiver: Option<CompressedPubKey>,
         winner: Option<CompressedPubKey>,
         sl: &mut StagedLedger,
-        txns: Vec<valid::UserCommand>,
+        txns: &[valid::UserCommand],
         stmt_to_work: F,
     ) -> (
         Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>,
@@ -2411,7 +2412,7 @@ mod tests_ocaml {
         test_ledger: Mask,
         coinbase_cost: Fee,
         staged_ledger: &StagedLedger,
-        cmds_all: Vec<valid::UserCommand>,
+        cmds_all: &[valid::UserCommand],
         cmds_used: usize,
         pks_to_check: &[AccountId],
     ) {
@@ -2428,7 +2429,7 @@ mod tests_ocaml {
 
         let mut test_ledger = test_ledger;
 
-        for cmd in util::take(&cmds_all, cmds_used) {
+        for cmd in util::take(cmds_all, cmds_used) {
             let cmd = cmd.forget_check();
             let tx = Transaction::Command(cmd);
 
@@ -2495,19 +2496,20 @@ mod tests_ocaml {
     ) where
         F: Fn(&work::Statement) -> Option<work::Checked>,
     {
-        println!("test_simple");
-
         let allow_failure = allow_failure.unwrap_or(false);
 
         let total_ledger_proofs = iter_cmds_acc(
-            cmds,
-            cmd_iters,
+            &cmds,
+            &cmd_iters,
             0,
             |cmds_left, count_opt, cmds_this_iter, mut proof_count| {
                 let (ledger_proof, diff) =
-                    create_and_apply(None, None, &mut sl, cmds_this_iter.clone(), stmt_to_work);
+                    create_and_apply(None, None, &mut sl, cmds_this_iter, stmt_to_work);
 
                 for cmd in diff.commands() {
+                    if allow_failure {
+                        continue;
+                    }
                     if let TransactionStatus::Failed(e) = &cmd.status {
                         panic!(
                             "Transaction application failed for command {:#?}. Failures {:#?}",
@@ -2541,7 +2543,7 @@ mod tests_ocaml {
                         .into_iter()
                         .map(|w| w.data)
                         .collect::<Vec<_>>();
-                    let cmds2 = util::take(&cmds_this_iter, cmds_applied_this_iter)
+                    let cmds2 = util::take(cmds_this_iter, cmds_applied_this_iter)
                         .iter()
                         .map(|c| c.forget_check())
                         .collect::<Vec<_>>();
@@ -2593,7 +2595,7 @@ mod tests_ocaml {
     }
 
     /// Max throughput-ledger proof count-fixed blocks
-    // #[test]
+    #[test]
     fn max_throughput_ledger_proof_count_fixed_blocks() {
         const EXPECTED_PROOF_COUNT: usize = 3;
 

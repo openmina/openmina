@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::too_many_arguments)]
 
 // Unused, we don't want to print on stdout
 // /// Print logs on stdout with the prefix `[ledger]`

@@ -2734,7 +2734,7 @@ where
         signed_command::Body::StakeDelegation(_) => {
             let (source_location, mut source_account) = get_with_location(ledger, &source).unwrap();
 
-            if source_account.has_permission_to(PermissionTo::SetDelegate) == false {
+            if !source_account.has_permission_to(PermissionTo::SetDelegate) {
                 return Err(TransactionFailure::UpdateNotPermittedDelegate);
             }
 
@@ -2769,7 +2769,7 @@ where
             let (receiver_location, mut receiver_account) =
                 get_with_location(ledger, &receiver).unwrap();
 
-            if receiver_account.has_permission_to(PermissionTo::Receive) == false {
+            if !receiver_account.has_permission_to(PermissionTo::Receive) {
                 return Err(TransactionFailure::UpdateNotPermittedBalance);
             }
 
@@ -2812,7 +2812,7 @@ where
                 (location, account)
             };
 
-            if source_account.has_permission_to(PermissionTo::Send) == false {
+            if !source_account.has_permission_to(PermissionTo::Send) {
                 return Err(TransactionFailure::UpdateNotPermittedBalance);
             }
 
@@ -2856,7 +2856,7 @@ where
 
 pub fn apply_user_command_unchecked<L>(
     constraint_constants: &ConstraintConstants,
-    txn_state_view: &ProtocolStateView,
+    _txn_state_view: &ProtocolStateView,
     txn_global_slot: &Slot,
     ledger: &mut L,
     user_command: &SignedCommand,
