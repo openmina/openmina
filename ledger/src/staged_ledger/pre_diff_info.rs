@@ -252,20 +252,9 @@ fn create_fee_transfers<'a>(
 ) -> Result<Vec<FeeTransfer>, PreDiffError> {
     use std::collections::hash_map::Entry::Occupied;
 
-    let mut singles = Vec::with_capacity(256); // Should be `completed_works.len() + 1`
-    if !delta.is_zero() {
-        singles.push((HashableCompressedPubKey(public_key.clone()), delta));
-    }
-
-    singles.extend(
-        completed_works.filter_map(|work::Unchecked { fee, prover, .. }| {
-            if fee.is_zero() {
-                None
-            } else {
-                Some((HashableCompressedPubKey(prover.clone()), *fee))
-            }
-        }),
-    );
+    let singles = std::iter::once((public_key.clone(), delta))
+        .chain(completed_works.map(|work::Unchecked { fee, prover, .. }| (prover.clone(), *fee)))
+        .filter(|(_, fee)| !fee.is_zero());
 
     let mut singles_map = fee_transfers_map(singles)
         .ok_or_else(|| PreDiffError::Unexpected("fee overflow".to_string()))?;

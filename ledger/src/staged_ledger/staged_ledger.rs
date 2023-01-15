@@ -2084,7 +2084,8 @@ mod tests_ocaml {
 
         command_senders
             .into_iter()
-            .map(|sender| {
+            .enumerate()
+            .map(|(number, sender)| {
                 if currency_splits[sender].is_empty() {
                     return Err(());
                 }
@@ -2115,7 +2116,8 @@ mod tests_ocaml {
                     kp.public.into_compressed()
                 };
 
-                let memo = Memo::dummy();
+                // let memo = Memo::dummy();
+                let memo = Memo::with_number(number);
 
                 let payload = {
                     let sender_pk = sender_pk.public.into_compressed();

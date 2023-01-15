@@ -10,8 +10,14 @@ use ControlFlow::{Break, Continue};
 
 /// Sequence number for jobs in the scan state that corresponds to the order in
 /// which they were added
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct SequenceNumber(u64);
+
+impl Debug for SequenceNumber {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.0))
+    }
+}
 
 impl SequenceNumber {
     fn zero() -> Self {
@@ -120,17 +126,37 @@ enum WorkForTree {
 pub mod base {
     use super::*;
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone)]
     pub struct Record<BaseJob> {
         pub job: BaseJob,
         pub seq_no: SequenceNumber,
         pub state: JobStatus,
     }
 
-    #[derive(Clone, Debug)]
+    impl<BaseJob> Debug for Record<BaseJob> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let Self {
+                job: _,
+                seq_no,
+                state,
+            } = self;
+            f.write_fmt(format_args!("seq_no: {:?}, state: {:?}", seq_no, state))
+        }
+    }
+
+    #[derive(Clone)]
     pub enum Job<BaseJob> {
         Empty,
         Full(Record<BaseJob>),
+    }
+
+    impl<BaseJob> Debug for Job<BaseJob> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Empty => write!(f, "Empty"),
+                Self::Full(arg0) => f.write_fmt(format_args!("Full {{ {:?} }}", arg0)),
+            }
+        }
     }
 
     #[derive(Clone, Debug)]
@@ -190,12 +216,24 @@ pub mod base {
 pub mod merge {
     use super::*;
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone)]
     pub struct Record<MergeJob> {
         pub left: MergeJob,
         pub right: MergeJob,
         pub seq_no: SequenceNumber,
         pub state: JobStatus,
+    }
+
+    impl<MergeJob> Debug for Record<MergeJob> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let Self {
+                left: _,
+                right: _,
+                seq_no,
+                state,
+            } = self;
+            f.write_fmt(format_args!("seq_no: {:?}, state: {:?}", seq_no, state))
+        }
     }
 
     impl<MergeJob: Clone> Record<MergeJob> {
@@ -209,11 +247,21 @@ pub mod merge {
         }
     }
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone)]
     pub enum Job<MergeJob> {
         Empty,
         Part(MergeJob), // left
         Full(Record<MergeJob>),
+    }
+
+    impl<MergeJob> Debug for Job<MergeJob> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Empty => write!(f, "Empty"),
+                Self::Part(_) => write!(f, "Part(merge)"),
+                Self::Full(arg0) => f.write_fmt(format_args!("Full {{ {:?} }}", arg0)),
+            }
+        }
     }
 
     #[derive(Clone, Debug)]
@@ -307,7 +355,7 @@ enum Value<B, M> {
 
 /// A single tree with number of leaves = max_base_jobs = 2**transaction_capacity_log_2
 #[derive(Clone)]
-struct Tree<B, M> {
+pub struct Tree<B, M> {
     values: Vec<Value<B, M>>,
 }
 
@@ -654,8 +702,8 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub(super) struct ParallelScan<BaseJob, MergeJob> {
-    trees: Vec<Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>>,
+pub struct ParallelScan<BaseJob, MergeJob> {
+    pub trees: Vec<Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>>,
     /// last emitted proof and the corresponding transactions
     acc: Option<(MergeJob, Vec<BaseJob>)>,
     /// Sequence number for the jobs added every block
@@ -1587,10 +1635,7 @@ where
             let mut set2 = work(&self.trees, delay, self.max_base_jobs);
             set2.truncate((count - current_tree_space) * 2);
 
-            vec![set1, set2]
-                .into_iter()
-                .filter(|v| !v.is_empty())
-                .collect()
+            [set1, set2].into_iter().filter(|v| !v.is_empty()).collect()
         } else {
             set1.truncate(2 * count);
 

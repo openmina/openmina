@@ -484,6 +484,12 @@ impl Memo {
         // TODO
         Self(vec![0; 34])
     }
+
+    pub fn with_number(number: usize) -> Self {
+        let s = format!("{:034}", number);
+        assert_eq!(s.len(), 34);
+        Self(s.into_bytes())
+    }
 }
 
 pub mod signed_command {

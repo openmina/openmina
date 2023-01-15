@@ -17,8 +17,15 @@ use crate::{
 
 use super::common::*;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct TokenId(pub Fp);
+
+impl std::fmt::Debug for TokenId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use crate::FpExt;
+        f.write_fmt(format_args!("TokenId({})", self.0.to_decimal()))
+    }
+}
 
 impl Default for TokenId {
     fn default() -> Self {
