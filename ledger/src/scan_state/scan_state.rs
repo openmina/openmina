@@ -52,6 +52,8 @@ pub struct ScanState {
 }
 
 pub mod transaction_snark {
+    use std::rc::Rc;
+
     use mina_hasher::Fp;
     use mina_p2p_messages::v2::TransactionSnarkProofStableV2;
     use mina_signer::CompressedPubKey;
@@ -201,7 +203,7 @@ pub mod transaction_snark {
     #[derive(Debug, Clone)]
     pub struct TransactionSnark<D> {
         pub statement: Statement<D>,
-        pub proof: TransactionSnarkProofStableV2,
+        pub proof: Rc<TransactionSnarkProofStableV2>,
     }
 
     #[derive(Debug, Clone)]
@@ -211,7 +213,7 @@ pub mod transaction_snark {
         pub fn create(
             statement: Statement<()>,
             sok_digest: SokDigest,
-            proof: TransactionSnarkProofStableV2,
+            proof: Rc<TransactionSnarkProofStableV2>,
         ) -> Self {
             let statement = Statement::<SokDigest> {
                 source: statement.source,

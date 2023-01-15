@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use binprot::BinProtRead;
 use mina_p2p_messages::v2::TransactionSnarkProofStableV2;
 
@@ -16,9 +18,9 @@ use mina_p2p_messages::v2::TransactionSnarkProofStableV2;
 ///
 /// Core.Printf.eprintf !"dummy proof= %{sexp: Proof.t}\n%!" dummy;
 /// Core.Printf.eprintf !"dummy proof= %s\n%!" s;
-pub fn dummy_transaction_proof() -> TransactionSnarkProofStableV2 {
+pub fn dummy_transaction_proof() -> Rc<TransactionSnarkProofStableV2> {
     let mut cursor = std::io::Cursor::new(include_bytes!("dummy_transaction_proof.bin"));
-    TransactionSnarkProofStableV2::binprot_read(&mut cursor).unwrap()
+    Rc::new(TransactionSnarkProofStableV2::binprot_read(&mut cursor).unwrap())
 }
 
 // dummy_transaction_proof
