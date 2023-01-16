@@ -8,7 +8,7 @@ use crate::{
     decompress_pk,
     scan_state::{
         self,
-        currency::{Amount, Fee, Magnitude, Slot},
+        currency::{Amount, Magnitude, Slot},
         fee_excess::FeeExcess,
         pending_coinbase::{
             update::{Action, StackUpdate, Update},
@@ -439,22 +439,6 @@ impl StagedLedger {
             "Cannot replace ledger since merkle_root differs"
         );
         self.ledger = ledger;
-    }
-
-    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#446
-    pub fn sum_fees<'a, I, T: 'a, F>(fees: I, fun: F) -> Result<Fee, String>
-    where
-        I: IntoIterator<Item = &'a T>,
-        F: Fn(&'a T) -> Fee,
-    {
-        let mut accum = Fee::zero();
-        for fee in fees.into_iter() {
-            accum = match accum.checked_add(&fun(fee)) {
-                Some(accum) => accum,
-                None => return Err("Fee overflow".to_string()),
-            }
-        }
-        Ok(accum)
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#456
@@ -1792,7 +1776,7 @@ mod tests_ocaml {
     use crate::{
         dummy,
         scan_state::{
-            currency::{Balance, BlockTime, Length, Nonce},
+            currency::{Balance, BlockTime, Length, Nonce, Fee},
             scan_state::transaction_snark::SokDigest,
             transaction_logic::{
                 protocol_state::{EpochData, EpochLedger},

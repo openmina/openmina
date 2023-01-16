@@ -157,14 +157,15 @@ fn create_coinbase(
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L166
-fn sum_fees<I, T, F>(xs: I, fun: F) -> Result<Fee, PreDiffError>
+/// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#446
+pub fn sum_fees<'a, I, T: 'a, F>(fees: I, fun: F) -> Result<Fee, String>
 where
-    F: Fn(&T) -> Fee,
-    I: IntoIterator<Item = T>,
+    I: IntoIterator<Item = &'a T>,
+    F: Fn(&'a T) -> Fee,
 {
-    xs.into_iter()
-        .try_fold(Fee::zero(), |acc, elem| acc.checked_add(&fun(&elem)))
-        .ok_or_else(|| PreDiffError::Unexpected("Fee overflow".to_string()))
+    fees.into_iter()
+        .try_fold(Fee::zero(), |accum, elem| accum.checked_add(&fun(elem)))
+        .ok_or_else(|| "Fee overflow".to_string())
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L179

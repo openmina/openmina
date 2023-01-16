@@ -13,7 +13,7 @@ use crate::{
 
 use super::{
     diff::AtMostTwo,
-    pre_diff_info::{fee_transfers_map, HashableCompressedPubKey},
+    pre_diff_info::{fee_transfers_map, sum_fees, HashableCompressedPubKey},
     staged_ledger::StagedLedger,
 };
 
@@ -263,9 +263,8 @@ impl Resources {
 
         let fee_transfers = fee_transfers_map(singles.clone()).expect("OCaml throw here");
 
-        let budget1 = StagedLedger::sum_fees(&uc_seq, |c| c.data.fee());
-        let budget2 =
-            StagedLedger::sum_fees(singles.iter().filter(|(k, _)| k != &receiver_pk), |c| c.1);
+        let budget1 = sum_fees(&uc_seq, |c| c.data.fee());
+        let budget2 = sum_fees(singles.iter().filter(|(k, _)| k != &receiver_pk), |c| c.1);
 
         let budget = match (budget1, budget2) {
             (Ok(r), Ok(c)) => r
@@ -364,7 +363,7 @@ impl Resources {
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1379
     fn rebudget(&self) -> Result<Fee, String> {
         // get the correct coinbase and calculate the fee transfers
-        let payment_fees = StagedLedger::sum_fees(&self.commands_rev, |c| c.data.fee());
+        let payment_fees = sum_fees(&self.commands_rev, |c| c.data.fee());
 
         let prover_fee_others =
             self.fee_transfers

@@ -57,7 +57,17 @@ impl FeeExcess {
     }
 
     pub fn is_zero(&self) -> bool {
-        self == &Self::empty()
+        let Self {
+            fee_token_l,
+            fee_excess_l,
+            fee_token_r,
+            fee_excess_r,
+        } = self;
+
+        fee_token_l.is_default()
+            && fee_token_r.is_default()
+            && fee_excess_l.is_zero()
+            && fee_excess_r.is_zero()
     }
 
     /// https://github.com/MinaProtocol/mina/blob/e5183ca1dde1c085b4c5d37d1d9987e24c294c32/src/lib/mina_base/fee_excess.ml#L536
