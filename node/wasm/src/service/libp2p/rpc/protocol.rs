@@ -130,7 +130,7 @@ impl OutboundUpgrade<NegotiatedSubstream> for RequestProtocol {
                 // if not heartbeat
                 if b != [1, 0, 0, 0, 0, 0, 0, 0, 0] {
                     // TODO(binier): [SECURITY] make bounded
-                    let len = u64::from_le_bytes(b[..8].try_into().unwrap());
+                    let len = u64::from_le_bytes(b[..8].try_into().unwrap()).saturating_sub(1);
                     let mut b = vec![0; len as usize];
                     io.read_exact(&mut b).await?;
                     break P2pRpcResponse::read_msg(self.request.kind(), &mut &b[..])
