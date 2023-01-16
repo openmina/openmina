@@ -1,3 +1,23 @@
+///
+/// Pending_coinbase is to keep track of all the coinbase transactions that have been
+/// applied to the ledger but for which there is no ledger proof yet. Every ledger
+/// proof corresponds to a sequence of coinbase transactions which is part of all the
+/// transactions it proves. Each of these sequences[Stack] are stored using the merkle
+/// tree representation. The stacks are operated in a FIFO manner by keeping track of
+/// its positions in the merkle tree. Whenever a ledger proof is emitted, the oldest
+/// stack is removed from the tree and when a new coinbase is applied, the latest stack
+/// is updated with the new coinbase.
+///
+/// The operations on the merkle tree of coinbase stacks include:
+/// 1) adding a new singleton stack
+/// 2) updating the latest stack when a new coinbase is added to it
+/// 2) deleting the oldest stack
+///
+/// A stack can be either be created or modified by pushing a coinbase on to it.
+///
+/// This module also provides an interface for the checked computations required required to prove it in snark
+///
+/// Stack operations are done for transaction snarks and tree operations are done for the blockchain snark*)
 use std::{collections::HashMap, fmt::Write, marker::PhantomData};
 
 use ark_ff::Zero;
@@ -7,7 +27,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     hash_noinputs, hash_with_kimchi, staged_ledger::hash::PendingCoinbaseAux, Address, Inputs,
-    MerklePath,
+    MerklePath, ToInputs,
 };
 
 use self::merkle_tree::MiniMerkleTree;
@@ -34,15 +54,34 @@ impl StackId {
     }
 }
 
-struct CoinbaseData(CompressedPubKey, Amount);
+struct CoinbaseData {
+    receiver: CompressedPubKey,
+    amount: Amount,
+}
+
+impl ToInputs for CoinbaseData {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let Self { receiver, amount } = self;
+        inputs.append(receiver);
+        inputs.append(amount);
+    }
+}
 
 impl CoinbaseData {
     pub fn empty() -> Self {
-        Self(CompressedPubKey::empty(), Amount::zero())
+        Self {
+            receiver: CompressedPubKey::empty(),
+            amount: Amount::zero(),
+        }
     }
 
     pub fn of_coinbase(cb: Coinbase) -> Self {
-        Self(cb.receiver, cb.amount)
+        let Coinbase {
+            receiver,
+            amount,
+            fee_transfer: _,
+        } = cb;
+        Self { receiver, amount }
     }
 
     pub fn genesis() -> Self {
@@ -60,19 +99,11 @@ pub struct StackState {
 pub(super) struct CoinbaseStack(pub(super) Fp);
 
 impl CoinbaseStack {
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L180
     pub fn push(&self, cb: Coinbase) -> Self {
-        let coinbase = CoinbaseData::of_coinbase(cb);
-
         let mut inputs = Inputs::new();
 
-        // cb.public_key
-        inputs.append_field(coinbase.0.x);
-        inputs.append_bool(coinbase.0.is_odd);
-
-        // cb.amount
-        inputs.append_u64(coinbase.1.as_u64());
-
-        // self
+        inputs.append(&CoinbaseData::of_coinbase(cb));
         inputs.append_field(self.0);
 
         let hash = hash_with_kimchi("CoinbaseStack", &inputs.to_fields());
