@@ -1,0 +1,17 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "openmina"
+path = "src/main.rs"
+
+[dependencies]
+sha2 = "0.10"
+hex = "0.4"
+
+console = "0.15.5"
+structopt = "0.3.26"
+
+snark = { path = "../node/snark" }

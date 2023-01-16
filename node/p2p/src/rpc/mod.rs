@@ -124,7 +124,10 @@ impl P2pRpcRequest {
                 let P2pRpcResponse::LedgerQuery(resp) = resp else { unreachable!() };
                 match &resp.0 {
                     Ok(answer) => match answer {
-                        MinaLedgerSyncLedgerAnswerStableV2::AccountWithPath(account, path) => {
+                        MinaLedgerSyncLedgerAnswerStableV2::AccountWithPath(Some((
+                            account,
+                            path,
+                        ))) => {
                             let hash = snark::calc_merkle_root_hash(account, path);
                             if expected_ledger_hash != &hash {
                                 Err(P2pRpcResponseInvalidError::LedgerHashMismatch {
