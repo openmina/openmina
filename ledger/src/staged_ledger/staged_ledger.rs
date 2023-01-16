@@ -1776,7 +1776,7 @@ mod tests_ocaml {
     use crate::{
         dummy,
         scan_state::{
-            currency::{Balance, BlockTime, Length, Nonce, Fee},
+            currency::{Balance, BlockTime, Fee, Length, Nonce},
             scan_state::transaction_snark::SokDigest,
             transaction_logic::{
                 protocol_state::{EpochData, EpochLedger},

@@ -37,8 +37,14 @@ use super::{
     transaction_logic::Coinbase,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StackId(u64);
+
+impl std::fmt::Debug for StackId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("StackId({})", self.0))
+    }
+}
 
 impl StackId {
     pub fn incr_by_one(&self) -> Self {
@@ -95,8 +101,18 @@ pub struct StackState {
     pub target: Stack,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub(super) struct CoinbaseStack(pub(super) Fp);
+
+impl std::fmt::Debug for CoinbaseStack {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_empty() {
+            f.write_fmt(format_args!("CoinbaseStack(Empty)"))
+        } else {
+            f.debug_tuple("CoinbaseStack").field(&self.0).finish()
+        }
+    }
+}
 
 impl CoinbaseStack {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L180
@@ -114,14 +130,32 @@ impl CoinbaseStack {
     pub fn empty() -> Self {
         Self(hash_noinputs("CoinbaseStack"))
     }
+
+    /// Used for tests/debug only
+    fn is_empty(&self) -> bool {
+        self == &Self::empty()
+    }
 }
 
 type StackHash = Fp;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub(super) struct StateStack {
     pub(super) init: StackHash,
     pub(super) curr: StackHash,
+}
+
+impl std::fmt::Debug for StateStack {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_empty() {
+            f.write_fmt(format_args!("StateStack(Empty)"))
+        } else {
+            f.debug_struct("StateStack")
+                .field("init", &self.init)
+                .field("curr", &self.curr)
+                .finish()
+        }
+    }
 }
 
 impl StateStack {
@@ -144,6 +178,11 @@ impl StateStack {
             init: Fp::zero(),
             curr: Fp::zero(),
         }
+    }
+
+    /// Used for tests/debug only
+    fn is_empty(&self) -> bool {
+        self.curr.is_zero() && self.init.is_zero()
     }
 
     fn create(init: StackHash) -> Self {
@@ -185,10 +224,23 @@ pub mod update {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Stack {
     pub(super) data: CoinbaseStack,
     pub(super) state: StateStack,
+}
+
+impl std::fmt::Debug for Stack {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.data.is_empty() && self.state.is_empty() {
+            f.write_fmt(format_args!("Stack(Empty)"))
+        } else {
+            f.debug_struct("Stack")
+                .field("data", &self.data)
+                .field("state", &self.state)
+                .finish()
+        }
+    }
 }
 
 impl Stack {
@@ -243,14 +295,14 @@ impl Stack {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PendingCoinbase {
     tree: merkle_tree::MiniMerkleTree<StackId, Stack, StackHasher>,
     pos_list: Vec<StackId>,
     new_pos: StackId,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct StackHasher;
 
 impl merkle_tree::TreeHasher<Stack> for StackHasher {
@@ -465,6 +517,20 @@ pub mod merkle_tree {
         hashes_matrix: HashesMatrix,
         depth: usize,
         _hasher: PhantomData<H>,
+    }
+
+    impl<K, V, H> std::fmt::Debug for MiniMerkleTree<K, V, H>
+    where
+        V: std::fmt::Debug,
+    {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("MiniMerkleTree")
+                .field("values", &self.values)
+                // .field("indexes", &self.indexes)
+                // .field("hashes_matrix", &self.hashes_matrix)
+                .field("depth", &self.depth)
+                .finish()
+        }
     }
 
     impl<K, V, H> MiniMerkleTree<K, V, H>

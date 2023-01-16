@@ -512,10 +512,10 @@ impl From<&MinaBaseAccountUpdateFeePayerStableV1> for FeePayer {
                     .map(|until| Slot::from_u32(until.as_u32())),
                 nonce: Nonce::from_u32(value.body.nonce.as_u32()),
             },
-            authorization: Signature((
+            authorization: Signature(
                 value.authorization.0.to_field(),
                 value.authorization.1.to_field(),
-            )),
+            ),
         }
     }
 }
@@ -1024,10 +1024,10 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
             },
             authorization: match &value.authorization {
                 mina_p2p_messages::v2::MinaBaseControlStableV2::Proof(proof) => zkapp_command::Control::Proof((**proof).clone()),
-                mina_p2p_messages::v2::MinaBaseControlStableV2::Signature(signature) => zkapp_command::Control::Signature(Signature((
+                mina_p2p_messages::v2::MinaBaseControlStableV2::Signature(signature) => zkapp_command::Control::Signature(Signature(
                     signature.0.to_field(),
                     signature.1.to_field()
-                ))),
+                )),
                 mina_p2p_messages::v2::MinaBaseControlStableV2::NoneGiven => zkapp_command::Control::NoneGiven,
             },
         }
@@ -1522,13 +1522,13 @@ impl From<&Statement<()>> for TransactionSnarkStatementStableV2 {
 
 impl From<&Signature> for MinaBaseSignatureStableV1 {
     fn from(value: &Signature) -> Self {
-        Self(value.0 .0.into(), value.0 .1.into())
+        Self(value.0.into(), value.1.into())
     }
 }
 
 impl From<&MinaBaseSignatureStableV1> for Signature {
     fn from(value: &MinaBaseSignatureStableV1) -> Self {
-        Self((value.0.to_field(), value.1.to_field()))
+        Self(value.0.to_field(), value.1.to_field())
     }
 }
 

@@ -453,18 +453,18 @@ impl Coinbase {
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signature.mli#L11
 #[derive(Clone, PartialEq, Eq)]
-pub struct Signature(pub(super) (Fp, Fp)); // TODO: Not sure if it's correct
+pub struct Signature(pub(super) Fp, pub(super) Fp); // TODO: Not sure if it's correct
 
 impl std::fmt::Debug for Signature {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("Signature({:?},{:?})", self.0 .0, self.0 .1))
+        f.write_fmt(format_args!("Signature({:?},{:?})", self.0, self.1))
         // f.debug_tuple("Signature").field(&self.0).finish()
     }
 }
 
 impl Signature {
     pub fn dummy() -> Self {
-        Self((Fp::one(), Fp::one()))
+        Self(Fp::one(), Fp::one())
     }
 }
 
