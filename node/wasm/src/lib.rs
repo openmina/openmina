@@ -11,7 +11,7 @@ use lib::snark::{srs_from_bytes, verifier_index_from_bytes};
 use libp2p::futures;
 use libp2p::multiaddr::{Multiaddr, Protocol as MultiaddrProtocol};
 use libp2p::wasm_ext::ffi::ManualConnector as JsManualConnector;
-use mina_p2p_messages::v2::NonZeroCurvePoint;
+use mina_p2p_messages::v2::{NetworkPoolTransactionPoolDiffVersionedStableV2, NonZeroCurvePoint};
 use mina_signer::{NetworkId, PubKey, Signer};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
@@ -485,7 +485,7 @@ impl JsHandle {
         .unwrap()
     }
 
-    pub async fn payment_sign_and_inject(&self, data: JsValue) -> Result<JsValue, JsValue> {
+    pub async fn payment_sign_and_inject(&self, data: JsValue) -> Result<String, JsValue> {
         #[serde_as]
         #[derive(serde::Deserialize)]
         struct Payment {
@@ -519,15 +519,22 @@ impl JsHandle {
         }
         let sig = self.signer.borrow_mut().sign(&keypair, &tx);
 
-        let msg = tx.to_gossipsub_v2_msg(sig);
+        let tx = tx.to_user_command(sig);
+        let tx_hash = tx.hash().unwrap();
+        let msg = {
+            let v = NetworkPoolTransactionPoolDiffVersionedStableV2(vec![tx]);
+            GossipNetMessageV2::TransactionPoolDiff(v)
+        };
+
         shared::log::info!(
             shared::log::system_time();
-            summary = "created transaction pool message",
+            kind = "CreateTransaction",
+            summary = tx_hash.to_string(),
             message = serde_json::to_string(&msg).ok()
         );
         self.pubsub_publish(PubsubTopic::CodaConsensusMessage, msg)
             .await;
-        Ok(JsValue::NULL)
+        Ok(tx_hash.to_string())
     }
 
     #[wasm_bindgen]
