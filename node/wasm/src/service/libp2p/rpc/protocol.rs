@@ -127,8 +127,8 @@ impl OutboundUpgrade<NegotiatedSubstream> for RequestProtocol {
             loop {
                 let mut b = [0; 9];
                 io.read_exact(&mut b).await?;
-                // if not heartbeat
-                if b != [1, 0, 0, 0, 0, 0, 0, 0, 0] {
+                // if response
+                if b[8] == 2 {
                     // TODO(binier): [SECURITY] make bounded
                     let len = u64::from_le_bytes(b[..8].try_into().unwrap()).saturating_sub(1);
                     let mut b = vec![0; len as usize];
