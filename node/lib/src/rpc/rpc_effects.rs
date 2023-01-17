@@ -84,6 +84,11 @@ fn get_account_info(
         .watched_accounts
         .get(pub_key)
         .ok_or(WatchedAccountsGetError::NotWatching)?;
+
+    if !account.initial_state.is_success() {
+        return Err(WatchedAccountsGetError::NotReady);
+    }
+
     let mut blocks_iter = account
         .blocks
         .iter()
@@ -107,6 +112,7 @@ fn get_account_info(
     });
 
     Ok(WatchedAccountInfo {
+        initial_state: account.initial_state.clone(),
         latest_state: data.cloned(),
         blocks: blocks_iter.cloned().collect(),
     })
