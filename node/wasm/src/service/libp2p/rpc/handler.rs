@@ -10,6 +10,7 @@ use libp2p::swarm::{
     handler::{ConnectionHandler, ConnectionHandlerEvent, ConnectionHandlerUpgrErr, KeepAlive},
     SubstreamProtocol,
 };
+use std::time::Duration;
 use std::{
     collections::VecDeque,
     fmt, io,
@@ -158,7 +159,7 @@ impl ConnectionHandler for RequestResponseHandler {
         self.inbound
             .push(rq_recv.map_ok(move |rq| (rq, rs_send)).boxed());
 
-        SubstreamProtocol::new(proto, request_id)
+        SubstreamProtocol::new(proto, request_id).with_timeout(Duration::from_secs(60))
     }
 
     fn inject_fully_negotiated_inbound(&mut self, sent: bool, request_id: P2pRpcIncomingId) {
@@ -277,7 +278,8 @@ impl ConnectionHandler for RequestResponseHandler {
         if let Some(request) = self.outbound.pop_front() {
             let info = request.request_id;
             return Poll::Ready(ConnectionHandlerEvent::OutboundSubstreamRequest {
-                protocol: SubstreamProtocol::new(request, info),
+                protocol: SubstreamProtocol::new(request, info)
+                    .with_timeout(Duration::from_secs(60)),
             });
         }
 
