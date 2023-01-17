@@ -37,7 +37,7 @@ impl generated::ConsensusVrfOutputTruncatedStableV1 {
     }
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub struct TransactionHash(Vec<u8>);
 
 impl std::str::FromStr for TransactionHash {
@@ -62,6 +62,33 @@ impl fmt::Debug for TransactionHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.0)
         // write!(f, "TransactionHash({})", self)
+    }
+}
+
+impl Serialize for TransactionHash {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            serializer.serialize_str(&self.to_string())
+        } else {
+            self.0.serialize(serializer)
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for TransactionHash {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            let b58: String = Deserialize::deserialize(deserializer)?;
+            Ok(b58.parse().map_err(|err| serde::de::Error::custom(err))?)
+        } else {
+            Vec::deserialize(deserializer).map(|v| Self(v))
+        }
     }
 }
 
