@@ -7,6 +7,8 @@ use sha2::{
     Digest, Sha256,
 };
 
+use crate::bigint::BigInt;
+
 use super::generated;
 
 impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1 {
@@ -105,6 +107,16 @@ impl generated::MinaBaseUserCommandStableV2 {
 }
 
 impl generated::MinaBaseSignedCommandStableV2 {
+    pub fn binprot_write_with_default_sig(&self) -> io::Result<Vec<u8>> {
+        let default_signature = generated::MinaBaseSignatureStableV1(BigInt::one(), BigInt::one());
+
+        let mut encoded = vec![];
+        self.payload.binprot_write(&mut encoded)?;
+        self.signer.binprot_write(&mut encoded)?;
+        default_signature.binprot_write(&mut encoded)?;
+        Ok(encoded)
+    }
+
     pub fn hash(&self) -> io::Result<TransactionHash> {
         use blake2::{
             digest::{Update, VariableOutput},
@@ -112,9 +124,7 @@ impl generated::MinaBaseSignedCommandStableV2 {
         };
         let mut hasher = Blake2bVar::new(32).expect("Invalid Blake2bVar output size");
 
-        let mut encoded = vec![];
-        self.binprot_write(&mut encoded)?;
-        hasher.update(&encoded);
+        hasher.update(&self.binprot_write_with_default_sig()?);
         let mut hash = vec![0; 34];
         hash[..2].copy_from_slice(&[1, 32]);
         hash[2..].copy_from_slice(&hasher.finalize_boxed());
@@ -127,6 +137,7 @@ impl generated::MinaBaseSignedCommandStableV2 {
 mod tests {
     use super::super::manual;
     use super::*;
+    use binprot::BinProtRead;
 
     fn pub_key(address: &str) -> manual::NonZeroCurvePoint {
         let key = mina_signer::PubKey::from_address(address)
@@ -147,7 +158,6 @@ mod tests {
         nonce: u32,
         valid_until: i32,
     ) -> String {
-        use crate::bigint::BigInt;
         use crate::number::Number;
         use crate::string::CharString;
 
@@ -191,7 +201,11 @@ mod tests {
 
         let payload = generated::MinaBaseSignedCommandPayloadStableV2 { common, body };
 
-        let signature = generated::MinaBaseSignatureStableV1(BigInt::one(), BigInt::one());
+        // Some random signature. hasher should ignore it and use default.
+        let signature = generated::MinaBaseSignatureStableV1(
+            BigInt::binprot_read(&mut &[122; 32][..]).unwrap(),
+            BigInt::binprot_read(&mut &[123; 32][..]).unwrap(),
+        );
 
         let v = generated::MinaBaseSignedCommandStableV2 {
             payload,
