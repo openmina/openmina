@@ -97,6 +97,16 @@ impl ConsensusState {
                     };
                     if let Some(history) = tip.history.take() {
                         self.update_best_tip_history(pred_level, &history);
+                    } else {
+                        let pred_hash = tip.block.header.protocol_state.previous_state_hash.clone();
+
+                        if self
+                            .is_part_of_main_chain(pred_level, &pred_hash)
+                            .unwrap_or(false)
+                        {
+                            self.update_best_tip_history(pred_level, &[pred_hash]);
+                            return;
+                        }
                     }
                 }
             }
