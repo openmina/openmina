@@ -4,7 +4,6 @@
 use mina_hasher::{Hashable, ROInput};
 use mina_p2p_messages::{
     bigint::BigInt,
-    gossip::GossipNetMessageV2,
     number::Number,
     string::CharString,
     v2::{
@@ -12,9 +11,8 @@ use mina_p2p_messages::{
         MinaBaseSignatureStableV1, MinaBaseSignedCommandMemoStableV1,
         MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandPayloadCommonStableV2,
         MinaBaseSignedCommandPayloadStableV2, MinaBaseSignedCommandStableV2,
-        MinaBaseUserCommandStableV2, NetworkPoolTransactionPoolDiffVersionedStableV2,
-        NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1, UnsignedExtendedUInt32StableV1,
-        UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+        MinaBaseUserCommandStableV2, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1,
+        UnsignedExtendedUInt32StableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
 use mina_signer::{CompressedPubKey, NetworkId, PubKey, Signature};
@@ -147,7 +145,7 @@ impl Transaction {
         v.into()
     }
 
-    pub fn to_gossipsub_v2_msg(self, sig: Signature) -> GossipNetMessageV2 {
+    pub fn to_user_command(self, sig: Signature) -> MinaBaseUserCommandStableV2 {
         let from = Self::pub_key_to_p2p_type(self.source_pk.clone());
         let to = Self::pub_key_to_p2p_type(self.receiver_pk.clone());
 
@@ -190,8 +188,6 @@ impl Transaction {
             signer: from.clone(),
             signature,
         };
-        let v = MinaBaseUserCommandStableV2::SignedCommand(v);
-        let v = NetworkPoolTransactionPoolDiffVersionedStableV2(vec![v]);
-        GossipNetMessageV2::TransactionPoolDiff(v)
+        MinaBaseUserCommandStableV2::SignedCommand(v)
     }
 }
