@@ -441,6 +441,14 @@ impl JsHandle {
         JsValue::from_serde(&res).unwrap()
     }
 
+    pub async fn best_tip_level(&self) -> JsValue {
+        // TODO(binier): [PERF] inefficient as we clone the whole state.
+        let req = RpcRequest::GetState;
+        let res = self.rpc.oneshot_request::<RpcStateGetResponse>(req).await;
+        let res = res.and_then(|s| Some(s.consensus.best_tip()?.height()));
+        JsValue::from_serde(&res).unwrap()
+    }
+
     pub async fn peer_connect(&self, addr: String) -> Result<String, JsValue> {
         let addr = Multiaddr::from_str(&addr).map_err(|err| err.to_string())?;
         let peer_id =
@@ -558,7 +566,7 @@ impl WatchedAccounts {
             let resp = resp.ok_or("rpc request dropped".to_string())?;
             match resp {
                 Err(WatchedAccountsGetError::NotReady) => {
-                    wasm_timer::Delay::new(Duration::from_millis(1000)).await;
+                    wasm_timer::Delay::new(Duration::from_millis(500)).await;
                 }
                 Ok(v) => return Ok(JsValue::from_serde(&v).map_err(|err| err.to_string())?),
                 Err(err) => return Err(err.to_string()),
