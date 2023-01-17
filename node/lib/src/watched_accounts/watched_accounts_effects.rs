@@ -12,6 +12,7 @@ use crate::Store;
 use super::{
     WatchedAccountBlockInfo, WatchedAccountsAction, WatchedAccountsActionWithMeta,
     WatchedAccountsBlockLedgerQueryInitAction, WatchedAccountsBlockLedgerQueryPendingAction,
+    WatchedAccountsLedgerInitialStateGetInitAction,
     WatchedAccountsLedgerInitialStateGetPendingAction,
 };
 
@@ -22,7 +23,11 @@ pub fn watched_accounts_effects<S: redux::Service>(
     let (action, _) = action.split();
 
     match action {
-        WatchedAccountsAction::Add(_) => {}
+        WatchedAccountsAction::Add(action) => {
+            store.dispatch(WatchedAccountsLedgerInitialStateGetInitAction {
+                pub_key: action.pub_key.clone(),
+            });
+        }
         WatchedAccountsAction::TransactionsIncludedInBlock(action) => {
             store.dispatch(WatchedAccountsBlockLedgerQueryInitAction {
                 pub_key: action.pub_key,
