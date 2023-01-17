@@ -502,8 +502,8 @@ impl JsHandle {
         let mut tx = Transaction::new_payment(
             keypair.public.clone(),
             to,
-            data.amount * 1_000_000_000,
-            data.fee * 1_000_000_000,
+            data.amount,
+            data.fee,
             data.nonce,
         );
         if let Some(memo) = data.memo.filter(|s| !s.is_empty()) {
