@@ -82,18 +82,17 @@ impl Hashable for Transaction {
 impl Transaction {
     pub fn new_payment(from: PubKey, to: PubKey, amount: u64, fee: u64, nonce: u32) -> Self {
         Transaction {
-            fee: fee,
+            fee,
             fee_token: 1,
             fee_payer_pk: from.into_compressed(),
-            nonce: nonce,
-            // TODO(zura): was u32::MAX?
-            valid_until: i32::MAX as u32,
+            nonce,
+            valid_until: u32::MAX,
             memo: std::array::from_fn(|i| (i == 0) as u8),
             tag: PAYMENT_TX_TAG,
             source_pk: from.into_compressed(),
             receiver_pk: to.into_compressed(),
             token_id: 1,
-            amount: amount,
+            amount,
             token_locked: false,
         }
     }
@@ -177,7 +176,7 @@ impl Transaction {
 
         let v = MinaBasePaymentPayloadStableV2 {
             source_pk: from.clone(),
-            receiver_pk: from.clone(),
+            receiver_pk: to.clone(),
             amount,
         };
         let body = MinaBaseSignedCommandPayloadBodyStableV2::Payment(v);
