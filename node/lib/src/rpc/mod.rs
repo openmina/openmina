@@ -19,7 +19,7 @@ pub use shared::requests::{RpcId, RpcIdType};
 
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::pubsub::{GossipNetMessageV2, PubsubTopic};
-use crate::watched_accounts::WatchedAccountBlockState;
+use crate::watched_accounts::{WatchedAccountBlockState, WatchedAccountLedgerInitialState};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RpcRequest {
@@ -32,6 +32,7 @@ pub enum RpcRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountInfo {
+    pub initial_state: WatchedAccountLedgerInitialState,
     pub latest_state: Option<MinaBaseAccountBinableArgStableV2>,
     pub blocks: Vec<WatchedAccountBlockState>,
 }
