@@ -8,8 +8,9 @@ use crate::{
         currency::Slot,
         scan_state::ConstraintConstants,
         transaction_logic::{
-            self, protocol_state::ProtocolStateView, signed_command::SignedCommand, AccountState,
-            Transaction, TransactionStatus,
+            self, protocol_state::ProtocolStateView, signed_command::SignedCommand,
+            transaction_applied::SignedCommandApplied, AccountState, Transaction,
+            TransactionStatus,
         },
     },
     Account, AccountId, Address, Mask,
@@ -23,6 +24,7 @@ pub enum Location {
     Theirs(Address),
 }
 
+#[derive(Clone)]
 pub struct HashlessLedger {
     base: Mask,
     overlay: HashMap<AccountId, Account>,
@@ -78,7 +80,7 @@ impl HashlessLedger {
         txn_state_view: &ProtocolStateView,
         txn_global_slot: &Slot,
         user_command: SignedCommand,
-    ) -> Result<transaction_logic::transaction_applied::SignedCommandApplied, String> {
+    ) -> Result<SignedCommandApplied, String> {
         transaction_logic::apply_user_command(
             constraint_constants,
             txn_state_view,

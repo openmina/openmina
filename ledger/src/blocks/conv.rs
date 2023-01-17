@@ -304,9 +304,9 @@ impl From<ProtocolState> for mina_p2p_messages::v2::MinaStateProtocolStateValueS
                     last_vrf_output: ConsensusVrfOutputTruncatedStableV1(
                         value.body.consensus_state.last_vrf_output.as_ref().into(),
                     ),
-                    total_currency: CurrencyAmountStableV1(
-                        UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                            value.body.consensus_state.total_currency.into(),
+                    total_currency: CurrencyMakeStrAmountMakeStrStableV1(
+                        UnsignedExtendedUInt64StableV1(
+                            (value.body.consensus_state.total_currency as i64).into(),
                         ),
                     ),
                     curr_global_slot: ConsensusGlobalSlotStableV1 {
@@ -332,16 +332,15 @@ impl From<ProtocolState> for mina_p2p_messages::v2::MinaStateProtocolStateValueS
                                         .ledger
                                         .hash
                                         .into(),
-                                ).into(),
-                                total_currency: CurrencyAmountStableV1(
-                                    UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                                        value
+                                ),
+                                total_currency: CurrencyMakeStrAmountMakeStrStableV1(
+                                    UnsignedExtendedUInt64StableV1(
+                                        (value
                                             .body
                                             .consensus_state
                                             .staking_epoch_data
                                             .ledger
-                                            .total_currency
-                                            .into(),
+                                            .total_currency as i64).into(),
                                     ),
                                 ),
                             },
@@ -380,16 +379,15 @@ impl From<ProtocolState> for mina_p2p_messages::v2::MinaStateProtocolStateValueS
                                         .ledger
                                         .hash
                                         .into(),
-                                ).into(),
-                                total_currency: CurrencyAmountStableV1(
-                                    UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                                        value
+                                ),
+                                total_currency: CurrencyMakeStrAmountMakeStrStableV1(
+                                    UnsignedExtendedUInt64StableV1(
+                                        (value
                                             .body
                                             .consensus_state
                                             .next_epoch_data
                                             .ledger
-                                            .total_currency
-                                            .into(),
+                                            .total_currency as i64).into(),
                                     ),
                                 ),
                             },
@@ -572,7 +570,7 @@ impl From<mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2> for Protoc
                         .as_ref()
                         .try_into()
                         .unwrap(),
-                    total_currency: value.body.consensus_state.total_currency.0 .0 .0,
+                    total_currency: value.body.consensus_state.total_currency.0 .0 .0 as u64,
                     curr_global_slot: ConsensusGlobalSlot {
                         slot_number: value.body.consensus_state.curr_global_slot.slot_number.0 .0
                             as u32,
@@ -609,7 +607,7 @@ impl From<mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2> for Protoc
                                 .total_currency
                                 .0
                                  .0
-                                 .0,
+                                 .0 as u64,
                         },
                         seed: value
                             .body
@@ -662,7 +660,7 @@ impl From<mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2> for Protoc
                                 .total_currency
                                 .0
                                  .0
-                                 .0,
+                                 .0 as u64,
                         },
                         seed: value
                             .body

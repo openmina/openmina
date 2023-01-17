@@ -714,7 +714,7 @@ mod tests_ocaml {
         let location = db
             .get_or_create_account(account.id(), account.clone())
             .unwrap();
-        let get_account = db.get(location.clone()).unwrap();
+        let get_account = db.get(location.addr()).unwrap();
 
         assert_eq!(account, get_account);
     }
@@ -778,8 +778,8 @@ mod tests_ocaml {
             .get_or_create_account(account2.id(), account2.clone())
             .unwrap();
 
-        let addr1: Address = location1.clone();
-        let addr2: Address = location2.clone();
+        let addr1: Address = location1.clone().addr();
+        let addr2: Address = location2.clone().addr();
 
         assert_eq!(addr1, addr2);
         assert!(matches!(location2, GetOrCreated::Existed(_)));

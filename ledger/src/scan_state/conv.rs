@@ -73,7 +73,7 @@ use crate::{
             WithStatus,
         },
     },
-    Account, AccountId, TokenId, VerificationKey,
+    Account, AccountId, TokenId, VerificationKey, VotingFor,
 };
 
 use super::{
@@ -985,7 +985,7 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
                         Timing::Keep => SetOrKeep::Keep,
                     },
                     voting_for: match &value.body.update.voting_for {
-                        Voting::Set(bigint) => SetOrKeep::Set(bigint.to_field()),
+                        Voting::Set(bigint) => SetOrKeep::Set(VotingFor(bigint.to_field())),
                         Voting::Keep => SetOrKeep::Keep,
                     },
                 },
@@ -1000,18 +1000,18 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
                         .events
                         .0
                         .iter()
-                        .map(|e| e.iter().map(|e| e.to_field()).collect())
+                        .map(|e| zkapp_command::Event(e.iter().map(|e| e.to_field()).collect()))
                         .collect(),
                 ),
-                sequence_events: zkapp_command::SequenceEvents(zkapp_command::Events(
+                sequence_events: zkapp_command::SequenceEvents(
                     value
                         .body
                         .sequence_events
                         .0
                         .iter()
-                        .map(|e| e.iter().map(|e| e.to_field()).collect())
+                        .map(|e| zkapp_command::Event(e.iter().map(|e| e.to_field()).collect()))
                         .collect(),
-                )),
+                ),
                 call_data: value.body.call_data.to_field(),
                 preconditions: (&value.body.preconditions).into(),
                 use_full_commitment: value.body.use_full_commitment,
@@ -1150,7 +1150,7 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTWireStableV1 {
                         SetOrKeep::Keep => Timing::Keep,
                     },
                     voting_for: match &value.body.update.voting_for {
-                        SetOrKeep::Set(bigint) => Voting::Set(DataHashLibStateHashStableV1(bigint.into())),
+                        SetOrKeep::Set(bigint) => Voting::Set(DataHashLibStateHashStableV1(bigint.0.into())),
                         SetOrKeep::Keep => Voting::Keep,
                     },
                 },
@@ -1165,7 +1165,7 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTWireStableV1 {
                         .events
                         .0
                         .iter()
-                        .map(|e| e.iter().map(|e| e.into()).collect())
+                        .map(|e| e.0.iter().map(|e| e.into()).collect())
                         .collect(),
                 ),
                 sequence_events: MinaBaseAccountUpdateBodyEventsStableV1(
@@ -1173,9 +1173,8 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTWireStableV1 {
                         .body
                         .sequence_events
                         .0
-                        .0
                         .iter()
-                        .map(|e| e.iter().map(|e| e.into()).collect())
+                        .map(|e| e.0.iter().map(|e| e.into()).collect())
                         .collect(),
                 ),
                 call_data: value.body.call_data.into(),
@@ -1286,7 +1285,7 @@ impl From<&FeeTransfer> for MinaBaseFeeTransferStableV2 {
 
 impl From<&MinaBaseSignedCommandMemoStableV1> for Memo {
     fn from(value: &MinaBaseSignedCommandMemoStableV1) -> Self {
-        Self::from(value.0.as_ref().to_vec())
+        Self(value.0.as_ref().try_into().unwrap())
     }
 }
 

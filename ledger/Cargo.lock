@@ -840,6 +840,7 @@ name = "mina-tree"
 version = "0.1.0"
 dependencies = [
  "ark-ff",
+ "ark-poly",
  "ark-serialize",
  "backtrace",
  "base64",
@@ -850,6 +851,7 @@ dependencies = [
  "derive_more",
  "getrandom",
  "hex",
+ "itertools",
  "kimchi",
  "mina-curves",
  "mina-hasher",

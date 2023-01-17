@@ -17,7 +17,7 @@ impl Sgn {
 
 pub trait Magnitude
 where
-    Self: Sized,
+    Self: Sized + PartialOrd + Copy,
 {
     fn abs_diff(&self, rhs: &Self) -> Self;
     fn wrapping_add(&self, rhs: &Self) -> Self;
@@ -26,8 +26,18 @@ where
     fn checked_add(&self, rhs: &Self) -> Option<Self>;
     fn checked_mul(&self, rhs: &Self) -> Option<Self>;
     fn checked_sub(&self, rhs: &Self) -> Option<Self>;
+
     fn is_zero(&self) -> bool;
     fn zero() -> Self;
+
+    fn add_flagged(&self, rhs: &Self) -> (Self, bool) {
+        let z = self.wrapping_add(rhs);
+        (z, z < *self)
+    }
+
+    fn sub_flagged(&self, rhs: &Self) -> (Self, bool) {
+        (self.wrapping_sub(rhs), self < rhs)
+    }
 }
 
 /// Trait used for default values with `ClosedInterval`
@@ -59,10 +69,14 @@ where
             Self::zero()
         } else {
             Self {
-                magnitude: self.magnitude.clone(),
+                magnitude: self.magnitude,
                 sgn: self.sgn.negate(),
             }
         }
+    }
+
+    pub fn is_pos(&self) -> bool {
+        matches!(self.sgn, Sgn::Pos)
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/currency/currency.ml#L441
@@ -97,11 +111,37 @@ where
 
         Some(Self { magnitude, sgn })
     }
+
+    pub fn add_flagged(&self, rhs: Self) -> (Self, bool) {
+        match (self.sgn, rhs.sgn) {
+            (Sgn::Neg, sgn @ Sgn::Neg) | (Sgn::Pos, sgn @ Sgn::Pos) => {
+                let (magnitude, overflow) = self.magnitude.add_flagged(&rhs.magnitude);
+                (Self { magnitude, sgn }, overflow)
+            }
+            (Sgn::Pos, Sgn::Neg) | (Sgn::Neg, Sgn::Pos) => {
+                let sgn = match self.magnitude.cmp(&rhs.magnitude) {
+                    Less => rhs.sgn,
+                    Greater => self.sgn,
+                    Equal => Sgn::Pos,
+                };
+                let magnitude = self.magnitude.abs_diff(&rhs.magnitude);
+                (Self { magnitude, sgn }, false)
+            }
+        }
+    }
 }
 
 impl Amount {
     pub fn of_fee(fee: &Fee) -> Self {
         Self(fee.0)
+    }
+
+    pub fn add_signed_flagged(&self, rhs: Signed<Self>) -> (Self, bool) {
+        if let Sgn::Pos = rhs.sgn {
+            self.add_flagged(&rhs.magnitude)
+        } else {
+            self.sub_flagged(&rhs.magnitude)
+        }
     }
 }
 
@@ -113,12 +153,48 @@ impl Balance {
     pub fn add_amount(&self, amount: Amount) -> Option<Self> {
         self.0.checked_add(amount.0).map(Self)
     }
+
+    pub fn add_signed_flagged(&self, rhs: Signed<Self>) -> (Self, bool) {
+        if let Sgn::Pos = rhs.sgn {
+            self.add_flagged(&rhs.magnitude)
+        } else {
+            self.sub_flagged(&rhs.magnitude)
+        }
+    }
+
+    pub fn add_signed_amount_flagged(&self, rhs: Signed<Amount>) -> (Self, bool) {
+        let rhs = Signed {
+            magnitude: Balance::from_u64(rhs.magnitude.0),
+            sgn: rhs.sgn,
+        };
+
+        if let Sgn::Pos = rhs.sgn {
+            self.add_flagged(&rhs.magnitude)
+        } else {
+            self.sub_flagged(&rhs.magnitude)
+        }
+    }
+}
+
+impl Index {
+    // TODO: Not sure if OCaml wraps around here
+    pub fn incr(&self) -> Self {
+        Self(self.0.wrapping_add(1))
+    }
 }
 
 impl Nonce {
     // TODO: Not sure if OCaml wraps around here
     pub fn incr(&self) -> Self {
         Self(self.0.wrapping_add(1))
+    }
+
+    pub fn add_signed_flagged(&self, rhs: Signed<Self>) -> (Self, bool) {
+        if let Sgn::Pos = rhs.sgn {
+            self.add_flagged(&rhs.magnitude)
+        } else {
+            self.sub_flagged(&rhs.magnitude)
+        }
     }
 }
 

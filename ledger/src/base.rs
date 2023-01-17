@@ -200,7 +200,7 @@ impl From<usize> for AccountIndex {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum GetOrCreated {
     Added(Address),
     Existed(Address),

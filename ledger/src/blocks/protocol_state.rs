@@ -47,7 +47,7 @@ pub struct StagedLedgerHash {
     pub pending_coinbase_hash: Fp,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Sgn {
     Pos,
     Neg,
@@ -91,7 +91,7 @@ pub struct ConsensusGlobalSlot {
 #[derive(Clone, Debug)]
 pub struct EpochLedger {
     pub hash: Fp,
-    pub total_currency: i64,
+    pub total_currency: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -110,7 +110,7 @@ pub struct ConsensusState {
     pub min_window_density: u32,
     pub sub_window_densities: Vec<u32>,
     pub last_vrf_output: [u8; 32], // TODO: In binprot it's a string ?
-    pub total_currency: i64,
+    pub total_currency: u64,
     pub curr_global_slot: ConsensusGlobalSlot,
     pub global_slot_since_genesis: u32,
     pub staking_epoch_data: DataStaking,
@@ -215,7 +215,7 @@ impl ProtocolStateBody {
                     inputs.append_bool(last_byte & bit != 0);
                 }
             }
-            inputs.append_u64(consensus.total_currency as u64);
+            inputs.append_u64(consensus.total_currency);
             inputs.append_u32(consensus.curr_global_slot.slot_number);
             inputs.append_u32(consensus.curr_global_slot.slots_per_epoch);
             inputs.append_u32(consensus.global_slot_since_genesis);
@@ -226,7 +226,7 @@ impl ProtocolStateBody {
                 inputs.append_field(data.start_checkpoint);
                 inputs.append_u32(data.epoch_length);
                 inputs.append_field(data.ledger.hash);
-                inputs.append_u64(data.ledger.total_currency as u64);
+                inputs.append_u64(data.ledger.total_currency);
                 inputs.append_field(data.lock_checkpoint);
             }
             inputs.append_field(consensus.block_stake_winner.x);

@@ -5,13 +5,8 @@ use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
 use crate::{
     hash::hash_noinputs,
     scan_state::currency::{Amount, Balance, Slot},
+    ToInputs,
 };
-
-// pub type Balance = u64;
-
-// pub type Amount = u64;
-
-// pub type Slot = u32;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct VotingFor(pub Fp);
@@ -22,8 +17,20 @@ impl VotingFor {
     }
 }
 
+impl ToInputs for VotingFor {
+    fn to_inputs(&self, inputs: &mut crate::Inputs) {
+        inputs.append_field(self.0);
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReceiptChainHash(pub Fp);
+
+impl ToInputs for ReceiptChainHash {
+    fn to_inputs(&self, inputs: &mut crate::Inputs) {
+        inputs.append_field(self.0);
+    }
+}
 
 impl ReceiptChainHash {
     pub fn empty_legacy() -> Self {

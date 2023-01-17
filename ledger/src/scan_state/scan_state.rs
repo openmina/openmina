@@ -21,7 +21,7 @@ use crate::{
 use self::transaction_snark::{InitStack, LedgerProof, OneOrTwo, Registers};
 
 use super::{
-    currency::{Amount, Fee},
+    currency::{Amount, Fee, Length, Slot},
     parallel_scan::ParallelScan,
     snark_work,
     transaction_logic::{
@@ -394,9 +394,9 @@ impl ScanState {
 
 #[derive(Clone, Debug)]
 pub struct ForkConstants {
-    previous_state_hash: Fp,   // Pickles.Backend.Tick.Field.Stable.Latest.t,
-    previous_length: u32,      // Mina_numbers.Length.Stable.Latest.t,
-    previous_global_slot: u32, // Mina_numbers.Global_slot.Stable.Latest.t,
+    previous_state_hash: Fp,    // Pickles.Backend.Tick.Field.Stable.Latest.t,
+    previous_length: Length,    // Mina_numbers.Length.Stable.Latest.t,
+    previous_global_slot: Slot, // Mina_numbers.Global_slot.Stable.Latest.t,
 }
 
 #[derive(Clone, Debug)]

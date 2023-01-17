@@ -419,15 +419,23 @@ pub struct AccountId {
 }
 
 impl AccountId {
+    pub fn derive_token_id(&self) -> TokenId {
+        let is_odd_field = match self.public_key.is_odd {
+            true => Fp::one(),
+            false => Fp::zero(),
+        };
+
+        TokenId(hash_with_kimchi(
+            "MinaDeriveTokenId",
+            &[self.public_key.x, self.token_id.0, is_odd_field],
+        ))
+    }
+
     pub fn new(public_key: CompressedPubKey, token_id: TokenId) -> Self {
         Self {
             public_key,
             token_id,
         }
-    }
-
-    pub fn derive_token_id(&self) -> TokenId {
-        todo!()
     }
 }
 
