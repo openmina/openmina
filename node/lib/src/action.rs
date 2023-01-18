@@ -10,6 +10,10 @@ pub use crate::rpc::RpcAction;
 pub use crate::snark::SnarkAction;
 pub use crate::watched_accounts::WatchedAccountsAction;
 
+pub trait ActionKindGet {
+    fn kind(&self) -> crate::ActionKind;
+}
+
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum Action {
     CheckTimeouts(CheckTimeoutsAction),
