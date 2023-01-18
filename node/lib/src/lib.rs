@@ -1,5 +1,8 @@
 mod action;
-pub use action::{Action, ActionWithMeta, ActionWithMetaRef};
+pub use action::*;
+
+mod action_kind;
+pub use action_kind::ActionKind;
 
 mod config;
 pub use config::Config;

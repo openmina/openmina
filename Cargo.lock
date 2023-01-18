@@ -1847,6 +1847,7 @@ dependencies = [
  "mina-p2p-messages",
  "p2p",
  "redux",
+ "regex",
  "serde",
  "serde_json",
  "shared",
@@ -2535,7 +2536,7 @@ dependencies = [
 [[package]]
 name = "mina-p2p-messages"
 version = "0.6.4"
-source = "git+https://github.com/name-placeholder/mina-p2p-messages-rs?branch=main#63fe6a32de6b51d89427b222296494f0027c12fc"
+source = "git+https://github.com/name-placeholder/mina-p2p-messages-rs?branch=main#5d79c2c3f6f25bafba54acf810dea3576817b111"
 dependencies = [
  "ark-ff",
  "base64",
