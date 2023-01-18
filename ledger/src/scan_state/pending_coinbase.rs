@@ -383,7 +383,7 @@ impl PendingCoinbase {
     fn incr_index(&mut self, depth: usize, is_new_stack: bool) {
         if is_new_stack {
             let new_pos = self.next_index(depth);
-            self.pos_list.push(new_pos);
+            self.pos_list.push(self.new_pos);
             self.new_pos = new_pos;
         }
     }
