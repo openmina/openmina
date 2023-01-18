@@ -1691,7 +1691,7 @@ impl StagedLedger {
                 status_ledger.apply_transaction(constraint_constants, current_state_view, &txn)
             };
 
-            pre_diff_info::compute_statuses::<_, valid::Transaction>(
+            pre_diff_info::compute_statuses::<valid::UserCommand, valid::Transaction, _>(
                 constraint_constants,
                 diff,
                 coinbase_receiver,
@@ -1784,6 +1784,7 @@ mod tests_ocaml {
                 Memo, Signature,
             },
         },
+        staged_ledger::diff::PreDiffOne,
         util,
     };
 
@@ -2484,13 +2485,24 @@ mod tests_ocaml {
     ) where
         F: Fn(&work::Statement) -> Option<work::Checked>,
     {
+        eprintln!(
+            "test_simple ncmds={:?} niters={:?}",
+            cmds.len(),
+            cmd_iters.len()
+        );
+
         let allow_failure = allow_failure.unwrap_or(false);
+
+        let mut niters = 0;
 
         let total_ledger_proofs = iter_cmds_acc(
             &cmds,
             &cmd_iters,
             0,
             |cmds_left, count_opt, cmds_this_iter, mut proof_count| {
+                eprintln!("######## Start new batch {} ########", niters);
+                eprintln!("nto_applied={:?}", cmds_this_iter.len());
+
                 let (ledger_proof, diff) =
                     create_and_apply(None, None, &mut sl, cmds_this_iter, stmt_to_work);
 
@@ -2518,7 +2530,7 @@ mod tests_ocaml {
 
                 match provers {
                     NumProvers::One => assert_eq!(cb, 1),
-                    NumProvers::Many => assert!(cb > 0 && cb < 3),
+                    NumProvers::Many => assert!(cb > 0 && cb < 3, "cb={:?}", cb),
                 }
 
                 if count_opt.is_some() {
@@ -2548,6 +2560,13 @@ mod tests_ocaml {
                     cmds_applied_this_iter,
                     &account_ids_to_check,
                 );
+
+                eprintln!(
+                    "######## Batch {} done: {} applied ########\n",
+                    niters, cmds_applied_this_iter
+                );
+
+                niters += 1;
 
                 (diff, proof_count)
             },
@@ -2601,6 +2620,352 @@ mod tests_ocaml {
                 NumProvers::Many,
                 &stmt_to_work_random_prover,
             )
+        });
+    }
+
+    fn gen_at_capacity() -> (
+        LedgerInitialState,
+        Vec<valid::UserCommand>,
+        Vec<Option<usize>>,
+    ) {
+        let mut rng = rand::thread_rng();
+
+        let state = gen_initial_ledger_state();
+        let iters = rng.gen_range(1..max_blocks_for_coverage(0));
+        let total_cmds = TRANSACTION_CAPACITY * iters;
+
+        let cmds = signed_command_sequence(total_cmds, SignKind::Real, &state);
+        assert_eq!(cmds.len(), total_cmds);
+
+        (state, cmds, vec![None; iters])
+    }
+
+    /// Max throughput
+    #[test]
+    fn max_throughput() {
+        let (ledger_init_state, cmds, iters) = gen_at_capacity();
+
+        async_with_ledgers(&ledger_init_state, |sl, test_mask| {
+            test_simple(
+                init_pks(&ledger_init_state),
+                cmds.to_vec(),
+                iters.to_vec(),
+                sl,
+                None,
+                None,
+                test_mask,
+                NumProvers::Many,
+                &stmt_to_work_random_prover,
+            )
+        });
+    }
+
+    fn gen_zkapps(_failure: Option<bool>, _num_zkapps: usize, _iters: usize) {
+        // TODO
+    }
+
+    fn gen_zkapps_at_capacity() {
+        // TODO
+    }
+
+    /// Max throughput (zkapps)
+    // #[test]
+    fn max_throughput_zkapps() {
+        // TODO
+    }
+
+    /// Max_throughput with zkApp transactions that may fail
+    // #[test]
+    fn max_throughput_zkapps_that_may_fail() {
+        // TODO
+    }
+
+    /// Generator for when we have less commands than needed to fill all slots.
+    fn gen_below_capacity(
+        extra_blocks: Option<bool>,
+    ) -> (
+        LedgerInitialState,
+        Vec<valid::UserCommand>,
+        Vec<Option<usize>>,
+    ) {
+        let extra_blocks = extra_blocks.unwrap_or(false);
+
+        let mut rng = rand::thread_rng();
+
+        let state = gen_initial_ledger_state();
+        let iters_max = max_blocks_for_coverage(0) * if extra_blocks { 4 } else { 2 };
+
+        let iters = rng.gen_range(1..=iters_max);
+
+        // N.B. user commands per block is much less than transactions per block
+        // due to fee transfers and coinbases, especially with worse case number
+        // of provers, so in order to exercise not filling the scan state
+        // completely we always apply <= 1/2 transaction_capacity commands.
+
+        let cmds_per_iter: Vec<usize> = (0..iters)
+            .map(|_| rng.gen_range(1..((TRANSACTION_CAPACITY / 2) - 1)))
+            .collect();
+
+        let total_cmds = cmds_per_iter.iter().sum();
+
+        let cmds = signed_command_sequence(total_cmds, SignKind::Real, &state);
+        assert_eq!(cmds.len(), total_cmds);
+
+        (state, cmds, cmds_per_iter.into_iter().map(Some).collect())
+    }
+
+    /// Be able to include random number of commands
+    #[test]
+    fn be_able_to_include_random_number_of_commands_many() {
+        let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
+
+        async_with_ledgers(&ledger_init_state, |sl, test_mask| {
+            test_simple(
+                init_pks(&ledger_init_state),
+                cmds.to_vec(),
+                iters.to_vec(),
+                sl,
+                None,
+                None,
+                test_mask,
+                NumProvers::Many,
+                &stmt_to_work_random_prover,
+            )
+        });
+    }
+
+    /// Be able to include random number of commands (zkapps)
+    // #[test]
+    fn be_able_to_include_random_number_of_commands_zkapps() {
+        // TODO
+    }
+
+    /// Be able to include random number of commands (One prover)
+    #[test]
+    fn be_able_to_include_random_number_of_commands_one_prover() {
+        let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
+
+        async_with_ledgers(&ledger_init_state, |sl, test_mask| {
+            test_simple(
+                init_pks(&ledger_init_state),
+                cmds.to_vec(),
+                iters.to_vec(),
+                sl,
+                None,
+                None,
+                test_mask,
+                NumProvers::One,
+                &stmt_to_work_random_prover,
+            )
+        });
+    }
+
+    /// Be able to include random number of commands (One prover, zkapps)
+    // #[test]
+    fn be_able_to_include_random_number_of_commands_one_prover_zkapps() {
+        // TODO
+    }
+
+    /// Fixed public key for when there is only one snark worker.
+    static SNARK_WORKER_PK: Lazy<CompressedPubKey> =
+        Lazy::new(|| gen_keypair().public.into_compressed());
+
+    /// Zero proof-fee should not create a fee transfer
+    #[test]
+    fn zero_proof_fee_should_not_create_a_fee_transfer() {
+        const EXPECTED_PROOF_COUNT: usize = 3;
+
+        let stmt_to_work_zero_fee = |stmts: &OneOrTwo<Statement<()>>| {
+            Some(work::Checked {
+                fee: Fee::zero(),
+                proofs: proofs(stmts),
+                prover: SNARK_WORKER_PK.clone(),
+            })
+        };
+
+        let account_id_prover = AccountId::new(SNARK_WORKER_PK.clone(), TokenId::default());
+
+        let (ledger_init_state, cmds, iters) = gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
+
+        async_with_ledgers(&ledger_init_state, |sl, test_mask| {
+            test_simple(
+                init_pks(&ledger_init_state),
+                cmds.to_vec(),
+                iters.to_vec(),
+                sl,
+                Some(EXPECTED_PROOF_COUNT),
+                None,
+                test_mask.clone(),
+                NumProvers::One,
+                &stmt_to_work_zero_fee,
+            );
+
+            assert!(test_mask.location_of_account(&account_id_prover).is_none());
+        });
+    }
+
+    fn compute_statutes(
+        ledger: Mask,
+        coinbase_amount: Amount,
+        diff: (
+            PreDiffTwo<work::Work, WithStatus<UserCommand>>,
+            Option<PreDiffOne<work::Work, WithStatus<UserCommand>>>,
+        ),
+    ) -> (
+        PreDiffTwo<work::Work, WithStatus<UserCommand>>,
+        Option<PreDiffOne<work::Work, WithStatus<UserCommand>>>,
+    ) {
+        // Fill in the statuses for commands.
+        let mut status_ledger = HashlessLedger::create(ledger);
+
+        let mut generate_status = |txn: Transaction| -> Result<TransactionStatus, String> {
+            status_ledger.apply_transaction(&CONSTRAINT_CONSTANTS, &dummy_state_view(None), &txn)
+        };
+
+        pre_diff_info::compute_statuses::<UserCommand, valid::Transaction, _>(
+            &CONSTRAINT_CONSTANTS,
+            diff,
+            COINBASE_RECEIVER.clone(),
+            coinbase_amount,
+            &mut generate_status,
+        )
+        .unwrap()
+    }
+
+    /// Invalid diff test: check zero fee excess for partitions
+    #[test]
+    fn check_zero_fee_excess_for_partitions() {
+        let create_diff_with_non_zero_fee_excess =
+            |ledger: Mask,
+             coinbase_amount: Amount,
+             txns: Vec<WithStatus<UserCommand>>,
+             completed_works: Vec<work::Unchecked>,
+             partition: SpacePartition| {
+                // With exact number of user commands in partition.first, the fee transfers that
+                // settle the fee_excess would be added to the next tree causing a non-zero fee excess
+                let (slots, job_count1) = partition.first;
+                match partition.second {
+                    None => Diff {
+                        diff: {
+                            compute_statutes(
+                                ledger,
+                                coinbase_amount,
+                                (
+                                    PreDiffTwo {
+                                        completed_works: completed_works
+                                            .iter()
+                                            .take(job_count1 as usize)
+                                            .cloned()
+                                            .collect(),
+                                        commands: txns
+                                            .iter()
+                                            .take(slots as usize)
+                                            .cloned()
+                                            .collect(),
+                                        coinbase: AtMostTwo::Zero,
+                                        internal_command_statuses: vec![],
+                                    },
+                                    None,
+                                ),
+                            )
+                        },
+                    },
+                    Some(_) => {
+                        let txns_in_second_diff = util::drop(&txns, slots as usize).to_vec();
+
+                        let a = PreDiffTwo {
+                            completed_works: completed_works
+                                .iter()
+                                .take(job_count1 as usize)
+                                .cloned()
+                                .collect(),
+                            commands: txns.iter().take(slots as usize).cloned().collect(),
+                            coinbase: AtMostTwo::Zero,
+                            internal_command_statuses: vec![],
+                        };
+
+                        let b = PreDiffOne {
+                            completed_works: if txns_in_second_diff.is_empty() {
+                                vec![]
+                            } else {
+                                util::drop(&completed_works, job_count1 as usize).to_vec()
+                            },
+                            commands: txns_in_second_diff,
+                            coinbase: AtMostOne::Zero,
+                            internal_command_statuses: vec![],
+                        };
+
+                        Diff {
+                            diff: compute_statutes(ledger, coinbase_amount, (a, Some(b))),
+                        }
+                    }
+                }
+            };
+
+        let empty_diff = Diff::empty();
+
+        let (ledger_init_state, cmds, iters) = gen_at_capacity();
+
+        async_with_ledgers(&ledger_init_state, |mut sl, _test_mask| {
+            let checked = iter_cmds_acc(
+                &cmds,
+                &iters,
+                true,
+                |_cmds_left, _count_opt, cmds_this_iter, checked| {
+                    let work = sl.scan_state.work_statements_for_new_diff();
+                    let partitions = sl.scan_state.partition_if_overflowing();
+
+                    let work_done: Vec<work::Checked> = work
+                        .iter()
+                        .map(|work| work::Checked {
+                            fee: Fee::zero(),
+                            proofs: proofs(work),
+                            prover: SNARK_WORKER_PK.clone(),
+                        })
+                        .collect();
+
+                    let cmds_this_iter: Vec<WithStatus<UserCommand>> = cmds_this_iter
+                        .iter()
+                        .map(|cmd| WithStatus {
+                            data: cmd.forget_check(),
+                            status: TransactionStatus::Applied,
+                        })
+                        .collect();
+
+                    let diff = create_diff_with_non_zero_fee_excess(
+                        sl.ledger.clone(),
+                        CONSTRAINT_CONSTANTS.coinbase_amount,
+                        cmds_this_iter,
+                        work_done,
+                        partitions,
+                    );
+
+                    let apply_res = sl.apply(
+                        None,
+                        &CONSTRAINT_CONSTANTS,
+                        diff.clone(),
+                        (),
+                        &Verifier,
+                        &dummy_state_view(None),
+                        (Fp::zero(), Fp::zero()),
+                        COINBASE_RECEIVER.clone(),
+                        true,
+                    );
+
+                    let (new_checked, diff) = match apply_res {
+                        Err(StagedLedgerError::NonZeroFeeExcess(..)) => (true, empty_diff.clone()),
+                        Err(e) => panic!("Expecting Non-zero-fee-excess error, got {:?}", e),
+                        Ok(DiffResult { .. }) => (false, diff),
+                    };
+
+                    dbg!(new_checked, checked);
+
+                    (diff, checked | new_checked)
+                },
+            );
+
+            // Note(OCaml): if this fails, try increasing the number of trials to get a diff that does fail
+            assert!(checked);
         });
     }
 }

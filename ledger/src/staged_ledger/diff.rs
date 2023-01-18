@@ -121,6 +121,20 @@ impl Diff {
 
         Ok(with_valid_signatures::Diff { diff: (p1, p2) })
     }
+
+    pub fn empty() -> Self {
+        Self {
+            diff: (
+                PreDiffWithAtMostTwoCoinbase {
+                    completed_works: Vec::new(),
+                    commands: Vec::new(),
+                    coinbase: AtMostTwo::Zero,
+                    internal_command_statuses: Vec::new(),
+                },
+                None,
+            ),
+        }
+    }
 }
 
 pub mod with_valid_signatures_and_proofs {
@@ -202,6 +216,20 @@ pub mod with_valid_signatures_and_proofs {
 
             super::Diff { diff: (p1, p2) }
         }
+
+        pub fn empty() -> Self {
+            Self {
+                diff: (
+                    PreDiffWithAtMostTwoCoinbase {
+                        completed_works: Vec::new(),
+                        commands: Vec::new(),
+                        coinbase: AtMostTwo::Zero,
+                        internal_command_statuses: Vec::new(),
+                    },
+                    None,
+                ),
+            }
+        }
     }
 }
 
@@ -218,6 +246,22 @@ pub mod with_valid_signatures {
             PreDiffWithAtMostTwoCoinbase,
             Option<PreDiffWithAtMostOneCoinbase>,
         ),
+    }
+
+    impl Diff {
+        pub fn empty() -> Self {
+            Self {
+                diff: (
+                    PreDiffWithAtMostTwoCoinbase {
+                        completed_works: Vec::new(),
+                        commands: Vec::new(),
+                        coinbase: AtMostTwo::Zero,
+                        internal_command_statuses: Vec::new(),
+                    },
+                    None,
+                ),
+            }
+        }
     }
 }
 

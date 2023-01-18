@@ -371,28 +371,29 @@ where
     Ok((transactions, internal_command_statuses))
 }
 
-pub fn compute_statuses<F, Tx>(
+pub fn compute_statuses<Cmd, Tx, F>(
     constraint_constants: &ConstraintConstants,
     diff: (
-        PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>,
-        Option<PreDiffOne<work::Work, WithStatus<valid::UserCommand>>>,
+        PreDiffTwo<work::Work, WithStatus<Cmd>>,
+        Option<PreDiffOne<work::Work, WithStatus<Cmd>>>,
     ),
     coinbase_receiver: CompressedPubKey,
     coinbase_amount: Amount,
     generate_status: &mut F,
 ) -> Result<
     (
-        PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>,
-        Option<PreDiffOne<work::Work, WithStatus<valid::UserCommand>>>,
+        PreDiffTwo<work::Work, WithStatus<Cmd>>,
+        Option<PreDiffOne<work::Work, WithStatus<Cmd>>>,
     ),
     PreDiffError,
 >
 where
-    F: FnMut(Transaction) -> Result<TransactionStatus, String>,
+    Cmd: GenericCommand + Clone,
     Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer>,
+    F: FnMut(Transaction) -> Result<TransactionStatus, String>,
 {
     let get_statuses_pre_diff_with_at_most_two =
-        |t1: PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>, generate_status: &mut F| {
+        |t1: PreDiffTwo<work::Work, WithStatus<Cmd>>, generate_status: &mut F| {
             let coinbase_parts = match &t1.coinbase {
                 diff::AtMostTwo::Zero => CoinbaseParts::Zero,
                 diff::AtMostTwo::One(x) => CoinbaseParts::One(x.clone()),
@@ -418,7 +419,7 @@ where
         };
 
     let get_statuses_pre_diff_with_at_most_one =
-        |t2: PreDiffOne<work::Work, WithStatus<valid::UserCommand>>, generate_status: &mut F| {
+        |t2: PreDiffOne<work::Work, WithStatus<Cmd>>, generate_status: &mut F| {
             let coinbase_added = match &t2.coinbase {
                 diff::AtMostOne::Zero => CoinbaseParts::Zero,
                 diff::AtMostOne::One(x) => CoinbaseParts::One(x.clone()),
