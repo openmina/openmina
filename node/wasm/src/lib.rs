@@ -11,7 +11,9 @@ use lib::snark::{srs_from_bytes, verifier_index_from_bytes};
 use libp2p::futures;
 use libp2p::multiaddr::{Multiaddr, Protocol as MultiaddrProtocol};
 use libp2p::wasm_ext::ffi::ManualConnector as JsManualConnector;
-use mina_p2p_messages::v2::{NetworkPoolTransactionPoolDiffVersionedStableV2, NonZeroCurvePoint};
+use mina_p2p_messages::v2::{
+    NetworkPoolTransactionPoolDiffVersionedStableV2, NonZeroCurvePoint, StateHash,
+};
 use mina_signer::{NetworkId, PubKey, Signer};
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
@@ -395,6 +397,13 @@ impl RpcSender {
     }
 }
 
+#[derive(Serialize)]
+pub struct BestTipSummary {
+    pub hash: StateHash,
+    pub level: u32,
+    pub timestamp: u64,
+}
+
 #[wasm_bindgen]
 pub struct JsHandle {
     sender: mpsc::Sender<Event>,
@@ -452,11 +461,35 @@ impl JsHandle {
         JsValue::from_serde(&res).unwrap()
     }
 
-    pub async fn best_tip_level(&self) -> JsValue {
+    pub async fn best_tip_summary(&self) -> JsValue {
         // TODO(binier): [PERF] inefficient as we clone the whole state.
         let req = RpcRequest::GetState;
         let res = self.rpc.oneshot_request::<RpcStateGetResponse>(req).await;
-        let res = res.and_then(|s| Some(s.consensus.best_tip()?.height()));
+        let res = res.and_then(|s| {
+            let b = s.consensus.best_tip()?;
+            let genesis_timestamp = b
+                .header
+                .protocol_state
+                .body
+                .constants
+                .genesis_state_timestamp
+                .as_u64();
+            let time_passed = 3
+                * 60
+                * 1000
+                * b.header
+                    .protocol_state
+                    .body
+                    .consensus_state
+                    .global_slot_since_genesis
+                    .0
+                     .0 as u64;
+            Some(BestTipSummary {
+                hash: b.hash.clone(),
+                level: b.height() as u32,
+                timestamp: genesis_timestamp + time_passed,
+            })
+        });
         JsValue::from_serde(&res).unwrap()
     }
 
