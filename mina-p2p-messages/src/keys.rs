@@ -38,3 +38,20 @@ impl From<&mina_signer::CompressedPubKey> for crate::v2::NonZeroCurvePoint {
         key.into()
     }
 }
+
+#[cfg(feature = "hashing")]
+impl From<&mina_signer::Signature> for crate::v2::MinaBaseSignatureStableV1 {
+    fn from(value: &mina_signer::Signature) -> Self {
+        Self(value.rx.into(), value.s.into())
+    }
+}
+
+#[cfg(feature = "hashing")]
+impl From<&crate::v2::MinaBaseSignatureStableV1> for mina_signer::Signature {
+    fn from(value: &crate::v2::MinaBaseSignatureStableV1) -> Self {
+        Self {
+            rx: value.0.to_field(),
+            s: value.1.to_field(),
+        }
+    }
+}
