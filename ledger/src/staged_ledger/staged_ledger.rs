@@ -1770,8 +1770,9 @@ mod tests_ocaml {
 
     use ark_ff::Zero;
     use mina_signer::Keypair;
+    use o1_utils::FieldHelpers;
     use once_cell::sync::Lazy;
-    use rand::{seq::SliceRandom, Rng};
+    use rand::{seq::SliceRandom, CryptoRng, Rng};
 
     use crate::{
         dummy,
@@ -1784,7 +1785,9 @@ mod tests_ocaml {
                 Memo, Signature,
             },
         },
-        staged_ledger::diff::PreDiffOne,
+        staged_ledger::diff::{
+            PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase,
+        },
         util,
     };
 
@@ -2596,6 +2599,43 @@ mod tests_ocaml {
         };
     }
 
+    /// Deterministically compute a prover public key from a snark work statement.
+    fn stmt_to_prover(stmt: &work::Statement) -> CompressedPubKey {
+        use rand::RngCore;
+        use rand_pcg::Pcg64;
+        use rand_seeder::Seeder;
+
+        struct MyRng(Pcg64);
+
+        impl RngCore for MyRng {
+            fn next_u32(&mut self) -> u32 {
+                self.0.next_u32()
+            }
+
+            fn next_u64(&mut self) -> u64 {
+                self.0.next_u64()
+            }
+
+            fn fill_bytes(&mut self, dest: &mut [u8]) {
+                self.0.fill_bytes(dest)
+            }
+
+            fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+                self.0.try_fill_bytes(dest)
+            }
+        }
+
+        impl CryptoRng for MyRng {}
+
+        let seed = stmt.fold(vec![b'P'], |mut accum, v| {
+            accum.extend_from_slice(&v.target.ledger.to_bytes());
+            accum
+        });
+        let rng: Pcg64 = Seeder::from(&seed).make_rng();
+
+        Keypair::rand(&mut MyRng(rng)).public.into_compressed()
+    }
+
     fn proofs(stmt: &work::Statement) -> OneOrTwo<LedgerProof> {
         stmt.map(|statement| {
             LedgerProof::create(
@@ -3091,6 +3131,488 @@ mod tests_ocaml {
 
                 // Note(OCaml): if this fails, try increasing the number of trials to get a diff that does fail
                 assert!(checked);
+            },
+        );
+    }
+
+    const WORK_FEE: Fee = CONSTRAINT_CONSTANTS.account_creation_fee;
+
+    /// Provers can't pay the account creation fee
+    #[test]
+    fn provers_cant_pay_the_account_creation_fee() {
+        let no_work_included = |diff: &Diff| diff.completed_works().is_empty();
+
+        let stmt_to_work = |stmts: &work::Statement| {
+            Some(work::Checked {
+                fee: WORK_FEE.checked_sub(&Fee::from_u64(1)).unwrap(),
+                proofs: proofs(stmts),
+                prover: stmt_to_prover(stmts),
+            })
+        };
+        let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.to_vec(),
+            iters.to_vec(),
+            |sl, _test_mask| {
+                iter_cmds_acc(
+                    &cmds,
+                    &iters,
+                    (),
+                    |_cmds_left, _count_opt, cmds_this_iter, _| {
+                        let (diff, _invalid_txns) = sl
+                            .create_diff(
+                                &CONSTRAINT_CONSTANTS,
+                                None,
+                                COINBASE_RECEIVER.clone(),
+                                LOGGER,
+                                &dummy_state_view(None),
+                                cmds_this_iter.to_vec(),
+                                stmt_to_work,
+                                true,
+                            )
+                            .unwrap();
+
+                        let diff = diff.forget();
+
+                        // No proofs were purchased since the fee for the proofs are not
+                        // sufficient to pay for account creation
+                        assert!(no_work_included(&diff));
+
+                        (diff, ())
+                    },
+                );
+            },
+        );
+    }
+
+    fn stmt_to_work_restricted(
+        work_list: &[work::Statement],
+        provers: NumProvers,
+    ) -> impl Fn(&work::Statement) -> Option<work::Checked> + '_ {
+        move |stmts: &work::Statement| {
+            if work_list.contains(stmts) {
+                let prover = match provers {
+                    NumProvers::Many => stmt_to_prover(stmts),
+                    NumProvers::One => SNARK_WORKER_PK.clone(),
+                };
+                Some(work::Checked {
+                    fee: WORK_FEE,
+                    proofs: proofs(stmts),
+                    prover,
+                })
+            } else {
+                None
+            }
+        }
+    }
+
+    /// Like test_simple but with a random number of completed jobs available.
+    fn test_random_number_of_proofs(
+        init: &LedgerInitialState,
+        cmds: Vec<valid::UserCommand>,
+        cmd_iters: Vec<Option<usize>>,
+        proof_available: Vec<usize>,
+        mut sl: StagedLedger,
+        test_mask: Mask,
+        provers: NumProvers,
+    ) {
+        let mut niters = 0;
+
+        let proofs_available_left = iter_cmds_acc(
+            &cmds,
+            &cmd_iters,
+            proof_available,
+            |cmds_left, _count_opt, cmds_this_iter, mut proofs_available_left| {
+                eprintln!("######## Start new batch {} ########", niters);
+                eprintln!("nto_applied={:?}", cmds_this_iter.len());
+
+                let work_list = sl.scan_state.all_work_statements_exn();
+
+                let proofs_available_this_iter = *proofs_available_left.first().unwrap();
+
+                let (proof, diff) = create_and_apply(
+                    None,
+                    None,
+                    &mut sl,
+                    cmds_this_iter,
+                    stmt_to_work_restricted(
+                        util::take(&work_list, proofs_available_this_iter),
+                        provers,
+                    ),
+                );
+
+                assert_fee_excess(&proof);
+
+                let cmds_applied_this_iter = diff.commands().len();
+
+                let cb = coinbase_count(&diff);
+
+                assert!(proofs_available_this_iter == 0 || cb > 0);
+
+                match provers {
+                    NumProvers::One => assert!(cb <= 1),
+                    NumProvers::Many => assert!(cb <= 2),
+                }
+
+                let coinbase_cost = coinbase_cost(&diff);
+
+                assert_ledger(
+                    test_mask.clone(),
+                    coinbase_cost,
+                    &sl,
+                    cmds_left,
+                    cmds_applied_this_iter,
+                    &init_pks(init),
+                );
+
+                proofs_available_left.remove(0);
+
+                eprintln!(
+                    "######## Batch {} done: {} applied, {} proofs ########\n",
+                    niters, cmds_applied_this_iter, proofs_available_this_iter
+                );
+
+                niters += 1;
+
+                (diff, proofs_available_left)
+            },
+        );
+
+        assert!(proofs_available_left.is_empty());
+    }
+
+    /// max throughput-random number of proofs-worst case provers
+    ///
+    /// Always at worst case number of provers
+    #[test]
+    fn max_throughput_random_number_of_proofs_worst_case_provers() {
+        let mut rng = rand::thread_rng();
+
+        let (ledger_init_state, cmds, iters) = gen_at_capacity();
+
+        // How many proofs will be available at each iteration.
+        //
+        // (OCaml) I think in the worst case every user command begets 1.5
+        // transactions - one for the command and half of one for a fee
+        // transfer - and the merge overhead means you need (amortized) twice
+        // as many SNARKs as transactions, but since a SNARK work usually
+        // covers two SNARKS it cancels. So we need to admit up to (1.5 * the
+        // number of commands) works. I make it twice as many for simplicity
+        // and to cover coinbases.
+        let proofs_available: Vec<usize> = iters
+            .iter()
+            .map(|_| rng.gen_range(0..(TRANSACTION_CAPACITY * 2)))
+            .collect();
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.clone(),
+            iters.clone(),
+            |sl, test_mask| {
+                test_random_number_of_proofs(
+                    &ledger_init_state,
+                    cmds.clone(),
+                    iters.clone(),
+                    proofs_available.clone(),
+                    sl,
+                    test_mask,
+                    NumProvers::Many,
+                )
+            },
+        );
+    }
+
+    /// random no of transactions-random number of proofs-worst case provers
+    #[test]
+    fn random_number_of_transactions_random_number_of_proofs_worst_case_provers() {
+        let mut rng = rand::thread_rng();
+
+        let (ledger_init_state, cmds, iters) = gen_below_capacity(Some(true));
+
+        let proofs_available: Vec<usize> = iters
+            .iter()
+            .map(|cmds_opt| rng.gen_range(0..(3 * cmds_opt.unwrap())))
+            .collect();
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.clone(),
+            iters.clone(),
+            |sl, test_mask| {
+                test_random_number_of_proofs(
+                    &ledger_init_state,
+                    cmds.clone(),
+                    iters.clone(),
+                    proofs_available.clone(),
+                    sl,
+                    test_mask,
+                    NumProvers::Many,
+                )
+            },
+        );
+    }
+
+    /// Random number of commands-random number of proofs-one prover
+    #[test]
+    fn random_number_of_commands_random_number_of_proofs_one_prover() {
+        let mut rng = rand::thread_rng();
+
+        let (ledger_init_state, cmds, iters) = gen_below_capacity(Some(true));
+
+        let proofs_available: Vec<usize> = iters
+            .iter()
+            .map(|cmds_opt| rng.gen_range(0..(3 * cmds_opt.unwrap())))
+            .collect();
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.clone(),
+            iters.clone(),
+            |sl, test_mask| {
+                test_random_number_of_proofs(
+                    &ledger_init_state,
+                    cmds.clone(),
+                    iters.clone(),
+                    proofs_available.clone(),
+                    sl,
+                    test_mask,
+                    NumProvers::One,
+                )
+            },
+        );
+    }
+
+    fn stmt_to_work_random_fee(
+        work_list: &[(work::Statement, Fee)],
+        provers: NumProvers,
+    ) -> impl Fn(&work::Statement) -> Option<work::Checked> + '_ {
+        move |stmts: &work::Statement| {
+            work_list.iter().find(|(w, _)| w == stmts).map(|(_, fee)| {
+                let prover = match provers {
+                    NumProvers::Many => stmt_to_prover(stmts),
+                    NumProvers::One => SNARK_WORKER_PK.clone(),
+                };
+
+                work::Checked {
+                    fee: *fee,
+                    proofs: proofs(stmts),
+                    prover,
+                }
+            })
+        }
+    }
+
+    /// Like test_random_number_of_proofs but with random proof fees.
+    fn test_random_proof_fee(
+        _init: &LedgerInitialState,
+        cmds: Vec<valid::UserCommand>,
+        cmd_iters: Vec<Option<usize>>,
+        proof_available: Vec<(usize, Vec<Fee>)>,
+        mut sl: StagedLedger,
+        _test_mask: Mask,
+        provers: NumProvers,
+    ) {
+        let mut niters = 0;
+
+        let proofs_available_left = iter_cmds_acc(
+            &cmds,
+            &cmd_iters,
+            proof_available,
+            |_cmds_left, _count_opt, cmds_this_iter, mut proofs_available_left| {
+                eprintln!("######## Start new batch {} ########", niters);
+                eprintln!("nto_applied={:?}", cmds_this_iter.len());
+
+                let work_list = sl.scan_state.all_work_statements_exn();
+
+                let (proofs_available_this_iter, fees_for_each) =
+                    proofs_available_left.first().unwrap();
+                let proofs_available_this_iter = *proofs_available_this_iter;
+
+                let work_to_be_done = {
+                    let work_list = util::take(&work_list, proofs_available_this_iter).to_vec();
+                    let fees = util::take(fees_for_each, work_list.len()).to_vec();
+                    work_list.into_iter().zip(fees).collect::<Vec<_>>()
+                };
+
+                let (_proof, diff) = create_and_apply(
+                    None,
+                    None,
+                    &mut sl,
+                    cmds_this_iter,
+                    stmt_to_work_random_fee(&work_to_be_done, provers),
+                );
+
+                let sorted_work_from_diff1 = |pre_diff: &PreDiffWithAtMostTwoCoinbase| {
+                    let mut pre_diff = pre_diff.completed_works.clone();
+                    pre_diff.sort_by_key(|v| v.fee);
+                    pre_diff
+                };
+
+                let sorted_work_from_diff2 = |pre_diff: &Option<PreDiffWithAtMostOneCoinbase>| {
+                    pre_diff
+                        .as_ref()
+                        .map(|pre_diff| {
+                            let mut pre_diff = pre_diff.completed_works.clone();
+                            pre_diff.sort_by_key(|v| v.fee);
+                            pre_diff
+                        })
+                        .unwrap_or_else(Vec::new)
+                };
+
+                {
+                    let assert_same_fee = |cb: CoinbaseFeeTransfer, fee: Fee| {
+                        assert_eq!(cb.fee, fee);
+                    };
+
+                    let (first_pre_diff, second_pre_diff_opt) = &diff.diff;
+
+                    match (
+                        first_pre_diff.coinbase.clone(),
+                        second_pre_diff_opt
+                            .as_ref()
+                            .map(|d| d.coinbase.clone())
+                            .unwrap_or(AtMostOne::Zero),
+                    ) {
+                        (AtMostTwo::Zero, AtMostOne::Zero) => {}
+                        (AtMostTwo::Two(None), AtMostOne::Zero) => {}
+
+                        (AtMostTwo::One(ft_opt), AtMostOne::Zero) => {
+                            if let Some(single) = ft_opt {
+                                let work = sorted_work_from_diff1(first_pre_diff);
+                                let work = work[0].clone().forget();
+                                assert_same_fee(single, work.fee);
+                            };
+                        }
+
+                        (AtMostTwo::Zero, AtMostOne::One(ft_opt)) => {
+                            if let Some(single) = ft_opt {
+                                let work = sorted_work_from_diff2(second_pre_diff_opt);
+                                let work = work[0].clone().forget();
+                                assert_same_fee(single, work.fee);
+                            };
+                        }
+
+                        (AtMostTwo::Two(Some((ft, ft_opt))), AtMostOne::Zero) => {
+                            let work_done = sorted_work_from_diff1(first_pre_diff);
+                            let work = work_done[0].clone().forget();
+                            assert_same_fee(ft, work.fee);
+
+                            if let Some(single) = ft_opt {
+                                let work = util::drop(&work_done, 1);
+                                let work = work[0].clone().forget();
+                                assert_same_fee(single, work.fee);
+                            };
+                        }
+
+                        (AtMostTwo::One(_), AtMostOne::One(_)) => {
+                            panic!("Incorrect coinbase in the diff {:?}", &diff)
+                        }
+                        (AtMostTwo::Two(_), AtMostOne::One(_)) => {
+                            panic!("Incorrect coinbase in the diff {:?}", &diff)
+                        }
+                    }
+                }
+
+                proofs_available_left.remove(0);
+
+                eprintln!(
+                    "######## Batch {} done: {} proofs ########\n",
+                    niters, proofs_available_this_iter
+                );
+
+                niters += 1;
+
+                (diff, proofs_available_left)
+            },
+        );
+
+        assert!(proofs_available_left.is_empty());
+    }
+
+    /// max throughput-random-random fee-number of proofs-worst case provers
+    ///
+    /// Always at worst case number of provers
+    #[test]
+    fn max_throughput_random_number_fee_number_of_proofs_worst_case_provers() {
+        let mut rng = rand::thread_rng();
+
+        let (ledger_init_state, cmds, iters) = gen_at_capacity();
+
+        // How many proofs will be available at each iteration.
+        let proofs_available: Vec<(usize, Vec<Fee>)> = iters
+            .iter()
+            .map(|_| {
+                let number_of_proofs = rng.gen_range(0..TRANSACTION_CAPACITY * 2);
+                let fees = (0..number_of_proofs)
+                    .map(|_| {
+                        let fee = rng.gen_range(1..20);
+                        Fee::from_u64(fee)
+                    })
+                    .collect();
+
+                (number_of_proofs, fees)
+            })
+            .collect();
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.clone(),
+            iters.clone(),
+            |sl, test_mask| {
+                test_random_proof_fee(
+                    &ledger_init_state,
+                    cmds.clone(),
+                    iters.clone(),
+                    proofs_available.clone(),
+                    sl,
+                    test_mask,
+                    NumProvers::Many,
+                )
+            },
+        );
+    }
+
+    /// Max throughput-random fee
+    #[test]
+    fn max_throughput_random_fee() {
+        let mut rng = rand::thread_rng();
+
+        let (ledger_init_state, cmds, iters) = gen_at_capacity();
+
+        // How many proofs will be available at each iteration.
+        let proofs_available: Vec<(usize, Vec<Fee>)> = iters
+            .iter()
+            .map(|_| {
+                let number_of_proofs = TRANSACTION_CAPACITY;
+                // All proofs are available
+
+                let fees = (0..number_of_proofs)
+                    .map(|_| {
+                        let fee = rng.gen_range(1..20);
+                        Fee::from_u64(fee)
+                    })
+                    .collect();
+
+                (number_of_proofs, fees)
+            })
+            .collect();
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.clone(),
+            iters.clone(),
+            |sl, test_mask| {
+                test_random_proof_fee(
+                    &ledger_init_state,
+                    cmds.clone(),
+                    iters.clone(),
+                    proofs_available.clone(),
+                    sl,
+                    test_mask,
+                    NumProvers::Many,
+                )
             },
         );
     }

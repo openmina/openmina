@@ -340,6 +340,16 @@ pub mod transaction_snark {
                 (Two(_), One(_)) => panic!("One_or_two.zip mismatched"),
             }
         }
+
+        pub fn fold<A, F>(&self, init: A, fun: F) -> A
+        where
+            F: Fn(A, &T) -> A,
+        {
+            match self {
+                OneOrTwo::One(a) => fun(init, a),
+                OneOrTwo::Two((a, b)) => fun(fun(init, a), b),
+            }
+        }
     }
 
     pub struct OneOrTwoIter<'a, T> {
