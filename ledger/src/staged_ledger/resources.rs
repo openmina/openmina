@@ -540,8 +540,8 @@ impl Resources {
 
             let budget = match current_budget {
                 Ok(b) => b
-                    .checked_add(&to_be_discarded_fee)
-                    .ok_or_else(|| "Currency overflow".to_string()),
+                    .checked_sub(&to_be_discarded_fee)
+                    .ok_or_else(|| "Fee insufficient".to_string()),
                 Err(_) => self.rebudget(),
             };
 
