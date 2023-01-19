@@ -1,18 +1,18 @@
 use mina_p2p_messages::v2::NonZeroCurvePoint;
 
 use crate::p2p::pubsub::P2pPubsubMessagePublishAction;
-use crate::Store;
 use crate::{
     p2p::connection::outgoing::P2pConnectionOutgoingInitAction,
     watched_accounts::WatchedAccountsAddAction,
 };
+use crate::{Service, Store};
 
 use super::{
-    RpcAction, RpcActionWithMeta, RpcFinishAction, RpcP2pConnectionOutgoingPendingAction,
-    RpcService, WatchedAccountInfo, WatchedAccountsGetError,
+    ActionStatsQuery, ActionStatsResponse, RpcAction, RpcActionWithMeta, RpcFinishAction,
+    RpcP2pConnectionOutgoingPendingAction, WatchedAccountInfo, WatchedAccountsGetError,
 };
 
-pub fn rpc_effects<S: RpcService>(store: &mut Store<S>, action: RpcActionWithMeta) {
+pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) {
     let (action, _) = action.split();
 
     match action {
@@ -21,6 +21,16 @@ pub fn rpc_effects<S: RpcService>(store: &mut Store<S>, action: RpcActionWithMet
                 .service
                 .respond_state_get(action.rpc_id, store.state.get());
         }
+        RpcAction::ActionStatsGet(action) => match action.query {
+            ActionStatsQuery::SinceStart => {
+                let resp = store
+                    .service
+                    .stats()
+                    .map(|s| s.collect_action_stats_since_start())
+                    .map(|s| ActionStatsResponse::SinceStart(s));
+                let _ = store.service.respond_action_stats_get(action.rpc_id, resp);
+            }
+        },
         RpcAction::P2pConnectionOutgoingInit(action) => {
             let (rpc_id, opts) = (action.rpc_id, action.opts);
             store.dispatch(P2pConnectionOutgoingInitAction {

@@ -7,6 +7,7 @@ use redux::Instant;
 use wasm_bindgen_futures::spawn_local;
 
 use lib::event_source::{Event, SnarkEvent};
+use lib::service::Stats;
 use lib::snark::block_verify::{SnarkBlockVerifyError, VerifiableBlockWithHash};
 
 pub mod libp2p;
@@ -60,6 +61,7 @@ impl From<mpsc::Receiver<Event>> for EventReceiver {
 }
 
 pub struct NodeWasmService {
+    pub stats: Option<Stats>,
     pub event_source_sender: mpsc::Sender<Event>,
     pub event_source_receiver: EventReceiver,
 
@@ -67,7 +69,11 @@ pub struct NodeWasmService {
     pub rpc: RpcService,
 }
 
-impl lib::Service for NodeWasmService {}
+impl lib::Service for NodeWasmService {
+    fn stats(&mut self) -> Option<&mut Stats> {
+        self.stats.as_mut()
+    }
+}
 impl redux::Service for NodeWasmService {}
 impl lib::service::TimeService for NodeWasmService {
     fn monotonic_time(&mut self) -> Instant {

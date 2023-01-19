@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         dir
     };
 
-    let action_def_re = Regex::new(r"^pub (struct|enum) ([a-zA-Z0-9]*Action)").unwrap();
+    let action_def_re = Regex::new(r"^pub (struct|enum) ([a-zA-Z0-9]*Action)( |\n)\{").unwrap();
     let action_enum_variant_re = Regex::new(r"([a-zA-Z0-9]*)\(([a-zA-Z0-9]*Action)\)").unwrap();
 
     let mut use_statements: BTreeMap<Vec<String>, Vec<String>> = Default::default();
@@ -125,7 +125,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     })?;
 
-    let use_deps = ["use serde::{Serialize, Deserialize};"].join("\n");
+    let use_deps = [
+        "use serde::{Serialize, Deserialize};",
+        "use num_enum::TryFromPrimitive;",
+    ]
+    .join("\n");
     let use_statements = use_statements
         .into_iter()
         .map(|(k, v)| {
@@ -140,18 +144,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect::<Vec<_>>()
         .join("\n");
 
-    let action_kinds = actions
+    let action_kinds_iter = actions
         .iter()
         .filter(|(_, meta)| meta.is_struct())
         // Remove suffix `Action` from action name.
-        .map(|(name, _)| name[..(name.len() - 6)].to_string())
+        .map(|(name, _)| name[..(name.len() - 6)].to_string());
+    let action_kinds = std::iter::once("None".to_owned())
+        .chain(action_kinds_iter)
         .collect::<Vec<_>>()
         .join(",\n    ");
 
     let action_kind_def = {
         let der =
-            "#[derive(Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]";
-        format!("{der}\npub enum ActionKind {{\n    {action_kinds}\n}}")
+            "#[derive(Serialize, Deserialize, TryFromPrimitive, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]";
+        let repr = "#[repr(u16)]";
+        format!("{der}\n{repr}\npub enum ActionKind {{\n    {action_kinds}\n}}")
     };
 
     let action_kind_get_impls = {

@@ -7,6 +7,7 @@ impl RpcState {
         let (action, meta) = action.split();
         match action {
             RpcAction::GlobalStateGet(_) => {}
+            RpcAction::ActionStatsGet(_) => {}
             RpcAction::P2pConnectionOutgoingInit(content) => {
                 let rpc_state = RpcRequestState {
                     req: RpcRequest::P2pConnectionOutgoing(content.opts.clone()),

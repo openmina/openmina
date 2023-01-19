@@ -3,13 +3,17 @@ use libp2p::futures::SinkExt;
 use wasm_bindgen_futures::spawn_local;
 
 use lib::event_source::Event;
-use lib::rpc::{RespondError, RpcId, RpcIdType, WatchedAccountInfo, WatchedAccountsGetError};
+use lib::rpc::{
+    ActionStatsResponse, RespondError, RpcId, RpcIdType, WatchedAccountInfo,
+    WatchedAccountsGetError,
+};
 use lib::State;
 use shared::requests::PendingRequests;
 
 use crate::{NodeWasmService, WasmRpcRequest};
 
 pub type RpcStateGetResponse = Box<State>;
+pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcP2pPubsubPublishResponse = Result<(), String>;
 pub type RpcWatchedAccountsAddResponse = bool;
@@ -64,6 +68,21 @@ impl lib::rpc::RpcService for NodeWasmService {
             .or(Err(RespondError::UnexpectedResponseType))?;
         // TODO(binier): don't ignore error
         let _ = chan.send(Box::new(response.clone()));
+        Ok(())
+    }
+
+    fn respond_action_stats_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: Option<ActionStatsResponse>,
+    ) -> Result<(), RespondError> {
+        let entry = self.rpc.pending.remove(rpc_id);
+        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
+        let chan = chan
+            .downcast::<oneshot::Sender<RpcActionStatsGetResponse>>()
+            .or(Err(RespondError::UnexpectedResponseType))?;
+        // TODO(binier): don't ignore error
+        let _ = chan.send(response);
         Ok(())
     }
 

@@ -27,6 +27,12 @@ pub enum Action {
     WatchedAccounts(WatchedAccountsAction),
 }
 
+impl Action {
+    pub fn kind(&self) -> crate::ActionKind {
+        ActionKindGet::kind(self)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CheckTimeoutsAction {}
 

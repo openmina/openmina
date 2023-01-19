@@ -28,13 +28,13 @@ use lib::p2p::connection::outgoing::{
 };
 use lib::p2p::pubsub::{GossipNetMessageV2, PubsubTopic};
 use lib::p2p::PeerId;
-use lib::rpc::{RpcRequest, WatchedAccountsGetError};
+use lib::rpc::{ActionStatsQuery, RpcRequest, WatchedAccountsGetError};
 
 mod service;
 use service::libp2p::Libp2pService;
 use service::rpc::{
-    RpcP2pConnectionOutgoingResponse, RpcP2pPubsubPublishResponse, RpcService, RpcStateGetResponse,
-    RpcWatchedAccountsAddResponse, RpcWatchedAccountsGetResponse,
+    RpcActionStatsGetResponse, RpcP2pConnectionOutgoingResponse, RpcP2pPubsubPublishResponse,
+    RpcService, RpcStateGetResponse, RpcWatchedAccountsAddResponse, RpcWatchedAccountsGetResponse,
 };
 pub use service::NodeWasmService;
 
@@ -107,6 +107,8 @@ pub async fn run(mut node: Node) {
         rpc_id: None,
     });
     loop {
+        node.store_mut().dispatch(EventSourceWaitForEventsAction {});
+
         let service = &mut node.store_mut().service;
         let wait_for_events = service.event_source_receiver.wait_for_events();
         let wasm_rpc_req_fut = service.rpc.wasm_req_receiver().next().then(|res| async {
@@ -123,7 +125,6 @@ pub async fn run(mut node: Node) {
                 while node.store_mut().service.event_source_receiver.has_next() {
                     node.store_mut().dispatch(EventSourceProcessEventsAction {});
                 }
-                node.store_mut().dispatch(EventSourceWaitForEventsAction {});
             }
             req = wasm_rpc_req_fut.fuse() => {
                 node.store_mut().service.process_wasm_rpc_request(req);
@@ -236,6 +237,7 @@ pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
 
     let (libp2p, manual_connector) = Libp2pService::run(tx.clone()).await;
     let mut service = NodeWasmService {
+        stats: Some(Default::default()),
         event_source_sender: tx.clone(),
         event_source_receiver: rx.into(),
         libp2p,
@@ -438,6 +440,15 @@ impl JsHandle {
     pub async fn global_state_get(&self) -> JsValue {
         let req = RpcRequest::GetState;
         let res = self.rpc.oneshot_request::<RpcStateGetResponse>(req).await;
+        JsValue::from_serde(&res).unwrap()
+    }
+
+    pub async fn action_stats_since_start_get(&self) -> JsValue {
+        let req = RpcRequest::ActionStatsGet(ActionStatsQuery::SinceStart);
+        let res = self
+            .rpc
+            .oneshot_request::<RpcActionStatsGetResponse>(req)
+            .await;
         JsValue::from_serde(&res).unwrap()
     }
 
