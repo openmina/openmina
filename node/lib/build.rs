@@ -200,5 +200,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     fs::write(crate_dir.join("src/action_kind.rs"), contents)?;
 
+    std::process::Command::new("cargo").arg("fmt").output()?;
+
     Ok(())
 }
