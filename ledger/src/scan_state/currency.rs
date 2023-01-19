@@ -174,6 +174,10 @@ impl Balance {
             self.sub_flagged(&rhs.magnitude)
         }
     }
+
+    pub fn to_amount(self) -> Amount {
+        Amount(self.0)
+    }
 }
 
 impl Index {
@@ -266,8 +270,11 @@ macro_rules! impl_number {
             }
 
             /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/currency/currency.ml#L379
-            pub fn scale(&self, n: $inner) -> Option<Self> {
-                self.checked_mul(&Self::$from_name(n))
+            pub const fn scale(&self, n: $inner) -> Option<Self> {
+                match self.0.checked_mul(n) {
+                    Some(n) => Some(Self(n)),
+                    None => None
+                }
             }
 
             pub fn min() -> Self {

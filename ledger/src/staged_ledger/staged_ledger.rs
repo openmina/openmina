@@ -1768,7 +1768,7 @@ impl StagedLedger {
 mod tests_ocaml {
     use std::str::FromStr;
 
-    use ark_ff::Zero;
+    use ark_ff::{One, UniformRand, Zero};
     use mina_signer::Keypair;
     use o1_utils::FieldHelpers;
     use once_cell::sync::Lazy;
@@ -3615,5 +3615,433 @@ mod tests_ocaml {
                 )
             },
         );
+    }
+
+    fn check_pending_coinbase() {
+        // TODO: this seems to be related to proof generation ? Which we don't support yet
+    }
+
+    fn test_pending_coinbase(
+        init: &LedgerInitialState,
+        cmds: Vec<valid::UserCommand>,
+        cmd_iters: Vec<Option<usize>>,
+        proof_available: Vec<usize>,
+        state_body_hashes: Vec<(Fp, Fp)>,
+        current_state_view: &ProtocolStateView,
+        mut sl: StagedLedger,
+        test_mask: Mask,
+        provers: NumProvers,
+    ) {
+        let (proofs_available_left, _state_body_hashes_left) = iter_cmds_acc(
+            &cmds,
+            &cmd_iters,
+            (proof_available, state_body_hashes),
+            |cmds_left,
+             _count_opt,
+             cmds_this_iter,
+             (mut proofs_available_left, mut state_body_hashes)| {
+                let work_list = sl.scan_state.all_work_statements_exn();
+                let proofs_available_this_iter = proofs_available_left[0];
+
+                let state_body_hash = state_body_hashes[0];
+
+                let (proof, diff, _is_new_stack, _pc_update, _supercharge_coinbase) =
+                    create_and_apply_with_state_body_hash(
+                        None,
+                        None,
+                        current_state_view,
+                        state_body_hash,
+                        &mut sl,
+                        cmds_this_iter,
+                        stmt_to_work_restricted(
+                            util::take(&work_list, proofs_available_this_iter),
+                            provers,
+                        ),
+                    );
+
+                check_pending_coinbase();
+
+                assert_fee_excess(&proof);
+
+                let cmds_applied_this_iter = diff.commands().len();
+
+                let cb = coinbase_count(&diff);
+
+                assert!(proofs_available_this_iter == 0 || cb > 0);
+
+                match provers {
+                    NumProvers::One => assert!(cb <= 1),
+                    NumProvers::Many => assert!(cb <= 2),
+                }
+
+                let coinbase_cost = coinbase_cost(&diff);
+
+                assert_ledger(
+                    test_mask.clone(),
+                    coinbase_cost,
+                    &sl,
+                    cmds_left,
+                    cmds_applied_this_iter,
+                    &init_pks(init),
+                );
+
+                proofs_available_left.remove(0);
+                state_body_hashes.remove(0);
+
+                (diff, (proofs_available_left, state_body_hashes))
+            },
+        );
+
+        assert!(proofs_available_left.is_empty());
+    }
+
+    fn pending_coinbase_test(prover: NumProvers) {
+        let mut rng = rand::thread_rng();
+
+        let (ledger_init_state, cmds, iters) = gen_below_capacity(Some(true));
+
+        let proofs_available: Vec<usize> = iters
+            .iter()
+            .map(|cmds_opt| rng.gen_range(0..(3 * cmds_opt.unwrap())))
+            .collect();
+
+        let state_body_hashes: Vec<(Fp, Fp)> = iters
+            .iter()
+            .map(|_| (Fp::rand(&mut rng), Fp::rand(&mut rng)))
+            .collect();
+
+        let current_state_view = dummy_state_view(None);
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.clone(),
+            iters.clone(),
+            |sl, test_mask| {
+                test_pending_coinbase(
+                    &ledger_init_state,
+                    cmds.clone(),
+                    iters.clone(),
+                    proofs_available.clone(),
+                    state_body_hashes.clone(),
+                    &current_state_view,
+                    sl,
+                    test_mask,
+                    prover,
+                )
+            },
+        );
+    }
+
+    /// Validate pending coinbase for random number of
+    /// commands-random number of proofs-one prover)
+    #[test]
+    fn validate_pending_coinbase_for_random_number_of_commands_one_prover() {
+        pending_coinbase_test(NumProvers::One);
+    }
+
+    /// Validate pending coinbase for random number of
+    /// commands-random number of proofs-many prover)
+    #[test]
+    fn validate_pending_coinbase_for_random_number_of_commands_many_prover() {
+        pending_coinbase_test(NumProvers::Many);
+    }
+
+    fn timed_account(_n: usize) -> (Keypair, Account) {
+        let keypair = gen_keypair();
+        let account_id = AccountId::new(keypair.public.into_compressed(), TokenId::default());
+        let balance = Balance::from_u64(100_000_000_000);
+        // Should fully vest by slot = 7
+        let mut account = Account::create_with(account_id, balance);
+        account.timing = crate::Timing::Timed {
+            initial_minimum_balance: balance,
+            cliff_time: Slot::from_u32(4),
+            cliff_amount: Amount::zero(),
+            vesting_period: Slot::from_u32(2),
+            vesting_increment: Amount::from_u64(50_000_000_000),
+        };
+        (keypair, account)
+    }
+
+    fn untimed_account(_n: usize) -> (Keypair, Account) {
+        let keypair = gen_keypair();
+        let account_id = AccountId::new(keypair.public.into_compressed(), TokenId::default());
+        let balance = Balance::from_u64(100_000_000_000);
+        let account = Account::create_with(account_id, balance);
+        (keypair, account)
+    }
+
+    fn stmt_to_work_zero_fee(
+        prover: CompressedPubKey,
+    ) -> impl Fn(&work::Statement) -> Option<work::Checked> {
+        move |stmts: &work::Statement| {
+            Some(work::Checked {
+                fee: Fee::zero(),
+                proofs: proofs(stmts),
+                prover: prover.clone(),
+            })
+        }
+    }
+
+    fn supercharge_coinbase_test<F>(
+        this: Account,
+        delegator: Account,
+        block_count: usize,
+        f_expected_balance: F,
+        sl: &mut StagedLedger,
+    ) where
+        F: Fn(usize, Balance) -> Balance,
+    {
+        let coinbase_receiver = &this;
+        let init_balance = coinbase_receiver.balance;
+
+        let check_receiver_account = |sl: &StagedLedger, count: usize| {
+            let location = sl
+                .ledger
+                .location_of_account(&coinbase_receiver.id())
+                .unwrap();
+            let account = sl.ledger.get(location).unwrap();
+            dbg!(account.balance, f_expected_balance(count, init_balance));
+            assert_eq!(account.balance, f_expected_balance(count, init_balance));
+        };
+
+        (0..block_count).map(|n| n + 1).for_each(|block_count| {
+            create_and_apply_with_state_body_hash(
+                Some(coinbase_receiver.public_key.clone()),
+                Some(delegator.public_key.clone()),
+                &dummy_state_view(Some(Slot::from_u32(block_count.try_into().unwrap()))),
+                (Fp::zero(), Fp::zero()),
+                sl,
+                &[],
+                stmt_to_work_zero_fee(this.public_key.clone()),
+            );
+            check_receiver_account(sl, block_count);
+        });
+    }
+
+    const NORMAL_COINBASE: Amount = CONSTRAINT_CONSTANTS.coinbase_amount;
+
+    const fn scale_exn(amount: Amount, i: u64) -> Amount {
+        match amount.scale(i) {
+            Some(amount) => amount,
+            None => panic!(),
+        }
+    }
+
+    const SUPERCHARGED_COINBASE: Amount = scale_exn(
+        CONSTRAINT_CONSTANTS.coinbase_amount,
+        CONSTRAINT_CONSTANTS.supercharged_coinbase_factor,
+    );
+
+    /// Supercharged coinbase - staking
+    #[test]
+    fn supercharged_coinbase_staking() {
+        let (keypair_this, this) = timed_account(1);
+
+        // calculated from the timing values for timed_accounts
+        let slots_with_locked_tokens = 7;
+
+        let block_count = slots_with_locked_tokens + 5;
+
+        let f_expected_balance = |block_no: usize, init_balance: Balance| {
+            if block_no <= slots_with_locked_tokens {
+                init_balance
+                    .add_amount(scale_exn(NORMAL_COINBASE, block_no as u64))
+                    .unwrap()
+            } else {
+                // init balance +
+                //    (normal_coinbase * slots_with_locked_tokens) +
+                //    (supercharged_coinbase * remaining slots))*)
+                let balance = init_balance
+                    .add_amount(scale_exn(NORMAL_COINBASE, slots_with_locked_tokens as u64))
+                    .unwrap();
+                let amount = scale_exn(
+                    SUPERCHARGED_COINBASE,
+                    (block_no.checked_sub(slots_with_locked_tokens).unwrap()) as u64,
+                );
+                balance.add_amount(amount).unwrap()
+            }
+        };
+
+        let mut ledger_init_state = gen_initial_ledger_state();
+
+        ledger_init_state.state.insert(
+            0,
+            (
+                keypair_this,
+                this.balance.to_amount(),
+                this.nonce,
+                this.timing.clone(),
+            ),
+        );
+
+        async_with_ledgers(&ledger_init_state, vec![], vec![], |mut sl, _test_mask| {
+            supercharge_coinbase_test(
+                this.clone(),
+                this.clone(),
+                block_count,
+                f_expected_balance,
+                &mut sl,
+            )
+        });
+    }
+
+    /// Supercharged coinbase - unlocked account delegating to locked account
+    #[test]
+    fn supercharged_coinbase_unlocked_account_delegating_to_locked_account() {
+        let (keypair_this, locked_this) = timed_account(1);
+        let (keypair_delegator, unlocked_delegator) = untimed_account(1);
+
+        // calculated from the timing values for timed_accounts
+        let slots_with_locked_tokens = 7;
+
+        let block_count = slots_with_locked_tokens + 2;
+
+        let f_expected_balance = |block_no: usize, init_balance: Balance| {
+            init_balance
+                .add_amount(scale_exn(SUPERCHARGED_COINBASE, block_no as u64))
+                .unwrap()
+        };
+
+        let state = [
+            (
+                keypair_this,
+                locked_this.balance.to_amount(),
+                locked_this.nonce,
+                locked_this.timing.clone(),
+            ),
+            (
+                keypair_delegator,
+                unlocked_delegator.balance.to_amount(),
+                unlocked_delegator.nonce,
+                unlocked_delegator.timing.clone(),
+            ),
+        ]
+        .into_iter()
+        .chain(gen_initial_ledger_state().state)
+        .collect();
+
+        let ledger_init_state = LedgerInitialState { state };
+
+        async_with_ledgers(&ledger_init_state, vec![], vec![], |mut sl, _test_mask| {
+            supercharge_coinbase_test(
+                locked_this.clone(),
+                unlocked_delegator.clone(),
+                block_count,
+                f_expected_balance,
+                &mut sl,
+            )
+        });
+    }
+
+    /// Supercharged coinbase - locked account delegating to unlocked account
+    #[test]
+    fn supercharged_coinbase_locked_account_delegating_to_unlocked_account() {
+        let (keypair_this, unlocked_this) = untimed_account(1);
+        let (keypair_delegator, locked_delegator) = timed_account(1);
+
+        // calculated from the timing values for timed_accounts
+        let slots_with_locked_tokens = 7;
+
+        let block_count = slots_with_locked_tokens + 2;
+
+        let f_expected_balance = |block_no: usize, init_balance: Balance| {
+            if block_no <= slots_with_locked_tokens {
+                init_balance
+                    .add_amount(scale_exn(NORMAL_COINBASE, block_no as u64))
+                    .unwrap()
+            } else {
+                // init balance +
+                //    (normal_coinbase * slots_with_locked_tokens) +
+                //    (supercharged_coinbase * remaining slots))*)
+                let balance = init_balance
+                    .add_amount(scale_exn(NORMAL_COINBASE, slots_with_locked_tokens as u64))
+                    .unwrap();
+                let amount = scale_exn(
+                    SUPERCHARGED_COINBASE,
+                    (block_no.checked_sub(slots_with_locked_tokens).unwrap()) as u64,
+                );
+                balance.add_amount(amount).unwrap()
+            }
+        };
+
+        let state = [
+            (
+                keypair_this,
+                unlocked_this.balance.to_amount(),
+                unlocked_this.nonce,
+                unlocked_this.timing.clone(),
+            ),
+            (
+                keypair_delegator,
+                locked_delegator.balance.to_amount(),
+                locked_delegator.nonce,
+                locked_delegator.timing.clone(),
+            ),
+        ]
+        .into_iter()
+        .chain(gen_initial_ledger_state().state)
+        .collect();
+
+        let ledger_init_state = LedgerInitialState { state };
+
+        async_with_ledgers(&ledger_init_state, vec![], vec![], |mut sl, _test_mask| {
+            supercharge_coinbase_test(
+                unlocked_this.clone(),
+                locked_delegator.clone(),
+                block_count,
+                f_expected_balance,
+                &mut sl,
+            )
+        });
+    }
+
+    /// Supercharged coinbase - locked account delegating to locked account
+    #[test]
+    fn supercharged_coinbase_locked_account_delegating_to_locked_account() {
+        let (keypair_this, locked_this) = timed_account(1);
+        let (keypair_delegator, locked_delegator) = timed_account(2);
+
+        // calculated from the timing values for timed_accounts
+        let slots_with_locked_tokens = 7;
+
+        let block_count = slots_with_locked_tokens;
+
+        let f_expected_balance = |block_no: usize, init_balance: Balance| {
+            // running the test as long as both the accounts remain locked and hence
+            // normal coinbase in all the blocks
+            init_balance
+                .add_amount(scale_exn(NORMAL_COINBASE, block_no as u64))
+                .unwrap()
+        };
+
+        let state = [
+            (
+                keypair_this,
+                locked_this.balance.to_amount(),
+                locked_this.nonce,
+                locked_this.timing.clone(),
+            ),
+            (
+                keypair_delegator,
+                locked_delegator.balance.to_amount(),
+                locked_delegator.nonce,
+                locked_delegator.timing.clone(),
+            ),
+        ]
+        .into_iter()
+        .chain(gen_initial_ledger_state().state)
+        .collect();
+
+        let ledger_init_state = LedgerInitialState { state };
+
+        async_with_ledgers(&ledger_init_state, vec![], vec![], |mut sl, _test_mask| {
+            supercharge_coinbase_test(
+                locked_this.clone(),
+                locked_delegator.clone(),
+                block_count,
+                f_expected_balance,
+                &mut sl,
+            )
+        });
     }
 }
