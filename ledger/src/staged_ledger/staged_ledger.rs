@@ -2212,14 +2212,31 @@ mod tests_ocaml {
     }
 
     /// populate the ledger from an initial state before running the function
-    fn async_with_ledgers<F>(ledger_init_state: &LedgerInitialState, fun: F)
-    where
-        F: Fn(StagedLedger, Mask),
+    ///
+    /// Print the generated state when a panic occurs
+    fn async_with_ledgers<F>(
+        ledger_init_state: &LedgerInitialState,
+        cmds: Vec<valid::UserCommand>,
+        cmd_iters: Vec<Option<usize>>,
+        fun: F,
+    ) where
+        F: Fn(StagedLedger, Mask) + std::panic::UnwindSafe,
     {
-        let mut ephemeral_ledger = Mask::new_unattached(CONSTRAINT_CONSTANTS.ledger_depth as usize);
+        match std::panic::catch_unwind(move || {
+            let mut ephemeral_ledger =
+                Mask::new_unattached(CONSTRAINT_CONSTANTS.ledger_depth as usize);
 
-        apply_initialize_ledger_state(&mut ephemeral_ledger, ledger_init_state);
-        async_with_given_ledger(ephemeral_ledger, fun);
+            apply_initialize_ledger_state(&mut ephemeral_ledger, ledger_init_state);
+            async_with_given_ledger(ephemeral_ledger, fun);
+        }) {
+            Ok(_) => {}
+            Err(_) => {
+                eprintln!("state={:#?}", ledger_init_state);
+                eprintln!("cmds[{}]={:#?}", cmds.len(), cmds);
+                eprintln!("cmd_iters[{}]={:?}", cmd_iters.len(), cmd_iters);
+                panic!("test failed (see logs above)");
+            }
+        }
     }
 
     /// Get the public keys from a ledger init state.
@@ -2608,19 +2625,24 @@ mod tests_ocaml {
 
         let (ledger_init_state, cmds, iters) = gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
 
-        async_with_ledgers(&ledger_init_state, |sl, test_mask| {
-            test_simple(
-                init_pks(&ledger_init_state),
-                cmds.to_vec(),
-                iters.to_vec(),
-                sl,
-                Some(EXPECTED_PROOF_COUNT),
-                None,
-                test_mask,
-                NumProvers::Many,
-                &stmt_to_work_random_prover,
-            )
-        });
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.clone(),
+            iters.clone(),
+            |sl, test_mask| {
+                test_simple(
+                    init_pks(&ledger_init_state),
+                    cmds.to_vec(),
+                    iters.to_vec(),
+                    sl,
+                    Some(EXPECTED_PROOF_COUNT),
+                    None,
+                    test_mask,
+                    NumProvers::Many,
+                    &stmt_to_work_random_prover,
+                )
+            },
+        );
     }
 
     fn gen_at_capacity() -> (
@@ -2645,19 +2667,24 @@ mod tests_ocaml {
     fn max_throughput() {
         let (ledger_init_state, cmds, iters) = gen_at_capacity();
 
-        async_with_ledgers(&ledger_init_state, |sl, test_mask| {
-            test_simple(
-                init_pks(&ledger_init_state),
-                cmds.to_vec(),
-                iters.to_vec(),
-                sl,
-                None,
-                None,
-                test_mask,
-                NumProvers::Many,
-                &stmt_to_work_random_prover,
-            )
-        });
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.clone(),
+            iters.clone(),
+            |sl, test_mask| {
+                test_simple(
+                    init_pks(&ledger_init_state),
+                    cmds.to_vec(),
+                    iters.to_vec(),
+                    sl,
+                    None,
+                    None,
+                    test_mask,
+                    NumProvers::Many,
+                    &stmt_to_work_random_prover,
+                )
+            },
+        );
     }
 
     fn gen_zkapps(_failure: Option<bool>, _num_zkapps: usize, _iters: usize) {
@@ -2719,19 +2746,74 @@ mod tests_ocaml {
     fn be_able_to_include_random_number_of_commands_many() {
         let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
 
-        async_with_ledgers(&ledger_init_state, |sl, test_mask| {
-            test_simple(
-                init_pks(&ledger_init_state),
-                cmds.to_vec(),
-                iters.to_vec(),
-                sl,
-                None,
-                None,
-                test_mask,
-                NumProvers::Many,
-                &stmt_to_work_random_prover,
-            )
-        });
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.to_vec(),
+            iters.to_vec(),
+            |sl, test_mask| {
+                test_simple(
+                    init_pks(&ledger_init_state),
+                    cmds.to_vec(),
+                    iters.to_vec(),
+                    sl,
+                    None,
+                    None,
+                    test_mask,
+                    NumProvers::Many,
+                    &stmt_to_work_random_prover,
+                )
+            },
+        );
+    }
+
+    /// Generate states that were known to fail
+    ///
+    /// See https://github.com/name-placeholder/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
+    fn gen_below_capacity_failed() -> (
+        LedgerInitialState,
+        Vec<valid::UserCommand>,
+        Vec<Option<usize>>,
+    ) {
+        let state = gen_initial_ledger_state();
+        let total_cmds = 1277;
+
+        let cmds = signed_command_sequence(total_cmds, SignKind::Real, &state);
+        assert_eq!(cmds.len(), total_cmds);
+
+        let iters = [
+            7, 17, 26, 35, 50, 13, 54, 12, 29, 54, 62, 36, 44, 44, 7, 8, 25, 8, 3, 42, 4, 46, 61,
+            6, 60, 24, 34, 39, 9, 58, 23, 34, 10, 22, 15, 8, 4, 1, 42, 25, 5, 17, 60, 49, 45,
+        ];
+
+        (state, cmds, iters.into_iter().map(Some).collect())
+    }
+
+    /// This test was failing, due to incorrect discarding user command
+    /// Note: Something interesting is that the batch 11 applies 0 commands
+    ///
+    /// See https://github.com/name-placeholder/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
+    #[test]
+    fn be_able_to_include_random_number_of_commands_many_failed() {
+        let (ledger_init_state, cmds, iters) = gen_below_capacity_failed();
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.to_vec(),
+            iters.to_vec(),
+            |sl, test_mask| {
+                test_simple(
+                    init_pks(&ledger_init_state),
+                    cmds.to_vec(),
+                    iters.to_vec(),
+                    sl,
+                    None,
+                    None,
+                    test_mask,
+                    NumProvers::Many,
+                    &stmt_to_work_random_prover,
+                )
+            },
+        );
     }
 
     /// Be able to include random number of commands (zkapps)
@@ -2745,19 +2827,51 @@ mod tests_ocaml {
     fn be_able_to_include_random_number_of_commands_one_prover() {
         let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
 
-        async_with_ledgers(&ledger_init_state, |sl, test_mask| {
-            test_simple(
-                init_pks(&ledger_init_state),
-                cmds.to_vec(),
-                iters.to_vec(),
-                sl,
-                None,
-                None,
-                test_mask,
-                NumProvers::One,
-                &stmt_to_work_random_prover,
-            )
-        });
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.to_vec(),
+            iters.to_vec(),
+            |sl, test_mask| {
+                test_simple(
+                    init_pks(&ledger_init_state),
+                    cmds.to_vec(),
+                    iters.to_vec(),
+                    sl,
+                    None,
+                    None,
+                    test_mask,
+                    NumProvers::One,
+                    &stmt_to_work_random_prover,
+                )
+            },
+        );
+    }
+
+    /// This test was failing, due to incorrect discarding user command
+    ///
+    /// See https://github.com/name-placeholder/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
+    #[test]
+    fn be_able_to_include_random_number_of_commands_one_prover_failed() {
+        let (ledger_init_state, cmds, iters) = gen_below_capacity_failed();
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.to_vec(),
+            iters.to_vec(),
+            |sl, test_mask| {
+                test_simple(
+                    init_pks(&ledger_init_state),
+                    cmds.to_vec(),
+                    iters.to_vec(),
+                    sl,
+                    None,
+                    None,
+                    test_mask,
+                    NumProvers::One,
+                    &stmt_to_work_random_prover,
+                )
+            },
+        );
     }
 
     /// Be able to include random number of commands (One prover, zkapps)
@@ -2787,21 +2901,26 @@ mod tests_ocaml {
 
         let (ledger_init_state, cmds, iters) = gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
 
-        async_with_ledgers(&ledger_init_state, |sl, test_mask| {
-            test_simple(
-                init_pks(&ledger_init_state),
-                cmds.to_vec(),
-                iters.to_vec(),
-                sl,
-                Some(EXPECTED_PROOF_COUNT),
-                None,
-                test_mask.clone(),
-                NumProvers::One,
-                &stmt_to_work_zero_fee,
-            );
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.clone(),
+            iters.clone(),
+            |sl, test_mask| {
+                test_simple(
+                    init_pks(&ledger_init_state),
+                    cmds.to_vec(),
+                    iters.to_vec(),
+                    sl,
+                    Some(EXPECTED_PROOF_COUNT),
+                    None,
+                    test_mask.clone(),
+                    NumProvers::One,
+                    &stmt_to_work_zero_fee,
+                );
 
-            assert!(test_mask.location_of_account(&account_id_prover).is_none());
-        });
+                assert!(test_mask.location_of_account(&account_id_prover).is_none());
+            },
+        );
     }
 
     fn compute_statutes(
@@ -2906,66 +3025,73 @@ mod tests_ocaml {
 
         let (ledger_init_state, cmds, iters) = gen_at_capacity();
 
-        async_with_ledgers(&ledger_init_state, |mut sl, _test_mask| {
-            let checked = iter_cmds_acc(
-                &cmds,
-                &iters,
-                true,
-                |_cmds_left, _count_opt, cmds_this_iter, checked| {
-                    let work = sl.scan_state.work_statements_for_new_diff();
-                    let partitions = sl.scan_state.partition_if_overflowing();
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.clone(),
+            iters.clone(),
+            |mut sl, _test_mask| {
+                let checked = iter_cmds_acc(
+                    &cmds,
+                    &iters,
+                    true,
+                    |_cmds_left, _count_opt, cmds_this_iter, checked| {
+                        let work = sl.scan_state.work_statements_for_new_diff();
+                        let partitions = sl.scan_state.partition_if_overflowing();
 
-                    let work_done: Vec<work::Checked> = work
-                        .iter()
-                        .map(|work| work::Checked {
-                            fee: Fee::zero(),
-                            proofs: proofs(work),
-                            prover: SNARK_WORKER_PK.clone(),
-                        })
-                        .collect();
+                        let work_done: Vec<work::Checked> = work
+                            .iter()
+                            .map(|work| work::Checked {
+                                fee: Fee::zero(),
+                                proofs: proofs(work),
+                                prover: SNARK_WORKER_PK.clone(),
+                            })
+                            .collect();
 
-                    let cmds_this_iter: Vec<WithStatus<UserCommand>> = cmds_this_iter
-                        .iter()
-                        .map(|cmd| WithStatus {
-                            data: cmd.forget_check(),
-                            status: TransactionStatus::Applied,
-                        })
-                        .collect();
+                        let cmds_this_iter: Vec<WithStatus<UserCommand>> = cmds_this_iter
+                            .iter()
+                            .map(|cmd| WithStatus {
+                                data: cmd.forget_check(),
+                                status: TransactionStatus::Applied,
+                            })
+                            .collect();
 
-                    let diff = create_diff_with_non_zero_fee_excess(
-                        sl.ledger.clone(),
-                        CONSTRAINT_CONSTANTS.coinbase_amount,
-                        cmds_this_iter,
-                        work_done,
-                        partitions,
-                    );
+                        let diff = create_diff_with_non_zero_fee_excess(
+                            sl.ledger.clone(),
+                            CONSTRAINT_CONSTANTS.coinbase_amount,
+                            cmds_this_iter,
+                            work_done,
+                            partitions,
+                        );
 
-                    let apply_res = sl.apply(
-                        None,
-                        &CONSTRAINT_CONSTANTS,
-                        diff.clone(),
-                        (),
-                        &Verifier,
-                        &dummy_state_view(None),
-                        (Fp::zero(), Fp::zero()),
-                        COINBASE_RECEIVER.clone(),
-                        true,
-                    );
+                        let apply_res = sl.apply(
+                            None,
+                            &CONSTRAINT_CONSTANTS,
+                            diff.clone(),
+                            (),
+                            &Verifier,
+                            &dummy_state_view(None),
+                            (Fp::zero(), Fp::zero()),
+                            COINBASE_RECEIVER.clone(),
+                            true,
+                        );
 
-                    let (new_checked, diff) = match apply_res {
-                        Err(StagedLedgerError::NonZeroFeeExcess(..)) => (true, empty_diff.clone()),
-                        Err(e) => panic!("Expecting Non-zero-fee-excess error, got {:?}", e),
-                        Ok(DiffResult { .. }) => (false, diff),
-                    };
+                        let (new_checked, diff) = match apply_res {
+                            Err(StagedLedgerError::NonZeroFeeExcess(..)) => {
+                                (true, empty_diff.clone())
+                            }
+                            Err(e) => panic!("Expecting Non-zero-fee-excess error, got {:?}", e),
+                            Ok(DiffResult { .. }) => (false, diff),
+                        };
 
-                    dbg!(new_checked, checked);
+                        dbg!(new_checked, checked);
 
-                    (diff, checked | new_checked)
-                },
-            );
+                        (diff, checked | new_checked)
+                    },
+                );
 
-            // Note(OCaml): if this fails, try increasing the number of trials to get a diff that does fail
-            assert!(checked);
-        });
+                // Note(OCaml): if this fails, try increasing the number of trials to get a diff that does fail
+                assert!(checked);
+            },
+        );
     }
 }
