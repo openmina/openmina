@@ -1,3 +1,4 @@
+use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
 use crate::consensus::{
@@ -30,10 +31,10 @@ use crate::p2p::rpc::outgoing::{
 use crate::p2p::rpc::P2pRpcAction;
 use crate::p2p::{P2pAction, P2pPeerReadyAction};
 use crate::rpc::{
-    RpcAction, RpcFinishAction, RpcGlobalStateGetAction, RpcP2pConnectionOutgoingErrorAction,
-    RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
-    RpcP2pConnectionOutgoingSuccessAction, RpcP2pPubsubMessagePublishAction,
-    RpcWatchedAccountsAddAction, RpcWatchedAccountsGetAction,
+    RpcAction, RpcActionStatsGetAction, RpcFinishAction, RpcGlobalStateGetAction,
+    RpcP2pConnectionOutgoingErrorAction, RpcP2pConnectionOutgoingInitAction,
+    RpcP2pConnectionOutgoingPendingAction, RpcP2pConnectionOutgoingSuccessAction,
+    RpcP2pPubsubMessagePublishAction, RpcWatchedAccountsAddAction, RpcWatchedAccountsGetAction,
 };
 use crate::snark::block_verify::{
     SnarkBlockVerifyAction, SnarkBlockVerifyErrorAction, SnarkBlockVerifyFinishAction,
@@ -49,8 +50,12 @@ use crate::watched_accounts::{
 };
 use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 
-#[derive(Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
+#[derive(
+    Serialize, Deserialize, TryFromPrimitive, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy,
+)]
+#[repr(u16)]
 pub enum ActionKind {
+    None,
     CheckTimeouts,
     ConsensusBestTipHistoryUpdate,
     ConsensusBestTipUpdate,
@@ -80,6 +85,7 @@ pub enum ActionKind {
     P2pRpcOutgoingPending,
     P2pRpcOutgoingReceived,
     P2pRpcOutgoingSuccess,
+    RpcActionStatsGet,
     RpcFinish,
     RpcGlobalStateGet,
     RpcP2pConnectionOutgoingError,
@@ -172,6 +178,7 @@ impl ActionKindGet for RpcAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::GlobalStateGet(a) => a.kind(),
+            Self::ActionStatsGet(a) => a.kind(),
             Self::P2pConnectionOutgoingInit(a) => a.kind(),
             Self::P2pConnectionOutgoingPending(a) => a.kind(),
             Self::P2pConnectionOutgoingError(a) => a.kind(),
@@ -316,6 +323,12 @@ impl ActionKindGet for ConsensusBestTipHistoryUpdateAction {
 impl ActionKindGet for RpcGlobalStateGetAction {
     fn kind(&self) -> ActionKind {
         ActionKind::RpcGlobalStateGet
+    }
+}
+
+impl ActionKindGet for RpcActionStatsGetAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::RpcActionStatsGet
     }
 }
 

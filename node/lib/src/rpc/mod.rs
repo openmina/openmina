@@ -24,6 +24,7 @@ use crate::watched_accounts::{WatchedAccountBlockState, WatchedAccountLedgerInit
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RpcRequest {
     GetState,
+    ActionStatsGet(ActionStatsQuery),
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
     P2pPubsubPublish(PubsubTopic, GossipNetMessageV2),
     WatchedAccountsAdd(NonZeroCurvePoint),

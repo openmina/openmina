@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use crate::State;
 
-use super::{RpcId, WatchedAccountInfo};
+use super::{ActionStatsResponse, RpcId, WatchedAccountInfo};
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
 pub enum RespondError {
@@ -23,6 +23,11 @@ pub enum WatchedAccountsGetError {
 
 pub trait RpcService: redux::Service {
     fn respond_state_get(&mut self, rpc_id: RpcId, response: &State) -> Result<(), RespondError>;
+    fn respond_action_stats_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: Option<ActionStatsResponse>,
+    ) -> Result<(), RespondError>;
     fn respond_p2p_connection_outgoing(
         &mut self,
         rpc_id: RpcId,

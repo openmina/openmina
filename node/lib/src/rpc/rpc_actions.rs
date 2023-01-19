@@ -1,8 +1,13 @@
+use std::collections::BTreeMap;
+
 use mina_p2p_messages::v2::NonZeroCurvePoint;
 use serde::{Deserialize, Serialize};
 
 use p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use p2p::pubsub::{GossipNetMessageV2, PubsubTopic};
+
+use crate::service::ActionStatsForRanges;
+use crate::ActionKind;
 
 use super::RpcId;
 
@@ -12,6 +17,9 @@ pub type RpcActionWithMetaRef<'a> = redux::ActionWithMeta<&'a RpcAction>;
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum RpcAction {
     GlobalStateGet(RpcGlobalStateGetAction),
+
+    // Stats
+    ActionStatsGet(RpcActionStatsGetAction),
 
     P2pConnectionOutgoingInit(RpcP2pConnectionOutgoingInitAction),
     P2pConnectionOutgoingPending(RpcP2pConnectionOutgoingPendingAction),
@@ -32,6 +40,24 @@ pub struct RpcGlobalStateGetAction {
 }
 
 impl redux::EnablingCondition<crate::State> for RpcGlobalStateGetAction {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ActionStatsQuery {
+    SinceStart,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ActionStatsResponse {
+    SinceStart(BTreeMap<ActionKind, ActionStatsForRanges>),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcActionStatsGetAction {
+    pub rpc_id: RpcId,
+    pub query: ActionStatsQuery,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcActionStatsGetAction {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcP2pConnectionOutgoingInitAction {
@@ -155,6 +181,8 @@ macro_rules! impl_into_global_action {
 }
 
 impl_into_global_action!(RpcGlobalStateGetAction);
+
+impl_into_global_action!(RpcActionStatsGetAction);
 
 impl_into_global_action!(RpcP2pConnectionOutgoingInitAction);
 impl_into_global_action!(RpcP2pConnectionOutgoingPendingAction);
