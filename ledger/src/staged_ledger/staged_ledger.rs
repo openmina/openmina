@@ -1792,6 +1792,8 @@ mod tests_ocaml {
     };
 
     use ark_ff::{UniformRand, Zero, One};
+    use mina_curves::pasta::Fq;
+    use mina_signer::{Keypair, Signature};
     use o1_utils::FieldHelpers;
     use mina_curves::pasta::Fq;
     use mina_signer::{Keypair, Signer, Signature};
