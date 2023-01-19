@@ -61,6 +61,8 @@ uuid = { version = "1", features = [ "v4" ] }
 packed_simd = { version = "0.3", package = "packed_simd_2" }
 backtrace = "0.3"
 derive_more = "0.99.17"
+rand_pcg = "0.3"
+rand_seeder = "0.2"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
