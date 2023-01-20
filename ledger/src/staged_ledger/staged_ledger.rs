@@ -1635,6 +1635,8 @@ impl StagedLedger {
         let mut invalid_on_this_ledger = Vec::with_capacity(length);
         let mut count = 0;
 
+        let _transactions_by_fee_len = transactions_by_fee.len();
+
         for txn in transactions_by_fee {
             let res = Self::validate_account_update_proofs(logger, &validating_ledger, &txn)
                 .then_some(())
@@ -1768,7 +1770,7 @@ impl StagedLedger {
 mod tests_ocaml {
     use std::str::FromStr;
 
-    use ark_ff::{One, UniformRand, Zero};
+    use ark_ff::{UniformRand, Zero};
     use mina_signer::{Keypair, Signer};
     use o1_utils::FieldHelpers;
     use once_cell::sync::Lazy;
@@ -4105,31 +4107,8 @@ mod tests_ocaml {
                     )
                     .unwrap();
 
-                dbg!(&diff);
                 assert!(diff.commands().is_empty());
             },
         );
     }
 }
-
-// let%test_unit "Commands with Insufficient funds are not included" =
-//   let logger = Logger.null () in
-//   Quickcheck.test command_insufficient_funds ~trials:1
-//     ~f:(fun (ledger_init_state, invalid_command) ->
-//       async_with_ledgers ledger_init_state (fun sl _test_mask ->
-//           let diff_result =
-//             Sl.create_diff ~constraint_constants !sl ~logger
-//               ~current_state_view:(dummy_state_view ())
-//               ~transactions_by_fee:(Sequence.of_list [ invalid_command ])
-//               ~get_completed_work:(stmt_to_work_zero_fee ~prover:self_pk)
-//               ~coinbase_receiver ~supercharge_coinbase:false
-//           in
-//           ( match diff_result with
-//           | Ok (diff, _invalid_txns) ->
-//               assert (
-//                 List.is_empty
-//                   (Staged_ledger_diff.With_valid_signatures_and_proofs
-//                    .commands diff ) )
-//           | Error e ->
-//               Error.raise (Pre_diff_info.Error.to_error e) ) ;
-//           Deferred.unit ) )

@@ -3564,6 +3564,8 @@ pub fn compute_updates<L>(
     ledger: &mut L,
     current_global_slot: &Slot,
     user_command: &SignedCommand,
+    fee_payer: &AccountId,
+    reject_command: &mut bool,
 ) -> Result<Updates<L::Location>, TransactionFailure>
 where
     L: LedgerIntf,
@@ -3609,43 +3611,61 @@ where
                 return Err(TransactionFailure::UpdateNotPermittedBalance);
             }
 
-            let (source_location, source_account) = if source == receiver {
-                let addr = match receiver_location.clone() {
-                    ExistingOrNew::Existing(addr) => addr,
-                    ExistingOrNew::New => return Err(TransactionFailure::SourceNotPresent),
-                };
+            let mut get_source = || {
+                if source == receiver {
+                    let addr = match receiver_location.clone() {
+                        ExistingOrNew::Existing(addr) => addr,
+                        ExistingOrNew::New => return Err(TransactionFailure::SourceNotPresent),
+                    };
 
-                let timing = timing_error_to_user_command_status(validate_timing(
-                    &receiver_account,
-                    payment.amount,
-                    current_global_slot,
-                ))?;
+                    let timing = timing_error_to_user_command_status(validate_timing(
+                        &receiver_account,
+                        payment.amount,
+                        current_global_slot,
+                    ))?;
 
-                receiver_account.timing = timing;
+                    receiver_account.timing = timing;
 
-                (ExistingOrNew::Existing(addr), receiver_account.clone())
-            } else {
-                let (location, mut account) = get_with_location(ledger, &source).unwrap();
+                    Ok((ExistingOrNew::Existing(addr), receiver_account.clone()))
+                } else {
+                    let (location, mut account) = get_with_location(ledger, &source).unwrap();
 
-                if let ExistingOrNew::New = location {
-                    return Err(TransactionFailure::SourceNotPresent);
+                    if let ExistingOrNew::New = location {
+                        return Err(TransactionFailure::SourceNotPresent);
+                    }
+
+                    let timing = timing_error_to_user_command_status(validate_timing(
+                        &account,
+                        payment.amount,
+                        current_global_slot,
+                    ))?;
+
+                    let balance = match account.balance.sub_amount(payment.amount) {
+                        Some(balance) => balance,
+                        None => return Err(TransactionFailure::SourceInsufficientBalance),
+                    };
+
+                    account.timing = timing;
+                    account.balance = balance;
+
+                    Ok((location, account))
+                }
+            };
+
+            let (source_location, source_account) = {
+                // OCaml throw an exception when `fee_payer == source`.
+                // Here in Rust we set `reject_command` to differentiate the 3 cases (Ok, Err, exception)
+                //
+                // https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/transaction_logic/mina_transaction_logic.ml#L886-L898
+                let ret = get_source();
+
+                // Don't process transactions with insufficient balance from the
+                // fee-payer.
+                if ret.is_err() && fee_payer == &source {
+                    *reject_command = true;
                 }
 
-                let timing = timing_error_to_user_command_status(validate_timing(
-                    &account,
-                    payment.amount,
-                    current_global_slot,
-                ))?;
-
-                let balance = match account.balance.sub_amount(payment.amount) {
-                    Some(balance) => balance,
-                    None => return Err(TransactionFailure::SourceInsufficientBalance),
-                };
-
-                account.timing = timing;
-                account.balance = balance;
-
-                (location, account)
+                ret?
             };
 
             if !source_account.has_permission_to(PermissionTo::Send) {
@@ -3709,7 +3729,7 @@ where
     validate_time(&valid_until, current_global_slot)?;
 
     // Fee-payer information
-    let _fee_payer = user_command.fee_payer();
+    let fee_payer = user_command.fee_payer();
     let (fee_payer_location, fee_payer_account) =
         pay_fee(user_command, signer_pk, ledger, current_global_slot)?;
 
@@ -3722,6 +3742,8 @@ where
     let source = user_command.source();
     let receiver = user_command.receiver();
 
+    let mut reject_command = false;
+
     match compute_updates(
         constraint_constants,
         source,
@@ -3729,6 +3751,8 @@ where
         ledger,
         current_global_slot,
         user_command,
+        &fee_payer,
+        &mut reject_command,
     ) {
         Ok(Updates {
             located_accounts,
@@ -3748,7 +3772,7 @@ where
                 body: applied_body,
             })
         }
-        Err(failure) => Ok(SignedCommandApplied {
+        Err(failure) if !reject_command => Ok(SignedCommandApplied {
             common: signed_command_applied::Common {
                 user_command: WithStatus::<SignedCommand> {
                     data: user_command.clone(),
@@ -3757,6 +3781,12 @@ where
             },
             body: signed_command_applied::Body::Failed,
         }),
+        Err(failure) => {
+            // This case occurs when an exception is throwned in OCaml
+            // https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/transaction_logic/mina_transaction_logic.ml#L964
+            assert!(reject_command);
+            Err(failure.to_string())
+        }
     }
 }
 
@@ -3856,7 +3886,6 @@ where
 pub mod transaction_union_payload {
     use mina_hasher::ROInput as LegacyInput;
     use mina_signer::NetworkId;
-    use static_assertions::const_assert_eq;
 
     use crate::scan_state::transaction_logic::signed_command::{
         PaymentPayload, StakeDelegationPayload,
