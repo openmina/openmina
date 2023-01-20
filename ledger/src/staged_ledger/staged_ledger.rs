@@ -106,6 +106,7 @@ impl From<PreDiffError> for StagedLedgerError {
 //     | Unexpected of Error.t
 //   [@@deriving sexp]
 
+#[derive(Debug)]
 struct DiffResult {
     hash_after_applying: StagedLedgerHash,
     ledger_proof: Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>,
@@ -1784,7 +1785,7 @@ mod tests_ocaml {
                 protocol_state::{EpochData, EpochLedger},
                 signed_command::{self, PaymentPayload, SignedCommand, SignedCommandPayload},
                 transaction_union_payload::TransactionUnionPayload,
-                Memo, Signature,
+                Memo, Signature, TransactionFailure,
             },
         },
         staged_ledger::diff::{
@@ -4107,6 +4108,138 @@ mod tests_ocaml {
                     .unwrap();
 
                 assert!(diff.commands().is_empty());
+            },
+        );
+    }
+
+    /// Blocks having commands with insufficient funds are rejected
+    #[test]
+    fn blocks_having_commands_with_sufficient_funds_are_rejected() {
+        enum Validity {
+            Valid,
+            Invalid,
+        }
+
+        let ledger_init_state = gen_initial_ledger_state();
+        // let (kp, balance, nonce, _) = &ledger_initial_state.state[0];
+
+        let command = |kp: Keypair, balance: Amount, nonce: Nonce, validity: Validity| {
+            let receiver_pk = gen_keypair().public.into_compressed();
+
+            let (account_creation_fee, fee) = {
+                match validity {
+                    Validity::Valid => {
+                        let account_creation_fee =
+                            Amount::of_fee(&CONSTRAINT_CONSTANTS.account_creation_fee);
+                        let fee = balance.checked_sub(&account_creation_fee).unwrap();
+                        (account_creation_fee, Fee::from_u64(fee.as_u64()))
+                    }
+                    Validity::Invalid => {
+                        // Not enough account creation fee and using full balance for fee
+                        let account_creation_fee =
+                            CONSTRAINT_CONSTANTS.account_creation_fee.as_u64() / 2;
+                        let account_creation_fee = Amount::from_u64(account_creation_fee);
+                        (account_creation_fee, Fee::from_u64(balance.as_u64()))
+                    }
+                }
+            };
+
+            let source_pk = kp.public.into_compressed();
+            let body = signed_command::Body::Payment(PaymentPayload {
+                source_pk: source_pk.clone(),
+                receiver_pk,
+                amount: account_creation_fee,
+            });
+            let payload = signed_command::SignedCommandPayload::create(
+                fee,
+                source_pk,
+                nonce,
+                None,
+                Memo::dummy(),
+                body,
+            );
+
+            let payload_to_sign = TransactionUnionPayload::of_user_command_payload(&payload);
+
+            let mut signer = mina_signer::create_legacy(mina_signer::NetworkId::TESTNET);
+            let _signature = signer.sign(&kp, &payload_to_sign);
+
+            let signed_command = SignedCommand {
+                payload,
+                signer: kp.public.into_compressed(),
+                signature: Signature::dummy(), // TODO: Use `_signature` above
+            };
+
+            valid::UserCommand::SignedCommand(Box::new(signed_command))
+        };
+
+        let signed_command = {
+            let (kp, balance, nonce, _) = ledger_init_state.state[0].clone();
+            command(kp, balance, nonce, Validity::Valid)
+        };
+
+        let invalid_command = {
+            let (kp, balance, nonce, _) = ledger_init_state.state[1].clone();
+            command(kp, balance, nonce, Validity::Invalid)
+        };
+
+        async_with_ledgers(
+            &ledger_init_state,
+            vec![invalid_command.clone(), signed_command.clone()],
+            vec![],
+            |mut sl, _test_mask| {
+                let (diff, _invalid_txns) = sl
+                    .create_diff(
+                        &CONSTRAINT_CONSTANTS,
+                        None,
+                        COINBASE_RECEIVER.clone(),
+                        (),
+                        &dummy_state_view(None),
+                        vec![signed_command.clone()],
+                        stmt_to_work_zero_fee(SELF_PK.clone()),
+                        false,
+                    )
+                    .unwrap();
+
+                assert_eq!(diff.commands().len(), 1);
+
+                let (mut f, s) = diff.diff;
+
+                let failed_command = WithStatus {
+                    data: invalid_command.clone(),
+                    status: TransactionStatus::Failed(vec![vec![
+                        TransactionFailure::AmountInsufficientToCreateAccount,
+                    ]]),
+                };
+
+                // Replace the valid command with an invalid command
+                f.commands = vec![failed_command];
+                let diff = with_valid_signatures_and_proofs::Diff { diff: (f, s) };
+
+                let res = sl.apply(
+                    None,
+                    &CONSTRAINT_CONSTANTS,
+                    diff.forget(),
+                    (),
+                    &Verifier,
+                    &dummy_state_view(None),
+                    (Fp::zero(), Fp::zero()),
+                    COINBASE_RECEIVER.clone(),
+                    false,
+                );
+
+                let expected = format!(
+                    "Error when applying transaction: {:?}",
+                    TransactionFailure::SourceInsufficientBalance.to_string()
+                );
+
+                assert!(
+                    matches!(&res, Err(StagedLedgerError::Unexpected(s)) if {
+                        s == &expected
+                    }),
+                    "{:?}",
+                    res
+                );
             },
         );
     }
