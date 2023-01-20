@@ -3,7 +3,7 @@ use std::ops::Neg;
 use ark_ff::{BigInteger, PrimeField};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
-use mina_signer::{CompressedPubKey, CurvePoint, PubKey};
+use mina_signer::{CompressedPubKey, CurvePoint, Keypair, PubKey};
 
 mod backtrace;
 mod time;
@@ -39,6 +39,11 @@ impl FpExt for Fq {
         let bigint: num_bigint::BigUint = r.into();
         bigint.to_string()
     }
+}
+
+pub fn gen_keypair() -> Keypair {
+    let mut rng = rand::thread_rng();
+    Keypair::rand(&mut rng)
 }
 
 /// Not sure if it's correct

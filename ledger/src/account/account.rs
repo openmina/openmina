@@ -252,7 +252,7 @@ pub struct VerificationKey {
 
 impl VerificationKey {
     // https://github.com/MinaProtocol/mina/blob/35b1702fbc295713f9bb46bb17e2d007bc2bab84/src/lib/pickles/side_loaded_verification_key.ml#L295-L309
-    fn dummy() -> Self {
+    pub fn dummy() -> Self {
         let g = CurveAffine(
             Fp::one(),
             Fp::from_str(
@@ -274,6 +274,10 @@ impl VerificationKey {
             },
             wrap_vk: None,
         }
+    }
+
+    pub fn digest(&self) -> Fp {
+        self.hash()
     }
 
     pub fn hash(&self) -> Fp {

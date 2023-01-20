@@ -1777,21 +1777,24 @@ mod tests_ocaml {
     use rand::{seq::SliceRandom, CryptoRng, Rng};
 
     use crate::{
-        dummy,
+        dummy, gen_keypair,
         scan_state::{
             currency::{Balance, BlockTime, Fee, Length, Nonce},
             scan_state::transaction_snark::SokDigest,
             transaction_logic::{
+                for_tests::{self, HashableKeypair},
                 protocol_state::{EpochData, EpochLedger},
                 signed_command::{self, PaymentPayload, SignedCommand, SignedCommandPayload},
                 transaction_union_payload::TransactionUnionPayload,
+                zkapp_command::{self, SetOrKeep, WithHash},
                 Memo, Signature, TransactionFailure,
             },
         },
-        staged_ledger::diff::{
-            PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase,
+        staged_ledger::{
+            diff::{PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase},
+            pre_diff_info::HashableCompressedPubKey,
         },
-        util,
+        util, AuthRequired, Database, Permissions, VerificationKey,
     };
 
     use super::*;
@@ -1907,11 +1910,6 @@ mod tests_ocaml {
     #[derive(Debug)]
     struct LedgerInitialState {
         state: Vec<(Keypair, Amount, Nonce, crate::account::Timing)>,
-    }
-
-    fn gen_keypair() -> Keypair {
-        let mut rng = rand::thread_rng();
-        Keypair::rand(&mut rng)
     }
 
     fn gen<T>(n_accounts: usize, fun: impl FnMut() -> T) -> Vec<T> {
@@ -4243,4 +4241,158 @@ mod tests_ocaml {
             },
         );
     }
+
+    /// Mismatched verification keys in zkApp accounts and and transactions
+    #[test]
+    fn mismatched_vk_in_zkapp_accounts_and_transactions() {
+        use scan_state::transaction_logic::for_tests::{TestSpec, UpdateStatesSpec};
+
+        let test_spec = TestSpec::gen();
+
+        let pks: HashSet<_> = test_spec
+            .init_ledger
+            .0
+            .iter()
+            .map(|(kp, _)| HashableCompressedPubKey(kp.public.into_compressed()))
+            .collect();
+
+        let kp = loop {
+            let keypair = gen_keypair();
+            if !pks.contains(&HashableCompressedPubKey(keypair.public.into_compressed())) {
+                break keypair;
+            }
+        };
+
+        let TestSpec {
+            init_ledger,
+            specs: _,
+        } = test_spec;
+        let new_kp = kp;
+
+        let fee = Fee::from_u64(1_000_000);
+        let amount = Amount::from_u64(10_000_000_000);
+
+        let snapp_pk = new_kp.public.into_compressed();
+
+        let mut snapp_update = zkapp_command::Update::dummy();
+        snapp_update.delegate = SetOrKeep::Set(snapp_pk.clone());
+
+        let memo = Memo::dummy();
+
+        let test_spec = UpdateStatesSpec {
+            fee,
+            sender: (new_kp.clone(), Nonce::zero()),
+            fee_payer: None,
+            receivers: vec![],
+            amount,
+            zkapp_account_keypairs: vec![new_kp],
+            memo,
+            new_zkapp_account: false,
+            snapp_update,
+            current_auth: AuthRequired::Proof,
+            sequence_events: vec![],
+            events: vec![],
+            call_data: Fp::zero(),
+            preconditions: None,
+        };
+
+        let mut ledger = Mask::new_unattached(CONSTRAINT_CONSTANTS.ledger_depth as usize);
+
+        init_ledger.init(&mut ledger);
+
+        // create a snapp account
+        let mut snapp_permissions = Permissions::user_default();
+        snapp_permissions.set_delegate = AuthRequired::Proof;
+
+        let snapp_account_id = AccountId::new(snapp_pk.clone(), TokenId::default());
+
+        let dummy_vk = {
+            let dummy_vk = VerificationKey::dummy();
+            let vk_hash = dummy_vk.digest();
+
+            WithHash {
+                data: dummy_vk,
+                hash: vk_hash,
+            }
+        };
+
+        let valid_against_ledger = {
+            let mut new_mask = ledger.make_child();
+            // for_tests::create_trivial_zkapp_account(Some(snapp_permissions), vk, &mut new_mask, snapp_pk);
+        };
+    }
 }
+
+//               let valid_against_ledger =
+//                 let new_mask =
+//                   Ledger.Mask.create ~depth:(Ledger.depth ledger) ()
+//                 in
+//                 let l = Ledger.register_mask ledger new_mask in
+//                 Transaction_snark.For_tests.create_trivial_zkapp_account
+//                   ~permissions:snapp_permissions ~vk ~ledger:l snapp_pk ;
+//                 l
+//               in
+//               let%bind zkapp_command =
+//                 Transaction_snark.For_tests.update_states ~zkapp_prover
+//                   ~constraint_constants test_spec
+//               in
+//               let valid_zkapp_command =
+//                 Option.value_exn
+//                   (Zkapp_command.Valid.to_valid ~ledger:valid_against_ledger
+//                      ~get:Ledger.get
+//                      ~location_of_account:Ledger.location_of_account
+//                      zkapp_command )
+//               in
+//               ignore
+//                 (Ledger.unregister_mask_exn valid_against_ledger
+//                    ~loc:__LOC__ ) ;
+//               (*Different key in the staged ledger*)
+//               Transaction_snark.For_tests.create_trivial_zkapp_account
+//                 ~permissions:snapp_permissions ~vk:dummy_vk ~ledger snapp_pk ;
+//               let open Async.Deferred.Let_syntax in
+//               let sl = ref @@ Sl.create_exn ~constraint_constants ~ledger in
+//               let%bind _proof, diff =
+//                 create_and_apply sl
+//                   (Sequence.singleton
+//                      (User_command.Zkapp_command valid_zkapp_command) )
+//                   stmt_to_work_one_prover
+//               in
+//               let commands = Staged_ledger_diff.commands diff in
+//               (*Zkapp_command with incompatible vk should not be in the diff*)
+//               assert (List.is_empty commands) ;
+//               (*Update the account to have correct vk*)
+//               let loc =
+//                 Option.value_exn
+//                   (Ledger.location_of_account ledger snapp_account_id)
+//               in
+//               let account = Option.value_exn (Ledger.get ledger loc) in
+//               Ledger.set ledger loc
+//                 { account with
+//                   zkapp =
+//                     Some
+//                       { (Option.value_exn account.zkapp) with
+//                         verification_key = Some vk
+//                       }
+//                 } ;
+//               let sl = ref @@ Sl.create_exn ~constraint_constants ~ledger in
+//               let%bind _proof, diff =
+//                 create_and_apply sl
+//                   (Sequence.singleton
+//                      (User_command.Zkapp_command valid_zkapp_command) )
+//                   stmt_to_work_one_prover
+//               in
+//               let commands = Staged_ledger_diff.commands diff in
+//               assert (List.length commands = 1) ;
+//               match List.hd_exn commands with
+//               | { With_status.data = Zkapp_command _ps; status = Applied }
+//                 ->
+//                   return ()
+//               | { With_status.data = Zkapp_command _ps
+//                 ; status = Failed tbl
+//                 } ->
+//                   failwith
+//                     (sprintf "Zkapp_command application failed %s"
+//                        ( Transaction_status.Failure.Collection.to_yojson tbl
+//                        |> Yojson.Safe.to_string ) )
+//               | _ ->
+//                   failwith "expecting zkapp_command transaction" ) ) )

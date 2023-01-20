@@ -1012,6 +1012,27 @@ pub mod zkapp_command {
         pub voting_for: SetOrKeep<VotingFor>,
     }
 
+    impl Update {
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/account_update.ml#L460
+        pub fn noop() -> Self {
+            Self {
+                app_state: std::array::from_fn(|_| SetOrKeep::Keep),
+                delegate: SetOrKeep::Keep,
+                verification_key: SetOrKeep::Keep,
+                permissions: SetOrKeep::Keep,
+                zkapp_uri: SetOrKeep::Keep,
+                token_symbol: SetOrKeep::Keep,
+                timing: SetOrKeep::Keep,
+                voting_for: SetOrKeep::Keep,
+            }
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/account_update.ml#L472
+        pub fn dummy() -> Self {
+            Self::noop()
+        }
+    }
+
     pub trait Check {
         type A;
         type B;
@@ -4365,6 +4386,223 @@ where
 {
     set_with_location(l, loc, a).unwrap();
     l
+}
+
+pub mod for_tests {
+    use std::collections::{HashMap, HashSet};
+
+    use mina_signer::Keypair;
+    use rand::Rng;
+    // use o1_utils::math::ceil_log2;
+
+    use crate::{
+        gen_keypair, scan_state::parallel_scan::ceil_log2,
+        staged_ledger::pre_diff_info::HashableCompressedPubKey, AuthRequired, Mask, Permissions,
+        ZkAppAccount,
+    };
+
+    use super::*;
+
+    const MIN_INIT_BALANCE: u64 = 8000000000;
+    const MAX_INIT_BALANCE: u64 = 8000000000000;
+    const NUM_ACCOUNTS: u64 = 10;
+    const NUM_TRANSACTIONS: u64 = 10;
+    const DEPTH: u64 = ceil_log2(NUM_ACCOUNTS + NUM_TRANSACTIONS);
+
+    #[derive(Debug, PartialEq, Eq)]
+    pub struct HashableKeypair(pub Keypair);
+
+    impl std::hash::Hash for HashableKeypair {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            let compressed = self.0.public.into_compressed();
+            HashableCompressedPubKey(compressed).hash(state);
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/transaction_logic/mina_transaction_logic.ml#L2194
+    #[derive(Debug)]
+    pub struct InitLedger(pub Vec<(Keypair, u64)>);
+
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/transaction_logic/mina_transaction_logic.ml#L2230
+    #[derive(Debug)]
+    pub struct TransactionSpec {
+        pub fee: Fee,
+        pub sender: (Keypair, Nonce),
+        pub receiver: CompressedPubKey,
+        pub amount: Amount,
+        pub receiver_is_new: bool,
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/transaction_logic/mina_transaction_logic.ml#L2283
+    #[derive(Debug)]
+    pub struct TestSpec {
+        pub init_ledger: InitLedger,
+        pub specs: Vec<TransactionSpec>,
+    }
+
+    impl InitLedger {
+        pub fn init(&self, ledger: &mut impl LedgerIntf) {
+            self.0.iter().for_each(|(kp, amount)| {
+                let (_tag, mut account, loc) = ledger
+                    .get_or_create(&AccountId::new(
+                        kp.public.into_compressed(),
+                        TokenId::default(),
+                    ))
+                    .unwrap();
+                account.balance = Balance::from_u64(*amount);
+                ledger.set(&loc, account);
+            });
+        }
+
+        pub fn gen() -> Self {
+            let mut rng = rand::thread_rng();
+
+            let mut tbl = HashSet::with_capacity(256);
+
+            let init = (0..NUM_ACCOUNTS)
+                .map(|_| {
+                    let kp = loop {
+                        let keypair = gen_keypair();
+                        let compressed = keypair.public.into_compressed();
+                        if !tbl.contains(&HashableCompressedPubKey(compressed)) {
+                            break keypair;
+                        }
+                    };
+
+                    let amount = rng.gen_range(MIN_INIT_BALANCE..MAX_INIT_BALANCE);
+                    tbl.insert(HashableCompressedPubKey(kp.public.into_compressed()));
+                    (kp, amount)
+                })
+                .collect();
+
+            Self(init)
+        }
+    }
+
+    impl TransactionSpec {
+        pub fn gen(init_ledger: &InitLedger, nonces: &mut HashMap<HashableKeypair, Nonce>) -> Self {
+            let mut rng = rand::thread_rng();
+
+            let pk = |(kp, _): (Keypair, u64)| kp.public.into_compressed();
+
+            let receiver_is_new: bool = rng.gen();
+
+            let mut gen_index = || rng.gen_range(0..init_ledger.0.len().checked_sub(1).unwrap());
+
+            let receiver_index = if receiver_is_new {
+                None
+            } else {
+                Some(gen_index())
+            };
+
+            let receiver = match receiver_index {
+                None => gen_keypair().public.into_compressed(),
+                Some(i) => pk(init_ledger.0[i].clone()),
+            };
+
+            let sender = {
+                let i = match receiver_index {
+                    None => gen_index(),
+                    Some(j) => loop {
+                        let i = gen_index();
+                        if i != j {
+                            break i;
+                        }
+                    },
+                };
+                init_ledger.0[i].0.clone()
+            };
+
+            let nonce = nonces
+                .get(&HashableKeypair(sender.clone()))
+                .cloned()
+                .unwrap();
+
+            let amount = Amount::from_u64(rng.gen_range(1_000_000..100_000_000));
+            let fee = Fee::from_u64(rng.gen_range(1_000_000..100_000_000));
+
+            let old = nonces.get_mut(&HashableKeypair(sender.clone())).unwrap();
+            *old = old.incr();
+
+            Self {
+                fee,
+                sender: (sender, nonce),
+                receiver,
+                amount,
+                receiver_is_new,
+            }
+        }
+    }
+
+    impl TestSpec {
+        fn mk_gen(num_transactions: Option<u64>) -> TestSpec {
+            let num_transactions = num_transactions.unwrap_or(NUM_TRANSACTIONS);
+
+            let init_ledger = InitLedger::gen();
+
+            let mut map = init_ledger
+                .0
+                .iter()
+                .map(|(kp, _)| (HashableKeypair(kp.clone()), Nonce::zero()))
+                .collect();
+
+            let specs = (0..num_transactions)
+                .map(|_| TransactionSpec::gen(&init_ledger, &mut map))
+                .collect();
+
+            Self { init_ledger, specs }
+        }
+
+        pub fn gen() -> Self {
+            Self::mk_gen(Some(NUM_TRANSACTIONS))
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct UpdateStatesSpec {
+        pub fee: Fee,
+        pub sender: (Keypair, Nonce),
+        pub fee_payer: Option<(Keypair, Nonce)>,
+        pub receivers: Vec<(CompressedPubKey, Amount)>,
+        pub amount: Amount,
+        pub zkapp_account_keypairs: Vec<Keypair>,
+        pub memo: Memo,
+        pub new_zkapp_account: bool,
+        pub snapp_update: zkapp_command::Update,
+        // Authorization for the update being performed
+        pub current_auth: AuthRequired,
+        pub sequence_events: Vec<Vec<Fp>>,
+        pub events: Vec<Vec<Fp>>,
+        pub call_data: Fp,
+        pub preconditions: Option<zkapp_command::Preconditions>,
+    }
+
+    pub fn trivial_zkapp_account(
+        permissions: Option<Permissions<AuthRequired>>,
+        vk: VerificationKey,
+        pk: CompressedPubKey,
+    ) -> Account {
+        let id = AccountId::new(pk, TokenId::default());
+        let mut account = Account::create_with(id, Balance::from_u64(1_000_000_000_000_000));
+        account.permissions = permissions.unwrap_or_else(Permissions::user_default);
+        account.zkapp = Some(ZkAppAccount {
+            verification_key: Some(vk),
+            ..Default::default()
+        });
+        account
+    }
+
+    pub fn create_trivial_zkapp_account(
+        permissions: Option<Permissions<AuthRequired>>,
+        vk: VerificationKey,
+        ledger: &mut Mask,
+        pk: CompressedPubKey,
+    ) {
+        let id = AccountId::new(pk.clone(), TokenId::default());
+        let account = trivial_zkapp_account(permissions, vk, pk);
+        assert!(BaseLedger::location_of_account(ledger, &id).is_none());
+        ledger.get_or_create_account(id, account).unwrap();
+    }
 }
 
 #[cfg(test)]

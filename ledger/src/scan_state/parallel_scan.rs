@@ -2176,7 +2176,7 @@ fn take_at<T>(slice: &[T], skip: usize, n: usize) -> &[T] {
     slice.get(skip..).map(|s| take(s, n)).unwrap_or(&[])
 }
 
-fn ceil_log2(n: u64) -> u64 {
+pub const fn ceil_log2(n: u64) -> u64 {
     // let ceil_log2 i =
     //   if i <= 0
     //   then raise_s (Sexp.message "[Int.ceil_log2] got invalid input" [ "", sexp_of_int i ]);
