@@ -4755,25 +4755,3 @@ mod tests_ocaml {
         };
     }
 }
-
-// let%test_unit "Commands with Insufficient funds are not included" =
-//   let logger = Logger.null () in
-//   Quickcheck.test command_insufficient_funds ~trials:1
-//     ~f:(fun (ledger_init_state, invalid_command) ->
-//       async_with_ledgers ledger_init_state (fun sl _test_mask ->
-//           let diff_result =
-//             Sl.create_diff ~constraint_constants !sl ~logger
-//               ~current_state_view:(dummy_state_view ())
-//               ~transactions_by_fee:(Sequence.of_list [ invalid_command ])
-//               ~get_completed_work:(stmt_to_work_zero_fee ~prover:self_pk)
-//               ~coinbase_receiver ~supercharge_coinbase:false
-//           in
-//           ( match diff_result with
-//           | Ok (diff, _invalid_txns) ->
-//               assert (
-//                 List.is_empty
-//                   (Staged_ledger_diff.With_valid_signatures_and_proofs
-//                    .commands diff ) )
-//           | Error e ->
-//               Error.raise (Pre_diff_info.Error.to_error e) ) ;
-//           Deferred.unit ) )

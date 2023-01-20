@@ -4449,7 +4449,6 @@ pub mod transaction_union_payload {
     use ark_ff::PrimeField;
     use mina_hasher::{Hashable, ROInput as LegacyInput};
     use mina_signer::NetworkId;
-    use static_assertions::const_assert_eq;
 
     use crate::scan_state::transaction_logic::signed_command::{
         PaymentPayload, StakeDelegationPayload,
