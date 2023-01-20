@@ -1769,7 +1769,7 @@ mod tests_ocaml {
     use std::str::FromStr;
 
     use ark_ff::{One, UniformRand, Zero};
-    use mina_signer::Keypair;
+    use mina_signer::{Keypair, Signer};
     use o1_utils::FieldHelpers;
     use once_cell::sync::Lazy;
     use rand::{seq::SliceRandom, CryptoRng, Rng};
@@ -1781,7 +1781,8 @@ mod tests_ocaml {
             scan_state::transaction_snark::SokDigest,
             transaction_logic::{
                 protocol_state::{EpochData, EpochLedger},
-                signed_command::{PaymentPayload, SignedCommand, SignedCommandPayload},
+                signed_command::{self, PaymentPayload, SignedCommand, SignedCommandPayload},
+                transaction_union_payload::TransactionUnionPayload,
                 Memo, Signature,
             },
         },
@@ -4044,4 +4045,91 @@ mod tests_ocaml {
             )
         });
     }
+
+    fn command_insufficient_funds() -> (LedgerInitialState, valid::UserCommand) {
+        let ledger_initial_state = gen_initial_ledger_state();
+        let (kp, balance, nonce, _) = &ledger_initial_state.state[0];
+
+        let receiver_pk = gen_keypair().public.into_compressed();
+
+        let insufficient_account_creation_fee =
+            Amount::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee.as_u64() / 2);
+
+        let source_pk = kp.public.into_compressed();
+
+        let body = signed_command::Body::Payment(PaymentPayload {
+            source_pk: source_pk.clone(),
+            receiver_pk,
+            amount: insufficient_account_creation_fee,
+        });
+        let fee = Fee::from_u64(balance.as_u64());
+
+        let payload =
+            SignedCommandPayload::create(fee, source_pk, *nonce, None, Memo::dummy(), body);
+
+        let payload_to_sign = TransactionUnionPayload::of_user_command_payload(&payload);
+
+        let mut signer = mina_signer::create_legacy(mina_signer::NetworkId::TESTNET);
+        let _signature = signer.sign(kp, &payload_to_sign);
+
+        let signed_command = SignedCommand {
+            payload,
+            signer: kp.public.into_compressed(),
+            signature: Signature::dummy(), // TODO: Use `_signature` above
+        };
+
+        let cmd = valid::UserCommand::SignedCommand(Box::new(signed_command));
+        (ledger_initial_state, cmd)
+    }
+
+    /// Commands with Insufficient funds are not included
+    #[test]
+    fn commands_with_insufficient_funds_are_not_included() {
+        let (ledger_init_state, invalid_commands) = command_insufficient_funds();
+
+        async_with_ledgers(
+            &ledger_init_state,
+            vec![invalid_commands.clone()],
+            vec![],
+            |sl, _test_mask| {
+                let (diff, _invalid_txns) = sl
+                    .create_diff(
+                        &CONSTRAINT_CONSTANTS,
+                        None,
+                        COINBASE_RECEIVER.clone(),
+                        (),
+                        &dummy_state_view(None),
+                        vec![invalid_commands.clone()],
+                        stmt_to_work_zero_fee(SELF_PK.clone()),
+                        false,
+                    )
+                    .unwrap();
+
+                dbg!(&diff);
+                assert!(diff.commands().is_empty());
+            },
+        );
+    }
 }
+
+// let%test_unit "Commands with Insufficient funds are not included" =
+//   let logger = Logger.null () in
+//   Quickcheck.test command_insufficient_funds ~trials:1
+//     ~f:(fun (ledger_init_state, invalid_command) ->
+//       async_with_ledgers ledger_init_state (fun sl _test_mask ->
+//           let diff_result =
+//             Sl.create_diff ~constraint_constants !sl ~logger
+//               ~current_state_view:(dummy_state_view ())
+//               ~transactions_by_fee:(Sequence.of_list [ invalid_command ])
+//               ~get_completed_work:(stmt_to_work_zero_fee ~prover:self_pk)
+//               ~coinbase_receiver ~supercharge_coinbase:false
+//           in
+//           ( match diff_result with
+//           | Ok (diff, _invalid_txns) ->
+//               assert (
+//                 List.is_empty
+//                   (Staged_ledger_diff.With_valid_signatures_and_proofs
+//                    .commands diff ) )
+//           | Error e ->
+//               Error.raise (Pre_diff_info.Error.to_error e) ) ;
+//           Deferred.unit ) )

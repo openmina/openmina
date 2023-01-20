@@ -165,6 +165,17 @@ pub mod with_valid_signatures_and_proofs {
     }
 
     impl Diff {
+        pub fn commands(&self) -> Vec<WithStatus<valid::UserCommand>> {
+            let first = self.diff.0.commands.as_slice();
+
+            let second = match self.diff.1.as_ref() {
+                Some(second) => second.commands.as_slice(),
+                None => &[],
+            };
+
+            first.iter().chain(second).cloned().collect()
+        }
+
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff.ml#L373
         pub fn forget_proof_checks(self) -> super::with_valid_signatures::Diff {
             let d1 = self.diff.0;

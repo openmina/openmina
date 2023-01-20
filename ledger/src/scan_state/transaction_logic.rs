@@ -3855,6 +3855,8 @@ where
 
 pub mod transaction_union_payload {
     use mina_hasher::ROInput as LegacyInput;
+    use mina_signer::NetworkId;
+    use static_assertions::const_assert_eq;
 
     use crate::scan_state::transaction_logic::signed_command::{
         PaymentPayload, StakeDelegationPayload,
@@ -3862,6 +3864,7 @@ pub mod transaction_union_payload {
 
     use super::*;
 
+    #[derive(Clone)]
     struct Common {
         fee: Fee,
         fee_token: TokenId,
@@ -3881,6 +3884,7 @@ pub mod transaction_union_payload {
         Coinbase = 5,
     }
 
+    #[derive(Clone)]
     struct Body {
         tag: Tag,
         source_pk: CompressedPubKey,
@@ -3890,9 +3894,30 @@ pub mod transaction_union_payload {
         token_locked: bool,
     }
 
+    #[derive(Clone)]
     pub struct TransactionUnionPayload {
         common: Common,
         body: Body,
+    }
+
+    impl mina_hasher::Hashable for TransactionUnionPayload {
+        type D = mina_signer::NetworkId;
+
+        fn to_roinput(&self) -> LegacyInput {
+            self.to_input_legacy()
+        }
+
+        fn domain_string(domain_param: Self::D) -> Option<String> {
+            const S: &[&str] = &["MinaSignatureMainnet", "CodaSignature"];
+            assert_eq!(NetworkId::TESTNET as usize, 0);
+            assert_eq!(NetworkId::MAINNET as usize, 1);
+
+            Some(
+                S.get(domain_param as usize)
+                    .map(ToString::to_string)
+                    .unwrap(),
+            )
+        }
     }
 
     impl TransactionUnionPayload {
