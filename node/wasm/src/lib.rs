@@ -446,6 +446,12 @@ impl JsHandle {
             .map_err(|err| err.to_string())
     }
 
+    pub fn is_account_pk_valid(&self, pk: String) -> Result<(), String> {
+        pk.parse::<NonZeroCurvePoint>()
+            .map(|_| ())
+            .map_err(|err| err.to_string())
+    }
+
     pub async fn global_state_get(&self) -> JsValue {
         let req = RpcRequest::GetState;
         let res = self.rpc.oneshot_request::<RpcStateGetResponse>(req).await;
