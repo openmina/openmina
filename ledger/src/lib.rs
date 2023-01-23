@@ -15,7 +15,8 @@
 macro_rules! elog {
     () => (elog!("[ledger]"));
     ($($arg:tt)*) => ({
-        eprintln!("[ledger] {}", format_args!($($arg)*));
+        let _ = &format_args!($($arg)*);
+        // eprintln!("[ledger] {}", format_args!($($arg)*));
     })
 }
 
