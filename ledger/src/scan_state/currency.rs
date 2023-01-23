@@ -284,6 +284,44 @@ macro_rules! impl_number {
             pub fn max() -> Self {
                 <Self as MinMax>::max()
             }
+
+            /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/currency/currency.ml#L118
+            pub fn of_formatted_string(input: &str) -> Self {
+                const PRECISION: usize = 9;
+
+                let mut s = String::with_capacity(input.len() + 9);
+
+                if !input.contains('.') {
+                    let append = "000000000";
+                    assert_eq!(append.len(), PRECISION);
+
+                    s.push_str(append);
+                } else {
+                    let (whole, decimal) = {
+                        let mut splitted = input.split('.');
+                        let whole = splitted.next().unwrap();
+                        let decimal = splitted.next().unwrap();
+                        assert!(splitted.next().is_none(), "Currency.of_formatted_string: Invalid currency input");
+                        (whole, decimal)
+                    };
+
+                    let decimal_length = decimal.len();
+
+                    if decimal_length > PRECISION {
+                        s.push_str(whole);
+                        s.push_str(&decimal[0..PRECISION]);
+                    } else {
+                        s.push_str(whole);
+                        s.push_str(decimal);
+                        for _ in 0..PRECISION - decimal_length {
+                            s.push('0');
+                        }
+                    }
+                }
+
+                let n = s.parse::<$inner>().unwrap();
+                Self(n)
+            }
         }
 
         impl rand::distributions::Distribution<$name> for rand::distributions::Standard {

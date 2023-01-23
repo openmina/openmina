@@ -392,6 +392,7 @@ impl From<&ZkAppUri> for mina_p2p_messages::string::ByteString {
 pub struct ZkAppAccount {
     pub app_state: [Fp; 8],
     pub verification_key: Option<VerificationKey>,
+    // pub verification_key: Option<WithHash<VerificationKey>>, // TODO
     pub zkapp_version: u32,
     pub sequence_state: [Fp; 5],
     pub last_sequence_slot: Slot,
@@ -460,6 +461,10 @@ impl AccountId {
             public_key,
             token_id,
         }
+    }
+
+    pub fn create(public_key: CompressedPubKey, token_id: TokenId) -> Self {
+        Self::new(public_key, token_id)
     }
 }
 

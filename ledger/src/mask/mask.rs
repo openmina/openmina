@@ -66,6 +66,10 @@ impl Mask {
         }
     }
 
+    pub fn create(depth: usize) -> Self {
+        Self::new_root(Database::create(depth as u8))
+    }
+
     pub fn make_child(&self) -> Mask {
         let new_mask = Mask::new_unattached(self.depth() as usize);
         self.register_mask(new_mask)

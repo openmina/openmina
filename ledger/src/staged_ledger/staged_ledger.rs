@@ -1777,7 +1777,8 @@ mod tests_ocaml {
     use rand::{seq::SliceRandom, CryptoRng, Rng};
 
     use crate::{
-        dummy, gen_keypair,
+        dummy::{self, trivial_verification_key},
+        gen_keypair,
         scan_state::{
             currency::{Balance, BlockTime, Fee, Length, Nonce},
             scan_state::transaction_snark::SokDigest,
@@ -1793,7 +1794,7 @@ mod tests_ocaml {
             diff::{PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase},
             pre_diff_info::HashableCompressedPubKey,
         },
-        util, AuthRequired, Permissions, VerificationKey,
+        util, AuthRequired, FpExt, Permissions, VerificationKey, ZkAppAccount,
     };
 
     use super::*;
@@ -2762,6 +2763,250 @@ mod tests_ocaml {
         );
     }
 
+    const MINIMUM_USER_COMMAND_FEE: Fee = Fee::from_u64(1000000);
+
+    /// Value of `ledger_depth` when we run `dune runtest src/lib/staged_ledger -f`
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/user_command_generators.ml#L15
+    const LEDGER_DEPTH: usize = 35;
+
+    fn zkapp_command_with_ledger(
+        num_keypairs: Option<usize>,
+        max_account_updates: Option<usize>,
+        max_token_updates: Option<usize>,
+        account_state_tbl: &mut HashSet<AccountId>,
+        vk: Option<WithHash<VerificationKey>>,
+        failure: Option<()>,
+    ) {
+        let mut rng = rand::thread_rng();
+
+        // Need a fee payer keypair, a keypair for the "balancing" account (so that the balance changes
+        // sum to zero), and max_account_updates * 2 keypairs, because all the other zkapp_command
+        // might be new and their accounts not in the ledger; or they might all be old and in the ledger
+
+        // We'll put the fee payer account and max_account_updates accounts in the
+        // ledger, and have max_account_updates keypairs available for new accounts
+        let max_account_updates = max_account_updates.unwrap_or(MAX_ACCOUNT_UPDATES);
+        let max_token_updates = max_token_updates.unwrap_or(MAX_TOKEN_UPDATES);
+        let num_keypairs =
+            num_keypairs.unwrap_or((max_account_updates * 2) + (max_token_updates * 3) + 2);
+
+        let keypairs: Vec<Keypair> = (0..num_keypairs).map(|_| gen_keypair()).collect();
+
+        let keymap: HashMap<HashableCompressedPubKey, Keypair> = keypairs
+            .iter()
+            .map(|kp| {
+                let compressed = kp.public.into_compressed();
+                (HashableCompressedPubKey(compressed), kp.clone())
+            })
+            .collect();
+
+        let num_keypairs_in_ledger = num_keypairs / 2;
+        let keypairs_in_ledger = util::take(&keypairs, num_keypairs_in_ledger);
+
+        let account_ids: Vec<AccountId> = keypairs_in_ledger
+            .iter()
+            .map(|Keypair { public, .. }| {
+                AccountId::create(public.into_compressed(), TokenId::default())
+            })
+            .collect();
+
+        let verification_key = vk.unwrap_or_else(|| {
+            let dummy_vk = VerificationKey::dummy();
+            let hash = dummy_vk.hash();
+            WithHash {
+                data: dummy_vk,
+                hash,
+            }
+        });
+
+        let balances: Vec<Balance> = {
+            let min_cmd_fee = MINIMUM_USER_COMMAND_FEE;
+
+            let min_balance = {
+                let balance = min_cmd_fee.as_u64() + 100_000_000_000_000_000;
+                Balance::from_u64(balance)
+            };
+
+            // max balance to avoid overflow when adding deltas
+            let max_balance = {
+                let max_bal = Balance::of_formatted_string("2000000000.0");
+
+                assert_eq!(max_bal.as_u64(), 2000000000000000000);
+
+                min_balance
+                    .checked_add(&max_bal)
+                    .expect("zkapp_command_with_ledger: overflow for max_balance")
+            };
+
+            (0..num_keypairs_in_ledger)
+                .map(move |_| {
+                    let balance = rng.gen_range(min_balance.as_u64()..max_balance.as_u64());
+                    Balance::from_u64(balance)
+                })
+                .collect()
+        };
+
+        let account_ids_and_balances: Vec<(AccountId, Balance)> =
+            account_ids.iter().cloned().zip(balances).collect();
+
+        let snappify_account = |mut account: Account| {
+            let permissions = Permissions {
+                edit_state: AuthRequired::Either,
+                send: AuthRequired::Either,
+                set_delegate: AuthRequired::Either,
+                set_permissions: AuthRequired::Either,
+                set_verification_key: AuthRequired::Either,
+                set_zkapp_uri: AuthRequired::Either,
+                edit_sequence_state: AuthRequired::Either,
+                set_token_symbol: AuthRequired::Either,
+                increment_nonce: AuthRequired::Either,
+                set_voting_for: AuthRequired::Either,
+                //receive: AuthRequired::Either,
+                ..Permissions::user_default()
+            };
+
+            let verification_key = Some(verification_key.data.clone());
+            let zkapp = Some(ZkAppAccount {
+                verification_key,
+                ..ZkAppAccount::default()
+            });
+
+            account.zkapp = zkapp;
+            account.permissions = permissions;
+
+            account
+        };
+
+        // half zkApp accounts, half non-zkApp accounts
+        let accounts =
+            account_ids_and_balances
+                .iter()
+                .enumerate()
+                .map(|(ndx, (account_id, balance))| {
+                    let account = Account::create_with(account_id.clone(), *balance);
+                    if ndx % 2 == 0 {
+                        account
+                    } else {
+                        snappify_account(account)
+                    }
+                });
+
+        let fee_payer_keypair = keypairs.first().unwrap();
+
+        let mut ledger = Mask::create(LEDGER_DEPTH);
+
+        account_ids.iter().zip(accounts).for_each(|(id, account)| {
+            let res = ledger
+                .get_or_create_account(id.clone(), account)
+                .expect("zkapp_command: error adding account for account id");
+            assert!(
+                matches!(res, crate::GetOrCreated::Added(_)),
+                "zkapp_command: account for account id already exists"
+            );
+        });
+
+        // to keep track of account states across transactions
+    }
+
+    //   (* to keep track of account states across transactions *)
+    //   let account_state_tbl =
+    //     Option.value account_state_tbl ~default:(Account_id.Table.create ())
+    //   in
+    //   let%bind zkapp_command =
+    //     Zkapp_command_generators.gen_zkapp_command_from ~max_account_updates
+    //       ~max_token_updates ~fee_payer_keypair ~keymap ~ledger ~account_state_tbl
+    //       ?vk ?failure ()
+    //   in
+    //   let zkapp_command =
+    //     Option.value_exn
+    //       (Zkapp_command.Valid.to_valid ~ledger ~get:Ledger.get
+    //          ~location_of_account:Ledger.location_of_account zkapp_command )
+    //   in
+    //   (* include generated ledger in result *)
+    //   return
+    //     (User_command.Zkapp_command zkapp_command, fee_payer_keypair, keymap, ledger)
+
+    /// keep max_account_updates small, so zkApp integration tests don't need lots
+    /// of block producers
+    /// because the other zkapp_command are split into a permissions-setter
+    /// and another account_update, the actual number of other zkapp_command is
+    /// twice this value, plus one, for the "balancing" account_update
+    /// when we have separate transaction accounts in integration tests
+    /// this number can be increased
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/zkapp_command_generators.ml#L1111
+    const MAX_ACCOUNT_UPDATES: usize = 2;
+
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/zkapp_command_generators.ml#L1113
+    const MAX_TOKEN_UPDATES: usize = 2;
+
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/user_command_generators.ml#L146
+    fn sequence_zkapp_command_with_ledger(
+        max_account_updates: Option<usize>,
+        max_token_updates: Option<usize>,
+        length: Option<usize>,
+        vk: Option<WithHash<VerificationKey>>,
+        failure: Option<()>,
+    ) {
+        let mut rng = rand::thread_rng();
+
+        let length = length.unwrap_or_else(|| rng.gen::<usize>() % 100);
+        let max_account_updates = max_account_updates.unwrap_or(MAX_ACCOUNT_UPDATES);
+        let max_token_updates = max_token_updates.unwrap_or(MAX_TOKEN_UPDATES);
+
+        let num_keypairs = length * max_account_updates * 2;
+
+        // Keep track of account states across multiple zkapp_command transaction
+        let account_state_tbl = HashSet::<AccountId>::new();
+    }
+
+    //   let num_keypairs = length * max_account_updates * 2 in
+    //   (* Keep track of account states across multiple zkapp_command transaction *)
+    //   let account_state_tbl = Account_id.Table.create () in
+    //   let%bind zkapp_command, fee_payer_keypair, keymap, ledger =
+    //     zkapp_command_with_ledger ~num_keypairs ~max_account_updates
+    //       ~max_token_updates ~account_state_tbl ?vk ?failure ()
+    //   in
+    //   let rec go zkapp_command_and_fee_payer_keypairs n =
+    //     if n <= 1 then
+    //       return
+    //         ( (zkapp_command, fee_payer_keypair, keymap)
+    //           :: List.rev zkapp_command_and_fee_payer_keypairs
+    //         , ledger )
+    //     else
+    //       let%bind zkapp_command =
+    //         Zkapp_command_generators.gen_zkapp_command_from ~max_account_updates
+    //           ~max_token_updates ~fee_payer_keypair ~keymap ~ledger
+    //           ~account_state_tbl ?vk ?failure ()
+    //       in
+    //       let valid_zkapp_command =
+    //         Option.value_exn
+    //           (Zkapp_command.Valid.to_valid ~ledger ~get:Ledger.get
+    //              ~location_of_account:Ledger.location_of_account zkapp_command )
+    //       in
+    //       let zkapp_command_and_fee_payer_keypairs' =
+    //         ( User_command.Zkapp_command valid_zkapp_command
+    //         , fee_payer_keypair
+    //         , keymap )
+    //         :: zkapp_command_and_fee_payer_keypairs
+    //       in
+    //       go zkapp_command_and_fee_payer_keypairs' (n - 1)
+    //   in
+    //   go [] length
+
+    static VK: Lazy<WithHash<VerificationKey>> = Lazy::new(|| {
+        let vk = trivial_verification_key();
+        let hash = vk.hash();
+
+        assert_eq!(
+            hash.to_decimal(),
+            "19499466121496341533850180868238667461929019416054840058730806488105861126057"
+        );
+
+        WithHash { data: vk, hash }
+    });
+
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2525
     fn gen_zkapps(_failure: Option<bool>, _num_zkapps: usize, _iters: usize) {
         // TODO (requires pickles)
@@ -2775,8 +3020,11 @@ mod tests_ocaml {
     /// Max throughput (zkapps)
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2664
-    // #[test]
+    #[test]
     fn max_throughput_zkapps() {
+        let vk = VK.clone();
+        println!("VK={:#?}", vk);
+
         // TODO (requires pickles)
     }
 
