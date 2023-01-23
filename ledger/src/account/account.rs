@@ -17,7 +17,7 @@ use crate::{
 
 use super::common::*;
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenId(pub Fp);
 
 impl std::fmt::Debug for TokenId {
@@ -420,6 +420,26 @@ impl Default for ZkAppAccount {
 pub struct AccountId {
     pub public_key: CompressedPubKey,
     pub token_id: TokenId,
+}
+
+impl Ord for AccountId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
+    }
+}
+
+impl PartialOrd for AccountId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self.public_key.x.partial_cmp(&other.public_key.x) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.public_key.is_odd.partial_cmp(&other.public_key.is_odd) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        self.token_id.partial_cmp(&other.token_id)
+    }
 }
 
 impl AccountId {

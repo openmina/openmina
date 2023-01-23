@@ -297,4 +297,16 @@ where
     fn apply_mask(&self, _mask: Self) {
         todo!()
     }
+
+    fn account_locations(&self) -> Vec<Self::Location> {
+        let mut addrs: Vec<Address> = self
+            .accounts()
+            .into_iter()
+            .map(|account_id| self.location_of_account(&account_id).unwrap())
+            .collect();
+
+        addrs.sort_by_key(Address::to_index);
+
+        addrs
+    }
 }

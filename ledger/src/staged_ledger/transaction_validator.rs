@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use ark_ff::Zero;
 use mina_hasher::Fp;
@@ -178,5 +178,38 @@ impl LedgerIntf for HashlessLedger {
 
     fn apply_mask(&self, _mask: Self) {
         todo!()
+    }
+
+    fn account_locations(&self) -> Vec<Self::Location> {
+        let account_ids: HashSet<AccountId> = {
+            use crate::BaseLedger;
+            self.base
+                .accounts()
+                .into_iter()
+                .chain(self.overlay.keys().cloned())
+                .collect()
+        };
+
+        let (mut ours, mut theirs) = account_ids
+            .iter()
+            .map(|id| self.location_of_account(id).unwrap())
+            .partition::<Vec<_>, _>(|location| match location {
+                Location::Ours(_) => true,
+                Location::Theirs(_) => false,
+            });
+
+        ours.sort_by_key(|location| match location {
+            Location::Ours(id) => id.clone(),
+            Location::Theirs(_) => unreachable!(),
+        });
+
+        theirs.sort_by_key(|location| match location {
+            Location::Ours(_) => unreachable!(),
+            Location::Theirs(addr) => addr.to_index(),
+        });
+
+        // Our accounts are sorted first
+        ours.append(&mut theirs);
+        ours
     }
 }

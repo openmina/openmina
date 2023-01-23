@@ -472,6 +472,11 @@ pub trait LedgerIntf {
     fn empty(depth: usize) -> Self;
     fn create_masked(&self) -> Self;
     fn apply_mask(&self, mask: Self);
+
+    /// Returns all account locations in this ledger (and its parents if any)
+    ///
+    /// The result is sorted
+    fn account_locations(&self) -> Vec<Self::Location>;
 }
 
 impl LedgerIntf for SparseLedger<AccountId, Account> {
@@ -565,5 +570,17 @@ impl LedgerIntf for SparseLedger<AccountId, Account> {
 
     fn apply_mask(&self, _mask: Self) {
         todo!()
+    }
+
+    fn account_locations(&self) -> Vec<Self::Location> {
+        let mut addrs: Vec<Address> = self
+            .indexes
+            .values()
+            .map(|(addr, _)| addr.clone())
+            .collect();
+
+        addrs.sort_by_key(Address::to_index);
+
+        addrs
     }
 }
