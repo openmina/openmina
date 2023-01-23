@@ -1782,7 +1782,6 @@ mod tests_ocaml {
             currency::{Balance, BlockTime, Fee, Length, Nonce},
             scan_state::transaction_snark::SokDigest,
             transaction_logic::{
-                for_tests::{self, HashableKeypair},
                 protocol_state::{EpochData, EpochLedger},
                 signed_command::{self, PaymentPayload, SignedCommand, SignedCommandPayload},
                 transaction_union_payload::TransactionUnionPayload,
@@ -1794,7 +1793,7 @@ mod tests_ocaml {
             diff::{PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase},
             pre_diff_info::HashableCompressedPubKey,
         },
-        util, AuthRequired, Database, Permissions, VerificationKey,
+        util, AuthRequired, Permissions, VerificationKey,
     };
 
     use super::*;
@@ -2729,23 +2728,23 @@ mod tests_ocaml {
     }
 
     fn gen_zkapps(_failure: Option<bool>, _num_zkapps: usize, _iters: usize) {
-        // TODO
+        // TODO (requires pickles)
     }
 
     fn gen_zkapps_at_capacity() {
-        // TODO
+        // TODO (requires pickles)
     }
 
     /// Max throughput (zkapps)
     // #[test]
     fn max_throughput_zkapps() {
-        // TODO
+        // TODO (requires pickles)
     }
 
     /// Max_throughput with zkApp transactions that may fail
     // #[test]
     fn max_throughput_zkapps_that_may_fail() {
-        // TODO
+        // TODO (requires pickles)
     }
 
     /// Generator for when we have less commands than needed to fill all slots.
@@ -2860,7 +2859,7 @@ mod tests_ocaml {
     /// Be able to include random number of commands (zkapps)
     // #[test]
     fn be_able_to_include_random_number_of_commands_zkapps() {
-        // TODO
+        // TODO (requires pickles)
     }
 
     /// Be able to include random number of commands (One prover)
@@ -2918,7 +2917,7 @@ mod tests_ocaml {
     /// Be able to include random number of commands (One prover, zkapps)
     // #[test]
     fn be_able_to_include_random_number_of_commands_one_prover_zkapps() {
-        // TODO
+        // TODO (requires pickles)
     }
 
     /// Fixed public key for when there is only one snark worker.
@@ -4243,7 +4242,8 @@ mod tests_ocaml {
     }
 
     /// Mismatched verification keys in zkApp accounts and and transactions
-    #[test]
+    // #[test] // TODO: This test requires the prover
+    #[allow(unused)]
     fn mismatched_vk_in_zkapp_accounts_and_transactions() {
         use scan_state::transaction_logic::for_tests::{TestSpec, UpdateStatesSpec};
 
@@ -4304,7 +4304,7 @@ mod tests_ocaml {
         let mut snapp_permissions = Permissions::user_default();
         snapp_permissions.set_delegate = AuthRequired::Proof;
 
-        let snapp_account_id = AccountId::new(snapp_pk.clone(), TokenId::default());
+        let snapp_account_id = AccountId::new(snapp_pk, TokenId::default());
 
         let dummy_vk = {
             let dummy_vk = VerificationKey::dummy();
@@ -4316,6 +4316,7 @@ mod tests_ocaml {
             }
         };
 
+        #[allow(clippy::let_unit_value)]
         let valid_against_ledger = {
             let mut new_mask = ledger.make_child();
             // for_tests::create_trivial_zkapp_account(Some(snapp_permissions), vk, &mut new_mask, snapp_pk);
