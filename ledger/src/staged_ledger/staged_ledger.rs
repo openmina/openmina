@@ -1823,6 +1823,7 @@ mod tests_ocaml {
 
     const VERIFIER: Verifier = Verifier;
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2092
     fn supercharge_coinbase(ledger: Mask, winner: CompressedPubKey, global_slot: Slot) -> bool {
         // using staged ledger to confirm coinbase amount is correctly generated
 
@@ -1835,6 +1836,8 @@ mod tests_ocaml {
     }
 
     /// Functor for testing with different instantiated staged ledger modules.
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2102
     fn create_and_apply_with_state_body_hash<F>(
         coinbase_receiver: Option<CompressedPubKey>,
         winner: Option<CompressedPubKey>,
@@ -2168,6 +2171,10 @@ mod tests_ocaml {
         panic!("Failed to generate random user commands");
     }
 
+    /// Same as gen_at_capacity except that the number of iterations[iters] is
+    /// the function of [extra_block_count] and is same for all generated values
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2597
     fn gen_at_capacity_fixed_blocks(
         extra_block_count: usize,
     ) -> (
@@ -2204,6 +2211,8 @@ mod tests_ocaml {
     ///   ledger and a separate test ledger, after applying the given
     ///   init_state to both. In the below tests we apply the same commands to
     ///   the staged and test ledgers, and verify they are in the same state.
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2180
     fn async_with_given_ledger<F>(mask: Mask, fun: F)
     where
         F: Fn(StagedLedger, Mask),
@@ -2217,6 +2226,8 @@ mod tests_ocaml {
     /// populate the ledger from an initial state before running the function
     ///
     /// Print the generated state when a panic occurs
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2192
     fn async_with_ledgers<F>(
         ledger_init_state: &LedgerInitialState,
         cmds: Vec<valid::UserCommand>,
@@ -2258,6 +2269,8 @@ mod tests_ocaml {
 
     /// Abstraction for the pattern of taking a list of commands and applying it
     /// in chunks up to a given max size.
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2392
     fn iter_cmds_acc<A, F>(
         cmds: &[valid::UserCommand],
         cmd_iters: &[Option<usize>],
@@ -2296,6 +2309,8 @@ mod tests_ocaml {
     }
 
     /// Same values when we run `dune runtest src/lib/staged_ledger -f`
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2142
     fn dummy_state_view(global_slot_since_genesis: Option<Slot>) -> ProtocolStateView {
         // TODO: Use OCaml implementation, not hardcoded value
 
@@ -2333,6 +2348,7 @@ mod tests_ocaml {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2164
     fn create_and_apply<F>(
         coinbase_receiver: Option<CompressedPubKey>,
         winner: Option<CompressedPubKey>,
@@ -2359,12 +2375,15 @@ mod tests_ocaml {
     }
 
     /// Fee excess at top level ledger proofs should always be zero
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2377
     fn assert_fee_excess(proof: &Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>) {
         if let Some((proof, _txns)) = proof {
             assert!(proof.statement().fee_excess.is_zero());
         };
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2322
     fn coinbase_first_prediff(
         v: &AtMostTwo<CoinbaseFeeTransfer>,
     ) -> (usize, Vec<&CoinbaseFeeTransfer>) {
@@ -2378,6 +2397,7 @@ mod tests_ocaml {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2336
     fn coinbase_second_prediff(
         v: &AtMostOne<CoinbaseFeeTransfer>,
     ) -> (usize, Vec<&CoinbaseFeeTransfer>) {
@@ -2388,6 +2408,7 @@ mod tests_ocaml {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2344
     fn coinbase_count(sl_diff: &Diff) -> usize {
         coinbase_first_prediff(&sl_diff.diff.0.coinbase).0
             + sl_diff
@@ -2398,6 +2419,7 @@ mod tests_ocaml {
                 .unwrap_or(0)
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2349
     fn coinbase_cost(sl_diff: &Diff) -> Fee {
         let first = coinbase_first_prediff(&sl_diff.diff.0.coinbase).1;
         let snd = sl_diff
@@ -2417,6 +2439,8 @@ mod tests_ocaml {
     /// the first n user commands passed to the given base ledger. Checks the
     /// states of the block producer account and user accounts but ignores
     /// snark workers for simplicity.
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2203
     fn assert_ledger(
         test_ledger: Mask,
         coinbase_cost: Fee,
@@ -2491,6 +2515,8 @@ mod tests_ocaml {
     }
 
     /// Generic test framework.
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2427
     fn test_simple<F>(
         account_ids_to_check: Vec<AccountId>,
         cmds: Vec<valid::UserCommand>,
@@ -2600,6 +2626,8 @@ mod tests_ocaml {
     }
 
     /// Deterministically compute a prover public key from a snark work statement.
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2279
     fn stmt_to_prover(stmt: &work::Statement) -> CompressedPubKey {
         use rand::RngCore;
         use rand_pcg::Pcg64;
@@ -2636,6 +2664,7 @@ mod tests_ocaml {
         Keypair::rand(&mut MyRng(rng)).public.into_compressed()
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2289
     fn proofs(stmt: &work::Statement) -> OneOrTwo<LedgerProof> {
         stmt.map(|statement| {
             LedgerProof::create(
@@ -2646,6 +2675,7 @@ mod tests_ocaml {
         })
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2295
     fn stmt_to_work_random_prover(stmt: &work::Statement) -> Option<work::Checked> {
         let mut rng = rand::thread_rng();
         // TODO: In OCaml it is "deterministic"
@@ -2659,6 +2689,8 @@ mod tests_ocaml {
     }
 
     /// Max throughput-ledger proof count-fixed blocks
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2636
     #[test]
     fn max_throughput_ledger_proof_count_fixed_blocks() {
         const EXPECTED_PROOF_COUNT: usize = 3;
@@ -2685,6 +2717,7 @@ mod tests_ocaml {
         );
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2511
     fn gen_at_capacity() -> (
         LedgerInitialState,
         Vec<valid::UserCommand>,
@@ -2703,6 +2736,8 @@ mod tests_ocaml {
     }
 
     /// Max throughput
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2651
     #[test]
     fn max_throughput() {
         let (ledger_init_state, cmds, iters) = gen_at_capacity();
@@ -2727,27 +2762,35 @@ mod tests_ocaml {
         );
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2525
     fn gen_zkapps(_failure: Option<bool>, _num_zkapps: usize, _iters: usize) {
         // TODO (requires pickles)
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2571
     fn gen_zkapps_at_capacity() {
         // TODO (requires pickles)
     }
 
     /// Max throughput (zkapps)
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2664
     // #[test]
     fn max_throughput_zkapps() {
         // TODO (requires pickles)
     }
 
     /// Max_throughput with zkApp transactions that may fail
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2675
     // #[test]
     fn max_throughput_zkapps_that_may_fail() {
         // TODO (requires pickles)
     }
 
     /// Generator for when we have less commands than needed to fill all slots.
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2612
     fn gen_below_capacity(
         extra_blocks: Option<bool>,
     ) -> (
@@ -2782,6 +2825,8 @@ mod tests_ocaml {
     }
 
     /// Be able to include random number of commands
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2686
     #[test]
     fn be_able_to_include_random_number_of_commands_many() {
         let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
@@ -2857,12 +2902,16 @@ mod tests_ocaml {
     }
 
     /// Be able to include random number of commands (zkapps)
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2694
     // #[test]
     fn be_able_to_include_random_number_of_commands_zkapps() {
         // TODO (requires pickles)
     }
 
     /// Be able to include random number of commands (One prover)
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2704
     #[test]
     fn be_able_to_include_random_number_of_commands_one_prover() {
         let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
@@ -2915,6 +2964,8 @@ mod tests_ocaml {
     }
 
     /// Be able to include random number of commands (One prover, zkapps)
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2712
     // #[test]
     fn be_able_to_include_random_number_of_commands_one_prover_zkapps() {
         // TODO (requires pickles)
@@ -2925,6 +2976,8 @@ mod tests_ocaml {
         Lazy::new(|| gen_keypair().public.into_compressed());
 
     /// Zero proof-fee should not create a fee transfer
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2723
     #[test]
     fn zero_proof_fee_should_not_create_a_fee_transfer() {
         const EXPECTED_PROOF_COUNT: usize = 3;
@@ -2963,6 +3016,7 @@ mod tests_ocaml {
         );
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2745
     fn compute_statutes(
         ledger: Mask,
         coinbase_amount: Amount,
@@ -2992,6 +3046,8 @@ mod tests_ocaml {
     }
 
     /// Invalid diff test: check zero fee excess for partitions
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2761
     #[test]
     fn check_zero_fee_excess_for_partitions() {
         let create_diff_with_non_zero_fee_excess =
@@ -3138,6 +3194,8 @@ mod tests_ocaml {
     const WORK_FEE: Fee = CONSTRAINT_CONSTANTS.account_creation_fee;
 
     /// Provers can't pay the account creation fee
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2866
     #[test]
     fn provers_cant_pay_the_account_creation_fee() {
         let no_work_included = |diff: &Diff| diff.completed_works().is_empty();
@@ -3187,6 +3245,7 @@ mod tests_ocaml {
         );
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2914
     fn stmt_to_work_restricted(
         work_list: &[work::Statement],
         provers: NumProvers,
@@ -3209,6 +3268,8 @@ mod tests_ocaml {
     }
 
     /// Like test_simple but with a random number of completed jobs available.
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2939
     fn test_random_number_of_proofs(
         init: &LedgerInitialState,
         cmds: Vec<valid::UserCommand>,
@@ -3286,6 +3347,8 @@ mod tests_ocaml {
     /// max throughput-random number of proofs-worst case provers
     ///
     /// Always at worst case number of provers
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2983
     #[test]
     fn max_throughput_random_number_of_proofs_worst_case_provers() {
         let mut rng = rand::thread_rng();
@@ -3325,6 +3388,8 @@ mod tests_ocaml {
     }
 
     /// random no of transactions-random number of proofs-worst case provers
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3008
     #[test]
     fn random_number_of_transactions_random_number_of_proofs_worst_case_provers() {
         let mut rng = rand::thread_rng();
@@ -3355,6 +3420,8 @@ mod tests_ocaml {
     }
 
     /// Random number of commands-random number of proofs-one prover
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3057
     #[test]
     fn random_number_of_commands_random_number_of_proofs_one_prover() {
         let mut rng = rand::thread_rng();
@@ -3384,6 +3451,7 @@ mod tests_ocaml {
         );
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3076
     fn stmt_to_work_random_fee(
         work_list: &[(work::Statement, Fee)],
         provers: NumProvers,
@@ -3405,6 +3473,8 @@ mod tests_ocaml {
     }
 
     /// Like test_random_number_of_proofs but with random proof fees.
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3095
     fn test_random_proof_fee(
         _init: &LedgerInitialState,
         cmds: Vec<valid::UserCommand>,
@@ -3534,6 +3604,8 @@ mod tests_ocaml {
     /// max throughput-random-random fee-number of proofs-worst case provers
     ///
     /// Always at worst case number of provers
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3188
     #[test]
     fn max_throughput_random_number_fee_number_of_proofs_worst_case_provers() {
         let mut rng = rand::thread_rng();
@@ -3575,6 +3647,8 @@ mod tests_ocaml {
     }
 
     /// Max throughput-random fee
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3214
     #[test]
     fn max_throughput_random_fee() {
         let mut rng = rand::thread_rng();
@@ -3617,10 +3691,12 @@ mod tests_ocaml {
         );
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3244
     fn check_pending_coinbase() {
         // TODO: this seems to be related to proof generation ? Which we don't support yet
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3290
     fn test_pending_coinbase(
         init: &LedgerInitialState,
         cmds: Vec<valid::UserCommand>,
@@ -3695,6 +3771,7 @@ mod tests_ocaml {
         assert!(proofs_available_left.is_empty());
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3348
     fn pending_coinbase_test(prover: NumProvers) {
         let mut rng = rand::thread_rng();
 
@@ -3734,6 +3811,8 @@ mod tests_ocaml {
 
     /// Validate pending coinbase for random number of
     /// commands-random number of proofs-one prover)
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3379
     #[test]
     fn validate_pending_coinbase_for_random_number_of_commands_one_prover() {
         pending_coinbase_test(NumProvers::One);
@@ -3741,11 +3820,14 @@ mod tests_ocaml {
 
     /// Validate pending coinbase for random number of
     /// commands-random number of proofs-many prover)
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3383
     #[test]
     fn validate_pending_coinbase_for_random_number_of_commands_many_prover() {
         pending_coinbase_test(NumProvers::Many);
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3387
     fn timed_account(_n: usize) -> (Keypair, Account) {
         let keypair = gen_keypair();
         let account_id = AccountId::new(keypair.public.into_compressed(), TokenId::default());
@@ -3762,6 +3844,7 @@ mod tests_ocaml {
         (keypair, account)
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3410
     fn untimed_account(_n: usize) -> (Keypair, Account) {
         let keypair = gen_keypair();
         let account_id = AccountId::new(keypair.public.into_compressed(), TokenId::default());
@@ -3782,6 +3865,7 @@ mod tests_ocaml {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3425
     fn supercharge_coinbase_test<F>(
         this: Account,
         delegator: Account,
@@ -3833,6 +3917,8 @@ mod tests_ocaml {
     );
 
     /// Supercharged coinbase - staking
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3468
     #[test]
     fn supercharged_coinbase_staking() {
         let (keypair_this, this) = timed_account(1);
@@ -3886,6 +3972,8 @@ mod tests_ocaml {
     }
 
     /// Supercharged coinbase - unlocked account delegating to locked account
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3505
     #[test]
     fn supercharged_coinbase_unlocked_account_delegating_to_locked_account() {
         let (keypair_this, locked_this) = timed_account(1);
@@ -3934,6 +4022,8 @@ mod tests_ocaml {
     }
 
     /// Supercharged coinbase - locked account delegating to unlocked account
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3537
     #[test]
     fn supercharged_coinbase_locked_account_delegating_to_unlocked_account() {
         let (keypair_this, unlocked_this) = untimed_account(1);
@@ -3996,6 +4086,8 @@ mod tests_ocaml {
     }
 
     /// Supercharged coinbase - locked account delegating to locked account
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3580
     #[test]
     fn supercharged_coinbase_locked_account_delegating_to_locked_account() {
         let (keypair_this, locked_this) = timed_account(1);
@@ -4045,6 +4137,7 @@ mod tests_ocaml {
         });
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3612
     fn command_insufficient_funds() -> (LedgerInitialState, valid::UserCommand) {
         let ledger_initial_state = gen_initial_ledger_state();
         let (kp, balance, nonce, _) = &ledger_initial_state.state[0];
@@ -4082,6 +4175,8 @@ mod tests_ocaml {
     }
 
     /// Commands with Insufficient funds are not included
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3643
     #[test]
     fn commands_with_insufficient_funds_are_not_included() {
         let (ledger_init_state, invalid_commands) = command_insufficient_funds();
@@ -4110,6 +4205,8 @@ mod tests_ocaml {
     }
 
     /// Blocks having commands with insufficient funds are rejected
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3665
     #[test]
     fn blocks_having_commands_with_sufficient_funds_are_rejected() {
         enum Validity {
@@ -4242,6 +4339,8 @@ mod tests_ocaml {
     }
 
     /// Mismatched verification keys in zkApp accounts and and transactions
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3776
     // #[test] // TODO: This test requires the prover
     #[allow(unused)]
     fn mismatched_vk_in_zkapp_accounts_and_transactions() {
@@ -4323,77 +4422,3 @@ mod tests_ocaml {
         };
     }
 }
-
-//               let valid_against_ledger =
-//                 let new_mask =
-//                   Ledger.Mask.create ~depth:(Ledger.depth ledger) ()
-//                 in
-//                 let l = Ledger.register_mask ledger new_mask in
-//                 Transaction_snark.For_tests.create_trivial_zkapp_account
-//                   ~permissions:snapp_permissions ~vk ~ledger:l snapp_pk ;
-//                 l
-//               in
-//               let%bind zkapp_command =
-//                 Transaction_snark.For_tests.update_states ~zkapp_prover
-//                   ~constraint_constants test_spec
-//               in
-//               let valid_zkapp_command =
-//                 Option.value_exn
-//                   (Zkapp_command.Valid.to_valid ~ledger:valid_against_ledger
-//                      ~get:Ledger.get
-//                      ~location_of_account:Ledger.location_of_account
-//                      zkapp_command )
-//               in
-//               ignore
-//                 (Ledger.unregister_mask_exn valid_against_ledger
-//                    ~loc:__LOC__ ) ;
-//               (*Different key in the staged ledger*)
-//               Transaction_snark.For_tests.create_trivial_zkapp_account
-//                 ~permissions:snapp_permissions ~vk:dummy_vk ~ledger snapp_pk ;
-//               let open Async.Deferred.Let_syntax in
-//               let sl = ref @@ Sl.create_exn ~constraint_constants ~ledger in
-//               let%bind _proof, diff =
-//                 create_and_apply sl
-//                   (Sequence.singleton
-//                      (User_command.Zkapp_command valid_zkapp_command) )
-//                   stmt_to_work_one_prover
-//               in
-//               let commands = Staged_ledger_diff.commands diff in
-//               (*Zkapp_command with incompatible vk should not be in the diff*)
-//               assert (List.is_empty commands) ;
-//               (*Update the account to have correct vk*)
-//               let loc =
-//                 Option.value_exn
-//                   (Ledger.location_of_account ledger snapp_account_id)
-//               in
-//               let account = Option.value_exn (Ledger.get ledger loc) in
-//               Ledger.set ledger loc
-//                 { account with
-//                   zkapp =
-//                     Some
-//                       { (Option.value_exn account.zkapp) with
-//                         verification_key = Some vk
-//                       }
-//                 } ;
-//               let sl = ref @@ Sl.create_exn ~constraint_constants ~ledger in
-//               let%bind _proof, diff =
-//                 create_and_apply sl
-//                   (Sequence.singleton
-//                      (User_command.Zkapp_command valid_zkapp_command) )
-//                   stmt_to_work_one_prover
-//               in
-//               let commands = Staged_ledger_diff.commands diff in
-//               assert (List.length commands = 1) ;
-//               match List.hd_exn commands with
-//               | { With_status.data = Zkapp_command _ps; status = Applied }
-//                 ->
-//                   return ()
-//               | { With_status.data = Zkapp_command _ps
-//                 ; status = Failed tbl
-//                 } ->
-//                   failwith
-//                     (sprintf "Zkapp_command application failed %s"
-//                        ( Transaction_status.Failure.Collection.to_yojson tbl
-//                        |> Yojson.Safe.to_string ) )
-//               | _ ->
-//                   failwith "expecting zkapp_command transaction" ) ) )
