@@ -62,6 +62,7 @@ use mina_p2p_messages::{
         UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
+use mina_signer::Signature;
 
 use crate::{
     array_into_with,
@@ -87,11 +88,12 @@ use super::{
     transaction_logic::{
         self,
         local_state::LocalState,
+        signed_command::SignedCommand,
         transaction_applied::{self, TransactionApplied},
         zkapp_command::{
             AccountUpdate, FeePayer, FeePayerBody, SetOrKeep, WithHash, WithStackHash,
         },
-        FeeTransfer, Memo, Signature, SingleFeeTransfer, TransactionFailure, TransactionStatus,
+        FeeTransfer, Memo, SingleFeeTransfer, TransactionFailure, TransactionStatus,
     },
 };
 
@@ -512,10 +514,10 @@ impl From<&MinaBaseAccountUpdateFeePayerStableV1> for FeePayer {
                     .map(|until| Slot::from_u32(until.as_u32())),
                 nonce: Nonce::from_u32(value.body.nonce.as_u32()),
             },
-            authorization: Signature(
-                value.authorization.0.to_field(),
-                value.authorization.1.to_field(),
-            ),
+            authorization: Signature {
+                rx: value.authorization.0.to_field(),
+                s: value.authorization.1.to_field(),
+            },
         }
     }
 }
@@ -1023,11 +1025,11 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
                 },
             },
             authorization: match &value.authorization {
-                mina_p2p_messages::v2::MinaBaseControlStableV2::Proof(proof) => zkapp_command::Control::Proof(Rc::new((**proof).clone())),
-                mina_p2p_messages::v2::MinaBaseControlStableV2::Signature(signature) => zkapp_command::Control::Signature(Signature(
-                    signature.0.to_field(),
-                    signature.1.to_field()
-                )),
+                mina_p2p_messages::v2::MinaBaseControlStableV2::Proof(proof) => zkapp_command::Control::Proof((**proof).clone()),
+                mina_p2p_messages::v2::MinaBaseControlStableV2::Signature(signature) => zkapp_command::Control::Signature(Signature{
+                    rx: signature.0.to_field(),
+                    s: signature.1.to_field()
+            }),
                 mina_p2p_messages::v2::MinaBaseControlStableV2::NoneGiven => zkapp_command::Control::NoneGiven,
             },
         }
@@ -1301,6 +1303,106 @@ impl From<&Memo> for MinaBaseSignedCommandMemoStableV1 {
     }
 }
 
+impl From<&MinaBaseSignedCommandStableV2> for SignedCommand {
+    fn from(cmd: &MinaBaseSignedCommandStableV2) -> Self {
+        Self {
+            payload: transaction_logic::signed_command::SignedCommandPayload {
+                common: transaction_logic::signed_command::Common {
+                    fee: (&cmd.payload.common.fee).into(),
+                    fee_payer_pk: (&cmd.payload.common.fee_payer_pk).into(),
+                    nonce: (&cmd.payload.common.nonce).into(),
+                    valid_until: (&cmd.payload.common.valid_until).into(),
+                    memo: (&cmd.payload.common.memo).into(),
+                },
+                body: match &cmd.payload.body {
+                    MinaBaseSignedCommandPayloadBodyStableV2::Payment(payload) => {
+                        transaction_logic::signed_command::Body::Payment(PaymentPayload {
+                            source_pk: (&payload.source_pk).into(),
+                            receiver_pk: (&payload.receiver_pk).into(),
+                            amount: payload.amount.clone().into(),
+                        })
+                    }
+                    MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(
+                        MinaBaseStakeDelegationStableV1::SetDelegate {
+                            delegator,
+                            new_delegate,
+                        },
+                    ) => transaction_logic::signed_command::Body::StakeDelegation(
+                        StakeDelegationPayload::SetDelegate {
+                            delegator: delegator.into(),
+                            new_delegate: new_delegate.into(),
+                        },
+                    ),
+                },
+            },
+            signer: (&cmd.signer).into(),
+            signature: (&cmd.signature).into(),
+        }
+    }
+}
+
+impl From<&SignedCommand> for MinaBaseSignedCommandStableV2 {
+    fn from(cmd: &SignedCommand) -> Self {
+        Self {
+            payload: MinaBaseSignedCommandPayloadStableV2 {
+                common: MinaBaseSignedCommandPayloadCommonStableV2 {
+                    fee: (&cmd.payload.common.fee).into(),
+                    fee_payer_pk: (&cmd.payload.common.fee_payer_pk).into(),
+                    nonce: (&cmd.payload.common.nonce).into(),
+                    valid_until: (&cmd.payload.common.valid_until).into(),
+                    memo: MinaBaseSignedCommandMemoStableV1(
+                        cmd.payload.common.memo.as_slice().into(),
+                    ),
+                },
+                body: match &cmd.payload.body {
+                    crate::scan_state::transaction_logic::signed_command::Body::Payment(
+                        payload,
+                    ) => MinaBaseSignedCommandPayloadBodyStableV2::Payment(
+                        MinaBasePaymentPayloadStableV2 {
+                            source_pk: (&payload.source_pk).into(),
+                            receiver_pk: (&payload.receiver_pk).into(),
+                            amount: payload.amount.into(),
+                        },
+                    ),
+                    crate::scan_state::transaction_logic::signed_command::Body::StakeDelegation(
+                        StakeDelegationPayload::SetDelegate {
+                            delegator,
+                            new_delegate,
+                        },
+                    ) => MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(
+                        MinaBaseStakeDelegationStableV1::SetDelegate {
+                            delegator: delegator.into(),
+                            new_delegate: new_delegate.into(),
+                        },
+                    ),
+                },
+            },
+            signer: (&cmd.signer).into(),
+            signature: (&cmd.signature).into(),
+        }
+    }
+}
+
+impl From<&MinaBaseZkappCommandTStableV1WireStableV1> for zkapp_command::ZkAppCommand {
+    fn from(cmd: &MinaBaseZkappCommandTStableV1WireStableV1) -> Self {
+        Self {
+            fee_payer: (&cmd.fee_payer).into(),
+            account_updates: (&cmd.account_updates).into(),
+            memo: (&cmd.memo).into()
+        }
+    }
+}
+
+impl From<&zkapp_command::ZkAppCommand> for MinaBaseZkappCommandTStableV1WireStableV1 {
+    fn from(cmd: &zkapp_command::ZkAppCommand) -> Self {
+        Self {
+            fee_payer: (&cmd.fee_payer).into(),
+            account_updates: (&cmd.account_updates).into(),
+            memo: (&cmd.memo).into()
+        }
+    }
+}
+
 impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for TransactionWithWitness {
     fn from(value: &TransactionSnarkScanStateTransactionWithWitnessStableV2) -> Self {
         use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedVaryingStableV2::*;
@@ -1320,36 +1422,7 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                                 transaction_applied::SignedCommandApplied {
                                     common: transaction_applied::signed_command_applied::Common {
                                         user_command: WithStatus {
-                                            data: transaction_logic::signed_command::SignedCommand {
-                                                payload: transaction_logic::signed_command::SignedCommandPayload {
-                                                    common: transaction_logic::signed_command::Common {
-                                                        fee: (&cmd.common.user_command.data.payload.common.fee).into(),
-                                                        fee_payer_pk: (&cmd.common.user_command.data.payload.common.fee_payer_pk).into(),
-                                                        nonce: (&cmd.common.user_command.data.payload.common.nonce).into(),
-                                                        valid_until: (&cmd.common.user_command.data.payload.common.valid_until).into(),
-                                                        memo: (&cmd.common.user_command.data.payload.common.memo).into(),
-                                                    },
-                                                    body: match &cmd.common.user_command.data.payload.body {
-                                                        MinaBaseSignedCommandPayloadBodyStableV2::Payment(payload) =>
-                                                            transaction_logic::signed_command::Body::Payment(PaymentPayload {
-                                                                source_pk: (&payload.source_pk).into(),
-                                                                receiver_pk: (&payload.receiver_pk).into(),
-                                                                amount: payload.amount.clone().into(),
-                                                            }),
-                                                        MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(
-                                                            MinaBaseStakeDelegationStableV1::SetDelegate { delegator, new_delegate }
-                                                        ) =>
-                                                            transaction_logic::signed_command::Body::StakeDelegation(
-                                                                StakeDelegationPayload::SetDelegate {
-                                                                    delegator: delegator.into(),
-                                                                    new_delegate: new_delegate.into(),
-                                                                }
-                                                            ),
-                                                    },
-                                                },
-                                                signer: (&cmd.common.user_command.data.signer).into(),
-                                                signature: (&cmd.common.user_command.data.signature).into(),
-                                            },
+                                            data: (&cmd.common.user_command.data).into(),
                                             status: (&cmd.common.user_command.status).into(),
                                         },
                                     },
@@ -1391,12 +1464,7 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                                         })
                                         .collect(),
                                     command: WithStatus {
-                                        data: zkapp_command::ZkAppCommand {
-                                            fee_payer: (&cmd.command.data.fee_payer).into(),
-                                            account_updates: (&cmd.command.data.account_updates)
-                                                .into(),
-                                            memo: (&cmd.command.data.memo).into(),
-                                        },
+                                        data: (&cmd.command.data).into(),
                                         status: (&cmd.command.status).into(),
                                     },
                                     new_accounts: cmd.new_accounts.iter().map(Into::into).collect(),
@@ -1525,18 +1593,6 @@ impl From<&Statement<()>> for TransactionSnarkStatementStableV2 {
     }
 }
 
-impl From<&Signature> for MinaBaseSignatureStableV1 {
-    fn from(value: &Signature) -> Self {
-        Self(value.0.into(), value.1.into())
-    }
-}
-
-impl From<&MinaBaseSignatureStableV1> for Signature {
-    fn from(value: &MinaBaseSignatureStableV1) -> Self {
-        Self(value.0.to_field(), value.1.to_field())
-    }
-}
-
 impl From<&transaction_logic::Coinbase> for MinaBaseCoinbaseStableV1 {
     fn from(value: &transaction_logic::Coinbase) -> Self {
         Self {
@@ -1581,34 +1637,7 @@ impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithW
                                 MinaTransactionLogicTransactionAppliedSignedCommandAppliedStableV2 {
                                     common: MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2 {
                                         user_command: MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStableV2UserCommand {
-                                            data: MinaBaseSignedCommandStableV2 {
-                                                payload: MinaBaseSignedCommandPayloadStableV2 {
-                                                    common: MinaBaseSignedCommandPayloadCommonStableV2 {
-                                                        fee: (&cmd.common.user_command.data.payload.common.fee).into(),
-                                                        fee_payer_pk: (&cmd.common.user_command.data.payload.common.fee_payer_pk).into(),
-                                                        nonce: (&cmd.common.user_command.data.payload.common.nonce).into(),
-                                                        valid_until: (&cmd.common.user_command.data.payload.common.valid_until).into(),
-                                                        memo: MinaBaseSignedCommandMemoStableV1(cmd.common.user_command.data.payload.common.memo.as_slice().into()),
-                                                    },
-                                                    body: match &cmd.common.user_command.data.payload.body {
-                                                        crate::scan_state::transaction_logic::signed_command::Body::Payment(payload) =>
-                                                            MinaBaseSignedCommandPayloadBodyStableV2::Payment(MinaBasePaymentPayloadStableV2 {
-                                                                source_pk: (&payload.source_pk).into(),
-                                                                receiver_pk: (&payload.receiver_pk).into(),
-                                                                amount: payload.amount.into(),
-                                                            }),
-                                                        crate::scan_state::transaction_logic::signed_command::Body::StakeDelegation(
-                                                            StakeDelegationPayload::SetDelegate { delegator, new_delegate }) =>
-                                                            MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(
-                                                                MinaBaseStakeDelegationStableV1::SetDelegate {
-                                                                    delegator: delegator.into(),
-                                                                    new_delegate: new_delegate.into()
-                                                                }),
-                                                    },
-                                                },
-                                                signer: (&cmd.common.user_command.data.signer).into(),
-                                                signature: (&cmd.common.user_command.data.signature).into(),
-                                            },
+                                            data: (&cmd.common.user_command.data).into(),
                                             status: (&cmd.common.user_command.status).into(),
                                         },
                                     },
@@ -1638,11 +1667,7 @@ impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithW
                                     (id, account_opt)
                                 }).collect(),
                                 command: MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command {
-                                    data: MinaBaseZkappCommandTStableV1WireStableV1 {
-                                        fee_payer: (&cmd.command.data.fee_payer).into(),
-                                        account_updates: (&cmd.command.data.account_updates).into(),
-                                        memo: (&cmd.command.data.memo).into(),
-                                    },
+                                    data: (&cmd.command.data).into(),
                                     status: (&cmd.command.status).into(),
                                 },
                                 new_accounts: cmd.new_accounts.iter().cloned().map(Into::into).collect(),

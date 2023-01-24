@@ -23,6 +23,9 @@ module Rust = struct
   (* type attached_mask *)
   (* type any_mask *)
 
+  (* serialized transaction -> merkle root hash *)
+  external transaction_fuzzer : (bytes -> bytes) -> unit = "rust_transaction_fuzzer"
+
   external mask_create : int -> mask = "rust_mask_create"
   external mask_get_directory : mask -> string option = "rust_mask_get_directory"
   external mask_get_uuid : mask -> string = "rust_mask_get_uuid"

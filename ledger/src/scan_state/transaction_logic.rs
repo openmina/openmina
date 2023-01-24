@@ -2,6 +2,7 @@ use ark_ff::{One, Zero};
 use itertools::FoldWhile::{Continue, Done};
 use itertools::Itertools;
 use mina_hasher::Fp;
+use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
 use mina_signer::CompressedPubKey;
 
 use crate::{hash_with_kimchi, Inputs};
@@ -461,20 +462,6 @@ impl Coinbase {
     }
 }
 
-/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signature.mli#L11
-#[derive(Clone, PartialEq, Eq)]
-pub struct Signature(pub(super) Fp, pub(super) Fp); // TODO: Not sure if it's correct
-
-impl std::fmt::Debug for Signature {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("Signature({:?},{:?})", self.0, self.1))
-    }
-}
-
-/// 0th byte is a tag to distinguish digests from other data
-/// 1st byte is length, always 32 for digests
-/// bytes 2 to 33 are data, 0-right-padded if length is less than 32
-///
 #[derive(Clone, PartialEq)]
 pub struct Memo(pub [u8; 34]);
 
@@ -576,13 +563,10 @@ impl Memo {
     }
 }
 
-impl Signature {
-    pub fn dummy() -> Self {
-        Self(Fp::one(), Fp::one())
-    }
-}
-
 pub mod signed_command {
+    use mina_p2p_messages::v2::{MinaBaseSignedCommandStableV2, MinaBaseSignedCommandPayloadStableV2, MinaBaseSignedCommandPayloadCommonStableV2};
+    use mina_signer::Signature;
+
     use crate::{decompress_pk, scan_state::currency::Slot, AccountId};
 
     use super::*;
@@ -787,6 +771,7 @@ pub mod zkapp_command {
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
     };
     use rand::{seq::SliceRandom, Rng};
+    use mina_signer::Signature;
     use static_assertions::assert_eq_size_val;
 
     use crate::{
@@ -2724,6 +2709,39 @@ pub enum UserCommand {
     ZkAppCommand(Box<zkapp_command::ZkAppCommand>),
 }
 
+impl From<&UserCommand> for MinaBaseUserCommandStableV2 {
+    fn from(user_command: &UserCommand) -> Self {
+        match user_command {
+            UserCommand::SignedCommand(signed_command) => {
+                MinaBaseUserCommandStableV2::SignedCommand((&(*(signed_command.clone()))).into())
+            }
+            UserCommand::ZkAppCommand(zkapp_command) => {
+                MinaBaseUserCommandStableV2::ZkappCommand((&(*(zkapp_command.clone()))).into())
+            }
+        }
+    }
+}
+
+impl From<&MinaBaseUserCommandStableV2> for UserCommand {
+    fn from(user_command: &MinaBaseUserCommandStableV2) -> Self {
+        match user_command {
+            MinaBaseUserCommandStableV2::SignedCommand(signed_command) => {
+                UserCommand::SignedCommand(Box::new(signed_command.into()))
+            }
+            MinaBaseUserCommandStableV2::ZkappCommand(zkapp_command) => {
+                UserCommand::ZkAppCommand(Box::new(zkapp_command.into()))
+            }
+        }
+    }
+}
+
+impl binprot::BinProtWrite for UserCommand {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        let p2p: MinaBaseUserCommandStableV2 = self.into();
+        p2p.binprot_write(w)
+    }
+}
+
 impl UserCommand {
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/user_command.ml#L203
     pub fn accounts_accessed(&self, status: TransactionStatus) -> Vec<AccountId> {
@@ -4428,7 +4446,8 @@ where
 }
 
 pub mod transaction_union_payload {
-    use mina_hasher::ROInput as LegacyInput;
+    use ark_ff::PrimeField;
+    use mina_hasher::{Hashable, ROInput as LegacyInput};
     use mina_signer::NetworkId;
 
     use crate::scan_state::transaction_logic::signed_command::{
@@ -4473,23 +4492,55 @@ pub mod transaction_union_payload {
         body: Body,
     }
 
-    impl mina_hasher::Hashable for TransactionUnionPayload {
-        type D = mina_signer::NetworkId;
+    impl Hashable for TransactionUnionPayload {
+        type D = NetworkId;
 
         fn to_roinput(&self) -> LegacyInput {
-            self.to_input_legacy()
+            /*
+                Payment transactions only use the default token-id value 1.
+                The old transaction format encoded the token-id as an u64,
+                however zkApps encode the token-id as a Fp.
+
+                For testing/fuzzing purposes we want the ability to encode
+                arbitrary values different from the default token-id, for this
+                we will extract the LS u64 of the token-id.
+            */
+            let fee_token_id = self.common.fee_token.0.into_repr().0[0];
+            let token_id = self.body.token_id.0.into_repr().0[0];
+
+            let mut roi = LegacyInput::new()
+                .append_field(self.common.fee_payer_pk.x)
+                .append_field(self.body.source_pk.x)
+                .append_field(self.body.receiver_pk.x)
+                .append_u64(self.common.fee.as_u64())
+                .append_u64(fee_token_id)
+                .append_bool(self.common.fee_payer_pk.is_odd)
+                .append_u32(self.common.nonce.as_u32())
+                .append_u32(self.common.valid_until.as_u32())
+                .append_bytes(&self.common.memo.0);
+
+            let mut tag = self.body.tag.clone() as u8;
+
+            while (tag != 0) {
+                roi = roi.append_bool(tag & 1 != 0);
+                tag >>= 1;
+            }
+
+            roi.append_bool(self.body.source_pk.is_odd)
+                .append_bool(self.body.receiver_pk.is_odd)
+                .append_u64(token_id)
+                .append_u64(self.body.amount.as_u64())
+                .append_bool(self.body.token_locked)
         }
 
-        fn domain_string(domain_param: Self::D) -> Option<String> {
-            const S: &[&str] = &["MinaSignatureMainnet", "CodaSignature"];
-            assert_eq!(NetworkId::TESTNET as usize, 0);
-            assert_eq!(NetworkId::MAINNET as usize, 1);
-
-            Some(
-                S.get(domain_param as usize)
-                    .map(ToString::to_string)
-                    .unwrap(),
-            )
+        fn domain_string(network_id: NetworkId) -> Option<String> {
+            // Domain strings must have length <= 20
+            match network_id {
+                NetworkId::MAINNET => "MinaSignatureMainnet",
+                NetworkId::TESTNET => "CodaSignature",
+            }
+            .to_string()
+            .into()
         }
     }
 

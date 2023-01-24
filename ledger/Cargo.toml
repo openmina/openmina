@@ -45,6 +45,7 @@ itertools = "0.10"
 # ark-serialize = { version = "0.3.0", features = [ "std" ] }
 
 ark-ff = { git = "https://github.com/name-placeholder/algebra", branch = "openmina", features = [ "parallel", "asm", "std" ] }
+ark-ec = { git = "https://github.com/name-placeholder/algebra", branch = "openmina", features = [ "std" ] }
 ark-serialize = { git = "https://github.com/name-placeholder/algebra", branch = "openmina", features = [ "std" ] }
 ark-poly = { git = "https://github.com/name-placeholder/algebra", branch = "openmina", features = [ "std" ] }
 
@@ -55,7 +56,7 @@ hex = "0.4.3"
 num-bigint = "0.4"
 
 once_cell = "1"
-rand = "0.8"
+rand = {version = "0.8", features = [ "small_rng" ] }
 uuid = { version = "1", features = [ "v4" ] }
 
 packed_simd = { version = "0.3", package = "packed_simd_2" }

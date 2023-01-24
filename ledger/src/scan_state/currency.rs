@@ -1,5 +1,7 @@
 use std::cmp::Ordering::{Equal, Greater, Less};
 
+use mina_p2p_messages::v2::CurrencyFeeStableV1;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Sgn {
     Pos,
