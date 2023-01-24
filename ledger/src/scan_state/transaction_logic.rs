@@ -772,6 +772,7 @@ pub mod zkapp_command {
     };
     use rand::{seq::SliceRandom, Rng};
     use mina_signer::Signature;
+    use rand::{seq::SliceRandom, Rng};
     use static_assertions::assert_eq_size_val;
 
     use crate::{
