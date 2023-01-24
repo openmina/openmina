@@ -1263,6 +1263,19 @@ pub mod zkapp_command {
         }
     }
 
+    impl<T> OrIgnore<ClosedInterval<T>>
+    where
+        T: PartialOrd,
+    {
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_precondition.ml#L294
+        pub fn is_constant(&self) -> bool {
+            match self {
+                OrIgnore::Check(interval) => interval.lower == interval.upper,
+                OrIgnore::Ignore => false,
+            }
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L439
     pub type Hash<T> = OrIgnore<T>;
 
@@ -1572,6 +1585,21 @@ pub mod zkapp_command {
                     upper: *nonce,
                 }),
                 Self::Accept => Numeric::Ignore,
+            }
+        }
+
+        pub fn to_full(&self) -> Account {
+            match self {
+                AccountPreconditions::Full(s) => (**s).clone(),
+                AccountPreconditions::Nonce(nonce) => {
+                    let mut account = Account::accept();
+                    account.nonce = OrIgnore::Check(ClosedInterval {
+                        lower: *nonce,
+                        upper: *nonce,
+                    });
+                    account
+                }
+                AccountPreconditions::Accept => Account::accept(),
             }
         }
     }

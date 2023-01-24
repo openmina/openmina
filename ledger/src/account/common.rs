@@ -5,7 +5,7 @@ use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
 use crate::{
     hash::hash_noinputs,
     scan_state::currency::{Amount, Balance, Slot},
-    ToInputs,
+    ControlTag, ToInputs,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -100,6 +100,17 @@ pub enum AuthRequired {
 impl Default for AuthRequired {
     fn default() -> Self {
         Self::None
+    }
+}
+
+impl From<ControlTag> for AuthRequired {
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/permissions.ml#L68
+    fn from(value: ControlTag) -> Self {
+        match value {
+            ControlTag::Proof => Self::Proof,
+            ControlTag::Signature => Self::Signature,
+            ControlTag::NoneGiven => Self::None,
+        }
     }
 }
 

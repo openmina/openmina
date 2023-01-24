@@ -33,8 +33,8 @@ use crate::{
         zkapp_logic,
     },
     staged_ledger::pre_diff_info::HashableCompressedPubKey,
-    Account, AccountId, BaseLedger, ControlTag, Mask, MyCowMut, TokenId, VerificationKey,
-    ZkAppAccount,
+    Account, AccountId, AuthRequired, BaseLedger, ControlTag, Mask, MyCowMut, Permissions, TokenId,
+    VerificationKey, ZkAppAccount,
 };
 
 use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1 as CallType;
@@ -49,7 +49,7 @@ pub enum Role {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/zkapp_command_generators.ml#L7
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum NotPermitedOf {
     Delegate,
     AppState,
@@ -62,7 +62,7 @@ pub enum NotPermitedOf {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/zkapp_command_generators.ml#L7
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Failure {
     InvalidAccountPrecondition,
     InvalidProtocolStatePrecondition,
@@ -843,6 +843,177 @@ fn gen_account_update_body_components<A, B, C, D>(
     }
 }
 
+// struct BodyComponentsParams<'a, A, B, C, D> {
+//     update: Option<Update>,
+//     account_id: Option<AccountId>,
+//     token_id: Option<TokenId>,
+//     caller: Option<CallType>,
+//     account_ids_seen: Option<HashSet<AccountId>>,
+//     account_state_tbl: &'a mut HashMap<AccountId, (Account, Role)>,
+//     vk: Option<WithHash<VerificationKey>>,
+//     failure: Option<Failure>,
+//     new_account: Option<bool>,
+//     zkapp_account: Option<bool>,
+//     is_fee_payer: Option<bool>,
+//     available_public_keys: Option<HashSet<HashableCompressedPubKey>>,
+//     permissions_auth: Option<ControlTag>,
+//     required_balance_change: Option<A>,
+//     protocol_state_view: Option<&'a ProtocolStateView>,
+//     zkapp_account_ids: Vec<AccountId>,
+//     increment_nonce: (B, bool),
+//     authorization_tag: ControlTag,
+//     _phantom: PhantomData<(C, D)>,
+// }
+
+fn gen_balance_change(
+    permissions_auth: Option<ControlTag>,
+    account: &Account,
+    failure: Option<Failure>,
+    new_account: bool,
+) -> Signed<Amount> {
+    let mut rng = rand::thread_rng();
+
+    let sgn = if new_account {
+        Sgn::Pos
+    } else {
+        match (failure, permissions_auth) {
+            (Some(Failure::UpdateNotPermitted(NotPermitedOf::Send)), _) => Sgn::Neg,
+            (Some(Failure::UpdateNotPermitted(NotPermitedOf::Receive)), _) => Sgn::Pos,
+            (_, Some(auth)) => match auth {
+                ControlTag::NoneGiven => Sgn::Pos,
+                _ => [Sgn::Pos, Sgn::Neg].choose(&mut rng).copied().unwrap(),
+            },
+            (_, None) => [Sgn::Pos, Sgn::Neg].choose(&mut rng).copied().unwrap(),
+        }
+    };
+    // if negative, magnitude constrained to balance in account
+    // the effective balance is what's in the account state table
+
+    let effective_balance = account.balance;
+    let small_balance_change = {
+        // make small transfers to allow generating large number of zkapp_command
+        // without an overflow
+        if effective_balance < Balance::of_formatted_string("1.0") && !new_account {
+            panic!("account has low balance");
+        }
+
+        Balance::of_formatted_string("0.000001")
+    };
+
+    let magnitude = if new_account {
+        let min = Amount::of_formatted_string("50.0");
+        let max = Amount::of_formatted_string("100.0");
+        Amount::from_u64(rng.gen_range(min.as_u64()..max.as_u64()))
+    } else {
+        Amount::from_u64(rng.gen_range(0..small_balance_change.as_u64()))
+    };
+
+    Signed::<Amount> { magnitude, sgn }
+}
+
+fn gen_use_full_commitment(
+    increment_nonce: bool,
+    account_precondition: AccountPreconditions,
+    authorization: zkapp_command::Control,
+) {
+    // check conditions to avoid replays
+    let incr_nonce_and_constrains_nonce =
+        increment_nonce && account_precondition.to_full().nonce.is_constant();
+}
+
+// let gen_use_full_commitment ~increment_nonce ~account_precondition
+//     ~authorization () : bool Base_quickcheck.Generator.t =
+//   (* check conditions to avoid replays*)
+//   let incr_nonce_and_constrains_nonce =
+//     increment_nonce
+//     && Zkapp_precondition.Numeric.is_constant
+//          Zkapp_precondition.Numeric.Tc.nonce
+//          (Account_update.Account_precondition.to_full account_precondition)
+//            .Zkapp_precondition.Account.nonce
+//   in
+//   let does_not_use_a_signature =
+//     Control.(not (Tag.equal (tag authorization) Tag.Signature))
+//   in
+//   if incr_nonce_and_constrains_nonce || does_not_use_a_signature then
+//     Bool.quickcheck_generator
+//   else Quickcheck.Generator.return true
+
+fn gen_account_update_from<A, B, C, D>(
+    mut params: BodyComponentsParams<Signed<Amount>, bool, C, D>,
+) {
+    // permissions_auth is used to generate updated permissions consistent with a
+    // contemplated authorization;
+    // allow incrementing the nonce only if we know the authorization will be Signature
+    let increment_nonce = match params.permissions_auth {
+        Some(tag) => match tag {
+            ControlTag::Signature => true,
+            ControlTag::Proof | ControlTag::NoneGiven => false,
+        },
+        None => false,
+    };
+
+    let new_account = params.new_account.unwrap_or(false);
+
+    params.increment_nonce = (increment_nonce, increment_nonce);
+
+    // gen_account_update_body_components(
+    //     params,
+    //     // gen_balance_change,
+    //     |account| {
+    //         gen_balance_change(params.permissions_auth, account, params.failure, new_account)
+    //     }
+    //     // gen_use_full_commitment,
+    //     // f_balance_change,
+    //     // f_token_id,
+    //     // f_account_precondition,
+    //     // f_account_update_account_precondition
+    // );
+}
+
+// let gen_account_update_from ?(update = None) ?failure ?(new_account = false)
+//     ?(zkapp_account = false) ?account_id ?token_id ?caller ?permissions_auth
+//     ?required_balance_change ~zkapp_account_ids ~authorization ~account_ids_seen
+//     ~available_public_keys ~account_state_tbl ?protocol_state_view ?vk () =
+//   let open Quickcheck.Let_syntax in
+//   let increment_nonce =
+//     (* permissions_auth is used to generate updated permissions consistent with a contemplated authorization;
+//        allow incrementing the nonce only if we know the authorization will be Signature
+//     *)
+//     match permissions_auth with
+//     | Some tag -> (
+//         match tag with
+//         | Control.Tag.Signature ->
+//             true
+//         | Proof | None_given ->
+//             false )
+//     | None ->
+//         false
+//   in
+//   let%bind body_components =
+//     gen_account_update_body_components ~update ?failure ~new_account
+//       ~zkapp_account
+//       ~increment_nonce:(increment_nonce, increment_nonce)
+//       ?permissions_auth ?account_id ?token_id ?caller ?protocol_state_view ?vk
+//       ~zkapp_account_ids ~account_ids_seen ~available_public_keys
+//       ?required_balance_change ~account_state_tbl
+//       ~gen_balance_change:
+//         (gen_balance_change ?permissions_auth ~new_account ?failure)
+//       ~f_balance_change:Fn.id () ~f_token_id:Fn.id
+//       ~f_account_precondition:(fun ~first_use_of_account acct ->
+//         gen_account_precondition_from_account ~first_use_of_account acct )
+//       ~f_account_update_account_precondition:Fn.id
+//       ~gen_use_full_commitment:(fun ~account_precondition ->
+//         gen_use_full_commitment ~increment_nonce ~account_precondition
+//           ~authorization () )
+//       ~authorization_tag:(Control.tag authorization)
+//   in
+//   let body =
+//     Account_update_body_components.to_typical_account_update body_components
+//   in
+//   let account_id = Account_id.create body.public_key body.token_id in
+//   Hash_set.add account_ids_seen account_id ;
+//   return { Account_update.Simple.body; authorization }
+
 /// Value of `Mina_compile_config.minimum_user_command_fee` when we run `dune runtest src/lib/staged_ledger -f`
 const MINIMUM_USER_COMMAND_FEE: Fee = Fee::from_u64(1000000);
 
@@ -968,6 +1139,8 @@ fn gen_zkapp_command_from(
     protocol_state_view: Option<&ProtocolStateView>,
     vk: Option<WithHash<VerificationKey>>,
 ) -> ZkAppCommand {
+    let mut rng = rand::thread_rng();
+
     let fee_payer_pk = fee_payer_keypair.public.into_compressed();
     let fee_payer_account_id = AccountId::create(fee_payer_pk, TokenId::default());
 
@@ -1036,7 +1209,7 @@ fn gen_zkapp_command_from(
     let mut account_ids_seen = HashSet::<AccountId>::new();
 
     let fee_payer = gen_fee_payer(
-        failure,
+        failure.clone(),
         Some(ControlTag::Signature),
         fee_payer_account_id.clone(),
         protocol_state_view,
@@ -1077,103 +1250,84 @@ fn gen_zkapp_command_from(
         }
     }
 
+    let gen_zkapp_command_with_dynamic_balance = |new_account: bool, num_zkapp_command: usize| {
+        for _ in 0..num_zkapp_command {
+            // choose a random authorization
+            // first Account_update.t updates the permissions, using the Signature authorization,
+            //  according the random authorization
+            // second Account_update.t uses the random authorization
+
+            let (permissions_auth, update) = match &failure {
+                Some(Failure::UpdateNotPermitted(ref update_type)) => {
+                    let is_proof = rng.gen::<bool>();
+
+                    let auth_tag = if is_proof {
+                        ControlTag::Proof
+                    } else {
+                        ControlTag::Signature
+                    };
+
+                    let mut perm = Permissions::gen(auth_tag);
+
+                    match &update_type {
+                        NotPermitedOf::Delegate => {
+                            perm.set_delegate = AuthRequired::from(auth_tag);
+                        }
+                        NotPermitedOf::AppState => {
+                            perm.edit_state = AuthRequired::from(auth_tag);
+                        }
+                        NotPermitedOf::VerificationKey => {
+                            perm.set_verification_key = AuthRequired::from(auth_tag);
+                        }
+                        NotPermitedOf::ZkappUri => {
+                            perm.set_zkapp_uri = AuthRequired::from(auth_tag);
+                        }
+                        NotPermitedOf::TokenSymbol => {
+                            perm.set_token_symbol = AuthRequired::from(auth_tag);
+                        }
+                        NotPermitedOf::VotingFor => {
+                            perm.set_voting_for = AuthRequired::from(auth_tag);
+                        }
+                        NotPermitedOf::Send => {
+                            perm.send = AuthRequired::from(auth_tag);
+                        }
+                        NotPermitedOf::Receive => {
+                            perm.receive = AuthRequired::from(auth_tag);
+                        }
+                    };
+
+                    (
+                        auth_tag,
+                        Some(Update {
+                            permissions: SetOrKeep::Set(perm),
+                            ..Update::dummy()
+                        }),
+                    )
+                }
+                _ => {
+                    let tag = if new_account {
+                        [ControlTag::Signature, ControlTag::NoneGiven]
+                            .choose(&mut rng)
+                            .cloned()
+                            .unwrap()
+                    } else {
+                        ControlTag::gen(&mut rng)
+                    };
+
+                    (tag, None)
+                }
+            };
+
+            let zkapp_account = match permissions_auth {
+                ControlTag::Proof => true,
+                ControlTag::Signature | ControlTag::NoneGiven => false,
+            };
+        }
+    };
+
     todo!()
 }
 
-//   let gen_zkapp_command_with_dynamic_balance ~new_account num_zkapp_command =
-//     let rec go acc n =
-//       let open Zkapp_basic in
-//       let open Permissions in
-//       if n <= 0 then return (List.rev acc)
-//       else
-//         (* choose a random authorization
-
-//            first Account_update.t updates the permissions, using the Signature authorization,
-//             according the random authorization
-
-//            second Account_update.t uses the random authorization
-//         *)
-//         let%bind permissions_auth, update =
-//           match failure with
-//           | Some (Update_not_permitted update_type) ->
-//               let%bind is_proof = Bool.quickcheck_generator in
-//               let auth_tag =
-//                 if is_proof then Control.Tag.Proof else Control.Tag.Signature
-//               in
-//               let%map perm = Permissions.gen ~auth_tag in
-//               let update =
-//                 match update_type with
-//                 | `Delegate ->
-//                     { Account_update.Update.dummy with
-//                       permissions =
-//                         Set_or_keep.Set
-//                           { perm with
-//                             set_delegate = Auth_required.from ~auth_tag
-//                           }
-//                     }
-//                 | `App_state ->
-//                     { Account_update.Update.dummy with
-//                       permissions =
-//                         Set_or_keep.Set
-//                           { perm with
-//                             edit_state = Auth_required.from ~auth_tag
-//                           }
-//                     }
-//                 | `Verification_key ->
-//                     { Account_update.Update.dummy with
-//                       permissions =
-//                         Set_or_keep.Set
-//                           { perm with
-//                             set_verification_key = Auth_required.from ~auth_tag
-//                           }
-//                     }
-//                 | `Zkapp_uri ->
-//                     { Account_update.Update.dummy with
-//                       permissions =
-//                         Set_or_keep.Set
-//                           { perm with
-//                             set_zkapp_uri = Auth_required.from ~auth_tag
-//                           }
-//                     }
-//                 | `Token_symbol ->
-//                     { Account_update.Update.dummy with
-//                       permissions =
-//                         Set_or_keep.Set
-//                           { perm with
-//                             set_token_symbol = Auth_required.from ~auth_tag
-//                           }
-//                     }
-//                 | `Voting_for ->
-//                     { Account_update.Update.dummy with
-//                       permissions =
-//                         Set_or_keep.Set
-//                           { perm with
-//                             set_voting_for = Auth_required.from ~auth_tag
-//                           }
-//                     }
-//                 | `Send ->
-//                     { Account_update.Update.dummy with
-//                       permissions =
-//                         Set_or_keep.Set
-//                           { perm with send = Auth_required.from ~auth_tag }
-//                     }
-//                 | `Receive ->
-//                     { Account_update.Update.dummy with
-//                       permissions =
-//                         Set_or_keep.Set
-//                           { perm with receive = Auth_required.from ~auth_tag }
-//                     }
-//               in
-//               (auth_tag, Some update)
-//           | _ ->
-//               let%map tag =
-//                 if new_account then
-//                   Quickcheck.Generator.of_list
-//                     [ Control.Tag.Signature; None_given ]
-//                 else Control.Tag.gen
-//               in
-//               (tag, None)
-//         in
 //         let zkapp_account =
 //           match permissions_auth with
 //           | Proof ->

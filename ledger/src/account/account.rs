@@ -4,7 +4,7 @@ use ark_ff::{Field, One, UniformRand, Zero};
 use binprot::{BinProtRead, BinProtWrite};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
-use rand::{prelude::ThreadRng, Rng};
+use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 
 use crate::{
     hash::{hash_noinputs, hash_with_kimchi, Inputs},
@@ -525,11 +525,27 @@ pub enum PermissionTo {
     SetDelegate,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum ControlTag {
     Proof,
     Signature,
     NoneGiven,
+}
+
+impl ControlTag {
+    pub fn gen(rng: &mut ThreadRng) -> Self {
+        // Match will fail when a variant added
+        match Self::NoneGiven {
+            ControlTag::Proof => {}
+            ControlTag::Signature => {}
+            ControlTag::NoneGiven => {}
+        };
+
+        [Self::Proof, Self::Signature, Self::NoneGiven]
+            .choose(rng)
+            .copied()
+            .unwrap()
+    }
 }
 
 pub fn check_permission(auth: AuthRequired, tag: ControlTag) -> bool {
