@@ -193,12 +193,32 @@ impl Nonce {
         Self(self.0.wrapping_add(1))
     }
 
+    pub fn succ(&self) -> Self {
+        self.incr()
+    }
+
     pub fn add_signed_flagged(&self, rhs: Signed<Self>) -> (Self, bool) {
         if let Sgn::Pos = rhs.sgn {
             self.add_flagged(&rhs.magnitude)
         } else {
             self.sub_flagged(&rhs.magnitude)
         }
+    }
+}
+
+impl BlockTime {
+    pub fn add(&self, span: BlockTimeSpan) -> Self {
+        Self(self.0.checked_add(span.0).unwrap())
+    }
+
+    pub fn sub(&self, span: BlockTimeSpan) -> Self {
+        Self(self.0.checked_sub(span.0).unwrap())
+    }
+}
+
+impl BlockTimeSpan {
+    pub fn of_ms(ms: u64) -> Self {
+        Self(ms)
     }
 }
 
@@ -341,5 +361,5 @@ macro_rules! impl_number {
 
 impl_number!(
     32: { Length, Slot, Nonce, Index, },
-    64: { Amount, Balance, Fee, BlockTime, },
+    64: { Amount, Balance, Fee, BlockTime, BlockTimeSpan, },
 );

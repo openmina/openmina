@@ -163,6 +163,31 @@ impl Permissions<AuthRequired> {
             set_voting_for: None,
         }
     }
+
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/permissions.ml#L385
+    pub fn gen(auth_tag: ControlTag) -> Self {
+        let mut rng = rand::thread_rng();
+
+        let auth_required_gen = match auth_tag {
+            ControlTag::Proof => AuthRequired::gen_for_proof_authorization,
+            ControlTag::Signature => AuthRequired::gen_for_signature_authorization,
+            ControlTag::NoneGiven => AuthRequired::gen_for_none_given_authorization,
+        };
+
+        Self {
+            edit_state: auth_required_gen(&mut rng),
+            send: auth_required_gen(&mut rng),
+            receive: auth_required_gen(&mut rng),
+            set_delegate: auth_required_gen(&mut rng),
+            set_permissions: auth_required_gen(&mut rng),
+            set_verification_key: auth_required_gen(&mut rng),
+            set_zkapp_uri: auth_required_gen(&mut rng),
+            edit_sequence_state: auth_required_gen(&mut rng),
+            set_token_symbol: auth_required_gen(&mut rng),
+            increment_nonce: auth_required_gen(&mut rng),
+            set_voting_for: auth_required_gen(&mut rng),
+        }
+    }
 }
 
 // TODO: Not sure if the name is correct
@@ -328,7 +353,7 @@ impl VerificationKey {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, derive_more::From)]
 pub struct ZkAppUri(String);
 
 impl ZkAppUri {

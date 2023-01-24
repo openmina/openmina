@@ -39,6 +39,7 @@ mod base;
 // mod blocks;
 mod database;
 pub mod dummy;
+pub mod generators;
 mod hash;
 mod mask;
 mod poseidon;

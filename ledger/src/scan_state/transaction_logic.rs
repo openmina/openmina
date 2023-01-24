@@ -705,15 +705,16 @@ pub mod signed_command {
 }
 
 pub mod zkapp_command {
-    use ark_ff::Zero;
+    use ark_ff::{UniformRand, Zero};
     use mina_p2p_messages::v2::{
         MinaBaseAccountUpdateTWireStableV1,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
     };
+    use rand::{seq::SliceRandom, Rng};
     use static_assertions::assert_eq_size_val;
 
     use crate::{
-        account, hash_noinputs, hash_with_kimchi,
+        account, gen_keypair, hash_noinputs, hash_with_kimchi,
         scan_state::{
             conv::AsAccountUpdateWithHash,
             currency::{Balance, BlockTime, Length, MinMax, Signed, Slot},
@@ -967,6 +968,19 @@ pub mod zkapp_command {
         pub fn is_set(&self) -> bool {
             !self.is_keep()
         }
+
+        pub fn gen<F>(mut fun: F) -> Self
+        where
+            F: FnMut() -> T,
+        {
+            let mut rng = rand::thread_rng();
+
+            if rng.gen() {
+                Self::Set(fun())
+            } else {
+                Self::Keep
+            }
+        }
     }
 
     impl<T, F> ToInputs for (&SetOrKeep<T>, F)
@@ -1030,6 +1044,83 @@ pub mod zkapp_command {
         /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/account_update.ml#L472
         pub fn dummy() -> Self {
             Self::noop()
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/account_update.ml#L338
+        pub fn gen(
+            token_account: Option<bool>,
+            zkapp_account: Option<bool>,
+            vk: Option<&WithHash<VerificationKey>>,
+            permissions_auth: Option<crate::ControlTag>,
+        ) -> Self {
+            let mut rng = rand::thread_rng();
+
+            let token_account = token_account.unwrap_or(false);
+            let zkapp_account = zkapp_account.unwrap_or(false);
+
+            let app_state: [_; 8] = std::array::from_fn(|_| SetOrKeep::gen(|| Fp::rand(&mut rng)));
+
+            let delegate = if !token_account {
+                SetOrKeep::gen(|| gen_keypair().public.into_compressed())
+            } else {
+                SetOrKeep::Keep
+            };
+
+            let verification_key = if zkapp_account {
+                SetOrKeep::gen(|| match vk {
+                    None => {
+                        let dummy = VerificationKey::dummy();
+                        let hash = dummy.digest();
+                        WithHash { data: dummy, hash }
+                    }
+                    Some(vk) => vk.clone(),
+                })
+            } else {
+                SetOrKeep::Keep
+            };
+
+            let permissions = match permissions_auth {
+                None => SetOrKeep::Keep,
+                Some(auth_tag) => SetOrKeep::Set(Permissions::gen(auth_tag)),
+            };
+
+            let zkapp_uri = SetOrKeep::gen(|| {
+                ZkAppUri::from(
+                    [
+                        "https://www.example.com",
+                        "https://www.minaprotocol.com",
+                        "https://www.gurgle.com",
+                        "https://faceplant.com",
+                    ]
+                    .choose(&mut rng)
+                    .unwrap()
+                    .to_string(),
+                )
+            });
+
+            let token_symbol = SetOrKeep::gen(|| {
+                TokenSymbol::from(
+                    ["MINA", "TOKEN1", "TOKEN2", "TOKEN3", "TOKEN4", "TOKEN5"]
+                        .choose(&mut rng)
+                        .unwrap()
+                        .to_string(),
+                )
+            });
+
+            let voting_for = SetOrKeep::gen(|| VotingFor(Fp::rand(&mut rng)));
+
+            let timing = SetOrKeep::Keep;
+
+            Self {
+                app_state,
+                delegate,
+                verification_key,
+                permissions,
+                zkapp_uri,
+                token_symbol,
+                timing,
+                voting_for,
+            }
         }
     }
 
@@ -1156,6 +1247,22 @@ pub mod zkapp_command {
         }
     }
 
+    impl<T> OrIgnore<T> {
+        /// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_base/zkapp_basic.ml#L239
+        pub fn gen<F>(mut fun: F) -> Self
+        where
+            F: FnMut() -> T,
+        {
+            let mut rng = rand::thread_rng();
+
+            if rng.gen() {
+                Self::Check(fun())
+            } else {
+                Self::Ignore
+            }
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L439
     pub type Hash<T> = OrIgnore<T>;
 
@@ -1272,6 +1379,33 @@ pub mod zkapp_command {
                 .epoch_data("stacking_epoch_data", s.staking_epoch_data)?;
             self.next_epoch_data
                 .epoch_data("next_epoch_data", s.next_epoch_data)
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_precondition.ml#L1303
+        pub fn accept() -> Self {
+            let epoch_data = || EpochData {
+                ledger: EpochLedger {
+                    hash: OrIgnore::Ignore,
+                    total_currency: OrIgnore::Ignore,
+                },
+                seed: OrIgnore::Ignore,
+                start_checkpoint: OrIgnore::Ignore,
+                lock_checkpoint: OrIgnore::Ignore,
+                epoch_length: OrIgnore::Ignore,
+            };
+
+            Self {
+                snarked_ledger_hash: OrIgnore::Ignore,
+                timestamp: OrIgnore::Ignore,
+                blockchain_length: OrIgnore::Ignore,
+                min_window_density: OrIgnore::Ignore,
+                last_vrf_output: (),
+                total_currency: OrIgnore::Ignore,
+                global_slot_since_hard_fork: OrIgnore::Ignore,
+                global_slot_since_genesis: OrIgnore::Ignore,
+                staking_epoch_data: epoch_data(),
+                next_epoch_data: epoch_data(),
+            }
         }
     }
 

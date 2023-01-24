@@ -118,3 +118,29 @@ impl<'a, T> AsRef<T> for MyCow<'a, T> {
         }
     }
 }
+
+// `std::borrow::Cow` has a `ToOwned` constraints
+pub enum MyCowMut<'a, T> {
+    Borrow(&'a mut T),
+    Own(T),
+}
+
+impl<'a, T> std::ops::Deref for MyCowMut<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            MyCowMut::Borrow(v) => v,
+            MyCowMut::Own(v) => v,
+        }
+    }
+}
+
+impl<'a, T> std::ops::DerefMut for MyCowMut<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            MyCowMut::Borrow(v) => v,
+            MyCowMut::Own(v) => v,
+        }
+    }
+}

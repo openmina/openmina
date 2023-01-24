@@ -127,6 +127,37 @@ impl AuthRequired {
             signature_sufficient,
         }
     }
+
+    /// permissions such that [check permission (Proof _)] is true
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/permissions.ml#L78
+    pub fn gen_for_proof_authorization(rng: &mut rand::rngs::ThreadRng) -> Self {
+        use rand::seq::SliceRandom;
+
+        [Self::None, Self::Either, Self::Proof]
+            .choose(rng)
+            .cloned()
+            .unwrap()
+    }
+
+    /// permissions such that [check permission (Signature _)] is true
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/permissions.ml#L82
+    pub fn gen_for_signature_authorization(rng: &mut rand::rngs::ThreadRng) -> Self {
+        use rand::seq::SliceRandom;
+
+        [Self::None, Self::Either, Self::Signature]
+            .choose(rng)
+            .cloned()
+            .unwrap()
+    }
+
+    /// permissions such that [check permission None_given] is true
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/permissions.ml#L86
+    pub fn gen_for_none_given_authorization(_rng: &mut rand::rngs::ThreadRng) -> Self {
+        Self::None
+    }
 }
 
 impl AuthRequiredEncoded {
