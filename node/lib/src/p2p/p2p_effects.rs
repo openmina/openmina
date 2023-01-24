@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use mina_p2p_messages::gossip::GossipNetMessageV2;
 use mina_p2p_messages::v2::MinaLedgerSyncLedgerAnswerStableV2;
+use p2p::disconnection::P2pDisconnectionInitAction;
 
 use crate::consensus::{ConsensusBestTipHistoryUpdateAction, ConsensusBlockReceivedAction};
 use crate::p2p::disconnection::P2pDisconnectionAction;
@@ -117,6 +118,17 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                         _ => return,
                     };
                     match resp {
+                        P2pRpcResponse::BestTipGet(None) => {
+                            shared::log::warn!(
+                                meta.time();
+                                kind = "PeerNotSynced",
+                                summary = format!("peer_id: {}", action.peer_id),
+                                peer_id = action.peer_id.to_string(),
+                            );
+                            store.dispatch(P2pDisconnectionInitAction {
+                                peer_id: action.peer_id,
+                            });
+                        }
                         P2pRpcResponse::BestTipGet(Some(resp)) => {
                             let block = resp.data.clone();
                             // reconstruct hashes

@@ -92,20 +92,30 @@ impl ManualConnector {
     }
 }
 
+fn dial_opts(addr: &str, peer_id: &str) -> P2pConnectionOutgoingInitOpts {
+    let maddr = format!("{}/http/p2p-webrtc-direct/p2p/{}", addr, peer_id);
+    P2pConnectionOutgoingInitOpts {
+        peer_id: peer_id.parse().unwrap(),
+        addrs: vec![maddr.parse().unwrap()],
+    }
+}
+
 /// Runs endless loop.
 ///
 /// Doesn't exit.
 pub async fn run(mut node: Node) {
-    let target_peer_id = "QmTyRcQ5oM4ZByekkKyh1EDVNy7Xvh32UdGKAMBqPTiUSR";
-    let target_node_addr = format!(
-        "/dns4/webrtc.webnode.openmina.com/tcp/443/http/p2p-webrtc-direct/p2p/{}",
-        target_peer_id
-    );
     node.store_mut().dispatch(P2pConnectionOutgoingInitAction {
-        opts: P2pConnectionOutgoingInitOpts {
-            peer_id: target_peer_id.parse().unwrap(),
-            addrs: vec![target_node_addr.parse().unwrap()],
-        },
+        opts: dial_opts(
+            "/dns4/webrtc.webnode.openmina.com/tcp/443",
+            "QmTyRcQ5oM4ZByekkKyh1EDVNy7Xvh32UdGKAMBqPTiUSR",
+        ),
+        rpc_id: None,
+    });
+    node.store_mut().dispatch(P2pConnectionOutgoingInitAction {
+        opts: dial_opts(
+            "/dns4/webrtc2.webnode.openmina.com/tcp/443",
+            "Qmaxe3KXcdyAHEiFL48bvkJLsPb9S3q3dZ5qUP1B89CEJ6",
+        ),
         rpc_id: None,
     });
     loop {

@@ -46,15 +46,38 @@ pub struct P2pConnectionOutgoingReconnectAction {
 
 impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingReconnectAction {
     fn is_enabled(&self, state: &crate::P2pState) -> bool {
+        let already_connected_or_connecting = state.peers.iter().any(|(_, p)| match &p.status {
+            P2pPeerStatus::Connecting(s) => match s {
+                P2pConnectionState::Outgoing(s) => match s {
+                    P2pConnectionOutgoingState::Pending { .. } => true,
+                    _ => false,
+                },
+            },
+            P2pPeerStatus::Ready(_) => true,
+            _ => false,
+        });
+        if already_connected_or_connecting {
+            return false;
+        }
+
         state
             .peers
-            .get(&self.opts.peer_id)
-            .filter(|p| !p.dial_addrs.is_empty() && p.dial_addrs == self.opts.addrs)
-            .map_or(false, |p| match &p.status {
-                P2pPeerStatus::Connecting(s) => s.is_error(),
-                P2pPeerStatus::Disconnected { .. } => true,
-                P2pPeerStatus::Ready(_) => false,
+            .iter()
+            .filter_map(|(id, p)| match &p.status {
+                P2pPeerStatus::Connecting(s) => match s {
+                    P2pConnectionState::Outgoing(P2pConnectionOutgoingState::Error {
+                        time,
+                        ..
+                    }) => Some((*time, id, &p.dial_addrs)),
+                    _ => None,
+                },
+                P2pPeerStatus::Disconnected { time } => Some((*time, id, &p.dial_addrs)),
+                P2pPeerStatus::Ready(_) => None,
             })
+            .min_by_key(|(time, ..)| *time)
+            .filter(|(_, id, _)| *id == &self.opts.peer_id)
+            .filter(|(.., addrs)| !addrs.is_empty() && *addrs == &self.opts.addrs)
+            .is_some()
     }
 }
 
