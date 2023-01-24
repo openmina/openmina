@@ -1,9 +1,12 @@
-use std::collections::{
-    hash_map::Entry::{Occupied, Vacant},
-    HashMap, HashSet,
+use std::{
+    collections::{
+        hash_map::Entry::{Occupied, Vacant},
+        HashMap, HashSet,
+    },
+    marker::PhantomData,
 };
 
-use ark_ff::UniformRand;
+use ark_ff::{UniformRand, Zero};
 use mina_hasher::Fp;
 use mina_signer::{CompressedPubKey, Keypair};
 use rand::{
@@ -15,20 +18,22 @@ use rand::{
 use crate::{
     scan_state::{
         currency::{
-            Amount, Balance, BlockTime, BlockTimeSpan, Length, Magnitude, Nonce, Sgn, Signed, Slot,
+            Amount, Balance, BlockTime, BlockTimeSpan, Fee, Length, Magnitude, Nonce, Sgn, Signed,
+            Slot,
         },
         transaction_logic::{
             protocol_state::{self, ProtocolStateView},
             zkapp_command::{
-                self, AccountPreconditions, AuthorizationKind, ClosedInterval, FeePayer,
-                FeePayerBody, OrIgnore, SetOrKeep, Update, WithHash, ZkAppCommand,
-                ZkAppPreconditions,
+                self, AccountPreconditions, AccountUpdate, AuthorizationKind, ClosedInterval,
+                FeePayer, FeePayerBody, OrIgnore, SetOrKeep, Update, WithHash, WithStackHash,
+                ZkAppCommand, ZkAppPreconditions,
             },
+            Signature,
         },
         zkapp_logic,
     },
     staged_ledger::pre_diff_info::HashableCompressedPubKey,
-    Account, AccountId, BaseLedger, ControlTag, Mask, MyCow, MyCowMut, TokenId, VerificationKey,
+    Account, AccountId, BaseLedger, ControlTag, Mask, MyCowMut, TokenId, VerificationKey,
     ZkAppAccount,
 };
 
@@ -407,35 +412,41 @@ struct AccountUpdateBodyComponents<A, B, C, D> {
     authorization_kind: AuthorizationKind,
 }
 
-// module Account_update_body_components = struct
-//   type ( 'pk
-//        , 'update
-//        , 'token_id
-//        , 'amount
-//        , 'events
-//        , 'call_data
-//        , 'int
-//        , 'bool
-//        , 'protocol_state_precondition
-//        , 'account_precondition
-//        , 'caller
-//        , 'authorization_kind )
-//        t =
-//     { public_key : 'pk
-//     ; update : 'update
-//     ; token_id : 'token_id
-//     ; balance_change : 'amount
-//     ; increment_nonce : 'bool
-//     ; events : 'events
-//     ; sequence_events : 'events
-//     ; call_data : 'call_data
-//     ; call_depth : 'int
-//     ; protocol_state_precondition : 'protocol_state_precondition
-//     ; account_precondition : 'account_precondition
-//     ; use_full_commitment : 'bool
-//     ; caller : 'caller
-//     ; authorization_kind : 'authorization_kind
-//     }
+impl<B, C> AccountUpdateBodyComponents<Fee, B, C, Nonce> {
+    fn to_fee_payer(&self) -> FeePayerBody {
+        FeePayerBody {
+            public_key: self.public_key.clone(),
+            fee: self.balance_change,
+            valid_until: match self.protocol_state_precondition.global_slot_since_genesis {
+                OrIgnore::Ignore => None,
+                OrIgnore::Check(ClosedInterval { lower: _, upper }) => Some(upper),
+            },
+            nonce: self.account_precondition,
+        }
+    }
+}
+
+struct BodyComponentsParams<'a, A, B, C, D> {
+    update: Option<Update>,
+    account_id: Option<AccountId>,
+    token_id: Option<TokenId>,
+    caller: Option<CallType>,
+    account_ids_seen: Option<HashSet<AccountId>>,
+    account_state_tbl: &'a mut HashMap<AccountId, (Account, Role)>,
+    vk: Option<WithHash<VerificationKey>>,
+    failure: Option<Failure>,
+    new_account: Option<bool>,
+    zkapp_account: Option<bool>,
+    is_fee_payer: Option<bool>,
+    available_public_keys: Option<HashSet<HashableCompressedPubKey>>,
+    permissions_auth: Option<ControlTag>,
+    required_balance_change: Option<A>,
+    protocol_state_view: Option<&'a ProtocolStateView>,
+    zkapp_account_ids: Vec<AccountId>,
+    increment_nonce: (B, bool),
+    authorization_tag: ControlTag,
+    _phantom: PhantomData<(C, D)>,
+}
 
 /// The type `a` is associated with the `delta` field, which is an unsigned fee
 /// for the fee payer, and a signed amount for other zkapp_command.
@@ -446,31 +457,36 @@ struct AccountUpdateBodyComponents<A, B, C, D> {
 /// The type `d` is associated with the `account_precondition` field, which is
 /// a nonce for the fee payer, and `Account_precondition.t` for other zkapp_command
 fn gen_account_update_body_components<A, B, C, D>(
-    update: Option<Update>,
-    account_id: Option<AccountId>,
-    token_id: Option<TokenId>,
-    caller: Option<CallType>,
-    account_ids_seen: Option<HashSet<AccountId>>,
-    account_state_tbl: &mut HashMap<AccountId, (Account, Role)>,
-    vk: Option<WithHash<VerificationKey>>,
-    failure: Option<Failure>,
-    new_account: Option<bool>,
-    zkapp_account: Option<bool>,
-    is_fee_payer: Option<bool>,
-    available_public_keys: Option<HashSet<HashableCompressedPubKey>>,
-    permissions_auth: Option<ControlTag>,
-    required_balance_change: Option<A>,
-    protocol_state_view: Option<&ProtocolStateView>,
-    zkapp_account_ids: Vec<AccountId>,
+    params: BodyComponentsParams<A, B, C, D>,
     gen_balance_change: impl Fn(&Account) -> A,
     gen_use_full_commitment: impl Fn(&AccountPreconditions) -> B,
     f_balance_change: impl Fn(&A) -> Signed<Amount>,
-    increment_nonce: (B, bool),
     f_token_id: impl Fn(&TokenId) -> C,
     f_account_precondition: impl Fn(bool, &Account) -> D,
     f_account_update_account_precondition: impl Fn(&D) -> AccountPreconditions,
-    authorization_tag: ControlTag,
-) -> AccountUpdateBodyComponents<Signed<Amount>, B, C, D> {
+) -> AccountUpdateBodyComponents<A, B, C, D> {
+    let BodyComponentsParams {
+        update,
+        account_id,
+        token_id,
+        caller,
+        account_ids_seen,
+        account_state_tbl,
+        vk,
+        failure,
+        new_account,
+        zkapp_account,
+        is_fee_payer,
+        available_public_keys,
+        permissions_auth,
+        required_balance_change,
+        protocol_state_view,
+        zkapp_account_ids,
+        increment_nonce,
+        authorization_tag,
+        _phantom,
+    } = params;
+
     let mut rng = rand::thread_rng();
 
     let new_account = new_account.unwrap_or(false);
@@ -685,7 +701,8 @@ fn gen_account_update_body_components<A, B, C, D>(
                 .expect("add_balance_and_balance_change: underflow for difference"),
         };
 
-    let balance_change = f_balance_change(&balance_change);
+    let balance_change_original = balance_change;
+    let balance_change = f_balance_change(&balance_change_original);
     let nonce_incr = |n: Nonce| if increment_nonce { n.succ() } else { n };
 
     fn value_to_be_updated<T: Clone>(c: &SetOrKeep<T>, default: &T) -> T {
@@ -812,7 +829,7 @@ fn gen_account_update_body_components<A, B, C, D>(
             update
         },
         token_id,
-        balance_change,
+        balance_change: balance_change_original,
         increment_nonce,
         events,
         sequence_events,
@@ -826,71 +843,109 @@ fn gen_account_update_body_components<A, B, C, D>(
     }
 }
 
+/// Value of `Mina_compile_config.minimum_user_command_fee` when we run `dune runtest src/lib/staged_ledger -f`
+const MINIMUM_USER_COMMAND_FEE: Fee = Fee::from_u64(1000000);
+
+fn gen_fee(account: &Account) -> Fee {
+    let mut rng = rand::thread_rng();
+
+    let balance = account.balance;
+    let lo_fee = MINIMUM_USER_COMMAND_FEE;
+    let hi_fee = MINIMUM_USER_COMMAND_FEE.scale(2).unwrap();
+
+    assert!(hi_fee <= (Fee::from_u64(balance.as_u64())));
+
+    Fee::from_u64(rng.gen_range(lo_fee.as_u64()..hi_fee.as_u64()))
+}
+
+/// Fee payer balance change is Neg
+fn fee_to_amt(fee: &Fee) -> Signed<Amount> {
+    Signed::<Amount>::of_unsigned(Amount::from_u64(fee.as_u64())).negate()
+}
+
+/// takes an account id, if we want to sign this data
+///
+/// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/zkapp_command_generators.ml#L1063
 fn gen_account_update_body_fee_payer(
-    failure: Option<()>,
+    failure: Option<Failure>,
     permissions_auth: Option<ControlTag>,
     account_id: AccountId,
     vk: Option<WithHash<VerificationKey>>,
     protocol_state_view: Option<&ProtocolStateView>,
-    account_state_tbl: Option<&mut HashMap<AccountId, (Account, Role)>>,
+    account_state_tbl: &mut HashMap<AccountId, (Account, Role)>,
 ) -> FeePayerBody {
     let account_precondition_gen = |account: &Account| account.nonce;
 
-    let body_components = {};
+    let body_components = gen_account_update_body_components(
+        BodyComponentsParams {
+            update: None,
+            account_id: Some(account_id),
+            token_id: None,
+            caller: None,
+            account_ids_seen: None,
+            account_state_tbl,
+            vk,
+            failure,
+            new_account: None,
+            zkapp_account: None,
+            is_fee_payer: Some(true),
+            available_public_keys: None,
+            permissions_auth,
+            required_balance_change: None,
+            protocol_state_view,
+            zkapp_account_ids: vec![],
+            increment_nonce: ((), true),
+            authorization_tag: ControlTag::Signature,
+            _phantom: PhantomData,
+        },
+        // gen_balance_change
+        gen_fee,
+        // gen_use_full_commitment
+        |_account_precondition| {},
+        // f_balance_change
+        fee_to_amt,
+        // f_token_id
+        |token_id| {
+            // make sure the fee payer's token id is the default,
+            // which is represented by the unit value in the body
+            assert!(token_id.is_default());
+            // return unit
+        },
+        // f_account_precondition,
+        |_, account| account_precondition_gen(account),
+        // f_account_update_account_precondition,
+        |nonce| AccountPreconditions::Nonce(*nonce),
+    );
 
-    todo!()
+    body_components.to_fee_payer()
 }
 
-// (* takes an account id, if we want to sign this data *)
-// let gen_account_update_body_fee_payer ?failure ?permissions_auth ~account_id ?vk
-//     ?protocol_state_view ~account_state_tbl () :
-//     Account_update.Body.Fee_payer.t Quickcheck.Generator.t =
-//   let open Quickcheck.Let_syntax in
-//   let account_precondition_gen (account : Account.t) =
-//     Quickcheck.Generator.return account.nonce
-//   in
-//   let%map body_components =
-//     gen_account_update_body_components ?failure ?permissions_auth ~account_id
-//       ~account_state_tbl ?vk ~zkapp_account_ids:[] ~is_fee_payer:true
-//       ~increment_nonce:((), true) ~gen_balance_change:gen_fee
-//       ~f_balance_change:fee_to_amt
-//       ~f_token_id:(fun token_id ->
-//         (* make sure the fee payer's token id is the default,
-//            which is represented by the unit value in the body
-//         *)
-//         assert (Token_id.equal token_id Token_id.default) ;
-//         () )
-//       ~f_account_precondition:(fun ~first_use_of_account:_ acct ->
-//         account_precondition_gen acct )
-//       ~f_account_update_account_precondition:(fun nonce -> Nonce nonce)
-//       ~gen_use_full_commitment:(fun ~account_precondition:_ -> return ())
-//       ?protocol_state_view ~authorization_tag:Control.Tag.Signature ()
-//   in
-//   Account_update_body_components.to_fee_payer body_components
-
+/// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/zkapp_command_generators.ml#L1089
 fn gen_fee_payer(
-    failure: Option<()>,
+    failure: Option<Failure>,
     permissions_auth: Option<ControlTag>,
     account_id: AccountId,
     protocol_state_view: Option<&ProtocolStateView>,
     vk: Option<WithHash<VerificationKey>>,
-    account_state_tbl: Option<&mut HashMap<AccountId, (Account, Role)>>,
+    account_state_tbl: &mut HashMap<AccountId, (Account, Role)>,
 ) -> FeePayer {
-    // let body =
-    todo!()
-}
+    let body = gen_account_update_body_fee_payer(
+        failure,
+        permissions_auth,
+        account_id,
+        vk,
+        protocol_state_view,
+        account_state_tbl,
+    );
 
-// let gen_fee_payer ?failure ?permissions_auth ~account_id ?protocol_state_view
-//     ?vk ~account_state_tbl () :
-//     Account_update.Fee_payer.t Quickcheck.Generator.t =
-//   let open Quickcheck.Let_syntax in
-//   let%map body =
-//     gen_account_update_body_fee_payer ?failure ?permissions_auth ~account_id ?vk
-//       ?protocol_state_view ~account_state_tbl ()
-//   in
-//   (* real signature to be added when this data inserted into a Zkapp_command.t *)
-//   let authorization = Signature.dummy in
-//   ({ body; authorization } : Account_update.Fee_payer.t)
+    // real signature to be added when this data inserted into a Zkapp_command.t
+    let authorization = Signature::dummy();
+
+    FeePayer {
+        body,
+        authorization,
+    }
+}
 
 /// `gen_zkapp_command_from` generates a zkapp_command and record the change of accounts accordingly
 /// in `account_state_tbl`. Note that `account_state_tbl` is optional. If it's not provided
@@ -903,7 +958,7 @@ fn gen_fee_payer(
 ///
 /// Generated zkapp_command uses dummy signatures and dummy proofs.
 fn gen_zkapp_command_from(
-    failure: Option<()>,
+    failure: Option<Failure>,
     max_account_updates: Option<usize>,
     max_token_updates: Option<usize>,
     fee_payer_keypair: Keypair,
@@ -980,38 +1035,51 @@ fn gen_zkapp_command_from(
     // a account_update with a given account id has not been encountered before
     let mut account_ids_seen = HashSet::<AccountId>::new();
 
-    // let fee_payer =
+    let fee_payer = gen_fee_payer(
+        failure,
+        Some(ControlTag::Signature),
+        fee_payer_account_id.clone(),
+        protocol_state_view,
+        vk,
+        &mut account_state_tbl,
+    );
+
+    let zkapp_account_ids: Vec<AccountId> = account_state_tbl
+        .iter()
+        .filter(|(_, (a, role))| match role {
+            Role::FeePayer | Role::NewAccount | Role::NewTokenAccount => false,
+            Role::OrdinaryParticipant => a.zkapp.is_some(),
+        })
+        .map(|(id, _)| id.clone())
+        .collect();
+
+    account_ids_seen.insert(fee_payer_account_id);
+
+    fn mk_forest<T: Clone>(ps: Vec<zkapp_command::Tree<T>>) -> Vec<WithStackHash<T>> {
+        ps.into_iter()
+            .map(|v| {
+                WithStackHash {
+                    elt: v,
+                    stack_hash: Fp::zero(), // TODO: OCaml uses `()`
+                }
+            })
+            .collect()
+    }
+
+    fn mk_node<T: Clone>(
+        p: (AccountUpdate, T),
+        calls: Vec<zkapp_command::Tree<T>>,
+    ) -> zkapp_command::Tree<T> {
+        zkapp_command::Tree {
+            account_update: p,
+            account_update_digest: Fp::zero(), // TODO: OCaml uses `()`
+            calls: zkapp_command::CallForest(mk_forest(calls)),
+        }
+    }
 
     todo!()
 }
 
-//   (* account ids seen, to generate receipt chain hash precondition only if
-//      a account_update with a given account id has not been encountered before
-//   *)
-//   let account_ids_seen = Account_id.Hash_set.create () in
-//   let%bind fee_payer =
-//     gen_fee_payer ?failure ~permissions_auth:Control.Tag.Signature
-//       ~account_id:fee_payer_acct_id ?vk ~account_state_tbl ()
-//   in
-//   let zkapp_account_ids =
-//     Account_id.Table.filteri account_state_tbl ~f:(fun ~key:_ ~data:(a, role) ->
-//         match role with
-//         | `Fee_payer | `New_account | `New_token_account ->
-//             false
-//         | `Ordinary_participant ->
-//             Option.is_some a.zkapp )
-//     |> Account_id.Table.keys
-//   in
-//   Hash_set.add account_ids_seen fee_payer_acct_id ;
-//   let mk_forest ps =
-//     List.map ps ~f:(fun p -> { With_stack_hash.elt = p; stack_hash = () })
-//   in
-//   let mk_node p calls =
-//     { Zkapp_command.Call_forest.Tree.account_update = p
-//     ; account_update_digest = ()
-//     ; calls = mk_forest calls
-//     }
-//   in
 //   let gen_zkapp_command_with_dynamic_balance ~new_account num_zkapp_command =
 //     let rec go acc n =
 //       let open Zkapp_basic in
