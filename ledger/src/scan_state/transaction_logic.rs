@@ -462,6 +462,20 @@ impl Coinbase {
     }
 }
 
+/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signature.mli#L11
+#[derive(Clone, PartialEq, Eq)]
+pub struct Signature(pub(super) Fp, pub(super) Fp); // TODO: Not sure if it's correct
+
+impl std::fmt::Debug for Signature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("Signature({:?},{:?})", self.0, self.1))
+    }
+}
+
+/// 0th byte is a tag to distinguish digests from other data
+/// 1st byte is length, always 32 for digests
+/// bytes 2 to 33 are data, 0-right-padded if length is less than 32
+///
 #[derive(Clone, PartialEq)]
 pub struct Memo(pub [u8; 34]);
 
