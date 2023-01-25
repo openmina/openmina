@@ -470,6 +470,10 @@ impl std::fmt::Debug for Signature {
     }
 }
 
+/// 0th byte is a tag to distinguish digests from other data
+/// 1st byte is length, always 32 for digests
+/// bytes 2 to 33 are data, 0-right-padded if length is less than 32
+///
 #[derive(Clone, PartialEq)]
 pub struct Memo(pub [u8; 34]);
 
@@ -481,6 +485,22 @@ impl std::fmt::Debug for Memo {
 }
 
 impl Memo {
+    const TAG_INDEX: usize = 0;
+    const LENGTH_INDEX: usize = 1;
+
+    const DIGEST_TAG: u8 = 0x00;
+    const BYTES_TAG: u8 = 0x01;
+
+    const DIGEST_LENGTH: usize = 32; // Blake2.digest_size_in_bytes
+    const DIGEST_LENGTH_BYTE: u8 = Self::DIGEST_LENGTH as u8;
+
+    /// +2 for tag and length bytes
+    const MEMO_LENGTH: usize = Self::DIGEST_LENGTH + 2;
+
+    const MAX_INPUT_LENGTH: usize = Self::DIGEST_LENGTH;
+
+    const MAX_DIGESTIBLE_STRING_LENGTH: usize = 1000;
+
     pub fn hash(&self) -> Fp {
         todo!()
     }
@@ -499,6 +519,35 @@ impl Memo {
         let s = format!("{:034}", number);
         assert_eq!(s.len(), 34);
         Self(s.into_bytes().try_into().unwrap())
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/d7dad23d8ea2052f515f5d55d187788fe0701c7f/src/lib/mina_base/signed_command_memo.ml#L103
+    fn create_by_digesting_string_exn(s: &str) -> Self {
+        if s.len() > Self::MAX_DIGESTIBLE_STRING_LENGTH {
+            panic!("Too_long_digestible_string");
+        }
+
+        let mut memo = [0; 34];
+        memo[Self::TAG_INDEX] = Self::DIGEST_TAG;
+        memo[Self::LENGTH_INDEX] = Self::DIGEST_LENGTH_BYTE;
+
+        use blake2::{
+            digest::{Update, VariableOutput},
+            Blake2bVar,
+        };
+        let mut hasher = Blake2bVar::new(32).expect("Invalid Blake2bVar output size");
+        hasher.update(s.as_bytes());
+        hasher.finalize_variable(&mut memo[2..]).unwrap();
+
+        Self(memo)
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/d7dad23d8ea2052f515f5d55d187788fe0701c7f/src/lib/mina_base/signed_command_memo.ml#L193
+    pub fn gen() -> Self {
+        use rand::distributions::{Alphanumeric, DistString};
+        let random_string = Alphanumeric.sample_string(&mut rand::thread_rng(), 50);
+
+        Self::create_by_digesting_string_exn(&random_string)
     }
 }
 
@@ -705,22 +754,24 @@ pub mod signed_command {
 }
 
 pub mod zkapp_command {
+    use std::rc::Rc;
+
     use ark_ff::{UniformRand, Zero};
     use mina_p2p_messages::v2::{
-        MinaBaseAccountUpdateTWireStableV1,
+        MinaBaseAccountUpdateCallTypeStableV1, MinaBaseAccountUpdateTWireStableV1,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
     };
     use rand::{seq::SliceRandom, Rng};
     use static_assertions::assert_eq_size_val;
 
     use crate::{
-        account, gen_keypair, hash_noinputs, hash_with_kimchi,
+        account, dummy, gen_keypair, hash_noinputs, hash_with_kimchi,
         scan_state::{
             conv::AsAccountUpdateWithHash,
             currency::{Balance, BlockTime, Length, MinMax, Signed, Slot},
         },
-        AuthRequired, Inputs, MyCow, Permissions, ToInputs, TokenSymbol, VerificationKey,
-        VotingFor, ZkAppUri,
+        AuthRequired, ControlTag, Inputs, MyCow, Permissions, ToInputs, TokenSymbol,
+        VerificationKey, VotingFor, ZkAppUri,
     };
 
     use super::*;
@@ -1203,6 +1254,27 @@ pub mod zkapp_command {
         pub fn is_constant(&self) -> bool {
             self.lower == self.upper
         }
+
+        /// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_base/zkapp_precondition.ml#L30
+        pub fn gen<F>(mut fun: F) -> Self
+        where
+            F: FnMut() -> T,
+        {
+            let a1 = fun();
+            let a2 = fun();
+
+            if a1 <= a2 {
+                Self {
+                    lower: a1,
+                    upper: a2,
+                }
+            } else {
+                Self {
+                    lower: a2,
+                    upper: a1,
+                }
+            }
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_basic.ml#L232
@@ -1259,6 +1331,16 @@ pub mod zkapp_command {
                 Self::Check(fun())
             } else {
                 Self::Ignore
+            }
+        }
+
+        pub fn map<F, V>(&self, fun: F) -> OrIgnore<V>
+        where
+            F: Fn(&T) -> V,
+        {
+            match self {
+                OrIgnore::Check(v) => OrIgnore::Check(fun(v)),
+                OrIgnore::Ignore => OrIgnore::Ignore,
             }
         }
     }
@@ -1644,7 +1726,7 @@ pub mod zkapp_command {
         }
     }
 
-    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L955
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L981
     #[derive(Debug, Clone, PartialEq)]
     pub struct Body {
         pub public_key: CompressedPubKey,
@@ -1661,6 +1743,24 @@ pub mod zkapp_command {
         pub authorization_kind: AuthorizationKind,
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L955
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct BodySimple {
+        pub public_key: CompressedPubKey,
+        pub token_id: TokenId,
+        pub update: Update,
+        pub balance_change: Signed<Amount>,
+        pub increment_nonce: bool,
+        pub events: Events,
+        pub sequence_events: SequenceEvents,
+        pub call_data: Fp,
+        pub call_depth: usize,
+        pub preconditions: Preconditions,
+        pub use_full_commitment: bool,
+        pub caller: MinaBaseAccountUpdateCallTypeStableV1,
+        pub authorization_kind: AuthorizationKind,
+    }
+
     /// Notes:
     /// The type in OCaml is this one:
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/pickles/proof.ml#L401
@@ -1670,7 +1770,7 @@ pub mod zkapp_command {
     /// Also, in OCaml it has custom `{to/from}_binable` implementation.
     ///
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/pickles/pickles_intf.ml#L316
-    pub type SideLoadedProof = mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
+    pub type SideLoadedProof = Rc<mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2>;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/control.ml#L11
     #[derive(Debug, Clone, PartialEq)]
@@ -1678,6 +1778,25 @@ pub mod zkapp_command {
         Proof(SideLoadedProof),
         Signature(Signature),
         NoneGiven,
+    }
+
+    impl Control {
+        /// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_base/control.ml#L81
+        pub fn tag(&self) -> crate::ControlTag {
+            match self {
+                Control::Proof(_) => crate::ControlTag::Proof,
+                Control::Signature(_) => crate::ControlTag::Signature,
+                Control::NoneGiven => crate::ControlTag::NoneGiven,
+            }
+        }
+
+        pub fn dummy_of_tag(tag: ControlTag) -> Self {
+            match tag {
+                ControlTag::Proof => Self::Proof(dummy::sideloaded_proof()),
+                ControlTag::Signature => Self::Signature(Signature::dummy()),
+                ControlTag::NoneGiven => Self::NoneGiven,
+            }
+        }
     }
 
     pub struct CheckAuthorizationResult {
@@ -1689,6 +1808,13 @@ pub mod zkapp_command {
     #[derive(Debug, Clone, PartialEq)]
     pub struct AccountUpdate {
         pub body: Body,
+        pub authorization: Control,
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1395
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct AccountUpdateSimple {
+        pub body: BodySimple,
         pub authorization: Control,
     }
 
@@ -1872,10 +1998,10 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L49
     #[derive(Debug, Clone, PartialEq)]
-    pub struct Tree<Data: Clone> {
-        pub account_update: (AccountUpdate, Data),
+    pub struct Tree<Data: Clone, Update = AccountUpdate> {
+        pub account_update: (Update, Data),
         pub account_update_digest: Fp,
-        pub calls: CallForest<Data>,
+        pub calls: CallForest<Data, Update>,
     }
 
     impl<Data: Clone> Tree<Data> {
@@ -1904,14 +2030,16 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_stack_hash.ml#L6
     #[derive(Debug, Clone, PartialEq)]
-    pub struct WithStackHash<Data: Clone> {
-        pub elt: Tree<Data>,
+    pub struct WithStackHash<Data: Clone, Update = AccountUpdate> {
+        pub elt: Tree<Data, Update>,
         pub stack_hash: Fp,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L345
     #[derive(Debug, Clone, PartialEq)]
-    pub struct CallForest<Data: Clone>(pub Vec<WithStackHash<Data>>);
+    pub struct CallForest<Data: Clone, Update = AccountUpdate>(
+        pub Vec<WithStackHash<Data, Update>>,
+    );
 
     impl<Data: Clone> Default for CallForest<Data> {
         fn default() -> Self {

@@ -1023,7 +1023,7 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
                 },
             },
             authorization: match &value.authorization {
-                mina_p2p_messages::v2::MinaBaseControlStableV2::Proof(proof) => zkapp_command::Control::Proof((**proof).clone()),
+                mina_p2p_messages::v2::MinaBaseControlStableV2::Proof(proof) => zkapp_command::Control::Proof(Rc::new((**proof).clone())),
                 mina_p2p_messages::v2::MinaBaseControlStableV2::Signature(signature) => zkapp_command::Control::Signature(Signature(
                     signature.0.to_field(),
                     signature.1.to_field()
@@ -1188,7 +1188,7 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTWireStableV1 {
                 },
             },
             authorization: match &value.authorization {
-                zkapp_command::Control::Proof(proof) => mina_p2p_messages::v2::MinaBaseControlStableV2::Proof(Box::new(proof.clone())),
+                zkapp_command::Control::Proof(proof) => mina_p2p_messages::v2::MinaBaseControlStableV2::Proof(Box::new((**proof).clone())),
                 zkapp_command::Control::Signature(sig) => mina_p2p_messages::v2::MinaBaseControlStableV2::Signature(sig.into()),
                 zkapp_command::Control::NoneGiven => mina_p2p_messages::v2::MinaBaseControlStableV2::NoneGiven,
             },

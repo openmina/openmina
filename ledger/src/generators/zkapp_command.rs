@@ -16,6 +16,7 @@ use rand::{
 };
 
 use crate::{
+    gen_compressed, gen_keypair,
     scan_state::{
         currency::{
             Amount, Balance, BlockTime, BlockTimeSpan, Fee, Length, Magnitude, Nonce, Sgn, Signed,
@@ -24,17 +25,17 @@ use crate::{
         transaction_logic::{
             protocol_state::{self, ProtocolStateView},
             zkapp_command::{
-                self, AccountPreconditions, AccountUpdate, AuthorizationKind, ClosedInterval,
-                FeePayer, FeePayerBody, OrIgnore, SetOrKeep, Update, WithHash, WithStackHash,
-                ZkAppCommand, ZkAppPreconditions,
+                self, AccountPreconditions, AccountUpdateSimple, AuthorizationKind, ClosedInterval,
+                Control, FeePayer, FeePayerBody, Numeric, OrIgnore, Preconditions, SetOrKeep,
+                Update, WithHash, WithStackHash, ZkAppCommand, ZkAppPreconditions,
             },
-            Signature,
+            Memo, Signature,
         },
         zkapp_logic,
     },
     staged_ledger::pre_diff_info::HashableCompressedPubKey,
-    Account, AccountId, AuthRequired, BaseLedger, ControlTag, Mask, MyCowMut, Permissions, TokenId,
-    VerificationKey, ZkAppAccount,
+    Account, AccountId, AuthRequired, BaseLedger, ControlTag, Mask, MyCowMut, Permissions,
+    ReceiptChainHash, TokenId, VerificationKey, VotingFor, ZkAppAccount,
 };
 
 use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1 as CallType;
@@ -82,6 +83,9 @@ const MAX_ACCOUNT_UPDATES: usize = 2;
 
 /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/zkapp_command_generators.ml#L1113
 const MAX_TOKEN_UPDATES: usize = 2;
+
+/// Value when we run `dune runtest src/lib/staged_ledger -f`
+const ACCOUNT_CREATION_FEE: Fee = Fee::from_u64(1000000000);
 
 /// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_generators/zkapp_command_generators.ml#L443
 fn gen_invalid_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPreconditions {
@@ -395,6 +399,201 @@ fn gen_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPrecondition
     }
 }
 
+fn gen_account_precondition_from_account(
+    failure: Option<Failure>,
+    first_use_of_account: bool,
+    account: &Account,
+) -> AccountPreconditions {
+    let mut rng = rand::thread_rng();
+
+    let Account {
+        balance,
+        nonce,
+        receipt_chain_hash,
+        delegate,
+        zkapp,
+        ..
+    } = account;
+
+    // choose constructor
+    if rng.gen() {
+        // Full
+
+        let balance = OrIgnore::gen(|| {
+            let balance_change_int = rng.gen_range(1..10_000_000);
+            let balance_change = Balance::from_u64(balance_change_int);
+
+            let lower = balance
+                .checked_sub(&balance_change)
+                .unwrap_or_else(Balance::zero);
+            let upper = balance
+                .checked_add(&balance_change)
+                .unwrap_or_else(Balance::max);
+
+            ClosedInterval { lower, upper }
+        });
+
+        let nonce = OrIgnore::gen(|| {
+            let nonce_change_int = rng.gen_range(1..10);
+            let nonce_change = Nonce::from_u32(nonce_change_int);
+
+            let lower = nonce.checked_sub(&nonce_change).unwrap_or_else(Nonce::zero);
+            let upper = nonce.checked_add(&nonce_change).unwrap_or_else(Nonce::max);
+
+            ClosedInterval { lower, upper }
+        });
+
+        let receipt_chain_hash = if first_use_of_account {
+            OrIgnore::Check(receipt_chain_hash.clone())
+        } else {
+            OrIgnore::Ignore
+        };
+
+        let delegate = match delegate {
+            Some(delegate) => OrIgnore::gen(|| delegate.clone()),
+            None => OrIgnore::Ignore,
+        };
+
+        let (state, sequence_state, proved_state, is_new) = match zkapp {
+            None => {
+                // let len = Pickles_types.Nat.to_int Zkapp_state.Max_state_size.n
+
+                let state = std::array::from_fn(|_| OrIgnore::Ignore);
+                let sequence_state = OrIgnore::Ignore;
+                let proved_state = OrIgnore::Ignore;
+                let is_new = OrIgnore::Ignore;
+
+                (state, sequence_state, proved_state, is_new)
+            }
+            Some(ZkAppAccount {
+                app_state,
+                sequence_state,
+                proved_state,
+                ..
+            }) => {
+                let state = std::array::from_fn(|i| OrIgnore::gen(|| app_state[i]));
+
+                let sequence_state = {
+                    // choose a value from account sequence state
+                    OrIgnore::Check(sequence_state.choose(&mut rng).copied().unwrap())
+                };
+
+                let proved_state = OrIgnore::Check(*proved_state);
+
+                // when we apply the generated Zkapp_command.t, the account
+                // is always in the ledger
+                let is_new = OrIgnore::Check(false);
+
+                (state, sequence_state, proved_state, is_new)
+            }
+        };
+
+        let mut predicate_account = zkapp_command::Account {
+            balance,
+            nonce,
+            receipt_chain_hash: receipt_chain_hash.map(|a| a.0),
+            delegate,
+            state,
+            sequence_state,
+            proved_state,
+            is_new,
+        };
+
+        let Account { balance, nonce, .. } = account;
+
+        if let Some(Failure::InvalidAccountPrecondition) = failure {
+            #[derive(Clone, Copy)]
+            enum Tamperable {
+                Balance,
+                Nonce,
+                ReceiptChainHash,
+                Delegate,
+                State,
+                SequenceState,
+                ProvedState,
+            }
+
+            // tamper with account using randomly chosen item
+            match [
+                Tamperable::Balance,
+                Tamperable::Nonce,
+                Tamperable::ReceiptChainHash,
+                Tamperable::Delegate,
+                Tamperable::State,
+                Tamperable::SequenceState,
+                Tamperable::ProvedState,
+            ]
+            .choose(&mut rng)
+            .copied()
+            .unwrap()
+            {
+                Tamperable::Balance => {
+                    let new_balance = if balance.is_zero() {
+                        Balance::max()
+                    } else {
+                        Balance::zero()
+                    };
+
+                    let balance = OrIgnore::Check(ClosedInterval {
+                        lower: new_balance,
+                        upper: new_balance,
+                    });
+
+                    predicate_account.balance = balance;
+                }
+                Tamperable::Nonce => {
+                    let new_nonce = if nonce.is_zero() {
+                        Nonce::max()
+                    } else {
+                        Nonce::zero()
+                    };
+
+                    let nonce = Numeric::gen(|| ClosedInterval::gen(|| new_nonce));
+
+                    predicate_account.nonce = nonce;
+                }
+                Tamperable::ReceiptChainHash => {
+                    let receipt_chain_hash = OrIgnore::gen(ReceiptChainHash::gen);
+
+                    predicate_account.receipt_chain_hash = receipt_chain_hash.map(|v| v.0);
+                }
+                Tamperable::Delegate => {
+                    let delegate = OrIgnore::gen(|| gen_keypair().public.into_compressed());
+
+                    predicate_account.delegate = delegate;
+                }
+                Tamperable::State => {
+                    let field = predicate_account.state.choose_mut(&mut rng).unwrap();
+                    *field = OrIgnore::Check(Fp::rand(&mut rng));
+                }
+                Tamperable::SequenceState => {
+                    predicate_account.sequence_state = OrIgnore::Check(Fp::rand(&mut rng));
+                }
+                Tamperable::ProvedState => {
+                    let proved_state = match predicate_account.proved_state {
+                        OrIgnore::Check(b) => OrIgnore::Check(!b),
+                        OrIgnore::Ignore => OrIgnore::Check(true),
+                    };
+
+                    predicate_account.proved_state = proved_state;
+                }
+            };
+
+            AccountPreconditions::Full(Box::new(predicate_account))
+        } else {
+            AccountPreconditions::Full(Box::new(predicate_account))
+        }
+    } else {
+        // Nonce
+        let Account { nonce, .. } = account;
+
+        match failure {
+            Some(Failure::InvalidAccountPrecondition) => AccountPreconditions::Nonce(nonce.succ()),
+            _ => AccountPreconditions::Nonce(*nonce),
+        }
+    }
+}
+
 struct AccountUpdateBodyComponents<A, B, C, D> {
     public_key: CompressedPubKey,
     update: Update,
@@ -413,6 +612,7 @@ struct AccountUpdateBodyComponents<A, B, C, D> {
 }
 
 impl<B, C> AccountUpdateBodyComponents<Fee, B, C, Nonce> {
+    /// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_generators/zkapp_command_generators.ml#L576
     fn to_fee_payer(&self) -> FeePayerBody {
         FeePayerBody {
             public_key: self.public_key.clone(),
@@ -426,23 +626,49 @@ impl<B, C> AccountUpdateBodyComponents<Fee, B, C, Nonce> {
     }
 }
 
+impl AccountUpdateBodyComponents<Signed<Amount>, bool, TokenId, AccountPreconditions> {
+    /// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_generators/zkapp_command_generators.ml#L592
+    fn to_typical_account_update(self) -> zkapp_command::BodySimple {
+        zkapp_command::BodySimple {
+            public_key: self.public_key,
+            token_id: self.token_id,
+            update: self.update,
+            balance_change: self.balance_change,
+            increment_nonce: self.increment_nonce,
+            events: self.events,
+            sequence_events: self.sequence_events,
+            call_data: self.call_data,
+            call_depth: self.call_depth,
+            preconditions: {
+                Preconditions {
+                    network: self.protocol_state_precondition,
+                    account: self.account_precondition,
+                }
+            },
+            use_full_commitment: self.use_full_commitment,
+            caller: self.caller,
+            authorization_kind: self.authorization_kind,
+        }
+    }
+}
+
 struct BodyComponentsParams<'a, A, B, C, D> {
     update: Option<Update>,
     account_id: Option<AccountId>,
     token_id: Option<TokenId>,
     caller: Option<CallType>,
-    account_ids_seen: Option<HashSet<AccountId>>,
+    account_ids_seen: Option<&'a mut HashSet<AccountId>>,
     account_state_tbl: &'a mut HashMap<AccountId, (Account, Role)>,
-    vk: Option<WithHash<VerificationKey>>,
-    failure: Option<Failure>,
+    vk: Option<&'a WithHash<VerificationKey>>,
+    failure: Option<&'a Failure>,
     new_account: Option<bool>,
     zkapp_account: Option<bool>,
     is_fee_payer: Option<bool>,
-    available_public_keys: Option<HashSet<HashableCompressedPubKey>>,
+    available_public_keys: Option<&'a mut HashSet<HashableCompressedPubKey>>,
     permissions_auth: Option<ControlTag>,
     required_balance_change: Option<A>,
     protocol_state_view: Option<&'a ProtocolStateView>,
-    zkapp_account_ids: Vec<AccountId>,
+    zkapp_account_ids: &'a [AccountId],
     increment_nonce: (B, bool),
     authorization_tag: ControlTag,
     _phantom: PhantomData<(C, D)>,
@@ -502,7 +728,7 @@ fn gen_account_update_body_components<A, B, C, D>(
         None => Update::gen(
             Some(token_account),
             Some(zkapp_account),
-            vk.as_ref(),
+            vk,
             permissions_auth,
         ),
         Some(update) => update,
@@ -512,7 +738,7 @@ fn gen_account_update_body_components<A, B, C, D>(
     let (account_update_increment_nonce, increment_nonce) = increment_nonce;
 
     let verification_key = match vk {
-        Some(vk) => vk,
+        Some(vk) => vk.clone(),
         None => {
             let dummy = VerificationKey::dummy();
             let hash = dummy.digest();
@@ -526,7 +752,7 @@ fn gen_account_update_body_components<A, B, C, D>(
             "gen_account_update_body: new account_update is true, but an account \
              id, presumably from an existing account, was supplied"
         );
-        let mut available_pks = match available_public_keys {
+        let available_pks = match available_public_keys {
             None => panic!(
                 "gen_account_update_body: new_account is true, but \
                  available_public_keys not provided"
@@ -868,7 +1094,7 @@ fn gen_account_update_body_components<A, B, C, D>(
 fn gen_balance_change(
     permissions_auth: Option<ControlTag>,
     account: &Account,
-    failure: Option<Failure>,
+    failure: Option<&Failure>,
     new_account: bool,
 ) -> Signed<Amount> {
     let mut rng = rand::thread_rng();
@@ -913,34 +1139,65 @@ fn gen_balance_change(
 
 fn gen_use_full_commitment(
     increment_nonce: bool,
-    account_precondition: AccountPreconditions,
-    authorization: zkapp_command::Control,
-) {
+    account_precondition: &AccountPreconditions,
+    authorization: &zkapp_command::Control,
+) -> bool {
     // check conditions to avoid replays
     let incr_nonce_and_constrains_nonce =
         increment_nonce && account_precondition.to_full().nonce.is_constant();
+
+    let does_not_use_a_signature = !matches!(authorization.tag(), ControlTag::Signature);
+
+    if incr_nonce_and_constrains_nonce || does_not_use_a_signature {
+        rand::thread_rng().gen()
+    } else {
+        true
+    }
 }
 
-// let gen_use_full_commitment ~increment_nonce ~account_precondition
-//     ~authorization () : bool Base_quickcheck.Generator.t =
-//   (* check conditions to avoid replays*)
-//   let incr_nonce_and_constrains_nonce =
-//     increment_nonce
-//     && Zkapp_precondition.Numeric.is_constant
-//          Zkapp_precondition.Numeric.Tc.nonce
-//          (Account_update.Account_precondition.to_full account_precondition)
-//            .Zkapp_precondition.Account.nonce
-//   in
-//   let does_not_use_a_signature =
-//     Control.(not (Tag.equal (tag authorization) Tag.Signature))
-//   in
-//   if incr_nonce_and_constrains_nonce || does_not_use_a_signature then
-//     Bool.quickcheck_generator
-//   else Quickcheck.Generator.return true
+struct AccountUpdateParams<'a> {
+    update: Option<Update>,
+    failure: Option<&'a Failure>,
+    new_account: Option<bool>,
+    zkapp_account: Option<bool>,
+    account_id: Option<AccountId>,
+    token_id: Option<TokenId>,
+    caller: Option<CallType>,
+    permissions_auth: Option<ControlTag>,
+    required_balance_change: Option<Signed<Amount>>,
+    zkapp_account_ids: &'a [AccountId],
+    authorization: zkapp_command::Control,
+    account_ids_seen: &'a mut HashSet<AccountId>,
+    available_public_keys: &'a mut HashSet<HashableCompressedPubKey>,
+    account_state_tbl: &'a mut HashMap<AccountId, (Account, Role)>,
+    protocol_state_view: Option<&'a ProtocolStateView>,
+    vk: Option<&'a WithHash<VerificationKey>>,
+    // is_fee_payer: Option<bool>,
+    // increment_nonce: (B, bool),
+    // authorization_tag: ControlTag,
+    // _phantom: PhantomData<(C, D)>,
+}
 
-fn gen_account_update_from<A, B, C, D>(
-    mut params: BodyComponentsParams<Signed<Amount>, bool, C, D>,
-) {
+fn gen_account_update_from(params: AccountUpdateParams) -> AccountUpdateSimple {
+    let AccountUpdateParams {
+        update,
+        failure,
+        new_account,
+        zkapp_account,
+        account_id,
+        token_id,
+        caller,
+        permissions_auth,
+        required_balance_change,
+        zkapp_account_ids,
+        authorization,
+        account_ids_seen,
+        available_public_keys,
+        account_state_tbl,
+        protocol_state_view,
+        vk,
+    } = params;
+
     // permissions_auth is used to generate updated permissions consistent with a
     // contemplated authorization;
     // allow incrementing the nonce only if we know the authorization will be Signature
@@ -952,67 +1209,60 @@ fn gen_account_update_from<A, B, C, D>(
         None => false,
     };
 
-    let new_account = params.new_account.unwrap_or(false);
+    let new_account = new_account.unwrap_or(false);
+    let zkapp_account = zkapp_account.unwrap_or(false);
 
-    params.increment_nonce = (increment_nonce, increment_nonce);
+    let params = BodyComponentsParams {
+        update,
+        account_id,
+        token_id,
+        caller,
+        account_ids_seen: Some(account_ids_seen),
+        account_state_tbl,
+        vk,
+        failure: failure.clone(),
+        new_account: Some(new_account),
+        zkapp_account: Some(zkapp_account),
+        is_fee_payer: None,
+        available_public_keys: Some(available_public_keys),
+        permissions_auth,
+        required_balance_change,
+        protocol_state_view,
+        zkapp_account_ids,
+        increment_nonce: (increment_nonce, increment_nonce),
+        authorization_tag: authorization.tag(),
+        _phantom: PhantomData,
+    };
 
-    // gen_account_update_body_components(
-    //     params,
-    //     // gen_balance_change,
-    //     |account| {
-    //         gen_balance_change(params.permissions_auth, account, params.failure, new_account)
-    //     }
-    //     // gen_use_full_commitment,
-    //     // f_balance_change,
-    //     // f_token_id,
-    //     // f_account_precondition,
-    //     // f_account_update_account_precondition
-    // );
+    let body_components = gen_account_update_body_components(
+        params,
+        // gen_balance_change,
+        |account| gen_balance_change(permissions_auth, account, failure.clone(), new_account),
+        // gen_use_full_commitment,
+        |account_precondition| {
+            gen_use_full_commitment(increment_nonce, account_precondition, &authorization)
+        },
+        // f_balance_change,
+        |balance| *balance,
+        // f_token_id,
+        |token_id| token_id.clone(),
+        // f_account_precondition,
+        |first_use_of_account, account| {
+            gen_account_precondition_from_account(None, first_use_of_account, account)
+        },
+        // f_account_update_account_precondition
+        |a| a.clone(),
+    );
+
+    let body = body_components.to_typical_account_update();
+    let account_id = AccountId::create(body.public_key.clone(), body.token_id.clone());
+    account_ids_seen.insert(account_id);
+
+    AccountUpdateSimple {
+        body,
+        authorization,
+    }
 }
-
-// let gen_account_update_from ?(update = None) ?failure ?(new_account = false)
-//     ?(zkapp_account = false) ?account_id ?token_id ?caller ?permissions_auth
-//     ?required_balance_change ~zkapp_account_ids ~authorization ~account_ids_seen
-//     ~available_public_keys ~account_state_tbl ?protocol_state_view ?vk () =
-//   let open Quickcheck.Let_syntax in
-//   let increment_nonce =
-//     (* permissions_auth is used to generate updated permissions consistent with a contemplated authorization;
-//        allow incrementing the nonce only if we know the authorization will be Signature
-//     *)
-//     match permissions_auth with
-//     | Some tag -> (
-//         match tag with
-//         | Control.Tag.Signature ->
-//             true
-//         | Proof | None_given ->
-//             false )
-//     | None ->
-//         false
-//   in
-//   let%bind body_components =
-//     gen_account_update_body_components ~update ?failure ~new_account
-//       ~zkapp_account
-//       ~increment_nonce:(increment_nonce, increment_nonce)
-//       ?permissions_auth ?account_id ?token_id ?caller ?protocol_state_view ?vk
-//       ~zkapp_account_ids ~account_ids_seen ~available_public_keys
-//       ?required_balance_change ~account_state_tbl
-//       ~gen_balance_change:
-//         (gen_balance_change ?permissions_auth ~new_account ?failure)
-//       ~f_balance_change:Fn.id () ~f_token_id:Fn.id
-//       ~f_account_precondition:(fun ~first_use_of_account acct ->
-//         gen_account_precondition_from_account ~first_use_of_account acct )
-//       ~f_account_update_account_precondition:Fn.id
-//       ~gen_use_full_commitment:(fun ~account_precondition ->
-//         gen_use_full_commitment ~increment_nonce ~account_precondition
-//           ~authorization () )
-//       ~authorization_tag:(Control.tag authorization)
-//   in
-//   let body =
-//     Account_update_body_components.to_typical_account_update body_components
-//   in
-//   let account_id = Account_id.create body.public_key body.token_id in
-//   Hash_set.add account_ids_seen account_id ;
-//   return { Account_update.Simple.body; authorization }
 
 /// Value of `Mina_compile_config.minimum_user_command_fee` when we run `dune runtest src/lib/staged_ledger -f`
 const MINIMUM_USER_COMMAND_FEE: Fee = Fee::from_u64(1000000);
@@ -1038,10 +1288,10 @@ fn fee_to_amt(fee: &Fee) -> Signed<Amount> {
 ///
 /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/zkapp_command_generators.ml#L1063
 fn gen_account_update_body_fee_payer(
-    failure: Option<Failure>,
+    failure: Option<&Failure>,
     permissions_auth: Option<ControlTag>,
     account_id: AccountId,
-    vk: Option<WithHash<VerificationKey>>,
+    vk: Option<&WithHash<VerificationKey>>,
     protocol_state_view: Option<&ProtocolStateView>,
     account_state_tbl: &mut HashMap<AccountId, (Account, Role)>,
 ) -> FeePayerBody {
@@ -1064,7 +1314,7 @@ fn gen_account_update_body_fee_payer(
             permissions_auth,
             required_balance_change: None,
             protocol_state_view,
-            zkapp_account_ids: vec![],
+            zkapp_account_ids: &[],
             increment_nonce: ((), true),
             authorization_tag: ControlTag::Signature,
             _phantom: PhantomData,
@@ -1093,11 +1343,11 @@ fn gen_account_update_body_fee_payer(
 
 /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/zkapp_command_generators.ml#L1089
 fn gen_fee_payer(
-    failure: Option<Failure>,
+    failure: Option<&Failure>,
     permissions_auth: Option<ControlTag>,
     account_id: AccountId,
     protocol_state_view: Option<&ProtocolStateView>,
-    vk: Option<WithHash<VerificationKey>>,
+    vk: Option<&WithHash<VerificationKey>>,
     account_state_tbl: &mut HashMap<AccountId, (Account, Role)>,
 ) -> FeePayer {
     let body = gen_account_update_body_fee_payer(
@@ -1137,9 +1387,13 @@ fn gen_zkapp_command_from(
     account_state_tbl: Option<&mut HashMap<AccountId, (Account, Role)>>,
     ledger: Mask,
     protocol_state_view: Option<&ProtocolStateView>,
-    vk: Option<WithHash<VerificationKey>>,
+    vk: Option<&WithHash<VerificationKey>>,
 ) -> ZkAppCommand {
     let mut rng = rand::thread_rng();
+
+    let failure = failure.as_ref();
+    let max_account_updates = max_account_updates.unwrap_or(MAX_ACCOUNT_UPDATES);
+    let max_token_updates = max_token_updates.unwrap_or(MAX_TOKEN_UPDATES);
 
     let fee_payer_pk = fee_payer_keypair.public.into_compressed();
     let fee_payer_account_id = AccountId::create(fee_payer_pk, TokenId::default());
@@ -1154,6 +1408,7 @@ fn gen_zkapp_command_from(
         Some(account_state_tbl) => MyCowMut::Borrow(account_state_tbl),
         None => MyCowMut::Own(HashMap::new()),
     };
+    let account_state_tbl = &mut account_state_tbl;
 
     // make sure all ledger keys are in the keymap
     for account in ledger_accounts.into_iter() {
@@ -1198,23 +1453,25 @@ fn gen_zkapp_command_from(
         .map(|pk| HashableCompressedPubKey(pk.clone()))
         .collect();
 
-    let available_public_keys: HashSet<HashableCompressedPubKey> = keymap
+    let mut available_public_keys: HashSet<HashableCompressedPubKey> = keymap
         .keys()
         .filter(|pk| !ledger_pk_set.contains(pk))
         .cloned()
         .collect();
+    let available_public_keys = &mut available_public_keys;
 
     // account ids seen, to generate receipt chain hash precondition only if
     // a account_update with a given account id has not been encountered before
     let mut account_ids_seen = HashSet::<AccountId>::new();
+    let account_ids_seen = &mut account_ids_seen;
 
     let fee_payer = gen_fee_payer(
-        failure.clone(),
+        failure,
         Some(ControlTag::Signature),
         fee_payer_account_id.clone(),
         protocol_state_view,
         vk,
-        &mut account_state_tbl,
+        account_state_tbl,
     );
 
     let zkapp_account_ids: Vec<AccountId> = account_state_tbl
@@ -1225,10 +1482,13 @@ fn gen_zkapp_command_from(
         })
         .map(|(id, _)| id.clone())
         .collect();
+    let zkapp_account_ids = zkapp_account_ids.as_slice();
 
     account_ids_seen.insert(fee_payer_account_id);
 
-    fn mk_forest<T: Clone>(ps: Vec<zkapp_command::Tree<T>>) -> Vec<WithStackHash<T>> {
+    fn mk_forest<T: Clone>(
+        ps: Vec<zkapp_command::Tree<T, AccountUpdateSimple>>,
+    ) -> Vec<WithStackHash<T, AccountUpdateSimple>> {
         ps.into_iter()
             .map(|v| {
                 WithStackHash {
@@ -1240,9 +1500,9 @@ fn gen_zkapp_command_from(
     }
 
     fn mk_node<T: Clone>(
-        p: (AccountUpdate, T),
-        calls: Vec<zkapp_command::Tree<T>>,
-    ) -> zkapp_command::Tree<T> {
+        p: (AccountUpdateSimple, T),
+        calls: Vec<zkapp_command::Tree<T, AccountUpdateSimple>>,
+    ) -> zkapp_command::Tree<T, AccountUpdateSimple> {
         zkapp_command::Tree {
             account_update: p,
             account_update_digest: Fp::zero(), // TODO: OCaml uses `()`
@@ -1250,279 +1510,338 @@ fn gen_zkapp_command_from(
         }
     }
 
-    let gen_zkapp_command_with_dynamic_balance = |new_account: bool, num_zkapp_command: usize| {
-        for _ in 0..num_zkapp_command {
-            // choose a random authorization
-            // first Account_update.t updates the permissions, using the Signature authorization,
-            //  according the random authorization
-            // second Account_update.t uses the random authorization
+    let mut gen_zkapp_command_with_dynamic_balance =
+        |new_account: bool, num_zkapp_command: usize| {
+            let mut rng = rand::thread_rng();
+            let mut commands = Vec::with_capacity(num_zkapp_command);
 
-            let (permissions_auth, update) = match &failure {
-                Some(Failure::UpdateNotPermitted(ref update_type)) => {
-                    let is_proof = rng.gen::<bool>();
+            for _ in 0..num_zkapp_command {
+                // choose a random authorization
+                // first Account_update.t updates the permissions, using the Signature authorization,
+                //  according the random authorization
+                // second Account_update.t uses the random authorization
 
-                    let auth_tag = if is_proof {
-                        ControlTag::Proof
-                    } else {
-                        ControlTag::Signature
+                let (permissions_auth, update) = match failure {
+                    Some(Failure::UpdateNotPermitted(ref update_type)) => {
+                        let is_proof = rng.gen::<bool>();
+
+                        let auth_tag = if is_proof {
+                            ControlTag::Proof
+                        } else {
+                            ControlTag::Signature
+                        };
+
+                        let mut perm = Permissions::gen(auth_tag);
+
+                        match &update_type {
+                            NotPermitedOf::Delegate => {
+                                perm.set_delegate = AuthRequired::from(auth_tag);
+                            }
+                            NotPermitedOf::AppState => {
+                                perm.edit_state = AuthRequired::from(auth_tag);
+                            }
+                            NotPermitedOf::VerificationKey => {
+                                perm.set_verification_key = AuthRequired::from(auth_tag);
+                            }
+                            NotPermitedOf::ZkappUri => {
+                                perm.set_zkapp_uri = AuthRequired::from(auth_tag);
+                            }
+                            NotPermitedOf::TokenSymbol => {
+                                perm.set_token_symbol = AuthRequired::from(auth_tag);
+                            }
+                            NotPermitedOf::VotingFor => {
+                                perm.set_voting_for = AuthRequired::from(auth_tag);
+                            }
+                            NotPermitedOf::Send => {
+                                perm.send = AuthRequired::from(auth_tag);
+                            }
+                            NotPermitedOf::Receive => {
+                                perm.receive = AuthRequired::from(auth_tag);
+                            }
+                        };
+
+                        (
+                            auth_tag,
+                            Some(Update {
+                                permissions: SetOrKeep::Set(perm),
+                                ..Update::dummy()
+                            }),
+                        )
+                    }
+                    _ => {
+                        let tag = if new_account {
+                            [ControlTag::Signature, ControlTag::NoneGiven]
+                                .choose(&mut rng)
+                                .cloned()
+                                .unwrap()
+                        } else {
+                            ControlTag::gen(&mut rng)
+                        };
+
+                        (tag, None)
+                    }
+                };
+
+                let zkapp_account = match permissions_auth {
+                    ControlTag::Proof => true,
+                    ControlTag::Signature | ControlTag::NoneGiven => false,
+                };
+
+                // Signature authorization to start
+                let account_update0 = {
+                    let authorization = zkapp_command::Control::Signature(Signature::dummy());
+                    gen_account_update_from(AccountUpdateParams {
+                        update,
+                        failure,
+                        new_account: Some(new_account),
+                        zkapp_account: Some(zkapp_account),
+                        account_id: None,
+                        token_id: None,
+                        caller: None,
+                        permissions_auth: Some(permissions_auth),
+                        required_balance_change: None,
+                        zkapp_account_ids,
+                        authorization,
+                        account_ids_seen,
+                        available_public_keys,
+                        account_state_tbl,
+                        protocol_state_view,
+                        vk,
+                    })
+                };
+
+                let account_update = {
+                    // authorization according to chosen permissions auth
+                    let (authorization, update) = match failure {
+                        Some(Failure::UpdateNotPermitted(update_type)) => {
+                            let auth = match permissions_auth {
+                                ControlTag::Proof => Control::dummy_of_tag(ControlTag::Signature),
+                                ControlTag::Signature => Control::dummy_of_tag(ControlTag::Proof),
+                                _ => Control::dummy_of_tag(ControlTag::NoneGiven),
+                            };
+
+                            let mut update = Update::dummy();
+
+                            match update_type {
+                                NotPermitedOf::Delegate => {
+                                    update.delegate = SetOrKeep::Set(gen_compressed());
+                                }
+                                NotPermitedOf::AppState => {
+                                    update.app_state =
+                                        std::array::from_fn(|_| SetOrKeep::Set(Fp::rand(&mut rng)));
+                                }
+                                NotPermitedOf::VerificationKey => {
+                                    let data = VerificationKey::dummy();
+                                    let hash = data.digest();
+                                    update.verification_key =
+                                        SetOrKeep::Set(WithHash { data, hash });
+                                }
+                                NotPermitedOf::ZkappUri => {
+                                    update.zkapp_uri =
+                                        SetOrKeep::Set("https://o1labs.org".to_string().into());
+                                }
+                                NotPermitedOf::TokenSymbol => {
+                                    update.token_symbol = SetOrKeep::Set("CODA".to_string().into());
+                                }
+                                NotPermitedOf::VotingFor => {
+                                    update.voting_for =
+                                        SetOrKeep::Set(VotingFor(Fp::rand(&mut rng)));
+                                }
+                                NotPermitedOf::Send | NotPermitedOf::Receive => {}
+                            };
+
+                            let new_perm = Permissions::gen(ControlTag::Signature);
+                            update.permissions = SetOrKeep::Set(new_perm);
+
+                            (auth, Some(update))
+                        }
+                        _ => {
+                            let auth = Control::dummy_of_tag(permissions_auth);
+                            (auth, None)
+                        }
                     };
 
-                    let mut perm = Permissions::gen(auth_tag);
+                    let account_id = AccountId::create(
+                        account_update0.body.public_key.clone(),
+                        account_update0.body.token_id.clone(),
+                    );
 
-                    match &update_type {
-                        NotPermitedOf::Delegate => {
-                            perm.set_delegate = AuthRequired::from(auth_tag);
-                        }
-                        NotPermitedOf::AppState => {
-                            perm.edit_state = AuthRequired::from(auth_tag);
-                        }
-                        NotPermitedOf::VerificationKey => {
-                            perm.set_verification_key = AuthRequired::from(auth_tag);
-                        }
-                        NotPermitedOf::ZkappUri => {
-                            perm.set_zkapp_uri = AuthRequired::from(auth_tag);
-                        }
-                        NotPermitedOf::TokenSymbol => {
-                            perm.set_token_symbol = AuthRequired::from(auth_tag);
-                        }
-                        NotPermitedOf::VotingFor => {
-                            perm.set_voting_for = AuthRequired::from(auth_tag);
-                        }
-                        NotPermitedOf::Send => {
-                            perm.send = AuthRequired::from(auth_tag);
-                        }
-                        NotPermitedOf::Receive => {
-                            perm.receive = AuthRequired::from(auth_tag);
-                        }
+                    let permissions_auth = ControlTag::Signature;
+
+                    gen_account_update_from(AccountUpdateParams {
+                        update,
+                        failure,
+                        new_account: None,
+                        zkapp_account: None,
+                        account_id: Some(account_id),
+                        token_id: None,
+                        caller: None,
+                        permissions_auth: Some(permissions_auth),
+                        required_balance_change: None,
+                        zkapp_account_ids,
+                        authorization,
+                        account_ids_seen,
+                        available_public_keys,
+                        account_state_tbl,
+                        protocol_state_view,
+                        vk,
+                    })
+                };
+
+                commands.push(mk_node((account_update0, ()), vec![]));
+                commands.push(mk_node((account_update, ()), vec![]));
+            }
+
+            commands
+        };
+
+    // at least 1 account_update
+    let num_zkapp_command = rng.gen_range(1..max_account_updates);
+    let num_new_accounts = rng.gen_range(0..num_zkapp_command);
+    let num_old_zkapp_command = num_zkapp_command - num_new_accounts;
+
+    let mut old_zkapp_command =
+        gen_zkapp_command_with_dynamic_balance(false, num_old_zkapp_command);
+    let mut new_zkapp_command = gen_zkapp_command_with_dynamic_balance(true, num_new_accounts);
+
+    let account_updates0: Vec<_> = {
+        old_zkapp_command.append(&mut new_zkapp_command);
+        old_zkapp_command
+    };
+
+    let balance_change_sum = account_updates0.iter().fold(
+        // init
+        if num_new_accounts == 0 {
+            Signed::<Amount>::zero()
+        } else {
+            let amount = Amount::from_u64(ACCOUNT_CREATION_FEE.as_u64());
+            let amount = amount.scale(num_new_accounts as u64).unwrap();
+            Signed::of_unsigned(amount)
+        },
+        |accum, node| {
+            accum
+                .add(&node.account_update.0.body.balance_change)
+                .expect("Overflow adding other zkapp_command balances")
+        },
+    );
+
+    // modify the balancing account_update with balance change to yield a zero sum
+    // balancing account_update is created immediately after the fee payer
+    // account_update is created. This is because the preconditions generation
+    // is sensitive to the order of account_update generation.
+
+    let balance_change = balance_change_sum.negate();
+
+    let balancing_account_update = {
+        let authorization = Control::Signature(Signature::dummy());
+        gen_account_update_from(AccountUpdateParams {
+            update: None,
+            failure,
+            new_account: Some(false),
+            zkapp_account: None,
+            account_id: None,
+            token_id: None,
+            caller: None,
+            permissions_auth: Some(ControlTag::Signature),
+            required_balance_change: Some(balance_change),
+            zkapp_account_ids,
+            authorization,
+            account_ids_seen,
+            available_public_keys,
+            account_state_tbl,
+            protocol_state_view,
+            vk,
+        })
+    };
+
+    let mut gen_zkapp_command_with_token_accounts = |num_zkapp_command: usize| {
+        let authorization = Control::Signature(Signature::dummy());
+        let permissions_auth = ControlTag::Signature;
+        let caller = CallType::Call;
+
+        (0..num_zkapp_command)
+            .map(|_| {
+                let parent = {
+                    let required_balance_change = {
+                        let amount = Amount::from_u64(ACCOUNT_CREATION_FEE.as_u64());
+                        Some(Signed::of_unsigned(amount).negate())
                     };
 
-                    (
-                        auth_tag,
-                        Some(Update {
-                            permissions: SetOrKeep::Set(perm),
-                            ..Update::dummy()
-                        }),
-                    )
-                }
-                _ => {
-                    let tag = if new_account {
-                        [ControlTag::Signature, ControlTag::NoneGiven]
-                            .choose(&mut rng)
-                            .cloned()
-                            .unwrap()
-                    } else {
-                        ControlTag::gen(&mut rng)
-                    };
+                    gen_account_update_from(AccountUpdateParams {
+                        update: None,
+                        failure,
+                        new_account: None,
+                        zkapp_account: None,
+                        account_id: None,
+                        token_id: None,
+                        caller: Some(caller.clone()),
+                        permissions_auth: Some(permissions_auth),
+                        required_balance_change,
+                        zkapp_account_ids,
+                        authorization: authorization.clone(),
+                        account_ids_seen,
+                        available_public_keys,
+                        account_state_tbl,
+                        protocol_state_view,
+                        vk,
+                    })
+                };
 
-                    (tag, None)
-                }
-            };
+                let token_id = Some(
+                    AccountId::create(parent.body.public_key.clone(), parent.body.token_id.clone())
+                        .derive_token_id(),
+                );
 
-            let zkapp_account = match permissions_auth {
-                ControlTag::Proof => true,
-                ControlTag::Signature | ControlTag::NoneGiven => false,
-            };
-        }
+                let child = gen_account_update_from(AccountUpdateParams {
+                    update: None,
+                    failure,
+                    new_account: Some(true),
+                    zkapp_account: None,
+                    account_id: None,
+                    token_id,
+                    caller: Some(caller.clone()),
+                    permissions_auth: Some(permissions_auth),
+                    required_balance_change: None,
+                    zkapp_account_ids,
+                    authorization: authorization.clone(),
+                    account_ids_seen,
+                    available_public_keys,
+                    account_state_tbl,
+                    protocol_state_view,
+                    vk,
+                });
+
+                mk_node((parent, ()), vec![mk_node((child, ()), vec![])])
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let num_new_token_zkapp_command = rng.gen_range(0..max_token_updates);
+    let new_token_zkapp_command =
+        gen_zkapp_command_with_token_accounts(num_new_token_zkapp_command);
+
+    let account_updates = mk_forest(
+        account_updates0
+            .into_iter()
+            .chain([mk_node((balancing_account_update, ()), vec![])])
+            .chain(new_token_zkapp_command)
+            .collect(),
+    );
+
+    let memo = Memo::gen();
+    let zkapp_command_dummy_authorizations = ZkAppCommand {
+        fee_payer,
+        account_updates: {
+            // account_updates.add_callers();
+
+            todo!()
+        },
+        memo,
     };
 
     todo!()
 }
 
-//         let zkapp_account =
-//           match permissions_auth with
-//           | Proof ->
-//               true
-//           | Signature | None_given ->
-//               false
-//         in
-//         let%bind account_update0 =
-//           (* Signature authorization to start *)
-//           let authorization = Control.Signature Signature.dummy in
-//           gen_account_update_from ~zkapp_account_ids ~account_ids_seen ~update
-//             ?failure ~authorization ~new_account ~permissions_auth
-//             ~zkapp_account ~available_public_keys ~account_state_tbl
-//             ?protocol_state_view ?vk ()
-//         in
-//         let%bind account_update =
-//           (* authorization according to chosen permissions auth *)
-//           let%bind authorization, update =
-//             match failure with
-//             | Some (Update_not_permitted update_type) ->
-//                 let auth =
-//                   match permissions_auth with
-//                   | Proof ->
-//                       Control.(dummy_of_tag Signature)
-//                   | Signature ->
-//                       Control.(dummy_of_tag Proof)
-//                   | _ ->
-//                       Control.(dummy_of_tag None_given)
-//                 in
-//                 let%bind update =
-//                   match update_type with
-//                   | `Delegate ->
-//                       let%map delegate =
-//                         Signature_lib.Public_key.Compressed.gen
-//                       in
-//                       { Account_update.Update.dummy with
-//                         delegate = Set_or_keep.Set delegate
-//                       }
-//                   | `App_state ->
-//                       let%map app_state =
-//                         let%map fields =
-//                           let field_gen =
-//                             Snark_params.Tick.Field.gen
-//                             >>| fun x -> Set_or_keep.Set x
-//                           in
-//                           Quickcheck.Generator.list_with_length 8 field_gen
-//                         in
-//                         Zkapp_state.V.of_list_exn fields
-//                       in
-//                       { Account_update.Update.dummy with app_state }
-//                   | `Verification_key ->
-//                       let data = Pickles.Side_loaded.Verification_key.dummy in
-//                       let hash = Zkapp_account.digest_vk data in
-//                       let verification_key =
-//                         Set_or_keep.Set { With_hash.data; hash }
-//                       in
-//                       return
-//                         { Account_update.Update.dummy with verification_key }
-//                   | `Zkapp_uri ->
-//                       let zkapp_uri = Set_or_keep.Set "https://o1labs.org" in
-//                       return { Account_update.Update.dummy with zkapp_uri }
-//                   | `Token_symbol ->
-//                       let token_symbol = Set_or_keep.Set "CODA" in
-//                       return { Account_update.Update.dummy with token_symbol }
-//                   | `Voting_for ->
-//                       let%map field = Snark_params.Tick.Field.gen in
-//                       let voting_for = Set_or_keep.Set field in
-//                       { Account_update.Update.dummy with voting_for }
-//                   | `Send | `Receive ->
-//                       return Account_update.Update.dummy
-//                 in
-//                 let%map new_perm =
-//                   Permissions.gen ~auth_tag:Control.Tag.Signature
-//                 in
-//                 ( auth
-//                 , Some { update with permissions = Set_or_keep.Set new_perm } )
-//             | _ ->
-//                 return (Control.dummy_of_tag permissions_auth, None)
-//           in
-//           let account_id =
-//             Account_id.create account_update0.body.public_key
-//               account_update0.body.token_id
-//           in
-//           let permissions_auth = Control.Tag.Signature in
-//           gen_account_update_from ~update ?failure ~zkapp_account_ids
-//             ~account_ids_seen ~account_id ~authorization ~permissions_auth
-//             ~zkapp_account ~available_public_keys ~account_state_tbl
-//             ?protocol_state_view ?vk ()
-//         in
-//         (* this list will be reversed, so `account_update0` will execute before `account_update` *)
-//         go
-//           (mk_node account_update [] :: mk_node account_update0 [] :: acc)
-//           (n - 1)
-//     in
-//     go [] num_zkapp_command
-//   in
-//   (* at least 1 account_update *)
-//   let%bind num_zkapp_command = Int.gen_uniform_incl 1 max_account_updates in
-//   let%bind num_new_accounts = Int.gen_uniform_incl 0 num_zkapp_command in
-//   let num_old_zkapp_command = num_zkapp_command - num_new_accounts in
-//   let%bind old_zkapp_command =
-//     gen_zkapp_command_with_dynamic_balance ~new_account:false
-//       num_old_zkapp_command
-//   in
-//   let%bind new_zkapp_command =
-//     gen_zkapp_command_with_dynamic_balance ~new_account:true num_new_accounts
-//   in
-//   let account_updates0 = old_zkapp_command @ new_zkapp_command in
-//   let balance_change_sum =
-//     List.fold account_updates0
-//       ~init:
-//         ( if num_new_accounts = 0 then Currency.Amount.Signed.zero
-//         else
-//           Currency.Amount.(
-//             Signed.of_unsigned
-//               ( scale
-//                   (of_fee
-//                      Genesis_constants.Constraint_constants.compiled
-//                        .account_creation_fee )
-//                   num_new_accounts
-//               |> Option.value_exn )) )
-//       ~f:(fun acc node ->
-//         match
-//           Currency.Amount.Signed.add acc node.account_update.body.balance_change
-//         with
-//         | Some sum ->
-//             sum
-//         | None ->
-//             failwith "Overflow adding other zkapp_command balances" )
-//   in
-
-//   (* modify the balancing account_update with balance change to yield a zero sum
-
-//      balancing account_update is created immediately after the fee payer
-//      account_update is created. This is because the preconditions generation
-//      is sensitive to the order of account_update generation.
-//   *)
-//   let balance_change = Currency.Amount.Signed.negate balance_change_sum in
-//   let%bind balancing_account_update =
-//     let authorization = Control.Signature Signature.dummy in
-//     gen_account_update_from ?failure ~permissions_auth:Control.Tag.Signature
-//       ~zkapp_account_ids ~account_ids_seen ~authorization ~new_account:false
-//       ~available_public_keys ~account_state_tbl
-//       ~required_balance_change:balance_change ?protocol_state_view ?vk ()
-//   in
-//   let gen_zkapp_command_with_token_accounts ~num_zkapp_command =
-//     let authorization = Control.Signature Signature.dummy in
-//     let permissions_auth = Control.Tag.Signature in
-//     let caller = Account_update.Call_type.Call in
-//     let rec gen_tree acc n =
-//       if n <= 0 then return (List.rev acc)
-//       else
-//         let%bind parent =
-//           let required_balance_change =
-//             Currency.Amount.(
-//               Signed.negate
-//                 (Signed.of_unsigned
-//                    (of_fee
-//                       Genesis_constants.Constraint_constants.compiled
-//                         .account_creation_fee ) ))
-//           in
-//           gen_account_update_from ~zkapp_account_ids ~account_ids_seen
-//             ~authorization ~permissions_auth ~available_public_keys ~caller
-//             ~account_state_tbl ~required_balance_change ?protocol_state_view ?vk
-//             ()
-//         in
-//         let token_id =
-//           Account_id.derive_token_id
-//             ~owner:
-//               (Account_id.create parent.body.public_key parent.body.token_id)
-//         in
-//         let%bind child =
-//           gen_account_update_from ~zkapp_account_ids ~account_ids_seen
-//             ~new_account:true ~token_id ~caller ~authorization ~permissions_auth
-//             ~available_public_keys ~account_state_tbl ?protocol_state_view ?vk
-//             ()
-//         in
-//         gen_tree (mk_node parent [ mk_node child [] ] :: acc) (n - 1)
-//     in
-//     gen_tree [] num_zkapp_command
-//   in
-//   let%bind num_new_token_zkapp_command =
-//     Int.gen_uniform_incl 0 max_token_updates
-//   in
-//   let%bind new_token_zkapp_command =
-//     gen_zkapp_command_with_token_accounts
-//       ~num_zkapp_command:num_new_token_zkapp_command
-//   in
-//   let account_updates =
-//     account_updates0
-//     @ [ mk_node balancing_account_update [] ]
-//     @ new_token_zkapp_command
-//     |> mk_forest
-//   in
-//   let%map memo = Signed_command_memo.gen in
 //   let zkapp_command_dummy_authorizations : Zkapp_command.t =
 //     { fee_payer
 //     ; account_updates =

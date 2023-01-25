@@ -46,6 +46,10 @@ pub fn gen_keypair() -> Keypair {
     Keypair::rand(&mut rng)
 }
 
+pub fn gen_compressed() -> CompressedPubKey {
+    gen_keypair().public.into_compressed()
+}
+
 /// Not sure if it's correct
 /// I used the same code as there:
 /// https://github.com/o1-labs/proof-systems/blob/226de4aeb11b8814327ab832e4fccdce5585f473/signer/src/pubkey.rs#L95-L106

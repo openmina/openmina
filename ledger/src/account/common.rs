@@ -1,4 +1,4 @@
-use ark_ff::Zero;
+use ark_ff::{UniformRand, Zero};
 use mina_hasher::Fp;
 use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
 
@@ -44,6 +44,10 @@ impl ReceiptChainHash {
 
     pub fn from_hex(s: &str) -> Result<Self, FieldHelpersError> {
         Fp::from_hex(s).map(|fp| Self(fp))
+    }
+
+    pub fn gen() -> Self {
+        Self(Fp::rand(&mut rand::thread_rng()))
     }
 }
 
