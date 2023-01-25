@@ -4,6 +4,7 @@ use mina_p2p_messages::v2::{
     LedgerHash, MinaBaseAccountBinableArgStableV2, MinaBaseTransactionStatusStableV2,
     MinaBaseUserCommandStableV2, NonZeroCurvePoint, StateHash, TransactionHash,
 };
+use p2p::rpc::P2pRpcOutgoingError;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::rpc::P2pRpcId;
@@ -25,6 +26,13 @@ pub struct Transaction {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum WatchedAccountsLedgerInitialStateGetError {
+    PeerDisconnected,
+    TransportError(P2pRpcOutgoingError),
+    P2pRpcError(mina_p2p_messages::core::Info),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "state")]
 pub enum WatchedAccountLedgerInitialState {
     Idle {
@@ -38,6 +46,9 @@ pub enum WatchedAccountLedgerInitialState {
     },
     Error {
         time: redux::Timestamp,
+        error: WatchedAccountsLedgerInitialStateGetError,
+        peer_id: PeerId,
+        p2p_rpc_id: P2pRpcId,
     },
     Success {
         time: redux::Timestamp,

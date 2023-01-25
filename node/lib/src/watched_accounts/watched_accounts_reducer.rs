@@ -29,6 +29,24 @@ impl WatchedAccountsState {
                     p2p_rpc_id: action.p2p_rpc_id,
                 };
             }
+            WatchedAccountsAction::LedgerInitialStateGetError(action) => {
+                let Some(account) = self.get_mut(&action.pub_key) else { return };
+                let (peer_id, p2p_rpc_id) = match &account.initial_state {
+                    WatchedAccountLedgerInitialState::Pending {
+                        peer_id,
+                        p2p_rpc_id,
+                        ..
+                    } => (peer_id.clone(), *p2p_rpc_id),
+                    _ => return,
+                };
+                account.initial_state = WatchedAccountLedgerInitialState::Error {
+                    time: meta.time(),
+                    error: action.error.clone(),
+                    peer_id,
+                    p2p_rpc_id,
+                };
+            }
+            WatchedAccountsAction::LedgerInitialStateGetRetry(_) => {}
             WatchedAccountsAction::LedgerInitialStateGetSuccess(action) => {
                 let Some(account) = self.get_mut(&action.pub_key) else { return };
                 let Some(block) = account.initial_state.block() else { return };

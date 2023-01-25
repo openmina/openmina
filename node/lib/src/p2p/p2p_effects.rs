@@ -13,7 +13,9 @@ use crate::p2p::rpc::P2pRpcResponse;
 use crate::rpc::{RpcP2pConnectionOutgoingErrorAction, RpcP2pConnectionOutgoingSuccessAction};
 use crate::snark::hash::{state_hash, state_hash_from_hashes};
 use crate::watched_accounts::{
-    WatchedAccountsBlockLedgerQuerySuccessAction, WatchedAccountsLedgerInitialStateGetSuccessAction,
+    WatchedAccountLedgerInitialState, WatchedAccountsBlockLedgerQuerySuccessAction,
+    WatchedAccountsLedgerInitialStateGetError, WatchedAccountsLedgerInitialStateGetErrorAction,
+    WatchedAccountsLedgerInitialStateGetSuccessAction,
 };
 use crate::{Service, Store};
 
@@ -59,10 +61,32 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 }
             },
         },
-        P2pAction::Disconnection(action) => match action {
-            P2pDisconnectionAction::Init(action) => action.effects(&meta, store),
-            P2pDisconnectionAction::Finish(action) => {}
-        },
+        P2pAction::Disconnection(action) => {
+            match action {
+                P2pDisconnectionAction::Init(action) => action.effects(&meta, store),
+                P2pDisconnectionAction::Finish(action) => {
+                    let actions = store.state().watched_accounts.iter()
+                    .filter_map(|(pub_key, a)| match &a.initial_state {
+                        WatchedAccountLedgerInitialState::Pending { peer_id, .. } => {
+                            if peer_id == &action.peer_id {
+                                Some(WatchedAccountsLedgerInitialStateGetErrorAction {
+                                    pub_key: pub_key.clone(),
+                                    error: WatchedAccountsLedgerInitialStateGetError::PeerDisconnected,
+                                })
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+
+                    for action in actions {
+                        store.dispatch(action);
+                    }
+                }
+            }
+        }
         P2pAction::PeerReady(action) => {
             action.effects(&meta, store);
         }
@@ -102,7 +126,23 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     action.effects(&meta, store);
                 }
                 P2pRpcOutgoingAction::Error(action) => {
-                    action.effects(&meta, store);
+                    let action = store.state().watched_accounts.iter()
+                        .find_map(|(pub_key, a)| match &a.initial_state {
+                            WatchedAccountLedgerInitialState::Pending { peer_id, p2p_rpc_id, .. } => {
+                                if peer_id == &action.peer_id && p2p_rpc_id == &action.rpc_id {
+                                    Some(WatchedAccountsLedgerInitialStateGetErrorAction {
+                                        pub_key: pub_key.clone(),
+                                        error: WatchedAccountsLedgerInitialStateGetError::TransportError(action.error.clone()),
+                                    })
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => None,
+                        });
+                    if let Some(action) = action {
+                        store.dispatch(action);
+                    }
                 }
                 P2pRpcOutgoingAction::Success(action) => {
                     let Some(peer) = store.state().p2p.peers.get(&action.peer_id) else { return };
@@ -186,6 +226,25 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             }
                         }
                         P2pRpcResponse::LedgerQuery(resp) => match &resp.0 {
+                            Err(err) => {
+                                let action = store.state().watched_accounts.iter()
+                                    .find_map(|(pub_key, a)| match &a.initial_state {
+                                        WatchedAccountLedgerInitialState::Pending { peer_id, p2p_rpc_id, .. } => {
+                                            if peer_id == &action.peer_id && p2p_rpc_id == &action.rpc_id {
+                                                Some(WatchedAccountsLedgerInitialStateGetErrorAction {
+                                                    pub_key: pub_key.clone(),
+                                                    error: WatchedAccountsLedgerInitialStateGetError::P2pRpcError(err.clone()),
+                                                })
+                                            } else {
+                                                None
+                                            }
+                                        }
+                                        _ => None,
+                                    });
+                                if let Some(action) = action {
+                                    store.dispatch(action);
+                                }
+                            }
                             Ok(MinaLedgerSyncLedgerAnswerStableV2::AccountWithPath(result)) => {
                                 match requestor.clone() {
                                     P2pRpcRequestor::WatchedAccount(
