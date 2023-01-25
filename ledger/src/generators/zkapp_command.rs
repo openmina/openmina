@@ -19,11 +19,13 @@ use crate::{
     gen_compressed, gen_keypair,
     scan_state::{
         currency::{
-            Amount, Balance, BlockTime, BlockTimeSpan, Fee, Length, Magnitude, Nonce, Sgn, Signed,
-            Slot,
+            Amount, Balance, BlockTime, BlockTimeSpan, Fee, Index, Length, Magnitude, Nonce, Sgn,
+            Signed, Slot,
         },
         transaction_logic::{
+            cons_zkapp_command_commitment,
             protocol_state::{self, ProtocolStateView},
+            receipt,
             zkapp_command::{
                 self, AccountPreconditions, AccountUpdateSimple, AuthorizationKind, CallForest,
                 ClosedInterval, Control, FeePayer, FeePayerBody, Numeric, OrIgnore, Preconditions,
@@ -599,7 +601,7 @@ struct AccountUpdateBodyComponents<A, B, C, D> {
     update: Update,
     token_id: C,
     balance_change: A,
-    increment_nonce: bool,
+    increment_nonce: B,
     events: zkapp_command::Events,
     sequence_events: zkapp_command::SequenceEvents,
     call_data: Fp,
@@ -1056,7 +1058,7 @@ fn gen_account_update_body_components<A, B, C, D>(
         },
         token_id,
         balance_change: balance_change_original,
-        increment_nonce,
+        increment_nonce: account_update_increment_nonce,
         events,
         sequence_events,
         call_data,
@@ -1220,7 +1222,7 @@ fn gen_account_update_from(params: AccountUpdateParams) -> AccountUpdateSimple {
         account_ids_seen: Some(account_ids_seen),
         account_state_tbl,
         vk,
-        failure: failure.clone(),
+        failure,
         new_account: Some(new_account),
         zkapp_account: Some(zkapp_account),
         is_fee_payer: None,
@@ -1237,7 +1239,7 @@ fn gen_account_update_from(params: AccountUpdateParams) -> AccountUpdateSimple {
     let body_components = gen_account_update_body_components(
         params,
         // gen_balance_change,
-        |account| gen_balance_change(permissions_auth, account, failure.clone(), new_account),
+        |account| gen_balance_change(permissions_auth, account, failure, new_account),
         // gen_use_full_commitment,
         |account_precondition| {
             gen_use_full_commitment(increment_nonce, account_precondition, &authorization)
@@ -1484,7 +1486,7 @@ fn gen_zkapp_command_from(
         .collect();
     let zkapp_account_ids = zkapp_account_ids.as_slice();
 
-    account_ids_seen.insert(fee_payer_account_id);
+    account_ids_seen.insert(fee_payer_account_id.clone());
 
     fn mk_forest(
         ps: Vec<zkapp_command::Tree<AccountUpdateSimple>>,
@@ -1834,66 +1836,98 @@ fn gen_zkapp_command_from(
     let zkapp_command_dummy_authorizations = ZkAppCommand {
         fee_payer,
         account_updates: {
-            // account_updates.into_add_callers_simple();
-
-            todo!()
+            let mut account_updates = account_updates.into_add_callers_simple();
+            account_updates.accumulate_hashes_predicated();
+            account_updates
         },
         memo,
     };
 
-    todo!()
+    // update receipt chain hashes in accounts table
+    let receipt_elt = {
+        let (_txn_commitment, full_txn_commitment) =
+            zkapp_command_builder::get_transaction_commitments(&zkapp_command_dummy_authorizations);
+
+        receipt::ZkappCommandElt::ZkappCommandCommitment(full_txn_commitment.0)
+    };
+
+    {
+        let (account, role) = account_state_tbl
+            .get_mut(&fee_payer_account_id)
+            .expect("Expected fee payer account id to be in table");
+
+        let receipt_chain_hash = cons_zkapp_command_commitment(
+            Index::zero(),
+            receipt_elt.clone(),
+            &account.receipt_chain_hash,
+        );
+
+        account.receipt_chain_hash = receipt_chain_hash;
+        *role = Role::FeePayer;
+    }
+
+    let account_updates = zkapp_command_dummy_authorizations
+        .account_updates
+        .to_account_updates();
+
+    for (index, account_update) in account_updates.iter().enumerate() {
+        match account_update.authorization {
+            Control::Proof(_) | Control::Signature(_) => {}
+            Control::NoneGiven => continue,
+        }
+
+        let acct_id = account_update.account_id();
+        let (account, _role) = account_state_tbl
+            .get_mut(&acct_id)
+            .expect("Expected other account_update account id to be in table");
+
+        let account_update_index = Index::from_u32((index + 1).try_into().unwrap());
+
+        let receipt_chain_hash = cons_zkapp_command_commitment(
+            account_update_index,
+            receipt_elt.clone(),
+            &account.receipt_chain_hash,
+        );
+
+        account.receipt_chain_hash = receipt_chain_hash;
+    }
+
+    zkapp_command_dummy_authorizations
 }
 
-//   let zkapp_command_dummy_authorizations : Zkapp_command.t =
-//     { fee_payer
-//     ; account_updates =
-//         account_updates |> Zkapp_command.Call_forest.add_callers_simple
-//         |> Zkapp_command.Call_forest.accumulate_hashes_predicated
-//     ; memo
-//     }
-//   in
-//   (* update receipt chain hashes in accounts table *)
-//   let receipt_elt =
-//     let _txn_commitment, full_txn_commitment =
-//       (* also computed in replace_authorizations, but easier just to re-compute here *)
-//       Zkapp_command_builder.get_transaction_commitments
-//         zkapp_command_dummy_authorizations
-//     in
-//     Receipt.Zkapp_command_elt.Zkapp_command_commitment full_txn_commitment
-//   in
-//   Account_id.Table.update account_state_tbl fee_payer_acct_id ~f:(function
-//     | None ->
-//         failwith "Expected fee payer account id to be in table"
-//     | Some (account, _) ->
-//         let receipt_chain_hash =
-//           Receipt.Chain_hash.cons_zkapp_command_commitment
-//             Mina_numbers.Index.zero receipt_elt
-//             account.Account.Poly.receipt_chain_hash
-//         in
-//         ({ account with receipt_chain_hash }, `Fee_payer) ) ;
-//   let account_updates =
-//     Zkapp_command.Call_forest.to_account_updates
-//       zkapp_command_dummy_authorizations.account_updates
-//   in
-//   List.iteri account_updates ~f:(fun ndx account_update ->
-//       (* update receipt chain hash only for signature, proof authorizations *)
-//       match Account_update.authorization account_update with
-//       | Control.Proof _ | Control.Signature _ ->
-//           let acct_id = Account_update.account_id account_update in
-//           Account_id.Table.update account_state_tbl acct_id ~f:(function
-//             | None ->
-//                 failwith
-//                   "Expected other account_update account id to be in table"
-//             | Some (account, role) ->
-//                 let receipt_chain_hash =
-//                   let account_update_index =
-//                     Mina_numbers.Index.of_int (ndx + 1)
-//                   in
-//                   Receipt.Chain_hash.cons_zkapp_command_commitment
-//                     account_update_index receipt_elt
-//                     account.Account.Poly.receipt_chain_hash
-//                 in
-//                 ({ account with receipt_chain_hash }, role) )
-//       | Control.None_given ->
-//           () ) ;
-//   zkapp_command_dummy_authorizations
+// TODO: This probably needs to be in its own file
+mod zkapp_command_builder {
+    use crate::{hash_with_kimchi, scan_state::transaction_logic::zkapp_command::AccountUpdate};
+
+    use super::*;
+
+    pub struct TransactionCommitment(pub Fp);
+
+    impl TransactionCommitment {
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L1365
+        fn create(account_updates_hash: Fp) -> Self {
+            Self(account_updates_hash)
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L1368
+        fn create_complete(&self, memo_hash: Fp, fee_payer_hash: Fp) -> Self {
+            Self(hash_with_kimchi(
+                "MinaAcctUpdateCons",
+                &[memo_hash, fee_payer_hash, self.0],
+            ))
+        }
+    }
+
+    pub fn get_transaction_commitments(
+        zkapp_command: &ZkAppCommand,
+    ) -> (TransactionCommitment, TransactionCommitment) {
+        let memo_hash = zkapp_command.memo.hash();
+        let account_updates_hash = zkapp_command.account_updates_hash();
+        let fee_payer_hash = AccountUpdate::of_fee_payer(zkapp_command.fee_payer.clone()).digest();
+
+        let txn_commitment = TransactionCommitment::create(account_updates_hash);
+        let full_txn_commitment = txn_commitment.create_complete(memo_hash, fee_payer_hash);
+
+        (txn_commitment, full_txn_commitment)
+    }
+}

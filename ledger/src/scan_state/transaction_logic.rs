@@ -4,6 +4,7 @@ use itertools::Itertools;
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
+use crate::{hash_with_kimchi, Inputs};
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
     staged_ledger::sparse_ledger::{LedgerIntf, SparseLedger},
@@ -768,7 +769,7 @@ pub mod zkapp_command {
         account, dummy, gen_keypair, hash_noinputs, hash_with_kimchi,
         scan_state::{
             conv::AsAccountUpdateWithHash,
-            currency::{Balance, BlockTime, Length, MinMax, Signed, Slot},
+            currency::{Balance, BlockTime, Length, MinMax, Sgn, Signed, Slot},
         },
         AuthRequired, ControlTag, Inputs, MyCow, Permissions, ToInputs, TokenSymbol,
         VerificationKey, VotingFor, ZkAppUri,
@@ -933,6 +934,10 @@ pub mod zkapp_command {
     }
 
     impl Events {
+        pub fn empty() -> Self {
+            Self(Vec::new())
+        }
+
         pub fn is_empty(&self) -> bool {
             self.0.is_empty()
         }
@@ -953,6 +958,10 @@ pub mod zkapp_command {
     }
 
     impl SequenceEvents {
+        pub fn empty() -> Self {
+            Self(Vec::new())
+        }
+
         pub fn is_empty(&self) -> bool {
             self.0.is_empty()
         }
@@ -1884,6 +1893,55 @@ pub mod zkapp_command {
     }
 
     impl AccountUpdate {
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/account_update.ml#L1538
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/account_update.ml#L1129
+        pub fn of_fee_payer(fee_payer: FeePayer) -> Self {
+            let FeePayer {
+                body:
+                    FeePayerBody {
+                        public_key,
+                        fee,
+                        valid_until,
+                        nonce,
+                    },
+                authorization,
+            } = fee_payer;
+
+            Self {
+                body: Body {
+                    public_key,
+                    token_id: TokenId::default(),
+                    update: Update::noop(),
+                    balance_change: Signed {
+                        magnitude: Amount::of_fee(&fee),
+                        sgn: Sgn::Neg,
+                    },
+                    increment_nonce: true,
+                    events: Events::empty(),
+                    sequence_events: SequenceEvents::empty(),
+                    call_data: Fp::zero(),
+                    preconditions: Preconditions {
+                        network: {
+                            let mut network = ZkAppPreconditions::accept();
+
+                            let valid_util = valid_until.unwrap_or_else(Slot::max);
+                            network.global_slot_since_genesis = OrIgnore::Check(ClosedInterval {
+                                lower: Slot::zero(),
+                                upper: valid_util,
+                            });
+
+                            network
+                        },
+                        account: AccountPreconditions::Nonce(nonce),
+                    },
+                    use_full_commitment: true,
+                    caller: TokenId::default(),
+                    authorization_kind: AuthorizationKind::Signature,
+                },
+                authorization: Control::Signature(authorization),
+            }
+        }
+
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/account_update.ml#L1535
         pub fn account_id(&self) -> AccountId {
             AccountId::new(self.body.public_key.clone(), self.body.token_id.clone())
@@ -2137,6 +2195,21 @@ pub mod zkapp_command {
         {
             self.map_to_impl(&fun)
         }
+
+        fn to_account_updates_impl(&self, accounts: &mut Vec<AccUpdate>) {
+            // TODO: Check iteration order in OCaml
+            for elem in self.iter() {
+                accounts.push(elem.elt.account_update.clone());
+                elem.elt.calls.to_account_updates_impl(accounts);
+            }
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L436
+        pub fn to_account_updates(&self) -> Vec<AccUpdate> {
+            let mut accounts = Vec::with_capacity(128);
+            self.to_account_updates_impl(&mut accounts);
+            accounts
+        }
     }
 
     impl CallForest<AccountUpdate> {
@@ -2254,6 +2327,11 @@ pub mod zkapp_command {
 
                 self.0[index].stack_hash = cons(node_hash, hash);
             }
+        }
+
+        pub fn accumulate_hashes_predicated(&mut self) {
+            // Note: There seems to be no difference with `accumulate_hashes`
+            self.accumulate_hashes(&|account_update| account_update.digest());
         }
 
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L672
@@ -2494,6 +2572,11 @@ pub mod zkapp_command {
                 account_updates: verifiable.account_updates.map_to(|(acc, _)| acc.clone()),
                 memo: verifiable.memo,
             }
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L1386
+        pub fn account_updates_hash(&self) -> Fp {
+            self.account_updates.hash()
         }
     }
 
@@ -4482,6 +4565,36 @@ pub fn cons_signed_command_payload(
     let mut hasher = create_legacy::<MyInput>(());
     hasher.update(&MyInput(inputs));
     ReceiptChainHash(hasher.digest())
+}
+
+// TODO: This probably needs to be in its own file
+pub mod receipt {
+    use super::*;
+
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/receipt.ml#L14
+    #[derive(Clone, Debug)]
+    pub enum ZkappCommandElt {
+        ZkappCommandCommitment(Fp),
+    }
+}
+
+/// prepend account_update index computed by Zkapp_command_logic.apply
+///
+/// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/receipt.ml#L66
+pub fn cons_zkapp_command_commitment(
+    index: Index,
+    e: receipt::ZkappCommandElt,
+    receipt_hash: &ReceiptChainHash,
+) -> ReceiptChainHash {
+    let receipt::ZkappCommandElt::ZkappCommandCommitment(x) = e;
+
+    let mut inputs = Inputs::new();
+
+    inputs.append(&index);
+    inputs.append_field(x);
+    inputs.append(receipt_hash);
+
+    ReceiptChainHash(hash_with_kimchi("MinaReceiptUC", &inputs.to_fields()))
 }
 
 fn validate_nonces(txn_nonce: Nonce, account_nonce: Nonce) -> Result<(), String> {
