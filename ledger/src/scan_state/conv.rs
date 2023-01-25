@@ -1035,7 +1035,9 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
 }
 
 /// Notes: childs
-impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>> for CallForest<()> {
+impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>>
+    for CallForest<AccountUpdate>
+{
     fn from(value: &Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>) -> Self {
         use ark_ff::Zero;
 
@@ -1044,7 +1046,7 @@ impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>>
                 .iter()
                 .map(|update| WithStackHash {
                     elt: zkapp_command::Tree {
-                        account_update: ((&update.elt.account_update).into(), ()),
+                        account_update: (&update.elt.account_update).into(),
                         account_update_digest: Fp::zero(), // replaced later
                         calls: (&update.elt.calls).into(),
                     },
@@ -1056,7 +1058,9 @@ impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>>
 }
 
 /// Notes: root
-impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>> for CallForest<()> {
+impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>>
+    for CallForest<AccountUpdate>
+{
     fn from(value: &Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>) -> Self {
         use ark_ff::Zero;
 
@@ -1064,7 +1068,7 @@ impl From<&Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>> for Ca
             .iter()
             .map(|update| WithStackHash {
                 elt: zkapp_command::Tree {
-                    account_update: ((&update.elt.account_update).into(), ()),
+                    account_update: (&update.elt.account_update).into(),
                     account_update_digest: Fp::zero(), // replaced later in `of_wire`
                     calls: (&update.elt.calls).into(),
                 },
@@ -1197,17 +1201,17 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTWireStableV1 {
 }
 
 /// Childs
-impl From<&CallForest<()>>
+impl From<&CallForest<AccountUpdate>>
     for Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>
 {
-    fn from(value: &CallForest<()>) -> Self {
+    fn from(value: &CallForest<AccountUpdate>) -> Self {
         value
             .0
             .iter()
             .map(
                 |update| MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA {
                     elt: Box::new(MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
-                        account_update: (&update.elt.account_update.0).into(),
+                        account_update: (&update.elt.account_update).into(),
                         account_update_digest: (),
                         calls: (&update.elt.calls).into(),
                     }),
@@ -1219,15 +1223,17 @@ impl From<&CallForest<()>>
 }
 
 /// Root
-impl From<&CallForest<()>> for Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA> {
-    fn from(value: &CallForest<()>) -> Self {
+impl From<&CallForest<AccountUpdate>>
+    for Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>
+{
+    fn from(value: &CallForest<AccountUpdate>) -> Self {
         let mut wired: Vec<_> = value
             .0
             .iter()
             .map(
                 |update| MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA {
                     elt: MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
-                        account_update: (&update.elt.account_update.0).into(),
+                        account_update: (&update.elt.account_update).into(),
                         account_update_digest: (),
                         calls: (&update.elt.calls).into(),
                     },

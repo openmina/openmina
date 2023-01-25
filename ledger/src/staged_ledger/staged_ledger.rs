@@ -1520,7 +1520,7 @@ impl StagedLedger {
 
                 let proof_zkapp_command = p.zkapp_command.account_updates.fold(
                     HashSet::with_capacity(128),
-                    |mut accum, (update, _)| {
+                    |mut accum, update| {
                         if let Control::Proof(_) = &update.authorization {
                             accum.insert(update.account_id());
                         }

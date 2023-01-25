@@ -25,9 +25,9 @@ use crate::{
         transaction_logic::{
             protocol_state::{self, ProtocolStateView},
             zkapp_command::{
-                self, AccountPreconditions, AccountUpdateSimple, AuthorizationKind, ClosedInterval,
-                Control, FeePayer, FeePayerBody, Numeric, OrIgnore, Preconditions, SetOrKeep,
-                Update, WithHash, WithStackHash, ZkAppCommand, ZkAppPreconditions,
+                self, AccountPreconditions, AccountUpdateSimple, AuthorizationKind, CallForest,
+                ClosedInterval, Control, FeePayer, FeePayerBody, Numeric, OrIgnore, Preconditions,
+                SetOrKeep, Update, WithHash, WithStackHash, ZkAppCommand, ZkAppPreconditions,
             },
             Memo, Signature,
         },
@@ -1486,27 +1486,29 @@ fn gen_zkapp_command_from(
 
     account_ids_seen.insert(fee_payer_account_id);
 
-    fn mk_forest<T: Clone>(
-        ps: Vec<zkapp_command::Tree<T, AccountUpdateSimple>>,
-    ) -> Vec<WithStackHash<T, AccountUpdateSimple>> {
-        ps.into_iter()
-            .map(|v| {
-                WithStackHash {
-                    elt: v,
-                    stack_hash: Fp::zero(), // TODO: OCaml uses `()`
-                }
-            })
-            .collect()
+    fn mk_forest(
+        ps: Vec<zkapp_command::Tree<AccountUpdateSimple>>,
+    ) -> CallForest<AccountUpdateSimple> {
+        CallForest(
+            ps.into_iter()
+                .map(|v| {
+                    WithStackHash {
+                        elt: v,
+                        stack_hash: Fp::zero(), // TODO: OCaml uses `()`
+                    }
+                })
+                .collect(),
+        )
     }
 
-    fn mk_node<T: Clone>(
-        p: (AccountUpdateSimple, T),
-        calls: Vec<zkapp_command::Tree<T, AccountUpdateSimple>>,
-    ) -> zkapp_command::Tree<T, AccountUpdateSimple> {
+    fn mk_node(
+        p: AccountUpdateSimple,
+        calls: Vec<zkapp_command::Tree<AccountUpdateSimple>>,
+    ) -> zkapp_command::Tree<AccountUpdateSimple> {
         zkapp_command::Tree {
             account_update: p,
             account_update_digest: Fp::zero(), // TODO: OCaml uses `()`
-            calls: zkapp_command::CallForest(mk_forest(calls)),
+            calls: mk_forest(calls),
         }
     }
 
@@ -1688,8 +1690,8 @@ fn gen_zkapp_command_from(
                     })
                 };
 
-                commands.push(mk_node((account_update0, ()), vec![]));
-                commands.push(mk_node((account_update, ()), vec![]));
+                commands.push(mk_node(account_update0, vec![]));
+                commands.push(mk_node(account_update, vec![]));
             }
 
             commands
@@ -1720,7 +1722,7 @@ fn gen_zkapp_command_from(
         },
         |accum, node| {
             accum
-                .add(&node.account_update.0.body.balance_change)
+                .add(&node.account_update.body.balance_change)
                 .expect("Overflow adding other zkapp_command balances")
         },
     );
@@ -1811,7 +1813,7 @@ fn gen_zkapp_command_from(
                     vk,
                 });
 
-                mk_node((parent, ()), vec![mk_node((child, ()), vec![])])
+                mk_node(parent, vec![mk_node(child, vec![])])
             })
             .collect::<Vec<_>>()
     };
@@ -1823,7 +1825,7 @@ fn gen_zkapp_command_from(
     let account_updates = mk_forest(
         account_updates0
             .into_iter()
-            .chain([mk_node((balancing_account_update, ()), vec![])])
+            .chain([mk_node(balancing_account_update, vec![])])
             .chain(new_token_zkapp_command)
             .collect(),
     );
@@ -1832,7 +1834,7 @@ fn gen_zkapp_command_from(
     let zkapp_command_dummy_authorizations = ZkAppCommand {
         fee_payer,
         account_updates: {
-            // account_updates.add_callers();
+            // account_updates.into_add_callers_simple();
 
             todo!()
         },

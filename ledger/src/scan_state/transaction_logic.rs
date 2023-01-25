@@ -1921,7 +1921,7 @@ pub mod zkapp_command {
         pub fn check_authorization(
             &self,
             _commitment: Fp,
-            _calls: CallForest<()>,
+            _calls: CallForest<AccountUpdate>,
         ) -> CheckAuthorizationResult {
             match self.authorization {
                 Control::Signature(_) => CheckAuthorizationResult {
@@ -1978,7 +1978,7 @@ pub mod zkapp_command {
         }
 
         pub fn balance_change(&self) -> Signed<Amount> {
-            self.body.balance_change.clone()
+            self.body.balance_change
         }
         pub fn use_full_commitment(&self) -> bool {
             self.body.use_full_commitment
@@ -1993,18 +1993,15 @@ pub mod zkapp_command {
         }
     }
 
-    // Digest.Account_update.Stable.V1.t = Fp
-    // Digest.Forest.Stable.V1.t = Fp
-
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L49
     #[derive(Debug, Clone, PartialEq)]
-    pub struct Tree<Data: Clone, Update = AccountUpdate> {
-        pub account_update: (Update, Data),
+    pub struct Tree<AccUpdate: Clone> {
+        pub account_update: AccUpdate,
         pub account_update_digest: Fp,
-        pub calls: CallForest<Data, Update>,
+        pub calls: CallForest<AccUpdate>,
     }
 
-    impl<Data: Clone> Tree<Data> {
+    impl<AccUpdate: Clone> Tree<AccUpdate> {
         fn digest(&self) -> Fp {
             let stack_hash = match self.calls.0.first() {
                 Some(e) => e.stack_hash,
@@ -2022,7 +2019,7 @@ pub mod zkapp_command {
 
         fn fold<F>(&self, init: Vec<AccountId>, f: &mut F) -> Vec<AccountId>
         where
-            F: FnMut(Vec<AccountId>, &(AccountUpdate, Data)) -> Vec<AccountId>,
+            F: FnMut(Vec<AccountId>, &AccUpdate) -> Vec<AccountId>,
         {
             self.calls.fold(f(init, &self.account_update), f)
         }
@@ -2030,16 +2027,14 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_stack_hash.ml#L6
     #[derive(Debug, Clone, PartialEq)]
-    pub struct WithStackHash<Data: Clone, Update = AccountUpdate> {
-        pub elt: Tree<Data, Update>,
+    pub struct WithStackHash<AccUpdate: Clone> {
+        pub elt: Tree<AccUpdate>,
         pub stack_hash: Fp,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L345
     #[derive(Debug, Clone, PartialEq)]
-    pub struct CallForest<Data: Clone, Update = AccountUpdate>(
-        pub Vec<WithStackHash<Data, Update>>,
-    );
+    pub struct CallForest<AccUpdate: Clone>(pub Vec<WithStackHash<AccUpdate>>);
 
     impl<Data: Clone> Default for CallForest<Data> {
         fn default() -> Self {
@@ -2053,7 +2048,7 @@ pub mod zkapp_command {
         this: TokenId,
     }
 
-    impl<Data: Clone> CallForest<Data> {
+    impl<AccUpdate: Clone> CallForest<AccUpdate> {
         pub fn new() -> Self {
             Self(Vec::new())
         }
@@ -2065,7 +2060,7 @@ pub mod zkapp_command {
         // In OCaml push/pop to the head is cheap because they work with lists.
         // In Rust we use vectors so we will push/pop to the tail.
         // To work with the elements as if they were in the original order we need to iterate backwards
-        pub fn iter(&self) -> impl Iterator<Item = &WithStackHash<Data>> {
+        pub fn iter(&self) -> impl Iterator<Item = &WithStackHash<AccUpdate>> {
             self.0.iter().rev()
         }
 
@@ -2077,32 +2072,18 @@ pub mod zkapp_command {
             }
         }
 
-        fn cons_tree(&self, tree: Tree<Data>) -> Self {
+        fn cons_tree(&self, tree: Tree<AccUpdate>) -> Self {
             let stack_hash = hash_with_kimchi("MinaAcctUpdateCons", &[tree.digest(), self.hash()]);
-            let node = WithStackHash::<Data> {
+            let node = WithStackHash::<AccUpdate> {
                 elt: tree,
                 stack_hash,
             };
             let mut forest = self.0.clone();
             forest.push(node);
-            Self { 0: forest }
+            Self(forest)
         }
 
-        pub fn cons(
-            &self,
-            calls: Option<CallForest<Data>>,
-            account_update: AccountUpdate,
-            data: Data,
-        ) -> Self {
-            let tree = Tree::<Data> {
-                account_update: (account_update.clone(), data),
-                account_update_digest: account_update.digest(),
-                calls: calls.unwrap_or_default(),
-            };
-            self.cons_tree(tree)
-        }
-
-        pub fn pop_exn(&self) -> (((AccountUpdate, Data), CallForest<Data>), CallForest<Data>) {
+        pub fn pop_exn(&self) -> ((AccUpdate, CallForest<AccUpdate>), CallForest<AccUpdate>) {
             let mut ret = self.0.clone();
 
             if let Some(node) = ret.pop() {
@@ -2115,7 +2096,7 @@ pub mod zkapp_command {
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L68
         fn fold_impl<A, F>(&self, init: A, fun: &mut F) -> A
         where
-            F: FnMut(A, &(AccountUpdate, Data)) -> A,
+            F: FnMut(A, &AccUpdate) -> A,
         {
             let mut accum = init;
             for elem in self.iter() {
@@ -2127,19 +2108,19 @@ pub mod zkapp_command {
 
         pub fn fold<A, F>(&self, init: A, mut fun: F) -> A
         where
-            F: FnMut(A, &(AccountUpdate, Data)) -> A,
+            F: FnMut(A, &AccUpdate) -> A,
         {
             self.fold_impl(init, &mut fun)
         }
 
-        fn map_to_impl<F, VK: Clone>(&self, fun: &F) -> CallForest<VK>
+        fn map_to_impl<F, AnotherAccUpdate: Clone>(&self, fun: &F) -> CallForest<AnotherAccUpdate>
         where
-            F: Fn(&(AccountUpdate, Data)) -> (AccountUpdate, VK),
+            F: Fn(&AccUpdate) -> AnotherAccUpdate,
         {
-            CallForest::<VK>(
+            CallForest::<AnotherAccUpdate>(
                 self.iter()
-                    .map(|item| WithStackHash::<VK> {
-                        elt: Tree::<VK> {
+                    .map(|item| WithStackHash::<AnotherAccUpdate> {
+                        elt: Tree::<AnotherAccUpdate> {
                             account_update: fun(&item.elt.account_update),
                             account_update_digest: item.elt.account_update_digest,
                             calls: item.elt.calls.map_to_impl(fun),
@@ -2150,20 +2131,37 @@ pub mod zkapp_command {
             )
         }
 
-        pub fn map_to<F, VK: Clone>(&self, fun: F) -> CallForest<VK>
+        pub fn map_to<F, AnotherAccUpdate: Clone>(&self, fun: F) -> CallForest<AnotherAccUpdate>
         where
-            F: Fn(&(AccountUpdate, Data)) -> (AccountUpdate, VK),
+            F: Fn(&AccUpdate) -> AnotherAccUpdate,
         {
             self.map_to_impl(&fun)
         }
+    }
 
-        fn add_callers_impl<F, Update>(
+    impl CallForest<AccountUpdate> {
+        pub fn cons(
+            &self,
+            calls: Option<CallForest<AccountUpdate>>,
+            account_update: AccountUpdate,
+        ) -> Self {
+            let account_update_digest = account_update.digest();
+
+            let tree = Tree::<AccountUpdate> {
+                account_update,
+                account_update_digest,
+                calls: calls.unwrap_or_else(|| CallForest(Vec::new())),
+            };
+            self.cons_tree(tree)
+        }
+
+        fn add_callers_impl<F, U>(
             &mut self,
-            wired: &[Update],
+            wired: &[U],
             current_context: CallForestContext,
             account_update_id: &F,
         ) where
-            Update: AsAccountUpdateWithHash,
+            U: AsAccountUpdateWithHash,
             F: Fn(&MinaBaseAccountUpdateTWireStableV1) -> TokenId,
         {
             use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1::{
@@ -2175,7 +2173,7 @@ pub mod zkapp_command {
             self.0.iter_mut().zip(wired).for_each(|(elem, wired)| {
                 let WithStackHash {
                     elt:
-                        Tree::<Data> {
+                        Tree::<AccountUpdate> {
                             account_update,
                             calls,
                             ..
@@ -2191,7 +2189,7 @@ pub mod zkapp_command {
                     },
                 };
 
-                account_update.0.body.caller = child_context.caller.clone();
+                account_update.body.caller = child_context.caller.clone();
                 calls.add_callers_impl(&wired.elt().calls, child_context, account_update_id);
             });
         }
@@ -2225,7 +2223,7 @@ pub mod zkapp_command {
             }
 
             /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L561
-            fn hash<T: Clone>(elem: Option<&WithStackHash<T>>) -> Fp {
+            fn hash<AccUpdate: Clone>(elem: Option<&WithStackHash<AccUpdate>>) -> Fp {
                 match elem {
                     Some(next) => next.stack_hash,
                     None => Fp::zero(),
@@ -2239,7 +2237,7 @@ pub mod zkapp_command {
                 let elem = &mut self.0[index];
                 let WithStackHash {
                     elt:
-                        Tree::<Data> {
+                        Tree::<AccountUpdate> {
                             account_update,
                             account_update_digest,
                             calls,
@@ -2249,7 +2247,7 @@ pub mod zkapp_command {
                 } = elem;
 
                 calls.accumulate_hashes(hash_account_update);
-                *account_update_digest = hash_account_update(&account_update.0);
+                *account_update_digest = hash_account_update(account_update);
 
                 let node_hash = elem.elt.digest();
                 let hash = hash(self.0.get(index + 1));
@@ -2259,13 +2257,13 @@ pub mod zkapp_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L672
-        fn remove_callers_impl<Update>(
+        fn remove_callers_impl<U>(
             &self,
-            wired: &mut [Update],
+            wired: &mut [U],
             is_top_level: bool,
             parent_caller: &TokenId,
         ) where
-            Update: AsAccountUpdateWithHash,
+            U: AsAccountUpdateWithHash,
         {
             use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1::{
                 Call, DelegateCall,
@@ -2284,7 +2282,7 @@ pub mod zkapp_command {
             wired.iter_mut().zip(&self.0).for_each(|(wired, this)| {
                 let WithStackHash {
                     elt:
-                        Tree::<Data> {
+                        Tree::<AccountUpdate> {
                             account_update,
                             calls,
                             ..
@@ -2293,7 +2291,7 @@ pub mod zkapp_command {
                 } = this;
 
                 let wired = wired.elt_mut();
-                let account_caller = &account_update.0.body.caller;
+                let account_caller = &account_update.body.caller;
 
                 wired.account_update.body.caller = call_type(account_caller);
 
@@ -2332,6 +2330,97 @@ pub mod zkapp_command {
         }
     }
 
+    impl CallForest<AccountUpdateSimple> {
+        fn into_add_callers_simple_impl(
+            self,
+            current_context: CallForestContext,
+        ) -> CallForest<AccountUpdate> {
+            use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1::{
+                Call, DelegateCall,
+            };
+
+            CallForest(
+                self.0
+                    .into_iter()
+                    .map(|elem| {
+                        let WithStackHash {
+                            elt:
+                                Tree::<AccountUpdateSimple> {
+                                    account_update:
+                                        AccountUpdateSimple {
+                                            body:
+                                                BodySimple {
+                                                    public_key,
+                                                    token_id,
+                                                    update,
+                                                    balance_change,
+                                                    increment_nonce,
+                                                    events,
+                                                    sequence_events,
+                                                    call_data,
+                                                    call_depth: _,
+                                                    preconditions,
+                                                    use_full_commitment,
+                                                    caller,
+                                                    authorization_kind,
+                                                },
+                                            authorization,
+                                        },
+                                    calls,
+                                    account_update_digest,
+                                },
+                            stack_hash,
+                        } = elem;
+
+                        let child_context = match &caller {
+                            DelegateCall => current_context.clone(),
+                            Call => CallForestContext {
+                                caller: current_context.this.clone(),
+                                this: AccountId::create(public_key.clone(), token_id.clone())
+                                    .derive_token_id(),
+                            },
+                        };
+
+                        WithStackHash {
+                            elt: Tree::<AccountUpdate> {
+                                account_update: AccountUpdate {
+                                    body: Body {
+                                        public_key,
+                                        token_id,
+                                        update,
+                                        balance_change,
+                                        increment_nonce,
+                                        events,
+                                        sequence_events,
+                                        call_data,
+                                        preconditions,
+                                        use_full_commitment,
+                                        caller: child_context.caller.clone(),
+                                        authorization_kind,
+                                    },
+                                    authorization,
+                                },
+                                account_update_digest,
+                                calls: calls.into_add_callers_simple_impl(child_context),
+                            },
+                            stack_hash,
+                        }
+                    })
+                    .collect(),
+            )
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L665
+        pub fn into_add_callers_simple(self) -> CallForest<AccountUpdate> {
+            let current_context = CallForestContext {
+                caller: TokenId::default(),
+                this: TokenId::default(),
+            };
+
+            self.into_add_callers_simple_impl(current_context)
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1081
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct FeePayerBody {
@@ -2352,7 +2441,7 @@ pub mod zkapp_command {
     #[derive(Debug, Clone, PartialEq)]
     pub struct ZkAppCommand {
         pub fee_payer: FeePayer,
-        pub account_updates: CallForest<()>,
+        pub account_updates: CallForest<AccountUpdate>,
         pub memo: Memo,
     }
 
@@ -2382,7 +2471,7 @@ pub mod zkapp_command {
                 Applied => {
                     let ids = self.account_updates.fold(
                         Vec::with_capacity(256),
-                        |mut accum, (account_update, _)| {
+                        |mut accum, account_update| {
                             accum.push(account_update.account_id());
                             accum
                         },
@@ -2402,9 +2491,7 @@ pub mod zkapp_command {
         pub fn of_verifiable(verifiable: verifiable::ZkAppCommand) -> Self {
             Self {
                 fee_payer: verifiable.fee_payer,
-                account_updates: verifiable
-                    .account_updates
-                    .map_to(|(acc, _)| (acc.clone(), ())),
+                account_updates: verifiable.account_updates.map_to(|(acc, _)| acc.clone()),
                 memo: verifiable.memo,
             }
         }
@@ -2417,7 +2504,7 @@ pub mod zkapp_command {
         #[derive(Debug, Clone)]
         pub struct ZkAppCommand {
             pub fee_payer: FeePayer,
-            pub account_updates: CallForest<Option<WithHash<VerificationKey>>>,
+            pub account_updates: CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>,
             pub memo: Memo,
         }
     }
@@ -2533,7 +2620,7 @@ impl UserCommand {
 
                 let zkapp = zkapp_command::verifiable::ZkAppCommand {
                     fee_payer: fee_payer.clone(),
-                    account_updates: account_updates.map_to(|(account_update, _)| {
+                    account_updates: account_updates.map_to(|account_update| {
                         let vk_with_hash = find_vk(account_update).map(|vk| {
                             let hash = vk.hash();
                             WithHash { data: vk, hash }
@@ -2903,7 +2990,7 @@ pub mod local_state {
     pub struct StackFrame {
         pub caller: TokenId,
         pub caller_caller: TokenId,
-        pub calls: CallForest<()>, // TODO
+        pub calls: CallForest<AccountUpdate>, // TODO
     }
 
     impl Default for StackFrame {

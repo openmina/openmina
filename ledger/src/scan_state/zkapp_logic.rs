@@ -40,7 +40,7 @@ pub struct Handler<L: LedgerIntf + Clone> {
     pub perform: fn(Eff<L>) -> PerformResult<L>,
 }
 
-pub fn commitment(account_updates: CallForest<()>) -> ReceiptChainHash {
+pub fn commitment(account_updates: CallForest<AccountUpdate>) -> ReceiptChainHash {
     ReceiptChainHash(account_updates.hash())
 }
 
@@ -159,7 +159,7 @@ fn pop_call_stack(s: &CallStack) -> (StackFrame, CallStack) {
 
 pub struct GetNextAccountUpdateResult {
     pub account_update: AccountUpdate,
-    pub account_update_forest: CallForest<()>,
+    pub account_update_forest: CallForest<AccountUpdate>,
     pub new_call_stack: CallStack,
     pub new_frame: StackFrame,
 }
@@ -177,7 +177,7 @@ pub fn get_next_account_update(
 
     let ((account_update, account_update_forest), remainder_of_current_forest) =
         current_forest.calls.pop_exn();
-    let account_update_caller = account_update.0.caller();
+    let account_update_caller = account_update.caller();
     let is_normal_call = account_update_caller == current_forest.caller;
     let is_delegate_call = account_update_caller == current_forest.caller_caller;
 
@@ -214,7 +214,7 @@ pub fn get_next_account_update(
         }
     } else {
         let caller = if let true = is_normal_call {
-            account_update.0.account_id().derive_token_id()
+            account_update.account_id().derive_token_id()
         } else {
             current_forest.caller.clone()
         };
@@ -225,7 +225,7 @@ pub fn get_next_account_update(
         }
     };
     GetNextAccountUpdateResult {
-        account_update: account_update.0,
+        account_update,
         account_update_forest,
         new_frame,
         new_call_stack,
