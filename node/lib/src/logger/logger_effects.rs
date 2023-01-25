@@ -8,7 +8,7 @@ use crate::p2p::rpc::P2pRpcAction;
 use crate::p2p::P2pAction;
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::SnarkAction;
-use crate::{Action, ActionWithMetaRef, Service, Store};
+use crate::{Action, ActionWithMetaRef, Service, Store, WatchedAccountsAction};
 
 fn gossipnet_message_summary(msg: &GossipNetMessageV2) -> String {
     match msg {
@@ -228,6 +228,39 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     old_hash = prev.map(|b| b.hash.to_string()),
                     new_hash = tip.map(|b| b.hash.to_string()),
                     status = serde_json::to_string(&tip.map(|b| b.status)).ok(),
+                );
+            }
+            _ => {}
+        },
+        Action::WatchedAccounts(a) => match a {
+            WatchedAccountsAction::LedgerInitialStateGetInit(a) => {
+                shared::log::info!(
+                    meta.time();
+                    kind = "WatchedAccountInitialLedgerGetInit",
+                    summary = format!("pub_key: {}", a.pub_key),
+                );
+            }
+            WatchedAccountsAction::LedgerInitialStateGetError(a) => {
+                shared::log::info!(
+                    meta.time();
+                    kind = "WatchedAccountInitialLedgerGetError",
+                    summary = format!("pub_key: {}", a.pub_key),
+                    error = format!("{:?}", a.error)
+                );
+            }
+            WatchedAccountsAction::LedgerInitialStateGetRetry(a) => {
+                shared::log::info!(
+                    meta.time();
+                    kind = "WatchedAccountInitialLedgerGetRetry",
+                    summary = format!("pub_key: {}", a.pub_key),
+                );
+            }
+            WatchedAccountsAction::LedgerInitialStateGetSuccess(a) => {
+                shared::log::info!(
+                    meta.time();
+                    kind = "WatchedAccountInitialLedgerGetSuccess",
+                    summary = format!("pub_key: {}", a.pub_key),
+                    data = serde_json::to_string(&a.data).ok(),
                 );
             }
             _ => {}

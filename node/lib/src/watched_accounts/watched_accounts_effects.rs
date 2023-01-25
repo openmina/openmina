@@ -14,6 +14,7 @@ use super::{
     WatchedAccountsBlockLedgerQueryInitAction, WatchedAccountsBlockLedgerQueryPendingAction,
     WatchedAccountsLedgerInitialStateGetInitAction,
     WatchedAccountsLedgerInitialStateGetPendingAction,
+    WatchedAccountsLedgerInitialStateGetRetryAction,
 };
 
 pub fn watched_accounts_effects<S: redux::Service>(
@@ -34,7 +35,12 @@ pub fn watched_accounts_effects<S: redux::Service>(
                 block_hash: action.block.hash,
             });
         }
-        WatchedAccountsAction::LedgerInitialStateGetInit(action) => {
+        WatchedAccountsAction::LedgerInitialStateGetInit(
+            WatchedAccountsLedgerInitialStateGetInitAction { pub_key },
+        )
+        | WatchedAccountsAction::LedgerInitialStateGetRetry(
+            WatchedAccountsLedgerInitialStateGetRetryAction { pub_key },
+        ) => {
             let Some((peer_id, p2p_rpc_id)) = store.state().p2p.get_free_peer_id_for_rpc() else { return };
             let block = {
                 let Some(block) = store.state().consensus.best_tip() else { return };
@@ -62,22 +68,23 @@ pub fn watched_accounts_effects<S: redux::Service>(
                 request: P2pRpcRequest::LedgerQuery((
                     block.staged_ledger_hash.0.clone(),
                     MinaLedgerSyncLedgerQueryStableV1::WhatAccountWithPath(
-                        action.pub_key.clone(),
+                        pub_key.clone(),
                         token_id.into(),
                     ),
                 )),
                 requestor: P2pRpcRequestor::WatchedAccount(
-                    P2pRpcRequestorWatchedAccount::LedgerInitialGet(action.pub_key.clone()),
+                    P2pRpcRequestorWatchedAccount::LedgerInitialGet(pub_key.clone()),
                 ),
             });
             store.dispatch(WatchedAccountsLedgerInitialStateGetPendingAction {
-                pub_key: action.pub_key,
+                pub_key,
                 block,
                 peer_id,
                 p2p_rpc_id,
             });
         }
         WatchedAccountsAction::LedgerInitialStateGetPending(_) => {}
+        WatchedAccountsAction::LedgerInitialStateGetError(_) => {}
         WatchedAccountsAction::LedgerInitialStateGetSuccess(_) => {}
         WatchedAccountsAction::BlockLedgerQueryInit(action) => {
             let Some((peer_id, p2p_rpc_id)) = store.state().p2p.get_free_peer_id_for_rpc() else { return };

@@ -9,7 +9,10 @@ use shared::block::BlockWithHash;
 use crate::p2p::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 
-use super::{WatchedAccountBlockInfo, WatchedAccountBlockState, WatchedAccountLedgerInitialState};
+use super::{
+    WatchedAccountBlockInfo, WatchedAccountBlockState, WatchedAccountLedgerInitialState,
+    WatchedAccountsLedgerInitialStateGetError,
+};
 
 pub type WatchedAccountsActionWithMeta = redux::ActionWithMeta<WatchedAccountsAction>;
 pub type WatchedAccountsActionWithMetaRef<'a> = redux::ActionWithMeta<&'a WatchedAccountsAction>;
@@ -20,6 +23,8 @@ pub enum WatchedAccountsAction {
 
     LedgerInitialStateGetInit(WatchedAccountsLedgerInitialStateGetInitAction),
     LedgerInitialStateGetPending(WatchedAccountsLedgerInitialStateGetPendingAction),
+    LedgerInitialStateGetError(WatchedAccountsLedgerInitialStateGetErrorAction),
+    LedgerInitialStateGetRetry(WatchedAccountsLedgerInitialStateGetRetryAction),
     LedgerInitialStateGetSuccess(WatchedAccountsLedgerInitialStateGetSuccessAction),
 
     TransactionsIncludedInBlock(WatchedAccountsBlockTransactionsIncludedAction),
@@ -80,6 +85,46 @@ pub struct WatchedAccountsLedgerInitialStateGetPendingAction {
 impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStateGetPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         should_request_ledger_initial_state(state, &self.pub_key)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WatchedAccountsLedgerInitialStateGetErrorAction {
+    pub pub_key: NonZeroCurvePoint,
+    pub error: WatchedAccountsLedgerInitialStateGetError,
+}
+
+impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStateGetErrorAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .watched_accounts
+            .get(&self.pub_key)
+            .map_or(false, |a| {
+                matches!(
+                    &a.initial_state,
+                    WatchedAccountLedgerInitialState::Pending { .. }
+                )
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WatchedAccountsLedgerInitialStateGetRetryAction {
+    pub pub_key: NonZeroCurvePoint,
+}
+
+impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStateGetRetryAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .watched_accounts
+            .get(&self.pub_key)
+            .map_or(false, |a| match &a.initial_state {
+                WatchedAccountLedgerInitialState::Error { time, .. } => state
+                    .time()
+                    .checked_sub(*time)
+                    .map_or(false, |d| d.as_secs() >= 3),
+                _ => false,
+            })
     }
 }
 
@@ -197,6 +242,8 @@ impl_into_global_action!(WatchedAccountsAddAction);
 
 impl_into_global_action!(WatchedAccountsLedgerInitialStateGetInitAction);
 impl_into_global_action!(WatchedAccountsLedgerInitialStateGetPendingAction);
+impl_into_global_action!(WatchedAccountsLedgerInitialStateGetErrorAction);
+impl_into_global_action!(WatchedAccountsLedgerInitialStateGetRetryAction);
 impl_into_global_action!(WatchedAccountsLedgerInitialStateGetSuccessAction);
 
 impl_into_global_action!(WatchedAccountsBlockTransactionsIncludedAction);

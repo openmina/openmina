@@ -81,7 +81,7 @@ impl ActionStats {
 
         // TODO(binier): add constant len in ActionKind instead and use
         // that for constant vec length.
-        let mut len = self.since_start.len();
+        let len = self.since_start.len();
         let need_len = kind_i + 1;
         if len < need_len {
             self.since_start.resize(need_len, Default::default());

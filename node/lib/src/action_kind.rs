@@ -44,8 +44,11 @@ use crate::snark::SnarkAction;
 use crate::watched_accounts::{
     WatchedAccountsAction, WatchedAccountsAddAction, WatchedAccountsBlockLedgerQueryInitAction,
     WatchedAccountsBlockLedgerQueryPendingAction, WatchedAccountsBlockLedgerQuerySuccessAction,
-    WatchedAccountsBlockTransactionsIncludedAction, WatchedAccountsLedgerInitialStateGetInitAction,
+    WatchedAccountsBlockTransactionsIncludedAction,
+    WatchedAccountsLedgerInitialStateGetErrorAction,
+    WatchedAccountsLedgerInitialStateGetInitAction,
     WatchedAccountsLedgerInitialStateGetPendingAction,
+    WatchedAccountsLedgerInitialStateGetRetryAction,
     WatchedAccountsLedgerInitialStateGetSuccessAction,
 };
 use crate::{Action, ActionKindGet, CheckTimeoutsAction};
@@ -105,8 +108,10 @@ pub enum ActionKind {
     WatchedAccountsBlockLedgerQueryPending,
     WatchedAccountsBlockLedgerQuerySuccess,
     WatchedAccountsBlockTransactionsIncluded,
+    WatchedAccountsLedgerInitialStateGetError,
     WatchedAccountsLedgerInitialStateGetInit,
     WatchedAccountsLedgerInitialStateGetPending,
+    WatchedAccountsLedgerInitialStateGetRetry,
     WatchedAccountsLedgerInitialStateGetSuccess,
 }
 
@@ -197,6 +202,8 @@ impl ActionKindGet for WatchedAccountsAction {
             Self::Add(a) => a.kind(),
             Self::LedgerInitialStateGetInit(a) => a.kind(),
             Self::LedgerInitialStateGetPending(a) => a.kind(),
+            Self::LedgerInitialStateGetError(a) => a.kind(),
+            Self::LedgerInitialStateGetRetry(a) => a.kind(),
             Self::LedgerInitialStateGetSuccess(a) => a.kind(),
             Self::TransactionsIncludedInBlock(a) => a.kind(),
             Self::BlockLedgerQueryInit(a) => a.kind(),
@@ -395,6 +402,18 @@ impl ActionKindGet for WatchedAccountsLedgerInitialStateGetInitAction {
 impl ActionKindGet for WatchedAccountsLedgerInitialStateGetPendingAction {
     fn kind(&self) -> ActionKind {
         ActionKind::WatchedAccountsLedgerInitialStateGetPending
+    }
+}
+
+impl ActionKindGet for WatchedAccountsLedgerInitialStateGetErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::WatchedAccountsLedgerInitialStateGetError
+    }
+}
+
+impl ActionKindGet for WatchedAccountsLedgerInitialStateGetRetryAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::WatchedAccountsLedgerInitialStateGetRetry
     }
 }
 

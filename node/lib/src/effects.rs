@@ -9,7 +9,10 @@ use crate::p2p::rpc::outgoing::{P2pRpcOutgoingInitAction, P2pRpcRequestor};
 use crate::p2p::rpc::P2pRpcRequest;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
-use crate::watched_accounts::watched_accounts_effects;
+use crate::watched_accounts::{
+    watched_accounts_effects, WatchedAccountLedgerInitialState,
+    WatchedAccountsLedgerInitialStateGetRetryAction,
+};
 use crate::{Action, ActionWithMeta, Service, Store};
 
 pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
@@ -48,6 +51,21 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                 })
                 .collect();
             for action in reconnect_actions {
+                store.dispatch(action);
+            }
+
+            let actions = store
+                .state()
+                .watched_accounts
+                .iter()
+                .filter(|(_, a)| !a.initial_state.is_success())
+                .map(
+                    |(pub_key, _)| WatchedAccountsLedgerInitialStateGetRetryAction {
+                        pub_key: pub_key.clone(),
+                    },
+                )
+                .collect::<Vec<_>>();
+            for action in actions {
                 store.dispatch(action);
             }
         }
