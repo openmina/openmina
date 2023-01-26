@@ -16,7 +16,7 @@ pub struct NonzeroCurvePointV1 {
     is_odd: bool,
 }
 
-/// Location: [src/lib/parallel_scan/parallel_scan.ml:226:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L226)
+/// Location: [src/lib/parallel_scan/parallel_scan.ml:226:6](https://github.com/openmina/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L226)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TransactionSnarkScanStateStableV1VersionedV1PolyV1PolyV1TreesArg0V1<MergeT, BaseT> {
     Leaf(Vec<BaseT>),

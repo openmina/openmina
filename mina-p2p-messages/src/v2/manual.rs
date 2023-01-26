@@ -27,7 +27,7 @@ pub type TransactionSnarkScanStateStableV2TreesAMerge = (
 );
 
 //
-//  Location: [src/lib/parallel_scan/parallel_scan.ml:247:6](https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L247)
+//  Location: [src/lib/parallel_scan/parallel_scan.ml:247:6](https://github.com/openmina/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L247)
 //
 //  Gid: 947
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

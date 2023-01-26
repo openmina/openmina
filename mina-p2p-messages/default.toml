@@ -1,6 +1,6 @@
 generate_comments = true
 blank_lines = true
-git_prefix = "https://github.com/name-placeholder/mina/blob/da4c511501876adff40f3e1281392fedd121d607/"
+git_prefix = "https://github.com/openmina/mina/blob/da4c511501876adff40f3e1281392fedd121d607/"
 wrap_internal_types = true
 
 preamble = '''
