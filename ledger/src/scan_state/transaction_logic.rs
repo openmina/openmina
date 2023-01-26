@@ -2605,6 +2605,12 @@ pub mod zkapp_command {
             pub verification_keys: Vec<(AccountId, VerificationKeyHash)>,
         }
 
+        impl ZkAppCommand {
+            pub fn forget(self) -> super::ZkAppCommand {
+                self.zkapp_command
+            }
+        }
+
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L1486
         pub fn of_verifiable(cmd: verifiable::ZkAppCommand) -> Option<ZkAppCommand> {
             use AuthorizationKind as AK;
@@ -2632,6 +2638,39 @@ pub mod zkapp_command {
             Some(ZkAppCommand {
                 zkapp_command: super::ZkAppCommand::of_verifiable(cmd),
                 verification_keys: keys.into_iter().collect(),
+            })
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L1518
+        pub fn to_valid(
+            zkapp_command: super::ZkAppCommand,
+            ledger: &impl BaseLedger,
+        ) -> Option<ZkAppCommand> {
+            let find_vk = |account_id: &AccountId| -> Option<VerificationKey> {
+                let addr = ledger.location_of_account(account_id)?;
+                let account = ledger.get(addr)?;
+                account.zkapp.as_ref()?.verification_key.clone()
+            };
+
+            let mut tbl = HashMap::with_capacity(64);
+
+            zkapp_command.account_updates.fold(Some(()), |accum, p| {
+                accum?;
+
+                if let ControlTag::Proof = p.authorization.tag() {
+                    let account_id = p.account_id();
+                    find_vk(&account_id).map(|vk| {
+                        // TODO: The hash should be beside the vk here
+                        tbl.insert(account_id, VerificationKeyHash(vk.hash()));
+                    })
+                } else {
+                    accum
+                }
+            })?;
+
+            Some(ZkAppCommand {
+                zkapp_command,
+                verification_keys: tbl.into_iter().collect(),
             })
         }
     }

@@ -1370,6 +1370,18 @@ fn gen_fee_payer(
     }
 }
 
+pub struct GenZkappCommandParams<'a> {
+    pub failure: Option<&'a Failure>,
+    pub max_account_updates: Option<usize>,
+    pub max_token_updates: Option<usize>,
+    pub fee_payer_keypair: &'a Keypair,
+    pub keymap: &'a HashMap<HashableCompressedPubKey, Keypair>,
+    pub account_state_tbl: Option<&'a mut HashMap<AccountId, (Account, Role)>>,
+    pub ledger: Mask,
+    pub protocol_state_view: Option<&'a ProtocolStateView>,
+    pub vk: Option<&'a WithHash<VerificationKey>>,
+}
+
 /// `gen_zkapp_command_from` generates a zkapp_command and record the change of accounts accordingly
 /// in `account_state_tbl`. Note that `account_state_tbl` is optional. If it's not provided
 /// then it would be computed from the ledger. If you plan to generate several zkapp_command,
@@ -1380,20 +1392,21 @@ fn gen_fee_payer(
 /// those accounts being used as ordinary participants in other zkapp_command.
 ///
 /// Generated zkapp_command uses dummy signatures and dummy proofs.
-fn gen_zkapp_command_from(
-    failure: Option<Failure>,
-    max_account_updates: Option<usize>,
-    max_token_updates: Option<usize>,
-    fee_payer_keypair: Keypair,
-    keymap: HashMap<HashableCompressedPubKey, Keypair>,
-    account_state_tbl: Option<&mut HashMap<AccountId, (Account, Role)>>,
-    ledger: Mask,
-    protocol_state_view: Option<&ProtocolStateView>,
-    vk: Option<&WithHash<VerificationKey>>,
-) -> ZkAppCommand {
+pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
+    let GenZkappCommandParams {
+        failure,
+        max_account_updates,
+        max_token_updates,
+        fee_payer_keypair,
+        keymap,
+        account_state_tbl,
+        ledger,
+        protocol_state_view,
+        vk,
+    } = params;
+
     let mut rng = rand::thread_rng();
 
-    let failure = failure.as_ref();
     let max_account_updates = max_account_updates.unwrap_or(MAX_ACCOUNT_UPDATES);
     let max_token_updates = max_token_updates.unwrap_or(MAX_TOKEN_UPDATES);
 
@@ -1896,11 +1909,12 @@ fn gen_zkapp_command_from(
 }
 
 // TODO: This probably needs to be in its own file
-mod zkapp_command_builder {
+pub mod zkapp_command_builder {
     use crate::{hash_with_kimchi, scan_state::transaction_logic::zkapp_command::AccountUpdate};
 
     use super::*;
 
+    #[derive(Clone, Debug)]
     pub struct TransactionCommitment(pub Fp);
 
     impl TransactionCommitment {
@@ -1929,5 +1943,71 @@ mod zkapp_command_builder {
         let full_txn_commitment = txn_commitment.create_complete(memo_hash, fee_payer_hash);
 
         (txn_commitment, full_txn_commitment)
+    }
+
+    /// replace dummy signatures, proofs with valid ones for fee payer, other zkapp_command
+    /// [keymap] maps compressed public keys to private keys
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/f7f6700332bdfca77d9f3303e9cf3bc25f997e09/src/lib/zkapp_command_builder/zkapp_command_builder.ml#L94
+    pub fn replace_authorizations(
+        prover: Option<()>, // TODO: We don't support that yet
+        keymap: &HashMap<HashableCompressedPubKey, Keypair>,
+        zkapp_command: &mut ZkAppCommand,
+    ) {
+        let (txn_commitment, full_txn_commitment) = get_transaction_commitments(zkapp_command);
+
+        let sign_for_account_update = |use_full_commitment: bool, _kp: &Keypair| {
+            let _commitment = if use_full_commitment {
+                full_txn_commitment.clone()
+            } else {
+                txn_commitment.clone()
+            };
+
+            // TODO: Really sign the zkapp
+            Signature::dummy()
+        };
+
+        let fee_payer_kp = keymap
+            .get(&HashableCompressedPubKey(
+                zkapp_command.fee_payer.body.public_key.clone(),
+            ))
+            .unwrap();
+
+        let fee_payer_signature = sign_for_account_update(true, fee_payer_kp);
+
+        zkapp_command.fee_payer.authorization = fee_payer_signature;
+
+        let account_updates_with_valid_signatures =
+            zkapp_command.account_updates.map_to(|account_update| {
+                let AccountUpdate {
+                    body,
+                    authorization,
+                } = account_update;
+
+                let authorization_with_valid_signature = match authorization {
+                    Control::Signature(_dummy) => {
+                        let pk = &body.public_key;
+                        let kp = keymap
+                            .get(&HashableCompressedPubKey(pk.clone()))
+                            .expect("Could not find private key for public key in keymap");
+
+                        let use_full_commitment = body.use_full_commitment;
+                        let signature = sign_for_account_update(use_full_commitment, kp);
+                        Control::Signature(signature)
+                    }
+                    Control::Proof(_) => match prover {
+                        None => authorization.clone(),
+                        Some(_prover) => todo!(), // TODO
+                    },
+                    Control::NoneGiven => authorization.clone(),
+                };
+
+                AccountUpdate {
+                    authorization: authorization_with_valid_signature,
+                    ..account_update.clone()
+                }
+            });
+
+        zkapp_command.account_updates = account_updates_with_valid_signatures;
     }
 }

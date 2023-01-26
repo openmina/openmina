@@ -1768,7 +1768,7 @@ impl StagedLedger {
 
 #[cfg(test)]
 mod tests_ocaml {
-    use std::str::FromStr;
+    use std::{rc::Rc, str::FromStr};
 
     use ark_ff::{UniformRand, Zero};
     use mina_signer::{Keypair, Signer};
@@ -1779,6 +1779,10 @@ mod tests_ocaml {
     use crate::{
         dummy::{self, trivial_verification_key},
         gen_keypair,
+        generators::{
+            self,
+            zkapp_command::{zkapp_command_builder, Failure, GenZkappCommandParams, Role},
+        },
         scan_state::{
             currency::{Balance, BlockTime, Fee, Length, Nonce},
             scan_state::transaction_snark::SokDigest,
@@ -1794,7 +1798,7 @@ mod tests_ocaml {
             diff::{PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase},
             pre_diff_info::HashableCompressedPubKey,
         },
-        util, AuthRequired, FpExt, Permissions, VerificationKey, ZkAppAccount,
+        util, AuthRequired, FpExt, MyCowMut, Permissions, VerificationKey, ZkAppAccount,
     };
 
     use super::*;
@@ -2774,9 +2778,14 @@ mod tests_ocaml {
         num_keypairs: Option<usize>,
         max_account_updates: Option<usize>,
         max_token_updates: Option<usize>,
-        account_state_tbl: &mut HashSet<AccountId>,
+        account_state_tbl: Option<&mut HashMap<AccountId, (Account, Role)>>,
         vk: Option<WithHash<VerificationKey>>,
-        failure: Option<()>,
+        failure: Option<&Failure>,
+    ) -> (
+        valid::UserCommand,
+        Keypair,
+        HashMap<HashableCompressedPubKey, Keypair>,
+        Mask,
     ) {
         let mut rng = rand::thread_rng();
 
@@ -2811,7 +2820,7 @@ mod tests_ocaml {
             })
             .collect();
 
-        let verification_key = vk.unwrap_or_else(|| {
+        let verification_key = vk.clone().unwrap_or_else(|| {
             let dummy_vk = VerificationKey::dummy();
             let hash = dummy_vk.hash();
             WithHash {
@@ -2907,25 +2916,32 @@ mod tests_ocaml {
         });
 
         // to keep track of account states across transactions
-    }
+        let mut account_state_tbl = match account_state_tbl {
+            Some(account_state_tbl) => MyCowMut::Borrow(account_state_tbl),
+            None => MyCowMut::Own(HashMap::new()),
+        };
+        let account_state_tbl = Some(&mut *account_state_tbl);
 
-    //   (* to keep track of account states across transactions *)
-    //   let account_state_tbl =
-    //     Option.value account_state_tbl ~default:(Account_id.Table.create ())
-    //   in
-    //   let%bind zkapp_command =
-    //     Zkapp_command_generators.gen_zkapp_command_from ~max_account_updates
-    //       ~max_token_updates ~fee_payer_keypair ~keymap ~ledger ~account_state_tbl
-    //       ?vk ?failure ()
-    //   in
-    //   let zkapp_command =
-    //     Option.value_exn
-    //       (Zkapp_command.Valid.to_valid ~ledger ~get:Ledger.get
-    //          ~location_of_account:Ledger.location_of_account zkapp_command )
-    //   in
-    //   (* include generated ledger in result *)
-    //   return
-    //     (User_command.Zkapp_command zkapp_command, fee_payer_keypair, keymap, ledger)
+        let zkapp_command = generators::zkapp_command::gen_zkapp_command_from(
+            generators::zkapp_command::GenZkappCommandParams {
+                failure,
+                max_account_updates: Some(max_account_updates),
+                max_token_updates: Some(max_token_updates),
+                fee_payer_keypair,
+                keymap: &keymap,
+                account_state_tbl,
+                ledger: ledger.clone(),
+                protocol_state_view: None,
+                vk: vk.as_ref(),
+            },
+        );
+
+        let zkapp_command = zkapp_command::valid::to_valid(zkapp_command, &ledger).unwrap();
+        let user_command = valid::UserCommand::ZkAppCommand(Box::new(zkapp_command));
+
+        // include generated ledger in result
+        (user_command, fee_payer_keypair.clone(), keymap, ledger)
+    }
 
     /// keep max_account_updates small, so zkApp integration tests don't need lots
     /// of block producers
@@ -2947,7 +2963,14 @@ mod tests_ocaml {
         max_token_updates: Option<usize>,
         length: Option<usize>,
         vk: Option<WithHash<VerificationKey>>,
-        failure: Option<()>,
+        failure: Option<&Failure>,
+    ) -> (
+        Vec<(
+            valid::UserCommand,
+            Rc<Keypair>,
+            Rc<HashMap<HashableCompressedPubKey, Keypair>>,
+        )>,
+        Mask,
     ) {
         let mut rng = rand::thread_rng();
 
@@ -2958,42 +2981,58 @@ mod tests_ocaml {
         let num_keypairs = length * max_account_updates * 2;
 
         // Keep track of account states across multiple zkapp_command transaction
-        let account_state_tbl = HashSet::<AccountId>::new();
-    }
+        let mut account_state_tbl = HashMap::<AccountId, (Account, Role)>::with_capacity(64);
 
-    //   let num_keypairs = length * max_account_updates * 2 in
-    //   (* Keep track of account states across multiple zkapp_command transaction *)
-    //   let account_state_tbl = Account_id.Table.create () in
-    //   let%bind zkapp_command, fee_payer_keypair, keymap, ledger =
-    //     zkapp_command_with_ledger ~num_keypairs ~max_account_updates
-    //       ~max_token_updates ~account_state_tbl ?vk ?failure ()
-    //   in
-    //   let rec go zkapp_command_and_fee_payer_keypairs n =
-    //     if n <= 1 then
-    //       return
-    //         ( (zkapp_command, fee_payer_keypair, keymap)
-    //           :: List.rev zkapp_command_and_fee_payer_keypairs
-    //         , ledger )
-    //     else
-    //       let%bind zkapp_command =
-    //         Zkapp_command_generators.gen_zkapp_command_from ~max_account_updates
-    //           ~max_token_updates ~fee_payer_keypair ~keymap ~ledger
-    //           ~account_state_tbl ?vk ?failure ()
-    //       in
-    //       let valid_zkapp_command =
-    //         Option.value_exn
-    //           (Zkapp_command.Valid.to_valid ~ledger ~get:Ledger.get
-    //              ~location_of_account:Ledger.location_of_account zkapp_command )
-    //       in
-    //       let zkapp_command_and_fee_payer_keypairs' =
-    //         ( User_command.Zkapp_command valid_zkapp_command
-    //         , fee_payer_keypair
-    //         , keymap )
-    //         :: zkapp_command_and_fee_payer_keypairs
-    //       in
-    //       go zkapp_command_and_fee_payer_keypairs' (n - 1)
-    //   in
-    //   go [] length
+        let num_keypairs = Some(num_keypairs);
+        let max_account_updates = Some(max_account_updates);
+        let max_token_updates = Some(max_token_updates);
+        // let account_state_tbl = Some(&mut account_state_tbl);
+
+        let (zkapp_command, fee_payer_keypair, keymap, ledger) = zkapp_command_with_ledger(
+            num_keypairs,
+            max_account_updates,
+            max_token_updates,
+            Some(&mut account_state_tbl),
+            vk.clone(),
+            failure,
+        );
+
+        let fee_payer_keypair = Rc::new(fee_payer_keypair);
+        let keymap = Rc::new(keymap);
+
+        let mut commands = Vec::with_capacity(length);
+
+        commands.push((
+            zkapp_command,
+            Rc::clone(&fee_payer_keypair),
+            Rc::clone(&keymap),
+        ));
+
+        (0..length.saturating_sub(1)).for_each(|_| {
+            let zkapp_command =
+                generators::zkapp_command::gen_zkapp_command_from(GenZkappCommandParams {
+                    failure,
+                    max_account_updates,
+                    max_token_updates,
+                    fee_payer_keypair: &fee_payer_keypair,
+                    keymap: &keymap,
+                    account_state_tbl: Some(&mut account_state_tbl),
+                    ledger: ledger.clone(),
+                    protocol_state_view: None,
+                    vk: vk.as_ref(),
+                });
+            let zkapp_command = zkapp_command::valid::to_valid(zkapp_command, &ledger).unwrap();
+            let zkapp_command = valid::UserCommand::ZkAppCommand(Box::new(zkapp_command));
+
+            commands.push((
+                zkapp_command,
+                Rc::clone(&fee_payer_keypair),
+                Rc::clone(&keymap),
+            ));
+        });
+
+        (commands, ledger)
+    }
 
     static VK: Lazy<WithHash<VerificationKey>> = Lazy::new(|| {
         let vk = trivial_verification_key();
@@ -3008,8 +3047,38 @@ mod tests_ocaml {
     });
 
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2525
-    fn gen_zkapps(_failure: Option<bool>, _num_zkapps: usize, _iters: usize) {
-        // TODO (requires pickles)
+    fn gen_zkapps(
+        failure: Option<Failure>,
+        num_zkapps: usize,
+        iters: usize,
+    ) -> (Mask, Vec<valid::UserCommand>, Vec<Option<usize>>) {
+        let (zkapp_command_and_fee_payer_keypairs, ledger) = sequence_zkapp_command_with_ledger(
+            None,
+            Some(1),
+            Some(num_zkapps),
+            Some(VK.clone()),
+            failure.as_ref(),
+        );
+
+        let zkapps: Vec<_> = zkapp_command_and_fee_payer_keypairs
+            .into_iter()
+            .map(|zkapp| {
+                let (valid::UserCommand::ZkAppCommand(zkapp), _, keymap) = zkapp else {
+                    panic!("Expected a Zkapp_command, got a Signed command");
+                };
+
+                let mut zkapp = zkapp.forget();
+                zkapp_command_builder::replace_authorizations(None, &keymap, &mut zkapp);
+
+                let valid_zkapp_command_with_auths = zkapp_command::valid::to_valid(zkapp, &ledger)
+                    .expect("Could not create Zkapp_command.Valid.t");
+
+                valid::UserCommand::ZkAppCommand(Box::new(valid_zkapp_command_with_auths))
+            })
+            .collect();
+
+        assert_eq!(zkapps.len(), num_zkapps);
+        (ledger, zkapps, vec![None; iters])
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2571
