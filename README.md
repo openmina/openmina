@@ -1,6 +1,12 @@
+# The Mina Web Node
+
+The Mina Web Node is an in-browser non-consensus node capable of verifying the blockchain state, which is achieved by verifying the SNARK of the head block it receives from the network. 
+
+This in-browser node is designed to be launched from any device capable of running an internet browser. Thanks to its very simple and fast set-up, it is suitable for everyone, even users who lack technical knowledge in this area, and it has very low hardware requirements, so it can be run even from low-CPU and low-memory devices such as smartphones.
+
 ## How to build
 
-### Prerequisites installation
+### Prerequisites for installation
 
 #### Install system dependencies
 ```bash
@@ -32,7 +38,7 @@ cd openmina
 rustup run nightly wasm-pack build --target web -d ../../pkg node/wasm
 ```
 
-Output will be in `./pkg` directory.
+The output will be in `./pkg` directory.
 
-To use it with [mina-frontend](https://github.com/openmina/mina-frontend),
-copy contents of the `./pkg` directory inside `mina-frontend/src/assets/webnode/mina-rust/`
+To use it with the [mina-frontend](https://github.com/openmina/mina-frontend),
+copy the contents of the `./pkg` directory into `mina-frontend/src/assets/webnode/mina-rust/`
