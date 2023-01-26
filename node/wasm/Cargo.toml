@@ -25,13 +25,13 @@ rand = "0.8.0"
 smallvec = "1.10.0"
 sha2 = "0.10"
 hex = "0.4"
-binprot = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 tracing-subscriber = { version = "0.3", features = ["registry"], default-features = false }
-libp2p = { git = "https://github.com/name-placeholder/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
-redux = { git = "https://github.com/name-placeholder/redux-rs.git", features = ["serde"] }
+libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
+redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 mina-hasher = { git = "https://github.com/o1-labs/proof-systems" }
 mina-signer = { git = "https://github.com/o1-labs/proof-systems" }
-mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messages-rs", branch = "main", features = ["hashing"] }
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", branch = "main", features = ["hashing"] }
 
 shared = { path = "../shared" }
 lib = { path = "../lib" }
