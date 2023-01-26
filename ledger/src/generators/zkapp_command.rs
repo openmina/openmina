@@ -6,9 +6,10 @@ use std::{
     marker::PhantomData,
 };
 
-use ark_ff::{UniformRand, Zero};
+use ark_ff::{UniformRand, Zero, One};
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
-use mina_signer::{CompressedPubKey, Keypair};
+use mina_signer::{CompressedPubKey, Keypair, Signature};
 use rand::{
     rngs::ThreadRng,
     seq::{IteratorRandom, SliceRandom},
@@ -1320,7 +1321,7 @@ fn gen_fee_payer(
     );
 
     // real signature to be added when this data inserted into a Zkapp_command.t
-    let authorization = Signature::dummy();
+    let authorization = Signature {rx: Fp::one(), s: Fq::one()};
 
     FeePayer {
         body,

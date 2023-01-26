@@ -4,11 +4,11 @@
  (action
   (no-infer
    (progn
-    (run cargo build)
+    (run sh -c "cd /home/dan/code/mina/src/lib/mina_tree && cargo build --release")
     (run sh -c
-      "cp target/debug/libmina_tree.so ./libmina_tree.so 2> /dev/null || \
-       cp target/debug/libmina_tree.dylib ./libmina_tree.so")
-    (run cp target/debug/libmina_tree.a ./libmina_tree.a)
+      "cp /home/dan/code/mina/src/lib/mina_tree/target/release/libmina_tree.so ./libmina_tree.so 2> /dev/null || \
+       cp /home/dan/code/mina/src/lib/mina_tree/target/release/libmina_tree.dylib ./libmina_tree.so")
+    (run cp /home/dan/code/mina/src/lib/mina_tree/target/release/libmina_tree.a ./libmina_tree.a)
    ))))
 
 (library
