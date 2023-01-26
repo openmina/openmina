@@ -578,7 +578,7 @@ impl Memo {
 }
 
 pub mod signed_command {
-    use mina_p2p_messages::v2::{MinaBaseSignedCommandStableV2, MinaBaseSignedCommandPayloadStableV2, MinaBaseSignedCommandPayloadCommonStableV2};
+
     use mina_signer::Signature;
 
     use crate::{decompress_pk, scan_state::currency::Slot, AccountId};
@@ -4536,7 +4536,7 @@ pub mod transaction_union_payload {
 
             let mut tag = self.body.tag.clone() as u8;
 
-            while (tag != 0) {
+            while tag != 0 {
                 roi = roi.append_bool(tag & 1 != 0);
                 tag >>= 1;
             }

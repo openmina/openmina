@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
+use ark_ff::One;
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
-use mina_signer::Keypair;
+use mina_signer::{Keypair, Signature};
 
 use crate::{
     hash_with_kimchi,
     scan_state::transaction_logic::{
         zkapp_command::{AccountUpdate, Control, ZkAppCommand},
-        Signature,
     },
     staged_ledger::pre_diff_info::HashableCompressedPubKey,
 };
@@ -62,7 +63,7 @@ pub fn replace_authorizations(
         };
 
         // TODO: Really sign the zkapp
-        Signature::dummy()
+        Signature {rx: Fp::one(), s: Fq::one()}
     };
 
     let fee_payer_kp = keymap

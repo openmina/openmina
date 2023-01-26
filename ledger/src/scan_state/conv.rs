@@ -21,7 +21,7 @@ use mina_p2p_messages::{
         MinaBaseFeeTransferStableV2, MinaBaseLedgerHash0StableV1, MinaBasePaymentPayloadStableV2,
         MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseStackHashStableV1,
         MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
-        MinaBaseReceiptChainHashStableV1, MinaBaseSignatureStableV1,
+        MinaBaseReceiptChainHashStableV1,
         MinaBaseSignedCommandMemoStableV1, MinaBaseSignedCommandPayloadBodyStableV2,
         MinaBaseSignedCommandPayloadCommonStableV2, MinaBaseSignedCommandPayloadStableV2,
         MinaBaseSignedCommandStableV2, MinaBaseSokMessageDigestStableV1,
@@ -1025,7 +1025,7 @@ impl From<&MinaBaseAccountUpdateTWireStableV1> for AccountUpdate {
                 },
             },
             authorization: match &value.authorization {
-                mina_p2p_messages::v2::MinaBaseControlStableV2::Proof(proof) => zkapp_command::Control::Proof((**proof).clone()),
+                mina_p2p_messages::v2::MinaBaseControlStableV2::Proof(proof) => zkapp_command::Control::Proof((**proof).clone().into()),
                 mina_p2p_messages::v2::MinaBaseControlStableV2::Signature(signature) => zkapp_command::Control::Signature(Signature{
                     rx: signature.0.to_field(),
                     s: signature.1.to_field()
