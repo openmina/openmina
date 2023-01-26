@@ -9,8 +9,8 @@ edition = "2021"
 serde = { version = "1.0.142", features = ["derive"] }
 serde_json = { version = "1.0.83" }
 hex = "0.4.3"
-binprot = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
-binprot_derive = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
+binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 thiserror = "1.0.32"
 derive_more = "0.99.17"
 bs58 = { version = "0.4", features = ["check"] }
@@ -34,7 +34,7 @@ wasm-bindgen = "0.2.83"
 anyhow = "1.0.65"
 toml = "0.5.9"
 clap = { version = "4.0.18", features = ["derive"] }
-alloc-test = { git = "https://github.com/name-placeholder/alloc-test.git" }
+alloc-test = { git = "https://github.com/openmina/alloc-test.git" }
 time = { version = "0.3.17", features = ["formatting"] }
 
 
