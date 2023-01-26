@@ -9,11 +9,11 @@ serde = "1.0.147"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 derive_more = "0.99.17"
-binprot = { git = "https://github.com/name-placeholder/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
-redux = { git = "https://github.com/name-placeholder/redux-rs.git", features = ["serde"] }
-libp2p = { git = "https://github.com/name-placeholder/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
+redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
+libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
 
-mina-p2p-messages = { git = "https://github.com/name-placeholder/mina-p2p-messages-rs", branch = "main", features = ["hashing"] }
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", branch = "main", features = ["hashing"] }
 
 shared = { path = "../shared" }
 snark = { path = "../snark" }

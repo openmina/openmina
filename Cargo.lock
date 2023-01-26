@@ -470,7 +470,7 @@ dependencies = [
 [[package]]
 name = "binprot"
 version = "0.1.8"
-source = "git+https://github.com/name-placeholder/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
+source = "git+https://github.com/openmina/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
 dependencies = [
  "binprot_derive",
  "byteorder",
@@ -480,7 +480,7 @@ dependencies = [
 [[package]]
 name = "binprot_derive"
 version = "0.1.7"
-source = "git+https://github.com/name-placeholder/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
+source = "git+https://github.com/openmina/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
 dependencies = [
  "quote",
  "syn",
@@ -1873,7 +1873,7 @@ checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
 [[package]]
 name = "libp2p"
 version = "0.48.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "bytes",
  "futures",
@@ -1916,7 +1916,7 @@ dependencies = [
 [[package]]
 name = "libp2p-autonat"
 version = "0.7.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "async-trait",
  "futures",
@@ -1934,7 +1934,7 @@ dependencies = [
 [[package]]
 name = "libp2p-core"
 version = "0.36.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "asn1_der",
  "bs58",
@@ -1970,7 +1970,7 @@ dependencies = [
 [[package]]
 name = "libp2p-deflate"
 version = "0.36.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "flate2",
  "futures",
@@ -1980,7 +1980,7 @@ dependencies = [
 [[package]]
 name = "libp2p-dns"
 version = "0.36.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "async-std-resolver",
  "futures",
@@ -1994,7 +1994,7 @@ dependencies = [
 [[package]]
 name = "libp2p-floodsub"
 version = "0.39.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "cuckoofilter",
  "fnv",
@@ -2011,7 +2011,7 @@ dependencies = [
 [[package]]
 name = "libp2p-gossipsub"
 version = "0.41.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "asynchronous-codec",
  "base64",
@@ -2039,7 +2039,7 @@ dependencies = [
 [[package]]
 name = "libp2p-identify"
 version = "0.39.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "asynchronous-codec",
  "futures",
@@ -2059,7 +2059,7 @@ dependencies = [
 [[package]]
 name = "libp2p-kad"
 version = "0.40.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "arrayvec",
  "asynchronous-codec",
@@ -2087,7 +2087,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mdns"
 version = "0.40.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "async-io",
  "data-encoding",
@@ -2107,7 +2107,7 @@ dependencies = [
 [[package]]
 name = "libp2p-metrics"
 version = "0.9.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "libp2p-core",
  "libp2p-gossipsub",
@@ -2122,7 +2122,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mplex"
 version = "0.36.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "asynchronous-codec",
  "bytes",
@@ -2139,7 +2139,7 @@ dependencies = [
 [[package]]
 name = "libp2p-noise"
 version = "0.39.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "bytes",
  "curve25519-dalek 3.2.0",
@@ -2160,7 +2160,7 @@ dependencies = [
 [[package]]
 name = "libp2p-ping"
 version = "0.39.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "futures",
  "futures-timer",
@@ -2175,7 +2175,7 @@ dependencies = [
 [[package]]
 name = "libp2p-plaintext"
 version = "0.36.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "asynchronous-codec",
  "bytes",
@@ -2191,7 +2191,7 @@ dependencies = [
 [[package]]
 name = "libp2p-pnet"
 version = "0.22.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -2205,7 +2205,7 @@ dependencies = [
 [[package]]
 name = "libp2p-relay"
 version = "0.12.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "asynchronous-codec",
  "bytes",
@@ -2230,7 +2230,7 @@ dependencies = [
 [[package]]
 name = "libp2p-rendezvous"
 version = "0.9.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "asynchronous-codec",
  "bimap",
@@ -2252,7 +2252,7 @@ dependencies = [
 [[package]]
 name = "libp2p-request-response"
 version = "0.21.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2269,7 +2269,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm"
 version = "0.39.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "either",
  "fnv",
@@ -2288,7 +2288,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm-derive"
 version = "0.30.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "heck 0.4.0",
  "quote",
@@ -2298,7 +2298,7 @@ dependencies = [
 [[package]]
 name = "libp2p-tcp"
 version = "0.36.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "async-io",
  "futures",
@@ -2314,7 +2314,7 @@ dependencies = [
 [[package]]
 name = "libp2p-uds"
 version = "0.35.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "async-std",
  "futures",
@@ -2325,7 +2325,7 @@ dependencies = [
 [[package]]
 name = "libp2p-wasm-ext"
 version = "0.36.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "futures",
  "js-sys",
@@ -2340,7 +2340,7 @@ dependencies = [
 [[package]]
 name = "libp2p-websocket"
 version = "0.38.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "either",
  "futures",
@@ -2358,7 +2358,7 @@ dependencies = [
 [[package]]
 name = "libp2p-yamux"
 version = "0.40.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -2515,7 +2515,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/name-placeholder/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2524,20 +2524,20 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/name-placeholder/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
 dependencies = [
  "ark-ff",
  "bitvec",
  "mina-curves",
  "o1-utils",
- "oracle 0.1.0 (git+https://github.com/name-placeholder/proof-systems?branch=openmina)",
+ "oracle 0.1.0 (git+https://github.com/openmina/proof-systems?branch=openmina)",
  "serde",
 ]
 
 [[package]]
 name = "mina-p2p-messages"
 version = "0.6.4"
-source = "git+https://github.com/name-placeholder/mina-p2p-messages-rs?branch=main#07ac639ac2d504c8c913eb7921a92eebedb40038"
+source = "git+https://github.com/openmina/mina-p2p-messages-rs?branch=main#d6196bd717ce3b418a2a14ee8f4076ef186dd58b"
 dependencies = [
  "ark-ff",
  "base64",
@@ -2560,7 +2560,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/name-placeholder/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2647,7 +2647,7 @@ checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
 [[package]]
 name = "multistream-select"
 version = "0.11.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "bytes",
  "futures",
@@ -2826,7 +2826,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/name-placeholder/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2866,7 +2866,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 [[package]]
 name = "oracle"
 version = "0.1.0"
-source = "git+https://github.com/name-placeholder/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3230,7 +3230,7 @@ dependencies = [
 [[package]]
 name = "prost-codec"
 version = "0.2.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "asynchronous-codec",
  "bytes",
@@ -3399,7 +3399,7 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/name-placeholder/redux-rs.git#8456e8c998df043cc74028456da55c99141aebe4"
+source = "git+https://github.com/openmina/redux-rs.git#155f8208f3105174cbd32172e7580b164d772349"
 dependencies = [
  "enum_dispatch",
  "serde",
@@ -3553,7 +3553,7 @@ checksum = "5583e89e108996506031660fe09baa5011b9dd0341b89029313006d1fb508d70"
 [[package]]
 name = "rw-stream-sink"
 version = "0.3.0"
-source = "git+https://github.com/name-placeholder/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
+source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc#363a99d4826e0c26a80bb075211cf9e07ba0923e"
 dependencies = [
  "futures",
  "pin-project",
