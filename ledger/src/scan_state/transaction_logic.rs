@@ -503,7 +503,31 @@ impl Memo {
     const MAX_DIGESTIBLE_STRING_LENGTH: usize = 1000;
 
     pub fn hash(&self) -> Fp {
-        todo!()
+        use mina_hasher::ROInput as LegacyInput;
+
+        let inputs = LegacyInput::new();
+        let inputs = inputs.append_bytes(&self.0);
+
+        use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};
+
+        #[derive(Clone)]
+        struct MyInput(LegacyInput);
+
+        impl Hashable for MyInput {
+            type D = ();
+
+            fn to_roinput(&self) -> ROInput {
+                self.0.clone()
+            }
+
+            fn domain_string(_: Self::D) -> Option<String> {
+                Some("MinaZkappMemo".to_string())
+            }
+        }
+
+        let mut hasher = create_legacy::<MyInput>(());
+        hasher.update(&MyInput(inputs));
+        hasher.digest()
     }
 
     pub fn as_slice(&self) -> &[u8] {

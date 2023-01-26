@@ -2217,14 +2217,30 @@ mod tests_ocaml {
     ///   the staged and test ledgers, and verify they are in the same state.
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2180
-    fn async_with_given_ledger<F>(mask: Mask, fun: F)
-    where
-        F: Fn(StagedLedger, Mask),
+    fn async_with_given_ledger<F>(
+        ledger_init_state: &LedgerInitialState,
+        cmds: Vec<valid::UserCommand>,
+        cmd_iters: Vec<Option<usize>>,
+        mask: Mask,
+        fun: F,
+    ) where
+        F: Fn(StagedLedger, Mask) + std::panic::UnwindSafe,
     {
-        let test_mask = mask.make_child();
-        let sl = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask).unwrap();
-        fun(sl, test_mask.clone());
-        test_mask.unregister_mask(crate::UnregisterBehavior::Check);
+        match std::panic::catch_unwind(move || {
+            let test_mask = mask.make_child();
+            let sl = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask).unwrap();
+            fun(sl, test_mask.clone());
+            test_mask.unregister_mask(crate::UnregisterBehavior::Check);
+        }) {
+            Ok(_) => {}
+            Err(_) => {
+                eprintln!("state={:#?}", ledger_init_state);
+                eprintln!("cmds[{}]={:#?}", cmds.len(), "ignored");
+                // eprintln!("cmds[{}]={:#?}", cmds.len(), cmds);
+                eprintln!("cmd_iters[{}]={:?}", cmd_iters.len(), cmd_iters);
+                panic!("test failed (see logs above)");
+            }
+        }
     }
 
     /// populate the ledger from an initial state before running the function
@@ -2240,21 +2256,10 @@ mod tests_ocaml {
     ) where
         F: Fn(StagedLedger, Mask) + std::panic::UnwindSafe,
     {
-        match std::panic::catch_unwind(move || {
-            let mut ephemeral_ledger =
-                Mask::new_unattached(CONSTRAINT_CONSTANTS.ledger_depth as usize);
+        let mut ephemeral_ledger = Mask::new_unattached(CONSTRAINT_CONSTANTS.ledger_depth as usize);
 
-            apply_initialize_ledger_state(&mut ephemeral_ledger, ledger_init_state);
-            async_with_given_ledger(ephemeral_ledger, fun);
-        }) {
-            Ok(_) => {}
-            Err(_) => {
-                eprintln!("state={:#?}", ledger_init_state);
-                eprintln!("cmds[{}]={:#?}", cmds.len(), cmds);
-                eprintln!("cmd_iters[{}]={:?}", cmd_iters.len(), cmd_iters);
-                panic!("test failed (see logs above)");
-            }
-        }
+        apply_initialize_ledger_state(&mut ephemeral_ledger, ledger_init_state);
+        async_with_given_ledger(ledger_init_state, cmds, cmd_iters, ephemeral_ledger, fun);
     }
 
     /// Get the public keys from a ledger init state.
@@ -2814,19 +2819,42 @@ mod tests_ocaml {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2571
-    fn gen_zkapps_at_capacity() {
-        // TODO (requires pickles)
+    fn gen_zkapps_at_capacity() -> (Mask, Vec<valid::UserCommand>, Vec<Option<usize>>) {
+        let mut rng = rand::thread_rng();
+
+        let iters = rng.gen_range(1..max_blocks_for_coverage(0));
+        let num_zkapps = TRANSACTION_CAPACITY * iters;
+        gen_zkapps(None, num_zkapps, iters)
     }
 
     /// Max throughput (zkapps)
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2664
-    #[test]
+    // #[test]
     fn max_throughput_zkapps() {
-        let vk = VK.clone();
-        println!("VK={:#?}", vk);
+        let (ledger, zkapps, iters) = gen_zkapps_at_capacity();
 
-        // TODO (requires pickles)
+        async_with_given_ledger(
+            &LedgerInitialState { state: vec![] },
+            zkapps.clone(),
+            iters.clone(),
+            ledger.clone(),
+            |sl, test_mask| {
+                let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
+
+                test_simple(
+                    account_ids,
+                    zkapps.clone(),
+                    iters.clone(),
+                    sl,
+                    None,
+                    None,
+                    test_mask,
+                    NumProvers::Many,
+                    &stmt_to_work_random_prover,
+                )
+            },
+        );
     }
 
     /// Max_throughput with zkApp transactions that may fail
