@@ -159,7 +159,7 @@ impl ConnectionHandler for RequestResponseHandler {
         self.inbound
             .push(rq_recv.map_ok(move |rq| (rq, rs_send)).boxed());
 
-        SubstreamProtocol::new(proto, request_id).with_timeout(Duration::from_secs(60))
+        SubstreamProtocol::new(proto, request_id).with_timeout(Duration::from_secs(15))
     }
 
     fn inject_fully_negotiated_inbound(&mut self, sent: bool, request_id: P2pRpcIncomingId) {
@@ -279,7 +279,7 @@ impl ConnectionHandler for RequestResponseHandler {
             let info = request.request_id;
             return Poll::Ready(ConnectionHandlerEvent::OutboundSubstreamRequest {
                 protocol: SubstreamProtocol::new(request, info)
-                    .with_timeout(Duration::from_secs(60)),
+                    .with_timeout(Duration::from_secs(15)),
             });
         }
 
