@@ -5,6 +5,7 @@ use libp2p::PeerId;
 
 use shared::requests::RpcId;
 
+use crate::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::rpc::{P2pRpcId, P2pRpcState};
 
 use super::connection::P2pConnectionState;
@@ -44,6 +45,15 @@ impl P2pState {
         self.peers
             .iter()
             .any(|(_, p)| p.status.as_ready().is_some())
+    }
+
+    pub fn initial_unused_peers(&self) -> Vec<P2pConnectionOutgoingInitOpts> {
+        self.config
+            .initial_peers
+            .iter()
+            .filter(|v| !self.peers.contains_key(&v.peer_id))
+            .cloned()
+            .collect()
     }
 
     pub fn ready_peers(&self) -> Vec<PeerId> {
