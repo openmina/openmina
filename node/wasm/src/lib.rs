@@ -357,6 +357,30 @@ pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
                         "/dns4/webrtc2.webnode.openmina.com/tcp/4432",
                         "QmSJWfK7GSAFY2Gb8Unag2P68rtCrJXfZBTKZRgN94ppj3",
                     ),
+                    dial_opts(
+                        "/dns4/webrtc3.webnode.openmina.com/tcp/443",
+                        "QmemRt4HfpNBsFY752tE5E3H6dV87JjtmgacN53BDGbaB6",
+                    ),
+                    dial_opts(
+                        "/dns4/webrtc3.webnode.openmina.com/tcp/4431",
+                        "QmZvoP2taWTUbuGp1xnu5AXizG9vr2MFbam7nSuGvpmfhM",
+                    ),
+                    dial_opts(
+                        "/dns4/webrtc3.webnode.openmina.com/tcp/4432",
+                        "QmVXA7fjnahFLC85jFHJYXapM61Yo1rvH7Live7szpUrzb",
+                    ),
+                    dial_opts(
+                        "/dns4/webrtc4.webnode.openmina.com/tcp/443",
+                        "QmQKwHVjkpqdLco5KpyMXjDwjxKHLdS78kmdDMWwvxYKFf",
+                    ),
+                    dial_opts(
+                        "/dns4/webrtc4.webnode.openmina.com/tcp/4431",
+                        "QmSXffHzFVSEoQCYBS1bPpCn4vgGEpQnCA9NLYuhamPBU3",
+                    ),
+                    dial_opts(
+                        "/dns4/webrtc4.webnode.openmina.com/tcp/4432",
+                        "QmdxcoKJTh2b8xLZcBk9zw2xHdEcNwzMr78jX99wUWcT8o",
+                    ),
                 ],
             },
         });
