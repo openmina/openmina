@@ -10,7 +10,7 @@ pub enum P2pConnectionAction {
 }
 
 impl P2pConnectionAction {
-    pub fn peer_id(&self) -> &crate::PeerId {
+    pub fn peer_id(&self) -> Option<&crate::PeerId> {
         match self {
             Self::Outgoing(v) => v.peer_id(),
         }

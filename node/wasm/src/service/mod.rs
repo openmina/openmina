@@ -61,6 +61,7 @@ impl From<mpsc::Receiver<Event>> for EventReceiver {
 }
 
 pub struct NodeWasmService {
+    pub rng: rand::rngs::OsRng,
     pub stats: Option<Stats>,
     pub event_source_sender: mpsc::Sender<Event>,
     pub event_source_receiver: EventReceiver,

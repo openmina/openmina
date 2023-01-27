@@ -21,6 +21,7 @@ use libp2p::{build_multiaddr, PeerId, Swarm, Transport};
 pub use mina_p2p_messages::gossip::GossipNetMessageV2 as GossipNetMessage;
 
 use lib::event_source::{Event, P2pConnectionEvent, P2pEvent, P2pPubsubEvent};
+use lib::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use lib::p2p::pubsub::PubsubTopic;
 use lib::p2p::rpc::{P2pRpcId, P2pRpcRequest};
 use lib::service::{
@@ -286,10 +287,7 @@ impl Libp2pService {
 }
 
 impl P2pConnectionService for NodeWasmService {
-    fn outgoing_init(
-        &mut self,
-        opts: lib::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts,
-    ) {
+    fn outgoing_init(&mut self, opts: P2pConnectionOutgoingInitOpts) {
         let opts = DialOpts::peer_id(opts.peer_id)
             .addresses(opts.addrs)
             .build();
@@ -298,6 +296,14 @@ impl P2pConnectionService for NodeWasmService {
         spawn_local(async move {
             tx.send(cmd).await;
         });
+    }
+
+    fn random_pick(
+        &mut self,
+        list: &[P2pConnectionOutgoingInitOpts],
+    ) -> P2pConnectionOutgoingInitOpts {
+        use rand::seq::SliceRandom;
+        list.choose(&mut self.rng).unwrap().clone()
     }
 }
 

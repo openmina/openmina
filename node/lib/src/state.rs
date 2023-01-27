@@ -26,7 +26,7 @@ pub struct State {
 impl State {
     pub fn new(config: Config) -> Self {
         Self {
-            p2p: P2pState::new(),
+            p2p: P2pState::new(config.p2p),
             snark: SnarkState::new(config.snark),
             consensus: ConsensusState::new(),
             rpc: RpcState::new(),

@@ -12,8 +12,8 @@ use crate::event_source::{
 };
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingAction, P2pConnectionOutgoingErrorAction, P2pConnectionOutgoingInitAction,
-    P2pConnectionOutgoingPendingAction, P2pConnectionOutgoingReconnectAction,
-    P2pConnectionOutgoingSuccessAction,
+    P2pConnectionOutgoingPendingAction, P2pConnectionOutgoingRandomInitAction,
+    P2pConnectionOutgoingReconnectAction, P2pConnectionOutgoingSuccessAction,
 };
 use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::{
@@ -73,6 +73,7 @@ pub enum ActionKind {
     P2pConnectionOutgoingError,
     P2pConnectionOutgoingInit,
     P2pConnectionOutgoingPending,
+    P2pConnectionOutgoingRandomInit,
     P2pConnectionOutgoingReconnect,
     P2pConnectionOutgoingSuccess,
     P2pDisconnectionFinish,
@@ -450,6 +451,7 @@ impl ActionKindGet for WatchedAccountsBlockLedgerQuerySuccessAction {
 impl ActionKindGet for P2pConnectionOutgoingAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::RandomInit(a) => a.kind(),
             Self::Init(a) => a.kind(),
             Self::Reconnect(a) => a.kind(),
             Self::Pending(a) => a.kind(),
@@ -535,6 +537,12 @@ impl ActionKindGet for SnarkBlockVerifySuccessAction {
 impl ActionKindGet for SnarkBlockVerifyFinishAction {
     fn kind(&self) -> ActionKind {
         ActionKind::SnarkBlockVerifyFinish
+    }
+}
+
+impl ActionKindGet for P2pConnectionOutgoingRandomInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionOutgoingRandomInit
     }
 }
 

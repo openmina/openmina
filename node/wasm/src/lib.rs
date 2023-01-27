@@ -104,20 +104,7 @@ fn dial_opts(addr: &str, peer_id: &str) -> P2pConnectionOutgoingInitOpts {
 ///
 /// Doesn't exit.
 pub async fn run(mut node: Node) {
-    node.store_mut().dispatch(P2pConnectionOutgoingInitAction {
-        opts: dial_opts(
-            "/dns4/webrtc.webnode.openmina.com/tcp/443",
-            "QmTyRcQ5oM4ZByekkKyh1EDVNy7Xvh32UdGKAMBqPTiUSR",
-        ),
-        rpc_id: None,
-    });
-    node.store_mut().dispatch(P2pConnectionOutgoingInitAction {
-        opts: dial_opts(
-            "/dns4/webrtc2.webnode.openmina.com/tcp/443",
-            "Qmaxe3KXcdyAHEiFL48bvkJLsPb9S3q3dZ5qUP1B89CEJ6",
-        ),
-        rpc_id: None,
-    });
+    node.store_mut().dispatch(EventSourceProcessEventsAction {});
     loop {
         node.store_mut().dispatch(EventSourceWaitForEventsAction {});
 
@@ -249,6 +236,7 @@ pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
 
     let (libp2p, manual_connector) = Libp2pService::run(tx.clone()).await;
     let mut service = NodeWasmService {
+        rng: rand::rngs::OsRng::default(),
         stats: Some(Default::default()),
         event_source_sender: tx.clone(),
         event_source_receiver: rx.into(),
@@ -351,8 +339,20 @@ pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
                 block_verifier_index: Arc::new(block_verifier_index),
                 block_verifier_srs: Arc::new(block_verifier_srs),
             },
+            p2p: lib::p2p::P2pConfig {
+                initial_peers: vec![
+                    dial_opts(
+                        "/dns4/webrtc.webnode.openmina.com/tcp/443",
+                        "QmTyRcQ5oM4ZByekkKyh1EDVNy7Xvh32UdGKAMBqPTiUSR",
+                    ),
+                    dial_opts(
+                        "/dns4/webrtc2.webnode.openmina.com/tcp/443",
+                        "Qmaxe3KXcdyAHEiFL48bvkJLsPb9S3q3dZ5qUP1B89CEJ6",
+                    ),
+                ],
+            },
         });
-        let mut node = lib::Node::new(state, service);
+        let node = lib::Node::new(state, service);
         run(node).await;
     });
 

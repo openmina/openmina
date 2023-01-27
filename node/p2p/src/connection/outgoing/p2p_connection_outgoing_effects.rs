@@ -5,8 +5,32 @@ use crate::P2pPeerReadyAction;
 
 use super::{
     P2pConnectionOutgoingInitAction, P2pConnectionOutgoingPendingAction,
-    P2pConnectionOutgoingReconnectAction, P2pConnectionOutgoingSuccessAction,
+    P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
+    P2pConnectionOutgoingSuccessAction,
 };
+
+impl P2pConnectionOutgoingRandomInitAction {
+    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    where
+        Store: crate::P2pStore<S>,
+        Store::Service: P2pConnectionService,
+        P2pConnectionOutgoingInitAction: redux::EnablingCondition<S>,
+    {
+        let state = store.state();
+        let peers = state
+            .config
+            .initial_peers
+            .iter()
+            .filter(|v| !state.peers.contains_key(&v.peer_id))
+            .cloned()
+            .collect::<Vec<_>>();
+        let picked_peer = store.service().random_pick(&peers);
+        store.dispatch(P2pConnectionOutgoingInitAction {
+            opts: picked_peer,
+            rpc_id: None,
+        });
+    }
+}
 
 impl P2pConnectionOutgoingInitAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
