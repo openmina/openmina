@@ -16,14 +16,7 @@ impl P2pConnectionOutgoingRandomInitAction {
         Store::Service: P2pConnectionService,
         P2pConnectionOutgoingInitAction: redux::EnablingCondition<S>,
     {
-        let state = store.state();
-        let peers = state
-            .config
-            .initial_peers
-            .iter()
-            .filter(|v| !state.peers.contains_key(&v.peer_id))
-            .cloned()
-            .collect::<Vec<_>>();
+        let peers = store.state().initial_unused_peers();
         let picked_peer = store.service().random_pick(&peers);
         store.dispatch(P2pConnectionOutgoingInitAction {
             opts: picked_peer,

@@ -46,7 +46,7 @@ pub struct P2pConnectionOutgoingRandomInitAction {}
 
 impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingRandomInitAction {
     fn is_enabled(&self, state: &crate::P2pState) -> bool {
-        !already_connected_or_connecting(state)
+        !already_connected_or_connecting(state) && !state.initial_unused_peers().is_empty()
     }
 }
 
