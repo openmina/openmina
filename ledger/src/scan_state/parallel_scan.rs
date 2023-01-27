@@ -1994,6 +1994,10 @@ where
         let result_opt = self.add_merge_jobs(jobs1)?;
         self.add_data(data1.to_vec())?;
 
+        if !jobs2.is_empty() || !data2.is_empty() {
+            println!("scan_state update: (2nd set of jobs, new transactions didn't fit in latest/current tree)");
+        }
+
         // update second set of jobs and data.
         // This will be empty if all the data fit in the current tree
         self.add_merge_jobs(jobs2)?;
