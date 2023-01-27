@@ -24,7 +24,7 @@ impl SequenceNumber {
         Self(0)
     }
 
-    fn incr(&self) -> Self {
+    pub fn incr(&self) -> Self {
         Self(self.0 + 1)
     }
 
@@ -707,7 +707,7 @@ pub struct ParallelScan<BaseJob, MergeJob> {
     /// last emitted proof and the corresponding transactions
     acc: Option<(MergeJob, Vec<BaseJob>)>,
     /// Sequence number for the jobs added every block
-    curr_job_seq_no: SequenceNumber,
+    pub curr_job_seq_no: SequenceNumber,
     /// transaction_capacity_log_2
     max_base_jobs: u64,
     delay: u64,
@@ -1683,6 +1683,9 @@ where
         let curr_tree = &self.trees[0];
         let to_be_updated_trees = &self.trees[1..];
 
+        // (index, (level, njobs))
+        let mut stats = BTreeMap::<u64, (u64, usize)>::new();
+
         let (mut updated_trees, result_opt) = {
             let mut jobs = merge_jobs.as_slice();
 
@@ -1695,6 +1698,10 @@ where
                     let nrequired = tree.required_job_count() as usize;
                     let completed_jobs = take(jobs, nrequired);
                     let i = i as u64;
+
+                    let level = depth - (i / delay);
+                    let old = stats.insert(i, (level, completed_jobs.len()));
+                    assert!(old.is_none());
 
                     let (tree, result) = tree.update(
                         completed_jobs,
@@ -1713,6 +1720,29 @@ where
 
             (updated_trees, scan_result)
         };
+
+        for (index, (level, njobs)) in stats.iter().rev() {
+            let index = self.trees.len() - *index as usize - 2;
+
+            if result_opt.is_some() && index == 0 {
+                println!(
+                    "- tree[{:>02}] level={} {:>3} completed jobs, a proof is emitted, tree is removed",
+                    index,
+                    level,
+                    njobs
+                );
+            } else {
+                println!(
+                    "- tree[{:>02}] level={} {:>3} completed jobs (DONE)",
+                    index, level, njobs
+                );
+                println!(
+                    "           level={} {:>3} new merge jobs (TODO)",
+                    level - 1,
+                    njobs / 2,
+                );
+            }
+        }
 
         let (mut updated_trees, result_opt) = {
             let (updated_trees, result_opt) = match result_opt {
@@ -1789,6 +1819,12 @@ where
             let tree = tree.reset_weights(ResetKind::Merge);
             vec![tree]
         };
+
+        println!(
+            "- tree[{:>02}] level=7 {:>3} new base jobs (TODO)",
+            self.trees.len() - 1,
+            data_len
+        );
 
         // println!(
         //     "updated_trees={} self_trees={:?}",
@@ -1950,6 +1986,9 @@ where
         //     jobs1.len(),
         //     jobs2.len()
         // );
+
+        // TODO: For logs, consider when works are splitted on 2 trees
+        println!("scan_state update:");
 
         // update first set of jobs and data
         let result_opt = self.add_merge_jobs(jobs1)?;

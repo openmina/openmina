@@ -976,6 +976,37 @@ impl ScanState {
         transactions: Vec<TransactionWithWitness>,
         work: Vec<transaction_snark::work::Unchecked>,
     ) -> Result<Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>, String> {
+        // println!("fill_work_and_enqueue_transactions tx={:?} work={:?}", transactions.len(), work.len());
+
+        {
+            use crate::scan_state::transaction_logic::transaction_applied::Varying::*;
+
+            println!("{} transactions added to scan state:", transactions.len());
+            println!(
+                "- num_fee_transfer={:?}",
+                transactions
+                    .iter()
+                    .filter(|tx| matches!(tx.transaction_with_info.varying, FeeTransfer(_)))
+                    .count()
+            );
+
+            println!(
+                "- num_coinbase={:?}",
+                transactions
+                    .iter()
+                    .filter(|tx| matches!(tx.transaction_with_info.varying, Coinbase(_)))
+                    .count()
+            );
+
+            println!(
+                "- num_user_command={:?}",
+                transactions
+                    .iter()
+                    .filter(|tx| matches!(tx.transaction_with_info.varying, Command(_)))
+                    .count()
+            );
+        }
+
         let fill_in_transaction_snark_work =
             |works: Vec<transaction_snark::work::Work>| -> Result<Vec<LedgerProofWithSokMessage>, String>
         {

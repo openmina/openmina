@@ -1703,6 +1703,12 @@ impl StagedLedger {
             )?
         };
 
+        // curr_job_seq_no is incremented later, but for the logs we increment it now
+        println!(
+            "sequence_number={:?}",
+            self.scan_state.state.curr_job_seq_no.incr()
+        );
+
         let _ = proof_count;
         // println!(
         //     "Number of proofs ready for purchase: {} Number of user \
@@ -2555,8 +2561,8 @@ mod tests_ocaml {
             &cmd_iters,
             0,
             |cmds_left, count_opt, cmds_this_iter, mut proof_count| {
-                eprintln!("######## Start new batch {} ########", niters);
-                eprintln!("nto_applied={:?}", cmds_this_iter.len());
+                eprintln!("\n######## Start new batch {} ########", niters);
+                eprintln!("attempt_to_apply_nuser_commands={:?}", cmds_this_iter.len());
 
                 let (ledger_proof, diff) =
                     create_and_apply(None, None, &mut sl, cmds_this_iter, stmt_to_work);
