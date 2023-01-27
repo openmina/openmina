@@ -48,6 +48,7 @@ macro_rules! impl_into_global_action {
     };
 }
 
+impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingRandomInitAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingInitAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingReconnectAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingPendingAction);

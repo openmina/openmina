@@ -17,15 +17,15 @@ pub struct P2pState {
 }
 
 impl P2pState {
-    pub fn new() -> Self {
+    pub fn new(config: P2pConfig) -> Self {
         Self {
-            config: P2pConfig {},
+            config,
             peers: Default::default(),
         }
     }
 
     pub fn peer_connection_outgoing_rpc_id(&self, peer_id: &PeerId) -> Option<RpcId> {
-        self.peers.get(&peer_id)?.connection_outgoing_rpc_id()
+        self.peers.get(peer_id)?.connection_outgoing_rpc_id()
     }
 
     /// Get peer in ready state. `None` if peer isn't in `Ready` state,
@@ -38,6 +38,12 @@ impl P2pState {
     /// or if peer doesn't exist.
     pub fn get_ready_peer_mut(&mut self, peer_id: &PeerId) -> Option<&mut P2pPeerStatusReady> {
         self.peers.get_mut(peer_id)?.status.as_ready_mut()
+    }
+
+    pub fn any_ready_peers(&self) -> bool {
+        self.peers
+            .iter()
+            .any(|(_, p)| p.status.as_ready().is_some())
     }
 
     pub fn ready_peers(&self) -> Vec<PeerId> {

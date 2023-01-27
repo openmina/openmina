@@ -7,6 +7,7 @@ pub type P2pConnectionOutgoingActionWithMetaRef<'a> =
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pConnectionOutgoingAction {
+    RandomInit(P2pConnectionOutgoingRandomInitAction),
     Init(P2pConnectionOutgoingInitAction),
     Reconnect(P2pConnectionOutgoingReconnectAction),
     Pending(P2pConnectionOutgoingPendingAction),
@@ -15,14 +16,37 @@ pub enum P2pConnectionOutgoingAction {
 }
 
 impl P2pConnectionOutgoingAction {
-    pub fn peer_id(&self) -> &crate::PeerId {
+    pub fn peer_id(&self) -> Option<&crate::PeerId> {
         match self {
-            Self::Init(v) => &v.opts.peer_id,
-            Self::Reconnect(v) => &v.opts.peer_id,
-            Self::Pending(v) => &v.peer_id,
-            Self::Error(v) => &v.peer_id,
-            Self::Success(v) => &v.peer_id,
+            Self::RandomInit(_) => None,
+            Self::Init(v) => Some(&v.opts.peer_id),
+            Self::Reconnect(v) => Some(&v.opts.peer_id),
+            Self::Pending(v) => Some(&v.peer_id),
+            Self::Error(v) => Some(&v.peer_id),
+            Self::Success(v) => Some(&v.peer_id),
         }
+    }
+}
+
+fn already_connected_or_connecting(state: &crate::P2pState) -> bool {
+    state.peers.iter().any(|(_, p)| match &p.status {
+        P2pPeerStatus::Connecting(s) => match s {
+            P2pConnectionState::Outgoing(s) => match s {
+                P2pConnectionOutgoingState::Pending { .. } => true,
+                _ => false,
+            },
+        },
+        P2pPeerStatus::Ready(_) => true,
+        _ => false,
+    })
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingRandomInitAction {}
+
+impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingRandomInitAction {
+    fn is_enabled(&self, state: &crate::P2pState) -> bool {
+        !already_connected_or_connecting(state)
     }
 }
 
@@ -34,7 +58,7 @@ pub struct P2pConnectionOutgoingInitAction {
 
 impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingInitAction {
     fn is_enabled(&self, state: &crate::P2pState) -> bool {
-        !state.peers.contains_key(&self.opts.peer_id)
+        !already_connected_or_connecting(state) && !state.peers.contains_key(&self.opts.peer_id)
     }
 }
 
@@ -46,17 +70,7 @@ pub struct P2pConnectionOutgoingReconnectAction {
 
 impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingReconnectAction {
     fn is_enabled(&self, state: &crate::P2pState) -> bool {
-        let already_connected_or_connecting = state.peers.iter().any(|(_, p)| match &p.status {
-            P2pPeerStatus::Connecting(s) => match s {
-                P2pConnectionState::Outgoing(s) => match s {
-                    P2pConnectionOutgoingState::Pending { .. } => true,
-                    _ => false,
-                },
-            },
-            P2pPeerStatus::Ready(_) => true,
-            _ => false,
-        });
-        if already_connected_or_connecting {
+        if already_connected_or_connecting(state) {
             return false;
         }
 
@@ -177,6 +191,12 @@ use crate::{
 };
 
 use super::P2pConnectionOutgoingState;
+
+impl From<P2pConnectionOutgoingRandomInitAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingRandomInitAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
 
 impl From<P2pConnectionOutgoingInitAction> for crate::P2pAction {
     fn from(a: P2pConnectionOutgoingInitAction) -> Self {

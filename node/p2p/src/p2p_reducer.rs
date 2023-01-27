@@ -9,19 +9,18 @@ impl P2pState {
         let (action, meta) = action.split();
         match action {
             P2pAction::Connection(action) => {
+                let Some(peer_id) = action.peer_id() else { return };
                 let peer = if action.should_create_peer() {
-                    self.peers
-                        .entry(*action.peer_id())
-                        .or_insert_with(|| P2pPeerState {
-                            dial_addrs: action.dial_addrs().to_vec(),
-                            status: P2pPeerStatus::Connecting(match &action {
-                                P2pConnectionAction::Outgoing(_) => {
-                                    P2pConnectionState::Outgoing(Default::default())
-                                }
-                            }),
-                        })
+                    self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                        dial_addrs: action.dial_addrs().to_vec(),
+                        status: P2pPeerStatus::Connecting(match &action {
+                            P2pConnectionAction::Outgoing(_) => {
+                                P2pConnectionState::Outgoing(Default::default())
+                            }
+                        }),
+                    })
                 } else {
-                    match self.peers.get_mut(action.peer_id()) {
+                    match self.peers.get_mut(peer_id) {
                         Some(v) => v,
                         None => return,
                     }

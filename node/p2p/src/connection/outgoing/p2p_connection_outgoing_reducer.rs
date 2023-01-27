@@ -6,6 +6,7 @@ impl P2pConnectionOutgoingState {
     pub fn reducer(&mut self, action: P2pConnectionOutgoingActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
+            P2pConnectionOutgoingAction::RandomInit(_) => {}
             P2pConnectionOutgoingAction::Init(content) => {
                 *self = Self::Init {
                     time: meta.time(),

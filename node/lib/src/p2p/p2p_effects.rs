@@ -32,6 +32,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
     match action {
         P2pAction::Connection(action) => match action {
             P2pConnectionAction::Outgoing(action) => match action {
+                P2pConnectionOutgoingAction::RandomInit(action) => {
+                    action.effects(&meta, store);
+                }
                 P2pConnectionOutgoingAction::Init(action) => {
                     action.effects(&meta, store);
                 }

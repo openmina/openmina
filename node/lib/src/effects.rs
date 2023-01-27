@@ -1,3 +1,5 @@
+use p2p::connection::outgoing::P2pConnectionOutgoingRandomInitAction;
+
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::logger::logger_effects;
@@ -25,6 +27,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
     logger_effects(store, meta.clone().with_action(&action));
     match action {
         Action::CheckTimeouts(_) => {
+            store.dispatch(P2pConnectionOutgoingRandomInitAction {});
+
             for peer_id in store.state().p2p.ready_peers() {
                 store.dispatch(P2pRpcOutgoingInitAction {
                     peer_id,
