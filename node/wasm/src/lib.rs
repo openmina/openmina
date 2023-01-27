@@ -349,6 +349,14 @@ pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
                         "/dns4/webrtc2.webnode.openmina.com/tcp/443",
                         "Qmaxe3KXcdyAHEiFL48bvkJLsPb9S3q3dZ5qUP1B89CEJ6",
                     ),
+                    dial_opts(
+                        "/dns4/webrtc2.webnode.openmina.com/tcp/4431",
+                        "QmPQrT3AVMpjvKoDG4UTFMy7Fa1CZ3BgpdjBmmYaGANkq9",
+                    ),
+                    dial_opts(
+                        "/dns4/webrtc2.webnode.openmina.com/tcp/4432",
+                        "QmSJWfK7GSAFY2Gb8Unag2P68rtCrJXfZBTKZRgN94ppj3",
+                    ),
                 ],
             },
         });
