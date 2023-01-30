@@ -121,6 +121,12 @@ fn get_account_info(
         }
     });
 
+    // TODO(binier): tmp, till the frontend is adjusted. It
+    // is useful to return data, even if the latest_state isn't ready.
+    if data.is_none() {
+        return Err(WatchedAccountsGetError::NotReady);
+    }
+
     Ok(WatchedAccountInfo {
         initial_state: account.initial_state.clone(),
         latest_state: data.cloned(),
