@@ -23,7 +23,7 @@ module Rust = struct
   (* type attached_mask *)
   (* type any_mask *)
 
-  external transaction_fuzzer : (bytes -> unit) -> (bytes -> bytes) -> unit = "rust_transaction_fuzzer"
+  external transaction_fuzzer : (bytes -> bytes) -> (bytes -> bytes) -> unit = "rust_transaction_fuzzer"
 
   external mask_create : int -> mask = "rust_mask_create"
   external mask_get_directory : mask -> string option = "rust_mask_get_directory"

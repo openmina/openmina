@@ -89,6 +89,8 @@ in_nodejs = []
 
 [profile.release]
 debug = true
+panic = "abort" # needed for transaction fuzzer
+
 
 # Run tests in CI with this profile
 # https://doc.rust-lang.org/cargo/reference/profiles.html
