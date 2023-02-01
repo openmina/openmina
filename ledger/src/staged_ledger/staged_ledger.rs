@@ -3086,7 +3086,7 @@ mod tests_ocaml {
                     None,
                     test_mask,
                     NumProvers::One,
-                    &stmt_to_work_random_prover,
+                    &stmt_to_work_one_prover,
                 )
             },
         );
@@ -3113,7 +3113,7 @@ mod tests_ocaml {
                     None,
                     test_mask,
                     NumProvers::One,
-                    &stmt_to_work_random_prover,
+                    &stmt_to_work_one_prover,
                 )
             },
         );
