@@ -47,7 +47,7 @@ impl TokenId {
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/account.ml#L93
 #[derive(Clone, Debug, PartialEq, Eq, derive_more::Deref, derive_more::From)]
-pub struct TokenSymbol(String);
+pub struct TokenSymbol(pub String);
 
 impl Default for TokenSymbol {
     fn default() -> Self {
