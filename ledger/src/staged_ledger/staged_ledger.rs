@@ -2833,6 +2833,15 @@ mod tests_ocaml {
         gen_zkapps(None, num_zkapps, iters)
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/f6756507ff7380a691516ce02a3cf7d9d32915ae/src/lib/staged_ledger/staged_ledger.ml#L2560
+    fn gen_failing_zkapps_at_capacity() -> (Mask, Vec<valid::UserCommand>, Vec<Option<usize>>) {
+        let mut rng = rand::thread_rng();
+
+        let iters = rng.gen_range(1..max_blocks_for_coverage(0));
+        let num_zkapps = TRANSACTION_CAPACITY * iters;
+        gen_zkapps(Some(Failure::InvalidAccountPrecondition), num_zkapps, iters)
+    }
+
     /// Max throughput (zkapps)
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2664
@@ -2868,7 +2877,29 @@ mod tests_ocaml {
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2675
     // #[test]
     fn max_throughput_zkapps_that_may_fail() {
-        // TODO (requires pickles)
+        let (ledger, zkapps, iters) = gen_failing_zkapps_at_capacity();
+
+        async_with_given_ledger(
+            &LedgerInitialState { state: vec![] },
+            zkapps.clone(),
+            iters.clone(),
+            ledger.clone(),
+            |sl, test_mask| {
+                let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
+
+                test_simple(
+                    account_ids,
+                    zkapps.clone(),
+                    iters.clone(),
+                    sl,
+                    None,
+                    Some(true),
+                    test_mask,
+                    NumProvers::Many,
+                    &stmt_to_work_random_prover,
+                )
+            },
+        );
     }
 
     /// Generator for when we have less commands than needed to fill all slots.
@@ -2984,12 +3015,54 @@ mod tests_ocaml {
         );
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/f6756507ff7380a691516ce02a3cf7d9d32915ae/src/lib/staged_ledger/staged_ledger.ml#L2579
+    fn gen_zkapps_below_capacity(
+        extra_blocks: Option<bool>,
+    ) -> (Mask, Vec<valid::UserCommand>, Vec<Option<usize>>) {
+        let extra_blocks = extra_blocks.unwrap_or(false);
+        let mut rng = rand::thread_rng();
+
+        let iters_max = max_blocks_for_coverage(0) * if extra_blocks { 4 } else { 2 };
+        let iters = rng.gen_range(1..iters_max);
+
+        // see comment in gen_below_capacity for rationale
+
+        let zkapps_per_iter: Vec<usize> = (0..iters)
+            .map(|_| rng.gen_range(1..((TRANSACTION_CAPACITY / 2) - 1)))
+            .collect();
+
+        let num_zkapps: usize = zkapps_per_iter.iter().sum();
+        gen_zkapps(None, num_zkapps, iters)
+    }
+
     /// Be able to include random number of commands (zkapps)
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2694
     // #[test]
     fn be_able_to_include_random_number_of_commands_zkapps() {
-        // TODO (requires pickles)
+        let (ledger, zkapps, iters) = gen_zkapps_below_capacity(None);
+
+        async_with_given_ledger(
+            &LedgerInitialState { state: vec![] },
+            zkapps.clone(),
+            iters.clone(),
+            ledger.clone(),
+            |sl, test_mask| {
+                let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
+
+                test_simple(
+                    account_ids,
+                    zkapps.clone(),
+                    iters.clone(),
+                    sl,
+                    None,
+                    None,
+                    test_mask,
+                    NumProvers::Many,
+                    &stmt_to_work_random_prover,
+                )
+            },
+        );
     }
 
     /// Be able to include random number of commands (One prover)
@@ -3051,12 +3124,43 @@ mod tests_ocaml {
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2712
     // #[test]
     fn be_able_to_include_random_number_of_commands_one_prover_zkapps() {
-        // TODO (requires pickles)
+        let (ledger, zkapps, iters) = gen_zkapps_below_capacity(None);
+
+        async_with_given_ledger(
+            &LedgerInitialState { state: vec![] },
+            zkapps.clone(),
+            iters.clone(),
+            ledger.clone(),
+            |sl, test_mask| {
+                let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
+
+                test_simple(
+                    account_ids,
+                    zkapps.clone(),
+                    iters.clone(),
+                    sl,
+                    None,
+                    None,
+                    test_mask,
+                    NumProvers::One,
+                    &stmt_to_work_one_prover,
+                )
+            },
+        );
     }
 
     /// Fixed public key for when there is only one snark worker.
     static SNARK_WORKER_PK: Lazy<CompressedPubKey> =
         Lazy::new(|| gen_keypair().public.into_compressed());
+
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2295
+    fn stmt_to_work_one_prover(stmt: &work::Statement) -> Option<work::Checked> {
+        Some(work::Checked {
+            fee: WORK_FEE,
+            proofs: proofs(stmt),
+            prover: SNARK_WORKER_PK.clone(),
+        })
+    }
 
     /// Zero proof-fee should not create a fee transfer
     ///
