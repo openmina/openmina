@@ -7,21 +7,21 @@ pub enum Direction {
 }
 
 #[derive(Clone, Eq)]
-pub struct Address {
-    inner: [u8; 32],
-    length: usize,
+pub struct Address<const NBYTES: usize> {
+    pub(super) inner: [u8; NBYTES],
+    pub(super) length: usize,
 }
 
-impl<'a> TryFrom<&'a str> for Address {
+impl<'a, const NBYTES: usize> TryFrom<&'a str> for Address<NBYTES> {
     type Error = ();
 
     fn try_from(s: &'a str) -> Result<Self, Self::Error> {
-        if s.len() >= 256 {
+        if s.len() >= (NBYTES * 8) {
             return Err(());
         }
 
         let mut addr = Address {
-            inner: [0; 32],
+            inner: [0; NBYTES],
             length: s.len(),
         };
         for (index, c) in s.chars().enumerate() {
@@ -35,7 +35,7 @@ impl<'a> TryFrom<&'a str> for Address {
     }
 }
 
-impl PartialEq for Address {
+impl<const NBYTES: usize> PartialEq for Address<NBYTES> {
     fn eq(&self, other: &Self) -> bool {
         if self.length != other.length {
             return false;
@@ -59,9 +59,9 @@ impl PartialEq for Address {
     }
 }
 
-impl std::fmt::Debug for Address {
+impl<const NBYTES: usize> std::fmt::Debug for Address<NBYTES> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut s = String::with_capacity(256);
+        let mut s = String::with_capacity(NBYTES * 8);
 
         for index in 0..self.length {
             if index != 0 && index % 8 == 0 {
@@ -81,10 +81,10 @@ impl std::fmt::Debug for Address {
     }
 }
 
-impl IntoIterator for Address {
+impl<const NBYTES: usize> IntoIterator for Address<NBYTES> {
     type Item = Direction;
 
-    type IntoIter = AddressIterator;
+    type IntoIter = AddressIterator<NBYTES>;
 
     fn into_iter(self) -> Self::IntoIter {
         let length = self.length;
@@ -97,14 +97,14 @@ impl IntoIterator for Address {
     }
 }
 
-impl Address {
+impl<const NBYTES: usize> Address<NBYTES> {
     pub fn to_linear_index(&self) -> usize {
         let index = self.to_index();
 
         2usize.pow(self.length as u32) + index.0 as usize - 1
     }
 
-    pub fn iter(&self) -> AddressIterator {
+    pub fn iter(&self) -> AddressIterator<NBYTES> {
         AddressIterator {
             addr: self.clone(),
             length: self.length,
@@ -119,21 +119,21 @@ impl Address {
 
     pub fn root() -> Self {
         Self {
-            inner: [0; 32],
+            inner: [0; NBYTES],
             length: 0,
         }
     }
 
     pub const fn first(length: usize) -> Self {
         Self {
-            inner: [0; 32],
+            inner: [0; NBYTES],
             length,
         }
     }
 
     pub fn last(length: usize) -> Self {
         Self {
-            inner: [!0; 32],
+            inner: [!0; NBYTES],
             length,
         }
     }
@@ -204,7 +204,7 @@ impl Address {
         // }
     }
 
-    fn clear_after(&mut self, index: usize) {
+    pub(super) fn clear_after(&mut self, index: usize) {
         let byte_index = index / 8;
         let bit_index = index % 8;
 
@@ -236,7 +236,7 @@ impl Address {
         }
     }
 
-    pub fn next(&self) -> Option<Address> {
+    pub fn next(&self) -> Option<Self> {
         let length = self.length;
         let mut next = self.clone();
 
@@ -266,7 +266,7 @@ impl Address {
         Some(next)
     }
 
-    pub fn prev(&self) -> Option<Address> {
+    pub fn prev(&self) -> Option<Self> {
         let length = self.length;
         let mut prev = self.clone();
         let nused_bytes = self.nused_bytes();
@@ -339,7 +339,7 @@ impl Address {
         addr
     }
 
-    pub fn iter_children(&self, length: usize) -> AddressChildrenIterator {
+    pub fn iter_children(&self, length: usize) -> AddressChildrenIterator<NBYTES> {
         assert!(self.length <= length);
 
         let root_length = self.length;
@@ -366,7 +366,7 @@ impl Address {
         }
     }
 
-    pub fn is_before(&self, other: &Address) -> bool {
+    pub fn is_before(&self, other: &Self) -> bool {
         assert!(self.length <= other.length);
 
         let mut other = other.clone();
@@ -377,7 +377,7 @@ impl Address {
         // self == &other
     }
 
-    pub fn is_parent_of(&self, other: &Address) -> bool {
+    pub fn is_parent_of(&self, other: &Self) -> bool {
         if self.length == 0 {
             return true;
         }
@@ -411,21 +411,21 @@ impl Address {
         let mut rng = rand::thread_rng();
         let length = rng.gen_range(0..max_depth);
 
-        let mut inner = [0; 32];
+        let mut inner = [0; NBYTES];
         rng.fill_bytes(&mut inner[0..(length / 8) + 1]);
 
         Self { inner, length }
     }
 }
 
-pub struct AddressIterator {
-    addr: Address,
+pub struct AddressIterator<const NBYTES: usize> {
+    addr: Address<NBYTES>,
     iter_index: usize,
     iter_back_index: usize,
     length: usize,
 }
 
-impl DoubleEndedIterator for AddressIterator {
+impl<const NBYTES: usize> DoubleEndedIterator for AddressIterator<NBYTES> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let prev = self.iter_back_index.checked_sub(1)?;
         self.iter_back_index = prev;
@@ -433,7 +433,7 @@ impl DoubleEndedIterator for AddressIterator {
     }
 }
 
-impl Iterator for AddressIterator {
+impl<const NBYTES: usize> Iterator for AddressIterator<NBYTES> {
     type Item = Direction;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -449,13 +449,13 @@ impl Iterator for AddressIterator {
 }
 
 #[derive(Debug)]
-pub struct AddressChildrenIterator {
-    current: Option<Address>,
-    until: Option<Address>,
+pub struct AddressChildrenIterator<const NBYTES: usize> {
+    current: Option<Address<NBYTES>>,
+    until: Option<Address<NBYTES>>,
     nchildren: u64,
 }
 
-impl AddressChildrenIterator {
+impl<const NBYTES: usize> AddressChildrenIterator<NBYTES> {
     pub fn len(&self) -> usize {
         self.nchildren as usize
     }
@@ -465,8 +465,8 @@ impl AddressChildrenIterator {
     }
 }
 
-impl Iterator for AddressChildrenIterator {
-    type Item = Address;
+impl<const NBYTES: usize> Iterator for AddressChildrenIterator<NBYTES> {
+    type Item = Address<NBYTES>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current == self.until {
@@ -476,208 +476,5 @@ impl Iterator for AddressChildrenIterator {
         self.current = current.next();
 
         Some(current)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[cfg(target_family = "wasm")]
-    use wasm_bindgen_test::wasm_bindgen_test as test;
-
-    #[test]
-    fn test_address_iter() {
-        use Direction::*;
-
-        let addr = Address::try_from("10101010").unwrap();
-        assert_eq!(
-            addr.iter().collect::<Vec<_>>(),
-            &[Right, Left, Right, Left, Right, Left, Right, Left]
-        );
-
-        let addr = Address::try_from("01010101").unwrap();
-        assert_eq!(
-            addr.iter().collect::<Vec<_>>(),
-            &[Left, Right, Left, Right, Left, Right, Left, Right]
-        );
-
-        let addr = Address::try_from("010101010").unwrap();
-        assert_eq!(
-            addr.iter().collect::<Vec<_>>(),
-            &[Left, Right, Left, Right, Left, Right, Left, Right, Left]
-        );
-
-        let addr = Address::try_from("0101010101").unwrap();
-        assert_eq!(
-            addr.iter().collect::<Vec<_>>(),
-            &[Left, Right, Left, Right, Left, Right, Left, Right, Left, Right]
-        );
-
-        let addr = Address::try_from("").unwrap();
-        assert!(addr.iter().next().is_none());
-
-        assert!(Address::try_from("0101010101a").is_err());
-        assert!(Address::try_from("0".repeat(255).as_str()).is_ok());
-        assert!(Address::try_from("0".repeat(256).as_str()).is_err());
-    }
-
-    #[test]
-    fn test_address_next() {
-        let two: usize = 2;
-
-        // prev
-        for length in 5..23 {
-            let mut addr = Address::last(length);
-
-            elog!("length={length} until={:?}", two.pow(length as u32));
-            for _ in 0..two.pow(length as u32) - 1 {
-                let prev = addr.prev().unwrap();
-                assert_eq!(prev.next().unwrap(), addr);
-                addr = prev;
-            }
-
-            assert!(addr.prev().is_none());
-        }
-
-        // next
-        for length in 5..23 {
-            let mut addr = Address::first(length);
-
-            elog!("length={length} until={:?}", two.pow(length as u32));
-            for _ in 0..two.pow(length as u32) - 1 {
-                let next = addr.next().unwrap();
-                assert_eq!(next.prev().unwrap(), addr);
-                addr = next;
-            }
-
-            assert!(addr.next().is_none());
-        }
-    }
-
-    #[test]
-    fn test_address_clear() {
-        let mut inner: [u8; 32] = Default::default();
-        inner[0] = 0b11111111;
-        inner[1] = 0b11111111;
-
-        let mut addr = Address { inner, length: 12 };
-        elog!("ADDR={:?}", addr);
-        addr.clear_after(6);
-        elog!("ADDR={:?}", addr);
-    }
-
-    #[test]
-    fn test_address_can_reach() {
-        let addr = Address::try_from("00").unwrap();
-        assert!(addr.is_before(&Address::try_from("00").unwrap()));
-        assert!(addr.is_before(&Address::try_from("01").unwrap()));
-        assert!(addr.is_before(&Address::try_from("000").unwrap()));
-        assert!(addr.is_before(&Address::try_from("001").unwrap()));
-        assert!(addr.is_before(&Address::try_from("010").unwrap()));
-        assert!(addr.is_before(&Address::try_from("100").unwrap()));
-
-        let addr = Address::try_from("101").unwrap();
-        assert!(addr.is_before(&Address::try_from("10100").unwrap()));
-        assert!(addr.is_before(&Address::try_from("10111").unwrap()));
-        assert!(!addr.is_before(&Address::try_from("10011").unwrap()));
-    }
-
-    #[test]
-    fn test_address_show() {
-        let addr = Address::first(2);
-        elog!("LA {:?}", addr);
-        let sec = addr.next().unwrap();
-        elog!("LA {:?}", sec);
-        elog!("LA {:?}", sec.child_left());
-    }
-
-    #[test]
-    fn test_address_index() {
-        for length in 1..20 {
-            let mut addr = Address::first(length);
-
-            for index in 0..2u64.pow(length as u32) - 1 {
-                let to_index = addr.to_index();
-
-                assert_eq!(to_index, AccountIndex(index));
-                assert_eq!(addr, Address::from_index(to_index, length));
-
-                addr = addr.next().unwrap();
-            }
-        }
-    }
-
-    #[test]
-    fn test_address_linear() {
-        for (index, s) in [
-            "", "0", "1", "00", "01", "10", "11", "000", "001", "010", "011", "100", "101", "110",
-            "111",
-        ]
-        .iter()
-        .enumerate()
-        {
-            let addr = Address::try_from(*s).unwrap();
-            assert_eq!(index, addr.to_linear_index());
-        }
-    }
-
-    #[test]
-    fn test_address_children() {
-        let root = Address::try_from("00").unwrap();
-        let iter_children = root.iter_children(4);
-        assert_eq!(iter_children.len(), 4);
-        assert_eq!(
-            iter_children.collect::<Vec<_>>(),
-            &[
-                Address::try_from("0000").unwrap(),
-                Address::try_from("0001").unwrap(),
-                Address::try_from("0010").unwrap(),
-                Address::try_from("0011").unwrap(),
-            ]
-        );
-
-        let root = Address::try_from("01").unwrap();
-        let iter_children = root.iter_children(4);
-        assert_eq!(iter_children.len(), 4);
-        assert_eq!(
-            iter_children.collect::<Vec<_>>(),
-            &[
-                Address::try_from("0100").unwrap(),
-                Address::try_from("0101").unwrap(),
-                Address::try_from("0110").unwrap(),
-                Address::try_from("0111").unwrap(),
-            ]
-        );
-
-        let root = Address::try_from("10").unwrap();
-        let iter_children = root.iter_children(4);
-        assert_eq!(iter_children.len(), 4);
-        assert_eq!(
-            iter_children.collect::<Vec<_>>(),
-            &[
-                Address::try_from("1000").unwrap(),
-                Address::try_from("1001").unwrap(),
-                Address::try_from("1010").unwrap(),
-                Address::try_from("1011").unwrap(),
-            ]
-        );
-
-        let root = Address::try_from("11").unwrap();
-        let iter_children = root.iter_children(4);
-        assert_eq!(iter_children.len(), 4);
-        assert_eq!(
-            iter_children.collect::<Vec<_>>(),
-            &[
-                Address::try_from("1100").unwrap(),
-                Address::try_from("1101").unwrap(),
-                Address::try_from("1110").unwrap(),
-                Address::try_from("1111").unwrap(),
-            ]
-        );
-
-        let root = Address::try_from("00").unwrap();
-        let iter_children = root.iter_children(6);
-        assert_eq!(iter_children.len(), 16);
     }
 }
