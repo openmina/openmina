@@ -1776,7 +1776,11 @@ where
         Ok(result_opt)
     }
 
-    fn add_data(&mut self, data: Vec<BaseJob>) -> Result<(), ()> {
+    fn add_data(
+        &mut self,
+        data: Vec<BaseJob>,
+        base_kind: impl Fn(&BaseJob) -> usize,
+    ) -> Result<(), ()> {
         if data.is_empty() {
             return Ok(());
         }
@@ -1811,6 +1815,9 @@ where
             )
             .expect("Error while adding a base job to the tree");
 
+        let bases = tree.base_jobs();
+        let nbase = bases.len();
+
         let updated_trees = if data_len == available_space {
             let new_tree = Tree::create_tree(depth);
             let tree = tree.reset_weights(ResetKind::Both);
@@ -1821,10 +1828,27 @@ where
         };
 
         println!(
-            "- tree[{:>02}] level=7 {:>3} new base jobs (TODO)",
+            "- tree[{:>02}] level=7 {:>3} new base jobs (TODO), total_nbase_jobs={:?}",
             self.trees.len() - 1,
-            data_len
+            data_len,
+            nbase,
         );
+
+        if nbase == 128 {
+            println!("           level=7 is filled with:");
+            println!(
+                "            - num_user_command={}",
+                bases.iter().filter(|b| base_kind(b) == 0).count()
+            );
+            println!(
+                "            - num_fee_transfer={}",
+                bases.iter().filter(|b| base_kind(b) == 1).count()
+            );
+            println!(
+                "            - num_fee_coinbase={}",
+                bases.iter().filter(|b| base_kind(b) == 2).count()
+            );
+        }
 
         // println!(
         //     "updated_trees={} self_trees={:?}",
@@ -1914,6 +1938,7 @@ where
         &mut self,
         data: Vec<BaseJob>,
         completed_jobs: Vec<MergeJob>,
+        base_kind: impl Fn(&BaseJob) -> usize,
     ) -> Result<Option<(MergeJob, Vec<BaseJob>)>, ()> {
         fn split<T>(slice: &[T], n: usize) -> (&[T], &[T]) {
             (
@@ -1992,7 +2017,7 @@ where
 
         // update first set of jobs and data
         let result_opt = self.add_merge_jobs(jobs1)?;
-        self.add_data(data1.to_vec())?;
+        self.add_data(data1.to_vec(), &base_kind)?;
 
         if !jobs2.is_empty() || !data2.is_empty() {
             println!("scan_state update: (2nd set of jobs, new transactions didn't fit in latest/current tree)");
@@ -2001,7 +2026,7 @@ where
         // update second set of jobs and data.
         // This will be empty if all the data fit in the current tree
         self.add_merge_jobs(jobs2)?;
-        self.add_data(data2.to_vec())?;
+        self.add_data(data2.to_vec(), base_kind)?;
 
         // update the latest emitted value
         if result_opt.is_some() {
@@ -2022,8 +2047,9 @@ where
         &mut self,
         data: Vec<BaseJob>,
         completed_jobs: Vec<MergeJob>,
+        base_kind: impl Fn(&BaseJob) -> usize,
     ) -> Result<Option<(MergeJob, Vec<BaseJob>)>, ()> {
-        self.update_helper(data, completed_jobs)
+        self.update_helper(data, completed_jobs, base_kind)
     }
 
     pub fn all_jobs(&self) -> Vec<Vec<AvailableJob<BaseJob, MergeJob>>> {
@@ -2332,7 +2358,9 @@ where
     M: Debug + Clone + 'static,
 {
     let mut s2 = s1.clone();
-    let result_opt = s2.update(data.clone(), completed_jobs.clone()).unwrap();
+    let result_opt = s2
+        .update(data.clone(), completed_jobs.clone(), |_| 0)
+        .unwrap();
 
     assert_job_count(
         s1,
@@ -2596,7 +2624,7 @@ mod tests {
 
             let old_tuple = s.acc.clone();
 
-            let res_opt = s.update(data, jobs_done).unwrap();
+            let res_opt = s.update(data, jobs_done, |_| 0).unwrap();
 
             if let Some(res) = res_opt {
                 let tuple = if old_tuple.is_some() {

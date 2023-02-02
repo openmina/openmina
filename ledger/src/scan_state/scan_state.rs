@@ -1027,7 +1027,17 @@ impl ScanState {
         let old_proof = self.state.last_emitted_value().cloned();
         let work_list = fill_in_transaction_snark_work(work)?;
 
-        let proof_opt = self.state.update(transactions, work_list).unwrap();
+        let proof_opt = self
+            .state
+            .update(transactions, work_list, |base| {
+                // TODO: This is for logs only, make it cleaner
+                match base.transaction_with_info.varying {
+                    super::transaction_logic::transaction_applied::Varying::Command(_) => 0,
+                    super::transaction_logic::transaction_applied::Varying::FeeTransfer(_) => 1,
+                    super::transaction_logic::transaction_applied::Varying::Coinbase(_) => 2,
+                }
+            })
+            .unwrap();
 
         match proof_opt {
             None => Ok(None),

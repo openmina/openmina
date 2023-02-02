@@ -2732,6 +2732,33 @@ mod tests_ocaml {
         );
     }
 
+    /// Max throughput-ledger proof count-fixed blocks, one prover
+    #[test]
+    fn max_throughput_ledger_proof_count_fixed_blocks_one_prover() {
+        const EXPECTED_PROOF_COUNT: usize = 3;
+
+        let (ledger_init_state, cmds, iters) = gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.clone(),
+            iters.clone(),
+            |sl, test_mask| {
+                test_simple(
+                    init_pks(&ledger_init_state),
+                    cmds.to_vec(),
+                    iters.to_vec(),
+                    sl,
+                    Some(EXPECTED_PROOF_COUNT),
+                    None,
+                    test_mask,
+                    NumProvers::One,
+                    &stmt_to_work_one_prover,
+                )
+            },
+        );
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2511
     fn gen_at_capacity() -> (
         LedgerInitialState,
@@ -2754,7 +2781,7 @@ mod tests_ocaml {
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2651
     #[test]
-    fn max_throughput() {
+    fn max_throughput_normal() {
         let (ledger_init_state, cmds, iters) = gen_at_capacity();
 
         async_with_ledgers(
@@ -2772,6 +2799,31 @@ mod tests_ocaml {
                     test_mask,
                     NumProvers::Many,
                     &stmt_to_work_random_prover,
+                )
+            },
+        );
+    }
+
+    /// Max throughput, one prover
+    #[test]
+    fn max_throughput_normal_one_prover() {
+        let (ledger_init_state, cmds, iters) = gen_at_capacity();
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.clone(),
+            iters.clone(),
+            |sl, test_mask| {
+                test_simple(
+                    init_pks(&ledger_init_state),
+                    cmds.to_vec(),
+                    iters.to_vec(),
+                    sl,
+                    None,
+                    None,
+                    test_mask,
+                    NumProvers::One,
+                    &stmt_to_work_one_prover,
                 )
             },
         );
@@ -2942,7 +2994,7 @@ mod tests_ocaml {
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2686
     #[test]
-    fn be_able_to_include_random_number_of_commands_many() {
+    fn be_able_to_include_random_number_of_commands_many_normal() {
         let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
 
         async_with_ledgers(
@@ -3069,7 +3121,7 @@ mod tests_ocaml {
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2704
     #[test]
-    fn be_able_to_include_random_number_of_commands_one_prover() {
+    fn be_able_to_include_random_number_of_commands_one_prover_normal() {
         let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
 
         async_with_ledgers(
