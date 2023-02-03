@@ -17,10 +17,24 @@ use super::{
     staged_ledger::StagedLedger,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Discarded {
     pub commands_rev: Vec<WithStatus<valid::UserCommand>>,
     pub completed_work: Vec<work::Checked>,
+}
+
+impl std::fmt::Debug for Discarded {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            commands_rev,
+            completed_work,
+        } = self;
+
+        f.debug_struct("Discarded")
+            .field("commands_rev", &commands_rev.len())
+            .field("completed_work", &completed_work.len())
+            .finish()
+    }
 }
 
 impl Discarded {
@@ -38,7 +52,7 @@ pub enum IncreaseBy {
     Two,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Resources {
     max_space: u64,
     max_jobs: u64,
@@ -53,6 +67,42 @@ pub struct Resources {
     pub discarded: Discarded,
     is_coinbase_receiver_new: bool,
     _logger: (),
+}
+
+impl std::fmt::Debug for Resources {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            max_space,
+            max_jobs,
+            commands_rev,
+            completed_work_rev,
+            fee_transfers,
+            add_coinbase,
+            coinbase,
+            supercharge_coinbase,
+            receiver_pk,
+            budget,
+            discarded,
+            is_coinbase_receiver_new,
+            _logger,
+        } = self;
+
+        f.debug_struct("Resources")
+            .field("max_space", max_space)
+            .field("max_jobs", max_jobs)
+            .field("commands_rev", &commands_rev.len())
+            .field("completed_work_rev", &completed_work_rev.len())
+            .field("fee_transfers", fee_transfers)
+            .field("add_coinbase", add_coinbase)
+            .field("coinbase", coinbase)
+            .field("supercharge_coinbase", supercharge_coinbase)
+            .field("receiver_pk", receiver_pk)
+            .field("budget", budget)
+            .field("discarded", discarded)
+            .field("is_coinbase_receiver_new", is_coinbase_receiver_new)
+            .field("_logger", _logger)
+            .finish()
+    }
 }
 
 impl Resources {
@@ -429,6 +479,34 @@ impl Resources {
         self.commands_rev.len() as u64 + ((total_fee_transfer_pks + 1) / 2) + self.coinbase_added()
     }
 
+    #[allow(clippy::bool_to_int_with_if)]
+    pub fn slots_occupied_dbg(&self) -> u64 {
+        let fee_for_self = match &self.budget {
+            Err(_) => 0,
+            Ok(b) => {
+                if b.is_zero() {
+                    0
+                } else {
+                    1
+                }
+            }
+        };
+
+        dbg!(&self.fee_transfers);
+
+        let other_provers = self
+            .fee_transfers
+            .iter()
+            .filter(|(pk, _)| pk.0 != self.receiver_pk)
+            .count() as u64;
+
+        let total_fee_transfer_pks = other_provers + fee_for_self;
+
+        dbg!(fee_for_self, other_provers, total_fee_transfer_pks);
+
+        self.commands_rev.len() as u64 + ((total_fee_transfer_pks + 1) / 2) + self.coinbase_added()
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1430
     pub fn space_available(&self) -> bool {
         let slots = self.slots_occupied();
@@ -466,6 +544,10 @@ impl Resources {
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1454
     pub fn available_space(&self) -> u64 {
         self.max_space - self.slots_occupied()
+    }
+
+    pub fn available_space_dbg(&self) -> u64 {
+        self.max_space - self.slots_occupied_dbg()
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1456
@@ -573,8 +655,14 @@ impl Resources {
         let incr = |cb: &AtMostTwo<CoinbaseFeeTransfer>| {
             Ok(match cb {
                 AtMostTwo::Zero => AtMostTwo::One(None),
-                AtMostTwo::One(None) => AtMostTwo::Two(None),
-                AtMostTwo::One(Some(ft)) => AtMostTwo::Two(Some((ft.clone(), None))),
+                AtMostTwo::One(None) => {
+                    eprintln!("Coinbase one(none) to two");
+                    AtMostTwo::Two(None)
+                }
+                AtMostTwo::One(Some(ft)) => {
+                    eprintln!("Coinbase one(some) to two {:?}", ft);
+                    AtMostTwo::Two(Some((ft.clone(), None)))
+                }
                 AtMostTwo::Two(_) => {
                     return Err("Coinbase count cannot be more than two".to_string())
                 }

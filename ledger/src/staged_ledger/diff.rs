@@ -13,22 +13,41 @@ use crate::{
 use super::{pre_diff_info::PreDiffError, staged_ledger::StagedLedger};
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L5
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum AtMostTwo<T> {
     Zero,
     One(Option<T>),
     Two(Option<(T, Option<T>)>),
 }
 
+impl<T> std::fmt::Debug for AtMostTwo<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Zero => write!(f, "Zero"),
+            Self::One(_) => f.debug_tuple("One(_)").finish(),
+            Self::Two(_) => f.debug_tuple("Two(_, _)").finish(),
+        }
+    }
+}
+
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L20
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum AtMostOne<T> {
     Zero,
     One(Option<T>),
 }
 
+impl<T> std::fmt::Debug for AtMostOne<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Zero => write!(f, "Zero"),
+            Self::One(_) => f.debug_tuple("One(_)").finish(),
+        }
+    }
+}
+
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L37
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct PreDiffTwo<A, B> {
     pub completed_works: Vec<A>,
     pub commands: Vec<B>,
@@ -36,13 +55,49 @@ pub struct PreDiffTwo<A, B> {
     pub internal_command_statuses: Vec<TransactionStatus>,
 }
 
+impl<A, B> std::fmt::Debug for PreDiffTwo<A, B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            completed_works,
+            commands,
+            coinbase,
+            internal_command_statuses,
+        } = self;
+
+        f.debug_struct("PreDiffTwo")
+            .field("completed_works", &completed_works.len())
+            .field("commands", &commands.len())
+            .field("coinbase", coinbase)
+            .field("internal_command_statuses", internal_command_statuses)
+            .finish()
+    }
+}
+
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L54
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct PreDiffOne<A, B> {
     pub completed_works: Vec<A>,
     pub commands: Vec<B>,
     pub coinbase: AtMostOne<CoinbaseFeeTransfer>,
     pub internal_command_statuses: Vec<TransactionStatus>,
+}
+
+impl<A, B> std::fmt::Debug for PreDiffOne<A, B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            completed_works,
+            commands,
+            coinbase,
+            internal_command_statuses,
+        } = self;
+
+        f.debug_struct("PreDiffOne")
+            .field("completed_works", &completed_works.len())
+            .field("commands", &commands.len())
+            .field("coinbase", coinbase)
+            .field("internal_command_statuses", internal_command_statuses)
+            .finish()
+    }
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L68

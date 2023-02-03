@@ -1412,17 +1412,23 @@ impl StagedLedger {
                     )
                 };
 
+                dbg!(res.available_space_dbg());
+
                 let (res1, res2) = if res.commands_rev.is_empty() {
+                    println!("edge_case: No user command added, add a coinbase only (Sequence.is_empty res.commands_rev)");
+
                     let res = try_with_coinbase();
                     (res, None)
                 } else {
                     match res.available_space() {
                         0 => {
+                            println!("edge_case: Split commands in 2 diffs/partitions with at least 1 coinbase on next tree (Resources.available_space res = 0)");
                             // generate the next prediff with a coinbase at least
                             let res2 = second_pre_diff(res.clone(), y, true, cw_seq_2);
                             ((res, log1), Some(res2))
                         }
                         1 => {
+                            println!("edge_case: only 1 slot available, add coinbase and rest on 2nd diff/partition (Resources.available_space res = 1)");
                             // There's a slot available in the first partition, fill it
                             // with coinbase and create another pre_diff for the slots
                             // in the second partiton with the remaining user commands and work
@@ -1430,12 +1436,14 @@ impl StagedLedger {
                             incr_coinbase_and_compute(res, IncreaseBy::One)
                         }
                         2 => {
+                            println!("edge_case: 2 slots available, split coinbase in 2 (Resources.available_space res = 2)");
                             // There are two slots which cannot be filled using user commands,
                             // so we split the coinbase into two parts and fill those two spots
 
                             incr_coinbase_and_compute(res, IncreaseBy::Two)
                         }
                         _ => {
+                            println!("edge_case: transactions fit in current tree (Resources.available_space res = _)");
                             // Too many slots left in the first partition. Either there wasn't
                             // enough work to add transactions or there weren't enough
                             // transactions. Create a new pre_diff for just the first partition
@@ -1774,7 +1782,10 @@ impl StagedLedger {
 
 #[cfg(test)]
 mod tests_ocaml {
-    use std::str::FromStr;
+    use std::{
+        str::FromStr,
+        sync::atomic::{AtomicUsize, Ordering::Relaxed},
+    };
 
     use ark_ff::{UniformRand, Zero};
     use mina_signer::{Keypair, Signer};
@@ -2217,6 +2228,8 @@ mod tests_ocaml {
         }
     }
 
+    static NITERS: AtomicUsize = AtomicUsize::new(0);
+
     /// Run the given function inside of the Deferred monad, with a staged
     ///   ledger and a separate test ledger, after applying the given
     ///   init_state to both. In the below tests we apply the same commands to
@@ -2240,10 +2253,19 @@ mod tests_ocaml {
         }) {
             Ok(_) => {}
             Err(_) => {
-                eprintln!("state={:#?}", ledger_init_state);
+                let niters = NITERS.load(Relaxed);
+                let iters = cmd_iters
+                    .iter()
+                    .filter_map(|n| n.as_ref())
+                    .take(niters + 1)
+                    .collect::<Vec<_>>();
+
+                println!("NITERS_LA={}", niters);
+                eprintln!("state={:#?}", "ignored");
+                // eprintln!("state={:#?}", ledger_init_state);
                 eprintln!("cmds[{}]={:#?}", cmds.len(), "ignored");
                 // eprintln!("cmds[{}]={:#?}", cmds.len(), cmds);
-                eprintln!("cmd_iters[{}]={:?}", cmd_iters.len(), cmd_iters);
+                eprintln!("cmd_iters[{}]={:?}", iters.len(), iters);
                 panic!("test failed (see logs above)");
             }
         }
@@ -2554,15 +2576,17 @@ mod tests_ocaml {
 
         let allow_failure = allow_failure.unwrap_or(false);
 
-        let mut niters = 0;
+        // let mut niters = 0;
 
         let total_ledger_proofs = iter_cmds_acc(
             &cmds,
             &cmd_iters,
             0,
             |cmds_left, count_opt, cmds_this_iter, mut proof_count| {
-                eprintln!("\n######## Start new batch {} ########", niters);
-                eprintln!("attempt_to_apply_nuser_commands={:?}", cmds_this_iter.len());
+                let niters = NITERS.load(std::sync::atomic::Ordering::Relaxed);
+
+                println!("\n######## Start new batch {} ########", niters);
+                println!("attempt_to_apply_nuser_commands={:?}", cmds_this_iter.len());
 
                 let (ledger_proof, diff) =
                     create_and_apply(None, None, &mut sl, cmds_this_iter, stmt_to_work);
@@ -2627,7 +2651,7 @@ mod tests_ocaml {
                     niters, cmds_applied_this_iter
                 );
 
-                niters += 1;
+                NITERS.store(niters + 1, Relaxed);
 
                 (diff, proof_count)
             },
@@ -3036,14 +3060,65 @@ mod tests_ocaml {
         //     124, 17, 80, 80
         // ];
 
-        let iters = vec![126; 25]
-            .into_iter()
-            .chain([
-                62, 17, // 124, 17
-            ])
-            .collect::<Vec<_>>();
+        // let iters = vec![126; 25]
+        //     .into_iter()
+        //     .chain([
+        //         62, 17, 100, // 124, 17
+        //     ])
+        //     .collect::<Vec<_>>();
+
+        // let mut rng = rand::thread_rng();
+        // let iters: Vec<_> = (1..1024).map(|_| {
+        //     rng.gen_range(1..63)
+        // }).collect();
+
+        // // Failed with AAAA 1/2 (random)
+        // let iters = [
+        //     15,
+        //     6,
+        //     24,
+        //     10,
+        //     7,
+        //     12,
+        //     26,
+        //     4,
+        //     7,
+        //     57,
+        //     23,
+        //     59,
+        //     52,
+        //     35,
+        //     5,
+        //     12,
+        //     33,
+        //     12,
+        //     49,
+        //     29,
+        //     35,
+        //     37,
+        //     23,
+        //     33,
+        //     28,
+        //     38,
+        //     16,
+        //     10,
+        // ];
+
+        // Failed with AAAA2 (one_prover)
+        // let iters = [57, 16, 3, 16, 61, 26, 15, 21, 7, 34, 1, 52, 21, 29, 50, 40, 25];
+
+        // let iters = [
+        //     121, 4
+        // ];
+
+        // panic at incr coinbase -> two
+        let iters = [
+            12, 40, 10, 13, 1, 25, 3, 20, 41, 16, 30, 37, 26, 47, 33, 45, 44, 62, 18, 24, 55, 10,
+            53, 25, 19, 35, 44, 54, 60, 62, 32, 48, 31, 10, 20, 32, 57, 48, 37, 38,
+        ];
 
         let total_cmds = iters.iter().sum();
+        eprintln!("total_cmds={:?}", total_cmds);
 
         let cmds = signed_command_sequence(total_cmds, SignKind::Real, &state);
         assert_eq!(cmds.len(), total_cmds);
@@ -3537,8 +3612,8 @@ mod tests_ocaml {
             &cmd_iters,
             proof_available,
             |cmds_left, _count_opt, cmds_this_iter, mut proofs_available_left| {
-                eprintln!("######## Start new batch {} ########", niters);
-                eprintln!("nto_applied={:?}", cmds_this_iter.len());
+                println!("######## Start new batch {} ########", niters);
+                println!("nto_applied={:?}", cmds_this_iter.len());
 
                 let work_list = sl.scan_state.all_work_statements_exn();
 
@@ -3742,8 +3817,8 @@ mod tests_ocaml {
             &cmd_iters,
             proof_available,
             |_cmds_left, _count_opt, cmds_this_iter, mut proofs_available_left| {
-                eprintln!("######## Start new batch {} ########", niters);
-                eprintln!("nto_applied={:?}", cmds_this_iter.len());
+                println!("######## Start new batch {} ########", niters);
+                println!("nto_applied={:?}", cmds_this_iter.len());
 
                 let work_list = sl.scan_state.all_work_statements_exn();
 

@@ -332,10 +332,45 @@ enum Job<BaseJob, MergeJob> {
 /// second = If the current-tree space is less than <max_base_jobs>
 /// then remaining number of slots on a new tree and the corresponding
 /// job count.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct SpacePartition {
     pub first: (u64, u64),
     pub second: Option<(u64, u64)>,
+}
+
+impl Debug for SpacePartition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        struct Detail {
+            space_available: u64,
+            njobs_to_be_completed: u64,
+        }
+
+        impl Debug for Detail {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_fmt(format_args!(
+                    "space_available: {}, njobs_to_be_completed={}",
+                    self.space_available, self.njobs_to_be_completed
+                ))
+            }
+        }
+
+        f.debug_struct("SpacePartition")
+            .field(
+                "first(current_tree)",
+                &Detail {
+                    space_available: self.first.0,
+                    njobs_to_be_completed: self.first.1,
+                },
+            )
+            .field(
+                "second(next_tree)",
+                &self.second.map(|second| Detail {
+                    space_available: second.0,
+                    njobs_to_be_completed: second.1,
+                }),
+            )
+            .finish()
+    }
 }
 
 trait WithVTable<T>: Debug {
@@ -1835,7 +1870,7 @@ where
             nbase,
         );
 
-        let folded =
+        let mut folded =
             bases
                 .iter()
                 .fold(Vec::<(usize, usize)>::with_capacity(128), |mut accum, b| {
@@ -1846,6 +1881,12 @@ where
                     }
                     accum
                 });
+
+        let total_folded: usize = folded.iter().map(|(_, n)| *n).sum();
+
+        if total_folded != 128 {
+            folded.push((10, 128 - total_folded));
+        }
 
         let to_s = |n: usize, s: &str| {
             if n == 1 {
@@ -1861,6 +1902,7 @@ where
                 0 => to_s(*n, "CMD"),
                 1 => to_s(*n, "FT"),
                 2 => to_s(*n, "CB"),
+                10 => to_s(*n, "EMPTY"),
                 _ => panic!(),
             })
             .join("|");

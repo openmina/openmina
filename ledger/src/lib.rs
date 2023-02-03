@@ -2,6 +2,7 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::uninlined_format_args)]
+#![allow(clippy::len_without_is_empty)]
 
 // Unused, we don't want to print on stdout
 // /// Print logs on stdout with the prefix `[ledger]`
