@@ -3026,15 +3026,27 @@ mod tests_ocaml {
         Vec<Option<usize>>,
     ) {
         let state = gen_initial_ledger_state();
-        let total_cmds = 1277;
+        // let iters = [
+        //     7, 17, 26, 35, 50, 13, 54, 12, 29, 54, 62, 36, 44, 44, 7, 8, 25, 8, 3, 42, 4, 46, 61,
+        //     6, 60, 24, 34, 39, 9, 58, 23, 34, 10, 22, 15, 8, 4, 1, 42, 25, 5, 17, 60, 49, 45,
+        // ];
+
+        // // 2 slots availables
+        // let iters = [
+        //     124, 17, 80, 80
+        // ];
+
+        let iters = vec![126; 25]
+            .into_iter()
+            .chain([
+                62, 17, // 124, 17
+            ])
+            .collect::<Vec<_>>();
+
+        let total_cmds = iters.iter().sum();
 
         let cmds = signed_command_sequence(total_cmds, SignKind::Real, &state);
         assert_eq!(cmds.len(), total_cmds);
-
-        let iters = [
-            7, 17, 26, 35, 50, 13, 54, 12, 29, 54, 62, 36, 44, 44, 7, 8, 25, 8, 3, 42, 4, 46, 61,
-            6, 60, 24, 34, 39, 9, 58, 23, 34, 10, 22, 15, 8, 4, 1, 42, 25, 5, 17, 60, 49, 45,
-        ];
 
         (state, cmds, iters.into_iter().map(Some).collect())
     }

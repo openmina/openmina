@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::io::Write;
 use std::ops::ControlFlow;
 
+use itertools::Itertools;
 use sha2::digest::generic_array::GenericArray;
 use sha2::digest::typenum::U32;
 use sha2::{Digest, Sha256};
@@ -1834,21 +1835,38 @@ where
             nbase,
         );
 
-        if nbase == 128 {
-            println!("           level=7 is filled with:");
-            println!(
-                "            - num_user_command={}",
-                bases.iter().filter(|b| base_kind(b) == 0).count()
-            );
-            println!(
-                "            - num_fee_transfer={}",
-                bases.iter().filter(|b| base_kind(b) == 1).count()
-            );
-            println!(
-                "            - num_fee_coinbase={}",
-                bases.iter().filter(|b| base_kind(b) == 2).count()
-            );
-        }
+        let folded =
+            bases
+                .iter()
+                .fold(Vec::<(usize, usize)>::with_capacity(128), |mut accum, b| {
+                    let kind = base_kind(b);
+                    match accum.last_mut() {
+                        Some(last) if last.0 == kind => last.1 += 1,
+                        _ => accum.push((kind, 1)),
+                    }
+                    accum
+                });
+
+        let to_s = |n: usize, s: &str| {
+            if n == 1 {
+                s.to_string()
+            } else {
+                format!("{n} {s}")
+            }
+        };
+
+        let s = folded
+            .iter()
+            .map(|(kind, n)| match kind {
+                0 => to_s(*n, "CMD"),
+                1 => to_s(*n, "FT"),
+                2 => to_s(*n, "CB"),
+                _ => panic!(),
+            })
+            .join("|");
+
+        println!("           level=7 has the following jobs (in this order):");
+        println!("           {s}");
 
         // println!(
         //     "updated_trees={} self_trees={:?}",
