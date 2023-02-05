@@ -5164,6 +5164,9 @@ mod tests {
 
     use o1_utils::FieldHelpers;
 
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+
     use super::{
         signed_command::{Body, Common, PaymentPayload},
         *,
