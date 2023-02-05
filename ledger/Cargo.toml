@@ -89,6 +89,14 @@ in_nodejs = []
 [profile.release]
 debug = true
 
+# Run tests in CI with this profile
+# https://doc.rust-lang.org/cargo/reference/profiles.html
+[profile.ci]
+inherits = "release"
+debug = true
+debug-assertions = true
+overflow-checks = true
+
 [patch.crates-io]
 ark-ff = { git = "https://github.com/name-placeholder/algebra", branch = "openmina" }
 ark-ec = { git = "https://github.com/name-placeholder/algebra", branch = "openmina" }
