@@ -1870,22 +1870,24 @@ where
             nbase,
         );
 
-        let mut folded =
-            bases
-                .iter()
-                .fold(Vec::<(usize, usize)>::with_capacity(128), |mut accum, b| {
-                    let kind = base_kind(b);
-                    match accum.last_mut() {
-                        Some(last) if last.0 == kind => last.1 += 1,
-                        _ => accum.push((kind, 1)),
-                    }
-                    accum
-                });
+        let max_base_jobs = self.max_base_jobs as usize;
+
+        let mut folded = bases.iter().fold(
+            Vec::<(usize, usize)>::with_capacity(max_base_jobs),
+            |mut accum, b| {
+                let kind = base_kind(b);
+                match accum.last_mut() {
+                    Some(last) if last.0 == kind => last.1 += 1,
+                    _ => accum.push((kind, 1)),
+                }
+                accum
+            },
+        );
 
         let total_folded: usize = folded.iter().map(|(_, n)| *n).sum();
 
-        if total_folded != 128 {
-            folded.push((10, 128 - total_folded));
+        if total_folded != max_base_jobs {
+            folded.push((10, max_base_jobs - total_folded));
         }
 
         let to_s = |n: usize, s: &str| {
