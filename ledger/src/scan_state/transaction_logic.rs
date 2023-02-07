@@ -3292,7 +3292,7 @@ pub mod local_state {
                 supply_increase: Signed::<Amount>::zero(),
                 ledger: Fp::zero(),
                 success: true,
-                account_update_index: Index(0),
+                account_update_index: Index::zero(),
                 failure_status_tbl: Vec::new(),
             }
         }

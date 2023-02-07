@@ -540,7 +540,7 @@ impl StagedLedger {
     fn apply_transaction_and_get_witness(
         constraint_constants: &ConstraintConstants,
         ledger: Mask,
-        pending_coinbase_stack_state: StackStateWithInitStack,
+        pending_coinbase_stack_state: &StackStateWithInitStack,
         transaction: &Transaction,
         status: Option<&TransactionStatus>,
         txn_state_view: &ProtocolStateView,
@@ -586,15 +586,15 @@ impl StagedLedger {
             }
         };
 
-        let witness = TransactionWithWitness {
+        let tx_with_witness = TransactionWithWitness {
             transaction_with_info: applied_txn,
             state_hash: state_and_body_hash,
             statement,
-            init_stack: InitStack::Base(pending_coinbase_stack_state.init_stack),
+            init_stack: InitStack::Base(pending_coinbase_stack_state.init_stack.clone()),
             ledger_witness,
         };
 
-        Ok((witness, updated_pending_coinbase_stack_state))
+        Ok((tx_with_witness, updated_pending_coinbase_stack_state))
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L611
@@ -607,7 +607,6 @@ impl StagedLedger {
         state_and_body_hash: (Fp, Fp),
     ) -> Result<(Vec<TransactionWithWitness>, Stack), StagedLedgerError> {
         let current_stack_with_state = current_stack.push_state(state_and_body_hash.1);
-        let mut witnesses = Vec::with_capacity(transactions.len());
 
         let mut pending_coinbase_stack_state = StackStateWithInitStack {
             pc: StackState {
@@ -617,28 +616,32 @@ impl StagedLedger {
             init_stack: current_stack,
         };
 
-        for transaction in transactions {
-            let public_keys = transaction.data.public_keys();
+        let tx_with_witness = transactions
+            .iter()
+            .map(|transaction| {
+                let public_keys = transaction.data.public_keys();
 
-            if let Some(pk) = public_keys.iter().find(|pk| decompress_pk(pk).is_none()) {
-                return Err(StagedLedgerError::InvalidPublicKey(pk.clone()));
-            }
+                if let Some(pk) = public_keys.iter().find(|pk| decompress_pk(pk).is_none()) {
+                    return Err(StagedLedgerError::InvalidPublicKey(pk.clone()));
+                }
 
-            let (value, updated) = Self::apply_transaction_and_get_witness(
-                constraint_constants,
-                ledger.clone(),
-                pending_coinbase_stack_state,
-                &transaction.data,
-                Some(&transaction.status),
-                current_state_view,
-                state_and_body_hash,
-            )?;
+                let (tx_with_witness, new_stack_state) = Self::apply_transaction_and_get_witness(
+                    constraint_constants,
+                    ledger.clone(),
+                    &pending_coinbase_stack_state,
+                    &transaction.data,
+                    Some(&transaction.status),
+                    current_state_view,
+                    state_and_body_hash,
+                )?;
 
-            witnesses.push(value);
-            pending_coinbase_stack_state = updated;
-        }
+                pending_coinbase_stack_state = new_stack_state;
 
-        Ok((witnesses, pending_coinbase_stack_state.pc.target))
+                Ok(tx_with_witness)
+            })
+            .collect::<Result<_, _>>()?;
+
+        Ok((tx_with_witness, pending_coinbase_stack_state.pc.target))
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L164
@@ -806,6 +809,7 @@ impl StagedLedger {
                 let second_has_data = !txns_for_partition2.is_empty();
 
                 let (pending_coinbase_action, stack_update) =
+                    // NOTE: Only branch `(true, false)` and `(false, true)` are taken here
                     match (coinbase_in_first_partition, second_has_data) {
                         (true, true) => {
                             (
