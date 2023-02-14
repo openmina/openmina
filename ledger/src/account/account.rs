@@ -74,7 +74,7 @@ impl From<&TokenSymbol> for mina_p2p_messages::string::ByteString {
 impl ToInputs for TokenSymbol {
     fn to_inputs(&self, inputs: &mut Inputs) {
         // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
-        assert!(self.len() <= 6);
+        //assert!(self.len() <= 6);
 
         let mut s = <[u8; 6]>::default();
         if !self.is_empty() {

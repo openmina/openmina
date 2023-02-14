@@ -1,5 +1,5 @@
 (rule
- (targets libmina_tree.a libmina_tree.so)
+ (targets libmina_tree.a libmina_tree.so dllmina_tree.so)
  (deps (source_tree .))
  (action
   (no-infer
@@ -8,6 +8,7 @@
     (run sh -c
       "cp /home/dan/code/mina/src/lib/mina_tree/target/release/libmina_tree.so ./libmina_tree.so 2> /dev/null || \
        cp /home/dan/code/mina/src/lib/mina_tree/target/release/libmina_tree.dylib ./libmina_tree.so")
+    (run cp /home/dan/code/mina/src/lib/mina_tree/target/release/libmina_tree.so ./dllmina_tree.so)
     (run cp /home/dan/code/mina/src/lib/mina_tree/target/release/libmina_tree.a ./libmina_tree.a)
    ))))
 

@@ -1266,13 +1266,14 @@ pub mod zkapp_command {
 
     impl<T> Check for ClosedInterval<T>
     where
-        T: PartialOrd,
+        T: PartialOrd + std::fmt::Debug,
     {
         type A = ClosedInterval<T>;
         type B = T;
 
         fn check(&self, label: String, rhs: Self::B) -> Result<(), String> {
-            if rhs >= self.lower && rhs <= self.upper {
+            println!("bounds check lower {:?} rhs {:?} upper {:?}", self.lower, rhs, self.upper);
+            if self.lower <= rhs && rhs <= self.upper {
                 Ok(())
             } else {
                 Err(format!("Bounds check failed: {}", label))
@@ -1345,10 +1346,13 @@ pub mod zkapp_command {
         T: Check<A = T>,
     {
         fn check(&self, label: String, rhs: T::B) -> Result<(), String> {
-            match self {
+
+            let ret = match self {
                 Self::Ignore => Ok(()),
-                Self::Check(t) => t.check(label, rhs),
-            }
+                Self::Check(t) => t.check(label.clone(), rhs),
+            };
+            println!("[rust] check {}, {:?}", label, ret);
+            ret
         }
     }
 
@@ -1491,6 +1495,8 @@ pub mod zkapp_command {
             self.snarked_ledger_hash
                 .check("snarker_ledger_hash".to_string(), s.snarked_ledger_hash)?;
             self.timestamp.check("timestamp".to_string(), s.timestamp)?;
+            self.blockchain_length
+                .check("blockchain_length".to_string(), s.blockchain_length)?;
             self.min_window_density
                 .check("min_window_density".to_string(), s.min_window_density)?;
             self.total_currency
@@ -2072,6 +2078,20 @@ pub mod zkapp_command {
 
         pub fn account_precondition(&self) -> AccountPreconditions {
             self.body.preconditions.account.clone()
+        }
+
+        pub fn is_proved(&self) -> bool {
+            match self.body.authorization_kind {
+                AuthorizationKind::Proof => true,
+                AuthorizationKind::Signature | AuthorizationKind::NoneGiven => false
+            }
+        }
+
+        pub fn is_signed(&self) -> bool {
+            match self.body.authorization_kind {
+                AuthorizationKind::Signature => true,
+                AuthorizationKind::Proof | AuthorizationKind::NoneGiven => false
+            }
         }
     }
 
@@ -3398,6 +3418,7 @@ where
     }
 }
 
+
 fn step_all<L>(
     constraint_constants: &ConstraintConstants,
     f: fn(
@@ -3506,7 +3527,10 @@ where
 
     let user_acc = f(init, initial_state.clone());
     let start = {
-        let zkapp_command = c.clone();
+        let zkapp_command = c
+        .account_updates
+        .cons(None, AccountUpdate::of_fee_payer(c.fee_payer.clone()));
+
         apply(
             constraint_constants,
             IsStart::Yes(StartData {

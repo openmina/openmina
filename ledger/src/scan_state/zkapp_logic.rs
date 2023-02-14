@@ -26,7 +26,7 @@ use crate::{
 use super::transaction_logic::{zkapp_command::SequenceEvents, Eff, ExistingOrNew, PerformResult};
 
 pub struct StartData {
-    pub zkapp_command: ZkAppCommand,
+    pub zkapp_command: CallForest<AccountUpdate>,
     pub memo_hash: Fp,
 }
 
@@ -308,9 +308,9 @@ where
     let is_start_ = local_state.stack_frame.calls.is_empty();
 
     match is_start {
-        IsStart::No => (),
+        IsStart::Compute(_) => (),
         IsStart::Yes(_) => assert!(is_start_),
-        IsStart::Compute(_) => assert_ne!(is_start_, true),
+        IsStart::No => assert_ne!(is_start_, true),
     };
 
     let is_start_ = match is_start {
@@ -333,12 +333,12 @@ where
     ) = {
         let (to_pop, call_stack) = match &is_start {
             IsStart::Compute(start_data) => {
-                if let true = is_start_ {
+                if is_start_ == true {
                     (
                         StackFrame {
                             caller: TokenId::default(),
                             caller_caller: TokenId::default(),
-                            calls: start_data.zkapp_command.account_updates.clone(),
+                            calls: start_data.zkapp_command.clone(),
                         },
                         CallStack::new(),
                     )
@@ -353,7 +353,7 @@ where
                 StackFrame {
                     caller: TokenId::default(),
                     caller_caller: TokenId::default(),
-                    calls: start_data.zkapp_command.account_updates.clone(),
+                    calls: start_data.zkapp_command.clone(),
                 },
                 CallStack::new(),
             ),
@@ -435,16 +435,6 @@ where
         (&a, &inclusion_proof),
     );
 
-    let local_state = match Env::perform(Eff::CheckAccountPrecondition(
-        account_update.clone(),
-        a.clone(),
-        account_is_new,
-        local_state,
-    )) {
-        PerformResult::LocalState(local_state) => local_state,
-        _ => unreachable!(),
-    };
-
     let protocol_state_predicate_satisfied =
         if let PerformResult::Bool(protocol_state_predicate_satisfied) =
             Env::perform(Eff::CheckProtocolStatePrecondition(
@@ -456,6 +446,18 @@ where
         } else {
             unreachable!()
         };
+
+    println!("[rust] protocol_state_predicate_satisfied {}", protocol_state_predicate_satisfied);
+
+    let local_state = match Env::perform(Eff::CheckAccountPrecondition(
+        account_update.clone(),
+        a.clone(),
+        account_is_new,
+        local_state,
+    )) {
+        PerformResult::LocalState(local_state) => local_state,
+        _ => unreachable!(),
+    };
 
     let local_state = local_state.add_check(
         TransactionFailure::ProtocolStatePreconditionUnsatisfied,
@@ -473,6 +475,9 @@ where
         };
         account_update.check_authorization(commitment.0, account_update_forest)
     };
+
+    assert!(proof_verifies == account_update.is_proved());
+    assert!(signature_verifies == account_update.is_signed());
 
     let local_state = local_state.add_check(
         TransactionFailure::FeePayerNonceMustIncrease,
@@ -492,6 +497,9 @@ where
     let depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer =
         account_update.use_full_commitment() && !is_start_;
     let does_not_use_a_signature = !signature_verifies;
+    println!("[rust] increments_nonce_and_constrains_its_old_value {}", increments_nonce_and_constrains_its_old_value);
+    println!("[rust] depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer {}", depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer);
+    println!("[rust] does_not_use_a_signature {}", does_not_use_a_signature);
     let local_state = local_state.add_check(
         TransactionFailure::ZkappCommandReplayCheckFailed,
         increments_nonce_and_constrains_its_old_value
@@ -531,7 +539,8 @@ where
     let (a, local_state) = {
         let balance_change = account_update.balance_change();
         let (balance, failed1) = a.balance.add_signed_amount_flagged(balance_change.clone());
-        let local_state = local_state.add_check(TransactionFailure::Overflow, failed1);
+        println!("[rust] failed1 {}", failed1);
+        let local_state = local_state.add_check(TransactionFailure::Overflow, !failed1);
         let local_state = {
             let account_creation_fee = constraint_constants.account_creation_fee;
             let (excess_minus_creation_fee, excess_update_failed) =
@@ -844,6 +853,8 @@ where
         let curr_token = local_state.token_id.clone();
         let curr_is_default = curr_token == TokenId::default();
         assert!(curr_is_default);
+        println!("[rust] is_start_ {:?}, account_update_token_is_default {:?}, local_delta.is_pos {:?}", is_start_, account_update_token_is_default, local_delta.is_pos());
+        println!("[rust] failure {:?}", local_state.failure_status_tbl );
         assert!(!is_start_ || (account_update_token_is_default && local_delta.is_pos()));
         let (new_local_fee_excess, overflow) = local_state.excess.add_flagged(Signed::<Fee> {
             magnitude: Fee::from_u64(local_delta.magnitude.as_u64()),
