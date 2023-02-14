@@ -785,8 +785,8 @@ pub mod zkapp_command {
         MinaBaseAccountUpdateCallTypeStableV1, MinaBaseAccountUpdateTWireStableV1,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
     };
-    use rand::{seq::SliceRandom, Rng};
     use mina_signer::Signature;
+    use rand::{seq::SliceRandom, Rng};
     //use rand::{seq::SliceRandom, Rng};
     use static_assertions::assert_eq_size_val;
 
@@ -1273,7 +1273,10 @@ pub mod zkapp_command {
         type B = T;
 
         fn check(&self, label: String, rhs: Self::B) -> Result<(), String> {
-            println!("bounds check lower {:?} rhs {:?} upper {:?}", self.lower, rhs, self.upper);
+            println!(
+                "bounds check lower {:?} rhs {:?} upper {:?}",
+                self.lower, rhs, self.upper
+            );
             if self.lower <= rhs && rhs <= self.upper {
                 Ok(())
             } else {
@@ -1347,7 +1350,6 @@ pub mod zkapp_command {
         T: Check<A = T>,
     {
         fn check(&self, label: String, rhs: T::B) -> Result<(), String> {
-
             let ret = match self {
                 Self::Ignore => Ok(()),
                 Self::Check(t) => t.check(label.clone(), rhs),
@@ -1833,7 +1835,10 @@ pub mod zkapp_command {
         pub fn dummy_of_tag(tag: ControlTag) -> Self {
             match tag {
                 ControlTag::Proof => Self::Proof(dummy::sideloaded_proof()),
-                ControlTag::Signature => Self::Signature(Signature{rx: Fp::one(), s: Fq::one(),}),
+                ControlTag::Signature => Self::Signature(Signature {
+                    rx: Fp::one(),
+                    s: Fq::one(),
+                }),
                 ControlTag::NoneGiven => Self::NoneGiven,
             }
         }
@@ -2084,14 +2089,14 @@ pub mod zkapp_command {
         pub fn is_proved(&self) -> bool {
             match self.body.authorization_kind {
                 AuthorizationKind::Proof => true,
-                AuthorizationKind::Signature | AuthorizationKind::NoneGiven => false
+                AuthorizationKind::Signature | AuthorizationKind::NoneGiven => false,
             }
         }
 
         pub fn is_signed(&self) -> bool {
             match self.body.authorization_kind {
                 AuthorizationKind::Signature => true,
-                AuthorizationKind::Proof | AuthorizationKind::NoneGiven => false
+                AuthorizationKind::Proof | AuthorizationKind::NoneGiven => false,
             }
         }
     }
@@ -3419,7 +3424,6 @@ where
     }
 }
 
-
 fn step_all<L>(
     constraint_constants: &ConstraintConstants,
     f: fn(
@@ -3529,8 +3533,8 @@ where
     let user_acc = f(init, initial_state.clone());
     let start = {
         let zkapp_command = c
-        .account_updates
-        .cons(None, AccountUpdate::of_fee_payer(c.fee_payer.clone()));
+            .account_updates
+            .cons(None, AccountUpdate::of_fee_payer(c.fee_payer.clone()));
 
         apply(
             constraint_constants,

@@ -12,9 +12,7 @@ use crate::{
             local_state::{CallStack, LocalStateEnv, StackFrame},
             protocol_state::GlobalState,
             set_account,
-            zkapp_command::{
-                self, AccountUpdate, CallForest, CheckAuthorizationResult, OrIgnore,
-            },
+            zkapp_command::{self, AccountUpdate, CallForest, CheckAuthorizationResult, OrIgnore},
             Env, TimingValidation, TransactionFailure,
         },
     },
@@ -447,7 +445,10 @@ where
             unreachable!()
         };
 
-    println!("[rust] protocol_state_predicate_satisfied {}", protocol_state_predicate_satisfied);
+    println!(
+        "[rust] protocol_state_predicate_satisfied {}",
+        protocol_state_predicate_satisfied
+    );
 
     let local_state = match Env::perform(Eff::CheckAccountPrecondition(
         account_update.clone(),
@@ -497,9 +498,18 @@ where
     let depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer =
         account_update.use_full_commitment() && !is_start_;
     let does_not_use_a_signature = !signature_verifies;
-    println!("[rust] increments_nonce_and_constrains_its_old_value {}", increments_nonce_and_constrains_its_old_value);
-    println!("[rust] depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer {}", depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer);
-    println!("[rust] does_not_use_a_signature {}", does_not_use_a_signature);
+    println!(
+        "[rust] increments_nonce_and_constrains_its_old_value {}",
+        increments_nonce_and_constrains_its_old_value
+    );
+    println!(
+        "[rust] depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer {}",
+        depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer
+    );
+    println!(
+        "[rust] does_not_use_a_signature {}",
+        does_not_use_a_signature
+    );
     let local_state = local_state.add_check(
         TransactionFailure::ZkappCommandReplayCheckFailed,
         increments_nonce_and_constrains_its_old_value
@@ -853,8 +863,13 @@ where
         let curr_token = local_state.token_id.clone();
         let curr_is_default = curr_token == TokenId::default();
         assert!(curr_is_default);
-        println!("[rust] is_start_ {:?}, account_update_token_is_default {:?}, local_delta.is_pos {:?}", is_start_, account_update_token_is_default, local_delta.is_pos());
-        println!("[rust] failure {:?}", local_state.failure_status_tbl );
+        println!(
+            "[rust] is_start_ {:?}, account_update_token_is_default {:?}, local_delta.is_pos {:?}",
+            is_start_,
+            account_update_token_is_default,
+            local_delta.is_pos()
+        );
+        println!("[rust] failure {:?}", local_state.failure_status_tbl);
         assert!(!is_start_ || (account_update_token_is_default && local_delta.is_pos()));
         let (new_local_fee_excess, overflow) = local_state.excess.add_flagged(Signed::<Fee> {
             magnitude: Fee::from_u64(local_delta.magnitude.as_u64()),

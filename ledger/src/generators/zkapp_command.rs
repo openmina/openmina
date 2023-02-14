@@ -6,7 +6,7 @@ use std::{
     marker::PhantomData,
 };
 
-use ark_ff::{UniformRand, Zero, One};
+use ark_ff::{One, UniformRand, Zero};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_signer::{CompressedPubKey, Keypair, Signature};
@@ -1324,7 +1324,10 @@ fn gen_fee_payer(
     );
 
     // real signature to be added when this data inserted into a Zkapp_command.t
-    let authorization = Signature {rx: Fp::one(), s: Fq::one()};
+    let authorization = Signature {
+        rx: Fp::one(),
+        s: Fq::one(),
+    };
 
     FeePayer {
         body,
@@ -1568,7 +1571,10 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
 
                 // Signature authorization to start
                 let account_update0 = {
-                    let authorization = zkapp_command::Control::Signature(Signature {rx: Fp::one(), s: Fq::one()});
+                    let authorization = zkapp_command::Control::Signature(Signature {
+                        rx: Fp::one(),
+                        s: Fq::one(),
+                    });
                     gen_account_update_from(AccountUpdateParams {
                         update,
                         failure,
@@ -1712,7 +1718,10 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
     let balance_change = balance_change_sum.negate();
 
     let balancing_account_update = {
-        let authorization = Control::Signature(Signature {rx: Fp::one(), s: Fq::one()});
+        let authorization = Control::Signature(Signature {
+            rx: Fp::one(),
+            s: Fq::one(),
+        });
         gen_account_update_from(AccountUpdateParams {
             update: None,
             failure,
@@ -1734,7 +1743,10 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
     };
 
     let mut gen_zkapp_command_with_token_accounts = |num_zkapp_command: usize| {
-        let authorization = Control::Signature(Signature {rx: Fp::one(), s: Fq::one()});
+        let authorization = Control::Signature(Signature {
+            rx: Fp::one(),
+            s: Fq::one(),
+        });
         let permissions_auth = ControlTag::Signature;
         let caller = CallType::Call;
 

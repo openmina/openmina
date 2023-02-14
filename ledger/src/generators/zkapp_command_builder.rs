@@ -7,9 +7,7 @@ use mina_signer::{Keypair, Signature};
 
 use crate::{
     hash_with_kimchi,
-    scan_state::transaction_logic::{
-        zkapp_command::{AccountUpdate, Control, ZkAppCommand},
-    },
+    scan_state::transaction_logic::zkapp_command::{AccountUpdate, Control, ZkAppCommand},
     staged_ledger::pre_diff_info::HashableCompressedPubKey,
 };
 
@@ -63,7 +61,10 @@ pub fn replace_authorizations(
         };
 
         // TODO: Really sign the zkapp
-        Signature {rx: Fp::one(), s: Fq::one()}
+        Signature {
+            rx: Fp::one(),
+            s: Fq::one(),
+        }
     };
 
     let fee_payer_kp = keymap

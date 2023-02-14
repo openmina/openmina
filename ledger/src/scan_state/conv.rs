@@ -21,12 +21,12 @@ use mina_p2p_messages::{
         MinaBaseFeeTransferStableV2, MinaBaseLedgerHash0StableV1, MinaBasePaymentPayloadStableV2,
         MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseStackHashStableV1,
         MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
-        MinaBaseReceiptChainHashStableV1,
-        MinaBaseSignedCommandMemoStableV1, MinaBaseSignedCommandPayloadBodyStableV2,
-        MinaBaseSignedCommandPayloadCommonStableV2, MinaBaseSignedCommandPayloadStableV2,
-        MinaBaseSignedCommandStableV2, MinaBaseSokMessageDigestStableV1,
-        MinaBaseSokMessageStableV1, MinaBaseStackFrameStableV1, MinaBaseStakeDelegationStableV1,
-        MinaBaseStateBodyHashStableV1, MinaBaseTransactionStatusFailureCollectionStableV1,
+        MinaBaseReceiptChainHashStableV1, MinaBaseSignedCommandMemoStableV1,
+        MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandPayloadCommonStableV2,
+        MinaBaseSignedCommandPayloadStableV2, MinaBaseSignedCommandStableV2,
+        MinaBaseSokMessageDigestStableV1, MinaBaseSokMessageStableV1, MinaBaseStackFrameStableV1,
+        MinaBaseStakeDelegationStableV1, MinaBaseStateBodyHashStableV1,
+        MinaBaseTransactionStatusFailureCollectionStableV1,
         MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2,
         MinaBaseZkappCommandTStableV1WireStableV1,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
@@ -1388,7 +1388,7 @@ impl From<&MinaBaseZkappCommandTStableV1WireStableV1> for zkapp_command::ZkAppCo
         Self {
             fee_payer: (&cmd.fee_payer).into(),
             account_updates: (&cmd.account_updates).into(),
-            memo: (&cmd.memo).into()
+            memo: (&cmd.memo).into(),
         }
     }
 }
@@ -1398,7 +1398,7 @@ impl From<&zkapp_command::ZkAppCommand> for MinaBaseZkappCommandTStableV1WireSta
         Self {
             fee_payer: (&cmd.fee_payer).into(),
             account_updates: (&cmd.account_updates).into(),
-            memo: (&cmd.memo).into()
+            memo: (&cmd.memo).into(),
         }
     }
 }

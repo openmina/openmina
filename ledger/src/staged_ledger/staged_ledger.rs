@@ -1791,11 +1791,11 @@ mod tests_ocaml {
         sync::atomic::{AtomicUsize, Ordering::Relaxed},
     };
 
-    use ark_ff::{UniformRand, Zero, One};
+    use ark_ff::{One, UniformRand, Zero};
     use mina_curves::pasta::Fq;
+    use mina_signer::Signer;
     use mina_signer::{Keypair, Signature};
     use o1_utils::FieldHelpers;
-    use mina_signer::Signer;
     use once_cell::sync::Lazy;
     use rand::{seq::SliceRandom, CryptoRng, Rng};
 
@@ -2155,7 +2155,10 @@ mod tests_ocaml {
                 };
 
                 let signature = match sign_kind {
-                    SignKind::Fake => Signature {rx: Fp::one(), s: Fq::one()},
+                    SignKind::Fake => Signature {
+                        rx: Fp::one(),
+                        s: Fq::one(),
+                    },
                     SignKind::Real => {
                         // let tx = TransactionUnionPayload::of_user_command_payload(&payload);
                         // let signature_testnet = create "CodaSignature"
@@ -2164,7 +2167,10 @@ mod tests_ocaml {
                         //     .sign(sender_pk, &tx.to_input_legacy());
 
                         // TODO
-                        Signature {rx: Fp::one(), s: Fq::one()}
+                        Signature {
+                            rx: Fp::one(),
+                            s: Fq::one(),
+                        }
                     }
                 };
 

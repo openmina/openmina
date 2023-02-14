@@ -1,6 +1,5 @@
 use std::cmp::Ordering::{Equal, Greater, Less};
 
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Sgn {
     Pos,

@@ -1,7 +1,7 @@
 // mod block;
 mod database;
 mod mask;
-mod util;
 mod transaction_fuzzer;
+mod util;
 
 use database::*;
