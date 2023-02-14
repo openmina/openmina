@@ -176,8 +176,8 @@ impl LedgerIntf for HashlessLedger {
         }
     }
 
-    fn apply_mask(&mut self, _mask: Self) {
-        todo!()
+    fn apply_mask(&mut self, mask: Self) {
+        self.overlay.extend(mask.overlay);
     }
 
     fn account_locations(&self) -> Vec<Self::Location> {
