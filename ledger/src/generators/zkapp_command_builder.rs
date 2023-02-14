@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use ark_ff::One;
-use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_signer::{Keypair, Signature};
 
@@ -61,10 +59,7 @@ pub fn replace_authorizations(
         };
 
         // TODO: Really sign the zkapp
-        Signature {
-            rx: Fp::one(),
-            s: Fq::one(),
-        }
+        Signature::dummy()
     };
 
     let fee_payer_kp = keymap
