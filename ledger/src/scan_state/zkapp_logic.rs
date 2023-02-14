@@ -13,7 +13,7 @@ use crate::{
             protocol_state::GlobalState,
             set_account,
             zkapp_command::{
-                self, AccountUpdate, CallForest, CheckAuthorizationResult, OrIgnore, ZkAppCommand,
+                self, AccountUpdate, CallForest, CheckAuthorizationResult, OrIgnore,
             },
             Env, TimingValidation, TransactionFailure,
         },

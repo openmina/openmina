@@ -35,7 +35,7 @@ use crate::{
                 ClosedInterval, Control, FeePayer, FeePayerBody, Numeric, OrIgnore, Preconditions,
                 SetOrKeep, Update, WithHash, WithStackHash, ZkAppCommand, ZkAppPreconditions,
             },
-            Memo, Signature,
+            Memo,
         },
         zkapp_logic,
     },
@@ -49,7 +49,7 @@ use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1 as CallType;
 use super::{Failure, NotPermitedOf, Role};
 
 /// Value when we run `dune runtest src/lib/staged_ledger -f`
-const ACCOUNT_CREATION_FEE: Fee = Fee::from_u64(1000000000);
+//const ACCOUNT_CREATION_FEE: Fee = Fee::from_u64(1000000000);
 
 /// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_generators/zkapp_command_generators.ml#L443
 fn gen_invalid_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPreconditions {

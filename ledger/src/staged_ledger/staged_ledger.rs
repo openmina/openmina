@@ -1795,8 +1795,7 @@ mod tests_ocaml {
     use mina_curves::pasta::Fq;
     use mina_signer::{Keypair, Signature};
     use o1_utils::FieldHelpers;
-    use mina_curves::pasta::Fq;
-    use mina_signer::{Keypair, Signer, Signature};
+    use mina_signer::Signer;
     use once_cell::sync::Lazy;
     use rand::{seq::SliceRandom, CryptoRng, Rng};
 
@@ -1814,7 +1813,7 @@ mod tests_ocaml {
                 signed_command::{self, PaymentPayload, SignedCommand, SignedCommandPayload},
                 transaction_union_payload::TransactionUnionPayload,
                 zkapp_command::{self, SetOrKeep, WithHash},
-                Memo, Signature, TransactionFailure,
+                Memo, TransactionFailure,
             },
         },
         staged_ledger::{
@@ -4500,7 +4499,10 @@ mod tests_ocaml {
         let signed_command = SignedCommand {
             payload,
             signer: kp.public.into_compressed(),
-            signature: Signature::dummy(), // TODO: Use `_signature` above
+            signature: Signature {
+                rx: Fp::one(),
+                s: Fq::one(),
+            }, // TODO: Use `_signature` above
         };
 
         let cmd = valid::UserCommand::SignedCommand(Box::new(signed_command));
@@ -4594,7 +4596,10 @@ mod tests_ocaml {
             let signed_command = SignedCommand {
                 payload,
                 signer: kp.public.into_compressed(),
-                signature: Signature::dummy(), // TODO: Use `_signature` above
+                signature: Signature {
+                    rx: Fp::one(),
+                    s: Fq::one(),
+                }, // TODO: Use `_signature` above
             };
 
             valid::UserCommand::SignedCommand(Box::new(signed_command))

@@ -780,13 +780,14 @@ pub mod zkapp_command {
     use std::rc::Rc;
 
     use ark_ff::{UniformRand, Zero};
+    use mina_curves::pasta::Fq;
     use mina_p2p_messages::v2::{
         MinaBaseAccountUpdateCallTypeStableV1, MinaBaseAccountUpdateTWireStableV1,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
     };
     use rand::{seq::SliceRandom, Rng};
     use mina_signer::Signature;
-    use rand::{seq::SliceRandom, Rng};
+    //use rand::{seq::SliceRandom, Rng};
     use static_assertions::assert_eq_size_val;
 
     use crate::{
@@ -1832,7 +1833,7 @@ pub mod zkapp_command {
         pub fn dummy_of_tag(tag: ControlTag) -> Self {
             match tag {
                 ControlTag::Proof => Self::Proof(dummy::sideloaded_proof()),
-                ControlTag::Signature => Self::Signature(Signature::dummy()),
+                ControlTag::Signature => Self::Signature(Signature{rx: Fp::one(), s: Fq::one(),}),
                 ControlTag::NoneGiven => Self::NoneGiven,
             }
         }
