@@ -3055,7 +3055,7 @@ mod tests_ocaml {
 
     /// Generate states that were known to fail
     ///
-    /// See https://github.com/name-placeholder/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
+    /// See https://github.com/openmina/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
     fn gen_below_capacity_failed() -> (
         LedgerInitialState,
         Vec<valid::UserCommand>,
@@ -3141,7 +3141,7 @@ mod tests_ocaml {
     /// This test was failing, due to incorrect discarding user command
     /// Note: Something interesting is that the batch 11 applies 0 commands
     ///
-    /// See https://github.com/name-placeholder/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
+    /// See https://github.com/openmina/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
     #[test]
     fn be_able_to_include_random_number_of_commands_many_failed() {
         let (ledger_init_state, cmds, iters) = gen_below_capacity_failed();
@@ -3245,7 +3245,7 @@ mod tests_ocaml {
 
     /// This test was failing, due to incorrect discarding user command
     ///
-    /// See https://github.com/name-placeholder/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
+    /// See https://github.com/openmina/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
     #[test]
     fn be_able_to_include_random_number_of_commands_one_prover_failed() {
         let (ledger_init_state, cmds, iters) = gen_below_capacity_failed();

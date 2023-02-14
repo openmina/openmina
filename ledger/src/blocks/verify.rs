@@ -258,7 +258,7 @@ mod tests {
     use super::*;
 
     /// Test that take the same inputs as in
-    /// https://github.com/name-placeholder/mina-block-verifier-poc/blob/15d926f04948a35f4ee284c2b43bb82ae1798b0b/src/data/6324_state_with_proof_for_mina_node_minified.json
+    /// https://github.com/openmina/mina-block-verifier-poc/blob/15d926f04948a35f4ee284c2b43bb82ae1798b0b/src/data/6324_state_with_proof_for_mina_node_minified.json
     #[test]
     fn test_hash_messages_for_next_wrap_proof() {
         // Fq::from_str
@@ -362,7 +362,7 @@ mod tests {
     }
 
     // /// Test that take the same inputs as in
-    // /// https://github.com/name-placeholder/mina-block-verifier-poc/blob/15d926f04948a35f4ee284c2b43bb82ae1798b0b/src/data/6324_state_with_proof_for_mina_node_minified.json
+    // /// https://github.com/openmina/mina-block-verifier-poc/blob/15d926f04948a35f4ee284c2b43bb82ae1798b0b/src/data/6324_state_with_proof_for_mina_node_minified.json
     // #[test]
     // fn test_messages_for_next_step_proof() {
     //     // Same data as in `6324_state_with_proof_for_mina_node_minified.json`
