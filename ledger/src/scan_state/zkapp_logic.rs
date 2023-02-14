@@ -132,7 +132,7 @@ fn assert_with_failure_status_tbl(b: bool, failure_status_tbl: Vec<Vec<Transacti
     }
 }
 
-pub fn set_ledger<L>(should_update: bool, t: GlobalState<L>, ledger: L) -> GlobalState<L>
+pub fn set_ledger<L>(should_update: bool, mut t: GlobalState<L>, ledger: L) -> GlobalState<L>
 where
     L: LedgerIntf + Clone,
 {

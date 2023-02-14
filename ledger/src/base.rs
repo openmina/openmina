@@ -170,6 +170,9 @@ pub trait BaseLedger {
 
     // Following are internal methods, they might be better in a private trait
     fn get_account_hash(&mut self, account_index: AccountIndex) -> Option<Fp>;
+    /// Used on mask only, has no effect with other implementation
+    /// Required for `LedgerIntf` on masks
+    fn commit(&mut self);
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -294,8 +297,10 @@ where
         todo!()
     }
 
-    fn apply_mask(&self, _mask: Self) {
-        todo!()
+    fn apply_mask(&mut self, mut mask: Self) {
+        // ignore `self` here:
+        // https://github.com/MinaProtocol/mina/blob/f6756507ff7380a691516ce02a3cf7d9d32915ae/src/lib/mina_ledger/ledger.ml#L236-L246
+        mask.commit()
     }
 
     fn account_locations(&self) -> Vec<Self::Location> {

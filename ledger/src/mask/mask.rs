@@ -380,6 +380,10 @@ impl BaseLedger for Mask {
     fn make_space_for(&mut self, space: usize) {
         self.with(|this| this.make_space_for(space))
     }
+
+    fn commit(&mut self) {
+        self.with(|this| this.commit())
+    }
 }
 
 #[cfg(test)]

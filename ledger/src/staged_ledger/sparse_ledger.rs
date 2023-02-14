@@ -471,7 +471,7 @@ pub trait LedgerIntf {
     fn merkle_root(&mut self) -> Fp;
     fn empty(depth: usize) -> Self;
     fn create_masked(&self) -> Self;
-    fn apply_mask(&self, mask: Self);
+    fn apply_mask(&mut self, mask: Self);
 
     /// Returns all account locations in this ledger (and its parents if any)
     ///
@@ -568,7 +568,7 @@ impl LedgerIntf for SparseLedger<AccountId, Account> {
         todo!()
     }
 
-    fn apply_mask(&self, _mask: Self) {
+    fn apply_mask(&mut self, _mask: Self) {
         todo!()
     }
 

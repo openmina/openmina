@@ -917,4 +917,8 @@ impl BaseLedger for DatabaseImpl<V2> {
     fn make_space_for(&mut self, _space: usize) {
         // No op, we're in memory
     }
+
+    fn commit(&mut self) {
+        // no-op
+    }
 }

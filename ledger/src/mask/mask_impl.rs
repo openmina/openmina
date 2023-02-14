@@ -1376,4 +1376,8 @@ impl BaseLedger for MaskImpl {
     fn make_space_for(&mut self, _space: usize) {
         // No op, we're in memory
     }
+
+    fn commit(&mut self) {
+        self.commit()
+    }
 }

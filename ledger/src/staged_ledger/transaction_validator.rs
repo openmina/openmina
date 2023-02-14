@@ -176,7 +176,7 @@ impl LedgerIntf for HashlessLedger {
         }
     }
 
-    fn apply_mask(&self, _mask: Self) {
+    fn apply_mask(&mut self, _mask: Self) {
         todo!()
     }
 

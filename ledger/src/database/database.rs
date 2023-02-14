@@ -283,6 +283,10 @@ impl BaseLedger for Database<V2> {
     fn make_space_for(&mut self, space: usize) {
         self.with(|this| this.make_space_for(space))
     }
+
+    fn commit(&mut self) {
+        // no-op
+    }
 }
 
 #[cfg(test)]
