@@ -90,7 +90,6 @@ in_nodejs = []
 
 [profile.release]
 debug = true
-panic = "abort" # needed for transaction fuzzer
 
 
 # Run tests in CI with this profile
