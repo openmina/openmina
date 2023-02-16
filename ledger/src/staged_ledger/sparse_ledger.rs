@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Write,
+};
 
 use ark_ff::Zero;
 use mina_hasher::Fp;
@@ -138,6 +141,7 @@ impl SparseLedger<AccountId, Account> {
 
         let mut addr = Address::root();
 
+        // Go until the account address
         for path in merkle_path.iter().rev() {
             addr = match path {
                 MerklePath::Left(right) => {
@@ -151,9 +155,34 @@ impl SparseLedger<AccountId, Account> {
             }
         }
 
-        let index = addr.to_index();
+        let account_addr = addr.clone();
+
+        let mut current = account.hash();
+        let mut param = String::with_capacity(16);
+
+        // Go back from the account to root, to compute missing hashes
+        for (depth, path) in merkle_path.iter().enumerate() {
+            set_hash(addr.clone(), &current);
+
+            let hashes = match path {
+                MerklePath::Left(right) => [current, *right],
+                MerklePath::Right(left) => [*left, current],
+            };
+
+            param.clear();
+            write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
+
+            current = crate::hash::hash_with_kimchi(param.as_str(), &hashes);
+
+            addr = addr.parent().unwrap();
+        }
+
+        assert!(addr.is_root());
+        set_hash(addr, &current);
+
+        let index = account_addr.to_index();
         self.indexes
-            .insert(account_id, (addr, self.current_inserted_number()));
+            .insert(account_id, (account_addr, self.current_inserted_number()));
         self.values.insert(index, account);
     }
 
@@ -344,10 +373,17 @@ impl From<&SparseLedger<AccountId, Account>>
         ) -> MinaBaseSparseLedgerBaseStableV2Tree {
             if addr.length() == ledger_depth {
                 let account_index = addr.to_index();
-                let account = values.get(&account_index).unwrap();
-                let account: MinaBaseAccountBinableArgStableV2 = account.clone().into();
 
-                return MinaBaseSparseLedgerBaseStableV2Tree::Account(Box::new(account));
+                return match values.get(&account_index).cloned() {
+                    Some(account) => {
+                        let account: MinaBaseAccountBinableArgStableV2 = account.into();
+                        MinaBaseSparseLedgerBaseStableV2Tree::Account(Box::new(account))
+                    }
+                    None => {
+                        let hash = matrix.get(&addr).unwrap();
+                        MinaBaseSparseLedgerBaseStableV2Tree::Hash(to_ledger_hash(hash))
+                    }
+                };
             }
 
             let child_left = addr.child_left();
@@ -366,11 +402,8 @@ impl From<&SparseLedger<AccountId, Account>>
                     Box::new(left_node),
                     Box::new(right_node),
                 )
-            } else if is_left {
-                build_tree(child_left, matrix, ledger_depth, values)
-            } else if is_right {
-                build_tree(child_right, matrix, ledger_depth, values)
             } else {
+                assert!(!is_left && !is_right);
                 let hash = matrix.get(&addr).unwrap();
                 MinaBaseSparseLedgerBaseStableV2Tree::Hash(to_ledger_hash(hash))
             }
