@@ -157,6 +157,7 @@ impl NonStark {
 
         let ledger_hash = ledger_hash.into_repr();
         ledger_hash.write(ledger_hash_bytes.as_mut_slice()).unwrap();
+        ledger_hash_bytes.reverse();
 
         sha.update(ledger_hash_bytes.as_slice());
         sha.update(aux_hash.0.as_slice());
