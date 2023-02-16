@@ -462,16 +462,6 @@ impl Coinbase {
     }
 }
 
-/// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signature.mli#L11
-#[derive(Clone, PartialEq, Eq)]
-pub struct Signature(pub(super) Fp, pub(super) Fp); // TODO: Not sure if it's correct
-
-impl std::fmt::Debug for Signature {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("Signature({:?},{:?})", self.0, self.1))
-    }
-}
-
 /// 0th byte is a tag to distinguish digests from other data
 /// 1st byte is length, always 32 for digests
 /// bytes 2 to 33 are data, 0-right-padded if length is less than 32
@@ -481,8 +471,12 @@ pub struct Memo(pub [u8; 34]);
 
 impl std::fmt::Debug for Memo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = String::from_utf8_lossy(&self.0);
-        f.write_fmt(format_args!("{:?}", s))
+        use crate::staged_ledger::hash::OCamlString;
+
+        // Display like OCaml
+        // Example: "\000 \014WQ\192&\229C\178\232\171.\176`\153\218\161\209\229\223Gw\143w\135\250\171E\205\241/\227\168"
+
+        f.write_fmt(format_args!("\"{}\"", self.0.to_ocaml_str()))
     }
 }
 
@@ -539,6 +533,15 @@ impl Memo {
     pub fn dummy() -> Self {
         // TODO
         Self([0; 34])
+    }
+
+    /// Example:
+    /// "\000 \014WQ\192&\229C\178\232\171.\176`\153\218\161\209\229\223Gw\143w\135\250\171E\205\241/\227\168"
+    #[cfg(test)]
+    pub fn from_ocaml_str(s: &str) -> Self {
+        use crate::staged_ledger::hash::OCamlString;
+
+        Self(<[u8; 34]>::from_ocaml_str(s))
     }
 
     pub fn with_number(number: usize) -> Self {
