@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, VecDeque},
     fmt::Write,
 };
 
@@ -13,13 +13,12 @@ use crate::{
     HashesMatrix, Mask, MerklePath, TreeVersion, V2,
 };
 
-/// This is used only to serialize, to get the same order as OCaml
-type InsertedNumber = u32;
-
-#[derive(Clone, Debug)]
-pub struct SparseLedger<K, V> {
+#[derive(Clone, Debug, PartialEq)]
+pub struct SparseLedger<K: Eq + std::hash::Hash, V> {
     values: BTreeMap<AccountIndex, V>,
-    indexes: HashMap<K, (Address, InsertedNumber)>,
+    indexes: HashMap<K, Address>,
+    /// Mirror OCaml, where the index is ordered, and can have duplicates
+    indexes_list: VecDeque<K>,
     hashes_matrix: HashesMatrix,
     depth: usize,
 }
@@ -32,6 +31,7 @@ impl SparseLedger<AccountId, Account> {
         Self {
             values: BTreeMap::new(),
             indexes: HashMap::new(),
+            indexes_list: VecDeque::new(),
             depth,
             hashes_matrix,
         }
@@ -71,10 +71,6 @@ impl SparseLedger<AccountId, Account> {
         assert_eq!(BaseLedger::merkle_root(&mut ledger), sparse.merkle_root());
 
         sparse
-    }
-
-    fn current_inserted_number(&self) -> InsertedNumber {
-        self.indexes.len().try_into().unwrap()
     }
 
     fn get_or_initialize_exn(
@@ -181,15 +177,15 @@ impl SparseLedger<AccountId, Account> {
         set_hash(addr, &current);
 
         let index = account_addr.to_index();
-        let current_inserted_number = self.current_inserted_number();
         self.indexes
-            .entry(account_id)
-            .or_insert((account_addr, current_inserted_number));
+            .entry(account_id.clone())
+            .or_insert(account_addr);
+        self.indexes_list.push_front(account_id);
         self.values.insert(index, account);
     }
 
     fn get_index(&self, account_id: &AccountId) -> Option<&Address> {
-        self.indexes.get(account_id).map(|(addr, _)| addr)
+        self.indexes.get(account_id)
     }
 
     fn get(&self, addr: &Address) -> Option<&Account> {
@@ -345,25 +341,20 @@ impl From<&SparseLedger<AccountId, Account>>
 
         assert!(value.hashes_matrix.get(&Address::root()).is_some());
 
-        let mut indexes: Vec<_> = value
-            .indexes
+        let indexes: Vec<_> = value
+            .indexes_list
             .iter()
-            .map(|(id, addr)| {
-                let index: AccountIndex = addr.0.to_index();
+            .map(|id| {
+                let addr = value.indexes.get(id).unwrap();
+
+                let index = addr.to_index();
                 let index: u32 = index.as_u64().try_into().unwrap();
                 let index: mina_p2p_messages::number::Int32 = (index as i32).into();
 
                 let id: MinaBaseAccountIdStableV2 = id.clone().into();
 
-                (id, (index, addr.1))
+                (id, index)
             })
-            .collect();
-
-        indexes.sort_by_key(|(_, (_, n))| *n);
-
-        let indexes: Vec<_> = indexes
-            .into_iter()
-            .map(|(id, (addr, _))| (id, addr))
             .collect();
 
         fn build_tree(
@@ -460,16 +451,18 @@ impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2>
 
         let depth = value.depth.as_u32() as usize;
         let mut indexes = HashMap::with_capacity(value.indexes.len());
+        let mut indexes_list = VecDeque::with_capacity(value.indexes.len());
         let mut hashes_matrix = HashesMatrix::new(depth);
         let mut values = BTreeMap::new();
 
-        for (index, (account_id, account_index)) in value.indexes.iter().enumerate() {
+        for (account_id, account_index) in value.indexes.iter() {
             let account_id: AccountId = account_id.into();
             let account_index = AccountIndex::from(account_index.as_u32() as usize);
 
-            let addr = Address::from_index(account_index, depth);
-            let number: InsertedNumber = index.try_into().unwrap();
-            indexes.insert(account_id, (addr, number));
+            let addr = Address::from_index(account_index.clone(), depth);
+
+            indexes.insert(account_id.clone(), addr);
+            indexes_list.push_back(account_id);
         }
 
         build_matrix(
@@ -484,6 +477,7 @@ impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2>
             indexes,
             hashes_matrix,
             depth,
+            indexes_list,
         }
     }
 }
@@ -609,11 +603,7 @@ impl LedgerIntf for SparseLedger<AccountId, Account> {
     }
 
     fn account_locations(&self) -> Vec<Self::Location> {
-        let mut addrs: Vec<Address> = self
-            .indexes
-            .values()
-            .map(|(addr, _)| addr.clone())
-            .collect();
+        let mut addrs: Vec<Address> = self.indexes.values().cloned().collect();
 
         addrs.sort_by_key(Address::to_index);
 
