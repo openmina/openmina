@@ -181,8 +181,10 @@ impl SparseLedger<AccountId, Account> {
         set_hash(addr, &current);
 
         let index = account_addr.to_index();
+        let current_inserted_number = self.current_inserted_number();
         self.indexes
-            .insert(account_id, (account_addr, self.current_inserted_number()));
+            .entry(account_id)
+            .or_insert((account_addr, current_inserted_number));
         self.values.insert(index, account);
     }
 
@@ -358,7 +360,6 @@ impl From<&SparseLedger<AccountId, Account>>
             .collect();
 
         indexes.sort_by_key(|(_, (_, n))| *n);
-        indexes.reverse();
 
         let indexes: Vec<_> = indexes
             .into_iter()
@@ -442,7 +443,9 @@ impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2>
             match node {
                 Account(account) => {
                     // TODO: Don't clone the account here
-                    values.insert(addr.to_index(), (**account).clone().into());
+                    let account: crate::Account = (**account).clone().into();
+                    matrix.set(&addr, account.hash());
+                    values.insert(addr.to_index(), account);
                 }
                 Hash(hash) => {
                     matrix.set(&addr, hash.to_field());
