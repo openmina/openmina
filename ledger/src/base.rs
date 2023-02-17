@@ -14,6 +14,7 @@ use crate::{
     database::DatabaseError,
     scan_state::transaction_logic::AccountState,
     staged_ledger::sparse_ledger::LedgerIntf,
+    Mask,
 };
 
 pub type Uuid = String;
@@ -229,10 +230,7 @@ impl Deref for GetOrCreated {
     }
 }
 
-impl<T> LedgerIntf for T
-where
-    T: BaseLedger,
-{
+impl LedgerIntf for Mask {
     type Location = Address;
 
     fn get(&self, addr: &Address) -> Option<Account> {
@@ -289,15 +287,16 @@ where
         BaseLedger::merkle_root(self)
     }
 
-    fn empty(_depth: usize) -> Self {
-        todo!()
+    fn empty(depth: usize) -> Self {
+        let root = Mask::new_root(crate::Database::create(depth.try_into().unwrap()));
+        root.make_child()
     }
 
     fn create_masked(&self) -> Self {
         todo!()
     }
 
-    fn apply_mask(&mut self, mut mask: Self) {
+    fn apply_mask(&mut self, mask: Self) {
         // ignore `self` here:
         // https://github.com/MinaProtocol/mina/blob/f6756507ff7380a691516ce02a3cf7d9d32915ae/src/lib/mina_ledger/ledger.ml#L236-L246
         mask.commit()
@@ -307,7 +306,7 @@ where
         let mut addrs: Vec<Address> = self
             .accounts()
             .into_iter()
-            .map(|account_id| self.location_of_account(&account_id).unwrap())
+            .map(|account_id| BaseLedger::location_of_account(self, &account_id).unwrap())
             .collect();
 
         addrs.sort_by_key(Address::to_index);
