@@ -12,7 +12,7 @@ struct Leaf<T: TreeVersion> {
     account: Option<Box<T::Account>>,
 }
 
-// #[derive(Default)]
+#[derive(PartialEq)]
 pub struct HashesMatrix {
     /// 2 dimensions matrix
     // matrix: Vec<Option<Fp>>,

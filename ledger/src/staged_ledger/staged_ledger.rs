@@ -1791,7 +1791,9 @@ mod tests_ocaml {
         sync::atomic::{AtomicUsize, Ordering::Relaxed},
     };
 
+    use ark_ec::{AffineCurve, ProjectiveCurve};
     use ark_ff::{UniformRand, Zero};
+    use mina_curves::pasta::Fq;
     use mina_signer::Signer;
     use mina_signer::{Keypair, Signature};
     use o1_utils::FieldHelpers;
@@ -1809,7 +1811,9 @@ mod tests_ocaml {
             scan_state::transaction_snark::SokDigest,
             transaction_logic::{
                 protocol_state::{EpochData, EpochLedger},
-                signed_command::{self, PaymentPayload, SignedCommand, SignedCommandPayload},
+                signed_command::{
+                    self, Common, PaymentPayload, SignedCommand, SignedCommandPayload,
+                },
                 transaction_union_payload::TransactionUnionPayload,
                 zkapp_command::{self, SetOrKeep, WithHash},
                 Memo, TransactionFailure,
@@ -1828,8 +1832,11 @@ mod tests_ocaml {
 
     static SELF_PK: Lazy<CompressedPubKey> = Lazy::new(|| gen_keypair().public.into_compressed());
 
-    static COINBASE_RECEIVER: Lazy<CompressedPubKey> =
-        Lazy::new(|| gen_keypair().public.into_compressed());
+    static COINBASE_RECEIVER: Lazy<CompressedPubKey> = Lazy::new(|| {
+        CompressedPubKey::from_address("B62qmkso2Knz9pxo5V9YEZFJ9Frq57GZfKgem1DVTKiYH9D5H3n2DGS")
+            .unwrap()
+    });
+    // Lazy::new(|| gen_keypair().public.into_compressed());
 
     /// Same values when we run `dune runtest src/lib/staged_ledger -f`
     const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
@@ -2241,14 +2248,14 @@ mod tests_ocaml {
     ///   the staged and test ledgers, and verify they are in the same state.
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2180
-    fn async_with_given_ledger<F>(
+    fn async_with_given_ledger<F, R>(
         ledger_init_state: &LedgerInitialState,
         cmds: Vec<valid::UserCommand>,
         cmd_iters: Vec<Option<usize>>,
         mask: Mask,
         fun: F,
     ) where
-        F: Fn(StagedLedger, Mask) + std::panic::UnwindSafe,
+        F: Fn(StagedLedger, Mask) -> R + std::panic::UnwindSafe,
     {
         match std::panic::catch_unwind(move || {
             let test_mask = mask.make_child();
@@ -2281,13 +2288,13 @@ mod tests_ocaml {
     /// Print the generated state when a panic occurs
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2192
-    fn async_with_ledgers<F>(
+    fn async_with_ledgers<F, R>(
         ledger_init_state: &LedgerInitialState,
         cmds: Vec<valid::UserCommand>,
         cmd_iters: Vec<Option<usize>>,
         fun: F,
     ) where
-        F: Fn(StagedLedger, Mask) + std::panic::UnwindSafe,
+        F: Fn(StagedLedger, Mask) -> R + std::panic::UnwindSafe,
     {
         let mut ephemeral_ledger = Mask::new_unattached(CONSTRAINT_CONSTANTS.ledger_depth as usize);
 
@@ -2570,7 +2577,8 @@ mod tests_ocaml {
         test_mask: Mask,
         provers: NumProvers,
         stmt_to_work: &F,
-    ) where
+    ) -> StagedLedger
+    where
         F: Fn(&work::Statement) -> Option<work::Checked>,
     {
         eprintln!(
@@ -2667,6 +2675,8 @@ mod tests_ocaml {
         if let Some(expected_proof_count) = expected_proof_count {
             debug_assert_eq!(total_ledger_proofs, expected_proof_count);
         };
+
+        sl
     }
 
     /// Deterministically compute a prover public key from a snark work statement.
@@ -3159,6 +3169,256 @@ mod tests_ocaml {
         );
     }
 
+    // Deterministic, to get staged ledger hash
+    fn gen_for_hash() -> (
+        LedgerInitialState,
+        Vec<valid::UserCommand>,
+        Vec<Option<usize>>,
+    ) {
+        fn keypair_from_private(private: &str) -> Keypair {
+            let bytes = bs58::decode(private).into_vec().unwrap();
+            let bytes = &bytes[1..]; // ignore base58 check byte
+
+            let secret = mina_signer::ScalarField::from_bytes(&bytes[1..]).unwrap();
+            let public: mina_signer::CurvePoint =
+                mina_signer::CurvePoint::prime_subgroup_generator()
+                    .mul(secret)
+                    .into_affine();
+
+            if !public.is_on_curve() {
+                panic!()
+                // return Err(KeypairError::NonCurvePoint);
+            }
+
+            // Safe now because we checked point is on the curve
+            Keypair::from_parts_unsafe(secret, public)
+        }
+
+        //        ledger_init_state=((((public_key B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd)
+        //   (private_key EKDpdyjwhn5PWZzz2EumvUTDVtRKdy5QeP96i2iFntzhCQK5M8uU))
+        //  870234598000000000 555 Untimed)
+        // (((public_key B62qnxPe7DM72bh59QrubnREEyeNoeLM4J9s8iufT6Gi2iuUm6fe73R)
+        //   (private_key EKEVz18GAQ4zJaEHXRHrzbKYh5G4gzy1Kf4Y4x8MHuJN7pv1jmGx))
+        //  677094385000000000 289 Untimed)
+        // (((public_key B62qq4FFooVJ6TRGKA3chxE7M1Xh1F11jsanLBYmcZEqJZaYGPdye3D)
+        //   (private_key EKEkFGPRpiXfAfrgRi9DUSQ3zQ5eV4FGaD9rHLJwTBz7Ue4jWMnU))
+        //  966785966000000000 697 Untimed)
+        // (((public_key B62qiuynJSwKPepZGm8fcYbZ3zT2nynjcM23CD1Xzpofy5yKwMaC5N7)
+        //   (private_key EKFPQBAbjYkjM6p6fEaZAzufQgQs3spvUw1Uyq2Ghta81cpKrfGg))
+        //  871707103000000000 387 Untimed)
+        // (((public_key B62qrpPoKmGZWcWMn1Cb749dSym7cabp1wwoUS7AThuaCNJCfXHCLNw)
+        //   (private_key EKENSzF3YWq2Z3Rh9GXMwqN6bEVps9HxkfU38LkXfR3s2Lf3VPcD))
+        //  955060948000000000 468 Untimed))
+
+        let state = LedgerInitialState {
+            state: vec![
+                (
+                    keypair_from_private("EKDpdyjwhn5PWZzz2EumvUTDVtRKdy5QeP96i2iFntzhCQK5M8uU"),
+                    Amount::from_u64(870234598000000000),
+                    Nonce::from_u32(555),
+                    crate::Timing::Untimed,
+                ),
+                (
+                    keypair_from_private("EKEVz18GAQ4zJaEHXRHrzbKYh5G4gzy1Kf4Y4x8MHuJN7pv1jmGx"),
+                    Amount::from_u64(677094385000000000),
+                    Nonce::from_u32(289),
+                    crate::Timing::Untimed,
+                ),
+                (
+                    keypair_from_private("EKEkFGPRpiXfAfrgRi9DUSQ3zQ5eV4FGaD9rHLJwTBz7Ue4jWMnU"),
+                    Amount::from_u64(966785966000000000),
+                    Nonce::from_u32(697),
+                    crate::Timing::Untimed,
+                ),
+                (
+                    keypair_from_private("EKFPQBAbjYkjM6p6fEaZAzufQgQs3spvUw1Uyq2Ghta81cpKrfGg"),
+                    Amount::from_u64(871707103000000000),
+                    Nonce::from_u32(387),
+                    crate::Timing::Untimed,
+                ),
+                (
+                    keypair_from_private("EKENSzF3YWq2Z3Rh9GXMwqN6bEVps9HxkfU38LkXfR3s2Lf3VPcD"),
+                    Amount::from_u64(955060948000000000),
+                    Nonce::from_u32(468),
+                    crate::Timing::Untimed,
+                ),
+            ],
+        };
+
+        // let state = gen_initial_ledger_state();
+        println!("state={:#?}", state);
+
+        let iters = [1];
+
+        let cmds = vec![valid::UserCommand::SignedCommand(Box::new(SignedCommand {
+            payload: SignedCommandPayload {
+                common: Common {
+                    fee: Fee::from_u64(8688709898),
+                    fee_payer_pk: CompressedPubKey::from_address(
+                        "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+                    )
+                    .unwrap(),
+                    nonce: Nonce::from_u32(555),
+                    valid_until: Slot::from_u32(4294967295),
+                    memo: Memo::from_ocaml_str(
+                        r"\000 \014WQ\192&\229C\178\232\171.\176`\153\218\161\209\229\223Gw\143w\135\250\171E\205\241/\227\168",
+                    ),
+                },
+                body: signed_command::Body::Payment(PaymentPayload {
+                    source_pk: CompressedPubKey::from_address(
+                        "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+                    )
+                    .unwrap(),
+                    receiver_pk: CompressedPubKey::from_address(
+                        "B62qnxPe7DM72bh59QrubnREEyeNoeLM4J9s8iufT6Gi2iuUm6fe73R",
+                    )
+                    .unwrap(),
+                    amount: Amount::from_u64(435117290311290102),
+                }),
+            },
+            signer: CompressedPubKey::from_address(
+                "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+            )
+            .unwrap(),
+            signature: Signature {
+                rx: Fp::from_str(
+                    "6619317331104517676070771956470715552778579643404520621914362882786941822698",
+                )
+                .unwrap(),
+                s: Fq::from_str(
+                    "4273977355509408506621406872367289068113165398006813670168359703884853847009",
+                )
+                .unwrap(),
+            },
+        }))];
+
+        // 6619317331104517676070771956470715552778579643404520621914362882786941822698
+        //      4273977355509408506621406872367289068113165398006813670168359703884853847009)
+
+        // ((Signed_command
+        //   ((payload
+        //     ((common
+        //       ((fee 8688709898)
+        //        (fee_payer_pk B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd)
+        //        (nonce 555) (valid_until 4294967295)
+        //        (memo
+        //         "\000 \014WQ\192&\229C\178\232\171.\176`\153\218\161\209\229\223Gw\143w\135\250\171E\205\241/\227\168")))
+        //      (body
+        //       (Payment
+        //        ((source_pk B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd)
+        //         (receiver_pk B62qnxPe7DM72bh59QrubnREEyeNoeLM4J9s8iufT6Gi2iuUm6fe73R)
+        //         (amount 435117290311290102))))))
+        //    (signer B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd)
+        //    (signature
+        //     (20217282917696419477832420831851054926507797744233259437635168547157179087012
+        //      24747245232464873436215177181298907097142134338210202508666577441803771565079)))))
+
+        (state, cmds, iters.into_iter().map(Some).collect())
+    }
+
+    /// This test was failing, due to incorrect discarding user command
+    /// Note: Something interesting is that the batch 11 applies 0 commands
+    ///
+    /// See https://github.com/openmina/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
+    #[test]
+    fn staged_ledger_hash() {
+        let (ledger_init_state, cmds, iters) = gen_for_hash();
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.to_vec(),
+            iters.to_vec(),
+            |mut sl, test_mask| {
+                // dbg!(sl.ledger.num_accounts());
+
+                let hash = sl.hash();
+
+                assert_eq!(hash, StagedLedgerHash::from_ocaml_strings(
+                    "7213023165825031994332898585791275635753820608093286100176380057570051468967",
+                    r"T\249\245k\176]TJ\216\183\001\204\177\131\030\244o\178\188\191US\156\192Hi\194P\223\004\000\003",
+                    r"_\236\235f\255\200o8\217Rxlmily\194\219\1949\221N\145\180g)\215:'\251W\233",
+                    "25504365445533103805898245102289650498571312278321176071043666991586378788150"
+                ));
+
+                let mut sl = test_simple(
+                    init_pks(&ledger_init_state),
+                    cmds.to_vec(),
+                    iters.to_vec(),
+                    sl,
+                    None,
+                    None,
+                    test_mask,
+                    NumProvers::One,
+                    &stmt_to_work_one_prover,
+                );
+
+                let mut accounts = sl.ledger.accounts().into_iter().collect::<Vec<_>>();
+                accounts.sort_by_key(|a| a.public_key.x);
+
+                // dbg!(accounts);
+
+                // dbg!(sl.ledger.to_list());
+
+                // sl.ledger.location_of_account(&COINBASE_RECEIVER.clone());
+
+                let hash = sl.hash();
+                println!("staged_ledger_hash={:#?}", hash);
+
+                let job: Vec<_> = sl.scan_state.base_jobs_on_latest_tree().collect();
+                dbg!(job.len(), &job);
+
+                for job in job {
+                    // dbg!(&job.ledger_witness);
+                    // println!("START");
+                    let before = job.ledger_witness.clone().merkle_root();
+                    let ledger: mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2 =
+                        (&job.ledger_witness).into();
+
+                    // dbg!(&ledger);
+
+                    let mut ledger: SparseLedger<AccountId, Account> = (&ledger).into();
+                    let after = ledger.merkle_root();
+                    // dbg!(&ledger);
+                    assert_eq!(before, after);
+                    // dbg!(&ledger);
+                    // dbg!(&job.ledger_witness);
+
+                    // assert_eq!(ledger.depth, job.ledger_witness.depth);
+                    // assert_eq!(ledger.hashes_matrix, job.ledger_witness.hashes_matrix);
+                    // assert_eq!(ledger.indexes, job.ledger_witness.indexes);
+                    // assert_eq!(ledger.values, job.ledger_witness.values);
+
+                    assert_eq!(ledger, job.ledger_witness);
+                    // println!("OK");
+                }
+
+                let expected = StagedLedgerHash::from_ocaml_strings(
+                    "7403973954047799970700856317480467373315236045518635088954201291392464592256",
+                    r"\183At\174\178]\186\b$\182\245&\003=\183\241\190\214\131@r\162&\138f\187\234\191\2002\148\249",
+                    r"\147\141\184\201\248,\140\181\141?>\244\253%\0006\164\141&\167\018u=/\222Z\189\003\168\\\171\244",
+                    "3086764415430464582862741061906779337283239657859408605572481484787647764860",
+                );
+
+                assert_eq!(
+                    hash, expected,
+                    "\ngot={:#?}\nexpected={:#?}",
+                    hash, expected
+                );
+
+                // staged_ledger_hash=
+                // ((non_snark
+                //   ((ledger_hash
+                //     7403973954047799970700856317480467373315236045518635088954201291392464592256)
+                //    (aux_hash
+                //     "\183At\174\178]\186\b$\182\245&\003=\183\241\190\214\131@r\162&\138f\187\234\191\2002\148\249")
+                //    (pending_coinbase_aux
+                //     "\147\141\184\201\248,\140\181\141?>\244\253%\0006\164\141&\167\018u=/\222Z\189\003\168\\\171\244")))
+                //  (pending_coinbase_hash
+                //   3086764415430464582862741061906779337283239657859408605572481484787647764860))
+            },
+        );
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/f6756507ff7380a691516ce02a3cf7d9d32915ae/src/lib/staged_ledger/staged_ledger.ml#L2579
     fn gen_zkapps_below_capacity(
         extra_blocks: Option<bool>,
@@ -3294,8 +3554,11 @@ mod tests_ocaml {
     }
 
     /// Fixed public key for when there is only one snark worker.
-    static SNARK_WORKER_PK: Lazy<CompressedPubKey> =
-        Lazy::new(|| gen_keypair().public.into_compressed());
+    static SNARK_WORKER_PK: Lazy<CompressedPubKey> = Lazy::new(|| {
+        CompressedPubKey::from_address("B62qkEfRowNNxqpA4KZX5FsWu3EDa15SYyxkjC3KvxqKVPbpQZyLofw")
+            .unwrap()
+    });
+    // Lazy::new(|| gen_keypair().public.into_compressed());
 
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2295
     fn stmt_to_work_one_prover(stmt: &work::Statement) -> Option<work::Checked> {
