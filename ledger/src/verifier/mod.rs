@@ -71,10 +71,13 @@ pub mod common {
             SignedCommand(cmd) => {
                 if !cmd.check_valid_keys() {
                     let public_keys = cmd.public_keys().into_iter().cloned().collect();
-                    CheckResult::InvalidKeys(public_keys)
-                } else {
-                    // TODO: Implement rest
-                    CheckResult::Valid(verifiable::check_only_for_signature(cmd))
+                    return CheckResult::InvalidKeys(public_keys);
+                }
+                match verifiable::check_only_for_signature(cmd) {
+                    Ok(cmd) => CheckResult::Valid(cmd),
+                    Err(cmd) => CheckResult::InvalidSignature(
+                        cmd.public_keys().into_iter().cloned().collect(),
+                    ),
                 }
             }
             ZkAppCommand(cmd) => {

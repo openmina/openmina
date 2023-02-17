@@ -2163,14 +2163,12 @@ mod tests_ocaml {
                 let signature = match sign_kind {
                     SignKind::Fake => Signature::dummy(),
                     SignKind::Real => {
-                        // let tx = TransactionUnionPayload::of_user_command_payload(&payload);
-                        // let signature_testnet = create "CodaSignature"
-                        // let signature_mainnet = create "MinaSignatureMainnet"
-                        // mina_signer::create_kimchi("CodaSignature")
-                        //     .sign(sender_pk, &tx.to_input_legacy());
+                        let payload_to_sign =
+                            TransactionUnionPayload::of_user_command_payload(&payload);
 
-                        // TODO
-                        Signature::dummy()
+                        let mut signer =
+                            mina_signer::create_legacy(mina_signer::NetworkId::TESTNET);
+                        signer.sign(sender_pk, &payload_to_sign)
                     }
                 };
 
@@ -4756,12 +4754,12 @@ mod tests_ocaml {
         let payload_to_sign = TransactionUnionPayload::of_user_command_payload(&payload);
 
         let mut signer = mina_signer::create_legacy(mina_signer::NetworkId::TESTNET);
-        let _signature = signer.sign(kp, &payload_to_sign);
+        let signature = signer.sign(kp, &payload_to_sign);
 
         let signed_command = SignedCommand {
             payload,
             signer: kp.public.into_compressed(),
-            signature: Signature::dummy(), // TODO: Use `_signature` above
+            signature,
         };
 
         let cmd = valid::UserCommand::SignedCommand(Box::new(signed_command));
@@ -4850,12 +4848,12 @@ mod tests_ocaml {
             let payload_to_sign = TransactionUnionPayload::of_user_command_payload(&payload);
 
             let mut signer = mina_signer::create_legacy(mina_signer::NetworkId::TESTNET);
-            let _signature = signer.sign(&kp, &payload_to_sign);
+            let signature = signer.sign(&kp, &payload_to_sign);
 
             let signed_command = SignedCommand {
                 payload,
                 signer: kp.public.into_compressed(),
-                signature: Signature::dummy(), // TODO: Use `_signature` above
+                signature,
             };
 
             valid::UserCommand::SignedCommand(Box::new(signed_command))

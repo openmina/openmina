@@ -2726,6 +2726,11 @@ pub mod zkapp_command {
 }
 
 pub mod verifiable {
+    use std::ops::Neg;
+
+    use ark_ff::{BigInteger, PrimeField};
+    use mina_signer::Signer;
+
     use super::*;
 
     #[derive(Debug)]
@@ -2734,12 +2739,42 @@ pub mod verifiable {
         ZkAppCommand(Box<zkapp_command::verifiable::ZkAppCommand>),
     }
 
+    fn compressed_to_pubkey(pubkey: &CompressedPubKey) -> mina_signer::PubKey {
+        // Taken from https://github.com/o1-labs/proof-systems/blob/e3fc04ce87f8695288de167115dea80050ab33f4/signer/src/pubkey.rs#L95-L106
+        let mut pt = mina_signer::CurvePoint::get_point_from_x(pubkey.x, pubkey.is_odd).unwrap();
+
+        if pt.y.into_repr().is_even() == pubkey.is_odd {
+            pt.y = pt.y.neg();
+        }
+
+        assert!(pt.is_on_curve());
+
+        // Safe now because we checked point pt is on curve
+        mina_signer::PubKey::from_point_unsafe(pt)
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command.ml#L436
-    pub fn check_only_for_signature(cmd: Box<signed_command::SignedCommand>) -> valid::UserCommand {
-        // TODO implement actual verification
+    pub fn check_only_for_signature(
+        cmd: Box<signed_command::SignedCommand>,
+    ) -> Result<valid::UserCommand, Box<signed_command::SignedCommand>> {
         // https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command.ml#L396
 
-        valid::UserCommand::SignedCommand(cmd)
+        let signed_command::SignedCommand {
+            payload,
+            signer: pubkey,
+            signature,
+        } = &*cmd;
+
+        let payload = TransactionUnionPayload::of_user_command_payload(payload);
+        let pubkey = compressed_to_pubkey(pubkey);
+
+        let mut signer = mina_signer::create_legacy(mina_signer::NetworkId::TESTNET);
+
+        if signer.verify(signature, &pubkey, &payload) {
+            Ok(valid::UserCommand::SignedCommand(cmd))
+        } else {
+            Err(cmd)
+        }
     }
 }
 
@@ -4562,11 +4597,9 @@ pub mod transaction_union_payload {
                 .append_u32(self.common.valid_until.as_u32())
                 .append_bytes(&self.common.memo.0);
 
-            let mut tag = self.body.tag.clone() as u8;
-
-            while tag != 0 {
-                roi = roi.append_bool(tag & 1 != 0);
-                tag >>= 1;
+            let tag = self.body.tag.clone() as u8;
+            for bit in [4, 2, 1] {
+                roi = roi.append_bool(tag & bit != 0);
             }
 
             roi.append_bool(self.body.source_pk.is_odd)
