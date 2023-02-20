@@ -3170,7 +3170,7 @@ mod tests_ocaml {
     // Deterministic, to get staged ledger hash
     fn gen_for_hash(
         iters: &[usize],
-        cmds: Vec<valid::UserCommand>,
+        mut cmds: Vec<valid::UserCommand>,
     ) -> (
         LedgerInitialState,
         Vec<valid::UserCommand>,
@@ -3250,7 +3250,9 @@ mod tests_ocaml {
         println!("state={:#?}", state);
 
         let iters_total: usize = iters.iter().sum();
-        assert_eq!(iters_total, cmds.len());
+        assert!(iters_total <= cmds.len());
+
+        cmds.truncate(iters_total);
 
         (state, cmds, iters.iter().copied().map(Some).collect())
     }
@@ -3533,6 +3535,48 @@ mod tests_ocaml {
         //   8909119019222126918708891766510490679262830386343981426610706812406879559705))
 
         test_hash(cmds, &iters[..], &expected);
+
+        let cmds = dummy::for_tests::list_of_cmds();
+        let iters = [126, 1];
+
+        let expected = StagedLedgerHash::from_ocaml_strings(
+            "17477048617623399278357380851139583927261600258225227089274676141994175991491",
+            r"\031\154\249\228\236\218\178\144\220\147|8\217p3\158ivC\192\129\208>\t\2402\n\232\225\004\172\204",
+            r"7\131O/%v/#\225\247JS\028\190D]\183=ge\235\230\bx\167\223\190\205}J\246\225",
+            "13628016176671996634125618970711117372294565467015081467173689084579176689763",
+        );
+
+        test_hash(cmds, &iters[..], &expected);
+
+        // let iters = [
+        //     126,
+        //     126,
+        //     126,
+        //     126,
+        //     126,
+        //     126,
+        //     126,
+        // ];
+        // let expected = StagedLedgerHash::from_ocaml_strings(
+        //     "18582860218764414485081234471609377222894570081548691702645303871998665679024",
+        //     r"0\136Wg\182DbX\203kLi\212%\199\206\142#\213`L\160bpCB\1413\240\193\171K",
+        //     r"\n\220\211\153\014A\191\006\019\231/\244\155\005\212\1310|\227\133\176O\196\131\023t\152\178\130?\206U",
+        //     "7755910003612203694232340741198062502757785525513434577565209492737983651491",
+        // );
+
+        // staged_ledger_hash=
+        // ((non_snark
+        //   ((ledger_hash
+        //     18582860218764414485081234471609377222894570081548691702645303871998665679024)
+        //    (aux_hash
+        //     "0\136Wg\182DbX\203kLi\212%\199\206\142#\213`L\160bpCB\1413\240\193\171K")
+        //    (pending_coinbase_aux
+        //      "\
+        //     \n\220\211\153\014A\191\006\019\231/\244\155\005\212\1310|\227\133\176O\196\131\023t\152\178\130?\206U")))
+        //  (pending_coinbase_hash
+        //   7755910003612203694232340741198062502757785525513434577565209492737983651491))
+
+        // test_hash(cmds, &iters[..], &expected);
     }
 
     /// https://github.com/MinaProtocol/mina/blob/f6756507ff7380a691516ce02a3cf7d9d32915ae/src/lib/staged_ledger/staged_ledger.ml#L2579

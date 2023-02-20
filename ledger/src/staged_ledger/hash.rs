@@ -29,19 +29,15 @@ fn to_ocaml_str(bytes: &[u8]) -> String {
         } else if c.is_ascii() && !c.is_ascii_control() {
             s.push(c);
         } else {
-            if (7..=13u8).contains(b) {
-                match b {
-                    7 => s.push_str(r"\a"),
-                    8 => s.push_str(r"\b"),
-                    9 => s.push_str(r"\t"),
-                    10 => s.push_str(r"\n"),
-                    11 => s.push_str(r"\v"),
-                    12 => s.push_str(r"\f"),
-                    13 => s.push_str(r"\r"),
-                    _ => unreachable!(),
-                }
-            } else {
-                s.push_str(&format!("\\{:<03}", b));
+            match b {
+                7 => s.push_str(r"\a"),
+                8 => s.push_str(r"\b"),
+                9 => s.push_str(r"\t"),
+                10 => s.push_str(r"\n"),
+                // 11 => s.push_str(r"\v"),
+                12 => s.push_str(r"\f"),
+                13 => s.push_str(r"\r"),
+                _ => s.push_str(&format!("\\{:<03}", b)),
             }
         }
     }
@@ -62,7 +58,8 @@ fn from_ocaml_str<const N: usize>(s: &str) -> [u8; N] {
                 index += 2;
             } else if s
                 .get(index + 1)
-                .map(|next| "abtnvfr".contains(char::from(*next)))
+                .map(|next| "abtnfr".contains(char::from(*next)))
+                // .map(|next| "abtnvfr".contains(char::from(*next)))
                 .unwrap_or(false)
             {
                 bytes[b_index] = match s[index + 1] {
@@ -70,7 +67,7 @@ fn from_ocaml_str<const N: usize>(s: &str) -> [u8; N] {
                     b'b' => 8,
                     b't' => 9,
                     b'n' => 10,
-                    b'v' => 11,
+                    // b'v' => 11,
                     b'f' => 12,
                     b'r' => 13,
                     _ => unreachable!(),
@@ -286,6 +283,15 @@ mod tests {
         let s = r"\000 \014WQ\192&\229C\178\232\171.\176`\153\218\161\209\229\223Gw\143w\135\250\171E\205\241/\227\168";
         let memo = <[u8; 34]>::from_ocaml_str(s);
         assert_eq!(s, memo.to_ocaml_str());
+
+        // let bytes = [10,220,211,153,14,65,191,6,19,231,47,244,155,5,212,131,48,124,227,133,176,79,196,131,23,116,152,178,130,63,206,85];
+
+        // let s = bytes.to_ocaml_str();
+        // println!("s='{}'", s);
+
+        let s = r"\n\220\211\153\014A\191\006\019\231/\244\155\005\212\1310|\227\133\176O\196\131\023t\152\178\130?\206U";
+        let pending_coinbase_aux = PendingCoinbaseAux::from_ocaml_str(s);
+        assert_eq!(s, pending_coinbase_aux.to_ocaml_str());
     }
 
     #[test]
@@ -314,6 +320,32 @@ mod tests {
         assert_eq!(
             non_snark.digest().to_ocaml_str(),
             r"\t\204S\160F\227\022\142\146\172\220.R'\222L&b\191\138;\022\235\137\190>\205.\031\195-\231"
+        );
+
+        // non_snark=((ledger_hash
+        //   18582860218764414485081234471609377222894570081548691702645303871998665679024)
+        //  (aux_hash
+        //   "0\136Wg\182DbX\203kLi\212%\199\206\142#\213`L\160bpCB\1413\240\193\171K")
+        //  (pending_coinbase_aux
+        //    "\
+        //   \n\220\211\153\014A\191\006\019\231/\244\155\005\212\1310|\227\133\176O\196\131\023t\152\178\130?\206U"))
+
+        let non_snark = NonStark {
+            ledger_hash: Fp::from_str(
+                "18582860218764414485081234471609377222894570081548691702645303871998665679024",
+            )
+            .unwrap(),
+            aux_hash: AuxHash::from_ocaml_str(
+                r"0\136Wg\182DbX\203kLi\212%\199\206\142#\213`L\160bpCB\1413\240\193\171K",
+            ),
+            pending_coinbase_aux: PendingCoinbaseAux::from_ocaml_str(
+                r"\n\220\211\153\014A\191\006\019\231/\244\155\005\212\1310|\227\133\176O\196\131\023t\152\178\130?\206U",
+            ),
+        };
+
+        assert_eq!(
+            non_snark.digest().to_ocaml_str(),
+            r"u~\218kzX\228$\027qG\239\135\255:\143\171\186\011\200P\243\163\135\223T>\017\172\254\1906",
         );
     }
 }

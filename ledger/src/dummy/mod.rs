@@ -7,6 +7,9 @@ use mina_p2p_messages::v2::TransactionSnarkProofStableV2;
 #[cfg(test)]
 use crate::VerificationKey;
 
+#[cfg(test)]
+pub mod for_tests;
+
 /// Value of `Proof.transaction_dummy` when we run `dune runtest src/lib/staged_ledger -f`
 /// The file was generated this way:
 ///

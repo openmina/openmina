@@ -28,7 +28,7 @@ use mina_p2p_messages::{
         MinaBaseStakeDelegationStableV1, MinaBaseStateBodyHashStableV1,
         MinaBaseTransactionStatusFailureCollectionStableV1,
         MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2,
-        MinaBaseZkappCommandTStableV1WireStableV1,
+        MinaBaseUserCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA,
@@ -1803,5 +1803,52 @@ impl binprot::BinProtWrite for LedgerProofWithSokMessage {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
         let p2p: TransactionSnarkScanStateLedgerProofWithSokMessageStableV2 = self.into();
         p2p.binprot_write(w)
+    }
+}
+
+impl From<&MinaBaseUserCommandStableV2> for transaction_logic::valid::UserCommand {
+    fn from(value: &MinaBaseUserCommandStableV2) -> Self {
+        match value {
+            MinaBaseUserCommandStableV2::ZkappCommand(_) => todo!(),
+            MinaBaseUserCommandStableV2::SignedCommand(cmd) => {
+                Self::SignedCommand(Box::new(SignedCommand {
+                    payload: transaction_logic::signed_command::SignedCommandPayload {
+                        common: transaction_logic::signed_command::Common {
+                            fee: (&cmd.payload.common.fee).into(),
+                            fee_payer_pk: (&cmd.payload.common.fee_payer_pk).into(),
+                            nonce: (&cmd.payload.common.nonce).into(),
+                            valid_until: (&cmd.payload.common.valid_until).into(),
+                            memo: (&cmd.payload.common.memo).into(),
+                        },
+                        body: match &cmd.payload.body {
+                            MinaBaseSignedCommandPayloadBodyStableV2::Payment(payment) => {
+                                transaction_logic::signed_command::Body::Payment(PaymentPayload {
+                                    source_pk: (&payment.source_pk).into(),
+                                    receiver_pk: (&payment.receiver_pk).into(),
+                                    amount: payment.amount.clone().into(),
+                                })
+                            }
+                            MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(
+                                delegation,
+                            ) => {
+                                let MinaBaseStakeDelegationStableV1::SetDelegate {
+                                    delegator,
+                                    new_delegate,
+                                } = &delegation;
+
+                                transaction_logic::signed_command::Body::StakeDelegation(
+                                    StakeDelegationPayload::SetDelegate {
+                                        delegator: delegator.into(),
+                                        new_delegate: new_delegate.into(),
+                                    },
+                                )
+                            }
+                        },
+                    },
+                    signer: (&cmd.signer).into(),
+                    signature: (&cmd.signature).into(),
+                }))
+            }
+        }
     }
 }
