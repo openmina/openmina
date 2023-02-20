@@ -335,6 +335,8 @@ impl PendingCoinbase {
         let nstacks = 2u64.pow(depth as u32);
         let mut stack_id = StackId::zero();
 
+        assert_eq!(depth, 5);
+
         tree.fill_with((0..nstacks).map(|_| {
             let this_id = stack_id;
             stack_id = stack_id.incr_by_one();
@@ -482,7 +484,7 @@ impl PendingCoinbase {
 
     pub fn hash_extra(&self) -> PendingCoinbaseAux {
         let mut s = String::with_capacity(64 * 1024);
-        for pos in &self.pos_list {
+        for pos in self.pos_list.iter().rev() {
             write!(&mut s, "{}", pos.0).unwrap();
         }
 
@@ -500,7 +502,7 @@ impl PendingCoinbase {
 
 /// Keep it a bit generic, in case we need a merkle tree somewhere else
 pub mod merkle_tree {
-    use crate::{Address, AddressIterator, Direction, HashesMatrix, MerklePath};
+    use crate::{AccountIndex, Address, AddressIterator, Direction, HashesMatrix, MerklePath};
 
     use super::*;
 
@@ -521,12 +523,18 @@ pub mod merkle_tree {
 
     impl<K, V, H> std::fmt::Debug for MiniMerkleTree<K, V, H>
     where
+        K: std::fmt::Debug + Ord,
         V: std::fmt::Debug,
     {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let mut indexes = self.indexes.iter().collect::<Vec<_>>();
+            indexes.sort_by_key(|(key, _addr)| *key);
+            // indexes.sort_by_key(|(_key, addr)| addr.to_index());
+
             f.debug_struct("MiniMerkleTree")
                 .field("values", &self.values)
-                // .field("indexes", &self.indexes)
+                .field("indexes_len", &indexes.len())
+                .field("indexes", &indexes)
                 // .field("hashes_matrix", &self.hashes_matrix)
                 .field("depth", &self.depth)
                 .finish()
@@ -557,12 +565,57 @@ pub mod merkle_tree {
         {
             assert!(self.values.is_empty());
 
-            let mut addr = Some(Address::first(self.depth));
+            assert_eq!(self.depth, 5);
 
-            for (key, value) in data {
+            // OCaml uses those indexes
+            let indexes: HashMap<usize, usize> = [
+                (31, 31),
+                (30, 15),
+                (29, 23),
+                (28, 7),
+                (27, 27),
+                (26, 11),
+                (25, 19),
+                (24, 3),
+                (23, 29),
+                (22, 13),
+                (21, 21),
+                (20, 5),
+                (19, 25),
+                (18, 9),
+                (17, 17),
+                (16, 1),
+                (15, 30),
+                (14, 14),
+                (13, 22),
+                (12, 6),
+                (11, 26),
+                (10, 10),
+                (9, 18),
+                (8, 2),
+                (7, 28),
+                (6, 12),
+                (5, 20),
+                (4, 4),
+                (3, 24),
+                (2, 8),
+                (1, 16),
+                (0, 0),
+            ]
+            .iter()
+            .copied()
+            .collect();
+
+            for (index, (key, value)) in data.enumerate() {
                 self.values.push(value);
-                self.indexes.insert(key, addr.clone().unwrap());
-                addr = addr.as_ref().and_then(Address::next);
+
+                let index = indexes
+                    .get(&index)
+                    .copied()
+                    .map(AccountIndex::from)
+                    .unwrap();
+                self.indexes
+                    .insert(key, Address::from_index(index, self.depth));
             }
         }
 
