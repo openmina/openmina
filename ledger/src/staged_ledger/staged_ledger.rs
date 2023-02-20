@@ -3168,7 +3168,10 @@ mod tests_ocaml {
     }
 
     // Deterministic, to get staged ledger hash
-    fn gen_for_hash() -> (
+    fn gen_for_hash(
+        iters: &[usize],
+        cmds: Vec<valid::UserCommand>,
+    ) -> (
         LedgerInitialState,
         Vec<valid::UserCommand>,
         Vec<Option<usize>>,
@@ -3246,8 +3249,92 @@ mod tests_ocaml {
         // let state = gen_initial_ledger_state();
         println!("state={:#?}", state);
 
-        let iters = [1];
+        let iters_total: usize = iters.iter().sum();
+        assert_eq!(iters_total, cmds.len());
 
+        (state, cmds, iters.iter().copied().map(Some).collect())
+    }
+
+    fn test_hash(cmds: Vec<valid::UserCommand>, iters: &[usize], expected_hash: &StagedLedgerHash) {
+        let (ledger_init_state, cmds, iters) = gen_for_hash(iters, cmds);
+
+        async_with_ledgers(
+            &ledger_init_state,
+            cmds.to_vec(),
+            iters.to_vec(),
+            |mut sl, test_mask| {
+                // dbg!(sl.ledger.num_accounts());
+
+                let hash = sl.hash();
+
+                assert_eq!(hash, StagedLedgerHash::from_ocaml_strings(
+                    "7213023165825031994332898585791275635753820608093286100176380057570051468967",
+                    r"T\249\245k\176]TJ\216\183\001\204\177\131\030\244o\178\188\191US\156\192Hi\194P\223\004\000\003",
+                    r"_\236\235f\255\200o8\217Rxlmily\194\219\1949\221N\145\180g)\215:'\251W\233",
+                    "25504365445533103805898245102289650498571312278321176071043666991586378788150"
+                ));
+
+                let mut sl = test_simple(
+                    init_pks(&ledger_init_state),
+                    cmds.to_vec(),
+                    iters.to_vec(),
+                    sl,
+                    None,
+                    None,
+                    test_mask,
+                    NumProvers::One,
+                    &stmt_to_work_one_prover,
+                );
+
+                let mut accounts = sl.ledger.accounts().into_iter().collect::<Vec<_>>();
+                accounts.sort_by_key(|a| a.public_key.x);
+
+                let hash = sl.hash();
+
+                let job: Vec<_> = sl.scan_state.base_jobs_on_latest_tree().collect();
+                dbg!(job.len(), &job);
+
+                for job in job {
+                    // dbg!(&job.ledger_witness);
+                    // println!("START");
+                    let before = job.ledger_witness.clone().merkle_root();
+                    let ledger: mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2 =
+                        (&job.ledger_witness).into();
+
+                    // dbg!(&ledger);
+
+                    let mut ledger: SparseLedger<AccountId, Account> = (&ledger).into();
+                    let after = ledger.merkle_root();
+                    // dbg!(&ledger);
+                    assert_eq!(before, after);
+                    // dbg!(&ledger);
+                    // dbg!(&job.ledger_witness);
+
+                    assert_eq!(ledger, job.ledger_witness);
+                }
+
+                assert_eq!(
+                    &hash, expected_hash,
+                    "\ngot={:#?}\nexpected={:#?}",
+                    hash, expected_hash
+                );
+
+                // staged_ledger_hash=
+                // ((non_snark
+                //   ((ledger_hash
+                //     7403973954047799970700856317480467373315236045518635088954201291392464592256)
+                //    (aux_hash
+                //     "\183At\174\178]\186\b$\182\245&\003=\183\241\190\214\131@r\162&\138f\187\234\191\2002\148\249")
+                //    (pending_coinbase_aux
+                //     "\147\141\184\201\248,\140\181\141?>\244\253%\0006\164\141&\167\018u=/\222Z\189\003\168\\\171\244")))
+                //  (pending_coinbase_hash
+                //   3086764415430464582862741061906779337283239657859408605572481484787647764860))
+            },
+        );
+    }
+
+    #[test]
+    fn staged_ledger_hash() {
         let cmds = vec![valid::UserCommand::SignedCommand(Box::new(SignedCommand {
             payload: SignedCommandPayload {
                 common: Common {
@@ -3290,131 +3377,162 @@ mod tests_ocaml {
             },
         }))];
 
-        // 6619317331104517676070771956470715552778579643404520621914362882786941822698
-        //      4273977355509408506621406872367289068113165398006813670168359703884853847009)
-
-        // ((Signed_command
-        //   ((payload
-        //     ((common
-        //       ((fee 8688709898)
-        //        (fee_payer_pk B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd)
-        //        (nonce 555) (valid_until 4294967295)
-        //        (memo
-        //         "\000 \014WQ\192&\229C\178\232\171.\176`\153\218\161\209\229\223Gw\143w\135\250\171E\205\241/\227\168")))
-        //      (body
-        //       (Payment
-        //        ((source_pk B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd)
-        //         (receiver_pk B62qnxPe7DM72bh59QrubnREEyeNoeLM4J9s8iufT6Gi2iuUm6fe73R)
-        //         (amount 435117290311290102))))))
-        //    (signer B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd)
-        //    (signature
-        //     (20217282917696419477832420831851054926507797744233259437635168547157179087012
-        //      24747245232464873436215177181298907097142134338210202508666577441803771565079)))))
-
-        (state, cmds, iters.into_iter().map(Some).collect())
-    }
-
-    /// This test was failing, due to incorrect discarding user command
-    /// Note: Something interesting is that the batch 11 applies 0 commands
-    ///
-    /// See https://github.com/openmina/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
-    #[test]
-    fn staged_ledger_hash() {
-        let (ledger_init_state, cmds, iters) = gen_for_hash();
-
-        async_with_ledgers(
-            &ledger_init_state,
-            cmds.to_vec(),
-            iters.to_vec(),
-            |mut sl, test_mask| {
-                // dbg!(sl.ledger.num_accounts());
-
-                let hash = sl.hash();
-
-                assert_eq!(hash, StagedLedgerHash::from_ocaml_strings(
-                    "7213023165825031994332898585791275635753820608093286100176380057570051468967",
-                    r"T\249\245k\176]TJ\216\183\001\204\177\131\030\244o\178\188\191US\156\192Hi\194P\223\004\000\003",
-                    r"_\236\235f\255\200o8\217Rxlmily\194\219\1949\221N\145\180g)\215:'\251W\233",
-                    "25504365445533103805898245102289650498571312278321176071043666991586378788150"
-                ));
-
-                let mut sl = test_simple(
-                    init_pks(&ledger_init_state),
-                    cmds.to_vec(),
-                    iters.to_vec(),
-                    sl,
-                    None,
-                    None,
-                    test_mask,
-                    NumProvers::One,
-                    &stmt_to_work_one_prover,
-                );
-
-                let mut accounts = sl.ledger.accounts().into_iter().collect::<Vec<_>>();
-                accounts.sort_by_key(|a| a.public_key.x);
-
-                // dbg!(accounts);
-
-                // dbg!(sl.ledger.to_list());
-
-                // sl.ledger.location_of_account(&COINBASE_RECEIVER.clone());
-
-                let hash = sl.hash();
-                println!("staged_ledger_hash={:#?}", hash);
-
-                let job: Vec<_> = sl.scan_state.base_jobs_on_latest_tree().collect();
-                dbg!(job.len(), &job);
-
-                for job in job {
-                    // dbg!(&job.ledger_witness);
-                    // println!("START");
-                    let before = job.ledger_witness.clone().merkle_root();
-                    let ledger: mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2 =
-                        (&job.ledger_witness).into();
-
-                    // dbg!(&ledger);
-
-                    let mut ledger: SparseLedger<AccountId, Account> = (&ledger).into();
-                    let after = ledger.merkle_root();
-                    // dbg!(&ledger);
-                    assert_eq!(before, after);
-                    // dbg!(&ledger);
-                    // dbg!(&job.ledger_witness);
-
-                    // assert_eq!(ledger.depth, job.ledger_witness.depth);
-                    // assert_eq!(ledger.hashes_matrix, job.ledger_witness.hashes_matrix);
-                    // assert_eq!(ledger.indexes, job.ledger_witness.indexes);
-                    // assert_eq!(ledger.values, job.ledger_witness.values);
-
-                    assert_eq!(ledger, job.ledger_witness);
-                    // println!("OK");
-                }
-
-                let expected = StagedLedgerHash::from_ocaml_strings(
-                    "7403973954047799970700856317480467373315236045518635088954201291392464592256",
-                    r"\183At\174\178]\186\b$\182\245&\003=\183\241\190\214\131@r\162&\138f\187\234\191\2002\148\249",
-                    r"\147\141\184\201\248,\140\181\141?>\244\253%\0006\164\141&\167\018u=/\222Z\189\003\168\\\171\244",
-                    "3086764415430464582862741061906779337283239657859408605572481484787647764860",
-                );
-
-                assert_eq!(
-                    hash, expected,
-                    "\ngot={:#?}\nexpected={:#?}",
-                    hash, expected
-                );
-
-                // staged_ledger_hash=
-                // ((non_snark
-                //   ((ledger_hash
-                //     7403973954047799970700856317480467373315236045518635088954201291392464592256)
-                //    (aux_hash
-                //     "\183At\174\178]\186\b$\182\245&\003=\183\241\190\214\131@r\162&\138f\187\234\191\2002\148\249")
-                //    (pending_coinbase_aux
-                //     "\147\141\184\201\248,\140\181\141?>\244\253%\0006\164\141&\167\018u=/\222Z\189\003\168\\\171\244")))
-                //  (pending_coinbase_hash
-                //   3086764415430464582862741061906779337283239657859408605572481484787647764860))
-            },
+        let iters = [1];
+        let expected = StagedLedgerHash::from_ocaml_strings(
+            "7403973954047799970700856317480467373315236045518635088954201291392464592256",
+            r"\183At\174\178]\186\b$\182\245&\003=\183\241\190\214\131@r\162&\138f\187\234\191\2002\148\249",
+            r"\147\141\184\201\248,\140\181\141?>\244\253%\0006\164\141&\167\018u=/\222Z\189\003\168\\\171\244",
+            "3086764415430464582862741061906779337283239657859408605572481484787647764860",
         );
+
+        test_hash(cmds, &iters[..], &expected);
+
+        let cmds = vec![
+            valid::UserCommand::SignedCommand(Box::new(SignedCommand {
+                payload: SignedCommandPayload {
+                    common: Common {
+                        fee: Fee::from_u64(9552806101),
+                        fee_payer_pk: CompressedPubKey::from_address(
+                            "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+                        )
+                            .unwrap(),
+                        nonce: Nonce::from_u32(555),
+                        valid_until: Slot::from_u32(4294967295),
+                        memo: Memo::from_ocaml_str(
+                            r"\000 \014WQ\192&\229C\178\232\171.\176`\153\218\161\209\229\223Gw\143w\135\250\171E\205\241/\227\168",
+                        ),
+                    },
+                    body: signed_command::Body::Payment(PaymentPayload {
+                        source_pk: CompressedPubKey::from_address(
+                            "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+                        )
+                            .unwrap(),
+                        receiver_pk: CompressedPubKey::from_address(
+                            "B62qq4FFooVJ6TRGKA3chxE7M1Xh1F11jsanLBYmcZEqJZaYGPdye3D",
+                        )
+                            .unwrap(),
+                        amount: Amount::from_u64(469201635493516843),
+                    }),
+                },
+                signer: CompressedPubKey::from_address(
+                    "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+                )
+                    .unwrap(),
+                signature: Signature {
+                    rx: Fp::from_str(
+                        "13044376504321844748116412242934215884445305434730105658311275966836245013702",
+                    )
+                        .unwrap(),
+                    s: Fq::from_str(
+                        "12273578804512625613925108666574978157352049391462385103152803971242598973329",
+                    )
+                        .unwrap(),
+                },
+            })),
+            valid::UserCommand::SignedCommand(Box::new(SignedCommand {
+                payload: SignedCommandPayload {
+                    common: Common {
+                        fee: Fee::from_u64(9575291918),
+                        fee_payer_pk: CompressedPubKey::from_address(
+                            "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+                        )
+                            .unwrap(),
+                        nonce: Nonce::from_u32(556),
+                        valid_until: Slot::from_u32(4294967295),
+                        memo: Memo::from_ocaml_str(
+                            r"\000 \014WQ\192&\229C\178\232\171.\176`\153\218\161\209\229\223Gw\143w\135\250\171E\205\241/\227\168",
+                        ),
+                    },
+                    body: signed_command::Body::Payment(PaymentPayload {
+                        source_pk: CompressedPubKey::from_address(
+                            "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+                        )
+                            .unwrap(),
+                        receiver_pk: CompressedPubKey::from_address(
+                            "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+                        )
+                            .unwrap(),
+                        amount: Amount::from_u64(296784327960059186),
+                    }),
+                },
+                signer: CompressedPubKey::from_address(
+                    "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+                )
+                    .unwrap(),
+                signature: Signature {
+                    rx: Fp::from_str(
+                        "19459175650095724075239264136789847339652723660248405017158921230047021100311",
+                    )
+                        .unwrap(),
+                    s: Fq::from_str(
+                        "10619126644528613945289745005934480034669523474364234529309635443435990216318",
+                    )
+                        .unwrap(),
+                },
+            })),
+            valid::UserCommand::SignedCommand(Box::new(SignedCommand {
+                payload: SignedCommandPayload {
+                    common: Common {
+                        fee: Fee::from_u64(6000000000),
+                        fee_payer_pk: CompressedPubKey::from_address(
+                            "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+                        )
+                            .unwrap(),
+                        nonce: Nonce::from_u32(557),
+                        valid_until: Slot::from_u32(4294967295),
+                        memo: Memo::from_ocaml_str(
+                            r"\000 \014WQ\192&\229C\178\232\171.\176`\153\218\161\209\229\223Gw\143w\135\250\171E\205\241/\227\168",
+                        ),
+                    },
+                    body: signed_command::Body::Payment(PaymentPayload {
+                        source_pk: CompressedPubKey::from_address(
+                            "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+                        )
+                            .unwrap(),
+                        receiver_pk: CompressedPubKey::from_address(
+                            "B62qnxPe7DM72bh59QrubnREEyeNoeLM4J9s8iufT6Gi2iuUm6fe73R",
+                        )
+                            .unwrap(),
+                        amount: Amount::from_u64(104248609418325952),
+                    }),
+                },
+                signer: CompressedPubKey::from_address(
+                    "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
+                )
+                    .unwrap(),
+                signature: Signature {
+                    rx: Fp::from_str(
+                        "19184633593539053772878146013599475038165210841217779716455315092747869436447",
+                    )
+                        .unwrap(),
+                    s: Fq::from_str(
+                        "17897057128192645856092038224382359168869279402582452391679534470779618649008",
+                    )
+                        .unwrap(),
+                },
+            }))
+        ];
+
+        let iters = [1, 2];
+        let expected = StagedLedgerHash::from_ocaml_strings(
+            "21222488975521454969719816807666201571945933237784599135716531110886279420130",
+            r"C\004\240\167\1597Y\205\236br\128\2324<\219[&\027u\173\152\212\180N\142\193yP\189\129\031",
+            r"\147\141\184\201\248,\140\181\141?>\244\253%\0006\164\141&\167\018u=/\222Z\189\003\168\\\171\244",
+            "8909119019222126918708891766510490679262830386343981426610706812406879559705",
+        );
+
+        // staged_ledger_hash=
+        // ((non_snark
+        //   ((ledger_hash
+        //     21222488975521454969719816807666201571945933237784599135716531110886279420130)
+        //    (aux_hash
+        //     "C\004\240\167\1597Y\205\236br\128\2324<\219[&\027u\173\152\212\180N\142\193yP\189\129\031")
+        //    (pending_coinbase_aux
+        //     "\147\141\184\201\248,\140\181\141?>\244\253%\0006\164\141&\167\018u=/\222Z\189\003\168\\\171\244")))
+        //  (pending_coinbase_hash
+        //   8909119019222126918708891766510490679262830386343981426610706812406879559705))
+
+        test_hash(cmds, &iters[..], &expected);
     }
 
     /// https://github.com/MinaProtocol/mina/blob/f6756507ff7380a691516ce02a3cf7d9d32915ae/src/lib/staged_ledger/staged_ledger.ml#L2579
