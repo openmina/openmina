@@ -4,6 +4,8 @@ use sha2::{Digest, Sha256};
 
 use crate::{scan_state::pending_coinbase::PendingCoinbase, ToInputs};
 
+/// Convert to/from OCaml strings, such as
+/// "u~\218kzX\228$\027qG\239\135\255:\143\171\186\011\200P\243\163\135\223T>\017\172\254\1906"
 pub trait OCamlString {
     fn to_ocaml_str(&self) -> String;
     fn from_ocaml_str(s: &str) -> Self;
@@ -19,7 +21,7 @@ impl<const N: usize> OCamlString for [u8; N] {
     }
 }
 
-fn to_ocaml_str(bytes: &[u8]) -> String {
+pub fn to_ocaml_str(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(256);
 
     for b in bytes {
@@ -45,7 +47,7 @@ fn to_ocaml_str(bytes: &[u8]) -> String {
     s
 }
 
-fn from_ocaml_str<const N: usize>(s: &str) -> [u8; N] {
+pub fn from_ocaml_str<const N: usize>(s: &str) -> [u8; N] {
     let mut bytes = [0; N];
     let mut b_index = 0;
 

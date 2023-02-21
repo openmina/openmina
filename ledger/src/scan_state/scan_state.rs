@@ -65,7 +65,7 @@ pub mod transaction_snark {
             pending_coinbase,
             transaction_logic::{local_state::LocalState, transaction_applied::TransactionApplied},
         },
-        staged_ledger::sparse_ledger::SparseLedger,
+        staged_ledger::{hash::OCamlString, sparse_ledger::SparseLedger},
         Account, AccountId,
     };
 
@@ -104,8 +104,25 @@ pub mod transaction_snark {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, derive_more::Deref)]
+    #[derive(Clone, PartialEq, Eq, derive_more::Deref)]
     pub struct SokDigest(pub Vec<u8>);
+
+    impl OCamlString for SokDigest {
+        fn to_ocaml_str(&self) -> String {
+            crate::staged_ledger::hash::to_ocaml_str(&self.0)
+        }
+
+        fn from_ocaml_str(s: &str) -> Self {
+            let bytes: [u8; 32] = crate::staged_ledger::hash::from_ocaml_str(s);
+            Self(bytes.to_vec())
+        }
+    }
+
+    impl std::fmt::Debug for SokDigest {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_fmt(format_args!("SokDigest({})", self.to_ocaml_str()))
+        }
+    }
 
     impl Default for SokDigest {
         /// https://github.com/MinaProtocol/mina/blob/3a78f0e0c1343d14e2729c8b00205baa2ec70c93/src/lib/mina_base/sok_message.ml#L76
@@ -200,13 +217,13 @@ pub mod transaction_snark {
         pub ledger_witness: SparseLedger<AccountId, Account>,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct TransactionSnark<D> {
         pub statement: Statement<D>,
         pub proof: Rc<TransactionSnarkProofStableV2>,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct LedgerProof(pub TransactionSnark<SokDigest>);
 
     impl LedgerProof {
@@ -243,7 +260,7 @@ pub mod transaction_snark {
         }
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct SokMessage {
         pub fee: Fee,
         pub prover: CompressedPubKey,
@@ -255,7 +272,7 @@ pub mod transaction_snark {
         }
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct LedgerProofWithSokMessage {
         pub proof: LedgerProof,
         pub sok_message: SokMessage,
@@ -391,6 +408,13 @@ impl ScanState {
 
         let digest = self.state.hash(
             |buffer, proof| {
+                #[cfg(test)]
+                {
+                    let a: mina_p2p_messages::v2::TransactionSnarkScanStateLedgerProofWithSokMessageStableV2 = proof.into();
+                    let b: LedgerProofWithSokMessage = (&a).into();
+                    assert_eq!(&b, proof);
+                }
+
                 proof.binprot_write(buffer).unwrap();
             },
             |buffer, transaction| {
