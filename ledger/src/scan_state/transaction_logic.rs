@@ -424,6 +424,7 @@ impl Coinbase {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/f6756507ff7380a691516ce02a3cf7d9d32915ae/src/lib/mina_base/coinbase.ml#L76
     fn expected_supply_increase(&self) -> Result<Amount, String> {
         let Self {
             amount,
@@ -435,6 +436,8 @@ impl Coinbase {
             None => Ok(*amount),
             Some(CoinbaseFeeTransfer { fee, .. }) => amount
                 .checked_sub(&Amount::of_fee(fee))
+                // The substraction result is ignored here
+                .map(|_| *amount)
                 .ok_or_else(|| "Coinbase underflow".to_string()),
         }
     }
