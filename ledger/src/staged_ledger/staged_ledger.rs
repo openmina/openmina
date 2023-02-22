@@ -2931,6 +2931,26 @@ mod tests_ocaml {
         gen_zkapps(Some(Failure::InvalidAccountPrecondition), num_zkapps, iters)
     }
 
+    #[test]
+    fn de_serialize_zkapps() {
+        let (_ledger, zkapps, _iters) = gen_zkapps_at_capacity();
+
+        for (index, zkapp) in zkapps.into_iter().enumerate() {
+            let zkapp = match zkapp {
+                valid::UserCommand::SignedCommand(_) => todo!(),
+                valid::UserCommand::ZkAppCommand(zkapp) => zkapp,
+            };
+
+            let zkapp = zkapp.forget();
+
+            let a: mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1 =
+                (&zkapp).into();
+            let b: zkapp_command::ZkAppCommand = (&a).into();
+
+            assert_eq!(zkapp, b, "failed at {:?}", index);
+        }
+    }
+
     /// Max throughput (zkapps)
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2664

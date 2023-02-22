@@ -2241,6 +2241,7 @@ pub mod zkapp_command {
             )
         }
 
+        #[must_use]
         pub fn map_to<F, AnotherAccUpdate: Clone>(&self, fun: F) -> CallForest<AnotherAccUpdate>
         where
             F: Fn(&AccUpdate) -> AnotherAccUpdate,
@@ -2356,9 +2357,11 @@ pub mod zkapp_command {
             }
 
             // We traverse the list in reverse here (to get same behavior as OCaml recursivity)
+            // Note that reverse here means 0 to last, see `CallForest::iter` for explaination
+            //
             // We use indexes to make the borrow checker happy
 
-            for index in (0..self.0.len()).rev() {
+            for index in 0..self.0.len() {
                 let elem = &mut self.0[index];
                 let WithStackHash {
                     elt:
