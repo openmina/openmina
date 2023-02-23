@@ -288,7 +288,7 @@ impl LedgerIntf for Mask {
     }
 
     fn empty(depth: usize) -> Self {
-        let root = Mask::new_root(crate::Database::create(depth.try_into().unwrap()));
+        let root = Mask::new_unattached(depth);
         root.make_child()
     }
 
