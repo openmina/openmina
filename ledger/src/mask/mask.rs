@@ -24,6 +24,46 @@ pub struct Mask {
     pub inner: Arc<Mutex<MaskImpl>>,
 }
 
+impl Drop for Mask {
+    fn drop(&mut self) {
+        if Arc::strong_count(&self.inner) > 2 {
+            // Don't drop because of counter
+            return;
+        }
+
+        let Ok(inner) = self.inner.try_lock() else {
+            // The Mask is used somewhere else
+            return
+        };
+
+        if inner.any_child_alive() {
+            // Still got childs, don't do anything
+            return;
+        }
+
+        let Some(parent) = inner.get_parent() else {
+             // No parent, we don't need to do anything
+            return
+        };
+
+        // We reached a point where we don't have childs, and it remains at most 2
+        // pointers of our mask:
+        // - 1 pointer from the parent (having us in its `MaskImpl::childs` )
+        // - 1 currently dropping pointer
+        //
+        // Unregister our mask from the parent (remove us from its `MaskImpl::childs`)
+        // It will recursively drop/deallocate any parent with the same conditions
+
+        // Note:
+        // There is a case where the parent does not have any pointer of us:
+        // During transaction application, we don't call `register_mask`
+        // In that case, the `remove_child_uuid` below has no effect
+        // https://github.com/MinaProtocol/mina/blob/f6756507ff7380a691516ce02a3cf7d9d32915ae/src/lib/mina_ledger/ledger.ml#L204
+
+        parent.remove_child_uuid(inner.get_uuid());
+    }
+}
+
 #[derive(Debug)]
 pub enum UnregisterBehavior {
     Check,
@@ -43,16 +83,21 @@ impl Mask {
 
 impl Mask {
     pub fn new_root(db: Database<V2>) -> Self {
-        Self {
+        let uuid = db.get_uuid();
+        let mask = Self {
             inner: Arc::new(Mutex::new(MaskImpl::Root {
                 database: db,
                 childs: HashMap::with_capacity(2),
             })),
-        }
+        };
+        super::tests::add_mask(&uuid);
+        mask
     }
 
     pub fn new_unattached(depth: usize) -> Self {
-        Self {
+        let uuid = next_uuid();
+
+        let mask = Self {
             inner: Arc::new(Mutex::new(MaskImpl::Unattached {
                 owning_account: Default::default(),
                 token_to_account: Default::default(),
@@ -60,10 +105,14 @@ impl Mask {
                 last_location: None,
                 depth: depth as u8,
                 childs: HashMap::with_capacity(2),
-                uuid: next_uuid(),
+                uuid: uuid.clone(),
                 hashes: HashesMatrix::new(depth),
             })),
-        }
+        };
+
+        super::tests::add_mask(&uuid);
+
+        mask
     }
 
     pub fn create(depth: usize) -> Self {
@@ -75,7 +124,7 @@ impl Mask {
         self.register_mask(new_mask)
     }
 
-    pub fn set_parent(&self, parent: &Mask, parent_last_filled: Option<Option<Address>>) -> Mask {
+    pub fn set_parent(&self, parent: Mask, parent_last_filled: Option<Option<Address>>) -> Mask {
         let this = self.clone();
         self.with(|this| this.set_parent(parent, parent_last_filled));
         this
@@ -393,6 +442,56 @@ mod tests {
 
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
+
+    #[test]
+    fn test_drop_mask() {
+        let root_uuid;
+        let child1_uuid;
+        let child2_uuid;
+
+        let child = {
+            let child = {
+                println!("A");
+                let root = Mask::new_unattached(25);
+                root_uuid = root.get_uuid();
+                println!("root={:?}", root.get_uuid());
+                // let root = Mask::new_root(crate::Database::create(35.try_into().unwrap()));
+                println!("B");
+                let child = root.make_child();
+                println!("child={:?}", child.get_uuid());
+                child1_uuid = child.get_uuid();
+                child
+            };
+            println!("C");
+            assert!(child.is_attached());
+
+            let child = child.make_child();
+            child2_uuid = child.get_uuid();
+            child
+        };
+
+        println!("D");
+        println!("child2={:?}", child.get_uuid());
+        assert!(child.is_attached());
+
+        {
+            let parent = child.get_parent().unwrap();
+            let parent = parent.get_parent().unwrap();
+            assert_eq!(parent.get_uuid(), root_uuid);
+        }
+
+        // The 3 masks should still be alive
+        assert!(crate::mask::tests::is_mask_alive(&root_uuid));
+        assert!(crate::mask::tests::is_mask_alive(&child1_uuid));
+        assert!(crate::mask::tests::is_mask_alive(&child2_uuid));
+
+        std::mem::drop(child);
+
+        // Now they are all drop/deallocated
+        assert!(!crate::mask::tests::is_mask_alive(&root_uuid));
+        assert!(!crate::mask::tests::is_mask_alive(&child1_uuid));
+        assert!(!crate::mask::tests::is_mask_alive(&child2_uuid));
+    }
 
     #[test]
     fn test_merkle_path_one_account() {

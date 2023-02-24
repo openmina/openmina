@@ -47,6 +47,17 @@ pub enum MaskImpl {
     },
 }
 
+/// Drop implementation used on tests only !
+#[cfg(test)]
+impl Drop for MaskImpl {
+    fn drop(&mut self) {
+        if self.uuid().starts_with("temporary") {
+            return;
+        }
+        super::tests::remove_mask(&self.get_uuid());
+    }
+}
+
 impl Clone for MaskImpl {
     fn clone(&self) -> Self {
         match self {
@@ -181,6 +192,16 @@ impl MaskImpl {
         }
     }
 
+    pub(super) fn any_child_alive(&self) -> bool {
+        let childs = match self {
+            Root { childs, .. } => childs,
+            Attached { childs, .. } => childs,
+            Unattached { childs, .. } => childs,
+        };
+
+        !childs.is_empty()
+    }
+
     /// Make `mask` a child of `self`
     pub fn register_mask(&mut self, self_mask: Mask, mask: Mask) -> Mask {
         let childs = self.childs();
@@ -190,7 +211,7 @@ impl MaskImpl {
 
         let parent_last_filled = self.last_filled();
 
-        mask.set_parent(&self_mask, Some(parent_last_filled));
+        mask.set_parent(self_mask, Some(parent_last_filled));
         mask
     }
 
@@ -198,7 +219,10 @@ impl MaskImpl {
     pub fn unregister_mask(&mut self, behavior: UnregisterBehavior, remove_from_parent: bool) {
         use UnregisterBehavior::*;
 
-        let parent = self.get_parent().unwrap();
+        let parent = match self.get_parent() {
+            Some(parent) => parent,
+            None => return,
+        };
 
         let trigger_detach_signal = matches!(behavior, Check | Recursive);
 
@@ -258,7 +282,7 @@ impl MaskImpl {
         self.remove_parent();
     }
 
-    pub fn set_parent(&mut self, parent: &Mask, parent_last_filled: Option<Option<Address>>) {
+    pub fn set_parent(&mut self, parent: Mask, parent_last_filled: Option<Option<Address>>) {
         match self {
             Root { .. } => panic!("set_parent() on a root"),
             Attached { .. } => panic!("mask is already attached"),
@@ -275,7 +299,7 @@ impl MaskImpl {
                 use std::mem::{replace, take};
 
                 *self = Attached {
-                    parent: parent.clone(),
+                    parent,
                     owning_account: take(owning_account),
                     token_to_account: take(token_to_account),
                     id_to_addr: take(id_to_addr),
@@ -283,7 +307,7 @@ impl MaskImpl {
                     depth: *depth,
                     childs: take(childs),
                     hashes: replace(hashes, HashesMatrix::new(*depth as usize)),
-                    uuid: uuid.clone(),
+                    uuid: replace(uuid, "temporary_set_parent".to_string()),
                 };
 
                 let last_filled = match parent_last_filled {
@@ -416,44 +440,43 @@ impl MaskImpl {
             Attached { .. } => (),
         }
 
-        let empty = Self::Unattached {
-            depth: Default::default(),
-            childs: Default::default(),
-            owning_account: Default::default(),
-            token_to_account: Default::default(),
-            id_to_addr: Default::default(),
-            last_location: Default::default(),
-            hashes: HashesMatrix::new(self.depth() as usize),
-            uuid: Default::default(),
+        let Self::Attached {
+            parent,
+            owning_account,
+            token_to_account,
+            id_to_addr,
+            last_location,
+            depth,
+            childs,
+            hashes,
+            uuid
+        } = self else {
+            // We previously checked it's an attached mask
+            unreachable!()
         };
 
-        match std::mem::replace(self, empty) {
-            Attached {
-                parent,
-                owning_account,
-                token_to_account,
-                id_to_addr,
-                last_location,
-                depth,
-                childs,
-                hashes,
-                uuid,
-            } => {
-                *self = Self::Unattached {
-                    owning_account,
-                    token_to_account,
-                    id_to_addr,
-                    last_location,
-                    depth,
-                    childs,
-                    hashes,
-                    uuid,
-                };
+        let parent = parent.clone();
+        let owning_account = std::mem::take(owning_account);
+        let depth = std::mem::take(depth);
+        let childs = std::mem::take(childs);
+        let token_to_account = std::mem::take(token_to_account);
+        let id_to_addr = std::mem::take(id_to_addr);
+        let last_location = std::mem::take(last_location);
+        let hashes = std::mem::replace(hashes, HashesMatrix::new(depth as usize));
+        let uuid = std::mem::replace(uuid, "temporary".to_string());
 
-                Some(parent)
-            }
-            _ => None,
-        }
+        *self = Self::Unattached {
+            owning_account,
+            token_to_account,
+            id_to_addr,
+            last_location,
+            depth,
+            childs,
+            hashes,
+            uuid,
+        };
+
+        Some(parent)
     }
 
     pub fn remove_child_uuid(&mut self, uuid: Uuid) -> Option<Mask> {

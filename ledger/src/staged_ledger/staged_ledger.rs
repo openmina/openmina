@@ -2247,7 +2247,7 @@ mod tests_ocaml {
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2180
     fn async_with_given_ledger<F, R>(
-        ledger_init_state: &LedgerInitialState,
+        _ledger_init_state: &LedgerInitialState,
         cmds: Vec<valid::UserCommand>,
         cmd_iters: Vec<Option<usize>>,
         mask: Mask,
