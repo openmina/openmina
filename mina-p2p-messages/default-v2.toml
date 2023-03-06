@@ -24,8 +24,11 @@ phantom_type = "crate::phantom::Phantom"
 
 skip = [
        "TransactionSnarkScanStateStableV1VersionedV1PolyV1PolyV1TreesArg0V1",
-       "TransactionSnarkScanStateStableV2TreesA"
+       "TransactionSnarkScanStateStableV2TreesA",
+       "TransactionSnarkScanStateStableV2ScanStateTreesA",
 ]
+
+rec_tuple_type = 'PaddedSeq'
 
 [base_types.float]
 rust_id = 'crate::number::Float64'
@@ -78,3 +81,16 @@ args_num = 'None'
 [base_types.list]
 rust_id = 'Vec'
 args_num = 'Single'
+
+[ocaml_mod_mapping]
+Make_str = ''
+
+[rust_ref_mapping]
+'Non_zero_curve_point.Uncompressed.Stable.V1' = 'NonZeroCurvePoint'
+'Mina_base__Token_id.Stable.V2' = 'TokenIdKeyHash'
+'Mina_base__Epoch_seed.Stable.V1' = 'EpochSeed'
+'Data_hash_lib__State_hash.Stable.V1' = 'StateHash'
+'Mina_base__Ledger_hash0.Stable.V1' = 'LedgerHash'
+'Mina_base__Staged_ledger_hash.Make_str.Aux_hash.Stable.V1' = 'StagedLedgerHashAuxHash'
+'Mina_base__Staged_ledger_hash.Make_str.Pending_coinbase_aux.Stable.V1' = 'StagedLedgerHashPendingCoinbaseAux'
+'Mina_base__Pending_coinbase.Make_str.Hash_versioned.Stable.V1' = 'PendingCoinbaseHash'

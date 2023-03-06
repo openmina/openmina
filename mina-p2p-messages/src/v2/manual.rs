@@ -12,18 +12,18 @@ use super::{
     MinaBaseAccountIdDigestStableV1, MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
     MinaBasePendingCoinbaseHashVersionedStableV1, NonZeroCurvePointUncompressedStableV1,
     ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
-    ProtocolVersionStableV1, TransactionSnarkScanStateStableV2TreesABaseT1,
-    TransactionSnarkScanStateStableV2TreesAMergeT1,
+    ProtocolVersionStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
+    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
 };
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
     ParallelScanWeightStableV1,
-    TransactionSnarkScanStateStableV2TreesABaseT1,
+    TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
 );
 
 pub type TransactionSnarkScanStateStableV2TreesAMerge = (
     (ParallelScanWeightStableV1, ParallelScanWeightStableV1),
-    TransactionSnarkScanStateStableV2TreesAMergeT1,
+    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
 );
 
 //
@@ -31,12 +31,12 @@ pub type TransactionSnarkScanStateStableV2TreesAMerge = (
 //
 //  Gid: 947
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum TransactionSnarkScanStateStableV2TreesA {
+pub enum TransactionSnarkScanStateStableV2ScanStateTreesA {
     Leaf(Vec<TransactionSnarkScanStateStableV2TreesABase>),
     Node {
         depth: crate::number::Int32,
         value: Vec<TransactionSnarkScanStateStableV2TreesAMerge>,
-        sub_tree: Box<TransactionSnarkScanStateStableV2TreesA>,
+        sub_tree: Box<TransactionSnarkScanStateStableV2ScanStateTreesA>,
     },
 }
 
@@ -46,7 +46,7 @@ enum _Tree {
     Node,
 }
 
-impl BinProtRead for TransactionSnarkScanStateStableV2TreesA {
+impl BinProtRead for TransactionSnarkScanStateStableV2ScanStateTreesA {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
     where
         Self: Sized,
@@ -97,7 +97,7 @@ impl BinProtRead for TransactionSnarkScanStateStableV2TreesA {
     }
 }
 
-impl BinProtWrite for TransactionSnarkScanStateStableV2TreesA {
+impl BinProtWrite for TransactionSnarkScanStateStableV2ScanStateTreesA {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
         let mut curr = self;
         let mut curr_depth = 0;
@@ -204,6 +204,12 @@ base58check_of_binprot!(
     MinaBaseAccountIdDigestStableV1,
     TOKEN_ID_KEY
 );
+
+impl AsRef<[u8]> for LedgerHash {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
 
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BinProtRead, BinProtWrite,

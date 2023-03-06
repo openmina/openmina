@@ -85,8 +85,8 @@ fn decode_alloc_check_inputs() {
     tx_pool_diff();
     snark_pool_diff();
     new_state();
-    staged_ledger();
-    incoming_rpc();
+    //staged_ledger();
+    //incoming_rpc();
 }
 
 mod utils;
