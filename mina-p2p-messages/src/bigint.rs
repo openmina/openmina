@@ -303,7 +303,9 @@ mod tests {
         ];
 
         for bigint in bigints {
-            let json = format!(r#""0x{}""#, hex::encode(bigint.0.as_ref()));
+            let mut be = bigint.0.clone();
+            be.reverse();
+            let json = format!(r#""0x{}""#, hex::encode(be.as_ref()));
             let bigint_exp = serde_json::from_str(&json).unwrap();
             assert_eq!(bigint, bigint_exp);
         }
