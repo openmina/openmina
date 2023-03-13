@@ -78,10 +78,10 @@ fn extract_data_for_public_input(
 
     let plonk = &proof.statement.proof_state.deferred_values.plonk;
 
-    let zeta_bytes: [u64; 2] = array::from_fn(|i| plonk.zeta.inner[i].as_u64());
-    let alpha_bytes: [u64; 2] = array::from_fn(|i| plonk.alpha.inner[i].as_u64());
-    let beta_bytes: [u64; 2] = array::from_fn(|i| plonk.beta[i].as_u64());
-    let gamma_bytes: [u64; 2] = array::from_fn(|i| plonk.gamma[i].as_u64());
+    let zeta_bytes: [u64; 2] = array::from_fn(|i| plonk.zeta.inner[i].0.as_u64());
+    let alpha_bytes: [u64; 2] = array::from_fn(|i| plonk.alpha.inner[i].0.as_u64());
+    let beta_bytes: [u64; 2] = array::from_fn(|i| plonk.beta[i].0.as_u64());
+    let gamma_bytes: [u64; 2] = array::from_fn(|i| plonk.gamma[i].0.as_u64());
 
     let zeta: Fp = ScalarChallenge::from(zeta_bytes).to_field(&endo_fp());
     let alpha: Fp = ScalarChallenge::from(alpha_bytes).to_field(&endo_fp());
@@ -185,8 +185,8 @@ fn get_prepared_statement(
     sponge_digest_before_evaluations: &CompositionTypesDigestConstantStableV1,
     minimal: &PlonkMinimal,
 ) -> PreparedStatement {
-    let digest = &sponge_digest_before_evaluations;
-    let sponge_digest_before_evaluations: [u64; 4] = array::from_fn(|i| digest[i].as_u64());
+    let digest = &sponge_digest_before_evaluations.0;
+    let sponge_digest_before_evaluations: [u64; 4] = array::from_fn(|i| digest[i].0.as_u64());
 
     let plonk = Plonk {
         alpha: minimal.alpha_bytes,
@@ -205,7 +205,7 @@ fn get_prepared_statement(
         lookup: (),
     };
 
-    let xi: [u64; 2] = array::from_fn(|i| deferred_values.xi.inner[i].as_u64());
+    let xi: [u64; 2] = array::from_fn(|i| deferred_values.xi.inner[i].0.as_u64());
     let b: ShiftedValue<Fp> = to_shifted_value(&deferred_values.b);
     let combined_inner_product: ShiftedValue<Fp> =
         to_shifted_value(&deferred_values.combined_inner_product);
@@ -215,7 +215,7 @@ fn get_prepared_statement(
         .iter()
         .map(|chal| {
             let inner = &chal.prechallenge.inner;
-            [inner[0].as_u64(), inner[1].as_u64()]
+            [inner[0].0.as_u64(), inner[1].0.as_u64()]
         })
         .collect();
 

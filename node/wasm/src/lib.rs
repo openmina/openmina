@@ -521,6 +521,8 @@ impl JsHandle {
                 .body
                 .constants
                 .genesis_state_timestamp
+                .0
+                 .0
                 .as_u64();
             let time_passed = 3
                 * 60

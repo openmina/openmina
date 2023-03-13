@@ -138,7 +138,7 @@ impl PreparedStatement {
         // Index
         {
             // https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles_base/proofs_verified.ml#L58
-            let proofs_verified = match proofs_verified.0 {
+            let proofs_verified = match proofs_verified {
                 PicklesBaseProofsVerifiedStableV1::N0 => 0b00,
                 PicklesBaseProofsVerifiedStableV1::N1 => 0b01, // Bits are reversed
                 PicklesBaseProofsVerifiedStableV1::N2 => 0b11,

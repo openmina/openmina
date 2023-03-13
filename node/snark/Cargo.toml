@@ -30,7 +30,7 @@ ark-poly = { version = "0.3", features = [ "parallel" ] }
 once_cell = "1.10"
 hex = "0.4"
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", branch = "main", features = ["hashing"] }
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", branch = "new-types-feb-23", features = ["hashing"] }
 # mina-p2p-messages = { path = "../mina-p2p-messages-rs", features = ["hashing"] }
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 sha2 = "0.10"
