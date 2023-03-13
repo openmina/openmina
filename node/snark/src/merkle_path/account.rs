@@ -198,7 +198,7 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
             let field_zkapp_uri = {
                 let mut inputs = Inputs::new();
 
-                for c in zkapp.zkapp_uri.0.as_ref() {
+                for c in zkapp.zkapp_uri.as_ref() {
                     for j in 0..8 {
                         inputs.append_bool((c & (1 << j)) != 0);
                     }
@@ -211,17 +211,17 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
             inputs.append_field(field_zkapp_uri);
 
             inputs.append_bool(zkapp.proved_state);
-            inputs.append_u32(zkapp.last_sequence_slot.0.as_u32());
+            inputs.append_u32(zkapp.last_sequence_slot.as_u32());
             for fp in &zkapp.sequence_state[..] {
                 inputs.append_field(fp.to_field());
             }
-            inputs.append_u32(zkapp.zkapp_version.0 .0.as_u32());
+            inputs.append_u32(zkapp.zkapp_version.0 .as_u32());
             let vk_hash = match zkapp.verification_key.as_ref() {
                 Some(vk) => vk.hash(),
                 None => dummy_vk().hash(),
             };
             inputs.append_field(vk_hash);
-            for fp in &zkapp.app_state.0 .0[..] {
+            for fp in &zkapp.app_state[..] {
                 inputs.append_field(fp.to_field());
             }
 
@@ -267,16 +267,16 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
                 vesting_increment,
             } => {
                 inputs.append_bool(true);
-                inputs.append_u64(initial_minimum_balance.0 .0 .0.as_u64());
-                inputs.append_u32(cliff_time.0.as_u32());
-                inputs.append_u64(cliff_amount.0 .0.as_u64());
-                inputs.append_u32(vesting_period.0.as_u32());
-                inputs.append_u64(vesting_increment.0 .0.as_u64());
+                inputs.append_u64(initial_minimum_balance.as_u64());
+                inputs.append_u32(cliff_time.as_u32());
+                inputs.append_u64(cliff_amount.as_u64());
+                inputs.append_u32(vesting_period.as_u32());
+                inputs.append_u64(vesting_increment.as_u64());
             }
         }
 
         // Self::voting_for
-        inputs.append_field(self.voting_for.0.to_field());
+        inputs.append_field(self.voting_for.to_field());
 
         // Self::delegate
         match self.delegate.as_ref() {
@@ -292,23 +292,23 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
         }
 
         // Self::receipt_chain_hash
-        inputs.append_field(self.receipt_chain_hash.0.to_field());
+        inputs.append_field(self.receipt_chain_hash.to_field());
 
         // Self::nonce
-        inputs.append_u32(self.nonce.0.as_u32());
+        inputs.append_u32(self.nonce.as_u32());
 
         // Self::balance
-        inputs.append_u64(self.balance.0 .0 .0.as_u64());
+        inputs.append_u64(self.balance.as_u64());
 
         // Self::token_symbol
 
         // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
-        assert!(self.token_symbol.0.len() <= 6);
+        assert!(self.token_symbol.len() <= 6);
 
         let mut s = <[u8; 6]>::default();
-        if !self.token_symbol.0.is_empty() {
-            let len = self.token_symbol.0.len();
-            s[..len].copy_from_slice(self.token_symbol.0.as_ref());
+        if !self.token_symbol.is_empty() {
+            let len = self.token_symbol.len();
+            s[..len].copy_from_slice(self.token_symbol.as_ref());
         }
         inputs.append_u48(s);
 
@@ -327,7 +327,7 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
         // }
 
         // Self::token_id
-        inputs.append_field(self.token_id.0.to_field());
+        inputs.append_field(self.token_id.to_field());
 
         // Self::public_key
         inputs.append_field(self.public_key.x.to_field());
