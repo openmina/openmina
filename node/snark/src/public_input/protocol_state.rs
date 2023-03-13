@@ -38,27 +38,27 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
             // Self::blockchain_state.genesis_ledger_hash
             inputs.append_field(self.blockchain_state.genesis_ledger_hash.to_field());
             // Self::blockchain_state.registers
-            {
-                let reg = &self.blockchain_state.registers;
-                inputs.append_field(reg.ledger.to_field());
-                inputs.append_field(reg.local_state.stack_frame.to_field());
-                inputs.append_field(reg.local_state.call_stack.to_field());
-                inputs.append_field(reg.local_state.transaction_commitment.to_field());
-                inputs.append_field(reg.local_state.full_transaction_commitment.to_field());
-                inputs.append_field(reg.local_state.token_id.to_field());
-                inputs.append_u64(reg.local_state.excess.magnitude.as_u64());
-                inputs.append_bool(matches!(reg.local_state.excess.sgn.0, SgnStableV1::Pos));
-                inputs.append_u64(reg.local_state.supply_increase.magnitude.as_u64());
-                inputs.append_bool(matches!(
-                    reg.local_state.supply_increase.sgn.0,
-                    SgnStableV1::Pos
-                ));
-                inputs.append_field(reg.local_state.ledger.to_field());
-                inputs.append_u32(reg.local_state.account_update_index.as_u32());
-                inputs.append_bool(reg.local_state.success);
-            }
-            inputs.append_u64(self.blockchain_state.timestamp.as_u64());
-            inputs.append_bytes(self.blockchain_state.body_reference.as_ref());
+            // {
+            //     let reg = &self.blockchain_state.registers;
+            //     inputs.append_field(reg.ledger.to_field());
+            //     inputs.append_field(reg.local_state.stack_frame.to_field());
+            //     inputs.append_field(reg.local_state.call_stack.to_field());
+            //     inputs.append_field(reg.local_state.transaction_commitment.to_field());
+            //     inputs.append_field(reg.local_state.full_transaction_commitment.to_field());
+            //     inputs.append_field(reg.local_state.token_id.to_field());
+            //     inputs.append_u64(reg.local_state.excess.magnitude.as_u64());
+            //     inputs.append_bool(matches!(reg.local_state.excess.sgn.0, SgnStableV1::Pos));
+            //     inputs.append_u64(reg.local_state.supply_increase.magnitude.as_u64());
+            //     inputs.append_bool(matches!(
+            //         reg.local_state.supply_increase.sgn.0,
+            //         SgnStableV1::Pos
+            //     ));
+            //     inputs.append_field(reg.local_state.ledger.to_field());
+            //     inputs.append_u32(reg.local_state.account_update_index.as_u32());
+            //     inputs.append_bool(reg.local_state.success);
+            // }
+            inputs.append_u64(self.blockchain_state.timestamp.0.0.as_u64());
+            inputs.append_bytes(self.blockchain_state.body_reference.0.0.as_ref());
         }
 
         // CONSENSUS

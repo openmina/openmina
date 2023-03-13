@@ -125,6 +125,7 @@ fn dummy_vk() -> MinaBaseVerificationKeyWireStableV1 {
             emul_comm: g.clone(),
             endomul_scalar_comm: g,
         },
+        actual_wrap_domain_size: PicklesBaseProofsVerifiedStableV1::N2,
     }
 }
 
@@ -312,18 +313,18 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
         inputs.append_u48(s);
 
         // Self::token_permissions
-        match self.token_permissions {
-            MinaBaseTokenPermissionsStableV1::TokenOwned {
-                disable_new_accounts,
-            } => {
-                let bits = if disable_new_accounts { 0b10 } else { 0b00 };
-                inputs.append_u2(0b01 | bits);
-            }
-            MinaBaseTokenPermissionsStableV1::NotOwned { account_disabled } => {
-                let bits = if account_disabled { 0b10 } else { 0b00 };
-                inputs.append_u2(bits);
-            }
-        }
+        // match self.zkapp {
+        //     MinaBasePermissionsStableV2::TokenOwned {
+        //         disable_new_accounts,
+        //     } => {
+        //         let bits = if disable_new_accounts { 0b10 } else { 0b00 };
+        //         inputs.append_u2(0b01 | bits);
+        //     }
+        //     MinaBasePermissionsStableV2::NotOwned { account_disabled } => {
+        //         let bits = if account_disabled { 0b10 } else { 0b00 };
+        //         inputs.append_u2(bits);
+        //     }
+        // }
 
         // Self::token_id
         inputs.append_field(self.token_id.to_field());
