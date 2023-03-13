@@ -15,16 +15,16 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
 
         // constants
         {
-            inputs.append_u32(self.constants.k.as_u32());
-            inputs.append_u32(self.constants.delta.as_u32());
-            inputs.append_u32(self.constants.slots_per_epoch.as_u32());
-            inputs.append_u32(self.constants.slots_per_sub_window.as_u32());
-            inputs.append_u64(self.constants.genesis_state_timestamp.as_u64());
+            inputs.append_u32(self.constants.k.0.as_u32());
+            inputs.append_u32(self.constants.delta.0.as_u32());
+            inputs.append_u32(self.constants.slots_per_epoch.0.as_u32());
+            inputs.append_u32(self.constants.slots_per_sub_window.0.as_u32());
+            inputs.append_u64(self.constants.genesis_state_timestamp.0 .0.as_u64());
         }
 
         // Genesis
         {
-            inputs.append_field(self.genesis_state_hash.to_field());
+            inputs.append_field(self.genesis_state_hash.0.to_field());
         }
 
         // This is blockchain_state
@@ -33,10 +33,10 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
             {
                 let staged = &self.blockchain_state.staged_ledger_hash;
                 inputs.append_bytes(&staged.non_snark.sha256());
-                inputs.append_field(staged.pending_coinbase_hash.to_field());
+                inputs.append_field(staged.pending_coinbase_hash.0 .0.to_field());
             }
             // Self::blockchain_state.genesis_ledger_hash
-            inputs.append_field(self.blockchain_state.genesis_ledger_hash.to_field());
+            inputs.append_field(self.blockchain_state.genesis_ledger_hash.0.to_field());
             // Self::blockchain_state.registers
             // {
             //     let reg = &self.blockchain_state.registers;
@@ -57,21 +57,21 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
             //     inputs.append_u32(reg.local_state.account_update_index.as_u32());
             //     inputs.append_bool(reg.local_state.success);
             // }
-            inputs.append_u64(self.blockchain_state.timestamp.0.0.as_u64());
-            inputs.append_bytes(self.blockchain_state.body_reference.0.0.as_ref());
+            inputs.append_u64(self.blockchain_state.timestamp.0 .0.as_u64());
+            inputs.append_bytes(self.blockchain_state.body_reference.0 .0.as_ref());
         }
 
         // CONSENSUS
         {
             let consensus = &self.consensus_state;
-            inputs.append_u32(consensus.blockchain_length.as_u32());
-            inputs.append_u32(consensus.epoch_count.as_u32());
-            inputs.append_u32(consensus.min_window_density.as_u32());
+            inputs.append_u32(consensus.blockchain_length.0.as_u32());
+            inputs.append_u32(consensus.epoch_count.0.as_u32());
+            inputs.append_u32(consensus.min_window_density.0.as_u32());
             for window in &consensus.sub_window_densities {
-                inputs.append_u32(window.as_u32());
+                inputs.append_u32(window.0.as_u32());
             }
             {
-                let vrf: &[u8] = consensus.last_vrf_output.as_ref();
+                let vrf: &[u8] = consensus.last_vrf_output.0.as_ref();
                 inputs.append_bytes(&vrf[..31]);
                 // Ignore the last 3 bits
                 let last_byte = vrf[31];
@@ -79,28 +79,28 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
                     inputs.append_bool(last_byte & bit != 0);
                 }
             }
-            inputs.append_u64(consensus.total_currency.as_u64());
-            inputs.append_u32(consensus.curr_global_slot.slot_number.as_u32());
-            inputs.append_u32(consensus.curr_global_slot.slots_per_epoch.as_u32());
-            inputs.append_u32(consensus.global_slot_since_genesis.as_u32());
+            inputs.append_u64(consensus.total_currency.0 .0.as_u64());
+            inputs.append_u32(consensus.curr_global_slot.slot_number.0.as_u32());
+            inputs.append_u32(consensus.curr_global_slot.slots_per_epoch.0.as_u32());
+            inputs.append_u32(consensus.global_slot_since_genesis.0.as_u32());
             inputs.append_bool(consensus.has_ancestor_in_same_checkpoint_window);
             inputs.append_bool(consensus.supercharge_coinbase);
 
             let staking_epoch_data = &consensus.staking_epoch_data;
-            inputs.append_field(staking_epoch_data.seed.to_field());
-            inputs.append_field(staking_epoch_data.start_checkpoint.to_field());
-            inputs.append_u32(staking_epoch_data.epoch_length.as_u32());
-            inputs.append_field(staking_epoch_data.ledger.hash.to_field());
-            inputs.append_u64(staking_epoch_data.ledger.total_currency.as_u64());
-            inputs.append_field(staking_epoch_data.lock_checkpoint.to_field());
+            inputs.append_field(staking_epoch_data.seed.0.to_field());
+            inputs.append_field(staking_epoch_data.start_checkpoint.0.to_field());
+            inputs.append_u32(staking_epoch_data.epoch_length.0.as_u32());
+            inputs.append_field(staking_epoch_data.ledger.hash.0.to_field());
+            inputs.append_u64(staking_epoch_data.ledger.total_currency.0 .0.as_u64());
+            inputs.append_field(staking_epoch_data.lock_checkpoint.0.to_field());
 
             let next_epoch_data = &consensus.next_epoch_data;
-            inputs.append_field(next_epoch_data.seed.to_field());
-            inputs.append_field(next_epoch_data.start_checkpoint.to_field());
-            inputs.append_u32(next_epoch_data.epoch_length.as_u32());
-            inputs.append_field(next_epoch_data.ledger.hash.to_field());
-            inputs.append_u64(next_epoch_data.ledger.total_currency.as_u64());
-            inputs.append_field(next_epoch_data.lock_checkpoint.to_field());
+            inputs.append_field(next_epoch_data.seed.0.to_field());
+            inputs.append_field(next_epoch_data.start_checkpoint.0.to_field());
+            inputs.append_u32(next_epoch_data.epoch_length.0.as_u32());
+            inputs.append_field(next_epoch_data.ledger.hash.0.to_field());
+            inputs.append_u64(next_epoch_data.ledger.total_currency.0 .0.as_u64());
+            inputs.append_field(next_epoch_data.lock_checkpoint.0.to_field());
 
             inputs.append_field(consensus.block_stake_winner.x.to_field());
             inputs.append_bool(consensus.block_stake_winner.is_odd);
@@ -125,7 +125,7 @@ pub fn hashes_abstract(previous_state_hash: Fp, body_hash: Fp) -> Fp {
 
 impl MinaHash for MinaStateProtocolStateValueStableV2 {
     fn hash(&self) -> Fp {
-        let previous_state_hash = self.previous_state_hash.to_field();
+        let previous_state_hash = self.previous_state_hash.0.to_field();
         let body_hash = self.body.hash();
 
         hashes_abstract(previous_state_hash, body_hash)
