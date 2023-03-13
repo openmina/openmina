@@ -31,7 +31,7 @@ pub fn accumulator_check(
         .iter()
         .map(|chal| {
             let prechallenge = &chal.prechallenge.inner;
-            let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].0.as_u64());
+            let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].as_u64());
 
             ScalarChallenge::from(prechallenge).to_field(&endo_fp())
         })
