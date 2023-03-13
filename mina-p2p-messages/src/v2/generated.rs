@@ -157,6 +157,7 @@ pub enum MinaLedgerSyncLedgerQueryStableV1 {
     WhatChildHashes(MerkleAddressBinableArgStableV1),
     WhatContents(MerkleAddressBinableArgStableV1),
     NumAccounts,
+    WhatAccountWithPath(NonZeroCurvePoint, TokenIdKeyHash),
 }
 
 /// **OCaml name**: `Mina_ledger__Sync_ledger.Answer.Stable.V2`
@@ -173,6 +174,7 @@ pub enum MinaLedgerSyncLedgerAnswerStableV2 {
     ChildHashesAre(LedgerHash, LedgerHash),
     ContentsAre(Vec<MinaBaseAccountBinableArgStableV2>),
     NumAccounts(crate::number::Int32, LedgerHash),
+    AccountWithPath(Option<(MinaBaseAccountBinableArgStableV2, super::MerkleTreePath)>),
 }
 
 /// **OCaml name**: `Consensus__Proof_of_stake.Make_str.Data.Consensus_state.Value.Stable.V1`
@@ -666,7 +668,7 @@ pub struct PicklesProofProofsVerifiedMaxStableV2 {
 /// Gid: `541`
 /// Location: [src/lib/non_zero_curve_point/compressed_poly.ml:13:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/non_zero_curve_point/compressed_poly.ml#L13)
 /// Args: crate :: bigint :: BigInt , bool
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct NonZeroCurvePointUncompressedStableV1 {
     pub x: crate::bigint::BigInt,
     pub is_odd: bool,
@@ -758,7 +760,7 @@ pub struct CurrencyBalanceStableV1(pub CurrencyAmountStableV1);
 ///
 /// Gid: `616`
 /// Location: [src/lib/data_hash_lib/state_hash.ml:44:4](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/data_hash_lib/state_hash.ml#L44)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct DataHashLibStateHashStableV1(pub crate::bigint::BigInt);
 
 /// Derived name: `Mina_base__Sparse_ledger_base.Stable.V2.tree`
