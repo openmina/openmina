@@ -180,15 +180,39 @@ impl MinaHash for MinaBaseVerificationKeyWireStableV1 {
 
 impl MinaHash for MinaBaseAccountBinableArgStableV2 {
     fn hash(&self) -> Fp {
+        let MinaBaseAccountBinableArgStableV2 {
+            public_key,
+            token_id,
+            token_symbol,
+            balance,
+            nonce,
+            receipt_chain_hash,
+            delegate,
+            voting_for,
+            timing,
+            permissions,
+            zkapp,
+        } = self;
+
         let mut inputs = Inputs::new();
 
         // Self::zkapp
         let field_zkapp = {
-            let zkapp = match self.zkapp.as_ref() {
+            let zkapp = match zkapp.as_ref() {
                 Some(zkapp) => Cow::Borrowed(zkapp),
                 None => Cow::Owned(zkapp_account_default()),
             };
             let zkapp = zkapp.as_ref();
+
+            let MinaBaseZkappAccountStableV2 {
+                app_state,
+                verification_key,
+                zkapp_version,
+                sequence_state,
+                last_sequence_slot,
+                proved_state,
+                zkapp_uri,
+            } = zkapp;
 
             let mut inputs = Inputs::new();
 
@@ -198,7 +222,7 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
             let field_zkapp_uri = {
                 let mut inputs = Inputs::new();
 
-                for c in zkapp.zkapp_uri.as_ref() {
+                for c in zkapp_uri.as_ref() {
                     for j in 0..8 {
                         inputs.append_bool((c & (1 << j)) != 0);
                     }
@@ -210,18 +234,18 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
 
             inputs.append_field(field_zkapp_uri);
 
-            inputs.append_bool(zkapp.proved_state);
-            inputs.append_u32(zkapp.last_sequence_slot.as_u32());
-            for fp in &zkapp.sequence_state[..] {
+            inputs.append_bool(*proved_state);
+            inputs.append_u32(last_sequence_slot.as_u32());
+            for fp in &sequence_state[..] {
                 inputs.append_field(fp.to_field());
             }
-            inputs.append_u32(zkapp.zkapp_version.0 .as_u32());
-            let vk_hash = match zkapp.verification_key.as_ref() {
+            inputs.append_u32(zkapp_version.as_u32());
+            let vk_hash = match verification_key.as_ref() {
                 Some(vk) => vk.hash(),
                 None => dummy_vk().hash(),
             };
             inputs.append_field(vk_hash);
-            for fp in &zkapp.app_state[..] {
+            for fp in &app_state[..] {
                 inputs.append_field(fp.to_field());
             }
 
@@ -231,18 +255,36 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
         inputs.append_field(field_zkapp);
 
         // Self::permissions
+        let MinaBasePermissionsStableV2 {
+            edit_state,
+            access,
+            send,
+            receive,
+            set_delegate,
+            set_permissions,
+            set_verification_key,
+            set_zkapp_uri,
+            edit_sequence_state,
+            set_token_symbol,
+            increment_nonce,
+            set_voting_for,
+            set_timing,
+        } = permissions;
+
         for auth in [
-            &self.permissions.edit_state,
-            &self.permissions.send,
-            &self.permissions.receive,
-            &self.permissions.set_delegate,
-            &self.permissions.set_permissions,
-            &self.permissions.set_verification_key,
-            &self.permissions.set_zkapp_uri,
-            &self.permissions.edit_sequence_state,
-            &self.permissions.set_token_symbol,
-            &self.permissions.increment_nonce,
-            &self.permissions.set_voting_for,
+            edit_state,
+            send,
+            set_delegate,
+            set_permissions,
+            set_verification_key,
+            receive,
+            set_zkapp_uri,
+            edit_sequence_state,
+            set_token_symbol,
+            increment_nonce,
+            set_voting_for,
+            set_timing,
+            access,
         ] {
             for bit in encode_auth_required(auth).to_bits() {
                 inputs.append_bool(bit);
@@ -250,7 +292,7 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
         }
 
         // Self::timing
-        match &self.timing {
+        match timing {
             MinaBaseAccountTimingStableV1::Untimed => {
                 inputs.append_bool(false);
                 inputs.append_u64(0); // initial_minimum_balance
@@ -276,10 +318,10 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
         }
 
         // Self::voting_for
-        inputs.append_field(self.voting_for.to_field());
+        inputs.append_field(voting_for.to_field());
 
         // Self::delegate
-        match self.delegate.as_ref() {
+        match delegate.as_ref() {
             Some(delegate) => {
                 inputs.append_field(delegate.x.to_field());
                 inputs.append_bool(delegate.is_odd);
@@ -292,46 +334,32 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
         }
 
         // Self::receipt_chain_hash
-        inputs.append_field(self.receipt_chain_hash.to_field());
+        inputs.append_field(receipt_chain_hash.to_field());
 
         // Self::nonce
-        inputs.append_u32(self.nonce.as_u32());
+        inputs.append_u32(nonce.as_u32());
 
         // Self::balance
-        inputs.append_u64(self.balance.as_u64());
+        inputs.append_u64(balance.as_u64());
 
         // Self::token_symbol
 
         // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
-        assert!(self.token_symbol.len() <= 6);
+        assert!(token_symbol.len() <= 6);
 
         let mut s = <[u8; 6]>::default();
         if !self.token_symbol.is_empty() {
-            let len = self.token_symbol.len();
-            s[..len].copy_from_slice(self.token_symbol.as_ref());
+            let len = token_symbol.len();
+            s[..len].copy_from_slice(token_symbol.as_ref());
         }
         inputs.append_u48(s);
 
-        // Self::token_permissions
-        // match self.zkapp {
-        //     MinaBasePermissionsStableV2::TokenOwned {
-        //         disable_new_accounts,
-        //     } => {
-        //         let bits = if disable_new_accounts { 0b10 } else { 0b00 };
-        //         inputs.append_u2(0b01 | bits);
-        //     }
-        //     MinaBasePermissionsStableV2::NotOwned { account_disabled } => {
-        //         let bits = if account_disabled { 0b10 } else { 0b00 };
-        //         inputs.append_u2(bits);
-        //     }
-        // }
-
         // Self::token_id
-        inputs.append_field(self.token_id.to_field());
+        inputs.append_field(token_id.to_field());
 
         // Self::public_key
-        inputs.append_field(self.public_key.x.to_field());
-        inputs.append_bool(self.public_key.is_odd);
+        inputs.append_field(public_key.x.to_field());
+        inputs.append_bool(public_key.is_odd);
 
         crate::hash::hash_with_kimchi("MinaAccount", &inputs.to_fields())
     }
