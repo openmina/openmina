@@ -3,7 +3,7 @@ use std::{array, sync::Arc};
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ec::AffineCurve;
 
-use commitment_dlog::{commitment::CommitmentCurve, srs::SRS, PolyComm};
+use poly_commitment::{commitment::CommitmentCurve, srs::SRS, PolyComm};
 
 use kimchi::{
     circuits::{
@@ -44,7 +44,6 @@ struct Evals {
     mul_comm: PolynomialCommitment,
     emul_comm: PolynomialCommitment,
     endomul_scalar_comm: PolynomialCommitment,
-    chacha_comm: Option<[PolynomialCommitment; 4]>,
 }
 
 #[allow(dead_code)]
@@ -52,7 +51,6 @@ struct Evals {
 struct Index<G: KimchiCurve> {
     domain: DomainOcaml,
     max_poly_size: usize,
-    max_quot_size: usize,
     public: usize,
     prev_challenges: usize,
     #[serde(skip)]
@@ -120,16 +118,12 @@ fn make_verifier_index(index: &VerifierIndexOcaml<Pallas>) -> VerifierIndex {
     let mul_comm: PolyComm<Pallas> = make_poly(&evals.mul_comm);
     let emul_comm: PolyComm<Pallas> = make_poly(&evals.emul_comm);
     let endomul_scalar_comm: PolyComm<Pallas> = make_poly(&evals.endomul_scalar_comm);
-    let chacha_comm: Option<[PolyComm<Pallas>; 4]> = evals
-        .chacha_comm
-        .as_ref()
-        .map(|chacha| array::from_fn(|i| make_poly(&chacha[i])));
 
     let domain: Radix2EvaluationDomain<Fq> =
         Radix2EvaluationDomain::new(index.data.constraints).unwrap();
 
     let max_poly_size: usize = index.index.max_poly_size;
-    let max_quot_size: usize = index.index.max_quot_size;
+    // let max_quot_size: usize = index.index.max_quot_size;
     let prev_challenges: usize = index.index.prev_challenges;
 
     let shift = array::from_fn(|i| {
@@ -137,9 +131,9 @@ fn make_verifier_index(index: &VerifierIndexOcaml<Pallas>) -> VerifierIndex {
         field_from_hex(shift)
     });
 
-    let (endo, _) = kimchi::commitment_dlog::srs::endos::<GroupAffine<VestaParameters>>();
+    let (endo, _) = kimchi::poly_commitment::srs::endos::<GroupAffine<VestaParameters>>();
 
-    let (mut linearization, powers_of_alpha) = expr_linearization(false, false, None, false, false);
+    let (mut linearization, powers_of_alpha) = expr_linearization(None, false);
 
     let linearization = Linearization {
         constant_term: linearization.constant_term,
@@ -170,7 +164,6 @@ fn make_verifier_index(index: &VerifierIndexOcaml<Pallas>) -> VerifierIndex {
     VerifierIndex {
         domain,
         max_poly_size,
-        max_quot_size,
         srs: OnceCell::from(srs),
         public,
         prev_challenges,
@@ -182,9 +175,6 @@ fn make_verifier_index(index: &VerifierIndexOcaml<Pallas>) -> VerifierIndex {
         mul_comm,
         emul_comm,
         endomul_scalar_comm,
-        chacha_comm,
-        range_check_comm: None,
-        foreign_field_modulus: None,
         foreign_field_add_comm: None,
         xor_comm: None,
         shift,
@@ -194,5 +184,9 @@ fn make_verifier_index(index: &VerifierIndexOcaml<Pallas>) -> VerifierIndex {
         lookup_index: None,
         linearization,
         powers_of_alpha,
+        range_check0_comm: None,
+        range_check1_comm: None,
+        foreign_field_mul_comm: None,
+        rot_comm: None,
     }
 }

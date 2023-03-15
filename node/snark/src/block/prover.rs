@@ -1,11 +1,11 @@
 use std::array;
 
-use commitment_dlog::{commitment::CommitmentCurve, evaluation_proof::OpeningProof};
 use kimchi::{
-    commitment_dlog::PolyComm,
-    proof::{ProofEvaluations, ProverCommitments, RecursionChallenge},
+    poly_commitment::PolyComm,
+    proof::{PointEvaluations, ProofEvaluations, ProverCommitments, RecursionChallenge},
 };
 use mina_curves::pasta::Pallas;
+use poly_commitment::{commitment::CommitmentCurve, evaluation_proof::OpeningProof};
 
 use crate::{public_input::scalar_challenge::endo_fq, utils::extract_bulletproof};
 use mina_curves::pasta::Fq;
@@ -13,18 +13,7 @@ use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStabl
 
 use super::ProverProof;
 
-fn first<T>(tuple: &(T, T)) -> &T {
-    &tuple.0
-}
-
-fn second<T>(tuple: &(T, T)) -> &T {
-    &tuple.1
-}
-
-pub fn make_prover(
-    proof: &PicklesProofProofsVerified2ReprStableV2,
-    public_inputs: Vec<Fq>,
-) -> ProverProof {
+pub fn make_prover(proof: &PicklesProofProofsVerified2ReprStableV2) -> ProverProof {
     let statement = &proof.statement;
     let proof = &proof.proof;
 
@@ -56,14 +45,20 @@ pub fn make_prover(
     let evals = &openings.evals;
     let to_fields = |x: &Vec<BigInt>| x.iter().map(BigInt::to_field).collect();
 
-    let evals: [ProofEvaluations<Vec<Fq>>; 2] = [first, second].map(|value| ProofEvaluations {
-        w: array::from_fn(|i| to_fields(value(&evals.w[i]))),
-        z: to_fields(value(&evals.z)),
-        s: array::from_fn(|i| to_fields(value(&evals.s[i]))),
+    let to_pt_eval = |(first, second): &(Vec<BigInt>, Vec<BigInt>)| PointEvaluations {
+        zeta: to_fields(first),
+        zeta_omega: to_fields(second),
+    };
+
+    let evals: ProofEvaluations<PointEvaluations<Vec<Fq>>> = ProofEvaluations {
+        w: array::from_fn(|i| to_pt_eval(&evals.w[i])),
+        z: to_pt_eval(&evals.z),
+        s: array::from_fn(|i| to_pt_eval(&evals.s[i])),
         lookup: None,
-        generic_selector: to_fields(value(&evals.generic_selector)),
-        poseidon_selector: to_fields(value(&evals.poseidon_selector)),
-    });
+        generic_selector: to_pt_eval(&evals.generic_selector),
+        poseidon_selector: to_pt_eval(&evals.poseidon_selector),
+        coefficients: array::from_fn(|i| to_pt_eval(&evals.coefficients[i])),
+    };
 
     let ft_eval1: Fq = openings.ft_eval1.to_field();
 
@@ -114,7 +109,6 @@ pub fn make_prover(
         },
         evals,
         ft_eval1,
-        public: public_inputs,
         prev_challenges,
     }
 }

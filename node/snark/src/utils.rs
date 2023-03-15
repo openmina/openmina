@@ -5,7 +5,7 @@ use mina_p2p_messages::{
     bigint::BigInt, pseq::PaddedSeq,
     v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
 };
-use oracle::poseidon::ArithmeticSpongeParams;
+use mina_poseidon::poseidon::ArithmeticSpongeParams;
 use std::array;
 
 use crate::public_input::{messages::CurveAffine, scalar_challenge::ScalarChallenge};
@@ -36,13 +36,13 @@ pub trait SpongeParamsForField<F: Field> {
 
 impl SpongeParamsForField<Fp> for Fp {
     fn get_params() -> &'static ArithmeticSpongeParams<Fp> {
-        kimchi::oracle::pasta::fp_kimchi::static_params()
+        kimchi::mina_poseidon::pasta::fp_kimchi::static_params()
     }
 }
 
 impl SpongeParamsForField<Fq> for Fq {
     fn get_params() -> &'static ArithmeticSpongeParams<Fq> {
-        kimchi::oracle::pasta::fq_kimchi::static_params()
+        kimchi::mina_poseidon::pasta::fq_kimchi::static_params()
     }
 }
 

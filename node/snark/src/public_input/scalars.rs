@@ -319,7 +319,7 @@ pub fn endo_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp; NPOWER
 
     let var = get_var(evals);
     let alpha_pow = |i: usize| powers_of_alpha[i];
-    let endo_coefficient: Fp = oracle::sponge::endo_coefficient();
+    let endo_coefficient: Fp = mina_poseidon::sponge::endo_coefficient();
 
     // Auto-generated code with the test `generate_plonk`
     let x_0 = {
@@ -588,8 +588,7 @@ mod tests {
     fn generate_plonk() {
         let lookup_configuration = None;
         let evaluated_cols = linearization_columns::<Fp>(lookup_configuration);
-        let (linearization, _powers_of_alpha) =
-            constraints_expr::<Fp>(false, false, lookup_configuration, false, false);
+        let (linearization, _powers_of_alpha) = constraints_expr::<Fp>(None, false);
 
         let Linearization {
             constant_term: _,
@@ -605,8 +604,16 @@ mod tests {
             .map(|(col, expr)| (format!("{:?}", col), expr.ocaml_str()))
             .collect();
 
+        let sum = |s: &str| {
+            let mut hasher = Sha256::new();
+            hasher.update(s.as_bytes());
+            hex::encode(hasher.finalize())
+        };
+
         // Convert to Rust code
         for (v, terms) in &other_terms {
+            println!("value={:?} sum=\n{}\n", v, sum(terms));
+
             // Replace "let a = b in " with "let a = { b };", to make the output a Rust syntax
             let terms = terms.replace(" in ", "};");
             let terms = terms.replace('=', "={");
@@ -615,17 +622,18 @@ mod tests {
             println!("value={:?} code=\n{}\n", v, terms);
         }
 
-        let mut hasher = Sha256::new();
-        other_terms.iter().for_each(|v| {
-            hasher.update(v.0.as_bytes());
-            hasher.update(v.1.as_bytes());
-        });
-        let hash = hex::encode(hasher.finalize());
-
         // Make sure the generated code doesn't change if we update the `proof-systems` dependency
-        assert_eq!(
-            hash,
-            "0ff81eaa4363bd171885b56ec8f5fe30453d4371d47168891d3351fd0884d42f"
-        );
+
+        let (_, s) = other_terms.iter().find(|(v, _)| v == "Index(CompleteAdd)").unwrap();
+        assert_eq!(sum(s), "c478727783cc551528384c6f05c26414bf64bbd1dc6a0c47c30eb917a825b9a0");
+
+        let (_, s) = other_terms.iter().find(|(v, _)| v == "Index(VarBaseMul)").unwrap();
+        assert_eq!(sum(s), "4437fea516a70ff606b11eda22cfde29e2d95b86154010b5886b3510909d2ab2");
+
+        let (_, s) = other_terms.iter().find(|(v, _)| v == "Index(EndoMul)").unwrap();
+        assert_eq!(sum(s), "561f3c95177dc76aa596d506be6e1dd5530dd3a9f44d25d2f5e4e9ad1c89176e");
+
+        let (_, s) = other_terms.iter().find(|(v, _)| v == "Index(EndoMulScalar)").unwrap();
+        assert_eq!(sum(s), "d56e30e8015f38922a7069cc87daaf21ffb15d96cc80fdd9b257e3267145b919");
     }
 }

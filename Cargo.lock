@@ -576,16 +576,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cairo"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
-dependencies = [
- "ark-ff",
- "hex",
- "o1-utils",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -678,30 +668,6 @@ checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
 dependencies = [
  "termcolor",
  "unicode-width",
-]
-
-[[package]]
-name = "commitment_dlog"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "ark-serialize",
- "blake2",
- "groupmap",
- "itertools",
- "mina-curves",
- "o1-utils",
- "once_cell",
- "oracle 0.1.0 (git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a)",
- "rand 0.8.5",
- "rand_core 0.6.4",
- "rayon",
- "serde",
- "serde_with 1.14.0",
- "thiserror",
 ]
 
 [[package]]
@@ -1519,7 +1485,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -1792,26 +1758,26 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
 dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-poly",
  "ark-serialize",
  "blake2",
- "cairo",
- "commitment_dlog",
  "disjoint-set",
  "groupmap",
  "hex",
  "itertools",
  "mina-curves",
+ "mina-poseidon",
  "num-bigint",
  "num-derive",
+ "num-integer",
  "num-traits",
  "o1-utils",
  "once_cell",
- "oracle 0.1.0 (git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a)",
+ "poly-commitment",
  "rand 0.8.5",
  "rand_core 0.6.4",
  "rayon",
@@ -1821,6 +1787,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "thiserror",
+ "turshi",
 ]
 
 [[package]]
@@ -2515,7 +2482,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2524,13 +2491,13 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
 dependencies = [
  "ark-ff",
  "bitvec",
  "mina-curves",
+ "mina-poseidon",
  "o1-utils",
- "oracle 0.1.0 (git+https://github.com/openmina/proof-systems?branch=openmina)",
  "serde",
 ]
 
@@ -2558,9 +2525,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "mina-poseidon"
+version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "mina-curves",
+ "o1-utils",
+ "once_cell",
+ "rand 0.8.5",
+ "rayon",
+ "serde",
+ "serde_with 1.14.0",
+]
+
+[[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2759,6 +2743,7 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits",
+ "rand 0.8.5",
  "serde",
 ]
 
@@ -2826,7 +2811,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2835,6 +2820,10 @@ dependencies = [
  "bcs",
  "hex",
  "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
  "rayon",
  "serde",
  "serde_with 1.14.0",
@@ -2862,40 +2851,6 @@ name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
-
-[[package]]
-name = "oracle"
-version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "mina-curves",
- "o1-utils",
- "once_cell",
- "rand 0.8.5",
- "rayon",
- "serde",
- "serde_with 1.14.0",
-]
-
-[[package]]
-name = "oracle"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "mina-curves",
- "o1-utils",
- "once_cell",
- "rand 0.8.5",
- "rayon",
- "serde",
- "serde_with 1.14.0",
-]
 
 [[package]]
 name = "p256"
@@ -3088,6 +3043,30 @@ dependencies = [
  "log",
  "wepoll-ffi",
  "windows-sys",
+]
+
+[[package]]
+name = "poly-commitment"
+version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "blake2",
+ "groupmap",
+ "itertools",
+ "mina-curves",
+ "mina-poseidon",
+ "o1-utils",
+ "once_cell",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
+ "rayon",
+ "serde",
+ "serde_with 1.14.0",
+ "thiserror",
 ]
 
 [[package]]
@@ -3858,18 +3837,18 @@ dependencies = [
  "ark-poly",
  "bincode",
  "binprot",
- "commitment_dlog",
  "derive_more",
  "hex",
  "kimchi",
  "mina-curves",
  "mina-hasher",
  "mina-p2p-messages",
+ "mina-poseidon",
  "mina-signer",
  "num-bigint",
  "o1-utils",
  "once_cell",
- "oracle 0.1.0 (git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a)",
+ "poly-commitment",
  "rand 0.8.5",
  "rayon",
  "redux",
@@ -4256,6 +4235,16 @@ dependencies = [
  "smallvec",
  "thiserror",
  "trust-dns-proto",
+]
+
+[[package]]
+name = "turshi"
+version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
+dependencies = [
+ "ark-ff",
+ "hex",
+ "o1-utils",
 ]
 
 [[package]]
