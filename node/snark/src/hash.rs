@@ -7,7 +7,7 @@ use mina_p2p_messages::v2::{
     DataHashLibStateHashStableV1, MinaBaseStateBodyHashStableV1, MinaBlockBlockStableV2,
     MinaBlockHeaderStableV2, MinaStateProtocolStateValueStableV2, StateHash,
 };
-use oracle::{
+use mina_poseidon::{
     constants::PlonkSpongeConstantsKimchi,
     pasta::fp_kimchi::static_params,
     poseidon::{ArithmeticSponge, Sponge},

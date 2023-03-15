@@ -1,10 +1,10 @@
 use std::array;
 
-use commitment_dlog::{commitment::CommitmentCurve, srs::SRS};
 use kimchi::curve::KimchiCurve;
 use mina_curves::pasta::{Pallas, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
+use poly_commitment::{commitment::CommitmentCurve, srs::SRS};
 
 use super::urs_utils;
 use crate::public_input::scalar_challenge::{endo_fp, ScalarChallenge};

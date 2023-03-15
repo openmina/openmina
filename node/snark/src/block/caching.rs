@@ -2,14 +2,13 @@ use std::{collections::HashMap, sync::Arc};
 
 use ark_ec::{short_weierstrass_jacobian::GroupAffine, AffineCurve, ModelParameters};
 use ark_poly::{univariate::DensePolynomial, Radix2EvaluationDomain};
-use commitment_dlog::{commitment::CommitmentCurve, srs::SRS, PolyComm};
 use kimchi::{
     alphas::Alphas,
     circuits::{
         argument::{Argument, ArgumentType},
         expr::{Linearization, PolishToken},
         gate::GateType,
-        polynomials::{permutation, range_check, varbasemul::VarbaseMul},
+        polynomials::{permutation, varbasemul::VarbaseMul},
         wires::{COLUMNS, PERMUTS},
     },
     mina_curves::pasta::Pallas,
@@ -17,8 +16,8 @@ use kimchi::{
 };
 use mina_curves::pasta::Fq;
 use mina_p2p_messages::bigint::BigInt;
-use num_bigint::BigUint;
 use once_cell::sync::OnceCell;
+use poly_commitment::{commitment::CommitmentCurve, srs::SRS, PolyComm};
 use serde::{Deserialize, Serialize};
 
 use crate::VerifierIndex;
@@ -111,18 +110,51 @@ where
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+struct PolyCommCached {
+    unshifted: Vec<GroupAffineCached>,
+    shifted: Option<GroupAffineCached>,
+}
+
+impl<'a, A> From<&'a PolyComm<A>> for PolyCommCached
+where
+    GroupAffineCached: From<&'a A>,
+{
+    fn from(value: &'a PolyComm<A>) -> Self {
+        let PolyComm { unshifted, shifted } = value;
+
+        Self {
+            unshifted: into(unshifted),
+            shifted: shifted.as_ref().map(Into::into),
+        }
+    }
+}
+
+impl<'a, A> From<&'a PolyCommCached> for PolyComm<A>
+where
+    A: From<&'a GroupAffineCached>,
+{
+    fn from(value: &'a PolyCommCached) -> Self {
+        let PolyCommCached { unshifted, shifted } = value;
+
+        Self {
+            unshifted: into(unshifted),
+            shifted: shifted.as_ref().map(Into::into),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct SRSCached {
     g: Vec<GroupAffineCached>,
     h: GroupAffineCached,
-    lagrange_bases: HashMap<usize, Vec<GroupAffineCached>>,
-    endo_r: BigInt,
-    endo_q: BigInt,
+    lagrange_bases: HashMap<usize, Vec<PolyCommCached>>,
 }
 
 impl<'a, G> From<&'a SRS<G>> for SRSCached
 where
     G: CommitmentCurve,
     GroupAffineCached: From<&'a G>,
+    PolyCommCached: From<&'a PolyComm<G>>,
     BigInt: From<&'a <G as AffineCurve>::ScalarField>,
     BigInt: From<&'a <G as AffineCurve>::BaseField>,
 {
@@ -131,8 +163,6 @@ where
             g: into(&srs.g),
             h: (&srs.h).into(),
             lagrange_bases: into_with(&srs.lagrange_bases, |(key, value)| (*key, into(value))),
-            endo_r: (&srs.endo_r).into(),
-            endo_q: (&srs.endo_q).into(),
         }
     }
 }
@@ -146,8 +176,6 @@ where
             g: into(&srs.g),
             h: (&srs.h).into(),
             lagrange_bases: into_with(&srs.lagrange_bases, |(key, value)| (*key, into(value))),
-            endo_r: srs.endo_r.to_field(),
-            endo_q: srs.endo_q.to_field(),
         }
     }
 }
@@ -177,7 +205,6 @@ impl From<&DensePolynomial<Fq>> for DensePolynomialCached {
 struct VerifierIndexCached {
     domain: Radix2EvaluationDomainCached,
     max_poly_size: usize,
-    max_quot_size: usize,
     srs: SRSCached,
     public: usize,
     prev_challenges: usize,
@@ -189,9 +216,6 @@ struct VerifierIndexCached {
     mul_comm: PolyComm<Pallas>,
     emul_comm: PolyComm<Pallas>,
     endomul_scalar_comm: PolyComm<Pallas>,
-    chacha_comm: Option<[PolyComm<Pallas>; 4]>,
-    range_check_comm: Option<[PolyComm<Pallas>; range_check::gadget::GATE_COUNT]>,
-    foreign_field_modulus: Option<BigUint>,
     foreign_field_add_comm: Option<PolyComm<Pallas>>,
     xor_comm: Option<PolyComm<Pallas>>,
     shift: [BigInt; PERMUTS], // Fq
@@ -217,7 +241,6 @@ where
             row: *row,
             col: *col,
         },
-        PolishToken::ForeignFieldModulus(int) => PolishToken::ForeignFieldModulus(*int),
         PolishToken::Literal(f) => PolishToken::Literal(f.into()),
         PolishToken::Cell(var) => PolishToken::Cell(*var),
         PolishToken::Dup => PolishToken::Dup,
@@ -229,6 +252,8 @@ where
         PolishToken::UnnormalizedLagrangeBasis(int) => PolishToken::UnnormalizedLagrangeBasis(*int),
         PolishToken::Store => PolishToken::Store,
         PolishToken::Load(int) => PolishToken::Load(*int),
+        PolishToken::SkipIf(flags, int) => PolishToken::SkipIf(*flags, *int),
+        PolishToken::SkipIfNot(flags, int) => PolishToken::SkipIfNot(*flags, *int),
     }
 }
 
@@ -255,7 +280,6 @@ impl From<&VerifierIndex> for VerifierIndexCached {
         Self {
             domain: (&v.domain).into(),
             max_poly_size: v.max_poly_size,
-            max_quot_size: v.max_quot_size,
             srs: (&**v.srs.get().unwrap()).into(),
             public: v.public,
             prev_challenges: v.prev_challenges,
@@ -267,9 +291,6 @@ impl From<&VerifierIndex> for VerifierIndexCached {
             mul_comm: v.mul_comm.clone(),
             emul_comm: v.emul_comm.clone(),
             endomul_scalar_comm: v.endomul_scalar_comm.clone(),
-            chacha_comm: v.chacha_comm.clone(),
-            range_check_comm: v.range_check_comm.clone(),
-            foreign_field_modulus: v.foreign_field_modulus.clone(),
             foreign_field_add_comm: v.foreign_field_add_comm.clone(),
             xor_comm: v.xor_comm.clone(),
             shift: std::array::from_fn(|i| v.shift[i].into()),
@@ -287,7 +308,6 @@ impl From<&VerifierIndexCached> for VerifierIndex {
         Self {
             domain: (&v.domain).into(),
             max_poly_size: v.max_poly_size,
-            max_quot_size: v.max_quot_size,
             srs: OnceCell::with_value(Arc::new((&v.srs).into())),
             public: v.public,
             prev_challenges: v.prev_challenges,
@@ -299,9 +319,6 @@ impl From<&VerifierIndexCached> for VerifierIndex {
             mul_comm: v.mul_comm.clone(),
             emul_comm: v.emul_comm.clone(),
             endomul_scalar_comm: v.endomul_scalar_comm.clone(),
-            chacha_comm: v.chacha_comm.clone(),
-            range_check_comm: v.range_check_comm.clone(),
-            foreign_field_modulus: v.foreign_field_modulus.clone(),
             foreign_field_add_comm: v.foreign_field_add_comm.clone(),
             xor_comm: v.xor_comm.clone(),
             shift: std::array::from_fn(|i| v.shift[i].to_field()),
@@ -324,6 +341,10 @@ impl From<&VerifierIndexCached> for VerifierIndex {
                 powers_of_alpha.register(ArgumentType::Permutation, permutation::CONSTRAINTS);
                 powers_of_alpha
             },
+            range_check0_comm: None,
+            range_check1_comm: None,
+            foreign_field_mul_comm: None,
+            rot_comm: None,
         }
     }
 }
