@@ -48,9 +48,9 @@ mod transaction;
 pub use transaction::Transaction;
 
 const BLOCK_VERIFIER_INDEX_HASH: &'static str =
-    "0969aacaf7f492ddf0799f3dba190d83fbbd02df6e416c403bc061437dda2dfd";
+    "b8542c0089f8310e506d7be98cb4811405fe7b6281e7df08a2436b31e95e4c7d";
 const BLOCK_VERIFIER_SRS_HASH: &'static str =
-    "330931dc866652e9d0cfc2dcda096e976f32783f340d4593b6e8e6bef3a7a19b";
+    "d733ebb250be11f2de010b3dafae2034f1c85f1b126991f352cb2db0d3a0b9a2";
 
 pub type Store = lib::Store<NodeWasmService>;
 pub type Node = lib::Node<NodeWasmService>;
