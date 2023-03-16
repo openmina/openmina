@@ -16,13 +16,11 @@ pub struct Plonk {
     pub zeta: [u64; 2],
     pub zeta_to_srs_length: ShiftedValue<Fp>,
     pub zeta_to_domain_size: ShiftedValue<Fp>,
-    pub poseidon_selector: ShiftedValue<Fp>,
     pub vbmul: ShiftedValue<Fp>,
     pub complete_add: ShiftedValue<Fp>,
     pub endomul: ShiftedValue<Fp>,
     pub endomul_scalar: ShiftedValue<Fp>,
     pub perm: ShiftedValue<Fp>,
-    pub generic: [ShiftedValue<Fp>; 9],
     pub lookup: (),
 }
 
@@ -63,13 +61,11 @@ impl PreparedStatement {
                                     zeta,
                                     zeta_to_srs_length,
                                     zeta_to_domain_size,
-                                    poseidon_selector,
                                     vbmul,
                                     complete_add,
                                     endomul,
                                     endomul_scalar,
                                     perm,
-                                    generic,
                                     lookup: _, // `lookup` is of type `()`
                                 },
                             combined_inner_product,
@@ -104,13 +100,11 @@ impl PreparedStatement {
             fields.push(to_fq(b.shifted));
             fields.push(to_fq(zeta_to_srs_length.shifted));
             fields.push(to_fq(zeta_to_domain_size.shifted));
-            fields.push(to_fq(poseidon_selector.shifted));
             fields.push(to_fq(vbmul.shifted));
             fields.push(to_fq(complete_add.shifted));
             fields.push(to_fq(endomul.shifted));
             fields.push(to_fq(endomul_scalar.shifted));
             fields.push(to_fq(perm.shifted));
-            fields.extend(generic.iter().map(|g| to_fq(g.shifted)));
         }
 
         // Challenge
@@ -152,11 +146,11 @@ impl PreparedStatement {
         }
 
         // TODO: Not sure how that padding works, check further
-        fields.push(0.into());
-        fields.push(0.into());
-        fields.push(0.into());
+        while fields.len() < 52 {
+            fields.push(0.into());
+        }
 
-        assert_eq!(fields.len(), 47);
+        assert_eq!(fields.len(), 52);
 
         fields
     }

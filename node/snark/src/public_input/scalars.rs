@@ -588,7 +588,7 @@ mod tests {
     fn generate_plonk() {
         let lookup_configuration = None;
         let evaluated_cols = linearization_columns::<Fp>(lookup_configuration);
-        let (linearization, _powers_of_alpha) = constraints_expr::<Fp>(None, false);
+        let (linearization, _powers_of_alpha) = constraints_expr::<Fp>(None, true);
 
         let Linearization {
             constant_term: _,
@@ -624,16 +624,26 @@ mod tests {
 
         // Make sure the generated code doesn't change if we update the `proof-systems` dependency
 
-        let (_, s) = other_terms.iter().find(|(v, _)| v == "Index(CompleteAdd)").unwrap();
-        assert_eq!(sum(s), "c478727783cc551528384c6f05c26414bf64bbd1dc6a0c47c30eb917a825b9a0");
+        let value_of = |s: &str| &other_terms.iter().find(|(v, _)| v == s).unwrap().1;
 
-        let (_, s) = other_terms.iter().find(|(v, _)| v == "Index(VarBaseMul)").unwrap();
-        assert_eq!(sum(s), "4437fea516a70ff606b11eda22cfde29e2d95b86154010b5886b3510909d2ab2");
+        assert_eq!(
+            sum(value_of("Index(CompleteAdd)")),
+            "c478727783cc551528384c6f05c26414bf64bbd1dc6a0c47c30eb917a825b9a0"
+        );
 
-        let (_, s) = other_terms.iter().find(|(v, _)| v == "Index(EndoMul)").unwrap();
-        assert_eq!(sum(s), "561f3c95177dc76aa596d506be6e1dd5530dd3a9f44d25d2f5e4e9ad1c89176e");
+        assert_eq!(
+            sum(value_of("Index(VarBaseMul)")),
+            "4437fea516a70ff606b11eda22cfde29e2d95b86154010b5886b3510909d2ab2"
+        );
 
-        let (_, s) = other_terms.iter().find(|(v, _)| v == "Index(EndoMulScalar)").unwrap();
-        assert_eq!(sum(s), "d56e30e8015f38922a7069cc87daaf21ffb15d96cc80fdd9b257e3267145b919");
+        assert_eq!(
+            sum(value_of("Index(EndoMul)")),
+            "561f3c95177dc76aa596d506be6e1dd5530dd3a9f44d25d2f5e4e9ad1c89176e"
+        );
+
+        assert_eq!(
+            sum(value_of("Index(EndoMulScalar)")),
+            "d56e30e8015f38922a7069cc87daaf21ffb15d96cc80fdd9b257e3267145b919"
+        );
     }
 }
