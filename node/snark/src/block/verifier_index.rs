@@ -7,7 +7,9 @@ use poly_commitment::{commitment::CommitmentCurve, srs::SRS, PolyComm};
 
 use kimchi::{
     circuits::{
+        constraints::FeatureFlags,
         expr::Linearization,
+        lookup::lookups::{LookupFeatures, LookupPatterns},
         polynomials::permutation::{zk_polynomial, zk_w3},
     },
     curve::KimchiCurve,
@@ -123,7 +125,6 @@ fn make_verifier_index(index: &VerifierIndexOcaml<Pallas>) -> VerifierIndex {
         Radix2EvaluationDomain::new(index.data.constraints).unwrap();
 
     let max_poly_size: usize = index.index.max_poly_size;
-    // let max_quot_size: usize = index.index.max_quot_size;
     let prev_challenges: usize = index.index.prev_challenges;
 
     let shift = array::from_fn(|i| {
@@ -133,7 +134,26 @@ fn make_verifier_index(index: &VerifierIndexOcaml<Pallas>) -> VerifierIndex {
 
     let (endo, _) = kimchi::poly_commitment::srs::endos::<GroupAffine<VestaParameters>>();
 
-    let (mut linearization, powers_of_alpha) = expr_linearization(None, false);
+    let feature_flags = FeatureFlags {
+        range_check0: false,
+        range_check1: false,
+        foreign_field_add: false,
+        foreign_field_mul: false,
+        xor: false,
+        rot: false,
+        lookup_features: LookupFeatures {
+            patterns: LookupPatterns {
+                xor: false,
+                lookup: false,
+                range_check: false,
+                foreign_field_mul: false,
+            },
+            joint_lookup_used: false,
+            uses_runtime_tables: false,
+        },
+    };
+
+    let (mut linearization, powers_of_alpha) = expr_linearization(Some(&feature_flags), true);
 
     let linearization = Linearization {
         constant_term: linearization.constant_term,

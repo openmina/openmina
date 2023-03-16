@@ -1,6 +1,7 @@
 use ark_ff::{Field, One};
 use kimchi::proof::ProofEvaluations;
 use mina_hasher::Fp;
+use o1_utils::FieldHelpers;
 
 use super::scalars::{complete_add, endo_mul, endo_mul_scalar, var_base_mul};
 use crate::utils::FpExt;
@@ -34,13 +35,11 @@ pub struct InCircuit {
     pub zeta: Fp,
     pub zeta_to_domain_size: ShiftedValue<Fp>,
     pub zeta_to_srs_length: ShiftedValue<Fp>,
-    pub poseidon_selector: ShiftedValue<Fp>,
     pub vbmul: ShiftedValue<Fp>,
     pub complete_add: ShiftedValue<Fp>,
     pub endomul: ShiftedValue<Fp>,
     pub endomul_scalar: ShiftedValue<Fp>,
     pub perm: ShiftedValue<Fp>,
-    pub generic: [ShiftedValue<Fp>; 9],
 }
 
 pub struct Shift<F: Field> {
@@ -70,7 +69,11 @@ pub struct ShiftedValue<F: Field> {
 impl<F: Field + FpExt> std::fmt::Debug for ShiftedValue<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ShiftedValue")
-            .field("shifted", &self.shifted.to_decimal())
+            .field("shifted", &{
+                let mut bytes = self.shifted.to_bytes();
+                bytes.reverse();
+                hex::encode(bytes)
+            })
             .finish()
     }
 }
@@ -134,12 +137,12 @@ pub fn derive_plonk(
     let perm = -perm;
 
     // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L402
-    let generic = {
-        let [l1, r1, o1, l2, r2, o2, ..] = w0;
-        let m1 = l1 * r1;
-        let m2 = l2 * r2;
-        [evals.generic_selector[0], l1, r1, o1, m1, l2, r2, o2, m2]
-    };
+    // let generic = {
+    //     let [l1, r1, o1, l2, r2, o2, ..] = w0;
+    //     let m1 = l1 * r1;
+    //     let m2 = l2 * r2;
+    //     [evals.generic_selector[0], l1, r1, o1, m1, l2, r2, o2, m2]
+    // };
 
     let zeta_to_domain_size = env.zeta_to_n_minus_1 + Fp::one();
     // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L46
@@ -160,13 +163,11 @@ pub fn derive_plonk(
         zeta: minimal.zeta,
         zeta_to_domain_size: shift(zeta_to_domain_size),
         zeta_to_srs_length: shift(zeta_to_srs_length),
-        poseidon_selector: shift(evals.poseidon_selector[0]),
         vbmul: shift(vbmul),
         complete_add: shift(complete_add),
         endomul: shift(endomul),
         endomul_scalar: shift(endomul_scalar),
         perm: shift(perm),
-        generic: generic.map(shift),
     }
 }
 

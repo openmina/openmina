@@ -93,37 +93,33 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
                     let MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
                         first_pass_ledger,
                         second_pass_ledger,
-                        pending_coinbase_stack,
-                        local_state,
+                        pending_coinbase_stack:
+                            MinaBasePendingCoinbaseStackVersionedStableV1 {
+                                data,
+                                state: MinaBasePendingCoinbaseStateStackStableV1 { init, curr },
+                            },
+                        local_state:
+                            MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
+                                stack_frame,
+                                call_stack,
+                                transaction_commitment,
+                                full_transaction_commitment,
+                                token_id,
+                                excess,
+                                supply_increase,
+                                ledger,
+                                success,
+                                account_update_index,
+                                failure_status_tbl: _,
+                                will_succeed,
+                            },
                     } = source;
 
                     inputs.append_field(first_pass_ledger.to_field());
                     inputs.append_field(second_pass_ledger.to_field());
-
-                    let MinaBasePendingCoinbaseStackVersionedStableV1 { data, state } =
-                        pending_coinbase_stack;
-
                     inputs.append_field(data.to_field());
-
-                    let MinaBasePendingCoinbaseStateStackStableV1 { init, curr } = state;
-
                     inputs.append_field(init.to_field());
                     inputs.append_field(curr.to_field());
-
-                    let MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
-                        stack_frame,
-                        call_stack,
-                        transaction_commitment,
-                        full_transaction_commitment,
-                        token_id,
-                        excess,
-                        supply_increase,
-                        ledger,
-                        success,
-                        account_update_index,
-                        failure_status_tbl: _,
-                        will_succeed,
-                    } = local_state;
 
                     inputs.append_field(stack_frame.to_field());
                     inputs.append_field(call_stack.to_field());
@@ -144,37 +140,33 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
                     let MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
                         first_pass_ledger,
                         second_pass_ledger,
-                        pending_coinbase_stack,
-                        local_state,
+                        pending_coinbase_stack:
+                            MinaBasePendingCoinbaseStackVersionedStableV1 {
+                                data,
+                                state: MinaBasePendingCoinbaseStateStackStableV1 { init, curr },
+                            },
+                        local_state:
+                            MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
+                                stack_frame,
+                                call_stack,
+                                transaction_commitment,
+                                full_transaction_commitment,
+                                token_id,
+                                excess,
+                                supply_increase,
+                                ledger,
+                                success,
+                                account_update_index,
+                                failure_status_tbl: _,
+                                will_succeed,
+                            },
                     } = target;
 
                     inputs.append_field(first_pass_ledger.to_field());
                     inputs.append_field(second_pass_ledger.to_field());
-
-                    let MinaBasePendingCoinbaseStackVersionedStableV1 { data, state } =
-                        pending_coinbase_stack;
-
                     inputs.append_field(data.to_field());
-
-                    let MinaBasePendingCoinbaseStateStackStableV1 { init, curr } = state;
-
                     inputs.append_field(init.to_field());
                     inputs.append_field(curr.to_field());
-
-                    let MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
-                        stack_frame,
-                        call_stack,
-                        transaction_commitment,
-                        full_transaction_commitment,
-                        token_id,
-                        excess,
-                        supply_increase,
-                        ledger,
-                        success,
-                        account_update_index,
-                        failure_status_tbl: _,
-                        will_succeed,
-                    } = local_state;
 
                     inputs.append_field(stack_frame.to_field());
                     inputs.append_field(call_stack.to_field());

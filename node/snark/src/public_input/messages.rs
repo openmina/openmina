@@ -4,13 +4,31 @@ use ark_ff::{BigInteger256, Field, PrimeField};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
+use o1_utils::FieldHelpers;
 
 use crate::public_input::protocol_state::MinaHash;
 
 use crate::hash::hash_fields;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct CurveAffine<F: Field>(pub F, pub F);
+
+impl<F: Field + std::fmt::Debug> std::fmt::Debug for CurveAffine<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("CurveAffine")
+            .field(&{
+                let mut bytes = self.0.to_bytes();
+                bytes.reverse();
+                hex::encode(bytes)
+            })
+            .field(&{
+                let mut bytes = self.1.to_bytes();
+                bytes.reverse();
+                hex::encode(bytes)
+            })
+            .finish()
+    }
+}
 
 // https://github.com/MinaProtocol/mina/blob/a6e5f182855b3f4b4afb0ea8636760e618e2f7a0/src/lib/pickles_types/plonk_verification_key_evals.ml#L9-L18
 #[derive(Clone, Debug, PartialEq, Eq)]

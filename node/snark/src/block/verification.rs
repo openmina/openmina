@@ -196,13 +196,11 @@ fn get_prepared_statement(
         zeta: minimal.zeta_bytes,
         zeta_to_srs_length: plonk.zeta_to_srs_length,
         zeta_to_domain_size: plonk.zeta_to_domain_size,
-        poseidon_selector: plonk.poseidon_selector,
         vbmul: plonk.vbmul,
         complete_add: plonk.complete_add,
         endomul: plonk.endomul,
         endomul_scalar: plonk.endomul_scalar,
         perm: plonk.perm,
-        generic: plonk.generic,
         lookup: (),
     };
 
@@ -263,7 +261,7 @@ fn verify_with(
 
 pub fn verify(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierIndex) -> bool {
     let protocol_state = &header.protocol_state;
-    let proof = &header.protocol_state_proof.0;
+    let proof = &header.protocol_state_proof;
 
     let DataForPublicInput { evals, minimal } = extract_data_for_public_input(proof);
 
@@ -308,7 +306,9 @@ mod tests {
         hash::{Hash, Hasher},
     };
 
+    use binprot::BinProtRead;
     use mina_curves::pasta::Vesta;
+    use mina_p2p_messages::v2::MinaBlockHeaderStableV2;
     use poly_commitment::srs::SRS;
 
     use crate::{
@@ -335,10 +335,10 @@ mod tests {
         let bytes = verifier_index_to_bytes(&verifier_index);
         println!("verifier_elapsed={:?}", now.elapsed());
         println!("verifier_length={:?}", bytes.len());
-        assert_eq!(bytes.len(), 5675912);
+        assert_eq!(bytes.len(), 5622520);
 
         let now = std::time::Instant::now();
-        let _verifier_index = verifier_index_from_bytes(&bytes);
+        let verifier_index = verifier_index_from_bytes(&bytes);
         println!("verifier_deserialize_elapsed={:?}\n", now.elapsed());
 
         let now = std::time::Instant::now();
@@ -348,29 +348,36 @@ mod tests {
         assert_eq!(bytes.len(), 5308513);
 
         let now = std::time::Instant::now();
-        let _srs: SRS<Vesta> = srs_from_bytes(&bytes);
+        let srs: SRS<Vesta> = srs_from_bytes(&bytes);
         println!("deserialize_elapsed={:?}\n", now.elapsed());
 
-        // TODO: Needs to update files with new blocks
-        // let files = [
-        //     include_bytes!("../data/2128.binprot"),
-        //     include_bytes!("../data/2132.binprot"),
-        //     include_bytes!("../data/2133.binprot"),
-        // ];
+        // Few blocks headers from berkeleynet
+        let files = [
+            include_bytes!("../data/rampup.binprot"),
+            include_bytes!("../data/5573.binprot"),
+            include_bytes!("../data/5574.binprot"),
+            include_bytes!("../data/5575.binprot"),
+            include_bytes!("../data/5576.binprot"),
+            include_bytes!("../data/5577.binprot"),
+            include_bytes!("../data/5578.binprot"),
+            include_bytes!("../data/5579.binprot"),
+            include_bytes!("../data/5580.binprot"),
+        ];
 
-        // for file in files {
-        //     let header = MinaBlockHeaderStableV2::binprot_read(&mut file.as_slice()).unwrap();
+        for file in files {
+            let header = MinaBlockHeaderStableV2::binprot_read(&mut file.as_slice()).unwrap();
 
-        //     let now = std::time::Instant::now();
-        //     let accum_check = accumulator_check(&srs, &header.protocol_state_proof.0);
-        //     println!("accumulator_check={:?}", now.elapsed());
+            let now = std::time::Instant::now();
+            let accum_check = crate::accumulator_check(&srs, &header.protocol_state_proof.0);
+            println!("accumulator_check={:?}", now.elapsed());
 
-        //     let now = std::time::Instant::now();
-        //     let verified = verify(&header, &verifier_index);
-        //     println!("snark::verify={:?}", now.elapsed());
+            let now = std::time::Instant::now();
+            let verified = crate::verify(&header, &verifier_index);
+            println!("snark::verify={:?}", now.elapsed());
 
-        //     assert!(accum_check && verified);
-        // }
+            assert!(accum_check);
+            assert!(verified);
+        }
     }
 
     #[test]
