@@ -271,20 +271,22 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
             set_timing,
         } = permissions;
 
+        // Must be in the same order as here
+        // https://github.com/MinaProtocol/mina/blob/50fe910d9bf4c8123caa7dd87ef9314415eb53c5/src/lib/mina_base/permissions.ml#L347-L360
         for auth in [
             edit_state,
+            access,
             send,
+            receive,
             set_delegate,
             set_permissions,
             set_verification_key,
-            receive,
             set_zkapp_uri,
             edit_sequence_state,
             set_token_symbol,
             increment_nonce,
             set_voting_for,
             set_timing,
-            access,
         ] {
             for bit in encode_auth_required(auth).to_bits() {
                 inputs.append_bool(bit);
