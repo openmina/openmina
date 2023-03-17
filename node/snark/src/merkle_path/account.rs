@@ -131,48 +131,66 @@ fn dummy_vk() -> MinaBaseVerificationKeyWireStableV1 {
 
 impl MinaHash for MinaBaseVerificationKeyWireStableV1 {
     fn hash(&self) -> Fp {
+        let MinaBaseVerificationKeyWireStableV1 {
+            max_proofs_verified,
+            actual_wrap_domain_size,
+            wrap_index:
+                MinaBaseVerificationKeyWireStableV1WrapIndex {
+                    sigma_comm,
+                    coefficients_comm,
+                    generic_comm,
+                    psm_comm,
+                    complete_add_comm,
+                    mul_comm,
+                    emul_comm,
+                    endomul_scalar_comm,
+                },
+        } = self;
+
         let mut inputs = Inputs::new();
 
         // https://github.com/MinaProtocol/mina/blob/35b1702fbc295713f9bb46bb17e2d007bc2bab84/src/lib/pickles_base/proofs_verified.ml#L108-L118
-        let bits = match self.max_proofs_verified {
+        let to_bits = |nproofs: &PicklesBaseProofsVerifiedStableV1| match nproofs {
             PicklesBaseProofsVerifiedStableV1::N0 => [true, false, false],
             PicklesBaseProofsVerifiedStableV1::N1 => [false, true, false],
             PicklesBaseProofsVerifiedStableV1::N2 => [false, false, true],
         };
 
-        for bit in bits {
+        for bit in to_bits(max_proofs_verified) {
             inputs.append_bool(bit);
         }
 
-        let index = &self.wrap_index;
+        for bit in to_bits(actual_wrap_domain_size) {
+            inputs.append_bool(bit);
+        }
 
-        for field in &index.sigma_comm[..] {
+        for field in &sigma_comm[..] {
             inputs.append_field(field.0.to_field());
             inputs.append_field(field.1.to_field());
         }
 
-        for field in &index.coefficients_comm[..] {
+        for field in &coefficients_comm[..] {
             inputs.append_field(field.0.to_field());
             inputs.append_field(field.1.to_field());
         }
 
-        inputs.append_field(index.generic_comm.0.to_field());
-        inputs.append_field(index.generic_comm.1.to_field());
+        inputs.append_field(generic_comm.0.to_field());
+        inputs.append_field(generic_comm.1.to_field());
 
-        inputs.append_field(index.psm_comm.0.to_field());
-        inputs.append_field(index.psm_comm.1.to_field());
+        inputs.append_field(psm_comm.0.to_field());
+        inputs.append_field(psm_comm.1.to_field());
 
-        inputs.append_field(index.complete_add_comm.0.to_field());
-        inputs.append_field(index.complete_add_comm.1.to_field());
+        inputs.append_field(complete_add_comm.0.to_field());
+        inputs.append_field(complete_add_comm.1.to_field());
 
-        inputs.append_field(index.mul_comm.0.to_field());
-        inputs.append_field(index.mul_comm.1.to_field());
+        inputs.append_field(mul_comm.0.to_field());
+        inputs.append_field(mul_comm.1.to_field());
 
-        inputs.append_field(index.emul_comm.0.to_field());
-        inputs.append_field(index.emul_comm.1.to_field());
+        inputs.append_field(emul_comm.0.to_field());
+        inputs.append_field(emul_comm.1.to_field());
 
-        inputs.append_field(index.endomul_scalar_comm.0.to_field());
-        inputs.append_field(index.endomul_scalar_comm.1.to_field());
+        inputs.append_field(endomul_scalar_comm.0.to_field());
+        inputs.append_field(endomul_scalar_comm.1.to_field());
 
         hash_with_kimchi("MinaSideLoadedVk", &inputs.to_fields())
     }
