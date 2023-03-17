@@ -46,7 +46,7 @@ impl std::str::FromStr for TransactionHash {
     type Err = bs58::decode::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let bytes = bs58::decode(s).with_check(Some(0x12)).into_vec()?[1..].to_vec();
+        let bytes = bs58::decode(s).with_check(Some(0x1D)).into_vec()?[1..].to_vec();
         Ok(Self(bytes))
     }
 }
@@ -54,7 +54,7 @@ impl std::str::FromStr for TransactionHash {
 impl fmt::Display for TransactionHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         bs58::encode(&self.0)
-            .with_check_version(0x12)
+            .with_check_version(0x1D)
             .into_string()
             .fmt(f)
     }
@@ -125,9 +125,9 @@ impl generated::MinaBaseSignedCommandStableV2 {
         let mut hasher = Blake2bVar::new(32).expect("Invalid Blake2bVar output size");
 
         hasher.update(&self.binprot_write_with_default_sig()?);
-        let mut hash = vec![0; 34];
-        hash[..2].copy_from_slice(&[1, 32]);
-        hash[2..].copy_from_slice(&hasher.finalize_boxed());
+        let mut hash = vec![0; 33];
+        hash[..1].copy_from_slice(&[32]);
+        hash[1..].copy_from_slice(&hasher.finalize_boxed());
 
         Ok(TransactionHash(hash))
     }
@@ -172,7 +172,7 @@ mod tests {
 
         let valid_until = generated::UnsignedExtendedUInt32StableV1(Number(valid_until));
 
-        let memo = bs58::decode("E4Yd67s51QN9DZVDy8JKPEoNGykMsYQ5KRiKpZHiLZTjA8dB9SnFT")
+        let memo = bs58::decode("E4Yks7aARFemZJqucP5eaARRYRthGdzaFjGfXqQRS3UeidsECRBvR")
             .with_check(Some(0x14))
             .into_vec()
             .unwrap()[1..]
@@ -216,19 +216,30 @@ mod tests {
         dbg!(v.hash().unwrap()).to_string()
     }
 
+    // #[test]
+    // fn test_tx_hash() {
+    //     let s = "5JuSRViCY1GbnnpExLhoYLkD96vwnA97ZrbE2UFTFzBk9SPLsAyE";
+    //     let hash: TransactionHash = s.parse().unwrap();
+    //     // let bytes = bs58::decode(s).with_check(Some(0x1D)).into_vec().unwrap()[1..].to_vec();
+    //     dbg!(bs58::encode(&hash.0)
+    //         .with_check_version(0x12)
+    //         .into_string());
+    //     panic!();
+    // }
+
     #[test]
     fn test_payment_hash_1() {
-        let expected_hash = "CkpYVhMRYP3zfgpHzKJfJoHNkL9dNTgpA9zKQ8y2X533Pm9yZdN8q";
+        let expected_hash = "5JthQdVqzEJRLBLALeuwPdbnGhFmCow2bVnkfHGH6vZ7R6fiMf2o";
         let expected_tx_hash: TransactionHash = expected_hash.parse().unwrap();
         dbg!(expected_tx_hash);
 
         assert_eq!(
             tx_hash(
                 "B62qp3B9VW1ir5qL1MWRwr6ecjC2NZbGr8vysGeme9vXGcFXTMNXb2t",
-                "B62qieNixrVNNK3G6nNviFa77yTCbR4tfCcm7w7H8LqTjFoqvdEfF4W",
-                1500000,
-                75495949,
-                25646,
+                "B62qoieQNrsNKCNTZ6R4D6cib3NxVbkwZaAtRVbfS3ndrb2MkFJ1UVJ",
+                1089541195,
+                89541195,
+                26100,
                 -1
             ),
             expected_hash
