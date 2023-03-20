@@ -4,68 +4,53 @@ use shared::requests::RpcId;
 
 use crate::webrtc;
 
-use super::P2pConnectionOutgoingInitOpts;
+use super::IncomingSignalingMethod;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum P2pConnectionOutgoingState {
+pub enum P2pConnectionIncomingState {
     Init {
         time: redux::Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
+        signaling: IncomingSignalingMethod,
+        offer: webrtc::Offer,
         rpc_id: Option<RpcId>,
     },
-    OfferSdpCreatePending {
+    AnswerSdpCreatePending {
         time: redux::Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
+        signaling: IncomingSignalingMethod,
+        offer: webrtc::Offer,
         rpc_id: Option<RpcId>,
     },
-    OfferSdpCreateSuccess {
+    AnswerSdpCreateSuccess {
         time: redux::Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
+        signaling: IncomingSignalingMethod,
+        offer: webrtc::Offer,
         sdp: String,
         rpc_id: Option<RpcId>,
     },
-    OfferReady {
+    AnswerReady {
         time: redux::Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
+        signaling: IncomingSignalingMethod,
         offer: webrtc::Offer,
+        answer: webrtc::Answer,
         rpc_id: Option<RpcId>,
     },
-    OfferSendSuccess {
+    AnswerSendSuccess {
         time: redux::Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
-        offer: webrtc::Offer,
-        rpc_id: Option<RpcId>,
-    },
-    AnswerRecvPending {
-        time: redux::Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
-        offer: webrtc::Offer,
-        rpc_id: Option<RpcId>,
-    },
-    AnswerRecvError {
-        time: redux::Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
-        offer: webrtc::Offer,
-        error: String,
-        rpc_id: Option<RpcId>,
-    },
-    AnswerRecvSuccess {
-        time: redux::Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
+        signaling: IncomingSignalingMethod,
         offer: webrtc::Offer,
         answer: webrtc::Answer,
         rpc_id: Option<RpcId>,
     },
     FinalizePending {
         time: redux::Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
+        signaling: IncomingSignalingMethod,
         offer: webrtc::Offer,
         answer: webrtc::Answer,
         rpc_id: Option<RpcId>,
     },
     FinalizeError {
         time: redux::Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
+        signaling: IncomingSignalingMethod,
         offer: webrtc::Offer,
         answer: webrtc::Answer,
         error: String,
@@ -73,7 +58,7 @@ pub enum P2pConnectionOutgoingState {
     },
     FinalizeSuccess {
         time: redux::Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
+        signaling: IncomingSignalingMethod,
         offer: webrtc::Offer,
         answer: webrtc::Answer,
         rpc_id: Option<RpcId>,
@@ -85,23 +70,21 @@ pub enum P2pConnectionOutgoingState {
     },
     Success {
         time: redux::Timestamp,
+        signaling: IncomingSignalingMethod,
         offer: webrtc::Offer,
         answer: webrtc::Answer,
         rpc_id: Option<RpcId>,
     },
 }
 
-impl P2pConnectionOutgoingState {
+impl P2pConnectionIncomingState {
     pub fn rpc_id(&self) -> Option<RpcId> {
         match self {
             Self::Init { rpc_id, .. } => *rpc_id,
-            Self::OfferSdpCreatePending { rpc_id, .. } => *rpc_id,
-            Self::OfferSdpCreateSuccess { rpc_id, .. } => *rpc_id,
-            Self::OfferReady { rpc_id, .. } => *rpc_id,
-            Self::OfferSendSuccess { rpc_id, .. } => *rpc_id,
-            Self::AnswerRecvPending { rpc_id, .. } => *rpc_id,
-            Self::AnswerRecvError { rpc_id, .. } => *rpc_id,
-            Self::AnswerRecvSuccess { rpc_id, .. } => *rpc_id,
+            Self::AnswerSdpCreatePending { rpc_id, .. } => *rpc_id,
+            Self::AnswerSdpCreateSuccess { rpc_id, .. } => *rpc_id,
+            Self::AnswerReady { rpc_id, .. } => *rpc_id,
+            Self::AnswerSendSuccess { rpc_id, .. } => *rpc_id,
             Self::FinalizePending { rpc_id, .. } => *rpc_id,
             Self::FinalizeError { rpc_id, .. } => *rpc_id,
             Self::FinalizeSuccess { rpc_id, .. } => *rpc_id,

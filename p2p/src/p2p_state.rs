@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 
 use shared::requests::RpcId;
 
-use crate::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use crate::connection::incoming::P2pConnectionIncomingState;
+use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
 use crate::PeerId;
 
 use super::connection::P2pConnectionState;
@@ -60,6 +61,37 @@ impl P2pState {
             .filter(|(_, p)| p.status.as_ready().is_some())
             .map(|(id, _)| *id)
             .collect()
+    }
+
+    pub fn connected_or_connecting_peers_count(&self) -> usize {
+        self.peers
+            .iter()
+            .filter(|(_, p)| match &p.status {
+                P2pPeerStatus::Connecting(s) => match s {
+                    P2pConnectionState::Outgoing(s) => !matches!(
+                        s,
+                        P2pConnectionOutgoingState::AnswerRecvError { .. }
+                            | P2pConnectionOutgoingState::FinalizeError { .. }
+                            | P2pConnectionOutgoingState::Error { .. }
+                    ),
+                    P2pConnectionState::Incoming(s) => !matches!(
+                        s,
+                        P2pConnectionIncomingState::FinalizeError { .. }
+                            | P2pConnectionIncomingState::Error { .. }
+                    ),
+                },
+                P2pPeerStatus::Ready(_) => true,
+                _ => false,
+            })
+            .count()
+    }
+
+    pub fn already_has_min_peers(&self) -> bool {
+        self.connected_or_connecting_peers_count() >= (self.config.max_peers / 2).max(3)
+    }
+
+    pub fn already_has_max_peers(&self) -> bool {
+        self.connected_or_connecting_peers_count() >= self.config.max_peers
     }
 }
 

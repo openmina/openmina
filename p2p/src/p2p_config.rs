@@ -6,4 +6,6 @@ use crate::{connection::outgoing::P2pConnectionOutgoingInitOpts, identity::Publi
 pub struct P2pConfig {
     pub identity_pub_key: PublicKey,
     pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
+
+    pub max_peers: usize,
 }
