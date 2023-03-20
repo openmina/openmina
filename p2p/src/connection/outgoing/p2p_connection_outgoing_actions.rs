@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use shared::requests::RpcId;
 
+use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::{webrtc, P2pState, PeerId};
 
 pub type P2pConnectionOutgoingActionWithMetaRef<'a> =
@@ -48,27 +49,12 @@ impl P2pConnectionOutgoingAction {
     }
 }
 
-fn already_connected_or_connecting(state: &P2pState) -> bool {
-    state.peers.iter().any(|(_, p)| match &p.status {
-        P2pPeerStatus::Connecting(s) => match s {
-            P2pConnectionState::Outgoing(s) => !matches!(
-                s,
-                P2pConnectionOutgoingState::AnswerRecvError { .. }
-                    | P2pConnectionOutgoingState::FinalizeError { .. }
-                    | P2pConnectionOutgoingState::Error { .. }
-            ),
-        },
-        P2pPeerStatus::Ready(_) => true,
-        _ => false,
-    })
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pConnectionOutgoingRandomInitAction {}
 
 impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingRandomInitAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
-        !already_connected_or_connecting(state) && !state.initial_unused_peers().is_empty()
+        !state.already_has_min_peers() && !state.initial_unused_peers().is_empty()
     }
 }
 
@@ -80,7 +66,7 @@ pub struct P2pConnectionOutgoingInitAction {
 
 impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingInitAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
-        !already_connected_or_connecting(state) && !state.peers.contains_key(&self.opts.peer_id)
+        !state.already_has_min_peers() && !state.peers.contains_key(&self.opts.peer_id)
     }
 }
 
@@ -92,7 +78,7 @@ pub struct P2pConnectionOutgoingReconnectAction {
 
 impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingReconnectAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
-        if already_connected_or_connecting(state) {
+        if state.already_has_min_peers() {
             return false;
         }
 
@@ -102,6 +88,10 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingReconnectAction
             .filter_map(|(id, p)| match &p.status {
                 P2pPeerStatus::Connecting(s) => match s {
                     P2pConnectionState::Outgoing(P2pConnectionOutgoingState::Error {
+                        time,
+                        ..
+                    }) => Some((*time, id, &p.dial_opts)),
+                    P2pConnectionState::Incoming(P2pConnectionIncomingState::Error {
                         time,
                         ..
                     }) => Some((*time, id, &p.dial_opts)),
