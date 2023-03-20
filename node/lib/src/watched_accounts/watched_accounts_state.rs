@@ -4,10 +4,9 @@ use mina_p2p_messages::v2::{
     LedgerHash, MinaBaseAccountBinableArgStableV2, MinaBaseTransactionStatusStableV2,
     MinaBaseUserCommandStableV2, NonZeroCurvePoint, StateHash, TransactionHash,
 };
-use p2p::rpc::P2pRpcOutgoingError;
 use serde::{Deserialize, Serialize};
 
-use crate::p2p::rpc::P2pRpcId;
+use crate::p2p::rpc::{P2pRpcId, P2pRpcOutgoingError};
 use crate::p2p::PeerId;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
