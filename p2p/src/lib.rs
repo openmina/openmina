@@ -1,12 +1,10 @@
 pub mod connection;
 pub mod disconnection;
 
-mod peer_id;
-pub use ed25519_dalek::{Keypair, PublicKey, SecretKey};
-pub use peer_id::PeerId;
+pub mod identity;
+pub use identity::PeerId;
 
-mod signaling_method;
-pub use signaling_method::*;
+pub mod webrtc;
 
 mod p2p_actions;
 pub use p2p_actions::*;

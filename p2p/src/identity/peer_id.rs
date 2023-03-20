@@ -1,14 +1,14 @@
 use std::{fmt, str::FromStr};
 
-use ed25519_dalek::PublicKey;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+
+use super::PublicKey;
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 pub struct PeerId([u64; 4]);
 
 impl PeerId {
-    const BASE58_CHECK_VERSION: u8 = 47; // 'p'
+    const BASE58_CHECK_VERSION: u8 = 0x2F; // 'p'
 
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
         let mut iter = bytes
@@ -34,11 +34,7 @@ impl PeerId {
     }
 
     pub fn from_public_key(key: PublicKey) -> Self {
-        let mut hasher = Sha256::new();
-
-        hasher.update(key.as_bytes());
-
-        Self::from_bytes(hasher.finalize().into())
+        Self::from_bytes(key.to_bytes())
     }
 }
 
