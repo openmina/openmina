@@ -2,10 +2,9 @@ use std::collections::VecDeque;
 
 use mina_p2p_messages::gossip::GossipNetMessageV2;
 use mina_p2p_messages::v2::MinaLedgerSyncLedgerAnswerStableV2;
-use p2p::disconnection::P2pDisconnectionInitAction;
 
 use crate::consensus::{ConsensusBestTipHistoryUpdateAction, ConsensusBlockReceivedAction};
-use crate::p2p::disconnection::P2pDisconnectionAction;
+use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionInitAction};
 use crate::p2p::rpc::outgoing::{
     P2pRpcOutgoingStatus, P2pRpcRequestor, P2pRpcRequestorWatchedAccount,
 };
