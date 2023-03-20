@@ -1,10 +1,9 @@
-use p2p::connection::outgoing::P2pConnectionOutgoingRandomInitAction;
-
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::logger::logger_effects;
 use crate::p2p::connection::outgoing::{
-    P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingReconnectAction,
+    P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingRandomInitAction,
+    P2pConnectionOutgoingReconnectAction,
 };
 use crate::p2p::p2p_effects;
 use crate::p2p::rpc::outgoing::{P2pRpcOutgoingInitAction, P2pRpcRequestor};

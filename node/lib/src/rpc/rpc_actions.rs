@@ -3,9 +3,8 @@ use std::collections::BTreeMap;
 use mina_p2p_messages::v2::NonZeroCurvePoint;
 use serde::{Deserialize, Serialize};
 
-use p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-use p2p::pubsub::{GossipNetMessageV2, PubsubTopic};
-
+use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use crate::p2p::pubsub::{GossipNetMessageV2, PubsubTopic};
 use crate::service::ActionStatsForRanges;
 use crate::ActionKind;
 

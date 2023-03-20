@@ -1,4 +1,4 @@
-pub use ::p2p::*;
+pub use ::node_p2p::*;
 
 pub mod connection;
 pub mod disconnection;

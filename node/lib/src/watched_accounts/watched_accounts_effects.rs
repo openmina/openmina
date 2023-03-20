@@ -2,11 +2,11 @@ use mina_p2p_messages::{
     bigint::BigInt,
     v2::{MinaBaseAccountIdDigestStableV1, MinaLedgerSyncLedgerQueryStableV1},
 };
-use p2p::rpc::{
+
+use crate::p2p::rpc::{
     outgoing::{P2pRpcOutgoingInitAction, P2pRpcRequestor, P2pRpcRequestorWatchedAccount},
     P2pRpcRequest,
 };
-
 use crate::Store;
 
 use super::{

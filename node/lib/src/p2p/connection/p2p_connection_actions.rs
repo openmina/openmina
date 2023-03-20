@@ -1,8 +1,9 @@
 use std::time::Duration;
 
-use p2p::{connection::outgoing::P2pConnectionOutgoingState, P2pPeerStatus};
+use crate::p2p::P2pPeerStatus;
 
 use super::*;
+use outgoing::P2pConnectionOutgoingState;
 
 impl redux::EnablingCondition<crate::State> for outgoing::P2pConnectionOutgoingRandomInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
