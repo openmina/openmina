@@ -8,13 +8,19 @@ pub trait P2pConnectionService: redux::Service {
         list: &[P2pConnectionOutgoingInitOpts],
     ) -> P2pConnectionOutgoingInitOpts;
 
-    /// Initiates outgoing connection and creates an offer sdp, which
-    /// will be received in state machine as an event.
+    /// Initiates an outgoing connection and creates an offer sdp,
+    /// which will be received in the state machine as an event.
     fn outgoing_init(&mut self, peer_id: PeerId);
 
-    fn set_offer(&mut self, offer: webrtc::Offer);
+    /// Initiates an incoming connection and creates an answer sdp,
+    /// which will be received in the state machine as an event.
+    fn incoming_init(&mut self, peer_id: PeerId, offer: webrtc::Offer);
 
-    fn set_answer(&mut self, answer: webrtc::Answer);
+    fn set_offer(&mut self, peer_id: PeerId, offer: webrtc::Offer);
 
-    fn http_signal_send(&mut self, url: String, signal: webrtc::Signal);
+    fn set_answer(&mut self, peer_id: PeerId, answer: webrtc::Answer);
+
+    fn http_signaling_request(&mut self, url: String, signal: webrtc::Offer);
+
+    fn http_signaling_respond(&mut self, answer: webrtc::Answer);
 }

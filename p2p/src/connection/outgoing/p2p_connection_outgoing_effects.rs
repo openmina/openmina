@@ -1,7 +1,8 @@
 use redux::ActionMeta;
 
-use crate::P2pPeerReadyAction;
+use crate::connection::P2pConnectionState;
 use crate::{connection::P2pConnectionService, webrtc};
+use crate::{P2pPeerReadyAction, P2pPeerStatus};
 
 use super::{
     P2pConnectionOutgoingAnswerRecvErrorAction, P2pConnectionOutgoingAnswerRecvPendingAction,
@@ -11,7 +12,7 @@ use super::{
     P2pConnectionOutgoingOfferReadyAction, P2pConnectionOutgoingOfferSdpCreatePendingAction,
     P2pConnectionOutgoingOfferSdpCreateSuccessAction, P2pConnectionOutgoingOfferSendSuccessAction,
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
-    P2pConnectionOutgoingSuccessAction,
+    P2pConnectionOutgoingState, P2pConnectionOutgoingSuccessAction,
 };
 
 impl P2pConnectionOutgoingRandomInitAction {
@@ -84,13 +85,15 @@ impl P2pConnectionOutgoingOfferReadyAction {
     {
         let (state, service) = store.state_and_service();
         let Some(peer) = state.peers.get(&self.peer_id) else { return };
-        // TODO(binier): use dial_opts from outgoing state instead.
-        let signaling_method = &peer.dial_opts.signaling;
+        let P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+            P2pConnectionOutgoingState::OfferReady { opts, .. },
+        )) = &peer.status else { return };
+        let signaling_method = &opts.signaling;
         match signaling_method {
             webrtc::SignalingMethod::Http(_) | webrtc::SignalingMethod::Https(_) => {
-                service.set_offer(self.offer.clone());
+                service.set_offer(self.peer_id, self.offer.clone());
                 let Some(url) = signaling_method.http_url() else { return };
-                service.http_signal_send(url, self.offer.into());
+                service.http_signaling_request(url, self.offer);
             }
         }
         store.dispatch(P2pConnectionOutgoingOfferSendSuccessAction {
@@ -133,7 +136,9 @@ impl P2pConnectionOutgoingAnswerRecvSuccessAction {
         Store::Service: P2pConnectionService,
         P2pConnectionOutgoingFinalizePendingAction: redux::EnablingCondition<S>,
     {
-        store.service().set_answer(self.answer.clone());
+        store
+            .service()
+            .set_answer(self.peer_id, self.answer.clone());
         store.dispatch(P2pConnectionOutgoingFinalizePendingAction {
             peer_id: self.peer_id,
         });

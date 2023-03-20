@@ -1,124 +1,90 @@
 use super::{
-    P2pConnectionOutgoingAction, P2pConnectionOutgoingActionWithMetaRef, P2pConnectionOutgoingState,
+    P2pConnectionIncomingAction, P2pConnectionIncomingActionWithMetaRef, P2pConnectionIncomingState,
 };
 
-impl P2pConnectionOutgoingState {
-    pub fn reducer(&mut self, action: P2pConnectionOutgoingActionWithMetaRef<'_>) {
+impl P2pConnectionIncomingState {
+    pub fn reducer(&mut self, action: P2pConnectionIncomingActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            P2pConnectionOutgoingAction::RandomInit(_) => {}
-            P2pConnectionOutgoingAction::Init(content) => {
+            P2pConnectionIncomingAction::Init(content) => {
                 *self = Self::Init {
                     time: meta.time(),
-                    opts: content.opts.clone(),
+                    signaling: content.signaling.clone(),
+                    offer: content.offer.clone(),
                     rpc_id: content.rpc_id,
                 };
             }
-            P2pConnectionOutgoingAction::Reconnect(action) => {
-                *self = Self::Init {
-                    time: meta.time(),
-                    opts: action.opts.clone(),
-                    rpc_id: action.rpc_id,
-                };
-            }
-            P2pConnectionOutgoingAction::OfferSdpCreatePending(_) => {
-                if let Self::Init { opts, rpc_id, .. } = self {
-                    *self = Self::OfferSdpCreatePending {
+            P2pConnectionIncomingAction::AnswerSdpCreatePending(_) => {
+                if let Self::Init {
+                    signaling,
+                    offer,
+                    rpc_id,
+                    ..
+                } = self
+                {
+                    *self = Self::AnswerSdpCreatePending {
                         time: meta.time(),
-                        opts: opts.clone(),
+                        signaling: signaling.clone(),
+                        offer: offer.clone(),
                         rpc_id: rpc_id.take(),
                     };
                 }
             }
-            P2pConnectionOutgoingAction::OfferSdpCreateSuccess(action) => {
-                if let Self::OfferSdpCreatePending { opts, rpc_id, .. } = self {
-                    *self = Self::OfferSdpCreateSuccess {
+            P2pConnectionIncomingAction::AnswerSdpCreateSuccess(action) => {
+                if let Self::AnswerSdpCreatePending {
+                    signaling,
+                    offer,
+                    rpc_id,
+                    ..
+                } = self
+                {
+                    *self = Self::AnswerSdpCreateSuccess {
                         time: meta.time(),
-                        opts: opts.clone(),
+                        signaling: signaling.clone(),
+                        offer: offer.clone(),
                         sdp: action.sdp.clone(),
                         rpc_id: rpc_id.take(),
                     };
                 }
             }
-            P2pConnectionOutgoingAction::OfferReady(action) => {
-                if let Self::OfferSdpCreateSuccess { opts, rpc_id, .. } = self {
-                    *self = Self::OfferReady {
-                        time: meta.time(),
-                        opts: opts.clone(),
-                        offer: action.offer.clone(),
-                        rpc_id: rpc_id.take(),
-                    };
-                }
-            }
-            P2pConnectionOutgoingAction::OfferSendSuccess(_) => {
-                if let Self::OfferReady {
-                    opts,
+            P2pConnectionIncomingAction::AnswerReady(action) => {
+                if let Self::AnswerSdpCreateSuccess {
+                    signaling,
                     offer,
                     rpc_id,
                     ..
                 } = self
                 {
-                    *self = Self::OfferSendSuccess {
+                    *self = Self::AnswerReady {
                         time: meta.time(),
-                        opts: opts.clone(),
-                        offer: offer.clone(),
-                        rpc_id: rpc_id.take(),
-                    };
-                }
-            }
-            P2pConnectionOutgoingAction::AnswerRecvPending(_) => {
-                if let Self::OfferSendSuccess {
-                    opts,
-                    offer,
-                    rpc_id,
-                    ..
-                } = self
-                {
-                    *self = Self::AnswerRecvPending {
-                        time: meta.time(),
-                        opts: opts.clone(),
-                        offer: offer.clone(),
-                        rpc_id: rpc_id.take(),
-                    };
-                }
-            }
-            P2pConnectionOutgoingAction::AnswerRecvError(action) => {
-                if let Self::AnswerRecvPending {
-                    opts,
-                    offer,
-                    rpc_id,
-                    ..
-                } = self
-                {
-                    *self = Self::AnswerRecvError {
-                        time: meta.time(),
-                        opts: opts.clone(),
-                        offer: offer.clone(),
-                        error: action.error.clone(),
-                        rpc_id: rpc_id.take(),
-                    };
-                }
-            }
-            P2pConnectionOutgoingAction::AnswerRecvSuccess(action) => {
-                if let Self::AnswerRecvPending {
-                    opts,
-                    offer,
-                    rpc_id,
-                    ..
-                } = self
-                {
-                    *self = Self::AnswerRecvSuccess {
-                        time: meta.time(),
-                        opts: opts.clone(),
+                        signaling: signaling.clone(),
                         offer: offer.clone(),
                         answer: action.answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
                 }
             }
-            P2pConnectionOutgoingAction::FinalizePending(_) => {
-                if let Self::AnswerRecvSuccess {
-                    opts,
+            P2pConnectionIncomingAction::AnswerSendSuccess(_) => {
+                if let Self::AnswerReady {
+                    signaling,
+                    offer,
+                    answer,
+                    rpc_id,
+                    ..
+                } = self
+                {
+                    *self = Self::AnswerSendSuccess {
+                        time: meta.time(),
+                        signaling: signaling.clone(),
+                        offer: offer.clone(),
+                        answer: answer.clone(),
+                        rpc_id: rpc_id.take(),
+                    };
+                }
+            }
+            P2pConnectionIncomingAction::FinalizePending(_) => {
+                if let Self::AnswerSendSuccess {
+                    signaling,
                     offer,
                     answer,
                     rpc_id,
@@ -127,16 +93,16 @@ impl P2pConnectionOutgoingState {
                 {
                     *self = Self::FinalizePending {
                         time: meta.time(),
-                        opts: opts.clone(),
+                        signaling: signaling.clone(),
                         offer: offer.clone(),
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
                 }
             }
-            P2pConnectionOutgoingAction::FinalizeError(action) => {
+            P2pConnectionIncomingAction::FinalizeError(action) => {
                 if let Self::FinalizePending {
-                    opts,
+                    signaling,
                     offer,
                     answer,
                     rpc_id,
@@ -145,7 +111,7 @@ impl P2pConnectionOutgoingState {
                 {
                     *self = Self::FinalizeError {
                         time: meta.time(),
-                        opts: opts.clone(),
+                        signaling: signaling.clone(),
                         offer: offer.clone(),
                         answer: answer.clone(),
                         error: action.error.clone(),
@@ -153,9 +119,9 @@ impl P2pConnectionOutgoingState {
                     };
                 }
             }
-            P2pConnectionOutgoingAction::FinalizeSuccess(_) => {
+            P2pConnectionIncomingAction::FinalizeSuccess(_) => {
                 if let Self::FinalizePending {
-                    opts,
+                    signaling,
                     offer,
                     answer,
                     rpc_id,
@@ -164,14 +130,14 @@ impl P2pConnectionOutgoingState {
                 {
                     *self = Self::FinalizeSuccess {
                         time: meta.time(),
-                        opts: opts.clone(),
+                        signaling: signaling.clone(),
                         offer: offer.clone(),
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
                 }
             }
-            P2pConnectionOutgoingAction::Error(action) => {
+            P2pConnectionIncomingAction::Error(action) => {
                 let rpc_id = self.rpc_id();
                 *self = Self::Error {
                     time: meta.time(),
@@ -179,8 +145,9 @@ impl P2pConnectionOutgoingState {
                     rpc_id,
                 };
             }
-            P2pConnectionOutgoingAction::Success(_) => {
+            P2pConnectionIncomingAction::Success(_) => {
                 if let Self::FinalizeSuccess {
+                    signaling,
                     offer,
                     answer,
                     rpc_id,
@@ -189,6 +156,7 @@ impl P2pConnectionOutgoingState {
                 {
                     *self = Self::Success {
                         time: meta.time(),
+                        signaling: signaling.clone(),
                         offer: offer.clone(),
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
