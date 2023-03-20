@@ -5,15 +5,17 @@ edition = "2021"
 license = "Apache-2.0"
 
 [dependencies]
+thiserror = "1.0.37"
 serde = "1.0.147"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 derive_more = "0.99.17"
 bs58 = "0.4.0"
 ecies-ed25519 = "0.5.1"
-ed25519-dalek = "1.0.1"
+ed25519-dalek = { version = "1.0.1", features = ["serde"] }
 
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 sha2 = "0.10.6"
 
 shared = { path = "../node/shared" }
+url = "2.3.1"

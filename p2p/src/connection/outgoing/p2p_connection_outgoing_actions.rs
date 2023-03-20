@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use shared::requests::RpcId;
 
+use crate::{webrtc, P2pState, PeerId};
+
 pub type P2pConnectionOutgoingActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a P2pConnectionOutgoingAction>;
 
@@ -10,31 +12,51 @@ pub enum P2pConnectionOutgoingAction {
     RandomInit(P2pConnectionOutgoingRandomInitAction),
     Init(P2pConnectionOutgoingInitAction),
     Reconnect(P2pConnectionOutgoingReconnectAction),
-    Pending(P2pConnectionOutgoingPendingAction),
+    OfferSdpCreatePending(P2pConnectionOutgoingOfferSdpCreatePendingAction),
+    OfferSdpCreateSuccess(P2pConnectionOutgoingOfferSdpCreateSuccessAction),
+    OfferReady(P2pConnectionOutgoingOfferReadyAction),
+    OfferSendSuccess(P2pConnectionOutgoingOfferSendSuccessAction),
+    AnswerRecvPending(P2pConnectionOutgoingAnswerRecvPendingAction),
+    AnswerRecvError(P2pConnectionOutgoingAnswerRecvErrorAction),
+    AnswerRecvSuccess(P2pConnectionOutgoingAnswerRecvSuccessAction),
+    FinalizePending(P2pConnectionOutgoingFinalizePendingAction),
+    FinalizeError(P2pConnectionOutgoingFinalizeErrorAction),
+    FinalizeSuccess(P2pConnectionOutgoingFinalizeSuccessAction),
     Error(P2pConnectionOutgoingErrorAction),
     Success(P2pConnectionOutgoingSuccessAction),
 }
 
 impl P2pConnectionOutgoingAction {
-    pub fn peer_id(&self) -> Option<&crate::PeerId> {
+    pub fn peer_id(&self) -> Option<&PeerId> {
         match self {
             Self::RandomInit(_) => None,
             Self::Init(v) => Some(&v.opts.peer_id),
             Self::Reconnect(v) => Some(&v.opts.peer_id),
-            Self::Pending(v) => Some(&v.peer_id),
+            Self::OfferSdpCreatePending(v) => Some(&v.peer_id),
+            Self::OfferSdpCreateSuccess(v) => Some(&v.peer_id),
+            Self::OfferReady(v) => Some(&v.peer_id),
+            Self::OfferSendSuccess(v) => Some(&v.peer_id),
+            Self::AnswerRecvPending(v) => Some(&v.peer_id),
+            Self::AnswerRecvError(v) => Some(&v.peer_id),
+            Self::AnswerRecvSuccess(v) => Some(&v.peer_id),
+            Self::FinalizePending(v) => Some(&v.peer_id),
+            Self::FinalizeError(v) => Some(&v.peer_id),
+            Self::FinalizeSuccess(v) => Some(&v.peer_id),
             Self::Error(v) => Some(&v.peer_id),
             Self::Success(v) => Some(&v.peer_id),
         }
     }
 }
 
-fn already_connected_or_connecting(state: &crate::P2pState) -> bool {
+fn already_connected_or_connecting(state: &P2pState) -> bool {
     state.peers.iter().any(|(_, p)| match &p.status {
         P2pPeerStatus::Connecting(s) => match s {
-            P2pConnectionState::Outgoing(s) => match s {
-                P2pConnectionOutgoingState::Pending { .. } => true,
-                _ => false,
-            },
+            P2pConnectionState::Outgoing(s) => !matches!(
+                s,
+                P2pConnectionOutgoingState::AnswerRecvError { .. }
+                    | P2pConnectionOutgoingState::FinalizeError { .. }
+                    | P2pConnectionOutgoingState::Error { .. }
+            ),
         },
         P2pPeerStatus::Ready(_) => true,
         _ => false,
@@ -44,8 +66,8 @@ fn already_connected_or_connecting(state: &crate::P2pState) -> bool {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pConnectionOutgoingRandomInitAction {}
 
-impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingRandomInitAction {
-    fn is_enabled(&self, state: &crate::P2pState) -> bool {
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingRandomInitAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
         !already_connected_or_connecting(state) && !state.initial_unused_peers().is_empty()
     }
 }
@@ -56,8 +78,8 @@ pub struct P2pConnectionOutgoingInitAction {
     pub rpc_id: Option<RpcId>,
 }
 
-impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingInitAction {
-    fn is_enabled(&self, state: &crate::P2pState) -> bool {
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingInitAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
         !already_connected_or_connecting(state) && !state.peers.contains_key(&self.opts.peer_id)
     }
 }
@@ -68,8 +90,8 @@ pub struct P2pConnectionOutgoingReconnectAction {
     pub rpc_id: Option<RpcId>,
 }
 
-impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingReconnectAction {
-    fn is_enabled(&self, state: &crate::P2pState) -> bool {
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingReconnectAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
         if already_connected_or_connecting(state) {
             return false;
         }
@@ -97,17 +119,17 @@ impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingReconnec
 
 #[derive(Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd, Debug, Clone)]
 pub struct P2pConnectionOutgoingInitOpts {
-    pub peer_id: crate::PeerId,
-    pub signaling: crate::SignalingMethod,
+    pub peer_id: PeerId,
+    pub signaling: webrtc::SignalingMethod,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pConnectionOutgoingPendingAction {
-    pub peer_id: crate::PeerId,
+pub struct P2pConnectionOutgoingOfferSdpCreatePendingAction {
+    pub peer_id: PeerId,
 }
 
-impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingPendingAction {
-    fn is_enabled(&self, state: &crate::P2pState) -> bool {
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingOfferSdpCreatePendingAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
         state
             .peers
             .get(&self.peer_id)
@@ -121,19 +143,19 @@ impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingPendingA
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pConnectionOutgoingErrorAction {
-    pub peer_id: crate::PeerId,
-    pub error: String,
+pub struct P2pConnectionOutgoingOfferSdpCreateSuccessAction {
+    pub peer_id: PeerId,
+    pub sdp: String,
 }
 
-impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingErrorAction {
-    fn is_enabled(&self, state: &crate::P2pState) -> bool {
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingOfferSdpCreateSuccessAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
         state
             .peers
             .get(&self.peer_id)
             .map_or(false, |peer| match &peer.status {
                 P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
-                    P2pConnectionOutgoingState::Pending { .. },
+                    P2pConnectionOutgoingState::OfferSdpCreatePending { .. },
                 )) => true,
                 _ => false,
             })
@@ -141,18 +163,198 @@ impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingErrorAct
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pConnectionOutgoingSuccessAction {
-    pub peer_id: crate::PeerId,
+pub struct P2pConnectionOutgoingOfferReadyAction {
+    pub peer_id: PeerId,
+    pub offer: webrtc::Offer,
 }
 
-impl redux::EnablingCondition<crate::P2pState> for P2pConnectionOutgoingSuccessAction {
-    fn is_enabled(&self, state: &crate::P2pState) -> bool {
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingOfferReadyAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
         state
             .peers
             .get(&self.peer_id)
             .map_or(false, |peer| match &peer.status {
                 P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
-                    P2pConnectionOutgoingState::Pending { .. },
+                    P2pConnectionOutgoingState::OfferSdpCreateSuccess { .. },
+                )) => true,
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingOfferSendSuccessAction {
+    pub peer_id: PeerId,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingOfferSendSuccessAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state
+            .peers
+            .get(&self.peer_id)
+            .map_or(false, |peer| match &peer.status {
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                    P2pConnectionOutgoingState::OfferReady { .. },
+                )) => true,
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingAnswerRecvPendingAction {
+    pub peer_id: PeerId,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAnswerRecvPendingAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state
+            .peers
+            .get(&self.peer_id)
+            .map_or(false, |peer| match &peer.status {
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                    P2pConnectionOutgoingState::OfferSendSuccess { .. },
+                )) => true,
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingAnswerRecvErrorAction {
+    pub peer_id: PeerId,
+    pub error: String,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAnswerRecvErrorAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state
+            .peers
+            .get(&self.peer_id)
+            .map_or(false, |peer| match &peer.status {
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                    P2pConnectionOutgoingState::AnswerRecvPending { .. },
+                )) => true,
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingAnswerRecvSuccessAction {
+    pub peer_id: PeerId,
+    pub answer: webrtc::Answer,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAnswerRecvSuccessAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state
+            .peers
+            .get(&self.peer_id)
+            .map_or(false, |peer| match &peer.status {
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                    P2pConnectionOutgoingState::AnswerRecvPending { .. },
+                )) => true,
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingFinalizePendingAction {
+    pub peer_id: PeerId,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingFinalizePendingAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state
+            .peers
+            .get(&self.peer_id)
+            .map_or(false, |peer| match &peer.status {
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                    P2pConnectionOutgoingState::AnswerRecvSuccess { .. },
+                )) => true,
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingFinalizeErrorAction {
+    pub peer_id: PeerId,
+    pub error: String,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingFinalizeErrorAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state
+            .peers
+            .get(&self.peer_id)
+            .map_or(false, |peer| match &peer.status {
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                    P2pConnectionOutgoingState::FinalizePending { .. },
+                )) => true,
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingFinalizeSuccessAction {
+    pub peer_id: PeerId,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingFinalizeSuccessAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state
+            .peers
+            .get(&self.peer_id)
+            .map_or(false, |peer| match &peer.status {
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                    P2pConnectionOutgoingState::FinalizePending { .. },
+                )) => true,
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingErrorAction {
+    pub peer_id: PeerId,
+    pub error: String,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingErrorAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state
+            .peers
+            .get(&self.peer_id)
+            .map_or(false, |peer| match &peer.status {
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(v)) => match v {
+                    P2pConnectionOutgoingState::AnswerRecvError { error, .. } => {
+                        error == &self.error
+                    }
+                    P2pConnectionOutgoingState::FinalizeError { error, .. } => error == &self.error,
+                    _ => false,
+                },
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingSuccessAction {
+    pub peer_id: PeerId,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingSuccessAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state
+            .peers
+            .get(&self.peer_id)
+            .map_or(false, |peer| match &peer.status {
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                    P2pConnectionOutgoingState::FinalizeSuccess { .. },
                 )) => true,
                 _ => false,
             })
@@ -185,8 +387,62 @@ impl From<P2pConnectionOutgoingReconnectAction> for crate::P2pAction {
     }
 }
 
-impl From<P2pConnectionOutgoingPendingAction> for crate::P2pAction {
-    fn from(a: P2pConnectionOutgoingPendingAction) -> Self {
+impl From<P2pConnectionOutgoingOfferSdpCreatePendingAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingOfferSdpCreatePendingAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
+
+impl From<P2pConnectionOutgoingOfferSdpCreateSuccessAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingOfferSdpCreateSuccessAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
+
+impl From<P2pConnectionOutgoingOfferReadyAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingOfferReadyAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
+
+impl From<P2pConnectionOutgoingOfferSendSuccessAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingOfferSendSuccessAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
+
+impl From<P2pConnectionOutgoingAnswerRecvPendingAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingAnswerRecvPendingAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
+
+impl From<P2pConnectionOutgoingAnswerRecvErrorAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingAnswerRecvErrorAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
+
+impl From<P2pConnectionOutgoingAnswerRecvSuccessAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingAnswerRecvSuccessAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
+
+impl From<P2pConnectionOutgoingFinalizePendingAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingFinalizePendingAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
+
+impl From<P2pConnectionOutgoingFinalizeErrorAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingFinalizeErrorAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
+
+impl From<P2pConnectionOutgoingFinalizeSuccessAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingFinalizeSuccessAction) -> Self {
         Self::Connection(P2pConnectionAction::Outgoing(a.into()))
     }
 }

@@ -58,7 +58,7 @@ impl P2pState {
         self.peers
             .iter()
             .filter(|(_, p)| p.status.as_ready().is_some())
-            .map(|(id, _)| id.clone())
+            .map(|(id, _)| *id)
             .collect()
     }
 }
