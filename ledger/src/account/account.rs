@@ -89,6 +89,7 @@ impl ToInputs for TokenSymbol {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Permissions<Controller> {
     pub edit_state: Controller,
+    pub access: Controller,
     pub send: Controller,
     pub receive: Controller,
     pub set_delegate: Controller,
@@ -99,22 +100,41 @@ pub struct Permissions<Controller> {
     pub set_token_symbol: Controller,
     pub increment_nonce: Controller,
     pub set_voting_for: Controller,
+    pub set_timing: Controller,
 }
 
 impl ToInputs for Permissions<AuthRequired> {
     fn to_inputs(&self, inputs: &mut Inputs) {
+        let Self {
+            edit_state,
+            access,
+            send,
+            receive,
+            set_delegate,
+            set_permissions,
+            set_verification_key,
+            set_zkapp_uri,
+            edit_sequence_state,
+            set_token_symbol,
+            increment_nonce,
+            set_voting_for,
+            set_timing,
+        } = self;
+
         for auth in [
-            self.edit_state,
-            self.send,
-            self.receive,
-            self.set_delegate,
-            self.set_permissions,
-            self.set_verification_key,
-            self.set_zkapp_uri,
-            self.edit_sequence_state,
-            self.set_token_symbol,
-            self.increment_nonce,
-            self.set_voting_for,
+            edit_state,
+            access,
+            send,
+            receive,
+            set_delegate,
+            set_permissions,
+            set_verification_key,
+            set_zkapp_uri,
+            edit_sequence_state,
+            set_token_symbol,
+            increment_nonce,
+            set_voting_for,
+            set_timing,
         ] {
             for bit in auth.encode().to_bits() {
                 inputs.append_bool(bit);
@@ -144,6 +164,8 @@ impl Permissions<AuthRequired> {
             set_token_symbol: Signature,
             increment_nonce: Signature,
             set_voting_for: Signature,
+            set_timing: Signature,
+            access: None,
         }
     }
 
@@ -153,6 +175,7 @@ impl Permissions<AuthRequired> {
             edit_state: None,
             send: None,
             receive: None,
+            access: None,
             set_delegate: None,
             set_permissions: None,
             set_verification_key: None,
@@ -161,6 +184,7 @@ impl Permissions<AuthRequired> {
             set_token_symbol: None,
             increment_nonce: None,
             set_voting_for: None,
+            set_timing: None,
         }
     }
 
@@ -186,6 +210,12 @@ impl Permissions<AuthRequired> {
             set_token_symbol: auth_required_gen(&mut rng),
             increment_nonce: auth_required_gen(&mut rng),
             set_voting_for: auth_required_gen(&mut rng),
+            set_timing: auth_required_gen(&mut rng),
+            access: {
+                // Access permission is significantly more restrictive, do not arbitrarily
+                // set it when tests may not be intending to exercise it.
+                AuthRequired::gen_for_none_given_authorization(&mut rng)
+            },
         }
     }
 }
@@ -205,6 +235,13 @@ where
         let b: F = a.mul(two);
 
         Self(a, b)
+    }
+}
+
+impl ToInputs for CurveAffine<Fp> {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        inputs.append_field(self.0);
+        inputs.append_field(self.1);
     }
 }
 
@@ -267,16 +304,68 @@ pub enum ProofVerified {
     N2,
 }
 
+impl ToInputs for ProofVerified {
+    /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/pickles_base/proofs_verified.ml#L125
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let bits = match self {
+            ProofVerified::N0 => [true, false, false],
+            ProofVerified::N1 => [false, true, false],
+            ProofVerified::N2 => [false, false, true],
+        };
+
+        for bit in bits {
+            inputs.append_bool(bit);
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerificationKey {
     pub max_proofs_verified: ProofVerified,
+    pub actual_wrap_domain_size: ProofVerified,
     pub wrap_index: PlonkVerificationKeyEvals,
     // `wrap_vk` is not used for hash inputs
     pub wrap_vk: Option<()>,
 }
 
+impl ToInputs for VerificationKey {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let Self {
+            max_proofs_verified,
+            actual_wrap_domain_size,
+            wrap_index: PlonkVerificationKeyEvals {
+                sigma,
+                coefficients,
+                generic,
+                psm,
+                complete_add,
+                mul,
+                emul,
+                endomul_scalar
+            },
+            wrap_vk,
+        } = self;
+
+        inputs.append(max_proofs_verified);
+        inputs.append(actual_wrap_domain_size);
+
+        for sigma in sigma {
+            inputs.append(sigma);
+        }
+        for coefficients in coefficients {
+            inputs.append(coefficients);
+        }
+        inputs.append(generic);
+        inputs.append(psm);
+        inputs.append(complete_add);
+        inputs.append(mul);
+        inputs.append(emul);
+        inputs.append(endomul_scalar);
+    }
+}
+
 impl VerificationKey {
-    // https://github.com/MinaProtocol/mina/blob/35b1702fbc295713f9bb46bb17e2d007bc2bab84/src/lib/pickles/side_loaded_verification_key.ml#L295-L309
+    /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/pickles/side_loaded_verification_key.ml#L310
     pub fn dummy() -> Self {
         let g = CurveAffine(
             Fp::one(),
@@ -287,6 +376,7 @@ impl VerificationKey {
         );
         Self {
             max_proofs_verified: ProofVerified::N2,
+            actual_wrap_domain_size: ProofVerified::N2,
             wrap_index: PlonkVerificationKeyEvals {
                 sigma: [g; 7],
                 coefficients: [g; 15],
@@ -306,50 +396,7 @@ impl VerificationKey {
     }
 
     pub fn hash(&self) -> Fp {
-        let mut inputs = Inputs::new();
-
-        // https://github.com/MinaProtocol/mina/blob/35b1702fbc295713f9bb46bb17e2d007bc2bab84/src/lib/pickles_base/proofs_verified.ml#L108-L118
-        let bits = match self.max_proofs_verified {
-            ProofVerified::N0 => [true, false, false],
-            ProofVerified::N1 => [false, true, false],
-            ProofVerified::N2 => [false, false, true],
-        };
-
-        for bit in bits {
-            inputs.append_bool(bit);
-        }
-
-        let index = &self.wrap_index;
-
-        for field in index.sigma {
-            inputs.append_field(field.0);
-            inputs.append_field(field.1);
-        }
-
-        for field in index.coefficients {
-            inputs.append_field(field.0);
-            inputs.append_field(field.1);
-        }
-
-        inputs.append_field(index.generic.0);
-        inputs.append_field(index.generic.1);
-
-        inputs.append_field(index.psm.0);
-        inputs.append_field(index.psm.1);
-
-        inputs.append_field(index.complete_add.0);
-        inputs.append_field(index.complete_add.1);
-
-        inputs.append_field(index.mul.0);
-        inputs.append_field(index.mul.1);
-
-        inputs.append_field(index.emul.0);
-        inputs.append_field(index.emul.1);
-
-        inputs.append_field(index.endomul_scalar.0);
-        inputs.append_field(index.endomul_scalar.1);
-
-        hash_with_kimchi("MinaSideLoadedVk", &inputs.to_fields())
+        self.hash_with_param("MinaSideLoadedVk")
     }
 }
 
@@ -520,6 +567,7 @@ impl PartialEq for AccountId {
 
 #[derive(Debug)]
 pub enum PermissionTo {
+    Access,
     Send,
     Receive,
     SetDelegate,
@@ -571,7 +619,8 @@ pub fn check_permission(auth: AuthRequired, tag: ControlTag) -> bool {
 pub struct Account {
     pub public_key: CompressedPubKey,         // Public_key.Compressed.t
     pub token_id: TokenId,                    // Token_id.t
-    pub token_permissions: TokenPermissions,  // Token_permissions.t
+    /// the `token_symbol` describes a token id owned by the account id
+    /// from this account, not the token id used by this account
     pub token_symbol: TokenSymbol,            // Token_symbol.t
     pub balance: Balance,                     // Balance.t
     pub nonce: Nonce,                         // Nonce.t
@@ -593,7 +642,6 @@ impl Account {
         Self {
             public_key: pubkey.clone(),
             token_id: TokenId::default(),
-            token_permissions: TokenPermissions::default(),
             token_symbol: TokenSymbol::default(),
             balance: Balance::from_u64(10101),
             nonce: Nonce::zero(),
@@ -617,7 +665,6 @@ impl Account {
         Self {
             public_key: account_id.public_key,
             token_id: account_id.token_id,
-            token_permissions: TokenPermissions::default(),
             token_symbol: TokenSymbol::default(),
             balance,
             nonce: Nonce::zero(),
@@ -652,7 +699,6 @@ impl Account {
                 is_odd: false,
             },
             token_id: TokenId::default(),
-            token_permissions: TokenPermissions::default(),
             token_symbol: TokenSymbol::default(),
             balance: Balance::zero(),
             nonce: Nonce::zero(),
@@ -696,15 +742,16 @@ impl Account {
         }
     }
 
-    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account.ml#L623
-    pub fn has_permission_to(&self, to: PermissionTo) -> bool {
+    /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account.ml#L794
+    pub fn has_permission_to(&self, control: ControlTag, to: PermissionTo) -> bool {
         match to {
-            PermissionTo::Send => check_permission(self.permissions.send, ControlTag::Signature),
+            PermissionTo::Access => check_permission(self.permissions.access, control),
+            PermissionTo::Send => check_permission(self.permissions.send, control),
             PermissionTo::Receive => {
-                check_permission(self.permissions.receive, ControlTag::NoneGiven)
+                check_permission(self.permissions.receive, control)
             }
             PermissionTo::SetDelegate => {
-                check_permission(self.permissions.set_delegate, ControlTag::Signature)
+                check_permission(self.permissions.set_delegate, control)
             }
         }
     }
@@ -812,20 +859,6 @@ impl Account {
         }
         inputs.append_u48(s);
 
-        // Self::token_permissions
-        match self.token_permissions {
-            TokenPermissions::TokenOwned {
-                disable_new_accounts,
-            } => {
-                let bits = if disable_new_accounts { 0b10 } else { 0b00 };
-                inputs.append_u2(0b01 | bits);
-            }
-            TokenPermissions::NotOwned { account_disabled } => {
-                let bits = if account_disabled { 0b10 } else { 0b00 };
-                inputs.append_u2(bits);
-            }
-        }
-
         // Self::token_id
         inputs.append_field(self.token_id.0);
 
@@ -869,15 +902,6 @@ impl Account {
                 is_odd: rng.gen(),
             },
             token_id: TokenId(Fp::rand(rng)),
-            token_permissions: if rng.gen() {
-                TokenPermissions::NotOwned {
-                    account_disabled: rng.gen(),
-                }
-            } else {
-                TokenPermissions::TokenOwned {
-                    disable_new_accounts: rng.gen(),
-                }
-            },
             token_symbol: TokenSymbol(symbol),
             balance: rng.gen(),
             nonce: rng.gen(),
@@ -914,6 +938,8 @@ impl Account {
                 set_token_symbol: gen_perm(rng),
                 increment_nonce: gen_perm(rng),
                 set_voting_for: gen_perm(rng),
+                access: gen_perm(rng),
+                set_timing: gen_perm(rng),
             },
             zkapp: if rng.gen() {
                 Some(ZkAppAccount {
@@ -1027,7 +1053,6 @@ mod tests {
             )
             .unwrap(),
             token_id: TokenId::default(),
-            token_permissions: TokenPermissions::default(),
             token_symbol: TokenSymbol::from("seb".to_string()),
             balance: Balance::from_u64(10101),
             nonce: Nonce::from_u32(62772),

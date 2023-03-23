@@ -132,6 +132,9 @@ where
 }
 
 impl Amount {
+    /// The number of nanounits in a unit. User for unit transformations.
+    const UNIT_TO_NANO: u64 = 1_000_000_000;
+
     pub fn of_fee(fee: &Fee) -> Self {
         Self(fee.0)
     }
@@ -142,6 +145,22 @@ impl Amount {
         } else {
             self.sub_flagged(&rhs.magnitude)
         }
+    }
+
+    pub fn to_nanomina_int(&self) -> Self {
+        self.clone()
+    }
+
+    pub fn to_mina_int(&self) -> Self {
+        Self(self.0.checked_div(Self::UNIT_TO_NANO).unwrap())
+    }
+
+    pub fn of_mina_int_exn(int: u64) -> Self {
+        Self::from_u64(int).scale(Self::UNIT_TO_NANO).unwrap()
+    }
+
+    pub fn of_nanomina_int_exn(int: u64) -> Self {
+        Self::from_u64(int)
     }
 }
 
@@ -177,6 +196,10 @@ impl Balance {
 
     pub fn to_amount(self) -> Amount {
         Amount(self.0)
+    }
+
+    pub fn of_nanomina_int_exn(int: u64) -> Self {
+        todo!()
     }
 }
 
@@ -305,8 +328,12 @@ macro_rules! impl_number {
                 <Self as MinMax>::max()
             }
 
-            /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/currency/currency.ml#L118
-            pub fn of_formatted_string(input: &str) -> Self {
+            pub fn to_field(&self) -> mina_hasher::Fp {
+                todo!()
+            }
+
+            /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/currency/currency.ml#L124
+            pub fn of_mina_string_exn(input: &str) -> Self {
                 const PRECISION: usize = 9;
 
                 let mut s = String::with_capacity(input.len() + 9);
@@ -321,7 +348,7 @@ macro_rules! impl_number {
                         let mut splitted = input.split('.');
                         let whole = splitted.next().unwrap();
                         let decimal = splitted.next().unwrap();
-                        assert!(splitted.next().is_none(), "Currency.of_formatted_string: Invalid currency input");
+                        assert!(splitted.next().is_none(), "Currency.of_mina_string_exn: Invalid currency input");
                         (whole, decimal)
                     };
 

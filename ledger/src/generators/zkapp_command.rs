@@ -22,7 +22,7 @@ use crate::{
     },
     scan_state::{
         currency::{
-            Amount, Balance, BlockTime, BlockTimeSpan, Fee, Index, Length, Magnitude, Nonce, Sgn,
+            Amount, Balance, Fee, Index, Length, Magnitude, Nonce, Sgn,
             Signed, Slot,
         },
         transaction_logic::{
@@ -32,7 +32,7 @@ use crate::{
             zkapp_command::{
                 self, AccountPreconditions, AccountUpdateSimple, AuthorizationKind, CallForest,
                 ClosedInterval, Control, FeePayer, FeePayerBody, Numeric, OrIgnore, Preconditions,
-                SetOrKeep, Update, WithHash, WithStackHash, ZkAppCommand, ZkAppPreconditions,
+                SetOrKeep, Update, WithHash, WithStackHash, ZkAppCommand, ZkAppPreconditions, MayUseToken,
             },
             Memo,
         },
@@ -43,21 +43,19 @@ use crate::{
     ReceiptChainHash, TokenId, VerificationKey, VotingFor, ZkAppAccount,
 };
 
-use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1 as CallType;
+// use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1 as CallType;
 
 use super::{Failure, NotPermitedOf, Role};
 
 /// Value when we run `dune runtest src/lib/staged_ledger -f`
 //const ACCOUNT_CREATION_FEE: Fee = Fee::from_u64(1000000000);
 
-/// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_generators/zkapp_command_generators.ml#L443
+/// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_generators/zkapp_command_generators.ml#L443
 fn gen_invalid_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPreconditions {
     enum Tamperable {
-        Timestamp,
         BlockchainLength,
         MinWindowDensity,
         TotalCurrency,
-        GlobalSlotSinceHardFork,
         GlobalSlotSinceGenesis,
     }
 
@@ -67,36 +65,14 @@ fn gen_invalid_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPrec
     let lower = rng.gen::<bool>();
 
     match [
-        Tamperable::Timestamp,
         Tamperable::BlockchainLength,
         Tamperable::MinWindowDensity,
         Tamperable::TotalCurrency,
-        Tamperable::GlobalSlotSinceHardFork,
         Tamperable::GlobalSlotSinceGenesis,
     ]
     .choose(&mut rng)
     .unwrap()
     {
-        Tamperable::Timestamp => {
-            let timestamp: ClosedInterval<BlockTime> = {
-                // TODO: Ocaml uses 1_000_000L 60_000_000L, not sure what are those `L`
-                let epsilon = rng.gen_range(1_000_000..60_000_000);
-                let epsilon = BlockTimeSpan::of_ms(epsilon);
-
-                if lower || psv.timestamp > (BlockTime::zero().add(epsilon)) {
-                    ClosedInterval {
-                        lower: BlockTime::zero(),
-                        upper: psv.timestamp.sub(epsilon),
-                    }
-                } else {
-                    ClosedInterval {
-                        lower: psv.timestamp.add(epsilon),
-                        upper: BlockTime::max(),
-                    }
-                }
-            };
-            protocol_state_precondition.timestamp = OrIgnore::Check(timestamp);
-        }
         Tamperable::BlockchainLength => {
             let blockchain_length = {
                 let epsilon = Length::from_u32(rng.gen_range(1..10));
@@ -145,7 +121,11 @@ fn gen_invalid_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPrec
         }
         Tamperable::TotalCurrency => {
             let total_currency = {
-                let epsilon = Amount::from_u64(rng.gen_range(1_000..1_000_000_000));
+                let epsilon = Amount::from_u64(rng.gen_range(
+                    Amount::of_nanomina_int_exn(1_000).as_u64()
+                        ..
+                    Amount::of_mina_int_exn(1).as_u64()
+                ));
 
                 if lower || psv.total_currency > epsilon {
                     ClosedInterval {
@@ -164,32 +144,6 @@ fn gen_invalid_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPrec
             };
 
             protocol_state_precondition.total_currency = OrIgnore::Check(total_currency);
-        }
-        Tamperable::GlobalSlotSinceHardFork => {
-            let global_slot_since_hard_fork = {
-                let epsilon = Slot::from_u32(rng.gen_range(1..10));
-
-                if lower || psv.global_slot_since_hard_fork > epsilon {
-                    ClosedInterval {
-                        lower: Slot::zero(),
-                        upper: psv
-                            .global_slot_since_hard_fork
-                            .checked_sub(&epsilon)
-                            .unwrap_or_else(Slot::zero),
-                    }
-                } else {
-                    ClosedInterval {
-                        lower: psv
-                            .global_slot_since_hard_fork
-                            .checked_add(&epsilon)
-                            .unwrap(),
-                        upper: Slot::max(),
-                    }
-                }
-            };
-
-            protocol_state_precondition.global_slot_since_hard_fork =
-                OrIgnore::Check(global_slot_since_hard_fork);
         }
         Tamperable::GlobalSlotSinceGenesis => {
             let global_slot_since_genesis = {
@@ -226,7 +180,7 @@ fn closed_interval_exact<T: Copy>(value: T) -> ClosedInterval<T> {
     }
 }
 
-/// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_generators/zkapp_command_generators.ml#L319
+/// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_generators/zkapp_command_generators.ml#L319
 fn gen_epoch_data_predicate(epoch_data: &protocol_state::EpochData) -> zkapp_command::EpochData {
     let mut rng = rand::thread_rng();
 
@@ -267,20 +221,11 @@ fn gen_epoch_data_predicate(epoch_data: &protocol_state::EpochData) -> zkapp_com
     }
 }
 
-/// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_generators/zkapp_command_generators.ml#L367
+/// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_generators/zkapp_command_generators.ml#L367
 fn gen_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPreconditions {
     let mut rng = rand::thread_rng();
 
     let snarked_ledger_hash = OrIgnore::gen(|| psv.snarked_ledger_hash);
-
-    let timestamp = OrIgnore::gen(|| {
-        let mut gen = || rng.gen_range(0..60_000_000);
-
-        ClosedInterval {
-            lower: psv.timestamp.sub(BlockTimeSpan::of_ms(gen())),
-            upper: psv.timestamp.add(BlockTimeSpan::of_ms(gen())),
-        }
-    });
 
     let blockchain_length = OrIgnore::gen(|| {
         let mut gen = || Length::from_u32(rng.gen_range(0..10));
@@ -307,7 +252,7 @@ fn gen_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPrecondition
     });
 
     let total_currency = OrIgnore::gen(|| {
-        let mut gen = || Amount::from_u64(rng.gen_range(0..1_000_000_000));
+        let mut gen = || Amount::from_u64(rng.gen_range(0..Amount::of_mina_int_exn(1).as_u64()));
 
         ClosedInterval {
             lower: psv
@@ -318,18 +263,6 @@ fn gen_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPrecondition
                 .total_currency
                 .checked_add(&gen())
                 .unwrap_or(psv.total_currency),
-        }
-    });
-
-    let global_slot_since_hard_fork = OrIgnore::gen(|| {
-        let mut gen = || Slot::from_u32(rng.gen_range(0..10));
-
-        ClosedInterval {
-            lower: psv
-                .global_slot_since_hard_fork
-                .checked_sub(&gen())
-                .unwrap_or_else(Slot::zero),
-            upper: psv.global_slot_since_hard_fork.checked_add(&gen()).unwrap(),
         }
     });
 
@@ -350,12 +283,10 @@ fn gen_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPrecondition
 
     ZkAppPreconditions {
         snarked_ledger_hash,
-        timestamp,
         blockchain_length,
         min_window_density,
         last_vrf_output: (),
         total_currency,
-        global_slot_since_hard_fork,
         global_slot_since_genesis,
         staking_epoch_data,
         next_epoch_data,
@@ -364,9 +295,12 @@ fn gen_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPrecondition
 
 fn gen_account_precondition_from_account(
     failure: Option<Failure>,
+    is_nonce_precondition: Option<bool>,
     first_use_of_account: bool,
     account: &Account,
 ) -> AccountPreconditions {
+    let is_nonce_precondition = is_nonce_precondition.unwrap_or(false);
+
     let mut rng = rand::thread_rng();
 
     let Account {
@@ -379,12 +313,18 @@ fn gen_account_precondition_from_account(
     } = account;
 
     // choose constructor
-    if rng.gen() {
+    let b = if is_nonce_precondition {
+        false
+    } else {
+        rng.gen()
+    };
+
+    if b {
         // Full
 
         let balance = OrIgnore::gen(|| {
             let balance_change_int = rng.gen_range(1..10_000_000);
-            let balance_change = Balance::from_u64(balance_change_int);
+            let balance_change = Balance::of_nanomina_int_exn(balance_change_int);
 
             let lower = balance
                 .checked_sub(&balance_change)
@@ -564,18 +504,19 @@ struct AccountUpdateBodyComponents<A, B, C, D> {
     balance_change: A,
     increment_nonce: B,
     events: zkapp_command::Events,
-    sequence_events: zkapp_command::SequenceEvents,
+    actions: zkapp_command::Actions,
     call_data: Fp,
     call_depth: usize,
     protocol_state_precondition: ZkAppPreconditions,
     account_precondition: D,
     use_full_commitment: B,
-    caller: CallType,
+    valid_while_precondition: OrIgnore<ClosedInterval<Slot>>,
+    may_use_token: MayUseToken,
     authorization_kind: AuthorizationKind,
 }
 
 impl<B, C> AccountUpdateBodyComponents<Fee, B, C, Nonce> {
-    /// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_generators/zkapp_command_generators.ml#L576
+    /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_generators/zkapp_command_generators.ml#L576
     fn to_fee_payer(&self) -> FeePayerBody {
         FeePayerBody {
             public_key: self.public_key.clone(),
@@ -590,7 +531,7 @@ impl<B, C> AccountUpdateBodyComponents<Fee, B, C, Nonce> {
 }
 
 impl AccountUpdateBodyComponents<Signed<Amount>, bool, TokenId, AccountPreconditions> {
-    /// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_generators/zkapp_command_generators.ml#L592
+    /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_generators/zkapp_command_generators.ml#L592
     fn to_typical_account_update(self) -> zkapp_command::BodySimple {
         zkapp_command::BodySimple {
             public_key: self.public_key,
@@ -599,27 +540,30 @@ impl AccountUpdateBodyComponents<Signed<Amount>, bool, TokenId, AccountPrecondit
             balance_change: self.balance_change,
             increment_nonce: self.increment_nonce,
             events: self.events,
-            sequence_events: self.sequence_events,
+            actions: self.actions,
             call_data: self.call_data,
             call_depth: self.call_depth,
             preconditions: {
                 Preconditions {
                     network: self.protocol_state_precondition,
                     account: self.account_precondition,
+                    valid_while: self.valid_while_precondition,
                 }
             },
             use_full_commitment: self.use_full_commitment,
-            caller: self.caller,
+            implicit_account_creation_fee: false,
+            may_use_token: self.may_use_token,
             authorization_kind: self.authorization_kind,
         }
     }
 }
 
 struct BodyComponentsParams<'a, A, B, C, D> {
+    global_slot: Option<Slot>,
     update: Option<Update>,
     account_id: Option<AccountId>,
     token_id: Option<TokenId>,
-    caller: Option<CallType>,
+    may_use_token: Option<MayUseToken>,
     account_ids_seen: Option<&'a mut HashSet<AccountId>>,
     account_state_tbl: &'a mut HashMap<AccountId, (Account, Role)>,
     vk: Option<&'a WithHash<VerificationKey>>,
@@ -655,10 +599,12 @@ fn gen_account_update_body_components<A, B, C, D>(
     f_account_update_account_precondition: impl Fn(&D) -> AccountPreconditions,
 ) -> AccountUpdateBodyComponents<A, B, C, D> {
     let BodyComponentsParams {
+        global_slot,
         update,
         account_id,
         token_id,
-        caller,
+        // caller,
+        may_use_token,
         account_ids_seen,
         account_state_tbl,
         vk,
@@ -737,7 +683,7 @@ fn gen_account_update_body_components<A, B, C, D>(
             None => AccountId::create(available_pk.0, TokenId::default()),
         };
 
-        let mut account_with_pk = Account::create_with(account_id, Balance::from_u64(0));
+        let mut account_with_pk = Account::create_with(account_id, Balance::zero());
 
         if zkapp_account {
             account_with_pk.zkapp = Some(ZkAppAccount {
@@ -816,7 +762,7 @@ fn gen_account_update_body_components<A, B, C, D>(
     };
 
     let events = zkapp_command::Events(field_array_list_gen(2, 1));
-    let sequence_events = zkapp_command::SequenceEvents(field_array_list_gen(2, 1));
+    let actions = zkapp_command::Actions(field_array_list_gen(2, 1));
 
     let call_data = Fp::rand(&mut rng);
 
@@ -855,20 +801,34 @@ fn gen_account_update_body_components<A, B, C, D>(
         None => ZkAppPreconditions::accept(),
     };
 
-    let caller = match caller {
-        None => {
-            // This match is just to make compilation fail if `CallType`
-            // change (new variant)
-            match CallType::Call {
-                CallType::Call => {}
-                CallType::DelegateCall => {}
-            };
-            [CallType::Call, CallType::DelegateCall]
-                .choose(&mut rng)
-                .cloned()
-                .unwrap()
-        }
-        Some(caller) => caller,
+    let valid_while_precondition = match global_slot {
+        None => OrIgnore::Ignore,
+        Some(global_slot) => OrIgnore::gen(|| {
+            let epsilon = || Slot::from_u32(rng.gen_range(0..10));
+
+            let lower = global_slot.checked_sub(&epsilon()).unwrap_or_else(Slot::zero);
+            let upper = global_slot.checked_add(&epsilon()).unwrap_or_else(Slot::max);
+
+            ClosedInterval { lower, upper }
+        }),
+    };
+
+    // Need to update below when variant changes
+    let _ = match MayUseToken::No {
+        MayUseToken::No => (),
+        MayUseToken::ParentsOwnToken => (),
+        MayUseToken::InheritFromParent => (),
+    };
+
+    let may_use_token = match may_use_token {
+        None => [
+            MayUseToken::InheritFromParent,
+            MayUseToken::No,
+            MayUseToken::ParentsOwnToken
+        ].choose(&mut rng)
+         .cloned()
+         .unwrap(),
+        Some(may_use_token) => may_use_token,
     };
 
     let token_id = f_token_id(&token_id);
@@ -876,7 +836,7 @@ fn gen_account_update_body_components<A, B, C, D>(
     let authorization_kind = match authorization_tag {
         ControlTag::NoneGiven => AuthorizationKind::NoneGiven,
         ControlTag::Signature => AuthorizationKind::Signature,
-        ControlTag::Proof => AuthorizationKind::Proof,
+        ControlTag::Proof => AuthorizationKind::Proof(verification_key.hash),
     };
 
     // update account state table with all the changes
@@ -944,7 +904,7 @@ fn gen_account_update_body_components<A, B, C, D>(
 
             let (sequence_state, _last_sequence_slot) = zkapp_logic::update_sequence_state(
                 zk.sequence_state,
-                sequence_events.clone(),
+                actions.clone(),
                 txn_global_slot,
                 last_sequence_slot,
             );
@@ -1021,13 +981,14 @@ fn gen_account_update_body_components<A, B, C, D>(
         balance_change: balance_change_original,
         increment_nonce: account_update_increment_nonce,
         events,
-        sequence_events,
+        actions,
         call_data,
         call_depth,
         protocol_state_precondition,
         account_precondition,
+        valid_while_precondition,
         use_full_commitment,
-        caller,
+        may_use_token,
         authorization_kind,
     }
 }
@@ -1082,16 +1043,16 @@ fn gen_balance_change(
     let small_balance_change = {
         // make small transfers to allow generating large number of zkapp_command
         // without an overflow
-        if effective_balance < Balance::of_formatted_string("1.0") && !new_account {
+        if effective_balance < Balance::of_mina_string_exn("1.0") && !new_account {
             panic!("account has low balance");
         }
 
-        Balance::of_formatted_string("0.000001")
+        Balance::of_mina_string_exn("0.000001")
     };
 
     let magnitude = if new_account {
-        let min = Amount::of_formatted_string("50.0");
-        let max = Amount::of_formatted_string("100.0");
+        let min = Amount::of_mina_string_exn("50.0");
+        let max = Amount::of_mina_string_exn("100.0");
         Amount::from_u64(rng.gen_range(min.as_u64()..max.as_u64()))
     } else {
         Amount::from_u64(rng.gen_range(0..small_balance_change.as_u64()))
@@ -1119,13 +1080,15 @@ fn gen_use_full_commitment(
 }
 
 struct AccountUpdateParams<'a> {
+    global_slot: Option<Slot>,
     update: Option<Update>,
     failure: Option<&'a Failure>,
     new_account: Option<bool>,
     zkapp_account: Option<bool>,
     account_id: Option<AccountId>,
     token_id: Option<TokenId>,
-    caller: Option<CallType>,
+    may_use_token: Option<MayUseToken>,
+    // caller: Option<CallType>,
     permissions_auth: Option<ControlTag>,
     required_balance_change: Option<Signed<Amount>>,
     zkapp_account_ids: &'a [AccountId],
@@ -1143,13 +1106,14 @@ struct AccountUpdateParams<'a> {
 
 fn gen_account_update_from(params: AccountUpdateParams) -> AccountUpdateSimple {
     let AccountUpdateParams {
+        global_slot,
         update,
         failure,
         new_account,
         zkapp_account,
         account_id,
         token_id,
-        caller,
+        may_use_token,
         permissions_auth,
         required_balance_change,
         zkapp_account_ids,
@@ -1176,10 +1140,11 @@ fn gen_account_update_from(params: AccountUpdateParams) -> AccountUpdateSimple {
     let zkapp_account = zkapp_account.unwrap_or(false);
 
     let params = BodyComponentsParams {
+        global_slot,
         update,
         account_id,
         token_id,
-        caller,
+        may_use_token,
         account_ids_seen: Some(account_ids_seen),
         account_state_tbl,
         vk,
@@ -1211,7 +1176,7 @@ fn gen_account_update_from(params: AccountUpdateParams) -> AccountUpdateSimple {
         |token_id| token_id.clone(),
         // f_account_precondition,
         |first_use_of_account, account| {
-            gen_account_precondition_from_account(None, first_use_of_account, account)
+            gen_account_precondition_from_account(None, None, first_use_of_account, account)
         },
         // f_account_update_account_precondition
         |a| a.clone(),
@@ -1249,8 +1214,9 @@ fn fee_to_amt(fee: &Fee) -> Signed<Amount> {
 
 /// takes an account id, if we want to sign this data
 ///
-/// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/zkapp_command_generators.ml#L1063
+/// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_generators/zkapp_command_generators.ml#L1020
 fn gen_account_update_body_fee_payer(
+    global_slot: Option<Slot>,
     failure: Option<&Failure>,
     permissions_auth: Option<ControlTag>,
     account_id: AccountId,
@@ -1262,10 +1228,11 @@ fn gen_account_update_body_fee_payer(
 
     let body_components = gen_account_update_body_components(
         BodyComponentsParams {
+            global_slot,
             update: None,
             account_id: Some(account_id),
             token_id: None,
-            caller: None,
+            may_use_token: None,
             account_ids_seen: None,
             account_state_tbl,
             vk,
@@ -1304,8 +1271,9 @@ fn gen_account_update_body_fee_payer(
     body_components.to_fee_payer()
 }
 
-/// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_generators/zkapp_command_generators.ml#L1089
+/// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_generators/zkapp_command_generators.ml#L1046
 fn gen_fee_payer(
+    global_slot: Option<Slot>,
     failure: Option<&Failure>,
     permissions_auth: Option<ControlTag>,
     account_id: AccountId,
@@ -1314,6 +1282,7 @@ fn gen_fee_payer(
     account_state_tbl: &mut HashMap<AccountId, (Account, Role)>,
 ) -> FeePayer {
     let body = gen_account_update_body_fee_payer(
+        global_slot,
         failure,
         permissions_auth,
         account_id,
@@ -1332,6 +1301,7 @@ fn gen_fee_payer(
 }
 
 pub struct GenZkappCommandParams<'a> {
+    pub global_slot: Option<Slot>,
     pub failure: Option<&'a Failure>,
     pub max_account_updates: Option<usize>,
     pub max_token_updates: Option<usize>,
@@ -1355,6 +1325,7 @@ pub struct GenZkappCommandParams<'a> {
 /// Generated zkapp_command uses dummy signatures and dummy proofs.
 pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
     let GenZkappCommandParams {
+        global_slot,
         failure,
         max_account_updates,
         max_token_updates,
@@ -1442,6 +1413,7 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
     let account_ids_seen = &mut account_ids_seen;
 
     let fee_payer = gen_fee_payer(
+        global_slot,
         failure,
         Some(ControlTag::Signature),
         fee_payer_account_id.clone(),
@@ -1560,22 +1532,23 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
                     }
                 };
 
-                let zkapp_account = match permissions_auth {
-                    ControlTag::Proof => true,
-                    ControlTag::Signature | ControlTag::NoneGiven => false,
+                let zkapp_account = match (failure, permissions_auth) {
+                    (Some(Failure::UpdateNotPermitted(_)), _) | (_, ControlTag::Proof) => true,
+                    (_, ControlTag::Signature) | (_, ControlTag::NoneGiven) => false,
                 };
 
                 // Signature authorization to start
                 let account_update0 = {
                     let authorization = zkapp_command::Control::Signature(Signature::dummy());
                     gen_account_update_from(AccountUpdateParams {
+                        global_slot,
                         update,
                         failure,
                         new_account: Some(new_account),
                         zkapp_account: Some(zkapp_account),
                         account_id: None,
                         token_id: None,
-                        caller: None,
+                        may_use_token: None,
                         permissions_auth: Some(permissions_auth),
                         required_balance_change: None,
                         zkapp_account_ids,
@@ -1647,13 +1620,14 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
                     let permissions_auth = ControlTag::Signature;
 
                     gen_account_update_from(AccountUpdateParams {
+                        global_slot,
                         update,
                         failure,
                         new_account: None,
                         zkapp_account: None,
                         account_id: Some(account_id),
                         token_id: None,
-                        caller: None,
+                        may_use_token: None,
                         permissions_auth: Some(permissions_auth),
                         required_balance_change: None,
                         zkapp_account_ids,
@@ -1713,13 +1687,14 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
     let balancing_account_update = {
         let authorization = Control::Signature(Signature::dummy());
         gen_account_update_from(AccountUpdateParams {
+            global_slot,
             update: None,
             failure,
             new_account: Some(false),
             zkapp_account: None,
             account_id: None,
             token_id: None,
-            caller: None,
+            may_use_token: None,
             permissions_auth: Some(ControlTag::Signature),
             required_balance_change: Some(balance_change),
             zkapp_account_ids,
@@ -1735,7 +1710,6 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
     let mut gen_zkapp_command_with_token_accounts = |num_zkapp_command: usize| {
         let authorization = Control::Signature(Signature::dummy());
         let permissions_auth = ControlTag::Signature;
-        let caller = CallType::Call;
 
         (0..num_zkapp_command)
             .map(|_| {
@@ -1746,13 +1720,14 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
                     };
 
                     gen_account_update_from(AccountUpdateParams {
+                        global_slot,
                         update: None,
                         failure,
                         new_account: None,
                         zkapp_account: None,
                         account_id: None,
                         token_id: None,
-                        caller: Some(caller.clone()),
+                        may_use_token: Some(MayUseToken::No),
                         permissions_auth: Some(permissions_auth),
                         required_balance_change,
                         zkapp_account_ids,
@@ -1771,13 +1746,14 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
                 );
 
                 let child = gen_account_update_from(AccountUpdateParams {
+                    global_slot,
                     update: None,
                     failure,
                     new_account: Some(true),
                     zkapp_account: None,
                     account_id: None,
                     token_id,
-                    caller: Some(caller.clone()),
+                    may_use_token: Some(MayUseToken::ParentsOwnToken),
                     permissions_auth: Some(permissions_auth),
                     required_balance_change: None,
                     zkapp_account_ids,
@@ -1810,7 +1786,11 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
     let zkapp_command_dummy_authorizations = ZkAppCommand {
         fee_payer,
         account_updates: {
-            let mut account_updates = account_updates.into_add_callers_simple();
+
+            let mut account_updates = account_updates.map_to(|account| zkapp_command::AccountUpdate::of_simple(account));
+            // let mut account_updates = account_updates.into_add_callers_simple();
+
+            // TODO: accumulate_hashes_predicated ?
             account_updates.accumulate_hashes_predicated();
             account_updates
         },

@@ -1,8 +1,10 @@
 use std::collections::HashSet;
 
+use blake2::{Digest, digest::{generic_array::GenericArray, typenum::U32}};
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
 use mina_signer::CompressedPubKey;
+use sha2::Sha256;
 
 use crate::{
     scan_state::{
@@ -43,12 +45,22 @@ pub type AvailableJob = super::parallel_scan::AvailableJob<
     transaction_snark::LedgerProofWithSokMessage,
 >;
 
+#[derive(Clone, Debug)]
+struct BorderBlockContinuedInTheNextTree(bool);
+
+/// Scan state and any zkapp updates that were applied to the to the most recent
+/// snarked ledger but are from the tree just before the tree corresponding to
+/// the snarked ledger*)
 #[derive(Clone)]
 pub struct ScanState {
-    pub state: ParallelScan<
+    pub scan_state: ParallelScan<
         transaction_snark::TransactionWithWitness,
         transaction_snark::LedgerProofWithSokMessage,
     >,
+    pub previous_incomplete_zkapp_updates: (
+        Vec<transaction_snark::TransactionWithWitness>,
+        BorderBlockContinuedInTheNextTree
+    )
 }
 
 pub mod transaction_snark {
@@ -60,7 +72,7 @@ pub mod transaction_snark {
 
     use crate::{
         scan_state::{
-            currency::{Amount, Signed},
+            currency::{Amount, Signed, Slot},
             fee_excess::FeeExcess,
             pending_coinbase,
             transaction_logic::{local_state::LocalState, transaction_applied::TransactionApplied},
@@ -74,11 +86,19 @@ pub mod transaction_snark {
     pub type LedgerHash = Fp;
 
     #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct Registers {
-        pub ledger: LedgerHash,
+    pub struct Registers { // TODO: Rename Registers
+        pub first_pass_ledger: LedgerHash,
+        pub second_pass_ledger: LedgerHash,
         pub pending_coinbase_stack: pending_coinbase::Stack,
         pub local_state: LocalState,
     }
+
+// pub struct MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
+//     pub first_pass_ledger: LedgerHash,
+//     pub second_pass_ledger: LedgerHash,
+//     pub pending_coinbase_stack: MinaBasePendingCoinbaseStackVersionedStableV1,
+//     pub local_state: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
+// }
 
     impl Registers {
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_snark/transaction_snark.ml#L350
@@ -135,6 +155,8 @@ pub mod transaction_snark {
     pub struct Statement<D> {
         pub source: Registers,
         pub target: Registers,
+        pub connecting_ledger_left: LedgerHash,
+        pub connecting_ledger_right: LedgerHash,
         pub supply_increase: Signed<Amount>,
         pub fee_excess: FeeExcess,
         pub sok_digest: D,
@@ -157,6 +179,8 @@ pub mod transaction_snark {
                 supply_increase,
                 fee_excess,
                 sok_digest: (),
+                connecting_ledger_left: todo!(),
+                connecting_ledger_right: todo!(),
             })
         }
     }
@@ -214,7 +238,9 @@ pub mod transaction_snark {
         // pub state_hash: (StateHash, MinaBaseStateBodyHashStableV1),
         pub statement: Statement<()>,
         pub init_stack: InitStack,
-        pub ledger_witness: SparseLedger<AccountId, Account>,
+        pub first_pass_ledger_witness: SparseLedger<AccountId, Account>,
+        pub second_pass_ledger_witness: SparseLedger<AccountId, Account>,
+        pub block_global_slot: Slot,
     }
 
     #[derive(Debug, Clone, PartialEq)]
@@ -402,11 +428,22 @@ pub mod transaction_snark {
     }
 }
 
+fn sha256_digest(bytes: &[u8]) -> GenericArray<u8, U32> {
+    let mut sha: Sha256 = Sha256::new();
+    sha.update(bytes);
+    sha.finalize()
+}
+
 impl ScanState {
     pub fn hash(&self) -> AuxHash {
         use binprot::BinProtWrite;
 
-        let digest = self.state.hash(
+        let Self {
+            scan_state,
+            previous_incomplete_zkapp_updates,
+        } = self;
+
+        let state_hash = scan_state.hash(
             |buffer, proof| {
                 #[cfg(test)]
                 {
@@ -421,6 +458,31 @@ impl ScanState {
                 transaction.binprot_write(buffer).unwrap();
             },
         );
+
+        let (
+            previous_incomplete_zkapp_updates,
+            BorderBlockContinuedInTheNextTree(continue_in_next_tree)
+        ) = previous_incomplete_zkapp_updates;
+
+        let incomplete_updates = previous_incomplete_zkapp_updates
+            .iter()
+            .fold(Vec::with_capacity(1024 * 32), |accum, tx| {
+                tx.binprot_write(&mut accum);
+                accum
+            });
+        let incomplete_updates = sha256_digest(&incomplete_updates);
+
+        let continue_in_next_tree = match continue_in_next_tree {
+            true => "true",
+            false => "false",
+        };
+        let continue_in_next_tree = sha256_digest(continue_in_next_tree.as_bytes());
+
+        let mut bytes = Vec::with_capacity(2048);
+        bytes.extend_from_slice(&state_hash);
+        bytes.extend_from_slice(&incomplete_updates);
+        bytes.extend_from_slice(&continue_in_next_tree);
+        let digest = sha256_digest(&bytes);
 
         AuxHash(digest.into())
     }

@@ -21,7 +21,7 @@ use crate::{
     ZkAppAccount,
 };
 
-use super::transaction_logic::{zkapp_command::SequenceEvents, Eff, ExistingOrNew, PerformResult};
+use super::transaction_logic::{zkapp_command::Actions, Eff, ExistingOrNew, PerformResult};
 
 pub struct StartData {
     pub zkapp_command: CallForest<AccountUpdate>,
@@ -258,7 +258,7 @@ pub fn make_zkapp(a: Account) -> Account {
 
 pub fn update_sequence_state(
     sequence_state: [Fp; 5],
-    sequence_events: SequenceEvents,
+    sequence_events: Actions,
     txn_global_slot: Slot,
     last_sequence_slot: Slot,
 ) -> ([Fp; 5], Slot) {

@@ -84,7 +84,7 @@ mod summary {
     impl Resources {
         pub fn init_resources(
             completed_work: &[work::Checked],
-            commands: &[WithStatus<valid::UserCommand>],
+            commands: &[valid::UserCommand],
             coinbase: &AtMostTwo<CoinbaseFeeTransfer>,
         ) -> Resources {
             let completed_work: CountAndFee = (
@@ -98,7 +98,7 @@ mod summary {
                 commands.len() as u64,
                 commands
                     .iter()
-                    .fold(Fee::zero(), |accum, cmd| add_fee(cmd.data.fee(), accum)),
+                    .fold(Fee::zero(), |accum, cmd| add_fee(cmd.fee(), accum)),
             );
 
             let coinbase_work_fees = coinbase_fees(coinbase);
@@ -114,7 +114,7 @@ mod summary {
     impl Summary {
         pub fn init(
             completed_work: &[work::Checked],
-            commands: &[WithStatus<valid::UserCommand>],
+            commands: &[valid::UserCommand],
             coinbase: &AtMostTwo<CoinbaseFeeTransfer>,
             partition: Partition,
             available_slots: u64,
@@ -151,7 +151,7 @@ mod summary {
         pub fn end_log(
             &mut self,
             completed_work: &[work::Checked],
-            commands: &[WithStatus<valid::UserCommand>],
+            commands: &[valid::UserCommand],
             coinbase: &AtMostTwo<CoinbaseFeeTransfer>,
         ) {
             self.end_resources = Resources::init_resources(completed_work, commands, coinbase);
@@ -202,7 +202,7 @@ mod detail {
     impl Detail {
         pub fn init(
             completed_work: &[work::Checked],
-            commands: &[WithStatus<valid::UserCommand>],
+            commands: &[valid::UserCommand],
             coinbase: &AtMostTwo<CoinbaseFeeTransfer>,
         ) -> Detail {
             let mut lines = Vec::with_capacity(256);
@@ -285,7 +285,7 @@ type DetailList = Vec<Detail>;
 impl DiffCreationLog {
     pub fn init(
         completed_work: &[work::Checked],
-        commands: &[WithStatus<valid::UserCommand>],
+        commands: &[valid::UserCommand],
         coinbase: &AtMostTwo<CoinbaseFeeTransfer>,
         partition: Partition,
         available_slots: u64,
@@ -317,7 +317,7 @@ impl DiffCreationLog {
     pub fn end_log(
         &mut self,
         completed_work: &[work::Checked],
-        commands: &[WithStatus<valid::UserCommand>],
+        commands: &[valid::UserCommand],
         coinbase: &AtMostTwo<CoinbaseFeeTransfer>,
     ) {
         self.summary.end_log(completed_work, commands, coinbase);

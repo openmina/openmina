@@ -33,7 +33,7 @@ use crate::{
 use self::merkle_tree::MiniMerkleTree;
 
 use super::{
-    currency::{Amount, Magnitude},
+    currency::{Amount, Magnitude, Slot},
     transaction_logic::Coinbase,
 };
 
@@ -159,11 +159,12 @@ impl std::fmt::Debug for StateStack {
 }
 
 impl StateStack {
-    fn push(&self, state_body_hash: Fp) -> Self {
+    fn push(&self, state_body_hash: Fp, global_slot: Slot) -> Self {
         let mut inputs = Inputs::new();
 
         inputs.append_field(self.curr);
         inputs.append_field(state_body_hash);
+        inputs.append_field(global_slot.to_field());
 
         let hash = hash_with_kimchi("MinaProtoState", &inputs.to_fields());
 
@@ -258,10 +259,10 @@ impl Stack {
         }
     }
 
-    pub fn push_state(&self, state_body_hash: Fp) -> Self {
+    pub fn push_state(&self, state_body_hash: Fp, global_slot: Slot) -> Self {
         Self {
             data: self.data.clone(),
-            state: self.state.push(state_body_hash),
+            state: self.state.push(state_body_hash, global_slot),
         }
     }
 
@@ -454,9 +455,9 @@ impl PendingCoinbase {
         self.update_stack(depth, is_new_stack, |stack| stack.push_coinbase(coinbase))
     }
 
-    fn add_state(&mut self, depth: usize, state_body_hash: Fp, is_new_stack: bool) {
+    fn add_state(&mut self, depth: usize, state_body_hash: Fp, global_slot: Slot, is_new_stack: bool) {
         self.update_stack(depth, is_new_stack, |stack| {
-            stack.push_state(state_body_hash)
+            stack.push_state(state_body_hash, global_slot)
         })
     }
 

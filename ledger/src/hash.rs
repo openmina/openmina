@@ -241,6 +241,12 @@ pub fn hash_noinputs(param: &str) -> Fp {
 
 pub trait ToInputs {
     fn to_inputs(&self, inputs: &mut Inputs);
+
+    fn hash_with_param(&self, param: &str) -> Fp {
+        let mut inputs = Inputs::new();
+        self.to_inputs(&mut inputs);
+        hash_with_kimchi(param, &inputs.to_fields())
+    }
 }
 
 impl ToInputs for Fp {

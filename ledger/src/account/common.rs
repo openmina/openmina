@@ -59,7 +59,17 @@ impl Default for ReceiptChainHash {
 
 // CodaReceiptEmpty
 
-// https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/account_timing.ml#L31-L34
+/// A timed account is an account, which releases its balance to be spent
+/// gradually. The process of releasing frozen funds is defined as follows.
+/// Until the cliff_time global slot is reached, the initial_minimum_balance
+/// of mina is frozen and cannot be spent. At the cliff slot, cliff_amount
+/// is released and initial_minimum_balance is effectively lowered by that
+/// amount. Next, every vesting_period number of slots, vesting_increment
+/// is released, further decreasing the current minimum balance. At some
+/// point minimum balance drops to 0, and after that the account behaves
+/// like an untimed one. *)
+///
+/// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_timing.ml#L22
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Timing {
     Untimed,
