@@ -2202,8 +2202,8 @@ where
         curr_tree_space == self.max_base_jobs
     }
 
-    pub fn pending_data(&self) -> Vec<BaseJob> {
-        self.trees.iter().rev().flat_map(Tree::base_jobs).collect()
+    pub fn pending_data(&self) -> Vec<Vec<BaseJob>> {
+        self.trees.iter().rev().map(Tree::base_jobs).collect()
     }
 
     // #[cfg(test)]

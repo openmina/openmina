@@ -329,6 +329,14 @@ impl SparseLedger<AccountId, Account> {
     fn location_of_account_impl(&self, account_id: &AccountId) -> Option<Address> {
         self.get_index(account_id).cloned()
     }
+
+
+// let apply_transaction_first_pass ~constraint_constants ~global_slot
+//     ~txn_state_view =
+//   apply_transaction_logic
+//     (T.apply_transaction_first_pass ~constraint_constants ~global_slot
+//        ~txn_state_view )
+
 }
 
 impl From<&SparseLedger<AccountId, Account>>

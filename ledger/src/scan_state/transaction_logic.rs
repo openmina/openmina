@@ -3134,10 +3134,12 @@ pub mod transaction_witness {
     #[derive(Debug)]
     pub struct TransactionWitness {
         pub transaction: Transaction,
-        pub ledger: SparseLedger<AccountId, Account>,
+        pub first_pass_ledger: SparseLedger<AccountId, Account>,
+        pub second_pass_ledger: SparseLedger<AccountId, Account>,
         pub protocol_state_body: MinaStateProtocolStateBodyValueStableV2,
         pub init_stack: Stack,
         pub status: TransactionStatus,
+        pub block_global_slot: Slot,
     }
 }
 
@@ -3212,11 +3214,17 @@ pub mod protocol_state {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub struct GlobalState<L: LedgerIntf + Clone> {
-        pub ledger: L,
-        pub fee_excess: Signed<Fee>,
+        pub first_pass_ledger: L,
+        pub second_pass_ledger: L,
+        pub fee_excess: Signed<Amount>,
+        pub supply_increase: Signed<Amount>,
         pub protocol_state: ProtocolStateView,
+        /// Slot of block when the transaction is applied.
+        /// NOTE: This is at least 1 slot after the protocol_state's view,
+        /// which is for the *previous* slot.
+        pub block_global_slot: Slot,
     }
 }
 
@@ -3231,7 +3239,7 @@ pub mod local_state {
 
     use super::{zkapp_command::CallForest, *};
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub struct StackFrame {
         pub caller: TokenId,
         pub caller_caller: TokenId,
@@ -3276,7 +3284,7 @@ pub mod local_state {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub struct CallStack(Vec<StackFrame>);
 
     impl CallStack {
@@ -3321,7 +3329,7 @@ pub mod local_state {
     /// One with concrete types for the stack frame, call stack, and ledger. Created from the Env
     /// And the other with their hashes. To differentiate them I renamed the first LocalStateEnv
     /// Maybe a better solution is to keep the LocalState name and put it under a different module
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub struct LocalStateEnv<L: LedgerIntf + Clone> {
         pub stack_frame: StackFrame,
         pub call_stack: CallStack,
@@ -3329,11 +3337,13 @@ pub mod local_state {
         pub full_transaction_commitment: ReceiptChainHash,
         pub token_id: TokenId,
         pub excess: Signed<Fee>,
+        pub supply_increase: Signed<Amount>,
         pub ledger: L,
         pub success: bool,
         pub account_update_index: Index,
         // TODO: optimize by reversing the insertion order
         pub failure_status_tbl: Vec<Vec<TransactionFailure>>,
+        pub will_succeed: bool,
     }
 
     impl<L: LedgerIntf + Clone> LocalStateEnv<L> {
@@ -3400,6 +3410,35 @@ pub mod local_state {
 
         pub fn empty() -> Self {
             Self::dummy()
+        }
+
+        pub fn equal_without_ledger(&self, other: &Self) -> bool {
+            let Self {
+                stack_frame,
+                call_stack,
+                transaction_commitment,
+                full_transaction_commitment,
+                token_id,
+                excess,
+                supply_increase,
+                ledger: _,
+                success,
+                account_update_index,
+                failure_status_tbl,
+                will_succeed,
+            };
+
+            stack_frame == other.stack_frame
+                && call_stack == other.call_stack
+                && transaction_commitment == other.transaction_commitment
+                && full_transaction_commitment == other.full_transaction_commitment
+                && token_id == other.token_id
+                && excess == other.excess
+                && supply_increase == other.supply_increase
+                && success == other.success
+                && account_update_index == other.account_update_index
+                && failure_status_tbl == other.failure_status_tbl
+                && will_succeed == other.will_succeed
         }
     }
 }
@@ -3671,6 +3710,91 @@ where
             }
         }
     }
+}
+
+
+pub mod transaction_partially_applied {
+    use super::{*, transaction_applied::{FeeTransferApplied, CoinbaseApplied}, local_state::LocalState};
+
+    #[derive(Debug)]
+    pub struct ZkappCommandPartiallyApplied<L: LedgerIntf + Clone> {
+        pub command: ZkAppCommand,
+        pub previous_hash: Fp,
+        pub original_first_pass_account_states: Vec<(AccountId, Option<(L::Location, Account)>)>,
+        pub constraint_constants: ConstraintConstants,
+        pub state_view: ProtocolStateView,
+        pub global_state: GlobalState<L>,
+        pub local_state: LocalStateEnv<L>,
+    }
+
+    #[derive(Debug)]
+    pub struct FullyApplied<T> {
+        pub previous_hash: Fp,
+        pub applied: T
+    }
+
+    #[derive(Debug)]
+    pub enum TransactionPartiallyApplied<L: LedgerIntf + Clone> {
+        SignedCommand(FullyApplied<SignedCommandApplied>),
+        ZkappCommand(ZkappCommandPartiallyApplied<L>),
+        FeeTransfer(FullyApplied<FeeTransferApplied>),
+        Coinbase(FullyApplied<CoinbaseApplied>),
+    }
+
+    impl<L: LedgerIntf + Clone> TransactionPartiallyApplied<L> {
+        pub fn command(self) -> Transaction {
+            use Transaction as T;
+
+            match self {
+                Self::SignedCommand(s) => {
+                    T::Command(UserCommand::SignedCommand(Box::new(s.applied.common.user_command.data.clone())))
+                },
+                Self::ZkappCommand(z) => {
+                    T::Command(UserCommand::ZkAppCommand(Box::new(z.command.clone())))
+                },
+                Self::FeeTransfer(ft) => T::FeeTransfer(ft.applied.fee_transfer.data.clone()),
+                Self::Coinbase(cb) => T::Coinbase(cb.applied.coinbase.data.clone()),
+            }
+        }
+    }
+}
+
+use transaction_partially_applied::TransactionPartiallyApplied;
+
+pub fn apply_transaction_first_pass<L>(
+    constraint_constants: &ConstraintConstants,
+    global_slot: Slot,
+    txn_state_view: &ProtocolStateView,
+    ledger: &mut L,
+    transaction: &Transaction,
+) -> Result<TransactionPartiallyApplied<L>, String>
+where
+    L: LedgerIntf + Clone,
+{
+    todo!()
+}
+
+pub fn apply_transaction_second_pass<L>(
+    ledger: &mut L,
+    partial_transaction: TransactionPartiallyApplied<L>,
+) -> Result<TransactionApplied, String>
+where
+    L: LedgerIntf + Clone,
+{
+    todo!()
+}
+
+pub fn apply_transactions<L>(
+    constraint_constants: &ConstraintConstants,
+    global_slot: Slot,
+    txn_state_view: &ProtocolStateView,
+    ledger: &mut L,
+    transaction: &[&Transaction],
+) -> Result<TransactionPartiallyApplied<L>, String>
+where
+    L: LedgerIntf + Clone,
+{
+    todo!()
 }
 
 pub fn apply_transaction<L>(

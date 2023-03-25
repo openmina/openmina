@@ -1718,7 +1718,7 @@ impl StagedLedger {
         // curr_job_seq_no is incremented later, but for the logs we increment it now
         println!(
             "sequence_number={:?}",
-            self.scan_state.state.curr_job_seq_no.incr()
+            self.scan_state.scan_state.curr_job_seq_no.incr()
         );
 
         let _ = proof_count;
