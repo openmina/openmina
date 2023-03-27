@@ -455,7 +455,13 @@ impl PendingCoinbase {
         self.update_stack(depth, is_new_stack, |stack| stack.push_coinbase(coinbase))
     }
 
-    fn add_state(&mut self, depth: usize, state_body_hash: Fp, global_slot: Slot, is_new_stack: bool) {
+    fn add_state(
+        &mut self,
+        depth: usize,
+        state_body_hash: Fp,
+        global_slot: Slot,
+        is_new_stack: bool,
+    ) {
         self.update_stack(depth, is_new_stack, |stack| {
             stack.push_state(state_body_hash, global_slot)
         })

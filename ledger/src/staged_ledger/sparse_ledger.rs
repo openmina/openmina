@@ -330,13 +330,11 @@ impl SparseLedger<AccountId, Account> {
         self.get_index(account_id).cloned()
     }
 
-
-// let apply_transaction_first_pass ~constraint_constants ~global_slot
-//     ~txn_state_view =
-//   apply_transaction_logic
-//     (T.apply_transaction_first_pass ~constraint_constants ~global_slot
-//        ~txn_state_view )
-
+    // let apply_transaction_first_pass ~constraint_constants ~global_slot
+    //     ~txn_state_view =
+    //   apply_transaction_logic
+    //     (T.apply_transaction_first_pass ~constraint_constants ~global_slot
+    //        ~txn_state_view )
 }
 
 impl From<&SparseLedger<AccountId, Account>>

@@ -104,40 +104,49 @@ pub mod transaction_snark {
 
     pub type LedgerHash = Fp;
 
+    /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/registers.ml
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Registers {
-        // TODO: Rename Registers
         pub first_pass_ledger: LedgerHash,
         pub second_pass_ledger: LedgerHash,
         pub pending_coinbase_stack: pending_coinbase::Stack,
         pub local_state: LocalState,
     }
 
-    // pub struct MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
-    //     pub first_pass_ledger: LedgerHash,
-    //     pub second_pass_ledger: LedgerHash,
-    //     pub pending_coinbase_stack: MinaBasePendingCoinbaseStackVersionedStableV1,
-    //     pub local_state: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
-    // }
-
     impl Registers {
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_snark/transaction_snark.ml#L350
         pub fn check_equal(&self, other: &Self) -> bool {
-            self.ledger == other.ledger
-                && self.local_state == other.local_state
+            let Self {
+                first_pass_ledger,
+                second_pass_ledger,
+                pending_coinbase_stack,
+                local_state,
+            } = self;
+
+            first_pass_ledger == &other.first_pass_ledger
+                && second_pass_ledger == &other.second_pass_ledger
+                && local_state == &other.local_state
                 && pending_coinbase::Stack::connected(
-                    &self.pending_coinbase_stack,
+                    &pending_coinbase_stack,
                     &other.pending_coinbase_stack,
                     None,
                 )
         }
 
-        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_state/registers.ml#L47
+        /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/registers.ml#L55
         pub fn connected(r1: &Self, r2: &Self) -> bool {
-            r1.ledger == r2.ledger
-                && r1.local_state == r2.local_state
+            let Self {
+                first_pass_ledger,
+                second_pass_ledger,
+                pending_coinbase_stack,
+                local_state,
+            } = r1;
+
+            first_pass_ledger == &r2.first_pass_ledger
+                && second_pass_ledger == &r2.second_pass_ledger
+                && local_state == &r2.local_state
                 && pending_coinbase::Stack::connected(
-                    &r1.pending_coinbase_stack,
+                    &pending_coinbase_stack,
                     &r2.pending_coinbase_stack,
                     None,
                 )
@@ -183,6 +192,7 @@ pub mod transaction_snark {
     }
 
     impl StatementLedgers {
+        /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/snarked_ledger_state.ml#L530
         fn of_statement<T>(s: &Statement<T>) -> Self {
             Self {
                 first_pass_ledger_source: s.source.first_pass_ledger,
@@ -197,6 +207,7 @@ pub mod transaction_snark {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/snarked_ledger_state.ml#L546
     fn validate_ledgers_at_merge(
         s1: &StatementLedgers,
         s2: &StatementLedgers,
@@ -381,6 +392,8 @@ pub mod transaction_snark {
                         supply_increase: statement.supply_increase,
                         fee_excess: statement.fee_excess,
                         sok_digest: (),
+                        connecting_ledger_left: statement.connecting_ledger_left,
+                        connecting_ledger_right: statement.connecting_ledger_right,
                     }
                 })
             }

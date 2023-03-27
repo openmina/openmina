@@ -333,16 +333,17 @@ impl ToInputs for VerificationKey {
         let Self {
             max_proofs_verified,
             actual_wrap_domain_size,
-            wrap_index: PlonkVerificationKeyEvals {
-                sigma,
-                coefficients,
-                generic,
-                psm,
-                complete_add,
-                mul,
-                emul,
-                endomul_scalar
-            },
+            wrap_index:
+                PlonkVerificationKeyEvals {
+                    sigma,
+                    coefficients,
+                    generic,
+                    psm,
+                    complete_add,
+                    mul,
+                    emul,
+                    endomul_scalar,
+                },
             wrap_vk,
         } = self;
 
@@ -617,19 +618,19 @@ pub fn check_permission(auth: AuthRequired, tag: ControlTag) -> bool {
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Account {
-    pub public_key: CompressedPubKey,         // Public_key.Compressed.t
-    pub token_id: TokenId,                    // Token_id.t
+    pub public_key: CompressedPubKey, // Public_key.Compressed.t
+    pub token_id: TokenId,            // Token_id.t
     /// the `token_symbol` describes a token id owned by the account id
     /// from this account, not the token id used by this account
-    pub token_symbol: TokenSymbol,            // Token_symbol.t
-    pub balance: Balance,                     // Balance.t
-    pub nonce: Nonce,                         // Nonce.t
+    pub token_symbol: TokenSymbol, // Token_symbol.t
+    pub balance: Balance,             // Balance.t
+    pub nonce: Nonce,                 // Nonce.t
     pub receipt_chain_hash: ReceiptChainHash, // Receipt.Chain_hash.t
-    pub delegate: Option<CompressedPubKey>,   // Public_key.Compressed.t option
-    pub voting_for: VotingFor,                // State_hash.t
-    pub timing: Timing,                       // Timing.t
+    pub delegate: Option<CompressedPubKey>, // Public_key.Compressed.t option
+    pub voting_for: VotingFor,        // State_hash.t
+    pub timing: Timing,               // Timing.t
     pub permissions: Permissions<AuthRequired>, // Permissions.t
-    pub zkapp: Option<ZkAppAccount>,          // Zkapp_account.t
+    pub zkapp: Option<ZkAppAccount>,  // Zkapp_account.t
 }
 
 impl Account {
@@ -747,12 +748,8 @@ impl Account {
         match to {
             PermissionTo::Access => check_permission(self.permissions.access, control),
             PermissionTo::Send => check_permission(self.permissions.send, control),
-            PermissionTo::Receive => {
-                check_permission(self.permissions.receive, control)
-            }
-            PermissionTo::SetDelegate => {
-                check_permission(self.permissions.set_delegate, control)
-            }
+            PermissionTo::Receive => check_permission(self.permissions.receive, control),
+            PermissionTo::SetDelegate => check_permission(self.permissions.set_delegate, control),
         }
     }
 

@@ -5,7 +5,8 @@ use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
 use mina_signer::CompressedPubKey;
 
-use crate::{hash_with_kimchi, Inputs};
+use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
+use crate::{hash_with_kimchi, ControlTag, Inputs};
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
     staged_ledger::sparse_ledger::{LedgerIntf, SparseLedger},
@@ -13,7 +14,7 @@ use crate::{
     VerificationKey,
 };
 
-use self::zkapp_command::AccessedOrNot;
+use self::zkapp_command::{AccessedOrNot, Numeric};
 use self::{
     local_state::{CallStack, LocalStateEnv, StackFrame},
     protocol_state::{GlobalState, ProtocolStateView},
@@ -107,12 +108,8 @@ impl ToString for TransactionFailure {
             Self::SignedCommandOnZkappAccount => "Signed_command_on_zkapp_account".to_string(),
             Self::ZkappAccountNotPresent => "Zkapp_account_not_present".to_string(),
             Self::UpdateNotPermittedBalance => "Update_not_permitted_balance".to_string(),
-            Self::UpdateNotPermittedAccess => {
-                "Update_not_permitted_access".to_string()
-            }
-            Self::UpdateNotPermittedTiming => {
-                "Update_not_permitted_timing".to_string()
-            }
+            Self::UpdateNotPermittedAccess => "Update_not_permitted_access".to_string(),
+            Self::UpdateNotPermittedTiming => "Update_not_permitted_timing".to_string(),
             Self::UpdateNotPermittedDelegate => "update_not_permitted_delegate".to_string(),
             Self::UpdateNotPermittedAppState => "Update_not_permitted_app_state".to_string(),
             Self::UpdateNotPermittedVerificationKey => {
@@ -160,7 +157,9 @@ impl ToString for TransactionFailure {
             Self::InvalidFeeExcess => "Invalid_fee_excess".to_string(),
             Self::Cancelled => "Cancelled".to_string(),
             Self::UnexpectedVerificationKeyHash => "Unexpected_verification_key_hash".to_string(),
-            Self::ValidWhilePreconditionUnsatisfied => "Valid_while_precondition_unsatisfied".to_string(),
+            Self::ValidWhilePreconditionUnsatisfied => {
+                "Valid_while_precondition_unsatisfied".to_string()
+            }
         }
     }
 }
@@ -474,7 +473,10 @@ impl Coinbase {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/coinbase.ml#L51
-    pub fn account_access_statuses(&self, status: &TransactionStatus) -> Vec<(AccountId, zkapp_command::AccessedOrNot)> {
+    pub fn account_access_statuses(
+        &self,
+        status: &TransactionStatus,
+    ) -> Vec<(AccountId, zkapp_command::AccessedOrNot)> {
         let access_status = match status {
             TransactionStatus::Applied => zkapp_command::AccessedOrNot::Accessed,
             TransactionStatus::Failed(_) => zkapp_command::AccessedOrNot::NotAccessed,
@@ -624,7 +626,7 @@ pub mod signed_command {
 
     use crate::{decompress_pk, scan_state::currency::Slot, AccountId};
 
-    use super::{*, zkapp_command::AccessedOrNot};
+    use super::{zkapp_command::AccessedOrNot, *};
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L75
     #[derive(Debug, Clone, PartialEq)]
@@ -792,9 +794,12 @@ pub mod signed_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/signed_command_payload.ml#L354
-        pub fn account_access_statuses(&self, status: &TransactionStatus) -> [(AccountId, AccessedOrNot); 3] {
-            use TransactionStatus::*;
+        pub fn account_access_statuses(
+            &self,
+            status: &TransactionStatus,
+        ) -> [(AccountId, AccessedOrNot); 3] {
             use AccessedOrNot::*;
+            use TransactionStatus::*;
 
             match status {
                 Applied => [
@@ -806,7 +811,7 @@ pub mod signed_command {
                     (self.fee_payer(), Accessed),
                     (self.source(), NotAccessed),
                     (self.receiver(), NotAccessed),
-                ]
+                ],
             }
         }
 
@@ -1780,7 +1785,11 @@ pub mod zkapp_command {
     impl ToInputs for Preconditions {
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_update.ml#L1148
         fn to_inputs(&self, inputs: &mut Inputs) {
-            let Self { network, account, valid_while } = self;
+            let Self {
+                network,
+                account,
+                valid_while,
+            } = self;
 
             inputs.append(network);
             inputs.append(account);
@@ -2087,8 +2096,12 @@ pub mod zkapp_command {
             self.body.update.timing.clone()
         }
 
-        pub fn caller(&self) -> TokenId {
-            self.body.caller.clone()
+        pub fn may_use_parents_own_token(&self) -> bool {
+            self.body.may_use_token.parents_own_token()
+        }
+
+        pub fn may_use_token_inherited_from_parent(&self) -> bool {
+            self.body.may_use_token.inherit_from_parent()
         }
 
         pub fn public_key(&self) -> CompressedPubKey {
@@ -2106,6 +2119,7 @@ pub mod zkapp_command {
         // commitment and calls argument are ignored here, only used in the transaction snark
         pub fn check_authorization(
             &self,
+            _will_succeed: bool,
             _commitment: Fp,
             _calls: CallForest<AccountUpdate>,
         ) -> CheckAuthorizationResult {
@@ -2159,8 +2173,8 @@ pub mod zkapp_command {
             self.body.update.verification_key.map(|vk| vk.data.clone())
         }
 
-        pub fn sequence_events(&self) -> Actions {
-            self.body.sequence_events.clone()
+        pub fn actions(&self) -> Actions {
+            self.body.actions.clone()
         }
 
         pub fn balance_change(&self) -> Signed<Amount> {
@@ -2179,38 +2193,40 @@ pub mod zkapp_command {
         }
 
         pub fn is_proved(&self) -> bool {
-            match self.body.authorization_kind {
-                AuthorizationKind::Proof => true,
+            match &self.body.authorization_kind {
+                AuthorizationKind::Proof(_) => true,
                 AuthorizationKind::Signature | AuthorizationKind::NoneGiven => false,
             }
         }
 
         pub fn is_signed(&self) -> bool {
-            match self.body.authorization_kind {
+            match &self.body.authorization_kind {
                 AuthorizationKind::Signature => true,
-                AuthorizationKind::Proof | AuthorizationKind::NoneGiven => false,
+                AuthorizationKind::Proof(_) | AuthorizationKind::NoneGiven => false,
             }
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_update.ml#L1333
         pub fn of_simple(simple: &AccountUpdateSimple) -> Self {
             let AccountUpdateSimple {
-                body: BodySimple {
-                    public_key,
-                    token_id,
-                    update,
-                    balance_change,
-                    increment_nonce,
-                    events,
-                    actions,
-                    call_data,
-                    call_depth,
-                    preconditions,
-                    use_full_commitment,
-                    implicit_account_creation_fee,
-                    may_use_token,
-                    authorization_kind },
-                authorization
+                body:
+                    BodySimple {
+                        public_key,
+                        token_id,
+                        update,
+                        balance_change,
+                        increment_nonce,
+                        events,
+                        actions,
+                        call_data,
+                        call_depth,
+                        preconditions,
+                        use_full_commitment,
+                        implicit_account_creation_fee,
+                        may_use_token,
+                        authorization_kind,
+                    },
+                authorization,
             } = simple.clone();
 
             Self {
@@ -2227,7 +2243,7 @@ pub mod zkapp_command {
                     use_full_commitment,
                     implicit_account_creation_fee,
                     may_use_token,
-                    authorization_kind
+                    authorization_kind,
                 },
                 authorization,
             }
@@ -2620,7 +2636,10 @@ pub mod zkapp_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/zkapp_command.ml#L997
-        pub fn account_access_statuses(&self, status: &TransactionStatus) -> Vec<(AccountId, AccessedOrNot)> {
+        pub fn account_access_statuses(
+            &self,
+            status: &TransactionStatus,
+        ) -> Vec<(AccountId, AccessedOrNot)> {
             use AccessedOrNot::*;
             use TransactionStatus::*;
 
@@ -2632,13 +2651,12 @@ pub mod zkapp_command {
                 Failed(_) => NotAccessed,
             };
 
-            let ids = self.account_updates.fold(
-                init,
-                |mut accum, account_update| {
+            let ids = self
+                .account_updates
+                .fold(init, |mut accum, account_update| {
                     accum.push((account_update.account_id(), status_sym));
                     accum
-                },
-            );
+                });
             ids.iter().unique().rev().cloned().collect()
         }
 
@@ -2806,7 +2824,10 @@ impl binprot::BinProtWrite for UserCommand {
 
 impl UserCommand {
     /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/user_command.ml#L239
-    pub fn account_access_statuses(&self, status: &TransactionStatus) -> Vec<(AccountId, AccessedOrNot)> {
+    pub fn account_access_statuses(
+        &self,
+        status: &TransactionStatus,
+    ) -> Vec<(AccountId, AccessedOrNot)> {
         match self {
             UserCommand::SignedCommand(cmd) => cmd.account_access_statuses(status).to_vec(),
             UserCommand::ZkAppCommand(cmd) => cmd.account_access_statuses(status),
@@ -3131,6 +3152,7 @@ pub mod transaction_witness {
 
     use super::*;
 
+    /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/transaction_witness/transaction_witness.ml#L55
     #[derive(Debug)]
     pub struct TransactionWitness {
         pub transaction: Transaction,
@@ -3225,6 +3247,52 @@ pub mod protocol_state {
         /// NOTE: This is at least 1 slot after the protocol_state's view,
         /// which is for the *previous* slot.
         pub block_global_slot: Slot,
+    }
+
+    impl<L: LedgerIntf + Clone> GlobalState<L> {
+        fn first_pass_ledger(&self) -> L {
+            self.first_pass_ledger.create_masked()
+        }
+
+        fn set_first_pass_ledger(mut self, should_update: bool, ledger: L) -> Self {
+            if should_update {
+                self.first_pass_ledger.apply_mask(ledger);
+            }
+            self
+        }
+
+        fn second_pass_ledger(&self) -> L {
+            self.second_pass_ledger.create_masked()
+        }
+
+        fn set_second_pass_ledger(mut self, should_update: bool, ledger: L) -> Self {
+            if should_update {
+                self.second_pass_ledger.apply_mask(ledger);
+            }
+            self
+        }
+
+        fn fee_excess(&self) -> Signed<Amount> {
+            self.fee_excess.clone()
+        }
+
+        fn set_fee_excess(mut self, fee_excess: Signed<Amount>) -> Self {
+            self.fee_excess = fee_excess;
+            self
+        }
+
+        fn supply_increase(&self) -> Signed<Amount> {
+            self.supply_increase.clone()
+        }
+
+        fn set_supply_increase(mut self, supply_increase: Signed<Amount>) -> Self {
+            self.supply_increase = supply_increase;
+            self
+        }
+
+        fn block_global_slot(&self) -> Slot {
+            self.block_global_slot
+        }
     }
 }
 
@@ -3444,6 +3512,7 @@ pub mod local_state {
 }
 
 pub enum Eff<L: LedgerIntf + Clone> {
+    CheckValidWhilePrecondition(Numeric<Slot>, GlobalState<L>),
     CheckAccountPrecondition(AccountUpdate, Account, bool, LocalStateEnv<L>),
     CheckProtocolStatePrecondition(ZkAppPreconditions, GlobalState<L>),
     InitAccount(AccountUpdate, Account),
@@ -3461,6 +3530,7 @@ pub struct Env<L: LedgerIntf + Clone> {
     global_state: GlobalState<L>,
     local_state: LocalStateEnv<L>,
     protocol_state_precondition: ZkAppPreconditions,
+    valid_while_precondition: Numeric<Slot>,
     transaction_commitment: Fp,
     full_transaction_commitment: Fp,
     field: Fp,
@@ -3479,6 +3549,10 @@ where
 {
     pub fn perform(eff: Eff<L>) -> PerformResult<L> {
         match eff {
+            Eff::CheckValidWhilePrecondition(valid_while, global_state) => {
+                // TODO: Implement this
+                todo!()
+            }
             Eff::CheckProtocolStatePrecondition(pred, global_state) => {
                 PerformResult::Bool(pred.check(global_state.protocol_state).is_ok())
             }
@@ -3543,178 +3617,318 @@ where
     }
 }
 
-fn apply_zkapp_command_unchecked<L>(
+// fn apply_zkapp_command_unchecked<L>(
+//     constraint_constants: &ConstraintConstants,
+//     global_slot: Slot,
+//     state_view: &ProtocolStateView,
+//     ledger: &mut L,
+//     c: &ZkAppCommand,
+// ) -> Result<(ZkappCommandApplied, (LocalStateEnv<L>, Signed<Fee>)), String>
+// where
+//     L: LedgerIntf + Clone,
+// {
+//     let (account_update_applied, state_res) = apply_zkapp_command_unchecked_aux(
+//         constraint_constants,
+//         global_slot,
+//         state_view,
+//         None,
+//         |_acc, (global_state, local_state)| Some((local_state, global_state.fee_excess)),
+//         None,
+//         ledger,
+//         c,
+//     )?;
+
+//     Ok((account_update_applied, state_res.unwrap()))
+// }
+
+/// apply zkapp command fee payer's while stubbing out the second pass ledger
+/// CAUTION: If you use the intermediate local states, you MUST update the
+///   [will_succeed] field to [false] if the [status] is [Failed].*)
+fn apply_zkapp_command_first_pass_aux<A, F, L>(
     constraint_constants: &ConstraintConstants,
+    global_slot: Slot,
     state_view: &ProtocolStateView,
+    init: A,
+    f: F,
+    fee_excess: Option<Signed<Amount>>,
+    supply_increase: Option<Signed<Amount>>,
     ledger: &mut L,
-    c: &ZkAppCommand,
-) -> Result<(ZkappCommandApplied, (LocalStateEnv<L>, Signed<Fee>)), String>
+    command: &ZkAppCommand,
+) -> Result<(ZkappCommandPartiallyApplied<L>, A), String>
+where
+    L: LedgerIntf + Clone,
+    F: Fn(A, (GlobalState<L>, LocalStateEnv<L>)) -> A,
+{
+    let fee_excess = fee_excess.unwrap_or_else(Signed::zero);
+    let supply_increase = supply_increase.unwrap_or_else(Signed::zero);
+
+    todo!()
+}
+
+// fn apply_zkapp_command_unchecked_aux<L>(
+//     constraint_constants: &ConstraintConstants,
+//     global_slot: Slot,
+//     state_view: &ProtocolStateView,
+//     init: Option<(LocalStateEnv<L>, Signed<Fee>)>,
+//     f: fn(
+//         Option<(LocalStateEnv<L>, Signed<Fee>)>,
+//         (GlobalState<L>, LocalStateEnv<L>),
+//     ) -> Option<(LocalStateEnv<L>, Signed<Fee>)>,
+//     fee_excess: Option<Signed<Fee>>,
+//     ledger: &mut L,
+//     c: &ZkAppCommand,
+// ) -> Result<(ZkappCommandApplied, Option<(LocalStateEnv<L>, Signed<Fee>)>), String>
+// where
+//     L: LedgerIntf + Clone,
+// {
+//     let fee_excess = fee_excess.unwrap_or_else(Signed::<Fee>::zero);
+//     let perform = |eff| Env::perform(eff);
+//     let accounts_accessed = c.accounts_accessed(TransactionStatus::Applied);
+//     let original_account_states = accounts_accessed.iter().map(|id| {
+//         (id, {
+//             let loc = ledger.location_of_account(id);
+//             let account = loc.as_ref().and_then(|loc| ledger.get(loc));
+//             loc.zip(account)
+//         })
+//     });
+
+//     let initial_state = (
+//         GlobalState {
+//             ledger: ledger.clone(),
+//             fee_excess,
+//             protocol_state: state_view.clone(),
+//         },
+//         LocalStateEnv {
+//             stack_frame: StackFrame::default(),
+//             call_stack: CallStack::new(),
+//             transaction_commitment: ReceiptChainHash(Fp::zero()),
+//             full_transaction_commitment: ReceiptChainHash(Fp::zero()),
+//             token_id: TokenId::default(),
+//             excess: Signed::<Fee>::zero(),
+//             ledger: ledger.clone(),
+//             success: true,
+//             account_update_index: Index::zero(),
+//             failure_status_tbl: Vec::new(),
+//         },
+//     );
+
+//     let user_acc = f(init, initial_state.clone());
+//     let start = {
+//         let zkapp_command = c
+//             .account_updates
+//             .cons(None, AccountUpdate::of_fee_payer(c.fee_payer.clone()));
+
+//         apply(
+//             constraint_constants,
+//             IsStart::Yes(StartData {
+//                 zkapp_command,
+//                 memo_hash: c.memo.hash(),
+//             }),
+//             Handler { perform },
+//             initial_state,
+//         )
+//     };
+
+//     let accounts_accessed = c.accounts_accessed(TransactionStatus::Applied);
+
+//     let mut account_states_after_fee_payer = accounts_accessed.iter().map(|id| {
+//         let loc = ledger.location_of_account(id);
+//         let a = loc.as_ref().and_then(|loc| ledger.get(loc));
+
+//         match a {
+//             Some(a) => (id, Some((loc.unwrap(), a))),
+//             None => (id, None),
+//         }
+//     });
+
+//     let _original_account_states = original_account_states.clone();
+//     let accounts = || {
+//         _original_account_states.map(|(id, account)| (id.clone(), account.map(|(_loc, acc)| acc)))
+//     };
+
+//     match step_all(
+//         constraint_constants,
+//         f,
+//         perform,
+//         f(user_acc, start.clone()),
+//         start,
+//     ) {
+//         Err(e) => Err(e),
+//         Ok((s, failure_status_tbl)) => {
+//             let account_ids_originally_not_in_ledger =
+//                 original_account_states.filter_map(|(acct_id, loc_and_acct)| {
+//                     if loc_and_acct.is_none() {
+//                         Some(acct_id)
+//                     } else {
+//                         None
+//                     }
+//                 });
+//             let successfully_applied = failure_status_tbl.is_empty();
+//             let new_accounts = account_ids_originally_not_in_ledger
+//                 .filter_map(|acct_id| {
+//                     let loc = ledger.location_of_account(acct_id);
+//                     let acc = loc.and_then(|loc| ledger.get(&loc));
+//                     match acc {
+//                         Some(acc) if acc.id() == *acct_id => Some(acct_id.clone()),
+//                         _ => None,
+//                     }
+//                 })
+//                 .collect::<Vec<AccountId>>();
+
+//             let valid_result = Ok((
+//                 ZkappCommandApplied {
+//                     accounts: accounts().collect(),
+//                     command: WithStatus::<ZkAppCommand> {
+//                         data: c.clone(),
+//                         status: if successfully_applied {
+//                             TransactionStatus::Applied
+//                         } else {
+//                             TransactionStatus::Failed(failure_status_tbl)
+//                         },
+//                     },
+//                     new_accounts: new_accounts.clone(),
+//                 },
+//                 s,
+//             ));
+
+//             if successfully_applied {
+//                 valid_result
+//             } else {
+//                 let other_account_update_accounts_unchanged = account_states_after_fee_payer
+//                     .fold_while(true, |acc, (_, loc_opt)| match loc_opt {
+//                         Some((loc, a)) => match ledger.get(&loc) {
+//                             Some(a_) if !(a == a_) => Done(false),
+//                             _ => Continue(acc),
+//                         },
+//                         _ => Continue(acc),
+//                     })
+//                     .into_inner();
+//                 if new_accounts.is_empty() && other_account_update_accounts_unchanged {
+//                     valid_result
+//                 } else {
+//                     Err("Zkapp_command application failed but new accounts created or some of the other account_update updates applied".to_string())
+//                 }
+//             }
+//         }
+//     }
+// }
+
+fn apply_zkapp_command_first_pass<L>(
+    constraint_constants: &ConstraintConstants,
+    global_slot: Slot,
+    state_view: &ProtocolStateView,
+    fee_excess: Option<Signed<Amount>>,
+    supply_increase: Option<Signed<Amount>>,
+    ledger: &mut L,
+    command: &ZkAppCommand,
+) -> Result<ZkappCommandPartiallyApplied<L>, String>
 where
     L: LedgerIntf + Clone,
 {
-    let (account_update_applied, state_res) = apply_zkapp_command_unchecked_aux(
+    let (partial_stmt, _user_acc) = apply_zkapp_command_first_pass_aux(
         constraint_constants,
+        global_slot,
         state_view,
         None,
-        |_acc, (global_state, local_state)| Some((local_state, global_state.fee_excess)),
+        |_acc, state| Some(state),
+        fee_excess,
+        supply_increase,
+        ledger,
+        command,
+    )?;
+
+    Ok(partial_stmt)
+}
+
+fn apply_zkapp_command_second_pass_aux<A, F, L>(
+    init: A,
+    f: F,
+    ledger: &mut L,
+    c: ZkappCommandPartiallyApplied<L>,
+) -> Result<(ZkappCommandApplied, A), String>
+where
+    L: LedgerIntf + Clone,
+    F: Fn(A, (GlobalState<L>, LocalStateEnv<L>)) -> A,
+{
+    todo!()
+}
+
+fn apply_zkapp_command_second_pass<L>(
+    ledger: &mut L,
+    c: ZkappCommandPartiallyApplied<L>,
+) -> Result<ZkappCommandApplied, String>
+where
+    L: LedgerIntf + Clone,
+{
+    let (x, _) = apply_zkapp_command_second_pass_aux((), |a, _| a, ledger, c)?;
+    Ok(x)
+}
+
+fn apply_zkapp_command_unchecked_aux<A, F, L>(
+    constraint_constants: &ConstraintConstants,
+    global_slot: Slot,
+    state_view: &ProtocolStateView,
+    init: A,
+    f: F,
+    fee_excess: Option<Signed<Amount>>,
+    supply_increase: Option<Signed<Amount>>,
+    ledger: &mut L,
+    command: &ZkAppCommand,
+) -> Result<(ZkappCommandApplied, A), String>
+where
+    L: LedgerIntf + Clone,
+    F: Fn(A, (GlobalState<L>, LocalStateEnv<L>)) -> A,
+{
+    let (partial_stmt, user_acc) = apply_zkapp_command_first_pass_aux(
+        constraint_constants,
+        global_slot,
+        state_view,
+        init,
+        f,
+        fee_excess,
+        supply_increase,
+        ledger,
+        command,
+    )?;
+
+    apply_zkapp_command_second_pass_aux(user_acc, f, ledger, partial_stmt)
+}
+
+fn apply_zkapp_command_unchecked<L>(
+    constraint_constants: &ConstraintConstants,
+    global_slot: Slot,
+    state_view: &ProtocolStateView,
+    ledger: &mut L,
+    command: &ZkAppCommand,
+) -> Result<(ZkappCommandApplied, (LocalStateEnv<L>, Signed<Amount>)), String>
+where
+    L: LedgerIntf + Clone,
+{
+    let zkapp_partially_applied: ZkappCommandPartiallyApplied<L> = apply_zkapp_command_first_pass(
+        constraint_constants,
+        global_slot,
+        state_view,
+        None,
         None,
         ledger,
-        c,
+        command,
+    )?;
+
+    let (account_update_applied, state_res) = apply_zkapp_command_second_pass_aux(
+        None,
+        |acc, (global_state, local_state)| Some((local_state, global_state.fee_excess)),
+        ledger,
+        zkapp_partially_applied,
     )?;
 
     Ok((account_update_applied, state_res.unwrap()))
 }
 
-fn apply_zkapp_command_unchecked_aux<L>(
-    constraint_constants: &ConstraintConstants,
-    state_view: &ProtocolStateView,
-    init: Option<(LocalStateEnv<L>, Signed<Fee>)>,
-    f: fn(
-        Option<(LocalStateEnv<L>, Signed<Fee>)>,
-        (GlobalState<L>, LocalStateEnv<L>),
-    ) -> Option<(LocalStateEnv<L>, Signed<Fee>)>,
-    fee_excess: Option<Signed<Fee>>,
-    ledger: &mut L,
-    c: &ZkAppCommand,
-) -> Result<(ZkappCommandApplied, Option<(LocalStateEnv<L>, Signed<Fee>)>), String>
-where
-    L: LedgerIntf + Clone,
-{
-    let fee_excess = fee_excess.unwrap_or_else(Signed::<Fee>::zero);
-    let perform = |eff| Env::perform(eff);
-    let accounts_accessed = c.accounts_accessed(TransactionStatus::Applied);
-    let original_account_states = accounts_accessed.iter().map(|id| {
-        (id, {
-            let loc = ledger.location_of_account(id);
-            let account = loc.as_ref().and_then(|loc| ledger.get(loc));
-            loc.zip(account)
-        })
-    });
-
-    let initial_state = (
-        GlobalState {
-            ledger: ledger.clone(),
-            fee_excess,
-            protocol_state: state_view.clone(),
-        },
-        LocalStateEnv {
-            stack_frame: StackFrame::default(),
-            call_stack: CallStack::new(),
-            transaction_commitment: ReceiptChainHash(Fp::zero()),
-            full_transaction_commitment: ReceiptChainHash(Fp::zero()),
-            token_id: TokenId::default(),
-            excess: Signed::<Fee>::zero(),
-            ledger: ledger.clone(),
-            success: true,
-            account_update_index: Index::zero(),
-            failure_status_tbl: Vec::new(),
-        },
-    );
-
-    let user_acc = f(init, initial_state.clone());
-    let start = {
-        let zkapp_command = c
-            .account_updates
-            .cons(None, AccountUpdate::of_fee_payer(c.fee_payer.clone()));
-
-        apply(
-            constraint_constants,
-            IsStart::Yes(StartData {
-                zkapp_command,
-                memo_hash: c.memo.hash(),
-            }),
-            Handler { perform },
-            initial_state,
-        )
-    };
-
-    let accounts_accessed = c.accounts_accessed(TransactionStatus::Applied);
-
-    let mut account_states_after_fee_payer = accounts_accessed.iter().map(|id| {
-        let loc = ledger.location_of_account(id);
-        let a = loc.as_ref().and_then(|loc| ledger.get(loc));
-
-        match a {
-            Some(a) => (id, Some((loc.unwrap(), a))),
-            None => (id, None),
-        }
-    });
-
-    let _original_account_states = original_account_states.clone();
-    let accounts = || {
-        _original_account_states.map(|(id, account)| (id.clone(), account.map(|(_loc, acc)| acc)))
-    };
-
-    match step_all(
-        constraint_constants,
-        f,
-        perform,
-        f(user_acc, start.clone()),
-        start,
-    ) {
-        Err(e) => Err(e),
-        Ok((s, failure_status_tbl)) => {
-            let account_ids_originally_not_in_ledger =
-                original_account_states.filter_map(|(acct_id, loc_and_acct)| {
-                    if loc_and_acct.is_none() {
-                        Some(acct_id)
-                    } else {
-                        None
-                    }
-                });
-            let successfully_applied = failure_status_tbl.is_empty();
-            let new_accounts = account_ids_originally_not_in_ledger
-                .filter_map(|acct_id| {
-                    let loc = ledger.location_of_account(acct_id);
-                    let acc = loc.and_then(|loc| ledger.get(&loc));
-                    match acc {
-                        Some(acc) if acc.id() == *acct_id => Some(acct_id.clone()),
-                        _ => None,
-                    }
-                })
-                .collect::<Vec<AccountId>>();
-
-            let valid_result = Ok((
-                ZkappCommandApplied {
-                    accounts: accounts().collect(),
-                    command: WithStatus::<ZkAppCommand> {
-                        data: c.clone(),
-                        status: if successfully_applied {
-                            TransactionStatus::Applied
-                        } else {
-                            TransactionStatus::Failed(failure_status_tbl)
-                        },
-                    },
-                    new_accounts: new_accounts.clone(),
-                },
-                s,
-            ));
-
-            if successfully_applied {
-                valid_result
-            } else {
-                let other_account_update_accounts_unchanged = account_states_after_fee_payer
-                    .fold_while(true, |acc, (_, loc_opt)| match loc_opt {
-                        Some((loc, a)) => match ledger.get(&loc) {
-                            Some(a_) if !(a == a_) => Done(false),
-                            _ => Continue(acc),
-                        },
-                        _ => Continue(acc),
-                    })
-                    .into_inner();
-                if new_accounts.is_empty() && other_account_update_accounts_unchanged {
-                    valid_result
-                } else {
-                    Err("Zkapp_command application failed but new accounts created or some of the other account_update updates applied".to_string())
-                }
-            }
-        }
-    }
-}
-
-
 pub mod transaction_partially_applied {
-    use super::{*, transaction_applied::{FeeTransferApplied, CoinbaseApplied}, local_state::LocalState};
+    use super::{
+        transaction_applied::{CoinbaseApplied, FeeTransferApplied},
+        *,
+    };
 
     #[derive(Debug)]
     pub struct ZkappCommandPartiallyApplied<L: LedgerIntf + Clone> {
@@ -3730,7 +3944,7 @@ pub mod transaction_partially_applied {
     #[derive(Debug)]
     pub struct FullyApplied<T> {
         pub previous_hash: Fp,
-        pub applied: T
+        pub applied: T,
     }
 
     #[derive(Debug)]
@@ -3746,12 +3960,12 @@ pub mod transaction_partially_applied {
             use Transaction as T;
 
             match self {
-                Self::SignedCommand(s) => {
-                    T::Command(UserCommand::SignedCommand(Box::new(s.applied.common.user_command.data.clone())))
-                },
+                Self::SignedCommand(s) => T::Command(UserCommand::SignedCommand(Box::new(
+                    s.applied.common.user_command.data.clone(),
+                ))),
                 Self::ZkappCommand(z) => {
                     T::Command(UserCommand::ZkAppCommand(Box::new(z.command.clone())))
-                },
+                }
                 Self::FeeTransfer(ft) => T::FeeTransfer(ft.applied.fee_transfer.data.clone()),
                 Self::Coinbase(cb) => T::Coinbase(cb.applied.coinbase.data.clone()),
             }
@@ -3759,7 +3973,7 @@ pub mod transaction_partially_applied {
     }
 }
 
-use transaction_partially_applied::TransactionPartiallyApplied;
+use transaction_partially_applied::{TransactionPartiallyApplied, ZkappCommandPartiallyApplied};
 
 pub fn apply_transaction_first_pass<L>(
     constraint_constants: &ConstraintConstants,
@@ -3768,41 +3982,6 @@ pub fn apply_transaction_first_pass<L>(
     ledger: &mut L,
     transaction: &Transaction,
 ) -> Result<TransactionPartiallyApplied<L>, String>
-where
-    L: LedgerIntf + Clone,
-{
-    todo!()
-}
-
-pub fn apply_transaction_second_pass<L>(
-    ledger: &mut L,
-    partial_transaction: TransactionPartiallyApplied<L>,
-) -> Result<TransactionApplied, String>
-where
-    L: LedgerIntf + Clone,
-{
-    todo!()
-}
-
-pub fn apply_transactions<L>(
-    constraint_constants: &ConstraintConstants,
-    global_slot: Slot,
-    txn_state_view: &ProtocolStateView,
-    ledger: &mut L,
-    transaction: &[&Transaction],
-) -> Result<TransactionPartiallyApplied<L>, String>
-where
-    L: LedgerIntf + Clone,
-{
-    todo!()
-}
-
-pub fn apply_transaction<L>(
-    constraint_constants: &ConstraintConstants,
-    txn_state_view: &ProtocolStateView,
-    ledger: &mut L,
-    transaction: &Transaction,
-) -> Result<TransactionApplied, String>
 where
     L: LedgerIntf + Clone,
 {
@@ -3820,25 +3999,117 @@ where
             ledger,
             cmd,
         )
-        .map(|applied| Varying::Command(CommandApplied::SignedCommand(Box::new(applied)))),
-        Command(ZkAppCommand(c)) => {
-            apply_zkapp_command_unchecked(constraint_constants, txn_state_view, ledger, c).map(
-                |(applied, _)| Varying::Command(CommandApplied::ZkappCommand(Box::new(applied))),
+        .map(|applied| {
+            TransactionPartiallyApplied::SignedCommand(FullyApplied {
+                previous_hash,
+                applied,
+            })
+        }),
+        Command(ZkAppCommand(txn)) => apply_zkapp_command_first_pass(
+            constraint_constants,
+            global_slot,
+            txn_state_view,
+            None,
+            None,
+            ledger,
+            txn,
+        )
+        .map(TransactionPartiallyApplied::ZkappCommand),
+        FeeTransfer(fee_transfer) => {
+            apply_fee_transfer(constraint_constants, txn_global_slot, ledger, fee_transfer).map(
+                |applied| {
+                    TransactionPartiallyApplied::FeeTransfer(FullyApplied {
+                        previous_hash,
+                        applied,
+                    })
+                },
             )
         }
-        FeeTransfer(fee_transfer) => {
-            apply_fee_transfer(constraint_constants, txn_global_slot, ledger, fee_transfer)
-                .map(Varying::FeeTransfer)
-        }
         Coinbase(coinbase) => {
-            apply_coinbase(constraint_constants, txn_global_slot, ledger, coinbase)
-                .map(Varying::Coinbase)
+            apply_coinbase(constraint_constants, txn_global_slot, ledger, coinbase).map(|applied| {
+                TransactionPartiallyApplied::Coinbase(FullyApplied {
+                    previous_hash,
+                    applied,
+                })
+            })
         }
     }
-    .map(|varying| TransactionApplied {
-        previous_hash,
-        varying,
-    })
+}
+
+pub fn apply_transaction_second_pass<L>(
+    ledger: &mut L,
+    partial_transaction: TransactionPartiallyApplied<L>,
+) -> Result<TransactionApplied, String>
+where
+    L: LedgerIntf + Clone,
+{
+    use TransactionPartiallyApplied as P;
+
+    match partial_transaction {
+        P::SignedCommand(FullyApplied {
+            previous_hash,
+            applied,
+        }) => Ok(TransactionApplied {
+            previous_hash,
+            varying: Varying::Command(CommandApplied::SignedCommand(Box::new(applied))),
+        }),
+        P::ZkappCommand(partially_applied) => {
+            // TODO(OCaml): either here or in second phase of apply, need to update the
+            // prior global state statement for the fee payer segment to add the
+            // second phase ledger at the end
+
+            let previous_hash = partially_applied.previous_hash;
+            let applied = apply_zkapp_command_second_pass(ledger, partially_applied)?;
+
+            Ok(TransactionApplied {
+                previous_hash,
+                varying: Varying::Command(CommandApplied::ZkappCommand(Box::new(applied))),
+            })
+        }
+        P::FeeTransfer(FullyApplied {
+            previous_hash,
+            applied,
+        }) => Ok(TransactionApplied {
+            previous_hash,
+            varying: Varying::FeeTransfer(applied),
+        }),
+        P::Coinbase(FullyApplied {
+            previous_hash,
+            applied,
+        }) => Ok(TransactionApplied {
+            previous_hash,
+            varying: Varying::Coinbase(applied),
+        }),
+    }
+}
+
+pub fn apply_transactions<L>(
+    constraint_constants: &ConstraintConstants,
+    global_slot: Slot,
+    txn_state_view: &ProtocolStateView,
+    ledger: &mut L,
+    txns: &[&Transaction],
+) -> Result<Vec<TransactionApplied>, String>
+where
+    L: LedgerIntf + Clone,
+{
+    let first_pass: Vec<_> = txns
+        .into_iter()
+        .map(|txn| {
+            apply_transaction_first_pass(
+                constraint_constants,
+                global_slot,
+                txn_state_view,
+                ledger,
+                txn,
+            )
+        })
+        .collect::<Result<Vec<TransactionPartiallyApplied<_>>, _>>()?;
+
+    first_pass
+        .into_iter()
+        .map(|partial_transaction| apply_transaction_second_pass(ledger, partial_transaction))
+        .collect()
 }
 
 /// Structure of the failure status:
@@ -4277,13 +4548,13 @@ where
     match ledger.location_of_account(receiver_account_id) {
         None => {
             // new account, check that default permissions allow receiving
-            let perm = init_account.has_permission_to(Receive);
+            let perm = init_account.has_permission_to(ControlTag::NoneGiven, Receive);
             (init_account, Added, HasPermissionToReceive(perm))
         }
         Some(location) => match ledger.get(&location) {
             None => panic!("Ledger location with no account"),
             Some(receiver_account) => {
-                let perm = receiver_account.has_permission_to(Receive);
+                let perm = receiver_account.has_permission_to(ControlTag::NoneGiven, Receive);
                 (receiver_account, Existed, HasPermissionToReceive(perm))
             }
         },
@@ -4346,7 +4617,10 @@ where
         signed_command::Body::StakeDelegation(_) => {
             let (source_location, mut source_account) = get_with_location(ledger, &source).unwrap();
 
-            if !source_account.has_permission_to(PermissionTo::SetDelegate) {
+            if !(source_account.has_permission_to(ControlTag::Signature, PermissionTo::Access)
+                && source_account
+                    .has_permission_to(ControlTag::Signature, PermissionTo::SetDelegate))
+            {
                 return Err(TransactionFailure::UpdateNotPermittedDelegate);
             }
 
@@ -4379,7 +4653,9 @@ where
             let (receiver_location, mut receiver_account) =
                 get_with_location(ledger, &receiver).unwrap();
 
-            if !receiver_account.has_permission_to(PermissionTo::Receive) {
+            if !(receiver_account.has_permission_to(ControlTag::NoneGiven, PermissionTo::Access)
+                && receiver_account.has_permission_to(ControlTag::NoneGiven, PermissionTo::Receive))
+            {
                 return Err(TransactionFailure::UpdateNotPermittedBalance);
             }
 
@@ -4440,7 +4716,9 @@ where
                 ret?
             };
 
-            if !source_account.has_permission_to(PermissionTo::Send) {
+            if !(source_account.has_permission_to(ControlTag::Signature, PermissionTo::Access)
+                && source_account.has_permission_to(ControlTag::Signature, PermissionTo::Send))
+            {
                 return Err(TransactionFailure::UpdateNotPermittedBalance);
             }
 
@@ -4505,7 +4783,9 @@ where
     let (fee_payer_location, fee_payer_account) =
         pay_fee(user_command, signer_pk, ledger, current_global_slot)?;
 
-    if !fee_payer_account.has_permission_to(PermissionTo::Send) {
+    if !(fee_payer_account.has_permission_to(crate::ControlTag::Signature, PermissionTo::Access)
+        && fee_payer_account.has_permission_to(crate::ControlTag::Signature, PermissionTo::Send))
+    {
         return Err(TransactionFailure::UpdateNotPermittedBalance.to_string());
     }
 
@@ -5195,6 +5475,7 @@ where
     l
 }
 
+#[cfg(test)]
 pub mod for_tests {
     use std::collections::{HashMap, HashSet};
 
@@ -5237,7 +5518,6 @@ pub mod for_tests {
         pub sender: (Keypair, Nonce),
         pub receiver: CompressedPubKey,
         pub amount: Amount,
-        pub receiver_is_new: bool,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/transaction_logic/mina_transaction_logic.ml#L2283
@@ -5248,7 +5528,9 @@ pub mod for_tests {
     }
 
     impl InitLedger {
-        pub fn init(&self, ledger: &mut impl LedgerIntf) {
+        pub fn init(&self, zkapp: Option<bool>, ledger: &mut impl LedgerIntf) {
+            let zkapp = zkapp.unwrap_or(true);
+
             self.0.iter().for_each(|(kp, amount)| {
                 let (_tag, mut account, loc) = ledger
                     .get_or_create(&AccountId::new(
@@ -5256,7 +5538,38 @@ pub mod for_tests {
                         TokenId::default(),
                     ))
                     .unwrap();
+
+                use AuthRequired::Either;
+                let permissions = Permissions {
+                    edit_state: Either,
+                    access: AuthRequired::None,
+                    send: Either,
+                    receive: AuthRequired::None,
+                    set_delegate: Either,
+                    set_permissions: Either,
+                    set_verification_key: Either,
+                    set_zkapp_uri: Either,
+                    edit_sequence_state: Either,
+                    set_token_symbol: Either,
+                    increment_nonce: Either,
+                    set_voting_for: Either,
+                    set_timing: Either,
+                };
+
+                let zkapp = if zkapp {
+                    let mut zkapp = ZkAppAccount::default();
+
+                    // TODO: Hash is `Fp::zero` here
+                    zkapp.verification_key = Some(crate::dummy::trivial_verification_key());
+                    Some(zkapp)
+                } else {
+                    None
+                };
+
                 account.balance = Balance::from_u64(*amount);
+                account.permissions = permissions;
+                account.zkapp = zkapp;
+
                 ledger.set(&loc, account);
             });
         }
@@ -5336,7 +5649,6 @@ pub mod for_tests {
                 sender: (sender, nonce),
                 receiver,
                 amount,
-                receiver_is_new,
             }
         }
     }

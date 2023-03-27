@@ -11,8 +11,9 @@ use mina_p2p_messages::{
         CurrencyFeeStableV1, DataHashLibStateHashStableV1, EpochSeed, LedgerProofProdStableV2,
         MinaBaseAccountIdDigestStableV1, MinaBaseAccountIdStableV2,
         MinaBaseAccountUpdateBodyEventsStableV1, MinaBaseAccountUpdateBodyFeePayerStableV1,
-        MinaBaseAccountUpdateFeePayerStableV1, MinaBaseAccountUpdatePreconditionsStableV1,
-        MinaBaseAccountUpdateUpdateStableV1,
+        MinaBaseAccountUpdateBodyStableV1, MinaBaseAccountUpdateFeePayerStableV1,
+        MinaBaseAccountUpdateMayUseTokenStableV1, MinaBaseAccountUpdatePreconditionsStableV1,
+        MinaBaseAccountUpdateTStableV1, MinaBaseAccountUpdateUpdateStableV1,
         MinaBaseAccountUpdateUpdateStableV1AppStateA,
         MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseCallStackDigestStableV1,
         MinaBaseCoinbaseFeeTransferStableV1, MinaBaseCoinbaseStableV1, MinaBaseEpochSeedStableV1,
@@ -23,11 +24,11 @@ use mina_p2p_messages::{
         MinaBaseReceiptChainHashStableV1, MinaBaseSignedCommandMemoStableV1,
         MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandPayloadCommonStableV2,
         MinaBaseSignedCommandPayloadStableV2, MinaBaseSignedCommandStableV2,
-        MinaBaseSokMessageStableV1, MinaBaseStackFrameStableV1,
-        MinaBaseStakeDelegationStableV1, MinaBaseStateBodyHashStableV1,
-        MinaBaseTransactionStatusFailureCollectionStableV1,
+        MinaBaseSokMessageStableV1, MinaBaseStackFrameStableV1, MinaBaseStakeDelegationStableV1,
+        MinaBaseStateBodyHashStableV1, MinaBaseTransactionStatusFailureCollectionStableV1,
         MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2,
-        MinaBaseUserCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1,
+        MinaBaseUserCommandStableV2, MinaBaseZkappAccountZkappUriStableV1,
+        MinaBaseZkappCommandTStableV1WireStableV1,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA,
@@ -38,6 +39,9 @@ use mina_p2p_messages::{
         MinaBaseZkappPreconditionProtocolStateStableV1AmountA,
         MinaBaseZkappPreconditionProtocolStateStableV1Length,
         MinaBaseZkappPreconditionProtocolStateStableV1LengthA,
+        MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+        MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
+        MinaStateSnarkedLedgerStateStableV2, MinaStateSnarkedLedgerStateWithSokStableV2,
         MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2,
         MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2Coinbase,
         MinaTransactionLogicTransactionAppliedCommandAppliedStableV2,
@@ -55,8 +59,7 @@ use mina_p2p_messages::{
         MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount, SgnStableV1,
         StateHash, TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
         TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
-        UnsignedExtendedUInt32StableV1,
-        UnsignedExtendedUInt64Int64ForVersionTagsStableV1, MinaStateSnarkedLedgerStateWithSokStableV2, MinaStateBlockchainStateValueStableV2LedgerProofStatementSource, MinaStateBlockchainStateValueStableV2LedgerProofStatement, MinaBaseZkappAccountZkappUriStableV1, MinaBaseAccountUpdateTStableV1, MinaBaseAccountUpdateBodyStableV1, MinaStateSnarkedLedgerStateStableV2, MinaBaseAccountUpdateMayUseTokenStableV1,
+        UnsignedExtendedUInt32StableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
 use mina_signer::Signature;
@@ -474,8 +477,14 @@ impl From<&Statement<SokDigest>> for MinaStateSnarkedLedgerStateWithSokStableV2 
         Self {
             source: (&value.source).into(),
             target: (&value.target).into(),
-            connecting_ledger_left: MinaBaseLedgerHash0StableV1((&value.connecting_ledger_left).into()).into(),
-            connecting_ledger_right: MinaBaseLedgerHash0StableV1((&value.connecting_ledger_right).into()).into(),
+            connecting_ledger_left: MinaBaseLedgerHash0StableV1(
+                (&value.connecting_ledger_left).into(),
+            )
+            .into(),
+            connecting_ledger_right: MinaBaseLedgerHash0StableV1(
+                (&value.connecting_ledger_right).into(),
+            )
+            .into(),
             supply_increase: (&value.supply_increase).into(),
             fee_excess: (&value.fee_excess).into(),
             sok_digest: MinaBaseZkappAccountZkappUriStableV1(value.sok_digest.as_slice().into()),
@@ -919,12 +928,12 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
                 AccountPreconditions::Accept => MAccount::Accept,
             },
             valid_while: match value.valid_while {
-                OrIgnore::Check(valid_while) => MLength::Check(
-                    MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
+                OrIgnore::Check(valid_while) => {
+                    MLength::Check(MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
                         lower: (&valid_while.lower).into(),
                         upper: (&valid_while.upper).into(),
-                    },
-                ),
+                    })
+                }
                 OrIgnore::Ignore => MLength::Ignore,
             },
         }
@@ -1599,8 +1608,14 @@ impl From<&Statement<()>> for MinaStateBlockchainStateValueStableV2LedgerProofSt
             supply_increase: (&value.supply_increase).into(),
             fee_excess: (&value.fee_excess).into(),
             sok_digest: (),
-            connecting_ledger_left: MinaBaseLedgerHash0StableV1((&value.connecting_ledger_left).into()).into(),
-            connecting_ledger_right: MinaBaseLedgerHash0StableV1((&value.connecting_ledger_right).into()).into(),
+            connecting_ledger_left: MinaBaseLedgerHash0StableV1(
+                (&value.connecting_ledger_left).into(),
+            )
+            .into(),
+            connecting_ledger_right: MinaBaseLedgerHash0StableV1(
+                (&value.connecting_ledger_right).into(),
+            )
+            .into(),
         }
     }
 }

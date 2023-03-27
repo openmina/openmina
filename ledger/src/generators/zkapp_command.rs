@@ -21,18 +21,16 @@ use crate::{
         zkapp_command_builder, ACCOUNT_CREATION_FEE, MAX_ACCOUNT_UPDATES, MAX_TOKEN_UPDATES,
     },
     scan_state::{
-        currency::{
-            Amount, Balance, Fee, Index, Length, Magnitude, Nonce, Sgn,
-            Signed, Slot,
-        },
+        currency::{Amount, Balance, Fee, Index, Length, Magnitude, Nonce, Sgn, Signed, Slot},
         transaction_logic::{
             cons_zkapp_command_commitment,
             protocol_state::{self, ProtocolStateView},
             receipt,
             zkapp_command::{
                 self, AccountPreconditions, AccountUpdateSimple, AuthorizationKind, CallForest,
-                ClosedInterval, Control, FeePayer, FeePayerBody, Numeric, OrIgnore, Preconditions,
-                SetOrKeep, Update, WithHash, WithStackHash, ZkAppCommand, ZkAppPreconditions, MayUseToken,
+                ClosedInterval, Control, FeePayer, FeePayerBody, MayUseToken, Numeric, OrIgnore,
+                Preconditions, SetOrKeep, Update, WithHash, WithStackHash, ZkAppCommand,
+                ZkAppPreconditions,
             },
             Memo,
         },
@@ -123,8 +121,7 @@ fn gen_invalid_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPrec
             let total_currency = {
                 let epsilon = Amount::from_u64(rng.gen_range(
                     Amount::of_nanomina_int_exn(1_000).as_u64()
-                        ..
-                    Amount::of_mina_int_exn(1).as_u64()
+                        ..Amount::of_mina_int_exn(1).as_u64(),
                 ));
 
                 if lower || psv.total_currency > epsilon {
@@ -806,8 +803,12 @@ fn gen_account_update_body_components<A, B, C, D>(
         Some(global_slot) => OrIgnore::gen(|| {
             let epsilon = || Slot::from_u32(rng.gen_range(0..10));
 
-            let lower = global_slot.checked_sub(&epsilon()).unwrap_or_else(Slot::zero);
-            let upper = global_slot.checked_add(&epsilon()).unwrap_or_else(Slot::max);
+            let lower = global_slot
+                .checked_sub(&epsilon())
+                .unwrap_or_else(Slot::zero);
+            let upper = global_slot
+                .checked_add(&epsilon())
+                .unwrap_or_else(Slot::max);
 
             ClosedInterval { lower, upper }
         }),
@@ -824,10 +825,11 @@ fn gen_account_update_body_components<A, B, C, D>(
         None => [
             MayUseToken::InheritFromParent,
             MayUseToken::No,
-            MayUseToken::ParentsOwnToken
-        ].choose(&mut rng)
-         .cloned()
-         .unwrap(),
+            MayUseToken::ParentsOwnToken,
+        ]
+        .choose(&mut rng)
+        .cloned()
+        .unwrap(),
         Some(may_use_token) => may_use_token,
     };
 
@@ -1786,8 +1788,8 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
     let zkapp_command_dummy_authorizations = ZkAppCommand {
         fee_payer,
         account_updates: {
-
-            let mut account_updates = account_updates.map_to(|account| zkapp_command::AccountUpdate::of_simple(account));
+            let mut account_updates =
+                account_updates.map_to(|account| zkapp_command::AccountUpdate::of_simple(account));
             // let mut account_updates = account_updates.into_add_callers_simple();
 
             // TODO: accumulate_hashes_predicated ?

@@ -130,16 +130,6 @@ fn assert_with_failure_status_tbl(b: bool, failure_status_tbl: Vec<Vec<Transacti
     }
 }
 
-pub fn set_ledger<L>(should_update: bool, mut t: GlobalState<L>, ledger: L) -> GlobalState<L>
-where
-    L: LedgerIntf + Clone,
-{
-    if should_update {
-        t.ledger.apply_mask(ledger);
-    }
-    t
-}
-
 // https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/mina_ledger/ledger.ml#L211
 fn empty_ledger(depth: usize) -> Mask {
     let mask = Mask::new_unattached(depth);
@@ -258,13 +248,13 @@ pub fn make_zkapp(a: Account) -> Account {
 
 pub fn update_sequence_state(
     sequence_state: [Fp; 5],
-    sequence_events: Actions,
+    actions: Actions,
     txn_global_slot: Slot,
     last_sequence_slot: Slot,
 ) -> ([Fp; 5], Slot) {
     let [_s1, _s2, _s3, _s4, _s5] = sequence_state;
-    let is_empty = sequence_events.is_empty();
-    let s1_updated = sequence_events.push_events(_s1);
+    let is_empty = actions.is_empty();
+    let s1_updated = actions.push_events(_s1);
     let s1 = if let true = is_empty { _s1 } else { s1_updated };
     let is_this_slot = txn_global_slot == last_sequence_slot;
     let is_empty_or_this_slot = is_empty || is_this_slot;

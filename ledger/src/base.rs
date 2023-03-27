@@ -292,8 +292,19 @@ impl LedgerIntf for Mask {
         root.make_child()
     }
 
+    /// Create a ledger as a mask on top of the existing ledger.
+    /// Warning: This skips mask registration, for use in transaction logic,
+    /// where we always have either 0 or 1 masks, and the mask is always either
+    /// committed or discarded. This function is deliberately not exposed in the
+    /// public API of this module.
+    /// This should *NOT* be used to create a ledger for other purposes.
     fn create_masked(&self) -> Self {
-        todo!()
+        let mask = Mask::new_unattached(self.depth() as usize);
+        // We don't register the mask here. This is only used in transaction logic,
+        // where we don't want to unregister. Transaction logic is also
+        // synchronous, so we don't need to worry that our mask will be reparented.
+
+        mask.set_parent(self.clone(), None)
     }
 
     fn apply_mask(&mut self, mask: Self) {

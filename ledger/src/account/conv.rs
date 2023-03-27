@@ -8,8 +8,8 @@ use mina_p2p_messages::{
         MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,
         MinaBaseAccountIdStableV2, MinaBaseAccountTimingStableV1,
         MinaBasePermissionsAuthRequiredStableV2, MinaBasePermissionsStableV2,
-        MinaBaseVerificationKeyWireStableV1,
-        NonZeroCurvePointUncompressedStableV1, PicklesBaseProofsVerifiedStableV1, TokenIdKeyHash, MinaBaseVerificationKeyWireStableV1WrapIndex,
+        MinaBaseVerificationKeyWireStableV1, MinaBaseVerificationKeyWireStableV1WrapIndex,
+        NonZeroCurvePointUncompressedStableV1, PicklesBaseProofsVerifiedStableV1, TokenIdKeyHash,
     },
 };
 
@@ -116,16 +116,17 @@ impl From<&MinaBaseVerificationKeyWireStableV1> for VerificationKey {
         let MinaBaseVerificationKeyWireStableV1 {
             max_proofs_verified,
             actual_wrap_domain_size,
-            wrap_index: MinaBaseVerificationKeyWireStableV1WrapIndex {
-                sigma_comm,
-                coefficients_comm,
-                generic_comm,
-                psm_comm,
-                complete_add_comm,
-                mul_comm,
-                emul_comm,
-                endomul_scalar_comm,
-            }
+            wrap_index:
+                MinaBaseVerificationKeyWireStableV1WrapIndex {
+                    sigma_comm,
+                    coefficients_comm,
+                    generic_comm,
+                    psm_comm,
+                    complete_add_comm,
+                    mul_comm,
+                    emul_comm,
+                    endomul_scalar_comm,
+                },
         } = vk;
 
         let sigma = array_into(sigma_comm);
@@ -163,7 +164,7 @@ impl From<&VerificationKey> for MinaBaseVerificationKeyWireStableV1 {
             max_proofs_verified,
             actual_wrap_domain_size,
             wrap_index,
-            wrap_vk: _ // Unused
+            wrap_vk: _, // Unused
         } = vk;
 
         Self {
@@ -288,7 +289,9 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
                         (zkapp.last_sequence_slot.as_u32() as i32).into(),
                     ),
                     proved_state: zkapp.proved_state,
-                    zkapp_uri: MinaBaseZkappAccountZkappUriStableV1(zkapp.zkapp_uri.as_bytes().into()),
+                    zkapp_uri: MinaBaseZkappAccountZkappUriStableV1(
+                        zkapp.zkapp_uri.as_bytes().into(),
+                    ),
                 }
             }),
         }
@@ -430,7 +433,7 @@ impl From<&MinaBasePermissionsStableV2> for Permissions<AuthRequired> {
             set_token_symbol,
             increment_nonce,
             set_voting_for,
-            set_timing
+            set_timing,
         } = perms;
 
         Permissions {
