@@ -6,6 +6,8 @@ pub use identity::PeerId;
 
 pub mod webrtc;
 
+pub mod service_impl;
+
 mod p2p_actions;
 pub use p2p_actions::*;
 
