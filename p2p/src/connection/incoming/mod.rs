@@ -13,7 +13,7 @@ pub use p2p_connection_incoming_effects::*;
 use serde::{Deserialize, Serialize};
 
 // TODO(binier): maybe move to `crate::webrtc`?
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
 pub enum IncomingSignalingMethod {
     Http,
 }

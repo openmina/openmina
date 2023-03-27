@@ -20,11 +20,11 @@ impl FromStr for HttpSignalingInfo {
     type Err = SignalingMethodParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut iter = s.split('/').filter(|v| v.trim().is_empty());
+        let mut iter = s.split('/').filter(|v| !v.trim().is_empty());
         let host_str = iter
             .next()
             .ok_or(SignalingMethodParseError::NotEnoughArgs)?;
-        let host = url::Host::parse(host_str)
+        let host = url::Host::parse(dbg!(host_str))
             .map_err(|err| SignalingMethodParseError::HostParseError(err.to_string()))?;
 
         let port = iter

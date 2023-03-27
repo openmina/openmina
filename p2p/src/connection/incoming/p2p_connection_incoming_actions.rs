@@ -38,6 +38,13 @@ impl P2pConnectionIncomingAction {
     }
 }
 
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
+pub struct P2pConnectionIncomingInitOpts {
+    pub peer_id: PeerId,
+    pub signaling: IncomingSignalingMethod,
+    pub offer: webrtc::Offer,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pConnectionIncomingInitAction {
     pub peer_id: PeerId,
@@ -53,7 +60,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingInitAction {
             && state
                 .peers
                 .get(&self.peer_id)
-                .map_or(false, |p| match &p.status {
+                .map_or(true, |p| match &p.status {
                     P2pPeerStatus::Connecting(s) => s.is_error() || !s.is_success(),
                     // TODO(binier): some time must have passed since disconnection.
                     P2pPeerStatus::Disconnected { .. } => true,

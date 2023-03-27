@@ -19,7 +19,7 @@ impl P2pConnectionState {
         })
     }
 
-    pub fn outgoing_rpc_id(&self) -> Option<RpcId> {
+    pub fn rpc_id(&self) -> Option<RpcId> {
         match self {
             Self::Outgoing(v) => v.rpc_id(),
             Self::Incoming(v) => v.rpc_id(),

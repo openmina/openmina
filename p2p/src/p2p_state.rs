@@ -24,8 +24,8 @@ impl P2pState {
         }
     }
 
-    pub fn peer_connection_outgoing_rpc_id(&self, peer_id: &PeerId) -> Option<RpcId> {
-        self.peers.get(peer_id)?.connection_outgoing_rpc_id()
+    pub fn peer_connection_rpc_id(&self, peer_id: &PeerId) -> Option<RpcId> {
+        self.peers.get(peer_id)?.connection_rpc_id()
     }
 
     /// Get peer in ready state. `None` if peer isn't in `Ready` state,
@@ -102,9 +102,9 @@ pub struct P2pPeerState {
 }
 
 impl P2pPeerState {
-    pub fn connection_outgoing_rpc_id(&self) -> Option<RpcId> {
+    pub fn connection_rpc_id(&self) -> Option<RpcId> {
         match &self.status {
-            P2pPeerStatus::Connecting(v) => v.outgoing_rpc_id(),
+            P2pPeerStatus::Connecting(v) => v.rpc_id(),
             _ => None,
         }
     }
