@@ -45,17 +45,18 @@ impl FromStr for PublicKey {
     type Err = PublicKeyFromStrError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut bytes = [0u8; 32];
+        let mut bytes = [0u8; 37];
         let size = bs58::decode(s)
             .with_check(Some(Self::BASE58_CHECK_VERSION))
             .into(&mut bytes)
             .map_err(|err| PublicKeyFromStrError::Bs58(err.to_string()))?;
-        if size != 32 {
+        if size != 33 {
             return Err(PublicKeyFromStrError::Bs58(
                 bs58::decode::Error::BufferTooSmall.to_string(),
             ));
         }
-        Self::from_bytes(bytes).map_err(|err| PublicKeyFromStrError::Ed25519(err.to_string()))
+        Self::from_bytes(bytes[1..33].try_into().unwrap())
+            .map_err(|err| PublicKeyFromStrError::Ed25519(err.to_string()))
     }
 }
 

@@ -1,17 +1,15 @@
 use redux::ActionMeta;
 
-use crate::connection::P2pConnectionState;
+use crate::P2pPeerReadyAction;
 use crate::{connection::P2pConnectionService, webrtc};
-use crate::{P2pPeerReadyAction, P2pPeerStatus};
 
 use super::{
-    IncomingSignalingMethod, P2pConnectionIncomingAnswerReadyAction,
-    P2pConnectionIncomingAnswerSdpCreatePendingAction,
+    P2pConnectionIncomingAnswerReadyAction, P2pConnectionIncomingAnswerSdpCreatePendingAction,
     P2pConnectionIncomingAnswerSdpCreateSuccessAction,
     P2pConnectionIncomingAnswerSendSuccessAction, P2pConnectionIncomingErrorAction,
     P2pConnectionIncomingFinalizeErrorAction, P2pConnectionIncomingFinalizePendingAction,
     P2pConnectionIncomingFinalizeSuccessAction, P2pConnectionIncomingInitAction,
-    P2pConnectionIncomingState, P2pConnectionIncomingSuccessAction,
+    P2pConnectionIncomingSuccessAction,
 };
 
 impl P2pConnectionIncomingInitAction {
@@ -53,18 +51,6 @@ impl P2pConnectionIncomingAnswerReadyAction {
         Store::Service: P2pConnectionService,
         P2pConnectionIncomingAnswerSendSuccessAction: redux::EnablingCondition<S>,
     {
-        let (state, service) = store.state_and_service();
-        let Some(peer) = state.peers.get(&self.peer_id) else { return };
-        let P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-            P2pConnectionIncomingState::AnswerReady { signaling, .. },
-        )) = &peer.status else { return };
-        // TODO(binier): use dial_opts from outgoing state instead.
-        service.set_answer(self.peer_id, self.answer.clone());
-        match signaling {
-            IncomingSignalingMethod::Http => {
-                service.http_signaling_respond(self.answer);
-            }
-        }
         store.dispatch(P2pConnectionIncomingAnswerSendSuccessAction {
             peer_id: self.peer_id,
         });

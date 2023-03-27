@@ -4,6 +4,7 @@ cargo-features = ["named-profiles"]
 members = [
     "cli",
     "p2p",
+    "snarker",
     "node/shared",
     "node/p2p",
     "node/lib",

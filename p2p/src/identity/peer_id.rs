@@ -57,14 +57,15 @@ impl FromStr for PeerId {
     type Err = bs58::decode::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut bytes = [0u8; 32];
+        let mut bytes = [0u8; 37];
+
         let size = bs58::decode(s)
             .with_check(Some(Self::BASE58_CHECK_VERSION))
             .into(&mut bytes)?;
-        if size != 32 {
+        if size != 33 {
             return Err(bs58::decode::Error::BufferTooSmall);
         }
-        Ok(Self::from_bytes(bytes))
+        Ok(Self::from_bytes(bytes[1..33].try_into().unwrap()))
     }
 }
 
@@ -98,5 +99,17 @@ impl<'de> serde::Deserialize<'de> for PeerId {
         } else {
             Ok(Self(Deserialize::deserialize(deserializer)?))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_peer_id_bs58() {
+        let s = "2bEgBrPTzL8wov2D4Kz34WVLCxR4uCarsBmHYXWKQA5wvBQzd9H";
+        let id: PeerId = s.parse().unwrap();
+        assert_eq!(s, id.to_string());
     }
 }
