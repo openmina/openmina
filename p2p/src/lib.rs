@@ -12,6 +12,9 @@ pub use p2p_actions::*;
 mod p2p_config;
 pub use p2p_config::*;
 
+mod p2p_event;
+pub use p2p_event::*;
+
 mod p2p_state;
 pub use p2p_state::*;
 

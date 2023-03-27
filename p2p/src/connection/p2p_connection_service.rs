@@ -16,11 +16,7 @@ pub trait P2pConnectionService: redux::Service {
     /// which will be received in the state machine as an event.
     fn incoming_init(&mut self, peer_id: PeerId, offer: webrtc::Offer);
 
-    fn set_offer(&mut self, peer_id: PeerId, offer: webrtc::Offer);
-
     fn set_answer(&mut self, peer_id: PeerId, answer: webrtc::Answer);
 
-    fn http_signaling_request(&mut self, url: String, signal: webrtc::Offer);
-
-    fn http_signaling_respond(&mut self, answer: webrtc::Answer);
+    fn http_signaling_request(&mut self, url: String, offer: webrtc::Offer);
 }

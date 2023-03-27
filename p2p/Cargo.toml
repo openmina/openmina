@@ -7,10 +7,12 @@ license = "Apache-2.0"
 [dependencies]
 thiserror = "1.0.37"
 serde = "1.0.147"
+serde_json = "1.0.94"
 strum = "0.24.1"
 strum_macros = "0.24.3"
 derive_more = "0.99.17"
 bs58 = "0.4.0"
+anyhow = "1.0.70"
 ecies-ed25519 = "0.5.1"
 ed25519-dalek = { version = "1.0.1", features = ["serde"] }
 

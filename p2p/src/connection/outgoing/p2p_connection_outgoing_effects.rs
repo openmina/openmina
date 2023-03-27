@@ -91,7 +91,6 @@ impl P2pConnectionOutgoingOfferReadyAction {
         let signaling_method = &opts.signaling;
         match signaling_method {
             webrtc::SignalingMethod::Http(_) | webrtc::SignalingMethod::Https(_) => {
-                service.set_offer(self.peer_id, self.offer.clone());
                 let Some(url) = signaling_method.http_url() else { return };
                 service.http_signaling_request(url, self.offer);
             }

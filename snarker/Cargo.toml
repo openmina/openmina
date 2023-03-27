@@ -1,5 +1,5 @@
 [package]
-name = "lib"
+name = "snarker"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -13,12 +13,10 @@ derive_more = "0.99.17"
 thiserror = "1.0.37"
 num_enum = "0.5.7"
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
-libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", branch = "new-types-feb-23", features = ["hashing"] }
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", branch = "main", features = ["hashing"] }
 
-shared = { path = "../shared" }
-node-p2p = { path = "../p2p" }
-snark = { path = "../snark" }
+shared = { path = "../node/shared" }
+p2p = { path = "../p2p" }
 
 [build-dependencies]
 regex = "1"
