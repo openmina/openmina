@@ -1,6 +1,6 @@
 use crate::scan_state::{
     scan_state::transaction_snark::LedgerProofWithSokMessage,
-    transaction_logic::{valid, verifiable},
+    transaction_logic::{valid, verifiable, WithStatus},
 };
 
 use self::common::CheckResult;
@@ -9,17 +9,17 @@ use self::common::CheckResult;
 pub struct Verifier;
 
 impl Verifier {
-    pub fn verify(&self, _proofs: &[LedgerProofWithSokMessage]) -> Result<bool, String> {
+    pub fn verify(&self, _proofs: &[LedgerProofWithSokMessage]) -> Result<Result<(), ()>, String> {
         // Implement verification later
         //
         // https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/pickles/pickles.ml#L1122
         // https://viable-systems.slack.com/archives/D01SVA87PQC/p1671715846448749
-        Ok(true)
+        Ok(Ok(()))
     }
 
     pub fn verify_commands(
         &self,
-        cmds: Vec<verifiable::UserCommand>,
+        cmds: Vec<WithStatus<verifiable::UserCommand>>,
     ) -> Result<Vec<valid::UserCommand>, VerifierError> {
         // TODO
 
@@ -51,7 +51,7 @@ pub enum VerifierError {
 pub mod common {
     use mina_signer::CompressedPubKey;
 
-    use crate::scan_state::transaction_logic::{valid, verifiable, zkapp_command};
+    use crate::scan_state::transaction_logic::{valid, verifiable, zkapp_command, WithStatus};
 
     #[derive(Debug)]
     pub enum CheckResult {
@@ -64,10 +64,12 @@ pub mod common {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/verifier/common.ml#L29
-    pub fn check(cmd: verifiable::UserCommand) -> CheckResult {
+    pub fn check(cmd: WithStatus<verifiable::UserCommand>) -> CheckResult {
         use verifiable::UserCommand::{SignedCommand, ZkAppCommand};
 
-        match cmd {
+        // TODO: Implement
+
+        match cmd.data {
             SignedCommand(cmd) => {
                 if !cmd.check_valid_keys() {
                     let public_keys = cmd.public_keys().into_iter().cloned().collect();

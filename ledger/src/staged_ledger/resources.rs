@@ -19,7 +19,7 @@ use super::{
 
 #[derive(Clone)]
 pub struct Discarded {
-    pub commands_rev: Vec<WithStatus<valid::UserCommand>>,
+    pub commands_rev: Vec<valid::UserCommand>,
     pub completed_work: Vec<work::Checked>,
 }
 
@@ -38,7 +38,7 @@ impl std::fmt::Debug for Discarded {
 }
 
 impl Discarded {
-    fn add_user_command(&mut self, cmd: WithStatus<valid::UserCommand>) {
+    fn add_user_command(&mut self, cmd: valid::UserCommand) {
         self.commands_rev.push(cmd);
     }
 
@@ -56,7 +56,7 @@ pub enum IncreaseBy {
 pub struct Resources {
     max_space: u64,
     max_jobs: u64,
-    pub commands_rev: Vec<WithStatus<valid::UserCommand>>,
+    pub commands_rev: Vec<valid::UserCommand>,
     pub completed_work_rev: Vec<work::Checked>, // TODO: Use another container (VecDeque ?)
     fee_transfers: HashMap<HashableCompressedPubKey, Fee>,
     add_coinbase: bool,
@@ -292,7 +292,7 @@ impl Resources {
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1276
     pub fn init(
         constraint_constants: &ConstraintConstants,
-        uc_seq: Vec<WithStatus<valid::UserCommand>>,
+        uc_seq: Vec<valid::UserCommand>,
         mut cw_seq: Vec<work::Checked>,
         (slots, job_count): (u64, u64),
         receiver_pk: CompressedPubKey,
@@ -313,7 +313,7 @@ impl Resources {
 
         let fee_transfers = fee_transfers_map(singles.clone()).expect("OCaml throw here");
 
-        let budget1 = sum_fees(&uc_seq, |c| c.data.fee());
+        let budget1 = sum_fees(&uc_seq, |c| c.fee());
         let budget2 = sum_fees(singles.iter().filter(|(k, _)| k != &receiver_pk), |c| c.1);
 
         let budget = match (budget1, budget2) {
@@ -413,7 +413,7 @@ impl Resources {
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1379
     fn rebudget(&self) -> Result<Fee, String> {
         // get the correct coinbase and calculate the fee transfers
-        let payment_fees = sum_fees(&self.commands_rev, |c| c.data.fee());
+        let payment_fees = sum_fees(&self.commands_rev, |c| c.fee());
 
         let prover_fee_others =
             self.fee_transfers
@@ -581,7 +581,7 @@ impl Resources {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1476
-    pub fn discard_user_command(&mut self) -> Option<WithStatus<valid::UserCommand>> {
+    pub fn discard_user_command(&mut self) -> Option<valid::UserCommand> {
         if self.commands_rev.is_empty() {
             let update_fee_transfers =
                 |this: &mut Self,
@@ -617,7 +617,7 @@ impl Resources {
 
             let current_budget = self.budget.clone();
 
-            let to_be_discarded_fee = uc.data.fee();
+            let to_be_discarded_fee = uc.fee();
             self.discarded.add_user_command(uc.clone());
 
             let budget = match current_budget {

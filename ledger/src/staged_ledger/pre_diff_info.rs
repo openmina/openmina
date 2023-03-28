@@ -4,15 +4,16 @@ use mina_signer::CompressedPubKey;
 
 use crate::{
     scan_state::{
-        currency::{Amount, Fee, Magnitude},
+        currency::{Amount, Fee, Magnitude, Slot},
         scan_state::{group_list, transaction_snark::work, ConstraintConstants},
         transaction_logic::{
-            valid, Coinbase, CoinbaseFeeTransfer, FeeTransfer, GenericCommand, GenericTransaction,
-            SingleFeeTransfer, Transaction, TransactionStatus, UserCommand, WithStatus,
+            protocol_state::ProtocolStateView, valid, Coinbase, CoinbaseFeeTransfer, FeeTransfer,
+            GenericCommand, GenericTransaction, SingleFeeTransfer, Transaction, TransactionStatus,
+            UserCommand, WithStatus,
         },
     },
     verifier::VerifierError,
-    TokenId,
+    Mask, TokenId,
 };
 
 use super::diff::{self, with_valid_signatures_and_proofs, PreDiffOne, PreDiffTwo};
@@ -317,16 +318,21 @@ fn check_coinbase<A, B>(
         ))),
     }
 }
+// let compute_statuses
+//     ~(constraint_constants : Genesis_constants.Constraint_constants.t) ~diff
+//     ~coinbase_receiver ~coinbase_amount ~global_slot ~txn_state_view ~ledger =
 
-pub fn compute_statuses<Cmd, Tx, F>(
+pub fn compute_statuses<Cmd, Tx>(
     constraint_constants: &ConstraintConstants,
     diff: (
-        PreDiffTwo<work::Work, WithStatus<Cmd>>,
-        Option<PreDiffOne<work::Work, WithStatus<Cmd>>>,
+        PreDiffTwo<work::Work, Cmd>,
+        Option<PreDiffOne<work::Work, Cmd>>,
     ),
     coinbase_receiver: CompressedPubKey,
     coinbase_amount: Amount,
-    generate_status: &mut F,
+    global_slot: Slot,
+    txn_state_view: &ProtocolStateView,
+    ledger: &mut Mask,
 ) -> Result<
     (
         PreDiffTwo<work::Work, WithStatus<Cmd>>,
@@ -337,7 +343,6 @@ pub fn compute_statuses<Cmd, Tx, F>(
 where
     Cmd: GenericCommand + Clone,
     Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer>,
-    F: FnMut(Transaction) -> Result<TransactionStatus, String>,
 {
     todo!()
 
@@ -608,7 +613,7 @@ impl diff::Diff {
         PreDiffError,
     >
     where
-        F: Fn(Vec<&UserCommand>) -> Result<Vec<valid::UserCommand>, VerifierError>,
+        F: Fn(Vec<WithStatus<UserCommand>>) -> Result<Vec<valid::UserCommand>, VerifierError>,
     {
         let diff = self.validate_commands(check)?;
 

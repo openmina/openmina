@@ -11,7 +11,6 @@ use sha2::Sha256;
 
 use crate::{
     scan_state::{
-        fee_excess::FeeExcess,
         parallel_scan::{base, merge, JobStatus},
         pending_coinbase,
         scan_state::transaction_snark::{
@@ -42,7 +41,6 @@ use super::{
     parallel_scan::ParallelScan,
     snark_work,
     transaction_logic::{
-        apply_transaction,
         local_state::LocalState,
         protocol_state::{protocol_state_view, ProtocolStateView},
         transaction_applied::TransactionApplied,
@@ -447,20 +445,32 @@ pub mod transaction_snark {
                 supply_increase: statement.supply_increase,
                 fee_excess: statement.fee_excess,
                 sok_digest,
+                connecting_ledger_left: statement.connecting_ledger_left,
+                connecting_ledger_right: statement.connecting_ledger_right,
             };
 
             Self(TransactionSnark { statement, proof })
         }
 
         pub fn statement(&self) -> Statement<()> {
-            let statement = &self.0.statement;
+            let Statement {
+                source,
+                target,
+                connecting_ledger_left,
+                connecting_ledger_right,
+                supply_increase,
+                fee_excess,
+                sok_digest: _,
+            } = &self.0.statement;
 
             Statement::<()> {
-                source: statement.source.clone(),
-                target: statement.target.clone(),
-                supply_increase: statement.supply_increase,
-                fee_excess: statement.fee_excess.clone(),
+                source: source.clone(),
+                target: target.clone(),
+                supply_increase: *supply_increase,
+                fee_excess: fee_excess.clone(),
                 sok_digest: (),
+                connecting_ledger_left: *connecting_ledger_left,
+                connecting_ledger_right: *connecting_ledger_right,
             }
         }
 
@@ -1716,7 +1726,7 @@ impl ScanState {
         }
     }
 
-    fn get_staged_ledger_sync<L, F, ApplyFirst, ApplySecond, ApplyFirstSparse>(
+    pub fn get_staged_ledger_sync<L, F, ApplyFirst, ApplySecond, ApplyFirstSparse>(
         &self,
         ledger: &mut L,
         get_protocol_state: F,
@@ -2081,11 +2091,11 @@ pub enum Extracted {
 }
 
 #[derive(Debug)]
-struct TransactionsOrdered<T> {
-    first_pass: Vec<T>,
-    second_pass: Vec<T>,
-    previous_incomplete: Vec<T>,
-    current_incomplete: Vec<T>,
+pub struct TransactionsOrdered<T> {
+    pub first_pass: Vec<T>,
+    pub second_pass: Vec<T>,
+    pub previous_incomplete: Vec<T>,
+    pub current_incomplete: Vec<T>,
 }
 
 impl<T> TransactionsOrdered<T> {
@@ -2243,6 +2253,6 @@ impl TransactionsOrdered<TransactionWithWitness> {
     }
 }
 
-enum Pass {
+pub enum Pass {
     FirstPassLedgerHash(Fp),
 }

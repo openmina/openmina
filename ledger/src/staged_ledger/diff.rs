@@ -143,10 +143,10 @@ impl Diff {
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff.ml#L333
     pub fn validate_commands<F>(self, check: F) -> Result<with_valid_signatures::Diff, PreDiffError>
     where
-        F: Fn(Vec<&UserCommand>) -> Result<Vec<valid::UserCommand>, VerifierError>,
+        F: Fn(Vec<WithStatus<UserCommand>>) -> Result<Vec<valid::UserCommand>, VerifierError>,
     {
         let validate = |cmds: Vec<WithStatus<UserCommand>>| -> Result<Vec<WithStatus<valid::UserCommand>>, VerifierError> {
-            let valids = check(cmds.iter().map(|c| &c.data).collect())?;
+            let valids = check(cmds)?;
             Ok(valids.into_iter().zip(cmds).map(|(data, c)| {
                 WithStatus { data, status: c.status  }
             }).collect())

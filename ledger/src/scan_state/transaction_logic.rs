@@ -459,19 +459,6 @@ impl Coinbase {
         AccountId::new(self.receiver.clone(), TokenId::default())
     }
 
-    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/coinbase.ml#L51
-    pub fn accounts_accessed(&self) -> Vec<AccountId> {
-        let mut ids = Vec::with_capacity(2);
-
-        ids.push(self.receiver());
-
-        if let Some(fee_transfer) = self.fee_transfer.as_ref() {
-            ids.push(fee_transfer.receiver());
-        };
-
-        ids
-    }
-
     /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/coinbase.ml#L51
     pub fn account_access_statuses(
         &self,
@@ -840,10 +827,7 @@ pub mod zkapp_command {
     use std::rc::Rc;
 
     use ark_ff::{UniformRand, Zero};
-    use mina_p2p_messages::v2::{
-        MinaBaseAccountUpdateCallTypeStableV1, MinaBaseAccountUpdateTWireStableV1,
-        MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
-    };
+    use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
     use mina_signer::Signature;
     use rand::{seq::SliceRandom, Rng};
     //use rand::{seq::SliceRandom, Rng};
@@ -851,10 +835,7 @@ pub mod zkapp_command {
 
     use crate::{
         account, dummy, gen_keypair, hash_noinputs, hash_with_kimchi,
-        scan_state::{
-            conv::AsAccountUpdateWithHash,
-            currency::{Balance, BlockTime, Length, MinMax, Sgn, Signed, Slot},
-        },
+        scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot},
         AuthRequired, ControlTag, Inputs, MyCow, Permissions, ToInputs, TokenSymbol,
         VerificationKey, VotingFor, ZkAppUri,
     };
@@ -2496,97 +2477,6 @@ pub mod zkapp_command {
         }
     }
 
-    impl CallForest<AccountUpdateSimple> {
-        fn into_add_callers_simple_impl(
-            self,
-            current_context: CallForestContext,
-        ) -> CallForest<AccountUpdate> {
-            use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1::{
-                Call, DelegateCall,
-            };
-
-            CallForest(
-                self.0
-                    .into_iter()
-                    .map(|elem| {
-                        let WithStackHash {
-                            elt:
-                                Tree::<AccountUpdateSimple> {
-                                    account_update:
-                                        AccountUpdateSimple {
-                                            body:
-                                                BodySimple {
-                                                    public_key,
-                                                    token_id,
-                                                    update,
-                                                    balance_change,
-                                                    increment_nonce,
-                                                    events,
-                                                    sequence_events,
-                                                    call_data,
-                                                    call_depth: _,
-                                                    preconditions,
-                                                    use_full_commitment,
-                                                    caller,
-                                                    authorization_kind,
-                                                },
-                                            authorization,
-                                        },
-                                    calls,
-                                    account_update_digest,
-                                },
-                            stack_hash,
-                        } = elem;
-
-                        let child_context = match &caller {
-                            DelegateCall => current_context.clone(),
-                            Call => CallForestContext {
-                                caller: current_context.this.clone(),
-                                this: AccountId::create(public_key.clone(), token_id.clone())
-                                    .derive_token_id(),
-                            },
-                        };
-
-                        WithStackHash {
-                            elt: Tree::<AccountUpdate> {
-                                account_update: AccountUpdate {
-                                    body: Body {
-                                        public_key,
-                                        token_id,
-                                        update,
-                                        balance_change,
-                                        increment_nonce,
-                                        events,
-                                        sequence_events,
-                                        call_data,
-                                        preconditions,
-                                        use_full_commitment,
-                                        caller: child_context.caller.clone(),
-                                        authorization_kind,
-                                    },
-                                    authorization,
-                                },
-                                account_update_digest,
-                                calls: calls.into_add_callers_simple_impl(child_context),
-                            },
-                            stack_hash,
-                        }
-                    })
-                    .collect(),
-            )
-        }
-
-        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L665
-        pub fn into_add_callers_simple(self) -> CallForest<AccountUpdate> {
-            let current_context = CallForestContext {
-                caller: TokenId::default(),
-                this: TokenId::default(),
-            };
-
-            self.into_add_callers_simple_impl(current_context)
-        }
-    }
-
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1081
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct FeePayerBody {
@@ -2696,6 +2586,46 @@ pub mod zkapp_command {
             pub fee_payer: FeePayer,
             pub account_updates: CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>,
             pub memo: Memo,
+        }
+
+        fn ok_if_vk_hash_expected(got: Fp, expected: Fp) -> Result<Fp, String> {
+            if got == expected {
+                return Ok(got);
+            }
+            Err(format!(
+                "Expected vk hash doesn't match hash in vk we received\
+                         expected: {:?}\
+                         got: {:?}",
+                expected, got
+            ))
+        }
+
+        pub fn find_vk_via_ledger<L>(
+            ledger: L,
+            expected_vk_hash: Fp,
+            account_id: &AccountId,
+        ) -> Result<Fp, String>
+        where
+            L: LedgerIntf + Clone,
+        {
+            let vk = ledger
+                .location_of_account(account_id)
+                .and_then(|location| ledger.get(&location))
+                .and_then(|account| {
+                    account
+                        .zkapp
+                        .as_ref()
+                        .and_then(|zkapp| zkapp.verification_key.clone())
+                });
+
+            match vk {
+                Some(vk) => ok_if_vk_hash_expected(vk.hash(), expected_vk_hash),
+                None => Err(format!(
+                    "No verification key found for proved account update\
+                                     account_id: {:?}",
+                    account_id
+                )),
+            }
         }
     }
 
@@ -2901,6 +2831,17 @@ impl UserCommand {
         //     }
         // }
     }
+
+    pub fn to_all_verifiable<F>(
+        ts: Vec<WithStatus<Self>>,
+        find_vk: F,
+    ) -> Result<Vec<WithStatus<verifiable::UserCommand>>, String>
+    where
+        F: Fn(Fp, &AccountId) -> Result<Fp, String>,
+    {
+        // https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_base/user_command.ml#L180
+        todo!()
+    }
 }
 
 impl GenericCommand for UserCommand {
@@ -2948,7 +2889,7 @@ impl Transaction {
         }
     }
 
-    /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/transaction/transaction.ml#L85
+    /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/transaction/transaction.ml#L98
     pub fn public_keys(&self) -> Vec<CompressedPubKey> {
         use Transaction::*;
         use UserCommand::*;
@@ -2956,14 +2897,38 @@ impl Transaction {
         let to_pks = |ids: Vec<AccountId>| ids.into_iter().map(|id| id.public_key).collect();
 
         match self {
-            Command(SignedCommand(cmd)) => [cmd.fee_payer_pk(), cmd.source_pk(), cmd.receiver_pk()]
-                .into_iter()
-                .cloned()
-                .collect(),
+            Command(SignedCommand(cmd)) => to_pks(cmd.accounts_referenced()),
             Command(ZkAppCommand(cmd)) => to_pks(cmd.accounts_referenced()),
             FeeTransfer(ft) => ft.receiver_pks().cloned().collect(),
-            Coinbase(cb) => to_pks(cb.accounts_accessed()),
+            Coinbase(cb) => to_pks(cb.accounts_referenced()),
         }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/transaction/transaction.ml#L112
+    pub fn account_access_statuses(
+        &self,
+        status: &TransactionStatus,
+    ) -> Vec<(AccountId, zkapp_command::AccessedOrNot)> {
+        use Transaction::*;
+        use UserCommand::*;
+
+        match self {
+            Command(SignedCommand(cmd)) => cmd.account_access_statuses(status).to_vec(),
+            Command(ZkAppCommand(cmd)) => cmd.account_access_statuses(status),
+            FeeTransfer(ft) => ft
+                .receivers()
+                .map(|account_id| (account_id, AccessedOrNot::Accessed))
+                .collect(),
+            Coinbase(cb) => cb.account_access_statuses(status),
+        }
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/transaction/transaction.ml#L125
+    pub fn accounts_referenced(&self) -> Vec<AccountId> {
+        self.account_access_statuses(&TransactionStatus::Applied)
+            .into_iter()
+            .map(|(id, _status)| id)
+            .collect()
     }
 }
 
@@ -3193,25 +3158,32 @@ pub mod protocol_state {
         pub min_window_density: Length,
         pub last_vrf_output: (), // It's not defined in OCAml
         pub total_currency: Amount,
-        pub global_slot_since_hard_fork: Slot,
         pub global_slot_since_genesis: Slot,
         pub staking_epoch_data: EpochData,
         pub next_epoch_data: EpochData,
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/protocol_state.ml#L181
     pub fn protocol_state_view(state: &MinaStateProtocolStateValueStableV2) -> ProtocolStateView {
         let cs = &state.body.consensus_state;
         let sed = &cs.staking_epoch_data;
         let ned = &cs.staking_epoch_data;
 
         ProtocolStateView {
-            snarked_ledger_hash: state.body.blockchain_state.registers.ledger.to_field(),
+            // https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/blockchain_state.ml#L58
+            //
+            snarked_ledger_hash: state
+                .body
+                .blockchain_state
+                .ledger_proof_statement
+                .target
+                .first_pass_ledger
+                .to_field(),
             timestamp: BlockTime(state.body.blockchain_state.timestamp.as_u64()),
             blockchain_length: Length(cs.blockchain_length.as_u32()),
             min_window_density: Length(cs.min_window_density.as_u32()),
             last_vrf_output: (),
             total_currency: Amount(cs.total_currency.as_u64()),
-            global_slot_since_hard_fork: Slot(cs.curr_global_slot.slot_number.as_u32()), // TODO: Check if it's correct
             global_slot_since_genesis: Slot(cs.global_slot_since_genesis.as_u32()),
             staking_epoch_data: EpochData {
                 ledger: EpochLedger {
@@ -3254,40 +3226,48 @@ pub mod protocol_state {
             self.first_pass_ledger.create_masked()
         }
 
-        fn set_first_pass_ledger(mut self, should_update: bool, ledger: L) -> Self {
+        #[must_use]
+        fn set_first_pass_ledger(&self, should_update: bool, ledger: L) -> Self {
+            let mut this = self.clone();
             if should_update {
-                self.first_pass_ledger.apply_mask(ledger);
+                this.first_pass_ledger.apply_mask(ledger);
             }
-            self
+            this
         }
 
         fn second_pass_ledger(&self) -> L {
             self.second_pass_ledger.create_masked()
         }
 
-        fn set_second_pass_ledger(mut self, should_update: bool, ledger: L) -> Self {
+        #[must_use]
+        fn set_second_pass_ledger(&self, should_update: bool, ledger: L) -> Self {
+            let mut this = self.clone();
             if should_update {
-                self.second_pass_ledger.apply_mask(ledger);
+                this.second_pass_ledger.apply_mask(ledger);
             }
-            self
+            this
         }
 
         fn fee_excess(&self) -> Signed<Amount> {
             self.fee_excess.clone()
         }
 
-        fn set_fee_excess(mut self, fee_excess: Signed<Amount>) -> Self {
-            self.fee_excess = fee_excess;
-            self
+        #[must_use]
+        fn set_fee_excess(&self, fee_excess: Signed<Amount>) -> Self {
+            let mut this = self.clone();
+            this.fee_excess = fee_excess;
+            this
         }
 
         fn supply_increase(&self) -> Signed<Amount> {
             self.supply_increase.clone()
         }
 
-        fn set_supply_increase(mut self, supply_increase: Signed<Amount>) -> Self {
-            self.supply_increase = supply_increase;
-            self
+        #[must_use]
+        fn set_supply_increase(&self, supply_increase: Signed<Amount>) -> Self {
+            let mut this = self.clone();
+            this.supply_increase = supply_increase;
+            this
         }
 
         fn block_global_slot(&self) -> Slot {
