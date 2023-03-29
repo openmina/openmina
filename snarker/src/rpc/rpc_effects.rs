@@ -54,9 +54,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         RpcAction::P2pConnectionIncomingInit(action) => {
             let rpc_id = action.rpc_id;
             store.dispatch(P2pConnectionIncomingInitAction {
-                peer_id: action.opts.peer_id,
-                signaling: action.opts.signaling,
-                offer: action.opts.offer,
+                opts: action.opts,
                 rpc_id: Some(rpc_id),
             });
             store.dispatch(RpcP2pConnectionIncomingPendingAction { rpc_id });

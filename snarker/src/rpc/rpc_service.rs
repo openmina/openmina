@@ -14,14 +14,6 @@ pub enum RespondError {
     UnexpectedResponseType,
 }
 
-#[derive(Error, Serialize, Deserialize, Debug, Clone)]
-pub enum WatchedAccountsGetError {
-    #[error("requested account isn't being watched")]
-    NotWatching,
-    #[error("not ready to respond, try again later")]
-    NotReady,
-}
-
 pub trait RpcService: redux::Service {
     fn respond_state_get(&mut self, rpc_id: RpcId, response: &State) -> Result<(), RespondError>;
     fn respond_action_stats_get(

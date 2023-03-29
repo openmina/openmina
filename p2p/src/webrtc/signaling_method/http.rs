@@ -24,7 +24,7 @@ impl FromStr for HttpSignalingInfo {
         let host_str = iter
             .next()
             .ok_or(SignalingMethodParseError::NotEnoughArgs)?;
-        let host = url::Host::parse(dbg!(host_str))
+        let host = url::Host::parse(host_str)
             .map_err(|err| SignalingMethodParseError::HostParseError(err.to_string()))?;
 
         let port = iter

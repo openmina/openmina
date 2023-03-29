@@ -2,12 +2,14 @@ use std::collections::BTreeMap;
 
 use ::webrtc::{
     api::APIBuilder,
+    data_channel::data_channel_init::RTCDataChannelInit,
     ice_transport::{
         ice_credential_type::RTCIceCredentialType, ice_gatherer_state::RTCIceGathererState,
         ice_gathering_state::RTCIceGatheringState, ice_server::RTCIceServer,
     },
     peer_connection::{
         configuration::RTCConfiguration, peer_connection_state::RTCPeerConnectionState,
+        policy::ice_transport_policy::RTCIceTransportPolicy,
         sdp::session_description::RTCSessionDescription, RTCPeerConnection,
     },
 };
@@ -50,11 +52,11 @@ pub struct PeerState {
 }
 
 async fn wait_for_ice_gathering_complete(pc: &RTCPeerConnection) -> Result<(), ()> {
-    if !matches!(dbg!(pc.ice_gathering_state()), RTCIceGatheringState::Complete) {
+    if !matches!(pc.ice_gathering_state(), RTCIceGatheringState::Complete) {
         let (tx, rx) = oneshot::channel::<()>();
         let mut tx = Some(tx);
         pc.on_ice_gathering_state_change(Box::new(move |state| {
-            if matches!(dbg!(state), RTCIceGathererState::Complete) {
+            if matches!(state, RTCIceGathererState::Complete) {
                 if let Some(tx) = tx.take() {
                     let _ = tx.send(());
                 }
@@ -62,7 +64,8 @@ async fn wait_for_ice_gathering_complete(pc: &RTCPeerConnection) -> Result<(), (
             Box::pin(std::future::ready(()))
         }));
         // TODO(binier): timeout
-        Ok(rx.await.unwrap())
+        rx.await.unwrap();
+        Ok(())
     } else {
         Ok(())
     }
@@ -107,10 +110,24 @@ async fn peer_loop(args: PeerAddArgs) {
                 credential_type: RTCIceCredentialType::Password,
             },
         ],
+        ice_transport_policy: RTCIceTransportPolicy::All,
         // TODO(binier): certificate
         ..Default::default()
     };
     let pc = webrtc.new_peer_connection(config).await.unwrap();
+    let main_channel = pc
+        .create_data_channel(
+            "",
+            Some(RTCDataChannelInit {
+                ordered: Some(true),
+                max_packet_life_time: None,
+                max_retransmits: None,
+                negotiated: Some(0),
+                ..Default::default()
+            }),
+        )
+        .await
+        .unwrap();
 
     let offer = match kind {
         PeerConnectionKind::Incoming(offer) => RTCSessionDescription::offer(offer.sdp).unwrap(),
@@ -119,14 +136,13 @@ async fn peer_loop(args: PeerAddArgs) {
 
     if is_outgoing {
         pc.set_local_description(offer).await.unwrap();
+        wait_for_ice_gathering_complete(&pc).await.unwrap();
     } else {
-        pc.set_remote_description(dbg!(offer)).await.unwrap();
+        pc.set_remote_description(offer).await.unwrap();
     }
-    wait_for_ice_gathering_complete(&pc).await.unwrap();
-    dbg!(&pc);
 
     let answer = if is_outgoing {
-        let sdp = dbg!(pc.local_description().await.unwrap()).sdp;
+        let sdp = pc.local_description().await.unwrap().sdp;
         event_sender
             .send(P2pConnectionEvent::OfferSdpReady(peer_id, sdp).into())
             .unwrap();
@@ -142,7 +158,7 @@ async fn peer_loop(args: PeerAddArgs) {
                     let body = client.request(req).await.unwrap().into_body();
                     let bytes = hyper::body::to_bytes(body).await.unwrap();
                     // TODO(binier): decoding should be inside state machine.
-                    dbg!(String::from_utf8(bytes.clone().to_vec()));
+                    String::from_utf8(bytes.clone().to_vec()).unwrap();
                     let answer = serde_json::from_slice(bytes.as_ref()).unwrap();
                     let _ = event_sender
                         .send(P2pConnectionEvent::AnswerReceived(peer_id, answer).into());
@@ -192,6 +208,7 @@ async fn peer_loop(args: PeerAddArgs) {
         }));
     }
     connected.await.unwrap();
+    main_channel.close().await.unwrap();
 
     event_sender
         .send(P2pConnectionEvent::Opened(peer_id).into())
@@ -215,29 +232,19 @@ pub trait P2pServiceWebrtcRs: redux::Service {
     fn init() -> P2pServiceCtx {
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
 
-        std::thread::Builder::new()
-            .name("p2p-webrtc-rs".to_owned())
-            .spawn(move || {
-                let runtime = tokio::runtime::Builder::new_current_thread()
-                    .thread_name("tokio-p2p-webrtc-rs")
-                    .worker_threads(1)
-                    .enable_all()
-                    .build()
-                    .unwrap();
-                let local = tokio::task::LocalSet::new();
-
-                let main_fut = local.run_until(async {
-                    while let Some(cmd) = cmd_receiver.recv().await {
-                        match cmd {
-                            Cmd::PeerAdd(args) => {
-                                tokio::task::spawn_local(async move { peer_loop(args).await });
-                            }
+        tokio::task::spawn_blocking(move || {
+            let local = tokio::task::LocalSet::new();
+            let main_fut = local.run_until(async {
+                while let Some(cmd) = cmd_receiver.recv().await {
+                    match cmd {
+                        Cmd::PeerAdd(args) => {
+                            tokio::task::spawn_local(peer_loop(args));
                         }
                     }
-                });
-                runtime.block_on(main_fut);
-            })
-            .unwrap();
+                }
+            });
+            tokio::runtime::Handle::current().block_on(main_fut);
+        });
 
         P2pServiceCtx {
             cmd_sender,

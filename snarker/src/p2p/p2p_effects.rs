@@ -1,3 +1,5 @@
+use p2p::connection::incoming::P2pConnectionIncomingAnswerSendSuccessAction;
+
 use crate::rpc::{
     RpcP2pConnectionIncomingAnswerSetAction, RpcP2pConnectionIncomingErrorAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
@@ -82,6 +84,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                         store.dispatch(RpcP2pConnectionIncomingAnswerSetAction {
                             rpc_id,
                             answer: action.answer.clone(),
+                        });
+                        store.dispatch(P2pConnectionIncomingAnswerSendSuccessAction {
+                            peer_id: action.peer_id,
                         });
                     }
                     action.effects(&meta, store);

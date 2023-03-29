@@ -1,3 +1,4 @@
+use crate::connection::incoming::P2pConnectionIncomingAction;
 use crate::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
 use crate::disconnection::P2pDisconnectionAction;
@@ -14,9 +15,17 @@ impl P2pState {
                 let peer = match action {
                     P2pConnectionAction::Outgoing(P2pConnectionOutgoingAction::Init(v)) => {
                         self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
-                            dial_opts: v.opts.clone(),
+                            dial_opts: Some(v.opts.clone()),
                             status: P2pPeerStatus::Connecting(P2pConnectionState::outgoing_init(
-                                v.opts.clone(),
+                                &v.opts,
+                            )),
+                        })
+                    }
+                    P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Init(v)) => {
+                        self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                            dial_opts: None,
+                            status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(
+                                &v.opts,
                             )),
                         })
                     }

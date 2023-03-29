@@ -24,7 +24,7 @@ pub enum P2pConnectionIncomingAction {
 impl P2pConnectionIncomingAction {
     pub fn peer_id(&self) -> Option<&PeerId> {
         match self {
-            Self::Init(v) => Some(&v.peer_id),
+            Self::Init(v) => Some(&v.opts.peer_id),
             Self::AnswerSdpCreatePending(v) => Some(&v.peer_id),
             Self::AnswerSdpCreateSuccess(v) => Some(&v.peer_id),
             Self::AnswerReady(v) => Some(&v.peer_id),
@@ -47,19 +47,17 @@ pub struct P2pConnectionIncomingInitOpts {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pConnectionIncomingInitAction {
-    pub peer_id: PeerId,
-    pub signaling: IncomingSignalingMethod,
-    pub offer: webrtc::Offer,
+    pub opts: P2pConnectionIncomingInitOpts,
     pub rpc_id: Option<RpcId>,
 }
 
 impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingInitAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
-        self.peer_id == PeerId::from_public_key(self.offer.identity_pub_key.clone())
+        self.opts.peer_id == PeerId::from_public_key(self.opts.offer.identity_pub_key.clone())
             && !state.already_has_max_peers()
             && state
                 .peers
-                .get(&self.peer_id)
+                .get(&self.opts.peer_id)
                 .map_or(true, |p| match &p.status {
                     P2pPeerStatus::Connecting(s) => s.is_error() || !s.is_success(),
                     // TODO(binier): some time must have passed since disconnection.

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use shared::requests::RpcId;
 
-use super::incoming::P2pConnectionIncomingState;
+use super::incoming::{P2pConnectionIncomingInitOpts, P2pConnectionIncomingState};
 use super::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -11,10 +11,19 @@ pub enum P2pConnectionState {
 }
 
 impl P2pConnectionState {
-    pub fn outgoing_init(opts: P2pConnectionOutgoingInitOpts) -> Self {
+    pub fn outgoing_init(opts: &P2pConnectionOutgoingInitOpts) -> Self {
         Self::Outgoing(P2pConnectionOutgoingState::Init {
             time: redux::Timestamp::ZERO,
-            opts,
+            opts: opts.clone(),
+            rpc_id: None,
+        })
+    }
+
+    pub fn incoming_init(opts: &P2pConnectionIncomingInitOpts) -> Self {
+        Self::Incoming(P2pConnectionIncomingState::Init {
+            time: redux::Timestamp::ZERO,
+            signaling: opts.signaling.clone(),
+            offer: opts.offer.clone(),
             rpc_id: None,
         })
     }

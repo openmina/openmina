@@ -102,7 +102,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingReconnectAction
             })
             .min_by_key(|(time, ..)| *time)
             .filter(|(_, id, _)| *id == &self.opts.peer_id)
-            .filter(|(.., opts)| *opts == &self.opts)
+            .filter(|(.., opts)| opts.as_ref().map_or(true, |opts| opts == &self.opts))
             .is_some()
     }
 }

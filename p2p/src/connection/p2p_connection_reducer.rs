@@ -30,8 +30,8 @@ pub fn p2p_connection_reducer(
                 state.status = P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
                     P2pConnectionIncomingState::Init {
                         time: meta.time(),
-                        signaling: a.signaling.clone(),
-                        offer: a.offer.clone(),
+                        signaling: a.opts.signaling.clone(),
+                        offer: a.opts.offer.clone(),
                         rpc_id: a.rpc_id,
                     },
                 ))
