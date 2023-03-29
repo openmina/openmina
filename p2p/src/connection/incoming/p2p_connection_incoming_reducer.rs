@@ -9,8 +9,8 @@ impl P2pConnectionIncomingState {
             P2pConnectionIncomingAction::Init(content) => {
                 *self = Self::Init {
                     time: meta.time(),
-                    signaling: content.signaling.clone(),
-                    offer: content.offer.clone(),
+                    signaling: content.opts.signaling.clone(),
+                    offer: content.opts.offer.clone(),
                     rpc_id: content.rpc_id,
                 };
             }

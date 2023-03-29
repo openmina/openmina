@@ -97,7 +97,7 @@ impl P2pState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pPeerState {
-    pub dial_opts: P2pConnectionOutgoingInitOpts,
+    pub dial_opts: Option<P2pConnectionOutgoingInitOpts>,
     pub status: P2pPeerStatus,
 }
 

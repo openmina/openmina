@@ -27,18 +27,20 @@ use rpc::RpcP2pConnectionOutgoingResponse;
 #[derive(Debug, structopt::StructOpt)]
 #[structopt(name = "snarker", about = "Openmina snarker")]
 pub struct Snarker {
-    #[structopt(short, long, default_value = "3000")]
+    #[structopt(long, default_value = "3000")]
     pub http_port: u16,
 }
 
 impl Snarker {
     pub fn run(self) -> Result<(), crate::CommandError> {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .worker_threads(1)
+        let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
+            .worker_threads(3)
             .build()
             .unwrap();
-        let _guard = rt.enter();
+        let _rt_guard = rt.enter();
+        let local_set = tokio::task::LocalSet::new();
+        let _local_set_guard = local_set.enter();
 
         let mut rng = ThreadRng::default();
         let keypair = Keypair::generate(&mut rng);
@@ -85,19 +87,15 @@ impl Snarker {
         let http_port = self.http_port;
         let rpc_sender = service.rpc_req_sender().clone();
         let rpc_sender = RpcSender { tx: rpc_sender };
-        std::thread::Builder::new()
-            .name("http-server".to_owned())
-            .spawn(move || {
-                let rt = tokio::runtime::Builder::new_current_thread()
-                    .worker_threads(1)
-                    .thread_name("tokio-http-server")
-                    .enable_all()
-                    .build()
-                    .unwrap();
-                let local_set = tokio::task::LocalSet::new();
-                local_set.block_on(&rt, http_server::run(http_port, rpc_sender));
-            })
-            .unwrap();
+        // http-server
+        // TODO(binier): separate somehow so that http server tasks could
+        // never take resources from the state machine thread. Maybe
+        // below code already does that.
+        rt.spawn_blocking(move || {
+            let local_set = tokio::task::LocalSet::new();
+            let main_fut = local_set.run_until(http_server::run(http_port, rpc_sender));
+            tokio::runtime::Handle::current().block_on(main_fut);
+        });
 
         let mut snarker = ::snarker::Snarker::new(state, service);
 

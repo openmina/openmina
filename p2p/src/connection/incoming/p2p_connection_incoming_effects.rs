@@ -19,8 +19,8 @@ impl P2pConnectionIncomingInitAction {
         Store::Service: P2pConnectionService,
         P2pConnectionIncomingAnswerSdpCreatePendingAction: redux::EnablingCondition<S>,
     {
-        let peer_id = self.offer.target_peer_id;
-        store.service().incoming_init(peer_id, self.offer);
+        let peer_id = self.opts.peer_id;
+        store.service().incoming_init(peer_id, self.opts.offer);
         store.dispatch(P2pConnectionIncomingAnswerSdpCreatePendingAction { peer_id });
     }
 }
@@ -49,11 +49,8 @@ impl P2pConnectionIncomingAnswerReadyAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pConnectionService,
-        P2pConnectionIncomingAnswerSendSuccessAction: redux::EnablingCondition<S>,
     {
-        store.dispatch(P2pConnectionIncomingAnswerSendSuccessAction {
-            peer_id: self.peer_id,
-        });
+        store.service().set_answer(self.peer_id, self.answer);
     }
 }
 

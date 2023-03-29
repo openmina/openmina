@@ -13,7 +13,7 @@ pub type RpcStateGetResponse = Box<State>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum RpcP2pConnectionIncomingResponse {
     Answer(Result<webrtc::Answer, String>),
     Result(Result<(), String>),
@@ -111,11 +111,7 @@ impl snarker::rpc::RpcService for SnarkerService {
             .ok_or(RespondError::UnexpectedResponseType)?
             .clone();
         // TODO(binier): don't ignore error
-        tokio::task::spawn_local(async move {
-            let _ = chan
-                .send(RpcP2pConnectionIncomingResponse::Answer(response))
-                .await;
-        });
+        let _ = chan.try_send(RpcP2pConnectionIncomingResponse::Answer(response));
         Ok(())
     }
 
@@ -130,11 +126,7 @@ impl snarker::rpc::RpcService for SnarkerService {
             .downcast::<mpsc::Sender<RpcP2pConnectionIncomingResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
         // TODO(binier): don't ignore error
-        tokio::task::spawn_local(async move {
-            let _ = chan
-                .send(RpcP2pConnectionIncomingResponse::Result(response))
-                .await;
-        });
+        let _ = chan.try_send(RpcP2pConnectionIncomingResponse::Result(response));
         Ok(())
     }
 }

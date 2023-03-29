@@ -6,7 +6,6 @@ use crate::{Action, ActionWithMetaRef, Service, Store};
 
 pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
-    dbg!(action);
 
     match action {
         Action::P2p(action) => match action {
@@ -54,9 +53,9 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                         shared::log::info!(
                             meta.time();
                             kind = "PeerConnectionIncomingInit",
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            signaling = format!("{:?}", action.signaling),
+                            summary = format!("peer_id: {}", action.opts.peer_id),
+                            peer_id = action.opts.peer_id.to_string(),
+                            signaling = format!("{:?}", action.opts.signaling),
                         );
                     }
                     P2pConnectionIncomingAction::Error(action) => {
