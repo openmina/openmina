@@ -36,10 +36,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                 .p2p
                 .peers
                 .iter()
-                .map(|(_, p)| P2pConnectionOutgoingReconnectAction {
-                    opts: p.dial_opts.clone(),
-                    rpc_id: None,
-                })
+                .filter_map(|(_, p)| p.dial_opts.clone())
+                .map(|opts| P2pConnectionOutgoingReconnectAction { opts, rpc_id: None })
                 .collect();
             for action in reconnect_actions {
                 store.dispatch(action);

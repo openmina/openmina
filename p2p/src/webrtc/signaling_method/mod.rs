@@ -69,7 +69,7 @@ impl FromStr for SignalingMethod {
             .ok_or(SignalingMethodParseError::NotEnoughArgs)?;
 
         match &s[1..method_end_index] {
-            "http" => Ok(Self::Http(dbg!(&s[method_end_index..]).parse()?)),
+            "http" => Ok(Self::Http(s[method_end_index..].parse()?)),
             "https" => Ok(Self::Https(s[method_end_index..].parse()?)),
             method => Err(SignalingMethodParseError::UnknownSignalingMethod(
                 method.to_owned(),
