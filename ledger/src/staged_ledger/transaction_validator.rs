@@ -51,7 +51,7 @@ pub fn apply_transactions(
     global_slot: Slot,
     txn_state_view: &ProtocolStateView,
     ledger: &mut Mask,
-    txns: &[&Transaction],
+    txns: Vec<Transaction>,
 ) -> Result<Vec<TransactionApplied>, String> {
     within_mask(ledger.clone(), |ledger| {
         transaction_logic::apply_transactions(
@@ -59,7 +59,7 @@ pub fn apply_transactions(
             global_slot,
             txn_state_view,
             ledger,
-            txns,
+            &txns,
         )
     })
 }

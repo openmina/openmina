@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use itertools::{Either, Itertools};
 use mina_signer::CompressedPubKey;
 
 use crate::{
@@ -7,11 +8,13 @@ use crate::{
         currency::{Amount, Fee, Magnitude, Slot},
         scan_state::{group_list, transaction_snark::work, ConstraintConstants},
         transaction_logic::{
-            protocol_state::ProtocolStateView, valid, Coinbase, CoinbaseFeeTransfer, FeeTransfer,
-            GenericCommand, GenericTransaction, SingleFeeTransfer, Transaction, TransactionStatus,
-            UserCommand, WithStatus,
+            protocol_state::ProtocolStateView, transaction_applied::TransactionApplied, valid,
+            Coinbase, CoinbaseFeeTransfer, FeeTransfer, GenericCommand, GenericTransaction,
+            SingleFeeTransfer, Transaction, TransactionStatus, UserCommand, WithStatus,
         },
     },
+    split_at_vec,
+    staged_ledger::transaction_validator,
     verifier::VerifierError,
     Mask, TokenId,
 };
@@ -171,14 +174,14 @@ where
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L179
 fn fee_remainder<'a, Cmd>(
-    commands: &[WithStatus<Cmd>],
+    commands: &[Cmd],
     completed_works: impl IntoIterator<Item = &'a work::Unchecked>,
     coinbase_fee: Fee,
 ) -> Result<Fee, PreDiffError>
 where
     Cmd: GenericCommand,
 {
-    let budget = sum_fees(commands, |v| v.data.fee())?;
+    let budget = sum_fees(commands, |v| v.fee())?;
     let work_fee = sum_fees(completed_works, |w| w.fee)?;
 
     let total_work_fee = work_fee
@@ -318,15 +321,12 @@ fn check_coinbase<A, B>(
         ))),
     }
 }
-// let compute_statuses
-//     ~(constraint_constants : Genesis_constants.Constraint_constants.t) ~diff
-//     ~coinbase_receiver ~coinbase_amount ~global_slot ~txn_state_view ~ledger =
 
-pub fn compute_statuses<Cmd, Tx>(
+pub fn compute_statuses<Tx>(
     constraint_constants: &ConstraintConstants,
     diff: (
-        PreDiffTwo<work::Work, Cmd>,
-        Option<PreDiffOne<work::Work, Cmd>>,
+        PreDiffTwo<work::Unchecked, valid::UserCommand>,
+        Option<PreDiffOne<work::Unchecked, valid::UserCommand>>,
     ),
     coinbase_receiver: CompressedPubKey,
     coinbase_amount: Amount,
@@ -335,80 +335,135 @@ pub fn compute_statuses<Cmd, Tx>(
     ledger: &mut Mask,
 ) -> Result<
     (
-        PreDiffTwo<work::Work, WithStatus<Cmd>>,
-        Option<PreDiffOne<work::Work, WithStatus<Cmd>>>,
+        PreDiffTwo<work::Unchecked, WithStatus<valid::UserCommand>>,
+        Option<PreDiffOne<work::Unchecked, WithStatus<valid::UserCommand>>>,
     ),
     PreDiffError,
 >
 where
-    Cmd: GenericCommand + Clone,
     Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer>,
 {
-    todo!()
+    // project transactions into a sequence of transactions
+    let project_transactions =
+        |coinbase_parts, commands: Vec<valid::UserCommand>, completed_works| {
+            let TransactionData {
+                commands,
+                coinbases,
+                fee_transfers,
+            } = get_transaction_data::<_, Tx>(
+                constraint_constants,
+                coinbase_parts,
+                &coinbase_receiver,
+                coinbase_amount,
+                commands,
+                completed_works,
+            )?;
 
-    // let get_statuses_pre_diff_with_at_most_two =
-    //     |t1: PreDiffTwo<work::Work, WithStatus<Cmd>>, generate_status: &mut F| {
-    //         let coinbase_parts = match &t1.coinbase {
-    //             diff::AtMostTwo::Zero => CoinbaseParts::Zero,
-    //             diff::AtMostTwo::One(x) => CoinbaseParts::One(x.clone()),
-    //             diff::AtMostTwo::Two(x) => CoinbaseParts::Two(x.clone()),
-    //         };
+            let commands = commands
+                .into_iter()
+                .map(|c| Transaction::Command(c.forget_check()));
 
-    //         let (commands, internal_command_statuses) = generate_statuses::<_, _, Tx>(
-    //             constraint_constants,
-    //             coinbase_parts,
-    //             &coinbase_receiver,
-    //             coinbase_amount,
-    //             &t1.commands,
-    //             &t1.completed_works,
-    //             generate_status,
-    //         )?;
+            let coinbases = coinbases.into_iter().map(Transaction::Coinbase);
+            let fee_transfers = fee_transfers.into_iter().map(Transaction::FeeTransfer);
 
-    //         Ok::<_, PreDiffError>(PreDiffTwo {
-    //             completed_works: t1.completed_works,
-    //             commands,
-    //             coinbase: t1.coinbase,
-    //             internal_command_statuses,
-    //         })
-    //     };
+            let res: Vec<_> = commands.chain(coinbases).chain(fee_transfers).collect();
 
-    // let get_statuses_pre_diff_with_at_most_one =
-    //     |t2: PreDiffOne<work::Work, WithStatus<Cmd>>, generate_status: &mut F| {
-    //         let coinbase_added = match &t2.coinbase {
-    //             diff::AtMostOne::Zero => CoinbaseParts::Zero,
-    //             diff::AtMostOne::One(x) => CoinbaseParts::One(x.clone()),
-    //         };
+            Ok::<_, PreDiffError>(res)
+        };
 
-    //         let (commands, internal_command_statuses) = generate_statuses::<_, _, Tx>(
-    //             constraint_constants,
-    //             coinbase_added,
-    //             &coinbase_receiver,
-    //             coinbase_amount,
-    //             &t2.commands,
-    //             &t2.completed_works,
-    //             generate_status,
-    //         )?;
+    let project_transactions_pre_diff_two = |p: PreDiffTwo<work::Unchecked, valid::UserCommand>| {
+        let coinbase_parts = match p.coinbase {
+            diff::AtMostTwo::Zero => CoinbaseParts::Zero,
+            diff::AtMostTwo::One(x) => CoinbaseParts::One(x),
+            diff::AtMostTwo::Two(x) => CoinbaseParts::Two(x),
+        };
+        project_transactions(coinbase_parts, p.commands, &p.completed_works)
+    };
 
-    //         Ok::<_, PreDiffError>(PreDiffOne {
-    //             completed_works: t2.completed_works,
-    //             commands,
-    //             coinbase: t2.coinbase,
-    //             internal_command_statuses,
-    //         })
-    //     };
+    let project_transactions_pre_diff_one = |p: PreDiffOne<work::Unchecked, valid::UserCommand>| {
+        let coinbase_parts = match p.coinbase {
+            diff::AtMostOne::Zero => CoinbaseParts::Zero,
+            diff::AtMostOne::One(x) => CoinbaseParts::One(x),
+        };
+        project_transactions(coinbase_parts, p.commands, &p.completed_works)
+    };
 
-    // let p1 = get_statuses_pre_diff_with_at_most_two(diff.0, generate_status)?;
-    // let p2 = match diff.1 {
-    //     Some(d2) => Some(get_statuses_pre_diff_with_at_most_one(d2, generate_status)?),
-    //     None => None,
-    // };
+    // partition a sequence of transactions with statuses into user
+    // commands with statuses and internal command statuses
+    let split_transaction_statuses = |txns_with_statuses: Vec<TransactionApplied>| {
+        txns_with_statuses
+            .into_iter()
+            .partition_map::<Vec<_>, Vec<_>, _, _, _>(|txn| {
+                let WithStatus { data: txn, status } = txn.transaction();
 
-    // Ok((p1, p2))
+                use Transaction::*;
+
+                match txn {
+                    Command(cmd) => {
+                        let cmd = cmd.to_valid_unsafe();
+                        Either::Left(WithStatus { data: cmd, status })
+                    }
+                    FeeTransfer(_) | Coinbase(_) => Either::Right(status),
+                }
+            })
+    };
+
+    let (mut p1, mut p2) = diff;
+
+    let (num_p1_txns, txns) = {
+        let p1_txns = project_transactions_pre_diff_two(p1.clone())?;
+        let p2_txns = match p2.clone() {
+            None => Vec::new(),
+            Some(p2) => project_transactions_pre_diff_one(p2)?,
+        };
+
+        (
+            p1_txns.len(),
+            p1_txns.into_iter().chain(p2_txns).collect_vec(),
+        )
+    };
+
+    let txns_with_statuses = transaction_validator::apply_transactions(
+        constraint_constants,
+        global_slot,
+        txn_state_view,
+        ledger,
+        txns,
+    )?;
+
+    let (p1_txns_with_statuses, p2_txns_with_statuses) =
+        split_at_vec(txns_with_statuses, num_p1_txns);
+
+    let p1 = {
+        let (commands, internal_command_statuses) =
+            split_transaction_statuses(p1_txns_with_statuses);
+
+        PreDiffTwo {
+            completed_works: p1.completed_works,
+            commands,
+            coinbase: p1.coinbase,
+            internal_command_statuses,
+        }
+    };
+
+    let p2 = p2.map(|p2| {
+        let (commands, internal_command_statuses) =
+            split_transaction_statuses(p2_txns_with_statuses);
+
+        PreDiffOne {
+            completed_works: p2.completed_works,
+            commands,
+            coinbase: p2.coinbase,
+            internal_command_statuses,
+        }
+    });
+
+    Ok((p1, p2))
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/pre_diff_info.ml#L237
 struct TransactionData<T> {
-    commands: Vec<WithStatus<T>>,
+    commands: Vec<T>,
     coinbases: Vec<Coinbase>,
     fee_transfers: Vec<FeeTransfer>,
 }
@@ -418,7 +473,7 @@ fn get_transaction_data<Cmd, Tx>(
     coinbase_parts: CoinbaseParts,
     receiver: &CompressedPubKey,
     coinbase_amount: Amount,
-    commands: Vec<WithStatus<Cmd>>,
+    commands: Vec<Cmd>,
     completed_works: &[work::Unchecked],
 ) -> Result<TransactionData<Cmd>, PreDiffError>
 where
@@ -476,7 +531,7 @@ where
         commands,
         coinbases: coinbase_parts,
         fee_transfers,
-    } = get_transaction_data::<Cmd, Tx>(
+    } = get_transaction_data::<WithStatus<Cmd>, Tx>(
         constraint_constants,
         coinbase_parts,
         receiver,

@@ -1838,7 +1838,7 @@ impl StagedLedger {
             let diff = {
                 // Fill in the statuses for commands.
                 Self::with_ledger_mask(self.ledger.clone(), |status_ledger| {
-                    pre_diff_info::compute_statuses::<valid::UserCommand, valid::Transaction>(
+                    pre_diff_info::compute_statuses::<valid::Transaction>(
                         constraint_constants,
                         diff,
                         coinbase_receiver,
@@ -3939,7 +3939,7 @@ mod tests_ocaml {
             status_ledger.apply_transaction(&CONSTRAINT_CONSTANTS, &dummy_state_view(None), &txn)
         };
 
-        pre_diff_info::compute_statuses::<UserCommand, valid::Transaction, _>(
+        pre_diff_info::compute_statuses::<valid::Transaction>(
             &CONSTRAINT_CONSTANTS,
             diff,
             COINBASE_RECEIVER.clone(),

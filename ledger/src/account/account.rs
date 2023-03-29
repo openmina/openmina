@@ -965,6 +965,17 @@ impl Account {
                             },
                             wrap_index: PlonkVerificationKeyEvals::rand(rng),
                             wrap_vk: None,
+                            actual_wrap_domain_size: {
+                                let n: u64 = rng.gen();
+
+                                if n % 3 == 0 {
+                                    ProofVerified::N2
+                                } else if n % 2 == 0 {
+                                    ProofVerified::N1
+                                } else {
+                                    ProofVerified::N0
+                                }
+                            },
                         })
                     } else {
                         None

@@ -215,6 +215,19 @@ pub trait GenericTransaction: Sized {
     fn is_command(&self) -> bool;
 }
 
+impl<T> GenericCommand for WithStatus<T>
+where
+    T: GenericCommand,
+{
+    fn fee(&self) -> Fee {
+        self.data.fee()
+    }
+
+    fn forget(&self) -> UserCommand {
+        self.data.forget()
+    }
+}
+
 pub mod valid {
     use super::*;
 
@@ -2787,6 +2800,18 @@ impl UserCommand {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_base/user_command.ml#L339
+    pub fn to_valid_unsafe(self) -> valid::UserCommand {
+        match self {
+            UserCommand::SignedCommand(cmd) => valid::UserCommand::SignedCommand(cmd),
+            UserCommand::ZkAppCommand(cmd) => {
+                valid::UserCommand::ZkAppCommand(Box::new(zkapp_command::valid::ZkAppCommand {
+                    zkapp_command: *cmd,
+                }))
+            }
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/user_command.ml#L162
     pub fn to_verifiable<F>(
         &self,
@@ -4068,7 +4093,7 @@ pub fn apply_transactions<L>(
     global_slot: Slot,
     txn_state_view: &ProtocolStateView,
     ledger: &mut L,
-    txns: &[&Transaction],
+    txns: &[Transaction],
 ) -> Result<Vec<TransactionApplied>, String>
 where
     L: LedgerIntf + Clone,
