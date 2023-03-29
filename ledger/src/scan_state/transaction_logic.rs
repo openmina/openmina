@@ -2110,6 +2110,10 @@ pub mod zkapp_command {
             self.body.increment_nonce
         }
 
+        pub fn implicit_account_creation_fee(&self) -> bool {
+            self.body.implicit_account_creation_fee
+        }
+
         // commitment and calls argument are ignored here, only used in the transaction snark
         pub fn check_authorization(
             &self,
@@ -2167,6 +2171,10 @@ pub mod zkapp_command {
             self.body.update.verification_key.map(|vk| vk.data.clone())
         }
 
+        pub fn valid_while_precondition(&self) -> OrIgnore<ClosedInterval<Slot>> {
+            self.body.preconditions.valid_while
+        }
+
         pub fn actions(&self) -> Actions {
             self.body.actions.clone()
         }
@@ -2197,6 +2205,14 @@ pub mod zkapp_command {
             match &self.body.authorization_kind {
                 AuthorizationKind::Signature => true,
                 AuthorizationKind::Proof(_) | AuthorizationKind::NoneGiven => false,
+            }
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/transaction_logic/mina_transaction_logic.ml#L1708
+        pub fn verification_key_hash(&self) -> Option<Fp> {
+            match &self.body.authorization_kind {
+                AuthorizationKind::Proof(vk_hash) => Some(vk_hash.clone()),
+                _ => None,
             }
         }
 
@@ -3247,12 +3263,12 @@ pub mod protocol_state {
     }
 
     impl<L: LedgerIntf + Clone> GlobalState<L> {
-        fn first_pass_ledger(&self) -> L {
+        pub fn first_pass_ledger(&self) -> L {
             self.first_pass_ledger.create_masked()
         }
 
         #[must_use]
-        fn set_first_pass_ledger(&self, should_update: bool, ledger: L) -> Self {
+        pub fn set_first_pass_ledger(&self, should_update: bool, ledger: L) -> Self {
             let mut this = self.clone();
             if should_update {
                 this.first_pass_ledger.apply_mask(ledger);
@@ -3260,12 +3276,12 @@ pub mod protocol_state {
             this
         }
 
-        fn second_pass_ledger(&self) -> L {
+        pub fn second_pass_ledger(&self) -> L {
             self.second_pass_ledger.create_masked()
         }
 
         #[must_use]
-        fn set_second_pass_ledger(&self, should_update: bool, ledger: L) -> Self {
+        pub fn set_second_pass_ledger(&self, should_update: bool, ledger: L) -> Self {
             let mut this = self.clone();
             if should_update {
                 this.second_pass_ledger.apply_mask(ledger);
@@ -3273,7 +3289,7 @@ pub mod protocol_state {
             this
         }
 
-        fn fee_excess(&self) -> Signed<Amount> {
+        pub fn fee_excess(&self) -> Signed<Amount> {
             self.fee_excess.clone()
         }
 
@@ -3284,12 +3300,12 @@ pub mod protocol_state {
             this
         }
 
-        fn supply_increase(&self) -> Signed<Amount> {
+        pub fn supply_increase(&self) -> Signed<Amount> {
             self.supply_increase.clone()
         }
 
         #[must_use]
-        fn set_supply_increase(&self, supply_increase: Signed<Amount>) -> Self {
+        pub fn set_supply_increase(&self, supply_increase: Signed<Amount>) -> Self {
             let mut this = self.clone();
             this.supply_increase = supply_increase;
             this
@@ -3409,7 +3425,7 @@ pub mod local_state {
         pub transaction_commitment: ReceiptChainHash,
         pub full_transaction_commitment: ReceiptChainHash,
         pub token_id: TokenId,
-        pub excess: Signed<Fee>,
+        pub excess: Signed<Amount>,
         pub supply_increase: Signed<Amount>,
         pub ledger: L,
         pub success: bool,
@@ -3546,6 +3562,15 @@ pub enum PerformResult<L: LedgerIntf + Clone> {
     Bool(bool),
     LocalState(LocalStateEnv<L>),
     Account(Account),
+}
+
+impl<L: LedgerIntf + Clone> PerformResult<L> {
+    pub fn to_bool(self) -> bool {
+        match self {
+            PerformResult::Bool(v) => v,
+            _ => panic!("Not a bool"),
+        }
+    }
 }
 
 impl<L> Env<L>

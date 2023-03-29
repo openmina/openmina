@@ -79,6 +79,10 @@ where
         matches!(self.sgn, Sgn::Pos)
     }
 
+    pub fn is_neg(&self) -> bool {
+        matches!(self.sgn, Sgn::Neg)
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/currency/currency.ml#L441
     pub fn zero() -> Self {
         Self {

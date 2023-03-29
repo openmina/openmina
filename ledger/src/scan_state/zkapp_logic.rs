@@ -24,8 +24,9 @@ use crate::{
 use super::transaction_logic::{zkapp_command::Actions, Eff, ExistingOrNew, PerformResult};
 
 pub struct StartData {
-    pub zkapp_command: CallForest<AccountUpdate>,
+    pub account_updates: CallForest<AccountUpdate>,
     pub memo_hash: Fp,
+    pub will_succeed: bool,
 }
 
 pub enum IsStart {
@@ -145,8 +146,14 @@ fn pop_call_stack(s: &CallStack) -> (StackFrame, CallStack) {
     }
 }
 
+/// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/transaction_logic/mina_transaction_logic.ml#L1545
+fn account_verification_key_hash(account: &Account) -> Option<Fp> {
+    Some(account.zkapp.as_ref()?.verification_key.as_ref()?.hash())
+}
+
 pub struct GetNextAccountUpdateResult {
     pub account_update: AccountUpdate,
+    pub caller_id: TokenId,
     pub account_update_forest: CallForest<AccountUpdate>,
     pub new_call_stack: CallStack,
     pub new_frame: StackFrame,
@@ -165,11 +172,28 @@ pub fn get_next_account_update(
 
     let ((account_update, account_update_forest), remainder_of_current_forest) =
         current_forest.calls.pop_exn();
-    let account_update_caller = account_update.caller();
-    let is_normal_call = account_update_caller == current_forest.caller;
-    let is_delegate_call = account_update_caller == current_forest.caller_caller;
 
-    assert!(is_normal_call || is_delegate_call);
+    let may_use_parents_own_token = account_update.may_use_parents_own_token();
+    let may_use_token_inherited_from_parent = account_update.may_use_token_inherited_from_parent();
+
+    let caller_id = if may_use_token_inherited_from_parent {
+        current_forest.caller_caller.clone()
+    } else if may_use_parents_own_token {
+        current_forest.caller.clone()
+    } else {
+        TokenId::default()
+    };
+
+    // Cases:
+    //  - [account_update_forest] is empty, [remainder_of_current_forest] is empty.
+    //  Pop from the call stack to get another forest, which is guaranteed to be non-empty.
+    //  The result of popping becomes the "current forest".
+    //  - [account_update_forest] is empty, [remainder_of_current_forest] is non-empty.
+    //  Push nothing to the stack. [remainder_of_current_forest] becomes new "current forest"
+    //  - [account_update_forest] is non-empty, [remainder_of_current_forest] is empty.
+    //  Push nothing to the stack. [account_update_forest] becomes new "current forest"
+    //  - [account_update_forest] is non-empty, [remainder_of_current_forest] is non-empty:
+    //  Push [remainder_of_current_forest] to the stack. [account_update_forest] becomes new "current forest".
 
     let account_update_forest_empty = account_update_forest.is_empty();
     let remainder_of_current_forest_empty = remainder_of_current_forest.is_empty();
@@ -201,14 +225,12 @@ pub fn get_next_account_update(
             remainder_of_current_forest_frame
         }
     } else {
-        let caller = if let true = is_normal_call {
-            account_update.account_id().derive_token_id()
-        } else {
-            current_forest.caller.clone()
-        };
+        let caller = account_update.account_id().derive_token_id();
+        let caller_caller = caller_id.clone();
+
         StackFrame {
             caller,
-            caller_caller: account_update_caller,
+            caller_caller,
             calls: account_update_forest.clone(),
         }
     };
@@ -217,6 +239,7 @@ pub fn get_next_account_update(
         account_update_forest,
         new_frame,
         new_call_stack,
+        caller_id,
     }
 }
 
@@ -307,11 +330,24 @@ where
         IsStart::Compute(_) => is_start_,
     };
 
+    let will_succeed = match is_start {
+        IsStart::Compute(start_data) => {
+            if is_start_ {
+                start_data.will_succeed
+            } else {
+                local_state.will_succeed
+            }
+        }
+        IsStart::Yes(start_data) => start_data.will_succeed,
+        IsStart::No => local_state.will_succeed,
+    };
+
     let mut local_state = local_state.clone();
 
     if is_start_ {
-        local_state.ledger = global_state.ledger.clone();
+        local_state.ledger = global_state.first_pass_ledger().clone();
     }
+    local_state.will_succeed = will_succeed;
 
     let (
         (account_update, remaining, call_stack),
@@ -326,7 +362,7 @@ where
                         StackFrame {
                             caller: TokenId::default(),
                             caller_caller: TokenId::default(),
-                            calls: start_data.zkapp_command.clone(),
+                            calls: start_data.account_updates.clone(),
                         },
                         CallStack::new(),
                     )
@@ -341,7 +377,7 @@ where
                 StackFrame {
                     caller: TokenId::default(),
                     caller_caller: TokenId::default(),
-                    calls: start_data.zkapp_command.clone(),
+                    calls: start_data.account_updates.clone(),
                 },
                 CallStack::new(),
             ),
@@ -356,13 +392,14 @@ where
             account_update_forest,
             new_frame,
             new_call_stack: _,
+            caller_id,
         } = get_next_account_update(to_pop, call_stack.clone());
         let remaining = new_frame;
 
         let mut local_state = local_state.add_check(
             TransactionFailure::TokenOwnerNotCaller,
             account_update.token_id() == TokenId::default()
-                || account_update.token_id() == account_update.caller(),
+                || account_update.token_id() == caller_id,
         );
 
         let (a, inclusion_proof) =
@@ -423,6 +460,14 @@ where
         (&a, &inclusion_proof),
     );
 
+    let matching_verification_key_hashes = !(account_update.is_proved())
+        || account_verification_key_hash(&a) == account_update.verification_key_hash();
+
+    let mut local_state = local_state.add_check(
+        TransactionFailure::UnexpectedVerificationKeyHash,
+        matching_verification_key_hashes,
+    );
+
     let protocol_state_predicate_satisfied =
         if let PerformResult::Bool(protocol_state_predicate_satisfied) =
             Env::perform(Eff::CheckProtocolStatePrecondition(
@@ -455,6 +500,19 @@ where
         protocol_state_predicate_satisfied,
     );
 
+    let local_state = {
+        let valid_while_satisfied = Env::perform(Eff::CheckValidWhilePrecondition(
+            account_update.valid_while_precondition(),
+            global_state.clone(),
+        ))
+        .to_bool();
+
+        local_state.add_check(
+            TransactionFailure::ValidWhilePreconditionUnsatisfied,
+            valid_while_satisfied,
+        )
+    };
+
     let CheckAuthorizationResult {
         proof_verifies,
         signature_verifies,
@@ -464,7 +522,11 @@ where
         } else {
             local_state.transaction_commitment.clone()
         };
-        account_update.check_authorization(commitment.0, account_update_forest)
+        account_update.check_authorization(
+            local_state.will_succeed,
+            commitment.0,
+            account_update_forest,
+        )
     };
 
     assert!(proof_verifies == account_update.is_proved());
@@ -514,9 +576,12 @@ where
     let account_is_untimed = !is_timed(&a);
 
     let timing = account_update.timing();
+    let has_permission =
+        controller_check(proof_verifies, signature_verifies, a.permissions.set_timing);
+
     let local_state = local_state.add_check(
-        TransactionFailure::UpdateNotPermittedTimingExistingAccount,
-        timing.is_keep() || (account_is_untimed && signature_verifies),
+        TransactionFailure::UpdateNotPermittedTiming,
+        timing.is_keep() || (account_is_untimed && has_permission),
     );
     let timing = timing
         .into_map(Some)
@@ -536,9 +601,44 @@ where
         ..a.clone()
     };
 
-    let (a, local_state) = {
+    let account_creation_fee = Amount::of_fee(&constraint_constants.account_creation_fee);
+    let implicit_account_creation_fee = account_update.implicit_account_creation_fee();
+
+    // Check the token for implicit account creation fee payment.
+    let local_state = local_state.add_check(
+        TransactionFailure::CannotPayCreationFeeInToken,
+        (!implicit_account_creation_fee) || account_update_token_is_default,
+    );
+
+    // Compute the change to the account balance.
+    let (local_state, actual_balance_change) = {
         let balance_change = account_update.balance_change();
-        let (balance, failed1) = a.balance.add_signed_amount_flagged(balance_change.clone());
+        let neg_creation_fee = Signed::of_unsigned(account_creation_fee).negate();
+
+        let (balance_change_for_creation, creation_overflow) =
+            balance_change.add_flagged(neg_creation_fee);
+
+        let pay_creation_fee = account_is_new && implicit_account_creation_fee;
+        let creation_overflow = pay_creation_fee && creation_overflow;
+
+        let balance_change = if pay_creation_fee {
+            balance_change_for_creation
+        } else {
+            balance_change
+        };
+
+        let local_state = local_state.add_check(
+            TransactionFailure::AmountInsufficientToCreateAccount,
+            !(pay_creation_fee && (creation_overflow || balance_change.is_neg())),
+        );
+
+        (local_state, balance_change)
+    };
+
+    let (a, local_state) = {
+        let pay_creation_fee_from_excess = account_is_new && !implicit_account_creation_fee;
+        let (balance, failed1) = a.balance.add_signed_amount_flagged(actual_balance_change);
+
         println!("[rust] failed1 {}", failed1);
         let local_state = local_state.add_check(TransactionFailure::Overflow, !failed1);
         let local_state = {
@@ -550,10 +650,10 @@ where
                 });
             let local_state = local_state.add_check(
                 TransactionFailure::AmountInsufficientToCreateAccount,
-                !(account_is_new && excess_update_failed),
+                !(pay_creation_fee_from_excess && excess_update_failed),
             );
             LocalStateEnv {
-                excess: if let true = account_is_new {
+                excess: if let true = pay_creation_fee_from_excess {
                     excess_minus_creation_fee
                 } else {
                     local_state.excess
@@ -561,7 +661,7 @@ where
                 ..local_state
             }
         };
-        let is_receiver = balance_change.is_pos();
+        let is_receiver = actual_balance_change.is_pos();
         let local_state = {
             let controller = if let true = is_receiver {
                 a.permissions.receive
@@ -571,13 +671,13 @@ where
             let has_permission = controller_check(proof_verifies, signature_verifies, controller);
             local_state.add_check(
                 TransactionFailure::UpdateNotPermittedBalance,
-                has_permission || balance_change == Signed::<Amount>::zero(),
+                has_permission || actual_balance_change == Signed::<Amount>::zero(),
             )
         };
         let a = Account { balance, ..a };
         (a, local_state)
     };
-    let txn_global_slot = global_state.protocol_state.global_slot_since_genesis;
+    let txn_global_slot = global_state.block_global_slot;
     let (a, local_state) = {
         let (invalid_timing, timing) = match account_check_timing(&txn_global_slot, a.clone()) {
             (TimingValidation::InsufficientBalance(true), _) => {
@@ -597,6 +697,13 @@ where
         (a, local_state)
     };
     let a = make_zkapp(a);
+
+    // Check that the account can be accessed with the given authorization.
+    let local_state = {
+        let has_permission =
+            controller_check(proof_verifies, signature_verifies, a.permissions.access);
+        local_state.add_check(TransactionFailure::UpdateNotPermittedAccess, has_permission)
+    };
 
     let app_state = account_update.app_state();
     let keeping_app_state = app_state.iter().all(|x| x.is_keep());
@@ -680,16 +787,16 @@ where
     };
 
     let (a, local_state) = {
-        let sequence_events = account_update.sequence_events();
+        let actions = account_update.actions();
         let zkapp = a.zkapp.unwrap();
         let last_sequence_slot = zkapp.last_sequence_slot;
         let (sequence_state, last_sequence_slot) = update_sequence_state(
             zkapp.sequence_state,
-            sequence_events.clone(),
+            actions.clone(),
             txn_global_slot,
             last_sequence_slot,
         );
-        let is_empty = sequence_events.is_empty();
+        let is_empty = actions.is_empty();
         let has_permission = controller_check(
             proof_verifies,
             signature_verifies,
@@ -711,7 +818,6 @@ where
         (a, local_state)
     };
 
-    let a = unmake_zkapp(a);
     let (a, local_state) = {
         let zkapp_uri = account_update.zkapp_uri();
         let has_permission = controller_check(
@@ -731,6 +837,11 @@ where
         (a, local_state)
     };
 
+    //  At this point, all possible changes have been made to the zkapp
+    //  part of an account. Reset zkApp state to [None] if that part
+    //  is unmodified.
+    let a = unmake_zkapp(a);
+    // Update token symbol.
     let (a, local_state) = {
         let token_symbol = account_update.token_symbol();
         let has_permission = controller_check(
@@ -905,27 +1016,40 @@ where
         !is_last_account_update || delta_settled
     };
     let local_state = local_state.add_check(TransactionFailure::InvalidFeeExcess, valid_fee_excess);
-    let update_local_excess = is_start_ || is_last_account_update;
-    let update_global_state = update_local_excess && local_state.success;
 
-    let (global_state, global_excess_update_failed, update_global_state) = {
+    // let is_start_or_last = Bool.(is_start' ||| is_last_account_update) in
+    // let update_local_excess = is_start_ || is_last_account_update;
+    // let update_global_state = update_local_excess && local_state.success;
+
+    let is_start_or_last = is_start_ || is_last_account_update;
+
+    let update_global_state_fee_excess = is_start_or_last && local_state.success;
+    // let update_global_state_fee_excess =
+    //   Bool.(is_start_or_last &&& local_state.success)
+    // in
+
+    let (global_state, global_excess_update_failed) = {
+        // let (global_state, global_excess_update_failed, update_global_state) = {
         let amt = global_state.fee_excess.clone();
         let (res, overflow) = amt.add_flagged(local_state.excess.clone());
-        let global_excess_update_failed = update_global_state && overflow;
-        let update_global_state = update_global_state && !overflow;
-        let new_amt = if update_global_state { res } else { amt };
+        let global_excess_update_failed = update_global_state_fee_excess && overflow;
+        // let update_global_state = update_global_state && !overflow;
+        let new_amt = if update_global_state_fee_excess {
+            res
+        } else {
+            amt
+        };
         (
             GlobalState {
                 fee_excess: new_amt,
                 ..global_state.clone()
             },
             global_excess_update_failed,
-            update_global_state,
         )
     };
     let local_state = LocalStateEnv {
-        excess: if update_local_excess {
-            Signed::<Fee>::zero()
+        excess: if is_start_or_last {
+            Signed::<Amount>::zero()
         } else {
             local_state.excess
         },
@@ -939,11 +1063,66 @@ where
         !is_start_ || local_state.success,
         local_state.failure_status_tbl.clone(),
     );
-    let global_state = set_ledger(
-        update_global_state,
-        global_state,
-        local_state.ledger.clone(),
-    );
+
+    // If we are the fee payer (is_start' = true), push the first pass ledger
+    // and set the local ledger to be the second pass ledger in preparation for
+    // the children.
+    let (local_state, global_state) = {
+        let is_fee_payer = is_start_;
+        let global_state =
+            global_state.set_first_pass_ledger(is_fee_payer, local_state.ledger.clone());
+
+        let local_state = LocalStateEnv {
+            ledger: if is_fee_payer {
+                global_state.second_pass_ledger()
+            } else {
+                local_state.ledger
+            },
+            ..local_state
+        };
+
+        (local_state, global_state)
+    };
+
+    //  If this is the last account update, and [will_succeed] is false, then
+    //  [success] must also be false.
+    let any = [
+        !is_last_account_update,
+        local_state.will_succeed,
+        !local_state.success,
+    ]
+    .iter()
+    .any(|b| *b);
+    // https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/transaction_logic/mina_transaction_logic.ml#L1207
+    assert!(any);
+
+    // If this is the last party and there were no failures, update the second
+    // pass ledger and the supply increase.
+
+    let global_state = {
+        let is_successful_last_party = is_last_account_update && local_state.success;
+        let global_state = global_state.set_supply_increase(if is_successful_last_party {
+            new_global_supply_increase
+        } else {
+            todo!()
+        });
+    };
+
+    // *)
+    // let global_state =
+    //   let is_successful_last_party =
+    //     Bool.(is_last_account_update &&& local_state.success)
+    //   in
+    //   let global_state =
+    //     Global_state.set_supply_increase global_state
+    //       (Amount.Signed.if_ is_successful_last_party
+    //          ~then_:new_global_supply_increase
+    //          ~else_:(Global_state.supply_increase global_state) )
+    //   in
+    //   Global_state.set_second_pass_ledger
+    //     ~should_update:is_successful_last_party global_state local_state.ledger
+    // in
+
     let local_state = LocalStateEnv {
         token_id: if is_last_account_update {
             TokenId::default()
