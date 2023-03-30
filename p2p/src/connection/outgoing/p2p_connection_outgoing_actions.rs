@@ -5,6 +5,8 @@ use shared::requests::RpcId;
 use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::{webrtc, P2pState, PeerId};
 
+use super::P2pConnectionOutgoingInitOpts;
+
 pub type P2pConnectionOutgoingActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a P2pConnectionOutgoingAction>;
 
@@ -105,12 +107,6 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingReconnectAction
             .filter(|(.., opts)| opts.as_ref().map_or(true, |opts| opts == &self.opts))
             .is_some()
     }
-}
-
-#[derive(Serialize, Deserialize, Eq, PartialEq, Ord, PartialOrd, Debug, Clone)]
-pub struct P2pConnectionOutgoingInitOpts {
-    pub peer_id: PeerId,
-    pub signaling: webrtc::SignalingMethod,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

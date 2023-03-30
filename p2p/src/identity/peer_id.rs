@@ -14,7 +14,7 @@ impl PeerId {
         let mut iter = bytes
             .chunks(8)
             .map(|v| <[u8; 8]>::try_from(v).unwrap())
-            .map(|b| u64::from_be_bytes(b));
+            .map(u64::from_be_bytes);
         Self([
             iter.next().unwrap(),
             iter.next().unwrap(),
@@ -95,7 +95,7 @@ impl<'de> serde::Deserialize<'de> for PeerId {
     {
         if deserializer.is_human_readable() {
             let b58: String = Deserialize::deserialize(deserializer)?;
-            Ok(b58.parse().map_err(|err| serde::de::Error::custom(err))?)
+            Ok(b58.parse().map_err(serde::de::Error::custom)?)
         } else {
             Ok(Self(Deserialize::deserialize(deserializer)?))
         }
