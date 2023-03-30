@@ -66,6 +66,7 @@ impl FromStr for SignalingMethod {
         let method_end_index = s[1..]
             .find('/')
             .map(|i| i + 1)
+            .filter(|i| s.len() > *i)
             .ok_or(SignalingMethodParseError::NotEnoughArgs)?;
 
         match &s[1..method_end_index] {
