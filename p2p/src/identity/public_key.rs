@@ -3,6 +3,8 @@ use std::{fmt, str::FromStr};
 use ed25519_dalek::PublicKey as Ed25519PublicKey;
 use serde::{Deserialize, Serialize};
 
+use crate::PeerId;
+
 #[derive(Eq, PartialEq, Clone)]
 pub struct PublicKey(Ed25519PublicKey);
 
@@ -10,11 +12,15 @@ impl PublicKey {
     const BASE58_CHECK_VERSION: u8 = 0x16; // 'P'
 
     pub fn from_bytes(bytes: [u8; 32]) -> Result<Self, ed25519_dalek::SignatureError> {
-        Ed25519PublicKey::from_bytes(&bytes).map(|v| Self(v))
+        Ed25519PublicKey::from_bytes(&bytes).map(Self)
     }
 
     pub fn to_bytes(&self) -> [u8; 32] {
         self.0.to_bytes()
+    }
+
+    pub fn peer_id(&self) -> PeerId {
+        PeerId::from_bytes(self.to_bytes())
     }
 }
 
@@ -86,7 +92,7 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
     {
         if deserializer.is_human_readable() {
             let b58: String = Deserialize::deserialize(deserializer)?;
-            Ok(b58.parse().map_err(|err| serde::de::Error::custom(err))?)
+            Ok(b58.parse().map_err(serde::de::Error::custom)?)
         } else {
             Ok(Self(Deserialize::deserialize(deserializer)?))
         }

@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use rand::prelude::*;
 use serde::Serialize;
-use snarker::p2p::webrtc::SignalingMethod;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
@@ -14,7 +13,7 @@ use snarker::event_source::{
 use snarker::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use snarker::p2p::identity::{Keypair, PublicKey};
 use snarker::p2p::service_impl::webrtc_rs::{Cmd, P2pServiceCtx, P2pServiceWebrtcRs, PeerState};
-use snarker::p2p::{P2pConfig, P2pConnectionEvent, P2pEvent, PeerId};
+use snarker::p2p::{P2pConfig, P2pEvent, PeerId};
 use snarker::rpc::RpcRequest;
 use snarker::service::{EventSourceService, Stats};
 use snarker::{Config, State};
@@ -49,12 +48,11 @@ impl Snarker {
         let config = Config {
             p2p: P2pConfig {
                 identity_pub_key: pub_key,
-                initial_peers: vec![P2pConnectionOutgoingInitOpts {
-                    peer_id: "2bEgBrPTzL8wov2D4Kz34WVLCxR4uCarsBmHYXWKQA5wvBQzd9H"
+                initial_peers: vec![
+                    "/2cFXX6RK81MUi7Fe4bFx7k3U6Fr1Hn1rDDbAqPEm6iUTdv2C2gw/http/localhost/3000"
                         .parse()
                         .unwrap(),
-                    signaling: "/http/localhost/3000".parse().unwrap(),
-                }],
+                ],
                 max_peers: 10,
             },
         };
