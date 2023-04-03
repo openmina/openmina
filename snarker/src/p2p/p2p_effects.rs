@@ -1,7 +1,7 @@
-use p2p::connection::incoming::P2pConnectionIncomingAnswerSendSuccessAction;
-
+use crate::p2p::connection::incoming::P2pConnectionIncomingAnswerSendSuccessAction;
+use crate::p2p::connection::P2pConnectionResponse;
 use crate::rpc::{
-    RpcP2pConnectionIncomingAnswerSetAction, RpcP2pConnectionIncomingErrorAction,
+    RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingSuccessAction,
 };
@@ -29,6 +29,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     action.effects(&meta, store);
                 }
                 P2pConnectionOutgoingAction::OfferSdpCreatePending(_) => {}
+                P2pConnectionOutgoingAction::OfferSdpCreateError(action) => {
+                    action.effects(&meta, store);
+                }
                 P2pConnectionOutgoingAction::OfferSdpCreateSuccess(action) => {
                     action.effects(&meta, store);
                 }
@@ -75,15 +78,18 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     action.effects(&meta, store);
                 }
                 P2pConnectionIncomingAction::AnswerSdpCreatePending(_) => {}
+                P2pConnectionIncomingAction::AnswerSdpCreateError(action) => {
+                    action.effects(&meta, store);
+                }
                 P2pConnectionIncomingAction::AnswerSdpCreateSuccess(action) => {
                     action.effects(&meta, store);
                 }
                 P2pConnectionIncomingAction::AnswerReady(action) => {
                     let p2p = &store.state().p2p;
                     if let Some(rpc_id) = p2p.peer_connection_rpc_id(&action.peer_id) {
-                        store.dispatch(RpcP2pConnectionIncomingAnswerSetAction {
+                        store.dispatch(RpcP2pConnectionIncomingRespondAction {
                             rpc_id,
-                            answer: action.answer.clone(),
+                            response: P2pConnectionResponse::Accepted(action.answer.clone()),
                         });
                         store.dispatch(P2pConnectionIncomingAnswerSendSuccessAction {
                             peer_id: action.peer_id,
@@ -106,7 +112,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     if let Some(rpc_id) = p2p.peer_connection_rpc_id(&action.peer_id) {
                         store.dispatch(RpcP2pConnectionIncomingErrorAction {
                             rpc_id,
-                            error: action.error.clone(),
+                            error: format!("{:?}", action.error),
                         });
                     }
                     // action.effects(&meta, store);

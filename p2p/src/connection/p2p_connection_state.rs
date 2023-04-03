@@ -37,17 +37,10 @@ impl P2pConnectionState {
 
     pub fn is_error(&self) -> bool {
         match self {
-            Self::Outgoing(v) => match v {
-                P2pConnectionOutgoingState::AnswerRecvError { .. } => true,
-                P2pConnectionOutgoingState::FinalizeError { .. } => true,
-                P2pConnectionOutgoingState::Error { .. } => true,
-                _ => false,
-            },
-            Self::Incoming(v) => match v {
-                P2pConnectionIncomingState::FinalizeError { .. } => true,
-                P2pConnectionIncomingState::Error { .. } => true,
-                _ => false,
-            },
+            Self::Outgoing(P2pConnectionOutgoingState::Error { .. }) => true,
+            Self::Outgoing(_) => false,
+            Self::Incoming(P2pConnectionIncomingState::Error { .. }) => true,
+            Self::Incoming(_) => false,
         }
     }
 

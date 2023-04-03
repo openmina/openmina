@@ -30,6 +30,7 @@ impl P2pConnectionOutgoingState {
                     };
                 }
             }
+            P2pConnectionOutgoingAction::OfferSdpCreateError(_) => {}
             P2pConnectionOutgoingAction::OfferSdpCreateSuccess(action) => {
                 if let Self::OfferSdpCreatePending { opts, rpc_id, .. } = self {
                     *self = Self::OfferSdpCreateSuccess {
@@ -82,23 +83,7 @@ impl P2pConnectionOutgoingState {
                     };
                 }
             }
-            P2pConnectionOutgoingAction::AnswerRecvError(action) => {
-                if let Self::AnswerRecvPending {
-                    opts,
-                    offer,
-                    rpc_id,
-                    ..
-                } = self
-                {
-                    *self = Self::AnswerRecvError {
-                        time: meta.time(),
-                        opts: opts.clone(),
-                        offer: offer.clone(),
-                        error: action.error.clone(),
-                        rpc_id: rpc_id.take(),
-                    };
-                }
-            }
+            P2pConnectionOutgoingAction::AnswerRecvError(_) => {}
             P2pConnectionOutgoingAction::AnswerRecvSuccess(action) => {
                 if let Self::AnswerRecvPending {
                     opts,
@@ -134,25 +119,7 @@ impl P2pConnectionOutgoingState {
                     };
                 }
             }
-            P2pConnectionOutgoingAction::FinalizeError(action) => {
-                if let Self::FinalizePending {
-                    opts,
-                    offer,
-                    answer,
-                    rpc_id,
-                    ..
-                } = self
-                {
-                    *self = Self::FinalizeError {
-                        time: meta.time(),
-                        opts: opts.clone(),
-                        offer: offer.clone(),
-                        answer: answer.clone(),
-                        error: action.error.clone(),
-                        rpc_id: rpc_id.take(),
-                    };
-                }
-            }
+            P2pConnectionOutgoingAction::FinalizeError(_) => {}
             P2pConnectionOutgoingAction::FinalizeSuccess(_) => {
                 if let Self::FinalizePending {
                     opts,

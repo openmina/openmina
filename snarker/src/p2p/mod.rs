@@ -50,6 +50,7 @@ impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingRandomInitAc
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingInitAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingReconnectAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferSdpCreatePendingAction);
+impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferSdpCreateErrorAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferSdpCreateSuccessAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferReadyAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferSendSuccessAction);
@@ -64,6 +65,7 @@ impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingSuccessActio
 
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingInitAction);
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingAnswerSdpCreatePendingAction);
+impl_into_global_action!(connection::incoming::P2pConnectionIncomingAnswerSdpCreateErrorAction);
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingAnswerSdpCreateSuccessAction);
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingAnswerReadyAction);
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingAnswerSendSuccessAction);

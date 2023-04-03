@@ -2,7 +2,10 @@ use warp::{hyper::StatusCode, reply::with_status, Filter};
 
 use snarker::{
     p2p::{
-        connection::incoming::{IncomingSignalingMethod, P2pConnectionIncomingInitOpts},
+        connection::{
+            incoming::{IncomingSignalingMethod, P2pConnectionIncomingInitOpts},
+            P2pConnectionResponse,
+        },
         webrtc, PeerId,
     },
     rpc::RpcRequest,
@@ -29,14 +32,26 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                     .await;
 
                 match rx.recv().await {
-                    Some(RpcP2pConnectionIncomingResponse::Answer(answer)) => match answer {
-                        Ok(v) => {
-                            let resp = serde_json::to_string(&v).unwrap();
-                            with_status(resp, StatusCode::from_u16(200).unwrap())
-                        }
-                        Err(err) => with_status(err, StatusCode::from_u16(400).unwrap()),
-                    },
-                    _ => with_status("rejected".to_owned(), StatusCode::from_u16(400).unwrap()),
+                    Some(RpcP2pConnectionIncomingResponse::Answer(answer)) => {
+                        let status = match &answer {
+                            P2pConnectionResponse::Accepted(_) => StatusCode::OK,
+                            P2pConnectionResponse::Rejected(reason) => match reason.is_bad() {
+                                false => StatusCode::OK,
+                                true => StatusCode::BAD_REQUEST,
+                            },
+                            P2pConnectionResponse::InternalError => {
+                                StatusCode::INTERNAL_SERVER_ERROR
+                            }
+                        };
+                        let resp = serde_json::to_string(&answer).unwrap_or_else(|_| {
+                            P2pConnectionResponse::internal_error_json_str().to_owned()
+                        });
+                        with_status(resp, status)
+                    }
+                    _ => {
+                        let resp = P2pConnectionResponse::internal_error_json_str().to_owned();
+                        with_status(resp, StatusCode::INTERNAL_SERVER_ERROR)
+                    }
                 }
             }
         });

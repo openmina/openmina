@@ -30,6 +30,7 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
+            P2pConnectionIncomingAction::AnswerSdpCreateError(_) => {}
             P2pConnectionIncomingAction::AnswerSdpCreateSuccess(action) => {
                 if let Self::AnswerSdpCreatePending {
                     signaling,
@@ -100,25 +101,7 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
-            P2pConnectionIncomingAction::FinalizeError(action) => {
-                if let Self::FinalizePending {
-                    signaling,
-                    offer,
-                    answer,
-                    rpc_id,
-                    ..
-                } = self
-                {
-                    *self = Self::FinalizeError {
-                        time: meta.time(),
-                        signaling: signaling.clone(),
-                        offer: offer.clone(),
-                        answer: answer.clone(),
-                        error: action.error.clone(),
-                        rpc_id: rpc_id.take(),
-                    };
-                }
-            }
+            P2pConnectionIncomingAction::FinalizeError(_) => {}
             P2pConnectionIncomingAction::FinalizeSuccess(_) => {
                 if let Self::FinalizePending {
                     signaling,

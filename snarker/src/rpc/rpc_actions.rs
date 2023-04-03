@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
-use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-use crate::p2p::webrtc;
+use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
+use crate::p2p::connection::P2pConnectionResponse;
 use crate::service::ActionStatsForRanges;
 use crate::ActionKind;
 
@@ -27,7 +27,7 @@ pub enum RpcAction {
 
     P2pConnectionIncomingInit(RpcP2pConnectionIncomingInitAction),
     P2pConnectionIncomingPending(RpcP2pConnectionIncomingPendingAction),
-    P2pConnectionIncomingAnswerSet(RpcP2pConnectionIncomingAnswerSetAction),
+    P2pConnectionIncomingRespond(RpcP2pConnectionIncomingRespondAction),
     P2pConnectionIncomingError(RpcP2pConnectionIncomingErrorAction),
     P2pConnectionIncomingSuccess(RpcP2pConnectionIncomingSuccessAction),
 
@@ -89,7 +89,7 @@ impl redux::EnablingCondition<crate::State> for RpcP2pConnectionOutgoingPendingA
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcP2pConnectionOutgoingErrorAction {
     pub rpc_id: RpcId,
-    pub error: String,
+    pub error: P2pConnectionOutgoingError,
 }
 
 impl redux::EnablingCondition<crate::State> for RpcP2pConnectionOutgoingErrorAction {
@@ -145,18 +145,18 @@ impl redux::EnablingCondition<crate::State> for RpcP2pConnectionIncomingPendingA
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct RpcP2pConnectionIncomingAnswerSetAction {
+pub struct RpcP2pConnectionIncomingRespondAction {
     pub rpc_id: RpcId,
-    pub answer: webrtc::Answer,
+    pub response: P2pConnectionResponse,
 }
 
-impl redux::EnablingCondition<crate::State> for RpcP2pConnectionIncomingAnswerSetAction {
+impl redux::EnablingCondition<crate::State> for RpcP2pConnectionIncomingRespondAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .rpc
             .requests
             .get(&self.rpc_id)
-            .map_or(false, |v| v.status.is_pending())
+            .map_or(false, |v| v.status.is_init() || v.status.is_pending())
     }
 }
 
@@ -172,7 +172,7 @@ impl redux::EnablingCondition<crate::State> for RpcP2pConnectionIncomingErrorAct
             .rpc
             .requests
             .get(&self.rpc_id)
-            .map_or(false, |v| v.status.is_pending())
+            .map_or(false, |v| v.status.is_init() || v.status.is_pending())
     }
 }
 
@@ -228,7 +228,7 @@ impl_into_global_action!(RpcP2pConnectionOutgoingSuccessAction);
 
 impl_into_global_action!(RpcP2pConnectionIncomingInitAction);
 impl_into_global_action!(RpcP2pConnectionIncomingPendingAction);
-impl_into_global_action!(RpcP2pConnectionIncomingAnswerSetAction);
+impl_into_global_action!(RpcP2pConnectionIncomingRespondAction);
 impl_into_global_action!(RpcP2pConnectionIncomingErrorAction);
 impl_into_global_action!(RpcP2pConnectionIncomingSuccessAction);
 

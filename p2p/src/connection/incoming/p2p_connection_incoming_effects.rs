@@ -4,12 +4,13 @@ use crate::P2pPeerReadyAction;
 use crate::{connection::P2pConnectionService, webrtc};
 
 use super::{
-    P2pConnectionIncomingAnswerReadyAction, P2pConnectionIncomingAnswerSdpCreatePendingAction,
+    P2pConnectionIncomingAnswerReadyAction, P2pConnectionIncomingAnswerSdpCreateErrorAction,
+    P2pConnectionIncomingAnswerSdpCreatePendingAction,
     P2pConnectionIncomingAnswerSdpCreateSuccessAction,
-    P2pConnectionIncomingAnswerSendSuccessAction, P2pConnectionIncomingErrorAction,
-    P2pConnectionIncomingFinalizeErrorAction, P2pConnectionIncomingFinalizePendingAction,
-    P2pConnectionIncomingFinalizeSuccessAction, P2pConnectionIncomingInitAction,
-    P2pConnectionIncomingSuccessAction,
+    P2pConnectionIncomingAnswerSendSuccessAction, P2pConnectionIncomingError,
+    P2pConnectionIncomingErrorAction, P2pConnectionIncomingFinalizeErrorAction,
+    P2pConnectionIncomingFinalizePendingAction, P2pConnectionIncomingFinalizeSuccessAction,
+    P2pConnectionIncomingInitAction, P2pConnectionIncomingSuccessAction,
 };
 
 impl P2pConnectionIncomingInitAction {
@@ -22,6 +23,20 @@ impl P2pConnectionIncomingInitAction {
         let peer_id = self.opts.peer_id;
         store.service().incoming_init(peer_id, self.opts.offer);
         store.dispatch(P2pConnectionIncomingAnswerSdpCreatePendingAction { peer_id });
+    }
+}
+
+impl P2pConnectionIncomingAnswerSdpCreateErrorAction {
+    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    where
+        Store: crate::P2pStore<S>,
+        Store::Service: P2pConnectionService,
+        P2pConnectionIncomingErrorAction: redux::EnablingCondition<S>,
+    {
+        store.dispatch(P2pConnectionIncomingErrorAction {
+            peer_id: self.peer_id,
+            error: P2pConnectionIncomingError::SdpCreateError(self.error),
+        });
     }
 }
 
@@ -76,7 +91,7 @@ impl P2pConnectionIncomingFinalizeErrorAction {
     {
         store.dispatch(P2pConnectionIncomingErrorAction {
             peer_id: self.peer_id,
-            error: self.error,
+            error: P2pConnectionIncomingError::FinalizeError(self.error),
         });
     }
 }
