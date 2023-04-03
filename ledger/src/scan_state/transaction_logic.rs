@@ -484,7 +484,7 @@ impl Coinbase {
 
         let mut ids = Vec::with_capacity(2);
 
-        ids.push((self.receiver(), access_status));
+        ids.push((self.receiver(), access_status.clone()));
 
         if let Some(fee_transfer) = self.fee_transfer.as_ref() {
             ids.push((fee_transfer.receiver(), access_status));
@@ -2172,7 +2172,7 @@ pub mod zkapp_command {
         }
 
         pub fn valid_while_precondition(&self) -> OrIgnore<ClosedInterval<Slot>> {
-            self.body.preconditions.valid_while
+            self.body.preconditions.valid_while.clone()
         }
 
         pub fn actions(&self) -> Actions {
@@ -2573,7 +2573,7 @@ pub mod zkapp_command {
             let ids = self
                 .account_updates
                 .fold(init, |mut accum, account_update| {
-                    accum.push((account_update.account_id(), status_sym));
+                    accum.push((account_update.account_id(), status_sym.clone()));
                     accum
                 });
             ids.iter().unique().rev().cloned().collect()
@@ -2617,7 +2617,10 @@ pub mod zkapp_command {
             pub memo: Memo,
         }
 
-        fn ok_if_vk_hash_expected(got: VerificationKey, expected: Fp) -> Result<VerificationKey, String> {
+        fn ok_if_vk_hash_expected(
+            got: VerificationKey,
+            expected: Fp,
+        ) -> Result<VerificationKey, String> {
             if got.hash() == expected {
                 return Ok(got);
             }
@@ -2683,7 +2686,7 @@ pub mod zkapp_command {
         pub fn to_valid(
             zkapp_command: super::ZkAppCommand,
             ledger: &impl BaseLedger,
-            find_vk: impl Fn(Fp, &AccountId) -> Result<VerificationKey, String>
+            find_vk: impl Fn(Fp, &AccountId) -> Result<VerificationKey, String>,
         ) -> Option<ZkAppCommand> {
             todo!()
         }
@@ -3516,19 +3519,19 @@ pub mod local_state {
                 account_update_index,
                 failure_status_tbl,
                 will_succeed,
-            };
+            } = self;
 
-            stack_frame == other.stack_frame
-                && call_stack == other.call_stack
-                && transaction_commitment == other.transaction_commitment
-                && full_transaction_commitment == other.full_transaction_commitment
-                && token_id == other.token_id
-                && excess == other.excess
-                && supply_increase == other.supply_increase
-                && success == other.success
-                && account_update_index == other.account_update_index
-                && failure_status_tbl == other.failure_status_tbl
-                && will_succeed == other.will_succeed
+            stack_frame == &other.stack_frame
+                && call_stack == &other.call_stack
+                && transaction_commitment == &other.transaction_commitment
+                && full_transaction_commitment == &other.full_transaction_commitment
+                && token_id == &other.token_id
+                && excess == &other.excess
+                && supply_increase == &other.supply_increase
+                && success == &other.success
+                && account_update_index == &other.account_update_index
+                && failure_status_tbl == &other.failure_status_tbl
+                && will_succeed == &other.will_succeed
         }
     }
 }
@@ -3915,7 +3918,7 @@ where
         global_slot,
         state_view,
         init,
-        f,
+        &f,
         fee_excess,
         supply_increase,
         ledger,

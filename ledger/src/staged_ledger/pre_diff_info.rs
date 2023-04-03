@@ -345,7 +345,7 @@ where
 {
     // project transactions into a sequence of transactions
     let project_transactions =
-        |coinbase_parts, commands: Vec<valid::UserCommand>, completed_works| {
+        |coinbase_parts, commands: Vec<valid::UserCommand>, completed_works: &[work::Work]| {
             let TransactionData {
                 commands,
                 coinbases,

@@ -146,7 +146,7 @@ impl Diff {
         F: Fn(Vec<WithStatus<UserCommand>>) -> Result<Vec<valid::UserCommand>, VerifierError>,
     {
         let validate = |cmds: Vec<WithStatus<UserCommand>>| -> Result<Vec<WithStatus<valid::UserCommand>>, VerifierError> {
-            let valids = check(cmds)?;
+            let valids = check(cmds.clone())?;
             Ok(valids.into_iter().zip(cmds).map(|(data, c)| {
                 WithStatus { data, status: c.status  }
             }).collect())

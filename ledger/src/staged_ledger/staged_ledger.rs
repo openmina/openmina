@@ -298,7 +298,10 @@ impl StagedLedger {
             LedgerHash,
         ) -> Result<Self, String>,
     {
-        let apply_first_pass = |global_slot, txn_state_view, ledger, transaction| {
+        let apply_first_pass = |global_slot: Slot,
+                                txn_state_view: &ProtocolStateView,
+                                ledger: &mut Mask,
+                                transaction: &Transaction| {
             apply_transaction_first_pass(
                 constraint_constants,
                 global_slot,
@@ -311,7 +314,10 @@ impl StagedLedger {
         let apply_second_pass = apply_transaction_second_pass;
 
         let apply_first_pass_sparse_ledger =
-            |global_slot, txn_state_view, sparse_ledger, transaction| {
+            |global_slot: Slot,
+             txn_state_view: &ProtocolStateView,
+             sparse_ledger: &mut SparseLedger<AccountId, Account>,
+             transaction: &Transaction| {
                 apply_transaction_first_pass(
                     constraint_constants,
                     global_slot,
@@ -513,20 +519,20 @@ impl StagedLedger {
     fn apply_single_transaction_first_pass(
         constraint_constants: &ConstraintConstants,
         global_slot: Slot,
-        ledger: Mask,
+        mut ledger: Mask,
         pending_coinbase_stack_state: &StackStateWithInitStack,
         txn_with_status: &WithStatus<Transaction>,
         txn_state_view: &ProtocolStateView,
     ) -> Result<(PreStatement<Mask>, StackStateWithInitStack), StagedLedgerError> {
         let txn = &txn_with_status.data;
-        let expected_status = txn_with_status.status;
+        let expected_status = txn_with_status.status.clone();
 
         // TODO(OCaml): for zkapps, we should actually narrow this by segments
         let accounts_accessed = txn.accounts_referenced();
 
         let fee_excess = txn.fee_excess()?;
         let source_ledger_hash = ledger.merkle_root();
-        let ledger_witness = SparseLedger::of_ledger_subset_exn(ledger, &accounts_accessed);
+        let ledger_witness = SparseLedger::of_ledger_subset_exn(ledger.clone(), &accounts_accessed);
 
         let pending_coinbase_target =
             Self::push_coinbase(&pending_coinbase_stack_state.pc.target, txn);
@@ -552,8 +558,8 @@ impl StagedLedger {
                 first_pass_ledger_source_hash: source_ledger_hash,
                 first_pass_ledger_target_hash: target_ledger_hash,
                 pending_coinbase_stack_source: pending_coinbase_stack_state.pc.source.clone(),
-                pending_coinbase_stack_target: pending_coinbase_target,
-                init_stack: InitStack::Base(pending_coinbase_stack_state.init_stack),
+                pending_coinbase_stack_target: pending_coinbase_target.clone(),
+                init_stack: InitStack::Base(pending_coinbase_stack_state.init_stack.clone()),
             },
             StackStateWithInitStack {
                 pc: StackState {
@@ -568,7 +574,7 @@ impl StagedLedger {
     fn apply_single_transaction_second_pass(
         constraint_constants: &ConstraintConstants,
         connecting_ledger: LedgerHash,
-        ledger: Mask,
+        mut ledger: Mask,
         state_and_body_hash: (Fp, Fp),
         global_slot: Slot,
         pre_stmt: PreStatement<Mask>,
@@ -576,7 +582,7 @@ impl StagedLedger {
         let empty_local_state = LocalState::empty();
         let second_pass_ledger_source_hash = ledger.merkle_root();
         let ledger_witness =
-            SparseLedger::of_ledger_subset_exn(ledger, &pre_stmt.accounts_accessed);
+            SparseLedger::of_ledger_subset_exn(ledger.clone(), &pre_stmt.accounts_accessed);
         let applied_txn =
             apply_transaction_second_pass(&mut ledger, pre_stmt.partially_applied_transaction)?;
 
@@ -635,7 +641,8 @@ impl StagedLedger {
         ts: Vec<WithStatus<Transaction>>,
         current_state_view: &ProtocolStateView,
     ) -> Result<(Vec<PreStatement<Mask>>, Stack), StagedLedgerError> {
-        let apply = |pending_coinbase_stack_state, txn: &WithStatus<Transaction>| {
+        let apply = |pending_coinbase_stack_state: &StackStateWithInitStack,
+                     txn: &WithStatus<Transaction>| {
             if let Some(pk) = txn
                 .data
                 .public_keys()
@@ -648,7 +655,7 @@ impl StagedLedger {
             Self::apply_single_transaction_first_pass(
                 constraint_constants,
                 global_slot,
-                ledger,
+                ledger.clone(),
                 pending_coinbase_stack_state,
                 txn,
                 current_state_view,
@@ -661,7 +668,7 @@ impl StagedLedger {
             .iter()
             .map(|transaction| {
                 let (tx_with_witness, new_stack_state) =
-                    apply(&pending_coinbase_stack_state, transaction)?;
+                    { apply(&pending_coinbase_stack_state, transaction)? };
 
                 pending_coinbase_stack_state = new_stack_state;
 
@@ -735,7 +742,7 @@ impl StagedLedger {
         let (pre_stmts1, updated_stack1) = apply_first_pass(current_stack, ts)?;
 
         let (pre_stmts2, updated_stack2) = match ts_opt {
-            None => (vec![], updated_stack1),
+            None => (vec![], updated_stack1.clone()),
             Some(ts) => {
                 let current_stack2 = Stack::create_with(current_stack);
                 apply_first_pass(&current_stack2, ts)?
@@ -846,7 +853,7 @@ impl StagedLedger {
         constraint_constants: &ConstraintConstants,
         global_slot: Slot,
         scan_state: &ScanState,
-        ledger: Mask,
+        mut ledger: Mask,
         pending_coinbase_collection: &mut PendingCoinbase,
         transactions: Vec<WithStatus<Transaction>>,
         current_state_view: &ProtocolStateView,
@@ -902,6 +909,8 @@ impl StagedLedger {
                 let (txns_for_partition1, txns_for_partition2) =
                     split_at_vec(transactions, slots as usize);
 
+                let txns_for_partition2_is_empty = txns_for_partition2.is_empty();
+
                 let coinbase_in_first_partition = coinbase_exists(&txns_for_partition1);
 
                 let working_stack1 = Self::working_stack(pending_coinbase_collection, false)?;
@@ -919,7 +928,7 @@ impl StagedLedger {
                         state_and_body_hash,
                     )?;
 
-                let second_has_data = !txns_for_partition2.is_empty();
+                let second_has_data = !txns_for_partition2_is_empty;
 
                 let (pending_coinbase_action, stack_update) =
                     // NOTE: Only branch `(true, false)` and `(false, true)` are taken here
@@ -1088,6 +1097,8 @@ impl StagedLedger {
 
         Self::check_zero_fee_excess(&self.scan_state, &data)?;
 
+        let data_is_empty = data.is_empty();
+
         let res_opt = {
             self.scan_state
                 .fill_work_and_enqueue_transactions(data, works)
@@ -1113,7 +1124,7 @@ impl StagedLedger {
 
         let latest_pending_coinbase_stack = self.pending_coinbase_collection.latest_stack(false);
 
-        if !(skip_verification || data.is_empty()) {
+        if !(skip_verification || data_is_empty) {
             Self::verify_scan_state_after_apply(
                 constraint_constants,
                 latest_pending_coinbase_stack,
@@ -1160,7 +1171,7 @@ impl StagedLedger {
         cs: Vec<WithStatus<UserCommand>>,
     ) -> Result<Vec<valid::UserCommand>, VerifierError> {
         let cs = UserCommand::to_all_verifiable(cs, |expected_vk_hash, account_id| {
-            find_vk_via_ledger(ledger, expected_vk_hash, account_id)
+            find_vk_via_ledger(ledger.clone(), expected_vk_hash, account_id)
         })
         .unwrap(); // TODO: No unwrap
 
@@ -1624,7 +1635,7 @@ impl StagedLedger {
 
     fn with_ledger_mask<F, R>(base_ledger: Mask, fun: F) -> R
     where
-        F: Fn(&mut Mask) -> R,
+        F: FnOnce(&mut Mask) -> R,
     {
         let mut mask = base_ledger.make_child();
         fun(&mut mask)
@@ -1728,7 +1739,7 @@ impl StagedLedger {
     {
         let _log_block_creation = log_block_creation.unwrap_or(false);
 
-        Self::with_ledger_mask(self.ledger.clone(), |validating_ledger| {
+        Self::with_ledger_mask(self.ledger.clone(), move |validating_ledger| {
             let is_new_account = |pk: &CompressedPubKey| {
                 validating_ledger
                     .location_of_account(&AccountId::new(pk.clone(), TokenId::default()))
@@ -1846,7 +1857,7 @@ impl StagedLedger {
                             .expect("OCaml throws here"),
                         global_slot,
                         current_state_view,
-                        &mut status_ledger,
+                        status_ledger,
                     )
                 })
             }?;

@@ -1132,7 +1132,7 @@ impl ScanState {
     fn incomplete_txns_from_recent_proof_tree(
         &self,
     ) -> Option<(
-        &LedgerProofWithSokMessage,
+        LedgerProofWithSokMessage,
         (
             Vec<TransactionWithWitness>,
             BorderBlockContinuedInTheNextTree,
@@ -1161,7 +1161,7 @@ impl ScanState {
             }
         };
 
-        Some((proof, txns))
+        Some((proof.clone(), txns))
     }
 
     fn staged_transactions(&self) -> Vec<TransactionsOrdered<TransactionWithWitness>> {
@@ -1294,11 +1294,11 @@ impl ScanState {
 
         type Acc<L> = Vec<(TransactionStatus, TransactionPartiallyApplied<L>)>;
 
-        let apply_txns_first_pass = |acc: Acc<L>,
+        let apply_txns_first_pass = |mut acc: Acc<L>,
                                      txns: Vec<TransactionWithWitness>,
                                      k: Box<dyn Fn(Pass, Acc<L>) -> Result<Pass, String>>|
          -> Result<Pass, String> {
-            let ledger = ledger.clone();
+            let mut ledger = ledger.clone();
 
             for txn in txns {
                 let (transaction, state_hash, block_global_slot) =
@@ -1323,7 +1323,7 @@ impl ScanState {
         let apply_txns_second_pass = |partially_applied_txns: Acc<L>,
                                       k: Box<dyn Fn() -> Result<Pass, String>>|
          -> Result<Pass, String> {
-            let ledger = ledger.clone();
+            let mut ledger = ledger.clone();
 
             for (expected_status, partially_applied_txn) in partially_applied_txns {
                 let res = apply_second_pass(&mut ledger, partially_applied_txn)?;
@@ -1432,11 +1432,12 @@ impl ScanState {
                 let acc = txns
                     .into_iter()
                     .map(|txn| {
+                        let mut first_pass_ledger_witness = txn.first_pass_ledger_witness.clone();
+
                         let (transaction, state_hash, block_global_slot) =
                             Self::extract_txn_and_global_slot(txn);
                         let expected_status = transaction.status.clone();
 
-                        let mut first_pass_ledger_witness = txn.first_pass_ledger_witness.clone();
                         let partially_applied_txn = apply(
                             &apply_first_pass_sparse_ledger,
                             &mut first_pass_ledger_witness,
@@ -1473,7 +1474,7 @@ impl ScanState {
 
         fn apply_txns<L>(
             previous_incomplete: PreviousIncompleteTxns<L>,
-            ordered_txns: Vec<TransactionsOrdered<TransactionWithWitness>>,
+            mut ordered_txns: Vec<TransactionsOrdered<TransactionWithWitness>>,
             first_pass_ledger_hash: Pass,
             stop_at_first_pass: bool,
             apply_previous_incomplete_txns: impl Fn(
@@ -1520,15 +1521,15 @@ impl ScanState {
             match ordered_txns.len() {
                 0 => apply_previous_incomplete_txns(
                     previous_incomplete,
-                    Box::new(|| Ok(first_pass_ledger_hash)),
+                    Box::new(|| Ok(first_pass_ledger_hash.clone())),
                 ),
                 1 if stop_at_first_pass => {
                     // Last block; don't apply second pass.
                     // This is for snarked ledgers which are first pass ledgers
-                    let txns_per_block = ordered_txns[0];
+                    let txns_per_block = &ordered_txns[0];
                     apply_txns_first_pass(
                         Vec::with_capacity(256),
-                        txns_per_block.first_pass,
+                        txns_per_block.first_pass.clone(),
                         Box::new(|first_pass_ledger_hash, _partially_applied_txns| {
                             // Skip previous_incomplete: If there are previous_incomplete txns
                             // then there’d be at least two sets of txns_per_block and the
@@ -2010,7 +2011,7 @@ impl ScanState {
                 let (prev_stmt, incomplete_zkapp_updates_from_old_proof) =
                     match old_proof_and_incomplete_zkapp_updates {
                         None => (
-                            curr_stmt,
+                            curr_stmt.clone(),
                             (vec![], BorderBlockContinuedInTheNextTree(false)),
                         ),
                         Some((proof_with_sok, incomplete_zkapp_updates_from_old_proof)) => {
@@ -2054,7 +2055,7 @@ impl ScanState {
         self.staged_transactions()
             .into_iter()
             .fold(HashSet::with_capacity(256), |accum, txns| {
-                txns.fold(accum, |accum, txn| {
+                txns.fold(accum, |mut accum, txn| {
                     accum.insert(txn.state_hash.0);
                     accum
                 })
@@ -2099,7 +2100,7 @@ pub struct TransactionsOrdered<T> {
 }
 
 impl<T> TransactionsOrdered<T> {
-    fn map<B>(self, fun: impl FnMut(T) -> B) -> TransactionsOrdered<B> {
+    fn map<B>(self, mut fun: impl FnMut(T) -> B) -> TransactionsOrdered<B> {
         let Self {
             first_pass,
             second_pass,
@@ -2107,7 +2108,7 @@ impl<T> TransactionsOrdered<T> {
             current_incomplete,
         } = self;
 
-        let conv = |v: Vec<T>| v.into_iter().map(fun).collect();
+        let mut conv = |v: Vec<T>| v.into_iter().map(|v| fun(v)).collect::<Vec<B>>();
 
         TransactionsOrdered::<B> {
             first_pass: conv(first_pass),
@@ -2125,10 +2126,10 @@ impl<T> TransactionsOrdered<T> {
             current_incomplete,
         } = self;
 
-        let init = first_pass.iter().fold(init, fun);
-        let init = previous_incomplete.iter().fold(init, fun);
-        let init = second_pass.iter().fold(init, fun);
-        current_incomplete.iter().fold(init, fun)
+        let init = first_pass.iter().fold(init, &fun);
+        let init = previous_incomplete.iter().fold(init, &fun);
+        let init = second_pass.iter().fold(init, &fun);
+        current_incomplete.iter().fold(init, &fun)
     }
 }
 
@@ -2137,19 +2138,21 @@ impl TransactionsOrdered<TransactionWithWitness> {
         previous_incomplete: Vec<TransactionWithWitness>,
         txns_per_tree: Vec<TransactionWithWitness>,
     ) -> Vec<Self> {
+        let txns_per_tree_len = txns_per_tree.len();
+
         let complete_and_incomplete_transactions = |txs: Vec<TransactionWithWitness>| -> Option<
             TransactionsOrdered<TransactionWithWitness>,
         > {
             let target_first_pass_ledger = txs.get(0)?.statement.source.first_pass_ledger;
             let first_state_hash = txs.get(0)?.state_hash.0;
 
-            let first_pass_txns = Vec::with_capacity(txns_per_tree.len());
-            let second_pass_txns = Vec::with_capacity(txns_per_tree.len());
+            let first_pass_txns = Vec::with_capacity(txns_per_tree_len);
+            let second_pass_txns = Vec::with_capacity(txns_per_tree_len);
 
             let (first_pass_txns, second_pass_txns, target_first_pass_ledger) =
                 txs.into_iter().fold(
                     (first_pass_txns, second_pass_txns, target_first_pass_ledger),
-                    |(first_pass_txns, second_pass_txns, _old_root), txn_with_witness| {
+                    |(mut first_pass_txns, mut second_pass_txns, _old_root), txn_with_witness| {
                         let txn = txn_with_witness.transaction_with_info.transaction();
                         let target_first_pass_ledger =
                             txn_with_witness.statement.target.first_pass_ledger;
@@ -2162,7 +2165,7 @@ impl TransactionsOrdered<TransactionWithWitness> {
                                 first_pass_txns.push(txn_with_witness);
                             }
                             Command(ZkAppCommand(_)) => {
-                                first_pass_txns.push(txn_with_witness);
+                                first_pass_txns.push(txn_with_witness.clone());
                                 second_pass_txns.push(txn_with_witness);
                             }
                         }
@@ -2207,8 +2210,9 @@ impl TransactionsOrdered<TransactionWithWitness> {
 
         let txns_by_block = |txns_per_tree: Vec<TransactionWithWitness>| {
             let mut global = Vec::with_capacity(txns_per_tree.len());
+            let txns_per_tree_len = txns_per_tree.len();
 
-            let make_current = || Vec::<TransactionWithWitness>::with_capacity(txns_per_tree.len());
+            let make_current = || Vec::<TransactionWithWitness>::with_capacity(txns_per_tree_len);
             let mut current = make_current();
 
             for next in txns_per_tree {
@@ -2245,7 +2249,7 @@ impl TransactionsOrdered<TransactionWithWitness> {
             .into_iter()
             .map(|txns_per_tree| {
                 Self::first_and_second_pass_transactions_per_tree(
-                    previous_incomplete,
+                    previous_incomplete.clone(),
                     txns_per_tree,
                 )
             })
@@ -2253,6 +2257,7 @@ impl TransactionsOrdered<TransactionWithWitness> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum Pass {
     FirstPassLedgerHash(Fp),
 }

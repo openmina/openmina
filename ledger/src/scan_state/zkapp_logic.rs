@@ -330,7 +330,7 @@ where
         IsStart::Compute(_) => is_start_,
     };
 
-    let will_succeed = match is_start {
+    let will_succeed = match &is_start {
         IsStart::Compute(start_data) => {
             if is_start_ {
                 start_data.will_succeed
