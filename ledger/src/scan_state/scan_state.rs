@@ -330,8 +330,6 @@ pub mod transaction_snark {
                 "Pending coinbase stacks are not connected",
             )?;
 
-            self.source.local_state;
-
             // Check local states sans ledger are equal. Local state ledgers are checked
             // in [valid_ledgers_at_merge_uncheckeds]
             or_error_of_bool(
@@ -659,7 +657,7 @@ impl ScanState {
 
         let incomplete_updates = previous_incomplete_zkapp_updates.iter().fold(
             Vec::with_capacity(1024 * 32),
-            |accum, tx| {
+            |mut accum, tx| {
                 tx.binprot_write(&mut accum);
                 accum
             },
@@ -721,8 +719,9 @@ fn create_expected_statement<F>(
 where
     F: Fn(&Fp) -> &MinaStateProtocolStateValueStableV2,
 {
-    let source_first_pass_merkle_root = first_pass_ledger_witness.merkle_root();
-    let source_second_pass_merkle_root = second_pass_ledger_witness.merkle_root();
+    // TODO: Don't clone here
+    let source_first_pass_merkle_root = first_pass_ledger_witness.clone().merkle_root();
+    let source_second_pass_merkle_root = second_pass_ledger_witness.clone().merkle_root();
 
     let WithStatus {
         data: transaction, ..
@@ -1220,7 +1219,7 @@ impl ScanState {
         ledger: &mut L,
         get_protocol_state: F,
         apply_first_pass: ApplyFirst,
-        apply_second_pass: ApplySecond,
+        apply_second_pass: &ApplySecond,
         apply_first_pass_sparse_ledger: ApplyFirstSparse,
     ) -> Result<Pass, String>
     where
@@ -1243,8 +1242,10 @@ impl ScanState {
             )
                 -> Result<TransactionPartiallyApplied<SparseLedger<AccountId, Account>>, String>,
     {
+        let mut ledger_mut = ledger.clone();
         let stop_at_first_pass = stop_at_first_pass.unwrap_or(false);
 
+        #[derive(Clone)]
         enum PreviousIncompleteTxns<L: LedgerIntf + Clone> {
             Unapplied(Vec<TransactionWithWitness>),
             PartiallyApplied(Vec<(TransactionStatus, TransactionPartiallyApplied<L>)>),
@@ -1296,7 +1297,7 @@ impl ScanState {
 
         let apply_txns_first_pass = |mut acc: Acc<L>,
                                      txns: Vec<TransactionWithWitness>,
-                                     k: Box<dyn Fn(Pass, Acc<L>) -> Result<Pass, String>>|
+                                     k: Box<dyn FnOnce(Pass, Acc<L>) -> Result<Pass, String>>|
          -> Result<Pass, String> {
             let mut ledger = ledger.clone();
 
@@ -1320,11 +1321,16 @@ impl ScanState {
             k(Pass::FirstPassLedgerHash(ledger.merkle_root()), acc)
         };
 
-        let apply_txns_second_pass = |partially_applied_txns: Acc<L>,
-                                      k: Box<dyn Fn() -> Result<Pass, String>>|
-         -> Result<Pass, String> {
-            let mut ledger = ledger.clone();
-
+        fn apply_txns_second_pass<L, ApplySecond>(
+            partially_applied_txns: Acc<L>,
+            k: Box<dyn FnOnce() -> Result<Pass, String>>,
+            mut ledger: L,
+            apply_second_pass: ApplySecond,
+        ) -> Result<Pass, String>
+        where
+            L: LedgerIntf + Clone,
+            ApplySecond: Fn(&mut L, TransactionPartiallyApplied<L>) -> Result<TransactionApplied, String>,
+        {
             for (expected_status, partially_applied_txn) in partially_applied_txns {
                 let res = apply_second_pass(&mut ledger, partially_applied_txn)?;
                 let status = res.transaction_status();
@@ -1342,11 +1348,28 @@ impl ScanState {
             }
 
             k()
-        };
+        }
 
-        let apply_previous_incomplete_txns = |txns: PreviousIncompleteTxns<L>,
-                                              k: Box<dyn Fn() -> Result<Pass, String>>|
-         -> Result<Pass, String> {
+        fn apply_previous_incomplete_txns<L, F, ApplyFirstSparse, ApplySecondPass>(
+            txns: PreviousIncompleteTxns<L>,
+            k: Box<dyn FnOnce() -> Result<Pass, String>>,
+            ledger: L,
+            get_protocol_state: F,
+            apply_first_pass_sparse_ledger: ApplyFirstSparse,
+            apply_txns_second_pass: ApplySecondPass,
+        ) -> Result<Pass, String>
+        where
+            L: LedgerIntf + Clone,
+            F: Fn(Fp) -> Result<MinaStateProtocolStateValueStableV2, String>,
+            ApplySecondPass: Fn(Acc<L>, Box<dyn FnOnce() -> Result<Pass, String>>) -> Result<Pass, String>,
+            ApplyFirstSparse: Fn(
+                Slot,
+                &ProtocolStateView,
+                &mut SparseLedger<AccountId, Account>,
+                &Transaction,
+            )
+                -> Result<TransactionPartiallyApplied<SparseLedger<AccountId, Account>>, String>,
+        {
             // Note: Previous incomplete transactions refer to the block's transactions
             // from previous scan state tree that were split between the two trees.
             // The set in the previous tree have gone through the first pass. For the
@@ -1424,10 +1447,9 @@ impl ScanState {
                 }
             };
 
-            let apply_txns_to_witnesses_first_pass = |acc: Acc<L>,
-                                                      txns: Vec<TransactionWithWitness>,
+            let apply_txns_to_witnesses_first_pass = |txns: Vec<TransactionWithWitness>,
                                                       k: Box<
-                dyn Fn(Acc<L>) -> Result<Pass, String>,
+                dyn FnOnce(Acc<L>) -> Result<Pass, String>,
             >| {
                 let acc = txns
                     .into_iter()
@@ -1435,7 +1457,7 @@ impl ScanState {
                         let mut first_pass_ledger_witness = txn.first_pass_ledger_witness.clone();
 
                         let (transaction, state_hash, block_global_slot) =
-                            Self::extract_txn_and_global_slot(txn);
+                            ScanState::extract_txn_and_global_slot(txn);
                         let expected_status = transaction.status.clone();
 
                         let partially_applied_txn = apply(
@@ -1460,9 +1482,8 @@ impl ScanState {
 
             match txns {
                 Unapplied(txns) => apply_txns_to_witnesses_first_pass(
-                    Vec::with_capacity(txns.len()),
                     txns,
-                    Box::new(|partially_applied_txns| {
+                    Box::new(move |partially_applied_txns| {
                         apply_txns_second_pass(partially_applied_txns, k)
                     }),
                 ),
@@ -1470,29 +1491,29 @@ impl ScanState {
                     apply_txns_second_pass(partially_applied_txns, k)
                 }
             }
-        };
+        }
 
-        fn apply_txns<L>(
+        fn apply_txns<'a, L>(
             previous_incomplete: PreviousIncompleteTxns<L>,
             mut ordered_txns: Vec<TransactionsOrdered<TransactionWithWitness>>,
             first_pass_ledger_hash: Pass,
             stop_at_first_pass: bool,
-            apply_previous_incomplete_txns: impl Fn(
+            apply_previous_incomplete_txns: &'a impl Fn(
                 PreviousIncompleteTxns<L>,
-                Box<dyn Fn() -> Result<Pass, String>>,
+                Box<dyn FnOnce() -> Result<Pass, String>>,
             ) -> Result<Pass, String>,
-            apply_txns_first_pass: impl Fn(
+            apply_txns_first_pass: &'a impl Fn(
                 Acc<L>,
                 Vec<TransactionWithWitness>,
-                Box<dyn Fn(Pass, Acc<L>) -> Result<Pass, String>>,
+                Box<dyn FnOnce(Pass, Acc<L>) -> Result<Pass, String>>,
             ) -> Result<Pass, String>,
-            apply_txns_second_pass: impl Fn(
+            apply_txns_second_pass: &'a impl Fn(
                 Acc<L>,
-                Box<dyn Fn() -> Result<Pass, String>>,
+                Box<dyn FnOnce() -> Result<Pass, String>>,
             ) -> Result<Pass, String>,
         ) -> Result<Pass, String>
         where
-            L: LedgerIntf + Clone,
+            L: LedgerIntf + Clone + 'a,
         {
             use PreviousIncompleteTxns::{PartiallyApplied, Unapplied};
 
@@ -1518,10 +1539,15 @@ impl ScanState {
                 ),
             };
 
+            let previous_not_empty = match &previous_incomplete {
+                Unapplied(txns) => !txns.is_empty(),
+                PartiallyApplied(txns) => !txns.is_empty(),
+            };
+
             match ordered_txns.len() {
                 0 => apply_previous_incomplete_txns(
                     previous_incomplete,
-                    Box::new(|| Ok(first_pass_ledger_hash.clone())),
+                    Box::new(move || Ok(first_pass_ledger_hash.clone())),
                 ),
                 1 if stop_at_first_pass => {
                     // Last block; don't apply second pass.
@@ -1530,7 +1556,7 @@ impl ScanState {
                     apply_txns_first_pass(
                         Vec::with_capacity(256),
                         txns_per_block.first_pass.clone(),
-                        Box::new(|first_pass_ledger_hash, _partially_applied_txns| {
+                        Box::new(move |first_pass_ledger_hash, _partially_applied_txns| {
                             // Skip previous_incomplete: If there are previous_incomplete txns
                             // then there’d be at least two sets of txns_per_block and the
                             // previous_incomplete txns will be applied when processing the first
@@ -1541,9 +1567,9 @@ impl ScanState {
                                 vec![],
                                 first_pass_ledger_hash,
                                 stop_at_first_pass,
-                                apply_previous_incomplete_txns,
-                                apply_txns_first_pass,
-                                apply_txns_second_pass,
+                                &apply_previous_incomplete_txns,
+                                &apply_txns_first_pass,
+                                &apply_txns_second_pass,
                             )
                         }),
                     )
@@ -1554,44 +1580,47 @@ impl ScanState {
                         (first, ordered_txns)
                     };
 
+                    let current_incomplete_is_empty = txns_per_block.current_incomplete.is_empty();
+                    let second_pass_is_empty = txns_per_block.second_pass.is_empty();
+
                     // Apply first pass of a blocks transactions either new or
                     // continued from previous tree
                     apply_txns_first_pass(
                         Vec::with_capacity(256),
                         txns_per_block.first_pass,
-                        Box::new(|first_pass_ledger_hash, partially_applied_txns| {
+                        Box::new(move |first_pass_ledger_hash, partially_applied_txns| {
                             // Apply second pass of previous tree's transactions, if any
 
                             apply_previous_incomplete_txns(
-                                previous_incomplete,
-                                Box::new(|| {
+                                previous_incomplete.clone(),
+                                Box::new(move || {
                                     let continue_previous_tree_s_txns = {
                                         // If this is a continuation from previous tree for
                                         // the same block (incomplete txns in both sets) then
                                         // do second pass now
-                                        let previous_not_empty = match &previous_incomplete {
-                                            Unapplied(txns) => !txns.is_empty(),
-                                            PartiallyApplied(txns) => !txns.is_empty(),
-                                        };
+                                        // let previous_not_empty = match &previous_incomplete {
+                                        //     Unapplied(txns) => !txns.is_empty(),
+                                        //     PartiallyApplied(txns) => !txns.is_empty(),
+                                        // };
 
                                         previous_not_empty
-                                            && !txns_per_block.current_incomplete.is_empty()
+                                            && !current_incomplete_is_empty
                                     };
 
                                     let do_second_pass = {
                                         // if transactions completed in the same tree; do second pass now
-                                        (!txns_per_block.second_pass.is_empty())
+                                        (!second_pass_is_empty)
                                             || continue_previous_tree_s_txns
                                     };
 
                                     if do_second_pass {
                                         apply_txns_second_pass(
-                                            partially_applied_txns,
-                                            Box::new(|| {
+                                            partially_applied_txns.clone(),
+                                            Box::new(move || {
                                                 apply_txns(
                                                     Unapplied(vec![]),
-                                                    ordered_txns,
-                                                    first_pass_ledger_hash,
+                                                    ordered_txns.clone(),
+                                                    first_pass_ledger_hash.clone(),
                                                     stop_at_first_pass,
                                                     apply_previous_incomplete_txns,
                                                     apply_txns_first_pass,
@@ -1605,9 +1634,9 @@ impl ScanState {
                                         // in the next tree
 
                                         apply_txns(
-                                            PartiallyApplied(partially_applied_txns),
-                                            ordered_txns,
-                                            first_pass_ledger_hash,
+                                            PartiallyApplied(partially_applied_txns.clone()),
+                                            ordered_txns.clone(),
+                                            first_pass_ledger_hash.clone(),
                                             stop_at_first_pass,
                                             apply_previous_incomplete_txns,
                                             apply_txns_first_pass,
@@ -1631,16 +1660,30 @@ impl ScanState {
 
         // Assuming this function is called on snarked ledger and snarked
         // ledger is the first pass ledger
-        let first_pass_ledger_hash = Pass::FirstPassLedgerHash(ledger.merkle_root());
+        let first_pass_ledger_hash = Pass::FirstPassLedgerHash(ledger_mut.merkle_root());
 
         apply_txns(
             previous_incomplete,
             ordered_txns,
             first_pass_ledger_hash,
             stop_at_first_pass,
-            apply_previous_incomplete_txns,
-            apply_txns_first_pass,
-            apply_txns_second_pass,
+            &|txns, k| {
+                apply_previous_incomplete_txns(
+                    txns,
+                    k,
+                    ledger.clone(),
+                    &get_protocol_state,
+                    &apply_first_pass_sparse_ledger,
+                    |partially_applied_txns, k| {
+                        apply_txns_second_pass(partially_applied_txns, k, ledger.clone(), apply_second_pass)
+                    }
+                )
+            },
+            &apply_txns_first_pass,
+            &|partially_applied_txns, k| {
+                apply_txns_second_pass(partially_applied_txns, k, ledger.clone(), apply_second_pass)
+            }
+            // &apply_txns_second_pass,
         )
     }
 
@@ -1679,14 +1722,13 @@ impl ScanState {
             ledger,
             get_protocol_state,
             apply_first_pass,
-            apply_second_pass,
+            &apply_second_pass,
             apply_first_pass_sparse_ledger,
         )
     }
 
     fn get_snarked_ledger_sync<L, F, ApplyFirst, ApplySecond, ApplyFirstSparse>(
         &self,
-        ordered_txns: Vec<TransactionsOrdered<TransactionWithWitness>>,
         ledger: &mut L,
         get_protocol_state: F,
         apply_first_pass: ApplyFirst,
@@ -2005,7 +2047,7 @@ impl ScanState {
 
         match proof_opt {
             None => Ok(None),
-            Some((LedgerProofWithSokMessage { proof, .. }, txns_with_witnesses)) => {
+            Some((LedgerProofWithSokMessage { proof, .. }, _txns_with_witnesses)) => {
                 let curr_stmt = proof.statement();
 
                 let (prev_stmt, incomplete_zkapp_updates_from_old_proof) =
@@ -2091,7 +2133,7 @@ pub enum Extracted {
     Second(Box<(LedgerProof, LedgerProof)>),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TransactionsOrdered<T> {
     pub first_pass: Vec<T>,
     pub second_pass: Vec<T>,

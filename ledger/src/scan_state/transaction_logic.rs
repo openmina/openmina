@@ -3964,7 +3964,7 @@ pub mod transaction_partially_applied {
         *,
     };
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct ZkappCommandPartiallyApplied<L: LedgerIntf + Clone> {
         pub command: ZkAppCommand,
         pub previous_hash: Fp,
@@ -3975,13 +3975,13 @@ pub mod transaction_partially_applied {
         pub local_state: LocalStateEnv<L>,
     }
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct FullyApplied<T> {
         pub previous_hash: Fp,
         pub applied: T,
     }
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub enum TransactionPartiallyApplied<L: LedgerIntf + Clone> {
         SignedCommand(FullyApplied<SignedCommandApplied>),
         ZkappCommand(ZkappCommandPartiallyApplied<L>),
