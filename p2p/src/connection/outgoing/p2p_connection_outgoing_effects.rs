@@ -1,15 +1,17 @@
 use redux::ActionMeta;
 
-use crate::connection::P2pConnectionState;
+use crate::connection::{P2pConnectionErrorResponse, P2pConnectionState};
 use crate::{connection::P2pConnectionService, webrtc};
 use crate::{P2pPeerReadyAction, P2pPeerStatus};
 
 use super::{
     P2pConnectionOutgoingAnswerRecvErrorAction, P2pConnectionOutgoingAnswerRecvPendingAction,
-    P2pConnectionOutgoingAnswerRecvSuccessAction, P2pConnectionOutgoingErrorAction,
-    P2pConnectionOutgoingFinalizeErrorAction, P2pConnectionOutgoingFinalizePendingAction,
-    P2pConnectionOutgoingFinalizeSuccessAction, P2pConnectionOutgoingInitAction,
-    P2pConnectionOutgoingOfferReadyAction, P2pConnectionOutgoingOfferSdpCreatePendingAction,
+    P2pConnectionOutgoingAnswerRecvSuccessAction, P2pConnectionOutgoingError,
+    P2pConnectionOutgoingErrorAction, P2pConnectionOutgoingFinalizeErrorAction,
+    P2pConnectionOutgoingFinalizePendingAction, P2pConnectionOutgoingFinalizeSuccessAction,
+    P2pConnectionOutgoingInitAction, P2pConnectionOutgoingOfferReadyAction,
+    P2pConnectionOutgoingOfferSdpCreateErrorAction,
+    P2pConnectionOutgoingOfferSdpCreatePendingAction,
     P2pConnectionOutgoingOfferSdpCreateSuccessAction, P2pConnectionOutgoingOfferSendSuccessAction,
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
     P2pConnectionOutgoingState, P2pConnectionOutgoingSuccessAction,
@@ -54,6 +56,20 @@ impl P2pConnectionOutgoingReconnectAction {
         let peer_id = self.opts.peer_id;
         store.service().outgoing_init(peer_id);
         store.dispatch(P2pConnectionOutgoingOfferSdpCreatePendingAction { peer_id });
+    }
+}
+
+impl P2pConnectionOutgoingOfferSdpCreateErrorAction {
+    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    where
+        Store: crate::P2pStore<S>,
+        Store::Service: P2pConnectionService,
+        P2pConnectionOutgoingErrorAction: redux::EnablingCondition<S>,
+    {
+        store.dispatch(P2pConnectionOutgoingErrorAction {
+            peer_id: self.peer_id,
+            error: P2pConnectionOutgoingError::SdpCreateError(self.error),
+        });
     }
 }
 
@@ -123,7 +139,14 @@ impl P2pConnectionOutgoingAnswerRecvErrorAction {
     {
         store.dispatch(P2pConnectionOutgoingErrorAction {
             peer_id: self.peer_id,
-            error: self.error,
+            error: match self.error {
+                P2pConnectionErrorResponse::Rejected(reason) => {
+                    P2pConnectionOutgoingError::Rejected(reason)
+                }
+                P2pConnectionErrorResponse::InternalError => {
+                    P2pConnectionOutgoingError::RemoteInternalError
+                }
+            },
         });
     }
 }
@@ -153,7 +176,7 @@ impl P2pConnectionOutgoingFinalizeErrorAction {
     {
         store.dispatch(P2pConnectionOutgoingErrorAction {
             peer_id: self.peer_id,
-            error: self.error,
+            error: P2pConnectionOutgoingError::FinalizeError(self.error),
         });
     }
 }

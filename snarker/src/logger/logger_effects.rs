@@ -35,7 +35,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                             kind = "PeerConnectionOutgoingError",
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string(),
-                            error = action.error
+                            error = format!("{:?}", action.error),
                         );
                     }
                     P2pConnectionOutgoingAction::Success(action) => {
@@ -64,7 +64,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                             kind = "PeerConnectionIncomingError",
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string(),
-                            error = action.error
+                            error = format!("{:?}", action.error),
                         );
                     }
                     P2pConnectionIncomingAction::Success(action) => {

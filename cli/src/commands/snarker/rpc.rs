@@ -3,7 +3,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use shared::requests::PendingRequests;
 use snarker::event_source::Event;
-use snarker::p2p::webrtc;
+use snarker::p2p::connection::P2pConnectionResponse;
 use snarker::rpc::{ActionStatsResponse, RespondError, RpcId, RpcIdType};
 use snarker::State;
 
@@ -15,7 +15,7 @@ pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum RpcP2pConnectionIncomingResponse {
-    Answer(Result<webrtc::Answer, String>),
+    Answer(P2pConnectionResponse),
     Result(Result<(), String>),
 }
 
@@ -102,7 +102,7 @@ impl snarker::rpc::RpcService for SnarkerService {
     fn respond_p2p_connection_incoming_answer(
         &mut self,
         rpc_id: RpcId,
-        response: Result<webrtc::Answer, String>,
+        response: P2pConnectionResponse,
     ) -> Result<(), RespondError> {
         let entry = self.rpc.pending.get(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;

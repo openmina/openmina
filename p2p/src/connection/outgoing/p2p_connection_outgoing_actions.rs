@@ -3,9 +3,10 @@ use serde::{Deserialize, Serialize};
 use shared::requests::RpcId;
 
 use crate::connection::incoming::P2pConnectionIncomingState;
+use crate::connection::P2pConnectionErrorResponse;
 use crate::{webrtc, P2pState, PeerId};
 
-use super::P2pConnectionOutgoingInitOpts;
+use super::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
 
 pub type P2pConnectionOutgoingActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a P2pConnectionOutgoingAction>;
@@ -16,6 +17,7 @@ pub enum P2pConnectionOutgoingAction {
     Init(P2pConnectionOutgoingInitAction),
     Reconnect(P2pConnectionOutgoingReconnectAction),
     OfferSdpCreatePending(P2pConnectionOutgoingOfferSdpCreatePendingAction),
+    OfferSdpCreateError(P2pConnectionOutgoingOfferSdpCreateErrorAction),
     OfferSdpCreateSuccess(P2pConnectionOutgoingOfferSdpCreateSuccessAction),
     OfferReady(P2pConnectionOutgoingOfferReadyAction),
     OfferSendSuccess(P2pConnectionOutgoingOfferSendSuccessAction),
@@ -36,6 +38,7 @@ impl P2pConnectionOutgoingAction {
             Self::Init(v) => Some(&v.opts.peer_id),
             Self::Reconnect(v) => Some(&v.opts.peer_id),
             Self::OfferSdpCreatePending(v) => Some(&v.peer_id),
+            Self::OfferSdpCreateError(v) => Some(&v.peer_id),
             Self::OfferSdpCreateSuccess(v) => Some(&v.peer_id),
             Self::OfferReady(v) => Some(&v.peer_id),
             Self::OfferSendSuccess(v) => Some(&v.peer_id),
@@ -129,6 +132,26 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingOfferSdpCreateP
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingOfferSdpCreateErrorAction {
+    pub peer_id: PeerId,
+    pub error: String,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingOfferSdpCreateErrorAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state
+            .peers
+            .get(&self.peer_id)
+            .map_or(false, |peer| match &peer.status {
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                    P2pConnectionOutgoingState::OfferSdpCreatePending { .. },
+                )) => true,
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pConnectionOutgoingOfferSdpCreateSuccessAction {
     pub peer_id: PeerId,
     pub sdp: String,
@@ -209,7 +232,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAnswerRecvPendi
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pConnectionOutgoingAnswerRecvErrorAction {
     pub peer_id: PeerId,
-    pub error: String,
+    pub error: P2pConnectionErrorResponse,
 }
 
 impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAnswerRecvErrorAction {
@@ -307,7 +330,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingFinalizeSuccess
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pConnectionOutgoingErrorAction {
     pub peer_id: PeerId,
-    pub error: String,
+    pub error: P2pConnectionOutgoingError,
 }
 
 impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingErrorAction {
@@ -316,12 +339,19 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingErrorAction {
             .peers
             .get(&self.peer_id)
             .map_or(false, |peer| match &peer.status {
-                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(v)) => match v {
-                    P2pConnectionOutgoingState::AnswerRecvError { error, .. } => {
-                        error == &self.error
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(s)) => match &self.error {
+                    P2pConnectionOutgoingError::SdpCreateError(_) => {
+                        matches!(s, P2pConnectionOutgoingState::OfferSdpCreatePending { .. })
                     }
-                    P2pConnectionOutgoingState::FinalizeError { error, .. } => error == &self.error,
-                    _ => false,
+                    P2pConnectionOutgoingError::Rejected(_) => {
+                        matches!(s, P2pConnectionOutgoingState::AnswerRecvPending { .. })
+                    }
+                    P2pConnectionOutgoingError::RemoteInternalError => {
+                        matches!(s, P2pConnectionOutgoingState::AnswerRecvPending { .. })
+                    }
+                    P2pConnectionOutgoingError::FinalizeError(_) => {
+                        matches!(s, P2pConnectionOutgoingState::FinalizePending { .. })
+                    }
                 },
                 _ => false,
             })
@@ -375,6 +405,12 @@ impl From<P2pConnectionOutgoingReconnectAction> for crate::P2pAction {
 
 impl From<P2pConnectionOutgoingOfferSdpCreatePendingAction> for crate::P2pAction {
     fn from(a: P2pConnectionOutgoingOfferSdpCreatePendingAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
+
+impl From<P2pConnectionOutgoingOfferSdpCreateErrorAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingOfferSdpCreateErrorAction) -> Self {
         Self::Connection(P2pConnectionAction::Outgoing(a.into()))
     }
 }

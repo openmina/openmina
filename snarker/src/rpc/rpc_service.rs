@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::p2p::webrtc;
+use crate::p2p::connection::P2pConnectionResponse;
 use crate::State;
 
 use super::{ActionStatsResponse, RpcId};
@@ -29,7 +29,7 @@ pub trait RpcService: redux::Service {
     fn respond_p2p_connection_incoming_answer(
         &mut self,
         rpc_id: RpcId,
-        response: Result<webrtc::Answer, String>,
+        response: P2pConnectionResponse,
     ) -> Result<(), RespondError>;
     fn respond_p2p_connection_incoming(
         &mut self,

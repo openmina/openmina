@@ -1,7 +1,7 @@
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
-use crate::{webrtc, PeerId};
+use crate::{connection::P2pConnectionResponse, PeerId};
 
 #[derive(Serialize, Deserialize, From, Debug, Clone)]
 pub enum P2pEvent {
@@ -10,9 +10,9 @@ pub enum P2pEvent {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pConnectionEvent {
-    OfferSdpReady(PeerId, String),
-    AnswerSdpReady(PeerId, String),
-    AnswerReceived(PeerId, webrtc::Answer),
-    Opened(PeerId),
+    OfferSdpReady(PeerId, Result<String, String>),
+    AnswerSdpReady(PeerId, Result<String, String>),
+    AnswerReceived(PeerId, P2pConnectionResponse),
+    Finalized(PeerId, Result<(), String>),
     Closed(PeerId),
 }
