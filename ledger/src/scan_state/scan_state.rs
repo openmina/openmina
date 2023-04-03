@@ -1004,8 +1004,8 @@ impl ScanState {
         match res {
             (Acc(None), _) => Err("Empty".to_string()),
             (Acc(Some((res, proofs))), _) => match verifier.verify(proofs.as_slice()) {
-                Ok(true) => Ok(res),
-                Ok(false) => Err("Bad proofs".to_string()),
+                Ok(Ok(())) => Ok(res),
+                Ok(Err(e)) => Err(format!("Verifier issue {:?}", e)),
                 Err(e) => Err(e),
             },
         }

@@ -9,7 +9,7 @@ use crate::{
         currency::{Balance, Magnitude},
         transaction_logic::{
             valid,
-            zkapp_command::{self, WithHash},
+            zkapp_command::{self, WithHash, verifiable},
         },
     },
     staged_ledger::pre_diff_info::HashableCompressedPubKey,
@@ -185,7 +185,11 @@ fn zkapp_command_with_ledger(
             global_slot: None,
         });
 
-    let zkapp_command = zkapp_command::valid::to_valid(zkapp_command, &ledger).unwrap();
+    let zkapp_command = zkapp_command::valid::to_valid(
+        zkapp_command,
+        &ledger,
+        |hash, account_id| { verifiable::find_vk_via_ledger(ledger, hash, account_id) }
+    ).unwrap();
     let user_command = valid::UserCommand::ZkAppCommand(Box::new(zkapp_command));
 
     // include generated ledger in result
@@ -254,9 +258,13 @@ pub fn sequence_zkapp_command_with_ledger(
             ledger: ledger.clone(),
             protocol_state_view: None,
             vk: vk.as_ref(),
-            global_slot: todo!(),
+            global_slot: None,
         });
-        let zkapp_command = zkapp_command::valid::to_valid(zkapp_command, &ledger).unwrap();
+        let zkapp_command = zkapp_command::valid::to_valid(
+            zkapp_command,
+            &ledger,
+            |hash, account_id| { verifiable::find_vk_via_ledger(ledger, hash, account_id) }
+        ).unwrap();
         let zkapp_command = valid::UserCommand::ZkAppCommand(Box::new(zkapp_command));
 
         commands.push((

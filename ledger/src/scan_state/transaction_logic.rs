@@ -2617,8 +2617,8 @@ pub mod zkapp_command {
             pub memo: Memo,
         }
 
-        fn ok_if_vk_hash_expected(got: Fp, expected: Fp) -> Result<Fp, String> {
-            if got == expected {
+        fn ok_if_vk_hash_expected(got: VerificationKey, expected: Fp) -> Result<VerificationKey, String> {
+            if got.hash() == expected {
                 return Ok(got);
             }
             Err(format!(
@@ -2633,7 +2633,7 @@ pub mod zkapp_command {
             ledger: L,
             expected_vk_hash: Fp,
             account_id: &AccountId,
-        ) -> Result<Fp, String>
+        ) -> Result<VerificationKey, String>
         where
             L: LedgerIntf + Clone,
         {
@@ -2648,7 +2648,7 @@ pub mod zkapp_command {
                 });
 
             match vk {
-                Some(vk) => ok_if_vk_hash_expected(vk.hash(), expected_vk_hash),
+                Some(vk) => ok_if_vk_hash_expected(vk, expected_vk_hash),
                 None => Err(format!(
                     "No verification key found for proved account update\
                                      account_id: {:?}",
@@ -2683,6 +2683,7 @@ pub mod zkapp_command {
         pub fn to_valid(
             zkapp_command: super::ZkAppCommand,
             ledger: &impl BaseLedger,
+            find_vk: impl Fn(Fp, &AccountId) -> Result<VerificationKey, String>
         ) -> Option<ZkAppCommand> {
             todo!()
         }
@@ -2878,7 +2879,7 @@ impl UserCommand {
         find_vk: F,
     ) -> Result<Vec<WithStatus<verifiable::UserCommand>>, String>
     where
-        F: Fn(Fp, &AccountId) -> Result<Fp, String>,
+        F: Fn(Fp, &AccountId) -> Result<VerificationKey, String>,
     {
         // https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_base/user_command.ml#L180
         todo!()

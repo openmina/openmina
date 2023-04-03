@@ -1009,7 +1009,7 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
                         .map(|e| zkapp_command::Event(e.iter().map(|e| e.to_field()).collect()))
                         .collect(),
                 ),
-                sequence_events: zkapp_command::Actions(
+                actions: zkapp_command::Actions(
                     value
                         .body
                         .actions
@@ -1186,7 +1186,7 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
                 actions: MinaBaseAccountUpdateBodyEventsStableV1(
                     value
                         .body
-                        .sequence_events
+                        .actions
                         .0
                         .iter()
                         .map(|e| e.0.iter().map(|e| e.into()).collect())
