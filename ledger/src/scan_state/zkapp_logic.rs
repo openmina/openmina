@@ -644,8 +644,8 @@ where
         let local_state = {
             let account_creation_fee = constraint_constants.account_creation_fee;
             let (excess_minus_creation_fee, excess_update_failed) =
-                local_state.excess.add_flagged(Signed::<Fee> {
-                    magnitude: account_creation_fee,
+                local_state.excess.add_flagged(Signed::<Amount> {
+                    magnitude: Amount::of_fee(&account_creation_fee),
                     sgn: Sgn::Neg,
                 });
             let local_state = local_state.add_check(
@@ -972,8 +972,8 @@ where
         );
         println!("[rust] failure {:?}", local_state.failure_status_tbl);
         assert!(!is_start_ || (account_update_token_is_default && local_delta.is_pos()));
-        let (new_local_fee_excess, overflow) = local_state.excess.add_flagged(Signed::<Fee> {
-            magnitude: Fee::from_u64(local_delta.magnitude.as_u64()),
+        let (new_local_fee_excess, overflow) = local_state.excess.add_flagged(Signed::<Amount> {
+            magnitude: Amount::from_u64(local_delta.magnitude.as_u64()),
             sgn: local_delta.sgn,
         });
 
@@ -1012,7 +1012,7 @@ where
     };
 
     let valid_fee_excess = {
-        let delta_settled = local_state.excess == Signed::<Fee>::zero();
+        let delta_settled = local_state.excess == Signed::<Amount>::zero();
         !is_last_account_update || delta_settled
     };
     let local_state = local_state.add_check(TransactionFailure::InvalidFeeExcess, valid_fee_excess);
@@ -1059,6 +1059,19 @@ where
         TransactionFailure::GlobalExcessOverflow,
         !global_excess_update_failed,
     );
+
+    // add local supply increase in global state
+    let (new_global_supply_increase, global_supply_increase_update_failed) = {
+        global_state
+            .supply_increase()
+            .add_flagged(local_state.supply_increase)
+    };
+    let local_state = local_state.add_check(
+        TransactionFailure::GlobalSupplyIncreaseOverflow,
+        !global_supply_increase_update_failed,
+    );
+
+    // The first account_update must succeed.
     assert_with_failure_status_tbl(
         !is_start_ || local_state.success,
         local_state.failure_status_tbl.clone(),
@@ -1098,30 +1111,15 @@ where
 
     // If this is the last party and there were no failures, update the second
     // pass ledger and the supply increase.
-
     let global_state = {
         let is_successful_last_party = is_last_account_update && local_state.success;
         let global_state = global_state.set_supply_increase(if is_successful_last_party {
             new_global_supply_increase
         } else {
-            todo!()
+            global_state.supply_increase()
         });
+        global_state.set_second_pass_ledger(is_successful_last_party, local_state.ledger.clone())
     };
-
-    // *)
-    // let global_state =
-    //   let is_successful_last_party =
-    //     Bool.(is_last_account_update &&& local_state.success)
-    //   in
-    //   let global_state =
-    //     Global_state.set_supply_increase global_state
-    //       (Amount.Signed.if_ is_successful_last_party
-    //          ~then_:new_global_supply_increase
-    //          ~else_:(Global_state.supply_increase global_state) )
-    //   in
-    //   Global_state.set_second_pass_ledger
-    //     ~should_update:is_successful_last_party global_state local_state.ledger
-    // in
 
     let local_state = LocalStateEnv {
         token_id: if is_last_account_update {
@@ -1130,8 +1128,7 @@ where
             local_state.token_id
         },
         ledger: if is_last_account_update {
-            L::empty(constraint_constants.ledger_depth as usize)
-            // empty_ledger(constraint_constants.ledger_depth as usize)
+            L::empty(0)
         } else {
             local_state.ledger
         },
@@ -1144,6 +1141,11 @@ where
             Index::zero()
         } else {
             local_state.account_update_index.incr()
+        },
+        will_succeed: if is_last_account_update {
+            true
+        } else {
+            local_state.will_succeed
         },
         ..local_state
     };

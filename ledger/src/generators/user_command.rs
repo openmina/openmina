@@ -87,7 +87,7 @@ fn zkapp_command_with_ledger(
 
         // max balance to avoid overflow when adding deltas
         let max_balance = {
-            let max_bal = Balance::of_formatted_string("2000000000.0");
+            let max_bal = Balance::of_mina_string_exn("2000000000.0");
 
             assert_eq!(max_bal.as_u64(), 2000000000000000000);
 
@@ -119,6 +119,7 @@ fn zkapp_command_with_ledger(
             set_token_symbol: AuthRequired::Either,
             increment_nonce: AuthRequired::Either,
             set_voting_for: AuthRequired::Either,
+            set_timing: AuthRequired::Either,
             //receive: AuthRequired::Either,
             ..Permissions::user_default()
         };
@@ -181,6 +182,7 @@ fn zkapp_command_with_ledger(
             ledger: ledger.clone(),
             protocol_state_view: None,
             vk: vk.as_ref(),
+            global_slot: None,
         });
 
     let zkapp_command = zkapp_command::valid::to_valid(zkapp_command, &ledger).unwrap();
@@ -252,6 +254,7 @@ pub fn sequence_zkapp_command_with_ledger(
             ledger: ledger.clone(),
             protocol_state_view: None,
             vk: vk.as_ref(),
+            global_slot: todo!(),
         });
         let zkapp_command = zkapp_command::valid::to_valid(zkapp_command, &ledger).unwrap();
         let zkapp_command = valid::UserCommand::ZkAppCommand(Box::new(zkapp_command));
