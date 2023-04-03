@@ -23,7 +23,7 @@ impl RpcState {
                 let Some(rpc) = self.requests.get_mut(&content.rpc_id) else { return };
                 rpc.status = RpcRequestStatus::Error {
                     time: meta.time(),
-                    error: content.error.clone(),
+                    error: format!("{:?}", content.error),
                 };
             }
             RpcAction::P2pConnectionOutgoingSuccess(content) => {
@@ -41,12 +41,12 @@ impl RpcState {
                 let Some(rpc) = self.requests.get_mut(&content.rpc_id) else { return };
                 rpc.status = RpcRequestStatus::Pending { time: meta.time() };
             }
-            RpcAction::P2pConnectionIncomingAnswerSet(_) => {}
+            RpcAction::P2pConnectionIncomingRespond(_) => {}
             RpcAction::P2pConnectionIncomingError(content) => {
                 let Some(rpc) = self.requests.get_mut(&content.rpc_id) else { return };
                 rpc.status = RpcRequestStatus::Error {
                     time: meta.time(),
-                    error: content.error.clone(),
+                    error: format!("{:?}", content.error),
                 };
             }
             RpcAction::P2pConnectionIncomingSuccess(content) => {

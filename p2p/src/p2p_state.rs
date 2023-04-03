@@ -3,8 +3,7 @@ use std::collections::BTreeMap;
 
 use shared::requests::RpcId;
 
-use crate::connection::incoming::P2pConnectionIncomingState;
-use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
+use crate::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::PeerId;
 
 use super::connection::P2pConnectionState;
@@ -66,24 +65,14 @@ impl P2pState {
     pub fn connected_or_connecting_peers_count(&self) -> usize {
         self.peers
             .iter()
-            .filter(|(_, p)| match &p.status {
-                P2pPeerStatus::Connecting(s) => match s {
-                    P2pConnectionState::Outgoing(s) => !matches!(
-                        s,
-                        P2pConnectionOutgoingState::AnswerRecvError { .. }
-                            | P2pConnectionOutgoingState::FinalizeError { .. }
-                            | P2pConnectionOutgoingState::Error { .. }
-                    ),
-                    P2pConnectionState::Incoming(s) => !matches!(
-                        s,
-                        P2pConnectionIncomingState::FinalizeError { .. }
-                            | P2pConnectionIncomingState::Error { .. }
-                    ),
-                },
-                P2pPeerStatus::Ready(_) => true,
-                _ => false,
-            })
+            .filter(|(_, p)| p.status.is_connected_or_connecting())
             .count()
+    }
+
+    pub fn is_peer_connected_or_connecting(&self, peer_id: &PeerId) -> bool {
+        self.peers
+            .get(peer_id)
+            .map_or(false, |p| p.status.is_connected_or_connecting())
     }
 
     pub fn already_has_min_peers(&self) -> bool {
@@ -125,6 +114,14 @@ impl P2pPeerStatus {
         match self {
             Self::Connecting(v) => v.is_success(),
             _ => false,
+        }
+    }
+
+    pub fn is_connected_or_connecting(&self) -> bool {
+        match self {
+            Self::Connecting(s) => !s.is_error(),
+            Self::Ready(_) => true,
+            Self::Disconnected { .. } => false,
         }
     }
 

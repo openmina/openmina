@@ -1,10 +1,13 @@
+use p2p::connection::P2pConnectionResponse;
+
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
 use crate::{Service, Store};
 
 use super::{
     ActionStatsQuery, ActionStatsResponse, RpcAction, RpcActionWithMeta, RpcFinishAction,
-    RpcP2pConnectionIncomingPendingAction, RpcP2pConnectionOutgoingPendingAction,
+    RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingPendingAction,
+    RpcP2pConnectionIncomingRespondAction, RpcP2pConnectionOutgoingPendingAction,
 };
 
 pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) {
@@ -36,9 +39,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::P2pConnectionOutgoingPending(_) => {}
         RpcAction::P2pConnectionOutgoingError(action) => {
+            let error = Err(format!("{:?}", action.error));
             let _ = store
                 .service
-                .respond_p2p_connection_outgoing(action.rpc_id, Err(action.error));
+                .respond_p2p_connection_outgoing(action.rpc_id, error);
             store.dispatch(RpcFinishAction {
                 rpc_id: action.rpc_id,
             });
@@ -53,17 +57,38 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::P2pConnectionIncomingInit(action) => {
             let rpc_id = action.rpc_id;
-            store.dispatch(P2pConnectionIncomingInitAction {
-                opts: action.opts,
-                rpc_id: Some(rpc_id),
-            });
-            store.dispatch(RpcP2pConnectionIncomingPendingAction { rpc_id });
+            match store
+                .state()
+                .p2p
+                .incoming_accept(action.opts.peer_id, &action.opts.offer)
+            {
+                Ok(_) => {
+                    store.dispatch(P2pConnectionIncomingInitAction {
+                        opts: action.opts,
+                        rpc_id: Some(rpc_id),
+                    });
+                    store.dispatch(RpcP2pConnectionIncomingPendingAction { rpc_id });
+                }
+                Err(reason) => {
+                    let response = P2pConnectionResponse::Rejected(reason);
+                    store.dispatch(RpcP2pConnectionIncomingRespondAction { rpc_id, response });
+                }
+            }
         }
         RpcAction::P2pConnectionIncomingPending(_) => {}
-        RpcAction::P2pConnectionIncomingAnswerSet(action) => {
+        RpcAction::P2pConnectionIncomingRespond(action) => {
+            let rpc_id = action.rpc_id;
+            let error = match &action.response {
+                P2pConnectionResponse::Accepted(_) => None,
+                P2pConnectionResponse::InternalError => Some("RemoteInternalError".to_owned()),
+                P2pConnectionResponse::Rejected(reason) => Some(format!("Rejected({:?})", reason)),
+            };
             let _ = store
                 .service
-                .respond_p2p_connection_incoming_answer(action.rpc_id, Ok(action.answer));
+                .respond_p2p_connection_incoming_answer(rpc_id, action.response);
+            if let Some(error) = error {
+                store.dispatch(RpcP2pConnectionIncomingErrorAction { rpc_id, error });
+            }
         }
         RpcAction::P2pConnectionIncomingError(action) => {
             let _ = store

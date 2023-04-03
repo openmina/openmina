@@ -48,14 +48,6 @@ pub enum P2pConnectionIncomingState {
         answer: webrtc::Answer,
         rpc_id: Option<RpcId>,
     },
-    FinalizeError {
-        time: redux::Timestamp,
-        signaling: IncomingSignalingMethod,
-        offer: webrtc::Offer,
-        answer: webrtc::Answer,
-        error: String,
-        rpc_id: Option<RpcId>,
-    },
     FinalizeSuccess {
         time: redux::Timestamp,
         signaling: IncomingSignalingMethod,
@@ -65,7 +57,7 @@ pub enum P2pConnectionIncomingState {
     },
     Error {
         time: redux::Timestamp,
-        error: String,
+        error: P2pConnectionIncomingError,
         rpc_id: Option<RpcId>,
     },
     Success {
@@ -86,10 +78,15 @@ impl P2pConnectionIncomingState {
             Self::AnswerReady { rpc_id, .. } => *rpc_id,
             Self::AnswerSendSuccess { rpc_id, .. } => *rpc_id,
             Self::FinalizePending { rpc_id, .. } => *rpc_id,
-            Self::FinalizeError { rpc_id, .. } => *rpc_id,
             Self::FinalizeSuccess { rpc_id, .. } => *rpc_id,
             Self::Error { rpc_id, .. } => *rpc_id,
             Self::Success { rpc_id, .. } => *rpc_id,
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pConnectionIncomingError {
+    SdpCreateError(String),
+    FinalizeError(String),
 }

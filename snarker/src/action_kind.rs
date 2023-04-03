@@ -7,6 +7,7 @@ use crate::event_source::{
 };
 use crate::p2p::connection::incoming::{
     P2pConnectionIncomingAction, P2pConnectionIncomingAnswerReadyAction,
+    P2pConnectionIncomingAnswerSdpCreateErrorAction,
     P2pConnectionIncomingAnswerSdpCreatePendingAction,
     P2pConnectionIncomingAnswerSdpCreateSuccessAction,
     P2pConnectionIncomingAnswerSendSuccessAction, P2pConnectionIncomingErrorAction,
@@ -20,6 +21,7 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingErrorAction, P2pConnectionOutgoingFinalizeErrorAction,
     P2pConnectionOutgoingFinalizePendingAction, P2pConnectionOutgoingFinalizeSuccessAction,
     P2pConnectionOutgoingInitAction, P2pConnectionOutgoingOfferReadyAction,
+    P2pConnectionOutgoingOfferSdpCreateErrorAction,
     P2pConnectionOutgoingOfferSdpCreatePendingAction,
     P2pConnectionOutgoingOfferSdpCreateSuccessAction, P2pConnectionOutgoingOfferSendSuccessAction,
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
@@ -32,8 +34,8 @@ use crate::p2p::disconnection::{
 use crate::p2p::{P2pAction, P2pPeerReadyAction};
 use crate::rpc::{
     RpcAction, RpcActionStatsGetAction, RpcFinishAction, RpcGlobalStateGetAction,
-    RpcP2pConnectionIncomingAnswerSetAction, RpcP2pConnectionIncomingErrorAction,
-    RpcP2pConnectionIncomingInitAction, RpcP2pConnectionIncomingPendingAction,
+    RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingInitAction,
+    RpcP2pConnectionIncomingPendingAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
     RpcP2pConnectionOutgoingSuccessAction,
@@ -52,6 +54,7 @@ pub enum ActionKind {
     EventSourceWaitForEvents,
     EventSourceWaitTimeout,
     P2pConnectionIncomingAnswerReady,
+    P2pConnectionIncomingAnswerSdpCreateError,
     P2pConnectionIncomingAnswerSdpCreatePending,
     P2pConnectionIncomingAnswerSdpCreateSuccess,
     P2pConnectionIncomingAnswerSendSuccess,
@@ -70,6 +73,7 @@ pub enum ActionKind {
     P2pConnectionOutgoingFinalizeSuccess,
     P2pConnectionOutgoingInit,
     P2pConnectionOutgoingOfferReady,
+    P2pConnectionOutgoingOfferSdpCreateError,
     P2pConnectionOutgoingOfferSdpCreatePending,
     P2pConnectionOutgoingOfferSdpCreateSuccess,
     P2pConnectionOutgoingOfferSendSuccess,
@@ -82,10 +86,10 @@ pub enum ActionKind {
     RpcActionStatsGet,
     RpcFinish,
     RpcGlobalStateGet,
-    RpcP2pConnectionIncomingAnswerSet,
     RpcP2pConnectionIncomingError,
     RpcP2pConnectionIncomingInit,
     RpcP2pConnectionIncomingPending,
+    RpcP2pConnectionIncomingRespond,
     RpcP2pConnectionIncomingSuccess,
     RpcP2pConnectionOutgoingError,
     RpcP2pConnectionOutgoingInit,
@@ -142,7 +146,7 @@ impl ActionKindGet for RpcAction {
             Self::P2pConnectionOutgoingSuccess(a) => a.kind(),
             Self::P2pConnectionIncomingInit(a) => a.kind(),
             Self::P2pConnectionIncomingPending(a) => a.kind(),
-            Self::P2pConnectionIncomingAnswerSet(a) => a.kind(),
+            Self::P2pConnectionIncomingRespond(a) => a.kind(),
             Self::P2pConnectionIncomingError(a) => a.kind(),
             Self::P2pConnectionIncomingSuccess(a) => a.kind(),
             Self::Finish(a) => a.kind(),
@@ -246,9 +250,9 @@ impl ActionKindGet for RpcP2pConnectionIncomingPendingAction {
     }
 }
 
-impl ActionKindGet for RpcP2pConnectionIncomingAnswerSetAction {
+impl ActionKindGet for RpcP2pConnectionIncomingRespondAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::RpcP2pConnectionIncomingAnswerSet
+        ActionKind::RpcP2pConnectionIncomingRespond
     }
 }
 
@@ -277,6 +281,7 @@ impl ActionKindGet for P2pConnectionOutgoingAction {
             Self::Init(a) => a.kind(),
             Self::Reconnect(a) => a.kind(),
             Self::OfferSdpCreatePending(a) => a.kind(),
+            Self::OfferSdpCreateError(a) => a.kind(),
             Self::OfferSdpCreateSuccess(a) => a.kind(),
             Self::OfferReady(a) => a.kind(),
             Self::OfferSendSuccess(a) => a.kind(),
@@ -297,6 +302,7 @@ impl ActionKindGet for P2pConnectionIncomingAction {
         match self {
             Self::Init(a) => a.kind(),
             Self::AnswerSdpCreatePending(a) => a.kind(),
+            Self::AnswerSdpCreateError(a) => a.kind(),
             Self::AnswerSdpCreateSuccess(a) => a.kind(),
             Self::AnswerReady(a) => a.kind(),
             Self::AnswerSendSuccess(a) => a.kind(),
@@ -342,6 +348,12 @@ impl ActionKindGet for P2pConnectionOutgoingReconnectAction {
 impl ActionKindGet for P2pConnectionOutgoingOfferSdpCreatePendingAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pConnectionOutgoingOfferSdpCreatePending
+    }
+}
+
+impl ActionKindGet for P2pConnectionOutgoingOfferSdpCreateErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionOutgoingOfferSdpCreateError
     }
 }
 
@@ -420,6 +432,12 @@ impl ActionKindGet for P2pConnectionIncomingInitAction {
 impl ActionKindGet for P2pConnectionIncomingAnswerSdpCreatePendingAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pConnectionIncomingAnswerSdpCreatePending
+    }
+}
+
+impl ActionKindGet for P2pConnectionIncomingAnswerSdpCreateErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionIncomingAnswerSdpCreateError
     }
 }
 

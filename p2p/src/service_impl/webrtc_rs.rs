@@ -51,7 +51,7 @@ pub struct PeerState {
     cmd_sender: mpsc::UnboundedSender<PeerCmd>,
 }
 
-async fn wait_for_ice_gathering_complete(pc: &RTCPeerConnection) -> Result<(), ()> {
+async fn wait_for_ice_gathering_complete(pc: &RTCPeerConnection) {
     if !matches!(pc.ice_gathering_state(), RTCIceGatheringState::Complete) {
         let (tx, rx) = oneshot::channel::<()>();
         let mut tx = Some(tx);
@@ -64,15 +64,26 @@ async fn wait_for_ice_gathering_complete(pc: &RTCPeerConnection) -> Result<(), (
             Box::pin(std::future::ready(()))
         }));
         // TODO(binier): timeout
-        rx.await.unwrap();
-        Ok(())
-    } else {
-        Ok(())
+        let _ = rx.await;
     }
 }
 
-// TODO(binier): remove unwraps
-async fn peer_loop(args: PeerAddArgs) {
+#[derive(thiserror::Error, derive_more::From, Debug)]
+enum Error {
+    #[error("{0}")]
+    RTCError(::webrtc::Error),
+    #[error("signal serialization failed: {0}")]
+    SignalSerializeError(serde_json::Error),
+    #[error("http request failed: {0}")]
+    HyperError(hyper::Error),
+    #[error("http request failed: {0}")]
+    HttpError(hyper::http::Error),
+    #[from(ignore)]
+    #[error("channel closed")]
+    ChannelClosed,
+}
+
+async fn peer_start(args: PeerAddArgs) {
     let PeerAddArgs {
         peer_id,
         kind,
@@ -114,105 +125,158 @@ async fn peer_loop(args: PeerAddArgs) {
         // TODO(binier): certificate
         ..Default::default()
     };
-    let pc = webrtc.new_peer_connection(config).await.unwrap();
-    let main_channel = pc
-        .create_data_channel(
-            "",
-            Some(RTCDataChannelInit {
-                ordered: Some(true),
-                max_packet_life_time: None,
-                max_retransmits: None,
-                negotiated: Some(0),
-                ..Default::default()
-            }),
-        )
-        .await
-        .unwrap();
+    let fut = async {
+        let pc = webrtc.new_peer_connection(config).await?;
+        let main_channel = pc
+            .create_data_channel(
+                "",
+                Some(RTCDataChannelInit {
+                    ordered: Some(true),
+                    max_packet_life_time: None,
+                    max_retransmits: None,
+                    negotiated: Some(0),
+                    ..Default::default()
+                }),
+            )
+            .await?;
 
-    let offer = match kind {
-        PeerConnectionKind::Incoming(offer) => RTCSessionDescription::offer(offer.sdp).unwrap(),
-        PeerConnectionKind::Outgoing => pc.create_offer(None).await.unwrap(),
+        let offer = match kind {
+            PeerConnectionKind::Incoming(offer) => RTCSessionDescription::offer(offer.sdp)?,
+            PeerConnectionKind::Outgoing => pc.create_offer(None).await?,
+        };
+
+        if is_outgoing {
+            pc.set_local_description(offer).await?;
+            wait_for_ice_gathering_complete(&pc).await;
+        } else {
+            pc.set_remote_description(offer).await?;
+        }
+
+        Result::<_, Error>::Ok((pc, main_channel))
     };
 
-    if is_outgoing {
-        pc.set_local_description(offer).await.unwrap();
-        wait_for_ice_gathering_complete(&pc).await.unwrap();
-    } else {
-        pc.set_remote_description(offer).await.unwrap();
-    }
+    let (pc, main_channel) = match fut.await {
+        Ok(v) => v,
+        Err(err) => {
+            let _ = event_sender
+                .send(P2pConnectionEvent::OfferSdpReady(peer_id, Err(err.to_string())).into());
+            return;
+        }
+    };
 
     let answer = if is_outgoing {
-        let sdp = pc.local_description().await.unwrap().sdp;
-        event_sender
-            .send(P2pConnectionEvent::OfferSdpReady(peer_id, sdp).into())
-            .unwrap();
-
         let answer_fut = async {
-            match cmd_receiver.recv().await? {
+            let sdp = pc.local_description().await.unwrap().sdp;
+            event_sender
+                .send(P2pConnectionEvent::OfferSdpReady(peer_id, Ok(sdp)).into())
+                .or(Err(Error::ChannelClosed))?;
+            match cmd_receiver.recv().await.ok_or(Error::ChannelClosed)? {
                 PeerCmd::PeerHttpOfferSend(url, offer) => {
                     let event_sender = event_sender.clone();
                     let client = hyper::Client::new();
-                    let req = hyper::Request::post(url)
-                        .body(serde_json::to_string(&offer).unwrap().into())
-                        .unwrap();
-                    let body = client.request(req).await.unwrap().into_body();
-                    let bytes = hyper::body::to_bytes(body).await.unwrap();
-                    // TODO(binier): decoding should be inside state machine.
-                    String::from_utf8(bytes.clone().to_vec()).unwrap();
-                    let answer = serde_json::from_slice(bytes.as_ref()).unwrap();
-                    let _ = event_sender
-                        .send(P2pConnectionEvent::AnswerReceived(peer_id, answer).into());
+                    let req =
+                        hyper::Request::post(url).body(serde_json::to_string(&offer)?.into())?;
+                    let body = client.request(req).await?.into_body();
+                    let bytes = hyper::body::to_bytes(body).await?;
+                    let answer = serde_json::from_slice(bytes.as_ref())?;
+                    event_sender
+                        .send(P2pConnectionEvent::AnswerReceived(peer_id, answer).into())
+                        .or(Err(Error::ChannelClosed))?;
 
-                    if let PeerCmd::AnswerSet(v) = cmd_receiver.recv().await? {
-                        return Some(v);
+                    if let PeerCmd::AnswerSet(v) =
+                        cmd_receiver.recv().await.ok_or(Error::ChannelClosed)?
+                    {
+                        return Ok(v);
                     }
                 }
-                PeerCmd::AnswerSet(v) => return Some(v),
+                PeerCmd::AnswerSet(v) => return Ok(v),
             }
-            None
+            Err(Error::ChannelClosed)
         };
-        match answer_fut.await {
-            Some(v) => RTCSessionDescription::answer(v.sdp).unwrap(),
-            None => {
-                let _ = pc.close().await;
-                return;
-            }
-        }
+        answer_fut
+            .await
+            .and_then(|v| Ok(RTCSessionDescription::answer(v.sdp)?))
     } else {
-        pc.create_answer(None).await.unwrap()
+        pc.create_answer(None).await.map_err(|e| Error::from(e))
+    };
+    let Ok(answer) = answer else {
+        let _ = pc.close().await;
+        return;
     };
 
     if is_outgoing {
-        pc.set_remote_description(answer).await.unwrap();
+        if let Err(err) = pc.set_remote_description(answer).await {
+            let err = Error::from(err).to_string();
+            let _ = pc.close().await;
+            let _ = event_sender.send(P2pConnectionEvent::Finalized(peer_id, Err(err)).into());
+        }
     } else {
-        pc.set_local_description(answer).await.unwrap();
-        wait_for_ice_gathering_complete(&pc).await.unwrap();
-        let sdp = pc.local_description().await.unwrap().sdp;
-        event_sender
-            .send(P2pConnectionEvent::AnswerSdpReady(peer_id, sdp).into())
-            .unwrap();
+        let fut = async {
+            pc.set_local_description(answer).await?;
+            wait_for_ice_gathering_complete(&pc).await;
+            Ok(pc.local_description().await.unwrap().sdp)
+        };
+        let res = fut.await.map_err(|err: Error| err.to_string());
+        let is_err = res.is_err();
+        let is_err = is_err
+            || event_sender
+                .send(P2pConnectionEvent::AnswerSdpReady(peer_id, res).into())
+                .is_err();
+        if is_err {
+            let _ = pc.close().await;
+            return;
+        }
     }
 
-    let (connected_tx, connected) = oneshot::channel::<()>();
+    let (connected_tx, connected) = oneshot::channel();
     if matches!(pc.connection_state(), RTCPeerConnectionState::Connected) {
-        connected_tx.send(()).unwrap();
+        connected_tx.send(Ok(())).unwrap();
     } else {
         let mut connected_tx = Some(connected_tx);
+        let event_sender = event_sender.clone();
         pc.on_peer_connection_state_change(Box::new(move |state| {
-            if matches!(state, RTCPeerConnectionState::Connected) {
-                if let Some(connected_tx) = connected_tx.take() {
-                    let _ = connected_tx.send(());
+            match state {
+                RTCPeerConnectionState::Connected => {
+                    if let Some(connected_tx) = connected_tx.take() {
+                        let _ = connected_tx.send(Ok(()));
+                    }
                 }
+                RTCPeerConnectionState::Disconnected | RTCPeerConnectionState::Closed => {
+                    if let Some(connected_tx) = connected_tx.take() {
+                        let _ = connected_tx.send(Err("disconnected"));
+                    } else {
+                        let _ = event_sender.send(P2pConnectionEvent::Closed(peer_id).into());
+                    }
+                }
+                _ => {}
             }
             Box::pin(std::future::ready(()))
         }));
     }
-    connected.await.unwrap();
-    main_channel.close().await.unwrap();
+    match connected
+        .await
+        .map_err(|_| Error::ChannelClosed.to_string())
+        .and_then(|res| res.map_err(|v| v.to_string()))
+    {
+        Ok(_) => {}
+        Err(err) => {
+            let _ = event_sender.send(P2pConnectionEvent::Finalized(peer_id, Err(err)).into());
+        }
+    }
+    let _ = main_channel.close().await;
 
-    event_sender
-        .send(P2pConnectionEvent::Opened(peer_id).into())
-        .unwrap();
+    let _ = event_sender.send(P2pConnectionEvent::Finalized(peer_id, Ok(())).into());
+
+    peer_loop(event_sender, cmd_receiver, pc).await
+}
+
+// TODO(binier): remove unwraps
+async fn peer_loop(
+    event_sender: mpsc::UnboundedSender<P2pEvent>,
+    cmd_receiver: mpsc::UnboundedReceiver<PeerCmd>,
+    pc: RTCPeerConnection,
+) {
+    let _ = (event_sender, cmd_receiver, pc);
     // while let Some(cmd) = ctx.cmd_receiver.recv().await {
     // }
 }
@@ -238,7 +302,7 @@ pub trait P2pServiceWebrtcRs: redux::Service {
                 while let Some(cmd) = cmd_receiver.recv().await {
                     match cmd {
                         Cmd::PeerAdd(args) => {
-                            tokio::task::spawn_local(peer_loop(args));
+                            tokio::task::spawn_local(peer_start(args));
                         }
                     }
                 }
