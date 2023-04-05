@@ -18,11 +18,12 @@ ed25519-dalek = { version = "1.0.1", features = ["serde"] }
 
 tokio = { version = "1.26.0", features = ["rt"] }
 webrtc = { version = "0.7.1" }
+# webrtc = { version = "0.7.1", optional = true }
 hyper = { version = "0.14.25", features = ["client", "http1", "tcp"] }
 
-# webrtc = { version = "0.7.1", optional = true }
-
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
+binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 sha2 = "0.10.6"
 
 shared = { path = "../node/shared" }

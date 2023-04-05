@@ -3509,6 +3509,8 @@ name = "p2p"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "binprot",
+ "binprot_derive",
  "bs58",
  "derive_more",
  "ecies-ed25519",
