@@ -110,6 +110,10 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(P2pDisconnectionFinishAction { peer_id });
                     }
                 },
+                P2pEvent::Channel(e) => match e {
+                    // TODO(binier)
+                    _ => {}
+                },
             },
             Event::Rpc(rpc_id, e) => match e {
                 RpcRequest::GetState => {

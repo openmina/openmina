@@ -5,13 +5,19 @@ use redux::{ActionMeta, ActionWithMeta};
 use serde::{Deserialize, Serialize};
 
 pub use crate::event_source::EventSourceService;
+pub use crate::p2p::channel::P2pChannelService;
 pub use crate::p2p::connection::P2pConnectionService;
 pub use crate::p2p::disconnection::P2pDisconnectionService;
 pub use crate::rpc::RpcService;
 use crate::ActionKind;
 
 pub trait Service:
-    TimeService + EventSourceService + P2pConnectionService + P2pDisconnectionService + RpcService
+    TimeService
+    + EventSourceService
+    + P2pConnectionService
+    + P2pDisconnectionService
+    + P2pChannelService
+    + RpcService
 {
     fn stats(&mut self) -> Option<&mut Stats>;
 }
