@@ -801,7 +801,7 @@ fn gen_account_update_body_components<A, B, C, D>(
     let valid_while_precondition = match global_slot {
         None => OrIgnore::Ignore,
         Some(global_slot) => OrIgnore::gen(|| {
-            let epsilon = || Slot::from_u32(rng.gen_range(0..10));
+            let mut epsilon = || Slot::from_u32(rng.gen_range(0..10));
 
             let lower = global_slot
                 .checked_sub(&epsilon())

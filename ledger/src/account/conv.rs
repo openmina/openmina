@@ -503,7 +503,7 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
             nonce: Nonce::from_u32(acc.nonce.0 .0 as u32),
             receipt_chain_hash: ReceiptChainHash(acc.receipt_chain_hash.0.into()),
             delegate: acc.delegate.map(|d| d.into_inner().into()),
-            voting_for: VotingFor(acc.voting_for.0.into()),
+            voting_for: VotingFor(acc.voting_for.0.to_field()),
             timing: (&acc.timing).into(),
             permissions: (&acc.permissions).into(),
             zkapp: acc.zkapp.map(|zkapp| {

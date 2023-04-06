@@ -186,8 +186,8 @@ fn zkapp_command_with_ledger(
         });
 
     let zkapp_command =
-        zkapp_command::valid::to_valid(zkapp_command, &ledger, |hash, account_id| {
-            verifiable::find_vk_via_ledger(ledger, hash, account_id)
+        zkapp_command::valid::to_valid(zkapp_command, &ledger.clone(), |hash, account_id| {
+            verifiable::find_vk_via_ledger(ledger.clone(), hash, account_id)
         })
         .unwrap();
     let user_command = valid::UserCommand::ZkAppCommand(Box::new(zkapp_command));
@@ -261,8 +261,8 @@ pub fn sequence_zkapp_command_with_ledger(
             global_slot: None,
         });
         let zkapp_command =
-            zkapp_command::valid::to_valid(zkapp_command, &ledger, |hash, account_id| {
-                verifiable::find_vk_via_ledger(ledger, hash, account_id)
+            zkapp_command::valid::to_valid(zkapp_command, &ledger.clone(), |hash, account_id| {
+                verifiable::find_vk_via_ledger(ledger.clone(), hash, account_id)
             })
             .unwrap();
         let zkapp_command = valid::UserCommand::ZkAppCommand(Box::new(zkapp_command));

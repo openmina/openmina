@@ -806,7 +806,7 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
                 }
                 MAccount::Accept => AccountPreconditions::Accept,
             },
-            valid_while: match value.valid_while {
+            valid_while: match &value.valid_while {
                 MLength::Check(valid_while) => OrIgnore::Check(ClosedInterval {
                     lower: Slot::from_u32(valid_while.lower.0.as_u32()),
                     upper: Slot::from_u32(valid_while.upper.0.as_u32()),
@@ -927,7 +927,7 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
                 AccountPreconditions::Nonce(nonce) => MAccount::Nonce(nonce.into()),
                 AccountPreconditions::Accept => MAccount::Accept,
             },
-            valid_while: match value.valid_while {
+            valid_while: match &value.valid_while {
                 OrIgnore::Check(valid_while) => {
                     MLength::Check(MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
                         lower: (&valid_while.lower).into(),
@@ -1021,7 +1021,7 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
                 call_data: value.body.call_data.to_field(),
                 preconditions: (&value.body.preconditions).into(),
                 use_full_commitment: value.body.use_full_commitment,
-                authorization_kind: match value.body.authorization_kind {
+                authorization_kind: match &value.body.authorization_kind {
                     mina_p2p_messages::v2::MinaBaseAccountUpdateAuthorizationKindStableV1::NoneGiven => AuthorizationKind::NoneGiven,
                     mina_p2p_messages::v2::MinaBaseAccountUpdateAuthorizationKindStableV1::Signature => AuthorizationKind::Signature,
                     mina_p2p_messages::v2::MinaBaseAccountUpdateAuthorizationKindStableV1::Proof(hash) => AuthorizationKind::Proof(hash.to_field()),
