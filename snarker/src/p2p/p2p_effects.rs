@@ -1,5 +1,3 @@
-use crate::p2p::connection::incoming::P2pConnectionIncomingAnswerSendSuccessAction;
-use crate::p2p::connection::P2pConnectionResponse;
 use crate::rpc::{
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
@@ -7,9 +5,13 @@ use crate::rpc::{
 };
 use crate::{Service, Store};
 
-use super::connection::incoming::P2pConnectionIncomingAction;
+use super::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
+use super::channels::P2pChannelsAction;
+use super::connection::incoming::{
+    P2pConnectionIncomingAction, P2pConnectionIncomingAnswerSendSuccessAction,
+};
 use super::connection::outgoing::P2pConnectionOutgoingAction;
-use super::connection::P2pConnectionAction;
+use super::connection::{P2pConnectionAction, P2pConnectionResponse};
 use super::disconnection::P2pDisconnectionAction;
 use super::{P2pAction, P2pActionWithMeta};
 
@@ -130,8 +132,19 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             P2pDisconnectionAction::Init(action) => action.effects(&meta, store),
             P2pDisconnectionAction::Finish(_action) => {}
         },
-        P2pAction::PeerReady(_action) => {
-            // action.effects(&meta, store);
+        P2pAction::PeerReady(action) => {
+            action.effects(&meta, store);
         }
+        P2pAction::Channels(action) => match action {
+            P2pChannelsAction::SnarkJobCommitment(action) => match action {
+                P2pChannelsSnarkJobCommitmentAction::Init(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsSnarkJobCommitmentAction::Pending(_) => {}
+                P2pChannelsSnarkJobCommitmentAction::Ready(action) => {
+                    action.effects(&meta, store);
+                }
+            },
+        },
     }
 }

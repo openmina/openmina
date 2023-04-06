@@ -16,11 +16,14 @@ use ::webrtc::{
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-    channel::{ChannelId, ChannelMsg, MsgId, P2pChannelService},
+    channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionService},
     disconnection::P2pDisconnectionService,
     webrtc, P2pChannelEvent, P2pConnectionEvent, P2pEvent, PeerId,
 };
+
+/// 16KB.
+const CHUNK_SIZE: usize = 16 * 1024;
 
 pub enum Cmd {
     PeerAdd(PeerAddArgs),
@@ -459,9 +462,17 @@ async fn peer_loop(
                 if let Some(chan) = channels.get(chan_id) {
                     let event_sender = event_sender.clone();
                     chan.on_message(Box::new(move |msg| {
-                        let msg = ChannelMsg::decode(&mut msg.data.as_ref(), chan_id)
-                            .map_err(|err| err.to_string());
-                        let _ = event_sender.send(P2pChannelEvent::Received(peer_id, msg).into());
+                        let result = if msg.data.len() > CHUNK_SIZE {
+                            Err("ChunkSizeBiggerThanAllowed".to_owned())
+                        // } else if msg.data.len() == CHUNK_SIZE {
+                        // TODO(binier): handle messages which can't
+                        // fit in one chunk.
+                        } else {
+                            ChannelMsg::decode(&mut msg.data.as_ref(), chan_id)
+                                .map_err(|err| err.to_string())
+                        };
+                        let _ =
+                            event_sender.send(P2pChannelEvent::Received(peer_id, result).into());
                         Box::pin(std::future::ready(()))
                     }));
                 }
@@ -580,7 +591,7 @@ impl<T: P2pServiceWebrtcRs> P2pDisconnectionService for T {
     }
 }
 
-impl<T: P2pServiceWebrtcRs> P2pChannelService for T {
+impl<T: P2pServiceWebrtcRs> P2pChannelsService for T {
     fn channel_open(&mut self, peer_id: PeerId, id: ChannelId) {
         if let Some(peer) = self.peers().get(&peer_id) {
             let _ = peer.cmd_sender.send(PeerCmd::ChannelOpen(id));

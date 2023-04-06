@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use super::channels::P2pChannelsAction;
 use super::connection::P2pConnectionAction;
 use super::disconnection::P2pDisconnectionAction;
 
@@ -11,6 +12,7 @@ pub enum P2pAction {
     Connection(P2pConnectionAction),
     Disconnection(P2pDisconnectionAction),
     PeerReady(P2pPeerReadyAction),
+    Channels(P2pChannelsAction),
 }
 
 // TODO(binier): feels out of place. Maybe move somewhere else?

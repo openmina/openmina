@@ -5,6 +5,11 @@ use crate::event_source::{
     EventSourceAction, EventSourceNewEventAction, EventSourceProcessEventsAction,
     EventSourceWaitForEventsAction, EventSourceWaitTimeoutAction,
 };
+use crate::p2p::channels::snark_job_commitment::{
+    P2pChannelsSnarkJobCommitmentAction, P2pChannelsSnarkJobCommitmentInitAction,
+    P2pChannelsSnarkJobCommitmentPendingAction, P2pChannelsSnarkJobCommitmentReadyAction,
+};
+use crate::p2p::channels::P2pChannelsAction;
 use crate::p2p::connection::incoming::{
     P2pConnectionIncomingAction, P2pConnectionIncomingAnswerReadyAction,
     P2pConnectionIncomingAnswerSdpCreateErrorAction,
@@ -53,6 +58,9 @@ pub enum ActionKind {
     EventSourceProcessEvents,
     EventSourceWaitForEvents,
     EventSourceWaitTimeout,
+    P2pChannelsSnarkJobCommitmentInit,
+    P2pChannelsSnarkJobCommitmentPending,
+    P2pChannelsSnarkJobCommitmentReady,
     P2pConnectionIncomingAnswerReady,
     P2pConnectionIncomingAnswerSdpCreateError,
     P2pConnectionIncomingAnswerSdpCreatePending,
@@ -131,6 +139,7 @@ impl ActionKindGet for P2pAction {
             Self::Connection(a) => a.kind(),
             Self::Disconnection(a) => a.kind(),
             Self::PeerReady(a) => a.kind(),
+            Self::Channels(a) => a.kind(),
         }
     }
 }
@@ -199,6 +208,14 @@ impl ActionKindGet for P2pDisconnectionAction {
 impl ActionKindGet for P2pPeerReadyAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pPeerReady
+    }
+}
+
+impl ActionKindGet for P2pChannelsAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::SnarkJobCommitment(a) => a.kind(),
+        }
     }
 }
 
@@ -324,6 +341,16 @@ impl ActionKindGet for P2pDisconnectionInitAction {
 impl ActionKindGet for P2pDisconnectionFinishAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pDisconnectionFinish
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkJobCommitmentAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::Pending(a) => a.kind(),
+            Self::Ready(a) => a.kind(),
+        }
     }
 }
 
@@ -486,5 +513,23 @@ impl ActionKindGet for P2pConnectionIncomingErrorAction {
 impl ActionKindGet for P2pConnectionIncomingSuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pConnectionIncomingSuccess
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkJobCommitmentInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkJobCommitmentInit
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkJobCommitmentPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkJobCommitmentPending
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkJobCommitmentReadyAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkJobCommitmentReady
     }
 }

@@ -1,5 +1,6 @@
 pub use ::p2p::*;
 
+pub mod channels;
 pub mod connection;
 pub mod disconnection;
 
@@ -75,3 +76,9 @@ impl_into_global_action!(connection::incoming::P2pConnectionIncomingFinalizeSucc
 
 impl_into_global_action!(disconnection::P2pDisconnectionInitAction);
 impl_into_global_action!(disconnection::P2pDisconnectionFinishAction);
+
+impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentInitAction);
+impl_into_global_action!(
+    channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentPendingAction
+);
+impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReadyAction);

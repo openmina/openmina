@@ -24,6 +24,7 @@ hyper = { version = "0.14.25", features = ["client", "http1", "tcp"] }
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", branch = "new-types-feb-23", features = ["hashing"] }
 sha2 = "0.10.6"
 
 shared = { path = "../node/shared" }
