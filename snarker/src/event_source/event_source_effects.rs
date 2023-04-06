@@ -1,6 +1,6 @@
-use p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
-
 use crate::action::CheckTimeoutsAction;
+use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReadyAction;
+use crate::p2p::channels::ChannelId;
 use crate::p2p::connection::incoming::{
     P2pConnectionIncomingAnswerSdpCreateErrorAction,
     P2pConnectionIncomingAnswerSdpCreateSuccessAction, P2pConnectionIncomingFinalizeErrorAction,
@@ -12,7 +12,9 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingOfferSdpCreateErrorAction,
     P2pConnectionOutgoingOfferSdpCreateSuccessAction,
 };
+use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::P2pDisconnectionFinishAction;
+use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcP2pConnectionIncomingInitAction,
     RpcP2pConnectionOutgoingInitAction, RpcRequest,
@@ -111,8 +113,22 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                 },
                 P2pEvent::Channel(e) => match e {
-                    // TODO(binier)
-                    _ => {}
+                    P2pChannelEvent::Opened(peer_id, chan_id, res) => match res {
+                        Err(_err) => {
+                            // TODO(binier): dispatch error action.
+                            store.dispatch(P2pDisconnectionFinishAction { peer_id });
+                        }
+                        Ok(_) => match chan_id {
+                            ChannelId::SnarkJobCommitmentPropagation => {
+                                // TODO(binier): maybe dispatch success and then ready.
+                                store
+                                    .dispatch(P2pChannelsSnarkJobCommitmentReadyAction { peer_id });
+                            }
+                        },
+                    },
+                    _ => {
+                        todo!();
+                    }
                 },
             },
             Event::Rpc(rpc_id, e) => match e {

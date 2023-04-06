@@ -1,12 +1,25 @@
-mod p2p_channel_service;
-pub use p2p_channel_service::*;
+pub mod snark_job_commitment;
+use snark_job_commitment::SnarkJobCommitmentPropagationChannelMsg;
+
+mod p2p_channels_state;
+pub use p2p_channels_state::*;
+
+mod p2p_channels_actions;
+pub use p2p_channels_actions::*;
+
+mod p2p_channels_reducer;
+pub use p2p_channels_reducer::*;
+
+mod p2p_channels_service;
+pub use p2p_channels_service::*;
 
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
+use strum_macros::EnumIter;
 
-#[derive(Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
+#[derive(Serialize, Deserialize, EnumIter, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum ChannelId {
     SnarkJobCommitmentPropagation = 5,
@@ -27,6 +40,10 @@ impl ChannelId {
         match self {
             Self::SnarkJobCommitmentPropagation => "snark_job_commitment/propagation",
         }
+    }
+
+    pub fn iter_all() -> impl Iterator<Item = ChannelId> {
+        <Self as strum::IntoEnumIterator>::iter()
     }
 }
 
@@ -49,7 +66,7 @@ impl MsgId {
     }
 }
 
-#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, From, Debug, Eq, PartialEq, Clone)]
+#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, From, Debug, Clone)]
 pub enum ChannelMsg {
     SnarkJobCommitmentPropagation(SnarkJobCommitmentPropagationChannelMsg),
 }
@@ -81,9 +98,4 @@ impl ChannelMsg {
             }
         }
     }
-}
-
-#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
-pub enum SnarkJobCommitmentPropagationChannelMsg {
-    Msg,
 }

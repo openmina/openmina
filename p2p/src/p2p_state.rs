@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use shared::requests::RpcId;
 
+use crate::channels::{ChannelId, P2pChannelsState};
 use crate::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::PeerId;
 
@@ -141,10 +142,14 @@ impl P2pPeerStatus {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pPeerStatusReady {}
+pub struct P2pPeerStatusReady {
+    pub channels: P2pChannelsState,
+}
 
 impl P2pPeerStatusReady {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(enabled_channels: &BTreeSet<ChannelId>) -> Self {
+        Self {
+            channels: P2pChannelsState::new(enabled_channels),
+        }
     }
 }

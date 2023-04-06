@@ -2,7 +2,7 @@ use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    channel::{ChannelId, ChannelMsg, MsgId},
+    channels::{ChannelId, ChannelMsg, MsgId},
     connection::P2pConnectionResponse,
     PeerId,
 };

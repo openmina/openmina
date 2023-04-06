@@ -5,7 +5,7 @@ use redux::{ActionMeta, ActionWithMeta};
 use serde::{Deserialize, Serialize};
 
 pub use crate::event_source::EventSourceService;
-pub use crate::p2p::channel::P2pChannelService;
+pub use crate::p2p::channels::P2pChannelsService;
 pub use crate::p2p::connection::P2pConnectionService;
 pub use crate::p2p::disconnection::P2pDisconnectionService;
 pub use crate::rpc::RpcService;
@@ -16,7 +16,7 @@ pub trait Service:
     + EventSourceService
     + P2pConnectionService
     + P2pDisconnectionService
-    + P2pChannelService
+    + P2pChannelsService
     + RpcService
 {
     fn stats(&mut self) -> Option<&mut Stats>;

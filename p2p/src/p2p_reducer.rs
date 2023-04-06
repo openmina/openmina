@@ -49,7 +49,12 @@ impl P2pState {
                 let Some(peer) = self.peers.get_mut(&action.peer_id) else {
                     return;
                 };
-                peer.status = P2pPeerStatus::Ready(P2pPeerStatusReady::new());
+                peer.status =
+                    P2pPeerStatus::Ready(P2pPeerStatusReady::new(&self.config.enabled_channels));
+            }
+            P2pAction::Channels(action) => {
+                let Some(peer) = self.get_ready_peer_mut(action.peer_id()) else { return };
+                peer.channels.reducer(meta.with_action(action));
             }
         }
     }
