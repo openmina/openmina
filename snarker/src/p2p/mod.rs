@@ -77,8 +77,25 @@ impl_into_global_action!(connection::incoming::P2pConnectionIncomingFinalizeSucc
 impl_into_global_action!(disconnection::P2pDisconnectionInitAction);
 impl_into_global_action!(disconnection::P2pDisconnectionFinishAction);
 
+impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
+
 impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentInitAction);
 impl_into_global_action!(
     channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentPendingAction
 );
 impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReadyAction);
+impl_into_global_action!(
+    channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentRequestSendAction
+);
+impl_into_global_action!(
+    channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentPromiseReceivedAction
+);
+impl_into_global_action!(
+    channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReceivedAction
+);
+impl_into_global_action!(
+    channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentRequestReceivedAction
+);
+impl_into_global_action!(
+    channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentResponseSendAction
+);

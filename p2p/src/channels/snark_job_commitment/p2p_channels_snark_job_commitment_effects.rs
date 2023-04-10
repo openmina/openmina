@@ -1,10 +1,12 @@
 use redux::ActionMeta;
 
-use crate::channels::{ChannelId, P2pChannelsService};
+use crate::channels::{ChannelId, MsgId, P2pChannelsService};
 
 use super::{
     P2pChannelsSnarkJobCommitmentInitAction, P2pChannelsSnarkJobCommitmentPendingAction,
-    P2pChannelsSnarkJobCommitmentReadyAction,
+    P2pChannelsSnarkJobCommitmentReadyAction, P2pChannelsSnarkJobCommitmentReceivedAction,
+    P2pChannelsSnarkJobCommitmentRequestSendAction,
+    P2pChannelsSnarkJobCommitmentResponseSendAction, SnarkJobCommitmentPropagationChannelMsg,
 };
 
 impl P2pChannelsSnarkJobCommitmentInitAction {
@@ -27,7 +29,61 @@ impl P2pChannelsSnarkJobCommitmentReadyAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
+        P2pChannelsSnarkJobCommitmentRequestSendAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
+        let limit = 16;
+        store.dispatch(P2pChannelsSnarkJobCommitmentRequestSendAction { peer_id, limit });
+    }
+}
+
+impl P2pChannelsSnarkJobCommitmentRequestSendAction {
+    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    where
+        Store: crate::P2pStore<S>,
+        Store::Service: P2pChannelsService,
+    {
+        let peer_id = self.peer_id;
+        let limit = self.limit;
+        let msg = SnarkJobCommitmentPropagationChannelMsg::GetNext { limit };
+        store
+            .service()
+            .channel_send(peer_id, MsgId::first(), msg.into());
+    }
+}
+
+impl P2pChannelsSnarkJobCommitmentReceivedAction {
+    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    where
+        Store: crate::P2pStore<S>,
+        Store::Service: P2pChannelsService,
+        P2pChannelsSnarkJobCommitmentRequestSendAction: redux::EnablingCondition<S>,
+    {
+        let peer_id = self.peer_id;
+        let limit = 16;
+        store.dispatch(P2pChannelsSnarkJobCommitmentRequestSendAction { peer_id, limit });
+    }
+}
+
+impl P2pChannelsSnarkJobCommitmentResponseSendAction {
+    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    where
+        Store: crate::P2pStore<S>,
+        Store::Service: P2pChannelsService,
+    {
+        let peer_id = self.peer_id;
+        let msg = SnarkJobCommitmentPropagationChannelMsg::WillSend {
+            count: self.commitments.len() as u8,
+        };
+        store
+            .service()
+            .channel_send(peer_id, MsgId::first(), msg.into());
+
+        for commitment in self.commitments {
+            let msg = SnarkJobCommitmentPropagationChannelMsg::Commitment(commitment);
+            store
+                .service()
+                .channel_send(peer_id, MsgId::first(), msg.into());
+        }
     }
 }

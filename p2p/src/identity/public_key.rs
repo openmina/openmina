@@ -1,12 +1,12 @@
 use std::{fmt, str::FromStr};
 
-use ed25519_dalek::PublicKey as Ed25519PublicKey;
+use ed25519_dalek::VerifyingKey as Ed25519PublicKey;
 use serde::{Deserialize, Serialize};
 
 use crate::PeerId;
 
 #[derive(Eq, PartialEq, Clone)]
-pub struct PublicKey(Ed25519PublicKey);
+pub struct PublicKey(pub(super) Ed25519PublicKey);
 
 impl PublicKey {
     const BASE58_CHECK_VERSION: u8 = 0x16; // 'P'
