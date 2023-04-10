@@ -136,12 +136,26 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             action.effects(&meta, store);
         }
         P2pAction::Channels(action) => match action {
+            P2pChannelsAction::MessageReceived(action) => {
+                action.effects(&meta, store);
+            }
             P2pChannelsAction::SnarkJobCommitment(action) => match action {
                 P2pChannelsSnarkJobCommitmentAction::Init(action) => {
                     action.effects(&meta, store);
                 }
                 P2pChannelsSnarkJobCommitmentAction::Pending(_) => {}
                 P2pChannelsSnarkJobCommitmentAction::Ready(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsSnarkJobCommitmentAction::RequestSend(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsSnarkJobCommitmentAction::PromiseReceived(_) => {}
+                P2pChannelsSnarkJobCommitmentAction::Received(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsSnarkJobCommitmentAction::RequestReceived(_) => {}
+                P2pChannelsSnarkJobCommitmentAction::ResponseSend(action) => {
                     action.effects(&meta, store);
                 }
             },

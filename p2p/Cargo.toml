@@ -14,10 +14,10 @@ derive_more = "0.99.17"
 bs58 = "0.4.0"
 anyhow = "1.0.70"
 ecies-ed25519 = "0.5.1"
-ed25519-dalek = { version = "1.0.1", features = ["serde"] }
+ed25519-dalek = { version = "2.0.0-rc.2", features = ["serde"] }
 
 tokio = { version = "1.26.0", features = ["rt"] }
-webrtc = { version = "0.7.1" }
+webrtc = { git = "https://github.com/openmina/webrtc.git", branch = "openmina" }
 # webrtc = { version = "0.7.1", optional = true }
 hyper = { version = "0.14.25", features = ["client", "http1", "tcp"] }
 

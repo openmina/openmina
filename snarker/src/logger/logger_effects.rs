@@ -85,6 +85,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
             },
             P2pAction::PeerReady(_) => {}
             P2pAction::Channels(action) => match action {
+                P2pChannelsAction::MessageReceived(_) => {}
                 P2pChannelsAction::SnarkJobCommitment(action) => match action {
                     P2pChannelsSnarkJobCommitmentAction::Init(action) => {
                         shared::log::debug!(

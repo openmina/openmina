@@ -10,8 +10,9 @@ use snarker::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
     EventSourceWaitTimeoutAction,
 };
+use snarker::p2p::channels::ChannelId;
 use snarker::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-use snarker::p2p::identity::{Keypair, PublicKey};
+use snarker::p2p::identity::SecretKey;
 use snarker::p2p::service_impl::webrtc_rs::{Cmd, P2pServiceCtx, P2pServiceWebrtcRs, PeerState};
 use snarker::p2p::{P2pConfig, P2pEvent, PeerId};
 use snarker::rpc::RpcRequest;
@@ -42,8 +43,9 @@ impl Snarker {
         let _local_set_guard = local_set.enter();
 
         let mut rng = ThreadRng::default();
-        let keypair = Keypair::generate(&mut rng);
-        let pub_key = PublicKey::from_bytes(keypair.public.to_bytes()).unwrap();
+        let bytes = rng.gen();
+        let secret_key = SecretKey::from_bytes(bytes);
+        let pub_key = secret_key.public_key();
         let peer_id = PeerId::from_public_key(pub_key.clone());
         let config = Config {
             p2p: P2pConfig {
@@ -54,6 +56,7 @@ impl Snarker {
                         .unwrap(),
                 ],
                 max_peers: 10,
+                enabled_channels: [ChannelId::SnarkJobCommitmentPropagation].into(),
             },
         };
         let state = State::new(config);

@@ -1,6 +1,6 @@
 use crate::action::CheckTimeoutsAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReadyAction;
-use crate::p2p::channels::ChannelId;
+use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::{
     P2pConnectionIncomingAnswerSdpCreateErrorAction,
     P2pConnectionIncomingAnswerSdpCreateSuccessAction, P2pConnectionIncomingFinalizeErrorAction,
@@ -126,8 +126,21 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             }
                         },
                     },
-                    _ => {
-                        todo!();
+                    P2pChannelEvent::Sent(peer_id, _, _, res) => {
+                        if res.is_err() {
+                            store.dispatch(P2pDisconnectionFinishAction { peer_id });
+                        }
+                    }
+                    P2pChannelEvent::Received(peer_id, res) => match res {
+                        Err(_) => {
+                            store.dispatch(P2pDisconnectionFinishAction { peer_id });
+                        }
+                        Ok(message) => {
+                            store.dispatch(P2pChannelsMessageReceivedAction { peer_id, message });
+                        }
+                    },
+                    P2pChannelEvent::Closed(peer_id, _) => {
+                        store.dispatch(P2pDisconnectionFinishAction { peer_id });
                     }
                 },
             },

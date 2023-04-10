@@ -21,3 +21,11 @@ impl P2pChannelsState {
         }
     }
 }
+
+impl P2pChannelsState {
+    pub fn is_channel_ready(&self, chan_id: ChannelId) -> bool {
+        match chan_id {
+            ChannelId::SnarkJobCommitmentPropagation => self.snark_job_commitment.is_ready(),
+        }
+    }
+}
