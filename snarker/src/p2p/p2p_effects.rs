@@ -1,3 +1,4 @@
+use crate::job_commitment::JobCommitmentAddAction;
 use crate::rpc::{
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
@@ -153,6 +154,10 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 P2pChannelsSnarkJobCommitmentAction::PromiseReceived(_) => {}
                 P2pChannelsSnarkJobCommitmentAction::Received(action) => {
                     action.effects(&meta, store);
+                    store.dispatch(JobCommitmentAddAction {
+                        commitment: action.commitment,
+                        sender: action.peer_id,
+                    });
                 }
                 P2pChannelsSnarkJobCommitmentAction::RequestReceived(_) => {}
                 P2pChannelsSnarkJobCommitmentAction::ResponseSend(action) => {

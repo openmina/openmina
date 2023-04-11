@@ -53,7 +53,7 @@ impl P2pChannelsSnarkJobCommitmentRequestSendAction {
 }
 
 impl P2pChannelsSnarkJobCommitmentReceivedAction {
-    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(&self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,

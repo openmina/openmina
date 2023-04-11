@@ -5,6 +5,10 @@ use crate::event_source::{
     EventSourceAction, EventSourceNewEventAction, EventSourceProcessEventsAction,
     EventSourceWaitForEventsAction, EventSourceWaitTimeoutAction,
 };
+use crate::job_commitment::{
+    JobCommitmentAction, JobCommitmentAddAction, JobCommitmentP2pSendAction,
+    JobCommitmentP2pSendAllAction,
+};
 use crate::p2p::channels::snark_job_commitment::{
     P2pChannelsSnarkJobCommitmentAction, P2pChannelsSnarkJobCommitmentInitAction,
     P2pChannelsSnarkJobCommitmentPendingAction, P2pChannelsSnarkJobCommitmentPromiseReceivedAction,
@@ -62,6 +66,9 @@ pub enum ActionKind {
     EventSourceProcessEvents,
     EventSourceWaitForEvents,
     EventSourceWaitTimeout,
+    JobCommitmentAdd,
+    JobCommitmentP2pSend,
+    JobCommitmentP2pSendAll,
     P2pChannelsMessageReceived,
     P2pChannelsSnarkJobCommitmentInit,
     P2pChannelsSnarkJobCommitmentPending,
@@ -121,6 +128,7 @@ impl ActionKindGet for Action {
             Self::CheckTimeouts(a) => a.kind(),
             Self::EventSource(a) => a.kind(),
             Self::P2p(a) => a.kind(),
+            Self::JobCommitment(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
         }
     }
@@ -150,6 +158,16 @@ impl ActionKindGet for P2pAction {
             Self::Disconnection(a) => a.kind(),
             Self::PeerReady(a) => a.kind(),
             Self::Channels(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for JobCommitmentAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Add(a) => a.kind(),
+            Self::P2pSendAll(a) => a.kind(),
+            Self::P2pSend(a) => a.kind(),
         }
     }
 }
@@ -227,6 +245,24 @@ impl ActionKindGet for P2pChannelsAction {
             Self::MessageReceived(a) => a.kind(),
             Self::SnarkJobCommitment(a) => a.kind(),
         }
+    }
+}
+
+impl ActionKindGet for JobCommitmentAddAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::JobCommitmentAdd
+    }
+}
+
+impl ActionKindGet for JobCommitmentP2pSendAllAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::JobCommitmentP2pSendAll
+    }
+}
+
+impl ActionKindGet for JobCommitmentP2pSendAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::JobCommitmentP2pSend
     }
 }
 

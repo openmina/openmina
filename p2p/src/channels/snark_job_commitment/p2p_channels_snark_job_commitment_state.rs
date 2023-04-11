@@ -16,6 +16,8 @@ pub enum P2pChannelsSnarkJobCommitmentState {
         local: SnarkJobCommitmentPropagationState,
         /// We are the responders here.
         remote: SnarkJobCommitmentPropagationState,
+        /// Last sent commitment index.
+        last_sent_index: u64,
     },
 }
 
@@ -43,5 +45,21 @@ pub enum SnarkJobCommitmentPropagationState {
 impl P2pChannelsSnarkJobCommitmentState {
     pub fn is_ready(&self) -> bool {
         matches!(self, Self::Ready { .. })
+    }
+
+    pub fn next_send_index_and_limit(&self) -> (u64, u8) {
+        match self {
+            Self::Ready {
+                remote,
+                last_sent_index,
+                ..
+            } => match remote {
+                SnarkJobCommitmentPropagationState::Requested {
+                    requested_limit, ..
+                } => (*last_sent_index + 1, *requested_limit),
+                _ => (*last_sent_index + 1, 0),
+            },
+            _ => (0, 0),
+        }
     }
 }

@@ -4,6 +4,7 @@ pub type ActionWithMeta = redux::ActionWithMeta<Action>;
 pub type ActionWithMetaRef<'a> = redux::ActionWithMeta<&'a Action>;
 
 pub use crate::event_source::EventSourceAction;
+pub use crate::job_commitment::JobCommitmentAction;
 pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
 
@@ -17,6 +18,7 @@ pub enum Action {
     EventSource(EventSourceAction),
 
     P2p(P2pAction),
+    JobCommitment(JobCommitmentAction),
     Rpc(RpcAction),
 }
 

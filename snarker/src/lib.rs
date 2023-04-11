@@ -20,6 +20,7 @@ pub mod service;
 pub use service::Service;
 
 pub mod event_source;
+pub mod job_commitment;
 pub mod logger;
 pub mod p2p;
 pub mod rpc;

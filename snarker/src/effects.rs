@@ -1,4 +1,5 @@
 use crate::event_source::event_source_effects;
+use crate::job_commitment::{job_commitment_effects, JobCommitmentP2pSendAllAction};
 use crate::logger::logger_effects;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
@@ -42,12 +43,17 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             for action in reconnect_actions {
                 store.dispatch(action);
             }
+
+            store.dispatch(JobCommitmentP2pSendAllAction {});
         }
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));
         }
         Action::P2p(action) => {
             p2p_effects(store, meta.with_action(action));
+        }
+        Action::JobCommitment(action) => {
+            job_commitment_effects(store, meta.with_action(action));
         }
         Action::Rpc(action) => {
             rpc_effects(store, meta.with_action(action));
