@@ -22,6 +22,7 @@ impl P2pChannelsSnarkJobCommitmentState {
                     remote: SnarkJobCommitmentPropagationState::WaitingForRequest {
                         time: meta.time(),
                     },
+                    last_sent_index: 0,
                 };
             }
             P2pChannelsSnarkJobCommitmentAction::RequestSend(action) => {
@@ -64,8 +65,9 @@ impl P2pChannelsSnarkJobCommitmentState {
                 };
             }
             P2pChannelsSnarkJobCommitmentAction::ResponseSend(action) => {
-                let Self::Ready { remote, .. } = self else { return };
+                let Self::Ready { remote, last_sent_index, .. } = self else { return };
 
+                *last_sent_index = action.last_index;
                 *remote = SnarkJobCommitmentPropagationState::Responded {
                     time: meta.time(),
                     count: action.commitments.len() as u8,

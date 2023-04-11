@@ -1,6 +1,7 @@
 use redux::{ActionMeta, Timestamp};
 use serde::{Deserialize, Serialize};
 
+pub use crate::job_commitment::JobCommitmentsState;
 pub use crate::p2p::P2pState;
 pub use crate::rpc::RpcState;
 use crate::ActionWithMeta;
@@ -9,6 +10,7 @@ pub use crate::Config;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct State {
     pub p2p: P2pState,
+    pub job_commitments: JobCommitmentsState,
     pub rpc: RpcState,
 
     // TODO(binier): include action kind in `last_action`.
@@ -20,6 +22,7 @@ impl State {
     pub fn new(config: Config) -> Self {
         Self {
             p2p: P2pState::new(config.p2p),
+            job_commitments: JobCommitmentsState::new(),
             rpc: RpcState::new(),
 
             last_action: ActionMeta::ZERO,

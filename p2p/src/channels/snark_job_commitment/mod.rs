@@ -12,6 +12,7 @@ pub use p2p_channels_snark_job_commitment_effects::*;
 
 use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::{LedgerHash, MinaBaseSignatureStableV1, NonZeroCurvePoint};
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
@@ -34,28 +35,39 @@ pub enum SnarkJobCommitmentPropagationChannelMsg {
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkJobCommitment {
+    /// Timestamp in milliseconds.
+    timestamp: u32,
     pub job_id: SnarkJobId,
     pub snarker: NonZeroCurvePoint,
     pub signature: MinaBaseSignatureStableV1,
 }
 
 impl SnarkJobCommitment {
-    pub fn new(job_id: SnarkJobId, snarker: NonZeroCurvePoint) -> Self {
+    pub fn new(timestamp: u32, job_id: SnarkJobId, snarker: NonZeroCurvePoint) -> Self {
         Self {
+            timestamp,
             job_id,
             snarker,
             signature: todo!(),
         }
     }
+
+    pub fn timestamp(&self) -> Timestamp {
+        Timestamp::new(self.timestamp as u64 * 1_000_000)
+    }
 }
 
-#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
+#[derive(
+    BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
+)]
 pub struct SnarkJobId {
     pub source: SnarkJobLedgerHashes,
     pub target: SnarkJobLedgerHashes,
 }
 
-#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
+#[derive(
+    BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
+)]
 pub struct SnarkJobLedgerHashes {
     pub first_pass_ledger: LedgerHash,
     pub second_pass_ledger: LedgerHash,
