@@ -918,7 +918,19 @@ pub struct MinaBasePaymentPayloadStableV2 {
 ///
 /// Gid: `668`
 /// Location: [src/lib/mina_base/ledger_hash0.ml:17:4](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/ledger_hash0.ml#L17)
-#[derive(Clone, Debug, Deref, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone,
+    Debug,
+    Deref,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+)]
 pub struct MinaBaseLedgerHash0StableV1(pub crate::bigint::BigInt);
 
 /// **OCaml name**: `Mina_base__Permissions.Auth_required.Stable.V2`
