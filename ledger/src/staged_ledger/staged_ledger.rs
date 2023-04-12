@@ -4357,24 +4357,28 @@ mod tests_ocaml {
             })
         };
         let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
+        let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.to_vec(),
             iters.to_vec(),
-            |sl, _test_mask| {
+            |_snarked_ledger, sl, _test_mask| {
                 iter_cmds_acc(
                     &cmds,
                     &iters,
                     (),
                     |_cmds_left, _count_opt, cmds_this_iter, _| {
+                        let current_state_view = dummy_state_view(Some(global_slot));
+
                         let (diff, _invalid_txns) = sl
                             .create_diff(
                                 &CONSTRAINT_CONSTANTS,
+                                global_slot,
                                 None,
                                 COINBASE_RECEIVER.clone(),
                                 LOGGER,
-                                &dummy_state_view(None),
+                                &current_state_view,
                                 cmds_this_iter.to_vec(),
                                 stmt_to_work,
                                 true,
@@ -4420,6 +4424,7 @@ mod tests_ocaml {
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2939
     fn test_random_number_of_proofs(
+        global_slot: Slot,
         init: &LedgerInitialState,
         cmds: Vec<valid::UserCommand>,
         cmd_iters: Vec<Option<usize>>,
@@ -4442,9 +4447,15 @@ mod tests_ocaml {
 
                 let proofs_available_this_iter = *proofs_available_left.first().unwrap();
 
+                let (current_state, current_state_view) = dummy_state_and_view(Some(global_slot));
+                let state_and_body_hash = { hashes_abstract(&current_state) };
+
                 let (proof, diff) = create_and_apply(
                     None,
                     None,
+                    global_slot,
+                    &current_state_view,
+                    state_and_body_hash,
                     &mut sl,
                     cmds_this_iter,
                     stmt_to_work_restricted(
@@ -4471,6 +4482,8 @@ mod tests_ocaml {
                 assert_ledger(
                     test_mask.clone(),
                     coinbase_cost,
+                    global_slot,
+                    &current_state_view,
                     &sl,
                     cmds_left,
                     cmds_applied_this_iter,
@@ -4503,6 +4516,7 @@ mod tests_ocaml {
         let mut rng = rand::thread_rng();
 
         let (ledger_init_state, cmds, iters) = gen_at_capacity();
+        let global_slot = Slot::gen_small();
 
         // How many proofs will be available at each iteration.
         //
@@ -4522,8 +4536,9 @@ mod tests_ocaml {
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |sl, test_mask| {
+            |_snarked_ledger, sl, test_mask| {
                 test_random_number_of_proofs(
+                    global_slot,
                     &ledger_init_state,
                     cmds.clone(),
                     iters.clone(),
@@ -4544,6 +4559,7 @@ mod tests_ocaml {
         let mut rng = rand::thread_rng();
 
         let (ledger_init_state, cmds, iters) = gen_below_capacity(Some(true));
+        let global_slot = Slot::gen_small();
 
         let proofs_available: Vec<usize> = iters
             .iter()
@@ -4554,8 +4570,9 @@ mod tests_ocaml {
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |sl, test_mask| {
+            |_snarked_ledger, sl, test_mask| {
                 test_random_number_of_proofs(
+                    global_slot,
                     &ledger_init_state,
                     cmds.clone(),
                     iters.clone(),
@@ -4576,6 +4593,7 @@ mod tests_ocaml {
         let mut rng = rand::thread_rng();
 
         let (ledger_init_state, cmds, iters) = gen_below_capacity(Some(true));
+        let global_slot = Slot::gen_small();
 
         let proofs_available: Vec<usize> = iters
             .iter()
@@ -4586,8 +4604,9 @@ mod tests_ocaml {
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |sl, test_mask| {
+            |_snarked_ledger, sl, test_mask| {
                 test_random_number_of_proofs(
+                    global_slot,
                     &ledger_init_state,
                     cmds.clone(),
                     iters.clone(),
@@ -4625,6 +4644,7 @@ mod tests_ocaml {
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3095
     fn test_random_proof_fee(
+        global_slot: Slot,
         _init: &LedgerInitialState,
         cmds: Vec<valid::UserCommand>,
         cmd_iters: Vec<Option<usize>>,
@@ -4655,9 +4675,15 @@ mod tests_ocaml {
                     work_list.into_iter().zip(fees).collect::<Vec<_>>()
                 };
 
+                let (current_state, current_state_view) = dummy_state_and_view(Some(global_slot));
+                let state_and_body_hash = { hashes_abstract(&current_state) };
+
                 let (_proof, diff) = create_and_apply(
                     None,
                     None,
+                    global_slot,
+                    &current_state_view,
+                    state_and_body_hash,
                     &mut sl,
                     cmds_this_iter,
                     stmt_to_work_random_fee(&work_to_be_done, provers),
@@ -4760,6 +4786,7 @@ mod tests_ocaml {
         let mut rng = rand::thread_rng();
 
         let (ledger_init_state, cmds, iters) = gen_at_capacity();
+        let global_slot = Slot::gen_small();
 
         // How many proofs will be available at each iteration.
         let proofs_available: Vec<(usize, Vec<Fee>)> = iters
@@ -4781,8 +4808,9 @@ mod tests_ocaml {
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |sl, test_mask| {
+            |_snarked_ledger, sl, test_mask| {
                 test_random_proof_fee(
+                    global_slot,
                     &ledger_init_state,
                     cmds.clone(),
                     iters.clone(),
@@ -4803,6 +4831,7 @@ mod tests_ocaml {
         let mut rng = rand::thread_rng();
 
         let (ledger_init_state, cmds, iters) = gen_at_capacity();
+        let global_slot = Slot::gen_small();
 
         // How many proofs will be available at each iteration.
         let proofs_available: Vec<(usize, Vec<Fee>)> = iters
@@ -4826,8 +4855,9 @@ mod tests_ocaml {
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 test_random_proof_fee(
+                    global_slot,
                     &ledger_init_state,
                     cmds.clone(),
                     iters.clone(),
@@ -4847,12 +4877,13 @@ mod tests_ocaml {
 
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3290
     fn test_pending_coinbase(
+        global_slot: Slot,
         init: &LedgerInitialState,
         cmds: Vec<valid::UserCommand>,
         cmd_iters: Vec<Option<usize>>,
         proof_available: Vec<usize>,
-        state_body_hashes: Vec<(Fp, Fp)>,
-        current_state_view: &ProtocolStateView,
+        // state_body_hashes: Vec<(Fp, Fp)>,
+        // current_state_view: &ProtocolStateView,
         mut sl: StagedLedger,
         test_mask: Mask,
         provers: NumProvers,
@@ -4860,22 +4891,21 @@ mod tests_ocaml {
         let (proofs_available_left, _state_body_hashes_left) = iter_cmds_acc(
             &cmds,
             &cmd_iters,
-            (proof_available, state_body_hashes),
-            |cmds_left,
-             _count_opt,
-             cmds_this_iter,
-             (mut proofs_available_left, mut state_body_hashes)| {
+            (proof_available, global_slot),
+            |cmds_left, _count_opt, cmds_this_iter, (mut proofs_available_left, global_slot)| {
                 let work_list = sl.scan_state.all_work_statements_exn();
                 let proofs_available_this_iter = proofs_available_left[0];
 
-                let state_body_hash = state_body_hashes[0];
+                let (current_state, current_state_view) = dummy_state_and_view(Some(global_slot));
+                let state_and_body_hash = { hashes_abstract(&current_state) };
 
                 let (proof, diff, _is_new_stack, _pc_update, _supercharge_coinbase) =
                     create_and_apply_with_state_body_hash(
                         None,
                         None,
-                        current_state_view,
-                        state_body_hash,
+                        &current_state_view,
+                        global_slot,
+                        state_and_body_hash,
                         &mut sl,
                         cmds_this_iter,
                         stmt_to_work_restricted(
@@ -4904,6 +4934,8 @@ mod tests_ocaml {
                 assert_ledger(
                     test_mask.clone(),
                     coinbase_cost,
+                    global_slot,
+                    &current_state_view,
                     &sl,
                     cmds_left,
                     cmds_applied_this_iter,
@@ -4911,9 +4943,8 @@ mod tests_ocaml {
                 );
 
                 proofs_available_left.remove(0);
-                state_body_hashes.remove(0);
 
-                (diff, (proofs_available_left, state_body_hashes))
+                (diff, (proofs_available_left, global_slot.succ()))
             },
         );
 
@@ -4925,15 +4956,11 @@ mod tests_ocaml {
         let mut rng = rand::thread_rng();
 
         let (ledger_init_state, cmds, iters) = gen_below_capacity(Some(true));
+        let global_slot = Slot::gen_small();
 
         let proofs_available: Vec<usize> = iters
             .iter()
             .map(|cmds_opt| rng.gen_range(0..(3 * cmds_opt.unwrap())))
-            .collect();
-
-        let state_body_hashes: Vec<(Fp, Fp)> = iters
-            .iter()
-            .map(|_| (Fp::rand(&mut rng), Fp::rand(&mut rng)))
             .collect();
 
         let current_state_view = dummy_state_view(None);
@@ -4942,14 +4969,13 @@ mod tests_ocaml {
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |sl, test_mask| {
+            |_snarked_ledger, sl, test_mask| {
                 test_pending_coinbase(
+                    global_slot,
                     &ledger_init_state,
                     cmds.clone(),
                     iters.clone(),
                     proofs_available.clone(),
-                    state_body_hashes.clone(),
-                    &current_state_view,
                     sl,
                     test_mask,
                     prover,
@@ -5038,11 +5064,17 @@ mod tests_ocaml {
         };
 
         (0..block_count).map(|n| n + 1).for_each(|block_count| {
+            let global_slot = Slot::from_u32(block_count.try_into().unwrap());
+
+            let (current_state, current_state_view) = dummy_state_and_view(Some(global_slot));
+            let state_and_body_hash = { hashes_abstract(&current_state) };
+
             create_and_apply_with_state_body_hash(
                 Some(coinbase_receiver.public_key.clone()),
                 Some(delegator.public_key.clone()),
-                &dummy_state_view(Some(Slot::from_u32(block_count.try_into().unwrap()))),
-                (Fp::zero(), Fp::zero()),
+                &current_state_view,
+                global_slot,
+                state_and_body_hash,
                 sl,
                 &[],
                 stmt_to_work_zero_fee(this.public_key.clone()),
@@ -5109,15 +5141,20 @@ mod tests_ocaml {
             ),
         );
 
-        async_with_ledgers(&ledger_init_state, vec![], vec![], |mut sl, _test_mask| {
-            supercharge_coinbase_test(
-                this.clone(),
-                this.clone(),
-                block_count,
-                f_expected_balance,
-                &mut sl,
-            )
-        });
+        async_with_ledgers(
+            &ledger_init_state,
+            vec![],
+            vec![],
+            |_snaked_ledger, mut sl, _test_mask| {
+                supercharge_coinbase_test(
+                    this.clone(),
+                    this.clone(),
+                    block_count,
+                    f_expected_balance,
+                    &mut sl,
+                )
+            },
+        );
     }
 
     /// Supercharged coinbase - unlocked account delegating to locked account
@@ -5159,15 +5196,20 @@ mod tests_ocaml {
 
         let ledger_init_state = LedgerInitialState { state };
 
-        async_with_ledgers(&ledger_init_state, vec![], vec![], |mut sl, _test_mask| {
-            supercharge_coinbase_test(
-                locked_this.clone(),
-                unlocked_delegator.clone(),
-                block_count,
-                f_expected_balance,
-                &mut sl,
-            )
-        });
+        async_with_ledgers(
+            &ledger_init_state,
+            vec![],
+            vec![],
+            |_snarked_ledger, mut sl, _test_mask| {
+                supercharge_coinbase_test(
+                    locked_this.clone(),
+                    unlocked_delegator.clone(),
+                    block_count,
+                    f_expected_balance,
+                    &mut sl,
+                )
+            },
+        );
     }
 
     /// Supercharged coinbase - locked account delegating to unlocked account
@@ -5223,15 +5265,20 @@ mod tests_ocaml {
 
         let ledger_init_state = LedgerInitialState { state };
 
-        async_with_ledgers(&ledger_init_state, vec![], vec![], |mut sl, _test_mask| {
-            supercharge_coinbase_test(
-                unlocked_this.clone(),
-                locked_delegator.clone(),
-                block_count,
-                f_expected_balance,
-                &mut sl,
-            )
-        });
+        async_with_ledgers(
+            &ledger_init_state,
+            vec![],
+            vec![],
+            |_snarked_ledger, mut sl, _test_mask| {
+                supercharge_coinbase_test(
+                    unlocked_this.clone(),
+                    locked_delegator.clone(),
+                    block_count,
+                    f_expected_balance,
+                    &mut sl,
+                )
+            },
+        );
     }
 
     /// Supercharged coinbase - locked account delegating to locked account
@@ -5275,20 +5322,27 @@ mod tests_ocaml {
 
         let ledger_init_state = LedgerInitialState { state };
 
-        async_with_ledgers(&ledger_init_state, vec![], vec![], |mut sl, _test_mask| {
-            supercharge_coinbase_test(
-                locked_this.clone(),
-                locked_delegator.clone(),
-                block_count,
-                f_expected_balance,
-                &mut sl,
-            )
-        });
+        async_with_ledgers(
+            &ledger_init_state,
+            vec![],
+            vec![],
+            |_snarked_ledger, mut sl, _test_mask| {
+                supercharge_coinbase_test(
+                    locked_this.clone(),
+                    locked_delegator.clone(),
+                    block_count,
+                    f_expected_balance,
+                    &mut sl,
+                )
+            },
+        );
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3612
-    fn command_insufficient_funds() -> (LedgerInitialState, valid::UserCommand) {
+    fn command_insufficient_funds() -> (LedgerInitialState, valid::UserCommand, Slot) {
         let ledger_initial_state = gen_initial_ledger_state();
+        let global_slot = Slot::gen_small();
+
         let (kp, balance, nonce, _) = &ledger_initial_state.state[0];
 
         let receiver_pk = gen_keypair().public.into_compressed();
@@ -5320,7 +5374,7 @@ mod tests_ocaml {
         };
 
         let cmd = valid::UserCommand::SignedCommand(Box::new(signed_command));
-        (ledger_initial_state, cmd)
+        (ledger_initial_state, cmd, global_slot)
     }
 
     /// Commands with Insufficient funds are not included
@@ -5328,20 +5382,23 @@ mod tests_ocaml {
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L3643
     #[test]
     fn commands_with_insufficient_funds_are_not_included() {
-        let (ledger_init_state, invalid_commands) = command_insufficient_funds();
+        let (ledger_init_state, invalid_commands, global_slot) = command_insufficient_funds();
 
         async_with_ledgers(
             &ledger_init_state,
             vec![invalid_commands.clone()],
             vec![],
-            |sl, _test_mask| {
+            |_snarked_ledger, sl, _test_mask| {
+                let current_state_view = dummy_state_view(Some(global_slot));
+
                 let (diff, _invalid_txns) = sl
                     .create_diff(
                         &CONSTRAINT_CONSTANTS,
+                        global_slot,
                         None,
                         COINBASE_RECEIVER.clone(),
                         (),
-                        &dummy_state_view(None),
+                        &current_state_view,
                         vec![invalid_commands.clone()],
                         stmt_to_work_zero_fee(SELF_PK.clone()),
                         false,
