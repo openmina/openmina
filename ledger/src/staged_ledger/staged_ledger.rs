@@ -1960,6 +1960,7 @@ mod tests_ocaml {
             currency::{Balance, BlockTime, Fee, Length, Nonce},
             scan_state::transaction_snark::SokDigest,
             transaction_logic::{
+                apply_transactions,
                 protocol_state::{EpochData, EpochLedger},
                 signed_command::{
                     self, Common, PaymentPayload, SignedCommand, SignedCommandPayload,
@@ -2025,12 +2026,16 @@ mod tests_ocaml {
         coinbase_receiver: Option<CompressedPubKey>,
         winner: Option<CompressedPubKey>,
         current_state_view: &ProtocolStateView,
+        global_slot: Slot,
         state_and_body_hash: (Fp, Fp),
         sl: &mut StagedLedger,
         txns: &[valid::UserCommand],
         stmt_to_work: F,
     ) -> (
-        Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>,
+        Option<(
+            LedgerProof,
+            Vec<TransactionsOrdered<(WithStatus<Transaction>, Fp, Slot)>>,
+        )>,
         Diff,
         bool,
         Update,
@@ -2042,15 +2047,12 @@ mod tests_ocaml {
         let coinbase_receiver = coinbase_receiver.unwrap_or_else(|| COINBASE_RECEIVER.clone());
         let winner = winner.unwrap_or_else(|| SELF_PK.clone());
 
-        let supercharge_coinbase = supercharge_coinbase(
-            sl.ledger.clone(),
-            winner,
-            current_state_view.global_slot_since_genesis,
-        );
+        let supercharge_coinbase = supercharge_coinbase(sl.ledger.clone(), winner, global_slot);
 
         let (diff, _invalid_txns) = sl
             .create_diff(
                 &CONSTRAINT_CONSTANTS,
+                global_slot,
                 None,
                 coinbase_receiver.clone(),
                 LOGGER,
@@ -2071,6 +2073,7 @@ mod tests_ocaml {
             .apply(
                 None,
                 &CONSTRAINT_CONSTANTS,
+                global_slot,
                 diff.clone(),
                 LOGGER,
                 &VERIFIER,
@@ -2390,6 +2393,8 @@ mod tests_ocaml {
 
     static NITERS: AtomicUsize = AtomicUsize::new(0);
 
+    type SnarkedLedger = Mask;
+
     /// Run the given function inside of the Deferred monad, with a staged
     ///   ledger and a separate test ledger, after applying the given
     ///   init_state to both. In the below tests we apply the same commands to
@@ -2403,12 +2408,13 @@ mod tests_ocaml {
         mask: Mask,
         fun: F,
     ) where
-        F: Fn(StagedLedger, Mask) -> R + std::panic::UnwindSafe,
+        F: Fn(SnarkedLedger, StagedLedger, Mask) -> R + std::panic::UnwindSafe,
     {
         match std::panic::catch_unwind(move || {
             let test_mask = mask.make_child();
+            let snarked_ledger_mask = mask.make_child();
             let sl = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask).unwrap();
-            fun(sl, test_mask.clone());
+            fun(snarked_ledger_mask, sl, test_mask.clone());
             test_mask.unregister_mask(crate::UnregisterBehavior::Check);
         }) {
             Ok(_) => {}
@@ -2442,7 +2448,7 @@ mod tests_ocaml {
         cmd_iters: Vec<Option<usize>>,
         fun: F,
     ) where
-        F: Fn(StagedLedger, Mask) -> R + std::panic::UnwindSafe,
+        F: Fn(SnarkedLedger, StagedLedger, Mask) -> R + std::panic::UnwindSafe,
     {
         let mut ephemeral_ledger = Mask::new_unattached(CONSTRAINT_CONSTANTS.ledger_depth as usize);
 
@@ -2505,10 +2511,23 @@ mod tests_ocaml {
         }
     }
 
+    fn dummy_state_and_view(
+        global_slot: Option<Slot>,
+    ) -> (
+        mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2,
+        ProtocolStateView,
+    ) {
+        todo!()
+    }
+
     /// Same values when we run `dune runtest src/lib/staged_ledger -f`
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2142
-    fn dummy_state_view(global_slot_since_genesis: Option<Slot>) -> ProtocolStateView {
+    fn dummy_state_view(global_slot: Option<Slot>) -> ProtocolStateView {
+        let global_slot_since_genesis = global_slot
+            .map(|global_slot| todo!())
+            .unwrap_or_else(Slot::zero);
+
         // TODO: Use OCaml implementation, not hardcoded value
 
         let f = |s: &str| Fp::from_str(s).unwrap();
@@ -2520,8 +2539,7 @@ mod tests_ocaml {
             min_window_density: Length::from_u32(77),
             last_vrf_output: (),
             total_currency: Amount::from_u64(10016100000000000),
-            global_slot_since_hard_fork: Slot::from_u32(0),
-            global_slot_since_genesis: global_slot_since_genesis.unwrap_or_else(Slot::zero),
+            global_slot_since_genesis: global_slot.unwrap_or_else(Slot::zero),
             staking_epoch_data: EpochData {
                 ledger: EpochLedger {
                     hash: f("19095410909873291354237217869735884756874834695933531743203428046904386166496"),
@@ -2549,11 +2567,17 @@ mod tests_ocaml {
     fn create_and_apply<F>(
         coinbase_receiver: Option<CompressedPubKey>,
         winner: Option<CompressedPubKey>,
+        global_slot: Slot,
+        protocol_state_view: &ProtocolStateView,
+        state_and_body_hash: (Fp, Fp),
         sl: &mut StagedLedger,
         txns: &[valid::UserCommand],
         stmt_to_work: F,
     ) -> (
-        Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>,
+        Option<(
+            LedgerProof,
+            Vec<TransactionsOrdered<(WithStatus<Transaction>, Fp, Slot)>>,
+        )>,
         Diff,
     )
     where
@@ -2563,7 +2587,8 @@ mod tests_ocaml {
             coinbase_receiver,
             winner,
             &dummy_state_view(None),
-            (Fp::zero(), Fp::zero()),
+            global_slot,
+            state_and_body_hash,
             sl,
             txns,
             stmt_to_work,
@@ -2574,7 +2599,12 @@ mod tests_ocaml {
     /// Fee excess at top level ledger proofs should always be zero
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2377
-    fn assert_fee_excess(proof: &Option<(LedgerProof, Vec<(WithStatus<Transaction>, Fp)>)>) {
+    fn assert_fee_excess(
+        proof: &Option<(
+            LedgerProof,
+            Vec<TransactionsOrdered<(WithStatus<Transaction>, Fp, Slot)>>,
+        )>,
+    ) {
         if let Some((proof, _txns)) = proof {
             assert!(proof.statement().fee_excess.is_zero());
         };
@@ -2641,6 +2671,8 @@ mod tests_ocaml {
     fn assert_ledger(
         test_ledger: Mask,
         coinbase_cost: Fee,
+        global_slot: Slot,
+        protocol_state_view: &ProtocolStateView,
         staged_ledger: &StagedLedger,
         cmds_all: &[valid::UserCommand],
         cmds_used: usize,
@@ -2659,18 +2691,18 @@ mod tests_ocaml {
 
         let mut test_ledger = test_ledger;
 
-        for cmd in util::take(cmds_all, cmds_used) {
-            let cmd = cmd.forget_check();
-            let tx = Transaction::Command(cmd);
-
-            apply_transaction(
-                &CONSTRAINT_CONSTANTS,
-                &dummy_state_view(None),
-                &mut test_ledger,
-                &tx,
-            )
-            .unwrap();
-        }
+        let cmds: Vec<_> = util::take(cmds_all, cmds_used)
+            .into_iter()
+            .map(|cmd| Transaction::Command(cmd.forget_check()))
+            .collect();
+        apply_transactions(
+            &CONSTRAINT_CONSTANTS,
+            global_slot,
+            protocol_state_view,
+            &mut test_ledger,
+            &cmds,
+        )
+        .unwrap();
 
         let get_account_exn = |ledger: &Mask, id: &AccountId| {
             let loc = ledger.location_of_account(id).unwrap();
@@ -2711,10 +2743,17 @@ mod tests_ocaml {
         assert!(new_producer_balance >= producer_balance_with_coinbase);
     }
 
+    fn hashes_abstract(
+        body: &mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2,
+    ) -> (Fp, Fp) {
+        todo!()
+    }
+
     /// Generic test framework.
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2427
     fn test_simple<F>(
+        global_slot: Slot,
         account_ids_to_check: Vec<AccountId>,
         cmds: Vec<valid::UserCommand>,
         cmd_iters: Vec<Option<usize>>,
@@ -2722,6 +2761,8 @@ mod tests_ocaml {
         // Number of ledger proofs expected
         expected_proof_count: Option<usize>,
         allow_failure: Option<bool>,
+        check_snarked_ledger_transition: Option<bool>,
+        snarked_ledger: SnarkedLedger,
         test_mask: Mask,
         provers: NumProvers,
         stmt_to_work: &F,
@@ -2736,21 +2777,45 @@ mod tests_ocaml {
         );
 
         let allow_failure = allow_failure.unwrap_or(false);
+        let check_snarked_ledger_transition = check_snarked_ledger_transition.unwrap_or(false);
+
+        let mut state_tbl = HashMap::with_capacity(128);
+        let (genesis, _) = dummy_state_and_view(None);
+
+        let (state_hash, _) = hashes_abstract(&genesis);
+
+        state_tbl.insert(state_hash, genesis);
 
         // let mut niters = 0;
 
-        let total_ledger_proofs = iter_cmds_acc(
+        let (total_ledger_proofs, _) = iter_cmds_acc(
             &cmds,
             &cmd_iters,
-            0,
-            |cmds_left, count_opt, cmds_this_iter, mut proof_count| {
+            (0, global_slot),
+            |cmds_left, count_opt, cmds_this_iter, (mut proof_count, global_slot)| {
                 let niters = NITERS.load(std::sync::atomic::Ordering::Relaxed);
 
                 println!("\n######## Start new batch {} ########", niters);
                 println!("attempt_to_apply_nuser_commands={:?}", cmds_this_iter.len());
 
-                let (ledger_proof, diff) =
-                    create_and_apply(None, None, &mut sl, cmds_this_iter, stmt_to_work);
+                let (current_state, current_view) = dummy_state_and_view(Some(global_slot));
+
+                let (state_hash, state_body_hash) = hashes_abstract(&current_state);
+
+                state_tbl.insert(state_hash, current_state);
+
+                let state_and_body_hash = (state_hash, state_body_hash);
+
+                let (ledger_proof, diff) = create_and_apply(
+                    None,
+                    None,
+                    global_slot,
+                    &current_view,
+                    state_and_body_hash,
+                    &mut sl,
+                    cmds_this_iter,
+                    stmt_to_work,
+                );
 
                 for cmd in diff.commands() {
                     if allow_failure {
@@ -2762,6 +2827,91 @@ mod tests_ocaml {
                             cmd, e
                         );
                     };
+                }
+
+                let do_snarked_ledger_transition = |proof_opt: Option<&(
+                    LedgerProof,
+                    Vec<TransactionsOrdered<(WithStatus<Transaction>, Fp, Slot)>>,
+                )>| {
+                    let apply_first_pass = |global_slot, txn_state_view, ledger, transaction| {
+                        apply_transaction_first_pass(
+                            &CONSTRAINT_CONSTANTS,
+                            global_slot,
+                            txn_state_view,
+                            ledger,
+                            transaction,
+                        )
+                    };
+
+                    let apply_second_pass = apply_transaction_second_pass;
+
+                    let apply_first_pass_sparse_ledger =
+                        |global_slot, txn_state_view, sparse_ledger, txn| {
+                            apply_transaction_first_pass(
+                                &CONSTRAINT_CONSTANTS,
+                                global_slot,
+                                txn_state_view,
+                                sparse_ledger,
+                                txn,
+                            )
+                        };
+
+                    let get_state = |hash: Fp| Ok(state_tbl.get(&hash).cloned().unwrap());
+
+                    if let Some((proof, _transactions)) = proof_opt {
+                        // update snarked ledger with the transactions in the most recently emitted proof
+                        let res = sl
+                            .scan_state
+                            .get_staged_ledger_sync(
+                                &mut snarked_ledger,
+                                get_state,
+                                apply_first_pass,
+                                apply_second_pass,
+                                apply_first_pass_sparse_ledger,
+                            )
+                            .unwrap();
+
+                        let target_snarked_ledger = {
+                            let stmt = proof.statement();
+                            stmt.target.first_pass_ledger
+                        };
+
+                        assert_eq!(target_snarked_ledger, snarked_ledger.merkle_root());
+                    };
+
+                    // Check snarked_ledger to staged_ledger transition
+                    let sl_of_snarked_ledger = snarked_ledger.make_child();
+
+                    let expected_staged_ledger_merkle_root = sl.ledger.merkle_root();
+
+                    let get_state = |hash: &Fp| state_tbl.get(hash).unwrap();
+
+                    StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
+                        (),
+                        &CONSTRAINT_CONSTANTS,
+                        crate::verifier::Verifier,
+                        sl.scan_state.clone(),
+                        snarked_ledger,
+                        {
+                            let registers: Registers = (&current_state
+                                .body
+                                .blockchain_state
+                                .ledger_proof_statement
+                                .target)
+                                .into();
+                            registers.local_state
+                        },
+                        expected_staged_ledger_merkle_root,
+                        sl.pending_coinbase_collection.clone(),
+                        get_state,
+                    )
+                    .unwrap();
+
+                    assert_eq!(sl_of_snarked_ledger.merkle_root(), sl.ledger.merkle_root());
+                };
+
+                if check_snarked_ledger_transition {
+                    do_snarked_ledger_transition(ledger_proof.as_ref());
                 }
 
                 if ledger_proof.is_some() {
@@ -2801,6 +2951,8 @@ mod tests_ocaml {
                 assert_ledger(
                     test_mask.clone(),
                     coinbase_cost,
+                    global_slot,
+                    &current_view,
                     &sl,
                     cmds_left,
                     cmds_applied_this_iter,
@@ -2808,13 +2960,16 @@ mod tests_ocaml {
                 );
 
                 eprintln!(
-                    "######## Batch {} done: {} applied ########\n",
+                    "######## Batch {} done: {} commands (base jobs) applied ########\n",
                     niters, cmds_applied_this_iter
                 );
 
                 NITERS.store(niters + 1, Relaxed);
 
-                (diff, proof_count)
+                // println!("niters_ici={}", niters);
+
+                // increment global slots to simulate multiple blocks
+                (diff, (proof_count, global_slot.succ()))
             },
         );
 
@@ -2858,7 +3013,8 @@ mod tests_ocaml {
         impl CryptoRng for MyRng {}
 
         let seed = stmt.fold(vec![b'P'], |mut accum, v| {
-            accum.extend_from_slice(&v.target.ledger.to_bytes());
+            accum.extend_from_slice(&v.target.first_pass_ledger.to_bytes());
+            accum.extend_from_slice(&v.target.second_pass_ledger.to_bytes());
             accum
         });
         let rng: Pcg64 = Seeder::from(&seed).make_rng();
@@ -2898,19 +3054,23 @@ mod tests_ocaml {
         const EXPECTED_PROOF_COUNT: usize = 3;
 
         let (ledger_init_state, cmds, iters) = gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
+        let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 test_simple(
+                    global_slot,
                     init_pks(&ledger_init_state),
                     cmds.to_vec(),
                     iters.to_vec(),
                     sl,
                     Some(EXPECTED_PROOF_COUNT),
                     None,
+                    None,
+                    snarked_ledger,
                     test_mask,
                     NumProvers::Many,
                     &stmt_to_work_random_prover,
@@ -2970,19 +3130,23 @@ mod tests_ocaml {
     #[test]
     fn max_throughput_normal() {
         let (ledger_init_state, cmds, iters) = gen_at_capacity();
+        let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 test_simple(
+                    global_slot,
                     init_pks(&ledger_init_state),
                     cmds.to_vec(),
                     iters.to_vec(),
                     sl,
                     None,
                     None,
+                    None,
+                    snarked_ledger,
                     test_mask,
                     NumProvers::Many,
                     &stmt_to_work_random_prover,
@@ -2995,19 +3159,23 @@ mod tests_ocaml {
     #[test]
     fn max_throughput_normal_one_prover() {
         let (ledger_init_state, cmds, iters) = gen_at_capacity();
+        let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 test_simple(
+                    global_slot,
                     init_pks(&ledger_init_state),
                     cmds.to_vec(),
                     iters.to_vec(),
                     sl,
                     None,
                     None,
+                    None,
+                    snarked_ledger,
                     test_mask,
                     NumProvers::One,
                     &stmt_to_work_one_prover,
@@ -3032,7 +3200,7 @@ mod tests_ocaml {
     fn gen_zkapps(
         failure: Option<Failure>,
         num_zkapps: usize,
-        iters: usize,
+        zkapps_per_iter: Vec<Option<usize>>,
     ) -> (Mask, Vec<valid::UserCommand>, Vec<Option<usize>>) {
         let (zkapp_command_and_fee_payer_keypairs, ledger) = sequence_zkapp_command_with_ledger(
             None,
@@ -3052,15 +3220,21 @@ mod tests_ocaml {
                 let mut zkapp = zkapp.forget();
                 zkapp_command_builder::replace_authorizations(None, &keymap, &mut zkapp);
 
-                let valid_zkapp_command_with_auths = zkapp_command::valid::to_valid(zkapp, &ledger)
-                    .expect("Could not create Zkapp_command.Valid.t");
+                let valid_zkapp_command_with_auths = zkapp_command::valid::to_valid(
+                    zkapp,
+                    &ledger,
+                    |expected_vk_hash, account_id| {
+                        find_vk_via_ledger(ledger, expected_vk_hash, account_id)
+                    },
+                )
+                .expect("Could not create Zkapp_command.Valid.t");
 
                 valid::UserCommand::ZkAppCommand(Box::new(valid_zkapp_command_with_auths))
             })
             .collect();
 
         assert_eq!(zkapps.len(), num_zkapps);
-        (ledger, zkapps, vec![None; iters])
+        (ledger, zkapps, zkapps_per_iter)
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2571
@@ -3069,7 +3243,7 @@ mod tests_ocaml {
 
         let iters = rng.gen_range(1..max_blocks_for_coverage(0));
         let num_zkapps = TRANSACTION_CAPACITY * iters;
-        gen_zkapps(None, num_zkapps, iters)
+        gen_zkapps(None, num_zkapps, vec![None; iters])
     }
 
     /// https://github.com/MinaProtocol/mina/blob/f6756507ff7380a691516ce02a3cf7d9d32915ae/src/lib/staged_ledger/staged_ledger.ml#L2560
@@ -3078,7 +3252,21 @@ mod tests_ocaml {
 
         let iters = rng.gen_range(1..max_blocks_for_coverage(0));
         let num_zkapps = TRANSACTION_CAPACITY * iters;
-        gen_zkapps(Some(Failure::InvalidAccountPrecondition), num_zkapps, iters)
+        gen_zkapps(
+            Some(Failure::InvalidAccountPrecondition),
+            num_zkapps,
+            vec![None; iters],
+        )
+    }
+
+    fn gen_zkapps_at_capacity_fixed_blocks(
+        extra_block_count: usize,
+    ) -> (Mask, Vec<valid::UserCommand>, Vec<Option<usize>>) {
+        let mut rng = rand::thread_rng();
+
+        let iters = max_blocks_for_coverage(extra_block_count);
+        let num_zkapps = TRANSACTION_CAPACITY * iters;
+        gen_zkapps(None, num_zkapps, vec![None; iters])
     }
 
     #[test]
@@ -3107,22 +3295,26 @@ mod tests_ocaml {
     // #[test]
     fn max_throughput_zkapps() {
         let (ledger, zkapps, iters) = gen_zkapps_at_capacity();
+        let global_slot = Slot::gen_small();
 
         async_with_given_ledger(
             &LedgerInitialState { state: vec![] },
             zkapps.clone(),
             iters.clone(),
             ledger.clone(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
 
                 test_simple(
+                    global_slot,
                     account_ids,
                     zkapps.clone(),
                     iters.clone(),
                     sl,
                     None,
                     None,
+                    None,
+                    snarked_ledger,
                     test_mask,
                     NumProvers::Many,
                     &stmt_to_work_random_prover,
@@ -3137,22 +3329,26 @@ mod tests_ocaml {
     // #[test]
     fn max_throughput_zkapps_that_may_fail() {
         let (ledger, zkapps, iters) = gen_failing_zkapps_at_capacity();
+        let global_slot = Slot::gen_small();
 
         async_with_given_ledger(
             &LedgerInitialState { state: vec![] },
             zkapps.clone(),
             iters.clone(),
             ledger.clone(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
 
                 test_simple(
+                    global_slot,
                     account_ids,
                     zkapps.clone(),
                     iters.clone(),
                     sl,
                     None,
                     Some(true),
+                    None,
+                    snarked_ledger,
                     test_mask,
                     NumProvers::Many,
                     &stmt_to_work_random_prover,
@@ -3177,8 +3373,9 @@ mod tests_ocaml {
 
         let state = gen_initial_ledger_state();
         let iters_max = max_blocks_for_coverage(0) * if extra_blocks { 4 } else { 2 };
+        let iters_min = max_blocks_for_coverage(0);
 
-        let iters = rng.gen_range(1..=iters_max);
+        let iters = rng.gen_range(iters_min..=iters_max);
 
         // N.B. user commands per block is much less than transactions per block
         // due to fee transfers and coinbases, especially with worse case number
@@ -3203,19 +3400,23 @@ mod tests_ocaml {
     #[test]
     fn be_able_to_include_random_number_of_commands_many_normal() {
         let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
+        let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.to_vec(),
             iters.to_vec(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 test_simple(
+                    global_slot,
                     init_pks(&ledger_init_state),
                     cmds.to_vec(),
                     iters.to_vec(),
                     sl,
                     None,
                     None,
+                    None,
+                    snarked_ledger,
                     test_mask,
                     NumProvers::Many,
                     &stmt_to_work_random_prover,
@@ -3748,7 +3949,9 @@ mod tests_ocaml {
         let mut rng = rand::thread_rng();
 
         let iters_max = max_blocks_for_coverage(0) * if extra_blocks { 4 } else { 2 };
-        let iters = rng.gen_range(1..iters_max);
+        let iters_min = max_blocks_for_coverage(0);
+
+        let iters = rng.gen_range(iters_min..iters_max);
 
         // see comment in gen_below_capacity for rationale
 
@@ -3757,7 +3960,11 @@ mod tests_ocaml {
             .collect();
 
         let num_zkapps: usize = zkapps_per_iter.iter().sum();
-        gen_zkapps(None, num_zkapps, iters)
+        gen_zkapps(
+            None,
+            num_zkapps,
+            zkapps_per_iter.into_iter().map(Some).collect(),
+        )
     }
 
     /// Be able to include random number of commands (zkapps)
@@ -3766,22 +3973,26 @@ mod tests_ocaml {
     // #[test]
     fn be_able_to_include_random_number_of_commands_zkapps() {
         let (ledger, zkapps, iters) = gen_zkapps_below_capacity(None);
+        let global_slot = Slot::gen_small();
 
         async_with_given_ledger(
             &LedgerInitialState { state: vec![] },
             zkapps.clone(),
             iters.clone(),
             ledger.clone(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
 
                 test_simple(
+                    global_slot,
                     account_ids,
                     zkapps.clone(),
                     iters.clone(),
                     sl,
                     None,
                     None,
+                    None,
+                    snarked_ledger,
                     test_mask,
                     NumProvers::Many,
                     &stmt_to_work_random_prover,
@@ -3796,19 +4007,23 @@ mod tests_ocaml {
     #[test]
     fn be_able_to_include_random_number_of_commands_one_prover_normal() {
         let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
+        let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.to_vec(),
             iters.to_vec(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 test_simple(
+                    global_slot,
                     init_pks(&ledger_init_state),
                     cmds.to_vec(),
                     iters.to_vec(),
                     sl,
                     None,
                     None,
+                    None,
+                    snarked_ledger,
                     test_mask,
                     NumProvers::One,
                     &stmt_to_work_one_prover,
@@ -3823,19 +4038,23 @@ mod tests_ocaml {
     #[test]
     fn be_able_to_include_random_number_of_commands_one_prover_failed() {
         let (ledger_init_state, cmds, iters) = gen_below_capacity_failed();
+        let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.to_vec(),
             iters.to_vec(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 test_simple(
+                    global_slot,
                     init_pks(&ledger_init_state),
                     cmds.to_vec(),
                     iters.to_vec(),
                     sl,
                     None,
                     None,
+                    None,
+                    snarked_ledger,
                     test_mask,
                     NumProvers::One,
                     &stmt_to_work_one_prover,
@@ -3849,23 +4068,27 @@ mod tests_ocaml {
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2712
     // #[test]
     fn be_able_to_include_random_number_of_commands_one_prover_zkapps() {
-        let (ledger, zkapps, iters) = gen_zkapps_below_capacity(None);
+        let (ledger, zkapps, iters) = gen_zkapps_below_capacity(Some(true));
+        let global_slot = Slot::gen_small();
 
         async_with_given_ledger(
             &LedgerInitialState { state: vec![] },
             zkapps.clone(),
             iters.clone(),
             ledger.clone(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
 
                 test_simple(
+                    global_slot,
                     account_ids,
                     zkapps.clone(),
                     iters.clone(),
                     sl,
                     None,
                     None,
+                    Some(true),
+                    snarked_ledger,
                     test_mask,
                     NumProvers::One,
                     &stmt_to_work_one_prover,
@@ -3908,19 +4131,23 @@ mod tests_ocaml {
         let account_id_prover = AccountId::new(SNARK_WORKER_PK.clone(), TokenId::default());
 
         let (ledger_init_state, cmds, iters) = gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
+        let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 test_simple(
+                    global_slot,
                     init_pks(&ledger_init_state),
                     cmds.to_vec(),
                     iters.to_vec(),
                     sl,
                     Some(EXPECTED_PROOF_COUNT),
                     None,
+                    None,
+                    snarked_ledger,
                     test_mask.clone(),
                     NumProvers::One,
                     &stmt_to_work_zero_fee,
@@ -3935,29 +4162,29 @@ mod tests_ocaml {
     fn compute_statutes(
         ledger: Mask,
         coinbase_amount: Amount,
+        global_slot: Slot,
         diff: (
-            PreDiffTwo<work::Work, WithStatus<UserCommand>>,
-            Option<PreDiffOne<work::Work, WithStatus<UserCommand>>>,
+            PreDiffTwo<work::Work, valid::UserCommand>,
+            Option<PreDiffOne<work::Work, valid::UserCommand>>,
         ),
     ) -> (
         PreDiffTwo<work::Work, WithStatus<UserCommand>>,
         Option<PreDiffOne<work::Work, WithStatus<UserCommand>>>,
     ) {
-        // Fill in the statuses for commands.
-        let mut status_ledger = HashlessLedger::create(ledger);
+        StagedLedger::with_ledger_mask(ledger, |status_ledger| {
+            let diff = pre_diff_info::compute_statuses::<valid::Transaction>(
+                &CONSTRAINT_CONSTANTS,
+                diff,
+                COINBASE_RECEIVER.clone(),
+                coinbase_amount,
+                global_slot,
+                &dummy_state_view(Some(global_slot)),
+                status_ledger,
+            )
+            .unwrap();
 
-        let mut generate_status = |txn: Transaction| -> Result<TransactionStatus, String> {
-            status_ledger.apply_transaction(&CONSTRAINT_CONSTANTS, &dummy_state_view(None), &txn)
-        };
-
-        pre_diff_info::compute_statuses::<valid::Transaction>(
-            &CONSTRAINT_CONSTANTS,
-            diff,
-            COINBASE_RECEIVER.clone(),
-            coinbase_amount,
-            &mut generate_status,
-        )
-        .unwrap()
+            with_valid_signatures_and_proofs::Diff { diff }.forget()
+        })
     }
 
     /// Invalid diff test: check zero fee excess for partitions
@@ -3968,7 +4195,8 @@ mod tests_ocaml {
         let create_diff_with_non_zero_fee_excess =
             |ledger: Mask,
              coinbase_amount: Amount,
-             txns: Vec<WithStatus<UserCommand>>,
+             global_slot: Slot,
+             txns: Vec<valid::UserCommand>,
              completed_works: Vec<work::Unchecked>,
              partition: SpacePartition| {
                 // With exact number of user commands in partition.first, the fee transfers that
@@ -3980,6 +4208,7 @@ mod tests_ocaml {
                             compute_statutes(
                                 ledger,
                                 coinbase_amount,
+                                global_slot,
                                 (
                                     PreDiffTwo {
                                         completed_works: completed_works
@@ -4026,7 +4255,12 @@ mod tests_ocaml {
                         };
 
                         Diff {
-                            diff: compute_statutes(ledger, coinbase_amount, (a, Some(b))),
+                            diff: compute_statutes(
+                                ledger,
+                                coinbase_amount,
+                                global_slot,
+                                (a, Some(b)),
+                            ),
                         }
                     }
                 }
@@ -4035,12 +4269,13 @@ mod tests_ocaml {
         let empty_diff = Diff::empty();
 
         let (ledger_init_state, cmds, iters) = gen_at_capacity();
+        let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |mut sl, _test_mask| {
+            |_snarked_ledger, mut sl, _test_mask| {
                 let checked = iter_cmds_acc(
                     &cmds,
                     &iters,
@@ -4058,30 +4293,29 @@ mod tests_ocaml {
                             })
                             .collect();
 
-                        let cmds_this_iter: Vec<WithStatus<UserCommand>> = cmds_this_iter
-                            .iter()
-                            .map(|cmd| WithStatus {
-                                data: cmd.forget_check(),
-                                status: TransactionStatus::Applied,
-                            })
-                            .collect();
+                        let cmds_this_iter: Vec<valid::UserCommand> = cmds_this_iter.to_vec();
 
                         let diff = create_diff_with_non_zero_fee_excess(
                             sl.ledger.clone(),
                             CONSTRAINT_CONSTANTS.coinbase_amount,
+                            global_slot,
                             cmds_this_iter,
                             work_done,
                             partitions,
                         );
 
+                        let (current_state, current_view) = dummy_state_and_view(Some(global_slot));
+                        let state_hashes = hashes_abstract(&current_state);
+
                         let apply_res = sl.apply(
                             None,
                             &CONSTRAINT_CONSTANTS,
+                            global_slot,
                             diff.clone(),
                             (),
                             &Verifier,
-                            &dummy_state_view(None),
-                            (Fp::zero(), Fp::zero()),
+                            &current_view,
+                            state_hashes,
                             COINBASE_RECEIVER.clone(),
                             true,
                         );

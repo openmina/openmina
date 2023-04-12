@@ -1,5 +1,7 @@
 use std::cmp::Ordering::{Equal, Greater, Less};
 
+use rand::Rng;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Sgn {
     Pos,
@@ -246,6 +248,22 @@ impl BlockTime {
 impl BlockTimeSpan {
     pub fn of_ms(ms: u64) -> Self {
         Self(ms)
+    }
+}
+
+impl Slot {
+    // TODO: Not sure if OCaml wraps around here
+    pub fn incr(&self) -> Self {
+        Self(self.0.wrapping_add(1))
+    }
+
+    pub fn succ(&self) -> Self {
+        self.incr()
+    }
+
+    pub fn gen_small() -> Self {
+        let mut rng = rand::thread_rng();
+        Self(rng.gen::<u32>() % 10_000)
     }
 }
 
