@@ -5724,7 +5724,7 @@ pub mod for_tests {
         pub snapp_update: zkapp_command::Update,
         // Authorization for the update being performed
         pub current_auth: AuthRequired,
-        pub sequence_events: Vec<Vec<Fp>>,
+        pub actions: Vec<Vec<Fp>>,
         pub events: Vec<Vec<Fp>>,
         pub call_data: Fp,
         pub preconditions: Option<zkapp_command::Preconditions>,

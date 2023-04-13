@@ -125,7 +125,7 @@ pub mod transaction_snark {
                 && second_pass_ledger == &other.second_pass_ledger
                 && local_state == &other.local_state
                 && pending_coinbase::Stack::connected(
-                    &pending_coinbase_stack,
+                    pending_coinbase_stack,
                     &other.pending_coinbase_stack,
                     None,
                 )
@@ -144,7 +144,7 @@ pub mod transaction_snark {
                 && second_pass_ledger == &r2.second_pass_ledger
                 && local_state == &r2.local_state
                 && pending_coinbase::Stack::connected(
-                    &pending_coinbase_stack,
+                    pending_coinbase_stack,
                     &r2.pending_coinbase_stack,
                     None,
                 )
@@ -216,7 +216,7 @@ pub mod transaction_snark {
             // First statement ends and the second statement starts in the
             // same block. It could be within a single scan state tree
             // or across two scan state trees
-            &s1.connecting_ledger_right == &s2.connecting_ledger_left
+            s1.connecting_ledger_right == s2.connecting_ledger_left
         };
 
         // Rule 1
@@ -261,7 +261,7 @@ pub mod transaction_snark {
              to second pass";
         let res4 = {
             let local_state_ledger_equal =
-                &s2.local_state_ledger_source == &s1.local_state_ledger_target;
+                s2.local_state_ledger_source == s1.local_state_ledger_target;
 
             let local_state_ledger_transitions = s2.local_state_ledger_source
                 == s2.second_pass_ledger_source
@@ -658,7 +658,7 @@ impl ScanState {
         let incomplete_updates = previous_incomplete_zkapp_updates.iter().fold(
             Vec::with_capacity(1024 * 32),
             |mut accum, tx| {
-                tx.binprot_write(&mut accum);
+                tx.binprot_write(&mut accum).unwrap();
                 accum
             },
         );
@@ -717,7 +717,7 @@ fn create_expected_statement<F>(
     }: &TransactionWithWitness,
 ) -> Result<Statement<()>, String>
 where
-    F: Fn(&Fp) -> &MinaStateProtocolStateValueStableV2,
+    F: Fn(Fp) -> MinaStateProtocolStateValueStableV2,
 {
     // TODO: Don't clone here
     let source_first_pass_merkle_root = first_pass_ledger_witness.clone().merkle_root();
@@ -727,8 +727,8 @@ where
         data: transaction, ..
     } = transaction_with_info.transaction();
 
-    let protocol_state = get_state(&state_hash.0);
-    let state_view = protocol_state_view(protocol_state);
+    let protocol_state = get_state(state_hash.0);
+    let state_view = protocol_state_view(&protocol_state);
 
     let empty_local_state = LocalState::empty();
 
@@ -857,18 +857,21 @@ fn total_proofs(works: &[transaction_snark::work::Work]) -> usize {
     works.iter().map(|work| work.proofs.len()).sum()
 }
 
-pub enum StatementCheck {
+pub enum StatementCheck<F: Fn(Fp) -> MinaStateProtocolStateValueStableV2> {
     Partial,
-    Full(Box<dyn Fn(&Fp) -> &MinaStateProtocolStateValueStableV2>), // TODO: The fn returns a protocol state
+    Full(F),
 }
 
 impl ScanState {
-    pub fn scan_statement(
+    pub fn scan_statement<F>(
         &self,
         constraint_constants: &ConstraintConstants,
-        statement_check: StatementCheck,
+        statement_check: StatementCheck<F>,
         verifier: &Verifier,
-    ) -> Result<Statement<()>, String> {
+    ) -> Result<Statement<()>, String>
+    where
+        F: Fn(Fp) -> MinaStateProtocolStateValueStableV2,
+    {
         struct Acc(Option<(Statement<()>, Vec<LedgerProofWithSokMessage>)>);
 
         let merge_acc = |mut proofs: Vec<LedgerProofWithSokMessage>,
@@ -948,7 +951,7 @@ impl ScanState {
             let expected_statement = match &statement_check {
                 Full(get_state) => create_expected_statement(
                     constraint_constants,
-                    &**get_state,
+                    get_state,
                     transaction.statement.connecting_ledger_left,
                     transaction,
                 )?,
@@ -1010,15 +1013,18 @@ impl ScanState {
         }
     }
 
-    pub fn check_invariants(
+    pub fn check_invariants<F>(
         &self,
         constraint_constants: &ConstraintConstants,
-        statement_check: StatementCheck,
+        statement_check: StatementCheck<F>,
         verifier: &Verifier,
         _error_prefix: &'static str,
         _last_proof_statement: Option<Statement<()>>,
         _registers_end: Registers,
-    ) -> Result<(), String> {
+    ) -> Result<(), String>
+    where
+        F: Fn(Fp) -> MinaStateProtocolStateValueStableV2,
+    {
         // TODO: OCaml does much more than this (pretty printing error)
         match self.scan_statement(constraint_constants, statement_check, verifier) {
             Ok(_) => Ok(()),
@@ -1491,7 +1497,7 @@ impl ScanState {
 
         fn apply_txns<'a, L>(
             mut previous_incomplete: PreviousIncompleteTxns<L>,
-            mut ordered_txns: Vec<TransactionsOrdered<TransactionWithWitness>>,
+            ordered_txns: Vec<TransactionsOrdered<TransactionWithWitness>>,
             mut first_pass_ledger_hash: Pass,
             stop_at_first_pass: bool,
             apply_previous_incomplete_txns: &'a impl Fn(PreviousIncompleteTxns<L>) -> Result<(), String>,
@@ -1600,7 +1606,7 @@ impl ScanState {
 
             previous_incomplete = update_previous_incomplete(previous_incomplete);
 
-            apply_previous_incomplete_txns(previous_incomplete);
+            apply_previous_incomplete_txns(previous_incomplete)?;
 
             Ok(first_pass_ledger_hash)
         }

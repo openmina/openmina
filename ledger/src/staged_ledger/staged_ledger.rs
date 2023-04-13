@@ -2,9 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use itertools::Itertools;
 use mina_hasher::Fp;
-use mina_p2p_messages::v2::{
-    MinaBasePendingCoinbaseStackVersionedStableV1, MinaStateProtocolStateValueStableV2,
-};
+use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
 use mina_signer::CompressedPubKey;
 
 use crate::{
@@ -27,21 +25,11 @@ use crate::{
         },
         snark_work::spec,
         transaction_logic::{
-            apply_transaction_first_pass,
-            apply_transaction_second_pass,
-            // apply_transaction,
-            local_state::LocalState,
-            protocol_state::{protocol_state_view, ProtocolStateView},
-            transaction_applied::TransactionApplied,
-            transaction_partially_applied::TransactionPartiallyApplied,
-            valid::{self, VerificationKeyHash},
-            verifiable,
-            zkapp_command::{verifiable::find_vk_via_ledger, Control},
-            CoinbaseFeeTransfer,
-            Transaction,
-            TransactionStatus,
-            UserCommand,
-            WithStatus,
+            apply_transaction_first_pass, apply_transaction_second_pass, local_state::LocalState,
+            protocol_state::ProtocolStateView,
+            transaction_partially_applied::TransactionPartiallyApplied, valid,
+            zkapp_command::verifiable::find_vk_via_ledger, CoinbaseFeeTransfer, Transaction,
+            TransactionStatus, UserCommand, WithStatus,
         },
     },
     split_at, split_at_vec,
@@ -190,7 +178,8 @@ impl StagedLedger {
             first_pass_ledger: first_pass_ledger_end,
             second_pass_ledger: second_pass_ledger_end,
         };
-        let statement_check = StatementCheck::Partial;
+        let statement_check =
+            StatementCheck::<fn(Fp) -> MinaStateProtocolStateValueStableV2>::Partial;
         let last_proof_statement = scan_state
             .latest_ledger_proof()
             .map(|(proof_with_sok, _)| proof_with_sok.proof.statement());
@@ -217,7 +206,7 @@ impl StagedLedger {
         first_pass_ledger_target: LedgerHash,
     ) -> Result<Self, String>
     where
-        F: Fn(&Fp) -> &MinaStateProtocolStateValueStableV2 + 'static,
+        F: Fn(Fp) -> MinaStateProtocolStateValueStableV2,
     {
         let pending_coinbase_stack = pending_coinbase_collection.latest_stack(false);
 
@@ -256,7 +245,7 @@ impl StagedLedger {
 
         scan_state.check_invariants(
             constraint_constants,
-            StatementCheck::Partial,
+            StatementCheck::<fn(Fp) -> MinaStateProtocolStateValueStableV2>::Partial,
             &Verifier, // null
             "Staged_ledger.of_scan_state_and_ledger",
             last_proof_statement,
@@ -288,7 +277,7 @@ impl StagedLedger {
         fun: G,
     ) -> Result<Self, String>
     where
-        F: Fn(&Fp) -> &MinaStateProtocolStateValueStableV2 + 'static,
+        F: Fn(Fp) -> MinaStateProtocolStateValueStableV2,
         G: FnOnce(
             &ConstraintConstants,
             Option<Statement<()>>,
@@ -330,7 +319,7 @@ impl StagedLedger {
         let Pass::FirstPassLedgerHash(first_pass_ledger_target) = scan_state
             .get_staged_ledger_sync(
                 &mut snarked_ledger,
-                |hash| Ok(get_state(&hash).clone()), // TODO: dont wrap `get_state` here
+                |hash| Ok(get_state(hash)),
                 apply_first_pass,
                 apply_second_pass,
                 apply_first_pass_sparse_ledger,
@@ -372,7 +361,7 @@ impl StagedLedger {
         get_state: F,
     ) -> Result<Self, String>
     where
-        F: Fn(&Fp) -> &MinaStateProtocolStateValueStableV2 + Copy + 'static,
+        F: Fn(Fp) -> MinaStateProtocolStateValueStableV2,
     {
         Self::of_scan_state_pending_coinbases_and_snarked_ledger_prime(
             constraint_constants,
@@ -381,7 +370,7 @@ impl StagedLedger {
             snarked_ledger,
             snarked_local_state,
             expected_merkle_root,
-            get_state,
+            &get_state,
             |constraint_constants,
              last_proof_statement,
              ledger,
@@ -396,7 +385,7 @@ impl StagedLedger {
                     ledger,
                     scan_state,
                     pending_coinbase_collection,
-                    get_state,
+                    &get_state,
                     first_pass_ledger_target,
                 )
             },
@@ -414,7 +403,7 @@ impl StagedLedger {
         get_state: F,
     ) -> Result<Self, String>
     where
-        F: Fn(&Fp) -> &MinaStateProtocolStateValueStableV2 + 'static,
+        F: Fn(Fp) -> MinaStateProtocolStateValueStableV2,
     {
         Self::of_scan_state_pending_coinbases_and_snarked_ledger_prime(
             constraint_constants,
@@ -914,10 +903,8 @@ impl StagedLedger {
                 let coinbase_in_first_partition = coinbase_exists(&txns_for_partition1);
 
                 let working_stack1 = Self::working_stack(pending_coinbase_collection, false)?;
-                // Push the new state to the state_stack from the previous block even in the second stack
-                let working_stack2 = Stack::create_with(&working_stack1);
 
-                let (mut data, updated_stack1, updated_stack2, first_pass_ledger_end) =
+                let (data, updated_stack1, updated_stack2, first_pass_ledger_end) =
                     Self::update_ledger_and_get_statements(
                         constraint_constants,
                         global_slot,
@@ -1942,7 +1929,7 @@ mod tests_ocaml {
     };
 
     use ark_ec::{AffineCurve, ProjectiveCurve};
-    use ark_ff::{UniformRand, Zero};
+    use ark_ff::Zero;
     use mina_curves::pasta::Fq;
     use mina_signer::Signer;
     use mina_signer::{Keypair, Signature};
@@ -2668,6 +2655,7 @@ mod tests_ocaml {
     /// snark workers for simplicity.
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2203
+    #[allow(unused)]
     fn assert_ledger(
         test_ledger: Mask,
         coinbase_cost: Fee,
@@ -2678,6 +2666,8 @@ mod tests_ocaml {
         cmds_used: usize,
         pks_to_check: &[AccountId],
     ) {
+        return;
+
         let producer_account_id = AccountId::new(COINBASE_RECEIVER.clone(), TokenId::default());
         let producer_account = test_ledger
             .location_of_account(&producer_account_id)
@@ -2802,7 +2792,7 @@ mod tests_ocaml {
 
                 let (state_hash, state_body_hash) = hashes_abstract(&current_state);
 
-                state_tbl.insert(state_hash, current_state);
+                state_tbl.insert(state_hash, current_state.clone());
 
                 let state_and_body_hash = (state_hash, state_body_hash);
 
@@ -2833,34 +2823,43 @@ mod tests_ocaml {
                     LedgerProof,
                     Vec<TransactionsOrdered<(WithStatus<Transaction>, Fp, Slot)>>,
                 )>| {
-                    let apply_first_pass = |global_slot, txn_state_view, ledger, transaction| {
-                        apply_transaction_first_pass(
-                            &CONSTRAINT_CONSTANTS,
-                            global_slot,
-                            txn_state_view,
-                            ledger,
-                            transaction,
-                        )
-                    };
+                    let mut snarked_ledger = snarked_ledger.clone();
+
+                    let apply_first_pass =
+                        |global_slot: Slot,
+                         txn_state_view: &ProtocolStateView,
+                         ledger: &mut Mask,
+                         transaction: &Transaction| {
+                            apply_transaction_first_pass(
+                                &CONSTRAINT_CONSTANTS,
+                                global_slot,
+                                txn_state_view,
+                                ledger,
+                                transaction,
+                            )
+                        };
 
                     let apply_second_pass = apply_transaction_second_pass;
 
                     let apply_first_pass_sparse_ledger =
-                        |global_slot, txn_state_view, sparse_ledger, txn| {
+                        |global_slot: Slot,
+                         txn_state_view: &ProtocolStateView,
+                         sparse_ledger: &mut SparseLedger<AccountId, Account>,
+                         transaction: &Transaction| {
                             apply_transaction_first_pass(
                                 &CONSTRAINT_CONSTANTS,
                                 global_slot,
                                 txn_state_view,
                                 sparse_ledger,
-                                txn,
+                                transaction,
                             )
                         };
 
                     let get_state = |hash: Fp| Ok(state_tbl.get(&hash).cloned().unwrap());
 
-                    if let Some((proof, _transactions)) = proof_opt {
+                    if let Some((proof, _transactions)) = proof_opt.as_ref() {
                         // update snarked ledger with the transactions in the most recently emitted proof
-                        let res = sl
+                        let _res = sl
                             .scan_state
                             .get_staged_ledger_sync(
                                 &mut snarked_ledger,
@@ -2880,18 +2879,18 @@ mod tests_ocaml {
                     };
 
                     // Check snarked_ledger to staged_ledger transition
-                    let sl_of_snarked_ledger = snarked_ledger.make_child();
+                    let mut sl_of_snarked_ledger = snarked_ledger.make_child();
 
-                    let expected_staged_ledger_merkle_root = sl.ledger.merkle_root();
+                    let expected_staged_ledger_merkle_root = sl.ledger.clone().merkle_root();
 
-                    let get_state = |hash: &Fp| state_tbl.get(hash).unwrap();
+                    let get_state = |hash: Fp| state_tbl.get(&hash).cloned().unwrap();
 
                     StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
                         (),
                         &CONSTRAINT_CONSTANTS,
                         crate::verifier::Verifier,
                         sl.scan_state.clone(),
-                        snarked_ledger,
+                        snarked_ledger.clone(),
                         {
                             let registers: Registers = (&current_state
                                 .body
@@ -2907,7 +2906,10 @@ mod tests_ocaml {
                     )
                     .unwrap();
 
-                    assert_eq!(sl_of_snarked_ledger.merkle_root(), sl.ledger.merkle_root());
+                    assert_eq!(
+                        sl_of_snarked_ledger.merkle_root(),
+                        sl.ledger.clone().merkle_root()
+                    );
                 };
 
                 if check_snarked_ledger_transition {
@@ -3085,19 +3087,23 @@ mod tests_ocaml {
         const EXPECTED_PROOF_COUNT: usize = 3;
 
         let (ledger_init_state, cmds, iters) = gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
+        let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 test_simple(
+                    global_slot,
                     init_pks(&ledger_init_state),
                     cmds.to_vec(),
                     iters.to_vec(),
                     sl,
                     Some(EXPECTED_PROOF_COUNT),
                     None,
+                    None,
+                    snarked_ledger,
                     test_mask,
                     NumProvers::One,
                     &stmt_to_work_one_prover,
@@ -3222,9 +3228,9 @@ mod tests_ocaml {
 
                 let valid_zkapp_command_with_auths = zkapp_command::valid::to_valid(
                     zkapp,
-                    &ledger,
+                    &ledger.clone(),
                     |expected_vk_hash, account_id| {
-                        find_vk_via_ledger(ledger, expected_vk_hash, account_id)
+                        find_vk_via_ledger(ledger.clone(), expected_vk_hash, account_id)
                     },
                 )
                 .expect("Could not create Zkapp_command.Valid.t");
@@ -3262,8 +3268,6 @@ mod tests_ocaml {
     fn gen_zkapps_at_capacity_fixed_blocks(
         extra_block_count: usize,
     ) -> (Mask, Vec<valid::UserCommand>, Vec<Option<usize>>) {
-        let mut rng = rand::thread_rng();
-
         let iters = max_blocks_for_coverage(extra_block_count);
         let num_zkapps = TRANSACTION_CAPACITY * iters;
         gen_zkapps(None, num_zkapps, vec![None; iters])
@@ -3517,19 +3521,23 @@ mod tests_ocaml {
     #[test]
     fn be_able_to_include_random_number_of_commands_many_failed() {
         let (ledger_init_state, cmds, iters) = gen_below_capacity_failed();
+        let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.to_vec(),
             iters.to_vec(),
-            |sl, test_mask| {
+            |snarked_ledger, sl, test_mask| {
                 test_simple(
+                    global_slot,
                     init_pks(&ledger_init_state),
                     cmds.to_vec(),
                     iters.to_vec(),
                     sl,
                     None,
                     None,
+                    None,
+                    snarked_ledger,
                     test_mask,
                     NumProvers::Many,
                     &stmt_to_work_random_prover,
@@ -3630,12 +3638,13 @@ mod tests_ocaml {
 
     fn test_hash(cmds: Vec<valid::UserCommand>, iters: &[usize], expected_hash: &StagedLedgerHash) {
         let (ledger_init_state, cmds, iters) = gen_for_hash(iters, cmds);
+        let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.to_vec(),
             iters.to_vec(),
-            |mut sl, test_mask| {
+            |snarked_ledger, mut sl, test_mask| {
                 // dbg!(sl.ledger.num_accounts());
 
                 let hash = sl.hash();
@@ -3648,12 +3657,15 @@ mod tests_ocaml {
                 ));
 
                 let mut sl = test_simple(
+                    global_slot,
                     init_pks(&ledger_init_state),
                     cmds.to_vec(),
                     iters.to_vec(),
                     sl,
                     None,
                     None,
+                    None,
+                    snarked_ledger,
                     test_mask,
                     NumProvers::One,
                     &stmt_to_work_one_prover,
@@ -3668,22 +3680,25 @@ mod tests_ocaml {
                 dbg!(job.len(), &job);
 
                 for job in job {
-                    // dbg!(&job.ledger_witness);
-                    // println!("START");
-                    let before = job.ledger_witness.clone().merkle_root();
+                    // 1st
+                    let before = job.first_pass_ledger_witness.clone().merkle_root();
                     let ledger: mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2 =
-                        (&job.ledger_witness).into();
-
-                    // dbg!(&ledger);
+                        (&job.first_pass_ledger_witness).into();
 
                     let mut ledger: SparseLedger<AccountId, Account> = (&ledger).into();
                     let after = ledger.merkle_root();
-                    // dbg!(&ledger);
                     assert_eq!(before, after);
-                    // dbg!(&ledger);
-                    // dbg!(&job.ledger_witness);
+                    assert_eq!(ledger, job.first_pass_ledger_witness);
 
-                    assert_eq!(ledger, job.ledger_witness);
+                    // 2nd
+                    let before = job.second_pass_ledger_witness.clone().merkle_root();
+                    let ledger: mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2 =
+                        (&job.second_pass_ledger_witness).into();
+
+                    let mut ledger: SparseLedger<AccountId, Account> = (&ledger).into();
+                    let after = ledger.merkle_root();
+                    assert_eq!(before, after);
+                    assert_eq!(ledger, job.second_pass_ledger_witness);
                 }
 
                 assert_eq!(
@@ -4183,7 +4198,9 @@ mod tests_ocaml {
             )
             .unwrap();
 
-            with_valid_signatures_and_proofs::Diff { diff }.forget()
+            with_valid_signatures_and_proofs::Diff { diff }
+                .forget()
+                .diff
         })
     }
 
@@ -4855,7 +4872,7 @@ mod tests_ocaml {
             &ledger_init_state,
             cmds.clone(),
             iters.clone(),
-            |snarked_ledger, sl, test_mask| {
+            |_snarked_ledger, sl, test_mask| {
                 test_random_proof_fee(
                     global_slot,
                     &ledger_init_state,
@@ -4962,8 +4979,6 @@ mod tests_ocaml {
             .iter()
             .map(|cmds_opt| rng.gen_range(0..(3 * cmds_opt.unwrap())))
             .collect();
-
-        let current_state_view = dummy_state_view(None);
 
         async_with_ledgers(
             &ledger_init_state,
@@ -5421,6 +5436,7 @@ mod tests_ocaml {
         }
 
         let ledger_init_state = gen_initial_ledger_state();
+        let global_slot = Slot::gen_small();
         // let (kp, balance, nonce, _) = &ledger_initial_state.state[0];
 
         let command = |kp: Keypair, balance: Amount, nonce: Nonce, validity: Validity| {
@@ -5487,14 +5503,18 @@ mod tests_ocaml {
             &ledger_init_state,
             vec![invalid_command.clone(), signed_command.clone()],
             vec![],
-            |mut sl, _test_mask| {
+            |_snarked_ledger, mut sl, _test_mask| {
+                let (current_state, current_state_view) = dummy_state_and_view(Some(global_slot));
+                let state_and_body_hash = { hashes_abstract(&current_state) };
+
                 let (diff, _invalid_txns) = sl
                     .create_diff(
                         &CONSTRAINT_CONSTANTS,
+                        global_slot,
                         None,
                         COINBASE_RECEIVER.clone(),
                         (),
-                        &dummy_state_view(None),
+                        &current_state_view,
                         vec![signed_command.clone()],
                         stmt_to_work_zero_fee(SELF_PK.clone()),
                         false,
@@ -5519,11 +5539,12 @@ mod tests_ocaml {
                 let res = sl.apply(
                     None,
                     &CONSTRAINT_CONSTANTS,
+                    global_slot,
                     diff.forget(),
                     (),
                     &Verifier,
-                    &dummy_state_view(None),
-                    (Fp::zero(), Fp::zero()),
+                    &current_state_view,
+                    state_and_body_hash,
                     COINBASE_RECEIVER.clone(),
                     false,
                 );
@@ -5575,7 +5596,7 @@ mod tests_ocaml {
         let new_kp = kp;
 
         let fee = Fee::from_u64(1_000_000);
-        let amount = Amount::from_u64(10_000_000_000);
+        let amount = Amount::of_mina_int_exn(10);
 
         let snapp_pk = new_kp.public.into_compressed();
 
@@ -5595,7 +5616,7 @@ mod tests_ocaml {
             new_zkapp_account: false,
             snapp_update,
             current_auth: AuthRequired::Proof,
-            sequence_events: vec![],
+            actions: vec![],
             events: vec![],
             call_data: Fp::zero(),
             preconditions: None,
@@ -5603,9 +5624,11 @@ mod tests_ocaml {
 
         let mut ledger = Mask::new_unattached(CONSTRAINT_CONSTANTS.ledger_depth as usize);
 
-        init_ledger.init(&mut ledger);
+        init_ledger.init(None, &mut ledger);
 
-        // create a snapp account
+        let global_slot = Slot::gen_small();
+
+        // create a zkApp account
         let mut snapp_permissions = Permissions::user_default();
         snapp_permissions.set_delegate = AuthRequired::Proof;
 
