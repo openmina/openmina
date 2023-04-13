@@ -51,8 +51,8 @@ pub struct JobCommitmentP2pSendAction {
 impl redux::EnablingCondition<crate::State> for JobCommitmentP2pSendAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state.p2p.get_ready_peer(&self.peer_id).map_or(false, |p| {
-            let (index, limit) = p.channels.snark_job_commitment.next_send_index_and_limit();
-            limit > 0 && index < state.job_commitments.last_index()
+            let (next_index, limit) = p.channels.snark_job_commitment.next_send_index_and_limit();
+            limit > 0 && next_index <= state.job_commitments.last_index()
         })
     }
 }

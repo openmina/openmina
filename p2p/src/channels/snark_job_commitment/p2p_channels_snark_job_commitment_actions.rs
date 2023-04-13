@@ -182,15 +182,15 @@ pub struct P2pChannelsSnarkJobCommitmentResponseSendAction {
 impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentResponseSendAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
         !self.commitments.is_empty()
-            && self.first_index > self.last_index
+            && self.first_index < self.last_index
             && state.get_ready_peer(&self.peer_id).map_or(false, |p| {
                 match &p.channels.snark_job_commitment {
                     P2pChannelsSnarkJobCommitmentState::Ready {
                         remote,
-                        last_sent_index,
+                        next_send_index,
                         ..
                     } => {
-                        if self.first_index < *last_sent_index {
+                        if self.first_index < *next_send_index {
                             return false;
                         }
                         match remote {

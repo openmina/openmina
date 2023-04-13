@@ -17,7 +17,7 @@ pub enum P2pChannelsSnarkJobCommitmentState {
         /// We are the responders here.
         remote: SnarkJobCommitmentPropagationState,
         /// Last sent commitment index.
-        last_sent_index: u64,
+        next_send_index: u64,
     },
 }
 
@@ -51,13 +51,13 @@ impl P2pChannelsSnarkJobCommitmentState {
         match self {
             Self::Ready {
                 remote,
-                last_sent_index,
+                next_send_index,
                 ..
             } => match remote {
                 SnarkJobCommitmentPropagationState::Requested {
                     requested_limit, ..
-                } => (*last_sent_index + 1, *requested_limit),
-                _ => (*last_sent_index + 1, 0),
+                } => (*next_send_index, *requested_limit),
+                _ => (*next_send_index, 0),
             },
             _ => (0, 0),
         }

@@ -28,7 +28,7 @@ impl FromStr for AccountSecretKey {
         let size = bs58::decode(s)
             .with_check(Some(Self::BASE58_CHECK_VERSION))
             .into(&mut bytes)?;
-        if dbg!(size) != 34 {
+        if size != 34 {
             return Err(bs58::decode::Error::BufferTooSmall.into());
         }
 
