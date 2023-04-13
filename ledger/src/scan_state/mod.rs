@@ -3,6 +3,7 @@ pub mod currency;
 pub mod fee_excess;
 mod parallel_scan;
 pub mod pending_coinbase;
+pub mod protocol_state;
 pub mod scan_state;
 pub mod snark_work;
 pub mod transaction_logic;

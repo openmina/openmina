@@ -3198,7 +3198,6 @@ pub mod protocol_state {
     #[derive(Debug, Clone)]
     pub struct ProtocolStateView {
         pub snarked_ledger_hash: Fp,
-        pub timestamp: BlockTime,
         pub blockchain_length: Length,
         pub min_window_density: Length,
         pub last_vrf_output: (), // It's not defined in OCAml
@@ -3224,7 +3223,6 @@ pub mod protocol_state {
                 .target
                 .first_pass_ledger
                 .to_field(),
-            timestamp: BlockTime(state.body.blockchain_state.timestamp.as_u64()),
             blockchain_length: Length(cs.blockchain_length.as_u32()),
             min_window_density: Length(cs.min_window_density.as_u32()),
             last_vrf_output: (),

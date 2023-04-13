@@ -1948,7 +1948,7 @@ mod tests_ocaml {
             scan_state::transaction_snark::SokDigest,
             transaction_logic::{
                 apply_transactions,
-                protocol_state::{EpochData, EpochLedger},
+                protocol_state::{protocol_state_view, EpochData, EpochLedger},
                 signed_command::{
                     self, Common, PaymentPayload, SignedCommand, SignedCommandPayload,
                 },
@@ -2504,50 +2504,39 @@ mod tests_ocaml {
         mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2,
         ProtocolStateView,
     ) {
-        todo!()
+        let mut state = dummy::for_tests::dummy_protocol_state();
+
+        if let Some(global_slot) = global_slot {
+            let prev_global_slot = global_slot
+                .checked_sub(&Slot::from_u32(1))
+                .unwrap_or_else(Slot::zero);
+
+            let new_global_slot = prev_global_slot;
+
+            let global_slot_since_genesis = {
+                let since_genesis = &state.body.consensus_state.global_slot_since_genesis;
+                let curr = &state.body.consensus_state.curr_global_slot.slot_number;
+
+                let since_genesis = Slot::from_u32(since_genesis.as_u32());
+                let curr = Slot::from_u32(curr.as_u32());
+
+                (since_genesis.checked_sub(&curr).unwrap())
+                    .checked_add(&new_global_slot)
+                    .unwrap()
+            };
+
+            let cs = &mut state.body.consensus_state;
+            cs.curr_global_slot.slot_number = (&new_global_slot).into();
+            cs.global_slot_since_genesis = (&global_slot_since_genesis).into();
+        };
+
+        let view = protocol_state_view(&state);
+
+        (state, view)
     }
 
-    /// Same values when we run `dune runtest src/lib/staged_ledger -f`
-    ///
-    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2142
     fn dummy_state_view(global_slot: Option<Slot>) -> ProtocolStateView {
-        let global_slot_since_genesis = global_slot
-            .map(|global_slot| todo!())
-            .unwrap_or_else(Slot::zero);
-
-        // TODO: Use OCaml implementation, not hardcoded value
-
-        let f = |s: &str| Fp::from_str(s).unwrap();
-
-        ProtocolStateView {
-            snarked_ledger_hash: f("19095410909873291354237217869735884756874834695933531743203428046904386166496"),
-            timestamp: BlockTime::from_u64(1600251300000),
-            blockchain_length: Length::from_u32(1),
-            min_window_density: Length::from_u32(77),
-            last_vrf_output: (),
-            total_currency: Amount::from_u64(10016100000000000),
-            global_slot_since_genesis: global_slot.unwrap_or_else(Slot::zero),
-            staking_epoch_data: EpochData {
-                ledger: EpochLedger {
-                    hash: f("19095410909873291354237217869735884756874834695933531743203428046904386166496"),
-                    total_currency: Amount::from_u64(10016100000000000),
-                },
-                seed: Fp::zero(),
-                start_checkpoint: Fp::zero(),
-                lock_checkpoint: Fp::zero(),
-                epoch_length: Length::from_u32(1),
-            },
-            next_epoch_data: EpochData {
-                ledger: EpochLedger {
-                    hash: f("19095410909873291354237217869735884756874834695933531743203428046904386166496"),
-                    total_currency: Amount::from_u64(10016100000000000),
-                },
-                seed: f("18512313064034685696641580142878809378857342939026666126913761777372978255172"),
-                start_checkpoint: Fp::zero(),
-                lock_checkpoint: f("9196091926153144288494889289330016873963015481670968646275122329689722912273"),
-                epoch_length: Length::from_u32(2),
-            }
-        }
+        dummy_state_and_view(global_slot).1
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2164
@@ -2734,9 +2723,9 @@ mod tests_ocaml {
     }
 
     fn hashes_abstract(
-        body: &mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2,
+        state: &mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2,
     ) -> (Fp, Fp) {
-        todo!()
+        scan_state::protocol_state::hashes(state)
     }
 
     /// Generic test framework.
