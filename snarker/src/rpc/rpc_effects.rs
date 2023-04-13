@@ -1,5 +1,6 @@
 use p2p::connection::P2pConnectionResponse;
 
+use crate::job_commitment::JobCommitmentCreateAction;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
 use crate::{Service, Store};
@@ -105,6 +106,28 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             store.dispatch(RpcFinishAction {
                 rpc_id: action.rpc_id,
             });
+        }
+        RpcAction::SnarkerJobPickAndCommit(action) => {
+            for job_id in action.available_jobs {
+                if store
+                    .state()
+                    .job_commitments
+                    .should_create_commitment(&job_id)
+                {
+                    if store
+                        .service()
+                        .respond_snarker_job_pick_and_commit(action.rpc_id, Some(job_id.clone()))
+                        .is_err()
+                    {
+                        return;
+                    }
+                    store.dispatch(JobCommitmentCreateAction { job_id });
+                    return;
+                }
+            }
+            let _ = store
+                .service()
+                .respond_snarker_job_pick_and_commit(action.rpc_id, None);
         }
         RpcAction::Finish(_) => {}
     }

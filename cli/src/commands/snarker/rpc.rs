@@ -3,6 +3,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use shared::requests::PendingRequests;
 use snarker::event_source::Event;
+use snarker::p2p::channels::snark_job_commitment::SnarkJobId;
 use snarker::p2p::connection::P2pConnectionResponse;
 use snarker::rpc::{ActionStatsResponse, RespondError, RpcId, RpcIdType};
 use snarker::State;
@@ -12,6 +13,7 @@ use super::{SnarkerRpcRequest, SnarkerService};
 pub type RpcStateGetResponse = Box<State>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
+pub type RpcSnarkerJobPickAndCommitResponse = Option<SnarkJobId>;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum RpcP2pConnectionIncomingResponse {
@@ -64,8 +66,8 @@ impl snarker::rpc::RpcService for SnarkerService {
         let chan = chan
             .downcast::<oneshot::Sender<RpcStateGetResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
-        // TODO(binier): don't ignore error
-        let _ = chan.send(Box::new(response.clone()));
+        chan.send(Box::new(response.clone()))
+            .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }
 
@@ -79,8 +81,8 @@ impl snarker::rpc::RpcService for SnarkerService {
         let chan = chan
             .downcast::<oneshot::Sender<RpcActionStatsGetResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
-        // TODO(binier): don't ignore error
-        let _ = chan.send(response);
+        chan.send(response)
+            .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }
 
@@ -94,8 +96,8 @@ impl snarker::rpc::RpcService for SnarkerService {
         let chan = chan
             .downcast::<oneshot::Sender<RpcP2pConnectionOutgoingResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
-        // TODO(binier): don't ignore error
-        let _ = chan.send(response);
+        chan.send(response)
+            .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }
 
@@ -110,8 +112,8 @@ impl snarker::rpc::RpcService for SnarkerService {
             .downcast_ref::<mpsc::Sender<RpcP2pConnectionIncomingResponse>>()
             .ok_or(RespondError::UnexpectedResponseType)?
             .clone();
-        // TODO(binier): don't ignore error
-        let _ = chan.try_send(RpcP2pConnectionIncomingResponse::Answer(response));
+        chan.try_send(RpcP2pConnectionIncomingResponse::Answer(response))
+            .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }
 
@@ -125,8 +127,23 @@ impl snarker::rpc::RpcService for SnarkerService {
         let chan = chan
             .downcast::<mpsc::Sender<RpcP2pConnectionIncomingResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
-        // TODO(binier): don't ignore error
-        let _ = chan.try_send(RpcP2pConnectionIncomingResponse::Result(response));
+        chan.try_send(RpcP2pConnectionIncomingResponse::Result(response))
+            .or(Err(RespondError::RespondingFailed))?;
+        Ok(())
+    }
+
+    fn respond_snarker_job_pick_and_commit(
+        &mut self,
+        rpc_id: RpcId,
+        response: Option<SnarkJobId>,
+    ) -> Result<(), RespondError> {
+        let entry = self.rpc.pending.remove(rpc_id);
+        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
+        let chan = chan
+            .downcast::<oneshot::Sender<RpcSnarkerJobPickAndCommitResponse>>()
+            .or(Err(RespondError::UnexpectedResponseType))?;
+        chan.send(response.clone())
+            .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }
 }

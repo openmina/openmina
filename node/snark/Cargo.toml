@@ -12,13 +12,13 @@ path = "src/bin/main.rs"
 crate-type = ["cdylib", "lib"]
 
 [dependencies]
-mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
-kimchi = {git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
-poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes"}
-mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes"}
+mina-hasher = { git = "https://github.com/o1-labs/proof-systems" }
+mina-signer = { git = "https://github.com/o1-labs/proof-systems" }
+mina-curves = { git = "https://github.com/o1-labs/proof-systems" }
+o1-utils = { git = "https://github.com/o1-labs/proof-systems" }
+kimchi = { git = "https://github.com/o1-labs/proof-systems" }
+poly-commitment = { git = "https://github.com/o1-labs/proof-systems" }
+mina-poseidon = { git = "https://github.com/o1-labs/proof-systems" }
 
 strum_macros = "0.24.3"
 derive_more = "0.99.17"

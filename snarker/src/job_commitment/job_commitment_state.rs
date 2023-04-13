@@ -60,6 +60,10 @@ impl JobCommitmentsState {
     {
         self.list.range(range).map(|(k, v)| (*k, v))
     }
+
+    pub fn should_create_commitment(&self, job_id: &SnarkJobId) -> bool {
+        !self.contains(job_id)
+    }
 }
 
 impl fmt::Debug for JobCommitmentsState {

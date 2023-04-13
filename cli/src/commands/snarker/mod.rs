@@ -6,6 +6,7 @@ use serde::Serialize;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
+use snarker::account::AccountSecretKey;
 use snarker::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
     EventSourceWaitTimeoutAction,
@@ -17,7 +18,7 @@ use snarker::p2p::service_impl::webrtc_rs::{Cmd, P2pServiceCtx, P2pServiceWebrtc
 use snarker::p2p::{P2pConfig, P2pEvent, PeerId};
 use snarker::rpc::RpcRequest;
 use snarker::service::{EventSourceService, Stats};
-use snarker::{Config, State};
+use snarker::{Config, SnarkerConfig, State};
 
 mod http_server;
 
@@ -47,7 +48,24 @@ impl Snarker {
         let secret_key = SecretKey::from_bytes(bytes);
         let pub_key = secret_key.public_key();
         let peer_id = PeerId::from_public_key(pub_key.clone());
+        eprintln!("peer_id: {peer_id}");
+
+        let sec_key: AccountSecretKey = match std::env::var("MINA_SNARKER_SEC_KEY") {
+            Ok(v) => match v.parse() {
+                Err(err) => {
+                    return Err(format!("error while parsing `MINA_SNARKER_SEC_KEY`: {err}").into())
+                }
+                Ok(v) => v,
+            },
+            Err(err) => {
+                return Err(format!("env `MINA_SNARKER_SEC_KEY` not set! {err}").into());
+            }
+        };
+
         let config = Config {
+            snarker: SnarkerConfig {
+                public_key: sec_key.public_key(),
+            },
             p2p: P2pConfig {
                 identity_pub_key: pub_key,
                 initial_peers: vec![

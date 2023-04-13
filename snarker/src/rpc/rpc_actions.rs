@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::p2p::channels::snark_job_commitment::SnarkJobId;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
 use crate::p2p::connection::P2pConnectionResponse;
@@ -30,6 +31,8 @@ pub enum RpcAction {
     P2pConnectionIncomingRespond(RpcP2pConnectionIncomingRespondAction),
     P2pConnectionIncomingError(RpcP2pConnectionIncomingErrorAction),
     P2pConnectionIncomingSuccess(RpcP2pConnectionIncomingSuccessAction),
+
+    SnarkerJobPickAndCommit(RpcSnarkerJobPickAndCommitAction),
 
     Finish(RpcFinishAction),
 }
@@ -191,6 +194,14 @@ impl redux::EnablingCondition<crate::State> for RpcP2pConnectionIncomingSuccessA
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcSnarkerJobPickAndCommitAction {
+    pub rpc_id: RpcId,
+    pub available_jobs: Vec<SnarkJobId>,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcSnarkerJobPickAndCommitAction {}
+
 /// Finish/Cleanup rpc request.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcFinishAction {
@@ -231,5 +242,7 @@ impl_into_global_action!(RpcP2pConnectionIncomingPendingAction);
 impl_into_global_action!(RpcP2pConnectionIncomingRespondAction);
 impl_into_global_action!(RpcP2pConnectionIncomingErrorAction);
 impl_into_global_action!(RpcP2pConnectionIncomingSuccessAction);
+
+impl_into_global_action!(RpcSnarkerJobPickAndCommitAction);
 
 impl_into_global_action!(RpcFinishAction);

@@ -17,7 +17,7 @@ use crate::p2p::disconnection::P2pDisconnectionFinishAction;
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcP2pConnectionIncomingInitAction,
-    RpcP2pConnectionOutgoingInitAction, RpcRequest,
+    RpcP2pConnectionOutgoingInitAction, RpcRequest, RpcSnarkerJobPickAndCommitAction,
 };
 use crate::{Service, Store};
 
@@ -158,6 +158,12 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     store.dispatch(RpcP2pConnectionIncomingInitAction {
                         rpc_id,
                         opts: opts.clone(),
+                    });
+                }
+                RpcRequest::SnarkerJobPickAndCommit { available_jobs } => {
+                    store.dispatch(RpcSnarkerJobPickAndCommitAction {
+                        rpc_id,
+                        available_jobs,
                     });
                 }
             },
