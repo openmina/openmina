@@ -2640,8 +2640,15 @@ pub mod zkapp_command {
             self.account_updates.hash()
         }
 
-        pub fn extract_vks(&self) -> Vec<VerificationKey> {
-            todo!()
+        /// https://github.com/MinaProtocol/mina/blob/02c9d453576fa47f78b2c388fb2e0025c47d991c/src/lib/mina_base/zkapp_command.ml#L989
+        pub fn extract_vks(&self) -> Vec<WithHash<VerificationKey>> {
+            self.account_updates
+                .fold(Vec::with_capacity(256), |mut acc, p| {
+                    if let SetOrKeep::Set(vk) = &p.body.update.verification_key {
+                        acc.push(vk.clone());
+                    };
+                    acc
+                })
         }
     }
 
@@ -2659,10 +2666,10 @@ pub mod zkapp_command {
         }
 
         fn ok_if_vk_hash_expected(
-            got: VerificationKey, // TODO: This must be a `WithHash<VerificationKey>`
+            got: WithHash<VerificationKey>,
             expected: Fp,
-        ) -> Result<VerificationKey, String> {
-            if got.hash() == expected {
+        ) -> Result<WithHash<VerificationKey>, String> {
+            if got.hash == expected {
                 return Ok(got);
             }
             Err(format!(
@@ -2677,7 +2684,7 @@ pub mod zkapp_command {
             ledger: L,
             expected_vk_hash: Fp,
             account_id: &AccountId,
-        ) -> Result<VerificationKey, String>
+        ) -> Result<WithHash<VerificationKey>, String>
         where
             L: LedgerIntf + Clone,
         {
@@ -2692,7 +2699,13 @@ pub mod zkapp_command {
                 });
 
             match vk {
-                Some(vk) => ok_if_vk_hash_expected(vk, expected_vk_hash),
+                Some(vk) => {
+                    // TODO: The account should contains the `WithHash<VerificationKey>`
+                    let hash = vk.hash();
+                    let vk = WithHash { data: vk, hash };
+
+                    ok_if_vk_hash_expected(vk, expected_vk_hash)
+                }
                 None => Err(format!(
                     "No verification key found for proved account update\
                                      account_id: {:?}",
@@ -2728,7 +2741,7 @@ pub mod zkapp_command {
         pub fn create(
             zkapp: &super::ZkAppCommand,
             status: &TransactionStatus,
-            find_vk: impl Fn(Fp, &AccountId) -> Result<VerificationKey, String>,
+            find_vk: impl Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
         ) -> Result<ZkAppCommand, String> {
             let super::ZkAppCommand {
                 fee_payer,
@@ -2759,7 +2772,7 @@ pub mod zkapp_command {
 
                             match vks_overridden.get(&account_id) {
                                 Some(Some(vk)) => {
-                                    ok_if_vk_hash_expected(vk.data.clone(), *vk_hash)?
+                                    ok_if_vk_hash_expected(vk.clone(), *vk_hash)?
                                 },
                                 Some(None) => {
                                     // we explicitly have erased the key
@@ -2775,16 +2788,9 @@ pub mod zkapp_command {
                             }
                         };
 
-                        // TODO: Don't use `VerificationKey::hash` but `WithHash::hash`
-                        let hash = prioritized_vk.hash();
-                        tbl.insert(account_id, hash);
+                        tbl.insert(account_id, prioritized_vk.hash);
 
-                        let vk = WithHash {
-                            data: prioritized_vk,
-                            hash,
-                        };
-
-                        Ok((p.clone(), Some(vk)))
+                        Ok((p.clone(), Some(prioritized_vk)))
                     },
 
                     _ => {
@@ -2826,9 +2832,120 @@ pub mod zkapp_command {
         pub fn to_valid(
             zkapp_command: super::ZkAppCommand,
             ledger: &impl BaseLedger,
-            find_vk: impl Fn(Fp, &AccountId) -> Result<VerificationKey, String>,
+            find_vk: impl Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
         ) -> Option<ZkAppCommand> {
             todo!()
+        }
+    }
+
+    pub trait Strategy {
+        fn create_all(
+            cmds: Vec<WithStatus<Box<ZkAppCommand>>>,
+            find_vk: impl Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
+        ) -> Result<Vec<WithStatus<verifiable::ZkAppCommand>>, String>;
+    }
+
+    trait CreateAll {
+        type Value;
+
+        fn empty() -> Self;
+        fn find(&self, key: Fp) -> Option<&Self::Value>;
+        fn set(&mut self, key: Fp, value: Self::Value);
+    }
+
+    impl<T> Strategy for T
+    where
+        T: CreateAll<Value = WithHash<VerificationKey>>,
+    {
+        /// https://github.com/MinaProtocol/mina/blob/02c9d453576fa47f78b2c388fb2e0025c47d991c/src/lib/mina_base/zkapp_command.ml#L1346
+        fn create_all(
+            cmds: Vec<WithStatus<Box<ZkAppCommand>>>,
+            find_vk: impl Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
+        ) -> Result<Vec<WithStatus<verifiable::ZkAppCommand>>, String> {
+            let mut running_cache = Self::empty();
+
+            Ok(cmds
+                .into_iter()
+                .map(|WithStatus { data: cmd, status }| {
+                    let verified_cmd = verifiable::create(&cmd, &status, |vk_hash, account_id| {
+                        // first we check if there's anything in the running
+                        // cache within this chunk so far
+
+                        match running_cache.find(vk_hash) {
+                            None => {
+                                // before falling back to the find_vk
+                                find_vk(vk_hash, account_id)
+                            }
+                            Some(vk) => Ok(vk.clone()),
+                        }
+                    })
+                    .unwrap();
+
+                    for vk in cmd.extract_vks() {
+                        running_cache.set(vk.hash, vk);
+                    }
+
+                    WithStatus {
+                        data: verified_cmd,
+                        status,
+                    }
+                })
+                .collect())
+        }
+    }
+
+    mod any {
+        use std::collections::HashMap;
+
+        use super::*;
+
+        struct Any<T> {
+            inner: std::collections::HashMap<Fp, T>,
+        }
+
+        impl<T> super::CreateAll for Any<T> {
+            type Value = T;
+
+            fn empty() -> Self {
+                Self {
+                    inner: HashMap::with_capacity(128),
+                }
+            }
+
+            fn find(&self, key: Fp) -> Option<&Self::Value> {
+                self.inner.get(&key)
+            }
+
+            fn set(&mut self, key: Fp, value: Self::Value) {
+                self.inner.insert(key, value);
+            }
+        }
+    }
+
+    pub mod last {
+        use super::*;
+
+        pub struct Last<T> {
+            inner: Option<(Fp, T)>,
+        }
+
+        impl<T> CreateAll for Last<T> {
+            type Value = T;
+
+            fn empty() -> Self {
+                Self { inner: None }
+            }
+
+            fn find(&self, key: Fp) -> Option<&Self::Value> {
+                match self.inner.as_ref() {
+                    Some((k, value)) if k == &key => Some(value),
+                    _ => None,
+                }
+            }
+
+            fn set(&mut self, key: Fp, value: Self::Value) {
+                self.inner = Some((key, value));
+            }
         }
     }
 }
@@ -2953,7 +3070,7 @@ impl UserCommand {
         }
     }
 
-    pub fn extract_vks(&self) -> Vec<VerificationKey> {
+    pub fn extract_vks(&self) -> Vec<WithHash<VerificationKey>> {
         match self {
             UserCommand::SignedCommand(_) => vec![],
             UserCommand::ZkAppCommand(zkapp) => zkapp.extract_vks(),
@@ -2979,7 +3096,7 @@ impl UserCommand {
         find_vk: F,
     ) -> Result<verifiable::UserCommand, String>
     where
-        F: Fn(Fp, &AccountId) -> Result<VerificationKey, String>,
+        F: Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
     {
         use verifiable::UserCommand::{SignedCommand, ZkAppCommand};
         match self {
@@ -2990,15 +3107,63 @@ impl UserCommand {
         }
     }
 
-    pub fn to_all_verifiable<F>(
+    pub fn to_all_verifiable<S, F>(
         ts: Vec<WithStatus<Self>>,
         find_vk: F,
     ) -> Result<Vec<WithStatus<verifiable::UserCommand>>, String>
     where
-        F: Fn(Fp, &AccountId) -> Result<VerificationKey, String>,
+        F: Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
+        S: zkapp_command::Strategy,
     {
         // https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_base/user_command.ml#L180
-        todo!()
+        use itertools::Either;
+
+        let (izk_cmds, is_cmds) = ts
+            .into_iter()
+            .enumerate()
+            .partition_map::<Vec<_>, Vec<_>, _, _, _>(|(i, cmd)| match cmd.data {
+                UserCommand::ZkAppCommand(c) => Either::Left((
+                    i,
+                    WithStatus {
+                        data: c,
+                        status: cmd.status,
+                    },
+                )),
+                UserCommand::SignedCommand(c) => Either::Right((
+                    i,
+                    WithStatus {
+                        data: c,
+                        status: cmd.status,
+                    },
+                )),
+            });
+
+        // then unzip the indices
+        let (ixs, zk_cmds): (Vec<_>, Vec<_>) = izk_cmds.into_iter().unzip();
+
+        // then we verify the zkapp commands
+        let vzk_cmds = S::create_all(zk_cmds, find_vk)?;
+
+        // rezip indices
+        let ivzk_cmds: Vec<_> = ixs.into_iter().zip(vzk_cmds).collect();
+
+        // Put them back in with a sort by index (un-partition)
+
+        use verifiable::UserCommand::{SignedCommand, ZkAppCommand};
+        let mut ivs: Vec<_> = is_cmds
+            .into_iter()
+            .map(|(i, cmd)| (i, cmd.into_map(SignedCommand)))
+            .chain(
+                ivzk_cmds
+                    .into_iter()
+                    .map(|(i, cmd)| (i, cmd.into_map(|cmd| ZkAppCommand(Box::new(cmd))))),
+            )
+            .collect();
+
+        ivs.sort_unstable_by_key(|(i, _)| *i);
+
+        // Drop the indices
+        Ok(ivs.into_iter().unzip::<_, _, Vec<_>, _>().1)
     }
 }
 

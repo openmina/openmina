@@ -265,6 +265,16 @@ impl Slot {
         let mut rng = rand::thread_rng();
         Self(rng.gen::<u32>() % 10_000)
     }
+
+    pub fn to_field(&self) -> mina_hasher::Fp {
+        let int = self.0 as u64;
+
+        let mut bigint: [u64; 4] = [0; 4];
+        bigint[0] = int;
+
+        let bigint = ark_ff::BigInteger256(bigint);
+        mina_hasher::Fp::from(bigint)
+    }
 }
 
 macro_rules! impl_number {
@@ -348,10 +358,6 @@ macro_rules! impl_number {
 
             pub fn max() -> Self {
                 <Self as MinMax>::max()
-            }
-
-            pub fn to_field(&self) -> mina_hasher::Fp {
-                todo!()
             }
 
             /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/currency/currency.ml#L124

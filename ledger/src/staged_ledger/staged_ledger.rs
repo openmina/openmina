@@ -1157,10 +1157,13 @@ impl StagedLedger {
         verifier: &Verifier,
         cs: Vec<WithStatus<UserCommand>>,
     ) -> Result<Vec<valid::UserCommand>, VerifierError> {
-        let cs = UserCommand::to_all_verifiable(cs, |expected_vk_hash, account_id| {
-            find_vk_via_ledger(ledger.clone(), expected_vk_hash, account_id)
-        })
-        .unwrap(); // TODO: No unwrap
+        use scan_state::transaction_logic::zkapp_command::last::Last;
+
+        let cs =
+            UserCommand::to_all_verifiable::<Last<_>, _>(cs, |expected_vk_hash, account_id| {
+                find_vk_via_ledger(ledger.clone(), expected_vk_hash, account_id)
+            })
+            .unwrap(); // TODO: No unwrap
 
         let xs = verifier.verify_commands(cs)?;
 
