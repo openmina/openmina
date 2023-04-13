@@ -514,7 +514,7 @@ checksum = "b9ccdd8f2a161be9bd5c023df56f1b2a0bd1d83872ae53b71a84a12c9bf6e842"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.13",
+ "syn 2.0.14",
 ]
 
 [[package]]
@@ -835,6 +835,7 @@ dependencies = [
 name = "cli"
 version = "0.1.0"
 dependencies = [
+ "bytes",
  "console",
  "hex",
  "rand 0.7.3",
@@ -1160,7 +1161,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "scratch",
- "syn 2.0.13",
+ "syn 2.0.14",
 ]
 
 [[package]]
@@ -1177,7 +1178,7 @@ checksum = "2345488264226bf682893e25de0769f3360aac9957980ec49361b083ddaa5bc5"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.13",
+ "syn 2.0.14",
 ]
 
 [[package]]
@@ -1678,7 +1679,7 @@ checksum = "89ca545a94061b6365f2c7355b4b32bd20df3ff95f02da9329b34ccc3bd6ee72"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.13",
+ "syn 2.0.14",
 ]
 
 [[package]]
@@ -1837,7 +1838,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#2f2113acb6dce522ffae30ab0bebc13dc7cfc3cb"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2279,7 +2280,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#2f2113acb6dce522ffae30ab0bebc13dc7cfc3cb"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2332,7 +2333,7 @@ version = "0.1.0"
 dependencies = [
  "derive_more",
  "libp2p",
- "mina-p2p-messages 0.6.4 (git+https://github.com/openmina/mina-p2p-messages-rs?branch=new-types-feb-23)",
+ "mina-p2p-messages",
  "node-p2p",
  "num_enum",
  "redux",
@@ -3043,7 +3044,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#2f2113acb6dce522ffae30ab0bebc13dc7cfc3cb"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3052,7 +3053,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#2f2113acb6dce522ffae30ab0bebc13dc7cfc3cb"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -3060,29 +3061,6 @@ dependencies = [
  "mina-poseidon",
  "o1-utils",
  "serde",
-]
-
-[[package]]
-name = "mina-p2p-messages"
-version = "0.6.4"
-source = "git+https://github.com/openmina/mina-p2p-messages-rs?branch=main#d6196bd717ce3b418a2a14ee8f4076ef186dd58b"
-dependencies = [
- "ark-ff",
- "base64 0.13.1",
- "binprot",
- "binprot_derive",
- "blake2",
- "bs58",
- "derive_more",
- "hex",
- "mina-curves",
- "mina-hasher",
- "mina-signer",
- "o1-utils",
- "serde",
- "serde_json",
- "sha2 0.10.6",
- "thiserror",
 ]
 
 [[package]]
@@ -3111,7 +3089,7 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#2f2113acb6dce522ffae30ab0bebc13dc7cfc3cb"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3128,7 +3106,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#2f2113acb6dce522ffae30ab0bebc13dc7cfc3cb"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3349,7 +3327,7 @@ dependencies = [
  "binprot",
  "derive_more",
  "libp2p",
- "mina-p2p-messages 0.6.4 (git+https://github.com/openmina/mina-p2p-messages-rs?branch=new-types-feb-23)",
+ "mina-p2p-messages",
  "redux",
  "serde",
  "shared",
@@ -3451,7 +3429,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#2f2113acb6dce522ffae30ab0bebc13dc7cfc3cb"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3524,7 +3502,7 @@ dependencies = [
  "ecies-ed25519",
  "ed25519-dalek 2.0.0-rc.2",
  "hyper",
- "mina-p2p-messages 0.6.4 (git+https://github.com/openmina/mina-p2p-messages-rs?branch=new-types-feb-23)",
+ "mina-p2p-messages",
  "redux",
  "serde",
  "serde_json",
@@ -3758,7 +3736,7 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#2f2113acb6dce522ffae30ab0bebc13dc7cfc3cb"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3909,9 +3887,9 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.11.8"
+version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e48e50df39172a3e7eb17e14642445da64996989bc212b583015435d39a58537"
+checksum = "0b82eaa1d779e9a4bc1c3217db8ffbeabaae1dca241bf70183242128d48681cd"
 dependencies = [
  "bytes",
  "prost-derive",
@@ -3919,9 +3897,9 @@ dependencies = [
 
 [[package]]
 name = "prost-build"
-version = "0.11.8"
+version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c828f93f5ca4826f97fedcbd3f9a536c16b12cff3dbbb4a007f932bbad95b12"
+checksum = "119533552c9a7ffacc21e099c24a0ac8bb19c2a2a3f363de84cd9b844feab270"
 dependencies = [
  "bytes",
  "heck 0.4.1",
@@ -3953,9 +3931,9 @@ dependencies = [
 
 [[package]]
 name = "prost-derive"
-version = "0.11.8"
+version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ea9b0f8cbe5e15a8a042d030bd96668db28ecb567ec37d691971ff5731d2b1b"
+checksum = "e5d2d8d10f3c6ded6da8b05b5fb3b8a5082514344d56c9f871412d29b4e075b4"
 dependencies = [
  "anyhow",
  "itertools",
@@ -3966,9 +3944,9 @@ dependencies = [
 
 [[package]]
 name = "prost-types"
-version = "0.11.8"
+version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "379119666929a1afd7a043aa6cf96fa67a6dce9af60c88095a4686dbce4c9c88"
+checksum = "213622a1460818959ac1181aaeb2dc9c7f63df720db7d788b3e24eacd1983e13"
 dependencies = [
  "prost",
 ]
@@ -4477,14 +4455,14 @@ checksum = "291a097c63d8497e00160b166a967a4a79c64f3facdd01cbd7502231688d77df"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.13",
+ "syn 2.0.14",
 ]
 
 [[package]]
 name = "serde_json"
-version = "1.0.95"
+version = "1.0.96"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d721eca97ac802aa7777b701877c8004d950fc142651367300d21c1cc0194744"
+checksum = "057d394a50403bcac12672b2b18fb387ab6d289d957dab67dd201875391e52f1"
 dependencies = [
  "itoa",
  "ryu",
@@ -4603,9 +4581,9 @@ dependencies = [
 
 [[package]]
 name = "sha3"
-version = "0.10.6"
+version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdf0c33fae925bdc080598b84bc15c55e7b9a4a43b3c704da051f977469691c9"
+checksum = "54c2bb1a323307527314a36bfb73f24febb08ce2b8a554bf4ffd6f51ad15198c"
 dependencies = [
  "digest 0.10.6",
  "keccak",
@@ -4625,7 +4603,7 @@ name = "shared"
 version = "0.1.0"
 dependencies = [
  "mina-hasher",
- "mina-p2p-messages 0.6.4 (git+https://github.com/openmina/mina-p2p-messages-rs?branch=new-types-feb-23)",
+ "mina-p2p-messages",
  "redux",
  "serde",
  "slab",
@@ -4697,7 +4675,7 @@ dependencies = [
  "kimchi",
  "mina-curves",
  "mina-hasher",
- "mina-p2p-messages 0.6.4 (git+https://github.com/openmina/mina-p2p-messages-rs?branch=new-types-feb-23)",
+ "mina-p2p-messages",
  "mina-poseidon",
  "mina-signer",
  "num-bigint",
@@ -4719,8 +4697,14 @@ dependencies = [
 name = "snarker"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "binprot",
+ "binprot_derive",
+ "bs58",
  "derive_more",
- "mina-p2p-messages 0.6.4 (git+https://github.com/openmina/mina-p2p-messages-rs?branch=main)",
+ "mina-hasher",
+ "mina-p2p-messages",
+ "mina-signer",
  "num_enum",
  "p2p",
  "redux",
@@ -4909,9 +4893,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.13"
+version = "2.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c9da457c5285ac1f936ebd076af6dac17a61cfe7826f2076b4d015cf47bc8ec"
+checksum = "fcf316d5356ed6847742d036f8a39c3b8435cac10bd528a4bd461928a6ab34d5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5005,7 +4989,7 @@ checksum = "f9456a42c5b0d803c8cd86e73dd7cc9edd429499f37a3550d286d5e86720569f"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.13",
+ "syn 2.0.14",
 ]
 
 [[package]]
@@ -5087,7 +5071,7 @@ checksum = "61a573bdc87985e9d6ddeed1b3d864e8a302c847e40d647746df2f1de209d1ce"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.13",
+ "syn 2.0.14",
 ]
 
 [[package]]
@@ -5275,7 +5259,7 @@ dependencies = [
 [[package]]
 name = "turshi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#422259be91f72297a464843ab3ffcf8103431840"
+source = "git+https://github.com/openmina/proof-systems?branch=openmina-newtypes#2f2113acb6dce522ffae30ab0bebc13dc7cfc3cb"
 dependencies = [
  "ark-ff",
  "hex",
@@ -5533,7 +5517,7 @@ dependencies = [
  "lib",
  "libp2p",
  "mina-hasher",
- "mina-p2p-messages 0.6.4 (git+https://github.com/openmina/mina-p2p-messages-rs?branch=new-types-feb-23)",
+ "mina-p2p-messages",
  "mina-signer",
  "rand 0.8.5",
  "rayon",
@@ -6270,5 +6254,5 @@ checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.13",
+ "syn 2.0.14",
 ]

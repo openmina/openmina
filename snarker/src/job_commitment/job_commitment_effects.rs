@@ -1,15 +1,28 @@
-use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentResponseSendAction;
+use crate::p2p::channels::snark_job_commitment::{
+    P2pChannelsSnarkJobCommitmentResponseSendAction, SnarkJobCommitment,
+};
 use crate::{Service, Store};
 
-use super::{JobCommitmentAction, JobCommitmentActionWithMeta, JobCommitmentP2pSendAction};
+use super::{
+    JobCommitmentAction, JobCommitmentActionWithMeta, JobCommitmentAddAction,
+    JobCommitmentP2pSendAction,
+};
 
 pub fn job_commitment_effects<S: Service>(
     store: &mut Store<S>,
     action: JobCommitmentActionWithMeta,
 ) {
-    let (action, _) = action.split();
+    let (action, meta) = action.split();
 
     match action {
+        JobCommitmentAction::Create(a) => {
+            let timestamp_ms = meta.time_as_nanos() / 1_000_000;
+            let pub_key = store.state().config.public_key.clone();
+            store.dispatch(JobCommitmentAddAction {
+                commitment: SnarkJobCommitment::new(timestamp_ms as u32, a.job_id, pub_key.into()),
+                sender: store.state().p2p.config.identity_pub_key.peer_id(),
+            });
+        }
         JobCommitmentAction::Add(_) => {}
         JobCommitmentAction::P2pSendAll(_) => {
             for peer_id in store.state().p2p.ready_peers() {

@@ -39,7 +39,7 @@ pub struct SnarkJobCommitment {
     timestamp: u32,
     pub job_id: SnarkJobId,
     pub snarker: NonZeroCurvePoint,
-    pub signature: MinaBaseSignatureStableV1,
+    // pub signature: MinaBaseSignatureStableV1,
 }
 
 impl SnarkJobCommitment {
@@ -48,7 +48,8 @@ impl SnarkJobCommitment {
             timestamp,
             job_id,
             snarker,
-            signature: todo!(),
+            // TODO(binier): SEC have the snarkers sign the commitment.
+            // signature: todo!(),
         }
     }
 
@@ -60,15 +61,23 @@ impl SnarkJobCommitment {
 #[derive(
     BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
 )]
-pub struct SnarkJobId {
-    pub source: SnarkJobLedgerHashes,
-    pub target: SnarkJobLedgerHashes,
+pub enum SnarkJobId {
+    One(LedgerHashTransition),
+    Two(LedgerHashTransition, LedgerHashTransition),
 }
 
 #[derive(
     BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
 )]
-pub struct SnarkJobLedgerHashes {
+pub struct LedgerHashTransition {
+    pub source: LedgerHashTransitionPasses,
+    pub target: LedgerHashTransitionPasses,
+}
+
+#[derive(
+    BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
+)]
+pub struct LedgerHashTransitionPasses {
     pub first_pass_ledger: LedgerHash,
     pub second_pass_ledger: LedgerHash,
 }

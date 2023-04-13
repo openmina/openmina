@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::p2p::channels::snark_job_commitment::SnarkJobId;
 use crate::p2p::connection::P2pConnectionResponse;
 use crate::State;
 
@@ -12,6 +13,8 @@ pub enum RespondError {
     UnknownRpcId,
     #[error("unexpected response type")]
     UnexpectedResponseType,
+    #[error("responding failed")]
+    RespondingFailed,
 }
 
 pub trait RpcService: redux::Service {
@@ -35,5 +38,10 @@ pub trait RpcService: redux::Service {
         &mut self,
         rpc_id: RpcId,
         response: Result<(), String>,
+    ) -> Result<(), RespondError>;
+    fn respond_snarker_job_pick_and_commit(
+        &mut self,
+        rpc_id: RpcId,
+        response: Option<SnarkJobId>,
     ) -> Result<(), RespondError>;
 }

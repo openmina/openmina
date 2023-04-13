@@ -5,7 +5,7 @@ mod action_kind;
 pub use action_kind::ActionKind;
 
 mod config;
-pub use config::Config;
+pub use config::{Config, SnarkerConfig};
 
 mod state;
 pub use state::State;
@@ -19,6 +19,7 @@ pub use effects::effects;
 pub mod service;
 pub use service::Service;
 
+pub mod account;
 pub mod event_source;
 pub mod job_commitment;
 pub mod logger;

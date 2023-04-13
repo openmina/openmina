@@ -6,8 +6,8 @@ use crate::event_source::{
     EventSourceWaitForEventsAction, EventSourceWaitTimeoutAction,
 };
 use crate::job_commitment::{
-    JobCommitmentAction, JobCommitmentAddAction, JobCommitmentP2pSendAction,
-    JobCommitmentP2pSendAllAction,
+    JobCommitmentAction, JobCommitmentAddAction, JobCommitmentCreateAction,
+    JobCommitmentP2pSendAction, JobCommitmentP2pSendAllAction,
 };
 use crate::p2p::channels::snark_job_commitment::{
     P2pChannelsSnarkJobCommitmentAction, P2pChannelsSnarkJobCommitmentInitAction,
@@ -51,7 +51,7 @@ use crate::rpc::{
     RpcP2pConnectionIncomingPendingAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
-    RpcP2pConnectionOutgoingSuccessAction,
+    RpcP2pConnectionOutgoingSuccessAction, RpcSnarkerJobPickAndCommitAction,
 };
 use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 
@@ -67,6 +67,7 @@ pub enum ActionKind {
     EventSourceWaitForEvents,
     EventSourceWaitTimeout,
     JobCommitmentAdd,
+    JobCommitmentCreate,
     JobCommitmentP2pSend,
     JobCommitmentP2pSendAll,
     P2pChannelsMessageReceived,
@@ -120,6 +121,7 @@ pub enum ActionKind {
     RpcP2pConnectionOutgoingInit,
     RpcP2pConnectionOutgoingPending,
     RpcP2pConnectionOutgoingSuccess,
+    RpcSnarkerJobPickAndCommit,
 }
 
 impl ActionKindGet for Action {
@@ -165,6 +167,7 @@ impl ActionKindGet for P2pAction {
 impl ActionKindGet for JobCommitmentAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::Create(a) => a.kind(),
             Self::Add(a) => a.kind(),
             Self::P2pSendAll(a) => a.kind(),
             Self::P2pSend(a) => a.kind(),
@@ -186,6 +189,7 @@ impl ActionKindGet for RpcAction {
             Self::P2pConnectionIncomingRespond(a) => a.kind(),
             Self::P2pConnectionIncomingError(a) => a.kind(),
             Self::P2pConnectionIncomingSuccess(a) => a.kind(),
+            Self::SnarkerJobPickAndCommit(a) => a.kind(),
             Self::Finish(a) => a.kind(),
         }
     }
@@ -245,6 +249,12 @@ impl ActionKindGet for P2pChannelsAction {
             Self::MessageReceived(a) => a.kind(),
             Self::SnarkJobCommitment(a) => a.kind(),
         }
+    }
+}
+
+impl ActionKindGet for JobCommitmentCreateAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::JobCommitmentCreate
     }
 }
 
@@ -329,6 +339,12 @@ impl ActionKindGet for RpcP2pConnectionIncomingErrorAction {
 impl ActionKindGet for RpcP2pConnectionIncomingSuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::RpcP2pConnectionIncomingSuccess
+    }
+}
+
+impl ActionKindGet for RpcSnarkerJobPickAndCommitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::RpcSnarkerJobPickAndCommit
     }
 }
 

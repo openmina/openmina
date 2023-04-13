@@ -6,6 +6,7 @@ impl JobCommitmentsState {
     pub fn reducer(&mut self, action: JobCommitmentActionWithMetaRef<'_>) {
         let (action, _meta) = action.split();
         match action {
+            JobCommitmentAction::Create(_) => {}
             JobCommitmentAction::Add(a) => {
                 self.insert(JobCommitment {
                     commitment: a.commitment.clone(),

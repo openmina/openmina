@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::snark_job_commitment::SnarkJobCommitment;
+use crate::p2p::channels::snark_job_commitment::SnarkJobId;
 use crate::p2p::PeerId;
 
 pub type JobCommitmentActionWithMeta = redux::ActionWithMeta<JobCommitmentAction>;
@@ -8,9 +9,21 @@ pub type JobCommitmentActionWithMetaRef<'a> = redux::ActionWithMeta<&'a JobCommi
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum JobCommitmentAction {
+    Create(JobCommitmentCreateAction),
     Add(JobCommitmentAddAction),
     P2pSendAll(JobCommitmentP2pSendAllAction),
     P2pSend(JobCommitmentP2pSendAction),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct JobCommitmentCreateAction {
+    pub job_id: SnarkJobId,
+}
+
+impl redux::EnablingCondition<crate::State> for JobCommitmentCreateAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state.job_commitments.should_create_commitment(&self.job_id)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -54,6 +67,7 @@ macro_rules! impl_into_global_action {
     };
 }
 
+impl_into_global_action!(JobCommitmentCreateAction);
 impl_into_global_action!(JobCommitmentAddAction);
 impl_into_global_action!(JobCommitmentP2pSendAllAction);
 impl_into_global_action!(JobCommitmentP2pSendAction);

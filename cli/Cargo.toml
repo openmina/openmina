@@ -23,3 +23,4 @@ structopt = "0.3.26"
 shared = { path = "../node/shared" }
 snark = { path = "../node/snark" }
 snarker = { path = "../snarker" }
+bytes = "1.4.0"

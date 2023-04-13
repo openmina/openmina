@@ -1,6 +1,7 @@
 use redux::{ActionMeta, Timestamp};
 use serde::{Deserialize, Serialize};
 
+use crate::config::SnarkerConfig;
 pub use crate::job_commitment::JobCommitmentsState;
 pub use crate::p2p::P2pState;
 pub use crate::rpc::RpcState;
@@ -9,6 +10,8 @@ pub use crate::Config;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct State {
+    pub config: SnarkerConfig,
+
     pub p2p: P2pState,
     pub job_commitments: JobCommitmentsState,
     pub rpc: RpcState,
@@ -21,6 +24,8 @@ pub struct State {
 impl State {
     pub fn new(config: Config) -> Self {
         Self {
+            config: config.snarker,
+
             p2p: P2pState::new(config.p2p),
             job_commitments: JobCommitmentsState::new(),
             rpc: RpcState::new(),
