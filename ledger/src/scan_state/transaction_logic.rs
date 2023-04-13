@@ -175,6 +175,12 @@ pub enum TransactionStatus {
     Failed(Vec<Vec<TransactionFailure>>),
 }
 
+impl TransactionStatus {
+    fn is_applied(&self) -> bool {
+        matches!(self, Self::Applied)
+    }
+}
+
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_status.ml#L6
 #[derive(Debug, Clone)]
 pub struct WithStatus<T> {
@@ -2406,6 +2412,39 @@ pub mod zkapp_command {
             self.map_to_impl(&fun)
         }
 
+        fn try_map_to_impl<F, E, AnotherAccUpdate: Clone>(
+            &self,
+            fun: &mut F,
+        ) -> Result<CallForest<AnotherAccUpdate>, E>
+        where
+            F: FnMut(&AccUpdate) -> Result<AnotherAccUpdate, E>,
+        {
+            Ok(CallForest::<AnotherAccUpdate>(
+                self.iter()
+                    .map(|item| {
+                        Ok(WithStackHash::<AnotherAccUpdate> {
+                            elt: Tree::<AnotherAccUpdate> {
+                                account_update: fun(&item.elt.account_update)?,
+                                account_update_digest: item.elt.account_update_digest,
+                                calls: item.elt.calls.try_map_to_impl(fun)?,
+                            },
+                            stack_hash: item.stack_hash,
+                        })
+                    })
+                    .collect::<Result<_, E>>()?,
+            ))
+        }
+
+        pub fn try_map_to<F, E, AnotherAccUpdate: Clone>(
+            &self,
+            mut fun: F,
+        ) -> Result<CallForest<AnotherAccUpdate>, E>
+        where
+            F: FnMut(&AccUpdate) -> Result<AnotherAccUpdate, E>,
+        {
+            self.try_map_to_impl(&mut fun)
+        }
+
         fn to_account_updates_impl(&self, accounts: &mut Vec<AccUpdate>) {
             // TODO: Check iteration order in OCaml
             for elem in self.iter() {
@@ -2607,6 +2646,8 @@ pub mod zkapp_command {
     }
 
     pub mod verifiable {
+        use std::collections::HashMap;
+
         use super::*;
         use crate::VerificationKey;
 
@@ -2618,7 +2659,7 @@ pub mod zkapp_command {
         }
 
         fn ok_if_vk_hash_expected(
-            got: VerificationKey,
+            got: VerificationKey, // TODO: This must be a `WithHash<VerificationKey>`
             expected: Fp,
         ) -> Result<VerificationKey, String> {
             if got.hash() == expected {
@@ -2658,6 +2699,105 @@ pub mod zkapp_command {
                     account_id
                 )),
             }
+        }
+
+        fn check_authorization(p: &AccountUpdate) -> Result<(), String> {
+            use AuthorizationKind as AK;
+            use Control as C;
+
+            match (&p.authorization, &p.body.authorization_kind) {
+                (C::NoneGiven, AK::NoneGiven)
+                | (C::Proof(_), AK::Proof(_))
+                | (C::Signature(_), AK::Signature) => Ok(()),
+                _ => Err(format!(
+                    "Authorization kind does not match the authorization\
+                                 expected={:#?}\
+                                 got={:#?}",
+                    p.body.authorization_kind, p.authorization
+                )),
+            }
+        }
+
+        /// Ensures that there's a verification_key available for all account_updates
+        /// and creates a valid command associating the correct keys with each
+        /// account_id.
+        ///
+        /// If an account_update replaces the verification_key (or deletes it),
+        /// subsequent account_updates use the replaced key instead of looking in the
+        /// ledger for the key (ie set by a previous transaction).
+        pub fn create(
+            zkapp: &super::ZkAppCommand,
+            status: &TransactionStatus,
+            find_vk: impl Fn(Fp, &AccountId) -> Result<VerificationKey, String>,
+        ) -> Result<ZkAppCommand, String> {
+            let super::ZkAppCommand {
+                fee_payer,
+                account_updates,
+                memo,
+            } = zkapp;
+
+            let mut tbl = HashMap::with_capacity(128);
+            // Keep track of the verification keys that have been set so far
+            // during this transaction.
+            let mut vks_overridden = HashMap::with_capacity(128);
+
+            let account_updates = account_updates.try_map_to(|p| {
+                let account_id = p.account_id();
+
+                if let SetOrKeep::Set(vk_next) = &p.body.update.verification_key {
+                    vks_overridden.insert(account_id.clone(), Some(vk_next.clone()));
+                }
+
+                check_authorization(p)?;
+
+                match (&p.body.authorization_kind, status.is_applied()) {
+                    (AuthorizationKind::Proof(vk_hash), true) => {
+                        let prioritized_vk = {
+                            // only lookup _past_ vk setting, ie exclude the new one we
+                            // potentially set in this account_update (use the non-'
+                            // vks_overrided) .
+
+                            match vks_overridden.get(&account_id) {
+                                Some(Some(vk)) => {
+                                    ok_if_vk_hash_expected(vk.data.clone(), *vk_hash)?
+                                },
+                                Some(None) => {
+                                    // we explicitly have erased the key
+                                    return Err(format!("No verification key found for proved account \
+                                                        update: the verification key was removed by a \
+                                                        previous account update\
+                                                        account_id={:?}", account_id));
+                                }
+                                None => {
+                                    // we haven't set anything; lookup the vk in the fallback
+                                    find_vk(*vk_hash, &account_id)?
+                                },
+                            }
+                        };
+
+                        // TODO: Don't use `VerificationKey::hash` but `WithHash::hash`
+                        let hash = prioritized_vk.hash();
+                        tbl.insert(account_id, hash);
+
+                        let vk = WithHash {
+                            data: prioritized_vk,
+                            hash,
+                        };
+
+                        Ok((p.clone(), Some(vk)))
+                    },
+
+                    _ => {
+                        Ok((p.clone(), None))
+                    }
+                }
+            })?;
+
+            Ok(ZkAppCommand {
+                fee_payer: fee_payer.clone(),
+                account_updates,
+                memo: memo.clone(),
+            })
         }
     }
 
@@ -2837,44 +2977,17 @@ impl UserCommand {
         &self,
         status: &TransactionStatus,
         find_vk: F,
-    ) -> verifiable::UserCommand
+    ) -> Result<verifiable::UserCommand, String>
     where
-        F: Fn(Fp, &AccountId) -> VerificationKey,
+        F: Fn(Fp, &AccountId) -> Result<VerificationKey, String>,
     {
-        todo!()
-
-        // let find_vk = |acc: &zkapp_command::AccountUpdate| -> Option<VerificationKey> {
-        //     let account_id = acc.account_id();
-        //     let addr = ledger.location_of_account(&account_id)?;
-        //     let account = ledger.get(addr)?;
-        //     account.zkapp.as_ref()?.verification_key.clone()
-        // };
-
-        // match self {
-        //     UserCommand::SignedCommand(cmd) => verifiable::UserCommand::SignedCommand(cmd.clone()),
-        //     UserCommand::ZkAppCommand(cmd) => {
-        //         let zkapp_command::ZkAppCommand {
-        //             fee_payer,
-        //             account_updates,
-        //             memo,
-        //         } = &**cmd;
-
-        //         let zkapp = zkapp_command::verifiable::ZkAppCommand {
-        //             fee_payer: fee_payer.clone(),
-        //             account_updates: account_updates.map_to(|account_update| {
-        //                 let vk_with_hash = find_vk(account_update).map(|vk| {
-        //                     let hash = vk.hash();
-        //                     WithHash { data: vk, hash }
-        //                 });
-
-        //                 (account_update.clone(), vk_with_hash)
-        //             }),
-        //             memo: memo.clone(),
-        //         };
-
-        //         verifiable::UserCommand::ZkAppCommand(Box::new(zkapp))
-        //     }
-        // }
+        use verifiable::UserCommand::{SignedCommand, ZkAppCommand};
+        match self {
+            UserCommand::SignedCommand(cmd) => Ok(SignedCommand(cmd.clone())),
+            UserCommand::ZkAppCommand(zkapp) => Ok(ZkAppCommand(Box::new(
+                zkapp_command::verifiable::create(zkapp, status, find_vk)?,
+            ))),
+        }
     }
 
     pub fn to_all_verifiable<F>(
