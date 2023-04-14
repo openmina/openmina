@@ -532,17 +532,15 @@ mod tests {
 
     #[test]
     fn test_deserialize_account() {
-        let bytes: &[u8] = &[
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 1, 0, 3, 115, 101, 98, 0, 0, 155, 228, 183, 197, 30, 217, 194,
-            228, 82, 71, 39, 128, 95, 211, 111, 82, 32, 251, 252, 112, 167, 73, 246, 38, 35, 176,
-            237, 41, 8, 67, 51, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 0, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0,
-        ];
+        let account = Account::rand();
+        let hash = account.hash();
+
+        let bytes = account.serialize();
 
         elog!("len={:?}", bytes.len());
-        let result: Account = Account::deserialize(bytes);
+        let result: Account = Account::deserialize(&bytes);
         elog!("account={:#?}", result);
+
+        assert_eq!(hash, result.hash());
     }
 }

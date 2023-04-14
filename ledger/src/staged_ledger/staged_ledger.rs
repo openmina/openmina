@@ -5543,10 +5543,7 @@ mod tests_ocaml {
                     false,
                 );
 
-                let expected = format!(
-                    "Error when applying transaction: {:?}",
-                    TransactionFailure::SourceInsufficientBalance.to_string()
-                );
+                let expected = TransactionFailure::SourceInsufficientBalance.to_string();
 
                 assert!(
                     matches!(&res, Err(StagedLedgerError::Unexpected(s)) if {
