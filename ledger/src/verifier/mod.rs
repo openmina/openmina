@@ -85,12 +85,16 @@ pub mod common {
             ZkAppCommand(cmd) => {
                 // TODO: Implement rest
 
-                match zkapp_command::valid::of_verifiable(*cmd) {
-                    Some(cmd) => {
-                        CheckResult::Valid(valid::UserCommand::ZkAppCommand(Box::new(cmd)))
-                    }
-                    None => CheckResult::InvalidProof, // TODO
-                }
+                let zkapp_command = zkapp_command::valid::of_verifiable(*cmd);
+
+                CheckResult::Valid(valid::UserCommand::ZkAppCommand(Box::new(zkapp_command)))
+
+                // match  {
+                //     Some(cmd) => {
+                //         CheckResult::Valid(valid::UserCommand::ZkAppCommand(Box::new(cmd)))
+                //     }
+                //     None => CheckResult::InvalidProof, // TODO
+                // }
             }
         }
     }

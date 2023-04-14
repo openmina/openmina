@@ -205,7 +205,7 @@ impl Balance {
     }
 
     pub fn of_nanomina_int_exn(int: u64) -> Self {
-        todo!()
+        Self::from_u64(int)
     }
 }
 

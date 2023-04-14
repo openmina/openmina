@@ -185,8 +185,10 @@ fn zkapp_command_with_ledger(
             global_slot: None,
         });
 
+    use crate::scan_state::transaction_logic::TransactionStatus::Applied;
+
     let zkapp_command =
-        zkapp_command::valid::to_valid(zkapp_command, &ledger.clone(), |hash, account_id| {
+        zkapp_command::valid::to_valid(zkapp_command, &Applied, |hash, account_id| {
             verifiable::find_vk_via_ledger(ledger.clone(), hash, account_id)
         })
         .unwrap();
@@ -260,8 +262,10 @@ pub fn sequence_zkapp_command_with_ledger(
             vk: vk.as_ref(),
             global_slot: None,
         });
+
+        use crate::scan_state::transaction_logic::TransactionStatus::Applied;
         let zkapp_command =
-            zkapp_command::valid::to_valid(zkapp_command, &ledger.clone(), |hash, account_id| {
+            zkapp_command::valid::to_valid(zkapp_command, &Applied, |hash, account_id| {
                 verifiable::find_vk_via_ledger(ledger.clone(), hash, account_id)
             })
             .unwrap();

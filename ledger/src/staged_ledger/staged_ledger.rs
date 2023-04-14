@@ -3188,7 +3188,7 @@ mod tests_ocaml {
 
         assert_eq!(
             hash.to_decimal(),
-            "19499466121496341533850180868238667461929019416054840058730806488105861126057"
+            "24718010481936203473382403546802077371547164075927562679248188951657451653497"
         );
 
         WithHash { data: vk, hash }
@@ -3218,9 +3218,11 @@ mod tests_ocaml {
                 let mut zkapp = zkapp.forget();
                 zkapp_command_builder::replace_authorizations(None, &keymap, &mut zkapp);
 
+                use crate::scan_state::transaction_logic::TransactionStatus::Applied;
+
                 let valid_zkapp_command_with_auths = zkapp_command::valid::to_valid(
                     zkapp,
-                    &ledger.clone(),
+                    &Applied,
                     |expected_vk_hash, account_id| {
                         find_vk_via_ledger(ledger.clone(), expected_vk_hash, account_id)
                     },

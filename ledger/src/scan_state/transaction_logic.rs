@@ -2808,6 +2808,8 @@ pub mod zkapp_command {
     }
 
     pub mod valid {
+        use crate::scan_state::transaction_logic::zkapp_command::verifiable::create;
+
         use super::*;
 
         #[derive(Clone, Debug, PartialEq)]
@@ -2822,19 +2824,19 @@ pub mod zkapp_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/zkapp_command.ml#L1499
-        pub fn of_verifiable(cmd: verifiable::ZkAppCommand) -> Option<ZkAppCommand> {
-            Some(ZkAppCommand {
+        pub fn of_verifiable(cmd: verifiable::ZkAppCommand) -> ZkAppCommand {
+            ZkAppCommand {
                 zkapp_command: super::ZkAppCommand::of_verifiable(cmd),
-            })
+            }
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/zkapp_command.ml#L1507
         pub fn to_valid(
             zkapp_command: super::ZkAppCommand,
-            ledger: &impl BaseLedger,
+            status: &TransactionStatus,
             find_vk: impl Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
-        ) -> Option<ZkAppCommand> {
-            todo!()
+        ) -> Result<ZkAppCommand, String> {
+            create(&zkapp_command, status, find_vk).map(of_verifiable)
         }
     }
 
