@@ -751,6 +751,7 @@ where
 
         let mut second_pass_ledger_witness = second_pass_ledger_witness.clone();
         let applied_transaction = apply_transaction_second_pass(
+            constraint_constants,
             &mut second_pass_ledger_witness,
             partially_applied_transaction,
         )?;

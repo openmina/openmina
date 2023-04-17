@@ -300,7 +300,9 @@ impl StagedLedger {
             )
         };
 
-        let apply_second_pass = apply_transaction_second_pass;
+        let apply_second_pass = |ledger: &mut Mask, tx: TransactionPartiallyApplied<Mask>| {
+            apply_transaction_second_pass(constraint_constants, ledger, tx)
+        };
 
         let apply_first_pass_sparse_ledger =
             |global_slot: Slot,
@@ -572,8 +574,11 @@ impl StagedLedger {
         let second_pass_ledger_source_hash = ledger.merkle_root();
         let ledger_witness =
             SparseLedger::of_ledger_subset_exn(ledger.clone(), &pre_stmt.accounts_accessed);
-        let applied_txn =
-            apply_transaction_second_pass(&mut ledger, pre_stmt.partially_applied_transaction)?;
+        let applied_txn = apply_transaction_second_pass(
+            constraint_constants,
+            &mut ledger,
+            pre_stmt.partially_applied_transaction,
+        )?;
 
         let second_pass_ledger_target_hash = ledger.merkle_root();
         let supply_increase = applied_txn.supply_increase(constraint_constants)?;
@@ -2848,7 +2853,10 @@ mod tests_ocaml {
                             )
                         };
 
-                    let apply_second_pass = apply_transaction_second_pass;
+                    let apply_second_pass =
+                        |ledger: &mut Mask, tx: TransactionPartiallyApplied<Mask>| {
+                            apply_transaction_second_pass(&CONSTRAINT_CONSTANTS, ledger, tx)
+                        };
 
                     let apply_first_pass_sparse_ledger =
                         |global_slot: Slot,

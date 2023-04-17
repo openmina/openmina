@@ -310,7 +310,7 @@ pub fn unmake_zkapp(a: Account) -> Account {
 pub fn apply<L>(
     constraint_constants: &ConstraintConstants,
     is_start: IsStart,
-    _h: Handler<L>,
+    _h: &Handler<L>,
     (global_state, local_state): (GlobalState<L>, LocalStateEnv<L>),
 ) -> (GlobalState<L>, LocalStateEnv<L>)
 where
@@ -1154,7 +1154,7 @@ where
 
 pub fn step<L>(
     constraint_constants: &ConstraintConstants,
-    h: Handler<L>,
+    h: &Handler<L>,
     state: (GlobalState<L>, LocalStateEnv<L>),
 ) -> (GlobalState<L>, LocalStateEnv<L>)
 where
@@ -1166,7 +1166,7 @@ where
 pub fn start<L>(
     constraint_constants: &ConstraintConstants,
     start_data: StartData,
-    h: Handler<L>,
+    h: &Handler<L>,
     state: (GlobalState<L>, LocalStateEnv<L>),
 ) -> (GlobalState<L>, LocalStateEnv<L>)
 where
