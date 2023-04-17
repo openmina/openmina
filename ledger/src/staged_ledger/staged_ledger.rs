@@ -3356,6 +3356,44 @@ mod tests_ocaml {
             |snarked_ledger, sl, test_mask| {
                 let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
 
+                test_simple(TestSimpleParams {
+                    global_slot,
+                    account_ids_to_check: account_ids,
+                    cmds: zkapps,
+                    cmd_iters,
+                    sl,
+                    expected_proof_count: None,
+                    allow_failure: Some(true),
+                    check_snarked_ledger_transition: None,
+                    snarked_ledger,
+                    test_mask,
+                    provers: NumProvers::Many,
+                    stmt_to_work: stmt_to_work_random_prover,
+                })
+            },
+        );
+    }
+
+    /// Max throughput-ledger proof count-fixed blocks (zkApps)
+    #[test]
+    fn max_throughput_ledger_proof_count_fixed_blocks_zkapp() {
+        const EXPECTED_PROOF_COUNT: usize = 3;
+
+        let now = std::time::Instant::now();
+
+        let (ledger, zkapps, cmd_iters) = gen_zkapps_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
+        let global_slot = Slot::gen_small();
+
+        eprintln!("generated in {:?}", now.elapsed());
+
+        async_with_given_ledger(
+            &LedgerInitialState { state: vec![] },
+            zkapps.clone(),
+            cmd_iters.clone(),
+            ledger.clone(),
+            |snarked_ledger, sl, test_mask| {
+                let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
+
                 test_simple(
                     TestSimpleParams {
                         global_slot,
@@ -3363,9 +3401,9 @@ mod tests_ocaml {
                         cmds: zkapps,
                         cmd_iters,
                         sl,
-                        expected_proof_count: None,
-                        allow_failure: Some(true),
-                        check_snarked_ledger_transition: None,
+                        expected_proof_count: Some(EXPECTED_PROOF_COUNT),
+                        allow_failure: None,
+                        check_snarked_ledger_transition: Some(true),
                         snarked_ledger,
                         test_mask,
                         provers: NumProvers::Many,
