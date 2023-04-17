@@ -2398,7 +2398,7 @@ mod tests_ocaml {
         mask: Mask,
         fun: F,
     ) where
-        F: Fn(SnarkedLedger, StagedLedger, Mask) -> R + std::panic::UnwindSafe,
+        F: FnOnce(SnarkedLedger, StagedLedger, Mask) -> R + std::panic::UnwindSafe,
     {
         match std::panic::catch_unwind(move || {
             let test_mask = mask.make_child();
@@ -2438,7 +2438,7 @@ mod tests_ocaml {
         cmd_iters: Vec<Option<usize>>,
         fun: F,
     ) where
-        F: Fn(SnarkedLedger, StagedLedger, Mask) -> R + std::panic::UnwindSafe,
+        F: FnOnce(SnarkedLedger, StagedLedger, Mask) -> R + std::panic::UnwindSafe,
     {
         let mut ephemeral_ledger = Mask::new_unattached(CONSTRAINT_CONSTANTS.ledger_depth as usize);
 
@@ -2731,15 +2731,12 @@ mod tests_ocaml {
         scan_state::protocol_state::hashes(state)
     }
 
-    /// Generic test framework.
-    ///
-    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2427
-    fn test_simple<F>(
+    struct TestSimpleParams<F: Fn(&work::Statement) -> Option<work::Checked>> {
         global_slot: Slot,
         account_ids_to_check: Vec<AccountId>,
         cmds: Vec<valid::UserCommand>,
         cmd_iters: Vec<Option<usize>>,
-        mut sl: StagedLedger,
+        sl: StagedLedger,
         // Number of ledger proofs expected
         expected_proof_count: Option<usize>,
         allow_failure: Option<bool>,
@@ -2747,11 +2744,31 @@ mod tests_ocaml {
         snarked_ledger: SnarkedLedger,
         test_mask: Mask,
         provers: NumProvers,
-        stmt_to_work: &F,
-    ) -> StagedLedger
+        stmt_to_work: F,
+    }
+
+    /// Generic test framework.
+    ///
+    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2427
+    fn test_simple<F>(params: TestSimpleParams<F>) -> StagedLedger
     where
         F: Fn(&work::Statement) -> Option<work::Checked>,
     {
+        let TestSimpleParams {
+            global_slot,
+            account_ids_to_check,
+            cmds,
+            cmd_iters,
+            mut sl,
+            expected_proof_count,
+            allow_failure,
+            check_snarked_ledger_transition,
+            snarked_ledger,
+            test_mask,
+            provers,
+            stmt_to_work,
+        } = params;
+
         eprintln!(
             "test_simple ncmds={:?} niters={:?}",
             cmds.len(),
@@ -2796,7 +2813,7 @@ mod tests_ocaml {
                     state_and_body_hash,
                     &mut sl,
                     cmds_this_iter,
-                    stmt_to_work,
+                    &stmt_to_work,
                 );
 
                 for cmd in diff.commands() {
@@ -3047,28 +3064,29 @@ mod tests_ocaml {
     fn max_throughput_ledger_proof_count_fixed_blocks() {
         const EXPECTED_PROOF_COUNT: usize = 3;
 
-        let (ledger_init_state, cmds, iters) = gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
+        let (ledger_init_state, cmds, cmd_iters) =
+            gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
         let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.clone(),
-            iters.clone(),
+            cmd_iters.clone(),
             |snarked_ledger, sl, test_mask| {
-                test_simple(
+                test_simple(TestSimpleParams {
                     global_slot,
-                    init_pks(&ledger_init_state),
-                    cmds.to_vec(),
-                    iters.to_vec(),
+                    account_ids_to_check: init_pks(&ledger_init_state),
+                    cmds,
+                    cmd_iters,
                     sl,
-                    Some(EXPECTED_PROOF_COUNT),
-                    None,
-                    None,
+                    expected_proof_count: Some(EXPECTED_PROOF_COUNT),
+                    allow_failure: None,
+                    check_snarked_ledger_transition: None,
                     snarked_ledger,
                     test_mask,
-                    NumProvers::Many,
-                    &stmt_to_work_random_prover,
-                )
+                    provers: NumProvers::Many,
+                    stmt_to_work: stmt_to_work_random_prover,
+                })
             },
         );
     }
@@ -3078,28 +3096,29 @@ mod tests_ocaml {
     fn max_throughput_ledger_proof_count_fixed_blocks_one_prover() {
         const EXPECTED_PROOF_COUNT: usize = 3;
 
-        let (ledger_init_state, cmds, iters) = gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
+        let (ledger_init_state, cmds, cmd_iters) =
+            gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
         let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.clone(),
-            iters.clone(),
+            cmd_iters.clone(),
             |snarked_ledger, sl, test_mask| {
-                test_simple(
+                test_simple(TestSimpleParams {
                     global_slot,
-                    init_pks(&ledger_init_state),
-                    cmds.to_vec(),
-                    iters.to_vec(),
+                    account_ids_to_check: init_pks(&ledger_init_state),
+                    cmds,
+                    cmd_iters,
                     sl,
-                    Some(EXPECTED_PROOF_COUNT),
-                    None,
-                    None,
+                    expected_proof_count: Some(EXPECTED_PROOF_COUNT),
+                    allow_failure: None,
+                    check_snarked_ledger_transition: None,
                     snarked_ledger,
                     test_mask,
-                    NumProvers::One,
-                    &stmt_to_work_one_prover,
-                )
+                    provers: NumProvers::One,
+                    stmt_to_work: stmt_to_work_one_prover,
+                })
             },
         );
     }
@@ -3127,28 +3146,28 @@ mod tests_ocaml {
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2651
     #[test]
     fn max_throughput_normal() {
-        let (ledger_init_state, cmds, iters) = gen_at_capacity();
+        let (ledger_init_state, cmds, cmd_iters) = gen_at_capacity();
         let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.clone(),
-            iters.clone(),
+            cmd_iters.clone(),
             |snarked_ledger, sl, test_mask| {
-                test_simple(
+                test_simple(TestSimpleParams {
                     global_slot,
-                    init_pks(&ledger_init_state),
-                    cmds.to_vec(),
-                    iters.to_vec(),
+                    account_ids_to_check: init_pks(&ledger_init_state),
+                    cmds,
+                    cmd_iters,
                     sl,
-                    None,
-                    None,
-                    None,
+                    expected_proof_count: None,
+                    allow_failure: None,
+                    check_snarked_ledger_transition: None,
                     snarked_ledger,
                     test_mask,
-                    NumProvers::Many,
-                    &stmt_to_work_random_prover,
-                )
+                    provers: NumProvers::Many,
+                    stmt_to_work: stmt_to_work_random_prover,
+                })
             },
         );
     }
@@ -3156,28 +3175,28 @@ mod tests_ocaml {
     /// Max throughput, one prover
     #[test]
     fn max_throughput_normal_one_prover() {
-        let (ledger_init_state, cmds, iters) = gen_at_capacity();
+        let (ledger_init_state, cmds, cmd_iters) = gen_at_capacity();
         let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.clone(),
-            iters.clone(),
+            cmd_iters.clone(),
             |snarked_ledger, sl, test_mask| {
-                test_simple(
+                test_simple(TestSimpleParams {
                     global_slot,
-                    init_pks(&ledger_init_state),
-                    cmds.to_vec(),
-                    iters.to_vec(),
+                    account_ids_to_check: init_pks(&ledger_init_state),
+                    cmds,
+                    cmd_iters,
                     sl,
-                    None,
-                    None,
-                    None,
+                    expected_proof_count: None,
+                    allow_failure: None,
+                    check_snarked_ledger_transition: None,
                     snarked_ledger,
                     test_mask,
-                    NumProvers::One,
-                    &stmt_to_work_one_prover,
-                )
+                    provers: NumProvers::One,
+                    stmt_to_work: stmt_to_work_one_prover,
+                })
             },
         );
     }
@@ -3292,31 +3311,31 @@ mod tests_ocaml {
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2664
     // #[test]
     fn max_throughput_zkapps() {
-        let (ledger, zkapps, iters) = gen_zkapps_at_capacity();
+        let (ledger, zkapps, cmd_iters) = gen_zkapps_at_capacity();
         let global_slot = Slot::gen_small();
 
         async_with_given_ledger(
             &LedgerInitialState { state: vec![] },
             zkapps.clone(),
-            iters.clone(),
+            cmd_iters.clone(),
             ledger.clone(),
             |snarked_ledger, sl, test_mask| {
                 let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
 
-                test_simple(
+                test_simple(TestSimpleParams {
                     global_slot,
-                    account_ids,
-                    zkapps.clone(),
-                    iters.clone(),
+                    account_ids_to_check: account_ids,
+                    cmds: zkapps,
+                    cmd_iters,
                     sl,
-                    None,
-                    None,
-                    None,
+                    expected_proof_count: None,
+                    allow_failure: None,
+                    check_snarked_ledger_transition: None,
                     snarked_ledger,
                     test_mask,
-                    NumProvers::Many,
-                    &stmt_to_work_random_prover,
-                )
+                    provers: NumProvers::Many,
+                    stmt_to_work: stmt_to_work_random_prover,
+                })
             },
         );
     }
@@ -3326,30 +3345,32 @@ mod tests_ocaml {
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2675
     // #[test]
     fn max_throughput_zkapps_that_may_fail() {
-        let (ledger, zkapps, iters) = gen_failing_zkapps_at_capacity();
+        let (ledger, zkapps, cmd_iters) = gen_failing_zkapps_at_capacity();
         let global_slot = Slot::gen_small();
 
         async_with_given_ledger(
             &LedgerInitialState { state: vec![] },
             zkapps.clone(),
-            iters.clone(),
+            cmd_iters.clone(),
             ledger.clone(),
             |snarked_ledger, sl, test_mask| {
                 let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
 
                 test_simple(
-                    global_slot,
-                    account_ids,
-                    zkapps.clone(),
-                    iters.clone(),
-                    sl,
-                    None,
-                    Some(true),
-                    None,
-                    snarked_ledger,
-                    test_mask,
-                    NumProvers::Many,
-                    &stmt_to_work_random_prover,
+                    TestSimpleParams {
+                        global_slot,
+                        account_ids_to_check: account_ids,
+                        cmds: zkapps,
+                        cmd_iters,
+                        sl,
+                        expected_proof_count: None,
+                        allow_failure: Some(true),
+                        check_snarked_ledger_transition: None,
+                        snarked_ledger,
+                        test_mask,
+                        provers: NumProvers::Many,
+                        stmt_to_work: stmt_to_work_random_prover,
+                    },
                 )
             },
         );
@@ -3397,28 +3418,28 @@ mod tests_ocaml {
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2686
     #[test]
     fn be_able_to_include_random_number_of_commands_many_normal() {
-        let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
+        let (ledger_init_state, cmds, cmd_iters) = gen_below_capacity(None);
         let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.to_vec(),
-            iters.to_vec(),
+            cmd_iters.to_vec(),
             |snarked_ledger, sl, test_mask| {
-                test_simple(
+                test_simple(TestSimpleParams {
                     global_slot,
-                    init_pks(&ledger_init_state),
-                    cmds.to_vec(),
-                    iters.to_vec(),
+                    account_ids_to_check: init_pks(&ledger_init_state),
+                    cmds,
+                    cmd_iters,
                     sl,
-                    None,
-                    None,
-                    None,
+                    expected_proof_count: None,
+                    allow_failure: None,
+                    check_snarked_ledger_transition: None,
                     snarked_ledger,
                     test_mask,
-                    NumProvers::Many,
-                    &stmt_to_work_random_prover,
-                )
+                    provers: NumProvers::Many,
+                    stmt_to_work: stmt_to_work_random_prover,
+                })
             },
         );
     }
@@ -3514,28 +3535,28 @@ mod tests_ocaml {
     /// See https://github.com/openmina/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
     #[test]
     fn be_able_to_include_random_number_of_commands_many_failed() {
-        let (ledger_init_state, cmds, iters) = gen_below_capacity_failed();
+        let (ledger_init_state, cmds, cmd_iters) = gen_below_capacity_failed();
         let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.to_vec(),
-            iters.to_vec(),
+            cmd_iters.to_vec(),
             |snarked_ledger, sl, test_mask| {
-                test_simple(
+                test_simple(TestSimpleParams {
                     global_slot,
-                    init_pks(&ledger_init_state),
-                    cmds.to_vec(),
-                    iters.to_vec(),
+                    account_ids_to_check: init_pks(&ledger_init_state),
+                    cmds,
+                    cmd_iters,
                     sl,
-                    None,
-                    None,
-                    None,
+                    expected_proof_count: None,
+                    allow_failure: None,
+                    check_snarked_ledger_transition: None,
                     snarked_ledger,
                     test_mask,
-                    NumProvers::Many,
-                    &stmt_to_work_random_prover,
-                )
+                    provers: NumProvers::Many,
+                    stmt_to_work: stmt_to_work_random_prover,
+                })
             },
         );
     }
@@ -3631,13 +3652,13 @@ mod tests_ocaml {
     }
 
     fn test_hash(cmds: Vec<valid::UserCommand>, iters: &[usize], expected_hash: &StagedLedgerHash) {
-        let (ledger_init_state, cmds, iters) = gen_for_hash(iters, cmds);
+        let (ledger_init_state, cmds, cmd_iters) = gen_for_hash(iters, cmds);
         let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.to_vec(),
-            iters.to_vec(),
+            cmd_iters.to_vec(),
             |snarked_ledger, mut sl, test_mask| {
                 // dbg!(sl.ledger.num_accounts());
 
@@ -3650,20 +3671,20 @@ mod tests_ocaml {
                     "25504365445533103805898245102289650498571312278321176071043666991586378788150"
                 ));
 
-                let mut sl = test_simple(
+                let mut sl = test_simple(TestSimpleParams {
                     global_slot,
-                    init_pks(&ledger_init_state),
-                    cmds.to_vec(),
-                    iters.to_vec(),
+                    account_ids_to_check: init_pks(&ledger_init_state),
+                    cmds,
+                    cmd_iters,
                     sl,
-                    None,
-                    None,
-                    None,
+                    expected_proof_count: None,
+                    allow_failure: None,
+                    check_snarked_ledger_transition: None,
                     snarked_ledger,
                     test_mask,
-                    NumProvers::One,
-                    &stmt_to_work_one_prover,
-                );
+                    provers: NumProvers::One,
+                    stmt_to_work: stmt_to_work_one_prover,
+                });
 
                 let mut accounts = sl.ledger.accounts().into_iter().collect::<Vec<_>>();
                 accounts.sort_by_key(|a| a.public_key.x);
@@ -3981,31 +4002,31 @@ mod tests_ocaml {
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2694
     // #[test]
     fn be_able_to_include_random_number_of_commands_zkapps() {
-        let (ledger, zkapps, iters) = gen_zkapps_below_capacity(None);
+        let (ledger, zkapps, cmd_iters) = gen_zkapps_below_capacity(None);
         let global_slot = Slot::gen_small();
 
         async_with_given_ledger(
             &LedgerInitialState { state: vec![] },
             zkapps.clone(),
-            iters.clone(),
+            cmd_iters.clone(),
             ledger.clone(),
             |snarked_ledger, sl, test_mask| {
                 let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
 
-                test_simple(
+                test_simple(TestSimpleParams {
                     global_slot,
-                    account_ids,
-                    zkapps.clone(),
-                    iters.clone(),
+                    account_ids_to_check: account_ids,
+                    cmds: zkapps,
+                    cmd_iters,
                     sl,
-                    None,
-                    None,
-                    None,
+                    expected_proof_count: None,
+                    allow_failure: None,
+                    check_snarked_ledger_transition: None,
                     snarked_ledger,
                     test_mask,
-                    NumProvers::Many,
-                    &stmt_to_work_random_prover,
-                )
+                    provers: NumProvers::Many,
+                    stmt_to_work: stmt_to_work_random_prover,
+                })
             },
         );
     }
@@ -4015,28 +4036,28 @@ mod tests_ocaml {
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2704
     #[test]
     fn be_able_to_include_random_number_of_commands_one_prover_normal() {
-        let (ledger_init_state, cmds, iters) = gen_below_capacity(None);
+        let (ledger_init_state, cmds, cmd_iters) = gen_below_capacity(None);
         let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.to_vec(),
-            iters.to_vec(),
+            cmd_iters.to_vec(),
             |snarked_ledger, sl, test_mask| {
-                test_simple(
+                test_simple(TestSimpleParams {
                     global_slot,
-                    init_pks(&ledger_init_state),
-                    cmds.to_vec(),
-                    iters.to_vec(),
+                    account_ids_to_check: init_pks(&ledger_init_state),
+                    cmds,
+                    cmd_iters,
                     sl,
-                    None,
-                    None,
-                    None,
+                    expected_proof_count: None,
+                    allow_failure: None,
+                    check_snarked_ledger_transition: None,
                     snarked_ledger,
                     test_mask,
-                    NumProvers::One,
-                    &stmt_to_work_one_prover,
-                )
+                    provers: NumProvers::One,
+                    stmt_to_work: stmt_to_work_one_prover,
+                })
             },
         );
     }
@@ -4046,28 +4067,28 @@ mod tests_ocaml {
     /// See https://github.com/openmina/ledger/commit/6de803f082ea986aa71e3cf30d7d83e54d2f5a3e
     #[test]
     fn be_able_to_include_random_number_of_commands_one_prover_failed() {
-        let (ledger_init_state, cmds, iters) = gen_below_capacity_failed();
+        let (ledger_init_state, cmds, cmd_iters) = gen_below_capacity_failed();
         let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.to_vec(),
-            iters.to_vec(),
+            cmd_iters.to_vec(),
             |snarked_ledger, sl, test_mask| {
-                test_simple(
+                test_simple(TestSimpleParams {
                     global_slot,
-                    init_pks(&ledger_init_state),
-                    cmds.to_vec(),
-                    iters.to_vec(),
+                    account_ids_to_check: init_pks(&ledger_init_state),
+                    cmds,
+                    cmd_iters,
                     sl,
-                    None,
-                    None,
-                    None,
+                    expected_proof_count: None,
+                    allow_failure: None,
+                    check_snarked_ledger_transition: None,
                     snarked_ledger,
                     test_mask,
-                    NumProvers::One,
-                    &stmt_to_work_one_prover,
-                )
+                    provers: NumProvers::One,
+                    stmt_to_work: stmt_to_work_one_prover,
+                })
             },
         );
     }
@@ -4077,31 +4098,31 @@ mod tests_ocaml {
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2712
     // #[test]
     fn be_able_to_include_random_number_of_commands_one_prover_zkapps() {
-        let (ledger, zkapps, iters) = gen_zkapps_below_capacity(Some(true));
+        let (ledger, zkapps, cmd_iters) = gen_zkapps_below_capacity(Some(true));
         let global_slot = Slot::gen_small();
 
         async_with_given_ledger(
             &LedgerInitialState { state: vec![] },
             zkapps.clone(),
-            iters.clone(),
+            cmd_iters.clone(),
             ledger.clone(),
             |snarked_ledger, sl, test_mask| {
                 let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
 
-                test_simple(
+                test_simple(TestSimpleParams {
                     global_slot,
-                    account_ids,
-                    zkapps.clone(),
-                    iters.clone(),
+                    account_ids_to_check: account_ids,
+                    cmds: zkapps,
+                    cmd_iters,
                     sl,
-                    None,
-                    None,
-                    Some(true),
+                    expected_proof_count: None,
+                    allow_failure: None,
+                    check_snarked_ledger_transition: Some(true),
                     snarked_ledger,
                     test_mask,
-                    NumProvers::One,
-                    &stmt_to_work_one_prover,
-                )
+                    provers: NumProvers::One,
+                    stmt_to_work: stmt_to_work_one_prover,
+                })
             },
         );
     }
@@ -4139,28 +4160,29 @@ mod tests_ocaml {
 
         let account_id_prover = AccountId::new(SNARK_WORKER_PK.clone(), TokenId::default());
 
-        let (ledger_init_state, cmds, iters) = gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
+        let (ledger_init_state, cmds, cmd_iters) =
+            gen_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
         let global_slot = Slot::gen_small();
 
         async_with_ledgers(
             &ledger_init_state,
             cmds.clone(),
-            iters.clone(),
+            cmd_iters.clone(),
             |snarked_ledger, sl, test_mask| {
-                test_simple(
+                test_simple(TestSimpleParams {
                     global_slot,
-                    init_pks(&ledger_init_state),
-                    cmds.to_vec(),
-                    iters.to_vec(),
+                    account_ids_to_check: init_pks(&ledger_init_state),
+                    cmds,
+                    cmd_iters,
                     sl,
-                    Some(EXPECTED_PROOF_COUNT),
-                    None,
-                    None,
+                    expected_proof_count: Some(EXPECTED_PROOF_COUNT),
+                    allow_failure: None,
+                    check_snarked_ledger_transition: None,
                     snarked_ledger,
-                    test_mask.clone(),
-                    NumProvers::One,
-                    &stmt_to_work_zero_fee,
-                );
+                    test_mask: test_mask.clone(),
+                    provers: NumProvers::One,
+                    stmt_to_work: stmt_to_work_zero_fee,
+                });
 
                 assert!(test_mask.location_of_account(&account_id_prover).is_none());
             },
