@@ -1151,3 +1151,26 @@ where
     };
     (global_state, local_state)
 }
+
+pub fn step<L>(
+    constraint_constants: &ConstraintConstants,
+    h: Handler<L>,
+    state: (GlobalState<L>, LocalStateEnv<L>),
+) -> (GlobalState<L>, LocalStateEnv<L>)
+where
+    L: LedgerIntf + Clone,
+{
+    apply(constraint_constants, IsStart::No, h, state)
+}
+
+pub fn start<L>(
+    constraint_constants: &ConstraintConstants,
+    start_data: StartData,
+    h: Handler<L>,
+    state: (GlobalState<L>, LocalStateEnv<L>),
+) -> (GlobalState<L>, LocalStateEnv<L>)
+where
+    L: LedgerIntf + Clone,
+{
+    apply(constraint_constants, IsStart::Yes(start_data), h, state)
+}

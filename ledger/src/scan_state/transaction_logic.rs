@@ -6,6 +6,7 @@ use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
 use mina_signer::CompressedPubKey;
 
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
+use crate::scan_state::zkapp_logic;
 use crate::{hash_with_kimchi, ControlTag, Inputs};
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
@@ -2650,6 +2651,15 @@ pub mod zkapp_command {
                     acc
                 })
         }
+
+        pub fn all_account_updates(&self) -> CallForest<AccountUpdate> {
+            let p = &self.fee_payer;
+
+            let mut fee_payer = AccountUpdate::of_fee_payer(p.clone());
+            fee_payer.authorization = Control::Signature(p.authorization.clone());
+
+            self.account_updates.cons(None, fee_payer)
+        }
     }
 
     pub mod verifiable {
@@ -3974,8 +3984,84 @@ where
     let fee_excess = fee_excess.unwrap_or_else(Signed::zero);
     let supply_increase = supply_increase.unwrap_or_else(Signed::zero);
 
-    todo!()
+    let previous_hash = ledger.merkle_root();
+    let original_first_pass_account_states = {
+        let id = command.fee_payer();
+        let location = {
+            let loc = ledger.location_of_account(&id);
+            let account = loc.as_ref().and_then(|loc| ledger.get(loc));
+            loc.zip(account)
+        };
+
+        vec![(id, location)]
+    };
+
+    let perform = |eff: Eff<L>| Env::perform(eff);
+
+    let initial_state = (
+        GlobalState {
+            protocol_state: state_view.clone(),
+            first_pass_ledger: ledger.clone(),
+            second_pass_ledger: {
+                // We stub out the second_pass_ledger initially, and then poke the
+                // correct value in place after the first pass is finished.
+                L::empty(0)
+            },
+            fee_excess,
+            supply_increase,
+            block_global_slot: global_slot,
+        },
+        LocalStateEnv {
+            stack_frame: StackFrame::default(),
+            call_stack: CallStack::new(),
+            transaction_commitment: ReceiptChainHash(Fp::zero()),
+            full_transaction_commitment: ReceiptChainHash(Fp::zero()),
+            token_id: TokenId::default(),
+            excess: Signed::<Amount>::zero(),
+            supply_increase,
+            ledger: L::empty(0),
+            success: true,
+            account_update_index: Index::zero(),
+            failure_status_tbl: Vec::new(),
+            will_succeed: true,
+        },
+    );
+
+    let user_acc = f(init, initial_state.clone());
+    let account_updates = command.all_account_updates();
+
+    let (global_state, local_state) = {
+        zkapp_logic::start(
+            constraint_constants,
+            StartData {
+                account_updates,
+                memo_hash: command.memo.hash(),
+                // It's always valid to set this value to true, and it will
+                // have no effect outside of the snark.
+                will_succeed: true
+            },
+            Handler { perform },
+            initial_state,
+        )
+    };
+
+    let command = command.clone();
+    let constraint_constants = constraint_constants.clone();
+    let state_view = state_view.clone();
+
+    let res = ZkappCommandPartiallyApplied {
+        command,
+        previous_hash,
+        original_first_pass_account_states,
+        constraint_constants,
+        state_view,
+        global_state,
+        local_state,
+    };
+
+    Ok((res, user_acc))
 }
+
 
 // fn apply_zkapp_command_unchecked_aux<L>(
 //     constraint_constants: &ConstraintConstants,
