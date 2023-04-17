@@ -3394,22 +3394,20 @@ mod tests_ocaml {
             |snarked_ledger, sl, test_mask| {
                 let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
 
-                test_simple(
-                    TestSimpleParams {
-                        global_slot,
-                        account_ids_to_check: account_ids,
-                        cmds: zkapps,
-                        cmd_iters,
-                        sl,
-                        expected_proof_count: Some(EXPECTED_PROOF_COUNT),
-                        allow_failure: None,
-                        check_snarked_ledger_transition: Some(true),
-                        snarked_ledger,
-                        test_mask,
-                        provers: NumProvers::Many,
-                        stmt_to_work: stmt_to_work_random_prover,
-                    },
-                )
+                test_simple(TestSimpleParams {
+                    global_slot,
+                    account_ids_to_check: account_ids,
+                    cmds: zkapps,
+                    cmd_iters,
+                    sl,
+                    expected_proof_count: Some(EXPECTED_PROOF_COUNT),
+                    allow_failure: None,
+                    check_snarked_ledger_transition: Some(true),
+                    snarked_ledger,
+                    test_mask,
+                    provers: NumProvers::Many,
+                    stmt_to_work: stmt_to_work_random_prover,
+                })
             },
         );
     }

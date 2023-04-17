@@ -1,5 +1,6 @@
+use std::collections::HashMap;
+
 use ark_ff::Zero;
-use itertools::FoldWhile::{Continue, Done};
 use itertools::Itertools;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
@@ -3939,30 +3940,6 @@ where
     }
 }
 
-// fn apply_zkapp_command_unchecked<L>(
-//     constraint_constants: &ConstraintConstants,
-//     global_slot: Slot,
-//     state_view: &ProtocolStateView,
-//     ledger: &mut L,
-//     c: &ZkAppCommand,
-// ) -> Result<(ZkappCommandApplied, (LocalStateEnv<L>, Signed<Fee>)), String>
-// where
-//     L: LedgerIntf + Clone,
-// {
-//     let (account_update_applied, state_res) = apply_zkapp_command_unchecked_aux(
-//         constraint_constants,
-//         global_slot,
-//         state_view,
-//         None,
-//         |_acc, (global_state, local_state)| Some((local_state, global_state.fee_excess)),
-//         None,
-//         ledger,
-//         c,
-//     )?;
-
-//     Ok((account_update_applied, state_res.unwrap()))
-// }
-
 /// apply zkapp command fee payer's while stubbing out the second pass ledger
 /// CAUTION: If you use the intermediate local states, you MUST update the
 ///   [will_succeed] field to [false] if the [status] is [Failed].*)
@@ -4038,7 +4015,7 @@ where
                 memo_hash: command.memo.hash(),
                 // It's always valid to set this value to true, and it will
                 // have no effect outside of the snark.
-                will_succeed: true
+                will_succeed: true,
             },
             Handler { perform },
             initial_state,
@@ -4061,7 +4038,6 @@ where
 
     Ok((res, user_acc))
 }
-
 
 // fn apply_zkapp_command_unchecked_aux<L>(
 //     constraint_constants: &ConstraintConstants,
@@ -4248,8 +4224,178 @@ where
     L: LedgerIntf + Clone,
     F: Fn(A, (GlobalState<L>, LocalStateEnv<L>)) -> A,
 {
+    let perform = |eff: Eff<L>| Env::perform(eff);
+
+    let original_account_states = {
+        // get the original states of all the accounts in each pass.
+        // If an account updated in the first pass is referenced in account
+        // updates, then retain the value before first pass application*)
+
+        let mut account_states = HashMap::<AccountId, Option<_>>::with_capacity(
+            c.original_first_pass_account_states.len(),
+        );
+
+        c.original_first_pass_account_states
+            .into_iter()
+            .map(|(id, acc_opt)| {
+                use std::collections::hash_map::Entry::{Occupied, Vacant};
+
+                match account_states.entry(id) {
+                    Occupied(mut e) => match e.get() {
+                        Some(_) => {}
+                        None => {
+                            e.insert(acc_opt);
+                        }
+                    },
+                    Vacant(e) => {
+                        e.insert(acc_opt);
+                    }
+                }
+            });
+    };
+
     todo!()
 }
+
+//   let original_account_states =
+//     (*get the original states of all the accounts in each pass.
+//       If an account updated in the first pass is referenced in account
+//       updates, then retain the value before first pass application*)
+//     let account_states = Account_id.Table.create () in
+//     List.iter
+//       ~f:(fun (id, acc_opt) ->
+//         Account_id.Table.update account_states id
+//           ~f:(Option.value ~default:acc_opt) )
+//       ( c.original_first_pass_account_states
+//       @ List.map (Zkapp_command.accounts_referenced c.command) ~f:(fun id ->
+//             ( id
+//             , Option.Let_syntax.(
+//                 let%bind loc = L.location_of_account ledger id in
+//                 let%map a = L.get ledger loc in
+//                 (loc, a)) ) ) ) ;
+//     Account_id.Table.to_alist account_states
+//   in
+//   let rec step_all (user_acc : user_acc)
+//       ( (g_state : Inputs.Global_state.t)
+//       , (l_state : _ Zkapp_command_logic.Local_state.t) ) :
+//       (user_acc * Transaction_status.Failure.Collection.t) Or_error.t =
+//     if List.is_empty l_state.stack_frame.Stack_frame.calls then
+//       Ok (user_acc, l_state.failure_status_tbl)
+//     else
+//       let%bind states =
+//         Or_error.try_with (fun () ->
+//             M.step ~constraint_constants:c.constraint_constants { perform }
+//               (g_state, l_state) )
+//       in
+//       step_all (f user_acc states) states
+//   in
+//   let account_states_after_fee_payer =
+//     (*To check if the accounts remain unchanged in the event the transaction
+//        fails. First pass updates will remain even if the transaction fails to
+//        apply zkapp account updates*)
+//     List.map (Zkapp_command.accounts_referenced c.command) ~f:(fun id ->
+//         ( id
+//         , Option.Let_syntax.(
+//             let%bind loc = L.location_of_account ledger id in
+//             let%map a = L.get ledger loc in
+//             (loc, a)) ) )
+//   in
+//   let accounts () =
+//     List.map original_account_states
+//       ~f:(Tuple2.map_snd ~f:(Option.map ~f:snd))
+//   in
+//   (* Warning: This is an abstraction leak / hack.
+//      Here, we update global second pass ledger to be the input ledger, and
+//      then update the local ledger to be the input ledger *IF AND ONLY IF*
+//      there are more transaction segments to be processed in this pass.
+
+//      TODO: Remove this, and uplift the logic into the call in staged ledger.
+//   *)
+//   let global_state = { c.global_state with second_pass_ledger = ledger } in
+//   let local_state =
+//     if List.is_empty c.local_state.stack_frame.Stack_frame.calls then
+//       (* Don't mess with the local state; we've already finished the
+//          transaction after the fee payer.
+//       *)
+//       c.local_state
+//     else
+//       (* Install the ledger that should already be in the local state, but
+//          may not be in some situations depending on who the caller is.
+//       *)
+//       { c.local_state with
+//         ledger = Global_state.second_pass_ledger global_state
+//       }
+//   in
+//   let start = (global_state, local_state) in
+//   match step_all (f init start) start with
+//   | Error e ->
+//       Error e
+//   | Ok (user_acc, reversed_failure_status_tbl) ->
+//       let failure_status_tbl = List.rev reversed_failure_status_tbl in
+//       let account_ids_originally_not_in_ledger =
+//         List.filter_map original_account_states
+//           ~f:(fun (acct_id, loc_and_acct) ->
+//             if Option.is_none loc_and_acct then Some acct_id else None )
+//       in
+//       let successfully_applied =
+//         Transaction_status.Failure.Collection.is_empty failure_status_tbl
+//       in
+//       (* if the zkapp command fails in at least 1 account update,
+//          then all the account updates would be cancelled except
+//          the fee payer one
+//       *)
+//       let failure_status_tbl =
+//         if successfully_applied then failure_status_tbl
+//         else
+//           List.mapi failure_status_tbl ~f:(fun idx fs ->
+//               if idx > 0 && List.is_empty fs then
+//                 [ Transaction_status.Failure.Cancelled ]
+//               else fs )
+//       in
+//       (* accounts not originally in ledger, now present in ledger *)
+//       let new_accounts =
+//         List.filter account_ids_originally_not_in_ledger ~f:(fun acct_id ->
+//             Option.is_some @@ L.location_of_account ledger acct_id )
+//       in
+//       let valid_result =
+//         Ok
+//           ( { Transaction_applied.Zkapp_command_applied.accounts = accounts ()
+//             ; command =
+//                 { With_status.data = c.command
+//                 ; status =
+//                     ( if successfully_applied then Applied
+//                     else Failed failure_status_tbl )
+//                 }
+//             ; new_accounts
+//             }
+//           , user_acc )
+//       in
+//       if successfully_applied then valid_result
+//       else
+//         let other_account_update_accounts_unchanged =
+//           List.fold_until account_states_after_fee_payer ~init:true
+//             ~f:(fun acc (_, loc_opt) ->
+//               match
+//                 let open Option.Let_syntax in
+//                 let%bind loc, a = loc_opt in
+//                 let%bind a' = L.get ledger loc in
+//                 Option.some_if (not (Account.equal a a')) ()
+//               with
+//               | None ->
+//                   Continue acc
+//               | Some _ ->
+//                   Stop false )
+//             ~finish:Fn.id
+//         in
+//         (* Other zkapp_command failed, therefore, updates in those should not get applied *)
+//         if
+//           List.is_empty new_accounts
+//           && other_account_update_accounts_unchanged
+//         then valid_result
+//         else
+//           Or_error.error_string
+//             "Zkapp_command application failed but new accounts created or \
+//              some of the other account_update updates applied"
 
 fn apply_zkapp_command_second_pass<L>(
     ledger: &mut L,
