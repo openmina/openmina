@@ -6,7 +6,7 @@ use crate::{
     scan_state::{
         currency::{Amount, Fee, Magnitude},
         scan_state::{transaction_snark::work, ConstraintConstants},
-        transaction_logic::{valid, CoinbaseFeeTransfer, GenericCommand, WithStatus},
+        transaction_logic::{valid, CoinbaseFeeTransfer, GenericCommand},
     },
     MyCow,
 };

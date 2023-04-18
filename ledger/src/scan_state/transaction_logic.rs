@@ -12,8 +12,7 @@ use crate::{hash_with_kimchi, ControlTag, Inputs};
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
     staged_ledger::sparse_ledger::{LedgerIntf, SparseLedger},
-    Account, AccountId, BaseLedger, PermissionTo, ReceiptChainHash, Timing, TokenId,
-    VerificationKey,
+    Account, AccountId, PermissionTo, ReceiptChainHash, Timing, TokenId, VerificationKey,
 };
 
 use self::zkapp_command::{AccessedOrNot, Numeric};
@@ -32,10 +31,10 @@ use self::{
 };
 
 use super::{
-    currency::{Amount, Balance, BlockTime, Fee, Index, Length, Magnitude, Nonce, Signed, Slot},
+    currency::{Amount, Balance, Fee, Index, Length, Magnitude, Nonce, Signed, Slot},
     fee_excess::FeeExcess,
     scan_state::{transaction_snark::OneOrTwo, ConstraintConstants},
-    zkapp_logic::{apply, Handler, IsStart, StartData},
+    zkapp_logic::{Handler, StartData},
 };
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L9
@@ -382,10 +381,10 @@ impl FeeTransfer {
                 } else {
                     // Necessary invariant for the transaction snark: we should never have
                     // fee excesses in multiple tokens simultaneously.
-                    return Err(format!(
+                    Err(format!(
                         "Cannot combine single fee transfers with incompatible tokens: {:?} <> {:?}",
                         one, two
-                    ));
+                    ))
                 }
             }
         }
@@ -1533,9 +1532,8 @@ pub mod zkapp_command {
                 format!("{}_{}", label, "lock_checkpoint"),
                 t.lock_checkpoint,
             )?;
-            return self
-                .epoch_length
-                .check(format!("{}_{}", label, "epoch_length"), t.epoch_length);
+            self.epoch_length
+                .check(format!("{}_{}", label, "epoch_length"), t.epoch_length)
         }
     }
 
@@ -2219,7 +2217,7 @@ pub mod zkapp_command {
         /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/transaction_logic/mina_transaction_logic.ml#L1708
         pub fn verification_key_hash(&self) -> Option<Fp> {
             match &self.body.authorization_kind {
-                AuthorizationKind::Proof(vk_hash) => Some(vk_hash.clone()),
+                AuthorizationKind::Proof(vk_hash) => Some(*vk_hash),
                 _ => None,
             }
         }
@@ -2237,7 +2235,7 @@ pub mod zkapp_command {
                         events,
                         actions,
                         call_data,
-                        call_depth,
+                        call_depth: _,
                         preconditions,
                         use_full_commitment,
                         implicit_account_creation_fee,
@@ -3583,7 +3581,7 @@ pub mod protocol_state {
         }
 
         pub fn fee_excess(&self) -> Signed<Amount> {
-            self.fee_excess.clone()
+            self.fee_excess
         }
 
         #[must_use]
@@ -3594,7 +3592,7 @@ pub mod protocol_state {
         }
 
         pub fn supply_increase(&self) -> Signed<Amount> {
-            self.supply_increase.clone()
+            self.supply_increase
         }
 
         #[must_use]
@@ -3690,11 +3688,7 @@ pub mod local_state {
 
         pub fn pop(&self) -> Option<(StackFrame, CallStack)> {
             let mut ret = self.0.clone();
-            if let Some(frame) = ret.pop() {
-                Some((frame, Self(ret)))
-            } else {
-                None
-            }
+            ret.pop().map(|frame| (frame, Self(ret)))
         }
 
         pub fn pop_exn(&self) -> (StackFrame, CallStack) {
@@ -4505,7 +4499,7 @@ where
     let (account_update_applied, state_res) = apply_zkapp_command_second_pass_aux(
         constraint_constants,
         None,
-        |acc, (global_state, local_state)| Some((local_state, global_state.fee_excess)),
+        |_acc, (global_state, local_state)| Some((local_state, global_state.fee_excess)),
         ledger,
         zkapp_partially_applied,
     )?;
@@ -4550,13 +4544,11 @@ pub mod transaction_partially_applied {
 
             match self {
                 Self::SignedCommand(s) => T::Command(UserCommand::SignedCommand(Box::new(
-                    s.applied.common.user_command.data.clone(),
+                    s.applied.common.user_command.data,
                 ))),
-                Self::ZkappCommand(z) => {
-                    T::Command(UserCommand::ZkAppCommand(Box::new(z.command.clone())))
-                }
-                Self::FeeTransfer(ft) => T::FeeTransfer(ft.applied.fee_transfer.data.clone()),
-                Self::Coinbase(cb) => T::Coinbase(cb.applied.coinbase.data.clone()),
+                Self::ZkappCommand(z) => T::Command(UserCommand::ZkAppCommand(Box::new(z.command))),
+                Self::FeeTransfer(ft) => T::FeeTransfer(ft.applied.fee_transfer.data),
+                Self::Coinbase(cb) => T::Coinbase(cb.applied.coinbase.data),
             }
         }
     }
@@ -4685,7 +4677,7 @@ where
     L: LedgerIntf + Clone,
 {
     let first_pass: Vec<_> = txns
-        .into_iter()
+        .iter()
         .map(|txn| {
             apply_transaction_first_pass(
                 constraint_constants,
@@ -6078,8 +6070,8 @@ pub mod for_tests {
 
     use crate::{
         gen_keypair, scan_state::parallel_scan::ceil_log2,
-        staged_ledger::pre_diff_info::HashableCompressedPubKey, AuthRequired, Mask, Permissions,
-        ZkAppAccount,
+        staged_ledger::pre_diff_info::HashableCompressedPubKey, AuthRequired, BaseLedger, Mask,
+        Permissions, ZkAppAccount,
     };
 
     use super::*;

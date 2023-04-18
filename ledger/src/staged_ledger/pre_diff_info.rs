@@ -408,7 +408,7 @@ where
             })
     };
 
-    let (mut p1, mut p2) = diff;
+    let (p1, p2) = diff;
 
     let (num_p1_txns, txns) = {
         let p1_txns = project_transactions_pre_diff_two(p1.clone())?;

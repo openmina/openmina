@@ -2,7 +2,7 @@ use crate::scan_state::currency::{Fee, Magnitude};
 use crate::{
     scan_state::{
         scan_state::transaction_snark::work,
-        transaction_logic::{valid, CoinbaseFeeTransfer, GenericCommand, WithStatus},
+        transaction_logic::{valid, CoinbaseFeeTransfer, GenericCommand},
     },
     staged_ledger::diff::AtMostTwo,
 };

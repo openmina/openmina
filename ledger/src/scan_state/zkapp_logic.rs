@@ -5,7 +5,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     check_permission, hash_with_kimchi,
     scan_state::{
-        currency::{Amount, Balance, Fee, Index, Magnitude, Sgn, Signed, Slot},
+        currency::{Amount, Balance, Index, Magnitude, Sgn, Signed, Slot},
         scan_state::ConstraintConstants,
         transaction_logic::{
             account_check_timing, get_account, is_timed,
@@ -463,7 +463,7 @@ where
     let matching_verification_key_hashes = !(account_update.is_proved())
         || account_verification_key_hash(&a) == account_update.verification_key_hash();
 
-    let mut local_state = local_state.add_check(
+    let local_state = local_state.add_check(
         TransactionFailure::UnexpectedVerificationKeyHash,
         matching_verification_key_hashes,
     );
