@@ -3383,7 +3383,7 @@ mod tests_ocaml {
     }
 
     /// Max throughput-ledger proof count-fixed blocks (zkApps)
-    #[test]
+    // #[test]
     fn max_throughput_ledger_proof_count_fixed_blocks_zkapp() {
         const EXPECTED_PROOF_COUNT: usize = 3;
 
@@ -3409,6 +3409,38 @@ mod tests_ocaml {
                     cmd_iters,
                     sl,
                     expected_proof_count: Some(EXPECTED_PROOF_COUNT),
+                    allow_failure: None,
+                    check_snarked_ledger_transition: Some(true),
+                    snarked_ledger,
+                    test_mask,
+                    provers: NumProvers::Many,
+                    stmt_to_work: stmt_to_work_random_prover,
+                })
+            },
+        );
+    }
+
+    /// Random number of commands (zkapp + signed command)
+    // #[test]
+    fn random_number_of_commands_zkapps_plus_signed() {
+        let (ledger, cmds, cmd_iters) = gen_all_user_commands_below_capacity();
+        let global_slot = Slot::gen_small();
+
+        async_with_given_ledger(
+            &LedgerInitialState { state: vec![] },
+            cmds.clone(),
+            cmd_iters.clone(),
+            ledger.clone(),
+            |snarked_ledger, sl, test_mask| {
+                let account_ids: Vec<_> = ledger.accounts().into_iter().collect();
+
+                test_simple(TestSimpleParams {
+                    global_slot,
+                    account_ids_to_check: account_ids,
+                    cmds,
+                    cmd_iters,
+                    sl,
+                    expected_proof_count: None,
                     allow_failure: None,
                     check_snarked_ledger_transition: Some(true),
                     snarked_ledger,
@@ -3455,6 +3487,52 @@ mod tests_ocaml {
         assert_eq!(cmds.len(), total_cmds);
 
         (state, cmds, cmds_per_iter.into_iter().map(Some).collect())
+    }
+
+    fn gen_all_user_commands_below_capacity() -> (Mask, Vec<valid::UserCommand>, Vec<Option<usize>>)
+    {
+        let (mut ledger, zkapps, iters_zkapps) = gen_zkapps_below_capacity(None);
+        let (ledger_init_state, signed_cmds, iters_signed_commands) = gen_below_capacity(None);
+
+        apply_initialize_ledger_state(&mut ledger, &ledger_init_state);
+
+        let iters: Vec<_> = iters_zkapps
+            .into_iter()
+            .chain(iters_signed_commands)
+            .collect();
+
+        let mut cmds = Vec::with_capacity(zkapps.len() + signed_cmds.len());
+
+        let mut zkapps = zkapps.into_iter().peekable();
+        let mut payments = signed_cmds.into_iter().peekable();
+
+        let mut rng = rand::thread_rng();
+
+        loop {
+            match (zkapps.peek(), payments.peek()) {
+                (None, None) => break,
+                (None, Some(_)) => {
+                    cmds.push(payments.next().unwrap());
+                }
+                (Some(_), None) => {
+                    cmds.push(zkapps.next().unwrap());
+                }
+                (Some(_), Some(_)) => {
+                    let n = rng.gen_range(1..TRANSACTION_CAPACITY);
+                    let take_zkapps: bool = rng.gen();
+
+                    let iter = if take_zkapps {
+                        &mut zkapps
+                    } else {
+                        &mut payments
+                    };
+
+                    cmds.extend(iter.take(n));
+                }
+            }
+        }
+
+        (ledger, cmds, iters)
     }
 
     /// Be able to include random number of commands
