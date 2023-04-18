@@ -8,6 +8,8 @@ use crate::{Action, ActionWithMetaRef, Service, Store};
 
 pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
+    dbg!(action);
+    dbg!(_store.state());
 
     match action {
         Action::P2p(action) => match action {
