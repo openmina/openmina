@@ -1410,7 +1410,7 @@ pub mod zkapp_command {
     where
         T: Check<A = T>,
     {
-        fn check(&self, label: String, rhs: T::B) -> Result<(), String> {
+        pub fn check(&self, label: String, rhs: T::B) -> Result<(), String> {
             let ret = match self {
                 Self::Ignore => Ok(()),
                 Self::Check(t) => t.check(label.clone(), rhs),
@@ -3872,10 +3872,14 @@ where
 {
     pub fn perform(eff: Eff<L>) -> PerformResult<L> {
         match eff {
-            Eff::CheckValidWhilePrecondition(valid_while, global_state) => {
-                // TODO: Implement this
-                todo!()
-            }
+            Eff::CheckValidWhilePrecondition(valid_while, global_state) => PerformResult::Bool(
+                valid_while
+                    .check(
+                        "valid_while_precondition".to_string(),
+                        global_state.block_global_slot,
+                    )
+                    .is_ok(),
+            ),
             Eff::CheckProtocolStatePrecondition(pred, global_state) => {
                 PerformResult::Bool(pred.check(global_state.protocol_state).is_ok())
             }
