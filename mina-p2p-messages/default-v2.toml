@@ -4,14 +4,13 @@ git_prefix = "https://github.com/Minaprotocol/mina/blob/32a9161/"
 wrap_internal_types = true
 
 preamble = '''
-use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
+use derive_more::Deref;
 use serde::{Deserialize, Serialize};
 _blank_!();
 use crate::pseq::PaddedSeq;
 _blank_!();
 use super::manual::*;
-_blank_!();
 '''
 
 type_preamble = "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]"

@@ -157,7 +157,6 @@ pub enum MinaLedgerSyncLedgerQueryStableV1 {
     WhatChildHashes(MerkleAddressBinableArgStableV1),
     WhatContents(MerkleAddressBinableArgStableV1),
     NumAccounts,
-    WhatAccountWithPath(NonZeroCurvePoint, TokenIdKeyHash),
 }
 
 /// **OCaml name**: `Mina_ledger__Sync_ledger.Answer.Stable.V2`
@@ -174,7 +173,6 @@ pub enum MinaLedgerSyncLedgerAnswerStableV2 {
     ChildHashesAre(LedgerHash, LedgerHash),
     ContentsAre(Vec<MinaBaseAccountBinableArgStableV2>),
     NumAccounts(crate::number::Int32, LedgerHash),
-    AccountWithPath(Option<(MinaBaseAccountBinableArgStableV2, super::MerkleTreePath)>),
 }
 
 /// **OCaml name**: `Consensus__Proof_of_stake.Make_str.Data.Consensus_state.Value.Stable.V1`
@@ -740,21 +738,21 @@ pub struct MinaBaseFeeExcessStableV1Fee {
 /// **OCaml name**: `Currency.Make_str.Fee.Stable.V1`
 ///
 /// Gid: `603`
-/// Location: [src/lib/currency/currency.ml:943:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/currency/currency.ml#L943)
+/// Location: [src/lib/currency/currency.ml:945:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/currency/currency.ml#L945)
 #[derive(Clone, Debug, Deref, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct CurrencyFeeStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsStableV1);
 
 /// **OCaml name**: `Currency.Make_str.Amount.Make_str.Stable.V1`
 ///
 /// Gid: `606`
-/// Location: [src/lib/currency/currency.ml:1079:10](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/currency/currency.ml#L1079)
+/// Location: [src/lib/currency/currency.ml:1083:10](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/currency/currency.ml#L1083)
 #[derive(Clone, Debug, Deref, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct CurrencyAmountStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsStableV1);
 
 /// **OCaml name**: `Currency.Make_str.Balance.Stable.V1`
 ///
 /// Gid: `609`
-/// Location: [src/lib/currency/currency.ml:1121:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/currency/currency.ml#L1121)
+/// Location: [src/lib/currency/currency.ml:1127:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/currency/currency.ml#L1127)
 #[derive(Clone, Debug, Deref, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct CurrencyBalanceStableV1(pub CurrencyAmountStableV1);
 
@@ -965,7 +963,7 @@ pub struct MinaBasePermissionsStableV2 {
     pub set_permissions: MinaBasePermissionsAuthRequiredStableV2,
     pub set_verification_key: MinaBasePermissionsAuthRequiredStableV2,
     pub set_zkapp_uri: MinaBasePermissionsAuthRequiredStableV2,
-    pub edit_sequence_state: MinaBasePermissionsAuthRequiredStableV2,
+    pub edit_action_state: MinaBasePermissionsAuthRequiredStableV2,
     pub set_token_symbol: MinaBasePermissionsAuthRequiredStableV2,
     pub increment_nonce: MinaBasePermissionsAuthRequiredStableV2,
     pub set_voting_for: MinaBasePermissionsAuthRequiredStableV2,
@@ -1029,7 +1027,7 @@ pub enum MinaBaseTransactionStatusFailureStableV2 {
     UpdateNotPermittedDelegate,
     UpdateNotPermittedAppState,
     UpdateNotPermittedVerificationKey,
-    UpdateNotPermittedSequenceState,
+    UpdateNotPermittedActionState,
     UpdateNotPermittedZkappUri,
     UpdateNotPermittedTokenSymbol,
     UpdateNotPermittedPermissions,
@@ -1042,7 +1040,7 @@ pub enum MinaBaseTransactionStatusFailureStableV2 {
     AccountNoncePreconditionUnsatisfied,
     AccountReceiptChainHashPreconditionUnsatisfied,
     AccountDelegatePreconditionUnsatisfied,
-    AccountSequenceStatePreconditionUnsatisfied,
+    AccountActionStatePreconditionUnsatisfied,
     AccountAppStatePreconditionUnsatisfied(crate::number::Int32),
     AccountProvedStatePreconditionUnsatisfied,
     AccountIsNewPreconditionUnsatisfied,
@@ -1076,7 +1074,7 @@ pub struct MinaBaseTransactionStatusFailureCollectionStableV1(
 /// **OCaml name**: `Mina_base__Transaction_status.Stable.V2`
 ///
 /// Gid: `683`
-/// Location: [src/lib/mina_base/transaction_status.ml:477:4](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/transaction_status.ml#L477)
+/// Location: [src/lib/mina_base/transaction_status.ml:476:4](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/transaction_status.ml#L476)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBaseTransactionStatusStableV2 {
     Applied,
@@ -1347,8 +1345,8 @@ pub struct MinaBaseZkappAccountStableV2 {
     pub app_state: MinaBaseZkappStateValueStableV1,
     pub verification_key: Option<MinaBaseVerificationKeyWireStableV1>,
     pub zkapp_version: MinaNumbersNatMake32StableV1,
-    pub sequence_state: PaddedSeq<crate::bigint::BigInt, 5>,
-    pub last_sequence_slot: UnsignedExtendedUInt32StableV1,
+    pub action_state: PaddedSeq<crate::bigint::BigInt, 5>,
+    pub last_action_slot: UnsignedExtendedUInt32StableV1,
     pub proved_state: bool,
     pub zkapp_uri: MinaBaseZkappAccountZkappUriStableV1,
 }
@@ -1478,7 +1476,7 @@ pub struct MinaBaseZkappPreconditionAccountStableV2 {
     pub receipt_chain_hash: MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash,
     pub delegate: MinaBaseZkappPreconditionAccountStableV2Delegate,
     pub state: PaddedSeq<MinaBaseZkappPreconditionAccountStableV2StateA, 8>,
-    pub sequence_state: MinaBaseZkappPreconditionAccountStableV2StateA,
+    pub action_state: MinaBaseZkappPreconditionAccountStableV2StateA,
     pub proved_state: MinaBaseZkappPreconditionAccountStableV2ProvedState,
     pub is_new: MinaBaseZkappPreconditionAccountStableV2ProvedState,
 }
@@ -1486,7 +1484,7 @@ pub struct MinaBaseZkappPreconditionAccountStableV2 {
 /// **OCaml name**: `Mina_base__Zkapp_precondition.Protocol_state.Epoch_data.Stable.V1`
 ///
 /// Gid: `755`
-/// Location: [src/lib/mina_base/zkapp_precondition.ml:782:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/zkapp_precondition.ml#L782)
+/// Location: [src/lib/mina_base/zkapp_precondition.ml:777:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/zkapp_precondition.ml#L777)
 ///
 ///
 /// Gid: `750`
@@ -1504,11 +1502,11 @@ pub struct MinaBaseZkappPreconditionProtocolStateEpochDataStableV1 {
 /// **OCaml name**: `Mina_base__Zkapp_precondition.Protocol_state.Stable.V1`
 ///
 /// Gid: `757`
-/// Location: [src/lib/mina_base/zkapp_precondition.ml:960:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/zkapp_precondition.ml#L960)
+/// Location: [src/lib/mina_base/zkapp_precondition.ml:955:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/zkapp_precondition.ml#L955)
 ///
 ///
 /// Gid: `756`
-/// Location: [src/lib/mina_base/zkapp_precondition.ml:913:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/zkapp_precondition.ml#L913)
+/// Location: [src/lib/mina_base/zkapp_precondition.ml:908:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/zkapp_precondition.ml#L908)
 /// Args: MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash , MinaBaseZkappPreconditionProtocolStateStableV1Length , () , MinaBaseZkappPreconditionProtocolStateStableV1Length , MinaBaseZkappPreconditionProtocolStateStableV1Amount , MinaBaseZkappPreconditionProtocolStateEpochDataStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseZkappPreconditionProtocolStateStableV1 {
@@ -1587,7 +1585,7 @@ pub enum MinaBaseAccountUpdateAccountPreconditionStableV1 {
 /// **OCaml name**: `Mina_base__Account_update.Preconditions.Stable.V1`
 ///
 /// Gid: `770`
-/// Location: [src/lib/mina_base/account_update.ml:1126:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/account_update.ml#L1126)
+/// Location: [src/lib/mina_base/account_update.ml:1150:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/account_update.ml#L1150)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseAccountUpdatePreconditionsStableV1 {
     pub network: MinaBaseZkappPreconditionProtocolStateStableV1,
@@ -1598,7 +1596,7 @@ pub struct MinaBaseAccountUpdatePreconditionsStableV1 {
 /// **OCaml name**: `Mina_base__Account_update.Body.Events'.Stable.V1`
 ///
 /// Gid: `771`
-/// Location: [src/lib/mina_base/account_update.ml:1214:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/account_update.ml#L1214)
+/// Location: [src/lib/mina_base/account_update.ml:1238:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/account_update.ml#L1238)
 ///
 ///
 /// Gid: `167`
@@ -1636,7 +1634,7 @@ pub struct MinaBaseAccountUpdateBodyStableV1 {
 /// **OCaml name**: `Mina_base__Account_update.Body.Fee_payer.Stable.V1`
 ///
 /// Gid: `775`
-/// Location: [src/lib/mina_base/account_update.ml:1417:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/account_update.ml#L1417)
+/// Location: [src/lib/mina_base/account_update.ml:1441:8](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/account_update.ml#L1441)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseAccountUpdateBodyFeePayerStableV1 {
     pub public_key: NonZeroCurvePoint,
@@ -1648,7 +1646,7 @@ pub struct MinaBaseAccountUpdateBodyFeePayerStableV1 {
 /// **OCaml name**: `Mina_base__Account_update.T.Stable.V1`
 ///
 /// Gid: `778`
-/// Location: [src/lib/mina_base/account_update.ml:1789:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/account_update.ml#L1789)
+/// Location: [src/lib/mina_base/account_update.ml:1813:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/account_update.ml#L1813)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseAccountUpdateTStableV1 {
     pub body: MinaBaseAccountUpdateBodyStableV1,
@@ -1658,7 +1656,7 @@ pub struct MinaBaseAccountUpdateTStableV1 {
 /// **OCaml name**: `Mina_base__Account_update.Fee_payer.Stable.V1`
 ///
 /// Gid: `779`
-/// Location: [src/lib/mina_base/account_update.ml:1843:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/account_update.ml#L1843)
+/// Location: [src/lib/mina_base/account_update.ml:1867:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/account_update.ml#L1867)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseAccountUpdateFeePayerStableV1 {
     pub body: MinaBaseAccountUpdateBodyFeePayerStableV1,
@@ -1757,7 +1755,7 @@ pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
 /// **OCaml name**: `Mina_base__Zkapp_command.T.Stable.V1.Wire.Stable.V1`
 ///
 /// Gid: `791`
-/// Location: [src/lib/mina_base/zkapp_command.ml:753:12](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/zkapp_command.ml#L753)
+/// Location: [src/lib/mina_base/zkapp_command.ml:765:12](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/zkapp_command.ml#L765)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseZkappCommandTStableV1WireStableV1 {
     pub fee_payer: MinaBaseAccountUpdateFeePayerStableV1,
