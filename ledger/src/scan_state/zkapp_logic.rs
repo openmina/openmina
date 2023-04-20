@@ -269,29 +269,29 @@ pub fn make_zkapp(a: Account) -> Account {
     Account { zkapp, ..a }
 }
 
-pub fn update_sequence_state(
-    sequence_state: [Fp; 5],
+pub fn update_action_state(
+    action_state: [Fp; 5],
     actions: Actions,
     txn_global_slot: Slot,
-    last_sequence_slot: Slot,
+    last_action_slot: Slot,
 ) -> ([Fp; 5], Slot) {
-    let [_s1, _s2, _s3, _s4, _s5] = sequence_state;
+    let [_s1, _s2, _s3, _s4, _s5] = action_state;
     let is_empty = actions.is_empty();
     let s1_updated = actions.push_events(_s1);
     let s1 = if let true = is_empty { _s1 } else { s1_updated };
-    let is_this_slot = txn_global_slot == last_sequence_slot;
+    let is_this_slot = txn_global_slot == last_action_slot;
     let is_empty_or_this_slot = is_empty || is_this_slot;
     let (s5, s4, s3, s2) = if let true = is_empty_or_this_slot {
         (_s5, _s4, _s3, _s2)
     } else {
         (_s4, _s3, _s2, _s1)
     };
-    let last_sequence_slot = if let true = is_empty {
-        last_sequence_slot
+    let last_action_slot = if let true = is_empty {
+        last_action_slot
     } else {
         txn_global_slot
     };
-    ([s1, s2, s3, s4, s5], last_sequence_slot)
+    ([s1, s2, s3, s4, s5], last_action_slot)
 }
 
 pub fn unmake_zkapp(a: Account) -> Account {
@@ -661,7 +661,7 @@ where
                 ..local_state
             }
         };
-        let is_receiver = actual_balance_change.is_pos();
+        let is_receiver = actual_balance_change.is_non_neg();
         let local_state = {
             let controller = if let true = is_receiver {
                 a.permissions.receive
@@ -789,26 +789,26 @@ where
     let (a, local_state) = {
         let actions = account_update.actions();
         let zkapp = a.zkapp.unwrap();
-        let last_sequence_slot = zkapp.last_sequence_slot;
-        let (sequence_state, last_sequence_slot) = update_sequence_state(
-            zkapp.sequence_state,
+        let last_action_slot = zkapp.last_action_slot;
+        let (action_state, last_action_slot) = update_action_state(
+            zkapp.action_state,
             actions.clone(),
             txn_global_slot,
-            last_sequence_slot,
+            last_action_slot,
         );
         let is_empty = actions.is_empty();
         let has_permission = controller_check(
             proof_verifies,
             signature_verifies,
-            a.permissions.edit_sequence_state,
+            a.permissions.edit_action_state,
         );
         let local_state = local_state.add_check(
             TransactionFailure::UpdateNotPermittedAppState,
             is_empty || has_permission,
         );
         let zkapp = ZkAppAccount {
-            sequence_state,
-            last_sequence_slot,
+            action_state,
+            last_action_slot,
             ..zkapp
         };
         let a = Account {
@@ -965,13 +965,13 @@ where
         let curr_is_default = curr_token == TokenId::default();
         assert!(curr_is_default);
         println!(
-            "[rust] is_start_ {:?}, account_update_token_is_default {:?}, local_delta.is_pos {:?}",
+            "[rust] is_start_ {:?}, account_update_token_is_default {:?}, local_delta.is_non_neg {:?}",
             is_start_,
             account_update_token_is_default,
-            local_delta.is_pos()
+            local_delta.is_non_neg()
         );
         println!("[rust] failure {:?}", local_state.failure_status_tbl);
-        assert!(!is_start_ || (account_update_token_is_default && local_delta.is_pos()));
+        assert!(!is_start_ || (account_update_token_is_default && local_delta.is_non_neg()));
         let (new_local_fee_excess, overflow) = local_state.excess.add_flagged(Signed::<Amount> {
             magnitude: Amount::from_u64(local_delta.magnitude.as_u64()),
             sgn: local_delta.sgn,

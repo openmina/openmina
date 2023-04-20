@@ -115,7 +115,7 @@ fn zkapp_command_with_ledger(
             set_permissions: AuthRequired::Either,
             set_verification_key: AuthRequired::Either,
             set_zkapp_uri: AuthRequired::Either,
-            edit_sequence_state: AuthRequired::Either,
+            edit_action_state: AuthRequired::Either,
             set_token_symbol: AuthRequired::Either,
             increment_nonce: AuthRequired::Either,
             set_voting_for: AuthRequired::Either,

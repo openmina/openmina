@@ -96,7 +96,7 @@ pub struct Permissions<Controller> {
     pub set_permissions: Controller,
     pub set_verification_key: Controller,
     pub set_zkapp_uri: Controller,
-    pub edit_sequence_state: Controller,
+    pub edit_action_state: Controller,
     pub set_token_symbol: Controller,
     pub increment_nonce: Controller,
     pub set_voting_for: Controller,
@@ -114,7 +114,7 @@ impl ToInputs for Permissions<AuthRequired> {
             set_permissions,
             set_verification_key,
             set_zkapp_uri,
-            edit_sequence_state,
+            edit_action_state,
             set_token_symbol,
             increment_nonce,
             set_voting_for,
@@ -130,7 +130,7 @@ impl ToInputs for Permissions<AuthRequired> {
             set_permissions,
             set_verification_key,
             set_zkapp_uri,
-            edit_sequence_state,
+            edit_action_state,
             set_token_symbol,
             increment_nonce,
             set_voting_for,
@@ -160,7 +160,7 @@ impl Permissions<AuthRequired> {
             set_permissions: Signature,
             set_verification_key: Signature,
             set_zkapp_uri: Signature,
-            edit_sequence_state: Signature,
+            edit_action_state: Signature,
             set_token_symbol: Signature,
             increment_nonce: Signature,
             set_voting_for: Signature,
@@ -180,7 +180,7 @@ impl Permissions<AuthRequired> {
             set_permissions: None,
             set_verification_key: None,
             set_zkapp_uri: None,
-            edit_sequence_state: None,
+            edit_action_state: None,
             set_token_symbol: None,
             increment_nonce: None,
             set_voting_for: None,
@@ -206,7 +206,7 @@ impl Permissions<AuthRequired> {
             set_permissions: auth_required_gen(&mut rng),
             set_verification_key: auth_required_gen(&mut rng),
             set_zkapp_uri: auth_required_gen(&mut rng),
-            edit_sequence_state: auth_required_gen(&mut rng),
+            edit_action_state: auth_required_gen(&mut rng),
             set_token_symbol: auth_required_gen(&mut rng),
             increment_nonce: auth_required_gen(&mut rng),
             set_voting_for: auth_required_gen(&mut rng),
@@ -467,8 +467,8 @@ pub struct ZkAppAccount {
     pub verification_key: Option<VerificationKey>,
     // pub verification_key: Option<WithHash<VerificationKey>>, // TODO
     pub zkapp_version: u32,
-    pub sequence_state: [Fp; 5],
-    pub last_sequence_slot: Slot,
+    pub action_state: [Fp; 5],
+    pub last_action_slot: Slot,
     pub proved_state: bool,
     pub zkapp_uri: ZkAppUri,
 }
@@ -479,11 +479,11 @@ impl Default for ZkAppAccount {
             app_state: [Fp::zero(); 8],
             verification_key: None,
             zkapp_version: 0,
-            sequence_state: {
+            action_state: {
                 let empty = hash_noinputs("MinaZkappSequenceStateEmptyElt");
                 [empty, empty, empty, empty, empty]
             },
-            last_sequence_slot: Slot::zero(),
+            last_action_slot: Slot::zero(),
             proved_state: false,
             zkapp_uri: ZkAppUri::new(),
         }
@@ -772,8 +772,8 @@ impl Account {
             inputs.append(&Some(&zkapp.zkapp_uri));
 
             inputs.append_bool(zkapp.proved_state);
-            inputs.append_u32(zkapp.last_sequence_slot.as_u32());
-            for fp in &zkapp.sequence_state {
+            inputs.append_u32(zkapp.last_action_slot.as_u32());
+            for fp in &zkapp.action_state {
                 inputs.append_field(*fp);
             }
             inputs.append_u32(zkapp.zkapp_version);
@@ -931,7 +931,7 @@ impl Account {
                 set_permissions: gen_perm(rng),
                 set_verification_key: gen_perm(rng),
                 set_zkapp_uri: gen_perm(rng),
-                edit_sequence_state: gen_perm(rng),
+                edit_action_state: gen_perm(rng),
                 set_token_symbol: gen_perm(rng),
                 increment_nonce: gen_perm(rng),
                 set_voting_for: gen_perm(rng),
@@ -981,14 +981,14 @@ impl Account {
                         None
                     },
                     zkapp_version: rng.gen(),
-                    sequence_state: [
+                    action_state: [
                         Fp::rand(rng),
                         Fp::rand(rng),
                         Fp::rand(rng),
                         Fp::rand(rng),
                         Fp::rand(rng),
                     ],
-                    last_sequence_slot: rng.gen(),
+                    last_action_slot: rng.gen(),
                     proved_state: rng.gen(),
                     zkapp_uri: ZkAppUri(zkapp_uri),
                 })

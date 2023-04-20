@@ -354,28 +354,28 @@ fn gen_account_precondition_from_account(
             None => OrIgnore::Ignore,
         };
 
-        let (state, sequence_state, proved_state, is_new) = match zkapp {
+        let (state, action_state, proved_state, is_new) = match zkapp {
             None => {
                 // let len = Pickles_types.Nat.to_int Zkapp_state.Max_state_size.n
 
                 let state = std::array::from_fn(|_| OrIgnore::Ignore);
-                let sequence_state = OrIgnore::Ignore;
+                let action_state = OrIgnore::Ignore;
                 let proved_state = OrIgnore::Ignore;
                 let is_new = OrIgnore::Ignore;
 
-                (state, sequence_state, proved_state, is_new)
+                (state, action_state, proved_state, is_new)
             }
             Some(ZkAppAccount {
                 app_state,
-                sequence_state,
+                action_state,
                 proved_state,
                 ..
             }) => {
                 let state = std::array::from_fn(|i| OrIgnore::gen(|| app_state[i]));
 
-                let sequence_state = {
-                    // choose a value from account sequence state
-                    OrIgnore::Check(sequence_state.choose(&mut rng).copied().unwrap())
+                let action_state = {
+                    // choose a value from account action state
+                    OrIgnore::Check(action_state.choose(&mut rng).copied().unwrap())
                 };
 
                 let proved_state = OrIgnore::Check(*proved_state);
@@ -384,7 +384,7 @@ fn gen_account_precondition_from_account(
                 // is always in the ledger
                 let is_new = OrIgnore::Check(false);
 
-                (state, sequence_state, proved_state, is_new)
+                (state, action_state, proved_state, is_new)
             }
         };
 
@@ -394,7 +394,7 @@ fn gen_account_precondition_from_account(
             receipt_chain_hash: receipt_chain_hash.map(|a| a.0),
             delegate,
             state,
-            sequence_state,
+            action_state,
             proved_state,
             is_new,
         };
@@ -467,7 +467,7 @@ fn gen_account_precondition_from_account(
                     *field = OrIgnore::Check(Fp::rand(&mut rng));
                 }
                 Tamperable::SequenceState => {
-                    predicate_account.sequence_state = OrIgnore::Check(Fp::rand(&mut rng));
+                    predicate_account.action_state = OrIgnore::Check(Fp::rand(&mut rng));
                 }
                 Tamperable::ProvedState => {
                     let proved_state = match predicate_account.proved_state {
@@ -897,21 +897,21 @@ fn gen_account_update_body_components<A, B, C, D>(
                 .unwrap()
         };
 
-        let sequence_state = {
-            let last_sequence_slot = zk.last_sequence_slot;
+        let action_state = {
+            let last_action_slot = zk.last_action_slot;
             let txn_global_slot = match protocol_state_view {
-                None => last_sequence_slot,
+                None => last_action_slot,
                 Some(ps) => ps.global_slot_since_genesis,
             };
 
-            let (sequence_state, _last_sequence_slot) = zkapp_logic::update_sequence_state(
-                zk.sequence_state,
+            let (action_state, _last_action_slot) = zkapp_logic::update_action_state(
+                zk.action_state,
                 actions.clone(),
                 txn_global_slot,
-                last_sequence_slot,
+                last_action_slot,
             );
 
-            sequence_state
+            action_state
         };
 
         let proved_state = {
@@ -935,7 +935,7 @@ fn gen_account_update_body_components<A, B, C, D>(
 
         Some(ZkAppAccount {
             app_state,
-            sequence_state,
+            action_state,
             proved_state,
             ..zk.clone()
         })

@@ -275,7 +275,7 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
 
                 let verification_key = zkapp.verification_key.as_ref().map(|vk| vk.into());
 
-                let seq = zkapp.sequence_state;
+                let seq = zkapp.action_state;
                 let sequence_state = PaddedSeq(seq.map(|v| v.into()));
 
                 MinaBaseZkappAccountStableV2 {
@@ -286,7 +286,7 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
                     )),
                     sequence_state,
                     last_sequence_slot: UnsignedExtendedUInt32StableV1(
-                        (zkapp.last_sequence_slot.as_u32() as i32).into(),
+                        (zkapp.last_action_slot.as_u32() as i32).into(),
                     ),
                     proved_state: zkapp.proved_state,
                     zkapp_uri: MinaBaseZkappAccountZkappUriStableV1(
@@ -444,7 +444,7 @@ impl From<&MinaBasePermissionsStableV2> for Permissions<AuthRequired> {
             set_permissions: set_permissions.into(),
             set_verification_key: set_verification_key.into(),
             set_zkapp_uri: set_zkapp_uri.into(),
-            edit_sequence_state: edit_sequence_state.into(),
+            edit_action_state: edit_sequence_state.into(),
             set_token_symbol: set_token_symbol.into(),
             increment_nonce: increment_nonce.into(),
             set_voting_for: set_voting_for.into(),
@@ -465,7 +465,7 @@ impl From<&Permissions<AuthRequired>> for MinaBasePermissionsStableV2 {
             set_permissions,
             set_verification_key,
             set_zkapp_uri,
-            edit_sequence_state,
+            edit_action_state,
             set_token_symbol,
             increment_nonce,
             set_voting_for,
@@ -480,7 +480,7 @@ impl From<&Permissions<AuthRequired>> for MinaBasePermissionsStableV2 {
             set_permissions: set_permissions.into(),
             set_verification_key: set_verification_key.into(),
             set_zkapp_uri: set_zkapp_uri.into(),
-            edit_sequence_state: edit_sequence_state.into(),
+            edit_sequence_state: edit_action_state.into(),
             set_token_symbol: set_token_symbol.into(),
             increment_nonce: increment_nonce.into(),
             set_voting_for: set_voting_for.into(),
@@ -513,8 +513,8 @@ impl From<MinaBaseAccountBinableArgStableV2> for Account {
                     app_state,
                     verification_key: zkapp.verification_key.map(|vk| (&vk).into()),
                     zkapp_version: zkapp.zkapp_version.0 .0 .0 as u32,
-                    sequence_state: zkapp.sequence_state.0.map(|v| v.into()),
-                    last_sequence_slot: Slot::from_u32(zkapp.last_sequence_slot.as_u32()),
+                    action_state: zkapp.sequence_state.0.map(|v| v.into()),
+                    last_action_slot: Slot::from_u32(zkapp.last_sequence_slot.as_u32()),
                     proved_state: zkapp.proved_state,
                     zkapp_uri: (&zkapp.zkapp_uri.0).try_into().unwrap(),
                 }

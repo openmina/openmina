@@ -59,7 +59,10 @@ where
     T: Magnitude + PartialOrd + Ord + Clone,
 {
     pub fn create(magnitude: T, sgn: Sgn) -> Self {
-        Self { magnitude, sgn }
+        Self {
+            magnitude,
+            sgn: if magnitude.is_zero() { Sgn::Pos } else { sgn },
+        }
     }
 
     pub fn of_unsigned(magnitude: T) -> Self {
@@ -78,6 +81,11 @@ where
     }
 
     pub fn is_pos(&self) -> bool {
+        matches!(self.sgn, Sgn::Pos)
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/42d2005d04b59d14aacf4eef5ccee353e9a531b7/src/lib/transaction_logic/mina_transaction_logic.ml#L1615
+    pub fn is_non_neg(&self) -> bool {
         matches!(self.sgn, Sgn::Pos)
     }
 

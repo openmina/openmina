@@ -62,7 +62,7 @@ pub enum TransactionFailure {
     UpdateNotPermittedDelegate,
     UpdateNotPermittedAppState,
     UpdateNotPermittedVerificationKey,
-    UpdateNotPermittedSequenceState,
+    UpdateNotPermittedActionState,
     UpdateNotPermittedZkappUri,
     UpdateNotPermittedTokenSymbol,
     UpdateNotPermittedPermissions,
@@ -75,7 +75,7 @@ pub enum TransactionFailure {
     AccountNoncePreconditionUnsatisfied,
     AccountReceiptChainHashPreconditionUnsatisfied,
     AccountDelegatePreconditionUnsatisfied,
-    AccountSequenceStatePreconditionUnsatisfied,
+    AccountActionStatePreconditionUnsatisfied,
     AccountAppStatePreconditionUnsatisfied(i64),
     AccountProvedStatePreconditionUnsatisfied,
     AccountIsNewPreconditionUnsatisfied,
@@ -116,9 +116,7 @@ impl ToString for TransactionFailure {
             Self::UpdateNotPermittedVerificationKey => {
                 "Update_not_permitted_verification_key".to_string()
             }
-            Self::UpdateNotPermittedSequenceState => {
-                "Update_not_permitted_sequence_state".to_string()
-            }
+            Self::UpdateNotPermittedActionState => "Update_not_permitted_action_state".to_string(),
             Self::UpdateNotPermittedZkappUri => "Update_not_permitted_zkapp_uri".to_string(),
             Self::UpdateNotPermittedTokenSymbol => "Update_not_permitted_token_symbol".to_string(),
             Self::UpdateNotPermittedPermissions => "Update_not_permitted_permissions".to_string(),
@@ -139,8 +137,8 @@ impl ToString for TransactionFailure {
             Self::AccountDelegatePreconditionUnsatisfied => {
                 "Account_delegate_precondition_unsatisfied".to_string()
             }
-            Self::AccountSequenceStatePreconditionUnsatisfied => {
-                "Account_sequence_state_precondition_unsatisfied".to_string()
+            Self::AccountActionStatePreconditionUnsatisfied => {
+                "Account_action_state_precondition_unsatisfied".to_string()
             }
             Self::AccountAppStatePreconditionUnsatisfied(i) => {
                 format!("Account_app_state_{}_precondition_unsatisfied", i)
@@ -900,7 +898,7 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L156
     impl MakeEvents for Actions {
-        const SALT_PHRASE: &'static str = "MinaZkappSequenceEmpty";
+        const SALT_PHRASE: &'static str = "MinaZkappActionsEmpty";
         const HASH_PREFIX: &'static str = "MinaZkappSeqEvents";
         const DERIVER_NAME: () = ();
         fn events(&self) -> &[Event] {
@@ -1028,17 +1026,17 @@ pub mod zkapp_command {
         }
 
         pub fn push_event(acc: Fp, event: Event) -> Fp {
-            hash_with_kimchi("MinaZkappEvents", &[acc, event.hash()])
+            hash_with_kimchi(Self::HASH_PREFIX, &[acc, event.hash()])
         }
 
         pub fn push_events(&self, acc: Fp) -> Fp {
             let hash = self
                 .0
                 .iter()
-                .rfold(hash_noinputs("MinaZkappEventsEmpty"), |acc, e| {
+                .rfold(hash_noinputs(Self::SALT_PHRASE), |acc, e| {
                     Self::push_event(acc, e.clone())
                 });
-            hash_with_kimchi("MinaZkappEvents", &[acc, hash])
+            hash_with_kimchi(Self::HASH_PREFIX, &[acc, hash])
         }
     }
 
@@ -1052,17 +1050,17 @@ pub mod zkapp_command {
         }
 
         pub fn push_event(acc: Fp, event: Event) -> Fp {
-            hash_with_kimchi("MinaZkappSeqEvents", &[acc, event.hash()])
+            hash_with_kimchi(Self::HASH_PREFIX, &[acc, event.hash()])
         }
 
         pub fn push_events(&self, acc: Fp) -> Fp {
             let hash = self
                 .0
                 .iter()
-                .rfold(hash_noinputs("MinaZkappSequenceEmpty"), |acc, e| {
+                .rfold(hash_noinputs(Self::SALT_PHRASE), |acc, e| {
                     Self::push_event(acc, e.clone())
                 });
-            hash_with_kimchi("MinaZkappSeqEvents", &[acc, hash])
+            hash_with_kimchi(Self::HASH_PREFIX, &[acc, hash])
         }
     }
 
@@ -1632,7 +1630,7 @@ pub mod zkapp_command {
         pub receipt_chain_hash: Hash<Fp>, // TODO: Should be type `ReceiptChainHash`
         pub delegate: EqData<CompressedPubKey>,
         pub state: [EqData<Fp>; 8],
-        pub sequence_state: EqData<Fp>,
+        pub action_state: EqData<Fp>,
         pub proved_state: EqData<bool>,
         pub is_new: EqData<bool>,
     }
@@ -1646,7 +1644,7 @@ pub mod zkapp_command {
                 receipt_chain_hash: Hash::Ignore,
                 delegate: EqData::Ignore,
                 state: std::array::from_fn(|_| EqData::Ignore),
-                sequence_state: EqData::Ignore,
+                action_state: EqData::Ignore,
                 proved_state: EqData::Ignore,
                 is_new: EqData::Ignore,
             }
@@ -1722,7 +1720,7 @@ pub mod zkapp_command {
                 receipt_chain_hash,
                 delegate,
                 state,
-                sequence_state,
+                action_state,
                 proved_state,
                 is_new,
             } = account.as_ref();
@@ -1737,8 +1735,8 @@ pub mod zkapp_command {
             });
 
             // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L168
-            inputs.append(&(sequence_state, || {
-                hash_noinputs("MinaZkappSequenceStateEmptyElt")
+            inputs.append(&(action_state, || {
+                hash_noinputs("MinaZkappActionStateEmptyElt")
             }));
 
             inputs.append(&(proved_state, || false));
@@ -6134,7 +6132,7 @@ pub mod for_tests {
                     set_permissions: Either,
                     set_verification_key: Either,
                     set_zkapp_uri: Either,
-                    edit_sequence_state: Either,
+                    edit_action_state: Either,
                     set_token_symbol: Either,
                     increment_nonce: Either,
                     set_voting_for: Either,
