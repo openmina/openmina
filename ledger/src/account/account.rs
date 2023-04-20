@@ -480,7 +480,7 @@ impl Default for ZkAppAccount {
             verification_key: None,
             zkapp_version: 0,
             action_state: {
-                let empty = hash_noinputs("MinaZkappSequenceStateEmptyElt");
+                let empty = hash_noinputs("MinaZkappActionStateEmptyElt");
                 [empty, empty, empty, empty, empty]
             },
             last_action_slot: Slot::zero(),
@@ -1052,7 +1052,7 @@ mod tests {
 
         assert_eq!(
             hash.to_hex(),
-            "3d982b0e0aa00b9cf7c365bcd6604fc70aa860c7dd4219283e4127cf0e1b5b02"
+            "98cf7cf3a885d0523ac3ac51c3aca17ebb93ec94a15aed43787352cfe8e47204"
         );
 
         let acc = Account {
@@ -1074,7 +1074,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "885161388ad4930a38ef62956a3261af9d3c92e30093d66413adfe01c63c9439"
+            "ef40252c54fa9e7539ae91db89c8104778ad19e1afab1b8df4a4dee51a270e1e"
         );
     }
 
@@ -1180,10 +1180,10 @@ mod tests {
 
         let root_hash = verify_merkle_path(&account, merkle_path.as_slice());
 
-        let expected_root_hash =
-            hex::decode("bd5ab37bd7df1f0330b015c9501ac2b279270ca19a083e69f41e80f65804723d")
-                .unwrap();
-        let expected_root_hash = Fp::from_bytes(&expected_root_hash).unwrap();
+        let expected_root_hash = Fp::from_str(
+            "13294139316831045628856068053543468709149714488527059099223047292955286511556",
+        )
+        .unwrap();
 
         assert_eq!(root_hash, expected_root_hash);
     }
