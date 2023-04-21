@@ -852,7 +852,7 @@ pub mod zkapp_command {
     use static_assertions::assert_eq_size_val;
 
     use crate::{
-        account, dummy, gen_keypair, hash_noinputs, hash_with_kimchi,
+        account, dummy, gen_compressed, gen_keypair, hash_noinputs, hash_with_kimchi,
         scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot},
         AuthRequired, ControlTag, Inputs, MyCow, Permissions, ToInputs, TokenSymbol,
         VerificationKey, VotingFor, ZkAppUri,
@@ -876,6 +876,20 @@ pub mod zkapp_command {
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L155
     #[derive(Debug, Clone, PartialEq)]
     pub struct Actions(pub Vec<Event>);
+
+    pub fn gen_events() -> Vec<Event> {
+        let mut rng = rand::thread_rng();
+
+        let n = rng.gen_range(0..=5);
+
+        (0..=n)
+            .map(|_| {
+                let n = rng.gen_range(0..=3);
+                let event = (0..=n).map(|_| Fp::rand(&mut rng)).collect();
+                Event(event)
+            })
+            .collect()
+    }
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L23
     trait MakeEvents {
@@ -1533,6 +1547,21 @@ pub mod zkapp_command {
             self.epoch_length
                 .check(format!("{}_{}", label, "epoch_length"), t.epoch_length)
         }
+
+        pub fn gen() -> Self {
+            let mut rng = rand::thread_rng();
+
+            EpochData {
+                ledger: EpochLedger {
+                    hash: OrIgnore::gen(|| Fp::rand(&mut rng)),
+                    total_currency: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
+                },
+                seed: OrIgnore::gen(|| Fp::rand(&mut rng)),
+                start_checkpoint: OrIgnore::gen(|| Fp::rand(&mut rng)),
+                lock_checkpoint: OrIgnore::gen(|| Fp::rand(&mut rng)),
+                epoch_length: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
+            }
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L977
@@ -1875,11 +1904,21 @@ pub mod zkapp_command {
     pub type SideLoadedProof = Rc<mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2>;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/control.ml#L11
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Clone, PartialEq)]
     pub enum Control {
         Proof(SideLoadedProof),
         Signature(Signature),
         NoneGiven,
+    }
+
+    impl std::fmt::Debug for Control {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Proof(_) => f.debug_tuple("Proof").field(&"_").finish(),
+                Self::Signature(arg0) => f.debug_tuple("Signature").field(arg0).finish(),
+                Self::NoneGiven => write!(f, "NoneGiven"),
+            }
+        }
     }
 
     impl Control {
@@ -2260,6 +2299,138 @@ pub mod zkapp_command {
                     authorization_kind,
                 },
                 authorization,
+            }
+        }
+
+        /// Usage: Random `AccountUpdate` to compare hashes with OCaml
+        pub fn rand() -> Self {
+            let mut rng = rand::thread_rng();
+            let rng = &mut rng;
+
+            Self {
+                body: Body {
+                    public_key: gen_compressed(),
+                    token_id: TokenId(Fp::rand(rng)),
+                    update: Update {
+                        app_state: std::array::from_fn(|_| SetOrKeep::gen(|| Fp::rand(rng))),
+                        delegate: SetOrKeep::gen(gen_compressed),
+                        verification_key: SetOrKeep::gen(|| {
+                            let vk = VerificationKey::gen();
+                            let hash = vk.hash();
+                            WithHash { data: vk, hash }
+                        }),
+                        permissions: SetOrKeep::gen(|| {
+                            let auth_tag = [
+                                ControlTag::NoneGiven,
+                                ControlTag::Proof,
+                                ControlTag::Signature,
+                            ]
+                            .choose(rng)
+                            .unwrap();
+
+                            Permissions::gen(*auth_tag)
+                        }),
+                        zkapp_uri: SetOrKeep::gen(ZkAppUri::gen),
+                        token_symbol: SetOrKeep::gen(TokenSymbol::gen),
+                        timing: SetOrKeep::gen(|| Timing {
+                            initial_minimum_balance: rng.gen(),
+                            cliff_time: rng.gen(),
+                            cliff_amount: rng.gen(),
+                            vesting_period: rng.gen(),
+                            vesting_increment: rng.gen(),
+                        }),
+                        voting_for: SetOrKeep::gen(|| VotingFor(Fp::rand(rng))),
+                    },
+                    balance_change: Signed::gen(),
+                    increment_nonce: rng.gen(),
+                    events: Events(gen_events()),
+                    actions: Actions(gen_events()),
+                    call_data: Fp::rand(rng),
+                    preconditions: Preconditions {
+                        network: ZkAppPreconditions {
+                            snarked_ledger_hash: OrIgnore::gen(|| Fp::rand(rng)),
+                            blockchain_length: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
+                            min_window_density: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
+                            last_vrf_output: (),
+                            total_currency: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
+                            global_slot_since_genesis: OrIgnore::gen(|| {
+                                ClosedInterval::gen(|| rng.gen())
+                            }),
+                            staking_epoch_data: EpochData::gen(),
+                            next_epoch_data: EpochData::gen(),
+                        },
+                        account: {
+                            match AccountPreconditions::Accept {
+                                AccountPreconditions::Full(_) => (),
+                                AccountPreconditions::Nonce(_) => (),
+                                AccountPreconditions::Accept => (),
+                            };
+
+                            match rng.gen_range(0..3) {
+                                0 => AccountPreconditions::Accept,
+                                1 => AccountPreconditions::Nonce(rng.gen()),
+                                _ => AccountPreconditions::Full(Box::new(Account {
+                                    balance: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
+                                    nonce: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
+                                    receipt_chain_hash: OrIgnore::gen(|| Fp::rand(rng)),
+                                    delegate: OrIgnore::gen(gen_compressed),
+                                    state: std::array::from_fn(|_| OrIgnore::gen(|| Fp::rand(rng))),
+                                    action_state: OrIgnore::gen(|| Fp::rand(rng)),
+                                    proved_state: OrIgnore::gen(|| rng.gen()),
+                                    is_new: OrIgnore::gen(|| rng.gen()),
+                                })),
+                            }
+                        },
+                        valid_while: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
+                    },
+                    use_full_commitment: rng.gen(),
+                    implicit_account_creation_fee: rng.gen(),
+                    may_use_token: {
+                        match MayUseToken::No {
+                            MayUseToken::No => (),
+                            MayUseToken::ParentsOwnToken => (),
+                            MayUseToken::InheritFromParent => (),
+                        };
+
+                        [
+                            MayUseToken::No,
+                            MayUseToken::InheritFromParent,
+                            MayUseToken::ParentsOwnToken,
+                        ]
+                        .choose(rng)
+                        .cloned()
+                        .unwrap()
+                    },
+                    authorization_kind: {
+                        match AuthorizationKind::NoneGiven {
+                            AuthorizationKind::NoneGiven => (),
+                            AuthorizationKind::Signature => (),
+                            AuthorizationKind::Proof(_) => (),
+                        };
+
+                        [
+                            AuthorizationKind::NoneGiven,
+                            AuthorizationKind::Signature,
+                            AuthorizationKind::Proof(Fp::rand(rng)),
+                        ]
+                        .choose(rng)
+                        .cloned()
+                        .unwrap()
+                    },
+                },
+                authorization: {
+                    match Control::NoneGiven {
+                        Control::Proof(_) => (),
+                        Control::Signature(_) => (),
+                        Control::NoneGiven => (),
+                    };
+
+                    match rng.gen_range(0..3) {
+                        0 => Control::NoneGiven,
+                        1 => Control::Signature(Signature::dummy()),
+                        _ => Control::Proof(dummy::sideloaded_proof()),
+                    }
+                },
             }
         }
     }

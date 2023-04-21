@@ -746,7 +746,7 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
                     MLength::Ignore => OrIgnore::Ignore,
                 },
                 staking_epoch_data: (&value.network.staking_epoch_data).into(),
-                next_epoch_data: (&value.network.staking_epoch_data).into(),
+                next_epoch_data: (&value.network.next_epoch_data).into(),
             },
             account: match &value.account {
                 MAccount::Full(account) => {
@@ -865,7 +865,7 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
                     Numeric::Ignore => MLength::Ignore,
                 },
                 staking_epoch_data: (&value.network.staking_epoch_data).into(),
-                next_epoch_data: (&value.network.staking_epoch_data).into(),
+                next_epoch_data: (&value.network.next_epoch_data).into(),
             },
             account: match &value.account {
                 AccountPreconditions::Full(account) => {

@@ -8,8 +8,12 @@ use std::{
     sync::Mutex,
 };
 
+use binprot::BinProtWrite;
 use mina_hasher::Fp;
-use mina_p2p_messages::{bigint::BigInt, v2::NonZeroCurvePointUncompressedStableV1};
+use mina_p2p_messages::{
+    bigint::BigInt,
+    v2::{MinaBaseAccountUpdateTStableV1, NonZeroCurvePointUncompressedStableV1},
+};
 use ocaml_interop::{
     impl_to_ocaml_polymorphic_variant, impl_to_ocaml_variant, ocaml_export, DynBox, OCaml,
     OCamlBytes, OCamlInt, OCamlList, OCamlRef, OCamlRuntime, RawOCaml, ToOCaml,
@@ -22,6 +26,7 @@ use crate::{
     base::{AccountIndex, BaseLedger, MerklePath},
     database::Database,
     ffi::util::*,
+    scan_state::transaction_logic::zkapp_command::AccountUpdate,
     short_backtrace,
     tree_version::V2,
 };
@@ -329,6 +334,56 @@ ocaml_export! {
         }
 
         elog!("nchecked={:?}", nchecked);
+
+        OCaml::unit()
+    }
+
+    fn rust_test_random_account_updates(
+        rt,
+        get_hash_fun: OCamlRef<fn (OCamlBytes) -> OCamlBytes>,
+    ) {
+        let get_hash_fun = get_hash_fun.to_boxroot(rt);
+        let mut nchecked = 0;
+
+        for _ in 0..10_000 {
+            let account = AccountUpdate::rand();
+            let rust_hash = account.digest();
+
+            let bytes = {
+                let account: MinaBaseAccountUpdateTStableV1 = (&account).into();
+                let mut bytes = Vec::with_capacity(10000);
+                account.binprot_write(&mut bytes).unwrap();
+                bytes
+            };
+
+            {
+                let mut cursor = std::io::Cursor::new(&bytes);
+                let acc = <mina_p2p_messages::v2::MinaBaseAccountUpdateTStableV1 as binprot::BinProtRead>::binprot_read(&mut cursor).unwrap();
+                let acc: AccountUpdate = (&acc).into();
+
+                assert_eq!(account, acc);
+            }
+
+            let ocaml_hash: OCaml<OCamlBytes> = match get_hash_fun.try_call(rt, &bytes) {
+                Ok(hash) => hash,
+                Err(_) => continue, // random account is invalid
+            };
+
+            let ocaml_hash: Vec<u8> = ocaml_hash.to_rust();
+            let ocaml_hash: BigInt = deserialize(&ocaml_hash);
+            let ocaml_hash: Fp = ocaml_hash.into();
+
+            if ocaml_hash != rust_hash {
+                eprintln!("ocaml_hash={}", ocaml_hash);
+                eprintln!("rust_hash ={}", rust_hash);
+                eprintln!("bytes={:?}", bytes);
+                panic!("account={:#?}", account);
+            }
+
+            nchecked += 1;
+        }
+
+        eprintln!("nchecked={}", nchecked);
 
         OCaml::unit()
     }

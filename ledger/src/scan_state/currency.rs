@@ -145,6 +145,25 @@ where
     }
 }
 
+impl<T> Signed<T>
+where
+    T: Magnitude + PartialOrd + Ord + Clone,
+    rand::distributions::Standard: rand::distributions::Distribution<T>,
+{
+    pub fn gen() -> Self {
+        let mut rng = rand::thread_rng();
+
+        let magnitude: T = rng.gen();
+        let sgn = if rng.gen::<bool>() {
+            Sgn::Pos
+        } else {
+            Sgn::Neg
+        };
+
+        Self::create(magnitude, sgn)
+    }
+}
+
 impl Amount {
     /// The number of nanounits in a unit. User for unit transformations.
     const UNIT_TO_NANO: u64 = 1_000_000_000;

@@ -49,6 +49,18 @@ impl TokenId {
 #[derive(Clone, Debug, PartialEq, Eq, derive_more::Deref, derive_more::From)]
 pub struct TokenSymbol(pub String);
 
+impl TokenSymbol {
+    pub fn gen() -> Self {
+        let mut rng = rand::thread_rng();
+
+        let sym: u32 = rng.gen();
+        let mut sym = sym.to_string();
+        sym.truncate(6);
+
+        Self(sym)
+    }
+}
+
 impl Default for TokenSymbol {
     fn default() -> Self {
         // empty string
@@ -399,6 +411,37 @@ impl VerificationKey {
     pub fn hash(&self) -> Fp {
         self.hash_with_param("MinaSideLoadedVk")
     }
+
+    pub fn gen() -> Self {
+        let mut rng = rand::thread_rng();
+
+        VerificationKey {
+            max_proofs_verified: {
+                let n: u64 = rng.gen();
+
+                if n % 3 == 0 {
+                    ProofVerified::N2
+                } else if n % 2 == 0 {
+                    ProofVerified::N1
+                } else {
+                    ProofVerified::N0
+                }
+            },
+            wrap_index: PlonkVerificationKeyEvals::rand(&mut rng),
+            wrap_vk: None,
+            actual_wrap_domain_size: {
+                let n: u64 = rng.gen();
+
+                if n % 3 == 0 {
+                    ProofVerified::N2
+                } else if n % 2 == 0 {
+                    ProofVerified::N1
+                } else {
+                    ProofVerified::N0
+                }
+            },
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, derive_more::From)]
@@ -407,6 +450,15 @@ pub struct ZkAppUri(String);
 impl ZkAppUri {
     pub fn new() -> Self {
         Self(String::new())
+    }
+
+    pub fn gen() -> Self {
+        let mut rng = rand::thread_rng();
+
+        let zkapp_uri: u64 = rng.gen();
+        let mut zkapp_uri = zkapp_uri.to_string();
+
+        Self(zkapp_uri)
     }
 }
 
@@ -951,32 +1003,7 @@ impl Account {
                         Fp::rand(rng),
                     ],
                     verification_key: if rng.gen() {
-                        Some(VerificationKey {
-                            max_proofs_verified: {
-                                let n: u64 = rng.gen();
-
-                                if n % 3 == 0 {
-                                    ProofVerified::N2
-                                } else if n % 2 == 0 {
-                                    ProofVerified::N1
-                                } else {
-                                    ProofVerified::N0
-                                }
-                            },
-                            wrap_index: PlonkVerificationKeyEvals::rand(rng),
-                            wrap_vk: None,
-                            actual_wrap_domain_size: {
-                                let n: u64 = rng.gen();
-
-                                if n % 3 == 0 {
-                                    ProofVerified::N2
-                                } else if n % 2 == 0 {
-                                    ProofVerified::N1
-                                } else {
-                                    ProofVerified::N0
-                                }
-                            },
-                        })
+                        Some(VerificationKey::gen())
                     } else {
                         None
                     },
