@@ -44,6 +44,7 @@ pub mod dummy;
 pub mod generators;
 mod hash;
 mod mask;
+mod ondisk;
 mod poseidon;
 pub mod scan_state;
 pub mod staged_ledger;
