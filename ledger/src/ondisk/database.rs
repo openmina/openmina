@@ -1,4 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, fs::File, os::unix::prelude::FileExt, path::Path};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    fs::File,
+    io::{BufReader, BufWriter, Seek, SeekFrom, Write},
+    os::unix::prelude::FileExt,
+    path::Path,
+};
 
 use uuid::Uuid;
 
@@ -11,15 +18,10 @@ struct Database {
     index: HashMap<Key, Offset>,
 
     file_offset: Offset,
-    file: std::fs::File,
+    file: BufWriter<std::fs::File>,
 
     buffer: RefCell<Option<Vec<u8>>>,
 }
-
-// key size (u32)
-// value size (u32)
-// key
-// value
 
 struct Header {
     key_length: u32,
@@ -48,33 +50,94 @@ impl Header {
 
 fn read_u32(slice: &[u8]) -> std::io::Result<u32> {
     slice
-        .get(0..4)
+        .get(..4)
         .and_then(|slice: &[u8]| slice.try_into().ok())
         .map(u32::from_le_bytes)
         .ok_or(std::io::ErrorKind::UnexpectedEof.into())
 }
 
 fn ensure_buffer_length(buffer: &mut Vec<u8>, length: usize) {
-    let capacity = buffer.capacity();
-
-    if capacity < length {
-        buffer.reserve(length - capacity);
+    if buffer.len() < length {
+        buffer.resize(length, 0)
     }
 }
 
 impl Database {
-    pub fn create(directory: &Path) -> std::io::Result<Self> {
+    pub fn create(directory: impl AsRef<Path>) -> std::io::Result<Self> {
+        let directory = directory.as_ref();
+
+        let filename = directory.join("db");
+
+        if filename.try_exists()? {
+            return Self::reload(&filename);
+        }
+
+        if !directory.try_exists()? {
+            std::fs::create_dir_all(directory)?;
+        }
+
         let file = std::fs::File::options()
+            .read(true)
             .write(true)
             .append(true)
             .create_new(true)
-            .open(directory)?;
+            .open(filename)?;
 
         Ok(Self {
             uuid: Uuid::new_v4(),
             index: HashMap::with_capacity(128),
             file_offset: 0,
-            file,
+            file: BufWriter::with_capacity(4096, file), // TODO: Use PAGE_SIZE ?
+            buffer: RefCell::new(Some(Vec::with_capacity(4096))),
+        })
+    }
+
+    fn reload(filename: &Path) -> std::io::Result<Self> {
+        use std::io::Read;
+
+        let mut file = std::fs::File::options()
+            .read(true)
+            .write(true)
+            .append(true)
+            .create_new(false)
+            .open(filename)?;
+
+        let mut offset = 0;
+        let end = file.seek(SeekFrom::End(0))?;
+
+        let mut reader = BufReader::with_capacity(4096, file);
+        let mut bytes = vec![0; 4096];
+
+        let mut index = HashMap::with_capacity(256);
+
+        while offset < end {
+            let header_offset = offset;
+
+            reader.read_exact(&mut bytes[..Header::NBYTES])?;
+
+            let key_length = read_u32(&bytes[..4])? as usize;
+            let value_length = read_u32(&bytes[4..])? as usize;
+
+            ensure_buffer_length(&mut bytes, key_length + value_length);
+
+            reader.read_exact(&mut bytes[..key_length + value_length])?;
+
+            let key = Box::<[u8]>::from(&bytes[..key_length]);
+
+            index.insert(key, header_offset);
+
+            offset += (Header::NBYTES + key_length + value_length) as u64;
+        }
+
+        if end != offset {
+            return Err(std::io::ErrorKind::UnexpectedEof.into());
+        }
+
+        Ok(Self {
+            uuid: Uuid::new_v4(),
+            index,
+            file_offset: end,
+            file: BufWriter::with_capacity(4096, reader.into_inner()),
             buffer: RefCell::new(Some(Vec::with_capacity(4096))),
         })
     }
@@ -112,18 +175,21 @@ impl Database {
             .buffer
             .borrow_mut()
             .take()
-            .unwrap_or_else(|| Vec::with_capacity(4096));
-        buffer.clear();
+            .unwrap_or_else(|| vec![0; 4096]);
 
-        let result = fun(self, &mut buffer)?;
+        let result = fun(self, &mut buffer);
 
         *self.buffer.borrow_mut() = Some(buffer);
-        Ok(result)
+
+        result
     }
 
     fn read_header(&self, header_offset: Offset) -> std::io::Result<Header> {
         self.with_buffer(|this, buffer| {
+            ensure_buffer_length(buffer, Header::NBYTES);
+
             this.file
+                .get_ref()
                 .read_exact_at(&mut buffer[..Header::NBYTES], header_offset)?;
 
             let key_length = read_u32(&buffer[0..])?;
@@ -140,14 +206,16 @@ impl Database {
         self.with_buffer(|this, buffer| {
             ensure_buffer_length(buffer, length);
 
-            this.file.read_exact_at(&mut buffer[..length], offset)?;
+            this.file
+                .get_ref()
+                .read_exact_at(&mut buffer[..length], offset)?;
 
             Ok(Vec::from(&buffer[..length]))
         })
     }
 
-    pub fn get(&self, key: Key) -> std::io::Result<Option<Value>> {
-        let header_offset = match self.index.get(&key).copied() {
+    pub fn get(&self, key: &Key) -> std::io::Result<Option<Value>> {
+        let header_offset = match self.index.get(key.as_ref()).copied() {
             Some(header_offset) => header_offset,
             None => return Ok(None),
         };
@@ -168,25 +236,19 @@ impl Database {
             value_length: value.len().try_into().unwrap(),
         };
 
-        let value_is_empty = value.is_empty();
+        let header_offset = self.file_offset;
 
-        let header_offset = self.with_buffer_mut(|this, buffer| {
-            buffer.write_all(&header.key_length.to_le_bytes())?;
-            buffer.write_all(&header.value_length.to_le_bytes())?;
-            buffer.write_all(&key)?;
-            buffer.write_all(&value)?;
+        self.file.write_all(&header.key_length.to_le_bytes())?;
+        self.file.write_all(&header.value_length.to_le_bytes())?;
+        self.file.write_all(&key)?;
+        self.file.write_all(&value)?;
 
-            let offset = this.file_offset;
-            let buffer_len = buffer.len();
+        let buffer_len = Header::NBYTES + key.len() + value.len();
+        self.file_offset += buffer_len as u64;
 
-            this.file.write_all(buffer)?;
-
-            this.file_offset += buffer_len as u64;
-
-            Ok(offset)
-        })?;
-
-        if value_is_empty {
+        // Update index
+        if value.is_empty() {
+            // Value is empty, we remove the key from our index
             self.index.remove(&key);
         } else {
             self.index.insert(key, header_offset);
@@ -197,14 +259,14 @@ impl Database {
 
     pub fn set(&mut self, key: Key, value: Value) -> std::io::Result<()> {
         self.set_impl(key, value)?;
-        self.file.sync_all()?;
+        self.flush()?;
         Ok(())
     }
 
     pub fn set_batch(
         &mut self,
-        key_data_pairs: impl Iterator<Item = (Key, Value)>,
-        remove_keys: impl Iterator<Item = Key>,
+        key_data_pairs: impl IntoIterator<Item = (Key, Value)>,
+        remove_keys: impl IntoIterator<Item = Key>,
     ) -> std::io::Result<()> {
         for (key, value) in key_data_pairs {
             self.set_impl(key, value)?;
@@ -214,40 +276,152 @@ impl Database {
             self.set_impl(key, Vec::new())? // empty value
         }
 
-        self.file.sync_all()?;
+        self.flush()?;
 
         Ok(())
     }
+
+    pub fn get_batch(
+        &self,
+        keys: impl IntoIterator<Item = Key>,
+    ) -> std::io::Result<Vec<Option<Value>>> {
+        keys.into_iter().map(|key| self.get(&key)).collect()
+    }
+
+    pub fn make_checkpoint(&self, directory: &Path) -> std::io::Result<()> {
+        self.create_checkpoint(directory)?;
+        Ok(())
+    }
+
+    pub fn create_checkpoint(&self, directory: &Path) -> std::io::Result<Self> {
+        let mut checkpoint = Self::create(directory)?;
+
+        for key in self.index.keys().cloned() {
+            let value = self.get(&key)?.unwrap();
+            checkpoint.set_impl(key, value)?;
+        }
+
+        checkpoint.flush()?;
+
+        Ok(checkpoint)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.file.flush()?;
+        self.file.get_ref().sync_all()
+    }
+
+    pub fn remove(&mut self, key: Key) -> std::io::Result<()> {
+        self.set_impl(key, Vec::new()) // empty value
+    }
+
+    pub fn to_alist(&self) -> std::io::Result<Vec<(Key, Value)>> {
+        self.index
+            .keys()
+            .map(|key| Ok((key.clone(), self.get(key)?.unwrap())))
+            .collect()
+    }
 }
 
-// let create_checkpoint t dir =
-//   Rocks.checkpoint_create t.db ~dir ?log_size_for_flush:None () ;
-//   create dir
+#[cfg(test)]
+mod tests {
+    use rand::{Fill, Rng};
+    use std::path::PathBuf;
 
-// let make_checkpoint t dir =
-//   Rocks.checkpoint_create t.db ~dir ?log_size_for_flush:None ()
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
 
-// let get_uuid t = t.uuid
+    use super::*;
 
-// let close t = Rocks.close t.db
+    struct TempDir {
+        path: PathBuf,
+    }
 
-// let get t ~(key : Bigstring.t) : Bigstring.t option =
-//   Rocks.get ?pos:None ?len:None ?opts:None t.db key
+    impl TempDir {
+        fn new(directory: impl AsRef<Path>) -> std::io::Result<Self> {
+            let path = PathBuf::from(directory.as_ref());
 
-// let get_batch t ~(keys : Bigstring.t list) : Bigstring.t option list =
-//   Rocks.multi_get t.db keys
+            std::fs::create_dir_all(&path)?;
 
-// let set t ~(key : Bigstring.t) ~(data : Bigstring.t) : unit =
-//   Rocks.put ?key_pos:None ?key_len:None ?value_pos:None ?value_len:None
-//     ?opts:None t.db key data
+            Ok(Self { path })
+        }
 
-// let set_batch t ?(remove_keys = [])
-//     ~(key_data_pairs : (Bigstring.t * Bigstring.t) list) : unit =
-//   let batch = Rocks.WriteBatch.create () in
-//   (* write to batch *)
-//   List.iter key_data_pairs ~f:(fun (key, data) ->
-//       Rocks.WriteBatch.put batch key data ) ;
-//   (* Delete any key pairs *)
-//   List.iter remove_keys ~f:(fun key -> Rocks.WriteBatch.delete batch key) ;
-//   (* commit batch *)
-//   Rocks.write t.db batch
+        fn as_path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            if let Err(e) = std::fs::remove_dir_all(&self.path) {
+                eprintln!(
+                    "[test] Failed to remove temporary directory {:?}: {:?}",
+                    self.path, e
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_get_batch() {
+        let db_dir = TempDir::new("/tmp/mina-rocksdb-test").unwrap();
+
+        let mut db = Database::create(db_dir.as_path()).unwrap();
+
+        let (key1, key2, key3): (Key, Key, Key) = (
+            "a".as_bytes().into(),
+            "b".as_bytes().into(),
+            "c".as_bytes().into(),
+        );
+        let data: Value = "test".as_bytes().to_vec();
+
+        db.set(key1.clone(), data.clone()).unwrap();
+        db.set(key3.clone(), data.clone()).unwrap();
+
+        let res = db.get_batch([key1, key2, key3]).unwrap();
+
+        assert_eq!(res[0].as_ref().unwrap(), data.as_slice());
+        assert!(res[1].is_none());
+        assert_eq!(res[2].as_ref().unwrap(), data.as_slice());
+    }
+
+    fn make_random_key_values(nkeys: usize) -> Vec<(Key, Value)> {
+        let mut rng = rand::thread_rng();
+
+        let mut key = [0; 32];
+
+        let mut key_values = HashMap::with_capacity(nkeys);
+
+        while key_values.len() < nkeys {
+            let key_length: usize = rng.gen_range(2..=32);
+            key[..key_length].try_fill(&mut rng);
+
+            let i = key_values.len().to_ne_bytes().to_vec();
+            key_values.insert(Box::<[u8]>::from(&key[..key_length]), i);
+        }
+
+        let mut key_values: Vec<(Key, Value)> = key_values.into_iter().collect();
+        key_values.sort_by_cached_key(|(k, _)| k.clone());
+        key_values
+    }
+
+    #[test]
+    fn test_to_alist() {
+        let db_dir = TempDir::new("/tmp/mina-rocksdb-test").unwrap();
+
+        let mut rng = rand::thread_rng();
+
+        let nkeys: usize = rng.gen_range(1000..2000);
+
+        let sorted = make_random_key_values(nkeys);
+
+        let mut db = Database::create(db_dir.as_path()).unwrap();
+
+        db.set_batch(sorted.clone(), []);
+
+        let mut alist = db.to_alist().unwrap();
+        alist.sort_by_cached_key(|(k, _)| k.clone());
+
+        assert_eq!(sorted, alist);
+    }
+}
