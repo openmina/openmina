@@ -346,9 +346,6 @@ mod tests {
     use rand::{Fill, Rng};
     use std::path::PathBuf;
 
-    #[cfg(target_family = "wasm")]
-    use wasm_bindgen_test::wasm_bindgen_test as test;
-
     use super::*;
 
     struct TempDir {
