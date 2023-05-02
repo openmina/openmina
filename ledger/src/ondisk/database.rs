@@ -3,7 +3,6 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{BufReader, BufWriter, Seek, SeekFrom, Write},
-    os::unix::prelude::FileExt,
     path::Path,
 };
 
@@ -60,6 +59,21 @@ fn ensure_buffer_length(buffer: &mut Vec<u8>, length: usize) {
     if buffer.len() < length {
         buffer.resize(length, 0)
     }
+}
+
+#[cfg(unix)]
+fn read_exact_at(file: &mut File, buffer: &mut [u8], offset: Offset) -> std::io::Result<()> {
+    use std::os::unix::prelude::FileExt;
+
+    file.read_exact_at(buffer, offset)
+}
+
+#[cfg(not(unix))]
+fn read_exact_at(file: &mut File, buffer: &mut [u8], offset: Offset) -> std::io::Result<()> {
+    use std::io::Read;
+
+    file.seek(SeekFrom::Start(offset))?;
+    file.read_exact(buffer)
 }
 
 impl Database {
@@ -184,13 +198,15 @@ impl Database {
         result
     }
 
-    fn read_header(&self, header_offset: Offset) -> std::io::Result<Header> {
-        self.with_buffer(|this, buffer| {
+    fn read_header(&mut self, header_offset: Offset) -> std::io::Result<Header> {
+        self.with_buffer_mut(|this, buffer| {
             ensure_buffer_length(buffer, Header::NBYTES);
 
-            this.file
-                .get_ref()
-                .read_exact_at(&mut buffer[..Header::NBYTES], header_offset)?;
+            read_exact_at(
+                this.file.get_mut(),
+                &mut buffer[..Header::NBYTES],
+                header_offset,
+            )?;
 
             let key_length = read_u32(&buffer[0..])?;
             let value_length = read_u32(&buffer[4..])?;
@@ -202,19 +218,18 @@ impl Database {
         })
     }
 
-    fn read_value(&self, offset: Offset, length: usize) -> std::io::Result<Value> {
-        self.with_buffer(|this, buffer| {
+    fn read_value(&mut self, offset: Offset, length: usize) -> std::io::Result<Value> {
+        self.with_buffer_mut(|this, buffer| {
             ensure_buffer_length(buffer, length);
 
-            this.file
-                .get_ref()
-                .read_exact_at(&mut buffer[..length], offset)?;
+            read_exact_at(this.file.get_mut(), &mut buffer[..length], offset)?;
 
             Ok(Vec::from(&buffer[..length]))
         })
     }
 
-    pub fn get(&self, key: &Key) -> std::io::Result<Option<Value>> {
+    /// `&mut self` is required for `File::seek`
+    pub fn get(&mut self, key: &Key) -> std::io::Result<Option<Value>> {
         let header_offset = match self.index.get(key.as_ref()).copied() {
             Some(header_offset) => header_offset,
             None => return Ok(None),
@@ -282,21 +297,23 @@ impl Database {
     }
 
     pub fn get_batch(
-        &self,
+        &mut self,
         keys: impl IntoIterator<Item = Key>,
     ) -> std::io::Result<Vec<Option<Value>>> {
         keys.into_iter().map(|key| self.get(&key)).collect()
     }
 
-    pub fn make_checkpoint(&self, directory: &Path) -> std::io::Result<()> {
+    pub fn make_checkpoint(&mut self, directory: &Path) -> std::io::Result<()> {
         self.create_checkpoint(directory)?;
         Ok(())
     }
 
-    pub fn create_checkpoint(&self, directory: &Path) -> std::io::Result<Self> {
+    pub fn create_checkpoint(&mut self, directory: &Path) -> std::io::Result<Self> {
         let mut checkpoint = Self::create(directory)?;
 
-        for key in self.index.keys().cloned() {
+        let keys: Vec<_> = self.index.keys().cloned().collect();
+
+        for key in keys {
             let value = self.get(&key)?.unwrap();
             checkpoint.set_impl(key, value)?;
         }
@@ -315,10 +332,11 @@ impl Database {
         self.set_impl(key, Vec::new()) // empty value
     }
 
-    pub fn to_alist(&self) -> std::io::Result<Vec<(Key, Value)>> {
-        self.index
-            .keys()
-            .map(|key| Ok((key.clone(), self.get(key)?.unwrap())))
+    pub fn to_alist(&mut self) -> std::io::Result<Vec<(Key, Value)>> {
+        let keys: Vec<_> = self.index.keys().cloned().collect();
+
+        keys.into_iter()
+            .map(|key| Ok((key.clone(), self.get(&key)?.unwrap())))
             .collect()
     }
 }
