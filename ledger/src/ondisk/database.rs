@@ -424,4 +424,49 @@ mod tests {
 
         assert_eq!(sorted, alist);
     }
+
+    #[test]
+    fn test_checkpoint_read() {
+        let key = |s: &str| Box::<[u8]>::from(s.as_bytes());
+        let value = |s: &str| s.as_bytes().to_vec();
+        let sorted_vec = |mut vec: Vec<(Key, Value)>| {
+            vec.sort_by_cached_key(|(k, _)| k.clone());
+            vec
+        };
+
+        let db_dir = TempDir::new("/tmp/test-cp").unwrap();
+
+        let mut rng = rand::thread_rng();
+
+        let nkeys: usize = rng.gen_range(1000..2000);
+
+        let sorted = make_random_key_values(nkeys);
+
+        let mut db_hashtbl: HashMap<_, _> = sorted.into_iter().collect();
+        let mut cp_hashtbl: HashMap<_, _> = db_hashtbl.clone();
+
+        let mut db = Database::create(db_dir.as_path()).unwrap();
+
+        for (key, data) in &db_hashtbl {
+            db.set(key.clone(), data.clone()).unwrap();
+        }
+
+        let cp_dir = TempDir::new("/tmp/test-cp2").unwrap();
+        let mut cp = db.create_checkpoint(cp_dir.as_path()).unwrap();
+
+        db_hashtbl.insert(key("db_key"), value("db_data"));
+        cp_hashtbl.insert(key("cp_key"), value("cp_data"));
+
+        db.set(key("db_key"), value("db_data")).unwrap();
+        cp.set(key("cp_key"), value("cp_data")).unwrap();
+
+        let db_sorted: Vec<_> = sorted_vec(db_hashtbl.into_iter().collect());
+        let cp_sorted: Vec<_> = sorted_vec(cp_hashtbl.into_iter().collect());
+
+        let db_alist = sorted_vec(db.to_alist().unwrap());
+        let cp_alist = sorted_vec(cp.to_alist().unwrap());
+
+        assert_eq!(db_sorted, db_alist);
+        assert_eq!(cp_sorted, cp_alist);
+    }
 }
