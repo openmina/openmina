@@ -6,13 +6,13 @@ use std::{
     path::Path,
 };
 
-use uuid::Uuid;
-
 type Key = Box<[u8]>;
 type Value = Vec<u8>;
 type Offset = u64;
 
-struct Database {
+pub type Uuid = String;
+
+pub struct Database {
     uuid: Uuid,
     index: HashMap<Key, Offset>,
 
@@ -45,6 +45,10 @@ impl Header {
             .checked_add(Header::NBYTES as u64)
             .unwrap()
     }
+}
+
+pub fn next_uuid() -> Uuid {
+    uuid::Uuid::new_v4().to_string()
 }
 
 fn read_u32(slice: &[u8]) -> std::io::Result<u32> {
@@ -98,7 +102,7 @@ impl Database {
             .open(filename)?;
 
         Ok(Self {
-            uuid: Uuid::new_v4(),
+            uuid: next_uuid(),
             index: HashMap::with_capacity(128),
             file_offset: 0,
             file: BufWriter::with_capacity(4096, file), // TODO: Use PAGE_SIZE ?
@@ -148,7 +152,7 @@ impl Database {
         }
 
         Ok(Self {
-            uuid: Uuid::new_v4(),
+            uuid: next_uuid(),
             index,
             file_offset: end,
             file: BufWriter::with_capacity(4096, reader.into_inner()),
@@ -229,7 +233,7 @@ impl Database {
     }
 
     /// `&mut self` is required for `File::seek`
-    pub fn get(&mut self, key: &Key) -> std::io::Result<Option<Value>> {
+    pub fn get(&mut self, key: &[u8]) -> std::io::Result<Option<Value>> {
         let header_offset = match self.index.get(key.as_ref()).copied() {
             Some(header_offset) => header_offset,
             None => return Ok(None),
@@ -303,13 +307,13 @@ impl Database {
         keys.into_iter().map(|key| self.get(&key)).collect()
     }
 
-    pub fn make_checkpoint(&mut self, directory: &Path) -> std::io::Result<()> {
-        self.create_checkpoint(directory)?;
+    pub fn make_checkpoint(&mut self, directory: impl AsRef<Path>) -> std::io::Result<()> {
+        self.create_checkpoint(directory.as_ref())?;
         Ok(())
     }
 
-    pub fn create_checkpoint(&mut self, directory: &Path) -> std::io::Result<Self> {
-        let mut checkpoint = Self::create(directory)?;
+    pub fn create_checkpoint(&mut self, directory: impl AsRef<Path>) -> std::io::Result<Self> {
+        let mut checkpoint = Self::create(directory.as_ref())?;
 
         let keys: Vec<_> = self.index.keys().cloned().collect();
 
