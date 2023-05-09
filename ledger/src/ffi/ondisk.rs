@@ -1,13 +1,14 @@
 use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
 use ocaml_interop::{
-    ocaml_export, DynBox, FromOCaml, OCaml, OCamlBytes, OCamlInt, OCamlList, OCamlRef,
+    ocaml_export, BoxRoot, DynBox, FromOCaml, OCaml, OCamlBytes, OCamlInt, OCamlList, OCamlRef,
     OCamlRuntime, ToOCaml,
 };
 
-use crate::ondisk::Database;
+use crate::ondisk::{batch::Batch, Database};
 
 pub struct DatabaseFFI(pub Rc<RefCell<Option<Database>>>);
+pub struct BatchFFI(pub Rc<RefCell<Batch>>);
 
 impl Drop for DatabaseFFI {
     fn drop(&mut self) {
@@ -81,6 +82,13 @@ ocaml_export! {
         uuid.to_ocaml(rt)
     }
 
+    fn rust_ondisk_database_close(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>
+    ) {
+        todo!()
+    }
+
     fn rust_ondisk_database_get(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
@@ -101,7 +109,7 @@ ocaml_export! {
         key: OCamlRef<OCamlBytes>,
         value: OCamlRef<OCamlBytes>,
     ) {
-        let key: Box<[u8]> = get::<_, Vec<u8>>(rt, key).into();
+        let key: Box<[u8]> = get(rt, key);
         let value: Vec<u8> = get(rt, value);
 
         with_db(rt, db, |db| {
@@ -116,15 +124,7 @@ ocaml_export! {
         db: OCamlRef<DynBox<DatabaseFFI>>,
         keys: OCamlRef<OCamlList<OCamlBytes>>,
     ) -> OCaml<OCamlList<Option<OCamlBytes>>> {
-        let mut keys_ref = rt.get(keys);
-
-        let mut keys = Vec::with_capacity(2048);
-        while let Some((head, tail)) = keys_ref.uncons() {
-            let key: Box<[u8]> = head.as_bytes().into();
-
-            keys.push(key);
-            keys_ref = tail;
-        }
+        let keys: Vec<Box<[u8]>> = get_list_of(rt, keys, |v| v.as_bytes().into());
 
         let values: Vec<Option<Vec<u8>>> = with_db(rt, db, |db| {
             db.get_batch(keys).unwrap()
@@ -193,7 +193,7 @@ ocaml_export! {
         db: OCamlRef<DynBox<DatabaseFFI>>,
         key: OCamlRef<OCamlBytes>,
     ) {
-        let key: Box<[u8]> = get::<_, Vec<u8>>(rt, key).into();
+        let key: Box<[u8]> = get(rt, key);
 
         with_db(rt, db, |db| {
             db.remove(key).unwrap()
@@ -211,5 +211,30 @@ ocaml_export! {
         });
 
         alist.to_ocaml(rt)
+    }
+
+    fn rust_ondisk_database_with_batch(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>,
+        fun: OCamlRef<fn (OCamlRef<'_, DynBox<BatchFFI>>) -> ()>,
+    ) -> OCaml<OCamlList<(OCamlBytes, OCamlBytes)>> {
+        let batch = Batch::new();
+        let batch = BatchFFI(Rc::new(RefCell::new(batch)));
+        let batch: OCaml<DynBox<BatchFFI>> = OCaml::box_value(rt, batch);
+
+        let batch: BoxRoot<DynBox<BatchFFI>> = batch.root();
+
+        let batch: OCamlRef<_> = &*batch;
+
+        todo!()
+
+        // let fun = fun.to_boxroot(rt);
+        // fun.try_call(rt, batch).unwrap();
+
+        // let alist = with_db(rt, db, |db| {
+        //     db.to_alist().unwrap()
+        // });
+
+        // alist.to_ocaml(rt)
     }
 }

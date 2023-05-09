@@ -6,9 +6,9 @@ use std::{
     path::Path,
 };
 
-type Key = Box<[u8]>;
-type Value = Vec<u8>;
-type Offset = u64;
+pub(super) type Key = Box<[u8]>;
+pub(super) type Value = Vec<u8>;
+pub(super) type Offset = u64;
 
 pub type Uuid = String;
 
@@ -105,7 +105,7 @@ impl Database {
             uuid: next_uuid(),
             index: HashMap::with_capacity(128),
             file_offset: 0,
-            file: BufWriter::with_capacity(4096, file), // TODO: Use PAGE_SIZE ?
+            file: BufWriter::with_capacity(4 * 1024 * 1024, file), // 4 MB
             buffer: RefCell::new(Some(Vec::with_capacity(4096))),
         })
     }
@@ -155,7 +155,7 @@ impl Database {
             uuid: next_uuid(),
             index,
             file_offset: end,
-            file: BufWriter::with_capacity(4096, reader.into_inner()),
+            file: BufWriter::with_capacity(4 * 1024 * 1024, reader.into_inner()), // 4 MB
             buffer: RefCell::new(Some(Vec::with_capacity(4096))),
         })
     }

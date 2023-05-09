@@ -1,4 +1,6 @@
 
+type ondisk_database
+type ondisk_batch
 type database
 type mask
 
@@ -7,6 +9,9 @@ type account = bytes
 type token_id = bytes
 type account_id = bytes
 type pubkey = bytes
+
+type ondisk_key = string
+type ondisk_value = string
 
 type rust_dberror =
   | Account_location_not_found
@@ -116,6 +121,22 @@ module Rust = struct
   (* TODO: Make those method *)
   external database_foldi : database -> (addr -> bytes -> unit) -> unit = "rust_database_foldi"
   external database_foldi_with_ignored_accounts : database -> account_id list -> (addr -> bytes -> unit) -> unit = "rust_database_foldi_with_ignored_accounts"
+
+  external ondisk_database_create : string -> ondisk_database = "rust_ondisk_database_create"
+  external ondisk_database_create_checkpoint : ondisk_database -> string -> ondisk_database = "rust_ondisk_database_create_checkpoint"
+  external ondisk_database_make_checkpoint : ondisk_database -> string -> unit = "rust_ondisk_database_make_checkpoint"
+  external ondisk_database_get_uuid : ondisk_database -> string = "rust_ondisk_database_get_uuid"
+  external ondisk_database_close : ondisk_database -> unit = "rust_ondisk_database_close"
+  external ondisk_database_get : ondisk_database -> ondisk_key -> ondisk_value option = "rust_ondisk_database_get"
+  external ondisk_database_get_batch : ondisk_database -> ondisk_key list -> ondisk_value option list = "rust_ondisk_database_get_batch"
+  external ondisk_database_set : ondisk_database -> ondisk_key -> ondisk_value -> unit = "rust_ondisk_database_set"
+  external ondisk_database_set_batch : ondisk_database -> ondisk_key list -> (ondisk_key * ondisk_value) list -> unit = "rust_ondisk_database_set_batch"
+  external ondisk_database_remove : ondisk_database -> ondisk_key -> unit = "rust_ondisk_database_remove"
+  external ondisk_database_to_alist : ondisk_database -> (ondisk_key * ondisk_value) list = "rust_ondisk_database_to_alist"
+
+  external ondisk_database_with_batch : ondisk_database -> (ondisk_batch -> 'a) -> 'a = "rust_ondisk_database_with_batch"
+  external ondisk_database_with_batch_set : ondisk_batch -> ondisk_key -> ondisk_value -> unit = "rust_ondisk_database_with_batch_set"
+  external ondisk_database_with_batch_remove : ondisk_batch -> ondisk_key -> unit = "rust_ondisk_database_with_batch_remove"
 
   (* For testing *)
   external test_random_accounts : (bytes -> bytes) -> unit = "rust_test_random_accounts"
