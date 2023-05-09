@@ -6,6 +6,8 @@ use std::{
     path::Path,
 };
 
+use super::batch::Batch;
+
 pub(super) type Key = Box<[u8]>;
 pub(super) type Value = Vec<u8>;
 pub(super) type Offset = u64;
@@ -248,8 +250,6 @@ impl Database {
     }
 
     fn set_impl(&mut self, key: Key, value: Value) -> std::io::Result<()> {
-        use std::io::Write;
-
         let header = Header {
             key_length: key.len().try_into().unwrap(),
             value_length: value.len().try_into().unwrap(),
@@ -343,6 +343,19 @@ impl Database {
             .map(|key| Ok((key.clone(), self.get(&key)?.unwrap())))
             .collect()
     }
+
+    pub fn run_batch(&mut self, batch: &mut Batch) {
+        use super::batch::Action::{Remove, Set};
+
+        for action in batch.take() {
+            match action {
+                Set(key, value) => self.set_impl(key, value).unwrap(),
+                Remove(key) => self.remove(key).unwrap(),
+            }
+        }
+
+        self.flush().unwrap();
+    }
 }
 
 #[cfg(test)]
@@ -413,7 +426,7 @@ mod tests {
 
         while key_values.len() < nkeys {
             let key_length: usize = rng.gen_range(2..=32);
-            key[..key_length].try_fill(&mut rng);
+            key[..key_length].try_fill(&mut rng).unwrap();
 
             let i = key_values.len().to_ne_bytes().to_vec();
             key_values.insert(Box::<[u8]>::from(&key[..key_length]), i);
@@ -436,7 +449,7 @@ mod tests {
 
         let mut db = Database::create(db_dir.as_path()).unwrap();
 
-        db.set_batch(sorted.clone(), []);
+        db.set_batch(sorted.clone(), []).unwrap();
 
         let mut alist = db.to_alist().unwrap();
         alist.sort_by_cached_key(|(k, _)| k.clone());

@@ -1,6 +1,6 @@
 use super::{Key, Value};
 
-enum Action {
+pub(super) enum Action {
     Set(Key, Value),
     Remove(Key),
 }
@@ -22,5 +22,9 @@ impl Batch {
 
     pub fn remove(&mut self, key: Key) {
         self.actions.push(Action::Remove(key));
+    }
+
+    pub(super) fn take(&mut self) -> Vec<Action> {
+        std::mem::take(&mut self.actions)
     }
 }
