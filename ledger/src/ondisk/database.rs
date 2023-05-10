@@ -14,11 +14,14 @@ pub(super) type Offset = u64;
 
 pub type Uuid = String;
 
+const KEY_REMOVED: u32 = u32::MAX;
+
 pub struct Database {
     uuid: Uuid,
     index: HashMap<Key, Offset>,
 
-    file_offset: Offset,
+    /// Points to end of file
+    current_file_offset: Offset,
     file: BufWriter<std::fs::File>,
 
     buffer: RefCell<Option<Vec<u8>>>,
@@ -106,7 +109,7 @@ impl Database {
         Ok(Self {
             uuid: next_uuid(),
             index: HashMap::with_capacity(128),
-            file_offset: 0,
+            current_file_offset: 0,
             file: BufWriter::with_capacity(4 * 1024 * 1024, file), // 4 MB
             buffer: RefCell::new(Some(Vec::with_capacity(4096))),
         })
@@ -158,7 +161,7 @@ impl Database {
         Ok(Self {
             uuid: next_uuid(),
             index,
-            file_offset: end,
+            current_file_offset: end,
             file: BufWriter::with_capacity(4 * 1024 * 1024, reader.into_inner()), // 4 MB
             buffer: RefCell::new(Some(Vec::with_capacity(4096))),
         })
@@ -251,24 +254,39 @@ impl Database {
         self.read_value(value_offset, value_length).map(Some)
     }
 
-    fn set_impl(&mut self, key: Key, value: Value) -> std::io::Result<()> {
-        let header = Header {
-            key_length: key.len().try_into().unwrap(),
-            value_length: value.len().try_into().unwrap(),
+    fn set_impl(&mut self, key: Key, value: Option<Value>) -> std::io::Result<()> {
+        let is_removed = value.is_none();
+
+        let value = match value.as_ref() {
+            Some(value) => value.as_slice(),
+            None => &[],
         };
 
-        let header_offset = self.file_offset;
+        let header = Header {
+            key_length: key.len().try_into().unwrap(),
+            value_length: if is_removed {
+                KEY_REMOVED
+            } else {
+                let length = value.len().try_into().unwrap();
+                if length == KEY_REMOVED {
+                    return Err(std::io::ErrorKind::InvalidData.into());
+                }
+                length
+            },
+        };
+
+        let header_offset = self.current_file_offset;
 
         self.file.write_all(&header.key_length.to_le_bytes())?;
         self.file.write_all(&header.value_length.to_le_bytes())?;
         self.file.write_all(&key)?;
-        self.file.write_all(&value)?;
+        self.file.write_all(value)?;
 
         let buffer_len = Header::NBYTES + key.len() + value.len();
-        self.file_offset += buffer_len as u64;
+        self.current_file_offset += buffer_len as u64;
 
         // Update index
-        if value.is_empty() {
+        if is_removed {
             // Value is empty, we remove the key from our index
             self.index.remove(&key);
         } else {
@@ -279,7 +297,7 @@ impl Database {
     }
 
     pub fn set(&mut self, key: Key, value: Value) -> std::io::Result<()> {
-        self.set_impl(key, value)?;
+        self.set_impl(key, Some(value))?;
         self.flush()?;
         Ok(())
     }
@@ -290,11 +308,11 @@ impl Database {
         remove_keys: impl IntoIterator<Item = Key>,
     ) -> std::io::Result<()> {
         for (key, value) in key_data_pairs {
-            self.set_impl(key, value)?;
+            self.set_impl(key, Some(value))?;
         }
 
         for key in remove_keys {
-            self.set_impl(key, Vec::new())? // empty value
+            self.set_impl(key, None)? // empty value
         }
 
         self.flush()?;
@@ -321,7 +339,7 @@ impl Database {
 
         for key in keys {
             let value = self.get(&key)?.unwrap();
-            checkpoint.set_impl(key, value)?;
+            checkpoint.set_impl(key, Some(value))?;
         }
 
         checkpoint.flush()?;
@@ -335,7 +353,7 @@ impl Database {
     }
 
     fn remove_impl(&mut self, key: Key) -> std::io::Result<()> {
-        self.set_impl(key, Vec::new()) // empty value
+        self.set_impl(key, None) // empty value
     }
 
     pub fn remove(&mut self, key: Key) -> std::io::Result<()> {
@@ -356,7 +374,7 @@ impl Database {
 
         for action in batch.take() {
             match action {
-                Set(key, value) => self.set_impl(key, value).unwrap(),
+                Set(key, value) => self.set_impl(key, Some(value)).unwrap(),
                 Remove(key) => self.remove_impl(key).unwrap(),
             }
         }
@@ -399,6 +417,29 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn key(s: &str) -> Key {
+        Box::<[u8]>::from(s.as_bytes())
+    }
+
+    fn value(s: &str) -> Value {
+        s.as_bytes().to_vec()
+    }
+
+    #[test]
+    fn test_empty_value() {
+        let db_dir = TempDir::new("/tmp/mina-rocksdb-test").unwrap();
+
+        let mut db = Database::create(db_dir.as_path()).unwrap();
+
+        db.set(key("a"), value("abc")).unwrap();
+        let v = db.get(&key("a")).unwrap().unwrap();
+        assert_eq!(v, value("abc"));
+
+        db.set(key("a"), value("")).unwrap();
+        let v = db.get(&key("a")).unwrap().unwrap();
+        assert_eq!(v, value(""));
     }
 
     #[test]
@@ -494,8 +535,6 @@ mod tests {
 
     #[test]
     fn test_checkpoint_read() {
-        let key = |s: &str| Box::<[u8]>::from(s.as_bytes());
-        let value = |s: &str| s.as_bytes().to_vec();
         let sorted_vec = |mut vec: Vec<(Key, Value)>| {
             vec.sort_by_cached_key(|(k, _)| k.clone());
             vec
