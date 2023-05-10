@@ -95,9 +95,11 @@ ocaml_export! {
 
     fn rust_ondisk_database_close(
         rt,
-        _db: OCamlRef<DynBox<DatabaseFFI>>
+        db: OCamlRef<DynBox<DatabaseFFI>>
     ) {
-        // TODO
+        with_db(rt, db, |db| {
+            db.close()
+        });
 
         OCaml::unit()
     }

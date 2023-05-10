@@ -3,7 +3,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{BufReader, BufWriter, Seek, SeekFrom, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use super::batch::Batch;
@@ -25,6 +25,14 @@ pub struct Database {
     file: BufWriter<std::fs::File>,
 
     buffer: RefCell<Option<Vec<u8>>>,
+
+    filename: PathBuf,
+}
+
+impl Drop for Database {
+    fn drop(&mut self) {
+        eprintln!("\x1b[93mDatabase::drop {:?}\x1b[0m", self.filename);
+    }
 }
 
 struct Header {
@@ -92,8 +100,11 @@ impl Database {
         let filename = directory.join("db");
 
         if filename.try_exists()? {
-            return Self::reload(&filename);
+            eprintln!("\x1b[93mDatabase::reload {:?}\x1b[0m", directory);
+            return Self::reload(filename);
         }
+
+        eprintln!("\x1b[93mDatabase::create {:?}\x1b[0m", directory);
 
         if !directory.try_exists()? {
             std::fs::create_dir_all(directory)?;
@@ -104,7 +115,7 @@ impl Database {
             .write(true)
             .append(true)
             .create_new(true)
-            .open(filename)?;
+            .open(&filename)?;
 
         Ok(Self {
             uuid: next_uuid(),
@@ -112,10 +123,11 @@ impl Database {
             current_file_offset: 0,
             file: BufWriter::with_capacity(4 * 1024 * 1024, file), // 4 MB
             buffer: RefCell::new(Some(Vec::with_capacity(4096))),
+            filename,
         })
     }
 
-    fn reload(filename: &Path) -> std::io::Result<Self> {
+    fn reload(filename: PathBuf) -> std::io::Result<Self> {
         use std::io::Read;
 
         let mut file = std::fs::File::options()
@@ -123,7 +135,7 @@ impl Database {
             .write(true)
             .append(true)
             .create_new(false)
-            .open(filename)?;
+            .open(&filename)?;
 
         let mut offset = 0;
         let end = file.seek(SeekFrom::End(0))?;
@@ -173,6 +185,7 @@ impl Database {
             current_file_offset: end,
             file: BufWriter::with_capacity(4 * 1024 * 1024, reader.into_inner()), // 4 MB
             buffer: RefCell::new(Some(Vec::with_capacity(4096))),
+            filename,
         })
     }
 
@@ -181,7 +194,8 @@ impl Database {
     }
 
     pub fn close(&self) {
-        todo!()
+        eprintln!("\x1b[93mDatabase::close\x1b[0m");
+        // TODO
     }
 
     fn with_buffer<F, R>(&mut self, fun: F) -> std::io::Result<R>
