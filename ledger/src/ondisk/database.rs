@@ -125,6 +125,8 @@ impl Database {
         let mut offset = 0;
         let end = file.seek(SeekFrom::End(0))?;
 
+        file.seek(SeekFrom::Start(0))?;
+
         let mut reader = BufReader::with_capacity(4096, file);
         let mut bytes = vec![0; 4096];
 
@@ -332,8 +334,13 @@ impl Database {
         self.file.get_ref().sync_all()
     }
 
-    pub fn remove(&mut self, key: Key) -> std::io::Result<()> {
+    fn remove_impl(&mut self, key: Key) -> std::io::Result<()> {
         self.set_impl(key, Vec::new()) // empty value
+    }
+
+    pub fn remove(&mut self, key: Key) -> std::io::Result<()> {
+        self.remove_impl(key)?;
+        self.flush()
     }
 
     pub fn to_alist(&mut self) -> std::io::Result<Vec<(Key, Value)>> {
@@ -350,7 +357,7 @@ impl Database {
         for action in batch.take() {
             match action {
                 Set(key, value) => self.set_impl(key, value).unwrap(),
-                Remove(key) => self.remove(key).unwrap(),
+                Remove(key) => self.remove_impl(key).unwrap(),
             }
         }
 
@@ -435,6 +442,34 @@ mod tests {
         let mut key_values: Vec<(Key, Value)> = key_values.into_iter().collect();
         key_values.sort_by_cached_key(|(k, _)| k.clone());
         key_values
+    }
+
+    #[test]
+    fn test_persistent() {
+        let db_dir = TempDir::new("/tmp/mina-rocksdb-test").unwrap();
+
+        let mut rng = rand::thread_rng();
+        let nkeys: usize = rng.gen_range(1000..2000);
+        let sorted = make_random_key_values(nkeys);
+
+        let first = {
+            let mut db = Database::create(db_dir.as_path()).unwrap();
+            db.set_batch(sorted.clone(), []).unwrap();
+            let mut alist = db.to_alist().unwrap();
+            alist.sort_by_cached_key(|(k, _)| k.clone());
+            alist
+        };
+
+        assert_eq!(sorted, first);
+
+        let second = {
+            let mut db = Database::create(db_dir.as_path()).unwrap();
+            let mut alist = db.to_alist().unwrap();
+            alist.sort_by_cached_key(|(k, _)| k.clone());
+            alist
+        };
+
+        assert_eq!(first, second);
     }
 
     #[test]
