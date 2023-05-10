@@ -141,15 +141,24 @@ impl Database {
             reader.read_exact(&mut bytes[..Header::NBYTES])?;
 
             let key_length = read_u32(&bytes[..4])? as usize;
-            let value_length = read_u32(&bytes[4..])? as usize;
+            let value_length = read_u32(&bytes[4..])?;
+
+            let (is_removed, value_length) = if value_length == KEY_REMOVED {
+                (true, 0)
+            } else {
+                (false, value_length as usize)
+            };
 
             ensure_buffer_length(&mut bytes, key_length + value_length);
-
             reader.read_exact(&mut bytes[..key_length + value_length])?;
 
-            let key = Box::<[u8]>::from(&bytes[..key_length]);
+            let key_bytes = &bytes[..key_length];
 
-            index.insert(key, header_offset);
+            if is_removed {
+                index.remove(key_bytes);
+            } else {
+                index.insert(Box::<[u8]>::from(key_bytes), header_offset);
+            }
 
             offset += (Header::NBYTES + key_length + value_length) as u64;
         }
@@ -175,24 +184,7 @@ impl Database {
         todo!()
     }
 
-    fn with_buffer<F, R>(&self, fun: F) -> std::io::Result<R>
-    where
-        F: FnOnce(&Self, &mut Vec<u8>) -> std::io::Result<R>,
-    {
-        let mut buffer = self
-            .buffer
-            .borrow_mut()
-            .take()
-            .unwrap_or_else(|| Vec::with_capacity(4096));
-        buffer.clear();
-
-        let result = fun(self, &mut buffer)?;
-
-        *self.buffer.borrow_mut() = Some(buffer);
-        Ok(result)
-    }
-
-    fn with_buffer_mut<F, R>(&mut self, fun: F) -> std::io::Result<R>
+    fn with_buffer<F, R>(&mut self, fun: F) -> std::io::Result<R>
     where
         F: FnOnce(&mut Self, &mut Vec<u8>) -> std::io::Result<R>,
     {
@@ -210,7 +202,7 @@ impl Database {
     }
 
     fn read_header(&mut self, header_offset: Offset) -> std::io::Result<Header> {
-        self.with_buffer_mut(|this, buffer| {
+        self.with_buffer(|this, buffer| {
             ensure_buffer_length(buffer, Header::NBYTES);
 
             read_exact_at(
@@ -230,7 +222,7 @@ impl Database {
     }
 
     fn read_value(&mut self, offset: Offset, length: usize) -> std::io::Result<Value> {
-        self.with_buffer_mut(|this, buffer| {
+        self.with_buffer(|this, buffer| {
             ensure_buffer_length(buffer, length);
 
             read_exact_at(this.file.get_mut(), &mut buffer[..length], offset)?;
@@ -247,6 +239,7 @@ impl Database {
         };
 
         let header = self.read_header(header_offset)?;
+        assert_ne!(header.value_length(), KEY_REMOVED as u64);
 
         let value_offset = header.value_offset(header_offset);
         let value_length = header.value_length() as usize;
@@ -440,6 +433,40 @@ mod tests {
         db.set(key("a"), value("")).unwrap();
         let v = db.get(&key("a")).unwrap().unwrap();
         assert_eq!(v, value(""));
+    }
+
+    #[test]
+    fn test_persistent_removed_value() {
+        let db_dir = TempDir::new("/tmp/mina-rocksdb-test").unwrap();
+
+        let first = {
+            let mut db = Database::create(db_dir.as_path()).unwrap();
+
+            db.set(key("abcd"), value("abcd")).unwrap();
+
+            db.set(key("a"), value("abc")).unwrap();
+            let v = db.get(&key("a")).unwrap().unwrap();
+            assert_eq!(v, value("abc"));
+
+            db.set(key("a"), value("")).unwrap();
+            let v = db.get(&key("a")).unwrap().unwrap();
+            assert_eq!(v, value(""));
+
+            db.remove(key("a")).unwrap();
+            let v = db.get(&key("a")).unwrap();
+            assert!(v.is_none());
+
+            sorted_vec(db.to_alist().unwrap())
+        };
+
+        assert_eq!(first.len(), 1);
+
+        let second = {
+            let mut db = Database::create(db_dir.as_path()).unwrap();
+            sorted_vec(db.to_alist().unwrap())
+        };
+
+        assert_eq!(first, second);
     }
 
     #[test]
