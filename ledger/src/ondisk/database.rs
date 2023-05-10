@@ -379,7 +379,10 @@ impl Database {
 #[cfg(test)]
 mod tests {
     use rand::{Fill, Rng};
-    use std::path::PathBuf;
+    use std::{
+        path::PathBuf,
+        sync::atomic::{AtomicUsize, Ordering::SeqCst},
+    };
 
     use super::*;
 
@@ -387,13 +390,24 @@ mod tests {
         path: PathBuf,
     }
 
+    static DIRECTORY_NUMBER: AtomicUsize = AtomicUsize::new(0);
+
     impl TempDir {
-        fn new(directory: impl AsRef<Path>) -> std::io::Result<Self> {
-            let path = PathBuf::from(directory.as_ref());
+        fn new() -> Self {
+            let number = DIRECTORY_NUMBER.fetch_add(1, SeqCst);
 
-            std::fs::create_dir_all(&path)?;
+            let path = loop {
+                let directory = format!("/tmp/mina-rocksdb-test-{}", number);
+                let path = PathBuf::from(directory);
 
-            Ok(Self { path })
+                if !path.exists() {
+                    break path;
+                }
+            };
+
+            std::fs::create_dir_all(&path).unwrap();
+
+            Self { path }
         }
 
         fn as_path(&self) -> &Path {
@@ -420,9 +434,14 @@ mod tests {
         s.as_bytes().to_vec()
     }
 
+    fn sorted_vec(mut vec: Vec<(Key, Value)>) -> Vec<(Key, Value)> {
+        vec.sort_by_cached_key(|(k, _)| k.clone());
+        vec
+    }
+
     #[test]
     fn test_empty_value() {
-        let db_dir = TempDir::new("/tmp/mina-rocksdb-test").unwrap();
+        let db_dir = TempDir::new();
 
         let mut db = Database::create(db_dir.as_path()).unwrap();
 
@@ -437,7 +456,7 @@ mod tests {
 
     #[test]
     fn test_persistent_removed_value() {
-        let db_dir = TempDir::new("/tmp/mina-rocksdb-test").unwrap();
+        let db_dir = TempDir::new();
 
         let first = {
             let mut db = Database::create(db_dir.as_path()).unwrap();
@@ -471,7 +490,7 @@ mod tests {
 
     #[test]
     fn test_get_batch() {
-        let db_dir = TempDir::new("/tmp/mina-rocksdb-test").unwrap();
+        let db_dir = TempDir::new();
 
         let mut db = Database::create(db_dir.as_path()).unwrap();
 
@@ -514,7 +533,7 @@ mod tests {
 
     #[test]
     fn test_persistent() {
-        let db_dir = TempDir::new("/tmp/mina-rocksdb-test").unwrap();
+        let db_dir = TempDir::new();
 
         let mut rng = rand::thread_rng();
         let nkeys: usize = rng.gen_range(1000..2000);
@@ -542,7 +561,7 @@ mod tests {
 
     #[test]
     fn test_to_alist() {
-        let db_dir = TempDir::new("/tmp/mina-rocksdb-test").unwrap();
+        let db_dir = TempDir::new();
 
         let mut rng = rand::thread_rng();
 
@@ -562,12 +581,7 @@ mod tests {
 
     #[test]
     fn test_checkpoint_read() {
-        let sorted_vec = |mut vec: Vec<(Key, Value)>| {
-            vec.sort_by_cached_key(|(k, _)| k.clone());
-            vec
-        };
-
-        let db_dir = TempDir::new("/tmp/test-cp").unwrap();
+        let db_dir = TempDir::new();
 
         let mut rng = rand::thread_rng();
 
@@ -584,7 +598,7 @@ mod tests {
             db.set(key.clone(), data.clone()).unwrap();
         }
 
-        let cp_dir = TempDir::new("/tmp/test-cp2").unwrap();
+        let cp_dir = TempDir::new();
         let mut cp = db.create_checkpoint(cp_dir.as_path()).unwrap();
 
         db_hashtbl.insert(key("db_key"), value("db_data"));
