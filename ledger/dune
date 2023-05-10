@@ -14,6 +14,10 @@
 
 (library
  (name mina_tree)
+ (libraries
+    core_kernel
+    core
+ )
  (public_name mina_tree)
  (c_library_flags -lpthread -lc -lm)
  (foreign_archives mina_tree))

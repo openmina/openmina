@@ -247,7 +247,7 @@ impl Database {
 
     /// `&mut self` is required for `File::seek`
     pub fn get(&mut self, key: &[u8]) -> std::io::Result<Option<Value>> {
-        let header_offset = match self.index.get(key.as_ref()).copied() {
+        let header_offset = match self.index.get(key).copied() {
             Some(header_offset) => header_offset,
             None => return Ok(None),
         };

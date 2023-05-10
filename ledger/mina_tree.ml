@@ -10,8 +10,8 @@ type token_id = bytes
 type account_id = bytes
 type pubkey = bytes
 
-type ondisk_key = string
-type ondisk_value = string
+type ondisk_key = Core.Bigstring.t
+type ondisk_value = Core.Bigstring.t
 
 type rust_dberror =
   | Account_location_not_found
@@ -130,7 +130,7 @@ module Rust = struct
   external ondisk_database_get : ondisk_database -> ondisk_key -> ondisk_value option = "rust_ondisk_database_get"
   external ondisk_database_get_batch : ondisk_database -> ondisk_key list -> ondisk_value option list = "rust_ondisk_database_get_batch"
   external ondisk_database_set : ondisk_database -> ondisk_key -> ondisk_value -> unit = "rust_ondisk_database_set"
-  external ondisk_database_set_batch : ondisk_database -> ondisk_key list -> (ondisk_key * ondisk_value) list -> unit = "rust_ondisk_database_set_batch"
+  external ondisk_database_set_batch : ondisk_database -> 'key list -> (ondisk_key * ondisk_value) list -> unit = "rust_ondisk_database_set_batch"
   external ondisk_database_remove : ondisk_database -> ondisk_key -> unit = "rust_ondisk_database_remove"
   external ondisk_database_to_alist : ondisk_database -> (ondisk_key * ondisk_value) list = "rust_ondisk_database_to_alist"
 

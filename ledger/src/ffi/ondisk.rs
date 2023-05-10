@@ -1,14 +1,16 @@
 use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
 use ocaml_interop::{
-    ocaml_export, DynBox, FromOCaml, OCaml, OCamlBytes, OCamlInt, OCamlList, OCamlRef,
-    OCamlRuntime, ToOCaml,
+    bigarray::Array1, ocaml_export, DynBox, FromOCaml, OCaml, OCamlBytes, OCamlInt, OCamlList,
+    OCamlRef, OCamlRuntime, ToOCaml,
 };
 
 use crate::ondisk::{batch::Batch, Database};
 
 pub struct DatabaseFFI(pub Rc<RefCell<Option<Database>>>);
 pub struct BatchFFI(pub Rc<RefCell<Batch>>);
+
+type OCamlBigstring = Array1<u8>;
 
 impl Drop for DatabaseFFI {
     fn drop(&mut self) {
@@ -44,6 +46,11 @@ where
 fn get<V, T: FromOCaml<V>>(rt: &mut &mut OCamlRuntime, value: OCamlRef<V>) -> T {
     let value = rt.get(value);
     value.to_rust::<T>()
+}
+
+fn get_bigstring(rt: &mut &mut OCamlRuntime, value: OCamlRef<Array1<u8>>) -> Box<[u8]> {
+    let value = rt.get(value);
+    Box::<[u8]>::from(value.as_slice())
 }
 
 fn get_list_of<V, T, F>(
@@ -107,13 +114,20 @@ ocaml_export! {
     fn rust_ondisk_database_get(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
-        key: OCamlRef<OCamlBytes>,
-    ) -> OCaml<Option<OCamlBytes>> {
-        let key: Vec<u8> = get(rt, key);
+        key: OCamlRef<OCamlBigstring>,
+    ) -> OCaml<Option<OCamlBigstring>> {
+        // We avoid to copy the key here
+        let value = {
+            let db = rt.get(db);
+            let db: &DatabaseFFI = db.borrow();
+            let mut db = db.0.borrow_mut();
+            let db = db.as_mut().unwrap();
 
-        let value = with_db(rt, db, |db| {
-            db.get(&key).unwrap()
-        });
+            let key = rt.get(key);
+            let key = key.as_slice();
+
+            db.get(key).unwrap()
+        };
 
         value.to_ocaml(rt)
     }
@@ -121,11 +135,11 @@ ocaml_export! {
     fn rust_ondisk_database_set(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
-        key: OCamlRef<OCamlBytes>,
-        value: OCamlRef<OCamlBytes>,
+        key: OCamlRef<OCamlBigstring>,
+        value: OCamlRef<OCamlBigstring>,
     ) {
-        let key: Box<[u8]> = get(rt, key);
-        let value: Box<[u8]> = get(rt, value);
+        let key: Box<[u8]> = get_bigstring(rt, key);
+        let value: Box<[u8]> = get_bigstring(rt, value);
 
         with_db(rt, db, |db| {
             db.set(key, value).unwrap()
@@ -137,9 +151,9 @@ ocaml_export! {
     fn rust_ondisk_database_get_batch(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
-        keys: OCamlRef<OCamlList<OCamlBytes>>,
-    ) -> OCaml<OCamlList<Option<OCamlBytes>>> {
-        let keys: Vec<Box<[u8]>> = get_list_of(rt, keys, |v| v.as_bytes().into());
+        keys: OCamlRef<OCamlList<OCamlBigstring>>,
+    ) -> OCaml<OCamlList<Option<OCamlBigstring>>> {
+        let keys: Vec<Box<[u8]>> = get_list_of(rt, keys, |v| v.as_slice().into());
 
         let values: Vec<Option<Box<[u8]>>> = with_db(rt, db, |db| {
             db.get_batch(keys).unwrap()
@@ -151,18 +165,18 @@ ocaml_export! {
     fn rust_ondisk_database_set_batch(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
-        remove_keys: OCamlRef<OCamlList<OCamlBytes>>,
-        key_data_pairs: OCamlRef<OCamlList<(OCamlBytes, OCamlBytes)>>,
+        remove_keys: OCamlRef<OCamlList<OCamlBigstring>>,
+        key_data_pairs: OCamlRef<OCamlList<(OCamlBigstring, OCamlBigstring)>>,
     ) {
         let remove_keys: Vec<Box<[u8]>> = get_list_of(rt, remove_keys, |v| {
-            v.as_bytes().into()
+            v.as_slice().into()
         });
 
         let key_data_pairs: Vec<(Box<[u8]>, Box<[u8]>)> = get_list_of(rt, key_data_pairs, |v| {
             let (key, value) = v.to_tuple();
 
-            let key = key.as_bytes().into();
-            let value = value.as_bytes().into();
+            let key = key.as_slice().into();
+            let value = value.as_slice().into();
 
             (key, value)
         });
@@ -206,9 +220,9 @@ ocaml_export! {
     fn rust_ondisk_database_remove(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
-        key: OCamlRef<OCamlBytes>,
+        key: OCamlRef<OCamlBigstring>,
     ) {
-        let key: Box<[u8]> = get(rt, key);
+        let key: Box<[u8]> = get_bigstring(rt, key);
 
         with_db(rt, db, |db| {
             db.remove(key).unwrap()
@@ -220,7 +234,7 @@ ocaml_export! {
     fn rust_ondisk_database_to_alist(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
-    ) -> OCaml<OCamlList<(OCamlBytes, OCamlBytes)>> {
+    ) -> OCaml<OCamlList<(OCamlBigstring, OCamlBigstring)>> {
         let alist = with_db(rt, db, |db| {
             db.to_alist().unwrap()
         });
@@ -240,11 +254,11 @@ ocaml_export! {
     fn rust_ondisk_database_batch_set(
         rt,
         batch: OCamlRef<DynBox<BatchFFI>>,
-        key: OCamlRef<OCamlBytes>,
-        value: OCamlRef<OCamlBytes>,
+        key: OCamlRef<OCamlBigstring>,
+        value: OCamlRef<OCamlBigstring>,
     ) {
-        let key: Box<[u8]> = get(rt, key);
-        let value: Box<[u8]> = get(rt, value);
+        let key: Box<[u8]> = get_bigstring(rt, key);
+        let value: Box<[u8]> = get_bigstring(rt, value);
 
         with_batch(rt, batch, |batch| {
             batch.set(key, value)
@@ -256,9 +270,9 @@ ocaml_export! {
     fn rust_ondisk_database_batch_remove(
         rt,
         batch: OCamlRef<DynBox<BatchFFI>>,
-        key: OCamlRef<OCamlBytes>,
+        key: OCamlRef<OCamlBigstring>,
     ) {
-        let key: Box<[u8]> = get(rt, key);
+        let key: Box<[u8]> = get_bigstring(rt, key);
 
         with_batch(rt, batch, |batch| {
             batch.remove(key)
