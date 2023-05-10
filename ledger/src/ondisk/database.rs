@@ -9,7 +9,7 @@ use std::{
 use super::batch::Batch;
 
 pub(super) type Key = Box<[u8]>;
-pub(super) type Value = Vec<u8>;
+pub(super) type Value = Box<[u8]>;
 pub(super) type Offset = u64;
 
 pub type Uuid = String;
@@ -241,7 +241,7 @@ impl Database {
 
             read_exact_at(this.file.get_mut(), &mut buffer[..length], offset)?;
 
-            Ok(Vec::from(&buffer[..length]))
+            Ok(Box::from(&buffer[..length]))
         })
     }
 
@@ -264,8 +264,8 @@ impl Database {
     fn set_impl(&mut self, key: Key, value: Option<Value>) -> std::io::Result<()> {
         let is_removed = value.is_none();
 
-        let value = match value.as_ref() {
-            Some(value) => value.as_slice(),
+        let value: &[u8] = match value.as_ref() {
+            Some(value) => value,
             None => &[],
         };
 
@@ -445,7 +445,8 @@ mod tests {
     }
 
     fn value(s: &str) -> Value {
-        s.as_bytes().to_vec()
+        Box::<[u8]>::from(s.as_bytes())
+        // s.as_bytes().to_vec()
     }
 
     fn sorted_vec(mut vec: Vec<(Key, Value)>) -> Vec<(Key, Value)> {
@@ -513,16 +514,16 @@ mod tests {
             "b".as_bytes().into(),
             "c".as_bytes().into(),
         );
-        let data: Value = "test".as_bytes().to_vec();
+        let data: Value = value("test");
 
         db.set(key1.clone(), data.clone()).unwrap();
         db.set(key3.clone(), data.clone()).unwrap();
 
         let res = db.get_batch([key1, key2, key3]).unwrap();
 
-        assert_eq!(res[0].as_ref().unwrap(), data.as_slice());
+        assert_eq!(res[0].as_ref().unwrap(), &data);
         assert!(res[1].is_none());
-        assert_eq!(res[2].as_ref().unwrap(), data.as_slice());
+        assert_eq!(res[2].as_ref().unwrap(), &data);
     }
 
     fn make_random_key_values(nkeys: usize) -> Vec<(Key, Value)> {
@@ -536,7 +537,7 @@ mod tests {
             let key_length: usize = rng.gen_range(2..=32);
             key[..key_length].try_fill(&mut rng).unwrap();
 
-            let i = key_values.len().to_ne_bytes().to_vec();
+            let i = Box::<[u8]>::from(key_values.len().to_ne_bytes());
             key_values.insert(Box::<[u8]>::from(&key[..key_length]), i);
         }
 

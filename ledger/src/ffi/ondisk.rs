@@ -125,7 +125,7 @@ ocaml_export! {
         value: OCamlRef<OCamlBytes>,
     ) {
         let key: Box<[u8]> = get(rt, key);
-        let value: Vec<u8> = get(rt, value);
+        let value: Box<[u8]> = get(rt, value);
 
         with_db(rt, db, |db| {
             db.set(key, value).unwrap()
@@ -141,7 +141,7 @@ ocaml_export! {
     ) -> OCaml<OCamlList<Option<OCamlBytes>>> {
         let keys: Vec<Box<[u8]>> = get_list_of(rt, keys, |v| v.as_bytes().into());
 
-        let values: Vec<Option<Vec<u8>>> = with_db(rt, db, |db| {
+        let values: Vec<Option<Box<[u8]>>> = with_db(rt, db, |db| {
             db.get_batch(keys).unwrap()
         });
 
@@ -158,11 +158,11 @@ ocaml_export! {
             v.as_bytes().into()
         });
 
-        let key_data_pairs: Vec<(Box<[u8]>, Vec<u8>)> = get_list_of(rt, key_data_pairs, |v| {
+        let key_data_pairs: Vec<(Box<[u8]>, Box<[u8]>)> = get_list_of(rt, key_data_pairs, |v| {
             let (key, value) = v.to_tuple();
 
             let key = key.as_bytes().into();
-            let value = value.as_bytes().to_vec();
+            let value = value.as_bytes().into();
 
             (key, value)
         });
@@ -244,7 +244,7 @@ ocaml_export! {
         value: OCamlRef<OCamlBytes>,
     ) {
         let key: Box<[u8]> = get(rt, key);
-        let value: Vec<u8> = get(rt, value);
+        let value: Box<[u8]> = get(rt, value);
 
         with_batch(rt, batch, |batch| {
             batch.set(key, value)
