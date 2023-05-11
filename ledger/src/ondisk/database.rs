@@ -130,15 +130,18 @@ impl Database {
     fn reload(filename: PathBuf) -> std::io::Result<Self> {
         use std::io::Read;
 
+        let mut keys_occurs = HashMap::with_capacity(256);
+        let mut keys_length = HashMap::with_capacity(256);
+
         let mut file = std::fs::File::options()
             .read(true)
-            .write(true)
-            .append(true)
+            .write(false)
+            .append(false)
             .create_new(false)
             .open(&filename)?;
 
-        let mut offset = 0;
-        let end = file.seek(SeekFrom::End(0))?;
+        let mut current_offset = 0;
+        let eof = file.seek(SeekFrom::End(0))?;
 
         file.seek(SeekFrom::Start(0))?;
 
@@ -147,8 +150,8 @@ impl Database {
 
         let mut index = HashMap::with_capacity(256);
 
-        while offset < end {
-            let header_offset = offset;
+        while current_offset < eof {
+            let header_offset = current_offset;
 
             reader.read_exact(&mut bytes[..Header::NBYTES])?;
 
@@ -169,20 +172,43 @@ impl Database {
             if is_removed {
                 index.remove(key_bytes);
             } else {
-                index.insert(Box::<[u8]>::from(key_bytes), header_offset);
+                let key = Box::<[u8]>::from(key_bytes);
+
+                let mut s = String::from_utf8_lossy(&key).into_owned();
+
+                if s.contains("arcs") {
+                    s = "arcs".to_string();
+                } else if s.contains("transition") {
+                    s = "transition".to_string()
+                }
+
+                keys_occurs
+                    .entry(s.clone())
+                    .and_modify(|v| *v += 1)
+                    .or_insert(1);
+
+                keys_length
+                    .entry(s.clone())
+                    .and_modify(|v| *v += value_length)
+                    .or_insert(value_length);
+
+                index.insert(key, header_offset);
             }
 
-            offset += (Header::NBYTES + key_length + value_length) as u64;
+            current_offset += (Header::NBYTES + key_length + value_length) as u64;
         }
 
-        if end != offset {
+        if eof != current_offset {
             return Err(std::io::ErrorKind::UnexpectedEof.into());
         }
+
+        eprintln!("keys_occurs={:#?}", keys_occurs);
+        eprintln!("keys_length={:#?}", keys_length);
 
         Ok(Self {
             uuid: next_uuid(),
             index,
-            current_file_offset: end,
+            current_file_offset: eof,
             file: BufWriter::with_capacity(4 * 1024 * 1024, reader.into_inner()), // 4 MB
             buffer: RefCell::new(Some(Vec::with_capacity(4096))),
             filename,
@@ -630,5 +656,29 @@ mod tests {
 
         assert_eq!(db_sorted, db_alist);
         assert_eq!(cp_sorted, cp_alist);
+    }
+
+    #[test]
+    fn dump_ondisk_database_keys() {
+        // let mut db = Database::create("/tmp/mydir").unwrap();
+
+        // for (k, v) in &[
+        //     ("a", "ab"),
+        //     ("a1", "ab"),
+        //     ("a2", "ab"),
+        //     ("a3", "ab"),
+        // ] {
+        //     db.set(key(k), value(v)).unwrap();
+        // }
+
+        let Ok(directory) = std::env::var("DUMP_ONDISK_DIR") else {
+            return
+        };
+
+        let directory = PathBuf::from(directory);
+        let filename = directory.join("db");
+        assert!(filename.exists());
+
+        Database::reload(filename).unwrap();
     }
 }
