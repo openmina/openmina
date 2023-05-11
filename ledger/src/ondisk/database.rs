@@ -214,8 +214,8 @@ impl Database {
             return Err(std::io::ErrorKind::UnexpectedEof.into());
         }
 
-        eprintln!("keys_occurs={:#?}", keys_occurs);
-        eprintln!("keys_length={:#?}", keys_length);
+        // eprintln!("keys_occurs={:#?}", keys_occurs);
+        // eprintln!("keys_length={:#?}", keys_length);
 
         Ok(Self {
             uuid: next_uuid(),
@@ -428,6 +428,8 @@ impl Database {
     }
 
     pub fn gc(&mut self) -> std::io::Result<()> {
+        eprintln!("\x1b[93mDatabase::gc\x1b[0m");
+
         let now = std::time::Instant::now();
 
         let directory = self.filename.parent().unwrap();
