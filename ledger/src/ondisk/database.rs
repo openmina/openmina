@@ -450,8 +450,11 @@ impl Database {
 
         *self = new_db;
 
+        let date: chrono::DateTime<chrono::Local> = chrono::Local::now();
+
         eprintln!(
-            "\x1b[93mDatabase::gc {:?} in {:?}. {:?} bytes\x1b[0m",
+            "\x1b[93m{} Database::gc {:?} in {:?}. {:?} bytes\x1b[0m",
+            date.format("%Y-%m-%d %H:%M:%S"),
             &self.filename,
             now.elapsed(),
             self.current_file_offset

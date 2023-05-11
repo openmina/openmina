@@ -67,6 +67,7 @@ derive_more = "0.99.17"
 rand_pcg = "0.3"
 rand_seeder = "0.2"
 blake2 = "0.10"
+chrono = "0.4"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
