@@ -147,8 +147,8 @@ impl Database {
 
         let mut file = std::fs::File::options()
             .read(true)
-            .write(false)
-            .append(false)
+            .write(true)
+            .append(true)
             .create_new(false)
             .open(&filename)?;
 
