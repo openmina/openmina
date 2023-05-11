@@ -34,6 +34,7 @@ binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba
 sha2 = "0.10"
 base64 = "0.13"
 static_assertions = "1.1"
+libc = "0.2"
 
 # oracle = { path = "../oracle" }
 # mina-curves = { path = "../curves" }

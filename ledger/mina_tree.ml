@@ -138,6 +138,7 @@ module Rust = struct
   external ondisk_database_batch_set : ondisk_batch -> ondisk_key -> ondisk_value -> unit = "rust_ondisk_database_batch_set"
   external ondisk_database_batch_remove : ondisk_batch -> ondisk_key -> unit = "rust_ondisk_database_batch_remove"
   external ondisk_database_batch_run : ondisk_database -> ondisk_batch -> unit = "rust_ondisk_database_batch_run"
+  external ondisk_database_gc : ondisk_database -> unit = "rust_ondisk_database_gc"
 
   (* For testing *)
   external test_random_accounts : (bytes -> bytes) -> unit = "rust_test_random_accounts"

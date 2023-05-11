@@ -299,4 +299,15 @@ ocaml_export! {
 
         OCaml::unit()
     }
+
+    fn rust_ondisk_database_gc(
+        rt,
+        db: OCamlRef<DynBox<DatabaseFFI>>,
+    ) {
+        with_db(rt, db, |db| {
+            db.gc().unwrap()
+        });
+
+        OCaml::unit()
+    }
 }

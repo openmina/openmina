@@ -847,6 +847,7 @@ dependencies = [
  "hex",
  "itertools",
  "kimchi",
+ "libc",
  "mina-curves",
  "mina-hasher",
  "mina-p2p-messages",

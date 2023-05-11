@@ -93,11 +93,23 @@ fn read_exact_at(file: &mut File, buffer: &mut [u8], offset: Offset) -> std::io:
     file.read_exact(buffer)
 }
 
+enum CreateMode {
+    Regular,
+    Temporary,
+}
+
 impl Database {
     pub fn create(directory: impl AsRef<Path>) -> std::io::Result<Self> {
+        Self::create_impl(directory, CreateMode::Regular)
+    }
+
+    fn create_impl(directory: impl AsRef<Path>, mode: CreateMode) -> std::io::Result<Self> {
         let directory = directory.as_ref();
 
-        let filename = directory.join("db");
+        let filename = directory.join(match mode {
+            CreateMode::Regular => "db",
+            CreateMode::Temporary => "db_tmp",
+        });
 
         if filename.try_exists()? {
             eprintln!("\x1b[93mDatabase::reload {:?}\x1b[0m", directory);
@@ -220,7 +232,7 @@ impl Database {
     }
 
     pub fn close(&self) {
-        eprintln!("\x1b[93mDatabase::close\x1b[0m");
+        eprintln!("\x1b[93mDatabase::close {:?}\x1b[0m", &self.filename);
         // TODO
     }
 
@@ -414,6 +426,90 @@ impl Database {
 
         self.flush().unwrap();
     }
+
+    pub fn gc(&mut self) -> std::io::Result<()> {
+        let now = std::time::Instant::now();
+
+        let directory = self.filename.parent().unwrap();
+        let mut new_db = Self::create_impl(directory, CreateMode::Temporary).unwrap();
+
+        let keys: Vec<_> = self.index.keys().cloned().collect();
+
+        for key in keys {
+            let value = self.get(&key)?;
+            new_db.set_impl(key, value)?;
+        }
+
+        new_db.flush()?;
+
+        exchange_file_atomically(&self.filename, &new_db.filename)?;
+        std::fs::remove_file(&new_db.filename)?;
+
+        new_db.filename = self.filename.clone();
+        new_db.uuid = self.uuid.clone();
+
+        *self = new_db;
+
+        eprintln!(
+            "\x1b[93mDatabase::gc {:?} in {:?}. {:?} bytes\x1b[0m",
+            &self.filename,
+            now.elapsed(),
+            self.current_file_offset
+        );
+
+        Ok(())
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn exchange_db_atomically(path_context: &str, path_snapshot: &str) -> Result<(), GCError> {
+    todo!()
+
+    // let options = fs_extra::dir::CopyOptions {
+    //     overwrite: true,
+    //     skip_exist: false,
+    //     buffer_size: 64000,
+    //     copy_inside: true,
+    //     content_only: true,
+    //     depth: 0,
+    // };
+    // fs_extra::dir::move_dir(path_snapshot, path_context, &options).unwrap();
+    // std::fs::remove_dir_all(path_snapshot).map_err(DBError::from)?;
+
+    // Ok(())
+}
+
+// `renameat2` is a Linux syscall
+#[cfg(target_os = "linux")]
+fn exchange_file_atomically(db_path: &Path, tmp_path: &Path) -> std::io::Result<()> {
+    // Convert `{db,tmp}_path` to C strings
+
+    use std::os::unix::prelude::OsStrExt;
+
+    let cstr_db_path = std::ffi::CString::new(db_path.as_os_str().as_bytes())?;
+    let cstr_db_path = cstr_db_path.as_ptr();
+
+    let cstr_tmp_path = std::ffi::CString::new(tmp_path.as_os_str().as_bytes())?;
+    let cstr_tmp_path = cstr_tmp_path.as_ptr();
+
+    // Exchange `db_path` with `tmp_path` atomically
+    let result = unsafe {
+        libc::syscall(
+            libc::SYS_renameat2,
+            libc::AT_FDCWD,
+            cstr_tmp_path,
+            libc::AT_FDCWD,
+            cstr_db_path,
+            libc::RENAME_EXCHANGE,
+        )
+    };
+
+    if result != 0 {
+        let error = std::io::Error::last_os_error();
+        return Err(error);
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -598,6 +694,37 @@ mod tests {
         };
 
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn test_gc() {
+        let db_dir = TempDir::new();
+
+        let mut rng = rand::thread_rng();
+        let nkeys: usize = rng.gen_range(1000..2000);
+        let sorted = make_random_key_values(nkeys);
+
+        let mut db = Database::create(db_dir.as_path()).unwrap();
+        db.set_batch(sorted.clone(), []).unwrap();
+
+        (10..50).for_each(|index| {
+            db.remove(sorted[index].0.clone()).unwrap();
+        });
+
+        let offset = db.current_file_offset;
+
+        let mut alist1 = db.to_alist().unwrap();
+        alist1.sort_by_cached_key(|(k, _)| k.clone());
+
+        db.gc().unwrap();
+        assert!(offset > db.current_file_offset);
+
+        let mut alist2 = db.to_alist().unwrap();
+        alist2.sort_by_cached_key(|(k, _)| k.clone());
+        assert_eq!(alist1, alist2);
+
+        db.set(key("a"), value("b")).unwrap();
+        assert_eq!(db.get(&key("a")).unwrap().unwrap(), value("b"));
     }
 
     #[test]
