@@ -13,8 +13,6 @@ pub(super) type Offset = u64;
 
 pub type Uuid = String;
 
-const KEY_REMOVED: u32 = u32::MAX;
-
 pub struct Database {
     uuid: Uuid,
     index: HashMap<Key, Offset>,
@@ -35,27 +33,50 @@ impl Drop for Database {
 }
 
 struct Header {
-    key_length: u32,
-    value_length: u32,
+    key_length: u64,
+    value_length: u64,
+    is_removed: bool,
 }
 
 impl Header {
-    pub const NBYTES: usize = 8;
+    pub const NBYTES: usize = 17;
 
-    fn key_length(&self) -> u64 {
-        self.key_length as u64
-    }
-
-    fn value_length(&self) -> u64 {
-        self.value_length as u64
-    }
-
-    fn value_offset(&self, header_offset: Offset) -> Offset {
+    fn compute_value_offset(&self, header_offset: Offset) -> Offset {
         header_offset
-            .checked_add(self.key_length())
+            .checked_add(self.key_length)
             .unwrap()
             .checked_add(Header::NBYTES as u64)
             .unwrap()
+    }
+
+    fn make(key: &Key, value: &Option<Value>) -> std::io::Result<Self> {
+        let to_u64 = |n: usize| {
+            n.try_into()
+                .map_err(|_| std::io::Error::from(std::io::ErrorKind::InvalidData))
+        };
+
+        let is_removed = value.is_none();
+
+        Ok(Header {
+            key_length: to_u64(key.len())?,
+            value_length: match value.as_ref() {
+                None => 0,
+                Some(value) => to_u64(value.len())?,
+            },
+            is_removed,
+        })
+    }
+
+    fn read(bytes: &[u8]) -> std::io::Result<Self> {
+        let key_length = read_u64(bytes)?;
+        let value_length = read_u64(&bytes[8..])?;
+        let is_removed = read_bool(&bytes[16..])?;
+
+        Ok(Self {
+            key_length,
+            value_length,
+            is_removed,
+        })
     }
 }
 
@@ -63,11 +84,20 @@ pub fn next_uuid() -> Uuid {
     uuid::Uuid::new_v4().to_string()
 }
 
-fn read_u32(slice: &[u8]) -> std::io::Result<u32> {
+fn read_u64(slice: &[u8]) -> std::io::Result<u64> {
     slice
-        .get(..4)
+        .get(..8)
         .and_then(|slice: &[u8]| slice.try_into().ok())
-        .map(u32::from_le_bytes)
+        .map(u64::from_le_bytes)
+        .ok_or(std::io::ErrorKind::UnexpectedEof.into())
+}
+
+fn read_bool(slice: &[u8]) -> std::io::Result<bool> {
+    slice
+        .get(..1)
+        .and_then(|slice: &[u8]| slice.try_into().ok())
+        .map(u8::from_le_bytes)
+        .map(|b| b != 0)
         .ok_or(std::io::ErrorKind::UnexpectedEof.into())
 }
 
@@ -168,14 +198,9 @@ impl Database {
             ensure_buffer_length(&mut bytes, Header::NBYTES);
             reader.read_exact(&mut bytes[..Header::NBYTES])?;
 
-            let key_length = read_u32(&bytes[..4])? as usize;
-            let value_length = read_u32(&bytes[4..])?;
-
-            let (is_removed, value_length) = if value_length == KEY_REMOVED {
-                (true, 0)
-            } else {
-                (false, value_length as usize)
-            };
+            let key_length = read_u64(&bytes[..])? as usize;
+            let value_length = read_u64(&bytes[8..])? as usize;
+            let is_removed = read_bool(&bytes[16..])?;
 
             ensure_buffer_length(&mut bytes, key_length + value_length);
             reader.read_exact(&mut bytes[..key_length + value_length])?;
@@ -222,63 +247,50 @@ impl Database {
             header_offset,
         )?;
 
-        let key_length = read_u32(&self.buffer[0..])?;
-        let value_length = read_u32(&self.buffer[4..])?;
-
-        Ok(Header {
-            key_length,
-            value_length,
-        })
+        Header::read(&self.buffer)
     }
 
-    fn read_value(&mut self, offset: Offset, length: usize) -> std::io::Result<Value> {
+    fn read_value(&mut self, offset: Offset, length: usize) -> std::io::Result<&[u8]> {
         ensure_buffer_length(&mut self.buffer, length);
         read_exact_at(self.file.get_mut(), &mut self.buffer[..length], offset)?;
 
-        Ok(Box::from(&self.buffer[..length]))
+        Ok(&self.buffer[..length])
     }
 
-    /// `&mut self` is required for `File::seek`
-    pub fn get(&mut self, key: &[u8]) -> std::io::Result<Option<Value>> {
+    pub fn get_impl(&mut self, key: &[u8]) -> std::io::Result<Option<&[u8]>> {
         let header_offset = match self.index.get(key).copied() {
             Some(header_offset) => header_offset,
             None => return Ok(None),
         };
 
         let header = self.read_header(header_offset)?;
-        assert_ne!(header.value_length(), KEY_REMOVED as u64);
 
-        let value_offset = header.value_offset(header_offset);
-        let value_length = header.value_length() as usize;
+        let value_offset = header.compute_value_offset(header_offset);
+        let value_length = header.value_length as usize;
 
         self.read_value(value_offset, value_length).map(Some)
     }
 
+    /// `&mut self` is required for `File::seek`
+    pub fn get(&mut self, key: &[u8]) -> std::io::Result<Option<Value>> {
+        Ok(self.get_impl(key)?.map(Into::into))
+    }
+
     fn set_impl(&mut self, key: Key, value: Option<Value>) -> std::io::Result<()> {
         let is_removed = value.is_none();
+        let header = Header::make(&key, &value)?;
 
         let value: &[u8] = match value.as_ref() {
             Some(value) => value,
-            None => &[],
-        };
-
-        let header = Header {
-            key_length: key.len().try_into().unwrap(),
-            value_length: if is_removed {
-                KEY_REMOVED
-            } else {
-                let length = value.len().try_into().unwrap();
-                if length == KEY_REMOVED {
-                    return Err(std::io::ErrorKind::InvalidData.into());
-                }
-                length
-            },
+            None => &[], // 0 bytes when the value is removed
         };
 
         let header_offset = self.current_file_offset;
+        let is_removed_byte = if header.is_removed { 1 } else { 0 };
 
         self.file.write_all(&header.key_length.to_le_bytes())?;
         self.file.write_all(&header.value_length.to_le_bytes())?;
+        self.file.write_all(&[is_removed_byte])?;
         self.file.write_all(&key)?;
         self.file.write_all(value)?;
 
@@ -422,7 +434,7 @@ impl Database {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn exchange_db_atomically(path_context: &str, path_snapshot: &str) -> Result<(), GCError> {
+fn exchange_db_atomically(db_path: &Path, tmp_path: &Path) -> std::io::Result<()> {
     todo!()
 
     // let options = fs_extra::dir::CopyOptions {

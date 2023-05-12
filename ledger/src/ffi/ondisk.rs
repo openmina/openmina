@@ -117,18 +117,19 @@ ocaml_export! {
         key: OCamlRef<OCamlBigstring>,
     ) -> OCaml<Option<OCamlBigstring>> {
         // We avoid to copy the key here
-        let value = {
+        let db = {
             let db = rt.get(db);
             let db: &DatabaseFFI = db.borrow();
-            let mut db = db.0.borrow_mut();
-            let db = db.as_mut().unwrap();
-
-            let key = rt.get(key);
-            let key = key.as_slice();
-
-            db.get(key).unwrap()
+            Rc::clone(&db.0)
         };
 
+        let mut db = db.borrow_mut();
+        let db: &mut Database = db.as_mut().unwrap();
+
+        let key: OCaml<OCamlBigstring> = rt.get(key);
+        let key: &[u8] = key.as_slice();
+
+        let value: Option<&[u8]> = db.get_impl(key).unwrap();
         value.to_ocaml(rt)
     }
 
