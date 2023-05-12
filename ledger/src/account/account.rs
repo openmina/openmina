@@ -456,7 +456,7 @@ impl ZkAppUri {
         let mut rng = rand::thread_rng();
 
         let zkapp_uri: u64 = rng.gen();
-        let mut zkapp_uri = zkapp_uri.to_string();
+        let zkapp_uri = zkapp_uri.to_string();
 
         Self(zkapp_uri)
     }
