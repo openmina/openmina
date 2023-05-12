@@ -1,8 +1,8 @@
 use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
 use ocaml_interop::{
-    bigarray::Array1, ocaml_export, DynBox, FromOCaml, OCaml, OCamlBytes, OCamlInt, OCamlList,
-    OCamlRef, OCamlRuntime, ToOCaml,
+    bigarray::Array1, ocaml_export, DynBox, FromOCaml, OCaml, OCamlInt, OCamlList, OCamlRef,
+    OCamlRuntime, ToOCaml,
 };
 
 use crate::ondisk::{batch::Batch, Database};

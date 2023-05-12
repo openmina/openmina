@@ -1,5 +1,4 @@
 use std::{
-    cell::RefCell,
     collections::HashMap,
     fs::File,
     io::{BufReader, BufWriter, Seek, SeekFrom, Write},
@@ -24,7 +23,7 @@ pub struct Database {
     current_file_offset: Offset,
     file: BufWriter<std::fs::File>,
 
-    buffer: RefCell<Option<Vec<u8>>>,
+    buffer: Vec<u8>,
 
     filename: PathBuf,
 }
@@ -112,8 +111,12 @@ impl Database {
         });
 
         if filename.try_exists()? {
-            eprintln!("\x1b[93mDatabase::reload {:?}\x1b[0m", directory);
-            return Self::reload(filename);
+            if matches!(mode, CreateMode::Temporary) {
+                std::fs::remove_file(&filename)?;
+            } else {
+                eprintln!("\x1b[93mDatabase::reload {:?}\x1b[0m", directory);
+                return Self::reload(filename);
+            }
         }
 
         eprintln!("\x1b[93mDatabase::create {:?}\x1b[0m", directory);
@@ -134,16 +137,13 @@ impl Database {
             index: HashMap::with_capacity(128),
             current_file_offset: 0,
             file: BufWriter::with_capacity(4 * 1024 * 1024, file), // 4 MB
-            buffer: RefCell::new(Some(Vec::with_capacity(4096))),
+            buffer: Vec::with_capacity(4096),
             filename,
         })
     }
 
     fn reload(filename: PathBuf) -> std::io::Result<Self> {
         use std::io::Read;
-
-        let mut keys_occurs = HashMap::with_capacity(256);
-        let mut keys_length = HashMap::with_capacity(256);
 
         let mut file = std::fs::File::options()
             .read(true)
@@ -165,6 +165,7 @@ impl Database {
         while current_offset < eof {
             let header_offset = current_offset;
 
+            ensure_buffer_length(&mut bytes, Header::NBYTES);
             reader.read_exact(&mut bytes[..Header::NBYTES])?;
 
             let key_length = read_u32(&bytes[..4])? as usize;
@@ -184,27 +185,7 @@ impl Database {
             if is_removed {
                 index.remove(key_bytes);
             } else {
-                let key = Box::<[u8]>::from(key_bytes);
-
-                let mut s = String::from_utf8_lossy(&key).into_owned();
-
-                if s.contains("arcs") {
-                    s = "arcs".to_string();
-                } else if s.contains("transition") {
-                    s = "transition".to_string()
-                }
-
-                keys_occurs
-                    .entry(s.clone())
-                    .and_modify(|v| *v += 1)
-                    .or_insert(1);
-
-                keys_length
-                    .entry(s.clone())
-                    .and_modify(|v| *v += value_length)
-                    .or_insert(value_length);
-
-                index.insert(key, header_offset);
+                index.insert(Box::<[u8]>::from(key_bytes), header_offset);
             }
 
             current_offset += (Header::NBYTES + key_length + value_length) as u64;
@@ -214,15 +195,12 @@ impl Database {
             return Err(std::io::ErrorKind::UnexpectedEof.into());
         }
 
-        // eprintln!("keys_occurs={:#?}", keys_occurs);
-        // eprintln!("keys_length={:#?}", keys_length);
-
         Ok(Self {
             uuid: next_uuid(),
             index,
             current_file_offset: eof,
             file: BufWriter::with_capacity(4 * 1024 * 1024, reader.into_inner()), // 4 MB
-            buffer: RefCell::new(Some(Vec::with_capacity(4096))),
+            buffer: Vec::with_capacity(4096),
             filename,
         })
     }
@@ -236,51 +214,28 @@ impl Database {
         // TODO
     }
 
-    fn with_buffer<F, R>(&mut self, fun: F) -> std::io::Result<R>
-    where
-        F: FnOnce(&mut Self, &mut Vec<u8>) -> std::io::Result<R>,
-    {
-        let mut buffer = self
-            .buffer
-            .borrow_mut()
-            .take()
-            .unwrap_or_else(|| vec![0; 4096]);
-
-        let result = fun(self, &mut buffer);
-
-        *self.buffer.borrow_mut() = Some(buffer);
-
-        result
-    }
-
     fn read_header(&mut self, header_offset: Offset) -> std::io::Result<Header> {
-        self.with_buffer(|this, buffer| {
-            ensure_buffer_length(buffer, Header::NBYTES);
+        ensure_buffer_length(&mut self.buffer, Header::NBYTES);
+        read_exact_at(
+            self.file.get_mut(),
+            &mut self.buffer[..Header::NBYTES],
+            header_offset,
+        )?;
 
-            read_exact_at(
-                this.file.get_mut(),
-                &mut buffer[..Header::NBYTES],
-                header_offset,
-            )?;
+        let key_length = read_u32(&self.buffer[0..])?;
+        let value_length = read_u32(&self.buffer[4..])?;
 
-            let key_length = read_u32(&buffer[0..])?;
-            let value_length = read_u32(&buffer[4..])?;
-
-            Ok(Header {
-                key_length,
-                value_length,
-            })
+        Ok(Header {
+            key_length,
+            value_length,
         })
     }
 
     fn read_value(&mut self, offset: Offset, length: usize) -> std::io::Result<Value> {
-        self.with_buffer(|this, buffer| {
-            ensure_buffer_length(buffer, length);
+        ensure_buffer_length(&mut self.buffer, length);
+        read_exact_at(self.file.get_mut(), &mut self.buffer[..length], offset)?;
 
-            read_exact_at(this.file.get_mut(), &mut buffer[..length], offset)?;
-
-            Ok(Box::from(&buffer[..length]))
-        })
+        Ok(Box::from(&self.buffer[..length]))
     }
 
     /// `&mut self` is required for `File::seek`
@@ -383,8 +338,8 @@ impl Database {
         let keys: Vec<_> = self.index.keys().cloned().collect();
 
         for key in keys {
-            let value = self.get(&key)?.unwrap();
-            checkpoint.set_impl(key, Some(value))?;
+            let value = self.get(&key)?;
+            checkpoint.set_impl(key, value)?;
         }
 
         checkpoint.flush()?;
@@ -487,8 +442,6 @@ fn exchange_db_atomically(path_context: &str, path_snapshot: &str) -> Result<(),
 // `renameat2` is a Linux syscall
 #[cfg(target_os = "linux")]
 fn exchange_file_atomically(db_path: &Path, tmp_path: &Path) -> std::io::Result<()> {
-    // Convert `{db,tmp}_path` to C strings
-
     use std::os::unix::prelude::OsStrExt;
 
     let cstr_db_path = std::ffi::CString::new(db_path.as_os_str().as_bytes())?;
