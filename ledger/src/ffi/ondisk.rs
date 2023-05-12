@@ -296,7 +296,7 @@ ocaml_export! {
         let batch: &BatchFFI = batch.borrow();
         let mut batch = batch.0.borrow_mut();
 
-        db.run_batch(&mut batch);
+        db.run_batch(&mut batch).unwrap();
 
         OCaml::unit()
     }

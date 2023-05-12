@@ -41,6 +41,10 @@ struct Header {
 impl Header {
     pub const NBYTES: usize = 17;
 
+    fn entry_length(&self) -> u64 {
+        self.key_length + self.value_length
+    }
+
     fn compute_value_offset(&self, header_offset: Offset) -> Offset {
         header_offset
             .checked_add(self.key_length)
@@ -68,6 +72,10 @@ impl Header {
     }
 
     fn read(bytes: &[u8]) -> std::io::Result<Self> {
+        if bytes.len() < Self::NBYTES {
+            return Err(std::io::ErrorKind::UnexpectedEof.into());
+        }
+
         let key_length = read_u64(bytes)?;
         let value_length = read_u64(&bytes[8..])?;
         let is_removed = read_bool(&bytes[16..])?;
@@ -141,7 +149,7 @@ impl Database {
         });
 
         if filename.try_exists()? {
-            if matches!(mode, CreateMode::Temporary) {
+            if let CreateMode::Temporary = mode {
                 std::fs::remove_file(&filename)?;
             } else {
                 eprintln!("\x1b[93mDatabase::reload {:?}\x1b[0m", directory);
@@ -198,22 +206,21 @@ impl Database {
             ensure_buffer_length(&mut bytes, Header::NBYTES);
             reader.read_exact(&mut bytes[..Header::NBYTES])?;
 
-            let key_length = read_u64(&bytes[..])? as usize;
-            let value_length = read_u64(&bytes[8..])? as usize;
-            let is_removed = read_bool(&bytes[16..])?;
+            let header = Header::read(&bytes)?;
+            let entry_length = header.entry_length() as usize;
 
-            ensure_buffer_length(&mut bytes, key_length + value_length);
-            reader.read_exact(&mut bytes[..key_length + value_length])?;
+            ensure_buffer_length(&mut bytes, entry_length);
+            reader.read_exact(&mut bytes[..entry_length])?;
 
-            let key_bytes = &bytes[..key_length];
+            let key_bytes = &bytes[..header.key_length as usize];
 
-            if is_removed {
+            if header.is_removed {
                 index.remove(key_bytes);
             } else {
                 index.insert(Box::<[u8]>::from(key_bytes), header_offset);
             }
 
-            current_offset += (Header::NBYTES + key_length + value_length) as u64;
+            current_offset += (Header::NBYTES + entry_length) as u64;
         }
 
         if eof != current_offset {
@@ -280,11 +287,6 @@ impl Database {
         let is_removed = value.is_none();
         let header = Header::make(&key, &value)?;
 
-        let value: &[u8] = match value.as_ref() {
-            Some(value) => value,
-            None => &[], // 0 bytes when the value is removed
-        };
-
         let header_offset = self.current_file_offset;
         let is_removed_byte = if header.is_removed { 1 } else { 0 };
 
@@ -292,14 +294,16 @@ impl Database {
         self.file.write_all(&header.value_length.to_le_bytes())?;
         self.file.write_all(&[is_removed_byte])?;
         self.file.write_all(&key)?;
-        self.file.write_all(value)?;
 
-        let buffer_len = Header::NBYTES + key.len() + value.len();
-        self.current_file_offset += buffer_len as u64;
+        if let Some(value) = value.as_ref() {
+            self.file.write_all(value)?;
+        };
+
+        let buffer_len = Header::NBYTES as u64 + header.entry_length();
+        self.current_file_offset += buffer_len;
 
         // Update index
         if is_removed {
-            // Value is empty, we remove the key from our index
             self.index.remove(&key);
         } else {
             self.index.insert(key, header_offset);
@@ -347,7 +351,7 @@ impl Database {
     pub fn create_checkpoint(&mut self, directory: impl AsRef<Path>) -> std::io::Result<Self> {
         let mut checkpoint = Self::create(directory.as_ref())?;
 
-        let keys: Vec<_> = self.index.keys().cloned().collect();
+        let keys: Vec<Key> = self.index.keys().cloned().collect();
 
         for key in keys {
             let value = self.get(&key)?;
@@ -374,35 +378,31 @@ impl Database {
     }
 
     pub fn to_alist(&mut self) -> std::io::Result<Vec<(Key, Value)>> {
-        let keys: Vec<_> = self.index.keys().cloned().collect();
+        let keys: Vec<Key> = self.index.keys().cloned().collect();
 
         keys.into_iter()
             .map(|key| Ok((key.clone(), self.get(&key)?.unwrap())))
             .collect()
     }
 
-    pub fn run_batch(&mut self, batch: &mut Batch) {
+    pub fn run_batch(&mut self, batch: &mut Batch) -> std::io::Result<()> {
         use super::batch::Action::{Remove, Set};
 
         for action in batch.take() {
             match action {
-                Set(key, value) => self.set_impl(key, Some(value)).unwrap(),
-                Remove(key) => self.remove_impl(key).unwrap(),
+                Set(key, value) => self.set_impl(key, Some(value))?,
+                Remove(key) => self.remove_impl(key)?,
             }
         }
 
-        self.flush().unwrap();
+        self.flush()
     }
 
     pub fn gc(&mut self) -> std::io::Result<()> {
-        eprintln!("\x1b[93mDatabase::gc\x1b[0m");
-
-        let now = std::time::Instant::now();
-
         let directory = self.filename.parent().unwrap();
-        let mut new_db = Self::create_impl(directory, CreateMode::Temporary).unwrap();
+        let mut new_db = Self::create_impl(directory, CreateMode::Temporary)?;
 
-        let keys: Vec<_> = self.index.keys().cloned().collect();
+        let keys: Vec<Key> = self.index.keys().cloned().collect();
 
         for key in keys {
             let value = self.get(&key)?;
@@ -412,43 +412,21 @@ impl Database {
         new_db.flush()?;
 
         exchange_file_atomically(&self.filename, &new_db.filename)?;
-        std::fs::remove_file(&new_db.filename)?;
 
         new_db.filename = self.filename.clone();
         new_db.uuid = self.uuid.clone();
 
         *self = new_db;
 
-        let date: chrono::DateTime<chrono::Local> = chrono::Local::now();
-
-        eprintln!(
-            "\x1b[93m{} Database::gc {:?} in {:?}. {:?} bytes\x1b[0m",
-            date.format("%Y-%m-%d %H:%M:%S"),
-            &self.filename,
-            now.elapsed(),
-            self.current_file_offset
-        );
-
         Ok(())
     }
 }
 
 #[cfg(not(target_os = "linux"))]
-fn exchange_db_atomically(db_path: &Path, tmp_path: &Path) -> std::io::Result<()> {
-    todo!()
+fn exchange_file_atomically(db_path: &Path, tmp_path: &Path) -> std::io::Result<()> {
+    std::fs::rename(tmp_path, db_path).unwrap();
 
-    // let options = fs_extra::dir::CopyOptions {
-    //     overwrite: true,
-    //     skip_exist: false,
-    //     buffer_size: 64000,
-    //     copy_inside: true,
-    //     content_only: true,
-    //     depth: 0,
-    // };
-    // fs_extra::dir::move_dir(path_snapshot, path_context, &options).unwrap();
-    // std::fs::remove_dir_all(path_snapshot).map_err(DBError::from)?;
-
-    // Ok(())
+    Ok(())
 }
 
 // `renameat2` is a Linux syscall
@@ -478,6 +456,9 @@ fn exchange_file_atomically(db_path: &Path, tmp_path: &Path) -> std::io::Result<
         let error = std::io::Error::last_os_error();
         return Err(error);
     }
+
+    // Remove previous file
+    std::fs::remove_file(tmp_path)?;
 
     Ok(())
 }
