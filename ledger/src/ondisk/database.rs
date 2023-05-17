@@ -5,6 +5,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use std::io::ErrorKind::{InvalidData, UnexpectedEof};
+
 use super::batch::Batch;
 
 pub(super) type Key = Box<[u8]>;
@@ -32,14 +34,36 @@ impl Drop for Database {
     }
 }
 
+fn compute_crc32(
+    key_length: u64,
+    value_length: u64,
+    is_removed: bool,
+    key_bytes: &[u8],
+    value_bytes: &[u8],
+) -> u32 {
+    let is_removed_byte = if is_removed { 1 } else { 0 };
+
+    let mut crc32: crc32fast::Hasher = Default::default();
+    crc32.update(&key_length.to_le_bytes());
+    crc32.update(&value_length.to_le_bytes());
+    crc32.update(&[is_removed_byte]);
+    crc32.update(key_bytes);
+    if !is_removed {
+        crc32.update(value_bytes);
+    };
+
+    crc32.finalize()
+}
+
 struct Header {
     key_length: u64,
     value_length: u64,
     is_removed: bool,
+    crc32: u32,
 }
 
 impl Header {
-    pub const NBYTES: usize = 17;
+    pub const NBYTES: usize = 21;
 
     fn entry_length(&self) -> u64 {
         self.key_length + self.value_length
@@ -53,38 +77,81 @@ impl Header {
             .unwrap()
     }
 
-    fn make(key: &Key, value: &Option<Value>) -> std::io::Result<Self> {
-        let to_u64 = |n: usize| {
-            n.try_into()
-                .map_err(|_| std::io::Error::from(std::io::ErrorKind::InvalidData))
-        };
+    fn to_bytes(&self) -> std::io::Result<[u8; Self::NBYTES]> {
+        let is_removed_byte = if self.is_removed { 1 } else { 0 };
 
+        let bytes = [0; Self::NBYTES];
+        let mut bytes = std::io::Cursor::new(bytes);
+
+        bytes.write_all(&self.key_length.to_le_bytes())?;
+        bytes.write_all(&self.value_length.to_le_bytes())?;
+        bytes.write_all(&[is_removed_byte])?;
+        bytes.write_all(&self.crc32.to_le_bytes())?;
+
+        Ok(bytes.into_inner())
+    }
+
+    fn make(key: &Key, value: &Option<Value>) -> std::io::Result<Self> {
+        let to_u64 = |n: usize| n.try_into().map_err(|_| std::io::Error::from(InvalidData));
+
+        let key_length: u64 = to_u64(key.len())?;
+        let value_length = match value.as_ref() {
+            None => 0,
+            Some(value) => to_u64(value.len())?,
+        };
         let is_removed = value.is_none();
 
-        Ok(Header {
-            key_length: to_u64(key.len())?,
-            value_length: match value.as_ref() {
-                None => 0,
-                Some(value) => to_u64(value.len())?,
-            },
+        let crc32 = compute_crc32(
+            key_length,
+            value_length,
             is_removed,
+            key,
+            match value {
+                Some(value) => value,
+                None => &[],
+            },
+        );
+
+        Ok(Header {
+            key_length,
+            value_length,
+            is_removed,
+            crc32,
         })
     }
 
     fn read(bytes: &[u8]) -> std::io::Result<Self> {
         if bytes.len() < Self::NBYTES {
-            return Err(std::io::ErrorKind::UnexpectedEof.into());
+            return Err(UnexpectedEof.into());
         }
 
         let key_length = read_u64(bytes)?;
         let value_length = read_u64(&bytes[8..])?;
         let is_removed = read_bool(&bytes[16..])?;
+        let crc32 = read_u32(&bytes[17..])?;
 
         Ok(Self {
             key_length,
             value_length,
             is_removed,
+            crc32,
         })
+    }
+
+    fn verify_checksum(&self, key_bytes: &[u8], value_bytes: &[u8]) -> std::io::Result<()> {
+        let crc32 = compute_crc32(
+            self.key_length,
+            self.value_length,
+            self.is_removed,
+            key_bytes,
+            value_bytes,
+        );
+
+        if crc32 != self.crc32 {
+            return Err(std::io::ErrorKind::InvalidData.into());
+        }
+
+        Ok(())
     }
 }
 
@@ -97,7 +164,15 @@ fn read_u64(slice: &[u8]) -> std::io::Result<u64> {
         .get(..8)
         .and_then(|slice: &[u8]| slice.try_into().ok())
         .map(u64::from_le_bytes)
-        .ok_or(std::io::ErrorKind::UnexpectedEof.into())
+        .ok_or(UnexpectedEof.into())
+}
+
+fn read_u32(slice: &[u8]) -> std::io::Result<u32> {
+    slice
+        .get(..4)
+        .and_then(|slice: &[u8]| slice.try_into().ok())
+        .map(u32::from_le_bytes)
+        .ok_or(UnexpectedEof.into())
 }
 
 fn read_bool(slice: &[u8]) -> std::io::Result<bool> {
@@ -106,7 +181,7 @@ fn read_bool(slice: &[u8]) -> std::io::Result<bool> {
         .and_then(|slice: &[u8]| slice.try_into().ok())
         .map(u8::from_le_bytes)
         .map(|b| b != 0)
-        .ok_or(std::io::ErrorKind::UnexpectedEof.into())
+        .ok_or(UnexpectedEof.into())
 }
 
 fn ensure_buffer_length(buffer: &mut Vec<u8>, length: usize) {
@@ -208,11 +283,15 @@ impl Database {
 
             let header = Header::read(&bytes)?;
             let entry_length = header.entry_length() as usize;
+            let key_length = header.key_length as usize;
 
             ensure_buffer_length(&mut bytes, entry_length);
             reader.read_exact(&mut bytes[..entry_length])?;
 
-            let key_bytes = &bytes[..header.key_length as usize];
+            ensure_buffer_length(&mut bytes, entry_length);
+            let (key_bytes, value_bytes) = bytes[..entry_length].split_at(key_length);
+
+            header.verify_checksum(key_bytes, value_bytes)?;
 
             if header.is_removed {
                 index.remove(key_bytes);
@@ -224,7 +303,7 @@ impl Database {
         }
 
         if eof != current_offset {
-            return Err(std::io::ErrorKind::UnexpectedEof.into());
+            return Err(UnexpectedEof.into());
         }
 
         Ok(Self {
@@ -270,7 +349,7 @@ impl Database {
             None => return Ok(None),
         };
 
-        let header = self.read_header(header_offset)?;
+        let header = self.read_header(header_offset).unwrap();
 
         let value_offset = header.compute_value_offset(header_offset);
         let value_length = header.value_length as usize;
@@ -288,13 +367,9 @@ impl Database {
         let header = Header::make(&key, &value)?;
 
         let header_offset = self.current_file_offset;
-        let is_removed_byte = if header.is_removed { 1 } else { 0 };
 
-        self.file.write_all(&header.key_length.to_le_bytes())?;
-        self.file.write_all(&header.value_length.to_le_bytes())?;
-        self.file.write_all(&[is_removed_byte])?;
+        self.file.write_all(&header.to_bytes()?)?;
         self.file.write_all(&key)?;
-
         if let Some(value) = value.as_ref() {
             self.file.write_all(value)?;
         };
