@@ -205,6 +205,14 @@ fn read_exact_at(file: &mut File, buffer: &mut [u8], offset: Offset) -> std::io:
     file.read_exact(buffer)
 }
 
+fn compress(bytes: &[u8]) -> std::io::Result<Box<[u8]>> {
+    zstd::encode_all(bytes, zstd::DEFAULT_COMPRESSION_LEVEL).map(Into::into)
+}
+
+fn decompress(bytes: &[u8]) -> std::io::Result<Box<[u8]>> {
+    zstd::decode_all(bytes).map(Into::into)
+}
+
 enum CreateMode {
     Regular,
     Temporary,
@@ -293,10 +301,12 @@ impl Database {
 
             header.verify_checksum(key_bytes, value_bytes)?;
 
+            let key = decompress(key_bytes)?;
+
             if header.is_removed {
-                index.remove(key_bytes);
+                index.remove(&key);
             } else {
-                index.insert(Box::<[u8]>::from(key_bytes), header_offset);
+                index.insert(key, header_offset);
             }
 
             current_offset += (Header::NBYTES + entry_length) as u64;
@@ -343,7 +353,7 @@ impl Database {
         Ok(&self.buffer[..length])
     }
 
-    pub fn get_impl(&mut self, key: &[u8]) -> std::io::Result<Option<&[u8]>> {
+    pub fn get_impl(&mut self, key: &[u8]) -> std::io::Result<Option<Box<[u8]>>> {
         let header_offset = match self.index.get(key).copied() {
             Some(header_offset) => header_offset,
             None => return Ok(None),
@@ -354,7 +364,9 @@ impl Database {
         let value_offset = header.compute_value_offset(header_offset);
         let value_length = header.value_length as usize;
 
-        self.read_value(value_offset, value_length).map(Some)
+        let value = self.read_value(value_offset, value_length).unwrap();
+
+        decompress(value).map(Some)
     }
 
     /// `&mut self` is required for `File::seek`
@@ -364,13 +376,19 @@ impl Database {
 
     fn set_impl(&mut self, key: Key, value: Option<Value>) -> std::io::Result<()> {
         let is_removed = value.is_none();
-        let header = Header::make(&key, &value)?;
 
+        let compressed_key = compress(&key)?;
+        let compressed_value = match value.as_ref() {
+            Some(value) => Some(compress(value)?),
+            None => None,
+        };
+
+        let header = Header::make(&compressed_key, &compressed_value)?;
         let header_offset = self.current_file_offset;
 
         self.file.write_all(&header.to_bytes()?)?;
-        self.file.write_all(&key)?;
-        if let Some(value) = value.as_ref() {
+        self.file.write_all(&compressed_key)?;
+        if let Some(value) = compressed_value.as_ref() {
             self.file.write_all(value)?;
         };
 

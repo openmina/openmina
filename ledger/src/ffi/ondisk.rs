@@ -129,7 +129,7 @@ ocaml_export! {
         let key: OCaml<OCamlBigstring> = rt.get(key);
         let key: &[u8] = key.as_slice();
 
-        let value: Option<&[u8]> = db.get_impl(key).unwrap();
+        let value: Option<Box<[u8]>> = db.get_impl(key).unwrap();
         value.to_ocaml(rt)
     }
 

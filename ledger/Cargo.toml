@@ -68,6 +68,7 @@ rand_pcg = "0.3"
 rand_seeder = "0.2"
 blake2 = "0.10"
 crc32fast = "1"
+zstd = "0.12"
 chrono = "0.4"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
