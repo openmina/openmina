@@ -57,13 +57,15 @@ fn compute_crc32(
 
 struct Header {
     key_length: u64,
+    key_is_compressed: bool,
     value_length: u64,
+    value_is_compressed: bool,
     is_removed: bool,
     crc32: u32,
 }
 
 impl Header {
-    pub const NBYTES: usize = 21;
+    pub const NBYTES: usize = 23;
 
     fn entry_length(&self) -> u64 {
         self.key_length + self.value_length
@@ -78,26 +80,40 @@ impl Header {
     }
 
     fn to_bytes(&self) -> std::io::Result<[u8; Self::NBYTES]> {
-        let is_removed_byte = if self.is_removed { 1 } else { 0 };
+        let bool_to_byte = |b| if b { 1 } else { 0 };
+
+        let is_removed_byte = bool_to_byte(self.is_removed);
+        let key_is_compressed_byte = bool_to_byte(self.key_is_compressed);
+        let value_is_compressed_byte = bool_to_byte(self.value_is_compressed);
 
         let bytes = [0; Self::NBYTES];
         let mut bytes = std::io::Cursor::new(bytes);
 
         bytes.write_all(&self.key_length.to_le_bytes())?;
+        bytes.write_all(&[key_is_compressed_byte])?;
         bytes.write_all(&self.value_length.to_le_bytes())?;
+        bytes.write_all(&[value_is_compressed_byte])?;
         bytes.write_all(&[is_removed_byte])?;
         bytes.write_all(&self.crc32.to_le_bytes())?;
 
         Ok(bytes.into_inner())
     }
 
-    fn make(key: &Key, value: &Option<Value>) -> std::io::Result<Self> {
+    fn make(key: &MaybeCompressed, value: &Option<MaybeCompressed>) -> std::io::Result<Self> {
         let to_u64 = |n: usize| n.try_into().map_err(|_| std::io::Error::from(InvalidData));
+
+        let key_is_compressed = key.is_compressed();
+        let key = key.as_ref();
+
+        let value_is_compressed = value
+            .as_ref()
+            .map(|value| value.is_compressed())
+            .unwrap_or(false);
 
         let key_length: u64 = to_u64(key.len())?;
         let value_length = match value.as_ref() {
             None => 0,
-            Some(value) => to_u64(value.len())?,
+            Some(value) => to_u64(value.as_ref().len())?,
         };
         let is_removed = value.is_none();
 
@@ -107,14 +123,16 @@ impl Header {
             is_removed,
             key,
             match value {
-                Some(value) => value,
+                Some(value) => value.as_ref(),
                 None => &[],
             },
         );
 
         Ok(Header {
             key_length,
+            key_is_compressed,
             value_length,
+            value_is_compressed,
             is_removed,
             crc32,
         })
@@ -126,13 +144,17 @@ impl Header {
         }
 
         let key_length = read_u64(bytes)?;
-        let value_length = read_u64(&bytes[8..])?;
-        let is_removed = read_bool(&bytes[16..])?;
-        let crc32 = read_u32(&bytes[17..])?;
+        let key_is_compressed = read_bool(&bytes[8..])?;
+        let value_length = read_u64(&bytes[9..])?;
+        let value_is_compressed = read_bool(&bytes[17..])?;
+        let is_removed = read_bool(&bytes[18..])?;
+        let crc32 = read_u32(&bytes[19..])?;
 
         Ok(Self {
             key_length,
+            key_is_compressed,
             value_length,
+            value_is_compressed,
             is_removed,
             crc32,
         })
@@ -205,12 +227,42 @@ fn read_exact_at(file: &mut File, buffer: &mut [u8], offset: Offset) -> std::io:
     file.read_exact(buffer)
 }
 
-fn compress(bytes: &[u8]) -> std::io::Result<Box<[u8]>> {
-    zstd::encode_all(bytes, zstd::DEFAULT_COMPRESSION_LEVEL).map(Into::into)
+enum MaybeCompressed<'a> {
+    Compressed(Box<[u8]>),
+    No(&'a [u8]),
 }
 
-fn decompress(bytes: &[u8]) -> std::io::Result<Box<[u8]>> {
-    zstd::decode_all(bytes).map(Into::into)
+impl<'a> AsRef<[u8]> for MaybeCompressed<'a> {
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            MaybeCompressed::Compressed(c) => c,
+            MaybeCompressed::No(b) => b,
+        }
+    }
+}
+
+impl MaybeCompressed<'_> {
+    fn is_compressed(&self) -> bool {
+        matches!(self, Self::Compressed(_))
+    }
+}
+
+fn compress(bytes: &[u8]) -> std::io::Result<MaybeCompressed> {
+    let compressed = zstd::encode_all(bytes, zstd::DEFAULT_COMPRESSION_LEVEL)?;
+
+    if compressed.len() >= bytes.len() {
+        Ok(MaybeCompressed::No(bytes))
+    } else {
+        Ok(MaybeCompressed::Compressed(compressed.into()))
+    }
+}
+
+fn decompress(bytes: &[u8], is_compressed: bool) -> std::io::Result<Box<[u8]>> {
+    if is_compressed {
+        zstd::decode_all(bytes).map(Into::into)
+    } else {
+        Ok(bytes.into())
+    }
 }
 
 enum CreateMode {
@@ -301,7 +353,7 @@ impl Database {
 
             header.verify_checksum(key_bytes, value_bytes)?;
 
-            let key = decompress(key_bytes)?;
+            let key = decompress(key_bytes, header.key_is_compressed)?;
 
             if header.is_removed {
                 index.remove(&key);
@@ -366,7 +418,7 @@ impl Database {
 
         let value = self.read_value(value_offset, value_length).unwrap();
 
-        decompress(value).map(Some)
+        decompress(value, header.value_is_compressed).map(Some)
     }
 
     /// `&mut self` is required for `File::seek`
@@ -387,9 +439,9 @@ impl Database {
         let header_offset = self.current_file_offset;
 
         self.file.write_all(&header.to_bytes()?)?;
-        self.file.write_all(&compressed_key)?;
+        self.file.write_all(compressed_key.as_ref())?;
         if let Some(value) = compressed_value.as_ref() {
-            self.file.write_all(value)?;
+            self.file.write_all(value.as_ref())?;
         };
 
         let buffer_len = Header::NBYTES as u64 + header.entry_length();
