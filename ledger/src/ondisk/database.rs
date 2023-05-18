@@ -1,13 +1,13 @@
 use std::{
     collections::HashMap,
-    fs::File,
+    fs::{File, OpenOptions},
     io::{BufReader, BufWriter, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
 };
 
 use std::io::ErrorKind::{InvalidData, UnexpectedEof};
 
-use super::batch::Batch;
+use super::{batch::Batch, lock::LockedFile};
 
 pub(super) type Key = Box<[u8]>;
 pub(super) type Value = Box<[u8]>;
@@ -21,7 +21,7 @@ pub struct Database {
 
     /// Points to end of file
     current_file_offset: Offset,
-    file: BufWriter<std::fs::File>,
+    file: BufWriter<LockedFile>,
 
     buffer: Vec<u8>,
 
@@ -320,12 +320,14 @@ impl Database {
             std::fs::create_dir_all(directory)?;
         }
 
-        let file = std::fs::File::options()
-            .read(true)
-            .write(true)
-            .append(true)
-            .create_new(true)
-            .open(&filename)?;
+        let file = LockedFile::try_open_exclusively(
+            &filename,
+            OpenOptions::new()
+                .read(true)
+                .write(true)
+                .append(true)
+                .create_new(true),
+        )?;
 
         Ok(Self {
             uuid: next_uuid(),
@@ -340,12 +342,14 @@ impl Database {
     fn reload(filename: PathBuf) -> std::io::Result<Self> {
         use std::io::Read;
 
-        let mut file = std::fs::File::options()
-            .read(true)
-            .write(true)
-            .append(true)
-            .create_new(false)
-            .open(&filename)?;
+        let mut file = LockedFile::try_open_exclusively(
+            &filename,
+            OpenOptions::new()
+                .read(true)
+                .write(true)
+                .append(true)
+                .create_new(false),
+        )?;
 
         let mut current_offset = 0;
         let eof = file.seek(SeekFrom::End(0))?;
