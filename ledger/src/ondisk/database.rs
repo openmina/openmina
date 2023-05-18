@@ -34,18 +34,32 @@ impl Drop for Database {
     }
 }
 
+fn bool_to_byte(b: bool) -> u8 {
+    if b {
+        1
+    } else {
+        0
+    }
+}
+
 fn compute_crc32(
     key_length: u64,
+    key_is_compressed: bool,
     value_length: u64,
+    value_is_compressed: bool,
     is_removed: bool,
     key_bytes: &[u8],
     value_bytes: &[u8],
 ) -> u32 {
-    let is_removed_byte = if is_removed { 1 } else { 0 };
+    let is_removed_byte = bool_to_byte(is_removed);
+    let key_is_compressed_byte = bool_to_byte(key_is_compressed);
+    let value_is_compressed_byte = bool_to_byte(value_is_compressed);
 
     let mut crc32: crc32fast::Hasher = Default::default();
     crc32.update(&key_length.to_le_bytes());
+    crc32.update(&[key_is_compressed_byte]);
     crc32.update(&value_length.to_le_bytes());
+    crc32.update(&[value_is_compressed_byte]);
     crc32.update(&[is_removed_byte]);
     crc32.update(key_bytes);
     if !is_removed {
@@ -80,8 +94,6 @@ impl Header {
     }
 
     fn to_bytes(&self) -> std::io::Result<[u8; Self::NBYTES]> {
-        let bool_to_byte = |b| if b { 1 } else { 0 };
-
         let is_removed_byte = bool_to_byte(self.is_removed);
         let key_is_compressed_byte = bool_to_byte(self.key_is_compressed);
         let value_is_compressed_byte = bool_to_byte(self.value_is_compressed);
@@ -119,7 +131,9 @@ impl Header {
 
         let crc32 = compute_crc32(
             key_length,
+            key_is_compressed,
             value_length,
+            value_is_compressed,
             is_removed,
             key,
             match value {
@@ -163,7 +177,9 @@ impl Header {
     fn verify_checksum(&self, key_bytes: &[u8], value_bytes: &[u8]) -> std::io::Result<()> {
         let crc32 = compute_crc32(
             self.key_length,
+            self.key_is_compressed,
             self.value_length,
+            self.value_is_compressed,
             self.is_removed,
             key_bytes,
             value_bytes,
