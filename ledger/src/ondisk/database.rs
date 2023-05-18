@@ -248,7 +248,11 @@ impl MaybeCompressed<'_> {
 }
 
 fn compress(bytes: &[u8]) -> std::io::Result<MaybeCompressed> {
-    let compressed = zstd::encode_all(bytes, zstd::DEFAULT_COMPRESSION_LEVEL)?;
+    let compressed = {
+        let mut result = Vec::<u8>::with_capacity(bytes.len());
+        zstd::stream::copy_encode(bytes, &mut result, zstd::DEFAULT_COMPRESSION_LEVEL)?;
+        result
+    };
 
     if compressed.len() >= bytes.len() {
         Ok(MaybeCompressed::No(bytes))
@@ -259,7 +263,9 @@ fn compress(bytes: &[u8]) -> std::io::Result<MaybeCompressed> {
 
 fn decompress(bytes: &[u8], is_compressed: bool) -> std::io::Result<Box<[u8]>> {
     if is_compressed {
-        zstd::decode_all(bytes).map(Into::into)
+        let mut result = Vec::with_capacity(bytes.len() * 2);
+        zstd::stream::copy_decode(bytes, &mut result)?;
+        Ok(result.into())
     } else {
         Ok(bytes.into())
     }
