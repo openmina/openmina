@@ -399,12 +399,12 @@ impl Database {
             None => return Ok(None),
         };
 
-        let header = self.read_header(header_offset).unwrap();
+        let header = self.read_header(header_offset)?;
 
         let value_offset = header.compute_value_offset(header_offset);
         let value_length = header.value_length as usize;
 
-        let value = self.read_value(value_offset, value_length).unwrap();
+        let value = self.read_value(value_offset, value_length)?;
 
         decompress(value, header.value_is_compressed).map(Some)
     }
@@ -557,9 +557,7 @@ impl Database {
 
 #[cfg(not(target_os = "linux"))]
 fn exchange_file_atomically(db_path: &Path, tmp_path: &Path) -> std::io::Result<()> {
-    std::fs::rename(tmp_path, db_path).unwrap();
-
-    Ok(())
+    std::fs::rename(tmp_path, db_path)
 }
 
 // `renameat2` is a Linux syscall

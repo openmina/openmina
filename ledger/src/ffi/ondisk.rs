@@ -1,25 +1,16 @@
 use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
 use ocaml_interop::{
-    bigarray::Array1, ocaml_export, DynBox, FromOCaml, OCaml, OCamlInt, OCamlList, OCamlRef,
-    OCamlRuntime, ToOCaml,
+    bigarray::Array1, ocaml_export, BoxRoot, DynBox, FromOCaml, OCaml, OCamlInt, OCamlList,
+    OCamlRef, OCamlRuntime, ToOCaml,
 };
 
 use crate::ondisk::{batch::Batch, Database};
 
-pub struct DatabaseFFI(pub Rc<RefCell<Option<Database>>>);
+pub struct DatabaseFFI(pub Rc<RefCell<Database>>);
 pub struct BatchFFI(pub Rc<RefCell<Batch>>);
 
 type OCamlBigstring = Array1<u8>;
-
-impl Drop for DatabaseFFI {
-    fn drop(&mut self) {
-        let mask_id = RefCell::borrow(&self.0)
-            .as_ref()
-            .map(|mask| mask.get_uuid().clone());
-        elog!("rust_ondisk_database_drop {:?}", mask_id);
-    }
-}
 
 fn with_db<F, R>(rt: &mut &mut OCamlRuntime, db: OCamlRef<DynBox<DatabaseFFI>>, fun: F) -> R
 where
@@ -29,7 +20,7 @@ where
     let db: &DatabaseFFI = db.borrow();
     let mut db = db.0.borrow_mut();
 
-    fun(db.as_mut().unwrap())
+    fun(&mut db)
 }
 
 fn with_batch<F, R>(rt: &mut &mut OCamlRuntime, db: OCamlRef<DynBox<BatchFFI>>, fun: F) -> R
@@ -78,15 +69,16 @@ ocaml_export! {
     fn rust_ondisk_database_create(
         rt,
         dir_name: OCamlRef<String>
-    ) -> OCaml<DynBox<DatabaseFFI>> {
+    ) -> OCaml<Result<DynBox<DatabaseFFI>, String>> {
         let dir_name: String = get(rt, dir_name);
 
         elog!("rust_ondisk_database_create={:?}", dir_name);
 
-        let db = Database::create(dir_name).unwrap();
-        let db = DatabaseFFI(Rc::new(RefCell::new(Some(db))));
-
-        OCaml::box_value(rt, db)
+        Database::create(dir_name)
+            .map(|db| DatabaseFFI(Rc::new(RefCell::new(db))))
+            .map(|db| OCaml::box_value(rt, db).root())
+            .map_err(|e| format!("{:?}", e))
+            .to_ocaml(rt)
     }
 
     fn rust_ondisk_database_get_uuid(
@@ -115,7 +107,7 @@ ocaml_export! {
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
         key: OCamlRef<OCamlBigstring>,
-    ) -> OCaml<Option<OCamlBigstring>> {
+    ) -> OCaml<Result<Option<OCamlBigstring>, String>> {
         // We avoid to copy the key here
         let db = {
             let db = rt.get(db);
@@ -124,13 +116,14 @@ ocaml_export! {
         };
 
         let mut db = db.borrow_mut();
-        let db: &mut Database = db.as_mut().unwrap();
+        let db: &mut Database = &mut db;
 
         let key: OCaml<OCamlBigstring> = rt.get(key);
         let key: &[u8] = key.as_slice();
 
-        let value: Option<Box<[u8]>> = db.get_impl(key).unwrap();
-        value.to_ocaml(rt)
+        db.get(key)
+          .map_err(|e| format!("{:?}", e))
+          .to_ocaml(rt)
     }
 
     fn rust_ondisk_database_set(
@@ -138,29 +131,29 @@ ocaml_export! {
         db: OCamlRef<DynBox<DatabaseFFI>>,
         key: OCamlRef<OCamlBigstring>,
         value: OCamlRef<OCamlBigstring>,
-    ) {
+    ) -> OCaml<Result<(), String>> {
         let key: Box<[u8]> = get_bigstring(rt, key);
         let value: Box<[u8]> = get_bigstring(rt, value);
 
         with_db(rt, db, |db| {
-            db.set(key, value).unwrap()
-        });
-
-        OCaml::unit()
+            db.set(key, value)
+        })
+         .map_err(|e| format!("{:?}", e))
+         .to_ocaml(rt)
     }
 
     fn rust_ondisk_database_get_batch(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
         keys: OCamlRef<OCamlList<OCamlBigstring>>,
-    ) -> OCaml<OCamlList<Option<OCamlBigstring>>> {
+    ) -> OCaml<Result<OCamlList<Option<OCamlBigstring>>, String>> {
         let keys: Vec<Box<[u8]>> = get_list_of(rt, keys, |v| v.as_slice().into());
 
-        let values: Vec<Option<Box<[u8]>>> = with_db(rt, db, |db| {
-            db.get_batch(keys).unwrap()
-        });
-
-        values.to_ocaml(rt)
+        with_db(rt, db, |db| {
+            db.get_batch(keys)
+        })
+         .map_err(|e| format!("{:?}", e))
+         .to_ocaml(rt)
     }
 
     fn rust_ondisk_database_set_batch(
@@ -168,7 +161,7 @@ ocaml_export! {
         db: OCamlRef<DynBox<DatabaseFFI>>,
         remove_keys: OCamlRef<OCamlList<OCamlBigstring>>,
         key_data_pairs: OCamlRef<OCamlList<(OCamlBigstring, OCamlBigstring)>>,
-    ) {
+    ) -> OCaml<Result<(), String>> {
         let remove_keys: Vec<Box<[u8]>> = get_list_of(rt, remove_keys, |v| {
             v.as_slice().into()
         });
@@ -183,64 +176,65 @@ ocaml_export! {
         });
 
         with_db(rt, db, |db| {
-            db.set_batch(key_data_pairs, remove_keys).unwrap()
-        });
-
-        OCaml::unit()
+            db.set_batch(key_data_pairs, remove_keys)
+        })
+         .map_err(|e| format!("{:?}", e))
+         .to_ocaml(rt)
     }
 
     fn rust_ondisk_database_make_checkpoint(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
         directory: OCamlRef<String>
-    ) {
+    ) -> OCaml<Result<(), String>> {
         let directory: String = get(rt, directory);
 
         with_db(rt, db, |db| {
-            db.make_checkpoint(directory.as_str()).unwrap()
-        });
-
-        OCaml::unit()
+            db.make_checkpoint(directory.as_str())
+        })
+         .map_err(|e| format!("{:?}", e))
+         .to_ocaml(rt)
     }
 
     fn rust_ondisk_database_create_checkpoint(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
         directory: OCamlRef<String>
-    ) -> OCaml<DynBox<DatabaseFFI>> {
+    ) -> OCaml<Result<DynBox<DatabaseFFI>, String>> {
         let directory: String = get(rt, directory);
 
-        let checkpoint = with_db(rt, db, |db| {
-            db.create_checkpoint(directory.as_str()).unwrap()
-        });
-        let checkpoint = DatabaseFFI(Rc::new(RefCell::new(Some(checkpoint))));
-
-        OCaml::box_value(rt, checkpoint)
+        with_db(rt, db, |db| {
+            db.create_checkpoint(directory.as_str())
+        })
+         .map(|checkpoint| DatabaseFFI(Rc::new(RefCell::new(checkpoint))))
+         .map(|checkpoint| OCaml::box_value(rt, checkpoint).root())
+         .map_err(|e| format!("{:?}", e))
+         .to_ocaml(rt)
     }
 
     fn rust_ondisk_database_remove(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
         key: OCamlRef<OCamlBigstring>,
-    ) {
+    ) -> OCaml<Result<(), String>> {
         let key: Box<[u8]> = get_bigstring(rt, key);
 
         with_db(rt, db, |db| {
-            db.remove(key).unwrap()
-        });
-
-        OCaml::unit()
+            db.remove(key)
+        })
+         .map_err(|e| format!("{:?}", e))
+         .to_ocaml(rt)
     }
 
     fn rust_ondisk_database_to_alist(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
-    ) -> OCaml<OCamlList<(OCamlBigstring, OCamlBigstring)>> {
-        let alist = with_db(rt, db, |db| {
-            db.to_alist().unwrap()
-        });
-
-        alist.to_ocaml(rt)
+    ) -> OCaml<Result<OCamlList<(OCamlBigstring, OCamlBigstring)>, String>> {
+        with_db(rt, db, |db| {
+            db.to_alist()
+        })
+         .map_err(|e| format!("{:?}", e))
+         .to_ocaml(rt)
     }
 
     fn rust_ondisk_database_batch_create(
@@ -286,29 +280,32 @@ ocaml_export! {
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
         batch: OCamlRef<DynBox<BatchFFI>>,
-    ) {
-        let db = rt.get(db);
-        let db: &DatabaseFFI = db.borrow();
-        let mut db = db.0.borrow_mut();
-        let db = db.as_mut().unwrap();
+    ) -> OCaml<Result<(), String>> {
+        let result = {
+            let db = rt.get(db);
+            let db: &DatabaseFFI = db.borrow();
+            let mut db = db.0.borrow_mut();
+            let db = &mut db;
 
-        let batch = rt.get(batch);
-        let batch: &BatchFFI = batch.borrow();
-        let mut batch = batch.0.borrow_mut();
+            let batch = rt.get(batch);
+            let batch: &BatchFFI = batch.borrow();
+            let mut batch = batch.0.borrow_mut();
 
-        db.run_batch(&mut batch).unwrap();
+            db.run_batch(&mut batch)
+        };
 
-        OCaml::unit()
+        result.map_err(|e| format!("{:?}", e))
+              .to_ocaml(rt)
     }
 
     fn rust_ondisk_database_gc(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>,
-    ) {
+    ) -> OCaml<Result<(), String>> {
         with_db(rt, db, |db| {
-            db.gc().unwrap()
-        });
-
-        OCaml::unit()
+            db.gc()
+        })
+         .map_err(|e| format!("{:?}", e))
+         .to_ocaml(rt)
     }
 }
