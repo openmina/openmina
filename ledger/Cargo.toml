@@ -68,7 +68,6 @@ rand_pcg = "0.3"
 rand_seeder = "0.2"
 blake2 = "0.10"
 crc32fast = "1"
-zstd = "0.12"
 chrono = "0.4"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
@@ -77,6 +76,7 @@ wasm_thread = { version = "0.2", features = [ "es_modules" ] }
 wasm-bindgen = "0.2"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
+zstd = "0.12"
 # ocaml-interop = { path = "/home/sebastien/github/ocaml-interop" }
 ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values" }
 # ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values" }

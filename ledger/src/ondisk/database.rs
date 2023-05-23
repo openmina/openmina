@@ -7,7 +7,13 @@ use std::{
 
 use std::io::ErrorKind::{InvalidData, UnexpectedEof};
 
-use super::{batch::Batch, lock::LockedFile};
+use crate::ondisk::compression::decompress;
+
+use super::{
+    batch::Batch,
+    compression::{compress, MaybeCompressed},
+    lock::LockedFile,
+};
 
 pub(super) type Key = Box<[u8]>;
 pub(super) type Value = Box<[u8]>;
@@ -241,50 +247,6 @@ fn read_exact_at(file: &mut File, buffer: &mut [u8], offset: Offset) -> std::io:
 
     file.seek(SeekFrom::Start(offset))?;
     file.read_exact(buffer)
-}
-
-enum MaybeCompressed<'a> {
-    Compressed(Box<[u8]>),
-    No(&'a [u8]),
-}
-
-impl<'a> AsRef<[u8]> for MaybeCompressed<'a> {
-    fn as_ref(&self) -> &[u8] {
-        match self {
-            MaybeCompressed::Compressed(c) => c,
-            MaybeCompressed::No(b) => b,
-        }
-    }
-}
-
-impl MaybeCompressed<'_> {
-    fn is_compressed(&self) -> bool {
-        matches!(self, Self::Compressed(_))
-    }
-}
-
-fn compress(bytes: &[u8]) -> std::io::Result<MaybeCompressed> {
-    let compressed = {
-        let mut result = Vec::<u8>::with_capacity(bytes.len());
-        zstd::stream::copy_encode(bytes, &mut result, zstd::DEFAULT_COMPRESSION_LEVEL)?;
-        result
-    };
-
-    if compressed.len() >= bytes.len() {
-        Ok(MaybeCompressed::No(bytes))
-    } else {
-        Ok(MaybeCompressed::Compressed(compressed.into()))
-    }
-}
-
-fn decompress(bytes: &[u8], is_compressed: bool) -> std::io::Result<Box<[u8]>> {
-    if is_compressed {
-        let mut result = Vec::with_capacity(bytes.len() * 2);
-        zstd::stream::copy_decode(bytes, &mut result)?;
-        Ok(result.into())
-    } else {
-        Ok(bytes.into())
-    }
 }
 
 enum CreateMode {
