@@ -1,26 +1,33 @@
 use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
 use ocaml_interop::{
-    bigarray::Array1, ocaml_export, BoxRoot, DynBox, FromOCaml, OCaml, OCamlInt, OCamlList,
-    OCamlRef, OCamlRuntime, ToOCaml,
+    bigarray::Array1, ocaml_export, DynBox, FromOCaml, OCaml, OCamlInt, OCamlList, OCamlRef,
+    OCamlRuntime, ToOCaml,
 };
 
 use crate::ondisk::{batch::Batch, Database};
 
-pub struct DatabaseFFI(pub Rc<RefCell<Database>>);
+pub struct DatabaseFFI(pub Rc<RefCell<Option<Database>>>);
 pub struct BatchFFI(pub Rc<RefCell<Batch>>);
 
 type OCamlBigstring = Array1<u8>;
 
-fn with_db<F, R>(rt: &mut &mut OCamlRuntime, db: OCamlRef<DynBox<DatabaseFFI>>, fun: F) -> R
+fn with_db<F, R>(
+    rt: &mut &mut OCamlRuntime,
+    db: OCamlRef<DynBox<DatabaseFFI>>,
+    fun: F,
+) -> std::io::Result<R>
 where
-    F: FnOnce(&mut Database) -> R,
+    F: FnOnce(&mut Database) -> std::io::Result<R>,
 {
     let db = rt.get(db);
     let db: &DatabaseFFI = db.borrow();
     let mut db = db.0.borrow_mut();
+    let db = db
+        .as_mut()
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "Database was closed"))?;
 
-    fun(&mut db)
+    fun(db)
 }
 
 fn with_batch<F, R>(rt: &mut &mut OCamlRuntime, db: OCamlRef<DynBox<BatchFFI>>, fun: F) -> R
@@ -75,7 +82,7 @@ ocaml_export! {
         elog!("rust_ondisk_database_create={:?}", dir_name);
 
         Database::create(dir_name)
-            .map(|db| DatabaseFFI(Rc::new(RefCell::new(db))))
+            .map(|db| DatabaseFFI(Rc::new(RefCell::new(Some(db)))))
             .map(|db| OCaml::box_value(rt, db).root())
             .map_err(|e| format!("{:?}", e))
             .to_ocaml(rt)
@@ -84,23 +91,29 @@ ocaml_export! {
     fn rust_ondisk_database_get_uuid(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>
-    ) -> OCaml<String> {
-        let uuid = with_db(rt, db, |db| {
-            db.get_uuid().clone()
-        });
-
-        uuid.to_ocaml(rt)
+    ) -> OCaml<Result<String, String>> {
+        with_db(rt, db, |db| {
+            Ok(db.get_uuid().clone())
+        })
+        .map_err(|e| format!("{:?}", e))
+        .to_ocaml(rt)
     }
 
     fn rust_ondisk_database_close(
         rt,
         db: OCamlRef<DynBox<DatabaseFFI>>
-    ) {
-        with_db(rt, db, |db| {
-            db.close()
-        });
+    ) -> OCaml<Result<(), String>> {
+        {
+            let db = rt.get(db);
+            let db: &DatabaseFFI = db.borrow();
+            let mut db = db.0.borrow_mut();
+            let db = db.take().unwrap();
+            db.close();
 
-        OCaml::unit()
+            std::mem::drop(db);
+        }
+
+        Ok::<_, String>(()).to_ocaml(rt)
     }
 
     fn rust_ondisk_database_get(
@@ -116,13 +129,15 @@ ocaml_export! {
         };
 
         let mut db = db.borrow_mut();
-        let db: &mut Database = &mut db;
 
-        let key: OCaml<OCamlBigstring> = rt.get(key);
-        let key: &[u8] = key.as_slice();
+        db.as_mut()
+          .ok_or_else(|| "Database was closed".to_string())
+          .and_then(|db| {
+                let key: OCaml<OCamlBigstring> = rt.get(key);
+                let key: &[u8] = key.as_slice();
 
-        db.get(key)
-          .map_err(|e| format!("{:?}", e))
+                db.get(key).map_err(|e| format!("{:?}", e))
+          })
           .to_ocaml(rt)
     }
 
@@ -206,7 +221,7 @@ ocaml_export! {
         with_db(rt, db, |db| {
             db.create_checkpoint(directory.as_str())
         })
-         .map(|checkpoint| DatabaseFFI(Rc::new(RefCell::new(checkpoint))))
+         .map(|checkpoint| DatabaseFFI(Rc::new(RefCell::new(Some(checkpoint)))))
          .map(|checkpoint| OCaml::box_value(rt, checkpoint).root())
          .map_err(|e| format!("{:?}", e))
          .to_ocaml(rt)
@@ -285,7 +300,7 @@ ocaml_export! {
             let db = rt.get(db);
             let db: &DatabaseFFI = db.borrow();
             let mut db = db.0.borrow_mut();
-            let db = &mut db;
+            let db = db.as_mut().unwrap();
 
             let batch = rt.get(batch);
             let batch: &BatchFFI = batch.borrow();

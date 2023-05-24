@@ -79,11 +79,15 @@ mod sys {
     }
 
     pub(super) fn try_lock_exclusive(file: &File) -> std::io::Result<()> {
-        flock(file, libc::LOCK_EX | libc::LOCK_NB)
+        flock(file, libc::LOCK_EX | libc::LOCK_NB).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::WouldBlock, "Unable to lock the file")
+        })
     }
 
     pub(super) fn unlock(file: &File) -> std::io::Result<()> {
-        flock(file, libc::LOCK_UN)
+        flock(file, libc::LOCK_UN).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::WouldBlock, "Unable to unlock the file")
+        })
     }
 }
 
