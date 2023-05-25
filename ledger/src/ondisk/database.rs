@@ -34,12 +34,6 @@ pub struct Database {
     filename: PathBuf,
 }
 
-impl Drop for Database {
-    fn drop(&mut self) {
-        eprintln!("\x1b[93mDatabase::drop {:?}\x1b[0m", self.filename);
-    }
-}
-
 fn bool_to_byte(b: bool) -> u8 {
     if b {
         1
@@ -199,7 +193,7 @@ impl Header {
     }
 }
 
-pub fn next_uuid() -> Uuid {
+fn next_uuid() -> Uuid {
     uuid::Uuid::new_v4().to_string()
 }
 
@@ -208,7 +202,7 @@ fn read_u64(slice: &[u8]) -> std::io::Result<u64> {
         .get(..8)
         .and_then(|slice: &[u8]| slice.try_into().ok())
         .map(u64::from_le_bytes)
-        .ok_or(UnexpectedEof.into())
+        .ok_or_else(|| UnexpectedEof.into())
 }
 
 fn read_u32(slice: &[u8]) -> std::io::Result<u32> {
@@ -216,7 +210,7 @@ fn read_u32(slice: &[u8]) -> std::io::Result<u32> {
         .get(..4)
         .and_then(|slice: &[u8]| slice.try_into().ok())
         .map(u32::from_le_bytes)
-        .ok_or(UnexpectedEof.into())
+        .ok_or_else(|| UnexpectedEof.into())
 }
 
 fn read_bool(slice: &[u8]) -> std::io::Result<bool> {
@@ -225,7 +219,7 @@ fn read_bool(slice: &[u8]) -> std::io::Result<bool> {
         .and_then(|slice: &[u8]| slice.try_into().ok())
         .map(u8::from_le_bytes)
         .map(|b| b != 0)
-        .ok_or(UnexpectedEof.into())
+        .ok_or_else(|| UnexpectedEof.into())
 }
 
 fn ensure_buffer_length(buffer: &mut Vec<u8>, length: usize) {
@@ -255,6 +249,26 @@ enum CreateMode {
 }
 
 impl Database {
+    /// Creates a new instance of the database at the specified directory.
+    /// If the directory contains an existing database, its content will be loaded.
+    ///
+    /// # Arguments
+    ///
+    /// * `directory` - The path where the database will be created or opened.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self>` - Returns an instance of the database if successful, otherwise
+    ///    returns an error.
+    ///
+    /// # Errors
+    ///
+    /// This method will return an error in the following cases:
+    ///
+    ///   * Unable to open or create the directory.
+    ///   * Another process is already using the database.
+    ///   * The database is corrupted (when the path contains an existing database).
+    ///
     pub fn create(directory: impl AsRef<Path>) -> std::io::Result<Self> {
         Self::create_impl(directory, CreateMode::Regular)
     }
@@ -301,6 +315,7 @@ impl Database {
         })
     }
 
+    /// Reload the database at the specified path
     fn reload(filename: PathBuf) -> std::io::Result<Self> {
         use std::io::Read;
 
@@ -366,13 +381,20 @@ impl Database {
         })
     }
 
+    /// Retrieves the UUID of the current database instance.
+    ///
+    /// # Returns
+    ///
+    /// * `&Uuid` - Returns a reference to the UUID of the instance.
     pub fn get_uuid(&self) -> &Uuid {
         &self.uuid
     }
 
+    /// Closes the current database instance.
+    ///
+    /// Any usage of this database after this call will return an error.
     pub fn close(&self) {
-        eprintln!("\x1b[93mDatabase::close {:?}\x1b[0m", &self.filename);
-        // TODO
+        // NOTE: `close` is actually implemented at the ffi level, where `Self` is dropped
     }
 
     fn read_header(&mut self, header_offset: Offset) -> std::io::Result<Header> {
@@ -393,7 +415,19 @@ impl Database {
         Ok(&self.buffer[..length])
     }
 
-    pub fn get_impl(&mut self, key: &[u8]) -> std::io::Result<Option<Box<[u8]>>> {
+    /// Retrieves the value associated with a given key.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Bytes representing the key to fetch the value of.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Option<Box<[u8]>>>` - Returns an optional values if the key exists;
+    ///    otherwise, None. Returns an error if something goes wrong.
+    pub fn get(&mut self, key: &[u8]) -> std::io::Result<Option<Value>> {
+        // Note: `&mut self` is required for `File::seek`
+
         let header_offset = match self.index.get(key).copied() {
             Some(header_offset) => header_offset,
             None => return Ok(None),
@@ -407,11 +441,6 @@ impl Database {
         let value = self.read_value(value_offset, value_length)?;
 
         decompress(value, header.value_is_compressed).map(Some)
-    }
-
-    /// `&mut self` is required for `File::seek`
-    pub fn get(&mut self, key: &[u8]) -> std::io::Result<Option<Value>> {
-        Ok(self.get_impl(key)?.map(Into::into))
     }
 
     fn set_impl(&mut self, key: Key, value: Option<Value>) -> std::io::Result<()> {
@@ -445,17 +474,38 @@ impl Database {
         Ok(())
     }
 
+    /// Adds or updates an entry (key-value pair) in the database.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Bytes representing the key to store.
+    /// * `value` - Bytes representing the value to store.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Returns () if successful, otherwise returns an error.
     pub fn set(&mut self, key: Key, value: Value) -> std::io::Result<()> {
         self.set_impl(key, Some(value))?;
         self.flush()?;
         Ok(())
     }
 
-    pub fn set_batch(
-        &mut self,
-        key_data_pairs: impl IntoIterator<Item = (Key, Value)>,
-        remove_keys: impl IntoIterator<Item = Key>,
-    ) -> std::io::Result<()> {
+    /// Processes multiple entries (key-value pairs) to set and keys to remove in
+    /// a single batch operation.
+    ///
+    /// # Arguments
+    ///
+    /// * `key_data_pairs` - An iterable of key-value pairs to add or update.
+    /// * `remove_keys` - An iterable of keys to remove from the database.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Returns () if successful, otherwise returns an error.
+    pub fn set_batch<KV, R>(&mut self, key_data_pairs: KV, remove_keys: R) -> std::io::Result<()>
+    where
+        KV: IntoIterator<Item = (Key, Value)>,
+        R: IntoIterator<Item = Key>,
+    {
         for (key, value) in key_data_pairs {
             self.set_impl(key, Some(value))?;
         }
@@ -469,18 +519,49 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_batch(
-        &mut self,
-        keys: impl IntoIterator<Item = Key>,
-    ) -> std::io::Result<Vec<Option<Value>>> {
+    /// Fetches a batch of values for the given keys.
+    ///
+    /// # Arguments
+    ///
+    /// * `keys` - An iterable of keys to fetch the values of
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<Option<Box<[u8]>>>>` - Returns a vector of optional values
+    ///    corresponding to each key; if a key is not found, returns None.
+    pub fn get_batch<K>(&mut self, keys: K) -> std::io::Result<Vec<Option<Value>>>
+    where
+        K: IntoIterator<Item = Key>,
+    {
         keys.into_iter().map(|key| self.get(&key)).collect()
     }
 
+    /// Creates a new checkpoint, saving a consistent snapshot of the
+    /// current state of the database.
+    ///
+    /// # Arguments
+    ///
+    /// * `directory` - The path where the checkpoint files will be created.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Returns () if checkpoint creation is successful,
+    ///   otherwise returns an error.
     pub fn make_checkpoint(&mut self, directory: impl AsRef<Path>) -> std::io::Result<()> {
         self.create_checkpoint(directory.as_ref())?;
         Ok(())
     }
 
+    /// Creates a new checkpoint, and instantiates a new database from it.
+    ///
+    /// # Arguments
+    ///
+    /// * `directory` - The path where the checkpoint files will be created.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self>` - Returns a new instance of the database if successful,
+    ///   otherwise returns an error.
     pub fn create_checkpoint(&mut self, directory: impl AsRef<Path>) -> std::io::Result<Self> {
         let mut checkpoint = Self::create(directory.as_ref())?;
 
@@ -496,6 +577,7 @@ impl Database {
         Ok(checkpoint)
     }
 
+    /// Flush writes buffer to fs and call `fsync`
     fn flush(&mut self) -> std::io::Result<()> {
         self.file.flush()?;
         self.file.get_ref().sync_all()
@@ -505,19 +587,51 @@ impl Database {
         self.set_impl(key, None) // empty value
     }
 
+    /// Removes a key-value pair from the database.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Bytes representing the key to remove.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Returns () if the key is removed successfully,
+    ///   otherwise returns an error.
     pub fn remove(&mut self, key: Key) -> std::io::Result<()> {
         self.remove_impl(key)?;
         self.flush()
     }
 
+    /// Retrieves all entries (key-value pairs) from the database.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Vec<(Box<[u8]>, Box<[u8]>)>>` - Returns a vector containing
+    ///   all key-value pairs as boxed byte arrays. Returns an error if retrieval fails.
     pub fn to_alist(&mut self) -> std::io::Result<Vec<(Key, Value)>> {
         let keys: Vec<Key> = self.index.keys().cloned().collect();
 
         keys.into_iter()
-            .map(|key| Ok((key.clone(), self.get(&key)?.unwrap())))
+            .map(|key| {
+                Ok((
+                    key.clone(),
+                    self.get(&key)?
+                        .ok_or_else(|| std::io::Error::from(InvalidData))?,
+                ))
+            })
             .collect()
     }
 
+    /// Processes a pre-built batch of operations, effectively running the batch on the database.
+    ///
+    /// # Arguments
+    ///
+    /// * `batch` - A mutable reference to a `Batch` struct containing the operations to execute.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Returns () if the batch is executed successfully,
+    ///   otherwise returns an error.
     pub fn run_batch(&mut self, batch: &mut Batch) -> std::io::Result<()> {
         use super::batch::Action::{Remove, Set};
 
@@ -531,6 +645,13 @@ impl Database {
         self.flush()
     }
 
+    /// Triggers garbage collection for the database, cleaning up obsolete
+    /// data and potentially freeing up storage space.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<()>` - Returns () if garbage collection is successful,
+    ///   otherwise returns an error.
     pub fn gc(&mut self) -> std::io::Result<()> {
         let directory = self.filename.parent().unwrap();
         let mut new_db = Self::create_impl(directory, CreateMode::Temporary)?;
