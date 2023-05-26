@@ -13,6 +13,8 @@ pub enum JobCommitmentAction {
     Add(JobCommitmentAddAction),
     P2pSendAll(JobCommitmentP2pSendAllAction),
     P2pSend(JobCommitmentP2pSendAction),
+    CheckTimeouts(JobCommitmentCheckTimeoutsAction),
+    Timeout(JobCommitmentTimeoutAction),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -57,6 +59,31 @@ impl redux::EnablingCondition<crate::State> for JobCommitmentP2pSendAction {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct JobCommitmentCheckTimeoutsAction {}
+
+impl redux::EnablingCondition<crate::State> for JobCommitmentCheckTimeoutsAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .time()
+            .checked_sub(state.job_commitments.last_check_timeouts)
+            .map_or(false, |dur| dur.as_secs() >= 5)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct JobCommitmentTimeoutAction {
+    pub job_id: SnarkJobId,
+}
+
+impl redux::EnablingCondition<crate::State> for JobCommitmentTimeoutAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .job_commitments
+            .is_commitment_timed_out(&self.job_id, state.time())
+    }
+}
+
 macro_rules! impl_into_global_action {
     ($a:ty) => {
         impl From<$a> for crate::Action {
@@ -71,3 +98,5 @@ impl_into_global_action!(JobCommitmentCreateAction);
 impl_into_global_action!(JobCommitmentAddAction);
 impl_into_global_action!(JobCommitmentP2pSendAllAction);
 impl_into_global_action!(JobCommitmentP2pSendAction);
+impl_into_global_action!(JobCommitmentCheckTimeoutsAction);
+impl_into_global_action!(JobCommitmentTimeoutAction);

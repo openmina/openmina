@@ -23,11 +23,12 @@ pub struct State {
 
 impl State {
     pub fn new(config: Config) -> Self {
+        let job_commitments = config.snarker.job_commitments.clone();
         Self {
             config: config.snarker,
 
             p2p: P2pState::new(config.p2p),
-            job_commitments: JobCommitmentsState::new(),
+            job_commitments: JobCommitmentsState::new(job_commitments),
             rpc: RpcState::new(),
 
             last_action: ActionMeta::ZERO,

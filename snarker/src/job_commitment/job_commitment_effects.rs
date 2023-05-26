@@ -5,7 +5,7 @@ use crate::{Service, Store};
 
 use super::{
     JobCommitmentAction, JobCommitmentActionWithMeta, JobCommitmentAddAction,
-    JobCommitmentP2pSendAction,
+    JobCommitmentP2pSendAction, JobCommitmentTimeoutAction,
 };
 
 pub fn job_commitment_effects<S: Service>(
@@ -19,7 +19,7 @@ pub fn job_commitment_effects<S: Service>(
             let timestamp_ms = meta.time_as_nanos() / 1_000_000;
             let pub_key = store.state().config.public_key.clone();
             store.dispatch(JobCommitmentAddAction {
-                commitment: SnarkJobCommitment::new(timestamp_ms as u32, a.job_id, pub_key.into()),
+                commitment: SnarkJobCommitment::new(timestamp_ms, a.job_id, pub_key.into()),
                 sender: store.state().p2p.config.identity_pub_key.peer_id(),
             });
         }
@@ -58,5 +58,17 @@ pub fn job_commitment_effects<S: Service>(
                 last_index,
             });
         }
+        JobCommitmentAction::CheckTimeouts(_) => {
+            let timed_out_ids = store
+                .state()
+                .job_commitments
+                .timed_out_commitments_iter(meta.time())
+                .cloned()
+                .collect::<Vec<_>>();
+            for job_id in timed_out_ids {
+                store.dispatch(JobCommitmentTimeoutAction { job_id });
+            }
+        }
+        JobCommitmentAction::Timeout(_) => {}
     }
 }
