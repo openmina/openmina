@@ -6,8 +6,9 @@ use crate::event_source::{
     EventSourceWaitForEventsAction, EventSourceWaitTimeoutAction,
 };
 use crate::job_commitment::{
-    JobCommitmentAction, JobCommitmentAddAction, JobCommitmentCreateAction,
-    JobCommitmentP2pSendAction, JobCommitmentP2pSendAllAction,
+    JobCommitmentAction, JobCommitmentAddAction, JobCommitmentCheckTimeoutsAction,
+    JobCommitmentCreateAction, JobCommitmentP2pSendAction, JobCommitmentP2pSendAllAction,
+    JobCommitmentTimeoutAction,
 };
 use crate::p2p::channels::snark_job_commitment::{
     P2pChannelsSnarkJobCommitmentAction, P2pChannelsSnarkJobCommitmentInitAction,
@@ -67,9 +68,11 @@ pub enum ActionKind {
     EventSourceWaitForEvents,
     EventSourceWaitTimeout,
     JobCommitmentAdd,
+    JobCommitmentCheckTimeouts,
     JobCommitmentCreate,
     JobCommitmentP2pSend,
     JobCommitmentP2pSendAll,
+    JobCommitmentTimeout,
     P2pChannelsMessageReceived,
     P2pChannelsSnarkJobCommitmentInit,
     P2pChannelsSnarkJobCommitmentPending,
@@ -171,6 +174,8 @@ impl ActionKindGet for JobCommitmentAction {
             Self::Add(a) => a.kind(),
             Self::P2pSendAll(a) => a.kind(),
             Self::P2pSend(a) => a.kind(),
+            Self::CheckTimeouts(a) => a.kind(),
+            Self::Timeout(a) => a.kind(),
         }
     }
 }
@@ -273,6 +278,18 @@ impl ActionKindGet for JobCommitmentP2pSendAllAction {
 impl ActionKindGet for JobCommitmentP2pSendAction {
     fn kind(&self) -> ActionKind {
         ActionKind::JobCommitmentP2pSend
+    }
+}
+
+impl ActionKindGet for JobCommitmentCheckTimeoutsAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::JobCommitmentCheckTimeouts
+    }
+}
+
+impl ActionKindGet for JobCommitmentTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::JobCommitmentTimeout
     }
 }
 

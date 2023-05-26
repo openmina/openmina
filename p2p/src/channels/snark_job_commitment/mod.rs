@@ -36,16 +36,17 @@ pub enum SnarkJobCommitmentPropagationChannelMsg {
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkJobCommitment {
     /// Timestamp in milliseconds.
-    timestamp: u32,
+    /// TODO(binier): have to use i64, because binprot doesn't support u64.
+    timestamp: i64,
     pub job_id: SnarkJobId,
     pub snarker: NonZeroCurvePoint,
     // pub signature: MinaBaseSignatureStableV1,
 }
 
 impl SnarkJobCommitment {
-    pub fn new(timestamp: u32, job_id: SnarkJobId, snarker: NonZeroCurvePoint) -> Self {
+    pub fn new(timestamp: u64, job_id: SnarkJobId, snarker: NonZeroCurvePoint) -> Self {
         Self {
-            timestamp,
+            timestamp: timestamp as i64,
             job_id,
             snarker,
             // TODO(binier): SEC have the snarkers sign the commitment.

@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use rand::prelude::*;
 use serde::Serialize;
+use snarker::job_commitment::JobCommitmentsConfig;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
@@ -65,6 +66,9 @@ impl Snarker {
         let config = Config {
             snarker: SnarkerConfig {
                 public_key: sec_key.public_key(),
+                job_commitments: JobCommitmentsConfig {
+                    commitment_timeout: Duration::from_secs(6 * 60),
+                },
             },
             p2p: P2pConfig {
                 identity_pub_key: pub_key,

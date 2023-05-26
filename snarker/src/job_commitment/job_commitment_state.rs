@@ -1,5 +1,6 @@
-use std::{collections::BTreeMap, fmt, ops::RangeBounds};
+use std::{collections::BTreeMap, fmt, ops::RangeBounds, time::Duration};
 
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::{
@@ -13,19 +14,28 @@ pub struct JobCommitment {
     pub sender: PeerId,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct JobCommitmentsConfig {
+    pub commitment_timeout: Duration,
+}
+
 #[derive(Clone)]
 pub struct JobCommitmentsState {
+    config: JobCommitmentsConfig,
     counter: u64,
     list: BTreeMap<u64, JobCommitment>,
     by_ledger_hash_index: BTreeMap<SnarkJobId, u64>,
+    pub(super) last_check_timeouts: Timestamp,
 }
 
 impl JobCommitmentsState {
-    pub fn new() -> Self {
+    pub fn new(config: JobCommitmentsConfig) -> Self {
         Self {
+            config,
             counter: 0,
             list: Default::default(),
             by_ledger_hash_index: Default::default(),
+            last_check_timeouts: Timestamp::ZERO,
         }
     }
 
@@ -64,6 +74,29 @@ impl JobCommitmentsState {
     pub fn should_create_commitment(&self, job_id: &SnarkJobId) -> bool {
         !self.contains(job_id)
     }
+
+    pub fn is_commitment_timed_out(&self, id: &SnarkJobId, time_now: Timestamp) -> bool {
+        self.by_ledger_hash_index.get(id).map_or(false, |i| {
+            self.is_commitment_timed_out_by_index(i, time_now)
+        })
+    }
+
+    pub fn is_commitment_timed_out_by_index(&self, index: &u64, time_now: Timestamp) -> bool {
+        self.list
+            .get(index)
+            .and_then(|v| time_now.checked_sub(v.commitment.timestamp()))
+            .map_or(false, |dur| dur >= self.config.commitment_timeout)
+    }
+
+    pub fn timed_out_commitments_iter(
+        &self,
+        time_now: Timestamp,
+    ) -> impl Iterator<Item = &SnarkJobId> {
+        self.by_ledger_hash_index
+            .iter()
+            .filter(move |(_, index)| self.is_commitment_timed_out_by_index(index, time_now))
+            .map(|(id, _)| id)
+    }
 }
 
 impl fmt::Debug for JobCommitmentsState {
@@ -81,8 +114,10 @@ mod ser {
 
     #[derive(Serialize, Deserialize)]
     struct JobCommitments {
+        config: JobCommitmentsConfig,
         counter: u64,
         list: BTreeMap<u64, JobCommitment>,
+        last_check_timeouts: Timestamp,
     }
 
     impl Serialize for super::JobCommitmentsState {
@@ -90,9 +125,11 @@ mod ser {
         where
             S: serde::Serializer,
         {
-            let mut s = serializer.serialize_struct("JobCommitments", 2)?;
+            let mut s = serializer.serialize_struct("JobCommitments", 4)?;
+            s.serialize_field("config", &self.config)?;
             s.serialize_field("counter", &self.counter)?;
             s.serialize_field("list", &self.list)?;
+            s.serialize_field("last_check_timeouts", &self.last_check_timeouts)?;
             s.end()
         }
     }
@@ -108,9 +145,11 @@ mod ser {
                 .map(|(k, v)| (v.commitment.job_id.clone(), *k))
                 .collect();
             Ok(Self {
+                config: v.config,
                 counter: v.counter,
                 list: v.list,
                 by_ledger_hash_index,
+                last_check_timeouts: v.last_check_timeouts,
             })
         }
     }
