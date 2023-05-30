@@ -81,10 +81,12 @@ struct Header {
 impl Header {
     pub const NBYTES: usize = 23;
 
+    /// Returns key + value length
     fn entry_length(&self) -> u64 {
         self.key_length + self.value_length
     }
 
+    /// Returns the value offset of this entry
     fn compute_value_offset(&self, header_offset: Offset) -> Offset {
         header_offset
             .checked_add(self.key_length)
@@ -93,6 +95,7 @@ impl Header {
             .unwrap()
     }
 
+    /// Convert this header to bytes
     fn to_bytes(&self) -> std::io::Result<[u8; Self::NBYTES]> {
         let is_removed_byte = bool_to_byte(self.is_removed);
         let key_is_compressed_byte = bool_to_byte(self.key_is_compressed);
@@ -111,6 +114,7 @@ impl Header {
         Ok(bytes.into_inner())
     }
 
+    /// Build a `Header` from its entry (key and value)
     fn make(key: &MaybeCompressed, value: &Option<MaybeCompressed>) -> std::io::Result<Self> {
         let to_u64 = |n: usize| n.try_into().map_err(|_| std::io::Error::from(InvalidData));
 
@@ -152,6 +156,9 @@ impl Header {
         })
     }
 
+    /// Reads a header from a slice of bytes
+    ///
+    /// Returns an error when the slice is too small
     fn read(bytes: &[u8]) -> std::io::Result<Self> {
         if bytes.len() < Self::NBYTES {
             return Err(UnexpectedEof.into());
@@ -174,6 +181,7 @@ impl Header {
         })
     }
 
+    /// Returns an error when the checksum doesn't match
     fn verify_checksum(&self, key_bytes: &[u8], value_bytes: &[u8]) -> std::io::Result<()> {
         let crc32 = compute_crc32(
             self.key_length,

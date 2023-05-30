@@ -58,5 +58,5 @@ pub(self) mod compression;
 mod database;
 pub(self) mod lock;
 
-pub use batch::*;
+pub use batch::Batch;
 pub use database::*;
