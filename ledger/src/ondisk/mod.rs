@@ -10,25 +10,26 @@
 //! ```ignored
 //! +------------+-----------+-----------+
 //! |    HDR     |    KEY    |   VALUE   |
-//! | (23 bytes) | (X bytes) | (X bytes) |
+//! | (17 bytes) | (X bytes) | (X bytes) |
 //! +------------+-----------+-----------+
 //!       ^
 //!       |
 //!       |
-//! +------------+----------+--------------+----------+-----------+------------+
-//! | KEY_LENGTH |   KIC    | VALUE_LENGTH |   VIC    | RM_FLAG   |   CRC32    |
-//! | (8 bytes)  | (1 byte) | (8 bytes)    | (1 byte) | (1 byte)  | (4 bytes)  |
-//! +------------+----------+--------------+----------+-----------+------------+
+//! +------------+--------------+-----------+------------+
+//! | KEY_LENGTH | VALUE_LENGTH | BITFLAGS  |   CRC32    |
+//! | (4 bytes)  | (8 bytes)    | (1 byte)  | (4 bytes)  |
+//! +------------+--------------+-----------+------------+
 //! ```
 //!
 //! Where:
-//! - `HDR`: A 23 bytes header
-//!   - `key length`: Length of the key, stored in 8 bytes.
-//!   - `key_is_compressed (KIC)`: A flag indicating if the key is compressed, stored in 1 byte.
-//!   - `value length`: Length of the value, stored in 8 bytes.
-//!   - `value_is_compressed (VIC)`: A flag indicating if the value is compressed, stored in 1 byte.
-//!   - `is_removed (RM_FLAG)`: A flag indicating if the entry has been removed, stored in 1 byte.
-//!   - `crc32`: The CRC32 checksum of the entry (including its header), stored in 4 bytes.
+//! - `HDR`: A 17 bytes header
+//!   - `KEY_LENGTH`: Length of the key, stored in 4 bytes.
+//!   - `VALUE_LENGTH`: Length of the value, stored in 8 bytes.
+//!   - `BITFLAGS`: A 1 byte bitflags including:
+//!      - `key_is_compressed`: A flag indicating if the key is compressed.
+//!      - `value_is_compressed`: A flag indicating if the value is compressed.
+//!      - `is_removed`: A flag indicating if the entry has been removed.
+//!   - `CRC32`: The CRC32 checksum of the entry (including its header), stored in 4 bytes.
 //! - `KEY`: The key data
 //! - `VALUE`: The value data
 //!

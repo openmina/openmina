@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use std::io::ErrorKind::{InvalidData, UnexpectedEof};
+use std::io::ErrorKind::{InvalidData, Other, UnexpectedEof};
 
 use crate::ondisk::compression::decompress;
 
@@ -21,6 +21,15 @@ pub(super) type Offset = u64;
 
 pub type Uuid = String;
 
+const KEY_IS_COMPRESSED_BIT: u8 = 1 << 0;
+const VALUE_IS_COMPRESSED_BIT: u8 = 1 << 1;
+const IS_REMOVED_BIT: u8 = 1 << 2;
+
+const BUFFER_DEFAULT_CAPACITY: usize = 4096;
+
+const DATABASE_VERSION: u64 = 1;
+const DATABASE_VERSION_NBYTES: usize = 8;
+
 pub struct Database {
     uuid: Uuid,
     index: HashMap<Key, Offset>,
@@ -34,81 +43,73 @@ pub struct Database {
     filename: PathBuf,
 }
 
-fn bool_to_byte(b: bool) -> u8 {
-    if b {
-        1
-    } else {
-        0
-    }
-}
+/// Compute crc32 of an entry
+///
+/// This is used to verify data corruption
+fn compute_crc32(header: &EntryHeader, key_bytes: &[u8], value_bytes: &[u8]) -> u32 {
+    let bool_to_byte = |b| if b { 1 } else { 0 };
 
-fn compute_crc32(
-    key_length: u64,
-    key_is_compressed: bool,
-    value_length: u64,
-    value_is_compressed: bool,
-    is_removed: bool,
-    key_bytes: &[u8],
-    value_bytes: &[u8],
-) -> u32 {
-    let is_removed_byte = bool_to_byte(is_removed);
-    let key_is_compressed_byte = bool_to_byte(key_is_compressed);
-    let value_is_compressed_byte = bool_to_byte(value_is_compressed);
+    let is_removed = bool_to_byte(header.is_removed);
+    let key_is_compressed = bool_to_byte(header.key_is_compressed);
+    let value_is_compressed = bool_to_byte(header.value_is_compressed);
 
     let mut crc32: crc32fast::Hasher = Default::default();
-    crc32.update(&key_length.to_le_bytes());
-    crc32.update(&[key_is_compressed_byte]);
-    crc32.update(&value_length.to_le_bytes());
-    crc32.update(&[value_is_compressed_byte]);
-    crc32.update(&[is_removed_byte]);
+
+    crc32.update(&header.key_length.to_le_bytes());
+    crc32.update(&header.value_length.to_le_bytes());
+    crc32.update(&[key_is_compressed, value_is_compressed, is_removed]);
     crc32.update(key_bytes);
-    if !is_removed {
+    if !header.is_removed {
         crc32.update(value_bytes);
     };
 
     crc32.finalize()
 }
 
-struct Header {
-    key_length: u64,
-    key_is_compressed: bool,
+/// Header for each entry in the database
+#[derive(Debug)]
+struct EntryHeader {
+    key_length: u32,
     value_length: u64,
+    key_is_compressed: bool,
     value_is_compressed: bool,
     is_removed: bool,
     crc32: u32,
 }
 
-impl Header {
-    pub const NBYTES: usize = 23;
+impl EntryHeader {
+    /// Number of bytes the `EntryHeader` occupies on disk
+    pub const NBYTES: usize = 17;
 
     /// Returns key + value length
-    fn entry_length(&self) -> u64 {
-        self.key_length + self.value_length
+    fn entry_length(&self) -> std::io::Result<u64> {
+        (self.key_length as u64)
+            .checked_add(self.value_length)
+            .ok_or_else(|| std::io::Error::from(InvalidData))
     }
 
     /// Returns the value offset of this entry
-    fn compute_value_offset(&self, header_offset: Offset) -> Offset {
+    fn compute_value_offset(&self, header_offset: Offset) -> Option<Offset> {
         header_offset
-            .checked_add(self.key_length)
-            .unwrap()
-            .checked_add(Header::NBYTES as u64)
-            .unwrap()
+            .checked_add(self.key_length as u64)?
+            .checked_add(EntryHeader::NBYTES as u64)
     }
 
     /// Convert this header to bytes
     fn to_bytes(&self) -> std::io::Result<[u8; Self::NBYTES]> {
-        let is_removed_byte = bool_to_byte(self.is_removed);
-        let key_is_compressed_byte = bool_to_byte(self.key_is_compressed);
-        let value_is_compressed_byte = bool_to_byte(self.value_is_compressed);
+        let set_bit = |cond, bit| if cond { bit } else { 0 };
+
+        let mut bitflags = 0;
+        bitflags |= set_bit(self.key_is_compressed, KEY_IS_COMPRESSED_BIT);
+        bitflags |= set_bit(self.value_is_compressed, VALUE_IS_COMPRESSED_BIT);
+        bitflags |= set_bit(self.is_removed, IS_REMOVED_BIT);
 
         let bytes = [0; Self::NBYTES];
         let mut bytes = std::io::Cursor::new(bytes);
 
         bytes.write_all(&self.key_length.to_le_bytes())?;
-        bytes.write_all(&[key_is_compressed_byte])?;
         bytes.write_all(&self.value_length.to_le_bytes())?;
-        bytes.write_all(&[value_is_compressed_byte])?;
-        bytes.write_all(&[is_removed_byte])?;
+        bytes.write_all(&[bitflags])?;
         bytes.write_all(&self.crc32.to_le_bytes())?;
 
         Ok(bytes.into_inner())
@@ -117,6 +118,7 @@ impl Header {
     /// Build a `Header` from its entry (key and value)
     fn make(key: &MaybeCompressed, value: &Option<MaybeCompressed>) -> std::io::Result<Self> {
         let to_u64 = |n: usize| n.try_into().map_err(|_| std::io::Error::from(InvalidData));
+        let to_u32 = |n: usize| n.try_into().map_err(|_| std::io::Error::from(InvalidData));
 
         let key_is_compressed = key.is_compressed();
         let key = key.as_ref();
@@ -126,34 +128,30 @@ impl Header {
             .map(|value| value.is_compressed())
             .unwrap_or(false);
 
-        let key_length: u64 = to_u64(key.len())?;
+        let key_length: u32 = to_u32(key.len())?;
         let value_length = match value.as_ref() {
             None => 0,
             Some(value) => to_u64(value.as_ref().len())?,
         };
         let is_removed = value.is_none();
 
-        let crc32 = compute_crc32(
+        let mut header = EntryHeader {
             key_length,
             key_is_compressed,
             value_length,
             value_is_compressed,
             is_removed,
-            key,
-            match value {
-                Some(value) => value.as_ref(),
-                None => &[],
-            },
-        );
+            crc32: 0, // Set with correct value below
+        };
 
-        Ok(Header {
-            key_length,
-            key_is_compressed,
-            value_length,
-            value_is_compressed,
-            is_removed,
-            crc32,
-        })
+        let crc32 = compute_crc32(
+            &header,
+            key,
+            value.as_ref().map(AsRef::as_ref).unwrap_or(&[]),
+        );
+        header.crc32 = crc32;
+
+        Ok(header)
     }
 
     /// Reads a header from a slice of bytes
@@ -164,12 +162,14 @@ impl Header {
             return Err(UnexpectedEof.into());
         }
 
-        let key_length = read_u64(bytes)?;
-        let key_is_compressed = read_bool(&bytes[8..])?;
-        let value_length = read_u64(&bytes[9..])?;
-        let value_is_compressed = read_bool(&bytes[17..])?;
-        let is_removed = read_bool(&bytes[18..])?;
-        let crc32 = read_u32(&bytes[19..])?;
+        let key_length = read_u32(bytes)?;
+        let value_length = read_u64(&bytes[4..])?;
+        let bitflags = read_u8(&bytes[12..])?;
+        let crc32 = read_u32(&bytes[13..])?;
+
+        let key_is_compressed = (bitflags & KEY_IS_COMPRESSED_BIT) != 0;
+        let value_is_compressed = (bitflags & VALUE_IS_COMPRESSED_BIT) != 0;
+        let is_removed = (bitflags & IS_REMOVED_BIT) != 0;
 
         Ok(Self {
             key_length,
@@ -183,18 +183,10 @@ impl Header {
 
     /// Returns an error when the checksum doesn't match
     fn verify_checksum(&self, key_bytes: &[u8], value_bytes: &[u8]) -> std::io::Result<()> {
-        let crc32 = compute_crc32(
-            self.key_length,
-            self.key_is_compressed,
-            self.value_length,
-            self.value_is_compressed,
-            self.is_removed,
-            key_bytes,
-            value_bytes,
-        );
+        let crc32 = compute_crc32(self, key_bytes, value_bytes);
 
         if crc32 != self.crc32 {
-            return Err(std::io::ErrorKind::InvalidData.into());
+            return Err(InvalidData.into());
         }
 
         Ok(())
@@ -221,12 +213,11 @@ fn read_u32(slice: &[u8]) -> std::io::Result<u32> {
         .ok_or_else(|| UnexpectedEof.into())
 }
 
-fn read_bool(slice: &[u8]) -> std::io::Result<bool> {
+fn read_u8(slice: &[u8]) -> std::io::Result<u8> {
     slice
         .get(..1)
         .and_then(|slice: &[u8]| slice.try_into().ok())
         .map(u8::from_le_bytes)
-        .map(|b| b != 0)
         .ok_or_else(|| UnexpectedEof.into())
 }
 
@@ -276,6 +267,7 @@ impl Database {
     ///   * Unable to open or create the directory.
     ///   * Another process is already using the database.
     ///   * The database is corrupted (when the path contains an existing database).
+    ///   * The database version is incompatible
     ///
     pub fn create(directory: impl AsRef<Path>) -> std::io::Result<Self> {
         Self::create_impl(directory, CreateMode::Regular)
@@ -304,7 +296,7 @@ impl Database {
             std::fs::create_dir_all(directory)?;
         }
 
-        let file = LockedFile::try_open_exclusively(
+        let mut file = LockedFile::try_open_exclusively(
             &filename,
             OpenOptions::new()
                 .read(true)
@@ -313,12 +305,14 @@ impl Database {
                 .create_new(true),
         )?;
 
+        file.write_all(&DATABASE_VERSION.to_le_bytes())?;
+
         Ok(Self {
             uuid: next_uuid(),
             index: HashMap::with_capacity(128),
-            current_file_offset: 0,
+            current_file_offset: DATABASE_VERSION_NBYTES as u64,
             file: BufWriter::with_capacity(4 * 1024 * 1024, file), // 4 MB
-            buffer: Vec::with_capacity(4096),
+            buffer: Vec::with_capacity(BUFFER_DEFAULT_CAPACITY),
             filename,
         })
     }
@@ -341,19 +335,29 @@ impl Database {
 
         file.seek(SeekFrom::Start(0))?;
 
-        let mut reader = BufReader::with_capacity(4096, file);
-        let mut bytes = vec![0; 4096];
+        let mut reader = BufReader::with_capacity(4 * 1024 * 1024, file); // 4 MB
+        let mut bytes = vec![0; BUFFER_DEFAULT_CAPACITY];
+
+        // Check if the database is the same version
+        {
+            reader.read_exact(&mut bytes[..DATABASE_VERSION_NBYTES])?;
+            let database_version = read_u64(&bytes)?;
+            if database_version != DATABASE_VERSION {
+                return Err(std::io::Error::new(Other, "Incompatible database"));
+            }
+            current_offset += DATABASE_VERSION_NBYTES as u64;
+        }
 
         let mut index = HashMap::with_capacity(256);
 
         while current_offset < eof {
             let header_offset = current_offset;
 
-            ensure_buffer_length(&mut bytes, Header::NBYTES);
-            reader.read_exact(&mut bytes[..Header::NBYTES])?;
+            ensure_buffer_length(&mut bytes, EntryHeader::NBYTES);
+            reader.read_exact(&mut bytes[..EntryHeader::NBYTES])?;
 
-            let header = Header::read(&bytes)?;
-            let entry_length = header.entry_length() as usize;
+            let header = EntryHeader::read(&bytes)?;
+            let entry_length = header.entry_length()? as usize;
             let key_length = header.key_length as usize;
 
             ensure_buffer_length(&mut bytes, entry_length);
@@ -372,7 +376,7 @@ impl Database {
                 index.insert(key, header_offset);
             }
 
-            current_offset += (Header::NBYTES + entry_length) as u64;
+            current_offset += (EntryHeader::NBYTES + entry_length) as u64;
         }
 
         if eof != current_offset {
@@ -384,7 +388,7 @@ impl Database {
             index,
             current_file_offset: eof,
             file: BufWriter::with_capacity(4 * 1024 * 1024, reader.into_inner()), // 4 MB
-            buffer: Vec::with_capacity(4096),
+            buffer: Vec::with_capacity(BUFFER_DEFAULT_CAPACITY),
             filename,
         })
     }
@@ -405,15 +409,15 @@ impl Database {
         // NOTE: `close` is actually implemented at the ffi level, where `Self` is dropped
     }
 
-    fn read_header(&mut self, header_offset: Offset) -> std::io::Result<Header> {
-        ensure_buffer_length(&mut self.buffer, Header::NBYTES);
+    fn read_header(&mut self, header_offset: Offset) -> std::io::Result<EntryHeader> {
+        ensure_buffer_length(&mut self.buffer, EntryHeader::NBYTES);
         read_exact_at(
             self.file.get_mut(),
-            &mut self.buffer[..Header::NBYTES],
+            &mut self.buffer[..EntryHeader::NBYTES],
             header_offset,
         )?;
 
-        Header::read(&self.buffer)
+        EntryHeader::read(&self.buffer)
     }
 
     fn read_value(&mut self, offset: Offset, length: usize) -> std::io::Result<&[u8]> {
@@ -443,7 +447,9 @@ impl Database {
 
         let header = self.read_header(header_offset)?;
 
-        let value_offset = header.compute_value_offset(header_offset);
+        let value_offset = header
+            .compute_value_offset(header_offset)
+            .ok_or_else(|| std::io::Error::from(InvalidData))?;
         let value_length = header.value_length as usize;
 
         let value = self.read_value(value_offset, value_length)?;
@@ -460,7 +466,7 @@ impl Database {
             None => None,
         };
 
-        let header = Header::make(&compressed_key, &compressed_value)?;
+        let header = EntryHeader::make(&compressed_key, &compressed_value)?;
         let header_offset = self.current_file_offset;
 
         self.file.write_all(&header.to_bytes()?)?;
@@ -469,7 +475,7 @@ impl Database {
             self.file.write_all(value.as_ref())?;
         };
 
-        let buffer_len = Header::NBYTES as u64 + header.entry_length();
+        let buffer_len = EntryHeader::NBYTES as u64 + header.entry_length()?;
         self.current_file_offset += buffer_len;
 
         // Update index
@@ -741,7 +747,9 @@ mod tests {
 
     impl TempDir {
         fn new() -> Self {
-            let number = DIRECTORY_NUMBER.fetch_add(1, SeqCst);
+            let next = || DIRECTORY_NUMBER.fetch_add(1, SeqCst);
+
+            let mut number = next();
 
             let path = loop {
                 let directory = format!("/tmp/mina-rocksdb-test-{}", number);
@@ -750,6 +758,7 @@ mod tests {
                 if !path.exists() {
                     break path;
                 }
+                number = next();
             };
 
             std::fs::create_dir_all(&path).unwrap();
@@ -994,29 +1003,5 @@ mod tests {
 
         assert_eq!(db_sorted, db_alist);
         assert_eq!(cp_sorted, cp_alist);
-    }
-
-    #[test]
-    fn dump_ondisk_database_keys() {
-        // let mut db = Database::create("/tmp/mydir").unwrap();
-
-        // for (k, v) in &[
-        //     ("a", "ab"),
-        //     ("a1", "ab"),
-        //     ("a2", "ab"),
-        //     ("a3", "ab"),
-        // ] {
-        //     db.set(key(k), value(v)).unwrap();
-        // }
-
-        let Ok(directory) = std::env::var("DUMP_ONDISK_DIR") else {
-            return
-        };
-
-        let directory = PathBuf::from(directory);
-        let filename = directory.join("db");
-        assert!(filename.exists());
-
-        Database::reload(filename).unwrap();
     }
 }
