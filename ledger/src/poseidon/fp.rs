@@ -289,17 +289,17 @@ fn sub_noborrow(a: &mut BigInt, b: &BigInt) -> bool {
     let mut borrow = 0;
 
     for i in 0..4 {
-        // #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+        #[cfg(target_arch = "x86_64")]
         #[allow(unsafe_code)]
         unsafe {
             use core::arch::x86_64::_subborrow_u64;
             borrow = _subborrow_u64(borrow, a[i], b[i], &mut a[i])
         };
 
-        // #[cfg(not(all(target_arch = "x86_64", feature = "asm")))]
-        // {
-        //     self.0[i] = sbb!(self.0[i], other.0[i], &mut borrow);
-        // }
+        #[cfg(not(target_arch = "x86_64"))]
+        {
+            a[i] = sbb(a[i], b[i], &mut borrow);
+        }
     }
 
     borrow != 0
@@ -309,17 +309,17 @@ fn add_nocarry(a: &mut BigInt, b: &BigInt) -> bool {
     let mut carry = 0;
 
     for i in 0..4 {
-        // #[cfg(all(target_arch = "x86_64", feature = "asm"))]
-        // #[allow(unsafe_code)]
+        #[cfg(target_arch = "x86_64")]
+        #[allow(unsafe_code)]
         unsafe {
             use core::arch::x86_64::_addcarry_u64;
             carry = _addcarry_u64(carry, a[i], b[i], &mut a[i])
         };
 
-        // #[cfg(not(all(target_arch = "x86_64", feature = "asm")))]
-        // {
-        //     self.0[i] = adc!(self.0[i], other.0[i], &mut carry);
-        // }
+        #[cfg(not(target_arch = "x86_64"))]
+        {
+            a[i] = adc(a[i], b[i], &mut carry);
+        }
     }
 
     carry != 0
