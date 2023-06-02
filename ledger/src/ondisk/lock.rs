@@ -148,11 +148,13 @@ mod sys {
 
 #[cfg(not(any(unix, windows)))]
 mod sys {
+    use std::fs::File;
+
     pub(super) fn try_lock_exclusive(file: &File) -> std::io::Result<()> {
         Ok(())
     }
 
     pub(super) fn unlock(file: &File) -> std::io::Result<()> {
-        OK(())
+        Ok(())
     }
 }
