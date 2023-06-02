@@ -1,15 +1,15 @@
+(dirs :standard \ target)
 (rule
- (targets libmina_tree.a libmina_tree.so dllmina_tree.so)
+ (targets libmina_tree.a libmina_tree.so)
  (deps (source_tree .))
  (action
   (no-infer
    (progn
-    (run sh -c "cd /home/dan/code/mina/src/lib/mina_tree && cargo build --release")
+      (run sh -c "cargo build --release")
     (run sh -c
-      "cp /home/dan/code/mina/src/lib/mina_tree/target/release/libmina_tree.so ./libmina_tree.so 2> /dev/null || \
-       cp /home/dan/code/mina/src/lib/mina_tree/target/release/libmina_tree.dylib ./libmina_tree.so")
-    (run cp /home/dan/code/mina/src/lib/mina_tree/target/release/libmina_tree.so ./dllmina_tree.so)
-    (run cp /home/dan/code/mina/src/lib/mina_tree/target/release/libmina_tree.a ./libmina_tree.a)
+      "cp target/release/libmina_tree.so ./libmina_tree.so 2> /dev/null || \
+       cp target/release/libmina_tree.dylib ./libmina_tree.so")
+    (run cp target/release/libmina_tree.a ./libmina_tree.a)
    ))))
 
 (library

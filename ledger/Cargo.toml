@@ -34,6 +34,7 @@ binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba
 sha2 = "0.10"
 base64 = "0.13"
 static_assertions = "1.1"
+libc = "0.2"
 
 # oracle = { path = "../oracle" }
 # mina-curves = { path = "../curves" }
@@ -66,6 +67,8 @@ derive_more = "0.99.17"
 rand_pcg = "0.3"
 rand_seeder = "0.2"
 blake2 = "0.10"
+crc32fast = "1"
+chrono = "0.4"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
@@ -73,6 +76,7 @@ wasm_thread = { version = "0.2", features = [ "es_modules" ] }
 wasm-bindgen = "0.2"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
+zstd = "0.12"
 # ocaml-interop = { path = "/home/sebastien/github/ocaml-interop" }
 ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values" }
 # ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values" }
