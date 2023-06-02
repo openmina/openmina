@@ -7,11 +7,9 @@ use std::{
 
 use std::io::ErrorKind::{InvalidData, Other, UnexpectedEof};
 
-use crate::ondisk::compression::decompress;
-
 use super::{
     batch::Batch,
-    compression::{compress, MaybeCompressed},
+    compression::{compress, decompress, MaybeCompressed},
     lock::LockedFile,
 };
 
@@ -32,14 +30,14 @@ const DATABASE_VERSION_NBYTES: usize = 8;
 
 pub struct Database {
     uuid: Uuid,
+    /// Index of keys to their values offset
     index: HashMap<Key, Offset>,
-
     /// Points to end of file
     current_file_offset: Offset,
     file: BufWriter<LockedFile>,
-
+    /// Read buffer
     buffer: Vec<u8>,
-
+    /// Filename of the inner file
     filename: PathBuf,
 }
 
@@ -285,12 +283,9 @@ impl Database {
             if let CreateMode::Temporary = mode {
                 std::fs::remove_file(&filename)?;
             } else {
-                eprintln!("\x1b[93mDatabase::reload {:?}\x1b[0m", directory);
                 return Self::reload(filename);
             }
         }
-
-        eprintln!("\x1b[93mDatabase::create {:?}\x1b[0m", directory);
 
         if !directory.try_exists()? {
             std::fs::create_dir_all(directory)?;
@@ -752,7 +747,7 @@ mod tests {
             let mut number = next();
 
             let path = loop {
-                let directory = format!("/tmp/mina-rocksdb-test-{}", number);
+                let directory = format!("/tmp/mina-keyvaluedb-test-{}", number);
                 let path = PathBuf::from(directory);
 
                 if !path.exists() {
