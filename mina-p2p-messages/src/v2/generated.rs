@@ -1871,8 +1871,8 @@ pub struct MinaBasePendingCoinbaseStackHashStableV1(pub crate::bigint::BigInt);
 /// Args: MinaBasePendingCoinbaseStackHashStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePendingCoinbaseStateStackStableV1 {
-    pub init: MinaBasePendingCoinbaseStackHashStableV1,
-    pub curr: MinaBasePendingCoinbaseStackHashStableV1,
+    pub init: CoinbaseStackHash,
+    pub curr: CoinbaseStackHash,
 }
 
 /// **OCaml name**: `Mina_base__Pending_coinbase.Make_str.Hash_builder.Stable.V1`
@@ -2646,7 +2646,7 @@ pub struct TransactionSnarkScanStateStableV2ScanState {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct TransactionSnarkScanStateTransactionWithWitnessStableV2 {
     pub transaction_with_info: MinaTransactionLogicTransactionAppliedStableV2,
-    pub state_hash: (StateHash, MinaBaseStateBodyHashStableV1),
+    pub state_hash: (StateHash, StateBodyHash),
     pub statement: MinaStateSnarkedLedgerStateStableV2,
     pub init_stack: MinaStateSnarkedLedgerStatePendingCoinbaseStackStateInitStackStableV1,
     pub first_pass_ledger_witness: MinaBaseSparseLedgerBaseStableV2,
@@ -2672,7 +2672,7 @@ pub struct TransactionSnarkScanStateLedgerProofWithSokMessageStableV2(
 pub struct MinaBlockHeaderStableV2 {
     pub protocol_state: MinaStateProtocolStateValueStableV2,
     pub protocol_state_proof: MinaBaseProofStableV2,
-    pub delta_block_chain_proof: (StateHash, Vec<MinaBaseStateBodyHashStableV1>),
+    pub delta_block_chain_proof: (StateHash, Vec<StateBodyHash>),
     pub current_protocol_version: ProtocolVersionStableV1,
     pub proposed_protocol_version_opt: Option<ProtocolVersionStableV1>,
 }
