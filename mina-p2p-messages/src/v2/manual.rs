@@ -10,10 +10,11 @@ use crate::{
 use super::{
     ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1,
     MinaBaseAccountIdDigestStableV1, MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
-    MinaBasePendingCoinbaseHashVersionedStableV1, NonZeroCurvePointUncompressedStableV1,
-    ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
-    ProtocolVersionStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
-    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
+    MinaBasePendingCoinbaseHashVersionedStableV1, MinaBasePendingCoinbaseStackHashStableV1,
+    NonZeroCurvePointUncompressedStableV1, ParallelScanWeightStableV1,
+    PicklesProofProofsVerified2ReprStableV2StatementFp, ProtocolVersionStableV1,
+    TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
+    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1, MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBaseStateBodyHashStableV1,
 };
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
@@ -194,6 +195,7 @@ base58check_of_bytes!(
     STAGED_LEDGER_HASH_PENDING_COINBASE_AUX
 );
 base58check_of_binprot!(StateHash, versioned DataHashLibStateHashStableV1, STATE_HASH);
+base58check_of_binprot!(StateBodyHash, versioned MinaBaseStateBodyHashStableV1, STATE_BODY_HASH);
 base58check_of_binprot!(
     PendingCoinbaseHash,
     versioned MinaBasePendingCoinbaseHashVersionedStableV1,
@@ -203,6 +205,16 @@ base58check_of_binprot!(
     TokenIdKeyHash,
     MinaBaseAccountIdDigestStableV1,
     TOKEN_ID_KEY
+);
+base58check_of_binprot!(
+    CoinbaseStackData,
+    versioned MinaBasePendingCoinbaseCoinbaseStackStableV1,
+    COINBASE_STACK_DATA
+);
+base58check_of_binprot!(
+    CoinbaseStackHash,
+    versioned MinaBasePendingCoinbaseStackHashStableV1,
+    COINBASE_STACK_HASH
 );
 
 impl AsRef<[u8]> for LedgerHash {
@@ -247,20 +259,27 @@ pub type NonZeroCurvePoint = Base58CheckOfBinProt<
 
 #[cfg(test)]
 mod tests {
-    use binprot::BinProtWrite;
+    use std::fmt::Debug;
+
+    use binprot::{BinProtRead, BinProtWrite};
     use serde::{de::DeserializeOwned, Serialize};
 
     use super::*;
 
-    fn base58check_test<T: Serialize + DeserializeOwned + BinProtWrite>(b58: &str, hex: &str) {
+    fn base58check_test<T: Serialize + DeserializeOwned + BinProtRead + BinProtWrite + Debug>(b58: &str, hex: &str) {
         let bin: T = serde_json::from_value(serde_json::json!(b58)).unwrap();
         let json = serde_json::to_value(&bin).unwrap();
 
         let mut binprot = Vec::new();
         bin.binprot_write(&mut binprot).unwrap();
 
-        // println!("{b58} => {}", hex::encode(&binprot));
-        // println!("{hex} => {}", json.as_str().unwrap());
+        println!("{b58} => {}", hex::encode(&binprot));
+
+
+        let binprot1 = hex::decode(hex).unwrap();
+        let mut b = binprot1.as_slice();
+        let from_hex = T::binprot_read(&mut b).unwrap();
+        println!("{hex} => {}", serde_json::to_string(&from_hex).unwrap());
 
         assert_eq!(hex::encode(&binprot), hex);
         assert_eq!(json.as_str().unwrap(), b58);
@@ -311,6 +330,13 @@ mod tests {
     );
 
     b58t!(
+        state_body_hash,
+        StateBodyHash,
+        "3WtsPNWF7Ua5zbvHEARuEL32KEfMM7pPYNXWVGtTStdYJRYA2rta",
+        "1b11c26e5541d2f719a50f2e5bdcd23e7995883036f3d2e5675dfd3015ec6202"
+    );
+
+    b58t!(
         pending_coinbase_hash,
         PendingCoinbaseHash,
         "2n2EEn3yH1oRU8tCXTjw7dJKHQVcFTkfeDCTpBzum3sZcssPeaVM",
@@ -329,6 +355,20 @@ mod tests {
         ConsensusVrfOutputTruncatedStableV1,
         "a5iclEJ9uqh_etVYuaL4MRWJ--1DFGsqp8CrDzNOGwM=",
         "206b989c94427dbaa87f7ad558b9a2f8311589fbed43146b2aa7c0ab0f334e1b03"
+    );
+
+    b58t!(
+        coinbase_stack_data,
+        CoinbaseStackData,
+        "4QNrZFBTDQCPfEZqBZsaPYx8qdaNFv1nebUyCUsQW9QUJqyuD3un",
+        "1dccd087c5c67bfd6816c2c6cf730228a84112732067f85614747c5d1ed5b935"
+    );
+
+    b58t!(
+        coinbase_stack_hash,
+        CoinbaseStackHash,
+        "4Yx5U3t3EYQycZ91yj4478bHkLwGkhDHnPbCY9TxgUk69SQityej",
+        "0000000000000000000000000000000000000000000000000000000000000000"
     );
 
     #[test]

@@ -33,7 +33,10 @@ pub mod b58version {
     pub const STAGED_LEDGER_HASH_AUX_HASH: u8 = 0x0e;
     pub const STAGED_LEDGER_HASH_PENDING_COINBASE_AUX: u8 = 0x0f;
     pub const STATE_HASH: u8 = 0x10;
+    pub const STATE_BODY_HASH: u8 = 0x11;
     pub const VRF_TRUNCATED_OUTPUT: u8 = 0x15;
+    pub const COINBASE_STACK_DATA: u8 = 0x17;
+    pub const COINBASE_STACK_HASH: u8 = 0x18;
     pub const PENDING_COINBASE_HASH_BUILDER: u8 = 0x19;
     pub const TOKEN_ID_KEY: u8 = 0x1c;
     pub const NON_ZERO_CURVE_POINT_COMPRESSED: u8 = 0xcb;
