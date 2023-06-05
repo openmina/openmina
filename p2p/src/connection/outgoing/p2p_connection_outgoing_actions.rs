@@ -35,8 +35,8 @@ impl P2pConnectionOutgoingAction {
     pub fn peer_id(&self) -> Option<&PeerId> {
         match self {
             Self::RandomInit(_) => None,
-            Self::Init(v) => Some(&v.opts.peer_id),
-            Self::Reconnect(v) => Some(&v.opts.peer_id),
+            Self::Init(v) => Some(v.opts.peer_id()),
+            Self::Reconnect(v) => Some(v.opts.peer_id()),
             Self::OfferSdpCreatePending(v) => Some(&v.peer_id),
             Self::OfferSdpCreateError(v) => Some(&v.peer_id),
             Self::OfferSdpCreateSuccess(v) => Some(&v.peer_id),
@@ -71,7 +71,7 @@ pub struct P2pConnectionOutgoingInitAction {
 
 impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingInitAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
-        !state.already_has_min_peers() && !state.peers.contains_key(&self.opts.peer_id)
+        !state.already_has_min_peers() && !state.peers.contains_key(self.opts.peer_id())
     }
 }
 
@@ -106,7 +106,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingReconnectAction
                 P2pPeerStatus::Ready(_) => None,
             })
             .min_by_key(|(time, ..)| *time)
-            .filter(|(_, id, _)| *id == &self.opts.peer_id)
+            .filter(|(_, id, _)| *id == self.opts.peer_id())
             .filter(|(.., opts)| opts.as_ref().map_or(true, |opts| opts == &self.opts))
             .is_some()
     }
@@ -280,9 +280,11 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingFinalizePending
             .peers
             .get(&self.peer_id)
             .map_or(false, |peer| match &peer.status {
-                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
-                    P2pConnectionOutgoingState::AnswerRecvSuccess { .. },
-                )) => true,
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(v)) => match v {
+                    P2pConnectionOutgoingState::Init { opts, .. } => opts.is_libp2p(),
+                    P2pConnectionOutgoingState::AnswerRecvSuccess { .. } => true,
+                    _ => false,
+                },
                 _ => false,
             })
     }

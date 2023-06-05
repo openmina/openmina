@@ -52,15 +52,15 @@ pub enum P2pConnectionOutgoingState {
     FinalizePending {
         time: redux::Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
-        offer: webrtc::Offer,
-        answer: webrtc::Answer,
+        offer: Option<webrtc::Offer>,
+        answer: Option<webrtc::Answer>,
         rpc_id: Option<RpcId>,
     },
     FinalizeSuccess {
         time: redux::Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
-        offer: webrtc::Offer,
-        answer: webrtc::Answer,
+        offer: Option<webrtc::Offer>,
+        answer: Option<webrtc::Answer>,
         rpc_id: Option<RpcId>,
     },
     Error {
@@ -70,8 +70,8 @@ pub enum P2pConnectionOutgoingState {
     },
     Success {
         time: redux::Timestamp,
-        offer: webrtc::Offer,
-        answer: webrtc::Answer,
+        offer: Option<webrtc::Offer>,
+        answer: Option<webrtc::Answer>,
         rpc_id: Option<RpcId>,
     },
 }

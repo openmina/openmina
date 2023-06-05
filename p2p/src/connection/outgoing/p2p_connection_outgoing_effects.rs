@@ -9,8 +9,8 @@ use super::{
     P2pConnectionOutgoingAnswerRecvSuccessAction, P2pConnectionOutgoingError,
     P2pConnectionOutgoingErrorAction, P2pConnectionOutgoingFinalizeErrorAction,
     P2pConnectionOutgoingFinalizePendingAction, P2pConnectionOutgoingFinalizeSuccessAction,
-    P2pConnectionOutgoingInitAction, P2pConnectionOutgoingOfferReadyAction,
-    P2pConnectionOutgoingOfferSdpCreateErrorAction,
+    P2pConnectionOutgoingInitAction, P2pConnectionOutgoingInitOpts,
+    P2pConnectionOutgoingOfferReadyAction, P2pConnectionOutgoingOfferSdpCreateErrorAction,
     P2pConnectionOutgoingOfferSdpCreatePendingAction,
     P2pConnectionOutgoingOfferSdpCreateSuccessAction, P2pConnectionOutgoingOfferSendSuccessAction,
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
@@ -39,10 +39,13 @@ impl P2pConnectionOutgoingInitAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pConnectionService,
         P2pConnectionOutgoingOfferSdpCreatePendingAction: redux::EnablingCondition<S>,
+        P2pConnectionOutgoingFinalizePendingAction: redux::EnablingCondition<S>,
     {
-        let peer_id = self.opts.peer_id;
-        store.service().outgoing_init(peer_id);
-        store.dispatch(P2pConnectionOutgoingOfferSdpCreatePendingAction { peer_id });
+        let peer_id = *self.opts.peer_id();
+        store.service().outgoing_init(self.opts);
+        if !store.dispatch(P2pConnectionOutgoingFinalizePendingAction { peer_id }) {
+            store.dispatch(P2pConnectionOutgoingOfferSdpCreatePendingAction { peer_id });
+        }
     }
 }
 
@@ -52,10 +55,14 @@ impl P2pConnectionOutgoingReconnectAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pConnectionService,
         P2pConnectionOutgoingOfferSdpCreatePendingAction: redux::EnablingCondition<S>,
+        P2pConnectionOutgoingFinalizePendingAction: redux::EnablingCondition<S>,
     {
-        let peer_id = self.opts.peer_id;
-        store.service().outgoing_init(peer_id);
-        store.dispatch(P2pConnectionOutgoingOfferSdpCreatePendingAction { peer_id });
+        let peer_id = *self.opts.peer_id();
+        store.service().outgoing_init(self.opts);
+        // for libp2p
+        if !store.dispatch(P2pConnectionOutgoingFinalizePendingAction { peer_id }) {
+            store.dispatch(P2pConnectionOutgoingOfferSdpCreatePendingAction { peer_id });
+        }
     }
 }
 
@@ -104,7 +111,10 @@ impl P2pConnectionOutgoingOfferReadyAction {
         let P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
             P2pConnectionOutgoingState::OfferReady { opts, .. },
         )) = &peer.status else { return };
-        let signaling_method = &opts.signaling;
+        let signaling_method = match opts {
+            P2pConnectionOutgoingInitOpts::WebRTC { signaling, .. } => signaling,
+            _ => return,
+        };
         match signaling_method {
             webrtc::SignalingMethod::Http(_) | webrtc::SignalingMethod::Https(_) => {
                 let Some(url) = signaling_method.http_url() else { return };

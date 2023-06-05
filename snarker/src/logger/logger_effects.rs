@@ -19,18 +19,18 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                         shared::log::info!(
                             meta.time();
                             kind = "PeerConnectionOutgoingInit",
-                            summary = format!("peer_id: {}", action.opts.peer_id),
-                            peer_id = action.opts.peer_id.to_string(),
-                            signaling = format!("{:?}", action.opts.signaling),
+                            summary = format!("peer_id: {}", action.opts.peer_id()),
+                            peer_id = action.opts.peer_id().to_string(),
+                            transport = action.opts.kind(),
                         );
                     }
                     P2pConnectionOutgoingAction::Reconnect(action) => {
                         shared::log::info!(
                             meta.time();
                             kind = "PeerReconnect",
-                            summary = format!("peer_id: {}", action.opts.peer_id),
-                            peer_id = action.opts.peer_id.to_string(),
-                            signaling = format!("{:?}", action.opts.signaling),
+                            summary = format!("peer_id: {}", action.opts.peer_id()),
+                            peer_id = action.opts.peer_id().to_string(),
+                            transport = action.opts.kind(),
                         );
                     }
                     P2pConnectionOutgoingAction::Error(action) => {

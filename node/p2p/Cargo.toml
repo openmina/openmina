@@ -11,9 +11,9 @@ strum_macros = "0.24.3"
 derive_more = "0.99.17"
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
-libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
+libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51.3", default-features = false, features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
 
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", branch = "new-types-feb-23", features = ["hashing"] }
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", rev = "c94050342a627c8a1fd10a3a1641d2f17d3a7110", features = ["hashing"] }
 
 shared = { path = "../shared" }
 snark = { path = "../snark" }

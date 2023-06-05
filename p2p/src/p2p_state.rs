@@ -50,7 +50,7 @@ impl P2pState {
         self.config
             .initial_peers
             .iter()
-            .filter(|v| !self.peers.contains_key(&v.peer_id))
+            .filter(|v| !self.peers.contains_key(v.peer_id()))
             .cloned()
             .collect()
     }

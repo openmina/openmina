@@ -75,6 +75,23 @@ impl From<PeerId> for [u8; 32] {
     }
 }
 
+impl From<libp2p::PeerId> for PeerId {
+    fn from(value: libp2p::PeerId) -> Self {
+        let protobuf = value.as_ref().digest();
+        let key = libp2p::identity::PublicKey::from_protobuf_encoding(protobuf).unwrap();
+        let bytes = key.into_ed25519().unwrap().encode();
+        PeerId::from_bytes(bytes)
+    }
+}
+
+impl From<PeerId> for libp2p::PeerId {
+    fn from(value: PeerId) -> Self {
+        let key = libp2p::identity::ed25519::PublicKey::decode(&value.to_bytes()).unwrap();
+        let key = libp2p::identity::PublicKey::Ed25519(key);
+        key.into()
+    }
+}
+
 impl Serialize for PeerId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -111,5 +128,14 @@ mod tests {
         let s = "2bEgBrPTzL8wov2D4Kz34WVLCxR4uCarsBmHYXWKQA5wvBQzd9H";
         let id: PeerId = s.parse().unwrap();
         assert_eq!(s, id.to_string());
+    }
+
+    #[test]
+    fn test_libp2p_peer_id_conv() {
+        let s = "12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv";
+        let id: libp2p::PeerId = s.parse().unwrap();
+        let conv: PeerId = id.into();
+        let id_conv: libp2p::PeerId = conv.into();
+        assert_eq!(id_conv, id);
     }
 }

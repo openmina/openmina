@@ -19,14 +19,46 @@ use crate::{webrtc, PeerId};
 
 // TODO(binier): maybe move to `crate::webrtc` module
 #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone)]
-pub struct P2pConnectionOutgoingInitOpts {
-    pub peer_id: PeerId,
-    pub signaling: webrtc::SignalingMethod,
+pub enum P2pConnectionOutgoingInitOpts {
+    WebRTC {
+        peer_id: PeerId,
+        signaling: webrtc::SignalingMethod,
+    },
+    LibP2P {
+        peer_id: PeerId,
+        maddr: libp2p::Multiaddr,
+    },
+}
+
+impl P2pConnectionOutgoingInitOpts {
+    pub fn is_libp2p(&self) -> bool {
+        matches!(self, Self::LibP2P { .. })
+    }
+
+    pub fn peer_id(&self) -> &PeerId {
+        match self {
+            Self::WebRTC { peer_id, .. } | Self::LibP2P { peer_id, .. } => peer_id,
+        }
+    }
+
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::LibP2P { .. } => "libp2p",
+            Self::WebRTC { .. } => "webrtc",
+        }
+    }
 }
 
 impl fmt::Display for P2pConnectionOutgoingInitOpts {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "/{}{}", self.peer_id, self.signaling)
+        match self {
+            Self::WebRTC { peer_id, signaling } => {
+                write!(f, "/{}{}", peer_id, signaling)
+            }
+            Self::LibP2P { maddr, .. } => {
+                write!(f, "{}", maddr)
+            }
+        }
     }
 }
 
@@ -38,6 +70,8 @@ pub enum P2pConnectionOutgoingInitOptsParseError {
     PeerIdParseError(String),
     #[error("signaling method parse error: `{0}`")]
     SignalingMethodParseError(webrtc::SignalingMethodParseError),
+    #[error("other error: {0}")]
+    Other(String),
 }
 
 impl FromStr for P2pConnectionOutgoingInitOpts {
@@ -48,13 +82,36 @@ impl FromStr for P2pConnectionOutgoingInitOpts {
             return Err(P2pConnectionOutgoingInitOptsParseError::NotEnoughArgs);
         }
 
+        if s.starts_with("/ip4") || s.starts_with("/dns4") {
+            let maddr = libp2p::Multiaddr::from_str(s)
+                .map_err(|e| P2pConnectionOutgoingInitOptsParseError::Other(e.to_string()))?;
+            let hash = maddr
+                .iter()
+                .find_map(|p| match p {
+                    libp2p::multiaddr::Protocol::P2p(hash) => Some(hash),
+                    _ => None,
+                })
+                .ok_or(P2pConnectionOutgoingInitOptsParseError::Other(
+                    "peer_id not set in multiaddr. Missing `../p2p/<peer_id>`".to_string(),
+                ))?;
+            let peer_id = libp2p::PeerId::from_multihash(hash).map_err(|_| {
+                P2pConnectionOutgoingInitOptsParseError::Other(
+                    "invalid peer_id multihash".to_string(),
+                )
+            })?;
+            return Ok(Self::LibP2P {
+                peer_id: peer_id.into(),
+                maddr,
+            });
+        }
+
         let id_end_index = s[1..]
             .find('/')
             .map(|i| i + 1)
             .filter(|i| s.len() > *i)
             .ok_or(P2pConnectionOutgoingInitOptsParseError::NotEnoughArgs)?;
 
-        Ok(Self {
+        Ok(Self::WebRTC {
             peer_id: s[1..id_end_index].parse::<PeerId>().map_err(|err| {
                 P2pConnectionOutgoingInitOptsParseError::PeerIdParseError(err.to_string())
             })?,
