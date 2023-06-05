@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use rand::prelude::*;
 use serde::Serialize;
-use snarker::job_commitment::JobCommitmentsConfig;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
@@ -12,10 +11,14 @@ use snarker::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
     EventSourceWaitTimeoutAction,
 };
+use snarker::job_commitment::{JobCommitment, JobCommitmentCreateAction, JobCommitmentsConfig};
+use snarker::p2p::channels::snark_job_commitment::SnarkJobCommitment;
 use snarker::p2p::channels::ChannelId;
 use snarker::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use snarker::p2p::identity::SecretKey;
+use snarker::p2p::service_impl::libp2p::Libp2pService;
 use snarker::p2p::service_impl::webrtc_rs::{Cmd, P2pServiceCtx, P2pServiceWebrtcRs, PeerState};
+use snarker::p2p::service_impl::webrtc_rs_with_libp2p::{self, P2pServiceWebrtcRsWithLibp2p};
 use snarker::p2p::{P2pConfig, P2pEvent, PeerId};
 use snarker::rpc::RpcRequest;
 use snarker::service::{EventSourceService, Stats};
@@ -31,6 +34,8 @@ use rpc::RpcP2pConnectionOutgoingResponse;
 pub struct Snarker {
     #[structopt(long, default_value = "3000")]
     pub http_port: u16,
+    #[structopt(short, long)]
+    pub chain_id: String,
 }
 
 impl Snarker {
@@ -82,11 +87,18 @@ impl Snarker {
             },
         };
         let state = State::new(config);
-        let P2pServiceCtx { cmd_sender, peers } = SnarkerService::init();
-
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
         let (p2p_event_sender, mut rx) = mpsc::unbounded_channel::<P2pEvent>();
+
+        let webrtc_rs_with_libp2p::P2pServiceCtx {
+            libp2p,
+            webrtc: P2pServiceCtx { cmd_sender, peers },
+        } = <SnarkerService as P2pServiceWebrtcRsWithLibp2p>::init(
+            self.chain_id,
+            p2p_event_sender.clone(),
+        );
+
         let ev_sender = event_sender.clone();
         tokio::spawn(async move {
             while let Some(v) = rx.recv().await {
@@ -103,6 +115,7 @@ impl Snarker {
             event_receiver: event_receiver.into(),
             cmd_sender,
             peers,
+            libp2p,
             rpc: rpc::RpcService::new(),
             stats: Stats::new(),
         };
@@ -170,6 +183,7 @@ struct SnarkerService {
     event_receiver: EventReceiver,
     cmd_sender: mpsc::UnboundedSender<Cmd>,
     peers: BTreeMap<PeerId, PeerState>,
+    libp2p: Libp2pService,
     rpc: rpc::RpcService,
     stats: Stats,
 }
@@ -208,6 +222,12 @@ impl P2pServiceWebrtcRs for SnarkerService {
 
     fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState> {
         &mut self.peers
+    }
+}
+
+impl P2pServiceWebrtcRsWithLibp2p for SnarkerService {
+    fn libp2p(&mut self) -> &mut Libp2pService {
+        &mut self.libp2p
     }
 }
 
@@ -302,12 +322,12 @@ impl RpcSender {
         &self,
         opts: P2pConnectionOutgoingInitOpts,
     ) -> Result<String, String> {
-        let peer_id = opts.peer_id;
+        let peer_id = opts.peer_id().to_string();
         let req = RpcRequest::P2pConnectionOutgoing(opts);
         self.oneshot_request::<RpcP2pConnectionOutgoingResponse>(req)
             .await
             .ok_or_else(|| "state machine shut down".to_owned())??;
 
-        Ok(peer_id.to_string())
+        Ok(peer_id)
     }
 }

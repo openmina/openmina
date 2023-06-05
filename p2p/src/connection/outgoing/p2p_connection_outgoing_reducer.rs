@@ -101,24 +101,33 @@ impl P2pConnectionOutgoingState {
                     };
                 }
             }
-            P2pConnectionOutgoingAction::FinalizePending(_) => {
-                if let Self::AnswerRecvSuccess {
+            P2pConnectionOutgoingAction::FinalizePending(_) => match self {
+                Self::Init { opts, rpc_id, .. } => {
+                    *self = Self::FinalizePending {
+                        time: meta.time(),
+                        opts: opts.clone(),
+                        offer: None,
+                        answer: None,
+                        rpc_id: rpc_id.take(),
+                    };
+                }
+                Self::AnswerRecvSuccess {
                     opts,
                     offer,
                     answer,
                     rpc_id,
                     ..
-                } = self
-                {
+                } => {
                     *self = Self::FinalizePending {
                         time: meta.time(),
                         opts: opts.clone(),
-                        offer: offer.clone(),
-                        answer: answer.clone(),
+                        offer: Some(offer.clone()),
+                        answer: Some(answer.clone()),
                         rpc_id: rpc_id.take(),
                     };
                 }
-            }
+                _ => {}
+            },
             P2pConnectionOutgoingAction::FinalizeError(_) => {}
             P2pConnectionOutgoingAction::FinalizeSuccess(_) => {
                 if let Self::FinalizePending {

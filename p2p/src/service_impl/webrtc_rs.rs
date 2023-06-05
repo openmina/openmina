@@ -522,15 +522,6 @@ pub trait P2pServiceWebrtcRs: redux::Service {
             peers: Default::default(),
         }
     }
-}
-
-impl<T: P2pServiceWebrtcRs> P2pConnectionService for T {
-    fn random_pick(
-        &mut self,
-        list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts {
-        P2pServiceWebrtcRs::random_pick(self, list)
-    }
 
     fn outgoing_init(&mut self, peer_id: PeerId) {
         let (peer_cmd_sender, peer_cmd_receiver) = mpsc::unbounded_channel();
@@ -581,17 +572,13 @@ impl<T: P2pServiceWebrtcRs> P2pConnectionService for T {
             let _ = peer.cmd_sender.send(PeerCmd::PeerHttpOfferSend(url, offer));
         }
     }
-}
 
-impl<T: P2pServiceWebrtcRs> P2pDisconnectionService for T {
     fn disconnect(&mut self, peer_id: PeerId) {
         // By removing the peer, `cmd_sender` gets dropped which will
         // cause `peer_loop` to end.
         self.peers().remove(&peer_id);
     }
-}
 
-impl<T: P2pServiceWebrtcRs> P2pChannelsService for T {
     fn channel_open(&mut self, peer_id: PeerId, id: ChannelId) {
         if let Some(peer) = self.peers().get(&peer_id) {
             let _ = peer.cmd_sender.send(PeerCmd::ChannelOpen(id));

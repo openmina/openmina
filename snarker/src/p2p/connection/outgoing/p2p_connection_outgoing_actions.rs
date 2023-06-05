@@ -23,7 +23,7 @@ impl redux::EnablingCondition<crate::State> for P2pConnectionOutgoingReconnectAc
             return false;
         }
 
-        let Some(peer) = state.p2p.peers.get(&self.opts.peer_id) else { return false };
+        let Some(peer) = state.p2p.peers.get(self.opts.peer_id()) else { return false };
         let delay_passed = match &peer.status {
             P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                 P2pConnectionOutgoingState::Error { time, .. },

@@ -10,7 +10,7 @@ pub trait P2pConnectionService: redux::Service {
 
     /// Initiates an outgoing connection and creates an offer sdp,
     /// which will be received in the state machine as an event.
-    fn outgoing_init(&mut self, peer_id: PeerId);
+    fn outgoing_init(&mut self, opts: P2pConnectionOutgoingInitOpts);
 
     /// Initiates an incoming connection and creates an answer sdp,
     /// which will be received in the state machine as an event.

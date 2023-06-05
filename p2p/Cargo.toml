@@ -13,22 +13,26 @@ strum_macros = "0.24.3"
 derive_more = "0.99.17"
 bs58 = "0.4.0"
 anyhow = "1.0.70"
+smallvec = "1.10.0"
+cfg-if = "1.0.0"
+url = "2.3.1"
+multihash = "0.18.1"
+sha2 = "0.10.6"
 ecies-ed25519 = "0.5.1"
 ed25519-dalek = { version = "2.0.0-rc.2", features = ["serde"] }
 
 tokio = { version = "1.26.0", features = ["rt"] }
-webrtc = { git = "https://github.com/openmina/webrtc.git", branch = "openmina" }
+webrtc = { git = "https://github.com/openmina/webrtc.git", branch = "openmina-7bf14382" }
 # webrtc = { version = "0.7.1", optional = true }
 hyper = { version = "0.14.25", features = ["client", "http1", "tcp"] }
+libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51.3", default-features = false, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
 
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
 binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "ead5ba916725abf8ab212b89985b47c79d1a006a" }
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", branch = "new-types-feb-23", features = ["hashing"] }
-sha2 = "0.10.6"
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", rev = "c94050342a627c8a1fd10a3a1641d2f17d3a7110", features = ["hashing"] }
 
 shared = { path = "../node/shared" }
-url = "2.3.1"
 
 # [features]
 # service_impl_webrtc_rs = ["webrtc"]
