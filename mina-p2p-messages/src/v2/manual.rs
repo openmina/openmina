@@ -8,13 +8,14 @@ use crate::{
 };
 
 use super::{
-    ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1,
-    MinaBaseAccountIdDigestStableV1, MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
+    ConsensusProofOfStakeDataConsensusStateValueStableV1, ConsensusVrfOutputTruncatedStableV1,
+    DataHashLibStateHashStableV1, MinaBaseAccountIdDigestStableV1, MinaBaseEpochSeedStableV1,
+    MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseCoinbaseStackStableV1,
     MinaBasePendingCoinbaseHashVersionedStableV1, MinaBasePendingCoinbaseStackHashStableV1,
-    NonZeroCurvePointUncompressedStableV1, ParallelScanWeightStableV1,
-    PicklesProofProofsVerified2ReprStableV2StatementFp, ProtocolVersionStableV1,
-    TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
-    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1, MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBaseStateBodyHashStableV1,
+    MinaBaseStateBodyHashStableV1, NonZeroCurvePointUncompressedStableV1,
+    ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
+    ProtocolVersionStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
+    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
 };
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
@@ -266,7 +267,10 @@ mod tests {
 
     use super::*;
 
-    fn base58check_test<T: Serialize + DeserializeOwned + BinProtRead + BinProtWrite + Debug>(b58: &str, hex: &str) {
+    fn base58check_test<T: Serialize + DeserializeOwned + BinProtRead + BinProtWrite + Debug>(
+        b58: &str,
+        hex: &str,
+    ) {
         let bin: T = serde_json::from_value(serde_json::json!(b58)).unwrap();
         let json = serde_json::to_value(&bin).unwrap();
 
@@ -274,7 +278,6 @@ mod tests {
         bin.binprot_write(&mut binprot).unwrap();
 
         println!("{b58} => {}", hex::encode(&binprot));
-
 
         let binprot1 = hex::decode(hex).unwrap();
         let mut b = binprot1.as_slice();
@@ -544,4 +547,10 @@ pub type MerkleTreePath = Vec<MerkleTreeNode>;
 pub enum MerkleTreeNode {
     Left(BigInt),
     Right(BigInt),
+}
+
+impl ConsensusProofOfStakeDataConsensusStateValueStableV1 {
+    pub fn global_slot(&self) -> u32 {
+        self.curr_global_slot.slot_number.as_u32()
+    }
 }
