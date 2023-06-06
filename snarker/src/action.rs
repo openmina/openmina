@@ -3,10 +3,13 @@ use serde::{Deserialize, Serialize};
 pub type ActionWithMeta = redux::ActionWithMeta<Action>;
 pub type ActionWithMetaRef<'a> = redux::ActionWithMeta<&'a Action>;
 
+pub use crate::consensus::ConsensusAction;
 pub use crate::event_source::EventSourceAction;
 pub use crate::job_commitment::JobCommitmentAction;
 pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
+pub use crate::snark::SnarkAction;
+pub use crate::watched_accounts::WatchedAccountsAction;
 
 pub trait ActionKindGet {
     fn kind(&self) -> crate::ActionKind;
@@ -18,8 +21,12 @@ pub enum Action {
     EventSource(EventSourceAction),
 
     P2p(P2pAction),
+    Snark(SnarkAction),
+    Consensus(ConsensusAction),
     JobCommitment(JobCommitmentAction),
     Rpc(RpcAction),
+
+    WatchedAccounts(WatchedAccountsAction),
 }
 
 impl Action {

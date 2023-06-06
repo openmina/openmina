@@ -17,6 +17,9 @@ pub use merkle_path::calc_merkle_root_hash;
 
 pub mod block_verify;
 
+mod snark_event;
+pub use snark_event::*;
+
 mod snark_actions;
 pub use snark_actions::*;
 

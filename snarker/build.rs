@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut path = file.path();
         let path_str = path.to_str().unwrap();
         // TODO(bineir): proper solution to ignore node dirs.
-        if path_str.contains("node") {
+        if path_str.contains("node") && !path_str.contains("node/snark/") {
             return;
         }
         if !path_str.ends_with("_actions.rs") && !path_str.ends_with("action.rs") {
@@ -116,7 +116,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .unwrap_or(path)
             .into_iter()
             .map(|v| v.to_str().unwrap().to_string())
-            .filter(|v| v != "src")
+            .filter(|v| v != "src" && v != "node")
             .collect::<Vec<_>>();
 
         match use_statements.entry(use_path) {
@@ -171,7 +171,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         queue.push_back("Action".to_owned());
 
         while let Some(action_name) = queue.pop_front() {
-            let fn_body = match actions.get(&action_name).unwrap() {
+            let fn_body = match actions.get(dbg!(&action_name)).unwrap() {
                 ActionMeta::Struct => {
                     let action_kind = &action_name[..(action_name.len() - 6)];
                     format!("ActionKind::{action_kind}")
