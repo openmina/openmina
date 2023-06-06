@@ -19,6 +19,8 @@ use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcP2pConnectionIncomingInitAction,
     RpcP2pConnectionOutgoingInitAction, RpcRequest, RpcSnarkerJobPickAndCommitAction,
 };
+use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
+use crate::snark::SnarkEvent;
 use crate::{Service, Store};
 
 use super::{
@@ -141,6 +143,16 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     },
                     P2pChannelEvent::Closed(peer_id, _) => {
                         store.dispatch(P2pDisconnectionFinishAction { peer_id });
+                    }
+                },
+            },
+            Event::Snark(event) => match event {
+                SnarkEvent::BlockVerify(req_id, result) => match result {
+                    Err(error) => {
+                        store.dispatch(SnarkBlockVerifyErrorAction { req_id, error });
+                    }
+                    Ok(()) => {
+                        store.dispatch(SnarkBlockVerifySuccessAction { req_id });
                     }
                 },
             },

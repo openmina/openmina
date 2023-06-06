@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use std::time::Duration;
 
 use rand::prelude::*;
@@ -11,8 +12,7 @@ use snarker::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
     EventSourceWaitTimeoutAction,
 };
-use snarker::job_commitment::{JobCommitment, JobCommitmentCreateAction, JobCommitmentsConfig};
-use snarker::p2p::channels::snark_job_commitment::SnarkJobCommitment;
+use snarker::job_commitment::JobCommitmentsConfig;
 use snarker::p2p::channels::ChannelId;
 use snarker::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use snarker::p2p::identity::SecretKey;
@@ -22,12 +22,17 @@ use snarker::p2p::service_impl::webrtc_rs_with_libp2p::{self, P2pServiceWebrtcRs
 use snarker::p2p::{P2pConfig, P2pEvent, PeerId};
 use snarker::rpc::RpcRequest;
 use snarker::service::{EventSourceService, Stats};
-use snarker::{Config, SnarkerConfig, State};
+use snarker::snark::block_verify::{
+    SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
+};
+use snarker::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
+use snarker::{Config, SnarkConfig, SnarkerConfig, State};
 
 mod http_server;
 
 mod rpc;
 use rpc::RpcP2pConnectionOutgoingResponse;
+use tokio::task::spawn_local;
 
 #[derive(Debug, structopt::StructOpt)]
 #[structopt(name = "snarker", about = "Openmina snarker")]
@@ -40,6 +45,17 @@ pub struct Snarker {
 
 impl Snarker {
     pub fn run(self) -> Result<(), crate::CommandError> {
+        if let Err(ref e) = rayon::ThreadPoolBuilder::new()
+            .num_threads(num_cpus::get().max(2) - 1)
+            .build_global()
+        {
+            shared::log::error!(shared::log::system_time();
+                    kind = "FatalError",
+                    summary = "failed to initialize threadpool",
+                    error = format!("{:?}", e));
+            panic!("FatalError: {:?}", e);
+        }
+
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .worker_threads(3)
@@ -69,6 +85,11 @@ impl Snarker {
         };
 
         let config = Config {
+            snark: SnarkConfig {
+                // TODO(binier): use cache
+                block_verifier_index: snarker::snark::get_verifier_index().into(),
+                block_verifier_srs: snarker::snark::get_srs().into(),
+            },
             snarker: SnarkerConfig {
                 public_key: sec_key.public_key(),
                 job_commitments: JobCommitmentsConfig {
@@ -228,6 +249,41 @@ impl P2pServiceWebrtcRs for SnarkerService {
 impl P2pServiceWebrtcRsWithLibp2p for SnarkerService {
     fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.libp2p
+    }
+}
+
+impl SnarkBlockVerifyService for SnarkerService {
+    fn verify_init(
+        &mut self,
+        req_id: SnarkBlockVerifyId,
+        verifier_index: Arc<VerifierIndex>,
+        verifier_srs: Arc<VerifierSRS>,
+        block: VerifiableBlockWithHash,
+    ) {
+        let (tx, rx) = oneshot::channel();
+        rayon::spawn_fifo(move || {
+            let header = block.header_ref();
+            let result = {
+                if !snarker::snark::accumulator_check(&verifier_srs, &header.protocol_state_proof) {
+                    Err(SnarkBlockVerifyError::AccumulatorCheckFailed)
+                } else if !snarker::snark::verify(header, &verifier_index) {
+                    Err(SnarkBlockVerifyError::VerificationFailed)
+                } else {
+                    Ok(())
+                }
+            };
+
+            let _ = tx.send(result);
+        });
+
+        let tx = self.event_sender.clone();
+        spawn_local(async move {
+            let result = match rx.await {
+                Ok(v) => v,
+                Err(_) => Err(SnarkBlockVerifyError::ValidatorThreadCrashed),
+            };
+            let _ = tx.send(SnarkEvent::BlockVerify(req_id, result).into());
+        });
     }
 }
 

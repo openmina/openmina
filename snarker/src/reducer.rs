@@ -9,11 +9,20 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
         Action::P2p(a) => {
             state.p2p.reducer(meta.with_action(a));
         }
+        Action::Snark(a) => {
+            state.snark.reducer(meta.with_action(a));
+        }
+        Action::Consensus(a) => {
+            state.consensus.reducer(meta.with_action(a));
+        }
         Action::JobCommitment(a) => {
             state.job_commitments.reducer(meta.with_action(a));
         }
         Action::Rpc(a) => {
             state.rpc.reducer(meta.with_action(a));
+        }
+        Action::WatchedAccounts(a) => {
+            state.watched_accounts.reducer(meta.with_action(a));
         }
     }
 

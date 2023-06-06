@@ -22,6 +22,7 @@ mina-hasher = { git = "https://github.com/o1-labs/proof-systems" }
 mina-signer = { git = "https://github.com/o1-labs/proof-systems" }
 
 shared = { path = "../node/shared" }
+snark = { path = "../node/snark" }
 p2p = { path = "../p2p" }
 
 [build-dependencies]

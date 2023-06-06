@@ -10,7 +10,7 @@ use super::{
     SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyIdType, VerifiableBlockWithHash,
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SnarkBlockVerifyState {
     pub verifier_index: Arc<VerifierIndex>,
     pub verifier_srs: Arc<VerifierSRS>,
@@ -28,6 +28,17 @@ impl SnarkBlockVerifyState {
 
     pub fn next_req_id(&self) -> SnarkBlockVerifyId {
         self.jobs.next_req_id()
+    }
+}
+
+impl std::fmt::Debug for SnarkBlockVerifyState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SnarkBlockVerifyState")
+            // TODO(binier): display hashes instead.
+            .field("verifier_index", &"<content too big>")
+            .field("verifier_srs", &"<content too big>")
+            .field("jobs", &self.jobs)
+            .finish()
     }
 }
 

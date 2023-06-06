@@ -1,6 +1,11 @@
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
+use crate::consensus::{
+    ConsensusAction, ConsensusBestTipHistoryUpdateAction, ConsensusBestTipUpdateAction,
+    ConsensusBlockReceivedAction, ConsensusBlockSnarkVerifyPendingAction,
+    ConsensusBlockSnarkVerifySuccessAction, ConsensusShortRangeForkResolveAction,
+};
 use crate::event_source::{
     EventSourceAction, EventSourceNewEventAction, EventSourceProcessEventsAction,
     EventSourceWaitForEventsAction, EventSourceWaitTimeoutAction,
@@ -54,6 +59,21 @@ use crate::rpc::{
     RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
     RpcP2pConnectionOutgoingSuccessAction, RpcSnarkerJobPickAndCommitAction,
 };
+use crate::snark::block_verify::{
+    SnarkBlockVerifyAction, SnarkBlockVerifyErrorAction, SnarkBlockVerifyFinishAction,
+    SnarkBlockVerifyInitAction, SnarkBlockVerifyPendingAction, SnarkBlockVerifySuccessAction,
+};
+use crate::snark::SnarkAction;
+use crate::watched_accounts::{
+    WatchedAccountsAction, WatchedAccountsAddAction, WatchedAccountsBlockLedgerQueryInitAction,
+    WatchedAccountsBlockLedgerQueryPendingAction, WatchedAccountsBlockLedgerQuerySuccessAction,
+    WatchedAccountsBlockTransactionsIncludedAction,
+    WatchedAccountsLedgerInitialStateGetErrorAction,
+    WatchedAccountsLedgerInitialStateGetInitAction,
+    WatchedAccountsLedgerInitialStateGetPendingAction,
+    WatchedAccountsLedgerInitialStateGetRetryAction,
+    WatchedAccountsLedgerInitialStateGetSuccessAction,
+};
 use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 
 #[derive(
@@ -63,6 +83,12 @@ use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 pub enum ActionKind {
     None,
     CheckTimeouts,
+    ConsensusBestTipHistoryUpdate,
+    ConsensusBestTipUpdate,
+    ConsensusBlockReceived,
+    ConsensusBlockSnarkVerifyPending,
+    ConsensusBlockSnarkVerifySuccess,
+    ConsensusShortRangeForkResolve,
     EventSourceNewEvent,
     EventSourceProcessEvents,
     EventSourceWaitForEvents,
@@ -125,6 +151,21 @@ pub enum ActionKind {
     RpcP2pConnectionOutgoingPending,
     RpcP2pConnectionOutgoingSuccess,
     RpcSnarkerJobPickAndCommit,
+    SnarkBlockVerifyError,
+    SnarkBlockVerifyFinish,
+    SnarkBlockVerifyInit,
+    SnarkBlockVerifyPending,
+    SnarkBlockVerifySuccess,
+    WatchedAccountsAdd,
+    WatchedAccountsBlockLedgerQueryInit,
+    WatchedAccountsBlockLedgerQueryPending,
+    WatchedAccountsBlockLedgerQuerySuccess,
+    WatchedAccountsBlockTransactionsIncluded,
+    WatchedAccountsLedgerInitialStateGetError,
+    WatchedAccountsLedgerInitialStateGetInit,
+    WatchedAccountsLedgerInitialStateGetPending,
+    WatchedAccountsLedgerInitialStateGetRetry,
+    WatchedAccountsLedgerInitialStateGetSuccess,
 }
 
 impl ActionKindGet for Action {
@@ -133,8 +174,11 @@ impl ActionKindGet for Action {
             Self::CheckTimeouts(a) => a.kind(),
             Self::EventSource(a) => a.kind(),
             Self::P2p(a) => a.kind(),
+            Self::Snark(a) => a.kind(),
+            Self::Consensus(a) => a.kind(),
             Self::JobCommitment(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
+            Self::WatchedAccounts(a) => a.kind(),
         }
     }
 }
@@ -163,6 +207,27 @@ impl ActionKindGet for P2pAction {
             Self::Disconnection(a) => a.kind(),
             Self::PeerReady(a) => a.kind(),
             Self::Channels(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for SnarkAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::BlockVerify(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for ConsensusAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::BlockReceived(a) => a.kind(),
+            Self::BlockSnarkVerifyPending(a) => a.kind(),
+            Self::BlockSnarkVerifySuccess(a) => a.kind(),
+            Self::ShortRangeForkResolve(a) => a.kind(),
+            Self::BestTipUpdate(a) => a.kind(),
+            Self::BestTipHistoryUpdate(a) => a.kind(),
         }
     }
 }
@@ -196,6 +261,23 @@ impl ActionKindGet for RpcAction {
             Self::P2pConnectionIncomingSuccess(a) => a.kind(),
             Self::SnarkerJobPickAndCommit(a) => a.kind(),
             Self::Finish(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for WatchedAccountsAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Add(a) => a.kind(),
+            Self::LedgerInitialStateGetInit(a) => a.kind(),
+            Self::LedgerInitialStateGetPending(a) => a.kind(),
+            Self::LedgerInitialStateGetError(a) => a.kind(),
+            Self::LedgerInitialStateGetRetry(a) => a.kind(),
+            Self::LedgerInitialStateGetSuccess(a) => a.kind(),
+            Self::TransactionsIncludedInBlock(a) => a.kind(),
+            Self::BlockLedgerQueryInit(a) => a.kind(),
+            Self::BlockLedgerQueryPending(a) => a.kind(),
+            Self::BlockLedgerQuerySuccess(a) => a.kind(),
         }
     }
 }
@@ -254,6 +336,54 @@ impl ActionKindGet for P2pChannelsAction {
             Self::MessageReceived(a) => a.kind(),
             Self::SnarkJobCommitment(a) => a.kind(),
         }
+    }
+}
+
+impl ActionKindGet for SnarkBlockVerifyAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::Pending(a) => a.kind(),
+            Self::Error(a) => a.kind(),
+            Self::Success(a) => a.kind(),
+            Self::Finish(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for ConsensusBlockReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ConsensusBlockReceived
+    }
+}
+
+impl ActionKindGet for ConsensusBlockSnarkVerifyPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ConsensusBlockSnarkVerifyPending
+    }
+}
+
+impl ActionKindGet for ConsensusBlockSnarkVerifySuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ConsensusBlockSnarkVerifySuccess
+    }
+}
+
+impl ActionKindGet for ConsensusShortRangeForkResolveAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ConsensusShortRangeForkResolve
+    }
+}
+
+impl ActionKindGet for ConsensusBestTipUpdateAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ConsensusBestTipUpdate
+    }
+}
+
+impl ActionKindGet for ConsensusBestTipHistoryUpdateAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ConsensusBestTipHistoryUpdate
     }
 }
 
@@ -371,6 +501,66 @@ impl ActionKindGet for RpcFinishAction {
     }
 }
 
+impl ActionKindGet for WatchedAccountsAddAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::WatchedAccountsAdd
+    }
+}
+
+impl ActionKindGet for WatchedAccountsLedgerInitialStateGetInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::WatchedAccountsLedgerInitialStateGetInit
+    }
+}
+
+impl ActionKindGet for WatchedAccountsLedgerInitialStateGetPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::WatchedAccountsLedgerInitialStateGetPending
+    }
+}
+
+impl ActionKindGet for WatchedAccountsLedgerInitialStateGetErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::WatchedAccountsLedgerInitialStateGetError
+    }
+}
+
+impl ActionKindGet for WatchedAccountsLedgerInitialStateGetRetryAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::WatchedAccountsLedgerInitialStateGetRetry
+    }
+}
+
+impl ActionKindGet for WatchedAccountsLedgerInitialStateGetSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::WatchedAccountsLedgerInitialStateGetSuccess
+    }
+}
+
+impl ActionKindGet for WatchedAccountsBlockTransactionsIncludedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::WatchedAccountsBlockTransactionsIncluded
+    }
+}
+
+impl ActionKindGet for WatchedAccountsBlockLedgerQueryInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::WatchedAccountsBlockLedgerQueryInit
+    }
+}
+
+impl ActionKindGet for WatchedAccountsBlockLedgerQueryPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::WatchedAccountsBlockLedgerQueryPending
+    }
+}
+
+impl ActionKindGet for WatchedAccountsBlockLedgerQuerySuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::WatchedAccountsBlockLedgerQuerySuccess
+    }
+}
+
 impl ActionKindGet for P2pConnectionOutgoingAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -442,6 +632,36 @@ impl ActionKindGet for P2pChannelsSnarkJobCommitmentAction {
             Self::RequestReceived(a) => a.kind(),
             Self::ResponseSend(a) => a.kind(),
         }
+    }
+}
+
+impl ActionKindGet for SnarkBlockVerifyInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkBlockVerifyInit
+    }
+}
+
+impl ActionKindGet for SnarkBlockVerifyPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkBlockVerifyPending
+    }
+}
+
+impl ActionKindGet for SnarkBlockVerifyErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkBlockVerifyError
+    }
+}
+
+impl ActionKindGet for SnarkBlockVerifySuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkBlockVerifySuccess
+    }
+}
+
+impl ActionKindGet for SnarkBlockVerifyFinishAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkBlockVerifyFinish
     }
 }
 
