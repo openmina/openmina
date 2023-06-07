@@ -25,6 +25,7 @@ skip = [
        "TransactionSnarkScanStateStableV1VersionedV1PolyV1PolyV1TreesArg0V1",
        "TransactionSnarkScanStateStableV2TreesA",
        "TransactionSnarkScanStateStableV2ScanStateTreesA",
+       "MinaBaseFeeExcessStableV1",
 ]
 
 rec_tuple_type = 'PaddedSeq'

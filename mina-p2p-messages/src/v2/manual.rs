@@ -15,7 +15,7 @@ use super::{
     MinaBaseStateBodyHashStableV1, NonZeroCurvePointUncompressedStableV1,
     ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
     ProtocolVersionStableV1, SgnStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
-    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
+    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1, MinaBaseFeeExcessStableV1Fee,
 };
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
@@ -665,4 +665,22 @@ mod tests_sgn {
             SgnStableV1::Neg
         );
     }
+}
+
+/// **OCaml name**: `Mina_base__Fee_excess.Stable.V1`
+///
+/// Gid: `657`
+/// Location: [src/lib/mina_base/fee_excess.ml:124:4](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/mina_base/fee_excess.ml#L124)
+///
+///
+/// Gid: `656`
+/// Location: [src/lib/mina_base/fee_excess.ml:54:6](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/mina_base/fee_excess.ml#L54)
+/// Args: TokenIdKeyHash , MinaBaseFeeExcessStableV1Fee
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseFeeExcessStableV1(pub TokenFeeExcess, pub TokenFeeExcess);
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TokenFeeExcess {
+    pub token: TokenIdKeyHash,
+    pub amount: MinaBaseFeeExcessStableV1Fee,
 }

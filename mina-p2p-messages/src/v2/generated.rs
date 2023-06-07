@@ -879,22 +879,22 @@ pub enum MinaBaseControlStableV2 {
 #[derive(Clone, Debug, Deref, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseTokenIdStableV2(pub MinaBaseAccountIdDigestStableV1);
 
-/// **OCaml name**: `Mina_base__Fee_excess.Stable.V1`
-///
-/// Gid: `657`
-/// Location: [src/lib/mina_base/fee_excess.ml:124:4](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/fee_excess.ml#L124)
-///
-///
-/// Gid: `656`
-/// Location: [src/lib/mina_base/fee_excess.ml:54:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/fee_excess.ml#L54)
-/// Args: TokenIdKeyHash , MinaBaseFeeExcessStableV1Fee
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseFeeExcessStableV1 {
-    pub fee_token_l: TokenIdKeyHash,
-    pub fee_excess_l: MinaBaseFeeExcessStableV1Fee,
-    pub fee_token_r: TokenIdKeyHash,
-    pub fee_excess_r: MinaBaseFeeExcessStableV1Fee,
-}
+// /// **OCaml name**: `Mina_base__Fee_excess.Stable.V1`
+// ///
+// /// Gid: `657`
+// /// Location: [src/lib/mina_base/fee_excess.ml:124:4](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/fee_excess.ml#L124)
+// ///
+// ///
+// /// Gid: `656`
+// /// Location: [src/lib/mina_base/fee_excess.ml:54:6](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/mina_base/fee_excess.ml#L54)
+// /// Args: TokenIdKeyHash , MinaBaseFeeExcessStableV1Fee
+// #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+// pub struct MinaBaseFeeExcessStableV1 {
+//     pub fee_token_l: TokenIdKeyHash,
+//     pub fee_excess_l: MinaBaseFeeExcessStableV1Fee,
+//     pub fee_token_r: TokenIdKeyHash,
+//     pub fee_excess_r: MinaBaseFeeExcessStableV1Fee,
+// }
 
 /// **OCaml name**: `Mina_base__Payment_payload.Stable.V2`
 ///
@@ -1893,7 +1893,7 @@ pub struct MinaBasePendingCoinbaseHashBuilderStableV1(pub crate::bigint::BigInt)
 /// Args: MinaBasePendingCoinbaseCoinbaseStackStableV1 , MinaBasePendingCoinbaseStateStackStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePendingCoinbaseStackVersionedStableV1 {
-    pub data: MinaBasePendingCoinbaseCoinbaseStackStableV1,
+    pub data: CoinbaseStackData,
     pub state: MinaBasePendingCoinbaseStateStackStableV1,
 }
 
