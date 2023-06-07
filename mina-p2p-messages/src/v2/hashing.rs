@@ -302,16 +302,13 @@ fn param_to_field_impl(param: &str, default: &[u8; 32]) -> Fp {
 }
 
 fn param_to_field(param: &str) -> Fp {
-    const DEFAULT: [u8; 32] = [
-        b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*',
-        b'*', b'*', b'*', b'*', b'*', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    ];
+    const DEFAULT: &[u8; 32] = b"********************\0\0\0\0\0\0\0\0\0\0\0\0";
 
     if param.len() > 20 {
         panic!("must be 20 byte maximum");
     }
 
-    param_to_field_impl(param, &DEFAULT)
+    param_to_field_impl(param, DEFAULT)
 }
 
 pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
