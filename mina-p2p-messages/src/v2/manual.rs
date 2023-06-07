@@ -1,6 +1,6 @@
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
-use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize};
+use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer};
 
 use crate::{
     b58::Base58CheckOfBinProt, b58::Base58CheckOfBytes, bigint::BigInt, string::ByteString,
@@ -14,7 +14,7 @@ use super::{
     MinaBasePendingCoinbaseHashVersionedStableV1, MinaBasePendingCoinbaseStackHashStableV1,
     MinaBaseStateBodyHashStableV1, NonZeroCurvePointUncompressedStableV1,
     ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
-    ProtocolVersionStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
+    ProtocolVersionStableV1, SgnStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
     TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
 };
 
@@ -364,7 +364,7 @@ mod tests {
         coinbase_stack_data,
         CoinbaseStackData,
         "4QNrZFBTDQCPfEZqBZsaPYx8qdaNFv1nebUyCUsQW9QUJqyuD3un",
-        "1dccd087c5c67bfd6816c2c6cf730228a84112732067f85614747c5d1ed5b935"
+        "35b9d51e5d7c741456f86720731241a8280273cfc6c21668fd7bc6c587d0cc1d"
     );
 
     b58t!(
@@ -552,5 +552,117 @@ pub enum MerkleTreeNode {
 impl ConsensusProofOfStakeDataConsensusStateValueStableV1 {
     pub fn global_slot(&self) -> u32 {
         self.curr_global_slot.slot_number.as_u32()
+    }
+}
+
+impl AsRef<str> for SgnStableV1 {
+    fn as_ref(&self) -> &str {
+        match self {
+            SgnStableV1::Pos => "Pos",
+            SgnStableV1::Neg => "Neg",
+        }
+    }
+}
+
+impl Serialize for SgnStableV1 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            let mut tuple = serializer.serialize_tuple(1)?;
+            tuple.serialize_element(self.as_ref())?;
+            tuple.end()
+        } else {
+            match *self {
+                SgnStableV1::Pos => {
+                    Serializer::serialize_unit_variant(serializer, "SgnStableV1", 0u32, "Pos")
+                }
+                SgnStableV1::Neg => {
+                    Serializer::serialize_unit_variant(serializer, "SgnStableV1", 1u32, "Neg")
+                }
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for SgnStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            struct V;
+
+            impl<'de> Visitor<'de> for V {
+                type Value = String;
+
+                fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                    formatter.write_str("`Pos` or `Neg`")?;
+                    panic!("foo")
+                }
+
+                fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+                {
+                    Ok(v)
+                }
+
+                fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+                where
+                    A: serde::de::SeqAccess<'de>,
+                {
+                    let Some(elt) = seq.next_element()? else { return Err(serde::de::Error::custom("No tag")); };
+                    Ok(elt)
+                }
+            }
+            let v = deserializer.deserialize_tuple(1, V)?;
+            match v.as_str() {
+                "Pos" => Ok(SgnStableV1::Pos),
+                "Neg" => Ok(SgnStableV1::Neg),
+                _ => Err(serde::de::Error::custom(format!("Invalid tag {v}"))),
+            }
+        } else {
+            #[derive(Deserialize)]
+            enum _SgnStableV1 {
+                Pos, Neg,
+            }
+
+            let s: _SgnStableV1 = Deserialize::deserialize(deserializer)?;
+            match s {
+                _SgnStableV1::Pos => Ok(SgnStableV1::Pos),
+                _SgnStableV1::Neg => Ok(SgnStableV1::Neg),
+            }
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct Foo(SgnStableV1);
+
+#[cfg(test)]
+mod tests_sgn {
+    use crate::v2::SgnStableV1;
+
+    #[test]
+    fn test_json() {
+        assert_eq!(
+            serde_json::to_value(&SgnStableV1::Pos).unwrap(),
+            serde_json::json!(["Pos"])
+        );
+        assert_eq!(
+            serde_json::to_value(&SgnStableV1::Neg).unwrap(),
+            serde_json::json!(["Neg"])
+        );
+
+        assert_eq!(
+            serde_json::from_value::<SgnStableV1>(serde_json::json!(["Pos"])).unwrap(),
+            SgnStableV1::Pos
+        );
+        assert_eq!(
+            serde_json::from_value::<SgnStableV1>(serde_json::json!(["Neg"])).unwrap(),
+            SgnStableV1::Neg
+        );
     }
 }

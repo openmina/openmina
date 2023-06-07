@@ -707,7 +707,7 @@ pub struct MinaNumbersNatMake32StableV1(pub UnsignedExtendedUInt32StableV1);
 ///
 /// Gid: `601`
 /// Location: [src/lib/sgn/sgn.ml:9:4](https://github.com/Minaprotocol/mina/blob/32a9161/src/lib/sgn/sgn.ml#L9)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
 pub enum SgnStableV1 {
     Pos,
     Neg,
