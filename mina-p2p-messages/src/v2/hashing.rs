@@ -31,7 +31,7 @@ use super::{
     MinaStateProtocolStateBodyValueStableV2,
     MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
     MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount,
-    NonZeroCurvePointUncompressedStableV1, SgnStableV1, MinaStateProtocolStateValueStableV2,
+    NonZeroCurvePointUncompressedStableV1, SgnStableV1, MinaStateProtocolStateValueStableV2, TokenFeeExcess,
 };
 
 impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1 {
@@ -578,13 +578,15 @@ impl ToInput for MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1Sig
 
 impl ToInput for MinaBaseFeeExcessStableV1 {
     fn to_input(&self, inputs: &mut Inputs) {
-        let MinaBaseFeeExcessStableV1 {
-            fee_token_l,
-            fee_excess_l,
-            fee_token_r,
-            fee_excess_r,
-        } = self;
-        to_input_fields!(inputs, fee_token_l, fee_excess_l, fee_token_r, fee_excess_r);
+        let MinaBaseFeeExcessStableV1(left, right) = self;
+        to_input_fields!(inputs, left, right);
+    }
+}
+
+impl ToInput for TokenFeeExcess {
+    fn to_input(&self, inputs: &mut Inputs) {
+        let TokenFeeExcess { token, amount } = self;
+        to_input_fields!(inputs, token, amount);
     }
 }
 
@@ -699,3 +701,20 @@ impl ToInput for MinaBaseFeeExcessStableV1Fee {
 //         todo!()
 //     }
 // }
+
+#[cfg(test)]
+mod hash_tests {
+    use crate::{v2::{MinaStateProtocolStateValueStableV2, StateHash, DataHashLibStateHashStableV1}, hash::MinaHash};
+
+
+    #[test]
+    fn state_hash() {
+        const HASH: &str = "3NKpXp2SXWGC3XHnAJYjGtNcbq8tzossqj6kK4eGr6mSyJoFmpxR";
+        const JSON: &str = include_str!("../../tests/files/v2/state/617-3NKpXp2SXWGC3XHnAJYjGtNcbq8tzossqj6kK4eGr6mSyJoFmpxR.json");
+
+        let state: MinaStateProtocolStateValueStableV2 = serde_json::from_str(JSON).unwrap();
+        let hash = StateHash::from(DataHashLibStateHashStableV1(state.hash().into()));
+        let expected_hash = serde_json::from_value(serde_json::json!(HASH)).unwrap();
+        assert_eq!(hash, expected_hash)
+    }
+}
