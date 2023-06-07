@@ -21,6 +21,7 @@ blake2 = { version = "0.10", optional = true }
 mina-hasher = {git = "https://github.com/o1-labs/proof-systems", rev = "373a294cf87f94d1bb518a248fbf71364aa73526", optional = true }
 mina-curves = {git = "https://github.com/o1-labs/proof-systems", rev = "373a294cf87f94d1bb518a248fbf71364aa73526", optional = true }
 mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "373a294cf87f94d1bb518a248fbf71364aa73526", optional = true }
+mina-poseidon = {git = "https://github.com/o1-labs/proof-systems", rev = "373a294cf87f94d1bb518a248fbf71364aa73526", optional = true }
 o1-utils = {git = "https://github.com/o1-labs/proof-systems", rev = "373a294cf87f94d1bb518a248fbf71364aa73526", optional = true }
 
 ark-ff = { version = "0.3.0", features = [ "parallel", "asm" ], optional = true }
@@ -39,7 +40,7 @@ time = { version = "0.3.17", features = ["formatting"] }
 
 
 [features]
-hashing = ["mina-hasher", "mina-curves", "mina-signer", "o1-utils", "sha2", "blake2", "ark-ff"]
+hashing = ["mina-hasher", "mina-curves", "mina-signer", "mina-poseidon", "o1-utils", "sha2", "blake2", "ark-ff"]
 
 [target.wasm32-unknown-unknown.dev-dependencies]
 web-sys = { version = "0.3.60", features = ["console"] }
