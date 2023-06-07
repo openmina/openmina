@@ -15,7 +15,7 @@ use super::{
     MinaBaseStateBodyHashStableV1, NonZeroCurvePointUncompressedStableV1,
     ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
     ProtocolVersionStableV1, SgnStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
-    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1, MinaBaseFeeExcessStableV1Fee,
+    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1, MinaBaseFeeExcessStableV1Fee, MinaBaseSignatureStableV1,
 };
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
@@ -217,6 +217,11 @@ base58check_of_binprot!(
     versioned MinaBasePendingCoinbaseStackHashStableV1,
     COINBASE_STACK_HASH
 );
+base58check_of_binprot!(
+    Signature,
+    versioned MinaBaseSignatureStableV1,
+    SIGNATURE
+);
 
 impl AsRef<[u8]> for LedgerHash {
     fn as_ref(&self) -> &[u8] {
@@ -372,6 +377,13 @@ mod tests {
         CoinbaseStackHash,
         "4Yx5U3t3EYQycZ91yj4478bHkLwGkhDHnPbCY9TxgUk69SQityej",
         "0000000000000000000000000000000000000000000000000000000000000000"
+    );
+
+    b58t!(
+        signature,
+        Signature,
+        "7mXS9Y91bWtTYNKuDbxTuG18wUiZLHUySy9Ms8bPyAT9KNnME1q2nctwnvowJi2Y79dnsL18iVSCuaQF1ufUKwUZZKAXHqnF",
+        "d290f924705fb714e91fedb9bed77e85bce8f5d932c3f4d692b20e4c3e5f9a3343c2baffce9ab0c2391e2f3de8ac891633338d827e6fd4f269331c248029b106"
     );
 
     #[test]

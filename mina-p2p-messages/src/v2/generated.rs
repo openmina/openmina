@@ -1137,7 +1137,7 @@ pub struct MinaBaseSignedCommandPayloadStableV2 {
 pub struct MinaBaseSignedCommandStableV2 {
     pub payload: MinaBaseSignedCommandPayloadStableV2,
     pub signer: NonZeroCurvePoint,
-    pub signature: MinaBaseSignatureStableV1,
+    pub signature: Signature,
 }
 
 /// **OCaml name**: `Mina_base__Receipt.Chain_hash.Stable.V1`
@@ -1660,7 +1660,7 @@ pub struct MinaBaseAccountUpdateTStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseAccountUpdateFeePayerStableV1 {
     pub body: MinaBaseAccountUpdateBodyFeePayerStableV1,
-    pub authorization: MinaBaseSignatureStableV1,
+    pub authorization: Signature,
 }
 
 /// Derived name: `Mina_base__Zkapp_command.T.Stable.V1.Wire.Stable.V1.account_updates.a.a.calls.a`

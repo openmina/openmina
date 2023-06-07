@@ -233,7 +233,7 @@ mod tests {
         let v = generated::MinaBaseSignedCommandStableV2 {
             payload,
             signer: from.clone(),
-            signature,
+            signature: signature.into(),
         };
         let v = generated::MinaBaseUserCommandStableV2::SignedCommand(v);
         dbg!(v.hash().unwrap()).to_string()
