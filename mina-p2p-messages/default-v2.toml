@@ -26,6 +26,8 @@ skip = [
        "TransactionSnarkScanStateStableV2TreesA",
        "TransactionSnarkScanStateStableV2ScanStateTreesA",
        "MinaBaseFeeExcessStableV1",
+       "MinaBaseFeeExcessStableV1Fee",
+       "MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount",
 ]
 
 rec_tuple_type = 'PaddedSeq'
@@ -97,3 +99,5 @@ Make_str = ''
 'Mina_base__Pending_coinbase.Make_str.Hash_versioned.Stable.V1' = 'PendingCoinbaseHash'
 'Mina_base__Pending_coinbase.Make_str.Coinbase_stack.Stable.V1' = 'CoinbaseStackData'
 'Mina_base__Pending_coinbase.Make_str.Stack_hash.Stable.V1' = 'CoinbaseStackHash'
+'Mina_transaction_logic__Zkapp_command_logic.Local_state.Value.Stable.V1.signed_amount' = 'Amount'
+'Mina_base__Fee_excess.Stable.V1.fee' = 'Amount'

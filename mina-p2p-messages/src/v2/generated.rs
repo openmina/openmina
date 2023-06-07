@@ -713,28 +713,6 @@ pub enum SgnStableV1 {
     Neg,
 }
 
-/// Derived name: `Mina_transaction_logic__Zkapp_command_logic.Local_state.Value.Stable.V1.signed_amount`
-///
-/// Gid: `602`
-/// Location: [src/lib/currency/signed_poly.ml:6:4](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/currency/signed_poly.ml#L6)
-/// Args: CurrencyAmountStableV1 , SgnStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount {
-    pub magnitude: CurrencyAmountStableV1,
-    pub sgn: SgnStableV1,
-}
-
-/// Derived name: `Mina_base__Fee_excess.Stable.V1.fee`
-///
-/// Gid: `602`
-/// Location: [src/lib/currency/signed_poly.ml:6:4](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/currency/signed_poly.ml#L6)
-/// Args: CurrencyFeeStableV1 , SgnStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBaseFeeExcessStableV1Fee {
-    pub magnitude: CurrencyFeeStableV1,
-    pub sgn: SgnStableV1,
-}
-
 /// **OCaml name**: `Currency.Make_str.Fee.Stable.V1`
 ///
 /// Gid: `603`
@@ -1619,7 +1597,7 @@ pub struct MinaBaseAccountUpdateBodyStableV1 {
     pub public_key: NonZeroCurvePoint,
     pub token_id: TokenIdKeyHash,
     pub update: MinaBaseAccountUpdateUpdateStableV1,
-    pub balance_change: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount,
+    pub balance_change: Amount,
     pub increment_nonce: bool,
     pub events: MinaBaseAccountUpdateBodyEventsStableV1,
     pub actions: MinaBaseAccountUpdateBodyEventsStableV1,
@@ -2060,7 +2038,7 @@ pub struct NetworkPeerPeerIdStableV1(pub crate::string::ByteString);
 ///
 /// Gid: `865`
 /// Location: [src/lib/transaction_logic/zkapp_command_logic.ml:188:6](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/transaction_logic/zkapp_command_logic.ml#L188)
-/// Args: MinaBaseStackFrameStableV1 , MinaBaseCallStackDigestStableV1 , TokenIdKeyHash , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount , LedgerHash , bool , crate :: bigint :: BigInt , UnsignedExtendedUInt32StableV1 , MinaBaseTransactionStatusFailureCollectionStableV1
+/// Args: MinaBaseStackFrameStableV1 , MinaBaseCallStackDigestStableV1 , TokenIdKeyHash , Amount , LedgerHash , bool , crate :: bigint :: BigInt , UnsignedExtendedUInt32StableV1 , MinaBaseTransactionStatusFailureCollectionStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
     pub stack_frame: MinaBaseStackFrameStableV1,
@@ -2068,8 +2046,8 @@ pub struct MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
     pub transaction_commitment: crate::bigint::BigInt,
     pub full_transaction_commitment: crate::bigint::BigInt,
     pub token_id: TokenIdKeyHash,
-    pub excess: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount,
-    pub supply_increase: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount,
+    pub excess: Amount,
+    pub supply_increase: Amount,
     pub ledger: LedgerHash,
     pub success: bool,
     pub account_update_index: UnsignedExtendedUInt32StableV1,
@@ -2296,14 +2274,14 @@ pub enum MinaStateSnarkedLedgerStatePendingCoinbaseStackStateInitStackStableV1 {
 ///
 /// Gid: `943`
 /// Location: [src/lib/mina_state/snarked_ledger_state.ml:107:8](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/mina_state/snarked_ledger_state.ml#L107)
-/// Args: LedgerHash , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount , MinaBasePendingCoinbaseStackVersionedStableV1 , MinaBaseFeeExcessStableV1 , () , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1
+/// Args: LedgerHash , Amount , MinaBasePendingCoinbaseStackVersionedStableV1 , MinaBaseFeeExcessStableV1 , () , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaStateBlockchainStateValueStableV2LedgerProofStatement {
     pub source: MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     pub target: MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     pub connecting_ledger_left: LedgerHash,
     pub connecting_ledger_right: LedgerHash,
-    pub supply_increase: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount,
+    pub supply_increase: Amount,
     pub fee_excess: MinaBaseFeeExcessStableV1,
     pub sok_digest: (),
 }
@@ -2325,14 +2303,14 @@ pub struct MinaStateSnarkedLedgerStateStableV2(
 ///
 /// Gid: `943`
 /// Location: [src/lib/mina_state/snarked_ledger_state.ml:107:8](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/mina_state/snarked_ledger_state.ml#L107)
-/// Args: LedgerHash , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount , MinaBasePendingCoinbaseStackVersionedStableV1 , MinaBaseFeeExcessStableV1 , MinaBaseZkappAccountZkappUriStableV1 , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1
+/// Args: LedgerHash , Amount , MinaBasePendingCoinbaseStackVersionedStableV1 , MinaBaseFeeExcessStableV1 , MinaBaseZkappAccountZkappUriStableV1 , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaStateSnarkedLedgerStateWithSokStableV2 {
     pub source: MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     pub target: MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     pub connecting_ledger_left: LedgerHash,
     pub connecting_ledger_right: LedgerHash,
-    pub supply_increase: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount,
+    pub supply_increase: Amount,
     pub fee_excess: MinaBaseFeeExcessStableV1,
     pub sok_digest: MinaBaseZkappAccountZkappUriStableV1,
 }
@@ -2345,7 +2323,7 @@ pub struct MinaStateSnarkedLedgerStateWithSokStableV2 {
 ///
 /// Gid: `948`
 /// Location: [src/lib/mina_state/blockchain_state.ml:10:6](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/mina_state/blockchain_state.ml#L10)
-/// Args: MinaBaseStagedLedgerHashStableV1 , LedgerHash , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 , BlockTimeTimeStableV1 , ConsensusBodyReferenceStableV1 , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount , MinaBasePendingCoinbaseStackVersionedStableV1 , MinaBaseFeeExcessStableV1 , ()
+/// Args: MinaBaseStagedLedgerHashStableV1 , LedgerHash , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 , BlockTimeTimeStableV1 , ConsensusBodyReferenceStableV1 , Amount , MinaBasePendingCoinbaseStackVersionedStableV1 , MinaBaseFeeExcessStableV1 , ()
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaStateBlockchainStateValueStableV2 {
     pub staged_ledger_hash: MinaBaseStagedLedgerHashStableV1,
