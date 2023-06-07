@@ -5,7 +5,11 @@ use ark_ff::FromBytes;
 use binprot::BinProtWrite;
 use generated::MinaStateBlockchainStateValueStableV2;
 use mina_hasher::Fp;
-use mina_poseidon::{constants::PlonkSpongeConstantsKimchi, poseidon::{ArithmeticSponge, Sponge}, pasta::fp_kimchi::static_params};
+use mina_poseidon::{
+    constants::PlonkSpongeConstantsKimchi,
+    pasta::fp_kimchi::static_params,
+    poseidon::{ArithmeticSponge, Sponge},
+};
 use serde::{Deserialize, Serialize};
 use sha2::{
     digest::{generic_array::GenericArray, typenum::U32},
@@ -14,24 +18,24 @@ use sha2::{
 
 use crate::{
     bigint::BigInt,
-    hash_input::{Inputs, ToInput}, hash::MinaHash,
+    hash::MinaHash,
+    hash_input::{Inputs, ToInput},
 };
 
 use super::{
-    generated, ConsensusBodyReferenceStableV1, ConsensusGlobalSlotStableV1,
+    generated, Amount, ConsensusBodyReferenceStableV1, ConsensusGlobalSlotStableV1,
     ConsensusProofOfStakeDataConsensusStateValueStableV1,
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
     ConsensusVrfOutputTruncatedStableV1, MinaBaseEpochLedgerValueStableV1,
-    MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee,
-    MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
-    MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashNonSnarkStableV1,
-    MinaBaseStagedLedgerHashStableV1, MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+    MinaBaseFeeExcessStableV1, MinaBasePendingCoinbaseStackVersionedStableV1,
+    MinaBasePendingCoinbaseStateStackStableV1, MinaBaseProtocolConstantsCheckedValueStableV1,
+    MinaBaseStagedLedgerHashNonSnarkStableV1, MinaBaseStagedLedgerHashStableV1,
+    MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
-    MinaStateProtocolStateBodyValueStableV2,
+    MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
     MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
-    MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount,
-    NonZeroCurvePointUncompressedStableV1, SgnStableV1, MinaStateProtocolStateValueStableV2, TokenFeeExcess,
+    NonZeroCurvePointUncompressedStableV1, SgnStableV1, TokenFeeExcess,
 };
 
 impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1 {
@@ -270,7 +274,6 @@ mod tests {
     }
 }
 
-
 impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
     fn hash(&self) -> mina_hasher::Fp {
         let mut inputs = Inputs::new();
@@ -287,7 +290,6 @@ impl MinaHash for MinaStateProtocolStateValueStableV2 {
         hash_with_kimchi("MinaProtoState", &inputs.to_fields())
     }
 }
-
 
 fn param_to_field_impl(param: &str, default: &[u8; 32]) -> Fp {
     let param_bytes = param.as_bytes();
@@ -321,8 +323,6 @@ pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
     sponge.absorb(fields);
     sponge.squeeze()
 }
-
-
 
 macro_rules! to_input_fields {
     ( $inputs:expr, $( $field:ident ),* $(,)?) => {
@@ -566,12 +566,9 @@ impl ToInput for MinaStateBlockchainStateValueStableV2LedgerProofStatementSource
     }
 }
 
-impl ToInput for MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount {
+impl ToInput for Amount {
     fn to_input(&self, inputs: &mut Inputs) {
-        let MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount {
-            magnitude,
-            sgn,
-        } = self;
+        let Amount { magnitude, sgn } = self;
         to_input_fields!(inputs, magnitude, sgn);
     }
 }
@@ -653,13 +650,6 @@ impl ToInput for SgnStableV1 {
     }
 }
 
-impl ToInput for MinaBaseFeeExcessStableV1Fee {
-    fn to_input(&self, inputs: &mut Inputs) {
-        let MinaBaseFeeExcessStableV1Fee { magnitude, sgn } = self;
-        to_input_fields!(inputs, magnitude, sgn);
-    }
-}
-
 // impl ToInput for  {
 //     fn to_input(&self, inputs: &mut Inputs) {
 //         todo!()
@@ -704,8 +694,10 @@ impl ToInput for MinaBaseFeeExcessStableV1Fee {
 
 #[cfg(test)]
 mod hash_tests {
-    use crate::{v2::{MinaStateProtocolStateValueStableV2, StateHash, DataHashLibStateHashStableV1}, hash::MinaHash};
-
+    use crate::{
+        hash::MinaHash,
+        v2::{DataHashLibStateHashStableV1, MinaStateProtocolStateValueStableV2, StateHash},
+    };
 
     #[test]
     fn state_hash() {

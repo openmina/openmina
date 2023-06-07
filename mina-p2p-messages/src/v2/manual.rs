@@ -15,7 +15,7 @@ use super::{
     MinaBaseStateBodyHashStableV1, NonZeroCurvePointUncompressedStableV1,
     ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
     ProtocolVersionStableV1, SgnStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
-    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1, MinaBaseFeeExcessStableV1Fee, MinaBaseSignatureStableV1,
+    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1, MinaBaseSignatureStableV1, CurrencyFeeStableV1,
 };
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
@@ -679,6 +679,17 @@ mod tests_sgn {
     }
 }
 
+/// Derived name: `Mina_base__Fee_excess.Stable.V1.fee`
+///
+/// Gid: `602`
+/// Location: [src/lib/currency/signed_poly.ml:6:4](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/currency/signed_poly.ml#L6)
+/// Args: CurrencyFeeStableV1 , SgnStableV1
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct Amount {
+    pub magnitude: CurrencyFeeStableV1,
+    pub sgn: SgnStableV1,
+}
+
 /// **OCaml name**: `Mina_base__Fee_excess.Stable.V1`
 ///
 /// Gid: `657`
@@ -694,5 +705,5 @@ pub struct MinaBaseFeeExcessStableV1(pub TokenFeeExcess, pub TokenFeeExcess);
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct TokenFeeExcess {
     pub token: TokenIdKeyHash,
-    pub amount: MinaBaseFeeExcessStableV1Fee,
+    pub amount: Amount,
 }
