@@ -182,6 +182,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bincode"
+version = "1.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "binprot"
 version = "0.1.8"
 source = "git+https://github.com/openmina/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
@@ -261,16 +270,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
-name = "cairo"
-version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger#e73c3c948e1fc0d9da0b0e222e303bbeb6eac817"
-dependencies = [
- "ark-ff",
- "hex",
- "o1-utils",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -308,30 +307,6 @@ checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
 dependencies = [
  "termcolor",
  "unicode-width",
-]
-
-[[package]]
-name = "commitment_dlog"
-version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger#e73c3c948e1fc0d9da0b0e222e303bbeb6eac817"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "ark-serialize",
- "blake2",
- "groupmap",
- "itertools",
- "mina-curves",
- "o1-utils",
- "once_cell",
- "oracle",
- "rand",
- "rand_core",
- "rayon",
- "serde",
- "serde_with",
- "thiserror",
 ]
 
 [[package]]
@@ -716,7 +691,7 @@ checksum = "ad0a93d233ebf96623465aad4046a8d3aa4da22d4f4beba5388838c8a434bbb4"
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger#e73c3c948e1fc0d9da0b0e222e303bbeb6eac817"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes#a30809488d8dcaebf6eb23b449b0de3a076c360c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -819,26 +794,26 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger#e73c3c948e1fc0d9da0b0e222e303bbeb6eac817"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes#a30809488d8dcaebf6eb23b449b0de3a076c360c"
 dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-poly",
  "ark-serialize",
  "blake2",
- "cairo",
- "commitment_dlog",
  "disjoint-set",
  "groupmap",
  "hex",
  "itertools",
  "mina-curves",
+ "mina-poseidon",
  "num-bigint",
  "num-derive",
+ "num-integer",
  "num-traits",
  "o1-utils",
  "once_cell",
- "oracle",
+ "poly-commitment",
  "rand",
  "rand_core",
  "rayon",
@@ -848,6 +823,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "thiserror",
+ "turshi",
 ]
 
 [[package]]
@@ -904,7 +880,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger#e73c3c948e1fc0d9da0b0e222e303bbeb6eac817"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes#a30809488d8dcaebf6eb23b449b0de3a076c360c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -913,13 +889,13 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger#e73c3c948e1fc0d9da0b0e222e303bbeb6eac817"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes#a30809488d8dcaebf6eb23b449b0de3a076c360c"
 dependencies = [
  "ark-ff",
  "bitvec",
  "mina-curves",
+ "mina-poseidon",
  "o1-utils",
- "oracle",
  "serde",
 ]
 
@@ -947,9 +923,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "mina-poseidon"
+version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes#a30809488d8dcaebf6eb23b449b0de3a076c360c"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "mina-curves",
+ "o1-utils",
+ "once_cell",
+ "rand",
+ "rayon",
+ "serde",
+ "serde_with",
+]
+
+[[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger#e73c3c948e1fc0d9da0b0e222e303bbeb6eac817"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes#a30809488d8dcaebf6eb23b449b0de3a076c360c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -975,6 +968,7 @@ dependencies = [
  "ark-serialize",
  "backtrace",
  "base64",
+ "bincode",
  "binprot",
  "binprot_derive",
  "bitvec",
@@ -991,17 +985,20 @@ dependencies = [
  "mina-curves",
  "mina-hasher",
  "mina-p2p-messages",
+ "mina-poseidon",
  "mina-signer",
  "num-bigint",
  "o1-utils",
  "ocaml-interop",
  "once_cell",
- "oracle",
  "packed_simd_2",
+ "poly-commitment",
  "rand",
  "rand_pcg",
  "rand_seeder",
  "rayon",
+ "serde",
+ "serde_json",
  "sha2 0.10.6",
  "static_assertions",
  "tuple-map",
@@ -1031,6 +1028,7 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits",
+ "rand",
  "serde",
 ]
 
@@ -1077,7 +1075,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger#e73c3c948e1fc0d9da0b0e222e303bbeb6eac817"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes#a30809488d8dcaebf6eb23b449b0de3a076c360c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -1086,6 +1084,10 @@ dependencies = [
  "bcs",
  "hex",
  "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand",
+ "rand_core",
  "rayon",
  "serde",
  "serde_with",
@@ -1143,23 +1145,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
-name = "oracle"
-version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger#e73c3c948e1fc0d9da0b0e222e303bbeb6eac817"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "mina-curves",
- "o1-utils",
- "once_cell",
- "rand",
- "rayon",
- "serde",
- "serde_with",
-]
-
-[[package]]
 name = "packed_simd_2"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1202,6 +1187,30 @@ name = "pkg-config"
 version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
+
+[[package]]
+name = "poly-commitment"
+version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes#a30809488d8dcaebf6eb23b449b0de3a076c360c"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "blake2",
+ "groupmap",
+ "itertools",
+ "mina-curves",
+ "mina-poseidon",
+ "o1-utils",
+ "once_cell",
+ "rand",
+ "rand_core",
+ "rayon",
+ "serde",
+ "serde_with",
+ "thiserror",
+]
 
 [[package]]
 name = "ppv-lite86"
@@ -1599,6 +1608,16 @@ name = "tuple-map"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23d5919d7121237af683b7fa982450597b1eaa2643e597aec3b519e4e5ab3d62"
+
+[[package]]
+name = "turshi"
+version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes#a30809488d8dcaebf6eb23b449b0de3a076c360c"
+dependencies = [
+ "ark-ff",
+ "hex",
+ "o1-utils",
+]
 
 [[package]]
 name = "typenum"

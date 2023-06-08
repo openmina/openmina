@@ -5,8 +5,14 @@ use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 
 #[derive(Clone, Debug)]
-struct ScalarChallenge {
+pub struct ScalarChallenge {
     pub inner: [u64; 2],
+}
+
+impl From<[u64; 2]> for ScalarChallenge {
+    fn from(value: [u64; 2]) -> Self {
+        Self::new(value[0], value[1])
+    }
 }
 
 struct ScalarChallengeBitsIterator {
@@ -89,7 +95,7 @@ impl ScalarChallenge {
 
 #[cfg(test)]
 mod tests {
-    use crate::FpExt;
+    use crate::util::FpExt;
 
     use super::*;
 

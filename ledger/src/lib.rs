@@ -46,6 +46,7 @@ mod hash;
 mod mask;
 pub mod ondisk;
 mod poseidon;
+mod proofs;
 pub mod scan_state;
 pub mod staged_ledger;
 mod tree;
