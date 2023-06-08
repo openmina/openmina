@@ -21,6 +21,7 @@ use mina_p2p_messages::{
         PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
         PicklesProofProofsVerified2ReprStableV2StatementFp,
         PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues,
+        TransactionSnarkProofStableV2,
     },
 };
 use poly_commitment::{commitment::CommitmentCurve, PolyComm};
@@ -259,10 +260,29 @@ fn verify_with(
     )
 }
 
-pub fn verify(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierIndex) -> bool {
-    let protocol_state = &header.protocol_state;
-    let proof = &header.protocol_state_proof;
+pub fn verify_block(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierIndex) -> bool {
+    let MinaBlockHeaderStableV2 {
+        protocol_state,
+        protocol_state_proof,
+        ..
+    } = &header;
 
+    verify(protocol_state, protocol_state_proof, verifier_index)
+}
+
+pub fn verify_transaction(
+    protocol_state: &MinaStateProtocolStateValueStableV2,
+    transaction_proof: &TransactionSnarkProofStableV2,
+    verifier_index: &VerifierIndex,
+) -> bool {
+    verify(protocol_state, transaction_proof, verifier_index)
+}
+
+fn verify(
+    protocol_state: &MinaStateProtocolStateValueStableV2,
+    proof: &PicklesProofProofsVerified2ReprStableV2,
+    verifier_index: &VerifierIndex,
+) -> bool {
     let DataForPublicInput { evals, minimal } = extract_data_for_public_input(proof);
 
     let env = make_scalars_env(&minimal);
