@@ -104,7 +104,9 @@ impl Snarker {
                         .unwrap(),
                 ],
                 max_peers: 10,
-                enabled_channels: [ChannelId::SnarkJobCommitmentPropagation].into(),
+                enabled_channels: [
+                    ChannelId::BestTipPropagation,
+                    ChannelId::SnarkJobCommitmentPropagation].into(),
             },
         };
         let state = State::new(config);

@@ -1,23 +1,24 @@
 use std::time::Duration;
 
+use binprot::{BinProtRead, BinProtWrite};
 use multihash::{Blake2b256, Hasher};
 use tokio::sync::mpsc;
-use tokio::task::spawn_local;
 
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport;
 use libp2p::core::transport::upgrade;
 use libp2p::futures::{select, FutureExt, StreamExt};
 use libp2p::gossipsub::{
-    Gossipsub, GossipsubConfigBuilder, GossipsubEvent, IdentTopic, MessageAuthenticity,
+    Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipsubEvent,
+    IdentTopic, MessageAuthenticity,
 };
-use libp2p::identity::{self, Keypair};
+use libp2p::identity::Keypair;
 use libp2p::noise;
 use libp2p::pnet::{PnetConfig, PreSharedKey};
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::{SwarmBuilder, SwarmEvent};
 use libp2p::yamux::YamuxConfig;
-use libp2p::{build_multiaddr, PeerId, Swarm, Transport};
+use libp2p::{PeerId, Swarm, Transport};
 
 pub use mina_p2p_messages::gossip::GossipNetMessageV2 as GossipNetMessage;
 
@@ -27,7 +28,9 @@ pub use behavior::*;
 
 // pub mod rpc;
 
-use crate::{P2pConnectionEvent, P2pEvent};
+use crate::channels::best_tip::BestTipPropagationChannelMsg;
+use crate::channels::ChannelMsg;
+use crate::{P2pChannelEvent, P2pConnectionEvent, P2pEvent};
 
 // use self::rpc::RpcBehaviour;
 
@@ -38,22 +41,18 @@ pub type BoxedP2PTransport = transport::Boxed<P2PTransport>;
 
 #[derive(Debug)]
 pub enum Cmd {
-    // SendMessage(CmdSendMessage),
+    SendMessage(PeerId, ChannelMsg),
     Dial(DialOpts),
     Disconnect(PeerId),
 }
-
-// #[derive(Debug)]
-// pub enum CmdSendMessage {
-//     Gossipsub(PubsubTopic, Vec<u8>),
-//     RpcRequest(PeerId, P2pRpcId, P2pRpcRequest),
-// }
 
 pub struct Libp2pService {
     cmd_sender: mpsc::UnboundedSender<Cmd>,
 }
 
 impl Libp2pService {
+    const GOSSIPSUB_TOPIC: &'static str = "coda/consensus-messages/0.0.1";
+
     async fn build_transport(
         chain_id: String,
         identity_keys: Keypair,
@@ -105,9 +104,8 @@ impl Libp2pService {
     where
         E: 'static + Send + From<P2pEvent>,
     {
-        let gossipsub_topic = "coda/consensus-messages/0.0.1";
         let topics_iter = IntoIterator::into_iter([
-            gossipsub_topic,
+            Self::GOSSIPSUB_TOPIC,
             "mina/block/1.0.0",
             "mina/tx/1.0.0",
             "mina/snark-work/1.0.0",
@@ -140,31 +138,16 @@ impl Libp2pService {
                 .unwrap();
 
             let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, id).build();
+
             loop {
                 select! {
                     event = swarm.next() => match event {
                         Some(event) => Self::handle_event(&mut swarm, event).await,
                         None => break,
                     },
-                    cmd = cmd_receiver.recv().fuse() => {
-                        match cmd {
-                            Some(Cmd::Dial(maddr)) => {
-                                swarm.dial(maddr).unwrap();
-                            }
-                            Some(Cmd::Disconnect(peer_id)) => {
-                                let _ = swarm.disconnect_peer_id(peer_id);
-                            }
-                            // Some(Cmd::SendMessage(msg)) => match msg {
-                            //     CmdSendMessage::Gossipsub(topic, msg) => {
-                            //         swarm.behaviour_mut().gossipsub.publish(topic, msg).unwrap();
-                            //     }
-                            //     CmdSendMessage::RpcRequest(peer_id, id, req) => {
-                            //         // TODO(binier): handle if is_some
-                            //         swarm.behaviour_mut().rpc.send_request(peer_id, id, req);
-                            //     }
-                            // }
-                            None => break,
-                        }
+                    cmd = cmd_receiver.recv().fuse() => match cmd {
+                        Some(cmd) => Self::handle_cmd(&mut swarm, cmd).await,
+                        None => break,
                     }
                 }
             }
@@ -177,6 +160,67 @@ impl Libp2pService {
         });
 
         Self { cmd_sender }
+    }
+
+    fn gossipsub_send<T, E>(swarm: &mut Swarm<Behaviour<E>>, prefix: u8, msg: &T)
+    where
+        T: BinProtWrite,
+        E: From<P2pEvent>,
+    {
+        let mut encoded = vec![0; 9];
+        encoded[8] = prefix;
+        match msg.binprot_write(&mut encoded) {
+            Ok(_) => {}
+            Err(_err) => {
+                // TODO(binier)
+                return;
+                // log::error!("Failed to encode GossipSub Message: {:?}", err);
+                // panic!("{}", err);
+            }
+        }
+        let msg_len = (encoded.len() as u64 - 8).to_le_bytes();
+        encoded[..8].clone_from_slice(&msg_len);
+
+        let topic = IdentTopic::new(Self::GOSSIPSUB_TOPIC);
+        swarm
+            .behaviour_mut()
+            .gossipsub
+            .publish(topic, encoded)
+            .unwrap();
+    }
+
+    async fn handle_cmd<E: From<P2pEvent>>(swarm: &mut Swarm<Behaviour<E>>, cmd: Cmd) {
+        match cmd {
+            Cmd::Dial(maddr) => {
+                swarm.dial(maddr).unwrap();
+            }
+            Cmd::Disconnect(peer_id) => {
+                let _ = swarm.disconnect_peer_id(peer_id);
+            }
+            Cmd::SendMessage(_peer_id, msg) => match msg {
+                ChannelMsg::SnarkJobCommitmentPropagation(_) => {
+                    // unsupported
+                }
+                ChannelMsg::BestTipPropagation(msg) => match msg {
+                    BestTipPropagationChannelMsg::GetNext => {
+                        // TODO(binier): mark that peer can send us
+                        // a message now. For now not important as
+                        // we send this message right after we see a
+                        // message from the peer.
+                    }
+                    BestTipPropagationChannelMsg::BestTip(block) => {
+                        // TODO(binier): for each peer, send message cmd
+                        // will be received, yet we are broadcasting to
+                        // every peer every time. It's kinda fine because
+                        // gossipsub protocol will prevent same message
+                        // from being published, but it's still wasteful.
+                        Self::gossipsub_send(swarm, 0, &*block);
+                        // TODO(binier): send event: `P2pChannelEvent::Sent`
+                    }
+                }, // TODO(binier): handle if is_some
+                   // swarm.behaviour_mut().rpc.send_request(peer_id, id, req);
+            },
+        }
     }
 
     async fn handle_event<E: From<P2pEvent>, Err: std::error::Error>(
@@ -225,32 +269,38 @@ impl Libp2pService {
                 ));
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
-            SwarmEvent::IncomingConnectionError {
-                send_back_addr,
-                error,
-                ..
-            } => {
-                shared::log::info!(
-                    shared::log::system_time();
-                    kind = "PeerConnectionIncomingError",
-                    summary = format!("peer_addr: {}", send_back_addr.to_string())
-                );
-                // TODO(binier)
-            }
             SwarmEvent::Behaviour(event) => match event {
-                // BehaviourEvent::Gossipsub(GossipsubEvent::Message {
-                //     propagation_source,
-                //     message_id,
-                //     message,
-                // }) => {
-                //     let event = Event::P2p(P2pEvent::Pubsub(P2pPubsubEvent::BytesReceived {
-                //         author: message.source.unwrap(),
-                //         sender: propagation_source,
-                //         topic: message.topic.as_str().parse().unwrap(),
-                //         bytes: message.data,
-                //     }));
-                //     swarm.behaviour_mut().event_source_sender.send(event).await;
-                // }
+                BehaviourEvent::Gossipsub(GossipsubEvent::Message {
+                    propagation_source,
+                    message_id: _,
+                    message,
+                }) => {
+                    let bytes = &message.data;
+                    let res = if bytes.len() < 8 {
+                        Err("message too short".to_owned())
+                    } else {
+                        let len = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+                        let data = &bytes[8..];
+                        assert_eq!(len, data.len() as u64);
+                        GossipNetMessage::binprot_read(&mut &*data)
+                            .map_err(|err| format!("{err:?}"))
+                    };
+                    let res = match res {
+                        Err(err) => Err(err),
+                        Ok(GossipNetMessage::NewState(block)) => {
+                            Ok(ChannelMsg::BestTipPropagation(
+                                BestTipPropagationChannelMsg::BestTip(block.into()),
+                            ))
+                        }
+                        _ => return,
+                    };
+
+                    let event = P2pEvent::Channel(P2pChannelEvent::Received(
+                        propagation_source.into(),
+                        res,
+                    ));
+                    let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
+                }
                 // BehaviourEvent::Rpc(event) => {
                 //     let event = Event::P2p(P2pEvent::Rpc(event));
                 //     swarm.behaviour_mut().event_source_sender.send(event).await;

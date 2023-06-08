@@ -76,6 +76,13 @@ impl P2pState {
             .map_or(false, |p| p.status.is_connected_or_connecting())
     }
 
+    pub fn is_libp2p_peer(&self, peer_id: &PeerId) -> bool {
+        self.peers
+            .get(peer_id)
+            .and_then(|p| p.dial_opts.as_ref())
+            .map_or(false, |opts| opts.is_libp2p())
+    }
+
     pub fn already_has_min_peers(&self) -> bool {
         self.connected_or_connecting_peers_count() >= (self.config.max_peers / 2).max(3)
     }

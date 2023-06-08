@@ -1,11 +1,17 @@
+use crate::consensus::ConsensusBlockReceivedAction;
 use crate::job_commitment::JobCommitmentAddAction;
 use crate::rpc::{
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingSuccessAction,
 };
+use crate::watched_accounts::{
+    WatchedAccountLedgerInitialState, WatchedAccountsLedgerInitialStateGetError,
+    WatchedAccountsLedgerInitialStateGetErrorAction,
+};
 use crate::{Service, Store};
 
+use super::channels::best_tip::{P2pChannelsBestTipAction, P2pChannelsBestTipResponseSendAction};
 use super::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use super::channels::P2pChannelsAction;
 use super::connection::incoming::{
@@ -129,10 +135,32 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 }
             },
         },
-        P2pAction::Disconnection(action) => match action {
-            P2pDisconnectionAction::Init(action) => action.effects(&meta, store),
-            P2pDisconnectionAction::Finish(_action) => {}
-        },
+        P2pAction::Disconnection(action) => {
+            match action {
+                P2pDisconnectionAction::Init(action) => action.effects(&meta, store),
+                P2pDisconnectionAction::Finish(action) => {
+                    let actions = store.state().watched_accounts.iter()
+                    .filter_map(|(pub_key, a)| match &a.initial_state {
+                        WatchedAccountLedgerInitialState::Pending { peer_id, .. } => {
+                            if peer_id == &action.peer_id {
+                                Some(WatchedAccountsLedgerInitialStateGetErrorAction {
+                                    pub_key: pub_key.clone(),
+                                    error: WatchedAccountsLedgerInitialStateGetError::PeerDisconnected,
+                                })
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+
+                    for action in actions {
+                        store.dispatch(action);
+                    }
+                }
+            }
+        }
         P2pAction::PeerReady(action) => {
             action.effects(&meta, store);
         }
@@ -140,6 +168,37 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             P2pChannelsAction::MessageReceived(action) => {
                 action.effects(&meta, store);
             }
+            P2pChannelsAction::BestTip(action) => match action {
+                P2pChannelsBestTipAction::Init(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsBestTipAction::Pending(_) => {}
+                P2pChannelsBestTipAction::Ready(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsBestTipAction::RequestSend(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsBestTipAction::Received(action) => {
+                    action.effects(&meta, store);
+                    store.dispatch(ConsensusBlockReceivedAction {
+                        hash: action.best_tip.hash,
+                        block: action.best_tip.block,
+                        history: None,
+                    });
+                }
+                P2pChannelsBestTipAction::RequestReceived(action) => {
+                    if let Some(best_tip) = store.state().consensus.best_tip_block_with_hash() {
+                        store.dispatch(P2pChannelsBestTipResponseSendAction {
+                            peer_id: action.peer_id,
+                            best_tip,
+                        });
+                    }
+                }
+                P2pChannelsBestTipAction::ResponseSend(action) => {
+                    action.effects(&meta, store);
+                }
+            },
             P2pChannelsAction::SnarkJobCommitment(action) => match action {
                 P2pChannelsSnarkJobCommitmentAction::Init(action) => {
                     action.effects(&meta, store);

@@ -1,8 +1,14 @@
 use redux::ActionMeta;
+use shared::block::BlockWithHash;
+use snark::hash::state_hash;
 
 use crate::disconnection::P2pDisconnectionInitAction;
 
 use super::{
+    best_tip::{
+        BestTipPropagationChannelMsg, P2pChannelsBestTipReceivedAction,
+        P2pChannelsBestTipRequestReceivedAction,
+    },
     snark_job_commitment::{
         P2pChannelsSnarkJobCommitmentPromiseReceivedAction,
         P2pChannelsSnarkJobCommitmentReceivedAction,
@@ -16,6 +22,8 @@ impl P2pChannelsMessageReceivedAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
+        P2pChannelsBestTipRequestReceivedAction: redux::EnablingCondition<S>,
+        P2pChannelsBestTipReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkJobCommitmentRequestReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkJobCommitmentPromiseReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkJobCommitmentReceivedAction: redux::EnablingCondition<S>,
@@ -23,6 +31,18 @@ impl P2pChannelsMessageReceivedAction {
     {
         let peer_id = self.peer_id;
         let was_expected = match self.message {
+            ChannelMsg::BestTipPropagation(msg) => match msg {
+                BestTipPropagationChannelMsg::GetNext => {
+                    store.dispatch(P2pChannelsBestTipRequestReceivedAction { peer_id })
+                }
+                BestTipPropagationChannelMsg::BestTip(best_tip) => {
+                    let best_tip = BlockWithHash {
+                        hash: state_hash(&*best_tip),
+                        block: best_tip,
+                    };
+                    store.dispatch(P2pChannelsBestTipReceivedAction { peer_id, best_tip })
+                }
+            },
             ChannelMsg::SnarkJobCommitmentPropagation(msg) => match msg {
                 SnarkJobCommitmentPropagationChannelMsg::GetNext { limit } => {
                     store.dispatch(P2pChannelsSnarkJobCommitmentRequestReceivedAction {

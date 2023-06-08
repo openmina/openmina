@@ -1,6 +1,7 @@
 use crate::watched_accounts::WatchedAccountsLedgerInitialStateGetInitAction;
 use crate::Store;
 use crate::{
+    p2p::channels::best_tip::P2pChannelsBestTipResponseSendAction,
     snark::block_verify::SnarkBlockVerifyInitAction,
     watched_accounts::WatchedAccountsBlockTransactionsIncludedAction,
 };
@@ -41,6 +42,13 @@ pub fn consensus_effects<S: redux::Service>(store: &mut Store<S>, action: Consen
                     store.dispatch(WatchedAccountsBlockTransactionsIncludedAction {
                         pub_key,
                         block: block.clone(),
+                    });
+                }
+
+                for peer_id in store.state().p2p.ready_peers() {
+                    store.dispatch(P2pChannelsBestTipResponseSendAction {
+                        peer_id,
+                        best_tip: block.clone(),
                     });
                 }
             }

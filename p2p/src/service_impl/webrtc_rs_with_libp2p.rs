@@ -5,7 +5,7 @@ use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionService},
     disconnection::P2pDisconnectionService,
-    P2pEvent, PeerId,
+    P2pChannelEvent, P2pEvent, PeerId,
 };
 
 use super::{libp2p::Libp2pService, webrtc_rs::P2pServiceWebrtcRs};
@@ -65,20 +65,47 @@ impl<T: P2pServiceWebrtcRsWithLibp2p> P2pConnectionService for T {
     }
 }
 
-impl<T: P2pServiceWebrtcRs> P2pDisconnectionService for T {
+impl<T: P2pServiceWebrtcRsWithLibp2p> P2pDisconnectionService for T {
     fn disconnect(&mut self, peer_id: PeerId) {
         // By removing the peer, `cmd_sender` gets dropped which will
         // cause `peer_loop` to end.
-        self.peers().remove(&peer_id);
+        let is_libp2p_peer = self.peers().remove(&peer_id).is_none();
+        if is_libp2p_peer {
+            use super::libp2p::Cmd;
+            let _ = self
+                .libp2p()
+                .cmd_sender()
+                .send(Cmd::Disconnect(peer_id.into()));
+        }
     }
 }
 
-impl<T: P2pServiceWebrtcRs> P2pChannelsService for T {
+impl<T: P2pServiceWebrtcRsWithLibp2p> P2pChannelsService for T {
     fn channel_open(&mut self, peer_id: PeerId, id: ChannelId) {
-        // TODO(binier)
+        if self.peers().contains_key(&peer_id) {
+            P2pServiceWebrtcRs::channel_open(self, peer_id, id)
+        } else {
+            let result = match id.supported_by_libp2p() {
+                false => Err("channel not supported".to_owned()),
+                true => Ok(()),
+            };
+            let _ = self
+                .event_sender()
+                .send(P2pEvent::Channel(P2pChannelEvent::Opened(
+                    peer_id, id, result,
+                )));
+        }
     }
 
     fn channel_send(&mut self, peer_id: PeerId, msg_id: MsgId, msg: ChannelMsg) {
-        // TODO(binier)
+        if self.peers().contains_key(&peer_id) {
+            P2pServiceWebrtcRs::channel_send(self, peer_id, msg_id, msg)
+        } else {
+            use super::libp2p::Cmd;
+            let _ = self
+                .libp2p()
+                .cmd_sender()
+                .send(Cmd::SendMessage(peer_id.into(), msg));
+        }
     }
 }

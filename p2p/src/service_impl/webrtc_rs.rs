@@ -16,9 +16,8 @@ use ::webrtc::{
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{
-    channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
-    connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionService},
-    disconnection::P2pDisconnectionService,
+    channels::{ChannelId, ChannelMsg, MsgId},
+    connection::outgoing::P2pConnectionOutgoingInitOpts,
     webrtc, P2pChannelEvent, P2pConnectionEvent, P2pEvent, PeerId,
 };
 

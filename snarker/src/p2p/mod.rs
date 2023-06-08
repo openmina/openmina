@@ -79,6 +79,14 @@ impl_into_global_action!(disconnection::P2pDisconnectionFinishAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 
+impl_into_global_action!(channels::best_tip::P2pChannelsBestTipInitAction);
+impl_into_global_action!(channels::best_tip::P2pChannelsBestTipPendingAction);
+impl_into_global_action!(channels::best_tip::P2pChannelsBestTipReadyAction);
+impl_into_global_action!(channels::best_tip::P2pChannelsBestTipRequestSendAction);
+impl_into_global_action!(channels::best_tip::P2pChannelsBestTipReceivedAction);
+impl_into_global_action!(channels::best_tip::P2pChannelsBestTipRequestReceivedAction);
+impl_into_global_action!(channels::best_tip::P2pChannelsBestTipResponseSendAction);
+
 impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentInitAction);
 impl_into_global_action!(
     channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentPendingAction
