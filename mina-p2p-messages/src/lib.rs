@@ -21,7 +21,7 @@ pub mod v2;
 #[cfg(feature = "hashing")]
 mod hash_input;
 #[cfg(feature = "hashing")]
-mod hash;
+pub mod hash;
 
 
 pub use gossip::GossipNetMessageV1;
