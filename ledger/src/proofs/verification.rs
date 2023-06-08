@@ -5,7 +5,7 @@ use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
 use crate::{
     scan_state::scan_state::transaction_snark::{SokDigest, Statement},
-    CurveAffine, ToInputs,
+    CurveAffine,
 };
 
 use super::{

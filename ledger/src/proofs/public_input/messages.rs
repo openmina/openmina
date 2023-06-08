@@ -1,13 +1,9 @@
 use std::str::FromStr;
 
-use ark_ff::{BigInteger256, Field, PrimeField};
+use crate::CurveAffine;
+use ark_ff::{BigInteger256, PrimeField};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
-use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
-use o1_utils::FieldHelpers;
-
-use crate::proofs::public_input::protocol_state::MinaHash;
-use crate::CurveAffine;
 
 use crate::hash::hash_fields;
 use crate::proofs::verification::AppState;

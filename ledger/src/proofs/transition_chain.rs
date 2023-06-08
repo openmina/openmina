@@ -1,7 +1,6 @@
 use mina_hasher::Fp;
 
 use super::public_input::protocol_state;
-use crate::util::FpExt;
 
 /// https://github.com/MinaProtocol/mina/blob/aebd4e552b8b4bcd78d1e24523169e8778794857/src/lib/merkle_list_verifier/merkle_list_verifier.ml#L36
 fn verify_impl<'a, T>(

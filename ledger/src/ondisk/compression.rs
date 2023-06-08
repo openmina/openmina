@@ -50,6 +50,6 @@ pub fn decompress(bytes: &[u8], is_compressed: bool) -> std::io::Result<Box<[u8]
 }
 
 #[cfg(not(feature = "compression"))]
-pub fn decompress(bytes: &[u8], is_compressed: bool) -> std::io::Result<Box<[u8]>> {
+pub fn decompress(bytes: &[u8], _is_compressed: bool) -> std::io::Result<Box<[u8]>> {
     Ok(bytes.into())
 }

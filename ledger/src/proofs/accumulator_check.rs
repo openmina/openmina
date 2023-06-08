@@ -8,7 +8,6 @@ use poly_commitment::{commitment::CommitmentCurve, srs::SRS};
 
 use super::public_input::scalar_challenge::{endo_fp, ScalarChallenge};
 use super::urs_utils;
-use crate::util::FpExt;
 
 const OTHER_URS_LENGTH: usize = 65536;
 
