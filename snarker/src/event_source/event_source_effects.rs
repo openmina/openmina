@@ -1,4 +1,5 @@
 use crate::action::CheckTimeoutsAction;
+use crate::p2p::channels::best_tip::P2pChannelsBestTipReadyAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReadyAction;
 use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::{
@@ -118,9 +119,12 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     P2pChannelEvent::Opened(peer_id, chan_id, res) => match res {
                         Err(_err) => {
                             // TODO(binier): dispatch error action.
-                            store.dispatch(P2pDisconnectionFinishAction { peer_id });
                         }
                         Ok(_) => match chan_id {
+                            ChannelId::BestTipPropagation => {
+                                // TODO(binier): maybe dispatch success and then ready.
+                                store.dispatch(P2pChannelsBestTipReadyAction { peer_id });
+                            }
                             ChannelId::SnarkJobCommitmentPropagation => {
                                 // TODO(binier): maybe dispatch success and then ready.
                                 store

@@ -5,7 +5,7 @@ mod action_kind;
 pub use action_kind::ActionKind;
 
 mod config;
-pub use config::{Config, SnarkerConfig};
+pub use config::*;
 
 mod state;
 pub use state::State;

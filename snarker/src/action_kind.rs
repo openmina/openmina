@@ -15,6 +15,12 @@ use crate::job_commitment::{
     JobCommitmentCreateAction, JobCommitmentP2pSendAction, JobCommitmentP2pSendAllAction,
     JobCommitmentTimeoutAction,
 };
+use crate::p2p::channels::best_tip::{
+    P2pChannelsBestTipAction, P2pChannelsBestTipInitAction, P2pChannelsBestTipPendingAction,
+    P2pChannelsBestTipReadyAction, P2pChannelsBestTipReceivedAction,
+    P2pChannelsBestTipRequestReceivedAction, P2pChannelsBestTipRequestSendAction,
+    P2pChannelsBestTipResponseSendAction,
+};
 use crate::p2p::channels::snark_job_commitment::{
     P2pChannelsSnarkJobCommitmentAction, P2pChannelsSnarkJobCommitmentInitAction,
     P2pChannelsSnarkJobCommitmentPendingAction, P2pChannelsSnarkJobCommitmentPromiseReceivedAction,
@@ -99,6 +105,13 @@ pub enum ActionKind {
     JobCommitmentP2pSend,
     JobCommitmentP2pSendAll,
     JobCommitmentTimeout,
+    P2pChannelsBestTipInit,
+    P2pChannelsBestTipPending,
+    P2pChannelsBestTipReady,
+    P2pChannelsBestTipReceived,
+    P2pChannelsBestTipRequestReceived,
+    P2pChannelsBestTipRequestSend,
+    P2pChannelsBestTipResponseSend,
     P2pChannelsMessageReceived,
     P2pChannelsSnarkJobCommitmentInit,
     P2pChannelsSnarkJobCommitmentPending,
@@ -334,6 +347,7 @@ impl ActionKindGet for P2pChannelsAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::MessageReceived(a) => a.kind(),
+            Self::BestTip(a) => a.kind(),
             Self::SnarkJobCommitment(a) => a.kind(),
         }
     }
@@ -620,6 +634,20 @@ impl ActionKindGet for P2pChannelsMessageReceivedAction {
     }
 }
 
+impl ActionKindGet for P2pChannelsBestTipAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::Pending(a) => a.kind(),
+            Self::Ready(a) => a.kind(),
+            Self::RequestSend(a) => a.kind(),
+            Self::Received(a) => a.kind(),
+            Self::RequestReceived(a) => a.kind(),
+            Self::ResponseSend(a) => a.kind(),
+        }
+    }
+}
+
 impl ActionKindGet for P2pChannelsSnarkJobCommitmentAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -824,6 +852,48 @@ impl ActionKindGet for P2pConnectionIncomingErrorAction {
 impl ActionKindGet for P2pConnectionIncomingSuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pConnectionIncomingSuccess
+    }
+}
+
+impl ActionKindGet for P2pChannelsBestTipInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsBestTipInit
+    }
+}
+
+impl ActionKindGet for P2pChannelsBestTipPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsBestTipPending
+    }
+}
+
+impl ActionKindGet for P2pChannelsBestTipReadyAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsBestTipReady
+    }
+}
+
+impl ActionKindGet for P2pChannelsBestTipRequestSendAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsBestTipRequestSend
+    }
+}
+
+impl ActionKindGet for P2pChannelsBestTipReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsBestTipReceived
+    }
+}
+
+impl ActionKindGet for P2pChannelsBestTipRequestReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsBestTipRequestReceived
+    }
+}
+
+impl ActionKindGet for P2pChannelsBestTipResponseSendAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsBestTipResponseSend
     }
 }
 

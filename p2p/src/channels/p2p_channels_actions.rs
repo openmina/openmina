@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{P2pState, PeerId};
 
-use super::{snark_job_commitment::P2pChannelsSnarkJobCommitmentAction, ChannelMsg};
+use super::{
+    best_tip::P2pChannelsBestTipAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
+    ChannelMsg,
+};
 
 pub type P2pChannelsActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pChannelsAction>;
 
@@ -10,6 +13,7 @@ pub type P2pChannelsActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pChannel
 pub enum P2pChannelsAction {
     MessageReceived(P2pChannelsMessageReceivedAction),
 
+    BestTip(P2pChannelsBestTipAction),
     SnarkJobCommitment(P2pChannelsSnarkJobCommitmentAction),
 }
 
@@ -17,6 +21,7 @@ impl P2pChannelsAction {
     pub fn peer_id(&self) -> &PeerId {
         match self {
             Self::MessageReceived(v) => &v.peer_id,
+            Self::BestTip(v) => v.peer_id(),
             Self::SnarkJobCommitment(v) => v.peer_id(),
         }
     }

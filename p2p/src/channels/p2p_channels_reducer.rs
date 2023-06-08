@@ -5,6 +5,9 @@ impl P2pChannelsState {
         let (action, meta) = action.split();
         match action {
             P2pChannelsAction::MessageReceived(_) => {}
+            P2pChannelsAction::BestTip(action) => {
+                self.best_tip.reducer(meta.with_action(action));
+            }
             P2pChannelsAction::SnarkJobCommitment(action) => {
                 self.snark_job_commitment.reducer(meta.with_action(action));
             }

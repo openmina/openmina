@@ -1,5 +1,5 @@
+pub mod best_tip;
 pub mod snark_job_commitment;
-use snark_job_commitment::SnarkJobCommitmentPropagationChannelMsg;
 
 mod p2p_channels_state;
 pub use p2p_channels_state::*;
@@ -22,9 +22,13 @@ use derive_more::From;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
+use best_tip::BestTipPropagationChannelMsg;
+use snark_job_commitment::SnarkJobCommitmentPropagationChannelMsg;
+
 #[derive(Serialize, Deserialize, EnumIter, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum ChannelId {
+    BestTipPropagation = 2,
     SnarkJobCommitmentPropagation = 5,
 }
 
@@ -41,7 +45,15 @@ impl ChannelId {
 
     pub fn name(self) -> &'static str {
         match self {
+            Self::BestTipPropagation => "best_tip/propagation",
             Self::SnarkJobCommitmentPropagation => "snark_job_commitment/propagation",
+        }
+    }
+
+    pub fn supported_by_libp2p(self) -> bool {
+        match self {
+            Self::SnarkJobCommitmentPropagation => false,
+            Self::BestTipPropagation => true,
         }
     }
 
@@ -71,12 +83,14 @@ impl MsgId {
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, From, Debug, Clone)]
 pub enum ChannelMsg {
+    BestTipPropagation(BestTipPropagationChannelMsg),
     SnarkJobCommitmentPropagation(SnarkJobCommitmentPropagationChannelMsg),
 }
 
 impl ChannelMsg {
     pub fn channel_id(&self) -> ChannelId {
         match self {
+            Self::BestTipPropagation(_) => ChannelId::BestTipPropagation,
             Self::SnarkJobCommitmentPropagation(_) => ChannelId::SnarkJobCommitmentPropagation,
         }
     }
@@ -86,6 +100,7 @@ impl ChannelMsg {
         W: std::io::Write,
     {
         match self {
+            Self::BestTipPropagation(v) => v.binprot_write(w),
             Self::SnarkJobCommitmentPropagation(v) => v.binprot_write(w),
         }
     }
@@ -96,6 +111,9 @@ impl ChannelMsg {
         R: std::io::Read + ?Sized,
     {
         match id {
+            ChannelId::BestTipPropagation => {
+                BestTipPropagationChannelMsg::binprot_read(r).map(|v| v.into())
+            }
             ChannelId::SnarkJobCommitmentPropagation => {
                 SnarkJobCommitmentPropagationChannelMsg::binprot_read(r).map(|v| v.into())
             }

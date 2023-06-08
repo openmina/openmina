@@ -504,7 +504,7 @@ dependencies = [
 [[package]]
 name = "binprot"
 version = "0.1.8"
-source = "git+https://github.com/openmina/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
+source = "git+https://github.com/openmina/binprot-rs?rev=dfbd3bbda8b2681d86ac73065523c658ee31d45d#dfbd3bbda8b2681d86ac73065523c658ee31d45d"
 dependencies = [
  "binprot_derive",
  "byteorder",
@@ -514,7 +514,7 @@ dependencies = [
 [[package]]
 name = "binprot_derive"
 version = "0.1.7"
-source = "git+https://github.com/openmina/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
+source = "git+https://github.com/openmina/binprot-rs?rev=dfbd3bbda8b2681d86ac73065523c658ee31d45d#dfbd3bbda8b2681d86ac73065523c658ee31d45d"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -2801,7 +2801,7 @@ dependencies = [
 [[package]]
 name = "mina-p2p-messages"
 version = "0.6.4"
-source = "git+https://github.com/openmina/mina-p2p-messages-rs?rev=c94050342a627c8a1fd10a3a1641d2f17d3a7110#c94050342a627c8a1fd10a3a1641d2f17d3a7110"
+source = "git+https://github.com/openmina/mina-p2p-messages-rs?branch=openmina#f66ed021cdfcdbbc6f5ec049df9b580549bfcc6e"
 dependencies = [
  "ark-ff",
  "base64 0.13.1",
@@ -3275,6 +3275,7 @@ dependencies = [
  "sha2 0.10.6",
  "shared",
  "smallvec",
+ "snark",
  "strum",
  "strum_macros",
  "thiserror",
