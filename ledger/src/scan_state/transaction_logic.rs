@@ -3783,7 +3783,7 @@ pub mod local_state {
     use crate::{
         hash_with_kimchi,
         scan_state::currency::{Index, Signed},
-        Inputs,
+        Inputs, ToInputs,
     };
 
     use super::{zkapp_command::CallForest, *};
@@ -3932,6 +3932,38 @@ pub mod local_state {
         pub account_update_index: Index,
         pub failure_status_tbl: Vec<Vec<TransactionFailure>>,
         pub will_succeed: bool,
+    }
+
+    impl ToInputs for LocalState {
+        /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/mina_state/local_state.ml#L116
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            let Self {
+                stack_frame,
+                call_stack,
+                transaction_commitment,
+                full_transaction_commitment,
+                token_id,
+                excess,
+                supply_increase,
+                ledger,
+                success,
+                account_update_index,
+                failure_status_tbl: _,
+                will_succeed,
+            } = self;
+
+            inputs.append(stack_frame);
+            inputs.append(call_stack);
+            inputs.append(transaction_commitment);
+            inputs.append(full_transaction_commitment);
+            inputs.append(token_id);
+            inputs.append(excess);
+            inputs.append(supply_increase);
+            inputs.append(ledger);
+            inputs.append(account_update_index);
+            inputs.append(success);
+            inputs.append(will_succeed);
+        }
     }
 
     impl LocalState {

@@ -3,9 +3,15 @@ use std::array;
 use ark_ff::Field;
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
-use crate::CurveAffine;
+use crate::{
+    scan_state::scan_state::transaction_snark::{SokDigest, Statement},
+    CurveAffine, ToInputs,
+};
 
-use super::util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field};
+use super::{
+    public_input::protocol_state::MinaHash,
+    util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
+};
 use kimchi::{
     circuits::polynomials::permutation::eval_zk_polynomial, error::VerifyError,
     mina_curves::pasta::Pallas, proof::ProofEvaluations,
@@ -120,11 +126,14 @@ fn make_scalars_env(minimal: &PlonkMinimal) -> ScalarsEnv {
     }
 }
 
-fn get_message_for_next_step_proof<'a>(
+fn get_message_for_next_step_proof<'a, State>(
     messages_for_next_step_proof: &PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof,
     verifier_index: &VerifierIndex,
-    protocol_state: &'a MinaStateProtocolStateValueStableV2,
-) -> MessagesForNextStepProof<'a> {
+    app_state: &'a State,
+) -> MessagesForNextStepProof<'a, State>
+where
+    State: AppState,
+{
     let msg_for_next_step_proof = &messages_for_next_step_proof;
     let challenge_polynomial_commitments: [CurveAffine<Fp>; 2] =
         extract_polynomial_commitment(&msg_for_next_step_proof.challenge_polynomial_commitments);
@@ -150,7 +159,7 @@ fn get_message_for_next_step_proof<'a>(
     };
 
     MessagesForNextStepProof {
-        protocol_state,
+        app_state,
         dlog_plonk_index,
         challenge_polynomial_commitments,
         old_bulletproof_challenges,
@@ -179,14 +188,17 @@ fn get_message_for_next_wrap_proof(
     }
 }
 
-fn get_prepared_statement(
-    message_for_next_step_proof: &MessagesForNextStepProof,
+fn get_prepared_statement<State>(
+    message_for_next_step_proof: &MessagesForNextStepProof<State>,
     message_for_next_wrap_proof: &MessagesForNextWrapProof,
     plonk: InCircuit,
     deferred_values: &PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues,
     sponge_digest_before_evaluations: &CompositionTypesDigestConstantStableV1,
     minimal: &PlonkMinimal,
-) -> PreparedStatement {
+) -> PreparedStatement
+where
+    State: AppState,
+{
     let digest = &sponge_digest_before_evaluations;
     let sponge_digest_before_evaluations: [u64; 4] = array::from_fn(|i| digest[i].as_u64());
 
@@ -267,22 +279,44 @@ pub fn verify_block(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierI
         ..
     } = &header;
 
-    verify(protocol_state, protocol_state_proof, verifier_index)
+    verify_impl(protocol_state, protocol_state_proof, verifier_index)
 }
 
 pub fn verify_transaction(
-    protocol_state: &MinaStateProtocolStateValueStableV2,
+    statement: &Statement<SokDigest>,
     transaction_proof: &TransactionSnarkProofStableV2,
     verifier_index: &VerifierIndex,
 ) -> bool {
-    verify(protocol_state, transaction_proof, verifier_index)
+    verify_impl(statement, transaction_proof, verifier_index)
 }
 
-fn verify(
-    protocol_state: &MinaStateProtocolStateValueStableV2,
+pub trait AppState {
+    fn to_field_elements(&self) -> Vec<Fp>;
+}
+
+impl AppState for MinaStateProtocolStateValueStableV2 {
+    fn to_field_elements(&self) -> Vec<Fp> {
+        vec![self.hash()]
+    }
+}
+
+impl AppState for Statement<SokDigest> {
+    fn to_field_elements(&self) -> Vec<Fp> {
+        let mut inputs = crate::Inputs::new();
+        inputs.append(self);
+
+        inputs.to_fields()
+    }
+}
+
+fn verify_impl<State>(
+    app_state: &State,
     proof: &PicklesProofProofsVerified2ReprStableV2,
     verifier_index: &VerifierIndex,
-) -> bool {
+) -> bool
+where
+    State: AppState,
+{
     let DataForPublicInput { evals, minimal } = extract_data_for_public_input(proof);
 
     let env = make_scalars_env(&minimal);
@@ -291,7 +325,7 @@ fn verify(
     let message_for_next_step_proof = get_message_for_next_step_proof(
         &proof.statement.messages_for_next_step_proof,
         verifier_index,
-        protocol_state,
+        app_state,
     );
 
     let message_for_next_wrap_proof = &proof.statement.proof_state.messages_for_next_wrap_proof;

@@ -31,7 +31,7 @@
 //! Port of the implementation from:
 //! https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_excess.ml#L1
 
-use crate::TokenId;
+use crate::{ToInputs, TokenId};
 
 use super::{
     currency::{Fee, Magnitude, Signed},
@@ -44,6 +44,23 @@ pub struct FeeExcess {
     pub(super) fee_excess_l: Signed<Fee>,
     pub(super) fee_token_r: TokenId,
     pub(super) fee_excess_r: Signed<Fee>,
+}
+
+impl ToInputs for FeeExcess {
+    /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/mina_base/fee_excess.ml#L162
+    fn to_inputs(&self, inputs: &mut crate::Inputs) {
+        let Self {
+            fee_token_l,
+            fee_excess_l,
+            fee_token_r,
+            fee_excess_r,
+        } = self;
+
+        inputs.append(fee_token_l);
+        inputs.append(fee_excess_l);
+        inputs.append(fee_token_r);
+        inputs.append(fee_excess_r);
+    }
 }
 
 impl FeeExcess {

@@ -81,7 +81,7 @@ wasm_thread = { version = "0.2", features = [ "es_modules" ] }
 wasm-bindgen = "0.2"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-zstd = "0.12"
+zstd = { version = "0.12", optional = true }
 # ocaml-interop = { path = "/home/sebastien/github/ocaml-interop" }
 ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values" }
 # ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values" }
@@ -93,6 +93,8 @@ wasm-bindgen-test = "0.3.0"
 web-sys = { version = "0.3", features = ["Blob", "DedicatedWorkerGlobalScope", "MessageEvent", "Url", "Worker", "WorkerType", "WorkerOptions", "console", "Window", "Performance" ] }
 
 [features]
+# Put zstd behind a feature, cargo always re-compile it without touching the files
+compression = ["zstd"]
 # Add this feature to run tests in both nodejs and browser:
 # https://github.com/rustwasm/wasm-bindgen/issues/2571
 in_nodejs = []

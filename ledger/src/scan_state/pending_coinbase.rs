@@ -104,6 +104,14 @@ pub struct StackState {
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct CoinbaseStack(pub(super) Fp);
 
+impl ToInputs for CoinbaseStack {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let Self(fp) = self;
+
+        inputs.append(fp)
+    }
+}
+
 impl std::fmt::Debug for CoinbaseStack {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_empty() {
@@ -143,6 +151,16 @@ type StackHash = Fp;
 pub(super) struct StateStack {
     pub(super) init: StackHash,
     pub(super) curr: StackHash,
+}
+
+impl ToInputs for StateStack {
+    /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/mina_base/pending_coinbase.ml#L271
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let Self { init, curr } = self;
+
+        inputs.append(init);
+        inputs.append(curr);
+    }
 }
 
 impl std::fmt::Debug for StateStack {
@@ -229,6 +247,16 @@ pub mod update {
 pub struct Stack {
     pub(super) data: CoinbaseStack,
     pub(super) state: StateStack,
+}
+
+impl ToInputs for Stack {
+    /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/mina_base/pending_coinbase.ml#L591
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let Self { data, state } = self;
+
+        inputs.append(data);
+        inputs.append(state);
+    }
 }
 
 impl std::fmt::Debug for Stack {

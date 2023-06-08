@@ -18,7 +18,7 @@ impl MaybeCompressed<'_> {
     }
 }
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(feature = "compression")]
 pub fn compress(bytes: &[u8]) -> std::io::Result<MaybeCompressed> {
     let compressed = {
         let mut result = Vec::<u8>::with_capacity(bytes.len());
@@ -33,12 +33,12 @@ pub fn compress(bytes: &[u8]) -> std::io::Result<MaybeCompressed> {
     }
 }
 
-#[cfg(target_family = "wasm")]
+#[cfg(not(feature = "compression"))]
 pub fn compress(bytes: &[u8]) -> std::io::Result<MaybeCompressed> {
     Ok(MaybeCompressed::No(bytes))
 }
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(feature = "compression")]
 pub fn decompress(bytes: &[u8], is_compressed: bool) -> std::io::Result<Box<[u8]>> {
     if is_compressed {
         let mut result = Vec::with_capacity(bytes.len() * 2);
@@ -49,7 +49,7 @@ pub fn decompress(bytes: &[u8], is_compressed: bool) -> std::io::Result<Box<[u8]
     }
 }
 
-#[cfg(target_family = "wasm")]
+#[cfg(not(feature = "compression"))]
 pub fn decompress(bytes: &[u8], is_compressed: bool) -> std::io::Result<Box<[u8]>> {
     Ok(bytes.into())
 }
