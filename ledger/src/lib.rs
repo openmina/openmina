@@ -43,7 +43,7 @@ mod database;
 pub mod dummy;
 pub mod generators;
 mod hash;
-mod mask;
+pub mod mask;
 pub mod ondisk;
 mod poseidon;
 mod proofs;

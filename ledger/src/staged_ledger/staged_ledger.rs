@@ -115,8 +115,8 @@ struct PreStatement<L: sparse_ledger::LedgerIntf + Clone> {
 }
 
 #[derive(Debug)]
-struct DiffResult {
-    hash_after_applying: StagedLedgerHash,
+pub struct DiffResult {
+    pub hash_after_applying: StagedLedgerHash,
     ledger_proof: Option<(
         LedgerProof,
         Vec<TransactionsOrdered<(WithStatus<Transaction>, Fp, Slot)>>,
@@ -124,7 +124,7 @@ struct DiffResult {
     pending_coinbase_update: (bool, Update),
 }
 
-enum SkipVerification {
+pub enum SkipVerification {
     All,
     Proofs,
 }
@@ -443,7 +443,10 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#424
-    fn create_exn(constraint_constants: ConstraintConstants, ledger: Mask) -> Result<Self, String> {
+    pub fn create_exn(
+        constraint_constants: ConstraintConstants,
+        ledger: Mask,
+    ) -> Result<Self, String> {
         let pending_coinbase_depth = constraint_constants.pending_coinbase_depth as usize;
 
         Ok(Self {
@@ -1174,7 +1177,7 @@ impl StagedLedger {
         Ok(xs)
     }
 
-    fn apply(
+    pub fn apply(
         &mut self,
         skip_verification: Option<SkipVerification>,
         constraint_constants: &ConstraintConstants,
@@ -1708,7 +1711,7 @@ impl StagedLedger {
     // }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1863
-    fn create_diff<F>(
+    pub fn create_diff<F>(
         &self,
         constraint_constants: &ConstraintConstants,
         global_slot: Slot,
