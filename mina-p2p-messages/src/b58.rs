@@ -87,6 +87,16 @@ where
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct Base58CheckOfBinProt<T, U, const V: u8>(T, PhantomData<U>);
 
+
+impl<T, U, const V: u8> Default for Base58CheckOfBinProt<T, U, V>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Self(T::default(), Default::default())
+    }
+}
+
 impl<T, U, const V: u8> Clone for Base58CheckOfBinProt<T, U, V>
 where
     T: Clone,
@@ -113,6 +123,10 @@ impl<T, U, const V: u8> std::ops::Deref for Base58CheckOfBinProt<T, U, V> {
 impl<T, U, const V: u8> Base58CheckOfBinProt<T, U, V> {
     pub fn into_inner(self) -> T {
         self.0
+    }
+
+    pub fn inner(&self) -> &T {
+        &self.0
     }
 }
 

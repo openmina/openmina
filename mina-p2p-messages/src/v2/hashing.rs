@@ -35,7 +35,7 @@ use super::{
     MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
     MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
-    NonZeroCurvePointUncompressedStableV1, SgnStableV1, TokenFeeExcess,
+    NonZeroCurvePointUncompressedStableV1, SgnStableV1, TokenFeeExcess, MinaBaseAccountBinableArgStableV2, MinaBaseVerificationKeyWireStableV1,
 };
 
 impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1 {
@@ -291,6 +291,22 @@ impl MinaHash for MinaStateProtocolStateValueStableV2 {
     }
 }
 
+impl MinaHash for MinaBaseAccountBinableArgStableV2 {
+    fn hash(&self) -> Fp {
+        let mut inputs = Inputs::new();
+        self.to_input(&mut inputs);
+        hash_with_kimchi("MinaAccount", &inputs.to_fields())
+    }
+}
+
+impl MinaHash for MinaBaseVerificationKeyWireStableV1 {
+    fn hash(&self) -> Fp {
+        let mut inputs = Inputs::new();
+        self.to_input(&mut inputs);
+        hash_with_kimchi("MinaSideLoadedVk", &inputs.to_fields())
+    }
+}
+
 fn param_to_field_impl(param: &str, default: &[u8; 32]) -> Fp {
     let param_bytes = param.as_bytes();
     let len = param_bytes.len();
@@ -301,20 +317,29 @@ fn param_to_field_impl(param: &str, default: &[u8; 32]) -> Fp {
     Fp::read(&fp[..]).expect("fp read failed")
 }
 
-fn param_to_field(param: &str) -> Fp {
-    const DEFAULT: &[u8; 32] = b"********************\0\0\0\0\0\0\0\0\0\0\0\0";
 
+const INPUT_PARAMS: &[u8; 32] = b"********************\0\0\0\0\0\0\0\0\0\0\0\0";
+const NO_INPUT_PARAMS: &[u8; 32] = &[0; 32];
+
+fn param_to_field(param: &str, pad: &[u8; 32]) -> Fp {
     if param.len() > 20 {
         panic!("must be 20 byte maximum");
     }
 
-    param_to_field_impl(param, DEFAULT)
+    param_to_field_impl(param, pad)
+}
+
+pub fn hash_noinputs(param: &str) -> Fp {
+    let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
+
+    sponge.absorb(&[param_to_field(param, NO_INPUT_PARAMS)]);
+    sponge.squeeze()
 }
 
 pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
     let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
 
-    sponge.absorb(&[param_to_field(param)]);
+    sponge.absorb(&[param_to_field(param, INPUT_PARAMS)]);
     sponge.squeeze();
 
     sponge.absorb(fields);
@@ -322,7 +347,7 @@ pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
 }
 
 macro_rules! to_input_fields {
-    ( $inputs:expr, $( $field:ident ),* $(,)?) => {
+    ( $inputs:expr, $( $field:expr ),* $(,)?) => {
         $(
             $field.to_input($inputs);
         )*
@@ -646,48 +671,8 @@ impl ToInput for SgnStableV1 {
         inputs.append_bool(self == &SgnStableV1::Pos);
     }
 }
-
-// impl ToInput for  {
-//     fn to_input(&self, inputs: &mut Inputs) {
-//         todo!()
-//     }
-// }
-
-// impl ToInput for  {
-//     fn to_input(&self, inputs: &mut Inputs) {
-//         todo!()
-//     }
-// }
-
-// impl ToInput for  {
-//     fn to_input(&self, inputs: &mut Inputs) {
-//         todo!()
-//     }
-// }
-
-// impl ToInput for  {
-//     fn to_input(&self, inputs: &mut Inputs) {
-//         todo!()
-//     }
-// }
-
-// impl ToInput for  {
-//     fn to_input(&self, inputs: &mut Inputs) {
-//         todo!()
-//     }
-// }
-
-// impl ToInput for  {
-//     fn to_input(&self, inputs: &mut Inputs) {
-//         todo!()
-//     }
-// }
-
-// impl ToInput for  {
-//     fn to_input(&self, inputs: &mut Inputs) {
-//         todo!()
-//     }
-// }
+mod verification_key;
+mod account;
 
 #[cfg(test)]
 mod hash_tests {

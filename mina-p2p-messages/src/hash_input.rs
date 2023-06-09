@@ -8,7 +8,7 @@ use o1_utils::FieldHelpers;
 
 use crate::{
     bigint::BigInt,
-    number::{Int32, Int64},
+    number::{Int32, Int64}, pseq::PaddedSeq, b58::Base58CheckOfBinProt,
 };
 
 pub trait ToInput {
@@ -46,6 +46,39 @@ where
 {
     fn to_input(&self, inputs: &mut Inputs) {
         self.iter().for_each(|v| v.to_input(inputs));
+    }
+}
+
+impl<T> ToInput for (T, T) where T: ToInput {
+    fn to_input(&self, inputs: &mut Inputs) {
+        self.0.to_input(inputs);
+        self.1.to_input(inputs);
+    }
+}
+
+impl<T> ToInput for Option<T> where T: ToInput + Default {
+    fn to_input(&self, inputs: &mut Inputs) {
+        match self.as_ref() {
+            Some(v) => v.to_input(inputs),
+            None => T::default().to_input(inputs),
+        }
+    }
+}
+
+impl<T, const N: usize> ToInput for PaddedSeq<T, N> where T: ToInput {
+    fn to_input(&self, inputs: &mut Inputs) {
+        for v in &self.0 {
+            v.to_input(inputs);
+        }
+    }
+}
+
+impl<T, U, const V: u8> ToInput for Base58CheckOfBinProt<T, U, V>
+where
+    T: ToInput,
+{
+    fn to_input(&self, inputs: &mut Inputs) {
+        self.inner().to_input(inputs);
     }
 }
 

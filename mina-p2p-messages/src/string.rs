@@ -2,7 +2,7 @@ use binprot::Nat0;
 use serde::{de::Visitor, Deserialize, Serialize};
 
 /// String of bytes.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ByteString(Vec<u8>);
 
 impl std::ops::Deref for ByteString {

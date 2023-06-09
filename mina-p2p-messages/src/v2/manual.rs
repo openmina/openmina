@@ -9,13 +9,15 @@ use crate::{
 
 use super::{
     ConsensusProofOfStakeDataConsensusStateValueStableV1, ConsensusVrfOutputTruncatedStableV1,
-    DataHashLibStateHashStableV1, MinaBaseAccountIdDigestStableV1, MinaBaseEpochSeedStableV1,
-    MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseCoinbaseStackStableV1,
-    MinaBasePendingCoinbaseHashVersionedStableV1, MinaBasePendingCoinbaseStackHashStableV1,
-    MinaBaseStateBodyHashStableV1, NonZeroCurvePointUncompressedStableV1,
-    ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
-    ProtocolVersionStableV1, SgnStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
-    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1, MinaBaseSignatureStableV1, CurrencyFeeStableV1,
+    CurrencyFeeStableV1, DataHashLibStateHashStableV1, MinaBaseAccountIdDigestStableV1,
+    MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
+    MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseHashVersionedStableV1,
+    MinaBasePendingCoinbaseStackHashStableV1, MinaBaseSignatureStableV1,
+    MinaBaseStateBodyHashStableV1,
+    NonZeroCurvePointUncompressedStableV1, ParallelScanWeightStableV1,
+    PicklesProofProofsVerified2ReprStableV2StatementFp, ProtocolVersionStableV1, SgnStableV1,
+    TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
+    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
 };
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
@@ -638,7 +640,8 @@ impl<'de> Deserialize<'de> for SgnStableV1 {
         } else {
             #[derive(Deserialize)]
             enum _SgnStableV1 {
-                Pos, Neg,
+                Pos,
+                Neg,
             }
 
             let s: _SgnStableV1 = Deserialize::deserialize(deserializer)?;
@@ -706,4 +709,13 @@ pub struct MinaBaseFeeExcessStableV1(pub TokenFeeExcess, pub TokenFeeExcess);
 pub struct TokenFeeExcess {
     pub token: TokenIdKeyHash,
     pub amount: Amount,
+}
+
+impl Default for NonZeroCurvePointUncompressedStableV1 {
+    fn default() -> Self {
+        Self {
+            x: Default::default(),
+            is_odd: false,
+        }
+    }
 }

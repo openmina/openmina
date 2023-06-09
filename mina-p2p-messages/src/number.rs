@@ -2,7 +2,7 @@ use std::{fmt::Display, marker::PhantomData, str::FromStr};
 
 use serde::{de::Visitor, Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, derive_more::From)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, derive_more::From)]
 pub struct Number<T>(pub T);
 
 pub type Int32 = Number<i32>;
