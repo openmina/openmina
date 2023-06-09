@@ -88,7 +88,7 @@ fn zkapp_account_default() -> MinaBaseZkappAccountStableV2 {
         verification_key: None,
         zkapp_version: MinaNumbersNatMake32StableV1(UnsignedExtendedUInt32StableV1(0.into())),
         sequence_state: {
-            let empty: BigInt = hash_noinputs("MinaZkappSequenceStateEmptyElt").into();
+            let empty: BigInt = hash_noinputs("MinaZkappActionStateEmptyElt").into();
             let sequence_state: [BigInt; 5] = array_of(empty);
             PaddedSeq(sequence_state)
         },
