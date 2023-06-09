@@ -13,7 +13,7 @@ derive_more = "0.99.17"
 thiserror = "1.0.37"
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", branch = "new-types-feb-23", features = ["hashing"] }
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", branch = "openmina", features = ["hashing"] }
 
 shared = { path = "../shared" }
 p2p = { path = "../p2p" }

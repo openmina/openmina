@@ -48,7 +48,7 @@ mod transaction;
 pub use transaction::Transaction;
 
 const BLOCK_VERIFIER_INDEX_HASH: &'static str =
-    "b8542c0089f8310e506d7be98cb4811405fe7b6281e7df08a2436b31e95e4c7d";
+    "88d0cf199e74833b5b8b39e5396abbafb43f91194d25bc77ca220d73a9e1271f";
 const BLOCK_VERIFIER_SRS_HASH: &'static str =
     "d733ebb250be11f2de010b3dafae2034f1c85f1b126991f352cb2db0d3a0b9a2";
 
@@ -342,10 +342,6 @@ pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
             p2p: lib::p2p::P2pConfig {
                 initial_peers: vec![
                     dial_opts(
-                        "/dns4/webrtc.webnode.openmina.com/tcp/443",
-                        "QmTyRcQ5oM4ZByekkKyh1EDVNy7Xvh32UdGKAMBqPTiUSR",
-                    ),
-                    dial_opts(
                         "/dns4/webrtc2.webnode.openmina.com/tcp/443",
                         "Qmaxe3KXcdyAHEiFL48bvkJLsPb9S3q3dZ5qUP1B89CEJ6",
                     ),
@@ -357,30 +353,30 @@ pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
                         "/dns4/webrtc2.webnode.openmina.com/tcp/4432",
                         "QmSJWfK7GSAFY2Gb8Unag2P68rtCrJXfZBTKZRgN94ppj3",
                     ),
-                    dial_opts(
-                        "/dns4/webrtc3.webnode.openmina.com/tcp/443",
-                        "QmemRt4HfpNBsFY752tE5E3H6dV87JjtmgacN53BDGbaB6",
-                    ),
-                    dial_opts(
-                        "/dns4/webrtc3.webnode.openmina.com/tcp/4431",
-                        "QmZvoP2taWTUbuGp1xnu5AXizG9vr2MFbam7nSuGvpmfhM",
-                    ),
-                    dial_opts(
-                        "/dns4/webrtc3.webnode.openmina.com/tcp/4432",
-                        "QmVXA7fjnahFLC85jFHJYXapM61Yo1rvH7Live7szpUrzb",
-                    ),
-                    dial_opts(
-                        "/dns4/webrtc4.webnode.openmina.com/tcp/443",
-                        "QmQKwHVjkpqdLco5KpyMXjDwjxKHLdS78kmdDMWwvxYKFf",
-                    ),
-                    dial_opts(
-                        "/dns4/webrtc4.webnode.openmina.com/tcp/4431",
-                        "QmSXffHzFVSEoQCYBS1bPpCn4vgGEpQnCA9NLYuhamPBU3",
-                    ),
-                    dial_opts(
-                        "/dns4/webrtc4.webnode.openmina.com/tcp/4432",
-                        "QmdxcoKJTh2b8xLZcBk9zw2xHdEcNwzMr78jX99wUWcT8o",
-                    ),
+                    // dial_opts(
+                    //     "/dns4/webrtc3.webnode.openmina.com/tcp/443",
+                    //     "QmemRt4HfpNBsFY752tE5E3H6dV87JjtmgacN53BDGbaB6",
+                    // ),
+                    // dial_opts(
+                    //     "/dns4/webrtc3.webnode.openmina.com/tcp/4431",
+                    //     "QmZvoP2taWTUbuGp1xnu5AXizG9vr2MFbam7nSuGvpmfhM",
+                    // ),
+                    // dial_opts(
+                    //     "/dns4/webrtc3.webnode.openmina.com/tcp/4432",
+                    //     "QmVXA7fjnahFLC85jFHJYXapM61Yo1rvH7Live7szpUrzb",
+                    // ),
+                    // dial_opts(
+                    //     "/dns4/webrtc4.webnode.openmina.com/tcp/443",
+                    //     "QmQKwHVjkpqdLco5KpyMXjDwjxKHLdS78kmdDMWwvxYKFf",
+                    // ),
+                    // dial_opts(
+                    //     "/dns4/webrtc4.webnode.openmina.com/tcp/4431",
+                    //     "QmSXffHzFVSEoQCYBS1bPpCn4vgGEpQnCA9NLYuhamPBU3",
+                    // ),
+                    // dial_opts(
+                    //     "/dns4/webrtc4.webnode.openmina.com/tcp/4432",
+                    //     "QmdxcoKJTh2b8xLZcBk9zw2xHdEcNwzMr78jX99wUWcT8o",
+                    // ),
                 ],
             },
         });

@@ -26,3 +26,6 @@ mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ope
 mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
 mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
 o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
+kimchi = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
+poly-commitment = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
+mina-poseidon = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
