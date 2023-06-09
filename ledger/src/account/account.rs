@@ -7,6 +7,7 @@ use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 
 use crate::{
+    gen_compressed, gen_keypair,
     hash::{hash_noinputs, hash_with_kimchi, Inputs},
     scan_state::{
         currency::{Balance, Magnitude, Nonce, Slot},
@@ -237,16 +238,12 @@ impl Permissions<AuthRequired> {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct CurveAffine<F: Field>(pub F, pub F);
 
-impl<F> CurveAffine<F>
-where
-    F: Field + UniformRand + From<i32>,
-{
-    pub fn rand(rng: &mut ThreadRng) -> Self {
-        let a = F::rand(rng);
-        let two: F = 2.into();
-        let b: F = a.mul(two);
-
-        Self(a, b)
+impl CurveAffine<Fp> {
+    pub fn rand() -> Self {
+        let kp = gen_keypair();
+        let point = kp.public.into_point();
+        assert!(point.is_on_curve());
+        Self(point.x, point.y)
     }
 }
 
@@ -271,40 +268,40 @@ pub struct PlonkVerificationKeyEvals {
 } // 28 CurveAffine, 56 Fp
 
 impl PlonkVerificationKeyEvals {
-    pub fn rand(rng: &mut ThreadRng) -> Self {
+    pub fn rand() -> Self {
         Self {
             sigma: [
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
             ],
             coefficients: [
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
-                CurveAffine::rand(rng),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
+                CurveAffine::rand(),
             ],
-            generic: CurveAffine::rand(rng),
-            psm: CurveAffine::rand(rng),
-            complete_add: CurveAffine::rand(rng),
-            mul: CurveAffine::rand(rng),
-            emul: CurveAffine::rand(rng),
-            endomul_scalar: CurveAffine::rand(rng),
+            generic: CurveAffine::rand(),
+            psm: CurveAffine::rand(),
+            complete_add: CurveAffine::rand(),
+            mul: CurveAffine::rand(),
+            emul: CurveAffine::rand(),
+            endomul_scalar: CurveAffine::rand(),
         }
     }
 }
@@ -427,7 +424,7 @@ impl VerificationKey {
                     ProofVerified::N0
                 }
             },
-            wrap_index: PlonkVerificationKeyEvals::rand(&mut rng),
+            wrap_index: PlonkVerificationKeyEvals::rand(),
             wrap_vk: None,
             actual_wrap_domain_size: {
                 let n: u64 = rng.gen();
@@ -946,20 +943,14 @@ impl Account {
         };
 
         Self {
-            public_key: CompressedPubKey {
-                x: Fp::rand(rng),
-                is_odd: rng.gen(),
-            },
+            public_key: gen_compressed(),
             token_id: TokenId(Fp::rand(rng)),
             token_symbol: TokenSymbol(symbol),
             balance: rng.gen(),
             nonce: rng.gen(),
             receipt_chain_hash: ReceiptChainHash(Fp::rand(rng)),
             delegate: if rng.gen() {
-                Some(CompressedPubKey {
-                    x: Fp::rand(rng),
-                    is_odd: rng.gen(),
-                })
+                Some(gen_compressed())
             } else {
                 None
             },
