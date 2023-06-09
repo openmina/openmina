@@ -2670,5 +2670,5 @@ pub struct NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 #[polymorphic_variant]
 pub enum TransactionSnarkScanStateStableV2PreviousIncompleteZkappUpdates1 {
-    BorderBlockContinuedInTheNextTree(bool),
+    Border_block_continued_in_the_next_tree(bool),
 }
