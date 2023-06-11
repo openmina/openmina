@@ -1842,7 +1842,15 @@ impl binprot::BinProtWrite for LedgerProofWithSokMessage {
 impl From<&MinaBaseUserCommandStableV2> for transaction_logic::valid::UserCommand {
     fn from(value: &MinaBaseUserCommandStableV2) -> Self {
         match value {
-            MinaBaseUserCommandStableV2::ZkappCommand(_) => todo!(),
+            MinaBaseUserCommandStableV2::ZkappCommand(cmd) => {
+                Self::ZkAppCommand(Box::new(zkapp_command::valid::ZkAppCommand {
+                    zkapp_command: zkapp_command::ZkAppCommand {
+                        fee_payer: (&cmd.fee_payer).into(),
+                        account_updates: (&cmd.account_updates).into(),
+                        memo: (&cmd.memo).into(),
+                    },
+                }))
+            }
             MinaBaseUserCommandStableV2::SignedCommand(cmd) => {
                 Self::SignedCommand(Box::new(SignedCommand {
                     payload: transaction_logic::signed_command::SignedCommandPayload {
