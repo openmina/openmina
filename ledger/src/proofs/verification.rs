@@ -4,8 +4,11 @@ use ark_ff::Field;
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
 use crate::{
-    scan_state::{scan_state::transaction_snark::{SokDigest, Statement}, transaction_logic::zkapp_statement::ZkappStatement},
-    CurveAffine, VerificationKey, PlonkVerificationKeyEvals,
+    scan_state::{
+        scan_state::transaction_snark::{SokDigest, Statement},
+        transaction_logic::zkapp_statement::ZkappStatement,
+    },
+    CurveAffine, PlonkVerificationKeyEvals, VerificationKey,
 };
 
 use super::{
@@ -27,7 +30,7 @@ use mina_p2p_messages::{
         PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
         PicklesProofProofsVerified2ReprStableV2StatementFp,
         PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues,
-        TransactionSnarkProofStableV2, PicklesProofProofsVerifiedMaxStableV2,
+        TransactionSnarkProofStableV2,
     },
 };
 use poly_commitment::commitment::CommitmentCurve;
@@ -126,13 +129,13 @@ fn make_scalars_env(minimal: &PlonkMinimal) -> ScalarsEnv {
     }
 }
 
-fn get_message_for_next_step_proof<'a, State>(
+fn get_message_for_next_step_proof<'a, AppState>(
     messages_for_next_step_proof: &PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof,
     commitments: &PlonkVerificationKeyEvals,
-    app_state: &'a State,
-) -> MessagesForNextStepProof<'a, State>
+    app_state: &'a AppState,
+) -> MessagesForNextStepProof<'a, AppState>
 where
-    State: AppState,
+    AppState: ToFieldElements,
 {
     let msg_for_next_step_proof = &messages_for_next_step_proof;
     let challenge_polynomial_commitments: [CurveAffine<Fp>; 2] =
@@ -174,8 +177,8 @@ fn get_message_for_next_wrap_proof(
     }
 }
 
-fn get_prepared_statement<State>(
-    message_for_next_step_proof: &MessagesForNextStepProof<State>,
+fn get_prepared_statement<AppState>(
+    message_for_next_step_proof: &MessagesForNextStepProof<AppState>,
     message_for_next_wrap_proof: &MessagesForNextWrapProof,
     plonk: InCircuit,
     deferred_values: &PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues,
@@ -183,7 +186,7 @@ fn get_prepared_statement<State>(
     minimal: &PlonkMinimal,
 ) -> PreparedStatement
 where
-    State: AppState,
+    AppState: ToFieldElements,
 {
     let digest = &sponge_digest_before_evaluations;
     let sponge_digest_before_evaluations: [u64; 4] = array::from_fn(|i| digest[i].as_u64());
@@ -262,7 +265,7 @@ fn verify_with(
 struct VK<'a> {
     commitments: PlonkVerificationKeyEvals,
     index: &'a VerifierIndex,
-    data: () // Unused in proof verification
+    data: (), // Unused in proof verification
 }
 
 pub fn verify_block(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierIndex) -> bool {
@@ -312,17 +315,17 @@ pub fn verify_zkapp(
     verify_impl(&zkapp_statement, sideloaded_proof, &vk);
 }
 
-pub trait AppState {
+pub trait ToFieldElements {
     fn to_field_elements(&self) -> Vec<Fp>;
 }
 
-impl AppState for MinaStateProtocolStateValueStableV2 {
+impl ToFieldElements for MinaStateProtocolStateValueStableV2 {
     fn to_field_elements(&self) -> Vec<Fp> {
         vec![self.hash()]
     }
 }
 
-impl AppState for Statement<SokDigest> {
+impl ToFieldElements for Statement<SokDigest> {
     fn to_field_elements(&self) -> Vec<Fp> {
         let mut inputs = crate::Inputs::new();
         inputs.append(self);
@@ -331,19 +334,19 @@ impl AppState for Statement<SokDigest> {
     }
 }
 
-impl AppState for ZkappStatement {
+impl ToFieldElements for ZkappStatement {
     fn to_field_elements(&self) -> Vec<Fp> {
         self.to_field_elements()
     }
 }
 
-fn verify_impl<State>(
-    app_state: &State,
+fn verify_impl<AppState>(
+    app_state: &AppState,
     proof: &PicklesProofProofsVerified2ReprStableV2,
     vk: &VK,
 ) -> bool
 where
-    State: AppState,
+    AppState: ToFieldElements,
 {
     let DataForPublicInput { evals, minimal } = extract_data_for_public_input(proof);
 

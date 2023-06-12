@@ -1,27 +1,14 @@
 use std::str::FromStr;
 
-use crate::{CurveAffine, PlonkVerificationKeyEvals};
 use crate::proofs::VerifierIndex;
+use crate::{CurveAffine, PlonkVerificationKeyEvals};
 use ark_ff::{BigInteger256, PrimeField};
 use mina_curves::{pasta::Fq, pasta::Pallas};
 use mina_hasher::Fp;
 use poly_commitment::PolyComm;
 
 use crate::hash::hash_fields;
-use crate::proofs::verification::AppState;
-
-// // https://github.com/MinaProtocol/mina/blob/a6e5f182855b3f4b4afb0ea8636760e618e2f7a0/src/lib/pickles_types/plonk_verification_key_evals.ml#L9-L18
-// #[derive(Clone, Debug, PartialEq, Eq)]
-// pub struct PlonkVerificationKeyEvals {
-//     pub sigma: [CurveAffine<Fp>; 7],
-//     pub coefficients: [CurveAffine<Fp>; 15],
-//     pub generic: CurveAffine<Fp>,
-//     pub psm: CurveAffine<Fp>,
-//     pub complete_add: CurveAffine<Fp>,
-//     pub mul: CurveAffine<Fp>,
-//     pub emul: CurveAffine<Fp>,
-//     pub endomul_scalar: CurveAffine<Fp>,
-// } // 28 CurveAffine, 56 Fp
+use crate::proofs::verification::ToFieldElements;
 
 impl<'a> From<&'a VerifierIndex> for PlonkVerificationKeyEvals {
     fn from(verifier_index: &'a VerifierIndex) -> Self {
@@ -117,16 +104,16 @@ impl MessagesForNextWrapProof {
 }
 
 #[derive(Clone, Debug)]
-pub struct MessagesForNextStepProof<'a, State: AppState> {
-    pub app_state: &'a State,
+pub struct MessagesForNextStepProof<'a, AppState: ToFieldElements> {
+    pub app_state: &'a AppState,
     pub dlog_plonk_index: PlonkVerificationKeyEvals,
     pub challenge_polynomial_commitments: [CurveAffine<Fp>; 2],
     pub old_bulletproof_challenges: [[Fp; 16]; 2],
 }
 
-impl<State> MessagesForNextStepProof<'_, State>
+impl<AppState> MessagesForNextStepProof<'_, AppState>
 where
-    State: AppState,
+    AppState: ToFieldElements,
 {
     /// Implementation of `hash_messages_for_next_step_proof`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L33
