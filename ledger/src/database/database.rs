@@ -16,7 +16,6 @@ use crate::{
     TreeVersion,
 };
 
-#[cfg(test)]
 use crate::HashesMatrix;
 
 use super::database_impl::DatabaseImpl;
@@ -100,6 +99,10 @@ impl Database<V2> {
 
     pub fn invalidate_hashes(&mut self, account_index: AccountIndex) {
         self.with(|this| this.invalidate_hashes(account_index))
+    }
+
+    pub fn transfert_hashes(&mut self, hashes: HashesMatrix) {
+        self.with(|this| this.transfert_hashes(hashes))
     }
 
     #[cfg(test)]

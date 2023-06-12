@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ark_ff::Zero;
 use itertools::{FoldWhile, Itertools};
-use mina_hasher::Fp;
+use mina_hasher::{create_kimchi, Fp};
 use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
 use mina_signer::CompressedPubKey;
 
@@ -30,6 +30,7 @@ use self::{
     },
 };
 
+use super::zkapp_logic::ZkAppCommandElt;
 use super::{
     currency::{Amount, Balance, Fee, Index, Length, Magnitude, Nonce, Signed, Slot},
     fee_excess::FeeExcess,
@@ -188,6 +189,20 @@ pub struct WithStatus<T> {
 }
 
 impl<T> WithStatus<T> {
+    pub fn applied(data: T) -> Self {
+        Self {
+            data,
+            status: TransactionStatus::Applied,
+        }
+    }
+
+    pub fn failed(data: T, failures: Vec<Vec<TransactionFailure>>) -> Self {
+        Self {
+            data,
+            status: TransactionStatus::Failed(failures),
+        }
+    }
+
     pub fn map<F, R>(&self, fun: F) -> WithStatus<R>
     where
         F: Fn(&T) -> R,
@@ -548,7 +563,7 @@ impl Memo {
         let inputs = LegacyInput::new();
         let inputs = inputs.append_bytes(&self.0);
 
-        use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};
+        use mina_hasher::{Hashable, Hasher, ROInput};
 
         #[derive(Clone)]
         struct MyInput(LegacyInput);
@@ -565,7 +580,7 @@ impl Memo {
             }
         }
 
-        let mut hasher = create_legacy::<MyInput>(());
+        let mut hasher = create_kimchi::<MyInput>(());
         hasher.update(&MyInput(inputs));
         hasher.digest()
     }
@@ -842,7 +857,7 @@ pub mod signed_command {
 }
 
 pub mod zkapp_command {
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     use ark_ff::{UniformRand, Zero};
     use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
@@ -1345,10 +1360,10 @@ pub mod zkapp_command {
         type B = T;
 
         fn check(&self, label: String, rhs: Self::B) -> Result<(), String> {
-            println!(
+            /*println!(
                 "bounds check lower {:?} rhs {:?} upper {:?}",
                 self.lower, rhs, self.upper
-            );
+            );*/
             if self.lower <= rhs && rhs <= self.upper {
                 Ok(())
             } else {
@@ -1426,7 +1441,7 @@ pub mod zkapp_command {
                 Self::Ignore => Ok(()),
                 Self::Check(t) => t.check(label.clone(), rhs),
             };
-            println!("[rust] check {}, {:?}", label, ret);
+            // println!("[rust] check {}, {:?}", label, ret);
             ret
         }
     }
@@ -1592,7 +1607,7 @@ pub mod zkapp_command {
                 s.global_slot_since_genesis,
             )?;
             self.staking_epoch_data
-                .epoch_data("stacking_epoch_data", s.staking_epoch_data)?;
+                .epoch_data("staking_epoch_data", s.staking_epoch_data)?;
             self.next_epoch_data
                 .epoch_data("next_epoch_data", s.next_epoch_data)
         }
@@ -1651,6 +1666,14 @@ pub mod zkapp_command {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/da6ba9a52e71d03ec6b6803b01f6d249eebc1ccb/src/lib/mina_base/zkapp_basic.ml#L401
+    fn invalid_public_key() -> CompressedPubKey {
+        CompressedPubKey {
+            x: Fp::zero(),
+            is_odd: false,
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L478
     #[derive(Debug, Clone, PartialEq)]
     pub struct Account {
@@ -1692,17 +1715,47 @@ pub mod zkapp_command {
 
         fn checks(
             &self,
-            _new_account: bool,
+            new_account: bool,
             a: account::Account,
         ) -> Vec<(TransactionFailure, Result<(), String>)> {
-            vec![
+            let zkapp = a.zkapp.unwrap_or_default();
+            let mut ret = vec![
                 (
-                    TransactionFailure::AccountBalancePreconditionUnsatisfied,
-                    self.balance.check("balance".to_string(), a.balance),
+                    TransactionFailure::AccountIsNewPreconditionUnsatisfied,
+                    self.is_new.check("is_new".to_string(), new_account),
                 ),
                 (
-                    TransactionFailure::AccountNoncePreconditionUnsatisfied,
-                    self.nonce.check("nonce".to_string(), a.nonce),
+                    TransactionFailure::AccountProvedStatePreconditionUnsatisfied,
+                    self.proved_state
+                        .check("proved_state".to_string(), zkapp.proved_state),
+                ),
+            ];
+
+            for (i, (c, v)) in self.state.iter().zip(zkapp.app_state.iter()).enumerate() {
+                ret.push((
+                    TransactionFailure::AccountAppStatePreconditionUnsatisfied(i as i64),
+                    c.check(format!("state[{}]", i), *v),
+                ));
+            }
+
+            let mut ret2 = vec![
+                (
+                    TransactionFailure::AccountActionStatePreconditionUnsatisfied,
+                    match zkapp
+                        .action_state
+                        .iter()
+                        .find(|state| self.action_state.check("".to_string(), **state).is_ok())
+                    {
+                        None => Err("Action state mismatch".to_string()),
+                        Some(_) => Ok(()),
+                    },
+                ),
+                (
+                    TransactionFailure::AccountDelegatePreconditionUnsatisfied,
+                    self.delegate.check(
+                        "delegate".to_string(),
+                        a.delegate.unwrap_or_else(invalid_public_key),
+                    ),
                 ),
                 (
                     TransactionFailure::AccountReceiptChainHashPreconditionUnsatisfied,
@@ -1710,11 +1763,17 @@ pub mod zkapp_command {
                         .check("receipt_chain_hash".to_string(), a.receipt_chain_hash.0),
                 ),
                 (
-                    TransactionFailure::AccountDelegatePreconditionUnsatisfied,
-                    self.delegate
-                        .check("delegate".to_string(), a.delegate.unwrap()), // TODO: handle None case?
+                    TransactionFailure::AccountNoncePreconditionUnsatisfied,
+                    self.nonce.check("nonce".to_string(), a.nonce),
                 ),
-            ]
+                (
+                    TransactionFailure::AccountBalancePreconditionUnsatisfied,
+                    self.balance.check("balance".to_string(), a.balance),
+                ),
+            ];
+
+            ret.append(&mut ret2);
+            ret
         }
     }
 
@@ -1901,7 +1960,7 @@ pub mod zkapp_command {
     /// Also, in OCaml it has custom `{to/from}_binable` implementation.
     ///
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/pickles/pickles_intf.ml#L316
-    pub type SideLoadedProof = Rc<mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2>;
+    pub type SideLoadedProof = Arc<mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2>;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/control.ml#L11
     #[derive(Clone, PartialEq)]
@@ -2123,10 +2182,7 @@ pub mod zkapp_command {
 
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L1327
         pub fn digest(&self) -> Fp {
-            let mut inputs = Inputs::new();
-
-            self.to_inputs(&mut inputs);
-            hash_with_kimchi("MinaZkappBody", &inputs.to_fields())
+            self.hash_with_param("MinaZkappBody")
         }
 
         pub fn timing(&self) -> SetOrKeep<Timing> {
@@ -2444,7 +2500,7 @@ pub mod zkapp_command {
     }
 
     impl<AccUpdate: Clone> Tree<AccUpdate> {
-        fn digest(&self) -> Fp {
+        pub fn digest(&self) -> Fp {
             let stack_hash = match self.calls.0.first() {
                 Some(e) => e.stack_hash,
                 None => Fp::zero(),
@@ -2503,11 +2559,17 @@ pub mod zkapp_command {
         // In Rust we use vectors so we will push/pop to the tail.
         // To work with the elements as if they were in the original order we need to iterate backwards
         pub fn iter(&self) -> impl Iterator<Item = &WithStackHash<AccUpdate>> {
-            self.0.iter().rev()
+            self.0.iter() //.rev()
         }
 
         pub fn hash(&self) -> Fp {
-            if let Some(x) = self.0.last() {
+            /*
+            for x in self.0.iter() {
+                println!("hash: {:?}", x.stack_hash);
+            }
+            */
+
+            if let Some(x) = self.0.first() {
                 x.stack_hash
             } else {
                 Fp::zero()
@@ -2515,24 +2577,35 @@ pub mod zkapp_command {
         }
 
         fn cons_tree(&self, tree: Tree<AccUpdate>) -> Self {
-            let stack_hash = hash_with_kimchi("MinaAcctUpdateCons", &[tree.digest(), self.hash()]);
+            let hash = tree.digest();
+            let h_tl = self.hash();
+
+            let stack_hash = hash_with_kimchi("MinaAcctUpdateCons", &[hash, h_tl]);
             let node = WithStackHash::<AccUpdate> {
                 elt: tree,
                 stack_hash,
             };
-            let mut forest = self.0.clone();
+            let mut forest = Vec::with_capacity(self.0.len() + 1);
             forest.push(node);
+            forest.extend(self.0.iter().cloned());
+
             Self(forest)
         }
 
         pub fn pop_exn(&self) -> ((AccUpdate, CallForest<AccUpdate>), CallForest<AccUpdate>) {
-            let mut ret = self.0.clone();
-
-            if let Some(node) = ret.pop() {
-                ((node.elt.account_update, node.elt.calls), CallForest(ret))
-            } else {
+            if self.0.is_empty() {
                 panic!()
             }
+
+            let Tree::<AccUpdate> {
+                account_update,
+                calls,
+                ..
+            } = self.0[0].elt.clone();
+            (
+                (account_update, calls),
+                CallForest(Vec::from_iter(self.0[1..].iter().cloned())),
+            )
         }
 
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L68
@@ -2705,7 +2778,7 @@ pub mod zkapp_command {
             //
             // We use indexes to make the borrow checker happy
 
-            for index in 0..self.0.len() {
+            for index in (0..self.0.len()).rev() {
                 let elem = &mut self.0[index];
                 let WithStackHash {
                     elt:
@@ -2820,7 +2893,11 @@ pub mod zkapp_command {
                     accum.push((account_update.account_id(), status_sym.clone()));
                     accum
                 });
-            ids.iter().unique().rev().cloned().collect()
+            // WARNING: the code previous to merging latest changes wasn't doing the "rev()" call. Check this in case of errors.
+            ids.iter()
+                .unique() /*.rev()*/
+                .cloned()
+                .collect()
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/zkapp_command.ml#L1006
@@ -3313,6 +3390,13 @@ impl binprot::BinProtWrite for UserCommand {
     }
 }
 
+impl binprot::BinProtRead for UserCommand {
+    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error> {
+        let p2p = MinaBaseUserCommandStableV2::binprot_read(r)?;
+        Ok(UserCommand::from(&p2p))
+    }
+}
+
 impl UserCommand {
     /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/user_command.ml#L239
     pub fn account_access_statuses(
@@ -3463,7 +3547,7 @@ impl GenericTransaction for Transaction {
     }
 }
 
-#[derive(Debug, derive_more::From)]
+#[derive(Clone, Debug, derive_more::From)]
 pub enum Transaction {
     Command(UserCommand),
     FeeTransfer(FeeTransfer),
@@ -3471,6 +3555,10 @@ pub enum Transaction {
 }
 
 impl Transaction {
+    pub fn is_zkapp(&self) -> bool {
+        matches!(self, Self::Command(UserCommand::ZkAppCommand(_)))
+    }
+
     pub fn fee_excess(&self) -> Result<FeeExcess, String> {
         use Transaction::*;
         use UserCommand::*;
@@ -4243,7 +4331,7 @@ where
     if l_state.stack_frame.calls.is_empty() {
         Ok((user_acc, l_state.failure_status_tbl))
     } else {
-        let states = zkapp_logic::step(constraint_constants, handler, (g_state, l_state));
+        let states = zkapp_logic::step(constraint_constants, handler, (g_state, l_state))?;
         step_all(
             constraint_constants,
             f,
@@ -4333,7 +4421,7 @@ where
             },
             &Handler { perform },
             initial_state,
-        )
+        )?
     };
 
     let command = command.clone();
@@ -4658,7 +4746,7 @@ where
                 }
             });
 
-    let successfully_applied = failure_status_tbl.is_empty();
+    let successfully_applied = failure_status_tbl.concat().is_empty();
 
     // if the zkapp command fails in at least 1 account update,
     // then all the account updates would be cancelled except
@@ -6041,31 +6129,20 @@ pub fn cons_signed_command_payload(
     ReceiptChainHash(hasher.digest())
 }
 
-// TODO: This probably needs to be in its own file
-pub mod receipt {
-    use super::*;
-
-    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/receipt.ml#L14
-    #[derive(Clone, Debug)]
-    pub enum ZkappCommandElt {
-        ZkappCommandCommitment(Fp),
-    }
-}
-
 /// prepend account_update index computed by Zkapp_command_logic.apply
 ///
 /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/receipt.ml#L66
 pub fn cons_zkapp_command_commitment(
     index: Index,
-    e: receipt::ZkappCommandElt,
+    e: ZkAppCommandElt,
     receipt_hash: &ReceiptChainHash,
 ) -> ReceiptChainHash {
-    let receipt::ZkappCommandElt::ZkappCommandCommitment(x) = e;
+    let ZkAppCommandElt::ZkAppCommandCommitment(x) = e;
 
     let mut inputs = Inputs::new();
 
     inputs.append(&index);
-    inputs.append_field(x);
+    inputs.append_field(x.0);
     inputs.append(receipt_hash);
 
     ReceiptChainHash(hash_with_kimchi("MinaReceiptUC", &inputs.to_fields()))
@@ -6094,12 +6171,12 @@ pub fn validate_timing(
 
 pub fn account_check_timing(
     txn_global_slot: &Slot,
-    account: Account,
+    account: &Account,
 ) -> (TimingValidation, Timing) {
-    let (invalid_timing, _timing, _) =
+    let (invalid_timing, timing, _) =
         validate_timing_with_min_balance_impl(&account, Amount::from_u64(0), txn_global_slot);
     // TODO: In OCaml the returned Timing is actually converted to None/Some(fields of Timing structure)
-    (invalid_timing, account.timing)
+    (invalid_timing, timing)
 }
 
 fn validate_timing_with_min_balance(

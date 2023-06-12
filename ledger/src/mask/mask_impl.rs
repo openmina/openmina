@@ -370,17 +370,18 @@ impl MaskImpl {
             } => {
                 assert_ne!(parent.get_uuid(), self_uuid);
 
-                let accounts = {
+                let (accounts, hashes) = {
                     token_to_account.clear();
                     id_to_addr.clear();
-                    hashes.clear();
-                    std::mem::take(owning_account)
+                    (std::mem::take(owning_account), hashes.take())
                 };
 
                 for (index, account) in accounts {
                     let addr = Address::from_index(index.clone(), depth);
                     parent.set_impl(addr, account, Some(self_uuid.clone()));
                 }
+
+                parent.transfert_hashes(hashes);
 
                 // Parent merkle root after committing should be the same as the \
                 // old one in the mask
@@ -835,6 +836,15 @@ impl MaskImpl {
                 self.invalidate_hashes(account_index);
             }
         }
+    }
+
+    pub(super) fn transfert_hashes(&mut self, new_hashes: HashesMatrix) {
+        match self {
+            Root { database, .. } => database.transfert_hashes(new_hashes),
+            Attached { hashes, .. } | Unattached { hashes, .. } => {
+                hashes.transfert_hashes(new_hashes)
+            }
+        };
     }
 
     pub(super) fn remove_accounts_without_notif(&mut self, ids: &[AccountId]) {

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use mina_hasher::Fp;
-use mina_signer::{Keypair, Signature};
+use mina_hasher::{Fp, Hashable, ROInput};
+use mina_signer::{Keypair, NetworkId, Signature};
 
 use crate::{
     hash_with_kimchi,
@@ -24,6 +24,24 @@ impl TransactionCommitment {
             "MinaAcctUpdateCons",
             &[memo_hash, fee_payer_hash, self.0],
         ))
+    }
+}
+
+impl Hashable for TransactionCommitment {
+    type D = NetworkId;
+
+    fn to_roinput(&self) -> ROInput {
+        ROInput::new().append_field(self.0)
+    }
+
+    fn domain_string(network_id: NetworkId) -> Option<String> {
+        // Domain strings must have length <= 20
+        match network_id {
+            NetworkId::MAINNET => "MinaSignatureMainnet",
+            NetworkId::TESTNET => "CodaSignature",
+        }
+        .to_string()
+        .into()
     }
 }
 

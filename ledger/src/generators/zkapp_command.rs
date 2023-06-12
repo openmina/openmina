@@ -25,7 +25,6 @@ use crate::{
         transaction_logic::{
             cons_zkapp_command_commitment,
             protocol_state::{self, ProtocolStateView},
-            receipt,
             zkapp_command::{
                 self, AccountPreconditions, AccountUpdateSimple, AuthorizationKind, CallForest,
                 ClosedInterval, Control, FeePayer, FeePayerBody, MayUseToken, Numeric, OrIgnore,
@@ -34,7 +33,7 @@ use crate::{
             },
             Memo,
         },
-        zkapp_logic,
+        zkapp_logic::{self, ZkAppCommandElt},
     },
     staged_ledger::pre_diff_info::HashableCompressedPubKey,
     Account, AccountId, AuthRequired, BaseLedger, ControlTag, Mask, MyCowMut, Permissions,
@@ -1804,7 +1803,7 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
         let (_txn_commitment, full_txn_commitment) =
             zkapp_command_builder::get_transaction_commitments(&zkapp_command_dummy_authorizations);
 
-        receipt::ZkappCommandElt::ZkappCommandCommitment(full_txn_commitment.0)
+        ZkAppCommandElt::ZkAppCommandCommitment(ReceiptChainHash(full_txn_commitment.0))
     };
 
     {

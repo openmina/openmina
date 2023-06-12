@@ -226,6 +226,10 @@ impl Mask {
         self.with(|this| this.set_impl(addr, account, ignore))
     }
 
+    pub(super) fn transfert_hashes(&mut self, hashes: HashesMatrix) {
+        self.with(|this| this.transfert_hashes(hashes))
+    }
+
     pub(super) fn remove_accounts_without_notif(&mut self, ids: &[AccountId]) {
         self.with(|this| this.remove_accounts_without_notif(ids))
     }

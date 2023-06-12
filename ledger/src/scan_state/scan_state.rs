@@ -1,11 +1,15 @@
 use std::collections::HashSet;
 
+use binprot_derive::BinProtWrite;
 use blake2::{
     digest::{generic_array::GenericArray, typenum::U32},
     Digest,
 };
 use mina_hasher::Fp;
-use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
+use mina_p2p_messages::{
+    bigint, number,
+    v2::{CurrencyAmountStableV1, CurrencyFeeStableV1, MinaStateProtocolStateValueStableV2},
+};
 use mina_signer::CompressedPubKey;
 use sha2::Sha256;
 
@@ -738,6 +742,64 @@ pub struct ConstraintConstants {
     pub supercharged_coinbase_factor: u64,
     pub account_creation_fee: Fee,   // Currency.Fee.Stable.Latest.t,
     pub fork: Option<ForkConstants>, // Fork_constants.t option,
+}
+
+#[derive(Clone, Debug, BinProtWrite)]
+pub struct ForkConstantsUnversioned {
+    previous_state_hash: bigint::BigInt,
+    previous_length: number::Int32,
+    previous_global_slot: number::Int32,
+}
+
+impl From<&ForkConstants> for ForkConstantsUnversioned {
+    fn from(fork_constants: &ForkConstants) -> Self {
+        Self {
+            previous_state_hash: fork_constants.previous_state_hash.into(),
+            previous_length: (fork_constants.previous_length.as_u32() as i32).into(),
+            previous_global_slot: (fork_constants.previous_global_slot.as_u32() as i32).into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, BinProtWrite)]
+pub struct ConstraintConstantsUnversioned {
+    pub sub_windows_per_window: number::Int64,
+    pub ledger_depth: number::Int64,
+    pub work_delay: number::Int64,
+    pub block_window_duration_ms: number::Int64,
+    pub transaction_capacity_log_2: number::Int64,
+    pub pending_coinbase_depth: number::Int64,
+    pub coinbase_amount: CurrencyAmountStableV1,
+    pub supercharged_coinbase_factor: number::Int64,
+    pub account_creation_fee: CurrencyFeeStableV1,
+    pub fork: Option<ForkConstantsUnversioned>,
+}
+
+impl From<&ConstraintConstants> for ConstraintConstantsUnversioned {
+    fn from(constraints: &ConstraintConstants) -> Self {
+        Self {
+            sub_windows_per_window: (constraints.sub_windows_per_window as i64).into(),
+            ledger_depth: (constraints.ledger_depth as i64).into(),
+            work_delay: (constraints.work_delay as i64).into(),
+            block_window_duration_ms: (constraints.block_window_duration_ms as i64).into(),
+            transaction_capacity_log_2: (constraints.transaction_capacity_log_2 as i64).into(),
+            pending_coinbase_depth: (constraints.pending_coinbase_depth as i64).into(),
+            coinbase_amount: constraints.coinbase_amount.into(),
+            supercharged_coinbase_factor: (constraints.supercharged_coinbase_factor as i64).into(),
+            account_creation_fee: (&constraints.account_creation_fee).into(),
+            fork: match &constraints.fork {
+                Some(fork) => Some(fork.into()),
+                None => None,
+            },
+        }
+    }
+}
+
+impl binprot::BinProtWrite for ConstraintConstants {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        let constraints: ConstraintConstantsUnversioned = self.into();
+        constraints.binprot_write(w)
+    }
 }
 
 /// https://github.com/MinaProtocol/mina/blob/e5183ca1dde1c085b4c5d37d1d9987e24c294c32/src/lib/transaction_snark_scan_state/transaction_snark_scan_state.ml#L175

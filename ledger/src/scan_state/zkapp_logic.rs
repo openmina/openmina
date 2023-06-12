@@ -8,20 +8,39 @@ use crate::{
         currency::{Amount, Balance, Index, Magnitude, Sgn, Signed, Slot},
         scan_state::ConstraintConstants,
         transaction_logic::{
-            account_check_timing, get_account, is_timed,
+            account_check_timing, cons_zkapp_command_commitment, get_account, is_timed,
             local_state::{CallStack, LocalStateEnv, StackFrame},
             protocol_state::GlobalState,
             set_account,
-            zkapp_command::{self, AccountUpdate, CallForest, CheckAuthorizationResult, OrIgnore},
+            zkapp_command::{
+                self, AccountUpdate, CallForest, CheckAuthorizationResult, OrIgnore, SetOrKeep,
+            },
             Env, TimingValidation, TransactionFailure,
         },
     },
     staged_ledger::sparse_ledger::LedgerIntf,
-    Account, AuthRequired, ControlTag, Inputs, Mask, ReceiptChainHash, Timing, TokenId,
-    ZkAppAccount,
+    Account, AuthRequired, ControlTag, Mask, ReceiptChainHash, Timing, TokenId, ZkAppAccount,
 };
 
 use super::transaction_logic::{zkapp_command::Actions, Eff, ExistingOrNew, PerformResult};
+
+/*
+    In the OCaml code "asserts" are used to raise an "Assert_failure" exception that is
+    catched and turn into an error code. We will mimic a similar behaviour using the Result
+    type and an "__assert" macro.
+    This code won't panic!
+*/
+
+macro_rules! __assert {
+    ($cond:expr $(,)?) => {{
+        if !$cond {
+            let file = file!();
+            let line = line!();
+            return Err(format!("Assert_failure {file}:{line}"));
+        }
+        Ok::<(), String>(())
+    }};
+}
 
 pub struct StartData {
     pub account_updates: CallForest<AccountUpdate>,
@@ -95,8 +114,8 @@ pub fn controller_check(
     proof_verifies: bool,
     signature_verifies: bool,
     perm: AuthRequired,
-) -> bool {
-    assert!(!(proof_verifies && signature_verifies));
+) -> Result<bool, String> {
+    __assert!(!(proof_verifies && signature_verifies))?;
     let tag = if proof_verifies {
         ControlTag::Proof
     } else if signature_verifies {
@@ -104,30 +123,22 @@ pub fn controller_check(
     } else {
         ControlTag::NoneGiven
     };
-    check_permission(perm, tag)
+    Ok(check_permission(perm, tag))
 }
 
+#[derive(Clone)]
 pub enum ZkAppCommandElt {
     ZkAppCommandCommitment(ReceiptChainHash),
 }
 
-pub fn cons_zkapp_command_commitment(index: u32, e: ZkAppCommandElt, t: ReceiptChainHash) -> Fp {
-    let mut inputs = Inputs::new();
-
-    let ZkAppCommandElt::ZkAppCommandCommitment(receipt) = &e;
-
-    inputs.append(&t);
-    inputs.append(receipt);
-    inputs.append_u32(index);
-
-    hash_with_kimchi("MinaReceiptUC", &inputs.to_fields())
-}
-
-fn assert_with_failure_status_tbl(b: bool, failure_status_tbl: Vec<Vec<TransactionFailure>>) {
+fn assert_with_failure_status_tbl(
+    b: bool,
+    failure_status_tbl: Vec<Vec<TransactionFailure>>,
+) -> Result<(), String> {
     if !b && !(failure_status_tbl.is_empty()) {
-        panic!("{:?}", failure_status_tbl);
+        Err(format!("{:?}", failure_status_tbl))
     } else {
-        assert!(b)
+        __assert!(b)
     }
 }
 
@@ -162,7 +173,7 @@ pub struct GetNextAccountUpdateResult {
 pub fn get_next_account_update(
     current_forest: StackFrame,
     call_stack: CallStack,
-) -> GetNextAccountUpdateResult {
+) -> Result<GetNextAccountUpdateResult, String> {
     let (next_forest, next_call_stack) = pop_call_stack(&call_stack);
     let (current_forest, call_stack) = if let true = current_forest.calls.is_empty() {
         (next_forest, next_call_stack)
@@ -204,22 +215,22 @@ pub fn get_next_account_update(
         calls: remainder_of_current_forest,
     };
 
-    let new_call_stack = if let true = account_update_forest_empty {
-        if let true = remainder_of_current_forest_empty {
+    let new_call_stack = if account_update_forest_empty == true {
+        if remainder_of_current_forest_empty == true {
             popped_call_stack
         } else {
             call_stack
         }
     } else {
-        if let true = remainder_of_current_forest_empty {
+        if remainder_of_current_forest_empty == true {
             call_stack
         } else {
             call_stack.push(&remainder_of_current_forest_frame)
         }
     };
 
-    let new_frame = if let true = account_update_forest_empty {
-        if let true = remainder_of_current_forest_empty {
+    let new_frame = if account_update_forest_empty == true {
+        if remainder_of_current_forest_empty == true {
             newly_popped_frame
         } else {
             remainder_of_current_forest_frame
@@ -234,29 +245,29 @@ pub fn get_next_account_update(
             calls: account_update_forest.clone(),
         }
     };
-    GetNextAccountUpdateResult {
+    Ok(GetNextAccountUpdateResult {
         account_update,
         account_update_forest,
         new_frame,
         new_call_stack,
         caller_id,
-    }
+    })
 }
 
 pub fn check_account<L>(
     public_key: CompressedPubKey,
     token_id: TokenId,
     (account, loc): (&Account, &ExistingOrNew<L::Location>),
-) -> bool
+) -> Result<bool, String>
 where
     L: LedgerIntf,
 {
-    assert!(public_key == account.public_key);
-    assert!(token_id == account.token_id);
+    __assert!(public_key == account.public_key)?;
+    __assert!(token_id == account.token_id)?;
     // IsNew?
     match loc {
-        ExistingOrNew::Existing(_) => false,
-        ExistingOrNew::New => true,
+        ExistingOrNew::Existing(_) => Ok(false),
+        ExistingOrNew::New => Ok(true),
     }
 }
 
@@ -312,7 +323,7 @@ pub fn apply<L>(
     is_start: IsStart,
     _h: &Handler<L>,
     (global_state, local_state): (GlobalState<L>, LocalStateEnv<L>),
-) -> (GlobalState<L>, LocalStateEnv<L>)
+) -> Result<(GlobalState<L>, LocalStateEnv<L>), String>
 where
     L: LedgerIntf + Clone,
 {
@@ -320,8 +331,8 @@ where
 
     match is_start {
         IsStart::Compute(_) => (),
-        IsStart::Yes(_) => assert!(is_start_),
-        IsStart::No => assert_ne!(is_start_, true),
+        IsStart::Yes(_) => __assert!(is_start_)?,
+        IsStart::No => __assert!(is_start_ != true)?,
     };
 
     let is_start_ = match is_start {
@@ -390,11 +401,10 @@ where
         let GetNextAccountUpdateResult {
             account_update,
             account_update_forest,
-            new_frame,
-            new_call_stack: _,
+            new_frame: remaining,
+            new_call_stack: call_stack,
             caller_id,
-        } = get_next_account_update(to_pop, call_stack.clone());
-        let remaining = new_frame;
+        } = get_next_account_update(to_pop, call_stack.clone())?;
 
         let mut local_state = local_state.add_check(
             TransactionFailure::TokenOwnerNotCaller,
@@ -458,7 +468,7 @@ where
         account_update.public_key(),
         account_update.token_id(),
         (&a, &inclusion_proof),
-    );
+    )?;
 
     let matching_verification_key_hashes = !(account_update.is_proved())
         || account_verification_key_hash(&a) == account_update.verification_key_hash();
@@ -467,6 +477,12 @@ where
         TransactionFailure::UnexpectedVerificationKeyHash,
         matching_verification_key_hashes,
     );
+
+    let PerformResult::LocalState(local_state) = Env::perform(
+        Eff::CheckAccountPrecondition(account_update.clone(), a.clone(), account_is_new, local_state)
+    ) else {
+        unreachable!()
+    };
 
     let protocol_state_predicate_satisfied =
         if let PerformResult::Bool(protocol_state_predicate_satisfied) =
@@ -479,21 +495,6 @@ where
         } else {
             unreachable!()
         };
-
-    println!(
-        "[rust] protocol_state_predicate_satisfied {}",
-        protocol_state_predicate_satisfied
-    );
-
-    let local_state = match Env::perform(Eff::CheckAccountPrecondition(
-        account_update.clone(),
-        a.clone(),
-        account_is_new,
-        local_state,
-    )) {
-        PerformResult::LocalState(local_state) => local_state,
-        _ => unreachable!(),
-    };
 
     let local_state = local_state.add_check(
         TransactionFailure::ProtocolStatePreconditionUnsatisfied,
@@ -529,8 +530,8 @@ where
         )
     };
 
-    assert!(proof_verifies == account_update.is_proved());
-    assert!(signature_verifies == account_update.is_signed());
+    __assert!(proof_verifies == account_update.is_proved())?;
+    __assert!(signature_verifies == account_update.is_signed())?;
 
     let local_state = local_state.add_check(
         TransactionFailure::FeePayerNonceMustIncrease,
@@ -550,18 +551,7 @@ where
     let depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer =
         account_update.use_full_commitment() && !is_start_;
     let does_not_use_a_signature = !signature_verifies;
-    println!(
-        "[rust] increments_nonce_and_constrains_its_old_value {}",
-        increments_nonce_and_constrains_its_old_value
-    );
-    println!(
-        "[rust] depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer {}",
-        depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer
-    );
-    println!(
-        "[rust] does_not_use_a_signature {}",
-        does_not_use_a_signature
-    );
+
     let local_state = local_state.add_check(
         TransactionFailure::ZkappCommandReplayCheckFailed,
         increments_nonce_and_constrains_its_old_value
@@ -577,7 +567,7 @@ where
 
     let timing = account_update.timing();
     let has_permission =
-        controller_check(proof_verifies, signature_verifies, a.permissions.set_timing);
+        controller_check(proof_verifies, signature_verifies, a.permissions.set_timing)?;
 
     let local_state = local_state.add_check(
         TransactionFailure::UpdateNotPermittedTiming,
@@ -593,7 +583,8 @@ where
         None => to_record(Timing::Untimed).vesting_period,
     };
 
-    assert!(vesting_period > Slot::zero());
+    __assert!(vesting_period > Slot::zero())?;
+
     let a = Account {
         timing: timing
             .map(|timing| timing.to_account_timing())
@@ -668,10 +659,12 @@ where
             } else {
                 a.permissions.send
             };
-            let has_permission = controller_check(proof_verifies, signature_verifies, controller);
+
+            let has_permission = controller_check(proof_verifies, signature_verifies, controller)?;
+
             local_state.add_check(
                 TransactionFailure::UpdateNotPermittedBalance,
-                has_permission || actual_balance_change == Signed::<Amount>::zero(),
+                has_permission || actual_balance_change.is_zero(),
             )
         };
         let a = Account { balance, ..a };
@@ -679,7 +672,7 @@ where
     };
     let txn_global_slot = global_state.block_global_slot;
     let (a, local_state) = {
-        let (invalid_timing, timing) = match account_check_timing(&txn_global_slot, a.clone()) {
+        let (invalid_timing, timing) = match account_check_timing(&txn_global_slot, &a) {
             (TimingValidation::InsufficientBalance(true), _) => {
                 panic!("Did not propose a balance change at this timing check!")
             }
@@ -701,7 +694,7 @@ where
     // Check that the account can be accessed with the given authorization.
     let local_state = {
         let has_permission =
-            controller_check(proof_verifies, signature_verifies, a.permissions.access);
+            controller_check(proof_verifies, signature_verifies, a.permissions.access)?;
         local_state.add_check(TransactionFailure::UpdateNotPermittedAccess, has_permission)
     };
 
@@ -732,7 +725,8 @@ where
         ..a
     };
     let has_permission =
-        controller_check(proof_verifies, signature_verifies, a.permissions.edit_state);
+        controller_check(proof_verifies, signature_verifies, a.permissions.edit_state)?;
+
     let local_state = local_state.add_check(
         TransactionFailure::UpdateNotPermittedAppState,
         keeping_app_state || has_permission,
@@ -765,14 +759,21 @@ where
             proof_verifies,
             signature_verifies,
             a.permissions.set_verification_key,
-        );
+        )?;
+
         let local_state = local_state.add_check(
             TransactionFailure::UpdateNotPermittedVerificationKey,
             verification_key.is_keep() || has_permission,
         );
         let verification_key = match zkapp.verification_key {
             Some(vk) => Some(verification_key.set_or_keep(vk)),
-            None => None,
+            None => {
+                if let SetOrKeep::Set(vk) = verification_key {
+                    Some(vk)
+                } else {
+                    None
+                }
+            }
         };
 
         let zkapp = ZkAppAccount {
@@ -801,7 +802,8 @@ where
             proof_verifies,
             signature_verifies,
             a.permissions.edit_action_state,
-        );
+        )?;
+
         let local_state = local_state.add_check(
             TransactionFailure::UpdateNotPermittedAppState,
             is_empty || has_permission,
@@ -824,7 +826,8 @@ where
             proof_verifies,
             signature_verifies,
             a.permissions.set_zkapp_uri,
-        );
+        )?;
+
         let local_state = local_state.add_check(
             TransactionFailure::UpdateNotPermittedZkappUri,
             zkapp_uri.is_keep() || has_permission,
@@ -848,7 +851,8 @@ where
             proof_verifies,
             signature_verifies,
             a.permissions.set_token_symbol,
-        );
+        )?;
+
         let local_state = local_state.add_check(
             TransactionFailure::UpdateNotPermittedTokenSymbol,
             token_symbol.is_keep() || has_permission,
@@ -869,7 +873,8 @@ where
             proof_verifies,
             signature_verifies,
             a.permissions.set_delegate,
-        );
+        )?;
+
         let local_state = local_state.add_check(
             TransactionFailure::UpdateNotPermittedDelegate,
             delegate.is_keep() || (has_permission && account_update_token_is_default),
@@ -891,7 +896,8 @@ where
             proof_verifies,
             signature_verifies,
             a.permissions.increment_nonce,
-        );
+        )?;
+
         let local_state = local_state.add_check(
             TransactionFailure::UpdateNotPermittedNonce,
             !increment_nonce || has_permission,
@@ -906,7 +912,8 @@ where
             proof_verifies,
             signature_verifies,
             a.permissions.set_voting_for,
-        );
+        )?;
+
         let local_state = local_state.add_check(
             TransactionFailure::UpdateNotPermittedVotingFor,
             voting_for.is_keep() || has_permission,
@@ -919,15 +926,11 @@ where
     let a = {
         let new_hash = {
             let old_hash = a.receipt_chain_hash;
-            if let true = signature_verifies {
+            if signature_verifies == true || proof_verifies == true {
                 let elt = ZkAppCommandElt::ZkAppCommandCommitment(
                     local_state.full_transaction_commitment.clone(),
                 );
-                ReceiptChainHash(cons_zkapp_command_commitment(
-                    local_state.account_update_index.as_u32(),
-                    elt,
-                    old_hash,
-                ))
+                cons_zkapp_command_commitment(local_state.account_update_index, elt, &old_hash)
             } else {
                 old_hash
             }
@@ -944,7 +947,8 @@ where
             proof_verifies,
             signature_verifies,
             a.permissions.set_permissions,
-        );
+        )?;
+
         let local_state = local_state.add_check(
             TransactionFailure::UpdateNotPermittedPermissions,
             permissions.is_keep() || has_permission,
@@ -963,15 +967,10 @@ where
     let (new_local_fee_excess, overflowed) = {
         let curr_token = local_state.token_id.clone();
         let curr_is_default = curr_token == TokenId::default();
-        assert!(curr_is_default);
-        println!(
-            "[rust] is_start_ {:?}, account_update_token_is_default {:?}, local_delta.is_non_neg {:?}",
-            is_start_,
-            account_update_token_is_default,
-            local_delta.is_non_neg()
-        );
-        println!("[rust] failure {:?}", local_state.failure_status_tbl);
-        assert!(!is_start_ || (account_update_token_is_default && local_delta.is_non_neg()));
+
+        __assert!(curr_is_default)?;
+        __assert!(!is_start_ || (account_update_token_is_default && local_delta.is_non_neg()))?;
+
         let (new_local_fee_excess, overflow) = local_state.excess.add_flagged(Signed::<Amount> {
             magnitude: Amount::from_u64(local_delta.magnitude.as_u64()),
             sgn: local_delta.sgn,
@@ -994,7 +993,7 @@ where
     let mut local_state =
         local_state.add_check(TransactionFailure::LocalExcessOverflow, !overflowed);
 
-    let new_ledger = set_account(&mut local_state.ledger, (a, &inclusion_proof));
+    let new_ledger = set_account(&mut local_state.ledger, (a.clone(), &inclusion_proof));
     let is_last_account_update = remaining.calls.is_empty();
     let local_state = LocalStateEnv {
         ledger: new_ledger.clone(),
@@ -1013,7 +1012,7 @@ where
 
     let valid_fee_excess = {
         let delta_settled = local_state.excess == Signed::<Amount>::zero();
-        !is_last_account_update || delta_settled
+        is_start_ || !is_last_account_update || delta_settled
     };
     let local_state = local_state.add_check(TransactionFailure::InvalidFeeExcess, valid_fee_excess);
 
@@ -1072,10 +1071,12 @@ where
     );
 
     // The first account_update must succeed.
-    assert_with_failure_status_tbl(
+    if let Err(e) = assert_with_failure_status_tbl(
         !is_start_ || local_state.success,
         local_state.failure_status_tbl.clone(),
-    );
+    ) {
+        return Err(e);
+    }
 
     // If we are the fee payer (is_start' = true), push the first pass ledger
     // and set the local ledger to be the second pass ledger in preparation for
@@ -1149,14 +1150,14 @@ where
         },
         ..local_state
     };
-    (global_state, local_state)
+    Ok((global_state, local_state))
 }
 
 pub fn step<L>(
     constraint_constants: &ConstraintConstants,
     h: &Handler<L>,
     state: (GlobalState<L>, LocalStateEnv<L>),
-) -> (GlobalState<L>, LocalStateEnv<L>)
+) -> Result<(GlobalState<L>, LocalStateEnv<L>), String>
 where
     L: LedgerIntf + Clone,
 {
@@ -1168,7 +1169,7 @@ pub fn start<L>(
     start_data: StartData,
     h: &Handler<L>,
     state: (GlobalState<L>, LocalStateEnv<L>),
-) -> (GlobalState<L>, LocalStateEnv<L>)
+) -> Result<(GlobalState<L>, LocalStateEnv<L>), String>
 where
     L: LedgerIntf + Clone,
 {

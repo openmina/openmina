@@ -270,6 +270,10 @@ impl DatabaseImpl<V2> {
     pub fn invalidate_hashes(&mut self, account_index: AccountIndex) {
         self.hashes_matrix.invalidate_hashes(account_index)
     }
+
+    pub fn transfert_hashes(&mut self, hashes: HashesMatrix) {
+        self.hashes_matrix.transfert_hashes(hashes)
+    }
 }
 
 impl DatabaseImpl<V1> {

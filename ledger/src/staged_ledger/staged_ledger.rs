@@ -101,7 +101,7 @@ impl From<PreDiffError> for StagedLedgerError {
 //     | Unexpected of Error.t
 //   [@@deriving sexp]
 
-struct PreStatement<L: sparse_ledger::LedgerIntf + Clone> {
+pub struct PreStatement<L: sparse_ledger::LedgerIntf + Clone> {
     partially_applied_transaction: TransactionPartiallyApplied<L>,
     expected_status: TransactionStatus,
     accounts_accessed: Vec<AccountId>,
@@ -438,7 +438,7 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#422
-    fn ledger(&self) -> Mask {
+    pub fn ledger(&self) -> Mask {
         self.ledger.clone()
     }
 
@@ -507,7 +507,7 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/staged_ledger/staged_ledger.ml#L518
-    fn apply_single_transaction_first_pass(
+    pub fn apply_single_transaction_first_pass(
         constraint_constants: &ConstraintConstants,
         global_slot: Slot,
         mut ledger: Mask,
@@ -562,7 +562,7 @@ impl StagedLedger {
         ))
     }
 
-    fn apply_single_transaction_second_pass(
+    pub fn apply_single_transaction_second_pass(
         constraint_constants: &ConstraintConstants,
         connecting_ledger: LedgerHash,
         mut ledger: Mask,
@@ -697,7 +697,7 @@ impl StagedLedger {
             .collect()
     }
 
-    fn update_ledger_and_get_statements(
+    pub fn update_ledger_and_get_statements(
         constraint_constants: &ConstraintConstants,
         global_slot: Slot,
         mut ledger: Mask,

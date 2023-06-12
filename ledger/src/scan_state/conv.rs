@@ -7,8 +7,10 @@ use mina_p2p_messages::{
     pseq::PaddedSeq,
     string::CharString,
     v2::{
-        BlockTimeTimeStableV1, CurrencyAmountStableV1, CurrencyBalanceStableV1,
-        CurrencyFeeStableV1, DataHashLibStateHashStableV1, EpochSeed, LedgerProofProdStableV2,
+        BlockTimeTimeStableV1, ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+        ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
+        CurrencyAmountStableV1, CurrencyBalanceStableV1, CurrencyFeeStableV1,
+        DataHashLibStateHashStableV1, EpochSeed, LedgerProofProdStableV2,
         MinaBaseAccountIdDigestStableV1, MinaBaseAccountIdStableV2,
         MinaBaseAccountUpdateBodyEventsStableV1, MinaBaseAccountUpdateBodyFeePayerStableV1,
         MinaBaseAccountUpdateBodyStableV1, MinaBaseAccountUpdateFeePayerStableV1,
@@ -88,6 +90,7 @@ use super::{
     transaction_logic::{
         self,
         local_state::LocalState,
+        protocol_state,
         signed_command::SignedCommand,
         transaction_applied::{self, TransactionApplied},
         zkapp_command::{
@@ -185,6 +188,12 @@ impl From<&Slot> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
     }
 }
 
+impl From<&mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1> for Length {
+    fn from(value: &mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1) -> Self {
+        Self::from_u32(value.0.as_u32())
+    }
+}
+
 impl From<&Length> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
     fn from(value: &Length) -> Self {
         Self((value.as_u32() as i32).into())
@@ -265,6 +274,30 @@ impl From<&MinaBasePendingCoinbaseStackVersionedStableV1> for pending_coinbase::
                 init: value.state.init.0.to_field(),
                 curr: value.state.curr.0.to_field(),
             },
+        }
+    }
+}
+
+impl From<&pending_coinbase::Stack> for MinaBasePendingCoinbaseStackVersionedStableV1 {
+    fn from(value: &pending_coinbase::Stack) -> Self {
+        Self {
+            data: (&value.data).into(),
+            state: (&value.state).into(),
+        }
+    }
+}
+
+impl From<&pending_coinbase::CoinbaseStack> for MinaBasePendingCoinbaseCoinbaseStackStableV1 {
+    fn from(value: &pending_coinbase::CoinbaseStack) -> Self {
+        Self(value.0.into())
+    }
+}
+
+impl From<&pending_coinbase::StateStack> for MinaBasePendingCoinbaseStateStackStableV1 {
+    fn from(value: &pending_coinbase::StateStack) -> Self {
+        Self {
+            init: MinaBasePendingCoinbaseStackHashStableV1(value.init.into()),
+            curr: MinaBasePendingCoinbaseStackHashStableV1(value.curr.into()),
         }
     }
 }
@@ -616,6 +649,40 @@ impl From<&zkapp_command::Numeric<Length>>
                 })
             }
             Numeric::Ignore => MLength::Ignore,
+        }
+    }
+}
+
+impl From<&ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1>
+    for protocol_state::EpochData
+{
+    fn from(value: &ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1) -> Self {
+        Self {
+            ledger: protocol_state::EpochLedger {
+                hash: value.ledger.hash.0.to_field(),
+                total_currency: value.ledger.total_currency.clone().into(),
+            },
+            seed: value.seed.0.to_field(),
+            start_checkpoint: value.start_checkpoint.0.to_field(),
+            lock_checkpoint: value.lock_checkpoint.0.to_field(),
+            epoch_length: (&value.epoch_length).into(),
+        }
+    }
+}
+
+impl From<&ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1>
+    for protocol_state::EpochData
+{
+    fn from(value: &ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1) -> Self {
+        Self {
+            ledger: protocol_state::EpochLedger {
+                hash: value.ledger.hash.0.to_field(),
+                total_currency: value.ledger.total_currency.clone().into(),
+            },
+            seed: value.seed.0.to_field(),
+            start_checkpoint: value.start_checkpoint.0.to_field(),
+            lock_checkpoint: value.lock_checkpoint.0.to_field(),
+            epoch_length: (&value.epoch_length).into(),
         }
     }
 }
@@ -1550,19 +1617,7 @@ impl From<&Registers> for MinaStateBlockchainStateValueStableV2LedgerProofStatem
         Self {
             first_pass_ledger: MinaBaseLedgerHash0StableV1(value.first_pass_ledger.into()).into(),
             second_pass_ledger: MinaBaseLedgerHash0StableV1(value.second_pass_ledger.into()).into(),
-            pending_coinbase_stack: MinaBasePendingCoinbaseStackVersionedStableV1 {
-                data: MinaBasePendingCoinbaseCoinbaseStackStableV1(
-                    value.pending_coinbase_stack.data.0.into(),
-                ),
-                state: MinaBasePendingCoinbaseStateStackStableV1 {
-                    init: MinaBasePendingCoinbaseStackHashStableV1(
-                        value.pending_coinbase_stack.state.init.into(),
-                    ),
-                    curr: MinaBasePendingCoinbaseStackHashStableV1(
-                        value.pending_coinbase_stack.state.curr.into(),
-                    ),
-                },
-            },
+            pending_coinbase_stack: (&value.pending_coinbase_stack).into(),
             local_state: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
                 stack_frame: MinaBaseStackFrameStableV1(value.local_state.stack_frame.into()),
                 call_stack: MinaBaseCallStackDigestStableV1(value.local_state.call_stack.into()),

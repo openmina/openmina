@@ -41,6 +41,12 @@ impl binprot::BinProtWrite for TokenId {
     }
 }
 
+impl From<TokenId> for TokenIdKeyHash {
+    fn from(value: TokenId) -> Self {
+        MinaBaseAccountIdDigestStableV1(value.0.into()).into()
+    }
+}
+
 impl<F> From<(BigInt, BigInt)> for CurveAffine<F>
 where
     F: Field + From<BigInt>,

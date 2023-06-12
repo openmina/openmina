@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{collections::BTreeMap, fmt::Debug, sync::Mutex};
 
 use crate::{
     address::Address,
@@ -6,6 +6,7 @@ use crate::{
     tree_version::{TreeVersion, V2},
 };
 use mina_hasher::Fp;
+use once_cell::sync::Lazy;
 
 #[derive(Clone, Debug)]
 struct Leaf<T: TreeVersion> {
@@ -128,6 +129,15 @@ impl HashesMatrix {
         // }
     }
 
+    pub(super) fn transfert_hashes(&mut self, hashes: HashesMatrix) {
+        for (index, hash) in hashes.matrix {
+            let old = self.matrix.insert(index, hash);
+            if old.is_none() {
+                self.nhashes += 1;
+            }
+        }
+    }
+
     pub fn invalidate_hashes(&mut self, account_index: AccountIndex) {
         let mut addr = Address::from_index(account_index, self.ledger_depth);
 
@@ -146,7 +156,8 @@ impl HashesMatrix {
             return *hash;
         };
 
-        let hash = V2::empty_hash_at_depth(depth);
+        // If `depth` is out of bound, see `HASH_EMPTIES`
+        let hash = HASH_EMPTIES.lock().unwrap()[depth];
         self.empty_hashes[depth] = Some(hash);
 
         hash
@@ -167,7 +178,30 @@ impl HashesMatrix {
         // self.empty_hashes.clear();
         // self.nhashes = 0;
     }
+
+    pub fn take(&mut self) -> Self {
+        let Self {
+            matrix,
+            empty_hashes,
+            ledger_depth,
+            nhashes,
+        } = self;
+
+        Self {
+            matrix: std::mem::take(matrix),
+            empty_hashes: std::mem::take(empty_hashes),
+            ledger_depth: *ledger_depth,
+            nhashes: *nhashes,
+        }
+    }
 }
+
+static HASH_EMPTIES: Lazy<Mutex<Vec<Fp>>> = Lazy::new(|| {
+    /// This value needs to be changed when the tree's depth change
+    const RANGE_DEPTH: std::ops::Range<usize> = 0..36;
+
+    Mutex::new((RANGE_DEPTH).map(V2::empty_hash_at_depth).collect())
+});
 
 // #[derive(Clone)]
 // pub struct Database<T: TreeVersion> {

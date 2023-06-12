@@ -102,7 +102,7 @@ where
     }
 
     pub fn is_zero(&self) -> bool {
-        self.magnitude.is_zero() && matches!(self.sgn, Sgn::Pos)
+        self.magnitude.is_zero() //&& matches!(self.sgn, Sgn::Pos)
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/currency/currency.ml#L460
