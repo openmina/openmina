@@ -857,7 +857,7 @@ pub mod signed_command {
 }
 
 pub mod zkapp_command {
-    use std::sync::Arc;
+    use std::rc::Rc;
 
     use ark_ff::{UniformRand, Zero};
     use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
@@ -1960,7 +1960,7 @@ pub mod zkapp_command {
     /// Also, in OCaml it has custom `{to/from}_binable` implementation.
     ///
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/pickles/pickles_intf.ml#L316
-    pub type SideLoadedProof = Arc<mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2>;
+    pub type SideLoadedProof = Rc<mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2>;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/control.ml#L11
     #[derive(Clone, PartialEq)]
