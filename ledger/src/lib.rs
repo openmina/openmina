@@ -32,7 +32,7 @@ mod wasm {
     wasm_bindgen_test_configure!(run_in_browser);
 }
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), feature = "ocaml-interop"))]
 mod ffi;
 
 mod account;

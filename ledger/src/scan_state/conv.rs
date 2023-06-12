@@ -297,7 +297,7 @@ impl From<&MinaBaseTransactionStatusFailureStableV2> for TransactionFailure {
             P2P::UpdateNotPermittedDelegate => Self::UpdateNotPermittedDelegate,
             P2P::UpdateNotPermittedAppState => Self::UpdateNotPermittedAppState,
             P2P::UpdateNotPermittedVerificationKey => Self::UpdateNotPermittedVerificationKey,
-            P2P::UpdateNotPermittedSequenceState => Self::UpdateNotPermittedActionState,
+            P2P::UpdateNotPermittedActionState => Self::UpdateNotPermittedActionState,
             P2P::UpdateNotPermittedZkappUri => Self::UpdateNotPermittedZkappUri,
             P2P::UpdateNotPermittedTokenSymbol => Self::UpdateNotPermittedTokenSymbol,
             P2P::UpdateNotPermittedPermissions => Self::UpdateNotPermittedPermissions,
@@ -316,7 +316,7 @@ impl From<&MinaBaseTransactionStatusFailureStableV2> for TransactionFailure {
             P2P::AccountDelegatePreconditionUnsatisfied => {
                 Self::AccountDelegatePreconditionUnsatisfied
             }
-            P2P::AccountSequenceStatePreconditionUnsatisfied => {
+            P2P::AccountActionStatePreconditionUnsatisfied => {
                 Self::AccountActionStatePreconditionUnsatisfied
             }
             P2P::AccountAppStatePreconditionUnsatisfied(v) => {
@@ -366,7 +366,7 @@ impl From<&TransactionFailure> for MinaBaseTransactionStatusFailureStableV2 {
             P2P::UpdateNotPermittedDelegate => Self::UpdateNotPermittedDelegate,
             P2P::UpdateNotPermittedAppState => Self::UpdateNotPermittedAppState,
             P2P::UpdateNotPermittedVerificationKey => Self::UpdateNotPermittedVerificationKey,
-            P2P::UpdateNotPermittedActionState => Self::UpdateNotPermittedSequenceState,
+            P2P::UpdateNotPermittedActionState => Self::UpdateNotPermittedActionState,
             P2P::UpdateNotPermittedZkappUri => Self::UpdateNotPermittedZkappUri,
             P2P::UpdateNotPermittedTokenSymbol => Self::UpdateNotPermittedTokenSymbol,
             P2P::UpdateNotPermittedPermissions => Self::UpdateNotPermittedPermissions,
@@ -386,7 +386,7 @@ impl From<&TransactionFailure> for MinaBaseTransactionStatusFailureStableV2 {
                 Self::AccountDelegatePreconditionUnsatisfied
             }
             P2P::AccountActionStatePreconditionUnsatisfied => {
-                Self::AccountSequenceStatePreconditionUnsatisfied
+                Self::AccountActionStatePreconditionUnsatisfied
             }
             P2P::AccountAppStatePreconditionUnsatisfied(v) => {
                 Self::AccountAppStatePreconditionUnsatisfied((*v as i32).into())
@@ -787,7 +787,7 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
                             State::Check(s) => OrIgnore::Check(s.to_field()),
                             State::Ignore => OrIgnore::Ignore,
                         }),
-                        action_state: match &account.sequence_state {
+                        action_state: match &account.action_state {
                             State::Check(s) => OrIgnore::Check(s.to_field()),
                             State::Ignore => OrIgnore::Ignore,
                         },
@@ -910,7 +910,7 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
                             OrIgnore::Check(s) => State::Check(s.into()),
                             OrIgnore::Ignore => State::Ignore,
                         })),
-                        sequence_state: match &account.action_state {
+                        action_state: match &account.action_state {
                             OrIgnore::Check(s) => State::Check(s.into()),
                             OrIgnore::Ignore => State::Ignore,
                         },

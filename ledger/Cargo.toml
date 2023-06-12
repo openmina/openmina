@@ -82,9 +82,9 @@ wasm-bindgen = "0.2"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 zstd = { version = "0.12", optional = true }
-# ocaml-interop = { path = "/home/sebastien/github/ocaml-interop" }
-ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values" }
-# ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values" }
+# ocaml-interop = { path = "/home/sebastien/github/ocaml-interop", optional = true }
+ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values", optional = true }
+# ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values", optional = true }
 
 [dev-dependencies]
 
