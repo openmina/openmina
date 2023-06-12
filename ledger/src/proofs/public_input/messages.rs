@@ -1,25 +1,47 @@
 use std::str::FromStr;
 
-use crate::CurveAffine;
+use crate::{CurveAffine, PlonkVerificationKeyEvals};
+use crate::proofs::VerifierIndex;
 use ark_ff::{BigInteger256, PrimeField};
-use mina_curves::pasta::Fq;
+use mina_curves::{pasta::Fq, pasta::Pallas};
 use mina_hasher::Fp;
+use poly_commitment::PolyComm;
 
 use crate::hash::hash_fields;
 use crate::proofs::verification::AppState;
 
-// https://github.com/MinaProtocol/mina/blob/a6e5f182855b3f4b4afb0ea8636760e618e2f7a0/src/lib/pickles_types/plonk_verification_key_evals.ml#L9-L18
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PlonkVerificationKeyEvals {
-    pub sigma: [CurveAffine<Fp>; 7],
-    pub coefficients: [CurveAffine<Fp>; 15],
-    pub generic: CurveAffine<Fp>,
-    pub psm: CurveAffine<Fp>,
-    pub complete_add: CurveAffine<Fp>,
-    pub mul: CurveAffine<Fp>,
-    pub emul: CurveAffine<Fp>,
-    pub endomul_scalar: CurveAffine<Fp>,
-} // 28 CurveAffine, 56 Fp
+// // https://github.com/MinaProtocol/mina/blob/a6e5f182855b3f4b4afb0ea8636760e618e2f7a0/src/lib/pickles_types/plonk_verification_key_evals.ml#L9-L18
+// #[derive(Clone, Debug, PartialEq, Eq)]
+// pub struct PlonkVerificationKeyEvals {
+//     pub sigma: [CurveAffine<Fp>; 7],
+//     pub coefficients: [CurveAffine<Fp>; 15],
+//     pub generic: CurveAffine<Fp>,
+//     pub psm: CurveAffine<Fp>,
+//     pub complete_add: CurveAffine<Fp>,
+//     pub mul: CurveAffine<Fp>,
+//     pub emul: CurveAffine<Fp>,
+//     pub endomul_scalar: CurveAffine<Fp>,
+// } // 28 CurveAffine, 56 Fp
+
+impl<'a> From<&'a VerifierIndex> for PlonkVerificationKeyEvals {
+    fn from(verifier_index: &'a VerifierIndex) -> Self {
+        let to_curve = |v: &PolyComm<Pallas>| {
+            let v = v.unshifted[0];
+            CurveAffine(v.x, v.y)
+        };
+
+        Self {
+            sigma: std::array::from_fn(|i| to_curve(&verifier_index.sigma_comm[i])),
+            coefficients: std::array::from_fn(|i| to_curve(&verifier_index.coefficients_comm[i])),
+            generic: to_curve(&verifier_index.generic_comm),
+            psm: to_curve(&verifier_index.psm_comm),
+            complete_add: to_curve(&verifier_index.complete_add_comm),
+            mul: to_curve(&verifier_index.mul_comm),
+            emul: to_curve(&verifier_index.emul_comm),
+            endomul_scalar: to_curve(&verifier_index.endomul_scalar_comm),
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct MessagesForNextWrapProof {

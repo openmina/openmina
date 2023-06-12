@@ -2581,6 +2581,42 @@ pub mod zkapp_command {
             self.map_to_impl(&fun)
         }
 
+        fn map_with_trees_to_impl<F, AnotherAccUpdate: Clone>(
+            &self,
+            fun: &F,
+        ) -> CallForest<AnotherAccUpdate>
+        where
+            F: Fn(&AccUpdate, &Tree<AccUpdate>) -> AnotherAccUpdate,
+        {
+            CallForest::<AnotherAccUpdate>(
+                self.iter()
+                    .map(|item| {
+                        let account_update = fun(&item.elt.account_update, &item.elt);
+
+                        WithStackHash::<AnotherAccUpdate> {
+                            elt: Tree::<AnotherAccUpdate> {
+                                account_update,
+                                account_update_digest: item.elt.account_update_digest,
+                                calls: item.elt.calls.map_with_trees_to_impl(fun),
+                            },
+                            stack_hash: item.stack_hash,
+                        }
+                    })
+                    .collect(),
+            )
+        }
+
+        #[must_use]
+        pub fn map_with_trees_to<F, AnotherAccUpdate: Clone>(
+            &self,
+            fun: F,
+        ) -> CallForest<AnotherAccUpdate>
+        where
+            F: Fn(&AccUpdate, &Tree<AccUpdate>) -> AnotherAccUpdate,
+        {
+            self.map_with_trees_to_impl(&fun)
+        }
+
         fn try_map_to_impl<F, E, AnotherAccUpdate: Clone>(
             &self,
             fun: &mut F,
@@ -3126,6 +3162,61 @@ pub mod zkapp_command {
             fn set(&mut self, key: Fp, value: Self::Value) {
                 self.inner = Some((key, value));
             }
+        }
+    }
+}
+
+pub mod zkapp_statement {
+    use super::{
+        zkapp_command::{CallForest, Tree},
+        *,
+    };
+
+    type TransactionCommitment = Fp;
+
+    #[derive(Clone, Debug)]
+    pub struct ZkappStatement {
+        account_update: TransactionCommitment,
+        calls: TransactionCommitment,
+    }
+
+    impl ZkappStatement {
+        pub fn to_field_elements(&self) -> Vec<Fp> {
+            let Self {
+                account_update,
+                calls,
+            } = self;
+
+            vec![*account_update, *calls]
+        }
+
+        pub fn of_tree<AccUpdate: Clone>(tree: &Tree<AccUpdate>) -> Self {
+            let Tree {
+                account_update: _,
+                account_update_digest,
+                calls,
+            } = tree;
+
+            Self {
+                account_update: *account_update_digest,
+                calls: calls.hash(),
+            }
+        }
+
+        fn zkapp_statements_of_forest_prime<Data: Clone>(
+            forest: CallForest<(AccountUpdate, Data)>,
+        ) -> CallForest<(AccountUpdate, (Data, Self))> {
+            forest.map_with_trees_to(|(account_update, data), tree| {
+                (account_update.clone(), (data.clone(), Self::of_tree(tree)))
+            })
+        }
+
+        fn zkapp_statements_of_forest(
+            forest: CallForest<AccountUpdate>,
+        ) -> CallForest<(AccountUpdate, Self)> {
+            forest.map_with_trees_to(|account_update, tree| {
+                (account_update.clone(), Self::of_tree(tree))
+            })
         }
     }
 }

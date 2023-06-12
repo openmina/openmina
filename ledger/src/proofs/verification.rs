@@ -4,8 +4,8 @@ use ark_ff::Field;
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
 use crate::{
-    scan_state::scan_state::transaction_snark::{SokDigest, Statement},
-    CurveAffine,
+    scan_state::{scan_state::transaction_snark::{SokDigest, Statement}, transaction_logic::zkapp_statement::ZkappStatement},
+    CurveAffine, VerificationKey, PlonkVerificationKeyEvals,
 };
 
 use super::{
@@ -27,15 +27,15 @@ use mina_p2p_messages::{
         PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
         PicklesProofProofsVerified2ReprStableV2StatementFp,
         PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues,
-        TransactionSnarkProofStableV2,
+        TransactionSnarkProofStableV2, PicklesProofProofsVerifiedMaxStableV2,
     },
 };
-use poly_commitment::{commitment::CommitmentCurve, PolyComm};
+use poly_commitment::commitment::CommitmentCurve;
 
 use super::{prover::make_prover, ProverProof, VerifierIndex};
 
 use super::public_input::{
-    messages::{MessagesForNextStepProof, MessagesForNextWrapProof, PlonkVerificationKeyEvals},
+    messages::{MessagesForNextStepProof, MessagesForNextWrapProof},
     plonk_checks::{derive_plonk, PlonkMinimal, ScalarsEnv, ShiftedValue},
     prepared_statement::{DeferredValues, Plonk, PreparedStatement, ProofState},
     scalar_challenge::{endo_fp, endo_fq, ScalarChallenge},
@@ -128,7 +128,7 @@ fn make_scalars_env(minimal: &PlonkMinimal) -> ScalarsEnv {
 
 fn get_message_for_next_step_proof<'a, State>(
     messages_for_next_step_proof: &PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof,
-    verifier_index: &VerifierIndex,
+    commitments: &PlonkVerificationKeyEvals,
     app_state: &'a State,
 ) -> MessagesForNextStepProof<'a, State>
 where
@@ -142,21 +142,7 @@ where
         &endo_fp(),
     );
 
-    let to_curve = |v: &PolyComm<Pallas>| {
-        let v = v.unshifted[0];
-        CurveAffine(v.x, v.y)
-    };
-
-    let dlog_plonk_index = PlonkVerificationKeyEvals {
-        sigma: array::from_fn(|i| to_curve(&verifier_index.sigma_comm[i])),
-        coefficients: array::from_fn(|i| to_curve(&verifier_index.coefficients_comm[i])),
-        generic: to_curve(&verifier_index.generic_comm),
-        psm: to_curve(&verifier_index.psm_comm),
-        complete_add: to_curve(&verifier_index.complete_add_comm),
-        mul: to_curve(&verifier_index.mul_comm),
-        emul: to_curve(&verifier_index.emul_comm),
-        endomul_scalar: to_curve(&verifier_index.endomul_scalar_comm),
-    };
+    let dlog_plonk_index = commitments.clone();
 
     MessagesForNextStepProof {
         app_state,
@@ -272,6 +258,13 @@ fn verify_with(
     )
 }
 
+/// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/verification_key.mli#L30
+struct VK<'a> {
+    commitments: PlonkVerificationKeyEvals,
+    index: &'a VerifierIndex,
+    data: () // Unused in proof verification
+}
+
 pub fn verify_block(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierIndex) -> bool {
     let MinaBlockHeaderStableV2 {
         protocol_state,
@@ -279,7 +272,13 @@ pub fn verify_block(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierI
         ..
     } = &header;
 
-    verify_impl(protocol_state, protocol_state_proof, verifier_index)
+    let vk = VK {
+        commitments: PlonkVerificationKeyEvals::from(verifier_index),
+        index: verifier_index,
+        data: (),
+    };
+
+    verify_impl(protocol_state, protocol_state_proof, &vk)
 }
 
 pub fn verify_transaction(
@@ -287,7 +286,30 @@ pub fn verify_transaction(
     transaction_proof: &TransactionSnarkProofStableV2,
     verifier_index: &VerifierIndex,
 ) -> bool {
-    verify_impl(statement, transaction_proof, verifier_index)
+    let vk = VK {
+        commitments: PlonkVerificationKeyEvals::from(verifier_index),
+        index: verifier_index,
+        data: (),
+    };
+
+    verify_impl(statement, transaction_proof, &vk)
+}
+
+pub fn verify_zkapp(
+    verification_key: &VerificationKey,
+    zkapp_statement: ZkappStatement,
+    sideloaded_proof: &PicklesProofProofsVerified2ReprStableV2,
+    verifier_index: &VerifierIndex,
+) {
+    // https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/pickles.ml#LL260C1-L274C18
+    let vk = VK {
+        commitments: verification_key.wrap_index.clone(),
+        // TODO: In OCaml, the index comes from `verification_key.wrap_vk`
+        index: verifier_index,
+        data: (),
+    };
+
+    verify_impl(&zkapp_statement, sideloaded_proof, &vk);
 }
 
 pub trait AppState {
@@ -309,10 +331,16 @@ impl AppState for Statement<SokDigest> {
     }
 }
 
+impl AppState for ZkappStatement {
+    fn to_field_elements(&self) -> Vec<Fp> {
+        self.to_field_elements()
+    }
+}
+
 fn verify_impl<State>(
     app_state: &State,
     proof: &PicklesProofProofsVerified2ReprStableV2,
-    verifier_index: &VerifierIndex,
+    vk: &VK,
 ) -> bool
 where
     State: AppState,
@@ -324,7 +352,7 @@ where
 
     let message_for_next_step_proof = get_message_for_next_step_proof(
         &proof.statement.messages_for_next_step_proof,
-        verifier_index,
+        &vk.commitments,
         app_state,
     );
 
@@ -344,7 +372,7 @@ where
     let public_inputs = prepared_statement.to_public_input();
     let prover = make_prover(proof);
 
-    let result = verify_with(verifier_index, &prover, &public_inputs);
+    let result = verify_with(vk.index, &prover, &public_inputs);
 
     if let Err(e) = result {
         println!("verify error={:?}", e);
