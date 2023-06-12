@@ -8,7 +8,9 @@ jobs:
       fail-fast: false
       matrix:
         driver:
-          - --chrome
+          ## FIXME: Active chrome, but now it timeouts when tests run more than 10 minutes
+          ## Timeout example: https://github.com/openmina/ledger/actions/runs/5245920744/jobs/9474043794
+          # - --chrome
           - --firefox
           # - --node -- --features in_nodejs -Z build-std=std,panic_abort
     runs-on: ubuntu-latest
