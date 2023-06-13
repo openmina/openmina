@@ -30,7 +30,7 @@ module Rust = struct
   (* type attached_mask *)
   (* type any_mask *)
 
-  external transaction_fuzzer : (bytes -> bytes) -> (bytes -> bytes) -> unit = "rust_transaction_fuzzer"
+  (* external transaction_fuzzer : (bytes -> bytes) -> (bytes -> bytes) -> unit = "rust_transaction_fuzzer" *)
 
   external mask_create : int -> mask = "rust_mask_create"
   external mask_get_directory : mask -> string option = "rust_mask_get_directory"
@@ -146,4 +146,5 @@ module Rust = struct
   external test_random_accounts : (bytes -> bytes) -> unit = "rust_test_random_accounts"
   external test_random_account_updates : (bytes -> bytes) -> unit = "rust_test_random_account_updates"
   external get_random_account : (bytes -> unit) -> bytes = "rust_get_random_account"
+  external rust_print_backtrace : int -> unit = "rust_print_backtrace"
 end
