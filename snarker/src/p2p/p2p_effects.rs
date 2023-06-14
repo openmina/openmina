@@ -12,6 +12,7 @@ use crate::watched_accounts::{
 use crate::{Service, Store};
 
 use super::channels::best_tip::{P2pChannelsBestTipAction, P2pChannelsBestTipResponseSendAction};
+use super::channels::rpc::P2pChannelsRpcAction;
 use super::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use super::channels::P2pChannelsAction;
 use super::connection::incoming::{
@@ -220,6 +221,23 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 }
                 P2pChannelsSnarkJobCommitmentAction::RequestReceived(_) => {}
                 P2pChannelsSnarkJobCommitmentAction::ResponseSend(action) => {
+                    action.effects(&meta, store);
+                }
+            },
+            P2pChannelsAction::Rpc(action) => match action {
+                P2pChannelsRpcAction::Init(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsRpcAction::Pending(_) => {}
+                P2pChannelsRpcAction::Ready(_) => {}
+                P2pChannelsRpcAction::RequestSend(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsRpcAction::ResponseReceived(action) => {}
+                P2pChannelsRpcAction::RequestReceived(action) => {
+                    // TODO(binier): handle incoming rpc requests.
+                }
+                P2pChannelsRpcAction::ResponseSend(action) => {
                     action.effects(&meta, store);
                 }
             },

@@ -1,6 +1,5 @@
 pub use super::protocol::{RequestProtocol, ResponseProtocol};
 
-use lib::p2p::rpc::{P2pRpcId, P2pRpcIncomingId, P2pRpcRequest, P2pRpcResponse};
 use libp2p::swarm::handler::ConnectionEvent;
 
 use super::EMPTY_QUEUE_SHRINK_THRESHOLD;
@@ -16,11 +15,13 @@ use std::{
     collections::VecDeque,
     fmt, io,
     sync::{
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicU32, Ordering},
         Arc,
     },
     task::{Context, Poll},
 };
+
+use crate::channels::rpc::{P2pRpcId, P2pRpcRequest, P2pRpcResponse};
 
 /// A connection handler of a `RequestResponse` protocol.
 #[doc(hidden)]
@@ -35,20 +36,14 @@ pub struct RequestResponseHandler {
     inbound: FuturesUnordered<
         BoxFuture<
             'static,
-            Result<
-                (
-                    (P2pRpcIncomingId, P2pRpcRequest),
-                    oneshot::Sender<P2pRpcResponse>,
-                ),
-                oneshot::Canceled,
-            >,
+            Result<((P2pRpcId, P2pRpcRequest), oneshot::Sender<P2pRpcResponse>), oneshot::Canceled>,
         >,
     >,
-    inbound_request_id: Arc<AtomicU64>,
+    inbound_request_id: Arc<AtomicU32>,
 }
 
 impl RequestResponseHandler {
-    pub(super) fn new(inbound_request_id: Arc<AtomicU64>) -> Self {
+    pub(super) fn new(inbound_request_id: Arc<AtomicU32>) -> Self {
         Self {
             outbound: VecDeque::new(),
             inbound: FuturesUnordered::new(),
@@ -64,24 +59,24 @@ impl RequestResponseHandler {
 pub enum RequestResponseHandlerEvent {
     /// A request has been received.
     Request {
-        request_id: P2pRpcIncomingId,
+        request_id: P2pRpcId,
         request: P2pRpcRequest,
         sender: oneshot::Sender<P2pRpcResponse>,
     },
     /// A response has been received.
     Response {
         request_id: P2pRpcId,
-        response: P2pRpcResponse,
+        response: Option<P2pRpcResponse>,
     },
     /// A response to an inbound request has been sent.
-    ResponseSent(P2pRpcIncomingId),
+    ResponseSent(P2pRpcId),
     /// A response to an inbound request was omitted as a result
     /// of dropping the response `sender` of an inbound `Request`.
-    ResponseOmission(P2pRpcIncomingId),
+    ResponseOmission(P2pRpcId),
     /// An outbound request failed to negotiate a mutually supported protocol.
     OutboundUnsupportedProtocols(P2pRpcId),
     /// An inbound request failed to negotiate a mutually supported protocol.
-    InboundUnsupportedProtocols(P2pRpcIncomingId),
+    InboundUnsupportedProtocols(P2pRpcId),
 }
 
 impl fmt::Debug for RequestResponseHandlerEvent {
@@ -129,7 +124,7 @@ impl ConnectionHandler for RequestResponseHandler {
     type InboundProtocol = ResponseProtocol;
     type OutboundProtocol = RequestProtocol;
     type OutboundOpenInfo = P2pRpcId;
-    type InboundOpenInfo = P2pRpcIncomingId;
+    type InboundOpenInfo = P2pRpcId;
 
     fn listen_protocol(&self) -> SubstreamProtocol<Self::InboundProtocol, Self::InboundOpenInfo> {
         // A channel for notifying the handler when the inbound
@@ -197,7 +192,9 @@ impl ConnectionHandler for RequestResponseHandler {
                 let info = e.info;
                 let error = e.error;
                 match error {
-                    ConnectionHandlerUpgrErr::Upgrade(UpgradeError::Select(NegotiationError::Failed)) => {
+                    ConnectionHandlerUpgrErr::Upgrade(UpgradeError::Select(
+                        NegotiationError::Failed,
+                    )) => {
                         // The local peer merely doesn't support the protocol(s) requested.
                         // This is no reason to close the connection, which may
                         // successfully communicate with other protocols already.
@@ -218,7 +215,9 @@ impl ConnectionHandler for RequestResponseHandler {
                 let info = e.info;
                 let error = e.error;
                 match error {
-                    ConnectionHandlerUpgrErr::Upgrade(UpgradeError::Select(NegotiationError::Failed)) => {
+                    ConnectionHandlerUpgrErr::Upgrade(UpgradeError::Select(
+                        NegotiationError::Failed,
+                    )) => {
                         // The remote merely doesn't support the protocol(s) we requested.
                         // This is no reason to close the connection, which may
                         // successfully communicate with other protocols already.
@@ -237,7 +236,6 @@ impl ConnectionHandler for RequestResponseHandler {
             }
             _ => {}
         }
-
     }
 
     fn on_behaviour_event(&mut self, request: Self::InEvent) {

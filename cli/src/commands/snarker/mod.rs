@@ -99,14 +99,17 @@ impl Snarker {
             p2p: P2pConfig {
                 identity_pub_key: pub_key,
                 initial_peers: vec![
-                    "/2cFXX6RK81MUi7Fe4bFx7k3U6Fr1Hn1rDDbAqPEm6iUTdv2C2gw/http/localhost/3000"
+                    "/dns4/seed-3.berkeley.o1test.net/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv"
                         .parse()
                         .unwrap(),
                 ],
                 max_peers: 10,
                 enabled_channels: [
                     ChannelId::BestTipPropagation,
-                    ChannelId::SnarkJobCommitmentPropagation].into(),
+                    ChannelId::SnarkJobCommitmentPropagation,
+                    ChannelId::Rpc,
+                ]
+                .into(),
             },
         };
         let state = State::new(config);

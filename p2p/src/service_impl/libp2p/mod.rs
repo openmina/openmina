@@ -26,13 +26,13 @@ mod behavior;
 pub use behavior::Event as BehaviourEvent;
 pub use behavior::*;
 
-// pub mod rpc;
+pub mod rpc;
+use self::rpc::RpcBehaviour;
 
 use crate::channels::best_tip::BestTipPropagationChannelMsg;
+use crate::channels::rpc::RpcChannelMsg;
 use crate::channels::ChannelMsg;
 use crate::{P2pChannelEvent, P2pConnectionEvent, P2pEvent};
-
-// use self::rpc::RpcBehaviour;
 
 /// Type alias for libp2p transport
 pub type P2PTransport = (PeerId, StreamMuxerBox);
@@ -126,7 +126,7 @@ impl Libp2pService {
 
         let behaviour = Behaviour {
             gossipsub,
-            // rpc: RpcBehaviour::new(),
+            rpc: RpcBehaviour::new(),
             event_source_sender,
         };
 
@@ -197,7 +197,7 @@ impl Libp2pService {
             Cmd::Disconnect(peer_id) => {
                 let _ = swarm.disconnect_peer_id(peer_id);
             }
-            Cmd::SendMessage(_peer_id, msg) => match msg {
+            Cmd::SendMessage(peer_id, msg) => match msg {
                 ChannelMsg::SnarkJobCommitmentPropagation(_) => {
                     // unsupported
                 }
@@ -217,8 +217,15 @@ impl Libp2pService {
                         Self::gossipsub_send(swarm, 0, &*block);
                         // TODO(binier): send event: `P2pChannelEvent::Sent`
                     }
-                }, // TODO(binier): handle if is_some
-                   // swarm.behaviour_mut().rpc.send_request(peer_id, id, req);
+                },
+                ChannelMsg::Rpc(msg) => match msg {
+                    RpcChannelMsg::Request(id, req) => {
+                        swarm.behaviour_mut().rpc.send_request(peer_id, id, req);
+                    }
+                    RpcChannelMsg::Response(_id, _resp) => {
+                        // TODO(binier): respond to incoming rpcs.
+                    }
+                },
             },
         }
     }
@@ -301,10 +308,12 @@ impl Libp2pService {
                     ));
                     let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
                 }
-                // BehaviourEvent::Rpc(event) => {
-                //     let event = Event::P2p(P2pEvent::Rpc(event));
-                //     swarm.behaviour_mut().event_source_sender.send(event).await;
-                // }
+                BehaviourEvent::Rpc(event) => {
+                    let _ = swarm
+                        .behaviour_mut()
+                        .event_source_sender
+                        .send(P2pEvent::from(event).into());
+                }
                 _ => {
                     shared::log::trace!(
                         shared::log::system_time();
