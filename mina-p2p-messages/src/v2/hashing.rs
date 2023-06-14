@@ -23,7 +23,7 @@ use crate::{
 };
 
 use super::{
-    generated, Amount, ConsensusBodyReferenceStableV1, ConsensusGlobalSlotStableV1,
+    generated, SignedAmount, ConsensusBodyReferenceStableV1, ConsensusGlobalSlotStableV1,
     ConsensusProofOfStakeDataConsensusStateValueStableV1,
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
@@ -588,9 +588,9 @@ impl ToInput for MinaStateBlockchainStateValueStableV2LedgerProofStatementSource
     }
 }
 
-impl ToInput for Amount {
+impl ToInput for SignedAmount {
     fn to_input(&self, inputs: &mut Inputs) {
-        let Amount { magnitude, sgn } = self;
+        let SignedAmount { magnitude, sgn } = self;
         to_input_fields!(inputs, magnitude, sgn);
     }
 }

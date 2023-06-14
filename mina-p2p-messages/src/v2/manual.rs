@@ -688,7 +688,7 @@ mod tests_sgn {
 /// Location: [src/lib/currency/signed_poly.ml:6:4](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/currency/signed_poly.ml#L6)
 /// Args: CurrencyFeeStableV1 , SgnStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct Amount {
+pub struct SignedAmount {
     pub magnitude: CurrencyFeeStableV1,
     pub sgn: SgnStableV1,
 }
@@ -708,7 +708,7 @@ pub struct MinaBaseFeeExcessStableV1(pub TokenFeeExcess, pub TokenFeeExcess);
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct TokenFeeExcess {
     pub token: TokenIdKeyHash,
-    pub amount: Amount,
+    pub amount: SignedAmount,
 }
 
 impl Default for NonZeroCurvePointUncompressedStableV1 {

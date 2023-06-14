@@ -1597,7 +1597,7 @@ pub struct MinaBaseAccountUpdateBodyStableV1 {
     pub public_key: NonZeroCurvePoint,
     pub token_id: TokenIdKeyHash,
     pub update: MinaBaseAccountUpdateUpdateStableV1,
-    pub balance_change: Amount,
+    pub balance_change: SignedAmount,
     pub increment_nonce: bool,
     pub events: MinaBaseAccountUpdateBodyEventsStableV1,
     pub actions: MinaBaseAccountUpdateBodyEventsStableV1,
@@ -2046,8 +2046,8 @@ pub struct MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
     pub transaction_commitment: crate::bigint::BigInt,
     pub full_transaction_commitment: crate::bigint::BigInt,
     pub token_id: TokenIdKeyHash,
-    pub excess: Amount,
-    pub supply_increase: Amount,
+    pub excess: SignedAmount,
+    pub supply_increase: SignedAmount,
     pub ledger: LedgerHash,
     pub success: bool,
     pub account_update_index: UnsignedExtendedUInt32StableV1,
@@ -2281,7 +2281,7 @@ pub struct MinaStateBlockchainStateValueStableV2LedgerProofStatement {
     pub target: MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     pub connecting_ledger_left: LedgerHash,
     pub connecting_ledger_right: LedgerHash,
-    pub supply_increase: Amount,
+    pub supply_increase: SignedAmount,
     pub fee_excess: MinaBaseFeeExcessStableV1,
     pub sok_digest: (),
 }
@@ -2310,7 +2310,7 @@ pub struct MinaStateSnarkedLedgerStateWithSokStableV2 {
     pub target: MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     pub connecting_ledger_left: LedgerHash,
     pub connecting_ledger_right: LedgerHash,
-    pub supply_increase: Amount,
+    pub supply_increase: SignedAmount,
     pub fee_excess: MinaBaseFeeExcessStableV1,
     pub sok_digest: MinaBaseZkappAccountZkappUriStableV1,
 }
@@ -2669,6 +2669,7 @@ pub struct NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1 {
 /// Derived name: `Transaction_snark_scan_state.Stable.V2.previous_incomplete_zkapp_updates.1`
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 #[polymorphic_variant]
+#[allow(non_camel_case_types)]
 pub enum TransactionSnarkScanStateStableV2PreviousIncompleteZkappUpdates1 {
     Border_block_continued_in_the_next_tree(bool),
 }
