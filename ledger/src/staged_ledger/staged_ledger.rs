@@ -767,6 +767,10 @@ impl StagedLedger {
         _job_msg_proofs: Vec<(AvailableJob, SokMessage, LedgerProof)>,
     ) -> Result<(), StagedLedgerError> {
         // TODO
+
+        // Must check statements are same
+        // https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/transaction_snark/transaction_snark.ml#L3467
+
         Ok(())
     }
 
