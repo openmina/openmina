@@ -2,21 +2,22 @@ pub mod handler;
 pub(super) mod protocol;
 
 use handler::{RequestProtocol, RequestResponseHandler, RequestResponseHandlerEvent};
-use lib::p2p::rpc::{P2pRpcEvent, P2pRpcId, P2pRpcOutgoingError, P2pRpcRequest};
-use libp2p::core::{ConnectedPoint, Multiaddr, PeerId};
+use libp2p::core::{ConnectedPoint, Endpoint, Multiaddr, PeerId};
 use libp2p::futures::channel::oneshot;
 use libp2p::swarm::{
-    ConnectionId,
-    DialError, FromSwarm, IntoConnectionHandler, NetworkBehaviour, NetworkBehaviourAction,
-    NotifyHandler, PollParameters,
+    ConnectionDenied, ConnectionId, FromSwarm, IntoConnectionHandler, NetworkBehaviour,
+    NotifyHandler, PollParameters, THandler, ToSwarm,
 };
 use smallvec::SmallVec;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     fmt,
-    sync::{atomic::AtomicU64, Arc},
+    sync::{atomic::AtomicU32, Arc},
     task::{Context, Poll},
 };
+
+use crate::channels::rpc::{P2pRpcId, P2pRpcRequest, RpcChannelMsg};
+use crate::P2pChannelEvent;
 
 pub const RPC_PROTOCOL_NAME: &'static str = "coda/rpcs/0.0.1";
 
@@ -133,9 +134,9 @@ impl<TResponse> ResponseChannel<TResponse> {
 
 pub struct RpcBehaviour {
     /// The next (inbound) request ID.
-    next_inbound_id: Arc<AtomicU64>,
+    next_inbound_id: Arc<AtomicU32>,
     /// Pending events to return from `poll`.
-    pending_events: VecDeque<NetworkBehaviourAction<P2pRpcEvent, RequestResponseHandler>>,
+    pending_events: VecDeque<ToSwarm<P2pChannelEvent, RequestProtocol>>,
     /// The currently connected peers, their pending outbound and inbound responses and their known,
     /// reachable addresses, if any.
     connected: HashMap<PeerId, SmallVec<[Connection; 2]>>,
@@ -144,7 +145,7 @@ pub struct RpcBehaviour {
 impl RpcBehaviour {
     pub fn new() -> Self {
         Self {
-            next_inbound_id: Arc::new(AtomicU64::new(1)),
+            next_inbound_id: Arc::new(AtomicU32::new(1)),
             pending_events: VecDeque::new(),
             connected: HashMap::new(),
         }
@@ -206,15 +207,14 @@ impl RpcBehaviour {
             if connections.is_empty() {
                 return Some(request);
             }
-            let ix = (request.request_id.locator() as usize) % connections.len();
+            let ix = (request.request_id as usize) % connections.len();
             let conn = &mut connections[ix];
             conn.pending_inbound_responses.insert(request.request_id);
-            self.pending_events
-                .push_back(NetworkBehaviourAction::NotifyHandler {
-                    peer_id: peer,
-                    handler: NotifyHandler::One(conn.id),
-                    event: request,
-                });
+            self.pending_events.push_back(ToSwarm::NotifyHandler {
+                peer_id: peer,
+                handler: NotifyHandler::One(conn.id),
+                event: request,
+            });
             None
         } else {
             Some(request)
@@ -268,7 +268,7 @@ impl RpcBehaviour {
 
 impl NetworkBehaviour for RpcBehaviour {
     type ConnectionHandler = RequestResponseHandler;
-    type OutEvent = P2pRpcEvent;
+    type OutEvent = P2pChannelEvent;
 
     fn new_handler(&mut self) -> Self::ConnectionHandler {
         RequestResponseHandler::new(self.next_inbound_id.clone())
@@ -280,30 +280,43 @@ impl NetworkBehaviour for RpcBehaviour {
 
     fn handle_established_inbound_connection(
         &mut self,
-        peer: &PeerId,
-        conn: &ConnectionId,
-        endpoint: &ConnectedPoint,
-        _errors: Option<&Vec<Multiaddr>>,
-        other_established: usize,
-    ) {
+        conn: ConnectionId,
+        peer: PeerId,
+        local_addr: &Multiaddr,
+        remote_addr: &Multiaddr,
+    ) -> Result<THandler<Self>, ConnectionDenied> {
         self.connected
-            .entry(*peer)
+            .entry(peer)
             .or_default()
-            .push(Connection::new(*conn));
+            .push(Connection::new(conn));
+
+        #[allow(deprecated)]
+        Ok(self.new_handler().into_handler(
+            &peer,
+            &ConnectedPoint::Listener {
+                local_addr: local_addr.clone(),
+                send_back_addr: remote_addr.clone(),
+            },
+        ))
     }
 
-    fn handle_established_outbound_connection(
+    fn handle_pending_outbound_connection(
         &mut self,
-        peer: &PeerId,
-        conn: &ConnectionId,
-        endpoint: &ConnectedPoint,
-        _errors: Option<&Vec<Multiaddr>>,
-        other_established: usize,
-    ) {
-        self.connected
-            .entry(*peer)
-            .or_default()
-            .push(Connection::new(*conn));
+        conn: ConnectionId,
+        peer: Option<PeerId>,
+        _addresses: &[Multiaddr],
+        _effective_role: Endpoint,
+    ) -> Result<Vec<Multiaddr>, ConnectionDenied> {
+        #[allow(deprecated)]
+        if let Some(peer_id) = peer {
+            self.connected
+                .entry(peer_id)
+                .or_default()
+                .push(Connection::new(conn));
+            Ok(self.addresses_of_peer(&peer_id))
+        } else {
+            Ok(vec![])
+        }
     }
 
     fn on_swarm_event(&mut self, event: FromSwarm<Self::ConnectionHandler>) {
@@ -329,24 +342,13 @@ impl NetworkBehaviour for RpcBehaviour {
                 for request_id in connection.pending_outbound_responses {
                     // TODO(binier): incoming rpcs
                     // self.pending_events
-                    //     .push_back(NetworkBehaviourAction::GenerateEvent(
+                    //     .push_back(ToSwarm::GenerateEvent(
                     //         RequestResponseEvent::InboundFailure {
                     //             peer: *peer_id,
                     //             request_id,
                     //             error: InboundFailure::ConnectionClosed,
                     //         },
                     //     ));
-                }
-
-                for request_id in connection.pending_inbound_responses {
-                    self.pending_events
-                        .push_back(NetworkBehaviourAction::GenerateEvent(
-                            P2pRpcEvent::OutgoingError(
-                                *peer_id,
-                                request_id,
-                                P2pRpcOutgoingError::ConnectionClosed,
-                            ),
-                        ));
                 }
             }
             _ => {}
@@ -371,9 +373,10 @@ impl NetworkBehaviour for RpcBehaviour {
                 );
 
                 self.pending_events
-                    .push_back(NetworkBehaviourAction::GenerateEvent(
-                        P2pRpcEvent::OutgoingResponse(peer, request_id, response),
-                    ));
+                    .push_back(ToSwarm::GenerateEvent(P2pChannelEvent::Received(
+                        peer.into(),
+                        Ok(RpcChannelMsg::Response(request_id, response).into()),
+                    )));
             }
             RequestResponseHandlerEvent::Request {
                 request_id,
@@ -388,7 +391,7 @@ impl NetworkBehaviour for RpcBehaviour {
                 //     channel,
                 // };
                 // self.pending_events
-                //     .push_back(NetworkBehaviourAction::GenerateEvent(
+                //     .push_back(ToSwarm::GenerateEvent(
                 //         RequestResponseEvent::Message { peer, message },
                 //     ));
 
@@ -400,7 +403,7 @@ impl NetworkBehaviour for RpcBehaviour {
                 //     // Connection closed after `RequestResponseEvent::Request` has been emitted.
                 //     None => {
                 //         self.pending_events
-                //             .push_back(NetworkBehaviourAction::GenerateEvent(
+                //             .push_back(ToSwarm::GenerateEvent(
                 //                 RequestResponseEvent::InboundFailure {
                 //                     peer,
                 //                     request_id,
@@ -419,7 +422,7 @@ impl NetworkBehaviour for RpcBehaviour {
                 // );
 
                 // self.pending_events
-                //     .push_back(NetworkBehaviourAction::GenerateEvent(
+                //     .push_back(ToSwarm::GenerateEvent(
                 //         RequestResponseEvent::ResponseSent { peer, request_id },
                 //     ));
             }
@@ -432,7 +435,7 @@ impl NetworkBehaviour for RpcBehaviour {
                 // );
 
                 // self.pending_events
-                //     .push_back(NetworkBehaviourAction::GenerateEvent(
+                //     .push_back(ToSwarm::GenerateEvent(
                 //         RequestResponseEvent::InboundFailure {
                 //             peer,
                 //             request_id,
@@ -448,13 +451,10 @@ impl NetworkBehaviour for RpcBehaviour {
                 );
 
                 self.pending_events
-                    .push_back(NetworkBehaviourAction::GenerateEvent(
-                        P2pRpcEvent::OutgoingError(
-                            peer,
-                            request_id,
-                            P2pRpcOutgoingError::ProtocolUnsupported,
-                        ),
-                    ));
+                    .push_back(ToSwarm::GenerateEvent(P2pChannelEvent::Received(
+                        peer.into(),
+                        Ok(RpcChannelMsg::Response(request_id, None).into()),
+                    )));
             }
             RequestResponseHandlerEvent::InboundUnsupportedProtocols(request_id) => {
                 // TODO(binier): incoming rpcs
@@ -462,7 +462,7 @@ impl NetworkBehaviour for RpcBehaviour {
                 // `RequestResponseHandlerEvent::Request` was never emitted for this request and
                 // thus request was never added to `pending_outbound_responses`.
                 // self.pending_events
-                //     .push_back(NetworkBehaviourAction::GenerateEvent(
+                //     .push_back(ToSwarm::GenerateEvent(
                 //         P2pRpcEvent::OutgoingError(
                 //             *peer_id,
                 //             request_id,
@@ -477,7 +477,7 @@ impl NetworkBehaviour for RpcBehaviour {
         &mut self,
         _: &mut Context<'_>,
         _: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
+    ) -> Poll<ToSwarm<Self::OutEvent, RequestProtocol>> {
         if let Some(ev) = self.pending_events.pop_front() {
             return Poll::Ready(ev);
         } else if self.pending_events.capacity() > EMPTY_QUEUE_SHRINK_THRESHOLD {

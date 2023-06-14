@@ -21,6 +21,12 @@ use crate::p2p::channels::best_tip::{
     P2pChannelsBestTipRequestReceivedAction, P2pChannelsBestTipRequestSendAction,
     P2pChannelsBestTipResponseSendAction,
 };
+use crate::p2p::channels::rpc::{
+    P2pChannelsRpcAction, P2pChannelsRpcInitAction, P2pChannelsRpcPendingAction,
+    P2pChannelsRpcReadyAction, P2pChannelsRpcRequestReceivedAction,
+    P2pChannelsRpcRequestSendAction, P2pChannelsRpcResponseReceivedAction,
+    P2pChannelsRpcResponseSendAction,
+};
 use crate::p2p::channels::snark_job_commitment::{
     P2pChannelsSnarkJobCommitmentAction, P2pChannelsSnarkJobCommitmentInitAction,
     P2pChannelsSnarkJobCommitmentPendingAction, P2pChannelsSnarkJobCommitmentPromiseReceivedAction,
@@ -113,6 +119,13 @@ pub enum ActionKind {
     P2pChannelsBestTipRequestSend,
     P2pChannelsBestTipResponseSend,
     P2pChannelsMessageReceived,
+    P2pChannelsRpcInit,
+    P2pChannelsRpcPending,
+    P2pChannelsRpcReady,
+    P2pChannelsRpcRequestReceived,
+    P2pChannelsRpcRequestSend,
+    P2pChannelsRpcResponseReceived,
+    P2pChannelsRpcResponseSend,
     P2pChannelsSnarkJobCommitmentInit,
     P2pChannelsSnarkJobCommitmentPending,
     P2pChannelsSnarkJobCommitmentPromiseReceived,
@@ -349,6 +362,7 @@ impl ActionKindGet for P2pChannelsAction {
             Self::MessageReceived(a) => a.kind(),
             Self::BestTip(a) => a.kind(),
             Self::SnarkJobCommitment(a) => a.kind(),
+            Self::Rpc(a) => a.kind(),
         }
     }
 }
@@ -663,6 +677,20 @@ impl ActionKindGet for P2pChannelsSnarkJobCommitmentAction {
     }
 }
 
+impl ActionKindGet for P2pChannelsRpcAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::Pending(a) => a.kind(),
+            Self::Ready(a) => a.kind(),
+            Self::RequestSend(a) => a.kind(),
+            Self::ResponseReceived(a) => a.kind(),
+            Self::RequestReceived(a) => a.kind(),
+            Self::ResponseSend(a) => a.kind(),
+        }
+    }
+}
+
 impl ActionKindGet for SnarkBlockVerifyInitAction {
     fn kind(&self) -> ActionKind {
         ActionKind::SnarkBlockVerifyInit
@@ -942,5 +970,47 @@ impl ActionKindGet for P2pChannelsSnarkJobCommitmentRequestReceivedAction {
 impl ActionKindGet for P2pChannelsSnarkJobCommitmentResponseSendAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pChannelsSnarkJobCommitmentResponseSend
+    }
+}
+
+impl ActionKindGet for P2pChannelsRpcInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsRpcInit
+    }
+}
+
+impl ActionKindGet for P2pChannelsRpcPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsRpcPending
+    }
+}
+
+impl ActionKindGet for P2pChannelsRpcReadyAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsRpcReady
+    }
+}
+
+impl ActionKindGet for P2pChannelsRpcRequestSendAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsRpcRequestSend
+    }
+}
+
+impl ActionKindGet for P2pChannelsRpcResponseReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsRpcResponseReceived
+    }
+}
+
+impl ActionKindGet for P2pChannelsRpcRequestReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsRpcRequestReceived
+    }
+}
+
+impl ActionKindGet for P2pChannelsRpcResponseSendAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsRpcResponseSend
     }
 }

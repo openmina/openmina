@@ -1,4 +1,5 @@
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
+use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::p2p::channels::P2pChannelsAction;
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
@@ -9,8 +10,6 @@ use crate::{Action, ActionWithMetaRef, Service, Store};
 
 pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
-    dbg!(action);
-    dbg!(_store.state());
 
     match action {
         Action::P2p(action) => match action {
@@ -123,6 +122,45 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                             kind = "PeerChannelsSnarkJobCommitmentReady",
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string()
+                        );
+                    }
+                    _ => {}
+                },
+                P2pChannelsAction::Rpc(action) => match action {
+                    P2pChannelsRpcAction::Init(action) => {
+                        shared::log::debug!(
+                            meta.time();
+                            kind = "PeerChannelsRpcInit",
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string()
+                        );
+                    }
+                    P2pChannelsRpcAction::Ready(action) => {
+                        shared::log::debug!(
+                            meta.time();
+                            kind = "PeerChannelsRpcReady",
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string()
+                        );
+                    }
+                    P2pChannelsRpcAction::RequestSend(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = "P2pRpcOutgoingInit",
+                            summary = format!("peer_id: {}, rpc_id: {}, kind: {:?}", action.peer_id, action.id, action.request.kind()),
+                            peer_id = action.peer_id.to_string(),
+                            rpc_id = action.id.to_string(),
+                            request = serde_json::to_string(&action.request).ok()
+                        );
+                    }
+                    P2pChannelsRpcAction::ResponseReceived(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = "P2pRpcOutgoingReceived",
+                            summary = format!("peer_id: {}, rpc_id: {}", action.peer_id, action.id),
+                            peer_id = action.peer_id.to_string(),
+                            rpc_id = action.id.to_string(),
+                            response = serde_json::to_string(&action.response).ok()
                         );
                     }
                     _ => {}

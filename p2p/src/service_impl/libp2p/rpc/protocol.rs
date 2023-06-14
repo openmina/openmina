@@ -3,21 +3,21 @@
 //! receives a request and sends a response, whereas the
 //! outbound upgrade send a request and receives a response.
 
-use binprot::BinProtWrite;
-use lib::p2p::rpc::{P2pRpcId, P2pRpcIncomingId, P2pRpcRequest, P2pRpcResponse};
 use libp2p::core::upgrade::{InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use libp2p::futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use libp2p::swarm::NegotiatedSubstream;
 use std::{fmt, io};
+
+use crate::channels::rpc::{P2pRpcId, P2pRpcRequest, P2pRpcResponse};
 
 /// Response substream upgrade protocol.
 ///
 /// Receives a request and sends a response.
 #[derive(Debug)]
 pub struct ResponseProtocol {
-    pub(crate) request_sender: oneshot::Sender<(P2pRpcIncomingId, P2pRpcRequest)>,
+    pub(crate) request_sender: oneshot::Sender<(P2pRpcId, P2pRpcRequest)>,
     pub(crate) response_receiver: oneshot::Receiver<P2pRpcResponse>,
-    pub(crate) request_id: P2pRpcIncomingId,
+    pub(crate) request_id: P2pRpcId,
 }
 
 impl UpgradeInfo for ResponseProtocol {
@@ -93,7 +93,7 @@ impl UpgradeInfo for RequestProtocol {
 }
 
 impl OutboundUpgrade<NegotiatedSubstream> for RequestProtocol {
-    type Output = P2pRpcResponse;
+    type Output = Option<P2pRpcResponse>;
     type Error = io::Error;
     type Future = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
@@ -104,6 +104,7 @@ impl OutboundUpgrade<NegotiatedSubstream> for RequestProtocol {
     ) -> Self::Future {
         async move {
             let mut encoded = vec![];
+            let request_kind = self.request.kind();
             self.request.write_msg(self.request_id, &mut encoded)?;
 
             const PREFIX: &'static [u8] =
@@ -133,7 +134,7 @@ impl OutboundUpgrade<NegotiatedSubstream> for RequestProtocol {
                     let len = u64::from_le_bytes(b[..8].try_into().unwrap()).saturating_sub(1);
                     let mut b = vec![0; len as usize];
                     io.read_exact(&mut b).await?;
-                    break P2pRpcResponse::read_msg(self.request.kind(), &mut &b[..])
+                    break P2pRpcResponse::read_msg(request_kind, &mut &b[..])
                         .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
                 }
             }

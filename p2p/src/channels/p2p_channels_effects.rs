@@ -9,6 +9,9 @@ use super::{
         BestTipPropagationChannelMsg, P2pChannelsBestTipReceivedAction,
         P2pChannelsBestTipRequestReceivedAction,
     },
+    rpc::{
+        P2pChannelsRpcRequestReceivedAction, P2pChannelsRpcResponseReceivedAction, RpcChannelMsg,
+    },
     snark_job_commitment::{
         P2pChannelsSnarkJobCommitmentPromiseReceivedAction,
         P2pChannelsSnarkJobCommitmentReceivedAction,
@@ -27,6 +30,8 @@ impl P2pChannelsMessageReceivedAction {
         P2pChannelsSnarkJobCommitmentRequestReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkJobCommitmentPromiseReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkJobCommitmentReceivedAction: redux::EnablingCondition<S>,
+        P2pChannelsRpcRequestReceivedAction: redux::EnablingCondition<S>,
+        P2pChannelsRpcResponseReceivedAction: redux::EnablingCondition<S>,
         P2pDisconnectionInitAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
@@ -60,6 +65,22 @@ impl P2pChannelsMessageReceivedAction {
                     store.dispatch(P2pChannelsSnarkJobCommitmentReceivedAction {
                         peer_id,
                         commitment,
+                    })
+                }
+            },
+            ChannelMsg::Rpc(msg) => match msg {
+                RpcChannelMsg::Request(id, request) => {
+                    store.dispatch(P2pChannelsRpcRequestReceivedAction {
+                        peer_id,
+                        id,
+                        request,
+                    })
+                }
+                RpcChannelMsg::Response(id, response) => {
+                    store.dispatch(P2pChannelsRpcResponseReceivedAction {
+                        peer_id,
+                        id,
+                        response,
                     })
                 }
             },

@@ -2,7 +2,7 @@ use redux::ActionMeta;
 
 use crate::{
     channels::{
-        best_tip::P2pChannelsBestTipInitAction,
+        best_tip::P2pChannelsBestTipInitAction, rpc::P2pChannelsRpcInitAction,
         snark_job_commitment::P2pChannelsSnarkJobCommitmentInitAction, ChannelId,
     },
     P2pPeerReadyAction,
@@ -14,6 +14,7 @@ impl P2pPeerReadyAction {
         Store: crate::P2pStore<S>,
         P2pChannelsBestTipInitAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkJobCommitmentInitAction: redux::EnablingCondition<S>,
+        P2pChannelsRpcInitAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
         // Dispatches can be done without a loop, but inside we do
@@ -25,6 +26,9 @@ impl P2pPeerReadyAction {
                 }
                 ChannelId::SnarkJobCommitmentPropagation => {
                     store.dispatch(P2pChannelsSnarkJobCommitmentInitAction { peer_id });
+                }
+                ChannelId::Rpc => {
+                    store.dispatch(P2pChannelsRpcInitAction { peer_id });
                 }
             }
         }

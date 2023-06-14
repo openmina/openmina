@@ -1,15 +1,15 @@
 use libp2p::{gossipsub, swarm::NetworkBehaviour};
 use tokio::sync::mpsc;
 
-use crate::P2pEvent;
+use crate::{P2pChannelEvent, P2pEvent};
 
-// use super::rpc::RpcBehaviour;
+use super::rpc::RpcBehaviour;
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "Event")]
 pub struct Behaviour<E: 'static + From<P2pEvent>> {
     pub gossipsub: gossipsub::Behaviour,
-    // pub rpc: RpcBehaviour,
+    pub rpc: RpcBehaviour,
     #[behaviour(ignore)]
     pub event_source_sender: mpsc::UnboundedSender<E>,
 }
@@ -19,5 +19,5 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
 pub enum Event {
     // Identify(IdentifyEvent),
     Gossipsub(gossipsub::Event),
-    // Rpc(P2pRpcEvent),
+    Rpc(P2pChannelEvent),
 }

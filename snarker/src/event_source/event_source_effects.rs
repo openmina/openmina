@@ -1,3 +1,5 @@
+use p2p::channels::rpc::P2pChannelsRpcReadyAction;
+
 use crate::action::CheckTimeoutsAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipReadyAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReadyAction;
@@ -129,6 +131,10 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                                 // TODO(binier): maybe dispatch success and then ready.
                                 store
                                     .dispatch(P2pChannelsSnarkJobCommitmentReadyAction { peer_id });
+                            }
+                            ChannelId::Rpc => {
+                                // TODO(binier): maybe dispatch success and then ready.
+                                store.dispatch(P2pChannelsRpcReadyAction { peer_id });
                             }
                         },
                     },
