@@ -1984,7 +1984,7 @@ impl From<&ParallelScanWeightStableV1> for super::parallel_scan::Weight {
 
         Self {
             base: base as u64,
-            merge: base as u64,
+            merge: merge as u64,
         }
     }
 }
@@ -2249,7 +2249,7 @@ impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
                     _hasher: std::marker::PhantomData,
                 }
             },
-            pos_list: pos_list.iter().map(Into::into).collect(),
+            pos_list: pos_list.iter().rev().map(Into::into).collect(),
             new_pos: new_pos.into(),
         }
     }
