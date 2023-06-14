@@ -7,7 +7,8 @@ use mina_p2p_messages::{
     pseq::PaddedSeq,
     string::CharString,
     v2::{
-        BlockTimeTimeStableV1, ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+        Amount as MinaAmount, BlockTimeTimeStableV1,
+        ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
         ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
         CurrencyAmountStableV1, CurrencyBalanceStableV1, CurrencyFeeStableV1,
         DataHashLibStateHashStableV1, EpochSeed, LedgerProofProdStableV2,
@@ -19,15 +20,16 @@ use mina_p2p_messages::{
         MinaBaseAccountUpdateUpdateStableV1AppStateA,
         MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseCallStackDigestStableV1,
         MinaBaseCoinbaseFeeTransferStableV1, MinaBaseCoinbaseStableV1, MinaBaseEpochSeedStableV1,
-        MinaBaseFeeExcessStableV1, MinaBaseFeeExcessStableV1Fee, MinaBaseFeeTransferSingleStableV2,
-        MinaBaseFeeTransferStableV2, MinaBaseLedgerHash0StableV1, MinaBasePaymentPayloadStableV2,
+        MinaBaseFeeExcessStableV1, MinaBaseFeeTransferSingleStableV2, MinaBaseFeeTransferStableV2,
+        MinaBaseLedgerHash0StableV1, MinaBasePaymentPayloadStableV2,
         MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseStackHashStableV1,
         MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
-        MinaBaseReceiptChainHashStableV1, MinaBaseSignedCommandMemoStableV1,
-        MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandPayloadCommonStableV2,
-        MinaBaseSignedCommandPayloadStableV2, MinaBaseSignedCommandStableV2,
-        MinaBaseSokMessageStableV1, MinaBaseStackFrameStableV1, MinaBaseStakeDelegationStableV1,
-        MinaBaseStateBodyHashStableV1, MinaBaseTransactionStatusFailureCollectionStableV1,
+        MinaBaseReceiptChainHashStableV1, MinaBaseSignatureStableV1,
+        MinaBaseSignedCommandMemoStableV1, MinaBaseSignedCommandPayloadBodyStableV2,
+        MinaBaseSignedCommandPayloadCommonStableV2, MinaBaseSignedCommandPayloadStableV2,
+        MinaBaseSignedCommandStableV2, MinaBaseSokMessageStableV1, MinaBaseStackFrameStableV1,
+        MinaBaseStakeDelegationStableV1, MinaBaseStateBodyHashStableV1,
+        MinaBaseTransactionStatusFailureCollectionStableV1,
         MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2,
         MinaBaseUserCommandStableV2, MinaBaseZkappAccountZkappUriStableV1,
         MinaBaseZkappCommandTStableV1WireStableV1,
@@ -57,9 +59,8 @@ use mina_p2p_messages::{
         MinaTransactionLogicTransactionAppliedVaryingStableV2,
         MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1,
         MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command,
-        MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
-        MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount, SgnStableV1,
-        StateHash, TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
+        MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, SgnStableV1, StateHash,
+        TokenFeeExcess, TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
         TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
         UnsignedExtendedUInt32StableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
@@ -134,25 +135,27 @@ impl From<Balance> for CurrencyAmountStableV1 {
     }
 }
 
-impl From<&MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount>
-    for Signed<Amount>
-{
-    fn from(
-        value: &MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount,
-    ) -> Self {
+impl From<&MinaAmount> for Signed<Amount> {
+    fn from(value: &MinaAmount) -> Self {
         Self {
-            magnitude: value.magnitude.clone().into(),
+            magnitude: Amount(value.magnitude.clone().as_u64()),
             sgn: value.sgn.clone().into(),
         }
     }
 }
 
-impl From<&Signed<Amount>>
-    for MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount
-{
+impl From<&Amount> for CurrencyFeeStableV1 {
+    fn from(value: &Amount) -> Self {
+        CurrencyFeeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+            (value.0 as i64).into(),
+        ))
+    }
+}
+
+impl From<&Signed<Amount>> for MinaAmount {
     fn from(value: &Signed<Amount>) -> Self {
         Self {
-            magnitude: value.magnitude.into(),
+            magnitude: (&value.magnitude).into(),
             sgn: (&value.sgn).into(),
         }
     }
@@ -209,8 +212,8 @@ impl From<SgnStableV1> for Sgn {
     }
 }
 
-impl From<&MinaBaseFeeExcessStableV1Fee> for Signed<Fee> {
-    fn from(value: &MinaBaseFeeExcessStableV1Fee) -> Self {
+impl From<&MinaAmount> for Signed<Fee> {
+    fn from(value: &MinaAmount) -> Self {
         Self {
             magnitude: (&value.magnitude).into(),
             sgn: value.sgn.clone().into(),
@@ -235,7 +238,7 @@ impl From<&Fee> for CurrencyFeeStableV1 {
     }
 }
 
-impl From<&Signed<Fee>> for MinaBaseFeeExcessStableV1Fee {
+impl From<&Signed<Fee>> for MinaAmount {
     fn from(value: &Signed<Fee>) -> Self {
         Self {
             magnitude: (&value.magnitude).into(),
@@ -247,22 +250,26 @@ impl From<&Signed<Fee>> for MinaBaseFeeExcessStableV1Fee {
 impl From<&MinaBaseFeeExcessStableV1> for FeeExcess {
     fn from(value: &MinaBaseFeeExcessStableV1) -> Self {
         Self {
-            fee_token_l: (&*value.fee_token_l).into(),
-            fee_excess_l: (&value.fee_excess_l).into(),
-            fee_token_r: (&*value.fee_token_r).into(),
-            fee_excess_r: (&value.fee_excess_r).into(),
+            fee_token_l: (&*value.0.token).into(),
+            fee_excess_l: (&value.0.amount).into(),
+            fee_token_r: (&*value.1.token).into(),
+            fee_excess_r: (&value.1.amount).into(),
         }
     }
 }
 
 impl From<&FeeExcess> for MinaBaseFeeExcessStableV1 {
     fn from(value: &FeeExcess) -> Self {
-        Self {
-            fee_token_l: (&value.fee_token_l).into(),
-            fee_excess_l: (&value.fee_excess_l).into(),
-            fee_token_r: (&value.fee_token_r).into(),
-            fee_excess_r: (&value.fee_excess_r).into(),
-        }
+        Self(
+            TokenFeeExcess {
+                token: (&value.fee_token_l).into(),
+                amount: (&value.fee_excess_l).into(),
+            },
+            TokenFeeExcess {
+                token: (&value.fee_token_r).into(),
+                amount: (&value.fee_excess_r).into(),
+            },
+        )
     }
 }
 
@@ -281,7 +288,7 @@ impl From<&MinaBasePendingCoinbaseStackVersionedStableV1> for pending_coinbase::
 impl From<&pending_coinbase::Stack> for MinaBasePendingCoinbaseStackVersionedStableV1 {
     fn from(value: &pending_coinbase::Stack) -> Self {
         Self {
-            data: (&value.data).into(),
+            data: MinaBasePendingCoinbaseCoinbaseStackStableV1::from(&value.data).into(),
             state: (&value.state).into(),
         }
     }
@@ -296,8 +303,8 @@ impl From<&pending_coinbase::CoinbaseStack> for MinaBasePendingCoinbaseCoinbaseS
 impl From<&pending_coinbase::StateStack> for MinaBasePendingCoinbaseStateStackStableV1 {
     fn from(value: &pending_coinbase::StateStack) -> Self {
         Self {
-            init: MinaBasePendingCoinbaseStackHashStableV1(value.init.into()),
-            curr: MinaBasePendingCoinbaseStackHashStableV1(value.curr.into()),
+            init: MinaBasePendingCoinbaseStackHashStableV1(value.init.into()).into(),
+            curr: MinaBasePendingCoinbaseStackHashStableV1(value.curr.into()).into(),
         }
     }
 }
@@ -586,7 +593,7 @@ impl From<&FeePayer> for MinaBaseAccountUpdateFeePayerStableV1 {
                 valid_until: value.body.valid_until.as_ref().map(|until| until.into()),
                 nonce: (&value.body.nonce).into(),
             },
-            authorization: (&value.authorization).into(),
+            authorization: MinaBaseSignatureStableV1::from(&value.authorization).into(),
         }
     }
 }
@@ -1063,7 +1070,7 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
                     },
                 },
                 balance_change: Signed::<Amount> {
-                    magnitude: value.body.balance_change.magnitude.clone().into(),
+                    magnitude: Amount(value.body.balance_change.magnitude.as_u64()),
                     sgn: value.body.balance_change.sgn.clone().into(),
                 },
                 increment_nonce: value.body.increment_nonce,
@@ -1236,8 +1243,8 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
                         SetOrKeep::Keep => Voting::Keep,
                     },
                 },
-                balance_change: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount {
-                    magnitude: value.body.balance_change.magnitude.into(),
+                balance_change: MinaAmount {
+                    magnitude: (&value.body.balance_change.magnitude).into(),
                     sgn: (&value.body.balance_change.sgn).into(),
                 },
                 increment_nonce: value.body.increment_nonce,
@@ -1417,7 +1424,7 @@ impl From<&MinaBaseSignedCommandStableV2> for SignedCommand {
                 },
             },
             signer: (&cmd.signer).into(),
-            signature: (&cmd.signature).into(),
+            signature: (&*cmd.signature).into(),
         }
     }
 }
@@ -1459,7 +1466,7 @@ impl From<&SignedCommand> for MinaBaseSignedCommandStableV2 {
                 },
             },
             signer: (&cmd.signer).into(),
-            signature: (&cmd.signature).into(),
+            signature: MinaBaseSignatureStableV1::from(&cmd.signature).into(),
         }
     }
 }
@@ -1624,15 +1631,14 @@ impl From<&Registers> for MinaStateBlockchainStateValueStableV2LedgerProofStatem
                 transaction_commitment: value.local_state.transaction_commitment.into(),
                 full_transaction_commitment: value.local_state.full_transaction_commitment.into(),
                 token_id: (&value.local_state.token_id).into(),
-                excess: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount {
-                    magnitude: value.local_state.excess.magnitude.into(),
+                excess: MinaAmount {
+                    magnitude: (&value.local_state.excess.magnitude).into(),
                     sgn: (&value.local_state.excess.sgn).into(),
                 },
-                supply_increase:
-                    MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount {
-                        magnitude: value.local_state.supply_increase.magnitude.into(),
-                        sgn: (&value.local_state.supply_increase.sgn).into(),
-                    },
+                supply_increase: MinaAmount {
+                    magnitude: (&value.local_state.supply_increase.magnitude).into(),
+                    sgn: (&value.local_state.supply_increase.sgn).into(),
+                },
                 ledger: {
                     let hash = MinaBaseLedgerHash0StableV1(value.local_state.ledger.into());
                     hash.into()
@@ -1786,15 +1792,15 @@ impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithW
                 let (state, body) = &value.state_hash;
                 let state = DataHashLibStateHashStableV1(state.into());
 
-                (state.into(), MinaBaseStateBodyHashStableV1(body.into()))
+                (state.into(), MinaBaseStateBodyHashStableV1(body.into()).into())
             },
             statement: (&value.statement).into(),
             init_stack: match &value.init_stack {
                 InitStack::Base(base) => Base(MinaBasePendingCoinbaseStackVersionedStableV1 {
-                    data: MinaBasePendingCoinbaseCoinbaseStackStableV1(base.data.0.into()),
+                    data: MinaBasePendingCoinbaseCoinbaseStackStableV1(base.data.0.into()).into(),
                     state: MinaBasePendingCoinbaseStateStackStableV1 {
-                        init: MinaBasePendingCoinbaseStackHashStableV1(base.state.init.into()),
-                        curr: MinaBasePendingCoinbaseStackHashStableV1(base.state.curr.into()),
+                        init: MinaBasePendingCoinbaseStackHashStableV1(base.state.init.into()).into(),
+                        curr: MinaBasePendingCoinbaseStackHashStableV1(base.state.curr.into()).into(),
                     },
                 }),
                 InitStack::Merge => Merge,
@@ -1942,7 +1948,7 @@ impl From<&MinaBaseUserCommandStableV2> for transaction_logic::valid::UserComman
                         },
                     },
                     signer: (&cmd.signer).into(),
-                    signature: (&cmd.signature).into(),
+                    signature: (&*cmd.signature).into(),
                 }))
             }
         }

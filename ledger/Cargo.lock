@@ -899,7 +899,7 @@ dependencies = [
 [[package]]
 name = "mina-p2p-messages"
 version = "0.6.4"
-source = "git+https://github.com/openmina/mina-p2p-messages-rs?branch=new-types-feb-23#5b1e55baf0016b05a65e0078e4e80ee8035c6183"
+source = "git+https://github.com/openmina/mina-p2p-messages-rs?branch=main#52649d0f048bae0cea55a7982ca8e32beb7f2cd4"
 dependencies = [
  "ark-ff",
  "base64",
@@ -911,6 +911,7 @@ dependencies = [
  "hex",
  "mina-curves",
  "mina-hasher",
+ "mina-poseidon",
  "mina-signer",
  "o1-utils",
  "serde",
