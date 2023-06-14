@@ -10,7 +10,7 @@ use mina_p2p_messages::v2::{
     MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
-    MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, SgnStableV1,
+    MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, SgnStableV1, TokenFeeExcess,
 };
 
 use crate::hash::{hash_with_kimchi, Inputs};
@@ -69,7 +69,7 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
                     pending_coinbase_hash,
                 } = staged_ledger_hash;
 
-                inputs.append_bytes(&non_snark.sha256());
+                inputs.append_bytes(non_snark.sha256().as_ref());
                 inputs.append_field(pending_coinbase_hash.to_field());
             }
             // Self::blockchain_state.genesis_ledger_hash
@@ -189,12 +189,16 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
                 inputs.append_u64(supply_increase.magnitude.as_u64());
                 inputs.append_bool(matches!(supply_increase.sgn, SgnStableV1::Pos));
 
-                let MinaBaseFeeExcessStableV1 {
-                    fee_token_l,
-                    fee_excess_l,
-                    fee_token_r,
-                    fee_excess_r,
-                } = fee_excess;
+                let MinaBaseFeeExcessStableV1(
+                    TokenFeeExcess {
+                        token: fee_token_l,
+                        amount: fee_excess_l,
+                    },
+                    TokenFeeExcess {
+                        token: fee_token_r,
+                        amount: fee_excess_r,
+                    },
+                ) = fee_excess;
 
                 inputs.append_field(fee_token_l.to_field());
                 inputs.append_u64(fee_excess_l.magnitude.as_u64());
