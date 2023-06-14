@@ -348,7 +348,7 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L378
-    fn of_scan_state_pending_coinbases_and_snarked_ledger<F>(
+    pub fn of_scan_state_pending_coinbases_and_snarked_ledger<F>(
         logger: (),
         constraint_constants: &ConstraintConstants,
         verifier: Verifier,
@@ -429,7 +429,7 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#403
-    fn hash(&mut self) -> StagedLedgerHash {
+    pub fn hash(&mut self) -> StagedLedgerHash {
         StagedLedgerHash::of_aux_ledger_and_coinbase_hash(
             self.scan_state.hash(),
             self.ledger.merkle_root(),
@@ -852,7 +852,7 @@ impl StagedLedger {
         global_slot: Slot,
         scan_state: &ScanState,
         mut ledger: Mask,
-        pending_coinbase_collection: &mut PendingCoinbase,
+        pending_coinbase_collection: &PendingCoinbase,
         transactions: Vec<WithStatus<Transaction>>,
         current_state_view: &ProtocolStateView,
         state_and_body_hash: (Fp, Fp),
@@ -1068,7 +1068,7 @@ impl StagedLedger {
             global_slot,
             &self.scan_state,
             new_ledger.clone(),
-            &mut self.pending_coinbase_collection,
+            &self.pending_coinbase_collection,
             transactions,
             current_state_view,
             state_and_body_hash,
