@@ -7,8 +7,7 @@ use mina_p2p_messages::{
     pseq::PaddedSeq,
     string::CharString,
     v2::{
-        Amount as MinaAmount, BlockTimeTimeStableV1,
-        ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+        BlockTimeTimeStableV1, ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
         ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
         CurrencyAmountStableV1, CurrencyBalanceStableV1, CurrencyFeeStableV1,
         DataHashLibStateHashStableV1, EpochSeed, LedgerProofProdStableV2,
@@ -59,8 +58,8 @@ use mina_p2p_messages::{
         MinaTransactionLogicTransactionAppliedVaryingStableV2,
         MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1,
         MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command,
-        MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, SgnStableV1, StateHash,
-        TokenFeeExcess, TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
+        MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, SgnStableV1, SignedAmount,
+        StateHash, TokenFeeExcess, TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
         TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
         UnsignedExtendedUInt32StableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
@@ -135,8 +134,8 @@ impl From<Balance> for CurrencyAmountStableV1 {
     }
 }
 
-impl From<&MinaAmount> for Signed<Amount> {
-    fn from(value: &MinaAmount) -> Self {
+impl From<&SignedAmount> for Signed<Amount> {
+    fn from(value: &SignedAmount) -> Self {
         Self {
             magnitude: Amount(value.magnitude.clone().as_u64()),
             sgn: value.sgn.clone().into(),
@@ -152,7 +151,7 @@ impl From<&Amount> for CurrencyFeeStableV1 {
     }
 }
 
-impl From<&Signed<Amount>> for MinaAmount {
+impl From<&Signed<Amount>> for SignedAmount {
     fn from(value: &Signed<Amount>) -> Self {
         Self {
             magnitude: (&value.magnitude).into(),
@@ -212,8 +211,8 @@ impl From<SgnStableV1> for Sgn {
     }
 }
 
-impl From<&MinaAmount> for Signed<Fee> {
-    fn from(value: &MinaAmount) -> Self {
+impl From<&SignedAmount> for Signed<Fee> {
+    fn from(value: &SignedAmount) -> Self {
         Self {
             magnitude: (&value.magnitude).into(),
             sgn: value.sgn.clone().into(),
@@ -238,7 +237,7 @@ impl From<&Fee> for CurrencyFeeStableV1 {
     }
 }
 
-impl From<&Signed<Fee>> for MinaAmount {
+impl From<&Signed<Fee>> for SignedAmount {
     fn from(value: &Signed<Fee>) -> Self {
         Self {
             magnitude: (&value.magnitude).into(),
@@ -1243,7 +1242,7 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
                         SetOrKeep::Keep => Voting::Keep,
                     },
                 },
-                balance_change: MinaAmount {
+                balance_change: SignedAmount {
                     magnitude: (&value.body.balance_change.magnitude).into(),
                     sgn: (&value.body.balance_change.sgn).into(),
                 },
@@ -1631,11 +1630,11 @@ impl From<&Registers> for MinaStateBlockchainStateValueStableV2LedgerProofStatem
                 transaction_commitment: value.local_state.transaction_commitment.into(),
                 full_transaction_commitment: value.local_state.full_transaction_commitment.into(),
                 token_id: (&value.local_state.token_id).into(),
-                excess: MinaAmount {
+                excess: SignedAmount {
                     magnitude: (&value.local_state.excess.magnitude).into(),
                     sgn: (&value.local_state.excess.sgn).into(),
                 },
-                supply_increase: MinaAmount {
+                supply_increase: SignedAmount {
                     magnitude: (&value.local_state.supply_increase.magnitude).into(),
                     sgn: (&value.local_state.supply_increase.sgn).into(),
                 },
