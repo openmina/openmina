@@ -136,9 +136,9 @@ impl PendingCoinbaseAux {
 /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/staged_ledger_hash.ml#L152
 #[derive(Debug, PartialEq, Eq)]
 pub struct NonStark {
-    ledger_hash: Fp,
-    aux_hash: AuxHash,
-    pending_coinbase_aux: PendingCoinbaseAux,
+    pub ledger_hash: Fp,
+    pub aux_hash: AuxHash,
+    pub pending_coinbase_aux: PendingCoinbaseAux,
 }
 
 impl NonStark {
@@ -185,8 +185,8 @@ impl ToInputs for NonStark {
 /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/staged_ledger_hash.ml#L259
 #[derive(Debug, PartialEq, Eq)]
 pub struct StagedLedgerHash {
-    non_snark: NonStark,
-    pending_coinbase_hash: Fp,
+    pub non_snark: NonStark,
+    pub pending_coinbase_hash: Fp,
 }
 
 impl StagedLedgerHash {

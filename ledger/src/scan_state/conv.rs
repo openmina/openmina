@@ -21,7 +21,8 @@ use mina_p2p_messages::{
         MinaBaseCoinbaseFeeTransferStableV1, MinaBaseCoinbaseStableV1, MinaBaseEpochSeedStableV1,
         MinaBaseFeeExcessStableV1, MinaBaseFeeTransferSingleStableV2, MinaBaseFeeTransferStableV2,
         MinaBaseLedgerHash0StableV1, MinaBasePaymentPayloadStableV2,
-        MinaBasePendingCoinbaseCoinbaseStackStableV1,
+        MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseHashBuilderStableV1,
+        MinaBasePendingCoinbaseHashVersionedStableV1,
         MinaBasePendingCoinbaseMerkleTreeVersionedStableV2,
         MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree, MinaBasePendingCoinbaseStableV2,
         MinaBasePendingCoinbaseStackHashStableV1, MinaBasePendingCoinbaseStackIdStableV1,
@@ -30,6 +31,7 @@ use mina_p2p_messages::{
         MinaBaseSignedCommandMemoStableV1, MinaBaseSignedCommandPayloadBodyStableV2,
         MinaBaseSignedCommandPayloadCommonStableV2, MinaBaseSignedCommandPayloadStableV2,
         MinaBaseSignedCommandStableV2, MinaBaseSokMessageStableV1, MinaBaseStackFrameStableV1,
+        MinaBaseStagedLedgerHashNonSnarkStableV1, MinaBaseStagedLedgerHashStableV1,
         MinaBaseStakeDelegationStableV1, MinaBaseStateBodyHashStableV1,
         MinaBaseTransactionStatusFailureCollectionStableV1,
         MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2,
@@ -90,6 +92,7 @@ use crate::{
             WithStatus,
         },
     },
+    staged_ledger::hash::{NonStark, StagedLedgerHash},
     Account, AccountId, Address, HashesMatrix, TokenId, VerificationKey, VotingFor,
 };
 
@@ -2248,6 +2251,42 @@ impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
             },
             pos_list: pos_list.iter().map(Into::into).collect(),
             new_pos: new_pos.into(),
+        }
+    }
+}
+
+impl From<&NonStark> for MinaBaseStagedLedgerHashNonSnarkStableV1 {
+    fn from(value: &NonStark) -> Self {
+        let NonStark {
+            ledger_hash,
+            aux_hash,
+            pending_coinbase_aux,
+        } = value;
+
+        Self {
+            ledger_hash: MinaBaseLedgerHash0StableV1(ledger_hash.into()).into(),
+            aux_hash: mina_p2p_messages::string::ByteString::from(aux_hash.0.as_slice()).into(),
+            pending_coinbase_aux: mina_p2p_messages::string::ByteString::from(
+                pending_coinbase_aux.0.as_slice(),
+            )
+            .into(),
+        }
+    }
+}
+
+impl From<&StagedLedgerHash> for MinaBaseStagedLedgerHashStableV1 {
+    fn from(value: &StagedLedgerHash) -> Self {
+        let StagedLedgerHash {
+            non_snark,
+            pending_coinbase_hash,
+        } = value;
+
+        Self {
+            non_snark: non_snark.into(),
+            pending_coinbase_hash: MinaBasePendingCoinbaseHashVersionedStableV1(
+                MinaBasePendingCoinbaseHashBuilderStableV1(pending_coinbase_hash.into()),
+            )
+            .into(),
         }
     }
 }
