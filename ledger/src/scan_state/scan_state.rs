@@ -66,7 +66,7 @@ pub type AvailableJob = super::parallel_scan::AvailableJob<
 >;
 
 #[derive(Clone, Debug)]
-pub struct BorderBlockContinuedInTheNextTree(bool);
+pub struct BorderBlockContinuedInTheNextTree(pub(super) bool);
 
 /// Scan state and any zkapp updates that were applied to the to the most recent
 /// snarked ledger but are from the tree just before the tree corresponding to

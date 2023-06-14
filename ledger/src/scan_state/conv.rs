@@ -21,7 +21,10 @@ use mina_p2p_messages::{
         MinaBaseCoinbaseFeeTransferStableV1, MinaBaseCoinbaseStableV1, MinaBaseEpochSeedStableV1,
         MinaBaseFeeExcessStableV1, MinaBaseFeeTransferSingleStableV2, MinaBaseFeeTransferStableV2,
         MinaBaseLedgerHash0StableV1, MinaBasePaymentPayloadStableV2,
-        MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseStackHashStableV1,
+        MinaBasePendingCoinbaseCoinbaseStackStableV1,
+        MinaBasePendingCoinbaseMerkleTreeVersionedStableV2,
+        MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree, MinaBasePendingCoinbaseStableV2,
+        MinaBasePendingCoinbaseStackHashStableV1, MinaBasePendingCoinbaseStackIdStableV1,
         MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
         MinaBaseReceiptChainHashStableV1, MinaBaseSignatureStableV1,
         MinaBaseSignedCommandMemoStableV1, MinaBaseSignedCommandPayloadBodyStableV2,
@@ -58,8 +61,17 @@ use mina_p2p_messages::{
         MinaTransactionLogicTransactionAppliedVaryingStableV2,
         MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1,
         MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command,
-        MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, SgnStableV1, SignedAmount,
-        StateHash, TokenFeeExcess, TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
+        MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
+        ParallelScanJobStatusStableV1, ParallelScanSequenceNumberStableV1,
+        ParallelScanWeightStableV1, SgnStableV1, SignedAmount, StateHash, TokenFeeExcess,
+        TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
+        TransactionSnarkScanStateStableV2,
+        TransactionSnarkScanStateStableV2PreviousIncompleteZkappUpdates1::Border_block_continued_in_the_next_tree,
+        TransactionSnarkScanStateStableV2ScanState,
+        TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
+        TransactionSnarkScanStateStableV2ScanStateTreesABaseT1Full,
+        TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
+        TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1Full,
         TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
         UnsignedExtendedUInt32StableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
@@ -70,22 +82,28 @@ use crate::{
     array_into_with,
     scan_state::{
         currency::BlockTime,
+        pending_coinbase::{Stack, StackHasher},
+        scan_state::BorderBlockContinuedInTheNextTree,
         transaction_logic::{
             signed_command::{PaymentPayload, StakeDelegationPayload},
             zkapp_command::{self, AuthorizationKind, CallForest, MayUseToken},
             WithStatus,
         },
     },
-    Account, AccountId, TokenId, VerificationKey, VotingFor,
+    Account, AccountId, Address, HashesMatrix, TokenId, VerificationKey, VotingFor,
 };
 
 use super::{
     currency::{Amount, Balance, Fee, Index, Length, Nonce, Sgn, Signed, Slot},
     fee_excess::FeeExcess,
-    pending_coinbase,
-    scan_state::transaction_snark::{
-        LedgerProof, LedgerProofWithSokMessage, Registers, SokDigest, SokMessage, Statement,
-        TransactionSnark, TransactionWithWitness,
+    parallel_scan::{JobStatus, ParallelScan, SequenceNumber},
+    pending_coinbase::{self, PendingCoinbase},
+    scan_state::{
+        transaction_snark::{
+            LedgerProof, LedgerProofWithSokMessage, Registers, SokDigest, SokMessage, Statement,
+            TransactionSnark, TransactionWithWitness,
+        },
+        ScanState,
     },
     transaction_logic::{
         self,
@@ -1950,6 +1968,286 @@ impl From<&MinaBaseUserCommandStableV2> for transaction_logic::valid::UserComman
                     signature: (&*cmd.signature).into(),
                 }))
             }
+        }
+    }
+}
+
+impl From<&ParallelScanWeightStableV1> for super::parallel_scan::Weight {
+    fn from(value: &ParallelScanWeightStableV1) -> Self {
+        let ParallelScanWeightStableV1 { base, merge } = value;
+
+        let base: u32 = base.as_u32();
+        let merge: u32 = merge.as_u32();
+
+        Self {
+            base: base as u64,
+            merge: base as u64,
+        }
+    }
+}
+
+// Tuples are foreign types, we cannot use `From`
+fn from_two_weights(
+    value: &(ParallelScanWeightStableV1, ParallelScanWeightStableV1),
+) -> (super::parallel_scan::Weight, super::parallel_scan::Weight) {
+    let (first, second) = value;
+    (first.into(), second.into())
+}
+
+impl From<&ParallelScanSequenceNumberStableV1> for SequenceNumber {
+    fn from(value: &ParallelScanSequenceNumberStableV1) -> Self {
+        // TODO: the sequence number should be serialized as u64 ?
+        let number: u32 = value.as_u32();
+        SequenceNumber::new(number as u64)
+    }
+}
+
+impl From<&ParallelScanJobStatusStableV1> for JobStatus {
+    fn from(value: &ParallelScanJobStatusStableV1) -> Self {
+        match value {
+            ParallelScanJobStatusStableV1::Todo => Self::Todo,
+            ParallelScanJobStatusStableV1::Done => Self::Done,
+        }
+    }
+}
+
+impl From<&TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1>
+    for super::parallel_scan::merge::Job<LedgerProofWithSokMessage>
+{
+    fn from(value: &TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1) -> Self {
+        match value {
+            TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1::Empty => Self::Empty,
+            TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1::Part(proof) => {
+                Self::Part((&**proof).into())
+            }
+            TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1::Full(record) => {
+                let TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1Full {
+                    left,
+                    right,
+                    seq_no,
+                    status,
+                } = &**record;
+
+                Self::Full(super::parallel_scan::merge::Record {
+                    left: left.into(),
+                    right: right.into(),
+                    seq_no: seq_no.into(),
+                    state: status.into(),
+                })
+            }
+        }
+    }
+}
+
+impl From<&TransactionSnarkScanStateStableV2ScanStateTreesABaseT1>
+    for super::parallel_scan::base::Job<TransactionWithWitness>
+{
+    fn from(value: &TransactionSnarkScanStateStableV2ScanStateTreesABaseT1) -> Self {
+        match value {
+            TransactionSnarkScanStateStableV2ScanStateTreesABaseT1::Empty => Self::Empty,
+            TransactionSnarkScanStateStableV2ScanStateTreesABaseT1::Full(record) => {
+                let TransactionSnarkScanStateStableV2ScanStateTreesABaseT1Full {
+                    job,
+                    seq_no,
+                    status,
+                } = &**record;
+
+                Self::Full(super::parallel_scan::base::Record {
+                    job: job.into(),
+                    seq_no: seq_no.into(),
+                    state: status.into(),
+                })
+            }
+        }
+    }
+}
+
+impl From<&TransactionSnarkScanStateStableV2> for ScanState {
+    fn from(value: &TransactionSnarkScanStateStableV2) -> Self {
+        let TransactionSnarkScanStateStableV2 {
+            scan_state,
+            previous_incomplete_zkapp_updates,
+        } = value;
+
+        Self {
+            scan_state: {
+                let TransactionSnarkScanStateStableV2ScanState {
+                    trees,
+                    acc,
+                    curr_job_seq_no,
+                    max_base_jobs,
+                    delay,
+                } = scan_state;
+
+                ParallelScan::<TransactionWithWitness, LedgerProofWithSokMessage> {
+                    trees: {
+                        use mina_p2p_messages::v2::TransactionSnarkScanStateStableV2ScanStateTreesA::{Leaf, Node};
+                        use super::parallel_scan::Weight;
+
+                        let (first, rest) = trees;
+
+                        std::iter::once(first)
+                            .chain(rest)
+                            .map(|tree| {
+                                let mut rust_tree = super::parallel_scan::Tree {
+                                    values: Vec::with_capacity(256), // TODO: Use correct number
+                                };
+
+                                let mut current = tree;
+
+                                // We iterator on the first "depths", those are nodes only
+                                while let Node {
+                                    depth,
+                                    value,
+                                    sub_tree,
+                                } = current
+                                {
+                                    rust_tree.values.extend(value.iter().map(|(weights, job)| {
+                                        let weight: (Weight, Weight) = from_two_weights(weights);
+                                        let job: super::parallel_scan::merge::Job<
+                                            LedgerProofWithSokMessage,
+                                        > = job.into();
+
+                                        let merge =
+                                            super::parallel_scan::merge::Merge { weight, job };
+
+                                        super::parallel_scan::Value::Node(merge)
+                                    }));
+
+                                    current = sub_tree;
+                                }
+
+                                // Last depth is all leaves
+                                let Leaf(leaves) = current else {
+                                    panic!("Invalid tree")
+                                };
+
+                                rust_tree.values.extend(leaves.iter().map(|(weight, job)| {
+                                    let weight: Weight = weight.into();
+                                    let job: super::parallel_scan::base::Job<
+                                        TransactionWithWitness,
+                                    > = job.into();
+
+                                    let base = super::parallel_scan::base::Base { weight, job };
+
+                                    super::parallel_scan::Value::Leaf(base)
+                                }));
+
+                                rust_tree
+                            })
+                            .collect()
+                    },
+                    acc: acc
+                        .as_ref()
+                        .map(|(proof, txns)| (proof.into(), txns.iter().map(Into::into).collect())),
+                    curr_job_seq_no: {
+                        // TODO: the sequence number should be serialized as u64 ?
+                        let number: u32 = curr_job_seq_no.as_u32();
+                        SequenceNumber::new(number as u64)
+                    },
+                    max_base_jobs: {
+                        let max_base_jobs: u32 = max_base_jobs.as_u32();
+                        max_base_jobs as u64
+                    },
+                    delay: {
+                        let delay: u32 = delay.as_u32();
+                        delay as u64
+                    },
+                }
+            },
+            previous_incomplete_zkapp_updates: {
+                let (txns, continue_next) = previous_incomplete_zkapp_updates;
+
+                let continue_next = match continue_next {
+                    Border_block_continued_in_the_next_tree(continue_next) => {
+                        BorderBlockContinuedInTheNextTree(*continue_next)
+                    }
+                };
+
+                (txns.iter().map(Into::into).collect(), continue_next)
+            },
+        }
+    }
+}
+
+impl From<&MinaBasePendingCoinbaseStackIdStableV1> for pending_coinbase::StackId {
+    fn from(value: &MinaBasePendingCoinbaseStackIdStableV1) -> Self {
+        let value: u32 = value.as_u32();
+        Self::new(value as u64)
+    }
+}
+
+impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
+    fn from(value: &MinaBasePendingCoinbaseStableV2) -> Self {
+        let MinaBasePendingCoinbaseStableV2 {
+            tree,
+            pos_list,
+            new_pos,
+        } = value;
+
+        Self {
+            tree: {
+                // NOTE: Same implementation than with `SparseLedger`
+
+                use MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree::{Account, Hash, Node};
+
+                fn build_matrix(
+                    matrix: &mut HashesMatrix,
+                    addr: Address,
+                    node: &MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree,
+                    values: &mut Vec<Stack>,
+                ) {
+                    match node {
+                        Account(stack) => {
+                            let stack: Stack = stack.into();
+                            matrix.set(&addr, <StackHasher as pending_coinbase::merkle_tree::TreeHasher::<Stack>>::hash_value(&stack));
+                            values.push(stack);
+                        }
+                        Hash(hash) => {
+                            matrix.set(&addr, hash.to_field());
+                        }
+                        Node(hash, left, right) => {
+                            matrix.set(&addr, hash.to_field());
+                            build_matrix(matrix, addr.child_left(), left, values);
+                            build_matrix(matrix, addr.child_right(), right, values);
+                        }
+                    }
+                }
+
+                let MinaBasePendingCoinbaseMerkleTreeVersionedStableV2 {
+                    indexes,
+                    depth,
+                    tree,
+                } = tree;
+
+                let depth = depth.as_u32() as usize;
+                let mut our_index = std::collections::HashMap::with_capacity(indexes.len());
+                // let mut index_list = std::collections::VecDeque::with_capacity(indexes.len());
+                let mut hashes_matrix = HashesMatrix::new(depth);
+                let mut values = Vec::new();
+
+                for (stack_id, stack_index) in indexes.iter() {
+                    let stack_id: pending_coinbase::StackId = stack_id.into();
+                    let stack_index = crate::AccountIndex::from(stack_index.as_u32() as usize);
+
+                    let addr = Address::from_index(stack_index.clone(), depth);
+
+                    our_index.insert(stack_id, addr);
+                    // index_list.push_back(stack_id);
+                }
+
+                build_matrix(&mut hashes_matrix, Address::root(), tree, &mut values);
+
+                pending_coinbase::merkle_tree::MiniMerkleTree {
+                    values,
+                    indexes: our_index,
+                    hashes_matrix,
+                    depth,
+                    _hasher: std::marker::PhantomData,
+                }
+            },
+            pos_list: pos_list.iter().map(Into::into).collect(),
+            new_pos: new_pos.into(),
         }
     }
 }

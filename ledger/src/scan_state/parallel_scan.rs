@@ -21,6 +21,10 @@ impl Debug for SequenceNumber {
 }
 
 impl SequenceNumber {
+    pub(super) fn new(number: u64) -> Self {
+        Self(number)
+    }
+
     fn zero() -> Self {
         Self(0)
     }
@@ -64,8 +68,8 @@ impl JobStatus {
 /// new jobs received are distributed across the tree based on this number.
 #[derive(Clone)]
 pub struct Weight {
-    base: u64,
-    merge: u64,
+    pub(super) base: u64,
+    pub(super) merge: u64,
 }
 
 impl Debug for Weight {
@@ -384,7 +388,7 @@ impl<T: Debug> WithVTable<T> for T {
 }
 
 #[derive(Clone, Debug)]
-enum Value<B, M> {
+pub(super) enum Value<B, M> {
     Leaf(B),
     Node(M),
 }
@@ -392,7 +396,7 @@ enum Value<B, M> {
 /// A single tree with number of leaves = max_base_jobs = 2**transaction_capacity_log_2
 #[derive(Clone)]
 pub struct Tree<B, M> {
-    values: Vec<Value<B, M>>,
+    pub(super) values: Vec<Value<B, M>>,
 }
 
 impl<B, M> Debug for Tree<base::Base<B>, merge::Merge<M>>
@@ -741,12 +745,12 @@ where
 pub struct ParallelScan<BaseJob, MergeJob> {
     pub trees: Vec<Tree<base::Base<BaseJob>, merge::Merge<MergeJob>>>,
     /// last emitted proof and the corresponding transactions
-    acc: Option<(MergeJob, Vec<BaseJob>)>,
+    pub(super) acc: Option<(MergeJob, Vec<BaseJob>)>,
     /// Sequence number for the jobs added every block
     pub curr_job_seq_no: SequenceNumber,
     /// transaction_capacity_log_2
-    max_base_jobs: u64,
-    delay: u64,
+    pub(super) max_base_jobs: u64,
+    pub(super) delay: u64,
 }
 
 pub(super) enum ResetKind {
@@ -1304,7 +1308,6 @@ where
         let nnodes = 2u64.pow((depth + 1) as u32) - 1;
 
         let values: Vec<_> = (0..nnodes)
-            .into_iter()
             .map(|index| {
                 let node_depth = btree::depth_at(index as usize);
 

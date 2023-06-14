@@ -58,6 +58,10 @@ impl StackId {
     pub fn zero() -> Self {
         Self(0)
     }
+
+    pub(super) fn new(number: u64) -> Self {
+        Self(number)
+    }
 }
 
 struct CoinbaseData {
@@ -326,13 +330,13 @@ impl Stack {
 
 #[derive(Clone, Debug)]
 pub struct PendingCoinbase {
-    tree: merkle_tree::MiniMerkleTree<StackId, Stack, StackHasher>,
-    pos_list: Vec<StackId>,
-    new_pos: StackId,
+    pub(super) tree: merkle_tree::MiniMerkleTree<StackId, Stack, StackHasher>,
+    pub(super) pos_list: Vec<StackId>,
+    pub(super) new_pos: StackId,
 }
 
 #[derive(Clone, Debug)]
-struct StackHasher;
+pub(super) struct StackHasher;
 
 impl merkle_tree::TreeHasher<Stack> for StackHasher {
     fn hash_value(value: &Stack) -> Fp {
@@ -549,11 +553,11 @@ pub mod merkle_tree {
 
     #[derive(Clone)]
     pub struct MiniMerkleTree<K, V, H> {
-        values: Vec<V>,
-        indexes: HashMap<K, Address>,
-        hashes_matrix: HashesMatrix,
-        depth: usize,
-        _hasher: PhantomData<H>,
+        pub values: Vec<V>,
+        pub indexes: HashMap<K, Address>,
+        pub hashes_matrix: HashesMatrix,
+        pub depth: usize,
+        pub _hasher: PhantomData<H>,
     }
 
     impl<K, V, H> std::fmt::Debug for MiniMerkleTree<K, V, H>
