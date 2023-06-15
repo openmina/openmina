@@ -1,13 +1,10 @@
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::snark_job_commitment::SnarkJobId;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
 use crate::p2p::connection::P2pConnectionResponse;
-use crate::service::ActionStatsForRanges;
-use crate::ActionKind;
+use crate::service::{ActionStatsForBlock, ActionStatsSnapshot};
 
 use super::RpcId;
 
@@ -47,11 +44,15 @@ impl redux::EnablingCondition<crate::State> for RpcGlobalStateGetAction {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ActionStatsQuery {
     SinceStart,
+    ForLatestBlock,
+    ForBlockWithId(u64),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "kind")]
 pub enum ActionStatsResponse {
-    SinceStart(BTreeMap<ActionKind, ActionStatsForRanges>),
+    SinceStart { stats: ActionStatsSnapshot },
+    ForBlock(ActionStatsForBlock),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

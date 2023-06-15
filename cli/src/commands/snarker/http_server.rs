@@ -1,3 +1,4 @@
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use warp::{hyper::StatusCode, reply::with_status, Filter};
 
 use snarker::{
@@ -11,10 +12,12 @@ use snarker::{
         },
         webrtc, PeerId,
     },
-    rpc::RpcRequest,
+    rpc::{ActionStatsQuery, RpcRequest},
 };
 
-use super::rpc::{RpcP2pConnectionIncomingResponse, RpcSnarkerJobPickAndCommitResponse};
+use super::rpc::{
+    RpcActionStatsGetResponse, RpcP2pConnectionIncomingResponse, RpcSnarkerJobPickAndCommitResponse,
+};
 
 pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     let rpc_sender_clone = rpc_sender.clone();
@@ -47,18 +50,58 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                                 StatusCode::INTERNAL_SERVER_ERROR
                             }
                         };
-                        let resp = serde_json::to_string(&answer).unwrap_or_else(|_| {
-                            P2pConnectionResponse::internal_error_json_str().to_owned()
-                        });
-                        with_status(resp, status)
+                        with_json_reply(&answer, status)
                     }
                     _ => {
-                        let resp = P2pConnectionResponse::internal_error_json_str().to_owned();
-                        with_status(resp, StatusCode::INTERNAL_SERVER_ERROR)
+                        let resp = P2pConnectionResponse::internal_error_str();
+                        with_json_reply(&resp, StatusCode::INTERNAL_SERVER_ERROR)
                     }
                 }
             }
         });
+
+    // TODO(binier): make endpoint only accessible locally.
+    let stats = {
+        let rpc_sender_clone = rpc_sender.clone();
+        #[derive(Deserialize, Default)]
+        struct QueryParams {
+            id: Option<String>,
+        }
+        let action_stats = warp::path!("stats" / "actions")
+            .and(warp::get())
+            .and(optq::<QueryParams>())
+            .then(move |query: QueryParams| {
+                let rpc_sender_clone = rpc_sender_clone.clone();
+                async move {
+                    let id_filter = query.id.as_ref().map(|s| s.as_str());
+                    let result: RpcActionStatsGetResponse = rpc_sender_clone
+                        .oneshot_request(RpcRequest::ActionStatsGet(match id_filter {
+                            None => ActionStatsQuery::SinceStart,
+                            Some("latest") => ActionStatsQuery::ForLatestBlock,
+                            Some(id) => {
+                                let id = match id.parse() {
+                                    Ok(v) => v,
+                                    Err(err) => {
+                                        return with_json_reply(
+                                            &format!(
+                                                "'id' must be an u64 integer: {err}, instead passed: {id}"
+                                            ),
+                                            StatusCode::BAD_REQUEST,
+                                        );
+                                    }
+                                };
+                                ActionStatsQuery::ForBlockWithId(id)
+                            }
+                        }))
+                        .await
+                        .flatten();
+
+                    with_json_reply(&result, StatusCode::OK)
+                }
+            });
+
+        action_stats
+    };
 
     // TODO(binier): make endpoint only accessible locally.
     let rpc_sender_clone = rpc_sender.clone();
@@ -93,7 +136,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             }
         });
 
-    let routes = signaling.or(snarker_pick_job);
+    let routes = signaling.or(snarker_pick_job).or(stats);
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }
 
@@ -144,4 +187,18 @@ fn parse_ledger_hash_transition(s: &str) -> Result<LedgerHashTransition, ()> {
             second_pass_ledger: target_second.parse().or(Err(()))?,
         },
     })
+}
+
+use warp::filters::BoxedFilter;
+use warp::reply::{json, Json, WithStatus};
+
+fn optq<T: 'static + Default + Send + DeserializeOwned>() -> BoxedFilter<(T,)> {
+    warp::any()
+        .and(warp::query().or(warp::any().map(|| T::default())))
+        .unify()
+        .boxed()
+}
+
+fn with_json_reply<T: Serialize>(reply: &T, status: StatusCode) -> WithStatus<Json> {
+    with_status(json(reply), status)
 }

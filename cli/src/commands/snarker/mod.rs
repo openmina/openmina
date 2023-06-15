@@ -265,7 +265,7 @@ impl SnarkBlockVerifyService for SnarkerService {
         verifier_srs: Arc<VerifierSRS>,
         block: VerifiableBlockWithHash,
     ) {
-        let (tx, rx) = oneshot::channel();
+        let tx = self.event_sender.clone();
         rayon::spawn_fifo(move || {
             let header = block.header_ref();
             let result = {
@@ -278,15 +278,6 @@ impl SnarkBlockVerifyService for SnarkerService {
                 }
             };
 
-            let _ = tx.send(result);
-        });
-
-        let tx = self.event_sender.clone();
-        spawn_local(async move {
-            let result = match rx.await {
-                Ok(v) => v,
-                Err(_) => Err(SnarkBlockVerifyError::ValidatorThreadCrashed),
-            };
             let _ = tx.send(SnarkEvent::BlockVerify(req_id, result).into());
         });
     }
