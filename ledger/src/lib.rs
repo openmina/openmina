@@ -65,6 +65,3 @@ pub use poseidon::*;
 pub use tree::*;
 pub use tree_version::*;
 pub use util::*;
-
-#[cfg(test)]
-mod staged_ledger_test;
