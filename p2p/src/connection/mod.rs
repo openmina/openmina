@@ -52,6 +52,10 @@ pub enum P2pConnectionResponse {
 }
 
 impl P2pConnectionResponse {
+    pub fn internal_error_str() -> &'static str {
+        "InternalError"
+    }
+
     pub fn internal_error_json_str() -> &'static str {
         "\"InternalError\""
     }

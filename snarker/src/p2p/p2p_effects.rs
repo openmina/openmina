@@ -1,5 +1,9 @@
+use p2p::channels::rpc::P2pRpcResponse;
+use snark::hash::state_hash;
+
 use crate::consensus::ConsensusBlockReceivedAction;
 use crate::job_commitment::JobCommitmentAddAction;
+use crate::p2p::channels::rpc::{P2pChannelsRpcRequestSendAction, P2pRpcRequest};
 use crate::rpc::{
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
@@ -229,11 +233,28 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     action.effects(&meta, store);
                 }
                 P2pChannelsRpcAction::Pending(_) => {}
-                P2pChannelsRpcAction::Ready(_) => {}
+                P2pChannelsRpcAction::Ready(a) => {
+                    let request = P2pRpcRequest::BestTipWithProofGet;
+                    store.dispatch(P2pChannelsRpcRequestSendAction {
+                        peer_id: a.peer_id,
+                        id: 0,
+                        request,
+                    });
+                }
                 P2pChannelsRpcAction::RequestSend(action) => {
                     action.effects(&meta, store);
                 }
-                P2pChannelsRpcAction::ResponseReceived(action) => {}
+                P2pChannelsRpcAction::ResponseReceived(action) => match action.response {
+                    Some(P2pRpcResponse::BestTipWithProofGet(resp)) => {
+                        let hash = state_hash(&resp.best_tip.header);
+                        store.dispatch(ConsensusBlockReceivedAction {
+                            hash,
+                            block: resp.best_tip,
+                            history: None,
+                        });
+                    }
+                    _ => {}
+                },
                 P2pChannelsRpcAction::RequestReceived(action) => {
                     // TODO(binier): handle incoming rpc requests.
                 }

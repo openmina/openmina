@@ -194,6 +194,10 @@ pub enum ActionKind {
     WatchedAccountsLedgerInitialStateGetSuccess,
 }
 
+impl ActionKind {
+    pub const COUNT: usize = 99;
+}
+
 impl ActionKindGet for Action {
     fn kind(&self) -> ActionKind {
         match self {

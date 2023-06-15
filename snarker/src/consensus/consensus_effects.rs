@@ -11,8 +11,8 @@ use super::{
     ConsensusBlockSnarkVerifyPendingAction, ConsensusShortRangeForkResolveAction,
 };
 
-pub fn consensus_effects<S: redux::Service>(store: &mut Store<S>, action: ConsensusActionWithMeta) {
-    let (action, _) = action.split();
+pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: ConsensusActionWithMeta) {
+    let (action, meta) = action.split();
 
     match action {
         ConsensusAction::BlockReceived(action) => {
@@ -34,7 +34,12 @@ pub fn consensus_effects<S: redux::Service>(store: &mut Store<S>, action: Consen
             store.dispatch(ConsensusBestTipUpdateAction { hash: a.hash });
         }
         ConsensusAction::BestTipUpdate(_) => {
-            if let Some(block) = store.state().consensus.best_tip_block_with_hash() {
+            if let Some(block) = store.state.get().consensus.best_tip_block_with_hash() {
+                if let Some(stats) = store.service.stats() {
+                    // TODO(binier): call this once block is our best tip,
+                    // meaning we have synced to it.
+                    stats.new_best_tip(meta.time(), &block);
+                }
                 for pub_key in store.state().watched_accounts.accounts() {
                     store.dispatch(WatchedAccountsLedgerInitialStateGetInitAction {
                         pub_key: pub_key.clone(),

@@ -26,7 +26,23 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     .service
                     .stats()
                     .map(|s| s.collect_action_stats_since_start())
-                    .map(|s| ActionStatsResponse::SinceStart(s));
+                    .map(|stats| ActionStatsResponse::SinceStart { stats });
+                let _ = store.service.respond_action_stats_get(action.rpc_id, resp);
+            }
+            ActionStatsQuery::ForLatestBlock => {
+                let resp = store
+                    .service
+                    .stats()
+                    .and_then(|s| s.collect_action_stats_for_block_with_id(None))
+                    .map(ActionStatsResponse::ForBlock);
+                let _ = store.service.respond_action_stats_get(action.rpc_id, resp);
+            }
+            ActionStatsQuery::ForBlockWithId(id) => {
+                let resp = store
+                    .service
+                    .stats()
+                    .and_then(|s| s.collect_action_stats_for_block_with_id(Some(id)))
+                    .map(ActionStatsResponse::ForBlock);
                 let _ = store.service.respond_action_stats_get(action.rpc_id, resp);
             }
         },

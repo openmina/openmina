@@ -155,14 +155,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         .map(|(name, _)| name[..(name.len() - 6)].to_string());
     let action_kinds = std::iter::once("None".to_owned())
         .chain(action_kinds_iter)
-        .collect::<Vec<_>>()
-        .join(",\n    ");
+        .collect::<Vec<_>>();
 
     let action_kind_def = {
         let der =
             "#[derive(Serialize, Deserialize, TryFromPrimitive, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]";
         let repr = "#[repr(u16)]";
-        format!("{der}\n{repr}\npub enum ActionKind {{\n    {action_kinds}\n}}")
+        let impl_ = format!(
+            "impl ActionKind {{\n    pub const COUNT: usize = {};\n}}",
+            action_kinds.len()
+        );
+        let action_kinds = action_kinds.join(",\n    ");
+        format!("{der}\n{repr}\npub enum ActionKind {{\n    {action_kinds}\n}}\n\n{impl_}")
     };
 
     let action_kind_get_impls = {
