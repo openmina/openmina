@@ -5824,7 +5824,7 @@ mod tests {
             CONSTRAINT_CONSTANTS.ledger_depth.try_into().unwrap(),
         ));
 
-        while let Ok(account) = Account::binprot_read(&mut snarked_ledger_file) {
+        for account in Vec::<Account>::binprot_read(&mut snarked_ledger_file).unwrap() {
             let account_id = account.id();
             snarked_ledger
                 .get_or_create_account(account_id, account)
