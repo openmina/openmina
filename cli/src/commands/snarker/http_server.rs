@@ -16,7 +16,8 @@ use snarker::{
 };
 
 use super::rpc::{
-    RpcActionStatsGetResponse, RpcP2pConnectionIncomingResponse, RpcSnarkerJobPickAndCommitResponse,
+    RpcActionStatsGetResponse, RpcP2pConnectionIncomingResponse,
+    RpcSnarkerJobPickAndCommitResponse, RpcStateGetResponse,
 };
 
 pub async fn run(port: u16, rpc_sender: super::RpcSender) {
@@ -59,6 +60,18 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                 }
             }
         });
+
+    // TODO(binier): make endpoint only accessible locally.
+    let rpc_sender_clone = rpc_sender.clone();
+    let state_get = warp::path!("state").and(warp::get()).then(move || {
+        let rpc_sender_clone = rpc_sender_clone.clone();
+        async move {
+            let result: Option<RpcStateGetResponse> =
+                rpc_sender_clone.oneshot_request(RpcRequest::GetState).await;
+
+            with_json_reply(&result, StatusCode::OK)
+        }
+    });
 
     // TODO(binier): make endpoint only accessible locally.
     let stats = {
@@ -136,7 +149,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             }
         });
 
-    let routes = signaling.or(snarker_pick_job).or(stats);
+    let routes = signaling.or(state_get).or(stats).or(snarker_pick_job);
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }
 
