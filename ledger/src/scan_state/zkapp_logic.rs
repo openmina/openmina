@@ -862,13 +862,22 @@ where
         (a, local_state)
     };
 
+    // Update delegate
     let (a, local_state) = {
         let delegate = account_update.delegate();
-        let base_delegate = if let true = account_is_new {
-            Some(account_update.public_key())
-        } else {
-            a.delegate
+        let base_delegate = {
+            // Only accounts for the default token may delegate.
+            let should_set_new_account_delegate = account_is_new && account_update_token_is_default;
+
+            // New accounts should have the delegate equal to the public key of the
+            // account.
+            if should_set_new_account_delegate {
+                account_update.public_key()
+            } else {
+                a.delegate.clone().unwrap_or_else(CompressedPubKey::empty)
+            }
         };
+
         let has_permission = controller_check(
             proof_verifies,
             signature_verifies,
@@ -879,7 +888,14 @@ where
             TransactionFailure::UpdateNotPermittedDelegate,
             delegate.is_keep() || (has_permission && account_update_token_is_default),
         );
-        let delegate = base_delegate.map(|x| delegate.set_or_keep(x));
+
+        let delegate = delegate.set_or_keep(base_delegate);
+
+        let delegate = if delegate == CompressedPubKey::empty() {
+            None
+        } else {
+            Some(delegate)
+        };
         let a = Account { delegate, ..a };
         (a, local_state)
     };
