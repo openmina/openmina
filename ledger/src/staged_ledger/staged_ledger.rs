@@ -29,10 +29,11 @@ use crate::{
             TransactionStatus, UserCommand, WithStatus,
         },
     },
+    sparse_ledger::{self, SparseLedger},
     split_at, split_at_vec,
     staged_ledger::{pre_diff_info, resources::IncreaseBy, transaction_validator},
     verifier::{Verifier, VerifierError},
-    Account, AccountId, BaseLedger, Mask, TokenId,
+    AccountId, BaseLedger, Mask, TokenId,
 };
 
 use super::{
@@ -41,7 +42,6 @@ use super::{
     hash::StagedLedgerHash,
     pre_diff_info::PreDiffError,
     resources::Resources,
-    sparse_ledger::{self, SparseLedger},
 };
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#470
@@ -106,7 +106,7 @@ pub struct PreStatement<L: sparse_ledger::LedgerIntf + Clone> {
     expected_status: TransactionStatus,
     accounts_accessed: Vec<AccountId>,
     fee_excess: FeeExcess,
-    first_pass_ledger_witness: SparseLedger<AccountId, Account>,
+    first_pass_ledger_witness: SparseLedger,
     first_pass_ledger_source_hash: LedgerHash,
     first_pass_ledger_target_hash: LedgerHash,
     pending_coinbase_stack_source: Stack,
@@ -304,7 +304,7 @@ impl StagedLedger {
         let apply_first_pass_sparse_ledger =
             |global_slot: Slot,
              txn_state_view: &ProtocolStateView,
-             sparse_ledger: &mut SparseLedger<AccountId, Account>,
+             sparse_ledger: &mut SparseLedger,
              transaction: &Transaction| {
                 apply_transaction_first_pass(
                     constraint_constants,
@@ -1626,7 +1626,7 @@ impl StagedLedger {
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1781
     fn can_apply_supercharged_coinbase_exn(
         winner: CompressedPubKey,
-        epoch_ledger: &SparseLedger<AccountId, Account>,
+        epoch_ledger: &SparseLedger,
         global_slot: Slot,
     ) -> bool {
         !epoch_ledger.has_locked_tokens_exn(global_slot, AccountId::new(winner, TokenId::default()))
@@ -1974,7 +1974,7 @@ mod tests_ocaml {
             diff::{PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase},
             pre_diff_info::HashableCompressedPubKey,
         },
-        util, AuthRequired, FpExt, Permissions, VerificationKey,
+        util, Account, AuthRequired, FpExt, Permissions, VerificationKey,
     };
 
     use super::*;
@@ -2377,7 +2377,7 @@ mod tests_ocaml {
     }
 
     fn apply_initialize_ledger_state(mask: &mut Mask, init_state: &LedgerInitialState) {
-        use crate::staged_ledger::sparse_ledger::LedgerIntf;
+        use crate::sparse_ledger::LedgerIntf;
 
         for (kp, balance, nonce, timing) in &init_state.state {
             let pk_compressed = kp.public.into_compressed();
@@ -2867,7 +2867,7 @@ mod tests_ocaml {
                     let apply_first_pass_sparse_ledger =
                         |global_slot: Slot,
                          txn_state_view: &ProtocolStateView,
-                         sparse_ledger: &mut SparseLedger<AccountId, Account>,
+                         sparse_ledger: &mut SparseLedger,
                          transaction: &Transaction| {
                             apply_transaction_first_pass(
                                 &CONSTRAINT_CONSTANTS,
@@ -3828,7 +3828,7 @@ mod tests_ocaml {
                     let ledger: mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2 =
                         (&job.first_pass_ledger_witness).into();
 
-                    let mut ledger: SparseLedger<AccountId, Account> = (&ledger).into();
+                    let mut ledger: SparseLedger = (&ledger).into();
                     let after = ledger.merkle_root();
                     assert_eq!(before, after);
                     assert_eq!(ledger, job.first_pass_ledger_witness);
@@ -3838,7 +3838,7 @@ mod tests_ocaml {
                     let ledger: mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2 =
                         (&job.second_pass_ledger_witness).into();
 
-                    let mut ledger: SparseLedger<AccountId, Account> = (&ledger).into();
+                    let mut ledger: SparseLedger = (&ledger).into();
                     let after = ledger.merkle_root();
                     assert_eq!(before, after);
                     assert_eq!(ledger, job.second_pass_ledger_witness);
@@ -5846,6 +5846,8 @@ mod tests {
 
         println!("Load staged ledger info");
 
+        let now = std::time::Instant::now();
+
         let mut staged_ledger = StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
             (),
             &CONSTRAINT_CONSTANTS,
@@ -5859,6 +5861,7 @@ mod tests {
         )
         .unwrap();
 
+        println!("elapsed={:?}", now.elapsed());
         println!("Prepare staged ledger");
 
         let hash = v2::MinaBaseStagedLedgerHashStableV1::from(&staged_ledger.hash());

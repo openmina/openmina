@@ -18,7 +18,7 @@ use crate::{
             Env, TimingValidation, TransactionFailure,
         },
     },
-    staged_ledger::sparse_ledger::LedgerIntf,
+    sparse_ledger::LedgerIntf,
     Account, AuthRequired, ControlTag, Mask, ReceiptChainHash, Timing, TokenId, ZkAppAccount,
 };
 
@@ -630,7 +630,7 @@ where
         let pay_creation_fee_from_excess = account_is_new && !implicit_account_creation_fee;
         let (balance, failed1) = a.balance.add_signed_amount_flagged(actual_balance_change);
 
-        println!("[rust] failed1 {}", failed1);
+        // println!("[rust] failed1 {}", failed1);
         let local_state = local_state.add_check(TransactionFailure::Overflow, !failed1);
         let local_state = {
             let account_creation_fee = constraint_constants.account_creation_fee;

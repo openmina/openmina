@@ -30,12 +30,9 @@ use crate::{
             TransactionStatus,
         },
     },
-    staged_ledger::{
-        hash::AuxHash,
-        sparse_ledger::{LedgerIntf, SparseLedger},
-    },
+    sparse_ledger::{LedgerIntf, SparseLedger},
+    staged_ledger::hash::AuxHash,
     verifier::Verifier,
-    Account, AccountId,
 };
 
 use self::transaction_snark::{InitStack, LedgerProof, OneOrTwo, Registers};
@@ -98,8 +95,9 @@ pub mod transaction_snark {
             pending_coinbase,
             transaction_logic::{local_state::LocalState, transaction_applied::TransactionApplied},
         },
-        staged_ledger::{hash::OCamlString, sparse_ledger::SparseLedger},
-        Account, AccountId, Inputs, ToInputs,
+        sparse_ledger::SparseLedger,
+        staged_ledger::hash::OCamlString,
+        Inputs, ToInputs,
     };
 
     use super::Fee;
@@ -460,8 +458,8 @@ pub mod transaction_snark {
         // pub state_hash: (StateHash, MinaBaseStateBodyHashStableV1),
         pub statement: Statement<()>,
         pub init_stack: InitStack,
-        pub first_pass_ledger_witness: SparseLedger<AccountId, Account>,
-        pub second_pass_ledger_witness: SparseLedger<AccountId, Account>,
+        pub first_pass_ledger_witness: SparseLedger,
+        pub second_pass_ledger_witness: SparseLedger,
         pub block_global_slot: Slot,
     }
 
@@ -1341,14 +1339,12 @@ impl ScanState {
         ) -> Result<TransactionPartiallyApplied<L>, String>,
         ApplySecond:
             Fn(&mut L, TransactionPartiallyApplied<L>) -> Result<TransactionApplied, String>,
-        ApplyFirstSparse:
-            Fn(
-                Slot,
-                &ProtocolStateView,
-                &mut SparseLedger<AccountId, Account>,
-                &Transaction,
-            )
-                -> Result<TransactionPartiallyApplied<SparseLedger<AccountId, Account>>, String>,
+        ApplyFirstSparse: Fn(
+            Slot,
+            &ProtocolStateView,
+            &mut SparseLedger,
+            &Transaction,
+        ) -> Result<TransactionPartiallyApplied<SparseLedger>, String>,
     {
         let mut ledger_mut = ledger.clone();
         let stop_at_first_pass = stop_at_first_pass.unwrap_or(false);
@@ -1472,12 +1468,10 @@ impl ScanState {
             ApplyFirstSparse: Fn(
                 Slot,
                 &ProtocolStateView,
-                &mut SparseLedger<AccountId, Account>,
+                &mut SparseLedger,
                 &Transaction,
-            ) -> Result<
-                TransactionPartiallyApplied<SparseLedger<AccountId, Account>>,
-                String,
-            >,
+            )
+                -> Result<TransactionPartiallyApplied<SparseLedger>, String>,
         {
             // Note: Previous incomplete transactions refer to the block's transactions
             // from previous scan state tree that were split between the two trees.
@@ -1490,7 +1484,7 @@ impl ScanState {
             // ledger here
 
             let inject_ledger_info = |partially_applied_txn: TransactionPartiallyApplied<
-                SparseLedger<AccountId, Account>,
+                SparseLedger,
             >| {
                 use TransactionPartiallyApplied as P;
 
@@ -1771,14 +1765,12 @@ impl ScanState {
         ) -> Result<TransactionPartiallyApplied<L>, String>,
         ApplySecond:
             Fn(&mut L, TransactionPartiallyApplied<L>) -> Result<TransactionApplied, String>,
-        ApplyFirstSparse:
-            Fn(
-                Slot,
-                &ProtocolStateView,
-                &mut SparseLedger<AccountId, Account>,
-                &Transaction,
-            )
-                -> Result<TransactionPartiallyApplied<SparseLedger<AccountId, Account>>, String>,
+        ApplyFirstSparse: Fn(
+            Slot,
+            &ProtocolStateView,
+            &mut SparseLedger,
+            &Transaction,
+        ) -> Result<TransactionPartiallyApplied<SparseLedger>, String>,
     {
         Self::apply_ordered_txns_stepwise(
             stop_at_first_pass,
@@ -1810,14 +1802,12 @@ impl ScanState {
         ) -> Result<TransactionPartiallyApplied<L>, String>,
         ApplySecond:
             Fn(&mut L, TransactionPartiallyApplied<L>) -> Result<TransactionApplied, String>,
-        ApplyFirstSparse:
-            Fn(
-                Slot,
-                &ProtocolStateView,
-                &mut SparseLedger<AccountId, Account>,
-                &Transaction,
-            )
-                -> Result<TransactionPartiallyApplied<SparseLedger<AccountId, Account>>, String>,
+        ApplyFirstSparse: Fn(
+            Slot,
+            &ProtocolStateView,
+            &mut SparseLedger,
+            &Transaction,
+        ) -> Result<TransactionPartiallyApplied<SparseLedger>, String>,
     {
         match self.latest_ledger_proof_impl() {
             None => Err("No transactions found".to_string()),
@@ -1852,14 +1842,12 @@ impl ScanState {
         ) -> Result<TransactionPartiallyApplied<L>, String>,
         ApplySecond:
             Fn(&mut L, TransactionPartiallyApplied<L>) -> Result<TransactionApplied, String>,
-        ApplyFirstSparse:
-            Fn(
-                Slot,
-                &ProtocolStateView,
-                &mut SparseLedger<AccountId, Account>,
-                &Transaction,
-            )
-                -> Result<TransactionPartiallyApplied<SparseLedger<AccountId, Account>>, String>,
+        ApplyFirstSparse: Fn(
+            Slot,
+            &ProtocolStateView,
+            &mut SparseLedger,
+            &Transaction,
+        ) -> Result<TransactionPartiallyApplied<SparseLedger>, String>,
     {
         let staged_transactions_with_state_hash = self.staged_transactions();
         Self::apply_ordered_txns_sync(
@@ -2189,8 +2177,8 @@ pub enum Extracted {
         transaction_with_info: TransactionApplied,
         statement: Box<Statement<()>>,
         state_hash: (Fp, Fp),
-        first_pass_ledger_witness: SparseLedger<AccountId, Account>,
-        second_pass_ledger_witness: SparseLedger<AccountId, Account>,
+        first_pass_ledger_witness: SparseLedger,
+        second_pass_ledger_witness: SparseLedger,
         init_stack: InitStack,
         block_global_slot: Slot,
     },

@@ -8,22 +8,24 @@ use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
 use crate::{
-    scan_state::{conv::to_ledger_hash, currency::Slot, transaction_logic::AccountState},
+    scan_state::{currency::Slot, transaction_logic::AccountState},
     Account, AccountId, AccountIndex, Address, AddressIterator, BaseLedger, Direction,
     HashesMatrix, Mask, MerklePath, TreeVersion, V2,
 };
 
+use super::LedgerIntf;
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct SparseLedger<K: Eq + std::hash::Hash, V> {
-    values: BTreeMap<AccountIndex, V>,
-    indexes: HashMap<K, Address>,
+pub(super) struct SparseLedgerImpl<K: Eq + std::hash::Hash, V> {
+    pub values: BTreeMap<AccountIndex, V>,
+    pub indexes: HashMap<K, Address>,
     /// Mirror OCaml, where the index is ordered, and can have duplicates
-    indexes_list: VecDeque<K>,
-    hashes_matrix: HashesMatrix,
-    depth: usize,
+    pub indexes_list: VecDeque<K>,
+    pub hashes_matrix: HashesMatrix,
+    pub depth: usize,
 }
 
-impl SparseLedger<AccountId, Account> {
+impl SparseLedgerImpl<AccountId, Account> {
     pub fn create(depth: usize, root_hash: Fp) -> Self {
         let mut hashes_matrix = HashesMatrix::new(depth);
         hashes_matrix.set(&Address::root(), root_hash);
@@ -337,185 +339,7 @@ impl SparseLedger<AccountId, Account> {
     //        ~txn_state_view )
 }
 
-impl From<&SparseLedger<AccountId, Account>>
-    for mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2
-{
-    fn from(value: &SparseLedger<AccountId, Account>) -> Self {
-        use mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2;
-        use mina_p2p_messages::v2::MinaBaseAccountIdStableV2;
-        use mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2Tree;
-
-        assert!(value.hashes_matrix.get(&Address::root()).is_some());
-
-        let indexes: Vec<_> = value
-            .indexes_list
-            .iter()
-            .map(|id| {
-                let addr = value.indexes.get(id).unwrap();
-
-                let index = addr.to_index();
-                let index: u32 = index.as_u64().try_into().unwrap();
-                let index: mina_p2p_messages::number::Int32 = (index as i32).into();
-
-                let id: MinaBaseAccountIdStableV2 = id.clone().into();
-
-                (id, index)
-            })
-            .collect();
-
-        fn build_tree(
-            addr: Address,
-            matrix: &HashesMatrix,
-            ledger_depth: usize,
-            values: &BTreeMap<AccountIndex, Account>,
-        ) -> MinaBaseSparseLedgerBaseStableV2Tree {
-            if addr.length() == ledger_depth {
-                let account_index = addr.to_index();
-
-                return match values.get(&account_index).cloned() {
-                    Some(account) => {
-                        let account: MinaBaseAccountBinableArgStableV2 = account.into();
-                        MinaBaseSparseLedgerBaseStableV2Tree::Account(Box::new(account))
-                    }
-                    None => {
-                        let hash = matrix.get(&addr).unwrap();
-                        MinaBaseSparseLedgerBaseStableV2Tree::Hash(to_ledger_hash(hash))
-                    }
-                };
-            }
-
-            let child_left = addr.child_left();
-            let child_right = addr.child_right();
-
-            let is_left = matrix.get(&child_left).is_some();
-            let is_right = matrix.get(&child_right).is_some();
-
-            if is_left && is_right {
-                let hash = matrix.get(&addr).unwrap();
-                let left_node = build_tree(child_left, matrix, ledger_depth, values);
-                let right_node = build_tree(child_right, matrix, ledger_depth, values);
-
-                MinaBaseSparseLedgerBaseStableV2Tree::Node(
-                    to_ledger_hash(hash),
-                    Box::new(left_node),
-                    Box::new(right_node),
-                )
-            } else {
-                assert!(!is_left && !is_right);
-                let hash = matrix.get(&addr).unwrap();
-                MinaBaseSparseLedgerBaseStableV2Tree::Hash(to_ledger_hash(hash))
-            }
-        }
-
-        let tree = build_tree(
-            Address::root(),
-            &value.hashes_matrix,
-            value.depth,
-            &value.values,
-        );
-
-        let depth: u32 = value.depth.try_into().unwrap();
-
-        Self {
-            indexes,
-            depth: (depth as i32).into(),
-            tree,
-        }
-    }
-}
-
-impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2>
-    for SparseLedger<AccountId, Account>
-{
-    fn from(value: &mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2) -> Self {
-        use mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2Tree;
-        use mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2Tree::{Account, Hash, Node};
-
-        fn build_matrix(
-            matrix: &mut HashesMatrix,
-            addr: Address,
-            node: &MinaBaseSparseLedgerBaseStableV2Tree,
-            values: &mut BTreeMap<AccountIndex, crate::Account>,
-        ) {
-            match node {
-                Account(account) => {
-                    // TODO: Don't clone the account here
-                    let account: crate::Account = (**account).clone().into();
-                    matrix.set(&addr, account.hash());
-                    values.insert(addr.to_index(), account);
-                }
-                Hash(hash) => {
-                    matrix.set(&addr, hash.to_field());
-                }
-                Node(hash, left, right) => {
-                    matrix.set(&addr, hash.to_field());
-                    build_matrix(matrix, addr.child_left(), left, values);
-                    build_matrix(matrix, addr.child_right(), right, values);
-                }
-            }
-        }
-
-        let depth = value.depth.as_u32() as usize;
-        let mut indexes = HashMap::with_capacity(value.indexes.len());
-        let mut indexes_list = VecDeque::with_capacity(value.indexes.len());
-        let mut hashes_matrix = HashesMatrix::new(depth);
-        let mut values = BTreeMap::new();
-
-        for (account_id, account_index) in value.indexes.iter() {
-            let account_id: AccountId = account_id.into();
-            let account_index = AccountIndex::from(account_index.as_u32() as usize);
-
-            let addr = Address::from_index(account_index.clone(), depth);
-
-            indexes.insert(account_id.clone(), addr);
-            indexes_list.push_back(account_id);
-        }
-
-        build_matrix(
-            &mut hashes_matrix,
-            Address::root(),
-            &value.tree,
-            &mut values,
-        );
-
-        Self {
-            values,
-            indexes,
-            hashes_matrix,
-            depth,
-            indexes_list,
-        }
-    }
-}
-
-/// Trait used in transaction logic, on the ledger witness (`SparseLedger`), or on mask
-///
-/// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/ledger_intf.ml
-/// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml
-pub trait LedgerIntf {
-    type Location: Clone + std::fmt::Debug;
-
-    fn get(&self, addr: &Self::Location) -> Option<Account>;
-    fn location_of_account(&self, account_id: &AccountId) -> Option<Self::Location>;
-    fn set(&mut self, addr: &Self::Location, account: Account);
-    fn get_or_create(
-        &mut self,
-        account_id: &AccountId,
-    ) -> Result<(AccountState, Account, Self::Location), String>;
-    fn create_new_account(&mut self, account_id: AccountId, account: Account) -> Result<(), ()>;
-    fn remove_accounts_exn(&mut self, account_ids: &[AccountId]);
-    fn merkle_root(&mut self) -> Fp;
-    fn empty(depth: usize) -> Self;
-    fn create_masked(&self) -> Self;
-    fn apply_mask(&mut self, mask: Self);
-
-    /// Returns all account locations in this ledger (and its parents if any)
-    ///
-    /// The result is sorted
-    fn account_locations(&self) -> Vec<Self::Location>;
-}
-
-impl LedgerIntf for SparseLedger<AccountId, Account> {
+impl LedgerIntf for SparseLedgerImpl<AccountId, Account> {
     type Location = Address;
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L58
@@ -601,11 +425,11 @@ impl LedgerIntf for SparseLedger<AccountId, Account> {
     }
 
     fn create_masked(&self) -> Self {
-        todo!()
+        unimplemented!() // Implemented for `SparseLedger`
     }
 
     fn apply_mask(&mut self, _mask: Self) {
-        todo!()
+        unimplemented!() // Implemented for `SparseLedger`
     }
 
     fn account_locations(&self) -> Vec<Self::Location> {

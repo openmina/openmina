@@ -11,7 +11,7 @@ use crate::scan_state::zkapp_logic;
 use crate::{hash_with_kimchi, ControlTag, Inputs};
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
-    staged_ledger::sparse_ledger::{LedgerIntf, SparseLedger},
+    sparse_ledger::{LedgerIntf, SparseLedger},
     Account, AccountId, PermissionTo, ReceiptChainHash, Timing, TokenId, VerificationKey,
 };
 
@@ -3784,7 +3784,7 @@ pub mod transaction_applied {
             let total = [burned_tokens, account_creation_fees]
                 .into_iter()
                 .fold(Some(expected_supply_increase), |total, amt| {
-                    amt.negate().add(&total?)
+                    total?.add(&amt.negate())
                 });
 
             total.ok_or_else(|| "overflow".to_string())
@@ -3803,8 +3803,8 @@ pub mod transaction_witness {
     #[derive(Debug)]
     pub struct TransactionWitness {
         pub transaction: Transaction,
-        pub first_pass_ledger: SparseLedger<AccountId, Account>,
-        pub second_pass_ledger: SparseLedger<AccountId, Account>,
+        pub first_pass_ledger: SparseLedger,
+        pub second_pass_ledger: SparseLedger,
         pub protocol_state_body: MinaStateProtocolStateBodyValueStableV2,
         pub init_stack: Stack,
         pub status: TransactionStatus,

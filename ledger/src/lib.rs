@@ -48,6 +48,7 @@ pub mod ondisk;
 mod poseidon;
 mod proofs;
 pub mod scan_state;
+pub mod sparse_ledger;
 pub mod staged_ledger;
 mod tree;
 mod tree_version;

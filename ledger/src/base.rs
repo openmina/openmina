@@ -13,7 +13,7 @@ use crate::{
     address::Address,
     database::DatabaseError,
     scan_state::transaction_logic::AccountState,
-    staged_ledger::sparse_ledger::LedgerIntf,
+    sparse_ledger::LedgerIntf,
     Mask,
 };
 
