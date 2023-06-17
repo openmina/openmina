@@ -182,7 +182,7 @@ impl TransactionStatus {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_status.ml#L6
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WithStatus<T> {
     pub data: T,
     pub status: TransactionStatus,
@@ -324,7 +324,7 @@ pub mod valid {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_transfer.ml#L19
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SingleFeeTransfer {
     pub receiver_pk: CompressedPubKey,
     pub fee: Fee,
@@ -349,7 +349,7 @@ impl SingleFeeTransfer {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_transfer.ml#L68
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FeeTransfer(pub(super) OneOrTwo<SingleFeeTransfer>);
 
 impl std::ops::Deref for FeeTransfer {
@@ -404,7 +404,7 @@ impl FeeTransfer {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CoinbaseFeeTransfer {
     pub receiver_pk: CompressedPubKey,
     pub fee: Fee,
@@ -424,7 +424,7 @@ impl CoinbaseFeeTransfer {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/coinbase.ml#L17
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Coinbase {
     pub receiver: CompressedPubKey,
     pub amount: Amount,
@@ -3622,12 +3622,12 @@ pub mod transaction_applied {
     pub mod signed_command_applied {
         use super::*;
 
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq)]
         pub struct Common {
             pub user_command: WithStatus<signed_command::SignedCommand>,
         }
 
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq)]
         pub enum Body {
             Payments {
                 new_accounts: Vec<AccountId>,
@@ -3638,7 +3638,7 @@ pub mod transaction_applied {
             Failed,
         }
 
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq)]
         pub struct SignedCommandApplied {
             pub common: Common,
             pub body: Body,
@@ -3659,7 +3659,7 @@ pub mod transaction_applied {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L65
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct ZkappCommandApplied {
         pub accounts: Vec<(AccountId, Option<Account>)>,
         pub command: WithStatus<zkapp_command::ZkAppCommand>,
@@ -3667,14 +3667,14 @@ pub mod transaction_applied {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L82
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub enum CommandApplied {
         SignedCommand(Box<SignedCommandApplied>),
         ZkappCommand(Box<ZkappCommandApplied>),
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L96
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct FeeTransferApplied {
         pub fee_transfer: WithStatus<FeeTransfer>,
         pub new_accounts: Vec<AccountId>,
@@ -3682,7 +3682,7 @@ pub mod transaction_applied {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L112
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct CoinbaseApplied {
         pub coinbase: WithStatus<Coinbase>,
         pub new_accounts: Vec<AccountId>,
@@ -3690,7 +3690,7 @@ pub mod transaction_applied {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L142
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub enum Varying {
         Command(CommandApplied),
         FeeTransfer(FeeTransferApplied),
@@ -3698,7 +3698,7 @@ pub mod transaction_applied {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L142
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct TransactionApplied {
         pub previous_hash: Fp,
         pub varying: Varying,

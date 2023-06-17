@@ -5798,7 +5798,10 @@ mod tests {
     use std::{collections::BTreeMap, fs::File};
 
     use crate::{
-        scan_state::transaction_logic::local_state::LocalState,
+        scan_state::{
+            pending_coinbase::PendingCoinbase, scan_state::ScanState,
+            transaction_logic::local_state::LocalState,
+        },
         staged_ledger::staged_ledger::{tests_ocaml::CONSTRAINT_CONSTANTS, StagedLedger},
         verifier::Verifier,
         Account, BaseLedger, Database, Mask,
@@ -5810,6 +5813,13 @@ mod tests {
 
     #[test]
     fn staged_ledger_hash() {
+        fn elapsed<R>(label: &str, fun: impl FnOnce() -> R) -> R {
+            let now = std::time::Instant::now();
+            let result = fun();
+            println!("{} elapsed={:?}", label, now.elapsed());
+            result
+        }
+
         let Ok(mut snarked_ledger_file) = File::open("target/snarked_ledger") else {
             eprintln!("File target/snarked_ledger not found");
             return
@@ -5831,10 +5841,12 @@ mod tests {
                 .unwrap();
         }
 
-        let info = GetStagedLedgerAuxAndPendingCoinbasesAtHashV2Response::binprot_read(
-            &mut staged_ledger_file,
-        )
-        .unwrap();
+        let info = elapsed("staged ledger parsing", || {
+            GetStagedLedgerAuxAndPendingCoinbasesAtHashV2Response::binprot_read(
+                &mut staged_ledger_file,
+            )
+            .unwrap()
+        });
 
         println!("Prepare snarked ledger");
 
@@ -5846,26 +5858,30 @@ mod tests {
 
         println!("Load staged ledger info");
 
-        let now = std::time::Instant::now();
+        let scan_state: ScanState = elapsed("scan_state conversion", || (&scan_state).into());
+        let pending_coinbase: PendingCoinbase =
+            elapsed("pending_coinbase conversion", || (&pending_coinbase).into());
 
-        let mut staged_ledger = StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
-            (),
-            &CONSTRAINT_CONSTANTS,
-            Verifier,
-            (&scan_state).into(),
-            snarked_ledger,
-            LocalState::empty(),
-            expected_ledger_hash.into(),
-            (&pending_coinbase).into(),
-            |key| states.get(&key).cloned().unwrap(),
-        )
-        .unwrap();
+        let mut staged_ledger =
+            elapsed("of_scan_state_pending_coinbases_and_snarked_ledger", || {
+                StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
+                    (),
+                    &CONSTRAINT_CONSTANTS,
+                    Verifier,
+                    scan_state,
+                    snarked_ledger,
+                    LocalState::empty(),
+                    expected_ledger_hash.into(),
+                    pending_coinbase,
+                    |key| states.get(&key).cloned().unwrap(),
+                )
+                .unwrap()
+            });
 
-        println!("elapsed={:?}", now.elapsed());
         println!("Prepare staged ledger");
 
         let hash = v2::MinaBaseStagedLedgerHashStableV1::from(&staged_ledger.hash());
-        let reference = r#"{"non_snark":{"ledger_hash":"jx1NihaovYTCrj2R3hMkM2yZ2FYXyENfH5VGrPnMGTLtUizot6W","aux_hash":"W5wyeVGcLw1JBxiyMnqDQ46WCrQBQebxMKfRQWRFzHxD7Zn7Dz","pending_coinbase_aux":"WVjrHtNPbda9FeMD6Lx7aU9Y58KiW3hmBgE488dfiSWSHUSiLD"},"pending_coinbase_hash":"2n1HWMiBfccZf52vcNyVsGVu6eYthCYez52mK72SWJtzdmWQHSq9"}"#;
+        let reference = r#"{"non_snark":{"ledger_hash":"jwcznejL82UzKAgTUCpoQ9aw4NBfph25nsgMLoowXBx8iknMt2H","aux_hash":"VU7r5u7vbm9FtBgU2R5nJhFNcBRfDXXyJuVX2qiXgjD5fzqYQ7","pending_coinbase_aux":"XyLefxPzSEbi25gRvSVZvn65fDtowhbVY1dHT1XuYgaEUsnA4z"},"pending_coinbase_hash":"2n1QN8RQT8Au6uMmihuEBMp6mbfcuduG88EQDFMBJbZbQ3SPqsuA"}"#;
         assert_eq!(reference, serde_json::to_string(&hash).unwrap());
     }
 }

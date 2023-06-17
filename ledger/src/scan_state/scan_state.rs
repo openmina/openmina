@@ -445,13 +445,13 @@ pub mod transaction_snark {
     }
 
     // TransactionSnarkPendingCoinbaseStackStateInitStackStableV1
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub enum InitStack {
         Base(pending_coinbase::Stack),
         Merge,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq)]
     pub struct TransactionWithWitness {
         pub transaction_with_info: TransactionApplied,
         pub state_hash: (Fp, Fp), // (StateHash, StateBodyHash)
@@ -687,6 +687,13 @@ impl ScanState {
                 proof.binprot_write(buffer).unwrap();
             },
             |buffer, transaction| {
+                #[cfg(test)]
+                {
+                    let a: mina_p2p_messages::v2::TransactionSnarkScanStateTransactionWithWitnessStableV2 = transaction.into();
+                    let b: TransactionWithWitness = (&a).into();
+                    assert_eq!(&b, transaction);
+                }
+
                 transaction.binprot_write(buffer).unwrap();
             },
         );
@@ -839,7 +846,7 @@ where
     let fee_excess_with_err = transaction.fee_excess();
 
     let (target_first_pass_merkle_root, target_second_pass_merkle_root, supply_increase) = {
-        let mut first_pass_ledger_witness = first_pass_ledger_witness.clone();
+        let mut first_pass_ledger_witness = first_pass_ledger_witness.copy_content();
         let partially_applied_transaction = apply_transaction_first_pass(
             constraint_constants,
             *block_global_slot,
@@ -848,7 +855,7 @@ where
             &transaction,
         )?;
 
-        let mut second_pass_ledger_witness = second_pass_ledger_witness.clone();
+        let mut second_pass_ledger_witness = second_pass_ledger_witness.copy_content();
         let applied_transaction = apply_transaction_second_pass(
             constraint_constants,
             &mut second_pass_ledger_witness,

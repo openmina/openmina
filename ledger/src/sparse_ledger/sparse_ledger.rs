@@ -57,6 +57,13 @@ impl SparseLedger {
         }
     }
 
+    pub fn copy_content(&self) -> Self {
+        let inner = self.with(|this| this.clone());
+        Self {
+            inner: Arc::new(Mutex::new(inner)),
+        }
+    }
+
     pub fn has_locked_tokens_exn(&self, global_slot: Slot, account_id: AccountId) -> bool {
         self.with(|this| this.has_locked_tokens_exn(global_slot, account_id))
     }
