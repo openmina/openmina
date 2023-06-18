@@ -184,7 +184,7 @@ impl From<&VerificationKey> for MinaBaseVerificationKeyWireStableV1 {
                 super::ProofVerified::N1 => PicklesBaseProofsVerifiedStableV1::N1,
                 super::ProofVerified::N2 => PicklesBaseProofsVerifiedStableV1::N2,
             },
-            wrap_index: (&*wrap_index).into(),
+            wrap_index: wrap_index.into(),
         }
     }
 }

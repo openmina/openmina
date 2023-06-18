@@ -62,6 +62,7 @@ impl TokenSymbol {
     }
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for TokenSymbol {
     fn default() -> Self {
         // empty string
@@ -445,6 +446,7 @@ impl VerificationKey {
 pub struct ZkAppUri(String);
 
 impl ZkAppUri {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self(String::new())
     }

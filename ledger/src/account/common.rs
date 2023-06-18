@@ -43,7 +43,7 @@ impl ReceiptChainHash {
     }
 
     pub fn from_hex(s: &str) -> Result<Self, FieldHelpersError> {
-        Fp::from_hex(s).map(|fp| Self(fp))
+        Fp::from_hex(s).map(Self)
     }
 
     pub fn gen() -> Self {

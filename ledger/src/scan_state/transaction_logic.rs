@@ -1437,12 +1437,11 @@ pub mod zkapp_command {
         T: Check<A = T>,
     {
         pub fn check(&self, label: String, rhs: T::B) -> Result<(), String> {
-            let ret = match self {
-                Self::Ignore => Ok(()),
-                Self::Check(t) => t.check(label.clone(), rhs),
-            };
             // println!("[rust] check {}, {:?}", label, ret);
-            ret
+            match self {
+                Self::Ignore => Ok(()),
+                Self::Check(t) => t.check(label, rhs),
+            }
         }
     }
 
@@ -4015,6 +4014,12 @@ pub mod local_state {
     #[derive(Debug, Clone)]
     pub struct CallStack(Vec<StackFrame>);
 
+    impl Default for CallStack {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl CallStack {
         pub fn new() -> Self {
             CallStack(Vec::new())
@@ -4228,7 +4233,7 @@ pub struct Env<L: LedgerIntf + Clone> {
 pub enum PerformResult<L: LedgerIntf + Clone> {
     Bool(bool),
     LocalState(LocalStateEnv<L>),
-    Account(Account),
+    Account(Box<Account>),
 }
 
 impl<L: LedgerIntf + Clone> PerformResult<L> {
@@ -4275,7 +4280,7 @@ where
                 };
                 PerformResult::LocalState(local_state)
             }
-            Eff::InitAccount(_account_update, a) => PerformResult::Account(a),
+            Eff::InitAccount(_account_update, a) => PerformResult::Account(Box::new(a)),
         }
     }
 }
@@ -6174,7 +6179,7 @@ pub fn account_check_timing(
     account: &Account,
 ) -> (TimingValidation, Timing) {
     let (invalid_timing, timing, _) =
-        validate_timing_with_min_balance_impl(&account, Amount::from_u64(0), txn_global_slot);
+        validate_timing_with_min_balance_impl(account, Amount::from_u64(0), txn_global_slot);
     // TODO: In OCaml the returned Timing is actually converted to None/Some(fields of Timing structure)
     (invalid_timing, timing)
 }
@@ -6420,12 +6425,12 @@ where
 
 pub fn set_account<'a, L>(
     l: &'a mut L,
-    (a, loc): (Account, &ExistingOrNew<L::Location>),
+    (a, loc): (Box<Account>, &ExistingOrNew<L::Location>),
 ) -> &'a mut L
 where
     L: LedgerIntf,
 {
-    set_with_location(l, loc, a).unwrap();
+    set_with_location(l, loc, *a).unwrap();
     l
 }
 
@@ -6511,10 +6516,12 @@ pub mod for_tests {
                 };
 
                 let zkapp = if zkapp {
-                    let mut zkapp = ZkAppAccount::default();
+                    let zkapp = ZkAppAccount {
+                        // TODO: Hash is `Fp::zero` here
+                        verification_key: Some(crate::dummy::trivial_verification_key()),
+                        ..Default::default()
+                    };
 
-                    // TODO: Hash is `Fp::zero` here
-                    zkapp.verification_key = Some(crate::dummy::trivial_verification_key());
                     Some(zkapp)
                 } else {
                     None

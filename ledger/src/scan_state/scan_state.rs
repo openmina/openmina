@@ -562,6 +562,7 @@ pub mod transaction_snark {
             }
         }
 
+        #[allow(clippy::should_implement_trait)]
         pub fn into_iter(self) -> OneOrTwoIntoIter<T> {
             let array = match self {
                 OneOrTwo::One(a) => [Some(a), None],
@@ -792,10 +793,7 @@ impl From<&ConstraintConstants> for ConstraintConstantsUnversioned {
             coinbase_amount: constraints.coinbase_amount.into(),
             supercharged_coinbase_factor: (constraints.supercharged_coinbase_factor as i64).into(),
             account_creation_fee: (&constraints.account_creation_fee).into(),
-            fork: match &constraints.fork {
-                Some(fork) => Some(fork.into()),
-                None => None,
-            },
+            fork: constraints.fork.as_ref().map(|fork| fork.into()),
         }
     }
 }
@@ -2017,7 +2015,7 @@ impl ScanState {
             }
             Extracted::Second(s) => {
                 let merged = s.0.statement().merge(&s.1.statement())?;
-                Ok(snark_work::spec::Work::Merge((merged, s)))
+                Ok(snark_work::spec::Work::Merge(Box::new((merged, s))))
             }
         };
 
@@ -2209,7 +2207,7 @@ impl<T> TransactionsOrdered<T> {
             current_incomplete,
         } = self;
 
-        let mut conv = |v: Vec<T>| v.into_iter().map(|v| fun(v)).collect::<Vec<B>>();
+        let mut conv = |v: Vec<T>| v.into_iter().map(&mut fun).collect::<Vec<B>>();
 
         TransactionsOrdered::<B> {
             first_pass: conv(first_pass),

@@ -144,9 +144,8 @@ fn assert_with_failure_status_tbl(
 
 // https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/mina_ledger/ledger.ml#L211
 fn empty_ledger(depth: usize) -> Mask {
-    let mask = Mask::new_unattached(depth);
+    Mask::new_unattached(depth)
     //mask.set_parent(parent, None)
-    mask
 }
 
 fn pop_call_stack(s: &CallStack) -> (StackFrame, CallStack) {
@@ -175,7 +174,7 @@ pub fn get_next_account_update(
     call_stack: CallStack,
 ) -> Result<GetNextAccountUpdateResult, String> {
     let (next_forest, next_call_stack) = pop_call_stack(&call_stack);
-    let (current_forest, call_stack) = if let true = current_forest.calls.is_empty() {
+    let (current_forest, call_stack) = if current_forest.calls.is_empty() {
         (next_forest, next_call_stack)
     } else {
         (current_forest, call_stack)
@@ -215,22 +214,20 @@ pub fn get_next_account_update(
         calls: remainder_of_current_forest,
     };
 
-    let new_call_stack = if account_update_forest_empty == true {
-        if remainder_of_current_forest_empty == true {
+    let new_call_stack = if account_update_forest_empty {
+        if remainder_of_current_forest_empty {
             popped_call_stack
         } else {
             call_stack
         }
+    } else if remainder_of_current_forest_empty {
+        call_stack
     } else {
-        if remainder_of_current_forest_empty == true {
-            call_stack
-        } else {
-            call_stack.push(&remainder_of_current_forest_frame)
-        }
+        call_stack.push(&remainder_of_current_forest_frame)
     };
 
-    let new_frame = if account_update_forest_empty == true {
-        if remainder_of_current_forest_empty == true {
+    let new_frame = if account_update_forest_empty {
+        if remainder_of_current_forest_empty {
             newly_popped_frame
         } else {
             remainder_of_current_forest_frame
@@ -289,15 +286,15 @@ pub fn update_action_state(
     let [_s1, _s2, _s3, _s4, _s5] = action_state;
     let is_empty = actions.is_empty();
     let s1_updated = actions.push_events(_s1);
-    let s1 = if let true = is_empty { _s1 } else { s1_updated };
+    let s1 = if is_empty { _s1 } else { s1_updated };
     let is_this_slot = txn_global_slot == last_action_slot;
     let is_empty_or_this_slot = is_empty || is_this_slot;
-    let (s5, s4, s3, s2) = if let true = is_empty_or_this_slot {
+    let (s5, s4, s3, s2) = if is_empty_or_this_slot {
         (_s5, _s4, _s3, _s2)
     } else {
         (_s4, _s3, _s2, _s1)
     };
-    let last_action_slot = if let true = is_empty {
+    let last_action_slot = if is_empty {
         last_action_slot
     } else {
         txn_global_slot
@@ -306,15 +303,7 @@ pub fn update_action_state(
 }
 
 pub fn unmake_zkapp(a: Account) -> Account {
-    let zkapp = if let Some(zkapp) = a.zkapp {
-        if let true = ZkAppAccount::default() == zkapp {
-            None
-        } else {
-            Some(zkapp)
-        }
-    } else {
-        None
-    };
+    let zkapp = a.zkapp.filter(|zkapp| &ZkAppAccount::default() != zkapp);
     Account { zkapp, ..a }
 }
 
@@ -332,7 +321,7 @@ where
     match is_start {
         IsStart::Compute(_) => (),
         IsStart::Yes(_) => __assert!(is_start_)?,
-        IsStart::No => __assert!(is_start_ != true)?,
+        IsStart::No => __assert!(!is_start_)?,
     };
 
     let is_start_ = match is_start {
@@ -353,10 +342,10 @@ where
         IsStart::No => local_state.will_succeed,
     };
 
-    let mut local_state = local_state.clone();
+    let mut local_state = local_state;
 
     if is_start_ {
-        local_state.ledger = global_state.first_pass_ledger().clone();
+        local_state.ledger = global_state.first_pass_ledger();
     }
     local_state.will_succeed = will_succeed;
 
@@ -368,7 +357,7 @@ where
     ) = {
         let (to_pop, call_stack) = match &is_start {
             IsStart::Compute(start_data) => {
-                if is_start_ == true {
+                if is_start_ {
                     (
                         StackFrame {
                             caller: TokenId::default(),
@@ -404,7 +393,7 @@ where
             new_frame: remaining,
             new_call_stack: call_stack,
             caller_id,
-        } = get_next_account_update(to_pop, call_stack.clone())?;
+        } = get_next_account_update(to_pop, call_stack)?;
 
         let mut local_state = local_state.add_check(
             TransactionFailure::TokenOwnerNotCaller,
@@ -429,7 +418,7 @@ where
                     start_data.memo_hash,
                     tx_commitment_on_start.clone(),
                 );
-                if let true = is_start_ {
+                if is_start_ {
                     (tx_commitment_on_start, full_tx_commitment_on_start)
                 } else {
                     (
@@ -443,7 +432,7 @@ where
         let local_state = LocalStateEnv {
             transaction_commitment,
             full_transaction_commitment,
-            token_id: if let true = is_start_ {
+            token_id: if is_start_ {
                 TokenId::default()
             } else {
                 local_state.token_id
@@ -518,7 +507,7 @@ where
         proof_verifies,
         signature_verifies,
     } = {
-        let commitment = if let true = account_update.use_full_commitment() {
+        let commitment = if account_update.use_full_commitment() {
             local_state.full_transaction_commitment.clone()
         } else {
             local_state.transaction_commitment.clone()
@@ -560,7 +549,7 @@ where
     );
     let a = Account {
         token_id: account_update.token_id(),
-        ..a.clone()
+        ..a
     };
     let account_update_token_is_default = account_update.token_id() == TokenId::default();
     let account_is_untimed = !is_timed(&a);
@@ -589,7 +578,7 @@ where
         timing: timing
             .map(|timing| timing.to_account_timing())
             .unwrap_or(Timing::Untimed),
-        ..a.clone()
+        ..a
     };
 
     let account_creation_fee = Amount::of_fee(&constraint_constants.account_creation_fee);
@@ -644,7 +633,7 @@ where
                 !(pay_creation_fee_from_excess && excess_update_failed),
             );
             LocalStateEnv {
-                excess: if let true = pay_creation_fee_from_excess {
+                excess: if pay_creation_fee_from_excess {
                     excess_minus_creation_fee
                 } else {
                     local_state.excess
@@ -654,7 +643,7 @@ where
         };
         let is_receiver = actual_balance_change.is_non_neg();
         let local_state = {
-            let controller = if let true = is_receiver {
+            let controller = if is_receiver {
                 a.permissions.receive
             } else {
                 a.permissions.send
@@ -683,10 +672,7 @@ where
             TransactionFailure::SourceMinimumBalanceViolation,
             !invalid_timing,
         );
-        let a = Account {
-            timing,
-            ..a.clone()
-        };
+        let a = Account { timing, ..a };
         (a, local_state)
     };
     let a = make_zkapp(a);
@@ -703,18 +689,16 @@ where
     let changing_entire_app_state = app_state.iter().all(|x| x.is_set());
     let zkapp = a.zkapp.unwrap();
 
-    let proved_state = if let true = keeping_app_state {
+    let proved_state = if keeping_app_state {
         zkapp.proved_state
-    } else {
-        if let true = proof_verifies {
-            if let true = changing_entire_app_state {
-                true
-            } else {
-                zkapp.proved_state
-            }
+    } else if proof_verifies {
+        if changing_entire_app_state {
+            true
         } else {
-            false
+            zkapp.proved_state
         }
+    } else {
+        false
     };
     let zkapp = ZkAppAccount {
         proved_state,
@@ -903,11 +887,7 @@ where
     let (a, local_state) = {
         let nonce = a.nonce;
         let increment_nonce = account_update.increment_nonce();
-        let nonce = if let true = increment_nonce {
-            nonce.incr()
-        } else {
-            nonce
-        };
+        let nonce = if increment_nonce { nonce.incr() } else { nonce };
         let has_permission = controller_check(
             proof_verifies,
             signature_verifies,
@@ -942,7 +922,7 @@ where
     let a = {
         let new_hash = {
             let old_hash = a.receipt_chain_hash;
-            if signature_verifies == true || proof_verifies == true {
+            if signature_verifies || proof_verifies {
                 let elt = ZkAppCommandElt::ZkAppCommandCommitment(
                     local_state.full_transaction_commitment.clone(),
                 );
@@ -995,7 +975,7 @@ where
         let new_local_fee_excess = if account_update_token_is_default {
             new_local_fee_excess
         } else {
-            local_state.excess.clone()
+            local_state.excess
         };
         (
             new_local_fee_excess,
@@ -1009,7 +989,7 @@ where
     let mut local_state =
         local_state.add_check(TransactionFailure::LocalExcessOverflow, !overflowed);
 
-    let new_ledger = set_account(&mut local_state.ledger, (a.clone(), &inclusion_proof));
+    let new_ledger = set_account(&mut local_state.ledger, (a, &inclusion_proof));
     let is_last_account_update = remaining.calls.is_empty();
     let local_state = LocalStateEnv {
         ledger: new_ledger.clone(),
@@ -1045,8 +1025,8 @@ where
 
     let (global_state, global_excess_update_failed) = {
         // let (global_state, global_excess_update_failed, update_global_state) = {
-        let amt = global_state.fee_excess.clone();
-        let (res, overflow) = amt.add_flagged(local_state.excess.clone());
+        let amt = global_state.fee_excess;
+        let (res, overflow) = amt.add_flagged(local_state.excess);
         let global_excess_update_failed = update_global_state_fee_excess && overflow;
         // let update_global_state = update_global_state && !overflow;
         let new_amt = if update_global_state_fee_excess {
@@ -1057,7 +1037,7 @@ where
         (
             GlobalState {
                 fee_excess: new_amt,
-                ..global_state.clone()
+                ..global_state
             },
             global_excess_update_failed,
         )
@@ -1087,12 +1067,10 @@ where
     );
 
     // The first account_update must succeed.
-    if let Err(e) = assert_with_failure_status_tbl(
+    assert_with_failure_status_tbl(
         !is_start_ || local_state.success,
         local_state.failure_status_tbl.clone(),
-    ) {
-        return Err(e);
-    }
+    )?;
 
     // If we are the fee payer (is_start' = true), push the first pass ledger
     // and set the local ledger to be the second pass ledger in preparation for

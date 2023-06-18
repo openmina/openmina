@@ -9,6 +9,12 @@ pub struct Batch {
     actions: Vec<Action>,
 }
 
+impl Default for Batch {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Batch {
     pub fn new() -> Self {
         Self {

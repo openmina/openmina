@@ -350,7 +350,7 @@ where
                 commands,
                 coinbases,
                 fee_transfers,
-            } = get_transaction_data::<_, Tx>(
+            } = get_transaction_data::<_>(
                 constraint_constants,
                 coinbase_parts,
                 &coinbase_receiver,
@@ -468,7 +468,7 @@ struct TransactionData<T> {
     fee_transfers: Vec<FeeTransfer>,
 }
 
-fn get_transaction_data<Cmd, Tx>(
+fn get_transaction_data<Cmd>(
     constraint_constants: &ConstraintConstants,
     coinbase_parts: CoinbaseParts,
     receiver: &CompressedPubKey,
@@ -478,7 +478,6 @@ fn get_transaction_data<Cmd, Tx>(
 ) -> Result<TransactionData<Cmd>, PreDiffError>
 where
     Cmd: GenericCommand,
-    Tx: GenericTransaction + From<Coinbase> + From<FeeTransfer>,
 {
     let coinbases = create_coinbase(
         constraint_constants,
@@ -531,7 +530,7 @@ where
         commands,
         coinbases: coinbase_parts,
         fee_transfers,
-    } = get_transaction_data::<WithStatus<Cmd>, Tx>(
+    } = get_transaction_data::<WithStatus<Cmd>>(
         constraint_constants,
         coinbase_parts,
         receiver,

@@ -181,7 +181,7 @@ impl Amount {
     }
 
     pub fn to_nanomina_int(&self) -> Self {
-        self.clone()
+        *self
     }
 
     pub fn to_mina_int(&self) -> Self {

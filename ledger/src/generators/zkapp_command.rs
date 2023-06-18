@@ -528,6 +528,7 @@ impl<B, C> AccountUpdateBodyComponents<Fee, B, C, Nonce> {
 
 impl AccountUpdateBodyComponents<Signed<Amount>, bool, TokenId, AccountPreconditions> {
     /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_generators/zkapp_command_generators.ml#L592
+    #[allow(clippy::wrong_self_convention)]
     fn to_typical_account_update(self) -> zkapp_command::BodySimple {
         zkapp_command::BodySimple {
             public_key: self.public_key,
@@ -814,7 +815,7 @@ fn gen_account_update_body_components<A, B, C, D>(
     };
 
     // Need to update below when variant changes
-    let _ = match MayUseToken::No {
+    match MayUseToken::No {
         MayUseToken::No => (),
         MayUseToken::ParentsOwnToken => (),
         MayUseToken::InheritFromParent => (),
@@ -1788,7 +1789,7 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
         fee_payer,
         account_updates: {
             let mut account_updates =
-                account_updates.map_to(|account| zkapp_command::AccountUpdate::of_simple(account));
+                account_updates.map_to(zkapp_command::AccountUpdate::of_simple);
             // let mut account_updates = account_updates.into_add_callers_simple();
 
             // TODO: accumulate_hashes_predicated ?

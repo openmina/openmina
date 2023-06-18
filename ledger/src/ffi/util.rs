@@ -18,10 +18,7 @@ pub fn serialize<T: BinProtWrite>(obj: &T) -> Vec<u8> {
     bytes
 }
 
-pub fn get_list_of<'a, T>(
-    rt: &'a mut &mut OCamlRuntime,
-    list: OCamlRef<OCamlList<OCamlBytes>>,
-) -> Vec<T>
+pub fn get_list_of<T>(rt: &mut &mut OCamlRuntime, list: OCamlRef<OCamlList<OCamlBytes>>) -> Vec<T>
 where
     T: BinProtRead,
 {
@@ -37,8 +34,8 @@ where
     list
 }
 
-pub fn get_set_of<'a, T>(
-    rt: &'a mut &mut OCamlRuntime,
+pub fn get_set_of<T>(
+    rt: &mut &mut OCamlRuntime,
     list: OCamlRef<OCamlList<OCamlBytes>>,
 ) -> HashSet<T>
 where
@@ -56,8 +53,8 @@ where
     set
 }
 
-pub fn get_list_addr_account<'a>(
-    rt: &'a mut &mut OCamlRuntime,
+pub fn get_list_addr_account(
+    rt: &mut &mut OCamlRuntime,
     list: OCamlRef<OCamlList<(String, OCamlBytes)>>,
 ) -> Vec<(Address, Account)> {
     let mut list_ref = rt.get(list);
@@ -82,7 +79,7 @@ pub fn get_addr(rt: &mut &mut OCamlRuntime, addr: OCamlRef<String>) -> Address {
     Address::try_from(addr_ref.as_str()).unwrap()
 }
 
-pub fn get<'a, T>(rt: &'a mut &mut OCamlRuntime, object: OCamlRef<OCamlBytes>) -> T
+pub fn get<T>(rt: &mut &mut OCamlRuntime, object: OCamlRef<OCamlBytes>) -> T
 where
     T: BinProtRead,
 {

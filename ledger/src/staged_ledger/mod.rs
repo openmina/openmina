@@ -14,5 +14,6 @@ pub mod diff_creation_log;
 pub mod hash;
 pub mod pre_diff_info;
 pub mod resources;
+#[allow(clippy::module_inception)]
 pub mod staged_ledger;
 pub mod transaction_validator;

@@ -995,9 +995,9 @@ mod tests_mask_ocaml {
         let mut accounts = (0..10).map(|_| Account::rand()).collect::<Vec<_>>();
         // Make balances non-zero
         let one = Balance::from_u64(1);
-        accounts.iter_mut().for_each(|account| {
-            account.balance = account.balance.checked_add(&one).unwrap_or(one.clone())
-        });
+        accounts
+            .iter_mut()
+            .for_each(|account| account.balance = account.balance.checked_add(&one).unwrap_or(one));
 
         for account in &accounts {
             root.get_or_create_account(account.id(), account.clone())
@@ -1041,9 +1041,9 @@ mod tests_mask_ocaml {
         let mut accounts = (0..10).map(|_| Account::rand()).collect::<Vec<_>>();
         // Make balances non-zero
         let one = Balance::from_u64(1);
-        accounts.iter_mut().for_each(|account| {
-            account.balance = account.balance.checked_add(&one).unwrap_or(one.clone())
-        });
+        accounts
+            .iter_mut()
+            .for_each(|account| account.balance = account.balance.checked_add(&one).unwrap_or(one));
 
         for account in &accounts {
             root.get_or_create_account(account.id(), account.clone())

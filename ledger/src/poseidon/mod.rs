@@ -885,6 +885,7 @@ impl SpongeConstants for PlonkSpongeConstantsKimchi {
     const PERM_INITIAL_ARK: bool = false;
 }
 
+#[allow(clippy::extra_unused_type_parameters)]
 #[inline(never)]
 fn apply_mds_matrix<F: Field, SC: SpongeConstants>(
     params: &ArithmeticSpongeParams<F>,

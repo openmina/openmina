@@ -632,7 +632,7 @@ where
         jobs_split: &FunJobs,
     ) -> Result<(Self, Option<R>), ()>
     where
-        FunMerge: Fn(&[Data], u64, M) -> Result<(M, Option<R>), ()>,
+        FunMerge: Fn(&[Data], u64, &M) -> Result<(M, Option<R>), ()>,
         FunBase: Fn(&[Data], B) -> Result<B, ()>,
         FunWeight: Fn(&M) -> (Weight, Weight),
         FunJobs: Fn((Weight, Weight), &[Data]) -> (&[Data], &[Data]),
@@ -667,7 +667,7 @@ where
                     jobs_fifo.push_back(jobs_left);
                     jobs_fifo.push_back(jobs_right);
 
-                    let (value, result) = fun_merge(jobs_for_this, depth, merge.clone())?;
+                    let (value, result) = fun_merge(jobs_for_this, depth, merge)?;
 
                     if scan_result.is_none() {
                         scan_result = Some(result);
@@ -773,7 +773,7 @@ where
     ) -> Result<(Self, Option<MergeJob>), ()> {
         let add_merges = |jobs: &[Job<BaseJob, MergeJob>],
                           current_level: u64,
-                          merge_job: merge::Merge<MergeJob>|
+                          merge_job: &merge::Merge<MergeJob>|
          -> Result<(merge::Merge<MergeJob>, Option<MergeJob>), ()> {
             use merge::{
                 Job::{Empty, Full, Part},
@@ -781,8 +781,8 @@ where
             };
             use Job::{Base, Merge};
 
-            let weight = merge_job.weight;
-            let m = merge_job.job;
+            let weight = &merge_job.weight;
+            let m = &merge_job.job;
 
             let (w1, w2) = &weight;
             let (left, right) = (*lens.get(w1), *lens.get(w2));
@@ -790,8 +790,8 @@ where
             // println!("current_level={} update_level={}", current_level, update_level);
             if update_level > 0 && current_level == update_level - 1 {
                 // Create new jobs from the completed ones
-                let (new_weight, new_m) = match (&jobs[..], m) {
-                    ([], m) => (weight, m),
+                let (new_weight, new_m) = match (jobs, m) {
+                    ([], m) => (weight.clone(), m.clone()),
                     ([Merge(a), Merge(b)], Empty) => {
                         let w1 = lens.set(w1, left - 1);
                         let w2 = lens.set(w2, right - 1);
@@ -873,12 +873,13 @@ where
                     (
                         [Merge(a)],
                         Full(
-                            mut x @ Record {
+                            x @ Record {
                                 state: JobStatus::Todo,
                                 ..
                             },
                         ),
                     ) => {
+                        let mut x = x.clone();
                         x.state = JobStatus::Done;
                         let new_job = Full(x);
 
@@ -888,7 +889,7 @@ where
 
                             (Some(a.clone()), (w1, w2))
                         } else {
-                            (None, weight)
+                            (None, weight.clone())
                         };
 
                         Ok((
@@ -899,7 +900,13 @@ where
                             scan_result,
                         ))
                     }
-                    ([], m) => Ok((merge::Merge { weight, job: m }, None)),
+                    ([], m) => Ok((
+                        merge::Merge {
+                            weight: weight.clone(),
+                            job: m.clone(),
+                        },
+                        None,
+                    )),
                     // ([], m) => Ok(((weight, m), None)),
                     (xs, m) => {
                         panic!(
@@ -915,7 +922,13 @@ where
             } else if update_level > 0 && (current_level < update_level - 1) {
                 // Update the job count for all the level above
                 match jobs {
-                    [] => Ok((merge::Merge { weight, job: m }, None)),
+                    [] => Ok((
+                        merge::Merge {
+                            weight: weight.clone(),
+                            job: m.clone(),
+                        },
+                        None,
+                    )),
                     _ => {
                         let jobs_length = jobs.len() as u64;
                         let jobs_sent_left = jobs_length.min(left);
@@ -925,11 +938,23 @@ where
                         let w2 = lens.set(w2, right - jobs_sent_right);
                         let weight = (w1, w2);
 
-                        Ok((merge::Merge { weight, job: m }, None))
+                        Ok((
+                            merge::Merge {
+                                weight,
+                                job: m.clone(),
+                            },
+                            None,
+                        ))
                     }
                 }
             } else {
-                Ok((merge::Merge { weight, job: m }, None))
+                Ok((
+                    merge::Merge {
+                        weight: weight.clone(),
+                        job: m.clone(),
+                    },
+                    None,
+                ))
             }
         };
 
@@ -2370,16 +2395,17 @@ fn assert_job_count<B, M>(
             acc
         })
         .into_iter()
-        .filter(|job| match job {
-            Job::Base(base::Record {
-                state: JobStatus::Todo,
-                ..
-            }) => true,
-            Job::Merge(merge::Record {
-                state: JobStatus::Todo,
-                ..
-            }) => true,
-            _ => false,
+        .filter(|job| {
+            matches!(
+                job,
+                Job::Base(base::Record {
+                    state: JobStatus::Todo,
+                    ..
+                }) | Job::Merge(merge::Record {
+                    state: JobStatus::Todo,
+                    ..
+                })
+            )
         })
         .count();
 
@@ -2544,10 +2570,7 @@ mod tests {
         for i in 0..100 {
             println!("####### LOOP {:?} #########", i);
 
-            let data: Vec<_> = (0..MAX_BASE_JOS as usize)
-                .into_iter()
-                .map(|j| i + j)
-                .collect();
+            let data: Vec<_> = (0..MAX_BASE_JOS as usize).map(|j| i + j).collect();
 
             expected_result.push(data.clone());
 
