@@ -87,7 +87,9 @@ impl PreparedStatement {
         // We sort the fields in the same order as here:
         // https://github.com/MinaProtocol/mina/blob/c824be7d80db1d290e0d48cbc920182d07de0330/src/lib/pickles/composition_types/composition_types.ml#L739
 
-        let mut fields: Vec<Fq> = Vec::with_capacity(47);
+        const NINPUTS: usize = 52;
+
+        let mut fields: Vec<Fq> = Vec::with_capacity(NINPUTS);
 
         let to_fq = |fp: Fp| -> Fq {
             let bigint: BigInteger256 = fp.into();
@@ -146,11 +148,11 @@ impl PreparedStatement {
         }
 
         // TODO: Not sure how that padding works, check further
-        while fields.len() < 52 {
+        while fields.len() < NINPUTS {
             fields.push(0.into());
         }
 
-        assert_eq!(fields.len(), 52);
+        assert_eq!(fields.len(), NINPUTS);
 
         fields
     }

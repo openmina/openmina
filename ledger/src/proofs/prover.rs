@@ -14,10 +14,13 @@ use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStabl
 
 use super::ProverProof;
 
-pub fn make_prover(proof: &PicklesProofProofsVerified2ReprStableV2) -> ProverProof {
-    let statement = &proof.statement;
-    let proof = &proof.proof;
-
+pub fn make_prover(
+    PicklesProofProofsVerified2ReprStableV2 {
+        statement,
+        prev_evals: _, // unused
+        proof,
+    }: &PicklesProofProofsVerified2ReprStableV2,
+) -> ProverProof {
     let of_coord = |(a, b): &(BigInt, BigInt)| Pallas::of_coordinates(a.to_field(), b.to_field());
 
     let make_poly = |poly: &[(BigInt, BigInt)]| {

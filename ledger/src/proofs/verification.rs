@@ -131,21 +131,23 @@ fn make_scalars_env(minimal: &PlonkMinimal) -> ScalarsEnv {
 
 fn get_message_for_next_step_proof<'a, AppState>(
     messages_for_next_step_proof: &PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof,
-    commitments: &PlonkVerificationKeyEvals,
+    commitments: &'a PlonkVerificationKeyEvals,
     app_state: &'a AppState,
 ) -> MessagesForNextStepProof<'a, AppState>
 where
     AppState: ToFieldElements,
 {
-    let msg_for_next_step_proof = &messages_for_next_step_proof;
-    let challenge_polynomial_commitments: [CurveAffine<Fp>; 2] =
-        extract_polynomial_commitment(&msg_for_next_step_proof.challenge_polynomial_commitments);
-    let old_bulletproof_challenges: [[Fp; 16]; 2] = extract_bulletproof(
-        &msg_for_next_step_proof.old_bulletproof_challenges,
-        &endo_fp(),
-    );
+    let PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
+        app_state: _, // unused
+        challenge_polynomial_commitments,
+        old_bulletproof_challenges,
+    } = messages_for_next_step_proof;
 
-    let dlog_plonk_index = commitments.clone();
+    let challenge_polynomial_commitments: [CurveAffine<Fp>; 2] =
+        extract_polynomial_commitment(challenge_polynomial_commitments);
+    let old_bulletproof_challenges: [[Fp; 16]; 2] =
+        extract_bulletproof(old_bulletproof_challenges, &endo_fp());
+    let dlog_plonk_index = commitments;
 
     MessagesForNextStepProof {
         app_state,
@@ -156,13 +158,14 @@ where
 }
 
 fn get_message_for_next_wrap_proof(
-    messages_for_next_wrap_proof: PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
+    PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof {
+        challenge_polynomial_commitment,
+        old_bulletproof_challenges,
+    }: &PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
 ) -> MessagesForNextWrapProof {
-    let challenge_polynomial_commitments: [CurveAffine<Fq>; 1] = extract_polynomial_commitment(&[
-        messages_for_next_wrap_proof.challenge_polynomial_commitment,
-    ]);
+    let challenge_polynomial_commitments: [CurveAffine<Fq>; 1] =
+        extract_polynomial_commitment(&[challenge_polynomial_commitment.clone()]);
 
-    let old_bulletproof_challenges = &messages_for_next_wrap_proof.old_bulletproof_challenges;
     let old_bulletproof_challenges: [[Fq; 15]; 2] = extract_bulletproof(
         &[
             old_bulletproof_challenges[0].0.clone(),
@@ -188,7 +191,7 @@ fn get_prepared_statement<AppState>(
 where
     AppState: ToFieldElements,
 {
-    let digest = &sponge_digest_before_evaluations;
+    let digest = sponge_digest_before_evaluations;
     let sponge_digest_before_evaluations: [u64; 4] = array::from_fn(|i| digest[i].as_u64());
 
     let plonk = Plonk {
@@ -360,8 +363,7 @@ where
     );
 
     let message_for_next_wrap_proof = &proof.statement.proof_state.messages_for_next_wrap_proof;
-    let message_for_next_wrap_proof =
-        get_message_for_next_wrap_proof(message_for_next_wrap_proof.clone());
+    let message_for_next_wrap_proof = get_message_for_next_wrap_proof(message_for_next_wrap_proof);
 
     let prepared_statement = get_prepared_statement(
         &message_for_next_step_proof,

@@ -106,7 +106,7 @@ impl MessagesForNextWrapProof {
 #[derive(Clone, Debug)]
 pub struct MessagesForNextStepProof<'a, AppState: ToFieldElements> {
     pub app_state: &'a AppState,
-    pub dlog_plonk_index: PlonkVerificationKeyEvals,
+    pub dlog_plonk_index: &'a PlonkVerificationKeyEvals,
     pub challenge_polynomial_commitments: [CurveAffine<Fp>; 2],
     pub old_bulletproof_challenges: [[Fp; 16]; 2],
 }
