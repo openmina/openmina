@@ -1,6 +1,6 @@
 use redux::ActionMeta;
 
-use crate::P2pPeerReadyAction;
+use crate::peer::P2pPeerReadyAction;
 use crate::{connection::P2pConnectionService, webrtc};
 
 use super::{

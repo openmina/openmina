@@ -1,12 +1,11 @@
 use redux::ActionMeta;
 
-use crate::{
-    channels::{
-        best_tip::P2pChannelsBestTipInitAction, rpc::P2pChannelsRpcInitAction,
-        snark_job_commitment::P2pChannelsSnarkJobCommitmentInitAction, ChannelId,
-    },
-    P2pPeerReadyAction,
+use crate::channels::{
+    best_tip::P2pChannelsBestTipInitAction, rpc::P2pChannelsRpcInitAction,
+    snark_job_commitment::P2pChannelsSnarkJobCommitmentInitAction, ChannelId,
 };
+
+use super::P2pPeerReadyAction;
 
 impl P2pPeerReadyAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)

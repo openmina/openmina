@@ -3,9 +3,7 @@ pub use ::p2p::*;
 pub mod channels;
 pub mod connection;
 pub mod disconnection;
-
-mod p2p_actions;
-pub use p2p_actions::*;
+pub mod peer;
 
 mod p2p_effects;
 pub use p2p_effects::*;

@@ -1,6 +1,9 @@
 use redux::ActionMeta;
 
-use crate::channels::{ChannelId, MsgId, P2pChannelsService};
+use crate::{
+    channels::{ChannelId, MsgId, P2pChannelsService},
+    peer::P2pPeerBestTipUpdateAction,
+};
 
 use super::{
     BestTipPropagationChannelMsg, P2pChannelsBestTipInitAction, P2pChannelsBestTipPendingAction,
@@ -54,10 +57,15 @@ impl P2pChannelsBestTipReceivedAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
+        P2pPeerBestTipUpdateAction: redux::EnablingCondition<S>,
         P2pChannelsBestTipRequestSendAction: redux::EnablingCondition<S>,
         P2pChannelsBestTipRequestReceivedAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
+        store.dispatch(P2pPeerBestTipUpdateAction {
+            peer_id,
+            best_tip: self.best_tip.clone(),
+        });
         store.dispatch(P2pChannelsBestTipRequestSendAction { peer_id });
         if store.state().is_libp2p_peer(&peer_id) {
             store.dispatch(P2pChannelsBestTipRequestReceivedAction { peer_id });

@@ -32,7 +32,6 @@ mod http_server;
 
 mod rpc;
 use rpc::RpcP2pConnectionOutgoingResponse;
-use tokio::task::spawn_local;
 
 #[derive(Debug, structopt::StructOpt)]
 #[structopt(name = "snarker", about = "Openmina snarker")]

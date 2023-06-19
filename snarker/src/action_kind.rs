@@ -62,7 +62,8 @@ use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::{
     P2pDisconnectionAction, P2pDisconnectionFinishAction, P2pDisconnectionInitAction,
 };
-use crate::p2p::{P2pAction, P2pPeerReadyAction};
+use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
+use crate::p2p::P2pAction;
 use crate::rpc::{
     RpcAction, RpcActionStatsGetAction, RpcFinishAction, RpcGlobalStateGetAction,
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingInitAction,
@@ -163,6 +164,7 @@ pub enum ActionKind {
     P2pConnectionOutgoingSuccess,
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
+    P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
     RpcFinish,
@@ -195,7 +197,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 99;
+    pub const COUNT: usize = 100;
 }
 
 impl ActionKindGet for Action {
@@ -235,8 +237,8 @@ impl ActionKindGet for P2pAction {
         match self {
             Self::Connection(a) => a.kind(),
             Self::Disconnection(a) => a.kind(),
-            Self::PeerReady(a) => a.kind(),
             Self::Channels(a) => a.kind(),
+            Self::Peer(a) => a.kind(),
         }
     }
 }
@@ -354,12 +356,6 @@ impl ActionKindGet for P2pDisconnectionAction {
     }
 }
 
-impl ActionKindGet for P2pPeerReadyAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pPeerReady
-    }
-}
-
 impl ActionKindGet for P2pChannelsAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -367,6 +363,15 @@ impl ActionKindGet for P2pChannelsAction {
             Self::BestTip(a) => a.kind(),
             Self::SnarkJobCommitment(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pPeerAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Ready(a) => a.kind(),
+            Self::BestTipUpdate(a) => a.kind(),
         }
     }
 }
@@ -692,6 +697,18 @@ impl ActionKindGet for P2pChannelsRpcAction {
             Self::RequestReceived(a) => a.kind(),
             Self::ResponseSend(a) => a.kind(),
         }
+    }
+}
+
+impl ActionKindGet for P2pPeerReadyAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pPeerReady
+    }
+}
+
+impl ActionKindGet for P2pPeerBestTipUpdateAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pPeerBestTipUpdate
     }
 }
 
