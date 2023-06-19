@@ -85,7 +85,6 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
             P2pAction::Disconnection(action) => match action {
                 _ => {}
             },
-            P2pAction::PeerReady(_) => {}
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(_) => {}
                 P2pChannelsAction::BestTip(action) => match action {
@@ -166,6 +165,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     _ => {}
                 },
             },
+            P2pAction::Peer(_) => {}
         },
         _ => {}
     }

@@ -1,6 +1,7 @@
 pub mod channels;
 pub mod connection;
 pub mod disconnection;
+pub mod peer;
 
 pub mod identity;
 pub use identity::PeerId;
@@ -23,9 +24,6 @@ pub use p2p_state::*;
 
 mod p2p_reducer;
 pub use p2p_reducer::*;
-
-mod p2p_effects;
-pub use p2p_effects::*;
 
 use redux::SubStore;
 pub trait P2pStore<GlobalState>: SubStore<GlobalState, P2pState, SubAction = P2pAction> {}

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use shared::block::ArcBlockWithHash;
 use std::collections::{BTreeMap, BTreeSet};
 
 use shared::requests::RpcId;
@@ -151,12 +152,14 @@ impl P2pPeerStatus {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pPeerStatusReady {
     pub channels: P2pChannelsState,
+    pub best_tip: Option<ArcBlockWithHash>,
 }
 
 impl P2pPeerStatusReady {
     pub fn new(enabled_channels: &BTreeSet<ChannelId>) -> Self {
         Self {
             channels: P2pChannelsState::new(enabled_channels),
+            best_tip: None,
         }
     }
 }

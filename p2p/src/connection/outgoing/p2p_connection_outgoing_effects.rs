@@ -1,8 +1,9 @@
 use redux::ActionMeta;
 
 use crate::connection::{P2pConnectionErrorResponse, P2pConnectionState};
+use crate::peer::P2pPeerReadyAction;
+use crate::P2pPeerStatus;
 use crate::{connection::P2pConnectionService, webrtc};
-use crate::{P2pPeerReadyAction, P2pPeerStatus};
 
 use super::{
     P2pConnectionOutgoingAnswerRecvErrorAction, P2pConnectionOutgoingAnswerRecvPendingAction,

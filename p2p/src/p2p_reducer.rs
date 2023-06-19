@@ -2,9 +2,8 @@ use crate::connection::incoming::P2pConnectionIncomingAction;
 use crate::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
 use crate::disconnection::P2pDisconnectionAction;
-use crate::{
-    P2pAction, P2pActionWithMetaRef, P2pPeerState, P2pPeerStatus, P2pPeerStatusReady, P2pState,
-};
+use crate::peer::p2p_peer_reducer;
+use crate::{P2pAction, P2pActionWithMetaRef, P2pPeerState, P2pPeerStatus, P2pState};
 
 impl P2pState {
     pub fn reducer(&mut self, action: P2pActionWithMetaRef<'_>) {
@@ -45,12 +44,8 @@ impl P2pState {
                     peer.status = P2pPeerStatus::Disconnected { time: meta.time() };
                 }
             },
-            P2pAction::PeerReady(action) => {
-                let Some(peer) = self.peers.get_mut(&action.peer_id) else {
-                    return;
-                };
-                peer.status =
-                    P2pPeerStatus::Ready(P2pPeerStatusReady::new(&self.config.enabled_channels));
+            P2pAction::Peer(action) => {
+                p2p_peer_reducer(self, meta.with_action(action));
             }
             P2pAction::Channels(action) => {
                 let Some(peer) = self.get_ready_peer_mut(action.peer_id()) else { return };
