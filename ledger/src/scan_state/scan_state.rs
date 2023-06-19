@@ -408,7 +408,7 @@ pub mod transaction_snark {
 
         pub type Statement = OneOrTwo<super::Statement<()>>;
 
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq)]
         pub struct Work {
             pub fee: Fee,
             pub proofs: OneOrTwo<LedgerProof>,

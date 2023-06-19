@@ -13,7 +13,7 @@ use crate::{
 use super::{pre_diff_info::PreDiffError, staged_ledger::StagedLedger};
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L5
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum AtMostTwo<T> {
     Zero,
     One(Option<T>),
@@ -31,7 +31,7 @@ impl<T> std::fmt::Debug for AtMostTwo<T> {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L20
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum AtMostOne<T> {
     Zero,
     One(Option<T>),
@@ -47,7 +47,7 @@ impl<T> std::fmt::Debug for AtMostOne<T> {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L37
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct PreDiffTwo<A, B> {
     pub completed_works: Vec<A>,
     pub commands: Vec<B>,
@@ -74,7 +74,7 @@ impl<A, B> std::fmt::Debug for PreDiffTwo<A, B> {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L54
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct PreDiffOne<A, B> {
     pub completed_works: Vec<A>,
     pub commands: Vec<B>,
@@ -107,7 +107,7 @@ pub type PreDiffWithAtMostTwoCoinbase = PreDiffTwo<work::Work, WithStatus<UserCo
 pub type PreDiffWithAtMostOneCoinbase = PreDiffOne<work::Work, WithStatus<UserCommand>>;
 
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L107
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Diff {
     pub diff: (
         PreDiffWithAtMostTwoCoinbase,
@@ -206,7 +206,7 @@ pub mod with_valid_signatures_and_proofs {
         PreDiffOne<work::Checked, WithStatus<valid::UserCommand>>;
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L140
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct Diff {
         pub diff: (
             PreDiffWithAtMostTwoCoinbase,

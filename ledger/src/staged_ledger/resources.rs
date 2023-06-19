@@ -492,8 +492,6 @@ impl Resources {
             }
         };
 
-        dbg!(&self.fee_transfers);
-
         let other_provers = self
             .fee_transfers
             .iter()
@@ -501,8 +499,6 @@ impl Resources {
             .count() as u64;
 
         let total_fee_transfer_pks = other_provers + fee_for_self;
-
-        dbg!(fee_for_self, other_provers, total_fee_transfer_pks);
 
         self.commands_rev.len() as u64 + ((total_fee_transfer_pks + 1) / 2) + self.coinbase_added()
     }

@@ -65,7 +65,13 @@ use mina_p2p_messages::{
         MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command,
         MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
         ParallelScanJobStatusStableV1, ParallelScanSequenceNumberStableV1,
-        ParallelScanWeightStableV1, SgnStableV1, SignedAmount, StateHash, TokenFeeExcess,
+        ParallelScanWeightStableV1, SgnStableV1, SignedAmount, StagedLedgerDiffDiffDiffStableV2,
+        StagedLedgerDiffDiffFtStableV1, StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2,
+        StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase,
+        StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2,
+        StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,
+        StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase,
+        StagedLedgerDiffDiffStableV2, StateHash, TokenFeeExcess,
         TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
         TransactionSnarkScanStateStableV2,
         TransactionSnarkScanStateStableV2PreviousIncompleteZkappUpdates1::Border_block_continued_in_the_next_tree,
@@ -75,7 +81,8 @@ use mina_p2p_messages::{
         TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
         TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1Full,
         TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
-        UnsignedExtendedUInt32StableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+        TransactionSnarkWorkTStableV2, UnsignedExtendedUInt32StableV1,
+        UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
 use mina_signer::Signature;
@@ -117,7 +124,7 @@ use super::{
         zkapp_command::{
             AccountUpdate, FeePayer, FeePayerBody, SetOrKeep, WithHash, WithStackHash,
         },
-        FeeTransfer, Memo, SingleFeeTransfer, TransactionFailure, TransactionStatus,
+        FeeTransfer, Memo, SingleFeeTransfer, TransactionFailure, TransactionStatus, UserCommand,
     },
 };
 
@@ -2287,6 +2294,133 @@ impl From<&StagedLedgerHash> for MinaBaseStagedLedgerHashStableV1 {
                 MinaBasePendingCoinbaseHashBuilderStableV1(pending_coinbase_hash.into()),
             )
             .into(),
+        }
+    }
+}
+
+impl From<&TransactionSnarkWorkTStableV2> for super::scan_state::transaction_snark::work::Work {
+    fn from(value: &TransactionSnarkWorkTStableV2) -> Self {
+        use super::scan_state::transaction_snark::OneOrTwo::{One, Two};
+        use mina_p2p_messages::v2::TransactionSnarkWorkTStableV2Proofs as B;
+
+        let TransactionSnarkWorkTStableV2 {
+            fee,
+            proofs,
+            prover,
+        } = value;
+
+        Self {
+            fee: fee.into(),
+            proofs: match proofs {
+                B::One(proof) => One(proof.into()),
+                B::Two((p1, p2)) => Two((p1.into(), p2.into())),
+            },
+            prover: prover.into(),
+        }
+    }
+}
+
+impl From<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B> for WithStatus<UserCommand> {
+    fn from(value: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B) -> Self {
+        let StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B { data, status } = value;
+
+        Self {
+            data: data.into(),
+            status: status.into(),
+        }
+    }
+}
+
+impl From<&StagedLedgerDiffDiffFtStableV1> for transaction_logic::CoinbaseFeeTransfer {
+    fn from(value: &StagedLedgerDiffDiffFtStableV1) -> Self {
+        let StagedLedgerDiffDiffFtStableV1(value) = value;
+        let MinaBaseCoinbaseFeeTransferStableV1 { receiver_pk, fee } = value;
+
+        Self {
+            receiver_pk: receiver_pk.into(),
+            fee: fee.into(),
+        }
+    }
+}
+
+impl From<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase>
+    for crate::staged_ledger::diff::AtMostTwo<transaction_logic::CoinbaseFeeTransfer>
+{
+    fn from(value: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase) -> Self {
+        use crate::staged_ledger::diff::AtMostTwo::*;
+        use StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase as B;
+
+        match value {
+            B::Zero => Zero,
+            B::One(one) => One(one.as_ref().map(Into::into)),
+            B::Two(twos) => Two(twos
+                .as_ref()
+                .map(|(one, two)| (one.into(), two.as_ref().map(Into::into)))),
+        }
+    }
+}
+
+impl From<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2>
+    for crate::staged_ledger::diff::PreDiffWithAtMostTwoCoinbase
+{
+    fn from(value: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2) -> Self {
+        let StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2 {
+            completed_works,
+            commands,
+            coinbase,
+            internal_command_statuses,
+        } = value;
+
+        Self {
+            completed_works: completed_works.iter().map(Into::into).collect(),
+            commands: commands.iter().map(Into::into).collect(),
+            coinbase: coinbase.into(),
+            internal_command_statuses: internal_command_statuses.iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<&StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase>
+    for crate::staged_ledger::diff::AtMostOne<transaction_logic::CoinbaseFeeTransfer>
+{
+    fn from(value: &StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase) -> Self {
+        use crate::staged_ledger::diff::AtMostOne::*;
+        use StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase as B;
+
+        match value {
+            B::Zero => Zero,
+            B::One(one) => One(one.as_ref().map(Into::into)),
+        }
+    }
+}
+
+impl From<&StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2>
+    for crate::staged_ledger::diff::PreDiffWithAtMostOneCoinbase
+{
+    fn from(value: &StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2) -> Self {
+        let StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2 {
+            completed_works,
+            commands,
+            coinbase,
+            internal_command_statuses,
+        } = value;
+
+        Self {
+            completed_works: completed_works.iter().map(Into::into).collect(),
+            commands: commands.iter().map(Into::into).collect(),
+            coinbase: coinbase.into(),
+            internal_command_statuses: internal_command_statuses.iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<&StagedLedgerDiffDiffStableV2> for crate::staged_ledger::diff::Diff {
+    fn from(value: &StagedLedgerDiffDiffStableV2) -> Self {
+        let StagedLedgerDiffDiffStableV2 { diff } = value;
+        let StagedLedgerDiffDiffDiffStableV2(first, second) = diff;
+
+        Self {
+            diff: (first.into(), second.as_ref().map(Into::into)),
         }
     }
 }
