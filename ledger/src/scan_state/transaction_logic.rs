@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use ark_ff::Zero;
 use itertools::{FoldWhile, Itertools};
 use mina_hasher::{create_kimchi, Fp};
@@ -4641,7 +4639,7 @@ where
 
         let accounts_referenced = c.command.accounts_referenced();
 
-        let mut account_states = HashMap::<AccountId, Option<_>>::with_capacity(
+        let mut account_states: Vec<(AccountId, Option<_>)> = Vec::with_capacity(
             c.original_first_pass_account_states.len() + accounts_referenced.len(),
         );
 
@@ -4657,20 +4655,18 @@ where
         c.original_first_pass_account_states
             .into_iter()
             .chain(referenced)
-            .for_each(|(id, acc_opt)| {
-                use std::collections::hash_map::Entry::{Occupied, Vacant};
-
-                match account_states.entry(id) {
-                    Occupied(mut e) => {
-                        if e.get().is_none() {
-                            e.insert(acc_opt);
+            .for_each(
+                |(id, acc_opt)| match account_states.iter_mut().find(|s| s.0 == id) {
+                    Some((_, found)) => {
+                        if found.is_none() {
+                            *found = acc_opt;
                         }
                     }
-                    Vacant(e) => {
-                        e.insert(acc_opt);
+                    None => {
+                        account_states.push((id, acc_opt));
                     }
-                }
-            });
+                },
+            );
 
         account_states.into_iter().collect::<Vec<_>>()
     };
