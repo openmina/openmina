@@ -36,6 +36,10 @@ impl SequenceNumber {
     fn is_u64_max(&self) -> bool {
         self.0 == u64::MAX
     }
+
+    pub fn as_u64(&self) -> u64 {
+        self.0
+    }
 }
 
 impl std::ops::Sub for &'_ SequenceNumber {
@@ -497,6 +501,42 @@ where
             .collect();
 
         Self { values }
+    }
+
+    /// Use for binprot conversion only
+    pub(super) fn values_by_depth(&self) -> BTreeMap<u64, Value<Vec<&B>, Vec<&M>>> {
+        let mut values: BTreeMap<u64, Value<Vec<&B>, Vec<&M>>> = BTreeMap::default();
+
+        for (index, value) in self.values.iter().enumerate() {
+            values
+                .entry(btree::depth_at(index))
+                .and_modify(|for_depth: &mut Value<_, _>| match for_depth {
+                    Value::Leaf(vec) => {
+                        let Value::Leaf(leaf) = value else { panic!("invalid") };
+                        vec.push(leaf);
+                    }
+                    Value::Node(vec) => {
+                        let Value::Node(node) = value else { panic!("invalid") };
+                        vec.push(node);
+                    }
+                })
+                .or_insert({
+                    match value {
+                        Value::Leaf(leaf) => {
+                            let mut vec = Vec::with_capacity(255);
+                            vec.push(leaf);
+                            Value::Leaf(vec)
+                        }
+                        Value::Node(node) => {
+                            let mut vec = Vec::with_capacity(255);
+                            vec.push(node);
+                            Value::Node(vec)
+                        }
+                    }
+                });
+        }
+
+        values
     }
 
     fn map<FunMerge, FunBase>(&self, fun_merge: FunMerge, fun_base: FunBase) -> Self

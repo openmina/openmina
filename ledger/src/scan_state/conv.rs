@@ -80,6 +80,7 @@ use mina_p2p_messages::{
         TransactionSnarkScanStateStableV2ScanStateTreesABaseT1Full,
         TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
         TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1Full,
+        TransactionSnarkScanStateStableV2TreesAMerge,
         TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
         TransactionSnarkWorkTStableV2, UnsignedExtendedUInt32StableV1,
         UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
@@ -106,7 +107,7 @@ use crate::{
 use super::{
     currency::{Amount, Balance, Fee, Index, Length, Nonce, Sgn, Signed, Slot},
     fee_excess::FeeExcess,
-    parallel_scan::{JobStatus, ParallelScan, SequenceNumber},
+    parallel_scan::{self, JobStatus, ParallelScan, SequenceNumber},
     pending_coinbase::{self, PendingCoinbase},
     scan_state::{
         transaction_snark::{
@@ -2100,7 +2101,7 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                             .chain(rest)
                             .map(|tree| {
                                 let mut rust_tree = super::parallel_scan::Tree {
-                                    values: Vec::with_capacity(256), // TODO: Use correct number
+                                    values: Vec::with_capacity(255),
                                 };
 
                                 let mut current = tree;
@@ -2171,6 +2172,199 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                 let continue_next = match continue_next {
                     Border_block_continued_in_the_next_tree(continue_next) => {
                         BorderBlockContinuedInTheNextTree(*continue_next)
+                    }
+                };
+
+                (txns.iter().map(Into::into).collect(), continue_next)
+            },
+        }
+    }
+}
+
+impl From<&parallel_scan::Weight> for ParallelScanWeightStableV1 {
+    fn from(value: &parallel_scan::Weight) -> Self {
+        let parallel_scan::Weight { base, merge } = value;
+
+        let base: u32 = (*base).try_into().unwrap();
+        let merge: u32 = (*merge).try_into().unwrap();
+
+        Self {
+            base: (base as i32).into(),
+            merge: (merge as i32).into(),
+        }
+    }
+}
+
+impl From<&SequenceNumber> for ParallelScanSequenceNumberStableV1 {
+    fn from(value: &SequenceNumber) -> Self {
+        let number: u64 = value.as_u64();
+        let number: u32 = number.try_into().unwrap();
+        ParallelScanSequenceNumberStableV1((number as i32).into())
+    }
+}
+
+impl From<&JobStatus> for ParallelScanJobStatusStableV1 {
+    fn from(value: &JobStatus) -> Self {
+        match value {
+            JobStatus::Todo => Self::Todo,
+            JobStatus::Done => Self::Done,
+        }
+    }
+}
+
+impl From<&super::parallel_scan::base::Job<TransactionWithWitness>>
+    for TransactionSnarkScanStateStableV2ScanStateTreesABaseT1
+{
+    fn from(value: &super::parallel_scan::base::Job<TransactionWithWitness>) -> Self {
+        match value {
+            parallel_scan::base::Job::Empty => Self::Empty,
+            parallel_scan::base::Job::Full(record) => {
+                let parallel_scan::base::Record::<TransactionWithWitness> { job, seq_no, state } =
+                    record;
+
+                Self::Full(Box::new(
+                    TransactionSnarkScanStateStableV2ScanStateTreesABaseT1Full {
+                        job: job.into(),
+                        seq_no: seq_no.into(),
+                        status: state.into(),
+                    },
+                ))
+            }
+        }
+    }
+}
+
+impl From<&parallel_scan::merge::Job<LedgerProofWithSokMessage>>
+    for TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1
+{
+    fn from(value: &parallel_scan::merge::Job<LedgerProofWithSokMessage>) -> Self {
+        match value {
+            parallel_scan::merge::Job::Empty => Self::Empty,
+            parallel_scan::merge::Job::Part(part) => Self::Part(Box::new(part.into())),
+            parallel_scan::merge::Job::Full(record) => {
+                let parallel_scan::merge::Record::<LedgerProofWithSokMessage> {
+                    left,
+                    right,
+                    seq_no,
+                    state,
+                } = record;
+
+                Self::Full(Box::new(
+                    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1Full {
+                        left: left.into(),
+                        right: right.into(),
+                        seq_no: seq_no.into(),
+                        status: state.into(),
+                    },
+                ))
+            }
+        }
+    }
+}
+
+impl From<&&parallel_scan::base::Base<TransactionWithWitness>>
+    for (
+        ParallelScanWeightStableV1,
+        TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
+    )
+{
+    fn from(value: &&parallel_scan::base::Base<TransactionWithWitness>) -> Self {
+        let parallel_scan::base::Base::<TransactionWithWitness> { weight, job } = value;
+
+        (weight.into(), job.into())
+    }
+}
+
+impl From<&&parallel_scan::merge::Merge<LedgerProofWithSokMessage>>
+    for TransactionSnarkScanStateStableV2TreesAMerge
+{
+    fn from(value: &&parallel_scan::merge::Merge<LedgerProofWithSokMessage>) -> Self {
+        let parallel_scan::merge::Merge::<LedgerProofWithSokMessage> { weight, job } = value;
+
+        let (w1, w2) = weight;
+        ((w1.into(), w2.into()), job.into())
+    }
+}
+
+impl From<&ScanState> for TransactionSnarkScanStateStableV2 {
+    fn from(value: &ScanState) -> Self {
+        let ScanState {
+            scan_state,
+            previous_incomplete_zkapp_updates,
+        } = value;
+
+        Self {
+            scan_state: {
+                let ParallelScan {
+                    trees,
+                    acc,
+                    curr_job_seq_no,
+                    max_base_jobs,
+                    delay,
+                } = scan_state;
+
+                TransactionSnarkScanStateStableV2ScanState {
+                    trees: {
+                        use mina_p2p_messages::v2::TransactionSnarkScanStateStableV2ScanStateTreesA::{Leaf, Node};
+
+                        let mut trees: Vec<_> = trees
+                            .iter()
+                            .map(|tree| {
+                                let values_by_depth = tree.values_by_depth();
+
+                                let mut previous = None;
+
+                                // rev to start from leaves
+                                for (depth, values) in values_by_depth.iter().rev() {
+                                    match values {
+                                        crate::scan_state::parallel_scan::Value::Leaf(leaves) => {
+                                            previous =
+                                                Some(Leaf(leaves.iter().map(Into::into).collect()));
+                                        }
+                                        crate::scan_state::parallel_scan::Value::Node(nodes) => {
+                                            let depth: u32 = (*depth).try_into().unwrap();
+
+                                            previous = Some(Node {
+                                                depth: (depth as i32).into(),
+                                                value: nodes.iter().map(Into::into).collect(),
+                                                sub_tree: Box::new(previous.take().unwrap()),
+                                            });
+                                        }
+                                    };
+                                }
+
+                                previous.take().unwrap()
+                            })
+                            .collect();
+
+                        let first = trees.remove(0);
+                        let rest = trees;
+
+                        (first, rest)
+                    },
+                    acc: acc
+                        .as_ref()
+                        .map(|(proof, txns)| (proof.into(), txns.iter().map(Into::into).collect())),
+                    curr_job_seq_no: {
+                        let curr_job_seq_no: u32 = curr_job_seq_no.as_u64().try_into().unwrap();
+                        (curr_job_seq_no as i32).into()
+                    },
+                    max_base_jobs: {
+                        let max_base_jobs: u32 = (*max_base_jobs).try_into().unwrap();
+                        (max_base_jobs as i32).into()
+                    },
+                    delay: {
+                        let delay: u32 = (*delay).try_into().unwrap();
+                        (delay as i32).into()
+                    },
+                }
+            },
+            previous_incomplete_zkapp_updates: {
+                let (txns, continue_next) = previous_incomplete_zkapp_updates;
+
+                let continue_next = match continue_next {
+                    BorderBlockContinuedInTheNextTree(continue_next) => {
+                        Border_block_continued_in_the_next_tree(*continue_next)
                     }
                 };
 
