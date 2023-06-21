@@ -62,7 +62,7 @@ pub type AvailableJob = super::parallel_scan::AvailableJob<
     transaction_snark::LedgerProofWithSokMessage,
 >;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BorderBlockContinuedInTheNextTree(pub(super) bool);
 
 /// Scan state and any zkapp updates that were applied to the to the most recent

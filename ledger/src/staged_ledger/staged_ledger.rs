@@ -1936,7 +1936,7 @@ impl StagedLedger {
 #[cfg(test)]
 mod tests_ocaml {
     use std::{
-        collections::{HashMap, HashSet},
+        collections::{BTreeSet, HashMap},
         str::FromStr,
         sync::atomic::{AtomicUsize, Ordering::Relaxed},
     };
@@ -1970,9 +1970,8 @@ mod tests_ocaml {
                 Memo, TransactionFailure,
             },
         },
-        staged_ledger::{
-            diff::{PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase},
-            pre_diff_info::HashableCompressedPubKey,
+        staged_ledger::diff::{
+            PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase,
         },
         util, Account, AuthRequired, FpExt, Permissions, VerificationKey,
     };
@@ -5716,16 +5715,16 @@ mod tests_ocaml {
 
         let test_spec = TestSpec::gen();
 
-        let pks: HashSet<_> = test_spec
+        let pks: BTreeSet<_> = test_spec
             .init_ledger
             .0
             .iter()
-            .map(|(kp, _)| HashableCompressedPubKey(kp.public.into_compressed()))
+            .map(|(kp, _)| kp.public.into_compressed())
             .collect();
 
         let kp = loop {
             let keypair = gen_keypair();
-            if !pks.contains(&HashableCompressedPubKey(keypair.public.into_compressed())) {
+            if !pks.contains(&keypair.public.into_compressed()) {
                 break keypair;
             }
         };

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use itertools::{Either, Itertools};
 use mina_signer::CompressedPubKey;
@@ -193,46 +193,17 @@ where
         .ok_or(PreDiffError::InsufficientFee((budget, total_work_fee)))
 }
 
-#[derive(Clone, Debug, Eq, derive_more::From)]
-pub struct HashableCompressedPubKey(pub CompressedPubKey);
-
-impl PartialEq for HashableCompressedPubKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl std::hash::Hash for HashableCompressedPubKey {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.x.hash(state);
-        self.0.is_odd.hash(state);
-    }
-}
-
-impl PartialOrd for HashableCompressedPubKey {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self.0.x.partial_cmp(&other.0.x) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return ord,
-        };
-        self.0.is_odd.partial_cmp(&other.0.is_odd)
-    }
-}
-
-pub fn fee_transfers_map<I, T>(singles: I) -> Option<HashMap<HashableCompressedPubKey, Fee>>
+pub fn fee_transfers_map<I>(singles: I) -> Option<BTreeMap<CompressedPubKey, Fee>>
 where
-    I: IntoIterator<Item = (T, Fee)>,
-    T: Into<HashableCompressedPubKey>,
+    I: IntoIterator<Item = (CompressedPubKey, Fee)>,
 {
-    use std::collections::hash_map::Entry::{Occupied, Vacant};
+    use std::collections::btree_map::Entry::{Occupied, Vacant};
 
     let singles = singles.into_iter();
 
-    let mut map = HashMap::with_capacity(singles.size_hint().0);
+    let mut map = BTreeMap::default();
 
     for (pk, fee) in singles {
-        let pk: HashableCompressedPubKey = pk.into();
-
         match map.entry(pk) {
             Occupied(mut entry) => {
                 entry.insert(fee.checked_add(entry.get())?);
@@ -255,7 +226,7 @@ fn create_fee_transfers<'a>(
     public_key: &CompressedPubKey,
     coinbase_fts: impl Iterator<Item = &'a CoinbaseFeeTransfer>,
 ) -> Result<Vec<FeeTransfer>, PreDiffError> {
-    use std::collections::hash_map::Entry::Occupied;
+    use std::collections::btree_map::Entry::Occupied;
 
     let singles = std::iter::once((public_key.clone(), delta))
         .chain(completed_works.map(|work::Unchecked { fee, prover, .. }| (prover.clone(), *fee)))
@@ -269,9 +240,7 @@ fn create_fee_transfers<'a>(
         fee: cb_fee,
     } in coinbase_fts
     {
-        if let Occupied(mut entry) =
-            singles_map.entry(HashableCompressedPubKey(receiver_pk.clone()))
-        {
+        if let Occupied(mut entry) = singles_map.entry(receiver_pk.clone()) {
             let new_fee = entry
                 .get()
                 .checked_sub(cb_fee)
@@ -291,7 +260,7 @@ fn create_fee_transfers<'a>(
 
     let sft: Vec<_> = list
         .into_iter()
-        .map(|(receiver_pk, fee)| SingleFeeTransfer::create(receiver_pk.0, fee, TokenId::default()))
+        .map(|(receiver_pk, fee)| SingleFeeTransfer::create(receiver_pk, fee, TokenId::default()))
         .collect();
 
     let res: Result<Vec<_>, _> = group_list(&sft, |v| v.clone())

@@ -8,11 +8,11 @@ use crate::{
     scan_state::{
         currency::{Balance, Magnitude},
         transaction_logic::{
+            for_tests::HashableCompressedPubKey,
             valid,
             zkapp_command::{self, verifiable, WithHash},
         },
     },
-    staged_ledger::pre_diff_info::HashableCompressedPubKey,
     util, Account, AccountId, AuthRequired, BaseLedger, Mask, MyCowMut, Permissions, TokenId,
     VerificationKey, ZkAppAccount,
 };

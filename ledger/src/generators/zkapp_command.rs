@@ -24,6 +24,7 @@ use crate::{
         currency::{Amount, Balance, Fee, Index, Length, Magnitude, Nonce, Sgn, Signed, Slot},
         transaction_logic::{
             cons_zkapp_command_commitment,
+            for_tests::HashableCompressedPubKey,
             protocol_state::{self, ProtocolStateView},
             zkapp_command::{
                 self, AccountPreconditions, AccountUpdateSimple, AuthorizationKind, CallForest,
@@ -35,7 +36,6 @@ use crate::{
         },
         zkapp_logic::{self, ZkAppCommandElt},
     },
-    staged_ledger::pre_diff_info::HashableCompressedPubKey,
     Account, AccountId, AuthRequired, BaseLedger, ControlTag, Mask, MyCowMut, Permissions,
     ReceiptChainHash, TokenId, VerificationKey, VotingFor, ZkAppAccount,
 };

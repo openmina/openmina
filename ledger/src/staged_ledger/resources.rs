@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use mina_signer::CompressedPubKey;
 
@@ -13,7 +13,7 @@ use crate::{
 
 use super::{
     diff::AtMostTwo,
-    pre_diff_info::{fee_transfers_map, sum_fees, HashableCompressedPubKey},
+    pre_diff_info::{fee_transfers_map, sum_fees},
     staged_ledger::StagedLedger,
 };
 
@@ -58,7 +58,7 @@ pub struct Resources {
     max_jobs: u64,
     pub commands_rev: Vec<valid::UserCommand>,
     pub completed_work_rev: Vec<work::Checked>, // TODO: Use another container (VecDeque ?)
-    fee_transfers: HashMap<HashableCompressedPubKey, Fee>,
+    fee_transfers: BTreeMap<CompressedPubKey, Fee>,
     add_coinbase: bool,
     pub coinbase: AtMostTwo<CoinbaseFeeTransfer>,
     supercharge_coinbase: bool,
@@ -420,7 +420,7 @@ impl Resources {
                 .iter()
                 .fold(Ok(Fee::zero()), |accum, (key, fee)| {
                     let others = accum?;
-                    if self.receiver_pk == key.0 {
+                    if &self.receiver_pk == key {
                         Ok(others)
                     } else {
                         others
@@ -471,7 +471,7 @@ impl Resources {
         let other_provers = self
             .fee_transfers
             .iter()
-            .filter(|(pk, _)| pk.0 != self.receiver_pk)
+            .filter(|&(pk, _)| pk != &self.receiver_pk)
             .count() as u64;
 
         let total_fee_transfer_pks = other_provers + fee_for_self;
@@ -495,7 +495,7 @@ impl Resources {
         let other_provers = self
             .fee_transfers
             .iter()
-            .filter(|(pk, _)| pk.0 != self.receiver_pk)
+            .filter(|&(pk, _)| pk != &self.receiver_pk)
             .count() as u64;
 
         let total_fee_transfer_pks = other_provers + fee_for_self;

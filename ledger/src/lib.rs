@@ -36,13 +36,15 @@ mod wasm {
 #[cfg(all(not(target_family = "wasm"), feature = "ocaml-interop"))]
 mod ffi;
 
+#[cfg(test)]
+pub mod generators;
+
 mod account;
 mod address;
 mod base;
 // mod blocks;
 mod database;
 pub mod dummy;
-pub mod generators;
 mod hash;
 pub mod mask;
 pub mod ondisk;

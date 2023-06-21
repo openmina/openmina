@@ -6439,8 +6439,7 @@ pub mod for_tests {
     // use o1_utils::math::ceil_log2;
 
     use crate::{
-        gen_keypair, scan_state::parallel_scan::ceil_log2,
-        staged_ledger::pre_diff_info::HashableCompressedPubKey, AuthRequired, BaseLedger, Mask,
+        gen_keypair, scan_state::parallel_scan::ceil_log2, AuthRequired, BaseLedger, Mask,
         Permissions, ZkAppAccount,
     };
 
@@ -6452,6 +6451,8 @@ pub mod for_tests {
     const NUM_TRANSACTIONS: u64 = 10;
     const DEPTH: u64 = ceil_log2(NUM_ACCOUNTS + NUM_TRANSACTIONS);
 
+    /// Use this for tests only
+    /// Hashmaps are not deterministic
     #[derive(Debug, PartialEq, Eq)]
     pub struct HashableKeypair(pub Keypair);
 
@@ -6459,6 +6460,34 @@ pub mod for_tests {
         fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
             let compressed = self.0.public.into_compressed();
             HashableCompressedPubKey(compressed).hash(state);
+        }
+    }
+
+    /// Use this for tests only
+    /// Hashmaps are not deterministic
+    #[derive(Clone, Debug, Eq, derive_more::From)]
+    pub struct HashableCompressedPubKey(pub CompressedPubKey);
+
+    impl PartialEq for HashableCompressedPubKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.0 == other.0
+        }
+    }
+
+    impl std::hash::Hash for HashableCompressedPubKey {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.0.x.hash(state);
+            self.0.is_odd.hash(state);
+        }
+    }
+
+    impl PartialOrd for HashableCompressedPubKey {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            match self.0.x.partial_cmp(&other.0.x) {
+                Some(core::cmp::Ordering::Equal) => {}
+                ord => return ord,
+            };
+            self.0.is_odd.partial_cmp(&other.0.is_odd)
         }
     }
 

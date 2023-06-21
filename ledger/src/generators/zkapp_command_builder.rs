@@ -5,8 +5,10 @@ use mina_signer::{Keypair, NetworkId, Signature};
 
 use crate::{
     hash_with_kimchi,
-    scan_state::transaction_logic::zkapp_command::{AccountUpdate, Control, ZkAppCommand},
-    staged_ledger::pre_diff_info::HashableCompressedPubKey,
+    scan_state::transaction_logic::{
+        for_tests::HashableCompressedPubKey,
+        zkapp_command::{AccountUpdate, Control, ZkAppCommand},
+    },
 };
 
 #[derive(Clone, Debug)]
