@@ -6,7 +6,7 @@ use mina_signer::CompressedPubKey;
 
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
 use crate::scan_state::zkapp_logic;
-use crate::{hash_with_kimchi, ControlTag, Inputs};
+use crate::{hash_with_kimchi, port_ocaml, ControlTag, Inputs};
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
     sparse_ledger::{LedgerIntf, SparseLedger},
@@ -4639,9 +4639,7 @@ where
 
         let accounts_referenced = c.command.accounts_referenced();
 
-        let mut account_states: Vec<(AccountId, Option<_>)> = Vec::with_capacity(
-            c.original_first_pass_account_states.len() + accounts_referenced.len(),
-        );
+        let mut account_states = port_ocaml::HashTable::<AccountId, Option<_>>::create();
 
         let referenced = accounts_referenced.into_iter().map(|id| {
             let location = {
@@ -4655,20 +4653,9 @@ where
         c.original_first_pass_account_states
             .into_iter()
             .chain(referenced)
-            .for_each(
-                |(id, acc_opt)| match account_states.iter_mut().find(|s| s.0 == id) {
-                    Some((_, found)) => {
-                        if found.is_none() {
-                            *found = acc_opt;
-                        }
-                    }
-                    None => {
-                        account_states.push((id, acc_opt));
-                    }
-                },
-            );
+            .for_each(|(id, acc_opt)| account_states.update(id, |v| v.cloned().unwrap_or(acc_opt)));
 
-        account_states.into_iter().collect::<Vec<_>>()
+        account_states.to_alist()
     };
 
     let mut account_states_after_fee_payer = {
