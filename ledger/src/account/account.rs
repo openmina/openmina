@@ -590,6 +590,10 @@ impl AccountId {
     pub fn create(public_key: CompressedPubKey, token_id: TokenId) -> Self {
         Self::new(public_key, token_id)
     }
+
+    pub fn ocaml_hash(&self) -> u32 {
+        crate::port_ocaml::account_id_ocaml_hash(self)
+    }
 }
 
 impl std::fmt::Debug for AccountId {
