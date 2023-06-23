@@ -594,6 +594,15 @@ impl AccountId {
     pub fn ocaml_hash(&self) -> u32 {
         crate::port_ocaml::account_id_ocaml_hash(self)
     }
+
+    pub fn rand() -> Self {
+        let mut rng = rand::thread_rng();
+
+        Self {
+            public_key: gen_compressed(),
+            token_id: TokenId(Fp::rand(&mut rng)),
+        }
+    }
 }
 
 impl std::fmt::Debug for AccountId {

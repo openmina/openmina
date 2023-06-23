@@ -279,6 +279,16 @@ ocaml_export! {
         OCaml::unit()
     }
 
+    fn rust_get_random_account_id(
+        rt,
+        _unused: OCamlRef<fn (OCamlBytes) -> ()>,
+    ) -> OCaml<OCamlBytes> {
+        let account_id = AccountId::rand();
+        let bytes = serialize(&account_id);
+
+        bytes.to_ocaml(rt)
+    }
+
     fn rust_get_random_account(
         rt,
         validate_account: OCamlRef<fn (OCamlBytes) -> ()>,
@@ -334,6 +344,40 @@ ocaml_export! {
         }
 
         elog!("nchecked={:?}", nchecked);
+
+        OCaml::unit()
+    }
+
+    fn rust_test_random_account_ids(
+        rt,
+        fun: OCamlRef<fn (OCamlBytes) -> OCamlInt>,
+    ) {
+        let fun = fun.to_boxroot(rt);
+        let mut nchecked = 0;
+
+        let now = std::time::Instant::now();
+
+        for _ in 0..20_000 {
+            let account_id = AccountId::rand();
+            let bytes = serialize(&account_id);
+
+            let ocaml_hash: OCaml<OCamlInt> = fun.try_call(rt, &bytes).unwrap();
+            let ocaml_hash: i64 = ocaml_hash.to_rust();
+            let ocaml_hash: u32 = ocaml_hash.try_into().unwrap();
+
+            let rust_hash = account_id.ocaml_hash();
+
+            if ocaml_hash != rust_hash {
+                elog!("different hash ! id={:?}", account_id);
+                elog!("ocaml_hash={}", ocaml_hash);
+                elog!("rust_hash ={}", rust_hash);
+                panic!("bytes={:#?}", bytes);
+            }
+
+            nchecked += 1;
+        }
+
+        eprintln!("nchecked={:?} in {:?}", nchecked, now.elapsed());
 
         OCaml::unit()
     }
