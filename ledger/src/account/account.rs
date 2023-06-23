@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt::Write, io::Cursor, str::FromStr};
 
-use ark_ff::{Field, One, UniformRand, Zero};
+use ark_ff::{BigInteger256, Field, One, UniformRand, Zero};
 use binprot::{BinProtRead, BinProtWrite};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
@@ -555,15 +555,22 @@ impl Ord for AccountId {
 
 impl PartialOrd for AccountId {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self.public_key.x.partial_cmp(&other.public_key.x) {
-            Some(core::cmp::Ordering::Equal) => {}
+        let self_pk: BigInteger256 = self.public_key.x.into();
+        let other_pk: BigInteger256 = other.public_key.x.into();
+        match self_pk.partial_cmp(&other_pk) {
+            Some(core::cmp::Ordering::Equal) | None => {}
             ord => return ord,
         }
+
         match self.public_key.is_odd.partial_cmp(&other.public_key.is_odd) {
-            Some(core::cmp::Ordering::Equal) => {}
+            Some(core::cmp::Ordering::Equal) | None => {}
             ord => return ord,
         }
-        self.token_id.partial_cmp(&other.token_id)
+
+        let self_token_id: BigInteger256 = self.token_id.0.into();
+        let other_token_id: BigInteger256 = other.token_id.0.into();
+
+        self_token_id.partial_cmp(&other_token_id)
     }
 }
 
@@ -602,6 +609,17 @@ impl AccountId {
             public_key: gen_compressed(),
             token_id: TokenId(Fp::rand(&mut rng)),
         }
+    }
+
+    pub fn deserialize(bytes: &[u8]) -> Self {
+        let mut cursor = Cursor::new(bytes);
+        AccountId::binprot_read(&mut cursor).unwrap()
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(10000);
+        self.binprot_write(&mut bytes).unwrap();
+        bytes
     }
 }
 

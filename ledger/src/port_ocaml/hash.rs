@@ -3,7 +3,7 @@
 
 use std::hash::Hasher;
 
-use ark_ff::BigInteger256;
+use ark_ff::{BigInteger, BigInteger256};
 use mina_hasher::Fp;
 
 use crate::AccountId;
@@ -47,12 +47,14 @@ fn final_mix(mut h: u32) -> u32 {
 }
 
 impl Hasher for JaneStreetHasher {
+    /// https://github.com/janestreet/base/blob/v0.14/hash_types/src/internalhash_stubs.c#L42C1-L47C2
     fn finish(&self) -> u64 {
         let h = final_mix(self.h);
         let h: u32 = h & 0x3FFF_FFFF; // 30 bits
         h as u64
     }
 
+    /// https://github.com/janestreet/base/blob/v0.14/hash_types/src/internalhash_stubs.c#L60C1-L90C2
     fn write(&mut self, s: &[u8]) {
         // Little endian implementation only
         for (chunk, chunk_len) in s.chunks(4).map(|chunk| (chunk, chunk.len())) {
@@ -82,17 +84,20 @@ impl Hasher for JaneStreetHasher {
     }
 }
 
+/// https://github.com/ocaml/Zarith/blob/6f840fb026ab6920104ea7b43140fdcc3e936914/caml_z.c#L3333-L3358
 fn hash_field(f: &Fp) -> u32 {
     let mut acc = 0;
 
     let bigint: BigInteger256 = (*f).into();
-    for bigint in bigint.0 {
+    let nignore: usize = bigint.0.iter().rev().take_while(|&b| *b == 0).count();
+
+    for bigint in bigint.0.iter().take(BigInteger256::NUM_LIMBS - nignore) {
         acc = mix(acc, (bigint & 0xFFFF_FFFF) as u32);
         acc = mix(acc, (bigint >> 32) as u32);
     }
 
-    if bigint.0.last().unwrap() & 0x8000000000000000 != 0 {
-        // TODO: Not sure if it's correct
+    if bigint.0.last().unwrap() & 0x8000_0000_0000_0000 != 0 {
+        // TODO: Not sure if that condition is correct
         acc += 1;
     }
 
@@ -105,6 +110,16 @@ pub fn account_id_ocaml_hash(account_id: &AccountId) -> u32 {
     hasher.write_u32(account_id.public_key.is_odd as u32);
     hasher.write_u32(hash_field(&account_id.token_id.0));
     hasher.finish() as u32
+}
+
+pub trait OCamlHash {
+    fn ocaml_hash(&self) -> u32;
+}
+
+impl OCamlHash for AccountId {
+    fn ocaml_hash(&self) -> u32 {
+        account_id_ocaml_hash(self)
+    }
 }
 
 #[cfg(test)]

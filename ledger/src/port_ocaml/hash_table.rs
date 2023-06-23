@@ -1,15 +1,26 @@
-use std::{
-    collections::BTreeMap,
-    hash::{Hash, Hasher},
-};
+use std::collections::BTreeMap;
 
+use super::hash::OCamlHash;
+
+/// https://github.com/janestreet/base/blob/v0.14/src/hashtbl.ml
 pub struct HashTable<K, V> {
     /// Note: OCaml uses AVL trees, but we just need an ordered map
     table: Vec<BTreeMap<K, V>>,
     length: usize,
 }
 
-impl<K: Ord + Hash + Clone, V: Clone> HashTable<K, V> {
+impl<K: std::fmt::Debug, V: std::fmt::Debug> std::fmt::Debug for HashTable<K, V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let table: Vec<_> = self.table.iter().map(BTreeMap::len).collect();
+
+        f.debug_struct("HashTable")
+            .field("table", &table)
+            .field("length", &self.length)
+            .finish()
+    }
+}
+
+impl<K: Ord + OCamlHash + Clone, V: Clone> HashTable<K, V> {
     pub fn create() -> Self {
         let size = 1u64.next_power_of_two();
 
@@ -19,12 +30,7 @@ impl<K: Ord + Hash + Clone, V: Clone> HashTable<K, V> {
     }
 
     fn slot(&self, key: &K) -> usize {
-        let hash = {
-            let mut state = super::hash::JaneStreetHasher::default();
-            key.hash(&mut state);
-            state.finish()
-        };
-
+        let hash = key.ocaml_hash();
         let hash = hash as usize;
         hash & (self.table.len() - 1)
     }
@@ -73,6 +79,7 @@ impl<K: Ord + Hash + Clone, V: Clone> HashTable<K, V> {
         }
     }
 
+    /// https://github.com/janestreet/base/blob/v0.14/src/hashtbl.ml#L450
     pub fn update<F>(&mut self, key: K, fun: F)
     where
         F: FnOnce(Option<&V>) -> V,
@@ -83,6 +90,7 @@ impl<K: Ord + Hash + Clone, V: Clone> HashTable<K, V> {
 }
 
 impl<K: Clone, V: Clone> HashTable<K, V> {
+    /// https://github.com/janestreet/base/blob/v0.14/src/hashtbl.ml#L259-L281
     pub fn to_alist(&self) -> Vec<(K, V)> {
         self.table
             .iter()

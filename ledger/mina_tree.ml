@@ -145,6 +145,7 @@ module Rust = struct
   (* For testing *)
   external test_random_accounts : (bytes -> bytes) -> unit = "rust_test_random_accounts"
   external test_random_account_ids : (bytes -> int) -> unit = "rust_test_random_account_ids"
+  external test_random_account_id_order : (bytes list -> bytes list) -> unit = "rust_test_random_account_id_order"
   external test_random_account_updates : (bytes -> bytes) -> unit = "rust_test_random_account_updates"
   external get_random_account : (bytes -> unit) -> bytes = "rust_get_random_account"
   external rust_print_backtrace : int -> unit = "rust_print_backtrace"

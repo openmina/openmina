@@ -8,6 +8,7 @@ use std::{
     sync::Mutex,
 };
 
+use ark_ff::BigInteger256;
 use binprot::BinProtWrite;
 use mina_hasher::Fp;
 use mina_p2p_messages::{
@@ -29,6 +30,7 @@ use crate::{
     scan_state::transaction_logic::zkapp_command::AccountUpdate,
     short_backtrace,
     tree_version::V2,
+    TokenId,
 };
 
 static DATABASE: Lazy<Mutex<Database<V2>>> = Lazy::new(|| Mutex::new(Database::create(30)));
@@ -378,6 +380,57 @@ ocaml_export! {
         }
 
         eprintln!("nchecked={:?} in {:?}", nchecked, now.elapsed());
+
+        OCaml::unit()
+    }
+
+    fn rust_test_random_account_id_order(
+        rt,
+        fun: OCamlRef<fn (OCamlList<OCamlBytes>) -> OCamlList<OCamlBytes>>,
+    ) {
+        let fun = fun.to_boxroot(rt);
+
+        let mut compare_with_ocaml = |ids: Vec<AccountId>| {
+            let serialized: Vec<Vec<u8>> = ids.iter().map(AccountId::serialize).collect();
+
+            let ocaml_list: OCaml<OCamlList<OCamlBytes>> = fun.try_call(rt, &serialized).unwrap();
+            let ocaml_list: Vec<Vec<u8>> = ocaml_list.to_rust();
+            let ocaml_list: Vec<AccountId> = ocaml_list.iter().map(|b| deserialize(b)).collect();
+
+            let mut table = crate::port_ocaml::HashTable::create();
+            for id in ids {
+                table.update(id, |_| Some(1));
+            }
+            let ids: Vec<_> = table.to_alist().into_iter().map(|(id, _)| id).collect();
+
+            if ids != ocaml_list {
+                eprintln!("different order ! nids={}", 2);
+                eprintln!("rust={:#?}", ids);
+                eprintln!("ocaml={:#?}", ocaml_list);
+                panic!();
+            }
+        };
+
+        let ids: Vec<AccountId> = (0..100).map(|_| AccountId::rand()).collect();
+        let ids: Vec<AccountId> = ids.into_iter().enumerate().map(|(index, mut id)| {
+            // Reach corner cases in `port_ocaml::hash::hash_field`
+            let token_id = match index % 5 {
+                0 => BigInteger256([0, 0, 0, 1]),
+                1 => BigInteger256([0, 0, 1, 0]),
+                2 => BigInteger256([0, 1, 0, 0]),
+                3 => BigInteger256([1, 0, 0, 0]),
+                _ => BigInteger256([0, 0, 0, 0]),
+            };
+            id.token_id = TokenId(token_id.into());
+            id
+        }).collect();
+
+        compare_with_ocaml(ids);
+
+        for nids in 1..100 {
+            let ids: Vec<AccountId> = (0..nids).map(|_| AccountId::rand()).collect();
+            compare_with_ocaml(ids);
+        }
 
         OCaml::unit()
     }
