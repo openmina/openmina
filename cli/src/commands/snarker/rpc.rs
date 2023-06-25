@@ -22,7 +22,7 @@ pub enum RpcP2pConnectionIncomingResponse {
 }
 
 pub struct RpcService {
-    pending: PendingRequests<RpcIdType, Box<dyn std::any::Any>>,
+    pending: PendingRequests<RpcIdType, Box<dyn Send + std::any::Any>>,
 
     req_sender: mpsc::Sender<SnarkerRpcRequest>,
     req_receiver: mpsc::Receiver<SnarkerRpcRequest>,
@@ -36,6 +36,11 @@ impl RpcService {
             req_sender: tx,
             req_receiver: rx,
         }
+    }
+
+    /// Channel for sending the rpc request to state machine.
+    pub fn req_sender(&mut self) -> &mut mpsc::Sender<SnarkerRpcRequest> {
+        &mut self.req_sender
     }
 
     /// Channel for receiving rpc requests in state machine.

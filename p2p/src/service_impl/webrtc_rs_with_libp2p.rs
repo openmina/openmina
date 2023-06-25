@@ -1,5 +1,6 @@
 use libp2p::swarm::dial_opts::DialOpts;
 use tokio::sync::mpsc;
+use tokio_util::task::LocalPoolHandle;
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
@@ -21,10 +22,11 @@ pub trait P2pServiceWebrtcRsWithLibp2p: P2pServiceWebrtcRs {
     fn init(
         chain_id: String,
         event_source_sender: mpsc::UnboundedSender<P2pEvent>,
+        rt_pool: &LocalPoolHandle,
     ) -> P2pServiceCtx {
         P2pServiceCtx {
-            webrtc: <Self as P2pServiceWebrtcRs>::init(),
-            libp2p: Libp2pService::run(chain_id, event_source_sender),
+            webrtc: <Self as P2pServiceWebrtcRs>::init(rt_pool),
+            libp2p: Libp2pService::run(chain_id, event_source_sender, rt_pool),
         }
     }
 }

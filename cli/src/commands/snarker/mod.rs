@@ -6,6 +6,7 @@ use rand::prelude::*;
 use serde::Serialize;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
+use tokio_util::task::LocalPoolHandle;
 
 use snarker::account::AccountSecretKey;
 use snarker::event_source::{
@@ -55,14 +56,11 @@ impl Snarker {
             panic!("FatalError: {:?}", e);
         }
 
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .worker_threads(3)
+        let rt = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
         let _rt_guard = rt.enter();
-        let local_set = tokio::task::LocalSet::new();
-        let _local_set_guard = local_set.enter();
+        let rt_pool = LocalPoolHandle::new(3);
 
         let mut rng = ThreadRng::default();
         let bytes = rng.gen();
@@ -97,11 +95,10 @@ impl Snarker {
             },
             p2p: P2pConfig {
                 identity_pub_key: pub_key,
-                initial_peers: vec![
-                    "/dns4/seed-3.berkeley.o1test.net/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv"
-                        .parse()
-                        .unwrap(),
-                ],
+                initial_peers: IntoIterator::into_iter([
+                    "/dns4/seed-3.berkeley.o1test.net/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
+                    "/ip4/34.136.200.43/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
+                ]).map(|s| s.parse().unwrap()).collect(),
                 max_peers: 10,
                 enabled_channels: [
                     ChannelId::BestTipPropagation,
@@ -122,6 +119,7 @@ impl Snarker {
         } = <SnarkerService as P2pServiceWebrtcRsWithLibp2p>::init(
             self.chain_id,
             p2p_event_sender.clone(),
+            &rt_pool,
         );
 
         let ev_sender = event_sender.clone();
@@ -133,37 +131,32 @@ impl Snarker {
             }
         });
 
-        let mut service = SnarkerService {
-            rng,
-            event_sender,
-            p2p_event_sender,
-            event_receiver: event_receiver.into(),
-            cmd_sender,
-            peers,
-            libp2p,
-            rpc: rpc::RpcService::new(),
-            stats: Stats::new(),
-        };
+        let mut rpc_service = rpc::RpcService::new();
 
         let http_port = self.http_port;
-        let rpc_sender = service.rpc_req_sender().clone();
-        let rpc_sender = RpcSender { tx: rpc_sender };
+        let rpc_sender = RpcSender {
+            tx: rpc_service.req_sender().clone(),
+        };
         // http-server
-        // TODO(binier): separate somehow so that http server tasks could
-        // never take resources from the state machine thread. Maybe
-        // below code already does that.
-        rt.spawn_blocking(move || {
-            let local_set = tokio::task::LocalSet::new();
-            let main_fut = local_set.run_until(http_server::run(http_port, rpc_sender));
-            tokio::runtime::Handle::current().block_on(main_fut);
-        });
+        rt_pool.spawn_pinned(move || http_server::run(http_port, rpc_sender));
 
-        let mut snarker = ::snarker::Snarker::new(state, service);
+        let main_task = rt_pool.spawn_pinned(move || async move {
+            let service = SnarkerService {
+                rng: ThreadRng::default(),
+                event_sender,
+                p2p_event_sender,
+                event_receiver: event_receiver.into(),
+                cmd_sender,
+                peers,
+                libp2p,
+                rpc: rpc_service,
+                stats: Stats::new(),
+            };
+            let mut snarker = ::snarker::Snarker::new(state, service);
 
-        snarker
-            .store_mut()
-            .dispatch(EventSourceProcessEventsAction {});
-        rt.block_on(async {
+            snarker
+                .store_mut()
+                .dispatch(EventSourceProcessEventsAction {});
             loop {
                 snarker
                     .store_mut()
@@ -196,6 +189,7 @@ impl Snarker {
             }
         });
 
+        rt.block_on(main_task).expect("state machine task crashed!");
         Ok(())
     }
 }

@@ -14,6 +14,7 @@ use ::webrtc::{
     },
 };
 use tokio::sync::{mpsc, oneshot};
+use tokio_util::task::LocalPoolHandle;
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
@@ -499,21 +500,17 @@ pub trait P2pServiceWebrtcRs: redux::Service {
 
     fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState>;
 
-    fn init() -> P2pServiceCtx {
+    fn init(rt_pool: &LocalPoolHandle) -> P2pServiceCtx {
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
 
-        tokio::task::spawn_blocking(move || {
-            let local = tokio::task::LocalSet::new();
-            let main_fut = local.run_until(async {
-                while let Some(cmd) = cmd_receiver.recv().await {
-                    match cmd {
-                        Cmd::PeerAdd(args) => {
-                            tokio::task::spawn_local(peer_start(args));
-                        }
+        rt_pool.spawn_pinned(move || async move {
+            while let Some(cmd) = cmd_receiver.recv().await {
+                match cmd {
+                    Cmd::PeerAdd(args) => {
+                        tokio::task::spawn_local(peer_start(args));
                     }
                 }
-            });
-            tokio::runtime::Handle::current().block_on(main_fut);
+            }
         });
 
         P2pServiceCtx {
