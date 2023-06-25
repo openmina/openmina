@@ -22,6 +22,7 @@ ecies-ed25519 = "0.5.1"
 ed25519-dalek = { version = "2.0.0-rc.2", features = ["serde"] }
 
 tokio = { version = "1.26.0", features = ["rt"] }
+tokio-util = { version = "*", features = ["rt"] }
 webrtc = { git = "https://github.com/openmina/webrtc.git", branch = "openmina-7bf14382" }
 # webrtc = { version = "0.7.1", optional = true }
 hyper = { version = "0.14.25", features = ["client", "http1", "tcp"] }

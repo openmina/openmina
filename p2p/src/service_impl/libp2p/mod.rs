@@ -25,6 +25,7 @@ pub use mina_p2p_messages::gossip::GossipNetMessageV2 as GossipNetMessage;
 mod behavior;
 pub use behavior::Event as BehaviourEvent;
 pub use behavior::*;
+use tokio_util::task::LocalPoolHandle;
 
 pub mod rpc;
 use self::rpc::RpcBehaviour;
@@ -100,7 +101,11 @@ impl Libp2pService {
         ))
     }
 
-    pub fn run<E>(chain_id: String, event_source_sender: mpsc::UnboundedSender<E>) -> Self
+    pub fn run<E>(
+        chain_id: String,
+        event_source_sender: mpsc::UnboundedSender<E>,
+        rt_pool: &LocalPoolHandle,
+    ) -> Self
     where
         E: 'static + Send + From<P2pEvent>,
     {
@@ -153,11 +158,7 @@ impl Libp2pService {
             }
         };
 
-        tokio::task::spawn_blocking(move || {
-            let local = tokio::task::LocalSet::new();
-            let main_fut = local.run_until(fut);
-            tokio::runtime::Handle::current().block_on(main_fut);
-        });
+        rt_pool.spawn_pinned(move || fut);
 
         Self { cmd_sender }
     }
