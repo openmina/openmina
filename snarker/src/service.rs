@@ -8,6 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use shared::block::{Block, BlockWithHash};
 
 pub use crate::event_source::EventSourceService;
+pub use crate::ledger::LedgerService;
 pub use crate::p2p::channels::P2pChannelsService;
 pub use crate::p2p::connection::P2pConnectionService;
 pub use crate::p2p::disconnection::P2pDisconnectionService;
@@ -18,6 +19,7 @@ use crate::ActionKind;
 pub trait Service:
     TimeService
     + EventSourceService
+    + LedgerService
     + SnarkBlockVerifyService
     + P2pConnectionService
     + P2pDisconnectionService

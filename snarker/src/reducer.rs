@@ -6,6 +6,9 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
         Action::CheckTimeouts(_) => {}
         Action::EventSource(_) => {}
 
+        Action::Ledger(a) => {
+            state.ledger.reducer(meta.with_action(a));
+        }
         Action::P2p(a) => {
             state.p2p.reducer(meta.with_action(a));
         }
@@ -14,6 +17,9 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
         }
         Action::Consensus(a) => {
             state.consensus.reducer(meta.with_action(a));
+        }
+        Action::TransitionFrontier(a) => {
+            state.transition_frontier.reducer(meta.with_action(a));
         }
         Action::JobCommitment(a) => {
             state.job_commitments.reducer(meta.with_action(a));

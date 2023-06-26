@@ -87,12 +87,12 @@ fn zkapp_account_default() -> MinaBaseZkappAccountStableV2 {
         },
         verification_key: None,
         zkapp_version: MinaNumbersNatMake32StableV1(UnsignedExtendedUInt32StableV1(0.into())),
-        sequence_state: {
+        action_state: {
             let empty: BigInt = hash_noinputs("MinaZkappActionStateEmptyElt").into();
-            let sequence_state: [BigInt; 5] = array_of(empty);
-            PaddedSeq(sequence_state)
+            let action_state: [BigInt; 5] = array_of(empty);
+            PaddedSeq(action_state)
         },
-        last_sequence_slot: UnsignedExtendedUInt32StableV1(0.into()),
+        last_action_slot: UnsignedExtendedUInt32StableV1(0.into()),
         proved_state: false,
         zkapp_uri: MinaBaseZkappAccountZkappUriStableV1(Vec::new().into()),
     }
@@ -226,8 +226,8 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
                 app_state,
                 verification_key,
                 zkapp_version,
-                sequence_state,
-                last_sequence_slot,
+                action_state,
+                last_action_slot,
                 proved_state,
                 zkapp_uri,
             } = zkapp;
@@ -253,8 +253,8 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
             inputs.append_field(field_zkapp_uri);
 
             inputs.append_bool(*proved_state);
-            inputs.append_u32(last_sequence_slot.as_u32());
-            for fp in &sequence_state[..] {
+            inputs.append_u32(last_action_slot.as_u32());
+            for fp in &action_state[..] {
                 inputs.append_field(fp.to_field());
             }
             inputs.append_u32(zkapp_version.as_u32());
@@ -282,7 +282,7 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
             set_permissions,
             set_verification_key,
             set_zkapp_uri,
-            edit_sequence_state,
+            edit_action_state,
             set_token_symbol,
             increment_nonce,
             set_voting_for,
@@ -300,7 +300,7 @@ impl MinaHash for MinaBaseAccountBinableArgStableV2 {
             set_permissions,
             set_verification_key,
             set_zkapp_uri,
-            edit_sequence_state,
+            edit_action_state,
             set_token_symbol,
             increment_nonce,
             set_voting_for,

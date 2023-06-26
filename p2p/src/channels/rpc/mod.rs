@@ -10,18 +10,17 @@ pub use p2p_channels_rpc_reducer::*;
 mod p2p_channels_rpc_effects;
 pub use p2p_channels_rpc_effects::*;
 
-use std::io;
+use std::{io, time::Duration};
 
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::{
-    common::LedgerHashV1,
     rpc::{AnswerSyncLedgerQueryV2, GetBestTipV2, ProofCarryingDataStableV1},
     rpc_kernel::{
         QueryHeader, QueryID, Response, ResponseHeader, RpcMethod, RpcResult, RpcResultKind,
     },
     v2::{
-        MinaBaseStateBodyHashStableV1, MinaLedgerSyncLedgerAnswerStableV2,
+        LedgerHash, MinaBaseStateBodyHashStableV1, MinaLedgerSyncLedgerAnswerStableV2,
         MinaLedgerSyncLedgerQueryStableV1,
     },
 };
@@ -51,10 +50,19 @@ pub enum P2pRpcKind {
     LedgerQuery,
 }
 
+impl P2pRpcKind {
+    pub fn timeout(self) -> Option<Duration> {
+        match self {
+            Self::BestTipWithProofGet => Some(Duration::from_secs(5)),
+            Self::LedgerQuery => Some(Duration::from_secs(2)),
+        }
+    }
+}
+
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcRequest {
     BestTipWithProofGet,
-    LedgerQuery(LedgerHashV1, MinaLedgerSyncLedgerQueryStableV1),
+    LedgerQuery(LedgerHash, MinaLedgerSyncLedgerQueryStableV1),
 }
 
 impl P2pRpcRequest {
@@ -86,9 +94,12 @@ impl P2pRpcRequest {
     pub fn write_msg<W: io::Write>(self, id: P2pRpcId, w: &mut W) -> io::Result<()> {
         match self {
             Self::BestTipWithProofGet => Self::write_msg_impl::<GetBestTipV2, _>(w, id, &()),
-            Self::LedgerQuery(ledger_hash, query) => {
-                Self::write_msg_impl::<AnswerSyncLedgerQueryV2, _>(w, id, &(ledger_hash, query))
-            }
+            Self::LedgerQuery(ledger_hash, query) => Self::write_msg_impl::<
+                AnswerSyncLedgerQueryV2,
+                _,
+            >(
+                w, id, &(ledger_hash.0.clone(), query)
+            ),
         }
     }
 }
@@ -148,7 +159,7 @@ impl P2pRpcResponse {
         kind: P2pRpcKind,
         r: &mut R,
     ) -> Result<Option<Self>, binprot::Error> {
-        let header = ResponseHeader::binprot_read(r)?;
+        let _header = ResponseHeader::binprot_read(r)?;
         let result_kind = RpcResultKind::binprot_read(r)?;
 
         if matches!(result_kind, RpcResultKind::Err) {

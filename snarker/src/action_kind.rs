@@ -15,6 +15,7 @@ use crate::job_commitment::{
     JobCommitmentCreateAction, JobCommitmentP2pSendAction, JobCommitmentP2pSendAllAction,
     JobCommitmentTimeoutAction,
 };
+use crate::ledger::{LedgerAction, LedgerChildAccountsAddAction, LedgerChildHashesAddAction};
 use crate::p2p::channels::best_tip::{
     P2pChannelsBestTipAction, P2pChannelsBestTipInitAction, P2pChannelsBestTipPendingAction,
     P2pChannelsBestTipReadyAction, P2pChannelsBestTipReceivedAction,
@@ -77,6 +78,26 @@ use crate::snark::block_verify::{
     SnarkBlockVerifyInitAction, SnarkBlockVerifyPendingAction, SnarkBlockVerifySuccessAction,
 };
 use crate::snark::SnarkAction;
+use crate::transition_frontier::sync::ledger::{
+    TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerInitAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction,
+    TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction,
+    TransitionFrontierSyncLedgerStagedLedgerPartsFetchPendingAction,
+    TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction,
+    TransitionFrontierSyncLedgerStagedLedgerReconstructInitAction,
+    TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction,
+    TransitionFrontierSyncLedgerStagedLedgerReconstructSuccessAction,
+    TransitionFrontierSyncLedgerSuccessAction,
+};
+use crate::transition_frontier::{
+    TransitionFrontierAction, TransitionFrontierRootLedgerSyncPendingAction,
+    TransitionFrontierSyncInitAction,
+};
 use crate::watched_accounts::{
     WatchedAccountsAction, WatchedAccountsAddAction, WatchedAccountsBlockLedgerQueryInitAction,
     WatchedAccountsBlockLedgerQueryPendingAction, WatchedAccountsBlockLedgerQuerySuccessAction,
@@ -112,6 +133,8 @@ pub enum ActionKind {
     JobCommitmentP2pSend,
     JobCommitmentP2pSendAll,
     JobCommitmentTimeout,
+    LedgerChildAccountsAdd,
+    LedgerChildHashesAdd,
     P2pChannelsBestTipInit,
     P2pChannelsBestTipPending,
     P2pChannelsBestTipReady,
@@ -184,6 +207,22 @@ pub enum ActionKind {
     SnarkBlockVerifyInit,
     SnarkBlockVerifyPending,
     SnarkBlockVerifySuccess,
+    TransitionFrontierRootLedgerSyncPending,
+    TransitionFrontierSyncInit,
+    TransitionFrontierSyncLedgerInit,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInit,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPending,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccess,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQuery,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPending,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccess,
+    TransitionFrontierSyncLedgerStagedLedgerPartsFetchInit,
+    TransitionFrontierSyncLedgerStagedLedgerPartsFetchPending,
+    TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccess,
+    TransitionFrontierSyncLedgerStagedLedgerReconstructInit,
+    TransitionFrontierSyncLedgerStagedLedgerReconstructPending,
+    TransitionFrontierSyncLedgerStagedLedgerReconstructSuccess,
+    TransitionFrontierSyncLedgerSuccess,
     WatchedAccountsAdd,
     WatchedAccountsBlockLedgerQueryInit,
     WatchedAccountsBlockLedgerQueryPending,
@@ -197,7 +236,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 100;
+    pub const COUNT: usize = 118;
 }
 
 impl ActionKindGet for Action {
@@ -205,9 +244,11 @@ impl ActionKindGet for Action {
         match self {
             Self::CheckTimeouts(a) => a.kind(),
             Self::EventSource(a) => a.kind(),
+            Self::Ledger(a) => a.kind(),
             Self::P2p(a) => a.kind(),
             Self::Snark(a) => a.kind(),
             Self::Consensus(a) => a.kind(),
+            Self::TransitionFrontier(a) => a.kind(),
             Self::JobCommitment(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
             Self::WatchedAccounts(a) => a.kind(),
@@ -228,6 +269,15 @@ impl ActionKindGet for EventSourceAction {
             Self::NewEvent(a) => a.kind(),
             Self::WaitForEvents(a) => a.kind(),
             Self::WaitTimeout(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for LedgerAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::ChildHashesAdd(a) => a.kind(),
+            Self::ChildAccountsAdd(a) => a.kind(),
         }
     }
 }
@@ -260,6 +310,16 @@ impl ActionKindGet for ConsensusAction {
             Self::ShortRangeForkResolve(a) => a.kind(),
             Self::BestTipUpdate(a) => a.kind(),
             Self::BestTipHistoryUpdate(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for TransitionFrontierAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::SyncInit(a) => a.kind(),
+            Self::RootLedgerSyncPending(a) => a.kind(),
+            Self::SyncLedger(a) => a.kind(),
         }
     }
 }
@@ -335,6 +395,18 @@ impl ActionKindGet for EventSourceWaitForEventsAction {
 impl ActionKindGet for EventSourceWaitTimeoutAction {
     fn kind(&self) -> ActionKind {
         ActionKind::EventSourceWaitTimeout
+    }
+}
+
+impl ActionKindGet for LedgerChildHashesAddAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::LedgerChildHashesAdd
+    }
+}
+
+impl ActionKindGet for LedgerChildAccountsAddAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::LedgerChildAccountsAdd
     }
 }
 
@@ -421,6 +493,39 @@ impl ActionKindGet for ConsensusBestTipUpdateAction {
 impl ActionKindGet for ConsensusBestTipHistoryUpdateAction {
     fn kind(&self) -> ActionKind {
         ActionKind::ConsensusBestTipHistoryUpdate
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncInit
+    }
+}
+
+impl ActionKindGet for TransitionFrontierRootLedgerSyncPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierRootLedgerSyncPending
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::SnarkedLedgerSyncPending(a) => a.kind(),
+            Self::SnarkedLedgerSyncPeersQuery(a) => a.kind(),
+            Self::SnarkedLedgerSyncPeerQueryInit(a) => a.kind(),
+            Self::SnarkedLedgerSyncPeerQueryPending(a) => a.kind(),
+            Self::SnarkedLedgerSyncPeerQuerySuccess(a) => a.kind(),
+            Self::SnarkedLedgerSyncSuccess(a) => a.kind(),
+            Self::StagedLedgerPartsFetchInit(a) => a.kind(),
+            Self::StagedLedgerPartsFetchPending(a) => a.kind(),
+            Self::StagedLedgerPartsFetchSuccess(a) => a.kind(),
+            Self::StagedLedgerReconstructInit(a) => a.kind(),
+            Self::StagedLedgerReconstructPending(a) => a.kind(),
+            Self::StagedLedgerReconstructSuccess(a) => a.kind(),
+            Self::Success(a) => a.kind(),
+        }
     }
 }
 
@@ -739,6 +844,90 @@ impl ActionKindGet for SnarkBlockVerifySuccessAction {
 impl ActionKindGet for SnarkBlockVerifyFinishAction {
     fn kind(&self) -> ActionKind {
         ActionKind::SnarkBlockVerifyFinish
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerInit
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerSnarkedLedgerSyncPending
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQuery
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInit
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPending
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccess
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccess
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStagedLedgerPartsFetchInit
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerPartsFetchPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStagedLedgerPartsFetchPending
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccess
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerReconstructInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStagedLedgerReconstructInit
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStagedLedgerReconstructPending
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerReconstructSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStagedLedgerReconstructSuccess
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerSuccess
     }
 }
 

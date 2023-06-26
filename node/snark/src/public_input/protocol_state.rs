@@ -189,20 +189,15 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
                 inputs.append_u64(supply_increase.magnitude.as_u64());
                 inputs.append_bool(matches!(supply_increase.sgn, SgnStableV1::Pos));
 
-                let MinaBaseFeeExcessStableV1 {
-                    fee_token_l,
-                    fee_excess_l,
-                    fee_token_r,
-                    fee_excess_r,
-                } = fee_excess;
+                let MinaBaseFeeExcessStableV1(fee_l, fee_r) = fee_excess;
 
-                inputs.append_field(fee_token_l.to_field());
-                inputs.append_u64(fee_excess_l.magnitude.as_u64());
-                inputs.append_bool(matches!(fee_excess_l.sgn, SgnStableV1::Pos));
+                inputs.append_field(fee_l.token.to_field());
+                inputs.append_u64(fee_l.amount.magnitude.as_u64());
+                inputs.append_bool(matches!(fee_l.amount.sgn, SgnStableV1::Pos));
 
-                inputs.append_field(fee_token_r.to_field());
-                inputs.append_u64(fee_excess_r.magnitude.as_u64());
-                inputs.append_bool(matches!(fee_excess_r.sgn, SgnStableV1::Pos));
+                inputs.append_field(fee_r.token.to_field());
+                inputs.append_u64(fee_r.amount.magnitude.as_u64());
+                inputs.append_bool(matches!(fee_r.amount.sgn, SgnStableV1::Pos));
             }
 
             inputs.append_u64(timestamp.as_u64());

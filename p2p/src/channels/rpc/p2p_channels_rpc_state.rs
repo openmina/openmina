@@ -53,4 +53,23 @@ impl P2pChannelsRpcState {
     pub fn is_ready(&self) -> bool {
         matches!(self, Self::Ready { .. })
     }
+
+    pub fn next_local_rpc_id(&self) -> P2pRpcId {
+        match self {
+            Self::Ready {
+                next_local_rpc_id, ..
+            } => *next_local_rpc_id,
+            _ => 0,
+        }
+    }
+
+    pub fn can_send_request(&self) -> bool {
+        match self {
+            Self::Ready { local, .. } => matches!(
+                local,
+                P2pRpcLocalState::WaitingForRequest { .. } | P2pRpcLocalState::Responded { .. }
+            ),
+            _ => false,
+        }
+    }
 }
