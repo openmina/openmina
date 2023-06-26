@@ -7,6 +7,7 @@ use std::{
 
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     account::{Account, AccountId, TokenId},
@@ -176,7 +177,7 @@ pub trait BaseLedger {
     fn commit(&mut self);
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AccountIndex(pub u64);
 
 impl AccountIndex {

@@ -1,3 +1,5 @@
+use mina_p2p_messages::v2::MerkleAddressBinableArgStableV1;
+
 use crate::base::AccountIndex;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -6,7 +8,7 @@ pub enum Direction {
     Right,
 }
 
-#[derive(Clone, Eq)]
+#[derive(Clone, Eq, PartialOrd, Ord)]
 pub struct Address<const NBYTES: usize> {
     pub(super) inner: [u8; NBYTES],
     pub(super) length: usize,
@@ -81,6 +83,41 @@ impl<const NBYTES: usize> std::fmt::Debug for Address<NBYTES> {
     }
 }
 
+mod serde_address_impl {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::*;
+
+    #[derive(Serialize, Deserialize)]
+    struct LedgerAddress {
+        index: u64,
+        length: usize,
+    }
+
+    impl<const NBYTES: usize> Serialize for Address<NBYTES> {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let addr = LedgerAddress {
+                index: self.to_index().0,
+                length: self.length(),
+            };
+            addr.serialize(serializer)
+        }
+    }
+
+    impl<'de, const NBYTES: usize> Deserialize<'de> for Address<NBYTES> {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let addr = LedgerAddress::deserialize(deserializer)?;
+            Ok(Address::from_index(AccountIndex(addr.index), addr.length))
+        }
+    }
+}
+
 impl<const NBYTES: usize> IntoIterator for Address<NBYTES> {
     type Item = Direction;
 
@@ -94,6 +131,12 @@ impl<const NBYTES: usize> IntoIterator for Address<NBYTES> {
             iter_index: 0,
             iter_back_index: length,
         }
+    }
+}
+
+impl<const NBYTES: usize> From<Address<NBYTES>> for MerkleAddressBinableArgStableV1 {
+    fn from(value: Address<NBYTES>) -> Self {
+        Self((value.length() as u64).into(), value.used_bytes().into())
     }
 }
 
@@ -191,7 +234,7 @@ impl<const NBYTES: usize> Address<NBYTES> {
         self.inner[byte_index] &= !(1 << (7 - bit_index));
     }
 
-    fn nused_bytes(&self) -> usize {
+    pub fn nused_bytes(&self) -> usize {
         self.length.saturating_sub(1) / 8 + 1
 
         // let length_div = self.length / 8;
@@ -202,6 +245,10 @@ impl<const NBYTES: usize> Address<NBYTES> {
         // } else {
         //     length_div + 1
         // }
+    }
+
+    pub fn used_bytes(&self) -> &[u8] {
+        &self.inner[..self.nused_bytes()]
     }
 
     pub(super) fn clear_after(&mut self, index: usize) {
@@ -295,6 +342,17 @@ impl<const NBYTES: usize> Address<NBYTES> {
         assert_ne!(self, &prev);
 
         Some(prev)
+    }
+
+    /// Returns first address in the next depth.
+    pub fn next_depth(&self) -> Self {
+        Self::first(self.length.saturating_add(1))
+    }
+
+    /// Returns next address on the same depth or
+    /// the first address in the next depth.
+    pub fn next_or_next_depth(&self) -> Self {
+        self.next().unwrap_or_else(|| self.next_depth())
     }
 
     pub fn to_index(&self) -> AccountIndex {
