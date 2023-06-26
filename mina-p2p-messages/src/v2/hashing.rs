@@ -23,19 +23,20 @@ use crate::{
 };
 
 use super::{
-    generated, SignedAmount, ConsensusBodyReferenceStableV1, ConsensusGlobalSlotStableV1,
+    generated, ConsensusBodyReferenceStableV1, ConsensusGlobalSlotStableV1,
     ConsensusProofOfStakeDataConsensusStateValueStableV1,
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-    ConsensusVrfOutputTruncatedStableV1, MinaBaseEpochLedgerValueStableV1,
-    MinaBaseFeeExcessStableV1, MinaBasePendingCoinbaseStackVersionedStableV1,
-    MinaBasePendingCoinbaseStateStackStableV1, MinaBaseProtocolConstantsCheckedValueStableV1,
-    MinaBaseStagedLedgerHashNonSnarkStableV1, MinaBaseStagedLedgerHashStableV1,
+    ConsensusVrfOutputTruncatedStableV1, MinaBaseAccountBinableArgStableV2,
+    MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1,
+    MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
+    MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashNonSnarkStableV1,
+    MinaBaseStagedLedgerHashStableV1, MinaBaseVerificationKeyWireStableV1,
     MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
     MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
-    NonZeroCurvePointUncompressedStableV1, SgnStableV1, TokenFeeExcess, MinaBaseAccountBinableArgStableV2, MinaBaseVerificationKeyWireStableV1,
+    NonZeroCurvePointUncompressedStableV1, SgnStableV1, SignedAmount, TokenFeeExcess,
 };
 
 impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1 {
@@ -316,7 +317,6 @@ fn param_to_field_impl(param: &str, default: &[u8; 32]) -> Fp {
 
     Fp::read(&fp[..]).expect("fp read failed")
 }
-
 
 const INPUT_PARAMS: &[u8; 32] = b"********************\0\0\0\0\0\0\0\0\0\0\0\0";
 const NO_INPUT_PARAMS: &[u8; 32] = &[0; 32];
@@ -671,8 +671,8 @@ impl ToInput for SgnStableV1 {
         inputs.append_bool(self == &SgnStableV1::Pos);
     }
 }
-mod verification_key;
 mod account;
+mod verification_key;
 
 #[cfg(test)]
 mod hash_tests {

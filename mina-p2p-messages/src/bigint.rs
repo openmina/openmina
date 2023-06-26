@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, derive_more::From, derive_more::Into)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, derive_more::From, derive_more::Into,
+)]
 pub struct BigInt(Box<[u8; 32]>);
 
 impl BigInt {

@@ -1,4 +1,3 @@
-
 use crate::{
     hash_input::{Inputs, ToInput},
     v2::{

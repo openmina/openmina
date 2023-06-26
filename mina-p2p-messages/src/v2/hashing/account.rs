@@ -1,15 +1,19 @@
-
 use std::{array, str::FromStr};
 
 use ark_ff::One;
 use mina_hasher::Fp;
 
 use crate::{
+    bigint::BigInt,
     hash_input::{Inputs, ToInput},
+    pseq::PaddedSeq,
     v2::{
         MinaBaseAccountBinableArgStableV2, MinaBaseAccountTimingStableV1,
-        MinaBasePermissionsStableV2, MinaBaseZkappAccountStableV2, MinaBaseZkappAccountZkappUriStableV1, MinaBaseVerificationKeyWireStableV1, PicklesBaseProofsVerifiedStableV1, MinaBaseVerificationKeyWireStableV1WrapIndex, MinaBasePermissionsAuthRequiredStableV2,
-    }, bigint::BigInt, pseq::PaddedSeq,
+        MinaBasePermissionsAuthRequiredStableV2, MinaBasePermissionsStableV2,
+        MinaBaseVerificationKeyWireStableV1, MinaBaseVerificationKeyWireStableV1WrapIndex,
+        MinaBaseZkappAccountStableV2, MinaBaseZkappAccountZkappUriStableV1,
+        PicklesBaseProofsVerifiedStableV1,
+    },
 };
 
 use super::{hash_noinputs, hash_with_kimchi};

@@ -13,10 +13,9 @@ use super::{
     MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
     MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseHashVersionedStableV1,
     MinaBasePendingCoinbaseStackHashStableV1, MinaBaseSignatureStableV1,
-    MinaBaseStateBodyHashStableV1,
-    NonZeroCurvePointUncompressedStableV1, ParallelScanWeightStableV1,
-    PicklesProofProofsVerified2ReprStableV2StatementFp, ProtocolVersionStableV1, SgnStableV1,
-    TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
+    MinaBaseStateBodyHashStableV1, NonZeroCurvePointUncompressedStableV1,
+    ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
+    ProtocolVersionStableV1, SgnStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
     TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
 };
 
