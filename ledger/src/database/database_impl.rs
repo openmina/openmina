@@ -263,8 +263,8 @@ impl DatabaseImpl<V2> {
         self.hashes_matrix.set(addr, hash);
     }
 
-    pub fn empty_hash_at_height(&mut self, depth: usize) -> Fp {
-        self.hashes_matrix.empty_hash_at_height(depth)
+    pub fn empty_hash_at_height(&mut self, height: usize) -> Fp {
+        self.hashes_matrix.empty_hash_at_height(height)
     }
 
     pub fn invalidate_hashes(&mut self, account_index: AccountIndex) {

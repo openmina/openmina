@@ -93,8 +93,8 @@ impl Database<V2> {
         self.with(|this| this.set_cached_hash(addr, hash))
     }
 
-    pub fn empty_hash_at_height(&mut self, depth: usize) -> Fp {
-        self.with(|this| this.empty_hash_at_height(depth))
+    pub fn empty_hash_at_height(&mut self, height: usize) -> Fp {
+        self.with(|this| this.empty_hash_at_height(height))
     }
 
     pub fn invalidate_hashes(&mut self, account_index: AccountIndex) {
@@ -538,7 +538,7 @@ export function performance_now() {
             "70ccdba14f829608e59a37ed98ffcaeef06dad928d568a9adbde13e3dd104a20"
         );
 
-        for (depth, s) in [
+        for (height, s) in [
             (
                 0,
                 "70ccdba14f829608e59a37ed98ffcaeef06dad928d568a9adbde13e3dd104a20",
@@ -564,14 +564,14 @@ export function performance_now() {
                 "b05105f8281f75efaf3c6b324563685c8be3a01b1c7d3f314ae733d869d95209",
             ),
         ] {
-            let hash = V1::empty_hash_at_height(depth);
-            assert_eq!(hash.to_hex(), s, "invalid hash at depth={:?}", depth);
+            let hash = V1::empty_hash_at_height(height);
+            assert_eq!(hash.to_hex(), s, "invalid hash at depth={:?}", height);
         }
     }
 
     #[test]
     fn test_hash_empty() {
-        let depths = [0, 5, 10, 11, 100, 2000];
+        let heights = [0, 5, 10, 11, 100, 2000];
 
         let hexs = [
             "56ab7bb4c1512ff1482f0396480fa279d61ab463c4739446e1950acadffa7623",
@@ -582,9 +582,9 @@ export function performance_now() {
             "369f340cd9ff975c1f11521d52f6e4bd07eb8457d694b50568e0bb41ab26a921",
         ];
 
-        let result: Vec<_> = depths
+        let result: Vec<_> = heights
             .iter()
-            .map(|depth| V2::empty_hash_at_height(*depth).to_hex())
+            .map(|height| V2::empty_hash_at_height(*height).to_hex())
             .collect();
 
         assert_eq!(result, hexs);
@@ -1276,10 +1276,10 @@ mod tests_ocaml {
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
         elog!("empty={}", Account::empty().hash());
-        elog!("depth1={}", V2::empty_hash_at_height(1));
-        elog!("depth2={}", V2::empty_hash_at_height(2));
-        elog!("depth3={}", V2::empty_hash_at_height(3));
-        elog!("depth4={}", V2::empty_hash_at_height(4));
+        elog!("height1={}", V2::empty_hash_at_height(1));
+        elog!("height2={}", V2::empty_hash_at_height(2));
+        elog!("height3={}", V2::empty_hash_at_height(3));
+        elog!("height4={}", V2::empty_hash_at_height(4));
 
         // let db = Database::<V2>::create(DEPTH as u8);
         // db.merkle_root();

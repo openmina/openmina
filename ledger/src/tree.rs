@@ -197,8 +197,8 @@ impl HashesMatrix {
 }
 
 static HASH_EMPTIES: Lazy<Mutex<Vec<Fp>>> = Lazy::new(|| {
-    /// This value needs to be changed when the tree's depth change
-    const RANGE_DEPTH: std::ops::Range<usize> = 0..36;
+    /// This value needs to be changed when the tree's height change
+    const RANGE_HEIGHT: std::ops::Range<usize> = 0..36;
 
-    Mutex::new((RANGE_DEPTH).map(V2::empty_hash_at_height).collect())
+    Mutex::new((RANGE_HEIGHT).map(V2::empty_hash_at_height).collect())
 });

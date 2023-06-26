@@ -10,7 +10,7 @@ pub trait TreeVersion {
 
     fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp;
     fn hash_leaf(leaf: &Self::Account) -> Fp;
-    fn empty_hash_at_height(depth: usize) -> Fp;
+    fn empty_hash_at_height(height: usize) -> Fp;
 }
 
 #[derive(Clone, Debug)]
