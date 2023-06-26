@@ -1559,7 +1559,8 @@ impl ScanState {
                 let acc = txns
                     .into_iter()
                     .map(|txn| {
-                        let mut first_pass_ledger_witness = txn.first_pass_ledger_witness.clone();
+                        let mut first_pass_ledger_witness =
+                            txn.first_pass_ledger_witness.copy_content();
 
                         let (transaction, state_hash, block_global_slot) =
                             ScanState::extract_txn_and_global_slot(txn);
