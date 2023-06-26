@@ -72,4 +72,34 @@ impl P2pChannelsRpcState {
             _ => false,
         }
     }
+
+    pub fn is_timed_out(&self, rpc_id: P2pRpcId, now: redux::Timestamp) -> bool {
+        match self {
+            Self::Ready {
+                local: P2pRpcLocalState::Requested { time, id, request },
+                ..
+            } => {
+                rpc_id == *id
+                    && request
+                        .kind()
+                        .timeout()
+                        .and_then(|timeout| {
+                            let dur = now.checked_sub(*time)?;
+                            Some(dur >= timeout)
+                        })
+                        .unwrap_or(false)
+            }
+            _ => false,
+        }
+    }
+
+    pub fn pending_local_rpc_id(&self) -> Option<P2pRpcId> {
+        match self {
+            Self::Ready {
+                local: P2pRpcLocalState::Requested { id, .. },
+                ..
+            } => Some(*id),
+            _ => None,
+        }
+    }
 }

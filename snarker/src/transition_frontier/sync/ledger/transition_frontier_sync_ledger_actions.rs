@@ -4,7 +4,9 @@ use crate::ledger::LedgerAddress;
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 
-use super::{PeerLedgerQueryResponse, PeerRpcState, TransitionFrontierSyncLedgerState};
+use super::{
+    PeerLedgerQueryError, PeerLedgerQueryResponse, PeerRpcState, TransitionFrontierSyncLedgerState,
+};
 
 pub type TransitionFrontierSyncLedgerActionWithMeta =
     redux::ActionWithMeta<TransitionFrontierSyncLedgerAction>;
@@ -21,6 +23,12 @@ pub enum TransitionFrontierSyncLedgerAction {
     ),
     SnarkedLedgerSyncPeerQueryPending(
         TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction,
+    ),
+    SnarkedLedgerSyncPeerQueryRetry(
+        TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction,
+    ),
+    SnarkedLedgerSyncPeerQueryError(
+        TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction,
     ),
     SnarkedLedgerSyncPeerQuerySuccess(
         TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction,
@@ -87,12 +95,9 @@ impl redux::EnablingCondition<crate::State>
                 .transition_frontier
                 .sync
                 .root_ledger()
-                .map_or(false, |s| match s {
-                    TransitionFrontierSyncLedgerState::SnarkedLedgerSyncPending {
-                        next_addr,
-                        ..
-                    } => next_addr.is_some(),
-                    _ => false,
+                .map_or(false, |s| {
+                    s.snarked_ledger_sync_next().is_some()
+                        || s.snarked_ledger_sync_retry_iter().next().is_some()
                 })
     }
 }
@@ -133,6 +138,31 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction {
+    pub address: LedgerAddress,
+    pub peer_id: PeerId,
+}
+
+impl redux::EnablingCondition<crate::State>
+    for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction
+{
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        let check_next_addr = state
+            .transition_frontier
+            .sync
+            .root_ledger()
+            .and_then(|s| s.snarked_ledger_sync_retry_iter().next())
+            .map_or(false, |addr| addr == self.address);
+
+        let check_peer_available = state
+            .p2p
+            .get_ready_peer(&self.peer_id)
+            .map_or(false, |p| p.channels.rpc.can_send_request());
+        check_next_addr && check_peer_available
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction {
     pub address: LedgerAddress,
     pub peer_id: PeerId,
@@ -160,6 +190,29 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction {
+    pub peer_id: PeerId,
+    pub rpc_id: P2pRpcId,
+    pub error: PeerLedgerQueryError,
+}
+
+impl redux::EnablingCondition<crate::State>
+    for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction
+{
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .transition_frontier
+            .sync
+            .root_ledger()
+            .map_or(false, |s| {
+                s.snarked_ledger_peer_query_get(&self.peer_id, self.rpc_id)
+                    .and_then(|(_, s)| s.attempts.get(&self.peer_id))
+                    .map_or(false, |s| matches!(s, PeerRpcState::Pending { .. }))
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction {
     pub peer_id: PeerId,
     pub rpc_id: P2pRpcId,
@@ -178,7 +231,8 @@ impl redux::EnablingCondition<crate::State>
                 // TODO(binier): check if expected response
                 // kind is correct.
                 s.snarked_ledger_peer_query_get(&self.peer_id, self.rpc_id)
-                    .is_some()
+                    .and_then(|(_, s)| s.attempts.get(&self.peer_id))
+                    .map_or(false, |s| matches!(s, PeerRpcState::Pending { .. }))
             })
     }
 }
@@ -360,6 +414,8 @@ impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAct
 impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction);

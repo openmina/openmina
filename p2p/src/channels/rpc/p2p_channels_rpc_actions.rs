@@ -15,6 +15,7 @@ pub enum P2pChannelsRpcAction {
     Ready(P2pChannelsRpcReadyAction),
 
     RequestSend(P2pChannelsRpcRequestSendAction),
+    Timeout(P2pChannelsRpcTimeoutAction),
     ResponseReceived(P2pChannelsRpcResponseReceivedAction),
 
     RequestReceived(P2pChannelsRpcRequestReceivedAction),
@@ -28,6 +29,7 @@ impl P2pChannelsRpcAction {
             Self::Pending(v) => &v.peer_id,
             Self::Ready(v) => &v.peer_id,
             Self::RequestSend(v) => &v.peer_id,
+            Self::Timeout(v) => &v.peer_id,
             Self::ResponseReceived(v) => &v.peer_id,
             Self::RequestReceived(v) => &v.peer_id,
             Self::ResponseSend(v) => &v.peer_id,
@@ -98,6 +100,26 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcRequestSendAction {
                                 | P2pRpcLocalState::Responded { .. }
                         )
                 }
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pChannelsRpcTimeoutAction {
+    pub peer_id: PeerId,
+    pub id: P2pRpcId,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pChannelsRpcTimeoutAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state
+            .get_ready_peer(&self.peer_id)
+            .map_or(false, |p| match &p.channels.rpc {
+                P2pChannelsRpcState::Ready { local, .. } => match local {
+                    P2pRpcLocalState::Requested { id, .. } => *id == self.id,
+                    _ => false,
+                },
                 _ => false,
             })
     }
@@ -197,6 +219,12 @@ impl From<P2pChannelsRpcReadyAction> for crate::P2pAction {
 
 impl From<P2pChannelsRpcRequestSendAction> for crate::P2pAction {
     fn from(a: P2pChannelsRpcRequestSendAction) -> Self {
+        Self::Channels(P2pChannelsAction::Rpc(a.into()))
+    }
+}
+
+impl From<P2pChannelsRpcTimeoutAction> for crate::P2pAction {
+    fn from(a: P2pChannelsRpcTimeoutAction) -> Self {
         Self::Channels(P2pChannelsAction::Rpc(a.into()))
     }
 }

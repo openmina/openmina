@@ -18,3 +18,9 @@ pub enum PeerLedgerQueryResponse {
     ChildHashes(LedgerHash, LedgerHash),
     Accounts(Vec<MinaBaseAccountBinableArgStableV2>),
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum PeerLedgerQueryError {
+    Timeout,
+    Disconnected,
+}

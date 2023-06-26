@@ -34,7 +34,13 @@ pub fn transition_frontier_effects<S: crate::Service>(
             TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryInit(action) => {
                 action.effects(&meta, store);
             }
+            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryRetry(action) => {
+                action.effects(&meta, store);
+            }
             TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryPending(_) => {}
+            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryError(action) => {
+                action.effects(&meta, store);
+            }
             TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQuerySuccess(action) => {
                 action.effects(&meta, store);
             }

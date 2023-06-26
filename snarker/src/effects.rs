@@ -5,6 +5,7 @@ use crate::job_commitment::{
 };
 use crate::ledger::ledger_effects;
 use crate::logger::logger_effects;
+use crate::p2p::channels::rpc::P2pChannelsRpcTimeoutAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
 };
@@ -53,6 +54,11 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             store.dispatch(JobCommitmentCheckTimeoutsAction {});
             store.dispatch(JobCommitmentP2pSendAllAction {});
+
+            let state = store.state();
+            for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {
+                store.dispatch(P2pChannelsRpcTimeoutAction { peer_id, id });
+            }
         }
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));

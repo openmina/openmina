@@ -4,6 +4,7 @@ use shared::block::BlockWithHash;
 use crate::consensus::ConsensusBlockReceivedAction;
 use crate::job_commitment::JobCommitmentAddAction;
 use crate::p2p::channels::rpc::{P2pChannelsRpcRequestSendAction, P2pRpcRequest};
+use crate::p2p::disconnection::P2pDisconnectionInitAction;
 use crate::p2p::peer::P2pPeerAction;
 use crate::rpc::{
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingRespondAction,
@@ -12,7 +13,9 @@ use crate::rpc::{
 };
 use crate::snark::hash::{state_hash, state_hash_from_hashes};
 use crate::transition_frontier::sync::ledger::{
-    PeerLedgerQueryResponse, TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction,
+    PeerLedgerQueryError, PeerLedgerQueryResponse,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction,
 };
 use crate::transition_frontier::TransitionFrontierSyncInitAction;
@@ -151,6 +154,21 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             match action {
                 P2pDisconnectionAction::Init(action) => action.effects(&meta, store),
                 P2pDisconnectionAction::Finish(action) => {
+                    if let Some(s) = store.state().transition_frontier.sync.root_ledger() {
+                        let rpc_ids = s
+                            .snarked_ledger_peer_query_pending_rpc_ids(&action.peer_id)
+                            .collect::<Vec<_>>();
+                        for rpc_id in rpc_ids {
+                            store.dispatch(
+                                TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction {
+                                    peer_id: action.peer_id,
+                                    rpc_id,
+                                    error: PeerLedgerQueryError::Disconnected,
+                                },
+                            );
+                        }
+                    }
+
                     let actions = store.state().watched_accounts.iter()
                     .filter_map(|(pub_key, a)| match &a.initial_state {
                         WatchedAccountLedgerInitialState::Pending { peer_id, .. } => {
@@ -250,6 +268,18 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 }
                 P2pChannelsRpcAction::RequestSend(action) => {
                     action.effects(&meta, store);
+                }
+                P2pChannelsRpcAction::Timeout(action) => {
+                    store.dispatch(
+                        TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction {
+                            peer_id: action.peer_id,
+                            rpc_id: action.id,
+                            error: PeerLedgerQueryError::Timeout,
+                        },
+                    );
+                    store.dispatch(P2pDisconnectionInitAction {
+                        peer_id: action.peer_id,
+                    });
                 }
                 P2pChannelsRpcAction::ResponseReceived(action) => {
                     action.effects(&meta, store);
