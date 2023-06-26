@@ -2,7 +2,10 @@ use crate::ledger::{ledger_empty_hash_at_depth, LedgerAddress};
 
 use super::{
     LedgerQueryPending, PeerLedgerQueryResponse, PeerRpcState, TransitionFrontierSyncLedgerAction,
-    TransitionFrontierSyncLedgerActionWithMetaRef, TransitionFrontierSyncLedgerState,
+    TransitionFrontierSyncLedgerActionWithMetaRef,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction,
+    TransitionFrontierSyncLedgerState,
 };
 
 impl TransitionFrontierSyncLedgerState {
@@ -22,25 +25,34 @@ impl TransitionFrontierSyncLedgerState {
                 }
             }
             TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeersQuery(_) => {}
-            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryInit(action) => {
+            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryInit(
+                TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction {
+                    peer_id,
+                    address,
+                },
+            )
+            | TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryRetry(
+                TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction {
+                    peer_id,
+                    address,
+                },
+            ) => {
                 if let Self::SnarkedLedgerSyncPending {
                     pending, next_addr, ..
                 } = self
                 {
                     pending.insert(
-                        action.address.clone(),
+                        address.clone(),
                         LedgerQueryPending {
                             time: meta.time(),
                             attempts: std::iter::once((
-                                action.peer_id,
+                                *peer_id,
                                 PeerRpcState::Init { time: meta.time() },
                             ))
                             .collect(),
                         },
                     );
-                    *next_addr = next_addr
-                        .as_ref()
-                        .map(|addr| dbg!(dbg!(addr).next_or_next_depth()))
+                    *next_addr = next_addr.as_ref().map(|addr| addr.next_or_next_depth())
                 }
             }
             TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryPending(action) => {
@@ -53,17 +65,25 @@ impl TransitionFrontierSyncLedgerState {
                     rpc_id: action.rpc_id,
                 };
             }
+            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryError(action) => {
+                let Some(rpc_state) = self.snarked_ledger_peer_query_get_mut(&action.peer_id, action.rpc_id) else { return };
+
+                *rpc_state = PeerRpcState::Error {
+                    time: meta.time(),
+                    error: action.error.clone(),
+                };
+            }
             TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQuerySuccess(action) => {
                 let Some((addr, _)) = self.snarked_ledger_peer_query_get(&action.peer_id, action.rpc_id) else { return };
                 let addr = addr.clone();
                 let Self::SnarkedLedgerSyncPending { next_addr, pending, .. } = self else { return };
-                pending.remove(dbg!(&addr));
+                pending.remove(&addr);
 
                 match &action.response {
                     PeerLedgerQueryResponse::ChildHashes(_, hash) => {
                         let empty_hash = ledger_empty_hash_at_depth(addr.length() + 1);
                         if hash == &empty_hash {
-                            *next_addr = dbg!(Some(addr.next_depth()));
+                            *next_addr = Some(addr.next_depth());
                         }
                     }
                     PeerLedgerQueryResponse::Accounts(list) => {

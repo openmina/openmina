@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use shared::requests::RpcId;
 
+use crate::channels::rpc::P2pRpcId;
 use crate::channels::{ChannelId, P2pChannelsState};
 use crate::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::PeerId;
@@ -88,6 +89,29 @@ impl P2pState {
             .get(peer_id)
             .and_then(|p| p.dial_opts.as_ref())
             .map_or(false, |opts| opts.is_libp2p())
+    }
+
+    pub fn is_peer_rpc_timed_out(
+        &self,
+        peer_id: &PeerId,
+        rpc_id: P2pRpcId,
+        now: redux::Timestamp,
+    ) -> bool {
+        self.get_ready_peer(peer_id)
+            .map_or(false, |p| p.channels.rpc.is_timed_out(rpc_id, now))
+    }
+
+    pub fn peer_rpc_timeouts(&self, now: redux::Timestamp) -> Vec<(PeerId, P2pRpcId)> {
+        self.ready_peers_iter()
+            .filter_map(|(peer_id, s)| {
+                let rpc_id = s.channels.rpc.pending_local_rpc_id()?;
+                if !s.channels.rpc.is_timed_out(rpc_id, now) {
+                    return None;
+                }
+
+                Some((*peer_id, rpc_id))
+            })
+            .collect()
     }
 
     pub fn already_has_min_peers(&self) -> bool {

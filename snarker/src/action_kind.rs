@@ -26,7 +26,7 @@ use crate::p2p::channels::rpc::{
     P2pChannelsRpcAction, P2pChannelsRpcInitAction, P2pChannelsRpcPendingAction,
     P2pChannelsRpcReadyAction, P2pChannelsRpcRequestReceivedAction,
     P2pChannelsRpcRequestSendAction, P2pChannelsRpcResponseReceivedAction,
-    P2pChannelsRpcResponseSendAction,
+    P2pChannelsRpcResponseSendAction, P2pChannelsRpcTimeoutAction,
 };
 use crate::p2p::channels::snark_job_commitment::{
     P2pChannelsSnarkJobCommitmentAction, P2pChannelsSnarkJobCommitmentInitAction,
@@ -80,8 +80,10 @@ use crate::snark::block_verify::{
 use crate::snark::SnarkAction;
 use crate::transition_frontier::sync::ledger::{
     TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerInitAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction,
@@ -150,6 +152,7 @@ pub enum ActionKind {
     P2pChannelsRpcRequestSend,
     P2pChannelsRpcResponseReceived,
     P2pChannelsRpcResponseSend,
+    P2pChannelsRpcTimeout,
     P2pChannelsSnarkJobCommitmentInit,
     P2pChannelsSnarkJobCommitmentPending,
     P2pChannelsSnarkJobCommitmentPromiseReceived,
@@ -210,8 +213,10 @@ pub enum ActionKind {
     TransitionFrontierRootLedgerSyncPending,
     TransitionFrontierSyncInit,
     TransitionFrontierSyncLedgerInit,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryError,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInit,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPending,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetry,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccess,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQuery,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPending,
@@ -236,7 +241,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 118;
+    pub const COUNT: usize = 121;
 }
 
 impl ActionKindGet for Action {
@@ -516,6 +521,8 @@ impl ActionKindGet for TransitionFrontierSyncLedgerAction {
             Self::SnarkedLedgerSyncPeersQuery(a) => a.kind(),
             Self::SnarkedLedgerSyncPeerQueryInit(a) => a.kind(),
             Self::SnarkedLedgerSyncPeerQueryPending(a) => a.kind(),
+            Self::SnarkedLedgerSyncPeerQueryRetry(a) => a.kind(),
+            Self::SnarkedLedgerSyncPeerQueryError(a) => a.kind(),
             Self::SnarkedLedgerSyncPeerQuerySuccess(a) => a.kind(),
             Self::SnarkedLedgerSyncSuccess(a) => a.kind(),
             Self::StagedLedgerPartsFetchInit(a) => a.kind(),
@@ -798,6 +805,7 @@ impl ActionKindGet for P2pChannelsRpcAction {
             Self::Pending(a) => a.kind(),
             Self::Ready(a) => a.kind(),
             Self::RequestSend(a) => a.kind(),
+            Self::Timeout(a) => a.kind(),
             Self::ResponseReceived(a) => a.kind(),
             Self::RequestReceived(a) => a.kind(),
             Self::ResponseSend(a) => a.kind(),
@@ -874,6 +882,18 @@ impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryIni
 impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction {
     fn kind(&self) -> ActionKind {
         ActionKind::TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPending
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetry
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryError
     }
 }
 
@@ -1204,6 +1224,12 @@ impl ActionKindGet for P2pChannelsRpcReadyAction {
 impl ActionKindGet for P2pChannelsRpcRequestSendAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pChannelsRpcRequestSend
+    }
+}
+
+impl ActionKindGet for P2pChannelsRpcTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsRpcTimeout
     }
 }
 

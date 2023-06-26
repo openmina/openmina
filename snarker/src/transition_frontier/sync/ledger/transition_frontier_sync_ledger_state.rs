@@ -12,6 +12,11 @@ use crate::ledger::LedgerAddress;
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 
+use super::PeerLedgerQueryError;
+
+static SNARKED_LEDGER_SYNC_PENDING_EMPTY: BTreeMap<LedgerAddress, LedgerQueryPending> =
+    BTreeMap::new();
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransitionFrontierSyncLedgerState {
     Init {
@@ -77,8 +82,34 @@ pub struct LedgerQueryPending {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PeerRpcState {
-    Init { time: Timestamp },
-    Pending { time: Timestamp, rpc_id: P2pRpcId },
+    Init {
+        time: Timestamp,
+    },
+    Pending {
+        time: Timestamp,
+        rpc_id: P2pRpcId,
+    },
+    Error {
+        time: Timestamp,
+        error: PeerLedgerQueryError,
+    },
+}
+
+impl PeerRpcState {
+    pub fn pending_rpc_id(&self) -> Option<P2pRpcId> {
+        match self {
+            Self::Pending { rpc_id, .. } => Some(*rpc_id),
+            _ => None,
+        }
+    }
+
+    pub fn is_pending(&self) -> bool {
+        matches!(self, Self::Pending { .. })
+    }
+
+    pub fn is_error(&self) -> bool {
+        matches!(self, Self::Error { .. })
+    }
 }
 
 impl TransitionFrontierSyncLedgerState {
@@ -108,6 +139,17 @@ impl TransitionFrontierSyncLedgerState {
             .clone()
     }
 
+    pub fn snarked_ledger_sync_retry_iter(&self) -> impl '_ + Iterator<Item = LedgerAddress> {
+        let pending = match self {
+            Self::SnarkedLedgerSyncPending { pending, .. } => pending,
+            _ => &SNARKED_LEDGER_SYNC_PENDING_EMPTY,
+        };
+        pending
+            .iter()
+            .filter(|(_, s)| s.attempts.values().all(|s| s.is_error()))
+            .map(|(addr, _)| addr.clone())
+    }
+
     pub fn snarked_ledger_sync_next(&self) -> Option<LedgerAddress> {
         match self {
             Self::SnarkedLedgerSyncPending { next_addr, .. } => next_addr.clone(),
@@ -132,5 +174,40 @@ impl TransitionFrontierSyncLedgerState {
             }
             _ => None,
         }
+    }
+
+    pub fn snarked_ledger_peer_query_get_mut(
+        &mut self,
+        peer_id: &PeerId,
+        rpc_id: P2pRpcId,
+    ) -> Option<&mut PeerRpcState> {
+        match self {
+            Self::SnarkedLedgerSyncPending { pending, .. } => {
+                let expected_rpc_id = rpc_id;
+                pending.iter_mut().find_map(|(_, s)| {
+                    s.attempts.get_mut(peer_id).filter(|s| match s {
+                        PeerRpcState::Pending { rpc_id, .. } => *rpc_id == expected_rpc_id,
+                        _ => false,
+                    })
+                })
+            }
+            _ => None,
+        }
+    }
+
+    pub fn snarked_ledger_peer_query_pending_rpc_ids<'a>(
+        &'a self,
+        peer_id: &'a PeerId,
+    ) -> impl 'a + Iterator<Item = P2pRpcId> {
+        let pending = match self {
+            Self::SnarkedLedgerSyncPending { pending, .. } => pending,
+            _ => &SNARKED_LEDGER_SYNC_PENDING_EMPTY,
+        };
+        pending.values().filter_map(move |s| {
+            s.attempts
+                .iter()
+                .find(|(id, _)| *id == peer_id)
+                .and_then(|(_, s)| s.pending_rpc_id())
+        })
     }
 }
