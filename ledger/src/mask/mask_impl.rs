@@ -512,14 +512,14 @@ impl MaskImpl {
         matrix.set(addr, hash);
     }
 
-    pub fn empty_hash_at_depth(&mut self, depth: usize) -> Fp {
+    pub fn empty_hash_at_height(&mut self, height: usize) -> Fp {
         let matrix = match self {
-            Root { database, .. } => return database.empty_hash_at_depth(depth),
+            Root { database, .. } => return database.empty_hash_at_height(height),
             Attached { hashes, .. } => hashes,
             Unattached { hashes, .. } => hashes,
         };
 
-        matrix.empty_hash_at_depth(depth)
+        matrix.empty_hash_at_height(height)
     }
 
     fn invalidate_hashes(&mut self, account_index: AccountIndex) {
@@ -647,7 +647,7 @@ impl MaskImpl {
         if current_depth == 0 {
             return self
                 .get_account_hash(addr.to_index())
-                .unwrap_or_else(|| self.empty_hash_at_depth(0));
+                .unwrap_or_else(|| self.empty_hash_at_height(0));
         }
 
         let mut get_child_hash = |addr: Address| {
@@ -656,7 +656,7 @@ impl MaskImpl {
             } else if addr.is_before(last_account) {
                 self.compute_hash_or_parent(addr, last_account)
             } else {
-                self.empty_hash_at_depth(current_depth - 1)
+                self.empty_hash_at_height(current_depth - 1)
             }
         };
 
@@ -685,7 +685,7 @@ impl MaskImpl {
         if addr.length() == tree_depth {
             return self
                 .get_account_hash(addr.to_index())
-                .unwrap_or_else(|| self.empty_hash_at_depth(0));
+                .unwrap_or_else(|| self.empty_hash_at_height(0));
         }
 
         let next_direction = path.next();
@@ -713,7 +713,7 @@ impl MaskImpl {
                         false,
                     )
                 } else {
-                    self.empty_hash_at_depth(depth_in_tree - 1)
+                    self.empty_hash_at_height(depth_in_tree - 1)
                 }
             }
         };

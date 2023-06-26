@@ -93,8 +93,8 @@ impl Database<V2> {
         self.with(|this| this.set_cached_hash(addr, hash))
     }
 
-    pub fn empty_hash_at_depth(&mut self, depth: usize) -> Fp {
-        self.with(|this| this.empty_hash_at_depth(depth))
+    pub fn empty_hash_at_height(&mut self, depth: usize) -> Fp {
+        self.with(|this| this.empty_hash_at_height(depth))
     }
 
     pub fn invalidate_hashes(&mut self, account_index: AccountIndex) {
@@ -564,7 +564,7 @@ export function performance_now() {
                 "b05105f8281f75efaf3c6b324563685c8be3a01b1c7d3f314ae733d869d95209",
             ),
         ] {
-            let hash = V1::empty_hash_at_depth(depth);
+            let hash = V1::empty_hash_at_height(depth);
             assert_eq!(hash.to_hex(), s, "invalid hash at depth={:?}", depth);
         }
     }
@@ -584,7 +584,7 @@ export function performance_now() {
 
         let result: Vec<_> = depths
             .iter()
-            .map(|depth| V2::empty_hash_at_depth(*depth).to_hex())
+            .map(|depth| V2::empty_hash_at_height(*depth).to_hex())
             .collect();
 
         assert_eq!(result, hexs);
@@ -1276,10 +1276,10 @@ mod tests_ocaml {
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
         elog!("empty={}", Account::empty().hash());
-        elog!("depth1={}", V2::empty_hash_at_depth(1));
-        elog!("depth2={}", V2::empty_hash_at_depth(2));
-        elog!("depth3={}", V2::empty_hash_at_depth(3));
-        elog!("depth4={}", V2::empty_hash_at_depth(4));
+        elog!("depth1={}", V2::empty_hash_at_height(1));
+        elog!("depth2={}", V2::empty_hash_at_height(2));
+        elog!("depth3={}", V2::empty_hash_at_height(3));
+        elog!("depth4={}", V2::empty_hash_at_height(4));
 
         // let db = Database::<V2>::create(DEPTH as u8);
         // db.merkle_root();

@@ -231,7 +231,7 @@ impl SparseLedgerImpl<AccountId, Account> {
 
         let hash = match self.get(&addr) {
             Some(value) => V2::hash_leaf(value),
-            None => V2::empty_hash_at_depth(0),
+            None => V2::empty_hash_at_height(0),
         };
 
         self.hashes_matrix.set(&addr, hash);

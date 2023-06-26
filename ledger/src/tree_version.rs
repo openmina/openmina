@@ -10,7 +10,7 @@ pub trait TreeVersion {
 
     fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp;
     fn hash_leaf(leaf: &Self::Account) -> Fp;
-    fn empty_hash_at_depth(depth: usize) -> Fp;
+    fn empty_hash_at_height(depth: usize) -> Fp;
 }
 
 #[derive(Clone, Debug)]
@@ -33,13 +33,13 @@ impl TreeVersion for V2 {
         leaf.hash()
     }
 
-    fn empty_hash_at_depth(depth: usize) -> Fp {
+    fn empty_hash_at_height(height: usize) -> Fp {
         // let now = std::time::Instant::now();
 
-        (0..depth).fold(Account::empty().hash(), |prev_hash, depth| {
-            Self::hash_node(depth, prev_hash, prev_hash)
+        (0..height).fold(Account::empty().hash(), |prev_hash, height| {
+            Self::hash_node(height, prev_hash, prev_hash)
         })
-        // elog!("empty_hash_at_depth={:?} {:?}", depth, now.elapsed());
+        // elog!("empty_hash_at_height={:?} {:?}", height, now.elapsed());
 
         // res
     }
@@ -83,9 +83,9 @@ impl TreeVersion for V1 {
         hasher.digest()
     }
 
-    fn empty_hash_at_depth(depth: usize) -> Fp {
-        (0..depth).fold(account_empty_legacy_hash(), |prev_hash, depth| {
-            Self::hash_node(depth, prev_hash, prev_hash)
+    fn empty_hash_at_height(height: usize) -> Fp {
+        (0..height).fold(account_empty_legacy_hash(), |prev_hash, height| {
+            Self::hash_node(height, prev_hash, prev_hash)
         })
     }
 }

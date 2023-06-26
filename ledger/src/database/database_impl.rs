@@ -159,7 +159,7 @@ impl DatabaseImpl<V2> {
         if current_depth == 0 {
             return self
                 .get_account_hash(addr.to_index())
-                .unwrap_or_else(|| self.hashes_matrix.empty_hash_at_depth(0));
+                .unwrap_or_else(|| self.hashes_matrix.empty_hash_at_height(0));
         }
 
         let mut get_child_hash = |addr: Address| {
@@ -168,7 +168,7 @@ impl DatabaseImpl<V2> {
             } else if addr.is_before(last_account) {
                 self.emulate_tree_recursive(addr, last_account)
             } else {
-                self.hashes_matrix.empty_hash_at_depth(current_depth - 1)
+                self.hashes_matrix.empty_hash_at_height(current_depth - 1)
             }
         };
 
@@ -197,7 +197,7 @@ impl DatabaseImpl<V2> {
         if addr.length() == self.depth as usize {
             return self
                 .get_account_hash(addr.to_index())
-                .unwrap_or_else(|| self.hashes_matrix.empty_hash_at_depth(0));
+                .unwrap_or_else(|| self.hashes_matrix.empty_hash_at_height(0));
         }
 
         let next_direction = path.next();
@@ -221,7 +221,7 @@ impl DatabaseImpl<V2> {
                 } else if addr.is_before(last_account) {
                     self.emulate_tree_to_get_path(addr, last_account, path, merkle_path)
                 } else {
-                    self.hashes_matrix.empty_hash_at_depth(depth_in_tree - 1)
+                    self.hashes_matrix.empty_hash_at_height(depth_in_tree - 1)
                 }
             }
         };
@@ -263,8 +263,8 @@ impl DatabaseImpl<V2> {
         self.hashes_matrix.set(addr, hash);
     }
 
-    pub fn empty_hash_at_depth(&mut self, depth: usize) -> Fp {
-        self.hashes_matrix.empty_hash_at_depth(depth)
+    pub fn empty_hash_at_height(&mut self, depth: usize) -> Fp {
+        self.hashes_matrix.empty_hash_at_height(depth)
     }
 
     pub fn invalidate_hashes(&mut self, account_index: AccountIndex) {
