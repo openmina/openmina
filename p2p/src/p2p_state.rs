@@ -56,6 +56,12 @@ impl P2pState {
             .collect()
     }
 
+    pub fn ready_peers_iter(&self) -> impl Iterator<Item = (&PeerId, &P2pPeerStatusReady)> {
+        self.peers
+            .iter()
+            .filter_map(|(id, p)| Some((id, p.status.as_ready()?)))
+    }
+
     pub fn ready_peers(&self) -> Vec<PeerId> {
         self.peers
             .iter()

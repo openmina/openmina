@@ -120,6 +120,7 @@ impl BestTipHistory {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsensusState {
     pub blocks: BTreeMap<StateHash, ConsensusBlockState>,
+    // TODO(binier): rename to best candidate. Best tip will be in transition_frontier state.
     pub best_tip: Option<StateHash>,
     pub best_tip_history: BestTipHistory,
 }

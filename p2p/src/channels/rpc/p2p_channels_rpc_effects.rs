@@ -40,7 +40,7 @@ impl P2pChannelsRpcRequestSendAction {
 }
 
 impl P2pChannelsRpcResponseReceivedAction {
-    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(&self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         P2pPeerBestTipUpdateAction: redux::EnablingCondition<S>,

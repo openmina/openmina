@@ -34,28 +34,27 @@ pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: Consen
             store.dispatch(ConsensusBestTipUpdateAction { hash: a.hash });
         }
         ConsensusAction::BestTipUpdate(_) => {
-            if let Some(block) = store.state.get().consensus.best_tip_block_with_hash() {
-                if let Some(stats) = store.service.stats() {
-                    // TODO(binier): call this once block is our best tip,
-                    // meaning we have synced to it.
-                    stats.new_best_tip(meta.time(), &block);
-                }
-                for pub_key in store.state().watched_accounts.accounts() {
-                    store.dispatch(WatchedAccountsLedgerInitialStateGetInitAction {
-                        pub_key: pub_key.clone(),
-                    });
-                    store.dispatch(WatchedAccountsBlockTransactionsIncludedAction {
-                        pub_key,
-                        block: block.clone(),
-                    });
-                }
+            let Some(block) = store.state.get().consensus.best_tip_block_with_hash() else { return };
+            if let Some(stats) = store.service.stats() {
+                // TODO(binier): call this once block is our best tip,
+                // meaning we have synced to it.
+                stats.new_best_tip(meta.time(), &block);
+            }
+            for pub_key in store.state().watched_accounts.accounts() {
+                store.dispatch(WatchedAccountsLedgerInitialStateGetInitAction {
+                    pub_key: pub_key.clone(),
+                });
+                store.dispatch(WatchedAccountsBlockTransactionsIncludedAction {
+                    pub_key,
+                    block: block.clone(),
+                });
+            }
 
-                for peer_id in store.state().p2p.ready_peers() {
-                    store.dispatch(P2pChannelsBestTipResponseSendAction {
-                        peer_id,
-                        best_tip: block.clone(),
-                    });
-                }
+            for peer_id in store.state().p2p.ready_peers() {
+                store.dispatch(P2pChannelsBestTipResponseSendAction {
+                    peer_id,
+                    best_tip: block.clone(),
+                });
             }
         }
         ConsensusAction::BestTipHistoryUpdate(_) => {}

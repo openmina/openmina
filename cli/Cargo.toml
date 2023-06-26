@@ -19,6 +19,7 @@ tokio = { version = "1.26.0" }
 tokio-util = { version = "*", features = ["rt"] }
 warp = "0.3.3"
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
+ledger = { package = "mina-tree", git = "https://github.com/openmina/ledger", branch = "openmina" }
 
 console = "0.15.5"
 structopt = "0.3.26"

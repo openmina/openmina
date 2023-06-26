@@ -119,7 +119,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcResponseReceivedAction
             .map_or(false, |p| match &p.channels.rpc {
                 P2pChannelsRpcState::Ready { local, .. } => match local {
                     // TODO(binier): validate that response corresponds to request.
-                    P2pRpcLocalState::Requested { id, request, .. } => *id == self.id,
+                    P2pRpcLocalState::Requested { id, .. } => *id == self.id,
                     _ => false,
                 },
                 _ => false,

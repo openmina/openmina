@@ -6,9 +6,11 @@ pub type ActionWithMetaRef<'a> = redux::ActionWithMeta<&'a Action>;
 pub use crate::consensus::ConsensusAction;
 pub use crate::event_source::EventSourceAction;
 pub use crate::job_commitment::JobCommitmentAction;
+use crate::ledger::LedgerAction;
 pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
 pub use crate::snark::SnarkAction;
+pub use crate::transition_frontier::TransitionFrontierAction;
 pub use crate::watched_accounts::WatchedAccountsAction;
 
 pub trait ActionKindGet {
@@ -20,9 +22,11 @@ pub enum Action {
     CheckTimeouts(CheckTimeoutsAction),
     EventSource(EventSourceAction),
 
+    Ledger(LedgerAction),
     P2p(P2pAction),
     Snark(SnarkAction),
     Consensus(ConsensusAction),
+    TransitionFrontier(TransitionFrontierAction),
     JobCommitment(JobCommitmentAction),
     Rpc(RpcAction),
 

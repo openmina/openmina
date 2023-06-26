@@ -3,6 +3,7 @@ use crate::event_source::event_source_effects;
 use crate::job_commitment::{
     job_commitment_effects, JobCommitmentCheckTimeoutsAction, JobCommitmentP2pSendAllAction,
 };
+use crate::ledger::ledger_effects;
 use crate::logger::logger_effects;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
@@ -10,6 +11,7 @@ use crate::p2p::connection::outgoing::{
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
+use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
 use crate::{Action, ActionWithMeta, Service, Store};
 
@@ -55,11 +57,17 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));
         }
+        Action::Ledger(action) => {
+            ledger_effects(store, meta.with_action(action));
+        }
         Action::Snark(action) => {
             snark_effects(store, meta.with_action(action));
         }
         Action::Consensus(action) => {
             consensus_effects(store, meta.with_action(action));
+        }
+        Action::TransitionFrontier(action) => {
+            transition_frontier_effects(store, meta.with_action(action));
         }
         Action::P2p(action) => {
             p2p_effects(store, meta.with_action(action));

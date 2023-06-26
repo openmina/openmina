@@ -23,11 +23,18 @@ panic = "abort"
 incremental = false
 codegen-units = 1
 
+[patch.crates-io]
+ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+
 [patch.'https://github.com/o1-labs/proof-systems']
-mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
-kimchi = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
-poly-commitment = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
-mina-poseidon = { git = "https://github.com/openmina/proof-systems", branch = "openmina-newtypes" }
+mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
+o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
+kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
+poly-commitment = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
+mina-poseidon = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
+

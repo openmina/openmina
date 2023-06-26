@@ -14,6 +14,7 @@ use snarker::event_source::{
     EventSourceWaitTimeoutAction,
 };
 use snarker::job_commitment::JobCommitmentsConfig;
+use snarker::ledger::{LedgerId, LEDGER_DEPTH};
 use snarker::p2p::channels::ChannelId;
 use snarker::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use snarker::p2p::identity::SecretKey;
@@ -27,7 +28,7 @@ use snarker::snark::block_verify::{
     SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
 use snarker::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
-use snarker::{Config, SnarkConfig, SnarkerConfig, State};
+use snarker::{Config, LedgerConfig, SnarkConfig, SnarkerConfig, State, TransitionFrontierConfig};
 
 mod http_server;
 
@@ -82,6 +83,7 @@ impl Snarker {
         };
 
         let config = Config {
+            ledger: LedgerConfig {},
             snark: SnarkConfig {
                 // TODO(binier): use cache
                 block_verifier_index: snarker::snark::get_verifier_index().into(),
@@ -106,6 +108,16 @@ impl Snarker {
                     ChannelId::Rpc,
                 ]
                 .into(),
+            },
+            transition_frontier: TransitionFrontierConfig {
+                protocol_constants: serde_json::from_value(serde_json::json!({
+                    "k": "290",
+                    "slots_per_epoch": "7140",
+                    "slots_per_sub_window": "7",
+                    "delta": "0",
+                    // TODO(binier): fix wrong timestamp
+                    "genesis_state_timestamp": "0",
+                })).unwrap(),
             },
         };
         let state = State::new(config);
@@ -147,6 +159,7 @@ impl Snarker {
                 p2p_event_sender,
                 event_receiver: event_receiver.into(),
                 cmd_sender,
+                ledger: Default::default(),
                 peers,
                 libp2p,
                 rpc: rpc_service,
@@ -201,10 +214,33 @@ struct SnarkerService {
     p2p_event_sender: mpsc::UnboundedSender<P2pEvent>,
     event_receiver: EventReceiver,
     cmd_sender: mpsc::UnboundedSender<Cmd>,
+    ledger: LedgerService,
     peers: BTreeMap<PeerId, PeerState>,
     libp2p: Libp2pService,
     rpc: rpc::RpcService,
     stats: Stats,
+}
+
+#[derive(Default)]
+struct LedgerService {
+    masks: BTreeMap<LedgerId, ledger::Mask>,
+    hashes_matrices: BTreeMap<LedgerId, ledger::HashesMatrix>,
+}
+
+impl snarker::service::LedgerService for SnarkerService {
+    fn get_ledger(&mut self, id: &LedgerId) -> &mut ledger::Mask {
+        self.ledger
+            .masks
+            .entry(id.clone())
+            .or_insert(ledger::Mask::create(35))
+    }
+
+    fn hashes_matrix(&mut self, id: &LedgerId) -> &mut ledger::HashesMatrix {
+        self.ledger
+            .hashes_matrices
+            .entry(id.clone())
+            .or_insert(ledger::HashesMatrix::new(LEDGER_DEPTH))
+    }
 }
 
 impl redux::TimeService for SnarkerService {}

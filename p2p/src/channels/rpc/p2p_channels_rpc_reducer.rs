@@ -34,7 +34,7 @@ impl P2pChannelsRpcState {
                     request: action.request.clone(),
                 };
             }
-            P2pChannelsRpcAction::ResponseReceived(action) => {
+            P2pChannelsRpcAction::ResponseReceived(_) => {
                 let Self::Ready { local, .. } = self else { return };
 
                 *local = P2pRpcLocalState::Responded { time: meta.time() };

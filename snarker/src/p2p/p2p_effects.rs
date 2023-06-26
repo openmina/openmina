@@ -1,3 +1,6 @@
+use mina_p2p_messages::v2::MinaLedgerSyncLedgerAnswerStableV2;
+use shared::block::BlockWithHash;
+
 use crate::consensus::ConsensusBlockReceivedAction;
 use crate::job_commitment::JobCommitmentAddAction;
 use crate::p2p::channels::rpc::{P2pChannelsRpcRequestSendAction, P2pRpcRequest};
@@ -7,6 +10,12 @@ use crate::rpc::{
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingSuccessAction,
 };
+use crate::snark::hash::{state_hash, state_hash_from_hashes};
+use crate::transition_frontier::sync::ledger::{
+    PeerLedgerQueryResponse, TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction,
+};
+use crate::transition_frontier::TransitionFrontierSyncInitAction;
 use crate::watched_accounts::{
     WatchedAccountLedgerInitialState, WatchedAccountsLedgerInitialStateGetError,
     WatchedAccountsLedgerInitialStateGetErrorAction,
@@ -14,7 +23,7 @@ use crate::watched_accounts::{
 use crate::{Service, Store};
 
 use super::channels::best_tip::{P2pChannelsBestTipAction, P2pChannelsBestTipResponseSendAction};
-use super::channels::rpc::P2pChannelsRpcAction;
+use super::channels::rpc::{P2pChannelsRpcAction, P2pRpcResponse};
 use super::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use super::channels::P2pChannelsAction;
 use super::connection::incoming::{
@@ -235,12 +244,81 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                         id: 0,
                         request,
                     });
+
+                    store
+                        .dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
                 }
                 P2pChannelsRpcAction::RequestSend(action) => {
                     action.effects(&meta, store);
                 }
-                P2pChannelsRpcAction::ResponseReceived(_) => {}
-                P2pChannelsRpcAction::RequestReceived(action) => {
+                P2pChannelsRpcAction::ResponseReceived(action) => {
+                    action.effects(&meta, store);
+                    match action.response.as_ref() {
+                        Some(P2pRpcResponse::BestTipWithProofGet(resp)) => {
+                            let (body_hashes, root_block) = &resp.proof;
+                            let best_tip = BlockWithHash {
+                                hash: state_hash(&resp.best_tip.header),
+                                block: resp.best_tip.clone(),
+                            };
+                            let root_block = BlockWithHash {
+                                hash: state_hash(&root_block.header),
+                                block: root_block.clone(),
+                            };
+
+                            // reconstruct hashes
+                            let hashes = body_hashes
+                                .iter()
+                                .take(body_hashes.len().saturating_sub(1))
+                                .scan(root_block.hash.clone(), |pred_hash, body_hash| {
+                                    *pred_hash = state_hash_from_hashes(
+                                        pred_hash.clone(),
+                                        body_hash.clone(),
+                                    );
+                                    Some(pred_hash.clone())
+                                })
+                                .collect::<Vec<_>>();
+
+                            if let Some(pred_hash) = hashes.last() {
+                                let expected_hash =
+                                    &best_tip.block.header.protocol_state.previous_state_hash;
+                                if pred_hash != expected_hash {
+                                    shared::warn!(meta.time();
+                                        kind = "P2pRpcBestTipHashMismatch",
+                                        response = serde_json::to_string(resp).ok(),
+                                        expected_hash = expected_hash.to_string(),
+                                        calculated_hash = pred_hash.to_string());
+                                    return;
+                                }
+                            }
+                            store.dispatch(TransitionFrontierSyncInitAction {
+                                best_tip,
+                                root_block,
+                                blocks_inbetween: hashes,
+                            });
+                        }
+                        Some(P2pRpcResponse::LedgerQuery(answer)) => match answer {
+                            MinaLedgerSyncLedgerAnswerStableV2::ChildHashesAre(left, right) => {
+                                store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction {
+                                    peer_id: action.peer_id,
+                                    rpc_id: action.id,
+                                    response: PeerLedgerQueryResponse::ChildHashes(left.clone(), right.clone()),
+                                });
+                            }
+                            MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(accounts) => {
+                                store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction {
+                                    peer_id: action.peer_id,
+                                    rpc_id: action.id,
+                                    response: PeerLedgerQueryResponse::Accounts(accounts.clone()),
+                                });
+                            }
+                            _ => {}
+                        },
+                        _ => {}
+                    }
+                    store
+                        .dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
+                }
+                P2pChannelsRpcAction::RequestReceived(_action) => {
                     // TODO(binier): handle incoming rpc requests.
                 }
                 P2pChannelsRpcAction::ResponseSend(action) => {
@@ -251,6 +329,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
         P2pAction::Peer(action) => match action {
             P2pPeerAction::Ready(action) => {
                 action.effects(&meta, store);
+                store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
             }
             P2pPeerAction::BestTipUpdate(action) => {
                 store.dispatch(ConsensusBlockReceivedAction {
@@ -258,6 +337,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     block: action.best_tip.block,
                     history: None,
                 });
+                store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
             }
         },
     }
