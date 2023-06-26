@@ -15,14 +15,13 @@ pub mod string;
 pub mod utils;
 #[macro_use]
 pub mod versioned;
+#[cfg(feature = "hashing")]
+pub mod hash;
+#[cfg(feature = "hashing")]
+mod hash_input;
 pub mod pseq;
 pub mod v1;
 pub mod v2;
-#[cfg(feature = "hashing")]
-mod hash_input;
-#[cfg(feature = "hashing")]
-pub mod hash;
-
 
 pub use gossip::GossipNetMessageV1;
 

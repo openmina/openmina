@@ -87,7 +87,6 @@ where
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub struct Base58CheckOfBinProt<T, U, const V: u8>(T, PhantomData<U>);
 
-
 impl<T, U, const V: u8> Default for Base58CheckOfBinProt<T, U, V>
 where
     T: Default,

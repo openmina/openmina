@@ -7,8 +7,10 @@ use mina_hasher::Fp;
 use o1_utils::FieldHelpers;
 
 use crate::{
+    b58::Base58CheckOfBinProt,
     bigint::BigInt,
-    number::{Int32, Int64}, pseq::PaddedSeq, b58::Base58CheckOfBinProt,
+    number::{Int32, Int64},
+    pseq::PaddedSeq,
 };
 
 pub trait ToInput {
@@ -49,14 +51,20 @@ where
     }
 }
 
-impl<T> ToInput for (T, T) where T: ToInput {
+impl<T> ToInput for (T, T)
+where
+    T: ToInput,
+{
     fn to_input(&self, inputs: &mut Inputs) {
         self.0.to_input(inputs);
         self.1.to_input(inputs);
     }
 }
 
-impl<T> ToInput for Option<T> where T: ToInput + Default {
+impl<T> ToInput for Option<T>
+where
+    T: ToInput + Default,
+{
     fn to_input(&self, inputs: &mut Inputs) {
         match self.as_ref() {
             Some(v) => v.to_input(inputs),
@@ -65,7 +73,10 @@ impl<T> ToInput for Option<T> where T: ToInput + Default {
     }
 }
 
-impl<T, const N: usize> ToInput for PaddedSeq<T, N> where T: ToInput {
+impl<T, const N: usize> ToInput for PaddedSeq<T, N>
+where
+    T: ToInput,
+{
     fn to_input(&self, inputs: &mut Inputs) {
         for v in &self.0 {
             v.to_input(inputs);

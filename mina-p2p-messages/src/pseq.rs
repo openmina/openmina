@@ -1,11 +1,14 @@
-use std::{fmt::Formatter, marker::PhantomData, array};
+use std::{array, fmt::Formatter, marker::PhantomData};
 
 use binprot::{BinProtRead, BinProtWrite};
 use serde::ser::SerializeTuple;
 #[derive(Clone, Debug, PartialEq)]
 pub struct PaddedSeq<T, const N: usize>(pub [T; N]);
 
-impl<T, const N: usize> Default for PaddedSeq<T, N> where T: Default {
+impl<T, const N: usize> Default for PaddedSeq<T, N>
+where
+    T: Default,
+{
     fn default() -> Self {
         Self(array::from_fn(|_| T::default()))
     }
