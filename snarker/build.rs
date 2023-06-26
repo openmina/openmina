@@ -44,7 +44,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let action_def_re = Regex::new(r"^pub (struct|enum) ([a-zA-Z0-9]*Action)( |\n)\{").unwrap();
-    let action_enum_variant_re = Regex::new(r"([a-zA-Z0-9]*)\(([a-zA-Z0-9]*Action)\)").unwrap();
+    let action_enum_variant_re =
+        Regex::new(r"([a-zA-Z0-9]*)\(\n? *([a-zA-Z0-9]*Action),?\n? *\)").unwrap();
 
     let mut use_statements: BTreeMap<Vec<String>, Vec<String>> = Default::default();
     use_statements.insert(vec![], vec!["ActionKindGet".to_owned()]);
