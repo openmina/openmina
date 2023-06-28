@@ -152,11 +152,12 @@ impl LedgerIntf for SparseLedger {
     }
 
     fn create_masked(&self) -> Self {
-        self.clone()
+        self.copy_content()
     }
 
     fn apply_mask(&mut self, mask: Self) {
-        *self = mask;
+        let mask_inner = mask.with(|this| this.clone());
+        self.with(|this| *this = mask_inner);
     }
 
     fn account_locations(&self) -> Vec<Self::Location> {
