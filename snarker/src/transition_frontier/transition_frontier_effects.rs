@@ -58,6 +58,19 @@ pub fn transition_frontier_effects<S: crate::Service>(
             TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncSuccess(action) => {
                 action.effects(&meta, store);
             }
+            TransitionFrontierSyncLedgerAction::StagedLedgerReconstructPending(action) => {
+                action.effects(&meta, store);
+            }
+            TransitionFrontierSyncLedgerAction::StagedLedgerPartsFetchInit(action) => {
+                action.effects(&meta, store);
+            }
+            TransitionFrontierSyncLedgerAction::StagedLedgerPartsFetchPending(_) => {}
+            TransitionFrontierSyncLedgerAction::StagedLedgerPartsFetchError(action) => {
+                action.effects(&meta, store);
+            }
+            TransitionFrontierSyncLedgerAction::StagedLedgerPartsFetchSuccess(action) => {
+                action.effects(&meta, store);
+            }
             _ => {
                 todo!("sync done");
             }

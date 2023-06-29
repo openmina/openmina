@@ -1,15 +1,13 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
-use mina_p2p_messages::v2::{
-    LedgerHash, MinaBasePendingCoinbaseStableV2, MinaStateProtocolStateValueStableV2,
-    TransactionSnarkScanStateStableV2,
-};
+use mina_p2p_messages::v2::LedgerHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use shared::block::ArcBlockWithHash;
 
 use crate::ledger::LedgerAddress;
-use crate::p2p::channels::rpc::P2pRpcId;
+use crate::p2p::channels::rpc::{P2pRpcId, StagedLedgerAuxAndPendingCoinbases};
 use crate::p2p::PeerId;
 
 use super::PeerLedgerQueryError;
@@ -36,43 +34,19 @@ pub enum TransitionFrontierSyncLedgerState {
         time: Timestamp,
         block: ArcBlockWithHash,
     },
-    /// Fetching pieces required to reconstruct staged ledger from
-    /// snarked ledger.
-    StagedLedgerPartsFetchPending {
-        time: Timestamp,
-        block: ArcBlockWithHash,
-        peer_id: PeerId,
-    },
-    /// Fetched pieces required to reconstruct staged ledger from
-    /// snarked ledger.
-    StagedLedgerPartsFetchSuccess {
-        time: Timestamp,
-        block: ArcBlockWithHash,
-        staged_ledger_parts: StagedLedgerParts,
-    },
     StagedLedgerReconstructPending {
         time: Timestamp,
         block: ArcBlockWithHash,
-        staged_ledger_parts: StagedLedgerParts,
+        attempts: BTreeMap<PeerId, PeerStagedLedgerReconstructState>,
     },
     StagedLedgerReconstructSuccess {
         time: Timestamp,
         block: ArcBlockWithHash,
-        staged_ledger_parts: StagedLedgerParts,
     },
     Success {
         time: Timestamp,
         block: ArcBlockWithHash,
     },
-}
-
-/// Pieces required to reconstruct staged ledger from snarked ledger.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct StagedLedgerParts {
-    pub scan_state: TransactionSnarkScanStateStableV2,
-    pub staged_ledger_hash: LedgerHash,
-    pub pending_coinbase: MinaBasePendingCoinbaseStableV2,
-    pub needed_blocks: Vec<MinaStateProtocolStateValueStableV2>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -99,6 +73,44 @@ pub enum PeerRpcState {
         time: Timestamp,
         rpc_id: P2pRpcId,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum PeerStagedLedgerReconstructState {
+    /// Fetching pieces required to reconstruct staged ledger from
+    /// snarked ledger.
+    PartsFetchPending {
+        time: Timestamp,
+        rpc_id: P2pRpcId,
+    },
+    PartsFetchError {
+        time: Timestamp,
+        rpc_id: P2pRpcId,
+        error: PeerLedgerQueryError,
+    },
+    /// Fetched pieces required to reconstruct staged ledger from
+    /// snarked ledger.
+    PartsFetchSuccess {
+        time: Timestamp,
+        parts: Arc<StagedLedgerAuxAndPendingCoinbases>,
+    },
+    PartsApplyPending {
+        time: Timestamp,
+        parts: Arc<StagedLedgerAuxAndPendingCoinbases>,
+    },
+    PartsApplySuccess {
+        time: Timestamp,
+    },
+}
+
+impl PeerStagedLedgerReconstructState {
+    pub fn is_fetch_pending(&self) -> bool {
+        matches!(self, Self::PartsFetchPending { .. })
+    }
+
+    pub fn is_error(&self) -> bool {
+        matches!(self, Self::PartsFetchError { .. })
+    }
 }
 
 impl PeerRpcState {
@@ -128,8 +140,6 @@ impl TransitionFrontierSyncLedgerState {
             Self::Init { block, .. } => block,
             Self::SnarkedLedgerSyncPending { block, .. } => block,
             Self::SnarkedLedgerSyncSuccess { block, .. } => block,
-            Self::StagedLedgerPartsFetchPending { block, .. } => block,
-            Self::StagedLedgerPartsFetchSuccess { block, .. } => block,
             Self::StagedLedgerReconstructPending { block, .. } => block,
             Self::StagedLedgerReconstructSuccess { block, .. } => block,
             Self::Success { block, .. } => block,
@@ -213,6 +223,20 @@ impl TransitionFrontierSyncLedgerState {
                 .iter()
                 .find(|(id, _)| *id == peer_id)
                 .and_then(|(_, s)| s.pending_rpc_id())
+        })
+    }
+
+    pub fn staged_ledger_reconstruct_filter_available_peers<'a>(
+        &'a self,
+        iter: impl 'a + Iterator<Item = (PeerId, P2pRpcId)>,
+    ) -> impl 'a + Iterator<Item = (PeerId, P2pRpcId)> {
+        iter.filter(move |(peer_id, _)| match self {
+            Self::SnarkedLedgerSyncSuccess { .. } => true,
+            Self::StagedLedgerReconstructPending { attempts, .. } => {
+                !attempts.contains_key(&peer_id)
+                    && (attempts.is_empty() || attempts.iter().all(|(_, s)| s.is_error()))
+            }
+            _ => false,
         })
     }
 }

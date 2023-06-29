@@ -90,10 +90,10 @@ use crate::transition_frontier::sync::ledger::{
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction,
+    TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction,
     TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction,
     TransitionFrontierSyncLedgerStagedLedgerPartsFetchPendingAction,
     TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction,
-    TransitionFrontierSyncLedgerStagedLedgerReconstructInitAction,
     TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction,
     TransitionFrontierSyncLedgerStagedLedgerReconstructSuccessAction,
     TransitionFrontierSyncLedgerSuccessAction,
@@ -226,10 +226,10 @@ pub enum ActionKind {
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQuery,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPending,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccess,
+    TransitionFrontierSyncLedgerStagedLedgerPartsFetchError,
     TransitionFrontierSyncLedgerStagedLedgerPartsFetchInit,
     TransitionFrontierSyncLedgerStagedLedgerPartsFetchPending,
     TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccess,
-    TransitionFrontierSyncLedgerStagedLedgerReconstructInit,
     TransitionFrontierSyncLedgerStagedLedgerReconstructPending,
     TransitionFrontierSyncLedgerStagedLedgerReconstructSuccess,
     TransitionFrontierSyncLedgerSuccess,
@@ -539,11 +539,11 @@ impl ActionKindGet for TransitionFrontierSyncLedgerAction {
             Self::SnarkedLedgerSyncChildHashesReceived(a) => a.kind(),
             Self::SnarkedLedgerSyncChildAccountsReceived(a) => a.kind(),
             Self::SnarkedLedgerSyncSuccess(a) => a.kind(),
+            Self::StagedLedgerReconstructPending(a) => a.kind(),
             Self::StagedLedgerPartsFetchInit(a) => a.kind(),
             Self::StagedLedgerPartsFetchPending(a) => a.kind(),
+            Self::StagedLedgerPartsFetchError(a) => a.kind(),
             Self::StagedLedgerPartsFetchSuccess(a) => a.kind(),
-            Self::StagedLedgerReconstructInit(a) => a.kind(),
-            Self::StagedLedgerReconstructPending(a) => a.kind(),
             Self::StagedLedgerReconstructSuccess(a) => a.kind(),
             Self::Success(a) => a.kind(),
         }
@@ -935,6 +935,12 @@ impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessActio
     }
 }
 
+impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStagedLedgerReconstructPending
+    }
+}
+
 impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {
     fn kind(&self) -> ActionKind {
         ActionKind::TransitionFrontierSyncLedgerStagedLedgerPartsFetchInit
@@ -947,21 +953,15 @@ impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerPartsFetchPending
     }
 }
 
+impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStagedLedgerPartsFetchError
+    }
+}
+
 impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerReconstructInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedLedgerReconstructInit
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedLedgerReconstructPending
     }
 }
 

@@ -63,6 +63,12 @@ impl P2pState {
             .filter_map(|(id, p)| Some((id, p.status.as_ready()?)))
     }
 
+    pub fn ready_rpc_peers_iter(&self) -> impl '_ + Iterator<Item = (PeerId, P2pRpcId)> {
+        self.ready_peers_iter()
+            .filter(|(_, p)| p.channels.rpc.can_send_request())
+            .map(|(peer_id, p)| (*peer_id, p.channels.rpc.next_local_rpc_id()))
+    }
+
     pub fn ready_peers(&self) -> Vec<PeerId> {
         self.peers
             .iter()

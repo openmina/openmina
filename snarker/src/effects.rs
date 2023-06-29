@@ -59,19 +59,14 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                     .p2p
                     .ready_peers_iter()
                     .filter_map(|(_, s)| s.channels.rpc.pending_local_rpc_kind())
-                    .any(|kind| matches!(kind, P2pRpcKind::BestTipWithProofGet))
+                    .any(|kind| matches!(kind, P2pRpcKind::BestTipWithProof))
                 {
-                    if let Some((peer_id, id)) = state
-                        .p2p
-                        .ready_peers_iter()
-                        .filter(|(_, s)| s.channels.rpc.can_send_request())
-                        .map(|(peer_id, s)| (*peer_id, s.channels.rpc.next_local_rpc_id()))
-                        .last()
-                    {
+                    // TODO(binier): choose randomly.
+                    if let Some((peer_id, id)) = state.p2p.ready_rpc_peers_iter().last() {
                         store.dispatch(P2pChannelsRpcRequestSendAction {
                             peer_id,
                             id,
-                            request: P2pRpcRequest::BestTipWithProofGet,
+                            request: P2pRpcRequest::BestTipWithProof,
                         });
                     }
                 }
