@@ -33,9 +33,13 @@ impl P2pChannelsBestTipReadyAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
         P2pChannelsBestTipRequestSendAction: redux::EnablingCondition<S>,
+        P2pChannelsBestTipRequestReceivedAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
         store.dispatch(P2pChannelsBestTipRequestSendAction { peer_id });
+        if store.state().is_libp2p_peer(&peer_id) {
+            store.dispatch(P2pChannelsBestTipRequestReceivedAction { peer_id });
+        }
     }
 }
 
