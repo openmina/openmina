@@ -1718,13 +1718,35 @@ pub mod zkapp_command {
             let zkapp = a.zkapp.unwrap_or_default();
             let mut ret = vec![
                 (
-                    TransactionFailure::AccountIsNewPreconditionUnsatisfied,
-                    self.is_new.check("is_new".to_string(), new_account),
+                    TransactionFailure::AccountBalancePreconditionUnsatisfied,
+                    self.balance.check("balance".to_string(), a.balance),
                 ),
                 (
-                    TransactionFailure::AccountProvedStatePreconditionUnsatisfied,
-                    self.proved_state
-                        .check("proved_state".to_string(), zkapp.proved_state),
+                    TransactionFailure::AccountNoncePreconditionUnsatisfied,
+                    self.nonce.check("nonce".to_string(), a.nonce),
+                ),
+                (
+                    TransactionFailure::AccountReceiptChainHashPreconditionUnsatisfied,
+                    self.receipt_chain_hash
+                        .check("receipt_chain_hash".to_string(), a.receipt_chain_hash.0),
+                ),
+                (
+                    TransactionFailure::AccountDelegatePreconditionUnsatisfied,
+                    self.delegate.check(
+                        "delegate".to_string(),
+                        a.delegate.unwrap_or_else(invalid_public_key),
+                    ),
+                ),
+                (
+                    TransactionFailure::AccountActionStatePreconditionUnsatisfied,
+                    match zkapp
+                        .action_state
+                        .iter()
+                        .find(|state| self.action_state.check("".to_string(), **state).is_ok())
+                    {
+                        None => Err("Action state mismatch".to_string()),
+                        Some(_) => Ok(()),
+                    },
                 ),
             ];
 
@@ -1737,35 +1759,13 @@ pub mod zkapp_command {
 
             let mut ret2 = vec![
                 (
-                    TransactionFailure::AccountActionStatePreconditionUnsatisfied,
-                    match zkapp
-                        .action_state
-                        .iter()
-                        .find(|state| self.action_state.check("".to_string(), **state).is_ok())
-                    {
-                        None => Err("Action state mismatch".to_string()),
-                        Some(_) => Ok(()),
-                    },
+                    TransactionFailure::AccountProvedStatePreconditionUnsatisfied,
+                    self.proved_state
+                        .check("proved_state".to_string(), zkapp.proved_state),
                 ),
                 (
-                    TransactionFailure::AccountDelegatePreconditionUnsatisfied,
-                    self.delegate.check(
-                        "delegate".to_string(),
-                        a.delegate.unwrap_or_else(invalid_public_key),
-                    ),
-                ),
-                (
-                    TransactionFailure::AccountReceiptChainHashPreconditionUnsatisfied,
-                    self.receipt_chain_hash
-                        .check("receipt_chain_hash".to_string(), a.receipt_chain_hash.0),
-                ),
-                (
-                    TransactionFailure::AccountNoncePreconditionUnsatisfied,
-                    self.nonce.check("nonce".to_string(), a.nonce),
-                ),
-                (
-                    TransactionFailure::AccountBalancePreconditionUnsatisfied,
-                    self.balance.check("balance".to_string(), a.balance),
+                    TransactionFailure::AccountIsNewPreconditionUnsatisfied,
+                    self.is_new.check("is_new".to_string(), new_account),
                 ),
             ];
 
