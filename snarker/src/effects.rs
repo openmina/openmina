@@ -28,18 +28,6 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::CheckTimeouts(_) => {
             store.dispatch(P2pConnectionOutgoingRandomInitAction {});
 
-            // for peer_id in store.state().p2p.ready_peers() {
-            // store.dispatch(P2pRpcOutgoingInitAction {
-            //     peer_id,
-            //     rpc_id: match store.state().p2p.get_ready_peer(&peer_id) {
-            //         Some(p) => p.rpc.outgoing.next_req_id(),
-            //         None => return,
-            //     },
-            //     request: P2pRpcRequest::BestTipGet(()),
-            //     requestor: P2pRpcRequestor::Interval,
-            // });
-            // }
-
             let reconnect_actions: Vec<_> = store
                 .state()
                 .p2p
