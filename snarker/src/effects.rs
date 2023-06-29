@@ -5,7 +5,9 @@ use crate::job_commitment::{
 };
 use crate::ledger::ledger_effects;
 use crate::logger::logger_effects;
-use crate::p2p::channels::rpc::P2pChannelsRpcTimeoutAction;
+use crate::p2p::channels::rpc::{
+    P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
+};
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
 };
@@ -42,6 +44,38 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             store.dispatch(JobCommitmentCheckTimeoutsAction {});
             store.dispatch(JobCommitmentP2pSendAllAction {});
+
+            // TODO(binier): refactor
+            let state = store.state();
+            let consensus_best_tip_hash = state.consensus.best_tip.as_ref();
+            let best_tip_hash = state.transition_frontier.best_tip().map(|v| &v.hash);
+            let syncing_best_tip_hash = state.transition_frontier.sync.best_tip().map(|v| &v.hash);
+
+            if consensus_best_tip_hash.is_some()
+                && consensus_best_tip_hash != best_tip_hash
+                && consensus_best_tip_hash != syncing_best_tip_hash
+            {
+                if !state
+                    .p2p
+                    .ready_peers_iter()
+                    .filter_map(|(_, s)| s.channels.rpc.pending_local_rpc_kind())
+                    .any(|kind| matches!(kind, P2pRpcKind::BestTipWithProofGet))
+                {
+                    if let Some((peer_id, id)) = state
+                        .p2p
+                        .ready_peers_iter()
+                        .filter(|(_, s)| s.channels.rpc.can_send_request())
+                        .map(|(peer_id, s)| (*peer_id, s.channels.rpc.next_local_rpc_id()))
+                        .last()
+                    {
+                        store.dispatch(P2pChannelsRpcRequestSendAction {
+                            peer_id,
+                            id,
+                            request: P2pRpcRequest::BestTipWithProofGet,
+                        });
+                    }
+                }
+            }
 
             let state = store.state();
             for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {

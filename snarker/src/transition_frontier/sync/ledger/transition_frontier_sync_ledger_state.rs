@@ -30,6 +30,7 @@ pub enum TransitionFrontierSyncLedgerState {
         pending: BTreeMap<LedgerAddress, LedgerQueryPending>,
         /// `None` means we are done.
         next_addr: Option<LedgerAddress>,
+        end_addr: LedgerAddress,
     },
     SnarkedLedgerSyncSuccess {
         time: Timestamp,
@@ -91,7 +92,12 @@ pub enum PeerRpcState {
     },
     Error {
         time: Timestamp,
+        rpc_id: P2pRpcId,
         error: PeerLedgerQueryError,
+    },
+    Success {
+        time: Timestamp,
+        rpc_id: P2pRpcId,
     },
 }
 
@@ -110,6 +116,10 @@ impl PeerRpcState {
     pub fn is_error(&self) -> bool {
         matches!(self, Self::Error { .. })
     }
+
+    pub fn is_success(&self) -> bool {
+        matches!(self, Self::Success { .. })
+    }
 }
 
 impl TransitionFrontierSyncLedgerState {
@@ -127,16 +137,7 @@ impl TransitionFrontierSyncLedgerState {
     }
 
     pub fn snarked_ledger_hash(&self) -> LedgerHash {
-        self.block()
-            .block
-            .header
-            .protocol_state
-            .body
-            .blockchain_state
-            .ledger_proof_statement
-            .target
-            .first_pass_ledger
-            .clone()
+        self.block().snarked_ledger_hash()
     }
 
     pub fn snarked_ledger_sync_retry_iter(&self) -> impl '_ + Iterator<Item = LedgerAddress> {
@@ -168,6 +169,8 @@ impl TransitionFrontierSyncLedgerState {
                 pending.iter().find(|(_, s)| {
                     s.attempts.get(peer_id).map_or(false, |s| match s {
                         PeerRpcState::Pending { rpc_id, .. } => *rpc_id == expected_rpc_id,
+                        PeerRpcState::Error { rpc_id, .. } => *rpc_id == expected_rpc_id,
+                        PeerRpcState::Success { rpc_id, .. } => *rpc_id == expected_rpc_id,
                         _ => false,
                     })
                 })
@@ -187,6 +190,8 @@ impl TransitionFrontierSyncLedgerState {
                 pending.iter_mut().find_map(|(_, s)| {
                     s.attempts.get_mut(peer_id).filter(|s| match s {
                         PeerRpcState::Pending { rpc_id, .. } => *rpc_id == expected_rpc_id,
+                        PeerRpcState::Error { rpc_id, .. } => *rpc_id == expected_rpc_id,
+                        PeerRpcState::Success { rpc_id, .. } => *rpc_id == expected_rpc_id,
                         _ => false,
                     })
                 })

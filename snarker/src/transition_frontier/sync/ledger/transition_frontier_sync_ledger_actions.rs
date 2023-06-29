@@ -1,6 +1,7 @@
+use mina_p2p_messages::v2::{LedgerHash, MinaBaseAccountBinableArgStableV2};
 use serde::{Deserialize, Serialize};
 
-use crate::ledger::LedgerAddress;
+use crate::ledger::{LedgerAddress, LEDGER_DEPTH};
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 
@@ -32,6 +33,12 @@ pub enum TransitionFrontierSyncLedgerAction {
     ),
     SnarkedLedgerSyncPeerQuerySuccess(
         TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction,
+    ),
+    SnarkedLedgerSyncChildHashesReceived(
+        TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction,
+    ),
+    SnarkedLedgerSyncChildAccountsReceived(
+        TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction,
     ),
     SnarkedLedgerSyncSuccess(TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction),
     StagedLedgerPartsFetchInit(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction),
@@ -132,6 +139,11 @@ impl redux::EnablingCondition<crate::State>
         let check_peer_available = state
             .p2p
             .get_ready_peer(&self.peer_id)
+            .and_then(|p| {
+                let sync_best_tip = state.transition_frontier.sync.best_tip()?;
+                let peer_best_tip = p.best_tip.as_ref()?;
+                Some(p).filter(|_| sync_best_tip.hash == peer_best_tip.hash)
+            })
             .map_or(false, |p| p.channels.rpc.can_send_request());
         check_next_addr && check_peer_available
     }
@@ -157,6 +169,11 @@ impl redux::EnablingCondition<crate::State>
         let check_peer_available = state
             .p2p
             .get_ready_peer(&self.peer_id)
+            .and_then(|p| {
+                let sync_best_tip = state.transition_frontier.sync.best_tip()?;
+                let peer_best_tip = p.best_tip.as_ref()?;
+                Some(p).filter(|_| sync_best_tip.hash == peer_best_tip.hash)
+            })
             .map_or(false, |p| p.channels.rpc.can_send_request());
         check_next_addr && check_peer_available
     }
@@ -234,6 +251,61 @@ impl redux::EnablingCondition<crate::State>
                     .and_then(|(_, s)| s.attempts.get(&self.peer_id))
                     .map_or(false, |s| matches!(s, PeerRpcState::Pending { .. }))
             })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction {
+    pub address: LedgerAddress,
+    pub hashes: (LedgerHash, LedgerHash),
+    pub sender: PeerId,
+}
+
+impl redux::EnablingCondition<crate::State>
+    for TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction
+{
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.address.length() < LEDGER_DEPTH - 1
+            && state
+                .transition_frontier
+                .sync
+                .root_ledger()
+                .and_then(|s| match s {
+                    TransitionFrontierSyncLedgerState::SnarkedLedgerSyncPending {
+                        pending, ..
+                    } => pending.get(&self.address),
+                    _ => None,
+                })
+                .and_then(|s| s.attempts.get(&self.sender))
+                .map_or(false, |s| s.is_success())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction {
+    pub address: LedgerAddress,
+    pub accounts: Vec<MinaBaseAccountBinableArgStableV2>,
+    pub sender: PeerId,
+}
+
+impl redux::EnablingCondition<crate::State>
+    for TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction
+{
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .transition_frontier
+            .sync
+            .root_ledger()
+            .and_then(|s| match s {
+                TransitionFrontierSyncLedgerState::SnarkedLedgerSyncPending { pending, .. } => {
+                    pending.get(&self.address)
+                }
+                _ => None,
+            })
+            .and_then(|s| s.attempts.get(&self.sender))
+            // TODO(binier): check if expected response
+            // kind is correct.
+            .map_or(false, |s| s.is_success())
     }
 }
 
@@ -417,6 +489,8 @@ impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryP
 impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsFetchPendingAction);

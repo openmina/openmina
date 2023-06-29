@@ -11,6 +11,7 @@ pub type TransitionFrontierActionWithMetaRef<'a> =
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum TransitionFrontierAction {
     SyncInit(TransitionFrontierSyncInitAction),
+    SyncBestTipUpdate(TransitionFrontierSyncBestTipUpdateAction),
     RootLedgerSyncPending(TransitionFrontierRootLedgerSyncPendingAction),
 
     SyncLedger(TransitionFrontierSyncLedgerAction),
@@ -25,12 +26,41 @@ pub struct TransitionFrontierSyncInitAction {
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .consensus
-            .best_tip()
-            .map_or(true, |tip| tip.hash == &self.best_tip.hash)
-            // TODO(binier): resync
-            && matches!(state.transition_frontier.sync, TransitionFrontierSyncState::Idle)
+        !state.transition_frontier.sync.is_pending()
+            && state
+                .transition_frontier
+                .best_tip()
+                .map_or(true, |tip| self.best_tip.hash != tip.hash)
+            && state
+                .consensus
+                .best_tip()
+                .map_or(false, |tip| &self.best_tip.hash == tip.hash)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierSyncBestTipUpdateAction {
+    pub best_tip: ArcBlockWithHash,
+    pub root_block: ArcBlockWithHash,
+    pub blocks_inbetween: Vec<StateHash>,
+}
+
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBestTipUpdateAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state.transition_frontier.sync.is_pending()
+            && state
+                .transition_frontier
+                .best_tip()
+                .map_or(true, |tip| self.best_tip.hash != tip.hash)
+            && state
+                .transition_frontier
+                .sync
+                .best_tip()
+                .map_or(true, |tip| self.best_tip.hash != tip.hash)
+            && state
+                .consensus
+                .best_tip()
+                .map_or(true, |tip| &self.best_tip.hash == tip.hash)
     }
 }
 
@@ -57,4 +87,5 @@ macro_rules! impl_into_global_action {
 }
 
 impl_into_global_action!(TransitionFrontierSyncInitAction);
+impl_into_global_action!(TransitionFrontierSyncBestTipUpdateAction);
 impl_into_global_action!(TransitionFrontierRootLedgerSyncPendingAction);
