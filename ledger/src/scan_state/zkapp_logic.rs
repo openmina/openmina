@@ -789,7 +789,7 @@ where
         )?;
 
         let local_state = local_state.add_check(
-            TransactionFailure::UpdateNotPermittedAppState,
+            TransactionFailure::UpdateNotPermittedActionState,
             is_empty || has_permission,
         );
         let zkapp = ZkAppAccount {
