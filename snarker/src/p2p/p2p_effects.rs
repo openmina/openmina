@@ -17,6 +17,9 @@ use crate::transition_frontier::sync::ledger::{
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction,
+    TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction,
+    TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction,
+    TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction,
 };
 use crate::transition_frontier::{
     TransitionFrontierSyncBestTipUpdateAction, TransitionFrontierSyncInitAction,
@@ -169,10 +172,14 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 },
                             );
                         }
-                    }
 
-                    store
-                        .dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
+                        store.dispatch(
+                            TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction {
+                                peer_id: action.peer_id,
+                                error: PeerLedgerQueryError::Timeout,
+                            },
+                        );
+                    }
 
                     let actions = store.state().watched_accounts.iter()
                     .filter_map(|(pub_key, a)| match &a.initial_state {
@@ -264,11 +271,12 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     store.dispatch(P2pChannelsRpcRequestSendAction {
                         peer_id: a.peer_id,
                         id: 0,
-                        request: P2pRpcRequest::BestTipWithProofGet,
+                        request: P2pRpcRequest::BestTipWithProof,
                     });
 
                     store
                         .dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
+                    store.dispatch(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {});
                 }
                 P2pChannelsRpcAction::RequestSend(action) => {
                     action.effects(&meta, store);
@@ -281,6 +289,12 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             error: PeerLedgerQueryError::Timeout,
                         },
                     );
+                    store.dispatch(
+                        TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction {
+                            peer_id: action.peer_id,
+                            error: PeerLedgerQueryError::Timeout,
+                        },
+                    );
                     store.dispatch(P2pDisconnectionInitAction {
                         peer_id: action.peer_id,
                     });
@@ -288,7 +302,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 P2pChannelsRpcAction::ResponseReceived(action) => {
                     action.effects(&meta, store);
                     match action.response.as_ref() {
-                        Some(P2pRpcResponse::BestTipWithProofGet(resp)) => {
+                        Some(P2pRpcResponse::BestTipWithProof(resp)) => {
                             let (body_hashes, root_block) = &resp.proof;
                             let best_tip = BlockWithHash {
                                 hash: state_hash(&resp.best_tip.header),
@@ -355,10 +369,19 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             }
                             _ => {}
                         },
+                        Some(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(parts)) => {
+                            store.dispatch(
+                                TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction {
+                                    peer_id: action.peer_id,
+                                    parts: parts.clone(),
+                                },
+                            );
+                        }
                         _ => {}
                     }
                     store
                         .dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
+                    store.dispatch(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {});
                 }
                 P2pChannelsRpcAction::RequestReceived(_action) => {
                     // TODO(binier): handle incoming rpc requests.
@@ -371,7 +394,6 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
         P2pAction::Peer(action) => match action {
             P2pPeerAction::Ready(action) => {
                 action.effects(&meta, store);
-                store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
             }
             P2pPeerAction::BestTipUpdate(action) => {
                 store.dispatch(ConsensusBlockReceivedAction {
@@ -380,6 +402,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     history: None,
                 });
                 store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
+                store.dispatch(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {});
             }
         },
     }

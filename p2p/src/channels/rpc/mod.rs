@@ -10,18 +10,23 @@ pub use p2p_channels_rpc_reducer::*;
 mod p2p_channels_rpc_effects;
 pub use p2p_channels_rpc_effects::*;
 
-use std::{io, time::Duration};
+use std::{io, sync::Arc, time::Duration};
 
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::{
-    rpc::{AnswerSyncLedgerQueryV2, GetBestTipV2, ProofCarryingDataStableV1},
+    rpc::{
+        AnswerSyncLedgerQueryV2, GetBestTipV2, GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,
+        ProofCarryingDataStableV1,
+    },
     rpc_kernel::{
         QueryHeader, QueryID, Response, ResponseHeader, RpcMethod, RpcResult, RpcResultKind,
     },
     v2::{
-        LedgerHash, MinaBaseStateBodyHashStableV1, MinaLedgerSyncLedgerAnswerStableV2,
-        MinaLedgerSyncLedgerQueryStableV1,
+        LedgerHash, MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseStableV2,
+        MinaBaseStateBodyHashStableV1, MinaLedgerSyncLedgerAnswerStableV2,
+        MinaLedgerSyncLedgerQueryStableV1, MinaStateProtocolStateValueStableV2, StateHash,
+        TransactionSnarkScanStateStableV2,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -46,30 +51,36 @@ impl RpcChannelMsg {
 
 #[derive(Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub enum P2pRpcKind {
-    BestTipWithProofGet,
+    BestTipWithProof,
     LedgerQuery,
+    StagedLedgerAuxAndPendingCoinbasesAtBlock,
 }
 
 impl P2pRpcKind {
     pub fn timeout(self) -> Option<Duration> {
         match self {
-            Self::BestTipWithProofGet => Some(Duration::from_secs(5)),
+            Self::BestTipWithProof => Some(Duration::from_secs(5)),
             Self::LedgerQuery => Some(Duration::from_secs(2)),
+            Self::StagedLedgerAuxAndPendingCoinbasesAtBlock => Some(Duration::from_secs(120)),
         }
     }
 }
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcRequest {
-    BestTipWithProofGet,
+    BestTipWithProof,
     LedgerQuery(LedgerHash, MinaLedgerSyncLedgerQueryStableV1),
+    StagedLedgerAuxAndPendingCoinbasesAtBlock(StateHash),
 }
 
 impl P2pRpcRequest {
     pub fn kind(&self) -> P2pRpcKind {
         match self {
-            Self::BestTipWithProofGet => P2pRpcKind::BestTipWithProofGet,
+            Self::BestTipWithProof => P2pRpcKind::BestTipWithProof,
             Self::LedgerQuery(..) => P2pRpcKind::LedgerQuery,
+            Self::StagedLedgerAuxAndPendingCoinbasesAtBlock(_) => {
+                P2pRpcKind::StagedLedgerAuxAndPendingCoinbasesAtBlock
+            }
         }
     }
 
@@ -93,13 +104,20 @@ impl P2pRpcRequest {
 
     pub fn write_msg<W: io::Write>(self, id: P2pRpcId, w: &mut W) -> io::Result<()> {
         match self {
-            Self::BestTipWithProofGet => Self::write_msg_impl::<GetBestTipV2, _>(w, id, &()),
+            Self::BestTipWithProof => Self::write_msg_impl::<GetBestTipV2, _>(w, id, &()),
             Self::LedgerQuery(ledger_hash, query) => Self::write_msg_impl::<
                 AnswerSyncLedgerQueryV2,
                 _,
             >(
                 w, id, &(ledger_hash.0.clone(), query)
             ),
+            Self::StagedLedgerAuxAndPendingCoinbasesAtBlock(block_hash) => {
+                Self::write_msg_impl::<GetStagedLedgerAuxAndPendingCoinbasesAtHashV2, _>(
+                    w,
+                    id,
+                    &(block_hash.0.clone()),
+                )
+            }
         }
     }
 }
@@ -110,17 +128,30 @@ pub struct BestTipWithProof {
     pub proof: (Vec<MinaBaseStateBodyHashStableV1>, ArcBlock),
 }
 
+/// Pieces required to reconstruct staged ledger from snarked ledger.
+#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
+pub struct StagedLedgerAuxAndPendingCoinbases {
+    pub scan_state: TransactionSnarkScanStateStableV2,
+    pub staged_ledger_hash: LedgerHash,
+    pub pending_coinbase: MinaBasePendingCoinbaseStableV2,
+    pub needed_blocks: Vec<MinaStateProtocolStateValueStableV2>,
+}
+
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcResponse {
-    BestTipWithProofGet(BestTipWithProof),
+    BestTipWithProof(BestTipWithProof),
     LedgerQuery(MinaLedgerSyncLedgerAnswerStableV2),
+    StagedLedgerAuxAndPendingCoinbasesAtBlock(Arc<StagedLedgerAuxAndPendingCoinbases>),
 }
 
 impl P2pRpcResponse {
     pub fn kind(&self) -> P2pRpcKind {
         match self {
-            Self::BestTipWithProofGet(_) => P2pRpcKind::BestTipWithProofGet,
+            Self::BestTipWithProof(_) => P2pRpcKind::BestTipWithProof,
             Self::LedgerQuery(_) => P2pRpcKind::LedgerQuery,
+            Self::StagedLedgerAuxAndPendingCoinbasesAtBlock(_) => {
+                P2pRpcKind::StagedLedgerAuxAndPendingCoinbasesAtBlock
+            }
         }
     }
 
@@ -141,7 +172,7 @@ impl P2pRpcResponse {
 
     pub fn write_msg<W: io::Write>(self, id: P2pRpcId, w: &mut W) -> io::Result<()> {
         match self {
-            Self::BestTipWithProofGet(res) => Self::write_msg_impl::<GetBestTipV2, _>(
+            Self::BestTipWithProof(res) => Self::write_msg_impl::<GetBestTipV2, _>(
                 w,
                 id,
                 &Some(ProofCarryingDataStableV1 {
@@ -151,6 +182,20 @@ impl P2pRpcResponse {
             ),
             Self::LedgerQuery(res) => {
                 Self::write_msg_impl::<AnswerSyncLedgerQueryV2, _>(w, id, &RpcResult(Ok(res)))
+            }
+            Self::StagedLedgerAuxAndPendingCoinbasesAtBlock(res) => {
+                let res = Arc::try_unwrap(res).unwrap_or_else(|res| (*res).clone());
+                let res = (
+                    res.scan_state,
+                    res.staged_ledger_hash.0.clone(),
+                    res.pending_coinbase,
+                    res.needed_blocks,
+                );
+                Self::write_msg_impl::<GetStagedLedgerAuxAndPendingCoinbasesAtHashV2, _>(
+                    w,
+                    id,
+                    &Some(res),
+                )
             }
         }
     }
@@ -170,10 +215,10 @@ impl P2pRpcResponse {
         let _payload_len = binprot::Nat0::binprot_read(r)?.0 as usize;
 
         Ok(match kind {
-            P2pRpcKind::BestTipWithProofGet => {
+            P2pRpcKind::BestTipWithProof => {
                 let resp: <GetBestTipV2 as RpcMethod>::Response = BinProtRead::binprot_read(r)?;
                 resp.map(|resp| {
-                    Self::BestTipWithProofGet(BestTipWithProof {
+                    Self::BestTipWithProof(BestTipWithProof {
                         best_tip: resp.data.into(),
                         proof: (resp.proof.0, resp.proof.1.into()),
                     })
@@ -188,6 +233,18 @@ impl P2pRpcResponse {
                     Err(err) => return Err(binprot::Error::CustomError(format!("{err:?}").into())),
                     Ok(resp) => Some(Self::LedgerQuery(resp)),
                 }
+            }
+            P2pRpcKind::StagedLedgerAuxAndPendingCoinbasesAtBlock => {
+                let resp: <GetStagedLedgerAuxAndPendingCoinbasesAtHashV2 as RpcMethod>::Response =
+                    BinProtRead::binprot_read(r)?;
+                resp.map(|resp| StagedLedgerAuxAndPendingCoinbases {
+                    scan_state: resp.0,
+                    staged_ledger_hash: MinaBaseLedgerHash0StableV1(resp.1).into(),
+                    pending_coinbase: resp.2,
+                    needed_blocks: resp.3,
+                })
+                .map(Arc::from)
+                .map(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock)
             }
         })
     }

@@ -29,7 +29,7 @@ impl redux::EnablingCondition<crate::State> for P2pConnectionOutgoingReconnectAc
                 P2pConnectionOutgoingState::Error { time, .. },
             ))
             | P2pPeerStatus::Disconnected { time, .. } => {
-                state.time().checked_sub(*time) >= Some(Duration::from_secs(3))
+                state.time().checked_sub(*time) >= Some(Duration::from_secs(30))
             }
             _ => true,
         };

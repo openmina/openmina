@@ -289,7 +289,7 @@ impl ConnectionHandler for RequestResponseHandler {
             let info = request.request_id;
             return Poll::Ready(ConnectionHandlerEvent::OutboundSubstreamRequest {
                 protocol: SubstreamProtocol::new(request, info)
-                    .with_timeout(Duration::from_secs(15)),
+                    .with_timeout(Duration::from_secs(15 * 60)),
             });
         }
 

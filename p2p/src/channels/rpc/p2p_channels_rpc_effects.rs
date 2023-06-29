@@ -46,7 +46,7 @@ impl P2pChannelsRpcResponseReceivedAction {
         P2pPeerBestTipUpdateAction: redux::EnablingCondition<S>,
     {
         match &self.response {
-            Some(P2pRpcResponse::BestTipWithProofGet(resp)) => {
+            Some(P2pRpcResponse::BestTipWithProof(resp)) => {
                 let block = resp.best_tip.clone();
                 let hash = state_hash(&*block);
                 store.dispatch(P2pPeerBestTipUpdateAction {
