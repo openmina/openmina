@@ -18,7 +18,9 @@ use crate::transition_frontier::sync::ledger::{
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction,
 };
-use crate::transition_frontier::TransitionFrontierSyncInitAction;
+use crate::transition_frontier::{
+    TransitionFrontierSyncBestTipUpdateAction, TransitionFrontierSyncInitAction,
+};
 use crate::watched_accounts::{
     WatchedAccountLedgerInitialState, WatchedAccountsLedgerInitialStateGetError,
     WatchedAccountsLedgerInitialStateGetErrorAction,
@@ -169,6 +171,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                         }
                     }
 
+                    store
+                        .dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
+
                     let actions = store.state().watched_accounts.iter()
                     .filter_map(|(pub_key, a)| match &a.initial_state {
                         WatchedAccountLedgerInitialState::Pending { peer_id, .. } => {
@@ -256,11 +261,10 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 }
                 P2pChannelsRpcAction::Pending(_) => {}
                 P2pChannelsRpcAction::Ready(a) => {
-                    let request = P2pRpcRequest::BestTipWithProofGet;
                     store.dispatch(P2pChannelsRpcRequestSendAction {
                         peer_id: a.peer_id,
                         id: 0,
-                        request,
+                        request: P2pRpcRequest::BestTipWithProofGet,
                     });
 
                     store
@@ -320,11 +324,19 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                     return;
                                 }
                             }
-                            store.dispatch(TransitionFrontierSyncInitAction {
-                                best_tip,
-                                root_block,
-                                blocks_inbetween: hashes,
-                            });
+                            if !store.state().transition_frontier.sync.is_pending() {
+                                store.dispatch(TransitionFrontierSyncInitAction {
+                                    best_tip,
+                                    root_block,
+                                    blocks_inbetween: hashes,
+                                });
+                            } else {
+                                store.dispatch(TransitionFrontierSyncBestTipUpdateAction {
+                                    best_tip,
+                                    root_block,
+                                    blocks_inbetween: hashes,
+                                });
+                            }
                         }
                         Some(P2pRpcResponse::LedgerQuery(answer)) => match answer {
                             MinaLedgerSyncLedgerAnswerStableV2::ChildHashesAre(left, right) => {

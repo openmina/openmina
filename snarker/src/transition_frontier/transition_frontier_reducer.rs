@@ -15,6 +15,36 @@ impl TransitionFrontierState {
                     missing_blocks: a.blocks_inbetween.clone(),
                 };
             }
+            TransitionFrontierAction::SyncBestTipUpdate(a) => match &mut self.sync {
+                TransitionFrontierSyncState::RootLedgerSyncPending {
+                    best_tip,
+                    missing_blocks,
+                    root_ledger,
+                    ..
+                } => {
+                    match root_ledger {
+                        TransitionFrontierSyncLedgerState::SnarkedLedgerSyncPending {
+                            block,
+                            ..
+                        } => {
+                            if block.snarked_ledger_hash() == a.root_block.snarked_ledger_hash() {
+                                *block = a.root_block.clone();
+                            } else {
+                                *root_ledger = TransitionFrontierSyncLedgerState::Init {
+                                    time: meta.time(),
+                                    block: a.root_block.clone(),
+                                };
+                            }
+                        }
+                        _ => todo!(),
+                    }
+
+                    *best_tip = a.best_tip.clone();
+                    *missing_blocks = a.blocks_inbetween.clone();
+                }
+                _ => todo!(),
+                // _ => return,
+            },
             TransitionFrontierAction::RootLedgerSyncPending(_) => {
                 if let TransitionFrontierSyncState::Init {
                     best_tip,

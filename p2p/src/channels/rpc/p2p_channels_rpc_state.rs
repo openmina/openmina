@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{P2pRpcId, P2pRpcRequest};
+use super::{P2pRpcId, P2pRpcKind, P2pRpcRequest};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pChannelsRpcState {
@@ -99,6 +99,16 @@ impl P2pChannelsRpcState {
                 local: P2pRpcLocalState::Requested { id, .. },
                 ..
             } => Some(*id),
+            _ => None,
+        }
+    }
+
+    pub fn pending_local_rpc_kind(&self) -> Option<P2pRpcKind> {
+        match self {
+            Self::Ready {
+                local: P2pRpcLocalState::Requested { request, .. },
+                ..
+            } => Some(request.kind()),
             _ => None,
         }
     }

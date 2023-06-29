@@ -10,6 +10,8 @@ use crate::Store;
 
 use super::{
     PeerLedgerQueryResponse, TransitionFrontierSyncLedgerInitAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction,
@@ -48,13 +50,14 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction {
 impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         // TODO(binier): make sure they have the ledger we want to query.
-        let peer_ids = store
+        let mut peer_ids = store
             .state()
             .p2p
             .ready_peers_iter()
             .filter(|(_, p)| p.channels.rpc.can_send_request())
-            .map(|(id, _)| *id)
+            .map(|(id, p)| (*id, p.connected_since))
             .collect::<Vec<_>>();
+        peer_ids.sort_by(|(_, t1), (_, t2)| t2.cmp(t1));
 
         let mut retry_addresses = store
             .state()
@@ -64,7 +67,7 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {
             .map_or(vec![], |s| s.snarked_ledger_sync_retry_iter().collect());
         retry_addresses.reverse();
 
-        for peer_id in peer_ids {
+        for (peer_id, _) in peer_ids {
             if let Some(address) = retry_addresses.pop() {
                 if store.dispatch(
                     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction {
@@ -103,15 +106,15 @@ fn query_peer_init<S: redux::Service>(
     address: LedgerAddress,
 ) {
     let Some((ledger_hash, rpc_id)) = None.or_else(|| {
-            let state = store.state();
-            let root_ledger = state.transition_frontier.sync.root_ledger()?;
-            let ledger_hash = root_ledger.snarked_ledger_hash();
+        let state = store.state();
+        let root_ledger = state.transition_frontier.sync.root_ledger()?;
+        let ledger_hash = root_ledger.snarked_ledger_hash();
 
-            let p = store.state().p2p.get_ready_peer(&peer_id)?;
-            let rpc_id = p.channels.rpc.next_local_rpc_id();
+        let p = store.state().p2p.get_ready_peer(&peer_id)?;
+        let rpc_id = p.channels.rpc.next_local_rpc_id();
 
-            Some((ledger_hash, rpc_id))
-        }) else { return };
+        Some((ledger_hash, rpc_id))
+    }) else { return };
 
     let query = if address.length() >= LEDGER_DEPTH - 1 {
         MinaLedgerSyncLedgerQueryStableV1::WhatContents(address.clone().into())
@@ -156,26 +159,65 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         let Some(root_ledger) = store.state().transition_frontier.sync.root_ledger() else { return };
         let Some((addr, _)) = root_ledger.snarked_ledger_peer_query_get(&self.peer_id, self.rpc_id) else { return };
+        let address = addr.clone();
 
         match self.response {
             PeerLedgerQueryResponse::ChildHashes(left, right) => {
-                store.dispatch(LedgerChildHashesAddAction {
-                    ledger_id: LedgerId::root_snarked_ledger(root_ledger.snarked_ledger_hash()),
-                    parent: addr.clone(),
-                    hashes: (left, right),
-                });
+                store.dispatch(
+                    TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction {
+                        address,
+                        hashes: (left, right),
+                        sender: self.peer_id,
+                    },
+                );
             }
             PeerLedgerQueryResponse::Accounts(accounts) => {
-                store.dispatch(LedgerChildAccountsAddAction {
-                    ledger_id: LedgerId::root_snarked_ledger(root_ledger.snarked_ledger_hash()),
-                    parent: addr.clone(),
-                    accounts,
-                });
+                store.dispatch(
+                    TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction {
+                        address,
+                        accounts,
+                        sender: self.peer_id,
+                    },
+                );
             }
         }
+    }
+}
+
+impl TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction {
+    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
+        let Some(root_ledger) = store.state().transition_frontier.sync.root_ledger() else { return };
+        store.dispatch(LedgerChildHashesAddAction {
+            ledger_id: LedgerId::root_snarked_ledger(root_ledger.snarked_ledger_hash()),
+            parent: self.address,
+            hashes: self.hashes,
+        });
 
         if !store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {}) {
             store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction {});
         }
+    }
+}
+
+impl TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction {
+    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
+        let Some(root_ledger) = store.state().transition_frontier.sync.root_ledger() else { return };
+        store.dispatch(LedgerChildAccountsAddAction {
+            ledger_id: LedgerId::root_snarked_ledger(root_ledger.snarked_ledger_hash()),
+            parent: self.address,
+            accounts: self.accounts,
+        });
+
+        if !store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {}) {
+            store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction {});
+        }
+    }
+}
+
+impl TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction {
+    pub fn effects<S: crate::ledger::LedgerService>(self, _: &ActionMeta, store: &mut Store<S>) {
+        let Some(root_ledger) = store.state().transition_frontier.sync.root_ledger() else { return };
+        let ledger_id = LedgerId::root_snarked_ledger(root_ledger.snarked_ledger_hash());
+        store.service().assert_downloaded_hashes(&ledger_id);
     }
 }

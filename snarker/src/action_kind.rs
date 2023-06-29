@@ -80,6 +80,8 @@ use crate::snark::block_verify::{
 use crate::snark::SnarkAction;
 use crate::transition_frontier::sync::ledger::{
     TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerInitAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction,
@@ -98,7 +100,7 @@ use crate::transition_frontier::sync::ledger::{
 };
 use crate::transition_frontier::{
     TransitionFrontierAction, TransitionFrontierRootLedgerSyncPendingAction,
-    TransitionFrontierSyncInitAction,
+    TransitionFrontierSyncBestTipUpdateAction, TransitionFrontierSyncInitAction,
 };
 use crate::watched_accounts::{
     WatchedAccountsAction, WatchedAccountsAddAction, WatchedAccountsBlockLedgerQueryInitAction,
@@ -211,8 +213,11 @@ pub enum ActionKind {
     SnarkBlockVerifyPending,
     SnarkBlockVerifySuccess,
     TransitionFrontierRootLedgerSyncPending,
+    TransitionFrontierSyncBestTipUpdate,
     TransitionFrontierSyncInit,
     TransitionFrontierSyncLedgerInit,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceived,
+    TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceived,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryError,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInit,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPending,
@@ -241,7 +246,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 121;
+    pub const COUNT: usize = 124;
 }
 
 impl ActionKindGet for Action {
@@ -323,6 +328,7 @@ impl ActionKindGet for TransitionFrontierAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::SyncInit(a) => a.kind(),
+            Self::SyncBestTipUpdate(a) => a.kind(),
             Self::RootLedgerSyncPending(a) => a.kind(),
             Self::SyncLedger(a) => a.kind(),
         }
@@ -507,6 +513,12 @@ impl ActionKindGet for TransitionFrontierSyncInitAction {
     }
 }
 
+impl ActionKindGet for TransitionFrontierSyncBestTipUpdateAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncBestTipUpdate
+    }
+}
+
 impl ActionKindGet for TransitionFrontierRootLedgerSyncPendingAction {
     fn kind(&self) -> ActionKind {
         ActionKind::TransitionFrontierRootLedgerSyncPending
@@ -524,6 +536,8 @@ impl ActionKindGet for TransitionFrontierSyncLedgerAction {
             Self::SnarkedLedgerSyncPeerQueryRetry(a) => a.kind(),
             Self::SnarkedLedgerSyncPeerQueryError(a) => a.kind(),
             Self::SnarkedLedgerSyncPeerQuerySuccess(a) => a.kind(),
+            Self::SnarkedLedgerSyncChildHashesReceived(a) => a.kind(),
+            Self::SnarkedLedgerSyncChildAccountsReceived(a) => a.kind(),
             Self::SnarkedLedgerSyncSuccess(a) => a.kind(),
             Self::StagedLedgerPartsFetchInit(a) => a.kind(),
             Self::StagedLedgerPartsFetchPending(a) => a.kind(),
@@ -900,6 +914,18 @@ impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErr
 impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccess
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceived
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceived
     }
 }
 

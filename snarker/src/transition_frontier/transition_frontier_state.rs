@@ -63,12 +63,26 @@ pub enum TransitionFrontierSyncState {
 }
 
 impl TransitionFrontierSyncState {
+    pub fn is_pending(&self) -> bool {
+        !matches!(self, Self::Idle | Self::Synced { .. })
+    }
+
     pub fn root_block(&self) -> Option<&ArcBlockWithHash> {
         match self {
             Self::Idle => None,
             Self::Init { root_block, .. } => Some(root_block),
             Self::RootLedgerSyncPending { root_ledger, .. } => Some(root_ledger.block()),
             Self::RootLedgerSyncSuccess { root_block, .. } => Some(root_block),
+            Self::Synced { .. } => None,
+        }
+    }
+
+    pub fn best_tip(&self) -> Option<&ArcBlockWithHash> {
+        match self {
+            Self::Idle => None,
+            Self::Init { best_tip, .. } => Some(best_tip),
+            Self::RootLedgerSyncPending { best_tip, .. } => Some(best_tip),
+            Self::RootLedgerSyncSuccess { best_tip, .. } => Some(best_tip),
             Self::Synced { .. } => None,
         }
     }

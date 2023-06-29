@@ -14,7 +14,7 @@ use snarker::event_source::{
     EventSourceWaitTimeoutAction,
 };
 use snarker::job_commitment::JobCommitmentsConfig;
-use snarker::ledger::{LedgerId, LEDGER_DEPTH};
+use snarker::ledger::{LedgerAddress, LedgerId, LEDGER_DEPTH};
 use snarker::p2p::channels::ChannelId;
 use snarker::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use snarker::p2p::identity::SecretKey;
@@ -252,7 +252,11 @@ impl snarker::service::LedgerService for SnarkerService {
         self.ledger
             .hashes_matrices
             .entry(id.clone())
-            .or_insert(ledger::HashesMatrix::new(LEDGER_DEPTH))
+            .or_insert_with(|| {
+                let mut matrix = ledger::HashesMatrix::new(LEDGER_DEPTH);
+                matrix.set(&LedgerAddress::root(), id.hash.0.to_field());
+                matrix
+            })
     }
 }
 
