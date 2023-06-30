@@ -517,7 +517,7 @@ impl<'de> Deserialize<'de> for ProtocolVersionStableV1 {
             let err = || serde::de::Error::custom(format!("incorrect protocol version '{}'", s));
 
             let parse_number =
-                |s: Option<&str>| s.and_then(|s| s.parse::<i32>().ok()).ok_or_else(err);
+                |s: Option<&str>| s.and_then(|s| s.parse::<i64>().ok()).ok_or_else(err);
 
             let mut versions = s.split('.');
             let major = parse_number(versions.next())?.into();

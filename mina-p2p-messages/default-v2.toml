@@ -65,7 +65,7 @@ rust_id = 'bool'
 args_num = 'None'
 
 [base_types.int]
-rust_id = 'crate::number::Int32'
+rust_id = 'crate::number::Int64'
 args_num = 'None'
 
 [base_types.int32]
@@ -92,7 +92,7 @@ Make_str = ''
 'Mina_base__Token_id.Stable.V2' = 'TokenIdKeyHash'
 'Mina_base__Epoch_seed.Stable.V1' = 'EpochSeed'
 'Data_hash_lib__State_hash.Stable.V1' = 'StateHash'
-'Mina_base__State_body_hash.Stable.V1' = 'StateHash'
+'Mina_base__State_body_hash.Stable.V1' = 'StateBodyHash'
 'Mina_base__Ledger_hash0.Stable.V1' = 'LedgerHash'
 'Mina_base__Staged_ledger_hash.Make_str.Aux_hash.Stable.V1' = 'StagedLedgerHashAuxHash'
 'Mina_base__Staged_ledger_hash.Make_str.Pending_coinbase_aux.Stable.V1' = 'StagedLedgerHashPendingCoinbaseAux'
@@ -101,3 +101,4 @@ Make_str = ''
 'Mina_base__Pending_coinbase.Make_str.Stack_hash.Stable.V1' = 'CoinbaseStackHash'
 'Mina_transaction_logic__Zkapp_command_logic.Local_state.Value.Stable.V1.signed_amount' = 'Amount'
 'Mina_base__Fee_excess.Stable.V1.fee' = 'Amount'
+'Mina_base__Signature.Stable.V1' = 'Signature'
