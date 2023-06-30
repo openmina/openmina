@@ -59,8 +59,8 @@ pub enum NetworkPoolSnarkPoolDiffVersionedStableV2 {
 /// Args: LedgerHash , MinaBaseAccountIdStableV2 , MinaBaseAccountBinableArgStableV2
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseSparseLedgerBaseStableV2 {
-    pub indexes: Vec<(MinaBaseAccountIdStableV2, crate::number::Int32)>,
-    pub depth: crate::number::Int32,
+    pub indexes: Vec<(MinaBaseAccountIdStableV2, crate::number::Int64)>,
+    pub depth: crate::number::Int64,
     pub tree: MinaBaseSparseLedgerBaseStableV2Tree,
 }
 
@@ -95,7 +95,7 @@ pub struct MinaBaseAccountBinableArgStableV2 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct NetworkPeerPeerStableV1 {
     pub host: crate::string::ByteString,
-    pub libp2p_port: crate::number::Int32,
+    pub libp2p_port: crate::number::Int64,
     pub peer_id: NetworkPeerPeerIdStableV1,
 }
 
@@ -172,7 +172,7 @@ pub enum MinaLedgerSyncLedgerQueryStableV1 {
 pub enum MinaLedgerSyncLedgerAnswerStableV2 {
     ChildHashesAre(LedgerHash, LedgerHash),
     ContentsAre(Vec<MinaBaseAccountBinableArgStableV2>),
-    NumAccounts(crate::number::Int32, LedgerHash),
+    NumAccounts(crate::number::Int64, LedgerHash),
 }
 
 /// **OCaml name**: `Consensus__Proof_of_stake.Make_str.Data.Consensus_state.Value.Stable.V1`
@@ -1025,7 +1025,7 @@ pub enum MinaBaseTransactionStatusFailureStableV2 {
     AccountReceiptChainHashPreconditionUnsatisfied,
     AccountDelegatePreconditionUnsatisfied,
     AccountActionStatePreconditionUnsatisfied,
-    AccountAppStatePreconditionUnsatisfied(crate::number::Int32),
+    AccountAppStatePreconditionUnsatisfied(crate::number::Int64),
     AccountProvedStatePreconditionUnsatisfied,
     AccountIsNewPreconditionUnsatisfied,
     ProtocolStatePreconditionUnsatisfied,
@@ -1830,7 +1830,7 @@ pub struct MinaBaseCoinbaseStableV1 {
 /// Gid: `113`
 /// Location: [src/int.ml:19:6](https://github.com/Minaprotocol/mina/blob/b1facec/src/int.ml#L19)
 #[derive(Clone, Debug, Deref, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MinaBasePendingCoinbaseStackIdStableV1(pub crate::number::Int32);
+pub struct MinaBasePendingCoinbaseStackIdStableV1(pub crate::number::Int64);
 
 /// **OCaml name**: `Mina_base__Pending_coinbase.Make_str.Coinbase_stack.Stable.V1`
 ///
@@ -1903,8 +1903,8 @@ pub struct MinaBasePendingCoinbaseHashVersionedStableV1(
 /// Args: PendingCoinbaseHash , MinaBasePendingCoinbaseStackIdStableV1 , MinaBasePendingCoinbaseStackVersionedStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePendingCoinbaseMerkleTreeVersionedStableV2 {
-    pub indexes: Vec<(MinaBasePendingCoinbaseStackIdStableV1, crate::number::Int32)>,
-    pub depth: crate::number::Int32,
+    pub indexes: Vec<(MinaBasePendingCoinbaseStackIdStableV1, crate::number::Int64)>,
+    pub depth: crate::number::Int64,
     pub tree: MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree,
 }
 
@@ -2170,7 +2170,7 @@ pub struct MinaTransactionLogicTransactionAppliedStableV2 {
 /// Gid: `877`
 /// Location: [src/lib/merkle_address/merkle_address.ml:48:6](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/merkle_address/merkle_address.ml#L48)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct MerkleAddressBinableArgStableV1(pub crate::number::Int32, pub crate::string::ByteString);
+pub struct MerkleAddressBinableArgStableV1(pub crate::number::Int64, pub crate::string::ByteString);
 
 /// **OCaml name**: `Trust_system__Banned_status.Stable.V1`
 ///
@@ -2517,9 +2517,9 @@ pub struct StagedLedgerDiffBodyStableV1 {
 /// Location: [src/lib/protocol_version/protocol_version.ml:14:6](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/protocol_version/protocol_version.ml#L14)
 #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
 pub struct ProtocolVersionStableV1 {
-    pub major: crate::number::Int32,
-    pub minor: crate::number::Int32,
-    pub patch: crate::number::Int32,
+    pub major: crate::number::Int64,
+    pub minor: crate::number::Int64,
+    pub patch: crate::number::Int64,
 }
 
 /// **OCaml name**: `Parallel_scan.Sequence_number.Stable.V1`
@@ -2535,7 +2535,7 @@ pub struct ProtocolVersionStableV1 {
 /// Gid: `113`
 /// Location: [src/int.ml:19:6](https://github.com/Minaprotocol/mina/blob/b1facec/src/int.ml#L19)
 #[derive(Clone, Debug, Deref, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct ParallelScanSequenceNumberStableV1(pub crate::number::Int32);
+pub struct ParallelScanSequenceNumberStableV1(pub crate::number::Int64);
 
 /// **OCaml name**: `Parallel_scan.Job_status.Stable.V1`
 ///
@@ -2553,8 +2553,8 @@ pub enum ParallelScanJobStatusStableV1 {
 /// Location: [src/lib/parallel_scan/parallel_scan.ml:53:6](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/parallel_scan/parallel_scan.ml#L53)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ParallelScanWeightStableV1 {
-    pub base: crate::number::Int32,
-    pub merge: crate::number::Int32,
+    pub base: crate::number::Int64,
+    pub merge: crate::number::Int64,
 }
 
 /// Derived name: `Transaction_snark_scan_state.Stable.V2.scan_state.trees.a.base_t.1.Full`
@@ -2620,9 +2620,9 @@ pub struct TransactionSnarkScanStateStableV2ScanState {
         TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
         Vec<TransactionSnarkScanStateTransactionWithWitnessStableV2>,
     )>,
-    pub curr_job_seq_no: crate::number::Int32,
-    pub max_base_jobs: crate::number::Int32,
-    pub delay: crate::number::Int32,
+    pub curr_job_seq_no: crate::number::Int64,
+    pub max_base_jobs: crate::number::Int64,
+    pub delay: crate::number::Int64,
 }
 
 /// **OCaml name**: `Transaction_snark_scan_state.Transaction_with_witness.Stable.V2`
