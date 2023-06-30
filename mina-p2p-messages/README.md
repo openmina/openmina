@@ -42,20 +42,19 @@ only subset of types can be generated. Types currently known as essential are
 listed in the files [types-v1.txt](types-v1.txt) and
 [types-v2.txt](types-v2.txt).
 
-To generate Mina V1 types, use the following command:
-
-``` sh
-mina-types shapes/shapes-v1-mainnet-raw.txt gen \
-   $(cat types-v1.txt)
-   --config default.toml \
-   --out src/v1.rs
-```
-
 To generate Mina V2 types, use the following command:
 
 ``` sh
-mina-types shapes/shapes-v2-mainnet-raw.txt gen \
+mina-types shapes/berkeley-b1facec.txt gen \
+   --config default-v2.toml \
+   --out src/v2/generated.rs
    $(cat types-v2.txt)
-   --config default.toml \
-   --out src/v2.rs
+```
+
+Note that still some additional manual work is needed, like reverting missing derives.
+
+The `mina-types` executable can be built using the following command:
+
+``` sh
+cargo install --git https://github.com/openmina/bin-prot-rs --bin mina-types
 ```
