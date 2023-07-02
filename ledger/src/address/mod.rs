@@ -219,4 +219,13 @@ mod tests {
         let iter_children = root.iter_children(6);
         assert_eq!(iter_children.len(), 16);
     }
+
+    #[test]
+    fn test_address_children_parent_root_eq() {
+        let left = Address::first(1);
+        let right = left.next().unwrap();
+        assert_eq!(left.parent().unwrap(), Address::root());
+        assert_eq!(right.parent().unwrap(), Address::root());
+        assert_eq!(left.parent(), right.parent());
+    }
 }

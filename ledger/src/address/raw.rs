@@ -42,6 +42,10 @@ impl<const NBYTES: usize> PartialEq for Address<NBYTES> {
         if self.length != other.length {
             return false;
         }
+        if self.length == 0 {
+            // There can be only one root.
+            return true;
+        }
 
         let nused_bytes = self.nused_bytes();
 
@@ -284,6 +288,10 @@ impl<const NBYTES: usize> Address<NBYTES> {
     }
 
     pub fn next(&self) -> Option<Self> {
+        if self.length == 0 {
+            return None;
+        }
+
         let length = self.length;
         let mut next = self.clone();
 
