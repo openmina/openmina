@@ -761,8 +761,8 @@ impl From<&ForkConstants> for ForkConstantsUnversioned {
     fn from(fork_constants: &ForkConstants) -> Self {
         Self {
             previous_state_hash: fork_constants.previous_state_hash.into(),
-            previous_length: (fork_constants.previous_length.as_u32() as i32).into(),
-            previous_global_slot: (fork_constants.previous_global_slot.as_u32() as i32).into(),
+            previous_length: fork_constants.previous_length.as_u32().into(),
+            previous_global_slot: fork_constants.previous_global_slot.as_u32().into(),
         }
     }
 }
@@ -784,14 +784,14 @@ pub struct ConstraintConstantsUnversioned {
 impl From<&ConstraintConstants> for ConstraintConstantsUnversioned {
     fn from(constraints: &ConstraintConstants) -> Self {
         Self {
-            sub_windows_per_window: (constraints.sub_windows_per_window as i64).into(),
-            ledger_depth: (constraints.ledger_depth as i64).into(),
-            work_delay: (constraints.work_delay as i64).into(),
-            block_window_duration_ms: (constraints.block_window_duration_ms as i64).into(),
-            transaction_capacity_log_2: (constraints.transaction_capacity_log_2 as i64).into(),
-            pending_coinbase_depth: (constraints.pending_coinbase_depth as i64).into(),
+            sub_windows_per_window: constraints.sub_windows_per_window.into(),
+            ledger_depth: constraints.ledger_depth.into(),
+            work_delay: constraints.work_delay.into(),
+            block_window_duration_ms: constraints.block_window_duration_ms.into(),
+            transaction_capacity_log_2: constraints.transaction_capacity_log_2.into(),
+            pending_coinbase_depth: constraints.pending_coinbase_depth.into(),
             coinbase_amount: constraints.coinbase_amount.into(),
-            supercharged_coinbase_factor: (constraints.supercharged_coinbase_factor as i64).into(),
+            supercharged_coinbase_factor: constraints.supercharged_coinbase_factor.into(),
             account_creation_fee: (&constraints.account_creation_fee).into(),
             fork: constraints.fork.as_ref().map(|fork| fork.into()),
         }

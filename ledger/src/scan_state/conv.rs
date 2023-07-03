@@ -144,7 +144,7 @@ impl From<CurrencyAmountStableV1> for Balance {
 impl From<Amount> for CurrencyAmountStableV1 {
     fn from(value: Amount) -> Self {
         Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-            (value.0 as i64).into(),
+            value.as_u64().into(),
         ))
     }
 }
@@ -158,7 +158,7 @@ impl From<&Balance> for CurrencyBalanceStableV1 {
 impl From<Balance> for CurrencyAmountStableV1 {
     fn from(value: Balance) -> Self {
         Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-            (value.0 as i64).into(),
+            value.as_u64().into(),
         ))
     }
 }
@@ -175,7 +175,7 @@ impl From<&SignedAmount> for Signed<Amount> {
 impl From<&Amount> for CurrencyFeeStableV1 {
     fn from(value: &Amount) -> Self {
         CurrencyFeeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-            (value.0 as i64).into(),
+            value.as_u64().into(),
         ))
     }
 }
@@ -197,7 +197,7 @@ impl From<&CurrencyFeeStableV1> for Fee {
 
 impl From<&Nonce> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
     fn from(value: &Nonce) -> Self {
-        Self((value.as_u32() as i32).into())
+        Self(value.as_u32().into())
     }
 }
 
@@ -215,7 +215,7 @@ impl From<&mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1> for Slot {
 
 impl From<&Slot> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
     fn from(value: &Slot) -> Self {
-        Self((value.as_u32() as i32).into())
+        Self(value.as_u32().into())
     }
 }
 
@@ -227,7 +227,7 @@ impl From<&mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1> for Length {
 
 impl From<&Length> for mina_p2p_messages::v2::UnsignedExtendedUInt32StableV1 {
     fn from(value: &Length) -> Self {
-        Self((value.as_u32() as i32).into())
+        Self(value.as_u32().into())
     }
 }
 
@@ -261,7 +261,7 @@ impl From<&Sgn> for SgnStableV1 {
 impl From<&Fee> for CurrencyFeeStableV1 {
     fn from(value: &Fee) -> Self {
         Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-            (value.0 as i64).into(),
+            value.as_u64().into(),
         ))
     }
 }
@@ -642,11 +642,9 @@ impl From<&zkapp_command::Timing> for MinaBaseAccountUpdateUpdateTimingInfoStabl
     fn from(t: &zkapp_command::Timing) -> Self {
         Self {
             initial_minimum_balance: CurrencyBalanceStableV1(t.initial_minimum_balance.into()),
-            cliff_time: UnsignedExtendedUInt32StableV1((t.cliff_time.as_u32() as i32).into()),
+            cliff_time: UnsignedExtendedUInt32StableV1(t.cliff_time.as_u32().into()),
             cliff_amount: t.cliff_amount.into(),
-            vesting_period: UnsignedExtendedUInt32StableV1(
-                (t.vesting_period.as_u32() as i32).into(),
-            ),
+            vesting_period: UnsignedExtendedUInt32StableV1(t.vesting_period.as_u32().into()),
             vesting_increment: t.vesting_increment.into(),
         }
     }
@@ -922,7 +920,7 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
 impl From<&BlockTime> for BlockTimeTimeStableV1 {
     fn from(value: &BlockTime) -> Self {
         Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-            (value.as_u64() as i64).into(),
+            value.as_u64().into(),
         ))
     }
 }
@@ -1673,7 +1671,7 @@ impl From<&Registers> for MinaStateBlockchainStateValueStableV2LedgerProofStatem
                 },
                 success: value.local_state.success,
                 account_update_index: UnsignedExtendedUInt32StableV1(
-                    (value.local_state.account_update_index.0 as i32).into(),
+                    value.local_state.account_update_index.as_u32().into(),
                 ),
                 failure_status_tbl: MinaBaseTransactionStatusFailureCollectionStableV1(
                     value
@@ -2171,15 +2169,15 @@ impl From<&parallel_scan::Weight> for ParallelScanWeightStableV1 {
         let parallel_scan::Weight { base, merge } = value;
 
         Self {
-            base: (*base as i64).into(),
-            merge: (*merge as i64).into(),
+            base: base.into(),
+            merge: merge.into(),
         }
     }
 }
 
 impl From<&SequenceNumber> for ParallelScanSequenceNumberStableV1 {
     fn from(value: &SequenceNumber) -> Self {
-        ParallelScanSequenceNumberStableV1((value.as_u64() as i64).into())
+        ParallelScanSequenceNumberStableV1(value.as_u64().into())
     }
 }
 
@@ -2305,7 +2303,7 @@ impl From<&ScanState> for TransactionSnarkScanStateStableV2 {
                                             let depth: u32 = (*depth).try_into().unwrap();
 
                                             previous = Some(Node {
-                                                depth: (depth as i32).into(),
+                                                depth: depth.into(),
                                                 value: nodes.iter().map(Into::into).collect(),
                                                 sub_tree: Box::new(previous.take().unwrap()),
                                             });
@@ -2325,9 +2323,9 @@ impl From<&ScanState> for TransactionSnarkScanStateStableV2 {
                     acc: acc
                         .as_ref()
                         .map(|(proof, txns)| (proof.into(), txns.iter().map(Into::into).collect())),
-                    curr_job_seq_no: { (curr_job_seq_no.as_u64() as i64).into() },
-                    max_base_jobs: (*max_base_jobs as i64).into(),
-                    delay: (*delay as i64).into(),
+                    curr_job_seq_no: curr_job_seq_no.as_u64().into(),
+                    max_base_jobs: max_base_jobs.into(),
+                    delay: delay.into(),
                 }
             },
             previous_incomplete_zkapp_updates: {

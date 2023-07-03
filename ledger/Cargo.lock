@@ -838,7 +838,7 @@ dependencies = [
 [[package]]
 name = "mina-p2p-messages"
 version = "0.6.4"
-source = "git+https://github.com/openmina/mina-p2p-messages-rs?branch=main#1d776f32f2f763db37dc8ec602b2ec5c17398b80"
+source = "git+https://github.com/openmina/mina-p2p-messages-rs?branch=main#94fd3389acdf6986aa6731b0e64f5cd8b0db5eed"
 dependencies = [
  "ark-ff",
  "base64",

@@ -182,8 +182,7 @@ impl From<&SparseLedger> for mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStab
                 let addr = value.indexes.get(id).unwrap();
 
                 let index = addr.to_index();
-                let index: u64 = index.as_u64().try_into().unwrap();
-                let index: mina_p2p_messages::number::Int64 = (index as i64).into();
+                let index: mina_p2p_messages::number::Int64 = index.as_u64().into();
 
                 let id: MinaBaseAccountIdStableV2 = id.clone().into();
 
@@ -246,7 +245,7 @@ impl From<&SparseLedger> for mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStab
 
         Self {
             indexes,
-            depth: (depth as i64).into(),
+            depth: depth.into(),
             tree,
         }
     }

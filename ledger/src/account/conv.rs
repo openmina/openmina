@@ -225,21 +225,17 @@ impl From<&Timing> for MinaBaseAccountTimingStableV1 {
             } => MinaBaseAccountTimingStableV1::Timed {
                 initial_minimum_balance: CurrencyBalanceStableV1(CurrencyAmountStableV1(
                     UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                        (initial_minimum_balance.as_u64() as i64).into(),
+                        initial_minimum_balance.as_u64().into(),
                     ),
                 )),
-                cliff_time: UnsignedExtendedUInt32StableV1((cliff_time.as_u32() as i32).into()),
+                cliff_time: UnsignedExtendedUInt32StableV1(cliff_time.as_u32().into()),
                 cliff_amount: CurrencyAmountStableV1(
-                    UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                        (cliff_amount.as_u64() as i64).into(),
-                    ),
+                    UnsignedExtendedUInt64Int64ForVersionTagsStableV1(cliff_amount.as_u64().into()),
                 ),
-                vesting_period: UnsignedExtendedUInt32StableV1(
-                    (vesting_period.as_u32() as i32).into(),
-                ),
+                vesting_period: UnsignedExtendedUInt32StableV1(vesting_period.as_u32().into()),
                 vesting_increment: CurrencyAmountStableV1(
                     UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                        (vesting_increment.as_u64() as i64).into(),
+                        vesting_increment.as_u64().into(),
                     ),
                 ),
             },
@@ -262,11 +258,9 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
             },
             token_symbol: MinaBaseZkappAccountZkappUriStableV1(acc.token_symbol.as_bytes().into()),
             balance: CurrencyBalanceStableV1(CurrencyAmountStableV1(
-                UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                    (acc.balance.as_u64() as i64).into(),
-                ),
+                UnsignedExtendedUInt64Int64ForVersionTagsStableV1(acc.balance.as_u64().into()),
             )),
-            nonce: UnsignedExtendedUInt32StableV1((acc.nonce.as_u32() as i32).into()),
+            nonce: UnsignedExtendedUInt32StableV1(acc.nonce.as_u32().into()),
             receipt_chain_hash: MinaBaseReceiptChainHashStableV1(acc.receipt_chain_hash.0.into()),
             delegate: acc.delegate.map(|delegate| {
                 let delegate: NonZeroCurvePointUncompressedStableV1 = delegate.into();
@@ -288,11 +282,11 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
                     app_state,
                     verification_key,
                     zkapp_version: MinaNumbersNatMake32StableV1(UnsignedExtendedUInt32StableV1(
-                        (zkapp.zkapp_version as i32).into(),
+                        zkapp.zkapp_version.into(),
                     )),
                     action_state,
                     last_action_slot: UnsignedExtendedUInt32StableV1(
-                        (zkapp.last_action_slot.as_u32() as i32).into(),
+                        zkapp.last_action_slot.as_u32().into(),
                     ),
                     proved_state: zkapp.proved_state,
                     zkapp_uri: MinaBaseZkappAccountZkappUriStableV1(
