@@ -2,7 +2,10 @@ use mina_p2p_messages::v2::StateHash;
 use serde::{Deserialize, Serialize};
 use shared::block::ArcBlockWithHash;
 
-use super::{sync::ledger::TransitionFrontierSyncLedgerAction, TransitionFrontierSyncState};
+use super::{
+    sync::ledger::{TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerState},
+    TransitionFrontierSyncState,
+};
 
 pub type TransitionFrontierActionWithMeta = redux::ActionWithMeta<TransitionFrontierAction>;
 pub type TransitionFrontierActionWithMetaRef<'a> =
@@ -13,6 +16,7 @@ pub enum TransitionFrontierAction {
     SyncInit(TransitionFrontierSyncInitAction),
     SyncBestTipUpdate(TransitionFrontierSyncBestTipUpdateAction),
     RootLedgerSyncPending(TransitionFrontierRootLedgerSyncPendingAction),
+    RootLedgerSyncSuccess(TransitionFrontierRootLedgerSyncSuccessAction),
 
     SyncLedger(TransitionFrontierSyncLedgerAction),
 }
@@ -76,6 +80,21 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierRootLedgerSync
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierRootLedgerSyncSuccessAction {}
+
+impl redux::EnablingCondition<crate::State> for TransitionFrontierRootLedgerSyncSuccessAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        matches!(
+            state.transition_frontier.sync,
+            TransitionFrontierSyncState::RootLedgerSyncPending {
+                root_ledger: TransitionFrontierSyncLedgerState::Success { .. },
+                ..
+            }
+        )
+    }
+}
+
 macro_rules! impl_into_global_action {
     ($a:ty) => {
         impl From<$a> for crate::Action {
@@ -89,3 +108,4 @@ macro_rules! impl_into_global_action {
 impl_into_global_action!(TransitionFrontierSyncInitAction);
 impl_into_global_action!(TransitionFrontierSyncBestTipUpdateAction);
 impl_into_global_action!(TransitionFrontierRootLedgerSyncPendingAction);
+impl_into_global_action!(TransitionFrontierRootLedgerSyncSuccessAction);

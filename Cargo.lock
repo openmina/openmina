@@ -2907,7 +2907,7 @@ dependencies = [
 [[package]]
 name = "mina-tree"
 version = "0.1.0"
-source = "git+https://github.com/openmina/ledger?branch=openmina#d0619f6562ed132ab83e91eb44e6808d8233fda2"
+source = "git+https://github.com/openmina/ledger?branch=openmina#4db9556e4bd8b6b88b76c4af88807ee26c84a646"
 dependencies = [
  "ark-ec",
  "ark-ff",

@@ -6,9 +6,6 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
         Action::CheckTimeouts(_) => {}
         Action::EventSource(_) => {}
 
-        Action::Ledger(a) => {
-            state.ledger.reducer(meta.with_action(a));
-        }
         Action::P2p(a) => {
             state.p2p.reducer(meta.with_action(a));
         }

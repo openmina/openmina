@@ -183,11 +183,7 @@ impl Libp2pService {
         encoded[..8].clone_from_slice(&msg_len);
 
         let topic = IdentTopic::new(Self::GOSSIPSUB_TOPIC);
-        swarm
-            .behaviour_mut()
-            .gossipsub
-            .publish(topic, encoded)
-            .unwrap();
+        let _ = swarm.behaviour_mut().gossipsub.publish(topic, encoded);
     }
 
     async fn handle_cmd<E: From<P2pEvent>>(swarm: &mut Swarm<Behaviour<E>>, cmd: Cmd) {

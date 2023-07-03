@@ -94,10 +94,6 @@ pub enum PeerStagedLedgerReconstructState {
         time: Timestamp,
         parts: Arc<StagedLedgerAuxAndPendingCoinbases>,
     },
-    PartsApplyPending {
-        time: Timestamp,
-        parts: Arc<StagedLedgerAuxAndPendingCoinbases>,
-    },
     PartsApplySuccess {
         time: Timestamp,
     },
@@ -108,8 +104,23 @@ impl PeerStagedLedgerReconstructState {
         matches!(self, Self::PartsFetchPending { .. })
     }
 
+    pub fn is_fetch_success(&self) -> bool {
+        matches!(self, Self::PartsFetchSuccess { .. })
+    }
+
+    pub fn is_apply_success(&self) -> bool {
+        matches!(self, Self::PartsApplySuccess { .. })
+    }
+
     pub fn is_error(&self) -> bool {
         matches!(self, Self::PartsFetchError { .. })
+    }
+
+    pub fn fetch_pending_rpc_id(&self) -> Option<P2pRpcId> {
+        match self {
+            Self::PartsFetchPending { rpc_id, .. } => Some(*rpc_id),
+            _ => None,
+        }
     }
 }
 
@@ -238,5 +249,14 @@ impl TransitionFrontierSyncLedgerState {
             }
             _ => false,
         })
+    }
+
+    pub fn staged_ledger_parts_fetch_rpc_id(&self, peer_id: &PeerId) -> Option<P2pRpcId> {
+        match self {
+            Self::StagedLedgerReconstructPending { attempts, .. } => {
+                attempts.get(peer_id).and_then(|p| p.fetch_pending_rpc_id())
+            }
+            _ => None,
+        }
     }
 }

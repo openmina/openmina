@@ -10,6 +10,9 @@ pub use transition_frontier_sync_ledger_reducer::*;
 mod transition_frontier_sync_ledger_effects;
 pub use transition_frontier_sync_ledger_effects::*;
 
+mod transition_frontier_sync_ledger_service;
+pub use transition_frontier_sync_ledger_service::*;
+
 use mina_p2p_messages::v2::{LedgerHash, MinaBaseAccountBinableArgStableV2};
 use serde::{Deserialize, Serialize};
 

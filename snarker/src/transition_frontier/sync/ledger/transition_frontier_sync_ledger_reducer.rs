@@ -1,10 +1,8 @@
 use crate::ledger::{ledger_empty_hash_at_depth, LedgerAddress, LEDGER_DEPTH};
 
 use super::{
-    LedgerQueryPending, PeerLedgerQueryResponse, PeerRpcState, PeerStagedLedgerReconstructState,
+    LedgerQueryPending, PeerRpcState, PeerStagedLedgerReconstructState,
     TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerActionWithMetaRef,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction,
     TransitionFrontierSyncLedgerState,
 };
 
@@ -165,13 +163,34 @@ impl TransitionFrontierSyncLedgerState {
             TransitionFrontierSyncLedgerAction::StagedLedgerPartsFetchSuccess(action) => {
                 let Self::StagedLedgerReconstructPending { attempts, .. } = self else { return };
                 let Some(attempt) = attempts.get_mut(&action.peer_id) else { return };
-                let PeerStagedLedgerReconstructState::PartsFetchPending { rpc_id, .. } = &attempt else { return };
                 *attempt = PeerStagedLedgerReconstructState::PartsFetchSuccess {
                     time: meta.time(),
                     parts: action.parts.clone(),
                 };
             }
-            _ => todo!(),
+            TransitionFrontierSyncLedgerAction::StagedLedgerPartsApplyInit(_) => {}
+            TransitionFrontierSyncLedgerAction::StagedLedgerPartsApplySuccess(action) => {
+                let Self::StagedLedgerReconstructPending { attempts, .. } = self else { return };
+                let Some(attempt) = attempts.get_mut(&action.sender) else { return };
+                *attempt =
+                    PeerStagedLedgerReconstructState::PartsApplySuccess { time: meta.time() };
+            }
+            TransitionFrontierSyncLedgerAction::StagedLedgerReconstructSuccess(_) => {
+                let Self::StagedLedgerReconstructPending { block, .. } = self else { return };
+
+                *self = Self::StagedLedgerReconstructSuccess {
+                    time: meta.time(),
+                    block: block.clone(),
+                };
+            }
+            TransitionFrontierSyncLedgerAction::Success(_) => {
+                let Self::StagedLedgerReconstructSuccess { block, .. } = self else { return };
+
+                *self = Self::Success {
+                    time: meta.time(),
+                    block: block.clone(),
+                };
+            }
         }
     }
 }

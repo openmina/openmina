@@ -14,7 +14,7 @@ use snarker::event_source::{
     EventSourceWaitTimeoutAction,
 };
 use snarker::job_commitment::JobCommitmentsConfig;
-use snarker::ledger::{LedgerAddress, LedgerId, LEDGER_DEPTH};
+use snarker::ledger::LedgerCtx;
 use snarker::p2p::channels::ChannelId;
 use snarker::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use snarker::p2p::identity::SecretKey;
@@ -227,36 +227,20 @@ struct SnarkerService {
     p2p_event_sender: mpsc::UnboundedSender<P2pEvent>,
     event_receiver: EventReceiver,
     cmd_sender: mpsc::UnboundedSender<Cmd>,
-    ledger: LedgerService,
+    ledger: LedgerCtx,
     peers: BTreeMap<PeerId, PeerState>,
     libp2p: Libp2pService,
     rpc: rpc::RpcService,
     stats: Stats,
 }
 
-#[derive(Default)]
-struct LedgerService {
-    masks: BTreeMap<LedgerId, ledger::Mask>,
-    hashes_matrices: BTreeMap<LedgerId, ledger::HashesMatrix>,
-}
-
-impl snarker::service::LedgerService for SnarkerService {
-    fn get_ledger(&mut self, id: &LedgerId) -> &mut ledger::Mask {
-        self.ledger
-            .masks
-            .entry(id.clone())
-            .or_insert(ledger::Mask::create(35))
+impl snarker::ledger::LedgerService for SnarkerService {
+    fn ctx(&self) -> &LedgerCtx {
+        &self.ledger
     }
 
-    fn hashes_matrix(&mut self, id: &LedgerId) -> &mut ledger::HashesMatrix {
-        self.ledger
-            .hashes_matrices
-            .entry(id.clone())
-            .or_insert_with(|| {
-                let mut matrix = ledger::HashesMatrix::new(LEDGER_DEPTH);
-                matrix.set(&LedgerAddress::root(), id.hash.0.to_field());
-                matrix
-            })
+    fn ctx_mut(&mut self) -> &mut LedgerCtx {
+        &mut self.ledger
     }
 }
 

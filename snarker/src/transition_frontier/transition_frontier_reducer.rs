@@ -36,7 +36,26 @@ impl TransitionFrontierState {
                                 };
                             }
                         }
-                        _ => todo!(),
+                        TransitionFrontierSyncLedgerState::StagedLedgerReconstructPending {
+                            block,
+                            ..
+                        } => {
+                            if block.snarked_ledger_hash() == a.root_block.snarked_ledger_hash() {
+                                *root_ledger =
+                                    TransitionFrontierSyncLedgerState::SnarkedLedgerSyncSuccess {
+                                        time: meta.time(),
+                                        block: a.root_block.clone(),
+                                    };
+                            } else {
+                                *root_ledger = TransitionFrontierSyncLedgerState::Init {
+                                    time: meta.time(),
+                                    block: a.root_block.clone(),
+                                };
+                            }
+                        }
+                        _ => {
+                            // should be impossible.
+                        }
                     }
 
                     *best_tip = a.best_tip.clone();
@@ -60,6 +79,22 @@ impl TransitionFrontierState {
                             time: meta.time(),
                             block: root_block.clone(),
                         },
+                        missing_blocks: std::mem::take(missing_blocks),
+                    };
+                }
+            }
+            TransitionFrontierAction::RootLedgerSyncSuccess(_) => {
+                if let TransitionFrontierSyncState::RootLedgerSyncPending {
+                    best_tip,
+                    missing_blocks,
+                    root_ledger,
+                    ..
+                } = &mut self.sync
+                {
+                    self.sync = TransitionFrontierSyncState::RootLedgerSyncSuccess {
+                        time: meta.time(),
+                        best_tip: best_tip.clone(),
+                        root_block: root_ledger.block().clone(),
                         missing_blocks: std::mem::take(missing_blocks),
                     };
                 }
