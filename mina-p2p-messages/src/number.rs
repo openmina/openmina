@@ -29,6 +29,30 @@ impl Int64 {
     }
 }
 
+impl From<u32> for Number<i32> {
+    fn from(value: u32) -> Self {
+        Self(value as i32)
+    }
+}
+
+impl From<u64> for Number<i64> {
+    fn from(value: u64) -> Self {
+        Self(value as i64)
+    }
+}
+
+impl From<&u32> for Number<i32> {
+    fn from(value: &u32) -> Self {
+        Self(*value as i32)
+    }
+}
+
+impl From<&u64> for Number<i64> {
+    fn from(value: &u64) -> Self {
+        Self(*value as i64)
+    }
+}
+
 impl<T> Serialize for Number<T>
 where
     T: Serialize + Display,
