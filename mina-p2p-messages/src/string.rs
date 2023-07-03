@@ -45,6 +45,14 @@ impl TryFrom<ByteString> for String {
     }
 }
 
+impl TryFrom<&ByteString> for String {
+    type Error = std::string::FromUtf8Error;
+
+    fn try_from(value: &ByteString) -> Result<Self, Self::Error> {
+        String::from_utf8(value.0.clone())
+    }
+}
+
 impl Serialize for ByteString {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
