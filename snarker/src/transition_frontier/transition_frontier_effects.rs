@@ -3,10 +3,11 @@ use crate::Store;
 use super::sync::ledger::{
     TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerInitAction,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction,
+    TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction,
 };
 use super::{
     TransitionFrontierAction, TransitionFrontierActionWithMeta,
-    TransitionFrontierRootLedgerSyncPendingAction,
+    TransitionFrontierRootLedgerSyncPendingAction, TransitionFrontierRootLedgerSyncSuccessAction,
 };
 
 pub fn transition_frontier_effects<S: crate::Service>(
@@ -20,12 +21,17 @@ pub fn transition_frontier_effects<S: crate::Service>(
             store.dispatch(TransitionFrontierRootLedgerSyncPendingAction {});
         }
         TransitionFrontierAction::SyncBestTipUpdate(_) => {
+            // if root snarked ledger changed.
             store.dispatch(TransitionFrontierSyncLedgerInitAction {});
+            // if root snarked ledger stayed same but root block changed
+            // while reconstructing staged ledger.
+            store.dispatch(TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction {});
             store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
         }
         TransitionFrontierAction::RootLedgerSyncPending(_) => {
             store.dispatch(TransitionFrontierSyncLedgerInitAction {});
         }
+        TransitionFrontierAction::RootLedgerSyncSuccess(_) => {}
         TransitionFrontierAction::SyncLedger(action) => match action {
             TransitionFrontierSyncLedgerAction::Init(action) => {
                 action.effects(&meta, store);
@@ -71,8 +77,17 @@ pub fn transition_frontier_effects<S: crate::Service>(
             TransitionFrontierSyncLedgerAction::StagedLedgerPartsFetchSuccess(action) => {
                 action.effects(&meta, store);
             }
-            _ => {
-                todo!("sync done");
+            TransitionFrontierSyncLedgerAction::StagedLedgerPartsApplyInit(action) => {
+                action.effects(&meta, store);
+            }
+            TransitionFrontierSyncLedgerAction::StagedLedgerPartsApplySuccess(action) => {
+                action.effects(&meta, store);
+            }
+            TransitionFrontierSyncLedgerAction::StagedLedgerReconstructSuccess(action) => {
+                action.effects(&meta, store);
+            }
+            TransitionFrontierSyncLedgerAction::Success(_) => {
+                store.dispatch(TransitionFrontierRootLedgerSyncSuccessAction {});
             }
         },
     }

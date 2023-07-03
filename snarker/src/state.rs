@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use crate::config::SnarkerConfig;
 pub use crate::consensus::ConsensusState;
 pub use crate::job_commitment::JobCommitmentsState;
-use crate::ledger::LedgerState;
 pub use crate::p2p::P2pState;
 pub use crate::rpc::RpcState;
 pub use crate::snark::SnarkState;
@@ -17,7 +16,6 @@ pub use crate::Config;
 pub struct State {
     pub config: SnarkerConfig,
 
-    pub ledger: LedgerState,
     pub p2p: P2pState,
     pub snark: SnarkState,
     pub consensus: ConsensusState,
@@ -36,7 +34,6 @@ impl State {
     pub fn new(config: Config) -> Self {
         let job_commitments = config.snarker.job_commitments.clone();
         Self {
-            ledger: LedgerState::new(config.ledger),
             p2p: P2pState::new(config.p2p),
             job_commitments: JobCommitmentsState::new(job_commitments),
             snark: SnarkState::new(config.snark),

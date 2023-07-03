@@ -3,7 +3,6 @@ use crate::event_source::event_source_effects;
 use crate::job_commitment::{
     job_commitment_effects, JobCommitmentCheckTimeoutsAction, JobCommitmentP2pSendAllAction,
 };
-use crate::ledger::ledger_effects;
 use crate::logger::logger_effects;
 use crate::p2p::channels::rpc::{
     P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
@@ -79,9 +78,6 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         }
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));
-        }
-        Action::Ledger(action) => {
-            ledger_effects(store, meta.with_action(action));
         }
         Action::Snark(action) => {
             snark_effects(store, meta.with_action(action));

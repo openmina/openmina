@@ -8,7 +8,8 @@ use crate::p2p::channels::rpc::{P2pRpcId, StagedLedgerAuxAndPendingCoinbases};
 use crate::p2p::PeerId;
 
 use super::{
-    PeerLedgerQueryError, PeerLedgerQueryResponse, PeerRpcState, TransitionFrontierSyncLedgerState,
+    PeerLedgerQueryError, PeerLedgerQueryResponse, PeerRpcState, PeerStagedLedgerReconstructState,
+    TransitionFrontierSyncLedgerState,
 };
 
 pub type TransitionFrontierSyncLedgerActionWithMeta =
@@ -50,6 +51,8 @@ pub enum TransitionFrontierSyncLedgerAction {
     StagedLedgerPartsFetchPending(TransitionFrontierSyncLedgerStagedLedgerPartsFetchPendingAction),
     StagedLedgerPartsFetchError(TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction),
     StagedLedgerPartsFetchSuccess(TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction),
+    StagedLedgerPartsApplyInit(TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction),
+    StagedLedgerPartsApplySuccess(TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction),
     StagedLedgerReconstructSuccess(
         TransitionFrontierSyncLedgerStagedLedgerReconstructSuccessAction,
     ),
@@ -396,6 +399,7 @@ impl redux::EnablingCondition<crate::State>
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction {
     pub peer_id: PeerId,
+    pub rpc_id: P2pRpcId,
     pub error: PeerLedgerQueryError,
 }
 
@@ -414,13 +418,15 @@ impl redux::EnablingCondition<crate::State>
                 } => attempts.get(&self.peer_id),
                 _ => None,
             })
-            .map_or(false, |s| s.is_fetch_pending())
+            .and_then(|s| s.fetch_pending_rpc_id())
+            .map_or(false, |rpc_id| rpc_id == self.rpc_id)
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction {
     pub peer_id: PeerId,
+    pub rpc_id: P2pRpcId,
     pub parts: Arc<StagedLedgerAuxAndPendingCoinbases>,
 }
 
@@ -439,7 +445,63 @@ impl redux::EnablingCondition<crate::State>
                 } => attempts.get(&self.peer_id),
                 _ => None,
             })
-            .map_or(false, |s| s.is_fetch_pending())
+            .and_then(|s| s.fetch_pending_rpc_id())
+            .map_or(false, |rpc_id| rpc_id == self.rpc_id)
+    }
+}
+// TODO(binier): validate staged ledger hash in fetched parts.
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction {
+    pub sender: PeerId,
+    pub parts: Arc<StagedLedgerAuxAndPendingCoinbases>,
+}
+
+impl redux::EnablingCondition<crate::State>
+    for TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction
+{
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .transition_frontier
+            .sync
+            .root_ledger()
+            .and_then(|s| match s {
+                TransitionFrontierSyncLedgerState::StagedLedgerReconstructPending {
+                    attempts,
+                    ..
+                } => attempts.get(&self.sender),
+                _ => None,
+            })
+            .map_or(false, |s| match s {
+                PeerStagedLedgerReconstructState::PartsFetchSuccess { parts, .. } => {
+                    Arc::ptr_eq(parts, &self.parts)
+                }
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction {
+    pub sender: PeerId,
+}
+
+impl redux::EnablingCondition<crate::State>
+    for TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction
+{
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .transition_frontier
+            .sync
+            .root_ledger()
+            .and_then(|s| match s {
+                TransitionFrontierSyncLedgerState::StagedLedgerReconstructPending {
+                    attempts,
+                    ..
+                } => attempts.get(&self.sender),
+                _ => None,
+            })
+            .map_or(false, |s| s.is_fetch_success())
     }
 }
 
@@ -454,11 +516,12 @@ impl redux::EnablingCondition<crate::State>
             .transition_frontier
             .sync
             .root_ledger()
-            .map_or(false, |s| {
-                matches!(
-                    s,
-                    TransitionFrontierSyncLedgerState::StagedLedgerReconstructPending { .. }
-                )
+            .map_or(false, |s| match s {
+                TransitionFrontierSyncLedgerState::StagedLedgerReconstructPending {
+                    attempts,
+                    ..
+                } => attempts.iter().any(|(_, s)| s.is_apply_success()),
+                _ => false,
             })
     }
 }
@@ -509,5 +572,7 @@ impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitA
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsFetchPendingAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerReconstructSuccessAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerSuccessAction);

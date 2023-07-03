@@ -163,6 +163,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                         let rpc_ids = s
                             .snarked_ledger_peer_query_pending_rpc_ids(&action.peer_id)
                             .collect::<Vec<_>>();
+                        let staged_ledger_parts_fetch_rpc_id =
+                            s.staged_ledger_parts_fetch_rpc_id(&action.peer_id);
+
                         for rpc_id in rpc_ids {
                             store.dispatch(
                                 TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction {
@@ -173,12 +176,15 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             );
                         }
 
-                        store.dispatch(
-                            TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction {
-                                peer_id: action.peer_id,
-                                error: PeerLedgerQueryError::Timeout,
-                            },
-                        );
+                        if let Some(rpc_id) = staged_ledger_parts_fetch_rpc_id {
+                            store.dispatch(
+                                TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction {
+                                    peer_id: action.peer_id,
+                                    rpc_id,
+                                    error: PeerLedgerQueryError::Disconnected,
+                                },
+                            );
+                        }
                     }
 
                     let actions = store.state().watched_accounts.iter()
@@ -292,6 +298,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     store.dispatch(
                         TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction {
                             peer_id: action.peer_id,
+                            rpc_id: action.id,
                             error: PeerLedgerQueryError::Timeout,
                         },
                     );
@@ -373,6 +380,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             store.dispatch(
                                 TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction {
                                     peer_id: action.peer_id,
+                                    rpc_id: action.id,
                                     parts: parts.clone(),
                                 },
                             );
