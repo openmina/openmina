@@ -182,8 +182,8 @@ impl From<&SparseLedger> for mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStab
                 let addr = value.indexes.get(id).unwrap();
 
                 let index = addr.to_index();
-                let index: u32 = index.as_u64().try_into().unwrap();
-                let index: mina_p2p_messages::number::Int32 = (index as i32).into();
+                let index: u64 = index.as_u64().try_into().unwrap();
+                let index: mina_p2p_messages::number::Int64 = (index as i64).into();
 
                 let id: MinaBaseAccountIdStableV2 = id.clone().into();
 
@@ -242,11 +242,11 @@ impl From<&SparseLedger> for mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStab
             &value.values,
         );
 
-        let depth: u32 = value.depth.try_into().unwrap();
+        let depth: u64 = value.depth.try_into().unwrap();
 
         Self {
             indexes,
-            depth: (depth as i32).into(),
+            depth: (depth as i64).into(),
             tree,
         }
     }
@@ -281,7 +281,7 @@ impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2> for SparseLe
             }
         }
 
-        let depth = value.depth.as_u32() as usize;
+        let depth = value.depth.as_u64() as usize;
         let mut indexes = HashMap::with_capacity(value.indexes.len());
         let mut indexes_list = VecDeque::with_capacity(value.indexes.len());
         let mut hashes_matrix = HashesMatrix::new(depth);
@@ -289,7 +289,7 @@ impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2> for SparseLe
 
         for (account_id, account_index) in value.indexes.iter() {
             let account_id: AccountId = account_id.into();
-            let account_index = AccountIndex::from(account_index.as_u32() as usize);
+            let account_index = AccountIndex::from(account_index.as_u64() as usize);
 
             let addr = Address::from_index(account_index.clone(), depth);
 

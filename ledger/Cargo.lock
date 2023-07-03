@@ -199,7 +199,7 @@ dependencies = [
 [[package]]
 name = "binprot"
 version = "0.1.8"
-source = "git+https://github.com/openmina/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
+source = "git+https://github.com/openmina/binprot-rs?rev=dfbd3bbda8b2681d86ac73065523c658ee31d45d#dfbd3bbda8b2681d86ac73065523c658ee31d45d"
 dependencies = [
  "binprot_derive",
  "byteorder",
@@ -209,7 +209,7 @@ dependencies = [
 [[package]]
 name = "binprot_derive"
 version = "0.1.7"
-source = "git+https://github.com/openmina/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
+source = "git+https://github.com/openmina/binprot-rs?rev=dfbd3bbda8b2681d86ac73065523c658ee31d45d#dfbd3bbda8b2681d86ac73065523c658ee31d45d"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -838,7 +838,7 @@ dependencies = [
 [[package]]
 name = "mina-p2p-messages"
 version = "0.6.4"
-source = "git+https://github.com/openmina/mina-p2p-messages-rs?branch=signed-amount#97cce0286aef69c26f3752c06d47daf4298a3656"
+source = "git+https://github.com/openmina/mina-p2p-messages-rs?branch=main#1d776f32f2f763db37dc8ec602b2ec5c17398b80"
 dependencies = [
  "ark-ff",
  "base64",

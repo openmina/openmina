@@ -388,7 +388,7 @@ impl From<&MinaBaseTransactionStatusFailureStableV2> for TransactionFailure {
                 Self::AccountActionStatePreconditionUnsatisfied
             }
             P2P::AccountAppStatePreconditionUnsatisfied(v) => {
-                Self::AccountAppStatePreconditionUnsatisfied(v.as_u32() as i64)
+                Self::AccountAppStatePreconditionUnsatisfied(**v)
             }
             P2P::AccountProvedStatePreconditionUnsatisfied => {
                 Self::AccountProvedStatePreconditionUnsatisfied
@@ -457,7 +457,7 @@ impl From<&TransactionFailure> for MinaBaseTransactionStatusFailureStableV2 {
                 Self::AccountActionStatePreconditionUnsatisfied
             }
             P2P::AccountAppStatePreconditionUnsatisfied(v) => {
-                Self::AccountAppStatePreconditionUnsatisfied((*v as i32).into())
+                Self::AccountAppStatePreconditionUnsatisfied((*v).into())
             }
             P2P::AccountProvedStatePreconditionUnsatisfied => {
                 Self::AccountProvedStatePreconditionUnsatisfied
@@ -1987,12 +1987,9 @@ impl From<&ParallelScanWeightStableV1> for super::parallel_scan::Weight {
     fn from(value: &ParallelScanWeightStableV1) -> Self {
         let ParallelScanWeightStableV1 { base, merge } = value;
 
-        let base: u32 = base.as_u32();
-        let merge: u32 = merge.as_u32();
-
         Self {
-            base: base as u64,
-            merge: merge as u64,
+            base: base.as_u64(),
+            merge: merge.as_u64(),
         }
     }
 }
@@ -2007,9 +2004,7 @@ fn from_two_weights(
 
 impl From<&ParallelScanSequenceNumberStableV1> for SequenceNumber {
     fn from(value: &ParallelScanSequenceNumberStableV1) -> Self {
-        // TODO: the sequence number should be serialized as u64 ?
-        let number: u32 = value.as_u32();
-        SequenceNumber::new(number as u64)
+        SequenceNumber::new(value.as_u64())
     }
 }
 
@@ -2151,19 +2146,9 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                     acc: acc
                         .as_ref()
                         .map(|(proof, txns)| (proof.into(), txns.iter().map(Into::into).collect())),
-                    curr_job_seq_no: {
-                        // TODO: the sequence number should be serialized as u64 ?
-                        let number: u32 = curr_job_seq_no.as_u32();
-                        SequenceNumber::new(number as u64)
-                    },
-                    max_base_jobs: {
-                        let max_base_jobs: u32 = max_base_jobs.as_u32();
-                        max_base_jobs as u64
-                    },
-                    delay: {
-                        let delay: u32 = delay.as_u32();
-                        delay as u64
-                    },
+                    curr_job_seq_no: { SequenceNumber::new(curr_job_seq_no.as_u64()) },
+                    max_base_jobs: max_base_jobs.as_u64(),
+                    delay: delay.as_u64(),
                 }
             },
             previous_incomplete_zkapp_updates: {
@@ -2185,21 +2170,16 @@ impl From<&parallel_scan::Weight> for ParallelScanWeightStableV1 {
     fn from(value: &parallel_scan::Weight) -> Self {
         let parallel_scan::Weight { base, merge } = value;
 
-        let base: u32 = (*base).try_into().unwrap();
-        let merge: u32 = (*merge).try_into().unwrap();
-
         Self {
-            base: (base as i32).into(),
-            merge: (merge as i32).into(),
+            base: (*base as i64).into(),
+            merge: (*merge as i64).into(),
         }
     }
 }
 
 impl From<&SequenceNumber> for ParallelScanSequenceNumberStableV1 {
     fn from(value: &SequenceNumber) -> Self {
-        let number: u64 = value.as_u64();
-        let number: u32 = number.try_into().unwrap();
-        ParallelScanSequenceNumberStableV1((number as i32).into())
+        ParallelScanSequenceNumberStableV1((value.as_u64() as i64).into())
     }
 }
 
@@ -2345,18 +2325,9 @@ impl From<&ScanState> for TransactionSnarkScanStateStableV2 {
                     acc: acc
                         .as_ref()
                         .map(|(proof, txns)| (proof.into(), txns.iter().map(Into::into).collect())),
-                    curr_job_seq_no: {
-                        let curr_job_seq_no: u32 = curr_job_seq_no.as_u64().try_into().unwrap();
-                        (curr_job_seq_no as i32).into()
-                    },
-                    max_base_jobs: {
-                        let max_base_jobs: u32 = (*max_base_jobs).try_into().unwrap();
-                        (max_base_jobs as i32).into()
-                    },
-                    delay: {
-                        let delay: u32 = (*delay).try_into().unwrap();
-                        (delay as i32).into()
-                    },
+                    curr_job_seq_no: { (curr_job_seq_no.as_u64() as i64).into() },
+                    max_base_jobs: (*max_base_jobs as i64).into(),
+                    delay: (*delay as i64).into(),
                 }
             },
             previous_incomplete_zkapp_updates: {
@@ -2376,8 +2347,7 @@ impl From<&ScanState> for TransactionSnarkScanStateStableV2 {
 
 impl From<&MinaBasePendingCoinbaseStackIdStableV1> for pending_coinbase::StackId {
     fn from(value: &MinaBasePendingCoinbaseStackIdStableV1) -> Self {
-        let value: u32 = value.as_u32();
-        Self::new(value as u64)
+        Self::new(value.as_u64())
     }
 }
 
@@ -2424,7 +2394,7 @@ impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
                     tree,
                 } = tree;
 
-                let depth = depth.as_u32() as usize;
+                let depth = depth.as_u64() as usize;
                 let mut our_index = std::collections::HashMap::with_capacity(indexes.len());
                 // let mut index_list = std::collections::VecDeque::with_capacity(indexes.len());
                 let mut hashes_matrix = HashesMatrix::new(depth);
@@ -2432,7 +2402,7 @@ impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
 
                 for (stack_id, stack_index) in indexes.iter() {
                     let stack_id: pending_coinbase::StackId = stack_id.into();
-                    let stack_index = crate::AccountIndex::from(stack_index.as_u32() as usize);
+                    let stack_index = crate::AccountIndex::from(stack_index.as_u64() as usize);
 
                     let addr = Address::from_index(stack_index.clone(), depth);
 
