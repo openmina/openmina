@@ -222,6 +222,10 @@ impl Mask {
         self.with(|this| this.depth())
     }
 
+    pub fn set_cached_hash_unchecked(&mut self, addr: &Address, hash: Fp) {
+        self.with(|this| this.set_cached_hash_unchecked(addr, hash))
+    }
+
     pub(super) fn set_impl(&mut self, addr: Address, account: Account, ignore: Option<Uuid>) {
         self.with(|this| this.set_impl(addr, account, ignore))
     }
@@ -236,6 +240,14 @@ impl Mask {
 
     pub fn short(&self) -> MaskImplShort {
         self.with(|this| this.short())
+    }
+
+    /// Validate inner hashes by rehashing everything.
+    /// Returns `Ok(())` if recalculated hashes matched the existing ones.
+    ///
+    /// Warning: Heavy operation.
+    pub fn validate_inner_hashes(&mut self) -> Result<(), ()> {
+        self.with(|this| this.validate_inner_hashes())
     }
 
     /// For tests only, check if the address is in the mask, without checking parent
@@ -1249,5 +1261,24 @@ mod tests_mask_ocaml {
                 .map(|(_, account)| account)
                 .collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn test_validate_inner_hashes() {
+        let l = Address::first(1);
+        assert_eq!(l.parent().unwrap(), Address::root());
+        assert_eq!(l.parent(), l.next().unwrap().parent());
+        let (root, layer1, layer2) = new_chain(DEPTH);
+
+        let accounts = make_full_accounts(DEPTH);
+
+        for (i, mut mask) in [root, layer1, layer2].into_iter().enumerate() {
+            for account in accounts.iter().skip(i) {
+                mask.get_or_create_account(account.id(), account.clone())
+                    .unwrap();
+            }
+            dbg!(mask.merkle_root());
+            mask.validate_inner_hashes().unwrap();
+        }
     }
 }

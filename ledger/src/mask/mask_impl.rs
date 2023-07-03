@@ -502,6 +502,10 @@ impl MaskImpl {
         matrix.get(addr).copied()
     }
 
+    pub fn set_cached_hash_unchecked(&mut self, addr: &Address, hash: Fp) {
+        self.set_cached_hash(addr, hash)
+    }
+
     fn set_cached_hash(&mut self, addr: &Address, hash: Fp) {
         let matrix = match self {
             Root { database, .. } => return database.set_cached_hash(addr, hash),
@@ -878,6 +882,52 @@ impl MaskImpl {
                 child.recurse_on_childs(fun)
             });
         }
+    }
+
+    pub fn validate_inner_hashes(&mut self) -> Result<(), ()> {
+        use std::collections::VecDeque;
+
+        let tree_depth = self.depth() as usize;
+        let empty_account_hash = self.empty_hash_at_height(0);
+
+        let mut queue = VecDeque::new();
+
+        for index in 0..(2u64.pow(tree_depth as u32)) {
+            let index = AccountIndex(index);
+            match self
+                .get_account_hash(index.clone())
+                .filter(|hash| hash != &empty_account_hash)
+            {
+                None => break,
+                Some(hash) => {
+                    let addr = Address::from_index(index, tree_depth);
+                    let parent = addr.parent().unwrap();
+                    queue.push_back((parent, hash));
+                }
+            }
+        }
+
+        while let Some((addr, left_hash)) = queue.pop_front() {
+            let height = tree_depth - addr.length() - 1;
+            let right_hash = match queue.front().filter(|(addr2, _)| &addr == addr2) {
+                Some(_) => queue.pop_front().unwrap().1,
+                None => self.empty_hash_at_height(height),
+            };
+
+            assert_eq!(self.get_hash(addr.child_left()).unwrap(), left_hash);
+            assert_eq!(self.get_hash(addr.child_right()).unwrap(), right_hash);
+
+            let parent = addr.parent();
+            let hash = V2::hash_node(height, left_hash, right_hash);
+            if Some(hash) != self.get_hash(addr) {
+                return Err(());
+            }
+            if let Some(parent) = parent {
+                queue.push_back((parent, hash));
+            }
+        }
+
+        Ok(())
     }
 
     /// For tests only, check if the address is in the mask, without checking parent
