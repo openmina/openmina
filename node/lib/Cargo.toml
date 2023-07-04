@@ -14,7 +14,7 @@ thiserror = "1.0.37"
 num_enum = "0.5.7"
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51.3", default-features = false, features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "1bb150f573d31e90b576342308fa8c31815eb646" }
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "94fd3389acdf6986aa6731b0e64f5cd8b0db5eed" }
 
 shared = { path = "../shared" }
 node-p2p = { path = "../p2p" }

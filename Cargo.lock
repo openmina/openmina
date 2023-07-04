@@ -2847,7 +2847,7 @@ dependencies = [
 [[package]]
 name = "mina-p2p-messages"
 version = "0.6.4"
-source = "git+https://github.com/openmina/mina-p2p-messages-rs?rev=1bb150f573d31e90b576342308fa8c31815eb646#1bb150f573d31e90b576342308fa8c31815eb646"
+source = "git+https://github.com/openmina/mina-p2p-messages-rs?rev=94fd3389acdf6986aa6731b0e64f5cd8b0db5eed#94fd3389acdf6986aa6731b0e64f5cd8b0db5eed"
 dependencies = [
  "ark-ff",
  "base64 0.13.1",
@@ -2907,7 +2907,7 @@ dependencies = [
 [[package]]
 name = "mina-tree"
 version = "0.1.0"
-source = "git+https://github.com/openmina/ledger?branch=openmina#4db9556e4bd8b6b88b76c4af88807ee26c84a646"
+source = "git+https://github.com/openmina/ledger?rev=79f99e347dba72ed8217bdf5791e6ea2170ff975#79f99e347dba72ed8217bdf5791e6ea2170ff975"
 dependencies = [
  "ark-ec",
  "ark-ff",
