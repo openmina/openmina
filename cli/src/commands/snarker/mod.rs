@@ -35,12 +35,13 @@ mod http_server;
 mod rpc;
 use rpc::RpcP2pConnectionOutgoingResponse;
 
-#[derive(Debug, structopt::StructOpt)]
-#[structopt(name = "snarker", about = "Openmina snarker")]
+/// Openmina snarker
+#[derive(Debug, clap::Args)]
 pub struct Snarker {
-    #[structopt(long, default_value = "3000")]
+    /// Port to listen to
+    #[arg(default_value = "3000")]
     pub http_port: u16,
-    #[structopt(short, long)]
+    /// Chain ID
     pub chain_id: String,
 }
 

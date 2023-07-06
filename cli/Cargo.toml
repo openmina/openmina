@@ -22,7 +22,7 @@ redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"]
 ledger = { package = "mina-tree", git = "https://github.com/openmina/ledger", rev = "79f99e347dba72ed8217bdf5791e6ea2170ff975" }
 
 console = "0.15.5"
-structopt = "0.3.26"
+clap = { version = "4.3", features = [ "derive", "env" ] }
 
 shared = { path = "../node/shared" }
 snark = { path = "../node/snark" }
