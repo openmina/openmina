@@ -1,0 +1,6 @@
+[submodule "deps/ledger"]
+	path = deps/ledger
+	url = ../ledger.git
+[submodule "deps/mina-p2p-messages-rs"]
+	path = deps/mina-p2p-messages-rs
+	url = ../mina-p2p-messages-rs.git
