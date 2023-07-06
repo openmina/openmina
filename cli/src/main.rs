@@ -1,13 +1,12 @@
 pub mod commands;
-pub use commands::{Command, CommandError};
+use clap::Parser;
+pub use commands::CommandError;
 
 mod exit_with_error;
 pub use exit_with_error::exit_with_error;
 
-use structopt::StructOpt;
-
 fn main() {
-    match commands::Command::from_args().run() {
+    match commands::OpenminaCli::parse().command.run() {
         Ok(_) => {}
         Err(err) => exit_with_error(err),
     }
