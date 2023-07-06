@@ -2301,6 +2301,7 @@ dependencies = [
  "num_enum",
  "redux",
  "regex",
+ "rust-format",
  "serde",
  "serde_json",
  "shared",
@@ -4108,6 +4109,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust-format"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60e7c00b6c3bf5e38a880eec01d7e829d12ca682079f8238a464def3c4b31627"
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4600,6 +4607,7 @@ dependencies = [
  "p2p",
  "redux",
  "regex",
+ "rust-format",
  "serde",
  "serde_json",
  "shared",
