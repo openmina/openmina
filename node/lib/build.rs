@@ -6,6 +6,7 @@ use std::io::{self, BufRead, BufReader};
 use std::path::PathBuf;
 
 use regex::Regex;
+use rust_format::Formatter;
 
 fn visit_dirs(dir: &PathBuf, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
     if dir.is_dir() {
