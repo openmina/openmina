@@ -3,10 +3,17 @@ pub mod snarker;
 
 pub type CommandError = Box<dyn std::error::Error>;
 
-#[derive(Debug, structopt::StructOpt)]
-#[structopt(name = "openmina", about = "Openmina Cli")]
+#[derive(Debug, clap::Parser)]
+#[command(name = "openmina", about = "Openmina Cli")]
+pub struct OpenminaCli {
+    #[command(subcommand)]
+    pub command: Command,
+}
+
+#[derive(Debug, clap::Subcommand)]
 pub enum Command {
     Snark(snark::Snark),
+    /// Standalone snarker
     Snarker(snarker::Snarker),
 }
 

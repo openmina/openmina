@@ -4,12 +4,10 @@ use std::path::PathBuf;
 use ::snark::{get_srs, get_verifier_index, srs_to_bytes, verifier_index_to_bytes};
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, structopt::StructOpt)]
-#[structopt(
-    about = "Precalculate Block Verifier Index and SRS, to be quickly loaded ready to be used for block verification"
-)]
+#[derive(Debug, clap::Args)]
+/// Precalculate Block Verifier Index and SRS, to be quickly loaded ready to be used for block verification
 pub struct PrecalculateBlockVerifierIndexAndSrs {
-    #[structopt(short, long, parse(from_os_str), default_value = ".")]
+    #[arg(default_value = ".")]
     pub out: PathBuf,
 }
 
