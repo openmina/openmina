@@ -187,7 +187,7 @@ mina_rpc!(
 );
 
 pub type GetAncestryV2Query =
-    WithHashV1<v2::ConsensusProofOfStakeDataConsensusStateValueStableV1, StateHashV1>;
+    WithHashV1<v2::ConsensusProofOfStakeDataConsensusStateValueStableV2, StateHashV1>;
 pub type GetAncestryV2Response = Option<
     ProofCarryingDataWithHashV1<
         v2::MinaBlockBlockStableV2,

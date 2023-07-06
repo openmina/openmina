@@ -8,11 +8,11 @@ use crate::{
     hash_input::{Inputs, ToInput},
     pseq::PaddedSeq,
     v2::{
-        MinaBaseAccountBinableArgStableV2, MinaBaseAccountTimingStableV1,
+        MinaBaseAccountBinableArgStableV2, MinaBaseAccountTimingStableV2,
         MinaBasePermissionsAuthRequiredStableV2, MinaBasePermissionsStableV2,
         MinaBaseVerificationKeyWireStableV1, MinaBaseVerificationKeyWireStableV1WrapIndex,
         MinaBaseZkappAccountStableV2, MinaBaseZkappAccountZkappUriStableV1,
-        PicklesBaseProofsVerifiedStableV1,
+        PicklesBaseProofsVerifiedStableV1, MinaNumbersGlobalSlotSinceGenesisMStableV1,
     },
 };
 
@@ -112,10 +112,10 @@ impl ToInput for MinaBasePermissionsStableV2 {
     }
 }
 
-impl ToInput for MinaBaseAccountTimingStableV1 {
+impl ToInput for MinaBaseAccountTimingStableV2 {
     fn to_input(&self, inputs: &mut Inputs) {
         match self {
-            MinaBaseAccountTimingStableV1::Untimed => {
+            MinaBaseAccountTimingStableV2::Untimed => {
                 inputs.append_bool(false);
                 inputs.append_u64(0); // initial_minimum_balance
                 inputs.append_u32(0); // cliff_time
@@ -123,7 +123,7 @@ impl ToInput for MinaBaseAccountTimingStableV1 {
                 inputs.append_u32(1); // vesting_period
                 inputs.append_u64(0); // vesting_increment
             }
-            MinaBaseAccountTimingStableV1::Timed {
+            MinaBaseAccountTimingStableV2::Timed {
                 initial_minimum_balance,
                 cliff_time,
                 cliff_amount,
@@ -141,6 +141,12 @@ impl ToInput for MinaBaseAccountTimingStableV1 {
                 );
             }
         }
+    }
+}
+
+impl Default for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
+    fn default() -> Self {
+        Self::SinceGenesis(Default::default())
     }
 }
 

@@ -24,7 +24,7 @@ use crate::{
 
 use super::{
     generated, ConsensusBodyReferenceStableV1, ConsensusGlobalSlotStableV1,
-    ConsensusProofOfStakeDataConsensusStateValueStableV1,
+    ConsensusProofOfStakeDataConsensusStateValueStableV2,
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
     ConsensusVrfOutputTruncatedStableV1, MinaBaseAccountBinableArgStableV2,
@@ -32,11 +32,13 @@ use super::{
     MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
     MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashNonSnarkStableV1,
     MinaBaseStagedLedgerHashStableV1, MinaBaseVerificationKeyWireStableV1,
+    MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSinceHardForkMStableV1,
     MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
-    MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
+    MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateProtocolStateBodyValueStableV2,
+    MinaStateProtocolStateValueStableV2,
     MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
-    NonZeroCurvePointUncompressedStableV1, SgnStableV1, SignedAmount, TokenFeeExcess,
+    NonZeroCurvePointUncompressedStableV1, SgnStableV1, SignedAmount, TokenFeeExcess, MinaNumbersGlobalSlotSpanStableV1,
 };
 
 impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1 {
@@ -166,6 +168,7 @@ mod tests {
     use super::super::manual;
     use super::*;
     use binprot::BinProtRead;
+    use manual::MinaBaseSignedCommandMemoStableV1;
 
     fn pub_key(address: &str) -> manual::NonZeroCurvePoint {
         let key = mina_signer::PubKey::from_address(address)
@@ -206,13 +209,13 @@ mod tests {
             .unwrap()[1..]
             .to_vec();
         let v = CharString::from(&memo[..]);
-        let memo = generated::MinaBaseSignedCommandMemoStableV1(v);
+        let memo = MinaBaseSignedCommandMemoStableV1(v);
 
         let common = generated::MinaBaseSignedCommandPayloadCommonStableV2 {
             fee,
             fee_payer_pk: from.clone(),
             nonce,
-            valid_until,
+            valid_until: MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(valid_until),
             memo,
         };
 
@@ -221,7 +224,6 @@ mod tests {
         let amount = generated::CurrencyAmountStableV1(v);
 
         let v = generated::MinaBasePaymentPayloadStableV2 {
-            source_pk: from.clone(),
             receiver_pk: to.clone(),
             amount,
         };
@@ -416,9 +418,9 @@ impl ToInput for MinaStateBlockchainStateValueStableV2 {
     }
 }
 
-impl ToInput for ConsensusProofOfStakeDataConsensusStateValueStableV1 {
+impl ToInput for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
     fn to_input(&self, inputs: &mut Inputs) {
-        let ConsensusProofOfStakeDataConsensusStateValueStableV1 {
+        let ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             blockchain_length,
             epoch_count,
             min_window_density,
@@ -640,7 +642,6 @@ impl ToInput for MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
             call_stack,
             transaction_commitment,
             full_transaction_commitment,
-            token_id,
             excess,
             supply_increase,
             ledger,
@@ -655,7 +656,6 @@ impl ToInput for MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
             call_stack,
             transaction_commitment,
             full_transaction_commitment,
-            token_id,
             excess,
             supply_increase,
             ledger,
@@ -671,6 +671,39 @@ impl ToInput for SgnStableV1 {
         inputs.append_bool(self == &SgnStableV1::Pos);
     }
 }
+
+impl ToInput for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
+    fn to_input(&self, inputs: &mut Inputs) {
+        match self {
+            MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(v) => v.to_input(inputs),
+        }
+    }
+}
+
+impl ToInput for MinaStateBlockchainStateValueStableV2SignedAmount {
+    fn to_input(&self, inputs: &mut Inputs) {
+        let MinaStateBlockchainStateValueStableV2SignedAmount { magnitude, sgn } = self;
+        magnitude.to_input(inputs);
+        sgn.to_input(inputs);
+    }
+}
+
+impl ToInput for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
+    fn to_input(&self, inputs: &mut Inputs) {
+        match self {
+            MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(v) => v.to_input(inputs),
+        }
+    }
+}
+
+impl ToInput for MinaNumbersGlobalSlotSpanStableV1 {
+    fn to_input(&self, inputs: &mut Inputs) {
+        match self {
+            MinaNumbersGlobalSlotSpanStableV1::GlobalSlotSpan(v) => v.to_input(inputs),
+        }
+    }
+}
+
 mod account;
 mod verification_key;
 
