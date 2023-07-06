@@ -22,3 +22,4 @@ snark = { path = "../snark" }
 
 [build-dependencies]
 regex = "1"
+rust-format = "0.3"
