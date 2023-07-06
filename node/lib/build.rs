@@ -67,7 +67,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             let Some(line) = lines.next() else { break };
             let line = line.unwrap();
 
-            let Some(matches) = action_def_re.captures(&line) else { continue };
+            let Some(matches) = action_def_re.captures(&line) else {
+                continue;
+            };
             match &matches[1] {
                 "struct" => {
                     if let Some(action_name) = matches.get(2) {
@@ -198,9 +200,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let contents =
         format!("{use_deps}\n\n{use_statements}\n\n{action_kind_def}\n\n{action_kind_get_impls}\n");
 
-    fs::write(crate_dir.join("src/action_kind.rs"), contents)?;
-
-    std::process::Command::new("cargo").arg("fmt").output()?;
+    let path = crate_dir.join("src/action_kind.rs");
+    fs::write(&path, contents)?;
+    rust_format::RustFmt::default().format_file(&path).expect("failed to format generated file");
 
     Ok(())
 }
