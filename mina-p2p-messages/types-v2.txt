@@ -10,7 +10,7 @@ Mina_state__Protocol_state.Make_str.Value.Stable.V2.t
 Mina_ledger__Sync_ledger.Query.Stable.V1.t
 Mina_ledger__Sync_ledger.Answer.Stable.V2.t
 Mina_base__Sparse_ledger_base.Stable.V2.t
-Consensus__Proof_of_stake.Make_str.Data.Consensus_state.Value.Stable.V1.t
+Consensus__Proof_of_stake.Make_str.Data.Consensus_state.Value.Stable.V2.t
 Sync_status.T.Stable.V1.t
 Trust_system__Peer_status.Stable.V1.t
 Blockchain_snark__Blockchain.Stable.V2.t

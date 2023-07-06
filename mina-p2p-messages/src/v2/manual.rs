@@ -1,5 +1,6 @@
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
+use derive_more::Deref;
 use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer};
 
 use crate::{
@@ -8,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    ConsensusProofOfStakeDataConsensusStateValueStableV1, ConsensusVrfOutputTruncatedStableV1,
+    ConsensusProofOfStakeDataConsensusStateValueStableV2, ConsensusVrfOutputTruncatedStableV1,
     CurrencyFeeStableV1, DataHashLibStateHashStableV1, MinaBaseAccountIdDigestStableV1,
     MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
     MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseHashVersionedStableV1,
@@ -28,6 +29,21 @@ pub type TransactionSnarkScanStateStableV2TreesAMerge = (
     (ParallelScanWeightStableV1, ParallelScanWeightStableV1),
     TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
 );
+
+/// **OCaml name**: `Mina_base__Signed_command_memo.Make_str.Stable.V1`
+///
+/// Gid: `695`
+/// Location: [src/lib/mina_base/signed_command_memo.ml:21:6](https://github.com/MinaProtocol/mina/blob//bfd1009/src/lib/mina_base/signed_command_memo.ml#L21)
+///
+///
+/// Gid: `170`
+/// Location: [src/std_internal.ml:140:2](https://github.com/MinaProtocol/mina/blob//bfd1009/src/std_internal.ml#L140)
+///
+///
+/// Gid: `83`
+/// Location: [src/string.ml:44:6](https://github.com/MinaProtocol/mina/blob//bfd1009/src/string.ml#L44)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+pub struct MinaBaseSignedCommandMemoStableV1(pub crate::string::CharString);
 
 //
 //  Location: [src/lib/parallel_scan/parallel_scan.ml:247:6](https://github.com/openmina/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L247)
@@ -562,11 +578,14 @@ pub enum MerkleTreeNode {
     Right(BigInt),
 }
 
-impl ConsensusProofOfStakeDataConsensusStateValueStableV1 {
+impl ConsensusProofOfStakeDataConsensusStateValueStableV2 {
     pub fn global_slot(&self) -> u32 {
-        self.curr_global_slot.slot_number.as_u32()
+        match &self.curr_global_slot.slot_number {
+            super::MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(s) => s.as_u32(),
+        }
     }
 }
+
 
 impl AsRef<str> for SgnStableV1 {
     fn as_ref(&self) -> &str {

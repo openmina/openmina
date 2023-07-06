@@ -1,6 +1,6 @@
 generate_comments = true
 blank_lines = true
-git_prefix = "https://github.com/Minaprotocol/mina/blob/b1facec/"
+git_prefix = "https://github.com/MinaProtocol/mina/blob/"
 wrap_internal_types = true
 
 preamble = '''
@@ -11,9 +11,12 @@ _blank_!();
 use crate::pseq::PaddedSeq;
 _blank_!();
 use super::manual::*;
+_blank_!();
 '''
 
 type_preamble = "#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]"
+
+newtype_preamble = "#[derive(Deref)]"
 
 poly_var_preamble = "#[polymorphic_variant]"
 
@@ -28,9 +31,16 @@ skip = [
        "MinaBaseFeeExcessStableV1",
        "MinaBaseFeeExcessStableV1Fee",
        "MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1SignedAmount",
+       "MinaBaseSignedCommandMemoStableV1",
 ]
 
 rec_tuple_type = 'PaddedSeq'
+
+[type_preambles]
+'Consensus_vrf.Output.Truncated.Stable.V1' =                     "#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]"
+'Pickles__Proof.Proofs_verified_2.Repr.Stable.V2.statement.fp' = "#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]"
+'Sgn.Stable.V1' =                                                "#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]"
+'Protocol_version.Make_str.Stable.V1' =                          "#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]"
 
 [base_types.float]
 rust_id = 'crate::number::Float64'
@@ -99,6 +109,6 @@ Make_str = ''
 'Mina_base__Pending_coinbase.Make_str.Hash_versioned.Stable.V1' = 'PendingCoinbaseHash'
 'Mina_base__Pending_coinbase.Make_str.Coinbase_stack.Stable.V1' = 'CoinbaseStackData'
 'Mina_base__Pending_coinbase.Make_str.Stack_hash.Stable.V1' = 'CoinbaseStackHash'
-'Mina_transaction_logic__Zkapp_command_logic.Local_state.Value.Stable.V1.signed_amount' = 'Amount'
-'Mina_base__Fee_excess.Stable.V1.fee' = 'Amount'
+'Mina_transaction_logic__Zkapp_command_logic.Local_state.Value.Stable.V1.signed_amount' = 'SignedAmount'
+'Mina_base__Fee_excess.Stable.V1.fee' = 'SignedAmount'
 'Mina_base__Signature.Stable.V1' = 'Signature'
