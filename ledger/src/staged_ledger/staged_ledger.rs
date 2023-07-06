@@ -417,7 +417,7 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L393
-    fn copy(&self) -> Self {
+    pub fn copy(&self) -> Self {
         let new_mask = self.ledger.make_child();
 
         Self {
