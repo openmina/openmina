@@ -38,3 +38,9 @@ kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-n
 poly-commitment = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
 mina-poseidon = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
 
+
+[patch.'https://github.com/openmina/mina-p2p-messages-rs']
+mina-p2p-messages = { path = "deps/mina-p2p-messages-rs" }
+
+[patch.'https://github.com/openmina/ledger']
+ledger = { path = "deps/ledger", package = "mina-tree" }
