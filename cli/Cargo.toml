@@ -27,3 +27,5 @@ shared = { path = "../node/shared" }
 snark = { path = "../node/snark" }
 snarker = { path = "../snarker" }
 bytes = "1.4.0"
+tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }
+tracing = "0.1.37"
