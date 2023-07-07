@@ -38,15 +38,18 @@ use rpc::RpcP2pConnectionOutgoingResponse;
 /// Openmina snarker
 #[derive(Debug, clap::Args)]
 pub struct Snarker {
+
     /// Chain ID
-    #[arg(env)]
+    #[arg(long, short = 'i', env)]
     pub chain_id: String,
+
     /// Snarker public key
-    #[arg(env)]
+    #[arg(long, short = 'k', env)]
     pub public_key: AccountPublicKey,
+
     /// Port to listen to
-    #[arg(default_value = "3000")]
-    pub http_port: u16,
+    #[arg(long, short, default_value = "3000")]
+    pub port: u16,
 }
 
 impl Snarker {
@@ -165,7 +168,7 @@ impl Snarker {
 
         let mut rpc_service = rpc::RpcService::new();
 
-        let http_port = self.http_port;
+        let http_port = self.port;
         let rpc_sender = RpcSender {
             tx: rpc_service.req_sender().clone(),
         };
