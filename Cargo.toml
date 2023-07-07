@@ -6,10 +6,10 @@ members = [
     "p2p",
     "snarker",
     "node/shared",
-    "node/p2p",
-    "node/lib",
+    # "node/p2p",
+    # "node/lib",
     "node/snark",
-    "node/wasm"
+    # "node/wasm"
 ]
 
 [profile.fuzz]
