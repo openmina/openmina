@@ -6,7 +6,7 @@ use mina_p2p_messages::{
     pseq::PaddedSeq,
     v2::{
         MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,
-        MinaBaseAccountIdStableV2, MinaBaseAccountTimingStableV1,
+        MinaBaseAccountIdStableV2, MinaBaseAccountTimingStableV2,
         MinaBasePermissionsAuthRequiredStableV2, MinaBasePermissionsStableV2,
         MinaBaseVerificationKeyWireStableV1, MinaBaseVerificationKeyWireStableV1WrapIndex,
         NonZeroCurvePointUncompressedStableV1, PicklesBaseProofsVerifiedStableV1, TokenIdKeyHash,
@@ -14,7 +14,7 @@ use mina_p2p_messages::{
 };
 
 use crate::{
-    scan_state::currency::{Amount, Balance, Nonce, Slot},
+    scan_state::currency::{Amount, Balance, Nonce, Slot, SlotSpan},
     CurveAffine, Permissions, PlonkVerificationKeyEvals, ProofVerified, ReceiptChainHash, Timing,
     TokenSymbol, VerificationKey, VotingFor, ZkAppAccount,
 };
@@ -189,11 +189,11 @@ impl From<&VerificationKey> for MinaBaseVerificationKeyWireStableV1 {
     }
 }
 
-impl From<&MinaBaseAccountTimingStableV1> for Timing {
-    fn from(timing: &MinaBaseAccountTimingStableV1) -> Self {
+impl From<&MinaBaseAccountTimingStableV2> for Timing {
+    fn from(timing: &MinaBaseAccountTimingStableV2) -> Self {
         match timing {
-            MinaBaseAccountTimingStableV1::Untimed => Timing::Untimed,
-            MinaBaseAccountTimingStableV1::Timed {
+            MinaBaseAccountTimingStableV2::Untimed => Timing::Untimed,
+            MinaBaseAccountTimingStableV2::Timed {
                 initial_minimum_balance,
                 cliff_time,
                 cliff_amount,
@@ -203,36 +203,36 @@ impl From<&MinaBaseAccountTimingStableV1> for Timing {
                 initial_minimum_balance: Balance::from_u64(initial_minimum_balance.as_u64()),
                 cliff_time: Slot::from_u32(cliff_time.as_u32()),
                 cliff_amount: Amount::from_u64(cliff_amount.as_u64()),
-                vesting_period: Slot::from_u32(vesting_period.as_u32()),
+                vesting_period: SlotSpan::from_u32(vesting_period.as_u32()),
                 vesting_increment: Amount::from_u64(vesting_increment.as_u64()),
             },
         }
     }
 }
 
-impl From<&Timing> for MinaBaseAccountTimingStableV1 {
+impl From<&Timing> for MinaBaseAccountTimingStableV2 {
     fn from(timing: &Timing) -> Self {
         use mina_p2p_messages::v2::*;
 
         match timing {
-            super::Timing::Untimed => MinaBaseAccountTimingStableV1::Untimed,
+            super::Timing::Untimed => MinaBaseAccountTimingStableV2::Untimed,
             super::Timing::Timed {
                 initial_minimum_balance,
                 cliff_time,
                 cliff_amount,
                 vesting_period,
                 vesting_increment,
-            } => MinaBaseAccountTimingStableV1::Timed {
+            } => MinaBaseAccountTimingStableV2::Timed {
                 initial_minimum_balance: CurrencyBalanceStableV1(CurrencyAmountStableV1(
                     UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
                         initial_minimum_balance.as_u64().into(),
                     ),
                 )),
-                cliff_time: UnsignedExtendedUInt32StableV1(cliff_time.as_u32().into()),
+                cliff_time: cliff_time.into(),
                 cliff_amount: CurrencyAmountStableV1(
                     UnsignedExtendedUInt64Int64ForVersionTagsStableV1(cliff_amount.as_u64().into()),
                 ),
-                vesting_period: UnsignedExtendedUInt32StableV1(vesting_period.as_u32().into()),
+                vesting_period: vesting_period.into(),
                 vesting_increment: CurrencyAmountStableV1(
                     UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
                         vesting_increment.as_u64().into(),
@@ -285,9 +285,7 @@ impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 
                         zkapp.zkapp_version.into(),
                     )),
                     action_state,
-                    last_action_slot: UnsignedExtendedUInt32StableV1(
-                        zkapp.last_action_slot.as_u32().into(),
-                    ),
+                    last_action_slot: (&zkapp.last_action_slot).into(),
                     proved_state: zkapp.proved_state,
                     zkapp_uri: MinaBaseZkappAccountZkappUriStableV1(
                         zkapp.zkapp_uri.as_bytes().into(),

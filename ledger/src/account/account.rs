@@ -654,6 +654,7 @@ pub enum PermissionTo {
     Send,
     Receive,
     SetDelegate,
+    IncrementNonce,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -832,7 +833,34 @@ impl Account {
             PermissionTo::Send => check_permission(self.permissions.send, control),
             PermissionTo::Receive => check_permission(self.permissions.receive, control),
             PermissionTo::SetDelegate => check_permission(self.permissions.set_delegate, control),
+            PermissionTo::IncrementNonce => {
+                check_permission(self.permissions.increment_nonce, control)
+            }
         }
+    }
+
+    /// [true] iff account has permissions set that enable them to transfer Mina (assuming the command is signed)
+    pub fn has_permission_to_send(&self) -> bool {
+        self.has_permission_to(ControlTag::Signature, PermissionTo::Access)
+            && self.has_permission_to(ControlTag::Signature, PermissionTo::Send)
+    }
+
+    /// [true] iff account has permissions set that enable them to receive Mina
+    pub fn has_permission_to_receive(&self) -> bool {
+        self.has_permission_to(ControlTag::NoneGiven, PermissionTo::Access)
+            && self.has_permission_to(ControlTag::NoneGiven, PermissionTo::Receive)
+    }
+
+    /// [true] iff account has permissions set that enable them to set their delegate (assuming the command is signed)
+    pub fn has_permission_to_set_delegate(&self) -> bool {
+        self.has_permission_to(ControlTag::Signature, PermissionTo::Access)
+            && self.has_permission_to(ControlTag::Signature, PermissionTo::SetDelegate)
+    }
+
+    /// [true] iff account has permissions set that enable them to increment their nonce (assuming the command is signed)
+    pub fn has_permission_to_increment_nonce(&self) -> bool {
+        self.has_permission_to(ControlTag::Signature, PermissionTo::Access)
+            && self.has_permission_to(ControlTag::Signature, PermissionTo::IncrementNonce)
     }
 
     pub fn hash(&self) -> Fp {

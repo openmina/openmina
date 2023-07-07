@@ -749,7 +749,6 @@ pub struct ConstraintConstants {
     pub account_creation_fee: Fee,   // Currency.Fee.Stable.Latest.t,
     pub fork: Option<ForkConstants>, // Fork_constants.t option,
 }
-
 #[derive(Clone, Debug, BinProtWrite)]
 pub struct ForkConstantsUnversioned {
     previous_state_hash: bigint::BigInt,
@@ -1529,7 +1528,6 @@ impl ScanState {
                             full_transaction_commitment: zkapp
                                 .local_state
                                 .full_transaction_commitment,
-                            token_id: zkapp.local_state.token_id,
                             excess: zkapp.local_state.excess,
                             supply_increase: zkapp.local_state.supply_increase,
                             ledger: ledger.clone(),

@@ -1957,7 +1957,7 @@ mod tests_ocaml {
             user_command::sequence_zkapp_command_with_ledger, zkapp_command_builder, Failure,
         },
         scan_state::{
-            currency::{Balance, Fee, Nonce},
+            currency::{Balance, Fee, Nonce, SlotSpan},
             scan_state::transaction_snark::SokDigest,
             transaction_logic::{
                 apply_transactions,
@@ -2300,12 +2300,11 @@ mod tests_ocaml {
 
                     SignedCommandPayload::create(
                         fee,
-                        sender_pk.clone(),
+                        sender_pk,
                         nonce,
                         None,
                         memo,
                         Body::Payment(PaymentPayload {
-                            source_pk: sender_pk,
                             receiver_pk: receiver,
                             amount,
                         }),
@@ -2529,8 +2528,8 @@ mod tests_ocaml {
                 let since_genesis = &state.body.consensus_state.global_slot_since_genesis;
                 let curr = &state.body.consensus_state.curr_global_slot.slot_number;
 
-                let since_genesis = Slot::from_u32(since_genesis.as_u32());
-                let curr = Slot::from_u32(curr.as_u32());
+                let since_genesis: Slot = since_genesis.into();
+                let curr: Slot = curr.into();
 
                 (since_genesis.checked_sub(&curr).unwrap())
                     .checked_add(&new_global_slot)
@@ -3880,10 +3879,6 @@ mod tests_ocaml {
                     ),
                 },
                 body: signed_command::Body::Payment(PaymentPayload {
-                    source_pk: CompressedPubKey::from_address(
-                        "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
-                    )
-                    .unwrap(),
                     receiver_pk: CompressedPubKey::from_address(
                         "B62qnxPe7DM72bh59QrubnREEyeNoeLM4J9s8iufT6Gi2iuUm6fe73R",
                     )
@@ -3933,10 +3928,6 @@ mod tests_ocaml {
                         ),
                     },
                     body: signed_command::Body::Payment(PaymentPayload {
-                        source_pk: CompressedPubKey::from_address(
-                            "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
-                        )
-                            .unwrap(),
                         receiver_pk: CompressedPubKey::from_address(
                             "B62qq4FFooVJ6TRGKA3chxE7M1Xh1F11jsanLBYmcZEqJZaYGPdye3D",
                         )
@@ -3974,10 +3965,6 @@ mod tests_ocaml {
                         ),
                     },
                     body: signed_command::Body::Payment(PaymentPayload {
-                        source_pk: CompressedPubKey::from_address(
-                            "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
-                        )
-                            .unwrap(),
                         receiver_pk: CompressedPubKey::from_address(
                             "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
                         )
@@ -4015,10 +4002,6 @@ mod tests_ocaml {
                         ),
                     },
                     body: signed_command::Body::Payment(PaymentPayload {
-                        source_pk: CompressedPubKey::from_address(
-                            "B62qqrHu7qJJrUekPYqNEbsMMzxDebqfApuyT5y6K9xgwm4TUe77kNd",
-                        )
-                            .unwrap(),
                         receiver_pk: CompressedPubKey::from_address(
                             "B62qnxPe7DM72bh59QrubnREEyeNoeLM4J9s8iufT6Gi2iuUm6fe73R",
                         )
@@ -5171,7 +5154,7 @@ mod tests_ocaml {
             initial_minimum_balance: balance,
             cliff_time: Slot::from_u32(4),
             cliff_amount: Amount::zero(),
-            vesting_period: Slot::from_u32(2),
+            vesting_period: SlotSpan::from_u32(2),
             vesting_increment: Amount::from_u64(50_000_000_000),
         };
         (keypair, account)
@@ -5511,7 +5494,6 @@ mod tests_ocaml {
         let source_pk = kp.public.into_compressed();
 
         let body = signed_command::Body::Payment(PaymentPayload {
-            source_pk: source_pk.clone(),
             receiver_pk,
             amount: insufficient_account_creation_fee,
         });
@@ -5605,7 +5587,6 @@ mod tests_ocaml {
 
             let source_pk = kp.public.into_compressed();
             let body = signed_command::Body::Payment(PaymentPayload {
-                source_pk: source_pk.clone(),
                 receiver_pk,
                 amount: account_creation_fee,
             });

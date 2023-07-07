@@ -10,7 +10,7 @@ use crate::{hash_with_kimchi, port_ocaml, ControlTag, Inputs};
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
     sparse_ledger::{LedgerIntf, SparseLedger},
-    Account, AccountId, PermissionTo, ReceiptChainHash, Timing, TokenId, VerificationKey,
+    Account, AccountId, ReceiptChainHash, Timing, TokenId, VerificationKey,
 };
 
 use self::zkapp_command::{AccessedOrNot, Numeric};
@@ -28,6 +28,7 @@ use self::{
     },
 };
 
+use super::currency::SlotSpan;
 use super::zkapp_logic::ZkAppCommandElt;
 use super::{
     currency::{Amount, Balance, Fee, Index, Length, Magnitude, Nonce, Signed, Slot},
@@ -656,45 +657,28 @@ pub mod signed_command {
         pub memo: Memo,
     }
 
-    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/payment_payload.ml#L40
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct PaymentPayload {
-        pub source_pk: CompressedPubKey,
         pub receiver_pk: CompressedPubKey,
         pub amount: Amount,
     }
 
-    /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/stake_delegation.ml#L11
+    /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/mina_base/stake_delegation.ml#L11
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum StakeDelegationPayload {
-        SetDelegate {
-            delegator: CompressedPubKey,
-            new_delegate: CompressedPubKey,
-        },
+        SetDelegate { new_delegate: CompressedPubKey },
     }
 
     impl StakeDelegationPayload {
-        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/stake_delegation.ml#L30
-        pub fn source(&self) -> AccountId {
-            let Self::SetDelegate { delegator, .. } = self;
-            AccountId::new(delegator.clone(), TokenId::default())
-        }
-
-        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/stake_delegation.ml#L28
-        pub fn source_pk(&self) -> &CompressedPubKey {
-            let Self::SetDelegate { delegator, .. } = self;
-            delegator
-        }
-
-        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/stake_delegation.ml#L24
+        /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/mina_base/stake_delegation.ml#L35
         pub fn receiver(&self) -> AccountId {
-            let Self::SetDelegate { new_delegate, .. } = self;
+            let Self::SetDelegate { new_delegate } = self;
             AccountId::new(new_delegate.clone(), TokenId::default())
         }
 
-        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/stake_delegation.ml#L22
+        /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/mina_base/stake_delegation.ml#L33
         pub fn receiver_pk(&self) -> &CompressedPubKey {
-            let Self::SetDelegate { new_delegate, .. } = self;
+            let Self::SetDelegate { new_delegate } = self;
             new_delegate
         }
     }
@@ -767,24 +751,6 @@ pub mod signed_command {
             self.payload.common.fee
         }
 
-        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command_payload.ml#L243
-        pub fn source(&self) -> AccountId {
-            match &self.payload.body {
-                Body::Payment(payload) => {
-                    AccountId::new(payload.source_pk.clone(), TokenId::default())
-                }
-                Body::StakeDelegation(payload) => payload.source(),
-            }
-        }
-
-        /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command_payload.ml#L227
-        pub fn source_pk(&self) -> &CompressedPubKey {
-            match &self.payload.body {
-                Body::Payment(payload) => &payload.source_pk,
-                Body::StakeDelegation(payload) => payload.source_pk(),
-            }
-        }
-
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command_payload.ml#L250
         pub fn receiver(&self) -> AccountId {
             match &self.payload.body {
@@ -815,21 +781,13 @@ pub mod signed_command {
         pub fn account_access_statuses(
             &self,
             status: &TransactionStatus,
-        ) -> [(AccountId, AccessedOrNot); 3] {
+        ) -> Vec<(AccountId, AccessedOrNot)> {
             use AccessedOrNot::*;
             use TransactionStatus::*;
 
             match status {
-                Applied => [
-                    (self.fee_payer(), Accessed),
-                    (self.source(), Accessed),
-                    (self.receiver(), Accessed),
-                ],
-                Failed(_) => [
-                    (self.fee_payer(), Accessed),
-                    (self.source(), NotAccessed),
-                    (self.receiver(), NotAccessed),
-                ],
+                Applied => vec![(self.fee_payer(), Accessed), (self.receiver(), Accessed)],
+                Failed(_) => vec![(self.receiver(), NotAccessed)],
             }
         }
 
@@ -841,8 +799,8 @@ pub mod signed_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command.ml#L401
-        pub fn public_keys(&self) -> [&CompressedPubKey; 3] {
-            [self.fee_payer_pk(), self.source_pk(), self.receiver_pk()]
+        pub fn public_keys(&self) -> [&CompressedPubKey; 2] {
+            [self.fee_payer_pk(), self.receiver_pk()]
         }
 
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/signed_command.ml#L407
@@ -862,11 +820,10 @@ pub mod zkapp_command {
     use mina_signer::Signature;
     use rand::{seq::SliceRandom, Rng};
     //use rand::{seq::SliceRandom, Rng};
-    use static_assertions::assert_eq_size_val;
 
     use crate::{
         account, dummy, gen_compressed, gen_keypair, hash_noinputs, hash_with_kimchi,
-        scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot},
+        scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
         AuthRequired, ControlTag, Inputs, MyCow, Permissions, ToInputs, TokenSymbol,
         VerificationKey, VotingFor, ZkAppUri,
     };
@@ -967,7 +924,7 @@ pub mod zkapp_command {
         pub initial_minimum_balance: Balance,
         pub cliff_time: Slot,
         pub cliff_amount: Amount,
-        pub vesting_period: Slot,
+        pub vesting_period: SlotSpan,
         pub vesting_increment: Amount,
     }
 
@@ -978,7 +935,7 @@ pub mod zkapp_command {
                 initial_minimum_balance: Balance::zero(),
                 cliff_time: Slot::zero(),
                 cliff_amount: Amount::zero(),
-                vesting_period: Slot::zero(),
+                vesting_period: SlotSpan::zero(),
                 vesting_increment: Amount::zero(),
             }
         }
@@ -1582,7 +1539,6 @@ pub mod zkapp_command {
         pub snarked_ledger_hash: Hash<Fp>,
         pub blockchain_length: Numeric<Length>,
         pub min_window_density: Numeric<Length>,
-        pub last_vrf_output: (), // It's not defined in OCAml
         pub total_currency: Numeric<Amount>,
         pub global_slot_since_genesis: Numeric<Slot>,
         pub staking_epoch_data: EpochData,
@@ -1626,7 +1582,6 @@ pub mod zkapp_command {
                 snarked_ledger_hash: OrIgnore::Ignore,
                 blockchain_length: OrIgnore::Ignore,
                 min_window_density: OrIgnore::Ignore,
-                last_vrf_output: (),
                 total_currency: OrIgnore::Ignore,
                 global_slot_since_genesis: OrIgnore::Ignore,
                 staking_epoch_data: epoch_data(),
@@ -1642,14 +1597,11 @@ pub mod zkapp_command {
                 snarked_ledger_hash,
                 blockchain_length,
                 min_window_density,
-                last_vrf_output,
                 total_currency,
                 global_slot_since_genesis,
                 staking_epoch_data,
                 next_epoch_data,
             } = &self;
-
-            assert_eq_size_val!(*last_vrf_output, ());
 
             inputs.append(&(snarked_ledger_hash, Fp::zero));
 
@@ -2404,7 +2356,6 @@ pub mod zkapp_command {
                             snarked_ledger_hash: OrIgnore::gen(|| Fp::rand(rng)),
                             blockchain_length: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
                             min_window_density: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
-                            last_vrf_output: (),
                             total_currency: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
                             global_slot_since_genesis: OrIgnore::gen(|| {
                                 ClosedInterval::gen(|| rng.gen())
@@ -3834,14 +3785,13 @@ pub mod protocol_state {
         pub snarked_ledger_hash: Fp,
         pub blockchain_length: Length,
         pub min_window_density: Length,
-        pub last_vrf_output: (), // It's not defined in OCAml
         pub total_currency: Amount,
         pub global_slot_since_genesis: Slot,
         pub staking_epoch_data: EpochData,
         pub next_epoch_data: EpochData,
     }
 
-    /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/protocol_state.ml#L181
+    /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/mina_state/protocol_state.ml#L180
     pub fn protocol_state_view(state: &MinaStateProtocolStateValueStableV2) -> ProtocolStateView {
         let cs = &state.body.consensus_state;
         let sed = &cs.staking_epoch_data;
@@ -3859,9 +3809,8 @@ pub mod protocol_state {
                 .to_field(),
             blockchain_length: Length(cs.blockchain_length.as_u32()),
             min_window_density: Length(cs.min_window_density.as_u32()),
-            last_vrf_output: (),
             total_currency: Amount(cs.total_currency.as_u64()),
-            global_slot_since_genesis: Slot(cs.global_slot_since_genesis.as_u32()),
+            global_slot_since_genesis: (&cs.global_slot_since_genesis).into(),
             staking_epoch_data: EpochData {
                 ledger: EpochLedger {
                     hash: sed.ledger.hash.to_field(),
@@ -4062,7 +4011,6 @@ pub mod local_state {
         pub call_stack: CallStack,
         pub transaction_commitment: ReceiptChainHash,
         pub full_transaction_commitment: ReceiptChainHash,
-        pub token_id: TokenId,
         pub excess: Signed<Amount>,
         pub supply_increase: Signed<Amount>,
         pub ledger: L,
@@ -4106,7 +4054,6 @@ pub mod local_state {
         pub call_stack: Fp,
         pub transaction_commitment: Fp,
         pub full_transaction_commitment: Fp,
-        pub token_id: TokenId,
         pub excess: Signed<Amount>,
         pub supply_increase: Signed<Amount>,
         pub ledger: Fp,
@@ -4124,7 +4071,6 @@ pub mod local_state {
                 call_stack,
                 transaction_commitment,
                 full_transaction_commitment,
-                token_id,
                 excess,
                 supply_increase,
                 ledger,
@@ -4138,7 +4084,6 @@ pub mod local_state {
             inputs.append(call_stack);
             inputs.append(transaction_commitment);
             inputs.append(full_transaction_commitment);
-            inputs.append(token_id);
             inputs.append(excess);
             inputs.append(supply_increase);
             inputs.append(ledger);
@@ -4156,7 +4101,6 @@ pub mod local_state {
                 call_stack: Fp::zero(),
                 transaction_commitment: Fp::zero(),
                 full_transaction_commitment: Fp::zero(),
-                token_id: TokenId::default(),
                 excess: Signed::<Amount>::zero(),
                 supply_increase: Signed::<Amount>::zero(),
                 ledger: Fp::zero(),
@@ -4177,7 +4121,6 @@ pub mod local_state {
                 call_stack,
                 transaction_commitment,
                 full_transaction_commitment,
-                token_id,
                 excess,
                 supply_increase,
                 ledger: _,
@@ -4191,7 +4134,6 @@ pub mod local_state {
                 && call_stack == &other.call_stack
                 && transaction_commitment == &other.transaction_commitment
                 && full_transaction_commitment == &other.full_transaction_commitment
-                && token_id == &other.token_id
                 && excess == &other.excess
                 && supply_increase == &other.supply_increase
                 && success == &other.success
@@ -4398,7 +4340,6 @@ where
             call_stack: CallStack::new(),
             transaction_commitment: ReceiptChainHash(Fp::zero()),
             full_transaction_commitment: ReceiptChainHash(Fp::zero()),
-            token_id: TokenId::default(),
             excess: Signed::<Amount>::zero(),
             supply_increase,
             ledger: L::empty(0),
@@ -5555,12 +5496,13 @@ pub struct Updates<Location> {
 
 pub fn compute_updates<L>(
     constraint_constants: &ConstraintConstants,
-    source: AccountId,
     receiver: AccountId,
     ledger: &mut L,
     current_global_slot: &Slot,
     user_command: &SignedCommand,
     fee_payer: &AccountId,
+    fee_payer_account: &Account,
+    fee_payer_location: &ExistingOrNew<L::Location>,
     reject_command: &mut bool,
 ) -> Result<Updates<L::Location>, TransactionFailure>
 where
@@ -5568,110 +5510,84 @@ where
 {
     match &user_command.payload.body {
         signed_command::Body::StakeDelegation(_) => {
-            let (source_location, mut source_account) = get_with_location(ledger, &source).unwrap();
-
-            if !(source_account.has_permission_to(ControlTag::Signature, PermissionTo::Access)
-                && source_account
-                    .has_permission_to(ControlTag::Signature, PermissionTo::SetDelegate))
-            {
-                return Err(TransactionFailure::UpdateNotPermittedDelegate);
-            }
-
-            if let ExistingOrNew::New = source_location {
-                return Err(TransactionFailure::SourceNotPresent);
-            }
-
             let (receiver_location, _) = get_with_location(ledger, &receiver).unwrap();
 
             if let ExistingOrNew::New = receiver_location {
                 return Err(TransactionFailure::ReceiverNotPresent);
             }
+            if !fee_payer_account.has_permission_to_set_delegate() {
+                return Err(TransactionFailure::UpdateNotPermittedDelegate);
+            }
 
-            let previous_delegate = source_account.delegate.clone();
-            let timing = timing_error_to_user_command_status(validate_timing(
-                &source_account,
-                Amount::zero(),
-                current_global_slot,
-            ))?;
+            let previous_delegate = fee_payer_account.delegate.clone();
 
-            source_account.delegate = Some(receiver.public_key.clone());
-            source_account.timing = timing;
+            // Timing is always valid, but we need to record any switch from
+            // timed to untimed here to stay in sync with the snark.
+            let fee_payer_account = {
+                let timing = timing_error_to_user_command_status(validate_timing(
+                    fee_payer_account,
+                    Amount::zero(),
+                    current_global_slot,
+                ))?;
+
+                Account {
+                    delegate: Some(receiver.public_key.clone()),
+                    timing,
+                    ..fee_payer_account.clone()
+                }
+            };
 
             Ok(Updates {
-                located_accounts: vec![(source_location, source_account)],
+                located_accounts: vec![(fee_payer_location.clone(), fee_payer_account)],
                 applied_body: signed_command_applied::Body::StakeDelegation { previous_delegate },
             })
         }
         signed_command::Body::Payment(payment) => {
-            let (receiver_location, mut receiver_account) =
-                get_with_location(ledger, &receiver).unwrap();
+            let get_fee_payer_account = || {
+                let balance = fee_payer_account
+                    .balance
+                    .sub_amount(payment.amount)
+                    .ok_or(TransactionFailure::SourceInsufficientBalance)?;
 
-            if !(receiver_account.has_permission_to(ControlTag::NoneGiven, PermissionTo::Access)
-                && receiver_account.has_permission_to(ControlTag::NoneGiven, PermissionTo::Receive))
-            {
+                let timing = timing_error_to_user_command_status(validate_timing(
+                    fee_payer_account,
+                    payment.amount,
+                    current_global_slot,
+                ))?;
+
+                Ok(Account {
+                    balance,
+                    timing,
+                    ..fee_payer_account.clone()
+                })
+            };
+
+            let fee_payer_account = match get_fee_payer_account() {
+                Ok(fee_payer_account) => fee_payer_account,
+                Err(e) => {
+                    // OCaml throw an exception when an error occurs here
+                    // Here in Rust we set `reject_command` to differentiate the 3 cases (Ok, Err, exception)
+                    //
+                    // https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/transaction_logic/mina_transaction_logic.ml#L962
+
+                    // Don't accept transactions with insufficient balance from the fee-payer.
+                    // TODO(OCaml): eliminate this condition and accept transaction with failed status
+                    *reject_command = true;
+                    return Err(e);
+                }
+            };
+
+            let (receiver_location, mut receiver_account) = if fee_payer == &receiver {
+                (fee_payer_location.clone(), fee_payer_account.clone())
+            } else {
+                get_with_location(ledger, &receiver).unwrap()
+            };
+
+            if !fee_payer_account.has_permission_to_send() {
                 return Err(TransactionFailure::UpdateNotPermittedBalance);
             }
 
-            let mut get_source = || {
-                if source == receiver {
-                    let addr = match receiver_location.clone() {
-                        ExistingOrNew::Existing(addr) => addr,
-                        ExistingOrNew::New => return Err(TransactionFailure::SourceNotPresent),
-                    };
-
-                    let timing = timing_error_to_user_command_status(validate_timing(
-                        &receiver_account,
-                        payment.amount,
-                        current_global_slot,
-                    ))?;
-
-                    receiver_account.timing = timing;
-
-                    Ok((ExistingOrNew::Existing(addr), receiver_account.clone()))
-                } else {
-                    let (location, mut account) = get_with_location(ledger, &source).unwrap();
-
-                    if let ExistingOrNew::New = location {
-                        return Err(TransactionFailure::SourceNotPresent);
-                    }
-
-                    let timing = timing_error_to_user_command_status(validate_timing(
-                        &account,
-                        payment.amount,
-                        current_global_slot,
-                    ))?;
-
-                    let balance = match account.balance.sub_amount(payment.amount) {
-                        Some(balance) => balance,
-                        None => return Err(TransactionFailure::SourceInsufficientBalance),
-                    };
-
-                    account.timing = timing;
-                    account.balance = balance;
-
-                    Ok((location, account))
-                }
-            };
-
-            let (source_location, source_account) = {
-                // OCaml throw an exception when `fee_payer == source`.
-                // Here in Rust we set `reject_command` to differentiate the 3 cases (Ok, Err, exception)
-                //
-                // https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/transaction_logic/mina_transaction_logic.ml#L886-L898
-                let ret = get_source();
-
-                // Don't process transactions with insufficient balance from the
-                // fee-payer.
-                if ret.is_err() && fee_payer == &source {
-                    *reject_command = true;
-                }
-
-                ret?
-            };
-
-            if !(source_account.has_permission_to(ControlTag::Signature, PermissionTo::Access)
-                && source_account.has_permission_to(ControlTag::Signature, PermissionTo::Send))
-            {
+            if !receiver_account.has_permission_to_receive() {
                 return Err(TransactionFailure::UpdateNotPermittedBalance);
             }
 
@@ -5700,11 +5616,18 @@ where
 
             receiver_account.balance = balance;
 
-            Ok(Updates {
-                located_accounts: vec![
+            let updated_accounts = if fee_payer == &receiver {
+                // [receiver_account] at this point has all the updates
+                vec![(receiver_location, receiver_account)]
+            } else {
+                vec![
                     (receiver_location, receiver_account),
-                    (source_location, source_account),
-                ],
+                    (fee_payer_location.clone(), fee_payer_account),
+                ]
+            };
+
+            Ok(Updates {
+                located_accounts: updated_accounts,
                 applied_body: signed_command_applied::Body::Payments { new_accounts },
             })
         }
@@ -5736,27 +5659,31 @@ where
     let (fee_payer_location, fee_payer_account) =
         pay_fee(user_command, signer_pk, ledger, current_global_slot)?;
 
-    if !(fee_payer_account.has_permission_to(crate::ControlTag::Signature, PermissionTo::Access)
-        && fee_payer_account.has_permission_to(crate::ControlTag::Signature, PermissionTo::Send))
-    {
+    if !fee_payer_account.has_permission_to_send() {
         return Err(TransactionFailure::UpdateNotPermittedBalance.to_string());
     }
+    if !fee_payer_account.has_permission_to_increment_nonce() {
+        return Err(TransactionFailure::UpdateNotPermittedNonce.to_string());
+    }
 
-    set_with_location(ledger, &fee_payer_location, fee_payer_account)?;
+    // Charge the fee. This must happen, whether or not the command itself
+    // succeeds, to ensure that the network is compensated for processing this
+    // command.
+    set_with_location(ledger, &fee_payer_location, fee_payer_account.clone())?;
 
-    let source = user_command.source();
     let receiver = user_command.receiver();
 
     let mut reject_command = false;
 
     match compute_updates(
         constraint_constants,
-        source,
         receiver,
         ledger,
         current_global_slot,
         user_command,
         &fee_payer,
+        &fee_payer_account,
+        &fee_payer_location,
         &mut reject_command,
     ) {
         Ok(Updates {
@@ -5997,22 +5924,18 @@ pub mod transaction_union_payload {
                 },
                 body: match &payload.body {
                     Payment(PaymentPayload {
-                        source_pk,
                         receiver_pk,
                         amount,
                     }) => Body {
                         tag: Tag::Payment,
-                        source_pk: source_pk.clone(),
+                        source_pk: payload.common.fee_payer_pk.clone(),
                         receiver_pk: receiver_pk.clone(),
                         token_id: TokenId::default(),
                         amount: *amount,
                     },
-                    StakeDelegation(StakeDelegationPayload::SetDelegate {
-                        delegator,
-                        new_delegate,
-                    }) => Body {
+                    StakeDelegation(StakeDelegationPayload::SetDelegate { new_delegate }) => Body {
                         tag: Tag::StakeDelegation,
-                        source_pk: delegator.clone(),
+                        source_pk: payload.common.fee_payer_pk.clone(),
                         receiver_pk: new_delegate.clone(),
                         token_id: TokenId::default(),
                         amount: Amount::zero(),
@@ -6315,7 +6238,7 @@ pub fn account_min_balance_at_slot(
     global_slot: Slot,
     cliff_time: Slot,
     cliff_amount: Amount,
-    vesting_period: Slot,
+    vesting_period: SlotSpan,
     vesting_increment: Amount,
     initial_minimum_balance: Balance,
 ) -> Balance {
@@ -6726,7 +6649,7 @@ mod tests {
 
         let common = Common {
             fee: Fee::from_u64(9758327274353182341),
-            fee_payer_pk: from.clone(),
+            fee_payer_pk: from,
             nonce: Nonce::from_u32(1609569868),
             valid_until: Slot::from_u32(2127252111),
             memo: Memo([
@@ -6736,7 +6659,6 @@ mod tests {
         };
 
         let body = Body::Payment(PaymentPayload {
-            source_pk: from,
             receiver_pk: to,
             amount: Amount::from_u64(1155659205107036493),
         });
@@ -6760,7 +6682,7 @@ mod tests {
 
         let common = Common {
             fee: Fee::from_u64(14500000),
-            fee_payer_pk: from.clone(),
+            fee_payer_pk: from,
             nonce: Nonce::from_u32(15),
             valid_until: Slot::from_u32(-1i32 as u32),
             memo: Memo([
@@ -6770,7 +6692,6 @@ mod tests {
         };
 
         let body = Body::Payment(PaymentPayload {
-            source_pk: from,
             receiver_pk: to,
             amount: Amount::from_u64(2354000000),
         });

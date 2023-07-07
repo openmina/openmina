@@ -13,6 +13,7 @@ pub(super) struct JaneStreetHasher {
     h: u32,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for JaneStreetHasher {
     fn default() -> Self {
         // the seed seems to be zero

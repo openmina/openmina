@@ -1,6 +1,6 @@
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
-    ConsensusProofOfStakeDataConsensusStateValueStableV1,
+    ConsensusProofOfStakeDataConsensusStateValueStableV2,
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
     MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1,
@@ -104,7 +104,6 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
                                 call_stack,
                                 transaction_commitment,
                                 full_transaction_commitment,
-                                token_id,
                                 excess,
                                 supply_increase,
                                 ledger,
@@ -125,7 +124,6 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
                     inputs.append_field(call_stack.to_field());
                     inputs.append_field(transaction_commitment.to_field());
                     inputs.append_field(full_transaction_commitment.to_field());
-                    inputs.append_field(token_id.to_field());
                     inputs.append_u64(excess.magnitude.as_u64());
                     inputs.append_bool(matches!(excess.sgn, SgnStableV1::Pos));
                     inputs.append_u64(supply_increase.magnitude.as_u64());
@@ -151,7 +149,6 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
                                 call_stack,
                                 transaction_commitment,
                                 full_transaction_commitment,
-                                token_id,
                                 excess,
                                 supply_increase,
                                 ledger,
@@ -172,7 +169,6 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
                     inputs.append_field(call_stack.to_field());
                     inputs.append_field(transaction_commitment.to_field());
                     inputs.append_field(full_transaction_commitment.to_field());
-                    inputs.append_field(token_id.to_field());
                     inputs.append_u64(excess.magnitude.as_u64());
                     inputs.append_bool(matches!(excess.sgn, SgnStableV1::Pos));
                     inputs.append_u64(supply_increase.magnitude.as_u64());
@@ -215,7 +211,7 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
 
         // CONSENSUS
         {
-            let ConsensusProofOfStakeDataConsensusStateValueStableV1 {
+            let ConsensusProofOfStakeDataConsensusStateValueStableV2 {
                 blockchain_length,
                 epoch_count,
                 min_window_density,

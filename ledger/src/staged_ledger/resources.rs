@@ -583,7 +583,7 @@ impl Resources {
                 |this: &mut Self,
                  ft: CoinbaseFeeTransfer,
                  coinbase: AtMostTwo<CoinbaseFeeTransfer>| {
-                    this.fee_transfers.insert(ft.receiver_pk.into(), ft.fee);
+                    this.fee_transfers.insert(ft.receiver_pk, ft.fee);
                     this.coinbase = coinbase;
                     this.budget = this.rebudget();
                 };

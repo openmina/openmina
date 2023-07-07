@@ -22,7 +22,10 @@ use crate::{
     Account, AuthRequired, ControlTag, Mask, ReceiptChainHash, Timing, TokenId, ZkAppAccount,
 };
 
-use super::transaction_logic::{zkapp_command::Actions, Eff, ExistingOrNew, PerformResult};
+use super::{
+    currency::SlotSpan,
+    transaction_logic::{zkapp_command::Actions, Eff, ExistingOrNew, PerformResult},
+};
 
 /*
     In the OCaml code "asserts" are used to raise an "Assert_failure" exception that is
@@ -79,7 +82,7 @@ pub struct TimingAsRecord {
     initial_minimum_balance: Balance,
     cliff_time: Slot,
     cliff_amount: Amount,
-    vesting_period: Slot,
+    vesting_period: SlotSpan,
     vesting_increment: Amount,
 }
 
@@ -90,7 +93,7 @@ pub fn to_record(t: Timing) -> TimingAsRecord {
             initial_minimum_balance: Balance::zero(),
             cliff_time: Slot::zero(),
             cliff_amount: Amount::zero(),
-            vesting_period: Slot::from_u32(1),
+            vesting_period: SlotSpan::from_u32(1),
             vesting_increment: Amount::zero(),
         },
         Timing::Timed {
@@ -316,18 +319,18 @@ pub fn apply<L>(
 where
     L: LedgerIntf + Clone,
 {
-    let is_start_ = local_state.stack_frame.calls.is_empty();
+    let is_empty_call_forest = local_state.stack_frame.calls.is_empty();
 
     match is_start {
         IsStart::Compute(_) => (),
-        IsStart::Yes(_) => __assert!(is_start_)?,
-        IsStart::No => __assert!(!is_start_)?,
+        IsStart::Yes(_) => __assert!(is_empty_call_forest)?,
+        IsStart::No => __assert!(!is_empty_call_forest)?,
     };
 
     let is_start_ = match is_start {
         IsStart::Yes(_) => true,
         IsStart::No => false,
-        IsStart::Compute(_) => is_start_,
+        IsStart::Compute(_) => is_empty_call_forest,
     };
 
     let will_succeed = match &is_start {
@@ -432,11 +435,6 @@ where
         let local_state = LocalStateEnv {
             transaction_commitment,
             full_transaction_commitment,
-            token_id: if is_start_ {
-                TokenId::default()
-            } else {
-                local_state.token_id
-            },
             ..local_state
         };
         (
@@ -458,6 +456,30 @@ where
         account_update.token_id(),
         (&a, &inclusion_proof),
     )?;
+
+    // delegate to public key if new account using default token
+    let a = {
+        let self_delegate = {
+            let account_update_token_id = account_update.token_id();
+            account_is_new && account_update_token_id.is_default()
+        };
+        // in-SNARK, a new account has the empty public key here
+        // in that case, use the public key from the account update, not the account
+
+        let delegate = if self_delegate {
+            account_update.public_key()
+        } else {
+            a.delegate.unwrap_or_else(CompressedPubKey::empty)
+        };
+
+        let delegate = if delegate == CompressedPubKey::empty() {
+            None
+        } else {
+            Some(delegate)
+        };
+
+        Account { delegate, ..a }
+    };
 
     let matching_verification_key_hashes = !(account_update.is_proved())
         || account_verification_key_hash(&a) == account_update.verification_key_hash();
@@ -572,7 +594,7 @@ where
         None => to_record(Timing::Untimed).vesting_period,
     };
 
-    __assert!(vesting_period > Slot::zero())?;
+    __assert!(vesting_period > SlotSpan::zero())?;
 
     let a = Account {
         timing: timing
@@ -849,18 +871,10 @@ where
     // Update delegate
     let (a, local_state) = {
         let delegate = account_update.delegate();
-        let base_delegate = {
-            // Only accounts for the default token may delegate.
-            let should_set_new_account_delegate = account_is_new && account_update_token_is_default;
 
-            // New accounts should have the delegate equal to the public key of the
-            // account.
-            if should_set_new_account_delegate {
-                account_update.public_key()
-            } else {
-                a.delegate.clone().unwrap_or_else(CompressedPubKey::empty)
-            }
-        };
+        // for new accounts using the default token, we've already
+        // set the delegate to the public key
+        let base_delegate = a.delegate.unwrap_or_else(CompressedPubKey::empty);
 
         let has_permission = controller_check(
             proof_verifies,
@@ -961,10 +975,7 @@ where
 
     let local_delta = account_update.balance_change().negate();
     let (new_local_fee_excess, overflowed) = {
-        let curr_token = local_state.token_id.clone();
-        let curr_is_default = curr_token == TokenId::default();
-
-        __assert!(curr_is_default)?;
+        // We only allow the default token for fees.
         __assert!(!is_start_ || (account_update_token_is_default && local_delta.is_non_neg()))?;
 
         let (new_local_fee_excess, overflow) = local_state.excess.add_flagged(Signed::<Amount> {
@@ -1117,11 +1128,6 @@ where
     };
 
     let local_state = LocalStateEnv {
-        token_id: if is_last_account_update {
-            TokenId::default()
-        } else {
-            local_state.token_id
-        },
         ledger: if is_last_account_update {
             L::empty(0)
         } else {

@@ -32,7 +32,7 @@ use mina_p2p_messages::{
         MinaBaseSignedCommandPayloadCommonStableV2, MinaBaseSignedCommandPayloadStableV2,
         MinaBaseSignedCommandStableV2, MinaBaseSokMessageStableV1, MinaBaseStackFrameStableV1,
         MinaBaseStagedLedgerHashNonSnarkStableV1, MinaBaseStagedLedgerHashStableV1,
-        MinaBaseStakeDelegationStableV1, MinaBaseStateBodyHashStableV1,
+        MinaBaseStakeDelegationStableV2, MinaBaseStateBodyHashStableV1,
         MinaBaseTransactionStatusFailureCollectionStableV1,
         MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2,
         MinaBaseUserCommandStableV2, MinaBaseZkappAccountZkappUriStableV1,
@@ -45,11 +45,15 @@ use mina_p2p_messages::{
         MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger,
         MinaBaseZkappPreconditionProtocolStateStableV1,
         MinaBaseZkappPreconditionProtocolStateStableV1AmountA,
+        MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA,
         MinaBaseZkappPreconditionProtocolStateStableV1Length,
         MinaBaseZkappPreconditionProtocolStateStableV1LengthA,
+        MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSinceHardForkMStableV1,
+        MinaNumbersGlobalSlotSpanStableV1,
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
-        MinaStateSnarkedLedgerStateStableV2, MinaStateSnarkedLedgerStateWithSokStableV2,
+        MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateSnarkedLedgerStateStableV2,
+        MinaStateSnarkedLedgerStateWithSokStableV2,
         MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2,
         MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2Coinbase,
         MinaTransactionLogicTransactionAppliedCommandAppliedStableV2,
@@ -105,7 +109,7 @@ use crate::{
 };
 
 use super::{
-    currency::{Amount, Balance, Fee, Index, Length, Nonce, Sgn, Signed, Slot},
+    currency::{Amount, Balance, Fee, Index, Length, Nonce, Sgn, Signed, Slot, SlotSpan},
     fee_excess::FeeExcess,
     parallel_scan::{self, JobStatus, ParallelScan, SequenceNumber},
     pending_coinbase::{self, PendingCoinbase},
@@ -489,11 +493,6 @@ impl From<&MinaStateBlockchainStateValueStableV2LedgerProofStatementSource> for 
                     .local_state
                     .full_transaction_commitment
                     .to_field(),
-                token_id: {
-                    let id: MinaBaseAccountIdDigestStableV1 =
-                        value.local_state.token_id.clone().into_inner();
-                    id.into()
-                },
                 excess: (&value.local_state.excess).into(),
                 supply_increase: (&value.local_state.supply_increase).into(),
                 ledger: value.local_state.ledger.0.to_field(),
@@ -508,6 +507,28 @@ impl From<&MinaStateBlockchainStateValueStableV2LedgerProofStatementSource> for 
                     .collect(),
                 will_succeed: value.local_state.will_succeed,
             },
+        }
+    }
+}
+
+impl From<&MinaStateBlockchainStateValueStableV2SignedAmount> for Signed<Amount> {
+    fn from(value: &MinaStateBlockchainStateValueStableV2SignedAmount) -> Self {
+        let MinaStateBlockchainStateValueStableV2SignedAmount { magnitude, sgn } = value;
+
+        Self {
+            magnitude: (magnitude.clone()).into(),
+            sgn: (sgn.clone()).into(),
+        }
+    }
+}
+
+impl From<&Signed<Amount>> for MinaStateBlockchainStateValueStableV2SignedAmount {
+    fn from(value: &Signed<Amount>) -> Self {
+        let Signed::<Amount> { magnitude, sgn } = value;
+
+        Self {
+            magnitude: (*magnitude).into(),
+            sgn: sgn.into(),
         }
     }
 }
@@ -632,7 +653,7 @@ impl From<&MinaBaseAccountUpdateUpdateTimingInfoStableV1> for zkapp_command::Tim
             initial_minimum_balance: Balance::from_u64(t.initial_minimum_balance.as_u64()),
             cliff_time: Slot::from_u32(t.cliff_time.as_u32()),
             cliff_amount: Amount::from_u64(t.cliff_amount.as_u64()),
-            vesting_period: Slot::from_u32(t.vesting_period.as_u32()),
+            vesting_period: SlotSpan::from_u32(t.vesting_period.as_u32()),
             vesting_increment: Amount::from_u64(t.vesting_increment.as_u64()),
         }
     }
@@ -642,9 +663,9 @@ impl From<&zkapp_command::Timing> for MinaBaseAccountUpdateUpdateTimingInfoStabl
     fn from(t: &zkapp_command::Timing) -> Self {
         Self {
             initial_minimum_balance: CurrencyBalanceStableV1(t.initial_minimum_balance.into()),
-            cliff_time: UnsignedExtendedUInt32StableV1(t.cliff_time.as_u32().into()),
+            cliff_time: (&t.cliff_time).into(),
             cliff_amount: t.cliff_amount.into(),
-            vesting_period: UnsignedExtendedUInt32StableV1(t.vesting_period.as_u32().into()),
+            vesting_period: (&t.vesting_period).into(),
             vesting_increment: t.vesting_increment.into(),
         }
     }
@@ -817,10 +838,10 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
     fn from(value: &MinaBaseAccountUpdatePreconditionsStableV1) -> Self {
         use mina_p2p_messages::v2::MinaBaseAccountUpdateAccountPreconditionStableV1 as MAccount;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Amount as MAmount;
+        use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot as MSlot;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash as Ledger;
         use zkapp_command::AccountPreconditions;
         use zkapp_command::{ClosedInterval, Numeric, OrIgnore};
-        use MinaBaseZkappPreconditionProtocolStateStableV1Length as MLength;
 
         Self {
             network: zkapp_command::ZkAppPreconditions {
@@ -830,7 +851,6 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
                 },
                 blockchain_length: (&value.network.blockchain_length).into(),
                 min_window_density: (&value.network.min_window_density).into(),
-                last_vrf_output: value.network.last_vrf_output,
                 total_currency: match &value.network.total_currency {
                     MAmount::Check(amount) => OrIgnore::Check(ClosedInterval {
                         lower: Amount::from_u64(amount.lower.0 .0.as_u64()),
@@ -839,11 +859,11 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
                     MAmount::Ignore => OrIgnore::Ignore,
                 },
                 global_slot_since_genesis: match &value.network.global_slot_since_genesis {
-                    MLength::Check(length) => Numeric::Check(ClosedInterval {
-                        lower: Slot::from_u32(length.lower.0.as_u32()),
-                        upper: Slot::from_u32(length.upper.0.as_u32()),
+                    MSlot::Check(length) => Numeric::Check(ClosedInterval {
+                        lower: (&length.lower).into(),
+                        upper: (&length.upper).into(),
                     }),
-                    MLength::Ignore => OrIgnore::Ignore,
+                    MSlot::Ignore => OrIgnore::Ignore,
                 },
                 staking_epoch_data: (&value.network.staking_epoch_data).into(),
                 next_epoch_data: (&value.network.next_epoch_data).into(),
@@ -907,11 +927,11 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
                 MAccount::Accept => AccountPreconditions::Accept,
             },
             valid_while: match &value.valid_while {
-                MLength::Check(valid_while) => OrIgnore::Check(ClosedInterval {
-                    lower: Slot::from_u32(valid_while.lower.0.as_u32()),
-                    upper: Slot::from_u32(valid_while.upper.0.as_u32()),
+                MSlot::Check(valid_while) => OrIgnore::Check(ClosedInterval {
+                    lower: (&valid_while.lower).into(),
+                    upper: (&valid_while.upper).into(),
                 }),
-                MLength::Ignore => OrIgnore::Ignore,
+                MSlot::Ignore => OrIgnore::Ignore,
             },
         }
     }
@@ -929,10 +949,10 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
     fn from(value: &zkapp_command::Preconditions) -> Self {
         use mina_p2p_messages::v2::MinaBaseAccountUpdateAccountPreconditionStableV1 as MAccount;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Amount as MAmount;
+        use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot as MSlot;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash as Ledger;
         use zkapp_command::AccountPreconditions;
         use zkapp_command::{Numeric, OrIgnore};
-        use MinaBaseZkappPreconditionProtocolStateStableV1Length as MLength;
 
         Self {
             network: MinaBaseZkappPreconditionProtocolStateStableV1 {
@@ -945,7 +965,6 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
                 },
                 blockchain_length: (&value.network.blockchain_length).into(),
                 min_window_density: (&value.network.min_window_density).into(),
-                last_vrf_output: value.network.last_vrf_output,
                 total_currency: match &value.network.total_currency {
                     OrIgnore::Check(amount) => {
                         MAmount::Check(MinaBaseZkappPreconditionProtocolStateStableV1AmountA {
@@ -957,12 +976,12 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
                 },
                 global_slot_since_genesis: match &value.network.global_slot_since_genesis {
                     Numeric::Check(length) => {
-                        MLength::Check(MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
+                        MSlot::Check(MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA {
                             lower: (&length.lower).into(),
                             upper: (&length.upper).into(),
                         })
                     }
-                    Numeric::Ignore => MLength::Ignore,
+                    Numeric::Ignore => MSlot::Ignore,
                 },
                 staking_epoch_data: (&value.network.staking_epoch_data).into(),
                 next_epoch_data: (&value.network.next_epoch_data).into(),
@@ -1029,12 +1048,12 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
             },
             valid_while: match &value.valid_while {
                 OrIgnore::Check(valid_while) => {
-                    MLength::Check(MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
+                    MSlot::Check(MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA {
                         lower: (&valid_while.lower).into(),
                         upper: (&valid_while.upper).into(),
                     })
                 }
-                OrIgnore::Ignore => MLength::Ignore,
+                OrIgnore::Ignore => MSlot::Ignore,
             },
         }
     }
@@ -1269,10 +1288,7 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
                         SetOrKeep::Keep => Voting::Keep,
                     },
                 },
-                balance_change: SignedAmount {
-                    magnitude: (&value.body.balance_change.magnitude).into(),
-                    sgn: (&value.body.balance_change.sgn).into(),
-                },
+                balance_change: (&value.body.balance_change).into(),
                 increment_nonce: value.body.increment_nonce,
                 events: MinaBaseAccountUpdateBodyEventsStableV1(
                     value
@@ -1309,7 +1325,10 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
             },
             authorization: match &value.authorization {
                 zkapp_command::Control::Proof(proof) => mina_p2p_messages::v2::MinaBaseControlStableV2::Proof(Box::new((**proof).clone())),
-                zkapp_command::Control::Signature(sig) => mina_p2p_messages::v2::MinaBaseControlStableV2::Signature(sig.into()),
+                zkapp_command::Control::Signature(sig) => mina_p2p_messages::v2::MinaBaseControlStableV2::Signature({
+                    let sig: MinaBaseSignatureStableV1 = sig.into();
+                    sig.into()
+                }),
                 zkapp_command::Control::NoneGiven => mina_p2p_messages::v2::MinaBaseControlStableV2::NoneGiven,
             },
         }
@@ -1431,19 +1450,14 @@ impl From<&MinaBaseSignedCommandStableV2> for SignedCommand {
                 body: match &cmd.payload.body {
                     MinaBaseSignedCommandPayloadBodyStableV2::Payment(payload) => {
                         transaction_logic::signed_command::Body::Payment(PaymentPayload {
-                            source_pk: (&payload.source_pk).into(),
                             receiver_pk: (&payload.receiver_pk).into(),
                             amount: payload.amount.clone().into(),
                         })
                     }
                     MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(
-                        MinaBaseStakeDelegationStableV1::SetDelegate {
-                            delegator,
-                            new_delegate,
-                        },
+                        MinaBaseStakeDelegationStableV2::SetDelegate { new_delegate },
                     ) => transaction_logic::signed_command::Body::StakeDelegation(
                         StakeDelegationPayload::SetDelegate {
-                            delegator: delegator.into(),
                             new_delegate: new_delegate.into(),
                         },
                     ),
@@ -1473,19 +1487,14 @@ impl From<&SignedCommand> for MinaBaseSignedCommandStableV2 {
                         payload,
                     ) => MinaBaseSignedCommandPayloadBodyStableV2::Payment(
                         MinaBasePaymentPayloadStableV2 {
-                            source_pk: (&payload.source_pk).into(),
                             receiver_pk: (&payload.receiver_pk).into(),
                             amount: payload.amount.into(),
                         },
                     ),
                     crate::scan_state::transaction_logic::signed_command::Body::StakeDelegation(
-                        StakeDelegationPayload::SetDelegate {
-                            delegator,
-                            new_delegate,
-                        },
+                        StakeDelegationPayload::SetDelegate { new_delegate },
                     ) => MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(
-                        MinaBaseStakeDelegationStableV1::SetDelegate {
-                            delegator: delegator.into(),
+                        MinaBaseStakeDelegationStableV2::SetDelegate {
                             new_delegate: new_delegate.into(),
                         },
                     ),
@@ -1656,7 +1665,6 @@ impl From<&Registers> for MinaStateBlockchainStateValueStableV2LedgerProofStatem
                 call_stack: MinaBaseCallStackDigestStableV1(value.local_state.call_stack.into()),
                 transaction_commitment: value.local_state.transaction_commitment.into(),
                 full_transaction_commitment: value.local_state.full_transaction_commitment.into(),
-                token_id: (&value.local_state.token_id).into(),
                 excess: SignedAmount {
                     magnitude: (&value.local_state.excess.magnitude).into(),
                     sgn: (&value.local_state.excess.sgn).into(),
@@ -1951,7 +1959,6 @@ impl From<&MinaBaseUserCommandStableV2> for transaction_logic::valid::UserComman
                         body: match &cmd.payload.body {
                             MinaBaseSignedCommandPayloadBodyStableV2::Payment(payment) => {
                                 transaction_logic::signed_command::Body::Payment(PaymentPayload {
-                                    source_pk: (&payment.source_pk).into(),
                                     receiver_pk: (&payment.receiver_pk).into(),
                                     amount: payment.amount.clone().into(),
                                 })
@@ -1959,14 +1966,11 @@ impl From<&MinaBaseUserCommandStableV2> for transaction_logic::valid::UserComman
                             MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(
                                 delegation,
                             ) => {
-                                let MinaBaseStakeDelegationStableV1::SetDelegate {
-                                    delegator,
-                                    new_delegate,
-                                } = &delegation;
+                                let MinaBaseStakeDelegationStableV2::SetDelegate { new_delegate } =
+                                    &delegation;
 
                                 transaction_logic::signed_command::Body::StakeDelegation(
                                     StakeDelegationPayload::SetDelegate {
-                                        delegator: delegator.into(),
                                         new_delegate: new_delegate.into(),
                                     },
                                 )
@@ -2584,5 +2588,44 @@ impl From<&StagedLedgerDiffDiffStableV2> for crate::staged_ledger::diff::Diff {
         Self {
             diff: (first.into(), second.as_ref().map(Into::into)),
         }
+    }
+}
+
+impl From<&MinaNumbersGlobalSlotSinceGenesisMStableV1> for Slot {
+    fn from(value: &MinaNumbersGlobalSlotSinceGenesisMStableV1) -> Self {
+        let MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(slot) = value;
+        Self(slot.as_u32())
+    }
+}
+
+impl From<&MinaNumbersGlobalSlotSinceHardForkMStableV1> for Slot {
+    fn from(value: &MinaNumbersGlobalSlotSinceHardForkMStableV1) -> Self {
+        let MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(slot) = value;
+        Self(slot.as_u32())
+    }
+}
+
+impl From<&MinaNumbersGlobalSlotSpanStableV1> for SlotSpan {
+    fn from(value: &MinaNumbersGlobalSlotSpanStableV1) -> Self {
+        let MinaNumbersGlobalSlotSpanStableV1::GlobalSlotSpan(slot) = value;
+        Self(slot.as_u32())
+    }
+}
+
+impl From<&Slot> for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
+    fn from(value: &Slot) -> Self {
+        Self::SinceGenesis(value.as_u32().into())
+    }
+}
+
+impl From<&Slot> for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
+    fn from(value: &Slot) -> Self {
+        Self::SinceHardFork(value.as_u32().into())
+    }
+}
+
+impl From<&SlotSpan> for MinaNumbersGlobalSlotSpanStableV1 {
+    fn from(value: &SlotSpan) -> Self {
+        Self::GlobalSlotSpan(value.as_u32().into())
     }
 }

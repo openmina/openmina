@@ -4,7 +4,7 @@ use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
 
 use crate::{
     hash::hash_noinputs,
-    scan_state::currency::{Amount, Balance, Slot},
+    scan_state::currency::{Amount, Balance, Slot, SlotSpan},
     ControlTag, ToInputs,
 };
 
@@ -77,7 +77,7 @@ pub enum Timing {
         initial_minimum_balance: Balance,
         cliff_time: Slot,
         cliff_amount: Amount,
-        vesting_period: Slot,
+        vesting_period: SlotSpan,
         vesting_increment: Amount,
     },
 }
