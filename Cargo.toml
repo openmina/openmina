@@ -55,7 +55,7 @@ mina-poseidon = { path = "deps/proof-systems/poseidon" }
 
 
 [patch.'https://github.com/openmina/mina-p2p-messages-rs']
-mina-p2p-messages = { path = "deps/mina-p2p-messages-rs" }
+mina-p2p-messages = { path = "mina-p2p-messages-rs" }
 
 [patch.'https://github.com/openmina/ledger']
-ledger = { path = "deps/ledger", package = "mina-tree" }
+ledger = { path = "ledger", package = "mina-tree" }
