@@ -4,6 +4,8 @@ use std::time::Duration;
 
 use rand::prelude::*;
 use serde::Serialize;
+use shared::info;
+use shared::log::inner::Level;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::task::LocalPoolHandle;
@@ -34,6 +36,7 @@ mod http_server;
 
 mod rpc;
 use rpc::RpcP2pConnectionOutgoingResponse;
+mod tracing;
 
 /// Openmina snarker
 #[derive(Debug, clap::Args)]
@@ -50,10 +53,16 @@ pub struct Snarker {
     /// Port to listen to
     #[arg(long, short, default_value = "3000")]
     pub port: u16,
+
+    /// Verbosity level
+    #[arg(long, short, default_value = "info")]
+    pub verbosity: Level,
 }
 
 impl Snarker {
     pub fn run(self) -> Result<(), crate::CommandError> {
+        tracing::initialize(self.verbosity);
+
         if let Err(ref e) = rayon::ThreadPoolBuilder::new()
             .num_threads(num_cpus::get().max(2) - 1)
             .build_global()
@@ -76,7 +85,8 @@ impl Snarker {
         let secret_key = SecretKey::from_bytes(bytes);
         let pub_key = secret_key.public_key();
         let peer_id = PeerId::from_public_key(pub_key.clone());
-        eprintln!("peer_id: {peer_id}");
+
+        info!(shared::log::system_time(); peer_id = format!("{peer_id}"));
 
         let config = Config {
             ledger: LedgerConfig {},
