@@ -53,11 +53,8 @@ kimchi = { path = "deps/proof-systems/kimchi" }
 poly-commitment = { path = "deps/proof-systems/poly-commitment" }
 mina-poseidon = { path = "deps/proof-systems/poseidon" }
 
-<<<<<<< HEAD
-=======
 [patch.'https://github.com/openmina/mina-p2p-messages-rs']
-mina-p2p-messages = { path = "deps/mina-p2p-messages-rs" }
+mina-p2p-messages = { path = "mina-p2p-messages-rs" }
 
 [patch.'https://github.com/openmina/ledger']
-ledger = { path = "deps/ledger", package = "mina-tree" }
->>>>>>> 7008341 (openmina deps as submodules)
+ledger = { path = "ledger", package = "mina-tree" }
