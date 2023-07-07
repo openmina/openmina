@@ -6,7 +6,6 @@ use crate::pseq::PaddedSeq;
 
 use super::manual::*;
 
-
 /// **OCaml name**: `Mina_block__Block.Stable.V2`
 ///
 /// Gid: `1077`
@@ -249,7 +248,9 @@ pub struct BlockchainSnarkBlockchainStableV2 {
 ///
 /// Gid: `73`
 /// Location: [src/string.ml:14:6](https://github.com/MinaProtocol/mina/blob/bfd1009/src/string.ml#L14)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default,
+)]
 pub struct MinaBaseZkappAccountZkappUriStableV1(pub crate::string::ByteString);
 
 /// Derived name: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2.statement.fp`
@@ -700,14 +701,18 @@ pub struct UnsignedExtendedUInt64Int64ForVersionTagsStableV1(pub crate::number::
 ///
 /// Gid: `119`
 /// Location: [src/int32.ml:6:6](https://github.com/MinaProtocol/mina/blob/bfd1009/src/int32.ml#L6)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default,
+)]
 pub struct UnsignedExtendedUInt32StableV1(pub crate::number::Int32);
 
 /// **OCaml name**: `Mina_numbers__Nat.Make32.Stable.V1`
 ///
 /// Gid: `576`
 /// Location: [src/lib/mina_numbers/nat.ml:260:6](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/mina_numbers/nat.ml#L260)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default,
+)]
 pub struct MinaNumbersNatMake32StableV1(pub UnsignedExtendedUInt32StableV1);
 
 /// **OCaml name**: `Mina_numbers__Global_slot_span.Make_str.Stable.V1`
@@ -1289,7 +1294,9 @@ pub enum MinaBaseZkappPreconditionAccountStableV2StateA {
 /// Gid: `755`
 /// Location: [src/lib/mina_base/zkapp_state.ml:17:6](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/mina_base/zkapp_state.ml#L17)
 /// Args: crate :: bigint :: BigInt
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default,
+)]
 pub struct MinaBaseZkappStateValueStableV1(pub PaddedSeq<crate::bigint::BigInt, 8>);
 
 /// **OCaml name**: `Mina_base__Zkapp_account.Stable.V2`

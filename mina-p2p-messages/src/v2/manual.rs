@@ -586,7 +586,6 @@ impl ConsensusProofOfStakeDataConsensusStateValueStableV2 {
     }
 }
 
-
 impl AsRef<str> for SgnStableV1 {
     fn as_ref(&self) -> &str {
         match self {

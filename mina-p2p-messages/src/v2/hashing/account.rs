@@ -12,7 +12,7 @@ use crate::{
         MinaBasePermissionsAuthRequiredStableV2, MinaBasePermissionsStableV2,
         MinaBaseVerificationKeyWireStableV1, MinaBaseVerificationKeyWireStableV1WrapIndex,
         MinaBaseZkappAccountStableV2, MinaBaseZkappAccountZkappUriStableV1,
-        PicklesBaseProofsVerifiedStableV1, MinaNumbersGlobalSlotSinceGenesisMStableV1,
+        MinaNumbersGlobalSlotSinceGenesisMStableV1, PicklesBaseProofsVerifiedStableV1,
     },
 };
 
