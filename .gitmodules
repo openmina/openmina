@@ -13,3 +13,6 @@
 	path = deps/proof-systems
 	url = https://github.com/openmina/proof-systems
 	branch = ledger-newtypes
+[submodule "deps/redux-rs"]
+	path = deps/redux-rs
+	url = https://github.com/openmina/redux-rs.git
