@@ -737,3 +737,30 @@ impl Default for NonZeroCurvePointUncompressedStableV1 {
         }
     }
 }
+
+impl super::MinaNumbersGlobalSlotSinceGenesisMStableV1 {
+    pub fn as_u32(&self) -> u32 {
+        let Self::SinceGenesis(slot) = self;
+        slot.as_u32()
+    }
+}
+
+impl super::MinaNumbersGlobalSlotSinceHardForkMStableV1 {
+    pub fn as_u32(&self) -> u32 {
+        let Self::SinceHardFork(slot) = self;
+        slot.as_u32()
+    }
+}
+
+impl super::MinaNumbersGlobalSlotSpanStableV1 {
+    pub fn as_u32(&self) -> u32 {
+        let Self::GlobalSlotSpan(slot) = self;
+        slot.as_u32()
+    }
+}
+
+impl From<u32> for super::UnsignedExtendedUInt32StableV1 {
+    fn from(value: u32) -> Self {
+        Self(value.into())
+    }
+}
