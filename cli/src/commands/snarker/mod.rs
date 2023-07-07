@@ -8,7 +8,7 @@ use snarker::p2p::service_impl::TaskSpawner;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
-use snarker::account::AccountSecretKey;
+use snarker::account::{AccountSecretKey, AccountPublicKey};
 use snarker::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
     EventSourceWaitTimeoutAction,
@@ -38,11 +38,15 @@ use rpc::RpcP2pConnectionOutgoingResponse;
 /// Openmina snarker
 #[derive(Debug, clap::Args)]
 pub struct Snarker {
+    /// Chain ID
+    #[arg(env)]
+    pub chain_id: String,
+    /// Snarker public key
+    #[arg(env)]
+    pub public_key: AccountPublicKey,
     /// Port to listen to
     #[arg(default_value = "3000")]
     pub http_port: u16,
-    /// Chain ID
-    pub chain_id: String,
 }
 
 impl Snarker {
@@ -75,18 +79,6 @@ impl Snarker {
         let peer_id = PeerId::from_public_key(pub_key.clone());
         eprintln!("peer_id: {peer_id}");
 
-        let sec_key: AccountSecretKey = match std::env::var("MINA_SNARKER_SEC_KEY") {
-            Ok(v) => match v.parse() {
-                Err(err) => {
-                    return Err(format!("error while parsing `MINA_SNARKER_SEC_KEY`: {err}").into())
-                }
-                Ok(v) => v,
-            },
-            Err(err) => {
-                return Err(format!("env `MINA_SNARKER_SEC_KEY` not set! {err}").into());
-            }
-        };
-
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
@@ -95,7 +87,7 @@ impl Snarker {
                 block_verifier_srs: snarker::snark::get_srs().into(),
             },
             snarker: SnarkerConfig {
-                public_key: sec_key.public_key(),
+                public_key: self.public_key,
                 job_commitments: JobCommitmentsConfig {
                     commitment_timeout: Duration::from_secs(6 * 60),
                 },
