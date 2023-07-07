@@ -40,7 +40,6 @@ mod tracing;
 /// Openmina snarker
 #[derive(Debug, clap::Args)]
 pub struct Snarker {
-
     /// Chain ID
     #[arg(long, short = 'i', env)]
     pub chain_id: String,
@@ -83,8 +82,6 @@ impl Snarker {
         let secret_key = SecretKey::from_bytes(bytes);
         let pub_key = secret_key.public_key();
         let peer_id = PeerId::from_public_key(pub_key.clone());
-
-        info!(shared::log::system_time(); peer_id = format!("{peer_id}"));
 
         let config = Config {
             ledger: LedgerConfig {},
