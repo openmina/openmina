@@ -311,7 +311,7 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
 
 /// Returns (state_hash, state_body_hash)
 pub fn hashes(state: &MinaStateProtocolStateValueStableV2) -> (Fp, Fp) {
-    let state_body_hash = state.body.hash();
+    let state_body_hash = MinaHash::hash(&state.body);
 
     let state_hash = { hashes_abstract(state.previous_state_hash.to_field(), state_body_hash) };
 
@@ -330,7 +330,7 @@ pub fn hashes_abstract(previous_state_hash: Fp, body_hash: Fp) -> Fp {
 impl MinaHash for MinaStateProtocolStateValueStableV2 {
     fn hash(&self) -> Fp {
         let previous_state_hash = self.previous_state_hash.to_field();
-        let body_hash = self.body.hash();
+        let body_hash = MinaHash::hash(&self.body);
 
         hashes_abstract(previous_state_hash, body_hash)
     }

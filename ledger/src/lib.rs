@@ -50,7 +50,7 @@ pub mod mask;
 pub mod ondisk;
 mod port_ocaml;
 mod poseidon;
-mod proofs;
+pub mod proofs;
 pub mod scan_state;
 pub mod sparse_ledger;
 pub mod staged_ledger;

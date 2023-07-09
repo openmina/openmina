@@ -324,7 +324,7 @@ pub trait ToFieldElements {
 
 impl ToFieldElements for MinaStateProtocolStateValueStableV2 {
     fn to_field_elements(&self) -> Vec<Fp> {
-        vec![self.hash()]
+        vec![MinaHash::hash(self)]
     }
 }
 
