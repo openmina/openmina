@@ -27,18 +27,19 @@ use super::{
     ConsensusProofOfStakeDataConsensusStateValueStableV2,
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-    ConsensusVrfOutputTruncatedStableV1, MinaBaseAccountBinableArgStableV2,
-    MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1,
+    ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1,
+    MinaBaseAccountBinableArgStableV2, MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1,
     MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
     MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashNonSnarkStableV1,
-    MinaBaseStagedLedgerHashStableV1, MinaBaseVerificationKeyWireStableV1,
-    MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSinceHardForkMStableV1,
-    MinaNumbersGlobalSlotSpanStableV1, MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+    MinaBaseStagedLedgerHashStableV1, MinaBaseStateBodyHashStableV1,
+    MinaBaseVerificationKeyWireStableV1, MinaNumbersGlobalSlotSinceGenesisMStableV1,
+    MinaNumbersGlobalSlotSinceHardForkMStableV1, MinaNumbersGlobalSlotSpanStableV1,
+    MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateProtocolStateBodyValueStableV2,
     MinaStateProtocolStateValueStableV2,
     MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
-    NonZeroCurvePointUncompressedStableV1, SgnStableV1, SignedAmount, TokenFeeExcess,
+    NonZeroCurvePointUncompressedStableV1, SgnStableV1, SignedAmount, StateHash, TokenFeeExcess,
 };
 
 impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1 {
@@ -277,6 +278,54 @@ mod tests {
     }
 }
 
+fn fp_state_hash_from_fp_hashes(previous_state_hash: Fp, body_hash: Fp) -> Fp {
+    let mut inputs = Inputs::new();
+    inputs.append_field(previous_state_hash);
+    inputs.append_field(body_hash);
+    hash_with_kimchi("MinaProtoState", &inputs.to_fields())
+}
+
+impl StateHash {
+    fn from_fp(fp: Fp) -> Self {
+        DataHashLibStateHashStableV1(fp.into()).into()
+    }
+
+    pub fn from_hashes(
+        pred_state_hash: &StateHash,
+        body_hash: &MinaBaseStateBodyHashStableV1,
+    ) -> Self {
+        Self::from_fp(fp_state_hash_from_fp_hashes(
+            pred_state_hash.to_field(),
+            body_hash.to_field(),
+        ))
+    }
+}
+
+impl generated::MinaStateProtocolStateBodyValueStableV2 {
+    pub fn hash(&self) -> MinaBaseStateBodyHashStableV1 {
+        let fp = MinaHash::hash(self);
+        MinaBaseStateBodyHashStableV1(fp.into())
+    }
+}
+
+impl generated::MinaStateProtocolStateValueStableV2 {
+    pub fn hash(&self) -> StateHash {
+        StateHash::from_fp(MinaHash::hash(self))
+    }
+}
+
+impl generated::MinaBlockHeaderStableV2 {
+    pub fn hash(&self) -> StateHash {
+        self.protocol_state.hash()
+    }
+}
+
+impl generated::MinaBlockBlockStableV2 {
+    pub fn hash(&self) -> StateHash {
+        self.header.protocol_state.hash()
+    }
+}
+
 impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
     fn hash(&self) -> mina_hasher::Fp {
         let mut inputs = Inputs::new();
@@ -287,10 +336,7 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
 
 impl MinaHash for MinaStateProtocolStateValueStableV2 {
     fn hash(&self) -> mina_hasher::Fp {
-        let mut inputs = Inputs::new();
-        inputs.append_field(self.previous_state_hash.to_field());
-        inputs.append_field(self.body.hash());
-        hash_with_kimchi("MinaProtoState", &inputs.to_fields())
+        fp_state_hash_from_fp_hashes(self.previous_state_hash.to_field(), MinaHash::hash(&self.body))
     }
 }
 
