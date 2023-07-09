@@ -1,4 +1,4 @@
-use mina_p2p_messages::v2::MinaLedgerSyncLedgerAnswerStableV2;
+use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use shared::block::BlockWithHash;
 
 use crate::consensus::ConsensusBlockReceivedAction;
@@ -11,7 +11,6 @@ use crate::rpc::{
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingSuccessAction,
 };
-use crate::snark::hash::{state_hash, state_hash_from_hashes};
 use crate::transition_frontier::sync::ledger::{
     PeerLedgerQueryError, PeerLedgerQueryResponse,
     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction,
@@ -311,24 +310,15 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     match action.response.as_ref() {
                         Some(P2pRpcResponse::BestTipWithProof(resp)) => {
                             let (body_hashes, root_block) = &resp.proof;
-                            let best_tip = BlockWithHash {
-                                hash: state_hash(&resp.best_tip.header),
-                                block: resp.best_tip.clone(),
-                            };
-                            let root_block = BlockWithHash {
-                                hash: state_hash(&root_block.header),
-                                block: root_block.clone(),
-                            };
+                            let best_tip = BlockWithHash::new(resp.best_tip.clone());
+                            let root_block = BlockWithHash::new(root_block.clone());
 
                             // reconstruct hashes
                             let hashes = body_hashes
                                 .iter()
                                 .take(body_hashes.len().saturating_sub(1))
                                 .scan(root_block.hash.clone(), |pred_hash, body_hash| {
-                                    *pred_hash = state_hash_from_hashes(
-                                        pred_hash.clone(),
-                                        body_hash.clone(),
-                                    );
+                                    *pred_hash = StateHash::from_hashes(pred_hash, body_hash);
                                     Some(pred_hash.clone())
                                 })
                                 .collect::<Vec<_>>();

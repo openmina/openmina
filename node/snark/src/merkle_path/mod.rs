@@ -1,10 +1,6 @@
 use std::fmt::Write;
 
-use mina_p2p_messages::{bigint::BigInt, v2::MerkleTreeNode};
-
-use crate::public_input::protocol_state::MinaHash;
-
-mod account;
+use mina_p2p_messages::{bigint::BigInt, hash::MinaHash, v2::MerkleTreeNode};
 
 /// Computes the root hash of the merkle tree with an account and its merkle path
 ///
@@ -30,7 +26,7 @@ pub fn calc_merkle_root_hash(
             param.clear();
             write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
 
-            crate::hash::hash_with_kimchi(param.as_str(), &hashes)
+            ledger::hash_with_kimchi(param.as_str(), &hashes)
         })
         .into()
 }

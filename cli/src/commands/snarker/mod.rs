@@ -299,9 +299,12 @@ impl SnarkBlockVerifyService for SnarkerService {
         rayon::spawn_fifo(move || {
             let header = block.header_ref();
             let result = {
-                if !snarker::snark::accumulator_check(&verifier_srs, &header.protocol_state_proof) {
+                if !ledger::proofs::accumulator_check::accumulator_check(
+                    &verifier_srs,
+                    &header.protocol_state_proof,
+                ) {
                     Err(SnarkBlockVerifyError::AccumulatorCheckFailed)
-                } else if !snarker::snark::verify(header, &verifier_index) {
+                } else if !ledger::proofs::verification::verify_block(header, &verifier_index) {
                     Err(SnarkBlockVerifyError::VerificationFailed)
                 } else {
                     Ok(())

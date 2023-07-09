@@ -1,6 +1,5 @@
 use redux::ActionMeta;
 use shared::block::BlockWithHash;
-use snark::hash::state_hash;
 
 use crate::disconnection::P2pDisconnectionInitAction;
 
@@ -41,10 +40,7 @@ impl P2pChannelsMessageReceivedAction {
                     store.dispatch(P2pChannelsBestTipRequestReceivedAction { peer_id })
                 }
                 BestTipPropagationChannelMsg::BestTip(best_tip) => {
-                    let best_tip = BlockWithHash {
-                        hash: state_hash(&*best_tip),
-                        block: best_tip,
-                    };
+                    let best_tip = BlockWithHash::new(best_tip);
                     store.dispatch(P2pChannelsBestTipReceivedAction { peer_id, best_tip })
                 }
             },

@@ -23,18 +23,36 @@ pub struct BlockHeaderWithHash<T: AsRef<BlockHeader>> {
 }
 
 impl<T: AsRef<Block>> BlockWithHash<T> {
+    pub fn new(block: T) -> Self {
+        Self {
+            hash: block.as_ref().hash(),
+            block,
+        }
+    }
+
+    pub fn header(&self) -> &BlockHeader {
+        &self.block.as_ref().header
+    }
+
     pub fn snarked_ledger_hash(&self) -> LedgerHash {
-        snarked_ledger_hash(&self.block.as_ref().header)
+        snarked_ledger_hash(self.header())
     }
 }
 
 impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
+    pub fn new(header: T) -> Self {
+        Self {
+            hash: header.as_ref().hash(),
+            header,
+        }
+    }
+
     pub fn snarked_ledger_hash(&self) -> LedgerHash {
         snarked_ledger_hash(self.header.as_ref())
     }
 }
 
-pub fn snarked_ledger_hash(header: &BlockHeader) -> LedgerHash {
+fn snarked_ledger_hash(header: &BlockHeader) -> LedgerHash {
     header
         .protocol_state
         .body

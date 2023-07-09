@@ -139,7 +139,7 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerService for T {
         let states = parts
             .needed_blocks
             .iter()
-            .map(|state| (state.hash(), state.clone()))
+            .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
             .collect::<BTreeMap<_, _>>();
 
         sync.root_staged_ledger = Some(

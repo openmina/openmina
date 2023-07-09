@@ -31,7 +31,7 @@ libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 mina-hasher = { git = "https://github.com/o1-labs/proof-systems" }
 mina-signer = { git = "https://github.com/o1-labs/proof-systems" }
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "94fd3389acdf6986aa6731b0e64f5cd8b0db5eed" }
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "212c12400010cbe4694617c133d2f6de0afa48fa" }
 
 shared = { path = "../shared" }
 lib = { path = "../lib" }
