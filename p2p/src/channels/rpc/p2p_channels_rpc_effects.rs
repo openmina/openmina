@@ -1,6 +1,5 @@
 use redux::ActionMeta;
 use shared::block::BlockWithHash;
-use snark::hash::state_hash;
 
 use crate::{
     channels::{ChannelId, MsgId, P2pChannelsService},
@@ -47,11 +46,9 @@ impl P2pChannelsRpcResponseReceivedAction {
     {
         match &self.response {
             Some(P2pRpcResponse::BestTipWithProof(resp)) => {
-                let block = resp.best_tip.clone();
-                let hash = state_hash(&*block);
                 store.dispatch(P2pPeerBestTipUpdateAction {
                     peer_id: self.peer_id,
-                    best_tip: BlockWithHash { hash, block },
+                    best_tip: BlockWithHash::new(resp.best_tip.clone()),
                 });
             }
             _ => {}

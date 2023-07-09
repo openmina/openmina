@@ -11,7 +11,7 @@ mod consensus_effects;
 pub use consensus_effects::*;
 
 use mina_p2p_messages::v2::{
-    ConsensusProofOfStakeDataConsensusStateValueStableV1, MinaStateProtocolStateBodyValueStableV2,
+    ConsensusProofOfStakeDataConsensusStateValueStableV2, MinaStateProtocolStateBodyValueStableV2,
 };
 
 // TODO(binier): do we need to verify constants? Probably they are verified
@@ -20,11 +20,11 @@ pub fn is_short_range_fork(
     a: &MinaStateProtocolStateBodyValueStableV2,
     b: &MinaStateProtocolStateBodyValueStableV2,
 ) -> bool {
-    let check = |s1: &ConsensusProofOfStakeDataConsensusStateValueStableV1,
-                 s2: &ConsensusProofOfStakeDataConsensusStateValueStableV1| {
-        let slots_per_epoch = s2.curr_global_slot.slots_per_epoch.0 .0;
-        let s2_epoch_slot = s2.curr_global_slot.slot_number.0 .0 % slots_per_epoch;
-        if s1.epoch_count.0 .0 == s2.epoch_count.0 .0 + 1
+    let check = |s1: &ConsensusProofOfStakeDataConsensusStateValueStableV2,
+                 s2: &ConsensusProofOfStakeDataConsensusStateValueStableV2| {
+        let slots_per_epoch = s2.curr_global_slot.slots_per_epoch.as_u32();
+        let s2_epoch_slot = s2.curr_global_slot.slot_number.as_u32() % slots_per_epoch;
+        if s1.epoch_count.as_u32() == s2.epoch_count.as_u32() + 1
             && s2_epoch_slot >= slots_per_epoch * 2 / 3
         {
             // S1 is one epoch ahead of S2 and S2 is not in the seed update range

@@ -99,20 +99,7 @@ impl lib::service::SnarkBlockVerifyService for NodeWasmService {
         let mut tx = self.event_source_sender.clone();
 
         let (mut tx, rx) = oneshot::channel();
-        rayon::spawn_fifo(move || {
-            let header = block.header_ref();
-            let result = {
-                if !lib::snark::accumulator_check(&verifier_srs, &header.protocol_state_proof) {
-                    Err(SnarkBlockVerifyError::AccumulatorCheckFailed)
-                } else if !lib::snark::verify(header, &verifier_index) {
-                    Err(SnarkBlockVerifyError::VerificationFailed)
-                } else {
-                    Ok(())
-                }
-            };
-
-            let _ = tx.send(result);
-        });
+        rayon::spawn_fifo(move || todo!());
 
         let mut tx = self.event_source_sender.clone();
         spawn_local(async move {

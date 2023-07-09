@@ -11,7 +11,7 @@ mod watched_accounts_effects;
 pub use watched_accounts_effects::*;
 
 use mina_p2p_messages::v2::{
-    MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseStakeDelegationStableV1,
+    MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseStakeDelegationStableV2,
     MinaBaseUserCommandStableV2, NonZeroCurvePoint, StagedLedgerDiffDiffDiffStableV2,
     StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,
 };
@@ -26,7 +26,7 @@ pub fn is_transaction_affecting_account(
                 &v.source_pk == pub_key || &v.receiver_pk == pub_key
             }
             MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(v) => match v {
-                MinaBaseStakeDelegationStableV1::SetDelegate {
+                MinaBaseStakeDelegationStableV2::SetDelegate {
                     delegator,
                     new_delegate,
                 } => delegator == pub_key || new_delegate == pub_key,
