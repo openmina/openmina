@@ -3,12 +3,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use rand::prelude::*;
-use serde::Serialize;
 use snarker::p2p::service_impl::TaskSpawner;
+use shared::info;
+use shared::log::inner::Level;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
+use serde::Serialize;
 
-use snarker::account::AccountSecretKey;
+use snarker::account::{AccountSecretKey, AccountPublicKey};
 use snarker::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
     EventSourceWaitTimeoutAction,
@@ -34,23 +36,32 @@ mod http_server;
 
 mod rpc;
 use rpc::RpcP2pConnectionOutgoingResponse;
+mod tracing;
 
-#[derive(Debug, structopt::StructOpt)]
-#[structopt(name = "snarker", about = "Openmina snarker")]
+/// Openmina snarker
+#[derive(Debug, clap::Args)]
 pub struct Snarker {
-    #[structopt(long, default_value = "3000")]
-    pub http_port: u16,
-    #[structopt(short, long)]
+    /// Chain ID
+    #[arg(long, short = 'i', env)]
     pub chain_id: String,
+
+    /// Snarker public key
+    #[arg(long, short = 'k', env)]
+    pub public_key: AccountPublicKey,
+
+    /// Port to listen to
+    #[arg(long, short, default_value = "3000")]
+    pub port: u16,
+
+    /// Verbosity level
+    #[arg(long, short, default_value = "info")]
+    pub verbosity: Level,
 }
 
 impl Snarker {
     pub fn run(self) -> Result<(), crate::CommandError> {
-        // stderrlog::new()
-        //     .verbosity(5)
-        //     // .module(module_path!()) // remove this line to see libp2p logs.
-        //     .init()
-        //     .unwrap();
+        tracing::initialize(self.verbosity);
+
         if let Err(ref e) = rayon::ThreadPoolBuilder::new()
             .num_threads(num_cpus::get().max(2) - 1)
             .build_global()
@@ -72,19 +83,6 @@ impl Snarker {
         let secret_key = SecretKey::from_bytes(bytes);
         let pub_key = secret_key.public_key();
         let peer_id = PeerId::from_public_key(pub_key.clone());
-        eprintln!("peer_id: {peer_id}");
-
-        let sec_key: AccountSecretKey = match std::env::var("MINA_SNARKER_SEC_KEY") {
-            Ok(v) => match v.parse() {
-                Err(err) => {
-                    return Err(format!("error while parsing `MINA_SNARKER_SEC_KEY`: {err}").into())
-                }
-                Ok(v) => v,
-            },
-            Err(err) => {
-                return Err(format!("env `MINA_SNARKER_SEC_KEY` not set! {err}").into());
-            }
-        };
 
         let config = Config {
             ledger: LedgerConfig {},
@@ -94,7 +92,7 @@ impl Snarker {
                 block_verifier_srs: snarker::snark::get_srs().into(),
             },
             snarker: SnarkerConfig {
-                public_key: sec_key.public_key(),
+                public_key: self.public_key,
                 job_commitments: JobCommitmentsConfig {
                     commitment_timeout: Duration::from_secs(6 * 60),
                 },
@@ -172,7 +170,7 @@ impl Snarker {
 
         let mut rpc_service = rpc::RpcService::new();
 
-        let http_port = self.http_port;
+        let http_port = self.port;
         let rpc_sender = RpcSender {
             tx: rpc_service.req_sender().clone(),
         };

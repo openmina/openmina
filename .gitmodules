@@ -1,0 +1,18 @@
+[submodule "deps/ledger"]
+	path = ledger
+	url = ../ledger.git
+[submodule "deps/mina-p2p-messages-rs"]
+	path = mina-p2p-messages-rs
+	url = ../mina-p2p-messages-rs.git
+	branch = openmina-snarker
+[submodule "deps/algebra"]
+	path = deps/algebra
+	url = https://github.com/openmina/algebra
+	branch = openmina
+[submodule "deps/proof-systems"]
+	path = deps/proof-systems
+	url = https://github.com/openmina/proof-systems
+	branch = ledger-newtypes
+[submodule "deps/redux-rs"]
+	path = deps/redux-rs
+	url = https://github.com/openmina/redux-rs.git
