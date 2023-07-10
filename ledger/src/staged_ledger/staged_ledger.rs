@@ -129,6 +129,7 @@ pub enum SkipVerification {
     Proofs,
 }
 
+#[derive(Clone)]
 pub struct StagedLedger {
     scan_state: ScanState,
     ledger: Mask,
