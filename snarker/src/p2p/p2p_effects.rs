@@ -419,7 +419,6 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 },
                             );
                         }
-                        _ => {}
                     }
                     store
                         .dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});

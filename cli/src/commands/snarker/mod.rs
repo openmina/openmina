@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use rand::prelude::*;
 use serde::Serialize;
+use snarker::p2p::service_impl::TaskSpawner;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
-use tokio_util::task::LocalPoolHandle;
 
 use snarker::account::AccountSecretKey;
 use snarker::event_source::{
@@ -66,7 +66,6 @@ impl Snarker {
             .build()
             .unwrap();
         let _rt_guard = rt.enter();
-        let rt_pool = LocalPoolHandle::new(3);
 
         let mut rng = ThreadRng::default();
         let bytes = rng.gen();
@@ -159,7 +158,7 @@ impl Snarker {
         } = <SnarkerService as P2pServiceWebrtcRsWithLibp2p>::init(
             self.chain_id,
             p2p_event_sender.clone(),
-            &rt_pool,
+            P2pTaskSpawner {},
         );
 
         let ev_sender = event_sender.clone();
@@ -177,60 +176,86 @@ impl Snarker {
         let rpc_sender = RpcSender {
             tx: rpc_service.req_sender().clone(),
         };
-        // http-server
-        rt_pool.spawn_pinned(move || http_server::run(http_port, rpc_sender));
 
-        let main_task = rt_pool.spawn_pinned(move || async move {
-            let service = SnarkerService {
-                rng: ThreadRng::default(),
-                event_sender,
-                p2p_event_sender,
-                event_receiver: event_receiver.into(),
-                cmd_sender,
-                ledger: Default::default(),
-                peers,
-                libp2p,
-                rpc: rpc_service,
-                stats: Stats::new(),
-            };
-            let mut snarker = ::snarker::Snarker::new(state, service);
+        // spawn http-server
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        std::thread::Builder::new()
+            .name("openmina_http_server".to_owned())
+            .spawn(move || {
+                let local_set = tokio::task::LocalSet::new();
+                local_set.block_on(&runtime, http_server::run(http_port, rpc_sender))
+            })
+            .unwrap();
 
-            snarker
-                .store_mut()
-                .dispatch(EventSourceProcessEventsAction {});
-            loop {
-                snarker
-                    .store_mut()
-                    .dispatch(EventSourceWaitForEventsAction {});
+        // spawn state machine thread.
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .thread_stack_size(16 * 1024 * 1024)
+            .build()
+            .unwrap();
+        let (redux_exited_tx, redux_exited) = tokio::sync::oneshot::channel();
+        std::thread::Builder::new()
+            .name("openmina_redux".to_owned())
+            .spawn(move || {
+                let local_set = tokio::task::LocalSet::new();
+                local_set.block_on(&runtime, async move {
+                    let service = SnarkerService {
+                        rng: ThreadRng::default(),
+                        event_sender,
+                        p2p_event_sender,
+                        event_receiver: event_receiver.into(),
+                        cmd_sender,
+                        ledger: Default::default(),
+                        peers,
+                        libp2p,
+                        rpc: rpc_service,
+                        stats: Stats::new(),
+                    };
+                    let mut snarker = ::snarker::Snarker::new(state, service);
 
-                let service = &mut snarker.store_mut().service;
-                let wait_for_events = service.event_receiver.wait_for_events();
-                let rpc_req_fut = async {
-                    // TODO(binier): optimize maybe to not check it all the time.
-                    match service.rpc.req_receiver().recv().await {
-                        Some(v) => v,
-                        None => std::future::pending().await,
-                    }
-                };
-                let timeout = tokio::time::sleep(Duration::from_millis(1000));
+                    snarker
+                        .store_mut()
+                        .dispatch(EventSourceProcessEventsAction {});
+                    loop {
+                        snarker
+                            .store_mut()
+                            .dispatch(EventSourceWaitForEventsAction {});
 
-                select! {
-                    _ = wait_for_events => {
-                        while snarker.store_mut().service.event_receiver.has_next() {
-                            snarker.store_mut().dispatch(EventSourceProcessEventsAction {});
+                        let service = &mut snarker.store_mut().service;
+                        let wait_for_events = service.event_receiver.wait_for_events();
+                        let rpc_req_fut = async {
+                            // TODO(binier): optimize maybe to not check it all the time.
+                            match service.rpc.req_receiver().recv().await {
+                                Some(v) => v,
+                                None => std::future::pending().await,
+                            }
+                        };
+                        let timeout = tokio::time::sleep(Duration::from_millis(1000));
+
+                        select! {
+                            _ = wait_for_events => {
+                                while snarker.store_mut().service.event_receiver.has_next() {
+                                    snarker.store_mut().dispatch(EventSourceProcessEventsAction {});
+                                }
+                            }
+                            req = rpc_req_fut => {
+                                snarker.store_mut().service.process_rpc_request(req);
+                            }
+                            _ = timeout => {
+                                snarker.store_mut().dispatch(EventSourceWaitTimeoutAction {});
+                            }
                         }
                     }
-                    req = rpc_req_fut => {
-                        snarker.store_mut().service.process_rpc_request(req);
-                    }
-                    _ = timeout => {
-                        snarker.store_mut().dispatch(EventSourceWaitTimeoutAction {});
-                    }
-                }
-            }
-        });
+                });
+                let _ = redux_exited_tx.send(());
+            })
+            .unwrap();
 
-        rt.block_on(main_task).expect("state machine task crashed!");
+        rt.block_on(redux_exited)
+            .expect("state machine task crashed!");
         Ok(())
     }
 }
@@ -429,5 +454,27 @@ impl RpcSender {
             .ok_or_else(|| "state machine shut down".to_owned())??;
 
         Ok(peer_id)
+    }
+}
+
+#[derive(Clone)]
+struct P2pTaskSpawner {}
+
+impl TaskSpawner for P2pTaskSpawner {
+    fn spawn_main<F>(&self, name: &str, fut: F)
+    where
+        F: 'static + Send + std::future::Future,
+    {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        std::thread::Builder::new()
+            .name(format!("openmina_p2p_{name}"))
+            .spawn(move || {
+                let local_set = tokio::task::LocalSet::new();
+                local_set.block_on(&runtime, fut);
+            })
+            .unwrap();
     }
 }
