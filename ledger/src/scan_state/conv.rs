@@ -1741,6 +1741,13 @@ pub fn to_ledger_hash(value: &Fp) -> mina_p2p_messages::v2::LedgerHash {
     hash.into()
 }
 
+pub fn to_pending_coinbase_hash(value: &Fp) -> mina_p2p_messages::v2::PendingCoinbaseHash {
+    let hash = MinaBasePendingCoinbaseHashVersionedStableV1(
+        MinaBasePendingCoinbaseHashBuilderStableV1(value.into()),
+    );
+    hash.into()
+}
+
 impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithWitnessStableV2 {
     fn from(value: &TransactionWithWitness) -> Self {
         use super::scan_state::transaction_snark::InitStack;
@@ -2353,6 +2360,12 @@ impl From<&MinaBasePendingCoinbaseStackIdStableV1> for pending_coinbase::StackId
     }
 }
 
+impl From<&pending_coinbase::StackId> for MinaBasePendingCoinbaseStackIdStableV1 {
+    fn from(value: &pending_coinbase::StackId) -> Self {
+        Self(value.as_u64().into())
+    }
+}
+
 impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
     fn from(value: &MinaBasePendingCoinbaseStableV2) -> Self {
         let MinaBasePendingCoinbaseStableV2 {
@@ -2420,6 +2433,108 @@ impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
                     hashes_matrix,
                     depth,
                     _hasher: std::marker::PhantomData,
+                }
+            },
+            pos_list: pos_list.iter().rev().map(Into::into).collect(),
+            new_pos: new_pos.into(),
+        }
+    }
+}
+
+impl From<&PendingCoinbase> for MinaBasePendingCoinbaseStableV2 {
+    fn from(value: &PendingCoinbase) -> Self {
+        let PendingCoinbase {
+            tree,
+            pos_list,
+            new_pos,
+        } = value;
+
+        // NOTE: Same implementation than with `SparseLedger`
+
+        MinaBasePendingCoinbaseStableV2 {
+            tree: {
+                let value = tree;
+                assert!(value.hashes_matrix.get(&Address::root()).is_some());
+
+                let indexes: Vec<_> = value
+                    .indexes
+                    .iter()
+                    .map(|(id, addr)| {
+                        let addr = value.indexes.get(id).unwrap();
+
+                        let index = addr.to_index();
+                        let index: mina_p2p_messages::number::Int64 = index.as_u64().into();
+
+                        let id: MinaBasePendingCoinbaseStackIdStableV1 = id.into();
+
+                        (id, index)
+                    })
+                    .collect();
+
+                fn build_tree(
+                    addr: Address,
+                    matrix: &HashesMatrix,
+                    ledger_depth: usize,
+                    values: &Vec<Stack>,
+                ) -> MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree {
+                    if addr.length() == ledger_depth {
+                        let account_index = addr.to_index().as_u64() as usize;
+
+                        return match values.get(account_index).cloned() {
+                            Some(account) => {
+                                let account: MinaBasePendingCoinbaseStackVersionedStableV1 =
+                                    (&account).into();
+                                MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree::Account(
+                                    account,
+                                )
+                            }
+                            None => {
+                                let hash = matrix.get(&addr).unwrap();
+                                MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree::Hash(
+                                    to_pending_coinbase_hash(hash),
+                                )
+                            }
+                        };
+                    }
+
+                    let child_left = addr.child_left();
+                    let child_right = addr.child_right();
+
+                    let is_left = matrix.get(&child_left).is_some();
+                    let is_right = matrix.get(&child_right).is_some();
+
+                    if is_left && is_right {
+                        let hash = matrix.get(&addr).unwrap();
+                        let left_node = build_tree(child_left, matrix, ledger_depth, values);
+                        let right_node = build_tree(child_right, matrix, ledger_depth, values);
+
+                        MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree::Node(
+                            to_pending_coinbase_hash(hash),
+                            Box::new(left_node),
+                            Box::new(right_node),
+                        )
+                    } else {
+                        assert!(!is_left && !is_right);
+                        let hash = matrix.get(&addr).unwrap();
+                        MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree::Hash(
+                            to_pending_coinbase_hash(hash),
+                        )
+                    }
+                }
+
+                let tree = build_tree(
+                    Address::root(),
+                    &value.hashes_matrix,
+                    value.depth,
+                    &value.values,
+                );
+
+                let depth: u64 = value.depth.try_into().unwrap();
+
+                MinaBasePendingCoinbaseMerkleTreeVersionedStableV2 {
+                    indexes,
+                    depth: depth.into(),
+                    tree,
                 }
             },
             pos_list: pos_list.iter().rev().map(Into::into).collect(),

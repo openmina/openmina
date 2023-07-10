@@ -62,6 +62,10 @@ impl StackId {
     pub(super) fn new(number: u64) -> Self {
         Self(number)
     }
+
+    pub(super) fn as_u64(&self) -> u64 {
+        self.0
+    }
 }
 
 struct CoinbaseData {
