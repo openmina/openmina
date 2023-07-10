@@ -3844,7 +3844,6 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/openmina/redux-rs.git#155f8208f3105174cbd32172e7580b164d772349"
 dependencies = [
  "enum_dispatch",
  "serde",

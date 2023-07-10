@@ -58,6 +58,9 @@ kimchi = { path = "deps/proof-systems/kimchi" }
 poly-commitment = { path = "deps/proof-systems/poly-commitment" }
 mina-poseidon = { path = "deps/proof-systems/poseidon" }
 
+[patch.'https://github.com/openmina/redux-rs']
+redux = { path = "deps/redux-rs" }
+
 [patch.'https://github.com/openmina/mina-p2p-messages-rs']
 mina-p2p-messages = { path = "mina-p2p-messages-rs" }
 
