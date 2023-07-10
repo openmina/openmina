@@ -12,6 +12,7 @@ fn redux_timer(w: &mut Writer<'_>) -> Result {
     }
 }
 
+#[allow(dead_code)]
 struct ReduxTimer;
 
 impl FormatTime for ReduxTimer {
@@ -23,7 +24,7 @@ impl FormatTime for ReduxTimer {
 pub fn initialize(max_log_level: Level) {
     let subscriber = tracing_subscriber::FmtSubscriber::builder()
         .with_max_level(max_log_level)
-        .with_timer(ReduxTimer)
+        //.with_timer(ReduxTimer)
         .finish();
     tracing::subscriber::set_global_default(subscriber)
         .expect("global subscriber should be configurable");

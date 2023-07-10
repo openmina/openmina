@@ -4,10 +4,7 @@
 /// of the following: `redux::Store`, global state where time is stored,
 /// `redux::ActionMeta::time()`.
 pub fn system_time() -> redux::Timestamp {
-    let time = redux::SystemTime::now()
-        .duration_since(redux::SystemTime::UNIX_EPOCH)
-        .unwrap();
-    redux::Timestamp::new(time.as_nanos() as u64)
+    redux::Timestamp::now()
 }
 
 pub fn time_to_str(t: redux::Timestamp) -> String {
