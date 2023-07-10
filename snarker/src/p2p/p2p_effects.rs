@@ -21,7 +21,10 @@ use crate::transition_frontier::sync::ledger::{
     TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction,
 };
 use crate::transition_frontier::{
-    TransitionFrontierSyncBestTipUpdateAction, TransitionFrontierSyncInitAction,
+    TransitionFrontierSyncBestTipUpdateAction,
+    TransitionFrontierSyncBlocksFetchAndApplyPeerQueryErrorAction,
+    TransitionFrontierSyncBlocksFetchAndApplyPeerQuerySuccessAction,
+    TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction, TransitionFrontierSyncInitAction,
 };
 use crate::watched_accounts::{
     WatchedAccountLedgerInitialState, WatchedAccountsLedgerInitialStateGetError,
@@ -186,6 +189,23 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                         }
                     }
 
+                    let blocks_fetch_rpc_ids = store
+                        .state()
+                        .transition_frontier
+                        .sync
+                        .blocks_fetch_from_peer_pending_rpc_ids(&action.peer_id)
+                        .collect::<Vec<_>>();
+
+                    for rpc_id in blocks_fetch_rpc_ids {
+                        store.dispatch(
+                            TransitionFrontierSyncBlocksFetchAndApplyPeerQueryErrorAction {
+                                peer_id: action.peer_id,
+                                rpc_id,
+                                error: PeerLedgerQueryError::Disconnected,
+                            },
+                        );
+                    }
+
                     let actions = store.state().watched_accounts.iter()
                     .filter_map(|(pub_key, a)| match &a.initial_state {
                         WatchedAccountLedgerInitialState::Pending { peer_id, .. } => {
@@ -282,6 +302,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     store
                         .dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
                     store.dispatch(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {});
+                    store.dispatch(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction {});
                 }
                 P2pChannelsRpcAction::RequestSend(action) => {
                     action.effects(&meta, store);
@@ -301,6 +322,13 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             error: PeerLedgerQueryError::Timeout,
                         },
                     );
+                    store.dispatch(
+                        TransitionFrontierSyncBlocksFetchAndApplyPeerQueryErrorAction {
+                            peer_id: action.peer_id,
+                            rpc_id: action.id,
+                            error: PeerLedgerQueryError::Timeout,
+                        },
+                    );
                     store.dispatch(P2pDisconnectionInitAction {
                         peer_id: action.peer_id,
                     });
@@ -308,6 +336,12 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 P2pChannelsRpcAction::ResponseReceived(action) => {
                     action.effects(&meta, store);
                     match action.response.as_ref() {
+                        None => {
+                            // TODO(binier): better handling
+                            store.dispatch(P2pDisconnectionInitAction {
+                                peer_id: action.peer_id,
+                            });
+                        }
                         Some(P2pRpcResponse::BestTipWithProof(resp)) => {
                             let (body_hashes, root_block) = &resp.proof;
                             let best_tip = BlockWithHash::new(resp.best_tip.clone());
@@ -375,11 +409,22 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 },
                             );
                         }
+                        Some(P2pRpcResponse::Block(block)) => {
+                            let block = BlockWithHash::new(block.clone());
+                            store.dispatch(
+                                TransitionFrontierSyncBlocksFetchAndApplyPeerQuerySuccessAction {
+                                    peer_id: action.peer_id,
+                                    rpc_id: action.id,
+                                    response: block,
+                                },
+                            );
+                        }
                         _ => {}
                     }
                     store
                         .dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
                     store.dispatch(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {});
+                    store.dispatch(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction {});
                 }
                 P2pChannelsRpcAction::RequestReceived(_action) => {
                     // TODO(binier): handle incoming rpc requests.
@@ -401,6 +446,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 });
                 store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
                 store.dispatch(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {});
+                store.dispatch(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction {});
             }
         },
     }

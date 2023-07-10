@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use mina_p2p_messages::v2::LedgerHash;
+use mina_p2p_messages::v2::{LedgerHash, MinaBaseStagedLedgerHashStableV1};
 use serde::{Deserialize, Serialize};
 
 pub use mina_p2p_messages::v2::MinaBlockBlockStableV2 as Block;
@@ -34,8 +34,24 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         &self.block.as_ref().header
     }
 
+    pub fn height(&self) -> u32 {
+        height(self.header())
+    }
+
+    pub fn global_slot(&self) -> u32 {
+        global_slot(self.header())
+    }
+
     pub fn snarked_ledger_hash(&self) -> LedgerHash {
         snarked_ledger_hash(self.header())
+    }
+
+    pub fn staged_ledger_hash(&self) -> LedgerHash {
+        staged_ledger_hash(self.header())
+    }
+
+    pub fn staged_ledger_hashes(&self) -> &MinaBaseStagedLedgerHashStableV1 {
+        staged_ledger_hashes(self.header())
     }
 }
 
@@ -47,9 +63,44 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
         }
     }
 
+    pub fn height(&self) -> u32 {
+        height(self.header.as_ref())
+    }
+
+    pub fn global_slot(&self) -> u32 {
+        global_slot(self.header.as_ref())
+    }
+
     pub fn snarked_ledger_hash(&self) -> LedgerHash {
         snarked_ledger_hash(self.header.as_ref())
     }
+
+    pub fn staged_ledger_hash(&self) -> LedgerHash {
+        staged_ledger_hash(self.header.as_ref())
+    }
+
+    pub fn staged_ledger_hashes(&self) -> &MinaBaseStagedLedgerHashStableV1 {
+        staged_ledger_hashes(self.header.as_ref())
+    }
+}
+
+fn height(header: &BlockHeader) -> u32 {
+    header
+        .protocol_state
+        .body
+        .consensus_state
+        .blockchain_length
+        .0
+        .as_u32()
+}
+
+fn global_slot(header: &BlockHeader) -> u32 {
+    header
+        .protocol_state
+        .body
+        .consensus_state
+        .global_slot_since_genesis
+        .as_u32()
 }
 
 fn snarked_ledger_hash(header: &BlockHeader) -> LedgerHash {
@@ -61,4 +112,16 @@ fn snarked_ledger_hash(header: &BlockHeader) -> LedgerHash {
         .target
         .first_pass_ledger
         .clone()
+}
+
+fn staged_ledger_hash(header: &BlockHeader) -> LedgerHash {
+    staged_ledger_hashes(header).non_snark.ledger_hash.clone()
+}
+
+fn staged_ledger_hashes(header: &BlockHeader) -> &MinaBaseStagedLedgerHashStableV1 {
+    &header
+        .protocol_state
+        .body
+        .blockchain_state
+        .staged_ledger_hash
 }

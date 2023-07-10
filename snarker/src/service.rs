@@ -14,6 +14,7 @@ pub use crate::p2p::disconnection::P2pDisconnectionService;
 pub use crate::rpc::RpcService;
 pub use crate::snark::block_verify::SnarkBlockVerifyService;
 pub use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerService;
+pub use crate::transition_frontier::TransitionFrontierService;
 use crate::ActionKind;
 
 pub trait Service:
@@ -24,6 +25,7 @@ pub trait Service:
     + P2pDisconnectionService
     + P2pChannelsService
     + TransitionFrontierSyncLedgerService
+    + TransitionFrontierService
     + RpcService
 {
     fn stats(&mut self) -> Option<&mut Stats>;

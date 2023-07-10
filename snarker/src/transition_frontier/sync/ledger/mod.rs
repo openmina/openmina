@@ -26,4 +26,5 @@ pub enum PeerLedgerQueryResponse {
 pub enum PeerLedgerQueryError {
     Timeout,
     Disconnected,
+    DataUnavailable,
 }

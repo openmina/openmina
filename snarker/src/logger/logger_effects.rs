@@ -21,6 +21,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
             && !kind_str.contains("TransitionFrontierSyncBestTipUpdate")
             && !kind_str.contains("TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccess")
             && !kind_str.contains("TransitionFrontierSyncLedgerStagedLedgerPartsApplyInit")
+            && !kind_str.contains("TransitionFrontierSyncBlocksFetchAndApplyPeerQuerySuccess")
         {
             dbg!(&action);
         }
