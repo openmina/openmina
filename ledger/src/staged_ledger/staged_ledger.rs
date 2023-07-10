@@ -5778,6 +5778,7 @@ mod tests {
     use std::{collections::BTreeMap, fs::File};
 
     use crate::{
+        proofs::public_input::protocol_state::MinaHash,
         scan_state::{
             pending_coinbase::PendingCoinbase, scan_state::ScanState,
             transaction_logic::local_state::LocalState,
@@ -5787,9 +5788,7 @@ mod tests {
         Account, BaseLedger, Database, Mask,
     };
     use binprot::BinProtRead;
-    use mina_p2p_messages::{
-        hash::MinaHash, rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2Response, v2,
-    };
+    use mina_p2p_messages::{rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2Response, v2};
 
     #[test]
     fn staged_ledger_hash() {
@@ -5833,7 +5832,7 @@ mod tests {
         let (scan_state, expected_ledger_hash, pending_coinbase, states) = info.unwrap();
         let states = states
             .into_iter()
-            .map(|state| (state.hash(), state))
+            .map(|state| (MinaHash::hash(&state), state))
             .collect::<BTreeMap<_, _>>();
 
         println!("Load staged ledger info");
