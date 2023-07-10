@@ -8,6 +8,7 @@ use shared::info;
 use shared::log::inner::Level;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
+use serde::Serialize;
 
 use snarker::account::{AccountSecretKey, AccountPublicKey};
 use snarker::event_source::{
