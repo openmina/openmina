@@ -74,12 +74,7 @@ impl TransitionFrontierSyncLedgerInitAction {
 }
 
 impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction {
-    pub fn effects<S>(self, _: &ActionMeta, store: &mut Store<S>)
-    where
-        S: TransitionFrontierSyncLedgerService,
-    {
-        let Some(root_ledger) = store.state.get().transition_frontier.sync.root_ledger() else { return };
-        store.service.root_set(root_ledger.snarked_ledger_hash());
+    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
     }
 }
@@ -105,13 +100,14 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {
         retry_addresses.reverse();
 
         for (peer_id, _) in peer_ids {
-            if let Some(address) = retry_addresses.pop() {
+            if let Some(address) = retry_addresses.last() {
                 if store.dispatch(
                     TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction {
                         peer_id,
-                        address,
+                        address: address.clone(),
                     },
                 ) {
+                    retry_addresses.pop();
                     continue;
                 }
             }
@@ -131,7 +127,8 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {
                         },
                     );
                 }
-                None => break,
+                None if retry_addresses.is_empty() => break,
+                None => {}
             }
         }
     }
@@ -189,9 +186,10 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction {
     where
         S: TransitionFrontierSyncLedgerService,
     {
+        let Some(block) = store.state().transition_frontier.sync.root_ledger() else { return };
         store
             .service
-            .hashes_set(&self.address, self.hashes)
+            .hashes_set(block.snarked_ledger_hash(), &self.address, self.hashes)
             .unwrap();
 
         if !store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {}) {
@@ -205,9 +203,10 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction {
     where
         S: TransitionFrontierSyncLedgerService,
     {
+        let Some(block) = store.state().transition_frontier.sync.root_ledger() else { return };
         store
             .service
-            .accounts_set(&self.address, self.accounts)
+            .accounts_set(block.snarked_ledger_hash(), &self.address, self.accounts)
             .unwrap();
 
         if !store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {}) {
@@ -280,10 +279,11 @@ impl TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction {
     where
         S: TransitionFrontierSyncLedgerService,
     {
+        let Some(block) = store.state().transition_frontier.sync.root_ledger() else { return };
         // TODO(binier): dispatch error action if error.
         store
             .service
-            .staged_ledger_reconstruct(self.parts)
+            .staged_ledger_reconstruct(block.snarked_ledger_hash(), self.parts)
             .expect("staged ledger reconstruct failed");
         store.dispatch(
             TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction {
