@@ -164,7 +164,7 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerService for T {
             &CONSTRAINT_CONSTANTS,
             Verifier,
             (&parts.scan_state).into(),
-            mask.make_child(),
+            mask,
             LocalState::empty(),
             parts.staged_ledger_hash.0.to_field(),
             (&parts.pending_coinbase).into(),
@@ -190,7 +190,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
             .ctx_mut()
             .staged_ledger(&pred_block.staged_ledger_hash())
             .ok_or_else(|| "parent staged ledger missing")?
-            .copy();
+            .clone();
 
         let global_slot = block.global_slot();
         let prev_protocol_state = &pred_block.header().protocol_state;

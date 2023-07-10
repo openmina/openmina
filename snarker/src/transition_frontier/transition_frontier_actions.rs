@@ -9,7 +9,7 @@ use super::{
     sync::ledger::{
         PeerLedgerQueryError, TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerState,
     },
-    TransitionFrontierSyncBlockState, TransitionFrontierSyncState,
+    TransitionFrontierSyncState,
 };
 
 pub type TransitionFrontierActionWithMeta = redux::ActionWithMeta<TransitionFrontierAction>;

@@ -21,7 +21,7 @@ binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "dfbd3b
 mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "212c12400010cbe4694617c133d2f6de0afa48fa" }
 mina-hasher = { git = "https://github.com/o1-labs/proof-systems" }
 mina-signer = { git = "https://github.com/o1-labs/proof-systems" }
-ledger = { package = "mina-tree", git = "https://github.com/openmina/ledger", rev = "a14554563c886d00ac6a26bb1e05dfdd41a57c32" }
+ledger = { package = "mina-tree", git = "https://github.com/openmina/ledger", rev = "4b8dc91f968c43f67d32fdbc001806ceb6d631bc" }
 
 shared = { path = "../node/shared" }
 snark = { path = "../node/snark" }

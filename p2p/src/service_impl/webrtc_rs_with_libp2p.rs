@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use libp2p::swarm::dial_opts::DialOpts;
 use tokio::sync::mpsc;
 

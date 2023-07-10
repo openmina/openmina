@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::collections::BTreeSet;
 
 use mina_p2p_messages::v2::LedgerHash;
 use shared::block::ArcBlockWithHash;

@@ -1,7 +1,10 @@
 use std::str::FromStr;
 
 use binprot_derive::{BinProtRead, BinProtWrite};
-use mina_p2p_messages::{v2::{NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1}, b58::FromBase58CheckError};
+use mina_p2p_messages::{
+    b58::FromBase58CheckError,
+    v2::{NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1},
+};
 use serde::{Deserialize, Serialize};
 
 use mina_signer::{CompressedPubKey, PubKey};
@@ -38,7 +41,6 @@ impl From<AccountPublicKey> for NonZeroCurvePoint {
         value.0
     }
 }
-
 
 impl FromStr for AccountPublicKey {
     type Err = FromBase58CheckError;
