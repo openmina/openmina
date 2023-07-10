@@ -6,11 +6,16 @@ members = [
     "p2p",
     "snarker",
     "node/shared",
-    "node/p2p",
-    "node/lib",
+    # "node/p2p",
+    # "node/lib",
     "node/snark",
-    "node/wasm"
+    # "node/wasm"
+
+    "mina-p2p-messages-rs",
+    "ledger",
 ]
+
+exclude = [ "deps/redux-rs" ]
 
 [profile.fuzz]
 inherits = "release"
@@ -23,18 +28,41 @@ panic = "abort"
 incremental = false
 codegen-units = 1
 
+[patch.'https://github.com/openmina/algebra']
+ark-ff = { path = "deps/algebra/ff" }
+ark-ec = { path = "deps/algebra/ec" }
+ark-poly = { path = "deps/algebra/poly" }
+ark-serialize = { path = "deps/algebra/serialize" }
+
 [patch.crates-io]
-ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+ark-ff = { path = "deps/algebra/ff" }
+ark-ec = { path = "deps/algebra/ec" }
+ark-poly = { path = "deps/algebra/poly" }
+ark-serialize = { path = "deps/algebra/serialize" }
+
+[patch.'https://github.com/openmina/proof-systems']
+mina-hasher = { path = "deps/proof-systems/hasher" }
+mina-signer = { path = "deps/proof-systems/signer" }
+mina-curves = { path = "deps/proof-systems/curves" }
+o1-utils = { path = "deps/proof-systems/utils" }
+kimchi = { path = "deps/proof-systems/kimchi" }
+poly-commitment = { path = "deps/proof-systems/poly-commitment" }
+mina-poseidon = { path = "deps/proof-systems/poseidon" }
 
 [patch.'https://github.com/o1-labs/proof-systems']
-mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-poly-commitment = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-mina-poseidon = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
+mina-hasher = { path = "deps/proof-systems/hasher" }
+mina-signer = { path = "deps/proof-systems/signer" }
+mina-curves = { path = "deps/proof-systems/curves" }
+o1-utils = { path = "deps/proof-systems/utils" }
+kimchi = { path = "deps/proof-systems/kimchi" }
+poly-commitment = { path = "deps/proof-systems/poly-commitment" }
+mina-poseidon = { path = "deps/proof-systems/poseidon" }
 
+[patch.'https://github.com/openmina/redux-rs']
+redux = { path = "deps/redux-rs" }
+
+[patch.'https://github.com/openmina/mina-p2p-messages-rs']
+mina-p2p-messages = { path = "mina-p2p-messages-rs", features = [ "hashing" ] }
+
+[patch.'https://github.com/openmina/ledger']
+ledger = { path = "ledger", package = "mina-tree" }
