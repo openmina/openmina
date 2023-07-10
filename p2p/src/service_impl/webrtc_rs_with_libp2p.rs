@@ -1,6 +1,7 @@
+use std::future::Future;
+
 use libp2p::swarm::dial_opts::DialOpts;
 use tokio::sync::mpsc;
-use tokio_util::task::LocalPoolHandle;
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
@@ -9,7 +10,7 @@ use crate::{
     P2pChannelEvent, P2pEvent, PeerId,
 };
 
-use super::{libp2p::Libp2pService, webrtc_rs::P2pServiceWebrtcRs};
+use super::{libp2p::Libp2pService, webrtc_rs::P2pServiceWebrtcRs, TaskSpawner};
 
 pub struct P2pServiceCtx {
     pub webrtc: super::webrtc_rs::P2pServiceCtx,
@@ -19,14 +20,14 @@ pub struct P2pServiceCtx {
 pub trait P2pServiceWebrtcRsWithLibp2p: P2pServiceWebrtcRs {
     fn libp2p(&mut self) -> &mut Libp2pService;
 
-    fn init(
+    fn init<S: TaskSpawner>(
         chain_id: String,
         event_source_sender: mpsc::UnboundedSender<P2pEvent>,
-        rt_pool: &LocalPoolHandle,
+        spawner: S,
     ) -> P2pServiceCtx {
         P2pServiceCtx {
-            webrtc: <Self as P2pServiceWebrtcRs>::init(rt_pool),
-            libp2p: Libp2pService::run(chain_id, event_source_sender, rt_pool),
+            webrtc: <Self as P2pServiceWebrtcRs>::init(spawner.clone()),
+            libp2p: Libp2pService::run(chain_id, event_source_sender, spawner),
         }
     }
 }

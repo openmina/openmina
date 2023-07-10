@@ -222,6 +222,7 @@ impl P2pRpcResponse {
 
         if matches!(result_kind, RpcResultKind::Err) {
             let err = mina_p2p_messages::rpc_kernel::Error::binprot_read(r)?;
+            let err = format!("{:?}", err);
             return Err(binprot::Error::CustomError(err.into()));
         }
         let _payload_len = binprot::Nat0::binprot_read(r)?.0 as usize;

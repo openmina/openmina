@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, future::Future, sync::Arc};
 
 use ::webrtc::{
     api::APIBuilder,
@@ -14,13 +14,14 @@ use ::webrtc::{
     },
 };
 use tokio::sync::{mpsc, oneshot};
-use tokio_util::task::LocalPoolHandle;
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
     connection::outgoing::P2pConnectionOutgoingInitOpts,
     webrtc, P2pChannelEvent, P2pConnectionEvent, P2pEvent, PeerId,
 };
+
+use super::TaskSpawner;
 
 /// 16KB.
 const CHUNK_SIZE: usize = 16 * 1024;
@@ -500,10 +501,10 @@ pub trait P2pServiceWebrtcRs: redux::Service {
 
     fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState>;
 
-    fn init(rt_pool: &LocalPoolHandle) -> P2pServiceCtx {
+    fn init<S: TaskSpawner>(spawner: S) -> P2pServiceCtx {
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
 
-        rt_pool.spawn_pinned(move || async move {
+        spawner.spawn_main("webrtc", async move {
             while let Some(cmd) = cmd_receiver.recv().await {
                 match cmd {
                     Cmd::PeerAdd(args) => {

@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::time::Duration;
 
 use binprot::{BinProtRead, BinProtWrite};
@@ -25,7 +26,6 @@ pub use mina_p2p_messages::gossip::GossipNetMessageV2 as GossipNetMessage;
 mod behavior;
 pub use behavior::Event as BehaviourEvent;
 pub use behavior::*;
-use tokio_util::task::LocalPoolHandle;
 
 pub mod rpc;
 use self::rpc::RpcBehaviour;
@@ -34,6 +34,8 @@ use crate::channels::best_tip::BestTipPropagationChannelMsg;
 use crate::channels::rpc::RpcChannelMsg;
 use crate::channels::ChannelMsg;
 use crate::{P2pChannelEvent, P2pConnectionEvent, P2pEvent};
+
+use super::TaskSpawner;
 
 /// Type alias for libp2p transport
 pub type P2PTransport = (PeerId, StreamMuxerBox);
@@ -101,13 +103,14 @@ impl Libp2pService {
         ))
     }
 
-    pub fn run<E>(
+    pub fn run<E, S>(
         chain_id: String,
         event_source_sender: mpsc::UnboundedSender<E>,
-        rt_pool: &LocalPoolHandle,
+        spawner: S,
     ) -> Self
     where
         E: 'static + Send + From<P2pEvent>,
+        S: TaskSpawner,
     {
         let topics_iter = IntoIterator::into_iter([
             Self::GOSSIPSUB_TOPIC,
@@ -158,7 +161,7 @@ impl Libp2pService {
             }
         };
 
-        rt_pool.spawn_pinned(move || fut);
+        spawner.spawn_main("libp2p", fut);
 
         Self { cmd_sender }
     }
