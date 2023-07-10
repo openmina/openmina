@@ -10,7 +10,12 @@ members = [
     # "node/lib",
     "node/snark",
     # "node/wasm"
+
+    "mina-p2p-messages-rs",
+    "ledger",
 ]
+
+exclude = [ "deps/redux-rs" ]
 
 [profile.fuzz]
 inherits = "release"
