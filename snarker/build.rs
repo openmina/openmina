@@ -212,7 +212,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let path = crate_dir.join("src/action_kind.rs");
     fs::write(&path, contents)?;
-    rust_format::RustFmt::default().format_file(&path).expect("failed to format generated file");
+    rust_format::RustFmt::default()
+        .format_file(&path)
+        .expect("failed to format generated file");
 
     Ok(())
 }

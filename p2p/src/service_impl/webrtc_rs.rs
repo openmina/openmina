@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, future::Future, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use ::webrtc::{
     api::APIBuilder,

@@ -3,14 +3,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use rand::prelude::*;
-use snarker::p2p::service_impl::TaskSpawner;
+use serde::Serialize;
 use shared::info;
 use shared::log::inner::Level;
+use snarker::p2p::service_impl::TaskSpawner;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
-use serde::Serialize;
 
-use snarker::account::{AccountSecretKey, AccountPublicKey};
+use snarker::account::{AccountPublicKey, AccountSecretKey};
 use snarker::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
     EventSourceWaitTimeoutAction,

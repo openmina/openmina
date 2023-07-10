@@ -10,22 +10,6 @@ use crate::{Action, ActionWithMetaRef, Service, Store};
 
 pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
-    let kind_str = format!("{:?}", action.kind());
-    if kind_str.contains("TransitionFrontier")
-        || kind_str.contains("Ledger")
-        || kind_str.contains("PeerReady")
-        || kind_str.contains("Timeout")
-        || kind_str.contains("Disconnect")
-    {
-        if !kind_str.contains("TransitionFrontierSyncInit")
-            && !kind_str.contains("TransitionFrontierSyncBestTipUpdate")
-            && !kind_str.contains("TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccess")
-            && !kind_str.contains("TransitionFrontierSyncLedgerStagedLedgerPartsApplyInit")
-            && !kind_str.contains("TransitionFrontierSyncBlocksFetchAndApplyPeerQuerySuccess")
-        {
-            dbg!(&action);
-        }
-    }
 
     match action {
         Action::P2p(action) => match action {
