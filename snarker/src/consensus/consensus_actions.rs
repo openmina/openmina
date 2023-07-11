@@ -4,6 +4,7 @@ use mina_p2p_messages::v2::MinaBlockBlockStableV2;
 use mina_p2p_messages::v2::StateHash;
 use serde::{Deserialize, Serialize};
 
+use crate::consensus::ConsensusBlockStatus;
 use crate::snark::block_verify::SnarkBlockVerifyId;
 
 use super::is_short_range_fork;
@@ -16,7 +17,9 @@ pub enum ConsensusAction {
     BlockReceived(ConsensusBlockReceivedAction),
     BlockSnarkVerifyPending(ConsensusBlockSnarkVerifyPendingAction),
     BlockSnarkVerifySuccess(ConsensusBlockSnarkVerifySuccessAction),
+    DetectForkRange(ConsensusDetectForkRangeAction),
     ShortRangeForkResolve(ConsensusShortRangeForkResolveAction),
+    LongRangeForkResolve(ConsensusLongRangeForkResolveAction),
     BestTipUpdate(ConsensusBestTipUpdateAction),
     BestTipHistoryUpdate(ConsensusBestTipHistoryUpdateAction),
 }
@@ -80,6 +83,23 @@ impl redux::EnablingCondition<crate::State> for ConsensusBlockSnarkVerifySuccess
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ConsensusDetectForkRangeAction {
+    pub hash: StateHash,
+}
+
+impl redux::EnablingCondition<crate::State> for ConsensusDetectForkRangeAction {
+    fn is_enabled(&self, #[allow(unused_variables)] state: &crate::State) -> bool {
+        state
+            .consensus
+            .blocks
+            .get(&self.hash)
+            .map_or(false, |block| {
+                matches!(block.status, ConsensusBlockStatus::SnarkVerifySuccess { .. })
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsensusShortRangeForkResolveAction {
     pub hash: StateHash,
 }
@@ -90,13 +110,39 @@ impl redux::EnablingCondition<crate::State> for ConsensusShortRangeForkResolveAc
             .consensus
             .blocks
             .get(&self.hash)
-            .filter(|block| block.status.is_snark_verify_success())
             .map_or(false, |block| match state.consensus.best_tip() {
-                Some(tip) => is_short_range_fork(
-                    &tip.header.protocol_state.body,
-                    &block.block.header.protocol_state.body,
-                ),
+                Some(tip) => {
+                    matches!(
+                        &block.status,
+                        ConsensusBlockStatus::ForkRangeDetected { compared_with, short_fork, .. }
+                            if compared_with.as_ref() == Some(tip.hash) && *short_fork
+                    )
+                }
                 None => true,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ConsensusLongRangeForkResolveAction {
+    pub hash: StateHash,
+}
+
+impl redux::EnablingCondition<crate::State> for ConsensusLongRangeForkResolveAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .consensus
+            .blocks
+            .get(&self.hash)
+            .map_or(false, |block| match state.consensus.best_tip() {
+                Some(tip) => {
+                    matches!(
+                        &block.status,
+                        ConsensusBlockStatus::ForkRangeDetected { compared_with, short_fork, .. }
+                             if compared_with.as_ref() == Some(tip.hash) && !*short_fork
+                    )
+                }
+                None => false,
             })
     }
 }
@@ -140,6 +186,8 @@ macro_rules! impl_into_global_action {
 impl_into_global_action!(ConsensusBlockReceivedAction);
 impl_into_global_action!(ConsensusBlockSnarkVerifyPendingAction);
 impl_into_global_action!(ConsensusBlockSnarkVerifySuccessAction);
+impl_into_global_action!(ConsensusDetectForkRangeAction);
 impl_into_global_action!(ConsensusShortRangeForkResolveAction);
+impl_into_global_action!(ConsensusLongRangeForkResolveAction);
 impl_into_global_action!(ConsensusBestTipUpdateAction);
 impl_into_global_action!(ConsensusBestTipHistoryUpdateAction);

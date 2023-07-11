@@ -8,7 +8,8 @@ use crate::{
 
 use super::{
     ConsensusAction, ConsensusActionWithMeta, ConsensusBestTipUpdateAction,
-    ConsensusBlockSnarkVerifyPendingAction, ConsensusShortRangeForkResolveAction,
+    ConsensusBlockSnarkVerifyPendingAction, ConsensusDetectForkRangeAction,
+    ConsensusLongRangeForkResolveAction, ConsensusShortRangeForkResolveAction,
 };
 
 pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: ConsensusActionWithMeta) {
@@ -28,13 +29,24 @@ pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: Consen
         }
         ConsensusAction::BlockSnarkVerifyPending(_) => {}
         ConsensusAction::BlockSnarkVerifySuccess(a) => {
-            store.dispatch(ConsensusShortRangeForkResolveAction { hash: a.hash });
+            store.dispatch(ConsensusDetectForkRangeAction { hash: a.hash });
+        }
+        ConsensusAction::DetectForkRange(a) => {
+            store.dispatch(ConsensusShortRangeForkResolveAction {
+                hash: a.hash.clone(),
+            });
+            store.dispatch(ConsensusLongRangeForkResolveAction { hash: a.hash });
         }
         ConsensusAction::ShortRangeForkResolve(a) => {
             store.dispatch(ConsensusBestTipUpdateAction { hash: a.hash });
         }
+        ConsensusAction::LongRangeForkResolve(a) => {
+            store.dispatch(ConsensusBestTipUpdateAction { hash: a.hash });
+        }
         ConsensusAction::BestTipUpdate(_) => {
-            let Some(block) = store.state.get().consensus.best_tip_block_with_hash() else { return };
+            let Some(block) = store.state.get().consensus.best_tip_block_with_hash() else {
+                return;
+            };
             if let Some(stats) = store.service.stats() {
                 // TODO(binier): call this once block is our best tip,
                 // meaning we have synced to it.

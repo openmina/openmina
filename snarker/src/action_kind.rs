@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use crate::consensus::{
     ConsensusAction, ConsensusBestTipHistoryUpdateAction, ConsensusBestTipUpdateAction,
     ConsensusBlockReceivedAction, ConsensusBlockSnarkVerifyPendingAction,
-    ConsensusBlockSnarkVerifySuccessAction, ConsensusShortRangeForkResolveAction,
+    ConsensusBlockSnarkVerifySuccessAction, ConsensusDetectForkRangeAction,
+    ConsensusLongRangeForkResolveAction, ConsensusShortRangeForkResolveAction,
 };
 use crate::event_source::{
     EventSourceAction, EventSourceNewEventAction, EventSourceProcessEventsAction,
@@ -138,6 +139,8 @@ pub enum ActionKind {
     ConsensusBlockReceived,
     ConsensusBlockSnarkVerifyPending,
     ConsensusBlockSnarkVerifySuccess,
+    ConsensusDetectForkRange,
+    ConsensusLongRangeForkResolve,
     ConsensusShortRangeForkResolve,
     EventSourceNewEvent,
     EventSourceProcessEvents,
@@ -272,7 +275,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 138;
+    pub const COUNT: usize = 140;
 }
 
 impl ActionKindGet for Action {
@@ -333,7 +336,9 @@ impl ActionKindGet for ConsensusAction {
             Self::BlockReceived(a) => a.kind(),
             Self::BlockSnarkVerifyPending(a) => a.kind(),
             Self::BlockSnarkVerifySuccess(a) => a.kind(),
+            Self::DetectForkRange(a) => a.kind(),
             Self::ShortRangeForkResolve(a) => a.kind(),
+            Self::LongRangeForkResolve(a) => a.kind(),
             Self::BestTipUpdate(a) => a.kind(),
             Self::BestTipHistoryUpdate(a) => a.kind(),
         }
@@ -507,9 +512,21 @@ impl ActionKindGet for ConsensusBlockSnarkVerifySuccessAction {
     }
 }
 
+impl ActionKindGet for ConsensusDetectForkRangeAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ConsensusDetectForkRange
+    }
+}
+
 impl ActionKindGet for ConsensusShortRangeForkResolveAction {
     fn kind(&self) -> ActionKind {
         ActionKind::ConsensusShortRangeForkResolve
+    }
+}
+
+impl ActionKindGet for ConsensusLongRangeForkResolveAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ConsensusLongRangeForkResolve
     }
 }
 
