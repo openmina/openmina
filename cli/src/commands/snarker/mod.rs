@@ -25,11 +25,12 @@ use snarker::p2p::service_impl::webrtc_rs::{Cmd, P2pServiceCtx, P2pServiceWebrtc
 use snarker::p2p::service_impl::webrtc_rs_with_libp2p::{self, P2pServiceWebrtcRsWithLibp2p};
 use snarker::p2p::{P2pConfig, P2pEvent, PeerId};
 use snarker::rpc::RpcRequest;
-use snarker::service::{EventSourceService, Stats};
+use snarker::service::EventSourceService;
 use snarker::snark::block_verify::{
     SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
 use snarker::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
+use snarker::stats::Stats;
 use snarker::{Config, LedgerConfig, SnarkConfig, SnarkerConfig, State, TransitionFrontierConfig};
 
 mod http_server;
