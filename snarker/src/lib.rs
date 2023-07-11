@@ -19,6 +19,8 @@ pub use effects::effects;
 pub mod service;
 pub use service::Service;
 
+pub mod stats;
+
 pub mod account;
 pub mod consensus;
 pub mod event_source;

@@ -4,7 +4,7 @@ use crate::p2p::channels::snark_job_commitment::SnarkJobId;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
 use crate::p2p::connection::P2pConnectionResponse;
-use crate::service::{ActionStatsForBlock, ActionStatsSnapshot};
+use crate::stats::{ActionStatsForBlock, ActionStatsSnapshot};
 
 use super::RpcId;
 
