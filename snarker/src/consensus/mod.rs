@@ -103,43 +103,192 @@ fn global_slot(b: &MinaConsensusState) -> u32 {
     b.curr_global_slot.slot_number.as_u32()
 }
 
+fn short_range_fork_take(
+    tip_cs: &MinaConsensusState,
+    candidate_cs: &MinaConsensusState,
+    tip_hash: &StateHash,
+    candidate_hash: &StateHash,
+) -> (bool, ConsensusShortRangeForkDecisionReason) {
+    use std::cmp::Ordering::*;
+    use ConsensusShortRangeForkDecisionReason::*;
+
+    let tip_height = &tip_cs.blockchain_length;
+    let candidate_height = &candidate_cs.blockchain_length;
+    match candidate_height.cmp(&tip_height) {
+        Greater => return (true, ChainLength),
+        Less => return (false, ChainLength),
+        Equal => {}
+    }
+
+    let tip_vrf = tip_cs.last_vrf_output.blake2b();
+    let candidate_vrf = candidate_cs.last_vrf_output.blake2b();
+    match candidate_vrf.cmp(&tip_vrf) {
+        Greater => return (true, Vrf),
+        Less => return (false, Vrf),
+        Equal => {}
+    }
+
+    if candidate_hash > tip_hash {
+        return (true, StateHash);
+    } else {
+        return (false, StateHash);
+    }
+}
+
 fn long_range_fork_take(
     tip_cs: &MinaConsensusState,
     candidate_cs: &MinaConsensusState,
     tip_hash: &StateHash,
     candidate_hash: &StateHash,
-) -> (bool, ConsensusLongRangeForkResolutionKind) {
+) -> (bool, ConsensusLongRangeForkDecisionReason) {
+    use std::cmp::Ordering::*;
+    use ConsensusLongRangeForkDecisionReason::*;
+
     let tip_density = relative_min_window_density(tip_cs, candidate_cs);
     let candidate_density = relative_min_window_density(candidate_cs, tip_cs);
-    use std::cmp::Ordering::*;
-    use ConsensusLongRangeForkResolutionKind::*;
-    let (take, why) = match candidate_density.cmp(&tip_density) {
-        Greater => (true, SubWindowDensity),
-        Less => (false, SubWindowDensity),
-        Equal => {
-            let tip_height = &tip_cs.blockchain_length;
-            let candidate_height = &candidate_cs.blockchain_length;
-            match candidate_height.cmp(&tip_height) {
-                Greater => (true, ChainLength),
-                Less => (false, ChainLength),
-                Equal => {
-                    let tip_vrf = tip_cs.last_vrf_output.blake2b();
-                    let candidate_vrf = candidate_cs.last_vrf_output.blake2b();
+    match candidate_density.cmp(&tip_density) {
+        Greater => return (true, SubWindowDensity),
+        Less => return (false, SubWindowDensity),
+        Equal => {}
+    }
 
-                    match candidate_vrf.cmp(&tip_vrf) {
-                        Greater => (true, Vrf),
-                        Less => (false, Vrf),
-                        Equal => {
-                            if candidate_hash > tip_hash {
-                                (true, StateHash)
-                            } else {
-                                (false, StateHash)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    };
-    (take, why)
+    let tip_height = &tip_cs.blockchain_length;
+    let candidate_height = &candidate_cs.blockchain_length;
+    match candidate_height.cmp(&tip_height) {
+        Greater => return (true, ChainLength),
+        Less => return (false, ChainLength),
+        Equal => {}
+    }
+
+    let tip_vrf = tip_cs.last_vrf_output.blake2b();
+    let candidate_vrf = candidate_cs.last_vrf_output.blake2b();
+    match candidate_vrf.cmp(&tip_vrf) {
+        Greater => return (true, Vrf),
+        Less => return (false, Vrf),
+        Equal => {}
+    }
+
+    if candidate_hash > tip_hash {
+        return (true, StateHash);
+    } else {
+        return (false, StateHash);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{long_range_fork_take, short_range_fork_take};
+    use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
+
+    macro_rules! fork_file {
+        ($prefix:expr, $tip:expr, $cnd:expr, $suffix:expr) => {
+            concat!(
+                "../../../tests/files/forks/",
+                $prefix,
+                "-",
+                $tip,
+                "-",
+                $cnd,
+                "-",
+                $suffix,
+                ".json"
+            )
+        };
+    }
+    macro_rules! fork_test {
+        ($prefix:expr, $tip:expr, $cnd:expr, $func:ident, $decision:expr) => {
+            let tip_str = include_str!(fork_file!($prefix, $tip, $cnd, "tip"));
+            let cnd_str = include_str!(fork_file!($prefix, $tip, $cnd, "cnd"));
+            let tip_hash = $tip.parse::<StateHash>().unwrap();
+            let cnd_hash = $cnd.parse::<StateHash>().unwrap();
+            let tip = serde_json::from_str::<MinaStateProtocolStateValueStableV2>(tip_str).unwrap();
+            let cnd = serde_json::from_str::<MinaStateProtocolStateValueStableV2>(cnd_str).unwrap();
+
+            let (take, _) = $func(
+                &tip.body.consensus_state,
+                &cnd.body.consensus_state,
+                &tip_hash,
+                &cnd_hash,
+            );
+            assert_eq!(take, $decision);
+        };
+
+        (long take $prefix:expr, $tip:expr, $cnd:expr) => {
+            fork_test!(
+                concat!("long-take-", $prefix),
+                $tip,
+                $cnd,
+                long_range_fork_take,
+                true
+            );
+        };
+
+        (long keep $prefix:expr, $tip:expr, $cnd:expr) => {
+            fork_test!(
+                concat!("long-keep-", $prefix),
+                $tip,
+                $cnd,
+                long_range_fork_take,
+                false
+            );
+        };
+
+        (short take $prefix:expr, $tip:expr, $cnd:expr) => {
+            fork_test!(
+                concat!("short-take-", $prefix),
+                $tip,
+                $cnd,
+                short_range_fork_take,
+                true
+            );
+        };
+
+        (short keep $prefix:expr, $tip:expr, $cnd:expr) => {
+            fork_test!(
+                concat!("short-keep-", $prefix),
+                $tip,
+                $cnd,
+                short_range_fork_take,
+                false
+            );
+        };
+    }
+
+    #[test]
+    fn long_range_fork() {
+        fork_test!(
+            long take
+                "density-92-97",
+            "3NLESd9gzU52bDWSXL5uUAYbCojHXSVdeBX4sCMF3V8Ns9D1Sriy",
+            "3NLQfKJ4kBagLgmiwyiVw9zbi53tiNy8TNu2ua1jmCyEecgbBJoN"
+        );
+        fork_test!(
+            long keep
+                "density-161-166",
+            "3NKY1kxHMRfjBbjfAA5fsasUCWFF9B7YqYFfNH4JFku6ZCUUXyLG",
+            "3NLFoBQ6y3nku79LQqPgKBmuo5Ngnpr7rfZygzdRrcPtz2gewRFC"
+        );
+    }
+
+    #[test]
+    fn short_range_fork() {
+        fork_test!(
+            short take
+                "length-60-61",
+            "3NLQEb5mXqXCL34rueHrMkUVyWSQ7aYjvi6K98ZdpEnTozef69uR",
+            "3NKuw8mvieV9RLpdRmHb4kxg7NWR83TfwzNkVmJCeHUmVWFdUQCp"
+        );
+        fork_test!(
+            short take
+                "vrf-99-99",
+                "3NL4kAA33FRs9K66GvVNupNT94L4shALtYLHJRfmxhdZV8iPg2pi",
+                "3NKC9F6mgtvRiHgYxiPBt1P5QDYaPVpD3YWyJhjmJZkNnT7RYitm"
+        );
+        fork_test!(
+            short keep
+                "vrf-117-117",
+                "3NLWvDBFYJ2NXZ1EKMZXHB52zcbVtosHPArn4cGj8pDKkYsTHNnC",
+                "3NKLEnUBTAhC95XEdJpLvJPqAUuvkC176tFKyLDcXUcofXXgQUvY"
+        );
+    }
 }
