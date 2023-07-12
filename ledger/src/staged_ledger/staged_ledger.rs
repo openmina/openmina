@@ -5776,20 +5776,26 @@ mod tests_ocaml {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, fs::File};
+    use std::{collections::BTreeMap, fmt::format, fs::File};
 
     use crate::{
         proofs::public_input::protocol_state::MinaHash,
         scan_state::{
-            pending_coinbase::PendingCoinbase, scan_state::ScanState,
-            transaction_logic::local_state::LocalState,
+            currency::Slot,
+            pending_coinbase::PendingCoinbase,
+            scan_state::ScanState,
+            transaction_logic::{local_state::LocalState, protocol_state::protocol_state_view},
         },
-        staged_ledger::staged_ledger::{tests_ocaml::CONSTRAINT_CONSTANTS, StagedLedger},
+        staged_ledger::{
+            diff::Diff,
+            staged_ledger::{tests_ocaml::CONSTRAINT_CONSTANTS, StagedLedger},
+        },
         verifier::Verifier,
         Account, BaseLedger, Database, Mask,
     };
     use binprot::BinProtRead;
     use mina_p2p_messages::{rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2Response, v2};
+    use mina_signer::CompressedPubKey;
 
     #[test]
     fn staged_ledger_hash() {
@@ -5863,5 +5869,207 @@ mod tests {
         let hash = v2::MinaBaseStagedLedgerHashStableV1::from(&staged_ledger.hash());
         let reference = r#"{"non_snark":{"ledger_hash":"jwcznejL82UzKAgTUCpoQ9aw4NBfph25nsgMLoowXBx8iknMt2H","aux_hash":"VU7r5u7vbm9FtBgU2R5nJhFNcBRfDXXyJuVX2qiXgjD5fzqYQ7","pending_coinbase_aux":"XyLefxPzSEbi25gRvSVZvn65fDtowhbVY1dHT1XuYgaEUsnA4z"},"pending_coinbase_hash":"2n1QN8RQT8Au6uMmihuEBMp6mbfcuduG88EQDFMBJbZbQ3SPqsuA"}"#;
         assert_eq!(reference, serde_json::to_string(&hash).unwrap());
+    }
+
+    #[test]
+    fn apply_berkeleynet() {
+        #[allow(unused)]
+        // --serialize
+        use binprot::{BinProtRead, BinProtWrite};
+        use binprot_derive::{BinProtRead, BinProtWrite};
+        // use serde::{Deserialize, Serialize};
+        // #[derive(BinProtRead, BinProtWrite)]
+        // struct Ser {
+        //     accounts: Vec<v2::MinaBaseAccountBinableArgStableV2>,
+        //     scan_state: v2::TransactionSnarkScanStateStableV2,
+        //     pending_coinbase: v2::MinaBasePendingCoinbaseStableV2,
+        //     block: v2::MinaBlockBlockStableV2,
+        //     pred_block: v2::MinaBlockBlockStableV2,
+        // }
+
+        #[derive(BinProtRead, BinProtWrite)]
+        struct Ser2 {
+            accounts: Vec<v2::MinaBaseAccountBinableArgStableV2>,
+            scan_state: v2::TransactionSnarkScanStateStableV2,
+            pending_coinbase: v2::MinaBasePendingCoinbaseStableV2,
+            pred_block: v2::MinaBlockBlockStableV2,
+            blocks: Vec<v2::MinaBlockBlockStableV2>,
+        }
+
+        let Ok(mut f) = std::fs::File::open("blocks.bin") else {
+            eprintln!("blocks.bin not found");
+            return;
+        };
+
+        let now = std::time::Instant::now();
+
+        let Ser2 {
+            accounts,
+            scan_state,
+            pending_coinbase,
+            mut pred_block,
+            blocks,
+        } = BinProtRead::binprot_read(&mut f).unwrap();
+
+        let accounts: Vec<Account> = accounts.iter().map(Into::into).collect();
+        let scan_state: ScanState = (&scan_state).into();
+        let pending_coinbase: PendingCoinbase = (&pending_coinbase).into();
+
+        let mut root = Mask::new_root(Database::create(35));
+        for account in accounts {
+            root.get_or_create_account(account.id(), account).unwrap();
+        }
+
+        let ledger = root.make_child();
+
+        let mut staged_ledger = StagedLedger {
+            scan_state,
+            ledger,
+            constraint_constants: CONSTRAINT_CONSTANTS.clone(),
+            pending_coinbase_collection: pending_coinbase,
+        };
+
+        println!("initialized in {:?}", now.elapsed());
+
+        dbg!(staged_ledger.ledger.nmasks_to_root());
+
+        for (index, block) in blocks.into_iter().enumerate() {
+            let block_height = block
+                .header
+                .protocol_state
+                .body
+                .consensus_state
+                .blockchain_length
+                .0
+                .as_u32();
+
+            let global_slot = block
+                .header
+                .protocol_state
+                .body
+                .consensus_state
+                .global_slot_since_genesis
+                .as_u32();
+
+            let diff: Diff = (&block.body.staged_ledger_diff).into();
+
+            let prev_protocol_state = &pred_block.header.protocol_state;
+            let prev_state_view = protocol_state_view(prev_protocol_state);
+
+            let prev_state_and_body_hash =
+                crate::scan_state::protocol_state::hashes(prev_protocol_state);
+
+            let consensus_state = &block.header.protocol_state.body.consensus_state;
+            let coinbase_receiver: CompressedPubKey = (&consensus_state.coinbase_receiver).into();
+            let _supercharge_coinbase = consensus_state.supercharge_coinbase;
+            let supercharge_coinbase = false;
+
+            let now = std::time::Instant::now();
+
+            let result = staged_ledger
+                .apply(
+                    None,
+                    &CONSTRAINT_CONSTANTS,
+                    Slot::from_u32(global_slot),
+                    diff,
+                    (),
+                    &Verifier,
+                    &prev_state_view,
+                    prev_state_and_body_hash,
+                    coinbase_receiver,
+                    supercharge_coinbase,
+                )
+                .unwrap();
+
+            // eprintln!("apply {:?}", now.elapsed());
+            let ledger_hashes =
+                v2::MinaBaseStagedLedgerHashStableV1::from(&result.hash_after_applying);
+
+            // TODO(binier): return error if not matching.
+            let expected_ledger_hashes = &block
+                .header
+                .protocol_state
+                .body
+                .blockchain_state
+                .staged_ledger_hash;
+
+            if &ledger_hashes != expected_ledger_hashes {
+                panic!("staged ledger hash mismatch. found: {ledger_hashes:?}, expected: {expected_ledger_hashes:?}");
+            }
+
+            dbg!(staged_ledger.ledger.nmasks_to_root());
+            eprintln!(
+                "block {:?} applied in {:?} napplied={:?}",
+                block_height,
+                now.elapsed(),
+                index + 1
+            );
+
+            // if block_height == 1020 {
+            //     break;
+            // }
+
+            pred_block = block;
+        }
+
+        println!("total={:?}", now.elapsed());
+
+        // let mut staged = None;
+        // let mut pred_block = None;
+
+        // let mut blocks = Vec::with_capacity(1000);
+
+        // for height in 1016..1202 {
+        //     dbg!(height);
+        //     let file = format!("/home/sebastien/travaux/openmina/apply_{}.bin", height);
+        //     let mut f = std::fs::File::open(file).unwrap();
+        //     let v: Ser = BinProtRead::binprot_read(&mut f).unwrap();
+
+        //     if staged.is_none() {
+        //         staged = Some((v.accounts, v.scan_state, v.pending_coinbase));
+        //         pred_block = Some(v.pred_block);
+        //     }
+        //     blocks.push(v.block);
+        // }
+
+        // let (accounts, scan_state, pending_coinbase) = staged.unwrap();
+        // let pred_block = pred_block.unwrap();
+
+        // let ser = Ser2 {
+        //     accounts,
+        //     scan_state,
+        //     pending_coinbase,
+        //     pred_block,
+        //     blocks,
+        // };
+
+        // let mut encoded = Vec::with_capacity(100 * 1024);
+        // BinProtWrite::binprot_write(&ser, &mut encoded).unwrap();
+        // let mut f = std::fs::File::create("blocks.bin").unwrap();
+        // std::io::Write::write_all(&mut f, &encoded).unwrap();
+        // // f.write_all(&encoded).unwrap();
+        // f.sync_all().unwrap();
+
+        // eprintln!("OK");
+
+        // let ser = Ser {
+        //     accounts: staged_ledger
+        //         .ledger()
+        //         .to_list()
+        //         .into_iter()
+        //         .map(|v| v.into())
+        //         .collect(),
+        //     scan_state: staged_ledger.scan_state().into(),
+        //     pending_coinbase: staged_ledger.pending_coinbase_collection().into(),
+        //     block: (*block.block).clone(),
+        //     pred_block: (*pred_block.block).clone(),
+        // };
+        // eprintln!("4");
+        // let mut encoded = vec![];
+        // BinProtWrite::binprot_write(&ser, &mut encoded).unwrap();
+        // let mut f = std::fs::File::create(format!("apply_{}.bin", block.height())).unwrap();
+        // f.write_all(&encoded).unwrap();
+        // f.flush().unwrap();
+        // --serialize
     }
 }
