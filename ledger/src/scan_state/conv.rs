@@ -1580,9 +1580,7 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                                         .iter()
                                         .map(|(id, account_opt)| {
                                             let id: AccountId = id.into();
-                                            // TODO: Don't clone here
-                                            let account: Option<Account> =
-                                                account_opt.as_ref().map(|acc| acc.clone().into());
+                                            let account: Option<Account> = account_opt.as_ref().map(Into::into);
 
                                             (id, account)
                                         })
@@ -1796,7 +1794,7 @@ impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithW
                                 MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1 {
                                 accounts: cmd.accounts.iter().map(|(id, account_opt)| {
                                     let id: MinaBaseAccountIdStableV2 = id.clone().into();
-                                    let account_opt = account_opt.as_ref().map(|acc| acc.clone().into());
+                                    let account_opt = account_opt.as_ref().map(Into::into);
                                     (id, account_opt)
                                 }).collect(),
                                 command: MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command {

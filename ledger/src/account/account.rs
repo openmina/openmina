@@ -1244,7 +1244,7 @@ mod tests {
         let account = hex::decode(account).unwrap();
         let mut cursor = std::io::Cursor::new(account);
         let account = MinaBaseAccountBinableArgStableV2::binprot_read(&mut cursor).unwrap();
-        let account: Account = account.into();
+        let account: Account = (&account).into();
 
         let merkle_path = hex::decode(merkle_path).unwrap();
         let mut cursor = std::io::Cursor::new(merkle_path);

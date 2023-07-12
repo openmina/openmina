@@ -201,7 +201,7 @@ impl From<&SparseLedger> for mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStab
 
                 return match values.get(&account_index).cloned() {
                     Some(account) => {
-                        let account: MinaBaseAccountBinableArgStableV2 = account.into();
+                        let account: MinaBaseAccountBinableArgStableV2 = (&account).into();
                         MinaBaseSparseLedgerBaseStableV2Tree::Account(Box::new(account))
                     }
                     None => {
@@ -264,8 +264,7 @@ impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2> for SparseLe
         ) {
             match node {
                 Account(account) => {
-                    // TODO: Don't clone the account here
-                    let account: crate::Account = (**account).clone().into();
+                    let account: crate::Account = (&**account).into();
                     matrix.set(&addr, account.hash());
                     values.insert(addr.to_index(), account);
                 }

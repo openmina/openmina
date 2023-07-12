@@ -243,33 +243,27 @@ impl From<&Timing> for MinaBaseAccountTimingStableV2 {
     }
 }
 
-impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 {
-    fn from(acc: Account) -> Self {
+impl From<&Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 {
+    fn from(acc: &Account) -> Self {
         use mina_p2p_messages::v2::*;
 
         Self {
-            public_key: {
-                let public_key: NonZeroCurvePointUncompressedStableV1 = acc.public_key.into();
-                public_key.into()
-            },
-            token_id: {
-                let token_id: MinaBaseAccountIdDigestStableV1 = acc.token_id.into();
-                token_id.into()
-            },
+            public_key: (&acc.public_key).into(),
+            token_id: (&acc.token_id).into(),
             token_symbol: MinaBaseZkappAccountZkappUriStableV1(acc.token_symbol.as_bytes().into()),
             balance: CurrencyBalanceStableV1(CurrencyAmountStableV1(
                 UnsignedExtendedUInt64Int64ForVersionTagsStableV1(acc.balance.as_u64().into()),
             )),
             nonce: UnsignedExtendedUInt32StableV1(acc.nonce.as_u32().into()),
             receipt_chain_hash: MinaBaseReceiptChainHashStableV1(acc.receipt_chain_hash.0.into()),
-            delegate: acc.delegate.map(|delegate| {
+            delegate: acc.delegate.as_ref().map(|delegate| {
                 let delegate: NonZeroCurvePointUncompressedStableV1 = delegate.into();
                 delegate.into()
             }),
             voting_for: DataHashLibStateHashStableV1(acc.voting_for.0.into()).into(),
             timing: (&acc.timing).into(),
             permissions: (&acc.permissions).into(),
-            zkapp: acc.zkapp.map(|zkapp| {
+            zkapp: acc.zkapp.as_ref().map(|zkapp| {
                 let s = zkapp.app_state;
                 let app_state = MinaBaseZkappStateValueStableV1(PaddedSeq(s.map(|v| v.into())));
 
@@ -392,13 +386,13 @@ impl binprot::BinProtRead for Account {
         Self: Sized,
     {
         let account = MinaBaseAccountBinableArgStableV2::binprot_read(r)?;
-        Ok(account.into())
+        Ok((&account).into())
     }
 }
 
 impl binprot::BinProtWrite for Account {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        let account: MinaBaseAccountBinableArgStableV2 = self.clone().into();
+        let account: MinaBaseAccountBinableArgStableV2 = self.into();
         account.binprot_write(w)?;
         Ok(())
     }
@@ -488,30 +482,30 @@ impl From<&Permissions<AuthRequired>> for MinaBasePermissionsStableV2 {
     }
 }
 
-impl From<MinaBaseAccountBinableArgStableV2> for Account {
-    fn from(acc: MinaBaseAccountBinableArgStableV2) -> Self {
+impl From<&MinaBaseAccountBinableArgStableV2> for Account {
+    fn from(acc: &MinaBaseAccountBinableArgStableV2) -> Self {
         Self {
-            public_key: acc.public_key.into_inner().into(),
-            token_id: acc.token_id.into_inner().into(),
+            public_key: acc.public_key.inner().into(),
+            token_id: acc.token_id.inner().into(),
             token_symbol: {
-                let s: String = acc.token_symbol.0.try_into().unwrap();
+                let s: String = (&acc.token_symbol.0).try_into().unwrap();
                 TokenSymbol::from(s)
             },
             balance: Balance::from_u64(acc.balance.0 .0 .0 .0 as u64),
             nonce: Nonce::from_u32(acc.nonce.0 .0 as u32),
-            receipt_chain_hash: ReceiptChainHash(acc.receipt_chain_hash.0.into()),
-            delegate: acc.delegate.map(|d| d.into_inner().into()),
+            receipt_chain_hash: ReceiptChainHash((&acc.receipt_chain_hash.0).into()),
+            delegate: acc.delegate.as_ref().map(|d| d.inner().into()),
             voting_for: VotingFor(acc.voting_for.0.to_field()),
             timing: (&acc.timing).into(),
             permissions: (&acc.permissions).into(),
-            zkapp: acc.zkapp.map(|zkapp| {
-                let app_state = zkapp.app_state.0 .0.map(|v| v.into());
+            zkapp: acc.zkapp.as_ref().map(|zkapp| {
+                let app_state = std::array::from_fn(|i| zkapp.app_state[i].to_field());
 
                 ZkAppAccount {
                     app_state,
-                    verification_key: zkapp.verification_key.map(|vk| (&vk).into()),
-                    zkapp_version: zkapp.zkapp_version.0 .0 .0 as u32,
-                    action_state: zkapp.action_state.0.map(|v| v.into()),
+                    verification_key: zkapp.verification_key.as_ref().map(Into::into),
+                    zkapp_version: zkapp.zkapp_version.as_u32(),
+                    action_state: std::array::from_fn(|i| zkapp.action_state[i].to_field()),
                     last_action_slot: Slot::from_u32(zkapp.last_action_slot.as_u32()),
                     proved_state: zkapp.proved_state,
                     zkapp_uri: (&zkapp.zkapp_uri.0).try_into().unwrap(),
