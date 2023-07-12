@@ -11,37 +11,27 @@ use shared::block::BlockWithHash;
 use crate::snark::block_verify::SnarkBlockVerifyId;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ConsensusShortRangeForkDecisionIgnoreReason {
-    ShorterChain,
-    SmallerVrf,
-    TieBreakerSmallerStateHash,
+pub enum ConsensusShortRangeForkDecisionReason {
+    ChainLength,
+    Vrf,
+    StateHash,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ConsensusShortRangeForkDecisionUseReason {
-    NoBestTip,
-    LongerChain,
-    BiggerVrf,
-    TieBreakerBiggerStateHash,
-}
-
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum ConsensusShortRangeForkDecision {
-    Ignore(ConsensusShortRangeForkDecisionIgnoreReason),
-    UseAsBestTip(ConsensusShortRangeForkDecisionUseReason),
+    TakeNoBestTip,
+    Take(ConsensusShortRangeForkDecisionReason),
+    Keep(ConsensusShortRangeForkDecisionReason),
 }
 
 impl ConsensusShortRangeForkDecision {
     pub fn use_as_best_tip(&self) -> bool {
-        matches!(self, Self::UseAsBestTip(_))
+        matches!(self, Self::TakeNoBestTip | Self::Take(_))
     }
 }
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
-pub enum ConsensusLongRangeForkDecisionIgnoreReason {}
-
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
-pub enum ConsensusLongRangeForkResolutionKind {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ConsensusLongRangeForkDecisionReason {
     SubWindowDensity,
     ChainLength,
     Vrf,
@@ -50,8 +40,8 @@ pub enum ConsensusLongRangeForkResolutionKind {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ConsensusLongRangeForkDecision {
-    Keep(ConsensusLongRangeForkResolutionKind),
-    Take(ConsensusLongRangeForkResolutionKind),
+    Keep(ConsensusLongRangeForkDecisionReason),
+    Take(ConsensusLongRangeForkDecisionReason),
 }
 
 impl ConsensusLongRangeForkDecision {
