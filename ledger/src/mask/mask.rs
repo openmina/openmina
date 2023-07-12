@@ -130,6 +130,10 @@ impl Mask {
         this
     }
 
+    pub(crate) fn nmasks_to_root(&self) -> usize {
+        self.with(|this| this.nmasks_to_root())
+    }
+
     pub fn copy(&self) -> Mask {
         let mask = self.with(|this| this.clone());
         Self {
@@ -1279,6 +1283,20 @@ mod tests_mask_ocaml {
             }
             dbg!(mask.merkle_root());
             mask.validate_inner_hashes().unwrap();
+        }
+    }
+
+    #[test]
+    fn test_nmasks_to_root() {
+        let (root, layer1, layer2) = new_chain(DEPTH);
+        assert_eq!(root.nmasks_to_root(), 0);
+        assert_eq!(layer1.nmasks_to_root(), 1);
+        assert_eq!(layer2.nmasks_to_root(), 2);
+
+        let mut mask = layer2;
+        for index in 0..300 {
+            assert_eq!(mask.nmasks_to_root(), 2 + index);
+            mask = mask.make_child();
         }
     }
 }

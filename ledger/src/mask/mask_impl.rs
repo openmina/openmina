@@ -346,6 +346,14 @@ impl MaskImpl {
         }
     }
 
+    pub fn nmasks_to_root(&self) -> usize {
+        match self {
+            Root { .. } => 0,
+            Attached { parent, .. } => 1 + parent.with(|parent| parent.nmasks_to_root()),
+            Unattached { .. } => panic!(),
+        }
+    }
+
     /// get hash from mask, if present, else from its parent
     pub fn get_hash(&mut self, addr: Address) -> Option<Fp> {
         self.get_inner_hash_at_addr(addr).ok()
