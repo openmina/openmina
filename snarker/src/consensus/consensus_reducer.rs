@@ -186,3 +186,79 @@ impl ConsensusState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
+
+    use super::long_range_fork_take;
+
+    fn long_range_fork_test(
+        tip: &str,
+        cnd: &str,
+        tip_hash: &str,
+        cnd_hash: &str,
+        expect_take: bool,
+    ) {
+        let tip = serde_json::from_str::<MinaStateProtocolStateValueStableV2>(tip).unwrap();
+        let cnd = serde_json::from_str::<MinaStateProtocolStateValueStableV2>(cnd).unwrap();
+        let tip_hash = tip_hash.parse::<StateHash>().unwrap();
+        let cnd_hash = cnd_hash.parse::<StateHash>().unwrap();
+
+        let (take, _) = long_range_fork_take(
+            &tip.body.consensus_state,
+            &cnd.body.consensus_state,
+            &tip_hash,
+            &cnd_hash,
+        );
+        assert_eq!(take, expect_take);
+    }
+
+    macro_rules! long_fork_test {
+        ($prefix:expr, $tip:expr, $cnd:expr, $decision:expr) => {
+            let tip_str = include_str!(concat!(
+                "../../../tests/files/forks/long-",
+                $prefix,
+                "-",
+                $tip,
+                "-",
+                $cnd,
+                "-tip.json"
+            ));
+            let cnd_str = include_str!(concat!(
+                "../../../tests/files/forks/long-",
+                $prefix,
+                "-",
+                $tip,
+                "-",
+                $cnd,
+                "-cnd.json"
+            ));
+            long_range_fork_test(tip_str, cnd_str, $tip, $cnd, $decision);
+        };
+
+        (take $prefix:expr, $tip:expr, $cnd:expr) => {
+            long_fork_test!(concat!("take-", $prefix), $tip, $cnd, true);
+        };
+
+        (keep $prefix:expr, $tip:expr, $cnd:expr) => {
+            long_fork_test!(concat!("keep-", $prefix), $tip, $cnd, false);
+        };
+    }
+
+    #[test]
+    fn long_range_fork() {
+        long_fork_test!(
+            take
+                "density-92-97",
+            "3NLESd9gzU52bDWSXL5uUAYbCojHXSVdeBX4sCMF3V8Ns9D1Sriy",
+            "3NLQfKJ4kBagLgmiwyiVw9zbi53tiNy8TNu2ua1jmCyEecgbBJoN"
+        );
+        long_fork_test!(
+            keep
+                "density-161-166",
+            "3NKY1kxHMRfjBbjfAA5fsasUCWFF9B7YqYFfNH4JFku6ZCUUXyLG",
+            "3NLFoBQ6y3nku79LQqPgKBmuo5Ngnpr7rfZygzdRrcPtz2gewRFC"
+        );
+    }
+}

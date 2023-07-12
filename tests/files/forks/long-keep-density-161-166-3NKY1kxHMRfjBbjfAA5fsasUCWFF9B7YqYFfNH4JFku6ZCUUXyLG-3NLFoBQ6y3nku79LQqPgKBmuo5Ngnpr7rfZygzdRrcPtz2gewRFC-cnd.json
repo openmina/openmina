@@ -1,0 +1,177 @@
+{
+  "previous_state_hash": "3NLf2wEksEtgN8DmsbwUy3bLXwnnWczndzsyN2eqad8qHwecdSkU",
+  "body": {
+    "genesis_state_hash": "3NKjdCwR278JdQu2vhX8gLVfXAeV1H1Q8v91E7Z5NQQkwBav1f3m",
+    "blockchain_state": {
+      "staged_ledger_hash": {
+        "non_snark": {
+          "ledger_hash": "jxaNWQWZv7zBf6Babm85PcZqZ9KEMbr1yVYQ4iG9MeNdrJHbTcF",
+          "aux_hash": "VkF3g3j7zAqz8pCvYEFkKvFmNsoHzes1mmYDZpuF2EUF9LPHtf",
+          "pending_coinbase_aux": "XH9htC21tQMDKM6hhATkQjecZPRUGpofWATXPkjB5QKxpTBv7H"
+        },
+        "pending_coinbase_hash": "2n13ZuSs6Bqae62BwoPBz3VpkJVnC3CFD7VeSTjpx7UapV4dDqXi"
+      },
+      "genesis_ledger_hash": "jwejsBiFADjsiYntREQsZ482F9SKMWyJykVFsYVHnCfNPfTykzz",
+      "ledger_proof_statement": {
+        "source": {
+          "first_pass_ledger": "jwejsBiFADjsiYntREQsZ482F9SKMWyJykVFsYVHnCfNPfTykzz",
+          "second_pass_ledger": "jwejsBiFADjsiYntREQsZ482F9SKMWyJykVFsYVHnCfNPfTykzz",
+          "pending_coinbase_stack": {
+            "data": "4QNrZFBTDQCPfEZqBZsaPYx8qdaNFv1nebUyCUsQW9QUJqyuD3un",
+            "state": {
+              "init": "4Yx5U3t3EYQycZ91yj4478bHkLwGkhDHnPbCY9TxgUk69SQityej",
+              "curr": "4Yx5U3t3EYQycZ91yj4478bHkLwGkhDHnPbCY9TxgUk69SQityej"
+            }
+          },
+          "local_state": {
+            "stack_frame": "0x0641662e94d68ec970d0afc059d02729bbf4a2cd88c548ccd9fb1e26e570c66c",
+            "call_stack": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "transaction_commitment": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "full_transaction_commitment": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "token_id": "wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf",
+            "excess": {
+              "magnitude": "0",
+              "sgn": [
+                "Pos"
+              ]
+            },
+            "supply_increase": {
+              "magnitude": "0",
+              "sgn": [
+                "Pos"
+              ]
+            },
+            "ledger": "jw6bz2wud1N6itRUHZ5ypo3267stk4UgzkiuWtAMPRZo9g4Udyd",
+            "success": true,
+            "account_update_index": "0",
+            "failure_status_tbl": [],
+            "will_succeed": true
+          }
+        },
+        "target": {
+          "first_pass_ledger": "jwejsBiFADjsiYntREQsZ482F9SKMWyJykVFsYVHnCfNPfTykzz",
+          "second_pass_ledger": "jwejsBiFADjsiYntREQsZ482F9SKMWyJykVFsYVHnCfNPfTykzz",
+          "pending_coinbase_stack": {
+            "data": "4QNrZFBTDQCPfEZqBZsaPYx8qdaNFv1nebUyCUsQW9QUJqyuD3un",
+            "state": {
+              "init": "4Yx5U3t3EYQycZ91yj4478bHkLwGkhDHnPbCY9TxgUk69SQityej",
+              "curr": "4Yx5U3t3EYQycZ91yj4478bHkLwGkhDHnPbCY9TxgUk69SQityej"
+            }
+          },
+          "local_state": {
+            "stack_frame": "0x0641662e94d68ec970d0afc059d02729bbf4a2cd88c548ccd9fb1e26e570c66c",
+            "call_stack": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "transaction_commitment": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "full_transaction_commitment": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "token_id": "wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf",
+            "excess": {
+              "magnitude": "0",
+              "sgn": [
+                "Pos"
+              ]
+            },
+            "supply_increase": {
+              "magnitude": "0",
+              "sgn": [
+                "Pos"
+              ]
+            },
+            "ledger": "jw6bz2wud1N6itRUHZ5ypo3267stk4UgzkiuWtAMPRZo9g4Udyd",
+            "success": true,
+            "account_update_index": "0",
+            "failure_status_tbl": [],
+            "will_succeed": true
+          }
+        },
+        "connecting_ledger_left": "jwejsBiFADjsiYntREQsZ482F9SKMWyJykVFsYVHnCfNPfTykzz",
+        "connecting_ledger_right": "jwejsBiFADjsiYntREQsZ482F9SKMWyJykVFsYVHnCfNPfTykzz",
+        "supply_increase": {
+          "magnitude": "0",
+          "sgn": [
+            "Pos"
+          ]
+        },
+        "fee_excess": [
+          {
+            "token": "wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf",
+            "amount": {
+              "magnitude": "0",
+              "sgn": [
+                "Pos"
+              ]
+            }
+          },
+          {
+            "token": "wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf",
+            "amount": {
+              "magnitude": "0",
+              "sgn": [
+                "Pos"
+              ]
+            }
+          }
+        ],
+        "sok_digest": null
+      },
+      "timestamp": "1686235760000",
+      "body_reference": "767fe7bd43d3dd12c3de09f8655cbe85ec5d89746bb2f540decdf6dd5e6763e3"
+    },
+    "consensus_state": {
+      "blockchain_length": "73",
+      "epoch_count": "5",
+      "min_window_density": "29",
+      "sub_window_densities": [
+        "3",
+        "1",
+        "2",
+        "2",
+        "3",
+        "6",
+        "2",
+        "3",
+        "2",
+        "2",
+        "3"
+      ],
+      "last_vrf_output": "_735PzhU98hsrbO94RNZ6X-8bxaGRNhPBFYOZFRVXQc=",
+      "total_currency": "3019700000000001000",
+      "curr_global_slot": {
+        "slot_number": { "SinceHardFork": "166" },
+        "slots_per_epoch": "30"
+      },
+      "global_slot_since_genesis": { "SinceGenesis": "166" },
+      "staking_epoch_data": {
+        "ledger": {
+          "hash": "jwejsBiFADjsiYntREQsZ482F9SKMWyJykVFsYVHnCfNPfTykzz",
+          "total_currency": "3019700000000001000"
+        },
+        "seed": "2vbAoFSB3e9PssZVmk8aTCyNP8Pz5Yf27pHziw36gZrsfM3U7REC",
+        "start_checkpoint": "3NLNRmY6hf7RyM4riS957vXCucg9zpiDbPDPE9SNoWUbw3oMrMEF",
+        "lock_checkpoint": "3NLGcaG8vWiSk8N1RhxmhdVW5BPq2hAs5UmPq7RJ2n4BHe6dJsfD",
+        "epoch_length": "10"
+      },
+      "next_epoch_data": {
+        "ledger": {
+          "hash": "jwejsBiFADjsiYntREQsZ482F9SKMWyJykVFsYVHnCfNPfTykzz",
+          "total_currency": "3019700000000001000"
+        },
+        "seed": "2vbjTxdBSWRJsydJSkxab7bUeWXs3y8mD8jGSHGvduDxxdNHVEX8",
+        "start_checkpoint": "3NKcsnqXMSoRBZTgrJkMyr4Hb4bW9rzo8QXm6zK6hsqxTDf3Wp44",
+        "lock_checkpoint": "3NLf2wEksEtgN8DmsbwUy3bLXwnnWczndzsyN2eqad8qHwecdSkU",
+        "epoch_length": "6"
+      },
+      "has_ancestor_in_same_checkpoint_window": true,
+      "block_stake_winner": "B62qrztYfPinaKqpXaYGY6QJ3SSW2NNKs7SajBLF1iFNXW9BoALN2Aq",
+      "block_creator": "B62qrztYfPinaKqpXaYGY6QJ3SSW2NNKs7SajBLF1iFNXW9BoALN2Aq",
+      "coinbase_receiver": "B62qrztYfPinaKqpXaYGY6QJ3SSW2NNKs7SajBLF1iFNXW9BoALN2Aq",
+      "supercharge_coinbase": true
+    },
+    "constants": {
+      "k": "290",
+      "slots_per_epoch": "30",
+      "slots_per_sub_window": "7",
+      "delta": "0",
+      "genesis_state_timestamp": "1686232440000"
+    }
+  }
+}
