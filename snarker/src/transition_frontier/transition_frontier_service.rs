@@ -9,5 +9,5 @@ pub trait TransitionFrontierService: redux::Service {
         block: ArcBlockWithHash,
         pred_block: ArcBlockWithHash,
     ) -> Result<(), String>;
-    fn commit(&mut self, ledgers_to_keep: BTreeSet<LedgerHash>);
+    fn commit(&mut self, ledgers_to_keep: BTreeSet<LedgerHash>, new_root: &ArcBlockWithHash);
 }

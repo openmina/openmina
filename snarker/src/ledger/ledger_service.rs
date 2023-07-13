@@ -135,7 +135,7 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerService for T {
             .enumerate()
             .try_for_each(|(index, account)| {
                 let index = AccountIndex(first_index.0 + index as u64);
-                mask.set_at_index(index, account.into())
+                mask.set_at_index(index, (&account).into())
             })?;
 
         Ok(())
@@ -236,7 +236,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
         Ok(())
     }
 
-    fn commit(&mut self, ledgers_to_keep: BTreeSet<LedgerHash>) {
+    fn commit(&mut self, ledgers_to_keep: BTreeSet<LedgerHash>, new_root: &ArcBlockWithHash) {
         let ctx = self.ctx_mut();
 
         ctx.snarked_ledgers
@@ -254,6 +254,10 @@ impl<T: LedgerService> TransitionFrontierService for T {
                 .into_iter()
                 .filter(|(hash, _)| ledgers_to_keep.contains(hash)),
         );
+
+        let Some(new_root_ledger) = ctx.staged_ledgers.get_mut(new_root.staged_ledger_hash()) else { return };
+        // Make ledger mask new root.
+        new_root_ledger.commit_and_reparent_to_root();
     }
 }
 
