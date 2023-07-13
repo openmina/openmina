@@ -6,12 +6,14 @@ use snarker::event_source::Event;
 use snarker::p2p::channels::snark_job_commitment::SnarkJobId;
 use snarker::p2p::connection::P2pConnectionResponse;
 use snarker::rpc::{ActionStatsResponse, RespondError, RpcId, RpcIdType};
+use snarker::stats::sync::SyncStatsSnapshot;
 use snarker::State;
 
 use super::{SnarkerRpcRequest, SnarkerService};
 
 pub type RpcStateGetResponse = Box<State>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
+pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcSnarkerJobPickAndCommitResponse = Option<SnarkJobId>;
 
@@ -72,6 +74,21 @@ impl snarker::rpc::RpcService for SnarkerService {
             .downcast::<oneshot::Sender<RpcStateGetResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
         chan.send(Box::new(response.clone()))
+            .or(Err(RespondError::RespondingFailed))?;
+        Ok(())
+    }
+
+    fn respond_sync_stats_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcSyncStatsGetResponse,
+    ) -> Result<(), RespondError> {
+        let entry = self.rpc.pending.remove(rpc_id);
+        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
+        let chan = chan
+            .downcast::<oneshot::Sender<RpcSyncStatsGetResponse>>()
+            .or(Err(RespondError::UnexpectedResponseType))?;
+        chan.send(response)
             .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }

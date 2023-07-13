@@ -71,7 +71,7 @@ use crate::rpc::{
     RpcP2pConnectionIncomingPendingAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
-    RpcP2pConnectionOutgoingSuccessAction, RpcSnarkerJobPickAndCommitAction,
+    RpcP2pConnectionOutgoingSuccessAction, RpcSnarkerJobPickAndCommitAction, RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{
     SnarkBlockVerifyAction, SnarkBlockVerifyErrorAction, SnarkBlockVerifyFinishAction,
@@ -220,6 +220,7 @@ pub enum ActionKind {
     RpcP2pConnectionOutgoingPending,
     RpcP2pConnectionOutgoingSuccess,
     RpcSnarkerJobPickAndCommit,
+    RpcSyncStatsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
     SnarkBlockVerifyInit,
@@ -275,7 +276,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 140;
+    pub const COUNT: usize = 141;
 }
 
 impl ActionKindGet for Action {
@@ -388,6 +389,7 @@ impl ActionKindGet for RpcAction {
         match self {
             Self::GlobalStateGet(a) => a.kind(),
             Self::ActionStatsGet(a) => a.kind(),
+            Self::SyncStatsGet(a) => a.kind(),
             Self::P2pConnectionOutgoingInit(a) => a.kind(),
             Self::P2pConnectionOutgoingPending(a) => a.kind(),
             Self::P2pConnectionOutgoingError(a) => a.kind(),
@@ -716,6 +718,12 @@ impl ActionKindGet for RpcGlobalStateGetAction {
 impl ActionKindGet for RpcActionStatsGetAction {
     fn kind(&self) -> ActionKind {
         ActionKind::RpcActionStatsGet
+    }
+}
+
+impl ActionKindGet for RpcSyncStatsGetAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::RpcSyncStatsGet
     }
 }
 

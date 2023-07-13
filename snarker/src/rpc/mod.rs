@@ -24,7 +24,20 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 pub enum RpcRequest {
     GetState,
     ActionStatsGet(ActionStatsQuery),
+    SyncStatsGet(SyncStatsQuery),
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
     P2pConnectionIncoming(P2pConnectionIncomingInitOpts),
     SnarkerJobPickAndCommit { available_jobs: Vec<SnarkJobId> },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ActionStatsQuery {
+    SinceStart,
+    ForLatestBlock,
+    ForBlockWithId(u64),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SyncStatsQuery {
+    pub limit: Option<usize>,
 }

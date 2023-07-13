@@ -12,12 +12,12 @@ use snarker::{
         },
         webrtc, PeerId,
     },
-    rpc::{ActionStatsQuery, RpcRequest},
+    rpc::{ActionStatsQuery, RpcRequest, SyncStatsQuery},
 };
 
 use super::rpc::{
     RpcActionStatsGetResponse, RpcP2pConnectionIncomingResponse,
-    RpcSnarkerJobPickAndCommitResponse, RpcStateGetResponse,
+    RpcSnarkerJobPickAndCommitResponse, RpcStateGetResponse, RpcSyncStatsGetResponse,
 };
 
 pub async fn run(port: u16, rpc_sender: super::RpcSender) {
@@ -77,13 +77,13 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     let stats = {
         let rpc_sender_clone = rpc_sender.clone();
         #[derive(Deserialize, Default)]
-        struct QueryParams {
+        struct ActionQueryParams {
             id: Option<String>,
         }
         let action_stats = warp::path!("stats" / "actions")
             .and(warp::get())
-            .and(optq::<QueryParams>())
-            .then(move |query: QueryParams| {
+            .and(optq::<ActionQueryParams>())
+            .then(move |query: ActionQueryParams| {
                 let rpc_sender_clone = rpc_sender_clone.clone();
                 async move {
                     let id_filter = query.id.as_ref().map(|s| s.as_str());
@@ -113,7 +113,29 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                 }
             });
 
-        action_stats
+        let rpc_sender_clone = rpc_sender.clone();
+        #[derive(Deserialize, Default)]
+        struct SyncQueryParams {
+            limit: Option<usize>,
+        }
+        let sync_stats = warp::path!("stats" / "sync")
+            .and(warp::get())
+            .and(optq::<SyncQueryParams>())
+            .then(move |query: SyncQueryParams| {
+                let rpc_sender_clone = rpc_sender_clone.clone();
+                async move {
+                    let result: RpcSyncStatsGetResponse = rpc_sender_clone
+                        .oneshot_request(RpcRequest::SyncStatsGet(SyncStatsQuery {
+                            limit: query.limit,
+                        }))
+                        .await
+                        .flatten();
+
+                    with_json_reply(&result, StatusCode::OK)
+                }
+            });
+
+        action_stats.or(sync_stats)
     };
 
     // TODO(binier): make endpoint only accessible locally.
