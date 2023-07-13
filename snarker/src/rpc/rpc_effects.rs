@@ -46,6 +46,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 let _ = store.service.respond_action_stats_get(action.rpc_id, resp);
             }
         },
+        RpcAction::SyncStatsGet(action) => {
+            let resp = store
+                .service
+                .stats()
+                .map(|s| s.collect_sync_stats(action.query.limit));
+            let _ = store.service.respond_sync_stats_get(action.rpc_id, resp);
+        }
         RpcAction::P2pConnectionOutgoingInit(action) => {
             let (rpc_id, opts) = (action.rpc_id, action.opts);
             store.dispatch(P2pConnectionOutgoingInitAction {

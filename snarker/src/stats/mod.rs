@@ -1,18 +1,28 @@
 mod stats_actions;
-pub use stats_actions::{ActionStats, ActionStatsForBlock, ActionStatsSnapshot};
+pub mod actions {
+    pub use super::stats_actions::*;
+}
+use actions::{ActionStats, ActionStatsForBlock, ActionStatsSnapshot};
+
+mod stats_sync;
+pub mod sync {
+    pub use super::stats_sync::*;
+}
+use sync::{SyncStats, SyncStatsSnapshot, SyncingLedger};
 
 use std::collections::VecDeque;
 
 use redux::{ActionMeta, ActionWithMeta, Timestamp};
-use shared::block::{Block, BlockWithHash};
+use shared::block::{ArcBlockWithHash, Block, BlockWithHash};
 
-use crate::ActionKind;
+use crate::{transition_frontier::TransitionFrontierSyncBlockState, ActionKind};
 
 pub type ActionKindWithMeta = ActionWithMeta<ActionKind>;
 
 pub struct Stats {
     last_action: ActionKindWithMeta,
     action_stats: ActionStats,
+    sync_stats: SyncStats,
 }
 
 impl Stats {
@@ -36,7 +46,31 @@ impl Stats {
                 since_start: Default::default(),
                 per_block: action_stats_per_block,
             },
+            sync_stats: Default::default(),
         }
+    }
+
+    pub fn new_sync_target(&mut self, time: Timestamp, best_tip: &ArcBlockWithHash) -> &mut Self {
+        self.sync_stats.new_target(time, best_tip);
+        self
+    }
+
+    pub fn syncing_ledger(&mut self, update: SyncingLedger) -> &mut Self {
+        self.sync_stats.ledger(update);
+        self
+    }
+
+    pub fn syncing_blocks_init(
+        &mut self,
+        states: &[TransitionFrontierSyncBlockState],
+    ) -> &mut Self {
+        self.sync_stats.blocks_init(states);
+        self
+    }
+
+    pub fn syncing_block_update(&mut self, state: &TransitionFrontierSyncBlockState) -> &mut Self {
+        self.sync_stats.block_update(state);
+        self
     }
 
     pub fn new_best_tip<T: AsRef<Block>>(
@@ -46,6 +80,7 @@ impl Stats {
     ) -> &mut Self {
         self.action_stats
             .new_best_tip(time, block.height(), block.hash.clone());
+        self.sync_stats.synced(time);
         self
     }
 
@@ -65,6 +100,10 @@ impl Stats {
         id: Option<u64>,
     ) -> Option<ActionStatsForBlock> {
         self.action_stats.collect_stats_for_block_with_id(id)
+    }
+
+    pub fn collect_sync_stats(&self, limit: Option<usize>) -> Vec<SyncStatsSnapshot> {
+        self.sync_stats.collect_stats(limit)
     }
 }
 

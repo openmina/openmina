@@ -4,9 +4,9 @@ use crate::p2p::channels::snark_job_commitment::SnarkJobId;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
 use crate::p2p::connection::P2pConnectionResponse;
-use crate::stats::{ActionStatsForBlock, ActionStatsSnapshot};
+use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
 
-use super::RpcId;
+use super::{ActionStatsQuery, RpcId, SyncStatsQuery};
 
 pub type RpcActionWithMeta = redux::ActionWithMeta<RpcAction>;
 pub type RpcActionWithMetaRef<'a> = redux::ActionWithMeta<&'a RpcAction>;
@@ -17,6 +17,7 @@ pub enum RpcAction {
 
     // Stats
     ActionStatsGet(RpcActionStatsGetAction),
+    SyncStatsGet(RpcSyncStatsGetAction),
 
     P2pConnectionOutgoingInit(RpcP2pConnectionOutgoingInitAction),
     P2pConnectionOutgoingPending(RpcP2pConnectionOutgoingPendingAction),
@@ -42,13 +43,6 @@ pub struct RpcGlobalStateGetAction {
 impl redux::EnablingCondition<crate::State> for RpcGlobalStateGetAction {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ActionStatsQuery {
-    SinceStart,
-    ForLatestBlock,
-    ForBlockWithId(u64),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "kind")]
 pub enum ActionStatsResponse {
     SinceStart { stats: ActionStatsSnapshot },
@@ -62,6 +56,14 @@ pub struct RpcActionStatsGetAction {
 }
 
 impl redux::EnablingCondition<crate::State> for RpcActionStatsGetAction {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcSyncStatsGetAction {
+    pub rpc_id: RpcId,
+    pub query: SyncStatsQuery,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcSyncStatsGetAction {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcP2pConnectionOutgoingInitAction {
@@ -232,6 +234,7 @@ macro_rules! impl_into_global_action {
 impl_into_global_action!(RpcGlobalStateGetAction);
 
 impl_into_global_action!(RpcActionStatsGetAction);
+impl_into_global_action!(RpcSyncStatsGetAction);
 
 impl_into_global_action!(RpcP2pConnectionOutgoingInitAction);
 impl_into_global_action!(RpcP2pConnectionOutgoingPendingAction);

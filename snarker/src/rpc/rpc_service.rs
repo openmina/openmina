@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::p2p::channels::snark_job_commitment::SnarkJobId;
 use crate::p2p::connection::P2pConnectionResponse;
 use crate::State;
+use crate::{p2p::channels::snark_job_commitment::SnarkJobId, stats::sync::SyncStatsSnapshot};
 
 use super::{ActionStatsResponse, RpcId};
 
@@ -23,6 +23,11 @@ pub trait RpcService: redux::Service {
         &mut self,
         rpc_id: RpcId,
         response: Option<ActionStatsResponse>,
+    ) -> Result<(), RespondError>;
+    fn respond_sync_stats_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: Option<Vec<SyncStatsSnapshot>>,
     ) -> Result<(), RespondError>;
     fn respond_p2p_connection_outgoing(
         &mut self,

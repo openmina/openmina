@@ -21,6 +21,7 @@ use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcP2pConnectionIncomingInitAction,
     RpcP2pConnectionOutgoingInitAction, RpcRequest, RpcSnarkerJobPickAndCommitAction,
+    RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
 use crate::snark::SnarkEvent;
@@ -172,6 +173,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 }
                 RpcRequest::ActionStatsGet(query) => {
                     store.dispatch(RpcActionStatsGetAction { rpc_id, query });
+                }
+                RpcRequest::SyncStatsGet(query) => {
+                    store.dispatch(RpcSyncStatsGetAction { rpc_id, query });
                 }
                 RpcRequest::P2pConnectionOutgoing(opts) => {
                     store.dispatch(RpcP2pConnectionOutgoingInitAction { rpc_id, opts });
