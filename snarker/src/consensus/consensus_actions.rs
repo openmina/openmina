@@ -7,8 +7,6 @@ use serde::{Deserialize, Serialize};
 use crate::consensus::ConsensusBlockStatus;
 use crate::snark::block_verify::SnarkBlockVerifyId;
 
-use super::is_short_range_fork;
-
 pub type ConsensusActionWithMeta = redux::ActionWithMeta<ConsensusAction>;
 pub type ConsensusActionWithMetaRef<'a> = redux::ActionWithMeta<&'a ConsensusAction>;
 

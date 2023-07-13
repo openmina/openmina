@@ -177,14 +177,15 @@ pub fn transition_frontier_effects<S: crate::Service>(
             // }
         }
         TransitionFrontierAction::SyncBlocksFetchAndApplySuccess(_) => {
-            let sync = &store.state().transition_frontier.sync;
+            let sync = &store.state.get().transition_frontier.sync;
             let TransitionFrontierSyncState::BlocksFetchAndApplySuccess { chain, .. } = sync else { return };
+            let Some(root_block) = chain.first() else { return };
             let ledgers_to_keep = chain
                 .iter()
                 .flat_map(|b| [b.snarked_ledger_hash(), b.staged_ledger_hash()])
                 .cloned()
                 .collect();
-            store.service.commit(ledgers_to_keep);
+            store.service.commit(ledgers_to_keep, root_block);
             store.dispatch(TransitionFrontierSyncedAction {});
         }
         TransitionFrontierAction::Synced(_) => {}
