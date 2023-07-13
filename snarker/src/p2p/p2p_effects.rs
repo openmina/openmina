@@ -369,7 +369,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                     return;
                                 }
                             }
-                            if !store.state().transition_frontier.sync.is_pending() {
+                            if !store.state().transition_frontier.sync.is_pending()
+                                && !store.state().transition_frontier.sync.is_synced()
+                            {
                                 store.dispatch(TransitionFrontierSyncInitAction {
                                     best_tip,
                                     root_block,

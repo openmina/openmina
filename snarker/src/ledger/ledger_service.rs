@@ -231,7 +231,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
         self.ctx_mut()
             .sync
             .staged_ledgers
-            .insert(ledger_hash, staged_ledger);
+            .insert(ledger_hash.clone(), staged_ledger);
 
         Ok(())
     }

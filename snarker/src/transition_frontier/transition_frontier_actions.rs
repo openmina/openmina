@@ -60,6 +60,7 @@ pub struct TransitionFrontierSyncInitAction {
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         !state.transition_frontier.sync.is_pending()
+            && !state.transition_frontier.sync.is_synced()
             && state
                 .transition_frontier
                 .best_tip()
@@ -80,7 +81,7 @@ pub struct TransitionFrontierSyncBestTipUpdateAction {
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBestTipUpdateAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        state.transition_frontier.sync.is_pending()
+        (state.transition_frontier.sync.is_pending() || state.transition_frontier.sync.is_synced())
             && state
                 .transition_frontier
                 .best_tip()

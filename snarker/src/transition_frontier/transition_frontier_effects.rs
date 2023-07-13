@@ -41,6 +41,8 @@ pub fn transition_frontier_effects<S: crate::Service>(
             store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
             // if we don't need to sync root staged ledger.
             store.dispatch(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction {});
+            // if we already have a block ready to be applied.
+            store.dispatch(TransitionFrontierSyncBlockNextApplyInitAction {});
 
             // TODO(binier): cleanup ledgers
         }
@@ -151,15 +153,18 @@ pub fn transition_frontier_effects<S: crate::Service>(
         TransitionFrontierAction::SyncBlockNextApplyInit(_) => {
             // TODO(binier): remove loop once ledger communication is async.
             loop {
-                let Some((block, pred_block)) = store.state().transition_frontier.sync.blocks_apply_next() else { return };
+                let Some((block, pred_block)) = store
+                    .state()
+                    .transition_frontier
+                    .sync
+                    .blocks_apply_next()
+                    .map(|v| (v.0.clone(), v.1.clone()))
+                    else { return };
                 let hash = block.hash.clone();
 
                 store
-                    .service
-                    .block_apply(block.clone(), pred_block.clone())
-                    .unwrap();
-                store
                     .dispatch(TransitionFrontierSyncBlockApplyPendingAction { hash: hash.clone() });
+                store.service.block_apply(block, pred_block).unwrap();
 
                 store.dispatch(TransitionFrontierSyncBlockApplySuccessAction { hash });
             }
@@ -177,6 +182,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
             let ledgers_to_keep = chain
                 .iter()
                 .flat_map(|b| [b.snarked_ledger_hash(), b.staged_ledger_hash()])
+                .cloned()
                 .collect();
             store.service.commit(ledgers_to_keep);
             store.dispatch(TransitionFrontierSyncedAction {});

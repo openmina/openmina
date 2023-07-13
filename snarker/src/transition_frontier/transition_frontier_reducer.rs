@@ -20,6 +20,7 @@ impl TransitionFrontierState {
                     blocks_inbetween: a.blocks_inbetween.clone(),
                 };
             }
+            // TODO(binier): refactor
             TransitionFrontierAction::SyncBestTipUpdate(a) => match &mut self.sync {
                 TransitionFrontierSyncState::RootLedgerSyncPending {
                     best_tip,
@@ -136,6 +137,60 @@ impl TransitionFrontierState {
                                 block: new_root.clone(),
                             }
                         };
+                        self.sync = TransitionFrontierSyncState::RootLedgerSyncPending {
+                            time: meta.time(),
+                            best_tip: a.best_tip.clone(),
+                            blocks_inbetween: a.blocks_inbetween.clone(),
+                            root_ledger,
+                        }
+                    }
+                }
+                TransitionFrontierSyncState::Synced { time, .. } => {
+                    let mut applied_blocks: BTreeMap<_, _> =
+                        self.best_chain.iter().map(|b| (&b.hash, b)).collect();
+
+                    let old_root = self.best_chain.first().unwrap();
+                    let new_root = &a.root_block;
+
+                    if applied_blocks.contains_key(&new_root.hash) {
+                        let chain = std::iter::once(a.root_block.hash())
+                            .chain(&a.blocks_inbetween)
+                            .chain(std::iter::once(a.best_tip.hash()))
+                            .map(|hash| match applied_blocks.get(hash) {
+                                Some(&block) => TransitionFrontierSyncBlockState::ApplySuccess {
+                                    time: *time,
+                                    block: block.clone(),
+                                },
+                                None if hash == a.best_tip.hash() => {
+                                    TransitionFrontierSyncBlockState::FetchSuccess {
+                                        time: meta.time(),
+                                        block: a.best_tip.clone(),
+                                    }
+                                }
+                                None => TransitionFrontierSyncBlockState::FetchPending {
+                                    time: meta.time(),
+                                    block_hash: hash.clone(),
+                                    attempts: Default::default(),
+                                },
+                            })
+                            .collect::<Vec<_>>();
+                        self.sync = TransitionFrontierSyncState::BlocksFetchAndApplyPending {
+                            time: meta.time(),
+                            chain,
+                        };
+                    } else {
+                        let root_ledger =
+                            if old_root.snarked_ledger_hash() == new_root.snarked_ledger_hash() {
+                                TransitionFrontierSyncLedgerState::SnarkedLedgerSyncSuccess {
+                                    time: meta.time(),
+                                    block: new_root.clone(),
+                                }
+                            } else {
+                                TransitionFrontierSyncLedgerState::Init {
+                                    time: meta.time(),
+                                    block: new_root.clone(),
+                                }
+                            };
                         self.sync = TransitionFrontierSyncState::RootLedgerSyncPending {
                             time: meta.time(),
                             best_tip: a.best_tip.clone(),
@@ -301,7 +356,7 @@ impl TransitionFrontierState {
                 let chain = std::mem::take(chain)
                     .into_iter()
                     .rev()
-                    .take(self.config.k())
+                    .take(self.config.k() + 1)
                     .rev()
                     .filter_map(|v| v.take_block())
                     .collect();

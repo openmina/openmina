@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{LedgerHash, MinaBaseStagedLedgerHashStableV1};
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 pub use mina_p2p_messages::v2::MinaBlockBlockStableV2 as Block;
@@ -34,6 +35,14 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         &self.block.as_ref().header
     }
 
+    pub fn hash(&self) -> &BlockHash {
+        &self.hash
+    }
+
+    pub fn pred_hash(&self) -> &BlockHash {
+        &self.header().protocol_state.previous_state_hash
+    }
+
     pub fn height(&self) -> u32 {
         height(self.header())
     }
@@ -42,11 +51,15 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         global_slot(self.header())
     }
 
-    pub fn snarked_ledger_hash(&self) -> LedgerHash {
+    pub fn timestamp(&self) -> Timestamp {
+        timestamp(self.header())
+    }
+
+    pub fn snarked_ledger_hash(&self) -> &LedgerHash {
         snarked_ledger_hash(self.header())
     }
 
-    pub fn staged_ledger_hash(&self) -> LedgerHash {
+    pub fn staged_ledger_hash(&self) -> &LedgerHash {
         staged_ledger_hash(self.header())
     }
 
@@ -63,24 +76,40 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
         }
     }
 
+    pub fn header(&self) -> &BlockHeader {
+        &self.header.as_ref()
+    }
+
+    pub fn hash(&self) -> &BlockHash {
+        &self.hash
+    }
+
+    pub fn pred_hash(&self) -> &BlockHash {
+        &self.header().protocol_state.previous_state_hash
+    }
+
     pub fn height(&self) -> u32 {
-        height(self.header.as_ref())
+        height(self.header())
     }
 
     pub fn global_slot(&self) -> u32 {
-        global_slot(self.header.as_ref())
+        global_slot(self.header())
     }
 
-    pub fn snarked_ledger_hash(&self) -> LedgerHash {
-        snarked_ledger_hash(self.header.as_ref())
+    pub fn timestamp(&self) -> Timestamp {
+        timestamp(self.header())
     }
 
-    pub fn staged_ledger_hash(&self) -> LedgerHash {
-        staged_ledger_hash(self.header.as_ref())
+    pub fn snarked_ledger_hash(&self) -> &LedgerHash {
+        snarked_ledger_hash(self.header())
+    }
+
+    pub fn staged_ledger_hash(&self) -> &LedgerHash {
+        staged_ledger_hash(self.header())
     }
 
     pub fn staged_ledger_hashes(&self) -> &MinaBaseStagedLedgerHashStableV1 {
-        staged_ledger_hashes(self.header.as_ref())
+        staged_ledger_hashes(self.header())
     }
 }
 
@@ -103,19 +132,31 @@ fn global_slot(header: &BlockHeader) -> u32 {
         .as_u32()
 }
 
-fn snarked_ledger_hash(header: &BlockHeader) -> LedgerHash {
-    header
+fn timestamp(header: &BlockHeader) -> Timestamp {
+    let genesis_timestamp = header
+        .protocol_state
+        .body
+        .constants
+        .genesis_state_timestamp
+        .0
+        .as_u64();
+    let slot = global_slot(header) as u64;
+    let time_ms = genesis_timestamp + slot * 3 * 60 * 1000;
+    Timestamp::new(time_ms * 1_000_000)
+}
+
+fn snarked_ledger_hash(header: &BlockHeader) -> &LedgerHash {
+    &header
         .protocol_state
         .body
         .blockchain_state
         .ledger_proof_statement
         .target
         .first_pass_ledger
-        .clone()
 }
 
-fn staged_ledger_hash(header: &BlockHeader) -> LedgerHash {
-    staged_ledger_hashes(header).non_snark.ledger_hash.clone()
+fn staged_ledger_hash(header: &BlockHeader) -> &LedgerHash {
+    &staged_ledger_hashes(header).non_snark.ledger_hash
 }
 
 fn staged_ledger_hashes(header: &BlockHeader) -> &MinaBaseStagedLedgerHashStableV1 {

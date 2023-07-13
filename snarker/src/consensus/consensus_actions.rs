@@ -94,7 +94,10 @@ impl redux::EnablingCondition<crate::State> for ConsensusDetectForkRangeAction {
             .blocks
             .get(&self.hash)
             .map_or(false, |block| {
-                matches!(block.status, ConsensusBlockStatus::SnarkVerifySuccess { .. })
+                matches!(
+                    block.status,
+                    ConsensusBlockStatus::SnarkVerifySuccess { .. }
+                )
             })
     }
 }

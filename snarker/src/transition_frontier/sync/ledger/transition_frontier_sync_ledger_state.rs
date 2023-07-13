@@ -157,7 +157,7 @@ impl TransitionFrontierSyncLedgerState {
         }
     }
 
-    pub fn snarked_ledger_hash(&self) -> LedgerHash {
+    pub fn snarked_ledger_hash(&self) -> &LedgerHash {
         self.block().snarked_ledger_hash()
     }
 

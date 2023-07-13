@@ -43,7 +43,7 @@ fn query_peer_init<S: redux::Service>(
         let p = store.state().p2p.get_ready_peer(&peer_id)?;
         let rpc_id = p.channels.rpc.next_local_rpc_id();
 
-        Some((ledger_hash, rpc_id))
+        Some((ledger_hash.clone(), rpc_id))
     }) else { return };
 
     let query = if address.length() >= LEDGER_DEPTH - 1 {
@@ -187,9 +187,10 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction {
         S: TransitionFrontierSyncLedgerService,
     {
         let Some(block) = store.state().transition_frontier.sync.root_ledger() else { return };
+        let snarked_ledger_hash = block.snarked_ledger_hash().clone();
         store
             .service
-            .hashes_set(block.snarked_ledger_hash(), &self.address, self.hashes)
+            .hashes_set(snarked_ledger_hash, &self.address, self.hashes)
             .unwrap();
 
         if !store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {}) {
@@ -204,9 +205,10 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction {
         S: TransitionFrontierSyncLedgerService,
     {
         let Some(block) = store.state().transition_frontier.sync.root_ledger() else { return };
+        let snarked_ledger_hash = block.snarked_ledger_hash().clone();
         store
             .service
-            .accounts_set(block.snarked_ledger_hash(), &self.address, self.accounts)
+            .accounts_set(snarked_ledger_hash, &self.address, self.accounts)
             .unwrap();
 
         if !store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {}) {
@@ -283,7 +285,7 @@ impl TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction {
         // TODO(binier): dispatch error action if error.
         store
             .service
-            .staged_ledger_reconstruct(block.snarked_ledger_hash(), self.parts)
+            .staged_ledger_reconstruct(block.snarked_ledger_hash().clone(), self.parts)
             .expect("staged ledger reconstruct failed");
         store.dispatch(
             TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction {
