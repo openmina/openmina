@@ -168,6 +168,10 @@ impl Mask {
         self.with(|this| this.remove_child_uuid(uuid))
     }
 
+    pub fn is_root(&self) -> bool {
+        self.with(|this| this.is_root())
+    }
+
     pub fn is_attached(&self) -> bool {
         self.with(|this| this.is_attached())
     }
@@ -196,7 +200,7 @@ impl Mask {
     /// Removes the attached mask from its parent and attaches the children to the
     /// parent instead. Raises an exception if the merkle roots of the mask and the
     /// parent are not the same.
-    pub fn remove_and_reparent(&self) {
+    pub fn remove_and_reparent(&self) -> Option<Mask> {
         self.with(|this| this.remove_and_reparent())
     }
 
@@ -208,6 +212,12 @@ impl Mask {
     /// commit all state to the parent, flush state locally
     pub fn commit(&self) {
         self.with(|this| this.commit())
+    }
+
+    /// commit all the masks from this mask all the way upto the root
+    /// and return root mask while also detaching all intermediary masks.
+    pub fn commit_and_reparent_to_root(&mut self) -> Option<Mask> {
+        self.with(|this| this.commit_and_reparent_to_root())
     }
 
     /// called when parent sets an account; update local state
@@ -814,6 +824,34 @@ mod tests_mask_ocaml {
         assert!(!layer2.test_is_in_mask(&FIRST_LOC));
         assert!(layer1.test_is_in_mask(&FIRST_LOC));
         assert!(!root.test_is_in_mask(&FIRST_LOC));
+    }
+
+    // "commit at layer2, dumps to layer1, not in base"
+    #[test]
+    fn test_commit_layer2_to_root_dumps_to_base_not_in_layer1() {
+        let (root, mut layer1, mut layer2) = new_chain(DEPTH);
+
+        let (addr1, addr2) = (FIRST_LOC, FIRST_LOC.next().unwrap());
+        let (account1, account2) = (Account::rand(), Account::rand());
+
+        layer1.set(addr1.clone(), account1);
+        layer2.set(addr2.clone(), account2);
+
+        assert!(layer1.test_is_in_mask(&addr1));
+        assert!(!layer1.test_is_in_mask(&addr2));
+        assert!(layer2.test_is_in_mask(&addr2));
+        assert!(!layer2.test_is_in_mask(&addr1));
+
+        layer2.commit_and_reparent_to_root();
+        assert!(!layer1.test_is_in_mask(&addr1));
+        assert!(!layer1.test_is_in_mask(&addr2));
+        assert!(!layer2.test_is_in_mask(&addr1));
+        assert!(!layer2.test_is_in_mask(&addr2));
+
+        assert!(!layer1.is_attached());
+        assert!(!layer2.is_attached());
+        assert!(root.test_is_in_mask(&addr1));
+        assert!(root.test_is_in_mask(&addr2));
     }
 
     // "register and unregister mask"

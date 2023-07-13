@@ -185,6 +185,13 @@ impl MaskImpl {
         }
     }
 
+    pub fn is_root(&self) -> bool {
+        match self {
+            Root { .. } => true,
+            Attached { .. } | Unattached { .. } => false,
+        }
+    }
+
     pub fn is_attached(&self) -> bool {
         match self {
             Attached { .. } => true,
@@ -251,7 +258,7 @@ impl MaskImpl {
         self.unset_parent(trigger_detach_signal);
     }
 
-    pub fn remove_and_reparent(&mut self) {
+    pub fn remove_and_reparent(&mut self) -> Option<Mask> {
         // let root_hash = self.merkle_root();
 
         let (parent, childs, uuid) = match self {
@@ -279,7 +286,7 @@ impl MaskImpl {
             parent.register_mask(child.clone());
         }
 
-        self.remove_parent();
+        self.remove_parent()
     }
 
     pub fn set_parent(&mut self, parent: Mask, parent_last_filled: Option<Option<Address>>) {
@@ -395,6 +402,32 @@ impl MaskImpl {
                 // old one in the mask
                 // assert_eq!(old_root_hash, parent.merkle_root()); // TODO: Assert this only in #[cfg(test)]
             }
+        }
+    }
+
+    pub fn commit_and_reparent(&mut self) -> Option<Mask> {
+        self.commit();
+        self.remove_and_reparent()
+    }
+
+    /// commit all the masks from this mask all the way upto the root
+    /// and return root mask while also detaching all intermediary masks.
+    pub fn commit_and_reparent_to_root(&mut self) -> Option<Mask> {
+        if !self.is_attached() {
+            return None;
+        }
+
+        let mut parent = self.commit_and_reparent()?;
+        loop {
+            parent = match parent.with(|parent| {
+                if !parent.is_attached() {
+                    return None;
+                }
+                parent.commit_and_reparent()
+            }) {
+                Some(new_parent) => new_parent,
+                None => return Some(parent),
+            };
         }
     }
 

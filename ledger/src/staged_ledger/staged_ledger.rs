@@ -443,6 +443,14 @@ impl StagedLedger {
         self.ledger.clone()
     }
 
+    /// commit all the masks from current mask all the way upto the root
+    /// while also detaching all intermediary masks. Sets current mask to root.
+    pub fn commit_and_reparent_to_root(&mut self) {
+        if let Some(new_mask) = self.ledger.commit_and_reparent_to_root() {
+            self.ledger = new_mask;
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#424
     pub fn create_exn(
         constraint_constants: ConstraintConstants,
