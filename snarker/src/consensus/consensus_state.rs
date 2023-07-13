@@ -11,29 +11,42 @@ use shared::block::BlockWithHash;
 use crate::snark::block_verify::SnarkBlockVerifyId;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ConsensusShortRangeForkDecisionIgnoreReason {
-    ShorterChain,
-    SmallerVrf,
-    TieBreakerSmallerStateHash,
+pub enum ConsensusShortRangeForkDecisionReason {
+    ChainLength,
+    Vrf,
+    StateHash,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ConsensusShortRangeForkDecisionUseReason {
-    NoBestTip,
-    LongerChain,
-    BiggerVrf,
-    TieBreakerBiggerStateHash,
-}
-
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum ConsensusShortRangeForkDecision {
-    Ignore(ConsensusShortRangeForkDecisionIgnoreReason),
-    UseAsBestTip(ConsensusShortRangeForkDecisionUseReason),
+    TakeNoBestTip,
+    Take(ConsensusShortRangeForkDecisionReason),
+    Keep(ConsensusShortRangeForkDecisionReason),
 }
 
 impl ConsensusShortRangeForkDecision {
     pub fn use_as_best_tip(&self) -> bool {
-        matches!(self, Self::UseAsBestTip(_))
+        matches!(self, Self::TakeNoBestTip | Self::Take(_))
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ConsensusLongRangeForkDecisionReason {
+    SubWindowDensity,
+    ChainLength,
+    Vrf,
+    StateHash,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ConsensusLongRangeForkDecision {
+    Keep(ConsensusLongRangeForkDecisionReason),
+    Take(ConsensusLongRangeForkDecisionReason),
+}
+
+impl ConsensusLongRangeForkDecision {
+    pub fn use_as_best_tip(&self) -> bool {
+        matches!(self, Self::Take(_))
     }
 }
 
@@ -49,10 +62,20 @@ pub enum ConsensusBlockStatus {
     SnarkVerifySuccess {
         time: redux::Timestamp,
     },
+    ForkRangeDetected {
+        time: redux::Timestamp,
+        compared_with: Option<StateHash>,
+        short_fork: bool,
+    },
     ShortRangeForkResolve {
         time: redux::Timestamp,
         compared_with: Option<StateHash>,
         decision: ConsensusShortRangeForkDecision,
+    },
+    LongRangeForkResolve {
+        time: redux::Timestamp,
+        compared_with: StateHash,
+        decision: ConsensusLongRangeForkDecision,
     },
 }
 
@@ -112,7 +135,9 @@ impl BestTipHistory {
     }
 
     pub fn contains(&self, level: u32, hash: &StateHash) -> bool {
-        let Some(i) = self.top_level.checked_sub(level) else { return false };
+        let Some(i) = self.top_level.checked_sub(level) else {
+            return false;
+        };
         self.chain.get(i as usize) == Some(hash)
     }
 }
@@ -173,16 +198,24 @@ impl ConsensusState {
     }
 
     pub fn is_candidate_decided_to_use_as_tip(&self, hash: &StateHash) -> bool {
-        let Some(candidate) = self.blocks.get(hash) else { return false };
+        let Some(candidate) = self.blocks.get(hash) else {
+            return false;
+        };
         match &candidate.status {
             ConsensusBlockStatus::Received { .. } => false,
             ConsensusBlockStatus::SnarkVerifyPending { .. } => false,
             ConsensusBlockStatus::SnarkVerifySuccess { .. } => false,
+            ConsensusBlockStatus::ForkRangeDetected { .. } => false,
             ConsensusBlockStatus::ShortRangeForkResolve {
                 compared_with,
                 decision,
                 ..
             } => decision.use_as_best_tip() && &self.best_tip == compared_with,
+            ConsensusBlockStatus::LongRangeForkResolve {
+                compared_with,
+                decision,
+                ..
+            } => decision.use_as_best_tip() && self.best_tip.as_ref() == Some(compared_with),
         }
     }
 
@@ -219,7 +252,9 @@ impl ConsensusState {
     }
 
     pub fn is_best_tip_and_history_linked(&self) -> bool {
-        let Some(best_tip) = self.best_tip() else { return false };
+        let Some(best_tip) = self.best_tip() else {
+            return false;
+        };
         let pred_hash = &best_tip.header.protocol_state.previous_state_hash;
 
         Some(pred_hash) == self.best_tip_history.chain.front()

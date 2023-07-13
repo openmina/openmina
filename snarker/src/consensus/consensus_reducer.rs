@@ -1,7 +1,7 @@
-use super::{
-    ConsensusAction, ConsensusActionWithMetaRef, ConsensusBlockState, ConsensusBlockStatus,
-    ConsensusShortRangeForkDecision, ConsensusShortRangeForkDecisionIgnoreReason,
-    ConsensusShortRangeForkDecisionUseReason, ConsensusState,
+use crate::consensus::{
+    is_short_range_fork, long_range_fork_take, short_range_fork_take, ConsensusAction,
+    ConsensusActionWithMetaRef, ConsensusBlockState, ConsensusBlockStatus,
+    ConsensusLongRangeForkDecision, ConsensusShortRangeForkDecision, ConsensusState,
 };
 
 impl ConsensusState {
@@ -31,48 +31,57 @@ impl ConsensusState {
                     block.status = ConsensusBlockStatus::SnarkVerifySuccess { time: meta.time() };
                 }
             }
+            ConsensusAction::DetectForkRange(a) => {
+                let candidate_hash = &a.hash;
+                let Some(candidate_state) = self.blocks.get(candidate_hash) else {
+                    return;
+                };
+                let candidate = &candidate_state.block.header;
+                let (tip_hash, short_fork) = if let Some(tip_ref) = self.best_tip() {
+                    let tip = tip_ref.header;
+                    (
+                        Some(tip_ref.hash.clone()),
+                        is_short_range_fork(
+                            &candidate.protocol_state.body.consensus_state,
+                            &tip.protocol_state.body.consensus_state,
+                        ),
+                    )
+                } else {
+                    (None, true)
+                };
+                if let Some(candidate_state) = self.blocks.get_mut(candidate_hash) {
+                    candidate_state.status = ConsensusBlockStatus::ForkRangeDetected {
+                        time: meta.time(),
+                        compared_with: tip_hash,
+                        short_fork,
+                    };
+                    shared::log::debug!(shared::log::system_time(); kind = "ConsensusAction::DetectForkRange", status = serde_json::to_string(&candidate_state.status).unwrap());
+                }
+                shared::log::debug!(shared::log::system_time(); kind = "ConsensusAction::DetectForkRange");
+            }
             ConsensusAction::ShortRangeForkResolve(a) => {
                 let candidate_hash = &a.hash;
                 if let Some(candidate) = self.blocks.get(candidate_hash) {
-                    let (best_tip_hash, decision): (_, ConsensusShortRangeForkDecision) = match self
-                        .best_tip()
-                    {
-                        Some(tip) => (Some(tip.hash.clone()), {
-                            let tip_cs = &tip.header.protocol_state.body.consensus_state;
-                            let candidate_cs =
-                                &candidate.block.header.protocol_state.body.consensus_state;
-                            if tip_cs.blockchain_length.0 < candidate_cs.blockchain_length.0 {
-                                ConsensusShortRangeForkDecisionUseReason::LongerChain.into()
-                            } else if tip_cs.blockchain_length.0 == candidate_cs.blockchain_length.0
-                            {
-                                let tip_vrf = tip_cs.last_vrf_output.blake2b();
-                                let candidate_vrf = candidate_cs.last_vrf_output.blake2b();
-
-                                match candidate_vrf.cmp(&tip_vrf) {
-                                    std::cmp::Ordering::Greater => {
-                                        ConsensusShortRangeForkDecisionUseReason::BiggerVrf.into()
-                                    }
-                                    std::cmp::Ordering::Less => {
-                                        ConsensusShortRangeForkDecisionIgnoreReason::SmallerVrf
-                                            .into()
-                                    }
-                                    std::cmp::Ordering::Equal => {
-                                        if candidate_hash > &tip.hash {
-                                            ConsensusShortRangeForkDecisionUseReason::TieBreakerBiggerStateHash.into()
-                                        } else {
-                                            ConsensusShortRangeForkDecisionIgnoreReason::TieBreakerSmallerStateHash.into()
-                                        }
-                                    }
+                    let (best_tip_hash, decision): (_, ConsensusShortRangeForkDecision) =
+                        match self.best_tip() {
+                            Some(tip) => (Some(tip.hash.clone()), {
+                                let tip_cs = &tip.header.protocol_state.body.consensus_state;
+                                let candidate_cs =
+                                    &candidate.block.header.protocol_state.body.consensus_state;
+                                let (take, why) = short_range_fork_take(
+                                    tip_cs,
+                                    candidate_cs,
+                                    &tip.hash,
+                                    candidate_hash,
+                                );
+                                if take {
+                                    ConsensusShortRangeForkDecision::Take(why)
+                                } else {
+                                    ConsensusShortRangeForkDecision::Keep(why)
                                 }
-                            } else {
-                                ConsensusShortRangeForkDecisionIgnoreReason::ShorterChain.into()
-                            }
-                        }),
-                        None => (
-                            None,
-                            ConsensusShortRangeForkDecisionUseReason::NoBestTip.into(),
-                        ),
-                    };
+                            }),
+                            None => (None, ConsensusShortRangeForkDecision::TakeNoBestTip),
+                        };
 
                     if let Some(candidate) = self.blocks.get_mut(candidate_hash) {
                         if !decision.use_as_best_tip() {
@@ -86,6 +95,40 @@ impl ConsensusState {
                         };
                     }
                 }
+            }
+            ConsensusAction::LongRangeForkResolve(a) => {
+                shared::log::debug!(shared::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve");
+                let candidate_hash = &a.hash;
+                let Some(tip_ref) = self.best_tip() else {
+                    return;
+                };
+                let Some(candidate_state) = self.blocks.get(candidate_hash) else {
+                    return;
+                };
+                shared::log::debug!(shared::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve", pre_status = serde_json::to_string(&candidate_state.status).unwrap());
+                let tip_hash = tip_ref.hash.clone();
+                let tip = tip_ref.header;
+                let tip_cs = &tip.protocol_state.body.consensus_state;
+                let candidate = &candidate_state.block.header;
+                let candidate_cs = &candidate.protocol_state.body.consensus_state;
+
+                let (take, why) =
+                    long_range_fork_take(tip_cs, candidate_cs, &tip_hash, candidate_hash);
+
+                let Some(candidate_state) = self.blocks.get_mut(candidate_hash) else {
+                    return;
+                };
+                candidate_state.status = ConsensusBlockStatus::LongRangeForkResolve {
+                    time: meta.time(),
+                    compared_with: tip_hash,
+                    decision: if take {
+                        ConsensusLongRangeForkDecision::Take(why)
+                    } else {
+                        candidate_state.history = None;
+                        ConsensusLongRangeForkDecision::Keep(why)
+                    },
+                };
+                shared::log::debug!(shared::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve", status = serde_json::to_string(&candidate_state.status).unwrap());
             }
             ConsensusAction::BestTipUpdate(a) => {
                 self.best_tip = Some(a.hash.clone());
