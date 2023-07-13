@@ -117,7 +117,6 @@ impl TransitionFrontierSyncLedgerState {
                             && addr.to_index() < end_addr.to_index())
                     {
                         *end_addr = addr.prev().unwrap_or(addr);
-                        dbg!(&end_addr);
                     }
                 }
             }

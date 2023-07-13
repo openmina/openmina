@@ -22,6 +22,16 @@ pub enum PeerLedgerQueryResponse {
     Accounts(Vec<MinaBaseAccountBinableArgStableV2>),
 }
 
+impl PeerLedgerQueryResponse {
+    pub fn is_child_hashes(&self) -> bool {
+        matches!(self, Self::ChildHashes(..))
+    }
+
+    pub fn is_child_accounts(&self) -> bool {
+        matches!(self, Self::Accounts(..))
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PeerLedgerQueryError {
     Timeout,

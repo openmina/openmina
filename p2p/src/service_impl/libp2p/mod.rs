@@ -10,7 +10,7 @@ use libp2p::core::transport::upgrade;
 use libp2p::futures::{select, FutureExt, StreamExt};
 use libp2p::gossipsub::{
     Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipsubEvent,
-    IdentTopic, MessageAuthenticity,
+    IdentTopic, MessageAcceptance, MessageAuthenticity,
 };
 use libp2p::identity::Keypair;
 use libp2p::noise;
@@ -123,6 +123,7 @@ impl Libp2pService {
         let message_authenticity = MessageAuthenticity::Signed(identity_keys.clone());
         let gossipsub_config = GossipsubConfigBuilder::default()
             .max_transmit_size(1024 * 1024 * 32)
+            .validate_messages()
             .build()
             .unwrap();
         let mut gossipsub: Gossipsub =
@@ -278,9 +279,20 @@ impl Libp2pService {
             SwarmEvent::Behaviour(event) => match event {
                 BehaviourEvent::Gossipsub(GossipsubEvent::Message {
                     propagation_source,
-                    message_id: _,
+                    message_id,
                     message,
                 }) => {
+                    // We will manually publish applied blocks.
+                    // TODO(binier): better approach
+                    swarm
+                        .behaviour_mut()
+                        .gossipsub
+                        .report_message_validation_result(
+                            &message_id,
+                            &propagation_source,
+                            MessageAcceptance::Ignore,
+                        );
+
                     let bytes = &message.data;
                     let res = if bytes.len() < 8 {
                         Err("message too short".to_owned())

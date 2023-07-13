@@ -116,6 +116,10 @@ impl TransitionFrontierSyncState {
         !matches!(self, Self::Idle | Self::Synced { .. })
     }
 
+    pub fn is_synced(&self) -> bool {
+        matches!(self, Self::Synced { .. })
+    }
+
     pub fn root_block(&self) -> Option<&ArcBlockWithHash> {
         match self {
             Self::Idle => None,
@@ -330,6 +334,13 @@ impl PeerRpcState {
     pub fn fetch_pending_rpc_id(&self) -> Option<P2pRpcId> {
         match self {
             Self::Pending { rpc_id, .. } => Some(*rpc_id),
+            _ => None,
+        }
+    }
+
+    pub fn fetch_pending_since(&self) -> Option<Timestamp> {
+        match self {
+            Self::Pending { time, .. } => Some(*time),
             _ => None,
         }
     }
