@@ -149,7 +149,12 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             }
         });
 
-    let routes = signaling.or(state_get).or(stats).or(snarker_pick_job);
+    let cors = warp::cors().allow_any_origin();
+    let routes = signaling
+        .or(state_get)
+        .or(stats)
+        .or(snarker_pick_job)
+        .with(cors);
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }
 
