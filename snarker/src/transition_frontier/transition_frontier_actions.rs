@@ -20,30 +20,20 @@ pub type TransitionFrontierActionWithMetaRef<'a> =
 pub enum TransitionFrontierAction {
     SyncInit(TransitionFrontierSyncInitAction),
     SyncBestTipUpdate(TransitionFrontierSyncBestTipUpdateAction),
-    RootLedgerSyncPending(TransitionFrontierRootLedgerSyncPendingAction),
-    RootLedgerSyncSuccess(TransitionFrontierRootLedgerSyncSuccessAction),
-    SyncBlocksFetchAndApplyPending(TransitionFrontierSyncBlocksFetchAndApplyPendingAction),
-    SyncBlocksFetchAndApplyPeersQuery(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction),
-    SyncBlocksFetchAndApplyPeerQueryInit(
-        TransitionFrontierSyncBlocksFetchAndApplyPeerQueryInitAction,
-    ),
-    SyncBlocksFetchAndApplyPeerQueryRetry(
-        TransitionFrontierSyncBlocksFetchAndApplyPeerQueryRetryAction,
-    ),
-    SyncBlocksFetchAndApplyPeerQueryPending(
-        TransitionFrontierSyncBlocksFetchAndApplyPeerQueryPendingAction,
-    ),
-    SyncBlocksFetchAndApplyPeerQueryError(
-        TransitionFrontierSyncBlocksFetchAndApplyPeerQueryErrorAction,
-    ),
-    SyncBlocksFetchAndApplyPeerQuerySuccess(
-        TransitionFrontierSyncBlocksFetchAndApplyPeerQuerySuccessAction,
-    ),
-    SyncBlockFetchSuccess(TransitionFrontierSyncBlockFetchSuccessAction),
-    SyncBlockNextApplyInit(TransitionFrontierSyncBlockNextApplyInitAction),
-    SyncBlockApplyPending(TransitionFrontierSyncBlockApplyPendingAction),
-    SyncBlockApplySuccess(TransitionFrontierSyncBlockApplySuccessAction),
-    SyncBlocksFetchAndApplySuccess(TransitionFrontierSyncBlocksFetchAndApplySuccessAction),
+    SyncLedgerRootPending(TransitionFrontierSyncLedgerRootPendingAction),
+    SyncLedgerRootSuccess(TransitionFrontierSyncLedgerRootSuccessAction),
+    SyncBlocksPending(TransitionFrontierSyncBlocksPendingAction),
+    SyncBlocksPeersQuery(TransitionFrontierSyncBlocksPeersQueryAction),
+    SyncBlocksPeerQueryInit(TransitionFrontierSyncBlocksPeerQueryInitAction),
+    SyncBlocksPeerQueryRetry(TransitionFrontierSyncBlocksPeerQueryRetryAction),
+    SyncBlocksPeerQueryPending(TransitionFrontierSyncBlocksPeerQueryPendingAction),
+    SyncBlocksPeerQueryError(TransitionFrontierSyncBlocksPeerQueryErrorAction),
+    SyncBlocksPeerQuerySuccess(TransitionFrontierSyncBlocksPeerQuerySuccessAction),
+    SyncBlocksFetchSuccess(TransitionFrontierSyncBlocksFetchSuccessAction),
+    SyncBlocksNextApplyInit(TransitionFrontierSyncBlocksNextApplyInitAction),
+    SyncBlocksApplyPending(TransitionFrontierSyncBlocksApplyPendingAction),
+    SyncBlocksApplySuccess(TransitionFrontierSyncBlocksApplySuccessAction),
+    SyncBlocksSuccess(TransitionFrontierSyncBlocksSuccessAction),
 
     Synced(TransitionFrontierSyncedAction),
 
@@ -99,9 +89,9 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBestTipUpd
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierRootLedgerSyncPendingAction {}
+pub struct TransitionFrontierSyncLedgerRootPendingAction {}
 
-impl redux::EnablingCondition<crate::State> for TransitionFrontierRootLedgerSyncPendingAction {
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerRootPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         matches!(
             state.transition_frontier.sync,
@@ -111,13 +101,13 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierRootLedgerSync
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierRootLedgerSyncSuccessAction {}
+pub struct TransitionFrontierSyncLedgerRootSuccessAction {}
 
-impl redux::EnablingCondition<crate::State> for TransitionFrontierRootLedgerSyncSuccessAction {
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerRootSuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         matches!(
             state.transition_frontier.sync,
-            TransitionFrontierSyncState::RootLedgerSyncPending {
+            TransitionFrontierSyncState::RootLedgerPending {
                 root_ledger: TransitionFrontierSyncLedgerState::Success { .. },
                 ..
             }
@@ -126,25 +116,21 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierRootLedgerSync
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksFetchAndApplyPendingAction {}
+pub struct TransitionFrontierSyncBlocksPendingAction {}
 
-impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncBlocksFetchAndApplyPendingAction
-{
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         matches!(
             state.transition_frontier.sync,
-            TransitionFrontierSyncState::RootLedgerSyncSuccess { .. }
+            TransitionFrontierSyncState::RootLedgerSuccess { .. }
         )
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction {}
+pub struct TransitionFrontierSyncBlocksPeersQueryAction {}
 
-impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction
-{
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeersQueryAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         let peers_available = state
             .p2p
@@ -158,14 +144,12 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksFetchAndApplyPeerQueryInitAction {
+pub struct TransitionFrontierSyncBlocksPeerQueryInitAction {
     pub hash: StateHash,
     pub peer_id: PeerId,
 }
 
-impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncBlocksFetchAndApplyPeerQueryInitAction
-{
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeerQueryInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         let check_next_hash = state
             .transition_frontier
@@ -188,14 +172,12 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksFetchAndApplyPeerQueryRetryAction {
+pub struct TransitionFrontierSyncBlocksPeerQueryRetryAction {
     pub hash: StateHash,
     pub peer_id: PeerId,
 }
 
-impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncBlocksFetchAndApplyPeerQueryRetryAction
-{
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeerQueryRetryAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         let check_next_hash = state
             .transition_frontier
@@ -219,15 +201,13 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksFetchAndApplyPeerQueryPendingAction {
+pub struct TransitionFrontierSyncBlocksPeerQueryPendingAction {
     pub hash: StateHash,
     pub peer_id: PeerId,
     pub rpc_id: P2pRpcId,
 }
 
-impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncBlocksFetchAndApplyPeerQueryPendingAction
-{
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeerQueryPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .transition_frontier
@@ -238,15 +218,13 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksFetchAndApplyPeerQueryErrorAction {
+pub struct TransitionFrontierSyncBlocksPeerQueryErrorAction {
     pub peer_id: PeerId,
     pub rpc_id: P2pRpcId,
     pub error: PeerLedgerQueryError,
 }
 
-impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncBlocksFetchAndApplyPeerQueryErrorAction
-{
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeerQueryErrorAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .transition_frontier
@@ -257,15 +235,13 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksFetchAndApplyPeerQuerySuccessAction {
+pub struct TransitionFrontierSyncBlocksPeerQuerySuccessAction {
     pub peer_id: PeerId,
     pub rpc_id: P2pRpcId,
     pub response: ArcBlockWithHash,
 }
 
-impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncBlocksFetchAndApplyPeerQuerySuccessAction
-{
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeerQuerySuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .transition_frontier
@@ -277,11 +253,11 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlockFetchSuccessAction {
+pub struct TransitionFrontierSyncBlocksFetchSuccessAction {
     pub hash: StateHash,
 }
 
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlockFetchSuccessAction {
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksFetchSuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .transition_frontier
@@ -292,20 +268,20 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlockFetch
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlockNextApplyInitAction {}
+pub struct TransitionFrontierSyncBlocksNextApplyInitAction {}
 
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlockNextApplyInitAction {
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksNextApplyInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state.transition_frontier.sync.blocks_apply_next().is_some()
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlockApplyPendingAction {
+pub struct TransitionFrontierSyncBlocksApplyPendingAction {
     pub hash: StateHash,
 }
 
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlockApplyPendingAction {
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksApplyPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .transition_frontier
@@ -316,11 +292,11 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlockApply
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlockApplySuccessAction {
+pub struct TransitionFrontierSyncBlocksApplySuccessAction {
     pub hash: StateHash,
 }
 
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlockApplySuccessAction {
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksApplySuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .transition_frontier
@@ -331,14 +307,12 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlockApply
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksFetchAndApplySuccessAction {}
+pub struct TransitionFrontierSyncBlocksSuccessAction {}
 
-impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncBlocksFetchAndApplySuccessAction
-{
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksSuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         match &state.transition_frontier.sync {
-            TransitionFrontierSyncState::BlocksFetchAndApplyPending { chain, .. } => {
+            TransitionFrontierSyncState::BlocksPending { chain, .. } => {
                 chain.iter().all(|v| v.is_apply_success())
             }
             _ => false,
@@ -353,7 +327,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncedAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         matches!(
             state.transition_frontier.sync,
-            TransitionFrontierSyncState::BlocksFetchAndApplySuccess { .. }
+            TransitionFrontierSyncState::BlocksSuccess { .. }
         )
     }
 }
@@ -370,18 +344,18 @@ macro_rules! impl_into_global_action {
 
 impl_into_global_action!(TransitionFrontierSyncInitAction);
 impl_into_global_action!(TransitionFrontierSyncBestTipUpdateAction);
-impl_into_global_action!(TransitionFrontierRootLedgerSyncPendingAction);
-impl_into_global_action!(TransitionFrontierRootLedgerSyncSuccessAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksFetchAndApplyPendingAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksFetchAndApplyPeerQueryInitAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksFetchAndApplyPeerQueryRetryAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksFetchAndApplyPeerQueryPendingAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksFetchAndApplyPeerQueryErrorAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksFetchAndApplyPeerQuerySuccessAction);
-impl_into_global_action!(TransitionFrontierSyncBlockFetchSuccessAction);
-impl_into_global_action!(TransitionFrontierSyncBlockNextApplyInitAction);
-impl_into_global_action!(TransitionFrontierSyncBlockApplyPendingAction);
-impl_into_global_action!(TransitionFrontierSyncBlockApplySuccessAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksFetchAndApplySuccessAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerRootPendingAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerRootSuccessAction);
+impl_into_global_action!(TransitionFrontierSyncBlocksPendingAction);
+impl_into_global_action!(TransitionFrontierSyncBlocksPeersQueryAction);
+impl_into_global_action!(TransitionFrontierSyncBlocksPeerQueryInitAction);
+impl_into_global_action!(TransitionFrontierSyncBlocksPeerQueryRetryAction);
+impl_into_global_action!(TransitionFrontierSyncBlocksPeerQueryPendingAction);
+impl_into_global_action!(TransitionFrontierSyncBlocksPeerQueryErrorAction);
+impl_into_global_action!(TransitionFrontierSyncBlocksPeerQuerySuccessAction);
+impl_into_global_action!(TransitionFrontierSyncBlocksFetchSuccessAction);
+impl_into_global_action!(TransitionFrontierSyncBlocksNextApplyInitAction);
+impl_into_global_action!(TransitionFrontierSyncBlocksApplyPendingAction);
+impl_into_global_action!(TransitionFrontierSyncBlocksApplySuccessAction);
+impl_into_global_action!(TransitionFrontierSyncBlocksSuccessAction);
 impl_into_global_action!(TransitionFrontierSyncedAction);

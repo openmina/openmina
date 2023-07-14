@@ -8,21 +8,20 @@ use crate::Store;
 
 use super::sync::ledger::{
     TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerInitAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction,
-    TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction,
+    TransitionFrontierSyncLedgerSnarkedPeersQueryAction,
+    TransitionFrontierSyncLedgerStagedReconstructPendingAction,
 };
 use super::{
     TransitionFrontierAction, TransitionFrontierActionWithMeta,
-    TransitionFrontierRootLedgerSyncPendingAction, TransitionFrontierRootLedgerSyncSuccessAction,
-    TransitionFrontierSyncBlockApplyPendingAction, TransitionFrontierSyncBlockApplySuccessAction,
-    TransitionFrontierSyncBlockFetchSuccessAction, TransitionFrontierSyncBlockNextApplyInitAction,
-    TransitionFrontierSyncBlocksFetchAndApplyPeerQueryInitAction,
-    TransitionFrontierSyncBlocksFetchAndApplyPeerQueryPendingAction,
-    TransitionFrontierSyncBlocksFetchAndApplyPeerQueryRetryAction,
-    TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction,
-    TransitionFrontierSyncBlocksFetchAndApplyPendingAction,
-    TransitionFrontierSyncBlocksFetchAndApplySuccessAction, TransitionFrontierSyncState,
-    TransitionFrontierSyncedAction,
+    TransitionFrontierSyncBlocksApplyPendingAction, TransitionFrontierSyncBlocksApplySuccessAction,
+    TransitionFrontierSyncBlocksFetchSuccessAction,
+    TransitionFrontierSyncBlocksNextApplyInitAction,
+    TransitionFrontierSyncBlocksPeerQueryInitAction,
+    TransitionFrontierSyncBlocksPeerQueryPendingAction,
+    TransitionFrontierSyncBlocksPeerQueryRetryAction, TransitionFrontierSyncBlocksPeersQueryAction,
+    TransitionFrontierSyncBlocksPendingAction, TransitionFrontierSyncBlocksSuccessAction,
+    TransitionFrontierSyncLedgerRootPendingAction, TransitionFrontierSyncLedgerRootSuccessAction,
+    TransitionFrontierSyncState, TransitionFrontierSyncedAction,
 };
 
 pub fn transition_frontier_effects<S: crate::Service>(
@@ -35,18 +34,18 @@ pub fn transition_frontier_effects<S: crate::Service>(
         TransitionFrontierAction::SyncInit(a) => {
             if let Some(stats) = store.service.stats() {
                 stats.new_sync_target(meta.time(), &a.best_tip);
-                if let TransitionFrontierSyncState::BlocksFetchAndApplyPending { chain, .. } =
+                if let TransitionFrontierSyncState::BlocksPending { chain, .. } =
                     &store.state.get().transition_frontier.sync
                 {
                     stats.syncing_blocks_init(chain);
                 }
             }
-            store.dispatch(TransitionFrontierRootLedgerSyncPendingAction {});
+            store.dispatch(TransitionFrontierSyncLedgerRootPendingAction {});
         }
         TransitionFrontierAction::SyncBestTipUpdate(a) => {
             if let Some(stats) = store.service.stats() {
                 stats.new_sync_target(meta.time(), &a.best_tip);
-                if let TransitionFrontierSyncState::BlocksFetchAndApplyPending { chain, .. } =
+                if let TransitionFrontierSyncState::BlocksPending { chain, .. } =
                     &store.state.get().transition_frontier.sync
                 {
                     stats.syncing_blocks_init(chain);
@@ -56,32 +55,32 @@ pub fn transition_frontier_effects<S: crate::Service>(
             store.dispatch(TransitionFrontierSyncLedgerInitAction {});
             // if root snarked ledger stayed same but root block changed
             // while reconstructing staged ledger.
-            store.dispatch(TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction {});
-            store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
+            store.dispatch(TransitionFrontierSyncLedgerStagedReconstructPendingAction {});
+            store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
             // if we don't need to sync root staged ledger.
-            store.dispatch(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction {});
+            store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
             // if we already have a block ready to be applied.
-            store.dispatch(TransitionFrontierSyncBlockNextApplyInitAction {});
+            store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
 
             // TODO(binier): cleanup ledgers
         }
-        TransitionFrontierAction::RootLedgerSyncPending(_) => {
+        TransitionFrontierAction::SyncLedgerRootPending(_) => {
             store.dispatch(TransitionFrontierSyncLedgerInitAction {});
         }
-        TransitionFrontierAction::RootLedgerSyncSuccess(_) => {
-            store.dispatch(TransitionFrontierSyncBlocksFetchAndApplyPendingAction {});
+        TransitionFrontierAction::SyncLedgerRootSuccess(_) => {
+            store.dispatch(TransitionFrontierSyncBlocksPendingAction {});
         }
-        TransitionFrontierAction::SyncBlocksFetchAndApplyPending(_) => {
+        TransitionFrontierAction::SyncBlocksPending(_) => {
             if let Some(stats) = store.service.stats() {
-                if let TransitionFrontierSyncState::BlocksFetchAndApplyPending { chain, .. } =
+                if let TransitionFrontierSyncState::BlocksPending { chain, .. } =
                     &store.state.get().transition_frontier.sync
                 {
                     stats.syncing_blocks_init(chain);
                 }
             }
-            store.dispatch(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction {});
+            store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
         }
-        TransitionFrontierAction::SyncBlocksFetchAndApplyPeersQuery(_) => {
+        TransitionFrontierAction::SyncBlocksPeersQuery(_) => {
             // TODO(binier): make sure they have the ledger we want to query.
             let mut peer_ids = store
                 .state()
@@ -102,12 +101,10 @@ pub fn transition_frontier_effects<S: crate::Service>(
 
             for (peer_id, _) in peer_ids {
                 if let Some(hash) = retry_hashes.last() {
-                    if store.dispatch(
-                        TransitionFrontierSyncBlocksFetchAndApplyPeerQueryRetryAction {
-                            peer_id,
-                            hash: hash.clone(),
-                        },
-                    ) {
+                    if store.dispatch(TransitionFrontierSyncBlocksPeerQueryRetryAction {
+                        peer_id,
+                        hash: hash.clone(),
+                    }) {
                         retry_hashes.pop();
                         continue;
                     }
@@ -115,19 +112,17 @@ pub fn transition_frontier_effects<S: crate::Service>(
 
                 match store.state().transition_frontier.sync.blocks_fetch_next() {
                     Some(hash) => {
-                        store.dispatch(
-                            TransitionFrontierSyncBlocksFetchAndApplyPeerQueryInitAction {
-                                peer_id,
-                                hash,
-                            },
-                        );
+                        store.dispatch(TransitionFrontierSyncBlocksPeerQueryInitAction {
+                            peer_id,
+                            hash,
+                        });
                     }
                     None if retry_hashes.is_empty() => break,
                     None => {}
                 }
             }
         }
-        TransitionFrontierAction::SyncBlocksFetchAndApplyPeerQueryInit(a) => {
+        TransitionFrontierAction::SyncBlocksPeerQueryInit(a) => {
             let Some(rpc_id) = store.state().p2p.get_ready_peer(&a.peer_id)
                 .map(|v| v.channels.rpc.next_local_rpc_id()) else { return };
 
@@ -136,16 +131,14 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 id: rpc_id,
                 request: P2pRpcRequest::Block(a.hash.clone()),
             }) {
-                store.dispatch(
-                    TransitionFrontierSyncBlocksFetchAndApplyPeerQueryPendingAction {
-                        hash: a.hash,
-                        peer_id: a.peer_id,
-                        rpc_id,
-                    },
-                );
+                store.dispatch(TransitionFrontierSyncBlocksPeerQueryPendingAction {
+                    hash: a.hash,
+                    peer_id: a.peer_id,
+                    rpc_id,
+                });
             }
         }
-        TransitionFrontierAction::SyncBlocksFetchAndApplyPeerQueryRetry(a) => {
+        TransitionFrontierAction::SyncBlocksPeerQueryRetry(a) => {
             let Some(rpc_id) = store.state().p2p.get_ready_peer(&a.peer_id)
                 .map(|v| v.channels.rpc.next_local_rpc_id()) else { return };
 
@@ -154,16 +147,14 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 id: rpc_id,
                 request: P2pRpcRequest::Block(a.hash.clone()),
             }) {
-                store.dispatch(
-                    TransitionFrontierSyncBlocksFetchAndApplyPeerQueryPendingAction {
-                        hash: a.hash,
-                        peer_id: a.peer_id,
-                        rpc_id,
-                    },
-                );
+                store.dispatch(TransitionFrontierSyncBlocksPeerQueryPendingAction {
+                    hash: a.hash,
+                    peer_id: a.peer_id,
+                    rpc_id,
+                });
             }
         }
-        TransitionFrontierAction::SyncBlocksFetchAndApplyPeerQueryPending(a) => {
+        TransitionFrontierAction::SyncBlocksPeerQueryPending(a) => {
             if let Some(stats) = store.service.stats() {
                 if let Some(state) = store
                     .state
@@ -176,16 +167,16 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 }
             }
         }
-        TransitionFrontierAction::SyncBlocksFetchAndApplyPeerQueryError(_) => {
-            store.dispatch(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction {});
+        TransitionFrontierAction::SyncBlocksPeerQueryError(_) => {
+            store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
         }
-        TransitionFrontierAction::SyncBlocksFetchAndApplyPeerQuerySuccess(a) => {
-            store.dispatch(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction {});
-            store.dispatch(TransitionFrontierSyncBlockFetchSuccessAction {
+        TransitionFrontierAction::SyncBlocksPeerQuerySuccess(a) => {
+            store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
+            store.dispatch(TransitionFrontierSyncBlocksFetchSuccessAction {
                 hash: a.response.hash,
             });
         }
-        TransitionFrontierAction::SyncBlockFetchSuccess(a) => {
+        TransitionFrontierAction::SyncBlocksFetchSuccess(a) => {
             if let Some(stats) = store.service.stats() {
                 if let Some(state) = store
                     .state
@@ -197,9 +188,9 @@ pub fn transition_frontier_effects<S: crate::Service>(
                     stats.syncing_block_update(state);
                 }
             }
-            store.dispatch(TransitionFrontierSyncBlockNextApplyInitAction {});
+            store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
         }
-        TransitionFrontierAction::SyncBlockNextApplyInit(_) => {
+        TransitionFrontierAction::SyncBlocksNextApplyInit(_) => {
             // TODO(binier): remove loop once ledger communication is async.
             loop {
                 let Some((block, pred_block)) = store
@@ -211,14 +202,15 @@ pub fn transition_frontier_effects<S: crate::Service>(
                     else { return };
                 let hash = block.hash.clone();
 
-                store
-                    .dispatch(TransitionFrontierSyncBlockApplyPendingAction { hash: hash.clone() });
+                store.dispatch(TransitionFrontierSyncBlocksApplyPendingAction {
+                    hash: hash.clone(),
+                });
                 store.service.block_apply(block, pred_block).unwrap();
 
-                store.dispatch(TransitionFrontierSyncBlockApplySuccessAction { hash });
+                store.dispatch(TransitionFrontierSyncBlocksApplySuccessAction { hash });
             }
         }
-        TransitionFrontierAction::SyncBlockApplyPending(a) => {
+        TransitionFrontierAction::SyncBlocksApplyPending(a) => {
             if let Some(stats) = store.service.stats() {
                 if let Some(state) = store
                     .state
@@ -231,7 +223,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 }
             }
         }
-        TransitionFrontierAction::SyncBlockApplySuccess(a) => {
+        TransitionFrontierAction::SyncBlocksApplySuccess(a) => {
             if let Some(stats) = store.service.stats() {
                 if let Some(state) = store
                     .state
@@ -246,12 +238,12 @@ pub fn transition_frontier_effects<S: crate::Service>(
 
             // TODO(binier): uncomment once ledger communication is async.
             // if !store.dispatch(TransitionFrontierSyncBlockNextApplyInitAction {}) {
-            store.dispatch(TransitionFrontierSyncBlocksFetchAndApplySuccessAction {});
+            store.dispatch(TransitionFrontierSyncBlocksSuccessAction {});
             // }
         }
-        TransitionFrontierAction::SyncBlocksFetchAndApplySuccess(_) => {
+        TransitionFrontierAction::SyncBlocksSuccess(_) => {
             let sync = &store.state.get().transition_frontier.sync;
-            let TransitionFrontierSyncState::BlocksFetchAndApplySuccess { chain, .. } = sync else { return };
+            let TransitionFrontierSyncState::BlocksSuccess { chain, .. } = sync else { return };
             let Some(root_block) = chain.first() else { return };
             let ledgers_to_keep = chain
                 .iter()
@@ -272,13 +264,13 @@ pub fn transition_frontier_effects<S: crate::Service>(
             TransitionFrontierSyncLedgerAction::Init(action) => {
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPending(action) => {
+            TransitionFrontierSyncLedgerAction::SnarkedPending(action) => {
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeersQuery(action) => {
+            TransitionFrontierSyncLedgerAction::SnarkedPeersQuery(action) => {
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryInit(action) => {
+            TransitionFrontierSyncLedgerAction::SnarkedPeerQueryInit(action) => {
                 if let Some(stats) = store.service().stats() {
                     let (start, end) = (meta.time(), meta.time());
                     if action.address.length() < LEDGER_DEPTH - 1 {
@@ -289,14 +281,14 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 }
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryRetry(action) => {
+            TransitionFrontierSyncLedgerAction::SnarkedPeerQueryRetry(action) => {
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryPending(_) => {}
-            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQueryError(action) => {
+            TransitionFrontierSyncLedgerAction::SnarkedPeerQueryPending(_) => {}
+            TransitionFrontierSyncLedgerAction::SnarkedPeerQueryError(action) => {
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncPeerQuerySuccess(action) => {
+            TransitionFrontierSyncLedgerAction::SnarkedPeerQuerySuccess(action) => {
                 if let Some(stats) = store.service.stats() {
                     if let Some((start, end)) = store
                         .state
@@ -318,55 +310,55 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 }
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncChildHashesReceived(action) => {
+            TransitionFrontierSyncLedgerAction::SnarkedChildHashesReceived(action) => {
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncChildAccountsReceived(action) => {
+            TransitionFrontierSyncLedgerAction::SnarkedChildAccountsReceived(action) => {
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::SnarkedLedgerSyncSuccess(action) => {
+            TransitionFrontierSyncLedgerAction::SnarkedSuccess(action) => {
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::StagedLedgerReconstructPending(action) => {
+            TransitionFrontierSyncLedgerAction::StagedReconstructPending(action) => {
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::StagedLedgerPartsFetchInit(action) => {
+            TransitionFrontierSyncLedgerAction::StagedPartsFetchInit(action) => {
                 if let Some(stats) = store.service().stats() {
                     let (start, end) = (meta.time(), None);
                     stats.syncing_ledger(SyncingLedger::FetchParts { start, end });
                 }
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::StagedLedgerPartsFetchPending(_) => {}
-            TransitionFrontierSyncLedgerAction::StagedLedgerPartsFetchError(action) => {
+            TransitionFrontierSyncLedgerAction::StagedPartsFetchPending(_) => {}
+            TransitionFrontierSyncLedgerAction::StagedPartsFetchError(action) => {
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::StagedLedgerPartsFetchSuccess(action) => {
+            TransitionFrontierSyncLedgerAction::StagedPartsFetchSuccess(action) => {
                 if let Some(stats) = store.service().stats() {
                     let (start, end) = (Timestamp::ZERO, Some(meta.time()));
                     stats.syncing_ledger(SyncingLedger::FetchParts { start, end });
                 }
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::StagedLedgerPartsApplyInit(action) => {
+            TransitionFrontierSyncLedgerAction::StagedPartsApplyInit(action) => {
                 if let Some(stats) = store.service().stats() {
                     let (start, end) = (meta.time(), None);
                     stats.syncing_ledger(SyncingLedger::ApplyParts { start, end });
                 }
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::StagedLedgerPartsApplySuccess(action) => {
+            TransitionFrontierSyncLedgerAction::StagedPartsApplySuccess(action) => {
                 if let Some(stats) = store.service().stats() {
                     let (start, end) = (Timestamp::ZERO, Some(meta.time()));
                     stats.syncing_ledger(SyncingLedger::ApplyParts { start, end });
                 }
                 action.effects(&meta, store);
             }
-            TransitionFrontierSyncLedgerAction::StagedLedgerReconstructSuccess(action) => {
+            TransitionFrontierSyncLedgerAction::StagedReconstructSuccess(action) => {
                 action.effects(&meta, store);
             }
             TransitionFrontierSyncLedgerAction::Success(_) => {
-                store.dispatch(TransitionFrontierRootLedgerSyncSuccessAction {});
+                store.dispatch(TransitionFrontierSyncLedgerRootSuccessAction {});
             }
         },
     }

@@ -20,42 +20,24 @@ pub type TransitionFrontierSyncLedgerActionWithMetaRef<'a> =
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum TransitionFrontierSyncLedgerAction {
     Init(TransitionFrontierSyncLedgerInitAction),
-    SnarkedLedgerSyncPending(TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction),
-    SnarkedLedgerSyncPeersQuery(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction),
-    SnarkedLedgerSyncPeerQueryInit(
-        TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction,
-    ),
-    SnarkedLedgerSyncPeerQueryPending(
-        TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction,
-    ),
-    SnarkedLedgerSyncPeerQueryRetry(
-        TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction,
-    ),
-    SnarkedLedgerSyncPeerQueryError(
-        TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction,
-    ),
-    SnarkedLedgerSyncPeerQuerySuccess(
-        TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction,
-    ),
-    SnarkedLedgerSyncChildHashesReceived(
-        TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction,
-    ),
-    SnarkedLedgerSyncChildAccountsReceived(
-        TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction,
-    ),
-    SnarkedLedgerSyncSuccess(TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction),
-    StagedLedgerReconstructPending(
-        TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction,
-    ),
-    StagedLedgerPartsFetchInit(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction),
-    StagedLedgerPartsFetchPending(TransitionFrontierSyncLedgerStagedLedgerPartsFetchPendingAction),
-    StagedLedgerPartsFetchError(TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction),
-    StagedLedgerPartsFetchSuccess(TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction),
-    StagedLedgerPartsApplyInit(TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction),
-    StagedLedgerPartsApplySuccess(TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction),
-    StagedLedgerReconstructSuccess(
-        TransitionFrontierSyncLedgerStagedLedgerReconstructSuccessAction,
-    ),
+    SnarkedPending(TransitionFrontierSyncLedgerSnarkedPendingAction),
+    SnarkedPeersQuery(TransitionFrontierSyncLedgerSnarkedPeersQueryAction),
+    SnarkedPeerQueryInit(TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction),
+    SnarkedPeerQueryPending(TransitionFrontierSyncLedgerSnarkedPeerQueryPendingAction),
+    SnarkedPeerQueryRetry(TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction),
+    SnarkedPeerQueryError(TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction),
+    SnarkedPeerQuerySuccess(TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction),
+    SnarkedChildHashesReceived(TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction),
+    SnarkedChildAccountsReceived(TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction),
+    SnarkedSuccess(TransitionFrontierSyncLedgerSnarkedSuccessAction),
+    StagedReconstructPending(TransitionFrontierSyncLedgerStagedReconstructPendingAction),
+    StagedPartsFetchInit(TransitionFrontierSyncLedgerStagedPartsFetchInitAction),
+    StagedPartsFetchPending(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction),
+    StagedPartsFetchError(TransitionFrontierSyncLedgerStagedPartsFetchErrorAction),
+    StagedPartsFetchSuccess(TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction),
+    StagedPartsApplyInit(TransitionFrontierSyncLedgerStagedPartsApplyInitAction),
+    StagedPartsApplySuccess(TransitionFrontierSyncLedgerStagedPartsApplySuccessAction),
+    StagedReconstructSuccess(TransitionFrontierSyncLedgerStagedReconstructSuccessAction),
     Success(TransitionFrontierSyncLedgerSuccessAction),
 }
 
@@ -75,11 +57,9 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerInit
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction {}
+pub struct TransitionFrontierSyncLedgerSnarkedPendingAction {}
 
-impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction
-{
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnarkedPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .transition_frontier
@@ -92,10 +72,10 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {}
+pub struct TransitionFrontierSyncLedgerSnarkedPeersQueryAction {}
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction
+    for TransitionFrontierSyncLedgerSnarkedPeersQueryAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         let peers_available = state
@@ -115,13 +95,13 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction {
+pub struct TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction {
     pub address: LedgerAddress,
     pub peer_id: PeerId,
 }
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction
+    for TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         let check_next_addr =
@@ -130,7 +110,7 @@ impl redux::EnablingCondition<crate::State>
                 .sync
                 .root_ledger()
                 .map_or(false, |s| match s {
-                    TransitionFrontierSyncLedgerState::SnarkedLedgerSyncPending {
+                    TransitionFrontierSyncLedgerState::SnarkedPending {
                         pending,
                         next_addr,
                         ..
@@ -155,13 +135,13 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction {
+pub struct TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction {
     pub address: LedgerAddress,
     pub peer_id: PeerId,
 }
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction
+    for TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         let check_next_addr = state
@@ -185,14 +165,14 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction {
+pub struct TransitionFrontierSyncLedgerSnarkedPeerQueryPendingAction {
     pub address: LedgerAddress,
     pub peer_id: PeerId,
     pub rpc_id: P2pRpcId,
 }
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction
+    for TransitionFrontierSyncLedgerSnarkedPeerQueryPendingAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
@@ -200,26 +180,24 @@ impl redux::EnablingCondition<crate::State>
             .sync
             .root_ledger()
             .map_or(false, |s| match s {
-                TransitionFrontierSyncLedgerState::SnarkedLedgerSyncPending { pending, .. } => {
-                    pending
-                        .iter()
-                        .filter_map(|(_, query_state)| query_state.attempts.get(&self.peer_id))
-                        .any(|peer_rpc_state| matches!(peer_rpc_state, PeerRpcState::Init { .. }))
-                }
+                TransitionFrontierSyncLedgerState::SnarkedPending { pending, .. } => pending
+                    .iter()
+                    .filter_map(|(_, query_state)| query_state.attempts.get(&self.peer_id))
+                    .any(|peer_rpc_state| matches!(peer_rpc_state, PeerRpcState::Init { .. })),
                 _ => false,
             })
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction {
+pub struct TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction {
     pub peer_id: PeerId,
     pub rpc_id: P2pRpcId,
     pub error: PeerLedgerQueryError,
 }
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction
+    for TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
@@ -235,14 +213,14 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction {
+pub struct TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
     pub peer_id: PeerId,
     pub rpc_id: P2pRpcId,
     pub response: PeerLedgerQueryResponse,
 }
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction
+    for TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
@@ -260,14 +238,14 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction {
+pub struct TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction {
     pub address: LedgerAddress,
     pub hashes: (LedgerHash, LedgerHash),
     pub sender: PeerId,
 }
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction
+    for TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.address.length() < LEDGER_DEPTH - 1
@@ -276,9 +254,9 @@ impl redux::EnablingCondition<crate::State>
                 .sync
                 .root_ledger()
                 .and_then(|s| match s {
-                    TransitionFrontierSyncLedgerState::SnarkedLedgerSyncPending {
-                        pending, ..
-                    } => pending.get(&self.address),
+                    TransitionFrontierSyncLedgerState::SnarkedPending { pending, .. } => {
+                        pending.get(&self.address)
+                    }
                     _ => None,
                 })
                 .and_then(|s| s.attempts.get(&self.sender))
@@ -287,14 +265,14 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction {
+pub struct TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction {
     pub address: LedgerAddress,
     pub accounts: Vec<MinaBaseAccountBinableArgStableV2>,
     pub sender: PeerId,
 }
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction
+    for TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
@@ -302,7 +280,7 @@ impl redux::EnablingCondition<crate::State>
             .sync
             .root_ledger()
             .and_then(|s| match s {
-                TransitionFrontierSyncLedgerState::SnarkedLedgerSyncPending { pending, .. } => {
+                TransitionFrontierSyncLedgerState::SnarkedPending { pending, .. } => {
                     pending.get(&self.address)
                 }
                 _ => None,
@@ -315,21 +293,17 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction {}
+pub struct TransitionFrontierSyncLedgerSnarkedSuccessAction {}
 
-impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction
-{
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnarkedSuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .transition_frontier
             .sync
             .root_ledger()
             .map_or(false, |s| match s {
-                TransitionFrontierSyncLedgerState::SnarkedLedgerSyncPending {
-                    pending,
-                    next_addr,
-                    ..
+                TransitionFrontierSyncLedgerState::SnarkedPending {
+                    pending, next_addr, ..
                 } => next_addr.is_none() && pending.is_empty(),
                 _ => false,
             })
@@ -337,10 +311,10 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction {}
+pub struct TransitionFrontierSyncLedgerStagedReconstructPendingAction {}
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction
+    for TransitionFrontierSyncLedgerStagedReconstructPendingAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
@@ -348,19 +322,16 @@ impl redux::EnablingCondition<crate::State>
             .sync
             .root_ledger()
             .map_or(false, |s| {
-                matches!(
-                    s,
-                    TransitionFrontierSyncLedgerState::SnarkedLedgerSyncSuccess { .. }
-                )
+                matches!(s, TransitionFrontierSyncLedgerState::SnarkedSuccess { .. })
             })
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {}
+pub struct TransitionFrontierSyncLedgerStagedPartsFetchInitAction {}
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction
+    for TransitionFrontierSyncLedgerStagedPartsFetchInitAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         let Some(root_ledger) = state.transition_frontier.sync.root_ledger() else { return false };
@@ -374,13 +345,13 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerStagedLedgerPartsFetchPendingAction {
+pub struct TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {
     pub peer_id: PeerId,
     pub rpc_id: P2pRpcId,
 }
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerStagedLedgerPartsFetchPendingAction
+    for TransitionFrontierSyncLedgerStagedPartsFetchPendingAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
@@ -390,21 +361,21 @@ impl redux::EnablingCondition<crate::State>
             .map_or(false, |s| {
                 matches!(
                     s,
-                    TransitionFrontierSyncLedgerState::StagedLedgerReconstructPending { .. }
+                    TransitionFrontierSyncLedgerState::StagedReconstructPending { .. }
                 )
             })
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction {
+pub struct TransitionFrontierSyncLedgerStagedPartsFetchErrorAction {
     pub peer_id: PeerId,
     pub rpc_id: P2pRpcId,
     pub error: PeerLedgerQueryError,
 }
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction
+    for TransitionFrontierSyncLedgerStagedPartsFetchErrorAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
@@ -412,9 +383,8 @@ impl redux::EnablingCondition<crate::State>
             .sync
             .root_ledger()
             .and_then(|s| match s {
-                TransitionFrontierSyncLedgerState::StagedLedgerReconstructPending {
-                    attempts,
-                    ..
+                TransitionFrontierSyncLedgerState::StagedReconstructPending {
+                    attempts, ..
                 } => attempts.get(&self.peer_id),
                 _ => None,
             })
@@ -424,14 +394,14 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction {
+pub struct TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction {
     pub peer_id: PeerId,
     pub rpc_id: P2pRpcId,
     pub parts: Arc<StagedLedgerAuxAndPendingCoinbases>,
 }
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction
+    for TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
@@ -439,9 +409,8 @@ impl redux::EnablingCondition<crate::State>
             .sync
             .root_ledger()
             .and_then(|s| match s {
-                TransitionFrontierSyncLedgerState::StagedLedgerReconstructPending {
-                    attempts,
-                    ..
+                TransitionFrontierSyncLedgerState::StagedReconstructPending {
+                    attempts, ..
                 } => attempts.get(&self.peer_id),
                 _ => None,
             })
@@ -452,13 +421,13 @@ impl redux::EnablingCondition<crate::State>
 // TODO(binier): validate staged ledger hash in fetched parts.
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction {
+pub struct TransitionFrontierSyncLedgerStagedPartsApplyInitAction {
     pub sender: PeerId,
     pub parts: Arc<StagedLedgerAuxAndPendingCoinbases>,
 }
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction
+    for TransitionFrontierSyncLedgerStagedPartsApplyInitAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
@@ -466,9 +435,8 @@ impl redux::EnablingCondition<crate::State>
             .sync
             .root_ledger()
             .and_then(|s| match s {
-                TransitionFrontierSyncLedgerState::StagedLedgerReconstructPending {
-                    attempts,
-                    ..
+                TransitionFrontierSyncLedgerState::StagedReconstructPending {
+                    attempts, ..
                 } => attempts.get(&self.sender),
                 _ => None,
             })
@@ -482,12 +450,12 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction {
+pub struct TransitionFrontierSyncLedgerStagedPartsApplySuccessAction {
     pub sender: PeerId,
 }
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction
+    for TransitionFrontierSyncLedgerStagedPartsApplySuccessAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
@@ -495,9 +463,8 @@ impl redux::EnablingCondition<crate::State>
             .sync
             .root_ledger()
             .and_then(|s| match s {
-                TransitionFrontierSyncLedgerState::StagedLedgerReconstructPending {
-                    attempts,
-                    ..
+                TransitionFrontierSyncLedgerState::StagedReconstructPending {
+                    attempts, ..
                 } => attempts.get(&self.sender),
                 _ => None,
             })
@@ -506,10 +473,10 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerStagedLedgerReconstructSuccessAction {}
+pub struct TransitionFrontierSyncLedgerStagedReconstructSuccessAction {}
 
 impl redux::EnablingCondition<crate::State>
-    for TransitionFrontierSyncLedgerStagedLedgerReconstructSuccessAction
+    for TransitionFrontierSyncLedgerStagedReconstructSuccessAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
@@ -517,9 +484,8 @@ impl redux::EnablingCondition<crate::State>
             .sync
             .root_ledger()
             .map_or(false, |s| match s {
-                TransitionFrontierSyncLedgerState::StagedLedgerReconstructPending {
-                    attempts,
-                    ..
+                TransitionFrontierSyncLedgerState::StagedReconstructPending {
+                    attempts, ..
                 } => attempts.iter().any(|(_, s)| s.is_apply_success()),
                 _ => false,
             })
@@ -538,7 +504,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSucc
             .map_or(false, |s| {
                 matches!(
                     s,
-                    TransitionFrontierSyncLedgerState::StagedLedgerReconstructSuccess { .. }
+                    TransitionFrontierSyncLedgerState::StagedReconstructSuccess { .. }
                 )
             })
     }
@@ -557,22 +523,22 @@ macro_rules! impl_into_global_action {
 }
 
 impl_into_global_action!(TransitionFrontierSyncLedgerInitAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsFetchPendingAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerStagedLedgerReconstructSuccessAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedPendingAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedPeersQueryAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedPeerQueryPendingAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerSnarkedSuccessAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerStagedReconstructPendingAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerStagedPartsFetchInitAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerStagedPartsFetchErrorAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerStagedPartsApplyInitAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerStagedPartsApplySuccessAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerStagedReconstructSuccessAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerSuccessAction);

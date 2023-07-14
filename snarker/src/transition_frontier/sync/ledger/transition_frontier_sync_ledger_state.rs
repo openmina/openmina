@@ -22,7 +22,7 @@ pub enum TransitionFrontierSyncLedgerState {
         block: ArcBlockWithHash,
     },
     /// Doing BFS to sync snarked ledger tree.
-    SnarkedLedgerSyncPending {
+    SnarkedPending {
         time: Timestamp,
         block: ArcBlockWithHash,
         pending: BTreeMap<LedgerAddress, LedgerQueryPending>,
@@ -30,16 +30,16 @@ pub enum TransitionFrontierSyncLedgerState {
         next_addr: Option<LedgerAddress>,
         end_addr: LedgerAddress,
     },
-    SnarkedLedgerSyncSuccess {
+    SnarkedSuccess {
         time: Timestamp,
         block: ArcBlockWithHash,
     },
-    StagedLedgerReconstructPending {
+    StagedReconstructPending {
         time: Timestamp,
         block: ArcBlockWithHash,
         attempts: BTreeMap<PeerId, PeerStagedLedgerReconstructState>,
     },
-    StagedLedgerReconstructSuccess {
+    StagedReconstructSuccess {
         time: Timestamp,
         block: ArcBlockWithHash,
     },
@@ -149,10 +149,10 @@ impl TransitionFrontierSyncLedgerState {
     pub fn block(&self) -> &ArcBlockWithHash {
         match self {
             Self::Init { block, .. } => block,
-            Self::SnarkedLedgerSyncPending { block, .. } => block,
-            Self::SnarkedLedgerSyncSuccess { block, .. } => block,
-            Self::StagedLedgerReconstructPending { block, .. } => block,
-            Self::StagedLedgerReconstructSuccess { block, .. } => block,
+            Self::SnarkedPending { block, .. } => block,
+            Self::SnarkedSuccess { block, .. } => block,
+            Self::StagedReconstructPending { block, .. } => block,
+            Self::StagedReconstructSuccess { block, .. } => block,
             Self::Success { block, .. } => block,
         }
     }
@@ -163,7 +163,7 @@ impl TransitionFrontierSyncLedgerState {
 
     pub fn snarked_ledger_sync_retry_iter(&self) -> impl '_ + Iterator<Item = LedgerAddress> {
         let pending = match self {
-            Self::SnarkedLedgerSyncPending { pending, .. } => pending,
+            Self::SnarkedPending { pending, .. } => pending,
             _ => &SNARKED_LEDGER_SYNC_PENDING_EMPTY,
         };
         pending
@@ -174,7 +174,7 @@ impl TransitionFrontierSyncLedgerState {
 
     pub fn snarked_ledger_sync_next(&self) -> Option<LedgerAddress> {
         match self {
-            Self::SnarkedLedgerSyncPending { next_addr, .. } => next_addr.clone(),
+            Self::SnarkedPending { next_addr, .. } => next_addr.clone(),
             _ => None,
         }
     }
@@ -185,7 +185,7 @@ impl TransitionFrontierSyncLedgerState {
         rpc_id: P2pRpcId,
     ) -> Option<(&LedgerAddress, &LedgerQueryPending)> {
         match self {
-            Self::SnarkedLedgerSyncPending { pending, .. } => {
+            Self::SnarkedPending { pending, .. } => {
                 let expected_rpc_id = rpc_id;
                 pending.iter().find(|(_, s)| {
                     s.attempts.get(peer_id).map_or(false, |s| match s {
@@ -206,7 +206,7 @@ impl TransitionFrontierSyncLedgerState {
         rpc_id: P2pRpcId,
     ) -> Option<&mut PeerRpcState> {
         match self {
-            Self::SnarkedLedgerSyncPending { pending, .. } => {
+            Self::SnarkedPending { pending, .. } => {
                 let expected_rpc_id = rpc_id;
                 pending.iter_mut().find_map(|(_, s)| {
                     s.attempts.get_mut(peer_id).filter(|s| match s {
@@ -226,7 +226,7 @@ impl TransitionFrontierSyncLedgerState {
         peer_id: &'a PeerId,
     ) -> impl 'a + Iterator<Item = P2pRpcId> {
         let pending = match self {
-            Self::SnarkedLedgerSyncPending { pending, .. } => pending,
+            Self::SnarkedPending { pending, .. } => pending,
             _ => &SNARKED_LEDGER_SYNC_PENDING_EMPTY,
         };
         pending.values().filter_map(move |s| {
@@ -242,8 +242,8 @@ impl TransitionFrontierSyncLedgerState {
         iter: impl 'a + Iterator<Item = (PeerId, P2pRpcId)>,
     ) -> impl 'a + Iterator<Item = (PeerId, P2pRpcId)> {
         iter.filter(move |(peer_id, _)| match self {
-            Self::SnarkedLedgerSyncSuccess { .. } => true,
-            Self::StagedLedgerReconstructPending { attempts, .. } => {
+            Self::SnarkedSuccess { .. } => true,
+            Self::StagedReconstructPending { attempts, .. } => {
                 !attempts.contains_key(&peer_id)
                     && (attempts.is_empty() || attempts.iter().all(|(_, s)| s.is_error()))
             }
@@ -253,7 +253,7 @@ impl TransitionFrontierSyncLedgerState {
 
     pub fn staged_ledger_parts_fetch_rpc_id(&self, peer_id: &PeerId) -> Option<P2pRpcId> {
         match self {
-            Self::StagedLedgerReconstructPending { attempts, .. } => {
+            Self::StagedReconstructPending { attempts, .. } => {
                 attempts.get(peer_id).and_then(|p| p.fetch_pending_rpc_id())
             }
             _ => None,

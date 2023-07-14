@@ -284,7 +284,7 @@ impl Libp2pService {
                 }) => {
                     // We will manually publish applied blocks.
                     // TODO(binier): better approach
-                    swarm
+                    let _ = swarm
                         .behaviour_mut()
                         .gossipsub
                         .report_message_validation_result(
