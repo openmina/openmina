@@ -15,7 +15,8 @@ use std::collections::VecDeque;
 use redux::{ActionMeta, ActionWithMeta, Timestamp};
 use shared::block::{ArcBlockWithHash, Block, BlockWithHash};
 
-use crate::{transition_frontier::TransitionFrontierSyncBlockState, ActionKind};
+use crate::transition_frontier::sync::TransitionFrontierSyncBlockState;
+use crate::ActionKind;
 
 pub type ActionKindWithMeta = ActionWithMeta<ActionKind>;
 

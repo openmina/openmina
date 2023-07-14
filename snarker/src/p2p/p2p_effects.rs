@@ -20,7 +20,7 @@ use crate::transition_frontier::sync::ledger::{
     TransitionFrontierSyncLedgerStagedPartsFetchInitAction,
     TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction,
 };
-use crate::transition_frontier::{
+use crate::transition_frontier::sync::{
     TransitionFrontierSyncBestTipUpdateAction, TransitionFrontierSyncBlocksPeerQueryErrorAction,
     TransitionFrontierSyncBlocksPeerQuerySuccessAction,
     TransitionFrontierSyncBlocksPeersQueryAction, TransitionFrontierSyncInitAction,
