@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PeerLedgerQueryResponse {
     ChildHashes(LedgerHash, LedgerHash),
-    Accounts(Vec<MinaBaseAccountBinableArgStableV2>),
+    ChildAccounts(Vec<MinaBaseAccountBinableArgStableV2>),
 }
 
 impl PeerLedgerQueryResponse {
@@ -28,7 +28,7 @@ impl PeerLedgerQueryResponse {
     }
 
     pub fn is_child_accounts(&self) -> bool {
-        matches!(self, Self::Accounts(..))
+        matches!(self, Self::ChildAccounts(..))
     }
 }
 

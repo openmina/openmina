@@ -45,23 +45,23 @@ pub enum TransitionFrontierSyncState {
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
     },
-    RootLedgerSyncPending {
+    RootLedgerPending {
         time: Timestamp,
         best_tip: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
         root_ledger: TransitionFrontierSyncLedgerState,
     },
-    RootLedgerSyncSuccess {
+    RootLedgerSuccess {
         time: Timestamp,
         best_tip: ArcBlockWithHash,
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
     },
-    BlocksFetchAndApplyPending {
+    BlocksPending {
         time: Timestamp,
         chain: Vec<TransitionFrontierSyncBlockState>,
     },
-    BlocksFetchAndApplySuccess {
+    BlocksSuccess {
         time: Timestamp,
         chain: Vec<ArcBlockWithHash>,
     },
@@ -124,10 +124,10 @@ impl TransitionFrontierSyncState {
         match self {
             Self::Idle => None,
             Self::Init { root_block, .. } => Some(root_block),
-            Self::RootLedgerSyncPending { root_ledger, .. } => Some(root_ledger.block()),
-            Self::RootLedgerSyncSuccess { root_block, .. } => Some(root_block),
-            Self::BlocksFetchAndApplyPending { chain, .. } => chain.first().and_then(|b| b.block()),
-            Self::BlocksFetchAndApplySuccess { chain, .. } => chain.first(),
+            Self::RootLedgerPending { root_ledger, .. } => Some(root_ledger.block()),
+            Self::RootLedgerSuccess { root_block, .. } => Some(root_block),
+            Self::BlocksPending { chain, .. } => chain.first().and_then(|b| b.block()),
+            Self::BlocksSuccess { chain, .. } => chain.first(),
             Self::Synced { .. } => None,
         }
     }
@@ -136,17 +136,17 @@ impl TransitionFrontierSyncState {
         match self {
             Self::Idle => None,
             Self::Init { best_tip, .. } => Some(best_tip),
-            Self::RootLedgerSyncPending { best_tip, .. } => Some(best_tip),
-            Self::RootLedgerSyncSuccess { best_tip, .. } => Some(best_tip),
-            Self::BlocksFetchAndApplyPending { chain, .. } => chain.last().and_then(|b| b.block()),
-            Self::BlocksFetchAndApplySuccess { chain, .. } => chain.last(),
+            Self::RootLedgerPending { best_tip, .. } => Some(best_tip),
+            Self::RootLedgerSuccess { best_tip, .. } => Some(best_tip),
+            Self::BlocksPending { chain, .. } => chain.last().and_then(|b| b.block()),
+            Self::BlocksSuccess { chain, .. } => chain.last(),
             Self::Synced { .. } => None,
         }
     }
 
     pub fn root_ledger(&self) -> Option<&TransitionFrontierSyncLedgerState> {
         match self {
-            Self::RootLedgerSyncPending { root_ledger, .. } => Some(root_ledger),
+            Self::RootLedgerPending { root_ledger, .. } => Some(root_ledger),
             _ => None,
         }
     }
@@ -154,7 +154,7 @@ impl TransitionFrontierSyncState {
     pub fn blocks_iter(&self) -> impl Iterator<Item = &TransitionFrontierSyncBlockState> {
         static EMPTY: Vec<TransitionFrontierSyncBlockState> = Vec::new();
         match self {
-            Self::BlocksFetchAndApplyPending { chain, .. } => chain.iter(),
+            Self::BlocksPending { chain, .. } => chain.iter(),
             _ => EMPTY.iter(),
         }
     }
@@ -183,9 +183,7 @@ impl TransitionFrontierSyncState {
         hash: &StateHash,
     ) -> Option<&mut TransitionFrontierSyncBlockState> {
         match self {
-            Self::BlocksFetchAndApplyPending { chain, .. } => {
-                chain.iter_mut().find(|s| s.block_hash() == hash)
-            }
+            Self::BlocksPending { chain, .. } => chain.iter_mut().find(|s| s.block_hash() == hash),
             _ => None,
         }
     }

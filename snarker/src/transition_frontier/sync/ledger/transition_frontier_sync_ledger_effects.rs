@@ -9,24 +9,24 @@ use crate::Store;
 use super::{
     PeerLedgerQueryResponse, TransitionFrontierSyncLedgerInitAction,
     TransitionFrontierSyncLedgerService,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction,
-    TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction,
-    TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction,
-    TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction,
-    TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction,
-    TransitionFrontierSyncLedgerStagedLedgerPartsFetchPendingAction,
-    TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction,
-    TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction,
-    TransitionFrontierSyncLedgerStagedLedgerReconstructSuccessAction,
+    TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction,
+    TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryPendingAction,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction,
+    TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction,
+    TransitionFrontierSyncLedgerSnarkedPeersQueryAction,
+    TransitionFrontierSyncLedgerSnarkedPendingAction,
+    TransitionFrontierSyncLedgerSnarkedSuccessAction,
+    TransitionFrontierSyncLedgerStagedPartsApplyInitAction,
+    TransitionFrontierSyncLedgerStagedPartsApplySuccessAction,
+    TransitionFrontierSyncLedgerStagedPartsFetchErrorAction,
+    TransitionFrontierSyncLedgerStagedPartsFetchInitAction,
+    TransitionFrontierSyncLedgerStagedPartsFetchPendingAction,
+    TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction,
+    TransitionFrontierSyncLedgerStagedReconstructPendingAction,
+    TransitionFrontierSyncLedgerStagedReconstructSuccessAction,
     TransitionFrontierSyncLedgerSuccessAction,
 };
 
@@ -57,29 +57,27 @@ fn query_peer_init<S: redux::Service>(
         id: rpc_id,
         request: P2pRpcRequest::LedgerQuery(ledger_hash, query),
     }) {
-        store.dispatch(
-            TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryPendingAction {
-                address,
-                peer_id,
-                rpc_id,
-            },
-        );
+        store.dispatch(TransitionFrontierSyncLedgerSnarkedPeerQueryPendingAction {
+            address,
+            peer_id,
+            rpc_id,
+        });
     }
 }
 
 impl TransitionFrontierSyncLedgerInitAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction {});
+        store.dispatch(TransitionFrontierSyncLedgerSnarkedPendingAction {});
     }
 }
 
-impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPendingAction {
+impl TransitionFrontierSyncLedgerSnarkedPendingAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
+        store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
     }
 }
 
-impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {
+impl TransitionFrontierSyncLedgerSnarkedPeersQueryAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         // TODO(binier): make sure they have the ledger we want to query.
         let mut peer_ids = store
@@ -101,12 +99,10 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {
 
         for (peer_id, _) in peer_ids {
             if let Some(address) = retry_addresses.last() {
-                if store.dispatch(
-                    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction {
-                        peer_id,
-                        address: address.clone(),
-                    },
-                ) {
+                if store.dispatch(TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction {
+                    peer_id,
+                    address: address.clone(),
+                }) {
                     retry_addresses.pop();
                     continue;
                 }
@@ -120,12 +116,10 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {
                 .and_then(|s| s.snarked_ledger_sync_next());
             match address {
                 Some(address) => {
-                    store.dispatch(
-                        TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction {
-                            peer_id,
-                            address,
-                        },
-                    );
+                    store.dispatch(TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction {
+                        peer_id,
+                        address,
+                    });
                 }
                 None if retry_addresses.is_empty() => break,
                 None => {}
@@ -134,25 +128,25 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {
     }
 }
 
-impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryInitAction {
+impl TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         query_peer_init(store, self.peer_id, self.address);
     }
 }
 
-impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryRetryAction {
+impl TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         query_peer_init(store, self.peer_id, self.address);
     }
 }
 
-impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction {
+impl TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
+        store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
     }
 }
 
-impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction {
+impl TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         let Some(root_ledger) = store.state().transition_frontier.sync.root_ledger() else { return };
         let Some((addr, _)) = root_ledger.snarked_ledger_peer_query_get(&self.peer_id, self.rpc_id) else { return };
@@ -161,16 +155,16 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction {
         match self.response {
             PeerLedgerQueryResponse::ChildHashes(left, right) => {
                 store.dispatch(
-                    TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction {
+                    TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction {
                         address,
                         hashes: (left, right),
                         sender: self.peer_id,
                     },
                 );
             }
-            PeerLedgerQueryResponse::Accounts(accounts) => {
+            PeerLedgerQueryResponse::ChildAccounts(accounts) => {
                 store.dispatch(
-                    TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction {
+                    TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction {
                         address,
                         accounts,
                         sender: self.peer_id,
@@ -181,7 +175,7 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction {
     }
 }
 
-impl TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction {
+impl TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction {
     pub fn effects<S>(self, _: &ActionMeta, store: &mut Store<S>)
     where
         S: TransitionFrontierSyncLedgerService,
@@ -193,13 +187,13 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncChildHashesReceivedAction {
             .hashes_set(snarked_ledger_hash, &self.address, self.hashes)
             .unwrap();
 
-        if !store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {}) {
-            store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction {});
+        if !store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {}) {
+            store.dispatch(TransitionFrontierSyncLedgerSnarkedSuccessAction {});
         }
     }
 }
 
-impl TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction {
+impl TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction {
     pub fn effects<S>(self, _: &ActionMeta, store: &mut Store<S>)
     where
         S: TransitionFrontierSyncLedgerService,
@@ -211,25 +205,25 @@ impl TransitionFrontierSyncLedgerSnarkedLedgerSyncChildAccountsReceivedAction {
             .accounts_set(snarked_ledger_hash, &self.address, self.accounts)
             .unwrap();
 
-        if !store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {}) {
-            store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction {});
+        if !store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {}) {
+            store.dispatch(TransitionFrontierSyncLedgerSnarkedSuccessAction {});
         }
     }
 }
 
-impl TransitionFrontierSyncLedgerSnarkedLedgerSyncSuccessAction {
+impl TransitionFrontierSyncLedgerSnarkedSuccessAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction {});
+        store.dispatch(TransitionFrontierSyncLedgerStagedReconstructPendingAction {});
     }
 }
 
-impl TransitionFrontierSyncLedgerStagedLedgerReconstructPendingAction {
+impl TransitionFrontierSyncLedgerStagedReconstructPendingAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {});
+        store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchInitAction {});
     }
 }
 
-impl TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {
+impl TransitionFrontierSyncLedgerStagedPartsFetchInitAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         let state = store.state();
         let Some(root_ledger) = state.transition_frontier.sync.root_ledger() else { return };
@@ -247,36 +241,32 @@ impl TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {
                     root_block_hash.clone(),
                 ),
             }) {
-                store.dispatch(
-                    TransitionFrontierSyncLedgerStagedLedgerPartsFetchPendingAction {
-                        peer_id,
-                        rpc_id,
-                    },
-                );
+                store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {
+                    peer_id,
+                    rpc_id,
+                });
                 break;
             }
         }
     }
 }
 
-impl TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction {
+impl TransitionFrontierSyncLedgerStagedPartsFetchErrorAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {});
+        store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchInitAction {});
     }
 }
 
-impl TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction {
+impl TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(
-            TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction {
-                sender: self.peer_id,
-                parts: self.parts,
-            },
-        );
+        store.dispatch(TransitionFrontierSyncLedgerStagedPartsApplyInitAction {
+            sender: self.peer_id,
+            parts: self.parts,
+        });
     }
 }
 
-impl TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction {
+impl TransitionFrontierSyncLedgerStagedPartsApplyInitAction {
     pub fn effects<S>(self, _: &ActionMeta, store: &mut Store<S>)
     where
         S: TransitionFrontierSyncLedgerService,
@@ -287,21 +277,19 @@ impl TransitionFrontierSyncLedgerStagedLedgerPartsApplyInitAction {
             .service
             .staged_ledger_reconstruct(block.snarked_ledger_hash().clone(), self.parts)
             .expect("staged ledger reconstruct failed");
-        store.dispatch(
-            TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction {
-                sender: self.sender,
-            },
-        );
+        store.dispatch(TransitionFrontierSyncLedgerStagedPartsApplySuccessAction {
+            sender: self.sender,
+        });
     }
 }
 
-impl TransitionFrontierSyncLedgerStagedLedgerPartsApplySuccessAction {
+impl TransitionFrontierSyncLedgerStagedPartsApplySuccessAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerStagedLedgerReconstructSuccessAction {});
+        store.dispatch(TransitionFrontierSyncLedgerStagedReconstructSuccessAction {});
     }
 }
 
-impl TransitionFrontierSyncLedgerStagedLedgerReconstructSuccessAction {
+impl TransitionFrontierSyncLedgerStagedReconstructSuccessAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         store.dispatch(TransitionFrontierSyncLedgerSuccessAction {});
     }

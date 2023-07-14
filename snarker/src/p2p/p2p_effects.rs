@@ -13,18 +13,17 @@ use crate::rpc::{
 };
 use crate::transition_frontier::sync::ledger::{
     PeerLedgerQueryError, PeerLedgerQueryResponse,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction,
-    TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction,
-    TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction,
-    TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction,
-    TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction,
+    TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction,
+    TransitionFrontierSyncLedgerSnarkedPeersQueryAction,
+    TransitionFrontierSyncLedgerStagedPartsFetchErrorAction,
+    TransitionFrontierSyncLedgerStagedPartsFetchInitAction,
+    TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction,
 };
 use crate::transition_frontier::{
-    TransitionFrontierSyncBestTipUpdateAction,
-    TransitionFrontierSyncBlocksFetchAndApplyPeerQueryErrorAction,
-    TransitionFrontierSyncBlocksFetchAndApplyPeerQuerySuccessAction,
-    TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction, TransitionFrontierSyncInitAction,
+    TransitionFrontierSyncBestTipUpdateAction, TransitionFrontierSyncBlocksPeerQueryErrorAction,
+    TransitionFrontierSyncBlocksPeerQuerySuccessAction,
+    TransitionFrontierSyncBlocksPeersQueryAction, TransitionFrontierSyncInitAction,
 };
 use crate::watched_accounts::{
     WatchedAccountLedgerInitialState, WatchedAccountsLedgerInitialStateGetError,
@@ -157,62 +156,59 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 }
             },
         },
-        P2pAction::Disconnection(action) => {
-            match action {
-                P2pDisconnectionAction::Init(action) => action.effects(&meta, store),
-                P2pDisconnectionAction::Finish(action) => {
-                    if let Some(s) = store.state().transition_frontier.sync.root_ledger() {
-                        let rpc_ids = s
-                            .snarked_ledger_peer_query_pending_rpc_ids(&action.peer_id)
-                            .collect::<Vec<_>>();
-                        let staged_ledger_parts_fetch_rpc_id =
-                            s.staged_ledger_parts_fetch_rpc_id(&action.peer_id);
-
-                        for rpc_id in rpc_ids {
-                            store.dispatch(
-                                TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction {
-                                    peer_id: action.peer_id,
-                                    rpc_id,
-                                    error: PeerLedgerQueryError::Disconnected,
-                                },
-                            );
-                        }
-
-                        if let Some(rpc_id) = staged_ledger_parts_fetch_rpc_id {
-                            store.dispatch(
-                                TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction {
-                                    peer_id: action.peer_id,
-                                    rpc_id,
-                                    error: PeerLedgerQueryError::Disconnected,
-                                },
-                            );
-                        }
-                    }
-
-                    let blocks_fetch_rpc_ids = store
-                        .state()
-                        .transition_frontier
-                        .sync
-                        .blocks_fetch_from_peer_pending_rpc_ids(&action.peer_id)
+        P2pAction::Disconnection(action) => match action {
+            P2pDisconnectionAction::Init(action) => action.effects(&meta, store),
+            P2pDisconnectionAction::Finish(action) => {
+                if let Some(s) = store.state().transition_frontier.sync.root_ledger() {
+                    let rpc_ids = s
+                        .snarked_ledger_peer_query_pending_rpc_ids(&action.peer_id)
                         .collect::<Vec<_>>();
+                    let staged_ledger_parts_fetch_rpc_id =
+                        s.staged_ledger_parts_fetch_rpc_id(&action.peer_id);
 
-                    for rpc_id in blocks_fetch_rpc_ids {
-                        store.dispatch(
-                            TransitionFrontierSyncBlocksFetchAndApplyPeerQueryErrorAction {
-                                peer_id: action.peer_id,
-                                rpc_id,
-                                error: PeerLedgerQueryError::Disconnected,
-                            },
-                        );
+                    for rpc_id in rpc_ids {
+                        store.dispatch(TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction {
+                            peer_id: action.peer_id,
+                            rpc_id,
+                            error: PeerLedgerQueryError::Disconnected,
+                        });
                     }
 
-                    let actions = store.state().watched_accounts.iter()
+                    if let Some(rpc_id) = staged_ledger_parts_fetch_rpc_id {
+                        store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchErrorAction {
+                            peer_id: action.peer_id,
+                            rpc_id,
+                            error: PeerLedgerQueryError::Disconnected,
+                        });
+                    }
+                }
+
+                let blocks_fetch_rpc_ids = store
+                    .state()
+                    .transition_frontier
+                    .sync
+                    .blocks_fetch_from_peer_pending_rpc_ids(&action.peer_id)
+                    .collect::<Vec<_>>();
+
+                for rpc_id in blocks_fetch_rpc_ids {
+                    store.dispatch(TransitionFrontierSyncBlocksPeerQueryErrorAction {
+                        peer_id: action.peer_id,
+                        rpc_id,
+                        error: PeerLedgerQueryError::Disconnected,
+                    });
+                }
+
+                let actions = store
+                    .state()
+                    .watched_accounts
+                    .iter()
                     .filter_map(|(pub_key, a)| match &a.initial_state {
                         WatchedAccountLedgerInitialState::Pending { peer_id, .. } => {
                             if peer_id == &action.peer_id {
                                 Some(WatchedAccountsLedgerInitialStateGetErrorAction {
                                     pub_key: pub_key.clone(),
-                                    error: WatchedAccountsLedgerInitialStateGetError::PeerDisconnected,
+                                    error:
+                                        WatchedAccountsLedgerInitialStateGetError::PeerDisconnected,
                                 })
                             } else {
                                 None
@@ -222,12 +218,11 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     })
                     .collect::<Vec<_>>();
 
-                    for action in actions {
-                        store.dispatch(action);
-                    }
+                for action in actions {
+                    store.dispatch(action);
                 }
             }
-        }
+        },
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {
                 action.effects(&meta, store);
@@ -299,36 +294,29 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                         request: P2pRpcRequest::BestTipWithProof,
                     });
 
-                    store
-                        .dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
-                    store.dispatch(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {});
-                    store.dispatch(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction {});
+                    store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
+                    store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchInitAction {});
+                    store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
                 }
                 P2pChannelsRpcAction::RequestSend(action) => {
                     action.effects(&meta, store);
                 }
                 P2pChannelsRpcAction::Timeout(action) => {
-                    store.dispatch(
-                        TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQueryErrorAction {
-                            peer_id: action.peer_id,
-                            rpc_id: action.id,
-                            error: PeerLedgerQueryError::Timeout,
-                        },
-                    );
-                    store.dispatch(
-                        TransitionFrontierSyncLedgerStagedLedgerPartsFetchErrorAction {
-                            peer_id: action.peer_id,
-                            rpc_id: action.id,
-                            error: PeerLedgerQueryError::Timeout,
-                        },
-                    );
-                    store.dispatch(
-                        TransitionFrontierSyncBlocksFetchAndApplyPeerQueryErrorAction {
-                            peer_id: action.peer_id,
-                            rpc_id: action.id,
-                            error: PeerLedgerQueryError::Timeout,
-                        },
-                    );
+                    store.dispatch(TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction {
+                        peer_id: action.peer_id,
+                        rpc_id: action.id,
+                        error: PeerLedgerQueryError::Timeout,
+                    });
+                    store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchErrorAction {
+                        peer_id: action.peer_id,
+                        rpc_id: action.id,
+                        error: PeerLedgerQueryError::Timeout,
+                    });
+                    store.dispatch(TransitionFrontierSyncBlocksPeerQueryErrorAction {
+                        peer_id: action.peer_id,
+                        rpc_id: action.id,
+                        error: PeerLedgerQueryError::Timeout,
+                    });
                     store.dispatch(P2pDisconnectionInitAction {
                         peer_id: action.peer_id,
                     });
@@ -387,24 +375,33 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                         }
                         Some(P2pRpcResponse::LedgerQuery(answer)) => match answer {
                             MinaLedgerSyncLedgerAnswerStableV2::ChildHashesAre(left, right) => {
-                                store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction {
-                                    peer_id: action.peer_id,
-                                    rpc_id: action.id,
-                                    response: PeerLedgerQueryResponse::ChildHashes(left.clone(), right.clone()),
-                                });
+                                store.dispatch(
+                                    TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
+                                        peer_id: action.peer_id,
+                                        rpc_id: action.id,
+                                        response: PeerLedgerQueryResponse::ChildHashes(
+                                            left.clone(),
+                                            right.clone(),
+                                        ),
+                                    },
+                                );
                             }
                             MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(accounts) => {
-                                store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeerQuerySuccessAction {
-                                    peer_id: action.peer_id,
-                                    rpc_id: action.id,
-                                    response: PeerLedgerQueryResponse::Accounts(accounts.clone()),
-                                });
+                                store.dispatch(
+                                    TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
+                                        peer_id: action.peer_id,
+                                        rpc_id: action.id,
+                                        response: PeerLedgerQueryResponse::ChildAccounts(
+                                            accounts.clone(),
+                                        ),
+                                    },
+                                );
                             }
                             _ => {}
                         },
                         Some(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(parts)) => {
                             store.dispatch(
-                                TransitionFrontierSyncLedgerStagedLedgerPartsFetchSuccessAction {
+                                TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction {
                                     peer_id: action.peer_id,
                                     rpc_id: action.id,
                                     parts: parts.clone(),
@@ -413,19 +410,16 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                         }
                         Some(P2pRpcResponse::Block(block)) => {
                             let block = BlockWithHash::new(block.clone());
-                            store.dispatch(
-                                TransitionFrontierSyncBlocksFetchAndApplyPeerQuerySuccessAction {
-                                    peer_id: action.peer_id,
-                                    rpc_id: action.id,
-                                    response: block,
-                                },
-                            );
+                            store.dispatch(TransitionFrontierSyncBlocksPeerQuerySuccessAction {
+                                peer_id: action.peer_id,
+                                rpc_id: action.id,
+                                response: block,
+                            });
                         }
                     }
-                    store
-                        .dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
-                    store.dispatch(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {});
-                    store.dispatch(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction {});
+                    store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
+                    store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchInitAction {});
+                    store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
                 }
                 P2pChannelsRpcAction::RequestReceived(_action) => {
                     // TODO(binier): handle incoming rpc requests.
@@ -445,9 +439,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     block: action.best_tip.block,
                     history: None,
                 });
-                store.dispatch(TransitionFrontierSyncLedgerSnarkedLedgerSyncPeersQueryAction {});
-                store.dispatch(TransitionFrontierSyncLedgerStagedLedgerPartsFetchInitAction {});
-                store.dispatch(TransitionFrontierSyncBlocksFetchAndApplyPeersQueryAction {});
+                store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
+                store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchInitAction {});
+                store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
             }
         },
     }
