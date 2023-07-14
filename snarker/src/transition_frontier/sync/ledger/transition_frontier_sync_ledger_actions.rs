@@ -510,13 +510,16 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSucc
     }
 }
 
+use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::transition_frontier::TransitionFrontierAction;
 
 macro_rules! impl_into_global_action {
     ($a:ty) => {
         impl From<$a> for crate::Action {
             fn from(value: $a) -> Self {
-                Self::TransitionFrontier(TransitionFrontierAction::SyncLedger(value.into()))
+                Self::TransitionFrontier(TransitionFrontierAction::Sync(
+                    TransitionFrontierSyncAction::Ledger(value.into()),
+                ))
             }
         }
     };

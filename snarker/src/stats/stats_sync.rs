@@ -5,7 +5,7 @@ use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use shared::block::ArcBlockWithHash;
 
-use crate::transition_frontier::TransitionFrontierSyncBlockState;
+use crate::transition_frontier::sync::TransitionFrontierSyncBlockState;
 
 const MAX_SNAPSHOTS_LEN: usize = 256;
 
