@@ -28,7 +28,7 @@ use snarker::service::EventSourceService;
 use snarker::snark::block_verify::{
     SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
-use snarker::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
+use snarker::snark::{SnarkEvent, VerifierIndex, VerifierKind, VerifierSRS};
 use snarker::stats::Stats;
 use snarker::{Config, LedgerConfig, SnarkConfig, SnarkerConfig, State, TransitionFrontierConfig};
 
@@ -88,7 +88,7 @@ impl Snarker {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
                 // TODO(binier): use cache
-                block_verifier_index: snarker::snark::get_verifier_index().into(),
+                block_verifier_index: snarker::snark::get_verifier_index(VerifierKind::Blockchain).into(),
                 block_verifier_srs: snarker::snark::get_srs().into(),
             },
             snarker: SnarkerConfig {
