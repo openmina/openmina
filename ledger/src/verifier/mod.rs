@@ -18,7 +18,10 @@ pub struct Verifier;
 use once_cell::sync::Lazy;
 
 // TODO: Move this into `Verifier` struct above
-static VERIFIER_INDEX: Lazy<Arc<VerifierIndex>> = Lazy::new(|| Arc::new(get_verifier_index()));
+static VERIFIER_INDEX: Lazy<Arc<VerifierIndex>> = Lazy::new(|| {
+    use crate::proofs::verifier_index::VerifierKind;
+    Arc::new(get_verifier_index(VerifierKind::Transaction))
+});
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/transaction_snark/transaction_snark.ml#L3492
 fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {

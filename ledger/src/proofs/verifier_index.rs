@@ -88,8 +88,16 @@ struct PolynomialCommitment {
     shifted: Option<FieldType>,
 }
 
-pub fn get_verifier_index() -> VerifierIndex {
-    let verifier_index_str = include_str!("data/verifier_index.json");
+pub enum VerifierKind {
+    Blockchain,
+    Transaction,
+}
+
+pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex {
+    let verifier_index_str = match kind {
+        VerifierKind::Blockchain => include_str!("data/blockchain_verifier_index.json"),
+        VerifierKind::Transaction => include_str!("data/transaction_verifier_index.json"),
+    };
 
     let verifier_index_json: VerifierIndexOcaml<Pallas> =
         serde_json::from_str(verifier_index_str).unwrap();
