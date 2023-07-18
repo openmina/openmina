@@ -14,9 +14,16 @@ impl ConsensusState {
                     ConsensusBlockState {
                         block: a.block.clone(),
                         status: ConsensusBlockStatus::Received { time: meta.time() },
-                        history: a.history.clone(),
+                        chain_proof: a.chain_proof.clone(),
                     },
                 );
+            }
+            ConsensusAction::BlockChainProofUpdate(a) => {
+                if self.best_tip.as_ref() == Some(&a.hash) {
+                    self.best_tip_chain_proof = Some(a.chain_proof.clone());
+                } else if let Some(block) = self.blocks.get_mut(&a.hash) {
+                    block.chain_proof = Some(a.chain_proof.clone());
+                }
             }
             ConsensusAction::BlockSnarkVerifyPending(a) => {
                 if let Some(block) = self.blocks.get_mut(&a.hash) {
@@ -85,7 +92,7 @@ impl ConsensusState {
 
                     if let Some(candidate) = self.blocks.get_mut(candidate_hash) {
                         if !decision.use_as_best_tip() {
-                            candidate.history.take();
+                            candidate.chain_proof = None;
                         }
 
                         candidate.status = ConsensusBlockStatus::ShortRangeForkResolve {
@@ -124,7 +131,7 @@ impl ConsensusState {
                     decision: if take {
                         ConsensusLongRangeForkDecision::Take(why)
                     } else {
-                        candidate_state.history = None;
+                        candidate_state.chain_proof = None;
                         ConsensusLongRangeForkDecision::Keep(why)
                     },
                 };
@@ -134,32 +141,7 @@ impl ConsensusState {
                 self.best_tip = Some(a.hash.clone());
 
                 if let Some(tip) = self.blocks.get_mut(&a.hash) {
-                    let pred_level = match tip.height().checked_sub(1) {
-                        Some(v) => v as u32,
-                        None => return,
-                    };
-                    if let Some(history) = tip.history.take() {
-                        self.update_best_tip_history(pred_level, &history);
-                    } else {
-                        let pred_hash = tip.block.header.protocol_state.previous_state_hash.clone();
-
-                        if self
-                            .is_part_of_main_chain(pred_level, &pred_hash)
-                            .unwrap_or(false)
-                        {
-                            self.update_best_tip_history(pred_level, &[pred_hash]);
-                            return;
-                        }
-                    }
-                }
-            }
-            ConsensusAction::BestTipHistoryUpdate(a) => {
-                if let Some(tip) = self.blocks.get_mut(&a.tip_hash) {
-                    let pred_level = match tip.height().checked_sub(1) {
-                        Some(v) => v as u32,
-                        None => return,
-                    };
-                    self.update_best_tip_history(pred_level, &a.history);
+                    self.best_tip_chain_proof = tip.chain_proof.take();
                 }
             }
         }

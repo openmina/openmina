@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{
@@ -6,7 +6,7 @@ use mina_p2p_messages::v2::{
 };
 use serde::{Deserialize, Serialize};
 
-use shared::block::BlockWithHash;
+use shared::block::{ArcBlockWithHash, BlockWithHash};
 
 use crate::snark::block_verify::SnarkBlockVerifyId;
 
@@ -92,6 +92,10 @@ impl ConsensusBlockStatus {
         matches!(self, Self::SnarkVerifySuccess { .. })
     }
 
+    pub fn is_pending(&self) -> bool {
+        matches!(self, Self::SnarkVerifyPending { .. })
+    }
+
     pub fn compared_with(&self) -> Option<&StateHash> {
         match self {
             Self::ShortRangeForkResolve { compared_with, .. } => compared_with.as_ref(),
@@ -104,9 +108,7 @@ impl ConsensusBlockStatus {
 pub struct ConsensusBlockState {
     pub block: Arc<MinaBlockBlockStableV2>,
     pub status: ConsensusBlockStatus,
-    /// Set temporarily when we receive best tip. Is removed once we
-    /// are done processing the block.
-    pub history: Option<Vec<StateHash>>,
+    pub chain_proof: Option<(Vec<StateHash>, ArcBlockWithHash)>,
 }
 
 impl ConsensusBlockState {
@@ -123,31 +125,11 @@ impl ConsensusBlockState {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BestTipHistory {
-    chain: VecDeque<StateHash>,
-    /// Level of the first block in `chain`.
-    top_level: u32,
-}
-
-impl BestTipHistory {
-    pub fn bottom_level(&self) -> u32 {
-        self.top_level.saturating_sub(self.chain.len() as u32)
-    }
-
-    pub fn contains(&self, level: u32, hash: &StateHash) -> bool {
-        let Some(i) = self.top_level.checked_sub(level) else {
-            return false;
-        };
-        self.chain.get(i as usize) == Some(hash)
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsensusState {
     pub blocks: BTreeMap<StateHash, ConsensusBlockState>,
     // TODO(binier): rename to best candidate. Best tip will be in transition_frontier state.
     pub best_tip: Option<StateHash>,
-    pub best_tip_history: BestTipHistory,
+    pub best_tip_chain_proof: Option<(Vec<StateHash>, ArcBlockWithHash)>,
 }
 
 impl ConsensusState {
@@ -155,10 +137,7 @@ impl ConsensusState {
         Self {
             blocks: BTreeMap::new(),
             best_tip: None,
-            best_tip_history: BestTipHistory {
-                chain: Default::default(),
-                top_level: 0,
-            },
+            best_tip_chain_proof: None,
         }
     }
 
@@ -218,67 +197,6 @@ impl ConsensusState {
             } => decision.use_as_best_tip() && self.best_tip.as_ref() == Some(compared_with),
         }
     }
-
-    pub fn update_best_tip_history(&mut self, new_level: u32, new_history: &[StateHash]) {
-        let mut cur_level = self.best_tip_history.top_level;
-        if new_level < cur_level {
-            return;
-        }
-
-        while let Some(hash) = self.best_tip_history.chain.pop_front() {
-            let i = (new_level - cur_level) as usize;
-            let new_hash = match new_history.get(i) {
-                Some(v) => v,
-                None => {
-                    self.best_tip_history.chain.clear();
-                    cur_level = 0;
-                    break;
-                }
-            };
-            if &hash == new_hash {
-                self.best_tip_history.chain.push_front(hash);
-                break;
-            }
-
-            cur_level -= 1;
-        }
-
-        self.best_tip_history.top_level = new_level;
-        new_history
-            .iter()
-            .take((new_level - cur_level) as usize)
-            .rev()
-            .for_each(|hash| self.best_tip_history.chain.push_front(hash.clone()));
-    }
-
-    pub fn is_best_tip_and_history_linked(&self) -> bool {
-        let Some(best_tip) = self.best_tip() else {
-            return false;
-        };
-        let pred_hash = &best_tip.header.protocol_state.previous_state_hash;
-
-        Some(pred_hash) == self.best_tip_history.chain.front()
-    }
-
-    /// Returns `None` if answer can't be known at the moment.
-    pub fn is_part_of_main_chain(&self, level: u32, hash: &StateHash) -> Option<bool> {
-        let best_tip = self.best_tip()?;
-        if level == best_tip.height() as u32 {
-            return Some(hash == best_tip.hash);
-        }
-
-        let history = &self.best_tip_history;
-
-        if !self.is_best_tip_and_history_linked() {
-            return None;
-        }
-
-        if level >= history.bottom_level() && level <= history.top_level {
-            return Some(history.contains(level, hash));
-        }
-
-        None
-    }
 }
 
 #[derive(Serialize, Debug, Clone, Copy)]
@@ -318,32 +236,5 @@ mod tests {
         ])
         .map(|h| serde_json::from_str(&format!("\"{}\"", h)).unwrap())
         .collect()
-    }
-
-    #[test]
-    fn test_update_best_tip_history() {
-        let hashes = hashes();
-        let n = hashes.len();
-        let mut state = ConsensusState::new();
-
-        state.update_best_tip_history(100, &hashes[6..]);
-        assert_eq!(state.best_tip_history.top_level, 100);
-        assert_eq!(state.best_tip_history.chain, &hashes[6..]);
-
-        state.update_best_tip_history(101, &hashes[5..]);
-        assert_eq!(state.best_tip_history.top_level, 101);
-        assert_eq!(state.best_tip_history.chain, &hashes[5..]);
-
-        state.update_best_tip_history(103, &hashes[3..]);
-        assert_eq!(state.best_tip_history.top_level, 103);
-        assert_eq!(state.best_tip_history.chain, &hashes[3..]);
-
-        state.update_best_tip_history(104, &hashes[2..(n - 1)]);
-        assert_eq!(state.best_tip_history.top_level, 104);
-        assert_eq!(state.best_tip_history.chain, &hashes[2..]);
-
-        state.update_best_tip_history(106, &hashes[..(n - 3)]);
-        assert_eq!(state.best_tip_history.top_level, 106);
-        assert_eq!(state.best_tip_history.chain, &hashes[..]);
     }
 }

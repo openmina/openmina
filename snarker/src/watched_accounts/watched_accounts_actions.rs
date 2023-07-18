@@ -55,10 +55,12 @@ fn should_request_ledger_initial_state(state: &crate::State, pub_key: &NonZeroCu
                 let Some(best_tip) = state.consensus.best_tip() else { return false };
                 &block.hash != best_tip.hash
             }
-            WatchedAccountLedgerInitialState::Success { block, .. } => !state
-                .consensus
-                .is_part_of_main_chain(block.level, &block.hash)
-                .unwrap_or(true),
+            // TODO(binier)
+            WatchedAccountLedgerInitialState::Success { .. } => false,
+            // WatchedAccountLedgerInitialState::Success { block, .. } => !state
+            //     .consensus
+            //     .is_part_of_main_chain(block.level, &block.hash)
+            //     .unwrap_or(true),
         })
 }
 

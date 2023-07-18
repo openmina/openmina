@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use mina_p2p_messages::v2::MinaBlockBlockStableV2;
-use mina_p2p_messages::v2::StateHash;
+use mina_p2p_messages::v2::{MinaBlockBlockStableV2, StateHash};
 use serde::{Deserialize, Serialize};
+use shared::block::ArcBlockWithHash;
 
 use crate::consensus::ConsensusBlockStatus;
 use crate::snark::block_verify::SnarkBlockVerifyId;
@@ -13,21 +13,20 @@ pub type ConsensusActionWithMetaRef<'a> = redux::ActionWithMeta<&'a ConsensusAct
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum ConsensusAction {
     BlockReceived(ConsensusBlockReceivedAction),
+    BlockChainProofUpdate(ConsensusBlockChainProofUpdateAction),
     BlockSnarkVerifyPending(ConsensusBlockSnarkVerifyPendingAction),
     BlockSnarkVerifySuccess(ConsensusBlockSnarkVerifySuccessAction),
     DetectForkRange(ConsensusDetectForkRangeAction),
     ShortRangeForkResolve(ConsensusShortRangeForkResolveAction),
     LongRangeForkResolve(ConsensusLongRangeForkResolveAction),
     BestTipUpdate(ConsensusBestTipUpdateAction),
-    BestTipHistoryUpdate(ConsensusBestTipHistoryUpdateAction),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConsensusBlockReceivedAction {
     pub hash: StateHash,
     pub block: Arc<MinaBlockBlockStableV2>,
-    // Sorted from newest to oldest block starting with predecessor hash.
-    pub history: Option<Vec<StateHash>>,
+    pub chain_proof: Option<(Vec<StateHash>, ArcBlockWithHash)>,
 }
 
 impl redux::EnablingCondition<crate::State> for ConsensusBlockReceivedAction {
@@ -45,6 +44,24 @@ impl redux::EnablingCondition<crate::State> for ConsensusBlockReceivedAction {
             let tip_height = tip.height();
             height > tip_height || (height == tip_height && &self.hash != tip.hash)
         }) && !state.consensus.blocks.contains_key(&self.hash)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ConsensusBlockChainProofUpdateAction {
+    pub hash: StateHash,
+    pub chain_proof: (Vec<StateHash>, ArcBlockWithHash),
+}
+
+impl redux::EnablingCondition<crate::State> for ConsensusBlockChainProofUpdateAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        (state.consensus.best_tip.as_ref() == Some(&self.hash)
+            && state.consensus.best_tip_chain_proof.is_none())
+            || state
+                .consensus
+                .blocks
+                .get(&self.hash)
+                .map_or(false, |b| b.status.is_pending() && b.chain_proof.is_none())
     }
 }
 
@@ -161,19 +178,6 @@ impl redux::EnablingCondition<crate::State> for ConsensusBestTipUpdateAction {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ConsensusBestTipHistoryUpdateAction {
-    pub tip_hash: StateHash,
-    // Sorted from newest to oldest block starting with predecessor hash.
-    pub history: Vec<StateHash>,
-}
-
-impl redux::EnablingCondition<crate::State> for ConsensusBestTipHistoryUpdateAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state.consensus.best_tip.as_ref() == Some(&self.tip_hash)
-    }
-}
-
 macro_rules! impl_into_global_action {
     ($a:ty) => {
         impl From<$a> for crate::Action {
@@ -185,10 +189,10 @@ macro_rules! impl_into_global_action {
 }
 
 impl_into_global_action!(ConsensusBlockReceivedAction);
+impl_into_global_action!(ConsensusBlockChainProofUpdateAction);
 impl_into_global_action!(ConsensusBlockSnarkVerifyPendingAction);
 impl_into_global_action!(ConsensusBlockSnarkVerifySuccessAction);
 impl_into_global_action!(ConsensusDetectForkRangeAction);
 impl_into_global_action!(ConsensusShortRangeForkResolveAction);
 impl_into_global_action!(ConsensusLongRangeForkResolveAction);
 impl_into_global_action!(ConsensusBestTipUpdateAction);
-impl_into_global_action!(ConsensusBestTipHistoryUpdateAction);

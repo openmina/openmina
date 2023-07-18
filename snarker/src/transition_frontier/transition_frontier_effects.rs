@@ -1,3 +1,4 @@
+use p2p::channels::best_tip::P2pChannelsBestTipResponseSendAction;
 use redux::Timestamp;
 
 use crate::ledger::LEDGER_DEPTH;
@@ -60,9 +61,6 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 a.effects(&meta, store);
             }
             TransitionFrontierSyncAction::BlocksPeersQuery(a) => {
-                a.effects(&meta, store);
-            }
-            TransitionFrontierSyncAction::BlocksPeerQueryInit(a) => {
                 a.effects(&meta, store);
             }
             TransitionFrontierSyncAction::BlocksPeerQueryInit(a) => {
@@ -253,7 +251,15 @@ pub fn transition_frontier_effects<S: crate::Service>(
             if let Some(stats) = store.service.stats() {
                 stats.new_best_tip(meta.time(), best_tip);
             }
-            // TODO(binier): publish new best tip
+
+            // publish new best tip.
+            let best_tip = best_tip.clone();
+            for peer_id in store.state().p2p.ready_peers() {
+                store.dispatch(P2pChannelsBestTipResponseSendAction {
+                    peer_id,
+                    best_tip: best_tip.clone(),
+                });
+            }
         }
     }
 }

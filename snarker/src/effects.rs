@@ -53,6 +53,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             if consensus_best_tip_hash.is_some()
                 && consensus_best_tip_hash != best_tip_hash
                 && consensus_best_tip_hash != syncing_best_tip_hash
+                && state.consensus.best_tip_chain_proof.is_none()
             {
                 if !state
                     .p2p
@@ -61,7 +62,18 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                     .any(|kind| matches!(kind, P2pRpcKind::BestTipWithProof))
                 {
                     // TODO(binier): choose randomly.
-                    if let Some((peer_id, id)) = state.p2p.ready_rpc_peers_iter().last() {
+                    if let Some((peer_id, id)) = state
+                        .p2p
+                        .ready_peers_iter()
+                        .filter(|(_, p)| p.channels.rpc.can_send_request())
+                        .filter(|(_, p)| {
+                            p.best_tip
+                                .as_ref()
+                                .map_or(true, |b| Some(b.hash()) == consensus_best_tip_hash)
+                        })
+                        .map(|(peer_id, p)| (*peer_id, p.channels.rpc.next_local_rpc_id()))
+                        .last()
+                    {
                         store.dispatch(P2pChannelsRpcRequestSendAction {
                             peer_id,
                             id,

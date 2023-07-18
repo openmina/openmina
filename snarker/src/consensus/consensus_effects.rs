@@ -1,7 +1,9 @@
+use crate::transition_frontier::sync::{
+    TransitionFrontierSyncBestTipUpdateAction, TransitionFrontierSyncInitAction,
+};
 use crate::watched_accounts::WatchedAccountsLedgerInitialStateGetInitAction;
 use crate::Store;
 use crate::{
-    p2p::channels::best_tip::P2pChannelsBestTipResponseSendAction,
     snark::block_verify::SnarkBlockVerifyInitAction,
     watched_accounts::WatchedAccountsBlockTransactionsIncludedAction,
 };
@@ -26,6 +28,11 @@ pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: Consen
                 req_id,
                 hash: action.hash,
             });
+        }
+        ConsensusAction::BlockChainProofUpdate(a) => {
+            if store.state().consensus.best_tip.as_ref() == Some(&a.hash) {
+                transition_frontier_new_best_tip(store);
+            }
         }
         ConsensusAction::BlockSnarkVerifyPending(_) => {}
         ConsensusAction::BlockSnarkVerifySuccess(a) => {
@@ -57,13 +64,48 @@ pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: Consen
                 });
             }
 
-            for peer_id in store.state().p2p.ready_peers() {
-                store.dispatch(P2pChannelsBestTipResponseSendAction {
-                    peer_id,
-                    best_tip: block.clone(),
-                });
-            }
+            transition_frontier_new_best_tip(store);
         }
-        ConsensusAction::BestTipHistoryUpdate(_) => {}
+    }
+}
+
+fn transition_frontier_new_best_tip<S: crate::Service>(store: &mut Store<S>) {
+    let state = store.state();
+    let Some(best_tip) = state.consensus.best_tip_block_with_hash() else { return };
+    let pred_hash = best_tip.pred_hash();
+
+    let Some((blocks_inbetween, root_block)) = state
+        .consensus
+        .best_tip_chain_proof
+        .clone()
+        .or_else(|| {
+            let old_best_tip = state.transition_frontier.best_tip()?;
+            let mut iter = state.transition_frontier.best_chain.iter();
+            if old_best_tip.hash() == pred_hash {
+                iter.next();
+                let root_block = iter.next()?.clone();
+                let hashes = iter.map(|b| b.hash.clone()).collect();
+                Some((hashes, root_block))
+            } else if old_best_tip.pred_hash() == pred_hash {
+                let root_block = iter.next()?.clone();
+                let hashes = iter.rev().skip(1).rev().map(|b| b.hash.clone()).collect();
+                Some((hashes, root_block))
+            } else {
+                None
+            }
+        }) else { return };
+
+    if !state.transition_frontier.sync.is_pending() && !state.transition_frontier.sync.is_synced() {
+        store.dispatch(TransitionFrontierSyncInitAction {
+            best_tip,
+            root_block,
+            blocks_inbetween,
+        });
+    } else {
+        store.dispatch(TransitionFrontierSyncBestTipUpdateAction {
+            best_tip,
+            root_block,
+            blocks_inbetween,
+        });
     }
 }
