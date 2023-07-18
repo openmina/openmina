@@ -10,13 +10,11 @@ use crate::CurveAffine;
 
 use super::public_input::scalar_challenge::ScalarChallenge;
 
-pub fn extract_polynomial_commitment<F: Field, const N: usize>(
-    curves: &[(BigInt, BigInt)],
-) -> [CurveAffine<F>; N] {
-    array::from_fn(|i| {
-        let curve = &curves[i];
-        CurveAffine(curve.0.to_field(), curve.1.to_field())
-    })
+pub fn extract_polynomial_commitment<F: Field>(curves: &[(BigInt, BigInt)]) -> Vec<CurveAffine<F>> {
+    curves
+        .iter()
+        .map(|curve| CurveAffine(curve.0.to_field(), curve.1.to_field()))
+        .collect()
 }
 
 pub fn extract_bulletproof<F: Field + From<i32>, const N: usize>(
@@ -25,17 +23,16 @@ pub fn extract_bulletproof<F: Field + From<i32>, const N: usize>(
         N,
     >],
     endo: &F,
-) -> [[F; N]; 2] {
-    array::from_fn(|i| {
-        let old = &v[i];
-
-        array::from_fn(|j| {
-            let prechallenge = &old[j].prechallenge.inner;
-            let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].as_u64());
-
-            ScalarChallenge::from(prechallenge).to_field(endo)
+) -> Vec<[F; N]> {
+    v.iter()
+        .map(|old| {
+            array::from_fn(|j| {
+                let prechallenge = &old[j].prechallenge.inner;
+                let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].as_u64());
+                ScalarChallenge::from(prechallenge).to_field(endo)
+            })
         })
-    })
+        .collect()
 }
 
 pub fn u64_to_field<F, const N: usize>(v: &[u64; N]) -> F

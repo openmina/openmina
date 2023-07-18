@@ -33,7 +33,7 @@ impl<'a> From<&'a VerifierIndex> for PlonkVerificationKeyEvals {
 #[derive(Clone, Debug)]
 pub struct MessagesForNextWrapProof {
     pub challenge_polynomial_commitment: CurveAffine<Fq>,
-    pub old_bulletproof_challenges: [[Fq; 15]; 2],
+    pub old_bulletproof_challenges: Vec<[Fq; 15]>,
 }
 
 impl MessagesForNextWrapProof {
@@ -107,8 +107,8 @@ impl MessagesForNextWrapProof {
 pub struct MessagesForNextStepProof<'a, AppState: ToFieldElements> {
     pub app_state: &'a AppState,
     pub dlog_plonk_index: &'a PlonkVerificationKeyEvals,
-    pub challenge_polynomial_commitments: [CurveAffine<Fp>; 2],
-    pub old_bulletproof_challenges: [[Fp; 16]; 2],
+    pub challenge_polynomial_commitments: Vec<CurveAffine<Fp>>,
+    pub old_bulletproof_challenges: Vec<[Fp; 16]>,
 }
 
 impl<AppState> MessagesForNextStepProof<'_, AppState>
@@ -166,21 +166,18 @@ where
             fields.push(index.endomul_scalar.1);
         }
 
-        // Self::app_state
         fields.extend(self.app_state.to_field_elements());
 
         // Self::challenge_polynomial_commitments and Self::old_bulletproof_challenges
         let commitments = &self.challenge_polynomial_commitments;
         let old_challenges = &self.old_bulletproof_challenges;
-
         for (commitments, old) in commitments.iter().zip(old_challenges) {
             fields.push(commitments.0);
             fields.push(commitments.1);
-
             fields.extend_from_slice(old);
         }
 
-        assert!(fields.len() >= NFIELDS);
+        // assert!(fields.len() >= NFIELDS);
 
         fields
     }

@@ -28,6 +28,25 @@ fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
     }) {
         let verifier_index = VERIFIER_INDEX.as_ref();
 
+        // for (proof, msg) in ts {
+        //     let LedgerProof(TransactionSnark {
+        //         statement,
+        //         proof: p,
+        //     }) = &proof;
+        //     let (stmt, p) = (statement, &**p);
+        //     if !crate::proofs::verification::verify_transaction([(stmt, p)], verifier_index) {
+        //         let a: mina_p2p_messages::v2::LedgerProofProdStableV2 = (&proof).into();
+        //         let b: mina_p2p_messages::v2::MinaBaseSokMessageStableV1 = (&msg).into();
+        //         let mut file = std::fs::File::create("ledger_proof2.bin").unwrap();
+        //         binprot::BinProtWrite::binprot_write(&a, &mut file).unwrap();
+        //         file.sync_all().unwrap();
+        //         let mut file = std::fs::File::create("sok_msg2.bin").unwrap();
+        //         binprot::BinProtWrite::binprot_write(&b, &mut file).unwrap();
+        //         file.sync_all().unwrap();
+        //         panic!();
+        //     }
+        // }
+
         let proofs = ts.iter().map(|(proof, _)| {
             let LedgerProof(TransactionSnark { statement, proof }) = proof;
             (statement, &**proof)

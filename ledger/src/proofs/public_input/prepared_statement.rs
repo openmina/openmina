@@ -47,7 +47,7 @@ pub struct PreparedStatement {
 impl PreparedStatement {
     /// Implementation of `tock_unpadded_public_input_of_statement`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L202
-    pub fn to_public_input(&self) -> Vec<Fq> {
+    pub fn to_public_input(&self, npublic_input: usize) -> Vec<Fq> {
         let PreparedStatement {
             proof_state:
                 ProofState {
@@ -87,9 +87,7 @@ impl PreparedStatement {
         // We sort the fields in the same order as here:
         // https://github.com/MinaProtocol/mina/blob/c824be7d80db1d290e0d48cbc920182d07de0330/src/lib/pickles/composition_types/composition_types.ml#L739
 
-        const NINPUTS: usize = 52;
-
-        let mut fields: Vec<Fq> = Vec::with_capacity(NINPUTS);
+        let mut fields: Vec<Fq> = Vec::with_capacity(npublic_input);
 
         let to_fq = |fp: Fp| -> Fq {
             let bigint: BigInteger256 = fp.into();
@@ -147,12 +145,9 @@ impl PreparedStatement {
             fields.push(u64_to_field(&[branch_data]));
         }
 
-        // TODO: Not sure how that padding works, check further
-        while fields.len() < NINPUTS {
+        while fields.len() < npublic_input {
             fields.push(0.into());
         }
-
-        assert_eq!(fields.len(), NINPUTS);
 
         fields
     }

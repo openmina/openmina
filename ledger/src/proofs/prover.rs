@@ -1,10 +1,12 @@
-use std::array;
+use std::{array, borrow::Cow, str::FromStr};
 
 use kimchi::{
     poly_commitment::PolyComm,
     proof::{PointEvaluations, ProofEvaluations, ProverCommitments, RecursionChallenge},
 };
 use mina_curves::pasta::Pallas;
+use mina_hasher::Fp;
+use once_cell::sync::Lazy;
 use poly_commitment::{commitment::CommitmentCurve, evaluation_proof::OpeningProof};
 
 use super::public_input::scalar_challenge::endo_fq;
@@ -13,6 +15,23 @@ use mina_curves::pasta::Fq;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
 
 use super::ProverProof;
+
+fn get_challenge_polynomial_commitments_padding() -> (BigInt, BigInt) {
+    static PADDING: Lazy<(BigInt, BigInt)> = Lazy::new(|| {
+        let first = Fp::from_str(
+            "8063668238751197448664615329057427953229339439010717262869116690340613895496",
+        )
+        .unwrap();
+        let second = Fp::from_str(
+            "2694491010813221541025626495812026140144933943906714931997499229912601205355",
+        )
+        .unwrap();
+
+        (first.into(), second.into())
+    });
+
+    PADDING.clone()
+}
 
 pub fn make_prover(
     PicklesProofProofsVerified2ReprStableV2 {
@@ -70,7 +89,7 @@ pub fn make_prover(
         .proof_state
         .messages_for_next_wrap_proof
         .old_bulletproof_challenges;
-    let old_bulletproof_challenges: [[Fq; 15]; 2] = extract_bulletproof(
+    let old_bulletproof_challenges: Vec<[Fq; 15]> = extract_bulletproof(
         &[
             old_bulletproof_challenges.0[0].0.clone(),
             old_bulletproof_challenges.0[1].0.clone(),
@@ -86,14 +105,27 @@ pub fn make_prover(
         }
     };
 
-    let comms = &statement
-        .messages_for_next_step_proof
-        .challenge_polynomial_commitments;
-    let commitments: Vec<PolyComm<Pallas>> = comms.iter().map(make_poly).collect();
+    let mut challenge_polynomial_commitments = Cow::Borrowed(
+        &statement
+            .messages_for_next_step_proof
+            .challenge_polynomial_commitments,
+    );
+
+    // Prepend padding:
+    // https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/verify.ml#L361C1-L364C51
+    while challenge_polynomial_commitments.len() < 2 {
+        let padding = get_challenge_polynomial_commitments_padding();
+        challenge_polynomial_commitments.to_mut().insert(0, padding);
+    }
+
+    let challenge_polynomial_commitments: Vec<PolyComm<Pallas>> = challenge_polynomial_commitments
+        .iter()
+        .map(make_poly)
+        .collect();
 
     let prev_challenges: Vec<RecursionChallenge<Pallas>> = old_bulletproof_challenges
         .iter()
-        .zip(commitments)
+        .zip(challenge_polynomial_commitments)
         .map(|(chals, comm)| RecursionChallenge::new(chals.to_vec(), comm))
         .collect();
 

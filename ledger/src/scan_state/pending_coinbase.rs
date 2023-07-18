@@ -110,7 +110,7 @@ pub struct StackState {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(super) struct CoinbaseStack(pub(super) Fp);
+pub struct CoinbaseStack(pub Fp);
 
 impl ToInputs for CoinbaseStack {
     fn to_inputs(&self, inputs: &mut Inputs) {
@@ -156,9 +156,9 @@ impl CoinbaseStack {
 type StackHash = Fp;
 
 #[derive(Clone, PartialEq, Eq)]
-pub(super) struct StateStack {
-    pub(super) init: StackHash,
-    pub(super) curr: StackHash,
+pub struct StateStack {
+    pub init: StackHash,
+    pub curr: StackHash,
 }
 
 impl ToInputs for StateStack {
@@ -253,8 +253,8 @@ pub mod update {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Stack {
-    pub(super) data: CoinbaseStack,
-    pub(super) state: StateStack,
+    pub data: CoinbaseStack,
+    pub state: StateStack,
 }
 
 impl ToInputs for Stack {

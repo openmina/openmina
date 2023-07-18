@@ -40,10 +40,10 @@ use super::{
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FeeExcess {
-    pub(super) fee_token_l: TokenId,
-    pub(super) fee_excess_l: Signed<Fee>,
-    pub(super) fee_token_r: TokenId,
-    pub(super) fee_excess_r: Signed<Fee>,
+    pub fee_token_l: TokenId,
+    pub fee_excess_l: Signed<Fee>,
+    pub fee_token_r: TokenId,
+    pub fee_excess_r: Signed<Fee>,
 }
 
 impl ToInputs for FeeExcess {

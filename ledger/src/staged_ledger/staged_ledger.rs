@@ -1238,9 +1238,11 @@ impl StagedLedger {
     ) -> Result<DiffResult, StagedLedgerError> {
         let work = witness.completed_works();
 
+        let now = std::time::Instant::now();
         if skip_verification.is_none() {
             Self::check_completed_works(logger, verifier, &self.scan_state, work)?;
         }
+        eprintln!("verification time={:?}", now.elapsed());
 
         let prediff = witness.get(
             |cmd| Self::check_commands(self.ledger.clone(), verifier, cmd),
@@ -5824,7 +5826,7 @@ mod tests {
         scan_state::{
             currency::Slot,
             pending_coinbase::PendingCoinbase,
-            scan_state::ScanState,
+            scan_state::{transaction_snark::LedgerProof, ScanState},
             transaction_logic::{local_state::LocalState, protocol_state::protocol_state_view},
         },
         staged_ledger::{
@@ -6112,5 +6114,30 @@ mod tests {
         // f.write_all(&encoded).unwrap();
         // f.flush().unwrap();
         // --serialize
+    }
+
+    #[test]
+    fn test_tx_proof() {
+        use crate::proofs::to_field_elements::ToFieldElements;
+        #[allow(unused)]
+        use binprot::{BinProtRead, BinProtWrite};
+
+        let Ok(ledger_proof) = std::fs::read("ledger_proof2.bin") else {
+            eprintln!("ledger_proof.bin not found");
+            return;
+        };
+        let Ok(_sok_msg) = std::fs::read("sok_msg2.bin") else {
+            eprintln!("sok_msg2.bin not found");
+            return;
+        };
+
+        let mut ledger_proof = std::io::Cursor::new(ledger_proof);
+        let ledger_proof: v2::LedgerProofProdStableV2 =
+            BinProtRead::binprot_read(&mut ledger_proof).unwrap();
+
+        let ledger_proof: LedgerProof = (&ledger_proof).into();
+        let stmt = ledger_proof.statement_ref();
+
+        dbg!(stmt.to_field_elements());
     }
 }

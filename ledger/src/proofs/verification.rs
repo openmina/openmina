@@ -68,6 +68,7 @@ where
 struct DataForPublicInput {
     evals: ProofEvaluations<[Fp; 2]>,
     minimal: PlonkMinimal,
+    domain_log2: u8,
 }
 
 fn extract_data_for_public_input(
@@ -99,6 +100,9 @@ fn extract_data_for_public_input(
     let beta: Fp = u64_to_field(&beta_bytes);
     let gamma: Fp = u64_to_field(&gamma_bytes);
 
+    let branch_data = &proof.statement.proof_state.deferred_values.branch_data;
+    let domain_log2: u8 = branch_data.domain_log2.as_u8();
+
     let minimal = PlonkMinimal {
         alpha,
         beta,
@@ -111,13 +115,18 @@ fn extract_data_for_public_input(
         zeta_bytes,
     };
 
-    DataForPublicInput { evals, minimal }
+    DataForPublicInput {
+        evals,
+        minimal,
+        domain_log2,
+    }
 }
 
-fn make_scalars_env(minimal: &PlonkMinimal) -> ScalarsEnv {
+fn make_scalars_env(minimal: &PlonkMinimal, domain_log2: u8) -> ScalarsEnv {
     let srs_length_log2: u64 = 16;
+
     let domain: Radix2EvaluationDomain<Fp> =
-        Radix2EvaluationDomain::new(1 << srs_length_log2).unwrap();
+        Radix2EvaluationDomain::new(1 << domain_log2 as u64).unwrap();
 
     let zk_polynomial = eval_zk_polynomial(domain, minimal.zeta);
     let zeta_to_n_minus_1 = domain.evaluate_vanishing_polynomial(minimal.zeta);
@@ -143,9 +152,9 @@ where
         old_bulletproof_challenges,
     } = messages_for_next_step_proof;
 
-    let challenge_polynomial_commitments: [CurveAffine<Fp>; 2] =
+    let challenge_polynomial_commitments: Vec<CurveAffine<Fp>> =
         extract_polynomial_commitment(challenge_polynomial_commitments);
-    let old_bulletproof_challenges: [[Fp; 16]; 2] =
+    let old_bulletproof_challenges: Vec<[Fp; 16]> =
         extract_bulletproof(old_bulletproof_challenges, &endo_fp());
     let dlog_plonk_index = commitments;
 
@@ -163,10 +172,10 @@ fn get_message_for_next_wrap_proof(
         old_bulletproof_challenges,
     }: &PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
 ) -> MessagesForNextWrapProof {
-    let challenge_polynomial_commitments: [CurveAffine<Fq>; 1] =
+    let challenge_polynomial_commitments: Vec<CurveAffine<Fq>> =
         extract_polynomial_commitment(&[challenge_polynomial_commitment.clone()]);
 
-    let old_bulletproof_challenges: [[Fq; 15]; 2] = extract_bulletproof(
+    let old_bulletproof_challenges: Vec<[Fq; 15]> = extract_bulletproof(
         &[
             old_bulletproof_challenges[0].0.clone(),
             old_bulletproof_challenges[1].0.clone(),
@@ -327,9 +336,13 @@ fn verify_impl<AppState>(
 where
     AppState: ToFieldElements,
 {
-    let DataForPublicInput { evals, minimal } = extract_data_for_public_input(proof);
+    let DataForPublicInput {
+        evals,
+        minimal,
+        domain_log2,
+    } = extract_data_for_public_input(proof);
 
-    let env = make_scalars_env(&minimal);
+    let env = make_scalars_env(&minimal, domain_log2);
     let plonk = derive_plonk(&env, &evals, &minimal);
 
     let message_for_next_step_proof = get_message_for_next_step_proof(
@@ -338,8 +351,8 @@ where
         app_state,
     );
 
-    let message_for_next_wrap_proof = &proof.statement.proof_state.messages_for_next_wrap_proof;
-    let message_for_next_wrap_proof = get_message_for_next_wrap_proof(message_for_next_wrap_proof);
+    let message_for_next_wrap_proof =
+        get_message_for_next_wrap_proof(&proof.statement.proof_state.messages_for_next_wrap_proof);
 
     let prepared_statement = get_prepared_statement(
         &message_for_next_step_proof,
@@ -350,13 +363,14 @@ where
         &minimal,
     );
 
-    let public_inputs = prepared_statement.to_public_input();
+    let npublic_input = vk.index.public;
+    let public_inputs = prepared_statement.to_public_input(npublic_input);
     let prover = make_prover(proof);
 
     let result = verify_with(vk.index, &prover, &public_inputs);
 
     if let Err(e) = result {
-        println!("verify error={:?}", e);
+        eprintln!("verify error={:?}", e);
     };
 
     result.is_ok()
