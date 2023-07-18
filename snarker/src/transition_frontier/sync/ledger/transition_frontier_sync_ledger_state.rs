@@ -146,6 +146,13 @@ impl PeerRpcState {
 }
 
 impl TransitionFrontierSyncLedgerState {
+    pub fn is_snarked_ledger_synced(&self) -> bool {
+        match self {
+            Self::Init { .. } | Self::SnarkedPending { .. } => false,
+            _ => true,
+        }
+    }
+
     pub fn block(&self) -> &ArcBlockWithHash {
         match self {
             Self::Init { block, .. } => block,

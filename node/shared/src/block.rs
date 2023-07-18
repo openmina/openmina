@@ -66,6 +66,11 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
     pub fn staged_ledger_hashes(&self) -> &MinaBaseStagedLedgerHashStableV1 {
         staged_ledger_hashes(self.header())
     }
+
+    pub fn root_block_height(&self) -> u32 {
+        let k = self.header().protocol_state.body.constants.k.as_u32();
+        self.height().saturating_sub(k).max(1)
+    }
 }
 
 impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {

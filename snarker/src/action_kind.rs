@@ -2,7 +2,7 @@ use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
 use crate::consensus::{
-    ConsensusAction, ConsensusBestTipHistoryUpdateAction, ConsensusBestTipUpdateAction,
+    ConsensusAction, ConsensusBestTipUpdateAction, ConsensusBlockChainProofUpdateAction,
     ConsensusBlockReceivedAction, ConsensusBlockSnarkVerifyPendingAction,
     ConsensusBlockSnarkVerifySuccessAction, ConsensusDetectForkRangeAction,
     ConsensusLongRangeForkResolveAction, ConsensusShortRangeForkResolveAction,
@@ -135,8 +135,8 @@ use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 pub enum ActionKind {
     None,
     CheckTimeouts,
-    ConsensusBestTipHistoryUpdate,
     ConsensusBestTipUpdate,
+    ConsensusBlockChainProofUpdate,
     ConsensusBlockReceived,
     ConsensusBlockSnarkVerifyPending,
     ConsensusBlockSnarkVerifySuccess,
@@ -336,13 +336,13 @@ impl ActionKindGet for ConsensusAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::BlockReceived(a) => a.kind(),
+            Self::BlockChainProofUpdate(a) => a.kind(),
             Self::BlockSnarkVerifyPending(a) => a.kind(),
             Self::BlockSnarkVerifySuccess(a) => a.kind(),
             Self::DetectForkRange(a) => a.kind(),
             Self::ShortRangeForkResolve(a) => a.kind(),
             Self::LongRangeForkResolve(a) => a.kind(),
             Self::BestTipUpdate(a) => a.kind(),
-            Self::BestTipHistoryUpdate(a) => a.kind(),
         }
     }
 }
@@ -487,6 +487,12 @@ impl ActionKindGet for ConsensusBlockReceivedAction {
     }
 }
 
+impl ActionKindGet for ConsensusBlockChainProofUpdateAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ConsensusBlockChainProofUpdate
+    }
+}
+
 impl ActionKindGet for ConsensusBlockSnarkVerifyPendingAction {
     fn kind(&self) -> ActionKind {
         ActionKind::ConsensusBlockSnarkVerifyPending
@@ -520,12 +526,6 @@ impl ActionKindGet for ConsensusLongRangeForkResolveAction {
 impl ActionKindGet for ConsensusBestTipUpdateAction {
     fn kind(&self) -> ActionKind {
         ActionKind::ConsensusBestTipUpdate
-    }
-}
-
-impl ActionKindGet for ConsensusBestTipHistoryUpdateAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ConsensusBestTipHistoryUpdate
     }
 }
 

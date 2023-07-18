@@ -1,7 +1,7 @@
 use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use shared::block::BlockWithHash;
 
-use crate::consensus::ConsensusBlockReceivedAction;
+use crate::consensus::{ConsensusBlockChainProofUpdateAction, ConsensusBlockReceivedAction};
 use crate::job_commitment::JobCommitmentAddAction;
 use crate::p2p::channels::rpc::{P2pChannelsRpcRequestSendAction, P2pRpcRequest};
 use crate::p2p::disconnection::P2pDisconnectionInitAction;
@@ -21,9 +21,9 @@ use crate::transition_frontier::sync::ledger::{
     TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction,
 };
 use crate::transition_frontier::sync::{
-    TransitionFrontierSyncBestTipUpdateAction, TransitionFrontierSyncBlocksPeerQueryErrorAction,
+    TransitionFrontierSyncBlocksPeerQueryErrorAction,
     TransitionFrontierSyncBlocksPeerQuerySuccessAction,
-    TransitionFrontierSyncBlocksPeersQueryAction, TransitionFrontierSyncInitAction,
+    TransitionFrontierSyncBlocksPeersQueryAction,
 };
 use crate::watched_accounts::{
     WatchedAccountLedgerInitialState, WatchedAccountsLedgerInitialStateGetError,
@@ -240,17 +240,12 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 }
                 P2pChannelsBestTipAction::Received(action) => {
                     action.effects(&meta, store);
-                    store.dispatch(ConsensusBlockReceivedAction {
-                        hash: action.best_tip.hash,
-                        block: action.best_tip.block,
-                        history: None,
-                    });
                 }
                 P2pChannelsBestTipAction::RequestReceived(action) => {
-                    if let Some(best_tip) = store.state().consensus.best_tip_block_with_hash() {
+                    if let Some(best_tip) = store.state().transition_frontier.best_tip() {
                         store.dispatch(P2pChannelsBestTipResponseSendAction {
                             peer_id: action.peer_id,
-                            best_tip,
+                            best_tip: best_tip.clone(),
                         });
                     }
                 }
@@ -357,21 +352,10 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                     return;
                                 }
                             }
-                            if !store.state().transition_frontier.sync.is_pending()
-                                && !store.state().transition_frontier.sync.is_synced()
-                            {
-                                store.dispatch(TransitionFrontierSyncInitAction {
-                                    best_tip,
-                                    root_block,
-                                    blocks_inbetween: hashes,
-                                });
-                            } else {
-                                store.dispatch(TransitionFrontierSyncBestTipUpdateAction {
-                                    best_tip,
-                                    root_block,
-                                    blocks_inbetween: hashes,
-                                });
-                            }
+                            store.dispatch(ConsensusBlockChainProofUpdateAction {
+                                hash: best_tip.hash,
+                                chain_proof: (hashes, root_block),
+                            });
                         }
                         Some(P2pRpcResponse::LedgerQuery(answer)) => match answer {
                             MinaLedgerSyncLedgerAnswerStableV2::ChildHashesAre(left, right) => {
@@ -437,7 +421,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 store.dispatch(ConsensusBlockReceivedAction {
                     hash: action.best_tip.hash,
                     block: action.best_tip.block,
-                    history: None,
+                    chain_proof: None,
                 });
                 store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
                 store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchInitAction {});
