@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    public_input::protocol_state::MinaHash,
+    to_field_elements::ToFieldElements,
     util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
 };
 use kimchi::{
@@ -25,7 +25,7 @@ use mina_p2p_messages::{
     bigint::BigInt,
     v2::{
         CompositionTypesDigestConstantStableV1, MinaBlockHeaderStableV2,
-        MinaStateProtocolStateValueStableV2, PicklesProofProofsVerified2ReprStableV2,
+        PicklesProofProofsVerified2ReprStableV2,
         PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof,
         PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
         PicklesProofProofsVerified2ReprStableV2StatementFp,
@@ -287,9 +287,8 @@ pub fn verify_block(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierI
     verify_impl(protocol_state, protocol_state_proof, &vk)
 }
 
-pub fn verify_transaction(
-    statement: &Statement<SokDigest>,
-    transaction_proof: &TransactionSnarkProofStableV2,
+pub fn verify_transaction<'a>(
+    proofs: impl IntoIterator<Item = (&'a Statement<SokDigest>, &'a TransactionSnarkProofStableV2)>,
     verifier_index: &VerifierIndex,
 ) -> bool {
     let vk = VK {
@@ -298,7 +297,9 @@ pub fn verify_transaction(
         data: (),
     };
 
-    verify_impl(statement, transaction_proof, &vk)
+    !proofs
+        .into_iter()
+        .any(|(statement, transaction_proof)| !verify_impl(statement, transaction_proof, &vk))
 }
 
 pub fn verify_zkapp(
@@ -316,31 +317,6 @@ pub fn verify_zkapp(
     };
 
     verify_impl(&zkapp_statement, sideloaded_proof, &vk);
-}
-
-pub trait ToFieldElements {
-    fn to_field_elements(&self) -> Vec<Fp>;
-}
-
-impl ToFieldElements for MinaStateProtocolStateValueStableV2 {
-    fn to_field_elements(&self) -> Vec<Fp> {
-        vec![MinaHash::hash(self)]
-    }
-}
-
-impl ToFieldElements for Statement<SokDigest> {
-    fn to_field_elements(&self) -> Vec<Fp> {
-        let mut inputs = crate::Inputs::new();
-        inputs.append(self);
-
-        inputs.to_fields()
-    }
-}
-
-impl ToFieldElements for ZkappStatement {
-    fn to_field_elements(&self) -> Vec<Fp> {
-        self.to_field_elements()
-    }
 }
 
 fn verify_impl<AppState>(

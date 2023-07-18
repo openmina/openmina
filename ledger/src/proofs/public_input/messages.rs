@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use crate::proofs::to_field_elements::ToFieldElements;
 use crate::proofs::VerifierIndex;
 use crate::{CurveAffine, PlonkVerificationKeyEvals};
 use ark_ff::{BigInteger256, PrimeField};
@@ -8,7 +9,6 @@ use mina_hasher::Fp;
 use poly_commitment::PolyComm;
 
 use crate::hash::hash_fields;
-use crate::proofs::verification::ToFieldElements;
 
 impl<'a> From<&'a VerifierIndex> for PlonkVerificationKeyEvals {
     fn from(verifier_index: &'a VerifierIndex) -> Self {

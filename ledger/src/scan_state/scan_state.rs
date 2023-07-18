@@ -528,6 +528,24 @@ pub mod transaction_snark {
         pub fn create(fee: Fee, prover: CompressedPubKey) -> Self {
             Self { fee, prover }
         }
+
+        pub fn digest(&self) -> SokDigest {
+            use binprot::BinProtWrite;
+
+            let mut bytes = Vec::with_capacity(10000);
+            let binprot: mina_p2p_messages::v2::MinaBaseSokMessageStableV1 = self.into();
+            binprot.binprot_write(&mut bytes).unwrap();
+
+            use blake2::{
+                digest::{Update, VariableOutput},
+                Blake2bVar,
+            };
+            let mut hasher = Blake2bVar::new(32).expect("Invalid Blake2bVar output size");
+            hasher.update(bytes.as_slice());
+            let digest = hasher.finalize_boxed();
+
+            SokDigest(digest.into())
+        }
     }
 
     #[derive(Debug, Clone, PartialEq)]
@@ -1136,7 +1154,7 @@ impl ScanState {
         }
     }
 
-    fn statement_of_job(job: &AvailableJob) -> Option<Statement<()>> {
+    pub fn statement_of_job(job: &AvailableJob) -> Option<Statement<()>> {
         use super::parallel_scan::AvailableJob::{Base, Merge};
 
         match job {

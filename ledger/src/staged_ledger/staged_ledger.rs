@@ -761,18 +761,59 @@ impl StagedLedger {
         ))
     }
 
+    fn verify_proofs(
+        _logger: (),
+        verifier: &Verifier,
+        proofs: Vec<(LedgerProof, Statement<()>, SokMessage)>,
+    ) -> Result<(), StagedLedgerError> {
+        if proofs
+            .iter()
+            .any(|(proof, statement, _msg)| &proof.statement() != statement)
+        {
+            return Err(format!(
+                "Invalid transaction snark for statement: Statement and proof do not match"
+            )
+            .into());
+        }
+
+        match verifier.verify_transaction_snarks(
+            proofs
+                .into_iter()
+                .map(|(proof, _, msg)| (proof, msg))
+                .collect(),
+        ) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(format!(
+                "Verifier error when checking transaction snark for statement: {:?}",
+                e
+            )
+            .into()),
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L164
     fn verify(
-        _logger: (),
-        _verifier: &Verifier,
-        _job_msg_proofs: Vec<(AvailableJob, SokMessage, LedgerProof)>,
+        logger: (),
+        verifier: &Verifier,
+        job_msg_proofs: Vec<(AvailableJob, SokMessage, LedgerProof)>,
     ) -> Result<(), StagedLedgerError> {
-        // TODO
+        fn map_opt<F, R>(xs: Vec<(AvailableJob, SokMessage, LedgerProof)>, fun: F) -> Option<Vec<R>>
+        where
+            F: Fn(AvailableJob, SokMessage, LedgerProof) -> Option<R>,
+        {
+            xs.into_iter()
+                .map(|(job, msg, proof)| fun(job, msg, proof))
+                .collect()
+        }
 
-        // Must check statements are same
-        // https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/transaction_snark/transaction_snark.ml#L3467
-
-        Ok(())
+        match map_opt(job_msg_proofs, |job, msg, proof| {
+            ScanState::statement_of_job(&job).map(|s| (proof, s, msg))
+        }) {
+            None => Err(format!("Error creating statement from job").into()),
+            Some(proof_statement_msgs) => {
+                Self::verify_proofs(logger, verifier, proof_statement_msgs)
+            }
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L654
@@ -5776,7 +5817,7 @@ mod tests_ocaml {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, fmt::format, fs::File};
+    use std::{collections::BTreeMap, fs::File};
 
     use crate::{
         proofs::public_input::protocol_state::MinaHash,

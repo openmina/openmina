@@ -4,6 +4,7 @@ pub mod accumulator_check;
 pub mod caching;
 mod prover;
 pub mod public_input;
+pub mod to_field_elements;
 pub mod transition_chain;
 mod urs_utils;
 pub mod util;
