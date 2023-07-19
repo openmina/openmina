@@ -2710,7 +2710,7 @@ mod tests_ocaml {
         cmds_used: usize,
         pks_to_check: &[AccountId],
     ) {
-        return;
+        // return;
 
         let producer_account_id = AccountId::new(COINBASE_RECEIVER.clone(), TokenId::default());
         let producer_account = test_ledger
@@ -2723,7 +2723,7 @@ mod tests_ocaml {
             None => Balance::zero(),
         };
 
-        let test_ledger = test_ledger;
+        let mut test_ledger = test_ledger;
 
         let cmds: Vec<_> = util::take(cmds_all, cmds_used)
             .iter()
@@ -5972,6 +5972,10 @@ mod tests {
             pending_coinbase_collection: pending_coinbase,
         };
 
+        let block_verifier = crate::proofs::verifier_index::get_verifier_index(
+            crate::proofs::verifier_index::VerifierKind::Blockchain,
+        );
+
         println!("initialized in {:?}", now.elapsed());
 
         dbg!(staged_ledger.ledger.nmasks_to_root());
@@ -5993,6 +5997,8 @@ mod tests {
                 .consensus_state
                 .global_slot_since_genesis
                 .as_u32();
+
+            crate::proofs::verification::verify_block(&block.header, &block_verifier);
 
             let diff: Diff = (&block.body.staged_ledger_diff).into();
 

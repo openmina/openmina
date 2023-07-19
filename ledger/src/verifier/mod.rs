@@ -64,6 +64,21 @@ fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
     }
 }
 
+/// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/verifier/dummy.ml#L59C1-L75C81
+#[cfg(test)]
+fn verify_digest_only(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
+    use crate::scan_state::scan_state::transaction_snark::SokDigest;
+
+    if ts.iter().all(|(proof, msg)| {
+        let LedgerProof(TransactionSnark { statement, .. }) = proof;
+        statement.sok_digest == SokDigest::default() || statement.sok_digest == msg.digest()
+    }) {
+        Ok(())
+    } else {
+        Err("Transaction_snark.verify: Mismatched sok_message".into())
+    }
+}
+
 impl Verifier {
     pub fn verify(&self, _proofs: &[LedgerProofWithSokMessage]) -> Result<Result<(), ()>, String> {
         // Implement verification later
@@ -74,10 +89,14 @@ impl Verifier {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/verifier/prod.ml#L138
+    #[allow(unreachable_code)]
     pub fn verify_transaction_snarks(
         &self,
         ts: Vec<(LedgerProof, SokMessage)>,
     ) -> Result<(), String> {
+        #[cfg(test)]
+        return verify_digest_only(ts);
+
         verify(ts)
     }
 
