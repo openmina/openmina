@@ -163,10 +163,6 @@ impl ToString for TransactionFailure {
     }
 }
 
-pub fn single_failure() -> Vec<Vec<TransactionFailure>> {
-    vec![vec![TransactionFailure::UpdateNotPermittedBalance]]
-}
-
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L452
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TransactionStatus {
@@ -5006,6 +5002,52 @@ where
         .collect()
 }
 
+struct FailureCollection {
+    inner: Vec<Vec<TransactionFailure>>,
+}
+
+/// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/transaction_logic/mina_transaction_logic.ml#L2197C1-L2210C53
+impl FailureCollection {
+    fn empty() -> Self {
+        Self {
+            inner: Vec::default(),
+        }
+    }
+
+    fn no_failure() -> Vec<TransactionFailure> {
+        vec![]
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/transaction_logic/mina_transaction_logic.ml#L2204
+    fn single_failure() -> Self {
+        Self {
+            inner: vec![vec![TransactionFailure::UpdateNotPermittedBalance]],
+        }
+    }
+
+    fn update_failed() -> Vec<TransactionFailure> {
+        vec![TransactionFailure::UpdateNotPermittedBalance]
+    }
+
+    /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/transaction_logic/mina_transaction_logic.ml#L2208
+    fn append_entry(list: Vec<TransactionFailure>, mut s: Self) -> Self {
+        if s.inner.is_empty() {
+            Self { inner: vec![list] }
+        } else {
+            s.inner.insert(1, list);
+            s
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.inner.iter().all(Vec::is_empty)
+    }
+
+    fn take(self) -> Vec<Vec<TransactionFailure>> {
+        self.inner
+    }
+}
+
 /// Structure of the failure status:
 ///  I. No fee transfer and coinbase transfer fails: [[failure]]
 ///  II. With fee transfer-
@@ -5040,7 +5082,14 @@ where
         failures1,
         burned_tokens1,
     ) = match fee_transfer {
-        None => (*coinbase_amount, None, None, None, vec![], Amount::zero()),
+        None => (
+            *coinbase_amount,
+            None,
+            None,
+            None,
+            FailureCollection::empty(),
+            Amount::zero(),
+        ),
         Some(
             ft @ CoinbaseFeeTransfer {
                 receiver_pk: transferee,
@@ -5081,7 +5130,10 @@ where
                     new_accounts,
                     Some((transferee_location, transferee_account)),
                     Some(timing),
-                    vec![],
+                    FailureCollection::append_entry(
+                        FailureCollection::no_failure(),
+                        FailureCollection::empty(),
+                    ),
                     Amount::zero(),
                 )
             } else {
@@ -5090,7 +5142,7 @@ where
                     None,
                     None,
                     None,
-                    vec![TransactionFailure::UpdateNotPermittedBalance],
+                    FailureCollection::single_failure(),
                     fee,
                 )
             }
@@ -5117,7 +5169,7 @@ where
         add_amount(receiver_account.balance, amount)?
     };
 
-    let (failures2, burned_tokens2) = if can_receive.0 {
+    let (failures, burned_tokens2) = if can_receive.0 {
         let (_action2, mut receiver_account, receiver_location) =
             ledger.get_or_create(&receiver_id)?;
 
@@ -5126,10 +5178,13 @@ where
 
         ledger.set(&receiver_location, receiver_account);
 
-        (vec![], Amount::zero())
+        (
+            FailureCollection::append_entry(FailureCollection::no_failure(), failures1),
+            Amount::zero(),
+        )
     } else {
         (
-            vec![TransactionFailure::UpdateNotPermittedBalance],
+            FailureCollection::append_entry(FailureCollection::update_failed(), failures1),
             receiver_reward,
         )
     };
@@ -5142,11 +5197,10 @@ where
         .checked_add(&burned_tokens2)
         .ok_or_else(|| "burned tokens overflow".to_string())?;
 
-    let failures = vec![failures1, failures2];
-    let status = if failures.iter().all(Vec::is_empty) {
+    let status = if failures.is_empty() {
         TransactionStatus::Applied
     } else {
-        TransactionStatus::Failed(failures)
+        TransactionStatus::Failed(failures.take())
     };
 
     let new_accounts: Vec<_> = [new_accounts1, new_accounts2]
@@ -5187,10 +5241,10 @@ where
         |account| update_timing_when_no_deduction(txn_global_slot, account),
     )?;
 
-    let status = if failures.iter().all(Vec::is_empty) {
+    let status = if failures.is_empty() {
         TransactionStatus::Applied
     } else {
-        TransactionStatus::Failed(failures)
+        TransactionStatus::Failed(failures.take())
     };
 
     Ok(transaction_applied::FeeTransferApplied {
@@ -5281,7 +5335,7 @@ fn process_fee_transfer<L, FunBalance, FunTiming>(
     fee_transfer: &FeeTransfer,
     modify_balance: FunBalance,
     modify_timing: FunTiming,
-) -> Result<(Vec<AccountId>, Vec<Vec<TransactionFailure>>, Amount), String>
+) -> Result<(Vec<AccountId>, FailureCollection, Amount), String>
 where
     L: LedgerIntf,
     FunTiming: Fn(&Account) -> Result<Timing, String>,
@@ -5309,9 +5363,13 @@ where
                 ledger.set(&loc, account);
 
                 let new_accounts: Vec<_> = new_accounts.into_iter().collect();
-                Ok((new_accounts, vec![], Amount::zero()))
+                Ok((new_accounts, FailureCollection::empty(), Amount::zero()))
             } else {
-                Ok((vec![], single_failure(), Amount::of_fee(&fee_transfer.fee)))
+                Ok((
+                    vec![],
+                    FailureCollection::single_failure(),
+                    Amount::of_fee(&fee_transfer.fee),
+                ))
             }
         }
         OneOrTwo::Two((fee_transfer1, fee_transfer2)) => {
@@ -5339,16 +5397,16 @@ where
                     ledger.set(&l1, a1);
 
                     let new_accounts: Vec<_> = new_accounts1.into_iter().collect();
-                    Ok((new_accounts, vec![vec![], vec![]], Amount::zero()))
+                    Ok((new_accounts, FailureCollection::empty(), Amount::zero()))
                 } else {
                     // failure for each fee transfer single
 
                     Ok((
                         vec![],
-                        vec![
-                            vec![TransactionFailure::UpdateNotPermittedBalance],
-                            vec![TransactionFailure::UpdateNotPermittedBalance],
-                        ],
+                        FailureCollection::append_entry(
+                            FailureCollection::update_failed(),
+                            FailureCollection::single_failure(),
+                        ),
                         Amount::of_fee(&fee),
                     ))
                 }
@@ -5367,23 +5425,30 @@ where
                 let balance2 =
                     modify_balance(action2, &account_id2, a2.balance, &fee_transfer2.fee)?;
 
-                let (new_accounts1, failures1, burned_tokens1) = if can_receive1.0 {
+                let (new_accounts1, failures, burned_tokens1) = if can_receive1.0 {
                     let (_, mut a1, l1) = ledger.get_or_create(&account_id1)?;
                     let new_accounts1 = get_new_accounts(action1, account_id1);
 
                     a1.balance = balance1;
                     ledger.set(&l1, a1);
 
-                    (new_accounts1, vec![], Amount::zero())
+                    (
+                        new_accounts1,
+                        FailureCollection::append_entry(
+                            FailureCollection::no_failure(),
+                            FailureCollection::empty(),
+                        ),
+                        Amount::zero(),
+                    )
                 } else {
                     (
                         None,
-                        vec![TransactionFailure::UpdateNotPermittedBalance],
+                        FailureCollection::single_failure(),
                         Amount::of_fee(&fee_transfer1.fee),
                     )
                 };
 
-                let (new_accounts2, failures2, burned_tokens2) = if can_receive2.0 {
+                let (new_accounts2, failures, burned_tokens2) = if can_receive2.0 {
                     let (_, mut a2, l2) = ledger.get_or_create(&account_id2)?;
                     let new_accounts2 = get_new_accounts(action2, account_id2);
 
@@ -5392,11 +5457,18 @@ where
 
                     ledger.set(&l2, a2);
 
-                    (new_accounts2, vec![], Amount::zero())
+                    (
+                        new_accounts2,
+                        FailureCollection::append_entry(FailureCollection::no_failure(), failures),
+                        Amount::zero(),
+                    )
                 } else {
                     (
                         None,
-                        vec![TransactionFailure::UpdateNotPermittedBalance],
+                        FailureCollection::append_entry(
+                            FailureCollection::update_failed(),
+                            failures,
+                        ),
                         Amount::of_fee(&fee_transfer2.fee),
                     )
                 };
@@ -5409,7 +5481,6 @@ where
                     .into_iter()
                     .flatten()
                     .collect();
-                let failures: Vec<_> = [failures1, failures2].into_iter().collect();
 
                 Ok((new_accounts, failures, burned_tokens))
             }
