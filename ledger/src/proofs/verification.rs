@@ -4,6 +4,7 @@ use ark_ff::Field;
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
 use crate::{
+    proofs::accumulator_check,
     scan_state::{
         scan_state::transaction_snark::{SokDigest, Statement},
         transaction_logic::zkapp_statement::ZkappStatement,
@@ -14,6 +15,7 @@ use crate::{
 use super::{
     to_field_elements::ToFieldElements,
     util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
+    VerifierSRS,
 };
 use kimchi::{
     circuits::polynomials::permutation::eval_zk_polynomial, error::VerifyError,
@@ -299,6 +301,7 @@ pub fn verify_block(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierI
 pub fn verify_transaction<'a>(
     proofs: impl IntoIterator<Item = (&'a Statement<SokDigest>, &'a TransactionSnarkProofStableV2)>,
     verifier_index: &VerifierIndex,
+    srs: &VerifierSRS,
 ) -> bool {
     let vk = VK {
         commitments: PlonkVerificationKeyEvals::from(verifier_index),
@@ -306,9 +309,11 @@ pub fn verify_transaction<'a>(
         data: (),
     };
 
-    !proofs
-        .into_iter()
-        .any(|(statement, transaction_proof)| !verify_impl(statement, transaction_proof, &vk))
+    proofs.into_iter().all(|(statement, transaction_proof)| {
+        let accum_check = accumulator_check::accumulator_check(srs, transaction_proof);
+        let verified = verify_impl(statement, transaction_proof, &vk);
+        accum_check && verified
+    })
 }
 
 pub fn verify_zkapp(

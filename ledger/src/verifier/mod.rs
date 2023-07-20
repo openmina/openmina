@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    proofs::{verifier_index::get_verifier_index, VerifierIndex},
+    proofs::{verifier_index::get_verifier_index, VerifierIndex, VerifierSRS},
     scan_state::{
         scan_state::transaction_snark::{
             LedgerProof, LedgerProofWithSokMessage, SokMessage, TransactionSnark,
@@ -23,6 +23,10 @@ static VERIFIER_INDEX: Lazy<Arc<VerifierIndex>> = Lazy::new(|| {
     Arc::new(get_verifier_index(VerifierKind::Transaction))
 });
 
+// TODO: Move this into `Verifier` struct above
+static SRS: Lazy<Arc<VerifierSRS>> =
+    Lazy::new(|| std::sync::Arc::new(crate::proofs::accumulator_check::get_srs()));
+
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/transaction_snark/transaction_snark.ml#L3492
 fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
     if ts.iter().all(|(proof, msg)| {
@@ -30,6 +34,7 @@ fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
         statement.sok_digest == msg.digest()
     }) {
         let verifier_index = VERIFIER_INDEX.as_ref();
+        let srs = SRS.as_ref();
 
         // for (proof, msg) in ts {
         //     let LedgerProof(TransactionSnark {
@@ -55,7 +60,7 @@ fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
             (statement, &**proof)
         });
 
-        if !crate::proofs::verification::verify_transaction(proofs, verifier_index) {
+        if !crate::proofs::verification::verify_transaction(proofs, verifier_index, srs) {
             return Err("Transaction_snark.verify: verification failed".into());
         }
         Ok(())
