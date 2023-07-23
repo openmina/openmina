@@ -38,7 +38,7 @@ impl P2pChannelsState {
 impl P2pChannelsState {
     pub fn is_channel_ready(&self, chan_id: ChannelId) -> bool {
         match chan_id {
-            ChannelId::BestTipPropagation => self.snark_job_commitment.is_ready(),
+            ChannelId::BestTipPropagation => self.best_tip.is_ready(),
             ChannelId::SnarkJobCommitmentPropagation => self.snark_job_commitment.is_ready(),
             ChannelId::Rpc => self.rpc.is_ready(),
         }
