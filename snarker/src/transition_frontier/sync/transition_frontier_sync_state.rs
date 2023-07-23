@@ -8,7 +8,8 @@ use shared::block::ArcBlockWithHash;
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 
-use super::ledger::{PeerLedgerQueryError, TransitionFrontierSyncLedgerState};
+use super::ledger::TransitionFrontierSyncLedgerState;
+use super::PeerBlockFetchError;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransitionFrontierSyncState {
@@ -77,7 +78,7 @@ pub enum PeerRpcState {
     Error {
         time: Timestamp,
         rpc_id: P2pRpcId,
-        error: PeerLedgerQueryError,
+        error: PeerBlockFetchError,
     },
     Success {
         time: Timestamp,

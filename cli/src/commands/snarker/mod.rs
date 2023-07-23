@@ -148,7 +148,6 @@ impl Snarker {
                 })).unwrap(),
             },
         };
-        let state = State::new(config);
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
         let (p2p_event_sender, mut rx) = mpsc::unbounded_channel::<P2pEvent>();
@@ -215,6 +214,7 @@ impl Snarker {
                         rpc: rpc_service,
                         stats: Stats::new(),
                     };
+                    let state = State::new(config);
                     let mut snarker = ::snarker::Snarker::new(state, service);
 
                     snarker
