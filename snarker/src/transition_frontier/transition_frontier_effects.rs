@@ -5,6 +5,8 @@ use crate::ledger::LEDGER_DEPTH;
 use crate::stats::sync::SyncingLedger;
 use crate::Store;
 
+use super::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
+use super::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use super::sync::ledger::TransitionFrontierSyncLedgerAction;
 use super::sync::{
     TransitionFrontierSyncAction, TransitionFrontierSyncLedgerRootSuccessAction,
@@ -132,7 +134,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 }
                 a.effects(&meta, store);
             }
-            TransitionFrontierSyncAction::BlocksSuccess(a) => {
+            TransitionFrontierSyncAction::BlocksSuccess(_) => {
                 let sync = &store.state.get().transition_frontier.sync;
                 let TransitionFrontierSyncState::BlocksSuccess { chain, .. } = sync else { return };
                 let Some(root_block) = chain.first() else { return };
@@ -148,99 +150,117 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 TransitionFrontierSyncLedgerAction::Init(action) => {
                     action.effects(&meta, store);
                 }
-                TransitionFrontierSyncLedgerAction::SnarkedPending(action) => {
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::SnarkedPeersQuery(action) => {
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::SnarkedPeerQueryInit(action) => {
-                    if let Some(stats) = store.service().stats() {
-                        let (start, end) = (meta.time(), meta.time());
-                        if action.address.length() < LEDGER_DEPTH - 1 {
-                            stats.syncing_ledger(SyncingLedger::FetchHashes { start, end });
-                        } else {
-                            stats.syncing_ledger(SyncingLedger::FetchAccounts { start, end });
-                        }
+                TransitionFrontierSyncLedgerAction::Snarked(a) => match a {
+                    TransitionFrontierSyncLedgerSnarkedAction::Pending(action) => {
+                        action.effects(&meta, store);
                     }
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::SnarkedPeerQueryRetry(action) => {
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::SnarkedPeerQueryPending(_) => {}
-                TransitionFrontierSyncLedgerAction::SnarkedPeerQueryError(action) => {
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::SnarkedPeerQuerySuccess(action) => {
-                    if let Some(stats) = store.service.stats() {
-                        if let Some((start, end)) = store
-                            .state
-                            .get()
-                            .transition_frontier
-                            .sync
-                            .root_ledger()
-                            .and_then(|s| {
-                                s.snarked_ledger_peer_query_get(&action.peer_id, action.rpc_id)
-                            })
-                            .map(|(_, s)| (s.time, meta.time()))
-                        {
-                            if action.response.is_child_hashes() {
+                    TransitionFrontierSyncLedgerSnarkedAction::PeersQuery(action) => {
+                        action.effects(&meta, store);
+                    }
+                    TransitionFrontierSyncLedgerSnarkedAction::PeerQueryInit(action) => {
+                        if let Some(stats) = store.service().stats() {
+                            let (start, end) = (meta.time(), meta.time());
+                            if action.address.length() < LEDGER_DEPTH - 1 {
                                 stats.syncing_ledger(SyncingLedger::FetchHashes { start, end });
-                            } else if action.response.is_child_accounts() {
+                            } else {
                                 stats.syncing_ledger(SyncingLedger::FetchAccounts { start, end });
                             }
                         }
+                        action.effects(&meta, store);
                     }
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::SnarkedChildHashesReceived(action) => {
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::SnarkedChildAccountsReceived(action) => {
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::SnarkedSuccess(action) => {
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::StagedReconstructPending(action) => {
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::StagedPartsFetchInit(action) => {
-                    if let Some(stats) = store.service().stats() {
-                        let (start, end) = (meta.time(), None);
-                        stats.syncing_ledger(SyncingLedger::FetchParts { start, end });
+                    TransitionFrontierSyncLedgerSnarkedAction::PeerQueryPending(_) => {}
+                    TransitionFrontierSyncLedgerSnarkedAction::PeerQueryRetry(action) => {
+                        action.effects(&meta, store);
                     }
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::StagedPartsFetchPending(_) => {}
-                TransitionFrontierSyncLedgerAction::StagedPartsFetchError(action) => {
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::StagedPartsFetchSuccess(action) => {
-                    if let Some(stats) = store.service().stats() {
-                        let (start, end) = (Timestamp::ZERO, Some(meta.time()));
-                        stats.syncing_ledger(SyncingLedger::FetchParts { start, end });
+                    TransitionFrontierSyncLedgerSnarkedAction::PeerQueryError(action) => {
+                        action.effects(&meta, store);
                     }
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::StagedPartsApplyInit(action) => {
-                    if let Some(stats) = store.service().stats() {
-                        let (start, end) = (meta.time(), None);
-                        stats.syncing_ledger(SyncingLedger::ApplyParts { start, end });
+                    TransitionFrontierSyncLedgerSnarkedAction::PeerQuerySuccess(action) => {
+                        if let Some(stats) = store.service.stats() {
+                            if let Some((start, end)) = store
+                                .state
+                                .get()
+                                .transition_frontier
+                                .sync
+                                .root_ledger()
+                                .and_then(|s| {
+                                    s.snarked()?.peer_query_get(&action.peer_id, action.rpc_id)
+                                })
+                                .map(|(_, s)| (s.time, meta.time()))
+                            {
+                                if action.response.is_child_hashes() {
+                                    stats.syncing_ledger(SyncingLedger::FetchHashes { start, end });
+                                } else if action.response.is_child_accounts() {
+                                    stats.syncing_ledger(SyncingLedger::FetchAccounts {
+                                        start,
+                                        end,
+                                    });
+                                }
+                            }
+                        }
+                        action.effects(&meta, store);
                     }
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::StagedPartsApplySuccess(action) => {
-                    if let Some(stats) = store.service().stats() {
-                        let (start, end) = (Timestamp::ZERO, Some(meta.time()));
-                        stats.syncing_ledger(SyncingLedger::ApplyParts { start, end });
+                    TransitionFrontierSyncLedgerSnarkedAction::ChildHashesReceived(action) => {
+                        action.effects(&meta, store);
                     }
-                    action.effects(&meta, store);
-                }
-                TransitionFrontierSyncLedgerAction::StagedReconstructSuccess(action) => {
-                    action.effects(&meta, store);
-                }
+                    TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsReceived(action) => {
+                        action.effects(&meta, store);
+                    }
+                    TransitionFrontierSyncLedgerSnarkedAction::Success(action) => {
+                        action.effects(&meta, store);
+                    }
+                },
+                TransitionFrontierSyncLedgerAction::Staged(a) => match a {
+                    TransitionFrontierSyncLedgerStagedAction::PartsFetchPending(action) => {
+                        if let Some(stats) = store.service().stats() {
+                            let (start, end) = (meta.time(), None);
+                            stats.syncing_ledger(SyncingLedger::FetchParts { start, end });
+                        }
+                        action.effects(&meta, store);
+                    }
+                    TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit(action) => {
+                        action.effects(&meta, store);
+                    }
+                    TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending(_) => {}
+                    TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchError(action) => {
+                        action.effects(&meta, store);
+                    }
+                    TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchSuccess(action) => {
+                        action.effects(&meta, store);
+                    }
+                    TransitionFrontierSyncLedgerStagedAction::PartsPeerInvalid(action) => {
+                        action.effects(&meta, store);
+                    }
+                    TransitionFrontierSyncLedgerStagedAction::PartsPeerValid(action) => {
+                        action.effects(&meta, store);
+                    }
+                    TransitionFrontierSyncLedgerStagedAction::PartsFetchSuccess(action) => {
+                        if let Some(stats) = store.service().stats() {
+                            let (start, end) = (Timestamp::ZERO, Some(meta.time()));
+                            stats.syncing_ledger(SyncingLedger::FetchParts { start, end });
+                        }
+                        action.effects(&meta, store);
+                    }
+                    TransitionFrontierSyncLedgerStagedAction::ReconstructInit(action) => {
+                        if let Some(stats) = store.service().stats() {
+                            let (start, end) = (meta.time(), None);
+                            stats.syncing_ledger(SyncingLedger::ApplyParts { start, end });
+                        }
+                        action.effects(&meta, store);
+                    }
+                    TransitionFrontierSyncLedgerStagedAction::ReconstructPending(_) => {}
+                    TransitionFrontierSyncLedgerStagedAction::ReconstructError(_) => {}
+                    TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess(action) => {
+                        if let Some(stats) = store.service().stats() {
+                            let (start, end) = (Timestamp::ZERO, Some(meta.time()));
+                            stats.syncing_ledger(SyncingLedger::ApplyParts { start, end });
+                        }
+                        action.effects(&meta, store);
+                    }
+                    TransitionFrontierSyncLedgerStagedAction::Success(action) => {
+                        action.effects(&meta, store);
+                    }
+                },
                 TransitionFrontierSyncLedgerAction::Success(_) => {
                     store.dispatch(TransitionFrontierSyncLedgerRootSuccessAction {});
                 }

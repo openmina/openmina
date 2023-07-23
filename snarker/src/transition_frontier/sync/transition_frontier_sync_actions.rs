@@ -5,12 +5,8 @@ use shared::block::ArcBlockWithHash;
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 
-use super::{
-    ledger::{
-        PeerLedgerQueryError, TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerState,
-    },
-    TransitionFrontierSyncState,
-};
+use super::ledger::{TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerState};
+use super::{PeerBlockFetchError, TransitionFrontierSyncState};
 
 pub type TransitionFrontierSyncActionWithMeta = redux::ActionWithMeta<TransitionFrontierSyncAction>;
 pub type TransitionFrontierSyncActionWithMetaRef<'a> =
@@ -219,7 +215,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeer
 pub struct TransitionFrontierSyncBlocksPeerQueryErrorAction {
     pub peer_id: PeerId,
     pub rpc_id: P2pRpcId,
-    pub error: PeerLedgerQueryError,
+    pub error: PeerBlockFetchError,
 }
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeerQueryErrorAction {

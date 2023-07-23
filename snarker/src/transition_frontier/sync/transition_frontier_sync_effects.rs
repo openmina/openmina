@@ -5,10 +5,9 @@ use crate::p2p::channels::rpc::P2pRpcRequest;
 use crate::transition_frontier::TransitionFrontierService;
 use crate::Store;
 
-use super::ledger::{
-    TransitionFrontierSyncLedgerInitAction, TransitionFrontierSyncLedgerSnarkedPeersQueryAction,
-    TransitionFrontierSyncLedgerStagedReconstructPendingAction,
-};
+use super::ledger::snarked::TransitionFrontierSyncLedgerSnarkedPeersQueryAction;
+use super::ledger::staged::TransitionFrontierSyncLedgerStagedPartsFetchPendingAction;
+use super::ledger::TransitionFrontierSyncLedgerInitAction;
 use super::{
     TransitionFrontierSyncBestTipUpdateAction, TransitionFrontierSyncBlocksFetchSuccessAction,
     TransitionFrontierSyncBlocksNextApplyInitAction,
@@ -36,7 +35,7 @@ impl TransitionFrontierSyncBestTipUpdateAction {
         store.dispatch(TransitionFrontierSyncLedgerInitAction {});
         // if root snarked ledger stayed same but root block changed
         // while reconstructing staged ledger.
-        store.dispatch(TransitionFrontierSyncLedgerStagedReconstructPendingAction {});
+        store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {});
         store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
         // if we don't need to sync root staged ledger.
         store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});

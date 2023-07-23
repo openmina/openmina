@@ -5,9 +5,11 @@ use shared::block::ArcBlockWithHash;
 use crate::TransitionFrontierConfig;
 
 use super::{
-    ledger::TransitionFrontierSyncLedgerState, PeerRpcState, TransitionFrontierSyncAction,
-    TransitionFrontierSyncActionWithMetaRef, TransitionFrontierSyncBlockState,
-    TransitionFrontierSyncState,
+    ledger::{
+        snarked::TransitionFrontierSyncLedgerSnarkedState, TransitionFrontierSyncLedgerState,
+    },
+    PeerRpcState, TransitionFrontierSyncAction, TransitionFrontierSyncActionWithMetaRef,
+    TransitionFrontierSyncBlockState, TransitionFrontierSyncState,
 };
 
 impl TransitionFrontierSyncState {
@@ -35,37 +37,7 @@ impl TransitionFrontierSyncState {
                     root_ledger,
                     ..
                 } => {
-                    match root_ledger {
-                        TransitionFrontierSyncLedgerState::SnarkedPending { block, .. } => {
-                            if block.snarked_ledger_hash() == a.root_block.snarked_ledger_hash() {
-                                *block = a.root_block.clone();
-                            } else {
-                                *root_ledger = TransitionFrontierSyncLedgerState::Init {
-                                    time: meta.time(),
-                                    block: a.root_block.clone(),
-                                };
-                            }
-                        }
-                        TransitionFrontierSyncLedgerState::StagedReconstructPending {
-                            block,
-                            ..
-                        } => {
-                            if block.snarked_ledger_hash() == a.root_block.snarked_ledger_hash() {
-                                *root_ledger = TransitionFrontierSyncLedgerState::SnarkedSuccess {
-                                    time: meta.time(),
-                                    block: a.root_block.clone(),
-                                };
-                            } else {
-                                *root_ledger = TransitionFrontierSyncLedgerState::Init {
-                                    time: meta.time(),
-                                    block: a.root_block.clone(),
-                                };
-                            }
-                        }
-                        _ => {
-                            // should be impossible.
-                        }
-                    }
+                    root_ledger.update_block(meta.time(), a.root_block.clone());
 
                     *best_tip = a.best_tip.clone();
                     *blocks_inbetween = a.blocks_inbetween.clone();
@@ -130,15 +102,17 @@ impl TransitionFrontierSyncState {
                             || cur_best_root.map_or(false, |cur| {
                                 cur.snarked_ledger_hash() == new_root.snarked_ledger_hash()
                             }) {
-                            TransitionFrontierSyncLedgerState::SnarkedSuccess {
+                            TransitionFrontierSyncLedgerSnarkedState::Success {
                                 time: meta.time(),
                                 block: new_root.clone(),
                             }
+                            .into()
                         } else {
-                            TransitionFrontierSyncLedgerState::Init {
-                                time: meta.time(),
-                                block: new_root.clone(),
-                            }
+                            TransitionFrontierSyncLedgerSnarkedState::pending(
+                                meta.time(),
+                                new_root.clone(),
+                            )
+                            .into()
                         };
                         *self = Self::RootLedgerPending {
                             time: meta.time(),
@@ -184,15 +158,17 @@ impl TransitionFrontierSyncState {
                     } else {
                         let root_ledger =
                             if old_root.snarked_ledger_hash() == new_root.snarked_ledger_hash() {
-                                TransitionFrontierSyncLedgerState::SnarkedSuccess {
+                                TransitionFrontierSyncLedgerSnarkedState::Success {
                                     time: meta.time(),
                                     block: new_root.clone(),
                                 }
+                                .into()
                             } else {
-                                TransitionFrontierSyncLedgerState::Init {
-                                    time: meta.time(),
-                                    block: new_root.clone(),
-                                }
+                                TransitionFrontierSyncLedgerSnarkedState::pending(
+                                    meta.time(),
+                                    new_root.clone(),
+                                )
+                                .into()
                             };
                         *self = Self::RootLedgerPending {
                             time: meta.time(),

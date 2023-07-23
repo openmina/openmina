@@ -20,8 +20,9 @@ use mina_p2p_messages::v2::{
 use mina_signer::CompressedPubKey;
 use shared::block::ArcBlockWithHash;
 
-use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
-use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerService;
+use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
+use crate::transition_frontier::sync::ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid;
+use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
 use crate::transition_frontier::TransitionFrontierService;
 
 use super::{LedgerAddress, LEDGER_DEPTH};
@@ -91,7 +92,7 @@ pub trait LedgerService: redux::Service {
     fn ctx_mut(&mut self) -> &mut LedgerCtx;
 }
 
-impl<T: LedgerService> TransitionFrontierSyncLedgerService for T {
+impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
     fn hashes_set(
         &mut self,
         snarked_ledger_hash: LedgerHash,
@@ -140,11 +141,13 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerService for T {
 
         Ok(())
     }
+}
 
+impl<T: LedgerService> TransitionFrontierSyncLedgerStagedService for T {
     fn staged_ledger_reconstruct(
         &mut self,
         snarked_ledger_hash: LedgerHash,
-        parts: Arc<StagedLedgerAuxAndPendingCoinbases>,
+        parts: Arc<StagedLedgerAuxAndPendingCoinbasesValid>,
     ) -> Result<(), String> {
         let snarked_ledger = self.ctx_mut().sync.snarked_ledger(snarked_ledger_hash);
         // TODO(binier): TMP. Remove for prod version.

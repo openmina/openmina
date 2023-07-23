@@ -11,3 +11,12 @@ pub use transition_frontier_sync_reducer::*;
 
 mod transition_frontier_sync_effects;
 pub use transition_frontier_sync_effects::*;
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum PeerBlockFetchError {
+    Timeout,
+    Disconnected,
+    DataUnavailable,
+}
