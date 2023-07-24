@@ -28,7 +28,7 @@ pub use gossip::GossipNetMessageV1;
 pub use rpc::JSONifyPayloadRegistry;
 pub use rpc_kernel::JSONinifyPayloadReader;
 
-mod b58;
+pub mod b58;
 
 pub mod b58version {
     pub const LEDGER_HASH: u8 = 0x05;
