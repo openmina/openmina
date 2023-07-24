@@ -15,7 +15,8 @@ use super::{
     MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseHashVersionedStableV1,
     MinaBasePendingCoinbaseStackHashStableV1, MinaBaseSignatureStableV1,
     MinaBaseStateBodyHashStableV1, NonZeroCurvePointUncompressedStableV1,
-    ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2StatementFp,
+    ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2,
+    PicklesProofProofsVerified2ReprStableV2StatementFp, PicklesProofProofsVerifiedMaxStableV2,
     ProtocolVersionStableV1, SgnStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
     TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
 };
@@ -761,5 +762,21 @@ impl super::MinaNumbersGlobalSlotSpanStableV1 {
 impl From<u32> for super::UnsignedExtendedUInt32StableV1 {
     fn from(value: u32) -> Self {
         Self(value.into())
+    }
+}
+
+impl From<&PicklesProofProofsVerifiedMaxStableV2> for PicklesProofProofsVerified2ReprStableV2 {
+    fn from(value: &PicklesProofProofsVerifiedMaxStableV2) -> Self {
+        let PicklesProofProofsVerifiedMaxStableV2 {
+            statement,
+            prev_evals,
+            proof,
+        } = value;
+
+        Self {
+            statement: statement.clone(),
+            prev_evals: prev_evals.clone(),
+            proof: proof.clone(),
+        }
     }
 }
