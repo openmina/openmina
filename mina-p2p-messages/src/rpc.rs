@@ -152,8 +152,8 @@ mina_rpc!(
 // pub struct ConsensusDataConsensusStateValue;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct WithHashV1<A, H> {
-    data: A,
-    hash: H,
+    pub data: A,
+    pub hash: H,
 }
 pub type WithHashV1Versioned<A, H> = Versioned<WithHashV1<A, H>, 1>;
 
