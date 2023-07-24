@@ -336,7 +336,10 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
 
 impl MinaHash for MinaStateProtocolStateValueStableV2 {
     fn hash(&self) -> mina_hasher::Fp {
-        fp_state_hash_from_fp_hashes(self.previous_state_hash.to_field(), MinaHash::hash(&self.body))
+        fp_state_hash_from_fp_hashes(
+            self.previous_state_hash.to_field(),
+            MinaHash::hash(&self.body),
+        )
     }
 }
 
