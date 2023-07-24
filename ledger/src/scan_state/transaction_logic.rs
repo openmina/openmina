@@ -2681,6 +2681,25 @@ pub mod zkapp_command {
             self.to_account_updates_impl(&mut accounts);
             accounts
         }
+
+        fn to_zkapp_command_with_hashes_list_impl(&self, output: &mut Vec<(AccUpdate, Fp)>) {
+            self.iter().for_each(|item| {
+                let WithStackHash { elt, stack_hash } = item;
+                let Tree {
+                    account_update,
+                    account_update_digest: _,
+                    calls,
+                } = elt;
+                output.push((account_update.clone(), *stack_hash));
+                calls.to_zkapp_command_with_hashes_list_impl(output);
+            });
+        }
+
+        pub fn to_zkapp_command_with_hashes_list(&self) -> Vec<(AccUpdate, Fp)> {
+            let mut output = Vec::with_capacity(128);
+            self.to_zkapp_command_with_hashes_list_impl(&mut output);
+            output
+        }
     }
 
     impl CallForest<AccountUpdate> {
@@ -3193,7 +3212,41 @@ pub mod zkapp_statement {
         *,
     };
 
-    type TransactionCommitment = Fp;
+    #[derive(Copy, Clone, Debug, derive_more::Deref, derive_more::From)]
+    pub struct TransactionCommitment(pub Fp);
+
+    impl TransactionCommitment {
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L1365
+        pub fn create(account_updates_hash: Fp) -> Self {
+            Self(account_updates_hash)
+        }
+
+        /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L1368
+        pub fn create_complete(&self, memo_hash: Fp, fee_payer_hash: Fp) -> Self {
+            Self(hash_with_kimchi(
+                "MinaAcctUpdateCons",
+                &[memo_hash, fee_payer_hash, self.0],
+            ))
+        }
+    }
+
+    impl mina_hasher::Hashable for TransactionCommitment {
+        type D = mina_signer::NetworkId;
+
+        fn to_roinput(&self) -> mina_hasher::ROInput {
+            mina_hasher::ROInput::new().append_field(self.0)
+        }
+
+        fn domain_string(network_id: mina_signer::NetworkId) -> Option<String> {
+            // Domain strings must have length <= 20
+            match network_id {
+                mina_signer::NetworkId::MAINNET => "MinaSignatureMainnet",
+                mina_signer::NetworkId::TESTNET => "CodaSignature",
+            }
+            .to_string()
+            .into()
+        }
+    }
 
     #[derive(Clone, Debug)]
     pub struct ZkappStatement {
@@ -3208,7 +3261,7 @@ pub mod zkapp_statement {
                 calls,
             } = self;
 
-            vec![*account_update, *calls]
+            vec![**account_update, **calls]
         }
 
         pub fn of_tree<AccUpdate: Clone>(tree: &Tree<AccUpdate>) -> Self {
@@ -3219,12 +3272,12 @@ pub mod zkapp_statement {
             } = tree;
 
             Self {
-                account_update: *account_update_digest,
-                calls: calls.hash(),
+                account_update: TransactionCommitment(*account_update_digest),
+                calls: TransactionCommitment(calls.hash()),
             }
         }
 
-        fn zkapp_statements_of_forest_prime<Data: Clone>(
+        pub fn zkapp_statements_of_forest_prime<Data: Clone>(
             forest: CallForest<(AccountUpdate, Data)>,
         ) -> CallForest<(AccountUpdate, (Data, Self))> {
             forest.map_with_trees_to(|(account_update, data), tree| {
@@ -3256,7 +3309,7 @@ pub mod verifiable {
         ZkAppCommand(Box<zkapp_command::verifiable::ZkAppCommand>),
     }
 
-    fn compressed_to_pubkey(pubkey: &CompressedPubKey) -> mina_signer::PubKey {
+    pub fn compressed_to_pubkey(pubkey: &CompressedPubKey) -> mina_signer::PubKey {
         // Taken from https://github.com/o1-labs/proof-systems/blob/e3fc04ce87f8695288de167115dea80050ab33f4/signer/src/pubkey.rs#L95-L106
         let mut pt = mina_signer::CurvePoint::get_point_from_x(pubkey.x, pubkey.is_odd).unwrap();
 

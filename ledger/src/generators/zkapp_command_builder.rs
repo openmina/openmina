@@ -1,51 +1,12 @@
 use std::collections::HashMap;
 
-use mina_hasher::{Fp, Hashable, ROInput};
-use mina_signer::{Keypair, NetworkId, Signature};
+use mina_signer::{Keypair, Signature};
 
-use crate::{
-    hash_with_kimchi,
-    scan_state::transaction_logic::{
-        for_tests::HashableCompressedPubKey,
-        zkapp_command::{AccountUpdate, Control, ZkAppCommand},
-    },
+use crate::scan_state::transaction_logic::{
+    for_tests::HashableCompressedPubKey,
+    zkapp_command::{AccountUpdate, Control, ZkAppCommand},
+    zkapp_statement::TransactionCommitment,
 };
-
-#[derive(Clone, Debug)]
-pub struct TransactionCommitment(pub Fp);
-
-impl TransactionCommitment {
-    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L1365
-    fn create(account_updates_hash: Fp) -> Self {
-        Self(account_updates_hash)
-    }
-
-    /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L1368
-    fn create_complete(&self, memo_hash: Fp, fee_payer_hash: Fp) -> Self {
-        Self(hash_with_kimchi(
-            "MinaAcctUpdateCons",
-            &[memo_hash, fee_payer_hash, self.0],
-        ))
-    }
-}
-
-impl Hashable for TransactionCommitment {
-    type D = NetworkId;
-
-    fn to_roinput(&self) -> ROInput {
-        ROInput::new().append_field(self.0)
-    }
-
-    fn domain_string(network_id: NetworkId) -> Option<String> {
-        // Domain strings must have length <= 20
-        match network_id {
-            NetworkId::MAINNET => "MinaSignatureMainnet",
-            NetworkId::TESTNET => "CodaSignature",
-        }
-        .to_string()
-        .into()
-    }
-}
 
 pub fn get_transaction_commitments(
     zkapp_command: &ZkAppCommand,

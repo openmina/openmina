@@ -1,13 +1,14 @@
-use std::sync::Arc;
+use std::{rc::Rc, sync::Arc};
 
 use crate::{
-    proofs::{verifier_index::get_verifier_index, VerifierIndex, VerifierSRS},
+    proofs::{verification, verifier_index::get_verifier_index, VerifierIndex, VerifierSRS},
     scan_state::{
         scan_state::transaction_snark::{
             LedgerProof, LedgerProofWithSokMessage, SokMessage, TransactionSnark,
         },
-        transaction_logic::{valid, verifiable, WithStatus},
+        transaction_logic::{valid, verifiable, zkapp_statement::ZkappStatement, WithStatus},
     },
+    VerificationKey,
 };
 
 use self::common::CheckResult;
@@ -15,6 +16,10 @@ use self::common::CheckResult;
 #[derive(Debug, Clone)]
 pub struct Verifier;
 
+use mina_p2p_messages::v2::{
+    PicklesProofProofsVerified2ReprStableV2, PicklesProofProofsVerifiedMaxStableV2,
+};
+use mina_signer::CompressedPubKey;
 use once_cell::sync::Lazy;
 
 // TODO: Move this into `Verifier` struct above
@@ -84,6 +89,25 @@ fn verify_digest_only(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> 
     }
 }
 
+/// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/verifier/verifier_intf.ml#L10C1-L36C29
+pub enum VerifyCommandsResult {
+    Valid(valid::UserCommand),
+    ValidAssuming(
+        Vec<(
+            VerificationKey,
+            ZkappStatement,
+            Rc<PicklesProofProofsVerifiedMaxStableV2>,
+        )>,
+    ),
+    InvalidKeys(Vec<CompressedPubKey>),
+    InvalidSignature(Vec<CompressedPubKey>),
+    InvalidProof(String),
+    MissingVerificationKey(Vec<CompressedPubKey>),
+    UnexpectedVerificationKey(Vec<CompressedPubKey>),
+    MismatchedVerificationKey(Vec<CompressedPubKey>),
+    MismatchedAuthorizationKind(Vec<CompressedPubKey>),
+}
+
 impl Verifier {
     pub fn verify(&self, _proofs: &[LedgerProofWithSokMessage]) -> Result<Result<(), ()>, String> {
         // Implement verification later
@@ -108,54 +132,100 @@ impl Verifier {
     pub fn verify_commands(
         &self,
         cmds: Vec<WithStatus<verifiable::UserCommand>>,
-    ) -> Result<Vec<valid::UserCommand>, VerifierError> {
-        // TODO
+    ) -> Vec<VerifyCommandsResult> {
+        let cs: Vec<_> = cmds.into_iter().map(common::check).collect();
 
-        let xs: Vec<_> = cmds
-            .into_iter()
-            .map(common::check)
-            .map(|cmd| {
-                match cmd {
-                    common::CheckResult::Valid(cmd) => Ok(cmd),
-                    e => Err(e)
-                // common::CheckResult::ValidAssuming(_) => todo!(),
-                // common::CheckResult::InvalidKeys(_) => todo!(),
-                // common::CheckResult::InvalidSignature(_) => todo!(),
-                // common::CheckResult::InvalidProof => todo!(),
-                // common::CheckResult::MissingVerificationKey(_) => todo!(),
-            }
+        let mut to_verify = cs
+            .iter()
+            .filter_map(|c| match c {
+                CheckResult::Valid(_) => None,
+                CheckResult::ValidAssuming((_, xs)) => Some(xs),
+                _ => None,
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .flatten();
 
-        Ok(xs)
+        let verifier_index = VERIFIER_INDEX.as_ref();
+        let srs = SRS.as_ref();
+
+        let all_verified = to_verify.all(|(vk, zkapp_statement, proof)| {
+            let proof: PicklesProofProofsVerified2ReprStableV2 = (&**proof).into();
+            verification::verify_zkapp(vk, zkapp_statement.clone(), &proof, verifier_index, srs)
+        });
+
+        cs.into_iter()
+            .map(|c| match c {
+                CheckResult::Valid(c) => VerifyCommandsResult::Valid(c),
+                CheckResult::ValidAssuming((c, xs)) => {
+                    if all_verified {
+                        VerifyCommandsResult::Valid(c)
+                    } else {
+                        VerifyCommandsResult::ValidAssuming(xs)
+                    }
+                }
+                CheckResult::InvalidKeys(keys) => VerifyCommandsResult::InvalidKeys(keys),
+                CheckResult::InvalidSignature(keys) => VerifyCommandsResult::InvalidSignature(keys),
+                CheckResult::InvalidProof(s) => VerifyCommandsResult::InvalidProof(s),
+                CheckResult::MissingVerificationKey(keys) => {
+                    VerifyCommandsResult::MissingVerificationKey(keys)
+                }
+                CheckResult::UnexpectedVerificationKey(keys) => {
+                    VerifyCommandsResult::UnexpectedVerificationKey(keys)
+                }
+                CheckResult::MismatchedAuthorizationKind(keys) => {
+                    VerifyCommandsResult::MismatchedAuthorizationKind(keys)
+                }
+            })
+            .collect()
     }
 }
 
 #[derive(Debug, derive_more::From)]
 pub enum VerifierError {
     CheckError(CheckResult),
+    VerificationFailed(String),
 }
 
 pub mod common {
-    use mina_signer::CompressedPubKey;
+    use std::rc::Rc;
 
-    use crate::scan_state::transaction_logic::{valid, verifiable, zkapp_command, WithStatus};
+    use mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
+    use mina_signer::{CompressedPubKey, PubKey, Signature};
+
+    use crate::{
+        decompress_pk, hash_with_kimchi,
+        scan_state::transaction_logic::{
+            valid, verifiable,
+            zkapp_command::{self, valid::of_verifiable, AccountUpdate},
+            zkapp_statement::{TransactionCommitment, ZkappStatement},
+            TransactionStatus, WithStatus,
+        },
+        VerificationKey,
+    };
 
     #[derive(Debug)]
     pub enum CheckResult {
         Valid(valid::UserCommand),
-        ValidAssuming((valid::UserCommand, Vec<()>)),
+        ValidAssuming(
+            (
+                valid::UserCommand,
+                Vec<(
+                    VerificationKey,
+                    ZkappStatement,
+                    Rc<PicklesProofProofsVerifiedMaxStableV2>,
+                )>,
+            ),
+        ),
         InvalidKeys(Vec<CompressedPubKey>),
         InvalidSignature(Vec<CompressedPubKey>),
-        InvalidProof,
+        InvalidProof(String),
         MissingVerificationKey(Vec<CompressedPubKey>),
+        UnexpectedVerificationKey(Vec<CompressedPubKey>),
+        MismatchedAuthorizationKind(Vec<CompressedPubKey>),
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/verifier/common.ml#L29
     pub fn check(cmd: WithStatus<verifiable::UserCommand>) -> CheckResult {
         use verifiable::UserCommand::{SignedCommand, ZkAppCommand};
-
-        // TODO: Implement
 
         match cmd.data {
             SignedCommand(cmd) => {
@@ -170,20 +240,123 @@ pub mod common {
                     ),
                 }
             }
-            ZkAppCommand(cmd) => {
-                // TODO: Implement rest
+            ZkAppCommand(zkapp_command_with_vk) => {
+                let zkapp_command::verifiable::ZkAppCommand {
+                    fee_payer,
+                    account_updates,
+                    memo,
+                } = &*zkapp_command_with_vk;
 
-                let zkapp_command = zkapp_command::valid::of_verifiable(*cmd);
+                let account_updates_hash = account_updates.hash();
+                let tx_commitment = TransactionCommitment::create(account_updates_hash);
 
-                CheckResult::Valid(valid::UserCommand::ZkAppCommand(Box::new(zkapp_command)))
+                let memo_hash = memo.hash();
+                let fee_payer_hash = AccountUpdate::of_fee_payer(fee_payer.clone()).digest();
+                let full_tx_commitment = tx_commitment.create_complete(memo_hash, fee_payer_hash);
 
-                // match  {
-                //     Some(cmd) => {
-                //         CheckResult::Valid(valid::UserCommand::ZkAppCommand(Box::new(cmd)))
-                //     }
-                //     None => CheckResult::InvalidProof, // TODO
-                // }
+                let Some(pk) = decompress_pk(&fee_payer.body.public_key) else {
+                    return CheckResult::InvalidKeys(vec![fee_payer.body.public_key.clone()])
+                };
+
+                if !verify_signature(&fee_payer.authorization, &pk, &full_tx_commitment) {
+                    return CheckResult::InvalidSignature(vec![pk.into_compressed()]);
+                }
+
+                let zkapp_command_with_hashes_list =
+                    ZkappStatement::zkapp_statements_of_forest_prime(account_updates.clone())
+                        .to_zkapp_command_with_hashes_list();
+
+                let mut valid_assuming = Vec::with_capacity(16);
+                for ((p, (vk_opt, stmt)), _at_account_update) in zkapp_command_with_hashes_list {
+                    let commitment = if p.body.use_full_commitment {
+                        full_tx_commitment
+                    } else {
+                        tx_commitment
+                    };
+
+                    use zkapp_command::AuthorizationKind as AK;
+                    use zkapp_command::Control as C;
+                    match (&p.authorization, &p.body.authorization_kind) {
+                        (C::Signature(s), AK::Signature) => {
+                            let pk = decompress_pk(&p.body.public_key).unwrap();
+                            if !verify_signature(s, &pk, &commitment) {
+                                return CheckResult::InvalidSignature(vec![pk.into_compressed()]);
+                            }
+                            continue;
+                        }
+                        (C::NoneGiven, AK::NoneGiven) => {
+                            continue;
+                        }
+                        (C::Proof(pi), AK::Proof(vk_hash)) => {
+                            if let TransactionStatus::Failed(_) = cmd.status {
+                                // Don't verify the proof if it has failed.
+                                continue;
+                            }
+                            let Some(vk) = vk_opt else {
+                                return CheckResult::MissingVerificationKey(vec![p.account_id().public_key])
+                            };
+                            // check that vk expected for proof is the one being used
+                            if vk_hash != &vk.hash {
+                                return CheckResult::UnexpectedVerificationKey(vec![
+                                    p.account_id().public_key,
+                                ]);
+                            }
+                            valid_assuming.push((vk.data, stmt, Rc::clone(pi)));
+                        }
+                        _ => {
+                            return CheckResult::MismatchedAuthorizationKind(vec![
+                                p.account_id().public_key,
+                            ]);
+                        }
+                    }
+                }
+
+                let v: valid::UserCommand = {
+                    // Verification keys should be present if it reaches here
+                    let zkapp = of_verifiable(*zkapp_command_with_vk);
+                    valid::UserCommand::ZkAppCommand(Box::new(zkapp))
+                };
+
+                if valid_assuming.is_empty() {
+                    CheckResult::Valid(v)
+                } else {
+                    CheckResult::ValidAssuming((v, valid_assuming))
+                }
             }
         }
+    }
+
+    /// Verify signature with new style (chunked inputs)
+    /// `mina_signer::verify` is using old one
+    fn verify_signature(
+        signature: &Signature,
+        pubkey: &PubKey,
+        msg: &TransactionCommitment,
+    ) -> bool {
+        use ark_ec::{AffineCurve, ProjectiveCurve};
+        use ark_ff::{BigInteger, PrimeField, Zero};
+        use mina_curves::pasta::Fq;
+        use mina_curves::pasta::Pallas;
+        use mina_signer::CurvePoint;
+        use std::ops::Neg;
+
+        let Pallas { x, y, .. } = pubkey.point();
+        let Signature { rx, s } = signature;
+
+        // TODO: Change when it become mainnet ?
+        // let signature_testnet = create "CodaSignature"
+        // let signature_mainnet = create "MinaSignatureMainnet"
+
+        let hash = hash_with_kimchi("CodaSignature", &[**msg, *x, *y, *rx]);
+        let hash: Fq = Fq::from(hash.into_repr());
+
+        let sv: CurvePoint = CurvePoint::prime_subgroup_generator().mul(*s).into_affine();
+        // Perform addition and infinity check in projective coordinates for performance
+        let rv = pubkey.point().mul(hash).neg().add_mixed(&sv);
+        if rv.is_zero() {
+            return false;
+        }
+        let rv = rv.into_affine();
+        rv.y.into_repr().is_even() && rv.x == *rx
     }
 }

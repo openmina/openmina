@@ -321,7 +321,8 @@ pub fn verify_zkapp(
     zkapp_statement: ZkappStatement,
     sideloaded_proof: &PicklesProofProofsVerified2ReprStableV2,
     verifier_index: &VerifierIndex,
-) {
+    srs: &VerifierSRS,
+) -> bool {
     // https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/pickles.ml#LL260C1-L274C18
     let vk = VK {
         commitments: verification_key.wrap_index.clone(),
@@ -330,7 +331,14 @@ pub fn verify_zkapp(
         data: (),
     };
 
-    verify_impl(&zkapp_statement, sideloaded_proof, &vk);
+    let accum_check = accumulator_check::accumulator_check(srs, sideloaded_proof);
+    let verified = verify_impl(&zkapp_statement, sideloaded_proof, &vk);
+
+    let ok = accum_check && verified;
+
+    eprintln!("verify_zkapp OK={:?}", ok);
+
+    ok
 }
 
 fn verify_impl<AppState>(

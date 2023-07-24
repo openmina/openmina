@@ -770,10 +770,11 @@ impl StagedLedger {
             .iter()
             .any(|(proof, statement, _msg)| &proof.statement() != statement)
         {
-            return Err(format!(
+            return Err(
                 "Invalid transaction snark for statement: Statement and proof do not match"
-            )
-            .into());
+                    .to_string()
+                    .into(),
+            );
         }
 
         match verifier.verify_transaction_snarks(
@@ -1216,11 +1217,34 @@ impl StagedLedger {
             })
             .unwrap(); // TODO: No unwrap
 
-        let xs = verifier.verify_commands(cs)?;
-
-        // TODO: OCaml does check the list `xs`
-
-        Ok(xs)
+        verifier
+            .verify_commands(cs)
+            .into_iter()
+            .map(|x| {
+                use crate::verifier::VerifyCommandsResult::*;
+                match x {
+                    Valid(x) => Ok(x),
+                    InvalidKeys(invalid)
+                    | InvalidSignature(invalid)
+                    | MissingVerificationKey(invalid)
+                    | UnexpectedVerificationKey(invalid)
+                    | MismatchedVerificationKey(invalid)
+                    | MismatchedAuthorizationKind(invalid) => {
+                        Err(VerifierError::VerificationFailed(format!(
+                            "verification failed on command: {:?}",
+                            invalid
+                        )))
+                    }
+                    InvalidProof(invalid) => Err(VerifierError::VerificationFailed(format!(
+                        "verification failed on command: {:?}",
+                        invalid
+                    ))),
+                    ValidAssuming(_) => Err(VerifierError::VerificationFailed(
+                        "batch verification failed".to_string(),
+                    )),
+                }
+            })
+            .collect()
     }
 
     pub fn apply(
