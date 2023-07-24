@@ -314,6 +314,17 @@ pub enum ProofVerified {
     N2,
 }
 
+impl ProofVerified {
+    /// https://github.com/MinaProtocol/mina/blob/47a269c2e917775b34a83775b8a55fcc44830831/src/lib/pickles_base/proofs_verified.ml#L17
+    pub fn to_int(&self) -> usize {
+        match self {
+            ProofVerified::N0 => 0,
+            ProofVerified::N1 => 1,
+            ProofVerified::N2 => 2,
+        }
+    }
+}
+
 impl ToInputs for ProofVerified {
     /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/pickles_base/proofs_verified.ml#L125
     fn to_inputs(&self, inputs: &mut Inputs) {

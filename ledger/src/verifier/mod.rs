@@ -144,12 +144,11 @@ impl Verifier {
             })
             .flatten();
 
-        let verifier_index = VERIFIER_INDEX.as_ref();
         let srs = SRS.as_ref();
 
         let all_verified = to_verify.all(|(vk, zkapp_statement, proof)| {
             let proof: PicklesProofProofsVerified2ReprStableV2 = (&**proof).into();
-            verification::verify_zkapp(vk, zkapp_statement.clone(), &proof, verifier_index, srs)
+            verification::verify_zkapp(vk, zkapp_statement.clone(), &proof, srs)
         });
 
         cs.into_iter()

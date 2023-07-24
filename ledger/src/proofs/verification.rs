@@ -4,7 +4,7 @@ use ark_ff::Field;
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
 use crate::{
-    proofs::accumulator_check,
+    proofs::{accumulator_check, verifier_index::make_zkapp_verifier_index},
     scan_state::{
         scan_state::transaction_snark::{SokDigest, Statement},
         transaction_logic::zkapp_statement::ZkappStatement,
@@ -35,7 +35,6 @@ use mina_p2p_messages::{
         TransactionSnarkProofStableV2,
     },
 };
-use poly_commitment::commitment::CommitmentCurve;
 
 use super::{prover::make_prover, ProverProof, VerifierIndex};
 
@@ -259,16 +258,17 @@ fn verify_with(
     public_input: &[Fq],
 ) -> Result<(), VerifyError> {
     use kimchi::groupmap::GroupMap;
+    use kimchi::mina_curves::pasta::PallasParameters;
+    use mina_poseidon::sponge::{DefaultFqSponge, DefaultFrSponge};
 
     type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
-    type EFqSponge = mina_poseidon::sponge::DefaultFqSponge<
-        kimchi::mina_curves::pasta::PallasParameters,
-        SpongeParams,
-    >;
-    type EFrSponge = mina_poseidon::sponge::DefaultFrSponge<Fq, SpongeParams>;
+    type EFqSponge = DefaultFqSponge<PallasParameters, SpongeParams>;
+    type EFrSponge = DefaultFrSponge<Fq, SpongeParams>;
+
+    let group_map = GroupMap::<Fp>::setup();
 
     kimchi::verifier::verify::<Pallas, EFqSponge, EFrSponge>(
-        &<Pallas as CommitmentCurve>::Map::setup(),
+        &group_map,
         verifier_index,
         prover,
         public_input,
@@ -316,18 +316,18 @@ pub fn verify_transaction<'a>(
     })
 }
 
+/// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/crypto/kimchi_bindings/stubs/src/pasta_fq_plonk_proof.rs#L116
 pub fn verify_zkapp(
     verification_key: &VerificationKey,
     zkapp_statement: ZkappStatement,
     sideloaded_proof: &PicklesProofProofsVerified2ReprStableV2,
-    verifier_index: &VerifierIndex,
     srs: &VerifierSRS,
 ) -> bool {
+    let verifier_index = make_zkapp_verifier_index(verification_key);
     // https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/pickles.ml#LL260C1-L274C18
     let vk = VK {
         commitments: verification_key.wrap_index.clone(),
-        // TODO: In OCaml, the index comes from `verification_key.wrap_vk`
-        index: verifier_index,
+        index: &verifier_index,
         data: (),
     };
 
