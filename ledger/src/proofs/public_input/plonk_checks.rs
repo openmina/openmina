@@ -1,10 +1,11 @@
 use ark_ff::{Field, One};
-use kimchi::proof::ProofEvaluations;
+use ark_poly::Radix2EvaluationDomain;
+use kimchi::{curve::KimchiCurve, proof::ProofEvaluations};
 use mina_hasher::Fp;
 use o1_utils::FieldHelpers;
 
 use super::scalars::{complete_add, endo_mul, endo_mul_scalar, var_base_mul};
-use crate::util::FpExt;
+use crate::{proofs::public_input::scalar_challenge::endo_fp, util::FpExt};
 
 pub struct PlonkMinimal {
     pub alpha: Fp,
@@ -24,6 +25,8 @@ pub struct ScalarsEnv {
     pub zk_polynomial: Fp,
     pub zeta_to_n_minus_1: Fp,
     pub srs_length_log2: u64,
+    pub domain: Radix2EvaluationDomain<Fp>,
+    pub omega_to_minus_3: Fp,
 }
 
 // Result of `plonk_derive`
@@ -97,12 +100,12 @@ where
 }
 
 /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L218
-const PERM_ALPHA0: usize = 21;
+pub const PERM_ALPHA0: usize = 21;
 
-pub const NPOWERS_OF_ALPHA: usize = PERM_ALPHA0 + 1;
+pub const NPOWERS_OF_ALPHA: usize = PERM_ALPHA0 + 3;
 
 /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L141
-fn powers_of_alpha(alpha: Fp) -> Box<[Fp; NPOWERS_OF_ALPHA]> {
+pub fn powers_of_alpha(alpha: Fp) -> Box<[Fp; NPOWERS_OF_ALPHA]> {
     // The OCaml code computes until alpha^71, but we don't need that much here
     let mut alphas = Box::new([Fp::one(); NPOWERS_OF_ALPHA]);
 
@@ -169,6 +172,113 @@ pub fn derive_plonk(
         endomul_scalar: shift(endomul_scalar),
         perm: shift(perm),
     }
+}
+
+pub fn make_shifts(
+    domain: &Radix2EvaluationDomain<Fp>,
+) -> kimchi::circuits::polynomials::permutation::Shifts<Fp> {
+    // let value = 1 << log2_size;
+    // let domain = Domain::<Fq>::new(value).unwrap();
+    kimchi::circuits::polynomials::permutation::Shifts::new(domain)
+}
+
+fn constant_term(
+    minimal: &PlonkMinimal,
+    env: &ScalarsEnv,
+    evals: &ProofEvaluations<[Fp; 2]>,
+) -> Fp {
+    let constants = kimchi::circuits::expr::Constants {
+        alpha: minimal.alpha,
+        beta: minimal.beta,
+        gamma: minimal.gamma,
+        joint_combiner: None,
+        endo_coefficient: endo_fp(),
+        mds: &mina_curves::pasta::Vesta::sponge_params().mds,
+    };
+
+    let evals = evals.map_ref(&|[zeta, zeta_omega]| kimchi::proof::PointEvaluations {
+        zeta: *zeta,
+        zeta_omega: *zeta_omega,
+    });
+
+    let feature_flags = kimchi::circuits::constraints::FeatureFlags {
+        range_check0: false,
+        range_check1: false,
+        foreign_field_add: false,
+        foreign_field_mul: false,
+        xor: false,
+        rot: false,
+        lookup_features: kimchi::circuits::lookup::lookups::LookupFeatures {
+            patterns: kimchi::circuits::lookup::lookups::LookupPatterns {
+                xor: false,
+                lookup: false,
+                range_check: false,
+                foreign_field_mul: false,
+            },
+            joint_lookup_used: false,
+            uses_runtime_tables: false,
+        },
+    };
+
+    let (linearization, _powers_of_alpha) =
+        kimchi::linearization::expr_linearization(Some(&feature_flags), true);
+
+    kimchi::circuits::expr::PolishToken::evaluate(
+        &linearization.constant_term,
+        env.domain,
+        minimal.zeta,
+        &evals,
+        &constants,
+    )
+    .unwrap()
+}
+
+pub fn ft_eval0(
+    env: &ScalarsEnv,
+    evals: &ProofEvaluations<[Fp; 2]>,
+    minimal: &PlonkMinimal,
+    p_eval0: Fp,
+) -> Fp {
+    const PLONK_TYPES_PERMUTS_MINUS_1_N: usize = 6;
+
+    let e0_s: Vec<_> = evals.s.iter().map(|s| s[0]).collect();
+    let zkp = env.zk_polynomial;
+    let powers_of_alpha = powers_of_alpha(minimal.alpha);
+    let alpha_pow = |i: usize| powers_of_alpha[i];
+
+    let zeta1m1 = env.zeta_to_n_minus_1;
+    let w0: Vec<_> = evals.w.iter().map(|w| w[0]).collect();
+
+    let ft_eval0 = {
+        let a0 = alpha_pow(PERM_ALPHA0);
+        let w_n = w0[PLONK_TYPES_PERMUTS_MINUS_1_N];
+        let init = (w_n + minimal.gamma) * evals.z[1] * a0 * zkp;
+        e0_s.iter().enumerate().fold(init, |acc, (i, s)| {
+            ((minimal.beta * s) + w0[i] + minimal.gamma) * acc
+        })
+    };
+
+    let shifts = make_shifts(&env.domain);
+    let shifts = shifts.shifts();
+    let ft_eval0 = ft_eval0 - p_eval0;
+
+    let ft_eval0 = ft_eval0
+        - shifts
+            .iter()
+            .enumerate()
+            .fold(alpha_pow(PERM_ALPHA0) * zkp * evals.z[0], |acc, (i, s)| {
+                acc * (minimal.gamma + (minimal.beta * minimal.zeta * s) + w0[i])
+            });
+
+    let nominator = (zeta1m1 * alpha_pow(PERM_ALPHA0 + 1) * (minimal.zeta - env.omega_to_minus_3)
+        + (zeta1m1 * alpha_pow(PERM_ALPHA0 + 2) * (minimal.zeta - Fp::one())))
+        * (Fp::one() - evals.z[0]);
+
+    let denominator = (minimal.zeta - env.omega_to_minus_3) * (minimal.zeta - Fp::one());
+    let ft_eval0 = ft_eval0 + (nominator / denominator);
+    let constant_term = constant_term(minimal, env, evals);
+
+    ft_eval0 - constant_term
 }
 
 #[cfg(test)]

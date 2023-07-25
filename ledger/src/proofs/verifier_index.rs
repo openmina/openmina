@@ -24,7 +24,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
-use crate::{CurveAffine, VerificationKey};
+use crate::{proofs::BACKEND_TOCK_ROUNDS_N, CurveAffine, VerificationKey};
 
 use super::public_input::scalars::field_from_hex;
 use super::VerifierIndex;
@@ -224,7 +224,7 @@ fn make_verifier_index(index: &VerifierIndexOcaml<Pallas>) -> VerifierIndex {
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/crypto/kimchi_bindings/stubs/src/pasta_fq_plonk_verifier_index.rs#L213
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/common.ml#L16C1-L25C58
-fn make_shifts(
+pub fn make_shifts(
     domain: &Radix2EvaluationDomain<Fq>,
 ) -> kimchi::circuits::polynomials::permutation::Shifts<Fq> {
     // let value = 1 << log2_size;
@@ -234,17 +234,14 @@ fn make_shifts(
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/side_loaded_verification_key.ml#L206
 pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex {
-    const BACKEND_TOCK_ROUNDS_N: usize = 15;
-
     // https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/common.ml#L27
     let wrap_domains = |proofs_verified: usize| -> usize {
-        let h = match proofs_verified {
+        match proofs_verified {
             0 => 13,
             1 => 14,
             2 => 15,
-            _ => panic!(),
-        };
-        h
+            _ => unreachable!(),
+        }
     };
 
     let d = wrap_domains(vk.actual_wrap_domain_size.to_int());

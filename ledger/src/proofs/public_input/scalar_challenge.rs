@@ -15,6 +15,12 @@ impl From<[u64; 2]> for ScalarChallenge {
     }
 }
 
+impl From<Vec<u64>> for ScalarChallenge {
+    fn from(value: Vec<u64>) -> Self {
+        Self::new(value[0], value[1])
+    }
+}
+
 struct ScalarChallengeBitsIterator {
     inner: IntoIter<bool, 128>,
 }

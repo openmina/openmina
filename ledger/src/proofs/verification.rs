@@ -1,15 +1,21 @@
 use std::array;
 
-use ark_ff::Field;
+use ark_ff::{BigInteger256, Field, One};
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
 use crate::{
-    proofs::{accumulator_check, verifier_index::make_zkapp_verifier_index},
+    proofs::{
+        accumulator_check,
+        util::{challenge_polynomial, to_absorption_sequence},
+        verifier_index::make_zkapp_verifier_index,
+        wrap::{combined_inner_product, CombinedInnerProductParams},
+        BACKEND_TICK_ROUNDS_N,
+    },
     scan_state::{
         scan_state::transaction_snark::{SokDigest, Statement},
         transaction_logic::zkapp_statement::ZkappStatement,
     },
-    CurveAffine, PlonkVerificationKeyEvals, VerificationKey,
+    static_params, CurveAffine, PlonkVerificationKeyEvals, Sponge, VerificationKey,
 };
 
 use super::{
@@ -132,10 +138,23 @@ fn make_scalars_env(minimal: &PlonkMinimal, domain_log2: u8) -> ScalarsEnv {
     let zk_polynomial = eval_zk_polynomial(domain, minimal.zeta);
     let zeta_to_n_minus_1 = domain.evaluate_vanishing_polynomial(minimal.zeta);
 
+    let (_w4, w3, _w2, _w1) = {
+        let gen = domain.group_gen;
+        let w1 = Fp::one() / gen;
+        let w2 = w1.square();
+        let w3 = w2 * w1;
+        // let w4 = (); // unused for now
+        // let w4 = w3 * w1;
+
+        ((), w3, w2, w1)
+    };
+
     ScalarsEnv {
         zk_polynomial,
         zeta_to_n_minus_1,
         srs_length_log2,
+        domain,
+        omega_to_minus_3: w3,
     }
 }
 
@@ -275,6 +294,143 @@ fn verify_with(
     )
 }
 
+fn run_checks(
+    env: &ScalarsEnv,
+    evals: &ProofEvaluations<[Fp; 2]>,
+    minimal: &PlonkMinimal,
+    proof: &PicklesProofProofsVerified2ReprStableV2,
+    verifier_index: &VerifierIndex,
+) -> bool {
+    type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
+    type EFqSponge =
+        mina_poseidon::sponge::DefaultFqSponge<mina_curves::pasta::PallasParameters, SpongeParams>;
+    use mina_poseidon::FqSponge;
+
+    let mut errors: Vec<String> = vec![];
+    let mut checks = |condition: bool, s: &str| {
+        if !condition {
+            errors.push(s.to_string())
+        }
+    };
+
+    checks(
+        env.domain.log_size_of_group as usize <= BACKEND_TICK_ROUNDS_N,
+        "domain size is small enough",
+    );
+
+    let digest = &proof.statement.proof_state.sponge_digest_before_evaluations;
+    let sponge_digest_before_evaluations: [u64; 4] = array::from_fn(|i| digest[i].as_u64());
+    let sponge_digest_before_evaluations = BigInteger256(sponge_digest_before_evaluations);
+    let sponge_digest_before_evaluations = Fp::from(sponge_digest_before_evaluations);
+
+    let old_bulletproof_challenges = &proof
+        .statement
+        .messages_for_next_step_proof
+        .old_bulletproof_challenges;
+    let old_bulletproof_challenges: Vec<[Fp; 16]> =
+        extract_bulletproof(old_bulletproof_challenges, &endo_fp());
+
+    let challenges_digest = {
+        let mut sponge =
+            crate::ArithmeticSponge::<Fp, crate::PlonkSpongeConstantsKimchi>::new(static_params());
+        for old_bulletproof_challenges in &old_bulletproof_challenges {
+            sponge.absorb(old_bulletproof_challenges);
+        }
+        sponge.squeeze()
+    };
+    let endo_fp = endo_fp();
+    let deferred_values = &proof.statement.proof_state.deferred_values;
+
+    let xs = to_absorption_sequence(&proof.prev_evals.evals.evals);
+    let (x1, x2) = &proof.prev_evals.evals.public_input;
+
+    let mut sponge = EFqSponge::new(mina_poseidon::pasta::fp_kimchi::static_params());
+    sponge.absorb_fq(&[sponge_digest_before_evaluations]);
+    sponge.absorb_fq(&[challenges_digest]);
+    sponge.absorb_fq(&[proof.prev_evals.ft_eval1.to_field()]);
+    sponge.absorb_fq(&[x1.to_field(), x2.to_field()]);
+    xs.iter().for_each(|(x1, x2)| {
+        sponge.absorb_fq(x1);
+        sponge.absorb_fq(x2);
+    });
+    let xi_actual = sponge.squeeze_limbs(2);
+    let r_actual = sponge.squeeze_limbs(2);
+
+    let xi_actual = ScalarChallenge::from(xi_actual).to_field(&endo_fp);
+    let r_actual = ScalarChallenge::from(r_actual).to_field(&endo_fp);
+    let zetaw = minimal.zeta * env.domain.group_gen;
+    let b: ShiftedValue<Fp> = to_shifted_value(&deferred_values.b);
+
+    let xi: [u64; 2] = array::from_fn(|i| deferred_values.xi.inner[i].as_u64());
+    let xi = ScalarChallenge::new(xi[0], xi[1]).to_field(&endo_fp);
+
+    let old_bulletproof_challenges = &old_bulletproof_challenges;
+    let combined_inner_product_actual = combined_inner_product(CombinedInnerProductParams {
+        env,
+        evals,
+        minimal,
+        proof,
+        r: r_actual,
+        old_bulletproof_challenges,
+        xi,
+        zetaw,
+    });
+
+    let combined_inner_product: ShiftedValue<Fp> = to_shifted_value(
+        &proof
+            .statement
+            .proof_state
+            .deferred_values
+            .combined_inner_product,
+    );
+
+    let bulletproof_challenges = &deferred_values.bulletproof_challenges;
+    let bulletproof_challenges: Vec<Fp> = bulletproof_challenges
+        .iter()
+        .map(|chal| {
+            let prechallenge = &chal.prechallenge.inner;
+            let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].as_u64());
+            ScalarChallenge::from(prechallenge).to_field(&endo_fp)
+        })
+        .collect();
+
+    let b_actual = {
+        let challenge_polys = challenge_polynomial(&bulletproof_challenges);
+        challenge_polys(minimal.zeta) + (r_actual * challenge_polys(zetaw))
+    };
+
+    {
+        // TODO: Don't use hardcoded values
+        let all_possible_domains = [13, 14, 15];
+        let [greatest_wrap_domain, _, least_wrap_domain] = all_possible_domains;
+
+        let actual_wrap_domain = verifier_index.domain.log_size_of_group;
+        checks(
+            actual_wrap_domain <= least_wrap_domain,
+            "invalid actual_wrap_domain (least_wrap_domain)",
+        );
+        checks(
+            actual_wrap_domain >= greatest_wrap_domain,
+            "invalid actual_wrap_domain (greatest_wrap_domain)",
+        );
+    }
+
+    let shift = crate::proofs::public_input::plonk_checks::Shift::<Fp>::create();
+
+    checks(
+        combined_inner_product.to_field(&shift) == combined_inner_product_actual,
+        "different combined inner product",
+    );
+    checks(b.to_field(&shift) == b_actual, "different b");
+    checks(xi == xi_actual, "different xi");
+
+    for e in &errors {
+        eprintln!("{:?}", e);
+    }
+
+    errors.is_empty()
+}
+
 /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/verification_key.mli#L30
 struct VK<'a> {
     commitments: PlonkVerificationKeyEvals,
@@ -358,6 +514,8 @@ where
     let env = make_scalars_env(&minimal, domain_log2);
     let plonk = derive_plonk(&env, &evals, &minimal);
 
+    let checks = run_checks(&env, &evals, &minimal, proof, vk.index);
+
     let message_for_next_step_proof = get_message_for_next_step_proof(
         &proof.statement.messages_for_next_step_proof,
         &vk.commitments,
@@ -386,7 +544,7 @@ where
         eprintln!("verify error={:?}", e);
     };
 
-    result.is_ok()
+    result.is_ok() && checks
 }
 
 // #[cfg(test)]
