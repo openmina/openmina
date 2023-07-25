@@ -11,9 +11,10 @@ mod p2p_channels_snark_job_commitment_effects;
 pub use p2p_channels_snark_job_commitment_effects::*;
 
 use binprot_derive::{BinProtRead, BinProtWrite};
-use mina_p2p_messages::v2::{LedgerHash, MinaBaseSignatureStableV1, NonZeroCurvePoint};
+use mina_p2p_messages::v2::NonZeroCurvePoint;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
+use shared::snark_job_id::SnarkJobId;
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkJobCommitmentPropagationChannelMsg {
@@ -57,28 +58,4 @@ impl SnarkJobCommitment {
     pub fn timestamp(&self) -> Timestamp {
         Timestamp::new(self.timestamp as u64 * 1_000_000)
     }
-}
-
-#[derive(
-    BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
-)]
-pub enum SnarkJobId {
-    One(LedgerHashTransition),
-    Two(LedgerHashTransition, LedgerHashTransition),
-}
-
-#[derive(
-    BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
-)]
-pub struct LedgerHashTransition {
-    pub source: LedgerHashTransitionPasses,
-    pub target: LedgerHashTransitionPasses,
-}
-
-#[derive(
-    BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
-)]
-pub struct LedgerHashTransitionPasses {
-    pub first_pass_ledger: LedgerHash,
-    pub second_pass_ledger: LedgerHash,
 }

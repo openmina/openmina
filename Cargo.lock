@@ -4653,6 +4653,8 @@ dependencies = [
 name = "shared"
 version = "0.1.0"
 dependencies = [
+ "binprot",
+ "binprot_derive",
  "mina-hasher",
  "mina-p2p-messages",
  "redux",

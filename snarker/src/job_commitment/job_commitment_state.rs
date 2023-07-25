@@ -2,11 +2,9 @@ use std::{collections::BTreeMap, fmt, ops::RangeBounds, time::Duration};
 
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
+use shared::snark_job_id::SnarkJobId;
 
-use crate::p2p::{
-    channels::snark_job_commitment::{SnarkJobCommitment, SnarkJobId},
-    PeerId,
-};
+use crate::p2p::{channels::snark_job_commitment::SnarkJobCommitment, PeerId};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JobCommitment {

@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
 use shared::requests::PendingRequests;
+use shared::snark_job_id::SnarkJobId;
 use snarker::event_source::Event;
-use snarker::p2p::channels::snark_job_commitment::SnarkJobId;
 use snarker::p2p::connection::P2pConnectionResponse;
 use snarker::rpc::{ActionStatsResponse, RespondError, RpcId, RpcIdType};
 use snarker::stats::sync::SyncStatsSnapshot;

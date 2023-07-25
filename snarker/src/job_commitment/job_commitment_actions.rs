@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
+use shared::snark_job_id::SnarkJobId;
 
 use crate::p2p::channels::snark_job_commitment::SnarkJobCommitment;
-use crate::p2p::channels::snark_job_commitment::SnarkJobId;
 use crate::p2p::PeerId;
 
 pub type JobCommitmentActionWithMeta = redux::ActionWithMeta<JobCommitmentAction>;
