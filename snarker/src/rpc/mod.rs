@@ -15,8 +15,8 @@ pub use rpc_service::*;
 
 use serde::{Deserialize, Serialize};
 pub use shared::requests::{RpcId, RpcIdType};
+use shared::snark_job_id::SnarkJobId;
 
-use crate::p2p::channels::snark_job_commitment::SnarkJobId;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 

@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
+use shared::snark_job_id::SnarkJobId;
 use thiserror::Error;
 
 use crate::p2p::connection::P2pConnectionResponse;
+use crate::stats::sync::SyncStatsSnapshot;
 use crate::State;
-use crate::{p2p::channels::snark_job_commitment::SnarkJobId, stats::sync::SyncStatsSnapshot};
 
 use super::{ActionStatsResponse, RpcId};
 
