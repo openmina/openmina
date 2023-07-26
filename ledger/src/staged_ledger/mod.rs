@@ -17,3 +17,4 @@ pub mod resources;
 #[allow(clippy::module_inception)]
 pub mod staged_ledger;
 pub mod transaction_validator;
+pub mod validate_block;
