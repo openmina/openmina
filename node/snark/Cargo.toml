@@ -4,10 +4,6 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 
-[[bin]]
-name = "snark-bin"
-path = "src/bin/main.rs"
-
 [lib]
 crate-type = ["cdylib", "lib"]
 

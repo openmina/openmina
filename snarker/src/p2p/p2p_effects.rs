@@ -2,7 +2,6 @@ use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use shared::block::BlockWithHash;
 
 use crate::consensus::{ConsensusBlockChainProofUpdateAction, ConsensusBlockReceivedAction};
-use crate::job_commitment::JobCommitmentAddAction;
 use crate::p2p::channels::rpc::{P2pChannelsRpcRequestSendAction, P2pRpcRequest};
 use crate::p2p::disconnection::P2pDisconnectionInitAction;
 use crate::p2p::peer::P2pPeerAction;
@@ -11,6 +10,7 @@ use crate::rpc::{
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingSuccessAction,
 };
+use crate::snark_pool::SnarkPoolJobCommitmentAddAction;
 use crate::transition_frontier::sync::ledger::snarked::{
     PeerLedgerQueryError, PeerLedgerQueryResponse,
     TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction,
@@ -273,7 +273,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 P2pChannelsSnarkJobCommitmentAction::PromiseReceived(_) => {}
                 P2pChannelsSnarkJobCommitmentAction::Received(action) => {
                     action.effects(&meta, store);
-                    store.dispatch(JobCommitmentAddAction {
+                    store.dispatch(SnarkPoolJobCommitmentAddAction {
                         commitment: action.commitment,
                         sender: action.peer_id,
                     });

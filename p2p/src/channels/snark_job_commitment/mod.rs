@@ -40,6 +40,7 @@ pub struct SnarkJobCommitment {
     /// TODO(binier): have to use i64, because binprot doesn't support u64.
     timestamp: i64,
     pub job_id: SnarkJobId,
+    // TODO(binier): add fee.
     pub snarker: NonZeroCurvePoint,
     // pub signature: MinaBaseSignatureStableV1,
 }

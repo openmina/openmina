@@ -1,22 +1,24 @@
+use std::str::FromStr;
+
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use warp::{hyper::StatusCode, reply::with_status, Filter};
 
 use shared::snark_job_id::SnarkJobId;
 use snarker::{
     p2p::{
-        channels::snark_job_commitment::{LedgerHashTransition, LedgerHashTransitionPasses},
         connection::{
             incoming::{IncomingSignalingMethod, P2pConnectionIncomingInitOpts},
             P2pConnectionResponse,
         },
         webrtc, PeerId,
     },
-    rpc::{ActionStatsQuery, RpcRequest, SyncStatsQuery},
+    rpc::{ActionStatsQuery, RpcRequest, SnarkerJobCommitResponse, SyncStatsQuery},
 };
 
 use super::rpc::{
     RpcActionStatsGetResponse, RpcP2pConnectionIncomingResponse,
-    RpcSnarkerJobPickAndCommitResponse, RpcStateGetResponse, RpcSyncStatsGetResponse,
+    RpcSnarkPoolAvailableJobsGetResponse, RpcSnarkerJobCommitResponse, RpcStateGetResponse,
+    RpcSyncStatsGetResponse,
 };
 
 pub async fn run(port: u16, rpc_sender: super::RpcSender) {
@@ -137,33 +139,55 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         action_stats.or(sync_stats)
     };
 
+    let rpc_sender_clone = rpc_sender.clone();
+    let snark_pool_jobs_get = warp::path!("snark-pool" / "jobs" / "available")
+        .and(warp::get())
+        .then(move || {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+            async move {
+                let res: Option<RpcSnarkPoolAvailableJobsGetResponse> = rpc_sender_clone
+                    .oneshot_request(RpcRequest::SnarkPoolAvailableJobsGet)
+                    .await;
+                match res {
+                    None => with_json_reply(
+                        &"response channel dropped",
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                    ),
+                    Some(resp) => with_json_reply(&resp, StatusCode::OK),
+                }
+            }
+        });
+
     // TODO(binier): make endpoint only accessible locally.
     let rpc_sender_clone = rpc_sender.clone();
-    let snarker_pick_job = warp::path!("snarker" / "pick-job")
+    let snarker_job_commit = warp::path!("snarker" / "job" / "commit")
         .and(warp::put())
         .and(warp::filters::body::bytes())
         .then(move |body: bytes::Bytes| {
             let rpc_sender_clone = rpc_sender_clone.clone();
             async move {
-                let Ok(s) = String::from_utf8(body.to_vec()) else {
-                    return with_status("invalid input".to_owned(), StatusCode::BAD_REQUEST);
-                };
-                let jobs_res = s
-                    .lines()
-                    .map(|s| SnarkJobId::from_str(s))
-                    .collect::<Result<Vec<_>, _>>();
+                let Ok(job_id) = String::from_utf8(body.to_vec())
+                    .or(Err(()))
+                    .and_then(|s| SnarkJobId::from_str(&s).or(Err(())))
+                    else {
+                        return with_json_reply(&"invalid_input", StatusCode::BAD_REQUEST);
+                    };
 
-                match jobs_res {
-                    Ok(available_jobs) => {
-                        let res: Option<RpcSnarkerJobPickAndCommitResponse> = rpc_sender_clone
-                            .oneshot_request(RpcRequest::SnarkerJobPickAndCommit { available_jobs })
-                            .await;
-                        match res.flatten() {
-                            None => with_status("".to_owned(), StatusCode::OK),
-                            Some(job_id) => with_status(job_id.to_string(), StatusCode::CREATED),
-                        }
+                let res: Option<RpcSnarkerJobCommitResponse> = rpc_sender_clone
+                    .oneshot_request(RpcRequest::SnarkerJobCommit { job_id })
+                    .await;
+                match res {
+                    None => with_json_reply(
+                        &"response channel dropped",
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                    ),
+                    Some(resp) => {
+                        let status = match &resp {
+                            SnarkerJobCommitResponse::Ok => StatusCode::CREATED,
+                            _ => StatusCode::BAD_REQUEST,
+                        };
+                        with_json_reply(&resp, status)
                     }
-                    Err(_) => with_status("invalid input".to_owned(), StatusCode::BAD_REQUEST),
                 }
             }
         });
@@ -172,7 +196,8 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     let routes = signaling
         .or(state_get)
         .or(stats)
-        .or(snarker_pick_job)
+        .or(snark_pool_jobs_get)
+        .or(snarker_job_commit)
         .with(cors);
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }

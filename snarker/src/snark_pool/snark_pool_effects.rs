@@ -4,32 +4,31 @@ use crate::p2p::channels::snark_job_commitment::{
 use crate::{Service, Store};
 
 use super::{
-    JobCommitmentAction, JobCommitmentActionWithMeta, JobCommitmentAddAction,
-    JobCommitmentP2pSendAction, JobCommitmentTimeoutAction,
+    SnarkPoolAction, SnarkPoolActionWithMeta, SnarkPoolJobCommitmentAddAction,
+    SnarkPoolJobCommitmentTimeoutAction, SnarkPoolP2pSendAction,
 };
 
-pub fn job_commitment_effects<S: Service>(
-    store: &mut Store<S>,
-    action: JobCommitmentActionWithMeta,
-) {
+pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolActionWithMeta) {
     let (action, meta) = action.split();
 
     match action {
-        JobCommitmentAction::Create(a) => {
+        SnarkPoolAction::CommitmentCreate(a) => {
             let timestamp_ms = meta.time_as_nanos() / 1_000_000;
             let pub_key = store.state().config.public_key.clone();
-            store.dispatch(JobCommitmentAddAction {
+            store.dispatch(SnarkPoolJobCommitmentAddAction {
                 commitment: SnarkJobCommitment::new(timestamp_ms, a.job_id, pub_key.into()),
                 sender: store.state().p2p.config.identity_pub_key.peer_id(),
             });
+            // TODO(akoptelov): start working on this job.
         }
-        JobCommitmentAction::Add(_) => {}
-        JobCommitmentAction::P2pSendAll(_) => {
+        SnarkPoolAction::CommitmentAdd(_) => {}
+        SnarkPoolAction::JobsUpdate(_) => {}
+        SnarkPoolAction::P2pSendAll(_) => {
             for peer_id in store.state().p2p.ready_peers() {
-                store.dispatch(JobCommitmentP2pSendAction { peer_id });
+                store.dispatch(SnarkPoolP2pSendAction { peer_id });
             }
         }
-        JobCommitmentAction::P2pSend(a) => {
+        SnarkPoolAction::P2pSend(a) => {
             let state = store.state();
             let Some(peer) = state.p2p.get_ready_peer(&a.peer_id) else { return };
             let (index, limit) = peer
@@ -37,7 +36,11 @@ pub fn job_commitment_effects<S: Service>(
                 .snark_job_commitment
                 .next_send_index_and_limit();
 
-            let iter = state.job_commitments.range(index..).take(limit as usize);
+            let iter = state
+                .snark_pool
+                .range(index..)
+                .filter_map(|(index, job)| Some((index, job.commitment.as_ref()?)))
+                .take(limit as usize);
 
             let mut commitments = vec![];
             let mut first_index = None;
@@ -58,17 +61,17 @@ pub fn job_commitment_effects<S: Service>(
                 last_index,
             });
         }
-        JobCommitmentAction::CheckTimeouts(_) => {
+        SnarkPoolAction::CheckTimeouts(_) => {
             let timed_out_ids = store
                 .state()
-                .job_commitments
+                .snark_pool
                 .timed_out_commitments_iter(meta.time())
                 .cloned()
                 .collect::<Vec<_>>();
             for job_id in timed_out_ids {
-                store.dispatch(JobCommitmentTimeoutAction { job_id });
+                store.dispatch(SnarkPoolJobCommitmentTimeoutAction { job_id });
             }
         }
-        JobCommitmentAction::Timeout(_) => {}
+        SnarkPoolAction::JobCommitmentTimeout(_) => {}
     }
 }

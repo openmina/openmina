@@ -6,7 +6,7 @@ use std::{
 use ledger::{
     scan_state::{
         currency::{Amount, Fee, Slot},
-        scan_state::ConstraintConstants,
+        scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage, ConstraintConstants},
         transaction_logic::{local_state::LocalState, protocol_state::protocol_state_view},
     },
     staged_ledger::{diff::Diff, staged_ledger::StagedLedger},
@@ -239,7 +239,12 @@ impl<T: LedgerService> TransitionFrontierService for T {
         Ok(())
     }
 
-    fn commit(&mut self, ledgers_to_keep: BTreeSet<LedgerHash>, new_root: &ArcBlockWithHash) {
+    fn commit(
+        &mut self,
+        ledgers_to_keep: BTreeSet<LedgerHash>,
+        new_root: &ArcBlockWithHash,
+        new_best_tip: &ArcBlockWithHash,
+    ) -> Vec<OneOrTwo<AvailableJobMessage>> {
         let ctx = self.ctx_mut();
 
         ctx.snarked_ledgers
@@ -258,9 +263,18 @@ impl<T: LedgerService> TransitionFrontierService for T {
                 .filter(|(hash, _)| ledgers_to_keep.contains(hash)),
         );
 
-        let Some(new_root_ledger) = ctx.staged_ledgers.get_mut(new_root.staged_ledger_hash()) else { return };
+        let Some(new_root_ledger) = ctx.staged_ledgers.get_mut(new_root.staged_ledger_hash()) else { return vec![] };
         // Make ledger mask new root.
         new_root_ledger.commit_and_reparent_to_root();
+
+        ctx.staged_ledger(new_best_tip.staged_ledger_hash())
+            .map(|l| {
+                l.scan_state()
+                    .all_job_pairs_iter()
+                    .map(|job| job.map(|single| AvailableJobMessage::from(single)))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 }
 

@@ -1,12 +1,13 @@
+use std::str::FromStr;
+
 use binprot_derive::{BinProtRead, BinProtWrite};
+use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
 use mina_p2p_messages::v2::LedgerHash;
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
 pub type SnarkJobId = LedgerHashTransition;
 
-#[derive(
-    BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
-)]
+#[derive(BinProtWrite, BinProtRead, Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub struct LedgerHashTransition {
     pub source: LedgerHashTransitionPasses,
     pub target: LedgerHashTransitionPasses,
@@ -48,7 +49,7 @@ impl std::fmt::Display for LedgerHashTransitionPasses {
     }
 }
 
-impl std::str::FromStr for LedgerHashTransitionPasses {
+impl FromStr for LedgerHashTransitionPasses {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -57,5 +58,86 @@ impl std::str::FromStr for LedgerHashTransitionPasses {
             first_pass_ledger: first_pass.parse().or(Err(()))?,
             second_pass_ledger: second_pass.parse().or(Err(()))?,
         })
+    }
+}
+
+impl Serialize for LedgerHashTransition {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            self.to_string().serialize(serializer)
+        } else {
+            let mut s = serializer.serialize_struct("LedgerHashTransition", 2)?;
+            s.serialize_field("source", &self.source)?;
+            s.serialize_field("target", &self.target)?;
+            s.end()
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for LedgerHashTransition {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+        if deserializer.is_human_readable() {
+            let s: String = Deserialize::deserialize(deserializer)?;
+            Self::from_str(&s).map_err(|_| Error::custom("decode from str failed"))
+        } else {
+            #[derive(Deserialize)]
+            struct LedgerHashTransition {
+                pub source: LedgerHashTransitionPasses,
+                pub target: LedgerHashTransitionPasses,
+            }
+            let v: LedgerHashTransition = Deserialize::deserialize(deserializer)?;
+            Ok(Self {
+                source: v.source,
+                target: v.target,
+            })
+        }
+    }
+}
+
+impl From<&OneOrTwo<AvailableJobMessage>> for SnarkJobId {
+    fn from(value: &OneOrTwo<AvailableJobMessage>) -> Self {
+        let (first, second) = match value {
+            OneOrTwo::One(j) => (j, j),
+            OneOrTwo::Two((j1, j2)) => (j1, j2),
+        };
+
+        let source = match first {
+            AvailableJobMessage::Base(base) => &base.statement.0.source,
+            AvailableJobMessage::Merge { left, .. } => &left.0 .0.statement.source,
+        };
+        let target = match second {
+            AvailableJobMessage::Base(base) => &base.statement.0.target,
+            AvailableJobMessage::Merge { right, .. } => &right.0 .0.statement.target,
+        };
+
+        let source = LedgerHashTransitionPasses {
+            first_pass_ledger: source.first_pass_ledger.clone(),
+            second_pass_ledger: source.second_pass_ledger.clone(),
+        };
+        let target = LedgerHashTransitionPasses {
+            first_pass_ledger: target.first_pass_ledger.clone(),
+            second_pass_ledger: target.second_pass_ledger.clone(),
+        };
+
+        LedgerHashTransition { source, target }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_snark_job_id_to_string_from_string() {
+        let s = "jw9nPCs68UNaKaLZwV6QzdswKWomwQxvTgrpmKWmnFJyswnrn4N:jwhHYWzvJG8esmqtYXbUZy3UGbLSjhKvn1FSxBGL1JDFHqbHMJc->jwiLuRrEqNgASgXEqibGs4VqKwSwiuFEtuPD53v8hiTtVuLfmTr:jwhHYWzvJG8esmqtYXbUZy3UGbLSjhKvn1FSxBGL1JDFHqbHMJc";
+        let decoded = SnarkJobId::from_str(s).unwrap();
+        assert_eq!(decoded.to_string(), s);
     }
 }

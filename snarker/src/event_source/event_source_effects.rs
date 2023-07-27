@@ -20,8 +20,8 @@ use crate::p2p::disconnection::P2pDisconnectionFinishAction;
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcP2pConnectionIncomingInitAction,
-    RpcP2pConnectionOutgoingInitAction, RpcRequest, RpcSnarkerJobPickAndCommitAction,
-    RpcSyncStatsGetAction,
+    RpcP2pConnectionOutgoingInitAction, RpcRequest, RpcSnarkPoolAvailableJobsGetAction,
+    RpcSnarkerJobCommitAction, RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
 use crate::snark::SnarkEvent;
@@ -186,11 +186,11 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         opts: opts.clone(),
                     });
                 }
-                RpcRequest::SnarkerJobPickAndCommit { available_jobs } => {
-                    store.dispatch(RpcSnarkerJobPickAndCommitAction {
-                        rpc_id,
-                        available_jobs,
-                    });
+                RpcRequest::SnarkPoolAvailableJobsGet => {
+                    store.dispatch(RpcSnarkPoolAvailableJobsGetAction { rpc_id });
+                }
+                RpcRequest::SnarkerJobCommit { job_id } => {
+                    store.dispatch(RpcSnarkerJobCommitAction { rpc_id, job_id });
                 }
             },
         },
