@@ -238,10 +238,10 @@ impl SyncBlock {
                     .filter_map(|(_, v)| v.fetch_pending_since())
                     .min()
                 {
-                    self.status = SyncBlockStatus::Missing;
+                    self.status = SyncBlockStatus::Fetching;
                     self.fetch_start.get_or_insert(time);
                 } else {
-                    self.status = SyncBlockStatus::Fetching;
+                    self.status = SyncBlockStatus::Missing;
                 }
             }
             TransitionFrontierSyncBlockState::FetchSuccess { time, block, .. } => {
