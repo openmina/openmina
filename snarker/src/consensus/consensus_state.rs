@@ -218,23 +218,3 @@ impl<'a> BlockRef<'a> {
              .0
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn hashes() -> Vec<StateHash> {
-        IntoIterator::into_iter([
-            "3NKxvqipR18tYFpE54XoXT1y6vN67UjCNxv1ovpo2H4aYUfPQbhS",
-            "3NKyFBN868VkPrLXui6E34QMpfhgkS1aED5a8HhfS26JoZfdgtCL",
-            "3NLQV2E7qEDmZkpaGvxnmGYmsyGFiQBccRQTsgz3jcvEdBzCXgon",
-            "3NK5mH9WGPZWpW2QP7tH8TmUMAh4YEfwPyYMkkuhaPASUvHeb4P8",
-            "3NLZKTrmPQVYQ3KwXyPFwSVegrZTUKJv2LyBJGqNGC3v5ZnU9yQu",
-            "3NLgKTSRDeuyFxnmqbc7MbvmYYWc8GeHaYuSKA8KHjmVyNmUGTbv",
-            "3NL6pccNfWQZSS1djdkqgqS2iQkrjqdhonT29ZLDHdjwTZCGTf8E",
-            "3NLe7NDvwNxj1e9bwkiXd8MJXoseyDkwfXSsH9BkhG6wt4ySE46C",
-        ])
-        .map(|h| serde_json::from_str(&format!("\"{}\"", h)).unwrap())
-        .collect()
-    }
-}

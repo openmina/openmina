@@ -18,8 +18,8 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
         Action::TransitionFrontier(a) => {
             state.transition_frontier.reducer(meta.with_action(a));
         }
-        Action::JobCommitment(a) => {
-            state.job_commitments.reducer(meta.with_action(a));
+        Action::SnarkPool(a) => {
+            state.snark_pool.reducer(meta.with_action(a));
         }
         Action::Rpc(a) => {
             state.rpc.reducer(meta.with_action(a));

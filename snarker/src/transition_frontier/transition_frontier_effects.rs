@@ -2,6 +2,7 @@ use p2p::channels::best_tip::P2pChannelsBestTipResponseSendAction;
 use redux::Timestamp;
 
 use crate::ledger::LEDGER_DEPTH;
+use crate::snark_pool::SnarkPoolJobsUpdateAction;
 use crate::stats::sync::SyncingLedger;
 use crate::Store;
 
@@ -138,13 +139,16 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 let sync = &store.state.get().transition_frontier.sync;
                 let TransitionFrontierSyncState::BlocksSuccess { chain, .. } = sync else { return };
                 let Some(root_block) = chain.first() else { return };
+                let Some(best_tip) = chain.last() else { return };
                 let ledgers_to_keep = chain
                     .iter()
                     .flat_map(|b| [b.snarked_ledger_hash(), b.staged_ledger_hash()])
                     .cloned()
                     .collect();
-                store.service.commit(ledgers_to_keep, root_block);
+
+                let jobs = store.service.commit(ledgers_to_keep, root_block, best_tip);
                 store.dispatch(TransitionFrontierSyncedAction {});
+                store.dispatch(SnarkPoolJobsUpdateAction { jobs });
             }
             TransitionFrontierSyncAction::Ledger(a) => match a {
                 TransitionFrontierSyncLedgerAction::Init(action) => {

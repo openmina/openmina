@@ -24,12 +24,12 @@ pub mod stats;
 pub mod account;
 pub mod consensus;
 pub mod event_source;
-pub mod job_commitment;
 pub mod ledger;
 pub mod logger;
 pub mod p2p;
 pub mod rpc;
 pub mod snark;
+pub mod snark_pool;
 pub mod transition_frontier;
 pub mod watched_accounts;
 

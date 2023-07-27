@@ -6,7 +6,7 @@ use crate::p2p::connection::P2pConnectionResponse;
 use crate::stats::sync::SyncStatsSnapshot;
 use crate::State;
 
-use super::{ActionStatsResponse, RpcId};
+use super::{ActionStatsResponse, RpcId, SnarkerJobCommitResponse};
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
 pub enum RespondError {
@@ -45,9 +45,14 @@ pub trait RpcService: redux::Service {
         rpc_id: RpcId,
         response: Result<(), String>,
     ) -> Result<(), RespondError>;
-    fn respond_snarker_job_pick_and_commit(
+    fn respond_snark_pool_available_jobs(
         &mut self,
         rpc_id: RpcId,
-        response: Option<SnarkJobId>,
+        response: Vec<SnarkJobId>,
+    ) -> Result<(), RespondError>;
+    fn respond_snarker_job_commit(
+        &mut self,
+        rpc_id: RpcId,
+        response: SnarkerJobCommitResponse,
     ) -> Result<(), RespondError>;
 }

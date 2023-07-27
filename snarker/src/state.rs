@@ -3,10 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::SnarkerConfig;
 pub use crate::consensus::ConsensusState;
-pub use crate::job_commitment::JobCommitmentsState;
 pub use crate::p2p::P2pState;
 pub use crate::rpc::RpcState;
 pub use crate::snark::SnarkState;
+pub use crate::snark_pool::SnarkPoolState;
 pub use crate::transition_frontier::TransitionFrontierState;
 pub use crate::watched_accounts::WatchedAccountsState;
 use crate::ActionWithMeta;
@@ -20,7 +20,7 @@ pub struct State {
     pub snark: SnarkState,
     pub consensus: ConsensusState,
     pub transition_frontier: TransitionFrontierState,
-    pub job_commitments: JobCommitmentsState,
+    pub snark_pool: SnarkPoolState,
     pub rpc: RpcState,
 
     pub watched_accounts: WatchedAccountsState,
@@ -35,7 +35,7 @@ impl State {
         let job_commitments = config.snarker.job_commitments.clone();
         Self {
             p2p: P2pState::new(config.p2p),
-            job_commitments: JobCommitmentsState::new(job_commitments),
+            snark_pool: SnarkPoolState::new(job_commitments),
             snark: SnarkState::new(config.snark),
             consensus: ConsensusState::new(),
             transition_frontier: TransitionFrontierState::new(config.transition_frontier),

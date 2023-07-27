@@ -1,8 +1,5 @@
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
-use crate::job_commitment::{
-    job_commitment_effects, JobCommitmentCheckTimeoutsAction, JobCommitmentP2pSendAllAction,
-};
 use crate::logger::logger_effects;
 use crate::p2p::channels::rpc::{
     P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
@@ -13,6 +10,9 @@ use crate::p2p::connection::outgoing::{
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
+use crate::snark_pool::{
+    job_commitment_effects, SnarkPoolCheckTimeoutsAction, SnarkPoolP2pSendAllAction,
+};
 use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
 use crate::{Action, ActionWithMeta, Service, Store};
@@ -41,8 +41,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                 store.dispatch(action);
             }
 
-            store.dispatch(JobCommitmentCheckTimeoutsAction {});
-            store.dispatch(JobCommitmentP2pSendAllAction {});
+            store.dispatch(SnarkPoolCheckTimeoutsAction {});
+            store.dispatch(SnarkPoolP2pSendAllAction {});
 
             // TODO(binier): refactor
             let state = store.state();
@@ -135,7 +135,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::P2p(action) => {
             p2p_effects(store, meta.with_action(action));
         }
-        Action::JobCommitment(action) => {
+        Action::SnarkPool(action) => {
             job_commitment_effects(store, meta.with_action(action));
         }
         Action::Rpc(action) => {

@@ -11,11 +11,6 @@ use crate::event_source::{
     EventSourceAction, EventSourceNewEventAction, EventSourceProcessEventsAction,
     EventSourceWaitForEventsAction, EventSourceWaitTimeoutAction,
 };
-use crate::job_commitment::{
-    JobCommitmentAction, JobCommitmentAddAction, JobCommitmentCheckTimeoutsAction,
-    JobCommitmentCreateAction, JobCommitmentP2pSendAction, JobCommitmentP2pSendAllAction,
-    JobCommitmentTimeoutAction,
-};
 use crate::p2p::channels::best_tip::{
     P2pChannelsBestTipAction, P2pChannelsBestTipInitAction, P2pChannelsBestTipPendingAction,
     P2pChannelsBestTipReadyAction, P2pChannelsBestTipReceivedAction,
@@ -71,13 +66,19 @@ use crate::rpc::{
     RpcP2pConnectionIncomingPendingAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
-    RpcP2pConnectionOutgoingSuccessAction, RpcSnarkerJobPickAndCommitAction, RpcSyncStatsGetAction,
+    RpcP2pConnectionOutgoingSuccessAction, RpcSnarkPoolAvailableJobsGetAction,
+    RpcSnarkerJobCommitAction, RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{
     SnarkBlockVerifyAction, SnarkBlockVerifyErrorAction, SnarkBlockVerifyFinishAction,
     SnarkBlockVerifyInitAction, SnarkBlockVerifyPendingAction, SnarkBlockVerifySuccessAction,
 };
 use crate::snark::SnarkAction;
+use crate::snark_pool::{
+    SnarkPoolAction, SnarkPoolCheckTimeoutsAction, SnarkPoolCommitmentCreateAction,
+    SnarkPoolJobCommitmentAddAction, SnarkPoolJobCommitmentTimeoutAction,
+    SnarkPoolJobsUpdateAction, SnarkPoolP2pSendAction, SnarkPoolP2pSendAllAction,
+};
 use crate::transition_frontier::sync::ledger::snarked::{
     TransitionFrontierSyncLedgerSnarkedAction,
     TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction,
@@ -158,12 +159,6 @@ pub enum ActionKind {
     EventSourceProcessEvents,
     EventSourceWaitForEvents,
     EventSourceWaitTimeout,
-    JobCommitmentAdd,
-    JobCommitmentCheckTimeouts,
-    JobCommitmentCreate,
-    JobCommitmentP2pSend,
-    JobCommitmentP2pSendAll,
-    JobCommitmentTimeout,
     P2pChannelsBestTipInit,
     P2pChannelsBestTipPending,
     P2pChannelsBestTipReady,
@@ -231,13 +226,21 @@ pub enum ActionKind {
     RpcP2pConnectionOutgoingInit,
     RpcP2pConnectionOutgoingPending,
     RpcP2pConnectionOutgoingSuccess,
-    RpcSnarkerJobPickAndCommit,
+    RpcSnarkPoolAvailableJobsGet,
+    RpcSnarkerJobCommit,
     RpcSyncStatsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
     SnarkBlockVerifyInit,
     SnarkBlockVerifyPending,
     SnarkBlockVerifySuccess,
+    SnarkPoolCheckTimeouts,
+    SnarkPoolCommitmentCreate,
+    SnarkPoolJobCommitmentAdd,
+    SnarkPoolJobCommitmentTimeout,
+    SnarkPoolJobsUpdate,
+    SnarkPoolP2pSend,
+    SnarkPoolP2pSendAll,
     TransitionFrontierSyncBestTipUpdate,
     TransitionFrontierSyncBlocksFetchSuccess,
     TransitionFrontierSyncBlocksNextApplyInit,
@@ -293,7 +296,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 146;
+    pub const COUNT: usize = 148;
 }
 
 impl ActionKindGet for Action {
@@ -305,7 +308,7 @@ impl ActionKindGet for Action {
             Self::Snark(a) => a.kind(),
             Self::Consensus(a) => a.kind(),
             Self::TransitionFrontier(a) => a.kind(),
-            Self::JobCommitment(a) => a.kind(),
+            Self::SnarkPool(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
             Self::WatchedAccounts(a) => a.kind(),
         }
@@ -372,15 +375,16 @@ impl ActionKindGet for TransitionFrontierAction {
     }
 }
 
-impl ActionKindGet for JobCommitmentAction {
+impl ActionKindGet for SnarkPoolAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Create(a) => a.kind(),
-            Self::Add(a) => a.kind(),
+            Self::CommitmentCreate(a) => a.kind(),
+            Self::CommitmentAdd(a) => a.kind(),
+            Self::JobsUpdate(a) => a.kind(),
             Self::P2pSendAll(a) => a.kind(),
             Self::P2pSend(a) => a.kind(),
             Self::CheckTimeouts(a) => a.kind(),
-            Self::Timeout(a) => a.kind(),
+            Self::JobCommitmentTimeout(a) => a.kind(),
         }
     }
 }
@@ -400,7 +404,8 @@ impl ActionKindGet for RpcAction {
             Self::P2pConnectionIncomingRespond(a) => a.kind(),
             Self::P2pConnectionIncomingError(a) => a.kind(),
             Self::P2pConnectionIncomingSuccess(a) => a.kind(),
-            Self::SnarkerJobPickAndCommit(a) => a.kind(),
+            Self::SnarkPoolAvailableJobsGet(a) => a.kind(),
+            Self::SnarkerJobCommit(a) => a.kind(),
             Self::Finish(a) => a.kind(),
         }
     }
@@ -575,39 +580,45 @@ impl ActionKindGet for TransitionFrontierSyncedAction {
     }
 }
 
-impl ActionKindGet for JobCommitmentCreateAction {
+impl ActionKindGet for SnarkPoolCommitmentCreateAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::JobCommitmentCreate
+        ActionKind::SnarkPoolCommitmentCreate
     }
 }
 
-impl ActionKindGet for JobCommitmentAddAction {
+impl ActionKindGet for SnarkPoolJobCommitmentAddAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::JobCommitmentAdd
+        ActionKind::SnarkPoolJobCommitmentAdd
     }
 }
 
-impl ActionKindGet for JobCommitmentP2pSendAllAction {
+impl ActionKindGet for SnarkPoolJobsUpdateAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::JobCommitmentP2pSendAll
+        ActionKind::SnarkPoolJobsUpdate
     }
 }
 
-impl ActionKindGet for JobCommitmentP2pSendAction {
+impl ActionKindGet for SnarkPoolP2pSendAllAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::JobCommitmentP2pSend
+        ActionKind::SnarkPoolP2pSendAll
     }
 }
 
-impl ActionKindGet for JobCommitmentCheckTimeoutsAction {
+impl ActionKindGet for SnarkPoolP2pSendAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::JobCommitmentCheckTimeouts
+        ActionKind::SnarkPoolP2pSend
     }
 }
 
-impl ActionKindGet for JobCommitmentTimeoutAction {
+impl ActionKindGet for SnarkPoolCheckTimeoutsAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::JobCommitmentTimeout
+        ActionKind::SnarkPoolCheckTimeouts
+    }
+}
+
+impl ActionKindGet for SnarkPoolJobCommitmentTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolJobCommitmentTimeout
     }
 }
 
@@ -683,9 +694,15 @@ impl ActionKindGet for RpcP2pConnectionIncomingSuccessAction {
     }
 }
 
-impl ActionKindGet for RpcSnarkerJobPickAndCommitAction {
+impl ActionKindGet for RpcSnarkPoolAvailableJobsGetAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::RpcSnarkerJobPickAndCommit
+        ActionKind::RpcSnarkPoolAvailableJobsGet
+    }
+}
+
+impl ActionKindGet for RpcSnarkerJobCommitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::RpcSnarkerJobCommit
     }
 }
 

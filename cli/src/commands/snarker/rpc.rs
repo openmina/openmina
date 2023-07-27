@@ -5,7 +5,7 @@ use shared::requests::PendingRequests;
 use shared::snark_job_id::SnarkJobId;
 use snarker::event_source::Event;
 use snarker::p2p::connection::P2pConnectionResponse;
-use snarker::rpc::{ActionStatsResponse, RespondError, RpcId, RpcIdType};
+use snarker::rpc::{ActionStatsResponse, RespondError, RpcId, RpcIdType, SnarkerJobCommitResponse};
 use snarker::stats::sync::SyncStatsSnapshot;
 use snarker::State;
 
@@ -15,7 +15,8 @@ pub type RpcStateGetResponse = Box<State>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
-pub type RpcSnarkerJobPickAndCommitResponse = Option<SnarkJobId>;
+pub type RpcSnarkPoolAvailableJobsGetResponse = Vec<SnarkJobId>;
+pub type RpcSnarkerJobCommitResponse = SnarkerJobCommitResponse;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum RpcP2pConnectionIncomingResponse {
@@ -154,15 +155,30 @@ impl snarker::rpc::RpcService for SnarkerService {
         Ok(())
     }
 
-    fn respond_snarker_job_pick_and_commit(
+    fn respond_snark_pool_available_jobs(
         &mut self,
         rpc_id: RpcId,
-        response: Option<SnarkJobId>,
+        response: Vec<SnarkJobId>,
     ) -> Result<(), RespondError> {
         let entry = self.rpc.pending.remove(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
         let chan = chan
-            .downcast::<oneshot::Sender<RpcSnarkerJobPickAndCommitResponse>>()
+            .downcast::<oneshot::Sender<RpcSnarkPoolAvailableJobsGetResponse>>()
+            .or(Err(RespondError::UnexpectedResponseType))?;
+        chan.send(response.clone())
+            .or(Err(RespondError::RespondingFailed))?;
+        Ok(())
+    }
+
+    fn respond_snarker_job_commit(
+        &mut self,
+        rpc_id: RpcId,
+        response: SnarkerJobCommitResponse,
+    ) -> Result<(), RespondError> {
+        let entry = self.rpc.pending.remove(rpc_id);
+        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
+        let chan = chan
+            .downcast::<oneshot::Sender<RpcSnarkerJobCommitResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
         chan.send(response.clone())
             .or(Err(RespondError::RespondingFailed))?;

@@ -1,14 +1,15 @@
 use p2p::connection::P2pConnectionResponse;
 
-use crate::job_commitment::JobCommitmentCreateAction;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
+use crate::snark_pool::SnarkPoolCommitmentCreateAction;
 use crate::{Service, Store};
 
 use super::{
     ActionStatsQuery, ActionStatsResponse, RpcAction, RpcActionWithMeta, RpcFinishAction,
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingPendingAction,
     RpcP2pConnectionIncomingRespondAction, RpcP2pConnectionOutgoingPendingAction,
+    SnarkerJobCommitResponse,
 };
 
 pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) {
@@ -130,27 +131,36 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 rpc_id: action.rpc_id,
             });
         }
-        RpcAction::SnarkerJobPickAndCommit(action) => {
-            for job_id in action.available_jobs {
-                if store
-                    .state()
-                    .job_commitments
-                    .should_create_commitment(&job_id)
-                {
-                    if store
-                        .service()
-                        .respond_snarker_job_pick_and_commit(action.rpc_id, Some(job_id.clone()))
-                        .is_err()
-                    {
-                        return;
-                    }
-                    store.dispatch(JobCommitmentCreateAction { job_id });
-                    return;
-                }
-            }
+        RpcAction::SnarkPoolAvailableJobsGet(action) => {
+            let job_ids = store
+                .state()
+                .snark_pool
+                .available_jobs_iter()
+                .map(|job| job.id.clone())
+                .collect::<Vec<_>>();
             let _ = store
                 .service()
-                .respond_snarker_job_pick_and_commit(action.rpc_id, None);
+                .respond_snark_pool_available_jobs(action.rpc_id, job_ids);
+        }
+        RpcAction::SnarkerJobCommit(action) => {
+            let job_id = action.job_id;
+            if !store.state().snark_pool.should_create_commitment(&job_id) {
+                let _ = store.service().respond_snarker_job_commit(
+                    action.rpc_id,
+                    SnarkerJobCommitResponse::JobNotFound,
+                );
+                // TODO(binier): differentiate between job not found and job already taken.
+                return;
+            }
+            // TODO(akoptelov): check if snarker is busy. If yes send `SnarkerJobCommitResponse::SnarkerBusy`.
+            if store
+                .service()
+                .respond_snarker_job_commit(action.rpc_id, SnarkerJobCommitResponse::Ok)
+                .is_err()
+            {
+                return;
+            }
+            store.dispatch(SnarkPoolCommitmentCreateAction { job_id });
         }
         RpcAction::Finish(_) => {}
     }

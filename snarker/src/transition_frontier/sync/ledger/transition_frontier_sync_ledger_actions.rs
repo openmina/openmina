@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::snarked::TransitionFrontierSyncLedgerSnarkedAction;
-use super::staged::{
-    TransitionFrontierSyncLedgerStagedAction, TransitionFrontierSyncLedgerStagedState,
-};
+use super::staged::TransitionFrontierSyncLedgerStagedAction;
 use super::TransitionFrontierSyncLedgerState;
 
 pub type TransitionFrontierSyncLedgerActionWithMeta =

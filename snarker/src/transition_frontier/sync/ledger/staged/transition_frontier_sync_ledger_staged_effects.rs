@@ -112,12 +112,11 @@ impl TransitionFrontierSyncLedgerStagedReconstructInitAction {
         let parts = parts.clone();
 
         store.dispatch(TransitionFrontierSyncLedgerStagedReconstructPendingAction {});
-        // TODO(binier): dispatch error action if error.
-        let res = store
-            .service
-            .staged_ledger_reconstruct(snarked_ledger_hash, parts);
 
-        match res {
+        match store
+            .service
+            .staged_ledger_reconstruct(snarked_ledger_hash, parts)
+        {
             Err(error) => {
                 store.dispatch(TransitionFrontierSyncLedgerStagedReconstructErrorAction { error });
             }

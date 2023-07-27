@@ -4657,6 +4657,7 @@ dependencies = [
  "binprot_derive",
  "mina-hasher",
  "mina-p2p-messages",
+ "mina-tree",
  "redux",
  "serde",
  "slab",

@@ -19,6 +19,7 @@ use shared::snark_job_id::SnarkJobId;
 
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RpcRequest {
@@ -27,7 +28,8 @@ pub enum RpcRequest {
     SyncStatsGet(SyncStatsQuery),
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
     P2pConnectionIncoming(P2pConnectionIncomingInitOpts),
-    SnarkerJobPickAndCommit { available_jobs: Vec<SnarkJobId> },
+    SnarkPoolAvailableJobsGet,
+    SnarkerJobCommit { job_id: SnarkJobId },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -40,4 +42,20 @@ pub enum ActionStatsQuery {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SyncStatsQuery {
     pub limit: Option<usize>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "kind")]
+pub enum ActionStatsResponse {
+    SinceStart { stats: ActionStatsSnapshot },
+    ForBlock(ActionStatsForBlock),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "kind")]
+pub enum SnarkerJobCommitResponse {
+    Ok,
+    JobNotFound,
+    JobTaken,
+    SnarkerBusy,
 }

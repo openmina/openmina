@@ -14,7 +14,6 @@ use snarker::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
     EventSourceWaitTimeoutAction,
 };
-use snarker::job_commitment::JobCommitmentsConfig;
 use snarker::ledger::LedgerCtx;
 use snarker::p2p::channels::ChannelId;
 use snarker::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -29,6 +28,7 @@ use snarker::snark::block_verify::{
     SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
 use snarker::snark::{SnarkEvent, VerifierIndex, VerifierKind, VerifierSRS};
+use snarker::snark_pool::SnarkPoolConfig;
 use snarker::stats::Stats;
 use snarker::{Config, LedgerConfig, SnarkConfig, SnarkerConfig, State, TransitionFrontierConfig};
 
@@ -93,7 +93,7 @@ impl Snarker {
             },
             snarker: SnarkerConfig {
                 public_key: self.public_key,
-                job_commitments: JobCommitmentsConfig {
+                job_commitments: SnarkPoolConfig {
                     commitment_timeout: Duration::from_secs(6 * 60),
                 },
             },

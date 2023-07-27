@@ -4,7 +4,6 @@ use shared::snark_job_id::SnarkJobId;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
 use crate::p2p::connection::P2pConnectionResponse;
-use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
 
 use super::{ActionStatsQuery, RpcId, SyncStatsQuery};
 
@@ -30,7 +29,9 @@ pub enum RpcAction {
     P2pConnectionIncomingError(RpcP2pConnectionIncomingErrorAction),
     P2pConnectionIncomingSuccess(RpcP2pConnectionIncomingSuccessAction),
 
-    SnarkerJobPickAndCommit(RpcSnarkerJobPickAndCommitAction),
+    SnarkPoolAvailableJobsGet(RpcSnarkPoolAvailableJobsGetAction),
+
+    SnarkerJobCommit(RpcSnarkerJobCommitAction),
 
     Finish(RpcFinishAction),
 }
@@ -41,13 +42,6 @@ pub struct RpcGlobalStateGetAction {
 }
 
 impl redux::EnablingCondition<crate::State> for RpcGlobalStateGetAction {}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "kind")]
-pub enum ActionStatsResponse {
-    SinceStart { stats: ActionStatsSnapshot },
-    ForBlock(ActionStatsForBlock),
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcActionStatsGetAction {
@@ -198,12 +192,19 @@ impl redux::EnablingCondition<crate::State> for RpcP2pConnectionIncomingSuccessA
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct RpcSnarkerJobPickAndCommitAction {
+pub struct RpcSnarkPoolAvailableJobsGetAction {
     pub rpc_id: RpcId,
-    pub available_jobs: Vec<SnarkJobId>,
 }
 
-impl redux::EnablingCondition<crate::State> for RpcSnarkerJobPickAndCommitAction {}
+impl redux::EnablingCondition<crate::State> for RpcSnarkPoolAvailableJobsGetAction {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcSnarkerJobCommitAction {
+    pub rpc_id: RpcId,
+    pub job_id: SnarkJobId,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcSnarkerJobCommitAction {}
 
 /// Finish/Cleanup rpc request.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -247,6 +248,8 @@ impl_into_global_action!(RpcP2pConnectionIncomingRespondAction);
 impl_into_global_action!(RpcP2pConnectionIncomingErrorAction);
 impl_into_global_action!(RpcP2pConnectionIncomingSuccessAction);
 
-impl_into_global_action!(RpcSnarkerJobPickAndCommitAction);
+impl_into_global_action!(RpcSnarkPoolAvailableJobsGetAction);
+
+impl_into_global_action!(RpcSnarkerJobCommitAction);
 
 impl_into_global_action!(RpcFinishAction);
