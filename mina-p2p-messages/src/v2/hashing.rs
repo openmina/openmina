@@ -758,10 +758,7 @@ mod verification_key;
 
 #[cfg(test)]
 mod hash_tests {
-    use crate::{
-        hash::MinaHash,
-        v2::{DataHashLibStateHashStableV1, MinaStateProtocolStateValueStableV2, StateHash},
-    };
+    use crate::v2::MinaStateProtocolStateValueStableV2;
 
     #[test]
     fn state_hash() {
@@ -769,7 +766,7 @@ mod hash_tests {
         const JSON: &str = include_str!("../../tests/files/v2/state/617-3NKpXp2SXWGC3XHnAJYjGtNcbq8tzossqj6kK4eGr6mSyJoFmpxR.json");
 
         let state: MinaStateProtocolStateValueStableV2 = serde_json::from_str(JSON).unwrap();
-        let hash = StateHash::from(DataHashLibStateHashStableV1(state.hash().into()));
+        let hash = state.hash();
         let expected_hash = serde_json::from_value(serde_json::json!(HASH)).unwrap();
         assert_eq!(hash, expected_hash)
     }
