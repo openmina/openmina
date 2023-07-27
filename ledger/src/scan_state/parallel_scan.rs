@@ -4,6 +4,7 @@ use std::io::Write;
 use std::ops::ControlFlow;
 
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use sha2::digest::generic_array::GenericArray;
 use sha2::digest::typenum::U32;
 use sha2::{Digest, Sha256};
@@ -321,7 +322,7 @@ pub mod merge {
 }
 
 /// All the jobs on a tree that can be done. Base.Full and Merge.Full
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum AvailableJob<BaseJob, MergeJob> {
     Base(BaseJob),
     Merge { left: MergeJob, right: MergeJob },

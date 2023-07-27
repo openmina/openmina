@@ -118,7 +118,7 @@ use super::{
             LedgerProof, LedgerProofWithSokMessage, Registers, SokDigest, SokMessage, Statement,
             TransactionSnark, TransactionWithWitness,
         },
-        ScanState,
+        AvailableJob, AvailableJobMessage, ScanState,
     },
     transaction_logic::{
         self,
@@ -1744,6 +1744,18 @@ pub fn to_pending_coinbase_hash(value: &Fp) -> mina_p2p_messages::v2::PendingCoi
         MinaBasePendingCoinbaseHashBuilderStableV1(value.into()),
     );
     hash.into()
+}
+
+impl From<&AvailableJob> for AvailableJobMessage {
+    fn from(value: &AvailableJob) -> Self {
+        match value {
+            AvailableJob::Base(v) => AvailableJobMessage::Base(v.into()),
+            AvailableJob::Merge { left, right } => AvailableJobMessage::Merge {
+                left: left.into(),
+                right: right.into(),
+            },
+        }
+    }
 }
 
 impl From<&TransactionWithWitness> for TransactionSnarkScanStateTransactionWithWitnessStableV2 {

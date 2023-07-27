@@ -8,7 +8,11 @@ use blake2::{
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     bigint, number,
-    v2::{CurrencyAmountStableV1, CurrencyFeeStableV1, MinaStateProtocolStateValueStableV2},
+    v2::{
+        CurrencyAmountStableV1, CurrencyFeeStableV1, MinaStateProtocolStateValueStableV2,
+        TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
+        TransactionSnarkScanStateTransactionWithWitnessStableV2,
+    },
 };
 use mina_signer::CompressedPubKey;
 use sha2::Sha256;
@@ -57,6 +61,10 @@ pub use super::parallel_scan::SpacePartition;
 // type LedgerProofWithSokMessage = TransactionSnarkScanStateLedgerProofWithSokMessageStableV2;
 // type TransactionWithWitness = TransactionSnarkScanStateTransactionWithWitnessStableV2;
 
+pub type AvailableJobMessage = super::parallel_scan::AvailableJob<
+    TransactionSnarkScanStateTransactionWithWitnessStableV2,
+    TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
+>;
 pub type AvailableJob = super::parallel_scan::AvailableJob<
     transaction_snark::TransactionWithWitness,
     transaction_snark::LedgerProofWithSokMessage,
@@ -87,6 +95,7 @@ pub mod transaction_snark {
     use mina_hasher::Fp;
     use mina_p2p_messages::v2::TransactionSnarkProofStableV2;
     use mina_signer::CompressedPubKey;
+    use serde::{Deserialize, Serialize};
 
     use crate::{
         scan_state::{
@@ -556,7 +565,7 @@ pub mod transaction_snark {
         pub sok_message: SokMessage,
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
     pub enum OneOrTwo<T> {
         One(T),
         Two((T, T)),
@@ -1984,6 +1993,19 @@ impl ScanState {
             .collect()
     }
 
+    pub fn all_job_pairs_iter(&self) -> impl Iterator<Item = OneOrTwo<AvailableJob>> {
+        self.all_jobs().into_iter().flat_map(|jobs| {
+            let mut iter = jobs.into_iter();
+            std::iter::from_fn(move || {
+                let one = iter.next()?;
+                Some(match iter.next() {
+                    None => OneOrTwo::One(one),
+                    Some(two) => OneOrTwo::Two((one, two)),
+                })
+            })
+        })
+    }
+
     pub fn all_work_pairs<F>(
         &self,
         get_state: F,
@@ -1991,8 +2013,6 @@ impl ScanState {
     where
         F: Fn(&Fp) -> &MinaStateProtocolStateValueStableV2,
     {
-        let all_jobs = self.all_jobs();
-
         let single_spec = |job: AvailableJob| match Self::extract_from_job(job) {
             Extracted::First {
                 transaction_with_info,
@@ -2038,12 +2058,8 @@ impl ScanState {
             }
         };
 
-        all_jobs
-            .iter()
-            .flat_map(|jobs| {
-                group_list(jobs.as_slice(), |j| j.clone())
-                    .map(|group| group.into_map_err(single_spec))
-            })
+        self.all_job_pairs_iter()
+            .map(|group| group.into_map_err(single_spec))
             .collect()
     }
 
