@@ -144,6 +144,19 @@ impl<const NBYTES: usize> From<Address<NBYTES>> for MerkleAddressBinableArgStabl
     }
 }
 
+impl<const NBYTES: usize> From<MerkleAddressBinableArgStableV1> for Address<NBYTES> {
+    fn from(MerkleAddressBinableArgStableV1(height, pos): MerkleAddressBinableArgStableV1) -> Self {
+        let mut inner = [0; NBYTES];
+        let common_length = NBYTES.min(pos.len());
+        inner[..common_length].clone_from_slice(&pos[..common_length]);
+
+        Self {
+            inner,
+            length: height.as_u64() as _,
+        }
+    }
+}
+
 impl<const NBYTES: usize> Address<NBYTES> {
     pub fn to_linear_index(&self) -> usize {
         let index = self.to_index();
