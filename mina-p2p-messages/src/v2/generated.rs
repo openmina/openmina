@@ -244,6 +244,60 @@ pub struct BlockchainSnarkBlockchainStableV2 {
     pub proof: MinaBaseProofStableV2,
 }
 
+/// **OCaml name**: `Transaction_witness.Stable.V2`
+///
+/// Gid: `990`
+/// Location: [src/lib/transaction_witness/transaction_witness.ml:54:4](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/transaction_witness/transaction_witness.ml#L54)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct TransactionWitnessStableV2 {
+    pub transaction: MinaTransactionTransactionStableV2,
+    pub first_pass_ledger: MinaBaseSparseLedgerBaseStableV2,
+    pub second_pass_ledger: MinaBaseSparseLedgerBaseStableV2,
+    pub protocol_state_body: MinaStateProtocolStateBodyValueStableV2,
+    pub init_stack: MinaBasePendingCoinbaseStackVersionedStableV1,
+    pub status: MinaBaseTransactionStatusStableV2,
+    pub block_global_slot: MinaNumbersGlobalSlotSinceGenesisMStableV1,
+}
+
+/// **OCaml name**: `Snark_worker.Worker.Rpcs_versioned.Get_work.V2.T.response`
+///
+/// Gid: `1111`
+/// Location: [src/lib/snark_worker/snark_worker.ml:29:10](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/snark_worker/snark_worker.ml#L29)
+///
+///
+/// Gid: `169`
+/// Location: [src/std_internal.ml:137:2](https://github.com/MinaProtocol/mina/blob/bfd1009/src/std_internal.ml#L137)
+/// Args: (SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 , NonZeroCurvePoint ,)
+///
+///
+/// Gid: `60`
+/// Location: [src/option.ml:4:0](https://github.com/MinaProtocol/mina/blob/bfd1009/src/option.ml#L4)
+/// Args: (SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 , NonZeroCurvePoint ,)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+pub struct SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(
+    pub  Option<(
+        SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0,
+        NonZeroCurvePoint,
+    )>,
+);
+
+/// **OCaml name**: `Snark_worker.Worker.Rpcs_versioned.Submit_work.V2.T.query`
+///
+/// Gid: `1112`
+/// Location: [src/lib/snark_worker/snark_worker.ml:59:10](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/snark_worker/snark_worker.ml#L59)
+///
+///
+/// Gid: `1057`
+/// Location: [src/lib/snark_work_lib/work.ml:90:6](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/snark_work_lib/work.ml#L90)
+/// Args: SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 , LedgerProofProdStableV2
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQuery {
+    pub proofs: TransactionSnarkWorkTStableV2Proofs,
+    pub metrics: SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQueryMetrics,
+    pub spec: SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0,
+    pub prover: NonZeroCurvePoint,
+}
+
 /// **OCaml name**: `Mina_base__Zkapp_account.Zkapp_uri.Stable.V1`
 ///
 /// Gid: `73`
@@ -434,6 +488,36 @@ pub struct PicklesProofProofsVerified2ReprStableV2Proof {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
 pub struct Blake2MakeStableV1(pub crate::string::ByteString);
 
+/// Derived name: `Snark_worker.Worker.Rpcs_versioned.Submit_work.V2.T.query.metrics`
+///
+/// Gid: `506`
+/// Location: [src/lib/one_or_two/one_or_two.ml:7:4](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/one_or_two/one_or_two.ml#L7)
+/// Args: (crate :: number :: Float64 , SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQueryMetricsA1 ,)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[polymorphic_variant]
+pub enum SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQueryMetrics {
+    #[allow(non_camel_case_types)]
+    One(
+        (
+            crate::number::Float64,
+            SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQueryMetricsA1,
+        ),
+    ),
+    #[allow(non_camel_case_types)]
+    Two(
+        (
+            (
+                crate::number::Float64,
+                SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQueryMetricsA1,
+            ),
+            (
+                crate::number::Float64,
+                SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQueryMetricsA1,
+            ),
+        ),
+    ),
+}
+
 /// Derived name: `Transaction_snark_work.T.Stable.V2.proofs`
 ///
 /// Gid: `506`
@@ -446,6 +530,25 @@ pub enum TransactionSnarkWorkTStableV2Proofs {
     One(LedgerProofProdStableV2),
     #[allow(non_camel_case_types)]
     Two((LedgerProofProdStableV2, LedgerProofProdStableV2)),
+}
+
+/// Derived name: `Snark_worker.Worker.Rpcs_versioned.Get_work.V2.T.response.a.0.instances`
+///
+/// Gid: `506`
+/// Location: [src/lib/one_or_two/one_or_two.ml:7:4](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/one_or_two/one_or_two.ml#L7)
+/// Args: SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[polymorphic_variant]
+pub enum SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances {
+    #[allow(non_camel_case_types)]
+    One(SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single),
+    #[allow(non_camel_case_types)]
+    Two(
+        (
+            SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
+            SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
+        ),
+    ),
 }
 
 /// **OCaml name**: `Pickles_base__Proofs_verified.Stable.V1`
@@ -2074,6 +2177,22 @@ pub struct MinaBaseFeeWithProverStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
 pub struct NetworkPeerPeerIdStableV1(pub crate::string::ByteString);
 
+/// **OCaml name**: `Mina_transaction__Transaction.Stable.V2`
+///
+/// Gid: `882`
+/// Location: [src/lib/transaction/transaction.ml:46:4](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/transaction/transaction.ml#L46)
+///
+///
+/// Gid: `880`
+/// Location: [src/lib/transaction/transaction.ml:8:6](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/transaction/transaction.ml#L8)
+/// Args: MinaBaseUserCommandStableV2
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaTransactionTransactionStableV2 {
+    Command(Box<MinaBaseUserCommandStableV2>),
+    FeeTransfer(MinaBaseFeeTransferStableV2),
+    Coinbase(MinaBaseCoinbaseStableV1),
+}
+
 /// **OCaml name**: `Mina_transaction_logic__Zkapp_command_logic.Local_state.Value.Stable.V1`
 ///
 /// Gid: `890`
@@ -2559,6 +2678,37 @@ pub struct ProtocolVersionStableV1 {
     pub patch: crate::number::Int64,
 }
 
+/// Derived name: `Snark_worker.Worker.Rpcs_versioned.Get_work.V2.T.response.a.0.single`
+///
+/// Gid: `1055`
+/// Location: [src/lib/snark_work_lib/work.ml:12:8](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/snark_work_lib/work.ml#L12)
+/// Args: TransactionWitnessStableV2 , LedgerProofProdStableV2
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single {
+    Transition(
+        MinaStateSnarkedLedgerStateStableV2,
+        TransactionWitnessStableV2,
+    ),
+    Merge(
+        Box<(
+            MinaStateSnarkedLedgerStateStableV2,
+            LedgerProofProdStableV2,
+            LedgerProofProdStableV2,
+        )>,
+    ),
+}
+
+/// Derived name: `Snark_worker.Worker.Rpcs_versioned.Get_work.V2.T.response.a.0`
+///
+/// Gid: `1056`
+/// Location: [src/lib/snark_work_lib/work.ml:61:6](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/snark_work_lib/work.ml#L61)
+/// Args: SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 {
+    pub instances: SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances,
+    pub fee: CurrencyFeeStableV1,
+}
+
 /// **OCaml name**: `Parallel_scan.Sequence_number.Stable.V1`
 ///
 /// Gid: `1058`
@@ -2709,6 +2859,16 @@ pub struct MinaBlockHeaderStableV2 {
 pub struct NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1 {
     pub proof: TransactionSnarkWorkTStableV2Proofs,
     pub fee: MinaBaseFeeWithProverStableV1,
+}
+
+/// Derived name: `Snark_worker.Worker.Rpcs_versioned.Submit_work.V2.T.query.metrics.a.1`
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[polymorphic_variant]
+pub enum SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQueryMetricsA1 {
+    #[allow(non_camel_case_types)]
+    Transition,
+    #[allow(non_camel_case_types)]
+    Merge,
 }
 
 /// Derived name: `Transaction_snark_scan_state.Stable.V2.previous_incomplete_zkapp_updates.1`

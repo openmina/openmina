@@ -14,3 +14,6 @@ Consensus__Proof_of_stake.Make_str.Data.Consensus_state.Value.Stable.V2.t
 Sync_status.T.Stable.V1.t
 Trust_system__Peer_status.Stable.V1.t
 Blockchain_snark__Blockchain.Stable.V2.t
+Transaction_witness.Stable.V2.t
+Snark_worker.Worker.Rpcs_versioned.Get_work.V2.T.response
+Snark_worker.Worker.Rpcs_versioned.Submit_work.V2.T.query
