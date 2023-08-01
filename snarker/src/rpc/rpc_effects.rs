@@ -1,3 +1,5 @@
+use ledger::scan_state::conv::job_to_spec;
+use mina_p2p_messages::v2::{StateBodyHash, UnsignedExtendedUInt64Int64ForVersionTagsStableV1};
 use p2p::connection::P2pConnectionResponse;
 
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitAction;
@@ -9,7 +11,7 @@ use super::{
     ActionStatsQuery, ActionStatsResponse, RpcAction, RpcActionWithMeta, RpcFinishAction,
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingPendingAction,
     RpcP2pConnectionIncomingRespondAction, RpcP2pConnectionOutgoingPendingAction, RpcSnarkPoolJob,
-    RpcSnarkPoolJobSnarkWork, RpcSnarkerJobCommitResponse,
+    RpcSnarkPoolJobSnarkWork, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
 };
 
 pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) {
@@ -170,6 +172,51 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 return;
             }
             store.dispatch(SnarkPoolCommitmentCreateAction { job_id });
+        }
+        RpcAction::SnarkerJobSpec(action) => {
+            let job_id = action.job_id;
+            let pub_key = store.state().config.public_key.clone();
+            let Some(job) = store.state().snark_pool.get(&job_id) else {
+                if store
+                    .service()
+                    .respond_snarker_job_spec(action.rpc_id, RpcSnarkerJobSpecResponse::JobNotFound)
+                    .is_err()
+                {
+                    return;
+                }
+                return;
+            };
+            let protocol_state_body = |block_hash: StateBodyHash| {
+                store
+                    .state()
+                    .transition_frontier
+                    .best_chain
+                    .iter()
+                    .find_map(|block_with_hash| {
+                        if block_with_hash.block.header.protocol_state.body.hash() == *block_hash {
+                            Some(block_with_hash.block.header.protocol_state.body.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap()
+            };
+            let input = job_to_spec(
+                pub_key.into(),
+                mina_p2p_messages::v2::CurrencyFeeStableV1(
+                    UnsignedExtendedUInt64Int64ForVersionTagsStableV1(1_000_000_000_u64.into()),
+                ),
+                job.job.clone(),
+                &protocol_state_body,
+            );
+            // TODO(akoptelov): check if snarker is busy. If yes send `SnarkerJobCommitResponse::SnarkerBusy`.
+            if store
+                .service()
+                .respond_snarker_job_spec(action.rpc_id, RpcSnarkerJobSpecResponse::Ok(input))
+                .is_err()
+            {
+                return;
+            }
         }
         RpcAction::Finish(_) => {}
     }
