@@ -28,6 +28,12 @@ pub fn transition_frontier_effects<S: crate::Service>(
             TransitionFrontierSyncAction::Init(a) => {
                 if let Some(stats) = store.service.stats() {
                     stats.new_sync_target(meta.time(), &a.best_tip);
+                    if let Some(root) = store.state.get().transition_frontier.sync.root_block() {
+                        stats.syncing_ledger(SyncingLedger::Init {
+                            snarked_ledger_hash: root.snarked_ledger_hash().clone(),
+                            staged_ledger_hash: root.staged_ledger_hash().clone(),
+                        });
+                    }
                     if let TransitionFrontierSyncState::BlocksPending { chain, .. } =
                         &store.state.get().transition_frontier.sync
                     {
@@ -39,6 +45,12 @@ pub fn transition_frontier_effects<S: crate::Service>(
             TransitionFrontierSyncAction::BestTipUpdate(a) => {
                 if let Some(stats) = store.service.stats() {
                     stats.new_sync_target(meta.time(), &a.best_tip);
+                    if let Some(root) = store.state.get().transition_frontier.sync.root_block() {
+                        stats.syncing_ledger(SyncingLedger::Init {
+                            snarked_ledger_hash: root.snarked_ledger_hash().clone(),
+                            staged_ledger_hash: root.staged_ledger_hash().clone(),
+                        });
+                    }
                     if let TransitionFrontierSyncState::BlocksPending { chain, .. } =
                         &store.state.get().transition_frontier.sync
                     {

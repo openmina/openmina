@@ -9,7 +9,10 @@ use ledger::{
         scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage, ConstraintConstants},
         transaction_logic::{local_state::LocalState, protocol_state::protocol_state_view},
     },
-    staged_ledger::{diff::Diff, staged_ledger::StagedLedger},
+    staged_ledger::{
+        diff::Diff,
+        staged_ledger::{SkipVerification, StagedLedger},
+    },
     verifier::Verifier,
     AccountIndex, BaseLedger, Mask, TreeVersion,
 };
@@ -210,7 +213,8 @@ impl<T: LedgerService> TransitionFrontierService for T {
 
         let result = staged_ledger
             .apply(
-                None,
+                // TODO(binier): SEC
+                Some(SkipVerification::All),
                 &CONSTRAINT_CONSTANTS,
                 Slot::from_u32(global_slot),
                 diff,

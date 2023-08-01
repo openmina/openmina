@@ -58,6 +58,10 @@ impl TransitionFrontierSyncLedgerState {
         self.block().snarked_ledger_hash()
     }
 
+    pub fn staged_ledger_hash(&self) -> &LedgerHash {
+        self.block().staged_ledger_hash()
+    }
+
     pub fn update_block(&mut self, time: Timestamp, new_block: ArcBlockWithHash) {
         match self {
             Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Pending { block, .. }) => {

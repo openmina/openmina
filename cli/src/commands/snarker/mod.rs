@@ -234,7 +234,7 @@ impl Snarker {
                                 None => std::future::pending().await,
                             }
                         };
-                        let timeout = tokio::time::sleep(Duration::from_millis(1000));
+                        let timeout = tokio::time::sleep(Duration::from_millis(100));
 
                         select! {
                             _ = wait_for_events => {
@@ -244,6 +244,10 @@ impl Snarker {
                             }
                             req = rpc_req_fut => {
                                 snarker.store_mut().service.process_rpc_request(req);
+                                // TODO(binier): remove loop once ledger communication is async.
+                                while let Ok(req) = snarker.store_mut().service.rpc.req_receiver().try_recv() {
+                                    snarker.store_mut().service.process_rpc_request(req);
+                                }
                             }
                             _ = timeout => {
                                 snarker.store_mut().dispatch(EventSourceWaitTimeoutAction {});

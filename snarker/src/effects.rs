@@ -13,6 +13,7 @@ use crate::snark::snark_effects;
 use crate::snark_pool::{
     job_commitment_effects, SnarkPoolCheckTimeoutsAction, SnarkPoolP2pSendAllAction,
 };
+use crate::transition_frontier::sync::TransitionFrontierSyncBlocksNextApplyInitAction;
 use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
 use crate::{Action, ActionWithMeta, Service, Store};
@@ -119,6 +120,9 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {
                 store.dispatch(P2pChannelsRpcTimeoutAction { peer_id, id });
             }
+
+            // TODO(binier): remove once ledger communication is async.
+            store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
         }
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));

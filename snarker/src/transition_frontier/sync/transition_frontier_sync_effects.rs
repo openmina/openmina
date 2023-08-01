@@ -163,7 +163,8 @@ impl TransitionFrontierSyncBlocksPeerQuerySuccessAction {
 
 impl TransitionFrontierSyncBlocksFetchSuccessAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
+        // TODO(binier): uncomment once ledger communication is async.
+        // store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
     }
 }
 
@@ -172,24 +173,19 @@ impl TransitionFrontierSyncBlocksNextApplyInitAction {
     where
         S: TransitionFrontierService,
     {
-        // TODO(binier): remove loop once ledger communication is async.
-        loop {
-            let Some((block, pred_block)) = store
-                    .state()
-                    .transition_frontier
-                    .sync
-                    .blocks_apply_next()
-                    .map(|v| (v.0.clone(), v.1.clone()))
-                    else { return };
-            let hash = block.hash.clone();
+        let Some((block, pred_block)) = store
+                .state()
+                .transition_frontier
+                .sync
+                .blocks_apply_next()
+                .map(|v| (v.0.clone(), v.1.clone()))
+                else { return };
+        let hash = block.hash.clone();
 
-            store.dispatch(TransitionFrontierSyncBlocksNextApplyPendingAction {
-                hash: hash.clone(),
-            });
-            store.service.block_apply(block, pred_block).unwrap();
+        store.dispatch(TransitionFrontierSyncBlocksNextApplyPendingAction { hash: hash.clone() });
+        store.service.block_apply(block, pred_block).unwrap();
 
-            store.dispatch(TransitionFrontierSyncBlocksNextApplySuccessAction { hash });
-        }
+        store.dispatch(TransitionFrontierSyncBlocksNextApplySuccessAction { hash });
     }
 }
 

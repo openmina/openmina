@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use mina_p2p_messages::v2::StateHash;
+use mina_p2p_messages::v2::{LedgerHash, StateHash};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use shared::block::ArcBlockWithHash;
@@ -42,6 +42,7 @@ pub struct SyncLedger {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct SyncSnarkedLedger {
+    pub hash: Option<LedgerHash>,
     pub fetch_hashes_start: Option<Timestamp>,
     pub fetch_hashes_end: Option<Timestamp>,
     pub fetch_accounts_start: Option<Timestamp>,
@@ -50,6 +51,7 @@ pub struct SyncSnarkedLedger {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct SyncStagedLedger {
+    pub hash: Option<LedgerHash>,
     pub fetch_parts_start: Option<Timestamp>,
     pub fetch_parts_end: Option<Timestamp>,
     pub reconstruct_start: Option<Timestamp>,
@@ -79,6 +81,10 @@ pub enum SyncBlockStatus {
 }
 
 pub enum SyncingLedger {
+    Init {
+        snarked_ledger_hash: LedgerHash,
+        staged_ledger_hash: LedgerHash,
+    },
     FetchHashes {
         start: Timestamp,
         end: Timestamp,
@@ -133,10 +139,29 @@ impl SyncStats {
     }
 
     pub fn ledger(&mut self, update: SyncingLedger) -> &mut Self {
-        let Some(snapshot) = self.snapshots.back_mut() else { return self };
+        let Some(mut snapshot) = self.snapshots.pop_back() else { return self };
         let ledger = snapshot.ledgers.root.get_or_insert_with(Default::default);
 
         match update {
+            SyncingLedger::Init {
+                snarked_ledger_hash,
+                staged_ledger_hash,
+            } => {
+                ledger.snarked.hash = Some(snarked_ledger_hash);
+                ledger.staged.hash = Some(staged_ledger_hash);
+
+                if let Some(prev_sync) =
+                    &self.snapshots.back().and_then(|s| s.ledgers.root.as_ref())
+                {
+                    if prev_sync.snarked.hash == ledger.snarked.hash {
+                        ledger.snarked = prev_sync.snarked.clone();
+                    }
+
+                    if prev_sync.staged.hash == ledger.staged.hash {
+                        ledger.staged = prev_sync.staged.clone();
+                    }
+                }
+            }
             SyncingLedger::FetchHashes { start, end } => {
                 ledger.snarked.fetch_hashes_start.get_or_insert(start);
                 let cur_end = ledger.snarked.fetch_hashes_end.get_or_insert(end);
@@ -163,20 +188,26 @@ impl SyncStats {
             }
         }
 
+        self.snapshots.push_back(snapshot);
+
         self
     }
 
     pub fn blocks_init(&mut self, states: &[TransitionFrontierSyncBlockState]) -> &mut Self {
         let Some(snapshot) = self.snapshots.back_mut() else { return self };
-        let Some(best_tip_height) = states
+        let Some((root_height, best_tip_height)) = states
             .last()
             .and_then(|s| s.block())
-            .map(|b| b.height()) else { return self };
+            .map(|b| (b.root_block_height(), b.height())) else {
+                return self;
+            };
 
         snapshot.blocks = states
             .into_iter()
             .rev()
-            .take_while(|s| !s.is_apply_success())
+            // .take_while(|s| {
+            //     !s.is_apply_success() || s.block().map_or(false, |b| b.height() == root_height)
+            // })
             .enumerate()
             .map(|(i, s)| {
                 let height = best_tip_height - i as u32;
