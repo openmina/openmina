@@ -1,7 +1,13 @@
-use std::str::FromStr;
+use std::{mem::size_of, str::FromStr};
 
+use binprot::BinProtWrite;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use warp::{hyper::StatusCode, reply::with_status, Filter};
+use warp::{
+    http::{HeaderName, HeaderValue},
+    hyper::{header::CONTENT_TYPE, Response, StatusCode},
+    reply::with_status,
+    Filter, Reply,
+};
 
 use shared::snark_job_id::SnarkJobId;
 use snarker::{
@@ -17,7 +23,7 @@ use snarker::{
 
 use super::rpc::{
     RpcActionStatsGetResponse, RpcP2pConnectionIncomingResponse, RpcSnarkPoolGetResponse,
-    RpcSnarkerJobCommitResponse, RpcStateGetResponse, RpcSyncStatsGetResponse,
+    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcStateGetResponse, RpcSyncStatsGetResponse,
 };
 
 pub async fn run(port: u16, rpc_sender: super::RpcSender) {
@@ -160,7 +166,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     // TODO(binier): make endpoint only accessible locally.
     let rpc_sender_clone = rpc_sender.clone();
     let snarker_job_commit = warp::path!("snarker" / "job" / "commit")
-        .and(warp::put())
+        .and(warp::post())
         .and(warp::filters::body::bytes())
         .then(move |body: bytes::Bytes| {
             let rpc_sender_clone = rpc_sender_clone.clone();
@@ -168,9 +174,9 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                 let Ok(job_id) = String::from_utf8(body.to_vec())
                     .or(Err(()))
                     .and_then(|s| SnarkJobId::from_str(&s).or(Err(())))
-                    else {
-                        return with_json_reply(&"invalid_input", StatusCode::BAD_REQUEST);
-                    };
+                else {
+                    return with_json_reply(&"invalid_input", StatusCode::BAD_REQUEST);
+                };
 
                 let res: Option<RpcSnarkerJobCommitResponse> = rpc_sender_clone
                     .oneshot_request(RpcRequest::SnarkerJobCommit { job_id })
@@ -191,12 +197,51 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             }
         });
 
+    let rpc_sender_clone = rpc_sender.clone();
+    let snarker_job_spec = warp::path!("snarker" / "job" / "spec")
+        .and(warp::post())
+        .and(warp::header::optional("accept"))
+        .and(warp::filters::body::bytes())
+        .then(move |accept: Option<String>, body: bytes::Bytes| {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+            async move {
+                let Ok(job_id) = String::from_utf8(body.to_vec())
+                    .or(Err(()))
+                    .and_then(|s| SnarkJobId::from_str(&s).or(Err(())))
+                else {
+                    return JsonOrBinary::error("invalid_input", StatusCode::BAD_REQUEST);
+                };
+
+                let res: Option<RpcSnarkerJobSpecResponse> = rpc_sender_clone
+                    .oneshot_request(RpcRequest::SnarkerJobSpec { job_id })
+                    .await;
+                match res {
+                    None => JsonOrBinary::error(
+                        "response channel dropped",
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                    ),
+                    Some(resp) => match resp {
+                        RpcSnarkerJobSpecResponse::Ok(spec)
+                            if accept.as_ref().map(String::as_str)
+                                == Some("application/octet-stream") =>
+                        {
+                            JsonOrBinary::binary(spec)
+                        }
+                        RpcSnarkerJobSpecResponse::Ok(spec) => JsonOrBinary::json(spec),
+                        _ => JsonOrBinary::error("error", StatusCode::BAD_REQUEST),
+                    },
+                }
+            }
+        });
+
     let cors = warp::cors().allow_any_origin();
     let routes = signaling
         .or(state_get)
         .or(stats)
         .or(snark_pool_jobs_get)
         .or(snarker_job_commit)
+        // .or(snarker_job_spec)
+        .or(snarker_job_spec)
         .with(cors);
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }
@@ -209,6 +254,65 @@ fn optq<T: 'static + Default + Send + DeserializeOwned>() -> BoxedFilter<(T,)> {
         .and(warp::query().or(warp::any().map(|| T::default())))
         .unify()
         .boxed()
+}
+
+pub enum JsonOrBinary {
+    Json(Vec<u8>),
+    Binary(Vec<u8>),
+    Error(String, StatusCode),
+}
+
+impl JsonOrBinary {
+    fn json<T: Serialize>(reply: T) -> Self {
+        match serde_json::to_vec(&reply) {
+            Ok(v) => JsonOrBinary::Json(v),
+            Err(err) => JsonOrBinary::error(err, StatusCode::INTERNAL_SERVER_ERROR),
+        }
+    }
+    fn binary<T: BinProtWrite>(reply: T) -> Self {
+        let mut vec = Vec::new();
+        match reply.binprot_write(&mut vec) {
+            Ok(()) => {}
+            Err(err) => return JsonOrBinary::error(err, StatusCode::INTERNAL_SERVER_ERROR),
+        }
+        let mut result = Vec::with_capacity(vec.len() + size_of::<u64>());
+        result.extend((vec.len() as u64).to_le_bytes());
+        result.extend(vec);
+        JsonOrBinary::Binary(result)
+    }
+    fn error<T: ToString>(err: T, code: StatusCode) -> Self {
+        JsonOrBinary::Error(err.to_string(), code)
+    }
+}
+
+impl Reply for JsonOrBinary {
+    fn into_response(self) -> warp::reply::Response {
+        match self {
+            JsonOrBinary::Json(body) => {
+                let mut res = Response::new(body.into());
+                res.headers_mut()
+                    .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+                *res.status_mut() = StatusCode::OK;
+                res
+            }
+            JsonOrBinary::Binary(body) => {
+                let mut res = Response::new(body.into());
+                res.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("application/octet-stream"),
+                );
+                *res.status_mut() = StatusCode::OK;
+                res
+            }
+            JsonOrBinary::Error(err, code) => {
+                let mut res = Response::new(err.into());
+                res.headers_mut()
+                    .insert(CONTENT_TYPE, HeaderValue::from_static("plain/text"));
+                *res.status_mut() = code;
+                res
+            }
+        }
+    }
 }
 
 fn with_json_reply<T: Serialize>(reply: &T, status: StatusCode) -> WithStatus<Json> {

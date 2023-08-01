@@ -56,6 +56,7 @@ impl RpcState {
             }
             RpcAction::SnarkPoolAvailableJobsGet(_) => {}
             RpcAction::SnarkerJobCommit(_) => {}
+            RpcAction::SnarkerJobSpec(_) => {}
             RpcAction::Finish(action) => {
                 self.requests.remove(&action.rpc_id);
             }
