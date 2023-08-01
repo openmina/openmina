@@ -7,7 +7,7 @@ use snarker::p2p::connection::P2pConnectionResponse;
 pub use snarker::rpc::{
     ActionStatsResponse, RespondError, RpcActionStatsGetResponse, RpcId, RpcIdType,
     RpcP2pConnectionOutgoingResponse, RpcSnarkPoolGetResponse, RpcSnarkerJobCommitResponse,
-    RpcStateGetResponse, RpcSyncStatsGetResponse,
+    RpcSnarkerJobSpecResponse, RpcStateGetResponse, RpcSyncStatsGetResponse,
 };
 use snarker::State;
 
@@ -176,6 +176,21 @@ impl snarker::rpc::RpcService for SnarkerService {
             .downcast::<oneshot::Sender<RpcSnarkerJobCommitResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
         chan.send(response)
+            .or(Err(RespondError::RespondingFailed))?;
+        Ok(())
+    }
+
+    fn respond_snarker_job_spec(
+        &mut self,
+        rpc_id: RpcId,
+        response: snarker::rpc::RpcSnarkerJobSpecResponse,
+    ) -> Result<(), RespondError> {
+        let entry = self.rpc.pending.remove(rpc_id);
+        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
+        let chan = chan
+            .downcast::<oneshot::Sender<RpcSnarkerJobSpecResponse>>()
+            .or(Err(RespondError::UnexpectedResponseType))?;
+        chan.send(response.clone())
             .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }

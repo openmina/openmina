@@ -1,4 +1,5 @@
 mod rpc_state;
+use mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse;
 pub use rpc_state::*;
 
 mod rpc_actions;
@@ -38,6 +39,7 @@ pub enum RpcRequest {
     P2pConnectionIncoming(P2pConnectionIncomingInitOpts),
     SnarkPoolGet,
     SnarkerJobCommit { job_id: SnarkJobId },
+    SnarkerJobSpec { job_id: SnarkJobId },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -83,6 +85,13 @@ pub enum RpcSnarkerJobCommitResponse {
     JobNotFound,
     JobTaken,
     SnarkerBusy,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "kind")]
+pub enum RpcSnarkerJobSpecResponse {
+    Ok(SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse),
+    JobNotFound,
 }
 
 pub type RpcStateGetResponse = Box<State>;
