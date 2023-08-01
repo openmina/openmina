@@ -52,8 +52,8 @@ use mina_p2p_messages::{
         MinaNumbersGlobalSlotSpanStableV1,
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
-        MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateSnarkedLedgerStateStableV2,
-        MinaStateSnarkedLedgerStateWithSokStableV2,
+        MinaStateBlockchainStateValueStableV2SignedAmount,
+        MinaStateSnarkedLedgerStateStableV2, MinaStateSnarkedLedgerStateWithSokStableV2,
         MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2,
         MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2Coinbase,
         MinaTransactionLogicTransactionAppliedCommandAppliedStableV2,
@@ -115,8 +115,8 @@ use super::{
     pending_coinbase::{self, PendingCoinbase},
     scan_state::{
         transaction_snark::{
-            LedgerProof, LedgerProofWithSokMessage, Registers, SokDigest, SokMessage, Statement,
-            TransactionSnark, TransactionWithWitness,
+            LedgerProof, LedgerProofWithSokMessage, Registers, SokDigest, SokMessage,
+            Statement, TransactionSnark, TransactionWithWitness,
         },
         AvailableJob, AvailableJobMessage, ScanState,
     },
@@ -176,6 +176,14 @@ impl From<&SignedAmount> for Signed<Amount> {
     }
 }
 
+impl From<&Amount> for CurrencyAmountStableV1 {
+    fn from(value: &Amount) -> Self {
+        CurrencyAmountStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+            value.as_u64().into(),
+        ))
+    }
+}
+
 impl From<&Amount> for CurrencyFeeStableV1 {
     fn from(value: &Amount) -> Self {
         CurrencyFeeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
@@ -195,6 +203,12 @@ impl From<&Signed<Amount>> for SignedAmount {
 
 impl From<&CurrencyFeeStableV1> for Fee {
     fn from(value: &CurrencyFeeStableV1) -> Self {
+        Self(value.as_u64())
+    }
+}
+
+impl From<&CurrencyAmountStableV1> for Fee {
+    fn from(value: &CurrencyAmountStableV1) -> Self {
         Self(value.as_u64())
     }
 }
@@ -263,6 +277,14 @@ impl From<&Sgn> for SgnStableV1 {
 }
 
 impl From<&Fee> for CurrencyFeeStableV1 {
+    fn from(value: &Fee) -> Self {
+        Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+            value.as_u64().into(),
+        ))
+    }
+}
+
+impl From<&Fee> for CurrencyAmountStableV1 {
     fn from(value: &Fee) -> Self {
         Self(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
             value.as_u64().into(),
@@ -557,6 +579,20 @@ impl From<&MinaStateSnarkedLedgerStateWithSokStableV2> for Statement<SokDigest> 
             supply_increase: (&value.supply_increase).into(),
             fee_excess: (&value.fee_excess).into(),
             sok_digest: SokDigest(value.sok_digest.to_vec()),
+        }
+    }
+}
+
+impl From<&MinaStateSnarkedLedgerStateWithSokStableV2> for Statement<()> {
+    fn from(value: &MinaStateSnarkedLedgerStateWithSokStableV2) -> Self {
+        Self {
+            source: (&value.source).into(),
+            target: (&value.target).into(),
+            connecting_ledger_left: value.connecting_ledger_left.to_field(),
+            connecting_ledger_right: value.connecting_ledger_right.to_field(),
+            supply_increase: (&value.supply_increase).into(),
+            fee_excess: (&value.fee_excess).into(),
+            sok_digest: (),
         }
     }
 }
@@ -2754,3 +2790,4 @@ impl From<&SlotSpan> for MinaNumbersGlobalSlotSpanStableV1 {
         Self::GlobalSlotSpan(value.as_u32().into())
     }
 }
+
