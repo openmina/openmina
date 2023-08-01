@@ -4,21 +4,12 @@ use shared::snark_job_id::SnarkJobId;
 
 use crate::snark_pool::JobCommitment;
 
-use super::{JobState, SnarkPoolAction, SnarkPoolActionWithMetaRef, SnarkPoolState};
+use super::{JobState, SnarkPoolAction, SnarkPoolActionWithMetaRef, SnarkPoolState, SnarkWork};
 
 impl SnarkPoolState {
     pub fn reducer(&mut self, action: SnarkPoolActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            SnarkPoolAction::CommitmentCreate(_) => {}
-            SnarkPoolAction::CommitmentAdd(a) => {
-                let Some(mut job) = self.remove(&a.commitment.job_id) else { return };
-                job.commitment = Some(JobCommitment {
-                    commitment: a.commitment.clone(),
-                    sender: a.sender,
-                });
-                self.insert(job);
-            }
             SnarkPoolAction::JobsUpdate(action) => {
                 let mut jobs_map = action
                     .jobs
@@ -36,6 +27,25 @@ impl SnarkPoolState {
                         snark: None,
                     });
                 }
+            }
+            SnarkPoolAction::CommitmentCreate(_) => {}
+            SnarkPoolAction::CommitmentAdd(a) => {
+                let Some(mut job) = self.remove(&a.commitment.job_id) else { return };
+                job.commitment = Some(JobCommitment {
+                    commitment: a.commitment.clone(),
+                    received_t: meta.time(),
+                    sender: a.sender,
+                });
+                self.insert(job);
+            }
+            SnarkPoolAction::WorkAdd(a) => {
+                let Some(mut job) = self.remove(&a.snark.job_id()) else { return };
+                job.snark = Some(SnarkWork {
+                    work: a.snark.clone(),
+                    received_t: meta.time(),
+                    sender: a.sender,
+                });
+                self.insert(job);
             }
             SnarkPoolAction::P2pSendAll(_) => {}
             SnarkPoolAction::P2pSend(_) => {}

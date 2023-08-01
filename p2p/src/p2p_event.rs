@@ -1,5 +1,6 @@
 use derive_more::From;
 use serde::{Deserialize, Serialize};
+use shared::snark::Snark;
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
@@ -27,5 +28,6 @@ pub enum P2pChannelEvent {
     Opened(PeerId, ChannelId, Result<(), String>),
     Sent(PeerId, ChannelId, MsgId, Result<(), String>),
     Received(PeerId, Result<ChannelMsg, String>),
+    Libp2pSnarkReceived(PeerId, Snark),
     Closed(PeerId, ChannelId),
 }

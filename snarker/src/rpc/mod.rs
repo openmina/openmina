@@ -13,13 +13,21 @@ pub use rpc_effects::*;
 mod rpc_service;
 pub use rpc_service::*;
 
+use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
+use ledger::scan_state::scan_state::AvailableJobMessage;
+use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 pub use shared::requests::{RpcId, RpcIdType};
 use shared::snark_job_id::SnarkJobId;
 
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use crate::p2p::PeerId;
+use crate::snark_pool::JobCommitment;
 use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
+use crate::stats::sync::SyncStatsSnapshot;
+use crate::State;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RpcRequest {
@@ -28,7 +36,7 @@ pub enum RpcRequest {
     SyncStatsGet(SyncStatsQuery),
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
     P2pConnectionIncoming(P2pConnectionIncomingInitOpts),
-    SnarkPoolAvailableJobsGet,
+    SnarkPoolGet,
     SnarkerJobCommit { job_id: SnarkJobId },
 }
 
@@ -51,11 +59,34 @@ pub enum ActionStatsResponse {
     ForBlock(ActionStatsForBlock),
 }
 
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcSnarkPoolJob {
+    pub time: Timestamp,
+    pub id: SnarkJobId,
+    pub job: OneOrTwo<AvailableJobMessage>,
+    pub commitment: Option<JobCommitment>,
+    pub snark: Option<RpcSnarkPoolJobSnarkWork>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcSnarkPoolJobSnarkWork {
+    pub prover: NonZeroCurvePoint,
+    pub fee: CurrencyFeeStableV1,
+    pub received_t: Timestamp,
+    pub sender: PeerId,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "kind")]
-pub enum SnarkerJobCommitResponse {
+pub enum RpcSnarkerJobCommitResponse {
     Ok,
     JobNotFound,
     JobTaken,
     SnarkerBusy,
 }
+
+pub type RpcStateGetResponse = Box<State>;
+pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
+pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
+pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
+pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJob>;

@@ -1,7 +1,9 @@
 use std::time::Duration;
 
 use binprot::{BinProtRead, BinProtWrite};
+use mina_p2p_messages::v2::NetworkPoolSnarkPoolDiffVersionedStableV2;
 use multihash::{Blake2b256, Hasher};
+use shared::snark::Snark;
 use tokio::sync::mpsc;
 
 use libp2p::core::muxing::StreamMuxerBox;
@@ -43,9 +45,10 @@ pub type BoxedP2PTransport = transport::Boxed<P2PTransport>;
 
 #[derive(Debug)]
 pub enum Cmd {
-    SendMessage(PeerId, ChannelMsg),
     Dial(DialOpts),
     Disconnect(PeerId),
+    SendMessage(PeerId, ChannelMsg),
+    SnarkBroadcast(Snark),
 }
 
 pub struct Libp2pService {
@@ -198,6 +201,9 @@ impl Libp2pService {
                 let _ = swarm.disconnect_peer_id(peer_id);
             }
             Cmd::SendMessage(peer_id, msg) => match msg {
+                ChannelMsg::SnarkPropagation(_) => {
+                    // unsupported. Instead `Cmd::SnarkBroadcast` will be used.
+                }
                 ChannelMsg::SnarkJobCommitmentPropagation(_) => {
                     // unsupported
                 }
@@ -227,6 +233,11 @@ impl Libp2pService {
                     }
                 },
             },
+            Cmd::SnarkBroadcast(snark) => {
+                let msg = Box::new((snark.statement(), (&snark).into()));
+                let msg = NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(msg);
+                Self::gossipsub_send(swarm, 1, &msg);
+            }
         }
     }
 
@@ -310,6 +321,20 @@ impl Libp2pService {
                                 BestTipPropagationChannelMsg::BestTip(block.into()),
                             ))
                         }
+                        Ok(GossipNetMessage::SnarkPoolDiff(snark)) => match snark {
+                            // TODO(binier): Why empty? Should we error?
+                            NetworkPoolSnarkPoolDiffVersionedStableV2::Empty => return,
+                            NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(work) => {
+                                let event =
+                                    P2pEvent::Channel(P2pChannelEvent::Libp2pSnarkReceived(
+                                        propagation_source.into(),
+                                        work.1.into(),
+                                    ));
+                                let _ =
+                                    swarm.behaviour_mut().event_source_sender.send(event.into());
+                                return;
+                            }
+                        },
                         _ => return,
                     };
 

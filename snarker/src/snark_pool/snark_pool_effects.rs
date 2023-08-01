@@ -1,3 +1,5 @@
+use p2p::channels::snark::P2pChannelsSnarkLibp2pBroadcastAction;
+
 use crate::p2p::channels::snark_job_commitment::{
     P2pChannelsSnarkJobCommitmentResponseSendAction, SnarkJobCommitment,
 };
@@ -12,17 +14,26 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
     let (action, meta) = action.split();
 
     match action {
+        SnarkPoolAction::JobsUpdate(_) => {}
         SnarkPoolAction::CommitmentCreate(a) => {
             let timestamp_ms = meta.time_as_nanos() / 1_000_000;
-            let pub_key = store.state().config.public_key.clone();
+            let config = &store.state().config;
             store.dispatch(SnarkPoolJobCommitmentAddAction {
-                commitment: SnarkJobCommitment::new(timestamp_ms, a.job_id, pub_key.into()),
+                commitment: SnarkJobCommitment::new(
+                    timestamp_ms,
+                    a.job_id,
+                    config.fee.clone(),
+                    config.public_key.clone().into(),
+                ),
                 sender: store.state().p2p.config.identity_pub_key.peer_id(),
             });
             // TODO(akoptelov): start working on this job.
         }
         SnarkPoolAction::CommitmentAdd(_) => {}
-        SnarkPoolAction::JobsUpdate(_) => {}
+        SnarkPoolAction::WorkAdd(a) => {
+            // TODO(binier): only broadcast after validation
+            store.dispatch(P2pChannelsSnarkLibp2pBroadcastAction { snark: a.snark });
+        }
         SnarkPoolAction::P2pSendAll(_) => {
             for peer_id in store.state().p2p.ready_peers() {
                 store.dispatch(SnarkPoolP2pSendAction { peer_id });
@@ -60,6 +71,7 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
                 first_index,
                 last_index,
             });
+            // TODO(binier): send validated snarks.
         }
         SnarkPoolAction::CheckTimeouts(_) => {
             let timed_out_ids = store

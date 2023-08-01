@@ -3,13 +3,14 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    best_tip::P2pChannelsBestTipState, rpc::P2pChannelsRpcState,
+    best_tip::P2pChannelsBestTipState, rpc::P2pChannelsRpcState, snark::P2pChannelsSnarkState,
     snark_job_commitment::P2pChannelsSnarkJobCommitmentState, ChannelId,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pChannelsState {
     pub best_tip: P2pChannelsBestTipState,
+    pub snark: P2pChannelsSnarkState,
     pub snark_job_commitment: P2pChannelsSnarkJobCommitmentState,
     pub rpc: P2pChannelsRpcState,
 }
@@ -27,6 +28,10 @@ impl P2pChannelsState {
                 false => P2pChannelsSnarkJobCommitmentState::Disabled,
                 true => P2pChannelsSnarkJobCommitmentState::Enabled,
             },
+            snark: match enabled_channels.contains(&ChannelId::SnarkPropagation) {
+                false => P2pChannelsSnarkState::Disabled,
+                true => P2pChannelsSnarkState::Enabled,
+            },
             rpc: match enabled_channels.contains(&ChannelId::Rpc) {
                 false => P2pChannelsRpcState::Disabled,
                 true => P2pChannelsRpcState::Enabled,
@@ -39,6 +44,7 @@ impl P2pChannelsState {
     pub fn is_channel_ready(&self, chan_id: ChannelId) -> bool {
         match chan_id {
             ChannelId::BestTipPropagation => self.best_tip.is_ready(),
+            ChannelId::SnarkPropagation => self.snark.is_ready(),
             ChannelId::SnarkJobCommitmentPropagation => self.snark_job_commitment.is_ready(),
             ChannelId::Rpc => self.rpc.is_ready(),
         }

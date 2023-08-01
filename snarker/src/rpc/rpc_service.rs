@@ -1,12 +1,13 @@
 use serde::{Deserialize, Serialize};
-use shared::snark_job_id::SnarkJobId;
 use thiserror::Error;
 
 use crate::p2p::connection::P2pConnectionResponse;
-use crate::stats::sync::SyncStatsSnapshot;
 use crate::State;
 
-use super::{ActionStatsResponse, RpcId, SnarkerJobCommitResponse};
+use super::{
+    RpcActionStatsGetResponse, RpcId, RpcP2pConnectionOutgoingResponse, RpcSnarkPoolGetResponse,
+    RpcSnarkerJobCommitResponse, RpcSyncStatsGetResponse,
+};
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
 pub enum RespondError {
@@ -23,17 +24,17 @@ pub trait RpcService: redux::Service {
     fn respond_action_stats_get(
         &mut self,
         rpc_id: RpcId,
-        response: Option<ActionStatsResponse>,
+        response: RpcActionStatsGetResponse,
     ) -> Result<(), RespondError>;
     fn respond_sync_stats_get(
         &mut self,
         rpc_id: RpcId,
-        response: Option<Vec<SyncStatsSnapshot>>,
+        response: RpcSyncStatsGetResponse,
     ) -> Result<(), RespondError>;
     fn respond_p2p_connection_outgoing(
         &mut self,
         rpc_id: RpcId,
-        response: Result<(), String>,
+        response: RpcP2pConnectionOutgoingResponse,
     ) -> Result<(), RespondError>;
     fn respond_p2p_connection_incoming_answer(
         &mut self,
@@ -45,14 +46,14 @@ pub trait RpcService: redux::Service {
         rpc_id: RpcId,
         response: Result<(), String>,
     ) -> Result<(), RespondError>;
-    fn respond_snark_pool_available_jobs(
+    fn respond_snark_pool_get(
         &mut self,
         rpc_id: RpcId,
-        response: Vec<SnarkJobId>,
+        response: RpcSnarkPoolGetResponse,
     ) -> Result<(), RespondError>;
     fn respond_snarker_job_commit(
         &mut self,
         rpc_id: RpcId,
-        response: SnarkerJobCommitResponse,
+        response: RpcSnarkerJobCommitResponse,
     ) -> Result<(), RespondError>;
 }

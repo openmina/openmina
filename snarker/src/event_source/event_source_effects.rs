@@ -1,7 +1,9 @@
-use p2p::channels::rpc::P2pChannelsRpcReadyAction;
-
 use crate::action::CheckTimeoutsAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipReadyAction;
+use crate::p2p::channels::rpc::P2pChannelsRpcReadyAction;
+use crate::p2p::channels::snark::{
+    P2pChannelsSnarkLibp2pReceivedAction, P2pChannelsSnarkReadyAction,
+};
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReadyAction;
 use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::{
@@ -128,6 +130,10 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                                 // TODO(binier): maybe dispatch success and then ready.
                                 store.dispatch(P2pChannelsBestTipReadyAction { peer_id });
                             }
+                            ChannelId::SnarkPropagation => {
+                                // TODO(binier): maybe dispatch success and then ready.
+                                store.dispatch(P2pChannelsSnarkReadyAction { peer_id });
+                            }
                             ChannelId::SnarkJobCommitmentPropagation => {
                                 // TODO(binier): maybe dispatch success and then ready.
                                 store
@@ -152,6 +158,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             store.dispatch(P2pChannelsMessageReceivedAction { peer_id, message });
                         }
                     },
+                    P2pChannelEvent::Libp2pSnarkReceived(peer_id, snark) => {
+                        store.dispatch(P2pChannelsSnarkLibp2pReceivedAction { peer_id, snark });
+                    }
                     P2pChannelEvent::Closed(peer_id, _) => {
                         store.dispatch(P2pDisconnectionFinishAction { peer_id });
                     }
@@ -186,7 +195,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         opts: opts.clone(),
                     });
                 }
-                RpcRequest::SnarkPoolAvailableJobsGet => {
+                RpcRequest::SnarkPoolGet => {
                     store.dispatch(RpcSnarkPoolAvailableJobsGetAction { rpc_id });
                 }
                 RpcRequest::SnarkerJobCommit { job_id } => {

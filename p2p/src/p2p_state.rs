@@ -91,10 +91,7 @@ impl P2pState {
     }
 
     pub fn is_libp2p_peer(&self, peer_id: &PeerId) -> bool {
-        self.peers
-            .get(peer_id)
-            .and_then(|p| p.dial_opts.as_ref())
-            .map_or(false, |opts| opts.is_libp2p())
+        self.peers.get(peer_id).map_or(false, |p| p.is_libp2p())
     }
 
     pub fn is_peer_rpc_timed_out(
@@ -136,6 +133,12 @@ pub struct P2pPeerState {
 }
 
 impl P2pPeerState {
+    pub fn is_libp2p(&self) -> bool {
+        self.dial_opts
+            .as_ref()
+            .map_or(false, |opts| opts.is_libp2p())
+    }
+
     pub fn connection_rpc_id(&self) -> Option<RpcId> {
         match &self.status {
             P2pPeerStatus::Connecting(v) => v.rpc_id(),

@@ -93,6 +93,7 @@ impl Snarker {
             },
             snarker: SnarkerConfig {
                 public_key: self.public_key,
+                fee: serde_json::from_str("\"20000000\"").unwrap(),
                 job_commitments: SnarkPoolConfig {
                     commitment_timeout: Duration::from_secs(6 * 60),
                 },
@@ -132,6 +133,7 @@ impl Snarker {
                 max_peers: 100,
                 enabled_channels: [
                     ChannelId::BestTipPropagation,
+                    ChannelId::SnarkPropagation,
                     ChannelId::SnarkJobCommitmentPropagation,
                     ChannelId::Rpc,
                 ]

@@ -2,21 +2,16 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
 use shared::requests::PendingRequests;
-use shared::snark_job_id::SnarkJobId;
 use snarker::event_source::Event;
 use snarker::p2p::connection::P2pConnectionResponse;
-use snarker::rpc::{ActionStatsResponse, RespondError, RpcId, RpcIdType, SnarkerJobCommitResponse};
-use snarker::stats::sync::SyncStatsSnapshot;
+pub use snarker::rpc::{
+    ActionStatsResponse, RespondError, RpcActionStatsGetResponse, RpcId, RpcIdType,
+    RpcP2pConnectionOutgoingResponse, RpcSnarkPoolGetResponse, RpcSnarkerJobCommitResponse,
+    RpcStateGetResponse, RpcSyncStatsGetResponse,
+};
 use snarker::State;
 
 use super::{SnarkerRpcRequest, SnarkerService};
-
-pub type RpcStateGetResponse = Box<State>;
-pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
-pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
-pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
-pub type RpcSnarkPoolAvailableJobsGetResponse = Vec<SnarkJobId>;
-pub type RpcSnarkerJobCommitResponse = SnarkerJobCommitResponse;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum RpcP2pConnectionIncomingResponse {
@@ -97,7 +92,7 @@ impl snarker::rpc::RpcService for SnarkerService {
     fn respond_action_stats_get(
         &mut self,
         rpc_id: RpcId,
-        response: Option<ActionStatsResponse>,
+        response: RpcActionStatsGetResponse,
     ) -> Result<(), RespondError> {
         let entry = self.rpc.pending.remove(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
@@ -112,7 +107,7 @@ impl snarker::rpc::RpcService for SnarkerService {
     fn respond_p2p_connection_outgoing(
         &mut self,
         rpc_id: RpcId,
-        response: Result<(), String>,
+        response: RpcP2pConnectionOutgoingResponse,
     ) -> Result<(), RespondError> {
         let entry = self.rpc.pending.remove(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
@@ -155,17 +150,17 @@ impl snarker::rpc::RpcService for SnarkerService {
         Ok(())
     }
 
-    fn respond_snark_pool_available_jobs(
+    fn respond_snark_pool_get(
         &mut self,
         rpc_id: RpcId,
-        response: Vec<SnarkJobId>,
+        response: RpcSnarkPoolGetResponse,
     ) -> Result<(), RespondError> {
         let entry = self.rpc.pending.remove(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
         let chan = chan
-            .downcast::<oneshot::Sender<RpcSnarkPoolAvailableJobsGetResponse>>()
+            .downcast::<oneshot::Sender<RpcSnarkPoolGetResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(response.clone())
+        chan.send(response)
             .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }
@@ -173,14 +168,14 @@ impl snarker::rpc::RpcService for SnarkerService {
     fn respond_snarker_job_commit(
         &mut self,
         rpc_id: RpcId,
-        response: SnarkerJobCommitResponse,
+        response: RpcSnarkerJobCommitResponse,
     ) -> Result<(), RespondError> {
         let entry = self.rpc.pending.remove(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
         let chan = chan
             .downcast::<oneshot::Sender<RpcSnarkerJobCommitResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(response.clone())
+        chan.send(response)
             .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }

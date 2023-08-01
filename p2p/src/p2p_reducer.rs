@@ -48,7 +48,8 @@ impl P2pState {
                 p2p_peer_reducer(self, meta.with_action(action));
             }
             P2pAction::Channels(action) => {
-                let Some(peer) = self.get_ready_peer_mut(action.peer_id()) else { return };
+                let Some(peer_id) = action.peer_id() else { return };
+                let Some(peer) = self.get_ready_peer_mut(peer_id) else { return };
                 peer.channels.reducer(meta.with_action(action));
             }
         }

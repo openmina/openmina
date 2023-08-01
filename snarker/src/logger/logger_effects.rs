@@ -1,5 +1,6 @@
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
+use crate::p2p::channels::snark::P2pChannelsSnarkAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::p2p::channels::P2pChannelsAction;
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
@@ -100,6 +101,25 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                         shared::log::debug!(
                             meta.time();
                             kind = "PeerChannelsBestTipReady",
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string()
+                        );
+                    }
+                    _ => {}
+                },
+                P2pChannelsAction::Snark(action) => match action {
+                    P2pChannelsSnarkAction::Init(action) => {
+                        shared::log::debug!(
+                            meta.time();
+                            kind = "PeerChannelsSnarkInit",
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string()
+                        );
+                    }
+                    P2pChannelsSnarkAction::Ready(action) => {
+                        shared::log::debug!(
+                            meta.time();
+                            kind = "PeerChannelsSnarkReady",
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string()
                         );
