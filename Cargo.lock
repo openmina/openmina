@@ -2395,12 +2395,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
 
 [[package]]
-name = "libm"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7012b1bbb0719e1097c47611d3898568c546d597c2e74d66f6087edd5233ff4"
-
-[[package]]
 name = "libp2p"
 version = "0.51.3"
 source = "git+https://github.com/openmina/rust-libp2p?branch=webrtc-v0.51.3#9f0a1bba70bee064cde13be2457fdce6330b7817"
@@ -3035,7 +3029,7 @@ dependencies = [
  "o1-utils",
  "ocaml-interop",
  "once_cell",
- "packed_simd",
+ "packed_simd_2",
  "poly-commitment",
  "rand 0.8.5",
  "rand_pcg",
@@ -3409,7 +3403,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
 dependencies = [
  "autocfg",
- "libm 0.2.7",
 ]
 
 [[package]]
@@ -3603,23 +3596,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "packed_simd"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f9f08af0c877571712e2e3e686ad79efad9657dbf0f7c3c8ba943ff6c38932d"
-dependencies = [
- "cfg-if 1.0.0",
- "num-traits",
-]
-
-[[package]]
 name = "packed_simd_2"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1914cd452d8fccd6f9db48147b29fd4ae05bea9dc5d9ad578509f72415de282"
 dependencies = [
  "cfg-if 1.0.0",
- "libm 0.1.4",
+ "libm",
 ]
 
 [[package]]
