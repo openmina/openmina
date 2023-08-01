@@ -1,3 +1,7 @@
+use binprot::BinProtWrite;
+use ledger::scan_state::conv::job_to_spec;
+use mina_p2p_messages::v2::{StateBodyHash, UnsignedExtendedUInt64Int64ForVersionTagsStableV1};
+
 use crate::p2p::channels::snark_job_commitment::{
     P2pChannelsSnarkJobCommitmentResponseSendAction, SnarkJobCommitment,
 };
@@ -16,9 +20,52 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
             let timestamp_ms = meta.time_as_nanos() / 1_000_000;
             let pub_key = store.state().config.public_key.clone();
             store.dispatch(SnarkPoolJobCommitmentAddAction {
-                commitment: SnarkJobCommitment::new(timestamp_ms, a.job_id, pub_key.into()),
+                commitment: SnarkJobCommitment::new(
+                    timestamp_ms,
+                    a.job_id.clone(),
+                    pub_key.clone().into(),
+                ),
                 sender: store.state().p2p.config.identity_pub_key.peer_id(),
             });
+
+            let path = std::path::PathBuf::from(&format!("work-{}", a.job_id));
+
+            let Some(job) = store.state().snark_pool.get(&a.job_id) else {
+                panic!();
+            };
+            let protocol_state_body = |block_hash: StateBodyHash| {
+                store
+                    .state()
+                    .transition_frontier
+                    .best_chain
+                    .iter()
+                    .find_map(|block_with_hash| {
+                        if block_with_hash.block.header.protocol_state.body.hash() == *block_hash {
+                            Some(block_with_hash.block.header.protocol_state.body.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap()
+            };
+            let input = job_to_spec(
+                pub_key.into(),
+                mina_p2p_messages::v2::CurrencyFeeStableV1(
+                    UnsignedExtendedUInt64Int64ForVersionTagsStableV1(1_000_000_000_u64.into()),
+                ),
+                job.job.clone(),
+                &protocol_state_body,
+            );
+            std::fs::File::create(&path.with_extension(".bin"))
+                .and_then(|mut w| input.binprot_write(&mut w))
+                .unwrap();
+            std::fs::File::create(&path.with_extension(".json"))
+                .and_then(|w| {
+                    serde_json::to_writer(w, &input).unwrap();
+                    Ok(())
+                })
+                .unwrap();
+
             // TODO(akoptelov): start working on this job.
         }
         SnarkPoolAction::CommitmentAdd(_) => {}
