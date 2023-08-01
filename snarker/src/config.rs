@@ -1,3 +1,4 @@
+use mina_p2p_messages::v2::CurrencyFeeStableV1;
 use serde::{Deserialize, Serialize};
 
 use crate::account::AccountPublicKey;
@@ -20,5 +21,6 @@ pub struct Config {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkerConfig {
     pub public_key: AccountPublicKey,
+    pub fee: CurrencyFeeStableV1,
     pub job_commitments: SnarkPoolConfig,
 }

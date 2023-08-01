@@ -8,8 +8,8 @@ use crate::{Service, Store};
 use super::{
     ActionStatsQuery, ActionStatsResponse, RpcAction, RpcActionWithMeta, RpcFinishAction,
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingPendingAction,
-    RpcP2pConnectionIncomingRespondAction, RpcP2pConnectionOutgoingPendingAction,
-    SnarkerJobCommitResponse,
+    RpcP2pConnectionIncomingRespondAction, RpcP2pConnectionOutgoingPendingAction, RpcSnarkPoolJob,
+    RpcSnarkPoolJobSnarkWork, RpcSnarkerJobCommitResponse,
 };
 
 pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) {
@@ -132,22 +132,31 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             });
         }
         RpcAction::SnarkPoolAvailableJobsGet(action) => {
-            let job_ids = store
+            let resp = store
                 .state()
                 .snark_pool
-                .available_jobs_iter()
-                .map(|job| job.id.clone())
+                .range(..)
+                .map(|(_, job)| RpcSnarkPoolJob {
+                    time: job.time,
+                    id: job.id.clone(),
+                    job: job.job.clone(),
+                    commitment: job.commitment.clone(),
+                    snark: job.snark.as_ref().map(|snark| RpcSnarkPoolJobSnarkWork {
+                        prover: snark.work.prover.clone(),
+                        fee: snark.work.fee.clone(),
+                        received_t: snark.received_t,
+                        sender: snark.sender,
+                    }),
+                })
                 .collect::<Vec<_>>();
-            let _ = store
-                .service()
-                .respond_snark_pool_available_jobs(action.rpc_id, job_ids);
+            let _ = store.service().respond_snark_pool_get(action.rpc_id, resp);
         }
         RpcAction::SnarkerJobCommit(action) => {
             let job_id = action.job_id;
             if !store.state().snark_pool.should_create_commitment(&job_id) {
                 let _ = store.service().respond_snarker_job_commit(
                     action.rpc_id,
-                    SnarkerJobCommitResponse::JobNotFound,
+                    RpcSnarkerJobCommitResponse::JobNotFound,
                 );
                 // TODO(binier): differentiate between job not found and job already taken.
                 return;
@@ -155,7 +164,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             // TODO(akoptelov): check if snarker is busy. If yes send `SnarkerJobCommitResponse::SnarkerBusy`.
             if store
                 .service()
-                .respond_snarker_job_commit(action.rpc_id, SnarkerJobCommitResponse::Ok)
+                .respond_snarker_job_commit(action.rpc_id, RpcSnarkerJobCommitResponse::Ok)
                 .is_err()
             {
                 return;

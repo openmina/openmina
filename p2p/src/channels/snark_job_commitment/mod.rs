@@ -11,7 +11,7 @@ mod p2p_channels_snark_job_commitment_effects;
 pub use p2p_channels_snark_job_commitment_effects::*;
 
 use binprot_derive::{BinProtRead, BinProtWrite};
-use mina_p2p_messages::v2::NonZeroCurvePoint;
+use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use shared::snark_job_id::SnarkJobId;
@@ -40,16 +40,22 @@ pub struct SnarkJobCommitment {
     /// TODO(binier): have to use i64, because binprot doesn't support u64.
     timestamp: i64,
     pub job_id: SnarkJobId,
-    // TODO(binier): add fee.
+    pub fee: CurrencyFeeStableV1,
     pub snarker: NonZeroCurvePoint,
     // pub signature: MinaBaseSignatureStableV1,
 }
 
 impl SnarkJobCommitment {
-    pub fn new(timestamp: u64, job_id: SnarkJobId, snarker: NonZeroCurvePoint) -> Self {
+    pub fn new(
+        timestamp: u64,
+        job_id: SnarkJobId,
+        fee: CurrencyFeeStableV1,
+        snarker: NonZeroCurvePoint,
+    ) -> Self {
         Self {
             timestamp: timestamp as i64,
             job_id,
+            fee,
             snarker,
             // TODO(binier): SEC have the snarkers sign the commitment.
             // signature: todo!(),

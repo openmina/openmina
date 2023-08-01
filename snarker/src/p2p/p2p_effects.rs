@@ -2,15 +2,12 @@ use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use shared::block::BlockWithHash;
 
 use crate::consensus::{ConsensusBlockChainProofUpdateAction, ConsensusBlockReceivedAction};
-use crate::p2p::channels::rpc::{P2pChannelsRpcRequestSendAction, P2pRpcRequest};
-use crate::p2p::disconnection::P2pDisconnectionInitAction;
-use crate::p2p::peer::P2pPeerAction;
 use crate::rpc::{
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingSuccessAction,
 };
-use crate::snark_pool::SnarkPoolJobCommitmentAddAction;
+use crate::snark_pool::{SnarkPoolJobCommitmentAddAction, SnarkPoolWorkAddAction};
 use crate::transition_frontier::sync::ledger::snarked::{
     PeerLedgerQueryError, PeerLedgerQueryResponse,
     TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction,
@@ -35,6 +32,8 @@ use crate::{Service, Store};
 
 use super::channels::best_tip::{P2pChannelsBestTipAction, P2pChannelsBestTipResponseSendAction};
 use super::channels::rpc::{P2pChannelsRpcAction, P2pRpcResponse};
+use super::channels::rpc::{P2pChannelsRpcRequestSendAction, P2pRpcRequest};
+use super::channels::snark::P2pChannelsSnarkAction;
 use super::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use super::channels::P2pChannelsAction;
 use super::connection::incoming::{
@@ -42,7 +41,8 @@ use super::connection::incoming::{
 };
 use super::connection::outgoing::P2pConnectionOutgoingAction;
 use super::connection::{P2pConnectionAction, P2pConnectionResponse};
-use super::disconnection::P2pDisconnectionAction;
+use super::disconnection::{P2pDisconnectionAction, P2pDisconnectionInitAction};
+use super::peer::P2pPeerAction;
 use super::{P2pAction, P2pActionWithMeta};
 
 pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) {
@@ -256,6 +256,36 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     }
                 }
                 P2pChannelsBestTipAction::ResponseSend(action) => {
+                    action.effects(&meta, store);
+                }
+            },
+            P2pChannelsAction::Snark(action) => match action {
+                P2pChannelsSnarkAction::Init(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsSnarkAction::Pending(_) => {}
+                P2pChannelsSnarkAction::Ready(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsSnarkAction::RequestSend(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsSnarkAction::PromiseReceived(_) => {}
+                P2pChannelsSnarkAction::Received(action) => {
+                    action.effects(&meta, store);
+                    // TODO(binier): snarkpool
+                }
+                P2pChannelsSnarkAction::RequestReceived(_) => {}
+                P2pChannelsSnarkAction::ResponseSend(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pChannelsSnarkAction::Libp2pReceived(action) => {
+                    store.dispatch(SnarkPoolWorkAddAction {
+                        snark: action.snark,
+                        sender: action.peer_id,
+                    });
+                }
+                P2pChannelsSnarkAction::Libp2pBroadcast(action) => {
                     action.effects(&meta, store);
                 }
             },

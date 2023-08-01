@@ -1,4 +1,5 @@
 use libp2p::swarm::dial_opts::DialOpts;
+use shared::snark::Snark;
 use tokio::sync::mpsc;
 
 use crate::{
@@ -108,5 +109,10 @@ impl<T: P2pServiceWebrtcRsWithLibp2p> P2pChannelsService for T {
                 .cmd_sender()
                 .send(Cmd::SendMessage(peer_id.into(), msg));
         }
+    }
+
+    fn libp2p_broadcast_snark(&mut self, snark: Snark) {
+        use super::libp2p::Cmd;
+        let _ = self.libp2p().cmd_sender().send(Cmd::SnarkBroadcast(snark));
     }
 }

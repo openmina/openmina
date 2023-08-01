@@ -1,6 +1,7 @@
 use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
 use ledger::scan_state::scan_state::AvailableJobMessage;
 use serde::{Deserialize, Serialize};
+use shared::snark::Snark;
 use shared::snark_job_id::SnarkJobId;
 
 use crate::p2p::channels::snark_job_commitment::SnarkJobCommitment;
@@ -11,14 +12,22 @@ pub type SnarkPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a SnarkPoolAct
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkPoolAction {
+    JobsUpdate(SnarkPoolJobsUpdateAction),
     CommitmentCreate(SnarkPoolCommitmentCreateAction),
     CommitmentAdd(SnarkPoolJobCommitmentAddAction),
-    JobsUpdate(SnarkPoolJobsUpdateAction),
+    WorkAdd(SnarkPoolWorkAddAction),
     P2pSendAll(SnarkPoolP2pSendAllAction),
     P2pSend(SnarkPoolP2pSendAction),
     CheckTimeouts(SnarkPoolCheckTimeoutsAction),
     JobCommitmentTimeout(SnarkPoolJobCommitmentTimeoutAction),
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SnarkPoolJobsUpdateAction {
+    pub jobs: Vec<OneOrTwo<AvailableJobMessage>>,
+}
+
+impl redux::EnablingCondition<crate::State> for SnarkPoolJobsUpdateAction {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkPoolCommitmentCreateAction {
@@ -39,16 +48,33 @@ pub struct SnarkPoolJobCommitmentAddAction {
 
 impl redux::EnablingCondition<crate::State> for SnarkPoolJobCommitmentAddAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        !state.snark_pool.contains(&self.commitment.job_id)
+        state
+            .snark_pool
+            .get(&self.commitment.job_id)
+            .map_or(false, |s| match s.commitment.as_ref() {
+                Some(cur) => cur.commitment.fee.0.as_u64() > self.commitment.fee.0.as_u64(),
+                None => true,
+            })
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolJobsUpdateAction {
-    pub jobs: Vec<OneOrTwo<AvailableJobMessage>>,
+pub struct SnarkPoolWorkAddAction {
+    pub snark: Snark,
+    pub sender: PeerId,
 }
 
-impl redux::EnablingCondition<crate::State> for SnarkPoolJobsUpdateAction {}
+impl redux::EnablingCondition<crate::State> for SnarkPoolWorkAddAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .snark_pool
+            .get(&self.snark.job_id())
+            .map_or(false, |s| match s.snark.as_ref() {
+                Some(cur) => cur.work.fee.0.as_u64() > self.snark.fee.0.as_u64(),
+                None => true,
+            })
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkPoolP2pSendAllAction {}
@@ -104,9 +130,10 @@ macro_rules! impl_into_global_action {
     };
 }
 
+impl_into_global_action!(SnarkPoolJobsUpdateAction);
 impl_into_global_action!(SnarkPoolCommitmentCreateAction);
 impl_into_global_action!(SnarkPoolJobCommitmentAddAction);
-impl_into_global_action!(SnarkPoolJobsUpdateAction);
+impl_into_global_action!(SnarkPoolWorkAddAction);
 impl_into_global_action!(SnarkPoolP2pSendAllAction);
 impl_into_global_action!(SnarkPoolP2pSendAction);
 impl_into_global_action!(SnarkPoolCheckTimeoutsAction);

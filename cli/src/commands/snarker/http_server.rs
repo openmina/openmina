@@ -12,13 +12,12 @@ use snarker::{
         },
         webrtc, PeerId,
     },
-    rpc::{ActionStatsQuery, RpcRequest, SnarkerJobCommitResponse, SyncStatsQuery},
+    rpc::{ActionStatsQuery, RpcRequest, SyncStatsQuery},
 };
 
 use super::rpc::{
-    RpcActionStatsGetResponse, RpcP2pConnectionIncomingResponse,
-    RpcSnarkPoolAvailableJobsGetResponse, RpcSnarkerJobCommitResponse, RpcStateGetResponse,
-    RpcSyncStatsGetResponse,
+    RpcActionStatsGetResponse, RpcP2pConnectionIncomingResponse, RpcSnarkPoolGetResponse,
+    RpcSnarkerJobCommitResponse, RpcStateGetResponse, RpcSyncStatsGetResponse,
 };
 
 pub async fn run(port: u16, rpc_sender: super::RpcSender) {
@@ -140,13 +139,13 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     };
 
     let rpc_sender_clone = rpc_sender.clone();
-    let snark_pool_jobs_get = warp::path!("snark-pool" / "jobs" / "available")
+    let snark_pool_jobs_get = warp::path!("snark-pool" / "jobs")
         .and(warp::get())
         .then(move || {
             let rpc_sender_clone = rpc_sender_clone.clone();
             async move {
-                let res: Option<RpcSnarkPoolAvailableJobsGetResponse> = rpc_sender_clone
-                    .oneshot_request(RpcRequest::SnarkPoolAvailableJobsGet)
+                let res: Option<RpcSnarkPoolGetResponse> = rpc_sender_clone
+                    .oneshot_request(RpcRequest::SnarkPoolGet)
                     .await;
                 match res {
                     None => with_json_reply(
@@ -183,7 +182,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                     ),
                     Some(resp) => {
                         let status = match &resp {
-                            SnarkerJobCommitResponse::Ok => StatusCode::CREATED,
+                            RpcSnarkerJobCommitResponse::Ok => StatusCode::CREATED,
                             _ => StatusCode::BAD_REQUEST,
                         };
                         with_json_reply(&resp, status)

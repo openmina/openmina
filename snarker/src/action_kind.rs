@@ -23,6 +23,13 @@ use crate::p2p::channels::rpc::{
     P2pChannelsRpcRequestSendAction, P2pChannelsRpcResponseReceivedAction,
     P2pChannelsRpcResponseSendAction, P2pChannelsRpcTimeoutAction,
 };
+use crate::p2p::channels::snark::{
+    P2pChannelsSnarkAction, P2pChannelsSnarkInitAction, P2pChannelsSnarkLibp2pBroadcastAction,
+    P2pChannelsSnarkLibp2pReceivedAction, P2pChannelsSnarkPendingAction,
+    P2pChannelsSnarkPromiseReceivedAction, P2pChannelsSnarkReadyAction,
+    P2pChannelsSnarkReceivedAction, P2pChannelsSnarkRequestReceivedAction,
+    P2pChannelsSnarkRequestSendAction, P2pChannelsSnarkResponseSendAction,
+};
 use crate::p2p::channels::snark_job_commitment::{
     P2pChannelsSnarkJobCommitmentAction, P2pChannelsSnarkJobCommitmentInitAction,
     P2pChannelsSnarkJobCommitmentPendingAction, P2pChannelsSnarkJobCommitmentPromiseReceivedAction,
@@ -78,6 +85,7 @@ use crate::snark_pool::{
     SnarkPoolAction, SnarkPoolCheckTimeoutsAction, SnarkPoolCommitmentCreateAction,
     SnarkPoolJobCommitmentAddAction, SnarkPoolJobCommitmentTimeoutAction,
     SnarkPoolJobsUpdateAction, SnarkPoolP2pSendAction, SnarkPoolP2pSendAllAction,
+    SnarkPoolWorkAddAction,
 };
 use crate::transition_frontier::sync::ledger::snarked::{
     TransitionFrontierSyncLedgerSnarkedAction,
@@ -175,6 +183,7 @@ pub enum ActionKind {
     P2pChannelsRpcResponseReceived,
     P2pChannelsRpcResponseSend,
     P2pChannelsRpcTimeout,
+    P2pChannelsSnarkInit,
     P2pChannelsSnarkJobCommitmentInit,
     P2pChannelsSnarkJobCommitmentPending,
     P2pChannelsSnarkJobCommitmentPromiseReceived,
@@ -183,6 +192,15 @@ pub enum ActionKind {
     P2pChannelsSnarkJobCommitmentRequestReceived,
     P2pChannelsSnarkJobCommitmentRequestSend,
     P2pChannelsSnarkJobCommitmentResponseSend,
+    P2pChannelsSnarkLibp2pBroadcast,
+    P2pChannelsSnarkLibp2pReceived,
+    P2pChannelsSnarkPending,
+    P2pChannelsSnarkPromiseReceived,
+    P2pChannelsSnarkReady,
+    P2pChannelsSnarkReceived,
+    P2pChannelsSnarkRequestReceived,
+    P2pChannelsSnarkRequestSend,
+    P2pChannelsSnarkResponseSend,
     P2pConnectionIncomingAnswerReady,
     P2pConnectionIncomingAnswerSdpCreateError,
     P2pConnectionIncomingAnswerSdpCreatePending,
@@ -241,6 +259,7 @@ pub enum ActionKind {
     SnarkPoolJobsUpdate,
     SnarkPoolP2pSend,
     SnarkPoolP2pSendAll,
+    SnarkPoolWorkAdd,
     TransitionFrontierSyncBestTipUpdate,
     TransitionFrontierSyncBlocksFetchSuccess,
     TransitionFrontierSyncBlocksNextApplyInit,
@@ -296,7 +315,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 148;
+    pub const COUNT: usize = 159;
 }
 
 impl ActionKindGet for Action {
@@ -378,9 +397,10 @@ impl ActionKindGet for TransitionFrontierAction {
 impl ActionKindGet for SnarkPoolAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::JobsUpdate(a) => a.kind(),
             Self::CommitmentCreate(a) => a.kind(),
             Self::CommitmentAdd(a) => a.kind(),
-            Self::JobsUpdate(a) => a.kind(),
+            Self::WorkAdd(a) => a.kind(),
             Self::P2pSendAll(a) => a.kind(),
             Self::P2pSend(a) => a.kind(),
             Self::CheckTimeouts(a) => a.kind(),
@@ -475,6 +495,7 @@ impl ActionKindGet for P2pChannelsAction {
         match self {
             Self::MessageReceived(a) => a.kind(),
             Self::BestTip(a) => a.kind(),
+            Self::Snark(a) => a.kind(),
             Self::SnarkJobCommitment(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
         }
@@ -580,6 +601,12 @@ impl ActionKindGet for TransitionFrontierSyncedAction {
     }
 }
 
+impl ActionKindGet for SnarkPoolJobsUpdateAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolJobsUpdate
+    }
+}
+
 impl ActionKindGet for SnarkPoolCommitmentCreateAction {
     fn kind(&self) -> ActionKind {
         ActionKind::SnarkPoolCommitmentCreate
@@ -592,9 +619,9 @@ impl ActionKindGet for SnarkPoolJobCommitmentAddAction {
     }
 }
 
-impl ActionKindGet for SnarkPoolJobsUpdateAction {
+impl ActionKindGet for SnarkPoolWorkAddAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::SnarkPoolJobsUpdate
+        ActionKind::SnarkPoolWorkAdd
     }
 }
 
@@ -841,6 +868,23 @@ impl ActionKindGet for P2pChannelsBestTipAction {
             Self::Received(a) => a.kind(),
             Self::RequestReceived(a) => a.kind(),
             Self::ResponseSend(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::Pending(a) => a.kind(),
+            Self::Ready(a) => a.kind(),
+            Self::RequestSend(a) => a.kind(),
+            Self::PromiseReceived(a) => a.kind(),
+            Self::Received(a) => a.kind(),
+            Self::RequestReceived(a) => a.kind(),
+            Self::ResponseSend(a) => a.kind(),
+            Self::Libp2pReceived(a) => a.kind(),
+            Self::Libp2pBroadcast(a) => a.kind(),
         }
     }
 }
@@ -1225,6 +1269,66 @@ impl ActionKindGet for P2pChannelsBestTipRequestReceivedAction {
 impl ActionKindGet for P2pChannelsBestTipResponseSendAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pChannelsBestTipResponseSend
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkInit
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkPending
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkReadyAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkReady
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkRequestSendAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkRequestSend
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkPromiseReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkPromiseReceived
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkReceived
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkRequestReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkRequestReceived
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkResponseSendAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkResponseSend
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkLibp2pReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkLibp2pReceived
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkLibp2pBroadcastAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pChannelsSnarkLibp2pBroadcast
     }
 }
 

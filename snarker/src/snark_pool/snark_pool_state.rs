@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, fmt, ops::RangeBounds};
 use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
+use shared::snark::Snark;
 use shared::snark_job_id::SnarkJobId;
 
 use crate::p2p::{channels::snark_job_commitment::SnarkJobCommitment, PeerId};
@@ -24,12 +25,20 @@ pub struct JobState {
     pub id: SnarkJobId,
     pub job: OneOrTwo<AvailableJobMessage>,
     pub commitment: Option<JobCommitment>,
-    pub snark: Option<()>,
+    pub snark: Option<SnarkWork>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JobCommitment {
     pub commitment: SnarkJobCommitment,
+    pub received_t: Timestamp,
+    pub sender: PeerId,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SnarkWork {
+    pub work: Snark,
+    pub received_t: Timestamp,
     pub sender: PeerId,
 }
 

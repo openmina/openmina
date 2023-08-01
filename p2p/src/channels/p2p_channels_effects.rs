@@ -11,6 +11,10 @@ use super::{
     rpc::{
         P2pChannelsRpcRequestReceivedAction, P2pChannelsRpcResponseReceivedAction, RpcChannelMsg,
     },
+    snark::{
+        P2pChannelsSnarkPromiseReceivedAction, P2pChannelsSnarkReceivedAction,
+        P2pChannelsSnarkRequestReceivedAction, SnarkPropagationChannelMsg,
+    },
     snark_job_commitment::{
         P2pChannelsSnarkJobCommitmentPromiseReceivedAction,
         P2pChannelsSnarkJobCommitmentReceivedAction,
@@ -26,6 +30,9 @@ impl P2pChannelsMessageReceivedAction {
         Store: crate::P2pStore<S>,
         P2pChannelsBestTipRequestReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsBestTipReceivedAction: redux::EnablingCondition<S>,
+        P2pChannelsSnarkRequestReceivedAction: redux::EnablingCondition<S>,
+        P2pChannelsSnarkPromiseReceivedAction: redux::EnablingCondition<S>,
+        P2pChannelsSnarkReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkJobCommitmentRequestReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkJobCommitmentPromiseReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkJobCommitmentReceivedAction: redux::EnablingCondition<S>,
@@ -42,6 +49,20 @@ impl P2pChannelsMessageReceivedAction {
                 BestTipPropagationChannelMsg::BestTip(best_tip) => {
                     let best_tip = BlockWithHash::new(best_tip);
                     store.dispatch(P2pChannelsBestTipReceivedAction { peer_id, best_tip })
+                }
+            },
+            ChannelMsg::SnarkPropagation(msg) => match msg {
+                SnarkPropagationChannelMsg::GetNext { limit } => {
+                    store.dispatch(P2pChannelsSnarkRequestReceivedAction { peer_id, limit })
+                }
+                SnarkPropagationChannelMsg::WillSend { count } => {
+                    store.dispatch(P2pChannelsSnarkPromiseReceivedAction {
+                        peer_id,
+                        promised_count: count,
+                    })
+                }
+                SnarkPropagationChannelMsg::Snark(snark) => {
+                    store.dispatch(P2pChannelsSnarkReceivedAction { peer_id, snark })
                 }
             },
             ChannelMsg::SnarkJobCommitmentPropagation(msg) => match msg {

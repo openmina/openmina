@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{P2pState, PeerId};
 
 use super::{
-    best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction,
+    best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction, snark::P2pChannelsSnarkAction,
     snark_job_commitment::P2pChannelsSnarkJobCommitmentAction, ChannelMsg,
 };
 
@@ -14,17 +14,19 @@ pub enum P2pChannelsAction {
     MessageReceived(P2pChannelsMessageReceivedAction),
 
     BestTip(P2pChannelsBestTipAction),
+    Snark(P2pChannelsSnarkAction),
     SnarkJobCommitment(P2pChannelsSnarkJobCommitmentAction),
     Rpc(P2pChannelsRpcAction),
 }
 
 impl P2pChannelsAction {
-    pub fn peer_id(&self) -> &PeerId {
+    pub fn peer_id(&self) -> Option<&PeerId> {
         match self {
-            Self::MessageReceived(v) => &v.peer_id,
-            Self::BestTip(v) => v.peer_id(),
-            Self::SnarkJobCommitment(v) => v.peer_id(),
-            Self::Rpc(v) => v.peer_id(),
+            Self::MessageReceived(v) => Some(&v.peer_id),
+            Self::BestTip(v) => Some(v.peer_id()),
+            Self::Snark(v) => v.peer_id(),
+            Self::SnarkJobCommitment(v) => Some(v.peer_id()),
+            Self::Rpc(v) => Some(v.peer_id()),
         }
     }
 }

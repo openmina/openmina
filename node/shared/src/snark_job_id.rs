@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use binprot_derive::{BinProtRead, BinProtWrite};
 use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
-use mina_p2p_messages::v2::LedgerHash;
+use mina_p2p_messages::v2::{LedgerHash, TransactionSnarkWorkTStableV2Proofs};
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
 pub type SnarkJobId = LedgerHashTransition;
@@ -116,6 +116,29 @@ impl From<&OneOrTwo<AvailableJobMessage>> for SnarkJobId {
             AvailableJobMessage::Base(base) => &base.statement.0.target,
             AvailableJobMessage::Merge { right, .. } => &right.0 .0.statement.target,
         };
+
+        let source = LedgerHashTransitionPasses {
+            first_pass_ledger: source.first_pass_ledger.clone(),
+            second_pass_ledger: source.second_pass_ledger.clone(),
+        };
+        let target = LedgerHashTransitionPasses {
+            first_pass_ledger: target.first_pass_ledger.clone(),
+            second_pass_ledger: target.second_pass_ledger.clone(),
+        };
+
+        LedgerHashTransition { source, target }
+    }
+}
+
+impl From<&TransactionSnarkWorkTStableV2Proofs> for SnarkJobId {
+    fn from(value: &TransactionSnarkWorkTStableV2Proofs) -> Self {
+        let (first, second) = match value {
+            TransactionSnarkWorkTStableV2Proofs::One(j) => (j, j),
+            TransactionSnarkWorkTStableV2Proofs::Two((j1, j2)) => (j1, j2),
+        };
+
+        let source = &first.0.statement.source;
+        let target = &second.0.statement.target;
 
         let source = LedgerHashTransitionPasses {
             first_pass_ledger: source.first_pass_ledger.clone(),
