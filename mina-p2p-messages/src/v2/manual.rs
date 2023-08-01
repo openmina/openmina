@@ -18,7 +18,7 @@ use super::{
     ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2,
     PicklesProofProofsVerified2ReprStableV2StatementFp, PicklesProofProofsVerifiedMaxStableV2,
     ProtocolVersionStableV1, SgnStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
-    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
+    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1, CurrencyAmountStableV1,
 };
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
@@ -707,7 +707,7 @@ mod tests_sgn {
 /// Args: CurrencyFeeStableV1 , SgnStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct SignedAmount {
-    pub magnitude: CurrencyFeeStableV1,
+    pub magnitude: CurrencyAmountStableV1,
     pub sgn: SgnStableV1,
 }
 
@@ -780,3 +780,5 @@ impl From<&PicklesProofProofsVerifiedMaxStableV2> for PicklesProofProofsVerified
         }
     }
 }
+
+pub mod conv;
