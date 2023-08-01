@@ -2,20 +2,12 @@ use std::{fmt::Display, marker::PhantomData, str::FromStr};
 
 use serde::{de::Visitor, Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, derive_more::From)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, derive_more::From, derive_more::Deref)]
 pub struct Number<T>(pub T);
 
 pub type Int32 = Number<i32>;
 pub type Int64 = Number<i64>;
 pub type Float64 = Number<f64>;
-
-impl<T> std::ops::Deref for Number<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 impl Int32 {
     pub fn as_u32(&self) -> u32 {
