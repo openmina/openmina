@@ -197,21 +197,19 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             }
         });
 
+    #[derive(Deserialize)]
+    struct JobIdParam {
+        id: SnarkJobId
+    }
+
     let rpc_sender_clone = rpc_sender.clone();
     let snarker_job_spec = warp::path!("snarker" / "job" / "spec")
-        .and(warp::post())
+        .and(warp::get())
         .and(warp::header::optional("accept"))
-        .and(warp::filters::body::bytes())
-        .then(move |accept: Option<String>, body: bytes::Bytes| {
+        .and(warp::query())
+        .then(move |accept: Option<String>, JobIdParam { id: job_id }: JobIdParam| {
             let rpc_sender_clone = rpc_sender_clone.clone();
             async move {
-                let Ok(job_id) = String::from_utf8(body.to_vec())
-                    .or(Err(()))
-                    .and_then(|s| SnarkJobId::from_str(&s).or(Err(())))
-                else {
-                    return JsonOrBinary::error("invalid_input", StatusCode::BAD_REQUEST);
-                };
-
                 let res: Option<RpcSnarkerJobSpecResponse> = rpc_sender_clone
                     .oneshot_request(RpcRequest::SnarkerJobSpec { job_id })
                     .await;
