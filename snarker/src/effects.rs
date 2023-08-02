@@ -1,5 +1,6 @@
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
+use crate::external_snark_worker::external_snark_worker_effects;
 use crate::logger::logger_effects;
 use crate::p2p::channels::rpc::{
     P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
@@ -16,7 +17,7 @@ use crate::snark_pool::{
 use crate::transition_frontier::sync::TransitionFrontierSyncBlocksNextApplyInitAction;
 use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
-use crate::{Action, ActionWithMeta, Service, Store};
+use crate::{Action, ActionWithMeta, Service, Store, external_snark_worker};
 
 pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
     let (action, meta) = action.split();
@@ -144,6 +145,9 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         }
         Action::Rpc(action) => {
             rpc_effects(store, meta.with_action(action));
+        }
+        Action::ExternalSnarkWorker(action) => {
+            external_snark_worker_effects(store, meta.with_action(action));
         }
         Action::WatchedAccounts(action) => {
             watched_accounts_effects(store, meta.with_action(action));

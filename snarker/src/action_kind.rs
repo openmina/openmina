@@ -11,6 +11,13 @@ use crate::event_source::{
     EventSourceAction, EventSourceNewEventAction, EventSourceProcessEventsAction,
     EventSourceWaitForEventsAction, EventSourceWaitTimeoutAction,
 };
+use crate::external_snark_worker::{
+    ExternalSnarkWorkerAction, ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerKillAction,
+    ExternalSnarkWorkerKilledAction, ExternalSnarkWorkerPruneWorkAction,
+    ExternalSnarkWorkerStartAction, ExternalSnarkWorkerStartedAction,
+    ExternalSnarkWorkerSubmitWorkAction, ExternalSnarkWorkerWorkErrorAction,
+    ExternalSnarkWorkerWorkResultAction,
+};
 use crate::p2p::channels::best_tip::{
     P2pChannelsBestTipAction, P2pChannelsBestTipInitAction, P2pChannelsBestTipPendingAction,
     P2pChannelsBestTipReadyAction, P2pChannelsBestTipReceivedAction,
@@ -167,6 +174,15 @@ pub enum ActionKind {
     EventSourceProcessEvents,
     EventSourceWaitForEvents,
     EventSourceWaitTimeout,
+    ExternalSnarkWorkerError,
+    ExternalSnarkWorkerKill,
+    ExternalSnarkWorkerKilled,
+    ExternalSnarkWorkerPruneWork,
+    ExternalSnarkWorkerStart,
+    ExternalSnarkWorkerStarted,
+    ExternalSnarkWorkerSubmitWork,
+    ExternalSnarkWorkerWorkError,
+    ExternalSnarkWorkerWorkResult,
     P2pChannelsBestTipInit,
     P2pChannelsBestTipPending,
     P2pChannelsBestTipReady,
@@ -316,7 +332,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 160;
+    pub const COUNT: usize = 169;
 }
 
 impl ActionKindGet for Action {
@@ -330,6 +346,7 @@ impl ActionKindGet for Action {
             Self::TransitionFrontier(a) => a.kind(),
             Self::SnarkPool(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
+            Self::ExternalSnarkWorker(a) => a.kind(),
             Self::WatchedAccounts(a) => a.kind(),
         }
     }
@@ -429,6 +446,22 @@ impl ActionKindGet for RpcAction {
             Self::SnarkerJobCommit(a) => a.kind(),
             Self::SnarkerJobSpec(a) => a.kind(),
             Self::Finish(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Start(a) => a.kind(),
+            Self::Started(a) => a.kind(),
+            Self::Kill(a) => a.kind(),
+            Self::Killed(a) => a.kind(),
+            Self::Error(a) => a.kind(),
+            Self::SubmitWork(a) => a.kind(),
+            Self::WorkResult(a) => a.kind(),
+            Self::WorkError(a) => a.kind(),
+            Self::PruneWork(a) => a.kind(),
         }
     }
 }
@@ -744,6 +777,60 @@ impl ActionKindGet for RpcSnarkerJobSpecAction {
 impl ActionKindGet for RpcFinishAction {
     fn kind(&self) -> ActionKind {
         ActionKind::RpcFinish
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerStartAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerStart
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerStartedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerStarted
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerKillAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerKill
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerKilledAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerKilled
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerError
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerSubmitWorkAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerSubmitWork
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerWorkResultAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerWorkResult
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerWorkErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerWorkError
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerPruneWorkAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerPruneWork
     }
 }
 

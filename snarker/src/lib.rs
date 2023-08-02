@@ -32,6 +32,7 @@ pub mod snark;
 pub mod snark_pool;
 pub mod transition_frontier;
 pub mod watched_accounts;
+pub mod external_snark_worker;
 
 pub type Store<S> = redux::Store<State, S, Action>;
 
