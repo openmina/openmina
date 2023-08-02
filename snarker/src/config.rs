@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use mina_p2p_messages::v2::CurrencyFeeStableV1;
 use serde::{Deserialize, Serialize};
 
@@ -23,4 +25,6 @@ pub struct SnarkerConfig {
     pub public_key: AccountPublicKey,
     pub fee: CurrencyFeeStableV1,
     pub job_commitments: SnarkPoolConfig,
+    /// External Mina snark worker executable path
+    pub path: PathBuf,
 }

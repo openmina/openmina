@@ -24,6 +24,9 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
         Action::Rpc(a) => {
             state.rpc.reducer(meta.with_action(a));
         }
+        Action::ExternalSnarkWorker(a) => {
+            state.external_snark_worker.reducer(meta.with_action(a));
+        }
         Action::WatchedAccounts(a) => {
             state.watched_accounts.reducer(meta.with_action(a));
         }

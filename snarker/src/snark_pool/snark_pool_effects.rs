@@ -1,5 +1,6 @@
 use p2p::channels::snark::P2pChannelsSnarkLibp2pBroadcastAction;
 
+use crate::external_snark_worker::ExternalSnarkWorkerSubmitWorkAction;
 use crate::p2p::channels::snark_job_commitment::{
     P2pChannelsSnarkJobCommitmentResponseSendAction, SnarkJobCommitment,
 };
@@ -21,12 +22,14 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
             store.dispatch(SnarkPoolJobCommitmentAddAction {
                 commitment: SnarkJobCommitment::new(
                     timestamp_ms,
-                    a.job_id,
+                    a.job_id.clone(),
                     config.fee.clone(),
                     config.public_key.clone().into(),
                 ),
                 sender: store.state().p2p.config.identity_pub_key.peer_id(),
             });
+            let job_id = a.job_id;
+            store.dispatch(ExternalSnarkWorkerSubmitWorkAction { job_id });
             // TODO(akoptelov): start working on this job.
         }
         SnarkPoolAction::CommitmentAdd(_) => {}
