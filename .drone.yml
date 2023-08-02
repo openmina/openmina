@@ -31,7 +31,7 @@ steps:
       - git config --global --add safe.directory /drone/src/deps/proof-systems
       - git config --global --add safe.directory /drone/src/deps/redux-rs
       - git submodule init && git submodule update --recursive
-      - cargo run --release -p cli snarker -p 10000 --chain-id 667b328bfc09ced12191d099f234575b006b6b193f5441a6fa744feacd9744db -k B62qqYvLLtTMQtHxRfuzZK21AJrqFE8Zq9Cyk3wtjegiTRn5soNQA9A --initial-peer /dns4/replay/tcp/8302/p2p/12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw
+      - cargo run --release -p cli snarker -p 10000 --chain-id 667b328bfc09ced12191d099f234575b006b6b193f5441a6fa744feacd9744db -k B62qqYvLLtTMQtHxRfuzZK21AJrqFE8Zq9Cyk3wtjegiTRn5soNQA9A --peer /dns4/replay/tcp/8302/p2p/12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw
       - rm ~/.gitconfig
 
   - name: test
