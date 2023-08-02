@@ -1,4 +1,5 @@
 use crate::action::CheckTimeoutsAction;
+use crate::external_snark_worker::{ExternalSnarkWorkerEvent, ExternalSnarkWorkerWorkResultAction, ExternalSnarkWorkerWorkErrorAction, ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerStartedAction, ExternalSnarkWorkerKilledAction};
 use crate::p2p::channels::best_tip::P2pChannelsBestTipReadyAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcReadyAction;
 use crate::p2p::channels::snark::{
@@ -23,7 +24,7 @@ use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcP2pConnectionIncomingInitAction,
     RpcP2pConnectionOutgoingInitAction, RpcRequest, RpcSnarkPoolAvailableJobsGetAction,
-    RpcSnarkerJobCommitAction, RpcSyncStatsGetAction, RpcSnarkerJobSpecAction,
+    RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
 use crate::snark::SnarkEvent;
@@ -203,6 +204,23 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 }
                 RpcRequest::SnarkerJobSpec { job_id } => {
                     store.dispatch(RpcSnarkerJobSpecAction { rpc_id, job_id });
+                }
+            },
+            Event::ExternalSnarkWorker(e) => match e {
+                ExternalSnarkWorkerEvent::Started => {
+                    store.dispatch(ExternalSnarkWorkerStartedAction {});
+                }
+                ExternalSnarkWorkerEvent::Killed => {
+                    store.dispatch(ExternalSnarkWorkerKilledAction {});
+                }
+                ExternalSnarkWorkerEvent::WorkResult(result) => {
+                    store.dispatch(ExternalSnarkWorkerWorkResultAction { result });
+                }
+                ExternalSnarkWorkerEvent::WorkError(error) => {
+                    store.dispatch(ExternalSnarkWorkerWorkErrorAction { error });
+                }
+                ExternalSnarkWorkerEvent::Error(error) => {
+                    store.dispatch(ExternalSnarkWorkerErrorAction { error });
                 }
             },
         },

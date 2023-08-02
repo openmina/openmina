@@ -5,6 +5,7 @@ pub type ActionWithMetaRef<'a> = redux::ActionWithMeta<&'a Action>;
 
 pub use crate::consensus::ConsensusAction;
 pub use crate::event_source::EventSourceAction;
+use crate::external_snark_worker::ExternalSnarkWorkerAction;
 pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
 pub use crate::snark::SnarkAction;
@@ -27,6 +28,7 @@ pub enum Action {
     TransitionFrontier(TransitionFrontierAction),
     SnarkPool(SnarkPoolAction),
     Rpc(RpcAction),
+    ExternalSnarkWorker(ExternalSnarkWorkerAction),
 
     WatchedAccounts(WatchedAccountsAction),
 }

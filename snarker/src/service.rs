@@ -1,4 +1,5 @@
 pub use crate::event_source::EventSourceService;
+use crate::external_snark_worker::ExternalSnarkWorkerService;
 pub use crate::p2p::channels::P2pChannelsService;
 pub use crate::p2p::connection::P2pConnectionService;
 pub use crate::p2p::disconnection::P2pDisconnectionService;
@@ -22,6 +23,7 @@ pub trait Service:
     + TransitionFrontierSyncLedgerStagedService
     + TransitionFrontierService
     + RpcService
+    + ExternalSnarkWorkerService
 {
     fn stats(&mut self) -> Option<&mut Stats>;
 }
