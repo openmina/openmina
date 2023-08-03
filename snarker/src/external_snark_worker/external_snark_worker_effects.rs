@@ -1,7 +1,12 @@
+use std::sync::Arc;
+
 use ledger::scan_state::conv::job_to_spec;
 use mina_p2p_messages::v2::StateBodyHash;
+use shared::snark::Snark;
 
-use crate::external_snark_worker::ExternalSnarkWorkerPruneWorkAction;
+use crate::{
+    external_snark_worker::ExternalSnarkWorkerPruneWorkAction, snark_pool::SnarkPoolWorkAddAction,
+};
 
 use super::{ExternalSnarkWorkerAction, ExternalSnarkWorkerActionWithMeta};
 
@@ -62,7 +67,17 @@ pub fn external_snark_worker_effects<S: crate::Service>(
                 // TODO report error
             }
         }
-        ExternalSnarkWorkerAction::WorkResult(_) => {
+        ExternalSnarkWorkerAction::WorkResult(action) => {
+            let config = &store.state().config;
+            let prover = config.public_key.clone().into();
+            let fee = config.fee.clone();
+            let snark = Snark {
+                prover,
+                fee,
+                proofs: action.result.clone(),
+            };
+            let sender = store.state().p2p.config.identity_pub_key.peer_id();
+            store.dispatch(SnarkPoolWorkAddAction { snark, sender });
             store.dispatch(ExternalSnarkWorkerPruneWorkAction {});
         }
         ExternalSnarkWorkerAction::WorkError(_) => {
