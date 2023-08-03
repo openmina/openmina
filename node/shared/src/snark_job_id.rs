@@ -23,7 +23,7 @@ pub struct LedgerHashTransitionPasses {
 
 impl std::fmt::Display for LedgerHashTransition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}->{}", &self.source, &self.target)
+        write!(f, "{}-{}", &self.source, &self.target)
     }
 }
 
@@ -31,7 +31,7 @@ impl std::str::FromStr for LedgerHashTransition {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (source, target) = s.split_once("->").ok_or(())?;
+        let (source, target) = s.split_once("-").ok_or(())?;
         Ok(Self {
             source: source.parse()?,
             target: target.parse()?,
@@ -43,7 +43,7 @@ impl std::fmt::Display for LedgerHashTransitionPasses {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}:{}",
+            "{}_{}",
             &self.first_pass_ledger, &self.second_pass_ledger
         )
     }
@@ -53,7 +53,7 @@ impl FromStr for LedgerHashTransitionPasses {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (first_pass, second_pass) = s.split_once(":").ok_or(())?;
+        let (first_pass, second_pass) = s.split_once("_").ok_or(())?;
         Ok(Self {
             first_pass_ledger: first_pass.parse().or(Err(()))?,
             second_pass_ledger: second_pass.parse().or(Err(()))?,
