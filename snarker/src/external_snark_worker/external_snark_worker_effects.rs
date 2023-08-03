@@ -12,7 +12,9 @@ pub fn external_snark_worker_effects<S: crate::Service>(
     let (action, _) = action.split();
     match action {
         ExternalSnarkWorkerAction::Start(_) => {
-            let path = store.state().config.path.clone();
+            let Some(path) = store.state().config.path.as_ref().cloned() else {
+                return;
+            };
             if let Err(err) = store.service().start(path) {
                 todo!("report error {err:?}");
             }
