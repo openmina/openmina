@@ -2185,7 +2185,7 @@ impl ScanState {
         }
     }
 
-    fn required_state_hashes(&self) -> HashSet<Fp> {
+    pub fn required_state_hashes(&self) -> HashSet<Fp> {
         self.staged_transactions()
             .into_iter()
             .fold(HashSet::with_capacity(256), |accum, txns| {
