@@ -28,9 +28,7 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
                 ),
                 sender: store.state().p2p.config.identity_pub_key.peer_id(),
             });
-            let job_id = a.job_id;
-            store.dispatch(ExternalSnarkWorkerSubmitWorkAction { job_id });
-            // TODO(akoptelov): start working on this job.
+            store.dispatch(ExternalSnarkWorkerSubmitWorkAction { job_id: a.job_id });
         }
         SnarkPoolAction::CommitmentAdd(_) => {}
         SnarkPoolAction::WorkAdd(a) => {

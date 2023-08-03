@@ -9,12 +9,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use binprot::{BinProtRead, BinProtWrite};
+use mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQuery;
 use rand::prelude::*;
 use serde::Serialize;
 use shared::log::inner::Level;
 use snarker::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerEvent, ExternalSnarkWorkerService,
-    ExternalSnarkWorkerWorkError, SnarkWorkId, SnarkWorkResult, SnarkWorkSpec, ExternalSnarkWorkerStartAction,
+    ExternalSnarkWorkerStartAction, ExternalSnarkWorkerWorkError, SnarkWorkId, SnarkWorkResult,
+    SnarkWorkSpec,
 };
 use snarker::p2p::service_impl::TaskSpawner;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -575,16 +577,14 @@ async fn read_snark_work_result<R: AsyncRead + Unpin>(
     let mut len_buf = [0; size_of::<u64>()];
     r.read_exact(&mut len_buf).await?;
     let len = u64::from_le_bytes(len_buf);
-    let mut r = r.take(len);
-    let mut buf = Vec::with_capacity(len as usize);
-    r.read_to_end(&mut buf);
-    let mut read = buf.as_slice();
-    Ok(SnarkWorkResult::binprot_read(&mut read)?)
-}
 
-enum ExternalSnarkWorkerCmd {
-    Submit(SnarkWorkSpec),
-    Kill,
+    let mut buf = Vec::with_capacity(len as usize);
+    let mut r = r.take(len);
+    r.read_to_end(&mut buf).await?;
+
+    let mut read = buf.as_slice();
+    let result = SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQuery::binprot_read(&mut read)?;
+    Ok(Arc::new(result.proofs))
 }
 
 struct ExternalSnarkWorkerSender {
@@ -593,44 +593,16 @@ struct ExternalSnarkWorkerSender {
 }
 
 impl ExternalSnarkWorkerSender {
-    fn create() -> (
-        Self,
-        mpsc::Receiver<SnarkWorkSpec>,
-        oneshot::Receiver<()>,
-    ) {
-        let (data, data_rx) = mpsc::channel(1);
-        let (kill, kill_rx) = oneshot::channel();
-        (ExternalSnarkWorkerSender { data, kill }, data_rx, kill_rx)
-    }
-
-    fn submit(
-        &mut self,
-        spec: SnarkWorkSpec,
-    ) -> Result<(), ExternalSnarkWorkerError> {
-        self.data
-            .try_send(spec)
-            .map_err(|_| ExternalSnarkWorkerError::Busy)
-    }
-
-    fn kill(self) -> Result<(), ExternalSnarkWorkerError> {
-        self.kill
-            .send(())
-            .map_err(|_| ExternalSnarkWorkerError::Broken("already sent kill".into()))
-    }
-}
-
-impl ExternalSnarkWorkerService for SnarkerService {
     fn start<P: AsRef<OsStr>>(
-        &mut self,
         path: P,
-    ) -> Result<(), snarker::external_snark_worker::ExternalSnarkWorkerError> {
-        eprintln!(">>> starting {}", path.as_ref().to_string_lossy());
+        event_sender: mpsc::UnboundedSender<Event>,
+    ) -> Result<Self, SnarkerError> {
+        let (data, mut data_rx) = mpsc::channel(1);
+        let (kill, kill_rx) = oneshot::channel();
+
         let mut cmd = Command::new(path);
         cmd.args(["internal", "snark-worker-stdio"]);
 
-        let event_sender = self.event_sender.clone();
-        let (cmd_sender, mut data_rx, kill_rx) = ExternalSnarkWorkerSender::create();
-        self.snark_worker_sender = Some(cmd_sender);
 
         std::thread::Builder::new()
             .name("external-snark-worker".into())
@@ -641,7 +613,6 @@ impl ExternalSnarkWorkerService for SnarkerService {
                     .build()
                     .unwrap();
                 runtime.block_on(async move {
-                    eprintln!("!!! inside async");
                     let mut child = match cmd
                         .stdin(Stdio::piped())
                         .stderr(Stdio::piped())
@@ -654,7 +625,6 @@ impl ExternalSnarkWorkerService for SnarkerService {
                             return;
                         }
                     };
-                    eprintln!("!!! spawned mina");
 
                     event_sender.send(ExternalSnarkWorkerEvent::Started.into());
 
@@ -695,6 +665,29 @@ impl ExternalSnarkWorkerService for SnarkerService {
                 });
             });
 
+        Ok(ExternalSnarkWorkerSender { data, kill })
+    }
+
+    fn submit(&mut self, spec: SnarkWorkSpec) -> Result<(), ExternalSnarkWorkerError> {
+        self.data
+            .try_send(spec)
+            .map_err(|_| ExternalSnarkWorkerError::Busy)
+    }
+
+    fn kill(self) -> Result<(), ExternalSnarkWorkerError> {
+        self.kill
+            .send(())
+            .map_err(|_| ExternalSnarkWorkerError::Broken("already sent kill".into()))
+    }
+}
+
+impl ExternalSnarkWorkerService for SnarkerService {
+    fn start<P: AsRef<OsStr>>(
+        &mut self,
+        path: P,
+    ) -> Result<(), snarker::external_snark_worker::ExternalSnarkWorkerError> {
+        let cmd_sender = ExternalSnarkWorkerSender::start(path, self.event_sender.clone())?;
+        self.snark_worker_sender = Some(cmd_sender);
         Ok(())
     }
 
@@ -714,4 +707,42 @@ impl ExternalSnarkWorkerService for SnarkerService {
             .ok_or(ExternalSnarkWorkerError::NotRunning)
             .and_then(|sender| sender.kill())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+
+    use binprot::BinProtRead;
+    use snarker::{external_snark_worker::{SnarkWorkSpec, ExternalSnarkWorkerEvent}, event_source::Event};
+    use tokio::sync::mpsc;
+
+    use crate::commands::snarker::ExternalSnarkWorkerSender;
+
+
+    #[tokio::test]
+    async fn test_external_snark_worker() {
+        const DATA: &[u8] = include_bytes!("../../../tests/files/snark_spec/spec1.bin");
+        let path = env::var_os("MINA_EXE_PATH").expect("mina path is not set");
+        let mut r = DATA;
+        let data = SnarkWorkSpec::binprot_read(&mut r).unwrap();
+
+        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+        let mut cmd_sender = ExternalSnarkWorkerSender::start(path, event_tx).unwrap();
+
+        let result = event_rx.recv().await;
+        let Some(Event::ExternalSnarkWorker(ExternalSnarkWorkerEvent::Started)) = result else {
+            panic!("unexpected reply: {result:?}");
+        };
+
+
+        cmd_sender.submit(data).unwrap();
+        let result = event_rx.recv().await;
+        let Some(Event::ExternalSnarkWorker(ExternalSnarkWorkerEvent::WorkResult(result))) = result else {
+            panic!("unexpected reply: {result:?}");
+        };
+        eprintln!(">>> {result:?}");
+        cmd_sender.kill().expect("cannot kill worker");
+    }
+
 }
