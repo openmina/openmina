@@ -75,7 +75,7 @@ pub struct Snarker {
 
     /// Mina snark worker path
     #[arg(long, short = 'e', env)]
-    pub mina_exe_path: PathBuf,
+    pub mina_exe_path: Option<PathBuf>,
 }
 
 impl Snarker {

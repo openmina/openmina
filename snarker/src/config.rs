@@ -26,5 +26,5 @@ pub struct SnarkerConfig {
     pub fee: CurrencyFeeStableV1,
     pub job_commitments: SnarkPoolConfig,
     /// External Mina snark worker executable path
-    pub path: PathBuf,
+    pub path: Option<PathBuf>,
 }
