@@ -6,7 +6,8 @@ use crate::State;
 
 use super::{
     RpcActionStatsGetResponse, RpcId, RpcP2pConnectionOutgoingResponse, RpcSnarkPoolGetResponse,
-    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSyncStatsGetResponse,
+    RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+    RpcSyncStatsGetResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
@@ -50,6 +51,11 @@ pub trait RpcService: redux::Service {
         &mut self,
         rpc_id: RpcId,
         response: RpcSnarkPoolGetResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_snark_pool_job_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcSnarkPoolJobGetResponse,
     ) -> Result<(), RespondError>;
     fn respond_snarker_job_commit(
         &mut self,

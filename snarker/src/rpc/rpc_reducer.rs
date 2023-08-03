@@ -55,6 +55,7 @@ impl RpcState {
                 rpc.status = RpcRequestStatus::Success { time: meta.time() };
             }
             RpcAction::SnarkPoolAvailableJobsGet(_) => {}
+            RpcAction::SnarkPoolJobGet(_) => {}
             RpcAction::SnarkerJobCommit(_) => {}
             RpcAction::SnarkerJobSpec(_) => {}
             RpcAction::Finish(action) => {
