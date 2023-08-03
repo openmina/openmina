@@ -38,6 +38,7 @@ pub enum RpcRequest {
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
     P2pConnectionIncoming(P2pConnectionIncomingInitOpts),
     SnarkPoolGet,
+    SnarkPoolJobGet { job_id: SnarkJobId },
     SnarkerJobCommit { job_id: SnarkJobId },
     SnarkerJobSpec { job_id: SnarkJobId },
 }
@@ -62,7 +63,15 @@ pub enum ActionStatsResponse {
 }
 
 #[derive(Serialize, Debug, Clone)]
-pub struct RpcSnarkPoolJob {
+pub struct RpcSnarkPoolJobSummary {
+    pub time: Timestamp,
+    pub id: SnarkJobId,
+    pub commitment: Option<JobCommitment>,
+    pub snark: Option<RpcSnarkPoolJobSnarkWork>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcSnarkPoolJobFull {
     pub time: Timestamp,
     pub id: SnarkJobId,
     pub job: OneOrTwo<AvailableJobMessage>,
@@ -98,4 +107,5 @@ pub type RpcStateGetResponse = Box<State>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
-pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJob>;
+pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
+pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;

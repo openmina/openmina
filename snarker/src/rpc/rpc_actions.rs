@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use shared::snark_job_id::SnarkJobId;
 
+use crate::external_snark_worker::SnarkWorkId;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
 use crate::p2p::connection::P2pConnectionResponse;
@@ -30,6 +31,7 @@ pub enum RpcAction {
     P2pConnectionIncomingSuccess(RpcP2pConnectionIncomingSuccessAction),
 
     SnarkPoolAvailableJobsGet(RpcSnarkPoolAvailableJobsGetAction),
+    SnarkPoolJobGet(RpcSnarkPoolJobGetAction),
 
     SnarkerJobCommit(RpcSnarkerJobCommitAction),
     SnarkerJobSpec(RpcSnarkerJobSpecAction),
@@ -200,6 +202,14 @@ pub struct RpcSnarkPoolAvailableJobsGetAction {
 impl redux::EnablingCondition<crate::State> for RpcSnarkPoolAvailableJobsGetAction {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcSnarkPoolJobGetAction {
+    pub job_id: SnarkWorkId,
+    pub rpc_id: RpcId,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcSnarkPoolJobGetAction {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcSnarkerJobCommitAction {
     pub rpc_id: RpcId,
     pub job_id: SnarkJobId,
@@ -258,6 +268,7 @@ impl_into_global_action!(RpcP2pConnectionIncomingErrorAction);
 impl_into_global_action!(RpcP2pConnectionIncomingSuccessAction);
 
 impl_into_global_action!(RpcSnarkPoolAvailableJobsGetAction);
+impl_into_global_action!(RpcSnarkPoolJobGetAction);
 
 impl_into_global_action!(RpcSnarkerJobCommitAction);
 impl_into_global_action!(RpcSnarkerJobSpecAction);

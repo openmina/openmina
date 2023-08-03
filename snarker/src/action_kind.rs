@@ -81,7 +81,8 @@ use crate::rpc::{
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
     RpcP2pConnectionOutgoingSuccessAction, RpcSnarkPoolAvailableJobsGetAction,
-    RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSyncStatsGetAction,
+    RpcSnarkPoolJobGetAction, RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction,
+    RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{
     SnarkBlockVerifyAction, SnarkBlockVerifyErrorAction, SnarkBlockVerifyFinishAction,
@@ -261,6 +262,7 @@ pub enum ActionKind {
     RpcP2pConnectionOutgoingPending,
     RpcP2pConnectionOutgoingSuccess,
     RpcSnarkPoolAvailableJobsGet,
+    RpcSnarkPoolJobGet,
     RpcSnarkerJobCommit,
     RpcSnarkerJobSpec,
     RpcSyncStatsGet,
@@ -332,7 +334,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 169;
+    pub const COUNT: usize = 170;
 }
 
 impl ActionKindGet for Action {
@@ -443,6 +445,7 @@ impl ActionKindGet for RpcAction {
             Self::P2pConnectionIncomingError(a) => a.kind(),
             Self::P2pConnectionIncomingSuccess(a) => a.kind(),
             Self::SnarkPoolAvailableJobsGet(a) => a.kind(),
+            Self::SnarkPoolJobGet(a) => a.kind(),
             Self::SnarkerJobCommit(a) => a.kind(),
             Self::SnarkerJobSpec(a) => a.kind(),
             Self::Finish(a) => a.kind(),
@@ -759,6 +762,12 @@ impl ActionKindGet for RpcP2pConnectionIncomingSuccessAction {
 impl ActionKindGet for RpcSnarkPoolAvailableJobsGetAction {
     fn kind(&self) -> ActionKind {
         ActionKind::RpcSnarkPoolAvailableJobsGet
+    }
+}
+
+impl ActionKindGet for RpcSnarkPoolJobGetAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::RpcSnarkPoolJobGet
     }
 }
 

@@ -10,8 +10,9 @@ use crate::{Service, Store};
 use super::{
     ActionStatsQuery, ActionStatsResponse, RpcAction, RpcActionWithMeta, RpcFinishAction,
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingPendingAction,
-    RpcP2pConnectionIncomingRespondAction, RpcP2pConnectionOutgoingPendingAction, RpcSnarkPoolJob,
-    RpcSnarkPoolJobSnarkWork, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+    RpcP2pConnectionIncomingRespondAction, RpcP2pConnectionOutgoingPendingAction,
+    RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse,
+    RpcSnarkerJobSpecResponse, RpcSnarkPoolJobFull,
 };
 
 pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) {
@@ -138,10 +139,9 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .state()
                 .snark_pool
                 .range(..)
-                .map(|(_, job)| RpcSnarkPoolJob {
+                .map(|(_, job)| RpcSnarkPoolJobSummary {
                     time: job.time,
                     id: job.id.clone(),
-                    job: job.job.clone(),
                     commitment: job.commitment.clone(),
                     snark: job.snark.as_ref().map(|snark| RpcSnarkPoolJobSnarkWork {
                         prover: snark.work.prover.clone(),
@@ -152,6 +152,31 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 })
                 .collect::<Vec<_>>();
             let _ = store.service().respond_snark_pool_get(action.rpc_id, resp);
+        }
+        RpcAction::SnarkPoolJobGet(action) => {
+            let resp = store
+                .state()
+                .snark_pool
+                .range(..)
+                .find_map(|(_, job)| {
+                    if &job.id == &action.job_id {
+                        Some(RpcSnarkPoolJobFull {
+                            time: job.time,
+                            id: job.id.clone(),
+                            job: job.job.clone(),
+                            commitment: job.commitment.clone(),
+                            snark: job.snark.as_ref().map(|snark| RpcSnarkPoolJobSnarkWork {
+                                prover: snark.work.prover.clone(),
+                                fee: snark.work.fee.clone(),
+                                received_t: snark.received_t,
+                                sender: snark.sender,
+                            }),
+                        })
+                    } else {
+                        None
+                    }
+                });
+            let _ = store.service().respond_snark_pool_job_get(action.rpc_id, resp);
         }
         RpcAction::SnarkerJobCommit(action) => {
             let job_id = action.job_id;
