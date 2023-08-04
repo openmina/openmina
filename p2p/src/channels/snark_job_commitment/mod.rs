@@ -65,4 +65,15 @@ impl SnarkJobCommitment {
     pub fn timestamp(&self) -> Timestamp {
         Timestamp::new(self.timestamp as u64 * 1_000_000)
     }
+
+    pub fn tie_breaker_hash(&self) -> [u8; 32] {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(self.job_id.source.first_pass_ledger.0.as_ref());
+        hasher.update(self.job_id.source.second_pass_ledger.0.as_ref());
+        hasher.update(self.job_id.target.first_pass_ledger.0.as_ref());
+        hasher.update(self.job_id.target.second_pass_ledger.0.as_ref());
+        hasher.update(self.snarker.x.as_ref());
+        hasher.finalize().into()
+    }
 }
