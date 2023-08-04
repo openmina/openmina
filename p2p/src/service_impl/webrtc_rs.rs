@@ -291,6 +291,7 @@ async fn peer_start(args: PeerAddArgs) {
 struct Channel {
     id: ChannelId,
     chan: Arc<RTCDataChannel>,
+    msg_sender: mpsc::UnboundedSender<(MsgId, Vec<u8>)>,
 }
 
 struct MsgBuffer {
@@ -306,7 +307,11 @@ impl MsgBuffer {
 
     fn encode(&mut self, msg: &ChannelMsg) -> Result<Vec<u8>, std::io::Error> {
         msg.encode(&mut self.buf)?;
-        let encoded = self.buf.clone();
+        let len_encoded = (self.buf.len() as u32).to_be_bytes();
+        let encoded = len_encoded
+            .into_iter()
+            .chain(self.buf.iter().cloned())
+            .collect();
         self.buf.clear();
         Ok(encoded)
     }
@@ -327,8 +332,21 @@ impl Channels {
         self.list.iter().find(|c| c.id == id).map(|c| &c.chan)
     }
 
-    fn add(&mut self, id: ChannelId, chan: Arc<RTCDataChannel>) {
-        self.list.push(Channel { id, chan });
+    fn get_msg_sender(&self, id: ChannelId) -> Option<&mpsc::UnboundedSender<(MsgId, Vec<u8>)>> {
+        self.list.iter().find(|c| c.id == id).map(|c| &c.msg_sender)
+    }
+
+    fn add(
+        &mut self,
+        id: ChannelId,
+        chan: Arc<RTCDataChannel>,
+        msg_sender: mpsc::UnboundedSender<(MsgId, Vec<u8>)>,
+    ) {
+        self.list.push(Channel {
+            id,
+            chan,
+            msg_sender,
+        });
     }
 
     fn remove(&mut self, id: ChannelId) -> Option<Arc<RTCDataChannel>> {
@@ -416,64 +434,116 @@ async fn peer_loop(
             }
             PeerCmd::ChannelSend(msg_id, msg) => {
                 let id = msg.channel_id();
-                let chan = match channels.get(id) {
-                    Some(v) => v.clone(),
-                    None => {
-                        let err = "ChannelNotOpen".to_owned();
-                        let _ = event_sender
-                            .send(P2pChannelEvent::Sent(peer_id, id, msg_id, Err(err)).into());
-                        continue;
-                    }
+                let err = match channels.get_msg_sender(id) {
+                    Some(msg_sender) => match msg_buf.encode(&msg) {
+                        Ok(encoded) => match msg_sender.send((msg_id, encoded)) {
+                            Ok(_) => None,
+                            Err(_) => Some("ChannelMsgMpscSendFailed".to_owned()),
+                        },
+                        Err(err) => Some(err.to_string()),
+                    },
+                    None => Some("ChannelNotOpen".to_owned()),
                 };
-
-                let encoded = msg_buf.encode(&msg);
-
-                let event_sender_clone = event_sender.clone();
-                tokio::task::spawn_local(async move {
-                    let result = async move {
-                        match encoded {
-                            Ok(encoded) => {
-                                let encoded_len = encoded.len();
-                                let n = chan
-                                    .send(&encoded.into())
-                                    .await
-                                    .map_err(|e| e.to_string())?;
-                                if n != encoded_len {
-                                    return Err("NotAllBytesWritten".to_owned());
-                                }
-                                Ok(())
-                            }
-                            Err(err) => Err(err.to_string()),
-                        }
-                    };
-
-                    let _ = event_sender_clone
-                        .send(P2pChannelEvent::Sent(peer_id, id, msg_id, result.await).into());
-                });
+                if let Some(err) = err {
+                    let _ = event_sender
+                        .send(P2pChannelEvent::Sent(peer_id, id, msg_id, Err(err)).into());
+                }
             }
             PeerCmd::ChannelOpened(chan_id, result) => {
+                let (sender_tx, mut sender_rx) = mpsc::unbounded_channel();
                 let res = match result {
                     Ok(chan) => {
-                        channels.add(chan_id, chan);
+                        channels.add(chan_id, chan, sender_tx);
                         Ok(())
                     }
                     Err(err) => Err(err.to_string()),
                 };
 
                 if let Some(chan) = channels.get(chan_id) {
-                    let event_sender = event_sender.clone();
-                    chan.on_message(Box::new(move |msg| {
-                        let result = if msg.data.len() > CHUNK_SIZE {
-                            Err("ChunkSizeBiggerThanAllowed".to_owned())
-                        // } else if msg.data.len() == CHUNK_SIZE {
-                        // TODO(binier): handle messages which can't
-                        // fit in one chunk.
+                    let chan_clone = chan.clone();
+                    let event_sender_clone = event_sender.clone();
+                    tokio::task::spawn_local(async move {
+                        while let Some((msg_id, encoded)) = sender_rx.recv().await {
+                            let encoded = bytes::Bytes::from(encoded);
+                            let mut chunks =
+                                encoded.chunks(CHUNK_SIZE).map(|b| encoded.slice_ref(b));
+                            let result = loop {
+                                let Some(chunk) = chunks.next() else { break Ok(()) };
+                                if let Err(err) = chan_clone
+                                    .send(&chunk)
+                                    .await
+                                    .map_err(|e| e.to_string())
+                                    .and_then(|n| match n == chunk.len() {
+                                        false => Err("NotAllBytesWritten".to_owned()),
+                                        true => Ok(()),
+                                    })
+                                {
+                                    break Err(err);
+                                }
+                            };
+
+                            let _ = event_sender_clone.send(
+                                P2pChannelEvent::Sent(peer_id, chan_id, msg_id, result).into(),
+                            );
+                        }
+                    });
+
+                    fn process_msg(
+                        chan_id: ChannelId,
+                        buf: &mut Vec<u8>,
+                        len: &mut u32,
+                        msg: &mut &[u8],
+                    ) -> Result<Option<ChannelMsg>, String> {
+                        let len = if buf.is_empty() {
+                            if msg.len() < 4 {
+                                return Err("WebRTCMessageTooSmall".to_owned());
+                            } else {
+                                *len = u32::from_be_bytes(msg[..4].try_into().unwrap());
+                                *msg = &msg[4..];
+                                let len = *len as usize;
+                                if len > chan_id.max_msg_size() {
+                                    return Err(format!(
+                                        "ChannelMsgLenOverLimit; len: {}, limit: {}",
+                                        len,
+                                        chan_id.max_msg_size()
+                                    ));
+                                }
+                                len
+                            }
                         } else {
-                            ChannelMsg::decode(&mut msg.data.as_ref(), chan_id)
-                                .map_err(|err| err.to_string())
+                            *len as usize
                         };
-                        let _ =
-                            event_sender.send(P2pChannelEvent::Received(peer_id, result).into());
+                        let bytes_left = len - buf.len();
+
+                        if bytes_left > msg.len() {
+                            buf.extend_from_slice(msg);
+                            *msg = &[];
+                            return Ok(None);
+                        }
+
+                        buf.extend_from_slice(&msg[..bytes_left]);
+                        *msg = &msg[bytes_left..];
+                        let msg = ChannelMsg::decode(&mut &buf[..], chan_id)
+                            .map_err(|err| err.to_string())?;
+                        buf.clear();
+                        Ok(Some(msg))
+                    }
+
+                    let mut len = 0;
+                    let mut buf = vec![];
+                    let event_sender = event_sender.clone();
+
+                    chan.on_message(Box::new(move |msg| {
+                        let mut data = msg.data.as_ref();
+                        while !data.is_empty() {
+                            let res = match process_msg(chan_id, &mut buf, &mut len, &mut data) {
+                                Ok(None) => continue,
+                                Ok(Some(msg)) => Ok(msg),
+                                Err(err) => Err(err),
+                            };
+                            let _ =
+                                event_sender.send(P2pChannelEvent::Received(peer_id, res).into());
+                        }
                         Box::pin(std::future::ready(()))
                     }));
                 }

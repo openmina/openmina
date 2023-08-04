@@ -67,6 +67,17 @@ impl ChannelId {
         }
     }
 
+    pub fn max_msg_size(self) -> usize {
+        match self {
+            // TODO(binier): reduce this value once we change message for best tip
+            // propagation to just propagating consensus state with block hash.
+            Self::BestTipPropagation => 32 * 1024 * 1024, // 32MB
+            Self::SnarkPropagation => 1024,               // 1KB - just snark info.
+            Self::SnarkJobCommitmentPropagation => 2 * 1024, // 2KB,
+            Self::Rpc => 256 * 1024 * 1024,               // 256MB,
+        }
+    }
+
     pub fn iter_all() -> impl Iterator<Item = ChannelId> {
         <Self as strum::IntoEnumIterator>::iter()
     }
