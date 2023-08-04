@@ -28,6 +28,7 @@ impl SnarkPoolState {
                     });
                 }
             }
+            SnarkPoolAction::AutoCreateCommitment(_) => {}
             SnarkPoolAction::CommitmentCreate(_) => {}
             SnarkPoolAction::CommitmentAdd(a) => {
                 let Some(mut job) = self.remove(&a.commitment.job_id) else { return };

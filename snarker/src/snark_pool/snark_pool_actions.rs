@@ -15,6 +15,7 @@ pub type SnarkPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a SnarkPoolAct
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkPoolAction {
     JobsUpdate(SnarkPoolJobsUpdateAction),
+    AutoCreateCommitment(SnarkPoolAutoCreateCommitmentAction),
     CommitmentCreate(SnarkPoolCommitmentCreateAction),
     CommitmentAdd(SnarkPoolJobCommitmentAddAction),
     WorkAdd(SnarkPoolWorkAddAction),
@@ -30,6 +31,15 @@ pub struct SnarkPoolJobsUpdateAction {
 }
 
 impl redux::EnablingCondition<crate::State> for SnarkPoolJobsUpdateAction {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SnarkPoolAutoCreateCommitmentAction {}
+
+impl redux::EnablingCondition<crate::State> for SnarkPoolAutoCreateCommitmentAction {
+    fn is_enabled(&self, #[allow(unused_variables)] state: &crate::State) -> bool {
+        state.config.job_commitments.auto_commit
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkPoolCommitmentCreateAction {
@@ -143,6 +153,7 @@ macro_rules! impl_into_global_action {
 }
 
 impl_into_global_action!(SnarkPoolJobsUpdateAction);
+impl_into_global_action!(SnarkPoolAutoCreateCommitmentAction);
 impl_into_global_action!(SnarkPoolCommitmentCreateAction);
 impl_into_global_action!(SnarkPoolJobCommitmentAddAction);
 impl_into_global_action!(SnarkPoolWorkAddAction);
