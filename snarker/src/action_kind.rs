@@ -90,10 +90,10 @@ use crate::snark::block_verify::{
 };
 use crate::snark::SnarkAction;
 use crate::snark_pool::{
-    SnarkPoolAction, SnarkPoolCheckTimeoutsAction, SnarkPoolCommitmentCreateAction,
-    SnarkPoolJobCommitmentAddAction, SnarkPoolJobCommitmentTimeoutAction,
-    SnarkPoolJobsUpdateAction, SnarkPoolP2pSendAction, SnarkPoolP2pSendAllAction,
-    SnarkPoolWorkAddAction,
+    SnarkPoolAction, SnarkPoolAutoCreateCommitmentAction, SnarkPoolCheckTimeoutsAction,
+    SnarkPoolCommitmentCreateAction, SnarkPoolJobCommitmentAddAction,
+    SnarkPoolJobCommitmentTimeoutAction, SnarkPoolJobsUpdateAction, SnarkPoolP2pSendAction,
+    SnarkPoolP2pSendAllAction, SnarkPoolWorkAddAction,
 };
 use crate::transition_frontier::sync::ledger::snarked::{
     TransitionFrontierSyncLedgerSnarkedAction,
@@ -272,6 +272,7 @@ pub enum ActionKind {
     SnarkBlockVerifyInit,
     SnarkBlockVerifyPending,
     SnarkBlockVerifySuccess,
+    SnarkPoolAutoCreateCommitment,
     SnarkPoolCheckTimeouts,
     SnarkPoolCommitmentCreate,
     SnarkPoolJobCommitmentAdd,
@@ -335,7 +336,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 171;
+    pub const COUNT: usize = 172;
 }
 
 impl ActionKindGet for Action {
@@ -419,6 +420,7 @@ impl ActionKindGet for SnarkPoolAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::JobsUpdate(a) => a.kind(),
+            Self::AutoCreateCommitment(a) => a.kind(),
             Self::CommitmentCreate(a) => a.kind(),
             Self::CommitmentAdd(a) => a.kind(),
             Self::WorkAdd(a) => a.kind(),
@@ -644,6 +646,12 @@ impl ActionKindGet for TransitionFrontierSyncedAction {
 impl ActionKindGet for SnarkPoolJobsUpdateAction {
     fn kind(&self) -> ActionKind {
         ActionKind::SnarkPoolJobsUpdate
+    }
+}
+
+impl ActionKindGet for SnarkPoolAutoCreateCommitmentAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolAutoCreateCommitment
     }
 }
 

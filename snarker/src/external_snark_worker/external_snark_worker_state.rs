@@ -29,6 +29,14 @@ impl ExternalSnarkWorkerState {
     }
 
     pub fn has_idle(&self) -> bool {
-        matches!(self, ExternalSnarkWorkerState::Idle)
+        self.available() > 0
+    }
+
+    pub fn available(&self) -> usize {
+        if matches!(self, ExternalSnarkWorkerState::Idle) {
+            1
+        } else {
+            0
+        }
     }
 }

@@ -62,6 +62,10 @@ pub struct Snarker {
     #[arg(long, short = 'k', env)]
     pub public_key: AccountPublicKey,
 
+    /// Automatically commit to snark jobs
+    #[arg(long, short = 'a', env, default_value_t = true)]
+    pub auto_commit: bool,
+
     /// Port to listen to
     #[arg(long, short, default_value = "3000")]
     pub port: u16,
@@ -116,6 +120,7 @@ impl Snarker {
                 fee: serde_json::from_str("\"20000000\"").unwrap(),
                 job_commitments: SnarkPoolConfig {
                     commitment_timeout: Duration::from_secs(6 * 60),
+                    auto_commit: self.auto_commit,
                 },
                 path: self.mina_exe_path,
             },

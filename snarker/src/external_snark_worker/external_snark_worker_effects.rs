@@ -5,7 +5,8 @@ use mina_p2p_messages::v2::StateBodyHash;
 use shared::snark::Snark;
 
 use crate::{
-    external_snark_worker::ExternalSnarkWorkerPruneWorkAction, snark_pool::SnarkPoolWorkAddAction,
+    external_snark_worker::ExternalSnarkWorkerPruneWorkAction,
+    snark_pool::{SnarkPoolAutoCreateCommitmentAction, SnarkPoolWorkAddAction},
 };
 
 use super::{ExternalSnarkWorkerAction, ExternalSnarkWorkerActionWithMeta};
@@ -24,7 +25,9 @@ pub fn external_snark_worker_effects<S: crate::Service>(
                 todo!("report error {err:?}");
             }
         }
-        ExternalSnarkWorkerAction::Started(_) => {}
+        ExternalSnarkWorkerAction::Started(_) => {
+            store.dispatch(SnarkPoolAutoCreateCommitmentAction {});
+        }
         ExternalSnarkWorkerAction::Kill(_) => {
             if let Err(err) = store.service().kill() {
                 todo!("report error {err:?}");
@@ -84,7 +87,7 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             store.dispatch(ExternalSnarkWorkerPruneWorkAction {});
         }
         ExternalSnarkWorkerAction::PruneWork(_) => {
-            // noop
+            store.dispatch(SnarkPoolAutoCreateCommitmentAction {});
         }
     }
 }
