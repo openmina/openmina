@@ -37,8 +37,13 @@ impl P2pChannelsRpcState {
             P2pChannelsRpcAction::Timeout(_) => {}
             P2pChannelsRpcAction::ResponseReceived(_) => {
                 let Self::Ready { local, .. } = self else { return };
+                let P2pRpcLocalState::Requested { id, request, .. } = local else { return };
 
-                *local = P2pRpcLocalState::Responded { time: meta.time() };
+                *local = P2pRpcLocalState::Responded {
+                    time: meta.time(),
+                    id: *id,
+                    request: std::mem::take(request),
+                };
             }
             P2pChannelsRpcAction::RequestReceived(action) => {
                 let Self::Ready { remote, .. } = self else { return };

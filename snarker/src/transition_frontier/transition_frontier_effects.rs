@@ -158,8 +158,12 @@ pub fn transition_frontier_effects<S: crate::Service>(
                     .cloned()
                     .collect();
 
-                let jobs = store.service.commit(ledgers_to_keep, root_block, best_tip);
-                store.dispatch(TransitionFrontierSyncedAction {});
+                let res = store.service.commit(ledgers_to_keep, root_block, best_tip);
+                let needed_protocol_states = res.needed_protocol_states;
+                let jobs = res.available_jobs;
+                store.dispatch(TransitionFrontierSyncedAction {
+                    needed_protocol_states,
+                });
                 store.dispatch(SnarkPoolJobsUpdateAction { jobs });
             }
             TransitionFrontierSyncAction::Ledger(a) => match a {

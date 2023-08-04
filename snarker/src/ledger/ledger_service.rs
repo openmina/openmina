@@ -6,7 +6,7 @@ use std::{
 use ledger::{
     scan_state::{
         currency::{Amount, Fee, Slot},
-        scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage, ConstraintConstants},
+        scan_state::{AvailableJobMessage, ConstraintConstants},
         transaction_logic::{local_state::LocalState, protocol_state::protocol_state_view},
     },
     staged_ledger::{
@@ -18,7 +18,10 @@ use ledger::{
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
-    LedgerHash, MinaBaseAccountBinableArgStableV2, MinaBaseStagedLedgerHashStableV1,
+    DataHashLibStateHashStableV1, LedgerHash, MinaBaseAccountBinableArgStableV2,
+    MinaBaseLedgerHash0StableV1, MinaBaseStagedLedgerHashStableV1,
+    MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
+    MinaStateProtocolStateValueStableV2, StateHash,
 };
 use mina_signer::CompressedPubKey;
 use shared::block::ArcBlockWithHash;
@@ -27,8 +30,11 @@ use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLed
 use crate::transition_frontier::sync::ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
 use crate::transition_frontier::TransitionFrontierService;
+use crate::{
+    p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
+};
 
-use super::{LedgerAddress, LEDGER_DEPTH};
+use super::{ledger_empty_hash_at_depth, LedgerAddress, LEDGER_DEPTH};
 
 const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
     sub_windows_per_window: 11,
@@ -62,16 +68,33 @@ struct LedgerSyncState {
 }
 
 impl LedgerCtx {
-    fn staged_ledger(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
+    fn mask(&self, hash: &LedgerHash) -> Option<(Mask, bool)> {
+        self.snarked_ledgers
+            .get(hash)
+            .cloned()
+            .map(|mask| (mask, true))
+            .or_else(|| Some((self.staged_ledgers.get(hash)?.ledger(), true)))
+            .or_else(|| self.sync.mask(hash))
+    }
+
+    fn staged_ledger_mut(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
         match self.staged_ledgers.get_mut(&hash) {
             Some(v) => Some(v),
-            None => self.sync.staged_ledger(&hash),
+            None => self.sync.staged_ledger_mut(&hash),
         }
     }
 }
 
 impl LedgerSyncState {
-    fn snarked_ledger(&mut self, hash: LedgerHash) -> &mut Mask {
+    fn mask(&self, hash: &LedgerHash) -> Option<(Mask, bool)> {
+        self.snarked_ledgers
+            .get(hash)
+            .cloned()
+            .map(|mask| (mask, false))
+            .or_else(|| Some((self.staged_ledgers.get(hash)?.ledger(), true)))
+    }
+
+    fn snarked_ledger_mut(&mut self, hash: LedgerHash) -> &mut Mask {
         self.snarked_ledgers.entry(hash.clone()).or_insert_with(|| {
             let mut ledger = Mask::create(LEDGER_DEPTH);
             ledger.set_cached_hash_unchecked(&LedgerAddress::root(), hash.0.to_field());
@@ -79,7 +102,7 @@ impl LedgerSyncState {
         })
     }
 
-    fn staged_ledger(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
+    fn staged_ledger_mut(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
         self.staged_ledgers.get_mut(&hash)
     }
 }
@@ -105,7 +128,7 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
         let (left, right) = (left.0.to_field(), right.0.to_field());
         let hash = ledger_hash(parent.length(), left, right);
 
-        let mask = self.ctx_mut().sync.snarked_ledger(snarked_ledger_hash);
+        let mask = self.ctx_mut().sync.snarked_ledger_mut(snarked_ledger_hash);
 
         if hash != mask.get_inner_hash_at_addr(parent.clone())? {
             return Err(());
@@ -131,7 +154,7 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
             }
             addr = addr.child_left();
         };
-        let mask = self.ctx_mut().sync.snarked_ledger(snarked_ledger_hash);
+        let mask = self.ctx_mut().sync.snarked_ledger_mut(snarked_ledger_hash);
 
         let first_index = first_addr.to_index();
         accounts
@@ -152,7 +175,7 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerStagedService for T {
         snarked_ledger_hash: LedgerHash,
         parts: Arc<StagedLedgerAuxAndPendingCoinbasesValid>,
     ) -> Result<(), String> {
-        let snarked_ledger = self.ctx_mut().sync.snarked_ledger(snarked_ledger_hash);
+        let snarked_ledger = self.ctx_mut().sync.snarked_ledger_mut(snarked_ledger_hash);
         // TODO(binier): TMP. Remove for prod version.
         snarked_ledger
             .validate_inner_hashes()
@@ -164,7 +187,7 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerStagedService for T {
             .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
             .collect::<BTreeMap<_, _>>();
 
-        let mask = snarked_ledger.make_child();
+        let mask = snarked_ledger.copy();
         let staged_ledger = StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
             (),
             &CONSTRAINT_CONSTANTS,
@@ -194,7 +217,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
     ) -> Result<(), String> {
         let mut staged_ledger = self
             .ctx_mut()
-            .staged_ledger(&pred_block.staged_ledger_hash())
+            .staged_ledger_mut(&pred_block.staged_ledger_hash())
             .ok_or_else(|| "parent staged ledger missing")?
             .clone();
 
@@ -248,7 +271,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
         ledgers_to_keep: BTreeSet<LedgerHash>,
         new_root: &ArcBlockWithHash,
         new_best_tip: &ArcBlockWithHash,
-    ) -> Vec<OneOrTwo<AvailableJobMessage>> {
+    ) -> CommitResult {
         let ctx = self.ctx_mut();
 
         ctx.snarked_ledgers
@@ -267,18 +290,98 @@ impl<T: LedgerService> TransitionFrontierService for T {
                 .filter(|(hash, _)| ledgers_to_keep.contains(hash)),
         );
 
-        let Some(new_root_ledger) = ctx.staged_ledgers.get_mut(new_root.staged_ledger_hash()) else { return vec![] };
+        let Some(new_root_ledger) = ctx.staged_ledgers.get_mut(new_root.staged_ledger_hash()) else { return Default::default() };
         // Make ledger mask new root.
         new_root_ledger.commit_and_reparent_to_root();
 
-        ctx.staged_ledger(new_best_tip.staged_ledger_hash())
+        ctx.staged_ledger_mut(new_best_tip.staged_ledger_hash())
             .map(|l| {
-                l.scan_state()
+                let available_jobs = l
+                    .scan_state()
                     .all_job_pairs_iter()
                     .map(|job| job.map(|single| AvailableJobMessage::from(single)))
-                    .collect()
+                    .collect();
+                CommitResult {
+                    available_jobs,
+                    needed_protocol_states: l
+                        .scan_state()
+                        .required_state_hashes()
+                        .into_iter()
+                        .map(|fp| DataHashLibStateHashStableV1(fp.into()).into())
+                        .collect(),
+                }
             })
             .unwrap_or_default()
+    }
+
+    fn answer_ledger_query(
+        &mut self,
+        ledger_hash: LedgerHash,
+        query: MinaLedgerSyncLedgerQueryStableV1,
+    ) -> Option<MinaLedgerSyncLedgerAnswerStableV2> {
+        let ctx = self.ctx_mut();
+        let (mask, is_synced) = ctx.mask(&ledger_hash).filter(|(_, is_synced)| *is_synced)?;
+
+        Some(match query {
+            MinaLedgerSyncLedgerQueryStableV1::WhatChildHashes(addr) => {
+                let addr = LedgerAddress::from(addr);
+                let get_hash = |addr: LedgerAddress| {
+                    let depth = addr.length();
+                    mask.get_hash(addr)
+                        .map(|fp| MinaBaseLedgerHash0StableV1(fp.into()).into())
+                        .or_else(|| {
+                            if is_synced {
+                                Some(ledger_empty_hash_at_depth(depth))
+                            } else {
+                                None
+                            }
+                        })
+                };
+                let (left, right) = (addr.child_left(), addr.child_right());
+                let (left, right) = (get_hash(left)?, get_hash(right)?);
+                MinaLedgerSyncLedgerAnswerStableV2::ChildHashesAre(left, right)
+            }
+            MinaLedgerSyncLedgerQueryStableV1::WhatContents(addr) => {
+                let addr = LedgerAddress::from(addr);
+                // TODO(binier): SEC maybe we need to check addr depth?
+                let accounts = mask
+                    .get_all_accounts_rooted_at(addr)?
+                    .into_iter()
+                    .map(|(_, account)| (&account).into())
+                    .collect();
+                MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(accounts)
+            }
+            MinaLedgerSyncLedgerQueryStableV1::NumAccounts => {
+                let num = (mask.num_accounts() as u64).into();
+                MinaLedgerSyncLedgerAnswerStableV2::NumAccounts(num, ledger_hash)
+            }
+        })
+    }
+
+    fn staged_ledger_aux_and_pending_coinbase(
+        &mut self,
+        ledger_hash: LedgerHash,
+        protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
+    ) -> Option<Arc<StagedLedgerAuxAndPendingCoinbases>> {
+        let ctx = self.ctx_mut();
+        let ledger = ctx.staged_ledger_mut(&ledger_hash)?;
+        let needed_blocks = ledger
+            .scan_state()
+            .required_state_hashes()
+            .into_iter()
+            .map(|fp| DataHashLibStateHashStableV1(fp.into()))
+            .map(|hash| protocol_states.get(&hash.into()).ok_or(()).cloned())
+            .collect::<Result<_, _>>()
+            .ok()?;
+        Some(
+            StagedLedgerAuxAndPendingCoinbases {
+                scan_state: (ledger.scan_state()).into(),
+                staged_ledger_hash: ledger_hash,
+                pending_coinbase: (ledger.pending_coinbase_collection()).into(),
+                needed_blocks,
+            }
+            .into(),
+        )
     }
 }
 
@@ -290,20 +393,12 @@ mod tests {
 
     #[test]
     fn test_ledger_hash() {
-        IntoIterator::into_iter([
-            (
-                LedgerAddress::root(),
-                "jwDnyiwZ4a3izRefHAKSrt5U5K6gS6p6G58kWdnJ5wYJqHUyaVd",
-                "jxt96SwXGrpiyq9AVZ1B7vbt14NwcxXHgnBjArPpfM3dm216oy6",
-                "jwq3nCDr8XejL8HKDxR5qVhFJbKoUTGZgtLBZCp3MrqLTnqmjdP",
-            ),
-            (
-                LedgerAddress::root(),
-                "jwLYDFqnEzBXjmwKBorWMiRnxYoisU69ZGEvS7g9Bev4WudZsxC",
-                "jxoNu92jnreeAXnYxhMChEM22Bf5yAEw8pa7NRNitUnyKvzjcDs",
-                "jwq3nCDr8XejL8HKDxR5qVhFJbKoUTGZgtLBZCp3MrqLTnqmjdP",
-            ),
-        ])
+        IntoIterator::into_iter([(
+            LedgerAddress::root(),
+            "jx5YAT36bv62M8mPcREYYfZWXaKqqMzDCP8wmc21uf4CfDKAHCr",
+            "jxo5pSyt16XGwA9UeuAdiFDzrwFH3smbNTJF7fxq98w1y9Jem2m",
+            "jwq3nCDr8XejL8HKDxR5qVhFJbKoUTGZgtLBZCp3MrqLTnqmjdP",
+        )])
         .map(|(addr, expected_hash, left, right)| {
             let left: LedgerHash = left.parse().unwrap();
             let right: LedgerHash = right.parse().unwrap();

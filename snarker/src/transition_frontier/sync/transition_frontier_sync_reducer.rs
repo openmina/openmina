@@ -154,6 +154,7 @@ impl TransitionFrontierSyncState {
                         *self = Self::BlocksPending {
                             time: meta.time(),
                             chain,
+                            needed_protocol_states: Default::default(),
                         };
                     } else {
                         let root_ledger =
@@ -207,11 +208,17 @@ impl TransitionFrontierSyncState {
                     ..
                 } = self
                 {
+                    let TransitionFrontierSyncLedgerState::Success {
+                        block,
+                        needed_protocol_states,
+                        ..
+                    } = root_ledger else { return };
                     *self = Self::RootLedgerSuccess {
                         time: meta.time(),
                         best_tip: best_tip.clone(),
-                        root_block: root_ledger.block().clone(),
+                        root_block: block.clone(),
                         blocks_inbetween: std::mem::take(blocks_inbetween),
+                        needed_protocol_states: std::mem::take(needed_protocol_states),
                     };
                 }
             }
@@ -220,6 +227,7 @@ impl TransitionFrontierSyncState {
                     best_tip,
                     root_block,
                     blocks_inbetween,
+                    needed_protocol_states,
                     ..
                 } = self else { return };
                 let (best_tip, root_block) = (best_tip.clone(), root_block.clone());
@@ -263,6 +271,7 @@ impl TransitionFrontierSyncState {
                 *self = Self::BlocksPending {
                     time: meta.time(),
                     chain,
+                    needed_protocol_states: std::mem::take(needed_protocol_states),
                 };
             }
             TransitionFrontierSyncAction::BlocksPeersQuery(_) => {}
@@ -331,7 +340,7 @@ impl TransitionFrontierSyncState {
                 };
             }
             TransitionFrontierSyncAction::BlocksSuccess(_) => {
-                let Self::BlocksPending { chain, .. } = self else { return };
+                let Self::BlocksPending { chain, needed_protocol_states, .. } = self else { return };
                 let chain = std::mem::take(chain)
                     .into_iter()
                     .rev()
@@ -343,6 +352,7 @@ impl TransitionFrontierSyncState {
                 *self = Self::BlocksSuccess {
                     time: meta.time(),
                     chain,
+                    needed_protocol_states: std::mem::take(needed_protocol_states),
                 };
             }
             TransitionFrontierSyncAction::Ledger(a) => match self {

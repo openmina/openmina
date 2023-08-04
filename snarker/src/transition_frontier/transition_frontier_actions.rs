@@ -1,3 +1,6 @@
+use std::collections::BTreeSet;
+
+use mina_p2p_messages::v2::StateHash;
 use serde::{Deserialize, Serialize};
 
 use super::sync::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
@@ -13,7 +16,10 @@ pub enum TransitionFrontierAction {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncedAction {}
+pub struct TransitionFrontierSyncedAction {
+    /// Required protocol states for root block.
+    pub needed_protocol_states: BTreeSet<StateHash>,
+}
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncedAction {
     fn is_enabled(&self, state: &crate::State) -> bool {

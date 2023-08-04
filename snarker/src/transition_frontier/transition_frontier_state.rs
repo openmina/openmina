@@ -1,3 +1,6 @@
+use std::collections::BTreeMap;
+
+use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
 use serde::{Deserialize, Serialize};
 use shared::block::ArcBlockWithHash;
 
@@ -8,6 +11,9 @@ use super::TransitionFrontierConfig;
 pub struct TransitionFrontierState {
     pub config: TransitionFrontierConfig,
     pub best_chain: Vec<ArcBlockWithHash>,
+    /// Required protocol states for the root staged ledger that we don't
+    /// have in the `best_chain` list.
+    pub needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     pub sync: TransitionFrontierSyncState,
 }
 
@@ -18,6 +24,7 @@ impl TransitionFrontierState {
             config,
             // TODO(binier): add genesis_block as initial best_tip.
             best_chain: Vec::with_capacity(k),
+            needed_protocol_states: Default::default(),
             sync: TransitionFrontierSyncState::Idle,
         }
     }
