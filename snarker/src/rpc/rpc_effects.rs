@@ -186,7 +186,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 // TODO(binier): differentiate between job not found and job already taken.
                 return;
             }
-            // TODO(akoptelov): check if snarker is busy. If yes send `SnarkerJobCommitResponse::SnarkerBusy`.
+            if !store.state().external_snark_worker.has_idle() {
+                let _ = store.service().respond_snarker_job_commit(
+                    action.rpc_id,
+                    RpcSnarkerJobCommitResponse::SnarkerBusy,
+                );
+                return;
+            }
             if store
                 .service()
                 .respond_snarker_job_commit(action.rpc_id, RpcSnarkerJobCommitResponse::Ok)
@@ -232,7 +238,6 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 job.job.clone(),
                 &protocol_state_body,
             );
-            // TODO(akoptelov): check if snarker is busy. If yes send `SnarkerJobCommitResponse::SnarkerBusy`.
             if store
                 .service()
                 .respond_snarker_job_spec(action.rpc_id, RpcSnarkerJobSpecResponse::Ok(input))
