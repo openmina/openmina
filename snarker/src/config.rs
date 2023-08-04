@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::ffi::OsString;
 
 use mina_p2p_messages::v2::CurrencyFeeStableV1;
 use serde::{Deserialize, Serialize};
@@ -26,5 +26,5 @@ pub struct SnarkerConfig {
     pub fee: CurrencyFeeStableV1,
     pub job_commitments: SnarkPoolConfig,
     /// External Mina snark worker executable path
-    pub path: Option<PathBuf>,
+    pub path: Option<OsString>,
 }
