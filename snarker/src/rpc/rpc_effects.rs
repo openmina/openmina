@@ -1,7 +1,7 @@
-use ledger::scan_state::conv::job_to_spec;
 use mina_p2p_messages::v2::{StateBodyHash, UnsignedExtendedUInt64Int64ForVersionTagsStableV1};
 use p2p::connection::P2pConnectionResponse;
 
+use crate::external_snark_worker::available_job_to_snark_worker_spec;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
 use crate::snark_pool::SnarkPoolCommitmentCreateAction;
@@ -230,7 +230,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     })
                     .unwrap()
             };
-            let input = job_to_spec(
+            let input = available_job_to_snark_worker_spec(
                 pub_key.into(),
                 mina_p2p_messages::v2::CurrencyFeeStableV1(
                     UnsignedExtendedUInt64Int64ForVersionTagsStableV1(1_000_000_000_u64.into()),

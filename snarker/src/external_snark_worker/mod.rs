@@ -17,3 +17,6 @@ pub use external_snark_worker_service::*;
 
 mod external_snark_worker_errors;
 pub use external_snark_worker_errors::*;
+
+mod external_snark_worker_impls;
+pub use external_snark_worker_impls::*;
