@@ -7,7 +7,8 @@ use crate::p2p::channels::snark_job_commitment::{
 use crate::{Service, Store};
 
 use super::{
-    SnarkPoolAction, SnarkPoolActionWithMeta, SnarkPoolJobCommitmentAddAction,
+    SnarkPoolAction, SnarkPoolActionWithMeta, SnarkPoolAutoCreateCommitmentAction,
+    SnarkPoolCommitmentCreateAction, SnarkPoolJobCommitmentAddAction,
     SnarkPoolJobCommitmentTimeoutAction, SnarkPoolP2pSendAction,
 };
 
@@ -15,7 +16,21 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
     let (action, meta) = action.split();
 
     match action {
-        SnarkPoolAction::JobsUpdate(_) => {}
+        SnarkPoolAction::JobsUpdate(_) => {
+            store.dispatch(SnarkPoolAutoCreateCommitmentAction {});
+        }
+        SnarkPoolAction::AutoCreateCommitment(_) => {
+            let state = store.state();
+            let available_workers = state.external_snark_worker.available();
+            let available_jobs = state.snark_pool.available_jobs_iter();
+            let job_ids = available_jobs
+                .take(available_workers)
+                .map(|job| job.id.clone())
+                .collect::<Vec<_>>();
+            for job_id in job_ids {
+                store.dispatch(SnarkPoolCommitmentCreateAction { job_id });
+            }
+        }
         SnarkPoolAction::CommitmentCreate(a) => {
             let timestamp_ms = meta.time_as_nanos() / 1_000_000;
             let config = &store.state().config;
@@ -42,7 +57,9 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
         }
         SnarkPoolAction::P2pSend(a) => {
             let state = store.state();
-            let Some(peer) = state.p2p.get_ready_peer(&a.peer_id) else { return };
+            let Some(peer) = state.p2p.get_ready_peer(&a.peer_id) else {
+                return;
+            };
             let (index, limit) = peer
                 .channels
                 .snark_job_commitment
@@ -63,7 +80,9 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
                 last_index = Some(index);
                 commitments.push(commitment.commitment.clone());
             }
-            let Some(first_index) = first_index else { return };
+            let Some(first_index) = first_index else {
+                return;
+            };
             let Some(last_index) = last_index else { return };
 
             store.dispatch(P2pChannelsSnarkJobCommitmentResponseSendAction {
