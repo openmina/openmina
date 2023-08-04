@@ -14,6 +14,8 @@ pub use rpc_effects::*;
 mod rpc_service;
 pub use rpc_service::*;
 
+mod rpc_impls;
+
 use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
 use ledger::scan_state::scan_state::AvailableJobMessage;
 use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
@@ -22,6 +24,7 @@ use serde::{Deserialize, Serialize};
 pub use shared::requests::{RpcId, RpcIdType};
 use shared::snark_job_id::SnarkJobId;
 
+use crate::external_snark_worker::{ExternalSnarkWorkerWorkError, ExternalSnarkWorkerError};
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
@@ -41,6 +44,7 @@ pub enum RpcRequest {
     SnarkPoolJobGet { job_id: SnarkJobId },
     SnarkerJobCommit { job_id: SnarkJobId },
     SnarkerJobSpec { job_id: SnarkJobId },
+    SnarkerWorkers,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -109,3 +113,25 @@ pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcSnarkWorker {
+    pub time: Option<Timestamp>,
+    pub id: Option<String>,
+    pub status: RpcSnarkWorkerStatus,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "kind")]
+pub enum RpcSnarkWorkerStatus {
+    None,
+    Starting,
+    Idle,
+    Working { job_id: SnarkJobId },
+    WorkReady { job_id: SnarkJobId },
+    WorkError { job_id: SnarkJobId, error: ExternalSnarkWorkerWorkError },
+    Error { error: ExternalSnarkWorkerError },
+    Killing,
+}
+
+pub type RpcSnarkerWorkersResponse = Vec<RpcSnarkWorker>;

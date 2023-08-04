@@ -3,7 +3,7 @@ use std::{mem::size_of, str::FromStr};
 use binprot::BinProtWrite;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use warp::{
-    http::{HeaderName, HeaderValue},
+    http::HeaderValue,
     hyper::{header::CONTENT_TYPE, Response, StatusCode},
     reply::with_status,
     Filter, Reply,
@@ -18,12 +18,16 @@ use snarker::{
         },
         webrtc, PeerId,
     },
-    rpc::{ActionStatsQuery, RpcRequest, SyncStatsQuery, RpcSnarkPoolJobGetResponse},
+    rpc::{
+        ActionStatsQuery, RpcRequest, RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse,
+        SyncStatsQuery,
+    },
 };
 
 use super::rpc::{
     RpcActionStatsGetResponse, RpcP2pConnectionIncomingResponse, RpcSnarkPoolGetResponse,
-    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcStateGetResponse, RpcSyncStatsGetResponse,
+    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcStateGetResponse,
+    RpcSyncStatsGetResponse,
 };
 
 pub async fn run(port: u16, rpc_sender: super::RpcSender) {
@@ -217,7 +221,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
 
     #[derive(Deserialize)]
     struct JobIdParam {
-        id: SnarkJobId
+        id: SnarkJobId,
     }
 
     let rpc_sender_clone = rpc_sender.clone();
@@ -225,30 +229,75 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         .and(warp::get())
         .and(warp::header::optional("accept"))
         .and(warp::query())
-        .then(move |accept: Option<String>, JobIdParam { id: job_id }: JobIdParam| {
-            let rpc_sender_clone = rpc_sender_clone.clone();
-            async move {
-                let res: Option<RpcSnarkerJobSpecResponse> = rpc_sender_clone
-                    .oneshot_request(RpcRequest::SnarkerJobSpec { job_id })
-                    .await;
-                match res {
-                    None => JsonOrBinary::error(
-                        "response channel dropped",
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                    ),
-                    Some(resp) => match resp {
-                        RpcSnarkerJobSpecResponse::Ok(spec)
-                            if accept.as_ref().map(String::as_str)
-                                == Some("application/octet-stream") =>
-                        {
-                            JsonOrBinary::binary(spec)
-                        }
-                        RpcSnarkerJobSpecResponse::Ok(spec) => JsonOrBinary::json(spec),
-                        _ => JsonOrBinary::error("error", StatusCode::BAD_REQUEST),
-                    },
+        .then(
+            move |accept: Option<String>, JobIdParam { id: job_id }: JobIdParam| {
+                let rpc_sender_clone = rpc_sender_clone.clone();
+                async move {
+                    rpc_sender_clone
+                        .oneshot_request(RpcRequest::SnarkerJobSpec { job_id })
+                        .await
+                        .map_or_else(
+                            || {
+                                JsonOrBinary::error(
+                                    "response channel dropped",
+                                    StatusCode::INTERNAL_SERVER_ERROR,
+                                )
+                            },
+                            |resp| match resp {
+                                RpcSnarkerJobSpecResponse::Ok(spec)
+                                    if accept.as_ref().map(String::as_str)
+                                        == Some("application/octet-stream") =>
+                                {
+                                    JsonOrBinary::binary(spec)
+                                }
+                                RpcSnarkerJobSpecResponse::Ok(spec) => JsonOrBinary::json(spec),
+                                _ => JsonOrBinary::error("error", StatusCode::BAD_REQUEST),
+                            },
+                        )
+
+                    // let res: Option<RpcSnarkerJobSpecResponse> = rpc_sender_clone
+                    //     .oneshot_request(RpcRequest::SnarkerJobSpec { job_id })
+                    //     .await;
+                    // match res {
+                    //     None => JsonOrBinary::error(
+                    //         "response channel dropped",
+                    //         StatusCode::INTERNAL_SERVER_ERROR,
+                    //     ),
+                    //     Some(resp) => match resp {
+                    //         RpcSnarkerJobSpecResponse::Ok(spec)
+                    //             if accept.as_ref().map(String::as_str)
+                    //                 == Some("application/octet-stream") =>
+                    //         {
+                    //             JsonOrBinary::binary(spec)
+                    //         }
+                    //         RpcSnarkerJobSpecResponse::Ok(spec) => JsonOrBinary::json(spec),
+                    //         _ => JsonOrBinary::error("error", StatusCode::BAD_REQUEST),
+                    //     },
+                    // }
                 }
-            }
-        });
+            },
+        );
+
+    let dropped_channel_response = || {
+        with_json_reply(
+            &"response channel dropped",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        )
+    };
+
+    let rpc_sender_clone = rpc_sender.clone();
+    let snark_workers = warp::path!("snarker" / "workers").and(warp::get()).then(move || {
+        let rpc_sender_clone = rpc_sender_clone.clone();
+        async move {
+            rpc_sender_clone
+                .oneshot_request(RpcRequest::SnarkerWorkers)
+                .await
+                .map_or_else(
+                    dropped_channel_response,
+                    |reply: RpcSnarkerWorkersResponse| with_json_reply(&reply, StatusCode::OK),
+                )
+        }
+    });
 
     let cors = warp::cors().allow_any_origin();
     let routes = signaling
@@ -258,6 +307,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         .or(snark_pool_job_get)
         .or(snarker_job_commit)
         .or(snarker_job_spec)
+        .or(snark_workers)
         .with(cors);
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }
