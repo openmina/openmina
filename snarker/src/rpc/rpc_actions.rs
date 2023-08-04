@@ -36,6 +36,8 @@ pub enum RpcAction {
     SnarkerJobCommit(RpcSnarkerJobCommitAction),
     SnarkerJobSpec(RpcSnarkerJobSpecAction),
 
+    SnarkerWorkersGet(RpcSnarkersWorkersGetAction),
+
     Finish(RpcFinishAction),
 }
 
@@ -225,6 +227,13 @@ pub struct RpcSnarkerJobSpecAction {
 
 impl redux::EnablingCondition<crate::State> for RpcSnarkerJobSpecAction {}
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcSnarkersWorkersGetAction {
+    pub rpc_id: RpcId,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcSnarkersWorkersGetAction {}
+
 /// Finish/Cleanup rpc request.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcFinishAction {
@@ -272,5 +281,7 @@ impl_into_global_action!(RpcSnarkPoolJobGetAction);
 
 impl_into_global_action!(RpcSnarkerJobCommitAction);
 impl_into_global_action!(RpcSnarkerJobSpecAction);
+
+impl_into_global_action!(RpcSnarkersWorkersGetAction);
 
 impl_into_global_action!(RpcFinishAction);

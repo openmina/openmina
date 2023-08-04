@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
 use shared::requests::PendingRequests;
-use snarker::{event_source::Event, rpc::RpcSnarkPoolJobGetResponse};
 use snarker::p2p::connection::P2pConnectionResponse;
 pub use snarker::rpc::{
     ActionStatsResponse, RespondError, RpcActionStatsGetResponse, RpcId, RpcIdType,
@@ -10,6 +9,7 @@ pub use snarker::rpc::{
     RpcSnarkerJobSpecResponse, RpcStateGetResponse, RpcSyncStatsGetResponse,
 };
 use snarker::State;
+use snarker::{event_source::Event, rpc::RpcSnarkPoolJobGetResponse};
 
 use super::{SnarkerRpcRequest, SnarkerService};
 
@@ -180,7 +180,6 @@ impl snarker::rpc::RpcService for SnarkerService {
         Ok(())
     }
 
-
     fn respond_snarker_job_commit(
         &mut self,
         rpc_id: RpcId,
@@ -205,6 +204,21 @@ impl snarker::rpc::RpcService for SnarkerService {
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
         let chan = chan
             .downcast::<oneshot::Sender<RpcSnarkerJobSpecResponse>>()
+            .or(Err(RespondError::UnexpectedResponseType))?;
+        chan.send(response.clone())
+            .or(Err(RespondError::RespondingFailed))?;
+        Ok(())
+    }
+
+    fn respond_snarker_workers(
+        &mut self,
+        rpc_id: RpcId,
+        response: snarker::rpc::RpcSnarkerWorkersResponse,
+    ) -> Result<(), RespondError> {
+        let entry = self.rpc.pending.remove(rpc_id);
+        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
+        let chan = chan
+            .downcast::<oneshot::Sender<snarker::rpc::RpcSnarkerWorkersResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
         chan.send(response.clone())
             .or(Err(RespondError::RespondingFailed))?;
