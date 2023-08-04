@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use mina_p2p_messages::v2::StateHash;
+use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use shared::block::ArcBlockWithHash;
@@ -31,14 +31,17 @@ pub enum TransitionFrontierSyncState {
         best_tip: ArcBlockWithHash,
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
+        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
     BlocksPending {
         time: Timestamp,
         chain: Vec<TransitionFrontierSyncBlockState>,
+        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
     BlocksSuccess {
         time: Timestamp,
         chain: Vec<ArcBlockWithHash>,
+        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
     Synced {
         time: Timestamp,

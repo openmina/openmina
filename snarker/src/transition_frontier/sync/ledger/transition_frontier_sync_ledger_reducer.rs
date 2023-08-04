@@ -41,11 +41,12 @@ impl TransitionFrontierSyncLedgerState {
                 }
             }
             TransitionFrontierSyncLedgerAction::Success(_) => {
-                let Self::Staged(TransitionFrontierSyncLedgerStagedState::Success { block, .. }) = self else { return };
+                let Self::Staged(TransitionFrontierSyncLedgerStagedState::Success { block, needed_protocol_states, .. }) = self else { return };
 
                 *self = Self::Success {
                     time: meta.time(),
                     block: block.clone(),
+                    needed_protocol_states: std::mem::take(needed_protocol_states),
                 };
             }
         }

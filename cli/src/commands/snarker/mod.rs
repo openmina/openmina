@@ -88,7 +88,8 @@ impl Snarker {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
                 // TODO(binier): use cache
-                block_verifier_index: snarker::snark::get_verifier_index(VerifierKind::Blockchain).into(),
+                block_verifier_index: snarker::snark::get_verifier_index(VerifierKind::Blockchain)
+                    .into(),
                 block_verifier_srs: snarker::snark::get_srs().into(),
             },
             snarker: SnarkerConfig {
@@ -147,7 +148,8 @@ impl Snarker {
                     "delta": "0",
                     // TODO(binier): fix wrong timestamp
                     "genesis_state_timestamp": "0",
-                })).unwrap(),
+                }))
+                .unwrap(),
             },
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();

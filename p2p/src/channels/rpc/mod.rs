@@ -129,6 +129,12 @@ impl P2pRpcRequest {
     }
 }
 
+impl Default for P2pRpcRequest {
+    fn default() -> Self {
+        Self::BestTipWithProof
+    }
+}
+
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub struct BestTipWithProof {
     pub best_tip: ArcBlock,

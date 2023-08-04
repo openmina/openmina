@@ -34,6 +34,8 @@ pub enum P2pRpcLocalState {
     },
     Responded {
         time: redux::Timestamp,
+        id: P2pRpcId,
+        request: P2pRpcRequest,
     },
 }
 
@@ -109,6 +111,16 @@ impl P2pChannelsRpcState {
                 local: P2pRpcLocalState::Requested { request, .. },
                 ..
             } => Some(request.kind()),
+            _ => None,
+        }
+    }
+
+    pub fn local_responded_request(&self) -> Option<(P2pRpcId, &P2pRpcRequest)> {
+        match self {
+            Self::Ready {
+                local: P2pRpcLocalState::Responded { id, request, .. },
+                ..
+            } => Some((*id, request)),
             _ => None,
         }
     }

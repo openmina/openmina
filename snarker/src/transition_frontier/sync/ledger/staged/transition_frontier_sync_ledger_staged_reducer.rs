@@ -114,11 +114,16 @@ impl TransitionFrontierSyncLedgerStagedState {
                 };
             }
             TransitionFrontierSyncLedgerStagedAction::Success(_) => {
-                let Self::ReconstructSuccess { block, .. } = self else { return };
+                let Self::ReconstructSuccess { block, parts, .. } = self else { return };
 
                 *self = Self::Success {
                     time: meta.time(),
                     block: block.clone(),
+                    needed_protocol_states: parts
+                        .needed_blocks
+                        .iter()
+                        .map(|block| (block.hash(), block.clone()))
+                        .collect(),
                 };
             }
         }

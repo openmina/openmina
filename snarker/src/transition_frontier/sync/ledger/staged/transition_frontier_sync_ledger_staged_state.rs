@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use shared::block::ArcBlockWithHash;
@@ -48,6 +49,7 @@ pub enum TransitionFrontierSyncLedgerStagedState {
     Success {
         time: Timestamp,
         block: ArcBlockWithHash,
+        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
 }
 
