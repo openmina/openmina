@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use ledger::scan_state::conv::job_to_spec;
 use mina_p2p_messages::v2::StateBodyHash;
 use shared::snark::Snark;
 
@@ -9,7 +8,7 @@ use crate::{
     snark_pool::{SnarkPoolAutoCreateCommitmentAction, SnarkPoolWorkAddAction},
 };
 
-use super::{ExternalSnarkWorkerAction, ExternalSnarkWorkerActionWithMeta};
+use super::{ExternalSnarkWorkerAction, ExternalSnarkWorkerActionWithMeta, available_job_to_snark_worker_spec};
 
 pub fn external_snark_worker_effects<S: crate::Service>(
     store: &mut crate::Store<S>,
@@ -60,7 +59,7 @@ pub fn external_snark_worker_effects<S: crate::Service>(
                     })
                     .unwrap()
             };
-            let input = job_to_spec(
+            let input = available_job_to_snark_worker_spec(
                 public_key.into(),
                 fee,
                 job.job.clone(),
