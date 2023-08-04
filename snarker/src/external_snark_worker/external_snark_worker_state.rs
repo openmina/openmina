@@ -27,4 +27,8 @@ impl ExternalSnarkWorkerState {
             _ => false,
         }
     }
+
+    pub fn has_idle(&self) -> bool {
+        matches!(self, ExternalSnarkWorkerState::Idle)
+    }
 }
