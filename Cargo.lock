@@ -2975,6 +2975,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "mina-rpc-behaviour"
+version = "0.1.0"
+source = "git+https://github.com/openmina/openmina-poc?branch=main#138414cd14486a12d83534537811b393da94f691"
+dependencies = [
+ "binprot",
+ "libp2p",
+ "log",
+ "mina-p2p-messages",
+]
+
+[[package]]
 name = "mina-signer"
 version = "0.1.0"
 dependencies = [
@@ -3564,6 +3575,7 @@ dependencies = [
  "hyper",
  "libp2p",
  "mina-p2p-messages",
+ "mina-rpc-behaviour",
  "multihash 0.18.1",
  "redux",
  "serde",

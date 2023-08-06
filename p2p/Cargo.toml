@@ -27,6 +27,7 @@ webrtc = { git = "https://github.com/openmina/webrtc.git", branch = "openmina-dd
 # webrtc = { version = "0.7.1", optional = true }
 hyper = { version = "0.14.25", features = ["client", "http1", "tcp"] }
 libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51.3", default-features = false, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
+mina-rpc-behaviour = { git = "https://github.com/openmina/openmina-poc", branch = "main" }
 
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "dfbd3bbda8b2681d86ac73065523c658ee31d45d" }
