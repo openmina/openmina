@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 
 use crate::P2pEvent;
 
-use mina_rpc_behaviour::{Behaviour as RpcBehaviour, Event as RpcEvent, StreamId};
+use libp2p_rpc_behaviour::{Behaviour as RpcBehaviour, Event as RpcEvent, StreamId};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "Event")]
