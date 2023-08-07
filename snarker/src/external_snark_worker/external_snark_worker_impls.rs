@@ -64,7 +64,7 @@ fn with_merged_statement(
                 panic!("merge in base transaction");
             };
             let protocol_state_body = transition_frontier
-                .get_state_body(&state_hash.1)
+                .get_state_body(&state_hash.0)
                 .ok_or_else(|| SnarkWorkSpecError::UnknownStateBodyHash(state_hash.1.clone()))?
                 .clone();
             let transaction_witness = mina_p2p_messages::v2::TransactionWitnessStableV2 {
