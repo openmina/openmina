@@ -10,7 +10,7 @@ use crate::{
 
 use super::{
     ConsensusProofOfStakeDataConsensusStateValueStableV2, ConsensusVrfOutputTruncatedStableV1,
-    CurrencyFeeStableV1, DataHashLibStateHashStableV1, MinaBaseAccountIdDigestStableV1,
+    CurrencyAmountStableV1, DataHashLibStateHashStableV1, MinaBaseAccountIdDigestStableV1,
     MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
     MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseHashVersionedStableV1,
     MinaBasePendingCoinbaseStackHashStableV1, MinaBaseSignatureStableV1,
@@ -18,7 +18,7 @@ use super::{
     ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2,
     PicklesProofProofsVerified2ReprStableV2StatementFp, PicklesProofProofsVerifiedMaxStableV2,
     ProtocolVersionStableV1, SgnStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
-    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1, CurrencyAmountStableV1,
+    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
 };
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
