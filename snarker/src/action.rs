@@ -42,8 +42,16 @@ impl Action {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CheckTimeoutsAction {}
 
-impl redux::EnablingCondition<crate::State> for CheckTimeoutsAction {
-    fn is_enabled(&self, _: &crate::State) -> bool {
-        true
-    }
+impl redux::EnablingCondition<crate::State> for CheckTimeoutsAction {}
+
+macro_rules! impl_into_global_action {
+    ($selector:ident : $($action:ty),* $(,)?) => {
+        $(
+            impl From<$action> for crate::Action {
+                fn from(value: $action) -> Self {
+                    Self::$selector(value.into())
+                }
+            }
+        )*
+    };
 }

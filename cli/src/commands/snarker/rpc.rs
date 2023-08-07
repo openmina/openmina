@@ -49,6 +49,7 @@ impl RpcService {
 
 impl SnarkerService {
     /// Channel for sending the rpc request to state machine.
+    #[allow(dead_code)]
     pub fn rpc_req_sender(&mut self) -> &mut mpsc::Sender<SnarkerRpcRequest> {
         &mut self.rpc.req_sender
     }
@@ -224,4 +225,20 @@ impl snarker::rpc::RpcService for SnarkerService {
             .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }
+
+    fn respond_snarker_config_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: snarker::rpc::RpcSnarkerConfigGetResponse,
+    ) -> Result<(), RespondError> {
+        let entry = self.rpc.pending.remove(rpc_id);
+        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
+        let chan = chan
+            .downcast::<oneshot::Sender<snarker::rpc::RpcSnarkerConfigGetResponse>>()
+            .or(Err(RespondError::UnexpectedResponseType))?;
+        chan.send(response.clone())
+            .or(Err(RespondError::RespondingFailed))?;
+        Ok(())
+    }
+
 }

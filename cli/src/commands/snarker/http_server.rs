@@ -280,12 +280,31 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             }
         });
 
+    let rpc_sender_clone = rpc_sender.clone();
+    let snarker_config = warp::path!("snarker" / "config")
+        .and(warp::get())
+        .then(move || {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+            async move {
+                rpc_sender_clone
+                    .oneshot_request(RpcRequest::SnarkerConfig)
+                    .await
+                    .map_or_else(
+                        dropped_channel_response,
+                        |reply: snarker::rpc::RpcSnarkerConfigGetResponse| {
+                            with_json_reply(&reply, StatusCode::OK)
+                        },
+                    )
+            }
+        });
+
     let cors = warp::cors().allow_any_origin();
     let routes = signaling
         .or(state_get)
         .or(stats)
         .or(snark_pool_jobs_get)
         .or(snark_pool_job_get)
+        .or(snarker_config)
         .or(snarker_job_commit)
         .or(snarker_job_spec)
         .or(snark_workers)

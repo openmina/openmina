@@ -57,6 +57,11 @@ pub trait RpcService: redux::Service {
         rpc_id: RpcId,
         response: RpcSnarkPoolJobGetResponse,
     ) -> Result<(), RespondError>;
+    fn respond_snarker_config_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: super::RpcSnarkerConfigGetResponse,
+    ) -> Result<(), RespondError>;
     fn respond_snarker_job_commit(
         &mut self,
         rpc_id: RpcId,
