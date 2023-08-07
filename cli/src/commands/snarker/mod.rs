@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::ffi::{OsStr, OsString};
-use std::io::{self};
+use std::io;
 use std::mem::size_of;
 use std::process::Stdio;
 use std::sync::Arc;
@@ -145,8 +145,15 @@ impl Snarker {
         let _rt_guard = rt.enter();
 
         let mut rng = ThreadRng::default();
-        let bytes = rng.gen();
-        let secret_key = SecretKey::from_bytes(bytes);
+        let secret_key = std::env::var("OPENMINA_P2P_SEC_KEY")
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| {
+                s.trim()
+                    .parse()
+                    .expect("failed to parse `$OPENMINA_P2P_SEC_KEY` env")
+            })
+            .unwrap_or_else(|| SecretKey::from_bytes(rng.gen()));
         let pub_key = secret_key.public_key();
 
         let config = Config {
