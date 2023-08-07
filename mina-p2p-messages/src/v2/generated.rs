@@ -1895,7 +1895,9 @@ pub struct MinaBaseZkappCommandTStableV1WireStableV1 {
 /// Gid: `823`
 /// Location: [src/lib/mina_base/user_command.ml:7:6](https://github.com/MinaProtocol/mina/blob/bfd1009/src/lib/mina_base/user_command.ml#L7)
 /// Args: MinaBaseSignedCommandStableV2 , MinaBaseZkappCommandTStableV1WireStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, derive_more::From)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, derive_more::From,
+)]
 pub enum MinaBaseUserCommandStableV2 {
     SignedCommand(MinaBaseSignedCommandStableV2),
     ZkappCommand(MinaBaseZkappCommandTStableV1WireStableV1),
