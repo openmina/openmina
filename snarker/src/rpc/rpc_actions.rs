@@ -33,6 +33,7 @@ pub enum RpcAction {
     SnarkPoolAvailableJobsGet(RpcSnarkPoolAvailableJobsGetAction),
     SnarkPoolJobGet(RpcSnarkPoolJobGetAction),
 
+    SnarkerConfigGet(RpcSnarkerConfigGetAction),
     SnarkerJobCommit(RpcSnarkerJobCommitAction),
     SnarkerJobSpec(RpcSnarkerJobSpecAction),
 
@@ -212,6 +213,13 @@ pub struct RpcSnarkPoolJobGetAction {
 impl redux::EnablingCondition<crate::State> for RpcSnarkPoolJobGetAction {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcSnarkerConfigGetAction {
+    pub rpc_id: RpcId,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcSnarkerConfigGetAction {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcSnarkerJobCommitAction {
     pub rpc_id: RpcId,
     pub job_id: SnarkJobId,
@@ -250,38 +258,31 @@ impl redux::EnablingCondition<crate::State> for RpcFinishAction {
     }
 }
 
-macro_rules! impl_into_global_action {
-    ($a:ty) => {
-        impl From<$a> for crate::Action {
-            fn from(value: $a) -> Self {
-                Self::Rpc(value.into())
-            }
-        }
-    };
-}
+impl_into_global_action!(
+    Rpc:
+    RpcGlobalStateGetAction,
+    RpcActionStatsGetAction,
+    RpcSyncStatsGetAction,
 
-impl_into_global_action!(RpcGlobalStateGetAction);
+    RpcP2pConnectionOutgoingInitAction,
+    RpcP2pConnectionOutgoingPendingAction,
+    RpcP2pConnectionOutgoingErrorAction,
+    RpcP2pConnectionOutgoingSuccessAction,
 
-impl_into_global_action!(RpcActionStatsGetAction);
-impl_into_global_action!(RpcSyncStatsGetAction);
+    RpcP2pConnectionIncomingInitAction,
+    RpcP2pConnectionIncomingPendingAction,
+    RpcP2pConnectionIncomingRespondAction,
+    RpcP2pConnectionIncomingErrorAction,
+    RpcP2pConnectionIncomingSuccessAction,
 
-impl_into_global_action!(RpcP2pConnectionOutgoingInitAction);
-impl_into_global_action!(RpcP2pConnectionOutgoingPendingAction);
-impl_into_global_action!(RpcP2pConnectionOutgoingErrorAction);
-impl_into_global_action!(RpcP2pConnectionOutgoingSuccessAction);
+    RpcSnarkPoolAvailableJobsGetAction,
+    RpcSnarkPoolJobGetAction,
 
-impl_into_global_action!(RpcP2pConnectionIncomingInitAction);
-impl_into_global_action!(RpcP2pConnectionIncomingPendingAction);
-impl_into_global_action!(RpcP2pConnectionIncomingRespondAction);
-impl_into_global_action!(RpcP2pConnectionIncomingErrorAction);
-impl_into_global_action!(RpcP2pConnectionIncomingSuccessAction);
+    RpcSnarkerConfigGetAction,
+    RpcSnarkerJobCommitAction,
+    RpcSnarkerJobSpecAction,
 
-impl_into_global_action!(RpcSnarkPoolAvailableJobsGetAction);
-impl_into_global_action!(RpcSnarkPoolJobGetAction);
+    RpcSnarkersWorkersGetAction,
 
-impl_into_global_action!(RpcSnarkerJobCommitAction);
-impl_into_global_action!(RpcSnarkerJobSpecAction);
-
-impl_into_global_action!(RpcSnarkersWorkersGetAction);
-
-impl_into_global_action!(RpcFinishAction);
+    RpcFinishAction,
+);

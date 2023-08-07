@@ -56,6 +56,7 @@ impl RpcState {
             }
             RpcAction::SnarkPoolAvailableJobsGet(_) => {}
             RpcAction::SnarkPoolJobGet(_) => {}
+            RpcAction::SnarkerConfigGet(_) => {}
             RpcAction::SnarkerJobCommit(_) => {}
             RpcAction::SnarkerJobSpec(_) => {}
             RpcAction::SnarkerWorkersGet(_) => {}

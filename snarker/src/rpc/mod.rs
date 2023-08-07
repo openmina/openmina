@@ -44,6 +44,7 @@ pub enum RpcRequest {
     P2pConnectionIncoming(P2pConnectionIncomingInitOpts),
     SnarkPoolGet,
     SnarkPoolJobGet { job_id: SnarkJobId },
+    SnarkerConfig,
     SnarkerJobCommit { job_id: SnarkJobId },
     SnarkerJobSpec { job_id: SnarkJobId },
     SnarkerWorkers,
@@ -116,6 +117,22 @@ pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
+pub type RpcSnarkerConfigGetResponse = RpcSnarkerConfig;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcSnarkerConfig {
+    public_key: NonZeroCurvePoint,
+    fee: CurrencyFeeStableV1,
+}
+
+impl From<&crate::SnarkerConfig> for RpcSnarkerConfig {
+    fn from(source: &crate::SnarkerConfig) -> Self {
+        RpcSnarkerConfig {
+            public_key: source.public_key.clone().into(),
+            fee: source.fee.clone(),
+        }
+    }
+}
 
 #[derive(Serialize, Debug, Clone)]
 pub struct RpcSnarkWorker {

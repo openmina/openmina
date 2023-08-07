@@ -176,6 +176,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .service()
                 .respond_snark_pool_job_get(action.rpc_id, resp);
         }
+        RpcAction::SnarkerConfigGet(action) => {
+            let config = &store.state().config;
+            let config = config.into();
+            let _ = store
+                .service()
+                .respond_snarker_config_get(action.rpc_id, config);
+        }
         RpcAction::SnarkerJobCommit(action) => {
             let job_id = action.job_id;
             if !store.state().snark_pool.should_create_commitment(&job_id) {
