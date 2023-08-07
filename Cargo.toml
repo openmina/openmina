@@ -4,6 +4,7 @@ cargo-features = ["named-profiles"]
 members = [
     "cli",
     "p2p",
+    "p2p/libp2p-rpc-behaviour",
     "snarker",
     "node/shared",
     # "node/p2p",
@@ -16,6 +17,8 @@ members = [
 ]
 
 exclude = [ "deps/redux-rs" ]
+
+resolver = "2"
 
 [profile.fuzz]
 inherits = "release"

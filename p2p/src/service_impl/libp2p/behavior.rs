@@ -1,9 +1,11 @@
-use libp2p::{gossipsub, swarm::NetworkBehaviour};
+use std::collections::BTreeMap;
+
+use libp2p::{gossipsub, swarm::NetworkBehaviour, PeerId};
 use tokio::sync::mpsc;
 
-use crate::{P2pChannelEvent, P2pEvent};
+use crate::P2pEvent;
 
-use super::rpc::RpcBehaviour;
+use libp2p_rpc_behaviour::{Behaviour as RpcBehaviour, Event as RpcEvent, StreamId};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(out_event = "Event")]
@@ -12,6 +14,14 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
     pub rpc: RpcBehaviour,
     #[behaviour(ignore)]
     pub event_source_sender: mpsc::UnboundedSender<E>,
+    // TODO(vlad9486): move maps inside `RpcBehaviour`
+    // map msg_id into (tag, version)
+    #[behaviour(ignore)]
+    pub ongoing: BTreeMap<(PeerId, u32), (String, i32)>,
+    // map from (peer, msg_id) into (stream_id, tag, version)
+    //
+    #[behaviour(ignore)]
+    pub ongoing_incoming: BTreeMap<(PeerId, u32), (StreamId, String, i32)>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -19,5 +29,5 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
 pub enum Event {
     // Identify(IdentifyEvent),
     Gossipsub(gossipsub::Event),
-    Rpc(P2pChannelEvent),
+    Rpc((PeerId, RpcEvent)),
 }
