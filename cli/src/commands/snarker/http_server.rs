@@ -254,26 +254,6 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                                 _ => JsonOrBinary::error("error", StatusCode::BAD_REQUEST),
                             },
                         )
-
-                    // let res: Option<RpcSnarkerJobSpecResponse> = rpc_sender_clone
-                    //     .oneshot_request(RpcRequest::SnarkerJobSpec { job_id })
-                    //     .await;
-                    // match res {
-                    //     None => JsonOrBinary::error(
-                    //         "response channel dropped",
-                    //         StatusCode::INTERNAL_SERVER_ERROR,
-                    //     ),
-                    //     Some(resp) => match resp {
-                    //         RpcSnarkerJobSpecResponse::Ok(spec)
-                    //             if accept.as_ref().map(String::as_str)
-                    //                 == Some("application/octet-stream") =>
-                    //         {
-                    //             JsonOrBinary::binary(spec)
-                    //         }
-                    //         RpcSnarkerJobSpecResponse::Ok(spec) => JsonOrBinary::json(spec),
-                    //         _ => JsonOrBinary::error("error", StatusCode::BAD_REQUEST),
-                    //     },
-                    // }
                 }
             },
         );
