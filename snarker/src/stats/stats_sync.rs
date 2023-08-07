@@ -195,7 +195,7 @@ impl SyncStats {
 
     pub fn blocks_init(&mut self, states: &[TransitionFrontierSyncBlockState]) -> &mut Self {
         let Some(snapshot) = self.snapshots.back_mut() else { return self };
-        let Some((root_height, best_tip_height)) = states
+        let Some((_root_height, best_tip_height)) = states
             .last()
             .and_then(|s| s.block())
             .map(|b| (b.root_block_height(), b.height())) else {

@@ -168,22 +168,21 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         });
 
     let rpc_sender_clone = rpc_sender.clone();
-    let snark_pool_job_get = warp::path!("snark-pool" / "job" / SnarkJobId)
-        .then(move |job_id| {
-            let rpc_sender_clone = rpc_sender_clone.clone();
-            async move {
-                let res: Option<RpcSnarkPoolJobGetResponse> = rpc_sender_clone
-                    .oneshot_request(RpcRequest::SnarkPoolJobGet{job_id})
-                    .await;
-                match res {
-                    None => with_json_reply(
-                        &"response channel dropped",
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                    ),
-                    Some(resp) => with_json_reply(&resp, StatusCode::OK),
-                }
+    let snark_pool_job_get = warp::path!("snark-pool" / "job" / SnarkJobId).then(move |job_id| {
+        let rpc_sender_clone = rpc_sender_clone.clone();
+        async move {
+            let res: Option<RpcSnarkPoolJobGetResponse> = rpc_sender_clone
+                .oneshot_request(RpcRequest::SnarkPoolJobGet { job_id })
+                .await;
+            match res {
+                None => with_json_reply(
+                    &"response channel dropped",
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                ),
+                Some(resp) => with_json_reply(&resp, StatusCode::OK),
             }
-        });
+        }
+    });
 
     // TODO(binier): make endpoint only accessible locally.
     let rpc_sender_clone = rpc_sender.clone();
@@ -266,18 +265,20 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     };
 
     let rpc_sender_clone = rpc_sender.clone();
-    let snark_workers = warp::path!("snarker" / "workers").and(warp::get()).then(move || {
-        let rpc_sender_clone = rpc_sender_clone.clone();
-        async move {
-            rpc_sender_clone
-                .oneshot_request(RpcRequest::SnarkerWorkers)
-                .await
-                .map_or_else(
-                    dropped_channel_response,
-                    |reply: RpcSnarkerWorkersResponse| with_json_reply(&reply, StatusCode::OK),
-                )
-        }
-    });
+    let snark_workers = warp::path!("snarker" / "workers")
+        .and(warp::get())
+        .then(move || {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+            async move {
+                rpc_sender_clone
+                    .oneshot_request(RpcRequest::SnarkerWorkers)
+                    .await
+                    .map_or_else(
+                        dropped_channel_response,
+                        |reply: RpcSnarkerWorkersResponse| with_json_reply(&reply, StatusCode::OK),
+                    )
+            }
+        });
 
     let cors = warp::cors().allow_any_origin();
     let routes = signaling

@@ -1,9 +1,9 @@
 use std::{
-    collections::{VecDeque, BTreeSet},
-    pin::Pin,
-    task::{self, Context, Poll},
+    collections::{BTreeSet, VecDeque},
     io,
+    pin::Pin,
     sync::Arc,
+    task::{self, Context, Poll},
 };
 
 use libp2p::futures::{AsyncRead, AsyncWrite};
@@ -11,11 +11,11 @@ use libp2p::futures::{AsyncRead, AsyncWrite};
 use binprot::{BinProtRead, BinProtWrite};
 
 use mina_p2p_messages::{
-    rpc_kernel::{
-        MessageHeader, ResponseHeader, Message, NeedsLength, RpcMethod, Query, QueryHeader,
-        Response, RpcResult, ResponsePayload,
-    },
     rpc::VersionedRpcMenuV1,
+    rpc_kernel::{
+        Message, MessageHeader, NeedsLength, Query, QueryHeader, Response, ResponseHeader,
+        ResponsePayload, RpcMethod, RpcResult,
+    },
 };
 
 #[derive(Debug)]

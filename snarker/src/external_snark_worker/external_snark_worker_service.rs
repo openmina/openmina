@@ -1,8 +1,10 @@
 use std::ffi::OsStr;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use super::{SnarkWorkSpec, ExternalSnarkWorkerError, SnarkWorkResult, ExternalSnarkWorkerWorkError};
+use super::{
+    ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkResult, SnarkWorkSpec,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ExternalSnarkWorkerEvent {

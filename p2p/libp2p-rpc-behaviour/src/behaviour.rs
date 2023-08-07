@@ -1,27 +1,26 @@
 use std::{
-    collections::{VecDeque, BTreeMap, BTreeSet},
-    task::{Waker, Context, Poll},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     sync::Arc,
+    task::{Context, Poll, Waker},
 };
 
 use libp2p::{
-    swarm::{
-        ToSwarm, NetworkBehaviour, NotifyHandler, ConnectionId, FromSwarm, THandlerOutEvent,
-        PollParameters, THandlerInEvent, derive_prelude::ConnectionEstablished, ConnectionClosed,
-        THandler, ConnectionDenied,
-    },
-    PeerId,
     core::Endpoint,
-    Multiaddr,
+    swarm::{
+        derive_prelude::ConnectionEstablished, ConnectionClosed, ConnectionDenied, ConnectionId,
+        FromSwarm, NetworkBehaviour, NotifyHandler, PollParameters, THandler, THandlerInEvent,
+        THandlerOutEvent, ToSwarm,
+    },
+    Multiaddr, PeerId,
 };
 
-use mina_p2p_messages::rpc_kernel::{
-    Message, RpcResult, Query, Response, NeedsLength, Error, RpcMethod,
-};
 use binprot::BinProtWrite;
+use mina_p2p_messages::rpc_kernel::{
+    Error, Message, NeedsLength, Query, Response, RpcMethod, RpcResult,
+};
 
 use super::{
-    handler::{Handler, Command},
+    handler::{Command, Handler},
     state::Received,
 };
 

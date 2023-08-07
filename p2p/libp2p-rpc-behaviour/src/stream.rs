@@ -1,15 +1,15 @@
 use std::{
-    task::{self, Context, Poll},
+    collections::BTreeSet,
     io,
     sync::Arc,
-    collections::BTreeSet,
+    task::{self, Context, Poll},
 };
 
-use libp2p::core::{Negotiated, muxing::SubstreamBox};
+use libp2p::core::{muxing::SubstreamBox, Negotiated};
 
 use super::{
+    behaviour::{Event, StreamId},
     state,
-    behaviour::{StreamId, Event},
 };
 
 pub struct Stream {

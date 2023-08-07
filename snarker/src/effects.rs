@@ -17,7 +17,7 @@ use crate::snark_pool::{
 use crate::transition_frontier::sync::TransitionFrontierSyncBlocksNextApplyInitAction;
 use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
-use crate::{Action, ActionWithMeta, Service, Store, external_snark_worker};
+use crate::{Action, ActionWithMeta, Service, Store};
 
 pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
     let (action, meta) = action.split();

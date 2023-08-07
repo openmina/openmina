@@ -1,6 +1,6 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use super::{SnarkWorkId, ExternalSnarkWorkerError, SnarkWorkResult, ExternalSnarkWorkerWorkError};
+use super::{ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkId, SnarkWorkResult};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ExternalSnarkWorkerState {

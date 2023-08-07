@@ -4,7 +4,7 @@ use super::{
 
 impl ExternalSnarkWorkerState {
     pub fn reducer(&mut self, action: ExternalSnarkWorkerActionWithMetaRef<'_>) {
-        let (action, meta) = action.split();
+        let (action, _) = action.split();
         match action {
             ExternalSnarkWorkerAction::Start(_) => {
                 *self = ExternalSnarkWorkerState::Starting;
@@ -28,10 +28,7 @@ impl ExternalSnarkWorkerState {
                 let ExternalSnarkWorkerState::Working(job_id) = self else {
                     return;
                 };
-                *self = ExternalSnarkWorkerState::WorkReady(
-                    job_id.clone(),
-                    action.result.clone(),
-                );
+                *self = ExternalSnarkWorkerState::WorkReady(job_id.clone(), action.result.clone());
             }
             ExternalSnarkWorkerAction::WorkError(action) => {
                 let ExternalSnarkWorkerState::Working(job_id) = self else {
