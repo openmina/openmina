@@ -1,6 +1,3 @@
-use std::sync::Arc;
-
-use mina_p2p_messages::v2::StateBodyHash;
 use shared::snark::Snark;
 
 use crate::{
@@ -8,7 +5,10 @@ use crate::{
     snark_pool::{SnarkPoolAutoCreateCommitmentAction, SnarkPoolWorkAddAction},
 };
 
-use super::{ExternalSnarkWorkerAction, ExternalSnarkWorkerActionWithMeta, available_job_to_snark_worker_spec};
+use super::{
+    available_job_to_snark_worker_spec, ExternalSnarkWorkerAction,
+    ExternalSnarkWorkerActionWithMeta, ExternalSnarkWorkerWorkErrorAction,
+};
 
 pub fn external_snark_worker_effects<S: crate::Service>(
     store: &mut crate::Store<S>,
@@ -44,29 +44,21 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             let Some(job) = store.state().snark_pool.get(job_id) else {
                 return;
             };
-            let protocol_state_body = |block_hash: StateBodyHash| {
-                store
-                    .state()
-                    .transition_frontier
-                    .best_chain
-                    .iter()
-                    .find_map(|block_with_hash| {
-                        if block_with_hash.block.header.protocol_state.body.hash() == *block_hash {
-                            Some(block_with_hash.block.header.protocol_state.body.clone())
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap()
-            };
-            let input = available_job_to_snark_worker_spec(
+            let input = match available_job_to_snark_worker_spec(
                 public_key.into(),
                 fee,
                 job.job.clone(),
-                &protocol_state_body,
-            );
-            if let Err(_err) = store.service().submit(input) {
-                // TODO report error
+                &store.state().transition_frontier,
+            ) {
+                Ok(v) => v,
+                Err(err) => {
+                    store.dispatch(ExternalSnarkWorkerWorkErrorAction { error: err.into() });
+                    return;
+                }
+            };
+            if let Err(err) = store.service().submit(input) {
+                store.dispatch(ExternalSnarkWorkerWorkErrorAction { error: err.into() });
+                return;
             }
         }
         ExternalSnarkWorkerAction::WorkResult(action) => {
