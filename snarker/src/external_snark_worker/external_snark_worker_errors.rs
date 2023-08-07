@@ -1,4 +1,6 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+
+use super::SnarkWorkSpecError;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ExternalSnarkWorkerError {
@@ -10,9 +12,9 @@ pub enum ExternalSnarkWorkerError {
     Broken(String),
 }
 
-
-#[derive(Clone, Debug, thiserror::Error, derive_more::From, Serialize, Deserialize)]
+#[derive(Clone, Debug, derive_more::From, Serialize, Deserialize)]
 pub enum ExternalSnarkWorkerWorkError {
-    #[error("snark work error: {_0}")]
-    Error(String)
+    WorkSpecError(SnarkWorkSpecError),
+    WorkerError(ExternalSnarkWorkerError),
+    Error(String),
 }
