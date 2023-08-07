@@ -52,8 +52,8 @@ use mina_p2p_messages::{
         MinaNumbersGlobalSlotSpanStableV1,
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
-        MinaStateBlockchainStateValueStableV2SignedAmount,
-        MinaStateSnarkedLedgerStateStableV2, MinaStateSnarkedLedgerStateWithSokStableV2,
+        MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateSnarkedLedgerStateStableV2,
+        MinaStateSnarkedLedgerStateWithSokStableV2,
         MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2,
         MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2Coinbase,
         MinaTransactionLogicTransactionAppliedCommandAppliedStableV2,
@@ -115,8 +115,8 @@ use super::{
     pending_coinbase::{self, PendingCoinbase},
     scan_state::{
         transaction_snark::{
-            LedgerProof, LedgerProofWithSokMessage, Registers, SokDigest, SokMessage,
-            Statement, TransactionSnark, TransactionWithWitness,
+            LedgerProof, LedgerProofWithSokMessage, Registers, SokDigest, SokMessage, Statement,
+            TransactionSnark, TransactionWithWitness,
         },
         AvailableJob, AvailableJobMessage, ScanState,
     },
@@ -2790,4 +2790,3 @@ impl From<&SlotSpan> for MinaNumbersGlobalSlotSpanStableV1 {
         Self::GlobalSlotSpan(value.as_u32().into())
     }
 }
-
