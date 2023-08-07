@@ -244,7 +244,8 @@ impl Libp2pService {
                     }
                 },
                 ChannelMsg::Rpc(msg) => {
-                    Self::handle_cmd_rpc(swarm, peer_id, msg);
+                    Self::handle_cmd_rpc(swarm, peer_id, msg)
+                        .expect("binprot write error must not happen, must send valid msg");
                 }
             },
             Cmd::SnarkBroadcast(snark) => {
@@ -259,7 +260,7 @@ impl Libp2pService {
         swarm: &mut Swarm<Behaviour<E>>,
         peer_id: PeerId,
         msg: RpcChannelMsg,
-    ) {
+    ) -> Result<(), binprot::Error> {
         use mina_p2p_messages::{
             core::Info,
             rpc::{
@@ -281,25 +282,25 @@ impl Libp2pService {
                     P2pRpcRequest::BestTipWithProof => {
                         type T = GetBestTipV2;
                         b.ongoing.insert(key, (T::NAME.to_string(), T::VERSION));
-                        b.rpc.query::<T>(peer_id, stream_id, id, ()).unwrap();
+                        b.rpc.query::<T>(peer_id, stream_id, id, ())?;
                     }
                     P2pRpcRequest::LedgerQuery(hash, query) => {
                         type T = AnswerSyncLedgerQueryV2;
                         b.ongoing.insert(key, (T::NAME.to_string(), T::VERSION));
                         let query = (hash.0.clone(), query);
-                        b.rpc.query::<T>(peer_id, stream_id, id, query).unwrap();
+                        b.rpc.query::<T>(peer_id, stream_id, id, query)?;
                     }
                     P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(hash) => {
                         type T = GetStagedLedgerAuxAndPendingCoinbasesAtHashV2;
                         b.ongoing.insert(key, (T::NAME.to_string(), T::VERSION));
                         let query = hash.0.clone();
-                        b.rpc.query::<T>(peer_id, stream_id, id, query).unwrap();
+                        b.rpc.query::<T>(peer_id, stream_id, id, query)?;
                     }
                     P2pRpcRequest::Block(hash) => {
                         type T = GetTransitionChainV2;
                         b.ongoing.insert(key, (T::NAME.to_string(), T::VERSION));
                         let query = vec![hash.0.clone()];
-                        b.rpc.query::<T>(peer_id, stream_id, id, query).unwrap();
+                        b.rpc.query::<T>(peer_id, stream_id, id, query)?;
                     }
                 };
             }
@@ -310,35 +311,27 @@ impl Libp2pService {
                         None => match (tag.as_str(), version) {
                             (GetBestTipV2::NAME, GetBestTipV2::VERSION) => {
                                 type T = GetBestTipV2;
-                                b.rpc
-                                    .respond::<T>(peer_id, stream_id, id, Ok(None))
-                                    .unwrap()
+                                b.rpc.respond::<T>(peer_id, stream_id, id, Ok(None))?
                             }
                             (AnswerSyncLedgerQueryV2::NAME, AnswerSyncLedgerQueryV2::VERSION) => {
                                 type T = AnswerSyncLedgerQueryV2;
-                                b.rpc
-                                    .respond::<T>(
-                                        peer_id,
-                                        stream_id,
-                                        id,
-                                        Ok(RpcResult(Err(Info::String(Vec::new().into())))),
-                                    )
-                                    .unwrap()
+                                b.rpc.respond::<T>(
+                                    peer_id,
+                                    stream_id,
+                                    id,
+                                    Ok(RpcResult(Err(Info::String(Vec::new().into())))),
+                                )?
                             }
                             (
                                 GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::NAME,
                                 GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::VERSION,
                             ) => {
                                 type T = GetStagedLedgerAuxAndPendingCoinbasesAtHashV2;
-                                b.rpc
-                                    .respond::<T>(peer_id, stream_id, id, Ok(None))
-                                    .unwrap()
+                                b.rpc.respond::<T>(peer_id, stream_id, id, Ok(None))?
                             }
                             (GetTransitionChainV2::NAME, GetTransitionChainV2::VERSION) => {
                                 type T = GetTransitionChainV2;
-                                b.rpc
-                                    .respond::<T>(peer_id, stream_id, id, Ok(None))
-                                    .unwrap()
+                                b.rpc.respond::<T>(peer_id, stream_id, id, Ok(None))?
                             }
                             _ => {}
                         },
@@ -348,12 +341,12 @@ impl Libp2pService {
                                 data: (*msg.best_tip).clone(),
                                 proof: (msg.proof.0, (*msg.proof.1).clone()),
                             }));
-                            b.rpc.respond::<T>(peer_id, stream_id, id, r).unwrap()
+                            b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
                         }
                         Some(P2pRpcResponse::LedgerQuery(msg)) => {
                             type T = AnswerSyncLedgerQueryV2;
                             let r = Ok(RpcResult(Ok(msg)));
-                            b.rpc.respond::<T>(peer_id, stream_id, id, r).unwrap()
+                            b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
                         }
                         Some(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(msg)) => {
                             type T = GetStagedLedgerAuxAndPendingCoinbasesAtHashV2;
@@ -364,17 +357,19 @@ impl Libp2pService {
                                 msg.needed_blocks.clone(),
                             );
                             let r = Ok(Some(r));
-                            b.rpc.respond::<T>(peer_id, stream_id, id, r).unwrap()
+                            b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
                         }
                         Some(P2pRpcResponse::Block(msg)) => {
                             type T = GetTransitionChainV2;
                             let r = Ok(Some(vec![(*msg).clone()]));
-                            b.rpc.respond::<T>(peer_id, stream_id, id, r).unwrap()
+                            b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
                         }
                     }
                 }
             }
         }
+
+        Ok(())
     }
 
     async fn handle_event<E: From<P2pEvent>, Err: std::error::Error>(
@@ -507,15 +502,19 @@ impl Libp2pService {
         event: RpcBehaviourEvent,
     ) {
         let sender = swarm.behaviour_mut().event_source_sender.clone();
-        let sender = |event: P2pEvent| {
+        let send = |event: P2pEvent| {
             let _ = sender.send(event.into());
+        };
+        let send_error = |err: String| {
+            let msg = P2pEvent::Channel(P2pChannelEvent::Received(peer_id.into(), Err(err)));
+            let _ = sender.send(msg.into());
         };
         match event {
             RpcBehaviourEvent::ConnectionClosed => {
-                sender(P2pConnectionEvent::Closed(peer_id.into()).into());
+                send(P2pConnectionEvent::Closed(peer_id.into()).into());
             }
             RpcBehaviourEvent::ConnectionEstablished => {
-                sender(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())).into());
+                send(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())).into());
             }
             RpcBehaviourEvent::Stream { received, .. } => {
                 use mina_p2p_messages::{
@@ -531,33 +530,34 @@ impl Libp2pService {
                 };
                 use mina_rpc_behaviour::Received;
 
-                let ch_sender = sender;
-                let sender = |msg: RpcChannelMsg| {
-                    ch_sender(P2pEvent::Channel(P2pChannelEvent::Received(
+                let ch_send = send;
+                let send = |msg: RpcChannelMsg| {
+                    ch_send(P2pEvent::Channel(P2pChannelEvent::Received(
                         peer_id.into(),
                         Ok(ChannelMsg::Rpc(msg)),
                     )))
                 };
 
-                fn parse_q<M: RpcMethod>(bytes: Vec<u8>) -> M::Query {
+                fn parse_q<M: RpcMethod>(bytes: Vec<u8>) -> Result<M::Query, String> {
                     let mut bytes = bytes.as_slice();
                     <QueryPayload<M::Query> as BinProtRead>::binprot_read(&mut bytes)
-                        .unwrap()
-                        .0
+                        .map(|NeedsLength(x)| x)
+                        .map_err(|err| format!("request {} {}", M::NAME, err))
                 }
 
-                fn parse_r<M: RpcMethod>(bytes: Vec<u8>) -> Result<M::Response, RpcError> {
+                fn parse_r<M: RpcMethod>(
+                    bytes: Vec<u8>,
+                ) -> Result<Result<M::Response, RpcError>, String> {
                     let mut bytes = bytes.as_slice();
                     <ResponsePayload<M::Response> as BinProtRead>::binprot_read(&mut bytes)
-                        .unwrap()
-                        .0
-                        .map(|NeedsLength(x)| x)
+                        .map(|x| x.0.map(|NeedsLength(x)| x))
+                        .map_err(|err| format!("response {} {}", M::NAME, err))
                 }
 
                 match received {
                     Received::Menu(_) => {}
                     Received::HandshakeDone => {
-                        ch_sender(
+                        ch_send(
                             P2pChannelEvent::Opened(peer_id.into(), ChannelId::Rpc, Ok(())).into(),
                         );
                     }
@@ -567,38 +567,46 @@ impl Libp2pService {
                     } => {
                         let tag = tag.to_string_lossy();
 
-                        let sender = |request: P2pRpcRequest| {
-                            sender(RpcChannelMsg::Request(id as _, request))
-                        };
+                        let send =
+                            |request: P2pRpcRequest| send(RpcChannelMsg::Request(id as _, request));
 
                         match (tag.as_str(), version) {
                             (GetBestTipV2::NAME, GetBestTipV2::VERSION) => {
-                                sender(P2pRpcRequest::BestTipWithProof)
+                                send(P2pRpcRequest::BestTipWithProof)
                             }
                             (AnswerSyncLedgerQueryV2::NAME, AnswerSyncLedgerQueryV2::VERSION) => {
-                                let (hash, query) = parse_q::<AnswerSyncLedgerQueryV2>(bytes);
-                                sender(P2pRpcRequest::LedgerQuery(
-                                    v2::MinaBaseLedgerHash0StableV1(hash).into(),
-                                    query,
-                                ));
+                                match parse_q::<AnswerSyncLedgerQueryV2>(bytes) {
+                                    Ok((hash, query)) => send(P2pRpcRequest::LedgerQuery(
+                                        v2::MinaBaseLedgerHash0StableV1(hash).into(),
+                                        query,
+                                    )),
+                                    Err(err) => send_error(err),
+                                };
                             }
                             (
                                 GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::NAME,
                                 GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::VERSION,
                             ) => {
-                                let hash =
-                                    parse_q::<GetStagedLedgerAuxAndPendingCoinbasesAtHashV2>(bytes);
-                                sender(P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
-                                    v2::DataHashLibStateHashStableV1(hash).into(),
-                                ));
-                            }
-                            (GetTransitionChainV2::NAME, GetTransitionChainV2::VERSION) => {
-                                for hash in parse_q::<GetTransitionChainV2>(bytes) {
-                                    sender(
+                                type T = GetStagedLedgerAuxAndPendingCoinbasesAtHashV2;
+                                match parse_q::<T>(bytes) {
+                                    Ok(hash) => send(
                                         P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
                                             v2::DataHashLibStateHashStableV1(hash).into(),
                                         ),
-                                    );
+                                    ),
+                                    Err(err) => send_error(err),
+                                };
+                            }
+                            (GetTransitionChainV2::NAME, GetTransitionChainV2::VERSION) => {
+                                match parse_q::<GetTransitionChainV2>(bytes) {
+                                    Ok(hashes) => {
+                                        for hash in hashes {
+                                            send(P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
+                                                v2::DataHashLibStateHashStableV1(hash).into(),
+                                            ));
+                                        }
+                                    }
+                                    Err(err) => send_error(err),
                                 }
                             }
                             _ => (),
@@ -608,8 +616,8 @@ impl Libp2pService {
                         header: ResponseHeader { id },
                         bytes,
                     } => {
-                        let sender = |response: Option<P2pRpcResponse>| {
-                            sender(RpcChannelMsg::Response(id as _, response))
+                        let send = |response: Option<P2pRpcResponse>| {
+                            send(RpcChannelMsg::Response(id as _, response))
                         };
 
                         let Some((tag, id)) = swarm.behaviour_mut().ongoing.remove(&(peer_id, (id as _))) else {
@@ -617,60 +625,76 @@ impl Libp2pService {
                         };
                         match (tag.as_str(), id) {
                             (GetBestTipV2::NAME, GetBestTipV2::VERSION) => {
-                                let response = parse_r::<GetBestTipV2>(bytes)
-                                    .ok()
-                                    .flatten()
-                                    .map(|resp| BestTipWithProof {
-                                        best_tip: resp.data.into(),
-                                        proof: (resp.proof.0, resp.proof.1.into()),
-                                    })
-                                    .map(P2pRpcResponse::BestTipWithProof);
-                                sender(response)
+                                match parse_r::<GetBestTipV2>(bytes) {
+                                    Ok(response) => {
+                                        let response = response
+                                            .ok()
+                                            .flatten()
+                                            .map(|resp| BestTipWithProof {
+                                                best_tip: resp.data.into(),
+                                                proof: (resp.proof.0, resp.proof.1.into()),
+                                            })
+                                            .map(P2pRpcResponse::BestTipWithProof);
+                                        send(response)
+                                    }
+                                    Err(err) => send_error(err),
+                                }
                             }
                             (AnswerSyncLedgerQueryV2::NAME, AnswerSyncLedgerQueryV2::VERSION) => {
-                                let response = parse_r::<AnswerSyncLedgerQueryV2>(bytes)
-                                    .ok()
-                                    .map(|x| x.0.ok())
-                                    .flatten()
-                                    .map(P2pRpcResponse::LedgerQuery);
-                                sender(response)
+                                match parse_r::<AnswerSyncLedgerQueryV2>(bytes) {
+                                    Ok(response) => {
+                                        let response = response
+                                            .ok()
+                                            .map(|x| x.0.ok())
+                                            .flatten()
+                                            .map(P2pRpcResponse::LedgerQuery);
+                                        send(response)
+                                    }
+                                    Err(err) => send_error(err),
+                                }
                             }
                             (
                                 GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::NAME,
                                 GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::VERSION,
                             ) => {
-                                let response = parse_r::<
-                                    GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,
-                                >(bytes)
-                                .ok()
-                                .flatten()
-                                .map(|(scan_state, hash, pending_coinbase, needed_blocks)| {
-                                    let staged_ledger_hash =
-                                        v2::MinaBaseLedgerHash0StableV1(hash).into();
-                                    Arc::new(StagedLedgerAuxAndPendingCoinbases {
-                                        scan_state,
-                                        staged_ledger_hash,
-                                        pending_coinbase,
-                                        needed_blocks,
-                                    })
-                                })
-                                .map(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock);
-                                sender(response)
-                            }
-                            (GetTransitionChainV2::NAME, GetTransitionChainV2::VERSION) => {
-                                let response = parse_r::<GetTransitionChainV2>(bytes)
-                                    .ok()
-                                    .flatten()
-                                    .unwrap_or_default();
-                                if response.is_empty() {
-                                    sender(None)
-                                } else {
-                                    for block in response {
-                                        sender(Some(P2pRpcResponse::Block(Arc::new(block))));
+                                type T = GetStagedLedgerAuxAndPendingCoinbasesAtHashV2;
+                                match parse_r::<T>(bytes) {
+                                    Ok(response) => {
+                                        let response = response
+                                        .ok()
+                                        .flatten()
+                                        .map(|(scan_state, hash, pending_coinbase, needed_blocks)| {
+                                            let staged_ledger_hash =
+                                                v2::MinaBaseLedgerHash0StableV1(hash).into();
+                                            Arc::new(StagedLedgerAuxAndPendingCoinbases {
+                                                scan_state,
+                                                staged_ledger_hash,
+                                                pending_coinbase,
+                                                needed_blocks,
+                                            })
+                                        })
+                                        .map(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock);
+                                        send(response)
                                     }
+                                    Err(err) => send_error(err),
                                 }
                             }
-                            _ => sender(None),
+                            (GetTransitionChainV2::NAME, GetTransitionChainV2::VERSION) => {
+                                match parse_r::<GetTransitionChainV2>(bytes) {
+                                    Ok(response) => {
+                                        let response = response.ok().flatten().unwrap_or_default();
+                                        if response.is_empty() {
+                                            send(None)
+                                        } else {
+                                            for block in response {
+                                                send(Some(P2pRpcResponse::Block(Arc::new(block))));
+                                            }
+                                        }
+                                    }
+                                    Err(err) => send_error(err),
+                                }
+                            }
+                            _ => send(None),
                         }
                     }
                 }
