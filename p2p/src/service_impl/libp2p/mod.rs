@@ -30,7 +30,7 @@ mod behavior;
 pub use behavior::Event as BehaviourEvent;
 pub use behavior::*;
 
-use mina_rpc_behaviour::{BehaviourBuilder, Event as RpcBehaviourEvent, StreamId};
+use libp2p_rpc_behaviour::{BehaviourBuilder, Event as RpcBehaviourEvent, StreamId};
 
 use crate::channels::best_tip::BestTipPropagationChannelMsg;
 use crate::channels::rpc::{
@@ -517,6 +517,7 @@ impl Libp2pService {
                 send(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())).into());
             }
             RpcBehaviourEvent::Stream { received, .. } => {
+                use libp2p_rpc_behaviour::Received;
                 use mina_p2p_messages::{
                     rpc::{
                         AnswerSyncLedgerQueryV2, GetBestTipV2,
@@ -528,7 +529,6 @@ impl Libp2pService {
                     },
                     v2,
                 };
-                use mina_rpc_behaviour::Received;
 
                 let ch_send = send;
                 let send = |msg: RpcChannelMsg| {

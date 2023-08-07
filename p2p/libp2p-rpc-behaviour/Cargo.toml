@@ -1,5 +1,5 @@
 [package]
-name = "mina-rpc-behaviour"
+name = "libp2p-rpc-behaviour"
 version = "0.1.0"
 edition = "2021"
 

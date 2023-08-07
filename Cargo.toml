@@ -4,6 +4,7 @@ cargo-features = ["named-profiles"]
 members = [
     "cli",
     "p2p",
+    "p2p/libp2p-rpc-behaviour",
     "snarker",
     "node/shared",
     # "node/p2p",
@@ -13,7 +14,6 @@ members = [
 
     "mina-p2p-messages-rs",
     "ledger",
-    "rpc-behaviour",
 ]
 
 exclude = [ "deps/redux-rs" ]
