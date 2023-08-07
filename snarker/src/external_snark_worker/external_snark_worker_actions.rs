@@ -4,7 +4,7 @@ use shared::snark_job_id::SnarkJobId;
 
 use crate::State;
 
-use super::{ExternalSnarkWorkerWorkError, ExternalSnarkWorkerError, ExternalSnarkWorkerState};
+use super::{ExternalSnarkWorkerError, ExternalSnarkWorkerState, ExternalSnarkWorkerWorkError};
 
 #[derive(Debug, Clone, Serialize, Deserialize, derive_more::From)]
 pub enum ExternalSnarkWorkerAction {
@@ -37,7 +37,10 @@ pub struct ExternalSnarkWorkerStartedAction {}
 
 impl EnablingCondition<State> for ExternalSnarkWorkerStartedAction {
     fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
-        matches!(state.external_snark_worker, ExternalSnarkWorkerState::Starting)
+        matches!(
+            state.external_snark_worker,
+            ExternalSnarkWorkerState::Starting
+        )
     }
 }
 
@@ -48,7 +51,7 @@ impl EnablingCondition<State> for ExternalSnarkWorkerKillAction {
     fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
         match &state.external_snark_worker {
             ExternalSnarkWorkerState::None | ExternalSnarkWorkerState::Killing => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -58,7 +61,10 @@ pub struct ExternalSnarkWorkerKilledAction {}
 
 impl EnablingCondition<State> for ExternalSnarkWorkerKilledAction {
     fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
-        matches!(state.external_snark_worker, ExternalSnarkWorkerState::Killing)
+        matches!(
+            state.external_snark_worker,
+            ExternalSnarkWorkerState::Killing
+        )
     }
 }
 
@@ -91,7 +97,10 @@ pub struct ExternalSnarkWorkerWorkResultAction {
 
 impl EnablingCondition<State> for ExternalSnarkWorkerWorkResultAction {
     fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
-        true
+        matches!(
+            state.external_snark_worker,
+            ExternalSnarkWorkerState::Working(_)
+        )
     }
 }
 
@@ -102,17 +111,22 @@ pub struct ExternalSnarkWorkerWorkErrorAction {
 
 impl EnablingCondition<State> for ExternalSnarkWorkerWorkErrorAction {
     fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
-        true
+        matches!(
+            state.external_snark_worker,
+            ExternalSnarkWorkerState::Working(_)
+        )
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExternalSnarkWorkerPruneWorkAction {
-}
+pub struct ExternalSnarkWorkerPruneWorkAction {}
 
 impl EnablingCondition<State> for ExternalSnarkWorkerPruneWorkAction {
     fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
-        true
+        matches!(
+            state.external_snark_worker,
+            ExternalSnarkWorkerState::WorkReady(..) | ExternalSnarkWorkerState::WorkError(..)
+        )
     }
 }
 
