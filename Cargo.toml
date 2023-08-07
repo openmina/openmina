@@ -13,9 +13,12 @@ members = [
 
     "mina-p2p-messages-rs",
     "ledger",
+    "rpc-behaviour",
 ]
 
 exclude = [ "deps/redux-rs" ]
+
+resolver = "2"
 
 [profile.fuzz]
 inherits = "release"
