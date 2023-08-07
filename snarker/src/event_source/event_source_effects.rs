@@ -1,5 +1,9 @@
 use crate::action::CheckTimeoutsAction;
-use crate::external_snark_worker::{ExternalSnarkWorkerEvent, ExternalSnarkWorkerWorkResultAction, ExternalSnarkWorkerWorkErrorAction, ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerStartedAction, ExternalSnarkWorkerKilledAction};
+use crate::external_snark_worker::{
+    ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerEvent, ExternalSnarkWorkerKilledAction,
+    ExternalSnarkWorkerStartedAction, ExternalSnarkWorkerWorkErrorAction,
+    ExternalSnarkWorkerWorkResultAction,
+};
 use crate::p2p::channels::best_tip::P2pChannelsBestTipReadyAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcReadyAction;
 use crate::p2p::channels::snark::{
@@ -24,7 +28,8 @@ use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcP2pConnectionIncomingInitAction,
     RpcP2pConnectionOutgoingInitAction, RpcRequest, RpcSnarkPoolAvailableJobsGetAction,
-    RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSyncStatsGetAction, RpcSnarkPoolJobGetAction, RpcSnarkersWorkersGetAction,
+    RpcSnarkPoolJobGetAction, RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction,
+    RpcSnarkersWorkersGetAction, RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
 use crate::snark::SnarkEvent;

@@ -1,5 +1,5 @@
 mod behaviour;
-pub use self::behaviour::{BehaviourBuilder, Behaviour, Event, StreamId};
+pub use self::behaviour::{Behaviour, BehaviourBuilder, Event, StreamId};
 
 mod handler;
 

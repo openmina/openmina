@@ -7,7 +7,7 @@ use crate::State;
 use super::{
     RpcActionStatsGetResponse, RpcId, RpcP2pConnectionOutgoingResponse, RpcSnarkPoolGetResponse,
     RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
-    RpcSyncStatsGetResponse, RpcSnarkerWorkersResponse,
+    RpcSnarkerWorkersResponse, RpcSyncStatsGetResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]

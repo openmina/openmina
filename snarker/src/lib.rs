@@ -24,6 +24,7 @@ pub mod stats;
 pub mod account;
 pub mod consensus;
 pub mod event_source;
+pub mod external_snark_worker;
 pub mod ledger;
 pub mod logger;
 pub mod p2p;
@@ -32,7 +33,6 @@ pub mod snark;
 pub mod snark_pool;
 pub mod transition_frontier;
 pub mod watched_accounts;
-pub mod external_snark_worker;
 
 pub type Store<S> = redux::Store<State, S, Action>;
 

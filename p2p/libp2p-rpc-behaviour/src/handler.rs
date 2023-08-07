@@ -1,22 +1,22 @@
 use std::{
-    collections::{VecDeque, BTreeMap, BTreeSet},
-    task::{Waker, Context, Poll},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     io,
-    time::Duration,
     sync::Arc,
+    task::{Context, Poll, Waker},
+    time::Duration,
 };
 
 use libp2p::{
+    core::{muxing::SubstreamBox, upgrade::ReadyUpgrade, Negotiated},
     swarm::{
-        ConnectionHandler, SubstreamProtocol, KeepAlive, ConnectionHandlerEvent,
-        handler::ConnectionEvent,
+        handler::ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, KeepAlive,
+        SubstreamProtocol,
     },
-    core::{upgrade::ReadyUpgrade, Negotiated, muxing::SubstreamBox},
 };
 
 use super::{
+    behaviour::{Event, StreamId},
     stream::{Stream, StreamEvent},
-    behaviour::{StreamId, Event},
 };
 
 #[derive(Debug)]

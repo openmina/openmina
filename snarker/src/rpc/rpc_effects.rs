@@ -1,9 +1,9 @@
-use mina_p2p_messages::v2::{StateBodyHash, UnsignedExtendedUInt64Int64ForVersionTagsStableV1};
-use p2p::connection::P2pConnectionResponse;
+use mina_p2p_messages::v2::UnsignedExtendedUInt64Int64ForVersionTagsStableV1;
 
 use crate::external_snark_worker::available_job_to_snark_worker_spec;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
+use crate::p2p::connection::P2pConnectionResponse;
 use crate::snark_pool::SnarkPoolCommitmentCreateAction;
 use crate::{Service, Store};
 
