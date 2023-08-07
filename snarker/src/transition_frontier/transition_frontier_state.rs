@@ -1,6 +1,9 @@
 use std::collections::BTreeMap;
 
-use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
+use mina_p2p_messages::v2::{
+    MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2, StateBodyHash,
+    StateHash,
+};
 use serde::{Deserialize, Serialize};
 use shared::block::ArcBlockWithHash;
 
@@ -31,5 +34,31 @@ impl TransitionFrontierState {
 
     pub fn best_tip(&self) -> Option<&ArcBlockWithHash> {
         self.best_chain.last()
+    }
+
+    /// Look up state body by its hash.
+    /// TODO cache/build lookup table for state body hashes
+    pub fn get_state_body(
+        &self,
+        hash: &StateBodyHash,
+    ) -> Option<&MinaStateProtocolStateBodyValueStableV2> {
+        self.best_chain
+            .iter()
+            .find_map(|block_with_hash| {
+                if &block_with_hash.block.header.protocol_state.body.hash() == hash.inner() {
+                    Some(&block_with_hash.block.header.protocol_state.body)
+                } else {
+                    None
+                }
+            })
+            .or_else(|| {
+                self.needed_protocol_states.iter().find_map(|(_, state)| {
+                    if &state.body.hash() == hash.inner() {
+                        Some(&state.body)
+                    } else {
+                        None
+                    }
+                })
+            })
     }
 }

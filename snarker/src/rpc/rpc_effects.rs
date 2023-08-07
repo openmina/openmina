@@ -215,32 +215,21 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 }
                 return;
             };
-            let protocol_state_body = |block_hash: StateBodyHash| {
-                store
-                    .state()
-                    .transition_frontier
-                    .best_chain
-                    .iter()
-                    .find_map(|block_with_hash| {
-                        if block_with_hash.block.header.protocol_state.body.hash() == *block_hash {
-                            Some(block_with_hash.block.header.protocol_state.body.clone())
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap()
-            };
             let input = available_job_to_snark_worker_spec(
                 pub_key.into(),
                 mina_p2p_messages::v2::CurrencyFeeStableV1(
                     UnsignedExtendedUInt64Int64ForVersionTagsStableV1(1_000_000_000_u64.into()),
                 ),
                 job.job.clone(),
-                &protocol_state_body,
+                &store.state().transition_frontier,
             );
+            let input = match input {
+                Ok(v) => RpcSnarkerJobSpecResponse::Ok(v),
+                Err(err) => RpcSnarkerJobSpecResponse::Err(err),
+            };
             if store
                 .service()
-                .respond_snarker_job_spec(action.rpc_id, RpcSnarkerJobSpecResponse::Ok(input))
+                .respond_snarker_job_spec(action.rpc_id, input)
                 .is_err()
             {
                 return;
