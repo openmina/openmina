@@ -240,5 +240,4 @@ impl snarker::rpc::RpcService for SnarkerService {
             .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }
-
 }
