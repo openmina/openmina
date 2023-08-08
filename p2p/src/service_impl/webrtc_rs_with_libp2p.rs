@@ -6,6 +6,7 @@ use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionService},
     disconnection::P2pDisconnectionService,
+    identity::SecretKey,
     P2pChannelEvent, P2pEvent, PeerId,
 };
 
@@ -20,13 +21,14 @@ pub trait P2pServiceWebrtcRsWithLibp2p: P2pServiceWebrtcRs {
     fn libp2p(&mut self) -> &mut Libp2pService;
 
     fn init<S: TaskSpawner>(
+        secret_key: SecretKey,
         chain_id: String,
         event_source_sender: mpsc::UnboundedSender<P2pEvent>,
         spawner: S,
     ) -> P2pServiceCtx {
         P2pServiceCtx {
-            webrtc: <Self as P2pServiceWebrtcRs>::init(spawner.clone()),
-            libp2p: Libp2pService::run(chain_id, event_source_sender, spawner),
+            webrtc: <Self as P2pServiceWebrtcRs>::init(secret_key.clone(), spawner.clone()),
+            libp2p: Libp2pService::run(secret_key, chain_id, event_source_sender, spawner),
         }
     }
 }
