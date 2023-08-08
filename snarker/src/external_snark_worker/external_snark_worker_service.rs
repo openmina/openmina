@@ -13,6 +13,7 @@ pub enum ExternalSnarkWorkerEvent {
     Killed,
     WorkResult(SnarkWorkResult),
     WorkError(ExternalSnarkWorkerWorkError),
+    WorkCancelled,
     Error(ExternalSnarkWorkerError),
 }
 
@@ -27,6 +28,9 @@ pub trait ExternalSnarkWorkerService {
 
     /// Submits snark work
     fn submit(&mut self, spec: SnarkWorkSpec) -> Result<(), ExternalSnarkWorkerError>;
+
+    /// Cancel current work
+    fn cancel(&mut self) -> Result<(), ExternalSnarkWorkerError>;
 
     /// Kills external process.
     fn kill(&mut self) -> Result<(), ExternalSnarkWorkerError>;

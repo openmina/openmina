@@ -12,11 +12,17 @@ pub enum ExternalSnarkWorkerAction {
     Started(ExternalSnarkWorkerStartedAction),
     Kill(ExternalSnarkWorkerKillAction),
     Killed(ExternalSnarkWorkerKilledAction),
-    Error(ExternalSnarkWorkerErrorAction),
+
     SubmitWork(ExternalSnarkWorkerSubmitWorkAction),
     WorkResult(ExternalSnarkWorkerWorkResultAction),
     WorkError(ExternalSnarkWorkerWorkErrorAction),
+
+    CancelWork(ExternalSnarkWorkerCancelWorkAction),
+    WorkCancelled(ExternalSnarkWorkerWorkCancelledAction),
+
     PruneWork(ExternalSnarkWorkerPruneWorkAction),
+
+    Error(ExternalSnarkWorkerErrorAction),
 }
 
 pub type ExternalSnarkWorkerActionWithMeta = redux::ActionWithMeta<ExternalSnarkWorkerAction>;
@@ -91,6 +97,32 @@ impl EnablingCondition<State> for ExternalSnarkWorkerSubmitWorkAction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalSnarkWorkerCancelWorkAction {
+}
+
+impl EnablingCondition<State> for ExternalSnarkWorkerCancelWorkAction {
+    fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
+        matches!(
+            state.external_snark_worker,
+            ExternalSnarkWorkerState::Working(_)
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalSnarkWorkerWorkCancelledAction {
+}
+
+impl EnablingCondition<State> for ExternalSnarkWorkerWorkCancelledAction {
+    fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
+        matches!(
+            state.external_snark_worker,
+            ExternalSnarkWorkerState::Cancelling(_)
+        )
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalSnarkWorkerWorkResultAction {
     pub result: super::SnarkWorkResult,
 }
@@ -150,6 +182,8 @@ impl_into_global_action!(
     ExternalSnarkWorkerErrorAction,
     ExternalSnarkWorkerSubmitWorkAction,
     ExternalSnarkWorkerWorkResultAction,
-    ExternalSnarkWorkerWorkErrorAction,
+    ExternalSnarkWorkerCancelWorkAction,
+    ExternalSnarkWorkerWorkCancelledAction,
     ExternalSnarkWorkerPruneWorkAction,
+    ExternalSnarkWorkerWorkErrorAction,
 );

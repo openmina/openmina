@@ -6,6 +6,7 @@ use super::SnarkWorkSpecError;
 pub enum ExternalSnarkWorkerError {
     BinprotError(String),
     IOError(String),
+    Error(String),
     NotRunning,
     Busy,
     /// Protocol logic is broken
@@ -16,5 +17,6 @@ pub enum ExternalSnarkWorkerError {
 pub enum ExternalSnarkWorkerWorkError {
     WorkSpecError(SnarkWorkSpecError),
     WorkerError(ExternalSnarkWorkerError),
+    Cancelled,
     Error(String),
 }
