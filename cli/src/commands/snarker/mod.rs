@@ -48,6 +48,7 @@ use snarker::{
     TransitionFrontierConfig,
 };
 
+mod graphql;
 mod http_server;
 
 mod rpc;
