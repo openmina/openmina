@@ -18,6 +18,7 @@ use tokio::sync::{mpsc, oneshot};
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
     connection::outgoing::P2pConnectionOutgoingInitOpts,
+    identity::SecretKey,
     webrtc, P2pChannelEvent, P2pConnectionEvent, P2pEvent, PeerId,
 };
 
@@ -571,8 +572,11 @@ pub trait P2pServiceWebrtcRs: redux::Service {
 
     fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState>;
 
-    fn init<S: TaskSpawner>(spawner: S) -> P2pServiceCtx {
+    fn init<S: TaskSpawner>(secret_key: SecretKey, spawner: S) -> P2pServiceCtx {
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
+
+        // TODO: sing/verify SDP
+        let _ = secret_key;
 
         spawner.spawn_main("webrtc", async move {
             while let Some(cmd) = cmd_receiver.recv().await {

@@ -207,6 +207,7 @@ impl Snarker {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
         } = <SnarkerService as P2pServiceWebrtcRsWithLibp2p>::init(
+            secret_key,
             self.chain_id,
             p2p_event_sender.clone(),
             P2pTaskSpawner {},

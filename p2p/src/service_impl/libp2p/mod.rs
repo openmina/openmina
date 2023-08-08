@@ -38,6 +38,7 @@ use crate::channels::rpc::{
     StagedLedgerAuxAndPendingCoinbases,
 };
 use crate::channels::{ChannelId, ChannelMsg};
+use crate::identity::SecretKey;
 use crate::{P2pChannelEvent, P2pConnectionEvent, P2pEvent};
 
 use super::TaskSpawner;
@@ -110,6 +111,7 @@ impl Libp2pService {
     }
 
     pub fn run<E, S>(
+        secret_key: SecretKey,
         chain_id: String,
         event_source_sender: mpsc::UnboundedSender<E>,
         spawner: S,
@@ -125,7 +127,8 @@ impl Libp2pService {
             "mina/snark-work/1.0.0",
         ]);
 
-        let identity_keys = Keypair::generate_ed25519();
+        let identity_keys = Keypair::ed25519_from_bytes(secret_key.to_bytes())
+            .expect("secret key bytes must be valid");
 
         let message_authenticity = MessageAuthenticity::Signed(identity_keys.clone());
         let gossipsub_config = GossipsubConfigBuilder::default()
