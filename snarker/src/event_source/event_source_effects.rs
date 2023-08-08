@@ -2,7 +2,7 @@ use crate::action::CheckTimeoutsAction;
 use crate::external_snark_worker::{
     ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerEvent, ExternalSnarkWorkerKilledAction,
     ExternalSnarkWorkerStartedAction, ExternalSnarkWorkerWorkErrorAction,
-    ExternalSnarkWorkerWorkResultAction,
+    ExternalSnarkWorkerWorkResultAction, ExternalSnarkWorkerWorkCancelledAction,
 };
 use crate::p2p::channels::best_tip::P2pChannelsBestTipReadyAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcReadyAction;
@@ -236,6 +236,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 }
                 ExternalSnarkWorkerEvent::WorkError(error) => {
                     store.dispatch(ExternalSnarkWorkerWorkErrorAction { error });
+                }
+                ExternalSnarkWorkerEvent::WorkCancelled => {
+                    store.dispatch(ExternalSnarkWorkerWorkCancelledAction {});
                 }
                 ExternalSnarkWorkerEvent::Error(error) => {
                     store.dispatch(ExternalSnarkWorkerErrorAction { error });

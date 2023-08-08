@@ -248,6 +248,12 @@ pub enum RpcSnarkWorkerStatus {
         job_id: SnarkJobId,
         error: ExternalSnarkWorkerWorkError,
     },
+    Cancelling {
+        job_id: SnarkJobId,
+    },
+    Cancelled {
+        job_id: SnarkJobId,
+    },
     Error {
         error: ExternalSnarkWorkerError,
     },

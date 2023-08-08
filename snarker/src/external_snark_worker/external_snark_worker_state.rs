@@ -12,6 +12,9 @@ pub enum ExternalSnarkWorkerState {
     WorkReady(SnarkWorkId, SnarkWorkResult),
     WorkError(SnarkWorkId, ExternalSnarkWorkerWorkError),
 
+    Cancelling(SnarkWorkId),
+    Cancelled(SnarkWorkId),
+
     Killing,
     Error(ExternalSnarkWorkerError),
 }

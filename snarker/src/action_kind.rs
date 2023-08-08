@@ -12,10 +12,11 @@ use crate::event_source::{
     EventSourceWaitForEventsAction, EventSourceWaitTimeoutAction,
 };
 use crate::external_snark_worker::{
-    ExternalSnarkWorkerAction, ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerKillAction,
-    ExternalSnarkWorkerKilledAction, ExternalSnarkWorkerPruneWorkAction,
-    ExternalSnarkWorkerStartAction, ExternalSnarkWorkerStartedAction,
-    ExternalSnarkWorkerSubmitWorkAction, ExternalSnarkWorkerWorkErrorAction,
+    ExternalSnarkWorkerAction, ExternalSnarkWorkerCancelWorkAction, ExternalSnarkWorkerErrorAction,
+    ExternalSnarkWorkerKillAction, ExternalSnarkWorkerKilledAction,
+    ExternalSnarkWorkerPruneWorkAction, ExternalSnarkWorkerStartAction,
+    ExternalSnarkWorkerStartedAction, ExternalSnarkWorkerSubmitWorkAction,
+    ExternalSnarkWorkerWorkCancelledAction, ExternalSnarkWorkerWorkErrorAction,
     ExternalSnarkWorkerWorkResultAction,
 };
 use crate::p2p::channels::best_tip::{
@@ -176,6 +177,7 @@ pub enum ActionKind {
     EventSourceProcessEvents,
     EventSourceWaitForEvents,
     EventSourceWaitTimeout,
+    ExternalSnarkWorkerCancelWork,
     ExternalSnarkWorkerError,
     ExternalSnarkWorkerKill,
     ExternalSnarkWorkerKilled,
@@ -183,6 +185,7 @@ pub enum ActionKind {
     ExternalSnarkWorkerStart,
     ExternalSnarkWorkerStarted,
     ExternalSnarkWorkerSubmitWork,
+    ExternalSnarkWorkerWorkCancelled,
     ExternalSnarkWorkerWorkError,
     ExternalSnarkWorkerWorkResult,
     P2pChannelsBestTipInit,
@@ -341,7 +344,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 176;
+    pub const COUNT: usize = 178;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -477,11 +480,13 @@ impl ActionKindGet for ExternalSnarkWorkerAction {
             Self::Started(a) => a.kind(),
             Self::Kill(a) => a.kind(),
             Self::Killed(a) => a.kind(),
-            Self::Error(a) => a.kind(),
             Self::SubmitWork(a) => a.kind(),
             Self::WorkResult(a) => a.kind(),
             Self::WorkError(a) => a.kind(),
+            Self::CancelWork(a) => a.kind(),
+            Self::WorkCancelled(a) => a.kind(),
             Self::PruneWork(a) => a.kind(),
+            Self::Error(a) => a.kind(),
         }
     }
 }
@@ -854,12 +859,6 @@ impl ActionKindGet for ExternalSnarkWorkerKilledAction {
     }
 }
 
-impl ActionKindGet for ExternalSnarkWorkerErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerError
-    }
-}
-
 impl ActionKindGet for ExternalSnarkWorkerSubmitWorkAction {
     fn kind(&self) -> ActionKind {
         ActionKind::ExternalSnarkWorkerSubmitWork
@@ -878,9 +877,27 @@ impl ActionKindGet for ExternalSnarkWorkerWorkErrorAction {
     }
 }
 
+impl ActionKindGet for ExternalSnarkWorkerCancelWorkAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerCancelWork
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerWorkCancelledAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerWorkCancelled
+    }
+}
+
 impl ActionKindGet for ExternalSnarkWorkerPruneWorkAction {
     fn kind(&self) -> ActionKind {
         ActionKind::ExternalSnarkWorkerPruneWork
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerError
     }
 }
 
