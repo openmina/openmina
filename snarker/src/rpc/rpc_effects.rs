@@ -1,6 +1,4 @@
-use mina_p2p_messages::v2::{
-    MinaBaseTransactionStatusStableV2, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
-};
+use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
 
 use crate::external_snark_worker::available_job_to_snark_worker_spec;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitAction;
@@ -302,7 +300,6 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::SnarkerJobSpec(action) => {
             let job_id = action.job_id;
-            let pub_key = store.state().config.public_key.clone();
             let Some(job) = store.state().snark_pool.get(&job_id) else {
                 if store
                     .service()
@@ -314,15 +311,22 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 return;
             };
             let input = available_job_to_snark_worker_spec(
-                pub_key.into(),
-                mina_p2p_messages::v2::CurrencyFeeStableV1(
-                    UnsignedExtendedUInt64Int64ForVersionTagsStableV1(1_000_000_000_u64.into()),
-                ),
                 job.job.clone(),
                 &store.state().transition_frontier,
             );
+            let config = &store.state().config;
+            let public_key = config.public_key.clone().into();
+            let fee = config.fee.clone();
             let input = match input {
-                Ok(v) => RpcSnarkerJobSpecResponse::Ok(v),
+                Ok(instances) => RpcSnarkerJobSpecResponse::Ok(
+                    mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((
+                        mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 {
+                            instances,
+                            fee,
+                        },
+                        public_key,
+                    )))
+                ),
                 Err(err) => RpcSnarkerJobSpecResponse::Err(err),
             };
             if store
