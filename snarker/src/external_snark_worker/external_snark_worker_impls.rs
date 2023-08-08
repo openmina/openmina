@@ -3,8 +3,6 @@ use ledger::scan_state::scan_state::{
     AvailableJobMessage,
 };
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, NonZeroCurvePoint, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
-    SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single, StateBodyHash,
     TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
@@ -21,12 +19,10 @@ pub enum SnarkWorkSpecError {
 }
 
 pub fn available_job_to_snark_worker_spec(
-    public_key: NonZeroCurvePoint,
-    fee: CurrencyFeeStableV1,
     job: OneOrTwo<AvailableJobMessage>,
     transition_frontier: &TransitionFrontierState,
-) -> Result<SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, SnarkWorkSpecError> {
-    let instances = match job {
+) -> Result<SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances, SnarkWorkSpecError> {
+    Ok(match job {
         OneOrTwo::One(v) => SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances::One(
             with_merged_statement(v, transition_frontier)?,
         ),
@@ -36,12 +32,7 @@ pub fn available_job_to_snark_worker_spec(
                 with_merged_statement(v2, transition_frontier)?,
             ))
         }
-    };
-
-    Ok(SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((
-        SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 { instances, fee },
-        public_key.into(),
-    ))))
+    })
 }
 
 /// Converts [AvailableJobMessage] instance to the specification suitable for Mina snark worker.

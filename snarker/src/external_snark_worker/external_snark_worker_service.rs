@@ -1,5 +1,6 @@
 use std::ffi::OsStr;
 
+use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -17,7 +18,12 @@ pub enum ExternalSnarkWorkerEvent {
 
 pub trait ExternalSnarkWorkerService {
     /// Starts external process.
-    fn start<P: AsRef<OsStr>>(&mut self, path: P) -> Result<(), ExternalSnarkWorkerError>;
+    fn start<P: AsRef<OsStr>>(
+        &mut self,
+        path: P,
+        public_key: NonZeroCurvePoint,
+        fee: CurrencyFeeStableV1,
+    ) -> Result<(), ExternalSnarkWorkerError>;
 
     /// Submits snark work
     fn submit(&mut self, spec: SnarkWorkSpec) -> Result<(), ExternalSnarkWorkerError>;

@@ -8,7 +8,9 @@ use std::time::Duration;
 
 use binprot::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQuery,
+    CurrencyFeeStableV1, NonZeroCurvePoint, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
+    SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0,
+    SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQuery,
     UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 use rand::prelude::*;
@@ -581,8 +583,8 @@ impl From<SnarkerError> for ExternalSnarkWorkerEvent {
     }
 }
 
-async fn write_snark_work_spec<W: AsyncWrite + Unpin>(
-    spec: SnarkWorkSpec,
+async fn write_snark_work_spec<T: BinProtWrite, W: AsyncWrite + Unpin>(
+    spec: T,
     mut w: W,
 ) -> Result<(), SnarkerError> {
     let mut buf = Vec::new();
@@ -610,17 +612,19 @@ async fn read_snark_work_result<R: AsyncRead + Unpin>(
 }
 
 struct ExternalSnarkWorkerSender {
-    data: mpsc::Sender<SnarkWorkSpec>,
-    kill: oneshot::Sender<()>,
+    data_chan: mpsc::Sender<SnarkWorkSpec>,
+    kill_chan: oneshot::Sender<()>,
 }
 
 impl ExternalSnarkWorkerSender {
     fn start<P: AsRef<OsStr>>(
         path: P,
+        public_key: NonZeroCurvePoint,
+        fee: CurrencyFeeStableV1,
         event_sender: mpsc::UnboundedSender<Event>,
     ) -> Result<Self, SnarkerError> {
-        let (data, mut data_rx) = mpsc::channel(1);
-        let (kill, kill_rx) = oneshot::channel();
+        let (data_chan, mut data_rx) = mpsc::channel(1);
+        let (kill_chan, kill_rx) = oneshot::channel();
 
         let mut cmd = Command::new(path);
 
@@ -656,6 +660,14 @@ impl ExternalSnarkWorkerSender {
                             let Some(spec) = data_rx.recv().await else {
                                 return;
                             };
+                            let spec = SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((
+                                SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 {
+                                    instances: spec,
+                                    fee: fee.clone(),
+                                },
+                                public_key.clone(),
+                            )));
+
                             if let Err(err) = write_snark_work_spec(spec, &mut child_stdin).await {
                                 let _ = event_sender_clone.send(ExternalSnarkWorkerEvent::Error(SnarkerError::from(err).into()).into());
                                 return;
@@ -686,15 +698,20 @@ impl ExternalSnarkWorkerSender {
                 });
             })?;
 
-        Ok(ExternalSnarkWorkerSender { data, kill })
+        Ok(ExternalSnarkWorkerSender {
+            data_chan,
+            kill_chan,
+        })
     }
 
     fn submit(&mut self, spec: SnarkWorkSpec) -> Result<(), SnarkerError> {
-        self.data.try_send(spec).map_err(|_| SnarkerError::Busy)
+        self.data_chan
+            .try_send(spec)
+            .map_err(|_| SnarkerError::Busy)
     }
 
     fn kill(self) -> Result<(), SnarkerError> {
-        self.kill
+        self.kill_chan
             .send(())
             .map_err(|_| SnarkerError::Broken("already sent kill".into()))
     }
@@ -704,8 +721,11 @@ impl ExternalSnarkWorkerService for SnarkerService {
     fn start<P: AsRef<OsStr>>(
         &mut self,
         path: P,
+        public_key: NonZeroCurvePoint,
+        fee: CurrencyFeeStableV1,
     ) -> Result<(), snarker::external_snark_worker::ExternalSnarkWorkerError> {
-        let cmd_sender = ExternalSnarkWorkerSender::start(path, self.event_sender.clone())?;
+        let cmd_sender =
+            ExternalSnarkWorkerSender::start(path, public_key, fee, self.event_sender.clone())?;
         self.snark_worker_sender = Some(cmd_sender);
         Ok(())
     }
@@ -735,10 +755,11 @@ mod external_snark_worker_tests {
     use std::{env, ffi::OsString, path::Path};
 
     use binprot::BinProtRead;
-    use snarker::{
-        event_source::Event,
-        external_snark_worker::{ExternalSnarkWorkerEvent, SnarkWorkSpec},
+    use mina_p2p_messages::v2::{
+        CurrencyFeeStableV1, NonZeroCurvePoint, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
+        SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0,
     };
+    use snarker::{event_source::Event, external_snark_worker::ExternalSnarkWorkerEvent};
     use tokio::sync::mpsc;
 
     use crate::commands::snarker::ExternalSnarkWorkerSender;
@@ -767,7 +788,17 @@ mod external_snark_worker_tests {
     #[tokio::test]
     async fn test_kill() {
         let (event_tx, mut event_rx) = mpsc::unbounded_channel();
-        let cmd_sender = ExternalSnarkWorkerSender::start(mina_exe_path(), event_tx).unwrap();
+        let cmd_sender = ExternalSnarkWorkerSender::start(
+            mina_exe_path(),
+            NonZeroCurvePoint::default(),
+            CurrencyFeeStableV1(
+                mina_p2p_messages::v2::UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+                    10_i64.into(),
+                ),
+            ),
+            event_tx,
+        )
+        .unwrap();
 
         expect_event!(event_rx, ExternalSnarkWorkerEvent::Started);
 
@@ -779,14 +810,22 @@ mod external_snark_worker_tests {
     async fn test_work() {
         const DATA: &[u8] = include_bytes!("../../../tests/files/snark_spec/spec1.bin");
         let mut r = DATA;
-        let data = SnarkWorkSpec::binprot_read(&mut r).unwrap();
+        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((
+            SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 { instances, fee },
+            public_key,
+        ))) = SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse::binprot_read(&mut r)
+            .expect("cannot read work spec")
+        else {
+            unreachable!("incorrect work spec");
+        };
 
         let (event_tx, mut event_rx) = mpsc::unbounded_channel();
-        let mut cmd_sender = ExternalSnarkWorkerSender::start(mina_exe_path(), event_tx).unwrap();
+        let mut cmd_sender =
+            ExternalSnarkWorkerSender::start(mina_exe_path(), public_key, fee, event_tx).unwrap();
 
         expect_event!(event_rx, ExternalSnarkWorkerEvent::Started);
 
-        cmd_sender.submit(data).unwrap();
+        cmd_sender.submit(instances).unwrap();
         expect_event!(event_rx, ExternalSnarkWorkerEvent::WorkResult(_));
 
         cmd_sender.kill().expect("cannot kill worker");
