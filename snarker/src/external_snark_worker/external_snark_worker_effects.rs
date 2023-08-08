@@ -7,7 +7,8 @@ use crate::{
 
 use super::{
     available_job_to_snark_worker_spec, ExternalSnarkWorkerAction,
-    ExternalSnarkWorkerActionWithMeta, ExternalSnarkWorkerWorkErrorAction,
+    ExternalSnarkWorkerActionWithMeta, ExternalSnarkWorkerErrorAction,
+    ExternalSnarkWorkerWorkErrorAction,
 };
 
 pub fn external_snark_worker_effects<S: crate::Service>(
@@ -73,6 +74,15 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             store.dispatch(ExternalSnarkWorkerPruneWorkAction {});
         }
         ExternalSnarkWorkerAction::WorkError(_) => {
+            store.dispatch(ExternalSnarkWorkerPruneWorkAction {});
+        }
+        ExternalSnarkWorkerAction::CancelWork(_) => {
+            if let Err(err) = store.service().cancel() {
+                store.dispatch(ExternalSnarkWorkerErrorAction { error: err.into() });
+                return;
+            }
+        }
+        ExternalSnarkWorkerAction::WorkCancelled(_) => {
             store.dispatch(ExternalSnarkWorkerPruneWorkAction {});
         }
         ExternalSnarkWorkerAction::PruneWork(_) => {
