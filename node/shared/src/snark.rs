@@ -14,7 +14,7 @@ use crate::snark_job_id::SnarkJobId;
 
 #[derive(BinProtRead, BinProtWrite, Serialize, Deserialize, Debug, Clone)]
 pub struct Snark {
-    pub prover: NonZeroCurvePoint,
+    pub snarker: NonZeroCurvePoint,
     pub fee: CurrencyFeeStableV1,
     pub proofs: Arc<TransactionSnarkWorkTStableV2Proofs>,
 }
@@ -35,7 +35,7 @@ impl Snark {
         SnarkInfo {
             job_id: self.job_id(),
             fee: self.fee.clone(),
-            prover: self.prover.clone(),
+            prover: self.snarker.clone(),
         }
     }
 
@@ -71,7 +71,7 @@ impl Snark {
 impl From<NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1> for Snark {
     fn from(value: NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1) -> Self {
         Self {
-            prover: value.fee.prover,
+            snarker: value.fee.prover,
             fee: value.fee.fee,
             proofs: value.proof.into(),
         }
@@ -84,7 +84,7 @@ impl From<&Snark> for NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1 {
             proof: (*value.proofs).clone(),
             fee: MinaBaseFeeWithProverStableV1 {
                 fee: value.fee.clone(),
-                prover: value.prover.clone(),
+                prover: value.snarker.clone(),
             },
         }
     }

@@ -144,7 +144,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     id: job.id.clone(),
                     commitment: job.commitment.clone(),
                     snark: job.snark.as_ref().map(|snark| RpcSnarkPoolJobSnarkWork {
-                        prover: snark.work.prover.clone(),
+                        snarker: snark.work.snarker.clone(),
                         fee: snark.work.fee.clone(),
                         received_t: snark.received_t,
                         sender: snark.sender,
@@ -162,7 +162,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                         job: job.job.clone(),
                         commitment: job.commitment.clone(),
                         snark: job.snark.as_ref().map(|snark| RpcSnarkPoolJobSnarkWork {
-                            prover: snark.work.prover.clone(),
+                            snarker: snark.work.snarker.clone(),
                             fee: snark.work.fee.clone(),
                             received_t: snark.received_t,
                             sender: snark.sender,

@@ -63,10 +63,10 @@ pub fn external_snark_worker_effects<S: crate::Service>(
         }
         ExternalSnarkWorkerAction::WorkResult(action) => {
             let config = &store.state().config;
-            let prover = config.public_key.clone().into();
+            let snarker = config.public_key.clone().into();
             let fee = config.fee.clone();
             let snark = Snark {
-                prover,
+                snarker,
                 fee,
                 proofs: action.result.clone(),
             };

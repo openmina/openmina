@@ -88,7 +88,7 @@ pub struct RpcSnarkPoolJobFull {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct RpcSnarkPoolJobSnarkWork {
-    pub prover: NonZeroCurvePoint,
+    pub snarker: NonZeroCurvePoint,
     pub fee: CurrencyFeeStableV1,
     pub received_t: Timestamp,
     pub sender: PeerId,
