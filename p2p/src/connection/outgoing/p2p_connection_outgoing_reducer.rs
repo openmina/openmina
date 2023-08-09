@@ -147,6 +147,7 @@ impl P2pConnectionOutgoingState {
                     };
                 }
             }
+            P2pConnectionOutgoingAction::Timeout(_) => {}
             P2pConnectionOutgoingAction::Error(action) => {
                 let rpc_id = self.rpc_id();
                 *self = Self::Error {

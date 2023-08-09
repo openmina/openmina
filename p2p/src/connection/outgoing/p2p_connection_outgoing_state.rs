@@ -1,3 +1,6 @@
+use std::time::Duration;
+
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use shared::requests::RpcId;
@@ -9,67 +12,67 @@ use super::P2pConnectionOutgoingInitOpts;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pConnectionOutgoingState {
     Init {
-        time: redux::Timestamp,
+        time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
     },
     OfferSdpCreatePending {
-        time: redux::Timestamp,
+        time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
     },
     OfferSdpCreateSuccess {
-        time: redux::Timestamp,
+        time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         sdp: String,
         rpc_id: Option<RpcId>,
     },
     OfferReady {
-        time: redux::Timestamp,
+        time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: webrtc::Offer,
         rpc_id: Option<RpcId>,
     },
     OfferSendSuccess {
-        time: redux::Timestamp,
+        time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: webrtc::Offer,
         rpc_id: Option<RpcId>,
     },
     AnswerRecvPending {
-        time: redux::Timestamp,
+        time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: webrtc::Offer,
         rpc_id: Option<RpcId>,
     },
     AnswerRecvSuccess {
-        time: redux::Timestamp,
+        time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: webrtc::Offer,
         answer: webrtc::Answer,
         rpc_id: Option<RpcId>,
     },
     FinalizePending {
-        time: redux::Timestamp,
+        time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: Option<webrtc::Offer>,
         answer: Option<webrtc::Answer>,
         rpc_id: Option<RpcId>,
     },
     FinalizeSuccess {
-        time: redux::Timestamp,
+        time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: Option<webrtc::Offer>,
         answer: Option<webrtc::Answer>,
         rpc_id: Option<RpcId>,
     },
     Error {
-        time: redux::Timestamp,
+        time: Timestamp,
         error: P2pConnectionOutgoingError,
         rpc_id: Option<RpcId>,
     },
     Success {
-        time: redux::Timestamp,
+        time: Timestamp,
         offer: Option<webrtc::Offer>,
         answer: Option<webrtc::Answer>,
         rpc_id: Option<RpcId>,
@@ -77,6 +80,22 @@ pub enum P2pConnectionOutgoingState {
 }
 
 impl P2pConnectionOutgoingState {
+    pub fn time(&self) -> Timestamp {
+        match self {
+            Self::Init { time, .. } => *time,
+            Self::OfferSdpCreatePending { time, .. } => *time,
+            Self::OfferSdpCreateSuccess { time, .. } => *time,
+            Self::OfferReady { time, .. } => *time,
+            Self::OfferSendSuccess { time, .. } => *time,
+            Self::AnswerRecvPending { time, .. } => *time,
+            Self::AnswerRecvSuccess { time, .. } => *time,
+            Self::FinalizePending { time, .. } => *time,
+            Self::FinalizeSuccess { time, .. } => *time,
+            Self::Error { time, .. } => *time,
+            Self::Success { time, .. } => *time,
+        }
+    }
+
     pub fn rpc_id(&self) -> Option<RpcId> {
         match self {
             Self::Init { rpc_id, .. } => *rpc_id,
@@ -92,6 +111,11 @@ impl P2pConnectionOutgoingState {
             Self::Success { rpc_id, .. } => *rpc_id,
         }
     }
+
+    pub fn is_timed_out(&self, now: Timestamp) -> bool {
+        now.checked_sub(now)
+            .map_or(false, |dur| dur >= Duration::from_secs(30))
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -100,4 +124,5 @@ pub enum P2pConnectionOutgoingError {
     Rejected(RejectionReason),
     RemoteInternalError,
     FinalizeError(String),
+    Timeout,
 }

@@ -27,6 +27,7 @@ pub enum P2pConnectionOutgoingAction {
     FinalizePending(P2pConnectionOutgoingFinalizePendingAction),
     FinalizeError(P2pConnectionOutgoingFinalizeErrorAction),
     FinalizeSuccess(P2pConnectionOutgoingFinalizeSuccessAction),
+    Timeout(P2pConnectionOutgoingTimeoutAction),
     Error(P2pConnectionOutgoingErrorAction),
     Success(P2pConnectionOutgoingSuccessAction),
 }
@@ -48,6 +49,7 @@ impl P2pConnectionOutgoingAction {
             Self::FinalizePending(v) => Some(&v.peer_id),
             Self::FinalizeError(v) => Some(&v.peer_id),
             Self::FinalizeSuccess(v) => Some(&v.peer_id),
+            Self::Timeout(v) => Some(&v.peer_id),
             Self::Error(v) => Some(&v.peer_id),
             Self::Success(v) => Some(&v.peer_id),
         }
@@ -330,6 +332,21 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingFinalizeSuccess
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionOutgoingTimeoutAction {
+    pub peer_id: PeerId,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingTimeoutAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state
+            .peers
+            .get(&self.peer_id)
+            .and_then(|peer| peer.status.as_connecting()?.as_outgoing())
+            .is_some()
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pConnectionOutgoingErrorAction {
     pub peer_id: PeerId,
     pub error: P2pConnectionOutgoingError,
@@ -354,6 +371,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingErrorAction {
                     P2pConnectionOutgoingError::FinalizeError(_) => {
                         matches!(s, P2pConnectionOutgoingState::FinalizePending { .. })
                     }
+                    P2pConnectionOutgoingError::Timeout => true,
                 },
                 _ => false,
             })
@@ -467,6 +485,12 @@ impl From<P2pConnectionOutgoingFinalizeErrorAction> for crate::P2pAction {
 
 impl From<P2pConnectionOutgoingFinalizeSuccessAction> for crate::P2pAction {
     fn from(a: P2pConnectionOutgoingFinalizeSuccessAction) -> Self {
+        Self::Connection(P2pConnectionAction::Outgoing(a.into()))
+    }
+}
+
+impl From<P2pConnectionOutgoingTimeoutAction> for crate::P2pAction {
+    fn from(a: P2pConnectionOutgoingTimeoutAction) -> Self {
         Self::Connection(P2pConnectionAction::Outgoing(a.into()))
     }
 }

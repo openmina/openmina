@@ -5,8 +5,10 @@ use crate::logger::logger_effects;
 use crate::p2p::channels::rpc::{
     P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
 };
+use crate::p2p::connection::incoming::P2pConnectionIncomingTimeoutAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
+    P2pConnectionOutgoingTimeoutAction,
 };
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
@@ -29,6 +31,28 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
     logger_effects(store, meta.clone().with_action(&action));
     match action {
         Action::CheckTimeouts(_) => {
+            let now = store.state().time();
+            let p2p_connection_timeouts: Vec<_> = store
+                .state()
+                .p2p
+                .peers
+                .iter()
+                .filter_map(|(peer_id, peer)| {
+                    let s = peer.status.as_connecting()?;
+                    match s.is_timed_out(now) {
+                        true => Some((*peer_id, s.as_outgoing().is_some())),
+                        false => None,
+                    }
+                })
+                .collect();
+
+            for (peer_id, is_outgoing) in p2p_connection_timeouts {
+                match is_outgoing {
+                    true => store.dispatch(P2pConnectionOutgoingTimeoutAction { peer_id }),
+                    false => store.dispatch(P2pConnectionIncomingTimeoutAction { peer_id }),
+                };
+            }
+
             store.dispatch(P2pConnectionOutgoingRandomInitAction {});
 
             let reconnect_actions: Vec<_> = store

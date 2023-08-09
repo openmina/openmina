@@ -16,6 +16,7 @@ use super::{
     P2pConnectionOutgoingOfferSdpCreateSuccessAction, P2pConnectionOutgoingOfferSendSuccessAction,
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
     P2pConnectionOutgoingState, P2pConnectionOutgoingSuccessAction,
+    P2pConnectionOutgoingTimeoutAction,
 };
 
 impl P2pConnectionOutgoingRandomInitAction {
@@ -201,6 +202,20 @@ impl P2pConnectionOutgoingFinalizeSuccessAction {
     {
         store.dispatch(P2pConnectionOutgoingSuccessAction {
             peer_id: self.peer_id,
+        });
+    }
+}
+
+impl P2pConnectionOutgoingTimeoutAction {
+    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    where
+        Store: crate::P2pStore<S>,
+        Store::Service: P2pConnectionService,
+        P2pConnectionOutgoingErrorAction: redux::EnablingCondition<S>,
+    {
+        store.dispatch(P2pConnectionOutgoingErrorAction {
+            peer_id: self.peer_id,
+            error: P2pConnectionOutgoingError::Timeout,
         });
     }
 }

@@ -59,6 +59,7 @@ impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingAnswerRecvSu
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingFinalizePendingAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingFinalizeErrorAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingFinalizeSuccessAction);
+impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingTimeoutAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingErrorAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingSuccessAction);
 
@@ -71,6 +72,9 @@ impl_into_global_action!(connection::incoming::P2pConnectionIncomingAnswerSendSu
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingFinalizePendingAction);
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingFinalizeErrorAction);
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingFinalizeSuccessAction);
+impl_into_global_action!(connection::incoming::P2pConnectionIncomingTimeoutAction);
+impl_into_global_action!(connection::incoming::P2pConnectionIncomingErrorAction);
+impl_into_global_action!(connection::incoming::P2pConnectionIncomingSuccessAction);
 
 impl_into_global_action!(disconnection::P2pDisconnectionInitAction);
 impl_into_global_action!(disconnection::P2pDisconnectionFinishAction);
