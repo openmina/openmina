@@ -11,15 +11,17 @@ use crate::{Action, ActionWithMetaRef, Service, Store};
 
 pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
+    let kind = action.kind();
 
     match action {
         Action::P2p(action) => match action {
             P2pAction::Connection(action) => match action {
                 P2pConnectionAction::Outgoing(action) => match action {
+                    P2pConnectionOutgoingAction::RandomInit(_) => {}
                     P2pConnectionOutgoingAction::Init(action) => {
                         shared::log::info!(
                             meta.time();
-                            kind = "PeerConnectionOutgoingInit",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.opts.peer_id()),
                             peer_id = action.opts.peer_id().to_string(),
                             transport = action.opts.kind(),
@@ -28,16 +30,97 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pConnectionOutgoingAction::Reconnect(action) => {
                         shared::log::info!(
                             meta.time();
-                            kind = "PeerReconnect",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.opts.peer_id()),
                             peer_id = action.opts.peer_id().to_string(),
                             transport = action.opts.kind(),
                         );
                     }
+                    P2pConnectionOutgoingAction::OfferSdpCreatePending(_) => {}
+                    P2pConnectionOutgoingAction::OfferSdpCreateError(action) => {
+                        shared::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string(),
+                            error = action.error.clone(),
+                        );
+                    }
+                    P2pConnectionOutgoingAction::OfferSdpCreateSuccess(action) => {
+                        shared::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string(),
+                            sdp = action.sdp.clone(),
+                        );
+                    }
+                    P2pConnectionOutgoingAction::OfferReady(action) => {
+                        shared::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string(),
+                            offer = serde_json::to_string(&action.offer).ok()
+                        );
+                    }
+                    P2pConnectionOutgoingAction::OfferSendSuccess(action) => {
+                        shared::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string(),
+                        );
+                    }
+                    P2pConnectionOutgoingAction::AnswerRecvPending(_) => {}
+                    P2pConnectionOutgoingAction::AnswerRecvError(action) => {
+                        shared::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string(),
+                            error = format!("{:?}", action.error),
+                        );
+                    }
+                    P2pConnectionOutgoingAction::AnswerRecvSuccess(action) => {
+                        shared::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string(),
+                            answer = serde_json::to_string(&action.answer).ok()
+                        );
+                    }
+                    P2pConnectionOutgoingAction::FinalizePending(_) => {}
+                    P2pConnectionOutgoingAction::FinalizeError(action) => {
+                        shared::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string(),
+                            error = action.error.clone(),
+                        );
+                    }
+                    P2pConnectionOutgoingAction::FinalizeSuccess(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string()
+                        );
+                    }
+                    P2pConnectionOutgoingAction::Timeout(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string()
+                        );
+                    }
                     P2pConnectionOutgoingAction::Error(action) => {
                         shared::log::info!(
                             meta.time();
-                            kind = "PeerConnectionOutgoingError",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string(),
                             error = format!("{:?}", action.error),
@@ -46,27 +129,88 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pConnectionOutgoingAction::Success(action) => {
                         shared::log::info!(
                             meta.time();
-                            kind = "PeerConnectionOutgoingSuccess",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string()
                         );
                     }
-                    _ => {}
                 },
                 P2pConnectionAction::Incoming(action) => match action {
                     P2pConnectionIncomingAction::Init(action) => {
                         shared::log::info!(
                             meta.time();
-                            kind = "PeerConnectionIncomingInit",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.opts.peer_id),
                             peer_id = action.opts.peer_id.to_string(),
                             signaling = format!("{:?}", action.opts.signaling),
                         );
                     }
+                    P2pConnectionIncomingAction::AnswerSdpCreatePending(_) => {}
+                    P2pConnectionIncomingAction::AnswerSdpCreateError(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string(),
+                            error = format!("{:?}", action.error),
+                        );
+                    }
+                    P2pConnectionIncomingAction::AnswerSdpCreateSuccess(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string(),
+                            sdp = action.sdp.clone(),
+                        );
+                    }
+                    P2pConnectionIncomingAction::AnswerReady(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string(),
+                            answer = serde_json::to_string(&action.answer).ok()
+                        );
+                    }
+                    P2pConnectionIncomingAction::AnswerSendSuccess(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string()
+                        );
+                    }
+                    P2pConnectionIncomingAction::FinalizePending(_) => {}
+                    P2pConnectionIncomingAction::FinalizeError(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string(),
+                            error = format!("{:?}", action.error),
+                        );
+                    }
+                    P2pConnectionIncomingAction::FinalizeSuccess(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string()
+                        );
+                    }
+                    P2pConnectionIncomingAction::Timeout(action) => {
+                        shared::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string()
+                        );
+                    }
                     P2pConnectionIncomingAction::Error(action) => {
                         shared::log::info!(
                             meta.time();
-                            kind = "PeerConnectionIncomingError",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string(),
                             error = format!("{:?}", action.error),
@@ -75,12 +219,11 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pConnectionIncomingAction::Success(action) => {
                         shared::log::info!(
                             meta.time();
-                            kind = "PeerConnectionOutgoingSuccess",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string()
                         );
                     }
-                    _ => {}
                 },
             },
             P2pAction::Disconnection(action) => match action {
@@ -92,7 +235,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pChannelsBestTipAction::Init(action) => {
                         shared::log::debug!(
                             meta.time();
-                            kind = "PeerChannelsBestTipInit",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string()
                         );
@@ -100,7 +243,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pChannelsBestTipAction::Ready(action) => {
                         shared::log::debug!(
                             meta.time();
-                            kind = "PeerChannelsBestTipReady",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string()
                         );
@@ -111,7 +254,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pChannelsSnarkAction::Init(action) => {
                         shared::log::debug!(
                             meta.time();
-                            kind = "PeerChannelsSnarkInit",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string()
                         );
@@ -119,7 +262,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pChannelsSnarkAction::Ready(action) => {
                         shared::log::debug!(
                             meta.time();
-                            kind = "PeerChannelsSnarkReady",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string()
                         );
@@ -130,7 +273,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pChannelsSnarkJobCommitmentAction::Init(action) => {
                         shared::log::debug!(
                             meta.time();
-                            kind = "PeerChannelsSnarkJobCommitmentInit",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string()
                         );
@@ -138,7 +281,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pChannelsSnarkJobCommitmentAction::Ready(action) => {
                         shared::log::debug!(
                             meta.time();
-                            kind = "PeerChannelsSnarkJobCommitmentReady",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string()
                         );
@@ -149,7 +292,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pChannelsRpcAction::Init(action) => {
                         shared::log::debug!(
                             meta.time();
-                            kind = "PeerChannelsRpcInit",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string()
                         );
@@ -157,7 +300,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pChannelsRpcAction::Ready(action) => {
                         shared::log::debug!(
                             meta.time();
-                            kind = "PeerChannelsRpcReady",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string()
                         );
@@ -165,7 +308,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pChannelsRpcAction::RequestSend(action) => {
                         shared::log::info!(
                             meta.time();
-                            kind = "P2pRpcOutgoingInit",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}, rpc_id: {}, kind: {:?}", action.peer_id, action.id, action.request.kind()),
                             peer_id = action.peer_id.to_string(),
                             rpc_id = action.id.to_string(),
@@ -175,7 +318,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     P2pChannelsRpcAction::ResponseReceived(action) => {
                         shared::log::info!(
                             meta.time();
-                            kind = "P2pRpcOutgoingReceived",
+                            kind = kind.to_string(),
                             summary = format!("peer_id: {}, rpc_id: {}", action.peer_id, action.id),
                             peer_id = action.peer_id.to_string(),
                             rpc_id = action.id.to_string(),
