@@ -2199,7 +2199,18 @@ impl ScanState {
     fn check_required_protocol_states(&self, _protocol_states: ()) {
         todo!() // Not sure what is the type of `protocol_states` here
     }
+
+    /// Iterates on the scan state by tree
+    /// And for each tree we iterate on all its values (from root to leaves)
+    pub fn view(&self) -> impl Iterator<Item = impl Iterator<Item = JobValue<'_>>> {
+        self.scan_state.trees.iter().map(|tree| tree.view())
+    }
 }
+
+pub type JobValue<'a> = super::parallel_scan::Value<
+    &'a base::Job<TransactionWithWitness>,
+    &'a merge::Job<LedgerProofWithSokMessage>,
+>;
 
 pub fn group_list<'a, F, T, R>(slice: &'a [T], fun: F) -> impl Iterator<Item = OneOrTwo<R>> + '_
 where
@@ -2394,4 +2405,56 @@ impl TransactionsOrdered<TransactionWithWitness> {
 #[derive(Clone, Debug)]
 pub enum Pass {
     FirstPassLedgerHash(Fp),
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::scan_state::parallel_scan::Value;
+
+    use super::*;
+
+    #[test]
+    #[allow(unused_variables)]
+    fn test_view() {
+        let scan_state = ScanState::create(10, 10);
+
+        let trees = scan_state.view();
+
+        for tree in trees {
+            for value in tree {
+                match value {
+                    Value::Leaf(base) => {
+                        match base {
+                            base::Job::Empty => {
+                                // TODO
+                            }
+                            base::Job::Full(record) => {
+                                let base::Record { job, seq_no, state } = record;
+                                // TODO
+                            }
+                        }
+                    }
+                    Value::Node(merge) => {
+                        match merge {
+                            merge::Job::Empty => {
+                                // TODO
+                            }
+                            merge::Job::Part(merge_job) => {
+                                // TODO
+                            }
+                            merge::Job::Full(record) => {
+                                let merge::Record {
+                                    left,
+                                    right,
+                                    seq_no,
+                                    state,
+                                } = record;
+                                // TODO
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

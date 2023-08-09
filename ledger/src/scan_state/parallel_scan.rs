@@ -393,7 +393,7 @@ impl<T: Debug> WithVTable<T> for T {
 }
 
 #[derive(Clone, Debug)]
-pub(super) enum Value<B, M> {
+pub enum Value<B, M> {
     Leaf(B),
     Node(M),
 }
@@ -779,6 +779,15 @@ where
             .iter()
             .enumerate()
             .map(|(index, value)| (btree::depth_at(index), value))
+    }
+}
+
+impl<B, M> Tree<base::Base<B>, merge::Merge<M>> {
+    pub fn view(&self) -> impl Iterator<Item = Value<&base::Job<B>, &merge::Job<M>>> + '_ {
+        self.values.iter().map(|value| match value {
+            Value::Leaf(base) => Value::Leaf(&base.job),
+            Value::Node(merge) => Value::Node(&merge.job),
+        })
     }
 }
 
