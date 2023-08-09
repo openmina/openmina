@@ -89,6 +89,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 P2pConnectionOutgoingAction::FinalizeSuccess(action) => {
                     action.effects(&meta, store);
                 }
+                P2pConnectionOutgoingAction::Timeout(action) => {
+                    action.effects(&meta, store);
+                }
                 P2pConnectionOutgoingAction::Error(action) => {
                     let p2p = &store.state().p2p;
                     if let Some(rpc_id) = p2p.peer_connection_rpc_id(&action.peer_id) {
@@ -139,6 +142,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     action.effects(&meta, store);
                 }
                 P2pConnectionIncomingAction::FinalizeSuccess(action) => {
+                    action.effects(&meta, store);
+                }
+                P2pConnectionIncomingAction::Timeout(action) => {
                     action.effects(&meta, store);
                 }
                 P2pConnectionIncomingAction::Error(action) => {

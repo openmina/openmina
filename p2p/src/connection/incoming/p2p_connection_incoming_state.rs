@@ -1,3 +1,6 @@
+use std::time::Duration;
+
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use shared::requests::RpcId;
@@ -70,6 +73,20 @@ pub enum P2pConnectionIncomingState {
 }
 
 impl P2pConnectionIncomingState {
+    pub fn time(&self) -> Timestamp {
+        match self {
+            Self::Init { time, .. } => *time,
+            Self::AnswerSdpCreatePending { time, .. } => *time,
+            Self::AnswerSdpCreateSuccess { time, .. } => *time,
+            Self::AnswerReady { time, .. } => *time,
+            Self::AnswerSendSuccess { time, .. } => *time,
+            Self::FinalizePending { time, .. } => *time,
+            Self::FinalizeSuccess { time, .. } => *time,
+            Self::Error { time, .. } => *time,
+            Self::Success { time, .. } => *time,
+        }
+    }
+
     pub fn rpc_id(&self) -> Option<RpcId> {
         match self {
             Self::Init { rpc_id, .. } => *rpc_id,
@@ -83,10 +100,16 @@ impl P2pConnectionIncomingState {
             Self::Success { rpc_id, .. } => *rpc_id,
         }
     }
+
+    pub fn is_timed_out(&self, now: Timestamp) -> bool {
+        now.checked_sub(now)
+            .map_or(false, |dur| dur >= Duration::from_secs(30))
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pConnectionIncomingError {
     SdpCreateError(String),
     FinalizeError(String),
+    Timeout,
 }

@@ -54,7 +54,7 @@ use crate::p2p::connection::incoming::{
     P2pConnectionIncomingAnswerSendSuccessAction, P2pConnectionIncomingErrorAction,
     P2pConnectionIncomingFinalizeErrorAction, P2pConnectionIncomingFinalizePendingAction,
     P2pConnectionIncomingFinalizeSuccessAction, P2pConnectionIncomingInitAction,
-    P2pConnectionIncomingSuccessAction,
+    P2pConnectionIncomingSuccessAction, P2pConnectionIncomingTimeoutAction,
 };
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingAction, P2pConnectionOutgoingAnswerRecvErrorAction,
@@ -66,7 +66,7 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingOfferSdpCreatePendingAction,
     P2pConnectionOutgoingOfferSdpCreateSuccessAction, P2pConnectionOutgoingOfferSendSuccessAction,
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
-    P2pConnectionOutgoingSuccessAction,
+    P2pConnectionOutgoingSuccessAction, P2pConnectionOutgoingTimeoutAction,
 };
 use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::{
@@ -229,6 +229,7 @@ pub enum ActionKind {
     P2pConnectionIncomingFinalizeSuccess,
     P2pConnectionIncomingInit,
     P2pConnectionIncomingSuccess,
+    P2pConnectionIncomingTimeout,
     P2pConnectionOutgoingAnswerRecvError,
     P2pConnectionOutgoingAnswerRecvPending,
     P2pConnectionOutgoingAnswerRecvSuccess,
@@ -245,6 +246,7 @@ pub enum ActionKind {
     P2pConnectionOutgoingRandomInit,
     P2pConnectionOutgoingReconnect,
     P2pConnectionOutgoingSuccess,
+    P2pConnectionOutgoingTimeout,
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
     P2pPeerBestTipUpdate,
@@ -337,7 +339,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 173;
+    pub const COUNT: usize = 175;
 }
 
 impl ActionKindGet for Action {
@@ -944,6 +946,7 @@ impl ActionKindGet for P2pConnectionOutgoingAction {
             Self::FinalizePending(a) => a.kind(),
             Self::FinalizeError(a) => a.kind(),
             Self::FinalizeSuccess(a) => a.kind(),
+            Self::Timeout(a) => a.kind(),
             Self::Error(a) => a.kind(),
             Self::Success(a) => a.kind(),
         }
@@ -962,6 +965,7 @@ impl ActionKindGet for P2pConnectionIncomingAction {
             Self::FinalizePending(a) => a.kind(),
             Self::FinalizeError(a) => a.kind(),
             Self::FinalizeSuccess(a) => a.kind(),
+            Self::Timeout(a) => a.kind(),
             Self::Error(a) => a.kind(),
             Self::Success(a) => a.kind(),
         }
@@ -1280,6 +1284,12 @@ impl ActionKindGet for P2pConnectionOutgoingFinalizeSuccessAction {
     }
 }
 
+impl ActionKindGet for P2pConnectionOutgoingTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionOutgoingTimeout
+    }
+}
+
 impl ActionKindGet for P2pConnectionOutgoingErrorAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pConnectionOutgoingError
@@ -1343,6 +1353,12 @@ impl ActionKindGet for P2pConnectionIncomingFinalizeErrorAction {
 impl ActionKindGet for P2pConnectionIncomingFinalizeSuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pConnectionIncomingFinalizeSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionIncomingTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionIncomingTimeout
     }
 }
 

@@ -1,3 +1,4 @@
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use shared::requests::RpcId;
 
@@ -13,7 +14,7 @@ pub enum P2pConnectionState {
 impl P2pConnectionState {
     pub fn outgoing_init(opts: &P2pConnectionOutgoingInitOpts) -> Self {
         Self::Outgoing(P2pConnectionOutgoingState::Init {
-            time: redux::Timestamp::ZERO,
+            time: Timestamp::ZERO,
             opts: opts.clone(),
             rpc_id: None,
         })
@@ -21,17 +22,38 @@ impl P2pConnectionState {
 
     pub fn incoming_init(opts: &P2pConnectionIncomingInitOpts) -> Self {
         Self::Incoming(P2pConnectionIncomingState::Init {
-            time: redux::Timestamp::ZERO,
+            time: Timestamp::ZERO,
             signaling: opts.signaling.clone(),
             offer: opts.offer.clone(),
             rpc_id: None,
         })
     }
 
+    pub fn as_outgoing(&self) -> Option<&P2pConnectionOutgoingState> {
+        match self {
+            Self::Outgoing(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn as_incoming(&self) -> Option<&P2pConnectionIncomingState> {
+        match self {
+            Self::Incoming(v) => Some(v),
+            _ => None,
+        }
+    }
+
     pub fn rpc_id(&self) -> Option<RpcId> {
         match self {
             Self::Outgoing(v) => v.rpc_id(),
             Self::Incoming(v) => v.rpc_id(),
+        }
+    }
+
+    pub fn is_timed_out(&self, now: Timestamp) -> bool {
+        match self {
+            Self::Outgoing(v) => v.is_timed_out(now),
+            Self::Incoming(v) => v.is_timed_out(now),
         }
     }
 

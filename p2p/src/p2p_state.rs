@@ -173,6 +173,13 @@ impl P2pPeerStatus {
         }
     }
 
+    pub fn as_connecting(&self) -> Option<&P2pConnectionState> {
+        match self {
+            Self::Connecting(v) => Some(v),
+            _ => None,
+        }
+    }
+
     pub fn as_ready(&self) -> Option<&P2pPeerStatusReady> {
         match self {
             Self::Ready(v) => Some(v),
