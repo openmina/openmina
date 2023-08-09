@@ -169,8 +169,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             "impl ActionKind {{\n    pub const COUNT: usize = {};\n}}",
             action_kinds.len()
         );
+        let impl_display = format!(
+            "impl std::fmt::Display for ActionKind {{{}{}{}{}",
+            "\n    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {",
+            "\n        write!(f, \"{self:?}\")",
+            "\n    }",
+            "}",
+        );
         let action_kinds = action_kinds.join(",\n    ");
-        format!("{der}\n{repr}\npub enum ActionKind {{\n    {action_kinds}\n}}\n\n{impl_}")
+        format!("{der}\n{repr}\npub enum ActionKind {{\n    {action_kinds}\n}}\n\n{impl_}\n\n{impl_display}")
     };
 
     let action_kind_get_impls = {

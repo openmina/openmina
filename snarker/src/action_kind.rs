@@ -342,6 +342,12 @@ impl ActionKind {
     pub const COUNT: usize = 175;
 }
 
+impl std::fmt::Display for ActionKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
 impl ActionKindGet for Action {
     fn kind(&self) -> ActionKind {
         match self {
