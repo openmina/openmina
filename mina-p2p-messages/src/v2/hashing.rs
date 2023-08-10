@@ -125,6 +125,22 @@ impl<'de> serde::Deserialize<'de> for TransactionHash {
     }
 }
 
+impl generated::MinaTransactionTransactionStableV2 {
+    pub fn hash(&self) -> io::Result<TransactionHash> {
+        match self {
+            Self::Command(v) => v.hash(),
+            Self::FeeTransfer(_) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "fee transfer tx hashing is not yet supported",
+            )),
+            Self::Coinbase(_) => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "coinbase tx hashing is not yet supported",
+            )),
+        }
+    }
+}
+
 impl generated::MinaBaseUserCommandStableV2 {
     pub fn hash(&self) -> io::Result<TransactionHash> {
         match self {
