@@ -10,6 +10,8 @@ use sha2::digest::typenum::U32;
 use sha2::{Digest, Sha256};
 use ControlFlow::{Break, Continue};
 
+use super::scan_state::transaction_snark::{LedgerProofWithSokMessage, TransactionWithWitness};
+
 /// Sequence number for jobs in the scan state that corresponds to the order in
 /// which they were added
 #[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -60,6 +62,10 @@ pub enum JobStatus {
 }
 
 impl JobStatus {
+    pub fn is_done(&self) -> bool {
+        matches!(self, Self::Done)
+    }
+
     fn as_str(&self) -> &'static str {
         match self {
             JobStatus::Todo => "Todo",
@@ -782,12 +788,60 @@ where
     }
 }
 
-impl<B, M> Tree<base::Base<B>, merge::Merge<M>> {
-    pub fn view(&self) -> impl Iterator<Item = Value<&base::Job<B>, &merge::Job<M>>> + '_ {
-        self.values.iter().map(|value| match value {
-            Value::Leaf(base) => Value::Leaf(&base.job),
-            Value::Node(merge) => Value::Node(&merge.job),
-        })
+impl Tree<base::Base<TransactionWithWitness>, merge::Merge<LedgerProofWithSokMessage>> {
+    pub fn view(&self) -> impl Iterator<Item = JobValueWithIndex<'_>> {
+        self.values
+            .iter()
+            .enumerate()
+            .map(|(index, value)| JobValueWithIndex {
+                index,
+                job: match value {
+                    Value::Leaf(base) => Value::Leaf(&base.job),
+                    Value::Node(merge) => Value::Node(&merge.job),
+                },
+            })
+    }
+}
+
+pub type JobValue<'a> = super::parallel_scan::Value<
+    &'a base::Job<TransactionWithWitness>,
+    &'a merge::Job<LedgerProofWithSokMessage>,
+>;
+
+pub struct JobValueWithIndex<'a> {
+    index: usize,
+    pub job: JobValue<'a>,
+}
+
+impl<'a> JobValueWithIndex<'a> {
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    pub fn depth(&self) -> usize {
+        btree::depth_at(self.index) as usize
+    }
+
+    pub fn parent(&self) -> Option<usize> {
+        btree::parent(self.index)
+    }
+
+    pub fn child_left(&self) -> usize {
+        btree::child_left(self.index)
+    }
+
+    pub fn child_right(&self) -> usize {
+        btree::child_right(self.index)
+    }
+
+    /// Returns sibling index and if the sibling is on the left.
+    pub fn bundle_sibling(&self) -> Option<(usize, bool)> {
+        let parent = self.parent()?;
+        let try_sibling =
+            |parent, index| btree::parent(index).filter(|p| *p == parent).map(|_| index);
+        try_sibling(parent, self.index - 1)
+            .map(|i| (i, true))
+            .or_else(|| try_sibling(parent, self.index + 1).map(|i| (i, false)))
     }
 }
 

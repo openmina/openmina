@@ -1,7 +1,7 @@
 use ark_ff::Zero;
 use itertools::{FoldWhile, Itertools};
 use mina_hasher::{create_kimchi, Fp};
-use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
+use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2};
 use mina_signer::CompressedPubKey;
 
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
@@ -3608,6 +3608,16 @@ impl Transaction {
             .into_iter()
             .map(|(id, _status)| id)
             .collect()
+    }
+}
+
+impl From<&Transaction> for MinaTransactionTransactionStableV2 {
+    fn from(value: &Transaction) -> Self {
+        match value {
+            Transaction::Command(v) => Self::Command(Box::new(v.into())),
+            Transaction::FeeTransfer(v) => Self::FeeTransfer(v.into()),
+            Transaction::Coinbase(v) => Self::Coinbase(v.into()),
+        }
     }
 }
 

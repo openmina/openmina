@@ -55,7 +55,9 @@ use super::{
 };
 // use super::parallel_scan::AvailableJob;
 
-pub use super::parallel_scan::SpacePartition;
+pub use super::parallel_scan::base::Job as JobValueBase;
+pub use super::parallel_scan::merge::Job as JobValueMerge;
+pub use super::parallel_scan::{JobValue, JobValueWithIndex, SpacePartition};
 
 // type LedgerProof = LedgerProofProdStableV2;
 // type LedgerProofWithSokMessage = TransactionSnarkScanStateLedgerProofWithSokMessageStableV2;
@@ -2202,15 +2204,10 @@ impl ScanState {
 
     /// Iterates on the scan state by tree
     /// And for each tree we iterate on all its values (from root to leaves)
-    pub fn view(&self) -> impl Iterator<Item = impl Iterator<Item = JobValue<'_>>> {
+    pub fn view(&self) -> impl Iterator<Item = impl Iterator<Item = JobValueWithIndex<'_>>> {
         self.scan_state.trees.iter().map(|tree| tree.view())
     }
 }
-
-pub type JobValue<'a> = super::parallel_scan::Value<
-    &'a base::Job<TransactionWithWitness>,
-    &'a merge::Job<LedgerProofWithSokMessage>,
->;
 
 pub fn group_list<'a, F, T, R>(slice: &'a [T], fun: F) -> impl Iterator<Item = OneOrTwo<R>> + '_
 where
