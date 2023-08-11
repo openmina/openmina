@@ -116,12 +116,17 @@ impl SnarkPoolState {
     }
 
     pub fn is_commitment_timed_out_by_index(&self, index: &u64, time_now: Timestamp) -> bool {
-        self.list
-            .get(index)
-            .and_then(|v| v.commitment.as_ref())
-            .map(|v| v.commitment.timestamp())
-            .and_then(|commitment_time| time_now.checked_sub(commitment_time))
-            .map_or(false, |dur| dur >= self.config.commitment_timeout)
+        let Some(job) = self.list.get(index) else { return false };
+        let Some(commitment) = job.commitment.as_ref() else { return false };
+
+        let passed_time = time_now.checked_sub(commitment.commitment.timestamp());
+        let is_timed_out = passed_time.map_or(false, |dur| dur >= self.config.commitment_timeout);
+        let didnt_deliver = job.snark.as_ref().map_or(true, |snark| {
+            snark.work.fee.as_u64() > commitment.commitment.fee.as_u64()
+        });
+
+        is_timed_out && didnt_deliver
+        // TODO(binier): maybe check tie-breaker as well?
     }
 
     pub fn timed_out_commitments_iter(
