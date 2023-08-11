@@ -6,7 +6,10 @@ use std::{
 use ledger::{
     scan_state::{
         currency::{Amount, Fee, Slot},
-        scan_state::{AvailableJobMessage, ConstraintConstants},
+        scan_state::{
+            AvailableJobMessage, ConstraintConstants, JobValueBase, JobValueMerge,
+            JobValueWithIndex,
+        },
         transaction_logic::{local_state::LocalState, protocol_state::protocol_state_view},
     },
     staged_ledger::{
@@ -19,19 +22,26 @@ use ledger::{
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
     DataHashLibStateHashStableV1, LedgerHash, MinaBaseAccountBinableArgStableV2,
-    MinaBaseLedgerHash0StableV1, MinaBaseStagedLedgerHashStableV1,
+    MinaBaseLedgerHash0StableV1, MinaBaseSokMessageStableV1, MinaBaseStagedLedgerHashStableV1,
     MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
-    MinaStateProtocolStateValueStableV2, StateHash,
+    MinaStateBlockchainStateValueStableV2LedgerProofStatement, MinaStateProtocolStateValueStableV2,
+    MinaTransactionTransactionStableV2, StateHash,
 };
 use mina_signer::CompressedPubKey;
-use shared::block::ArcBlockWithHash;
+use shared::{block::ArcBlockWithHash, snark_job_id::SnarkJobId};
 
-use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
 use crate::transition_frontier::sync::ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
 use crate::transition_frontier::TransitionFrontierService;
 use crate::{
     p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
+};
+use crate::{
+    rpc::{
+        RpcLedgerService, RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryScanStateJob,
+        RpcScanStateSummaryScanStateJobKind, RpcSnarkPoolJobSnarkWorkDone,
+    },
+    transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService,
 };
 
 use super::{ledger_empty_hash_at_depth, LedgerAddress, LEDGER_DEPTH};
@@ -382,6 +392,142 @@ impl<T: LedgerService> TransitionFrontierService for T {
             }
             .into(),
         )
+    }
+}
+
+impl<T: LedgerService> RpcLedgerService for T {
+    fn scan_state_summary(
+        &self,
+        staged_ledger_hash: LedgerHash,
+    ) -> Vec<Vec<RpcScanStateSummaryScanStateJob>> {
+        use ledger::scan_state::scan_state::JobValue;
+
+        let ledger = self.ctx().staged_ledgers.get(&staged_ledger_hash);
+        let Some(ledger) = ledger else { return vec![] };
+        ledger
+            .scan_state()
+            .view()
+            .map(|jobs| {
+                let jobs = jobs.collect::<Vec<JobValueWithIndex<'_>>>();
+                let mut iter = jobs.iter().peekable();
+                let mut res = Vec::with_capacity(jobs.len());
+
+                loop {
+                    let Some(job) = iter.next() else { break };
+
+                    let (stmt, seq_no, job_kind, is_done) = match &job.job {
+                        JobValue::Leaf(JobValueBase::Empty)
+                        | JobValue::Node(JobValueMerge::Empty)
+                        | JobValue::Node(JobValueMerge::Part(_)) => {
+                            res.push(RpcScanStateSummaryScanStateJob::Empty);
+                            continue;
+                        }
+                        JobValue::Leaf(JobValueBase::Full(job)) => {
+                            let stmt = &job.job.statement;
+                            let tx = job.job.transaction_with_info.transaction();
+                            let status = (&tx.status).into();
+                            let tx = MinaTransactionTransactionStableV2::from(&tx.data);
+                            let kind = RpcScanStateSummaryScanStateJobKind::Base(
+                                RpcScanStateSummaryBlockTransaction {
+                                    hash: tx.hash().ok(),
+                                    kind: (&tx).into(),
+                                    status,
+                                },
+                            );
+                            let seq_no = job.seq_no.as_u64();
+                            (stmt.clone(), seq_no, kind, job.state.is_done())
+                        }
+                        JobValue::Node(JobValueMerge::Full(job)) => {
+                            let stmt = job
+                                .left
+                                .proof
+                                .statement()
+                                .merge(&job.right.proof.statement())
+                                .unwrap();
+                            let kind = RpcScanStateSummaryScanStateJobKind::Merge;
+                            let seq_no = job.seq_no.as_u64();
+                            (stmt, seq_no, kind, job.state.is_done())
+                        }
+                    };
+                    let stmt: MinaStateBlockchainStateValueStableV2LedgerProofStatement =
+                        (&stmt).into();
+                    let job_id: SnarkJobId = (&stmt.source, &stmt.target).into();
+
+                    let bundle =
+                        job.bundle_sibling()
+                            .and_then(|(sibling_index, is_sibling_left)| {
+                                let sibling_job = jobs.get(sibling_index)?;
+                                let sibling_stmt: MinaStateBlockchainStateValueStableV2LedgerProofStatement = match &sibling_job.job {
+                                    JobValue::Leaf(JobValueBase::Full(job)) => {
+                                        (&job.job.statement).into()
+                                    }
+                                    JobValue::Node(JobValueMerge::Full(job)) => (&job
+                                        .left
+                                        .proof
+                                        .statement()
+                                        .merge(&job.right.proof.statement())
+                                        .unwrap()).into(),
+                                    _ => return None,
+                                };
+                                let bundle_job_id: SnarkJobId = match is_sibling_left {
+                                    false => (&stmt.source, &sibling_stmt.target).into(),
+                                    true => (&sibling_stmt.source, &stmt.target).into(),
+                                };
+                                Some((bundle_job_id, is_sibling_left))
+                            });
+
+                    let bundle_job_id = bundle
+                        .as_ref()
+                        .map_or_else(|| job_id.clone(), |(id, _)| id.clone());
+
+                    res.push(if is_done {
+                        let is_left =
+                            bundle.map_or_else(|| true, |(_, is_sibling_left)| !is_sibling_left);
+                        let sok_message: MinaBaseSokMessageStableV1 = job
+                            .parent()
+                            .and_then(|parent| {
+                                let job = jobs.get(parent)?;
+                                let sok_message = match &job.job {
+                                    JobValue::Node(JobValueMerge::Part(job)) if is_left => {
+                                        (&job.sok_message).into()
+                                    }
+                                    JobValue::Node(JobValueMerge::Full(job)) => {
+                                        if is_left {
+                                            (&job.left.sok_message).into()
+                                        } else {
+                                            (&job.right.sok_message).into()
+                                        }
+                                    }
+                                    state => panic!(
+                                        "parent of a `Done` job can't be in this state: {:?}",
+                                        state
+                                    ),
+                                };
+                                Some(sok_message)
+                            })
+                            .unwrap();
+                        RpcScanStateSummaryScanStateJob::Done {
+                            job_id,
+                            bundle_job_id,
+                            job: job_kind,
+                            seq_no,
+                            snark: RpcSnarkPoolJobSnarkWorkDone {
+                                snarker: sok_message.prover,
+                                fee: sok_message.fee,
+                            },
+                        }
+                    } else {
+                        RpcScanStateSummaryScanStateJob::Todo {
+                            job_id,
+                            bundle_job_id,
+                            job: job_kind,
+                            seq_no,
+                        }
+                    })
+                }
+                res
+            })
+            .collect()
     }
 }
 

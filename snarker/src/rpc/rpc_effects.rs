@@ -1,4 +1,6 @@
-use mina_p2p_messages::v2::UnsignedExtendedUInt64Int64ForVersionTagsStableV1;
+use mina_p2p_messages::v2::{
+    MinaBaseTransactionStatusStableV2, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+};
 
 use crate::external_snark_worker::available_job_to_snark_worker_spec;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitAction;
@@ -11,8 +13,10 @@ use super::{
     ActionStatsQuery, ActionStatsResponse, RpcAction, RpcActionWithMeta, RpcFinishAction,
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingPendingAction,
     RpcP2pConnectionIncomingRespondAction, RpcP2pConnectionOutgoingPendingAction,
-    RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary,
-    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+    RpcScanStateSummary, RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
+    RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryGetQuery,
+    RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
+    RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
 };
 
 pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) {
@@ -133,6 +137,93 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             store.dispatch(RpcFinishAction {
                 rpc_id: action.rpc_id,
             });
+        }
+        RpcAction::ScanStateSummaryGet(action) => {
+            let state = store.state.get();
+            let transition_frontier = &state.transition_frontier;
+            let snark_pool = &state.snark_pool;
+
+            let service = &store.service;
+            let res = None.or_else(|| {
+                let block = match action.query {
+                    RpcScanStateSummaryGetQuery::ForBestTip => transition_frontier.best_tip(),
+                    RpcScanStateSummaryGetQuery::ForBlockWithHash(hash) => transition_frontier
+                        .best_chain
+                        .iter()
+                        .rev()
+                        .find(|b| b.hash == hash),
+                    RpcScanStateSummaryGetQuery::ForBlockWithHeight(height) => transition_frontier
+                        .best_chain
+                        .iter()
+                        .rev()
+                        .find(|b| b.height() == height),
+                }?;
+                let coinbases =
+                    block
+                        .coinbases_iter()
+                        .map(|_| RpcScanStateSummaryBlockTransaction {
+                            hash: None,
+                            kind: RpcScanStateSummaryBlockTransactionKind::Coinbase,
+                            status: MinaBaseTransactionStatusStableV2::Applied,
+                        });
+                let block_summary = RpcScanStateSummaryBlock {
+                    hash: block.hash().clone(),
+                    height: block.height(),
+                    global_slot: block.global_slot(),
+                    transactions: block
+                        .commands_iter()
+                        .map(|tx| RpcScanStateSummaryBlockTransaction {
+                            hash: tx.data.hash().ok(),
+                            kind: (&tx.data).into(),
+                            status: tx.status.clone(),
+                        })
+                        .chain(coinbases)
+                        .collect(),
+                    completed_works: block
+                        .completed_works_iter()
+                        .map(|work| (&work.proofs).into())
+                        .collect(),
+                };
+
+                let mut scan_state = service.scan_state_summary(block.staged_ledger_hash().clone());
+                scan_state.iter_mut().flatten().for_each(|job| match job {
+                    RpcScanStateSummaryScanStateJob::Todo {
+                        job_id,
+                        bundle_job_id,
+                        job: kind,
+                        seq_no,
+                    } => {
+                        let Some(data) = snark_pool.get(bundle_job_id) else { return };
+                        let commitment = data.commitment.clone();
+                        let snark = data.snark.as_ref().map(|snark| RpcSnarkPoolJobSnarkWork {
+                            snarker: snark.work.snarker.clone(),
+                            fee: snark.work.fee.clone(),
+                            received_t: snark.received_t,
+                            sender: snark.sender,
+                        });
+
+                        if commitment.is_none() && snark.is_none() {
+                            return;
+                        }
+                        *job = RpcScanStateSummaryScanStateJob::Pending {
+                            job_id: job_id.clone(),
+                            bundle_job_id: bundle_job_id.clone(),
+                            job: kind.clone(),
+                            seq_no: *seq_no,
+                            commitment,
+                            snark,
+                        };
+                    }
+                    _ => {}
+                });
+                Some(RpcScanStateSummary {
+                    block: block_summary,
+                    scan_state,
+                })
+            });
+            let _ = store
+                .service
+                .respond_scan_state_summary_get(action.rpc_id, res);
         }
         RpcAction::SnarkPoolAvailableJobsGet(action) => {
             let resp = store

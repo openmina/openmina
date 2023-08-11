@@ -1,6 +1,14 @@
 use std::sync::Arc;
 
-use mina_p2p_messages::v2::{LedgerHash, MinaBaseStagedLedgerHashStableV1};
+use mina_p2p_messages::v2::{
+    LedgerHash, MinaBaseStagedLedgerHashStableV1, StagedLedgerDiffDiffFtStableV1,
+    StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase,
+};
+use mina_p2p_messages::v2::{
+    StagedLedgerDiffDiffDiffStableV2,
+    StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase,
+    StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B, TransactionSnarkWorkTStableV2,
+};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
@@ -70,6 +78,58 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
     pub fn root_block_height(&self) -> u32 {
         let k = self.header().protocol_state.body.constants.k.as_u32();
         self.height().saturating_sub(k).max(1)
+    }
+
+    pub fn staged_ledger_diff(&self) -> &StagedLedgerDiffDiffDiffStableV2 {
+        &self.block.as_ref().body.staged_ledger_diff.diff
+    }
+
+    pub fn commands_iter(
+        &self,
+    ) -> impl Iterator<Item = &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B> {
+        let diff = self.staged_ledger_diff();
+        diff.0.commands.iter().chain(match &diff.1.as_ref() {
+            None => &[],
+            Some(v) => &v.commands[..],
+        })
+    }
+
+    pub fn coinbases_iter(&self) -> impl Iterator<Item = &StagedLedgerDiffDiffFtStableV1> {
+        let diff = self.staged_ledger_diff();
+        let mut coinbases = Vec::with_capacity(4);
+        match &diff.0.coinbase {
+            StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::Zero => {}
+            StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::One(v) => {
+                coinbases.push(v.as_ref());
+            }
+            StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::Two(v) => {
+                match v.as_ref() {
+                    None => {}
+                    Some((v1, v2)) => {
+                        coinbases.push(Some(v1));
+                        coinbases.push(v2.as_ref());
+                    }
+                }
+            }
+        }
+        match diff.1.as_ref() {
+            Some(v) => match &v.coinbase {
+                StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::Zero => {}
+                StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::One(v) => {
+                    coinbases.push(v.as_ref());
+                }
+            },
+            _ => {}
+        }
+        coinbases.into_iter().filter_map(|v| v)
+    }
+
+    pub fn completed_works_iter(&self) -> impl Iterator<Item = &TransactionSnarkWorkTStableV2> {
+        let diff = self.staged_ledger_diff();
+        diff.0.completed_works.iter().chain(match &diff.1.as_ref() {
+            None => &[],
+            Some(v) => &v.completed_works[..],
+        })
     }
 }
 

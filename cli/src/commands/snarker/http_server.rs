@@ -19,8 +19,8 @@ use snarker::{
         webrtc, PeerId,
     },
     rpc::{
-        ActionStatsQuery, RpcRequest, RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse,
-        SyncStatsQuery,
+        ActionStatsQuery, RpcRequest, RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse,
+        RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse, SyncStatsQuery,
     },
 };
 
@@ -147,6 +147,51 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
 
         action_stats.or(sync_stats)
     };
+
+    let rpc_sender_clone = rpc_sender.clone();
+    let scan_state_summary_get = warp::path!("scan-state" / "summary" / ..)
+        .and(warp::get())
+        .and(
+            warp::path::param::<String>()
+                .map(Some)
+                .or_else(|_| async { Ok::<(Option<String>,), std::convert::Infallible>((None,)) }),
+        )
+        .and(warp::path::end())
+        .then(move |query: Option<String>| {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+            let query = match query {
+                None => Ok(RpcScanStateSummaryGetQuery::ForBestTip),
+                Some(query) => None
+                    .or_else(|| {
+                        Some(RpcScanStateSummaryGetQuery::ForBlockWithHeight(
+                            query.parse().ok()?,
+                        ))
+                    })
+                    .ok_or(())
+                    .or_else(|_| match query.parse() {
+                        Err(_) => Err("invalid arg! Expected block hash or height"),
+                        Ok(v) => Ok(RpcScanStateSummaryGetQuery::ForBlockWithHash(v)),
+                    }),
+            };
+            async move {
+                let query = match query {
+                    Ok(v) => v,
+                    Err(err) => {
+                        return with_json_reply(&err, StatusCode::BAD_REQUEST);
+                    }
+                };
+                let res: Option<RpcScanStateSummaryGetResponse> = rpc_sender_clone
+                    .oneshot_request(RpcRequest::ScanStateSummaryGet(query))
+                    .await;
+                match res {
+                    None => with_json_reply(
+                        &"response channel dropped",
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                    ),
+                    Some(resp) => with_json_reply(&resp, StatusCode::OK),
+                }
+            }
+        });
 
     let rpc_sender_clone = rpc_sender.clone();
     let snark_pool_jobs_get = warp::path!("snark-pool" / "jobs")
@@ -302,6 +347,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     let routes = signaling
         .or(state_get)
         .or(stats)
+        .or(scan_state_summary_get)
         .or(snark_pool_jobs_get)
         .or(snark_pool_job_get)
         .or(snarker_config)

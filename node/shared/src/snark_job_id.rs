@@ -2,7 +2,10 @@ use std::str::FromStr;
 
 use binprot_derive::{BinProtRead, BinProtWrite};
 use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
-use mina_p2p_messages::v2::{LedgerHash, TransactionSnarkWorkTStableV2Proofs};
+use mina_p2p_messages::v2::{
+    LedgerHash, MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
+    TransactionSnarkWorkTStableV2Proofs,
+};
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
 pub type SnarkJobId = LedgerHashTransition;
@@ -117,16 +120,7 @@ impl From<&OneOrTwo<AvailableJobMessage>> for SnarkJobId {
             AvailableJobMessage::Merge { right, .. } => &right.0 .0.statement.target,
         };
 
-        let source = LedgerHashTransitionPasses {
-            first_pass_ledger: source.first_pass_ledger.clone(),
-            second_pass_ledger: source.second_pass_ledger.clone(),
-        };
-        let target = LedgerHashTransitionPasses {
-            first_pass_ledger: target.first_pass_ledger.clone(),
-            second_pass_ledger: target.second_pass_ledger.clone(),
-        };
-
-        LedgerHashTransition { source, target }
+        (source, target).into()
     }
 }
 
@@ -137,9 +131,22 @@ impl From<&TransactionSnarkWorkTStableV2Proofs> for SnarkJobId {
             TransactionSnarkWorkTStableV2Proofs::Two((j1, j2)) => (j1, j2),
         };
 
-        let source = &first.0.statement.source;
-        let target = &second.0.statement.target;
+        (&first.0.statement.source, &second.0.statement.target).into()
+    }
+}
 
+impl
+    From<(
+        &MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
+        &MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
+    )> for SnarkJobId
+{
+    fn from(
+        (source, target): (
+            &MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
+            &MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
+        ),
+    ) -> Self {
         let source = LedgerHashTransitionPasses {
             first_pass_ledger: source.first_pass_ledger.clone(),
             second_pass_ledger: source.second_pass_ledger.clone(),

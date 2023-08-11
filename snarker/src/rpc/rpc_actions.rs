@@ -6,7 +6,7 @@ use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
 use crate::p2p::connection::P2pConnectionResponse;
 
-use super::{ActionStatsQuery, RpcId, SyncStatsQuery};
+use super::{ActionStatsQuery, RpcId, RpcScanStateSummaryGetQuery, SyncStatsQuery};
 
 pub type RpcActionWithMeta = redux::ActionWithMeta<RpcAction>;
 pub type RpcActionWithMetaRef<'a> = redux::ActionWithMeta<&'a RpcAction>;
@@ -29,6 +29,8 @@ pub enum RpcAction {
     P2pConnectionIncomingRespond(RpcP2pConnectionIncomingRespondAction),
     P2pConnectionIncomingError(RpcP2pConnectionIncomingErrorAction),
     P2pConnectionIncomingSuccess(RpcP2pConnectionIncomingSuccessAction),
+
+    ScanStateSummaryGet(RpcScanStateSummaryGetAction),
 
     SnarkPoolAvailableJobsGet(RpcSnarkPoolAvailableJobsGetAction),
     SnarkPoolJobGet(RpcSnarkPoolJobGetAction),
@@ -198,6 +200,14 @@ impl redux::EnablingCondition<crate::State> for RpcP2pConnectionIncomingSuccessA
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcScanStateSummaryGetAction {
+    pub rpc_id: RpcId,
+    pub query: RpcScanStateSummaryGetQuery,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcScanStateSummaryGetAction {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcSnarkPoolAvailableJobsGetAction {
     pub rpc_id: RpcId,
 }
@@ -274,6 +284,8 @@ impl_into_global_action!(
     RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingErrorAction,
     RpcP2pConnectionIncomingSuccessAction,
+
+    RpcScanStateSummaryGetAction,
 
     RpcSnarkPoolAvailableJobsGetAction,
     RpcSnarkPoolJobGetAction,

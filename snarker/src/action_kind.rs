@@ -80,9 +80,10 @@ use crate::rpc::{
     RpcP2pConnectionIncomingPendingAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
-    RpcP2pConnectionOutgoingSuccessAction, RpcSnarkPoolAvailableJobsGetAction,
-    RpcSnarkPoolJobGetAction, RpcSnarkerConfigGetAction, RpcSnarkerJobCommitAction,
-    RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction, RpcSyncStatsGetAction,
+    RpcP2pConnectionOutgoingSuccessAction, RpcScanStateSummaryGetAction,
+    RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction, RpcSnarkerConfigGetAction,
+    RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction,
+    RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{
     SnarkBlockVerifyAction, SnarkBlockVerifyErrorAction, SnarkBlockVerifyFinishAction,
@@ -263,6 +264,7 @@ pub enum ActionKind {
     RpcP2pConnectionOutgoingInit,
     RpcP2pConnectionOutgoingPending,
     RpcP2pConnectionOutgoingSuccess,
+    RpcScanStateSummaryGet,
     RpcSnarkPoolAvailableJobsGet,
     RpcSnarkPoolJobGet,
     RpcSnarkerConfigGet,
@@ -339,7 +341,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 175;
+    pub const COUNT: usize = 176;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -456,6 +458,7 @@ impl ActionKindGet for RpcAction {
             Self::P2pConnectionIncomingRespond(a) => a.kind(),
             Self::P2pConnectionIncomingError(a) => a.kind(),
             Self::P2pConnectionIncomingSuccess(a) => a.kind(),
+            Self::ScanStateSummaryGet(a) => a.kind(),
             Self::SnarkPoolAvailableJobsGet(a) => a.kind(),
             Self::SnarkPoolJobGet(a) => a.kind(),
             Self::SnarkerConfigGet(a) => a.kind(),
@@ -776,6 +779,12 @@ impl ActionKindGet for RpcP2pConnectionIncomingErrorAction {
 impl ActionKindGet for RpcP2pConnectionIncomingSuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::RpcP2pConnectionIncomingSuccess
+    }
+}
+
+impl ActionKindGet for RpcScanStateSummaryGetAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::RpcScanStateSummaryGet
     }
 }
 
