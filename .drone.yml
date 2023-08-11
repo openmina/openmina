@@ -6,6 +6,7 @@ trigger:
   branch:
   - master
   - feat/standalone_snark_worker
+  - test/snark-work
 
 steps:
   - name: replay
