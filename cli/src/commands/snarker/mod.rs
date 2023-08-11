@@ -328,7 +328,7 @@ struct SnarkerService {
     libp2p: Libp2pService,
     rpc: rpc::RpcService,
     stats: Stats,
-    snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerSender>,
+    snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerFacade>,
 }
 
 impl snarker::ledger::LedgerService for SnarkerService {
