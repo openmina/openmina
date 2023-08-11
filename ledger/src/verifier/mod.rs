@@ -30,7 +30,7 @@ static VERIFIER_INDEX: Lazy<Arc<VerifierIndex>> = Lazy::new(|| {
 });
 
 // TODO: Move this into `Verifier` struct above
-static SRS: Lazy<Arc<VerifierSRS>> =
+pub static SRS: Lazy<Arc<VerifierSRS>> =
     Lazy::new(|| std::sync::Arc::new(crate::proofs::accumulator_check::get_srs()));
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/transaction_snark/transaction_snark.ml#L3492

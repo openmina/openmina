@@ -5868,7 +5868,7 @@ mod tests {
             staged_ledger::{tests_ocaml::CONSTRAINT_CONSTANTS, StagedLedger},
             validate_block::validate_block,
         },
-        verifier::Verifier,
+        verifier::{Verifier, SRS},
         Account, BaseLedger, Database, Mask,
     };
     use binprot::BinProtRead;
@@ -6015,6 +6015,8 @@ mod tests {
 
         dbg!(staged_ledger.ledger.nmasks_to_root());
 
+        let srs = SRS.as_ref();
+
         for (index, block) in blocks.into_iter().enumerate() {
             validate_block(&block).unwrap();
 
@@ -6035,7 +6037,7 @@ mod tests {
                 .global_slot_since_genesis
                 .as_u32();
 
-            crate::proofs::verification::verify_block(&block.header, &block_verifier);
+            crate::proofs::verification::verify_block(&block.header, &block_verifier, srs);
 
             let diff: Diff = (&block.body.staged_ledger_diff).into();
 

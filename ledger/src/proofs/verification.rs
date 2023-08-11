@@ -438,7 +438,11 @@ struct VK<'a> {
     data: (), // Unused in proof verification
 }
 
-pub fn verify_block(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierIndex) -> bool {
+pub fn verify_block(
+    header: &MinaBlockHeaderStableV2,
+    verifier_index: &VerifierIndex,
+    srs: &VerifierSRS,
+) -> bool {
     let MinaBlockHeaderStableV2 {
         protocol_state,
         protocol_state_proof,
@@ -451,7 +455,9 @@ pub fn verify_block(header: &MinaBlockHeaderStableV2, verifier_index: &VerifierI
         data: (),
     };
 
-    verify_impl(protocol_state, protocol_state_proof, &vk)
+    let accum_check = accumulator_check::accumulator_check(srs, protocol_state_proof);
+    let verified = verify_impl(protocol_state, protocol_state_proof, &vk);
+    accum_check && verified
 }
 
 pub fn verify_transaction<'a>(
