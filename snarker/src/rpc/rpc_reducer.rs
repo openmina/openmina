@@ -54,6 +54,7 @@ impl RpcState {
                 let Some(rpc) = self.requests.get_mut(&content.rpc_id) else { return };
                 rpc.status = RpcRequestStatus::Success { time: meta.time() };
             }
+            RpcAction::ScanStateSummaryGet(_) => {}
             RpcAction::SnarkPoolAvailableJobsGet(_) => {}
             RpcAction::SnarkPoolJobGet(_) => {}
             RpcAction::SnarkerConfigGet(_) => {}

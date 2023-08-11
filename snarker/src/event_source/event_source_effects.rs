@@ -27,9 +27,10 @@ use crate::p2p::disconnection::P2pDisconnectionFinishAction;
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcP2pConnectionIncomingInitAction,
-    RpcP2pConnectionOutgoingInitAction, RpcRequest, RpcSnarkPoolAvailableJobsGetAction,
-    RpcSnarkPoolJobGetAction, RpcSnarkerConfigGetAction, RpcSnarkerJobCommitAction,
-    RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction, RpcSyncStatsGetAction,
+    RpcP2pConnectionOutgoingInitAction, RpcRequest, RpcScanStateSummaryGetAction,
+    RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction, RpcSnarkerConfigGetAction,
+    RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction,
+    RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
 use crate::snark::SnarkEvent;
@@ -200,6 +201,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         rpc_id,
                         opts: opts.clone(),
                     });
+                }
+                RpcRequest::ScanStateSummaryGet(query) => {
+                    store.dispatch(RpcScanStateSummaryGetAction { rpc_id, query });
                 }
                 RpcRequest::SnarkPoolGet => {
                     store.dispatch(RpcSnarkPoolAvailableJobsGetAction { rpc_id });

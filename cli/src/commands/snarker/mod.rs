@@ -130,6 +130,7 @@ impl Snarker {
 
         if let Err(ref e) = rayon::ThreadPoolBuilder::new()
             .num_threads(num_cpus::get().max(2) - 1)
+            .thread_name(|i| format!("openmina_rayon_{i}"))
             .build_global()
         {
             shared::log::error!(shared::log::system_time();
@@ -406,7 +407,11 @@ impl SnarkBlockVerifyService for SnarkerService {
                     &header.protocol_state_proof,
                 ) {
                     Err(SnarkBlockVerifyError::AccumulatorCheckFailed)
-                } else if !ledger::proofs::verification::verify_block(header, &verifier_index) {
+                } else if !ledger::proofs::verification::verify_block(
+                    header,
+                    &verifier_index,
+                    &verifier_srs,
+                ) {
                     Err(SnarkBlockVerifyError::VerificationFailed)
                 } else {
                     Ok(())

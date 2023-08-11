@@ -1,3 +1,4 @@
+use mina_p2p_messages::v2::LedgerHash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -5,7 +6,8 @@ use crate::p2p::connection::P2pConnectionResponse;
 use crate::State;
 
 use super::{
-    RpcActionStatsGetResponse, RpcId, RpcP2pConnectionOutgoingResponse, RpcSnarkPoolGetResponse,
+    RpcActionStatsGetResponse, RpcId, RpcP2pConnectionOutgoingResponse,
+    RpcScanStateSummaryGetResponse, RpcScanStateSummaryScanStateJob, RpcSnarkPoolGetResponse,
     RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
     RpcSnarkerWorkersResponse, RpcSyncStatsGetResponse,
 };
@@ -20,7 +22,14 @@ pub enum RespondError {
     RespondingFailed,
 }
 
-pub trait RpcService: redux::Service {
+pub trait RpcLedgerService: redux::Service {
+    fn scan_state_summary(
+        &self,
+        staged_ledger_hash: LedgerHash,
+    ) -> Vec<Vec<RpcScanStateSummaryScanStateJob>>;
+}
+
+pub trait RpcService: RpcLedgerService {
     fn respond_state_get(&mut self, rpc_id: RpcId, response: &State) -> Result<(), RespondError>;
     fn respond_action_stats_get(
         &mut self,
@@ -46,6 +55,11 @@ pub trait RpcService: redux::Service {
         &mut self,
         rpc_id: RpcId,
         response: Result<(), String>,
+    ) -> Result<(), RespondError>;
+    fn respond_scan_state_summary_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcScanStateSummaryGetResponse,
     ) -> Result<(), RespondError>;
     fn respond_snark_pool_get(
         &mut self,
