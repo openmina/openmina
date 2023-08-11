@@ -124,6 +124,7 @@ pub struct DiffResult {
     pending_coinbase_update: (bool, Update),
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum SkipVerification {
     All,
     Proofs,
@@ -1216,6 +1217,7 @@ impl StagedLedger {
         ledger: Mask,
         verifier: &Verifier,
         cs: Vec<WithStatus<UserCommand>>,
+        skip_verification: Option<SkipVerification>,
     ) -> Result<Vec<valid::UserCommand>, VerifierError> {
         use scan_state::transaction_logic::zkapp_command::last::Last;
 
@@ -1226,7 +1228,7 @@ impl StagedLedger {
             .unwrap(); // TODO: No unwrap
 
         verifier
-            .verify_commands(cs)
+            .verify_commands(cs, skip_verification)
             .into_iter()
             .map(|x| {
                 use crate::verifier::VerifyCommandsResult::*;
@@ -1277,7 +1279,7 @@ impl StagedLedger {
         eprintln!("verification time={:?}", now.elapsed());
 
         let prediff = witness.get(
-            |cmd| Self::check_commands(self.ledger.clone(), verifier, cmd),
+            |cmd| Self::check_commands(self.ledger.clone(), verifier, cmd, skip_verification),
             constraint_constants,
             coinbase_receiver,
             supercharge_coinbase,

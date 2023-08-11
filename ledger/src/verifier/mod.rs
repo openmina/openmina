@@ -8,6 +8,7 @@ use crate::{
         },
         transaction_logic::{valid, verifiable, zkapp_statement::ZkappStatement, WithStatus},
     },
+    staged_ledger::staged_ledger::SkipVerification,
     VerificationKey,
 };
 
@@ -132,6 +133,7 @@ impl Verifier {
     pub fn verify_commands(
         &self,
         cmds: Vec<WithStatus<verifiable::UserCommand>>,
+        skip_verification: Option<SkipVerification>,
     ) -> Vec<VerifyCommandsResult> {
         let cs: Vec<_> = cmds.into_iter().map(common::check).collect();
 
@@ -144,12 +146,16 @@ impl Verifier {
             })
             .flatten();
 
-        let srs = SRS.as_ref();
+        let all_verified = if skip_verification.is_some() {
+            true
+        } else {
+            let srs = SRS.as_ref();
 
-        let all_verified = to_verify.all(|(vk, zkapp_statement, proof)| {
-            let proof: PicklesProofProofsVerified2ReprStableV2 = (&**proof).into();
-            verification::verify_zkapp(vk, zkapp_statement.clone(), &proof, srs)
-        });
+            to_verify.all(|(vk, zkapp_statement, proof)| {
+                let proof: PicklesProofProofsVerified2ReprStableV2 = (&**proof).into();
+                verification::verify_zkapp(vk, zkapp_statement.clone(), &proof, srs)
+            })
+        };
 
         cs.into_iter()
             .map(|c| match c {
