@@ -6,11 +6,11 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 
+use binprot::macros::BinProtRead;
 use binprot::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, NonZeroCurvePoint, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
-    SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0,
-    SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQuery,
+    SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0, TransactionSnarkWorkTStableV2Proofs,
     UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 use rand::prelude::*;
@@ -18,7 +18,7 @@ use serde::Serialize;
 use shared::log::inner::Level;
 use snarker::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerEvent, ExternalSnarkWorkerService,
-    ExternalSnarkWorkerStartAction, ExternalSnarkWorkerWorkError, SnarkWorkResult, SnarkWorkSpec,
+    ExternalSnarkWorkerStartAction, ExternalSnarkWorkerWorkError, SnarkWorkSpec,
 };
 use snarker::p2p::service_impl::TaskSpawner;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -572,7 +572,9 @@ impl From<SnarkerError> for ExternalSnarkWorkerError {
                 ExternalSnarkWorkerError::BinprotError(err.to_string())
             }
             SnarkerError::IOError(err) => ExternalSnarkWorkerError::IOError(err.to_string()),
-            SnarkerError::NixError(err) => ExternalSnarkWorkerError::Error(format!("nix error: {err}")),
+            SnarkerError::NixError(err) => {
+                ExternalSnarkWorkerError::Error(format!("nix error: {err}"))
+            }
             SnarkerError::NotRunning => ExternalSnarkWorkerError::NotRunning,
             SnarkerError::Busy => ExternalSnarkWorkerError::Busy,
             SnarkerError::Broken(err) => ExternalSnarkWorkerError::Broken(err),
@@ -598,9 +600,15 @@ async fn write_snark_work_spec<T: BinProtWrite, W: AsyncWrite + Unpin>(
     Ok(())
 }
 
+#[derive(BinProtRead)]
+pub enum ExternalSnarkWorkerResult {
+    Ok(Option<TransactionSnarkWorkTStableV2Proofs>),
+    Err(String),
+}
+
 async fn read_snark_work_result<R: AsyncRead + Unpin>(
     mut r: R,
-) -> Result<SnarkWorkResult, SnarkerError> {
+) -> Result<ExternalSnarkWorkerResult, SnarkerError> {
     let mut len_buf = [0; size_of::<u64>()];
     r.read_exact(&mut len_buf).await?;
     let len = u64::from_le_bytes(len_buf);
@@ -610,8 +618,8 @@ async fn read_snark_work_result<R: AsyncRead + Unpin>(
     r.read_to_end(&mut buf).await?;
 
     let mut read = buf.as_slice();
-    let result = SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQuery::binprot_read(&mut read)?;
-    Ok(Arc::new(result.proofs))
+    let result = ExternalSnarkWorkerResult::binprot_read(&mut read)?;
+    Ok(result)
 }
 
 struct ExternalSnarkWorkerSender {
@@ -633,6 +641,7 @@ impl ExternalSnarkWorkerSender {
 
         let mut cmd = Command::new(path);
 
+        // TODO(akoptelov) make the block return terminal errors instead of sending them down the channel and exit.
         std::thread::Builder::new()
             .name("external-snark-worker".into())
             .spawn(move || {
@@ -641,6 +650,13 @@ impl ExternalSnarkWorkerSender {
                     .build()
                     .unwrap();
                 runtime.block_on(async move {
+                    let event_sender_clone = event_sender.clone();
+                    let event = move |event: ExternalSnarkWorkerEvent| {
+                        if let Err(err) = event_sender_clone.send(event.into()) {
+                            eprintln!("error sending event: {err}");
+                        }
+                    };
+
                     let mut child = match cmd
                         .stdin(Stdio::piped())
                         .stdout(Stdio::piped())
@@ -649,17 +665,16 @@ impl ExternalSnarkWorkerSender {
                     {
                         Ok(v) => v,
                         Err(err) => {
-                            let _ = event_sender.send(ExternalSnarkWorkerEvent::Error(SnarkerError::from(err).into()).into());
+                            event(SnarkerError::from(err).into());
                             return;
                         }
                     };
 
-                    let _ = event_sender.send(ExternalSnarkWorkerEvent::Started.into());
+                    event(ExternalSnarkWorkerEvent::Started);
 
                     let mut child_stdin = child.stdin.take().unwrap();
                     let mut child_stdout = child.stdout.take().unwrap();
 
-                    let event_sender_clone = event_sender.clone();
                     if let Some(pid) = child.id() {
                         let pid = nix::unistd::Pid::from_raw(pid as i32);
                         tokio::spawn(async move {
@@ -676,44 +691,59 @@ impl ExternalSnarkWorkerSender {
                                 )));
 
                                 if let Err(err) = write_snark_work_spec(spec, &mut child_stdin).await {
-                                    let _ = event_sender_clone.send(ExternalSnarkWorkerEvent::Error(SnarkerError::from(err).into()).into());
+                                    event(err.into());
                                     return;
                                 }
-                                tokio::select! {
-                                    _ = cancel_rx.recv() => {
-                                        if let Err(err) = nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGINT) {
-                                            let _ = event_sender_clone.send(ExternalSnarkWorkerEvent::Error(SnarkerError::from(err).into()).into());
-                                            return;
+                                let response = read_snark_work_result(&mut child_stdout).await;
+                                match response {
+                                    Ok(result) => {
+                                        match result {
+                                            ExternalSnarkWorkerResult::Ok(Some(v)) => {
+                                                event(Arc::new(v).into());
+                                            }
+                                            ExternalSnarkWorkerResult::Ok(None) => {
+                                                event(ExternalSnarkWorkerEvent::WorkCancelled);
+                                            }
+                                            ExternalSnarkWorkerResult::Err(err) => {
+                                                event(ExternalSnarkWorkerWorkError::Error(err).into());
+                                            }
                                         }
-                                        let _ = event_sender_clone.send(ExternalSnarkWorkerEvent::WorkError(ExternalSnarkWorkerWorkError::Cancelled).into());
                                     }
-                                    response = read_snark_work_result(&mut child_stdout) => {
-                                        match response {
-                                            Ok(result) => {
-                                                let _ = event_sender_clone.send(ExternalSnarkWorkerEvent::WorkResult(result).into());
-                                            }
-                                            Err(err) => {
-                                                let _ = event_sender_clone.send(ExternalSnarkWorkerEvent::WorkError(ExternalSnarkWorkerWorkError::Error(err.to_string())).into());
-                                            }
-                                        }
+                                    Err(err) => {
+                                        let _ = event(err.into());
                                     }
                                 }
                             }
                         });
-                    }
 
-                    tokio::select! {
-                        _ = kill_rx => {
-                            if let Err(err) = child.kill().await {
-                                let _ = event_sender.send(ExternalSnarkWorkerEvent::Error(SnarkerError::from(err).into()).into());
-                            } else {
-                                let _ = event_sender.send(ExternalSnarkWorkerEvent::Killed.into());
+                        let event_sender_clone = event_sender.clone();
+                        tokio::spawn(async move {
+                            loop {
+                                if cancel_rx.recv().await.is_none() {
+                                    return;
+                                }
+                                println!("sending cancel signal to {pid}...");
+                                if let Err(err) = nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGINT) {
+                                    let _ = event_sender_clone.send(ExternalSnarkWorkerEvent::Error(SnarkerError::from(err).into()).into());
+                                    return;
+                                }
                             }
-                            return;
-                        }
-                        _ = child.wait() => {
-                        }
-                    };
+                        });
+
+                        tokio::select! {
+                            _ = kill_rx => {
+                                if let Err(err) = child.kill().await {
+                                    let _ = event_sender.send(ExternalSnarkWorkerEvent::Error(SnarkerError::from(err).into()).into());
+                                } else {
+                                    let _ = event_sender.send(ExternalSnarkWorkerEvent::Killed.into());
+                                }
+                                return;
+                            }
+                            _ = child.wait() => {
+                                return
+                            }
+                        };
+                    }
                 });
             })?;
 
@@ -786,14 +816,17 @@ impl ExternalSnarkWorkerService for SnarkerService {
 
 #[cfg(test)]
 mod external_snark_worker_tests {
-    use std::{env, ffi::OsString, path::Path};
+    use std::{env, ffi::OsString, path::Path, time::Duration};
 
     use binprot::BinProtRead;
     use mina_p2p_messages::v2::{
         CurrencyFeeStableV1, NonZeroCurvePoint, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
         SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0,
     };
-    use snarker::{event_source::Event, external_snark_worker::{ExternalSnarkWorkerEvent, SnarkWorkSpec, ExternalSnarkWorkerWorkError}};
+    use snarker::{
+        event_source::Event,
+        external_snark_worker::{ExternalSnarkWorkerEvent, SnarkWorkSpec},
+    };
     use tokio::sync::mpsc;
 
     use crate::commands::snarker::ExternalSnarkWorkerSender;
@@ -805,7 +838,7 @@ mod external_snark_worker_tests {
                 panic!("unexpected event kind");
             };
             let $event = result else {
-                panic!("unexpected snark worker event");
+                panic!("unexpected snark worker event: {result:?}");
             };
         };
     }
@@ -840,7 +873,9 @@ mod external_snark_worker_tests {
         expect_event!(event_rx, ExternalSnarkWorkerEvent::Killed);
     }
 
-    fn read_input<R: std::io::Read>(mut r: R) -> (NonZeroCurvePoint, CurrencyFeeStableV1, SnarkWorkSpec) {
+    fn read_input<R: std::io::Read>(
+        mut r: R,
+    ) -> (NonZeroCurvePoint, CurrencyFeeStableV1, SnarkWorkSpec) {
         let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((
             SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 { instances, fee },
             public_key,
@@ -885,7 +920,8 @@ mod external_snark_worker_tests {
         expect_event!(event_rx, ExternalSnarkWorkerEvent::Started);
 
         cmd_sender.submit(instances.clone()).unwrap();
-        expect_event!(event_rx, ExternalSnarkWorkerEvent::WorkResult(_));
+
+        tokio::time::sleep(Duration::from_secs(60)).await;
 
         cmd_sender.cancel().unwrap();
         expect_event!(event_rx, ExternalSnarkWorkerEvent::WorkCancelled);
