@@ -7,7 +7,7 @@ use super::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkResult, SnarkWorkSpec,
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, derive_more::From)]
 pub enum ExternalSnarkWorkerEvent {
     Started,
     Killed,

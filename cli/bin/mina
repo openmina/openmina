@@ -1,8 +1,8 @@
 #!/bin/sh
 
-LOCAL_MINA_EXE="$(dirname $0)/run_cont_snark_worker.exe"
+LOCAL_MINA_EXE="$(dirname $0)/mina.exe"
 if [ -x "$LOCAL_MINA_EXE" ]; then
-    exec "$LOCAL_MINA_EXE" 3>&1 1>&2
+    exec "$LOCAL_MINA_EXE" internal snark-worker-stdio 3>&1 1>&2 2>&3
 else
     exec docker run --rm --interactive akoptelov/mina-snark-worker-stdio
 fi
