@@ -71,6 +71,10 @@ impl P2pChannelsSnarkJobCommitmentResponseSendAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
     {
+        if self.commitments.is_empty() {
+            return;
+        }
+
         let peer_id = self.peer_id;
         let msg = SnarkJobCommitmentPropagationChannelMsg::WillSend {
             count: self.commitments.len() as u8,

@@ -30,7 +30,7 @@ use mina_p2p_messages::{
     },
 };
 use serde::{Deserialize, Serialize};
-use shared::block::ArcBlock;
+use shared::{block::ArcBlock, snark::Snark, snark_job_id::SnarkJobId};
 
 pub type P2pRpcId = u32;
 
@@ -55,6 +55,7 @@ pub enum P2pRpcKind {
     LedgerQuery,
     StagedLedgerAuxAndPendingCoinbasesAtBlock,
     Block,
+    Snark,
 }
 
 impl P2pRpcKind {
@@ -64,6 +65,17 @@ impl P2pRpcKind {
             Self::LedgerQuery => Some(Duration::from_secs(2)),
             Self::StagedLedgerAuxAndPendingCoinbasesAtBlock => Some(Duration::from_secs(120)),
             Self::Block => Some(Duration::from_secs(5)),
+            Self::Snark => Some(Duration::from_secs(5)),
+        }
+    }
+
+    pub fn supported_by_libp2p(self) -> bool {
+        match self {
+            Self::BestTipWithProof => true,
+            Self::LedgerQuery => true,
+            Self::StagedLedgerAuxAndPendingCoinbasesAtBlock => true,
+            Self::Block => true,
+            Self::Snark => false,
         }
     }
 }
@@ -74,6 +86,7 @@ pub enum P2pRpcRequest {
     LedgerQuery(LedgerHash, MinaLedgerSyncLedgerQueryStableV1),
     StagedLedgerAuxAndPendingCoinbasesAtBlock(StateHash),
     Block(StateHash),
+    Snark(SnarkJobId),
 }
 
 impl P2pRpcRequest {
@@ -85,6 +98,7 @@ impl P2pRpcRequest {
                 P2pRpcKind::StagedLedgerAuxAndPendingCoinbasesAtBlock
             }
             Self::Block(_) => P2pRpcKind::Block,
+            Self::Snark(_) => P2pRpcKind::Snark,
         }
     }
 
@@ -125,6 +139,10 @@ impl P2pRpcRequest {
             Self::Block(hash) => {
                 Self::write_msg_impl::<GetTransitionChainV2, _>(w, id, &vec![hash.0.clone()])
             }
+            Self::Snark(_) => Err(io::Error::new(
+                io::ErrorKind::Other,
+                "rpc not supported by ocaml node",
+            )),
         }
     }
 }
@@ -156,6 +174,7 @@ pub enum P2pRpcResponse {
     LedgerQuery(MinaLedgerSyncLedgerAnswerStableV2),
     StagedLedgerAuxAndPendingCoinbasesAtBlock(Arc<StagedLedgerAuxAndPendingCoinbases>),
     Block(ArcBlock),
+    Snark(Snark),
 }
 
 impl P2pRpcResponse {
@@ -167,6 +186,7 @@ impl P2pRpcResponse {
                 P2pRpcKind::StagedLedgerAuxAndPendingCoinbasesAtBlock
             }
             Self::Block(_) => P2pRpcKind::Block,
+            Self::Snark(_) => P2pRpcKind::Snark,
         }
     }
 
@@ -216,6 +236,10 @@ impl P2pRpcResponse {
                 let res = Arc::try_unwrap(res).unwrap_or_else(|res| (*res).clone());
                 Self::write_msg_impl::<GetTransitionChainV2, _>(w, id, &Some(vec![res]))
             }
+            Self::Snark(_) => Err(io::Error::new(
+                io::ErrorKind::Other,
+                "rpc not supported by ocaml node",
+            )),
         }
     }
 
@@ -272,6 +296,7 @@ impl P2pRpcResponse {
                     .map(|block| block.into())
                     .map(P2pRpcResponse::Block)
             }
+            P2pRpcKind::Snark => None,
         })
     }
 }

@@ -114,7 +114,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkPromiseReceivedActio
                 P2pChannelsSnarkState::Ready { local, .. } => match local {
                     SnarkPropagationState::Requested {
                         requested_limit, ..
-                    } => self.promised_count <= *requested_limit,
+                    } => self.promised_count > 0 && self.promised_count <= *requested_limit,
                     _ => false,
                 },
                 _ => false,

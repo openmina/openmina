@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fmt, ops::RangeBounds};
 use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-use shared::snark::Snark;
+use shared::snark::{Snark, SnarkInfo};
 use shared::snark_job_id::SnarkJobId;
 
 use crate::p2p::{channels::snark_job_commitment::SnarkJobCommitment, PeerId};
@@ -159,6 +159,14 @@ impl fmt::Debug for SnarkPoolState {
 impl JobState {
     pub fn is_available(&self) -> bool {
         self.commitment.is_none() && self.snark.is_none()
+    }
+
+    pub fn commitment_msg(&self) -> Option<&SnarkJobCommitment> {
+        self.commitment.as_ref().map(|v| &v.commitment)
+    }
+
+    pub fn snark_msg(&self) -> Option<SnarkInfo> {
+        self.snark.as_ref().map(|v| v.work.info())
     }
 }
 

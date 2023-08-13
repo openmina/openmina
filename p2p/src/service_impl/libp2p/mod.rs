@@ -305,6 +305,7 @@ impl Libp2pService {
                         let query = vec![hash.0.clone()];
                         b.rpc.query::<T>(peer_id, stream_id, id, query)?;
                     }
+                    P2pRpcRequest::Snark(_) => {}
                 };
             }
             RpcChannelMsg::Response(id, resp) => {
@@ -367,6 +368,7 @@ impl Libp2pService {
                             let r = Ok(Some(vec![(*msg).clone()]));
                             b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
                         }
+                        Some(P2pRpcResponse::Snark(_)) => {}
                     }
                 }
             }

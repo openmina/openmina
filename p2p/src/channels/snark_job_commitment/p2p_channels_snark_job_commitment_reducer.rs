@@ -66,11 +66,16 @@ impl P2pChannelsSnarkJobCommitmentState {
             }
             P2pChannelsSnarkJobCommitmentAction::ResponseSend(action) => {
                 let Self::Ready { remote, next_send_index, .. } = self else { return };
-
                 *next_send_index = action.last_index + 1;
+
+                let count = action.commitments.len() as u8;
+                if count == 0 {
+                    return;
+                }
+
                 *remote = SnarkJobCommitmentPropagationState::Responded {
                     time: meta.time(),
-                    count: action.commitments.len() as u8,
+                    count,
                 };
             }
         }

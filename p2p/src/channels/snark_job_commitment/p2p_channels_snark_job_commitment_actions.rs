@@ -120,7 +120,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentPromise
                 P2pChannelsSnarkJobCommitmentState::Ready { local, .. } => match local {
                     SnarkJobCommitmentPropagationState::Requested {
                         requested_limit, ..
-                    } => self.promised_count <= *requested_limit,
+                    } => self.promised_count > 0 && self.promised_count <= *requested_limit,
                     _ => false,
                 },
                 _ => false,

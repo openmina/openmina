@@ -62,8 +62,13 @@ impl P2pChannelsSnarkState {
             }
             P2pChannelsSnarkAction::ResponseSend(action) => {
                 let Self::Ready { remote, next_send_index, .. } = self else { return };
-
                 *next_send_index = action.last_index + 1;
+
+                let count = action.snarks.len() as u8;
+                if count == 0 {
+                    return;
+                }
+
                 *remote = SnarkPropagationState::Responded {
                     time: meta.time(),
                     count: action.snarks.len() as u8,
