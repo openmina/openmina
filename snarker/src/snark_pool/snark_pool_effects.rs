@@ -1,13 +1,14 @@
-use p2p::channels::snark::P2pChannelsSnarkLibp2pBroadcastAction;
-
 use crate::external_snark_worker::ExternalSnarkWorkerSubmitWorkAction;
+use crate::p2p::channels::snark::{
+    P2pChannelsSnarkLibp2pBroadcastAction, P2pChannelsSnarkResponseSendAction,
+};
 use crate::p2p::channels::snark_job_commitment::{
     P2pChannelsSnarkJobCommitmentResponseSendAction, SnarkJobCommitment,
 };
-use crate::{Service, Store};
+use crate::{Service, State, Store};
 
 use super::{
-    SnarkPoolAction, SnarkPoolActionWithMeta, SnarkPoolAutoCreateCommitmentAction,
+    JobState, SnarkPoolAction, SnarkPoolActionWithMeta, SnarkPoolAutoCreateCommitmentAction,
     SnarkPoolCommitmentCreateAction, SnarkPoolJobCommitmentAddAction,
     SnarkPoolJobCommitmentTimeoutAction, SnarkPoolP2pSendAction,
 };
@@ -60,38 +61,34 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
             let Some(peer) = state.p2p.get_ready_peer(&a.peer_id) else {
                 return;
             };
-            let (index, limit) = peer
+
+            // Send commitments.
+            let index_and_limit = peer
                 .channels
                 .snark_job_commitment
                 .next_send_index_and_limit();
+            let (commitments, first_index, last_index) =
+                data_to_send(state, index_and_limit, |job| job.commitment_msg().cloned());
 
-            let iter = state
-                .snark_pool
-                .range(index..)
-                .filter_map(|(index, job)| Some((index, job.commitment.as_ref()?)))
-                .take(limit as usize);
-
-            let mut commitments = vec![];
-            let mut first_index = None;
-            let mut last_index = None;
-
-            for (index, commitment) in iter {
-                first_index = first_index.or(Some(index));
-                last_index = Some(index);
-                commitments.push(commitment.commitment.clone());
-            }
-            let Some(first_index) = first_index else {
-                return;
-            };
-            let Some(last_index) = last_index else { return };
-
-            store.dispatch(P2pChannelsSnarkJobCommitmentResponseSendAction {
+            let send_commitments = P2pChannelsSnarkJobCommitmentResponseSendAction {
                 peer_id: a.peer_id,
                 commitments,
                 first_index,
                 last_index,
+            };
+
+            // Send snarks.
+            let index_and_limit = peer.channels.snark.next_send_index_and_limit();
+            let (snarks, first_index, last_index) =
+                data_to_send(state, index_and_limit, |job| job.snark_msg());
+
+            store.dispatch(send_commitments);
+            store.dispatch(P2pChannelsSnarkResponseSendAction {
+                peer_id: a.peer_id,
+                snarks,
+                first_index,
+                last_index,
             });
-            // TODO(binier): send validated snarks.
         }
         SnarkPoolAction::CheckTimeouts(_) => {
             let timed_out_ids = store
@@ -106,4 +103,43 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
         }
         SnarkPoolAction::JobCommitmentTimeout(_) => {}
     }
+}
+
+pub fn data_to_send<F, T>(
+    state: &State,
+    (index, limit): (u64, u8),
+    get_data: F,
+) -> (Vec<T>, u64, u64)
+where
+    F: Fn(&JobState) -> Option<T>,
+{
+    if limit == 0 {
+        let index = index.saturating_sub(1);
+        return (vec![], index, index);
+    }
+
+    state
+        .snark_pool
+        .range(index..)
+        .try_fold(
+            (vec![], None),
+            |(mut list, mut first_index), (index, job)| {
+                if let Some(data) = get_data(job) {
+                    let first_index = *first_index.get_or_insert(index);
+                    list.push(data);
+                    if list.len() >= limit as usize {
+                        return Err((list, first_index, index));
+                    }
+                }
+
+                Ok((list, first_index))
+            },
+        )
+        // Loop iterated on whole snark pool.
+        .map(|(list, first_index)| {
+            let snark_pool_last_index = state.snark_pool.last_index();
+            (list, first_index.unwrap_or(index), snark_pool_last_index)
+        })
+        // Loop preemptively ended.
+        .unwrap_or_else(|v| v)
 }

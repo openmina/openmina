@@ -71,6 +71,10 @@ impl P2pChannelsSnarkResponseSendAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
     {
+        if self.snarks.is_empty() {
+            return;
+        }
+
         let peer_id = self.peer_id;
         let msg = SnarkPropagationChannelMsg::WillSend {
             count: self.snarks.len() as u8,

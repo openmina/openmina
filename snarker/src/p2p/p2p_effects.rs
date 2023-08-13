@@ -461,6 +461,12 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 response: block,
                             });
                         }
+                        Some(P2pRpcResponse::Snark(snark)) => {
+                            store.dispatch(SnarkPoolWorkAddAction {
+                                snark: snark.clone(),
+                                sender: action.peer_id,
+                            });
+                        }
                     }
                     store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
                     store.dispatch(TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {});
@@ -479,11 +485,12 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                     .map(|b| b.block.header.protocol_state.body.hash())
                                     .collect();
 
-                                Some(P2pRpcResponse::BestTipWithProof(BestTipWithProof {
+                                Some(BestTipWithProof {
                                     best_tip: best_tip.block.clone(),
                                     proof: (body_hashes, root_block.block.clone()),
-                                }))
+                                })
                             });
+                            let response = response.map(P2pRpcResponse::BestTipWithProof);
                             store.dispatch(P2pChannelsRpcResponseSendAction {
                                 peer_id: action.peer_id,
                                 id: action.id,
@@ -496,7 +503,8 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 .iter()
                                 .rev()
                                 .find(|block| block.hash == hash)
-                                .map(|block| P2pRpcResponse::Block(block.block.clone()));
+                                .map(|block| block.block.clone())
+                                .map(P2pRpcResponse::Block);
                             store.dispatch(P2pChannelsRpcResponseSendAction {
                                 peer_id: action.peer_id,
                                 id: action.id,
@@ -507,7 +515,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             let response = store
                                 .service
                                 .answer_ledger_query(ledger_hash, query)
-                                .map(|resp| P2pRpcResponse::LedgerQuery(resp));
+                                .map(P2pRpcResponse::LedgerQuery);
 
                             store.dispatch(P2pChannelsRpcResponseSendAction {
                                 peer_id: action.peer_id,
@@ -538,9 +546,20 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                         protocol_states,
                                     )
                                 })
-                                .map(|resp| {
-                                    P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(resp)
-                                });
+                                .map(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock);
+
+                            store.dispatch(P2pChannelsRpcResponseSendAction {
+                                peer_id: action.peer_id,
+                                id: action.id,
+                                response,
+                            });
+                        }
+                        P2pRpcRequest::Snark(job_id) => {
+                            let job = store.state().snark_pool.get(&job_id);
+                            let response = job
+                                .and_then(|job| job.snark.as_ref())
+                                .map(|snark| snark.work.clone())
+                                .map(P2pRpcResponse::Snark);
 
                             store.dispatch(P2pChannelsRpcResponseSendAction {
                                 peer_id: action.peer_id,
