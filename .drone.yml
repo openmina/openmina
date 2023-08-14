@@ -7,6 +7,10 @@ trigger:
   - master
   - feat/standalone_snark_worker
 
+environment:
+  CHAIN_ID: 667b328bfc09ced12191d099f234575b006b6b193f5441a6fa744feacd9744db
+  SNARKER_KEY: B62qqYvLLtTMQtHxRfuzZK21AJrqFE8Zq9Cyk3wtjegiTRn5soNQA9A
+
 steps:
 
   - name: submodules
@@ -25,12 +29,19 @@ steps:
       - git submodule update --init --recursive
       - rm ~/.gitconfig
 
+  - name: prepare-snark-worker
+    image: openmina/mina-snark-worker-prover:0.0.7
+    commands:
+      - cp /usr/local/bin/mina cli/bin/mina.exe
+
   - name: build
     image: rust:1.71-buster
     commands:
+      - apt-get update && apt-get install -y libssl-dev libjemalloc-dev
       - rustup update nightly-2023-06-01 && rustup default nightly-2023-06-01
       - rustup component add rustfmt
-      - cargo build --release -p cli --bin openmina --tests
+      - cargo test --release -p cli
+      - cargo build --release -p cli --bin openmina
 
   - name: replayer
     image: vladsimplestakingcom/bootstrap-rr:latest
@@ -39,13 +50,48 @@ steps:
       - RUST_LOG=info openmina-bootstrap-sandbox replay 7548
 
   - name: openmina
-    image: debian:buster
+    image: openmina/mina-snark-worker-prover:0.0.7
     detach: true
     commands:
-      - target/release/openmina snarker -p 10000 --chain-id 667b328bfc09ced12191d099f234575b006b6b193f5441a6fa744feacd9744db -k B62qqYvLLtTMQtHxRfuzZK21AJrqFE8Zq9Cyk3wtjegiTRn5soNQA9A --peer /dns4/replayer/tcp/8302/p2p/12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw
+      - target/release/openmina snarker -p 10000 --chain-id $CHAIN_ID -k $SNARKER_KEY --peer /dns4/replayer/tcp/8302/p2p/12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw -e cli/bin/mina > /dev/null
 
   - name: test-bootstrap
     image: vladsimplestakingcom/bootstrap-rr:latest
     commands:
       - sleep 300
       - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox test 7548 http://openmina:10000/stats/sync
+
+
+  - name: test-snark-work
+    image: alpine
+    commands:
+      - apk add curl jq
+      - |
+        c() {
+           path=$$1
+           shift
+           curl -s http://openmina:10000/$$path "$$@"
+        }
+      - |
+        assert() {
+          eval $1 || {
+            echo "assertion  failed: '$1'"
+            exit 1
+          }
+        }
+      - |
+        LOCAL_WORK=0
+        for t in $(seq 10); do
+          WORKERS=$$(c snarker/workers | jq '[.[] | select(.status.kind != "None")] | length')
+          assert '[ $$WORKERS -gt 0 ]'
+
+          COMMITMENTS_IN_PROGRESS=$$(c snark-pool/jobs | jq '[.[] | select(.snark == null) | select(.commitment != null)] | length')
+          assert '[ $$COMMITMENTS_IN_PROGRESS -le $$WORKERS ]'
+
+          LW=$$(c snark-pool/jobs | jq "[.[] | select(.snark.snarker == \"$SNARKER_KEY\")] | length")
+          assert '[ $$LOCAL_WORK -le $$LW ]'
+          LOCAL_WORK=$$LW
+
+          sleep 30
+        done
+        assert '[ $$LOCAL_WORK -gt 0 ]'
