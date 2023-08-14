@@ -81,6 +81,11 @@ impl SnarkPoolState {
         self.list.remove(&index)
     }
 
+    pub fn remove_commitment(&mut self, id: &SnarkJobId) -> Option<JobCommitment> {
+        let index = self.by_ledger_hash_index.get(id)?;
+        self.list.get_mut(&index)?.commitment.take()
+    }
+
     pub fn retain<F>(&mut self, mut f: F)
     where
         F: FnMut(&SnarkJobId) -> bool,
