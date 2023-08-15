@@ -246,7 +246,7 @@ impl Snarker {
         // spawn state machine thread.
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
-            .thread_stack_size(16 * 1024 * 1024)
+            .thread_stack_size(64 * 1024 * 1024)
             .build()
             .unwrap();
         let (redux_exited_tx, redux_exited) = tokio::sync::oneshot::channel();
