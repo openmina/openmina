@@ -113,8 +113,10 @@ impl P2pConnectionOutgoingState {
     }
 
     pub fn is_timed_out(&self, now: Timestamp) -> bool {
-        now.checked_sub(now)
-            .map_or(false, |dur| dur >= Duration::from_secs(30))
+        !matches!(self, Self::Error { .. })
+            && now
+                .checked_sub(self.time())
+                .map_or(false, |dur| dur >= Duration::from_secs(30))
     }
 }
 

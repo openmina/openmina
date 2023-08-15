@@ -6,6 +6,7 @@ use crate::p2p::channels::P2pChannelsAction;
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
+use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::P2pAction;
 use crate::{Action, ActionWithMetaRef, Service, Store};
 
@@ -227,6 +228,22 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                 },
             },
             P2pAction::Disconnection(action) => match action {
+                P2pDisconnectionAction::Init(action) => {
+                    shared::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("peer_id: {}", action.peer_id),
+                        peer_id = action.peer_id.to_string()
+                    );
+                }
+                P2pDisconnectionAction::Finish(action) => {
+                    shared::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("peer_id: {}", action.peer_id),
+                        peer_id = action.peer_id.to_string()
+                    );
+                }
                 _ => {}
             },
             P2pAction::Channels(action) => match action {
