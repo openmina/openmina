@@ -14,17 +14,19 @@ impl SnarkPoolState {
                 let mut jobs_map = action
                     .jobs
                     .iter()
-                    .map(|job| (SnarkJobId::from(job), job))
+                    .enumerate()
+                    .map(|(index, job)| (SnarkJobId::from(job), (index, job)))
                     .collect::<BTreeMap<_, _>>();
 
-                self.retain(|id| jobs_map.remove(id).is_some());
-                for (id, job) in jobs_map {
+                self.retain(|id| jobs_map.remove(id).map(|(order, _)| order));
+                for (id, (order, job)) in jobs_map {
                     self.insert(JobState {
                         time: meta.time(),
                         id,
                         job: job.clone(),
                         commitment: None,
                         snark: None,
+                        order,
                     });
                 }
             }
