@@ -487,7 +487,7 @@ impl<'de> Deserialize<'de> for PicklesProofProofsVerified2ReprStableV2StatementF
         if deserializer.is_human_readable() {
             deserializer.deserialize_tuple(2, V)
         } else {
-            todo!()
+            Ok(Self::ShiftedValue(Deserialize::deserialize(deserializer)?))
         }
     }
 }
@@ -501,7 +501,7 @@ impl Serialize for ConsensusVrfOutputTruncatedStableV1 {
             let base64 = base64::encode_config(&self.0, base64::URL_SAFE);
             base64.serialize(serializer)
         } else {
-            todo!()
+            serializer.serialize_newtype_struct("ConsensusVrfOutputTruncatedStableV1", &self.0)
         }
     }
 }
@@ -517,9 +517,18 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
                 .map(ByteString::from)
                 .map_err(|e| serde::de::Error::custom(format!("Error deserializing vrf: {e}")))
         } else {
-            todo!()
+            Deserialize::deserialize(deserializer)
         }
         .map(Self)
+    }
+}
+
+mod serde_protocol_ver {
+    #[derive(serde::Serialize, serde::Deserialize)]
+    pub struct ProtocolVersionStableV1 {
+        pub major: crate::number::Int64,
+        pub minor: crate::number::Int64,
+        pub patch: crate::number::Int64,
     }
 }
 
@@ -551,7 +560,11 @@ impl<'de> Deserialize<'de> for ProtocolVersionStableV1 {
                 patch,
             })
         } else {
-            todo!()
+            serde_protocol_ver::ProtocolVersionStableV1::deserialize(deserializer).map(|s| Self {
+                major: s.major,
+                minor: s.minor,
+                patch: s.patch,
+            })
         }
     }
 }
@@ -565,7 +578,12 @@ impl Serialize for ProtocolVersionStableV1 {
             let s = format!("{}.{}.{}", *self.major, *self.minor, *self.patch);
             s.serialize(serializer)
         } else {
-            todo!()
+            let s = serde_protocol_ver::ProtocolVersionStableV1 {
+                major: self.major,
+                minor: self.minor,
+                patch: self.patch,
+            };
+            s.serialize(serializer)
         }
     }
 }
