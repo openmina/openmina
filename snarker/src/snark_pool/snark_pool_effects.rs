@@ -23,13 +23,18 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
         SnarkPoolAction::AutoCreateCommitment(_) => {
             let state = store.state();
             let available_workers = state.external_snark_worker.available();
-            let available_jobs = state.snark_pool.available_jobs_iter();
-            let job_ids = available_jobs
-                .take(available_workers)
-                .map(|job| job.id.clone())
-                .collect::<Vec<_>>();
-            for job_id in job_ids {
-                store.dispatch(SnarkPoolCommitmentCreateAction { job_id });
+            if available_workers > 0 {
+                let job_ids = state
+                    .snark_pool
+                    .available_jobs_with_highest_priority(available_workers)
+                    .into_iter()
+                    .map(|job| job.id.clone())
+                    .take(available_workers) // just in case
+                    .collect::<Vec<_>>();
+
+                for job_id in job_ids {
+                    store.dispatch(SnarkPoolCommitmentCreateAction { job_id });
+                }
             }
         }
         SnarkPoolAction::CommitmentCreate(a) => {
@@ -101,7 +106,9 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
                 store.dispatch(SnarkPoolJobCommitmentTimeoutAction { job_id });
             }
         }
-        SnarkPoolAction::JobCommitmentTimeout(_) => {}
+        SnarkPoolAction::JobCommitmentTimeout(_) => {
+            store.dispatch(SnarkPoolAutoCreateCommitmentAction {});
+        }
     }
 }
 

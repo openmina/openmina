@@ -26,6 +26,8 @@ pub struct JobState {
     pub job: OneOrTwo<AvailableJobMessage>,
     pub commitment: Option<JobCommitment>,
     pub snark: Option<SnarkWork>,
+    /// Lower order has higher priority to be done as it represents older job.
+    pub order: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -86,18 +88,26 @@ impl SnarkPoolState {
         self.list.get_mut(&index)?.commitment.take()
     }
 
-    pub fn retain<F>(&mut self, mut f: F)
+    pub fn retain<F>(&mut self, mut get_new_job_order: F)
     where
-        F: FnMut(&SnarkJobId) -> bool,
+        F: FnMut(&SnarkJobId) -> Option<usize>,
     {
         let list = &mut self.list;
-        self.by_ledger_hash_index.retain(|id, index| {
-            let keep = f(id);
-            if !keep {
-                list.remove(index);
-            }
-            keep
-        });
+        self.by_ledger_hash_index
+            .retain(|id, index| match get_new_job_order(id) {
+                None => {
+                    list.remove(index);
+                    false
+                }
+                Some(order) => {
+                    if let Some(job) = list.get_mut(index) {
+                        job.order = order;
+                        true
+                    } else {
+                        false
+                    }
+                }
+            });
     }
 
     pub fn range<'a, R>(
@@ -149,6 +159,19 @@ impl SnarkPoolState {
             .iter()
             .map(|(_, job)| job)
             .filter(|job| job.is_available())
+    }
+
+    pub fn available_jobs_with_highest_priority(&self, n: usize) -> Vec<&JobState> {
+        // find `n` jobs with lowest order (highest priority).
+        self.available_jobs_iter()
+            .fold(Vec::with_capacity(n + 1), |mut jobs, job| {
+                jobs.push(job);
+                if jobs.len() > n {
+                    jobs.sort_by_key(|job| job.order);
+                    jobs.pop();
+                }
+                jobs
+            })
     }
 }
 
