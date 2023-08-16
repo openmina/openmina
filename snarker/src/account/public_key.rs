@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, fmt};
 
 use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::{
@@ -53,5 +53,12 @@ impl FromStr for AccountPublicKey {
 impl AsRef<NonZeroCurvePoint> for AccountPublicKey {
     fn as_ref(&self) -> &NonZeroCurvePoint {
         &self.0
+    }
+}
+
+impl fmt::Display for AccountPublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let p2p_key = NonZeroCurvePoint::from(self.clone());
+        write!(f, "{p2p_key}")
     }
 }

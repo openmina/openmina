@@ -1,6 +1,7 @@
 use std::{fmt, str::FromStr};
 
 use ed25519_dalek::SigningKey as Ed25519SecretKey;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::identity::PublicKey;
@@ -16,6 +17,10 @@ impl fmt::Debug for SecretKey {
 
 impl SecretKey {
     const BASE58_CHECK_VERSION: u8 = 0x80;
+
+    pub fn rand() -> Self {
+        Self::from_bytes(rand::thread_rng().gen())
+    }
 
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
         Self(Ed25519SecretKey::from_bytes(&bytes))
@@ -61,4 +66,19 @@ impl FromStr for SecretKey {
         }
         Ok(Self::from_bytes(bytes[1..33].try_into().unwrap()))
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SecretKey;
+
+
+    #[test]
+    fn secret_key_to_string_roundtrip() {
+        let s = "5K9G39rCgREFMCk7S739JZprwpMsiLRQXcELErUSwhHwfdVR8HT";
+        let sk = s.parse::<SecretKey>().expect("should be parseable");
+        let unparsed = sk.to_string();
+        assert_eq!(s, &unparsed);
+    }
+
 }
