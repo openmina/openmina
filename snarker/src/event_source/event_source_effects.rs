@@ -1,8 +1,8 @@
 use crate::action::CheckTimeoutsAction;
 use crate::external_snark_worker::{
     ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerEvent, ExternalSnarkWorkerKilledAction,
-    ExternalSnarkWorkerStartedAction, ExternalSnarkWorkerWorkErrorAction,
-    ExternalSnarkWorkerWorkResultAction, ExternalSnarkWorkerWorkCancelledAction,
+    ExternalSnarkWorkerStartedAction, ExternalSnarkWorkerWorkCancelledAction,
+    ExternalSnarkWorkerWorkErrorAction, ExternalSnarkWorkerWorkResultAction,
 };
 use crate::p2p::channels::best_tip::P2pChannelsBestTipReadyAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcReadyAction;

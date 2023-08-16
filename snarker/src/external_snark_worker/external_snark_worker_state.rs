@@ -42,4 +42,11 @@ impl ExternalSnarkWorkerState {
             0
         }
     }
+
+    pub fn working_job_id(&self) -> Option<&SnarkWorkId> {
+        match self {
+            Self::Working(job_id) => Some(job_id),
+            _ => None,
+        }
+    }
 }

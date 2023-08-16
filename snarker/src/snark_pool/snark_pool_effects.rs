@@ -1,4 +1,6 @@
-use crate::external_snark_worker::ExternalSnarkWorkerSubmitWorkAction;
+use crate::external_snark_worker::{
+    ExternalSnarkWorkerCancelWorkAction, ExternalSnarkWorkerSubmitWorkAction,
+};
 use crate::p2p::channels::snark::{
     P2pChannelsSnarkLibp2pBroadcastAction, P2pChannelsSnarkResponseSendAction,
 };
@@ -18,7 +20,15 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
 
     match action {
         SnarkPoolAction::JobsUpdate(_) => {
-            store.dispatch(SnarkPoolAutoCreateCommitmentAction {});
+            let state = store.state();
+            if let Some(job_id) = state.external_snark_worker.working_job_id() {
+                if !state.snark_pool.contains(job_id) {
+                    // job is no longer needed.
+                    store.dispatch(ExternalSnarkWorkerCancelWorkAction {});
+                }
+            } else {
+                store.dispatch(SnarkPoolAutoCreateCommitmentAction {});
+            }
         }
         SnarkPoolAction::AutoCreateCommitment(_) => {
             let state = store.state();
@@ -51,9 +61,27 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
             });
             store.dispatch(ExternalSnarkWorkerSubmitWorkAction { job_id: a.job_id });
         }
-        SnarkPoolAction::CommitmentAdd(_) => {}
+        SnarkPoolAction::CommitmentAdd(a) => {
+            let state = store.state();
+            if let Some(job_id) = state.external_snark_worker.working_job_id() {
+                if &a.commitment.job_id == job_id
+                    && &a.commitment.snarker != state.config.public_key.as_ref()
+                {
+                    store.dispatch(ExternalSnarkWorkerCancelWorkAction {});
+                }
+            }
+        }
         SnarkPoolAction::WorkAdd(a) => {
-            // TODO(binier): only broadcast after validation
+            // TODO(binier): do everything below after validation.
+
+            let state = store.state();
+            if let Some(job_id) = state.external_snark_worker.working_job_id() {
+                if &a.snark.job_id() == job_id && a.snark.fee.as_u64() <= state.config.fee.as_u64()
+                {
+                    store.dispatch(ExternalSnarkWorkerCancelWorkAction {});
+                }
+            }
+
             store.dispatch(P2pChannelsSnarkLibp2pBroadcastAction { snark: a.snark });
         }
         SnarkPoolAction::P2pSendAll(_) => {

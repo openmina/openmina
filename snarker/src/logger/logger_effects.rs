@@ -244,7 +244,6 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                         peer_id = action.peer_id.to_string()
                     );
                 }
-                _ => {}
             },
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(_) => {}
