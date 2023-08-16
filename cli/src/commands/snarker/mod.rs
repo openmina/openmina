@@ -78,7 +78,7 @@ pub struct Snarker {
     #[arg(long, short, default_value = "info")]
     pub verbosity: Level,
 
-    #[arg(long = "peer", default_values_t = default_peers())]
+    #[arg(long, short = 'P', alias = "peer", num_args = 0.., default_values_t = default_peers())]
     pub peers: Vec<P2pConnectionOutgoingInitOpts>,
 
     /// Mina snark worker path
