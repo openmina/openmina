@@ -9,7 +9,20 @@ trigger:
 
 environment:
   CHAIN_ID: 667b328bfc09ced12191d099f234575b006b6b193f5441a6fa744feacd9744db
-  SNARKER_KEY: B62qqYvLLtTMQtHxRfuzZK21AJrqFE8Zq9Cyk3wtjegiTRn5soNQA9A
+
+  REPLAYER_ID: 12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw
+
+  OPENMINA1_SK: 5KJKg7yAbYAQcNGWcKFf2C4ruJxwrHoQvsksU16yPzFzXHMsbMc
+  OPENMINA1_ID: 2axsdDAiiZee7hUsRPMtuyHt94UMrvJmMQDhDjKhdRhgqkMdy8e
+  OPENMINA1_SNARKER_KEY: B62qqYvLLtTMQtHxRfuzZK21AJrqFE8Zq9Cyk3wtjegiTRn5soNQA9A
+
+  OPENMINA2_SK: 5JgkZGzHPC2SmQqRGxwbFjZzFMLvab5tPwkiN29HX9Vjc9rtwV4
+  OPENMINA2_ID: 2bpACUcRh2u7WJ3zSBRWZZvQMTMofYr9SGQgcP2YKzwwDKanNAy
+  OPENMINA2_SNARKER_KEY: B62qrV28zSmLjxMZP1jKRSEFsajPGdFRukbvnXzRKyDmUBNVvCH7w9o
+
+  OPENMINA3_SK: 5KWkmiairnLJjtvqEatpb4grLEG8oZjFp7ye4ehphjXRGrgsuH8
+  OPENMINA3_ID: 2aQA3swTKVf16YgLXZS7TizU7ASgZ8LidEgyHhChpDinrvM9NMi
+  OPENMINA3_SNARKER_KEY: B62qkgVSEnzTabaFJzZcG1pgXorRLJREJFvchGya6UGoKTmFx5AWAK6
 
 steps:
 
@@ -49,17 +62,35 @@ steps:
     commands:
       - RUST_LOG=info openmina-bootstrap-sandbox replay 7548
 
-  - name: openmina
+  - name: openmina1
     image: openmina/mina-snark-worker-prover:0.0.7
     detach: true
     commands:
-      - target/release/openmina snarker -p 10000 --chain-id $CHAIN_ID -k $SNARKER_KEY --peer /dns4/replayer/tcp/8302/p2p/12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw -e cli/bin/mina > /dev/null
+      - target/release/openmina snarker -p 10000 --chain-id $CHAIN_ID -k $OPENMINA1_SNARKER_KEY -s $OPENMINA1_SK
+          --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /$OPENMINA2_ID/http/openmina2/10000 /$OPENMINA3_ID/http/openmina3/10000
+          -e cli/bin/mina > /dev/null
+
+  - name: openmina2
+    image: openmina/mina-snark-worker-prover:0.0.7
+    detach: true
+    commands:
+      - target/release/openmina snarker -p 10000 --chain-id $CHAIN_ID -k $OPENMINA2_SNARKER_KEY -s $OPENMINA2_SK
+          --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /$OPENMINA1_ID/http/openmina1/10000 /$OPENMINA3_ID/http/openmina3/10000
+          -e cli/bin/mina > /dev/null
+
+  - name: openmina3
+    image: openmina/mina-snark-worker-prover:0.0.7
+    detach: true
+    commands:
+      - target/release/openmina snarker -p 10000 --chain-id $CHAIN_ID -k $OPENMINA3_SNARKER_KEY -s $OPENMINA3_SK
+          --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /$OPENMINA1_ID/http/openmina1/10000 /$OPENMINA2_ID/http/openmina2/10000
+          -e cli/bin/mina > /dev/null
 
   - name: test-bootstrap
     image: vladsimplestakingcom/bootstrap-rr:latest
     commands:
       - sleep 300
-      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox test 7548 http://openmina:10000/stats/sync
+      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox test 7548 http://openmina1:10000/stats/sync
 
 
   - name: test-snark-work
@@ -68,30 +99,51 @@ steps:
       - apk add curl jq
       - |
         c() {
-           path=$$1
-           shift
-           curl -s http://openmina:10000/$$path "$$@"
+           n=$$1
+           path=$$2
+           shift 2
+           curl -s http://openmina$$n:10000/$$path "$$@"
         }
       - |
         assert() {
-          eval $1 || {
-            echo "assertion  failed: '$1'"
+          eval $2 || {
+            echo "[failed] $1: '$2'"
             exit 1
           }
         }
       - |
+        TOTAL_WORK_TODO=$$(c 1 snark-pool/jobs | jq 'length')
+        echo "TOTAL_WORK_TODO=$TOTAL_WORK_TODO"
         LOCAL_WORK=0
         for t in $(seq 10); do
-          WORKERS=$$(c snarker/workers | jq '[.[] | select(.status.kind != "None")] | length')
-          assert '[ $$WORKERS -gt 0 ]'
+          WORKERS=$$(c 1 snarker/workers | jq '[.[] | select(.status.kind != "None")] | length')
+          assert 'active workers > 0' '[ $$WORKERS -gt 0 ]'
 
-          COMMITMENTS_IN_PROGRESS=$$(c snark-pool/jobs | jq '[.[] | select(.snark == null) | select(.commitment != null)] | length')
-          assert '[ $$COMMITMENTS_IN_PROGRESS -le $$WORKERS ]'
+          COMMITMENTS_IN_PROGRESS=$$(c 1 snark-pool/jobs | jq "[.[] | select(.snark == null and .commitment.snarker == \"$OPENMINA1_SNARKER_KEY\")] | length")
+          assert 'local commitments in progress fewer than local workers' '[ $$COMMITMENTS_IN_PROGRESS -le $$WORKERS ]'
 
-          LW=$$(c snark-pool/jobs | jq "[.[] | select(.snark.snarker == \"$SNARKER_KEY\")] | length")
-          assert '[ $$LOCAL_WORK -le $$LW ]'
+          LW=$$(c 1 snark-pool/jobs | jq "[.[] | select(.snark.snarker == \"$OPENMINA1_SNARKER_KEY\")] | length")
+          assert 'local snarks number do not decrease' '[ $$LOCAL_WORK -le $$LW ]'
           LOCAL_WORK=$$LW
+
 
           sleep 30
         done
-        assert '[ $$LOCAL_WORK -gt 0 ]'
+
+        c 1 snark-pool/jobs > jobs.json
+
+        assert 'local work exists' '[ $$LOCAL_WORK -gt 0 ]'
+
+        TOTAL_WORK=$$(jq '[.[] | select(.snark != null)] | length' jobs.json)
+        LOCAL_WORK=$$(jq "[.[] | select(.snark != null and .snark.snarker == \"$OPENMINA1_SNARKER_KEY\")] | length" jobs.json)
+        NON_LOCAL_WORK=$$(jq "[.[] | select(.snark != null and .snark.snarker != \"$OPENMINA1_SNARKER_KEY\")] | length" jobs.json)
+        echo "TOTAL_WORK=$$TOTAL_WORK"
+        echo "LOCAL_WORK=$$LOCAL_WORK"
+        echo "NON_LOCAL_WORK=$$NON_LOCAL_WORK"
+        #assert 'non-local work exists' '[ $$NON_LOCAL_WORK -gt 0 ]'
+
+        TOTAL_COMMITMENTS=$$(jq "[.[] | select(.commitment != null)] | length" jobs.json)
+        NON_LOCAL_COMMITMENTS=$$(jq "[.[] | select(.commitment != null and .commitment.commitment.snarker != \"$OPENMINA1_SNARKER_KEY\")] | length" jobs.json)
+        echo "TOTAL_COMMITMENTS=$$TOTAL_COMMITMENTS"
+        echo "NON_LOCAL_COMMITMENTS=$$NON_LOCAL_COMMITMENTS"
+        assert 'non-local commintment exists' '[ $$NON_LOCAL_COMMITMENTS -gt 0 ]'
