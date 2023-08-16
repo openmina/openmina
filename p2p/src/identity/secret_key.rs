@@ -8,6 +8,12 @@ use crate::identity::PublicKey;
 #[derive(Clone)]
 pub struct SecretKey(Ed25519SecretKey);
 
+impl fmt::Debug for SecretKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("SecretKey").field(&"***").finish()
+    }
+}
+
 impl SecretKey {
     const BASE58_CHECK_VERSION: u8 = 0x80;
 

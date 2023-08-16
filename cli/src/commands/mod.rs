@@ -1,3 +1,4 @@
+pub mod misc;
 pub mod snark;
 pub mod snarker;
 
@@ -15,6 +16,8 @@ pub enum Command {
     Snark(snark::Snark),
     /// Standalone snarker
     Snarker(snarker::Snarker),
+    /// Miscilaneous utilities.
+    Misc(misc::Misc),
 }
 
 impl Command {
@@ -22,6 +25,7 @@ impl Command {
         match self {
             Self::Snark(v) => v.run(),
             Self::Snarker(v) => v.run(),
+            Self::Misc(v) => v.run(),
         }
     }
 }
