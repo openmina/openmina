@@ -26,6 +26,8 @@ ledger = { package = "mina-tree", git = "https://github.com/openmina/ledger", re
 shared = { path = "../node/shared" }
 snark = { path = "../node/snark" }
 p2p = { path = "../p2p" }
+rand = "0.8.5"
+hex = "0.4.3"
 
 [build-dependencies]
 regex = "1"
