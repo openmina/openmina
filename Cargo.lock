@@ -870,6 +870,7 @@ dependencies = [
  "clap",
  "console",
  "hex",
+ "libp2p",
  "mina-p2p-messages",
  "mina-tree",
  "nix 0.26.2",

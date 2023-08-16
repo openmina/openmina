@@ -54,7 +54,11 @@ pub struct Snarker {
     #[arg(long, short = 'i', env)]
     pub chain_id: String,
 
-    /// Snarker public key
+    /// Peer secret key
+    #[arg(long, short = 's', env = "OPENMINA_P2P_SEC_KEY")]
+    pub p2p_secret_key: Option<SecretKey>,
+
+    /// SNARKER public key
     #[arg(long, short = 'k', env)]
     pub public_key: AccountPublicKey,
 
@@ -139,16 +143,11 @@ impl Snarker {
             .unwrap();
         let _rt_guard = rt.enter();
 
-        let mut rng = ThreadRng::default();
-        let secret_key = std::env::var("OPENMINA_P2P_SEC_KEY")
-            .ok()
-            .filter(|s| !s.trim().is_empty())
-            .map(|s| {
-                s.trim()
-                    .parse()
-                    .expect("failed to parse `$OPENMINA_P2P_SEC_KEY` env")
-            })
-            .unwrap_or_else(|| SecretKey::from_bytes(rng.gen()));
+        let secret_key = self.p2p_secret_key.unwrap_or_else(|| {
+            let mut rng = ThreadRng::default();
+            let bytes = rng.gen();
+            SecretKey::from_bytes(bytes)
+        });
         let pub_key = secret_key.public_key();
 
         let config = Config {
