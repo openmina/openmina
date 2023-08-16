@@ -49,3 +49,9 @@ impl FromStr for AccountPublicKey {
         Ok(Self(s.parse()?))
     }
 }
+
+impl AsRef<NonZeroCurvePoint> for AccountPublicKey {
+    fn as_ref(&self) -> &NonZeroCurvePoint {
+        &self.0
+    }
+}

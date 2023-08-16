@@ -97,8 +97,7 @@ impl EnablingCondition<State> for ExternalSnarkWorkerSubmitWorkAction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExternalSnarkWorkerCancelWorkAction {
-}
+pub struct ExternalSnarkWorkerCancelWorkAction {}
 
 impl EnablingCondition<State> for ExternalSnarkWorkerCancelWorkAction {
     fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
@@ -110,8 +109,7 @@ impl EnablingCondition<State> for ExternalSnarkWorkerCancelWorkAction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExternalSnarkWorkerWorkCancelledAction {
-}
+pub struct ExternalSnarkWorkerWorkCancelledAction {}
 
 impl EnablingCondition<State> for ExternalSnarkWorkerWorkCancelledAction {
     fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {

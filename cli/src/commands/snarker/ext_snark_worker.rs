@@ -85,9 +85,11 @@ async fn write_binprot<T: BinProtWrite, W: AsyncWrite + Unpin>(
 }
 
 /// Reads binprot-encoded element, prefixed with 8-bytes le size.
-async fn read_binprot<T: BinProtRead, R: AsyncRead + Unpin>(
-    mut r: R,
-) -> Result<T, SnarkerError> {
+async fn read_binprot<T, R>(mut r: R) -> Result<T, SnarkerError>
+where
+    T: BinProtRead,
+    R: AsyncRead + Unpin,
+{
     let mut len_buf = [0; size_of::<u64>()];
     r.read_exact(&mut len_buf).await?;
     let len = u64::from_le_bytes(len_buf);
