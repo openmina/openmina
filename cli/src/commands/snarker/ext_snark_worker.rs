@@ -382,7 +382,7 @@ mod tests {
         env::var_os("MINA_EXE_PATH")
             .or_else(|| {
                 env::var_os("CARGO_MANIFEST_DIR")
-                    .map(|dir| Path::new(&dir).join("bin/mina").into_os_string())
+                    .map(|dir| Path::new(&dir).join("bin/snark-worker").into_os_string())
             })
             .unwrap()
     }

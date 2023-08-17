@@ -1,0 +1,36 @@
+#!/bin/sh
+
+
+MINA_IMAGE=${MINA_IMAGE:-openmina/mina-snark-worker-prover:0.0.4}
+
+executable() {
+    EXE="$(dirname $0)/$1"
+    [ -x "$EXE" ] || EXE=$(which $1)
+    echo "$EXE"
+}
+
+executables() {
+    for exe in $*; do
+        EXE=$(executable $exe)
+        if [ -n "$EXE" ]; then
+            break
+        fi
+    done
+    echo $EXE
+}
+
+if [ -z "$NO_LOCAL_EXE" ]; then
+    LOCAL_MINA=$(executables mina mina.exe)
+    if [ -x "$LOCAL_MINA" ]; then
+        echo "Using $LOCAL_MINA as a snark worker" >&2
+        exec "$LOCAL_MINA" internal snark-worker-stdio
+    fi
+fi
+
+if [ -z $NO_CONTAINER ]; then
+    echo "Using docker with image ${MINA_IMAGE} as a snark worker" >&2
+    exec docker run --rm --interactive --sig-proxy=true "$MINA_IMAGE"
+fi
+
+echo "nothing to run" >&2
+exit 1
