@@ -43,7 +43,7 @@ impl ExternalSnarkWorkerState {
                 *self = ExternalSnarkWorkerState::Cancelling(job_id.clone());
             }
             ExternalSnarkWorkerAction::WorkCancelled(_) => {
-                let ExternalSnarkWorkerState::Working(job_id) = self else {
+                let ExternalSnarkWorkerState::Cancelling(job_id) = self else {
                     return;
                 };
                 *self = ExternalSnarkWorkerState::Cancelled(job_id.clone());
