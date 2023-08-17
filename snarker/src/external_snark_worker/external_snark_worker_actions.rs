@@ -155,7 +155,9 @@ impl EnablingCondition<State> for ExternalSnarkWorkerPruneWorkAction {
     fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
         matches!(
             state.external_snark_worker,
-            ExternalSnarkWorkerState::WorkReady(..) | ExternalSnarkWorkerState::WorkError(..)
+            ExternalSnarkWorkerState::WorkReady(..)
+                | ExternalSnarkWorkerState::WorkError(..)
+                | ExternalSnarkWorkerState::Cancelled(..)
         )
     }
 }
