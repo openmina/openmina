@@ -159,8 +159,8 @@ pub type WithHashV1Versioned<A, H> = Versioned<WithHashV1<A, H>, 1>;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ProofCarryingDataWithHashV1<A, B> {
-    data: A,
-    proof: B,
+    pub data: A,
+    pub proof: B,
 }
 pub type ProofCarryingDataWithHashV1Versioned<A, B> =
     Versioned<ProofCarryingDataWithHashV1<A, B>, 1>;
