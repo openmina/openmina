@@ -16,7 +16,7 @@ use snarker::external_snark_worker::{
     ExternalSnarkWorkerWorkError, SnarkWorkSpec,
 };
 
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 
 use tokio::sync::{mpsc, oneshot};
@@ -150,6 +150,43 @@ impl ExternalSnarkWorkerRequest {
     }
 }
 
+async fn stderr_reader<R: AsyncRead + Unpin>(r: R) -> Result<(), SnarkerError> {
+    use shared::log::inner::*;
+    #[derive(Debug, serde::Deserialize)]
+    struct SnarkerMessage {
+        //timestamp: String,
+        level: String,
+        message: String,
+        //metadata: serde_json::Value,
+    }
+    let mut buf_reader = BufReader::new(r);
+    let mut line = String::new();
+    while buf_reader.read_line(&mut line).await? > 0 {
+        let t = shared::log::system_time();
+        match serde_json::from_str::<SnarkerMessage>(&line) {
+            Ok(entry) => match entry.level.parse() {
+                Ok(Level::INFO) => {
+                    shared::log::info!(t; source = "external snark worker", message = entry.message)
+                }
+                Ok(Level::WARN) => {
+                    shared::log::warn!(t; source = "external snark worker", message = entry.message)
+                }
+                Ok(Level::ERROR) => {
+                    shared::log::error!(t; source = "external snark worker", message = entry.message)
+                }
+                _ => {
+                    shared::log::warn!(t; source = "external snark worker", message = entry.message)
+                }
+            },
+            Err(_) => {
+                shared::log::warn!(t; source = "external snark worker", unformatted_message = line);
+            }
+        }
+        line.clear();
+    }
+    Ok(())
+}
+
 impl ExternalSnarkWorkerFacade {
     fn start<P: AsRef<OsStr>>(
         path: P,
@@ -182,7 +219,7 @@ impl ExternalSnarkWorkerFacade {
                     let mut child = match cmd
                         .stdin(Stdio::piped())
                         .stdout(Stdio::piped())
-                        .stderr(Stdio::inherit())
+                        .stderr(Stdio::piped())
                         .spawn()
                     {
                         Ok(v) => v,
@@ -262,6 +299,15 @@ impl ExternalSnarkWorkerFacade {
                                     let _ = event_sender_clone.send(ExternalSnarkWorkerEvent::Error(SnarkerError::from(err).into()).into());
                                     return;
                                 }
+                            }
+                        });
+
+                        // snarker stderr reader
+                        let child_stderr = BufReader::new(child.stderr.take().unwrap());
+                        let event_sender_clone = event_sender.clone();
+                        tokio::spawn(async move {
+                            if let Err(err) = stderr_reader(child_stderr).await {
+                                let _ = event_sender_clone.send(ExternalSnarkWorkerEvent::Error(err.into()).into());
                             }
                         });
 
