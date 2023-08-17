@@ -487,7 +487,13 @@ impl<'de> Deserialize<'de> for PicklesProofProofsVerified2ReprStableV2StatementF
         if deserializer.is_human_readable() {
             deserializer.deserialize_tuple(2, V)
         } else {
-            Ok(Self::ShiftedValue(Deserialize::deserialize(deserializer)?))
+            #[derive(Deserialize)]
+            pub enum PicklesProofProofsVerified2ReprStableV2StatementFp {
+                ShiftedValue(crate::bigint::BigInt),
+            }
+            let PicklesProofProofsVerified2ReprStableV2StatementFp::ShiftedValue(v) =
+                Deserialize::deserialize(deserializer)?;
+            Ok(Self::ShiftedValue(v))
         }
     }
 }

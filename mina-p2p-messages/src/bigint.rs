@@ -185,7 +185,7 @@ impl<'de> Deserialize<'de> for BigInt {
                     formatter.write_str("sequence of 32 bytes")
                 }
 
-                fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
+                fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
                 where
                     E: serde::de::Error,
                 {
