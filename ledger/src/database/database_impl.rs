@@ -309,7 +309,7 @@ impl DatabaseImpl<V2> {
     pub fn create_with_dir(depth: u8, dir_name: Option<PathBuf>) -> Self {
         assert!((1..0xfe).contains(&depth));
 
-        let max_naccounts = 2u64.pow(depth.min(25) as u32);
+        const NACCOUNTS: usize = 10_000;
 
         let uuid = next_uuid();
 
@@ -336,11 +336,11 @@ impl DatabaseImpl<V2> {
 
         Self {
             depth,
-            accounts: Vec::with_capacity(20_000),
+            accounts: Vec::with_capacity(NACCOUNTS),
             last_location: None,
             naccounts: 0,
-            id_to_addr: HashMap::with_capacity(max_naccounts as usize / 2),
-            token_to_account: HashMap::with_capacity(max_naccounts as usize / 2),
+            id_to_addr: HashMap::with_capacity(NACCOUNTS),
+            token_to_account: HashMap::with_capacity(NACCOUNTS),
             uuid,
             directory: path,
             hashes_matrix: HashesMatrix::new(depth as usize),
