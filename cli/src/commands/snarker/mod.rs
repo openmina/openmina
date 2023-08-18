@@ -78,11 +78,11 @@ pub struct Snarker {
     pub auto_commit: bool,
 
     /// Port to listen to
-    #[arg(long, short, default_value = "3000")]
+    #[arg(long, short, env, default_value = "3000")]
     pub port: u16,
 
     /// Verbosity level
-    #[arg(long, short, default_value = "info")]
+    #[arg(long, short, env, default_value = "info")]
     pub verbosity: Level,
 
     #[arg(long, short = 'P', alias = "peer", num_args = 0.., default_values_t = default_peers(), env, value_delimiter = ' ')]
