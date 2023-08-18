@@ -2,8 +2,16 @@ use binprot::Nat0;
 use serde::{de::Visitor, Deserialize, Serialize};
 
 /// String of bytes.
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ByteString(Vec<u8>);
+
+impl std::fmt::Debug for ByteString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self(inner) = self;
+        // Avoid vertical alignment
+        f.write_fmt(format_args!("ByteString({:?})", inner))
+    }
+}
 
 impl std::ops::Deref for ByteString {
     type Target = Vec<u8>;
@@ -117,8 +125,16 @@ impl binprot::BinProtWrite for ByteString {
 }
 
 /// Human-readable string.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CharString(Vec<u8>);
+
+impl std::fmt::Debug for CharString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self(inner) = self;
+        // Avoid vertical alignment
+        f.write_fmt(format_args!("CharString({:?})", inner))
+    }
+}
 
 impl CharString {
     pub fn to_string_lossy(&self) -> std::string::String {
