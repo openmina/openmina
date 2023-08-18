@@ -404,7 +404,7 @@ impl Libp2pService {
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
 
                 // TODO(binier): move to log effects
-                shared::log::info!(
+                shared::log::warn!(
                     shared::log::system_time();
                     kind = "PeerDisconnected",
                     summary = format!("peer_id: {}", peer_id),

@@ -39,7 +39,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     }
                     P2pConnectionOutgoingAction::OfferSdpCreatePending(_) => {}
                     P2pConnectionOutgoingAction::OfferSdpCreateError(action) => {
-                        shared::log::debug!(
+                        shared::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
@@ -75,7 +75,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     }
                     P2pConnectionOutgoingAction::AnswerRecvPending(_) => {}
                     P2pConnectionOutgoingAction::AnswerRecvError(action) => {
-                        shared::log::debug!(
+                        shared::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
@@ -89,12 +89,12 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string(),
-                            answer = serde_json::to_string(&action.answer).ok()
+                            trace_answer = serde_json::to_string(&action.answer).ok()
                         );
                     }
                     P2pConnectionOutgoingAction::FinalizePending(_) => {}
                     P2pConnectionOutgoingAction::FinalizeError(action) => {
-                        shared::log::debug!(
+                        shared::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
@@ -111,7 +111,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                         );
                     }
                     P2pConnectionOutgoingAction::Timeout(action) => {
-                        shared::log::info!(
+                        shared::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
@@ -119,7 +119,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                         );
                     }
                     P2pConnectionOutgoingAction::Error(action) => {
-                        shared::log::info!(
+                        shared::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
@@ -143,12 +143,12 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.opts.peer_id),
                             peer_id = action.opts.peer_id.to_string(),
-                            signaling = format!("{:?}", action.opts.signaling),
+                            trace_signaling = format!("{:?}", action.opts.signaling),
                         );
                     }
                     P2pConnectionIncomingAction::AnswerSdpCreatePending(_) => {}
                     P2pConnectionIncomingAction::AnswerSdpCreateError(action) => {
-                        shared::log::info!(
+                        shared::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
@@ -162,7 +162,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string(),
-                            sdp = action.sdp.clone(),
+                            trace_sdp = action.sdp.clone(),
                         );
                     }
                     P2pConnectionIncomingAction::AnswerReady(action) => {
@@ -171,7 +171,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
                             peer_id = action.peer_id.to_string(),
-                            answer = serde_json::to_string(&action.answer).ok()
+                            trace_answer = serde_json::to_string(&action.answer).ok()
                         );
                     }
                     P2pConnectionIncomingAction::AnswerSendSuccess(action) => {
@@ -184,7 +184,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                     }
                     P2pConnectionIncomingAction::FinalizePending(_) => {}
                     P2pConnectionIncomingAction::FinalizeError(action) => {
-                        shared::log::info!(
+                        shared::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
@@ -201,7 +201,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                         );
                     }
                     P2pConnectionIncomingAction::Timeout(action) => {
-                        shared::log::info!(
+                        shared::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
@@ -209,7 +209,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                         );
                     }
                     P2pConnectionIncomingAction::Error(action) => {
-                        shared::log::info!(
+                        shared::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", action.peer_id),
@@ -322,23 +322,23 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                         );
                     }
                     P2pChannelsRpcAction::RequestSend(action) => {
-                        shared::log::info!(
+                        shared::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}, rpc_id: {}, kind: {:?}", action.peer_id, action.id, action.request.kind()),
                             peer_id = action.peer_id.to_string(),
                             rpc_id = action.id.to_string(),
-                            request = serde_json::to_string(&action.request).ok()
+                            trace_request = serde_json::to_string(&action.request).ok()
                         );
                     }
                     P2pChannelsRpcAction::ResponseReceived(action) => {
-                        shared::log::info!(
+                        shared::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}, rpc_id: {}", action.peer_id, action.id),
                             peer_id = action.peer_id.to_string(),
                             rpc_id = action.id.to_string(),
-                            response = serde_json::to_string(&action.response).ok()
+                            trace_response = serde_json::to_string(&action.response).ok()
                         );
                     }
                     _ => {}
