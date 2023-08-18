@@ -20,6 +20,7 @@ pub use effects::effects;
 pub mod service;
 pub use service::Service;
 
+pub mod recorder;
 pub mod stats;
 
 pub mod account;
@@ -36,18 +37,27 @@ pub mod transition_frontier;
 pub mod watched_accounts;
 
 pub type Store<S> = redux::Store<State, S, Action>;
+pub type Effects<S> = redux::Effects<State, S, Action>;
 
 pub struct Snarker<Serv> {
     store: Store<Serv>,
 }
 
 impl<Serv: Service> Snarker<Serv> {
-    pub fn new(initial_state: State, service: Serv) -> Self {
+    pub fn new(
+        initial_state: State,
+        service: Serv,
+        override_effects: Option<Effects<Serv>>,
+    ) -> Self {
+        let time_since_epoch = initial_state
+            .time()
+            .checked_sub(redux::Timestamp::ZERO)
+            .unwrap();
         let store = Store::new(
             reducer,
-            effects,
+            override_effects.unwrap_or(effects),
             service,
-            redux::SystemTime::now(),
+            redux::SystemTime::UNIX_EPOCH + time_since_epoch,
             initial_state,
         );
 

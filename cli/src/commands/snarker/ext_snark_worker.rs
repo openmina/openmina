@@ -104,7 +104,7 @@ where
 }
 
 /// Facade for external worker process.
-pub(super) struct ExternalSnarkWorkerFacade {
+pub struct ExternalSnarkWorkerFacade {
     data_chan: mpsc::Sender<SnarkWorkSpec>,
     cancel_chan: mpsc::Sender<()>,
     kill_chan: oneshot::Sender<()>,

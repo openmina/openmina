@@ -110,6 +110,11 @@ impl Libp2pService {
         ))
     }
 
+    pub fn mocked() -> (Self, mpsc::UnboundedReceiver<Cmd>) {
+        let (cmd_sender, rx) = mpsc::unbounded_channel();
+        (Self { cmd_sender }, rx)
+    }
+
     pub fn run<E, S>(
         secret_key: SecretKey,
         chain_id: String,

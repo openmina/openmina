@@ -55,3 +55,10 @@ macro_rules! impl_into_global_action {
         )*
     };
 }
+
+#[cfg(feature = "replay")]
+impl redux::EnablingCondition<crate::State> for Action {
+    fn is_enabled(&self, _: &crate::State) -> bool {
+        true
+    }
+}

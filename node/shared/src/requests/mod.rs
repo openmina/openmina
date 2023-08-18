@@ -124,7 +124,7 @@ where
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut s = serializer.serialize_struct("PendingRequests", 2)?;
+        let mut s = serializer.serialize_struct("PendingRequests", 3)?;
         s.serialize_field("list", &self.list)?;
         s.serialize_field("counter", &self.counter)?;
         s.serialize_field("last_added_req_id", &self.last_added_req_id)?;

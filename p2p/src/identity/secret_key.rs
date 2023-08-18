@@ -72,7 +72,6 @@ impl FromStr for SecretKey {
 mod tests {
     use super::SecretKey;
 
-
     #[test]
     fn secret_key_to_string_roundtrip() {
         let s = "5K9G39rCgREFMCk7S739JZprwpMsiLRQXcELErUSwhHwfdVR8HT";
@@ -80,5 +79,4 @@ mod tests {
         let unparsed = sk.to_string();
         assert_eq!(s, &unparsed);
     }
-
 }

@@ -22,6 +22,8 @@ use crate::watched_accounts::watched_accounts_effects;
 use crate::{Action, ActionWithMeta, Service, Store};
 
 pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
+    store.service.recorder().action(&action);
+
     let (action, meta) = action.split();
 
     if let Some(stats) = store.service.stats() {

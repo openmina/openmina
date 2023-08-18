@@ -110,15 +110,34 @@ pub struct SnarkPoolP2pSendAction {
 
 impl redux::EnablingCondition<crate::State> for SnarkPoolP2pSendAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        state.p2p.get_ready_peer(&self.peer_id).map_or(false, |p| {
-            let check = |(next_index, limit), last_index| limit > 0 && next_index <= last_index;
-            let last_index = state.snark_pool.last_index();
+        state
+            .p2p
+            .get_ready_peer(&self.peer_id)
+            // Only send commitments/snarks if peer has the same best tip,
+            // or its best tip is extension of our best tip. In such case
+            // no commitment/snark will be dropped by peer, because it
+            // doesn't yet have those jobs.
+            //
+            // By sending commitments/snarks to the peer, which has next
+            // best tip, we might send outdated commitments/snarks, but
+            // we might send useful ones as well.
+            .and_then(|p| {
+                let peer_best_tip = p.best_tip.as_ref()?;
+                let our_best_tip = state.transition_frontier.best_tip()?.hash();
+                Some(p).filter(|_| {
+                    peer_best_tip.hash() == our_best_tip
+                        || peer_best_tip.pred_hash() == our_best_tip
+                })
+            })
+            .map_or(false, |p| {
+                let check = |(next_index, limit), last_index| limit > 0 && next_index <= last_index;
+                let last_index = state.snark_pool.last_index();
 
-            check(
-                p.channels.snark_job_commitment.next_send_index_and_limit(),
-                last_index,
-            ) || check(p.channels.snark.next_send_index_and_limit(), last_index)
-        })
+                check(
+                    p.channels.snark_job_commitment.next_send_index_and_limit(),
+                    last_index,
+                ) || check(p.channels.snark.next_send_index_and_limit(), last_index)
+            })
     }
 }
 
