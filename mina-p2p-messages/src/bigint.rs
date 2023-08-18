@@ -1,9 +1,15 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, derive_more::From, derive_more::Into,
-)]
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, derive_more::From, derive_more::Into)]
 pub struct BigInt(Box<[u8; 32]>);
+
+impl std::fmt::Debug for BigInt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self(inner) = self;
+        // Avoid vertical alignment
+        f.write_fmt(format_args!("BigInt({:?})", inner))
+    }
+}
 
 impl BigInt {
     #[cfg(feature = "hashing")]

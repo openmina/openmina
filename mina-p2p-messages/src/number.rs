@@ -3,18 +3,17 @@ use std::{fmt::Display, marker::PhantomData, str::FromStr};
 use serde::{de::Visitor, Deserialize, Serialize};
 
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    derive_more::From,
-    derive_more::Deref,
+    Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, derive_more::From, derive_more::Deref,
 )]
 pub struct Number<T>(pub T);
+
+impl<T: std::fmt::Debug> std::fmt::Debug for Number<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self(inner) = self;
+        // Avoid vertical alignment
+        f.write_fmt(format_args!("Number({:?})", inner))
+    }
+}
 
 pub type Int32 = Number<i32>;
 pub type Int64 = Number<i64>;

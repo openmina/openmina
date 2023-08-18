@@ -805,4 +805,23 @@ impl From<&PicklesProofProofsVerifiedMaxStableV2> for PicklesProofProofsVerified
     }
 }
 
+impl std::fmt::Debug for super::UnsignedExtendedUInt32StableV1 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self(inner) = self;
+        // Avoid vertical alignment
+        f.write_fmt(format_args!("UnsignedExtendedUInt32StableV1({:?})", inner))
+    }
+}
+
+impl std::fmt::Debug for super::UnsignedExtendedUInt64Int64ForVersionTagsStableV1 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self(inner) = self;
+        // Avoid vertical alignment
+        f.write_fmt(format_args!(
+            "UnsignedExtendedUInt64Int64ForVersionTagsStableV1({:?})",
+            inner
+        ))
+    }
+}
+
 pub mod conv;
