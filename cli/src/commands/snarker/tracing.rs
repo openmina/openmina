@@ -1,7 +1,14 @@
 use std::fmt::Result;
 
-use tracing::Level;
-use tracing_subscriber::fmt::{format::Writer, time::FormatTime};
+use tracing::{field::Visit, Level};
+use tracing_subscriber::{
+    field::{RecordFields, VisitOutput},
+    fmt::{
+        format::{Pretty, PrettyVisitor, Writer},
+        time::FormatTime,
+        FormatFields,
+    },
+};
 
 fn redux_timer(w: &mut Writer<'_>) -> Result {
     match redux::SystemTime::now().duration_since(redux::SystemTime::UNIX_EPOCH) {
@@ -21,11 +28,53 @@ impl FormatTime for ReduxTimer {
     }
 }
 
+struct FilterVisit<T>(T);
+
+impl<T> FilterVisit<T> {
+    fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T> Visit for FilterVisit<T>
+where
+    T: Visit,
+{
+    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+        if !field.name().starts_with("trace_") {
+            self.0.record_debug(field, value);
+        }
+    }
+}
+
+#[derive(Default)]
+struct TracingFieldFormatter(Pretty);
+
+impl<'writer> FormatFields<'writer> for TracingFieldFormatter {
+    fn format_fields<R: RecordFields>(
+        &self,
+        writer: Writer<'writer>,
+        fields: R,
+    ) -> std::fmt::Result {
+        let mut v = FilterVisit(PrettyVisitor::new(writer, true));
+        fields.record(&mut v);
+        v.into_inner().finish()
+    }
+}
+
 pub fn initialize(max_log_level: Level) {
-    let subscriber = tracing_subscriber::FmtSubscriber::builder()
+    let builder = tracing_subscriber::FmtSubscriber::builder()
         .with_max_level(max_log_level)
         //.with_timer(ReduxTimer)
-        .finish();
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("global subscriber should be configurable");
+        ;
+    if max_log_level != Level::TRACE {
+        let subscriber = builder
+            .fmt_fields(TracingFieldFormatter::default())
+            .finish();
+        tracing::subscriber::set_global_default(subscriber)
+    } else {
+        let subscriber = builder.finish();
+        tracing::subscriber::set_global_default(subscriber)
+    }
+    .expect("global subscriber should be configurable");
 }
