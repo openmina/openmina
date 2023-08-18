@@ -1,10 +1,12 @@
+ARG MINA_SNARK_WORKER_TAG=0.0.7
+
 FROM rust:buster AS build
 RUN rustup default nightly-2023-06-01 && rustup component add rustfmt
 WORKDIR /openmina
 COPY . .
 RUN cargo build --release --package=cli --bin=openmina
 
-FROM openmina/mina-snark-worker-prover:0.0.7 as prover
+FROM openmina/mina-snark-worker-prover:${MINA_SNARK_WORKER_TAG} as prover
 
 FROM debian:buster
 RUN apt-get update && apt-get install -y libjemalloc-dev libssl-dev libpq-dev curl jq procps
