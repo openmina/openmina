@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::ffi::OsString;
 
 use std::sync::Arc;
@@ -8,6 +8,7 @@ use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 use rand::prelude::*;
+use redux::ActionMeta;
 use serde::Serialize;
 use shared::log::inner::Level;
 use snarker::external_snark_worker::ExternalSnarkWorkerStartAction;
@@ -30,26 +31,32 @@ use snarker::p2p::service_impl::webrtc_rs::{Cmd, P2pServiceCtx, P2pServiceWebrtc
 use snarker::p2p::service_impl::webrtc_rs_with_libp2p::{self, P2pServiceWebrtcRsWithLibp2p};
 use snarker::p2p::{P2pConfig, P2pEvent, PeerId};
 use snarker::rpc::RpcRequest;
-use snarker::service::EventSourceService;
+use snarker::service::{EventSourceService, Recorder, Service};
 use snarker::snark::block_verify::{
     SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
 use snarker::snark::{SnarkEvent, VerifierIndex, VerifierKind, VerifierSRS};
 use snarker::snark_pool::SnarkPoolConfig;
 use snarker::stats::Stats;
-use snarker::{Config, LedgerConfig, SnarkConfig, SnarkerConfig, State, TransitionFrontierConfig};
+use snarker::{
+    ActionKind, Config, LedgerConfig, SnarkConfig, SnarkerConfig, State, TransitionFrontierConfig,
+};
 
 mod http_server;
 
 mod rpc;
 use rpc::RpcP2pConnectionOutgoingResponse;
-mod tracing;
+pub use rpc::RpcService;
+pub mod tracing;
 
 mod ext_snark_worker;
 
 /// Openmina snarker
 #[derive(Debug, clap::Args)]
 pub struct Snarker {
+    #[arg(long, short = 'd', default_value = "~/.openmina")]
+    pub work_dir: String,
+
     /// Chain ID
     #[arg(long, short = 'i', env)]
     pub chain_id: String,
@@ -84,6 +91,9 @@ pub struct Snarker {
     /// Mina snark worker path
     #[arg(long, short = 'e', env)]
     pub mina_exe_path: Option<OsString>,
+
+    #[arg(long, default_value = "none")]
+    pub record: String,
 }
 
 fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
@@ -142,14 +152,16 @@ impl Snarker {
             .build()
             .unwrap();
         let _rt_guard = rt.enter();
+        let mut rng = ThreadRng::default();
 
         let secret_key = self.p2p_secret_key.unwrap_or_else(|| {
-            let mut rng = ThreadRng::default();
             let bytes = rng.gen();
             SecretKey::from_bytes(bytes)
         });
         let pub_key = secret_key.public_key();
 
+        let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
+        let rng_seed = rng.next_u64();
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
@@ -216,7 +228,7 @@ impl Snarker {
             }
         });
 
-        let mut rpc_service = rpc::RpcService::new();
+        let mut rpc_service = RpcService::new();
 
         let http_port = self.port;
         let rpc_sender = RpcSender {
@@ -243,13 +255,14 @@ impl Snarker {
             .build()
             .unwrap();
         let (redux_exited_tx, redux_exited) = tokio::sync::oneshot::channel();
+        let record = self.record;
         std::thread::Builder::new()
             .name("openmina_redux".to_owned())
             .spawn(move || {
                 let local_set = tokio::task::LocalSet::new();
                 local_set.block_on(&runtime, async move {
                     let service = SnarkerService {
-                        rng: ThreadRng::default(),
+                        rng: StdRng::seed_from_u64(rng_seed),
                         event_sender,
                         p2p_event_sender,
                         event_receiver: event_receiver.into(),
@@ -260,9 +273,21 @@ impl Snarker {
                         rpc: rpc_service,
                         snark_worker_sender: None,
                         stats: Stats::new(),
+                        recorder: match record.trim() {
+                            "none" => Recorder::None,
+                            "state-with-input-actions" => Recorder::only_input_actions(work_dir),
+                            _ => panic!("unknown --record strategy"),
+                        },
+                        replayer: None,
                     };
                     let state = State::new(config);
-                    let mut snarker = ::snarker::Snarker::new(state, service);
+                    let mut snarker = ::snarker::Snarker::new(state, service, None);
+
+                    // record initial state.
+                    {
+                        let store = snarker.store_mut();
+                        store.service.recorder().initial_state(rng_seed, store.state.get());
+                    }
 
                     snarker
                         .store_mut()
@@ -315,19 +340,40 @@ impl Snarker {
     }
 }
 
-struct SnarkerService {
-    rng: ThreadRng,
-    event_sender: mpsc::UnboundedSender<Event>,
+pub struct SnarkerService {
+    pub rng: StdRng,
+    pub event_sender: mpsc::UnboundedSender<Event>,
     // TODO(binier): change so that we only have `event_sender`.
-    p2p_event_sender: mpsc::UnboundedSender<P2pEvent>,
-    event_receiver: EventReceiver,
-    cmd_sender: mpsc::UnboundedSender<Cmd>,
-    ledger: LedgerCtx,
-    peers: BTreeMap<PeerId, PeerState>,
-    libp2p: Libp2pService,
-    rpc: rpc::RpcService,
-    stats: Stats,
-    snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerFacade>,
+    pub p2p_event_sender: mpsc::UnboundedSender<P2pEvent>,
+    pub event_receiver: EventReceiver,
+    pub cmd_sender: mpsc::UnboundedSender<Cmd>,
+    pub ledger: LedgerCtx,
+    pub peers: BTreeMap<PeerId, PeerState>,
+    pub libp2p: Libp2pService,
+    pub rpc: RpcService,
+    pub snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerFacade>,
+    pub stats: Stats,
+    pub recorder: Recorder,
+    pub replayer: Option<ReplayerState>,
+}
+
+pub struct ReplayerState {
+    pub initial_monotonic: redux::Instant,
+    pub initial_time: redux::Timestamp,
+    pub expected_actions: VecDeque<(ActionKind, ActionMeta)>,
+}
+
+impl ReplayerState {
+    pub fn next_monotonic_time(&self) -> redux::Instant {
+        self.expected_actions
+            .front()
+            .map(|(_, meta)| meta.time())
+            .map(|expected_time| {
+                let time_passed = expected_time.checked_sub(self.initial_time).unwrap();
+                self.initial_monotonic + time_passed
+            })
+            .unwrap_or(self.initial_monotonic)
+    }
 }
 
 impl snarker::ledger::LedgerService for SnarkerService {
@@ -340,13 +386,24 @@ impl snarker::ledger::LedgerService for SnarkerService {
     }
 }
 
-impl redux::TimeService for SnarkerService {}
+impl redux::TimeService for SnarkerService {
+    fn monotonic_time(&mut self) -> ledger::Instant {
+        self.replayer
+            .as_ref()
+            .map(|v| v.next_monotonic_time())
+            .unwrap_or_else(|| redux::Instant::now())
+    }
+}
 
 impl redux::Service for SnarkerService {}
 
 impl snarker::Service for SnarkerService {
     fn stats(&mut self) -> Option<&mut Stats> {
         Some(&mut self.stats)
+    }
+
+    fn recorder(&mut self) -> &mut Recorder {
+        &mut self.recorder
     }
 }
 
@@ -391,6 +448,9 @@ impl SnarkBlockVerifyService for SnarkerService {
         verifier_srs: Arc<VerifierSRS>,
         block: VerifiableBlockWithHash,
     ) {
+        if self.replayer.is_some() {
+            return;
+        }
         let tx = self.event_sender.clone();
         rayon::spawn_fifo(move || {
             let header = block.header_ref();

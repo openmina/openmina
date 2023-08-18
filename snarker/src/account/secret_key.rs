@@ -1,4 +1,4 @@
-use std::{str::FromStr, fmt};
+use std::{fmt, str::FromStr};
 
 use mina_signer::{keypair::KeypairError, Keypair};
 
@@ -54,7 +54,9 @@ impl fmt::Display for AccountSecretKey {
         let mut bytes = hex::decode(&hex).expect("to_hex should return hex string");
         bytes.reverse();
         bytes.insert(0, 1);
-        let s = bs58::encode(&bytes).with_check_version(Self::BASE58_CHECK_VERSION).into_string();
+        let s = bs58::encode(&bytes)
+            .with_check_version(Self::BASE58_CHECK_VERSION)
+            .into_string();
         f.write_str(&s)
     }
 }
@@ -79,6 +81,9 @@ mod tests {
         let parsed: AccountSecretKey = "EKFWgzXsoMYcP1Hnj7dBhsefxNucZ6wyz676Qg5uMFNzytXAi2Ww"
             .parse()
             .unwrap();
-        assert_eq!(&parsed.to_string(), "EKFWgzXsoMYcP1Hnj7dBhsefxNucZ6wyz676Qg5uMFNzytXAi2Ww");
+        assert_eq!(
+            &parsed.to_string(),
+            "EKFWgzXsoMYcP1Hnj7dBhsefxNucZ6wyz676Qg5uMFNzytXAi2Ww"
+        );
     }
 }

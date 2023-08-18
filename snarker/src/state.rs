@@ -47,7 +47,7 @@ impl State {
             watched_accounts: WatchedAccountsState::new(),
 
             config: config.snarker,
-            last_action: ActionMeta::ZERO,
+            last_action: ActionMeta::zero_custom(Timestamp::global_now()),
             applied_actions_count: 0,
         }
     }

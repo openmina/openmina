@@ -1,8 +1,6 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use serde::{Deserialize, Serialize};
-
 pub trait RequestIdType {
     fn request_id_type() -> &'static str;
 }
@@ -43,41 +41,42 @@ impl<T> RequestId<T> {
     }
 }
 
-impl<T: RequestIdType> Serialize for RequestId<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::ser::SerializeStruct;
-        let mut s = serializer.serialize_struct(T::request_id_type(), 2)?;
-        s.serialize_field("locator", &self.locator)?;
-        s.serialize_field("counter", &self.counter)?;
-        s.end()
+mod serde_impl {
+    use serde::{Deserialize, Serialize};
+
+    use super::RequestIdType;
+
+    #[derive(Serialize, Deserialize)]
+    struct RequestId {
+        locator: usize,
+        counter: usize,
     }
-}
 
-impl<'de, T: RequestIdType> Deserialize<'de> for RequestId<T> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct RequestIdVisitor<T> {
-            _phantom_t: PhantomData<T>,
+    impl<T: RequestIdType> Serialize for super::RequestId<T> {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            let id = RequestId {
+                locator: self.locator,
+                counter: self.counter,
+            };
+            Serialize::serialize(&id, serializer)
         }
-        impl<'de, T> serde::de::Visitor<'de> for RequestIdVisitor<T> {
-            type Value = RequestId<T>;
+    }
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(
-                    formatter,
-                    "a `RequestId<T>` with 2 fields: `locator` and `counter`"
-                )
-            }
+    impl<'de, T: RequestIdType> Deserialize<'de> for super::RequestId<T> {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let id = RequestId::deserialize(deserializer)?;
+            Ok(Self {
+                locator: id.locator,
+                counter: id.counter,
+                _phantom_request_type: Default::default(),
+            })
         }
-        let visitor = RequestIdVisitor {
-            _phantom_t: Default::default(),
-        };
-        deserializer.deserialize_struct(T::request_id_type(), &["locator", "counter"], visitor)
     }
 }
 

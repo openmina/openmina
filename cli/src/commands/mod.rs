@@ -1,4 +1,5 @@
 pub mod misc;
+pub mod replay;
 pub mod snark;
 pub mod snarker;
 
@@ -18,6 +19,7 @@ pub enum Command {
     Snarker(snarker::Snarker),
     /// Miscilaneous utilities.
     Misc(misc::Misc),
+    Replay(replay::Replay),
 }
 
 impl Command {
@@ -26,6 +28,7 @@ impl Command {
             Self::Snark(v) => v.run(),
             Self::Snarker(v) => v.run(),
             Self::Misc(v) => v.run(),
+            Self::Replay(v) => v.run(),
         }
     }
 }

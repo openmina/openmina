@@ -1,4 +1,4 @@
-use std::{str::FromStr, fmt};
+use std::{fmt, str::FromStr};
 
 use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::{

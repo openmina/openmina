@@ -4,7 +4,7 @@
 /// of the following: `redux::Store`, global state where time is stored,
 /// `redux::ActionMeta::time()`.
 pub fn system_time() -> redux::Timestamp {
-    redux::Timestamp::now()
+    redux::Timestamp::global_now()
 }
 
 pub fn time_to_str(t: redux::Timestamp) -> String {
