@@ -32,7 +32,7 @@ impl From<ExternalSnarkWorkerState> for RpcSnarkWorkerStatus {
                 RpcSnarkWorkerStatus::Cancelled { job_id }
             }
             ExternalSnarkWorkerState::Killing => RpcSnarkWorkerStatus::Killing,
-            ExternalSnarkWorkerState::Error(error) => RpcSnarkWorkerStatus::Error { error },
+            ExternalSnarkWorkerState::Error(error, permanent) => RpcSnarkWorkerStatus::Error { error, permanent },
         }
     }
 }

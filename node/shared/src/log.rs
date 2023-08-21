@@ -20,42 +20,45 @@ pub mod inner {
 macro_rules! log_entry {
     ($level:ident, $time:expr; $($tts:tt)*) => {
         $crate::log::inner::$level!(time = $crate::log::time_to_str($time), $($tts)*);
-    }
+    };
+    ($level:ident; $($tts:tt)*) => {
+        $crate::log::inner::$level!(time = $crate::log::time_to_str($crate::log::system_time()), $($tts)*);
+    };
 }
 
 #[macro_export]
 macro_rules! trace {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(trace, $time; $($tts)*);
-    }
+    };
 }
 
 #[macro_export]
 macro_rules! debug {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(debug, $time; $($tts)*);
-    }
+    };
 }
 
 #[macro_export]
 macro_rules! info {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(info, $time; $($tts)*);
-    }
+    };
 }
 
 #[macro_export]
 macro_rules! warn {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(warn, $time; $($tts)*);
-    }
+    };
 }
 
 #[macro_export]
 macro_rules! error {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(error, $time; $($tts)*);
-    }
+    };
 }
 
 pub use crate::{debug, error, info, trace, warn};

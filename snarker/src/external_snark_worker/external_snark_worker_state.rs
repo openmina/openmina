@@ -16,7 +16,7 @@ pub enum ExternalSnarkWorkerState {
     Cancelled(SnarkWorkId),
 
     Killing,
-    Error(ExternalSnarkWorkerError),
+    Error(ExternalSnarkWorkerError, bool),
 }
 
 impl ExternalSnarkWorkerState {

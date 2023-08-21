@@ -187,6 +187,12 @@ async fn stderr_reader<R: AsyncRead + Unpin>(r: R) -> Result<(), SnarkerError> {
     Ok(())
 }
 
+macro_rules! send_event {
+    ($channel:expr, $event:expr) => {
+        _ = $channel.send(snarker::event_source::Event::ExternalSnarkWorker($event));
+    };
+}
+
 impl ExternalSnarkWorkerFacade {
     fn start<P: AsRef<OsStr>>(
         path: P,
@@ -198,6 +204,10 @@ impl ExternalSnarkWorkerFacade {
         let (cancel_chan, mut cancel_rx) = mpsc::channel(1);
         let (kill_chan, kill_rx) = oneshot::channel();
 
+        let metadata = std::fs::File::open(path.as_ref())?.metadata()?;
+        if !metadata.is_file() {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a file").into());
+        }
         let mut cmd = Command::new(path);
 
         // TODO(akoptelov) make the block return terminal errors instead of sending them down the channel and exit.
@@ -210,11 +220,6 @@ impl ExternalSnarkWorkerFacade {
                     .unwrap();
                 runtime.block_on(async move {
                     let event_sender_clone = event_sender.clone();
-                    let event = move |event: ExternalSnarkWorkerEvent| {
-                        if let Err(err) = event_sender_clone.send(event.into()) {
-                            eprintln!("error sending event: {err}");
-                        }
-                    };
 
                     let mut child = match cmd
                         .stdin(Stdio::piped())
@@ -224,7 +229,7 @@ impl ExternalSnarkWorkerFacade {
                     {
                         Ok(v) => v,
                         Err(err) => {
-                            event(SnarkerError::from(err).into());
+                            send_event!(event_sender_clone, SnarkerError::from(err).into());
                             return;
                         }
                     };
@@ -238,51 +243,67 @@ impl ExternalSnarkWorkerFacade {
                             // readiness
                             let request = ExternalSnarkWorkerRequest::await_readiness();
                             if let Err(err) = write_binprot(request, &mut child_stdin).await {
-                                event(err.into());
+                                send_event!(event_sender_clone, err.into());
                                 return;
                             }
                             let response = read_binprot(&mut child_stdout).await;
                             match response {
                                 Ok(v) if v => {
-                                    event(ExternalSnarkWorkerEvent::Started);
+                                    send_event!(
+                                        event_sender_clone,
+                                        ExternalSnarkWorkerEvent::Started
+                                    );
                                 }
                                 Ok(_) => {
-                                    event(SnarkerError::Broken("snarker responded `false` on readiness request".into()).into());
+                                    send_event!(
+                                        event_sender_clone,
+                                        SnarkerError::Broken(
+                                            "snarker responded `false` on readiness request".into()
+                                        )
+                                        .into()
+                                    );
                                     return;
                                 }
                                 Err(err) => {
-                                    event(err.into());
+                                    send_event!(event_sender_clone, err.into());
                                     return;
                                 }
                             }
-
 
                             loop {
                                 let Some(spec) = data_rx.recv().await else {
                                     return;
                                 };
-                                let request = ExternalSnarkWorkerRequest::perform_job(spec, public_key.clone(), fee.clone());
+                                let request = ExternalSnarkWorkerRequest::perform_job(
+                                    spec,
+                                    public_key.clone(),
+                                    fee.clone(),
+                                );
                                 if let Err(err) = write_binprot(request, &mut child_stdin).await {
-                                    event(err.into());
+                                    send_event!(event_sender_clone, err.into());
                                     return;
                                 }
                                 let response = read_binprot(&mut child_stdout).await;
                                 match response {
-                                    Ok(result) => {
-                                        match result {
-                                            ExternalSnarkWorkerResult::Ok(Some(v)) => {
-                                                event(Arc::new(v).into());
-                                            }
-                                            ExternalSnarkWorkerResult::Ok(None) => {
-                                                event(ExternalSnarkWorkerEvent::WorkCancelled);
-                                            }
-                                            ExternalSnarkWorkerResult::Err(err) => {
-                                                event(ExternalSnarkWorkerWorkError::Error(err).into());
-                                            }
+                                    Ok(result) => match result {
+                                        ExternalSnarkWorkerResult::Ok(Some(v)) => {
+                                            send_event!(event_sender_clone, Arc::new(v).into());
                                         }
-                                    }
+                                        ExternalSnarkWorkerResult::Ok(None) => {
+                                            send_event!(
+                                                event_sender_clone,
+                                                ExternalSnarkWorkerEvent::WorkCancelled
+                                            );
+                                        }
+                                        ExternalSnarkWorkerResult::Err(err) => {
+                                            send_event!(
+                                                event_sender_clone,
+                                                ExternalSnarkWorkerWorkError::Error(err).into()
+                                            );
+                                        }
+                                    },
                                     Err(err) => {
-                                        event(err.into());
+                                        send_event!(event_sender_clone, err.into());
                                     }
                                 }
                             }
@@ -295,9 +316,10 @@ impl ExternalSnarkWorkerFacade {
                                     return;
                                 }
                                 println!("sending cancel signal to {pid}...");
-                                if let Err(err) = nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGINT) {
-                                    let _ = event_sender_clone.send(ExternalSnarkWorkerEvent::Error(SnarkerError::from(err).into()).into());
-                                    return;
+                                if let Err(err) =
+                                    nix::sys::signal::kill(pid, nix::sys::signal::Signal::SIGINT)
+                                {
+                                    send_event!(event_sender_clone, SnarkerError::from(err).into());
                                 }
                             }
                         });
@@ -307,16 +329,16 @@ impl ExternalSnarkWorkerFacade {
                         let event_sender_clone = event_sender.clone();
                         tokio::spawn(async move {
                             if let Err(err) = stderr_reader(child_stderr).await {
-                                let _ = event_sender_clone.send(ExternalSnarkWorkerEvent::Error(err.into()).into());
+                                send_event!(event_sender_clone, SnarkerError::from(err).into());
                             }
                         });
 
                         tokio::select! {
                             _ = kill_rx => {
                                 if let Err(err) = child.kill().await {
-                                    let _ = event_sender.send(ExternalSnarkWorkerEvent::Error(SnarkerError::from(err).into()).into());
+                                    send_event!(event_sender, SnarkerError::from(err).into());
                                 } else {
-                                    let _ = event_sender.send(ExternalSnarkWorkerEvent::Killed.into());
+                                    send_event!(event_sender, ExternalSnarkWorkerEvent::Killed);
                                 }
                                 return;
                             }
