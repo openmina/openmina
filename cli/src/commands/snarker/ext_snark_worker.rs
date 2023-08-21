@@ -510,6 +510,7 @@ mod tests {
         expect_event!(event_rx, ExternalSnarkWorkerEvent::Killed);
     }
 
+
     #[tokio::test]
     async fn test_cancel() {
         const DATA: &[u8] = include_bytes!("../../../tests/files/snark_spec/spec1.bin");
@@ -521,6 +522,49 @@ mod tests {
             ExternalSnarkWorkerFacade::start(mina_exe_path(), public_key, fee, event_tx).unwrap();
 
         expect_event!(event_rx, ExternalSnarkWorkerEvent::Started);
+
+        cmd_sender.submit(instances.clone()).unwrap();
+
+        // ensure that for 5 seconds no feedback is received
+        let _ = tokio::time::timeout(Duration::from_secs(5), event_rx.recv())
+            .await
+            .map(|event| {
+                panic!("unexpected event received too early: {event:?}");
+            });
+
+        cmd_sender.cancel().unwrap();
+        expect_event!(event_rx, ExternalSnarkWorkerEvent::WorkCancelled);
+
+        cmd_sender.submit(instances).unwrap();
+        expect_event!(event_rx, ExternalSnarkWorkerEvent::WorkResult(_));
+
+        cmd_sender.kill().expect("cannot kill worker");
+        expect_event!(event_rx, ExternalSnarkWorkerEvent::Killed);
+    }
+
+    #[tokio::test]
+    async fn test_2x_cancel() {
+        const DATA: &[u8] = include_bytes!("../../../tests/files/snark_spec/spec1.bin");
+        let mut r = DATA;
+        let (public_key, fee, instances) = read_input(&mut r);
+
+        let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+        let mut cmd_sender =
+            ExternalSnarkWorkerFacade::start(mina_exe_path(), public_key, fee, event_tx).unwrap();
+
+        expect_event!(event_rx, ExternalSnarkWorkerEvent::Started);
+
+        cmd_sender.submit(instances.clone()).unwrap();
+
+        // ensure that for 5 seconds no feedback is received
+        let _ = tokio::time::timeout(Duration::from_secs(5), event_rx.recv())
+            .await
+            .map(|event| {
+                panic!("unexpected event received too early: {event:?}");
+            });
+
+        cmd_sender.cancel().unwrap();
+        expect_event!(event_rx, ExternalSnarkWorkerEvent::WorkCancelled);
 
         cmd_sender.submit(instances.clone()).unwrap();
 
