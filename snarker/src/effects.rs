@@ -111,38 +111,6 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                 }
             }
 
-            // Every minute.
-            if (meta.time_as_nanos() / 10_000_000_000) % 10 == 6 {
-                let state = store.state();
-                let should_request = state
-                    .transition_frontier
-                    .sync
-                    .best_tip()
-                    .or_else(|| state.transition_frontier.best_tip())
-                    .map_or(true, |b| {
-                        let dur = meta.time().checked_sub(b.timestamp());
-                        dur.map_or(false, |dur| dur.as_secs() >= 3 * 60)
-                    });
-
-                if should_request
-                    && !state
-                        .p2p
-                        .ready_peers_iter()
-                        .filter_map(|(_, s)| s.channels.rpc.pending_local_rpc_kind())
-                        .any(|kind| matches!(kind, P2pRpcKind::BestTipWithProof))
-                {
-                    // TODO(binier): choose randomly.
-                    let peers = state.p2p.ready_rpc_peers_iter().collect::<Vec<_>>();
-                    for (peer_id, id) in peers {
-                        store.dispatch(P2pChannelsRpcRequestSendAction {
-                            peer_id,
-                            id,
-                            request: P2pRpcRequest::BestTipWithProof,
-                        });
-                    }
-                }
-            }
-
             let state = store.state();
             for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {
                 store.dispatch(P2pChannelsRpcTimeoutAction { peer_id, id });
