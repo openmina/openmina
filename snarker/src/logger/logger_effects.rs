@@ -347,10 +347,54 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
             P2pAction::Peer(_) => {}
         },
         Action::ExternalSnarkWorker(a) => {
-            shared::log::debug!(
-                meta.time();
-                action = format!("{a:?}")
-            )
+            use crate::external_snark_worker::ExternalSnarkWorkerAction;
+            match a {
+                ExternalSnarkWorkerAction::Start(_) |
+                ExternalSnarkWorkerAction::Started(_) |
+                ExternalSnarkWorkerAction::Kill(_) |
+                ExternalSnarkWorkerAction::Killed(_) |
+                ExternalSnarkWorkerAction::WorkCancelled(_) |
+                ExternalSnarkWorkerAction::PruneWork(_) => {
+                    shared::log::debug!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        trace_action = serde_json::to_string(&a).ok()
+                    )
+                },
+                ExternalSnarkWorkerAction::SubmitWork(a) => {
+                    shared::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        work_id = a.job_id.to_string(),
+                    )
+                },
+                ExternalSnarkWorkerAction::WorkResult(a) => {
+                    shared::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                    )
+                },
+                ExternalSnarkWorkerAction::CancelWork(_) => {
+                    shared::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                    )
+                },
+                ExternalSnarkWorkerAction::WorkError(a) => {
+                    shared::log::warn!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        error = a.error.to_string(),
+                    )
+                },
+                ExternalSnarkWorkerAction::Error(a) => {
+                    shared::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        error = a.error.to_string(),
+                    )
+                },
+            }
         }
         _ => {}
     }

@@ -19,7 +19,7 @@ impl ExternalSnarkWorkerState {
                 *self = ExternalSnarkWorkerState::None;
             }
             ExternalSnarkWorkerAction::Error(a) => {
-                *self = ExternalSnarkWorkerState::Error(a.error.clone());
+                *self = ExternalSnarkWorkerState::Error(a.error.clone(), a.permanent);
             }
             ExternalSnarkWorkerAction::SubmitWork(action) => {
                 *self = ExternalSnarkWorkerState::Working(action.job_id.clone());

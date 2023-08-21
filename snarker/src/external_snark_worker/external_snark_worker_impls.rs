@@ -12,9 +12,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::transition_frontier::TransitionFrontierState;
 
-#[derive(Clone, Debug, derive_more::From, Serialize, Deserialize)]
+#[derive(Clone, Debug, derive_more::From, Serialize, Deserialize, thiserror::Error)]
 pub enum SnarkWorkSpecError {
+    #[error("unknown state body hash: {_0}")]
     UnknownStateBodyHash(StateBodyHash),
+    #[error("error merging statements: {_0}")]
     MergeStatementError(String),
 }
 

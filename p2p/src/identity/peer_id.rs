@@ -87,6 +87,7 @@ impl From<libp2p::PeerId> for PeerId {
 impl From<PeerId> for libp2p::PeerId {
     fn from(value: PeerId) -> Self {
         let key = libp2p::identity::ed25519::PublicKey::decode(&value.to_bytes()).unwrap();
+        #[allow(deprecated)]
         let key = libp2p::identity::PublicKey::Ed25519(key);
         key.into()
     }

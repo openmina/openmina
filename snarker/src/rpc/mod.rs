@@ -256,6 +256,7 @@ pub enum RpcSnarkWorkerStatus {
     },
     Error {
         error: ExternalSnarkWorkerError,
+        permanent: bool,
     },
     Killing,
 }
