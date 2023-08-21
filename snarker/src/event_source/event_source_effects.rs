@@ -241,7 +241,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     store.dispatch(ExternalSnarkWorkerWorkCancelledAction {});
                 }
                 ExternalSnarkWorkerEvent::Error(error) => {
-                    store.dispatch(ExternalSnarkWorkerErrorAction { error });
+                    store.dispatch(ExternalSnarkWorkerErrorAction { error, permanent: false });
                 }
             },
         },

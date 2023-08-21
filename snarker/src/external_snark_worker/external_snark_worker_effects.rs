@@ -8,7 +8,7 @@ use crate::{
 use super::{
     available_job_to_snark_worker_spec, ExternalSnarkWorkerAction,
     ExternalSnarkWorkerActionWithMeta, ExternalSnarkWorkerErrorAction,
-    ExternalSnarkWorkerWorkErrorAction,
+    ExternalSnarkWorkerWorkErrorAction, ExternalSnarkWorkerKillAction,
 };
 
 pub fn external_snark_worker_effects<S: crate::Service>(
@@ -25,7 +25,7 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             let public_key = config.public_key.clone().into();
             let fee = config.fee.clone();
             if let Err(err) = store.service().start(path, public_key, fee) {
-                todo!("report error {err:?}");
+                store.dispatch(ExternalSnarkWorkerErrorAction { error: err, permanent: true });
             }
         }
         ExternalSnarkWorkerAction::Started(_) => {
@@ -33,12 +33,12 @@ pub fn external_snark_worker_effects<S: crate::Service>(
         }
         ExternalSnarkWorkerAction::Kill(_) => {
             if let Err(err) = store.service().kill() {
-                todo!("report error {err:?}");
+                store.dispatch(ExternalSnarkWorkerErrorAction { error: err, permanent: true });
             }
         }
         ExternalSnarkWorkerAction::Killed(_) => {}
         ExternalSnarkWorkerAction::Error(action) => {
-            todo!("report {err:?}", err = action.error);
+            store.dispatch(ExternalSnarkWorkerKillAction {});
         }
         ExternalSnarkWorkerAction::SubmitWork(action) => {
             let job_id = &action.job_id;
@@ -78,7 +78,7 @@ pub fn external_snark_worker_effects<S: crate::Service>(
         }
         ExternalSnarkWorkerAction::CancelWork(_) => {
             if let Err(err) = store.service().cancel() {
-                store.dispatch(ExternalSnarkWorkerErrorAction { error: err.into() });
+                store.dispatch(ExternalSnarkWorkerErrorAction { error: err.into(), permanent: true });
                 return;
             }
         }

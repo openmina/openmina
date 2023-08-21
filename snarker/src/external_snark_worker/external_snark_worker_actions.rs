@@ -51,13 +51,16 @@ impl EnablingCondition<State> for ExternalSnarkWorkerStartedAction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ExternalSnarkWorkerKillAction {}
+pub struct ExternalSnarkWorkerKillAction {
+}
 
 impl EnablingCondition<State> for ExternalSnarkWorkerKillAction {
     fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
         match &state.external_snark_worker {
-            ExternalSnarkWorkerState::None | ExternalSnarkWorkerState::Killing => true,
-            _ => false,
+            ExternalSnarkWorkerState::Error(_, false)
+            | ExternalSnarkWorkerState::None
+            | ExternalSnarkWorkerState::Killing => false,
+            _ => true,
         }
     }
 }
@@ -77,6 +80,7 @@ impl EnablingCondition<State> for ExternalSnarkWorkerKilledAction {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExternalSnarkWorkerErrorAction {
     pub error: ExternalSnarkWorkerError,
+    pub permanent: bool,
 }
 
 impl EnablingCondition<State> for ExternalSnarkWorkerErrorAction {
