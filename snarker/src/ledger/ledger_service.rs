@@ -172,7 +172,7 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
             .enumerate()
             .try_for_each(|(index, account)| {
                 let index = AccountIndex(first_index.0 + index as u64);
-                mask.set_at_index(index, (&account).into())
+                mask.set_at_index(index, Box::new((&account).into()))
             })?;
 
         Ok(())
@@ -357,7 +357,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
                 let accounts = mask
                     .get_all_accounts_rooted_at(addr)?
                     .into_iter()
-                    .map(|(_, account)| (&account).into())
+                    .map(|(_, account)| (&*account).into())
                     .collect();
                 MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(accounts)
             }
