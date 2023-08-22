@@ -7,8 +7,9 @@ use crate::{
 
 use super::{
     available_job_to_snark_worker_spec, ExternalSnarkWorkerAction,
-    ExternalSnarkWorkerActionWithMeta, ExternalSnarkWorkerErrorAction,
-    ExternalSnarkWorkerWorkErrorAction, ExternalSnarkWorkerKillAction,
+    ExternalSnarkWorkerActionWithMeta, ExternalSnarkWorkerCancelWorkAction,
+    ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerKillAction,
+    ExternalSnarkWorkerWorkErrorAction,
 };
 
 pub fn external_snark_worker_effects<S: crate::Service>(
@@ -25,19 +26,31 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             let public_key = config.public_key.clone().into();
             let fee = config.fee.clone();
             if let Err(err) = store.service().start(path, public_key, fee) {
-                store.dispatch(ExternalSnarkWorkerErrorAction { error: err, permanent: true });
+                store.dispatch(ExternalSnarkWorkerErrorAction {
+                    error: err,
+                    permanent: true,
+                });
             }
         }
         ExternalSnarkWorkerAction::Started(_) => {
             store.dispatch(SnarkPoolAutoCreateCommitmentAction {});
         }
+        ExternalSnarkWorkerAction::StartTimeout(_) => {
+            store.dispatch(ExternalSnarkWorkerErrorAction {
+                error: super::ExternalSnarkWorkerError::StartTimeout,
+                permanent: true,
+            });
+        }
         ExternalSnarkWorkerAction::Kill(_) => {
             if let Err(err) = store.service().kill() {
-                store.dispatch(ExternalSnarkWorkerErrorAction { error: err, permanent: true });
+                store.dispatch(ExternalSnarkWorkerErrorAction {
+                    error: err,
+                    permanent: true,
+                });
             }
         }
         ExternalSnarkWorkerAction::Killed(_) => {}
-        ExternalSnarkWorkerAction::Error(action) => {
+        ExternalSnarkWorkerAction::Error(_action) => {
             store.dispatch(ExternalSnarkWorkerKillAction {});
         }
         ExternalSnarkWorkerAction::SubmitWork(action) => {
@@ -76,9 +89,15 @@ pub fn external_snark_worker_effects<S: crate::Service>(
         ExternalSnarkWorkerAction::WorkError(_) => {
             store.dispatch(ExternalSnarkWorkerPruneWorkAction {});
         }
+        ExternalSnarkWorkerAction::WorkTimeout(_) => {
+            store.dispatch(ExternalSnarkWorkerCancelWorkAction {});
+        }
         ExternalSnarkWorkerAction::CancelWork(_) => {
             if let Err(err) = store.service().cancel() {
-                store.dispatch(ExternalSnarkWorkerErrorAction { error: err.into(), permanent: true });
+                store.dispatch(ExternalSnarkWorkerErrorAction {
+                    error: err.into(),
+                    permanent: true,
+                });
                 return;
             }
         }

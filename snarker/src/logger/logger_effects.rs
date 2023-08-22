@@ -368,7 +368,7 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                         work_id = a.job_id.to_string(),
                     )
                 },
-                ExternalSnarkWorkerAction::WorkResult(a) => {
+                ExternalSnarkWorkerAction::WorkResult(_) => {
                     shared::log::info!(
                         meta.time();
                         kind = kind.to_string(),
@@ -392,6 +392,18 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                         meta.time();
                         kind = kind.to_string(),
                         error = a.error.to_string(),
+                    )
+                },
+                ExternalSnarkWorkerAction::StartTimeout(_) => {
+                    shared::log::warn!(
+                        meta.time();
+                        kind = kind.to_string(),
+                    )
+                },
+                ExternalSnarkWorkerAction::WorkTimeout(_) => {
+                    shared::log::warn!(
+                        meta.time();
+                        kind = kind.to_string(),
                     )
                 },
             }

@@ -15,9 +15,10 @@ use crate::external_snark_worker::{
     ExternalSnarkWorkerAction, ExternalSnarkWorkerCancelWorkAction, ExternalSnarkWorkerErrorAction,
     ExternalSnarkWorkerKillAction, ExternalSnarkWorkerKilledAction,
     ExternalSnarkWorkerPruneWorkAction, ExternalSnarkWorkerStartAction,
-    ExternalSnarkWorkerStartedAction, ExternalSnarkWorkerSubmitWorkAction,
-    ExternalSnarkWorkerWorkCancelledAction, ExternalSnarkWorkerWorkErrorAction,
-    ExternalSnarkWorkerWorkResultAction,
+    ExternalSnarkWorkerStartTimeoutAction, ExternalSnarkWorkerStartedAction,
+    ExternalSnarkWorkerSubmitWorkAction, ExternalSnarkWorkerWorkCancelledAction,
+    ExternalSnarkWorkerWorkErrorAction, ExternalSnarkWorkerWorkResultAction,
+    ExternalSnarkWorkerWorkTimeoutAction,
 };
 use crate::p2p::channels::best_tip::{
     P2pChannelsBestTipAction, P2pChannelsBestTipInitAction, P2pChannelsBestTipPendingAction,
@@ -183,11 +184,13 @@ pub enum ActionKind {
     ExternalSnarkWorkerKilled,
     ExternalSnarkWorkerPruneWork,
     ExternalSnarkWorkerStart,
+    ExternalSnarkWorkerStartTimeout,
     ExternalSnarkWorkerStarted,
     ExternalSnarkWorkerSubmitWork,
     ExternalSnarkWorkerWorkCancelled,
     ExternalSnarkWorkerWorkError,
     ExternalSnarkWorkerWorkResult,
+    ExternalSnarkWorkerWorkTimeout,
     P2pChannelsBestTipInit,
     P2pChannelsBestTipPending,
     P2pChannelsBestTipReady,
@@ -344,7 +347,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 178;
+    pub const COUNT: usize = 180;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -478,11 +481,13 @@ impl ActionKindGet for ExternalSnarkWorkerAction {
         match self {
             Self::Start(a) => a.kind(),
             Self::Started(a) => a.kind(),
+            Self::StartTimeout(a) => a.kind(),
             Self::Kill(a) => a.kind(),
             Self::Killed(a) => a.kind(),
             Self::SubmitWork(a) => a.kind(),
             Self::WorkResult(a) => a.kind(),
             Self::WorkError(a) => a.kind(),
+            Self::WorkTimeout(a) => a.kind(),
             Self::CancelWork(a) => a.kind(),
             Self::WorkCancelled(a) => a.kind(),
             Self::PruneWork(a) => a.kind(),
@@ -847,6 +852,12 @@ impl ActionKindGet for ExternalSnarkWorkerStartedAction {
     }
 }
 
+impl ActionKindGet for ExternalSnarkWorkerStartTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerStartTimeout
+    }
+}
+
 impl ActionKindGet for ExternalSnarkWorkerKillAction {
     fn kind(&self) -> ActionKind {
         ActionKind::ExternalSnarkWorkerKill
@@ -874,6 +885,12 @@ impl ActionKindGet for ExternalSnarkWorkerWorkResultAction {
 impl ActionKindGet for ExternalSnarkWorkerWorkErrorAction {
     fn kind(&self) -> ActionKind {
         ActionKind::ExternalSnarkWorkerWorkError
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerWorkTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerWorkTimeout
     }
 }
 

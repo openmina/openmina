@@ -34,7 +34,7 @@ use crate::external_snark_worker::{
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
-use crate::snark_pool::JobCommitment;
+use crate::snark_pool::{JobCommitment, JobSummary};
 use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
 use crate::stats::sync::SyncStatsSnapshot;
 use crate::State;
@@ -240,6 +240,7 @@ pub enum RpcSnarkWorkerStatus {
     Idle,
     Working {
         job_id: SnarkJobId,
+        summary: JobSummary,
     },
     WorkReady {
         job_id: SnarkJobId,

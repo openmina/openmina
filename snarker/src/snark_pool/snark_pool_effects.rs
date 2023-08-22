@@ -50,6 +50,7 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
         SnarkPoolAction::CommitmentCreate(a) => {
             let timestamp_ms = meta.time_as_nanos() / 1_000_000;
             let config = &store.state().config;
+            let summary = store.state().snark_pool.job_summary(&a.job_id);
             store.dispatch(SnarkPoolJobCommitmentAddAction {
                 commitment: SnarkJobCommitment::new(
                     timestamp_ms,
@@ -59,7 +60,9 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
                 ),
                 sender: store.state().p2p.config.identity_pub_key.peer_id(),
             });
-            store.dispatch(ExternalSnarkWorkerSubmitWorkAction { job_id: a.job_id });
+            if let Some(summary) = summary {
+                store.dispatch(ExternalSnarkWorkerSubmitWorkAction { job_id: a.job_id, summary });
+            }
         }
         SnarkPoolAction::CommitmentAdd(a) => {
             let state = store.state();

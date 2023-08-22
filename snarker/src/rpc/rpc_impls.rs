@@ -1,13 +1,13 @@
-use crate::external_snark_worker::ExternalSnarkWorkerState;
+use crate::external_snark_worker::{ExternalSnarkWorkerState, ExternalSnarkWorker};
 
 use super::{RpcSnarkWorker, RpcSnarkWorkerStatus};
 
-impl From<ExternalSnarkWorkerState> for RpcSnarkWorker {
-    fn from(source: ExternalSnarkWorkerState) -> Self {
+impl From<ExternalSnarkWorker> for RpcSnarkWorker {
+    fn from(source: ExternalSnarkWorker) -> Self {
         Self {
-            time: None,
+            time: Some(source.timestamp),
             id: Some("single".into()),
-            status: source.into(),
+            status: source.state.into(),
         }
     }
 }
@@ -18,7 +18,7 @@ impl From<ExternalSnarkWorkerState> for RpcSnarkWorkerStatus {
             ExternalSnarkWorkerState::None => RpcSnarkWorkerStatus::None,
             ExternalSnarkWorkerState::Starting => RpcSnarkWorkerStatus::Starting,
             ExternalSnarkWorkerState::Idle => RpcSnarkWorkerStatus::Idle,
-            ExternalSnarkWorkerState::Working(job_id) => RpcSnarkWorkerStatus::Working { job_id },
+            ExternalSnarkWorkerState::Working(job_id, summary) => RpcSnarkWorkerStatus::Working { job_id, summary },
             ExternalSnarkWorkerState::WorkReady(job_id, _) => {
                 RpcSnarkWorkerStatus::WorkReady { job_id }
             }
