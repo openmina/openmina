@@ -1,6 +1,6 @@
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
-use crate::external_snark_worker::external_snark_worker_effects;
+use crate::external_snark_worker::{external_snark_worker_effects, ExternalSnarkWorkerStartTimeoutAction, ExternalSnarkWorkerWorkTimeoutAction};
 use crate::logger::logger_effects;
 use crate::p2p::channels::rpc::{
     P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
@@ -118,6 +118,9 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             // TODO(binier): remove once ledger communication is async.
             store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
+
+            store.dispatch(ExternalSnarkWorkerStartTimeoutAction { now: meta.time() });
+            store.dispatch(ExternalSnarkWorkerWorkTimeoutAction { now: meta.time() });
         }
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));

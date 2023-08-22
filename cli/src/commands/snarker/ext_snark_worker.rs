@@ -93,6 +93,7 @@ where
     let mut len_buf = [0; size_of::<u64>()];
     r.read_exact(&mut len_buf).await?;
     let len = u64::from_le_bytes(len_buf);
+    shared::log::debug!(shared::log::system_time(); "reading {len} bytes...");
 
     let mut buf = Vec::with_capacity(len as usize);
     let mut r = r.take(len);
@@ -100,6 +101,7 @@ where
 
     let mut read = buf.as_slice();
     let result = T::binprot_read(&mut read)?;
+    shared::log::debug!(shared::log::system_time(); "succesfully read {len} bytes");
     Ok(result)
 }
 
@@ -431,6 +433,7 @@ mod tests {
         external_snark_worker::{ExternalSnarkWorkerEvent, SnarkWorkSpec},
     };
     use tokio::sync::mpsc;
+    use shared::log::inner::Level;
 
     use super::ExternalSnarkWorkerFacade;
 
@@ -493,6 +496,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_work() {
+        super::super::tracing::initialize(Level::DEBUG);
         const DATA: &[u8] = include_bytes!("../../../tests/files/snark_spec/spec1.bin");
         let mut r = DATA;
         let (public_key, fee, instances) = read_input(&mut r);

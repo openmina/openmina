@@ -1,4 +1,4 @@
-ARG MINA_SNARK_WORKER_TAG=0.0.7
+ARG MINA_SNARK_WORKER_TAG=0.0.8
 
 FROM rust:buster AS build
 RUN rustup default nightly-2023-06-01 && rustup component add rustfmt

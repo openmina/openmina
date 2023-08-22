@@ -1,3 +1,4 @@
+use std::time::Duration;
 use std::{collections::BTreeMap, fmt, ops::RangeBounds};
 
 use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
@@ -42,6 +43,13 @@ pub struct SnarkWork {
     pub work: Snark,
     pub received_t: Timestamp,
     pub sender: PeerId,
+}
+
+/// Whether the job is a merge proof job, or a transaction proof job, with particular number of account updates.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum JobSummary {
+    Tx(usize),
+    Merge,
 }
 
 impl SnarkPoolState {
@@ -131,8 +139,12 @@ impl SnarkPoolState {
     }
 
     pub fn is_commitment_timed_out_by_index(&self, index: &u64, time_now: Timestamp) -> bool {
-        let Some(job) = self.list.get(index) else { return false };
-        let Some(commitment) = job.commitment.as_ref() else { return false };
+        let Some(job) = self.list.get(index) else {
+            return false;
+        };
+        let Some(commitment) = job.commitment.as_ref() else {
+            return false;
+        };
 
         let passed_time = time_now.checked_sub(commitment.commitment.timestamp());
         let is_timed_out = passed_time.map_or(false, |dur| dur >= self.config.commitment_timeout);
@@ -173,6 +185,26 @@ impl SnarkPoolState {
                 jobs
             })
     }
+
+    pub(super) fn job_summary(&self, id: &SnarkJobId) -> Option<JobSummary> {
+        self.get(id).map(|job| {
+            use mina_p2p_messages::v2::{
+                MinaTransactionLogicTransactionAppliedCommandAppliedStableV2 as CommandApplied,
+                MinaTransactionLogicTransactionAppliedVaryingStableV2 as Varying,
+            };
+            match &job.job {
+                OneOrTwo::One(AvailableJobMessage::Base(base)) => {
+                    match &base.transaction_with_info.varying {
+                        Varying::Command(CommandApplied::ZkappCommand(zkapp)) => {
+                            JobSummary::Tx(zkapp.command.data.account_updates.iter().count())
+                        }
+                        _ => JobSummary::Tx(1),
+                    }
+                }
+                _ => JobSummary::Merge,
+            }
+        })
+    }
 }
 
 impl fmt::Debug for SnarkPoolState {
@@ -195,6 +227,16 @@ impl JobState {
 
     pub fn snark_msg(&self) -> Option<SnarkInfo> {
         self.snark.as_ref().map(|v| v.work.info())
+    }
+}
+
+impl JobSummary {
+    pub fn estimated_duration(&self) -> Duration {
+        const BASE: Duration = Duration::from_secs(30);
+        match self {
+            JobSummary::Tx(n) => BASE * (*n as u32),
+            JobSummary::Merge => BASE,
+        }
     }
 }
 

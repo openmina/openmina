@@ -1,6 +1,20 @@
+use std::time::Duration;
+
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
+use crate::snark_pool::JobSummary;
+
 use super::{ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkId, SnarkWorkResult};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalSnarkWorkers(pub(crate) ExternalSnarkWorker);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalSnarkWorker {
+    pub(crate) state: ExternalSnarkWorkerState,
+    pub(crate) timestamp: Timestamp,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ExternalSnarkWorkerState {
@@ -8,7 +22,7 @@ pub enum ExternalSnarkWorkerState {
     Starting,
 
     Idle,
-    Working(SnarkWorkId),
+    Working(SnarkWorkId, JobSummary),
     WorkReady(SnarkWorkId, SnarkWorkResult),
     WorkError(SnarkWorkId, ExternalSnarkWorkerWorkError),
 
@@ -19,13 +33,13 @@ pub enum ExternalSnarkWorkerState {
     Error(ExternalSnarkWorkerError, bool),
 }
 
-impl ExternalSnarkWorkerState {
-    pub fn new() -> Self {
-        ExternalSnarkWorkerState::None
+impl ExternalSnarkWorkers {
+    pub fn new(now: Timestamp) -> Self {
+        ExternalSnarkWorkers(ExternalSnarkWorker { state: ExternalSnarkWorkerState::None, timestamp: now })
     }
 
     pub fn is_idle(&self) -> bool {
-        match self {
+        match self.0.state {
             ExternalSnarkWorkerState::Idle => true,
             _ => false,
         }
@@ -36,7 +50,7 @@ impl ExternalSnarkWorkerState {
     }
 
     pub fn available(&self) -> usize {
-        if matches!(self, ExternalSnarkWorkerState::Idle) {
+        if matches!(self.0.state, ExternalSnarkWorkerState::Idle) {
             1
         } else {
             0
@@ -44,8 +58,8 @@ impl ExternalSnarkWorkerState {
     }
 
     pub fn working_job_id(&self) -> Option<&SnarkWorkId> {
-        match self {
-            Self::Working(job_id) => Some(job_id),
+        match &self.0.state {
+            ExternalSnarkWorkerState::Working(job_id, _) => Some(job_id),
             _ => None,
         }
     }

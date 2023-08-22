@@ -338,7 +338,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             }
         }
         RpcAction::SnarkerWorkersGet(action) => {
-            let the_only = store.state().external_snark_worker.clone();
+            let the_only = store.state().external_snark_worker.0.clone();
             if store
                 .service()
                 .respond_snarker_workers(action.rpc_id, vec![the_only.into()])

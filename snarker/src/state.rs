@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::SnarkerConfig;
 pub use crate::consensus::ConsensusState;
-use crate::external_snark_worker::ExternalSnarkWorkerState;
+use crate::external_snark_worker::ExternalSnarkWorkers;
 pub use crate::p2p::P2pState;
 pub use crate::rpc::RpcState;
 pub use crate::snark::SnarkState;
@@ -23,7 +23,7 @@ pub struct State {
     pub transition_frontier: TransitionFrontierState,
     pub snark_pool: SnarkPoolState,
     pub rpc: RpcState,
-    pub external_snark_worker: ExternalSnarkWorkerState,
+    pub external_snark_worker: ExternalSnarkWorkers,
 
     pub watched_accounts: WatchedAccountsState,
 
@@ -42,7 +42,7 @@ impl State {
             consensus: ConsensusState::new(),
             transition_frontier: TransitionFrontierState::new(config.transition_frontier),
             rpc: RpcState::new(),
-            external_snark_worker: ExternalSnarkWorkerState::new(),
+            external_snark_worker: ExternalSnarkWorkers::new(shared::log::system_time()),
 
             watched_accounts: WatchedAccountsState::new(),
 
