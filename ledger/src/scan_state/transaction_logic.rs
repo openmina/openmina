@@ -3668,7 +3668,7 @@ pub mod transaction_applied {
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/transaction_logic/mina_transaction_logic.ml#L65
     #[derive(Debug, Clone, PartialEq)]
     pub struct ZkappCommandApplied {
-        pub accounts: Vec<(AccountId, Option<Account>)>,
+        pub accounts: Vec<(AccountId, Option<Box<Account>>)>,
         pub command: WithStatus<zkapp_command::ZkAppCommand>,
         pub new_accounts: Vec<AccountId>,
     }
@@ -4885,7 +4885,8 @@ pub mod transaction_partially_applied {
     pub struct ZkappCommandPartiallyApplied<L: LedgerIntf + Clone> {
         pub command: ZkAppCommand,
         pub previous_hash: Fp,
-        pub original_first_pass_account_states: Vec<(AccountId, Option<(L::Location, Account)>)>,
+        pub original_first_pass_account_states:
+            Vec<(AccountId, Option<(L::Location, Box<Account>)>)>,
         pub constraint_constants: ConstraintConstants,
         pub state_view: ProtocolStateView,
         pub global_state: GlobalState<L>,
@@ -5564,7 +5565,7 @@ struct HasPermissionToReceive(bool);
 fn has_permission_to_receive<L>(
     ledger: &mut L,
     receiver_account_id: &AccountId,
-) -> (Account, AccountState, HasPermissionToReceive)
+) -> (Box<Account>, AccountState, HasPermissionToReceive)
 where
     L: LedgerIntf,
 {
@@ -5577,7 +5578,7 @@ where
         None => {
             // new account, check that default permissions allow receiving
             let perm = init_account.has_permission_to(ControlTag::NoneGiven, Receive);
-            (init_account, Added, HasPermissionToReceive(perm))
+            (Box::new(init_account), Added, HasPermissionToReceive(perm))
         }
         Some(location) => match ledger.get(&location) {
             None => panic!("Ledger location with no account"),
@@ -5607,7 +5608,7 @@ pub fn is_timed(a: &Account) -> bool {
 pub fn set_with_location<L>(
     ledger: &mut L,
     location: &ExistingOrNew<L::Location>,
-    account: Account,
+    account: Box<Account>,
 ) -> Result<(), String>
 where
     L: LedgerIntf,
@@ -5618,13 +5619,13 @@ where
             Ok(())
         }
         ExistingOrNew::New => ledger
-            .create_new_account(account.id(), account)
+            .create_new_account(account.id(), *account)
             .map_err(|_| "set_with_location".to_string()),
     }
 }
 
 pub struct Updates<Location> {
-    pub located_accounts: Vec<(ExistingOrNew<Location>, Account)>,
+    pub located_accounts: Vec<(ExistingOrNew<Location>, Box<Account>)>,
     pub applied_body: signed_command_applied::Body,
 }
 
@@ -5664,11 +5665,11 @@ where
                     current_global_slot,
                 ))?;
 
-                Account {
+                Box::new(Account {
                     delegate: Some(receiver.public_key.clone()),
                     timing,
                     ..fee_payer_account.clone()
-                }
+                })
             };
 
             Ok(Updates {
@@ -5689,11 +5690,11 @@ where
                     current_global_slot,
                 ))?;
 
-                Ok(Account {
+                Ok(Box::new(Account {
                     balance,
                     timing,
                     ..fee_payer_account.clone()
-                })
+                }))
             };
 
             let fee_payer_account = match get_fee_payer_account() {
@@ -5880,7 +5881,7 @@ pub fn pay_fee<L, Loc>(
     signer_pk: &CompressedPubKey,
     ledger: &mut L,
     current_global_slot: &Slot,
-) -> Result<(ExistingOrNew<Loc>, Account), String>
+) -> Result<(ExistingOrNew<Loc>, Box<Account>), String>
 where
     L: LedgerIntf<Location = Loc>,
 {
@@ -5913,7 +5914,7 @@ fn pay_fee_impl<L>(
     fee: Fee,
     ledger: &mut L,
     current_global_slot: &Slot,
-) -> Result<(ExistingOrNew<L::Location>, Account), String>
+) -> Result<(ExistingOrNew<L::Location>, Box<Account>), String>
 where
     L: LedgerIntf,
 {
@@ -6436,7 +6437,7 @@ pub enum ExistingOrNew<Loc> {
 fn get_with_location<L>(
     ledger: &mut L,
     account_id: &AccountId,
-) -> Result<(ExistingOrNew<L::Location>, Account), String>
+) -> Result<(ExistingOrNew<L::Location>, Box<Account>), String>
 where
     L: LedgerIntf,
 {
@@ -6447,7 +6448,7 @@ where
         },
         None => Ok((
             ExistingOrNew::New,
-            Account::create_with(account_id.clone(), Balance::zero()),
+            Box::new(Account::create_with(account_id.clone(), Balance::zero())),
         )),
     }
 }
@@ -6455,7 +6456,7 @@ where
 pub fn get_account<L>(
     ledger: &mut L,
     account_id: AccountId,
-) -> (Account, ExistingOrNew<L::Location>)
+) -> (Box<Account>, ExistingOrNew<L::Location>)
 where
     L: LedgerIntf,
 {
@@ -6470,7 +6471,7 @@ pub fn set_account<'a, L>(
 where
     L: LedgerIntf,
 {
-    set_with_location(l, loc, *a).unwrap();
+    set_with_location(l, loc, a).unwrap();
     l
 }
 

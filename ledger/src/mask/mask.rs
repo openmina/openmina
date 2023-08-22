@@ -240,7 +240,7 @@ impl Mask {
         self.with(|this| this.set_cached_hash_unchecked(addr, hash))
     }
 
-    pub(super) fn set_impl(&mut self, addr: Address, account: Account, ignore: Option<Uuid>) {
+    pub(super) fn set_impl(&mut self, addr: Address, account: Box<Account>, ignore: Option<Uuid>) {
         self.with(|this| this.set_impl(addr, account, ignore))
     }
 
@@ -365,27 +365,27 @@ impl BaseLedger for Mask {
         self.with(|this| this.get_account_hash(account_index))
     }
 
-    fn get(&self, addr: Address) -> Option<Account> {
+    fn get(&self, addr: Address) -> Option<Box<Account>> {
         self.with(|this| this.get(addr))
     }
 
-    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Account>)> {
+    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Box<Account>>)> {
         self.with(|this| this.get_batch(addr))
     }
 
-    fn set(&mut self, addr: Address, account: Account) {
+    fn set(&mut self, addr: Address, account: Box<Account>) {
         self.with(|this| this.set(addr, account))
     }
 
-    fn set_batch(&mut self, list: &[(Address, Account)]) {
+    fn set_batch(&mut self, list: &[(Address, Box<Account>)]) {
         self.with(|this| this.set_batch(list))
     }
 
-    fn get_at_index(&self, index: AccountIndex) -> Option<Account> {
+    fn get_at_index(&self, index: AccountIndex) -> Option<Box<Account>> {
         self.with(|this| this.get_at_index(index))
     }
 
-    fn set_at_index(&mut self, index: AccountIndex, account: Account) -> Result<(), ()> {
+    fn set_at_index(&mut self, index: AccountIndex, account: Box<Account>) -> Result<(), ()> {
         self.with(|this| this.set_at_index(index, account))
     }
 
@@ -447,12 +447,12 @@ impl BaseLedger for Mask {
     fn set_all_accounts_rooted_at(
         &mut self,
         addr: Address,
-        accounts: &[Account],
+        accounts: &[Box<Account>],
     ) -> Result<(), ()> {
         self.with(|this| this.set_all_accounts_rooted_at(addr, accounts))
     }
 
-    fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Account)>> {
+    fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Box<Account>)>> {
         self.with(|this| this.get_all_accounts_rooted_at(addr))
     }
 
@@ -635,9 +635,9 @@ mod tests {
                 let addr = Address::from_index(account_index, DEPTH);
                 let new_account = Account::rand();
 
-                assert_ne!(layer1.get(addr.clone()).unwrap(), new_account);
+                assert_ne!(*layer1.get(addr.clone()).unwrap(), new_account);
 
-                layer1.set(addr, new_account);
+                layer1.set(addr, Box::new(new_account));
             }
 
             assert_ne!(root_hash, layer2.merkle_root(), "case {:?}", case);
@@ -652,11 +652,11 @@ mod tests {
         let account = Account::rand();
         let addr = Address::first(DEPTH);
 
-        mask.set(addr.clone(), account.clone());
+        mask.set(addr.clone(), Box::new(account.clone()));
         mask.merkle_root();
         let mask_merkle_path = mask.merkle_path(addr.clone());
 
-        root.set(addr.clone(), account);
+        root.set(addr.clone(), Box::new(account));
         root.merkle_root();
         let root_merkle_path = root.merkle_path(addr);
 
@@ -709,7 +709,7 @@ mod tests_mask_ocaml {
         let (mut root, mask) = new_instances(DEPTH);
         let mask = root.register_mask(mask);
 
-        root.set(FIRST_LOC, Account::rand());
+        root.set(FIRST_LOC, Box::new(Account::rand()));
 
         let root_account = root.get(FIRST_LOC).unwrap();
         let mask_account = mask.get(FIRST_LOC).unwrap();
@@ -723,7 +723,7 @@ mod tests_mask_ocaml {
         let (mut root, mask) = new_instances(DEPTH);
         let mut mask = root.register_mask(mask);
 
-        let account = Account::rand();
+        let account = Box::new(Account::rand());
         root.set(FIRST_LOC, account.clone());
         mask.set(FIRST_LOC, account);
 
@@ -739,7 +739,7 @@ mod tests_mask_ocaml {
         let (mut root, mask) = new_instances(DEPTH);
         let mut mask = root.register_mask(mask);
 
-        let account = Account::rand();
+        let account = Box::new(Account::rand());
         root.set(FIRST_LOC, account.clone());
         mask.set(FIRST_LOC, account);
 
@@ -752,7 +752,7 @@ mod tests_mask_ocaml {
         let (mut root, mask) = new_instances(DEPTH);
         let mut mask = root.register_mask(mask);
 
-        let account = Account::rand();
+        let account = Box::new(Account::rand());
         root.set(FIRST_LOC, account);
 
         assert_eq!(root.merkle_root(), mask.merkle_root());
@@ -764,7 +764,7 @@ mod tests_mask_ocaml {
         let (mut root, mask) = new_instances(DEPTH);
         let mask = root.register_mask(mask);
 
-        let account = Account::rand();
+        let account = Box::new(Account::rand());
         root.set(FIRST_LOC, account.clone());
 
         let child_account = mask.get(FIRST_LOC).unwrap();
@@ -779,7 +779,7 @@ mod tests_mask_ocaml {
         let mut mask = root.register_mask(mask);
 
         // Set in mask
-        let account = Account::rand();
+        let account = Box::new(Account::rand());
         mask.set(FIRST_LOC, account.clone());
 
         assert!(mask.test_is_in_mask(&FIRST_LOC));
@@ -796,7 +796,7 @@ mod tests_mask_ocaml {
         let (root, mask) = new_instances(DEPTH);
         let mut mask = root.register_mask(mask);
 
-        let account = Account::rand();
+        let account = Box::new(Account::rand());
         mask.set(FIRST_LOC, account);
 
         assert!(mask.test_is_in_mask(&FIRST_LOC));
@@ -814,7 +814,7 @@ mod tests_mask_ocaml {
     fn test_commit_layer2_dumps_to_layer1_not_in_base() {
         let (root, layer1, mut layer2) = new_chain(DEPTH);
 
-        let account = Account::rand();
+        let account = Box::new(Account::rand());
 
         layer2.set(FIRST_LOC, account);
         assert!(layer2.test_is_in_mask(&FIRST_LOC));
@@ -832,7 +832,7 @@ mod tests_mask_ocaml {
         let (root, mut layer1, mut layer2) = new_chain(DEPTH);
 
         let (addr1, addr2) = (FIRST_LOC, FIRST_LOC.next().unwrap());
-        let (account1, account2) = (Account::rand(), Account::rand());
+        let (account1, account2) = (Box::new(Account::rand()), Box::new(Account::rand()));
 
         layer1.set(addr1.clone(), account1);
         layer2.set(addr2.clone(), account2);
@@ -868,7 +868,7 @@ mod tests_mask_ocaml {
         let (mut root, mask) = new_instances(DEPTH);
         let mut mask = root.register_mask(mask);
 
-        let account = Account::rand();
+        let account = Box::new(Account::rand());
         let addr = Address::first(DEPTH);
 
         mask.set(addr.clone(), account.clone());
@@ -897,7 +897,7 @@ mod tests_mask_ocaml {
         let (mut root, mask) = new_instances(DEPTH);
         let mut mask = root.register_mask(mask);
 
-        let account = Account::rand();
+        let account = Box::new(Account::rand());
 
         // the order of sets matters here; if we set in the mask first,
         // the set in the maskable notifies the mask, which then removes
@@ -934,7 +934,10 @@ mod tests_mask_ocaml {
             .map(|(_, acc)| acc)
             .collect::<Vec<_>>();
 
-        assert_eq!(accounts, retrieved_accounts);
+        assert_eq!(
+            accounts.into_iter().map(Box::new).collect::<Vec<_>>(),
+            retrieved_accounts
+        );
     }
 
     // "removing accounts from mask restores Merkle root"
@@ -1035,7 +1038,7 @@ mod tests_mask_ocaml {
         {
             GetOrCreated::Added(_) => panic!("Should add an existing account"),
             GetOrCreated::Existed(addr) => {
-                mask.set(addr, account);
+                mask.set(addr, Box::new(account));
             }
         }
     }
@@ -1240,14 +1243,14 @@ mod tests_mask_ocaml {
         let (mut root, mask) = new_instances(DEPTH);
         let mut mask = root.register_mask(mask);
 
-        let mut account = Account::rand();
+        let mut account = Box::new(Account::rand());
         let mut account2 = account.clone();
 
         account.balance = Balance::from_u64(10);
         account2.balance = Balance::from_u64(5);
 
         let loc = mask
-            .get_or_create_account(account.id(), account.clone())
+            .get_or_create_account(account.id(), *account.clone())
             .unwrap()
             .addr();
 
@@ -1286,7 +1289,10 @@ mod tests_mask_ocaml {
 
         assert!(nmodified > 0);
         assert_eq!(
-            updated_accounts,
+            updated_accounts
+                .into_iter()
+                .map(Box::new)
+                .collect::<Vec<_>>(),
             layer2
                 .get_all_accounts_rooted_at(Address::root())
                 .unwrap()
@@ -1295,7 +1301,7 @@ mod tests_mask_ocaml {
                 .collect::<Vec<_>>()
         );
         assert_eq!(
-            accounts,
+            accounts.into_iter().map(Box::new).collect::<Vec<_>>(),
             layer1
                 .get_all_accounts_rooted_at(Address::root())
                 .unwrap()

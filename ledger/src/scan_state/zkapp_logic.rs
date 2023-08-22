@@ -478,7 +478,7 @@ where
             Some(delegate)
         };
 
-        Account { delegate, ..a }
+        Account { delegate, ..*a }
     };
 
     let matching_verification_key_hashes = !(account_update.is_proved())

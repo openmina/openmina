@@ -117,17 +117,17 @@ pub trait BaseLedger {
     /// return Some [directory] for ledgers that use a file system, else None
     fn get_directory(&self) -> Option<PathBuf>;
 
-    fn get(&self, addr: Address) -> Option<Account>;
+    fn get(&self, addr: Address) -> Option<Box<Account>>;
 
-    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Account>)>;
+    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Box<Account>>)>;
 
-    fn set(&mut self, addr: Address, account: Account);
+    fn set(&mut self, addr: Address, account: Box<Account>);
 
-    fn set_batch(&mut self, list: &[(Address, Account)]);
+    fn set_batch(&mut self, list: &[(Address, Box<Account>)]);
 
-    fn get_at_index(&self, index: AccountIndex) -> Option<Account>;
+    fn get_at_index(&self, index: AccountIndex) -> Option<Box<Account>>;
 
-    fn set_at_index(&mut self, index: AccountIndex, account: Account) -> Result<(), ()>;
+    fn set_at_index(&mut self, index: AccountIndex, account: Box<Account>) -> Result<(), ()>;
 
     fn index_of_account(&self, account_id: AccountId) -> Option<AccountIndex>;
 
@@ -157,16 +157,19 @@ pub trait BaseLedger {
 
     fn set_inner_hash_at_addr(&mut self, addr: Address, hash: Fp) -> Result<(), ()>;
 
-    fn set_all_accounts_rooted_at(&mut self, addr: Address, accounts: &[Account])
-        -> Result<(), ()>;
+    fn set_all_accounts_rooted_at(
+        &mut self,
+        addr: Address,
+        accounts: &[Box<Account>],
+    ) -> Result<(), ()>;
 
-    fn set_batch_accounts(&mut self, list: &[(Address, Account)]) {
+    fn set_batch_accounts(&mut self, list: &[(Address, Box<Account>)]) {
         Self::set_batch(self, list)
     }
 
     /// Get all of the accounts that are in a subtree of the underlying Merkle
     /// tree rooted at `address`. The accounts are ordered by their addresses.
-    fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Account)>>;
+    fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Box<Account>)>>;
 
     fn make_space_for(&mut self, space: usize);
 
@@ -234,7 +237,7 @@ impl Deref for GetOrCreated {
 impl LedgerIntf for Mask {
     type Location = Address;
 
-    fn get(&self, addr: &Address) -> Option<Account> {
+    fn get(&self, addr: &Address) -> Option<Box<Account>> {
         BaseLedger::get(self, addr.clone())
     }
 
@@ -242,7 +245,7 @@ impl LedgerIntf for Mask {
         BaseLedger::location_of_account(self, account_id)
     }
 
-    fn set(&mut self, addr: &Address, account: Account) {
+    fn set(&mut self, addr: &Address, account: Box<Account>) {
         BaseLedger::set(self, addr.clone(), account)
     }
 
@@ -250,7 +253,7 @@ impl LedgerIntf for Mask {
     fn get_or_create(
         &mut self,
         account_id: &AccountId,
-    ) -> Result<(AccountState, Account, Address), String> {
+    ) -> Result<(AccountState, Box<Account>, Address), String> {
         let location = BaseLedger::get_or_create_account(
             self,
             account_id.clone(),

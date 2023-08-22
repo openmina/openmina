@@ -53,7 +53,7 @@ impl SparseLedgerImpl<AccountId, Account> {
                 Some(addr) => {
                     let account = BaseLedger::get(&ledger, addr.clone()).unwrap();
                     let merkle_path = ledger.merkle_path(addr);
-                    sparse.add_path(&merkle_path, key.clone(), account);
+                    sparse.add_path(&merkle_path, key.clone(), *account);
                 }
                 None => {
                     let addr = match ledger
@@ -201,11 +201,11 @@ impl SparseLedgerImpl<AccountId, Account> {
         self.get(addr).unwrap()
     }
 
-    pub fn set_exn(&mut self, addr: Address, value: Account) {
+    pub fn set_exn(&mut self, addr: Address, value: Box<Account>) {
         assert_eq!(addr.length(), self.depth);
 
         let index = addr.to_index();
-        self.values.insert(index, value);
+        self.values.insert(index, *value);
 
         self.hashes_matrix.invalidate_hashes(addr.to_index());
     }
@@ -343,13 +343,13 @@ impl LedgerIntf for SparseLedgerImpl<AccountId, Account> {
     type Location = Address;
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L58
-    fn get(&self, addr: &Self::Location) -> Option<Account> {
+    fn get(&self, addr: &Self::Location) -> Option<Box<Account>> {
         let account = self.get(addr)?;
 
         if account.public_key == CompressedPubKey::empty() {
             None
         } else {
-            Some(account.clone())
+            Some(Box::new(account.clone()))
         }
     }
 
@@ -366,7 +366,7 @@ impl LedgerIntf for SparseLedgerImpl<AccountId, Account> {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L75
-    fn set(&mut self, addr: &Self::Location, account: Account) {
+    fn set(&mut self, addr: &Self::Location, account: Box<Account>) {
         self.set_exn(addr.clone(), account);
     }
 
@@ -374,16 +374,16 @@ impl LedgerIntf for SparseLedgerImpl<AccountId, Account> {
     fn get_or_create(
         &mut self,
         account_id: &AccountId,
-    ) -> Result<(AccountState, Account, Self::Location), String> {
+    ) -> Result<(AccountState, Box<Account>, Self::Location), String> {
         let addr = self
             .get_index(account_id)
             .ok_or_else(|| "failed".to_string())?;
         let account = self.get(addr).ok_or_else(|| "failed".to_string())?;
+        let mut account = Box::new(account.clone());
 
         let addr = addr.clone();
         if account.public_key == CompressedPubKey::empty() {
             let public_key = account_id.public_key.clone();
-            let mut account = account.clone();
 
             account.delegate = Some(public_key.clone());
             account.public_key = public_key;
@@ -392,7 +392,7 @@ impl LedgerIntf for SparseLedgerImpl<AccountId, Account> {
             self.set(&addr, account.clone());
             Ok((AccountState::Added, account, addr))
         } else {
-            Ok((AccountState::Existed, account.clone(), addr))
+            Ok((AccountState::Existed, account, addr))
         }
     }
 
@@ -403,7 +403,7 @@ impl LedgerIntf for SparseLedgerImpl<AccountId, Account> {
 
         if account.public_key == CompressedPubKey::empty() {
             let addr = addr.clone();
-            self.set(&addr, to_set);
+            self.set(&addr, Box::new(to_set));
         }
 
         Ok(())

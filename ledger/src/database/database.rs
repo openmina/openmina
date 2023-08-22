@@ -203,27 +203,27 @@ impl BaseLedger for Database<V2> {
         self.with(|this| this.get_account_hash(account_index))
     }
 
-    fn get(&self, addr: Address) -> Option<Account> {
+    fn get(&self, addr: Address) -> Option<Box<Account>> {
         self.with(|this| this.get(addr))
     }
 
-    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Account>)> {
+    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Box<Account>>)> {
         self.with(|this| this.get_batch(addr))
     }
 
-    fn set(&mut self, addr: Address, account: Account) {
+    fn set(&mut self, addr: Address, account: Box<Account>) {
         self.with(|this| this.set(addr, account))
     }
 
-    fn set_batch(&mut self, list: &[(Address, Account)]) {
+    fn set_batch(&mut self, list: &[(Address, Box<Account>)]) {
         self.with(|this| this.set_batch(list))
     }
 
-    fn get_at_index(&self, index: AccountIndex) -> Option<Account> {
+    fn get_at_index(&self, index: AccountIndex) -> Option<Box<Account>> {
         self.with(|this| this.get_at_index(index))
     }
 
-    fn set_at_index(&mut self, index: AccountIndex, account: Account) -> Result<(), ()> {
+    fn set_at_index(&mut self, index: AccountIndex, account: Box<Account>) -> Result<(), ()> {
         self.with(|this| this.set_at_index(index, account))
     }
 
@@ -274,12 +274,12 @@ impl BaseLedger for Database<V2> {
     fn set_all_accounts_rooted_at(
         &mut self,
         addr: Address,
-        accounts: &[Account],
+        accounts: &[Box<Account>],
     ) -> Result<(), ()> {
         self.with(|this| this.set_all_accounts_rooted_at(addr, accounts))
     }
 
-    fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Account)>> {
+    fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Box<Account>)>> {
         self.with(|this| this.get_all_accounts_rooted_at(addr))
     }
 
@@ -723,7 +723,7 @@ mod tests_ocaml {
             .unwrap();
         let get_account = db.get(location.addr()).unwrap();
 
-        assert_eq!(account, get_account);
+        assert_eq!(account, *get_account);
     }
 
     // "accounts are atomic"
@@ -731,9 +731,9 @@ mod tests_ocaml {
     fn test_accounts_are_atomic() {
         let mut db = Database::<V2>::create(4);
 
-        let account = Account::rand();
+        let account = Box::new(Account::rand());
         let location: Address = db
-            .get_or_create_account(account.id(), account.clone())
+            .get_or_create_account(account.id(), *account.clone())
             .unwrap()
             .addr();
 
@@ -790,7 +790,7 @@ mod tests_ocaml {
 
         assert_eq!(addr1, addr2);
         assert!(matches!(location2, GetOrCreated::Existed(_)));
-        assert_ne!(db.get(location1.addr()).unwrap(), account2);
+        assert_ne!(*db.get(location1.addr()).unwrap(), account2);
     }
 
     // "get_or_create_account t account = location_of_account account.key"
@@ -861,7 +861,7 @@ mod tests_ocaml {
             let addr = Address::rand_nonleaf(DEPTH);
             let children = addr.iter_children(DEPTH);
             let accounts = children
-                .map(|addr| (addr, Account::rand()))
+                .map(|addr| (addr, Box::new(Account::rand())))
                 .collect::<Vec<_>>();
 
             let merkle_root1 = db.merkle_root();
@@ -896,7 +896,7 @@ mod tests_ocaml {
         let mut accounts = Vec::with_capacity(2u64.pow(DEPTH as u32) as usize);
 
         while let Some(next_addr) = addr.next() {
-            accounts.push((next_addr.clone(), Account::rand()));
+            accounts.push((next_addr.clone(), Box::new(Account::rand())));
             addr = next_addr;
         }
 
@@ -908,7 +908,7 @@ mod tests_ocaml {
             let queried_account = db.get(location.clone()).unwrap();
 
             assert_eq!(*addr, location);
-            assert_eq!(*account, queried_account);
+            assert_eq!(account, &queried_account);
         }
 
         let expected_last_location = last_location.to_index().0 + accounts.len() as u64;
@@ -929,7 +929,9 @@ mod tests_ocaml {
         for _ in 0..5 {
             let addr = Address::rand_nonleaf(DEPTH);
             let children = addr.iter_children(DEPTH);
-            let accounts = children.map(|_| Account::rand()).collect::<Vec<_>>();
+            let accounts = children
+                .map(|_| Box::new(Account::rand()))
+                .collect::<Vec<_>>();
 
             db.set_all_accounts_rooted_at(addr.clone(), &accounts)
                 .unwrap();
@@ -983,7 +985,7 @@ mod tests_ocaml {
             let account_id = account.id();
             let index_of_account = db.index_of_account(account_id).unwrap();
             let indexed_account = db.get_at_index(index_of_account).unwrap();
-            assert_eq!(account, indexed_account);
+            assert_eq!(account, *indexed_account);
         }
     }
 
@@ -997,7 +999,7 @@ mod tests_ocaml {
         let mut db = create_full_db(DEPTH);
 
         for _ in 0..50 {
-            let account = Account::rand();
+            let account = Box::new(Account::rand());
             let index = rand::thread_rng().gen_range(0..NACCOUNTS);
             let index = AccountIndex(index as u64);
 
@@ -1035,9 +1037,9 @@ mod tests_ocaml {
         let mut accounts = Vec::with_capacity(NACCOUNTS);
 
         for _ in 0..NACCOUNTS {
-            let account = Account::rand();
+            let account = Box::new(Account::rand());
             accounts.push(account.clone());
-            db.get_or_create_account(account.id(), account).unwrap();
+            db.get_or_create_account(account.id(), *account).unwrap();
         }
 
         let retrieved = db

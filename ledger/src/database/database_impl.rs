@@ -631,11 +631,11 @@ impl BaseLedger for DatabaseImpl<V2> {
         Some(hash)
     }
 
-    fn get(&self, addr: Address) -> Option<Account> {
+    fn get(&self, addr: Address) -> Option<Box<Account>> {
         let index = addr.to_index();
         let index: usize = index.0 as usize;
 
-        self.accounts.get(index)?.clone()
+        self.accounts.get(index)?.clone().map(Box::new)
 
         // let acc = self.root.as_ref()?.get_on_path(addr.into_iter()).cloned();
 
@@ -646,7 +646,7 @@ impl BaseLedger for DatabaseImpl<V2> {
         // acc
     }
 
-    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Account>)> {
+    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Box<Account>>)> {
         let res: Vec<_> = addr
             .iter()
             .map(|addr| (addr.clone(), self.get(addr.clone())))
@@ -667,7 +667,7 @@ impl BaseLedger for DatabaseImpl<V2> {
         res
     }
 
-    fn set(&mut self, addr: Address, account: Account) {
+    fn set(&mut self, addr: Address, account: Box<Account>) {
         let index = addr.to_index();
 
         self.hashes_matrix.invalidate_hashes(index.clone());
@@ -697,7 +697,7 @@ impl BaseLedger for DatabaseImpl<V2> {
         self.token_to_account
             .insert(account.token_id.clone(), id.clone());
         self.id_to_addr.insert(id, addr.clone());
-        self.accounts[index] = Some(account);
+        self.accounts[index] = Some(*account);
         // root.add_account_on_path(account, addr.iter());
 
         if self
@@ -712,7 +712,7 @@ impl BaseLedger for DatabaseImpl<V2> {
         // self.root_hash.borrow_mut().take();
     }
 
-    fn set_batch(&mut self, list: &[(Address, Account)]) {
+    fn set_batch(&mut self, list: &[(Address, Box<Account>)]) {
         elog!("SET_BATCH {:?}", list.len());
         // elog!("SET_BATCH {:?} {:?}", list.len(), list);
         for (addr, account) in list {
@@ -721,12 +721,12 @@ impl BaseLedger for DatabaseImpl<V2> {
         }
     }
 
-    fn get_at_index(&self, index: AccountIndex) -> Option<Account> {
+    fn get_at_index(&self, index: AccountIndex) -> Option<Box<Account>> {
         let addr = Address::from_index(index, self.depth as usize);
         self.get(addr)
     }
 
-    fn set_at_index(&mut self, index: AccountIndex, account: Account) -> Result<(), ()> {
+    fn set_at_index(&mut self, index: AccountIndex, account: Box<Account>) -> Result<(), ()> {
         let addr = Address::from_index(index, self.depth as usize);
         self.set(addr, account);
 
@@ -877,7 +877,7 @@ impl BaseLedger for DatabaseImpl<V2> {
     fn set_all_accounts_rooted_at(
         &mut self,
         addr: Address,
-        accounts: &[Account],
+        accounts: &[Box<Account>],
     ) -> Result<(), ()> {
         if addr.length() > self.depth as usize {
             return Err(());
@@ -890,7 +890,7 @@ impl BaseLedger for DatabaseImpl<V2> {
         Ok(())
     }
 
-    fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Account)>> {
+    fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Box<Account>)>> {
         if addr.length() > self.depth as usize {
             return None;
         }

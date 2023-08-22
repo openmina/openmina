@@ -88,7 +88,7 @@ impl SparseLedger {
         self.with(|this| this.get_exn(addr).clone())
     }
 
-    pub fn set_exn(&mut self, addr: Address, value: Account) {
+    pub fn set_exn(&mut self, addr: Address, value: Box<Account>) {
         self.with(|this| this.set_exn(addr, value))
     }
 
@@ -109,7 +109,7 @@ impl LedgerIntf for SparseLedger {
     type Location = Address;
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L58
-    fn get(&self, addr: &Self::Location) -> Option<Account> {
+    fn get(&self, addr: &Self::Location) -> Option<Box<Account>> {
         self.with(|this| this.get(addr))
     }
 
@@ -119,7 +119,7 @@ impl LedgerIntf for SparseLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/sparse_ledger_base.ml#L75
-    fn set(&mut self, addr: &Self::Location, account: Account) {
+    fn set(&mut self, addr: &Self::Location, account: Box<Account>) {
         self.with(|this| this.set(addr, account))
     }
 
@@ -127,7 +127,7 @@ impl LedgerIntf for SparseLedger {
     fn get_or_create(
         &mut self,
         account_id: &AccountId,
-    ) -> Result<(AccountState, Account, Self::Location), String> {
+    ) -> Result<(AccountState, Box<Account>, Self::Location), String> {
         self.with(|this| this.get_or_create(account_id))
     }
 

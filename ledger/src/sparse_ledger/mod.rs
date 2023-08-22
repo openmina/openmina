@@ -14,13 +14,13 @@ use crate::{scan_state::transaction_logic::AccountState, Account, AccountId};
 pub trait LedgerIntf {
     type Location: Clone + std::fmt::Debug;
 
-    fn get(&self, addr: &Self::Location) -> Option<Account>;
+    fn get(&self, addr: &Self::Location) -> Option<Box<Account>>;
     fn location_of_account(&self, account_id: &AccountId) -> Option<Self::Location>;
-    fn set(&mut self, addr: &Self::Location, account: Account);
+    fn set(&mut self, addr: &Self::Location, account: Box<Account>);
     fn get_or_create(
         &mut self,
         account_id: &AccountId,
-    ) -> Result<(AccountState, Account, Self::Location), String>;
+    ) -> Result<(AccountState, Box<Account>, Self::Location), String>;
     fn create_new_account(&mut self, account_id: AccountId, account: Account) -> Result<(), ()>;
     fn remove_accounts_exn(&mut self, account_ids: &[AccountId]);
     fn merkle_root(&mut self) -> Fp;

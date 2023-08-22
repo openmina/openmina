@@ -393,7 +393,7 @@ impl MaskImpl {
 
                 for (index, account) in accounts {
                     let addr = Address::from_index(index.clone(), depth);
-                    parent.set_impl(addr, account, Some(self_uuid.clone()));
+                    parent.set_impl(addr, Box::new(account), Some(self_uuid.clone()));
                 }
 
                 parent.transfert_hashes(hashes);
@@ -835,7 +835,7 @@ impl MaskImpl {
     pub(super) fn set_impl(
         &mut self,
         addr: Address,
-        account: Account,
+        account: Box<Account>,
         child_to_ignore: Option<Uuid>,
     ) {
         let account_index = addr.to_index();
@@ -866,7 +866,7 @@ impl MaskImpl {
                 let account_id = account.id();
                 let token_id = account.token_id.clone();
 
-                owning_account.insert(account_index.clone(), account);
+                owning_account.insert(account_index.clone(), *account);
                 id_to_addr.insert(account_id.clone(), addr.clone());
                 token_to_account.insert(token_id, account_id);
 
@@ -1001,6 +1001,7 @@ impl BaseLedger for MaskImpl {
         (0..num_accounts)
             .map(AccountIndex)
             .filter_map(|index| self.get(Address::from_index(index, depth)))
+            .map(|account| *account)
             .collect()
     }
 
@@ -1303,7 +1304,16 @@ impl BaseLedger for MaskImpl {
         parent.as_mut()?.get_account_hash(account_index)
     }
 
-    fn get(&self, addr: Address) -> Option<Account> {
+    fn get(&self, addr: Address) -> Option<Box<Account>> {
+        // Avoid stack overflow
+        #[inline(never)]
+        fn get_account(
+            addr: &Address,
+            owning_account: &HashMap<AccountIndex, Account>,
+        ) -> Option<Box<Account>> {
+            owning_account.get(&addr.to_index()).cloned().map(Box::new)
+        }
+
         let (parent, owning_account) = match self {
             Root { database, .. } => return database.get(addr),
             Attached {
@@ -1314,35 +1324,35 @@ impl BaseLedger for MaskImpl {
             Unattached { owning_account, .. } => (None, owning_account),
         };
 
-        if let Some(account) = owning_account.get(&addr.to_index()).cloned() {
+        if let Some(account) = get_account(&addr, owning_account) {
             return Some(account);
         }
 
         parent.as_ref()?.get(addr)
     }
 
-    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Account>)> {
+    fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Box<Account>>)> {
         addr.iter()
             .map(|addr| (addr.clone(), self.get(addr.clone())))
             .collect()
     }
 
-    fn set(&mut self, addr: Address, account: Account) {
+    fn set(&mut self, addr: Address, account: Box<Account>) {
         self.set_impl(addr, account, None)
     }
 
-    fn set_batch(&mut self, list: &[(Address, Account)]) {
+    fn set_batch(&mut self, list: &[(Address, Box<Account>)]) {
         for (addr, account) in list {
             self.set(addr.clone(), account.clone())
         }
     }
 
-    fn get_at_index(&self, index: AccountIndex) -> Option<Account> {
+    fn get_at_index(&self, index: AccountIndex) -> Option<Box<Account>> {
         let addr = Address::from_index(index, self.depth() as usize);
         self.get(addr)
     }
 
-    fn set_at_index(&mut self, index: AccountIndex, account: Account) -> Result<(), ()> {
+    fn set_at_index(&mut self, index: AccountIndex, account: Box<Account>) -> Result<(), ()> {
         let addr = Address::from_index(index, self.depth() as usize);
         self.set(addr, account);
         Ok(())
@@ -1463,7 +1473,7 @@ impl BaseLedger for MaskImpl {
     fn set_all_accounts_rooted_at(
         &mut self,
         addr: Address,
-        accounts: &[Account],
+        accounts: &[Box<Account>],
     ) -> Result<(), ()> {
         let depth = self.depth() as usize;
 
@@ -1478,7 +1488,7 @@ impl BaseLedger for MaskImpl {
         Ok(())
     }
 
-    fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Account)>> {
+    fn get_all_accounts_rooted_at(&self, addr: Address) -> Option<Vec<(Address, Box<Account>)>> {
         let self_depth = self.depth() as usize;
 
         if addr.length() > self_depth {
