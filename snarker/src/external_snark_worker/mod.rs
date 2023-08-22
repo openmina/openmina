@@ -2,7 +2,7 @@ mod external_snark_worker_types;
 pub use external_snark_worker_types::*;
 
 mod external_snark_worker_state;
-pub use external_snark_worker_state::ExternalSnarkWorkerState;
+pub use external_snark_worker_state::*;
 
 mod external_snark_worker_actions;
 pub use external_snark_worker_actions::*;

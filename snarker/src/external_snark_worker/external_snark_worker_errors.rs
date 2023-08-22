@@ -8,6 +8,8 @@ pub enum ExternalSnarkWorkerError {
     BinprotError(String),
     #[error("I/O error: {_0}")]
     IOError(String),
+    #[error("timeout starting external worker")]
+    StartTimeout,
     #[error("other error: {_0}")]
     Error(String),
     #[error("snark worker is not running")]
@@ -17,18 +19,6 @@ pub enum ExternalSnarkWorkerError {
     /// Protocol logic is broken
     #[error("redux logic is broken: {_0}")]
     Broken(String),
-}
-
-impl ExternalSnarkWorkerError {
-    pub(super) fn is_permanent(&self) -> bool {
-        match self {
-            ExternalSnarkWorkerError::NotRunning | ExternalSnarkWorkerError::Busy => false,
-            ExternalSnarkWorkerError::BinprotError(_)
-            | ExternalSnarkWorkerError::IOError(_)
-            | ExternalSnarkWorkerError::Error(_)
-            | ExternalSnarkWorkerError::Broken(_) => true,
-        }
-    }
 }
 
 #[derive(Clone, Debug, derive_more::From, Serialize, Deserialize, thiserror::Error)]
