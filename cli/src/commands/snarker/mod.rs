@@ -4,17 +4,20 @@ use std::ffi::OsString;
 use std::sync::Arc;
 use std::time::Duration;
 
+use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+    CurrencyFeeStableV1, LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs,
+    UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
-use shared::log::inner::Level;
 
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
+use shared::log::inner::Level;
+use shared::snark::Snark;
 use snarker::account::AccountPublicKey;
 use snarker::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
@@ -34,6 +37,9 @@ use snarker::service::{EventSourceService, Recorder, Service};
 use snarker::snark::block_verify::{
     SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
+use snarker::snark::work_verify::{
+    SnarkWorkVerifyError, SnarkWorkVerifyId, SnarkWorkVerifyService,
+};
 use snarker::snark::{SnarkEvent, VerifierIndex, VerifierKind, VerifierSRS};
 use snarker::snark_pool::SnarkPoolConfig;
 use snarker::stats::Stats;
@@ -46,6 +52,7 @@ mod http_server;
 mod rpc;
 use rpc::RpcP2pConnectionOutgoingResponse;
 pub use rpc::RpcService;
+
 pub mod tracing;
 
 mod ext_snark_worker;
@@ -161,13 +168,17 @@ impl Snarker {
 
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
         let rng_seed = rng.next_u64();
+        let srs: Arc<_> = snarker::snark::get_srs().into();
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
                 // TODO(binier): use cache
                 block_verifier_index: snarker::snark::get_verifier_index(VerifierKind::Blockchain)
                     .into(),
-                block_verifier_srs: snarker::snark::get_srs().into(),
+                block_verifier_srs: srs.clone(),
+                work_verifier_index: snarker::snark::get_verifier_index(VerifierKind::Transaction)
+                    .into(),
+                work_verifier_srs: srs,
             },
             snarker: SnarkerConfig {
                 public_key: self.public_key,
@@ -451,12 +462,7 @@ impl SnarkBlockVerifyService for SnarkerService {
         rayon::spawn_fifo(move || {
             let header = block.header_ref();
             let result = {
-                if !ledger::proofs::accumulator_check::accumulator_check(
-                    &verifier_srs,
-                    &header.protocol_state_proof,
-                ) {
-                    Err(SnarkBlockVerifyError::AccumulatorCheckFailed)
-                } else if !ledger::proofs::verification::verify_block(
+                if !ledger::proofs::verification::verify_block(
                     header,
                     &verifier_index,
                     &verifier_srs,
@@ -468,6 +474,52 @@ impl SnarkBlockVerifyService for SnarkerService {
             };
 
             let _ = tx.send(SnarkEvent::BlockVerify(req_id, result).into());
+        });
+    }
+}
+
+impl SnarkWorkVerifyService for SnarkerService {
+    fn verify_init(
+        &mut self,
+        req_id: SnarkWorkVerifyId,
+        verifier_index: Arc<VerifierIndex>,
+        verifier_srs: Arc<VerifierSRS>,
+        work: Vec<Snark>,
+    ) {
+        if self.replayer.is_some() {
+            return;
+        }
+        let tx = self.event_sender.clone();
+        rayon::spawn_fifo(move || {
+            let result = {
+                let conv = |proof: &LedgerProofProdStableV2| {
+                    (
+                        Statement::<SokDigest>::from(&proof.0.statement),
+                        proof.proof.clone(),
+                    )
+                };
+                let works = work
+                    .into_iter()
+                    .flat_map(|work| match &*work.proofs {
+                        TransactionSnarkWorkTStableV2Proofs::One(v) => [Some(conv(v)), None],
+                        TransactionSnarkWorkTStableV2Proofs::Two((v1, v2)) => {
+                            [Some(conv(v1)), Some(conv(v2))]
+                        }
+                    })
+                    .filter_map(|v| v)
+                    .collect::<Vec<_>>();
+                if !ledger::proofs::verification::verify_transaction(
+                    works.iter().map(|(v1, v2)| (v1, v2)),
+                    &verifier_index,
+                    &verifier_srs,
+                ) {
+                    Err(SnarkWorkVerifyError::VerificationFailed)
+                } else {
+                    Ok(())
+                }
+            };
+
+            let _ = tx.send(SnarkEvent::WorkVerify(req_id, result).into());
         });
     }
 }

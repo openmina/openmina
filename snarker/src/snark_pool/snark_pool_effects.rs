@@ -9,16 +9,20 @@ use crate::p2p::channels::snark_job_commitment::{
 };
 use crate::{Service, State, Store};
 
+use super::candidate::snark_pool_candidate_effects;
 use super::{
     JobState, SnarkPoolAction, SnarkPoolActionWithMeta, SnarkPoolAutoCreateCommitmentAction,
     SnarkPoolCommitmentCreateAction, SnarkPoolJobCommitmentAddAction,
     SnarkPoolJobCommitmentTimeoutAction, SnarkPoolP2pSendAction,
 };
 
-pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolActionWithMeta) {
+pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolActionWithMeta) {
     let (action, meta) = action.split();
 
     match action {
+        SnarkPoolAction::Candidate(action) => {
+            snark_pool_candidate_effects(store, meta.with_action(action))
+        }
         SnarkPoolAction::JobsUpdate(_) => {
             let state = store.state();
             if let Some(job_id) = state.external_snark_worker.working_job_id() {
@@ -78,8 +82,6 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
             }
         }
         SnarkPoolAction::WorkAdd(a) => {
-            // TODO(binier): do everything below after validation.
-
             let state = store.state();
             if let Some(job_id) = state.external_snark_worker.working_job_id() {
                 if &a.snark.job_id() == job_id && a.snark.fee.as_u64() <= state.config.fee.as_u64()

@@ -1,3 +1,5 @@
+pub mod candidate;
+
 mod snark_pool_config;
 pub use snark_pool_config::*;
 

@@ -1,5 +1,4 @@
 use super::*;
-use block_verify::*;
 
 impl redux::EnablingCondition<crate::State> for SnarkBlockVerifyInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use redux::{EnablingCondition, Timestamp};
 use serde::{Deserialize, Serialize};
-use shared::snark_job_id::SnarkJobId;
+use shared::snark::SnarkJobId;
 
 use crate::{external_snark_worker::ExternalSnarkWorker, snark_pool::JobSummary, State};
 

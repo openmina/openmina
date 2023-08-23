@@ -10,20 +10,13 @@ use mina_p2p_messages::v2::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::snark_job_id::SnarkJobId;
+use super::{SnarkInfo, SnarkJobId};
 
 #[derive(BinProtRead, BinProtWrite, Serialize, Deserialize, Debug, Clone)]
 pub struct Snark {
     pub snarker: NonZeroCurvePoint,
     pub fee: CurrencyFeeStableV1,
     pub proofs: Arc<TransactionSnarkWorkTStableV2Proofs>,
-}
-
-#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkInfo {
-    pub job_id: SnarkJobId,
-    pub fee: CurrencyFeeStableV1,
-    pub prover: NonZeroCurvePoint,
 }
 
 impl Snark {

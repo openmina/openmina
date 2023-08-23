@@ -6,6 +6,7 @@ pub use crate::p2p::disconnection::P2pDisconnectionService;
 pub use crate::recorder::Recorder;
 pub use crate::rpc::RpcService;
 pub use crate::snark::block_verify::SnarkBlockVerifyService;
+pub use crate::snark::work_verify::SnarkWorkVerifyService;
 pub use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
 pub use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
 pub use crate::transition_frontier::TransitionFrontierService;
@@ -17,6 +18,7 @@ pub trait Service:
     TimeService
     + EventSourceService
     + SnarkBlockVerifyService
+    + SnarkWorkVerifyService
     + P2pConnectionService
     + P2pDisconnectionService
     + P2pChannelsService

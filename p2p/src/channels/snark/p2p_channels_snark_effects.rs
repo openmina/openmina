@@ -25,15 +25,12 @@ impl P2pChannelsSnarkInitAction {
 }
 
 impl P2pChannelsSnarkReadyAction {
-    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(self, _: &ActionMeta, _store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
         P2pChannelsSnarkRequestSendAction: redux::EnablingCondition<S>,
     {
-        let peer_id = self.peer_id;
-        let limit = 16;
-        store.dispatch(P2pChannelsSnarkRequestSendAction { peer_id, limit });
     }
 }
 
@@ -53,15 +50,12 @@ impl P2pChannelsSnarkRequestSendAction {
 }
 
 impl P2pChannelsSnarkReceivedAction {
-    pub fn effects<Store, S>(&self, _: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(&self, _: &ActionMeta, _store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
         P2pChannelsSnarkRequestSendAction: redux::EnablingCondition<S>,
     {
-        let peer_id = self.peer_id;
-        let limit = 16;
-        store.dispatch(P2pChannelsSnarkRequestSendAction { peer_id, limit });
     }
 }
 
