@@ -31,6 +31,9 @@ panic = "abort"
 incremental = false
 codegen-units = 1
 
+[profile.release]
+debug = true
+
 [patch.'https://github.com/openmina/algebra']
 ark-ff = { path = "deps/algebra/ff" }
 ark-ec = { path = "deps/algebra/ec" }
