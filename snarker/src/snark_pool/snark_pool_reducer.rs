@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use shared::snark_job_id::SnarkJobId;
+use shared::snark::SnarkJobId;
 
 use crate::snark_pool::JobCommitment;
 
@@ -10,6 +10,7 @@ impl SnarkPoolState {
     pub fn reducer(&mut self, action: SnarkPoolActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
+            SnarkPoolAction::Candidate(action) => self.candidates.reducer(meta.with_action(action)),
             SnarkPoolAction::JobsUpdate(action) => {
                 let mut jobs_map = action
                     .jobs
@@ -18,6 +19,7 @@ impl SnarkPoolState {
                     .map(|(index, job)| (SnarkJobId::from(job), (index, job)))
                     .collect::<BTreeMap<_, _>>();
 
+                self.candidates.retain(|id| jobs_map.contains_key(id));
                 self.retain(|id| jobs_map.remove(id).map(|(order, _)| order));
                 for (id, (order, job)) in jobs_map {
                     self.insert(JobState {
@@ -42,13 +44,16 @@ impl SnarkPoolState {
                 self.insert(job);
             }
             SnarkPoolAction::WorkAdd(a) => {
-                let Some(mut job) = self.remove(&a.snark.job_id()) else { return };
+                let job_id = a.snark.job_id();
+                let Some(mut job) = self.remove(&job_id) else { return };
                 job.snark = Some(SnarkWork {
                     work: a.snark.clone(),
                     received_t: meta.time(),
                     sender: a.sender,
                 });
                 self.insert(job);
+                self.candidates
+                    .remove_snarks_with_higher_fee(&job_id, a.snark.fee.0.as_u64());
             }
             SnarkPoolAction::P2pSendAll(_) => {}
             SnarkPoolAction::P2pSend(_) => {}

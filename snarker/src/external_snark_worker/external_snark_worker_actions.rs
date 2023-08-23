@@ -1,6 +1,6 @@
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
-use shared::snark_job_id::SnarkJobId;
+use shared::snark::SnarkJobId;
 
 use crate::State;
 

@@ -4,7 +4,7 @@ use mina_p2p_messages::v2::{
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances,
     TransactionSnarkWorkTStableV2Proofs,
 };
-use shared::snark_job_id::SnarkJobId;
+use shared::snark::SnarkJobId;
 
 pub type SnarkWorkId = SnarkJobId;
 

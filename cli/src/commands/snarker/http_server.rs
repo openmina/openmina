@@ -9,7 +9,7 @@ use warp::{
     Filter, Reply,
 };
 
-use shared::snark_job_id::SnarkJobId;
+use shared::snark::SnarkJobId;
 use snarker::{
     p2p::{
         connection::{

@@ -31,9 +31,6 @@ impl P2pChannelsSnarkReadyAction {
         Store::Service: P2pChannelsService,
         P2pChannelsSnarkRequestSendAction: redux::EnablingCondition<S>,
     {
-        let peer_id = self.peer_id;
-        let limit = 16;
-        store.dispatch(P2pChannelsSnarkRequestSendAction { peer_id, limit });
     }
 }
 
@@ -59,9 +56,6 @@ impl P2pChannelsSnarkReceivedAction {
         Store::Service: P2pChannelsService,
         P2pChannelsSnarkRequestSendAction: redux::EnablingCondition<S>,
     {
-        let peer_id = self.peer_id;
-        let limit = 16;
-        store.dispatch(P2pChannelsSnarkRequestSendAction { peer_id, limit });
     }
 }
 

@@ -70,6 +70,7 @@ pub fn external_snark_worker_effects<S: crate::Service>(
                 proofs: action.result.clone(),
             };
             let sender = store.state().p2p.config.identity_pub_key.peer_id();
+            // Directly add snark to the snark pool as it's produced by us.
             store.dispatch(SnarkPoolWorkAddAction { snark, sender });
             store.dispatch(ExternalSnarkWorkerPruneWorkAction {});
         }

@@ -1,4 +1,4 @@
-use crate::consensus::{
+use super::{
     is_short_range_fork, long_range_fork_take, short_range_fork_take, ConsensusAction,
     ConsensusActionWithMetaRef, ConsensusBlockState, ConsensusBlockStatus,
     ConsensusLongRangeForkDecision, ConsensusShortRangeForkDecision, ConsensusState,

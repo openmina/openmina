@@ -1,7 +1,12 @@
 use crate::consensus::ConsensusBlockSnarkVerifySuccessAction;
+use crate::snark_pool::candidate::{
+    SnarkPoolCandidateWorkVerifyErrorAction, SnarkPoolCandidateWorkVerifySuccessAction,
+};
+use crate::snark_pool::SnarkPoolWorkAddAction;
 use crate::{Service, Store};
 
 use super::block_verify::SnarkBlockVerifyAction;
+use super::work_verify::SnarkWorkVerifyAction;
 use super::{SnarkAction, SnarkActionWithMeta};
 
 pub fn snark_effects<S: Service>(store: &mut Store<S>, action: SnarkActionWithMeta) {
@@ -25,6 +30,39 @@ pub fn snark_effects<S: Service>(store: &mut Store<S>, action: SnarkActionWithMe
                 a.effects(&meta, store);
             }
             SnarkBlockVerifyAction::Finish(_) => {}
+        },
+        SnarkAction::WorkVerify(a) => match a {
+            SnarkWorkVerifyAction::Init(a) => {
+                a.effects(&meta, store);
+            }
+            SnarkWorkVerifyAction::Pending(_) => {}
+            SnarkWorkVerifyAction::Error(a) => {
+                let req = store.state().snark.work_verify.jobs.get(a.req_id);
+                let Some(req) = req else { return };
+                let sender = req.sender().parse().unwrap();
+
+                store.dispatch(SnarkPoolCandidateWorkVerifyErrorAction {
+                    peer_id: sender,
+                    verify_id: a.req_id,
+                });
+                a.effects(&meta, store);
+            }
+            SnarkWorkVerifyAction::Success(a) => {
+                let req = store.state().snark.work_verify.jobs.get(a.req_id);
+                let Some(req) = req else { return };
+                let sender = req.sender().parse().unwrap();
+                let batch = req.batch().to_vec();
+
+                store.dispatch(SnarkPoolCandidateWorkVerifySuccessAction {
+                    peer_id: sender,
+                    verify_id: a.req_id,
+                });
+                for snark in batch {
+                    store.dispatch(SnarkPoolWorkAddAction { snark, sender });
+                }
+                a.effects(&meta, store);
+            }
+            SnarkWorkVerifyAction::Finish(_) => {}
         },
     }
 }

@@ -26,7 +26,7 @@ use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 pub use shared::requests::{RpcId, RpcIdType};
-use shared::snark_job_id::SnarkJobId;
+use shared::snark::SnarkJobId;
 
 use crate::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkSpecError,

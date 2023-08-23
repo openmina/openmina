@@ -3,11 +3,11 @@ use std::{collections::BTreeMap, fmt, ops::RangeBounds};
 use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-use shared::snark::{Snark, SnarkInfo};
-use shared::snark_job_id::SnarkJobId;
+use shared::snark::{Snark, SnarkInfo, SnarkJobId};
 
 use crate::p2p::{channels::snark_job_commitment::SnarkJobCommitment, PeerId};
 
+use super::candidate::SnarkPoolCandidatesState;
 use super::SnarkPoolConfig;
 
 #[derive(Clone)]
@@ -16,6 +16,7 @@ pub struct SnarkPoolState {
     counter: u64,
     list: BTreeMap<u64, JobState>,
     by_ledger_hash_index: BTreeMap<SnarkJobId, u64>,
+    pub candidates: SnarkPoolCandidatesState,
     pub(super) last_check_timeouts: Timestamp,
 }
 
@@ -51,6 +52,7 @@ impl SnarkPoolState {
             counter: 0,
             list: Default::default(),
             by_ledger_hash_index: Default::default(),
+            candidates: SnarkPoolCandidatesState::new(),
             last_check_timeouts: Timestamp::ZERO,
         }
     }
@@ -207,6 +209,7 @@ mod ser {
         config: SnarkPoolConfig,
         counter: u64,
         list: BTreeMap<u64, JobState>,
+        candidates: SnarkPoolCandidatesState,
         last_check_timeouts: Timestamp,
     }
 
@@ -215,10 +218,11 @@ mod ser {
         where
             S: serde::Serializer,
         {
-            let mut s = serializer.serialize_struct("SnarkPool", 4)?;
+            let mut s = serializer.serialize_struct("SnarkPool", 5)?;
             s.serialize_field("config", &self.config)?;
             s.serialize_field("counter", &self.counter)?;
             s.serialize_field("list", &self.list)?;
+            s.serialize_field("candidates", &self.candidates)?;
             s.serialize_field("last_check_timeouts", &self.last_check_timeouts)?;
             s.end()
         }
@@ -235,6 +239,7 @@ mod ser {
                 counter: v.counter,
                 list: v.list,
                 by_ledger_hash_index,
+                candidates: v.candidates,
                 last_check_timeouts: v.last_check_timeouts,
             })
         }

@@ -416,11 +416,11 @@ mod tests {
         ($source:expr, $event:pat) => {
             let result = $source.recv().await.expect("failed to receive an event");
             let Event::ExternalSnarkWorker(result) = result else {
-                panic!("unexpected event kind");
-            };
+                                        panic!("unexpected event kind");
+                                    };
             let $event = result else {
-                panic!("unexpected snark worker event: {result:?}");
-            };
+                                        panic!("unexpected snark worker event: {result:?}");
+                                    };
         };
     }
 
