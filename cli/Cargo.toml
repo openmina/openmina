@@ -27,7 +27,6 @@ console = "0.15.5"
 clap = { version = "4.3", features = [ "derive", "env" ] }
 
 shared = { path = "../node/shared" }
-snark = { path = "../node/snark" }
 snarker = { path = "../snarker", features = ["replay"] }
 bytes = "1.4.0"
 tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use shared::snark_job_id::SnarkJobId;
+use shared::snark::SnarkJobId;
 
 use crate::external_snark_worker::SnarkWorkId;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;

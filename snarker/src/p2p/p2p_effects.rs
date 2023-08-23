@@ -7,7 +7,10 @@ use crate::rpc::{
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingSuccessAction,
 };
-use crate::snark_pool::{SnarkPoolJobCommitmentAddAction, SnarkPoolWorkAddAction};
+use crate::snark_pool::candidate::{
+    SnarkPoolCandidateInfoReceivedAction, SnarkPoolCandidateWorkReceivedAction,
+};
+use crate::snark_pool::SnarkPoolJobCommitmentAddAction;
 use crate::transition_frontier::sync::ledger::snarked::{
     PeerLedgerQueryError, PeerLedgerQueryResponse,
     TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction,
@@ -281,16 +284,19 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 P2pChannelsSnarkAction::PromiseReceived(_) => {}
                 P2pChannelsSnarkAction::Received(action) => {
                     action.effects(&meta, store);
-                    // TODO(binier): snarkpool
+                    store.dispatch(SnarkPoolCandidateInfoReceivedAction {
+                        peer_id: action.peer_id,
+                        info: action.snark,
+                    });
                 }
                 P2pChannelsSnarkAction::RequestReceived(_) => {}
                 P2pChannelsSnarkAction::ResponseSend(action) => {
                     action.effects(&meta, store);
                 }
                 P2pChannelsSnarkAction::Libp2pReceived(action) => {
-                    store.dispatch(SnarkPoolWorkAddAction {
-                        snark: action.snark,
-                        sender: action.peer_id,
+                    store.dispatch(SnarkPoolCandidateWorkReceivedAction {
+                        peer_id: action.peer_id,
+                        work: action.snark,
                     });
                 }
                 P2pChannelsSnarkAction::Libp2pBroadcast(action) => {
@@ -462,9 +468,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             });
                         }
                         Some(P2pRpcResponse::Snark(snark)) => {
-                            store.dispatch(SnarkPoolWorkAddAction {
-                                snark: snark.clone(),
-                                sender: action.peer_id,
+                            store.dispatch(SnarkPoolCandidateWorkReceivedAction {
+                                peer_id: action.peer_id,
+                                work: snark.clone(),
                             });
                         }
                     }

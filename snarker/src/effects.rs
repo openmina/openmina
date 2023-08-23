@@ -8,6 +8,7 @@ use crate::logger::logger_effects;
 use crate::p2p::channels::rpc::{
     P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
 };
+use crate::p2p::channels::snark::P2pChannelsSnarkRequestSendAction;
 use crate::p2p::connection::incoming::P2pConnectionIncomingTimeoutAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
@@ -16,13 +17,18 @@ use crate::p2p::connection::outgoing::{
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
+use crate::snark_pool::candidate::{
+    SnarkPoolCandidateWorkFetchAllAction, SnarkPoolCandidateWorkVerifyNextAction,
+};
 use crate::snark_pool::{
-    job_commitment_effects, SnarkPoolCheckTimeoutsAction, SnarkPoolP2pSendAllAction,
+    snark_pool_effects, SnarkPoolCheckTimeoutsAction, SnarkPoolP2pSendAllAction,
 };
 use crate::transition_frontier::sync::TransitionFrontierSyncBlocksNextApplyInitAction;
 use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
 use crate::{Action, ActionWithMeta, Service, Store};
+
+pub const MAX_PEER_PENDING_SNARKS: usize = 32;
 
 pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
     store.service.recorder().action(&action);
@@ -117,6 +123,29 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                 }
             }
 
+            store.dispatch(SnarkPoolCandidateWorkFetchAllAction {});
+            store.dispatch(SnarkPoolCandidateWorkVerifyNextAction {});
+
+            let state = store.state();
+            let snark_reqs = state
+                .p2p
+                .ready_peers_iter()
+                .filter(|(_, p)| p.channels.snark.can_send_request())
+                .map(|(peer_id, _)| {
+                    let pending_snarks = state.snark_pool.candidates.peer_work_count(peer_id);
+                    (
+                        peer_id,
+                        MAX_PEER_PENDING_SNARKS.saturating_sub(pending_snarks),
+                    )
+                })
+                .filter(|(_, limit)| *limit > 0)
+                .map(|(peer_id, limit)| (*peer_id, limit.min(u8::MAX as usize) as u8))
+                .collect::<Vec<_>>();
+
+            for (peer_id, limit) in snark_reqs {
+                store.dispatch(P2pChannelsSnarkRequestSendAction { peer_id, limit });
+            }
+
             let state = store.state();
             for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {
                 store.dispatch(P2pChannelsRpcTimeoutAction { peer_id, id });
@@ -144,7 +173,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             p2p_effects(store, meta.with_action(action));
         }
         Action::SnarkPool(action) => {
-            job_commitment_effects(store, meta.with_action(action));
+            snark_pool_effects(store, meta.with_action(action));
         }
         Action::Rpc(action) => {
             rpc_effects(store, meta.with_action(action));

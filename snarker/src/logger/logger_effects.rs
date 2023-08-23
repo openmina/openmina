@@ -8,9 +8,11 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::P2pAction;
+use crate::snark::work_verify::SnarkWorkVerifyAction;
+use crate::snark::SnarkAction;
 use crate::{Action, ActionWithMetaRef, Service, Store};
 
-pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'_>) {
+pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
     let kind = action.kind();
 
@@ -408,6 +410,44 @@ pub fn logger_effects<S: Service>(_store: &Store<S>, action: ActionWithMetaRef<'
                 }
             }
         }
+        Action::Snark(a) => match a {
+            SnarkAction::WorkVerify(a) => match a {
+                SnarkWorkVerifyAction::Init(a) => {
+                    shared::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("id: {}, batch size: {}", a.req_id, a.batch.len()),
+                        peer_id = a.sender,
+                        rpc_id = a.req_id.to_string(),
+                        trace_batch = serde_json::to_string(&a.batch.iter().map(|v| v.job_id()).collect::<Vec<_>>()).ok()
+                    );
+                }
+                SnarkWorkVerifyAction::Error(a) => {
+                    let Some(req) = store.state().snark.work_verify.jobs.get(a.req_id) else { return };
+                    shared::log::warn!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("id: {}, batch size: {}", a.req_id, req.batch().len()),
+                        peer_id = req.sender(),
+                        rpc_id = a.req_id.to_string(),
+                        trace_batch = serde_json::to_string(&req.batch().iter().map(|v| v.job_id()).collect::<Vec<_>>()).ok()
+                    );
+                }
+                SnarkWorkVerifyAction::Success(a) => {
+                    let Some(req) = store.state().snark.work_verify.jobs.get(a.req_id) else { return };
+                    shared::log::warn!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("id: {}, batch size: {}", a.req_id, req.batch().len()),
+                        peer_id = req.sender(),
+                        rpc_id = a.req_id.to_string(),
+                        trace_batch = serde_json::to_string(&req.batch().iter().map(|v| v.job_id()).collect::<Vec<_>>()).ok()
+                    );
+                }
+                _ => {}
+            },
+            _ => {}
+        },
         _ => {}
     }
 }

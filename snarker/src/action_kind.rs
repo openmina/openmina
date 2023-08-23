@@ -91,7 +91,18 @@ use crate::snark::block_verify::{
     SnarkBlockVerifyAction, SnarkBlockVerifyErrorAction, SnarkBlockVerifyFinishAction,
     SnarkBlockVerifyInitAction, SnarkBlockVerifyPendingAction, SnarkBlockVerifySuccessAction,
 };
+use crate::snark::work_verify::{
+    SnarkWorkVerifyAction, SnarkWorkVerifyErrorAction, SnarkWorkVerifyFinishAction,
+    SnarkWorkVerifyInitAction, SnarkWorkVerifyPendingAction, SnarkWorkVerifySuccessAction,
+};
 use crate::snark::SnarkAction;
+use crate::snark_pool::candidate::{
+    SnarkPoolCandidateAction, SnarkPoolCandidateInfoReceivedAction,
+    SnarkPoolCandidateWorkFetchAllAction, SnarkPoolCandidateWorkFetchInitAction,
+    SnarkPoolCandidateWorkFetchPendingAction, SnarkPoolCandidateWorkReceivedAction,
+    SnarkPoolCandidateWorkVerifyErrorAction, SnarkPoolCandidateWorkVerifyNextAction,
+    SnarkPoolCandidateWorkVerifyPendingAction, SnarkPoolCandidateWorkVerifySuccessAction,
+};
 use crate::snark_pool::{
     SnarkPoolAction, SnarkPoolAutoCreateCommitmentAction, SnarkPoolCheckTimeoutsAction,
     SnarkPoolCommitmentCreateAction, SnarkPoolJobCommitmentAddAction,
@@ -284,6 +295,15 @@ pub enum ActionKind {
     SnarkBlockVerifyPending,
     SnarkBlockVerifySuccess,
     SnarkPoolAutoCreateCommitment,
+    SnarkPoolCandidateInfoReceived,
+    SnarkPoolCandidateWorkFetchAll,
+    SnarkPoolCandidateWorkFetchInit,
+    SnarkPoolCandidateWorkFetchPending,
+    SnarkPoolCandidateWorkReceived,
+    SnarkPoolCandidateWorkVerifyError,
+    SnarkPoolCandidateWorkVerifyNext,
+    SnarkPoolCandidateWorkVerifyPending,
+    SnarkPoolCandidateWorkVerifySuccess,
     SnarkPoolCheckTimeouts,
     SnarkPoolCommitmentCreate,
     SnarkPoolJobCommitmentAdd,
@@ -292,6 +312,11 @@ pub enum ActionKind {
     SnarkPoolP2pSend,
     SnarkPoolP2pSendAll,
     SnarkPoolWorkAdd,
+    SnarkWorkVerifyError,
+    SnarkWorkVerifyFinish,
+    SnarkWorkVerifyInit,
+    SnarkWorkVerifyPending,
+    SnarkWorkVerifySuccess,
     TransitionFrontierSyncBestTipUpdate,
     TransitionFrontierSyncBlocksFetchSuccess,
     TransitionFrontierSyncBlocksNextApplyInit,
@@ -347,7 +372,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 180;
+    pub const COUNT: usize = 194;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -405,6 +430,7 @@ impl ActionKindGet for SnarkAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::BlockVerify(a) => a.kind(),
+            Self::WorkVerify(a) => a.kind(),
         }
     }
 }
@@ -436,6 +462,7 @@ impl ActionKindGet for TransitionFrontierAction {
 impl ActionKindGet for SnarkPoolAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::Candidate(a) => a.kind(),
             Self::JobsUpdate(a) => a.kind(),
             Self::AutoCreateCommitment(a) => a.kind(),
             Self::CommitmentCreate(a) => a.kind(),
@@ -588,6 +615,18 @@ impl ActionKindGet for SnarkBlockVerifyAction {
     }
 }
 
+impl ActionKindGet for SnarkWorkVerifyAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::Pending(a) => a.kind(),
+            Self::Error(a) => a.kind(),
+            Self::Success(a) => a.kind(),
+            Self::Finish(a) => a.kind(),
+        }
+    }
+}
+
 impl ActionKindGet for ConsensusBlockReceivedAction {
     fn kind(&self) -> ActionKind {
         ActionKind::ConsensusBlockReceived
@@ -663,6 +702,22 @@ impl ActionKindGet for TransitionFrontierSyncAction {
 impl ActionKindGet for TransitionFrontierSyncedAction {
     fn kind(&self) -> ActionKind {
         ActionKind::TransitionFrontierSynced
+    }
+}
+
+impl ActionKindGet for SnarkPoolCandidateAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::InfoReceived(a) => a.kind(),
+            Self::WorkFetchAll(a) => a.kind(),
+            Self::WorkFetchInit(a) => a.kind(),
+            Self::WorkFetchPending(a) => a.kind(),
+            Self::WorkReceived(a) => a.kind(),
+            Self::WorkVerifyNext(a) => a.kind(),
+            Self::WorkVerifyPending(a) => a.kind(),
+            Self::WorkVerifyError(a) => a.kind(),
+            Self::WorkVerifySuccess(a) => a.kind(),
+        }
     }
 }
 
@@ -1142,6 +1197,36 @@ impl ActionKindGet for SnarkBlockVerifyFinishAction {
     }
 }
 
+impl ActionKindGet for SnarkWorkVerifyInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkWorkVerifyInit
+    }
+}
+
+impl ActionKindGet for SnarkWorkVerifyPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkWorkVerifyPending
+    }
+}
+
+impl ActionKindGet for SnarkWorkVerifyErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkWorkVerifyError
+    }
+}
+
+impl ActionKindGet for SnarkWorkVerifySuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkWorkVerifySuccess
+    }
+}
+
+impl ActionKindGet for SnarkWorkVerifyFinishAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkWorkVerifyFinish
+    }
+}
+
 impl ActionKindGet for TransitionFrontierSyncInitAction {
     fn kind(&self) -> ActionKind {
         ActionKind::TransitionFrontierSyncInit
@@ -1246,6 +1331,60 @@ impl ActionKindGet for TransitionFrontierSyncLedgerAction {
             Self::Staged(a) => a.kind(),
             Self::Success(a) => a.kind(),
         }
+    }
+}
+
+impl ActionKindGet for SnarkPoolCandidateInfoReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolCandidateInfoReceived
+    }
+}
+
+impl ActionKindGet for SnarkPoolCandidateWorkFetchAllAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolCandidateWorkFetchAll
+    }
+}
+
+impl ActionKindGet for SnarkPoolCandidateWorkFetchInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolCandidateWorkFetchInit
+    }
+}
+
+impl ActionKindGet for SnarkPoolCandidateWorkFetchPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolCandidateWorkFetchPending
+    }
+}
+
+impl ActionKindGet for SnarkPoolCandidateWorkReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolCandidateWorkReceived
+    }
+}
+
+impl ActionKindGet for SnarkPoolCandidateWorkVerifyNextAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolCandidateWorkVerifyNext
+    }
+}
+
+impl ActionKindGet for SnarkPoolCandidateWorkVerifyPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolCandidateWorkVerifyPending
+    }
+}
+
+impl ActionKindGet for SnarkPoolCandidateWorkVerifyErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolCandidateWorkVerifyError
+    }
+}
+
+impl ActionKindGet for SnarkPoolCandidateWorkVerifySuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolCandidateWorkVerifySuccess
     }
 }
 

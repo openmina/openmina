@@ -14,7 +14,7 @@ use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-use shared::snark_job_id::SnarkJobId;
+use shared::snark::SnarkJobId;
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkJobCommitmentPropagationChannelMsg {

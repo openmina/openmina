@@ -30,7 +30,10 @@ use mina_p2p_messages::{
     },
 };
 use serde::{Deserialize, Serialize};
-use shared::{block::ArcBlock, snark::Snark, snark_job_id::SnarkJobId};
+use shared::{
+    block::ArcBlock,
+    snark::{Snark, SnarkJobId},
+};
 
 pub type P2pRpcId = u32;
 

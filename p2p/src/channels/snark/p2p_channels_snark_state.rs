@@ -47,6 +47,17 @@ impl P2pChannelsSnarkState {
         matches!(self, Self::Ready { .. })
     }
 
+    pub fn can_send_request(&self) -> bool {
+        matches!(
+            self,
+            Self::Ready {
+                local: SnarkPropagationState::WaitingForRequest { .. }
+                    | SnarkPropagationState::Responded { .. },
+                ..
+            }
+        )
+    }
+
     pub fn next_send_index_and_limit(&self) -> (u64, u8) {
         match self {
             Self::Ready {

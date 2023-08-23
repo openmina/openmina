@@ -883,7 +883,6 @@ dependencies = [
  "sha2 0.10.7",
  "shared",
  "shellexpand",
- "snark",
  "snarker",
  "thiserror",
  "tokio",

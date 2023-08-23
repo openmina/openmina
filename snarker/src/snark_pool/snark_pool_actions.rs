@@ -3,17 +3,20 @@ use std::cmp::Ordering;
 use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
 use ledger::scan_state::scan_state::AvailableJobMessage;
 use serde::{Deserialize, Serialize};
-use shared::snark::Snark;
-use shared::snark_job_id::SnarkJobId;
+use shared::snark::{Snark, SnarkJobId};
 
 use crate::p2p::channels::snark_job_commitment::SnarkJobCommitment;
 use crate::p2p::PeerId;
+
+use super::candidate::SnarkPoolCandidateAction;
 
 pub type SnarkPoolActionWithMeta = redux::ActionWithMeta<SnarkPoolAction>;
 pub type SnarkPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a SnarkPoolAction>;
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkPoolAction {
+    Candidate(SnarkPoolCandidateAction),
+
     JobsUpdate(SnarkPoolJobsUpdateAction),
     AutoCreateCommitment(SnarkPoolAutoCreateCommitmentAction),
     CommitmentCreate(SnarkPoolCommitmentCreateAction),
