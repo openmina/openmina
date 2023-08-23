@@ -27,6 +27,21 @@ spec:
       serviceAccountName: {{ include "openmina.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: core-pattern
+          image: alpine
+          securityContext:
+            privileged: true
+          command: [ sh, -c ]
+          args:
+            - |
+              [ -f /etc/sysctl.d/core_pattern.conf ] || {
+                echo "kernel.core_pattern=/tmp/core.%e.%p" > /etc/sysctl.d/core_pattern.conf
+                echo "/tmp/core.%e.%p" > /proc/sys/kernel/core_pattern
+              }
+          volumeMounts:
+            - name: host-proc-sys-kernel
+              mountPath: /proc
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -56,6 +71,8 @@ spec:
             value: "{{ .Values.openmina.fee }}"
           - name: "MINA_EXE_PATH"
             value: "/usr/local/bin/snark-worker"
+          - name: "VERBOSITY"
+            value: "debug"
           {{- if .Values.openmina.peers }}
           - name: "PEERS"
             value: "{{ .Values.openmina.peers | join " " }}"
@@ -66,6 +83,14 @@ spec:
           {{- end}}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: host-tmp
+              mountPath: /tmp
+      volumes:
+        - name: host-proc-sys-kernel
+          hostPath: { path: "/proc" }
+        - name: host-tmp
+          hostPath: { path: "/tmp" }
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
