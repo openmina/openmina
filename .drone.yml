@@ -143,7 +143,7 @@ steps:
         echo "TOTAL_WORK=$$TOTAL_WORK"
         echo "LOCAL_WORK=$$LOCAL_WORK"
         echo "NON_LOCAL_WORK=$$NON_LOCAL_WORK"
-        #assert 'non-local work exists' '[ $$NON_LOCAL_WORK -gt 0 ]'
+        assert 'non-local work exists' '[ $$NON_LOCAL_WORK -gt 0 ]'
 
         TOTAL_COMMITMENTS=$$(jq "[.[] | select(.commitment != null)] | length" jobs.json)
         NON_LOCAL_COMMITMENTS=$$(jq "[.[] | select(.commitment != null and .commitment.commitment.snarker != \"$OPENMINA1_SNARKER_KEY\")] | length" jobs.json)
