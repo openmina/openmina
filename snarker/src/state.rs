@@ -35,6 +35,7 @@ pub struct State {
 impl State {
     pub fn new(config: Config) -> Self {
         let job_commitments = config.snarker.job_commitments.clone();
+        let now = Timestamp::global_now();
         Self {
             p2p: P2pState::new(config.p2p),
             snark_pool: SnarkPoolState::new(job_commitments),
@@ -42,12 +43,12 @@ impl State {
             consensus: ConsensusState::new(),
             transition_frontier: TransitionFrontierState::new(config.transition_frontier),
             rpc: RpcState::new(),
-            external_snark_worker: ExternalSnarkWorkers::new(shared::log::system_time()),
+            external_snark_worker: ExternalSnarkWorkers::new(now),
 
             watched_accounts: WatchedAccountsState::new(),
 
             config: config.snarker,
-            last_action: ActionMeta::zero_custom(Timestamp::global_now()),
+            last_action: ActionMeta::zero_custom(now),
             applied_actions_count: 0,
         }
     }
