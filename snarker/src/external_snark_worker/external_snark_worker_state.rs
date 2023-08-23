@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +33,10 @@ pub enum ExternalSnarkWorkerState {
 
 impl ExternalSnarkWorkers {
     pub fn new(now: Timestamp) -> Self {
-        ExternalSnarkWorkers(ExternalSnarkWorker { state: ExternalSnarkWorkerState::None, timestamp: now })
+        ExternalSnarkWorkers(ExternalSnarkWorker {
+            state: ExternalSnarkWorkerState::None,
+            timestamp: now,
+        })
     }
 
     pub fn is_idle(&self) -> bool {

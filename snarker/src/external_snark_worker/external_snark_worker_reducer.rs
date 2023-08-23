@@ -32,7 +32,10 @@ impl ExternalSnarkWorker {
                 self.state = ExternalSnarkWorkerState::Error(a.error.clone(), a.permanent);
             }
             ExternalSnarkWorkerAction::SubmitWork(action) => {
-                self.state = ExternalSnarkWorkerState::Working(action.job_id.clone(), action.summary.clone());
+                self.state = ExternalSnarkWorkerState::Working(
+                    action.job_id.clone(),
+                    action.summary.clone(),
+                );
             }
             ExternalSnarkWorkerAction::WorkResult(action) => {
                 let ExternalSnarkWorkerState::Working(job_id, _) = &self.state else {

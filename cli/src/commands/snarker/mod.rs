@@ -11,8 +11,6 @@ use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
 use shared::log::inner::Level;
-use snarker::external_snark_worker::ExternalSnarkWorkerStartAction;
-use snarker::p2p::service_impl::TaskSpawner;
 
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
@@ -29,6 +27,7 @@ use snarker::p2p::identity::SecretKey;
 use snarker::p2p::service_impl::libp2p::Libp2pService;
 use snarker::p2p::service_impl::webrtc_rs::{Cmd, P2pServiceCtx, P2pServiceWebrtcRs, PeerState};
 use snarker::p2p::service_impl::webrtc_rs_with_libp2p::{self, P2pServiceWebrtcRsWithLibp2p};
+use snarker::p2p::service_impl::TaskSpawner;
 use snarker::p2p::{P2pConfig, P2pEvent, PeerId};
 use snarker::rpc::RpcRequest;
 use snarker::service::{EventSourceService, Recorder, Service};
@@ -292,9 +291,6 @@ impl Snarker {
                     snarker
                         .store_mut()
                         .dispatch(EventSourceProcessEventsAction {});
-                    snarker.
-                        store_mut()
-                        .dispatch(ExternalSnarkWorkerStartAction {});
                     loop {
                         snarker
                             .store_mut()

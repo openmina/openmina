@@ -61,7 +61,10 @@ pub fn job_commitment_effects<S: Service>(store: &mut Store<S>, action: SnarkPoo
                 sender: store.state().p2p.config.identity_pub_key.peer_id(),
             });
             if let Some(summary) = summary {
-                store.dispatch(ExternalSnarkWorkerSubmitWorkAction { job_id: a.job_id, summary });
+                store.dispatch(ExternalSnarkWorkerSubmitWorkAction {
+                    job_id: a.job_id,
+                    summary,
+                });
             }
         }
         SnarkPoolAction::CommitmentAdd(a) => {

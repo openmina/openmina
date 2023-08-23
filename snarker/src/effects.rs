@@ -1,6 +1,9 @@
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
-use crate::external_snark_worker::{external_snark_worker_effects, ExternalSnarkWorkerStartTimeoutAction, ExternalSnarkWorkerWorkTimeoutAction};
+use crate::external_snark_worker::{
+    external_snark_worker_effects, ExternalSnarkWorkerStartAction,
+    ExternalSnarkWorkerStartTimeoutAction, ExternalSnarkWorkerWorkTimeoutAction,
+};
 use crate::logger::logger_effects;
 use crate::p2p::channels::rpc::{
     P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
@@ -33,6 +36,9 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
     logger_effects(store, meta.clone().with_action(&action));
     match action {
         Action::CheckTimeouts(_) => {
+            // TODO(binier): create init action and dispatch this there.
+            store.dispatch(ExternalSnarkWorkerStartAction {});
+
             let now = store.state().time();
             let p2p_connection_timeouts: Vec<_> = store
                 .state()

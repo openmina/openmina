@@ -1,4 +1,4 @@
-use crate::external_snark_worker::{ExternalSnarkWorkerState, ExternalSnarkWorker};
+use crate::external_snark_worker::{ExternalSnarkWorker, ExternalSnarkWorkerState};
 
 use super::{RpcSnarkWorker, RpcSnarkWorkerStatus};
 
@@ -18,7 +18,9 @@ impl From<ExternalSnarkWorkerState> for RpcSnarkWorkerStatus {
             ExternalSnarkWorkerState::None => RpcSnarkWorkerStatus::None,
             ExternalSnarkWorkerState::Starting => RpcSnarkWorkerStatus::Starting,
             ExternalSnarkWorkerState::Idle => RpcSnarkWorkerStatus::Idle,
-            ExternalSnarkWorkerState::Working(job_id, summary) => RpcSnarkWorkerStatus::Working { job_id, summary },
+            ExternalSnarkWorkerState::Working(job_id, summary) => {
+                RpcSnarkWorkerStatus::Working { job_id, summary }
+            }
             ExternalSnarkWorkerState::WorkReady(job_id, _) => {
                 RpcSnarkWorkerStatus::WorkReady { job_id }
             }
@@ -32,7 +34,9 @@ impl From<ExternalSnarkWorkerState> for RpcSnarkWorkerStatus {
                 RpcSnarkWorkerStatus::Cancelled { job_id }
             }
             ExternalSnarkWorkerState::Killing => RpcSnarkWorkerStatus::Killing,
-            ExternalSnarkWorkerState::Error(error, permanent) => RpcSnarkWorkerStatus::Error { error, permanent },
+            ExternalSnarkWorkerState::Error(error, permanent) => {
+                RpcSnarkWorkerStatus::Error { error, permanent }
+            }
         }
     }
 }
