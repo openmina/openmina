@@ -381,7 +381,7 @@ impl ReplayerState {
             .map(|(_, meta)| meta.time())
             .map(|expected_time| {
                 let time_passed = expected_time.checked_sub(self.initial_time).unwrap();
-                self.initial_monotonic + time_passed
+                self.initial_monotonic + (time_passed - Duration::from_nanos(1))
             })
             .unwrap_or(self.initial_monotonic)
     }

@@ -361,6 +361,9 @@ impl ExternalSnarkWorkerService for SnarkerService {
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
     ) -> Result<(), snarker::external_snark_worker::ExternalSnarkWorkerError> {
+        if self.replayer.is_some() {
+            return Ok(());
+        }
         let cmd_sender =
             ExternalSnarkWorkerFacade::start(path, public_key, fee, self.event_sender.clone())?;
         self.snark_worker_sender = Some(cmd_sender);
@@ -371,6 +374,9 @@ impl ExternalSnarkWorkerService for SnarkerService {
         &mut self,
         spec: SnarkWorkSpec,
     ) -> Result<(), snarker::external_snark_worker::ExternalSnarkWorkerError> {
+        if self.replayer.is_some() {
+            return Ok(());
+        }
         self.snark_worker_sender
             .as_mut()
             .ok_or(SnarkerError::NotRunning)
@@ -379,6 +385,9 @@ impl ExternalSnarkWorkerService for SnarkerService {
     }
 
     fn cancel(&mut self) -> Result<(), ExternalSnarkWorkerError> {
+        if self.replayer.is_some() {
+            return Ok(());
+        }
         self.snark_worker_sender
             .as_mut()
             .ok_or(SnarkerError::NotRunning)
@@ -387,6 +396,9 @@ impl ExternalSnarkWorkerService for SnarkerService {
     }
 
     fn kill(&mut self) -> Result<(), snarker::external_snark_worker::ExternalSnarkWorkerError> {
+        if self.replayer.is_some() {
+            return Ok(());
+        }
         self.snark_worker_sender
             .take()
             .ok_or(SnarkerError::NotRunning)

@@ -1,9 +1,11 @@
 use rand::rngs::StdRng;
 use rand::SeedableRng;
+use redux::{ActionMeta, Timestamp};
+use snarker::external_snark_worker::ExternalSnarkWorkerStartAction;
 use snarker::p2p::service_impl::libp2p::Libp2pService;
 use snarker::recorder::{Recorder, StateWithInputActionsReader};
 use snarker::snark::VerifierKind;
-use snarker::{ActionWithMeta, Store};
+use snarker::{ActionKind, ActionWithMeta, Store};
 use tokio::sync::mpsc;
 
 use crate::commands::snarker::{ReplayerState, RpcService, SnarkerService};
@@ -80,7 +82,7 @@ impl ReplayStateWithInputActions {
                 actions
             })
             .peekable();
-
+        store.dispatch(ExternalSnarkWorkerStartAction {});
         while let Some(action) = actions.peek() {
             let replayer = store.service.replayer.as_mut().unwrap();
             let expected_actions = &mut replayer.expected_actions;
@@ -122,13 +124,15 @@ impl ReplayStateWithInputActions {
 
 fn replayer_effects(store: &mut Store<SnarkerService>, action: ActionWithMeta) {
     let replayer = store.service.replayer.as_mut().unwrap();
-    let (kind, meta) = match replayer.expected_actions.pop_front() {
-        Some(v) => v,
-        None => panic!("unexpected action: {:?}", action),
-    };
+    if !matches!(action.action().kind(), ActionKind::ExternalSnarkWorkerStart) {
+        let (kind, meta) = match replayer.expected_actions.pop_front() {
+            Some(v) => v,
+            None => panic!("unexpected action: {:?}", action),
+        };
 
-    assert_eq!(kind, action.action().kind());
-    assert_eq!(meta.time(), action.meta().time());
+        assert_eq!(kind, action.action().kind());
+        assert_eq!(meta.time(), action.meta().time());
+    }
 
     snarker::effects(store, action)
 }

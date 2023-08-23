@@ -14,7 +14,7 @@ use crate::{Action, ActionWithMetaRef, Service, Store};
 
 pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
-    let kind = action.kind();
+    let kind = dbg!(action.kind());
 
     match action {
         Action::P2p(action) => match action {
@@ -379,7 +379,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 }
                 SnarkWorkVerifyAction::Success(a) => {
                     let Some(req) = store.state().snark.work_verify.jobs.get(a.req_id) else { return };
-                    shared::log::warn!(
+                    shared::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("id: {}, batch size: {}", a.req_id, req.batch().len()),
