@@ -1288,7 +1288,7 @@ impl BaseLedger for MaskImpl {
             } => (None, owning_account, hashes, depth),
         };
 
-        if let Some(account) = owning_account.get(&account_index).cloned() {
+        if let Some(account) = owning_account.get(&account_index) {
             let addr = Address::from_index(account_index, *depth as usize);
 
             if let Some(hash) = matrix.get(&addr).cloned() {

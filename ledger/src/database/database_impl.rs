@@ -374,6 +374,13 @@ impl DatabaseImpl<V2> {
     //         }
     //     }
     // }
+
+    fn get_account_ref(&self, addr: Address) -> Option<&Account> {
+        let index = addr.to_index();
+        let index: usize = index.0 as usize;
+
+        self.accounts.get(index)?.as_ref()
+    }
 }
 
 impl BaseLedger for DatabaseImpl<V2> {
@@ -623,7 +630,7 @@ impl BaseLedger for DatabaseImpl<V2> {
             return Some(*hash);
         }
 
-        let account = self.get(addr.clone())?;
+        let account = self.get_account_ref(addr.clone())?;
         let hash = account.hash();
 
         self.hashes_matrix.set(&addr, hash);
@@ -631,19 +638,9 @@ impl BaseLedger for DatabaseImpl<V2> {
         Some(hash)
     }
 
+    #[inline(never)]
     fn get(&self, addr: Address) -> Option<Box<Account>> {
-        let index = addr.to_index();
-        let index: usize = index.0 as usize;
-
-        self.accounts.get(index)?.clone().map(Box::new)
-
-        // let acc = self.root.as_ref()?.get_on_path(addr.into_iter()).cloned();
-
-        // if let Some(account) = &acc {
-        //     elog!("ACCOUNT{:?}", account.hash().to_string());
-        // };
-
-        // acc
+        self.get_account_ref(addr).cloned().map(Box::new)
     }
 
     fn get_batch(&self, addr: &[Address]) -> Vec<(Address, Option<Box<Account>>)> {
