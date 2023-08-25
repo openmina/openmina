@@ -50,7 +50,7 @@ pub struct SnarkWork {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum JobSummary {
     Tx(usize),
-    Merge,
+    Merge(usize),
 }
 
 impl SnarkPoolState {
@@ -221,16 +221,28 @@ impl JobState {
             MinaTransactionLogicTransactionAppliedCommandAppliedStableV2 as CommandApplied,
             MinaTransactionLogicTransactionAppliedVaryingStableV2 as Varying,
         };
-        match &self.job {
-            OneOrTwo::One(AvailableJobMessage::Base(base)) => {
-                match &base.transaction_with_info.varying {
-                    Varying::Command(CommandApplied::ZkappCommand(zkapp)) => {
-                        JobSummary::Tx(zkapp.command.data.account_updates.iter().count())
-                    }
-                    _ => JobSummary::Tx(1),
+        let account_updates = |job: &_| match job {
+            AvailableJobMessage::Base(base) => match &base.transaction_with_info.varying {
+                Varying::Command(CommandApplied::ZkappCommand(zkapp)) => {
+                    zkapp.command.data.account_updates.len()
                 }
-            }
-            _ => JobSummary::Merge,
+                _ => 1,
+            },
+            AvailableJobMessage::Merge { .. } => 1,
+        };
+        let account_updates = match &self.job {
+            OneOrTwo::One(job) => account_updates(job),
+            OneOrTwo::Two((job1, job2)) => account_updates(job1) + account_updates(job2),
+        };
+
+        if matches!(
+            self.job,
+            OneOrTwo::One(AvailableJobMessage::Base(_))
+                | OneOrTwo::Two((AvailableJobMessage::Base(_), _))
+        ) {
+            JobSummary::Tx(account_updates)
+        } else {
+            JobSummary::Merge(account_updates)
         }
     }
 
@@ -241,11 +253,11 @@ impl JobState {
 
 impl JobSummary {
     pub fn estimated_duration(&self) -> Duration {
-        const BASE: Duration = Duration::from_secs(20);
-        match self {
-            JobSummary::Tx(n) => BASE * (*n as u32),
-            JobSummary::Merge => BASE,
-        }
+        const BASE: Duration = Duration::from_secs(10);
+        const MAX_LATENCY: Duration = Duration::from_secs(10);
+
+        let (JobSummary::Tx(n) | JobSummary::Merge(n)) = self;
+        BASE * (*n as u32) + MAX_LATENCY
     }
 }
 
