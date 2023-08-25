@@ -186,7 +186,6 @@ impl Snarker {
                     self.fee.into(),
                 )),
                 job_commitments: SnarkPoolConfig {
-                    commitment_timeout: Duration::from_secs(6 * 60),
                     auto_commit: self.auto_commit,
                 },
                 path: self.mina_exe_path,

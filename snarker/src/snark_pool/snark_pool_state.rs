@@ -148,8 +148,9 @@ impl SnarkPoolState {
             return false;
         };
 
+        let timeout = job.estimated_duration();
         let passed_time = time_now.checked_sub(commitment.commitment.timestamp());
-        let is_timed_out = passed_time.map_or(false, |dur| dur >= self.config.commitment_timeout);
+        let is_timed_out = passed_time.map_or(false, |dur| dur >= timeout);
         let didnt_deliver = job.snark.as_ref().map_or(true, |snark| {
             snark.work.fee.as_u64() > commitment.commitment.fee.as_u64()
         });
@@ -189,23 +190,7 @@ impl SnarkPoolState {
     }
 
     pub(super) fn job_summary(&self, id: &SnarkJobId) -> Option<JobSummary> {
-        self.get(id).map(|job| {
-            use mina_p2p_messages::v2::{
-                MinaTransactionLogicTransactionAppliedCommandAppliedStableV2 as CommandApplied,
-                MinaTransactionLogicTransactionAppliedVaryingStableV2 as Varying,
-            };
-            match &job.job {
-                OneOrTwo::One(AvailableJobMessage::Base(base)) => {
-                    match &base.transaction_with_info.varying {
-                        Varying::Command(CommandApplied::ZkappCommand(zkapp)) => {
-                            JobSummary::Tx(zkapp.command.data.account_updates.iter().count())
-                        }
-                        _ => JobSummary::Tx(1),
-                    }
-                }
-                _ => JobSummary::Merge,
-            }
-        })
+        self.get(id).map(|job| job.summary())
     }
 }
 
@@ -230,11 +215,33 @@ impl JobState {
     pub fn snark_msg(&self) -> Option<SnarkInfo> {
         self.snark.as_ref().map(|v| v.work.info())
     }
+
+    pub fn summary(&self) -> JobSummary {
+        use mina_p2p_messages::v2::{
+            MinaTransactionLogicTransactionAppliedCommandAppliedStableV2 as CommandApplied,
+            MinaTransactionLogicTransactionAppliedVaryingStableV2 as Varying,
+        };
+        match &self.job {
+            OneOrTwo::One(AvailableJobMessage::Base(base)) => {
+                match &base.transaction_with_info.varying {
+                    Varying::Command(CommandApplied::ZkappCommand(zkapp)) => {
+                        JobSummary::Tx(zkapp.command.data.account_updates.iter().count())
+                    }
+                    _ => JobSummary::Tx(1),
+                }
+            }
+            _ => JobSummary::Merge,
+        }
+    }
+
+    pub fn estimated_duration(&self) -> Duration {
+        self.summary().estimated_duration()
+    }
 }
 
 impl JobSummary {
     pub fn estimated_duration(&self) -> Duration {
-        const BASE: Duration = Duration::from_secs(30);
+        const BASE: Duration = Duration::from_secs(20);
         match self {
             JobSummary::Tx(n) => BASE * (*n as u32),
             JobSummary::Merge => BASE,

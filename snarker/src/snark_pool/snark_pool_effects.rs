@@ -52,22 +52,21 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
             }
         }
         SnarkPoolAction::CommitmentCreate(a) => {
-            let timestamp_ms = meta.time_as_nanos() / 1_000_000;
-            let config = &store.state().config;
-            let summary = store.state().snark_pool.job_summary(&a.job_id);
-            store.dispatch(SnarkPoolJobCommitmentAddAction {
-                commitment: SnarkJobCommitment::new(
-                    timestamp_ms,
-                    a.job_id.clone(),
-                    config.fee.clone(),
-                    config.public_key.clone().into(),
-                ),
-                sender: store.state().p2p.config.identity_pub_key.peer_id(),
-            });
-            if let Some(summary) = summary {
-                store.dispatch(ExternalSnarkWorkerSubmitWorkAction {
-                    job_id: a.job_id,
-                    summary,
+            let Some(summary) = store.state().snark_pool.job_summary(&a.job_id) else { return };
+            if store.dispatch(ExternalSnarkWorkerSubmitWorkAction {
+                job_id: a.job_id.clone(),
+                summary,
+            }) {
+                let timestamp_ms = meta.time_as_nanos() / 1_000_000;
+                let config = &store.state().config;
+                store.dispatch(SnarkPoolJobCommitmentAddAction {
+                    commitment: SnarkJobCommitment::new(
+                        timestamp_ms,
+                        a.job_id,
+                        config.fee.clone(),
+                        config.public_key.clone().into(),
+                    ),
+                    sender: store.state().p2p.config.identity_pub_key.peer_id(),
                 });
             }
         }
