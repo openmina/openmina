@@ -307,24 +307,31 @@ impl<T: LedgerService> TransitionFrontierService for T {
         // Make ledger mask new root.
         new_root_ledger.commit_and_reparent_to_root();
 
-        ctx.staged_ledger_mut(new_best_tip.staged_ledger_hash())
+        let needed_protocol_states = ctx
+            .staged_ledger_mut(new_root.staged_ledger_hash())
             .map(|l| {
-                let available_jobs = l
-                    .scan_state()
+                l.scan_state()
+                    .required_state_hashes()
+                    .into_iter()
+                    .map(|fp| DataHashLibStateHashStableV1(fp.into()).into())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let available_jobs = ctx
+            .staged_ledger_mut(new_best_tip.staged_ledger_hash())
+            .map(|l| {
+                l.scan_state()
                     .all_job_pairs_iter()
                     .map(|job| job.map(|single| AvailableJobMessage::from(single)))
-                    .collect();
-                CommitResult {
-                    available_jobs,
-                    needed_protocol_states: l
-                        .scan_state()
-                        .required_state_hashes()
-                        .into_iter()
-                        .map(|fp| DataHashLibStateHashStableV1(fp.into()).into())
-                        .collect(),
-                }
+                    .collect()
             })
-            .unwrap_or_default()
+            .unwrap_or_default();
+
+        CommitResult {
+            available_jobs,
+            needed_protocol_states,
+        }
     }
 
     fn answer_ledger_query(
