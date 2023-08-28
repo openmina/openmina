@@ -10,3 +10,9 @@ pub struct SnarkInfo {
     pub fee: CurrencyFeeStableV1,
     pub prover: NonZeroCurvePoint,
 }
+
+impl SnarkInfo {
+    pub fn tie_breaker_hash(&self) -> [u8; 32] {
+        super::tie_breaker_hash(&self.job_id, &self.prover)
+    }
+}

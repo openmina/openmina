@@ -39,7 +39,7 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateInfoReceivedAc
                 .snark_pool
                 .candidates
                 .get(self.peer_id, &self.info.job_id)
-                .map_or(true, |v| v.fee() > self.info.fee.0.as_u64())
+                .map_or(true, |v| &self.info > v)
     }
 }
 
@@ -108,7 +108,7 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateWorkReceivedAc
                 .snark_pool
                 .candidates
                 .get(self.peer_id, &job_id)
-                .map_or(true, |v| match v.fee().cmp(&self.work.fee.0.as_u64()) {
+                .map_or(true, |v| match self.work.partial_cmp(v).unwrap() {
                     Ordering::Less => false,
                     Ordering::Greater => true,
                     Ordering::Equal => {

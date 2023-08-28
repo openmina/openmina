@@ -1,8 +1,27 @@
 mod snark_job_id;
 pub use snark_job_id::SnarkJobId;
 
+mod snark_job_commitment;
+pub use snark_job_commitment::SnarkJobCommitment;
+
 mod snark_info;
 pub use snark_info::SnarkInfo;
 
 mod snark;
 pub use snark::Snark;
+
+mod snark_cmp;
+pub use snark_cmp::SnarkCmp;
+
+use mina_p2p_messages::v2::NonZeroCurvePoint;
+
+pub fn tie_breaker_hash(job_id: &SnarkJobId, snarker: &NonZeroCurvePoint) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(job_id.source.first_pass_ledger.0.as_ref());
+    hasher.update(job_id.source.second_pass_ledger.0.as_ref());
+    hasher.update(job_id.target.first_pass_ledger.0.as_ref());
+    hasher.update(job_id.target.second_pass_ledger.0.as_ref());
+    hasher.update(snarker.x.as_ref());
+    hasher.finalize().into()
+}

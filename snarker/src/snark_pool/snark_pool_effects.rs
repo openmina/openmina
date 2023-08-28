@@ -1,12 +1,12 @@
+use shared::snark::SnarkJobCommitment;
+
 use crate::external_snark_worker::{
     ExternalSnarkWorkerCancelWorkAction, ExternalSnarkWorkerSubmitWorkAction,
 };
 use crate::p2p::channels::snark::{
     P2pChannelsSnarkLibp2pBroadcastAction, P2pChannelsSnarkResponseSendAction,
 };
-use crate::p2p::channels::snark_job_commitment::{
-    P2pChannelsSnarkJobCommitmentResponseSendAction, SnarkJobCommitment,
-};
+use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentResponseSendAction;
 use crate::{Service, State, Store};
 
 use super::candidate::snark_pool_candidate_effects;
@@ -84,10 +84,19 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
         }
         SnarkPoolAction::WorkAdd(a) => {
             let state = store.state();
-            if let Some(job_id) = state.external_snark_worker.working_job_id() {
-                if &a.snark.job_id() == job_id && a.snark.fee.as_u64() <= state.config.fee.as_u64()
+            if let Some(job_id) = state
+                .external_snark_worker
+                .working_job_id()
+                .filter(|job_id| *job_id == &a.snark.job_id())
+            {
+                if let Some(commitment) = state
+                    .snark_pool
+                    .get(job_id)
+                    .and_then(|job| job.commitment.as_ref())
                 {
-                    store.dispatch(ExternalSnarkWorkerCancelWorkAction {});
+                    if a.snark > commitment.commitment {
+                        store.dispatch(ExternalSnarkWorkerCancelWorkAction {});
+                    }
                 }
             }
 

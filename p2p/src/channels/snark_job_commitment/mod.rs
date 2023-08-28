@@ -11,10 +11,8 @@ mod p2p_channels_snark_job_commitment_effects;
 pub use p2p_channels_snark_job_commitment_effects::*;
 
 use binprot_derive::{BinProtRead, BinProtWrite};
-use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
-use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-use shared::snark::SnarkJobId;
+use shared::snark::SnarkJobCommitment;
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkJobCommitmentPropagationChannelMsg {
@@ -32,48 +30,4 @@ pub enum SnarkJobCommitmentPropagationChannelMsg {
     WillSend { count: u8 },
     /// Promise/Commitments from the snark worker to produce a proof.
     Commitment(SnarkJobCommitment),
-}
-
-#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkJobCommitment {
-    /// Timestamp in milliseconds.
-    /// TODO(binier): have to use i64, because binprot doesn't support u64.
-    timestamp: i64,
-    pub job_id: SnarkJobId,
-    pub fee: CurrencyFeeStableV1,
-    pub snarker: NonZeroCurvePoint,
-    // pub signature: MinaBaseSignatureStableV1,
-}
-
-impl SnarkJobCommitment {
-    pub fn new(
-        timestamp: u64,
-        job_id: SnarkJobId,
-        fee: CurrencyFeeStableV1,
-        snarker: NonZeroCurvePoint,
-    ) -> Self {
-        Self {
-            timestamp: timestamp as i64,
-            job_id,
-            fee,
-            snarker,
-            // TODO(binier): SEC have the snarkers sign the commitment.
-            // signature: todo!(),
-        }
-    }
-
-    pub fn timestamp(&self) -> Timestamp {
-        Timestamp::new(self.timestamp as u64 * 1_000_000)
-    }
-
-    pub fn tie_breaker_hash(&self) -> [u8; 32] {
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(self.job_id.source.first_pass_ledger.0.as_ref());
-        hasher.update(self.job_id.source.second_pass_ledger.0.as_ref());
-        hasher.update(self.job_id.target.first_pass_ledger.0.as_ref());
-        hasher.update(self.job_id.target.second_pass_ledger.0.as_ref());
-        hasher.update(self.snarker.x.as_ref());
-        hasher.finalize().into()
-    }
 }

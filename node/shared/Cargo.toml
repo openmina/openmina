@@ -8,6 +8,7 @@ license = "Apache-2.0"
 serde = "1.0.147"
 slab = { version = "0.4.7", features = ["serde"] }
 tracing = { version = "0.1", features = ["std"] }
+sha2 = "0.10.6"
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "dfbd3bbda8b2681d86ac73065523c658ee31d45d" }

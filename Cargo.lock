@@ -4739,6 +4739,7 @@ dependencies = [
  "mina-tree",
  "redux",
  "serde",
+ "sha2 0.10.7",
  "slab",
  "tracing",
 ]

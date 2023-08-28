@@ -21,13 +21,11 @@ pub struct SnarkPoolCandidatesState {
 pub enum SnarkPoolCandidateState {
     InfoReceived {
         time: Timestamp,
-        fee: CurrencyFeeStableV1,
-        prover: NonZeroCurvePoint,
+        info: SnarkInfo,
     },
     WorkFetchPending {
         time: Timestamp,
-        fee: CurrencyFeeStableV1,
-        prover: NonZeroCurvePoint,
+        info: SnarkInfo,
         rpc_id: P2pRpcId,
     },
     WorkReceived {
@@ -99,15 +97,12 @@ impl SnarkPoolCandidatesState {
             .or_default()
             .insert(peer_id);
 
-        let state = SnarkPoolCandidateState::InfoReceived {
-            time,
-            fee: info.fee,
-            prover: info.prover,
-        };
+        let job_id = info.job_id.clone();
+        let state = SnarkPoolCandidateState::InfoReceived { time, info };
         self.by_peer
             .entry(peer_id)
             .or_default()
-            .insert(info.job_id, state);
+            .insert(job_id, state);
     }
 
     pub fn peers_next_work_to_fetch<I, F>(
@@ -158,11 +153,10 @@ impl SnarkPoolCandidatesState {
             .get_mut(&peer_id)
             .and_then(|jobs| jobs.get_mut(job_id))
         {
-            if let SnarkPoolCandidateState::InfoReceived { fee, prover, .. } = state {
+            if let SnarkPoolCandidateState::InfoReceived { info, .. } = state {
                 *state = SnarkPoolCandidateState::WorkFetchPending {
                     time,
-                    fee: fee.clone(),
-                    prover: prover.clone(),
+                    info: info.clone(),
                     rpc_id,
                 };
             }
@@ -307,7 +301,9 @@ impl SnarkPoolCandidatesState {
 impl SnarkPoolCandidateState {
     pub fn fee(&self) -> u64 {
         match self {
-            Self::InfoReceived { fee, .. } | Self::WorkFetchPending { fee, .. } => fee.0.as_u64(),
+            Self::InfoReceived { info, .. } | Self::WorkFetchPending { info, .. } => {
+                info.fee.0.as_u64()
+            }
             Self::WorkReceived { work, .. }
             | Self::WorkVerifyPending { work, .. }
             | Self::WorkVerifyError { work, .. }
@@ -330,6 +326,19 @@ impl SnarkPoolCandidateState {
         match self {
             Self::WorkVerifyPending { verify_id, .. } => Some(*verify_id),
             _ => None,
+        }
+    }
+}
+
+impl<'a> From<&'a SnarkPoolCandidateState> for shared::snark::SnarkCmp<'a> {
+    fn from(value: &'a SnarkPoolCandidateState) -> Self {
+        match value {
+            SnarkPoolCandidateState::InfoReceived { info, .. } => info.into(),
+            SnarkPoolCandidateState::WorkFetchPending { info, .. } => info.into(),
+            SnarkPoolCandidateState::WorkReceived { work, .. } => work.into(),
+            SnarkPoolCandidateState::WorkVerifyPending { work, .. } => work.into(),
+            SnarkPoolCandidateState::WorkVerifyError { work, .. } => work.into(),
+            SnarkPoolCandidateState::WorkVerifySuccess { work, .. } => work.into(),
         }
     }
 }

@@ -4,9 +4,9 @@ use std::{collections::BTreeMap, fmt, ops::RangeBounds};
 use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-use shared::snark::{Snark, SnarkInfo, SnarkJobId};
+use shared::snark::{Snark, SnarkInfo, SnarkJobCommitment, SnarkJobId};
 
-use crate::p2p::{channels::snark_job_commitment::SnarkJobCommitment, PeerId};
+use crate::p2p::PeerId;
 
 use super::candidate::SnarkPoolCandidatesState;
 use super::SnarkPoolConfig;
@@ -151,9 +151,10 @@ impl SnarkPoolState {
         let timeout = job.estimated_duration();
         let passed_time = time_now.checked_sub(commitment.commitment.timestamp());
         let is_timed_out = passed_time.map_or(false, |dur| dur >= timeout);
-        let didnt_deliver = job.snark.as_ref().map_or(true, |snark| {
-            snark.work.fee.as_u64() > commitment.commitment.fee.as_u64()
-        });
+        let didnt_deliver = job
+            .snark
+            .as_ref()
+            .map_or(true, |snark| snark.work < commitment.commitment);
 
         is_timed_out && didnt_deliver
         // TODO(binier): maybe check tie-breaker as well?
