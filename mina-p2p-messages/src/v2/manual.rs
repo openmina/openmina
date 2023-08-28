@@ -669,7 +669,9 @@ impl<'de> Deserialize<'de> for SgnStableV1 {
                 where
                     A: serde::de::SeqAccess<'de>,
                 {
-                    let Some(elt) = seq.next_element()? else { return Err(serde::de::Error::custom("No tag")); };
+                    let Some(elt) = seq.next_element()? else {
+                        return Err(serde::de::Error::custom("No tag"));
+                    };
                     Ok(elt)
                 }
             }
