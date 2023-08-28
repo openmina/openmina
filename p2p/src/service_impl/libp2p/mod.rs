@@ -647,7 +647,7 @@ impl Libp2pService {
                                 match parse_q::<GetTransitionChainV2>(bytes) {
                                     Ok(hashes) => {
                                         for hash in hashes {
-                                            send(P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
+                                            send(P2pRpcRequest::Block(
                                                 v2::DataHashLibStateHashStableV1(hash).into(),
                                             ));
                                         }
