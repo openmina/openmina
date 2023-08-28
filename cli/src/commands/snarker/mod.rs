@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::ffi::OsString;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -102,6 +103,9 @@ pub struct Snarker {
 
     #[arg(long, default_value = "none")]
     pub record: String,
+
+    #[arg(long, default_value = "none")]
+    pub additional_ledgers_path: Option<PathBuf>,
 }
 
 fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
@@ -271,6 +275,12 @@ impl Snarker {
         std::thread::Builder::new()
             .name("openmina_redux".to_owned())
             .spawn(move || {
+                let ledger = if let Some(path) = &self.additional_ledgers_path {
+                    LedgerCtx::new_with_additional_snarked_ledgers(path)
+                } else {
+                    LedgerCtx::default()
+                };
+
                 let local_set = tokio::task::LocalSet::new();
                 local_set.block_on(&runtime, async move {
                     let service = SnarkerService {
@@ -279,7 +289,7 @@ impl Snarker {
                         p2p_event_sender,
                         event_receiver: event_receiver.into(),
                         cmd_sender,
-                        ledger: Default::default(),
+                        ledger,
                         peers,
                         libp2p,
                         rpc: rpc_service,

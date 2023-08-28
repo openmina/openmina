@@ -55,6 +55,8 @@ steps:
       GITHUB_AUTH_TOKEN:
         from_secret: github_auth_token
     commands:
+      - mkdir test_ledgers
+      - curl https://raw.githubusercontent.com/openmina/openmina-poc/3a81bc7/test_ledgers/jwJJGbY1y35k9eNSk91N9Mxeppqt9WtNftxVAQGkuSVPrjCswvM -o test_ledgers/jwJJGbY1y35k9eNSk91N9Mxeppqt9WtNftxVAQGkuSVPrjCswvM
       - rustup update nightly-2023-06-01 && rustup default nightly-2023-06-01
       - rustup component add rustfmt
       - git config --global url."https://$${GITHUB_AUTH_TOKEN}:@github.com/".insteadOf "https://github.com/"
@@ -65,7 +67,7 @@ steps:
       - git config --global --add safe.directory /drone/src/deps/proof-systems
       - git config --global --add safe.directory /drone/src/deps/redux-rs
       - git submodule init && git submodule update --recursive
-      - cargo run --release -p cli snarker -p 10000 --chain-id 667b328bfc09ced12191d099f234575b006b6b193f5441a6fa744feacd9744db -k B62qqYvLLtTMQtHxRfuzZK21AJrqFE8Zq9Cyk3wtjegiTRn5soNQA9A --peer /dns4/replay/tcp/8302/p2p/12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw --peer /dns4/bootstrap-openmina-to-mina/tcp/8302/p2p/$(cat /key/key.peerid)
+      - cargo run --release -p cli snarker -p 10000 --chain-id 667b328bfc09ced12191d099f234575b006b6b193f5441a6fa744feacd9744db -k B62qqYvLLtTMQtHxRfuzZK21AJrqFE8Zq9Cyk3wtjegiTRn5soNQA9A --peer /dns4/replay/tcp/8302/p2p/12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw --peer /dns4/bootstrap-openmina-to-mina/tcp/8302/p2p/$(cat /key/key.peerid) --additional-ledgers-path test_ledgers
       - rm ~/.gitconfig
 
   - name: test-replyer-to-openmina
