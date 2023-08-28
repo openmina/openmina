@@ -489,9 +489,12 @@ where
         matching_verification_key_hashes,
     );
 
-    let PerformResult::LocalState(local_state) = Env::perform(
-        Eff::CheckAccountPrecondition(account_update.clone(), a.clone(), account_is_new, local_state)
-    ) else {
+    let PerformResult::LocalState(local_state) = Env::perform(Eff::CheckAccountPrecondition(
+        account_update.clone(),
+        a.clone(),
+        account_is_new,
+        local_state,
+    )) else {
         unreachable!()
     };
 

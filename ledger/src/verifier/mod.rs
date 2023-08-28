@@ -260,7 +260,7 @@ pub mod common {
                 let full_tx_commitment = tx_commitment.create_complete(memo_hash, fee_payer_hash);
 
                 let Some(pk) = decompress_pk(&fee_payer.body.public_key) else {
-                    return CheckResult::InvalidKeys(vec![fee_payer.body.public_key.clone()])
+                    return CheckResult::InvalidKeys(vec![fee_payer.body.public_key.clone()]);
                 };
 
                 if !verify_signature(&fee_payer.authorization, &pk, &full_tx_commitment) {
@@ -298,7 +298,9 @@ pub mod common {
                                 continue;
                             }
                             let Some(vk) = vk_opt else {
-                                return CheckResult::MissingVerificationKey(vec![p.account_id().public_key])
+                                return CheckResult::MissingVerificationKey(vec![
+                                    p.account_id().public_key,
+                                ]);
                             };
                             // check that vk expected for proof is the one being used
                             if vk_hash != &vk.hash {

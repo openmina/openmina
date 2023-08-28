@@ -33,7 +33,7 @@ impl Drop for Mask {
 
         let Ok(inner) = self.inner.try_lock() else {
             // The Mask is used somewhere else
-            return
+            return;
         };
 
         if inner.any_child_alive() {
@@ -42,8 +42,8 @@ impl Drop for Mask {
         }
 
         let Some(parent) = inner.get_parent() else {
-             // No parent, we don't need to do anything
-            return
+            // No parent, we don't need to do anything
+            return;
         };
 
         // We reached a point where we don't have childs, and it remains at most 2

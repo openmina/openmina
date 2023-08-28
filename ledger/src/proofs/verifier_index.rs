@@ -111,7 +111,9 @@ pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex {
 fn make_verifier_index(index: &VerifierIndexOcaml<Pallas>) -> VerifierIndex {
     let make_poly = |poly: &PolynomialCommitment| {
         let unshifted = &poly.unshifted[0][1];
-        let FieldType::Pair(x, y) = &unshifted else { panic!() };
+        let FieldType::Pair(x, y) = &unshifted else {
+            panic!()
+        };
 
         PolyComm {
             unshifted: vec![Pallas::of_coordinates(field_from_hex(x), field_from_hex(y))],

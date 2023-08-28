@@ -5886,12 +5886,12 @@ mod tests {
 
         let Ok(mut snarked_ledger_file) = File::open("target/snarked_ledger") else {
             eprintln!("File target/snarked_ledger not found");
-            return
+            return;
         };
 
         let Ok(mut staged_ledger_file) = File::open("target/staged_ledger") else {
             eprintln!("File target/staged_ledger not found");
-            return
+            return;
         };
 
         let mut snarked_ledger = Mask::new_root(Database::create(

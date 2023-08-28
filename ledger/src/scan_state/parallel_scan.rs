@@ -519,11 +519,15 @@ where
                 .entry(btree::depth_at(index))
                 .and_modify(|for_depth: &mut Value<_, _>| match for_depth {
                     Value::Leaf(vec) => {
-                        let Value::Leaf(leaf) = value else { panic!("invalid") };
+                        let Value::Leaf(leaf) = value else {
+                            panic!("invalid")
+                        };
                         vec.push(leaf);
                     }
                     Value::Node(vec) => {
-                        let Value::Node(node) = value else { panic!("invalid") };
+                        let Value::Node(node) = value else {
+                            panic!("invalid")
+                        };
                         vec.push(node);
                     }
                 })

@@ -491,8 +491,9 @@ impl MaskImpl {
             depth,
             childs,
             hashes,
-            uuid
-        } = self else {
+            uuid,
+        } = self
+        else {
             // We previously checked it's an attached mask
             unreachable!()
         };
