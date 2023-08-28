@@ -34,3 +34,5 @@ tracing = "0.1.37"
 thiserror = "1.0.44"
 nix = { version = "0.26.2", features = ["signal"] }
 shellexpand = "3.1.0"
+#signal-hook = "0.3.17"
+#signal-hook-registry = "1.4.1"

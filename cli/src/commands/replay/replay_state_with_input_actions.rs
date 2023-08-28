@@ -127,6 +127,7 @@ fn replayer_effects(store: &mut Store<SnarkerService>, action: ActionWithMeta) {
         None => panic!("unexpected action: {:?}", action),
     };
 
+    dbg!(kind);
     assert_eq!(kind, action.action().kind());
     assert_eq!(meta.time(), action.meta().time());
 

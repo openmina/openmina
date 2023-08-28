@@ -120,6 +120,16 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             });
                         }
                         Ok(_) => {
+                            fn recursive(depth: usize) {
+                                let local = [0; 256 * 1024];
+                                println!(
+                                    "depth={:?} len={:?}",
+                                    depth,
+                                    std::hint::black_box(local).len()
+                                );
+                                recursive(depth + 1);
+                            }
+                            dbg!(recursive(0));
                             store.dispatch(P2pConnectionOutgoingFinalizeSuccessAction { peer_id });
                             store.dispatch(P2pConnectionIncomingFinalizeSuccessAction { peer_id });
                         }
