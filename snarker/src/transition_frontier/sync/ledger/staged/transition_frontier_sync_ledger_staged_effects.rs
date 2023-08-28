@@ -29,8 +29,12 @@ impl TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {
 impl TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         let state = store.state();
-        let Some(root_ledger) = state.transition_frontier.sync.root_ledger() else { return };
-        let Some(staged_ledger) = root_ledger.staged() else { return };
+        let Some(root_ledger) = state.transition_frontier.sync.root_ledger() else {
+            return;
+        };
+        let Some(staged_ledger) = root_ledger.staged() else {
+            return;
+        };
         let root_block_hash = root_ledger.block().hash.clone();
 
         let ready_peers = staged_ledger
@@ -102,12 +106,15 @@ impl TransitionFrontierSyncLedgerStagedReconstructInitAction {
     where
         S: TransitionFrontierSyncLedgerStagedService,
     {
-        let Some(state) = store.state().transition_frontier.sync.root_ledger() else { return };
+        let Some(state) = store.state().transition_frontier.sync.root_ledger() else {
+            return;
+        };
         let Some(TransitionFrontierSyncLedgerStagedState::PartsFetchSuccess {
-            block,
-            parts,
-            ..
-        }) = state.staged() else { return };
+            block, parts, ..
+        }) = state.staged()
+        else {
+            return;
+        };
         let snarked_ledger_hash = block.snarked_ledger_hash().clone();
         let parts = parts.clone();
 

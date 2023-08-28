@@ -38,7 +38,9 @@ impl SnarkPoolCandidateWorkFetchAllAction {
 
 impl SnarkPoolCandidateWorkFetchInitAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        let Some(peer) = store.state().p2p.get_ready_peer(&self.peer_id) else { return };
+        let Some(peer) = store.state().p2p.get_ready_peer(&self.peer_id) else {
+            return;
+        };
         let rpc_id = peer.channels.rpc.next_local_rpc_id();
         store.dispatch(P2pChannelsRpcRequestSendAction {
             peer_id: self.peer_id,
@@ -66,7 +68,9 @@ impl SnarkPoolCandidateWorkVerifyNextAction {
             .snark_pool
             .candidates
             .get_batch_to_verify(job_ids_ordered_iter);
-        let Some((peer_id, batch)) = batch else { return };
+        let Some((peer_id, batch)) = batch else {
+            return;
+        };
 
         let req_id = state.snark.work_verify.next_req_id();
         let job_ids = batch.iter().map(|v| v.job_id()).collect::<Vec<_>>();

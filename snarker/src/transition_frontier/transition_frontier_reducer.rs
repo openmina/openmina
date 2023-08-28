@@ -16,7 +16,10 @@ impl TransitionFrontierState {
                     chain,
                     needed_protocol_states,
                     ..
-                } = &mut self.sync else { return };
+                } = &mut self.sync
+                else {
+                    return;
+                };
                 let mut needed_protocol_state_hashes = a.needed_protocol_states.clone();
                 let new_chain = std::mem::take(chain);
                 let mut needed_protocol_states = std::mem::take(needed_protocol_states);

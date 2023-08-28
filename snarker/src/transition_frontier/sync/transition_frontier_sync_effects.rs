@@ -110,8 +110,14 @@ impl TransitionFrontierSyncBlocksPeersQueryAction {
 
 impl TransitionFrontierSyncBlocksPeerQueryInitAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        let Some(rpc_id) = store.state().p2p.get_ready_peer(&self.peer_id)
-                .map(|v| v.channels.rpc.next_local_rpc_id()) else { return };
+        let Some(rpc_id) = store
+            .state()
+            .p2p
+            .get_ready_peer(&self.peer_id)
+            .map(|v| v.channels.rpc.next_local_rpc_id())
+        else {
+            return;
+        };
 
         if store.dispatch(P2pChannelsRpcRequestSendAction {
             peer_id: self.peer_id,
@@ -129,8 +135,14 @@ impl TransitionFrontierSyncBlocksPeerQueryInitAction {
 
 impl TransitionFrontierSyncBlocksPeerQueryRetryAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        let Some(rpc_id) = store.state().p2p.get_ready_peer(&self.peer_id)
-                .map(|v| v.channels.rpc.next_local_rpc_id()) else { return };
+        let Some(rpc_id) = store
+            .state()
+            .p2p
+            .get_ready_peer(&self.peer_id)
+            .map(|v| v.channels.rpc.next_local_rpc_id())
+        else {
+            return;
+        };
 
         if store.dispatch(P2pChannelsRpcRequestSendAction {
             peer_id: self.peer_id,
@@ -174,12 +186,14 @@ impl TransitionFrontierSyncBlocksNextApplyInitAction {
         S: TransitionFrontierService,
     {
         let Some((block, pred_block)) = store
-                .state()
-                .transition_frontier
-                .sync
-                .blocks_apply_next()
-                .map(|v| (v.0.clone(), v.1.clone()))
-                else { return };
+            .state()
+            .transition_frontier
+            .sync
+            .blocks_apply_next()
+            .map(|v| (v.0.clone(), v.1.clone()))
+        else {
+            return;
+        };
         let hash = block.hash.clone();
 
         store.dispatch(TransitionFrontierSyncBlocksNextApplyPendingAction { hash: hash.clone() });

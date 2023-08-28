@@ -139,7 +139,9 @@ impl SyncStats {
     }
 
     pub fn ledger(&mut self, update: SyncingLedger) -> &mut Self {
-        let Some(mut snapshot) = self.snapshots.pop_back() else { return self };
+        let Some(mut snapshot) = self.snapshots.pop_back() else {
+            return self;
+        };
         let ledger = snapshot.ledgers.root.get_or_insert_with(Default::default);
 
         match update {
@@ -194,13 +196,16 @@ impl SyncStats {
     }
 
     pub fn blocks_init(&mut self, states: &[TransitionFrontierSyncBlockState]) -> &mut Self {
-        let Some(snapshot) = self.snapshots.back_mut() else { return self };
+        let Some(snapshot) = self.snapshots.back_mut() else {
+            return self;
+        };
         let Some((_root_height, best_tip_height)) = states
             .last()
             .and_then(|s| s.block())
-            .map(|b| (b.root_block_height(), b.height())) else {
-                return self;
-            };
+            .map(|b| (b.root_block_height(), b.height()))
+        else {
+            return self;
+        };
 
         snapshot.blocks = states
             .into_iter()
@@ -227,15 +232,21 @@ impl SyncStats {
     }
 
     pub fn block_update(&mut self, state: &TransitionFrontierSyncBlockState) -> &mut Self {
-        let Some(snapshot) = self.snapshots.back_mut() else { return self };
+        let Some(snapshot) = self.snapshots.back_mut() else {
+            return self;
+        };
         let block_hash = state.block_hash();
-        let Some(stats) = snapshot.blocks.iter_mut().find(|b| &b.hash == block_hash) else { return self };
+        let Some(stats) = snapshot.blocks.iter_mut().find(|b| &b.hash == block_hash) else {
+            return self;
+        };
         stats.update_with_block_state(state);
         self
     }
 
     pub fn synced(&mut self, time: Timestamp) -> &mut Self {
-        let Some(snapshot) = self.snapshots.back_mut() else { return self };
+        let Some(snapshot) = self.snapshots.back_mut() else {
+            return self;
+        };
         snapshot.synced = Some(time);
         self
     }

@@ -469,7 +469,9 @@ async fn peer_loop(
                             let mut chunks =
                                 encoded.chunks(CHUNK_SIZE).map(|b| encoded.slice_ref(b));
                             let result = loop {
-                                let Some(chunk) = chunks.next() else { break Ok(()) };
+                                let Some(chunk) = chunks.next() else {
+                                    break Ok(());
+                                };
                                 if let Err(err) = chan_clone
                                     .send(&chunk)
                                     .await

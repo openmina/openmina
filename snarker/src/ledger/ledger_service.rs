@@ -300,7 +300,10 @@ impl<T: LedgerService> TransitionFrontierService for T {
                 .filter(|(hash, _)| ledgers_to_keep.contains(hash)),
         );
 
-        let Some(new_root_ledger) = ctx.staged_ledgers.get_mut(new_root.staged_ledger_hash()) else { return Default::default() };
+        let Some(new_root_ledger) = ctx.staged_ledgers.get_mut(new_root.staged_ledger_hash())
+        else {
+            return Default::default();
+        };
         // Make ledger mask new root.
         new_root_ledger.commit_and_reparent_to_root();
 

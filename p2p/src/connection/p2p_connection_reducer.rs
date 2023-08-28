@@ -22,7 +22,10 @@ pub fn p2p_connection_reducer(
                     },
                 ));
             }
-            let P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(state)) = &mut state.status else { return };
+            let P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(state)) = &mut state.status
+            else {
+                return;
+            };
             state.reducer(meta.with_action(action));
         }
         P2pConnectionAction::Incoming(action) => {
@@ -36,7 +39,10 @@ pub fn p2p_connection_reducer(
                     },
                 ))
             }
-            let P2pPeerStatus::Connecting(P2pConnectionState::Incoming(state)) = &mut state.status else { return };
+            let P2pPeerStatus::Connecting(P2pConnectionState::Incoming(state)) = &mut state.status
+            else {
+                return;
+            };
             state.reducer(meta.with_action(action));
         }
     }

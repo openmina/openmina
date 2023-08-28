@@ -630,7 +630,9 @@ impl Libp2pService {
                             send(RpcChannelMsg::Response(id as _, response))
                         };
 
-                        let Some((tag, id)) = swarm.behaviour_mut().ongoing.remove(&(peer_id, (id as _))) else {
+                        let Some((tag, id)) =
+                            swarm.behaviour_mut().ongoing.remove(&(peer_id, (id as _)))
+                        else {
                             panic!("{id}");
                         };
                         match (tag.as_str(), id) {

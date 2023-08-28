@@ -71,14 +71,13 @@ pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: Consen
 
 fn transition_frontier_new_best_tip<S: crate::Service>(store: &mut Store<S>) {
     let state = store.state();
-    let Some(best_tip) = state.consensus.best_tip_block_with_hash() else { return };
+    let Some(best_tip) = state.consensus.best_tip_block_with_hash() else {
+        return;
+    };
     let pred_hash = best_tip.pred_hash();
 
-    let Some((blocks_inbetween, root_block)) = state
-        .consensus
-        .best_tip_chain_proof
-        .clone()
-        .or_else(|| {
+    let Some((blocks_inbetween, root_block)) =
+        state.consensus.best_tip_chain_proof.clone().or_else(|| {
             let old_best_tip = state.transition_frontier.best_tip()?;
             let mut iter = state.transition_frontier.best_chain.iter();
             if old_best_tip.hash() == pred_hash {
@@ -93,7 +92,10 @@ fn transition_frontier_new_best_tip<S: crate::Service>(store: &mut Store<S>) {
             } else {
                 None
             }
-        }) else { return };
+        })
+    else {
+        return;
+    };
 
     if !state.transition_frontier.sync.is_pending() && !state.transition_frontier.sync.is_synced() {
         store.dispatch(TransitionFrontierSyncInitAction {

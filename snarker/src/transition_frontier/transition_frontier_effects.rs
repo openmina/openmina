@@ -149,8 +149,12 @@ pub fn transition_frontier_effects<S: crate::Service>(
             }
             TransitionFrontierSyncAction::BlocksSuccess(_) => {
                 let sync = &store.state.get().transition_frontier.sync;
-                let TransitionFrontierSyncState::BlocksSuccess { chain, .. } = sync else { return };
-                let Some(root_block) = chain.first() else { return };
+                let TransitionFrontierSyncState::BlocksSuccess { chain, .. } = sync else {
+                    return;
+                };
+                let Some(root_block) = chain.first() else {
+                    return;
+                };
                 let Some(best_tip) = chain.last() else { return };
                 let ledgers_to_keep = chain
                     .iter()
@@ -287,7 +291,9 @@ pub fn transition_frontier_effects<S: crate::Service>(
             },
         },
         TransitionFrontierAction::Synced(_) => {
-            let Some(best_tip) = store.state.get().transition_frontier.best_tip() else { return };
+            let Some(best_tip) = store.state.get().transition_frontier.best_tip() else {
+                return;
+            };
             if let Some(stats) = store.service.stats() {
                 stats.new_best_tip(meta.time(), best_tip);
             }

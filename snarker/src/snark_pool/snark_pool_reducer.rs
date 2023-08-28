@@ -35,7 +35,9 @@ impl SnarkPoolState {
             SnarkPoolAction::AutoCreateCommitment(_) => {}
             SnarkPoolAction::CommitmentCreate(_) => {}
             SnarkPoolAction::CommitmentAdd(a) => {
-                let Some(mut job) = self.remove(&a.commitment.job_id) else { return };
+                let Some(mut job) = self.remove(&a.commitment.job_id) else {
+                    return;
+                };
                 job.commitment = Some(JobCommitment {
                     commitment: a.commitment.clone(),
                     received_t: meta.time(),
@@ -45,7 +47,9 @@ impl SnarkPoolState {
             }
             SnarkPoolAction::WorkAdd(a) => {
                 let job_id = a.snark.job_id();
-                let Some(mut job) = self.remove(&job_id) else { return };
+                let Some(mut job) = self.remove(&job_id) else {
+                    return;
+                };
                 job.snark = Some(SnarkWork {
                     work: a.snark.clone(),
                     received_t: meta.time(),

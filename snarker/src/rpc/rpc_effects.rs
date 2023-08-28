@@ -191,7 +191,9 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                         job: kind,
                         seq_no,
                     } => {
-                        let Some(data) = snark_pool.get(bundle_job_id) else { return };
+                        let Some(data) = snark_pool.get(bundle_job_id) else {
+                            return;
+                        };
                         let commitment = data.commitment.clone();
                         let snark = data.snark.as_ref().map(|snark| RpcSnarkPoolJobSnarkWork {
                             snarker: snark.work.snarker.clone(),

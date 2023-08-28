@@ -109,17 +109,24 @@ impl P2pConnectionOutgoingOfferReadyAction {
         P2pConnectionOutgoingOfferSendSuccessAction: redux::EnablingCondition<S>,
     {
         let (state, service) = store.state_and_service();
-        let Some(peer) = state.peers.get(&self.peer_id) else { return };
+        let Some(peer) = state.peers.get(&self.peer_id) else {
+            return;
+        };
         let P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
             P2pConnectionOutgoingState::OfferReady { opts, .. },
-        )) = &peer.status else { return };
+        )) = &peer.status
+        else {
+            return;
+        };
         let signaling_method = match opts {
             P2pConnectionOutgoingInitOpts::WebRTC { signaling, .. } => signaling,
             _ => return,
         };
         match signaling_method {
             webrtc::SignalingMethod::Http(_) | webrtc::SignalingMethod::Https(_) => {
-                let Some(url) = signaling_method.http_url() else { return };
+                let Some(url) = signaling_method.http_url() else {
+                    return;
+                };
                 service.http_signaling_request(url, self.offer);
             }
         }

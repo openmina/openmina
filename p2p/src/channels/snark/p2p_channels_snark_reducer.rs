@@ -22,15 +22,24 @@ impl P2pChannelsSnarkState {
                 };
             }
             P2pChannelsSnarkAction::RequestSend(action) => {
-                let Self::Ready { local, .. } = self else { return };
+                let Self::Ready { local, .. } = self else {
+                    return;
+                };
                 *local = SnarkPropagationState::Requested {
                     time: meta.time(),
                     requested_limit: action.limit,
                 };
             }
             P2pChannelsSnarkAction::PromiseReceived(action) => {
-                let Self::Ready { local, .. } = self else { return };
-                let SnarkPropagationState::Requested { requested_limit, .. } = &local else { return };
+                let Self::Ready { local, .. } = self else {
+                    return;
+                };
+                let SnarkPropagationState::Requested {
+                    requested_limit, ..
+                } = &local
+                else {
+                    return;
+                };
 
                 *local = SnarkPropagationState::Responding {
                     time: meta.time(),
@@ -40,8 +49,17 @@ impl P2pChannelsSnarkState {
                 };
             }
             P2pChannelsSnarkAction::Received(_) => {
-                let Self::Ready { local, .. } = self else { return };
-                let SnarkPropagationState::Responding { promised_count, current_count, .. } = local else { return };
+                let Self::Ready { local, .. } = self else {
+                    return;
+                };
+                let SnarkPropagationState::Responding {
+                    promised_count,
+                    current_count,
+                    ..
+                } = local
+                else {
+                    return;
+                };
 
                 *current_count += 1;
 
@@ -53,7 +71,9 @@ impl P2pChannelsSnarkState {
                 }
             }
             P2pChannelsSnarkAction::RequestReceived(action) => {
-                let Self::Ready { remote, .. } = self else { return };
+                let Self::Ready { remote, .. } = self else {
+                    return;
+                };
 
                 *remote = SnarkPropagationState::Requested {
                     time: meta.time(),
@@ -61,7 +81,14 @@ impl P2pChannelsSnarkState {
                 };
             }
             P2pChannelsSnarkAction::ResponseSend(action) => {
-                let Self::Ready { remote, next_send_index, .. } = self else { return };
+                let Self::Ready {
+                    remote,
+                    next_send_index,
+                    ..
+                } = self
+                else {
+                    return;
+                };
                 *next_send_index = action.last_index + 1;
 
                 let count = action.snarks.len() as u8;
