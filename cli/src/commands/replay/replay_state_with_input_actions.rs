@@ -85,7 +85,7 @@ impl ReplayStateWithInputActions {
             let replayer = store.service.replayer.as_mut().unwrap();
             let expected_actions = &mut replayer.expected_actions;
 
-            if input_action.is_none() {
+            let action = if input_action.is_none() {
                 expected_actions.clear();
                 let (action, meta) = actions
                     .next()
@@ -96,20 +96,26 @@ impl ReplayStateWithInputActions {
                 let kind = action.kind();
                 let _ = input_action.insert(action);
                 expected_actions.push_back((kind, meta));
-                continue;
-            }
-
-            let is_done = if action.action.is_none() {
-                let action = actions.next().unwrap();
-                expected_actions.push_back((action.kind, action.meta));
-                false
+                actions.peek()
             } else {
-                true
+                Some(action)
+            };
+
+            let is_done = if let Some(action) = action {
+                if action.action.is_none() {
+                    let action = actions.next().unwrap();
+                    expected_actions.push_back((action.kind, action.meta));
+                    false
+                } else {
+                    true
+                }
+            } else {
+                false
             };
 
             if is_done || actions.peek().is_none() {
                 if !is_done {
-                    eprintln!("Warning! Executing action for which we might not have all effect actions recorded.");
+                    eprintln!("Warning! Executing last action for which we might not have all effect actions recorded.");
                 }
                 let action = input_action.take().unwrap();
                 store.dispatch(action);
