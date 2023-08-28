@@ -42,7 +42,9 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                                         end_addr = end_addr.child_right();
                                     }
                                     while end_addr.length() > addr.length() {
-                                        let Some(addr) = end_addr.parent() else { return true };
+                                        let Some(addr) = end_addr.parent() else {
+                                            return true;
+                                        };
                                         end_addr = addr;
                                     }
                                     addr <= &end_addr
@@ -62,9 +64,15 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 }
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryPending(action) => {
-                let Self::Pending { pending, .. } = self else { return };
-                let Some(rpc_state) = pending.get_mut(&action.address)
-                    .and_then(|s| s.attempts.get_mut(&action.peer_id)) else { return };
+                let Self::Pending { pending, .. } = self else {
+                    return;
+                };
+                let Some(rpc_state) = pending
+                    .get_mut(&action.address)
+                    .and_then(|s| s.attempts.get_mut(&action.peer_id))
+                else {
+                    return;
+                };
 
                 *rpc_state = PeerRpcState::Pending {
                     time: meta.time(),
@@ -72,7 +80,10 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 };
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryError(action) => {
-                let Some(rpc_state) = self.peer_query_get_mut(&action.peer_id, action.rpc_id) else { return };
+                let Some(rpc_state) = self.peer_query_get_mut(&action.peer_id, action.rpc_id)
+                else {
+                    return;
+                };
 
                 *rpc_state = PeerRpcState::Error {
                     time: meta.time(),
@@ -81,14 +92,25 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 };
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQuerySuccess(action) => {
-                let Some(rpc_state) = self.peer_query_get_mut(&action.peer_id, action.rpc_id) else { return };
+                let Some(rpc_state) = self.peer_query_get_mut(&action.peer_id, action.rpc_id)
+                else {
+                    return;
+                };
                 *rpc_state = PeerRpcState::Success {
                     time: meta.time(),
                     rpc_id: action.rpc_id,
                 };
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildHashesReceived(action) => {
-                let Self::Pending { pending, next_addr, end_addr, .. } = self else { return };
+                let Self::Pending {
+                    pending,
+                    next_addr,
+                    end_addr,
+                    ..
+                } = self
+                else {
+                    return;
+                };
                 let addr = &action.address;
                 pending.remove(&addr);
                 let (left, right) = &action.hashes;
@@ -110,11 +132,15 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 }
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsReceived(action) => {
-                let Self::Pending { pending, .. } = self else { return };
+                let Self::Pending { pending, .. } = self else {
+                    return;
+                };
                 pending.remove(&action.address);
             }
             TransitionFrontierSyncLedgerSnarkedAction::Success(_) => {
-                let Self::Pending { block, .. } = self else { return };
+                let Self::Pending { block, .. } = self else {
+                    return;
+                };
                 *self = Self::Success {
                     time: meta.time(),
                     block: block.clone(),

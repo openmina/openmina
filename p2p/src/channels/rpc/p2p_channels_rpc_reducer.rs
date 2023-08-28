@@ -26,7 +26,14 @@ impl P2pChannelsRpcState {
                 };
             }
             P2pChannelsRpcAction::RequestSend(action) => {
-                let Self::Ready { local, next_local_rpc_id, .. } = self else { return };
+                let Self::Ready {
+                    local,
+                    next_local_rpc_id,
+                    ..
+                } = self
+                else {
+                    return;
+                };
                 *next_local_rpc_id += 1;
                 *local = P2pRpcLocalState::Requested {
                     time: meta.time(),
@@ -36,8 +43,12 @@ impl P2pChannelsRpcState {
             }
             P2pChannelsRpcAction::Timeout(_) => {}
             P2pChannelsRpcAction::ResponseReceived(_) => {
-                let Self::Ready { local, .. } = self else { return };
-                let P2pRpcLocalState::Requested { id, request, .. } = local else { return };
+                let Self::Ready { local, .. } = self else {
+                    return;
+                };
+                let P2pRpcLocalState::Requested { id, request, .. } = local else {
+                    return;
+                };
 
                 *local = P2pRpcLocalState::Responded {
                     time: meta.time(),
@@ -46,7 +57,9 @@ impl P2pChannelsRpcState {
                 };
             }
             P2pChannelsRpcAction::RequestReceived(action) => {
-                let Self::Ready { remote, .. } = self else { return };
+                let Self::Ready { remote, .. } = self else {
+                    return;
+                };
 
                 remote
                     .pending_requests
@@ -57,8 +70,16 @@ impl P2pChannelsRpcState {
                     });
             }
             P2pChannelsRpcAction::ResponseSend(action) => {
-                let Self::Ready { remote, .. } = self else { return };
-                let Some(i) = remote.pending_requests.iter().position(|v| v.id == action.id) else { return };
+                let Self::Ready { remote, .. } = self else {
+                    return;
+                };
+                let Some(i) = remote
+                    .pending_requests
+                    .iter()
+                    .position(|v| v.id == action.id)
+                else {
+                    return;
+                };
                 remote.pending_requests.remove(i);
             }
         }

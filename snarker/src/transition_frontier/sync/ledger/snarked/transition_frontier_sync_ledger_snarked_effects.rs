@@ -33,7 +33,9 @@ fn query_peer_init<S: redux::Service>(
         let rpc_id = p.channels.rpc.next_local_rpc_id();
 
         Some((ledger_hash.clone(), rpc_id))
-    }) else { return };
+    }) else {
+        return;
+    };
 
     let query = if address.length() >= LEDGER_DEPTH - 1 {
         MinaLedgerSyncLedgerQueryStableV1::WhatContents(address.clone().into())
@@ -137,7 +139,9 @@ impl TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
         let Some(address) = root_ledger
             .and_then(|s| s.snarked()?.peer_query_get(&self.peer_id, self.rpc_id))
             .map(|(addr, _)| addr.clone())
-            else { return };
+        else {
+            return;
+        };
 
         match self.response {
             PeerLedgerQueryResponse::ChildHashes(left, right) => {
@@ -167,7 +171,9 @@ impl TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction {
     where
         S: TransitionFrontierSyncLedgerSnarkedService,
     {
-        let Some(block) = store.state().transition_frontier.sync.root_ledger() else { return };
+        let Some(block) = store.state().transition_frontier.sync.root_ledger() else {
+            return;
+        };
         let snarked_ledger_hash = block.snarked_ledger_hash().clone();
         store
             .service
@@ -185,7 +191,9 @@ impl TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction {
     where
         S: TransitionFrontierSyncLedgerSnarkedService,
     {
-        let Some(block) = store.state().transition_frontier.sync.root_ledger() else { return };
+        let Some(block) = store.state().transition_frontier.sync.root_ledger() else {
+            return;
+        };
         let snarked_ledger_hash = block.snarked_ledger_hash().clone();
         store
             .service

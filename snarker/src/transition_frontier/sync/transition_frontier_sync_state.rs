@@ -253,23 +253,36 @@ impl TransitionFrontierSyncBlockState {
     }
 
     pub fn retry_hash(&self) -> Option<&StateHash> {
-        let Self::FetchPending { block_hash, attempts, .. } = self else { return None };
+        let Self::FetchPending {
+            block_hash,
+            attempts,
+            ..
+        } = self
+        else {
+            return None;
+        };
         Some(block_hash)
             .filter(|_| !attempts.is_empty() && attempts.iter().all(|(_, s)| s.is_error()))
     }
 
     pub fn fetch_pending_from_peer_rpc_id(&self, peer_id: &PeerId) -> Option<P2pRpcId> {
-        let Self::FetchPending { attempts, .. } = self else { return None };
+        let Self::FetchPending { attempts, .. } = self else {
+            return None;
+        };
         attempts.get(peer_id).and_then(|v| v.fetch_pending_rpc_id())
     }
 
     pub fn is_fetch_init_from_peer(&self, peer_id: &PeerId) -> bool {
-        let Self::FetchPending { attempts, .. } = self else { return false };
+        let Self::FetchPending { attempts, .. } = self else {
+            return false;
+        };
         attempts.get(peer_id).map_or(false, |s| s.is_fetch_init())
     }
 
     pub fn is_fetch_pending_from_peer(&self, peer_id: &PeerId, rpc_id: P2pRpcId) -> bool {
-        let Self::FetchPending { attempts, .. } = self else { return false };
+        let Self::FetchPending { attempts, .. } = self else {
+            return false;
+        };
         attempts
             .get(peer_id)
             .and_then(|s| s.fetch_pending_rpc_id())
@@ -284,12 +297,16 @@ impl TransitionFrontierSyncBlockState {
     }
 
     pub fn fetch_pending_from_peer_mut(&mut self, peer_id: &PeerId) -> Option<&mut PeerRpcState> {
-        let Self::FetchPending { attempts, .. } = self else { return None };
+        let Self::FetchPending { attempts, .. } = self else {
+            return None;
+        };
         attempts.get_mut(peer_id)
     }
 
     pub fn fetch_pending_fetched_block(&self) -> Option<&ArcBlockWithHash> {
-        let Self::FetchPending { attempts, .. } = self else { return None };
+        let Self::FetchPending { attempts, .. } = self else {
+            return None;
+        };
         attempts.iter().find_map(|(_, s)| s.success_block())
     }
 }

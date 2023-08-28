@@ -23,22 +23,38 @@ impl P2pChannelsBestTipState {
                 };
             }
             P2pChannelsBestTipAction::RequestSend(_) => {
-                let Self::Ready { local, .. } = self else { return };
+                let Self::Ready { local, .. } = self else {
+                    return;
+                };
                 *local = BestTipPropagationState::Requested { time: meta.time() };
             }
             P2pChannelsBestTipAction::Received(action) => {
-                let Self::Ready { local, last_received, .. } = self else { return };
+                let Self::Ready {
+                    local,
+                    last_received,
+                    ..
+                } = self
+                else {
+                    return;
+                };
 
                 *local = BestTipPropagationState::Responded { time: meta.time() };
                 *last_received = Some(action.best_tip.clone());
             }
             P2pChannelsBestTipAction::RequestReceived(_) => {
-                let Self::Ready { remote, .. } = self else { return };
+                let Self::Ready { remote, .. } = self else {
+                    return;
+                };
 
                 *remote = BestTipPropagationState::Requested { time: meta.time() };
             }
             P2pChannelsBestTipAction::ResponseSend(action) => {
-                let Self::Ready { remote, last_sent, .. } = self else { return };
+                let Self::Ready {
+                    remote, last_sent, ..
+                } = self
+                else {
+                    return;
+                };
 
                 *remote = BestTipPropagationState::Responded { time: meta.time() };
                 *last_sent = Some(action.best_tip.clone());

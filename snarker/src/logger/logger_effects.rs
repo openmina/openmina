@@ -423,7 +423,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     );
                 }
                 SnarkWorkVerifyAction::Error(a) => {
-                    let Some(req) = store.state().snark.work_verify.jobs.get(a.req_id) else { return };
+                    let Some(req) = store.state().snark.work_verify.jobs.get(a.req_id) else {
+                        return;
+                    };
                     shared::log::warn!(
                         meta.time();
                         kind = kind.to_string(),
@@ -434,7 +436,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     );
                 }
                 SnarkWorkVerifyAction::Success(a) => {
-                    let Some(req) = store.state().snark.work_verify.jobs.get(a.req_id) else { return };
+                    let Some(req) = store.state().snark.work_verify.jobs.get(a.req_id) else {
+                        return;
+                    };
                     shared::log::warn!(
                         meta.time();
                         kind = kind.to_string(),

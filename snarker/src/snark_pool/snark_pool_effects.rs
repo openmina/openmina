@@ -52,7 +52,9 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
             }
         }
         SnarkPoolAction::CommitmentCreate(a) => {
-            let Some(summary) = store.state().snark_pool.job_summary(&a.job_id) else { return };
+            let Some(summary) = store.state().snark_pool.job_summary(&a.job_id) else {
+                return;
+            };
             if store.dispatch(ExternalSnarkWorkerSubmitWorkAction {
                 job_id: a.job_id.clone(),
                 summary,

@@ -26,15 +26,24 @@ impl P2pChannelsSnarkJobCommitmentState {
                 };
             }
             P2pChannelsSnarkJobCommitmentAction::RequestSend(action) => {
-                let Self::Ready { local, .. } = self else { return };
+                let Self::Ready { local, .. } = self else {
+                    return;
+                };
                 *local = SnarkJobCommitmentPropagationState::Requested {
                     time: meta.time(),
                     requested_limit: action.limit,
                 };
             }
             P2pChannelsSnarkJobCommitmentAction::PromiseReceived(action) => {
-                let Self::Ready { local, .. } = self else { return };
-                let SnarkJobCommitmentPropagationState::Requested { requested_limit, .. } = &local else { return };
+                let Self::Ready { local, .. } = self else {
+                    return;
+                };
+                let SnarkJobCommitmentPropagationState::Requested {
+                    requested_limit, ..
+                } = &local
+                else {
+                    return;
+                };
 
                 *local = SnarkJobCommitmentPropagationState::Responding {
                     time: meta.time(),
@@ -44,8 +53,17 @@ impl P2pChannelsSnarkJobCommitmentState {
                 };
             }
             P2pChannelsSnarkJobCommitmentAction::Received(_) => {
-                let Self::Ready { local, .. } = self else { return };
-                let SnarkJobCommitmentPropagationState::Responding { promised_count, current_count, .. } = local else { return };
+                let Self::Ready { local, .. } = self else {
+                    return;
+                };
+                let SnarkJobCommitmentPropagationState::Responding {
+                    promised_count,
+                    current_count,
+                    ..
+                } = local
+                else {
+                    return;
+                };
 
                 *current_count += 1;
 
@@ -57,7 +75,9 @@ impl P2pChannelsSnarkJobCommitmentState {
                 }
             }
             P2pChannelsSnarkJobCommitmentAction::RequestReceived(action) => {
-                let Self::Ready { remote, .. } = self else { return };
+                let Self::Ready { remote, .. } = self else {
+                    return;
+                };
 
                 *remote = SnarkJobCommitmentPropagationState::Requested {
                     time: meta.time(),
@@ -65,7 +85,14 @@ impl P2pChannelsSnarkJobCommitmentState {
                 };
             }
             P2pChannelsSnarkJobCommitmentAction::ResponseSend(action) => {
-                let Self::Ready { remote, next_send_index, .. } = self else { return };
+                let Self::Ready {
+                    remote,
+                    next_send_index,
+                    ..
+                } = self
+                else {
+                    return;
+                };
                 *next_send_index = action.last_index + 1;
 
                 let count = action.commitments.len() as u8;

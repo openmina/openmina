@@ -218,7 +218,9 @@ impl SnarkPoolCandidatesState {
         verify_id: SnarkWorkVerifyId,
         job_ids: &[SnarkJobId],
     ) {
-        let Some(peer_jobs) = self.by_peer.get_mut(peer_id) else { return };
+        let Some(peer_jobs) = self.by_peer.get_mut(peer_id) else {
+            return;
+        };
 
         for job_id in job_ids {
             if let Some(job_state) = peer_jobs.get_mut(job_id) {
@@ -245,10 +247,9 @@ impl SnarkPoolCandidatesState {
                 .iter_mut()
                 .filter(|(_, job_state)| job_state.pending_verify_id() == Some(verify_id))
             {
-                let SnarkPoolCandidateState::WorkVerifyPending {
-                    work,
-                    ..
-                } = job_state else { continue };
+                let SnarkPoolCandidateState::WorkVerifyPending { work, .. } = job_state else {
+                    continue;
+                };
                 match result {
                     Ok(_) => {
                         *job_state = SnarkPoolCandidateState::WorkVerifySuccess {
@@ -271,8 +272,12 @@ impl SnarkPoolCandidatesState {
         let by_peer = &mut self.by_peer;
         if let Some(peers) = self.by_job_id.get(job_id) {
             for peer_id in peers.iter() {
-                let Some(jobs) = by_peer.get_mut(peer_id) else { continue };
-                let Some(job) = jobs.get(job_id) else { continue };
+                let Some(jobs) = by_peer.get_mut(peer_id) else {
+                    continue;
+                };
+                let Some(job) = jobs.get(job_id) else {
+                    continue;
+                };
                 if job.fee() >= max_fee {
                     jobs.remove(job_id);
                 }

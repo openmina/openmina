@@ -16,7 +16,9 @@ impl TransitionFrontierSyncLedgerState {
             TransitionFrontierSyncLedgerAction::Init(_) => {}
             TransitionFrontierSyncLedgerAction::Snarked(action) => {
                 if let TransitionFrontierSyncLedgerSnarkedAction::Pending(_) = action {
-                    let Self::Init { block, .. } = self else { return };
+                    let Self::Init { block, .. } = self else {
+                        return;
+                    };
                     let s = TransitionFrontierSyncLedgerSnarkedState::pending(
                         meta.time(),
                         block.clone(),
@@ -29,7 +31,13 @@ impl TransitionFrontierSyncLedgerState {
             }
             TransitionFrontierSyncLedgerAction::Staged(action) => {
                 if let TransitionFrontierSyncLedgerStagedAction::PartsFetchPending(_) = action {
-                    let Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success { block, .. }) = self else { return };
+                    let Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
+                        block,
+                        ..
+                    }) = self
+                    else {
+                        return;
+                    };
                     let s = TransitionFrontierSyncLedgerStagedState::pending(
                         meta.time(),
                         block.clone(),
@@ -41,7 +49,14 @@ impl TransitionFrontierSyncLedgerState {
                 }
             }
             TransitionFrontierSyncLedgerAction::Success(_) => {
-                let Self::Staged(TransitionFrontierSyncLedgerStagedState::Success { block, needed_protocol_states, .. }) = self else { return };
+                let Self::Staged(TransitionFrontierSyncLedgerStagedState::Success {
+                    block,
+                    needed_protocol_states,
+                    ..
+                }) = self
+                else {
+                    return;
+                };
 
                 *self = Self::Success {
                     time: meta.time(),

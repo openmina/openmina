@@ -212,7 +212,10 @@ impl TransitionFrontierSyncState {
                         block,
                         needed_protocol_states,
                         ..
-                    } = root_ledger else { return };
+                    } = root_ledger
+                    else {
+                        return;
+                    };
                     *self = Self::RootLedgerSuccess {
                         time: meta.time(),
                         best_tip: best_tip.clone(),
@@ -229,7 +232,10 @@ impl TransitionFrontierSyncState {
                     blocks_inbetween,
                     needed_protocol_states,
                     ..
-                } = self else { return };
+                } = self
+                else {
+                    return;
+                };
                 let (best_tip, root_block) = (best_tip.clone(), root_block.clone());
                 let blocks_inbetween = std::mem::take(blocks_inbetween);
 
@@ -276,28 +282,45 @@ impl TransitionFrontierSyncState {
             }
             TransitionFrontierSyncAction::BlocksPeersQuery(_) => {}
             TransitionFrontierSyncAction::BlocksPeerQueryInit(a) => {
-                let Some(block_state) = self.block_state_mut(&a.hash) else { return };
-                let Some(attempts) = block_state.fetch_pending_attempts_mut() else { return };
+                let Some(block_state) = self.block_state_mut(&a.hash) else {
+                    return;
+                };
+                let Some(attempts) = block_state.fetch_pending_attempts_mut() else {
+                    return;
+                };
                 attempts.insert(a.peer_id.clone(), PeerRpcState::Init { time: meta.time() });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryRetry(a) => {
-                let Some(block_state) = self.block_state_mut(&a.hash) else { return };
-                let Some(attempts) = block_state.fetch_pending_attempts_mut() else { return };
+                let Some(block_state) = self.block_state_mut(&a.hash) else {
+                    return;
+                };
+                let Some(attempts) = block_state.fetch_pending_attempts_mut() else {
+                    return;
+                };
                 attempts.insert(a.peer_id.clone(), PeerRpcState::Init { time: meta.time() });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryPending(a) => {
-                let Some(block_state) = self.block_state_mut(&a.hash) else { return };
-                let Some(peer_state) = block_state.fetch_pending_from_peer_mut(&a.peer_id) else { return };
+                let Some(block_state) = self.block_state_mut(&a.hash) else {
+                    return;
+                };
+                let Some(peer_state) = block_state.fetch_pending_from_peer_mut(&a.peer_id) else {
+                    return;
+                };
                 *peer_state = PeerRpcState::Pending {
                     time: meta.time(),
                     rpc_id: a.rpc_id,
                 };
             }
             TransitionFrontierSyncAction::BlocksPeerQueryError(a) => {
-                let Self::BlocksPending { chain, .. } = self else { return };
-                let Some(peer_state) = chain.iter_mut()
+                let Self::BlocksPending { chain, .. } = self else {
+                    return;
+                };
+                let Some(peer_state) = chain
+                    .iter_mut()
                     .find_map(|b| b.fetch_pending_from_peer_mut(&a.peer_id))
-                    else { return };
+                else {
+                    return;
+                };
                 *peer_state = PeerRpcState::Error {
                     time: meta.time(),
                     rpc_id: a.rpc_id,
@@ -305,16 +328,24 @@ impl TransitionFrontierSyncState {
                 };
             }
             TransitionFrontierSyncAction::BlocksPeerQuerySuccess(a) => {
-                let Some(block_state) = self.block_state_mut(&a.response.hash) else { return };
-                let Some(peer_state) = block_state.fetch_pending_from_peer_mut(&a.peer_id) else { return };
+                let Some(block_state) = self.block_state_mut(&a.response.hash) else {
+                    return;
+                };
+                let Some(peer_state) = block_state.fetch_pending_from_peer_mut(&a.peer_id) else {
+                    return;
+                };
                 *peer_state = PeerRpcState::Success {
                     time: meta.time(),
                     block: a.response.clone(),
                 };
             }
             TransitionFrontierSyncAction::BlocksFetchSuccess(a) => {
-                let Some(block_state) = self.block_state_mut(&a.hash) else { return };
-                let Some(block) = block_state.fetch_pending_fetched_block() else { return };
+                let Some(block_state) = self.block_state_mut(&a.hash) else {
+                    return;
+                };
+                let Some(block) = block_state.fetch_pending_fetched_block() else {
+                    return;
+                };
                 *block_state = TransitionFrontierSyncBlockState::FetchSuccess {
                     time: meta.time(),
                     block: block.clone(),
@@ -322,8 +353,12 @@ impl TransitionFrontierSyncState {
             }
             TransitionFrontierSyncAction::BlocksNextApplyInit(_) => {}
             TransitionFrontierSyncAction::BlocksNextApplyPending(a) => {
-                let Some(block_state) = self.block_state_mut(&a.hash) else { return };
-                let Some(block) = block_state.block() else { return };
+                let Some(block_state) = self.block_state_mut(&a.hash) else {
+                    return;
+                };
+                let Some(block) = block_state.block() else {
+                    return;
+                };
 
                 *block_state = TransitionFrontierSyncBlockState::ApplyPending {
                     time: meta.time(),
@@ -331,8 +366,12 @@ impl TransitionFrontierSyncState {
                 };
             }
             TransitionFrontierSyncAction::BlocksNextApplySuccess(a) => {
-                let Some(block_state) = self.block_state_mut(&a.hash) else { return };
-                let Some(block) = block_state.block() else { return };
+                let Some(block_state) = self.block_state_mut(&a.hash) else {
+                    return;
+                };
+                let Some(block) = block_state.block() else {
+                    return;
+                };
 
                 *block_state = TransitionFrontierSyncBlockState::ApplySuccess {
                     time: meta.time(),
@@ -340,7 +379,14 @@ impl TransitionFrontierSyncState {
                 };
             }
             TransitionFrontierSyncAction::BlocksSuccess(_) => {
-                let Self::BlocksPending { chain, needed_protocol_states, .. } = self else { return };
+                let Self::BlocksPending {
+                    chain,
+                    needed_protocol_states,
+                    ..
+                } = self
+                else {
+                    return;
+                };
                 let chain = std::mem::take(chain)
                     .into_iter()
                     .rev()

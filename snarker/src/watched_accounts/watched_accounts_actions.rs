@@ -52,7 +52,9 @@ fn should_request_ledger_initial_state(state: &crate::State, pub_key: &NonZeroCu
             WatchedAccountLedgerInitialState::Idle { .. } => true,
             WatchedAccountLedgerInitialState::Error { .. } => true,
             WatchedAccountLedgerInitialState::Pending { block, .. } => {
-                let Some(best_tip) = state.consensus.best_tip() else { return false };
+                let Some(best_tip) = state.consensus.best_tip() else {
+                    return false;
+                };
                 &block.hash != best_tip.hash
             }
             // TODO(binier)
@@ -173,7 +175,9 @@ pub struct WatchedAccountsBlockLedgerQueryInitAction {
 
 impl redux::EnablingCondition<crate::State> for WatchedAccountsBlockLedgerQueryInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let Some(acc) = state.watched_accounts.get(&self.pub_key) else { return false };
+        let Some(acc) = state.watched_accounts.get(&self.pub_key) else {
+            return false;
+        };
         acc.blocks
             .iter()
             .rev()
@@ -192,7 +196,9 @@ pub struct WatchedAccountsBlockLedgerQueryPendingAction {
 
 impl redux::EnablingCondition<crate::State> for WatchedAccountsBlockLedgerQueryPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let Some(acc) = state.watched_accounts.get(&self.pub_key) else { return false };
+        let Some(acc) = state.watched_accounts.get(&self.pub_key) else {
+            return false;
+        };
 
         let should_req_for_block = acc
             .block_find_by_hash(&self.block_hash)
@@ -221,7 +227,9 @@ pub struct WatchedAccountsBlockLedgerQuerySuccessAction {
 
 impl redux::EnablingCondition<crate::State> for WatchedAccountsBlockLedgerQuerySuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let Some(acc) = state.watched_accounts.get(&self.pub_key) else { return false };
+        let Some(acc) = state.watched_accounts.get(&self.pub_key) else {
+            return false;
+        };
 
         acc.block_find_by_hash(&self.block_hash)
             .filter(|b| matches!(b, WatchedAccountBlockState::LedgerAccountGetPending { .. }))
