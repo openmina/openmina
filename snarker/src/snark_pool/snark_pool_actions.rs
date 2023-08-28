@@ -3,12 +3,12 @@ use std::cmp::Ordering;
 use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
 use ledger::scan_state::scan_state::AvailableJobMessage;
 use serde::{Deserialize, Serialize};
-use shared::snark::{Snark, SnarkJobId};
+use shared::snark::{Snark, SnarkJobCommitment, SnarkJobId};
 
-use crate::p2p::channels::snark_job_commitment::SnarkJobCommitment;
 use crate::p2p::PeerId;
 
 use super::candidate::SnarkPoolCandidateAction;
+use super::SnarkWork;
 
 pub type SnarkPoolActionWithMeta = redux::ActionWithMeta<SnarkPoolAction>;
 pub type SnarkPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a SnarkPoolAction>;
@@ -31,6 +31,7 @@ pub enum SnarkPoolAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkPoolJobsUpdateAction {
     pub jobs: Vec<OneOrTwo<AvailableJobMessage>>,
+    pub orphaned_snarks: Vec<SnarkWork>,
 }
 
 impl redux::EnablingCondition<crate::State> for SnarkPoolJobsUpdateAction {}
@@ -95,7 +96,7 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolWorkAddAction {
             .snark_pool
             .get(&self.snark.job_id())
             .map_or(false, |s| match s.snark.as_ref() {
-                Some(cur) => cur.work.fee.0.as_u64() > self.snark.fee.0.as_u64(),
+                Some(cur) => self.snark > cur.work,
                 None => true,
             })
     }

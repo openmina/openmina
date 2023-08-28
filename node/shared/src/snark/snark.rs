@@ -6,7 +6,8 @@ use mina_p2p_messages::v2::{
     MinaStateBlockchainStateValueStableV2LedgerProofStatement, MinaStateSnarkedLedgerStateStableV2,
     MinaStateSnarkedLedgerStateWithSokStableV2,
     NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1, NonZeroCurvePoint,
-    TransactionSnarkWorkStatementStableV2, TransactionSnarkWorkTStableV2Proofs,
+    TransactionSnarkWorkStatementStableV2, TransactionSnarkWorkTStableV2,
+    TransactionSnarkWorkTStableV2Proofs,
 };
 use serde::{Deserialize, Serialize};
 
@@ -57,6 +58,20 @@ impl Snark {
                 let stmt2 = conv_stmt(&p2.0.statement);
                 TransactionSnarkWorkStatementStableV2::Two((stmt1, stmt2))
             }
+        }
+    }
+
+    pub fn tie_breaker_hash(&self) -> [u8; 32] {
+        super::tie_breaker_hash(&self.job_id(), &self.snarker)
+    }
+}
+
+impl From<TransactionSnarkWorkTStableV2> for Snark {
+    fn from(value: TransactionSnarkWorkTStableV2) -> Self {
+        Self {
+            snarker: value.prover,
+            fee: value.fee,
+            proofs: value.proofs.into(),
         }
     }
 }

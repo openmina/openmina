@@ -31,6 +31,24 @@ impl SnarkPoolState {
                         order,
                     });
                 }
+
+                let orphaned_snarks = action
+                    .orphaned_snarks
+                    .iter()
+                    .map(|snark| (snark.work.job_id(), snark));
+
+                for (id, snark) in orphaned_snarks {
+                    let take = self
+                        .get(&id)
+                        .and_then(|job| job.snark.as_ref())
+                        .map_or(true, |old_snark| snark.work > old_snark.work);
+                    if take {
+                        if let Some(mut job) = self.remove(&id) {
+                            job.snark = Some(snark.clone());
+                            self.insert(job);
+                        }
+                    }
+                }
             }
             SnarkPoolAction::AutoCreateCommitment(_) => {}
             SnarkPoolAction::CommitmentCreate(_) => {}

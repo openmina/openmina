@@ -1,8 +1,8 @@
-use p2p::channels::best_tip::P2pChannelsBestTipResponseSendAction;
 use redux::Timestamp;
 
 use crate::ledger::LEDGER_DEPTH;
-use crate::snark_pool::SnarkPoolJobsUpdateAction;
+use crate::p2p::channels::best_tip::P2pChannelsBestTipResponseSendAction;
+use crate::snark_pool::{SnarkPoolJobsUpdateAction, SnarkWork};
 use crate::stats::sync::SyncingLedger;
 use crate::Store;
 
@@ -148,7 +148,8 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 a.effects(&meta, store);
             }
             TransitionFrontierSyncAction::BlocksSuccess(_) => {
-                let sync = &store.state.get().transition_frontier.sync;
+                let transition_frontier = &store.state.get().transition_frontier;
+                let sync = &transition_frontier.sync;
                 let TransitionFrontierSyncState::BlocksSuccess { chain, .. } = sync else {
                     return;
                 };
@@ -162,13 +163,39 @@ pub fn transition_frontier_effects<S: crate::Service>(
                     .cloned()
                     .collect();
 
+                let own_peer_id = store.state().p2p.config.identity_pub_key.peer_id();
+                let orphaned_snarks = transition_frontier
+                    .best_chain
+                    .iter()
+                    .rev()
+                    .take_while(|b1| {
+                        let height_diff = best_tip.height().saturating_sub(b1.height()) as usize;
+                        if height_diff == 0 {
+                            best_tip.hash() != b1.hash()
+                        } else if let Some(index) = chain.len().checked_sub(height_diff + 1) {
+                            chain.get(index).map_or(true, |b2| b1.hash() != b2.hash())
+                        } else {
+                            true
+                        }
+                    })
+                    .flat_map(|v| v.completed_works_iter())
+                    .map(|v| SnarkWork {
+                        work: v.clone().into(),
+                        received_t: meta.time(),
+                        sender: own_peer_id,
+                    })
+                    .collect();
+
                 let res = store.service.commit(ledgers_to_keep, root_block, best_tip);
                 let needed_protocol_states = res.needed_protocol_states;
                 let jobs = res.available_jobs;
                 store.dispatch(TransitionFrontierSyncedAction {
                     needed_protocol_states,
                 });
-                store.dispatch(SnarkPoolJobsUpdateAction { jobs });
+                store.dispatch(SnarkPoolJobsUpdateAction {
+                    jobs,
+                    orphaned_snarks,
+                });
             }
             TransitionFrontierSyncAction::Ledger(a) => match a {
                 TransitionFrontierSyncLedgerAction::Init(action) => {

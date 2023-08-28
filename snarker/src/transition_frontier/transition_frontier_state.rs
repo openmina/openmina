@@ -13,8 +13,8 @@ use super::TransitionFrontierConfig;
 pub struct TransitionFrontierState {
     pub config: TransitionFrontierConfig,
     pub best_chain: Vec<ArcBlockWithHash>,
-    /// Required protocol states for the root staged ledger that we don't
-    /// have in the `best_chain` list.
+    /// Needed protocol states for applying transactions in the root
+    /// scan state that we don't have in the `best_chain` list.
     pub needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     pub sync: TransitionFrontierSyncState,
 }
