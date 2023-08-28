@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
+    path::Path,
     sync::Arc,
 };
 
@@ -67,6 +68,7 @@ fn ledger_hash(depth: usize, left: Fp, right: Fp) -> Fp {
 #[derive(Default)]
 pub struct LedgerCtx {
     snarked_ledgers: BTreeMap<LedgerHash, Mask>,
+    additional_snarked_ledgers: BTreeMap<LedgerHash, Mask>,
     staged_ledgers: BTreeMap<LedgerHash, StagedLedger>,
     sync: LedgerSyncState,
 }
@@ -78,6 +80,43 @@ struct LedgerSyncState {
 }
 
 impl LedgerCtx {
+    pub fn new_with_additional_snarked_ledgers<P>(path: P) -> Self
+    where
+        P: AsRef<Path>,
+    {
+        use std::fs;
+
+        use binprot::BinProtRead;
+        use ledger::{Account, Database};
+
+        let Ok(dir) = fs::read_dir(path) else {
+            return Self::default();
+        };
+
+        let additional_snarked_ledgers = dir
+            .filter_map(|entry| {
+                let entry = entry.ok()?;
+                let hash = entry.file_name().to_str()?.parse().ok()?;
+                let mut file = fs::File::open(entry.path()).ok()?;
+
+                let _ = Option::<LedgerHash>::binprot_read(&mut file).ok()?;
+
+                let accounts = Vec::<Account>::binprot_read(&mut file).ok()?;
+                let mut mask = Mask::new_root(Database::create(35));
+                for account in accounts {
+                    let account_id = account.id();
+                    mask.get_or_create_account(account_id, account).unwrap();
+                }
+                Some((hash, mask))
+            })
+            .collect();
+
+        LedgerCtx {
+            additional_snarked_ledgers,
+            ..Default::default()
+        }
+    }
+
     fn mask(&self, hash: &LedgerHash) -> Option<(Mask, bool)> {
         self.snarked_ledgers
             .get(hash)
@@ -340,7 +379,14 @@ impl<T: LedgerService> TransitionFrontierService for T {
         query: MinaLedgerSyncLedgerQueryStableV1,
     ) -> Option<MinaLedgerSyncLedgerAnswerStableV2> {
         let ctx = self.ctx_mut();
-        let (mask, is_synced) = ctx.mask(&ledger_hash).filter(|(_, is_synced)| *is_synced)?;
+        let (mask, is_synced) = ctx
+            .mask(&ledger_hash)
+            .filter(|(_, is_synced)| *is_synced)
+            .or_else(|| {
+                ctx.additional_snarked_ledgers
+                    .get(&ledger_hash)
+                    .map(|l| (l.clone(), true))
+            })?;
 
         Some(match query {
             MinaLedgerSyncLedgerQueryStableV1::WhatChildHashes(addr) => {
