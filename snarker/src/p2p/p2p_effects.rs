@@ -530,23 +530,31 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             });
                         }
                         P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(block_hash) => {
-                            let best_chain = &store.state().transition_frontier.best_chain;
-                            let mut protocol_states = store
-                                .state()
-                                .transition_frontier
-                                .needed_protocol_states
-                                .clone();
-                            protocol_states.extend(
-                                best_chain
-                                    .iter()
-                                    .map(|b| (b.hash().clone(), b.header().protocol_state.clone())),
-                            );
+                            let transition_frontier = &store.state.get().transition_frontier;
+                            let best_chain = &transition_frontier.best_chain;
 
                             let response = best_chain
                                 .iter()
                                 .find(|b| b.hash == block_hash)
                                 .map(|b| b.staged_ledger_hash().clone())
                                 .and_then(|ledger_hash| {
+                                    let protocol_states = transition_frontier
+                                        .needed_protocol_states
+                                        .iter()
+                                        .map(|(hash, b)| (hash.clone(), b.clone()))
+                                        .chain(
+                                            best_chain
+                                                .iter()
+                                                .take_while(|b| b.hash() != &block_hash)
+                                                .map(|b| {
+                                                    (
+                                                        b.hash().clone(),
+                                                        b.header().protocol_state.clone(),
+                                                    )
+                                                }),
+                                        )
+                                        .collect();
+
                                     store.service.staged_ledger_aux_and_pending_coinbase(
                                         ledger_hash,
                                         protocol_states,

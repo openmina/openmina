@@ -22,22 +22,25 @@ impl TransitionFrontierState {
                 };
                 let mut needed_protocol_state_hashes = a.needed_protocol_states.clone();
                 let new_chain = std::mem::take(chain);
-                let mut needed_protocol_states = std::mem::take(needed_protocol_states);
 
-                needed_protocol_states.retain(|k, _| needed_protocol_state_hashes.remove(k));
+                self.needed_protocol_states
+                    .extend(std::mem::take(needed_protocol_states));
+                self.needed_protocol_states
+                    .retain(|k, _| needed_protocol_state_hashes.remove(k));
+
                 for hash in needed_protocol_state_hashes {
-                    let block = chain
+                    let block = self
+                        .best_chain
                         .iter()
                         .find(|b| b.hash == hash)
                         .or_else(|| new_chain.iter().find(|b| b.hash == hash));
                     // TODO(binier): error log instead.
                     let block = block.expect("we lack needed block!");
                     let protocol_state = block.header().protocol_state.clone();
-                    needed_protocol_states.insert(hash, protocol_state);
+                    self.needed_protocol_states.insert(hash, protocol_state);
                 }
 
                 self.best_chain = new_chain;
-                self.needed_protocol_states = needed_protocol_states;
                 self.sync = TransitionFrontierSyncState::Synced { time: meta.time() };
             }
         }

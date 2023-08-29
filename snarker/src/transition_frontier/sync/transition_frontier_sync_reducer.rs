@@ -42,7 +42,11 @@ impl TransitionFrontierSyncState {
                     *best_tip = a.best_tip.clone();
                     *blocks_inbetween = a.blocks_inbetween.clone();
                 }
-                Self::BlocksPending { chain, .. } => {
+                Self::BlocksPending {
+                    chain,
+                    needed_protocol_states,
+                    ..
+                } => {
                     let mut applied_blocks: BTreeMap<_, _> =
                         best_chain.iter().map(|b| (&b.hash, b)).collect();
 
@@ -95,6 +99,11 @@ impl TransitionFrontierSyncState {
                             push_block(hash, None);
                         }
                         push_block(&a.best_tip.hash, Some(&a.best_tip));
+                        needed_protocol_states.extend(old_block_states.into_iter().filter_map(
+                            |(hash, s)| {
+                                Some((hash, s.take_block()?.block.header.protocol_state.clone()))
+                            },
+                        ));
                     } else {
                         let cur_best_root = best_chain.first();
                         let root_ledger = if old_root.snarked_ledger_hash()
