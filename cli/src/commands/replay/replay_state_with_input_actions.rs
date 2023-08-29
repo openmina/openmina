@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use snarker::p2p::service_impl::libp2p::Libp2pService;
@@ -14,6 +16,9 @@ pub struct ReplayStateWithInputActions {
     #[arg(long, short, default_value = "~/.openmina/recorder")]
     pub dir: String,
 
+    #[arg(long, default_value = "./target/release/libreplay_dynamic_effects.so")]
+    pub dynamic_effects_lib: String,
+
     /// Verbosity level
     #[arg(long, short, default_value = "info")]
     pub verbosity: tracing::Level,
@@ -28,6 +33,7 @@ impl ReplayStateWithInputActions {
             self.dir
         );
         let dir = shellexpand::full(&self.dir)?.into_owned();
+        let dynamic_effects_lib = shellexpand::full(&self.dynamic_effects_lib)?.into_owned();
         let reader = StateWithInputActionsReader::new(&dir);
 
         eprintln!(
@@ -63,6 +69,7 @@ impl ReplayStateWithInputActions {
                 initial_monotonic: redux::Instant::now(),
                 initial_time: state.time(),
                 expected_actions: Default::default(),
+                replay_dynamic_effects_lib: dynamic_effects_lib,
             }),
         };
 
@@ -127,6 +134,8 @@ impl ReplayStateWithInputActions {
 }
 
 fn replayer_effects(store: &mut Store<SnarkerService>, action: ActionWithMeta) {
+    dyn_effects(store, &action);
+
     let replayer = store.service.replayer.as_mut().unwrap();
     let (kind, meta) = match replayer.expected_actions.pop_front() {
         Some(v) => v,
@@ -137,4 +146,87 @@ fn replayer_effects(store: &mut Store<SnarkerService>, action: ActionWithMeta) {
     assert_eq!(meta.time(), action.meta().time());
 
     snarker::effects(store, action)
+}
+
+fn dyn_effects(store: &mut Store<SnarkerService>, action: &ActionWithMeta) {
+    DYN_EFFECTS_LIB.with(move |cell| loop {
+        let mut opt = cell.borrow_mut();
+        let fun = match opt.as_ref() {
+            None => {
+                let lib_path = &store
+                    .service
+                    .replayer
+                    .as_ref()
+                    .unwrap()
+                    .replay_dynamic_effects_lib;
+                opt.insert(DynEffectsLib::load(lib_path)).fun
+            }
+            Some(lib) => lib.fun,
+        };
+
+        match fun(store, action) {
+            0 => return,
+            1 => {
+                opt.take();
+                let lib_path = &store
+                    .service
+                    .replayer
+                    .as_ref()
+                    .unwrap()
+                    .replay_dynamic_effects_lib;
+                let query_modified = || std::fs::metadata(lib_path).unwrap().modified().unwrap();
+
+                let initial_time = query_modified();
+                let sleep_dur = std::time::Duration::from_millis(100);
+                eprintln!("Waiting for {lib_path} to be modified.");
+                while initial_time >= query_modified() {
+                    std::thread::sleep(sleep_dur);
+                }
+            }
+            ret => panic!("unknown `replay_dynamic_effects` return number: {ret}"),
+        }
+    });
+}
+
+thread_local! {
+    static DYN_EFFECTS_LIB: RefCell<Option<DynEffectsLib>> = RefCell::new(None);
+}
+
+struct DynEffectsLib {
+    handle: *mut nix::libc::c_void,
+    fun: fn(&mut Store<SnarkerService>, &ActionWithMeta) -> u8,
+}
+
+impl DynEffectsLib {
+    fn load(lib_path: &str) -> Self {
+        use nix::libc::{c_void, dlopen, dlsym, RTLD_NOW};
+        use std::ffi::CString;
+
+        let filename = CString::new(lib_path).unwrap();
+
+        let handle = unsafe { dlopen(filename.as_ptr(), RTLD_NOW) };
+        if handle.is_null() {
+            panic!("Failed to resolve dlopen {lib_path}")
+        }
+
+        let fun_name = CString::new("replay_dynamic_effects").unwrap();
+        let fun = unsafe { dlsym(handle, fun_name.as_ptr()) };
+        if fun.is_null() {
+            panic!("Failed to resolve '{}'", &fun_name.to_str().unwrap());
+        }
+
+        Self {
+            handle,
+            fun: unsafe { std::mem::transmute::<*mut c_void, _>(fun) },
+        }
+    }
+}
+
+impl Drop for DynEffectsLib {
+    fn drop(&mut self) {
+        let ret = unsafe { nix::libc::dlclose(self.handle) };
+        if ret != 0 {
+            panic!("Error while closing lib");
+        }
+    }
 }

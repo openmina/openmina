@@ -3,6 +3,7 @@ cargo-features = ["named-profiles"]
 [workspace]
 members = [
     "cli",
+    "cli/replay_dynamic_effects",
     "p2p",
     "p2p/libp2p-rpc-behaviour",
     "snarker",

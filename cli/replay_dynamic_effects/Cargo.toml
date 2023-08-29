@@ -1,0 +1,12 @@
+[package]
+name = "replay_dynamic_effects"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["dylib"]
+name = "replay_dynamic_effects"
+
+[dependencies]
+cli = { path = "../" }
+snarker = { path = "../../snarker", features = ["replay"] }
