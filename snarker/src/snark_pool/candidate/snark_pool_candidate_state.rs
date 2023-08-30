@@ -1,6 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use shared::snark::{Snark, SnarkInfo, SnarkJobId};
@@ -262,38 +261,65 @@ impl SnarkPoolCandidatesState {
         }
     }
 
-    pub fn remove_snarks_with_higher_fee(&mut self, job_id: &SnarkJobId, max_fee: u64) {
-        let by_peer = &mut self.by_peer;
-        if let Some(peers) = self.by_job_id.get(job_id) {
-            for peer_id in peers.iter() {
-                let Some(jobs) = by_peer.get_mut(peer_id) else {
-                    continue;
-                };
-                let Some(job) = jobs.get(job_id) else {
-                    continue;
-                };
-                if job.fee() >= max_fee {
-                    jobs.remove(job_id);
+    pub fn peer_remove(&mut self, peer_id: PeerId) {
+        if let Some(works) = self.by_peer.remove(&peer_id) {
+            for job_id in works.into_keys() {
+                if let Some(peers) = self.by_job_id.get_mut(&job_id) {
+                    peers.remove(&peer_id);
+                    if peers.is_empty() {
+                        self.by_job_id.remove(&job_id);
+                    }
                 }
             }
         }
     }
 
-    pub fn retain<F>(&mut self, mut predicate: F)
+    pub fn remove_inferrior_snarks(&mut self, snark: &Snark) {
+        let job_id = snark.job_id();
+        let by_peer = &mut self.by_peer;
+        if let Some(peers) = self.by_job_id.get_mut(&job_id) {
+            peers.retain(|peer_id| {
+                let Some(peer_works) = by_peer.get_mut(peer_id) else {
+                    return false;
+                };
+                let Some(work) = peer_works.get(&job_id) else {
+                    return false;
+                };
+                if snark >= work {
+                    peer_works.remove(&job_id);
+                    return false;
+                }
+                true
+            });
+            if peers.is_empty() {
+                self.by_job_id.remove(&job_id);
+            }
+        }
+    }
+
+    pub fn retain<F1, F2>(&mut self, mut predicate: F1)
     where
-        F: FnMut(&SnarkJobId) -> bool,
+        F1: FnMut(&SnarkJobId) -> F2,
+        F2: FnMut(&SnarkPoolCandidateState) -> bool,
     {
         let by_peer = &mut self.by_peer;
         self.by_job_id.retain(|job_id, peers| {
-            if predicate(job_id) {
-                return true;
-            }
-            for peer_id in peers.iter() {
+            let mut predicate = predicate(job_id);
+            peers.retain(|peer_id| {
                 if let Some(peer_works) = by_peer.get_mut(peer_id) {
-                    peer_works.remove(job_id);
+                    match peer_works.get(job_id) {
+                        Some(s) if predicate(s) => true,
+                        Some(_) => {
+                            peer_works.remove(job_id);
+                            false
+                        }
+                        None => false,
+                    }
+                } else {
+                    false
                 }
-            }
-            false
+            });
+            !peers.is_empty()
         })
     }
 }

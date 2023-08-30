@@ -68,17 +68,7 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolJobCommitmentAddAction 
             .snark_pool
             .get(&self.commitment.job_id)
             .map_or(false, |s| match s.commitment.as_ref() {
-                Some(cur) => {
-                    let cur_fee = cur.commitment.fee.0.as_u64();
-                    let new_fee = self.commitment.fee.0.as_u64();
-                    match cur_fee.cmp(&new_fee) {
-                        Ordering::Less => false,
-                        Ordering::Greater => true,
-                        Ordering::Equal => {
-                            self.commitment.tie_breaker_hash() > cur.commitment.tie_breaker_hash()
-                        }
-                    }
-                }
+                Some(cur) => self.commitment > cur.commitment,
                 None => true,
             })
     }

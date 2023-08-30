@@ -75,10 +75,17 @@ impl SnarkPoolState {
             .map_or(false, |i| self.list.contains_key(i))
     }
 
+    #[inline]
+    fn get_by_job_id<'a>(
+        by_job_id: &BTreeMap<SnarkJobId, u64>,
+        list: &'a BTreeMap<u64, JobState>,
+        id: &SnarkJobId,
+    ) -> Option<&'a JobState> {
+        by_job_id.get(id).and_then(|i| list.get(i))
+    }
+
     pub fn get(&self, id: &SnarkJobId) -> Option<&JobState> {
-        self.by_ledger_hash_index
-            .get(id)
-            .and_then(|i| self.list.get(i))
+        Self::get_by_job_id(&self.by_ledger_hash_index, &self.list, id)
     }
 
     pub fn insert(&mut self, job: JobState) {
@@ -192,6 +199,19 @@ impl SnarkPoolState {
 
     pub(super) fn job_summary(&self, id: &SnarkJobId) -> Option<JobSummary> {
         self.get(id).map(|job| job.summary())
+    }
+
+    pub fn candidates_prune(&mut self) {
+        self.candidates.retain(|id| {
+            let job = Self::get_by_job_id(&self.by_ledger_hash_index, &self.list, id);
+            move |candidate| match job {
+                None => false,
+                Some(job) => match job.snark.as_ref() {
+                    None => true,
+                    Some(snark) => &snark.work < candidate,
+                },
+            }
+        });
     }
 }
 

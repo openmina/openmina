@@ -19,7 +19,6 @@ impl SnarkPoolState {
                     .map(|(index, job)| (SnarkJobId::from(job), (index, job)))
                     .collect::<BTreeMap<_, _>>();
 
-                self.candidates.retain(|id| jobs_map.contains_key(id));
                 self.retain(|id| jobs_map.remove(id).map(|(order, _)| order));
                 for (id, (order, job)) in jobs_map {
                     self.insert(JobState {
@@ -49,6 +48,8 @@ impl SnarkPoolState {
                         }
                     }
                 }
+
+                self.candidates_prune();
             }
             SnarkPoolAction::AutoCreateCommitment(_) => {}
             SnarkPoolAction::CommitmentCreate(_) => {}
@@ -74,8 +75,7 @@ impl SnarkPoolState {
                     sender: a.sender,
                 });
                 self.insert(job);
-                self.candidates
-                    .remove_snarks_with_higher_fee(&job_id, a.snark.fee.0.as_u64());
+                self.candidates.remove_inferrior_snarks(&a.snark);
             }
             SnarkPoolAction::P2pSendAll(_) => {}
             SnarkPoolAction::P2pSend(_) => {}
