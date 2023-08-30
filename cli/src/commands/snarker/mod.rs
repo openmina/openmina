@@ -44,7 +44,8 @@ use snarker::snark::{SnarkEvent, VerifierIndex, VerifierKind, VerifierSRS};
 use snarker::snark_pool::SnarkPoolConfig;
 use snarker::stats::Stats;
 use snarker::{
-    ActionKind, Config, LedgerConfig, SnarkConfig, SnarkerConfig, State, TransitionFrontierConfig,
+    ActionKind, BuildEnv, Config, LedgerConfig, SnarkConfig, SnarkerConfig, State,
+    TransitionFrontierConfig,
 };
 
 mod http_server;
@@ -181,6 +182,7 @@ impl Snarker {
                 work_verifier_srs: srs,
             },
             snarker: SnarkerConfig {
+                build: BuildEnv::get().into(),
                 public_key: self.public_key,
                 fee: CurrencyFeeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
                     self.fee.into(),
