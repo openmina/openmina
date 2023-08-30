@@ -2,8 +2,8 @@ use std::collections::btree_map::Entry as BTreeMapEntry;
 use std::collections::{BTreeMap, VecDeque};
 use std::error::Error;
 use std::fs::{self, DirEntry};
-use std::io::{self, BufRead, BufReader};
-use std::path::PathBuf;
+use std::io::{self, BufRead, BufReader, Read};
+use std::path::{Path, PathBuf};
 
 use regex::Regex;
 use rust_format::Formatter;
@@ -21,6 +21,24 @@ fn visit_dirs(dir: &PathBuf, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
         }
     }
     Ok(())
+}
+
+fn is_same_file<P: AsRef<Path>>(file1: P, file2: P) -> Result<bool, std::io::Error> {
+    let mut f1 = fs::File::open(file1)?;
+    let mut f2 = fs::File::open(file2)?;
+
+    // Check if file sizes are different
+    if f1.metadata().unwrap().len() != f2.metadata().unwrap().len() {
+        return Ok(false);
+    }
+
+    let mut b1 = Vec::with_capacity(1024 * 1024);
+    f1.read_to_end(&mut b1)?;
+
+    let mut b2 = Vec::with_capacity(b1.len());
+    f2.read_to_end(&mut b2)?;
+
+    Ok(b1 == b2)
 }
 
 #[derive(Debug)]
@@ -91,7 +109,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         loop {
                             let Some(line) = lines.next() else { break };
                             let line = line.unwrap();
-                            if line.contains("}") {
+                            if line.contains('}') {
                                 break;
                             }
                             variant_lines.push(line);
@@ -111,7 +129,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         path.pop();
-        if action_defs.len() == 0 {
+        if action_defs.is_empty() {
             return;
         }
         let path = path.strip_prefix(&node_dir).unwrap();
@@ -142,7 +160,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .into_iter()
         .map(|(k, v)| {
             let mut s = "use crate::".to_owned();
-            if k.len() != 0 {
+            if !k.is_empty() {
                 s += &k.join("::");
                 s += "::";
             }
@@ -217,11 +235,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     let contents =
         format!("{use_deps}\n\n{use_statements}\n\n{action_kind_def}\n\n{action_kind_get_impls}\n");
 
-    let path = crate_dir.join("src/action_kind.rs");
-    fs::write(&path, contents)?;
+    let tmp_path = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("action_kind.rs");
+    fs::write(&tmp_path, contents)?;
     rust_format::RustFmt::default()
-        .format_file(&path)
+        .format_file(&tmp_path)
         .expect("failed to format generated file");
+
+    let path = crate_dir.join("src/action_kind.rs");
+
+    if !is_same_file(&tmp_path, &path)? {
+        fs::rename(tmp_path, path)?;
+    }
 
     Ok(())
 }
