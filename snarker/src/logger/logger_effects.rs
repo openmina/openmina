@@ -439,7 +439,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     let Some(req) = store.state().snark.work_verify.jobs.get(a.req_id) else {
                         return;
                     };
-                    shared::log::warn!(
+                    shared::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("id: {}, batch size: {}", a.req_id, req.batch().len()),

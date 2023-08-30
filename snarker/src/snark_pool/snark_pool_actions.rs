@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
 use ledger::scan_state::scan_state::AvailableJobMessage;
 use serde::{Deserialize, Serialize};

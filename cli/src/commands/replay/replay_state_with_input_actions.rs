@@ -5,7 +5,7 @@ use rand::SeedableRng;
 use snarker::p2p::service_impl::libp2p::Libp2pService;
 use snarker::recorder::{Recorder, StateWithInputActionsReader};
 use snarker::snark::VerifierKind;
-use snarker::{ActionWithMeta, Store};
+use snarker::{ActionWithMeta, BuildEnv, Store};
 use tokio::sync::mpsc;
 
 use crate::commands::snarker::{ReplayerState, RpcService, SnarkerService};
@@ -75,6 +75,9 @@ impl ReplayStateWithInputActions {
 
         let mut snarker = ::snarker::Snarker::new(state, service, Some(replayer_effects));
         let store = snarker.store_mut();
+
+        let replay_env = BuildEnv::get();
+        check_env(&store.state().config.build, &replay_env);
 
         eprintln!("reading actions from dir: {dir}");
 
@@ -228,5 +231,48 @@ impl Drop for DynEffectsLib {
         if ret != 0 {
             panic!("Error while closing lib");
         }
+    }
+}
+
+pub fn check_env(record_env: &BuildEnv, replay_env: &BuildEnv) {
+    let is_git_same = record_env.git == replay_env.git;
+    let is_cargo_same = record_env.cargo == replay_env.cargo;
+    let is_rustc_same = record_env.rustc == replay_env.rustc;
+
+    if !is_git_same {
+        let diff = format!(
+            "recorded:\n{:?}\n\ncurrent:\n{:?}",
+            record_env.git, replay_env.git
+        );
+        let msg = format!("git build env mismatch!\n{diff}");
+        if console::user_attended() {
+            use dialoguer::Confirm;
+
+            let prompt = format!("{msg}\nDo you want to continue?");
+            if Confirm::new().with_prompt(prompt).interact().unwrap() {
+            } else {
+                std::process::exit(1);
+            }
+        } else {
+            std::process::exit(1);
+        }
+    }
+
+    if !is_cargo_same {
+        let diff = format!(
+            "recorded:\n{:?}\n\ncurrent:\n{:?}",
+            record_env.cargo, replay_env.cargo
+        );
+        let msg = format!("cargo build env mismatch!\n{diff}");
+        eprintln!("{msg}");
+    }
+
+    if !is_rustc_same {
+        let diff = format!(
+            "recorded:\n{:?}\n\ncurrent:\n{:?}",
+            record_env.rustc, replay_env.rustc
+        );
+        let msg = format!("rustc build env mismatch!\n{diff}");
+        eprintln!("{msg}");
     }
 }
