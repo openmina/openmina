@@ -27,6 +27,9 @@ impl SnarkPoolCandidatesState {
             SnarkPoolCandidateAction::WorkVerifySuccess(a) => {
                 self.verify_result(meta.time(), &a.peer_id, a.verify_id, Ok(()));
             }
+            SnarkPoolCandidateAction::PeerPrune(a) => {
+                self.peer_remove(a.peer_id);
+            }
         }
     }
 }

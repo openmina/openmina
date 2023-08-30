@@ -98,10 +98,11 @@ use crate::snark::work_verify::{
 use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::{
     SnarkPoolCandidateAction, SnarkPoolCandidateInfoReceivedAction,
-    SnarkPoolCandidateWorkFetchAllAction, SnarkPoolCandidateWorkFetchInitAction,
-    SnarkPoolCandidateWorkFetchPendingAction, SnarkPoolCandidateWorkReceivedAction,
-    SnarkPoolCandidateWorkVerifyErrorAction, SnarkPoolCandidateWorkVerifyNextAction,
-    SnarkPoolCandidateWorkVerifyPendingAction, SnarkPoolCandidateWorkVerifySuccessAction,
+    SnarkPoolCandidatePeerPruneAction, SnarkPoolCandidateWorkFetchAllAction,
+    SnarkPoolCandidateWorkFetchInitAction, SnarkPoolCandidateWorkFetchPendingAction,
+    SnarkPoolCandidateWorkReceivedAction, SnarkPoolCandidateWorkVerifyErrorAction,
+    SnarkPoolCandidateWorkVerifyNextAction, SnarkPoolCandidateWorkVerifyPendingAction,
+    SnarkPoolCandidateWorkVerifySuccessAction,
 };
 use crate::snark_pool::{
     SnarkPoolAction, SnarkPoolAutoCreateCommitmentAction, SnarkPoolCheckTimeoutsAction,
@@ -296,6 +297,7 @@ pub enum ActionKind {
     SnarkBlockVerifySuccess,
     SnarkPoolAutoCreateCommitment,
     SnarkPoolCandidateInfoReceived,
+    SnarkPoolCandidatePeerPrune,
     SnarkPoolCandidateWorkFetchAll,
     SnarkPoolCandidateWorkFetchInit,
     SnarkPoolCandidateWorkFetchPending,
@@ -372,7 +374,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 194;
+    pub const COUNT: usize = 195;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -717,6 +719,7 @@ impl ActionKindGet for SnarkPoolCandidateAction {
             Self::WorkVerifyPending(a) => a.kind(),
             Self::WorkVerifyError(a) => a.kind(),
             Self::WorkVerifySuccess(a) => a.kind(),
+            Self::PeerPrune(a) => a.kind(),
         }
     }
 }
@@ -1385,6 +1388,12 @@ impl ActionKindGet for SnarkPoolCandidateWorkVerifyErrorAction {
 impl ActionKindGet for SnarkPoolCandidateWorkVerifySuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::SnarkPoolCandidateWorkVerifySuccess
+    }
+}
+
+impl ActionKindGet for SnarkPoolCandidatePeerPruneAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::SnarkPoolCandidatePeerPrune
     }
 }
 

@@ -24,6 +24,7 @@ pub enum SnarkPoolCandidateAction {
     WorkVerifyPending(SnarkPoolCandidateWorkVerifyPendingAction),
     WorkVerifyError(SnarkPoolCandidateWorkVerifyErrorAction),
     WorkVerifySuccess(SnarkPoolCandidateWorkVerifySuccessAction),
+    PeerPrune(SnarkPoolCandidatePeerPruneAction),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -173,6 +174,17 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateWorkVerifySucc
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SnarkPoolCandidatePeerPruneAction {
+    pub peer_id: PeerId,
+}
+
+impl redux::EnablingCondition<crate::State> for SnarkPoolCandidatePeerPruneAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state.snark_pool.candidates.peer_work_count(&self.peer_id) > 0
+    }
+}
+
 use crate::snark_pool::SnarkPoolAction;
 
 macro_rules! impl_into_global_action {
@@ -194,3 +206,4 @@ impl_into_global_action!(SnarkPoolCandidateWorkVerifyNextAction);
 impl_into_global_action!(SnarkPoolCandidateWorkVerifyPendingAction);
 impl_into_global_action!(SnarkPoolCandidateWorkVerifyErrorAction);
 impl_into_global_action!(SnarkPoolCandidateWorkVerifySuccessAction);
+impl_into_global_action!(SnarkPoolCandidatePeerPruneAction);

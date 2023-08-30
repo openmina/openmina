@@ -126,5 +126,6 @@ pub fn snark_pool_candidate_effects<S: redux::Service>(
             // from same peer. But since we have already started verification,
             // we might as well use it's result.
         }
+        SnarkPoolCandidateAction::PeerPrune(_) => {}
     }
 }
