@@ -10,6 +10,7 @@ mod urs_utils;
 pub mod util;
 pub mod verification;
 pub mod verifier_index;
+pub mod witness;
 pub mod wrap;
 
 pub type VerifierIndex = kimchi::verifier_index::VerifierIndex<Pallas>;

@@ -104,7 +104,7 @@ use crate::{
             WithStatus,
         },
     },
-    staged_ledger::hash::{NonStark, StagedLedgerHash},
+    staged_ledger::hash::{AuxHash, NonStark, PendingCoinbaseAux, StagedLedgerHash},
     Account, AccountId, Address, HashesMatrix, TokenId, VerificationKey, VotingFor,
 };
 
@@ -2622,6 +2622,38 @@ impl From<&StagedLedgerHash> for MinaBaseStagedLedgerHashStableV1 {
                 MinaBasePendingCoinbaseHashBuilderStableV1(pending_coinbase_hash.into()),
             )
             .into(),
+        }
+    }
+}
+
+impl From<&MinaBaseStagedLedgerHashNonSnarkStableV1> for NonStark {
+    fn from(value: &MinaBaseStagedLedgerHashNonSnarkStableV1) -> Self {
+        let MinaBaseStagedLedgerHashNonSnarkStableV1 {
+            ledger_hash,
+            aux_hash,
+            pending_coinbase_aux,
+        } = value;
+
+        Self {
+            ledger_hash: ledger_hash.inner().to_field(),
+            aux_hash: AuxHash(aux_hash.as_slice().try_into().unwrap()),
+            pending_coinbase_aux: PendingCoinbaseAux(
+                pending_coinbase_aux.as_slice().try_into().unwrap(),
+            ),
+        }
+    }
+}
+
+impl From<&MinaBaseStagedLedgerHashStableV1> for StagedLedgerHash {
+    fn from(value: &MinaBaseStagedLedgerHashStableV1) -> Self {
+        let MinaBaseStagedLedgerHashStableV1 {
+            non_snark,
+            pending_coinbase_hash,
+        } = value;
+
+        Self {
+            non_snark: non_snark.into(),
+            pending_coinbase_hash: pending_coinbase_hash.inner().to_field(),
         }
     }
 }

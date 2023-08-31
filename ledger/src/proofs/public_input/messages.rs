@@ -166,7 +166,7 @@ where
             fields.push(index.endomul_scalar.1);
         }
 
-        fields.extend(self.app_state.to_field_elements());
+        self.app_state.to_field_elements(&mut fields);
 
         // Self::challenge_polynomial_commitments and Self::old_bulletproof_challenges
         let commitments = &self.challenge_polynomial_commitments;

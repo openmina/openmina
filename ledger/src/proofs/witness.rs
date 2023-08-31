@@ -1,4 +1,24 @@
 use ark_ff::{BigInteger256, Field};
+use mina_hasher::Fp;
+use mina_p2p_messages::{
+    string::ByteString,
+    v2::{
+        ConsensusGlobalSlotStableV1, ConsensusProofOfStakeDataConsensusStateValueStableV2,
+        MinaBaseProtocolConstantsCheckedValueStableV1, MinaStateBlockchainStateValueStableV2,
+        MinaStateProtocolStateBodyValueStableV2, NonZeroCurvePoint,
+        NonZeroCurvePointUncompressedStableV1,
+    },
+};
+
+use crate::{
+    scan_state::{
+        scan_state::transaction_snark::Statement,
+        transaction_logic::protocol_state::{EpochData, EpochLedger},
+    },
+    staged_ledger::hash::StagedLedgerHash,
+};
+
+use super::to_field_elements::ToFieldElements;
 
 struct FieldBitsIterator {
     index: usize,
@@ -117,6 +137,186 @@ where
     }
 
     (a, b, n)
+}
+
+impl ToFieldElements for StagedLedgerHash {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
+            non_snark,
+            pending_coinbase_hash,
+        } = self;
+
+        let non_snark_digest = non_snark.digest();
+
+        const BITS: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
+        fields.extend(
+            non_snark_digest
+                .iter()
+                .flat_map(|byte| BITS.iter().map(|bit| Fp::from((*byte & bit != 0) as u64))),
+        );
+
+        fields.push(*pending_coinbase_hash);
+    }
+}
+
+impl ToFieldElements for ByteString {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let slice: &[u8] = self;
+        slice.to_field_elements(fields);
+    }
+}
+
+impl ToFieldElements for &'_ [u8] {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        const BITS: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
+        fields.extend(
+            self.iter()
+                .flat_map(|byte| BITS.iter().map(|bit| Fp::from((*byte & bit != 0) as u64))),
+        );
+    }
+}
+
+impl ToFieldElements for EpochData {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
+            ledger:
+                EpochLedger {
+                    hash,
+                    total_currency,
+                },
+            seed,
+            start_checkpoint,
+            lock_checkpoint,
+            epoch_length,
+        } = self;
+
+        fields.push(*hash);
+        fields.push(total_currency.as_u64().into());
+        fields.push(*seed);
+        fields.push(*start_checkpoint);
+        fields.push(*lock_checkpoint);
+        fields.push(epoch_length.as_u32().into());
+    }
+}
+
+impl ToFieldElements for NonZeroCurvePoint {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let NonZeroCurvePointUncompressedStableV1 { x, is_odd } = self.inner();
+
+        fields.push(x.to_field());
+        fields.push((*is_odd).into());
+    }
+}
+
+impl ToFieldElements for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let ConsensusProofOfStakeDataConsensusStateValueStableV2 {
+            blockchain_length,
+            epoch_count,
+            min_window_density,
+            sub_window_densities,
+            last_vrf_output,
+            total_currency,
+            curr_global_slot:
+                ConsensusGlobalSlotStableV1 {
+                    slot_number,
+                    slots_per_epoch,
+                },
+            global_slot_since_genesis,
+            staking_epoch_data,
+            next_epoch_data,
+            has_ancestor_in_same_checkpoint_window,
+            block_stake_winner,
+            block_creator,
+            coinbase_receiver,
+            supercharge_coinbase,
+        } = self;
+
+        let staking_epoch_data: EpochData = staking_epoch_data.into();
+        let next_epoch_data: EpochData = next_epoch_data.into();
+
+        fields.push(blockchain_length.as_u32().into());
+        fields.push(epoch_count.as_u32().into());
+        fields.push(min_window_density.as_u32().into());
+        fields.extend(sub_window_densities.iter().map(|w| Fp::from(w.as_u32())));
+
+        {
+            let vrf: &[u8] = last_vrf_output.as_ref();
+            (&vrf[..31]).to_field_elements(fields);
+            // Ignore the last 3 bits
+            let last_byte = vrf[31];
+            for bit in [1, 2, 4, 8, 16] {
+                fields.push(Fp::from(last_byte & bit != 0))
+            }
+        }
+
+        fields.push(total_currency.as_u64().into());
+        fields.push(slot_number.as_u32().into());
+        fields.push(slots_per_epoch.as_u32().into());
+        fields.push(global_slot_since_genesis.as_u32().into());
+        staking_epoch_data.to_field_elements(fields);
+        next_epoch_data.to_field_elements(fields);
+        fields.push((*has_ancestor_in_same_checkpoint_window).into());
+        block_stake_winner.to_field_elements(fields);
+        block_creator.to_field_elements(fields);
+        coinbase_receiver.to_field_elements(fields);
+        fields.push((*supercharge_coinbase).into());
+    }
+}
+
+impl ToFieldElements for MinaBaseProtocolConstantsCheckedValueStableV1 {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
+            k,
+            slots_per_epoch,
+            slots_per_sub_window,
+            delta,
+            genesis_state_timestamp,
+        } = self;
+
+        fields.push(k.as_u32().into());
+        fields.push(slots_per_epoch.as_u32().into());
+        fields.push(slots_per_sub_window.as_u32().into());
+        fields.push(delta.as_u32().into());
+        fields.push(genesis_state_timestamp.as_u64().into());
+    }
+}
+
+impl ToFieldElements for MinaStateBlockchainStateValueStableV2 {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
+            staged_ledger_hash,
+            genesis_ledger_hash,
+            ledger_proof_statement,
+            timestamp,
+            body_reference,
+        } = self;
+
+        let staged_ledger_hash: StagedLedgerHash = staged_ledger_hash.into();
+        let ledger_proof_statement: Statement<()> = ledger_proof_statement.into();
+
+        staged_ledger_hash.to_field_elements(fields);
+        fields.push(genesis_ledger_hash.inner().to_field());
+        ledger_proof_statement.to_field_elements(fields);
+        fields.push(timestamp.as_u64().into());
+        body_reference.to_field_elements(fields);
+    }
+}
+
+impl ToFieldElements for MinaStateProtocolStateBodyValueStableV2 {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let MinaStateProtocolStateBodyValueStableV2 {
+            genesis_state_hash,
+            blockchain_state,
+            consensus_state,
+            constants,
+        } = self;
+
+        fields.push(genesis_state_hash.inner().to_field());
+        blockchain_state.to_field_elements(fields);
+        consensus_state.to_field_elements(fields);
+        constants.to_field_elements(fields);
+    }
 }
 
 #[cfg(test)]

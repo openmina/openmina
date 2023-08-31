@@ -11,18 +11,24 @@ use crate::{
 };
 
 pub trait ToFieldElements {
-    fn to_field_elements(&self) -> Vec<Fp>;
+    fn to_field_elements(&self, fields: &mut Vec<Fp>);
+
+    fn to_field_elements_owned(&self) -> Vec<Fp> {
+        let mut fields = Vec::with_capacity(1024);
+        self.to_field_elements(&mut fields);
+        fields
+    }
 }
 
 impl ToFieldElements for MinaStateProtocolStateValueStableV2 {
-    fn to_field_elements(&self) -> Vec<Fp> {
-        vec![MinaHash::hash(self)]
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        fields.push(MinaHash::hash(self))
     }
 }
 
 impl ToFieldElements for ZkappStatement {
-    fn to_field_elements(&self) -> Vec<Fp> {
-        self.to_field_elements()
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        fields.extend(self.to_field_elements())
     }
 }
 
@@ -34,6 +40,19 @@ impl ToFieldElements for ZkappStatement {
 //         inputs.to_fields()
 //     }
 // }
+
+impl ToFieldElements for () {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {}
+}
+
+impl ToFieldElements for SokDigest {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        const BITS: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
+        for byte in &self.0 {
+            fields.extend(BITS.iter().map(|bit| Fp::from((byte & bit != 0) as u64)));
+        }
+    }
+}
 
 /// Unlike expectations, OCaml doesn't call `Sok_digest.to_field_elements` on
 /// `Statement_intf.to_field_elements`, it is probably overwritten somewhere
@@ -47,8 +66,8 @@ impl ToFieldElements for ZkappStatement {
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/composition_types/composition_types.ml#L714C11-L714C48
 ///
 /// TODO: Fuzz this method, compare with OCaml
-impl ToFieldElements for Statement<SokDigest> {
-    fn to_field_elements(&self) -> Vec<Fp> {
+impl<T: ToFieldElements> ToFieldElements for Statement<T> {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
             source,
             target,
@@ -58,8 +77,6 @@ impl ToFieldElements for Statement<SokDigest> {
             fee_excess,
             sok_digest,
         } = self;
-
-        let mut fields = Vec::with_capacity(300);
 
         let sign_to_field = |sgn| -> Fp {
             use crate::scan_state::currency::Sgn::*;
@@ -119,13 +136,6 @@ impl ToFieldElements for Statement<SokDigest> {
         fields.push(fee_excess_r.magnitude.as_u64().into());
         fields.push(sign_to_field(fee_excess_r.sgn));
 
-        const BITS: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
-        for byte in &sok_digest.0 {
-            fields.extend(BITS.iter().map(|bit| Fp::from((byte & bit != 0) as u64)));
-        }
-
-        assert_eq!(fields.len(), 300);
-
-        fields
+        sok_digest.to_field_elements(fields)
     }
 }

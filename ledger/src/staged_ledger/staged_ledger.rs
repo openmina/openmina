@@ -6183,6 +6183,6 @@ mod tests {
         let ledger_proof: LedgerProof = (&ledger_proof).into();
         let stmt = ledger_proof.statement_ref();
 
-        dbg!(stmt.to_field_elements());
+        dbg!(stmt.to_field_elements_owned());
     }
 }
