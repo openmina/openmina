@@ -1,4 +1,11 @@
+use ark_ec::{
+    short_weierstrass_jacobian::{GroupAffine, GroupProjective},
+    AffineCurve, ProjectiveCurve, SWModelParameters,
+};
 use ark_ff::{BigInteger256, Field};
+use mina_curves::pasta::{
+    Fq, PallasParameters, ProjectivePallas, ProjectiveVesta, VestaParameters,
+};
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     string::ByteString,
@@ -53,6 +60,14 @@ where
         };
         self.aux.push(field)
     }
+
+    pub fn pusher(&mut self) -> impl FnMut(F) -> F + '_ {
+        let push = |f: F| -> F {
+            self.push(f);
+            f
+        };
+        push
+    }
 }
 
 pub trait Check {
@@ -96,10 +111,7 @@ pub fn to_field_checked_prime<F, const NBITS: usize>(
 where
     F: Field + Into<BigInteger256> + From<u64>,
 {
-    let mut push = |f: F| -> F {
-        witnesses.push(f);
-        f
-    };
+    let mut push = witnesses.pusher();
 
     let neg_one = F::one().neg();
 
@@ -618,6 +630,158 @@ impl Check for MinaStateProtocolStateBodyValueStableV2 {
         genesis_state_timestamp.check(witnesses);
     }
 }
+
+pub trait FieldCurve: Field + Send + Sync + std::fmt::Debug {
+    type Scalar: Field + std::fmt::Debug;
+    type Affine: AffineCurve<Projective = Self::Projective, BaseField = Self, ScalarField = Self::Scalar>
+        + Into<GroupAffine<Self::Parameters>>
+        + std::fmt::Debug;
+    type Projective: ProjectiveCurve<Affine = Self::Affine, BaseField = Self, ScalarField = Self::Scalar>
+        + From<GroupProjective<Self::Parameters>>
+        + std::fmt::Debug;
+    type Parameters: SWModelParameters<BaseField = Self, ScalarField = Self::Scalar>
+        + std::fmt::Debug;
+}
+
+impl FieldCurve for Fp {
+    type Scalar = Fq;
+    type Parameters = PallasParameters;
+    type Affine = GroupAffine<Self::Parameters>;
+    type Projective = ProjectivePallas;
+}
+
+impl FieldCurve for Fq {
+    type Scalar = Fp;
+    type Parameters = VestaParameters;
+    type Affine = GroupAffine<Self::Parameters>;
+    type Projective = ProjectiveVesta;
+}
+
+// https://github.com/o1-labs/snarky/blob/7edf13628872081fd7cad154de257dad8b9ba621/snarky_curve/snarky_curve.ml#L219-L229
+pub struct InnerCurve<C: FieldCurve> {
+    // ProjectivePallas
+    // ProjectiveVesta
+    inner: C::Projective,
+}
+
+impl<C: FieldCurve + std::fmt::Debug> std::fmt::Debug for InnerCurve<C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // OCaml uses `to_affine_exn` when those are printed using `sexp`
+        // https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/snark_params/snark_params.ml#L149
+        let GroupAffine { x, y, .. } = self.to_affine();
+        f.debug_struct("InnerCurve")
+            .field("x", &x)
+            .field("y", &y)
+            .finish()
+    }
+}
+
+impl<C: FieldCurve> InnerCurve<C> {
+    fn one() -> Self {
+        let inner = C::Projective::prime_subgroup_generator();
+        Self { inner }
+    }
+
+    fn to_affine(&self) -> GroupAffine<C::Parameters> {
+        // Both `affine` are the same type, but we use `into()` to make it non-generic
+        let affine: C::Affine = self.inner.into_affine();
+        let affine: GroupAffine<C::Parameters> = affine.into();
+        // OCaml panic on infinity
+        // https://github.com/MinaProtocol/mina/blob/3e58e92ea9aeddb41ad3b6e494279891c5f9aa09/src/lib/crypto/kimchi_backend/common/curve.ml#L180
+        assert!(!affine.infinity);
+        affine
+    }
+
+    // fn of_affine(affine: <C::Projective as ProjectiveCurve>::Affine) -> Self {
+    fn of_affine(affine: GroupAffine<C::Parameters>) -> Self {
+        // Both `inner` are the same type, but we use `into()` to make it generic
+        let inner: GroupProjective<C::Parameters> = affine.into_projective();
+        let inner: C::Projective = inner.into();
+        Self { inner }
+    }
+}
+
+impl ToFieldElements for InnerCurve<Fp> {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let GroupAffine { x, y, .. } = self.to_affine();
+        fields.push(x);
+        fields.push(y);
+    }
+}
+
+impl ToFieldElements for InnerCurve<Fq> {
+    fn to_field_elements(&self, _fields: &mut Vec<Fp>) {
+        todo!()
+        // let GroupAffine { x, y, .. } = self.to_affine();
+        // fields.push(x);
+    }
+}
+
+impl<C: FieldCurve> Check for InnerCurve<C> {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, _witnesses: &mut Witness<F>) {
+        todo!()
+        // let GroupAffine { x, y, .. } = self.to_affine();
+    }
+}
+
+// TODO: This function is incomplete (compare to OCaml), here it only push witness values
+#[allow(unused)]
+fn dummy_constraints<F>(witnesses: &mut Witness<F>)
+where
+    F: Field + Into<BigInteger256> + From<u64> + FieldCurve,
+{
+    let mut push = witnesses.pusher();
+
+    let x: F = push(F::from(3u64));
+
+    let g = InnerCurve::<F>::one();
+    dbg!(&g);
+    let a: GroupAffine<F::Parameters> = g.to_affine();
+
+    let x: F = a.x;
+    let y: F = a.y;
+
+    let a: ProjectivePallas = ProjectivePallas::prime_subgroup_generator();
+    dbg!(a);
+
+    // use mina_curves::pasta::Pallas;
+    // let proj = Into::<Pallas>::into(a).into_projective();
+    // dbg!(a);
+
+    let affine: GroupAffine<PallasParameters> = a.into_affine();
+    dbg!(affine);
+
+    // let b = ProjectiveVesta::prime_subgroup_generator();
+    // dbg!(b);
+}
+
+// (* Currently, a circuit must have at least 1 of every type of constraint. *)
+// let dummy_constraints () =
+//   make_checked
+//     Impl.(
+//       fun () ->
+//         let x =
+//           exists Field.typ ~compute:(fun () -> Field.Constant.of_int 3)
+//         in
+//         let g = exists Inner_curve.typ ~compute:(fun _ -> Inner_curve.one) in
+//         ignore
+//           ( Pickles.Scalar_challenge.to_field_checked'
+//               (module Impl)
+//               ~num_bits:16
+//               (Kimchi_backend_common.Scalar_challenge.create x)
+//             : Field.t * Field.t * Field.t ) ;
+//         ignore
+//           ( Pickles.Step_main_inputs.Ops.scale_fast g ~num_bits:5
+//               (Shifted_value x)
+//             : Pickles.Step_main_inputs.Inner_curve.t ) ;
+//         ignore
+//           ( Pickles.Step_main_inputs.Ops.scale_fast g ~num_bits:5
+//               (Shifted_value x)
+//             : Pickles.Step_main_inputs.Inner_curve.t ) ;
+//         ignore
+//           ( Pickles.Step_verifier.Scalar_challenge.endo g ~num_bits:4
+//               (Kimchi_backend_common.Scalar_challenge.create x)
+//             : Field.t * Field.t ))
 
 #[cfg(test)]
 mod tests {
