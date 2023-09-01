@@ -4,9 +4,17 @@ use mina_p2p_messages::{
     string::ByteString,
     v2::{
         ConsensusGlobalSlotStableV1, ConsensusProofOfStakeDataConsensusStateValueStableV2,
-        MinaBaseProtocolConstantsCheckedValueStableV1, MinaStateBlockchainStateValueStableV2,
-        MinaStateProtocolStateBodyValueStableV2, NonZeroCurvePoint,
-        NonZeroCurvePointUncompressedStableV1,
+        ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+        ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
+        CurrencyAmountStableV1, MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1,
+        MinaBaseProtocolConstantsCheckedValueStableV1, MinaNumbersGlobalSlotSinceGenesisMStableV1,
+        MinaNumbersGlobalSlotSinceHardForkMStableV1, MinaStateBlockchainStateValueStableV2,
+        MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+        MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
+        MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateProtocolStateBodyValueStableV2,
+        MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, NonZeroCurvePoint,
+        NonZeroCurvePointUncompressedStableV1, SgnStableV1, SignedAmount, TokenFeeExcess,
+        UnsignedExtendedUInt32StableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
 
@@ -19,6 +27,37 @@ use crate::{
 };
 
 use super::to_field_elements::ToFieldElements;
+
+#[derive(Debug)]
+pub struct Witness<F>
+where
+    F: Field + Into<BigInteger256> + From<u64>,
+{
+    aux: Vec<F>,
+}
+
+impl<F> Witness<F>
+where
+    F: Field + Into<BigInteger256> + From<u64>,
+{
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            aux: Vec::with_capacity(capacity),
+        }
+    }
+
+    pub fn push<I: Into<F>>(&mut self, field: I) {
+        let field = {
+            let field: F = field.into();
+            dbg!(field)
+        };
+        self.aux.push(field)
+    }
+}
+
+pub trait Check {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>);
+}
 
 struct FieldBitsIterator {
     index: usize,
@@ -50,7 +89,10 @@ where
 
 // TODO: This function is incomplete (compare to OCaml), here it only push witness values
 // https://github.com/MinaProtocol/mina/blob/357144819e7ce5f61109d23d33da627be28024c7/src/lib/pickles/scalar_challenge.ml#L12
-pub fn to_field_checked_prime<F, const NBITS: usize>(scalar: F, witnesses: &mut Vec<F>) -> (F, F, F)
+pub fn to_field_checked_prime<F, const NBITS: usize>(
+    scalar: F,
+    witnesses: &mut Witness<F>,
+) -> (F, F, F)
 where
     F: Field + Into<BigInteger256> + From<u64>,
 {
@@ -319,6 +361,264 @@ impl ToFieldElements for MinaStateProtocolStateBodyValueStableV2 {
     }
 }
 
+impl Check for SgnStableV1 {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, _witnesses: &mut Witness<F>) {
+        // Does not modify the witness
+    }
+}
+
+impl Check for bool {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, _witnesses: &mut Witness<F>) {
+        // Does not modify the witness
+    }
+}
+
+impl Check for CurrencyAmountStableV1 {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        // eprintln!("check CurrencyAmountStableV1 START");
+        const NBITS: usize = u64::BITS as usize;
+
+        let amount: u64 = self.as_u64();
+        assert_eq!(NBITS, std::mem::size_of_val(&amount) * 8);
+
+        let amount: F = amount.into();
+        to_field_checked_prime::<F, NBITS>(amount, witnesses);
+        // eprintln!("check CurrencyAmountStableV1 DONE");
+    }
+}
+
+impl Check for SignedAmount {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        let Self { magnitude, sgn } = self;
+        magnitude.check(witnesses);
+        sgn.check(witnesses);
+    }
+}
+
+impl Check for MinaStateBlockchainStateValueStableV2SignedAmount {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        let Self { magnitude, sgn } = self;
+        magnitude.check(witnesses);
+        sgn.check(witnesses);
+    }
+}
+
+impl Check for UnsignedExtendedUInt32StableV1 {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        // eprintln!("check UnsignedExtendedUInt32StableV1 START");
+        const NBITS: usize = u32::BITS as usize;
+
+        let number: u32 = self.as_u32();
+        assert_eq!(NBITS, std::mem::size_of_val(&number) * 8);
+
+        let number: F = number.into();
+        to_field_checked_prime::<F, NBITS>(number, witnesses);
+        // eprintln!("check UnsignedExtendedUInt32StableV1 DONE");
+    }
+}
+
+impl Check for MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        let Self {
+            first_pass_ledger: _,
+            second_pass_ledger: _,
+            pending_coinbase_stack: _,
+            local_state:
+                MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
+                    stack_frame: _,
+                    call_stack: _,
+                    transaction_commitment: _,
+                    full_transaction_commitment: _,
+                    excess,
+                    supply_increase,
+                    ledger: _,
+                    success,
+                    account_update_index,
+                    failure_status_tbl: _,
+                    will_succeed,
+                },
+        } = self;
+
+        excess.check(witnesses);
+        supply_increase.check(witnesses);
+        success.check(witnesses);
+        account_update_index.check(witnesses);
+        will_succeed.check(witnesses);
+    }
+}
+
+impl Check for MinaBaseFeeExcessStableV1 {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        let Self(
+            TokenFeeExcess {
+                token: _fee_token_l,
+                amount: fee_excess_l,
+            },
+            TokenFeeExcess {
+                token: _fee_token_r,
+                amount: fee_excess_r,
+            },
+        ) = self;
+
+        fee_excess_l.check(witnesses);
+        fee_excess_r.check(witnesses);
+    }
+}
+
+impl Check for UnsignedExtendedUInt64Int64ForVersionTagsStableV1 {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        // eprintln!("check UnsignedExtendedUInt64Int64ForVersionTagsStableV1 START");
+        const NBITS: usize = u64::BITS as usize;
+
+        let number: u64 = self.as_u64();
+        assert_eq!(NBITS, std::mem::size_of_val(&number) * 8);
+
+        let number: F = number.into();
+        to_field_checked_prime::<F, NBITS>(number, witnesses);
+        // eprintln!("check UnsignedExtendedUInt64Int64ForVersionTagsStableV1 DONE");
+    }
+}
+
+impl Check for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        let Self::SinceGenesis(global_slot) = self;
+        global_slot.check(witnesses);
+    }
+}
+
+impl Check for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        let Self::SinceHardFork(global_slot) = self;
+        global_slot.check(witnesses);
+    }
+}
+
+impl Check for ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        let Self {
+            ledger:
+                MinaBaseEpochLedgerValueStableV1 {
+                    hash: _,
+                    total_currency,
+                },
+            seed: _,
+            start_checkpoint: _,
+            lock_checkpoint: _,
+            epoch_length,
+        } = self;
+
+        total_currency.check(witnesses);
+        epoch_length.check(witnesses);
+    }
+}
+
+impl Check for ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        let Self {
+            ledger:
+                MinaBaseEpochLedgerValueStableV1 {
+                    hash: _,
+                    total_currency,
+                },
+            seed: _,
+            start_checkpoint: _,
+            lock_checkpoint: _,
+            epoch_length,
+        } = self;
+
+        total_currency.check(witnesses);
+        epoch_length.check(witnesses);
+    }
+}
+
+impl Check for ConsensusGlobalSlotStableV1 {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        let Self {
+            slot_number,
+            slots_per_epoch,
+        } = self;
+
+        slot_number.check(witnesses);
+        slots_per_epoch.check(witnesses);
+    }
+}
+
+impl Check for MinaStateProtocolStateBodyValueStableV2 {
+    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+        let MinaStateProtocolStateBodyValueStableV2 {
+            genesis_state_hash: _,
+            blockchain_state:
+                MinaStateBlockchainStateValueStableV2 {
+                    staged_ledger_hash: _,
+                    genesis_ledger_hash: _,
+                    ledger_proof_statement:
+                        MinaStateBlockchainStateValueStableV2LedgerProofStatement {
+                            source,
+                            target,
+                            connecting_ledger_left: _,
+                            connecting_ledger_right: _,
+                            supply_increase,
+                            fee_excess,
+                            sok_digest: _,
+                        },
+                    timestamp,
+                    body_reference: _,
+                },
+            consensus_state:
+                ConsensusProofOfStakeDataConsensusStateValueStableV2 {
+                    blockchain_length,
+                    epoch_count,
+                    min_window_density,
+                    sub_window_densities,
+                    last_vrf_output: _,
+                    total_currency,
+                    curr_global_slot,
+                    global_slot_since_genesis,
+                    staking_epoch_data,
+                    next_epoch_data,
+                    has_ancestor_in_same_checkpoint_window,
+                    block_stake_winner: _,
+                    block_creator: _,
+                    coinbase_receiver: _,
+                    supercharge_coinbase,
+                },
+            constants:
+                MinaBaseProtocolConstantsCheckedValueStableV1 {
+                    k,
+                    slots_per_epoch,
+                    slots_per_sub_window,
+                    delta,
+                    genesis_state_timestamp,
+                },
+        } = self;
+
+        source.check(witnesses);
+        target.check(witnesses);
+        supply_increase.check(witnesses);
+        fee_excess.check(witnesses);
+        timestamp.check(witnesses);
+        blockchain_length.check(witnesses);
+        epoch_count.check(witnesses);
+        min_window_density.check(witnesses);
+        // TODO: Check/assert that length equal `constraint_constants.sub_windows_per_window`
+        for sub_window_density in sub_window_densities {
+            sub_window_density.check(witnesses);
+        }
+        total_currency.check(witnesses);
+        curr_global_slot.check(witnesses);
+        global_slot_since_genesis.check(witnesses);
+        staking_epoch_data.check(witnesses);
+        next_epoch_data.check(witnesses);
+        has_ancestor_in_same_checkpoint_window.check(witnesses);
+        supercharge_coinbase.check(witnesses);
+        k.check(witnesses);
+        slots_per_epoch.check(witnesses);
+        slots_per_sub_window.check(witnesses);
+        delta.check(witnesses);
+        genesis_state_timestamp.check(witnesses);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -331,14 +631,14 @@ mod tests {
 
     #[test]
     fn test_to_field_checked() {
-        let mut witness = Vec::with_capacity(32);
+        let mut witness = Witness::with_capacity(32);
         let f = Fp::from_str("1866").unwrap();
 
         let res = to_field_checked_prime::<_, 32>(f, &mut witness);
 
         assert_eq!(res, (131085.into(), 65636.into(), 1866.into()));
         assert_eq!(
-            witness,
+            witness.aux,
             &[
                 0.into(),
                 0.into(),

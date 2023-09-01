@@ -42,7 +42,7 @@ impl ToFieldElements for ZkappStatement {
 // }
 
 impl ToFieldElements for () {
-    fn to_field_elements(&self, fields: &mut Vec<Fp>) {}
+    fn to_field_elements(&self, _fields: &mut Vec<Fp>) {}
 }
 
 impl ToFieldElements for SokDigest {
