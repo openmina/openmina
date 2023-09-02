@@ -85,6 +85,11 @@ impl<F> ShiftedValue<F>
 where
     F: Field,
 {
+    /// Creates without shifting
+    pub fn new(field: F) -> Self {
+        Self { shifted: field }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L127
     pub fn of_field(field: F, shift: &Shift<F>) -> Self {
         Self {
