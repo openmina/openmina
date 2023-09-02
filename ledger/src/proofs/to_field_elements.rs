@@ -1,3 +1,4 @@
+use ark_ff::Field;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
 
@@ -10,23 +11,23 @@ use crate::{
     },
 };
 
-pub trait ToFieldElements {
-    fn to_field_elements(&self, fields: &mut Vec<Fp>);
+pub trait ToFieldElements<F: Field> {
+    fn to_field_elements(&self, fields: &mut Vec<F>);
 
-    fn to_field_elements_owned(&self) -> Vec<Fp> {
+    fn to_field_elements_owned(&self) -> Vec<F> {
         let mut fields = Vec::with_capacity(1024);
         self.to_field_elements(&mut fields);
         fields
     }
 }
 
-impl ToFieldElements for MinaStateProtocolStateValueStableV2 {
+impl ToFieldElements<Fp> for MinaStateProtocolStateValueStableV2 {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         fields.push(MinaHash::hash(self))
     }
 }
 
-impl ToFieldElements for ZkappStatement {
+impl ToFieldElements<Fp> for ZkappStatement {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         fields.extend(self.to_field_elements())
     }
@@ -41,11 +42,11 @@ impl ToFieldElements for ZkappStatement {
 //     }
 // }
 
-impl ToFieldElements for () {
-    fn to_field_elements(&self, _fields: &mut Vec<Fp>) {}
+impl<F: Field> ToFieldElements<F> for () {
+    fn to_field_elements(&self, _fields: &mut Vec<F>) {}
 }
 
-impl ToFieldElements for SokDigest {
+impl ToFieldElements<Fp> for SokDigest {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         const BITS: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
         for byte in &self.0 {
@@ -66,7 +67,7 @@ impl ToFieldElements for SokDigest {
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/composition_types/composition_types.ml#L714C11-L714C48
 ///
 /// TODO: Fuzz this method, compare with OCaml
-impl<T: ToFieldElements> ToFieldElements for Statement<T> {
+impl<T: ToFieldElements<Fp>> ToFieldElements<Fp> for Statement<T> {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
             source,

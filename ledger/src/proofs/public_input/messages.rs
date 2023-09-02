@@ -104,7 +104,7 @@ impl MessagesForNextWrapProof {
 }
 
 #[derive(Clone, Debug)]
-pub struct MessagesForNextStepProof<'a, AppState: ToFieldElements> {
+pub struct MessagesForNextStepProof<'a, AppState: ToFieldElements<Fp>> {
     pub app_state: &'a AppState,
     pub dlog_plonk_index: &'a PlonkVerificationKeyEvals,
     pub challenge_polynomial_commitments: Vec<CurveAffine<Fp>>,
@@ -113,7 +113,7 @@ pub struct MessagesForNextStepProof<'a, AppState: ToFieldElements> {
 
 impl<AppState> MessagesForNextStepProof<'_, AppState>
 where
-    AppState: ToFieldElements,
+    AppState: ToFieldElements<Fp>,
 {
     /// Implementation of `hash_messages_for_next_step_proof`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L33

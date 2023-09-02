@@ -164,7 +164,7 @@ fn get_message_for_next_step_proof<'a, AppState>(
     app_state: &'a AppState,
 ) -> MessagesForNextStepProof<'a, AppState>
 where
-    AppState: ToFieldElements,
+    AppState: ToFieldElements<Fp>,
 {
     let PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
         app_state: _, // unused
@@ -218,7 +218,7 @@ fn get_prepared_statement<AppState>(
     minimal: &PlonkMinimal,
 ) -> PreparedStatement
 where
-    AppState: ToFieldElements,
+    AppState: ToFieldElements<Fp>,
 {
     let digest = sponge_digest_before_evaluations;
     let sponge_digest_before_evaluations: [u64; 4] = array::from_fn(|i| digest[i].as_u64());
@@ -509,7 +509,7 @@ fn verify_impl<AppState>(
     vk: &VK,
 ) -> bool
 where
-    AppState: ToFieldElements,
+    AppState: ToFieldElements<Fp>,
 {
     let DataForPublicInput {
         evals,

@@ -36,17 +36,11 @@ use crate::{
 use super::to_field_elements::ToFieldElements;
 
 #[derive(Debug)]
-pub struct Witness<F>
-where
-    F: Field + Into<BigInteger256> + From<u64>,
-{
-    aux: Vec<F>,
+pub struct Witness<C: FieldWitness> {
+    aux: Vec<C>,
 }
 
-impl<F> Witness<F>
-where
-    F: Field + Into<BigInteger256> + From<u64>,
-{
+impl<F: FieldWitness> Witness<F> {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             aux: Vec::with_capacity(capacity),
@@ -68,10 +62,23 @@ where
         };
         push
     }
+
+    fn exists<T>(&mut self, data: T) -> T
+    where
+        T: ToFieldElements<F> + Check<F>,
+    {
+        data.to_field_elements(&mut self.aux);
+        data.check(self);
+        data
+    }
+
+    pub fn to_field_checked_prime<const NBITS: usize>(&mut self, scalar: F) -> (F, F, F) {
+        to_field_checked_prime::<F, NBITS>(scalar, self)
+    }
 }
 
-pub trait Check {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>);
+pub trait Check<F: FieldWitness> {
+    fn check(&self, witnesses: &mut Witness<F>);
 }
 
 struct FieldBitsIterator {
@@ -94,12 +101,22 @@ impl Iterator for FieldBitsIterator {
     }
 }
 
-fn field_to_bits<F, const NBITS: usize>(field: F) -> Vec<bool>
+fn field_to_bits<F, const NBITS: usize>(field: F) -> [bool; NBITS]
 where
     F: Field + Into<BigInteger256>,
 {
     let bigint: BigInteger256 = field.into();
-    FieldBitsIterator { index: 0, bigint }.take(NBITS).collect()
+    let mut bits = FieldBitsIterator { index: 0, bigint }.take(NBITS);
+    std::array::from_fn(|_| bits.next().unwrap())
+}
+
+fn bits_msb<F, const NBITS: usize>(field: F) -> [bool; NBITS]
+where
+    F: Field + Into<BigInteger256>,
+{
+    let mut bits = field_to_bits::<_, NBITS>(field);
+    bits.reverse();
+    bits
 }
 
 // TODO: This function is incomplete (compare to OCaml), here it only push witness values
@@ -109,7 +126,7 @@ pub fn to_field_checked_prime<F, const NBITS: usize>(
     witnesses: &mut Witness<F>,
 ) -> (F, F, F)
 where
-    F: Field + Into<BigInteger256> + From<u64>,
+    F: FieldWitness,
 {
     let mut push = witnesses.pusher();
 
@@ -131,11 +148,7 @@ where
         _ => panic!("invalid argument"),
     };
 
-    let bits_msb = {
-        let mut bits = field_to_bits::<_, NBITS>(scalar);
-        bits.reverse();
-        bits
-    };
+    let bits_msb: [bool; NBITS] = bits_msb::<_, NBITS>(scalar);
 
     let nybbles_per_row = 8;
     let bits_per_row = 2 * nybbles_per_row;
@@ -193,7 +206,33 @@ where
     (a, b, n)
 }
 
-impl ToFieldElements for StagedLedgerHash {
+impl ToFieldElements<Fp> for Fp {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        fields.push(*self);
+    }
+}
+
+impl ToFieldElements<Fq> for Fq {
+    fn to_field_elements(&self, fields: &mut Vec<Fq>) {
+        fields.push(*self);
+    }
+}
+
+impl ToFieldElements<Fq> for Fp {
+    fn to_field_elements(&self, fields: &mut Vec<Fq>) {
+        let field: BigInteger256 = (*self).into();
+        fields.push(field.into());
+    }
+}
+
+impl ToFieldElements<Fp> for Fq {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let field: BigInteger256 = (*self).into();
+        fields.push(field.into());
+    }
+}
+
+impl ToFieldElements<Fp> for StagedLedgerHash {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
             non_snark,
@@ -213,14 +252,14 @@ impl ToFieldElements for StagedLedgerHash {
     }
 }
 
-impl ToFieldElements for ByteString {
+impl ToFieldElements<Fp> for ByteString {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let slice: &[u8] = self;
         slice.to_field_elements(fields);
     }
 }
 
-impl ToFieldElements for &'_ [u8] {
+impl ToFieldElements<Fp> for &'_ [u8] {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         const BITS: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
         fields.extend(
@@ -230,7 +269,7 @@ impl ToFieldElements for &'_ [u8] {
     }
 }
 
-impl ToFieldElements for EpochData {
+impl ToFieldElements<Fp> for EpochData {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
             ledger:
@@ -253,7 +292,7 @@ impl ToFieldElements for EpochData {
     }
 }
 
-impl ToFieldElements for NonZeroCurvePoint {
+impl ToFieldElements<Fp> for NonZeroCurvePoint {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let NonZeroCurvePointUncompressedStableV1 { x, is_odd } = self.inner();
 
@@ -262,7 +301,7 @@ impl ToFieldElements for NonZeroCurvePoint {
     }
 }
 
-impl ToFieldElements for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
+impl ToFieldElements<Fp> for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             blockchain_length,
@@ -318,7 +357,7 @@ impl ToFieldElements for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
     }
 }
 
-impl ToFieldElements for MinaBaseProtocolConstantsCheckedValueStableV1 {
+impl ToFieldElements<Fp> for MinaBaseProtocolConstantsCheckedValueStableV1 {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
             k,
@@ -336,7 +375,7 @@ impl ToFieldElements for MinaBaseProtocolConstantsCheckedValueStableV1 {
     }
 }
 
-impl ToFieldElements for MinaStateBlockchainStateValueStableV2 {
+impl ToFieldElements<Fp> for MinaStateBlockchainStateValueStableV2 {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
             staged_ledger_hash,
@@ -357,7 +396,7 @@ impl ToFieldElements for MinaStateBlockchainStateValueStableV2 {
     }
 }
 
-impl ToFieldElements for MinaStateProtocolStateBodyValueStableV2 {
+impl ToFieldElements<Fp> for MinaStateProtocolStateBodyValueStableV2 {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let MinaStateProtocolStateBodyValueStableV2 {
             genesis_state_hash,
@@ -373,20 +412,32 @@ impl ToFieldElements for MinaStateProtocolStateBodyValueStableV2 {
     }
 }
 
-impl Check for SgnStableV1 {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, _witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for SgnStableV1 {
+    fn check(&self, _witnesses: &mut Witness<F>) {
         // Does not modify the witness
     }
 }
 
-impl Check for bool {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, _witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for bool {
+    fn check(&self, _witnesses: &mut Witness<F>) {
         // Does not modify the witness
     }
 }
 
-impl Check for CurrencyAmountStableV1 {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for Fp {
+    fn check(&self, _witnesses: &mut Witness<F>) {
+        // Does not modify the witness
+    }
+}
+
+impl<F: FieldWitness> Check<F> for Fq {
+    fn check(&self, _witnesses: &mut Witness<F>) {
+        // Does not modify the witness
+    }
+}
+
+impl<F: FieldWitness> Check<F> for CurrencyAmountStableV1 {
+    fn check(&self, witnesses: &mut Witness<F>) {
         // eprintln!("check CurrencyAmountStableV1 START");
         const NBITS: usize = u64::BITS as usize;
 
@@ -399,24 +450,24 @@ impl Check for CurrencyAmountStableV1 {
     }
 }
 
-impl Check for SignedAmount {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for SignedAmount {
+    fn check(&self, witnesses: &mut Witness<F>) {
         let Self { magnitude, sgn } = self;
         magnitude.check(witnesses);
         sgn.check(witnesses);
     }
 }
 
-impl Check for MinaStateBlockchainStateValueStableV2SignedAmount {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for MinaStateBlockchainStateValueStableV2SignedAmount {
+    fn check(&self, witnesses: &mut Witness<F>) {
         let Self { magnitude, sgn } = self;
         magnitude.check(witnesses);
         sgn.check(witnesses);
     }
 }
 
-impl Check for UnsignedExtendedUInt32StableV1 {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for UnsignedExtendedUInt32StableV1 {
+    fn check(&self, witnesses: &mut Witness<F>) {
         // eprintln!("check UnsignedExtendedUInt32StableV1 START");
         const NBITS: usize = u32::BITS as usize;
 
@@ -429,8 +480,8 @@ impl Check for UnsignedExtendedUInt32StableV1 {
     }
 }
 
-impl Check for MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
+    fn check(&self, witnesses: &mut Witness<F>) {
         let Self {
             first_pass_ledger: _,
             second_pass_ledger: _,
@@ -459,8 +510,8 @@ impl Check for MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
     }
 }
 
-impl Check for MinaBaseFeeExcessStableV1 {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for MinaBaseFeeExcessStableV1 {
+    fn check(&self, witnesses: &mut Witness<F>) {
         let Self(
             TokenFeeExcess {
                 token: _fee_token_l,
@@ -477,8 +528,8 @@ impl Check for MinaBaseFeeExcessStableV1 {
     }
 }
 
-impl Check for UnsignedExtendedUInt64Int64ForVersionTagsStableV1 {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for UnsignedExtendedUInt64Int64ForVersionTagsStableV1 {
+    fn check(&self, witnesses: &mut Witness<F>) {
         // eprintln!("check UnsignedExtendedUInt64Int64ForVersionTagsStableV1 START");
         const NBITS: usize = u64::BITS as usize;
 
@@ -491,22 +542,24 @@ impl Check for UnsignedExtendedUInt64Int64ForVersionTagsStableV1 {
     }
 }
 
-impl Check for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
+    fn check(&self, witnesses: &mut Witness<F>) {
         let Self::SinceGenesis(global_slot) = self;
         global_slot.check(witnesses);
     }
 }
 
-impl Check for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
+    fn check(&self, witnesses: &mut Witness<F>) {
         let Self::SinceHardFork(global_slot) = self;
         global_slot.check(witnesses);
     }
 }
 
-impl Check for ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F>
+    for ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1
+{
+    fn check(&self, witnesses: &mut Witness<F>) {
         let Self {
             ledger:
                 MinaBaseEpochLedgerValueStableV1 {
@@ -524,8 +577,10 @@ impl Check for ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStabl
     }
 }
 
-impl Check for ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F>
+    for ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1
+{
+    fn check(&self, witnesses: &mut Witness<F>) {
         let Self {
             ledger:
                 MinaBaseEpochLedgerValueStableV1 {
@@ -543,8 +598,8 @@ impl Check for ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1
     }
 }
 
-impl Check for ConsensusGlobalSlotStableV1 {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for ConsensusGlobalSlotStableV1 {
+    fn check(&self, witnesses: &mut Witness<F>) {
         let Self {
             slot_number,
             slots_per_epoch,
@@ -555,8 +610,8 @@ impl Check for ConsensusGlobalSlotStableV1 {
     }
 }
 
-impl Check for MinaStateProtocolStateBodyValueStableV2 {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, witnesses: &mut Witness<F>) {
+impl<F: FieldWitness> Check<F> for MinaStateProtocolStateBodyValueStableV2 {
+    fn check(&self, witnesses: &mut Witness<F>) {
         let MinaStateProtocolStateBodyValueStableV2 {
             genesis_state_hash: _,
             blockchain_state:
@@ -631,7 +686,11 @@ impl Check for MinaStateProtocolStateBodyValueStableV2 {
     }
 }
 
-pub trait FieldCurve: Field + Send + Sync + std::fmt::Debug {
+/// All the generics we need during witness generation
+pub trait FieldWitness
+where
+    Self: Field + Send + Sync + Into<BigInteger256> + ToFieldElements<Self> + std::fmt::Debug,
+{
     type Scalar: Field + std::fmt::Debug;
     type Affine: AffineCurve<Projective = Self::Projective, BaseField = Self, ScalarField = Self::Scalar>
         + Into<GroupAffine<Self::Parameters>>
@@ -643,28 +702,37 @@ pub trait FieldCurve: Field + Send + Sync + std::fmt::Debug {
         + std::fmt::Debug;
 }
 
-impl FieldCurve for Fp {
+impl FieldWitness for Fp {
     type Scalar = Fq;
     type Parameters = PallasParameters;
     type Affine = GroupAffine<Self::Parameters>;
     type Projective = ProjectivePallas;
 }
 
-impl FieldCurve for Fq {
+impl FieldWitness for Fq {
     type Scalar = Fp;
     type Parameters = VestaParameters;
     type Affine = GroupAffine<Self::Parameters>;
     type Projective = ProjectiveVesta;
 }
 
-// https://github.com/o1-labs/snarky/blob/7edf13628872081fd7cad154de257dad8b9ba621/snarky_curve/snarky_curve.ml#L219-L229
-pub struct InnerCurve<C: FieldCurve> {
+/// Rust calls:
+/// https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/crypto/kimchi_bindings/stubs/src/projective.rs
+/// Conversion to/from OCaml:
+/// https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/crypto/kimchi_bindings/stubs/src/arkworks/group_projective.rs
+/// Typ:
+/// https://github.com/o1-labs/snarky/blob/7edf13628872081fd7cad154de257dad8b9ba621/snarky_curve/snarky_curve.ml#L219-L229
+///
+#[derive(
+    derive_more::Add, derive_more::Sub, derive_more::Neg, derive_more::Mul, derive_more::Div,
+)]
+pub struct InnerCurve<C: FieldWitness> {
     // ProjectivePallas
     // ProjectiveVesta
     inner: C::Projective,
 }
 
-impl<C: FieldCurve + std::fmt::Debug> std::fmt::Debug for InnerCurve<C> {
+impl<C: FieldWitness> std::fmt::Debug for InnerCurve<C> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // OCaml uses `to_affine_exn` when those are printed using `sexp`
         // https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/snark_params/snark_params.ml#L149
@@ -676,80 +744,115 @@ impl<C: FieldCurve + std::fmt::Debug> std::fmt::Debug for InnerCurve<C> {
     }
 }
 
-impl<C: FieldCurve> InnerCurve<C> {
+impl<C: FieldWitness> InnerCurve<C> {
     fn one() -> Self {
         let inner = C::Projective::prime_subgroup_generator();
         Self { inner }
     }
 
+    fn double(&self) -> Self {
+        Self {
+            inner: self.inner.double(),
+        }
+    }
+
+    fn scale<S>(&self, scale: S) -> Self
+    where
+        S: Into<BigInteger256>,
+    {
+        let scale: BigInteger256 = scale.into();
+        Self {
+            inner: self.inner.mul(scale),
+        }
+    }
+
     fn to_affine(&self) -> GroupAffine<C::Parameters> {
-        // Both `affine` are the same type, but we use `into()` to make it non-generic
+        // Both `affine` below are the same type, but we use `into()` to make it non-generic
         let affine: C::Affine = self.inner.into_affine();
         let affine: GroupAffine<C::Parameters> = affine.into();
-        // OCaml panic on infinity
+        // OCaml panics on infinity
         // https://github.com/MinaProtocol/mina/blob/3e58e92ea9aeddb41ad3b6e494279891c5f9aa09/src/lib/crypto/kimchi_backend/common/curve.ml#L180
         assert!(!affine.infinity);
         affine
     }
 
-    // fn of_affine(affine: <C::Projective as ProjectiveCurve>::Affine) -> Self {
     fn of_affine(affine: GroupAffine<C::Parameters>) -> Self {
-        // Both `inner` are the same type, but we use `into()` to make it generic
+        // Both `inner` below are the same type, but we use `into()` to make it generic
         let inner: GroupProjective<C::Parameters> = affine.into_projective();
         let inner: C::Projective = inner.into();
         Self { inner }
     }
 }
 
-impl ToFieldElements for InnerCurve<Fp> {
-    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+impl<F: FieldWitness> ToFieldElements<F> for InnerCurve<F> {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
         let GroupAffine { x, y, .. } = self.to_affine();
         fields.push(x);
         fields.push(y);
     }
 }
 
-impl ToFieldElements for InnerCurve<Fq> {
-    fn to_field_elements(&self, _fields: &mut Vec<Fp>) {
-        todo!()
-        // let GroupAffine { x, y, .. } = self.to_affine();
-        // fields.push(x);
+impl<F: FieldWitness> Check<F> for InnerCurve<F> {
+    // TODO: This function is incomplete (compare to OCaml), here it only push witness values
+    // https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/snarky_curves/snarky_curves.ml#L167
+    fn check(&self, witnesses: &mut Witness<F>) {
+        let GroupAffine { x, y, .. } = self.to_affine();
+        let x2 = field::square(x, witnesses);
+        let _x3 = field::mul(x2, x, witnesses);
+        // TODO
     }
 }
 
-impl<C: FieldCurve> Check for InnerCurve<C> {
-    fn check<F: Field + Into<BigInteger256> + From<u64>>(&self, _witnesses: &mut Witness<F>) {
-        todo!()
-        // let GroupAffine { x, y, .. } = self.to_affine();
+mod field {
+    use super::*;
+
+    // TODO: This function is incomplete (compare to OCaml), here it only push witness values
+    // https://github.com/o1-labs/snarky/blob/7edf13628872081fd7cad154de257dad8b9ba621/src/base/utils.ml#L99
+    pub fn square<F>(field: F, witnesses: &mut Witness<F>) -> F
+    where
+        F: FieldWitness,
+    {
+        let mut push = witnesses.pusher();
+        push(field.square())
+    }
+
+    pub fn mul<F>(x: F, y: F, witnesses: &mut Witness<F>) -> F
+    where
+        F: FieldWitness,
+    {
+        let mut push = witnesses.pusher();
+        push(x * y)
     }
 }
 
 // TODO: This function is incomplete (compare to OCaml), here it only push witness values
 #[allow(unused)]
-fn dummy_constraints<F>(witnesses: &mut Witness<F>)
+fn dummy_constraints<F>(w: &mut Witness<F>)
 where
-    F: Field + Into<BigInteger256> + From<u64> + FieldCurve,
+    F: FieldWitness + Check<F>,
 {
-    let mut push = witnesses.pusher();
+    let x: F = w.exists(F::from(3u64));
+    let g: InnerCurve<F> = w.exists(InnerCurve::<F>::one());
 
-    let x: F = push(F::from(3u64));
+    let _ = w.to_field_checked_prime::<16>(x);
 
-    let g = InnerCurve::<F>::one();
-    dbg!(&g);
-    let a: GroupAffine<F::Parameters> = g.to_affine();
+    dbg!(w);
 
-    let x: F = a.x;
-    let y: F = a.y;
+    // dbg!(&g);
+    // let a: GroupAffine<F::Parameters> = g.to_affine();
 
-    let a: ProjectivePallas = ProjectivePallas::prime_subgroup_generator();
-    dbg!(a);
+    // let x: F = a.x;
+    // let y: F = a.y;
 
-    // use mina_curves::pasta::Pallas;
-    // let proj = Into::<Pallas>::into(a).into_projective();
+    // let a: ProjectivePallas = ProjectivePallas::prime_subgroup_generator();
     // dbg!(a);
 
-    let affine: GroupAffine<PallasParameters> = a.into_affine();
-    dbg!(affine);
+    // // use mina_curves::pasta::Pallas;
+    // // let proj = Into::<Pallas>::into(a).into_projective();
+    // // dbg!(a);
+
+    // let affine: GroupAffine<PallasParameters> = a.into_affine();
+    // dbg!(affine);
 
     // let b = ProjectiveVesta::prime_subgroup_generator();
     // dbg!(b);
