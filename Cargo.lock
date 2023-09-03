@@ -4279,6 +4279,7 @@ name = "replay_dynamic_effects"
 version = "0.1.0"
 dependencies = [
  "cli",
+ "shared",
  "snarker",
 ]
 
