@@ -1,6 +1,5 @@
-use cli::commands::snarker::SnarkerService;
-
 use ::snarker::{ActionWithMeta, Store};
+use cli::commands::snarker::SnarkerService;
 
 pub mod ret {
     macro_rules! define {
@@ -28,8 +27,12 @@ pub mod ret {
 
 #[no_mangle]
 extern "C" fn replay_dynamic_effects(
-    #[allow(unused_variables)] store: &mut Store<SnarkerService>,
-    #[allow(unused_variables)] action: &ActionWithMeta,
+    store: &mut Store<SnarkerService>,
+    action: &ActionWithMeta,
 ) -> u8 {
+    let (action, meta) = (action.action(), action.meta().clone());
+    let state = store.state.get();
+    let _ = (state, meta, action);
+
     ret::CONTINUE
 }

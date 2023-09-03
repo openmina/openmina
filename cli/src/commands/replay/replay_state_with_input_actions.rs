@@ -177,7 +177,14 @@ fn dyn_effects(store: &mut Store<SnarkerService>, action: &ActionWithMeta) {
                     .as_ref()
                     .unwrap()
                     .replay_dynamic_effects_lib;
-                let query_modified = || std::fs::metadata(lib_path).unwrap().modified().unwrap();
+                let query_modified = || match std::fs::metadata(lib_path).and_then(|v| v.modified())
+                {
+                    Err(err) => {
+                        eprintln!("Error querying replay_dynamic_effects_lib modified time: {err}");
+                        redux::SystemTime::UNIX_EPOCH
+                    }
+                    Ok(v) => v,
+                };
 
                 let initial_time = query_modified();
                 let sleep_dur = std::time::Duration::from_millis(100);
@@ -235,7 +242,7 @@ impl Drop for DynEffectsLib {
 }
 
 pub fn check_env(record_env: &BuildEnv, replay_env: &BuildEnv) {
-    let is_git_same = record_env.git == replay_env.git;
+    let is_git_same = record_env.git.commit_hash == replay_env.git.commit_hash;
     let is_cargo_same = record_env.cargo == replay_env.cargo;
     let is_rustc_same = record_env.rustc == replay_env.rustc;
 

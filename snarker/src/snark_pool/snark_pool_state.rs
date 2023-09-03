@@ -164,7 +164,6 @@ impl SnarkPoolState {
             .map_or(true, |snark| snark.work < commitment.commitment);
 
         is_timed_out && didnt_deliver
-        // TODO(binier): maybe check tie-breaker as well?
     }
 
     pub fn timed_out_commitments_iter(

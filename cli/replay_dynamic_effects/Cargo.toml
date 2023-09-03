@@ -8,5 +8,6 @@ crate-type = ["dylib"]
 name = "replay_dynamic_effects"
 
 [dependencies]
-cli = { path = "../" }
+shared = { path = "../../node/shared" }
 snarker = { path = "../../snarker", features = ["replay"] }
+cli = { path = "../" }
