@@ -1,5 +1,5 @@
+use openmina_core::snark::Snark;
 use serde::{Deserialize, Serialize};
-use shared::snark::Snark;
 
 use crate::{P2pState, PeerId};
 
