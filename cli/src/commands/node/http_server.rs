@@ -354,6 +354,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         .or(snarker_job_commit)
         .or(snarker_job_spec)
         .or(snark_workers)
+        .or(super::graphql::routes(rpc_sender))
         .with(cors);
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }
