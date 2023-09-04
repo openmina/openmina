@@ -1,5 +1,5 @@
+use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
-use shared::block::ArcBlockWithHash;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pChannelsBestTipState {

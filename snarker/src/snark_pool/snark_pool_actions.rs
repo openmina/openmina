@@ -1,7 +1,7 @@
 use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
 use ledger::scan_state::scan_state::AvailableJobMessage;
+use openmina_core::snark::{Snark, SnarkJobCommitment, SnarkJobId};
 use serde::{Deserialize, Serialize};
-use shared::snark::{Snark, SnarkJobCommitment, SnarkJobId};
 
 use crate::p2p::PeerId;
 

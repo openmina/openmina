@@ -23,10 +23,10 @@ mod rpc_impls;
 use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
 use ledger::scan_state::scan_state::AvailableJobMessage;
 use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
+pub use openmina_core::requests::{RpcId, RpcIdType};
+use openmina_core::snark::SnarkJobId;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-pub use shared::requests::{RpcId, RpcIdType};
-use shared::snark::SnarkJobId;
 
 use crate::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkSpecError,

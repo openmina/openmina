@@ -1,6 +1,6 @@
 use mina_p2p_messages::v2::StateHash;
+use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
-use shared::block::ArcBlockWithHash;
 
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;

@@ -29,11 +29,11 @@ use mina_p2p_messages::{
         TransactionSnarkScanStateStableV2,
     },
 };
-use serde::{Deserialize, Serialize};
-use shared::{
+use openmina_core::{
     block::ArcBlock,
     snark::{Snark, SnarkJobId},
 };
+use serde::{Deserialize, Serialize};
 
 pub type P2pRpcId = u32;
 

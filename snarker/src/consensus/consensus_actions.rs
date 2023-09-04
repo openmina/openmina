@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{MinaBlockBlockStableV2, StateHash};
+use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
-use shared::block::ArcBlockWithHash;
 
 use crate::consensus::ConsensusBlockStatus;
 use crate::snark::block_verify::SnarkBlockVerifyId;

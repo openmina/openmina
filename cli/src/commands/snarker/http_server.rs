@@ -9,7 +9,7 @@ use warp::{
     Filter, Reply,
 };
 
-use shared::snark::SnarkJobId;
+use openmina_core::snark::SnarkJobId;
 use snarker::{
     p2p::{
         connection::{

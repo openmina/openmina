@@ -5,7 +5,7 @@ use std::time::Duration;
 use binprot::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::NetworkPoolSnarkPoolDiffVersionedStableV2;
 use multihash::{Blake2b256, Hasher};
-use shared::snark::Snark;
+use openmina_core::snark::Snark;
 use tokio::sync::mpsc;
 
 use libp2p::core::muxing::StreamMuxerBox;
@@ -390,8 +390,8 @@ impl Libp2pService {
             SwarmEvent::ConnectionEstablished {
                 peer_id, endpoint, ..
             } => {
-                shared::log::info!(
-                    shared::log::system_time();
+                openmina_core::log::info!(
+                    openmina_core::log::system_time();
                     kind = "PeerConnected",
                     summary = format!("peer_id: {}", peer_id),
                     peer_id = peer_id.to_string()
@@ -409,8 +409,8 @@ impl Libp2pService {
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
 
                 // TODO(binier): move to log effects
-                shared::log::warn!(
-                    shared::log::system_time();
+                openmina_core::log::warn!(
+                    openmina_core::log::system_time();
                     kind = "PeerDisconnected",
                     summary = format!("peer_id: {}", peer_id),
                     peer_id = peer_id.to_string(),
@@ -489,16 +489,16 @@ impl Libp2pService {
                     Self::handle_event_rpc(swarm, peer_id, event);
                 }
                 _ => {
-                    shared::log::trace!(
-                        shared::log::system_time();
+                    openmina_core::log::trace!(
+                        openmina_core::log::system_time();
                         kind = "IgnoredLibp2pBehaviorEvent",
                         event = format!("{:?}", event)
                     );
                 }
             },
             event => {
-                shared::log::trace!(
-                    shared::log::system_time();
+                openmina_core::log::trace!(
+                    openmina_core::log::system_time();
                     kind = "IgnoredLibp2pSwarmEvent",
                     event = format!("{:?}", event)
                 );

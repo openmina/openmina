@@ -12,8 +12,8 @@ use sync::{SyncStats, SyncStatsSnapshot, SyncingLedger};
 
 use std::collections::VecDeque;
 
+use openmina_core::block::{ArcBlockWithHash, Block, BlockWithHash};
 use redux::{ActionMeta, ActionWithMeta, Timestamp};
-use shared::block::{ArcBlockWithHash, Block, BlockWithHash};
 
 use crate::transition_frontier::sync::TransitionFrontierSyncBlockState;
 use crate::ActionKind;

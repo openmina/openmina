@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, VecDeque};
 
-use shared::block::ArcBlockWithHash;
+use openmina_core::block::ArcBlockWithHash;
 
 use crate::TransitionFrontierConfig;
 

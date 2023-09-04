@@ -1,4 +1,4 @@
-use shared::snark::Snark;
+use openmina_core::snark::Snark;
 
 use crate::PeerId;
 

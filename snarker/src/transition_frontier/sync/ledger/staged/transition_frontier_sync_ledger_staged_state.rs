@@ -2,9 +2,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
+use openmina_core::block::ArcBlockWithHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-use shared::block::ArcBlockWithHash;
 
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;

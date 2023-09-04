@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
+use openmina_core::snark::{Snark, SnarkInfo, SnarkJobId};
 use serde::{Deserialize, Serialize};
-use shared::snark::{Snark, SnarkInfo, SnarkJobId};
 
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;

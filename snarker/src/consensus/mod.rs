@@ -28,21 +28,21 @@ pub fn is_short_range_fork(a: &MinaConsensusState, b: &MinaConsensusState) -> bo
         if s1.epoch_count.as_u32() == s2.epoch_count.as_u32() + 1
             && s2_epoch_slot >= slots_per_epoch * 2 / 3
         {
-            shared::log::debug!(shared::log::system_time(); kind = "is_short_range_fork", msg = format!("s2 is 1 epoch behind and not in seed update range: {} vs {}", s1.staking_epoch_data.lock_checkpoint, s2.next_epoch_data.lock_checkpoint));
+            openmina_core::log::debug!(openmina_core::log::system_time(); kind = "is_short_range_fork", msg = format!("s2 is 1 epoch behind and not in seed update range: {} vs {}", s1.staking_epoch_data.lock_checkpoint, s2.next_epoch_data.lock_checkpoint));
             // S1 is one epoch ahead of S2 and S2 is not in the seed update range
             s1.staking_epoch_data.lock_checkpoint == s2.next_epoch_data.lock_checkpoint
         } else {
-            shared::log::debug!(shared::log::system_time(); kind = "is_short_range_fork", msg = format!("chains are from different epochs"));
+            openmina_core::log::debug!(openmina_core::log::system_time(); kind = "is_short_range_fork", msg = format!("chains are from different epochs"));
             false
         }
     };
 
-    shared::log::debug!(shared::log::system_time(); kind = "is_short_range_fork", msg = format!("epoch count: {} vs {}", a.epoch_count.as_u32(), b.epoch_count.as_u32()));
+    openmina_core::log::debug!(openmina_core::log::system_time(); kind = "is_short_range_fork", msg = format!("epoch count: {} vs {}", a.epoch_count.as_u32(), b.epoch_count.as_u32()));
     if a.epoch_count == b.epoch_count {
         let a_prev_lock_checkpoint = &a.staking_epoch_data.lock_checkpoint;
         let b_prev_lock_checkpoint = &b.staking_epoch_data.lock_checkpoint;
         // Simple case: blocks have same previous epoch, so compare previous epochs' lock_checkpoints
-        shared::log::debug!(shared::log::system_time(); kind = "is_short_range_fork", msg = format!("checkpoints: {} vs {}", a_prev_lock_checkpoint, b_prev_lock_checkpoint));
+        openmina_core::log::debug!(openmina_core::log::system_time(); kind = "is_short_range_fork", msg = format!("checkpoints: {} vs {}", a_prev_lock_checkpoint, b_prev_lock_checkpoint));
         a_prev_lock_checkpoint == b_prev_lock_checkpoint
     } else {
         // Check for previous epoch case using both orientations

@@ -6,7 +6,7 @@ use mina_p2p_messages::v2::{
 };
 use serde::{Deserialize, Serialize};
 
-use shared::block::{ArcBlockWithHash, BlockWithHash};
+use openmina_core::block::{ArcBlockWithHash, BlockWithHash};
 
 use crate::snark::block_verify::SnarkBlockVerifyId;
 

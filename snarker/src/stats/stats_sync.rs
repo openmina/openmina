@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 
 use mina_p2p_messages::v2::{LedgerHash, StateHash};
+use openmina_core::block::ArcBlockWithHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-use shared::block::ArcBlockWithHash;
 
 use crate::transition_frontier::sync::TransitionFrontierSyncBlockState;
 

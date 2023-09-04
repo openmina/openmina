@@ -1,8 +1,8 @@
+use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
-use shared::block::ArcBlockWithHash;
 use std::collections::{BTreeMap, BTreeSet};
 
-use shared::requests::RpcId;
+use openmina_core::requests::RpcId;
 
 use crate::channels::rpc::P2pRpcId;
 use crate::channels::{ChannelId, P2pChannelsState};

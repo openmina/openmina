@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use mina_p2p_messages::v2::{LedgerHash, MinaStateProtocolStateValueStableV2, StateHash};
+use openmina_core::block::ArcBlockWithHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-use shared::block::ArcBlockWithHash;
 
 use super::snarked::TransitionFrontierSyncLedgerSnarkedState;
 use super::staged::TransitionFrontierSyncLedgerStagedState;

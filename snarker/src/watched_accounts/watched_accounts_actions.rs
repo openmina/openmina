@@ -3,8 +3,8 @@ use std::sync::Arc;
 use mina_p2p_messages::v2::{
     MinaBaseAccountBinableArgStableV2, MinaBlockBlockStableV2, NonZeroCurvePoint, StateHash,
 };
+use openmina_core::block::BlockWithHash;
 use serde::{Deserialize, Serialize};
-use shared::block::BlockWithHash;
 
 use crate::p2p::PeerId;
 
