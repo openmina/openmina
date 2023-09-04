@@ -60,7 +60,9 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
                 summary,
             }) {
                 let timestamp_ms = meta.time_as_nanos() / 1_000_000;
-                let config = &store.state().config;
+                let Some(config) = store.state.get().config.snarker.as_ref() else {
+                    return;
+                };
                 store.dispatch(SnarkPoolJobCommitmentAddAction {
                     commitment: SnarkJobCommitment::new(
                         timestamp_ms,
@@ -75,8 +77,11 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
         SnarkPoolAction::CommitmentAdd(a) => {
             let state = store.state();
             if let Some(job_id) = state.external_snark_worker.working_job_id() {
+                let Some(config) = store.state.get().config.snarker.as_ref() else {
+                    return;
+                };
                 if &a.commitment.job_id == job_id
-                    && &a.commitment.snarker != state.config.public_key.as_ref()
+                    && &a.commitment.snarker != config.public_key.as_ref()
                 {
                     store.dispatch(ExternalSnarkWorkerCancelWorkAction {});
                 }

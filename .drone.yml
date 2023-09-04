@@ -69,25 +69,25 @@ steps:
     image: openmina/mina-snark-worker-prover:0.0.8
     detach: true
     commands:
-      - target/release/openmina snarker -p 10000 --chain-id $CHAIN_ID -k $OPENMINA1_SNARKER_KEY -s $OPENMINA1_SK
+      - target/release/openmina node -p 10000 --chain-id $CHAIN_ID --run-snarker $OPENMINA1_SNARKER_KEY -s $OPENMINA1_SK
           --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /$OPENMINA2_ID/http/openmina2/10000 /$OPENMINA3_ID/http/openmina3/10000
-          -e cli/bin/snark-worker -v Debug
+          --snarker-exe-path cli/bin/snark-worker -v Debug
 
   - name: openmina2
     image: openmina/mina-snark-worker-prover:0.0.8
     detach: true
     commands:
-      - target/release/openmina snarker -p 10000 --chain-id $CHAIN_ID -k $OPENMINA2_SNARKER_KEY -s $OPENMINA2_SK
+      - target/release/openmina node -p 10000 --chain-id $CHAIN_ID --run-snarker $OPENMINA2_SNARKER_KEY -s $OPENMINA2_SK
           --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /$OPENMINA1_ID/http/openmina1/10000 /$OPENMINA3_ID/http/openmina3/10000
-          -e cli/bin/snark-worker -v Debug
+          --snarker-exe-path cli/bin/snark-worker -v Debug
 
   - name: openmina3
     image: openmina/mina-snark-worker-prover:0.0.8
     detach: true
     commands:
-      - target/release/openmina snarker -p 10000 --chain-id $CHAIN_ID -k $OPENMINA3_SNARKER_KEY -s $OPENMINA3_SK
+      - target/release/openmina node -p 10000 --chain-id $CHAIN_ID --run-snarker $OPENMINA3_SNARKER_KEY -s $OPENMINA3_SK
           --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /$OPENMINA1_ID/http/openmina1/10000 /$OPENMINA2_ID/http/openmina2/10000
-          -e cli/bin/snark-worker -v Debug
+          --snarker-exe-path cli/bin/snark-worker -v Debug
 
   - name: test-bootstrap
     image: vladsimplestakingcom/bootstrap-rr:latest

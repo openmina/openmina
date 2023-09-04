@@ -8,7 +8,7 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 use tokio::sync::mpsc;
 
-use crate::commands::snarker::{ReplayerState, RpcService, SnarkerService};
+use crate::commands::node::{NodeService, ReplayerState, RpcService};
 
 #[derive(Debug, clap::Args)]
 /// Replay node using initial state and input actions.
@@ -26,7 +26,7 @@ pub struct ReplayStateWithInputActions {
 
 impl ReplayStateWithInputActions {
     pub fn run(self) -> Result<(), crate::CommandError> {
-        crate::commands::snarker::tracing::initialize(self.verbosity);
+        crate::commands::node::tracing::initialize(self.verbosity);
 
         eprintln!(
             "replaying node based on initial state and actions from the dir: {}",
@@ -52,7 +52,7 @@ impl ReplayStateWithInputActions {
             state
         };
 
-        let service = SnarkerService {
+        let service = NodeService {
             rng: StdRng::seed_from_u64(initial_state.rng_seed),
             event_sender: mpsc::unbounded_channel().0,
             p2p_event_sender: mpsc::unbounded_channel().0,
@@ -73,8 +73,8 @@ impl ReplayStateWithInputActions {
             }),
         };
 
-        let mut snarker = ::node::Snarker::new(state, service, Some(replayer_effects));
-        let store = snarker.store_mut();
+        let mut node = ::node::Node::new(state, service, Some(replayer_effects));
+        let store = node.store_mut();
 
         let replay_env = BuildEnv::get();
         check_env(&store.state().config.build, &replay_env);
@@ -136,7 +136,7 @@ impl ReplayStateWithInputActions {
     }
 }
 
-fn replayer_effects(store: &mut Store<SnarkerService>, action: ActionWithMeta) {
+fn replayer_effects(store: &mut Store<NodeService>, action: ActionWithMeta) {
     dyn_effects(store, &action);
 
     let replayer = store.service.replayer.as_mut().unwrap();
@@ -151,7 +151,7 @@ fn replayer_effects(store: &mut Store<SnarkerService>, action: ActionWithMeta) {
     node::effects(store, action)
 }
 
-fn dyn_effects(store: &mut Store<SnarkerService>, action: &ActionWithMeta) {
+fn dyn_effects(store: &mut Store<NodeService>, action: &ActionWithMeta) {
     DYN_EFFECTS_LIB.with(move |cell| loop {
         let mut opt = cell.borrow_mut();
         let fun = match opt.as_ref() {
@@ -204,7 +204,7 @@ thread_local! {
 
 struct DynEffectsLib {
     handle: *mut nix::libc::c_void,
-    fun: fn(&mut Store<SnarkerService>, &ActionWithMeta) -> u8,
+    fun: fn(&mut Store<NodeService>, &ActionWithMeta) -> u8,
 }
 
 impl DynEffectsLib {

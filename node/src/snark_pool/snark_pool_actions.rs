@@ -39,7 +39,11 @@ pub struct SnarkPoolAutoCreateCommitmentAction {}
 
 impl redux::EnablingCondition<crate::State> for SnarkPoolAutoCreateCommitmentAction {
     fn is_enabled(&self, #[allow(unused_variables)] state: &crate::State) -> bool {
-        state.config.job_commitments.auto_commit
+        state
+            .config
+            .snarker
+            .as_ref()
+            .map_or(false, |v| v.auto_commit)
     }
 }
 
@@ -50,7 +54,7 @@ pub struct SnarkPoolCommitmentCreateAction {
 
 impl redux::EnablingCondition<crate::State> for SnarkPoolCommitmentCreateAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        state.snark_pool.should_create_commitment(&self.job_id)
+        state.config.snarker.is_some() && state.snark_pool.should_create_commitment(&self.job_id)
     }
 }
 

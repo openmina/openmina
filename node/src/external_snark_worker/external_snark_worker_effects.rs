@@ -19,13 +19,12 @@ pub fn external_snark_worker_effects<S: crate::Service>(
     let (action, _) = action.split();
     match action {
         ExternalSnarkWorkerAction::Start(_) => {
-            let config = &store.state().config;
-            let Some(path) = config.path.as_ref().cloned() else {
+            let Some(config) = &store.state.get().config.snarker else {
                 return;
             };
             let public_key = config.public_key.clone().into();
             let fee = config.fee.clone();
-            if let Err(err) = store.service().start(path, public_key, fee) {
+            if let Err(err) = store.service.start(&config.path, public_key, fee) {
                 store.dispatch(ExternalSnarkWorkerErrorAction {
                     error: err,
                     permanent: true,
@@ -74,7 +73,9 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             }
         }
         ExternalSnarkWorkerAction::WorkResult(action) => {
-            let config = &store.state().config;
+            let Some(config) = &store.state.get().config.snarker else {
+                return;
+            };
             let snarker = config.public_key.clone().into();
             let fee = config.fee.clone();
             let snark = Snark {

@@ -19,17 +19,22 @@ pub struct Config {
     pub snark: SnarkConfig,
     pub p2p: P2pConfig,
     pub transition_frontier: TransitionFrontierConfig,
-    pub snarker: SnarkerConfig,
+    pub global: GlobalConfig,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GlobalConfig {
+    pub build: Box<BuildEnv>,
+    pub snarker: Option<SnarkerConfig>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkerConfig {
-    pub build: Box<BuildEnv>,
     pub public_key: AccountPublicKey,
     pub fee: CurrencyFeeStableV1,
-    pub job_commitments: SnarkPoolConfig,
+    pub auto_commit: bool,
     /// External Mina snark worker executable path
-    pub path: Option<OsString>,
+    pub path: OsString,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

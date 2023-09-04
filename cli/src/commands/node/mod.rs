@@ -37,10 +37,9 @@ use node::snark::block_verify::{
 };
 use node::snark::work_verify::{SnarkWorkVerifyError, SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{SnarkEvent, VerifierIndex, VerifierKind, VerifierSRS};
-use node::snark_pool::SnarkPoolConfig;
 use node::stats::Stats;
 use node::{
-    ActionKind, BuildEnv, Config, LedgerConfig, SnarkConfig, SnarkerConfig, State,
+    ActionKind, BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig, State,
     TransitionFrontierConfig,
 };
 use openmina_core::log::inner::Level;
@@ -56,9 +55,9 @@ pub mod tracing;
 
 mod ext_snark_worker;
 
-/// Openmina snarker
+/// Openmina node
 #[derive(Debug, clap::Args)]
-pub struct Snarker {
+pub struct Node {
     #[arg(long, short = 'd', default_value = "~/.openmina")]
     pub work_dir: String,
 
@@ -69,18 +68,6 @@ pub struct Snarker {
     /// Peer secret key
     #[arg(long, short = 's', env = "OPENMINA_P2P_SEC_KEY")]
     pub p2p_secret_key: Option<SecretKey>,
-
-    /// SNARKER public key
-    #[arg(long, short = 'k', env)]
-    pub public_key: AccountPublicKey,
-
-    /// Snark fee, in Mina
-    #[arg(long, short, env, default_value_t = 1_000_000)]
-    pub fee: u64,
-
-    /// Automatically commit to snark jobs
-    #[arg(long, short = 'a', env, default_value_t = true)]
-    pub auto_commit: bool,
 
     /// Port to listen to
     #[arg(long, short, env, default_value = "3000")]
@@ -93,9 +80,19 @@ pub struct Snarker {
     #[arg(long, short = 'P', alias = "peer", num_args = 0.., default_values_t = default_peers(), env, value_delimiter = ' ')]
     pub peers: Vec<P2pConnectionOutgoingInitOpts>,
 
+    /// Run Snark Worker.
+    ///
+    /// Pass snarker public key as an argument.
+    #[arg(long, env)]
+    pub run_snarker: Option<AccountPublicKey>,
+
+    /// Snark fee, in Mina
+    #[arg(long, env, default_value_t = 1_000_000)]
+    pub snarker_fee: u64,
+
     /// Mina snark worker path
-    #[arg(long, short = 'e', env)]
-    pub mina_exe_path: Option<OsString>,
+    #[arg(long, env, default_value = "cli/bin/snark-worker")]
+    pub snarker_exe_path: OsString,
 
     #[arg(long, default_value = "none")]
     pub record: String,
@@ -137,7 +134,7 @@ fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
         .collect()
 }
 
-impl Snarker {
+impl Node {
     pub fn run(self) -> Result<(), crate::CommandError> {
         tracing::initialize(self.verbosity);
 
@@ -179,16 +176,16 @@ impl Snarker {
                     .into(),
                 work_verifier_srs: srs,
             },
-            snarker: SnarkerConfig {
+            global: GlobalConfig {
                 build: BuildEnv::get().into(),
-                public_key: self.public_key,
-                fee: CurrencyFeeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                    self.fee.into(),
-                )),
-                job_commitments: SnarkPoolConfig {
-                    auto_commit: self.auto_commit,
-                },
-                path: self.mina_exe_path,
+                snarker: self.run_snarker.map(|public_key| SnarkerConfig {
+                    public_key,
+                    fee: CurrencyFeeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+                        self.snarker_fee.into(),
+                    )),
+                    auto_commit: true,
+                    path: self.snarker_exe_path,
+                }),
             },
             p2p: P2pConfig {
                 identity_pub_key: pub_key,
@@ -221,7 +218,7 @@ impl Snarker {
         let webrtc_rs_with_libp2p::P2pServiceCtx {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
-        } = <SnarkerService as P2pServiceWebrtcRsWithLibp2p>::init(
+        } = <NodeService as P2pServiceWebrtcRsWithLibp2p>::init(
             secret_key,
             self.chain_id,
             p2p_event_sender.clone(),
@@ -270,7 +267,7 @@ impl Snarker {
             .spawn(move || {
                 let local_set = tokio::task::LocalSet::new();
                 local_set.block_on(&runtime, async move {
-                    let service = SnarkerService {
+                    let service = NodeService {
                         rng: StdRng::seed_from_u64(rng_seed),
                         event_sender,
                         p2p_event_sender,
@@ -290,23 +287,23 @@ impl Snarker {
                         replayer: None,
                     };
                     let state = State::new(config);
-                    let mut snarker = ::node::Snarker::new(state, service, None);
+                    let mut node = ::node::Node::new(state, service, None);
 
                     // record initial state.
                     {
-                        let store = snarker.store_mut();
+                        let store = node.store_mut();
                         store.service.recorder().initial_state(rng_seed, store.state.get());
                     }
 
-                    snarker
+                    node
                         .store_mut()
                         .dispatch(EventSourceProcessEventsAction {});
                     loop {
-                        snarker
+                        node
                             .store_mut()
                             .dispatch(EventSourceWaitForEventsAction {});
 
-                        let service = &mut snarker.store_mut().service;
+                        let service = &mut node.store_mut().service;
                         let wait_for_events = service.event_receiver.wait_for_events();
                         let rpc_req_fut = async {
                             // TODO(binier): optimize maybe to not check it all the time.
@@ -319,19 +316,19 @@ impl Snarker {
 
                         select! {
                             _ = wait_for_events => {
-                                while snarker.store_mut().service.event_receiver.has_next() {
-                                    snarker.store_mut().dispatch(EventSourceProcessEventsAction {});
+                                while node.store_mut().service.event_receiver.has_next() {
+                                    node.store_mut().dispatch(EventSourceProcessEventsAction {});
                                 }
                             }
                             req = rpc_req_fut => {
-                                snarker.store_mut().service.process_rpc_request(req);
+                                node.store_mut().service.process_rpc_request(req);
                                 // TODO(binier): remove loop once ledger communication is async.
-                                while let Ok(req) = snarker.store_mut().service.rpc.req_receiver().try_recv() {
-                                    snarker.store_mut().service.process_rpc_request(req);
+                                while let Ok(req) = node.store_mut().service.rpc.req_receiver().try_recv() {
+                                    node.store_mut().service.process_rpc_request(req);
                                 }
                             }
                             _ = timeout => {
-                                snarker.store_mut().dispatch(EventSourceWaitTimeoutAction {});
+                                node.store_mut().dispatch(EventSourceWaitTimeoutAction {});
                             }
                         }
                     }
@@ -346,7 +343,7 @@ impl Snarker {
     }
 }
 
-pub struct SnarkerService {
+pub struct NodeService {
     pub rng: StdRng,
     pub event_sender: mpsc::UnboundedSender<Event>,
     // TODO(binier): change so that we only have `event_sender`.
@@ -383,7 +380,7 @@ impl ReplayerState {
     }
 }
 
-impl node::ledger::LedgerService for SnarkerService {
+impl node::ledger::LedgerService for NodeService {
     fn ctx(&self) -> &LedgerCtx {
         &self.ledger
     }
@@ -393,7 +390,7 @@ impl node::ledger::LedgerService for SnarkerService {
     }
 }
 
-impl redux::TimeService for SnarkerService {
+impl redux::TimeService for NodeService {
     fn monotonic_time(&mut self) -> ledger::Instant {
         self.replayer
             .as_ref()
@@ -402,9 +399,9 @@ impl redux::TimeService for SnarkerService {
     }
 }
 
-impl redux::Service for SnarkerService {}
+impl redux::Service for NodeService {}
 
-impl node::Service for SnarkerService {
+impl node::Service for NodeService {
     fn stats(&mut self) -> Option<&mut Stats> {
         Some(&mut self.stats)
     }
@@ -414,13 +411,13 @@ impl node::Service for SnarkerService {
     }
 }
 
-impl EventSourceService for SnarkerService {
+impl EventSourceService for NodeService {
     fn next_event(&mut self) -> Option<Event> {
         self.event_receiver.try_next()
     }
 }
 
-impl P2pServiceWebrtcRs for SnarkerService {
+impl P2pServiceWebrtcRs for NodeService {
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
@@ -441,13 +438,13 @@ impl P2pServiceWebrtcRs for SnarkerService {
     }
 }
 
-impl P2pServiceWebrtcRsWithLibp2p for SnarkerService {
+impl P2pServiceWebrtcRsWithLibp2p for NodeService {
     fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.libp2p
     }
 }
 
-impl SnarkBlockVerifyService for SnarkerService {
+impl SnarkBlockVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkBlockVerifyId,
@@ -478,7 +475,7 @@ impl SnarkBlockVerifyService for SnarkerService {
     }
 }
 
-impl SnarkWorkVerifyService for SnarkerService {
+impl SnarkWorkVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkWorkVerifyId,
@@ -568,18 +565,18 @@ impl From<mpsc::UnboundedReceiver<Event>> for EventReceiver {
     }
 }
 
-pub struct SnarkerRpcRequest {
+pub struct NodeRpcRequest {
     pub req: RpcRequest,
     pub responder: Box<dyn Send + std::any::Any>,
 }
 
 #[derive(Clone)]
 pub struct RpcSender {
-    tx: mpsc::Sender<SnarkerRpcRequest>,
+    tx: mpsc::Sender<NodeRpcRequest>,
 }
 
 impl RpcSender {
-    pub fn new(tx: mpsc::Sender<SnarkerRpcRequest>) -> Self {
+    pub fn new(tx: mpsc::Sender<NodeRpcRequest>) -> Self {
         Self { tx }
     }
 
@@ -590,7 +587,7 @@ impl RpcSender {
         let (tx, rx) = oneshot::channel::<T>();
         let responder = Box::new(tx);
         let sender = self.tx.clone();
-        let _ = sender.send(SnarkerRpcRequest { req, responder }).await;
+        let _ = sender.send(NodeRpcRequest { req, responder }).await;
 
         rx.await.ok()
     }
@@ -606,7 +603,7 @@ impl RpcSender {
         let (tx, rx) = mpsc::channel::<T>(expected_messages);
         let responder = Box::new(tx);
         let sender = self.tx.clone();
-        let _ = sender.send(SnarkerRpcRequest { req, responder }).await;
+        let _ = sender.send(NodeRpcRequest { req, responder }).await;
 
         rx
     }

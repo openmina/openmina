@@ -12,7 +12,7 @@ use node::State;
 use node::{event_source::Event, rpc::RpcSnarkPoolJobGetResponse};
 use openmina_core::requests::PendingRequests;
 
-use super::{SnarkerRpcRequest, SnarkerService};
+use super::{NodeRpcRequest, NodeService};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum RpcP2pConnectionIncomingResponse {
@@ -23,8 +23,8 @@ pub enum RpcP2pConnectionIncomingResponse {
 pub struct RpcService {
     pending: PendingRequests<RpcIdType, Box<dyn Send + std::any::Any>>,
 
-    req_sender: mpsc::Sender<SnarkerRpcRequest>,
-    req_receiver: mpsc::Receiver<SnarkerRpcRequest>,
+    req_sender: mpsc::Sender<NodeRpcRequest>,
+    req_receiver: mpsc::Receiver<NodeRpcRequest>,
 }
 
 impl RpcService {
@@ -38,24 +38,24 @@ impl RpcService {
     }
 
     /// Channel for sending the rpc request to state machine.
-    pub fn req_sender(&mut self) -> &mut mpsc::Sender<SnarkerRpcRequest> {
+    pub fn req_sender(&mut self) -> &mut mpsc::Sender<NodeRpcRequest> {
         &mut self.req_sender
     }
 
     /// Channel for receiving rpc requests in state machine.
-    pub fn req_receiver(&mut self) -> &mut mpsc::Receiver<SnarkerRpcRequest> {
+    pub fn req_receiver(&mut self) -> &mut mpsc::Receiver<NodeRpcRequest> {
         &mut self.req_receiver
     }
 }
 
-impl SnarkerService {
+impl NodeService {
     /// Channel for sending the rpc request to state machine.
     #[allow(dead_code)]
-    pub fn rpc_req_sender(&mut self) -> &mut mpsc::Sender<SnarkerRpcRequest> {
+    pub fn rpc_req_sender(&mut self) -> &mut mpsc::Sender<NodeRpcRequest> {
         &mut self.rpc.req_sender
     }
 
-    pub fn process_rpc_request(&mut self, req: SnarkerRpcRequest) {
+    pub fn process_rpc_request(&mut self, req: NodeRpcRequest) {
         let rpc_id = self.rpc.pending.add(req.responder);
         let req = req.req;
         let tx = self.event_sender.clone();
@@ -64,7 +64,7 @@ impl SnarkerService {
     }
 }
 
-impl node::rpc::RpcService for SnarkerService {
+impl node::rpc::RpcService for NodeService {
     fn respond_state_get(&mut self, rpc_id: RpcId, response: &State) -> Result<(), RespondError> {
         let entry = self.rpc.pending.remove(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;

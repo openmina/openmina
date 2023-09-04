@@ -268,8 +268,17 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .respond_snark_pool_job_get(action.rpc_id, resp);
         }
         RpcAction::SnarkerConfigGet(action) => {
-            let config = &store.state().config;
-            let config = config.into();
+            let config =
+                store
+                    .state
+                    .get()
+                    .config
+                    .snarker
+                    .as_ref()
+                    .map(|config| super::RpcSnarkerConfig {
+                        public_key: config.public_key.as_ref().clone(),
+                        fee: config.fee.clone(),
+                    });
             let _ = store
                 .service()
                 .respond_snarker_config_get(action.rpc_id, config);
@@ -316,7 +325,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 job.job.clone(),
                 &store.state().transition_frontier,
             );
-            let config = &store.state().config;
+            // TODO(binier): maybe don't require snarker to be enabled here.
+            let Some(config) = store.state.get().config.snarker.as_ref() else {
+                return;
+            };
             let public_key = config.public_key.clone().into();
             let fee = config.fee.clone();
             let input = match input {
