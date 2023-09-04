@@ -1,5 +1,5 @@
 use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
-use shared::block::BlockWithHash;
+use openmina_core::block::BlockWithHash;
 
 use crate::consensus::{ConsensusBlockChainProofUpdateAction, ConsensusBlockReceivedAction};
 use crate::rpc::{
@@ -416,7 +416,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 let expected_hash =
                                     &best_tip.block.header.protocol_state.previous_state_hash;
                                 if pred_hash != expected_hash {
-                                    shared::warn!(meta.time();
+                                    openmina_core::warn!(meta.time();
                                         kind = "P2pRpcBestTipHashMismatch",
                                         response = serde_json::to_string(resp).ok(),
                                         expected_hash = expected_hash.to_string(),

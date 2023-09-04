@@ -11,8 +11,8 @@ mod p2p_channels_snark_effects;
 pub use p2p_channels_snark_effects::*;
 
 use binprot_derive::{BinProtRead, BinProtWrite};
+use openmina_core::snark::SnarkInfo;
 use serde::{Deserialize, Serialize};
-use shared::snark::SnarkInfo;
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkPropagationChannelMsg {

@@ -3,7 +3,7 @@ use std::time::Duration;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
-use shared::requests::RpcId;
+use openmina_core::requests::RpcId;
 
 use crate::{connection::RejectionReason, webrtc};
 

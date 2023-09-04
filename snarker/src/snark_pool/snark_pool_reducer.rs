@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use shared::snark::SnarkJobId;
+use openmina_core::snark::SnarkJobId;
 
 use crate::snark_pool::JobCommitment;
 

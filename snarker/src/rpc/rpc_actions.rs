@@ -1,5 +1,5 @@
+use openmina_core::snark::SnarkJobId;
 use serde::{Deserialize, Serialize};
-use shared::snark::SnarkJobId;
 
 use crate::external_snark_worker::SnarkWorkId;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;

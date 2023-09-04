@@ -8,7 +8,7 @@ use mina_p2p_messages::v2::{
     LedgerHash, MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
     MinaStateProtocolStateValueStableV2, StateHash,
 };
-use shared::block::ArcBlockWithHash;
+use openmina_core::block::ArcBlockWithHash;
 
 use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 

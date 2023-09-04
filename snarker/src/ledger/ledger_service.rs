@@ -28,7 +28,7 @@ use mina_p2p_messages::v2::{
     MinaTransactionTransactionStableV2, StateHash,
 };
 use mina_signer::CompressedPubKey;
-use shared::{block::ArcBlockWithHash, snark::SnarkJobId};
+use openmina_core::{block::ArcBlockWithHash, snark::SnarkJobId};
 
 use crate::transition_frontier::sync::ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;

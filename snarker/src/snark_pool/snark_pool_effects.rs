@@ -1,4 +1,4 @@
-use shared::snark::SnarkJobCommitment;
+use openmina_core::snark::SnarkJobCommitment;
 
 use crate::external_snark_worker::{
     ExternalSnarkWorkerCancelWorkAction, ExternalSnarkWorkerSubmitWorkAction,

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
-use shared::requests::PendingRequests;
+use openmina_core::requests::PendingRequests;
 use snarker::p2p::connection::P2pConnectionResponse;
 pub use snarker::rpc::{
     ActionStatsResponse, RespondError, RpcActionStatsGetResponse, RpcId, RpcIdType,

@@ -62,9 +62,9 @@ impl ConsensusState {
                         compared_with: tip_hash,
                         short_fork,
                     };
-                    shared::log::debug!(shared::log::system_time(); kind = "ConsensusAction::DetectForkRange", status = serde_json::to_string(&candidate_state.status).unwrap());
+                    openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::DetectForkRange", status = serde_json::to_string(&candidate_state.status).unwrap());
                 }
-                shared::log::debug!(shared::log::system_time(); kind = "ConsensusAction::DetectForkRange");
+                openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::DetectForkRange");
             }
             ConsensusAction::ShortRangeForkResolve(a) => {
                 let candidate_hash = &a.hash;
@@ -104,7 +104,7 @@ impl ConsensusState {
                 }
             }
             ConsensusAction::LongRangeForkResolve(a) => {
-                shared::log::debug!(shared::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve");
+                openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve");
                 let candidate_hash = &a.hash;
                 let Some(tip_ref) = self.best_tip() else {
                     return;
@@ -112,7 +112,7 @@ impl ConsensusState {
                 let Some(candidate_state) = self.blocks.get(candidate_hash) else {
                     return;
                 };
-                shared::log::debug!(shared::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve", pre_status = serde_json::to_string(&candidate_state.status).unwrap());
+                openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve", pre_status = serde_json::to_string(&candidate_state.status).unwrap());
                 let tip_hash = tip_ref.hash.clone();
                 let tip = tip_ref.header;
                 let tip_cs = &tip.protocol_state.body.consensus_state;
@@ -135,7 +135,7 @@ impl ConsensusState {
                         ConsensusLongRangeForkDecision::Keep(why)
                     },
                 };
-                shared::log::debug!(shared::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve", status = serde_json::to_string(&candidate_state.status).unwrap());
+                openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve", status = serde_json::to_string(&candidate_state.status).unwrap());
             }
             ConsensusAction::BestTipUpdate(a) => {
                 self.best_tip = Some(a.hash.clone());

@@ -8,6 +8,6 @@ crate-type = ["dylib"]
 name = "replay_dynamic_effects"
 
 [dependencies]
-shared = { path = "../../node/shared" }
+openmina-core = { path = "../../core" }
 snarker = { path = "../../snarker", features = ["replay"] }
 cli = { path = "../" }

@@ -26,8 +26,8 @@ mina-hasher = { git = "https://github.com/o1-labs/proof-systems" }
 mina-signer = { git = "https://github.com/o1-labs/proof-systems" }
 ledger = { package = "mina-tree", git = "https://github.com/openmina/ledger", rev = "4b8dc91f968c43f67d32fdbc001806ceb6d631bc" }
 
-shared = { path = "../node/shared" }
-snark = { path = "../node/snark" }
+openmina-core = { path = "../core" }
+snark = { path = "../snark" }
 p2p = { path = "../p2p" }
 
 [build-dependencies]

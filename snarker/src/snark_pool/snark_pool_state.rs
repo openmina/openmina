@@ -2,9 +2,9 @@ use std::time::Duration;
 use std::{collections::BTreeMap, fmt, ops::RangeBounds};
 
 use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
+use openmina_core::snark::{Snark, SnarkInfo, SnarkJobCommitment, SnarkJobId};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-use shared::snark::{Snark, SnarkInfo, SnarkJobCommitment, SnarkJobId};
 
 use crate::p2p::PeerId;
 

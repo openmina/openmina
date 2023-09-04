@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use mina_p2p_messages::v2::{
     MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2, StateHash,
 };
+use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
-use shared::block::ArcBlockWithHash;
 
 use super::sync::TransitionFrontierSyncState;
 use super::TransitionFrontierConfig;

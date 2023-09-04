@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use openmina_core::snark::{Snark, SnarkInfo, SnarkJobId};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-use shared::snark::{Snark, SnarkInfo, SnarkJobId};
 
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
@@ -356,7 +356,7 @@ impl SnarkPoolCandidateState {
     }
 }
 
-impl<'a> From<&'a SnarkPoolCandidateState> for shared::snark::SnarkCmp<'a> {
+impl<'a> From<&'a SnarkPoolCandidateState> for openmina_core::snark::SnarkCmp<'a> {
     fn from(value: &'a SnarkPoolCandidateState) -> Self {
         match value {
             SnarkPoolCandidateState::InfoReceived { info, .. } => info.into(),

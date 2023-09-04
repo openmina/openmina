@@ -16,8 +16,8 @@ use serde::Serialize;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
-use shared::log::inner::Level;
-use shared::snark::Snark;
+use openmina_core::log::inner::Level;
+use openmina_core::snark::Snark;
 use snarker::account::AccountPublicKey;
 use snarker::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
@@ -148,7 +148,7 @@ impl Snarker {
             .thread_name(|i| format!("openmina_rayon_{i}"))
             .build_global()
         {
-            shared::log::error!(shared::log::system_time();
+            openmina_core::log::error!(openmina_core::log::system_time();
                     kind = "FatalError",
                     summary = "failed to initialize threadpool",
                     error = format!("{:?}", e));

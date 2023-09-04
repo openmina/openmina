@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use mina_p2p_messages::v2::LedgerHash;
+use openmina_core::block::ArcBlockWithHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-use shared::block::ArcBlockWithHash;
 
 use crate::ledger::LedgerAddress;
 use crate::p2p::channels::rpc::P2pRpcId;

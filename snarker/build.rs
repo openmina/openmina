@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut path = file.path();
         let path_str = path.to_str().unwrap();
         // TODO(bineir): proper solution to ignore node dirs.
-        if path_str.contains("node") && !path_str.contains("node/snark/") {
+        if path_str.contains("node") {
             return;
         }
         if !path_str.ends_with("_actions.rs") && !path_str.ends_with("action.rs") {

@@ -1,5 +1,5 @@
+use openmina_core::block::BlockWithHash;
 use redux::ActionMeta;
-use shared::block::BlockWithHash;
 
 use crate::disconnection::P2pDisconnectionInitAction;
 

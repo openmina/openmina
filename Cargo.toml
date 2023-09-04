@@ -7,11 +7,8 @@ members = [
     "p2p",
     "p2p/libp2p-rpc-behaviour",
     "snarker",
-    "node/shared",
-    # "node/p2p",
-    # "node/lib",
-    "node/snark",
-    # "node/wasm"
+    "core",
+    "snark",
 
     "mina-p2p-messages-rs",
     "ledger",
