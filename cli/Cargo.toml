@@ -28,8 +28,8 @@ mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", 
 console = "0.15.5"
 clap = { version = "4.3", features = [ "derive", "env" ] }
 
-shared = { path = "../node/shared" }
-snarker = { path = "../snarker", features = ["replay"] }
+openmina-core = { path = "../core" }
+node = { path = "../node", features = ["replay"] }
 bytes = "1.4.0"
 tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }
 tracing = "0.1.37"

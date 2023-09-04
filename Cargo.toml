@@ -2,16 +2,13 @@ cargo-features = ["named-profiles"]
 
 [workspace]
 members = [
-    "cli",
-    "cli/replay_dynamic_effects",
+    "core",
+    "snark",
     "p2p",
     "p2p/libp2p-rpc-behaviour",
-    "snarker",
-    "node/shared",
-    # "node/p2p",
-    # "node/lib",
-    "node/snark",
-    # "node/wasm"
+    "node",
+    "cli",
+    "cli/replay_dynamic_effects",
 
     "mina-p2p-messages-rs",
     "ledger",

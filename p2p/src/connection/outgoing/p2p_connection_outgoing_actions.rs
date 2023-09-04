@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use shared::requests::RpcId;
+use openmina_core::requests::RpcId;
 
 use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::connection::P2pConnectionErrorResponse;

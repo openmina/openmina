@@ -1,6 +1,6 @@
+use openmina_core::requests::RpcId;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
-use shared::requests::RpcId;
 
 use super::incoming::{P2pConnectionIncomingInitOpts, P2pConnectionIncomingState};
 use super::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};

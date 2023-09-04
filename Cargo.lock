@@ -900,16 +900,16 @@ dependencies = [
  "mina-p2p-messages",
  "mina-tree",
  "nix 0.26.2",
+ "node",
  "num_cpus",
+ "openmina-core",
  "rand 0.7.3",
  "rayon",
  "redux",
  "serde",
  "serde_json",
  "sha2 0.10.7",
- "shared",
  "shellexpand",
- "snarker",
  "thiserror",
  "tokio",
  "tracing",
@@ -3475,6 +3475,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "node"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "binprot",
+ "binprot_derive",
+ "bs58",
+ "derive_more",
+ "hex",
+ "lazy_static",
+ "mina-hasher",
+ "mina-p2p-messages",
+ "mina-signer",
+ "mina-tree",
+ "num_enum",
+ "openmina-core",
+ "p2p",
+ "rand 0.8.5",
+ "redux",
+ "regex",
+ "rust-format",
+ "serde",
+ "serde_json",
+ "snark",
+ "strum",
+ "strum_macros",
+ "thiserror",
+ "vergen",
+]
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3748,6 +3780,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
+name = "openmina-core"
+version = "0.1.0"
+dependencies = [
+ "binprot",
+ "binprot_derive",
+ "mina-hasher",
+ "mina-p2p-messages",
+ "mina-tree",
+ "redux",
+ "serde",
+ "sha2 0.10.7",
+ "slab",
+ "tracing",
+]
+
+[[package]]
 name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3788,12 +3836,12 @@ dependencies = [
  "libp2p-rpc-behaviour",
  "mina-p2p-messages",
  "multihash 0.18.1",
+ "openmina-core",
  "rand 0.8.5",
  "redux",
  "serde",
  "serde_json",
  "sha2 0.10.7",
- "shared",
  "smallvec",
  "snark",
  "strum",
@@ -4422,7 +4470,8 @@ name = "replay_dynamic_effects"
 version = "0.1.0"
 dependencies = [
  "cli",
- "snarker",
+ "node",
+ "openmina-core",
 ]
 
 [[package]]
@@ -4918,22 +4967,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shared"
-version = "0.1.0"
-dependencies = [
- "binprot",
- "binprot_derive",
- "mina-hasher",
- "mina-p2p-messages",
- "mina-tree",
- "redux",
- "serde",
- "sha2 0.10.7",
- "slab",
- "tracing",
-]
-
-[[package]]
 name = "shell-words"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5030,6 +5063,7 @@ dependencies = [
  "num-bigint",
  "o1-utils",
  "once_cell",
+ "openmina-core",
  "poly-commitment",
  "rand 0.8.5",
  "rayon",
@@ -5037,41 +5071,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.7",
- "shared",
  "strum_macros",
  "wasm-bindgen-test",
-]
-
-[[package]]
-name = "snarker"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "binprot",
- "binprot_derive",
- "bs58",
- "derive_more",
- "hex",
- "lazy_static",
- "mina-hasher",
- "mina-p2p-messages",
- "mina-signer",
- "mina-tree",
- "num_enum",
- "p2p",
- "rand 0.8.5",
- "redux",
- "regex",
- "rust-format",
- "serde",
- "serde_json",
- "shared",
- "snark",
- "strum",
- "strum_macros",
- "thiserror",
- "vergen",
 ]
 
 [[package]]

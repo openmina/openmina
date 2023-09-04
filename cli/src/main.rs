@@ -11,7 +11,7 @@ mod unsafe_signal_handlers {
 
     extern "C" fn handle_sigsegv(_signal: libc::c_int) {
         eprintln!("########### SIGSEGV #############");
-        snarker::recorder::Recorder::graceful_shutdown();
+        node::recorder::Recorder::graceful_shutdown();
         std::process::exit(1);
     }
 

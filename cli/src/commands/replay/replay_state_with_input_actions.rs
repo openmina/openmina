@@ -1,14 +1,14 @@
 use std::cell::RefCell;
 
+use node::p2p::service_impl::libp2p::Libp2pService;
+use node::recorder::{Recorder, StateWithInputActionsReader};
+use node::snark::VerifierKind;
+use node::{ActionWithMeta, BuildEnv, Store};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
-use snarker::p2p::service_impl::libp2p::Libp2pService;
-use snarker::recorder::{Recorder, StateWithInputActionsReader};
-use snarker::snark::VerifierKind;
-use snarker::{ActionWithMeta, BuildEnv, Store};
 use tokio::sync::mpsc;
 
-use crate::commands::snarker::{ReplayerState, RpcService, SnarkerService};
+use crate::commands::node::{NodeService, ReplayerState, RpcService};
 
 #[derive(Debug, clap::Args)]
 /// Replay node using initial state and input actions.
@@ -26,7 +26,7 @@ pub struct ReplayStateWithInputActions {
 
 impl ReplayStateWithInputActions {
     pub fn run(self) -> Result<(), crate::CommandError> {
-        crate::commands::snarker::tracing::initialize(self.verbosity);
+        crate::commands::node::tracing::initialize(self.verbosity);
 
         eprintln!(
             "replaying node based on initial state and actions from the dir: {}",
@@ -47,12 +47,12 @@ impl ReplayStateWithInputActions {
             // TODO(binier): we shouldn't have to do this, but serialized
             // index/srs doesn't match deserialized one.
             state.snark.block_verify.verifier_index =
-                snarker::snark::get_verifier_index(VerifierKind::Blockchain).into();
-            state.snark.block_verify.verifier_srs = snarker::snark::get_srs().into();
+                node::snark::get_verifier_index(VerifierKind::Blockchain).into();
+            state.snark.block_verify.verifier_srs = node::snark::get_srs().into();
             state
         };
 
-        let service = SnarkerService {
+        let service = NodeService {
             rng: StdRng::seed_from_u64(initial_state.rng_seed),
             event_sender: mpsc::unbounded_channel().0,
             p2p_event_sender: mpsc::unbounded_channel().0,
@@ -73,8 +73,8 @@ impl ReplayStateWithInputActions {
             }),
         };
 
-        let mut snarker = ::snarker::Snarker::new(state, service, Some(replayer_effects));
-        let store = snarker.store_mut();
+        let mut node = ::node::Node::new(state, service, Some(replayer_effects));
+        let store = node.store_mut();
 
         let replay_env = BuildEnv::get();
         check_env(&store.state().config.build, &replay_env);
@@ -136,7 +136,7 @@ impl ReplayStateWithInputActions {
     }
 }
 
-fn replayer_effects(store: &mut Store<SnarkerService>, action: ActionWithMeta) {
+fn replayer_effects(store: &mut Store<NodeService>, action: ActionWithMeta) {
     dyn_effects(store, &action);
 
     let replayer = store.service.replayer.as_mut().unwrap();
@@ -148,10 +148,10 @@ fn replayer_effects(store: &mut Store<SnarkerService>, action: ActionWithMeta) {
     assert_eq!(kind, action.action().kind());
     assert_eq!(meta.time(), action.meta().time());
 
-    snarker::effects(store, action)
+    node::effects(store, action)
 }
 
-fn dyn_effects(store: &mut Store<SnarkerService>, action: &ActionWithMeta) {
+fn dyn_effects(store: &mut Store<NodeService>, action: &ActionWithMeta) {
     DYN_EFFECTS_LIB.with(move |cell| loop {
         let mut opt = cell.borrow_mut();
         let fun = match opt.as_ref() {
@@ -177,7 +177,14 @@ fn dyn_effects(store: &mut Store<SnarkerService>, action: &ActionWithMeta) {
                     .as_ref()
                     .unwrap()
                     .replay_dynamic_effects_lib;
-                let query_modified = || std::fs::metadata(lib_path).unwrap().modified().unwrap();
+                let query_modified = || match std::fs::metadata(lib_path).and_then(|v| v.modified())
+                {
+                    Err(err) => {
+                        eprintln!("Error querying replay_dynamic_effects_lib modified time: {err}");
+                        redux::SystemTime::UNIX_EPOCH
+                    }
+                    Ok(v) => v,
+                };
 
                 let initial_time = query_modified();
                 let sleep_dur = std::time::Duration::from_millis(100);
@@ -197,7 +204,7 @@ thread_local! {
 
 struct DynEffectsLib {
     handle: *mut nix::libc::c_void,
-    fun: fn(&mut Store<SnarkerService>, &ActionWithMeta) -> u8,
+    fun: fn(&mut Store<NodeService>, &ActionWithMeta) -> u8,
 }
 
 impl DynEffectsLib {
@@ -235,7 +242,7 @@ impl Drop for DynEffectsLib {
 }
 
 pub fn check_env(record_env: &BuildEnv, replay_env: &BuildEnv) {
-    let is_git_same = record_env.git == replay_env.git;
+    let is_git_same = record_env.git.commit_hash == replay_env.git.commit_hash;
     let is_cargo_same = record_env.cargo == replay_env.cargo;
     let is_rustc_same = record_env.rustc == replay_env.rustc;
 
