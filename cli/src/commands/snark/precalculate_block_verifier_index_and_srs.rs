@@ -1,10 +1,10 @@
 use std::fs;
 use std::path::PathBuf;
 
-use sha2::{Digest, Sha256};
-use snarker::snark::{
+use node::snark::{
     get_srs, get_verifier_index, srs_to_bytes, verifier_index_to_bytes, VerifierKind,
 };
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, clap::Args)]
 /// Precalculate Block Verifier Index and SRS, to be quickly loaded ready to be used for block verification

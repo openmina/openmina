@@ -1,11 +1,11 @@
 use std::cell::RefCell;
 
+use node::p2p::service_impl::libp2p::Libp2pService;
+use node::recorder::{Recorder, StateWithInputActionsReader};
+use node::snark::VerifierKind;
+use node::{ActionWithMeta, BuildEnv, Store};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
-use snarker::p2p::service_impl::libp2p::Libp2pService;
-use snarker::recorder::{Recorder, StateWithInputActionsReader};
-use snarker::snark::VerifierKind;
-use snarker::{ActionWithMeta, BuildEnv, Store};
 use tokio::sync::mpsc;
 
 use crate::commands::snarker::{ReplayerState, RpcService, SnarkerService};
@@ -47,8 +47,8 @@ impl ReplayStateWithInputActions {
             // TODO(binier): we shouldn't have to do this, but serialized
             // index/srs doesn't match deserialized one.
             state.snark.block_verify.verifier_index =
-                snarker::snark::get_verifier_index(VerifierKind::Blockchain).into();
-            state.snark.block_verify.verifier_srs = snarker::snark::get_srs().into();
+                node::snark::get_verifier_index(VerifierKind::Blockchain).into();
+            state.snark.block_verify.verifier_srs = node::snark::get_srs().into();
             state
         };
 
@@ -73,7 +73,7 @@ impl ReplayStateWithInputActions {
             }),
         };
 
-        let mut snarker = ::snarker::Snarker::new(state, service, Some(replayer_effects));
+        let mut snarker = ::node::Snarker::new(state, service, Some(replayer_effects));
         let store = snarker.store_mut();
 
         let replay_env = BuildEnv::get();
@@ -148,7 +148,7 @@ fn replayer_effects(store: &mut Store<SnarkerService>, action: ActionWithMeta) {
     assert_eq!(kind, action.action().kind());
     assert_eq!(meta.time(), action.meta().time());
 
-    snarker::effects(store, action)
+    node::effects(store, action)
 }
 
 fn dyn_effects(store: &mut Store<SnarkerService>, action: &ActionWithMeta) {

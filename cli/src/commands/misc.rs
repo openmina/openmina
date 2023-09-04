@@ -1,4 +1,4 @@
-use snarker::{account::AccountSecretKey, p2p::identity::SecretKey};
+use node::{account::AccountSecretKey, p2p::identity::SecretKey};
 
 use crate::CommandError;
 

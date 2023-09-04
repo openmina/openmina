@@ -81,10 +81,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     visit_dirs(&node_dir, &mut |file| {
         let mut path = file.path();
         let path_str = path.to_str().unwrap();
-        // TODO(bineir): proper solution to ignore node dirs.
-        if path_str.contains("node") {
-            return;
-        }
         if !path_str.ends_with("_actions.rs") && !path_str.ends_with("action.rs") {
             return;
         }

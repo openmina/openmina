@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, oneshot};
 
-use openmina_core::requests::PendingRequests;
-use snarker::p2p::connection::P2pConnectionResponse;
-pub use snarker::rpc::{
+use node::p2p::connection::P2pConnectionResponse;
+pub use node::rpc::{
     ActionStatsResponse, RespondError, RpcActionStatsGetResponse, RpcId, RpcIdType,
     RpcP2pConnectionOutgoingResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
     RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcStateGetResponse,
     RpcSyncStatsGetResponse,
 };
-use snarker::State;
-use snarker::{event_source::Event, rpc::RpcSnarkPoolJobGetResponse};
+use node::State;
+use node::{event_source::Event, rpc::RpcSnarkPoolJobGetResponse};
+use openmina_core::requests::PendingRequests;
 
 use super::{SnarkerRpcRequest, SnarkerService};
 
@@ -64,7 +64,7 @@ impl SnarkerService {
     }
 }
 
-impl snarker::rpc::RpcService for SnarkerService {
+impl node::rpc::RpcService for SnarkerService {
     fn respond_state_get(&mut self, rpc_id: RpcId, response: &State) -> Result<(), RespondError> {
         let entry = self.rpc.pending.remove(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
@@ -215,7 +215,7 @@ impl snarker::rpc::RpcService for SnarkerService {
     fn respond_snarker_job_spec(
         &mut self,
         rpc_id: RpcId,
-        response: snarker::rpc::RpcSnarkerJobSpecResponse,
+        response: node::rpc::RpcSnarkerJobSpecResponse,
     ) -> Result<(), RespondError> {
         let entry = self.rpc.pending.remove(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
@@ -230,12 +230,12 @@ impl snarker::rpc::RpcService for SnarkerService {
     fn respond_snarker_workers(
         &mut self,
         rpc_id: RpcId,
-        response: snarker::rpc::RpcSnarkerWorkersResponse,
+        response: node::rpc::RpcSnarkerWorkersResponse,
     ) -> Result<(), RespondError> {
         let entry = self.rpc.pending.remove(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
         let chan = chan
-            .downcast::<oneshot::Sender<snarker::rpc::RpcSnarkerWorkersResponse>>()
+            .downcast::<oneshot::Sender<node::rpc::RpcSnarkerWorkersResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
         chan.send(response.clone())
             .or(Err(RespondError::RespondingFailed))?;
@@ -245,12 +245,12 @@ impl snarker::rpc::RpcService for SnarkerService {
     fn respond_snarker_config_get(
         &mut self,
         rpc_id: RpcId,
-        response: snarker::rpc::RpcSnarkerConfigGetResponse,
+        response: node::rpc::RpcSnarkerConfigGetResponse,
     ) -> Result<(), RespondError> {
         let entry = self.rpc.pending.remove(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
         let chan = chan
-            .downcast::<oneshot::Sender<snarker::rpc::RpcSnarkerConfigGetResponse>>()
+            .downcast::<oneshot::Sender<node::rpc::RpcSnarkerConfigGetResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
         chan.send(response.clone())
             .or(Err(RespondError::RespondingFailed))?;

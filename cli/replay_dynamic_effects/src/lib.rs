@@ -1,4 +1,4 @@
-use ::snarker::{ActionWithMeta, Store};
+use ::node::{ActionWithMeta, Store};
 use cli::commands::snarker::SnarkerService;
 
 pub mod ret {

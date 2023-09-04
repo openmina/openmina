@@ -9,5 +9,5 @@ name = "replay_dynamic_effects"
 
 [dependencies]
 openmina-core = { path = "../../core" }
-snarker = { path = "../../snarker", features = ["replay"] }
+node = { path = "../../node", features = ["replay"] }
 cli = { path = "../" }

@@ -875,6 +875,7 @@ dependencies = [
  "mina-p2p-messages",
  "mina-tree",
  "nix 0.26.2",
+ "node",
  "num_cpus",
  "openmina-core",
  "rand 0.7.3",
@@ -884,7 +885,6 @@ dependencies = [
  "serde_json",
  "sha2 0.10.7",
  "shellexpand",
- "snarker",
  "thiserror",
  "tokio",
  "tracing",
@@ -3332,6 +3332,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "node"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "binprot",
+ "binprot_derive",
+ "bs58",
+ "derive_more",
+ "hex",
+ "lazy_static",
+ "mina-hasher",
+ "mina-p2p-messages",
+ "mina-signer",
+ "mina-tree",
+ "num_enum",
+ "openmina-core",
+ "p2p",
+ "rand 0.8.5",
+ "redux",
+ "regex",
+ "rust-format",
+ "serde",
+ "serde_json",
+ "snark",
+ "strum",
+ "strum_macros",
+ "thiserror",
+ "vergen",
+]
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4295,8 +4327,8 @@ name = "replay_dynamic_effects"
 version = "0.1.0"
 dependencies = [
  "cli",
+ "node",
  "openmina-core",
- "snarker",
 ]
 
 [[package]]
@@ -4886,38 +4918,6 @@ dependencies = [
  "sha2 0.10.7",
  "strum_macros",
  "wasm-bindgen-test",
-]
-
-[[package]]
-name = "snarker"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "binprot",
- "binprot_derive",
- "bs58",
- "derive_more",
- "hex",
- "lazy_static",
- "mina-hasher",
- "mina-p2p-messages",
- "mina-signer",
- "mina-tree",
- "num_enum",
- "openmina-core",
- "p2p",
- "rand 0.8.5",
- "redux",
- "regex",
- "rust-format",
- "serde",
- "serde_json",
- "snark",
- "strum",
- "strum_macros",
- "thiserror",
- "vergen",
 ]
 
 [[package]]
