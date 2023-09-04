@@ -56,7 +56,7 @@ where
 pub fn get_list_addr_account(
     rt: &mut &mut OCamlRuntime,
     list: OCamlRef<OCamlList<(String, OCamlBytes)>>,
-) -> Vec<(Address, Account)> {
+) -> Vec<(Address, Box<Account>)> {
     let mut list_ref = rt.get(list);
     let mut list = Vec::with_capacity(2048);
 
@@ -66,7 +66,7 @@ pub fn get_list_addr_account(
 
         let addr = Address::try_from(addr).unwrap();
         let object: Account = deserialize(account);
-        list.push((addr, object));
+        list.push((addr, Box::new(object)));
 
         list_ref = tail;
     }
