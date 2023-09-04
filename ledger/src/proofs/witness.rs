@@ -38,8 +38,8 @@ use crate::{
 use super::{public_input::plonk_checks::ShiftedValue, to_field_elements::ToFieldElements};
 
 #[derive(Debug)]
-pub struct Witness<C: FieldWitness> {
-    aux: Vec<C>,
+pub struct Witness<F: FieldWitness> {
+    aux: Vec<F>,
 }
 
 impl<F: FieldWitness> Witness<F> {
@@ -57,29 +57,31 @@ impl<F: FieldWitness> Witness<F> {
         self.aux.push(field)
     }
 
-    pub fn pusher(&mut self) -> impl FnMut(F) -> F + '_ {
-        let push = |f: F| -> F {
-            self.push(f);
-            f
-        };
-        push
-    }
-
     fn exists<T>(&mut self, data: T) -> T
     where
         T: ToFieldElements<F> + Check<F>,
     {
         // data.to_field_elements(&mut self.aux);
-        let fields = data.to_field_elements_owned();
+        let mut fields = data.to_field_elements_owned();
         eprintln!("w{:?}", &fields);
-        self.aux.extend(fields);
+        self.aux.append(&mut fields);
 
         data.check(self);
         data
     }
 
+    /// Helper
     pub fn to_field_checked_prime<const NBITS: usize>(&mut self, scalar: F) -> (F, F, F) {
         scalar_challenge::to_field_checked_prime::<F, NBITS>(scalar, self)
+    }
+
+    /// Helper
+    pub fn add_fast(
+        &mut self,
+        p1: GroupAffine<F::Parameters>,
+        p2: GroupAffine<F::Parameters>,
+    ) -> GroupAffine<F::Parameters> {
+        add_fast::<F>(p1, p2, None, self)
     }
 }
 
@@ -120,7 +122,7 @@ fn bits_msb<F, const NBITS: usize>(field: F) -> [bool; NBITS]
 where
     F: Field + Into<BigInteger256>,
 {
-    let mut bits = field_to_bits::<_, NBITS>(field);
+    let mut bits = field_to_bits::<F, NBITS>(field);
     bits.reverse();
     bits
 }
@@ -134,7 +136,7 @@ where
 
     // Let's keep them in cache since they're used everywhere
     thread_local! {
-        static ENDOS: RefCell<BTreeMap<TypeId, [BigInteger256; 2]>> = RefCell::new(BTreeMap::default());
+        static ENDOS: RefCell<BTreeMap<TypeId, [BigInteger256; 2]>> = RefCell::default();
     }
 
     let type_id = std::any::TypeId::of::<F>();
@@ -153,32 +155,30 @@ where
     })
 }
 
+fn make_group<F>(x: F, y: F) -> GroupAffine<F::Parameters>
+where
+    F: FieldWitness,
+{
+    GroupAffine::<F::Parameters>::new(x, y, false)
+}
+
 mod scalar_challenge {
     use super::*;
 
-    // TODO: This function is incomplete (compare to OCaml), here it only push witness values
     // https://github.com/MinaProtocol/mina/blob/357144819e7ce5f61109d23d33da627be28024c7/src/lib/pickles/scalar_challenge.ml#L12
     pub fn to_field_checked_prime<F, const NBITS: usize>(scalar: F, w: &mut Witness<F>) -> (F, F, F)
     where
         F: FieldWitness,
     {
-        let neg_one = F::one().neg();
+        let zero = F::zero();
+        let one = F::one();
+        let neg_one = one.neg();
 
-        let a_func = |n: u64| match n {
-            0 => F::zero(),
-            1 => F::zero(),
-            2 => neg_one,
-            3 => F::one(),
-            _ => panic!("invalid argument"),
-        };
+        let a_array = [zero, zero, neg_one, one];
+        let a_func = |n: u64| a_array[n as usize];
 
-        let b_func = |n: u64| match n {
-            0 => neg_one,
-            1 => F::one(),
-            2 => F::zero(),
-            3 => F::zero(),
-            _ => panic!("invalid argument"),
-        };
+        let b_array = [neg_one, one, zero, zero];
+        let b_func = |n: u64| b_array[n as usize];
 
         let bits_msb: [bool; NBITS] = bits_msb::<_, NBITS>(scalar);
 
@@ -238,7 +238,6 @@ mod scalar_challenge {
         (a, b, n)
     }
 
-    // TODO: This function is incomplete (compare to OCaml), here it only push witness values
     pub fn endo<F, const NBITS: usize>(
         t: GroupAffine<F::Parameters>,
         scalar: F,
@@ -256,10 +255,10 @@ mod scalar_challenge {
         let (endo_base, _) = endos::<F>();
 
         let mut acc = {
-            let tmp = w.exists(xt * endo_base); // Made by the `seal` call
-            let tmp = GroupAffine::<F::Parameters>::new(tmp, yt, false);
-            let p = add_fast(t, tmp, None, w);
-            add_fast(p, p, None, w)
+            // The `exists` call is made by the `seal` call in OCaml
+            let tmp = w.exists(xt * endo_base);
+            let p = w.add_fast(t, make_group::<F>(tmp, yt));
+            w.add_fast(p, p)
         };
 
         let mut n_acc = F::zero();
@@ -286,7 +285,7 @@ mod scalar_challenge {
             let xs = w.exists(xq2 + s4.square() - s3_squared);
             let ys = w.exists(((xr - xs) * s4) - yr);
 
-            acc = GroupAffine::new(xs, ys, false);
+            acc = make_group::<F>(xs, ys);
             n_acc =
                 w.exists((((n_acc_prev.double() + b1).double() + b2).double() + b3).double() + b4);
         }
@@ -295,7 +294,6 @@ mod scalar_challenge {
     }
 }
 
-// TODO: This function is incomplete (compare to OCaml), here it only push witness values
 fn add_fast<F>(
     p1: GroupAffine<F::Parameters>,
     p2: GroupAffine<F::Parameters>,
@@ -312,15 +310,15 @@ where
     let bool_to_field = |b: bool| if b { F::one() } else { F::zero() };
 
     let same_x_bool = x1 == x2;
-    let same_x = w.exists(bool_to_field(same_x_bool));
+    let _same_x = w.exists(bool_to_field(same_x_bool));
 
-    let inf = if check_finite {
+    let _inf = if check_finite {
         F::zero()
     } else {
-        w.exists(bool_to_field(same_x_bool && !(y1 == y2)))
+        w.exists(bool_to_field(same_x_bool && y1 != y2))
     };
 
-    let inf_z = w.exists({
+    let _inf_z = w.exists({
         if y1 == y2 {
             F::zero()
         } else if same_x_bool {
@@ -330,7 +328,7 @@ where
         }
     });
 
-    let x21_inv = w.exists({
+    let _x21_inv = w.exists({
         if same_x_bool {
             F::zero()
         } else {
@@ -349,9 +347,8 @@ where
 
     let x3 = w.exists(s.square() - (x1 + x2));
     let y3 = w.exists(s * (x1 - x3) - y1);
-    let p3 = (x3, y3);
 
-    GroupAffine::new(p3.0, p3.1, false)
+    make_group::<F>(x3, y3)
 }
 
 fn fold_map<T, Acc, U>(
@@ -385,7 +382,6 @@ mod plonk_curve_ops {
         scale_fast_unpack::<F, NBITS>(base, shifted_value, w)
     }
 
-    // TODO: This function is incomplete (compare to OCaml), here it only push witness values
     // https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/pickles/plonk_curve_ops.ml#L140
     fn scale_fast_unpack<F, const NBITS: usize>(
         base: GroupAffine<F::Parameters>,
@@ -404,7 +400,7 @@ mod plonk_curve_ops {
         assert_eq!(NBITS % BITS_PER_CHUNK, 0);
 
         let bits_msb: [bool; NBITS] = bits_msb::<F, NBITS>(scalar);
-        let acc = add_fast(base, base, None, w);
+        let acc = w.add_fast(base, base);
         let mut n_acc = F::zero();
 
         for chunk in 0..chunks {
@@ -430,7 +426,7 @@ mod plonk_curve_ops {
 
                 let x_res = w.exists(x_base + s2.square() - s1_squared);
                 let y_res = w.exists(((x_acc - x_res) * s2) - y_acc);
-                let acc = GroupAffine::new(x_res, y_res, false);
+                let acc = make_group(x_res, y_res);
 
                 (acc, (acc, s1))
             });
@@ -934,7 +930,7 @@ where
         + std::fmt::Debug
         + 'static,
 {
-    type Scalar: Field + Into<BigInteger256> + From<BigInteger256> + std::fmt::Debug;
+    type Scalar: FieldWitness;
     type Affine: AffineCurve<Projective = Self::Projective, BaseField = Self, ScalarField = Self::Scalar>
         + Into<GroupAffine<Self::Parameters>>
         + std::fmt::Debug;
@@ -970,13 +966,13 @@ impl FieldWitness for Fq {
 #[derive(
     derive_more::Add, derive_more::Sub, derive_more::Neg, derive_more::Mul, derive_more::Div,
 )]
-pub struct InnerCurve<C: FieldWitness> {
+pub struct InnerCurve<F: FieldWitness> {
     // ProjectivePallas
     // ProjectiveVesta
-    inner: C::Projective,
+    inner: F::Projective,
 }
 
-impl<C: FieldWitness> std::fmt::Debug for InnerCurve<C> {
+impl<F: FieldWitness> std::fmt::Debug for InnerCurve<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // OCaml uses `to_affine_exn` when those are printed using `sexp`
         // https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/snark_params/snark_params.ml#L149
@@ -988,9 +984,9 @@ impl<C: FieldWitness> std::fmt::Debug for InnerCurve<C> {
     }
 }
 
-impl<C: FieldWitness> InnerCurve<C> {
+impl<F: FieldWitness> InnerCurve<F> {
     fn one() -> Self {
-        let inner = C::Projective::prime_subgroup_generator();
+        let inner = F::Projective::prime_subgroup_generator();
         Self { inner }
     }
 
@@ -1010,20 +1006,20 @@ impl<C: FieldWitness> InnerCurve<C> {
         }
     }
 
-    fn to_affine(&self) -> GroupAffine<C::Parameters> {
+    fn to_affine(&self) -> GroupAffine<F::Parameters> {
         // Both `affine` below are the same type, but we use `into()` to make it non-generic
-        let affine: C::Affine = self.inner.into_affine();
-        let affine: GroupAffine<C::Parameters> = affine.into();
+        let affine: F::Affine = self.inner.into_affine();
+        let affine: GroupAffine<F::Parameters> = affine.into();
         // OCaml panics on infinity
         // https://github.com/MinaProtocol/mina/blob/3e58e92ea9aeddb41ad3b6e494279891c5f9aa09/src/lib/crypto/kimchi_backend/common/curve.ml#L180
         assert!(!affine.infinity);
         affine
     }
 
-    fn of_affine(affine: GroupAffine<C::Parameters>) -> Self {
+    fn of_affine(affine: GroupAffine<F::Parameters>) -> Self {
         // Both `inner` below are the same type, but we use `into()` to make it generic
-        let inner: GroupProjective<C::Parameters> = affine.into_projective();
-        let inner: C::Projective = inner.into();
+        let inner: GroupProjective<F::Parameters> = affine.into_projective();
+        let inner: F::Projective = inner.into();
         Self { inner }
     }
 }
@@ -1037,39 +1033,35 @@ impl<F: FieldWitness> ToFieldElements<F> for InnerCurve<F> {
 }
 
 impl<F: FieldWitness> Check<F> for InnerCurve<F> {
-    // TODO: This function is incomplete (compare to OCaml), here it only push witness values
     // https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/snarky_curves/snarky_curves.ml#L167
     fn check(&self, witnesses: &mut Witness<F>) {
-        let GroupAffine { x, y, .. } = self.to_affine();
+        let GroupAffine { x, y: _, .. } = self.to_affine();
         let x2 = field::square(x, witnesses);
         let _x3 = field::mul(x2, x, witnesses);
-        // TODO
+        // TODO: Rest of the function doesn't modify witness
     }
 }
 
 mod field {
     use super::*;
 
-    // TODO: This function is incomplete (compare to OCaml), here it only push witness values
     // https://github.com/o1-labs/snarky/blob/7edf13628872081fd7cad154de257dad8b9ba621/src/base/utils.ml#L99
-    pub fn square<F>(field: F, witnesses: &mut Witness<F>) -> F
+    pub fn square<F>(field: F, w: &mut Witness<F>) -> F
     where
         F: FieldWitness,
     {
-        let mut push = witnesses.pusher();
-        push(field.square())
+        w.exists(field.square())
+        // TODO: Rest of the function doesn't modify witness
     }
 
-    pub fn mul<F>(x: F, y: F, witnesses: &mut Witness<F>) -> F
+    pub fn mul<F>(x: F, y: F, w: &mut Witness<F>) -> F
     where
         F: FieldWitness,
     {
-        let mut push = witnesses.pusher();
-        push(x * y)
+        w.exists(x * y)
     }
 }
 
-// TODO: This function is incomplete (compare to OCaml), here it only push witness values
 #[allow(unused)]
 fn dummy_constraints<F>(w: &mut Witness<F>)
 where
