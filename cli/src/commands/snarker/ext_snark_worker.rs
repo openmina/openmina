@@ -11,7 +11,7 @@ use mina_p2p_messages::v2::{
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0, TransactionSnarkWorkTStableV2Proofs,
 };
 
-use snarker::external_snark_worker::{
+use node::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerEvent, ExternalSnarkWorkerService,
     ExternalSnarkWorkerWorkError, SnarkWorkSpec,
 };
@@ -21,7 +21,7 @@ use tokio::process::Command;
 
 use tokio::sync::{mpsc, oneshot};
 
-use snarker::event_source::Event;
+use node::event_source::Event;
 
 use super::SnarkerService;
 
@@ -191,7 +191,7 @@ async fn stderr_reader<R: AsyncRead + Unpin>(r: R) -> Result<(), SnarkerError> {
 
 macro_rules! send_event {
     ($channel:expr, $event:expr) => {
-        _ = $channel.send(snarker::event_source::Event::ExternalSnarkWorker($event));
+        _ = $channel.send(node::event_source::Event::ExternalSnarkWorker($event));
     };
 }
 
@@ -384,7 +384,7 @@ impl ExternalSnarkWorkerService for SnarkerService {
         path: P,
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
-    ) -> Result<(), snarker::external_snark_worker::ExternalSnarkWorkerError> {
+    ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
         if self.replayer.is_some() {
             return Ok(());
         }
@@ -397,7 +397,7 @@ impl ExternalSnarkWorkerService for SnarkerService {
     fn submit(
         &mut self,
         spec: SnarkWorkSpec,
-    ) -> Result<(), snarker::external_snark_worker::ExternalSnarkWorkerError> {
+    ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
         if self.replayer.is_some() {
             return Ok(());
         }
@@ -419,7 +419,7 @@ impl ExternalSnarkWorkerService for SnarkerService {
         Ok(())
     }
 
-    fn kill(&mut self) -> Result<(), snarker::external_snark_worker::ExternalSnarkWorkerError> {
+    fn kill(&mut self) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
         if self.replayer.is_some() {
             return Ok(());
         }
@@ -440,11 +440,11 @@ mod tests {
         CurrencyFeeStableV1, NonZeroCurvePoint, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
         SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0,
     };
-    use openmina_core::log::inner::Level;
-    use snarker::{
+    use node::{
         event_source::Event,
         external_snark_worker::{ExternalSnarkWorkerEvent, SnarkWorkSpec},
     };
+    use openmina_core::log::inner::Level;
     use tokio::sync::mpsc;
 
     use super::ExternalSnarkWorkerFacade;

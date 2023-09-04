@@ -16,37 +16,35 @@ use serde::Serialize;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
-use openmina_core::log::inner::Level;
-use openmina_core::snark::Snark;
-use snarker::account::AccountPublicKey;
-use snarker::event_source::{
+use node::account::AccountPublicKey;
+use node::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
     EventSourceWaitTimeoutAction,
 };
-use snarker::ledger::LedgerCtx;
-use snarker::p2p::channels::ChannelId;
-use snarker::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-use snarker::p2p::identity::SecretKey;
-use snarker::p2p::service_impl::libp2p::Libp2pService;
-use snarker::p2p::service_impl::webrtc_rs::{Cmd, P2pServiceCtx, P2pServiceWebrtcRs, PeerState};
-use snarker::p2p::service_impl::webrtc_rs_with_libp2p::{self, P2pServiceWebrtcRsWithLibp2p};
-use snarker::p2p::service_impl::TaskSpawner;
-use snarker::p2p::{P2pConfig, P2pEvent, PeerId};
-use snarker::rpc::RpcRequest;
-use snarker::service::{EventSourceService, Recorder, Service};
-use snarker::snark::block_verify::{
+use node::ledger::LedgerCtx;
+use node::p2p::channels::ChannelId;
+use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use node::p2p::identity::SecretKey;
+use node::p2p::service_impl::libp2p::Libp2pService;
+use node::p2p::service_impl::webrtc_rs::{Cmd, P2pServiceCtx, P2pServiceWebrtcRs, PeerState};
+use node::p2p::service_impl::webrtc_rs_with_libp2p::{self, P2pServiceWebrtcRsWithLibp2p};
+use node::p2p::service_impl::TaskSpawner;
+use node::p2p::{P2pConfig, P2pEvent, PeerId};
+use node::rpc::RpcRequest;
+use node::service::{EventSourceService, Recorder, Service};
+use node::snark::block_verify::{
     SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
-use snarker::snark::work_verify::{
-    SnarkWorkVerifyError, SnarkWorkVerifyId, SnarkWorkVerifyService,
-};
-use snarker::snark::{SnarkEvent, VerifierIndex, VerifierKind, VerifierSRS};
-use snarker::snark_pool::SnarkPoolConfig;
-use snarker::stats::Stats;
-use snarker::{
+use node::snark::work_verify::{SnarkWorkVerifyError, SnarkWorkVerifyId, SnarkWorkVerifyService};
+use node::snark::{SnarkEvent, VerifierIndex, VerifierKind, VerifierSRS};
+use node::snark_pool::SnarkPoolConfig;
+use node::stats::Stats;
+use node::{
     ActionKind, BuildEnv, Config, LedgerConfig, SnarkConfig, SnarkerConfig, State,
     TransitionFrontierConfig,
 };
+use openmina_core::log::inner::Level;
+use openmina_core::snark::Snark;
 
 mod http_server;
 
@@ -169,15 +167,15 @@ impl Snarker {
 
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
         let rng_seed = rng.next_u64();
-        let srs: Arc<_> = snarker::snark::get_srs().into();
+        let srs: Arc<_> = node::snark::get_srs().into();
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
                 // TODO(binier): use cache
-                block_verifier_index: snarker::snark::get_verifier_index(VerifierKind::Blockchain)
+                block_verifier_index: node::snark::get_verifier_index(VerifierKind::Blockchain)
                     .into(),
                 block_verifier_srs: srs.clone(),
-                work_verifier_index: snarker::snark::get_verifier_index(VerifierKind::Transaction)
+                work_verifier_index: node::snark::get_verifier_index(VerifierKind::Transaction)
                     .into(),
                 work_verifier_srs: srs,
             },
@@ -292,7 +290,7 @@ impl Snarker {
                         replayer: None,
                     };
                     let state = State::new(config);
-                    let mut snarker = ::snarker::Snarker::new(state, service, None);
+                    let mut snarker = ::node::Snarker::new(state, service, None);
 
                     // record initial state.
                     {
@@ -385,7 +383,7 @@ impl ReplayerState {
     }
 }
 
-impl snarker::ledger::LedgerService for SnarkerService {
+impl node::ledger::LedgerService for SnarkerService {
     fn ctx(&self) -> &LedgerCtx {
         &self.ledger
     }
@@ -406,7 +404,7 @@ impl redux::TimeService for SnarkerService {
 
 impl redux::Service for SnarkerService {}
 
-impl snarker::Service for SnarkerService {
+impl node::Service for SnarkerService {
     fn stats(&mut self) -> Option<&mut Stats> {
         Some(&mut self.stats)
     }

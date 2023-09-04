@@ -9,8 +9,7 @@ use warp::{
     Filter, Reply,
 };
 
-use openmina_core::snark::SnarkJobId;
-use snarker::{
+use node::{
     p2p::{
         connection::{
             incoming::{IncomingSignalingMethod, P2pConnectionIncomingInitOpts},
@@ -23,6 +22,7 @@ use snarker::{
         RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse, SyncStatsQuery,
     },
 };
+use openmina_core::snark::SnarkJobId;
 
 use super::rpc::{
     RpcActionStatsGetResponse, RpcP2pConnectionIncomingResponse, RpcSnarkPoolGetResponse,
@@ -336,7 +336,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                     .await
                     .map_or_else(
                         dropped_channel_response,
-                        |reply: snarker::rpc::RpcSnarkerConfigGetResponse| {
+                        |reply: node::rpc::RpcSnarkerConfigGetResponse| {
                             with_json_reply(&reply, StatusCode::OK)
                         },
                     )

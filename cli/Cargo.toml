@@ -27,7 +27,7 @@ console = "0.15.5"
 clap = { version = "4.3", features = [ "derive", "env" ] }
 
 openmina-core = { path = "../core" }
-snarker = { path = "../snarker", features = ["replay"] }
+node = { path = "../node", features = ["replay"] }
 bytes = "1.4.0"
 tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }
 tracing = "0.1.37"
