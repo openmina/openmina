@@ -152,7 +152,8 @@ impl Libp2pService {
             rpc: {
                 use mina_p2p_messages::rpc::{
                     AnswerSyncLedgerQueryV2, GetAncestryV2, GetBestTipV2,
-                    GetStagedLedgerAuxAndPendingCoinbasesAtHashV2, GetTransitionChainV2,
+                    GetStagedLedgerAuxAndPendingCoinbasesAtHashV2, GetTransitionChainProofV1ForV2,
+                    GetTransitionChainV2,
                 };
 
                 BehaviourBuilder::default()
@@ -161,6 +162,7 @@ impl Libp2pService {
                     .register_method::<GetStagedLedgerAuxAndPendingCoinbasesAtHashV2>()
                     .register_method::<AnswerSyncLedgerQueryV2>()
                     .register_method::<GetTransitionChainV2>()
+                    .register_method::<GetTransitionChainProofV1ForV2>()
                     .build()
             },
             event_source_sender,
@@ -272,9 +274,9 @@ impl Libp2pService {
         use mina_p2p_messages::{
             core::Info,
             rpc::{
-                AnswerSyncLedgerQueryV2, GetBestTipV2,
+                AnswerSyncLedgerQueryV2, GetAncestryV2, GetBestTipV2,
                 GetStagedLedgerAuxAndPendingCoinbasesAtHashV2, GetTransitionChainV2,
-                ProofCarryingDataStableV1,
+                ProofCarryingDataStableV1, ProofCarryingDataWithHashV1,
             },
             rpc_kernel::{RpcMethod, RpcResult},
         };
@@ -322,6 +324,10 @@ impl Libp2pService {
                                 type T = GetBestTipV2;
                                 b.rpc.respond::<T>(peer_id, stream_id, id, Ok(None))?
                             }
+                            (GetAncestryV2::NAME, GetAncestryV2::VERSION) => {
+                                type T = GetAncestryV2;
+                                b.rpc.respond::<T>(peer_id, stream_id, id, Ok(None))?
+                            }
                             (AnswerSyncLedgerQueryV2::NAME, AnswerSyncLedgerQueryV2::VERSION) => {
                                 type T = AnswerSyncLedgerQueryV2;
                                 b.rpc.respond::<T>(
@@ -345,12 +351,22 @@ impl Libp2pService {
                             _ => {}
                         },
                         Some(P2pRpcResponse::BestTipWithProof(msg)) => {
-                            type T = GetBestTipV2;
-                            let r = Ok(Some(ProofCarryingDataStableV1 {
-                                data: (*msg.best_tip).clone(),
-                                proof: (msg.proof.0, (*msg.proof.1).clone()),
-                            }));
-                            b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
+                            if tag == GetAncestryV2::NAME {
+                                type T = GetAncestryV2;
+                                let v = msg.proof.0.iter().map(|x| x.0.clone()).collect();
+                                let r = Ok(Some(ProofCarryingDataWithHashV1 {
+                                    data: (*msg.best_tip).clone(),
+                                    proof: (v, (*msg.proof.1).clone()),
+                                }));
+                                b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
+                            } else {
+                                type T = GetBestTipV2;
+                                let r = Ok(Some(ProofCarryingDataStableV1 {
+                                    data: (*msg.best_tip).clone(),
+                                    proof: (msg.proof.0, (*msg.proof.1).clone()),
+                                }));
+                                b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
+                            }
                         }
                         Some(P2pRpcResponse::LedgerQuery(msg)) => {
                             type T = AnswerSyncLedgerQueryV2;
@@ -521,17 +537,21 @@ impl Libp2pService {
         };
         match event {
             RpcBehaviourEvent::ConnectionClosed => {
-                send(P2pConnectionEvent::Closed(peer_id.into()).into());
+                // send(P2pConnectionEvent::Closed(peer_id.into()).into());
             }
             RpcBehaviourEvent::ConnectionEstablished => {
-                send(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())).into());
+                // send(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())).into());
             }
-            RpcBehaviourEvent::Stream { received, .. } => {
+            RpcBehaviourEvent::Stream {
+                received,
+                stream_id,
+            } => {
                 use libp2p_rpc_behaviour::Received;
                 use mina_p2p_messages::{
                     rpc::{
-                        AnswerSyncLedgerQueryV2, GetBestTipV2,
-                        GetStagedLedgerAuxAndPendingCoinbasesAtHashV2, GetTransitionChainV2,
+                        AnswerSyncLedgerQueryV2, GetAncestryV2, GetBestTipV2,
+                        GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,
+                        GetTransitionChainProofV1ForV2, GetTransitionChainV2,
                     },
                     rpc_kernel::{
                         Error as RpcError, NeedsLength, QueryHeader, QueryPayload, ResponseHeader,
@@ -577,12 +597,28 @@ impl Libp2pService {
                     } => {
                         let tag = tag.to_string_lossy();
 
+                        swarm
+                            .behaviour_mut()
+                            .ongoing_incoming
+                            .insert((peer_id, id as _), (stream_id, tag.clone(), version));
+
                         let send =
                             |request: P2pRpcRequest| send(RpcChannelMsg::Request(id as _, request));
 
                         match (tag.as_str(), version) {
                             (GetBestTipV2::NAME, GetBestTipV2::VERSION) => {
                                 send(P2pRpcRequest::BestTipWithProof)
+                            }
+                            (GetAncestryV2::NAME, GetAncestryV2::VERSION) => {
+                                match parse_q::<GetAncestryV2>(bytes) {
+                                    Ok(query) => {
+                                        // TODO (vlad9486): Check query
+                                        let _ = query.data; // must be equal current best tip consensus state
+                                        let _ = query.hash; // must be equal best_tip.data.header.protocol_state.hash()
+                                        send(P2pRpcRequest::BestTipWithProof)
+                                    }
+                                    Err(err) => send_error(err),
+                                };
                             }
                             (AnswerSyncLedgerQueryV2::NAME, AnswerSyncLedgerQueryV2::VERSION) => {
                                 match parse_q::<AnswerSyncLedgerQueryV2>(bytes) {
@@ -611,7 +647,7 @@ impl Libp2pService {
                                 match parse_q::<GetTransitionChainV2>(bytes) {
                                     Ok(hashes) => {
                                         for hash in hashes {
-                                            send(P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
+                                            send(P2pRpcRequest::Block(
                                                 v2::DataHashLibStateHashStableV1(hash).into(),
                                             ));
                                         }
@@ -619,6 +655,19 @@ impl Libp2pService {
                                     Err(err) => send_error(err),
                                 }
                             }
+                            (
+                                GetTransitionChainProofV1ForV2::NAME,
+                                GetTransitionChainProofV1ForV2::VERSION,
+                            ) => swarm
+                                .behaviour_mut()
+                                .rpc
+                                .respond::<GetTransitionChainProofV1ForV2>(
+                                    peer_id,
+                                    stream_id,
+                                    id,
+                                    Ok(None),
+                                )
+                                .unwrap(),
                             _ => (),
                         };
                     }
@@ -630,12 +679,13 @@ impl Libp2pService {
                             send(RpcChannelMsg::Response(id as _, response))
                         };
 
-                        let Some((tag, id)) =
+                        let Some((tag, version)) =
                             swarm.behaviour_mut().ongoing.remove(&(peer_id, (id as _)))
                         else {
-                            panic!("{id}");
+                            return;
                         };
-                        match (tag.as_str(), id) {
+
+                        match (tag.as_str(), version) {
                             (GetBestTipV2::NAME, GetBestTipV2::VERSION) => {
                                 match parse_r::<GetBestTipV2>(bytes) {
                                     Ok(response) => {

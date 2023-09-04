@@ -9,6 +9,7 @@ trigger:
   branch:
   - master
   - feat/standalone_snark_worker
+  - feat/graphql
 
 environment:
   CHAIN_ID: 667b328bfc09ced12191d099f234575b006b6b193f5441a6fa744feacd9744db
@@ -17,6 +18,7 @@ environment:
 
   OPENMINA1_SK: 5KJKg7yAbYAQcNGWcKFf2C4ruJxwrHoQvsksU16yPzFzXHMsbMc
   OPENMINA1_ID: 2axsdDAiiZee7hUsRPMtuyHt94UMrvJmMQDhDjKhdRhgqkMdy8e
+  OPENMINA1_LIBP2P_ID: 12D3KooWF9a6eg6ZVx9Z8PLyqdyVdtxrEzz2Ejc6LXZzG8pH52qL
   OPENMINA1_SNARKER_KEY: B62qqYvLLtTMQtHxRfuzZK21AJrqFE8Zq9Cyk3wtjegiTRn5soNQA9A
 
   OPENMINA2_SK: 5JgkZGzHPC2SmQqRGxwbFjZzFMLvab5tPwkiN29HX9Vjc9rtwV4
@@ -60,18 +62,54 @@ steps:
       - cargo build --release -p cli --bin openmina
 
   - name: replayer
-    image: vladsimplestakingcom/bootstrap-rr:latest
+    image: vladsimplestakingcom/bootstrap-rr:graphql
+    pull: always
     detach: true
+    environment:
+      # 12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw
+      OPENMINA_P2P_SEC_KEY: 5JDRBqXfHm4Xne1QKUJyg9FKRfwN6gtduZb7nVYHg2F1BmwPynT
     commands:
-      - RUST_LOG=info openmina-bootstrap-sandbox replay 7548
+      - RUST_LOG=info openmina-bootstrap-sandbox --path='/tmp/mina-record' --listen='/ip4/0.0.0.0/tcp/8302' replay 7548
+
+  # - name: empty
+  #   image: vladsimplestakingcom/bootstrap-rr:graphql
+  #   pull: always
+  #   detach: true
+  #   environment:
+  #     # 12D3KooWBk4vJzxBZcwDXEae91mPLxJZks2pUCpDJP1zmCjx95ai
+  #     OPENMINA_P2P_SEC_KEY: 5KRTpP4DczohhCkYVSZCHNzEF2t8Lig1EwbUPkR7TT2b4gMYYer
+  #     RUST_LOG: info
+  #   commands:
+  #     - openmina-bootstrap-sandbox --listen='/ip6/::/tcp/8302' --listen='/ip4/0.0.0.0/tcp/8302' empty
+
+  # - name: ocaml1
+  #   image: minaprotocol/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley
+  #   detach: true
+  #   environment:
+  #     MINA_LIBP2P_PASS: _
+  #   commands:
+  #     - curl https://raw.githubusercontent.com/MinaProtocol/mina/bfd1009/genesis_ledgers/berkeley.json -o /berkeley.json
+  #     - mkdir /key && chmod 700 /key
+  #     - echo '{"box_primitive":"xsalsa20poly1305","pw_primitive":"argon2i","nonce":"6MNkZnzpgwLHBA28BLzmEcxv4uAHqv52498evUP","pwsalt":"9YzR5Eb7faseS8XgE74Q7KbmrKs7","pwdiff":[134217728,6],"ciphertext":"7DrdaPt1vmgRVT8L4LcHyq6WSwzzxK1XfnZAwwtwWZRUpaChfetKyKrBBSuW3X99QUMebL8gCmuW9yq9k6CbpByvfWuRNEnejGHtXNrmyjJdoU5fd656CFjs4kXPUbpDLLwf4PD4axa89TDh5xCPENsqmigE38UuLn42TNix8sqyyGuVnyNXvP2pjDKKVU6rWatw83w8ijP97HXzeV9vwq2YudRFr4URdi11hiyVjvQ5DCmF3yNYJs5RgJw94AteZqfr2CH1FsdRA3nhiBLavreFZ53WEJnxJ69xt"}' > /key/key
+  #     - echo '12D3KooWKLzGWSdFAQGEAtrHan1TTwu7idagcZ83X6MXWfUJNiTU' > /key/key.peerid
+  #     - chmod 600 /key/*
+  #     - apt-get update && apt-get install -y netcat
+  #     - netcat -l -p 9000 || true
+  #     - mina daemon --external-port 8302 --config-file /berkeley.json --libp2p-keypair /key/key 
+  #         --log-level Debug --insecure-rest-server
+  #         --peer /dns4/empty/tcp/8302/p2p/12D3KooWBk4vJzxBZcwDXEae91mPLxJZks2pUCpDJP1zmCjx95ai
+  #         --direct-peer /dns4/openmina1/tcp/10000/p2p/$OPENMINA1_LIBP2P_ID
 
   - name: openmina1
     image: openmina/mina-snark-worker-prover:0.0.8
     detach: true
     commands:
+      - mkdir test_ledgers
+      - curl https://raw.githubusercontent.com/openmina/openmina-poc/3a81bc7/test_ledgers/jx5k7xf3L2aof821PQWumABQ793rhEis5kRb8YUmJWTHKtEJ5nb -o test_ledgers/jx5k7xf3L2aof821PQWumABQ793rhEis5kRb8YUmJWTHKtEJ5nb
       - target/release/openmina node -p 10000 --chain-id $CHAIN_ID --run-snarker $OPENMINA1_SNARKER_KEY -s $OPENMINA1_SK
           --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /$OPENMINA2_ID/http/openmina2/10000 /$OPENMINA3_ID/http/openmina3/10000
-          --snarker-exe-path cli/bin/snark-worker -v Debug
+                    /dns4/ocaml1/tcp/8302/p2p/12D3KooWKLzGWSdFAQGEAtrHan1TTwu7idagcZ83X6MXWfUJNiTU
+          --snarker-exe-path cli/bin/snark-worker -v Debug --additional-ledgers-path test_ledgers
 
   - name: openmina2
     image: openmina/mina-snark-worker-prover:0.0.8
@@ -81,6 +119,13 @@ steps:
           --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /$OPENMINA1_ID/http/openmina1/10000 /$OPENMINA3_ID/http/openmina3/10000
           --snarker-exe-path cli/bin/snark-worker -v Debug
 
+  - name: test-bootstrap-replayer-to-openmina
+    image: vladsimplestakingcom/bootstrap-rr:graphql
+    pull: always
+    commands:
+      - sleep 180
+      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 7548 http://openmina1:10000/graphql
+
   - name: openmina3
     image: openmina/mina-snark-worker-prover:0.0.8
     detach: true
@@ -89,12 +134,23 @@ steps:
           --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /$OPENMINA1_ID/http/openmina1/10000 /$OPENMINA2_ID/http/openmina2/10000
           --snarker-exe-path cli/bin/snark-worker -v Debug
 
-  - name: test-bootstrap
-    image: vladsimplestakingcom/bootstrap-rr:latest
+  - name: test-bootstrap-openmina-to-openmina
+    image: vladsimplestakingcom/bootstrap-rr:graphql
+    pull: always
     commands:
-      - sleep 300
-      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox test 7548 http://openmina1:10000/stats/sync
+      - sleep 180
+      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 7548 http://openmina3:10000/graphql
 
+  # - name: test-bootstrap-openmina-to-mina
+  #   image: vladsimplestakingcom/bootstrap-rr:graphql
+  #   pull: always
+  #   environment:
+  #     RUST_LOG: debug
+  #   commands:
+  #     - apt-get update && apt-get install -y netcat
+  #     - echo "ready" | netcat -q 1 ocaml1 9000
+  #     - sleep 180
+  #     - timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 7548 http://ocaml1:3085/graphql
 
   - name: test-snark-work
     image: alpine
