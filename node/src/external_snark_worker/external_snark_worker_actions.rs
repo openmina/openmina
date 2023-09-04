@@ -38,10 +38,11 @@ pub struct ExternalSnarkWorkerStartAction {}
 
 impl EnablingCondition<State> for ExternalSnarkWorkerStartAction {
     fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
-        matches!(
-            state.external_snark_worker.0.state,
-            ExternalSnarkWorkerState::None
-        )
+        state.config.snarker.is_some()
+            && matches!(
+                state.external_snark_worker.0.state,
+                ExternalSnarkWorkerState::None
+            )
     }
 }
 

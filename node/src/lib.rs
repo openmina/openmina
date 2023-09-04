@@ -39,11 +39,11 @@ pub mod watched_accounts;
 pub type Store<S> = redux::Store<State, S, Action>;
 pub type Effects<S> = redux::Effects<State, S, Action>;
 
-pub struct Snarker<Serv> {
+pub struct Node<Serv> {
     store: Store<Serv>,
 }
 
-impl<Serv: Service> Snarker<Serv> {
+impl<Serv: Service> Node<Serv> {
     pub fn new(
         initial_state: State,
         service: Serv,
@@ -73,7 +73,7 @@ impl<Serv: Service> Snarker<Serv> {
     }
 }
 
-impl<Serv> Clone for Snarker<Serv>
+impl<Serv> Clone for Node<Serv>
 where
     Serv: Clone,
 {

@@ -1,5 +1,5 @@
 use ::node::{ActionWithMeta, Store};
-use cli::commands::snarker::SnarkerService;
+use cli::commands::node::NodeService;
 
 pub mod ret {
     macro_rules! define {
@@ -27,7 +27,7 @@ pub mod ret {
 
 #[no_mangle]
 extern "C" fn replay_dynamic_effects(
-    store: &mut Store<SnarkerService>,
+    store: &mut Store<NodeService>,
     action: &ActionWithMeta,
 ) -> u8 {
     let (action, meta) = (action.action(), action.meta().clone());

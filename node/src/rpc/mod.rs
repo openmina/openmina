@@ -208,21 +208,12 @@ pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcScanStateSummaryGetResponse = Option<RpcScanStateSummary>;
 pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
-pub type RpcSnarkerConfigGetResponse = RpcSnarkerConfig;
+pub type RpcSnarkerConfigGetResponse = Option<RpcSnarkerConfig>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcSnarkerConfig {
     public_key: NonZeroCurvePoint,
     fee: CurrencyFeeStableV1,
-}
-
-impl From<&crate::SnarkerConfig> for RpcSnarkerConfig {
-    fn from(source: &crate::SnarkerConfig) -> Self {
-        RpcSnarkerConfig {
-            public_key: source.public_key.clone().into(),
-            fee: source.fee.clone(),
-        }
-    }
 }
 
 #[derive(Serialize, Debug, Clone)]

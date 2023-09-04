@@ -1,7 +1,7 @@
 use redux::{ActionMeta, Timestamp};
 use serde::{Deserialize, Serialize};
 
-use crate::config::SnarkerConfig;
+use crate::config::GlobalConfig;
 pub use crate::consensus::ConsensusState;
 use crate::external_snark_worker::ExternalSnarkWorkers;
 pub use crate::p2p::P2pState;
@@ -15,7 +15,7 @@ pub use crate::Config;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct State {
-    pub config: SnarkerConfig,
+    pub config: GlobalConfig,
 
     pub p2p: P2pState,
     pub snark: SnarkState,
@@ -34,11 +34,10 @@ pub struct State {
 
 impl State {
     pub fn new(config: Config) -> Self {
-        let job_commitments = config.snarker.job_commitments.clone();
         let now = Timestamp::global_now();
         Self {
             p2p: P2pState::new(config.p2p),
-            snark_pool: SnarkPoolState::new(job_commitments),
+            snark_pool: SnarkPoolState::new(),
             snark: SnarkState::new(config.snark),
             consensus: ConsensusState::new(),
             transition_frontier: TransitionFrontierState::new(config.transition_frontier),
@@ -47,7 +46,7 @@ impl State {
 
             watched_accounts: WatchedAccountsState::new(),
 
-            config: config.snarker,
+            config: config.global,
             last_action: ActionMeta::zero_custom(now),
             applied_actions_count: 0,
         }

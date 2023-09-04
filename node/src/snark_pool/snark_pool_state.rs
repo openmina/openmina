@@ -54,9 +54,9 @@ pub enum JobSummary {
 }
 
 impl SnarkPoolState {
-    pub fn new(config: SnarkPoolConfig) -> Self {
+    pub fn new() -> Self {
         Self {
-            config,
+            config: SnarkPoolConfig {},
             counter: 0,
             list: Default::default(),
             by_ledger_hash_index: Default::default(),
