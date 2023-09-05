@@ -62,6 +62,15 @@ impl<F: FieldWitness> Witness<F> {
         self.aux.push(field)
     }
 
+    pub fn extend<I: Into<F>, V: Iterator<Item = I>>(&mut self, field: V) {
+        let fields = {
+            let fields: Vec<F> = field.map(Into::into).collect();
+            eprintln!("extend[{}]={:#?}", fields.len(), fields);
+            fields
+        };
+        self.aux.extend(fields)
+    }
+
     fn exists<T>(&mut self, data: T) -> T
     where
         T: ToFieldElements<F> + Check<F>,
@@ -512,6 +521,13 @@ impl<F: FieldWitness> ToFieldElements<F> for &'_ [bool] {
 }
 
 impl<F: FieldWitness, const NBITS: usize> ToFieldElements<F> for &'_ [bool; NBITS] {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        fields.reserve(self.len());
+        fields.extend(self.iter().copied().map(F::from))
+    }
+}
+
+impl<F: FieldWitness, const NBITS: usize> ToFieldElements<F> for [bool; NBITS] {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         fields.reserve(self.len());
         fields.extend(self.iter().copied().map(F::from))
@@ -1241,6 +1257,12 @@ impl<F: FieldWitness> Check<F> for v2::MinaBasePendingCoinbaseStackVersionedStab
     }
 }
 
+impl<F: FieldWitness, const NBITS: usize> Check<F> for [bool; NBITS] {
+    fn check(&self, _witnesses: &mut Witness<F>) {
+        // Does not modify the witness
+    }
+}
+
 mod field {
     use super::*;
 
@@ -1278,10 +1300,234 @@ where
     dbg!(w);
 }
 
-mod transaction_snark {
+pub mod legacy_input {
+    use crate::scan_state::transaction_logic::transaction_union_payload::{
+        Body, Common, TransactionUnionPayload,
+    };
+
     use super::*;
 
-    fn main(tx_witness: &v2::TransactionWitnessStableV2, w: &mut Witness<Fp>) {
+    struct BitsIterator<const N: usize> {
+        index: usize,
+        number: [u8; N],
+    }
+
+    impl<const N: usize> Iterator for BitsIterator<N> {
+        type Item = bool;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            let index = self.index;
+            self.index += 1;
+
+            let limb_index = index / 8;
+            let bit_index = index % 8;
+
+            let limb = self.number.get(limb_index)?;
+            Some(limb & (1 << bit_index) != 0)
+        }
+    }
+
+    pub fn bits_iter<N: Into<u64>, const NBITS: usize>(number: N) -> impl Iterator<Item = bool> {
+        let number: u64 = number.into();
+        BitsIterator {
+            index: 0,
+            number: number.to_ne_bytes(),
+        }
+        .take(NBITS)
+    }
+
+    pub fn to_bits<N: Into<u64>, const NBITS: usize>(number: N) -> [bool; NBITS] {
+        let mut iter = bits_iter::<N, NBITS>(number);
+        std::array::from_fn(|_| iter.next().unwrap())
+    }
+
+    pub trait CheckedLegacyInput<F: FieldWitness> {
+        fn to_checked_legacy_input(&self, inputs: &mut LegacyInput<F>, w: &mut Witness<F>);
+    }
+
+    pub struct LegacyInput<F: FieldWitness> {
+        fields: Vec<F>,
+        bits: Vec<bool>,
+    }
+
+    impl<F: FieldWitness> LegacyInput<F> {
+        pub fn new() -> Self {
+            Self {
+                fields: Vec::with_capacity(1024),
+                bits: Vec::with_capacity(1024),
+            }
+        }
+
+        pub fn append_bits(&mut self, bits: &[bool]) {
+            self.bits.extend(bits);
+        }
+    }
+
+    const LEGACY_DEFAULT_TOKEN: [bool; 64] = {
+        let mut default = [false; 64];
+        default[0] = true;
+        default
+    };
+
+    impl<F: FieldWitness> CheckedLegacyInput<F> for TransactionUnionPayload {
+        fn to_checked_legacy_input(&self, inputs: &mut LegacyInput<F>, w: &mut Witness<F>) {
+            let Self {
+                common:
+                    Common {
+                        fee,
+                        fee_payer_pk: _,
+                        nonce,
+                        valid_until,
+                        memo: _,
+                        fee_token: _,
+                    },
+                body:
+                    Body {
+                        tag: _,
+                        source_pk: _,
+                        receiver_pk: _,
+                        token_id: _,
+                        amount,
+                    },
+            } = self;
+
+            let nonce = w.exists(nonce.to_bits());
+            let valid_until = w.exists(valid_until.to_bits());
+            let fee = w.exists(fee.to_bits());
+
+            let fee_token = &LEGACY_DEFAULT_TOKEN;
+
+            inputs.append_bits(&fee);
+            inputs.append_bits(fee_token);
+
+            // let to_input_legacy ({ fee; fee_payer_pk; nonce; valid_until; memo } : var)
+            //     =
+            //   let%map nonce = Account_nonce.Checked.to_input_legacy nonce
+            //   and valid_until =
+            //     Global_slot_since_genesis.Checked.to_input_legacy valid_until
+            //   and fee = Currency.Fee.var_to_input_legacy fee in
+            //   let fee_token = Legacy_token_id.default_checked in
+            //   Array.reduce_exn ~f:Random_oracle.Input.Legacy.append
+            //     [| fee
+            //      ; fee_token
+            //      ; Public_key.Compressed.Checked.to_input_legacy fee_payer_pk
+            //      ; nonce
+            //      ; valid_until
+            //      ; Random_oracle.Input.Legacy.bitstring
+            //          (Array.to_list (memo :> Boolean.var array))
+            //     |]
+
+            // inputs
+
+            // nonce.to_checked_legacy_input(w);
+            // valid_until.to_checked_legacy_input(w);
+            // fee.to_checked_legacy_input(w);
+            //// fee_payer_pk.to_checked_legacy_input(w);
+            //// memo.to_checked_legacy_input(w);
+            //// order:
+            //// [fee, fee_token, fee_payer_pk, nonce, valid_until, memo]
+
+            //// tag.to_checked_legacy_input(w);
+            //// source_pk.to_checked_legacy_input(w);
+            //// receiver_pk.to_checked_legacy_input(w);
+            //// token_id.to_checked_legacy_input(w);
+            // amount.to_checked_legacy_input(w);
+            //// [false].to_checked_legacy_input(w);
+        }
+    }
+}
+
+mod transaction_snark {
+    use crate::proofs::witness::legacy_input::{CheckedLegacyInput, LegacyInput};
+    use mina_signer::PubKey;
+
+    use crate::scan_state::{
+        currency::{Amount, Fee, Slot},
+        scan_state::ConstraintConstants,
+        transaction_logic::transaction_union_payload::{
+            Tag, TransactionUnion, TransactionUnionPayload,
+        },
+    };
+    use mina_signer::Signature;
+
+    use super::*;
+
+    // TODO: De-deplicates this constant in the repo
+    pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
+        sub_windows_per_window: 11,
+        ledger_depth: 35,
+        work_delay: 2,
+        block_window_duration_ms: 180000,
+        transaction_capacity_log_2: 7,
+        pending_coinbase_depth: 5,
+        coinbase_amount: Amount::from_u64(720000000000),
+        supercharged_coinbase_factor: 2,
+        account_creation_fee: Fee::from_u64(1000000000),
+        fork: None,
+    };
+
+    // let%snarkydef_ check_signature shifted ~payload ~is_user_command ~signer
+    //     ~signature =
+    //   Printf.eprintf "[check_signature] START\n%!" ;
+    //   let%bind input =
+    //     Transaction_union_payload.Checked.to_input_legacy payload
+    //   in
+    //   Printf.eprintf "[check_signature] 1 DONE\n%!" ;
+    //   let%bind verifies =
+    //     Schnorr.Legacy.Checked.verifies shifted signature signer input
+    //   in
+    //   Printf.eprintf "[check_signature] 2 DONE\n%!" ;
+    //   [%with_label_ "check signature"] (fun () ->
+    //       Boolean.Assert.any [ Boolean.not is_user_command; verifies ] )
+
+    fn check_signature(
+        payload: &TransactionUnionPayload,
+        is_user_command: bool,
+        signer: &PubKey,
+        signature: &Signature,
+        w: &mut Witness<Fp>,
+    ) {
+        println!("START\n");
+
+        let mut inputs = LegacyInput::new();
+
+        payload.to_checked_legacy_input(&mut inputs, w);
+
+        let nonce = payload.common.nonce;
+        eprintln!(
+            "nonce={:?} bits={:b}",
+            nonce,
+            nonce.as_u32().to_ne_bytes()[0]
+        );
+    }
+
+    fn apply_tagged_transaction(
+        fee_payment_root: Fp,
+        global_slot: Slot,
+        pending_coinbase_init: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
+        pending_coinbase_stack_before: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
+        pending_coinbase_stack_after: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
+        state_body: &MinaStateProtocolStateBodyValueStableV2,
+        tx: &TransactionUnion,
+        w: &mut Witness<Fp>,
+    ) {
+        let TransactionUnion {
+            payload,
+            signer,
+            signature,
+        } = tx;
+
+        let tag = payload.body.tag.clone();
+        let is_user_command = tag.is_user_command();
+
+        check_signature(payload, is_user_command, signer, signature, w);
+    }
+
+    pub fn main(
+        statement: &MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+        tx_witness: &v2::TransactionWitnessStableV2,
+        w: &mut Witness<Fp>,
+    ) {
         let tx: crate::scan_state::transaction_logic::Transaction =
             (&tx_witness.transaction).into();
         let tx = transaction_union_payload::TransactionUnion::of_transaction(&tx);
@@ -1293,6 +1539,26 @@ mod transaction_snark {
         let global_slot = w.exists(tx_witness.block_global_slot.clone());
         let tx = w.exists(tx);
         let pending_coinbase_init = w.exists(tx_witness.init_stack.clone());
+
+        apply_tagged_transaction(
+            statement.source.first_pass_ledger.to_field(),
+            Slot::from_u32(global_slot.as_u32()),
+            &pending_coinbase_init,
+            &statement.source.pending_coinbase_stack,
+            &statement.target.pending_coinbase_stack,
+            &state_body,
+            &tx,
+            w,
+        );
+
+        // let%bind fee_payment_root_after, fee_excess, supply_increase =
+        //   apply_tagged_transaction ~constraint_constants
+        //     (module Shifted)
+        //     statement.source.first_pass_ledger global_slot pending_coinbase_init
+        //     statement.source.pending_coinbase_stack
+        //     statement.target.pending_coinbase_stack state_body t
+        // in
+        // Printf.eprintf "AFTER_TAGGED_TRANSACTION AFTER\n%!" ;
     }
 }
 
@@ -1303,6 +1569,10 @@ mod tests {
     use mina_hasher::Fp;
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
+
+    use crate::scan_state::transaction_logic::{
+        transaction_union_payload::TransactionUnion, Transaction,
+    };
 
     use super::*;
 

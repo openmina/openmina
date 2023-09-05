@@ -5992,6 +5992,15 @@ pub mod transaction_union_payload {
     }
 
     impl Tag {
+        pub fn is_user_command(&self) -> bool {
+            match self {
+                Tag::Payment => true,
+                Tag::StakeDelegation => true,
+                Tag::FeeTransfer => false,
+                Tag::Coinbase => false,
+            }
+        }
+
         pub fn to_untagged_bits(&self) -> [bool; 5] {
             let mut is_payment = false;
             let mut is_stake_delegation = false;

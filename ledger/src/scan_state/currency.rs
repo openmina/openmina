@@ -2,7 +2,7 @@ use std::cmp::Ordering::{Equal, Greater, Less};
 
 use rand::Rng;
 
-use crate::proofs::witness::{Check, FieldWitness, Witness};
+use crate::proofs::witness::{legacy_input::CheckedLegacyInput, Check, FieldWitness, Witness};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Sgn {
@@ -425,6 +425,13 @@ macro_rules! impl_number {
 
                 let n = s.parse::<$inner>().unwrap();
                 Self(n)
+            }
+
+            pub fn to_bits(&self) -> [bool; <$inner>::BITS as usize] {
+                use crate::proofs::witness::legacy_input::bits_iter;
+
+                let mut iter = bits_iter::<$inner, { <$inner>::BITS as usize }>(self.0);
+                std::array::from_fn(|_| iter.next().unwrap())
             }
         }
 
