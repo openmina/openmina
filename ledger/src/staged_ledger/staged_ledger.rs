@@ -116,7 +116,7 @@ pub struct PreStatement<L: sparse_ledger::LedgerIntf + Clone> {
 
 #[derive(Debug)]
 pub struct DiffResult {
-    pub hash_after_applying: StagedLedgerHash,
+    pub hash_after_applying: StagedLedgerHash<Fp>,
     ledger_proof: Option<(
         LedgerProof,
         Vec<TransactionsOrdered<(WithStatus<Transaction>, Fp, Slot)>>,
@@ -431,7 +431,7 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#403
-    pub fn hash(&mut self) -> StagedLedgerHash {
+    pub fn hash(&mut self) -> StagedLedgerHash<Fp> {
         StagedLedgerHash::of_aux_ledger_and_coinbase_hash(
             self.scan_state.hash(),
             self.ledger.merkle_root(),
@@ -3855,7 +3855,11 @@ mod tests_ocaml {
         (state, cmds, iters.iter().copied().map(Some).collect())
     }
 
-    fn test_hash(cmds: Vec<valid::UserCommand>, iters: &[usize], expected_hash: &StagedLedgerHash) {
+    fn test_hash(
+        cmds: Vec<valid::UserCommand>,
+        iters: &[usize],
+        expected_hash: &StagedLedgerHash<Fp>,
+    ) {
         let (ledger_init_state, cmds, cmd_iters) = gen_for_hash(iters, cmds);
         let global_slot = Slot::gen_small();
 

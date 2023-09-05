@@ -177,7 +177,9 @@ fn closed_interval_exact<T: Copy>(value: T) -> ClosedInterval<T> {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_generators/zkapp_command_generators.ml#L319
-fn gen_epoch_data_predicate(epoch_data: &protocol_state::EpochData) -> zkapp_command::EpochData {
+fn gen_epoch_data_predicate(
+    epoch_data: &protocol_state::EpochData<Fp>,
+) -> zkapp_command::EpochData {
     let mut rng = rand::thread_rng();
 
     let ledger = {

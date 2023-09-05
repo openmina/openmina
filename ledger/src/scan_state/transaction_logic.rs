@@ -590,6 +590,11 @@ impl Memo {
         Self([0; 34])
     }
 
+    pub fn empty() -> Self {
+        // TODO
+        Self([0; 34])
+    }
+
     /// Example:
     /// "\000 \014WQ\192&\229C\178\232\171.\176`\153\218\161\209\229\223Gw\143w\135\250\171E\205\241/\227\168"
     #[cfg(test)]
@@ -1452,7 +1457,7 @@ pub mod zkapp_command {
     }
 
     impl EpochLedger {
-        pub fn epoch_ledger(&self, t: protocol_state::EpochLedger) -> Result<(), String> {
+        pub fn epoch_ledger(&self, t: protocol_state::EpochLedger<Fp>) -> Result<(), String> {
             self.hash.check("epoch_ledger_hash".to_string(), t.hash)?;
             self.total_currency
                 .check("epoch_ledger_total_currency".to_string(), t.total_currency)
@@ -1498,7 +1503,11 @@ pub mod zkapp_command {
     }
 
     impl EpochData {
-        pub fn epoch_data(&self, label: &str, t: protocol_state::EpochData) -> Result<(), String> {
+        pub fn epoch_data(
+            &self,
+            label: &str,
+            t: protocol_state::EpochData<Fp>,
+        ) -> Result<(), String> {
             self.ledger.epoch_ledger(t.ledger)?;
             // ignore seed
             self.start_checkpoint.check(
@@ -3822,20 +3831,22 @@ pub mod transaction_witness {
 pub mod protocol_state {
     use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
 
+    use crate::proofs::witness::FieldWitness;
+
     use super::*;
 
     #[derive(Debug, Clone)]
-    pub struct EpochLedger {
-        pub hash: Fp,
+    pub struct EpochLedger<F: FieldWitness> {
+        pub hash: F,
         pub total_currency: Amount,
     }
 
     #[derive(Debug, Clone)]
-    pub struct EpochData {
-        pub ledger: EpochLedger,
-        pub seed: Fp,
-        pub start_checkpoint: Fp,
-        pub lock_checkpoint: Fp,
+    pub struct EpochData<F: FieldWitness> {
+        pub ledger: EpochLedger<F>,
+        pub seed: F,
+        pub start_checkpoint: F,
+        pub lock_checkpoint: F,
         pub epoch_length: Length,
     }
 
@@ -3846,8 +3857,8 @@ pub mod protocol_state {
         pub min_window_density: Length,
         pub total_currency: Amount,
         pub global_slot_since_genesis: Slot,
-        pub staking_epoch_data: EpochData,
-        pub next_epoch_data: EpochData,
+        pub staking_epoch_data: EpochData<Fp>,
+        pub next_epoch_data: EpochData<Fp>,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/mina_state/protocol_state.ml#L180
@@ -5953,45 +5964,77 @@ where
 pub mod transaction_union_payload {
     use ark_ff::PrimeField;
     use mina_hasher::{Hashable, ROInput as LegacyInput};
-    use mina_signer::NetworkId;
+    use mina_signer::{NetworkId, PubKey, Signature};
 
-    use crate::scan_state::transaction_logic::signed_command::{
-        PaymentPayload, StakeDelegationPayload,
+    use crate::{
+        decompress_pk,
+        scan_state::transaction_logic::signed_command::{PaymentPayload, StakeDelegationPayload},
     };
 
     use super::*;
 
     #[derive(Clone)]
-    struct Common {
-        fee: Fee,
-        fee_token: TokenId,
-        fee_payer_pk: CompressedPubKey,
-        nonce: Nonce,
-        valid_until: Slot,
-        memo: Memo,
+    pub struct Common {
+        pub fee: Fee,
+        pub fee_token: TokenId,
+        pub fee_payer_pk: CompressedPubKey,
+        pub nonce: Nonce,
+        pub valid_until: Slot,
+        pub memo: Memo,
     }
 
     #[derive(Clone, Debug)]
-    enum Tag {
+    pub enum Tag {
         Payment = 0,
         StakeDelegation = 1,
         FeeTransfer = 2,
         Coinbase = 3,
     }
 
+    impl Tag {
+        pub fn to_untagged_bits(&self) -> [bool; 5] {
+            let mut is_payment = false;
+            let mut is_stake_delegation = false;
+            let mut is_fee_transfer = false;
+            let mut is_coinbase = false;
+            let mut is_user_command = false;
+
+            match self {
+                Tag::Payment => {
+                    is_payment = true;
+                    is_user_command = true;
+                }
+                Tag::StakeDelegation => {
+                    is_stake_delegation = true;
+                    is_user_command = true;
+                }
+                Tag::FeeTransfer => is_fee_transfer = true,
+                Tag::Coinbase => is_coinbase = true,
+            }
+
+            [
+                is_payment,
+                is_stake_delegation,
+                is_fee_transfer,
+                is_coinbase,
+                is_user_command,
+            ]
+        }
+    }
+
     #[derive(Clone)]
-    struct Body {
-        tag: Tag,
-        source_pk: CompressedPubKey,
-        receiver_pk: CompressedPubKey,
-        token_id: TokenId,
-        amount: Amount,
+    pub struct Body {
+        pub tag: Tag,
+        pub source_pk: CompressedPubKey,
+        pub receiver_pk: CompressedPubKey,
+        pub token_id: TokenId,
+        pub amount: Amount,
     }
 
     #[derive(Clone)]
     pub struct TransactionUnionPayload {
-        common: Common,
-        body: Body,
+        pub common: Common,
+        pub body: Body,
     }
 
     impl Hashable for TransactionUnionPayload {
@@ -6135,6 +6178,130 @@ pub mod transaction_union_payload {
             }
 
             roi
+        }
+    }
+
+    pub struct TransactionUnion {
+        pub payload: TransactionUnionPayload,
+        pub signer: PubKey,
+        pub signature: Signature,
+    }
+
+    impl TransactionUnion {
+        /// For SNARK purposes, we inject [Transaction.t]s into a single-variant 'tagged-union' record capable of
+        /// representing all the variants. We interpret the fields of this union in different ways depending on
+        /// the value of the [payload.body.tag] field, which represents which variant of [Transaction.t] the value
+        /// corresponds to.
+        ///
+        /// Sometimes we interpret fields in surprising ways in different cases to save as much space in the SNARK as possible (e.g.,
+        /// [payload.body.public_key] is interpreted as the recipient of a payment, the new delegate of a stake
+        /// delegation command, and a fee transfer recipient for both coinbases and fee-transfers.
+        pub fn of_transaction(tx: &Transaction) -> Self {
+            match tx {
+                Transaction::Command(cmd) => {
+                    let UserCommand::SignedCommand(cmd) = cmd else {
+                        unreachable!();
+                    };
+
+                    let SignedCommand {
+                        payload,
+                        signer,
+                        signature,
+                    } = cmd.as_ref();
+
+                    TransactionUnion {
+                        payload: TransactionUnionPayload::of_user_command_payload(payload),
+                        signer: decompress_pk(signer).unwrap(),
+                        signature: signature.clone(),
+                    }
+                }
+                Transaction::Coinbase(Coinbase {
+                    receiver,
+                    amount,
+                    fee_transfer,
+                }) => {
+                    let CoinbaseFeeTransfer {
+                        receiver_pk: other_pk,
+                        fee: other_amount,
+                    } = fee_transfer.clone().unwrap_or_else(|| {
+                        CoinbaseFeeTransfer::create(receiver.clone(), Fee::zero())
+                    });
+
+                    let signer = decompress_pk(&other_pk).unwrap();
+                    let payload = TransactionUnionPayload {
+                        common: Common {
+                            fee: other_amount,
+                            fee_token: TokenId::default(),
+                            fee_payer_pk: other_pk.clone(),
+                            nonce: Nonce::zero(),
+                            valid_until: Slot::max(),
+                            memo: Memo::empty(),
+                        },
+                        body: Body {
+                            source_pk: other_pk,
+                            receiver_pk: receiver.clone(),
+                            token_id: TokenId::default(),
+                            amount: *amount,
+                            tag: Tag::Coinbase,
+                        },
+                    };
+
+                    TransactionUnion {
+                        payload,
+                        signer,
+                        signature: Signature::dummy(),
+                    }
+                }
+                Transaction::FeeTransfer(tr) => {
+                    let two = |SingleFeeTransfer {
+                                   receiver_pk: pk1,
+                                   fee: fee1,
+                                   fee_token,
+                               },
+                               SingleFeeTransfer {
+                                   receiver_pk: pk2,
+                                   fee: fee2,
+                                   fee_token: token_id,
+                               }| {
+                        let signer = decompress_pk(&pk2).unwrap();
+                        let payload = TransactionUnionPayload {
+                            common: Common {
+                                fee: fee2,
+                                fee_token,
+                                fee_payer_pk: pk2.clone(),
+                                nonce: Nonce::zero(),
+                                valid_until: Slot::max(),
+                                memo: Memo::empty(),
+                            },
+                            body: Body {
+                                source_pk: pk2,
+                                receiver_pk: pk1,
+                                token_id,
+                                amount: Amount::of_fee(&fee1),
+                                tag: Tag::FeeTransfer,
+                            },
+                        };
+
+                        TransactionUnion {
+                            payload,
+                            signer,
+                            signature: Signature::dummy(),
+                        }
+                    };
+
+                    match tr.0.clone() {
+                        OneOrTwo::One(t) => {
+                            let other = SingleFeeTransfer::create(
+                                t.receiver_pk.clone(),
+                                Fee::zero(),
+                                t.fee_token.clone(),
+                            );
+                            two(t, other)
+                        }
+                        OneOrTwo::Two((t1, t2)) => two(t1, t2),
+                    }
+                }
+            }
         }
     }
 }

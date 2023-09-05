@@ -68,9 +68,10 @@ use mina_p2p_messages::{
         MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1,
         MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command,
         MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
-        ParallelScanJobStatusStableV1, ParallelScanSequenceNumberStableV1,
-        ParallelScanWeightStableV1, SgnStableV1, SignedAmount, StagedLedgerDiffDiffDiffStableV2,
-        StagedLedgerDiffDiffFtStableV1, StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2,
+        MinaTransactionTransactionStableV2, ParallelScanJobStatusStableV1,
+        ParallelScanSequenceNumberStableV1, ParallelScanWeightStableV1, SgnStableV1, SignedAmount,
+        StagedLedgerDiffDiffDiffStableV2, StagedLedgerDiffDiffFtStableV1,
+        StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2,
         StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase,
         StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2,
         StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,
@@ -94,6 +95,7 @@ use mina_signer::Signature;
 
 use crate::{
     array_into_with,
+    proofs::witness::FieldWitness,
     scan_state::{
         currency::BlockTime,
         pending_coinbase::{Stack, StackHasher},
@@ -129,7 +131,8 @@ use super::{
         zkapp_command::{
             AccountUpdate, FeePayer, FeePayerBody, SetOrKeep, WithHash, WithStackHash,
         },
-        FeeTransfer, Memo, SingleFeeTransfer, TransactionFailure, TransactionStatus, UserCommand,
+        CoinbaseFeeTransfer, FeeTransfer, Memo, SingleFeeTransfer, Transaction, TransactionFailure,
+        TransactionStatus, UserCommand,
     },
 };
 
@@ -743,8 +746,8 @@ impl From<&zkapp_command::Numeric<Length>>
     }
 }
 
-impl From<&ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1>
-    for protocol_state::EpochData
+impl<F: FieldWitness> From<&ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1>
+    for protocol_state::EpochData<F>
 {
     fn from(value: &ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1) -> Self {
         Self {
@@ -760,8 +763,8 @@ impl From<&ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1>
     }
 }
 
-impl From<&ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1>
-    for protocol_state::EpochData
+impl<F: FieldWitness> From<&ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1>
+    for protocol_state::EpochData<F>
 {
     fn from(value: &ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1) -> Self {
         Self {
@@ -1771,6 +1774,19 @@ impl From<&transaction_logic::Coinbase> for MinaBaseCoinbaseStableV1 {
     }
 }
 
+impl From<&MinaBaseCoinbaseStableV1> for transaction_logic::Coinbase {
+    fn from(value: &MinaBaseCoinbaseStableV1) -> Self {
+        Self {
+            receiver: (&value.receiver).into(),
+            amount: value.amount.clone().into(),
+            fee_transfer: value.fee_transfer.as_ref().map(|ft| CoinbaseFeeTransfer {
+                receiver_pk: (&ft.receiver_pk).into(),
+                fee: (&ft.fee).into(),
+            }),
+        }
+    }
+}
+
 pub fn to_ledger_hash(value: &Fp) -> mina_p2p_messages::v2::LedgerHash {
     let hash = MinaBaseLedgerHash0StableV1(value.into());
     hash.into()
@@ -2609,8 +2625,8 @@ impl From<&NonStark> for MinaBaseStagedLedgerHashNonSnarkStableV1 {
     }
 }
 
-impl From<&StagedLedgerHash> for MinaBaseStagedLedgerHashStableV1 {
-    fn from(value: &StagedLedgerHash) -> Self {
+impl<F: FieldWitness> From<&StagedLedgerHash<F>> for MinaBaseStagedLedgerHashStableV1 {
+    fn from(value: &StagedLedgerHash<F>) -> Self {
         let StagedLedgerHash {
             non_snark,
             pending_coinbase_hash,
@@ -2619,7 +2635,7 @@ impl From<&StagedLedgerHash> for MinaBaseStagedLedgerHashStableV1 {
         Self {
             non_snark: non_snark.into(),
             pending_coinbase_hash: MinaBasePendingCoinbaseHashVersionedStableV1(
-                MinaBasePendingCoinbaseHashBuilderStableV1(pending_coinbase_hash.into()),
+                MinaBasePendingCoinbaseHashBuilderStableV1((*pending_coinbase_hash).into()),
             )
             .into(),
         }
@@ -2644,7 +2660,7 @@ impl From<&MinaBaseStagedLedgerHashNonSnarkStableV1> for NonStark {
     }
 }
 
-impl From<&MinaBaseStagedLedgerHashStableV1> for StagedLedgerHash {
+impl<F: FieldWitness> From<&MinaBaseStagedLedgerHashStableV1> for StagedLedgerHash<F> {
     fn from(value: &MinaBaseStagedLedgerHashStableV1) -> Self {
         let MinaBaseStagedLedgerHashStableV1 {
             non_snark,
@@ -2654,6 +2670,23 @@ impl From<&MinaBaseStagedLedgerHashStableV1> for StagedLedgerHash {
         Self {
             non_snark: non_snark.into(),
             pending_coinbase_hash: pending_coinbase_hash.inner().to_field(),
+        }
+    }
+}
+
+impl From<&MinaTransactionTransactionStableV2> for Transaction {
+    fn from(value: &MinaTransactionTransactionStableV2) -> Self {
+        match value {
+            MinaTransactionTransactionStableV2::Command(cmd) => Self::Command(match &**cmd {
+                MinaBaseUserCommandStableV2::SignedCommand(cmd) => {
+                    UserCommand::SignedCommand(Box::new(cmd.into()))
+                }
+                MinaBaseUserCommandStableV2::ZkappCommand(cmd) => {
+                    UserCommand::ZkAppCommand(Box::new(cmd.into()))
+                }
+            }),
+            MinaTransactionTransactionStableV2::FeeTransfer(ft) => Self::FeeTransfer(ft.into()),
+            MinaTransactionTransactionStableV2::Coinbase(cb) => Self::Coinbase(cb.into()),
         }
     }
 }

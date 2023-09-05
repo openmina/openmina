@@ -1,6 +1,6 @@
 use ark_ff::Field;
 use mina_hasher::Fp;
-use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
+use mina_p2p_messages::v2::{self, MinaStateProtocolStateValueStableV2};
 
 use crate::{
     proofs::public_input::protocol_state::MinaHash,
@@ -10,6 +10,8 @@ use crate::{
         transaction_logic::zkapp_statement::ZkappStatement,
     },
 };
+
+use super::witness::FieldWitness;
 
 pub trait ToFieldElements<F: Field> {
     fn to_field_elements(&self, fields: &mut Vec<F>);
@@ -136,6 +138,86 @@ impl<T: ToFieldElements<Fp>> ToFieldElements<Fp> for Statement<T> {
         fields.push(fee_token_r.0);
         fields.push(fee_excess_r.magnitude.as_u64().into());
         fields.push(sign_to_field(fee_excess_r.sgn));
+
+        sok_digest.to_field_elements(fields)
+    }
+}
+
+impl<F: FieldWitness> ToFieldElements<F>
+    for v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement
+{
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let Self {
+            source,
+            target,
+            connecting_ledger_left,
+            connecting_ledger_right,
+            supply_increase,
+            fee_excess,
+            sok_digest,
+        } = self;
+
+        let sign_to_field = |sgn: &v2::SgnStableV1| -> F {
+            match sgn {
+                v2::SgnStableV1::Pos => 1i64,
+                v2::SgnStableV1::Neg => -1,
+            }
+            .into()
+        };
+
+        let mut add_register =
+            |registers: &v2::MinaStateBlockchainStateValueStableV2LedgerProofStatementSource| {
+                let v2::MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
+                    first_pass_ledger,
+                    second_pass_ledger,
+                    pending_coinbase_stack,
+                    local_state,
+                } = registers;
+
+                fields.push(first_pass_ledger.to_field());
+                fields.push(second_pass_ledger.to_field());
+                fields.push(pending_coinbase_stack.data.0.to_field());
+                fields.push(pending_coinbase_stack.state.init.to_field());
+                fields.push(pending_coinbase_stack.state.curr.to_field());
+                fields.push(local_state.stack_frame.to_field());
+                fields.push(local_state.call_stack.to_field());
+                fields.push(local_state.transaction_commitment.to_field());
+                fields.push(local_state.full_transaction_commitment.to_field());
+                fields.push(local_state.excess.magnitude.as_u64().into());
+                fields.push(sign_to_field(&local_state.excess.sgn));
+                fields.push(local_state.supply_increase.magnitude.as_u64().into());
+                fields.push(sign_to_field(&local_state.supply_increase.sgn));
+                fields.push(local_state.ledger.to_field());
+                fields.push((local_state.success as u64).into());
+                fields.push(local_state.account_update_index.as_u32().into());
+                fields.push((local_state.will_succeed as u64).into());
+            };
+
+        add_register(source);
+        add_register(target);
+        fields.push(connecting_ledger_left.to_field());
+        fields.push(connecting_ledger_right.to_field());
+        fields.push(supply_increase.magnitude.as_u64().into());
+        fields.push(sign_to_field(&supply_increase.sgn));
+
+        let v2::MinaBaseFeeExcessStableV1(
+            v2::TokenFeeExcess {
+                token: fee_token_l,
+                amount: fee_excess_l,
+            },
+            v2::TokenFeeExcess {
+                token: fee_token_r,
+                amount: fee_excess_r,
+            },
+        ) = fee_excess;
+
+        fields.push(fee_token_l.to_field());
+        fields.push(fee_excess_l.magnitude.as_u64().into());
+        fields.push(sign_to_field(&fee_excess_l.sgn));
+
+        fields.push(fee_token_r.to_field());
+        fields.push(fee_excess_r.magnitude.as_u64().into());
+        fields.push(sign_to_field(&fee_excess_r.sgn));
 
         sok_digest.to_field_elements(fields)
     }

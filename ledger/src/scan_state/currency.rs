@@ -2,6 +2,8 @@ use std::cmp::Ordering::{Equal, Greater, Less};
 
 use rand::Rng;
 
+use crate::proofs::witness::{Check, FieldWitness, Witness};
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Sgn {
     Pos,
@@ -435,6 +437,20 @@ macro_rules! impl_number {
         impl crate::ToInputs for $name {
             fn to_inputs(&self, inputs: &mut crate::Inputs) {
                 inputs.$append_name(self.0);
+            }
+        }
+
+        impl<F: FieldWitness> Check<F> for $name {
+            fn check(&self, witnesses: &mut Witness<F>) {
+                use crate::proofs::witness::scalar_challenge::to_field_checked_prime;
+
+                const NBITS: usize = <$inner>::BITS as usize;
+
+                let number: $inner = self.$as_name();
+                assert_eq!(NBITS, std::mem::size_of_val(&number) * 8);
+
+                let number: F = number.into();
+                to_field_checked_prime::<F, NBITS>(number, witnesses);
             }
         }
 

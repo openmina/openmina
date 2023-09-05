@@ -2,7 +2,9 @@ use ark_ff::{PrimeField, ToBytes};
 use mina_hasher::Fp;
 use sha2::{Digest, Sha256};
 
-use crate::{scan_state::pending_coinbase::PendingCoinbase, ToInputs};
+use crate::{
+    proofs::witness::FieldWitness, scan_state::pending_coinbase::PendingCoinbase, ToInputs,
+};
 
 /// Convert to/from OCaml strings, such as
 /// "u~\218kzX\228$\027qG\239\135\255:\143\171\186\011\200P\243\163\135\223T>\017\172\254\1906"
@@ -184,12 +186,12 @@ impl ToInputs for NonStark {
 ///
 /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/staged_ledger_hash.ml#L259
 #[derive(Debug, PartialEq, Eq)]
-pub struct StagedLedgerHash {
+pub struct StagedLedgerHash<F: FieldWitness> {
     pub non_snark: NonStark,
-    pub pending_coinbase_hash: Fp,
+    pub pending_coinbase_hash: F,
 }
 
-impl StagedLedgerHash {
+impl StagedLedgerHash<Fp> {
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/staged_ledger_hash.ml#L290
     pub fn of_aux_ledger_and_coinbase_hash(
         aux_hash: AuxHash,
@@ -227,7 +229,7 @@ impl StagedLedgerHash {
     }
 }
 
-impl ToInputs for StagedLedgerHash {
+impl ToInputs for StagedLedgerHash<Fp> {
     fn to_inputs(&self, inputs: &mut crate::Inputs) {
         let Self {
             non_snark,
