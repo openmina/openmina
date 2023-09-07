@@ -4,11 +4,10 @@ use node::p2p::service_impl::libp2p::Libp2pService;
 use node::recorder::{Recorder, StateWithInputActionsReader};
 use node::snark::VerifierKind;
 use node::{ActionWithMeta, BuildEnv, Store};
+use openmina_node_native::{rpc::RpcService, NodeService, ReplayerState};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use tokio::sync::mpsc;
-
-use crate::commands::node::{NodeService, ReplayerState, RpcService};
 
 #[derive(Debug, clap::Args)]
 /// Replay node using initial state and input actions.
@@ -26,7 +25,7 @@ pub struct ReplayStateWithInputActions {
 
 impl ReplayStateWithInputActions {
     pub fn run(self) -> Result<(), crate::CommandError> {
-        crate::commands::node::tracing::initialize(self.verbosity);
+        openmina_node_native::tracing::initialize(self.verbosity);
 
         eprintln!(
             "replaying node based on initial state and actions from the dir: {}",

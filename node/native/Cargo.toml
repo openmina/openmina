@@ -1,36 +1,28 @@
 [package]
-name = "cli"
+name = "openmina-node-native"
 version = "0.1.0"
 edition = "2021"
-
-[[bin]]
-name = "openmina"
-path = "src/main.rs"
+license = "Apache-2.0"
 
 [dependencies]
-sha2 = "0.10"
-hex = "0.4"
 rand = "0.7"
 serde = "1.0.158"
-num_cpus = "1.0"
+serde_json = "1.0.94"
 rayon = "1.5"
 tokio = { version = "1.26.0" }
+warp = "0.3.3"
 libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51.3", default-features = false, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
+juniper = { version = "0.15.11" }
+juniper_warp = { version = "0.7.0" }
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 ledger = { package = "mina-tree", git = "https://github.com/openmina/ledger", rev = "4b8dc91f968c43f67d32fdbc001806ceb6d631bc" }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "dfbd3bbda8b2681d86ac73065523c658ee31d45d" }
 mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "212c12400010cbe4694617c133d2f6de0afa48fa" }
-
-console = "0.15.5"
-clap = { version = "4.3", features = [ "derive", "env" ] }
-
-openmina-core = { path = "../core" }
-node = { path = "../node", features = ["replay"] }
-openmina-node-native = { path = "../node/native" }
 bytes = "1.4.0"
+tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }
 tracing = "0.1.37"
+thiserror = "1.0.44"
 nix = { version = "0.26.2", features = ["signal"] }
-shellexpand = "3.1.0"
-dialoguer = "0.10.4"
 
-[features]
-unsafe-signal-handlers = []
+openmina-core = { path = "../../core" }
+node = { path = "../../node", features = ["replay"] }

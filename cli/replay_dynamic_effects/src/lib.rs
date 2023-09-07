@@ -1,5 +1,5 @@
 use ::node::{ActionWithMeta, Store};
-use cli::commands::node::NodeService;
+use openmina_node_native::NodeService;
 
 pub mod ret {
     macro_rules! define {

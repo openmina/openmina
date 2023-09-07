@@ -11,6 +11,7 @@ use mina_p2p_messages::v2::{
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0, TransactionSnarkWorkTStableV2Proofs,
 };
 
+use node::event_source::Event;
 use node::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerEvent, ExternalSnarkWorkerService,
     ExternalSnarkWorkerWorkError, SnarkWorkSpec,
@@ -20,8 +21,6 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWrite
 use tokio::process::Command;
 
 use tokio::sync::{mpsc, oneshot};
-
-use node::event_source::Event;
 
 use super::NodeService;
 
