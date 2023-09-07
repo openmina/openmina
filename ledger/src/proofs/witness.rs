@@ -677,7 +677,7 @@ impl<F: FieldWitness> ToFieldElements<F> for MinaStateProtocolStateBodyValueStab
 impl ToFieldElements<Fp> for TokenId {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self(token_id) = self;
-        fields.push(token_id.clone());
+        fields.push(*token_id);
     }
 }
 
@@ -695,7 +695,7 @@ impl ToFieldElements<Fp> for mina_signer::Signature {
 
         fields.push(*rx);
         let bits = field_to_bits::<_, 255>(*s);
-        (&bits).to_field_elements(fields);
+        bits.to_field_elements(fields);
     }
 }
 
@@ -742,7 +742,7 @@ impl ToFieldElements<Fp> for transaction_union_payload::TransactionUnion {
         fields.push(nonce.as_u32().into());
         fields.push(valid_until.as_u32().into());
         memo.as_slice().to_field_elements(fields);
-        (&tag.to_untagged_bits()).to_field_elements(fields);
+        tag.to_untagged_bits().to_field_elements(fields);
         source_pk.to_field_elements(fields);
         receiver_pk.to_field_elements(fields);
         token_id.to_field_elements(fields);
@@ -1539,12 +1539,7 @@ pub mod poseidon {
             }
         }
 
-        pub fn poseidon_block_cipher(
-            &mut self,
-            first: bool,
-            w: &mut Witness<F>,
-        ) {
-            println!("poseidon_block_cipher");
+        pub fn poseidon_block_cipher(&mut self, first: bool, w: &mut Witness<F>) {
             if C::PERM_HALF_ROUNDS_FULL == 0 {
                 if C::PERM_INITIAL_ARK {
                     for (i, x) in self.params.round_constants[0].iter().enumerate() {
@@ -1569,12 +1564,7 @@ pub mod poseidon {
             }
         }
 
-        pub fn full_round(
-            &mut self,
-            r: usize,
-            first: bool,
-            w: &mut Witness<F>,
-        ) {
+        pub fn full_round(&mut self, r: usize, first: bool, w: &mut Witness<F>) {
             for (index, state_i) in self.state.iter_mut().enumerate() {
                 let push_witness = !(first && index == 2);
                 *state_i = sbox::<F>(*state_i, push_witness, w);
@@ -1626,7 +1616,7 @@ pub mod poseidon {
 }
 
 mod transaction_snark {
-    use crate::proofs::witness::legacy_input::{CheckedLegacyInput, LegacyInput};
+    use crate::proofs::witness::legacy_input::CheckedLegacyInput;
     use mina_signer::PubKey;
 
     use crate::scan_state::{
