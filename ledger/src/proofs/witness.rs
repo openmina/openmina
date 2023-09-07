@@ -1340,6 +1340,12 @@ pub mod legacy_input {
 
     pub trait CheckedLegacyInput<F: FieldWitness> {
         fn to_checked_legacy_input(&self, inputs: &mut LegacyInput<F>, w: &mut Witness<F>);
+
+        fn to_checked_legacy_input_owned(&self, w: &mut Witness<F>) -> LegacyInput<F> {
+            let mut inputs = LegacyInput::new();
+            self.to_checked_legacy_input(&mut inputs, w);
+            inputs
+        }
     }
 
     #[derive(Clone, Debug)]
@@ -1494,24 +1500,22 @@ mod transaction_snark {
     fn check_signature(
         payload: &TransactionUnionPayload,
         _is_user_command: bool,
-        _signer: &PubKey,
-        _signature: &Signature,
+        signer: &PubKey,
+        signature: &Signature,
         w: &mut Witness<Fp>,
     ) {
         println!("START\n");
+        let GroupAffine { x: px, y: py, .. } = signer.point();
+        let Signature { rx, s: _ } = signature;
 
-        let _inputs = {
-            let mut inputs = LegacyInput::new();
-            payload.to_checked_legacy_input(&mut inputs, w);
-            inputs
-        };
+        let mut inputs = payload.to_checked_legacy_input_owned(w);
+        inputs.append_field(*px);
+        inputs.append_field(*py);
+        inputs.append_field(*rx);
 
-        let nonce = payload.common.nonce;
-        eprintln!(
-            "nonce={:?} bits={:b}",
-            nonce,
-            nonce.as_u32().to_ne_bytes()[0]
-        );
+        // let signature_testnet = create "CodaSignature"
+
+        dbg!(inputs.to_fields());
     }
 
     fn apply_tagged_transaction(
