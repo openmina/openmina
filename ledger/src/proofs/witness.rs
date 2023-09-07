@@ -54,7 +54,8 @@ impl<F: FieldWitness> Witness<F> {
     pub fn push<I: Into<F>>(&mut self, field: I) {
         let field = {
             let field: F = field.into();
-            dbg!(field)
+            // dbg!(field)
+            field
         };
         self.aux.push(field)
     }
@@ -62,7 +63,7 @@ impl<F: FieldWitness> Witness<F> {
     pub fn extend<I: Into<F>, V: Iterator<Item = I>>(&mut self, field: V) {
         let fields = {
             let fields: Vec<F> = field.map(Into::into).collect();
-            eprintln!("extend[{}]={:#?}", fields.len(), fields);
+            // eprintln!("extend[{}]={:#?}", fields.len(), fields);
             fields
         };
         self.aux.extend(fields)
@@ -74,7 +75,7 @@ impl<F: FieldWitness> Witness<F> {
     {
         // data.to_field_elements(&mut self.aux);
         let mut fields = data.to_field_elements_owned();
-        eprintln!("w{:?}", &fields);
+        // eprintln!("w{:?}", &fields);
         self.aux.append(&mut fields);
 
         data.check(self);
@@ -1294,7 +1295,7 @@ where
     plonk_curve_ops::scale_fast::<F, 5>(g.to_affine(), ShiftedValue { shifted: x }, w);
     scalar_challenge::endo::<F, 4>(g.to_affine(), x, w);
 
-    dbg!(w);
+    // dbg!(w);
 }
 
 pub mod legacy_input {
@@ -1456,6 +1457,234 @@ pub mod legacy_input {
     }
 }
 
+pub mod poseidon {
+    use std::marker::PhantomData;
+
+    use mina_poseidon::constants::SpongeConstants;
+    use mina_poseidon::poseidon::{ArithmeticSpongeParams, SpongeState};
+
+    use super::*;
+
+    pub struct Sponge<F: FieldWitness, C: SpongeConstants> {
+        state: [F; 3],
+        sponge_state: SpongeState,
+        params: &'static ArithmeticSpongeParams<F>,
+        _constants: PhantomData<C>,
+    }
+
+    impl<F, C> Sponge<F, C>
+    where
+        F: FieldWitness,
+        C: SpongeConstants,
+    {
+        pub fn new_with_state(state: [F; 3], params: &'static ArithmeticSpongeParams<F>) -> Self {
+            Self {
+                state,
+                sponge_state: SpongeState::Absorbed(0),
+                params,
+                _constants: PhantomData,
+            }
+        }
+
+        pub fn new(params: &'static ArithmeticSpongeParams<F>) -> Self {
+            Self::new_with_state([F::zero(); 3], params)
+        }
+
+        pub fn absorb(&mut self, x: &[F]) {
+            for x in x.iter() {
+                match self.sponge_state {
+                    SpongeState::Absorbed(n) => {
+                        if n == C::SPONGE_RATE {
+                            self.poseidon_block_cipher();
+                            self.sponge_state = SpongeState::Absorbed(1);
+                            self.state[0].add_assign(x);
+                            dbg!(self.state[0]);
+                        } else {
+                            self.sponge_state = SpongeState::Absorbed(n + 1);
+                            self.state[n].add_assign(x);
+                            dbg!(self.state[n]);
+                        }
+                    }
+                    SpongeState::Squeezed(_n) => {
+                        self.state[0].add_assign(x);
+                        dbg!(self.state[0]);
+                        self.sponge_state = SpongeState::Absorbed(1);
+                    }
+                }
+            }
+        }
+
+        pub fn squeeze(&mut self) -> F {
+            match self.sponge_state {
+                SpongeState::Squeezed(n) => {
+                    if n == C::SPONGE_RATE {
+                        self.poseidon_block_cipher();
+                        self.sponge_state = SpongeState::Squeezed(1);
+                        self.state[0]
+                    } else {
+                        self.sponge_state = SpongeState::Squeezed(n + 1);
+                        self.state[n]
+                    }
+                }
+                SpongeState::Absorbed(_n) => {
+                    self.poseidon_block_cipher();
+                    self.sponge_state = SpongeState::Squeezed(1);
+                    self.state[0]
+                }
+            }
+        }
+
+        pub fn full_round(&mut self, r: usize) {
+            full_round::<F, C>(self.params, &mut self.state, r);
+        }
+
+        fn poseidon_block_cipher(&mut self) {
+            poseidon_block_cipher::<F, C>(self.params, &mut self.state);
+        }
+    }
+
+    pub fn sbox<F: Field, C: SpongeConstants>(x: F, log: bool) -> F {
+        let log = true;
+
+        let res = x;
+        let res = res * res;
+        if log {
+            dbg!(&res);
+        }
+        let res = res * res;
+        if log {
+            dbg!(&res);
+            dbg!(res * x);
+        }
+        res * x
+        // dbg!(&res);
+
+        // dbg!(x.pow([C::PERM_SBOX as u64]))
+    }
+
+    // (* Computes x^5 *)
+    // let to_the_alpha x =
+    //   let open Field in
+    //   let res = x in
+    //   let res = res * res in
+    //   (* x^2 *)
+    //   let res = res * res in
+    //   (* x^4 *)
+    //   res * x
+
+    fn apply_mds_matrix<F: Field, SC: SpongeConstants>(
+        params: &ArithmeticSpongeParams<F>,
+        state: &[F; 3],
+    ) -> [F; 3] {
+        if SC::PERM_FULL_MDS {
+            std::array::from_fn(|i| {
+                let n = state
+                    .iter()
+                    .zip(params.mds[i].iter())
+                    .fold(F::zero(), |x, (s, &m)| m * s + x);
+                // dbg!(n)
+                n
+            })
+        } else {
+            [
+                state[0] + state[2],
+                state[0] + state[1],
+                state[1] + state[2],
+            ]
+        }
+    }
+
+    pub fn full_round<F: Field, C: SpongeConstants>(
+        params: &ArithmeticSpongeParams<F>,
+        state: &mut [F; 3],
+        r: usize,
+    ) {
+        println!("full round");
+        for (index, state_i) in state.iter_mut().enumerate() {
+            *state_i = sbox::<F, C>(*state_i, index < 2);
+        }
+        println!("apply_mds");
+        *state = apply_mds_matrix::<F, C>(params, state);
+        println!("add_assign params");
+        for (i, x) in params.round_constants[r].iter().enumerate() {
+            state[i].add_assign(x);
+            dbg!(state[i]);
+        }
+    }
+
+    pub fn half_rounds<F: Field, C: SpongeConstants>(
+        params: &ArithmeticSpongeParams<F>,
+        state: &mut [F; 3],
+    ) {
+        for r in 0..C::PERM_HALF_ROUNDS_FULL {
+            for (i, x) in params.round_constants[r].iter().enumerate() {
+                state[i].add_assign(x);
+                dbg!(state[i]);
+            }
+            for (index, state_i) in state.iter_mut().enumerate() {
+                *state_i = sbox::<F, C>(*state_i, index < 2);
+            }
+            apply_mds_matrix::<F, C>(params, state);
+        }
+
+        for r in 0..C::PERM_ROUNDS_PARTIAL {
+            for (i, x) in params.round_constants[C::PERM_HALF_ROUNDS_FULL + r]
+                .iter()
+                .enumerate()
+            {
+                state[i].add_assign(x);
+                dbg!(state[i]);
+            }
+            state[0] = sbox::<F, C>(state[0], true);
+            apply_mds_matrix::<F, C>(params, state);
+        }
+
+        for r in 0..C::PERM_HALF_ROUNDS_FULL {
+            for (i, x) in params.round_constants
+                [C::PERM_HALF_ROUNDS_FULL + C::PERM_ROUNDS_PARTIAL + r]
+                .iter()
+                .enumerate()
+            {
+                state[i].add_assign(x);
+                dbg!(state[i]);
+            }
+            for (index, state_i) in state.iter_mut().enumerate() {
+                *state_i = sbox::<F, C>(*state_i, index < 2);
+            }
+            apply_mds_matrix::<F, C>(params, state);
+        }
+    }
+
+    pub fn poseidon_block_cipher<F: Field, C: SpongeConstants>(
+        params: &ArithmeticSpongeParams<F>,
+        state: &mut [F; 3],
+    ) {
+        println!("poseidon_block_cipher");
+        if C::PERM_HALF_ROUNDS_FULL == 0 {
+            if C::PERM_INITIAL_ARK {
+                for (i, x) in params.round_constants[0].iter().enumerate() {
+                    state[i].add_assign(x);
+                    // if i < 2 {
+                    //     dbg!(state[i]);
+                    // }
+                }
+                dbg!(state[0]);
+                dbg!(state[1]);
+                // dbg!(&state, &params.round_constants[0]);
+                for r in 0..C::PERM_ROUNDS_FULL {
+                    full_round::<F, C>(params, state, r + 1);
+                }
+            } else {
+                for r in 0..C::PERM_ROUNDS_FULL {
+                    full_round::<F, C>(params, state, r);
+                }
+            }
+        } else {
+            half_rounds::<F, C>(params, state);
+        }
+    }
+}
+
 mod transaction_snark {
     use crate::proofs::witness::legacy_input::{CheckedLegacyInput, LegacyInput};
     use mina_signer::PubKey;
@@ -1513,9 +1742,63 @@ mod transaction_snark {
         inputs.append_field(*py);
         inputs.append_field(*rx);
 
+        let inputs = payload.to_input_legacy();
+        let inputs = inputs.append_field(*px);
+        let inputs = inputs.append_field(*py);
+        let inputs = inputs.append_field(*rx);
+
+        {
+            use mina_poseidon::constants::PlonkSpongeConstantsLegacy as Constants;
+            use mina_poseidon::pasta::fp_legacy::static_params;
+
+            let initial_state: [Fp; 3] = {
+                use mina_poseidon::poseidon::ArithmeticSponge;
+                use mina_poseidon::poseidon::Sponge;
+
+                let mut sponge = ArithmeticSponge::<Fp, Constants>::new(static_params());
+                sponge.absorb(&[crate::param_to_field("CodaSignature")]);
+                sponge.squeeze();
+                dbg!(sponge.state).try_into().unwrap()
+            };
+
+            let mut sponge =
+                poseidon::Sponge::<Fp, Constants>::new_with_state(initial_state, static_params());
+            sponge.absorb(&inputs.to_fields());
+            let hash = sponge.squeeze();
+            dbg!(hash);
+            println!("DONE\n");
+        }
+
+        use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};
+
+        use mina_hasher::ROInput as LegacyInput;
+
+        #[derive(Clone)]
+        struct MyInput(LegacyInput);
+
+        impl Hashable for MyInput {
+            type D = ();
+
+            fn to_roinput(&self) -> ROInput {
+                self.0.clone()
+            }
+
+            fn domain_string(_: Self::D) -> Option<String> {
+                Some("CodaSignature".to_string())
+            }
+        }
+
+        let mut hasher = create_legacy::<MyInput>(());
+        hasher.update(&MyInput(inputs));
+        let hash = hasher.digest();
+
+        dbg!(hash);
+
+        // ReceiptChainHash(hasher.digest())
+
         // let signature_testnet = create "CodaSignature"
 
-        dbg!(inputs.to_fields());
+        // dbg!(inputs.to_fields());
     }
 
     fn apply_tagged_transaction(

@@ -191,7 +191,7 @@ fn param_to_field_impl(param: &str, default: [u8; 32]) -> Fp {
     Fp::read(&fp[..]).expect("fp read failed")
 }
 
-fn param_to_field(param: &str) -> Fp {
+pub fn param_to_field(param: &str) -> Fp {
     const DEFAULT: [u8; 32] = [
         b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*', b'*',
         b'*', b'*', b'*', b'*', b'*', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
