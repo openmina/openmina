@@ -552,6 +552,21 @@ impl Memo {
 
     const MAX_DIGESTIBLE_STRING_LENGTH: usize = 1000;
 
+    pub fn to_bits(&self) -> [bool; std::mem::size_of::<Self>() * 8] {
+        use crate::proofs::witness::legacy_input::BitsIterator;
+
+        const NBYTES: usize = 34;
+        const NBITS: usize = NBYTES * 8;
+        assert_eq!(std::mem::size_of::<Self>(), NBYTES);
+
+        let mut iter = BitsIterator {
+            index: 0,
+            number: self.0,
+        }
+        .take(NBITS);
+        std::array::from_fn(|_| iter.next().unwrap())
+    }
+
     pub fn hash(&self) -> Fp {
         use mina_hasher::ROInput as LegacyInput;
 
@@ -5994,11 +6009,18 @@ pub mod transaction_union_payload {
     impl Tag {
         pub fn is_user_command(&self) -> bool {
             match self {
-                Tag::Payment => true,
-                Tag::StakeDelegation => true,
-                Tag::FeeTransfer => false,
-                Tag::Coinbase => false,
+                Tag::Payment | Tag::StakeDelegation => true,
+                Tag::FeeTransfer | Tag::Coinbase => false,
             }
+        }
+
+        pub fn to_bits(&self) -> [bool; 3] {
+            let tag = self.clone() as u8;
+            let mut bits = [false; 3];
+            for (index, bit) in [4, 2, 1].iter().enumerate() {
+                bits[index] = tag & bit != 0;
+            }
+            bits
         }
 
         pub fn to_untagged_bits(&self) -> [bool; 5] {

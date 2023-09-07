@@ -100,7 +100,6 @@ pub mod transaction_snark {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        proofs::witness::FieldWitness,
         scan_state::{
             currency::{Amount, Signed, Slot},
             fee_excess::FeeExcess,

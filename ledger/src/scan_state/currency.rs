@@ -2,7 +2,7 @@ use std::cmp::Ordering::{Equal, Greater, Less};
 
 use rand::Rng;
 
-use crate::proofs::witness::{legacy_input::CheckedLegacyInput, Check, FieldWitness, Witness};
+use crate::proofs::witness::{Check, FieldWitness, Witness};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Sgn {

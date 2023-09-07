@@ -29,12 +29,9 @@ use mina_p2p_messages::{
 use mina_signer::CompressedPubKey;
 
 use crate::{
-    scan_state::{
-        scan_state::transaction_snark::Statement,
-        transaction_logic::{
-            protocol_state::{EpochData, EpochLedger},
-            transaction_union_payload,
-        },
+    scan_state::transaction_logic::{
+        protocol_state::{EpochData, EpochLedger},
+        transaction_union_payload,
     },
     staged_ledger::hash::StagedLedgerHash,
     TokenId,
@@ -1307,9 +1304,9 @@ pub mod legacy_input {
 
     use super::*;
 
-    struct BitsIterator<const N: usize> {
-        index: usize,
-        number: [u8; N],
+    pub struct BitsIterator<const N: usize> {
+        pub index: usize,
+        pub number: [u8; N],
     }
 
     impl<const N: usize> Iterator for BitsIterator<N> {
@@ -1345,6 +1342,7 @@ pub mod legacy_input {
         fn to_checked_legacy_input(&self, inputs: &mut LegacyInput<F>, w: &mut Witness<F>);
     }
 
+    #[derive(Clone, Debug)]
     pub struct LegacyInput<F: FieldWitness> {
         fields: Vec<F>,
         bits: Vec<bool>,
@@ -1353,13 +1351,41 @@ pub mod legacy_input {
     impl<F: FieldWitness> LegacyInput<F> {
         pub fn new() -> Self {
             Self {
-                fields: Vec::with_capacity(1024),
+                fields: Vec::with_capacity(256),
                 bits: Vec::with_capacity(1024),
             }
         }
 
+        pub fn append_bit(&mut self, bit: bool) {
+            self.bits.push(bit);
+        }
+
         pub fn append_bits(&mut self, bits: &[bool]) {
             self.bits.extend(bits);
+        }
+
+        pub fn append_field(&mut self, field: F) {
+            self.fields.push(field);
+        }
+
+        pub fn to_fields(mut self) -> Vec<F> {
+            const NBITS: usize = 255 - 1;
+
+            self.fields.reserve(self.bits.len() / NBITS);
+            self.fields.extend(self.bits.chunks(NBITS).map(|bits| {
+                assert!(bits.len() <= NBITS);
+
+                let mut field = [0u64; 4];
+
+                for (index, bit) in bits.iter().enumerate() {
+                    let limb_index = index / 64;
+                    let bit_index = index % 64;
+                    field[limb_index] |= (*bit as u64) << bit_index;
+                }
+
+                F::from(BigInteger256::new(field))
+            }));
+            self.fields
         }
     }
 
@@ -1375,64 +1401,51 @@ pub mod legacy_input {
                 common:
                     Common {
                         fee,
-                        fee_payer_pk: _,
+                        fee_payer_pk,
                         nonce,
                         valid_until,
-                        memo: _,
+                        memo,
                         fee_token: _,
                     },
                 body:
                     Body {
-                        tag: _,
-                        source_pk: _,
-                        receiver_pk: _,
+                        tag,
+                        source_pk,
+                        receiver_pk,
                         token_id: _,
                         amount,
                     },
             } = self;
 
+            let to_field = |field: Fp| -> F {
+                use mina_p2p_messages::bigint::BigInt;
+                let x: BigInt = field.into();
+                x.to_field()
+            };
+            let fee_token = &LEGACY_DEFAULT_TOKEN;
+
+            // Common
             let nonce = w.exists(nonce.to_bits());
             let valid_until = w.exists(valid_until.to_bits());
             let fee = w.exists(fee.to_bits());
-
-            let fee_token = &LEGACY_DEFAULT_TOKEN;
-
             inputs.append_bits(&fee);
             inputs.append_bits(fee_token);
+            inputs.append_field(to_field(fee_payer_pk.x));
+            inputs.append_bit(fee_payer_pk.is_odd);
+            inputs.append_bits(&nonce);
+            inputs.append_bits(&valid_until);
+            inputs.append_bits(&memo.to_bits());
 
-            // let to_input_legacy ({ fee; fee_payer_pk; nonce; valid_until; memo } : var)
-            //     =
-            //   let%map nonce = Account_nonce.Checked.to_input_legacy nonce
-            //   and valid_until =
-            //     Global_slot_since_genesis.Checked.to_input_legacy valid_until
-            //   and fee = Currency.Fee.var_to_input_legacy fee in
-            //   let fee_token = Legacy_token_id.default_checked in
-            //   Array.reduce_exn ~f:Random_oracle.Input.Legacy.append
-            //     [| fee
-            //      ; fee_token
-            //      ; Public_key.Compressed.Checked.to_input_legacy fee_payer_pk
-            //      ; nonce
-            //      ; valid_until
-            //      ; Random_oracle.Input.Legacy.bitstring
-            //          (Array.to_list (memo :> Boolean.var array))
-            //     |]
-
-            // inputs
-
-            // nonce.to_checked_legacy_input(w);
-            // valid_until.to_checked_legacy_input(w);
-            // fee.to_checked_legacy_input(w);
-            //// fee_payer_pk.to_checked_legacy_input(w);
-            //// memo.to_checked_legacy_input(w);
-            //// order:
-            //// [fee, fee_token, fee_payer_pk, nonce, valid_until, memo]
-
-            //// tag.to_checked_legacy_input(w);
-            //// source_pk.to_checked_legacy_input(w);
-            //// receiver_pk.to_checked_legacy_input(w);
-            //// token_id.to_checked_legacy_input(w);
-            // amount.to_checked_legacy_input(w);
-            //// [false].to_checked_legacy_input(w);
+            // Body
+            let amount = w.exists(amount.to_bits());
+            inputs.append_bits(&tag.to_bits());
+            inputs.append_field(to_field(source_pk.x));
+            inputs.append_bit(source_pk.is_odd);
+            inputs.append_field(to_field(receiver_pk.x));
+            inputs.append_bit(receiver_pk.is_odd);
+            inputs.append_bits(fee_token);
+            inputs.append_bits(&amount);
+            inputs.append_bit(false);
         }
     }
 }
@@ -1444,9 +1457,7 @@ mod transaction_snark {
     use crate::scan_state::{
         currency::{Amount, Fee, Slot},
         scan_state::ConstraintConstants,
-        transaction_logic::transaction_union_payload::{
-            Tag, TransactionUnion, TransactionUnionPayload,
-        },
+        transaction_logic::transaction_union_payload::{TransactionUnion, TransactionUnionPayload},
     };
     use mina_signer::Signature;
 
@@ -1482,16 +1493,18 @@ mod transaction_snark {
 
     fn check_signature(
         payload: &TransactionUnionPayload,
-        is_user_command: bool,
-        signer: &PubKey,
-        signature: &Signature,
+        _is_user_command: bool,
+        _signer: &PubKey,
+        _signature: &Signature,
         w: &mut Witness<Fp>,
     ) {
         println!("START\n");
 
-        let mut inputs = LegacyInput::new();
-
-        payload.to_checked_legacy_input(&mut inputs, w);
+        let _inputs = {
+            let mut inputs = LegacyInput::new();
+            payload.to_checked_legacy_input(&mut inputs, w);
+            inputs
+        };
 
         let nonce = payload.common.nonce;
         eprintln!(
@@ -1502,12 +1515,12 @@ mod transaction_snark {
     }
 
     fn apply_tagged_transaction(
-        fee_payment_root: Fp,
-        global_slot: Slot,
-        pending_coinbase_init: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
-        pending_coinbase_stack_before: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
-        pending_coinbase_stack_after: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
-        state_body: &MinaStateProtocolStateBodyValueStableV2,
+        _fee_payment_root: Fp,
+        _global_slot: Slot,
+        _pending_coinbase_init: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
+        _pending_coinbase_stack_before: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
+        _pending_coinbase_stack_after: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
+        _state_body: &MinaStateProtocolStateBodyValueStableV2,
         tx: &TransactionUnion,
         w: &mut Witness<Fp>,
     ) {
@@ -1569,10 +1582,6 @@ mod tests {
     use mina_hasher::Fp;
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
-
-    use crate::scan_state::transaction_logic::{
-        transaction_union_payload::TransactionUnion, Transaction,
-    };
 
     use super::*;
 
