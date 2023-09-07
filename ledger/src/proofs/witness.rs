@@ -1490,35 +1490,40 @@ pub mod poseidon {
             Self::new_with_state([F::zero(); 3], params)
         }
 
-        pub fn absorb(&mut self, x: &[F]) {
+        pub fn absorb(&mut self, x: &[F], w: &mut Witness<F>) {
+            // Hack to know when to ignore witness
+            // That should be removed once we use `cvar`
+            let mut first = true;
+
             for x in x.iter() {
                 match self.sponge_state {
                     SpongeState::Absorbed(n) => {
                         if n == C::SPONGE_RATE {
-                            self.poseidon_block_cipher();
+                            self.poseidon_block_cipher(first, w);
                             self.sponge_state = SpongeState::Absorbed(1);
                             self.state[0].add_assign(x);
-                            dbg!(self.state[0]);
+                            w.exists(self.state[0]); // Good
+                            first = false;
                         } else {
                             self.sponge_state = SpongeState::Absorbed(n + 1);
                             self.state[n].add_assign(x);
-                            dbg!(self.state[n]);
+                            w.exists(self.state[n]); // Good
                         }
                     }
                     SpongeState::Squeezed(_n) => {
                         self.state[0].add_assign(x);
-                        dbg!(self.state[0]);
+                        w.exists(self.state[0]); // Unknown
                         self.sponge_state = SpongeState::Absorbed(1);
                     }
                 }
             }
         }
 
-        pub fn squeeze(&mut self) -> F {
+        pub fn squeeze(&mut self, w: &mut Witness<F>) -> F {
             match self.sponge_state {
                 SpongeState::Squeezed(n) => {
                     if n == C::SPONGE_RATE {
-                        self.poseidon_block_cipher();
+                        self.poseidon_block_cipher(false, w);
                         self.sponge_state = SpongeState::Squeezed(1);
                         self.state[0]
                     } else {
@@ -1527,63 +1532,88 @@ pub mod poseidon {
                     }
                 }
                 SpongeState::Absorbed(_n) => {
-                    self.poseidon_block_cipher();
+                    self.poseidon_block_cipher(false, w);
                     self.sponge_state = SpongeState::Squeezed(1);
                     self.state[0]
                 }
             }
         }
 
-        pub fn full_round(&mut self, r: usize) {
-            full_round::<F, C>(self.params, &mut self.state, r);
+        pub fn poseidon_block_cipher(
+            &mut self,
+            first: bool,
+            w: &mut Witness<F>,
+        ) {
+            println!("poseidon_block_cipher");
+            if C::PERM_HALF_ROUNDS_FULL == 0 {
+                if C::PERM_INITIAL_ARK {
+                    for (i, x) in self.params.round_constants[0].iter().enumerate() {
+                        self.state[i].add_assign(x);
+                    }
+                    w.exists(self.state[0]); // Good
+                    w.exists(self.state[1]); // Good
+                    if !first {
+                        w.exists(self.state[2]); // Good
+                    }
+                    // dbg!(&state, &params.round_constants[0]);
+                    for r in 0..C::PERM_ROUNDS_FULL {
+                        self.full_round(r + 1, first && r == 0, w);
+                    }
+                } else {
+                    for r in 0..C::PERM_ROUNDS_FULL {
+                        self.full_round(r, first, w);
+                    }
+                }
+            } else {
+                unimplemented!()
+            }
         }
 
-        fn poseidon_block_cipher(&mut self) {
-            poseidon_block_cipher::<F, C>(self.params, &mut self.state);
+        pub fn full_round(
+            &mut self,
+            r: usize,
+            first: bool,
+            w: &mut Witness<F>,
+        ) {
+            for (index, state_i) in self.state.iter_mut().enumerate() {
+                let push_witness = !(first && index == 2);
+                *state_i = sbox::<F>(*state_i, push_witness, w);
+            }
+            self.state = apply_mds_matrix::<F, C>(self.params, &self.state);
+            for (i, x) in self.params.round_constants[r].iter().enumerate() {
+                self.state[i].add_assign(x);
+                w.exists(self.state[i]); // Good
+            }
         }
     }
 
-    pub fn sbox<F: Field, C: SpongeConstants>(x: F, log: bool) -> F {
-        let log = true;
-
+    pub fn sbox<F: FieldWitness>(x: F, push_witness: bool, w: &mut Witness<F>) -> F {
         let res = x;
         let res = res * res;
-        if log {
-            dbg!(&res);
+        if push_witness {
+            w.exists(res); // Good
         }
         let res = res * res;
-        if log {
-            dbg!(&res);
-            dbg!(res * x);
+        if push_witness {
+            w.exists(res); // Good
         }
-        res * x
-        // dbg!(&res);
-
-        // dbg!(x.pow([C::PERM_SBOX as u64]))
+        let res = res * x;
+        if push_witness {
+            w.exists(res); // Good
+        }
+        res
     }
 
-    // (* Computes x^5 *)
-    // let to_the_alpha x =
-    //   let open Field in
-    //   let res = x in
-    //   let res = res * res in
-    //   (* x^2 *)
-    //   let res = res * res in
-    //   (* x^4 *)
-    //   res * x
-
-    fn apply_mds_matrix<F: Field, SC: SpongeConstants>(
+    fn apply_mds_matrix<F: Field, C: SpongeConstants>(
         params: &ArithmeticSpongeParams<F>,
         state: &[F; 3],
     ) -> [F; 3] {
-        if SC::PERM_FULL_MDS {
+        if C::PERM_FULL_MDS {
             std::array::from_fn(|i| {
-                let n = state
+                state
                     .iter()
                     .zip(params.mds[i].iter())
-                    .fold(F::zero(), |x, (s, &m)| m * s + x);
-                // dbg!(n)
-                n
+                    .fold(F::zero(), |x, (s, &m)| m * s + x)
             })
         } else {
             [
@@ -1591,96 +1621,6 @@ pub mod poseidon {
                 state[0] + state[1],
                 state[1] + state[2],
             ]
-        }
-    }
-
-    pub fn full_round<F: Field, C: SpongeConstants>(
-        params: &ArithmeticSpongeParams<F>,
-        state: &mut [F; 3],
-        r: usize,
-    ) {
-        println!("full round");
-        for (index, state_i) in state.iter_mut().enumerate() {
-            *state_i = sbox::<F, C>(*state_i, index < 2);
-        }
-        println!("apply_mds");
-        *state = apply_mds_matrix::<F, C>(params, state);
-        println!("add_assign params");
-        for (i, x) in params.round_constants[r].iter().enumerate() {
-            state[i].add_assign(x);
-            dbg!(state[i]);
-        }
-    }
-
-    pub fn half_rounds<F: Field, C: SpongeConstants>(
-        params: &ArithmeticSpongeParams<F>,
-        state: &mut [F; 3],
-    ) {
-        for r in 0..C::PERM_HALF_ROUNDS_FULL {
-            for (i, x) in params.round_constants[r].iter().enumerate() {
-                state[i].add_assign(x);
-                dbg!(state[i]);
-            }
-            for (index, state_i) in state.iter_mut().enumerate() {
-                *state_i = sbox::<F, C>(*state_i, index < 2);
-            }
-            apply_mds_matrix::<F, C>(params, state);
-        }
-
-        for r in 0..C::PERM_ROUNDS_PARTIAL {
-            for (i, x) in params.round_constants[C::PERM_HALF_ROUNDS_FULL + r]
-                .iter()
-                .enumerate()
-            {
-                state[i].add_assign(x);
-                dbg!(state[i]);
-            }
-            state[0] = sbox::<F, C>(state[0], true);
-            apply_mds_matrix::<F, C>(params, state);
-        }
-
-        for r in 0..C::PERM_HALF_ROUNDS_FULL {
-            for (i, x) in params.round_constants
-                [C::PERM_HALF_ROUNDS_FULL + C::PERM_ROUNDS_PARTIAL + r]
-                .iter()
-                .enumerate()
-            {
-                state[i].add_assign(x);
-                dbg!(state[i]);
-            }
-            for (index, state_i) in state.iter_mut().enumerate() {
-                *state_i = sbox::<F, C>(*state_i, index < 2);
-            }
-            apply_mds_matrix::<F, C>(params, state);
-        }
-    }
-
-    pub fn poseidon_block_cipher<F: Field, C: SpongeConstants>(
-        params: &ArithmeticSpongeParams<F>,
-        state: &mut [F; 3],
-    ) {
-        println!("poseidon_block_cipher");
-        if C::PERM_HALF_ROUNDS_FULL == 0 {
-            if C::PERM_INITIAL_ARK {
-                for (i, x) in params.round_constants[0].iter().enumerate() {
-                    state[i].add_assign(x);
-                    // if i < 2 {
-                    //     dbg!(state[i]);
-                    // }
-                }
-                dbg!(state[0]);
-                dbg!(state[1]);
-                // dbg!(&state, &params.round_constants[0]);
-                for r in 0..C::PERM_ROUNDS_FULL {
-                    full_round::<F, C>(params, state, r + 1);
-                }
-            } else {
-                for r in 0..C::PERM_ROUNDS_FULL {
-                    full_round::<F, C>(params, state, r);
-                }
-            }
-        } else {
-            half_rounds::<F, C>(params, state);
         }
     }
 }
@@ -1758,15 +1698,15 @@ mod transaction_snark {
                 let mut sponge = ArithmeticSponge::<Fp, Constants>::new(static_params());
                 sponge.absorb(&[crate::param_to_field("CodaSignature")]);
                 sponge.squeeze();
-                dbg!(sponge.state).try_into().unwrap()
+                sponge.state.try_into().unwrap()
             };
 
             let mut sponge =
                 poseidon::Sponge::<Fp, Constants>::new_with_state(initial_state, static_params());
-            sponge.absorb(&inputs.to_fields());
-            let hash = sponge.squeeze();
+            sponge.absorb(&inputs.to_fields(), w);
+            let hash = sponge.squeeze(w);
+
             dbg!(hash);
-            println!("DONE\n");
         }
 
         use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};
