@@ -75,7 +75,7 @@ impl<F: FieldWitness> Witness<F> {
     {
         // data.to_field_elements(&mut self.aux);
         let mut fields = data.to_field_elements_owned();
-        // eprintln!("w{:?}", &fields);
+        eprintln!("w{:?}", &fields);
         self.aux.append(&mut fields);
 
         data.check(self);
@@ -1058,6 +1058,7 @@ where
         + From<i64>
         + ToFieldElements<Self>
         + Check<Self>
+        + FromFpFq
         + PrimeField
         + std::fmt::Debug
         + 'static,
@@ -1072,6 +1073,12 @@ where
     type Parameters: SWModelParameters<BaseField = Self, ScalarField = Self::Scalar>
         + Clone
         + std::fmt::Debug;
+    const PARAMS: Params<Self>;
+}
+
+pub struct Params<F> {
+    a: F,
+    b: F,
 }
 
 impl FieldWitness for Fp {
@@ -1079,6 +1086,12 @@ impl FieldWitness for Fp {
     type Parameters = PallasParameters;
     type Affine = GroupAffine<Self::Parameters>;
     type Projective = ProjectivePallas;
+
+    /// https://github.com/openmina/mina/blob/46b6403cb7f158b66a60fc472da2db043ace2910/src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml#L107
+    const PARAMS: Params<Self> = Params::<Self> {
+        a: ark_ff::field_new!(Fp, "0"),
+        b: ark_ff::field_new!(Fp, "5"),
+    };
 }
 
 impl FieldWitness for Fq {
@@ -1086,6 +1099,38 @@ impl FieldWitness for Fq {
     type Parameters = VestaParameters;
     type Affine = GroupAffine<Self::Parameters>;
     type Projective = ProjectiveVesta;
+
+    /// https://github.com/openmina/mina/blob/46b6403cb7f158b66a60fc472da2db043ace2910/src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml#L95
+    const PARAMS: Params<Self> = Params::<Self> {
+        a: ark_ff::field_new!(Fq, "0"),
+        b: ark_ff::field_new!(Fq, "5"),
+    };
+}
+
+/// Trait helping converting generics into concrete types
+pub trait FromFpFq {
+    fn from_fp(fp: Fp) -> Self;
+    fn from_fq(fp: Fq) -> Self;
+}
+
+impl FromFpFq for Fp {
+    fn from_fp(fp: Fp) -> Self {
+        fp
+    }
+    fn from_fq(fq: Fq) -> Self {
+        let bigint: BigInteger256 = fq.into();
+        bigint.into()
+    }
+}
+
+impl FromFpFq for Fq {
+    fn from_fp(fp: Fp) -> Self {
+        let bigint: BigInteger256 = fp.into();
+        bigint.into()
+    }
+    fn from_fq(fq: Fq) -> Self {
+        fq
+    }
 }
 
 /// Rust calls:
@@ -1155,35 +1200,34 @@ impl<F: FieldWitness> InnerCurve<F> {
         Self { inner }
     }
 
-    fn random() -> Self {
-        // let f = |s: &str| {
-        //     match F::from_str(s) {
-        //         Ok(s) => s,
-        //         Err(_) => todo!(),
-        //     }
-        // };
+    fn fake_random() -> Self {
+        static SEED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
-        // let proj: GroupAffine<F::Parameters> = make_group(
-        //     f("19657623295990219109792038780558005796321677312437775693640723247193089613019"),
-        //     f("26836814535955226188985417867466967087970674042099698143583578250601335677649"),
-        // );
-        // Self::of_affine(proj)
-
-        // Both `proj` below are the same type, but we use `into()` to make it generic
-        let rng = &mut rand::rngs::OsRng;
-        let proj: GroupProjective<F::Parameters> = ark_ff::UniformRand::rand(rng);
+        let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(
+            SEED.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+        );
+        let proj: GroupProjective<F::Parameters> = ark_ff::UniformRand::rand(&mut rng);
         let proj: F::Projective = proj.into();
-
         Self { inner: proj }
+    }
+
+    fn random() -> Self {
+        Self::fake_random()
+        // // Both `proj` below are the same type, but we use `into()` to make it generic
+        // let rng = &mut rand::rngs::OsRng;
+        // let proj: GroupProjective<F::Parameters> = ark_ff::UniformRand::rand(rng);
+        // let proj: F::Projective = proj.into();
+
+        // Self { inner: proj }
     }
 }
 
 /// https://github.com/openmina/mina/blob/45c195d72aa8308fcd9fc1c7bc5da36a0c3c3741/src/lib/snarky_curves/snarky_curves.ml#L267
-fn create_shifted_inner_curve<F>(w: &mut Witness<F>)
+fn create_shifted_inner_curve<F>(w: &mut Witness<F>) -> InnerCurve<F>
 where
     F: FieldWitness,
 {
-    w.exists(InnerCurve::<F>::random());
+    w.exists(InnerCurve::<F>::random())
 }
 
 impl<F: FieldWitness> ToFieldElements<F> for InnerCurve<F> {
@@ -1615,7 +1659,62 @@ pub mod poseidon {
     }
 }
 
+fn double_group<F: FieldWitness>(
+    group: GroupAffine<F::Parameters>,
+    w: &mut Witness<F>,
+) -> GroupAffine<F::Parameters> {
+    let GroupAffine { x: ax, y: ay, .. } = group;
+    let ax: F = ax;
+    let ay: F = ay;
+
+    let x_squared = w.exists(ax.square());
+    let lambda = w.exists({
+        (x_squared + x_squared + x_squared + F::PARAMS.a) * (ay + ay).inverse().unwrap()
+    });
+    let bx = w.exists({ lambda.square() - (ax + ax) });
+    let by = w.exists({ (lambda * (ax - bx)) - ay });
+
+    make_group(bx, by)
+}
+
+// Used as the _if method
+fn group_to_witness<F: FieldWitness>(
+    group: GroupAffine<F::Parameters>,
+    w: &mut Witness<F>,
+) -> GroupAffine<F::Parameters> {
+    let GroupAffine { x, y, .. } = &group;
+    w.exists(*x);
+    w.exists(*y);
+    group
+}
+
+fn scale_non_constant<F: FieldWitness, const N: usize>(
+    mut g: GroupAffine<F::Parameters>,
+    bits: [bool; N],
+    init: InnerCurve<F>,
+    w: &mut Witness<F>,
+) -> GroupAffine<F::Parameters> {
+    let mut acc = init.to_affine();
+
+    for b in bits {
+        acc = {
+            let add_pt = w.add_fast(acc, g);
+            let dont_add_pt = acc;
+            if b {
+                group_to_witness(add_pt, w)
+            } else {
+                group_to_witness(dont_add_pt, w)
+            }
+        };
+        g = double_group(g, w);
+    }
+
+    acc
+}
+
 mod transaction_snark {
+    use std::ops::Neg;
+
     use crate::proofs::witness::legacy_input::CheckedLegacyInput;
     use mina_signer::PubKey;
 
@@ -1626,7 +1725,7 @@ mod transaction_snark {
     };
     use mina_signer::Signature;
 
-    use super::*;
+    use super::{legacy_input::LegacyInput, *};
 
     // TODO: De-deplicates this constant in the repo
     pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
@@ -1642,21 +1741,46 @@ mod transaction_snark {
         fork: None,
     };
 
-    // let%snarkydef_ check_signature shifted ~payload ~is_user_command ~signer
-    //     ~signature =
-    //   Printf.eprintf "[check_signature] START\n%!" ;
-    //   let%bind input =
-    //     Transaction_union_payload.Checked.to_input_legacy payload
-    //   in
-    //   Printf.eprintf "[check_signature] 1 DONE\n%!" ;
-    //   let%bind verifies =
-    //     Schnorr.Legacy.Checked.verifies shifted signature signer input
-    //   in
-    //   Printf.eprintf "[check_signature] 2 DONE\n%!" ;
-    //   [%with_label_ "check signature"] (fun () ->
-    //       Boolean.Assert.any [ Boolean.not is_user_command; verifies ] )
+    fn hash(param: &str, inputs: LegacyInput<Fp>, w: &mut Witness<Fp>) -> Fp {
+        use mina_poseidon::constants::PlonkSpongeConstantsLegacy as Constants;
+        use mina_poseidon::pasta::fp_legacy::static_params;
+
+        // We hash the parameter first, without introducing values to the witness
+        let initial_state: [Fp; 3] = {
+            use mina_poseidon::poseidon::ArithmeticSponge;
+            use mina_poseidon::poseidon::Sponge;
+
+            let mut sponge = ArithmeticSponge::<Fp, Constants>::new(static_params());
+            sponge.absorb(&[crate::param_to_field(param)]);
+            sponge.squeeze();
+            sponge.state.try_into().unwrap()
+        };
+
+        let mut sponge =
+            poseidon::Sponge::<Fp, Constants>::new_with_state(initial_state, static_params());
+        sponge.absorb(&inputs.to_fields(), w);
+        sponge.squeeze(w)
+    }
+
+    fn hash_checked(
+        mut inputs: LegacyInput<Fp>,
+        signer: &PubKey,
+        signature: &Signature,
+        w: &mut Witness<Fp>,
+    ) -> [bool; 255] {
+        let GroupAffine { x: px, y: py, .. } = signer.point();
+        let Signature { rx, s: _ } = signature;
+
+        inputs.append_field(*px);
+        inputs.append_field(*py);
+        inputs.append_field(*rx);
+        let hash = hash("CodaSignature", inputs, w);
+
+        w.exists(field_to_bits::<_, 255>(hash))
+    }
 
     fn check_signature(
+        shifted: InnerCurve<Fp>,
         payload: &TransactionUnionPayload,
         _is_user_command: bool,
         signer: &PubKey,
@@ -1664,74 +1788,22 @@ mod transaction_snark {
         w: &mut Witness<Fp>,
     ) {
         println!("START\n");
-        let GroupAffine { x: px, y: py, .. } = signer.point();
-        let Signature { rx, s: _ } = signature;
 
-        let mut inputs = payload.to_checked_legacy_input_owned(w);
-        inputs.append_field(*px);
-        inputs.append_field(*py);
-        inputs.append_field(*rx);
+        let inputs = payload.to_checked_legacy_input_owned(w);
+        let hash = hash_checked(inputs, signer, signature, w);
 
-        let inputs = payload.to_input_legacy();
-        let inputs = inputs.append_field(*px);
-        let inputs = inputs.append_field(*py);
-        let inputs = inputs.append_field(*rx);
+        // negate
+        let public_key = {
+            let GroupAffine { x, y, .. } = signer.point();
+            let y = w.exists(y.neg()); // This is actually made in the `scale` call below in OCaml
+            make_group::<Fp>(*x, y)
+        };
 
-        {
-            use mina_poseidon::constants::PlonkSpongeConstantsLegacy as Constants;
-            use mina_poseidon::pasta::fp_legacy::static_params;
-
-            let initial_state: [Fp; 3] = {
-                use mina_poseidon::poseidon::ArithmeticSponge;
-                use mina_poseidon::poseidon::Sponge;
-
-                let mut sponge = ArithmeticSponge::<Fp, Constants>::new(static_params());
-                sponge.absorb(&[crate::param_to_field("CodaSignature")]);
-                sponge.squeeze();
-                sponge.state.try_into().unwrap()
-            };
-
-            let mut sponge =
-                poseidon::Sponge::<Fp, Constants>::new_with_state(initial_state, static_params());
-            sponge.absorb(&inputs.to_fields(), w);
-            let hash = sponge.squeeze(w);
-
-            dbg!(hash);
-        }
-
-        use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};
-
-        use mina_hasher::ROInput as LegacyInput;
-
-        #[derive(Clone)]
-        struct MyInput(LegacyInput);
-
-        impl Hashable for MyInput {
-            type D = ();
-
-            fn to_roinput(&self) -> ROInput {
-                self.0.clone()
-            }
-
-            fn domain_string(_: Self::D) -> Option<String> {
-                Some("CodaSignature".to_string())
-            }
-        }
-
-        let mut hasher = create_legacy::<MyInput>(());
-        hasher.update(&MyInput(inputs));
-        let hash = hasher.digest();
-
-        dbg!(hash);
-
-        // ReceiptChainHash(hasher.digest())
-
-        // let signature_testnet = create "CodaSignature"
-
-        // dbg!(inputs.to_fields());
+        let e_pk = scale_non_constant::<Fp, 255>(public_key, hash, shifted, w);
     }
 
     fn apply_tagged_transaction(
+        shifted: InnerCurve<Fp>,
         _fee_payment_root: Fp,
         _global_slot: Slot,
         _pending_coinbase_init: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
@@ -1750,7 +1822,7 @@ mod transaction_snark {
         let tag = payload.body.tag.clone();
         let is_user_command = tag.is_user_command();
 
-        check_signature(payload, is_user_command, signer, signature, w);
+        check_signature(shifted, payload, is_user_command, signer, signature, w);
     }
 
     pub fn main(
@@ -1763,7 +1835,7 @@ mod transaction_snark {
         let tx = transaction_union_payload::TransactionUnion::of_transaction(&tx);
 
         dummy_constraints(w);
-        create_shifted_inner_curve(w);
+        let shifted = create_shifted_inner_curve(w);
 
         let state_body = w.exists(tx_witness.protocol_state_body.clone());
         let global_slot = w.exists(tx_witness.block_global_slot.clone());
@@ -1771,6 +1843,7 @@ mod transaction_snark {
         let pending_coinbase_init = w.exists(tx_witness.init_stack.clone());
 
         apply_tagged_transaction(
+            shifted,
             statement.source.first_pass_ledger.to_field(),
             Slot::from_u32(global_slot.as_u32()),
             &pending_coinbase_init,
