@@ -1133,6 +1133,23 @@ impl FromFpFq for Fq {
     }
 }
 
+/// Trait helping converting concrete types into generics
+pub trait IntoGeneric<F: FieldWitness> {
+    fn into_gen(self) -> F;
+}
+
+impl<F: FieldWitness> IntoGeneric<F> for Fp {
+    fn into_gen(self) -> F {
+        F::from_fp(self)
+    }
+}
+
+impl<F: FieldWitness> IntoGeneric<F> for Fq {
+    fn into_gen(self) -> F {
+        F::from_fq(self)
+    }
+}
+
 /// Rust calls:
 /// https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/crypto/kimchi_bindings/stubs/src/projective.rs
 /// Conversion to/from OCaml:
@@ -1141,7 +1158,7 @@ impl FromFpFq for Fq {
 /// https://github.com/o1-labs/snarky/blob/7edf13628872081fd7cad154de257dad8b9ba621/snarky_curve/snarky_curve.ml#L219-L229
 ///
 #[derive(
-    derive_more::Add, derive_more::Sub, derive_more::Neg, derive_more::Mul, derive_more::Div,
+    Clone, derive_more::Add, derive_more::Sub, derive_more::Neg, derive_more::Mul, derive_more::Div,
 )]
 pub struct InnerCurve<F: FieldWitness> {
     // ProjectivePallas
@@ -1181,6 +1198,11 @@ impl<F: FieldWitness> InnerCurve<F> {
         Self {
             inner: self.inner.mul(scale),
         }
+    }
+
+    fn add_fast(&self, other: Self, w: &mut Witness<F>) -> Self {
+        let result = w.add_fast(self.to_affine(), other.to_affine());
+        Self::of_affine(result)
     }
 
     fn to_affine(&self) -> GroupAffine<F::Parameters> {
@@ -1468,11 +1490,6 @@ pub mod legacy_input {
                     },
             } = self;
 
-            let to_field = |field: Fp| -> F {
-                use mina_p2p_messages::bigint::BigInt;
-                let x: BigInt = field.into();
-                x.to_field()
-            };
             let fee_token = &LEGACY_DEFAULT_TOKEN;
 
             // Common
@@ -1481,7 +1498,7 @@ pub mod legacy_input {
             let fee = w.exists(fee.to_bits());
             inputs.append_bits(&fee);
             inputs.append_bits(fee_token);
-            inputs.append_field(to_field(fee_payer_pk.x));
+            inputs.append_field(fee_payer_pk.x.into_gen());
             inputs.append_bit(fee_payer_pk.is_odd);
             inputs.append_bits(&nonce);
             inputs.append_bits(&valid_until);
@@ -1490,9 +1507,9 @@ pub mod legacy_input {
             // Body
             let amount = w.exists(amount.to_bits());
             inputs.append_bits(&tag.to_bits());
-            inputs.append_field(to_field(source_pk.x));
+            inputs.append_field(source_pk.x.into_gen());
             inputs.append_bit(source_pk.is_odd);
-            inputs.append_field(to_field(receiver_pk.x));
+            inputs.append_field(receiver_pk.x.into_gen());
             inputs.append_bit(receiver_pk.is_odd);
             inputs.append_bits(fee_token);
             inputs.append_bits(&amount);
@@ -1671,8 +1688,8 @@ fn double_group<F: FieldWitness>(
     let lambda = w.exists({
         (x_squared + x_squared + x_squared + F::PARAMS.a) * (ay + ay).inverse().unwrap()
     });
-    let bx = w.exists({ lambda.square() - (ax + ax) });
-    let by = w.exists({ (lambda * (ax - bx)) - ay });
+    let bx = w.exists(lambda.square() - (ax + ax));
+    let by = w.exists((lambda * (ax - bx)) - ay);
 
     make_group(bx, by)
 }
@@ -1682,6 +1699,7 @@ fn group_to_witness<F: FieldWitness>(
     group: GroupAffine<F::Parameters>,
     w: &mut Witness<F>,
 ) -> GroupAffine<F::Parameters> {
+    // We don't want to call `GroupAffine::check` here
     let GroupAffine { x, y, .. } = &group;
     w.exists(*x);
     w.exists(*y);
@@ -1690,8 +1708,8 @@ fn group_to_witness<F: FieldWitness>(
 
 fn scale_non_constant<F: FieldWitness, const N: usize>(
     mut g: GroupAffine<F::Parameters>,
-    bits: [bool; N],
-    init: InnerCurve<F>,
+    bits: &[bool; N],
+    init: &InnerCurve<F>,
     w: &mut Witness<F>,
 ) -> GroupAffine<F::Parameters> {
     let mut acc = init.to_affine();
@@ -1700,7 +1718,7 @@ fn scale_non_constant<F: FieldWitness, const N: usize>(
         acc = {
             let add_pt = w.add_fast(acc, g);
             let dont_add_pt = acc;
-            if b {
+            if *b {
                 group_to_witness(add_pt, w)
             } else {
                 group_to_witness(dont_add_pt, w)
@@ -1710,6 +1728,100 @@ fn scale_non_constant<F: FieldWitness, const N: usize>(
     }
 
     acc
+}
+
+fn lookup_point<F: FieldWitness>(
+    (b0, b1): (bool, bool),
+    (t1, t2, t3, t4): (InnerCurve<F>, InnerCurve<F>, InnerCurve<F>, InnerCurve<F>),
+    w: &mut Witness<F>,
+) -> (F, F) {
+    // This doesn't push to the witness, except for the `b0_and_b1`
+
+    let b0_and_b1 = w.exists(F::from(b0 && b1));
+    let b0 = F::from(b0);
+    let b1 = F::from(b1);
+    let lookup_one = |a1: F, a2: F, a3: F, a4: F| -> F {
+        a1 + ((a2 - a1) * b0) + ((a3 - a1) * b1) + ((a4 + a1 - a2 - a3) * b0_and_b1)
+    };
+    let GroupAffine { x: x1, y: y1, .. } = t1.to_affine();
+    let GroupAffine { x: x2, y: y2, .. } = t2.to_affine();
+    let GroupAffine { x: x3, y: y3, .. } = t3.to_affine();
+    let GroupAffine { x: x4, y: y4, .. } = t4.to_affine();
+
+    (lookup_one(x1, x2, x3, x4), lookup_one(y1, y2, y3, y4))
+}
+
+fn lookup_single_bit<F: FieldWitness>(b: bool, (t1, t2): (InnerCurve<F>, InnerCurve<F>)) -> (F, F) {
+    let lookup_one = |a1: F, a2: F| a1 + (F::from(b) * (a2 - a1));
+
+    let GroupAffine { x: x1, y: y1, .. } = t1.to_affine();
+    let GroupAffine { x: x2, y: y2, .. } = t2.to_affine();
+
+    (lookup_one(x1, x2), lookup_one(y1, y2))
+}
+
+fn scale_known<F: FieldWitness, const N: usize>(
+    t: GroupAffine<F::Parameters>,
+    bits: &[bool; N],
+    init: &InnerCurve<F>,
+    w: &mut Witness<F>,
+) -> GroupAffine<F::Parameters> {
+    let sigma = InnerCurve::of_affine(t);
+    let n = bits.len();
+    let sigma_count = (n + 1) / 2;
+
+    let to_term = |two_to_the_i: InnerCurve<F>,
+                   two_to_the_i_plus_1: InnerCurve<F>,
+                   bits: (bool, bool),
+                   w: &mut Witness<F>| {
+        let sigma0 = sigma.clone();
+        let sigma1 = sigma.clone();
+        let sigma2 = sigma.clone();
+        let sigma3 = sigma.clone();
+        lookup_point(
+            bits,
+            (
+                sigma0,
+                (sigma1 + two_to_the_i.clone()),
+                (sigma2 + two_to_the_i_plus_1.clone()),
+                (sigma3 + two_to_the_i + two_to_the_i_plus_1),
+            ),
+            w,
+        )
+    };
+
+    let mut acc = init.to_affine();
+    let mut two_to_the_i = sigma.clone();
+    for chunk in bits.chunks(2) {
+        match chunk {
+            [b_i] => {
+                let (term_x, term_y) =
+                    lookup_single_bit(*b_i, (sigma.clone(), sigma.clone() + two_to_the_i.clone()));
+                let term_y = w.exists(term_y);
+                let term_x = w.exists(term_x);
+                acc = w.add_fast(acc, make_group(term_x, term_y));
+            }
+            [b_i, b_i_plus_1] => {
+                let two_to_the_i_plus_1 = two_to_the_i.double().to_affine();
+                let (term_x, term_y) = to_term(
+                    two_to_the_i.clone(),
+                    InnerCurve::of_affine(two_to_the_i_plus_1),
+                    (*b_i, *b_i_plus_1),
+                    w,
+                );
+                let term_y = w.exists(term_y);
+                let term_x = w.exists(term_x);
+                acc = w.add_fast(acc, make_group(term_x, term_y));
+                two_to_the_i = InnerCurve::of_affine(two_to_the_i_plus_1).double();
+            }
+            _ => unreachable!(), // chunks of 2
+        }
+    }
+
+    let result_with_shift = acc;
+    let unshift = std::ops::Neg::neg(sigma).scale(sigma_count as u64);
+
+    w.add_fast(result_with_shift, unshift.to_affine())
 }
 
 mod transaction_snark {
@@ -1780,7 +1892,7 @@ mod transaction_snark {
     }
 
     fn check_signature(
-        shifted: InnerCurve<Fp>,
+        shifted: &InnerCurve<Fp>,
         payload: &TransactionUnionPayload,
         _is_user_command: bool,
         signer: &PubKey,
@@ -1799,11 +1911,18 @@ mod transaction_snark {
             make_group::<Fp>(*x, y)
         };
 
-        let e_pk = scale_non_constant::<Fp, 255>(public_key, hash, shifted, w);
+        let e_pk = scale_non_constant::<Fp, 255>(public_key, &hash, shifted, w);
+
+        eprintln!("SCALE KNOWN START\n");
+
+        let Signature { rx: _, s } = signature;
+        let bits: [bool; 255] = field_to_bits::<_, 255>(*s);
+        let one: GroupAffine<_> = InnerCurve::<Fp>::one().to_affine();
+        let s_g_e_pk = scale_known(one, &bits, &InnerCurve::of_affine(e_pk), w);
     }
 
     fn apply_tagged_transaction(
-        shifted: InnerCurve<Fp>,
+        shifted: &InnerCurve<Fp>,
         _fee_payment_root: Fp,
         _global_slot: Slot,
         _pending_coinbase_init: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
@@ -1843,7 +1962,7 @@ mod transaction_snark {
         let pending_coinbase_init = w.exists(tx_witness.init_stack.clone());
 
         apply_tagged_transaction(
-            shifted,
+            &shifted,
             statement.source.first_pass_ledger.to_field(),
             Slot::from_u32(global_slot.as_u32()),
             &pending_coinbase_init,
