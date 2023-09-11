@@ -4,7 +4,7 @@ use ark_ec::{
     short_weierstrass_jacobian::{GroupAffine, GroupProjective},
     AffineCurve, ProjectiveCurve, SWModelParameters,
 };
-use ark_ff::{BigInteger256, Field, PrimeField};
+use ark_ff::{BigInteger256, Field, FpParameters, PrimeField};
 use mina_curves::pasta::{
     Fq, PallasParameters, ProjectivePallas, ProjectiveVesta, VestaParameters,
 };
@@ -121,13 +121,17 @@ impl Iterator for FieldBitsIterator {
     }
 }
 
+fn bigint_to_bits<const NBITS: usize>(bigint: BigInteger256) -> [bool; NBITS] {
+    let mut bits = FieldBitsIterator { index: 0, bigint }.take(NBITS);
+    std::array::from_fn(|_| bits.next().unwrap())
+}
+
 fn field_to_bits<F, const NBITS: usize>(field: F) -> [bool; NBITS]
 where
     F: Field + Into<BigInteger256>,
 {
     let bigint: BigInteger256 = field.into();
-    let mut bits = FieldBitsIterator { index: 0, bigint }.take(NBITS);
-    std::array::from_fn(|_| bits.next().unwrap())
+    bigint_to_bits(bigint)
 }
 
 fn bits_msb<F, const NBITS: usize>(field: F) -> [bool; NBITS]
@@ -1074,6 +1078,7 @@ where
         + Clone
         + std::fmt::Debug;
     const PARAMS: Params<Self>;
+    const SIZE: BigInteger256;
 }
 
 pub struct Params<F> {
@@ -1092,6 +1097,7 @@ impl FieldWitness for Fp {
         a: ark_ff::field_new!(Fp, "0"),
         b: ark_ff::field_new!(Fp, "5"),
     };
+    const SIZE: BigInteger256 = mina_curves::pasta::fields::FpParameters::MODULUS;
 }
 
 impl FieldWitness for Fq {
@@ -1105,6 +1111,7 @@ impl FieldWitness for Fq {
         a: ark_ff::field_new!(Fq, "0"),
         b: ark_ff::field_new!(Fq, "5"),
     };
+    const SIZE: BigInteger256 = mina_curves::pasta::fields::FqParameters::MODULUS;
 }
 
 /// Trait helping converting generics into concrete types
@@ -1824,6 +1831,176 @@ fn scale_known<F: FieldWitness, const N: usize>(
     w.add_fast(result_with_shift, unshift.to_affine())
 }
 
+#[derive(Clone, Copy, Debug)]
+enum Boolean {
+    False,
+    True,
+}
+
+impl Boolean {
+    fn not(x: bool) -> Self {
+        if x {
+            Self::False
+        } else {
+            Self::True
+        }
+    }
+}
+
+#[derive(Debug)]
+enum ExprBinary<T> {
+    Lit(T),
+    And(T, Box<ExprBinary<T>>),
+    Or(T, Box<ExprBinary<T>>),
+}
+
+#[derive(Debug)]
+enum ExprNary<T> {
+    Lit(T),
+    And(Vec<ExprNary<T>>),
+    Or(Vec<ExprNary<T>>),
+}
+
+// let lt_bitstring_value =
+//   let module Boolean = Checked.Boolean in
+//   let module Expr = struct
+//     module Binary = struct
+//       type 'a t = Lit of 'a | And of 'a * 'a t | Or of 'a * 'a t
+//     end
+
+//     module Nary = struct
+//       type 'a t = Lit of 'a | And of 'a t list | Or of 'a t list
+
+//       let rec of_binary : 'a Binary.t -> 'a t = function
+//         | Lit x ->
+//             Lit x
+//         | And (x, And (y, t)) ->
+//             And [ Lit x; Lit y; of_binary t ]
+//         | Or (x, Or (y, t)) ->
+//             Or [ Lit x; Lit y; of_binary t ]
+//         | And (x, t) ->
+//             And [ Lit x; of_binary t ]
+//         | Or (x, t) ->
+//             Or [ Lit x; of_binary t ]
+
+//       let rec eval =
+//         let open Checked.Let_syntax in
+//         function
+//         | Lit x ->
+//             return x
+//         | And xs ->
+//             Checked.List.map xs ~f:eval >>= Boolean.all
+//         | Or xs ->
+//             Checked.List.map xs ~f:eval >>= Boolean.any
+//     end
+//   end in
+//   let rec lt_binary xs ys : Boolean.var Expr.Binary.t =
+//     match (xs, ys) with
+//     | [], [] ->
+//         Lit Boolean.false_
+//     | [ _x ], [ false ] ->
+//         Lit Boolean.false_
+//     | [ x ], [ true ] ->
+//         Lit (Boolean.not x)
+//     | [ x1; _x2 ], [ true; false ] ->
+//         Lit (Boolean.not x1)
+//     | [ _x1; _x2 ], [ false; false ] ->
+//         Lit Boolean.false_
+//     | x :: xs, false :: ys ->
+//         And (Boolean.not x, lt_binary xs ys)
+//     | x :: xs, true :: ys ->
+//         Or (Boolean.not x, lt_binary xs ys)
+//     | _ :: _, [] | [], _ :: _ ->
+//         failwith "lt_bitstring_value: Got unequal length strings"
+//   in
+//   fun (xs : Boolean.var Bitstring_lib.Bitstring.Msb_first.t)
+//       (ys : bool Bitstring_lib.Bitstring.Msb_first.t) ->
+//     let open Expr.Nary in
+//     Printf.eprintf "[snark0.lt_bitstring_value] START\n%!" ;
+//     let value =
+//       of_binary (lt_binary (xs :> Boolean.var list) (ys :> bool list))
+//     in
+//     Printf.eprintf "[snark0.lt_bitstring_value] 000\n%!" ;
+//     let res = eval value in
+//     Printf.eprintf "[snark0.lt_bitstring_value] DONE\n%!" ;
+//     res
+
+fn lt_binary<F: FieldWitness>(xs: &[bool], ys: &[bool]) -> ExprBinary<Boolean> {
+    match (xs, ys) {
+        ([], []) => ExprBinary::Lit(Boolean::False),
+        ([_x], [false]) => ExprBinary::Lit(Boolean::False),
+        ([x], [true]) => ExprBinary::Lit(Boolean::not(*x)),
+        ([x1, _x2], [true, false]) => ExprBinary::Lit(Boolean::not(*x1)),
+        ([_x1, _x2], [false, false]) => ExprBinary::Lit(Boolean::False),
+        ([x, xs @ ..], [false, ys @ ..]) => {
+            ExprBinary::And(Boolean::not(*x), Box::new(lt_binary::<F>(xs, ys)))
+        }
+        ([x, xs @ ..], [true, ys @ ..]) => {
+            ExprBinary::Or(Boolean::not(*x), Box::new(lt_binary::<F>(xs, ys)))
+        }
+        _ => panic!("unequal length"),
+    }
+}
+
+fn of_binary<F: FieldWitness>(expr: &ExprBinary<Boolean>) -> ExprNary<Boolean> {
+    match expr {
+        ExprBinary::Lit(x) => ExprNary::Lit(*x),
+        ExprBinary::And(x, t) => match &**t {
+            ExprBinary::And(y, t) => ExprNary::And(vec![
+                ExprNary::Lit(*x),
+                ExprNary::Lit(*y),
+                of_binary::<F>(&**t),
+            ]),
+            _ => ExprNary::And(vec![ExprNary::Lit(*x), of_binary::<F>(&**t)]),
+        },
+        ExprBinary::Or(x, t) => match &**t {
+            ExprBinary::Or(y, t) => ExprNary::Or(vec![
+                ExprNary::Lit(*x),
+                ExprNary::Lit(*y),
+                of_binary::<F>(&**t),
+            ]),
+            _ => ExprNary::Or(vec![ExprNary::Lit(*x), of_binary::<F>(&**t)]),
+        },
+    }
+}
+
+fn lt_bitstring_value<F: FieldWitness>(xs: &[bool; 255], ys: &[bool; 255]) {
+    let value = of_binary::<F>(&lt_binary::<F>(xs, ys));
+    eprintln!("value={:?}", value);
+}
+
+fn is_even<F: FieldWitness>(y: F, w: &mut Witness<F>) {
+    let bits_msb = {
+        let mut bits = w.exists(field_to_bits::<F, 255>(y));
+        bits.reverse(); // msb
+        bits
+    };
+
+    let size_msb = {
+        let mut size = bigint_to_bits::<255>(F::SIZE);
+        size.reverse(); // msb
+        size
+    };
+
+    lt_bitstring_value::<F>(&bits_msb, &size_msb);
+
+    // let%map () =
+    //   lt_bitstring_value
+    //     (Bitstring.Msb_first.of_lsb_first res)
+    //     field_size_bits
+    //   >>= Checked.Boolean.Assert.is_true
+    // in
+    // Printf.eprintf "[snark0] UNPACK_FULL DONE\n%!" ;
+    // res
+
+    eprintln!("size={:?}", size_msb);
+
+    // let a: BigInteger256 = mina_curves::pasta::fields::FpParameters::MODULUS;
+
+    // dbg!(mina_curves::pasta::fields::FpParameters::MODULUS.to_string());
+    // dbg!(mina_curves::pasta::fields::FqParameters::MODULUS.to_string());
+}
+
 mod transaction_snark {
     use std::ops::Neg;
 
@@ -1914,11 +2091,21 @@ mod transaction_snark {
         let e_pk = scale_non_constant::<Fp, 255>(public_key, &hash, shifted, w);
 
         eprintln!("SCALE KNOWN START\n");
+        let before = w.aux.len();
 
         let Signature { rx: _, s } = signature;
         let bits: [bool; 255] = field_to_bits::<_, 255>(*s);
         let one: GroupAffine<_> = InnerCurve::<Fp>::one().to_affine();
         let s_g_e_pk = scale_known(one, &bits, &InnerCurve::of_affine(e_pk), w);
+        eprintln!("SCALE KNOWN TOTAL={:?}\n", w.aux.len() - before);
+
+        let GroupAffine { x: rx, y: ry, .. } = {
+            let neg_shifted = shifted.to_affine().neg();
+            w.exists(neg_shifted.y);
+            w.add_fast(neg_shifted, s_g_e_pk)
+        };
+
+        is_even(ry, w);
     }
 
     fn apply_tagged_transaction(
