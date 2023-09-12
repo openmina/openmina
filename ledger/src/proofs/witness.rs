@@ -42,27 +42,33 @@ use super::{public_input::plonk_checks::ShiftedValue, to_field_elements::ToField
 #[derive(Debug)]
 pub struct Witness<F: FieldWitness> {
     aux: Vec<F>,
+    ocaml_aux: Vec<F>,
 }
 
 impl<F: FieldWitness> Witness<F> {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             aux: Vec::with_capacity(capacity),
+            ocaml_aux: Vec::new(),
         }
     }
 
     pub fn push<I: Into<F>>(&mut self, field: I) {
+        let before = self.aux.len();
         let field = {
             let field: F = field.into();
             // dbg!(field)
             field
         };
-        self.aux.push(field)
+        assert_eq!(self.ocaml_aux[before], field);
+        self.aux.push(field);
     }
 
     pub fn extend<I: Into<F>, V: Iterator<Item = I>>(&mut self, field: V) {
+        let before = self.aux.len();
         let fields = {
             let fields: Vec<F> = field.map(Into::into).collect();
+            assert_eq!(&fields, &self.ocaml_aux[before..before + fields.len()]);
             // eprintln!("extend[{}]={:#?}", fields.len(), fields);
             fields
         };
@@ -76,6 +82,9 @@ impl<F: FieldWitness> Witness<F> {
         // data.to_field_elements(&mut self.aux);
         let mut fields = data.to_field_elements_owned();
         eprintln!("w{:?}", &fields);
+
+        let before = self.aux.len();
+        assert_eq!(&fields, &self.ocaml_aux[before..before + fields.len()]);
         self.aux.append(&mut fields);
 
         data.check(self);
@@ -415,7 +424,7 @@ mod plonk_curve_ops {
         let chunks: usize = NBITS / BITS_PER_CHUNK;
         assert_eq!(NBITS % BITS_PER_CHUNK, 0);
 
-        let bits_msb: [bool; NBITS] = bits_msb::<F, NBITS>(scalar);
+        let bits_msb: [bool; NBITS] = w.exists(bits_msb::<F, NBITS>(scalar));
         let acc = w.add_fast(base, base);
         let mut n_acc = F::zero();
 
@@ -475,6 +484,12 @@ impl ToFieldElements<Fp> for Fq {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let field: BigInteger256 = (*self).into();
         fields.push(field.into());
+    }
+}
+
+impl<F: FieldWitness, const N: usize> ToFieldElements<F> for [F; N] {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        self.iter().for_each(|v| v.to_field_elements(fields));
     }
 }
 
@@ -796,6 +811,12 @@ impl<F: FieldWitness> Check<F> for Fp {
 impl<F: FieldWitness> Check<F> for Fq {
     fn check(&self, _witnesses: &mut Witness<F>) {
         // Does not modify the witness
+    }
+}
+
+impl<F: FieldWitness, const N: usize> Check<F> for [F; N] {
+    fn check(&self, witnesses: &mut Witness<F>) {
+        self.iter().for_each(|v| v.check(witnesses));
     }
 }
 
@@ -1831,18 +1852,113 @@ fn scale_known<F: FieldWitness, const N: usize>(
     w.add_fast(result_with_shift, unshift.to_affine())
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Boolean {
     False,
     True,
 }
 
 impl Boolean {
+    fn as_bool(&self) -> bool {
+        match self {
+            Boolean::True => true,
+            Boolean::False => false,
+        }
+    }
+
+    fn from_bool(b: bool) -> Self {
+        if b {
+            Self::True
+        } else {
+            Self::False
+        }
+    }
+
     fn not(x: bool) -> Self {
         if x {
             Self::False
         } else {
             Self::True
+        }
+    }
+
+    fn neg(&self) -> Self {
+        match self {
+            Boolean::False => Boolean::True,
+            Boolean::True => Boolean::False,
+        }
+    }
+
+    fn to_field<F: FieldWitness>(&self) -> F {
+        F::from(self.as_bool())
+    }
+
+    fn mul<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
+        let result: F = self.to_field::<F>() * other.to_field::<F>();
+        w.exists(result);
+        if result.is_zero() {
+            Self::False
+        } else {
+            assert_eq!(result, F::one());
+            Self::True
+        }
+    }
+
+    fn and<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
+        self.mul(other, w)
+    }
+
+    fn or<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
+        let both_false = self.neg().and(&other.neg(), w);
+        both_false.neg()
+    }
+
+    // Should be for `Cvar`
+    fn equal<F: FieldWitness>(x: F, y: F, w: &mut Witness<F>) -> Boolean {
+        let z = x - y;
+
+        let (boolean, r, inv) = if x == y {
+            (Boolean::True, F::one(), F::zero())
+        } else {
+            (Boolean::False, F::zero(), z.inverse().unwrap())
+        };
+        w.exists([r, inv]);
+
+        boolean
+    }
+
+    fn all<F: FieldWitness>(x: Vec<Self>, w: &mut Witness<F>) -> Self {
+        match x.as_slice() {
+            [] => Self::True,
+            [b1] => *b1,
+            [b1, b2] => b1.and(b2, w),
+            bs => {
+                let len = F::from(bs.len() as u64);
+                let sum = bs.iter().fold(0u64, |acc, b| {
+                    acc + match b {
+                        Boolean::True => 1,
+                        Boolean::False => 0,
+                    }
+                });
+                Self::equal(len, F::from(sum), w)
+            }
+        }
+    }
+
+    fn any<F: FieldWitness>(x: Vec<Self>, w: &mut Witness<F>) -> Self {
+        match x.as_slice() {
+            [] => Self::False,
+            [b1] => *b1,
+            [b1, b2] => b1.or(b2, w),
+            bs => {
+                let sum = bs.iter().fold(0u64, |acc, b| {
+                    acc + match b {
+                        Boolean::True => 1,
+                        Boolean::False => 0,
+                    }
+                });
+                Self::equal(F::from(sum), F::zero(), w).neg()
+            }
         }
     }
 }
@@ -1860,70 +1976,6 @@ enum ExprNary<T> {
     And(Vec<ExprNary<T>>),
     Or(Vec<ExprNary<T>>),
 }
-
-// let lt_bitstring_value =
-//   let module Boolean = Checked.Boolean in
-//   let module Expr = struct
-//     module Binary = struct
-//       type 'a t = Lit of 'a | And of 'a * 'a t | Or of 'a * 'a t
-//     end
-
-//     module Nary = struct
-//       type 'a t = Lit of 'a | And of 'a t list | Or of 'a t list
-
-//       let rec of_binary : 'a Binary.t -> 'a t = function
-//         | Lit x ->
-//             Lit x
-//         | And (x, And (y, t)) ->
-//             And [ Lit x; Lit y; of_binary t ]
-//         | Or (x, Or (y, t)) ->
-//             Or [ Lit x; Lit y; of_binary t ]
-//         | And (x, t) ->
-//             And [ Lit x; of_binary t ]
-//         | Or (x, t) ->
-//             Or [ Lit x; of_binary t ]
-
-//       let rec eval =
-//         let open Checked.Let_syntax in
-//         function
-//         | Lit x ->
-//             return x
-//         | And xs ->
-//             Checked.List.map xs ~f:eval >>= Boolean.all
-//         | Or xs ->
-//             Checked.List.map xs ~f:eval >>= Boolean.any
-//     end
-//   end in
-//   let rec lt_binary xs ys : Boolean.var Expr.Binary.t =
-//     match (xs, ys) with
-//     | [], [] ->
-//         Lit Boolean.false_
-//     | [ _x ], [ false ] ->
-//         Lit Boolean.false_
-//     | [ x ], [ true ] ->
-//         Lit (Boolean.not x)
-//     | [ x1; _x2 ], [ true; false ] ->
-//         Lit (Boolean.not x1)
-//     | [ _x1; _x2 ], [ false; false ] ->
-//         Lit Boolean.false_
-//     | x :: xs, false :: ys ->
-//         And (Boolean.not x, lt_binary xs ys)
-//     | x :: xs, true :: ys ->
-//         Or (Boolean.not x, lt_binary xs ys)
-//     | _ :: _, [] | [], _ :: _ ->
-//         failwith "lt_bitstring_value: Got unequal length strings"
-//   in
-//   fun (xs : Boolean.var Bitstring_lib.Bitstring.Msb_first.t)
-//       (ys : bool Bitstring_lib.Bitstring.Msb_first.t) ->
-//     let open Expr.Nary in
-//     Printf.eprintf "[snark0.lt_bitstring_value] START\n%!" ;
-//     let value =
-//       of_binary (lt_binary (xs :> Boolean.var list) (ys :> bool list))
-//     in
-//     Printf.eprintf "[snark0.lt_bitstring_value] 000\n%!" ;
-//     let res = eval value in
-//     Printf.eprintf "[snark0.lt_bitstring_value] DONE\n%!" ;
-//     res
 
 fn lt_binary<F: FieldWitness>(xs: &[bool], ys: &[bool]) -> ExprBinary<Boolean> {
     match (xs, ys) {
@@ -1964,9 +2016,26 @@ fn of_binary<F: FieldWitness>(expr: &ExprBinary<Boolean>) -> ExprNary<Boolean> {
     }
 }
 
-fn lt_bitstring_value<F: FieldWitness>(xs: &[bool; 255], ys: &[bool; 255]) {
+impl ExprNary<Boolean> {
+    fn eval<F: FieldWitness>(&self, w: &mut Witness<F>) -> Boolean {
+        match self {
+            ExprNary::Lit(x) => *x,
+            ExprNary::And(xs) => {
+                let xs = xs.iter().map(|x| Self::eval::<F>(x, w)).collect();
+                Boolean::all::<F>(xs, w)
+            }
+            ExprNary::Or(xs) => {
+                let xs = xs.iter().map(|x| Self::eval::<F>(x, w)).collect();
+                Boolean::any::<F>(xs, w)
+            }
+        }
+    }
+}
+
+fn lt_bitstring_value<F: FieldWitness>(xs: &[bool; 255], ys: &[bool; 255], w: &mut Witness<F>) {
     let value = of_binary::<F>(&lt_binary::<F>(xs, ys));
     eprintln!("value={:?}", value);
+    value.eval(w);
 }
 
 fn is_even<F: FieldWitness>(y: F, w: &mut Witness<F>) {
@@ -1982,7 +2051,8 @@ fn is_even<F: FieldWitness>(y: F, w: &mut Witness<F>) {
         size
     };
 
-    lt_bitstring_value::<F>(&bits_msb, &size_msb);
+    eprintln!("lt_bitstring_value\n");
+    lt_bitstring_value::<F>(&bits_msb, &size_msb, w);
 
     // let%map () =
     //   lt_bitstring_value
