@@ -54,21 +54,19 @@ impl<F: FieldWitness> Witness<F> {
     }
 
     pub fn push<I: Into<F>>(&mut self, field: I) {
-        let before = self.aux.len();
         let field = {
             let field: F = field.into();
             // dbg!(field)
             field
         };
-        assert_eq!(self.ocaml_aux[before], field);
+        self.assert_ocaml_aux(&[field]);
         self.aux.push(field);
     }
 
     pub fn extend<I: Into<F>, V: Iterator<Item = I>>(&mut self, field: V) {
-        let before = self.aux.len();
         let fields = {
             let fields: Vec<F> = field.map(Into::into).collect();
-            assert_eq!(&fields, &self.ocaml_aux[before..before + fields.len()]);
+            self.assert_ocaml_aux(&fields);
             // eprintln!("extend[{}]={:#?}", fields.len(), fields);
             fields
         };
@@ -83,12 +81,22 @@ impl<F: FieldWitness> Witness<F> {
         let mut fields = data.to_field_elements_owned();
         eprintln!("w{:?}", &fields);
 
-        let before = self.aux.len();
-        assert_eq!(&fields, &self.ocaml_aux[before..before + fields.len()]);
+        self.assert_ocaml_aux(&fields);
         self.aux.append(&mut fields);
 
         data.check(self);
         data
+    }
+
+    // TODO: Remove this, it's just temporary here to test implementation
+    fn assert_ocaml_aux(&self, new_fields: &[F]) {
+        if self.ocaml_aux.is_empty() {
+            return;
+        }
+
+        let len = new_fields.len();
+        let before = self.aux.len();
+        assert_eq!(new_fields, &self.ocaml_aux[before..before + len]);
     }
 
     /// Helper
@@ -1889,7 +1897,7 @@ impl Boolean {
         }
     }
 
-    fn to_field<F: FieldWitness>(&self) -> F {
+    fn to_field<F: FieldWitness>(self) -> F {
         F::from(self.as_bool())
     }
 
@@ -2020,17 +2028,17 @@ fn of_binary<F: FieldWitness>(expr: &ExprBinary<Boolean>) -> ExprNary<Boolean> {
             ExprBinary::And(y, t) => ExprNary::And(vec![
                 ExprNary::Lit(*x),
                 ExprNary::Lit(*y),
-                of_binary::<F>(&**t),
+                of_binary::<F>(t),
             ]),
-            _ => ExprNary::And(vec![ExprNary::Lit(*x), of_binary::<F>(&**t)]),
+            _ => ExprNary::And(vec![ExprNary::Lit(*x), of_binary::<F>(t)]),
         },
         ExprBinary::Or(x, t) => match &**t {
             ExprBinary::Or(y, t) => ExprNary::Or(vec![
                 ExprNary::Lit(*x),
                 ExprNary::Lit(*y),
-                of_binary::<F>(&**t),
+                of_binary::<F>(t),
             ]),
-            _ => ExprNary::Or(vec![ExprNary::Lit(*x), of_binary::<F>(&**t)]),
+            _ => ExprNary::Or(vec![ExprNary::Lit(*x), of_binary::<F>(t)]),
         },
     }
 }
@@ -2064,7 +2072,7 @@ fn unpack_full<F: FieldWitness>(x: F, w: &mut Witness<F>) -> [bool; 255] {
     let bits_lsb = w.exists(field_to_bits::<F, 255>(x));
 
     let bits_msb = {
-        let mut bits = bits_lsb.clone();
+        let mut bits = bits_lsb;
         bits.reverse(); // msb
         bits
     };
@@ -2227,7 +2235,7 @@ mod transaction_snark {
             sparse_ledger: &SparseLedger,
             w: &mut Witness<F>,
         ) -> Failure {
-            w.exists(compute_as_prover_impl::<F>(
+            w.exists(compute_as_prover_impl(
                 txn_global_slot,
                 txn,
                 sparse_ledger,
@@ -2235,7 +2243,7 @@ mod transaction_snark {
         }
 
         // TODO: Returns errors instead of panics
-        fn compute_as_prover_impl<F: FieldWitness>(
+        fn compute_as_prover_impl(
             txn_global_slot: Slot,
             txn: &TransactionUnion,
             sparse_ledger: &SparseLedger,
@@ -2381,7 +2389,7 @@ mod transaction_snark {
                         };
 
                     let timing_or_error =
-                        validate_timing(&source_account, payload.body.amount, &txn_global_slot);
+                        validate_timing(source_account, payload.body.amount, &txn_global_slot);
                     let timing_or_error = timing_error_to_user_command_status(timing_or_error);
 
                     let source_minimum_balance_violation = match &timing_or_error {
