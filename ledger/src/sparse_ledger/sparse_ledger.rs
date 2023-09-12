@@ -103,6 +103,13 @@ impl SparseLedger {
     pub fn merkle_root(&mut self) -> Fp {
         self.with(|this| this.merkle_root())
     }
+
+    pub fn get_account(&self, key: &AccountId) -> Box<Account> {
+        self.with(|this| {
+            let addr = this.find_index_exn(key.clone());
+            this.get(&addr).unwrap()
+        })
+    }
 }
 
 impl LedgerIntf for SparseLedger {

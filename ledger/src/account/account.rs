@@ -586,6 +586,17 @@ impl PartialOrd for AccountId {
 }
 
 impl AccountId {
+    pub fn empty() -> Self {
+        Self {
+            public_key: CompressedPubKey::empty(),
+            token_id: TokenId::default(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self == &Self::empty()
+    }
+
     pub fn derive_token_id(&self) -> TokenId {
         let is_odd_field = match self.public_key.is_odd {
             true => Fp::one(),

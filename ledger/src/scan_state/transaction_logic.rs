@@ -6014,6 +6014,34 @@ pub mod transaction_union_payload {
             }
         }
 
+        pub fn is_payment(&self) -> bool {
+            match self {
+                Tag::Payment => true,
+                Tag::FeeTransfer | Tag::Coinbase | Tag::StakeDelegation => false,
+            }
+        }
+
+        pub fn is_stake_delegation(&self) -> bool {
+            match self {
+                Tag::StakeDelegation => true,
+                Tag::FeeTransfer | Tag::Coinbase | Tag::Payment => false,
+            }
+        }
+
+        pub fn is_fee_transfer(&self) -> bool {
+            match self {
+                Tag::FeeTransfer => true,
+                Tag::StakeDelegation | Tag::Coinbase | Tag::Payment => false,
+            }
+        }
+
+        pub fn is_coinbase(&self) -> bool {
+            match self {
+                Tag::Coinbase => true,
+                Tag::StakeDelegation | Tag::FeeTransfer | Tag::Payment => false,
+            }
+        }
+
         pub fn to_bits(&self) -> [bool; 3] {
             let tag = self.clone() as u8;
             let mut bits = [false; 3];

@@ -1913,7 +1913,7 @@ impl Boolean {
         both_false.neg()
     }
 
-    // Should be for `Cvar`
+    // TODO: Move out of `Boolean` Should be for `Cvar`
     fn equal<F: FieldWitness>(x: F, y: F, w: &mut Witness<F>) -> Boolean {
         let z = x - y;
 
@@ -1960,6 +1960,25 @@ impl Boolean {
                 Self::equal(F::from(sum), F::zero(), w).neg()
             }
         }
+    }
+
+    // Part of utils.inv
+    fn assert_non_zero<F: FieldWitness>(v: F, w: &mut Witness<F>) {
+        if v.is_zero() {
+            w.exists(v);
+        } else {
+            w.exists(v.inverse().unwrap());
+        }
+    }
+
+    fn assert_any<F: FieldWitness>(bs: &[Self], w: &mut Witness<F>) {
+        let num_true = bs.iter().fold(0u64, |acc, b| {
+            acc + match b {
+                Boolean::True => 1,
+                Boolean::False => 0,
+            }
+        });
+        Self::assert_non_zero::<F>(F::from(num_true), w)
     }
 }
 
@@ -2032,13 +2051,36 @@ impl ExprNary<Boolean> {
     }
 }
 
-fn lt_bitstring_value<F: FieldWitness>(xs: &[bool; 255], ys: &[bool; 255], w: &mut Witness<F>) {
+fn lt_bitstring_value<F: FieldWitness>(
+    xs: &[bool; 255],
+    ys: &[bool; 255],
+    w: &mut Witness<F>,
+) -> Boolean {
     let value = of_binary::<F>(&lt_binary::<F>(xs, ys));
-    eprintln!("value={:?}", value);
-    value.eval(w);
+    value.eval(w)
 }
 
-fn is_even<F: FieldWitness>(y: F, w: &mut Witness<F>) {
+fn unpack_full<F: FieldWitness>(x: F, w: &mut Witness<F>) -> [bool; 255] {
+    let bits_lsb = w.exists(field_to_bits::<F, 255>(x));
+
+    let bits_msb = {
+        let mut bits = bits_lsb.clone();
+        bits.reverse(); // msb
+        bits
+    };
+
+    let size_msb = {
+        let mut size = bigint_to_bits::<255>(F::SIZE);
+        size.reverse(); // msb
+        size
+    };
+
+    lt_bitstring_value::<F>(&bits_msb, &size_msb, w);
+
+    bits_lsb
+}
+
+fn is_even<F: FieldWitness>(y: F, w: &mut Witness<F>) -> Boolean {
     let bits_msb = {
         let mut bits = w.exists(field_to_bits::<F, 255>(y));
         bits.reverse(); // msb
@@ -2051,30 +2093,34 @@ fn is_even<F: FieldWitness>(y: F, w: &mut Witness<F>) {
         size
     };
 
-    eprintln!("lt_bitstring_value\n");
-    lt_bitstring_value::<F>(&bits_msb, &size_msb, w);
+    lt_bitstring_value::<F>(&bits_msb, &size_msb, w)
+}
 
-    // let%map () =
-    //   lt_bitstring_value
-    //     (Bitstring.Msb_first.of_lsb_first res)
-    //     field_size_bits
-    //   >>= Checked.Boolean.Assert.is_true
-    // in
-    // Printf.eprintf "[snark0] UNPACK_FULL DONE\n%!" ;
-    // res
+pub struct CompressedPubKeyVar<F: FieldWitness> {
+    pub x: F,
+    pub is_odd: bool,
+}
 
-    eprintln!("size={:?}", size_msb);
+fn compress_var<F: FieldWitness>(
+    v: &GroupAffine<F::Parameters>,
+    w: &mut Witness<F>,
+) -> CompressedPubKeyVar<F> {
+    let GroupAffine { x, y, .. } = v;
 
-    // let a: BigInteger256 = mina_curves::pasta::fields::FpParameters::MODULUS;
+    let is_odd = {
+        let bits = unpack_full(*y, w);
+        bits[0]
+    };
 
-    // dbg!(mina_curves::pasta::fields::FpParameters::MODULUS.to_string());
-    // dbg!(mina_curves::pasta::fields::FqParameters::MODULUS.to_string());
+    CompressedPubKeyVar { x: *x, is_odd }
 }
 
 mod transaction_snark {
     use std::ops::Neg;
 
-    use crate::proofs::witness::legacy_input::CheckedLegacyInput;
+    use crate::{
+        proofs::witness::legacy_input::CheckedLegacyInput, sparse_ledger::SparseLedger, AccountId,
+    };
     use mina_signer::PubKey;
 
     use crate::scan_state::{
@@ -2099,6 +2145,269 @@ mod transaction_snark {
         account_creation_fee: Fee::from_u64(1000000000),
         fork: None,
     };
+
+    mod user_command_failure {
+        use crate::scan_state::{
+            currency::Magnitude,
+            transaction_logic::{
+                timing_error_to_user_command_status, validate_timing, TransactionFailure,
+            },
+        };
+
+        use super::*;
+
+        const NUM_FIELDS: usize = 8;
+
+        pub struct Failure {
+            pub predicate_failed: bool,                 // User commands
+            pub source_not_present: bool,               // User commands
+            pub receiver_not_present: bool,             // Delegate
+            pub amount_insufficient_to_create: bool,    // Payment only
+            pub token_cannot_create: bool,              // Payment only, token<>default
+            pub source_insufficient_balance: bool,      // Payment only
+            pub source_minimum_balance_violation: bool, // Payment only
+            pub source_bad_timing: bool,                // Payment only
+        }
+
+        impl<F: FieldWitness> ToFieldElements<F> for Failure {
+            fn to_field_elements(&self, fields: &mut Vec<F>) {
+                let list = self.to_list();
+                list.to_field_elements(fields)
+            }
+        }
+
+        impl<F: FieldWitness> Check<F> for Failure {
+            fn check(&self, _witnesses: &mut Witness<F>) {
+                // Nothing
+            }
+        }
+
+        impl Failure {
+            fn empty() -> Self {
+                Self {
+                    predicate_failed: false,
+                    source_not_present: false,
+                    receiver_not_present: false,
+                    amount_insufficient_to_create: false,
+                    token_cannot_create: false,
+                    source_insufficient_balance: false,
+                    source_minimum_balance_violation: false,
+                    source_bad_timing: false,
+                }
+            }
+
+            pub fn to_list(&self) -> [bool; NUM_FIELDS] {
+                let Self {
+                    predicate_failed,
+                    source_not_present,
+                    receiver_not_present,
+                    amount_insufficient_to_create,
+                    token_cannot_create,
+                    source_insufficient_balance,
+                    source_minimum_balance_violation,
+                    source_bad_timing,
+                } = self;
+
+                [
+                    *predicate_failed,
+                    *source_not_present,
+                    *receiver_not_present,
+                    *amount_insufficient_to_create,
+                    *token_cannot_create,
+                    *source_insufficient_balance,
+                    *source_minimum_balance_violation,
+                    *source_bad_timing,
+                ]
+            }
+        }
+
+        pub fn compute_as_prover<F: FieldWitness>(
+            txn_global_slot: Slot,
+            txn: &TransactionUnion,
+            sparse_ledger: &SparseLedger,
+            w: &mut Witness<F>,
+        ) -> Failure {
+            w.exists(compute_as_prover_impl::<F>(
+                txn_global_slot,
+                txn,
+                sparse_ledger,
+            ))
+        }
+
+        // TODO: Returns errors instead of panics
+        fn compute_as_prover_impl<F: FieldWitness>(
+            txn_global_slot: Slot,
+            txn: &TransactionUnion,
+            sparse_ledger: &SparseLedger,
+        ) -> Failure {
+            use transaction_union_payload::Tag::*;
+
+            let _fee_token = &txn.payload.common.fee_token;
+            let token = &txn.payload.body.token_id;
+            let fee_payer =
+                AccountId::create(txn.payload.common.fee_payer_pk.clone(), token.clone());
+            let source = AccountId::create(txn.payload.body.source_pk.clone(), token.clone());
+            let receiver = AccountId::create(txn.payload.body.receiver_pk.clone(), token.clone());
+
+            let mut fee_payer_account = sparse_ledger.get_account(&fee_payer);
+            let source_account = sparse_ledger.get_account(&source);
+            let receiver_account = sparse_ledger.get_account(&receiver);
+            let txn_global_slot = txn_global_slot;
+
+            // compute_unchecked
+            let TransactionUnion {
+                payload,
+                signer: _,
+                signature: _,
+            } = txn;
+
+            if let FeeTransfer | Coinbase = payload.body.tag {
+                return Failure::empty();
+            };
+
+            fee_payer_account.balance = fee_payer_account
+                .balance
+                .sub_amount(Amount::of_fee(&payload.common.fee))
+                .unwrap();
+
+            let predicate_failed = if payload.common.fee_payer_pk == payload.body.source_pk {
+                false
+            } else {
+                match payload.body.tag {
+                    Payment | StakeDelegation => true,
+                    FeeTransfer | Coinbase => panic!(), // Checked above
+                }
+            };
+
+            match payload.body.tag {
+                FeeTransfer | Coinbase => panic!(), // Checked above
+                StakeDelegation => {
+                    let receiver_account = if receiver == fee_payer {
+                        &fee_payer_account
+                    } else {
+                        &receiver_account
+                    };
+
+                    let receiver_not_present = {
+                        let id = receiver_account.id();
+                        if id.is_empty() {
+                            true
+                        } else if receiver == id {
+                            false
+                        } else {
+                            panic!("bad receiver account ID")
+                        }
+                    };
+
+                    let source_account = if source == fee_payer {
+                        &fee_payer_account
+                    } else {
+                        &source_account
+                    };
+
+                    let source_not_present = {
+                        let id = source_account.id();
+                        if id.is_empty() {
+                            true
+                        } else if source == id {
+                            false
+                        } else {
+                            panic!("bad source account ID")
+                        }
+                    };
+
+                    Failure {
+                        predicate_failed,
+                        source_not_present,
+                        receiver_not_present,
+                        amount_insufficient_to_create: false,
+                        token_cannot_create: false,
+                        source_insufficient_balance: false,
+                        source_minimum_balance_violation: false,
+                        source_bad_timing: false,
+                    }
+                }
+                Payment => {
+                    let receiver_account = if receiver == fee_payer {
+                        &fee_payer_account
+                    } else {
+                        &receiver_account
+                    };
+
+                    let receiver_needs_creating = {
+                        let id = receiver_account.id();
+                        if id.is_empty() {
+                            true
+                        } else if id == receiver {
+                            false
+                        } else {
+                            panic!("bad receiver account ID");
+                        }
+                    };
+
+                    let token_is_default = true;
+                    let token_cannot_create = receiver_needs_creating && !token_is_default;
+
+                    let amount_insufficient_to_create = {
+                        let creation_amount =
+                            Amount::of_fee(&CONSTRAINT_CONSTANTS.account_creation_fee);
+                        receiver_needs_creating
+                            && payload.body.amount.checked_sub(&creation_amount).is_none()
+                    };
+
+                    let fee_payer_is_source = fee_payer == source;
+                    let source_account = if fee_payer_is_source {
+                        &fee_payer_account
+                    } else {
+                        &source_account
+                    };
+
+                    let source_not_present = {
+                        let id = source_account.id();
+                        if id.is_empty() {
+                            true
+                        } else if source == id {
+                            false
+                        } else {
+                            panic!("bad source account ID");
+                        }
+                    };
+
+                    let source_insufficient_balance = !fee_payer_is_source
+                        && if source == receiver {
+                            receiver_needs_creating
+                        } else {
+                            source_account.balance.to_amount() < payload.body.amount
+                        };
+
+                    let timing_or_error =
+                        validate_timing(&source_account, payload.body.amount, &txn_global_slot);
+                    let timing_or_error = timing_error_to_user_command_status(timing_or_error);
+
+                    let source_minimum_balance_violation = match &timing_or_error {
+                        Ok(_) => false,
+                        Err(TransactionFailure::SourceMinimumBalanceViolation) => true,
+                        Err(_) => false,
+                    };
+
+                    let source_bad_timing = !fee_payer_is_source
+                        && !source_insufficient_balance
+                        && timing_or_error.is_err();
+
+                    Failure {
+                        predicate_failed,
+                        source_not_present,
+                        receiver_not_present: false,
+                        amount_insufficient_to_create,
+                        token_cannot_create,
+                        source_insufficient_balance,
+                        source_minimum_balance_violation,
+                        source_bad_timing,
+                    }
+                }
+            }
+        }
+    }
 
     fn hash(param: &str, inputs: LegacyInput<Fp>, w: &mut Witness<Fp>) -> Fp {
         use mina_poseidon::constants::PlonkSpongeConstantsLegacy as Constants;
@@ -2141,13 +2450,11 @@ mod transaction_snark {
     fn check_signature(
         shifted: &InnerCurve<Fp>,
         payload: &TransactionUnionPayload,
-        _is_user_command: bool,
+        is_user_command: bool,
         signer: &PubKey,
         signature: &Signature,
         w: &mut Witness<Fp>,
     ) {
-        println!("START\n");
-
         let inputs = payload.to_checked_legacy_input_owned(w);
         let hash = hash_checked(inputs, signer, signature, w);
 
@@ -2160,14 +2467,10 @@ mod transaction_snark {
 
         let e_pk = scale_non_constant::<Fp, 255>(public_key, &hash, shifted, w);
 
-        eprintln!("SCALE KNOWN START\n");
-        let before = w.aux.len();
-
         let Signature { rx: _, s } = signature;
         let bits: [bool; 255] = field_to_bits::<_, 255>(*s);
         let one: GroupAffine<_> = InnerCurve::<Fp>::one().to_affine();
         let s_g_e_pk = scale_known(one, &bits, &InnerCurve::of_affine(e_pk), w);
-        eprintln!("SCALE KNOWN TOTAL={:?}\n", w.aux.len() - before);
 
         let GroupAffine { x: rx, y: ry, .. } = {
             let neg_shifted = shifted.to_affine().neg();
@@ -2175,18 +2478,24 @@ mod transaction_snark {
             w.add_fast(neg_shifted, s_g_e_pk)
         };
 
-        is_even(ry, w);
+        let y_even = is_even(ry, w);
+        let r_correct = Boolean::equal(signature.rx, rx, w);
+
+        let verifies = y_even.and(&r_correct, w);
+
+        Boolean::assert_any(&[Boolean::not(is_user_command), verifies][..], w);
     }
 
     fn apply_tagged_transaction(
         shifted: &InnerCurve<Fp>,
         _fee_payment_root: Fp,
-        _global_slot: Slot,
+        global_slot: Slot,
         _pending_coinbase_init: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
         _pending_coinbase_stack_before: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
         _pending_coinbase_stack_after: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
         _state_body: &MinaStateProtocolStateBodyValueStableV2,
         tx: &TransactionUnion,
+        sparse_ledger: &SparseLedger,
         w: &mut Witness<Fp>,
     ) {
         let TransactionUnion {
@@ -2199,6 +2508,65 @@ mod transaction_snark {
         let is_user_command = tag.is_user_command();
 
         check_signature(shifted, payload, is_user_command, signer, signature, w);
+
+        let _signer_pk = compress_var(signer.point(), w);
+
+        let is_payment = tag.is_payment();
+        let is_stake_delegation = tag.is_stake_delegation();
+        let is_fee_transfer = tag.is_fee_transfer();
+        let is_coinbase = tag.is_coinbase();
+
+        let fee_token = &payload.common.fee_token;
+        let fee_token_default = Boolean::equal(fee_token.0, TokenId::default().0, w);
+
+        let token = &payload.body.token_id;
+        let _token_default = Boolean::equal(token.0, TokenId::default().0, w);
+
+        Boolean::assert_any(
+            &[
+                fee_token_default,
+                Boolean::from_bool(is_payment),
+                Boolean::from_bool(is_stake_delegation),
+                Boolean::from_bool(is_fee_transfer),
+            ],
+            w,
+        );
+
+        Boolean::assert_any(
+            &[
+                Boolean::from_bool(is_payment),
+                Boolean::from_bool(is_stake_delegation),
+                Boolean::from_bool(is_fee_transfer),
+                Boolean::from_bool(is_coinbase),
+            ],
+            w,
+        );
+
+        let current_global_slot = global_slot;
+        let user_command_failure =
+            user_command_failure::compute_as_prover(current_global_slot, tx, sparse_ledger, w);
+
+        let _user_command_fails = Boolean::any(
+            user_command_failure
+                .to_list()
+                .into_iter()
+                .map(Boolean::from_bool)
+                .collect(),
+            w,
+        );
+        let _fee = payload.common.fee;
+        let _receiver = AccountId::create(payload.body.receiver_pk.clone(), token.clone());
+        let _source = AccountId::create(payload.body.source_pk.clone(), token.clone());
+        let _nonce = payload.common.nonce;
+        let _fee_payer = AccountId::create(payload.common.fee_payer_pk.clone(), fee_token.clone());
+
+        // TODO: Move this in a `AccountId::checked_equal`
+        // {
+        //     let x_eq = Boolean::equal(fee_payer.public_key.x, source.public_key.x, w);
+        //     let odd_eq = Boolean::equal(Fp::from(fee_payer.public_key.is_odd), Fp::from(source.public_key.is_odd), w);
+        //     let a = x_eq.and(&odd_eq, w);
+        // }
+        // Boolean::equal(fee_payer, y, w)
     }
 
     pub fn main(
@@ -2218,6 +2586,8 @@ mod transaction_snark {
         let tx = w.exists(tx);
         let pending_coinbase_init = w.exists(tx_witness.init_stack.clone());
 
+        let sparse_ledger: SparseLedger = (&tx_witness.first_pass_ledger).into();
+
         apply_tagged_transaction(
             &shifted,
             statement.source.first_pass_ledger.to_field(),
@@ -2227,6 +2597,7 @@ mod transaction_snark {
             &statement.target.pending_coinbase_stack,
             &state_body,
             &tx,
+            &sparse_ledger,
             w,
         );
 
