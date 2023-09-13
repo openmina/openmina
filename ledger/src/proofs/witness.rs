@@ -2679,7 +2679,7 @@ mod transaction_snark {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::{path::Path, str::FromStr};
 
     use mina_hasher::Fp;
     #[cfg(target_family = "wasm")]
@@ -2722,5 +2722,136 @@ mod tests {
                 65636.into(),
             ]
         );
+    }
+
+    type SnarkWorkSpec =
+        mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances;
+
+    /// External worker input.
+    #[derive(Debug, binprot_derive::BinProtRead, binprot_derive::BinProtWrite)]
+    pub enum ExternalSnarkWorkerRequest {
+        /// Queries worker for readiness, expected reply is `true`.
+        AwaitReadiness,
+        /// Commands worker to start specified snark job, expected reply is `ExternalSnarkWorkerResult`[ExternalSnarkWorkerResult].
+        PerformJob(mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse),
+    }
+
+    fn read_binprot<T, R>(mut r: R) -> T
+    where
+        T: binprot::BinProtRead,
+        R: std::io::Read,
+    {
+        use std::io::Read;
+
+        let mut len_buf = [0; std::mem::size_of::<u64>()];
+        r.read_exact(&mut len_buf).unwrap();
+        let len = u64::from_le_bytes(len_buf);
+
+        let mut buf = Vec::with_capacity(len as usize);
+        let mut r = r.take(len);
+        r.read_to_end(&mut buf).unwrap();
+
+        let mut read = buf.as_slice();
+        let result = T::binprot_read(&mut read).unwrap();
+        result
+    }
+
+    // #[allow(const_item_mutation)]
+    // #[test]
+    // fn read_witnesses() {
+    //     let f = std::fs::read("/tmp/fp-witness.bin").unwrap();
+
+    //     use std::io::Cursor;
+    //     use byteorder::{LittleEndian, ReadBytesExt};
+
+    //     let fps = f.chunks(32).map(|b| {
+    //         let limb0 = u64::from_le_bytes(b[..8].try_into().unwrap());
+    //         let limb1 = u64::from_le_bytes(b[8..16].try_into().unwrap());
+    //         let limb2 = u64::from_le_bytes(b[16..24].try_into().unwrap());
+    //         let limb3 = u64::from_le_bytes(b[24..32].try_into().unwrap());
+
+    //         Fp::from_repr(BigInteger256([limb0, limb1, limb2, limb3])).unwrap()
+    //     }).collect::<Vec<_>>();
+
+    //     dbg!(&fps);
+    //     // dbg!(&fps[..200]);
+
+    //     let to_find = Fp::from_str("3872718692882651817983620299125138718833408774947121329795234981807992502608").unwrap();
+    //     // let to_find = Fp::from_str("12418654782883325593414442427049395787963493412651469444558597405572177144507").unwrap();
+
+    //     let pos = fps.iter().position(|fp| {
+    //         *fp == to_find
+    //     }).unwrap();
+
+    //     dbg!(pos);
+    //     dbg!(&fps[pos - 1..pos + 10]);
+    // }
+
+    fn read_witnesses_impl() -> Vec<Fp> {
+        let f =
+            std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("fps.txt")).unwrap();
+
+        let mut fps = f
+            .lines()
+            .filter(|s| !s.is_empty())
+            .map(|s| Fp::from_str(s).unwrap())
+            .collect::<Vec<_>>();
+
+        // TODO: Implement [0..652]
+        fps.split_off(652)
+    }
+
+    #[test]
+    fn read_witnesses() {
+        read_witnesses_impl();
+    }
+
+    #[allow(const_item_mutation)]
+    #[test]
+    fn test_protocol_state_body() {
+        use mina_p2p_messages::v2::*;
+
+        let data = std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
+            .unwrap();
+
+        let v: ExternalSnarkWorkerRequest = read_binprot(&mut data.as_slice());
+        // let value: ExternalSnarkWorkerRequest = ExternalSnarkWorkerRequest::binprot_read(&mut r)
+        //     .expect("cannot read work spec");
+
+        println!("OK");
+
+        let ExternalSnarkWorkerRequest::PerformJob(job) = v else { panic!() };
+        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((a, _prover))) = job else { panic!() };
+        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances::One(single) = a.instances else { panic!() };
+        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Transition(state, witness) = single else { panic!() };
+
+        let mut witnesses: Witness<Fp> = Witness::with_capacity(100_000);
+
+        witnesses.ocaml_aux = read_witnesses_impl();
+
+        transaction_snark::main(&state, &witness, &mut witnesses);
+
+        // dbg!(witnesses.aux);
+        dbg!(witnesses.aux.len());
+
+        // let protocol_state_body = &witness.protocol_state_body;
+
+        // protocol_state_body.to_field_elements(&mut witnesses);
+        // protocol_state_body.check(&mut witnesses);
+
+        // create_shifted_inner_curve(&mut witnesses);
+
+        // let tx: Transaction = (&witness.transaction).into();
+        // let tx = TransactionUnion::of_transaction(&tx);
+
+        // // let tx = tx.to_field_elements(&mut witnesses.aux);
+        // // let tx = tx.check(&mut witnesses);
+        // let tx = witnesses.exists(witness.init_stack.clone());
+
+        // // witnesses.exists(wi)
+        // dbg!(&witnesses);
+        // // dbg!(witnesses.aux.len());
+
+        // dbg!(protocol_state_body);
     }
 }
