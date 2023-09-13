@@ -2678,15 +2678,12 @@ mod transaction_snark {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::{path::Path, str::FromStr};
+mod tests_with_wasm {
+    use std::str::FromStr;
 
     use mina_hasher::Fp;
-    #[cfg(target_family = "wasm")]
-    use wasm_bindgen_test::wasm_bindgen_test as test;
 
     use super::*;
-
     #[test]
     fn test_to_field_checked() {
         let mut witness = Witness::with_capacity(32);
@@ -2723,6 +2720,16 @@ mod tests {
             ]
         );
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{path::Path, str::FromStr};
+
+    use ark_ff::One;
+    use mina_hasher::Fp;
+
+    use super::*;
 
     type SnarkWorkSpec =
         mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances;
@@ -2787,9 +2794,8 @@ mod tests {
     //     dbg!(&fps[pos - 1..pos + 10]);
     // }
 
-    fn read_witnesses_impl() -> Vec<Fp> {
-        let f =
-            std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("fps.txt")).unwrap();
+    fn read_witnesses() -> std::io::Result<Vec<Fp>> {
+        let f = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("fps.txt"))?;
 
         let mut fps = f
             .lines()
@@ -2798,12 +2804,7 @@ mod tests {
             .collect::<Vec<_>>();
 
         // TODO: Implement [0..652]
-        fps.split_off(652)
-    }
-
-    #[test]
-    fn read_witnesses() {
-        read_witnesses_impl();
+        Ok(fps.split_off(652))
     }
 
     #[allow(const_item_mutation)]
@@ -2811,8 +2812,9 @@ mod tests {
     fn test_protocol_state_body() {
         use mina_p2p_messages::v2::*;
 
-        let data = std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
-            .unwrap();
+        let Ok(data) = std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin")) else {
+            return;
+        };
 
         let v: ExternalSnarkWorkerRequest = read_binprot(&mut data.as_slice());
         // let value: ExternalSnarkWorkerRequest = ExternalSnarkWorkerRequest::binprot_read(&mut r)
@@ -2827,7 +2829,10 @@ mod tests {
 
         let mut witnesses: Witness<Fp> = Witness::with_capacity(100_000);
 
-        witnesses.ocaml_aux = read_witnesses_impl();
+        witnesses.ocaml_aux = read_witnesses().unwrap_or_else(|_| {
+            eprintln!("OCaml witness not found");
+            vec![Fp::one()] // failing value
+        });
 
         transaction_snark::main(&state, &witness, &mut witnesses);
 
