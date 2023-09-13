@@ -649,13 +649,7 @@ impl AccountId {
         use crate::proofs::witness::field;
 
         // public_key
-        let x_eq = field::equal(self.public_key.x, other.public_key.x, w);
-        let odd_eq = Boolean::equal(
-            &Boolean::from_bool(self.public_key.is_odd),
-            &Boolean::from_bool(other.public_key.is_odd),
-            w,
-        );
-        let pk_equal = x_eq.and(&odd_eq, w);
+        let pk_equal = checked_equal_compressed_key(&self.public_key, &other.public_key, w);
 
         // token_id
         let tid_equal = field::equal(self.token_id.0, other.token_id.0, w);
@@ -663,6 +657,22 @@ impl AccountId {
         // both
         pk_equal.and(&tid_equal, w)
     }
+}
+
+pub fn checked_equal_compressed_key(
+    a: &CompressedPubKey,
+    b: &CompressedPubKey,
+    w: &mut Witness<Fp>,
+) -> Boolean {
+    use crate::proofs::witness::field;
+
+    let x_eq = field::equal(a.x, b.x, w);
+    let odd_eq = Boolean::equal(
+        &Boolean::from_bool(a.is_odd),
+        &Boolean::from_bool(b.is_odd),
+        w,
+    );
+    x_eq.and(&odd_eq, w)
 }
 
 impl std::fmt::Debug for AccountId {

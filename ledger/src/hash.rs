@@ -5,6 +5,7 @@ use mina_signer::CompressedPubKey;
 // use oracle::{poseidon::{ArithmeticSponge, Sponge}, constants::PlonkSpongeConstantsKimchi, pasta::fp_kimchi::static_params};
 use crate::{
     poseidon::{static_params, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge},
+    proofs::witness::Witness,
     scan_state::currency,
     FpExt, SpongeParamsForField,
 };
@@ -252,6 +253,13 @@ pub trait ToInputs {
         let mut inputs = Inputs::new();
         self.to_inputs(&mut inputs);
         hash_with_kimchi(param, &inputs.to_fields())
+    }
+
+    fn checked_hash_with_param(&self, param: &str, w: &mut Witness<Fp>) -> Fp {
+        use crate::proofs::witness::transaction_snark::hash;
+
+        let inputs = self.to_inputs_owned();
+        hash(param, inputs, w)
     }
 }
 

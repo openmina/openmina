@@ -26,8 +26,10 @@ use mina_signer::CompressedPubKey;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    hash_noinputs, hash_with_kimchi, staged_ledger::hash::PendingCoinbaseAux, Address, Inputs,
-    MerklePath, ToInputs,
+    hash_noinputs, hash_with_kimchi,
+    proofs::witness::{Boolean, FieldWitness, Witness},
+    staged_ledger::hash::PendingCoinbaseAux,
+    Address, Inputs, MerklePath, ToInputs,
 };
 
 use self::merkle_tree::MiniMerkleTree;
@@ -142,6 +144,18 @@ impl CoinbaseStack {
         Self(hash)
     }
 
+    pub fn checked_push(&self, cb: Coinbase, w: &mut Witness<Fp>) -> Self {
+        use crate::proofs::witness::transaction_snark::hash;
+
+        let mut inputs = Inputs::new();
+
+        inputs.append(&CoinbaseData::of_coinbase(cb));
+        inputs.append_field(self.0);
+
+        let hash = hash("CoinbaseStack", inputs, w);
+        Self(hash)
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L188
     pub fn empty() -> Self {
         Self(hash_noinputs("CoinbaseStack"))
@@ -193,6 +207,23 @@ impl StateStack {
         inputs.append_field(global_slot.to_field());
 
         let hash = hash_with_kimchi("MinaProtoState", &inputs.to_fields());
+
+        Self {
+            init: self.init,
+            curr: hash,
+        }
+    }
+
+    fn checked_push(&self, state_body_hash: Fp, global_slot: Slot, w: &mut Witness<Fp>) -> Self {
+        use crate::proofs::witness::transaction_snark::hash;
+
+        let mut inputs = Inputs::new();
+
+        inputs.append_field(self.curr);
+        inputs.append_field(state_body_hash);
+        inputs.append_field(global_slot.to_field());
+
+        let hash = hash("MinaProtoState", inputs, w);
 
         Self {
             init: self.init,
@@ -300,6 +331,37 @@ impl Stack {
             data: self.data.clone(),
             state: self.state.push(state_body_hash, global_slot),
         }
+    }
+
+    pub fn checked_push_coinbase(&self, cb: Coinbase, w: &mut Witness<Fp>) -> Self {
+        Self {
+            data: self.data.checked_push(cb, w),
+            state: self.state.clone(),
+        }
+    }
+
+    pub fn checked_push_state(
+        &self,
+        state_body_hash: Fp,
+        global_slot: Slot,
+        w: &mut Witness<Fp>,
+    ) -> Self {
+        Self {
+            data: self.data.clone(),
+            state: self.state.checked_push(state_body_hash, global_slot, w),
+        }
+    }
+
+    pub fn equal_var(&self, other: &Self, w: &mut Witness<Fp>) -> Boolean {
+        use crate::proofs::witness::field;
+
+        let b1 = field::equal(self.data.0, other.data.0, w);
+        let b2 = {
+            let b1 = field::equal(self.state.init, other.state.init, w);
+            let b2 = field::equal(self.state.curr, other.state.curr, w);
+            b1.and(&b2, w)
+        };
+        b1.and(&b2, w)
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/pending_coinbase.ml#L651

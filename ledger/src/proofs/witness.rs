@@ -29,9 +29,12 @@ use mina_p2p_messages::{
 use mina_signer::CompressedPubKey;
 
 use crate::{
-    scan_state::transaction_logic::{
-        protocol_state::{EpochData, EpochLedger},
-        transaction_union_payload,
+    scan_state::{
+        pending_coinbase,
+        transaction_logic::{
+            protocol_state::{EpochData, EpochLedger},
+            transaction_union_payload,
+        },
     },
     staged_ledger::hash::StagedLedgerHash,
     TokenId,
@@ -798,6 +801,19 @@ impl<F: FieldWitness> ToFieldElements<F> for v2::MinaBasePendingCoinbaseStackVer
     }
 }
 
+impl<F: FieldWitness> ToFieldElements<F> for pending_coinbase::Stack {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let Self {
+            data,
+            state: pending_coinbase::StateStack { init, curr },
+        } = self;
+
+        fields.push(data.0.into_gen());
+        fields.push(init.into_gen());
+        fields.push(curr.into_gen());
+    }
+}
+
 impl<F: FieldWitness> Check<F> for SgnStableV1 {
     fn check(&self, _witnesses: &mut Witness<F>) {
         // Does not modify the witness
@@ -1348,6 +1364,12 @@ impl<F: FieldWitness> Check<F> for transaction_union_payload::TransactionUnion {
         valid_until.check(witnesses);
         tag.check(witnesses);
         amount.check(witnesses);
+    }
+}
+
+impl<F: FieldWitness> Check<F> for pending_coinbase::Stack {
+    fn check(&self, _witnesses: &mut Witness<F>) {
+        // Does not modify the witness
     }
 }
 
@@ -2160,12 +2182,19 @@ fn compress_var<F: FieldWitness>(
     CompressedPubKeyVar { x: *x, is_odd }
 }
 
-mod transaction_snark {
+pub mod transaction_snark {
     use std::ops::Neg;
 
     use crate::{
-        proofs::witness::legacy_input::CheckedLegacyInput, sparse_ledger::SparseLedger, AccountId,
-        ToInputs,
+        checked_equal_compressed_key,
+        proofs::witness::legacy_input::CheckedLegacyInput,
+        scan_state::{
+            currency::{Magnitude, Signed},
+            pending_coinbase,
+            transaction_logic::Coinbase,
+        },
+        sparse_ledger::SparseLedger,
+        AccountId, ToInputs,
     };
     use mina_signer::PubKey;
 
@@ -2470,7 +2499,7 @@ mod transaction_snark {
         sponge.squeeze(w)
     }
 
-    fn hash(param: &str, inputs: crate::Inputs, w: &mut Witness<Fp>) -> Fp {
+    pub fn hash(param: &str, inputs: crate::Inputs, w: &mut Witness<Fp>) -> Fp {
         use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
         use mina_poseidon::pasta::fp_kimchi::static_params;
 
@@ -2553,9 +2582,9 @@ mod transaction_snark {
         shifted: &InnerCurve<Fp>,
         _fee_payment_root: Fp,
         global_slot: Slot,
-        _pending_coinbase_init: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
-        _pending_coinbase_stack_before: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
-        _pending_coinbase_stack_after: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
+        pending_coinbase_init: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
+        pending_coinbase_stack_before: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
+        pending_coinbase_after: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
         state_body: &MinaStateProtocolStateBodyValueStableV2,
         tx: &TransactionUnion,
         sparse_ledger: &SparseLedger,
@@ -2583,7 +2612,7 @@ mod transaction_snark {
         let fee_token_default = field::equal(fee_token.0, TokenId::default().0, w);
 
         let token = &payload.body.token_id;
-        let _token_default = field::equal(token.0, TokenId::default().0, w);
+        let token_default = field::equal(token.0, TokenId::default().0, w);
 
         Boolean::assert_any(
             &[
@@ -2609,7 +2638,7 @@ mod transaction_snark {
         let user_command_failure =
             user_command_failure::compute_as_prover(current_global_slot, tx, sparse_ledger, w);
 
-        let _user_command_fails = Boolean::any(
+        let user_command_fails = Boolean::any(
             user_command_failure
                 .to_list()
                 .into_iter()
@@ -2617,8 +2646,8 @@ mod transaction_snark {
                 .collect(),
             w,
         );
-        let _fee = payload.common.fee;
-        let _receiver = AccountId::create(payload.body.receiver_pk.clone(), token.clone());
+        let fee = payload.common.fee;
+        let receiver = AccountId::create(payload.body.receiver_pk.clone(), token.clone());
         let source = AccountId::create(payload.body.source_pk.clone(), token.clone());
         let _nonce = payload.common.nonce;
         let fee_payer = AccountId::create(payload.common.fee_payer_pk.clone(), fee_token.clone());
@@ -2626,12 +2655,89 @@ mod transaction_snark {
         fee_payer.checked_equal(&source, w);
         current_global_slot.checked_lte(&payload.common.valid_until, w);
 
-        let state_body_hash = {
-            let inputs = state_body.to_inputs_owned();
-            hash("MinaProtoStateBody", inputs, w);
+        let state_body_hash = state_body.checked_hash_with_param("MinaProtoStateBody", w);
+
+        let pending_coinbase_init: pending_coinbase::Stack = pending_coinbase_init.into();
+
+        let pending_coinbase_stack_with_state =
+            { pending_coinbase_init.checked_push_state(state_body_hash, current_global_slot, w) };
+
+        let computed_pending_coinbase_stack_after = {
+            let coinbase = Coinbase {
+                receiver: receiver.public_key,
+                amount: payload.body.amount,
+                fee_transfer: None,
+            };
+
+            let stack_prime =
+                { pending_coinbase_stack_with_state.checked_push_coinbase(coinbase, w) };
+
+            w.exists(if is_coinbase {
+                stack_prime
+            } else {
+                pending_coinbase_stack_with_state.clone()
+            })
         };
 
+        let pending_coinbase_stack_before: pending_coinbase::Stack =
+            pending_coinbase_stack_before.into();
+        let pending_coinbase_after: pending_coinbase::Stack = pending_coinbase_after.into();
+        let _correct_coinbase_target_stack =
+            computed_pending_coinbase_stack_after.equal_var(&pending_coinbase_after, w);
+
+        let _valid_init_state = {
+            let equal_source = pending_coinbase_init.equal_var(&pending_coinbase_stack_before, w);
+
+            let equal_source_with_state =
+                pending_coinbase_stack_with_state.equal_var(&pending_coinbase_stack_before, w);
+
+            equal_source.or(&equal_source_with_state, w)
+        };
+
+        Boolean::assert_any(
+            &[
+                Boolean::from_bool(is_user_command),
+                user_command_fails.neg(),
+            ],
+            w,
+        );
+
+        let _predicate_result = {
+            let is_own_account = checked_equal_compressed_key(
+                &payload.common.fee_payer_pk,
+                &payload.body.source_pk,
+                w,
+            );
+            let predicate_result = Boolean::False;
+
+            // This Boolean::or doesn't push witness
+            // is_own_account.or(&predicate_result, w)
+            Boolean::from_bool(is_own_account.as_bool() || predicate_result.as_bool())
+        };
+
+        impl Fee {
+            fn equal_var<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
+                field::equal(self.to_field(), other.to_field(), w)
+            }
+        }
+
+        let _account_creation_amount = Amount::of_fee(&CONSTRAINT_CONSTANTS.account_creation_fee);
+        let is_zero_fee = fee.equal_var(&Fee::zero(), w);
+
+        let is_coinbase_or_fee_transfer = Boolean::from_bool(is_user_command).neg();
+
+        let _can_create_fee_payer_account = {
+            let fee_may_be_charged = token_default.or(&is_zero_fee, w);
+            is_coinbase_or_fee_transfer.or(&fee_may_be_charged, w)
+        };
+
+        let mut _burned_tokens = Amount::zero();
+        let mut _zero_fee = Signed::<Amount>::zero();
+        let mut _new_account_fees = _zero_fee;
+
         eprintln!("AAA\n");
+
+        let _root_after_fee_payer_update = {};
     }
 
     pub fn main(
