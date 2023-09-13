@@ -73,15 +73,15 @@ impl<F: FieldWitness> Witness<F> {
         self.aux.extend(fields)
     }
 
-    fn exists<T>(&mut self, data: T) -> T
+    pub fn exists<T>(&mut self, data: T) -> T
     where
         T: ToFieldElements<F> + Check<F>,
     {
         // data.to_field_elements(&mut self.aux);
         let mut fields = data.to_field_elements_owned();
-        eprintln!("w{:?}", &fields);
-
         self.assert_ocaml_aux(&fields);
+
+        eprintln!("w{:?}", &fields);
         self.aux.append(&mut fields);
 
         data.check(self);
@@ -1363,7 +1363,7 @@ impl<F: FieldWitness, const NBITS: usize> Check<F> for [bool; NBITS] {
     }
 }
 
-mod field {
+pub mod field {
     use super::*;
 
     // https://github.com/o1-labs/snarky/blob/7edf13628872081fd7cad154de257dad8b9ba621/src/base/utils.ml#L99
@@ -1380,6 +1380,19 @@ mod field {
         F: FieldWitness,
     {
         w.exists(x * y)
+    }
+
+    pub fn equal<F: FieldWitness>(x: F, y: F, w: &mut Witness<F>) -> Boolean {
+        let z = x - y;
+
+        let (boolean, r, inv) = if x == y {
+            (Boolean::True, F::one(), F::zero())
+        } else {
+            (Boolean::False, F::zero(), z.inverse().unwrap())
+        };
+        w.exists([r, inv]);
+
+        boolean
     }
 }
 
@@ -1639,6 +1652,8 @@ pub mod poseidon {
         pub fn poseidon_block_cipher(&mut self, first: bool, w: &mut Witness<F>) {
             if C::PERM_HALF_ROUNDS_FULL == 0 {
                 if C::PERM_INITIAL_ARK {
+                    // legacy
+
                     for (i, x) in self.params.round_constants[0].iter().enumerate() {
                         self.state[i].add_assign(x);
                     }
@@ -1652,6 +1667,9 @@ pub mod poseidon {
                         self.full_round(r + 1, first && r == 0, w);
                     }
                 } else {
+                    // non-legacy
+
+                    w.exists(self.state);
                     for r in 0..C::PERM_ROUNDS_FULL {
                         self.full_round(r, first, w);
                     }
@@ -1664,31 +1682,55 @@ pub mod poseidon {
         pub fn full_round(&mut self, r: usize, first: bool, w: &mut Witness<F>) {
             for (index, state_i) in self.state.iter_mut().enumerate() {
                 let push_witness = !(first && index == 2);
-                *state_i = sbox::<F>(*state_i, push_witness, w);
+                *state_i = sbox::<F, C>(*state_i, push_witness, w);
             }
             self.state = apply_mds_matrix::<F, C>(self.params, &self.state);
             for (i, x) in self.params.round_constants[r].iter().enumerate() {
                 self.state[i].add_assign(x);
-                w.exists(self.state[i]); // Good
+                if C::PERM_SBOX == 5 {
+                    // legacy
+                    w.exists(self.state[i]); // Good
+                }
+            }
+            if C::PERM_SBOX == 7 {
+                // non-legacy
+                w.exists(self.state);
             }
         }
     }
 
-    pub fn sbox<F: FieldWitness>(x: F, push_witness: bool, w: &mut Witness<F>) -> F {
-        let res = x;
-        let res = res * res;
-        if push_witness {
-            w.exists(res); // Good
+    pub fn sbox<F: FieldWitness, C: SpongeConstants>(
+        x: F,
+        push_witness: bool,
+        w: &mut Witness<F>,
+    ) -> F {
+        if C::PERM_SBOX == 5 {
+            // legacy
+
+            let res = x;
+            let res = res * res;
+            if push_witness {
+                w.exists(res); // Good
+            }
+            let res = res * res;
+            if push_witness {
+                w.exists(res); // Good
+            }
+            let res = res * x;
+            if push_witness {
+                w.exists(res); // Good
+            }
+            res
+        } else if C::PERM_SBOX == 7 {
+            // non-legacy
+
+            let mut res = x.square();
+            res *= x;
+            let res = res.square();
+            res * x
+        } else {
+            unimplemented!()
         }
-        let res = res * res;
-        if push_witness {
-            w.exists(res); // Good
-        }
-        let res = res * x;
-        if push_witness {
-            w.exists(res); // Good
-        }
-        res
     }
 
     fn apply_mds_matrix<F: Field, C: SpongeConstants>(
@@ -1833,8 +1875,7 @@ fn scale_known<F: FieldWitness, const N: usize>(
             [b_i] => {
                 let (term_x, term_y) =
                     lookup_single_bit(*b_i, (sigma.clone(), sigma.clone() + two_to_the_i.clone()));
-                let term_y = w.exists(term_y);
-                let term_x = w.exists(term_x);
+                let [term_y, term_x] = w.exists([term_y, term_x]);
                 acc = w.add_fast(acc, make_group(term_x, term_y));
             }
             [b_i, b_i_plus_1] => {
@@ -1845,8 +1886,7 @@ fn scale_known<F: FieldWitness, const N: usize>(
                     (*b_i, *b_i_plus_1),
                     w,
                 );
-                let term_y = w.exists(term_y);
-                let term_x = w.exists(term_x);
+                let [term_y, term_x] = w.exists([term_y, term_x]);
                 acc = w.add_fast(acc, make_group(term_x, term_y));
                 two_to_the_i = InnerCurve::of_affine(two_to_the_i_plus_1).double();
             }
@@ -1861,7 +1901,7 @@ fn scale_known<F: FieldWitness, const N: usize>(
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Boolean {
+pub enum Boolean {
     False,
     True,
 }
@@ -1874,7 +1914,7 @@ impl Boolean {
         }
     }
 
-    fn from_bool(b: bool) -> Self {
+    pub fn from_bool(b: bool) -> Self {
         if b {
             Self::True
         } else {
@@ -1912,27 +1952,13 @@ impl Boolean {
         }
     }
 
-    fn and<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
+    pub fn and<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
         self.mul(other, w)
     }
 
     fn or<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
         let both_false = self.neg().and(&other.neg(), w);
         both_false.neg()
-    }
-
-    // TODO: Move out of `Boolean` Should be for `Cvar`
-    fn equal<F: FieldWitness>(x: F, y: F, w: &mut Witness<F>) -> Boolean {
-        let z = x - y;
-
-        let (boolean, r, inv) = if x == y {
-            (Boolean::True, F::one(), F::zero())
-        } else {
-            (Boolean::False, F::zero(), z.inverse().unwrap())
-        };
-        w.exists([r, inv]);
-
-        boolean
     }
 
     fn all<F: FieldWitness>(x: Vec<Self>, w: &mut Witness<F>) -> Self {
@@ -1948,9 +1974,20 @@ impl Boolean {
                         Boolean::False => 0,
                     }
                 });
-                Self::equal(len, F::from(sum), w)
+                field::equal(len, F::from(sum), w)
             }
         }
+    }
+
+    // For non-constant
+    fn lxor<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
+        let result = Self::from_bool(self.as_bool() ^ other.as_bool());
+        w.exists(result.to_field::<F>());
+        result
+    }
+
+    pub fn equal<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
+        self.lxor(other, w).neg()
     }
 
     fn any<F: FieldWitness>(x: Vec<Self>, w: &mut Witness<F>) -> Self {
@@ -1965,7 +2002,7 @@ impl Boolean {
                         Boolean::False => 0,
                     }
                 });
-                Self::equal(F::from(sum), F::zero(), w).neg()
+                field::equal(F::from(sum), F::zero(), w).neg()
             }
         }
     }
@@ -1979,7 +2016,7 @@ impl Boolean {
         }
     }
 
-    fn assert_any<F: FieldWitness>(bs: &[Self], w: &mut Witness<F>) {
+    pub fn assert_any<F: FieldWitness>(bs: &[Self], w: &mut Witness<F>) {
         let num_true = bs.iter().fold(0u64, |acc, b| {
             acc + match b {
                 Boolean::True => 1,
@@ -2128,6 +2165,7 @@ mod transaction_snark {
 
     use crate::{
         proofs::witness::legacy_input::CheckedLegacyInput, sparse_ledger::SparseLedger, AccountId,
+        ToInputs,
     };
     use mina_signer::PubKey;
 
@@ -2235,11 +2273,7 @@ mod transaction_snark {
             sparse_ledger: &SparseLedger,
             w: &mut Witness<F>,
         ) -> Failure {
-            w.exists(compute_as_prover_impl(
-                txn_global_slot,
-                txn,
-                sparse_ledger,
-            ))
+            w.exists(compute_as_prover_impl(txn_global_slot, txn, sparse_ledger))
         }
 
         // TODO: Returns errors instead of panics
@@ -2390,13 +2424,11 @@ mod transaction_snark {
 
                     let timing_or_error =
                         validate_timing(source_account, payload.body.amount, &txn_global_slot);
-                    let timing_or_error = timing_error_to_user_command_status(timing_or_error);
 
-                    let source_minimum_balance_violation = match &timing_or_error {
-                        Ok(_) => false,
-                        Err(TransactionFailure::SourceMinimumBalanceViolation) => true,
-                        Err(_) => false,
-                    };
+                    let source_minimum_balance_violation = matches!(
+                        timing_error_to_user_command_status(timing_or_error.clone()),
+                        Err(TransactionFailure::SourceMinimumBalanceViolation),
+                    );
 
                     let source_bad_timing = !fee_payer_is_source
                         && !source_insufficient_balance
@@ -2417,7 +2449,7 @@ mod transaction_snark {
         }
     }
 
-    fn hash(param: &str, inputs: LegacyInput<Fp>, w: &mut Witness<Fp>) -> Fp {
+    fn legacy_hash(param: &str, inputs: LegacyInput<Fp>, w: &mut Witness<Fp>) -> Fp {
         use mina_poseidon::constants::PlonkSpongeConstantsLegacy as Constants;
         use mina_poseidon::pasta::fp_legacy::static_params;
 
@@ -2438,6 +2470,29 @@ mod transaction_snark {
         sponge.squeeze(w)
     }
 
+    fn hash(param: &str, inputs: crate::Inputs, w: &mut Witness<Fp>) -> Fp {
+        use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
+        use mina_poseidon::pasta::fp_kimchi::static_params;
+
+        // We hash the parameter first, without introducing values to the witness
+        let initial_state: [Fp; 3] = {
+            use crate::{
+                param_to_field, static_params, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge,
+            };
+
+            let mut sponge =
+                ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
+            sponge.absorb(&[param_to_field(param)]);
+            sponge.squeeze();
+            sponge.state
+        };
+
+        let mut sponge =
+            poseidon::Sponge::<Fp, Constants>::new_with_state(initial_state, static_params());
+        sponge.absorb(&inputs.to_fields(), w);
+        sponge.squeeze(w)
+    }
+
     fn hash_checked(
         mut inputs: LegacyInput<Fp>,
         signer: &PubKey,
@@ -2450,7 +2505,7 @@ mod transaction_snark {
         inputs.append_field(*px);
         inputs.append_field(*py);
         inputs.append_field(*rx);
-        let hash = hash("CodaSignature", inputs, w);
+        let hash = legacy_hash("CodaSignature", inputs, w);
 
         w.exists(field_to_bits::<_, 255>(hash))
     }
@@ -2487,7 +2542,7 @@ mod transaction_snark {
         };
 
         let y_even = is_even(ry, w);
-        let r_correct = Boolean::equal(signature.rx, rx, w);
+        let r_correct = field::equal(signature.rx, rx, w);
 
         let verifies = y_even.and(&r_correct, w);
 
@@ -2501,7 +2556,7 @@ mod transaction_snark {
         _pending_coinbase_init: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
         _pending_coinbase_stack_before: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
         _pending_coinbase_stack_after: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
-        _state_body: &MinaStateProtocolStateBodyValueStableV2,
+        state_body: &MinaStateProtocolStateBodyValueStableV2,
         tx: &TransactionUnion,
         sparse_ledger: &SparseLedger,
         w: &mut Witness<Fp>,
@@ -2525,10 +2580,10 @@ mod transaction_snark {
         let is_coinbase = tag.is_coinbase();
 
         let fee_token = &payload.common.fee_token;
-        let fee_token_default = Boolean::equal(fee_token.0, TokenId::default().0, w);
+        let fee_token_default = field::equal(fee_token.0, TokenId::default().0, w);
 
         let token = &payload.body.token_id;
-        let _token_default = Boolean::equal(token.0, TokenId::default().0, w);
+        let _token_default = field::equal(token.0, TokenId::default().0, w);
 
         Boolean::assert_any(
             &[
@@ -2564,17 +2619,19 @@ mod transaction_snark {
         );
         let _fee = payload.common.fee;
         let _receiver = AccountId::create(payload.body.receiver_pk.clone(), token.clone());
-        let _source = AccountId::create(payload.body.source_pk.clone(), token.clone());
+        let source = AccountId::create(payload.body.source_pk.clone(), token.clone());
         let _nonce = payload.common.nonce;
-        let _fee_payer = AccountId::create(payload.common.fee_payer_pk.clone(), fee_token.clone());
+        let fee_payer = AccountId::create(payload.common.fee_payer_pk.clone(), fee_token.clone());
 
-        // TODO: Move this in a `AccountId::checked_equal`
-        // {
-        //     let x_eq = Boolean::equal(fee_payer.public_key.x, source.public_key.x, w);
-        //     let odd_eq = Boolean::equal(Fp::from(fee_payer.public_key.is_odd), Fp::from(source.public_key.is_odd), w);
-        //     let a = x_eq.and(&odd_eq, w);
-        // }
-        // Boolean::equal(fee_payer, y, w)
+        fee_payer.checked_equal(&source, w);
+        current_global_slot.checked_lte(&payload.common.valid_until, w);
+
+        let state_body_hash = {
+            let inputs = state_body.to_inputs_owned();
+            hash("MinaProtoStateBody", inputs, w);
+        };
+
+        eprintln!("AAA\n");
     }
 
     pub fn main(

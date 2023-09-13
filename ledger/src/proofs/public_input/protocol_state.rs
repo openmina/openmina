@@ -13,16 +13,17 @@ use mina_p2p_messages::v2::{
     MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, SgnStableV1, TokenFeeExcess,
 };
 
-use crate::hash::{hash_with_kimchi, Inputs};
+use crate::{
+    hash::{hash_with_kimchi, Inputs},
+    ToInputs,
+};
 
 pub trait MinaHash {
     fn hash(&self) -> Fp;
 }
 
-impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
-    fn hash(&self) -> Fp {
-        let mut inputs = Inputs::new();
-
+impl ToInputs for MinaStateProtocolStateBodyValueStableV2 {
+    fn to_inputs(&self, inputs: &mut Inputs) {
         let MinaStateProtocolStateBodyValueStableV2 {
             genesis_state_hash,
             blockchain_state,
@@ -304,8 +305,12 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
             inputs.append_field(coinbase_receiver.x.to_field());
             inputs.append_bool(coinbase_receiver.is_odd);
         }
+    }
+}
 
-        hash_with_kimchi("MinaProtoStateBody", &inputs.to_fields())
+impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
+    fn hash(&self) -> Fp {
+        self.hash_with_param("MinaProtoStateBody")
     }
 }
 

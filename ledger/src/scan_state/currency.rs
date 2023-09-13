@@ -1,8 +1,9 @@
 use std::cmp::Ordering::{Equal, Greater, Less};
 
+use ark_ff::{BigInteger256, Field};
 use rand::Rng;
 
-use crate::proofs::witness::{Check, FieldWitness, Witness};
+use crate::proofs::witness::{Boolean, Check, FieldWitness, Witness};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Sgn {
@@ -294,16 +295,20 @@ impl Slot {
         let mut rng = rand::thread_rng();
         Self(rng.gen::<u32>() % 10_000)
     }
+}
 
-    pub fn to_field(&self) -> mina_hasher::Fp {
-        let int = self.0 as u64;
+fn range_check_impl<F: FieldWitness, const NBITS: usize>(number: F, w: &mut Witness<F>) -> F {
+    use crate::proofs::witness::scalar_challenge::to_field_checked_prime;
 
-        let mut bigint: [u64; 4] = [0; 4];
-        bigint[0] = int;
+    let (_, _, actual_packed) = to_field_checked_prime::<F, NBITS>(number, w);
+    actual_packed
+}
 
-        let bigint = ark_ff::BigInteger256(bigint);
-        mina_hasher::Fp::from(bigint)
-    }
+fn range_check_flag<F: FieldWitness, const NBITS: usize>(number: F, w: &mut Witness<F>) -> Boolean {
+    use crate::proofs::witness::field;
+
+    let actual = range_check_impl::<F, NBITS>(number, w);
+    field::equal(actual, number, w)
 }
 
 macro_rules! impl_number {
@@ -432,6 +437,37 @@ macro_rules! impl_number {
 
                 let mut iter = bits_iter::<$inner, { <$inner>::BITS as usize }>(self.0);
                 std::array::from_fn(|_| iter.next().unwrap())
+            }
+
+            pub fn to_field<F: Field + From<BigInteger256>>(&self) -> F {
+                let int = self.0 as u64;
+
+                let mut bigint: [u64; 4] = [0; 4];
+                bigint[0] = int;
+
+                let bigint = ark_ff::BigInteger256(bigint);
+                F::from(bigint)
+            }
+
+            /// >=
+            /// greater than or equal
+            pub fn checked_gte<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
+                let (x, y) = (self.to_field::<F>(), other.to_field::<F>());
+
+                let xy = w.exists(x - y);
+                let yx = w.exists(xy.neg());
+
+                let x_gte_y = range_check_flag::<F, { <$inner>::BITS as usize }>(xy, w);
+                let y_gte_x = range_check_flag::<F, { <$inner>::BITS as usize }>(yx, w);
+
+                Boolean::assert_any(&[x_gte_y, y_gte_x], w);
+                x_gte_y
+            }
+
+            /// <=
+            /// less than or equal
+            pub fn checked_lte<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
+                other.checked_gte(self, w)
             }
         }
 

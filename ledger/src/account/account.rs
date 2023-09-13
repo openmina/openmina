@@ -9,6 +9,7 @@ use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 use crate::{
     gen_compressed, gen_keypair,
     hash::{hash_noinputs, hash_with_kimchi, Inputs},
+    proofs::witness::{Boolean, Witness},
     scan_state::{
         currency::{Balance, Magnitude, Nonce, Slot},
         transaction_logic::account_min_balance_at_slot,
@@ -642,6 +643,25 @@ impl AccountId {
         let mut bytes = Vec::with_capacity(10000);
         self.binprot_write(&mut bytes).unwrap();
         bytes
+    }
+
+    pub fn checked_equal(&self, other: &Self, w: &mut Witness<Fp>) -> Boolean {
+        use crate::proofs::witness::field;
+
+        // public_key
+        let x_eq = field::equal(self.public_key.x, other.public_key.x, w);
+        let odd_eq = Boolean::equal(
+            &Boolean::from_bool(self.public_key.is_odd),
+            &Boolean::from_bool(other.public_key.is_odd),
+            w,
+        );
+        let pk_equal = x_eq.and(&odd_eq, w);
+
+        // token_id
+        let tid_equal = field::equal(self.token_id.0, other.token_id.0, w);
+
+        // both
+        pk_equal.and(&tid_equal, w)
     }
 }
 

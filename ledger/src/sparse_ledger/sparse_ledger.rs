@@ -105,6 +105,7 @@ impl SparseLedger {
     }
 
     pub fn get_account(&self, key: &AccountId) -> Box<Account> {
+        // TODO: Return empty account when not found
         self.with(|this| {
             let addr = this.find_index_exn(key.clone());
             this.get(&addr).unwrap()

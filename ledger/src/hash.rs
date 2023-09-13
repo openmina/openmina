@@ -242,6 +242,12 @@ pub fn hash_noinputs(param: &str) -> Fp {
 pub trait ToInputs {
     fn to_inputs(&self, inputs: &mut Inputs);
 
+    fn to_inputs_owned(&self) -> Inputs {
+        let mut inputs = Inputs::new();
+        self.to_inputs(&mut inputs);
+        inputs
+    }
+
     fn hash_with_param(&self, param: &str) -> Fp {
         let mut inputs = Inputs::new();
         self.to_inputs(&mut inputs);
