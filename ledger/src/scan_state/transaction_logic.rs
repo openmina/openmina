@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use ark_ff::Zero;
 use itertools::{FoldWhile, Itertools};
 use mina_hasher::{create_kimchi, Fp};
@@ -1875,7 +1877,9 @@ pub mod zkapp_command {
             }
 
             let field = match self {
-                AuthorizationKind::NoneGiven | AuthorizationKind::Signature => Fp::zero(),
+                AuthorizationKind::NoneGiven | AuthorizationKind::Signature => {
+                    VerificationKey::dummy().hash()
+                }
                 AuthorizationKind::Proof(hash) => *hash,
             };
 
@@ -2151,7 +2155,8 @@ pub mod zkapp_command {
 
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L1327
         pub fn digest(&self) -> Fp {
-            self.hash_with_param("MinaZkappBody")
+            // TODO: mainnet: "MainnetZkappBody"
+            self.hash_with_param("TestnetZkappBody")
         }
 
         pub fn timing(&self) -> SetOrKeep<Timing> {
@@ -4658,14 +4663,14 @@ where
 {
     let perform = |eff: Eff<L>| Env::perform(eff);
 
-    let original_account_states = {
+    let original_account_states: Vec<_> = {
         // get the original states of all the accounts in each pass.
         // If an account updated in the first pass is referenced in account
         // updates, then retain the value before first pass application*)
 
         let accounts_referenced = c.command.accounts_referenced();
 
-        let mut account_states = port_ocaml::HashTable::<AccountId, Option<_>>::create();
+        let mut account_states = BTreeMap::<AccountId, Option<_>>::new();
 
         let referenced = accounts_referenced.into_iter().map(|id| {
             let location = {
@@ -4679,9 +4684,15 @@ where
         c.original_first_pass_account_states
             .into_iter()
             .chain(referenced)
-            .for_each(|(id, acc_opt)| account_states.update(id, |v| v.cloned().unwrap_or(acc_opt)));
+            .for_each(|(id, acc_opt)| {
+                use std::collections::btree_map::Entry::Vacant;
 
-        account_states.to_alist()
+                if let Vacant(entry) = account_states.entry(id) {
+                    entry.insert(acc_opt);
+                };
+            });
+
+        account_states.into_iter().collect()
     };
 
     let mut account_states_after_fee_payer = {

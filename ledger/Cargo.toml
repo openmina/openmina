@@ -25,7 +25,7 @@ mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "le
 poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes"}
 
 bs58 = "0.4.0"
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "c2192deb43c9f404b056592e278b4eec29d4791a" }
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "e989a8957db0bde6007a8aceb39db409a9b0a308" }
 # mina-p2p-messages = { path = "/home/sebastien/github/mina-p2p-messages-rs", features = ["hashing"] }
 # mina-p2p-messages = { path = "/tmp/mina-p2p-messages-rs", features = ["hashing"] }
 
