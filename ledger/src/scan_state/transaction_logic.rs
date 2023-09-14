@@ -8,7 +8,7 @@ use mina_signer::CompressedPubKey;
 
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
 use crate::scan_state::zkapp_logic;
-use crate::{hash_with_kimchi, port_ocaml, ControlTag, Inputs};
+use crate::{hash_with_kimchi, ControlTag, Inputs};
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
     sparse_ledger::{LedgerIntf, SparseLedger},

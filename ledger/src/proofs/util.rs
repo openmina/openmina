@@ -1,15 +1,10 @@
 use std::array;
 
 use ark_ff::{BigInteger256, Field, One};
-use kimchi::proof::ProofEvaluations;
 use mina_hasher::Fp;
 use mina_p2p_messages::{
-    bigint::BigInt,
-    pseq::PaddedSeq,
-    v2::{
-        PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvalsLookupA,
-        PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
-    },
+    bigint::BigInt, pseq::PaddedSeq,
+    v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
 };
 
 use crate::CurveAffine;
@@ -76,77 +71,77 @@ pub fn challenge_polynomial(chals: &[Fp]) -> Box<dyn Fn(Fp) -> Fp> {
     })
 }
 
-/// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles_types/plonk_types.ml#L588
-pub fn proof_evaluation_to_list(e: &ProofEvaluations<[Fp; 2]>) -> Vec<[Fp; 2]> {
-    let ProofEvaluations::<[Fp; 2]> {
-        w,
-        z,
-        s,
-        coefficients,
-        lookup,
-        generic_selector,
-        poseidon_selector,
-    } = e;
+// /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles_types/plonk_types.ml#L588
+// pub fn proof_evaluation_to_list(e: &ProofEvaluations<[Fp; 2]>) -> Vec<[Fp; 2]> {
+//     let ProofEvaluations::<[Fp; 2]> {
+//         w,
+//         z,
+//         s,
+//         coefficients,
+//         // lookup,
+//         generic_selector,
+//         poseidon_selector,
+//     } = e;
 
-    let mut list = vec![*z, *generic_selector, *poseidon_selector];
+//     let mut list = vec![*z, *generic_selector, *poseidon_selector];
 
-    list.extend(w);
-    list.extend(coefficients);
-    list.extend(s);
+//     list.extend(w);
+//     list.extend(coefficients);
+//     list.extend(s);
 
-    if let Some(lookup) = lookup {
-        list.extend(lookup.sorted.clone());
-        list.push(lookup.aggreg);
-        list.push(lookup.table);
-        list.extend(lookup.runtime);
-    }
+//     if let Some(lookup) = lookup {
+//         list.extend(lookup.sorted.clone());
+//         list.push(lookup.aggreg);
+//         list.push(lookup.table);
+//         list.extend(lookup.runtime);
+//     }
 
-    list
-}
+//     list
+// }
 
-/// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles_types/plonk_types.ml#L437
-pub fn to_absorption_sequence(
-    evals: &mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
-) -> Vec<(Vec<Fp>, Vec<Fp>)> {
-    let mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
-        w,
-        coefficients,
-        z,
-        s,
-        generic_selector,
-        poseidon_selector,
-        lookup,
-    } = evals;
+// /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles_types/plonk_types.ml#L437
+// pub fn to_absorption_sequence(
+//     evals: &mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
+// ) -> Vec<(Vec<Fp>, Vec<Fp>)> {
+//     let mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
+//         w,
+//         coefficients,
+//         z,
+//         s,
+//         generic_selector,
+//         poseidon_selector,
+//         lookup,
+//     } = evals;
 
-    let mut list = vec![
-        z.clone(),
-        generic_selector.clone(),
-        poseidon_selector.clone(),
-    ];
+//     let mut list = vec![
+//         z.clone(),
+//         generic_selector.clone(),
+//         poseidon_selector.clone(),
+//     ];
 
-    list.extend(w.to_vec());
-    list.extend(coefficients.to_vec());
-    list.extend(s.to_vec());
+//     list.extend(w.to_vec());
+//     list.extend(coefficients.to_vec());
+//     list.extend(s.to_vec());
 
-    if let Some(lookup) = lookup {
-        let PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvalsLookupA {
-            sorted,
-            aggreg,
-            table,
-            runtime,
-        } = lookup;
+//     if let Some(lookup) = lookup {
+//         let PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvalsLookupA {
+//             sorted,
+//             aggreg,
+//             table,
+//             runtime,
+//         } = lookup;
 
-        list.push(aggreg.clone());
-        list.push(table.clone());
-        list.extend(sorted.clone());
-        list.extend(runtime.clone());
-    };
+//         list.push(aggreg.clone());
+//         list.push(table.clone());
+//         list.extend(sorted.clone());
+//         list.extend(runtime.clone());
+//     };
 
-    list.iter()
-        .map(|(a, b)| {
-            let a: Vec<_> = a.iter().map(Fp::from).collect();
-            let b: Vec<_> = b.iter().map(Fp::from).collect();
-            (a, b)
-        })
-        .collect()
-}
+//     list.iter()
+//         .map(|(a, b)| {
+//             let a: Vec<_> = a.iter().map(Fp::from).collect();
+//             let b: Vec<_> = b.iter().map(Fp::from).collect();
+//             (a, b)
+//         })
+//         .collect()
+// }

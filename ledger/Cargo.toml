@@ -16,13 +16,13 @@ crate-type = ["staticlib", "cdylib", "lib"]
 # https://stackoverflow.com/a/73023306
 
 [dependencies]
-mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes"}
-poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes"}
+mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
+poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
 
 bs58 = "0.4.0"
 mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "e989a8957db0bde6007a8aceb39db409a9b0a308" }
@@ -122,13 +122,13 @@ ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmin
 # ark-serialize = { path = "/home/sebastien/github/algebra/serialize" }
 
 [patch.'https://github.com/o1-labs/proof-systems']
-mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes" }
-mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes"}
-poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes"}
+mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
+poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
 
 # mina-hasher = { path = "/home/sebastien/github/proof-systems/hasher" }
 # mina-signer = { path = "/home/sebastien/github/proof-systems/signer" }

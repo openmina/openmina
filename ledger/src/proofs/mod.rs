@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use kimchi::mina_curves::pasta::{Pallas, Vesta};
 
 pub mod accumulator_check;

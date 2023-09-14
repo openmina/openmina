@@ -27,7 +27,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     hash_noinputs, hash_with_kimchi,
-    proofs::witness::{Boolean, FieldWitness, Witness},
+    proofs::witness::{Boolean, Witness},
     staged_ledger::hash::PendingCoinbaseAux,
     Address, Inputs, MerklePath, ToInputs,
 };
