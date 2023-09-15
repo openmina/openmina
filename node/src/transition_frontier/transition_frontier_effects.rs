@@ -292,6 +292,9 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         }
                         action.effects(&meta, store);
                     }
+                    TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty(action) => {
+                        action.effects(&meta, store);
+                    }
                     TransitionFrontierSyncLedgerStagedAction::ReconstructInit(action) => {
                         if let Some(stats) = store.service().stats() {
                             let (start, end) = (meta.time(), None);

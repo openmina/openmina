@@ -44,8 +44,24 @@ impl TransitionFrontierSyncLedgerState {
                     );
                     *self = Self::Staged(s);
                 } else {
-                    let Self::Staged(state) = self else { return };
-                    state.reducer(meta.with_action(action));
+                    match self {
+                        Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
+                            block,
+                            ..
+                        }) if matches!(
+                            action,
+                            TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty(_)
+                        ) =>
+                        {
+                            let s = TransitionFrontierSyncLedgerStagedState::ReconstructEmpty {
+                                time: meta.time(),
+                                block: block.clone(),
+                            };
+                            *self = Self::Staged(s);
+                        }
+                        Self::Staged(state) => state.reducer(meta.with_action(action)),
+                        _ => return,
+                    }
                 }
             }
             TransitionFrontierSyncLedgerAction::Success(_) => {

@@ -24,6 +24,10 @@ fn visit_dirs(dir: &PathBuf, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
 }
 
 fn is_same_file<P: AsRef<Path>>(file1: P, file2: P) -> Result<bool, std::io::Error> {
+    if !file1.as_ref().exists() || !file2.as_ref().exists() {
+        return Ok(false);
+    }
+
     let mut f1 = fs::File::open(file1)?;
     let mut f2 = fs::File::open(file2)?;
 

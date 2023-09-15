@@ -222,37 +222,46 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerStagedService for T {
     fn staged_ledger_reconstruct(
         &mut self,
         snarked_ledger_hash: LedgerHash,
-        parts: Arc<StagedLedgerAuxAndPendingCoinbasesValid>,
+        parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
     ) -> Result<(), String> {
+        let staged_ledger_hash = parts
+            .as_ref()
+            .map(|p| p.staged_ledger_hash.clone())
+            .unwrap_or_else(|| snarked_ledger_hash.clone());
         let snarked_ledger = self.ctx_mut().sync.snarked_ledger_mut(snarked_ledger_hash);
         // TODO(binier): TMP. Remove for prod version.
         snarked_ledger
             .validate_inner_hashes()
             .map_err(|_| "downloaded hash and recalculated mismatch".to_owned())?;
 
-        let states = parts
-            .needed_blocks
-            .iter()
-            .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
-            .collect::<BTreeMap<_, _>>();
-
         let mask = snarked_ledger.copy();
-        let staged_ledger = StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
-            (),
-            &CONSTRAINT_CONSTANTS,
-            Verifier,
-            (&parts.scan_state).into(),
-            mask,
-            LocalState::empty(),
-            parts.staged_ledger_hash.0.to_field(),
-            (&parts.pending_coinbase).into(),
-            |key| states.get(&key).cloned().unwrap(),
-        )?;
+
+        let staged_ledger = if let Some(parts) = parts {
+            let states = parts
+                .needed_blocks
+                .iter()
+                .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
+                .collect::<BTreeMap<_, _>>();
+
+            StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
+                (),
+                &CONSTRAINT_CONSTANTS,
+                Verifier,
+                (&parts.scan_state).into(),
+                mask,
+                LocalState::empty(),
+                parts.staged_ledger_hash.0.to_field(),
+                (&parts.pending_coinbase).into(),
+                |key| states.get(&key).cloned().unwrap(),
+            )?
+        } else {
+            StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), mask)?
+        };
 
         self.ctx_mut()
             .sync
             .staged_ledgers
-            .insert(parts.staged_ledger_hash.clone(), staged_ledger);
+            .insert(staged_ledger_hash, staged_ledger);
 
         Ok(())
     }
