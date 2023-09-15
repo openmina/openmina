@@ -8,6 +8,7 @@ use super::snarked::{
 };
 use super::staged::{
     TransitionFrontierSyncLedgerStagedPartsFetchPendingAction,
+    TransitionFrontierSyncLedgerStagedReconstructEmptyAction,
     TransitionFrontierSyncLedgerStagedSuccessAction,
 };
 use super::{TransitionFrontierSyncLedgerInitAction, TransitionFrontierSyncLedgerSuccessAction};
@@ -20,7 +21,9 @@ impl TransitionFrontierSyncLedgerInitAction {
 
 impl TransitionFrontierSyncLedgerSnarkedSuccessAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {});
+        if !store.dispatch(TransitionFrontierSyncLedgerStagedReconstructEmptyAction {}) {
+            store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {});
+        }
     }
 }
 

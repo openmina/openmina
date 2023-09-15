@@ -12,12 +12,12 @@ use super::{
     TransitionFrontierSyncLedgerStagedPartsPeerFetchSuccessAction,
     TransitionFrontierSyncLedgerStagedPartsPeerInvalidAction,
     TransitionFrontierSyncLedgerStagedPartsPeerValidAction,
+    TransitionFrontierSyncLedgerStagedReconstructEmptyAction,
     TransitionFrontierSyncLedgerStagedReconstructErrorAction,
     TransitionFrontierSyncLedgerStagedReconstructInitAction,
     TransitionFrontierSyncLedgerStagedReconstructPendingAction,
     TransitionFrontierSyncLedgerStagedReconstructSuccessAction,
-    TransitionFrontierSyncLedgerStagedService, TransitionFrontierSyncLedgerStagedState,
-    TransitionFrontierSyncLedgerStagedSuccessAction,
+    TransitionFrontierSyncLedgerStagedService, TransitionFrontierSyncLedgerStagedSuccessAction,
 };
 
 impl TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {
@@ -101,22 +101,23 @@ impl TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction {
     }
 }
 
+impl TransitionFrontierSyncLedgerStagedReconstructEmptyAction {
+    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
+        store.dispatch(TransitionFrontierSyncLedgerStagedReconstructInitAction {});
+    }
+}
+
 impl TransitionFrontierSyncLedgerStagedReconstructInitAction {
     pub fn effects<S>(self, _: &ActionMeta, store: &mut Store<S>)
     where
         S: TransitionFrontierSyncLedgerStagedService,
     {
-        let Some(state) = store.state().transition_frontier.sync.root_ledger() else {
-            return;
-        };
-        let Some(TransitionFrontierSyncLedgerStagedState::PartsFetchSuccess {
-            block, parts, ..
-        }) = state.staged()
-        else {
+        let ledger_state = store.state().transition_frontier.sync.root_ledger();
+        let Some((block, parts)) = ledger_state.and_then(|s| s.staged()?.block_with_parts()) else {
             return;
         };
         let snarked_ledger_hash = block.snarked_ledger_hash().clone();
-        let parts = parts.clone();
+        let parts = parts.cloned();
 
         store.dispatch(TransitionFrontierSyncLedgerStagedReconstructPendingAction {});
 

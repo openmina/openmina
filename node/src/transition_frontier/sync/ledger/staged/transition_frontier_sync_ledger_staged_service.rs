@@ -8,6 +8,6 @@ pub trait TransitionFrontierSyncLedgerStagedService: redux::Service {
     fn staged_ledger_reconstruct(
         &mut self,
         snarked_ledger_hash: LedgerHash,
-        parts: Arc<StagedLedgerAuxAndPendingCoinbasesValid>,
+        parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
     ) -> Result<(), String>;
 }

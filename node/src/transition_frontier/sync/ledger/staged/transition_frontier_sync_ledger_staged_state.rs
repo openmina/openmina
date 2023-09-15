@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
 use openmina_core::block::ArcBlockWithHash;
+use p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
@@ -30,21 +31,25 @@ pub enum TransitionFrontierSyncLedgerStagedState {
         block: ArcBlockWithHash,
         parts: Arc<StagedLedgerAuxAndPendingCoinbasesValid>,
     },
+    ReconstructEmpty {
+        time: Timestamp,
+        block: ArcBlockWithHash,
+    },
     ReconstructPending {
         time: Timestamp,
         block: ArcBlockWithHash,
-        parts: Arc<StagedLedgerAuxAndPendingCoinbasesValid>,
+        parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
     },
     ReconstructError {
         time: Timestamp,
         block: ArcBlockWithHash,
-        parts: Arc<StagedLedgerAuxAndPendingCoinbasesValid>,
+        parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
         error: String,
     },
     ReconstructSuccess {
         time: Timestamp,
         block: ArcBlockWithHash,
-        parts: Arc<StagedLedgerAuxAndPendingCoinbasesValid>,
+        parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
     },
     Success {
         time: Timestamp,
@@ -90,11 +95,25 @@ impl TransitionFrontierSyncLedgerStagedState {
         match self {
             Self::PartsFetchPending { block, .. } => block,
             Self::PartsFetchSuccess { block, .. } => block,
+            Self::ReconstructEmpty { block, .. } => block,
             Self::ReconstructPending { block, .. } => block,
             Self::ReconstructError { block, .. } => block,
             Self::ReconstructSuccess { block, .. } => block,
             Self::Success { block, .. } => block,
         }
+    }
+
+    pub fn block_with_parts(
+        &self,
+    ) -> Option<(
+        &ArcBlockWithHash,
+        Option<&Arc<StagedLedgerAuxAndPendingCoinbases>>,
+    )> {
+        Some(match self {
+            Self::PartsFetchSuccess { block, parts, .. } => (block, Some(parts)),
+            Self::ReconstructEmpty { block, .. } => (block, None),
+            _ => return None,
+        })
     }
 
     pub fn is_success(&self) -> bool {

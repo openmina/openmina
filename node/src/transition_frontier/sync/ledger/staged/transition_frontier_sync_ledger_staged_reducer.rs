@@ -53,13 +53,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                     return;
                 };
 
-                let expected_hash = &block
-                    .block
-                    .header
-                    .protocol_state
-                    .body
-                    .blockchain_state
-                    .staged_ledger_hash;
+                let expected_hash = block.staged_ledger_hashes();
                 let validated = StagedLedgerAuxAndPendingCoinbasesValidated::validate(
                     &action.parts,
                     expected_hash,
@@ -117,15 +111,18 @@ impl TransitionFrontierSyncLedgerStagedState {
                     parts: parts.clone(),
                 };
             }
+            TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty(_) => {
+                // handled in parent.
+            }
             TransitionFrontierSyncLedgerStagedAction::ReconstructInit(_) => {}
             TransitionFrontierSyncLedgerStagedAction::ReconstructPending(_) => {
-                let Self::PartsFetchSuccess { block, parts, .. } = self else {
+                let Some((block, parts)) = self.block_with_parts() else {
                     return;
                 };
                 *self = Self::ReconstructPending {
                     time: meta.time(),
                     block: block.clone(),
-                    parts: parts.clone(),
+                    parts: parts.cloned(),
                 }
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructError(action) => {
@@ -158,7 +155,9 @@ impl TransitionFrontierSyncLedgerStagedState {
                     time: meta.time(),
                     block: block.clone(),
                     needed_protocol_states: parts
-                        .needed_blocks
+                        .as_ref()
+                        .map(|parts| &parts.needed_blocks[..])
+                        .unwrap_or(&[])
                         .iter()
                         .map(|block| (block.hash(), block.clone()))
                         .collect(),

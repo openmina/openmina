@@ -133,6 +133,7 @@ use crate::transition_frontier::sync::ledger::staged::{
     TransitionFrontierSyncLedgerStagedPartsPeerFetchSuccessAction,
     TransitionFrontierSyncLedgerStagedPartsPeerInvalidAction,
     TransitionFrontierSyncLedgerStagedPartsPeerValidAction,
+    TransitionFrontierSyncLedgerStagedReconstructEmptyAction,
     TransitionFrontierSyncLedgerStagedReconstructErrorAction,
     TransitionFrontierSyncLedgerStagedReconstructInitAction,
     TransitionFrontierSyncLedgerStagedReconstructPendingAction,
@@ -354,6 +355,7 @@ pub enum ActionKind {
     TransitionFrontierSyncLedgerStagedPartsPeerFetchSuccess,
     TransitionFrontierSyncLedgerStagedPartsPeerInvalid,
     TransitionFrontierSyncLedgerStagedPartsPeerValid,
+    TransitionFrontierSyncLedgerStagedReconstructEmpty,
     TransitionFrontierSyncLedgerStagedReconstructError,
     TransitionFrontierSyncLedgerStagedReconstructInit,
     TransitionFrontierSyncLedgerStagedReconstructPending,
@@ -374,7 +376,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: usize = 195;
+    pub const COUNT: usize = 196;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1803,6 +1805,7 @@ impl ActionKindGet for TransitionFrontierSyncLedgerStagedAction {
             Self::PartsPeerInvalid(a) => a.kind(),
             Self::PartsPeerValid(a) => a.kind(),
             Self::PartsFetchSuccess(a) => a.kind(),
+            Self::ReconstructEmpty(a) => a.kind(),
             Self::ReconstructInit(a) => a.kind(),
             Self::ReconstructPending(a) => a.kind(),
             Self::ReconstructError(a) => a.kind(),
@@ -1923,6 +1926,12 @@ impl ActionKindGet for TransitionFrontierSyncLedgerStagedPartsPeerValidAction {
 impl ActionKindGet for TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::TransitionFrontierSyncLedgerStagedPartsFetchSuccess
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerStagedReconstructEmptyAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStagedReconstructEmpty
     }
 }
 

@@ -26,6 +26,7 @@ pub enum TransitionFrontierSyncLedgerStagedAction {
     PartsPeerInvalid(TransitionFrontierSyncLedgerStagedPartsPeerInvalidAction),
     PartsPeerValid(TransitionFrontierSyncLedgerStagedPartsPeerValidAction),
     PartsFetchSuccess(TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction),
+    ReconstructEmpty(TransitionFrontierSyncLedgerStagedReconstructEmptyAction),
     ReconstructInit(TransitionFrontierSyncLedgerStagedReconstructInitAction),
     ReconstructPending(TransitionFrontierSyncLedgerStagedReconstructPendingAction),
     ReconstructError(TransitionFrontierSyncLedgerStagedReconstructErrorAction),
@@ -198,6 +199,33 @@ impl redux::EnablingCondition<crate::State>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierSyncLedgerStagedReconstructEmptyAction {}
+
+impl redux::EnablingCondition<crate::State>
+    for TransitionFrontierSyncLedgerStagedReconstructEmptyAction
+{
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state
+            .transition_frontier
+            .sync
+            .root_ledger()
+            .and_then(|s| s.snarked())
+            .map_or(false, |s| match s {
+                TransitionFrontierSyncLedgerSnarkedState::Success { block, .. } => {
+                    let hashes = block.staged_ledger_hashes();
+                    let empty_hash = &[0; 32];
+                    block.snarked_ledger_hash() == &hashes.non_snark.ledger_hash
+                        && hashes.non_snark.aux_hash.as_ref() == empty_hash
+                        && hashes.non_snark.pending_coinbase_aux.as_ref() == empty_hash
+                    // TODO(binier): `pending_coinbase_hash` isn't empty hash.
+                    // Do we need to check it?
+                }
+                _ => false,
+            })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransitionFrontierSyncLedgerStagedReconstructInitAction {}
 
 impl redux::EnablingCondition<crate::State>
@@ -213,6 +241,7 @@ impl redux::EnablingCondition<crate::State>
                 matches!(
                     s,
                     TransitionFrontierSyncLedgerStagedState::PartsFetchSuccess { .. }
+                        | TransitionFrontierSyncLedgerStagedState::ReconstructEmpty { .. }
                 )
             })
     }
@@ -234,6 +263,7 @@ impl redux::EnablingCondition<crate::State>
                 matches!(
                     s,
                     TransitionFrontierSyncLedgerStagedState::PartsFetchSuccess { .. }
+                        | TransitionFrontierSyncLedgerStagedState::ReconstructEmpty { .. }
                 )
             })
     }
@@ -329,6 +359,7 @@ impl_into_global_action!(TransitionFrontierSyncLedgerStagedPartsPeerFetchSuccess
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedPartsPeerInvalidAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedPartsPeerValidAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction);
+impl_into_global_action!(TransitionFrontierSyncLedgerStagedReconstructEmptyAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedReconstructInitAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedReconstructPendingAction);
 impl_into_global_action!(TransitionFrontierSyncLedgerStagedReconstructErrorAction);
