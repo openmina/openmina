@@ -124,7 +124,7 @@ steps:
     pull: always
     commands:
       - sleep 180
-      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 7548 http://openmina1:10000/graphql
+      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 234 http://openmina1:10000/graphql
 
   - name: openmina3
     image: openmina/mina-snark-worker-prover:0.0.8
@@ -139,7 +139,7 @@ steps:
     pull: always
     commands:
       - sleep 180
-      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 7548 http://openmina3:10000/graphql
+      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 234 http://openmina3:10000/graphql
 
   # - name: test-bootstrap-openmina-to-mina
   #   image: vladsimplestakingcom/bootstrap-rr:graphql
@@ -150,7 +150,7 @@ steps:
   #     - apt-get update && apt-get install -y netcat
   #     - echo "ready" | netcat -q 1 ocaml1 9000
   #     - sleep 180
-  #     - timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 7548 http://ocaml1:3085/graphql
+  #     - timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 234 http://ocaml1:3085/graphql
 
   - name: test-snark-work
     image: alpine
