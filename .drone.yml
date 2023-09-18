@@ -69,7 +69,7 @@ steps:
       # 12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw
       OPENMINA_P2P_SEC_KEY: 5JDRBqXfHm4Xne1QKUJyg9FKRfwN6gtduZb7nVYHg2F1BmwPynT
     commands:
-      - RUST_LOG=info openmina-bootstrap-sandbox --path='/tmp/mina-record' --listen='/ip4/0.0.0.0/tcp/8302' replay 7548
+      - RUST_LOG=info openmina-bootstrap-sandbox --path='/tmp/mina-record' --listen='/ip4/0.0.0.0/tcp/8302' replay 234
 
   # - name: empty
   #   image: vladsimplestakingcom/bootstrap-rr:graphql
