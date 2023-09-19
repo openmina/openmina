@@ -3,7 +3,7 @@ type: docker
 name: test-bootstrap
 
 global-variables:
-  snark-worker-image: &snark-worker-image openmina/mina-snark-worker-prover:0.0.8
+  snark-worker-image: &snark-worker-image openmina/mina-snark-worker-prover:0.0.9
 
 trigger:
   branch:
@@ -48,7 +48,7 @@ steps:
       - rm ~/.gitconfig
 
   - name: prepare-snark-worker
-    image: openmina/mina-snark-worker-prover:0.0.8
+    image: *snark-worker-image
     commands:
       - cp /usr/local/bin/mina cli/bin/
 
@@ -101,7 +101,7 @@ steps:
   #         --direct-peer /dns4/openmina1/tcp/10000/p2p/$OPENMINA1_LIBP2P_ID
 
   - name: openmina1
-    image: openmina/mina-snark-worker-prover:0.0.8
+    image: *snark-worker-image
     detach: true
     commands:
       - mkdir test_ledgers
@@ -112,7 +112,7 @@ steps:
           --snarker-exe-path cli/bin/snark-worker -v Debug --additional-ledgers-path test_ledgers
 
   - name: openmina2
-    image: openmina/mina-snark-worker-prover:0.0.8
+    image: *snark-worker-image
     detach: true
     commands:
       - target/release/openmina node -p 10000 --chain-id $CHAIN_ID --run-snarker $OPENMINA2_SNARKER_KEY -s $OPENMINA2_SK
@@ -127,7 +127,7 @@ steps:
       - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 234 http://openmina1:10000/graphql
 
   - name: openmina3
-    image: openmina/mina-snark-worker-prover:0.0.8
+    image: *snark-worker-image
     detach: true
     commands:
       - target/release/openmina node -p 10000 --chain-id $CHAIN_ID --run-snarker $OPENMINA3_SNARKER_KEY -s $OPENMINA3_SK
@@ -239,7 +239,7 @@ steps:
     image: plugins/docker
     settings:
       build_args:
-      - MINA_SNARK_WORKER_IMAGE=openmina/mina-snark-worker-proover:0.0.8
+      - MINA_SNARK_WORKER_IMAGE=openmina/mina-snark-worker-proover:0.0.9
       username:
         from_secret: docker_hub_username
       password:
