@@ -43,7 +43,7 @@ use super::{
 };
 
 pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourceActionWithMeta) {
-    let (action, _) = action.split();
+    let (action, meta) = action.split();
     match action {
         EventSourceAction::ProcessEvents(_) => {
             // process max 1024 events at a time.
@@ -130,7 +130,8 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 },
                 P2pEvent::Channel(e) => match e {
                     P2pChannelEvent::Opened(peer_id, chan_id, res) => match res {
-                        Err(_err) => {
+                        Err(err) => {
+                            openmina_core::log::warn!(meta.time(); kind = "P2pChannelEvent::Opened", peer_id = peer_id.to_string(), error = err);
                             // TODO(binier): dispatch error action.
                         }
                         Ok(_) => match chan_id {
@@ -154,12 +155,14 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         },
                     },
                     P2pChannelEvent::Sent(peer_id, _, _, res) => {
-                        if res.is_err() {
+                        if let Err(err) = res {
+                            openmina_core::log::warn!(meta.time(); kind = "P2pChannelEvent::Sent", peer_id = peer_id.to_string(), error = err);
                             store.dispatch(P2pDisconnectionInitAction { peer_id });
                         }
                     }
                     P2pChannelEvent::Received(peer_id, res) => match res {
-                        Err(_) => {
+                        Err(err) => {
+                            openmina_core::log::warn!(meta.time(); kind = "P2pChannelEvent::Received", peer_id = peer_id.to_string(), error = err);
                             store.dispatch(P2pDisconnectionInitAction { peer_id });
                         }
                         Ok(message) => {
