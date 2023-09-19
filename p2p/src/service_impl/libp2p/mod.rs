@@ -224,7 +224,13 @@ impl Libp2pService {
     async fn handle_cmd<E: From<P2pEvent>>(swarm: &mut Swarm<Behaviour<E>>, cmd: Cmd) {
         match cmd {
             Cmd::Dial(maddr) => {
-                swarm.dial(maddr).unwrap();
+                if let Err(e) = swarm.dial(maddr) {
+                    openmina_core::log::error!(
+                        openmina_core::log::system_time();
+                        event = format!("Cmd::Dial(...)"),
+                        error = e.to_string()
+                    );
+                }
             }
             Cmd::Disconnect(peer_id) => {
                 let _ = swarm.disconnect_peer_id(peer_id);
