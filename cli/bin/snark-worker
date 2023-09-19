@@ -1,7 +1,7 @@
 #!/bin/sh
 
 
-MINA_IMAGE=${MINA_IMAGE:-openmina/mina-snark-worker-prover:0.0.7}
+MINA_IMAGE=${MINA_IMAGE:-openmina/mina-snark-worker-prover:0.0.9}
 
 executable() {
     EXE="$(dirname $0)/$1"

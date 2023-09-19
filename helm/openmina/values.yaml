@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 openmina:
-  chainId: 667b328bfc09ced12191d099f234575b006b6b193f5441a6fa744feacd9744db
+  chainId: 3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e
   snarkerPublicKey: B62qmd12djy2ivtXrg8PS3WRpcNPfpyBeJtssEjwvbv9bTTnXBvmi1r
   fee: "1000000"
 
