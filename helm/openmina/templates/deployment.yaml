@@ -33,7 +33,7 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           args:
-          - "snarker"
+          - "node"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
@@ -52,7 +52,7 @@ spec:
             value: "{{ .Values.openmina.chainId }}"
           - name: "PUBLIC_KEY"
             value: "{{ .Values.openmina.snarkerPublicKey }}"
-          - name: "FEE"
+          - name: "SNARKER_FEE"
             value: "{{ .Values.openmina.fee }}"
           - name: "MINA_EXE_PATH"
             value: "/usr/local/bin/snark-worker"
