@@ -23,7 +23,7 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingOfferSdpCreateSuccessAction,
 };
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
-use crate::p2p::disconnection::P2pDisconnectionFinishAction;
+use crate::p2p::disconnection::{P2pDisconnectionFinishAction, P2pDisconnectionInitAction};
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcP2pConnectionIncomingInitAction,
@@ -155,12 +155,12 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     },
                     P2pChannelEvent::Sent(peer_id, _, _, res) => {
                         if res.is_err() {
-                            store.dispatch(P2pDisconnectionFinishAction { peer_id });
+                            store.dispatch(P2pDisconnectionInitAction { peer_id });
                         }
                     }
                     P2pChannelEvent::Received(peer_id, res) => match res {
                         Err(_) => {
-                            store.dispatch(P2pDisconnectionFinishAction { peer_id });
+                            store.dispatch(P2pDisconnectionInitAction { peer_id });
                         }
                         Ok(message) => {
                             store.dispatch(P2pChannelsMessageReceivedAction { peer_id, message });
@@ -170,7 +170,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(P2pChannelsSnarkLibp2pReceivedAction { peer_id, snark });
                     }
                     P2pChannelEvent::Closed(peer_id, _) => {
-                        store.dispatch(P2pDisconnectionFinishAction { peer_id });
+                        store.dispatch(P2pDisconnectionInitAction { peer_id });
                     }
                 },
             },
