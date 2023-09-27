@@ -1,4 +1,4 @@
-use std::{rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     proofs::{verification, verifier_index::get_verifier_index, VerifierIndex, VerifierSRS},
@@ -97,7 +97,7 @@ pub enum VerifyCommandsResult {
         Vec<(
             VerificationKey,
             ZkappStatement,
-            Rc<PicklesProofProofsVerifiedMaxStableV2>,
+            Arc<PicklesProofProofsVerifiedMaxStableV2>,
         )>,
     ),
     InvalidKeys(Vec<CompressedPubKey>),
@@ -191,7 +191,7 @@ pub enum VerifierError {
 }
 
 pub mod common {
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     use mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
     use mina_signer::{CompressedPubKey, PubKey, Signature};
@@ -216,7 +216,7 @@ pub mod common {
                 Vec<(
                     VerificationKey,
                     ZkappStatement,
-                    Rc<PicklesProofProofsVerifiedMaxStableV2>,
+                    Arc<PicklesProofProofsVerifiedMaxStableV2>,
                 )>,
             ),
         ),
@@ -308,7 +308,7 @@ pub mod common {
                                     p.account_id().public_key,
                                 ]);
                             }
-                            valid_assuming.push((vk.data, stmt, Rc::clone(pi)));
+                            valid_assuming.push((vk.data, stmt, pi.clone()));
                         }
                         _ => {
                             return CheckResult::MismatchedAuthorizationKind(vec![

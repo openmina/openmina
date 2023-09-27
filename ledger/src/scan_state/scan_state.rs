@@ -91,7 +91,7 @@ pub struct ScanState {
 }
 
 pub mod transaction_snark {
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     use itertools::Itertools;
     use mina_hasher::Fp;
@@ -479,7 +479,7 @@ pub mod transaction_snark {
     #[derive(Debug, Clone, PartialEq)]
     pub struct TransactionSnark<D> {
         pub statement: Statement<D>,
-        pub proof: Rc<TransactionSnarkProofStableV2>,
+        pub proof: Arc<TransactionSnarkProofStableV2>,
     }
 
     #[derive(Debug, Clone, PartialEq)]
@@ -489,7 +489,7 @@ pub mod transaction_snark {
         pub fn create(
             statement: Statement<()>,
             sok_digest: SokDigest,
-            proof: Rc<TransactionSnarkProofStableV2>,
+            proof: Arc<TransactionSnarkProofStableV2>,
         ) -> Self {
             let statement = Statement::<SokDigest> {
                 source: statement.source,

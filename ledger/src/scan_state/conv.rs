@@ -1,7 +1,5 @@
 #![allow(unused_variables, unreachable_code)]
 
-use std::rc::Rc;
-
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     pseq::PaddedSeq,
@@ -1927,7 +1925,7 @@ impl From<&TransactionSnarkStableV2> for TransactionSnark<SokDigest> {
     fn from(value: &TransactionSnarkStableV2) -> Self {
         Self {
             statement: (&value.statement).into(),
-            proof: Rc::new(value.proof.clone()),
+            proof: value.proof.clone().into(),
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use binprot::BinProtRead;
 use mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
@@ -25,9 +25,11 @@ pub mod for_tests;
 ///
 /// Core.Printf.eprintf !"dummy proof= %{sexp: Proof.t}\n%!" dummy;
 /// Core.Printf.eprintf !"dummy proof= %s\n%!" s;
-pub fn dummy_transaction_proof() -> Rc<TransactionSnarkProofStableV2> {
+pub fn dummy_transaction_proof() -> Arc<TransactionSnarkProofStableV2> {
     let mut cursor = std::io::Cursor::new(include_bytes!("dummy_transaction_proof.bin"));
-    Rc::new(TransactionSnarkProofStableV2::binprot_read(&mut cursor).unwrap())
+    TransactionSnarkProofStableV2::binprot_read(&mut cursor)
+        .unwrap()
+        .into()
 }
 
 /// Value of `vk` when we run `dune runtest src/lib/staged_ledger -f`
@@ -67,9 +69,9 @@ pub fn trivial_verification_key() -> VerificationKey {
 ///
 /// Printf.eprintf !"proof_sexp=%{sexp: Pickles.Proof.Proofs_verified_2.Stable.V2.t}\n%!" proof;
 /// Printf.eprintf !"proof_binprot=[%s]\n%!" s;
-pub fn sideloaded_proof() -> Rc<PicklesProofProofsVerifiedMaxStableV2> {
+pub fn sideloaded_proof() -> Arc<PicklesProofProofsVerifiedMaxStableV2> {
     let mut cursor = std::io::Cursor::new(include_bytes!("sideloaded_proof.bin"));
     let proof = PicklesProofProofsVerifiedMaxStableV2::binprot_read(&mut cursor).unwrap();
 
-    Rc::new(proof)
+    proof.into()
 }
