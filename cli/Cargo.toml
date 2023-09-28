@@ -10,7 +10,7 @@ path = "src/main.rs"
 [dependencies]
 sha2 = "0.10"
 hex = "0.4"
-rand = "0.7"
+rand = "0.8.0"
 serde = "1.0.158"
 num_cpus = "1.0"
 rayon = "1.5"

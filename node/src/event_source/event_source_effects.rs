@@ -196,7 +196,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 },
             },
             Event::Rpc(rpc_id, e) => match e {
-                RpcRequest::GetState => {
+                RpcRequest::StateGet => {
                     store.dispatch(RpcGlobalStateGetAction { rpc_id });
                 }
                 RpcRequest::ActionStatsGet(query) => {

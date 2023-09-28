@@ -16,6 +16,15 @@ impl fmt::Display for HttpSignalingInfo {
     }
 }
 
+impl From<([u8; 4], u16)> for HttpSignalingInfo {
+    fn from(value: ([u8; 4], u16)) -> Self {
+        Self {
+            host: url::Host::Ipv4(value.0.into()),
+            port: value.1,
+        }
+    }
+}
+
 impl FromStr for HttpSignalingInfo {
     type Err = SignalingMethodParseError;
 

@@ -36,7 +36,7 @@ mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", 
 
 openmina-core = { path = "../core" }
 snark = { path = "../snark" }
-rand = "0.8.5"
+rand = "0.8"
 
 # [features]
 # service_impl_webrtc_rs = ["webrtc"]

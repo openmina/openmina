@@ -15,6 +15,13 @@ use serde::{Deserialize, Serialize};
 use crate::connection::RejectionReason;
 use crate::{webrtc, P2pState, PeerId};
 
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
+pub struct P2pConnectionIncomingInitOpts {
+    pub peer_id: PeerId,
+    pub signaling: IncomingSignalingMethod,
+    pub offer: webrtc::Offer,
+}
+
 // TODO(binier): maybe move to `crate::webrtc`?
 #[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
 pub enum IncomingSignalingMethod {

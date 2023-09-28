@@ -1,0 +1,221 @@
+mod rpc_service;
+
+use std::time::Duration;
+use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
+
+use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
+use node::recorder::Recorder;
+use node::snark::block_verify::{
+    SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
+};
+use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
+use node::snark::{VerifierIndex, VerifierSRS};
+use node::stats::Stats;
+use node::{
+    event_source::Event,
+    external_snark_worker::{ExternalSnarkWorkerService, SnarkWorkSpec},
+    ledger::LedgerCtx,
+    p2p::{
+        connection::outgoing::P2pConnectionOutgoingInitOpts,
+        service_impl::{
+            libp2p::Libp2pService,
+            webrtc_rs::{Cmd, P2pServiceWebrtcRs, PeerState},
+            webrtc_rs_with_libp2p::P2pServiceWebrtcRsWithLibp2p,
+        },
+        webrtc, P2pEvent, PeerId,
+    },
+};
+use openmina_core::requests::{PendingRequests, RequestId};
+use openmina_core::snark::Snark;
+use openmina_node_native::NodeService;
+use rand::seq::SliceRandom;
+use redux::Instant;
+use tokio::sync::mpsc;
+
+#[derive(Hash, Ord, PartialOrd, Eq, PartialEq)]
+pub struct PendingEventIdType;
+impl openmina_core::requests::RequestIdType for PendingEventIdType {
+    fn request_id_type() -> &'static str {
+        "PendingEventId"
+    }
+}
+pub type PendingEventId = RequestId<PendingEventIdType>;
+
+pub struct NodeTestingService {
+    real: NodeService,
+    http_port: u16,
+    monotonic_time: Instant,
+    /// Events sent by the real service not yet received by state machine.
+    pending_events: PendingRequests<PendingEventIdType, Event>,
+    /// Once dropped, it will cause all threads associated to shutdown.
+    _shutdown: mpsc::Receiver<()>,
+}
+
+impl NodeTestingService {
+    pub fn new(real: NodeService, http_port: u16, _shutdown: mpsc::Receiver<()>) -> Self {
+        Self {
+            real,
+            http_port,
+            monotonic_time: Instant::now(),
+            pending_events: PendingRequests::new(),
+            _shutdown,
+        }
+    }
+
+    pub fn http_port(&self) -> u16 {
+        self.http_port
+    }
+
+    pub fn advance_time(&mut self, by_nanos: u64) {
+        self.monotonic_time += Duration::from_nanos(by_nanos);
+    }
+
+    pub fn pending_events(&mut self) -> impl Iterator<Item = (PendingEventId, &Event)> {
+        while let Ok(req) = self.real.rpc.req_receiver().try_recv() {
+            self.real.process_rpc_request(req);
+        }
+        while let Some(event) = self.real.event_receiver.try_next() {
+            self.pending_events.add(event);
+        }
+        self.pending_events.iter()
+    }
+
+    pub async fn next_pending_event(&mut self) -> Option<(PendingEventId, &Event)> {
+        tokio::select! {
+            Some(rpc) = self.real.rpc.req_receiver().recv() => {
+                self.real.process_rpc_request(rpc);
+            }
+            res = self.real.event_receiver.wait_for_events() => {
+                res.ok()?;
+            }
+        }
+        let event = self.real.event_receiver.try_next().unwrap();
+        let id = self.pending_events.add(event);
+        Some((id, self.pending_events.get(id).unwrap()))
+    }
+
+    pub fn take_pending_event(&mut self, id: PendingEventId) -> Option<Event> {
+        self.pending_events.remove(id)
+    }
+}
+
+impl redux::Service for NodeTestingService {}
+
+impl node::Service for NodeTestingService {
+    fn stats(&mut self) -> Option<&mut Stats> {
+        self.real.stats()
+    }
+
+    fn recorder(&mut self) -> &mut Recorder {
+        self.real.recorder()
+    }
+}
+
+impl node::ledger::LedgerService for NodeTestingService {
+    fn ctx(&self) -> &LedgerCtx {
+        &self.real.ledger
+    }
+
+    fn ctx_mut(&mut self) -> &mut LedgerCtx {
+        &mut self.real.ledger
+    }
+}
+
+impl redux::TimeService for NodeTestingService {
+    fn monotonic_time(&mut self) -> Instant {
+        self.monotonic_time
+    }
+}
+
+impl node::event_source::EventSourceService for NodeTestingService {
+    fn next_event(&mut self) -> Option<Event> {
+        None
+    }
+}
+
+impl P2pServiceWebrtcRs for NodeTestingService {
+    fn random_pick(
+        &mut self,
+        list: &[P2pConnectionOutgoingInitOpts],
+    ) -> P2pConnectionOutgoingInitOpts {
+        list.choose(&mut self.real.rng).unwrap().clone()
+    }
+
+    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent> {
+        &mut self.real.p2p_event_sender
+    }
+
+    fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<Cmd> {
+        &mut self.real.cmd_sender
+    }
+
+    fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState> {
+        &mut self.real.peers
+    }
+
+    fn outgoing_init(&mut self, peer_id: PeerId) {
+        self.real.outgoing_init(peer_id);
+    }
+
+    fn incoming_init(&mut self, peer_id: PeerId, offer: webrtc::Offer) {
+        self.real.incoming_init(peer_id, offer);
+    }
+}
+
+impl P2pServiceWebrtcRsWithLibp2p for NodeTestingService {
+    fn libp2p(&mut self) -> &mut Libp2pService {
+        &mut self.real.libp2p
+    }
+}
+
+impl SnarkBlockVerifyService for NodeTestingService {
+    fn verify_init(
+        &mut self,
+        req_id: SnarkBlockVerifyId,
+        verifier_index: Arc<VerifierIndex>,
+        verifier_srs: Arc<VerifierSRS>,
+        block: VerifiableBlockWithHash,
+    ) {
+        let _ = (req_id, verifier_index, verifier_srs, block);
+        return;
+    }
+}
+
+impl SnarkWorkVerifyService for NodeTestingService {
+    fn verify_init(
+        &mut self,
+        req_id: SnarkWorkVerifyId,
+        verifier_index: Arc<VerifierIndex>,
+        verifier_srs: Arc<VerifierSRS>,
+        work: Vec<Snark>,
+    ) {
+        let _ = (req_id, verifier_index, verifier_srs, work);
+        return;
+    }
+}
+
+impl ExternalSnarkWorkerService for NodeTestingService {
+    fn start<P: AsRef<OsStr>>(
+        &mut self,
+        path: P,
+        public_key: NonZeroCurvePoint,
+        fee: CurrencyFeeStableV1,
+    ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
+        self.real.start(path, public_key, fee)
+    }
+
+    fn submit(
+        &mut self,
+        spec: SnarkWorkSpec,
+    ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
+        self.real.submit(spec)
+    }
+
+    fn cancel(&mut self) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
+        self.real.cancel()
+    }
+
+    fn kill(&mut self) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
+        self.real.kill()
+    }
+}

@@ -80,7 +80,7 @@ impl node::ledger::LedgerService for NodeService {
 }
 
 impl redux::TimeService for NodeService {
-    fn monotonic_time(&mut self) -> ledger::Instant {
+    fn monotonic_time(&mut self) -> redux::Instant {
         self.replayer
             .as_ref()
             .map(|v| v.next_monotonic_time())
