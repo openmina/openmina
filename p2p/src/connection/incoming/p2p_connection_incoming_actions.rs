@@ -4,6 +4,8 @@ use openmina_core::requests::RpcId;
 
 use crate::{webrtc, P2pState, PeerId};
 
+use super::P2pConnectionIncomingInitOpts;
+
 pub type P2pConnectionIncomingActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a P2pConnectionIncomingAction>;
 
@@ -40,13 +42,6 @@ impl P2pConnectionIncomingAction {
             Self::Success(v) => Some(&v.peer_id),
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
-pub struct P2pConnectionIncomingInitOpts {
-    pub peer_id: PeerId,
-    pub signaling: IncomingSignalingMethod,
-    pub offer: webrtc::Offer,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -285,7 +280,7 @@ use crate::{
     P2pPeerStatus,
 };
 
-use super::{IncomingSignalingMethod, P2pConnectionIncomingError, P2pConnectionIncomingState};
+use super::{P2pConnectionIncomingError, P2pConnectionIncomingState};
 
 impl From<P2pConnectionIncomingInitAction> for crate::P2pAction {
     fn from(a: P2pConnectionIncomingInitAction) -> Self {

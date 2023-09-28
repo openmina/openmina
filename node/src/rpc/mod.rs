@@ -41,7 +41,7 @@ use crate::State;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RpcRequest {
-    GetState,
+    StateGet,
     ActionStatsGet(ActionStatsQuery),
     SyncStatsGet(SyncStatsQuery),
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),

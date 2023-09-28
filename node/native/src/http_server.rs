@@ -77,7 +77,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         let rpc_sender_clone = rpc_sender_clone.clone();
         async move {
             let result: Option<RpcStateGetResponse> =
-                rpc_sender_clone.oneshot_request(RpcRequest::GetState).await;
+                rpc_sender_clone.oneshot_request(RpcRequest::StateGet).await;
 
             with_json_reply(&result, StatusCode::OK)
         }

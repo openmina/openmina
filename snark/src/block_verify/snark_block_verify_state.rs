@@ -46,7 +46,6 @@ impl std::fmt::Debug for SnarkBlockVerifyState {
 pub enum SnarkBlockVerifyStatus {
     Init {
         time: redux::Timestamp,
-        // TODO(binier): use Rc<_> or Arc<_>,
         block: VerifiableBlockWithHash,
     },
     Pending {

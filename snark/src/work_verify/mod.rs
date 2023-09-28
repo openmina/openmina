@@ -15,7 +15,6 @@ pub use snark_work_verify_service::*;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct SnarkWorkVerifyIdType;
 impl openmina_core::requests::RequestIdType for SnarkWorkVerifyIdType {
     fn request_id_type() -> &'static str {

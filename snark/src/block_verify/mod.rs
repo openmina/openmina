@@ -18,7 +18,6 @@ use std::sync::Arc;
 
 use openmina_core::block::{Block, BlockHash, BlockHeader, BlockHeaderWithHash, BlockWithHash};
 
-#[derive(Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct SnarkBlockVerifyIdType;
 impl openmina_core::requests::RequestIdType for SnarkBlockVerifyIdType {
     fn request_id_type() -> &'static str {

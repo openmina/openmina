@@ -6,9 +6,6 @@ pub trait RequestIdType {
 }
 
 #[cfg_attr(feature = "fuzzing", derive(fuzzcheck::DefaultMutator))]
-#[derive(Hash, Ord, PartialOrd, Eq, PartialEq)]
-// TODO(binier): impl manually all above traits so that they don't add
-// bounds for `T` as it's only used as `PhantomData<T>`.
 pub struct RequestId<T> {
     locator: usize,
     counter: usize,
@@ -57,6 +54,9 @@ mod serde_impl {
         where
             S: serde::Serializer,
         {
+            if serializer.is_human_readable() {
+                return Serialize::serialize(&self.to_string(), serializer);
+            }
             let id = RequestId {
                 locator: self.locator,
                 counter: self.counter,
@@ -70,6 +70,10 @@ mod serde_impl {
         where
             D: serde::Deserializer<'de>,
         {
+            if deserializer.is_human_readable() {
+                let s: &str = Deserialize::deserialize(deserializer)?;
+                return s.parse().or(Err(serde::de::Error::custom("invalid id")));
+            }
             let id = RequestId::deserialize(deserializer)?;
             Ok(Self {
                 locator: id.locator,
@@ -80,24 +84,55 @@ mod serde_impl {
     }
 }
 
-impl<T: RequestIdType> fmt::Display for RequestId<T> {
+impl<T> Eq for RequestId<T> {}
+impl<T> PartialEq for RequestId<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
+    }
+}
+
+impl<T> Ord for RequestId<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.counter
+            .cmp(&other.counter)
+            .then(self.locator.cmp(&other.locator))
+    }
+}
+impl<T> PartialOrd for RequestId<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T> std::hash::Hash for RequestId<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.counter.hash(state);
+        self.locator.hash(state);
+    }
+}
+
+impl<T> std::str::FromStr for RequestId<T> {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (locator, counter) = s.split_once('_').ok_or(())?;
+        Ok(Self {
+            locator: locator.parse().or(Err(()))?,
+            counter: counter.parse().or(Err(()))?,
+            _phantom_request_type: Default::default(),
+        })
+    }
+}
+
+impl<T> fmt::Display for RequestId<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}({}:{})",
-            T::request_id_type(),
-            self.locator,
-            self.counter
-        )
+        write!(f, "{}_{}", self.locator, self.counter)
     }
 }
 
 impl<T: RequestIdType> fmt::Debug for RequestId<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct(T::request_id_type())
-            .field("locator", &self.locator)
-            .field("counter", &self.counter)
-            .finish()
+        write!(f, "{}({})", T::request_id_type(), self)
     }
 }
 
