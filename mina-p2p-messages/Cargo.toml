@@ -9,8 +9,8 @@ edition = "2021"
 serde = { version = "1.0.142", features = ["derive"] }
 serde_json = { version = "1.0.83" }
 hex = "0.4.3"
-binprot = { git = "https://github.com/openmina/binprot-rs", rev = "dfbd3bbda8b2681d86ac73065523c658ee31d45d" }
-binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "dfbd3bbda8b2681d86ac73065523c658ee31d45d" }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "3f29b25" }
+binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "3f29b25" }
 thiserror = "1.0.32"
 derive_more = "0.99.17"
 bs58 = { version = "0.4", features = ["check"] }

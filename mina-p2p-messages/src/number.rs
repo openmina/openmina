@@ -16,7 +16,9 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Number<T> {
 }
 
 pub type Int32 = Number<i32>;
+pub type UInt32 = Number<u32>;
 pub type Int64 = Number<i64>;
+pub type UInt64 = Number<u64>;
 pub type Float64 = Number<f64>;
 
 impl Int32 {
@@ -28,6 +30,18 @@ impl Int32 {
 impl Int64 {
     pub fn as_u64(&self) -> u64 {
         self.0 as u64
+    }
+}
+
+impl UInt32 {
+    pub fn as_u32(&self) -> u32 {
+        self.0
+    }
+}
+
+impl UInt64 {
+    pub fn as_u64(&self) -> u64 {
+        self.0
     }
 }
 
