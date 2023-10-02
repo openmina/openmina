@@ -159,3 +159,65 @@ where
         self.0.binprot_write(w)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use binprot::{BinProtRead, BinProtWrite};
+
+    #[test]
+    fn u32_roundtrip() {
+        for u32 in [
+            0,
+            1,
+            u8::MAX as u32,
+            u16::MAX as u32,
+            u32::MAX,
+            i8::MAX as u32,
+            i16::MAX as u32,
+            i32::MAX as u32,
+        ] {
+            let mut buf = Vec::new();
+            u32.binprot_write(&mut buf).unwrap();
+            let mut r = buf.as_slice();
+            if u32 <= 0x7f {
+                assert_eq!(r[0], u32 as u8);
+            } else {
+                assert!(matches!(r[0], 0xfe | 0xfd | 0xfc));
+            }
+            let u32_ = u32::binprot_read(&mut r).unwrap();
+            assert_eq!(r.len(), 0);
+            assert_eq!(u32, u32_);
+        }
+    }
+
+    #[test]
+    fn i32_roundtrip() {
+        for i32 in [
+            0,
+            1,
+            u8::MAX as i32,
+            u16::MAX as i32,
+            u32::MAX as i32,
+            i8::MAX as i32,
+            i16::MAX as i32,
+            i32::MAX as i32,
+            i8::MIN as i32,
+            i16::MIN as i32,
+            i32::MIN as i32,
+        ] {
+            let mut buf = Vec::new();
+            i32.binprot_write(&mut buf).unwrap();
+            let mut r = buf.as_slice();
+            if -0x80 <= i32 && i32 < 0 {
+                assert_eq!(r[0], 0xff);
+            } else if 0 <= i32 && i32 <= 0x80 {
+                assert_eq!(r[0], i32 as u8);
+            } else {
+                assert!(matches!(r[0], 0xfe | 0xfd | 0xfc));
+            }
+            let i32_ = i32::binprot_read(&mut r).unwrap();
+            assert_eq!(r.len(), 0);
+            assert_eq!(i32, i32_);
+        }
+    }
+}
