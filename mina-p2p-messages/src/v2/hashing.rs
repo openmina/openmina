@@ -204,7 +204,7 @@ mod tests {
         amount: u64,
         fee: u64,
         nonce: u32,
-        valid_until: i32,
+        valid_until: u32,
     ) -> String {
         use crate::number::Number;
         use crate::string::CharString;
@@ -212,11 +212,11 @@ mod tests {
         let from = pub_key(from);
         let to = pub_key(to);
 
-        let v = Number(fee as i64);
+        let v = Number(fee);
         let v = generated::UnsignedExtendedUInt64Int64ForVersionTagsStableV1(v);
         let fee = generated::CurrencyFeeStableV1(v);
 
-        let nonce = generated::UnsignedExtendedUInt32StableV1(Number(nonce as i32));
+        let nonce = generated::UnsignedExtendedUInt32StableV1(Number(nonce));
 
         let valid_until = generated::UnsignedExtendedUInt32StableV1(Number(valid_until));
 
@@ -236,7 +236,7 @@ mod tests {
             memo,
         };
 
-        let v = Number(amount as i64);
+        let v = Number(amount);
         let v = generated::UnsignedExtendedUInt64Int64ForVersionTagsStableV1(v);
         let amount = generated::CurrencyAmountStableV1(v);
 
@@ -287,7 +287,7 @@ mod tests {
                 1089541195,
                 89541195,
                 26100,
-                -1
+                u32::MAX,
             ),
             expected_hash
         )

@@ -9,7 +9,7 @@ use o1_utils::FieldHelpers;
 use crate::{
     b58::Base58CheckOfBinProt,
     bigint::BigInt,
-    number::{Int32, Int64},
+    number::{Int32, Int64, UInt32, UInt64},
     pseq::PaddedSeq,
 };
 
@@ -36,6 +36,18 @@ impl ToInput for Int32 {
 }
 
 impl ToInput for Int64 {
+    fn to_input(&self, inputs: &mut Inputs) {
+        inputs.append_u64(self.as_u64())
+    }
+}
+
+impl ToInput for UInt32 {
+    fn to_input(&self, inputs: &mut Inputs) {
+        inputs.append_u32(self.as_u32())
+    }
+}
+
+impl ToInput for UInt64 {
     fn to_input(&self, inputs: &mut Inputs) {
         inputs.append_u64(self.as_u64())
     }
