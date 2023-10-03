@@ -792,7 +792,7 @@ pub struct NonZeroCurvePointUncompressedStableV1 {
 /// Gid: `125`
 /// Location: [src/int64.ml:6:6](https://github.com/MinaProtocol/mina/blob/14047c5551/src/int64.ml#L6)
 #[derive(Clone, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
-pub struct UnsignedExtendedUInt64Int64ForVersionTagsStableV1(pub crate::number::Int64);
+pub struct UnsignedExtendedUInt64Int64ForVersionTagsStableV1(pub crate::number::UInt64);
 
 /// **OCaml name**: `Unsigned_extended.UInt32.Stable.V1`
 ///
@@ -803,7 +803,7 @@ pub struct UnsignedExtendedUInt64Int64ForVersionTagsStableV1(pub crate::number::
 /// Gid: `119`
 /// Location: [src/int32.ml:6:6](https://github.com/MinaProtocol/mina/blob/14047c5551/src/int32.ml#L6)
 #[derive(Clone, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default)]
-pub struct UnsignedExtendedUInt32StableV1(pub crate::number::Int32);
+pub struct UnsignedExtendedUInt32StableV1(pub crate::number::UInt32);
 
 /// **OCaml name**: `Mina_numbers__Nat.Make32.Stable.V1`
 ///
