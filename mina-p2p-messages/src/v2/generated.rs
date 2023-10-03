@@ -803,7 +803,7 @@ pub struct UnsignedExtendedUInt64Int64ForVersionTagsStableV1(pub crate::number::
 /// Gid: `119`
 /// Location: [src/int32.ml:6:6](https://github.com/MinaProtocol/mina/blob/14047c5551/src/int32.ml#L6)
 #[derive(Clone, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default)]
-pub struct UnsignedExtendedUInt32StableV1(pub crate::number::UInt32);
+pub struct UnsignedExtendedUInt32StableV1(pub crate::number::Int32);
 
 /// **OCaml name**: `Mina_numbers__Nat.Make32.Stable.V1`
 ///
