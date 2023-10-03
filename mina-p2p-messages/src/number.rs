@@ -9,9 +9,8 @@ pub struct Number<T>(pub T);
 
 impl<T: std::fmt::Debug> std::fmt::Debug for Number<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Self(inner) = self;
         // Avoid vertical alignment
-        f.write_fmt(format_args!("Number({:?})", inner))
+        f.write_fmt(format_args!("Number({inner:?})", inner = self.0))
     }
 }
 
@@ -139,85 +138,85 @@ where
     }
 }
 
-impl<T> binprot::BinProtRead for Number<T>
-where
-    T: binprot::BinProtRead,
-{
-    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
-    where
-        Self: Sized,
-    {
-        T::binprot_read(r).map(Self)
-    }
+macro_rules! binprot_number {
+    ($base_type:ident, $binprot_type:ident) => {
+        impl binprot::BinProtRead for Number<$base_type> {
+            fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+            where
+                Self: Sized,
+            {
+                $binprot_type::binprot_read(r).map(|v| Self(v as $base_type))
+            }
+        }
+
+        impl binprot::BinProtWrite for Number<$base_type> {
+            fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+                (self.0 as $binprot_type).binprot_write(w)
+            }
+        }
+    };
 }
 
-impl<T> binprot::BinProtWrite for Number<T>
-where
-    T: binprot::BinProtWrite,
-{
-    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        self.0.binprot_write(w)
-    }
-}
+binprot_number!(i32, i32);
+binprot_number!(i64, i64);
+binprot_number!(u32, i32);
+binprot_number!(u64, i64);
+binprot_number!(f64, f64);
 
 #[cfg(test)]
 mod tests {
     use binprot::{BinProtRead, BinProtWrite};
 
-    #[test]
-    fn u32_roundtrip() {
-        for u32 in [
-            0,
-            1,
-            u8::MAX as u32,
-            u16::MAX as u32,
-            u32::MAX,
-            i8::MAX as u32,
-            i16::MAX as u32,
-            i32::MAX as u32,
-        ] {
-            let mut buf = Vec::new();
-            u32.binprot_write(&mut buf).unwrap();
-            let mut r = buf.as_slice();
-            if u32 <= 0x7f {
-                assert_eq!(r[0], u32 as u8);
-            } else {
-                assert!(matches!(r[0], 0xfe | 0xfd | 0xfc));
+    macro_rules! number_test {
+        ($name:ident, $ty:ident) => {
+            #[test]
+            fn $name() {
+                for n in [
+                    0,
+                    1,
+                    u8::MAX as $ty,
+                    u16::MAX as $ty,
+                    u32::MAX as $ty,
+                    u64::MAX as $ty,
+                    i8::MAX as $ty,
+                    i16::MAX as $ty,
+                    i32::MAX as $ty,
+                    i64::MAX as $ty,
+                ] {
+                    let n: super::Number<$ty> = n.into();
+                    let mut buf = Vec::new();
+                    n.binprot_write(&mut buf).unwrap();
+                    let mut r = buf.as_slice();
+                    let n_ = super::Number::<$ty>::binprot_read(&mut r).unwrap();
+                    assert_eq!(r.len(), 0);
+                    assert_eq!(n, n_);
+                }
             }
-            let u32_ = u32::binprot_read(&mut r).unwrap();
-            assert_eq!(r.len(), 0);
-            assert_eq!(u32, u32_);
-        }
+        };
     }
 
-    #[test]
-    fn i32_roundtrip() {
-        for i32 in [
-            0,
-            1,
-            u8::MAX as i32,
-            u16::MAX as i32,
-            u32::MAX as i32,
-            i8::MAX as i32,
-            i16::MAX as i32,
-            i32::MAX as i32,
-            i8::MIN as i32,
-            i16::MIN as i32,
-            i32::MIN as i32,
-        ] {
-            let mut buf = Vec::new();
-            i32.binprot_write(&mut buf).unwrap();
-            let mut r = buf.as_slice();
-            if -0x80 <= i32 && i32 < 0 {
-                assert_eq!(r[0], 0xff);
-            } else if 0 <= i32 && i32 <= 0x80 {
-                assert_eq!(r[0], i32 as u8);
-            } else {
-                assert!(matches!(r[0], 0xfe | 0xfd | 0xfc));
+    macro_rules! max_number_test {
+        ($name:ident, $ty:ident) => {
+            #[test]
+            fn $name() {
+                let binprot = b"\xff\xff";
+                let mut r = &binprot[..];
+                let n = super::Number::<$ty>::binprot_read(&mut r).unwrap();
+                assert_eq!(n.0, $ty::MAX);
+
+                let n: super::Number<$ty> = $ty::MAX.into();
+                let mut buf = Vec::new();
+                n.binprot_write(&mut buf).unwrap();
+                assert_eq!(buf.as_slice(), b"\xff\xff");
             }
-            let i32_ = i32::binprot_read(&mut r).unwrap();
-            assert_eq!(r.len(), 0);
-            assert_eq!(i32, i32_);
-        }
+        };
     }
+
+    number_test!(i32_roundtrip, i32);
+    number_test!(u32_roundtrip, u32);
+    number_test!(i64_roundtrip, i64);
+    number_test!(u64_roundtrip, u64);
+
+    max_number_test!(u32_max, u32);
+    max_number_test!(u64_max, u64);
 }
