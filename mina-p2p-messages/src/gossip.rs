@@ -2,7 +2,7 @@ use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::{From, TryInto};
 use serde::{Deserialize, Serialize};
 
-use crate::{v1, v2};
+use crate::{number::Int32, v1, v2};
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq)]
 #[serde(tag = "type", content = "message", rename_all = "snake_case")]
@@ -18,6 +18,12 @@ pub enum GossipNetMessageV1 {
 #[serde(tag = "type", content = "message", rename_all = "snake_case")]
 pub enum GossipNetMessageV2 {
     NewState(v2::MinaBlockBlockStableV2),
-    SnarkPoolDiff(v2::NetworkPoolSnarkPoolDiffVersionedStableV2),
-    TransactionPoolDiff(v2::NetworkPoolTransactionPoolDiffVersionedStableV2),
+    SnarkPoolDiff {
+        message: v2::NetworkPoolSnarkPoolDiffVersionedStableV2,
+        nonce: Int32,
+    },
+    TransactionPoolDiff {
+        message: v2::NetworkPoolTransactionPoolDiffVersionedStableV2,
+        nonce: Int32,
+    },
 }
