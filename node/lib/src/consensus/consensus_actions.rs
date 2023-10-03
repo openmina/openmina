@@ -39,8 +39,7 @@ impl redux::EnablingCondition<crate::State> for ConsensusBlockReceivedAction {
                 .body
                 .consensus_state
                 .blockchain_length
-                .0
-                 .0;
+                .as_u32();
             let tip_height = tip.height();
             height > tip_height || (height == tip_height && &self.hash != tip.hash)
         }) && !state.consensus.blocks.contains_key(&self.hash)
@@ -93,8 +92,8 @@ impl redux::EnablingCondition<crate::State> for ConsensusShortRangeForkResolveAc
             .filter(|block| block.status.is_snark_verify_success())
             .map_or(false, |block| match state.consensus.best_tip() {
                 Some(tip) => is_short_range_fork(
-                    &tip.header.protocol_state.body,
-                    &block.block.header.protocol_state.body,
+                    &tip.header.protocol_state.body.consensus_state,
+                    &block.block.header.protocol_state.body.consensus_state,
                 ),
                 None => true,
             })

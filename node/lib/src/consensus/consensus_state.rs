@@ -86,15 +86,14 @@ pub struct ConsensusBlockState {
 }
 
 impl ConsensusBlockState {
-    pub fn height(&self) -> i32 {
+    pub fn height(&self) -> u32 {
         self.block
             .header
             .protocol_state
             .body
             .consensus_state
             .blockchain_length
-            .0
-             .0
+            .as_u32()
     }
 }
 
@@ -111,7 +110,9 @@ impl BestTipHistory {
     }
 
     pub fn contains(&self, level: u32, hash: &StateHash) -> bool {
-        let Some(i) = self.top_level.checked_sub(level) else { return false };
+        let Some(i) = self.top_level.checked_sub(level) else {
+            return false;
+        };
         self.chain.get(i as usize) == Some(hash)
     }
 }
@@ -171,7 +172,9 @@ impl ConsensusState {
     }
 
     pub fn is_candidate_decided_to_use_as_tip(&self, hash: &StateHash) -> bool {
-        let Some(candidate) = self.blocks.get(hash) else { return false };
+        let Some(candidate) = self.blocks.get(hash) else {
+            return false;
+        };
         match &candidate.status {
             ConsensusBlockStatus::Received { .. } => false,
             ConsensusBlockStatus::SnarkVerifyPending { .. } => false,
@@ -217,7 +220,9 @@ impl ConsensusState {
     }
 
     pub fn is_best_tip_and_history_linked(&self) -> bool {
-        let Some(best_tip) = self.best_tip() else { return false };
+        let Some(best_tip) = self.best_tip() else {
+            return false;
+        };
         let pred_hash = &best_tip.header.protocol_state.previous_state_hash;
 
         Some(pred_hash) == self.best_tip_history.chain.front()
@@ -253,14 +258,13 @@ pub struct BlockRef<'a> {
 }
 
 impl<'a> BlockRef<'a> {
-    pub fn height(&self) -> i32 {
+    pub fn height(&self) -> u32 {
         self.header
             .protocol_state
             .body
             .consensus_state
             .blockchain_length
-            .0
-             .0
+            .as_u32()
     }
 }
 

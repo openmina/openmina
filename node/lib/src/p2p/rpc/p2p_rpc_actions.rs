@@ -12,7 +12,9 @@ impl redux::EnablingCondition<crate::State> for outgoing::P2pRpcOutgoingInitActi
             .filter(|p| p.rpc.outgoing.next_req_id() == self.rpc_id)
             .map_or(false, |p| {
                 let kind = self.request.kind();
-                let Some(stats) = p.rpc.outgoing.stats.get(&kind) else { return true };
+                let Some(stats) = p.rpc.outgoing.stats.get(&kind) else {
+                    return true;
+                };
                 match kind {
                     P2pRpcKind::BestTipGet => {
                         let time_passed = state.time().checked_sub(stats.last_requested);

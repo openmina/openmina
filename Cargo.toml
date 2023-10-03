@@ -21,8 +21,32 @@ panic = "abort"
 incremental = false
 codegen-units = 1
 
+# [patch.'https://github.com/o1-labs/proof-systems']
+# mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "openmina" }
+# mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "openmina" }
+# mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "openmina" }
+# o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "openmina" }
+[patch.crates-io]
+ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+# ark-ff = { path = "/home/sebastien/github/algebra/ff" }
+# ark-ec = { path = "/home/sebastien/github/algebra/ec" }
+# ark-poly = { path = "/home/sebastien/github/algebra/poly" }
+# ark-serialize = { path = "/home/sebastien/github/algebra/serialize" }
+
 [patch.'https://github.com/o1-labs/proof-systems']
-mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "openmina" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "openmina" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "openmina" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "openmina" }
+mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
+poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
+
+# [patch.'https://github.com/openmina/ledger']
+# ledger = { package = "mina-tree", path = "../mina-ledger" }
+
+# [patch.'https://github.com/openmina/mina-p2p-messages-rs']
+# mina-p2p-messages = { path = "../mina-p2p-messages-rs" }

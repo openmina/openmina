@@ -41,9 +41,13 @@ pub fn watched_accounts_effects<S: redux::Service>(
         | WatchedAccountsAction::LedgerInitialStateGetRetry(
             WatchedAccountsLedgerInitialStateGetRetryAction { pub_key },
         ) => {
-            let Some((peer_id, p2p_rpc_id)) = store.state().p2p.get_free_peer_id_for_rpc() else { return };
+            let Some((peer_id, p2p_rpc_id)) = store.state().p2p.get_free_peer_id_for_rpc() else {
+                return;
+            };
             let block = {
-                let Some(block) = store.state().consensus.best_tip() else { return };
+                let Some(block) = store.state().consensus.best_tip() else {
+                    return;
+                };
                 WatchedAccountBlockInfo {
                     level: block.height() as u32,
                     hash: block.hash.clone(),
@@ -87,10 +91,16 @@ pub fn watched_accounts_effects<S: redux::Service>(
         WatchedAccountsAction::LedgerInitialStateGetError(_) => {}
         WatchedAccountsAction::LedgerInitialStateGetSuccess(_) => {}
         WatchedAccountsAction::BlockLedgerQueryInit(action) => {
-            let Some((peer_id, p2p_rpc_id)) = store.state().p2p.get_free_peer_id_for_rpc() else { return };
+            let Some((peer_id, p2p_rpc_id)) = store.state().p2p.get_free_peer_id_for_rpc() else {
+                return;
+            };
             let ledger_hash = {
-                let Some(acc) = store.state().watched_accounts.get(&action.pub_key) else { return };
-                let Some(block) = acc.block_find_by_hash(&action.block_hash) else { return };
+                let Some(acc) = store.state().watched_accounts.get(&action.pub_key) else {
+                    return;
+                };
+                let Some(block) = acc.block_find_by_hash(&action.block_hash) else {
+                    return;
+                };
                 block.block().staged_ledger_hash.0.clone()
             };
             let token_id = MinaBaseAccountIdDigestStableV1(BigInt::one());

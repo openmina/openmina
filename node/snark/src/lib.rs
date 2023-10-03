@@ -1,17 +1,12 @@
-mod block;
-pub mod hash;
 mod merkle_path;
-mod public_input;
-pub mod utils;
 
-pub use block::{
-    accumulator_check::{accumulator_check, get_srs},
-    caching::{srs_from_bytes, srs_to_bytes, verifier_index_from_bytes, verifier_index_to_bytes},
-    transition_chain,
-    verification::verify,
-    verifier_index::get_verifier_index,
-    VerifierIndex, VerifierSRS,
+pub use ledger::proofs::accumulator_check::get_srs;
+pub use ledger::proofs::caching::{
+    srs_from_bytes, srs_to_bytes, verifier_index_from_bytes, verifier_index_to_bytes,
 };
+pub use ledger::proofs::verifier_index::{get_verifier_index, VerifierKind};
+pub use ledger::proofs::{ProverProof, VerifierIndex, VerifierSRS};
+pub use ledger::proofs::verification::verify_block;
 
 pub use merkle_path::calc_merkle_root_hash;
 

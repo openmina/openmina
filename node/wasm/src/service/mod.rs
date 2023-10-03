@@ -102,9 +102,11 @@ impl lib::service::SnarkBlockVerifyService for NodeWasmService {
         rayon::spawn_fifo(move || {
             let header = block.header_ref();
             let result = {
-                if !lib::snark::accumulator_check(&verifier_srs, &header.protocol_state_proof) {
-                    Err(SnarkBlockVerifyError::AccumulatorCheckFailed)
-                } else if !lib::snark::verify(header, &verifier_index) {
+                if !lib::snark::verify_block(
+                    header,
+                    &verifier_index,
+                    &verifier_srs,
+                ) {
                     Err(SnarkBlockVerifyError::VerificationFailed)
                 } else {
                     Ok(())

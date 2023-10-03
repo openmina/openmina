@@ -3,6 +3,15 @@
 version = 3
 
 [[package]]
+name = "addr2line"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a76fd60b23679b7d19bd066031410fb7e458ccc5e958eb5c325888ce4baedc97"
+dependencies = [
+ "gimli",
+]
+
+[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -90,8 +99,7 @@ checksum = "2cb2f989d18dd141ab8ae82f64d1a8cdd37e0840f73a406896cf5e99502fab61"
 [[package]]
 name = "ark-ec"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dea978406c4b1ca13c2db2373b05cc55429c3575b8b21f1b9ee859aa5b03dd42"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -105,8 +113,7 @@ dependencies = [
 [[package]]
 name = "ark-ff"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b3235cc41ee7a12aaaf2c575a2ad7b46713a8a50bda2fc3b003a04845c05dd6"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "ark-ff-asm",
  "ark-ff-macros",
@@ -124,8 +131,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-asm"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db02d390bf6643fb404d3d22d31aee1c4bc4459600aef9113833d17e786c6e44"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "quote",
  "syn",
@@ -134,8 +140,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-macros"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db2fd794a08ccb318058009eefdf15bcaaaaf6f8161eb3345f907222bac38b20"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "num-bigint",
  "num-traits",
@@ -146,8 +151,7 @@ dependencies = [
 [[package]]
 name = "ark-poly"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b0f78f47537c2f15706db7e98fe64cc1711dbf9def81218194e17239e53e5aa"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -160,8 +164,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d6c2b318ee6e10f8c2853e73a83adc0ccb88995aa978d8a3408d492ab2ee671"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "ark-serialize-derive",
  "ark-std",
@@ -171,8 +174,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize-derive"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8dd4e5f0bf8285d5ed538d27fab7411f3e297908fd93c62195de8bee3f199e82"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -215,7 +217,7 @@ dependencies = [
  "num-traits",
  "rusticata-macros",
  "thiserror",
- "time",
+ "time 0.3.17",
 ]
 
 [[package]]
@@ -431,6 +433,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "backtrace"
+version = "0.3.67"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "233d376d6d185f2a3093e58f283f60f880315b6c60075b01f36b3b85154564ca"
+dependencies = [
+ "addr2line",
+ "cc",
+ "cfg-if",
+ "libc",
+ "miniz_oxide",
+ "object",
+ "rustc-demangle",
+]
+
+[[package]]
 name = "base16ct"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -470,7 +487,7 @@ dependencies = [
 [[package]]
 name = "binprot"
 version = "0.1.8"
-source = "git+https://github.com/openmina/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
+source = "git+https://github.com/openmina/binprot-rs?rev=3f29b25#3f29b25959238fd03457313e95d34ef0af2976a5"
 dependencies = [
  "binprot_derive",
  "byteorder",
@@ -480,7 +497,7 @@ dependencies = [
 [[package]]
 name = "binprot_derive"
 version = "0.1.7"
-source = "git+https://github.com/openmina/binprot-rs?rev=ead5ba916725abf8ab212b89985b47c79d1a006a#ead5ba916725abf8ab212b89985b47c79d1a006a"
+source = "git+https://github.com/openmina/binprot-rs?rev=3f29b25#3f29b25959238fd03457313e95d34ef0af2976a5"
 dependencies = [
  "quote",
  "syn",
@@ -576,16 +593,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cairo"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
-dependencies = [
- "ark-ff",
- "hex",
- "o1-utils",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -629,9 +636,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16b0a3d9ed01224b22057780a37bb8c5dbfe1be8ba48678e7bf57ec4b385411f"
 dependencies = [
  "iana-time-zone",
+ "js-sys",
  "num-integer",
  "num-traits",
  "serde",
+ "time 0.1.45",
+ "wasm-bindgen",
  "winapi",
 ]
 
@@ -678,30 +688,6 @@ checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
 dependencies = [
  "termcolor",
  "unicode-width",
-]
-
-[[package]]
-name = "commitment_dlog"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "ark-serialize",
- "blake2",
- "groupmap",
- "itertools",
- "mina-curves",
- "o1-utils",
- "once_cell",
- "oracle 0.1.0 (git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a)",
- "rand 0.8.5",
- "rand_core 0.6.4",
- "rayon",
- "serde",
- "serde_with 1.14.0",
- "thiserror",
 ]
 
 [[package]]
@@ -1481,6 +1467,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "gimli"
+version = "0.27.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b6c80984affa11d98d1b88b66ac8853f143217b399d3c74116778ff8fdb4ed2e"
+
+[[package]]
 name = "gloo-timers"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1519,7 +1511,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -1792,26 +1784,26 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-poly",
  "ark-serialize",
  "blake2",
- "cairo",
- "commitment_dlog",
  "disjoint-set",
  "groupmap",
  "hex",
  "itertools",
  "mina-curves",
+ "mina-poseidon",
  "num-bigint",
  "num-derive",
+ "num-integer",
  "num-traits",
  "o1-utils",
  "once_cell",
- "oracle 0.1.0 (git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a)",
+ "poly-commitment",
  "rand 0.8.5",
  "rand_core 0.6.4",
  "rayon",
@@ -1821,6 +1813,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "thiserror",
+ "turshi",
 ]
 
 [[package]]
@@ -1845,6 +1838,7 @@ dependencies = [
  "derive_more",
  "libp2p",
  "mina-p2p-messages",
+ "mina-tree",
  "num_enum",
  "p2p",
  "redux",
@@ -1869,6 +1863,12 @@ name = "libm"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
+
+[[package]]
+name = "libm"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7012b1bbb0719e1097c47611d3898568c546d597c2e74d66f6087edd5233ff4"
 
 [[package]]
 name = "libp2p"
@@ -2515,7 +2515,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2524,20 +2524,20 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ff",
  "bitvec",
  "mina-curves",
+ "mina-poseidon",
  "o1-utils",
- "oracle 0.1.0 (git+https://github.com/openmina/proof-systems?branch=openmina)",
  "serde",
 ]
 
 [[package]]
 name = "mina-p2p-messages"
 version = "0.6.4"
-source = "git+https://github.com/openmina/mina-p2p-messages-rs?branch=main#d6196bd717ce3b418a2a14ee8f4076ef186dd58b"
+source = "git+https://github.com/openmina/mina-p2p-messages-rs?rev=e767b4def96d66c70da6f67504105aca2c45fae5#e767b4def96d66c70da6f67504105aca2c45fae5"
 dependencies = [
  "ark-ff",
  "base64",
@@ -2549,6 +2549,7 @@ dependencies = [
  "hex",
  "mina-curves",
  "mina-hasher",
+ "mina-poseidon",
  "mina-signer",
  "o1-utils",
  "serde",
@@ -2558,9 +2559,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "mina-poseidon"
+version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "mina-curves",
+ "o1-utils",
+ "once_cell",
+ "rand 0.8.5",
+ "rayon",
+ "serde",
+ "serde_with 1.14.0",
+]
+
+[[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2574,6 +2592,55 @@ dependencies = [
  "rand 0.8.5",
  "sha2 0.10.6",
  "thiserror",
+]
+
+[[package]]
+name = "mina-tree"
+version = "0.1.0"
+source = "git+https://github.com/openmina/ledger?rev=72ed461722390117921492bc27cb923dfea1e2b7#72ed461722390117921492bc27cb923dfea1e2b7"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "backtrace",
+ "base64",
+ "bincode",
+ "binprot",
+ "binprot_derive",
+ "bitvec",
+ "blake2",
+ "bs58",
+ "chrono",
+ "crc32fast",
+ "derive_more",
+ "getrandom 0.2.8",
+ "hex",
+ "itertools",
+ "kimchi",
+ "libc",
+ "mina-curves",
+ "mina-hasher",
+ "mina-p2p-messages",
+ "mina-poseidon",
+ "mina-signer",
+ "num-bigint",
+ "o1-utils",
+ "once_cell",
+ "packed_simd",
+ "poly-commitment",
+ "rand 0.8.5",
+ "rand_pcg",
+ "rand_seeder",
+ "rayon",
+ "serde",
+ "serde_json",
+ "sha2 0.10.6",
+ "static_assertions",
+ "tuple-map",
+ "uuid",
+ "wasm-bindgen",
+ "wasm_thread",
 ]
 
 [[package]]
@@ -2759,6 +2826,7 @@ dependencies = [
  "autocfg",
  "num-integer",
  "num-traits",
+ "rand 0.8.5",
  "serde",
 ]
 
@@ -2790,6 +2858,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
 dependencies = [
  "autocfg",
+ "libm 0.2.7",
 ]
 
 [[package]]
@@ -2826,7 +2895,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2835,11 +2904,24 @@ dependencies = [
  "bcs",
  "hex",
  "num-bigint",
+ "num-integer",
+ "num-traits",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
  "rayon",
  "serde",
  "serde_with 1.14.0",
  "sha2 0.10.6",
  "thiserror",
+]
+
+[[package]]
+name = "object"
+version = "0.30.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03b4680b86d9cfafba8fc491dc9b6df26b68cf40e9e6cd73909194759a63c385"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -2862,40 +2944,6 @@ name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
-
-[[package]]
-name = "oracle"
-version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=openmina#5c27c0c518843a89f6baba779e5fccf69e3b21c5"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "mina-curves",
- "o1-utils",
- "once_cell",
- "rand 0.8.5",
- "rayon",
- "serde",
- "serde_with 1.14.0",
-]
-
-[[package]]
-name = "oracle"
-version = "0.1.0"
-source = "git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a#bb0bb776ba6ef39750ac92557947a81c2144b63a"
-dependencies = [
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "mina-curves",
- "o1-utils",
- "once_cell",
- "rand 0.8.5",
- "rayon",
- "serde",
- "serde_with 1.14.0",
-]
 
 [[package]]
 name = "p256"
@@ -2925,13 +2973,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "packed_simd"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f9f08af0c877571712e2e3e686ad79efad9657dbf0f7c3c8ba943ff6c38932d"
+dependencies = [
+ "cfg-if",
+ "num-traits",
+]
+
+[[package]]
 name = "packed_simd_2"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1914cd452d8fccd6f9db48147b29fd4ae05bea9dc5d9ad578509f72415de282"
 dependencies = [
  "cfg-if",
- "libm",
+ "libm 0.1.4",
 ]
 
 [[package]]
@@ -3088,6 +3146,30 @@ dependencies = [
  "log",
  "wepoll-ffi",
  "windows-sys",
+]
+
+[[package]]
+name = "poly-commitment"
+version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "blake2",
+ "groupmap",
+ "itertools",
+ "mina-curves",
+ "mina-poseidon",
+ "o1-utils",
+ "once_cell",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
+ "rayon",
+ "serde",
+ "serde_with 1.14.0",
+ "thiserror",
 ]
 
 [[package]]
@@ -3366,6 +3448,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_pcg"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59cad018caf63deb318e5a4586d99a24424a364f40f1e5778c29aca23f4fc73e"
+dependencies = [
+ "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand_seeder"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf2890aaef0aa82719a50e808de264f9484b74b442e1a3a0e5ee38243ac40bdb"
+dependencies = [
+ "rand_core 0.5.1",
+]
+
+[[package]]
 name = "rayon"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3504,6 +3604,12 @@ dependencies = [
  "nix",
  "thiserror",
 ]
+
+[[package]]
+name = "rustc-demangle"
+version = "0.1.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d626bb9dae77e28219937af045c257c28bfd3f69333c512553507f5f9798cb76"
 
 [[package]]
 name = "rustc_version"
@@ -3709,7 +3815,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with_macros 2.2.0",
- "time",
+ "time 0.3.17",
 ]
 
 [[package]]
@@ -3858,18 +3964,19 @@ dependencies = [
  "ark-poly",
  "bincode",
  "binprot",
- "commitment_dlog",
  "derive_more",
  "hex",
  "kimchi",
  "mina-curves",
  "mina-hasher",
  "mina-p2p-messages",
+ "mina-poseidon",
  "mina-signer",
+ "mina-tree",
  "num-bigint",
  "o1-utils",
  "once_cell",
- "oracle 0.1.0 (git+https://github.com/o1-labs/proof-systems?rev=bb0bb776ba6ef39750ac92557947a81c2144b63a)",
+ "poly-commitment",
  "rand 0.8.5",
  "rayon",
  "redux",
@@ -4110,6 +4217,17 @@ dependencies = [
 
 [[package]]
 name = "time"
+version = "0.1.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b797afad3f312d1c66a56d11d0316f916356d11bd158fbc6ca6389ff6bf805a"
+dependencies = [
+ "libc",
+ "wasi 0.10.0+wasi-snapshot-preview1",
+ "winapi",
+]
+
+[[package]]
+name = "time"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a561bf4617eebd33bca6434b988f39ed798e527f51a1e797d0ee4f61c0a38376"
@@ -4259,6 +4377,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tuple-map"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23d5919d7121237af683b7fa982450597b1eaa2643e597aec3b519e4e5ab3d62"
+
+[[package]]
+name = "turshi"
+version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
+dependencies = [
+ "ark-ff",
+ "hex",
+ "o1-utils",
+]
+
+[[package]]
 name = "typenum"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4361,6 +4495,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "uuid"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79daa5ed5740825c40b389c5e50312b9c86df53fccd33f281df655642b43869d"
+dependencies = [
+ "getrandom 0.2.8",
+]
+
+[[package]]
 name = "value-bag"
 version = "1.0.0-alpha.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4408,6 +4551,12 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasi"
+version = "0.10.0+wasi-snapshot-preview1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
+
+[[package]]
+name = "wasi"
 version = "0.11.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
@@ -4427,6 +4576,7 @@ dependencies = [
  "mina-hasher",
  "mina-p2p-messages",
  "mina-signer",
+ "mina-tree",
  "rand 0.8.5",
  "rayon",
  "redux",
@@ -4791,7 +4941,7 @@ dependencies = [
  "oid-registry",
  "rusticata-macros",
  "thiserror",
- "time",
+ "time 0.3.17",
 ]
 
 [[package]]

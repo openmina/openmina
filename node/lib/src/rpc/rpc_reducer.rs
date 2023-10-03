@@ -16,18 +16,24 @@ impl RpcState {
                 self.requests.insert(content.rpc_id, rpc_state);
             }
             RpcAction::P2pConnectionOutgoingPending(content) => {
-                let Some(rpc) = self.requests.get_mut(&content.rpc_id) else { return };
+                let Some(rpc) = self.requests.get_mut(&content.rpc_id) else {
+                    return;
+                };
                 rpc.status = RpcRequestStatus::Pending { time: meta.time() };
             }
             RpcAction::P2pConnectionOutgoingError(content) => {
-                let Some(rpc) = self.requests.get_mut(&content.rpc_id) else { return };
+                let Some(rpc) = self.requests.get_mut(&content.rpc_id) else {
+                    return;
+                };
                 rpc.status = RpcRequestStatus::Error {
                     time: meta.time(),
                     error: content.error.clone(),
                 };
             }
             RpcAction::P2pConnectionOutgoingSuccess(content) => {
-                let Some(rpc) = self.requests.get_mut(&content.rpc_id) else { return };
+                let Some(rpc) = self.requests.get_mut(&content.rpc_id) else {
+                    return;
+                };
                 rpc.status = RpcRequestStatus::Success { time: meta.time() };
             }
             RpcAction::P2pPubsubMessagePublish(_) => {}

@@ -67,7 +67,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             let Some(line) = lines.next() else { break };
             let line = line.unwrap();
 
-            let Some(matches) = action_def_re.captures(&line) else { continue };
+            let Some(matches) = action_def_re.captures(&line) else {
+                continue;
+            };
             match &matches[1] {
                 "struct" => {
                     if let Some(action_name) = matches.get(2) {

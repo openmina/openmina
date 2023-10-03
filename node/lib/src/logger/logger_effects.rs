@@ -23,10 +23,10 @@ fn gossipnet_message_summary(msg: &GossipNetMessageV2) -> String {
                  .0;
             format!("NewState) height: {}", height)
         }
-        GossipNetMessageV2::SnarkPoolDiff(_) => {
+        GossipNetMessageV2::SnarkPoolDiff { .. } => {
             format!("Gossipsub::SnarkPoolDiff")
         }
-        GossipNetMessageV2::TransactionPoolDiff(_) => {
+        GossipNetMessageV2::TransactionPoolDiff { .. } => {
             format!("Gossipsub::TransactionPoolDiff")
         }
     }
@@ -173,7 +173,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 }
                 SnarkBlockVerifyAction::Error(action) => {
                     let jobs = &store.state().snark.block_verify.jobs;
-                    let Some(job) = jobs.get(action.req_id) else { return };
+                    let Some(job) = jobs.get(action.req_id) else {
+                        return;
+                    };
                     let block = job.block();
 
                     let height = block
@@ -195,7 +197,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 }
                 SnarkBlockVerifyAction::Success(action) => {
                     let jobs = &store.state().snark.block_verify.jobs;
-                    let Some(job) = jobs.get(action.req_id) else { return };
+                    let Some(job) = jobs.get(action.req_id) else {
+                        return;
+                    };
                     let block = job.block();
 
                     let height = block

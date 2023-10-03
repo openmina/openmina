@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use mina_p2p_messages::gossip::GossipNetMessageV2;
-use mina_p2p_messages::v2::MinaLedgerSyncLedgerAnswerStableV2;
+use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use p2p::disconnection::P2pDisconnectionInitAction;
 
 use crate::consensus::{ConsensusBestTipHistoryUpdateAction, ConsensusBlockReceivedAction};
@@ -11,7 +11,6 @@ use crate::p2p::rpc::outgoing::{
 };
 use crate::p2p::rpc::P2pRpcResponse;
 use crate::rpc::{RpcP2pConnectionOutgoingErrorAction, RpcP2pConnectionOutgoingSuccessAction};
-use crate::snark::hash::{state_hash, state_hash_from_hashes};
 use crate::watched_accounts::{
     WatchedAccountLedgerInitialState, WatchedAccountsBlockLedgerQuerySuccessAction,
     WatchedAccountsLedgerInitialStateGetError, WatchedAccountsLedgerInitialStateGetErrorAction,
@@ -111,7 +110,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             P2pPubsubAction::MessageReceived(action) => match action.message {
                 GossipNetMessageV2::NewState(block) => {
                     store.dispatch(ConsensusBlockReceivedAction {
-                        hash: state_hash(&block),
+                        hash: block.hash(),
                         block: block.into(),
                         history: None,
                     });
@@ -148,8 +147,12 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     }
                 }
                 P2pRpcOutgoingAction::Success(action) => {
-                    let Some(peer) = store.state().p2p.peers.get(&action.peer_id) else { return };
-                    let Some(peer) = peer.status.as_ready() else { return };
+                    let Some(peer) = store.state().p2p.peers.get(&action.peer_id) else {
+                        return;
+                    };
+                    let Some(peer) = peer.status.as_ready() else {
+                        return;
+                    };
 
                     let (_, resp, requestor) = match peer.rpc.outgoing.get(action.rpc_id) {
                         Some(P2pRpcOutgoingStatus::Success {
@@ -178,7 +181,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             let (body_hashes, oldest_block) = &resp.proof;
                             let history = {
                                 let mut v = VecDeque::with_capacity(body_hashes.len());
-                                v.push_front(state_hash(oldest_block));
+                                v.push_front(oldest_block.hash());
                                 v
                             };
                             let history = body_hashes
@@ -186,20 +189,16 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 .take(body_hashes.len().max(1) - 1)
                                 .fold(history, |mut history, body_hash| {
                                     let pred_hash = history.front().unwrap();
-                                    let hash = state_hash_from_hashes(
-                                        pred_hash.clone(),
-                                        body_hash.clone(),
-                                    );
+                                    let hash = StateHash::from_hashes(pred_hash, body_hash);
                                     history.push_front(hash);
                                     history
                                 });
 
-                            let expected_hash = state_hash(&block);
+                            let expected_hash = block.hash();
                             if let Some((pred_hash, body_hash)) =
                                 history.front().zip(body_hashes.last())
                             {
-                                let hash =
-                                    state_hash_from_hashes(pred_hash.clone(), body_hash.clone());
+                                let hash = StateHash::from_hashes(pred_hash, body_hash);
                                 if hash != expected_hash {
                                     shared::warn!(meta.time();
                                         kind = "P2pRpcBestTipHashMismatch",

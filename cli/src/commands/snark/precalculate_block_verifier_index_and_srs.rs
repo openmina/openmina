@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use ::snark::{get_srs, get_verifier_index, srs_to_bytes, verifier_index_to_bytes};
+use ::snark::{get_srs, get_verifier_index, srs_to_bytes, verifier_index_to_bytes, VerifierKind};
 use sha2::{Digest, Sha256};
 
 #[derive(Debug, structopt::StructOpt)]
@@ -15,7 +15,7 @@ pub struct PrecalculateBlockVerifierIndexAndSrs {
 
 impl PrecalculateBlockVerifierIndexAndSrs {
     pub fn run(self) -> Result<(), crate::CommandError> {
-        let verifier_index = verifier_index_to_bytes(&get_verifier_index());
+        let verifier_index = verifier_index_to_bytes(&get_verifier_index(VerifierKind::Blockchain));
         let mut hasher = Sha256::new();
         hasher.update(&verifier_index);
         let index_hash = hex::encode(hasher.finalize());

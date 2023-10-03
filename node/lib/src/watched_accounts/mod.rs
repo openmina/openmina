@@ -11,8 +11,8 @@ mod watched_accounts_effects;
 pub use watched_accounts_effects::*;
 
 use mina_p2p_messages::v2::{
-    MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseStakeDelegationStableV1,
-    MinaBaseUserCommandStableV2, NonZeroCurvePoint, StagedLedgerDiffDiffDiffStableV2,
+    MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseUserCommandStableV2, NonZeroCurvePoint,
+    NonZeroCurvePointUncompressedStableV1, StagedLedgerDiffDiffDiffStableV2,
     StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,
 };
 
@@ -20,23 +20,17 @@ pub fn is_transaction_affecting_account(
     pub_key: &NonZeroCurvePoint,
     tx: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,
 ) -> bool {
-    match &tx.data {
-        MinaBaseUserCommandStableV2::SignedCommand(v) => match &v.payload.body {
-            MinaBaseSignedCommandPayloadBodyStableV2::Payment(v) => {
-                &v.source_pk == pub_key || &v.receiver_pk == pub_key
-            }
-            MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(v) => match v {
-                MinaBaseStakeDelegationStableV1::SetDelegate {
-                    delegator,
-                    new_delegate,
-                } => delegator == pub_key || new_delegate == pub_key,
-            },
-        },
-        MinaBaseUserCommandStableV2::ZkappCommand(v) => v
-            .account_updates
-            .iter()
-            .any(|v| &v.elt.account_update.body.public_key == pub_key),
-    }
+    use ledger::scan_state::transaction_logic::UserCommand;
+    UserCommand::from(&tx.data)
+        .accounts_referenced()
+        .iter()
+        .map(|v| {
+            NonZeroCurvePoint::from(NonZeroCurvePointUncompressedStableV1 {
+                x: v.public_key.x.into(),
+                is_odd: v.public_key.is_odd,
+            })
+        })
+        .any(|referenced_pub_key| &referenced_pub_key == pub_key)
 }
 
 pub fn account_relevant_transactions_in_diff_iter<'a>(

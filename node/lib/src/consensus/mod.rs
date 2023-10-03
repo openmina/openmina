@@ -10,21 +10,15 @@ pub use consensus_reducer::*;
 mod consensus_effects;
 pub use consensus_effects::*;
 
-use mina_p2p_messages::v2::{
-    ConsensusProofOfStakeDataConsensusStateValueStableV1, MinaStateProtocolStateBodyValueStableV2,
-};
+use mina_p2p_messages::v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 as MinaConsensusState;
 
 // TODO(binier): do we need to verify constants? Probably they are verified
 // using block proof verification, but check just to be sure.
-pub fn is_short_range_fork(
-    a: &MinaStateProtocolStateBodyValueStableV2,
-    b: &MinaStateProtocolStateBodyValueStableV2,
-) -> bool {
-    let check = |s1: &ConsensusProofOfStakeDataConsensusStateValueStableV1,
-                 s2: &ConsensusProofOfStakeDataConsensusStateValueStableV1| {
-        let slots_per_epoch = s2.curr_global_slot.slots_per_epoch.0 .0;
-        let s2_epoch_slot = s2.curr_global_slot.slot_number.0 .0 % slots_per_epoch;
-        if s1.epoch_count.0 .0 == s2.epoch_count.0 .0 + 1
+pub fn is_short_range_fork(a: &MinaConsensusState, b: &MinaConsensusState) -> bool {
+    let check = |s1: &MinaConsensusState, s2: &MinaConsensusState| {
+        let slots_per_epoch = s2.curr_global_slot.slots_per_epoch.as_u32();
+        let s2_epoch_slot = s2.global_slot() % slots_per_epoch;
+        if s1.epoch_count.as_u32() == s2.epoch_count.as_u32() + 1
             && s2_epoch_slot >= slots_per_epoch * 2 / 3
         {
             // S1 is one epoch ahead of S2 and S2 is not in the seed update range
@@ -34,14 +28,13 @@ pub fn is_short_range_fork(
         }
     };
 
-    if a.consensus_state.epoch_count == b.consensus_state.epoch_count {
-        let a_prev_lock_checkpoint = &a.consensus_state.staking_epoch_data.lock_checkpoint;
-        let b_prev_lock_checkpoint = &b.consensus_state.staking_epoch_data.lock_checkpoint;
+    if a.epoch_count == b.epoch_count {
+        let a_prev_lock_checkpoint = &a.staking_epoch_data.lock_checkpoint;
+        let b_prev_lock_checkpoint = &b.staking_epoch_data.lock_checkpoint;
         // Simple case: blocks have same previous epoch, so compare previous epochs' lock_checkpoints
         a_prev_lock_checkpoint == b_prev_lock_checkpoint
     } else {
         // Check for previous epoch case using both orientations
-        check(&a.consensus_state, &b.consensus_state)
-            || check(&b.consensus_state, &a.consensus_state)
+        check(&a, &b) || check(&b, &a)
     }
 }

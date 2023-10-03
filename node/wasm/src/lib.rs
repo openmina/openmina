@@ -12,7 +12,7 @@ use libp2p::futures;
 use libp2p::multiaddr::{Multiaddr, Protocol as MultiaddrProtocol};
 use libp2p::wasm_ext::ffi::ManualConnector as JsManualConnector;
 use mina_p2p_messages::v2::{
-    NetworkPoolTransactionPoolDiffVersionedStableV2, NonZeroCurvePoint, StateHash,
+    NetworkPoolTransactionPoolDiffVersionedStableV2, NonZeroCurvePoint, StateHash, MinaBaseUserCommandStableV2,
 };
 use mina_signer::{NetworkId, PubKey, Signer};
 use serde::Serialize;
@@ -45,12 +45,12 @@ use logging::LogLevel;
 pub mod rayon;
 
 mod transaction;
-pub use transaction::Transaction;
+pub use transaction::new_signed_payment;
 
 const BLOCK_VERIFIER_INDEX_HASH: &'static str =
-    "0969aacaf7f492ddf0799f3dba190d83fbbd02df6e416c403bc061437dda2dfd";
+    "9c9fc6dd2a2f73bf974a2055ac3173edb72bb2a9e8407210c7a64a9ef9737d3d";
 const BLOCK_VERIFIER_SRS_HASH: &'static str =
-    "330931dc866652e9d0cfc2dcda096e976f32783f340d4593b6e8e6bef3a7a19b";
+    "d733ebb250be11f2de010b3dafae2034f1c85f1b126991f352cb2db0d3a0b9a2";
 
 pub type Store = lib::Store<NodeWasmService>;
 pub type Node = lib::Node<NodeWasmService>;
@@ -280,7 +280,7 @@ pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
                         cached_value(
                             storage.as_ref(),
                             "block_verifier_index",
-                            lib::snark::get_verifier_index,
+                            || lib::snark::get_verifier_index(lib::snark::VerifierKind::Blockchain),
                         )
                         .await
                     }
@@ -342,20 +342,16 @@ pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
             p2p: lib::p2p::P2pConfig {
                 initial_peers: vec![
                     dial_opts(
-                        "/dns4/webrtc.webnode.openmina.com/tcp/443",
-                        "QmTyRcQ5oM4ZByekkKyh1EDVNy7Xvh32UdGKAMBqPTiUSR",
-                    ),
-                    dial_opts(
                         "/dns4/webrtc2.webnode.openmina.com/tcp/443",
-                        "Qmaxe3KXcdyAHEiFL48bvkJLsPb9S3q3dZ5qUP1B89CEJ6",
+                        "12D3KooWFpqySZDHx7k5FMjdwmrU3TLhDbdADECCautBcEGtG4fr",
                     ),
                     dial_opts(
                         "/dns4/webrtc2.webnode.openmina.com/tcp/4431",
-                        "QmPQrT3AVMpjvKoDG4UTFMy7Fa1CZ3BgpdjBmmYaGANkq9",
+                        "12D3KooWJBeXosFxdBwe2mbKRjgRG69ERaUTpS9qo9NRkoE8kBpj",
                     ),
                     dial_opts(
                         "/dns4/webrtc2.webnode.openmina.com/tcp/4432",
-                        "QmSJWfK7GSAFY2Gb8Unag2P68rtCrJXfZBTKZRgN94ppj3",
+                        "QmTyRcQ5oM4ZByekkKyh1EDVNy7Xvh32UdGKAMBqPTiUSR",
                     ),
                     dial_opts(
                         "/dns4/webrtc3.webnode.openmina.com/tcp/443",
@@ -388,11 +384,9 @@ pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
         run(node).await;
     });
 
-    let signer = Box::new(mina_signer::create_legacy(NetworkId::TESTNET));
     Ok(JsHandle {
         sender: tx,
         rpc: RpcSender::new(rpc_sender),
-        signer: RefCell::new(signer),
         manual_connector,
         logs,
     })
@@ -451,7 +445,6 @@ pub struct JsHandle {
     sender: mpsc::Sender<Event>,
     rpc: RpcSender,
 
-    signer: RefCell<Box<dyn Signer<Transaction>>>,
     manual_connector: JsManualConnector,
     logs: logging::InMemLogs,
 }
@@ -530,8 +523,7 @@ impl JsHandle {
                     .body
                     .consensus_state
                     .global_slot_since_genesis
-                    .0
-                     .0 as u64;
+                    .as_u32() as u64;
             Some(BestTipSummary {
                 hash: b.hash.clone(),
                 level: b.height() as u32,
@@ -599,23 +591,37 @@ impl JsHandle {
         let to =
             PubKey::from_address(&data.to).map_err(|err| format!("Bad `to` address: {}", err))?;
 
-        let mut tx = Transaction::new_payment(
-            keypair.public.clone(),
-            to,
-            data.amount,
-            data.fee,
-            data.nonce,
+        let mut tx = new_signed_payment(
+            &keypair,
+            ledger::scan_state::currency::Fee::from_u64(data.fee),
+            ledger::scan_state::currency::Nonce::from_u32(data.nonce),
+            None,
+            {
+                if let Some(memo_str) = data.memo.filter(|s| !s.is_empty()) {
+                    const MEMO_LEN: usize = 34;
+                    let mut memo = ledger::scan_state::transaction_logic::Memo([0; MEMO_LEN]);
+                    memo.0[0] = 0x01;
+                    memo.0[1] = std::cmp::min(memo_str.len(), MEMO_LEN - 2) as u8;
+                    let memo_str = format!("{:\0<32}", memo_str); // Pad user-supplied memo with zeros
+                    memo.0[2..]
+                        .copy_from_slice(&memo_str.as_bytes()[..std::cmp::min(memo_str.len(), MEMO_LEN - 2)]);
+                    memo
+                } else {
+                    ledger::scan_state::transaction_logic::Memo::empty()
+                }
+            },
+            to.into_compressed(),
+            ledger::scan_state::currency::Amount::from_u64(data.amount)
         );
-        if let Some(memo) = data.memo.filter(|s| !s.is_empty()) {
-            tx = tx.set_memo_str(&memo);
-        }
-        let sig = self.signer.borrow_mut().sign(&keypair, &tx);
 
-        let tx = tx.to_user_command(sig);
+        let tx = MinaBaseUserCommandStableV2::from(&tx);
         let tx_hash = tx.hash().unwrap();
         let msg = {
-            let v = NetworkPoolTransactionPoolDiffVersionedStableV2(vec![tx]);
-            GossipNetMessageV2::TransactionPoolDiff(v)
+            let nonce = 0.into();
+            let message = NetworkPoolTransactionPoolDiffVersionedStableV2(vec![tx]);
+            GossipNetMessageV2::TransactionPoolDiff {
+                nonce, message
+            }
         };
 
         shared::log::info!(
