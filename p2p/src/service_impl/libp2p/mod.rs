@@ -1,3 +1,9 @@
+mod behavior;
+pub use behavior::Event as BehaviourEvent;
+pub use behavior::*;
+
+mod discovery;
+
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -25,10 +31,6 @@ use libp2p::yamux::YamuxConfig;
 use libp2p::{PeerId, Swarm, Transport};
 
 pub use mina_p2p_messages::gossip::GossipNetMessageV2 as GossipNetMessage;
-
-mod behavior;
-pub use behavior::Event as BehaviourEvent;
-pub use behavior::*;
 
 use libp2p_rpc_behaviour::{BehaviourBuilder, Event as RpcBehaviourEvent, StreamId};
 
