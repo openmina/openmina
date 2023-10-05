@@ -80,6 +80,7 @@ fn decode_alloc_wasm() -> Result<(), CheckThresholdError<AllocThresholdsError>> 
     Ok(())
 }
 
+#[ignore = "need to fix bin files in `v2/gossip`"]
 #[test]
 fn decode_alloc_check_inputs() {
     tx_pool_diff();
