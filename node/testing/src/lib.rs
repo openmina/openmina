@@ -1,7 +1,7 @@
 pub mod service;
 
 pub mod node;
-use node::NodeTestingConfig;
+use crate::node::NodeTestingConfig;
 
 pub mod cluster;
 use cluster::{Cluster, ClusterConfig, ClusterNodeId};
