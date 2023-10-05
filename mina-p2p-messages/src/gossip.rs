@@ -27,3 +27,25 @@ pub enum GossipNetMessageV2 {
         nonce: Int32,
     },
 }
+
+impl TryFrom<GossipNetMessageV2> for v2::NetworkPoolSnarkPoolDiffVersionedStableV2 {
+    type Error = ();
+
+    fn try_from(value: GossipNetMessageV2) -> Result<Self, Self::Error> {
+        match value {
+            GossipNetMessageV2::SnarkPoolDiff { message, .. } => Ok(message),
+            _ => Err(()),
+        }
+    }
+}
+
+impl TryFrom<GossipNetMessageV2> for v2::NetworkPoolTransactionPoolDiffVersionedStableV2 {
+    type Error = ();
+
+    fn try_from(value: GossipNetMessageV2) -> Result<Self, Self::Error> {
+        match value {
+            GossipNetMessageV2::TransactionPoolDiff { message, .. } => Ok(message),
+            _ => Err(()),
+        }
+    }
+}

@@ -49,7 +49,7 @@ mina_rpc!(
     "get_some_initial_peers",
     1,
     (),
-    Vec<v2::NetworkPeerPeerIdStableV1>
+    Vec<v2::NetworkPeerPeerStableV1>
 );
 
 pub type GetStagedLedgerAuxAndPendingCoinbasesAtHashV1Response = Option<(
