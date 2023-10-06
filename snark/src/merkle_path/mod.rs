@@ -35,7 +35,7 @@ pub fn calc_merkle_root_hash(
 mod tests {
     use std::str::FromStr;
 
-    use binprot::BinProtRead;
+    use mina_p2p_messages::binprot::BinProtRead;
 
     use mina_p2p_messages::v2::{LedgerHash, MinaBaseAccountBinableArgStableV2};
 

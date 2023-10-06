@@ -86,8 +86,8 @@ impl LedgerCtx {
     {
         use std::fs;
 
-        use binprot::BinProtRead;
         use ledger::{Account, Database};
+        use mina_p2p_messages::binprot::BinProtRead;
 
         let Ok(dir) = fs::read_dir(path) else {
             return Self::default();

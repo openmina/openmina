@@ -1,6 +1,6 @@
 use std::{mem::size_of, str::FromStr};
 
-use binprot::BinProtWrite;
+use mina_p2p_messages::binprot::BinProtWrite;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use warp::{
     http::HeaderValue,

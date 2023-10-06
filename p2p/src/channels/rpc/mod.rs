@@ -12,8 +12,11 @@ pub use p2p_channels_rpc_effects::*;
 
 use std::{io, sync::Arc, time::Duration};
 
-use binprot::{BinProtRead, BinProtWrite};
-use binprot_derive::{BinProtRead, BinProtWrite};
+use mina_p2p_messages::binprot::{
+    self,
+    macros::{BinProtRead, BinProtWrite},
+    BinProtRead, BinProtWrite,
+};
 use mina_p2p_messages::{
     rpc::{
         AnswerSyncLedgerQueryV2, GetBestTipV2, GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,

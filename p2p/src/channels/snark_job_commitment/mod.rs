@@ -10,7 +10,10 @@ pub use p2p_channels_snark_job_commitment_reducer::*;
 mod p2p_channels_snark_job_commitment_effects;
 pub use p2p_channels_snark_job_commitment_effects::*;
 
-use binprot_derive::{BinProtRead, BinProtWrite};
+use mina_p2p_messages::binprot::{
+    self,
+    macros::{BinProtRead, BinProtWrite},
+};
 use openmina_core::snark::SnarkJobCommitment;
 use serde::{Deserialize, Serialize};
 

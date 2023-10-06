@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use binprot::{BinProtRead, BinProtWrite};
+use mina_p2p_messages::binprot::{self, BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::NetworkPoolSnarkPoolDiffVersionedStableV2;
 use multihash::{Blake2b256, Hasher};
 use openmina_core::snark::Snark;
@@ -484,7 +484,7 @@ impl Libp2pService {
                                 BestTipPropagationChannelMsg::BestTip(block.into()),
                             ))
                         }
-                        Ok(GossipNetMessage::SnarkPoolDiff(snark)) => match snark {
+                        Ok(GossipNetMessage::SnarkPoolDiff { message, .. }) => match message {
                             // TODO(binier): Why empty? Should we error?
                             NetworkPoolSnarkPoolDiffVersionedStableV2::Empty => return,
                             NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(work) => {

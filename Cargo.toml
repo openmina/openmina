@@ -20,6 +20,10 @@ exclude = [ "deps/redux-rs" ]
 
 resolver = "2"
 
+[workspace.dependencies]
+mina-p2p-messages = { path = "mina-p2p-messages-rs" }
+ledger = { path = "ledger", package = "mina-tree" }
+
 [profile.fuzz]
 inherits = "release"
 opt-level = 3

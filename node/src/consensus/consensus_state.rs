@@ -112,7 +112,7 @@ pub struct ConsensusBlockState {
 }
 
 impl ConsensusBlockState {
-    pub fn height(&self) -> i32 {
+    pub fn height(&self) -> u32 {
         self.block
             .header
             .protocol_state
@@ -208,7 +208,7 @@ pub struct BlockRef<'a> {
 }
 
 impl<'a> BlockRef<'a> {
-    pub fn height(&self) -> i32 {
+    pub fn height(&self) -> u32 {
         self.header
             .protocol_state
             .body
