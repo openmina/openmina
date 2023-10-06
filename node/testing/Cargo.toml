@@ -23,8 +23,8 @@ num_cpus = "1.0"
 rayon = "1.5"
 axum = "0.6"
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "212c12400010cbe4694617c133d2f6de0afa48fa" }
-ledger = { package = "mina-tree", git = "https://github.com/openmina/ledger", rev = "4b8dc91f968c43f67d32fdbc001806ceb6d631bc" }
+ledger = { workspace = true }
+mina-p2p-messages = { workspace = true }
 
 openmina-core = { path = "../../core" }
 node = { path = "../../node" }

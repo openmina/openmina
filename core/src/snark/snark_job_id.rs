@@ -1,7 +1,10 @@
 use std::str::FromStr;
 
-use binprot_derive::{BinProtRead, BinProtWrite};
 use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
+use mina_p2p_messages::binprot::{
+    self,
+    macros::{BinProtRead, BinProtWrite},
+};
 use mina_p2p_messages::v2::{
     LedgerHash, MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     TransactionSnarkWorkTStableV2Proofs,

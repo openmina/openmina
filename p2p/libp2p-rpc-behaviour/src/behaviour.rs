@@ -14,7 +14,7 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 
-use binprot::BinProtWrite;
+use mina_p2p_messages::binprot::{self, BinProtWrite};
 use mina_p2p_messages::rpc_kernel::{
     Error, Message, NeedsLength, Query, Response, RpcMethod, RpcResult,
 };

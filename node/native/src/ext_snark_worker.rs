@@ -4,8 +4,11 @@ use std::mem::size_of;
 use std::process::Stdio;
 use std::sync::Arc;
 
-use binprot::macros::{BinProtRead, BinProtWrite};
-use binprot::{BinProtRead, BinProtWrite};
+use mina_p2p_messages::binprot::{
+    self,
+    macros::{BinProtRead, BinProtWrite},
+    BinProtRead, BinProtWrite,
+};
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, NonZeroCurvePoint, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0, TransactionSnarkWorkTStableV2Proofs,
@@ -434,7 +437,7 @@ impl ExternalSnarkWorkerService for NodeService {
 mod tests {
     use std::{env, ffi::OsString, path::Path, time::Duration};
 
-    use binprot::BinProtRead;
+    use mina_p2p_messages::binprot::BinProtRead;
     use mina_p2p_messages::v2::{
         CurrencyFeeStableV1, NonZeroCurvePoint, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
         SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0,
@@ -478,7 +481,7 @@ mod tests {
             NonZeroCurvePoint::default(),
             CurrencyFeeStableV1(
                 mina_p2p_messages::v2::UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                    10_i64.into(),
+                    10_u64.into(),
                 ),
             ),
             event_tx,

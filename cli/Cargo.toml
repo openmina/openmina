@@ -17,8 +17,8 @@ rayon = "1.5"
 tokio = { version = "1.26.0" }
 libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51.3", default-features = false, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
-ledger = { package = "mina-tree", git = "https://github.com/openmina/ledger", rev = "4b8dc91f968c43f67d32fdbc001806ceb6d631bc" }
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "212c12400010cbe4694617c133d2f6de0afa48fa" }
+ledger = { workspace = true }
+mina-p2p-messages = { workspace = true }
 
 console = "0.15.5"
 clap = { version = "4.3", features = [ "derive", "env" ] }

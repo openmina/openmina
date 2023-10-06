@@ -10,7 +10,10 @@ pub use p2p_channels_snark_reducer::*;
 mod p2p_channels_snark_effects;
 pub use p2p_channels_snark_effects::*;
 
-use binprot_derive::{BinProtRead, BinProtWrite};
+use mina_p2p_messages::binprot::{
+    self,
+    macros::{BinProtRead, BinProtWrite},
+};
 use openmina_core::snark::SnarkInfo;
 use serde::{Deserialize, Serialize};
 

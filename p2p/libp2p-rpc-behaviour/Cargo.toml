@@ -6,5 +6,4 @@ edition = "2021"
 [dependencies]
 log = { version = "0.4.19" }
 libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51.3", default-features = false }
-binprot = { git = "https://github.com/openmina/binprot-rs", rev = "dfbd3bbda8b2681d86ac73065523c658ee31d45d" }
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "73343a8d2d5812cdb0f395a227718655e66b45d8" }
+mina-p2p-messages = { workspace = true }

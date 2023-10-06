@@ -1,6 +1,9 @@
 use std::{fmt, str::FromStr};
 
-use binprot_derive::{BinProtRead, BinProtWrite};
+use mina_p2p_messages::binprot::{
+    self,
+    macros::{BinProtRead, BinProtWrite},
+};
 use mina_p2p_messages::{
     b58::FromBase58CheckError,
     v2::{NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1},
