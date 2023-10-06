@@ -46,3 +46,5 @@ pub mod b58version {
     pub const NON_ZERO_CURVE_POINT_COMPRESSED: u8 = 0xcb;
     pub const SIGNATURE: u8 = 0x9a;
 }
+
+pub use binprot;
