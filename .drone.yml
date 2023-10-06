@@ -256,7 +256,7 @@ steps:
     image: plugins/docker
     settings:
       build_args:
-      - MINA_SNARK_WORKER_TAG=0.0.8
+      - MINA_SNARK_WORKER_TAG=0.0.9
       username:
         from_secret: docker_hub_username
       password:
@@ -267,6 +267,6 @@ steps:
       - latest
     when:
       branch:
-        - feat/standalone_snark_worker
+        - develop
       event:
         - push
