@@ -2832,6 +2832,8 @@ mod tests_with_wasm {
 mod tests {
     use std::{path::Path, str::FromStr};
 
+    use mina_p2p_messages::binprot::{macros::{BinProtRead, BinProtWrite}, self};
+
     use ark_ff::One;
     use mina_hasher::Fp;
 
@@ -2841,7 +2843,7 @@ mod tests {
         mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances;
 
     /// External worker input.
-    #[derive(Debug, binprot_derive::BinProtRead, binprot_derive::BinProtWrite)]
+    #[derive(Debug, BinProtRead, BinProtWrite)]
     pub enum ExternalSnarkWorkerRequest {
         /// Queries worker for readiness, expected reply is `true`.
         AwaitReadiness,

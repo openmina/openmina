@@ -1,8 +1,8 @@
 use std::{borrow::Cow, fmt::Write, io::Cursor, str::FromStr};
 
 use ark_ff::{BigInteger256, Field, One, UniformRand, Zero};
-use binprot::{BinProtRead, BinProtWrite};
 use mina_hasher::Fp;
+use mina_p2p_messages::binprot::{BinProtRead, BinProtWrite};
 use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 

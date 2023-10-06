@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use binprot::BinProtRead;
+use mina_p2p_messages::binprot::BinProtRead;
 use mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
 use mina_p2p_messages::v2::TransactionSnarkProofStableV2;
 

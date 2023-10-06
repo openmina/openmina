@@ -5859,6 +5859,8 @@ mod tests_ocaml {
 mod tests {
     use std::{collections::BTreeMap, fs::File};
 
+    use mina_p2p_messages::binprot;
+
     use crate::{
         proofs::public_input::protocol_state::MinaHash,
         scan_state::{
@@ -5957,8 +5959,10 @@ mod tests {
     fn apply_berkeleynet() {
         #[allow(unused)]
         // --serialize
-        use binprot::{BinProtRead, BinProtWrite};
-        use binprot_derive::{BinProtRead, BinProtWrite};
+        use binprot::{
+            macros::{BinProtRead, BinProtWrite},
+            BinProtRead, BinProtWrite,
+        };
         // use serde::{Deserialize, Serialize};
         // #[derive(BinProtRead, BinProtWrite)]
         // struct Ser {

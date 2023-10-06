@@ -2,6 +2,7 @@
 
 use mina_hasher::Fp;
 use mina_p2p_messages::{
+    binprot,
     pseq::PaddedSeq,
     string::CharString,
     v2::{

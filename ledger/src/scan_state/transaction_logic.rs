@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use ark_ff::Zero;
 use itertools::{FoldWhile, Itertools};
 use mina_hasher::{create_kimchi, Fp};
+use mina_p2p_messages::binprot;
 use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2};
 use mina_signer::CompressedPubKey;
 

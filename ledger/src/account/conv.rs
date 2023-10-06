@@ -3,6 +3,7 @@
 use ark_ff::Field;
 use mina_p2p_messages::{
     bigint::BigInt,
+    binprot,
     pseq::PaddedSeq,
     v2::{
         MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,

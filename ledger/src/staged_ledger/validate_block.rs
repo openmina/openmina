@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
-use binprot::BinProtWrite;
 use itertools::Itertools;
+use mina_p2p_messages::binprot::BinProtWrite;
 use mina_p2p_messages::v2::{MinaBlockBlockStableV2, StagedLedgerDiffDiffStableV2};
 
 const BODY_TAG: u8 = 0;
