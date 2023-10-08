@@ -36,6 +36,10 @@ impl PeerId {
     pub fn from_public_key(key: PublicKey) -> Self {
         Self::from_bytes(key.to_bytes())
     }
+
+    pub fn to_public_key(self) -> Result<PublicKey, ed25519_dalek::SignatureError> {
+        PublicKey::from_bytes(self.to_bytes())
+    }
 }
 
 impl fmt::Display for PeerId {
@@ -75,6 +79,7 @@ impl From<PeerId> for [u8; 32] {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl From<libp2p::PeerId> for PeerId {
     fn from(value: libp2p::PeerId) -> Self {
         let protobuf = value.as_ref().digest();
@@ -84,6 +89,7 @@ impl From<libp2p::PeerId> for PeerId {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl From<PeerId> for libp2p::PeerId {
     fn from(value: PeerId) -> Self {
         let key = libp2p::identity::ed25519::PublicKey::decode(&value.to_bytes()).unwrap();

@@ -1,3 +1,5 @@
+pub use openmina_core as core;
+
 #[macro_use]
 mod action;
 pub use action::*;

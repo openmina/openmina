@@ -8,14 +8,14 @@ use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
 
-use tokio::sync::{mpsc, oneshot};
-
+use node::core::channels::{mpsc, oneshot};
+use node::core::snark::Snark;
 use node::event_source::Event;
 use node::ledger::LedgerCtx;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::service_impl::libp2p::Libp2pService;
-use node::p2p::service_impl::webrtc_rs::{Cmd, P2pServiceWebrtcRs, PeerState};
-use node::p2p::service_impl::webrtc_rs_with_libp2p::P2pServiceWebrtcRsWithLibp2p;
+use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
+use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::service_impl::TaskSpawner;
 use node::p2p::{P2pEvent, PeerId};
 use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
@@ -27,7 +27,6 @@ use node::snark::work_verify::{SnarkWorkVerifyError, SnarkWorkVerifyId, SnarkWor
 use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
 use node::stats::Stats;
 use node::ActionKind;
-use openmina_core::snark::Snark;
 
 use crate::ext_snark_worker;
 use crate::rpc::RpcService;
@@ -106,7 +105,7 @@ impl EventSourceService for NodeService {
     }
 }
 
-impl P2pServiceWebrtcRs for NodeService {
+impl P2pServiceWebrtc for NodeService {
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
@@ -127,7 +126,7 @@ impl P2pServiceWebrtcRs for NodeService {
     }
 }
 
-impl P2pServiceWebrtcRsWithLibp2p for NodeService {
+impl P2pServiceWebrtcWithLibp2p for NodeService {
     fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.libp2p
     }

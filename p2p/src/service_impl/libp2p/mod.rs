@@ -5,8 +5,8 @@ use std::time::Duration;
 use mina_p2p_messages::binprot::{self, BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::NetworkPoolSnarkPoolDiffVersionedStableV2;
 use multihash::{Blake2b256, Hasher};
+use openmina_core::channels::mpsc;
 use openmina_core::snark::Snark;
-use tokio::sync::mpsc;
 
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport;

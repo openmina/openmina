@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use libp2p::{gossipsub, swarm::NetworkBehaviour, PeerId};
-use tokio::sync::mpsc;
+use openmina_core::channels::mpsc;
 
 use crate::P2pEvent;
 
