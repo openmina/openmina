@@ -10,9 +10,10 @@ use mina_p2p_messages::v2::{
 use rand::prelude::*;
 
 use tokio::select;
-use tokio::sync::mpsc;
 
 use node::account::AccountPublicKey;
+use node::core::channels::mpsc;
+use node::core::log::inner::Level;
 use node::event_source::{
     EventSourceProcessEventsAction, EventSourceWaitForEventsAction, EventSourceWaitTimeoutAction,
 };
@@ -20,8 +21,8 @@ use node::ledger::LedgerCtx;
 use node::p2p::channels::ChannelId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::identity::SecretKey;
-use node::p2p::service_impl::webrtc_rs::P2pServiceCtx;
-use node::p2p::service_impl::webrtc_rs_with_libp2p::{self, P2pServiceWebrtcRsWithLibp2p};
+use node::p2p::service_impl::webrtc::P2pServiceCtx;
+use node::p2p::service_impl::webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p};
 use node::p2p::{P2pConfig, P2pEvent};
 use node::service::{Recorder, Service};
 use node::snark::{get_srs, get_verifier_index, VerifierKind};
@@ -30,7 +31,6 @@ use node::{
     BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig, State,
     TransitionFrontierConfig,
 };
-use openmina_core::log::inner::Level;
 
 use openmina_node_native::rpc::RpcService;
 use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, RpcSender};
@@ -180,10 +180,10 @@ impl Node {
 
         let (p2p_event_sender, mut rx) = mpsc::unbounded_channel::<P2pEvent>();
 
-        let webrtc_rs_with_libp2p::P2pServiceCtx {
+        let webrtc_with_libp2p::P2pServiceCtx {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
-        } = <NodeService as P2pServiceWebrtcRsWithLibp2p>::init(
+        } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             secret_key,
             self.chain_id,
             p2p_event_sender.clone(),

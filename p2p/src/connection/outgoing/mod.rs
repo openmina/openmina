@@ -24,6 +24,7 @@ pub enum P2pConnectionOutgoingInitOpts {
         peer_id: PeerId,
         signaling: webrtc::SignalingMethod,
     },
+    #[cfg(not(target_arch = "wasm32"))]
     LibP2P {
         peer_id: PeerId,
         maddr: libp2p::Multiaddr,
@@ -31,20 +32,29 @@ pub enum P2pConnectionOutgoingInitOpts {
 }
 
 impl P2pConnectionOutgoingInitOpts {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn is_libp2p(&self) -> bool {
         matches!(self, Self::LibP2P { .. })
     }
 
+    #[cfg(target_arch = "wasm32")]
+    pub fn is_libp2p(&self) -> bool {
+        false
+    }
+
     pub fn peer_id(&self) -> &PeerId {
         match self {
-            Self::WebRTC { peer_id, .. } | Self::LibP2P { peer_id, .. } => peer_id,
+            Self::WebRTC { peer_id, .. } => peer_id,
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::LibP2P { peer_id, .. } => peer_id,
         }
     }
 
     pub fn kind(&self) -> &'static str {
         match self {
-            Self::LibP2P { .. } => "libp2p",
             Self::WebRTC { .. } => "webrtc",
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::LibP2P { .. } => "libp2p",
         }
     }
 }
@@ -55,6 +65,7 @@ impl fmt::Display for P2pConnectionOutgoingInitOpts {
             Self::WebRTC { peer_id, signaling } => {
                 write!(f, "/{}{}", peer_id, signaling)
             }
+            #[cfg(not(target_arch = "wasm32"))]
             Self::LibP2P { maddr, .. } => {
                 write!(f, "{}", maddr)
             }
@@ -82,7 +93,9 @@ impl FromStr for P2pConnectionOutgoingInitOpts {
             return Err(P2pConnectionOutgoingInitOptsParseError::NotEnoughArgs);
         }
 
-        if s.starts_with("/ip4") || s.starts_with("/dns4") {
+        let is_libp2p_maddr = s.starts_with("/ip4") || s.starts_with("/dns4");
+        #[cfg(not(target_arch = "wasm32"))]
+        if is_libp2p_maddr {
             let maddr = libp2p::Multiaddr::from_str(s)
                 .map_err(|e| P2pConnectionOutgoingInitOptsParseError::Other(e.to_string()))?;
             let hash = maddr
@@ -103,6 +116,12 @@ impl FromStr for P2pConnectionOutgoingInitOpts {
                 peer_id: peer_id.into(),
                 maddr,
             });
+        }
+        #[cfg(target_arch = "wasm32")]
+        if is_libp2p_maddr {
+            return Err(P2pConnectionOutgoingInitOptsParseError::Other(
+                "libp2p not supported in wasm".to_owned(),
+            ));
         }
 
         let id_end_index = s[1..]

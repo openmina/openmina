@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 
+use node::core::channels::mpsc;
 use node::p2p::service_impl::libp2p::Libp2pService;
 use node::recorder::{Recorder, StateWithInputActionsReader};
 use node::snark::VerifierKind;
@@ -7,7 +8,6 @@ use node::{ActionWithMeta, BuildEnv, Store};
 use openmina_node_native::{rpc::RpcService, NodeService, ReplayerState};
 use rand::rngs::StdRng;
 use rand::SeedableRng;
-use tokio::sync::mpsc;
 
 #[derive(Debug, clap::Args)]
 /// Replay node using initial state and input actions.

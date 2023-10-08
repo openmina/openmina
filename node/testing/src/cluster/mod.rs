@@ -10,6 +10,8 @@ pub use node_id::ClusterNodeId;
 use std::{collections::VecDeque, sync::Arc};
 
 use ledger::proofs::{VerifierIndex, VerifierSRS};
+use node::core::channels::mpsc;
+use node::core::requests::RpcId;
 use node::{
     event_source::Event,
     ledger::LedgerCtx,
@@ -17,8 +19,8 @@ use node::{
         channels::ChannelId,
         identity::SecretKey as P2pSecretKey,
         service_impl::{
-            webrtc_rs::P2pServiceCtx,
-            webrtc_rs_with_libp2p::{self, P2pServiceWebrtcRsWithLibp2p},
+            webrtc::P2pServiceCtx,
+            webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p},
         },
         P2pEvent,
     },
@@ -26,11 +28,9 @@ use node::{
     snark::{get_srs, get_verifier_index, VerifierKind},
     BuildEnv, Config, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, TransitionFrontierConfig,
 };
-use openmina_core::requests::RpcId;
 use openmina_node_native::{http_server, rpc::RpcService, NodeService, RpcSender};
 use rand::{rngs::StdRng, SeedableRng};
 use serde::Serialize;
-use tokio::sync::mpsc;
 
 use crate::{
     node::{Node, NodeTestingConfig, RustNodeTestingConfig},
@@ -122,10 +122,10 @@ impl Cluster {
 
         let (p2p_event_sender, mut rx) = mpsc::unbounded_channel::<P2pEvent>();
 
-        let webrtc_rs_with_libp2p::P2pServiceCtx {
+        let webrtc_with_libp2p::P2pServiceCtx {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
-        } = <NodeService as P2pServiceWebrtcRsWithLibp2p>::init(
+        } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             secret_key,
             testing_config.chain_id,
             p2p_event_sender.clone(),

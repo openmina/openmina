@@ -1,5 +1,5 @@
+use node::core::channels::mpsc;
 use node::p2p::service_impl::TaskSpawner;
-use tokio::sync::mpsc;
 
 #[derive(Clone)]
 pub struct P2pTaskSpawner {
