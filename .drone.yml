@@ -5,7 +5,7 @@ name: test-bootstrap
 trigger:
   branch:
   - master
-  - feat/standalone_snark_worker
+  - develop
 
 steps:
   - name: replay
