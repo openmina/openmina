@@ -8,7 +8,7 @@ global-variables:
 trigger:
   branch:
   - master
-  - feat/standalone_snark_worker
+  - develop
   - feat/graphql
 
 environment:
@@ -95,7 +95,7 @@ steps:
   #     - chmod 600 /key/*
   #     - apt-get update && apt-get install -y netcat
   #     - netcat -l -p 9000 || true
-  #     - mina daemon --external-port 8302 --config-file /berkeley.json --libp2p-keypair /key/key 
+  #     - mina daemon --external-port 8302 --config-file /berkeley.json --libp2p-keypair /key/key
   #         --log-level Debug --insecure-rest-server
   #         --peer /dns4/empty/tcp/8302/p2p/12D3KooWBk4vJzxBZcwDXEae91mPLxJZks2pUCpDJP1zmCjx95ai
   #         --direct-peer /dns4/openmina1/tcp/10000/p2p/$OPENMINA1_LIBP2P_ID
