@@ -14,6 +14,7 @@ use mina_p2p_messages::v2::{
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0, TransactionSnarkWorkTStableV2Proofs,
 };
 
+use node::core::channels::{mpsc, oneshot};
 use node::event_source::Event;
 use node::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerEvent, ExternalSnarkWorkerService,
@@ -22,8 +23,6 @@ use node::external_snark_worker::{
 
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::process::Command;
-
-use tokio::sync::{mpsc, oneshot};
 
 use super::NodeService;
 
@@ -442,12 +441,12 @@ mod tests {
         CurrencyFeeStableV1, NonZeroCurvePoint, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
         SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0,
     };
+    use node::core::channels::mpsc;
+    use node::core::log::inner::Level;
     use node::{
         event_source::Event,
         external_snark_worker::{ExternalSnarkWorkerEvent, SnarkWorkSpec},
     };
-    use openmina_core::log::inner::Level;
-    use tokio::sync::mpsc;
 
     use super::super::tracing;
     use super::ExternalSnarkWorkerFacade;

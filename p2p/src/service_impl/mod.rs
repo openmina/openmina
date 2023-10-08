@@ -1,7 +1,8 @@
-// #[cfg(feature = "service_impl_webrtc_rs")]
+#[cfg(not(target_arch = "wasm32"))]
 pub mod libp2p;
-pub mod webrtc_rs;
-pub mod webrtc_rs_with_libp2p;
+pub mod webrtc;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod webrtc_with_libp2p;
 
 use std::future::Future;
 

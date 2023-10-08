@@ -2049,6 +2049,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "gloo-utils"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b5555354113b18c547c1d3a98fbf7fb32a9ff4f6fa112ce823a21641a0ba3aa"
+dependencies = [
+ "js-sys",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "graphql-parser"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3167,7 +3180,7 @@ dependencies = [
  "clap",
  "derive_more",
  "fuzzcheck",
- "gloo-utils",
+ "gloo-utils 0.1.7",
  "hex",
  "mina-curves",
  "mina-hasher",
@@ -3805,6 +3818,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "slab",
+ "tokio",
  "tracing",
 ]
 
@@ -3888,7 +3902,9 @@ dependencies = [
  "derive_more",
  "ecies-ed25519",
  "ed25519-dalek 2.0.0",
+ "gloo-utils 0.2.0",
  "hyper",
+ "js-sys",
  "libp2p",
  "libp2p-rpc-behaviour",
  "mina-p2p-messages",
@@ -3906,6 +3922,9 @@ dependencies = [
  "thiserror",
  "tokio",
  "url",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
  "webrtc 0.8.0",
 ]
 
@@ -4529,7 +4548,6 @@ version = "0.1.0"
 dependencies = [
  "cli",
  "node",
- "openmina-core",
  "openmina-node-native",
 ]
 
