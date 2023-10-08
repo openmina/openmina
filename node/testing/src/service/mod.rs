@@ -4,6 +4,9 @@ use std::time::Duration;
 use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
 
 use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
+use node::core::channels::mpsc;
+use node::core::requests::{PendingRequests, RequestId};
+use node::core::snark::Snark;
 use node::recorder::Recorder;
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
@@ -19,18 +22,15 @@ use node::{
         connection::outgoing::P2pConnectionOutgoingInitOpts,
         service_impl::{
             libp2p::Libp2pService,
-            webrtc_rs::{Cmd, P2pServiceWebrtcRs, PeerState},
-            webrtc_rs_with_libp2p::P2pServiceWebrtcRsWithLibp2p,
+            webrtc::{Cmd, P2pServiceWebrtc, PeerState},
+            webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
         },
         webrtc, P2pEvent, PeerId,
     },
 };
-use openmina_core::requests::{PendingRequests, RequestId};
-use openmina_core::snark::Snark;
 use openmina_node_native::NodeService;
 use rand::seq::SliceRandom;
 use redux::Instant;
-use tokio::sync::mpsc;
 
 #[derive(Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PendingEventIdType;
@@ -133,7 +133,7 @@ impl node::event_source::EventSourceService for NodeTestingService {
     }
 }
 
-impl P2pServiceWebrtcRs for NodeTestingService {
+impl P2pServiceWebrtc for NodeTestingService {
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
@@ -162,7 +162,7 @@ impl P2pServiceWebrtcRs for NodeTestingService {
     }
 }
 
-impl P2pServiceWebrtcRsWithLibp2p for NodeTestingService {
+impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
     fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.real.libp2p
     }

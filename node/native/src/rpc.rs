@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
-use tokio::sync::{mpsc, oneshot};
 
+use node::core::channels::{mpsc, oneshot};
+use node::core::requests::PendingRequests;
 use node::p2p::connection::P2pConnectionResponse;
 pub use node::rpc::{
     ActionStatsResponse, RespondError, RpcActionStatsGetResponse, RpcId, RpcIdType,
@@ -10,7 +11,6 @@ pub use node::rpc::{
 };
 use node::State;
 use node::{event_source::Event, rpc::RpcSnarkPoolJobGetResponse};
-use openmina_core::requests::PendingRequests;
 
 use super::{NodeRpcRequest, NodeService};
 

@@ -120,6 +120,7 @@ impl P2pConnectionOutgoingOfferReadyAction {
         };
         let signaling_method = match opts {
             P2pConnectionOutgoingInitOpts::WebRTC { signaling, .. } => signaling,
+            #[allow(unreachable_patterns)]
             _ => return,
         };
         match signaling_method {

@@ -8,7 +8,6 @@ crate-type = ["dylib"]
 name = "replay_dynamic_effects"
 
 [dependencies]
-openmina-core = { path = "../../core" }
 node = { path = "../../node", features = ["replay"] }
 openmina-node-native = { path = "../../node/native" }
 cli = { path = "../" }
