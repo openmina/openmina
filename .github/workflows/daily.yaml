@@ -1,0 +1,8 @@
+name: Openmina Daily
+on:
+  workflow_call: {}
+  # schedule:
+  #   - cron: "5 0 * * *"
+
+
+jobs: {}
