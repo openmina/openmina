@@ -25,6 +25,7 @@ use tokio::sync::{Mutex, MutexGuard, OwnedMutexGuard};
 const PORT: u16 = 11000;
 
 pub fn server() {
+    eprintln!("scenarios path: {}", Scenario::PATH);
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get().max(2) - 1)
         .thread_name(|i| format!("openmina_rayon_{i}"))
