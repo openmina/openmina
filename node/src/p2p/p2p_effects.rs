@@ -50,8 +50,11 @@ use super::connection::{P2pConnectionAction, P2pConnectionResponse};
 use super::disconnection::{
     P2pDisconnectionAction, P2pDisconnectionInitAction, P2pDisconnectionReason,
 };
+use super::discovery::{P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoverySuccessAction};
 use super::peer::P2pPeerAction;
 use super::{P2pAction, P2pActionWithMeta};
+
+use p2p::P2pPeerStatus;
 
 pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) {
     let (action, meta) = action.split();
@@ -247,6 +250,28 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 });
             }
         },
+        P2pAction::Discovery(action) => match action {
+            P2pDiscoveryAction::Init(P2pDiscoveryInitAction { peer_id }) => {
+                let Some(peer) = store.state().p2p.peers.get(&peer_id) else {
+                    return;
+                };
+                let P2pPeerStatus::Ready(status) = &peer.status else {
+                    return;
+                };
+                store.dispatch(P2pChannelsRpcRequestSendAction {
+                    peer_id,
+                    id: status.channels.rpc.next_local_rpc_id(),
+                    request: P2pRpcRequest::InitialPeers,
+                });
+            }
+            P2pDiscoveryAction::Success(action) => {
+                store.dispatch(P2pChannelsRpcRequestSendAction {
+                    peer_id: action.peer_id,
+                    id: 0,
+                    request: P2pRpcRequest::BestTipWithProof,
+                });
+            }
+        },
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {
                 action.effects(&meta, store);
@@ -340,11 +365,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 }
                 P2pChannelsRpcAction::Pending(_) => {}
                 P2pChannelsRpcAction::Ready(a) => {
-                    store.dispatch(P2pChannelsRpcRequestSendAction {
-                        peer_id: a.peer_id,
-                        id: 0,
-                        request: P2pRpcRequest::BestTipWithProof,
-                    });
+                    store.dispatch(P2pDiscoveryInitAction { peer_id: a.peer_id });
 
                     store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
                     store.dispatch(TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {});
@@ -481,6 +502,12 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 work: snark.clone(),
                             });
                         }
+                        Some(P2pRpcResponse::InitialPeers(peers)) => {
+                            store.dispatch(P2pDiscoverySuccessAction {
+                                peer_id: action.peer_id,
+                                peers: peers.clone(),
+                            });
+                        }
                     }
                     store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
                     store.dispatch(TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {});
@@ -582,6 +609,26 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 .and_then(|job| job.snark.as_ref())
                                 .map(|snark| snark.work.clone())
                                 .map(P2pRpcResponse::Snark);
+
+                            store.dispatch(P2pChannelsRpcResponseSendAction {
+                                peer_id: action.peer_id,
+                                id: action.id,
+                                response,
+                            });
+                        }
+                        P2pRpcRequest::InitialPeers => {
+                            let peers = store
+                                .state()
+                                .p2p
+                                .peers
+                                .iter()
+                                .filter_map(|(peer_id, state)| {
+                                    // TODO(vlad9486):
+                                    let _ = (peer_id, state);
+                                    None
+                                })
+                                .collect();
+                            let response = Some(P2pRpcResponse::InitialPeers(peers));
 
                             store.dispatch(P2pChannelsRpcResponseSendAction {
                                 peer_id: action.peer_id,
