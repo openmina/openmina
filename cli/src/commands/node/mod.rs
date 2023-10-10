@@ -35,15 +35,13 @@ use node::{
 use openmina_node_native::rpc::RpcService;
 use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, RpcSender};
 
+const CHAIN_ID: &'static str = "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e";
+
 /// Openmina node
 #[derive(Debug, clap::Args)]
 pub struct Node {
     #[arg(long, short = 'd', default_value = "~/.openmina")]
     pub work_dir: String,
-
-    /// Chain ID
-    #[arg(long, short = 'i', env)]
-    pub chain_id: String,
 
     /// Peer secret key
     #[arg(long, short = 's', env = "OPENMINA_P2P_SEC_KEY")]
@@ -185,7 +183,7 @@ impl Node {
             webrtc: P2pServiceCtx { cmd_sender, peers },
         } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             secret_key,
-            self.chain_id,
+            CHAIN_ID.to_owned(),
             p2p_event_sender.clone(),
             P2pTaskSpawner {},
         );
