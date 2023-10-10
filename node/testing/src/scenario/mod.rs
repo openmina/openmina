@@ -24,7 +24,7 @@ pub struct ScenarioInfo {
 }
 
 impl Scenario {
-    const PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/scenarios");
+    pub const PATH: &'static str = concat!(env!("CARGO_MANIFEST_DIR"), "/res/scenarios");
 
     pub fn new(id: ScenarioId, parent_id: Option<ScenarioId>) -> Self {
         Self {
