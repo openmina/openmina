@@ -1,0 +1,24 @@
+name: Openmina Daily
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 5 * * *"
+  push: []
+
+
+jobs:
+  bootstrap-berkeley:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+
+      - name: Set up k8s context
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.K8S_CONFIG }}
+
+      - name: Bootstrap Openmina node
+        run: |
+          helm upgrade --install ${{ github.job }} helm/openmina --wait --timeout=10m --set=podAnnotations.timestamp="$(date)"
