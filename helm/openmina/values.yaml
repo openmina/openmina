@@ -2,18 +2,35 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-openmina:
-  chainId: 3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e
-  snarkerPublicKey: B62qmd12djy2ivtXrg8PS3WRpcNPfpyBeJtssEjwvbv9bTTnXBvmi1r
-  fee: "1000000"
+chainId: 3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e
+snarker: {}
+  # publicKey: B62qmd12djy2ivtXrg8PS3WRpcNPfpyBeJtssEjwvbv9bTTnXBvmi1r
+  # fee: "1000000"
+peers:
+  - /ip4/34.31.51.101/tcp/62006/p2p/12D3KooWH5g2eJxCZqdyzmngLCfxUSySs4wg4utr3mNC33khTPwW
+  - /ip4/35.192.12.147/tcp/13979/p2p/12D3KooWMX1v5BJ6tZ62KscpLKkKbJin29bHtjTbqgCDFr9uJjPa
+  - /ip4/34.134.107.112/tcp/6610/p2p/12D3KooWLqWnmAPimE2PWJsrLnapm5FejLf13xjUKDrrh2AyhH5U
+  - /ip4/34.41.28.128/tcp/22372/p2p/12D3KooWAe7eVbAU9ixqd6sPTddJAKQVTFhcaksT243KDgZHoFwe
+  - /ip4/34.134.107.112/tcp/1315/p2p/12D3KooWC1YU6zZgFhUG8nEKYWRsWRoLoCj6L6CqbMVvpuZVRaSK
+  - /ip4/34.31.51.101/tcp/17210/p2p/12D3KooWSciShgqGUWzyYeUJ71cAeRTaniAab9QrPVYdDMntBNDC
+  - /ip4/199.223.236.146/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs
+  - /ip4/34.123.192.200/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv
+  - /ip4/34.41.28.128/tcp/64222/p2p/12D3KooWPqLwbsZr4e3NZ2DU9itgjNDjDQfaFDGw47tvz4syZHwd
+  - /ip4/65.109.123.235/tcp/8302/p2p/12D3KooWBK3vz1inMubXCUeDF4Min6eG5418toceG8QvNPWRW1Gz
+  - /ip4/142.132.154.120/tcp/53722/p2p/12D3KooWMPxTu24mCpi3TwmkU4fJk7a8TQ4agFZeTHQRi8KCc3nj
+  - /ip4/65.108.72.143/tcp/41495/p2p/12D3KooWDKdHVbnkM7GJYML6ogYR5KmHUj9Ngnq1Lk42xcXnf2sx
+  - /ip4/34.170.215.14/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag
 
+probes:
+  liveness: true
+  readiness: true
 replicaCount: 1
 
 image:
   repository: openmina/openmina
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: latest
 
 imagePullSecrets: []
 nameOverride: ""
@@ -21,7 +38,7 @@ fullnameOverride: ""
 
 serviceAccount:
   # Specifies whether a service account should be created
-  create: true
+  create: false
   # Annotations to add to the service account
   annotations: {}
   # The name of the service account to use.
@@ -61,17 +78,13 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
-resources: {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+resources:
+  limits:
+    cpu: 8000m
+    memory: 16Gi
+  requests:
+    cpu: 8000m
+    memory: 16Gi
 
 autoscaling:
   enabled: false

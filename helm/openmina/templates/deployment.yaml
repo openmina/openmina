@@ -39,30 +39,28 @@ spec:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
-          # livenessProbe:
-          #   httpGet:
-          #     path: /
-          #     port: http
-          # readinessProbe:
-          #   httpGet:
-          #     path: /
-          #     port: http
+          {{ include "openmina.readinessProbe" . | indent 10 }}
+          {{ include "openmina.livenessProbe" . | indent 10 }}
           env:
           - name: "CHAIN_ID"
-            value: "{{ .Values.openmina.chainId }}"
+            value: "{{ .Values.chainId }}"
+          - name: "VERBOSITY"
+            value: "debug"
+          {{- if .Values.snarker -}}
           - name: "PUBLIC_KEY"
-            value: "{{ .Values.openmina.snarkerPublicKey }}"
+            value: "{{ .Values.snarker.PublicKey }}"
           - name: "SNARKER_FEE"
-            value: "{{ .Values.openmina.fee }}"
+            value: "{{ .Values.snarker.fee }}"
           - name: "MINA_EXE_PATH"
             value: "/usr/local/bin/snark-worker"
-          {{- if .Values.openmina.peers }}
+          {{- end -}}
+          {{- if .Values.peers }}
           - name: "PEERS"
-            value: "{{ .Values.openmina.peers | join " " }}"
+            value: "{{ .Values.peers | join " " }}"
           {{- end }}
-          {{- if .Values.openmina.secretKey }}
+          {{- if .Values.secretKey }}
           - name: "OPENMINA_P2P_SEC_KEY"
-            value: "{{ .Values.openmina.secretKey }}"
+            value: "{{ .Values.secretKey }}"
           {{- end}}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
