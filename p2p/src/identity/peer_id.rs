@@ -145,4 +145,13 @@ mod tests {
         let id_conv: libp2p::PeerId = conv.into();
         assert_eq!(id_conv, id);
     }
+
+    #[test]
+    fn test_unsupported_pk() {
+        let s = "QmSXffHzFVSEoQCYBS1bPpCn4vgGEpQnCA9NLYuhamPBU3";
+        let id: libp2p::PeerId = s.parse().unwrap();
+        let conv: PeerId = id.into();
+        let id_conv: libp2p::PeerId = conv.into();
+        assert_eq!(id_conv, id);
+    }
 }

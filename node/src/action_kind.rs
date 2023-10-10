@@ -87,6 +87,9 @@ use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::{
     P2pDisconnectionAction, P2pDisconnectionFinishAction, P2pDisconnectionInitAction,
 };
+use crate::p2p::discovery::{
+    P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoverySuccessAction,
+};
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
 use crate::p2p::P2pAction;
 use crate::rpc::{
@@ -283,6 +286,8 @@ pub enum ActionKind {
     P2pConnectionOutgoingTimeout,
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
+    P2pDiscoveryInit,
+    P2pDiscoverySuccess,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
@@ -390,7 +395,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 196;
+    pub const COUNT: u16 = 198;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -438,6 +443,7 @@ impl ActionKindGet for P2pAction {
         match self {
             Self::Connection(a) => a.kind(),
             Self::Disconnection(a) => a.kind(),
+            Self::Discovery(a) => a.kind(),
             Self::Channels(a) => a.kind(),
             Self::Peer(a) => a.kind(),
         }
@@ -596,6 +602,15 @@ impl ActionKindGet for P2pDisconnectionAction {
         match self {
             Self::Init(a) => a.kind(),
             Self::Finish(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::Success(a) => a.kind(),
         }
     }
 }
@@ -1104,6 +1119,18 @@ impl ActionKindGet for P2pDisconnectionInitAction {
 impl ActionKindGet for P2pDisconnectionFinishAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pDisconnectionFinish
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoveryInit
+    }
+}
+
+impl ActionKindGet for P2pDiscoverySuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoverySuccess
     }
 }
 
