@@ -30,7 +30,7 @@ In the future, we plan to implement:
 * Block production
 * SNARK proof generation for transactions
 * SnarkyJS support for Rust node, thanks to which you will be able to directly inject simple transactions, such as transferring Mina funds from one account to another.
-* An archive node with the entire history of the blocks 
+* The ability to record/replay all blocks 
 * A user interface (UI) for the node. Through the UI, users will be able to control the node and get information about its status.
 
 
