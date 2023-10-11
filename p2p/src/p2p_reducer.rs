@@ -64,10 +64,11 @@ impl P2pState {
                 P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peers, .. }) => {
                     self.known_peers.extend(peers.iter().filter_map(|peer| {
                         let peer_id_str = String::try_from(&peer.peer_id.0).ok()?;
-                        if peer_id_str.starts_with('Q') {
+                        let peer_id = dbg!(peer_id_str).parse::<libp2p::PeerId>().ok()?;
+                        if peer_id.as_ref().code() == 0x12 {
+                            // the peer_id is not supported
                             return None;
                         }
-                        let peer_id = peer_id_str.parse::<libp2p::PeerId>().ok()?;
                         let opts = P2pConnectionOutgoingInitOpts::LibP2P {
                             peer_id: peer_id.into(),
                             maddr: {
