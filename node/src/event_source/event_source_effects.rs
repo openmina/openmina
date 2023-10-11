@@ -32,7 +32,7 @@ use crate::rpc::{
     RpcP2pConnectionOutgoingInitAction, RpcRequest, RpcScanStateSummaryGetAction,
     RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction, RpcSnarkerConfigGetAction,
     RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction,
-    RpcSyncStatsGetAction,
+    RpcSyncStatsGetAction, RpcHealthCheckAction,
 };
 use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
 use crate::snark::work_verify::{SnarkWorkVerifyErrorAction, SnarkWorkVerifySuccessAction};
@@ -242,6 +242,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::SnarkerWorkers => {
                     store.dispatch(RpcSnarkersWorkersGetAction { rpc_id });
                 }
+                RpcRequest::HealthCheck => {
+                    store.dispatch(RpcHealthCheckAction { rpc_id });
+                },
             },
             Event::ExternalSnarkWorker(e) => match e {
                 ExternalSnarkWorkerEvent::Started => {

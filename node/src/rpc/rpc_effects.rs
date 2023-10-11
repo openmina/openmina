@@ -361,6 +361,24 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 return;
             }
         }
+        RpcAction::HealthCheck(action) => {
+            let some_peers = store
+                .state()
+                .p2p
+                .ready_peers_iter()
+                .map(|(peer_id, _peer)| {
+                    openmina_core::log::debug!(openmina_core::log::system_time(); "found ready peer: {peer_id}")
+                })
+                .next()
+                .ok_or(String::from("no ready peers"));
+            if store
+                .service()
+                .respond_health_check(action.rpc_id, some_peers)
+                .is_err()
+            {
+                return;
+            }
+        }
         RpcAction::Finish(_) => {}
     }
 }

@@ -6,7 +6,7 @@ use crate::p2p::connection::P2pConnectionResponse;
 use crate::State;
 
 use super::{
-    RpcActionStatsGetResponse, RpcId, RpcP2pConnectionOutgoingResponse,
+    RpcActionStatsGetResponse, RpcHealthCheckResponse, RpcId, RpcP2pConnectionOutgoingResponse,
     RpcScanStateSummaryGetResponse, RpcScanStateSummaryScanStateJob, RpcSnarkPoolGetResponse,
     RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
     RpcSnarkerWorkersResponse, RpcSyncStatsGetResponse,
@@ -90,5 +90,10 @@ pub trait RpcService: RpcLedgerService {
         &mut self,
         rpc_id: RpcId,
         response: RpcSnarkerWorkersResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_health_check(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcHealthCheckResponse,
     ) -> Result<(), RespondError>;
 }

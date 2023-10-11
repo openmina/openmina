@@ -95,7 +95,7 @@ use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAc
 use crate::p2p::P2pAction;
 use crate::rpc::{
     RpcAction, RpcActionStatsGetAction, RpcFinishAction, RpcGlobalStateGetAction,
-    RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingInitAction,
+    RpcHealthCheckAction, RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingInitAction,
     RpcP2pConnectionIncomingPendingAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
@@ -295,6 +295,7 @@ pub enum ActionKind {
     RpcActionStatsGet,
     RpcFinish,
     RpcGlobalStateGet,
+    RpcHealthCheck,
     RpcP2pConnectionIncomingError,
     RpcP2pConnectionIncomingInit,
     RpcP2pConnectionIncomingPending,
@@ -397,7 +398,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 199;
+    pub const COUNT: u16 = 200;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -524,6 +525,7 @@ impl ActionKindGet for RpcAction {
             Self::SnarkerJobCommit(a) => a.kind(),
             Self::SnarkerJobSpec(a) => a.kind(),
             Self::SnarkerWorkersGet(a) => a.kind(),
+            Self::HealthCheck(a) => a.kind(),
             Self::Finish(a) => a.kind(),
         }
     }
@@ -923,6 +925,12 @@ impl ActionKindGet for RpcSnarkerJobSpecAction {
 impl ActionKindGet for RpcSnarkersWorkersGetAction {
     fn kind(&self) -> ActionKind {
         ActionKind::RpcSnarkersWorkersGet
+    }
+}
+
+impl ActionKindGet for RpcHealthCheckAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::RpcHealthCheck
     }
 }
 

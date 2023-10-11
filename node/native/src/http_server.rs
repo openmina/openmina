@@ -6,7 +6,7 @@ use warp::{
     http::HeaderValue,
     hyper::{header::CONTENT_TYPE, Response, StatusCode},
     reply::with_status,
-    Filter, Reply,
+    Filter, Reply, Rejection,
 };
 
 use node::{
@@ -354,9 +354,35 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         .or(snarker_job_commit)
         .or(snarker_job_spec)
         .or(snark_workers)
+        .or(healthcheck(rpc_sender.clone()))
         .or(super::graphql::routes(rpc_sender))
         .with(cors);
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
+}
+
+const DROPPED_CHANNEL: &str = "response channel dropped";
+
+fn healthcheck(rpc_sender: super::RpcSender) -> impl Filter<Error = Rejection, Extract = impl Reply> + Clone {
+    warp::path!("healthz").and(warp::get()).then(move || {
+        let rpc_sender = rpc_sender.clone();
+        async move {
+            rpc_sender
+                .oneshot_request(RpcRequest::HealthCheck)
+                .await
+                .map_or_else(
+                    || {
+                        with_status(
+                            String::from(DROPPED_CHANNEL),
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                        )
+                    },
+                    |reply: node::rpc::RpcHealthCheckResponse| match reply {
+                        Ok(()) => with_status(String::new(), StatusCode::OK),
+                        Err(err) => with_status(err, StatusCode::SERVICE_UNAVAILABLE),
+                    },
+                )
+        }
+    })
 }
 
 use warp::filters::BoxedFilter;

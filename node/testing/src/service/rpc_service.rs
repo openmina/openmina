@@ -103,4 +103,12 @@ impl RpcService for super::NodeTestingService {
     ) -> Result<(), RespondError> {
         self.real.respond_snarker_config_get(rpc_id, response)
     }
+
+    fn respond_health_check(
+        &mut self,
+        rpc_id: RpcId,
+        response: node::rpc::RpcHealthCheckResponse,
+    ) -> Result<(), RespondError> {
+        self.real.respond_health_check(rpc_id, response)
+    }
 }
