@@ -43,6 +43,7 @@ impl std::fmt::Display for Event {
                     }
                     RpcRequest::SnarkerJobSpec { job_id } => write!(f, "SnarkerJobSpec, {job_id}"),
                     RpcRequest::SnarkerWorkers => write!(f, "SnarkerWorkers"),
+                    RpcRequest::HealthCheck => write!(f, "HealthCheck"),
                 }
             }
             Self::ExternalSnarkWorker(event) => {

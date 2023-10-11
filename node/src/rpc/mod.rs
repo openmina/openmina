@@ -53,6 +53,7 @@ pub enum RpcRequest {
     SnarkerJobCommit { job_id: SnarkJobId },
     SnarkerJobSpec { job_id: SnarkJobId },
     SnarkerWorkers,
+    HealthCheck,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -278,3 +279,5 @@ impl From<&MinaBaseUserCommandStableV2> for RpcScanStateSummaryBlockTransactionK
         }
     }
 }
+
+pub type RpcHealthCheckResponse = Result<(), String>;

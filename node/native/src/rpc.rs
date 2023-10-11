@@ -1,3 +1,4 @@
+use node::rpc::RpcHealthCheckResponse;
 use serde::{Deserialize, Serialize};
 
 use node::core::channels::{mpsc, oneshot};
@@ -64,6 +65,21 @@ impl NodeService {
     }
 }
 
+macro_rules! rpc_service_impl {
+    ($name:ident, $ty:ty) => {
+        fn $name(&mut self, rpc_id: RpcId, response: $ty) -> Result<(), RespondError> {
+            let entry = self.rpc.pending.remove(rpc_id);
+            let chan = entry.ok_or(RespondError::UnknownRpcId)?;
+            let chan = chan
+                .downcast::<oneshot::Sender<$ty>>()
+                .or(Err(RespondError::UnexpectedResponseType))?;
+            chan.send(response)
+                .or(Err(RespondError::RespondingFailed))?;
+            Ok(())
+        }
+    };
+}
+
 impl node::rpc::RpcService for NodeService {
     fn respond_state_get(&mut self, rpc_id: RpcId, response: &State) -> Result<(), RespondError> {
         let entry = self.rpc.pending.remove(rpc_id);
@@ -76,66 +92,16 @@ impl node::rpc::RpcService for NodeService {
         Ok(())
     }
 
-    fn respond_sync_stats_get(
-        &mut self,
-        rpc_id: RpcId,
-        response: RpcSyncStatsGetResponse,
-    ) -> Result<(), RespondError> {
-        let entry = self.rpc.pending.remove(rpc_id);
-        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
-        let chan = chan
-            .downcast::<oneshot::Sender<RpcSyncStatsGetResponse>>()
-            .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(response)
-            .or(Err(RespondError::RespondingFailed))?;
-        Ok(())
-    }
-
-    fn respond_action_stats_get(
-        &mut self,
-        rpc_id: RpcId,
-        response: RpcActionStatsGetResponse,
-    ) -> Result<(), RespondError> {
-        let entry = self.rpc.pending.remove(rpc_id);
-        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
-        let chan = chan
-            .downcast::<oneshot::Sender<RpcActionStatsGetResponse>>()
-            .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(response)
-            .or(Err(RespondError::RespondingFailed))?;
-        Ok(())
-    }
-
-    fn respond_p2p_connection_outgoing(
-        &mut self,
-        rpc_id: RpcId,
-        response: RpcP2pConnectionOutgoingResponse,
-    ) -> Result<(), RespondError> {
-        let entry = self.rpc.pending.remove(rpc_id);
-        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
-        let chan = chan
-            .downcast::<oneshot::Sender<RpcP2pConnectionOutgoingResponse>>()
-            .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(response)
-            .or(Err(RespondError::RespondingFailed))?;
-        Ok(())
-    }
-
-    fn respond_p2p_connection_incoming_answer(
-        &mut self,
-        rpc_id: RpcId,
-        response: P2pConnectionResponse,
-    ) -> Result<(), RespondError> {
-        let entry = self.rpc.pending.get(rpc_id);
-        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
-        let chan = chan
-            .downcast_ref::<mpsc::Sender<RpcP2pConnectionIncomingResponse>>()
-            .ok_or(RespondError::UnexpectedResponseType)?
-            .clone();
-        chan.try_send(RpcP2pConnectionIncomingResponse::Answer(response))
-            .or(Err(RespondError::RespondingFailed))?;
-        Ok(())
-    }
+    rpc_service_impl!(respond_sync_stats_get, RpcSyncStatsGetResponse);
+    rpc_service_impl!(respond_action_stats_get, RpcActionStatsGetResponse);
+    rpc_service_impl!(
+        respond_p2p_connection_outgoing,
+        RpcP2pConnectionOutgoingResponse
+    );
+    rpc_service_impl!(
+        respond_p2p_connection_incoming_answer,
+        P2pConnectionResponse
+    );
 
     fn respond_p2p_connection_incoming(
         &mut self,
@@ -152,108 +118,24 @@ impl node::rpc::RpcService for NodeService {
         Ok(())
     }
 
-    fn respond_scan_state_summary_get(
-        &mut self,
-        rpc_id: RpcId,
-        response: RpcScanStateSummaryGetResponse,
-    ) -> Result<(), RespondError> {
-        let entry = self.rpc.pending.remove(rpc_id);
-        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
-        let chan = chan
-            .downcast::<oneshot::Sender<RpcScanStateSummaryGetResponse>>()
-            .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(response)
-            .or(Err(RespondError::RespondingFailed))?;
-        Ok(())
-    }
-
-    fn respond_snark_pool_get(
-        &mut self,
-        rpc_id: RpcId,
-        response: RpcSnarkPoolGetResponse,
-    ) -> Result<(), RespondError> {
-        let entry = self.rpc.pending.remove(rpc_id);
-        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
-        let chan = chan
-            .downcast::<oneshot::Sender<RpcSnarkPoolGetResponse>>()
-            .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(response)
-            .or(Err(RespondError::RespondingFailed))?;
-        Ok(())
-    }
-
-    fn respond_snark_pool_job_get(
-        &mut self,
-        rpc_id: RpcId,
-        response: RpcSnarkPoolJobGetResponse,
-    ) -> Result<(), RespondError> {
-        let entry = self.rpc.pending.remove(rpc_id);
-        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
-        let chan = chan
-            .downcast::<oneshot::Sender<RpcSnarkPoolJobGetResponse>>()
-            .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(response)
-            .or(Err(RespondError::RespondingFailed))?;
-        Ok(())
-    }
-
-    fn respond_snarker_job_commit(
-        &mut self,
-        rpc_id: RpcId,
-        response: RpcSnarkerJobCommitResponse,
-    ) -> Result<(), RespondError> {
-        let entry = self.rpc.pending.remove(rpc_id);
-        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
-        let chan = chan
-            .downcast::<oneshot::Sender<RpcSnarkerJobCommitResponse>>()
-            .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(response)
-            .or(Err(RespondError::RespondingFailed))?;
-        Ok(())
-    }
-
-    fn respond_snarker_job_spec(
-        &mut self,
-        rpc_id: RpcId,
-        response: node::rpc::RpcSnarkerJobSpecResponse,
-    ) -> Result<(), RespondError> {
-        let entry = self.rpc.pending.remove(rpc_id);
-        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
-        let chan = chan
-            .downcast::<oneshot::Sender<RpcSnarkerJobSpecResponse>>()
-            .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(response.clone())
-            .or(Err(RespondError::RespondingFailed))?;
-        Ok(())
-    }
-
-    fn respond_snarker_workers(
-        &mut self,
-        rpc_id: RpcId,
-        response: node::rpc::RpcSnarkerWorkersResponse,
-    ) -> Result<(), RespondError> {
-        let entry = self.rpc.pending.remove(rpc_id);
-        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
-        let chan = chan
-            .downcast::<oneshot::Sender<node::rpc::RpcSnarkerWorkersResponse>>()
-            .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(response.clone())
-            .or(Err(RespondError::RespondingFailed))?;
-        Ok(())
-    }
-
-    fn respond_snarker_config_get(
-        &mut self,
-        rpc_id: RpcId,
-        response: node::rpc::RpcSnarkerConfigGetResponse,
-    ) -> Result<(), RespondError> {
-        let entry = self.rpc.pending.remove(rpc_id);
-        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
-        let chan = chan
-            .downcast::<oneshot::Sender<node::rpc::RpcSnarkerConfigGetResponse>>()
-            .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(response.clone())
-            .or(Err(RespondError::RespondingFailed))?;
-        Ok(())
-    }
+    rpc_service_impl!(
+        respond_scan_state_summary_get,
+        RpcScanStateSummaryGetResponse
+    );
+    rpc_service_impl!(respond_snark_pool_get, RpcSnarkPoolGetResponse);
+    rpc_service_impl!(respond_snark_pool_job_get, RpcSnarkPoolJobGetResponse);
+    rpc_service_impl!(respond_snarker_job_commit, RpcSnarkerJobCommitResponse);
+    rpc_service_impl!(
+        respond_snarker_job_spec,
+        node::rpc::RpcSnarkerJobSpecResponse
+    );
+    rpc_service_impl!(
+        respond_snarker_workers,
+        node::rpc::RpcSnarkerWorkersResponse
+    );
+    rpc_service_impl!(
+        respond_snarker_config_get,
+        node::rpc::RpcSnarkerConfigGetResponse
+    );
+    rpc_service_impl!(respond_health_check, RpcHealthCheckResponse);
 }
