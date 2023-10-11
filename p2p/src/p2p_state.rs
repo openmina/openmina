@@ -21,10 +21,15 @@ pub struct P2pState {
 
 impl P2pState {
     pub fn new(config: P2pConfig) -> Self {
+        let known_peers = config
+            .initial_peers
+            .iter()
+            .map(|p| (p.peer_id().clone(), p.clone()))
+            .collect();
         Self {
             config,
             peers: Default::default(),
-            known_peers: Default::default(),
+            known_peers,
         }
     }
 
@@ -51,10 +56,8 @@ impl P2pState {
     }
 
     pub fn initial_unused_peers(&self) -> Vec<P2pConnectionOutgoingInitOpts> {
-        // TODO(vlad9486): use `known_peers` to extend the output if it is not enough
-        self.config
-            .initial_peers
-            .iter()
+        self.known_peers
+            .values()
             .filter(|v| !self.peers.contains_key(v.peer_id()))
             .cloned()
             .collect()
