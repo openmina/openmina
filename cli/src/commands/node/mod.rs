@@ -90,7 +90,7 @@ fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
         "/dns4/webrtc2.webnode.openmina.com/tcp/443/p2p/12D3KooWFpqySZDHx7k5FMjdwmrU3TLhDbdADECCautBcEGtG4fr",
         "/dns4/webrtc2.webnode.openmina.com/tcp/4431/p2p/12D3KooWJBeXosFxdBwe2mbKRjgRG69ERaUTpS9qo9NRkoE8kBpj",
 
-        "/ip4/78.27.236.28/tcp/8302/12D3KooWDLNXPq28An4s2QaPZX5ftem1AfaCWuxHHJq97opeWxLy",
+        "/ip4/78.27.236.28/tcp/8302/p2p/12D3KooWDLNXPq28An4s2QaPZX5ftem1AfaCWuxHHJq97opeWxLy",
     ]
         .into_iter()
         .map(|s| s.parse().unwrap())

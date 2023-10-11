@@ -13,6 +13,7 @@ trigger:
 
 environment:
   REPLAYER_ID: 12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw
+  CHAIN_ID: 3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e
 
   OPENMINA1_SK: 5KJKg7yAbYAQcNGWcKFf2C4ruJxwrHoQvsksU16yPzFzXHMsbMc
   OPENMINA1_ID: 2axsdDAiiZee7hUsRPMtuyHt94UMrvJmMQDhDjKhdRhgqkMdy8e
@@ -67,7 +68,7 @@ steps:
       # 12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw
       OPENMINA_P2P_SEC_KEY: 5JDRBqXfHm4Xne1QKUJyg9FKRfwN6gtduZb7nVYHg2F1BmwPynT
     commands:
-      - RUST_LOG=info openmina-bootstrap-sandbox --path='/tmp/mina-record' --listen='/ip4/0.0.0.0/tcp/8302' replay 234
+      - RUST_LOG=info openmina-bootstrap-sandbox --path='/tmp/mina-record' --listen='/ip4/0.0.0.0/tcp/8302' --chain-id=$CHAIN_ID replay 234
 
   # - name: empty
   #   image: vladsimplestakingcom/bootstrap-rr:graphql
@@ -122,7 +123,7 @@ steps:
     pull: always
     commands:
       - sleep 180
-      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 234 http://openmina1:10000/graphql
+      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' --chain-id=$CHAIN_ID test-graphql 234 http://openmina1:10000/graphql
 
   - name: openmina3
     image: *snark-worker-image
@@ -137,7 +138,7 @@ steps:
     pull: always
     commands:
       - sleep 180
-      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 234 http://openmina3:10000/graphql
+      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' --chain-id=$CHAIN_ID test-graphql 234 http://openmina3:10000/graphql
 
   # - name: test-bootstrap-openmina-to-mina
   #   image: vladsimplestakingcom/bootstrap-rr:graphql
@@ -148,7 +149,7 @@ steps:
   #     - apt-get update && apt-get install -y netcat
   #     - echo "ready" | netcat -q 1 ocaml1 9000
   #     - sleep 180
-  #     - timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' test-graphql 234 http://ocaml1:3085/graphql
+  #     - timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' --chain-id=$CHAIN_ID test-graphql 234 http://ocaml1:3085/graphql
 
   - name: test-snark-work
     image: alpine
