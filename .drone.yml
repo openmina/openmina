@@ -213,7 +213,7 @@ name: build-pr-docker-image
 
 trigger:
   branch:
-    - feat/standalone_snark_worker
+    - develop
   events:
     - pull_request
 
