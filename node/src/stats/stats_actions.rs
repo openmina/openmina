@@ -105,7 +105,7 @@ impl<'de> Deserialize<'de> for ActionStatsSnapshot {
     {
         let mut m: BTreeMap<ActionKind, ActionStatsForRanges> =
             Deserialize::deserialize(deserializer)?;
-        let list = (0..(ActionKind::COUNT as u16))
+        let list = (0..ActionKind::COUNT)
             .map(|i| {
                 let kind = i.try_into().unwrap();
                 m.remove(&kind).unwrap_or(ActionStatsForRanges::default())
