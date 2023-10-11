@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::P2pDisconnectionReason;
+
 pub type P2pDisconnectionActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pDisconnectionAction>;
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
@@ -11,6 +13,7 @@ pub enum P2pDisconnectionAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pDisconnectionInitAction {
     pub peer_id: crate::PeerId,
+    pub reason: P2pDisconnectionReason,
 }
 
 impl redux::EnablingCondition<crate::P2pState> for P2pDisconnectionInitAction {

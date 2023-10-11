@@ -23,7 +23,9 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingOfferSdpCreateSuccessAction,
 };
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
-use crate::p2p::disconnection::{P2pDisconnectionFinishAction, P2pDisconnectionInitAction};
+use crate::p2p::disconnection::{
+    P2pDisconnectionFinishAction, P2pDisconnectionInitAction, P2pDisconnectionReason,
+};
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcP2pConnectionIncomingInitAction,
@@ -156,14 +158,14 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     },
                     P2pChannelEvent::Sent(peer_id, _, _, res) => {
                         if let Err(err) = res {
-                            openmina_core::log::warn!(meta.time(); kind = "P2pChannelEvent::Sent", peer_id = peer_id.to_string(), error = err);
-                            store.dispatch(P2pDisconnectionInitAction { peer_id });
+                            let reason = P2pDisconnectionReason::P2pChannelSendFailed(err);
+                            store.dispatch(P2pDisconnectionInitAction { peer_id, reason });
                         }
                     }
                     P2pChannelEvent::Received(peer_id, res) => match res {
                         Err(err) => {
-                            openmina_core::log::warn!(meta.time(); kind = "P2pChannelEvent::Received", peer_id = peer_id.to_string(), error = err);
-                            store.dispatch(P2pDisconnectionInitAction { peer_id });
+                            let reason = P2pDisconnectionReason::P2pChannelReceiveFailed(err);
+                            store.dispatch(P2pDisconnectionInitAction { peer_id, reason });
                         }
                         Ok(message) => {
                             store.dispatch(P2pChannelsMessageReceivedAction { peer_id, message });
@@ -172,8 +174,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     P2pChannelEvent::Libp2pSnarkReceived(peer_id, snark) => {
                         store.dispatch(P2pChannelsSnarkLibp2pReceivedAction { peer_id, snark });
                     }
-                    P2pChannelEvent::Closed(peer_id, _) => {
-                        store.dispatch(P2pDisconnectionInitAction { peer_id });
+                    P2pChannelEvent::Closed(peer_id, chan_id) => {
+                        let reason = P2pDisconnectionReason::P2pChannelClosed(chan_id);
+                        store.dispatch(P2pDisconnectionInitAction { peer_id, reason });
                     }
                 },
             },

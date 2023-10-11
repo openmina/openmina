@@ -9,3 +9,19 @@ pub use p2p_disconnection_effects::*;
 
 mod p2p_disconnection_service;
 pub use p2p_disconnection_service::*;
+
+use serde::{Deserialize, Serialize};
+
+use crate::channels::ChannelId;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pDisconnectionReason {
+    P2pChannelMsgUnexpected(ChannelId),
+    P2pChannelSendFailed(String),
+    P2pChannelReceiveFailed(String),
+    P2pChannelClosed(ChannelId),
+
+    TransitionFrontierRpcTimeout,
+
+    SnarkPoolVerifyError,
+}
