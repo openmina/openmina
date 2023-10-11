@@ -212,7 +212,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             "#[derive(Serialize, Deserialize, TryFromPrimitive, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]";
         let repr = "#[repr(u16)]";
         let impl_ = format!(
-            "impl ActionKind {{\n    pub const COUNT: usize = {};\n}}",
+            "impl ActionKind {{\n    pub const COUNT: u16 = {};\n}}",
             action_kinds.len()
         );
         let impl_display = format!(
