@@ -1,7 +1,7 @@
 use openmina_core::block::BlockWithHash;
 use redux::ActionMeta;
 
-use crate::disconnection::P2pDisconnectionInitAction;
+use crate::disconnection::{P2pDisconnectionInitAction, P2pDisconnectionReason};
 
 use super::{
     best_tip::{
@@ -41,6 +41,7 @@ impl P2pChannelsMessageReceivedAction {
         P2pDisconnectionInitAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
+        let chan_id = self.message.channel_id();
         let was_expected = match self.message {
             ChannelMsg::BestTipPropagation(msg) => match msg {
                 BestTipPropagationChannelMsg::GetNext => {
@@ -104,8 +105,8 @@ impl P2pChannelsMessageReceivedAction {
         };
 
         if !was_expected {
-            // TODO(binier): have separate action for unexpected message.
-            store.dispatch(P2pDisconnectionInitAction { peer_id });
+            let reason = P2pDisconnectionReason::P2pChannelMsgUnexpected(chan_id);
+            store.dispatch(P2pDisconnectionInitAction { peer_id, reason });
         }
     }
 }

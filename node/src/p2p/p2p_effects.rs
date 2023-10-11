@@ -47,7 +47,9 @@ use super::connection::incoming::{
 };
 use super::connection::outgoing::P2pConnectionOutgoingAction;
 use super::connection::{P2pConnectionAction, P2pConnectionResponse};
-use super::disconnection::{P2pDisconnectionAction, P2pDisconnectionInitAction};
+use super::disconnection::{
+    P2pDisconnectionAction, P2pDisconnectionInitAction, P2pDisconnectionReason,
+};
 use super::peer::P2pPeerAction;
 use super::{P2pAction, P2pActionWithMeta};
 
@@ -371,6 +373,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     });
                     store.dispatch(P2pDisconnectionInitAction {
                         peer_id: action.peer_id,
+                        reason: P2pDisconnectionReason::TransitionFrontierRpcTimeout,
                     });
                 }
                 P2pChannelsRpcAction::ResponseReceived(action) => {
