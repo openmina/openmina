@@ -16,8 +16,14 @@ Currently, with the Open Mina node, you can:
 * Produce SNARKs
 * Broadcast messages: block information, transaction pool, SNARK pool
 
+
 We are working on the following:
 
+
+* Produce SNARKs in Rust (currently we use OCaml subprocess for that)
+
+
+In the future, we plan to implement:
 
 
 * Direct transfer of MINA funds 
