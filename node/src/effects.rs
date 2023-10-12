@@ -1,3 +1,5 @@
+use p2p::discovery::P2pDiscoveryInitAction;
+
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::external_snark_worker::{
@@ -14,7 +16,7 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
     P2pConnectionOutgoingTimeoutAction,
 };
-use crate::p2p::p2p_effects;
+use crate::p2p::{p2p_effects, peer};
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
 use crate::snark_pool::candidate::{
@@ -141,9 +143,18 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                 .filter(|(_, limit)| *limit > 0)
                 .map(|(peer_id, limit)| (*peer_id, limit.min(u8::MAX as usize) as u8))
                 .collect::<Vec<_>>();
+            let ids = state
+                .p2p
+                .ready_peers_iter()
+                .map(|(peer_id, _)| *peer_id)
+                .collect::<Vec<_>>();
 
             for (peer_id, limit) in snark_reqs {
                 store.dispatch(P2pChannelsSnarkRequestSendAction { peer_id, limit });
+            }
+
+            for peer_id in ids {
+                store.dispatch(P2pDiscoveryInitAction { peer_id });
             }
 
             let state = store.state();

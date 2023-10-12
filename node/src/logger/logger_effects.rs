@@ -266,6 +266,14 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         peer_id = action.peer_id.to_string()
                     );
                 }
+                P2pDiscoveryAction::Timeout(action) => {
+                    openmina_core::log::debug!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("peer_id: {}", action.peer_id),
+                        peer_id = action.peer_id.to_string()
+                    );
+                }
             },
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(_) => {}

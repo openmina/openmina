@@ -89,6 +89,7 @@ use crate::p2p::disconnection::{
 };
 use crate::p2p::discovery::{
     P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoverySuccessAction,
+    P2pDiscoveryTimeoutAction,
 };
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
 use crate::p2p::P2pAction;
@@ -288,6 +289,7 @@ pub enum ActionKind {
     P2pDisconnectionInit,
     P2pDiscoveryInit,
     P2pDiscoverySuccess,
+    P2pDiscoveryTimeout,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
@@ -395,7 +397,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 198;
+    pub const COUNT: u16 = 199;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -611,6 +613,7 @@ impl ActionKindGet for P2pDiscoveryAction {
         match self {
             Self::Init(a) => a.kind(),
             Self::Success(a) => a.kind(),
+            Self::Timeout(a) => a.kind(),
         }
     }
 }
@@ -1131,6 +1134,12 @@ impl ActionKindGet for P2pDiscoveryInitAction {
 impl ActionKindGet for P2pDiscoverySuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pDiscoverySuccess
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoveryTimeout
     }
 }
 

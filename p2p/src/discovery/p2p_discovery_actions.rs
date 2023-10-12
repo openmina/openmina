@@ -11,6 +11,7 @@ pub type P2pDiscoveryActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pDiscov
 pub enum P2pDiscoveryAction {
     Init(P2pDiscoveryInitAction),
     Success(P2pDiscoverySuccessAction),
+    Timeout(P2pDiscoveryTimeoutAction),
 }
 
 impl redux::EnablingCondition<P2pState> for P2pDiscoveryAction {
@@ -18,6 +19,7 @@ impl redux::EnablingCondition<P2pState> for P2pDiscoveryAction {
         match self {
             Self::Init(action) => action.is_enabled(state),
             Self::Success(action) => action.is_enabled(state),
+            Self::Timeout(action) => action.is_enabled(state),
         }
     }
 }
@@ -33,6 +35,12 @@ impl redux::EnablingCondition<P2pState> for P2pDiscoveryInitAction {
     }
 }
 
+impl From<P2pDiscoveryInitAction> for crate::P2pAction {
+    fn from(a: P2pDiscoveryInitAction) -> Self {
+        Self::Discovery(a.into())
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pDiscoverySuccessAction {
     pub peer_id: PeerId,
@@ -45,14 +53,25 @@ impl redux::EnablingCondition<P2pState> for P2pDiscoverySuccessAction {
     }
 }
 
-impl From<P2pDiscoveryInitAction> for crate::P2pAction {
-    fn from(a: P2pDiscoveryInitAction) -> Self {
+impl From<P2pDiscoverySuccessAction> for crate::P2pAction {
+    fn from(a: P2pDiscoverySuccessAction) -> Self {
         Self::Discovery(a.into())
     }
 }
 
-impl From<P2pDiscoverySuccessAction> for crate::P2pAction {
-    fn from(a: P2pDiscoverySuccessAction) -> Self {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pDiscoveryTimeoutAction {
+    pub peer_id: PeerId,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pDiscoveryTimeoutAction {
+    fn is_enabled(&self, _state: &P2pState) -> bool {
+        true
+    }
+}
+
+impl From<P2pDiscoveryTimeoutAction> for crate::P2pAction {
+    fn from(a: P2pDiscoveryTimeoutAction) -> Self {
         Self::Discovery(a.into())
     }
 }
