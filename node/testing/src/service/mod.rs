@@ -176,8 +176,13 @@ impl SnarkBlockVerifyService for NodeTestingService {
         verifier_srs: Arc<VerifierSRS>,
         block: VerifiableBlockWithHash,
     ) {
-        let _ = (req_id, verifier_index, verifier_srs, block);
-        return;
+        SnarkBlockVerifyService::verify_init(
+            &mut self.real,
+            req_id,
+            verifier_index,
+            verifier_srs,
+            block,
+        )
     }
 }
 
@@ -189,8 +194,13 @@ impl SnarkWorkVerifyService for NodeTestingService {
         verifier_srs: Arc<VerifierSRS>,
         work: Vec<Snark>,
     ) {
-        let _ = (req_id, verifier_index, verifier_srs, work);
-        return;
+        SnarkWorkVerifyService::verify_init(
+            &mut self.real,
+            req_id,
+            verifier_index,
+            verifier_srs,
+            work,
+        )
     }
 }
 

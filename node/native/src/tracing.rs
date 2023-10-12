@@ -1,6 +1,8 @@
+pub use tracing::Level;
+
 use std::fmt::Result;
 
-use tracing::{field::Visit, Level};
+use tracing::field::Visit;
 use tracing_subscriber::{
     field::{RecordFields, VisitOutput},
     fmt::{

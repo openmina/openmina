@@ -10,7 +10,7 @@ pub mod scenario;
 use scenario::{event_details, Scenario, ScenarioId, ScenarioInfo, ScenarioStep};
 use service::PendingEventId;
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use axum::{
     extract::{Path, State},
@@ -20,13 +20,14 @@ use axum::{
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
-use tokio::sync::{Mutex, MutexGuard, OwnedMutexGuard};
+use tokio::sync::{oneshot, Mutex, MutexGuard, OwnedMutexGuard};
 use tower_http::cors::CorsLayer;
 
 const PORT: u16 = 11000;
 
 pub fn server() {
     eprintln!("scenarios path: {}", Scenario::PATH);
+    // openmina_node_native::tracing::initialize(openmina_node_native::tracing::Level::DEBUG);
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get().max(2) - 1)
         .thread_name(|i| format!("openmina_rayon_{i}"))
@@ -53,6 +54,7 @@ pub fn server() {
         .route("/create/:scenario_id", put(cluster_create))
         .route("/:cluster_id", get(cluster_get))
         .route("/:cluster_id/run", post(cluster_run))
+        .route("/:cluster_id/run/auto", post(cluster_run_auto))
         .route(
             "/:cluster_id/scenarios/reload",
             post(cluster_scenarios_reload),
@@ -320,6 +322,63 @@ async fn cluster_run(
     };
 
     res.map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))
+}
+
+async fn cluster_run_auto(
+    State(state): State<AppState>,
+    Path(cluster_id): Path<u16>,
+) -> Result<(), (StatusCode, String)> {
+    let mut cluster = state.cluster(cluster_id).await?;
+
+    let _ = cluster.target_scenario().ok_or_else(|| {
+        (
+            StatusCode::BAD_REQUEST,
+            "target scenario for cluster isnt set".to_owned(),
+        )
+    })?;
+
+    cluster
+        .exec_to_end()
+        .await
+        .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+
+    let (tx, rx) = oneshot::channel::<Result<(), String>>();
+
+    tokio::spawn(async move {
+        while !tx.is_closed() {
+            let steps = cluster
+                .pending_events()
+                .flat_map(|(node_id, _, pending_events)| {
+                    pending_events.map(move |(_, event)| ScenarioStep::Event {
+                        node_id,
+                        event: event.to_string(),
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            if steps.is_empty() {
+                let timeout = tokio::time::sleep(Duration::from_secs(5));
+
+                tokio::select! {
+                    _ = cluster.wait_for_pending_events() => continue,
+                    _ = timeout => break,
+                }
+            }
+
+            cluster.add_steps_and_save(steps).await;
+
+            if let Err(err) = cluster.exec_to_end().await {
+                let _ = tx.send(Err(err.to_string()));
+                return;
+            }
+        }
+
+        let _ = tx.send(Ok(()));
+    });
+
+    rx.await
+        .unwrap()
+        .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err))
 }
 
 async fn cluster_scenarios_reload(
