@@ -280,6 +280,27 @@ impl Cluster {
         Ok(node.pending_events_with_state())
     }
 
+    pub async fn wait_for_pending_events(&mut self) {
+        loop {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            if self
+                .nodes
+                .iter_mut()
+                .any(|node| node.pending_events().next().is_some())
+            {
+                break;
+            }
+        }
+    }
+
+    pub async fn add_steps_and_save(&mut self, steps: impl IntoIterator<Item = ScenarioStep>) {
+        let scenario = self.scenario.chain.back_mut().unwrap();
+        steps
+            .into_iter()
+            .for_each(|step| scenario.add_step(step).unwrap());
+        scenario.save().await.unwrap();
+    }
+
     pub async fn exec_to_end(&mut self) -> Result<(), anyhow::Error> {
         loop {
             if !self.exec_next().await? {
