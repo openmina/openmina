@@ -22,6 +22,7 @@ tokio = { version = "1.26.0" }
 num_cpus = "1.0"
 rayon = "1.5"
 axum = "0.6"
+tower-http = { version = "0.4.4", features = ["cors"] }
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
