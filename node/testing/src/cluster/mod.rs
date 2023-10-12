@@ -45,6 +45,8 @@ pub struct Cluster {
     available_ports: Box<dyn Iterator<Item = u16> + Send>,
     nodes: Vec<Node>,
 
+    rpc_counter: usize,
+
     verifier_srs: Arc<VerifierSRS>,
     block_verifier_index: Arc<VerifierIndex>,
     work_verifier_index: Arc<VerifierIndex>,
@@ -71,6 +73,8 @@ impl Cluster {
             },
             available_ports: Box::new(available_ports),
             nodes: vec![],
+
+            rpc_counter: 0,
 
             verifier_srs: get_srs().into(),
             block_verifier_index: get_verifier_index(VerifierKind::Blockchain).into(),
@@ -364,7 +368,8 @@ impl Cluster {
                     ListenerNode::Custom(addr) => addr.clone(),
                 };
 
-                let rpc_id = RpcId::new_unchecked(usize::MAX, usize::MAX);
+                self.rpc_counter += 1;
+                let rpc_id = RpcId::new_unchecked(usize::MAX, self.rpc_counter);
                 let dialer = self
                     .nodes
                     .get_mut(dialer.index())
