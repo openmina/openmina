@@ -4,7 +4,7 @@ pub use config::{NodeTestingConfig, RustNodeTestingConfig};
 use node::event_source::{Event, EventSourceNewEventAction};
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::webrtc::SignalingMethod;
-use node::{Action, State, Store};
+use node::{Action, CheckTimeoutsAction, State, Store};
 use redux::EnablingCondition;
 
 use crate::service::{NodeTestingService, PendingEventId};
@@ -42,6 +42,10 @@ impl Node {
 
     pub fn dispatch_event(&mut self, event: Event) -> bool {
         self.dispatch(EventSourceNewEventAction { event })
+    }
+
+    pub fn check_timeouts(&mut self) {
+        self.dispatch(CheckTimeoutsAction {});
     }
 
     pub fn advance_time(&mut self, by_nanos: u64) {

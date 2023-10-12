@@ -22,8 +22,15 @@ pub enum ScenarioStep {
         dialer: ClusterNodeId,
         listener: ListenerNode,
     },
-    /// Advance time by passed nanoseconds for the node.
+    CheckTimeouts {
+        node_id: ClusterNodeId,
+    },
+    /// Advance global time by passed nanoseconds.
     AdvanceTime {
+        by_nanos: u64,
+    },
+    /// Advance time by passed nanoseconds for the node.
+    AdvanceNodeTime {
         node_id: ClusterNodeId,
         by_nanos: u64,
     },
