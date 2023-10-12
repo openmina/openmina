@@ -70,7 +70,7 @@ impl P2pState {
                             return None;
                         }
                         let opts = P2pConnectionOutgoingInitOpts::LibP2P {
-                            peer_id: peer_id.into(),
+                            peer_id: dbg!(peer_id).into(),
                             maddr: {
                                 use libp2p::{multiaddr::Protocol, Multiaddr};
                                 use std::net::IpAddr;
@@ -85,6 +85,7 @@ impl P2pState {
                         Some((peer_id.into(), opts))
                     }));
                 }
+                P2pDiscoveryAction::Timeout(_) => {}
             },
         }
     }

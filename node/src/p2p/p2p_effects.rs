@@ -264,13 +264,8 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     request: P2pRpcRequest::InitialPeers,
                 });
             }
-            P2pDiscoveryAction::Success(action) => {
-                store.dispatch(P2pChannelsRpcRequestSendAction {
-                    peer_id: action.peer_id,
-                    id: 0,
-                    request: P2pRpcRequest::BestTipWithProof,
-                });
-            }
+            P2pDiscoveryAction::Timeout(_) => {}
+            P2pDiscoveryAction::Success(_) => {}
         },
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {
@@ -365,7 +360,11 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 }
                 P2pChannelsRpcAction::Pending(_) => {}
                 P2pChannelsRpcAction::Ready(a) => {
-                    store.dispatch(P2pDiscoveryInitAction { peer_id: a.peer_id });
+                    store.dispatch(P2pChannelsRpcRequestSendAction {
+                        peer_id: a.peer_id,
+                        id: 0,
+                        request: P2pRpcRequest::BestTipWithProof,
+                    });
 
                     store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
                     store.dispatch(TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {});
