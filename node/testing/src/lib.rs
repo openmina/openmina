@@ -21,6 +21,7 @@ use axum::{
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{Mutex, MutexGuard, OwnedMutexGuard};
+use tower_http::cors::CorsLayer;
 
 const PORT: u16 = 11000;
 
@@ -66,10 +67,13 @@ pub fn server() {
         )
         .route("/:cluster_id/destroy", post(cluster_destroy));
 
+    let cors = CorsLayer::very_permissive();
+
     let app = Router::new()
         .nest("/scenarios", scenarios_router)
         .nest("/clusters", clusters_router)
-        .with_state(state);
+        .with_state(state)
+        .layer(cors);
 
     rt.block_on(async {
         axum::Server::bind(&([0, 0, 0, 0], PORT).into())
