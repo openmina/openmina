@@ -3915,6 +3915,7 @@ dependencies = [
  "libp2p",
  "libp2p-rpc-behaviour",
  "mina-p2p-messages",
+ "mina-tree",
  "multihash 0.18.1",
  "openmina-core",
  "rand 0.8.5",

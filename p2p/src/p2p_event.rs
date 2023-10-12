@@ -3,7 +3,7 @@ use openmina_core::snark::Snark;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    channels::{rpc::P2pRpcRequest, ChannelId, ChannelMsg, MsgId},
+    channels::{ChannelId, ChannelMsg, MsgId},
     connection::P2pConnectionResponse,
     PeerId,
 };
@@ -159,22 +159,7 @@ impl std::fmt::Display for P2pChannelEvent {
                     },
                     ChannelMsg::Rpc(v) => match v {
                         RpcChannelMsg::Request(id, req) => {
-                            write!(f, "Request, id: {id}, {:?}", req.kind())?;
-                            match req {
-                                P2pRpcRequest::BestTipWithProof => Ok(()),
-                                P2pRpcRequest::LedgerQuery(ledger_hash, query) => {
-                                    write!(f, ", {ledger_hash}, {query:?}")
-                                }
-                                P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
-                                    block_hash,
-                                )
-                                | P2pRpcRequest::Block(block_hash) => {
-                                    write!(f, ", {block_hash}")
-                                }
-                                P2pRpcRequest::Snark(job_id) => {
-                                    write!(f, ", {job_id}")
-                                }
-                            }
+                            write!(f, "Request, id: {id}, {req}")
                         }
                         RpcChannelMsg::Response(id, resp) => {
                             write!(f, "Response, id: {id}, ")?;

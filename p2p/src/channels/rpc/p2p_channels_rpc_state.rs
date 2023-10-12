@@ -105,14 +105,18 @@ impl P2pChannelsRpcState {
         }
     }
 
-    pub fn pending_local_rpc_kind(&self) -> Option<P2pRpcKind> {
+    pub fn pending_local_rpc(&self) -> Option<&P2pRpcRequest> {
         match self {
             Self::Ready {
                 local: P2pRpcLocalState::Requested { request, .. },
                 ..
-            } => Some(request.kind()),
+            } => Some(request),
             _ => None,
         }
+    }
+
+    pub fn pending_local_rpc_kind(&self) -> Option<P2pRpcKind> {
+        self.pending_local_rpc().map(|req| req.kind())
     }
 
     pub fn local_responded_request(&self) -> Option<(P2pRpcId, &P2pRpcRequest)> {

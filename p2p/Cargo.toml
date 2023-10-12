@@ -25,6 +25,7 @@ ed25519-dalek = { version = "2.0.0-rc.2", features = ["serde"] }
 
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 mina-p2p-messages = { workspace = true }
+ledger = { workspace = true }
 
 openmina-core = { path = "../core" }
 snark = { path = "../snark" }
