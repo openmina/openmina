@@ -7,6 +7,7 @@ pub use p2p_task_spawner::P2pTaskSpawner;
 mod node_id;
 pub use node_id::ClusterNodeId;
 
+use std::time::Duration;
 use std::{collections::VecDeque, sync::Arc};
 
 use ledger::proofs::{VerifierIndex, VerifierSRS};
@@ -342,7 +343,13 @@ impl Cluster {
                     .nodes
                     .get_mut(node_id.index())
                     .ok_or(anyhow::anyhow!("node {node_id:?} not found"))?;
-                node.wait_for_event_and_dispatch(&event).await
+                let timeout = tokio::time::sleep(Duration::from_secs(5));
+                tokio::select! {
+                    res = node.wait_for_event_and_dispatch(&event) => res,
+                    _ = timeout => {
+                        return Err(anyhow::anyhow!("waiting for event timed out! node {node_id:?}, event: \"{event}\""));
+                    }
+                }
             }
             ScenarioStep::ConnectNodes { dialer, listener } => {
                 let listener_addr = match listener {
