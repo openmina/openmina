@@ -378,7 +378,21 @@ impl Cluster {
                 let req = node::rpc::RpcRequest::P2pConnectionOutgoing(listener_addr);
                 dialer.dispatch_event(Event::Rpc(rpc_id, req))
             }
-            ScenarioStep::AdvanceTime { node_id, by_nanos } => {
+            ScenarioStep::CheckTimeouts { node_id } => {
+                let node = self
+                    .nodes
+                    .get_mut(node_id.index())
+                    .ok_or(anyhow::anyhow!("node {node_id:?} not found"))?;
+                node.check_timeouts();
+                true
+            }
+            ScenarioStep::AdvanceTime { by_nanos } => {
+                for node in &mut self.nodes {
+                    node.advance_time(*by_nanos)
+                }
+                true
+            }
+            ScenarioStep::AdvanceNodeTime { node_id, by_nanos } => {
                 let node = self
                     .nodes
                     .get_mut(node_id.index())
