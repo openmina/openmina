@@ -159,6 +159,39 @@ impl Default for P2pRpcRequest {
     }
 }
 
+impl std::fmt::Display for P2pRpcRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.kind())?;
+        match self {
+            Self::BestTipWithProof => Ok(()),
+            Self::LedgerQuery(ledger_hash, query) => {
+                let addr_to_str = |addr| {
+                    let addr = ledger::Address::from(addr);
+                    format!("depth: {}, addr: {}", addr.length(), addr.to_string())
+                };
+
+                match query {
+                    MinaLedgerSyncLedgerQueryStableV1::NumAccounts => write!(f, ", NumAccounts, ")?,
+                    MinaLedgerSyncLedgerQueryStableV1::WhatChildHashes(addr) => {
+                        write!(f, ", ChildHashes, {}, ", addr_to_str(addr))?
+                    }
+                    MinaLedgerSyncLedgerQueryStableV1::WhatContents(addr) => {
+                        write!(f, ", ChildContents, {}, ", addr_to_str(addr))?
+                    }
+                }
+                write!(f, "ledger: {ledger_hash}")
+            }
+            Self::StagedLedgerAuxAndPendingCoinbasesAtBlock(block_hash)
+            | Self::Block(block_hash) => {
+                write!(f, ", {block_hash}")
+            }
+            Self::Snark(job_id) => {
+                write!(f, ", {job_id}")
+            }
+        }
+    }
+}
+
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub struct BestTipWithProof {
     pub best_tip: ArcBlock,

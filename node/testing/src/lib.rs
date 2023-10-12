@@ -7,7 +7,7 @@ pub mod cluster;
 use cluster::{Cluster, ClusterConfig, ClusterNodeId};
 
 pub mod scenario;
-use scenario::{Scenario, ScenarioId, ScenarioInfo, ScenarioStep};
+use scenario::{event_details, Scenario, ScenarioId, ScenarioInfo, ScenarioStep};
 use service::PendingEventId;
 
 use std::{collections::BTreeMap, sync::Arc};
@@ -343,6 +343,7 @@ struct ClusterNodePendingEvents {
 struct ClusterNodePendingEvent {
     id: PendingEventId,
     event: String,
+    details: Option<String>,
 }
 
 async fn cluster_events_pending(
@@ -355,11 +356,12 @@ async fn cluster_events_pending(
         .map(|mut cluster| {
             cluster
                 .pending_events()
-                .map(|(node_id, iter)| {
+                .map(|(node_id, state, iter)| {
                     let pending_events = iter
                         .map(|(id, event)| ClusterNodePendingEvent {
                             id,
                             event: event.to_string(),
+                            details: event_details(state, event),
                         })
                         .collect();
                     ClusterNodePendingEvents {
@@ -379,10 +381,11 @@ async fn cluster_node_events_pending(
     let mut cluster = state.cluster(cluster_id).await?;
     cluster
         .node_pending_events(node_id)
-        .map(|iter| {
+        .map(|(state, iter)| {
             iter.map(|(id, event)| ClusterNodePendingEvent {
                 id,
                 event: event.to_string(),
+                details: event_details(state, event),
             })
             .collect()
         })

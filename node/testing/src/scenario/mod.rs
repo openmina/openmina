@@ -4,6 +4,9 @@ pub use id::ScenarioId;
 mod step;
 pub use step::{ListenerNode, ScenarioStep};
 
+mod event_details;
+pub use event_details::event_details;
+
 use serde::{Deserialize, Serialize};
 
 use crate::node::NodeTestingConfig;

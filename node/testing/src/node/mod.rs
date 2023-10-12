@@ -30,7 +30,13 @@ impl Node {
     }
 
     pub fn pending_events(&mut self) -> impl Iterator<Item = (PendingEventId, &Event)> {
-        self.service().pending_events()
+        self.pending_events_with_state().1
+    }
+
+    pub fn pending_events_with_state(
+        &mut self,
+    ) -> (&State, impl Iterator<Item = (PendingEventId, &Event)>) {
+        (self.store.state.get(), self.store.service.pending_events())
     }
 
     fn dispatch<T>(&mut self, action: T) -> bool

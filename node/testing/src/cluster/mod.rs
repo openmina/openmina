@@ -27,7 +27,8 @@ use node::{
     },
     service::Recorder,
     snark::{get_srs, get_verifier_index, VerifierKind},
-    BuildEnv, Config, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, TransitionFrontierConfig,
+    BuildEnv, Config, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, State,
+    TransitionFrontierConfig,
 };
 use openmina_node_native::{http_server, rpc::RpcService, NodeService, RpcSender};
 use rand::{rngs::StdRng, SeedableRng};
@@ -257,24 +258,26 @@ impl Cluster {
     ) -> impl Iterator<
         Item = (
             ClusterNodeId,
+            &State,
             impl Iterator<Item = (PendingEventId, &Event)>,
         ),
     > {
-        self.nodes
-            .iter_mut()
-            .enumerate()
-            .map(|(i, node)| (ClusterNodeId::new_unchecked(i), node.pending_events()))
+        self.nodes.iter_mut().enumerate().map(|(i, node)| {
+            let node_id = ClusterNodeId::new_unchecked(i);
+            let (state, pending_events) = node.pending_events_with_state();
+            (node_id, state, pending_events)
+        })
     }
 
     pub fn node_pending_events(
         &mut self,
         node_id: ClusterNodeId,
-    ) -> Result<impl Iterator<Item = (PendingEventId, &Event)>, anyhow::Error> {
+    ) -> Result<(&State, impl Iterator<Item = (PendingEventId, &Event)>), anyhow::Error> {
         let node = self
             .nodes
             .get_mut(node_id.index())
             .ok_or(anyhow::anyhow!("node {node_id:?} not found"))?;
-        Ok(node.pending_events())
+        Ok(node.pending_events_with_state())
     }
 
     pub async fn exec_to_end(&mut self) -> Result<(), anyhow::Error> {
