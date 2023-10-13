@@ -1,6 +1,3 @@
-[submodule "deps/ledger"]
-	path = ledger
-	url = ../ledger.git
 [submodule "deps/mina-p2p-messages-rs"]
 	path = mina-p2p-messages-rs
 	url = ../mina-p2p-messages-rs.git
