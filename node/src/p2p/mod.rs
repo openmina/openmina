@@ -3,6 +3,7 @@ pub use ::p2p::*;
 pub mod channels;
 pub mod connection;
 pub mod disconnection;
+pub mod discovery;
 pub mod peer;
 
 mod p2p_effects;
@@ -78,6 +79,9 @@ impl_into_global_action!(connection::incoming::P2pConnectionIncomingSuccessActio
 
 impl_into_global_action!(disconnection::P2pDisconnectionInitAction);
 impl_into_global_action!(disconnection::P2pDisconnectionFinishAction);
+
+impl_into_global_action!(discovery::P2pDiscoveryInitAction);
+impl_into_global_action!(discovery::P2pDiscoverySuccessAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 

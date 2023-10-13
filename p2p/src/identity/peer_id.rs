@@ -82,10 +82,14 @@ impl From<PeerId> for [u8; 32] {
 #[cfg(not(target_arch = "wasm32"))]
 impl From<libp2p::PeerId> for PeerId {
     fn from(value: libp2p::PeerId) -> Self {
-        let protobuf = value.as_ref().digest();
-        let key = libp2p::identity::PublicKey::from_protobuf_encoding(protobuf).unwrap();
-        let bytes = key.into_ed25519().unwrap().encode();
-        PeerId::from_bytes(bytes)
+        let slice = value.as_ref().digest();
+        if value.as_ref().code() == 0x12 {
+            todo!("store such kind of key in our `PeerId`");
+        } else {
+            let key = libp2p::identity::PublicKey::from_protobuf_encoding(slice).unwrap();
+            let bytes = key.into_ed25519().unwrap().encode();
+            PeerId::from_bytes(bytes)
+        }
     }
 }
 
@@ -140,6 +144,15 @@ mod tests {
     #[test]
     fn test_libp2p_peer_id_conv() {
         let s = "12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv";
+        let id: libp2p::PeerId = s.parse().unwrap();
+        let conv: PeerId = id.into();
+        let id_conv: libp2p::PeerId = conv.into();
+        assert_eq!(id_conv, id);
+    }
+
+    #[test]
+    fn test_bare_base58btc_pk() {
+        let s = "QmSXffHzFVSEoQCYBS1bPpCn4vgGEpQnCA9NLYuhamPBU3";
         let id: libp2p::PeerId = s.parse().unwrap();
         let conv: PeerId = id.into();
         let id_conv: libp2p::PeerId = conv.into();

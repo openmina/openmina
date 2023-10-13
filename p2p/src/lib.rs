@@ -1,6 +1,7 @@
 pub mod channels;
 pub mod connection;
 pub mod disconnection;
+pub mod discovery;
 pub mod peer;
 
 pub mod identity;
