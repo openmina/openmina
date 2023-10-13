@@ -1,0 +1,135 @@
+[package]
+name = "mina-tree"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "ledger"
+path = "src/bin/ledger.rs"
+
+[lib]
+crate-type = ["staticlib", "cdylib", "lib"]
+
+# For wasm on browser, add those flags:
+# https://stackoverflow.com/a/73023306
+
+[dependencies]
+mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
+poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
+
+bs58 = "0.4.0"
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "3b697ae" }
+# mina-p2p-messages = { path = "/home/sebastien/github/mina-p2p-messages-rs", features = ["hashing"] }
+# mina-p2p-messages = { path = "/tmp/mina-p2p-messages-rs", features = ["hashing"] }
+
+sha2 = "0.10"
+base64 = "0.13"
+static_assertions = "1.1"
+libc = "0.2"
+
+# oracle = { path = "../oracle" }
+# mina-curves = { path = "../curves" }
+# o1-utils = { path = "../utils" }
+
+itertools = "0.10"
+tuple-map = "0.4.0"
+
+# ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
+# ark-serialize = { version = "0.3.0", features = [ "std" ] }
+
+ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm", "std" ] }
+ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
+ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
+ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
+
+rayon = "1"
+
+bitvec = "1.0.0"
+hex = "0.4.3"
+num-bigint = "0.4"
+
+once_cell = "1"
+rand = {version = "0.8", features = [ "small_rng" ] }
+uuid = { version = "1", features = [ "v4" ] }
+
+serde = { version = "1.0", features = ["rc"] }
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
+bincode = "1.3.3"
+
+packed_simd = { version = "0.3.9" }
+backtrace = "0.3"
+derive_more = "0.99.17"
+rand_pcg = "0.3"
+rand_seeder = "0.2"
+blake2 = "0.10"
+crc32fast = "1"
+chrono = "0.4"
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+wasm_thread = { version = "0.2", features = [ "es_modules" ] }
+wasm-bindgen = "0.2"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+zstd = { version = "0.12", optional = true }
+# ocaml-interop = { path = "/home/sebastien/github/ocaml-interop", optional = true }
+ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values", optional = true }
+# ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values", optional = true }
+
+[dev-dependencies]
+
+[target.'cfg(target_family = "wasm")'.dev-dependencies]
+wasm-bindgen-test = "0.3.0"
+web-sys = { version = "0.3", features = ["Blob", "DedicatedWorkerGlobalScope", "MessageEvent", "Url", "Worker", "WorkerType", "WorkerOptions", "console", "Window", "Performance" ] }
+
+[features]
+# Put zstd behind a feature, cargo always re-compile it without touching the files
+compression = ["zstd"]
+# Add this feature to run tests in both nodejs and browser:
+# https://github.com/rustwasm/wasm-bindgen/issues/2571
+in_nodejs = []
+
+[profile.release]
+debug = true
+
+
+# Run tests in CI with this profile
+# https://doc.rust-lang.org/cargo/reference/profiles.html
+[profile.ci]
+inherits = "release"
+debug = true
+debug-assertions = true
+overflow-checks = true
+
+[patch.crates-io]
+ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+# ark-ff = { path = "/home/sebastien/github/algebra/ff" }
+# ark-ec = { path = "/home/sebastien/github/algebra/ec" }
+# ark-poly = { path = "/home/sebastien/github/algebra/poly" }
+# ark-serialize = { path = "/home/sebastien/github/algebra/serialize" }
+
+[patch.'https://github.com/o1-labs/proof-systems']
+mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
+poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
+
+# mina-hasher = { path = "/home/sebastien/github/proof-systems/hasher" }
+# mina-signer = { path = "/home/sebastien/github/proof-systems/signer" }
+# mina-curves = { path = "/home/sebastien/github/proof-systems/curves" }
+# o1-utils = { path = "/home/sebastien/github/proof-systems/utils" }
+# kimchi = { path = "/home/sebastien/github/proof-systems/kimchi" }
+# oracle = { path = "/home/sebastien/github/proof-systems/oracle" }

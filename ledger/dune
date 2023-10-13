@@ -1,0 +1,23 @@
+(dirs :standard \ target)
+(rule
+ (targets libmina_tree.a libmina_tree.so)
+ (deps (source_tree .))
+ (action
+  (no-infer
+   (progn
+      (run sh -c "cargo build --release --features ocaml-interop")
+    (run sh -c
+      "cp target/release/libmina_tree.so ./libmina_tree.so 2> /dev/null || \
+       cp target/release/libmina_tree.dylib ./libmina_tree.so")
+    (run cp target/release/libmina_tree.a ./libmina_tree.a)
+   ))))
+
+(library
+ (name mina_tree)
+ (libraries
+    core_kernel
+    core
+ )
+ (public_name mina_tree)
+ (c_library_flags -lpthread -lc -lm)
+ (foreign_archives mina_tree))
