@@ -1,3 +1,10 @@
+mod behavior;
+pub use behavior::Event as BehaviourEvent;
+pub use behavior::*;
+use mina_p2p_messages::rpc::GetSomeInitialPeersV1ForV2;
+
+mod discovery;
+
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -25,10 +32,6 @@ use libp2p::yamux::YamuxConfig;
 use libp2p::{PeerId, Swarm, Transport};
 
 pub use mina_p2p_messages::gossip::GossipNetMessageV2 as GossipNetMessage;
-
-mod behavior;
-pub use behavior::Event as BehaviourEvent;
-pub use behavior::*;
 
 use libp2p_rpc_behaviour::{BehaviourBuilder, Event as RpcBehaviourEvent, StreamId};
 
@@ -319,6 +322,11 @@ impl Libp2pService {
                         b.rpc.query::<T>(peer_id, stream_id, id, query)?;
                     }
                     P2pRpcRequest::Snark(_) => {}
+                    P2pRpcRequest::InitialPeers => {
+                        type T = GetSomeInitialPeersV1ForV2;
+                        b.ongoing.insert(key, (T::NAME.to_string(), T::VERSION));
+                        b.rpc.query::<T>(peer_id, stream_id, id, ())?;
+                    }
                 };
             }
             RpcChannelMsg::Response(id, resp) => {
@@ -353,6 +361,13 @@ impl Libp2pService {
                             (GetTransitionChainV2::NAME, GetTransitionChainV2::VERSION) => {
                                 type T = GetTransitionChainV2;
                                 b.rpc.respond::<T>(peer_id, stream_id, id, Ok(None))?
+                            }
+                            (
+                                GetSomeInitialPeersV1ForV2::NAME,
+                                GetSomeInitialPeersV1ForV2::VERSION,
+                            ) => {
+                                type T = GetSomeInitialPeersV1ForV2;
+                                b.rpc.respond::<T>(peer_id, stream_id, id, Ok(vec![]))?
                             }
                             _ => {}
                         },
@@ -396,6 +411,11 @@ impl Libp2pService {
                             b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
                         }
                         Some(P2pRpcResponse::Snark(_)) => {}
+                        Some(P2pRpcResponse::InitialPeers(peers)) => {
+                            type T = GetSomeInitialPeersV1ForV2;
+                            let r = Ok(peers);
+                            b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
+                        }
                     }
                 }
             }
@@ -762,6 +782,20 @@ impl Libp2pService {
                                     Err(err) => send_error(err),
                                 }
                             }
+                            (
+                                GetSomeInitialPeersV1ForV2::NAME,
+                                GetSomeInitialPeersV1ForV2::VERSION,
+                            ) => match parse_r::<GetSomeInitialPeersV1ForV2>(bytes) {
+                                Ok(response) => {
+                                    let response = response.ok().unwrap_or_default();
+                                    if response.is_empty() {
+                                        send(None)
+                                    } else {
+                                        send(Some(P2pRpcResponse::InitialPeers(response)));
+                                    }
+                                }
+                                Err(err) => send_error(err),
+                            },
                             _ => send(None),
                         }
                     }

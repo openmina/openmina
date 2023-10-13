@@ -7,6 +7,7 @@ use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::P2pDisconnectionAction;
+use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::P2pAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
@@ -241,6 +242,32 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 }
                 P2pDisconnectionAction::Finish(action) => {
                     openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("peer_id: {}", action.peer_id),
+                        peer_id = action.peer_id.to_string()
+                    );
+                }
+            },
+            P2pAction::Discovery(action) => match action {
+                P2pDiscoveryAction::Init(action) => {
+                    openmina_core::log::debug!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("peer_id: {}", action.peer_id),
+                        peer_id = action.peer_id.to_string()
+                    );
+                }
+                P2pDiscoveryAction::Success(action) => {
+                    openmina_core::log::debug!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("peer_id: {}", action.peer_id),
+                        peer_id = action.peer_id.to_string()
+                    );
+                }
+                P2pDiscoveryAction::Timeout(action) => {
+                    openmina_core::log::debug!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("peer_id: {}", action.peer_id),

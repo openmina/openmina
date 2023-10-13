@@ -12,10 +12,14 @@ pub use p2p_channels_rpc_effects::*;
 
 use std::{io, sync::Arc, time::Duration};
 
-use mina_p2p_messages::binprot::{
-    self,
-    macros::{BinProtRead, BinProtWrite},
-    BinProtRead, BinProtWrite,
+use mina_p2p_messages::{
+    binprot::{
+        self,
+        macros::{BinProtRead, BinProtWrite},
+        BinProtRead, BinProtWrite,
+    },
+    rpc::GetSomeInitialPeersV1ForV2,
+    v2::NetworkPeerPeerStableV1,
 };
 use mina_p2p_messages::{
     rpc::{
@@ -62,6 +66,7 @@ pub enum P2pRpcKind {
     StagedLedgerAuxAndPendingCoinbasesAtBlock,
     Block,
     Snark,
+    InitialPeers,
 }
 
 impl P2pRpcKind {
@@ -72,6 +77,7 @@ impl P2pRpcKind {
             Self::StagedLedgerAuxAndPendingCoinbasesAtBlock => Some(Duration::from_secs(120)),
             Self::Block => Some(Duration::from_secs(5)),
             Self::Snark => Some(Duration::from_secs(5)),
+            Self::InitialPeers => Some(Duration::from_secs(5)),
         }
     }
 
@@ -82,6 +88,7 @@ impl P2pRpcKind {
             Self::StagedLedgerAuxAndPendingCoinbasesAtBlock => true,
             Self::Block => true,
             Self::Snark => false,
+            Self::InitialPeers => true,
         }
     }
 }
@@ -93,6 +100,7 @@ pub enum P2pRpcRequest {
     StagedLedgerAuxAndPendingCoinbasesAtBlock(StateHash),
     Block(StateHash),
     Snark(SnarkJobId),
+    InitialPeers,
 }
 
 impl P2pRpcRequest {
@@ -105,6 +113,7 @@ impl P2pRpcRequest {
             }
             Self::Block(_) => P2pRpcKind::Block,
             Self::Snark(_) => P2pRpcKind::Snark,
+            Self::InitialPeers => P2pRpcKind::InitialPeers,
         }
     }
 
@@ -149,6 +158,7 @@ impl P2pRpcRequest {
                 io::ErrorKind::Other,
                 "rpc not supported by ocaml node",
             )),
+            Self::InitialPeers => Self::write_msg_impl::<GetSomeInitialPeersV1ForV2, _>(w, id, &()),
         }
     }
 }
@@ -188,6 +198,7 @@ impl std::fmt::Display for P2pRpcRequest {
             Self::Snark(job_id) => {
                 write!(f, ", {job_id}")
             }
+            Self::InitialPeers => Ok(()),
         }
     }
 }
@@ -214,6 +225,7 @@ pub enum P2pRpcResponse {
     StagedLedgerAuxAndPendingCoinbasesAtBlock(Arc<StagedLedgerAuxAndPendingCoinbases>),
     Block(ArcBlock),
     Snark(Snark),
+    InitialPeers(Vec<NetworkPeerPeerStableV1>),
 }
 
 impl P2pRpcResponse {
@@ -226,6 +238,7 @@ impl P2pRpcResponse {
             }
             Self::Block(_) => P2pRpcKind::Block,
             Self::Snark(_) => P2pRpcKind::Snark,
+            Self::InitialPeers(_) => P2pRpcKind::InitialPeers,
         }
     }
 
@@ -279,6 +292,9 @@ impl P2pRpcResponse {
                 io::ErrorKind::Other,
                 "rpc not supported by ocaml node",
             )),
+            Self::InitialPeers(peers) => {
+                Self::write_msg_impl::<GetSomeInitialPeersV1ForV2, _>(w, id, &peers)
+            }
         }
     }
 
@@ -336,6 +352,11 @@ impl P2pRpcResponse {
                     .map(P2pRpcResponse::Block)
             }
             P2pRpcKind::Snark => None,
+            P2pRpcKind::InitialPeers => {
+                let resp: <GetSomeInitialPeersV1ForV2 as RpcMethod>::Response =
+                    BinProtRead::binprot_read(r)?;
+                Some(P2pRpcResponse::InitialPeers(resp))
+            }
         })
     }
 }
