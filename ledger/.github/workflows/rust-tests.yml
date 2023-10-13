@@ -1,0 +1,72 @@
+on: [push, pull_request]
+
+jobs:
+
+  wasm-tests:
+    name: wasm tests
+    strategy:
+      fail-fast: false
+      matrix:
+        driver:
+          ## FIXME: Active chrome, but now it timeouts when tests run more than 10 minutes
+          ## Timeout example: https://github.com/openmina/ledger/actions/runs/5245920744/jobs/9474043794
+          # - --chrome
+          - --firefox
+          # - --node -- --features in_nodejs -Z build-std=std,panic_abort
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--max-memory=4294967296"
+      RUST_LOG: wasm_bindgen_test_runner
+      RUST_BACKTRACE: full
+      CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS: true
+      CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS: true
+      CARGO_PROFILE_RELEASE_DEBUG: true
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          profile: minimal
+          components: rust-src
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - run: wasm-pack test --release ${{ matrix.driver }} --headless -- -Z build-std=std,panic_abort
+
+  native-tests:
+    name: native tests
+    strategy:
+      fail-fast: false
+    env:
+      RUST_BACKTRACE: full
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          profile: minimal
+
+      - name: OCaml/Opam cache
+        id: ocaml-rs-opam-cache
+        uses: actions/cache@v3
+        with:
+          path: "~/.opam"
+          key: ocaml-rs-opam-4.14.0-ubuntu-latest
+      - name: Use OCaml 4.14.0
+        uses: avsm/setup-ocaml@v2
+        with:
+          ocaml-compiler: 4.14.0
+      - name: Set Opam env
+        run: opam env | tr '\n' ' ' >> $GITHUB_ENV
+      - name: Add Opam switch to PATH
+        run: opam var bin >> $GITHUB_PATH
+
+      - run: cargo test --profile ci
