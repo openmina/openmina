@@ -1,0 +1,14 @@
+{
+  "goog:chromeOptions": {
+    "args": [
+	  "--no-sandbox",
+	  "--headless",
+	  "--disable-dev-shm-usage",
+	  "--disable-new-content-rendering-timeout",
+	  "--disable-timeouts-for-profiling",
+	  "--integration-test-timeout-minutes=100000",
+	  "--ipc-connection-timeout=1000000",
+	  "--user-response-timeout=100000"
+    ]
+  }
+}
