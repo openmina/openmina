@@ -56,7 +56,7 @@ pub enum Cmd {
     Dial(DialOpts),
     Disconnect(PeerId),
     SendMessage(PeerId, ChannelMsg),
-    SnarkBroadcast(Snark),
+    SnarkBroadcast(Snark, u32),
 }
 
 pub struct Libp2pService {
@@ -201,13 +201,11 @@ impl Libp2pService {
         Self { cmd_sender }
     }
 
-    fn gossipsub_send<T, E>(swarm: &mut Swarm<Behaviour<E>>, prefix: u8, msg: &T)
+    fn gossipsub_send<E>(swarm: &mut Swarm<Behaviour<E>>, msg: &GossipNetMessage)
     where
-        T: BinProtWrite,
         E: From<P2pEvent>,
     {
-        let mut encoded = vec![0; 9];
-        encoded[8] = prefix;
+        let mut encoded = vec![0; 8];
         match msg.binprot_write(&mut encoded) {
             Ok(_) => {}
             Err(_err) => {
@@ -258,7 +256,10 @@ impl Libp2pService {
                         // every peer every time. It's kinda fine because
                         // gossipsub protocol will prevent same message
                         // from being published, but it's still wasteful.
-                        Self::gossipsub_send(swarm, 0, &*block);
+                        Self::gossipsub_send(
+                            swarm,
+                            &GossipNetMessage::NewState(block.as_ref().clone()),
+                        );
                         // TODO(binier): send event: `P2pChannelEvent::Sent`
                     }
                 },
@@ -267,10 +268,11 @@ impl Libp2pService {
                         .expect("binprot write error must not happen, must send valid msg");
                 }
             },
-            Cmd::SnarkBroadcast(snark) => {
-                let msg = Box::new((snark.statement(), (&snark).into()));
-                let msg = NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(msg);
-                Self::gossipsub_send(swarm, 1, &msg);
+            Cmd::SnarkBroadcast(snark, nonce) => {
+                let message = Box::new((snark.statement(), (&snark).into()));
+                let message = NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(message);
+                let nonce = nonce.into();
+                Self::gossipsub_send(swarm, &GossipNetMessage::SnarkPoolDiff { message, nonce });
             }
         }
     }
@@ -504,7 +506,7 @@ impl Libp2pService {
                                 BestTipPropagationChannelMsg::BestTip(block.into()),
                             ))
                         }
-                        Ok(GossipNetMessage::SnarkPoolDiff { message, .. }) => match message {
+                        Ok(GossipNetMessage::SnarkPoolDiff { message, nonce }) => match message {
                             // TODO(binier): Why empty? Should we error?
                             NetworkPoolSnarkPoolDiffVersionedStableV2::Empty => return,
                             NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(work) => {
@@ -512,6 +514,7 @@ impl Libp2pService {
                                     P2pEvent::Channel(P2pChannelEvent::Libp2pSnarkReceived(
                                         propagation_source.into(),
                                         work.1.into(),
+                                        nonce.as_u32(),
                                     ));
                                 let _ =
                                     swarm.behaviour_mut().event_source_sender.send(event.into());

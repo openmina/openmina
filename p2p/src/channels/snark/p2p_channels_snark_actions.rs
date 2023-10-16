@@ -203,6 +203,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkResponseSendAction {
 pub struct P2pChannelsSnarkLibp2pReceivedAction {
     pub peer_id: PeerId,
     pub snark: Snark,
+    pub nonce: u32,
 }
 
 impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkLibp2pReceivedAction {
@@ -219,6 +220,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkLibp2pReceivedAction
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pChannelsSnarkLibp2pBroadcastAction {
     pub snark: Snark,
+    pub nonce: u32,
 }
 
 impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkLibp2pBroadcastAction {

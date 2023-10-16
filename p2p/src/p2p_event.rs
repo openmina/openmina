@@ -28,7 +28,7 @@ pub enum P2pChannelEvent {
     Opened(PeerId, ChannelId, Result<(), String>),
     Sent(PeerId, ChannelId, MsgId, Result<(), String>),
     Received(PeerId, Result<ChannelMsg, String>),
-    Libp2pSnarkReceived(PeerId, Snark),
+    Libp2pSnarkReceived(PeerId, Snark, u32),
     Closed(PeerId, ChannelId),
 }
 
@@ -98,13 +98,13 @@ impl std::fmt::Display for P2pChannelEvent {
                     res_kind(res)
                 )
             }
-            Self::Libp2pSnarkReceived(peer_id, snark) => {
+            Self::Libp2pSnarkReceived(peer_id, snark, nonce) => {
                 write!(
                     f,
-                    "Libp2pSnarkReceived, {peer_id}, fee: {}, snarker: {}, job_id: {}",
+                    "Libp2pSnarkReceived, {peer_id}, fee: {}, snarker: {}, job_id: {}, nonce: {nonce}",
                     snark.fee.as_u64(),
                     snark.snarker,
-                    snark.job_id()
+                    snark.job_id(),
                 )
             }
             Self::Received(peer_id, res) => {
