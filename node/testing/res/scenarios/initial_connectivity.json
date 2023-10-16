@@ -1,0 +1,254 @@
+{
+  "info": {
+    "id": "initial_connectivity",
+    "description": "send get_some_initial_peers",
+    "parent_id": null,
+    "nodes": [
+      {
+        "kind": "Rust",
+        "chain_id": "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e",
+        "initial_time": 1695702049579000000
+      },
+      {
+        "kind": "Rust",
+        "chain_id": "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e",
+        "initial_time": 1695702049579000000
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "ConnectNodes",
+      "dialer": 0,
+      "listener": {
+        "Rust": 1
+      }
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Connection, OfferSdpReady, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "Rpc, 0_1, P2pConnectionIncoming, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Connection, AnswerSdpReady, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Connection, AnswerReceived, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, Accepted"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Connection, Finalized, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Connection, Finalized, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, Ok"
+    },
+    {
+      "kind": "CheckTimeouts",
+      "node_id": 0
+    },
+    {
+      "kind": "CheckTimeouts",
+      "node_id": 1
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Opened, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, BestTipPropagation, Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Opened, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, SnarkPropagation, Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Opened, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, Rpc, Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Opened, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, BestTipPropagation, Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Sent, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, BestTipPropagation, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Opened, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, SnarkJobCommitmentPropagation, Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Opened, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, SnarkPropagation, Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Sent, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, SnarkJobCommitmentPropagation, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Sent, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, BestTipPropagation, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Received, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, BestTipPropagation, GetNext"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Opened, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, SnarkJobCommitmentPropagation, Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Sent, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, SnarkJobCommitmentPropagation, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Sent, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, Rpc, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Received, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, SnarkJobCommitmentPropagation, GetNext, limit: 16"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Received, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, SnarkJobCommitmentPropagation, GetNext, limit: 16"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Opened, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, Rpc, Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Sent, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, Rpc, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Received, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, BestTipPropagation, GetNext"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Received, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, Rpc, Request, id: 0, BestTipWithProof"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Received, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, Rpc, Response, id: 0, None"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Received, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, Rpc, Request, id: 0, BestTipWithProof"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Sent, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, Rpc, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Received, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, Rpc, Response, id: 0, None"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Sent, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, Rpc, MsgId(1), Ok"
+    },
+    {
+      "kind": "CheckTimeouts",
+      "node_id": 0
+    },
+    {
+      "kind": "CheckTimeouts",
+      "node_id": 1
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Sent, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, Rpc, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Received, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, SnarkPropagation, GetNext, limit: 32"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Sent, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, SnarkPropagation, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Received, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, Rpc, Request, id: 1, InitialPeers"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Sent, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, Rpc, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Received, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, Rpc, Request, id: 1, InitialPeers"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Sent, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, Rpc, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Received, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, SnarkPropagation, GetNext, limit: 32"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Sent, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, Rpc, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Sent, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, SnarkPropagation, MsgId(1), Ok"
+    },
+    {
+      "kind": "Event",
+      "node_id": 1,
+      "event": "P2p, Channel, Received, 2ap9xeA1Bxf4jLySsp7PprzxsVJiYioPFxR8wJHB9agps2jEeRG, Rpc, Response, id: 1, InitialPeers"
+    },
+    {
+      "kind": "Event",
+      "node_id": 0,
+      "event": "P2p, Channel, Received, 2awmjihpsd9TkdaqEkvrJ2UguAsoigRtgoiKei4AxpA5EVzr6JZ, Rpc, Response, id: 1, InitialPeers"
+    }
+  ]
+}
