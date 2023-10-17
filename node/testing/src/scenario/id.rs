@@ -3,6 +3,13 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[derive(Serialize, Debug, Eq, PartialEq, Clone)]
 pub struct ScenarioId(String);
 
+#[cfg(feature = "scenario-generators")]
+impl From<crate::scenarios::Scenarios> for ScenarioId {
+    fn from(value: crate::scenarios::Scenarios) -> Self {
+        Self(value.to_str().to_owned())
+    }
+}
+
 impl std::fmt::Display for ScenarioId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)

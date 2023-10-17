@@ -92,6 +92,8 @@ impl P2pChannelsSnarkLibp2pBroadcastAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
     {
-        store.service().libp2p_broadcast_snark(self.snark, self.nonce);
+        store
+            .service()
+            .libp2p_broadcast_snark(self.snark, self.nonce);
     }
 }

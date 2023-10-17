@@ -9,7 +9,7 @@ name = "openmina_node_testing"
 path = "src/lib.rs"
 
 [[bin]]
-name = "openmina-node-testing-server"
+name = "openmina-node-testing"
 path = "src/main.rs"
 
 [dependencies]
@@ -23,10 +23,19 @@ num_cpus = "1.0"
 rayon = "1.5"
 axum = "0.6"
 tower-http = { version = "0.4.4", features = ["cors"] }
+strum = "0.24.1"
+strum_macros = "0.24.3"
+documented = { version = "0.1", optional = true }
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 
+console = "0.15.5"
+clap = { version = "4.3", features = [ "derive", "env" ] }
+
 openmina-core = { path = "../../core" }
 node = { path = "../../node" }
 openmina-node-native = { path = "../../node/native" }
+
+[features]
+scenario-generators = ["documented"]

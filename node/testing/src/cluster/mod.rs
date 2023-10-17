@@ -253,6 +253,10 @@ impl Cluster {
         self.scenario.target_scenario().map(|v| &v.info.id)
     }
 
+    pub fn node(&self, node_id: ClusterNodeId) -> Option<&Node> {
+        self.nodes.get(node_id.index())
+    }
+
     pub fn pending_events(
         &mut self,
     ) -> impl Iterator<
@@ -290,6 +294,15 @@ impl Cluster {
             {
                 break;
             }
+        }
+    }
+
+    pub async fn wait_for_pending_events_with_timeout(&mut self, timeout: Duration) -> bool {
+        let timeout = tokio::time::sleep(timeout);
+
+        tokio::select! {
+            _ = self.wait_for_pending_events() => true,
+            _ = timeout => false,
         }
     }
 
@@ -358,14 +371,22 @@ impl Cluster {
             Some(v) => v,
             None => return Ok(false),
         };
-        let dispatched = match step {
-            ScenarioStep::ManualEvent { node_id, event } => {
-                let node = self
-                    .nodes
-                    .get_mut(node_id.index())
-                    .ok_or(anyhow::anyhow!("node {node_id:?} not found"))?;
-                node.dispatch_event((**event).clone())
-            }
+        let dispatched = self.exec_step(step.clone()).await?;
+
+        if dispatched {
+            self.scenario.advance();
+        }
+
+        Ok(dispatched)
+    }
+
+    pub async fn exec_step(&mut self, step: ScenarioStep) -> Result<bool, anyhow::Error> {
+        Ok(match step {
+            ScenarioStep::ManualEvent { node_id, event } => self
+                .nodes
+                .get_mut(node_id.index())
+                .ok_or(anyhow::anyhow!("node {node_id:?} not found"))?
+                .dispatch_event(*event),
             ScenarioStep::Event { node_id, event } => {
                 let node = self
                     .nodes
@@ -412,7 +433,7 @@ impl Cluster {
             }
             ScenarioStep::AdvanceTime { by_nanos } => {
                 for node in &mut self.nodes {
-                    node.advance_time(*by_nanos)
+                    node.advance_time(by_nanos)
                 }
                 true
             }
@@ -421,16 +442,10 @@ impl Cluster {
                     .nodes
                     .get_mut(node_id.index())
                     .ok_or(anyhow::anyhow!("node {node_id:?} not found"))?;
-                node.advance_time(*by_nanos);
+                node.advance_time(by_nanos);
                 true
             }
-        };
-
-        if dispatched {
-            self.scenario.advance();
-        }
-
-        Ok(true)
+        })
     }
 }
 

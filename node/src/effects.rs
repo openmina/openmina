@@ -16,7 +16,7 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
     P2pConnectionOutgoingTimeoutAction,
 };
-use crate::p2p::{p2p_effects, peer};
+use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
 use crate::snark_pool::candidate::{

@@ -105,7 +105,10 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
                 }
             }
 
-            store.dispatch(P2pChannelsSnarkLibp2pBroadcastAction { snark: a.snark, nonce: 0 });
+            store.dispatch(P2pChannelsSnarkLibp2pBroadcastAction {
+                snark: a.snark,
+                nonce: 0,
+            });
         }
         SnarkPoolAction::P2pSendAll(_) => {
             for peer_id in store.state().p2p.ready_peers() {

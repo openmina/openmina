@@ -1,4 +1,8 @@
+mod exit_with_error;
+pub use exit_with_error::exit_with_error;
+
 pub mod service;
+use service::PendingEventId;
 
 pub mod node;
 use crate::node::NodeTestingConfig;
@@ -8,7 +12,9 @@ use cluster::{Cluster, ClusterConfig, ClusterNodeId};
 
 pub mod scenario;
 use scenario::{event_details, Scenario, ScenarioId, ScenarioInfo, ScenarioStep};
-use service::PendingEventId;
+
+#[cfg(feature = "scenario-generators")]
+pub mod scenarios;
 
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
@@ -23,22 +29,8 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{oneshot, Mutex, MutexGuard, OwnedMutexGuard};
 use tower_http::cors::CorsLayer;
 
-const PORT: u16 = 11000;
-
-pub fn server() {
+pub fn server(port: u16) {
     eprintln!("scenarios path: {}", Scenario::PATH);
-    // openmina_node_native::tracing::initialize(openmina_node_native::tracing::Level::DEBUG);
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(num_cpus::get().max(2) - 1)
-        .thread_name(|i| format!("openmina_rayon_{i}"))
-        .build_global()
-        .unwrap();
-
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-    let _rt_guard = rt.enter();
 
     let state = AppState::new();
 
@@ -77,8 +69,8 @@ pub fn server() {
         .with_state(state)
         .layer(cors);
 
-    rt.block_on(async {
-        axum::Server::bind(&([0, 0, 0, 0], PORT).into())
+    tokio::runtime::Handle::current().block_on(async {
+        axum::Server::bind(&([0, 0, 0, 0], port).into())
             .serve(app.into_make_service())
             .await
             .unwrap();
@@ -357,11 +349,13 @@ async fn cluster_run_auto(
                 .collect::<Vec<_>>();
 
             if steps.is_empty() {
-                let timeout = tokio::time::sleep(Duration::from_secs(5));
-
-                tokio::select! {
-                    _ = cluster.wait_for_pending_events() => continue,
-                    _ = timeout => break,
+                if cluster
+                    .wait_for_pending_events_with_timeout(Duration::from_secs(5))
+                    .await
+                {
+                    continue;
+                } else {
+                    break;
                 }
             }
 

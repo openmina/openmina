@@ -29,6 +29,10 @@ impl Node {
         P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling }
     }
 
+    pub fn state(&self) -> &State {
+        self.store.state()
+    }
+
     pub fn pending_events(&mut self) -> impl Iterator<Item = (PendingEventId, &Event)> {
         self.pending_events_with_state().1
     }

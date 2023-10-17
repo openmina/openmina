@@ -172,7 +172,11 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         }
                     },
                     P2pChannelEvent::Libp2pSnarkReceived(peer_id, snark, nonce) => {
-                        store.dispatch(P2pChannelsSnarkLibp2pReceivedAction { peer_id, snark, nonce });
+                        store.dispatch(P2pChannelsSnarkLibp2pReceivedAction {
+                            peer_id,
+                            snark,
+                            nonce,
+                        });
                     }
                     P2pChannelEvent::Closed(peer_id, chan_id) => {
                         let reason = P2pDisconnectionReason::P2pChannelClosed(chan_id);

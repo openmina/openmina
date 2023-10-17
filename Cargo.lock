@@ -1535,6 +1535,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "documented"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b63340daf5dcf33de57808d5ef35097131359dcccd7d9b208d4101e134bca4a"
+dependencies = [
+ "documented-derive",
+]
+
+[[package]]
+name = "documented-derive"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f87ab5c4c35c1d2fc7928e96d1cee3786a9bc9571ebaf4bf8f4207e6271165fa"
+dependencies = [
+ "quote",
+ "syn 2.0.37",
+]
+
+[[package]]
 name = "dtoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3860,6 +3879,9 @@ dependencies = [
  "anyhow",
  "axum",
  "bincode",
+ "clap",
+ "console",
+ "documented",
  "mina-p2p-messages",
  "mina-tree",
  "node",
@@ -3871,6 +3893,8 @@ dependencies = [
  "redux",
  "serde",
  "serde_json",
+ "strum",
+ "strum_macros",
  "tokio",
  "tower-http",
 ]
