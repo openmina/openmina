@@ -12,7 +12,7 @@ members = [
     "cli",
     "cli/replay_dynamic_effects",
 
-    "mina-p2p-messages-rs",
+    "mina-p2p-messages",
     "ledger",
 ]
 
@@ -21,7 +21,7 @@ exclude = [ "deps/redux-rs" ]
 resolver = "2"
 
 [workspace.dependencies]
-mina-p2p-messages = { path = "mina-p2p-messages-rs" }
+mina-p2p-messages = { path = "mina-p2p-messages", features = ["hashing"] }
 ledger = { path = "ledger", package = "mina-tree" }
 
 [profile.fuzz]
@@ -67,9 +67,6 @@ mina-poseidon = { path = "deps/proof-systems/poseidon" }
 
 [patch.'https://github.com/openmina/redux-rs']
 redux = { path = "deps/redux-rs" }
-
-[patch.'https://github.com/openmina/mina-p2p-messages-rs']
-mina-p2p-messages = { path = "mina-p2p-messages-rs" }
 
 [patch.'https://github.com/openmina/ledger']
 ledger = { path = "ledger", package = "mina-tree" }
