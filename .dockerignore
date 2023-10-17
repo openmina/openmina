@@ -1,14 +1,3 @@
-./*
-!./Cargo.*
-!./cli
-!./deps
-!./ledger
-!./mina-p2p-messages-rs
-!./node
-!./p2p
-!./snarker
-!./core
-!./snark
 target/
 Dockerfile
 .dockerignore
