@@ -1,7 +1,3 @@
-[submodule "deps/mina-p2p-messages-rs"]
-	path = mina-p2p-messages-rs
-	url = ../mina-p2p-messages-rs.git
-	branch = openmina-snarker
 [submodule "deps/algebra"]
 	path = deps/algebra
 	url = https://github.com/openmina/algebra
