@@ -28,11 +28,12 @@ use crate::p2p::disconnection::{
 };
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
-    RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcP2pConnectionIncomingInitAction,
-    RpcP2pConnectionOutgoingInitAction, RpcRequest, RpcScanStateSummaryGetAction,
+    RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcHealthCheckAction,
+    RpcP2pConnectionIncomingInitAction, RpcP2pConnectionOutgoingInitAction,
+    RpcReadinessCheckAction, RpcRequest, RpcScanStateSummaryGetAction,
     RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction, RpcSnarkerConfigGetAction,
     RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction,
-    RpcSyncStatsGetAction, RpcHealthCheckAction,
+    RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
 use crate::snark::work_verify::{SnarkWorkVerifyErrorAction, SnarkWorkVerifySuccessAction};
@@ -244,7 +245,10 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 }
                 RpcRequest::HealthCheck => {
                     store.dispatch(RpcHealthCheckAction { rpc_id });
-                },
+                }
+                RpcRequest::ReadinessCheck => {
+                    store.dispatch(RpcReadinessCheckAction { rpc_id });
+                }
             },
             Event::ExternalSnarkWorker(e) => match e {
                 ExternalSnarkWorkerEvent::Started => {

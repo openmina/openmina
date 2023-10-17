@@ -42,6 +42,7 @@ pub enum RpcAction {
     SnarkerWorkersGet(RpcSnarkersWorkersGetAction),
 
     HealthCheck(RpcHealthCheckAction),
+    ReadinessCheck(RpcReadinessCheckAction),
 
     Finish(RpcFinishAction),
 }
@@ -262,6 +263,14 @@ pub struct RpcHealthCheckAction {
 impl redux::EnablingCondition<crate::State> for RpcHealthCheckAction {}
 
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcReadinessCheckAction {
+    pub rpc_id: RpcId,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcReadinessCheckAction {}
+
+
 /// Finish/Cleanup rpc request.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcFinishAction {
@@ -307,6 +316,7 @@ impl_into_global_action!(
     RpcSnarkersWorkersGetAction,
 
     RpcHealthCheckAction,
+    RpcReadinessCheckAction,
 
     RpcFinishAction,
 );

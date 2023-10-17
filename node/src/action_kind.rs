@@ -99,7 +99,7 @@ use crate::rpc::{
     RpcP2pConnectionIncomingPendingAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
-    RpcP2pConnectionOutgoingSuccessAction, RpcScanStateSummaryGetAction,
+    RpcP2pConnectionOutgoingSuccessAction, RpcReadinessCheckAction, RpcScanStateSummaryGetAction,
     RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction, RpcSnarkerConfigGetAction,
     RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction,
     RpcSyncStatsGetAction,
@@ -305,6 +305,7 @@ pub enum ActionKind {
     RpcP2pConnectionOutgoingInit,
     RpcP2pConnectionOutgoingPending,
     RpcP2pConnectionOutgoingSuccess,
+    RpcReadinessCheck,
     RpcScanStateSummaryGet,
     RpcSnarkPoolAvailableJobsGet,
     RpcSnarkPoolJobGet,
@@ -398,7 +399,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 200;
+    pub const COUNT: u16 = 201;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -526,6 +527,7 @@ impl ActionKindGet for RpcAction {
             Self::SnarkerJobSpec(a) => a.kind(),
             Self::SnarkerWorkersGet(a) => a.kind(),
             Self::HealthCheck(a) => a.kind(),
+            Self::ReadinessCheck(a) => a.kind(),
             Self::Finish(a) => a.kind(),
         }
     }
@@ -931,6 +933,12 @@ impl ActionKindGet for RpcSnarkersWorkersGetAction {
 impl ActionKindGet for RpcHealthCheckAction {
     fn kind(&self) -> ActionKind {
         ActionKind::RpcHealthCheck
+    }
+}
+
+impl ActionKindGet for RpcReadinessCheckAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::RpcReadinessCheck
     }
 }
 

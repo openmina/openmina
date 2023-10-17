@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
 
 use crate::external_snark_worker::available_job_to_snark_worker_spec;
@@ -17,8 +19,16 @@ use super::{
     RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
 };
 
+macro_rules! respond_or_log {
+    ($e:expr, $t:expr) => {
+        if let Err(err) = $e {
+            openmina_core::log::warn!($t; "Failed to respond: {err}");
+        }
+    };
+}
+
 pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) {
-    let (action, _) = action.split();
+    let (action, meta) = action.split();
 
     match action {
         RpcAction::GlobalStateGet(action) => {
@@ -370,14 +380,43 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     openmina_core::log::debug!(openmina_core::log::system_time(); "found ready peer: {peer_id}")
                 })
                 .next()
-                .ok_or(String::from("no ready peers"));
-            if store
+                .ok_or_else(|| {
+                    openmina_core::log::warn!(openmina_core::log::system_time(); "no ready peers");
+                    String::from("no ready peers") });
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_health_check(action.rpc_id, some_peers),
+                meta.time()
+            );
+        }
+        RpcAction::ReadinessCheck(action) => {
+            let synced = store
                 .service()
-                .respond_health_check(action.rpc_id, some_peers)
-                .is_err()
-            {
-                return;
-            }
+                .stats()
+                .and_then(|stats| stats.get_sync_time())
+                .ok_or_else(|| String::from("Not synced"))
+                .and_then(|t| {
+                    meta.time().checked_sub(t).ok_or_else(|| {
+                        format!("Cannot get duration between {t:?} and {:?}", meta.time())
+                    })
+                })
+                .and_then(|dur| {
+                    const THRESH: Duration = Duration::from_secs(60 * 3 * 10);
+                    if dur <= THRESH {
+                        Ok(())
+                    } else {
+                        Err(format!(
+                            "Synced {:?} ago, which is more than the threshold {:?}",
+                            dur, THRESH
+                        ))
+                    }
+                });
+            openmina_core::log::debug!(meta.time(); summary = "readiness check", result = format!("{synced:?}"));
+            respond_or_log!(
+                store.service().respond_health_check(action.rpc_id, synced),
+                meta.time()
+            );
         }
         RpcAction::Finish(_) => {}
     }
