@@ -23,6 +23,7 @@ use libp2p::gossipsub::{
     Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipsubEvent,
     IdentTopic, MessageAcceptance, MessageAuthenticity,
 };
+use libp2p::identify;
 use libp2p::identity::Keypair;
 use libp2p::noise;
 use libp2p::pnet::{PnetConfig, PreSharedKey};
@@ -151,6 +152,11 @@ impl Libp2pService {
             .map(|v| IdentTopic::new(v))
             .for_each(|topic| assert!(gossipsub.subscribe(&topic).unwrap()));
 
+        let identify = identify::Behaviour::new(identify::Config::new(
+            "ipfs/0.1.0".to_string(),
+            identity_keys.public(),
+        ));
+
         let behaviour = Behaviour {
             gossipsub,
             rpc: {
@@ -169,6 +175,7 @@ impl Libp2pService {
                     .register_method::<GetTransitionChainProofV1ForV2>()
                     .build()
             },
+            identify,
             event_source_sender,
             ongoing: BTreeMap::default(),
             ongoing_incoming: BTreeMap::default(),
@@ -489,6 +496,7 @@ impl Libp2pService {
                 );
                 let event =
                     P2pEvent::Connection(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())));
+                swarm.behaviour_mut().identify.push(Some(dbg!(peer_id)));
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
@@ -575,6 +583,16 @@ impl Libp2pService {
                 }
                 BehaviourEvent::Rpc((peer_id, event)) => {
                     Self::handle_event_rpc(swarm, peer_id, event);
+                }
+                BehaviourEvent::Identify(identify::Event::Received { peer_id, info }) => {
+                    if let Some(maddr) = info.listen_addrs.first() {
+                        let mut maddr = maddr.clone();
+                        maddr.push(libp2p::multiaddr::Protocol::P2p(peer_id.into()));
+                        let _ = swarm
+                            .behaviour_mut()
+                            .event_source_sender
+                            .send(P2pEvent::Libp2pIdentify(peer_id.into(), maddr).into());
+                    }
                 }
                 _ => {
                     openmina_core::log::trace!(

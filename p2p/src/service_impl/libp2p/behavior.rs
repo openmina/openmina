@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use libp2p::{gossipsub, swarm::NetworkBehaviour, PeerId};
+use libp2p::{gossipsub, identify, swarm::NetworkBehaviour, PeerId};
 use openmina_core::channels::mpsc;
 
 use crate::P2pEvent;
@@ -12,6 +12,7 @@ use libp2p_rpc_behaviour::{Behaviour as RpcBehaviour, Event as RpcEvent, StreamI
 pub struct Behaviour<E: 'static + From<P2pEvent>> {
     pub gossipsub: gossipsub::Behaviour,
     pub rpc: RpcBehaviour,
+    pub identify: identify::Behaviour,
     #[behaviour(ignore)]
     pub event_source_sender: mpsc::UnboundedSender<E>,
     // TODO(vlad9486): move maps inside `RpcBehaviour`
@@ -30,4 +31,5 @@ pub enum Event {
     // Identify(IdentifyEvent),
     Gossipsub(gossipsub::Event),
     Rpc((PeerId, RpcEvent)),
+    Identify(identify::Event),
 }

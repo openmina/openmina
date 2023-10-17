@@ -16,6 +16,8 @@ pub enum Command {
     Server(CommandServer),
 
     ScenariosGenerate(CommandScenariosGenerate),
+
+    BasicConnectivityInitialJoining,
 }
 
 #[derive(Debug, clap::Args)]
@@ -61,6 +63,10 @@ impl Command {
                 Err("binary not compiled with `scenario-generators` feature"
                     .to_owned()
                     .into())
+            }
+            Self::BasicConnectivityInitialJoining => {
+                openmina_node_testing::basic_connectivity::initial_joining::run();
+                Ok(())
             }
         }
     }

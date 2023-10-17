@@ -1,9 +1,12 @@
+use url::Host;
+
 use crate::connection::incoming::P2pConnectionIncomingAction;
 use crate::connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts};
 use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
 use crate::disconnection::P2pDisconnectionAction;
 use crate::discovery::{P2pDiscoveryAction, P2pDiscoverySuccessAction};
 use crate::peer::p2p_peer_reducer;
+use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
 use crate::{P2pAction, P2pActionWithMetaRef, P2pPeerState, P2pPeerStatus, P2pState};
 
 impl P2pState {
@@ -78,18 +81,41 @@ impl P2pState {
                             // the peer_id is not supported
                             return None;
                         }
-                        let opts = P2pConnectionOutgoingInitOpts::LibP2P {
-                            peer_id: peer_id.into(),
-                            maddr: {
-                                use libp2p::{multiaddr::Protocol, Multiaddr};
-                                use std::net::IpAddr;
 
-                                let host = String::try_from(&peer.host).ok()?;
-                                let mut a = Multiaddr::from(host.parse::<IpAddr>().ok()?);
-                                a.push(Protocol::Tcp(peer.libp2p_port.0 as u16));
-                                a.push(Protocol::P2p(peer_id.into()));
-                                a
-                            },
+                        let host = String::try_from(&peer.host).ok()?;
+
+                        let opts = if host.contains(':') {
+                            let mut it = host.split(':');
+                            let schema = it.next()?;
+                            let host = it.next()?;
+                            let signaling = match schema {
+                                "http" => SignalingMethod::Http(HttpSignalingInfo {
+                                    host: Host::parse(host).ok()?,
+                                    port: peer.libp2p_port.as_u64() as u16,
+                                }),
+                                "https" => SignalingMethod::Https(HttpSignalingInfo {
+                                    host: Host::parse(host).ok()?,
+                                    port: peer.libp2p_port.as_u64() as u16,
+                                }),
+                                _ => return None,
+                            };
+                            P2pConnectionOutgoingInitOpts::WebRTC {
+                                peer_id: peer_id.into(),
+                                signaling,
+                            }
+                        } else {
+                            P2pConnectionOutgoingInitOpts::LibP2P {
+                                peer_id: peer_id.into(),
+                                maddr: {
+                                    use libp2p::{multiaddr::Protocol, Multiaddr};
+                                    use std::net::IpAddr;
+
+                                    let mut a = Multiaddr::from(host.parse::<IpAddr>().ok()?);
+                                    a.push(Protocol::Tcp(peer.libp2p_port.0 as u16));
+                                    a.push(Protocol::P2p(peer_id.into()));
+                                    a
+                                },
+                            }
                         };
                         Some((peer_id.into(), opts))
                     }));
