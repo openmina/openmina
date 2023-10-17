@@ -74,6 +74,7 @@ impl RpcState {
             RpcAction::SnarkerJobSpec(_) => {}
             RpcAction::SnarkerWorkersGet(_) => {}
             RpcAction::HealthCheck(_) => {}
+            RpcAction::ReadinessCheck(_) => {}
             RpcAction::Finish(action) => {
                 self.requests.remove(&action.rpc_id);
             }

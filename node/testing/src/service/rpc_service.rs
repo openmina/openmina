@@ -111,4 +111,12 @@ impl RpcService for super::NodeTestingService {
     ) -> Result<(), RespondError> {
         self.real.respond_health_check(rpc_id, response)
     }
+
+    fn respond_readiness_check(
+        &mut self,
+        rpc_id: RpcId,
+        response: node::rpc::RpcReadinessCheckResponse,
+    ) -> Result<(), RespondError> {
+        self.real.respond_readiness_check(rpc_id, response)
+    }
 }

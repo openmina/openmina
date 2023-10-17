@@ -1,4 +1,4 @@
-use node::rpc::RpcHealthCheckResponse;
+use node::rpc::{RpcHealthCheckResponse, RpcReadinessCheckResponse};
 use serde::{Deserialize, Serialize};
 
 use node::core::channels::{mpsc, oneshot};
@@ -138,4 +138,5 @@ impl node::rpc::RpcService for NodeService {
         node::rpc::RpcSnarkerConfigGetResponse
     );
     rpc_service_impl!(respond_health_check, RpcHealthCheckResponse);
+    rpc_service_impl!(respond_readiness_check, RpcReadinessCheckResponse);
 }

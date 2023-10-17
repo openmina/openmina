@@ -106,6 +106,13 @@ impl Stats {
     pub fn collect_sync_stats(&self, limit: Option<usize>) -> Vec<SyncStatsSnapshot> {
         self.sync_stats.collect_stats(limit)
     }
+
+    pub fn get_sync_time(&self) -> Option<Timestamp> {
+        self.sync_stats
+            .collect_stats(Some(1))
+            .first()
+            .and_then(|stats| stats.synced)
+    }
 }
 
 impl Default for Stats {

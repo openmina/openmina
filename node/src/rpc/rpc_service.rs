@@ -7,9 +7,9 @@ use crate::State;
 
 use super::{
     RpcActionStatsGetResponse, RpcHealthCheckResponse, RpcId, RpcP2pConnectionOutgoingResponse,
-    RpcScanStateSummaryGetResponse, RpcScanStateSummaryScanStateJob, RpcSnarkPoolGetResponse,
-    RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
-    RpcSnarkerWorkersResponse, RpcSyncStatsGetResponse,
+    RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse, RpcScanStateSummaryScanStateJob,
+    RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse,
+    RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse, RpcSyncStatsGetResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
@@ -95,5 +95,10 @@ pub trait RpcService: RpcLedgerService {
         &mut self,
         rpc_id: RpcId,
         response: RpcHealthCheckResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_readiness_check(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcReadinessCheckResponse,
     ) -> Result<(), RespondError>;
 }
