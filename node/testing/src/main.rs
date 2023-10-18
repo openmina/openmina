@@ -17,7 +17,10 @@ pub enum Command {
 
     ScenariosGenerate(CommandScenariosGenerate),
 
-    BasicConnectivityInitialJoining,
+    BasicConnectivityInitialJoining {
+        #[arg(long)]
+        transport: String,
+    },
 }
 
 #[derive(Debug, clap::Args)]
@@ -64,8 +67,17 @@ impl Command {
                     .to_owned()
                     .into())
             }
-            Self::BasicConnectivityInitialJoining => {
-                openmina_node_testing::basic_connectivity::initial_joining::run();
+            Self::BasicConnectivityInitialJoining { transport } => {
+                match transport.as_str() {
+                    "webrtc" => {
+                        openmina_node_testing::basic_connectivity::initial_joining::webrtc::run()
+                    }
+                    "libp2p" => {
+                        openmina_node_testing::basic_connectivity::initial_joining::libp2p::run()
+                    }
+                    _ => return Err(anyhow::anyhow!("unknown transport {transport}").into()),
+                }
+
                 Ok(())
             }
         }

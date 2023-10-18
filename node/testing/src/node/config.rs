@@ -26,4 +26,9 @@ impl RustNodeTestingConfig {
         self.max_peers = n;
         self
     }
+
+    pub fn chain_id(mut self, s: impl AsRef<str>) -> Self {
+        self.chain_id = s.as_ref().to_owned();
+        self
+    }
 }
