@@ -98,10 +98,22 @@ impl node::rpc::RpcService for NodeService {
         respond_p2p_connection_outgoing,
         RpcP2pConnectionOutgoingResponse
     );
-    rpc_service_impl!(
-        respond_p2p_connection_incoming_answer,
-        P2pConnectionResponse
-    );
+
+    fn respond_p2p_connection_incoming_answer(
+        &mut self,
+        rpc_id: RpcId,
+        response: P2pConnectionResponse,
+    ) -> Result<(), RespondError> {
+        let entry = self.rpc.pending.get(rpc_id);
+        let chan = entry.ok_or(RespondError::UnknownRpcId)?;
+        let chan = chan
+            .downcast_ref::<mpsc::Sender<RpcP2pConnectionIncomingResponse>>()
+            .ok_or(RespondError::UnexpectedResponseType)?
+            .clone();
+        chan.try_send(RpcP2pConnectionIncomingResponse::Answer(response))
+            .or(Err(RespondError::RespondingFailed))?;
+        Ok(())
+    }
 
     fn respond_p2p_connection_incoming(
         &mut self,

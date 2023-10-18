@@ -262,14 +262,12 @@ pub struct RpcHealthCheckAction {
 
 impl redux::EnablingCondition<crate::State> for RpcHealthCheckAction {}
 
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcReadinessCheckAction {
     pub rpc_id: RpcId,
 }
 
 impl redux::EnablingCondition<crate::State> for RpcReadinessCheckAction {}
-
 
 /// Finish/Cleanup rpc request.
 #[derive(Serialize, Deserialize, Debug, Clone)]
