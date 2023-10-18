@@ -257,6 +257,7 @@ checksum = "bddcadddf5e9015d310179a59bb28c4d4b9920ad0f11e8e14dbadf654890c9a6"
 [[package]]
 name = "ark-ec"
 version = "0.3.0"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -270,6 +271,7 @@ dependencies = [
 [[package]]
 name = "ark-ff"
 version = "0.3.0"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "ark-ff-asm",
  "ark-ff-macros",
@@ -287,6 +289,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-asm"
 version = "0.3.0"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -295,6 +298,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-macros"
 version = "0.3.0"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "num-bigint",
  "num-traits",
@@ -305,6 +309,7 @@ dependencies = [
 [[package]]
 name = "ark-poly"
 version = "0.3.0"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -317,6 +322,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize"
 version = "0.3.0"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "ark-serialize-derive",
  "ark-std",
@@ -326,6 +332,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize-derive"
 version = "0.3.0"
+source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2104,6 +2111,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2600,6 +2608,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3173,6 +3182,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3181,6 +3191,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -3226,6 +3237,7 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3242,6 +3254,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3737,6 +3750,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4159,6 +4173,7 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4524,6 +4539,7 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
+source = "git+https://github.com/openmina/redux-rs.git#056887aa168c018d5da7d34eb44ad37c76e1508c"
 dependencies = [
  "enum_dispatch",
  "serde",
@@ -5839,6 +5855,7 @@ dependencies = [
 [[package]]
 name = "turshi"
 version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#c703895c182208afd64a6c5d29c606a62b85c9d1"
 dependencies = [
  "ark-ff",
  "hex",

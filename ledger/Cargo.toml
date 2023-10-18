@@ -16,13 +16,13 @@ crate-type = ["staticlib", "cdylib", "lib"]
 # https://stackoverflow.com/a/73023306
 
 [dependencies]
-mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
-poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
+mina-hasher = { workspace = true }
+mina-signer = { workspace = true }
+mina-curves = { workspace = true }
+o1-utils = { workspace = true }
+kimchi = { workspace = true }
+mina-poseidon = { workspace = true }
+poly-commitment = { workspace = true }
 
 bs58 = "0.4.0"
 mina-p2p-messages = { workspace = true, features = ["hashing"] }
@@ -38,9 +38,6 @@ libc = "0.2"
 
 itertools = "0.10"
 tuple-map = "0.4.0"
-
-# ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
-# ark-serialize = { version = "0.3.0", features = [ "std" ] }
 
 ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm", "std" ] }
 ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
@@ -105,29 +102,3 @@ inherits = "release"
 debug = true
 debug-assertions = true
 overflow-checks = true
-
-[patch.crates-io]
-ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-# ark-ff = { path = "/home/sebastien/github/algebra/ff" }
-# ark-ec = { path = "/home/sebastien/github/algebra/ec" }
-# ark-poly = { path = "/home/sebastien/github/algebra/poly" }
-# ark-serialize = { path = "/home/sebastien/github/algebra/serialize" }
-
-[patch.'https://github.com/o1-labs/proof-systems']
-mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
-poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
-
-# mina-hasher = { path = "/home/sebastien/github/proof-systems/hasher" }
-# mina-signer = { path = "/home/sebastien/github/proof-systems/signer" }
-# mina-curves = { path = "/home/sebastien/github/proof-systems/curves" }
-# o1-utils = { path = "/home/sebastien/github/proof-systems/utils" }
-# kimchi = { path = "/home/sebastien/github/proof-systems/kimchi" }
-# oracle = { path = "/home/sebastien/github/proof-systems/oracle" }

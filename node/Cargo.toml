@@ -19,8 +19,8 @@ bincode = "1.3.3"
 hex = "0.4.3"
 rand = "0.8"
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
-mina-hasher = { git = "https://github.com/o1-labs/proof-systems" }
-mina-signer = { git = "https://github.com/o1-labs/proof-systems" }
+mina-hasher = { workspace = true }
+mina-signer = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 
