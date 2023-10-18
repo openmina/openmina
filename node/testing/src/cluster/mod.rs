@@ -102,6 +102,17 @@ impl Cluster {
         };
         let pub_key = secret_key.public_key();
 
+        let http_port = self
+            .available_ports
+            .next()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "couldn't find available port in port range: {:?}",
+                    self.config.port_range()
+                )
+            })
+            .unwrap();
+
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
@@ -117,9 +128,10 @@ impl Cluster {
             },
             p2p: P2pConfig {
                 libp2p_port: None,
+                listen_port: http_port,
                 identity_pub_key: pub_key,
                 initial_peers: vec![],
-                max_peers: 100,
+                max_peers: testing_config.max_peers,
                 enabled_channels: ChannelId::iter_all().collect(),
             },
             transition_frontier: TransitionFrontierConfig::default(),
@@ -151,16 +163,6 @@ impl Cluster {
 
         let mut rpc_service = RpcService::new();
 
-        let http_port = self
-            .available_ports
-            .next()
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "couldn't find available port in port range: {:?}",
-                    self.config.port_range()
-                )
-            })
-            .unwrap();
         let rpc_sender = RpcSender::new(rpc_service.req_sender().clone());
 
         // spawn http-server

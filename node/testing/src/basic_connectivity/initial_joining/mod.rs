@@ -18,15 +18,23 @@ pub fn run() {
 }
 
 async fn run_inner() {
+    const TOTAL_PEERS: usize = 20;
+    const STEPS_PER_PEER: usize = 10;
+    const EXTRA_STEPS: usize = 400;
+    const MAX_PEERS_PER_NODE: usize = 12;
+
     let mut cluster = Cluster::new(ClusterConfig::default());
-    let seed_node = cluster.add_rust_node(RustNodeTestingConfig::berkeley_default());
+    let seed_node =
+        cluster.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(TOTAL_PEERS));
     let mut nodes = vec![seed_node];
 
-    for _ in 0..1000 {
+    for step in 0..(TOTAL_PEERS * STEPS_PER_PEER + EXTRA_STEPS) {
         tokio::time::sleep(Duration::from_millis(100)).await;
 
-        if nodes.len() < 100 {
-            let node = cluster.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        if step % STEPS_PER_PEER == 0 && nodes.len() < TOTAL_PEERS {
+            let node = cluster.add_rust_node(
+                RustNodeTestingConfig::berkeley_default().max_peers(MAX_PEERS_PER_NODE),
+            );
             cluster
                 .exec_step(ScenarioStep::ConnectNodes {
                     dialer: node,
@@ -61,6 +69,17 @@ async fn run_inner() {
     for node_id in nodes {
         let node = cluster.node(node_id).expect("node must exist");
         let p2p = &node.state().p2p;
-        println!("{} {}", p2p.known_peers.len(), p2p.peers.len());
+        let ready_peers = p2p.ready_peers_iter().count();
+        // each node know all nodes
+        assert_eq!(p2p.known_peers.len(), TOTAL_PEERS);
+        // each node connected to some peers
+        assert!(ready_peers >= 3);
+        // maximum is not exceeded
+        let max_peers = if node_id == seed_node {
+            TOTAL_PEERS
+        } else {
+            MAX_PEERS_PER_NODE
+        };
+        assert!(ready_peers <= max_peers);
     }
 }

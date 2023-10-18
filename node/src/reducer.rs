@@ -11,7 +11,7 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
                 if let Some(peer) = state.p2p.peers.get_mut(peer_id) {
                     peer.dial_opts = Some(P2pConnectionOutgoingInitOpts::LibP2P {
                         peer_id: *peer_id,
-                        maddr: dbg!(maddr).clone(),
+                        maddr: maddr.clone(),
                     });
                 }
             }

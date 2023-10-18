@@ -154,6 +154,7 @@ impl Node {
             },
             p2p: P2pConfig {
                 libp2p_port: Some(self.libp2p_port),
+                listen_port: self.port,
                 identity_pub_key: pub_key,
                 initial_peers: self.peers,
                 max_peers: 100,

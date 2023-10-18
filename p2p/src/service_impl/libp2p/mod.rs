@@ -496,7 +496,7 @@ impl Libp2pService {
                 );
                 let event =
                     P2pEvent::Connection(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())));
-                swarm.behaviour_mut().identify.push(Some(dbg!(peer_id)));
+                swarm.behaviour_mut().identify.push(Some(peer_id));
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {

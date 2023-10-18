@@ -58,7 +58,11 @@ impl P2pState {
     pub fn initial_unused_peers(&self) -> Vec<P2pConnectionOutgoingInitOpts> {
         self.known_peers
             .values()
-            .filter(|v| !self.peers.contains_key(v.peer_id()))
+            .filter(|v| {
+                self.ready_peers_iter()
+                    .find(|(id, _)| (*id).eq(v.peer_id()))
+                    .is_none()
+            })
             .cloned()
             .collect()
     }
