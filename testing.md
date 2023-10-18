@@ -13,7 +13,7 @@
 
 - [ ] Network split
 - [ ] Long-running network (cluster)
-- [ ] Berkeley testnet (?)
+- [x] Berkeley testnet: [![Openmina Daily](https://github.com/openmina/openmina/actions/workflows/daily.yaml/badge.svg)](https://github.com/openmina/openmina/actions/workflows/daily.yaml)
 
 ### Various bootstrap scenarios
 

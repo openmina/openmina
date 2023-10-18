@@ -11,5 +11,10 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+      {{- if (eq .Values.service.type "NodePort")}}
+      {{- with .Values.service.nodePort }}
+      nodePort: {{ . }}
+      {{- end }}
+      {{- end }}
   selector:
     {{- include "openmina.selectorLabels" . | nindent 4 }}

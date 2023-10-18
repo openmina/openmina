@@ -3,11 +3,31 @@ on:
   workflow_dispatch: {}
   schedule:
     - cron: "0 5 * * *"
-
+  push:
+    branches: [ "test/*daily*" ]
 
 jobs:
   bootstrap-berkeley:
     runs-on: ubuntu-latest
+
+    env:
+      CLUSTER_ADDR: 1.k8.openmina.com
+      OPENMINA_NODE_PORT: 31001
+      OPENMINA_SELECTOR: app.kubernetes.io/instance=${{ github.job }},app.kubernetes.io/name=openmina
+      PROXY: https://proxy.berkeley.minaexplorer.com/
+      BEST_CHAIN_QUERY: |
+        query MyQuery {
+          bestChain(maxLength: 1) {
+            protocolState {
+              consensusState {
+                blockHeight
+              }
+            }
+          }
+        }
+      BEST_CHAIN_HEIGHT_FILTER: .data.bestChain[0].protocolState.consensusState.blockHeight
+
+
     steps:
       - name: Git checkout
         uses: actions/checkout@v3
@@ -18,6 +38,74 @@ jobs:
           method: kubeconfig
           kubeconfig: ${{ secrets.K8S_CONFIG }}
 
+      - name: Get Openmina pod status
+        run: |
+          openmina_pod=$(kubectl get pod --selector="$OPENMINA_SELECTOR" -o json | jq -r '.items | sort_by(.metadata.creationTimestamp) | .[-1] // halt | .metadata.name')
+          openmina_status=$(kubectl get pod --selector="$OPENMINA_SELECTOR" -o json | jq -c '.items | sort_by(.metadata.creationTimestamp) | .[-1] // halt | .status')
+          echo "::group::Openmina status"
+          echo $openmina_status | jq .
+          echo "::endgroup::"
+          echo "OPENMINA_POD=$openmina_pod" >> "$GITHUB_ENV"
+          echo "OPENMINA_STATUS=$openmina_status" >> "$GITHUB_ENV"
+
+      - name: Check Sync state
+        if: ${{ env.OPENMINA_STATUS != '' }}
+        env:
+          GET_READY_STATUS: '.conditions[] | select(.status == "True" and .type == "Ready")'
+          GET_RESTARTS_COUNT: '.containerStatuses[] | select(.name == "openmina") | .restartCount'
+        run: |
+          if [ -z "$(echo $OPENMINA_STATUS | jq "$GET_READY_STATUS")" ]; then
+            echo "::error::Openmina pod is not ready"
+            exit 1
+          else
+            restarts_count="$(echo $OPENMINA_STATUS | jq "$GET_RESTARTS_COUNT")"
+            if [ "$restarts_count" -gt 0 ]; then
+              echo "::error::Openmina container restart count is ${restarts_count}"
+              exit 1
+            fi
+          fi
+
+      - name: Get network height
+        if: ${{ env.OPENMINA_POD != '' }}
+        run: |
+          net_height="$(echo $BEST_CHAIN_QUERY | echo "{\"query\": \"$(cat)\"}" | curl -s $PROXY -d @- -H 'content-type: application/json' | jq -r "$BEST_CHAIN_HEIGHT_FILTER")"
+          echo "::debug::Network block height: $net_height"
+          echo "NET_HEIGHT=$net_height" >> "$GITHUB_ENV"
+
+      - name: Check Openmina height
+        if: ${{ env.OPENMINA_POD != '' }}
+        run: |
+          for n in $(seq 10); do
+            OPENMINA_HEIGHT=$(kubectl exec $OPENMINA_POD -- curl -s localhost:3000/stats/sync | jq '.[0].blocks[0].height')
+            echo "::debug::Openmina block height $OPENMINA_HEIGHT"
+            if [ "$NET_HEIGHT" -eq "$OPENMINA_HEIGHT" ]; then
+              exit
+            fi
+            sleep 1
+          done
+          echo "::error::Openmina is at $OPENMINA_HEIGHT that is behind main network $NET_HEIGHT"
+
       - name: Bootstrap Openmina node
         run: |
-          helm upgrade --install ${{ github.job }} helm/openmina --wait --timeout=10m --set=podAnnotations.timestamp="$(date)"
+          helm upgrade --install ${{ github.job }} helm/openmina --wait --timeout=10m --set=service.type=NodePort --set=service.nodePort=$OPENMINA_NODE_PORT --set=podAnnotations.timestamp="$(date)"
+          echo "::notice::Openmina node is deployed and bootstrapped. It is available at http://$CLUSTER_ADDR:$OPENMINA_NODE_PORT"
+          openmina_pod=$(kubectl get pod --selector="$OPENMINA_SELECTOR" -o json | jq -r '.items | sort_by(.metadata.creationTimestamp) | .[-1] // halt | .metadata.name')
+          echo "OPENMINA_POD=$openmina_pod" >> "$GITHUB_ENV"
+
+      - name: Get network height
+        run: |
+          net_height="$(echo $BEST_CHAIN_QUERY | echo "{\"query\": \"$(cat)\"}" | curl -s $PROXY -d @- -H 'content-type: application/json' | jq -r "$BEST_CHAIN_HEIGHT_FILTER")"
+          echo "::debug::Network block height: $NET_HEIGHT"
+          echo "NET_HEIGHT=$net_height" >> "$GITHUB_ENV"
+
+      - name: Check Openmina height
+        run: |
+          for n in $(seq 10); do
+            OPENMINA_HEIGHT=$(kubectl exec $OPENMINA_POD -- curl -s localhost:3000/stats/sync | jq '.[0].blocks[0].height')
+            echo "::debug::Openmina block height $OPENMINA_HEIGHT"
+            if [ "$NET_HEIGHT" -eq "$OPENMINA_HEIGHT" ]; then
+              exit
+            fi
+            sleep 1
+          done
+          echo "::error::Openmina is at $OPENMINA_HEIGHT that is behind main network $NET_HEIGHT"
