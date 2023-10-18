@@ -3,6 +3,7 @@ cargo-features = ["named-profiles"]
 [workspace]
 members = [
     "core",
+    "ledger",
     "snark",
     "p2p",
     "p2p/libp2p-rpc-behaviour",
@@ -21,6 +22,13 @@ resolver = "2"
 [workspace.dependencies]
 mina-p2p-messages = { path = "mina-p2p-messages", features = ["hashing"] }
 ledger = { path = "ledger", package = "mina-tree" }
+mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
+mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
+poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
 
 [profile.fuzz]
 inherits = "release"
@@ -38,15 +46,3 @@ ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina" }
 ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina" }
 ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina" }
 ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-
-[patch.'https://github.com/o1-labs/proof-systems']
-mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
-poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
-
-[patch.'https://github.com/openmina/ledger']
-ledger = { path = "ledger", package = "mina-tree" }

@@ -5,13 +5,13 @@ edition = "2021"
 license = "Apache-2.0"
 
 [dependencies]
-mina-hasher = { git = "https://github.com/o1-labs/proof-systems" }
-mina-signer = { git = "https://github.com/o1-labs/proof-systems" }
-mina-curves = { git = "https://github.com/o1-labs/proof-systems" }
-o1-utils = { git = "https://github.com/o1-labs/proof-systems" }
-kimchi = { git = "https://github.com/o1-labs/proof-systems" }
-poly-commitment = { git = "https://github.com/o1-labs/proof-systems" }
-mina-poseidon = { git = "https://github.com/o1-labs/proof-systems" }
+mina-hasher = { workspace = true }
+mina-signer = { workspace = true }
+mina-curves = { workspace = true }
+o1-utils = { workspace = true }
+kimchi = { workspace = true }
+mina-poseidon = { workspace = true }
+poly-commitment = { workspace = true }
 
 strum_macros = "0.24.3"
 derive_more = "0.99.17"

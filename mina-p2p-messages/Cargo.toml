@@ -18,11 +18,11 @@ base64 = "0.13.1"
 sha2 = { version = "0.10.2", optional = true }
 blake2 = { version = "0.10", optional = true }
 
-mina-hasher = {git = "https://github.com/o1-labs/proof-systems", rev = "373a294cf87f94d1bb518a248fbf71364aa73526", optional = true }
-mina-curves = {git = "https://github.com/o1-labs/proof-systems", rev = "373a294cf87f94d1bb518a248fbf71364aa73526", optional = true }
-mina-signer = {git = "https://github.com/o1-labs/proof-systems", rev = "373a294cf87f94d1bb518a248fbf71364aa73526", optional = true }
-mina-poseidon = {git = "https://github.com/o1-labs/proof-systems", rev = "373a294cf87f94d1bb518a248fbf71364aa73526", optional = true }
-o1-utils = {git = "https://github.com/o1-labs/proof-systems", rev = "373a294cf87f94d1bb518a248fbf71364aa73526", optional = true }
+mina-hasher = { workspace = true, optional = true }
+mina-curves = { workspace = true, optional = true }
+mina-signer = { workspace = true, optional = true }
+mina-poseidon = { workspace = true, optional = true }
+o1-utils = { workspace = true, optional = true }
 
 ark-ff = { version = "0.3.0", features = [ "parallel", "asm" ], optional = true }
 
