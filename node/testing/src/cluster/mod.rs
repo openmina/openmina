@@ -132,6 +132,7 @@ impl Cluster {
                 identity_pub_key: pub_key,
                 initial_peers: vec![],
                 max_peers: testing_config.max_peers,
+                ask_initial_peers_interval: Duration::from_secs(120),
                 enabled_channels: ChannelId::iter_all().collect(),
             },
             transition_frontier: TransitionFrontierConfig::default(),

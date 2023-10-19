@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, time::Duration};
 
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +12,8 @@ pub struct P2pConfig {
     pub listen_port: u16,
     pub identity_pub_key: PublicKey,
     pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
+
+    pub ask_initial_peers_interval: Duration,
 
     pub enabled_channels: BTreeSet<ChannelId>,
 

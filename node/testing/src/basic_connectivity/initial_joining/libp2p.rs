@@ -36,29 +36,32 @@ fn init_opts_from_multiaddr(maddr: libp2p::Multiaddr) -> P2pConnectionOutgoingIn
 
 async fn run_inner() {
     const MAX_PEERS_PER_NODE: usize = 12;
-    const STEPS: usize = 40;
+    const STEPS: usize = 100;
 
     let mut cluster = Cluster::new(ClusterConfig::default());
     let mut nodes = vec![];
 
-    let seed_maddr =
-        "/dns4/seed-1.berkeley.o1test.net/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs"
-            .parse()
-            .unwrap();
-
     let node = cluster
         .add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(MAX_PEERS_PER_NODE));
-    cluster
-        .exec_step(ScenarioStep::ConnectNodes {
-            dialer: node,
-            listener: ListenerNode::Custom(init_opts_from_multiaddr(seed_maddr)),
-        })
-        .await
-        .unwrap();
+
+    let seeds = [
+        "/dns4/seed-1.berkeley.o1test.net/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
+        "/dns4/seed-2.berkeley.o1test.net/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
+        "/dns4/seed-3.berkeley.o1test.net/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
+    ];
+    for seed in seeds {
+        cluster
+            .exec_step(ScenarioStep::ConnectNodes {
+                dialer: node,
+                listener: ListenerNode::Custom(init_opts_from_multiaddr(seed.parse().unwrap())),
+            })
+            .await
+            .unwrap();
+    }
     nodes.push(node);
 
     for step in 0..STEPS {
-        tokio::time::sleep(Duration::from_millis(1000)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
 
         let steps = cluster
             .pending_events()
@@ -87,7 +90,7 @@ async fn run_inner() {
             println!("known peers: {known_peers}");
             println!("connected peers: {ready_peers}");
 
-            if ready_peers >= 3 && known_peers >= MAX_PEERS_PER_NODE {
+            if known_peers >= MAX_PEERS_PER_NODE {
                 return;
             }
         }

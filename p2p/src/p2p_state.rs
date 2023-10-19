@@ -208,6 +208,8 @@ impl P2pPeerStatus {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pPeerStatusReady {
     pub connected_since: redux::Timestamp,
+    pub last_asked_initial_peers: Option<redux::Timestamp>,
+    pub last_received_initial_peers: Option<redux::Timestamp>,
     pub channels: P2pChannelsState,
     pub best_tip: Option<ArcBlockWithHash>,
 }
@@ -216,6 +218,8 @@ impl P2pPeerStatusReady {
     pub fn new(time: redux::Timestamp, enabled_channels: &BTreeSet<ChannelId>) -> Self {
         Self {
             connected_since: time,
+            last_asked_initial_peers: None,
+            last_received_initial_peers: None,
             channels: P2pChannelsState::new(enabled_channels),
             best_tip: None,
         }

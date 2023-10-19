@@ -158,6 +158,7 @@ impl Node {
                 identity_pub_key: pub_key,
                 initial_peers: self.peers,
                 max_peers: 100,
+                ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::iter_all().collect(),
             },
             transition_frontier: TransitionFrontierConfig::default(),

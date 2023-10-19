@@ -4,7 +4,7 @@ use crate::connection::incoming::{IncomingSignalingMethod, P2pConnectionIncoming
 use crate::connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts};
 use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
 use crate::disconnection::P2pDisconnectionAction;
-use crate::discovery::{P2pDiscoveryAction, P2pDiscoverySuccessAction};
+use crate::discovery::{P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoverySuccessAction};
 use crate::peer::p2p_peer_reducer;
 use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
 use crate::{P2pAction, P2pActionWithMetaRef, P2pPeerState, P2pPeerStatus, P2pState};
@@ -87,8 +87,16 @@ impl P2pState {
                 peer.channels.reducer(meta.with_action(action));
             }
             P2pAction::Discovery(action) => match action {
-                P2pDiscoveryAction::Init(_) => {}
-                P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peers, .. }) => {
+                P2pDiscoveryAction::Init(P2pDiscoveryInitAction { peer_id }) => {
+                    let Some(peer) = self.get_ready_peer_mut(peer_id) else {
+                        return;
+                    };
+                    peer.last_asked_initial_peers = Some(meta.time());
+                }
+                P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peers, peer_id }) => {
+                    if let Some(peer) = self.get_ready_peer_mut(peer_id) {
+                        peer.last_received_initial_peers = Some(meta.time());
+                    };
                     self.known_peers.extend(peers.iter().filter_map(|peer| {
                         let peer_id_str = String::try_from(&peer.peer_id.0).ok()?;
                         let peer_id = peer_id_str.parse::<libp2p::PeerId>().ok()?;
