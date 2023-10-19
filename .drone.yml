@@ -30,22 +30,6 @@ environment:
 
 steps:
 
-  - name: submodules
-    image: alpine/git
-    environment:
-      GITHUB_AUTH_TOKEN:
-        from_secret: github_auth_token
-    commands:
-      - git config --global url."https://$${GITHUB_AUTH_TOKEN}:@github.com/".insteadOf "https://github.com/"
-      - git config --global --add safe.directory /drone/src
-      - git config --global --add safe.directory /drone/src/ledger
-      - git config --global --add safe.directory /drone/src/mina-p2p-messages-rs
-      - git config --global --add safe.directory /drone/src/deps/algebra
-      - git config --global --add safe.directory /drone/src/deps/proof-systems
-      - git config --global --add safe.directory /drone/src/deps/redux-rs
-      - git submodule update --init --recursive
-      - rm ~/.gitconfig
-
   - name: prepare-snark-worker
     image: *snark-worker-image
     commands:
@@ -218,21 +202,6 @@ trigger:
     - pull_request
 
 steps:
-  - name: submodules
-    image: alpine/git
-    environment:
-      GITHUB_AUTH_TOKEN:
-        from_secret: github_auth_token
-    commands:
-      - git config --global url."https://$${GITHUB_AUTH_TOKEN}:@github.com/".insteadOf "https://github.com/"
-      - git config --global --add safe.directory /drone/src
-      - git config --global --add safe.directory /drone/src/ledger
-      - git config --global --add safe.directory /drone/src/mina-p2p-messages-rs
-      - git config --global --add safe.directory /drone/src/deps/algebra
-      - git config --global --add safe.directory /drone/src/deps/proof-systems
-      - git config --global --add safe.directory /drone/src/deps/redux-rs
-      - git submodule update --init --recursive
-      - rm ~/.gitconfig
 
   - name: build-image-pr
     image: plugins/docker
