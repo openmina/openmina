@@ -28,8 +28,8 @@ pub struct State {
     pub watched_accounts: WatchedAccountsState,
 
     // TODO(binier): include action kind in `last_action`.
-    pub last_action: ActionMeta,
-    pub applied_actions_count: u64,
+    last_action: ActionMeta,
+    applied_actions_count: u64,
 }
 
 impl State {

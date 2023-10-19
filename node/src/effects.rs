@@ -1,4 +1,4 @@
-use p2p::discovery::P2pDiscoveryInitAction;
+use redux::ActionMeta;
 
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
@@ -16,6 +16,7 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
     P2pConnectionOutgoingTimeoutAction,
 };
+use crate::p2p::discovery::P2pDiscoveryInitAction;
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
@@ -47,113 +48,30 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             // TODO(binier): create init action and dispatch this there.
             store.dispatch(ExternalSnarkWorkerStartAction {});
 
-            let now = store.state().time();
-            let p2p_connection_timeouts: Vec<_> = store
-                .state()
-                .p2p
-                .peers
-                .iter()
-                .filter_map(|(peer_id, peer)| {
-                    let s = peer.status.as_connecting()?;
-                    match s.is_timed_out(now) {
-                        true => Some((*peer_id, s.as_outgoing().is_some())),
-                        false => None,
-                    }
-                })
-                .collect();
-
-            for (peer_id, is_outgoing) in p2p_connection_timeouts {
-                match is_outgoing {
-                    true => store.dispatch(P2pConnectionOutgoingTimeoutAction { peer_id }),
-                    false => store.dispatch(P2pConnectionIncomingTimeoutAction { peer_id }),
-                };
-            }
+            p2p_connection_timeouts(store, &meta);
 
             store.dispatch(P2pConnectionOutgoingRandomInitAction {});
 
-            let reconnect_actions: Vec<_> = store
-                .state()
-                .p2p
-                .peers
-                .iter()
-                .filter_map(|(_, p)| p.dial_opts.clone())
-                .map(|opts| P2pConnectionOutgoingReconnectAction { opts, rpc_id: None })
-                .collect();
-            for action in reconnect_actions {
-                store.dispatch(action);
-            }
+            p2p_try_reconnect_disconnected_peers(store);
 
             store.dispatch(SnarkPoolCheckTimeoutsAction {});
             store.dispatch(SnarkPoolP2pSendAllAction {});
 
-            // TODO(binier): refactor
-            let state = store.state();
-            let consensus_best_tip_hash = state.consensus.best_tip.as_ref();
-            let best_tip_hash = state.transition_frontier.best_tip().map(|v| &v.hash);
-            let syncing_best_tip_hash = state.transition_frontier.sync.best_tip().map(|v| &v.hash);
-
-            if consensus_best_tip_hash.is_some()
-                && consensus_best_tip_hash != best_tip_hash
-                && consensus_best_tip_hash != syncing_best_tip_hash
-                && state.consensus.best_tip_chain_proof.is_none()
-            {
-                if !state
-                    .p2p
-                    .ready_peers_iter()
-                    .filter_map(|(_, s)| s.channels.rpc.pending_local_rpc_kind())
-                    .any(|kind| matches!(kind, P2pRpcKind::BestTipWithProof))
-                {
-                    // TODO(binier): choose randomly.
-                    if let Some((peer_id, id)) = state
-                        .p2p
-                        .ready_peers_iter()
-                        .filter(|(_, p)| p.channels.rpc.can_send_request())
-                        .filter(|(_, p)| {
-                            p.best_tip
-                                .as_ref()
-                                .map_or(true, |b| Some(b.hash()) == consensus_best_tip_hash)
-                        })
-                        .map(|(peer_id, p)| (*peer_id, p.channels.rpc.next_local_rpc_id()))
-                        .last()
-                    {
-                        store.dispatch(P2pChannelsRpcRequestSendAction {
-                            peer_id,
-                            id,
-                            request: P2pRpcRequest::BestTipWithProof,
-                        });
-                    }
-                }
-            }
+            p2p_request_best_tip_if_needed(store);
 
             store.dispatch(SnarkPoolCandidateWorkFetchAllAction {});
             store.dispatch(SnarkPoolCandidateWorkVerifyNextAction {});
 
-            let state = store.state();
-            let snark_reqs = state
-                .p2p
-                .ready_peers_iter()
-                .filter(|(_, p)| p.channels.snark.can_send_request())
-                .map(|(peer_id, _)| {
-                    let pending_snarks = state.snark_pool.candidates.peer_work_count(peer_id);
-                    (
-                        peer_id,
-                        MAX_PEER_PENDING_SNARKS.saturating_sub(pending_snarks),
-                    )
-                })
-                .filter(|(_, limit)| *limit > 0)
-                .map(|(peer_id, limit)| (*peer_id, limit.min(u8::MAX as usize) as u8))
-                .collect::<Vec<_>>();
-            let ids = state
+            p2p_request_snarks_if_needed(store);
+
+            let peer_ids = store
+                .state()
                 .p2p
                 .ready_peers_iter()
                 .map(|(peer_id, _)| *peer_id)
                 .collect::<Vec<_>>();
 
-            for (peer_id, limit) in snark_reqs {
-                store.dispatch(P2pChannelsSnarkRequestSendAction { peer_id, limit });
-            }
-
-            for peer_id in ids {
+            for peer_id in peer_ids {
                 store.dispatch(P2pDiscoveryInitAction { peer_id });
             }
 
@@ -195,5 +113,106 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::WatchedAccounts(action) => {
             watched_accounts_effects(store, meta.with_action(action));
         }
+    }
+}
+
+fn p2p_connection_timeouts<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
+    let now = meta.time();
+    let p2p_connection_timeouts: Vec<_> = store
+        .state()
+        .p2p
+        .peers
+        .iter()
+        .filter_map(|(peer_id, peer)| {
+            let s = peer.status.as_connecting()?;
+            match s.is_timed_out(now) {
+                true => Some((*peer_id, s.as_outgoing().is_some())),
+                false => None,
+            }
+        })
+        .collect();
+
+    for (peer_id, is_outgoing) in p2p_connection_timeouts {
+        match is_outgoing {
+            true => store.dispatch(P2pConnectionOutgoingTimeoutAction { peer_id }),
+            false => store.dispatch(P2pConnectionIncomingTimeoutAction { peer_id }),
+        };
+    }
+}
+
+fn p2p_try_reconnect_disconnected_peers<S: Service>(store: &mut Store<S>) {
+    let reconnect_actions: Vec<_> = store
+        .state()
+        .p2p
+        .peers
+        .iter()
+        .filter_map(|(_, p)| p.dial_opts.clone())
+        .map(|opts| P2pConnectionOutgoingReconnectAction { opts, rpc_id: None })
+        .collect();
+    for action in reconnect_actions {
+        store.dispatch(action);
+    }
+}
+
+fn p2p_request_best_tip_if_needed<S: Service>(store: &mut Store<S>) {
+    // TODO(binier): refactor
+    let state = store.state();
+    let consensus_best_tip_hash = state.consensus.best_tip.as_ref();
+    let best_tip_hash = state.transition_frontier.best_tip().map(|v| &v.hash);
+    let syncing_best_tip_hash = state.transition_frontier.sync.best_tip().map(|v| &v.hash);
+
+    if consensus_best_tip_hash.is_some()
+        && consensus_best_tip_hash != best_tip_hash
+        && consensus_best_tip_hash != syncing_best_tip_hash
+        && state.consensus.best_tip_chain_proof.is_none()
+    {
+        if !state
+            .p2p
+            .ready_peers_iter()
+            .filter_map(|(_, s)| s.channels.rpc.pending_local_rpc_kind())
+            .any(|kind| matches!(kind, P2pRpcKind::BestTipWithProof))
+        {
+            // TODO(binier): choose randomly.
+            if let Some((peer_id, id)) = state
+                .p2p
+                .ready_peers_iter()
+                .filter(|(_, p)| p.channels.rpc.can_send_request())
+                .filter(|(_, p)| {
+                    p.best_tip
+                        .as_ref()
+                        .map_or(true, |b| Some(b.hash()) == consensus_best_tip_hash)
+                })
+                .map(|(peer_id, p)| (*peer_id, p.channels.rpc.next_local_rpc_id()))
+                .last()
+            {
+                store.dispatch(P2pChannelsRpcRequestSendAction {
+                    peer_id,
+                    id,
+                    request: P2pRpcRequest::BestTipWithProof,
+                });
+            }
+        }
+    }
+}
+
+fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
+    let state = store.state();
+    let snark_reqs = state
+        .p2p
+        .ready_peers_iter()
+        .filter(|(_, p)| p.channels.snark.can_send_request())
+        .map(|(peer_id, _)| {
+            let pending_snarks = state.snark_pool.candidates.peer_work_count(peer_id);
+            (
+                peer_id,
+                MAX_PEER_PENDING_SNARKS.saturating_sub(pending_snarks),
+            )
+        })
+        .filter(|(_, limit)| *limit > 0)
+        .map(|(peer_id, limit)| (*peer_id, limit.min(u8::MAX as usize) as u8))
+        .collect::<Vec<_>>();
+
+    for (peer_id, limit) in snark_reqs {
+        store.dispatch(P2pChannelsSnarkRequestSendAction { peer_id, limit });
     }
 }
