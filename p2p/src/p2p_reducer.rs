@@ -31,6 +31,15 @@ impl P2pState {
                             )),
                         })
                     }
+                    P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Libp2pReceived(
+                        _,
+                    )) => {
+                        self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                            dial_opts: None,
+                            // correct status later set in the child reducer.
+                            status: P2pPeerStatus::Disconnected { time: meta.time() },
+                        })
+                    }
                     _ => match self.peers.get_mut(peer_id) {
                         Some(v) => v,
                         None => return,
@@ -70,7 +79,7 @@ impl P2pState {
                             return None;
                         }
                         let opts = P2pConnectionOutgoingInitOpts::LibP2P {
-                            peer_id: dbg!(peer_id).into(),
+                            peer_id: peer_id.into(),
                             maddr: {
                                 use libp2p::{multiaddr::Protocol, Multiaddr};
                                 use std::net::IpAddr;

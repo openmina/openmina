@@ -59,4 +59,18 @@ impl P2pState {
 
         Ok(())
     }
+
+    pub fn libp2p_incoming_accept(&self, peer_id: PeerId) -> Result<(), RejectionReason> {
+        let my_peer_id = self.config.identity_pub_key.peer_id();
+
+        if peer_id == my_peer_id {
+            return Err(RejectionReason::ConnectingToSelf);
+        }
+
+        if self.already_has_max_peers() {
+            return Err(RejectionReason::PeerCapacityFull);
+        }
+
+        Ok(())
+    }
 }

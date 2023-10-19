@@ -147,6 +147,9 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
+            P2pConnectionIncomingAction::Libp2pReceived(_) => {
+                // handled in the parent reducer.
+            }
         }
     }
 }

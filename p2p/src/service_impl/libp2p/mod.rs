@@ -119,6 +119,7 @@ impl Libp2pService {
     }
 
     pub fn run<E, S>(
+        libp2p_port: Option<u16>,
         secret_key: SecretKey,
         chain_id: String,
         event_source_sender: mpsc::UnboundedSender<E>,
@@ -181,6 +182,17 @@ impl Libp2pService {
                 .unwrap();
 
             let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, id).build();
+            if let Some(port) = libp2p_port {
+                if let Err(err) =
+                    swarm.listen_on(format!("/ip4/0.0.0.0/tcp/{port}").parse().unwrap())
+                {
+                    openmina_core::log::error!(
+                        openmina_core::log::system_time();
+                        kind = "Libp2pListenError",
+                        summary = format!("libp2p failed to start listener at port: {port}. error: {err:?}"),
+                    );
+                }
+            }
 
             loop {
                 select! {
@@ -431,21 +443,52 @@ impl Libp2pService {
         event: SwarmEvent<BehaviourEvent, Err>,
     ) {
         match event {
-            SwarmEvent::ConnectionEstablished {
-                peer_id, endpoint, ..
+            SwarmEvent::NewListenAddr {
+                listener_id,
+                address,
+                ..
             } => {
+                let maddr = format!("{address}/p2p/{}", swarm.local_peer_id());
+                let listener_id = format!("{listener_id:?}");
+                openmina_core::log::info!(
+                    openmina_core::log::system_time();
+                    kind = "Libp2pListenStart",
+                    summary = format!("libp2p.{listener_id} listening on: {maddr}"),
+                    listener_id = listener_id,
+                    maddr = maddr,
+                );
+            }
+            SwarmEvent::ListenerError { listener_id, error } => {
+                let listener_id = format!("{listener_id:?}");
+                openmina_core::log::error!(
+                    openmina_core::log::system_time();
+                    kind = "Libp2pListenError",
+                    summary = format!("libp2p.{listener_id:?} listener error: {error:?}"),
+                    listener_id = listener_id,
+                );
+            }
+            SwarmEvent::ListenerClosed {
+                listener_id,
+                reason,
+                ..
+            } => {
+                let listener_id = format!("{listener_id:?}");
+                openmina_core::log::warn!(
+                    openmina_core::log::system_time();
+                    kind = "Libp2pListenError",
+                    summary = format!("libp2p.{listener_id} closed. Reason: {reason:?}"),
+                    listener_id = listener_id,
+                );
+            }
+            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
                     kind = "PeerConnected",
                     summary = format!("peer_id: {}", peer_id),
                     peer_id = peer_id.to_string()
                 );
-                let event = if endpoint.is_dialer() {
-                    P2pEvent::Connection(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())))
-                } else {
-                    // TODO(binier): connected incoming
-                    return;
-                };
+                let event =
+                    P2pEvent::Connection(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())));
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {

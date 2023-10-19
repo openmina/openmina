@@ -173,6 +173,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     }
                     action.effects(&meta, store);
                 }
+                P2pConnectionIncomingAction::Libp2pReceived(action) => {
+                    action.effects(&meta, store);
+                }
             },
         },
         P2pAction::Disconnection(action) => match action {

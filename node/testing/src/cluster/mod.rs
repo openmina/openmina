@@ -116,6 +116,7 @@ impl Cluster {
                 snarker: None,
             },
             p2p: P2pConfig {
+                libp2p_port: None,
                 identity_pub_key: pub_key,
                 initial_peers: vec![],
                 max_peers: 100,
@@ -132,6 +133,7 @@ impl Cluster {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
         } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
+            None,
             secret_key,
             testing_config.chain_id,
             p2p_event_sender.clone(),

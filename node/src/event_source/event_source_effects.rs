@@ -14,7 +14,7 @@ use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::{
     P2pConnectionIncomingAnswerSdpCreateErrorAction,
     P2pConnectionIncomingAnswerSdpCreateSuccessAction, P2pConnectionIncomingFinalizeErrorAction,
-    P2pConnectionIncomingFinalizeSuccessAction,
+    P2pConnectionIncomingFinalizeSuccessAction, P2pConnectionIncomingLibp2pReceivedAction,
 };
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingAnswerRecvErrorAction, P2pConnectionOutgoingAnswerRecvSuccessAction,
@@ -123,8 +123,14 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             });
                         }
                         Ok(_) => {
-                            store.dispatch(P2pConnectionOutgoingFinalizeSuccessAction { peer_id });
-                            store.dispatch(P2pConnectionIncomingFinalizeSuccessAction { peer_id });
+                            let _ = store
+                                .dispatch(P2pConnectionOutgoingFinalizeSuccessAction { peer_id })
+                                || store.dispatch(P2pConnectionIncomingFinalizeSuccessAction {
+                                    peer_id,
+                                })
+                                || store.dispatch(P2pConnectionIncomingLibp2pReceivedAction {
+                                    peer_id,
+                                });
                         }
                     },
                     P2pConnectionEvent::Closed(peer_id) => {

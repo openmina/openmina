@@ -38,6 +38,10 @@ pub fn p2p_connection_reducer(
                         rpc_id: a.rpc_id,
                     },
                 ))
+            } else if let P2pConnectionIncomingAction::Libp2pReceived(_) = action {
+                state.status = P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                    P2pConnectionIncomingState::Libp2pReceived { time: meta.time() },
+                ))
             }
             let P2pPeerStatus::Connecting(P2pConnectionState::Incoming(state)) = &mut state.status
             else {

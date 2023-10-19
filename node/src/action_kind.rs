@@ -69,7 +69,8 @@ use crate::p2p::connection::incoming::{
     P2pConnectionIncomingAnswerSendSuccessAction, P2pConnectionIncomingErrorAction,
     P2pConnectionIncomingFinalizeErrorAction, P2pConnectionIncomingFinalizePendingAction,
     P2pConnectionIncomingFinalizeSuccessAction, P2pConnectionIncomingInitAction,
-    P2pConnectionIncomingSuccessAction, P2pConnectionIncomingTimeoutAction,
+    P2pConnectionIncomingLibp2pReceivedAction, P2pConnectionIncomingSuccessAction,
+    P2pConnectionIncomingTimeoutAction,
 };
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingAction, P2pConnectionOutgoingAnswerRecvErrorAction,
@@ -266,6 +267,7 @@ pub enum ActionKind {
     P2pConnectionIncomingFinalizePending,
     P2pConnectionIncomingFinalizeSuccess,
     P2pConnectionIncomingInit,
+    P2pConnectionIncomingLibp2pReceived,
     P2pConnectionIncomingSuccess,
     P2pConnectionIncomingTimeout,
     P2pConnectionOutgoingAnswerRecvError,
@@ -399,7 +401,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 201;
+    pub const COUNT: u16 = 202;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1125,6 +1127,7 @@ impl ActionKindGet for P2pConnectionIncomingAction {
             Self::Timeout(a) => a.kind(),
             Self::Error(a) => a.kind(),
             Self::Success(a) => a.kind(),
+            Self::Libp2pReceived(a) => a.kind(),
         }
     }
 }
@@ -1636,6 +1639,12 @@ impl ActionKindGet for P2pConnectionIncomingErrorAction {
 impl ActionKindGet for P2pConnectionIncomingSuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pConnectionIncomingSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionIncomingLibp2pReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionIncomingLibp2pReceived
     }
 }
 

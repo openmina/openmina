@@ -47,9 +47,13 @@ pub struct Node {
     #[arg(long, short = 's', env = "OPENMINA_P2P_SEC_KEY")]
     pub p2p_secret_key: Option<SecretKey>,
 
-    /// Port to listen to
+    /// Http port to listen on
     #[arg(long, short, env, default_value = "3000")]
     pub port: u16,
+
+    /// LibP2P port to listen on
+    #[arg(long, env, default_value = "8302")]
+    pub libp2p_port: u16,
 
     /// Verbosity level
     #[arg(long, short, env, default_value = "info")]
@@ -149,6 +153,7 @@ impl Node {
                 }),
             },
             p2p: P2pConfig {
+                libp2p_port: Some(self.libp2p_port),
                 identity_pub_key: pub_key,
                 initial_peers: self.peers,
                 max_peers: 100,
@@ -164,6 +169,7 @@ impl Node {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
         } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
+            Some(self.libp2p_port),
             secret_key,
             CHAIN_ID.to_owned(),
             p2p_event_sender.clone(),

@@ -76,6 +76,7 @@ impl_into_global_action!(connection::incoming::P2pConnectionIncomingFinalizeSucc
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingTimeoutAction);
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingErrorAction);
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingSuccessAction);
+impl_into_global_action!(connection::incoming::P2pConnectionIncomingLibp2pReceivedAction);
 
 impl_into_global_action!(disconnection::P2pDisconnectionInitAction);
 impl_into_global_action!(disconnection::P2pDisconnectionFinishAction);

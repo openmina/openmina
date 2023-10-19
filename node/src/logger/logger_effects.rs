@@ -228,6 +228,14 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             peer_id = action.peer_id.to_string()
                         );
                     }
+                    P2pConnectionIncomingAction::Libp2pReceived(action) => {
+                        openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("peer_id: {}", action.peer_id),
+                            peer_id = action.peer_id.to_string(),
+                        );
+                    }
                 },
             },
             P2pAction::Disconnection(action) => match action {
