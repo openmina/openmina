@@ -42,14 +42,14 @@ This installation guide has been tested on Debian and Ubuntu and should work on 
 
 **Pre-requisites:**
 
-Ubuntu or Debian-based Linux distribution
+Ubuntu or Debian-based Linux distribution.
 
 **Steps (for Debian-based Linux distros):**
 
 Open up the command line and enter the following:
 
 
-```
+``` sh
 apt install curl git
 
 curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2023-10-07
@@ -60,6 +60,5 @@ git clone https://github.com/openmina/openmina.git
 
 cd openmina/
 
-git submodule update --init
-
 cargo run --release -p cli node
+```
