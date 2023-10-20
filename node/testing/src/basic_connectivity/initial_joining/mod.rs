@@ -11,7 +11,7 @@ pub mod global;
 /// Launch an Openmina node and connect it to seed nodes of the public (or private) OCaml testnet.
 /// Run the simulation until:
 /// * Number of known peers is greater than or equal to the maximum number of peers.
-/// *Nnumber of connected peers is greater than or equal to some threshold.
+/// * Number of connected peers is greater than or equal to some threshold.
 /// Fail the test if the specified number of steps occur but the condition is not met.
 pub mod local;
 
