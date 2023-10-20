@@ -11,9 +11,9 @@ pub struct Offer {
     /// Peer id that the offerer wants to connect to.
     pub target_peer_id: PeerId,
     // TODO(binier): remove host and get ip from ice candidates instead
-    /// Host name or IP of the signalling server of the offerer.
+    /// Host name or IP of the signaling server of the offerer.
     pub host: String,
-    /// Port of the signalling server of the offerer.
+    /// Port of the signaling server of the offerer.
     pub listen_port: u16,
 }
 

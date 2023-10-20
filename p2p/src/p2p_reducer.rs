@@ -86,65 +86,25 @@ impl P2pState {
                 };
                 peer.channels.reducer(meta.with_action(action));
             }
-            P2pAction::Discovery(action) => match action {
-                P2pDiscoveryAction::Init(P2pDiscoveryInitAction { peer_id }) => {
-                    let Some(peer) = self.get_ready_peer_mut(peer_id) else {
-                        return;
-                    };
-                    peer.last_asked_initial_peers = Some(meta.time());
-                }
-                P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peers, peer_id }) => {
-                    if let Some(peer) = self.get_ready_peer_mut(peer_id) {
-                        peer.last_received_initial_peers = Some(meta.time());
-                    };
-                    self.known_peers.extend(peers.iter().filter_map(|peer| {
-                        let peer_id_str = String::try_from(&peer.peer_id.0).ok()?;
-                        let peer_id = peer_id_str.parse::<libp2p::PeerId>().ok()?;
-                        if peer_id.as_ref().code() == 0x12 {
-                            // the peer_id is not supported
-                            return None;
-                        }
-
-                        let host = String::try_from(&peer.host).ok()?;
-
-                        let opts = if host.contains(':') {
-                            let mut it = host.split(':');
-                            let schema = it.next()?;
-                            let host = it.next()?.trim_start_matches('/');
-                            let signaling = match schema {
-                                "http" => SignalingMethod::Http(HttpSignalingInfo {
-                                    host: Host::parse(host).ok()?,
-                                    port: peer.libp2p_port.as_u64() as u16,
-                                }),
-                                "https" => SignalingMethod::Https(HttpSignalingInfo {
-                                    host: Host::parse(host).ok()?,
-                                    port: peer.libp2p_port.as_u64() as u16,
-                                }),
-                                _ => return None,
-                            };
-                            P2pConnectionOutgoingInitOpts::WebRTC {
-                                peer_id: peer_id.into(),
-                                signaling,
-                            }
-                        } else {
-                            P2pConnectionOutgoingInitOpts::LibP2P {
-                                peer_id: peer_id.into(),
-                                maddr: {
-                                    use libp2p::{multiaddr::Protocol, Multiaddr};
-                                    use std::net::IpAddr;
-
-                                    let mut a = Multiaddr::from(host.parse::<IpAddr>().ok()?);
-                                    a.push(Protocol::Tcp(peer.libp2p_port.0 as u16));
-                                    a.push(Protocol::P2p(peer_id.into()));
-                                    a
-                                },
-                            }
+            P2pAction::Discovery(action) => {
+                match action {
+                    P2pDiscoveryAction::Init(P2pDiscoveryInitAction { peer_id }) => {
+                        let Some(peer) = self.get_ready_peer_mut(peer_id) else {
+                            return;
                         };
-                        Some((peer_id.into(), opts))
-                    }));
+                        peer.last_asked_initial_peers = Some(meta.time());
+                    }
+                    P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peers, peer_id }) => {
+                        if let Some(peer) = self.get_ready_peer_mut(peer_id) {
+                            peer.last_received_initial_peers = Some(meta.time());
+                        };
+                        self.known_peers.extend(peers.iter().filter_map(|msg| {
+                            P2pConnectionOutgoingInitOpts::try_from_mina_rpc(msg)
+                        }));
+                    }
+                    P2pDiscoveryAction::Timeout(_) => {}
                 }
-                P2pDiscoveryAction::Timeout(_) => {}
-            },
+            }
         }
     }
 }

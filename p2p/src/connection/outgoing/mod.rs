@@ -1,4 +1,5 @@
 mod p2p_connection_outgoing_state;
+use mina_p2p_messages::v2;
 pub use p2p_connection_outgoing_state::*;
 
 mod p2p_connection_outgoing_actions;
@@ -9,13 +10,17 @@ pub use p2p_connection_outgoing_reducer::*;
 
 mod p2p_connection_outgoing_effects;
 pub use p2p_connection_outgoing_effects::*;
+use url::Host;
 
 use std::{fmt, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{webrtc, PeerId};
+use crate::{
+    webrtc::{self, HttpSignalingInfo, SignalingMethod},
+    PeerId,
+};
 
 // TODO(binier): maybe move to `crate::webrtc` module
 #[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone)]
@@ -55,6 +60,102 @@ impl P2pConnectionOutgoingInitOpts {
             Self::WebRTC { .. } => "webrtc",
             #[cfg(not(target_arch = "wasm32"))]
             Self::LibP2P { .. } => "libp2p",
+        }
+    }
+
+    /// The OCaml implementation of Mina uses the `get_some_initial_peers` RPC to exchange peer information.
+    /// Try to convert this RPC response into our peer address representation.
+    /// Recognize a hack for marking the webrtc signaling server. Prefixes "http://" or "https://" are schemas that indicates the host is webrtc signaling.
+    pub fn try_from_mina_rpc(msg: &v2::NetworkPeerPeerStableV1) -> Option<(PeerId, Self)> {
+        let peer_id_str = String::try_from(&msg.peer_id.0).ok()?;
+        let peer_id = peer_id_str.parse::<libp2p::PeerId>().ok()?;
+        if peer_id.as_ref().code() == 0x12 {
+            // the peer_id is not supported
+            return None;
+        }
+
+        let host = String::try_from(&msg.host).ok()?;
+
+        let opts = if host.contains(':') {
+            let mut it = host.split(':');
+            let schema = it.next()?;
+            let host = it.next()?.trim_start_matches('/');
+            let signaling = match schema {
+                "http" => SignalingMethod::Http(HttpSignalingInfo {
+                    host: Host::parse(host).ok()?,
+                    port: msg.libp2p_port.as_u64() as u16,
+                }),
+                "https" => SignalingMethod::Https(HttpSignalingInfo {
+                    host: Host::parse(host).ok()?,
+                    port: msg.libp2p_port.as_u64() as u16,
+                }),
+                _ => return None,
+            };
+            Self::WebRTC {
+                peer_id: peer_id.into(),
+                signaling,
+            }
+        } else {
+            Self::LibP2P {
+                peer_id: peer_id.into(),
+                maddr: {
+                    use libp2p::{multiaddr::Protocol, Multiaddr};
+                    use std::net::IpAddr;
+
+                    let mut a = Multiaddr::from(host.parse::<IpAddr>().ok()?);
+                    a.push(Protocol::Tcp(msg.libp2p_port.0 as u16));
+                    a.push(Protocol::P2p(peer_id.into()));
+                    a
+                },
+            }
+        };
+        Some((peer_id.into(), opts))
+    }
+
+    /// Try to convert our peer address representation into mina RPC response.
+    /// Use a hack to mark the webrtc signaling server. Add "http://" or "https://" schema to the host address.
+    /// The OCaml node will recognize this address as incorrect and ignore it.
+    pub fn try_into_mina_rpc(&self) -> Option<v2::NetworkPeerPeerStableV1> {
+        use libp2p::{multiaddr::Protocol, PeerId};
+
+        match self {
+            P2pConnectionOutgoingInitOpts::LibP2P { peer_id, maddr } => {
+                let host = maddr.iter().find_map(|protocol| match protocol {
+                    Protocol::Ip4(ip) => Some(ip.to_string().into()),
+                    Protocol::Ip6(ip) => Some(ip.to_string().into()),
+                    Protocol::Dns(host) => Some(host),
+                    Protocol::Dns4(host) => Some(host),
+                    Protocol::Dns6(host) => Some(host),
+                    _ => None,
+                })?;
+                let libp2p_port = maddr.iter().find_map(|protocol| match protocol {
+                    Protocol::Tcp(v) => Some(v),
+                    _ => None,
+                })?;
+                Some(v2::NetworkPeerPeerStableV1 {
+                    host: host.as_bytes().into(),
+                    libp2p_port: (libp2p_port as u64).into(),
+                    peer_id: v2::NetworkPeerPeerIdStableV1(
+                        PeerId::from(*peer_id).to_string().into_bytes().into(),
+                    ),
+                })
+            }
+            P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling } => match signaling {
+                SignalingMethod::Http(info) => Some(v2::NetworkPeerPeerStableV1 {
+                    host: format!("http://{}", info.host).as_bytes().into(),
+                    libp2p_port: (info.port as u64).into(),
+                    peer_id: v2::NetworkPeerPeerIdStableV1(
+                        PeerId::from(*peer_id).to_string().into_bytes().into(),
+                    ),
+                }),
+                SignalingMethod::Https(info) => Some(v2::NetworkPeerPeerStableV1 {
+                    host: format!("https://{}", info.host).as_bytes().into(),
+                    libp2p_port: (info.port as u64).into(),
+                    peer_id: v2::NetworkPeerPeerIdStableV1(
+                        PeerId::from(*peer_id).to_string().into_bytes().into(),
+                    ),
+                }),
+            },
         }
     }
 }

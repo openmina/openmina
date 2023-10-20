@@ -24,8 +24,6 @@ mina-signer = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 
-libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51.3", default-features = false, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
-
 openmina-core = { path = "../core" }
 snark = { path = "../snark" }
 p2p = { path = "../p2p" }

@@ -64,30 +64,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             p2p_request_snarks_if_needed(store);
 
-            let peer_ids = store
-                .state()
-                .p2p
-                .ready_peers_iter()
-                .filter_map(|(peer_id, status)| {
-                    let Some(t) = status.last_received_initial_peers else {
-                        return Some(*peer_id)
-                    };
-                    let elapsed = meta
-                        .time_as_nanos()
-                        .checked_sub(t.into())
-                        .unwrap_or_default();
-                    let minimal_interval = store.state().p2p.config.ask_initial_peers_interval;
-                    if elapsed < minimal_interval.as_nanos() as u64 {
-                        None
-                    } else {
-                        Some(*peer_id)
-                    }
-                })
-                .collect::<Vec<_>>();
-
-            for peer_id in peer_ids {
-                store.dispatch(P2pDiscoveryInitAction { peer_id });
-            }
+            p2p_discovery_request(store, &meta);
 
             let state = store.state();
             for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {
@@ -228,5 +205,34 @@ fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
 
     for (peer_id, limit) in snark_reqs {
         store.dispatch(P2pChannelsSnarkRequestSendAction { peer_id, limit });
+    }
+}
+
+/// Iterate all connected peers and check the time of the last response to the peer discovery request.
+/// If the elapsed time is large enough, send another discovery request.
+fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
+    let peer_ids = store
+        .state()
+        .p2p
+        .ready_peers_iter()
+        .filter_map(|(peer_id, status)| {
+            let Some(t) = status.last_received_initial_peers else {
+                return Some(*peer_id)
+            };
+            let elapsed = meta
+                .time_as_nanos()
+                .checked_sub(t.into())
+                .unwrap_or_default();
+            let minimal_interval = store.state().p2p.config.ask_initial_peers_interval;
+            if elapsed < minimal_interval.as_nanos() as u64 {
+                None
+            } else {
+                Some(*peer_id)
+            }
+        })
+        .collect::<Vec<_>>();
+
+    for peer_id in peer_ids {
+        store.dispatch(P2pDiscoveryInitAction { peer_id });
     }
 }

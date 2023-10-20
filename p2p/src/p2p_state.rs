@@ -135,6 +135,7 @@ impl P2pState {
         self.connected_or_connecting_peers_count() >= self.config.max_peers
     }
 
+    /// Minimal number of peers that the node should connect
     pub fn min_peers(&self) -> usize {
         (self.config.max_peers / 2).max(3)
     }

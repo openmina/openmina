@@ -3604,7 +3604,6 @@ dependencies = [
  "derive_more",
  "hex",
  "lazy_static",
- "libp2p",
  "mina-hasher",
  "mina-p2p-messages",
  "mina-signer",

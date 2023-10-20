@@ -1,7 +1,5 @@
-use mina_p2p_messages::v2::{self, MinaLedgerSyncLedgerAnswerStableV2, StateHash};
+use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use openmina_core::block::BlockWithHash;
-use p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-use p2p::webrtc::SignalingMethod;
 
 use crate::consensus::{ConsensusBlockChainProofUpdateAction, ConsensusBlockReceivedAction};
 use crate::rpc::{
@@ -627,79 +625,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 .peers
                                 .iter()
                                 .filter_map(|(_, state)| {
-                                    use libp2p::{multiaddr::Protocol, PeerId};
-                                    // TODO(vlad9486): move in p2p crate
-                                    match state.dial_opts.as_ref()? {
-                                        P2pConnectionOutgoingInitOpts::LibP2P {
-                                            peer_id,
-                                            maddr,
-                                        } => {
-                                            let host =
-                                                maddr.iter().find_map(
-                                                    |protocol| match protocol {
-                                                        Protocol::Ip4(ip) => {
-                                                            Some(ip.to_string().into())
-                                                        }
-                                                        Protocol::Ip6(ip) => {
-                                                            Some(ip.to_string().into())
-                                                        }
-                                                        Protocol::Dns(host) => Some(host),
-                                                        Protocol::Dns4(host) => Some(host),
-                                                        Protocol::Dns6(host) => Some(host),
-                                                        _ => None,
-                                                    },
-                                                )?;
-                                            let libp2p_port = maddr.iter().find_map(
-                                                |protocol| match protocol {
-                                                    Protocol::Tcp(v) => Some(v),
-                                                    _ => None,
-                                                },
-                                            )?;
-                                            Some(v2::NetworkPeerPeerStableV1 {
-                                                host: host.as_bytes().into(),
-                                                libp2p_port: (libp2p_port as u64).into(),
-                                                peer_id: v2::NetworkPeerPeerIdStableV1(
-                                                    PeerId::from(*peer_id)
-                                                        .to_string()
-                                                        .into_bytes()
-                                                        .into(),
-                                                ),
-                                            })
-                                        }
-                                        P2pConnectionOutgoingInitOpts::WebRTC {
-                                            peer_id,
-                                            signaling,
-                                        } => match signaling {
-                                            SignalingMethod::Http(info) => {
-                                                Some(v2::NetworkPeerPeerStableV1 {
-                                                    host: format!("http://{}", info.host)
-                                                        .as_bytes()
-                                                        .into(),
-                                                    libp2p_port: (info.port as u64).into(),
-                                                    peer_id: v2::NetworkPeerPeerIdStableV1(
-                                                        PeerId::from(*peer_id)
-                                                            .to_string()
-                                                            .into_bytes()
-                                                            .into(),
-                                                    ),
-                                                })
-                                            }
-                                            SignalingMethod::Https(info) => {
-                                                Some(v2::NetworkPeerPeerStableV1 {
-                                                    host: format!("https://{}", info.host)
-                                                        .as_bytes()
-                                                        .into(),
-                                                    libp2p_port: (info.port as u64).into(),
-                                                    peer_id: v2::NetworkPeerPeerIdStableV1(
-                                                        PeerId::from(*peer_id)
-                                                            .to_string()
-                                                            .into_bytes()
-                                                            .into(),
-                                                    ),
-                                                })
-                                            }
-                                        },
-                                    }
+                                    state.dial_opts.as_ref()?.try_into_mina_rpc()
                                 })
                                 .collect();
                             let response = Some(P2pRpcResponse::InitialPeers(peers));
