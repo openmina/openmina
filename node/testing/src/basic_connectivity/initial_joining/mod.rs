@@ -1,2 +1,7 @@
-pub mod libp2p;
-pub mod webrtc;
+pub mod global;
+pub mod local;
+
+pub fn run() {
+    local::run();
+    global::run();
+}

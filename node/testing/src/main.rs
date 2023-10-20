@@ -1,3 +1,5 @@
+use std::ffi::OsString;
+
 use clap::Parser;
 
 use openmina_node_testing::exit_with_error;
@@ -19,8 +21,24 @@ pub enum Command {
 
     BasicConnectivityInitialJoining {
         #[arg(long)]
-        transport: String,
+        flavour: Option<Flavour>,
     },
+}
+
+#[derive(Debug, Clone)]
+pub enum Flavour {
+    Global,
+    Local,
+}
+
+impl From<OsString> for Flavour {
+    fn from(s: OsString) -> Self {
+        match s.as_os_str().to_str() {
+            Some("global") => Flavour::Global,
+            Some("local") => Flavour::Local,
+            _ => panic!(),
+        }
+    }
 }
 
 #[derive(Debug, clap::Args)]
@@ -67,15 +85,15 @@ impl Command {
                     .to_owned()
                     .into())
             }
-            Self::BasicConnectivityInitialJoining { transport } => {
-                match transport.as_str() {
-                    "webrtc" => {
-                        openmina_node_testing::basic_connectivity::initial_joining::webrtc::run()
+            Self::BasicConnectivityInitialJoining { flavour } => {
+                match flavour {
+                    Some(Flavour::Global) => {
+                        openmina_node_testing::basic_connectivity::initial_joining::global::run()
                     }
-                    "libp2p" => {
-                        openmina_node_testing::basic_connectivity::initial_joining::libp2p::run()
+                    Some(Flavour::Local) => {
+                        openmina_node_testing::basic_connectivity::initial_joining::local::run()
                     }
-                    _ => return Err(anyhow::anyhow!("unknown transport {transport}").into()),
+                    None => openmina_node_testing::basic_connectivity::initial_joining::run(),
                 }
 
                 Ok(())

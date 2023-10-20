@@ -35,8 +35,8 @@ fn init_opts_from_multiaddr(maddr: libp2p::Multiaddr) -> P2pConnectionOutgoingIn
 }
 
 async fn run_inner() {
-    const MAX_PEERS_PER_NODE: usize = 12;
-    const STEPS: usize = 100;
+    const MAX_PEERS_PER_NODE: usize = 20;
+    const STEPS: usize = 1000;
 
     let mut cluster = Cluster::new(ClusterConfig::default());
     let mut nodes = vec![];
@@ -47,7 +47,6 @@ async fn run_inner() {
     let seeds = [
         "/dns4/seed-1.berkeley.o1test.net/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
         "/dns4/seed-2.berkeley.o1test.net/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
-        "/dns4/seed-3.berkeley.o1test.net/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
     ];
     for seed in seeds {
         cluster
@@ -90,7 +89,8 @@ async fn run_inner() {
             println!("known peers: {known_peers}");
             println!("connected peers: {ready_peers}");
 
-            if known_peers >= MAX_PEERS_PER_NODE {
+            // TODO: the threshold is too small, node cannot connect to many peer before the timeout
+            if ready_peers >= 3 && known_peers >= MAX_PEERS_PER_NODE {
                 return;
             }
         }

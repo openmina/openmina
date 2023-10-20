@@ -128,11 +128,15 @@ impl P2pState {
     }
 
     pub fn already_has_min_peers(&self) -> bool {
-        self.connected_or_connecting_peers_count() >= (self.config.max_peers / 2).max(3)
+        self.connected_or_connecting_peers_count() >= self.min_peers()
     }
 
     pub fn already_has_max_peers(&self) -> bool {
         self.connected_or_connecting_peers_count() >= self.config.max_peers
+    }
+
+    pub fn min_peers(&self) -> usize {
+        (self.config.max_peers / 2).max(3)
     }
 }
 

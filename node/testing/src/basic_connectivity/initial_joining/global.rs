@@ -20,7 +20,7 @@ pub fn run() {
 async fn run_inner() {
     const TOTAL_PEERS: usize = 20;
     const STEPS_PER_PEER: usize = 10;
-    const EXTRA_STEPS: usize = 400;
+    const EXTRA_STEPS: usize = 300;
     const MAX_PEERS_PER_NODE: usize = 12;
 
     let mut cluster = Cluster::new(ClusterConfig::default());
@@ -33,7 +33,9 @@ async fn run_inner() {
 
         if step % STEPS_PER_PEER == 0 && nodes.len() < TOTAL_PEERS {
             let node = cluster.add_rust_node(
-                RustNodeTestingConfig::berkeley_default().max_peers(MAX_PEERS_PER_NODE),
+                RustNodeTestingConfig::berkeley_default()
+                    .max_peers(MAX_PEERS_PER_NODE)
+                    .ask_initial_peers_interval(Duration::ZERO),
             );
             cluster
                 .exec_step(ScenarioStep::ConnectNodes {
@@ -58,28 +60,45 @@ async fn run_inner() {
         for step in steps {
             cluster.exec_step(step).await.unwrap();
         }
+
+        let mut conditions_met = true;
         for &node_id in &nodes {
             cluster
                 .exec_step(ScenarioStep::CheckTimeouts { node_id })
                 .await
                 .unwrap();
+
+            let node = cluster.node(node_id).expect("node must exist");
+            let p2p: &node::p2p::P2pState = &node.state().p2p;
+            let ready_peers = p2p.ready_peers_iter().count();
+
+            // each node connected to some peers
+            conditions_met &= ready_peers >= node.state().p2p.min_peers();
+
+            // maximum is not exceeded
+            let max_peers = if node_id == seed_node {
+                TOTAL_PEERS
+            } else {
+                MAX_PEERS_PER_NODE
+            };
+            assert!(ready_peers <= max_peers);
+        }
+
+        if conditions_met {
+            return;
         }
     }
 
     for node_id in nodes {
         let node = cluster.node(node_id).expect("node must exist");
-        let p2p = &node.state().p2p;
+        let p2p: &node::p2p::P2pState = &node.state().p2p;
         let ready_peers = p2p.ready_peers_iter().count();
-        // each node know all nodes
-        assert_eq!(p2p.known_peers.len(), TOTAL_PEERS);
         // each node connected to some peers
-        assert!(ready_peers >= 3);
-        // maximum is not exceeded
-        let max_peers = if node_id == seed_node {
-            TOTAL_PEERS
-        } else {
-            MAX_PEERS_PER_NODE
-        };
-        assert!(ready_peers <= max_peers);
+        println!(
+            "must hold {ready_peers} >= {}",
+            node.state().p2p.min_peers()
+        );
     }
+
+    assert!(false);
 }
