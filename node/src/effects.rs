@@ -68,7 +68,21 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                 .state()
                 .p2p
                 .ready_peers_iter()
-                .map(|(peer_id, _)| *peer_id)
+                .filter_map(|(peer_id, status)| {
+                    let Some(t) = status.last_received_initial_peers else {
+                        return Some(*peer_id)
+                    };
+                    let elapsed = meta
+                        .time_as_nanos()
+                        .checked_sub(t.into())
+                        .unwrap_or_default();
+                    let minimal_interval = store.state().p2p.config.ask_initial_peers_interval;
+                    if elapsed < minimal_interval.as_nanos() as u64 {
+                        None
+                    } else {
+                        Some(*peer_id)
+                    }
+                })
                 .collect::<Vec<_>>();
 
             for peer_id in peer_ids {

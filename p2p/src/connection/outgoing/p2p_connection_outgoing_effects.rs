@@ -93,6 +93,9 @@ impl P2pConnectionOutgoingOfferSdpCreateSuccessAction {
             sdp: self.sdp,
             identity_pub_key: store.state().config.identity_pub_key.clone(),
             target_peer_id: self.peer_id,
+            // TODO(vlad9486): put real address
+            host: "127.0.0.1".to_owned(),
+            listen_port: store.state().config.listen_port,
         };
         store.dispatch(P2pConnectionOutgoingOfferReadyAction {
             peer_id: self.peer_id,

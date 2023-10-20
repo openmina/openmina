@@ -1,9 +1,12 @@
-use crate::connection::incoming::P2pConnectionIncomingAction;
+use url::Host;
+
+use crate::connection::incoming::{IncomingSignalingMethod, P2pConnectionIncomingAction};
 use crate::connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts};
 use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
 use crate::disconnection::P2pDisconnectionAction;
-use crate::discovery::{P2pDiscoveryAction, P2pDiscoverySuccessAction};
+use crate::discovery::{P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoverySuccessAction};
 use crate::peer::p2p_peer_reducer;
+use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
 use crate::{P2pAction, P2pActionWithMetaRef, P2pPeerState, P2pPeerStatus, P2pState};
 
 impl P2pState {
@@ -25,7 +28,22 @@ impl P2pState {
                     }
                     P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Init(v)) => {
                         self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
-                            dial_opts: None,
+                            dial_opts: {
+                                Host::parse(&v.opts.offer.host).ok().map(|host| {
+                                    let signaling = match v.opts.signaling {
+                                        IncomingSignalingMethod::Http => {
+                                            SignalingMethod::Http(HttpSignalingInfo {
+                                                host,
+                                                port: v.opts.offer.listen_port,
+                                            })
+                                        }
+                                    };
+                                    P2pConnectionOutgoingInitOpts::WebRTC {
+                                        peer_id: *peer_id,
+                                        signaling,
+                                    }
+                                })
+                            },
                             status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(
                                 &v.opts,
                             )),
@@ -69,8 +87,16 @@ impl P2pState {
                 peer.channels.reducer(meta.with_action(action));
             }
             P2pAction::Discovery(action) => match action {
-                P2pDiscoveryAction::Init(_) => {}
-                P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peers, .. }) => {
+                P2pDiscoveryAction::Init(P2pDiscoveryInitAction { peer_id }) => {
+                    let Some(peer) = self.get_ready_peer_mut(peer_id) else {
+                        return;
+                    };
+                    peer.last_asked_initial_peers = Some(meta.time());
+                }
+                P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peers, peer_id }) => {
+                    if let Some(peer) = self.get_ready_peer_mut(peer_id) {
+                        peer.last_received_initial_peers = Some(meta.time());
+                    };
                     self.known_peers.extend(peers.iter().filter_map(|peer| {
                         let peer_id_str = String::try_from(&peer.peer_id.0).ok()?;
                         let peer_id = peer_id_str.parse::<libp2p::PeerId>().ok()?;
@@ -78,18 +104,41 @@ impl P2pState {
                             // the peer_id is not supported
                             return None;
                         }
-                        let opts = P2pConnectionOutgoingInitOpts::LibP2P {
-                            peer_id: peer_id.into(),
-                            maddr: {
-                                use libp2p::{multiaddr::Protocol, Multiaddr};
-                                use std::net::IpAddr;
 
-                                let host = String::try_from(&peer.host).ok()?;
-                                let mut a = Multiaddr::from(host.parse::<IpAddr>().ok()?);
-                                a.push(Protocol::Tcp(peer.libp2p_port.0 as u16));
-                                a.push(Protocol::P2p(peer_id.into()));
-                                a
-                            },
+                        let host = String::try_from(&peer.host).ok()?;
+
+                        let opts = if host.contains(':') {
+                            let mut it = host.split(':');
+                            let schema = it.next()?;
+                            let host = it.next()?.trim_start_matches('/');
+                            let signaling = match schema {
+                                "http" => SignalingMethod::Http(HttpSignalingInfo {
+                                    host: Host::parse(host).ok()?,
+                                    port: peer.libp2p_port.as_u64() as u16,
+                                }),
+                                "https" => SignalingMethod::Https(HttpSignalingInfo {
+                                    host: Host::parse(host).ok()?,
+                                    port: peer.libp2p_port.as_u64() as u16,
+                                }),
+                                _ => return None,
+                            };
+                            P2pConnectionOutgoingInitOpts::WebRTC {
+                                peer_id: peer_id.into(),
+                                signaling,
+                            }
+                        } else {
+                            P2pConnectionOutgoingInitOpts::LibP2P {
+                                peer_id: peer_id.into(),
+                                maddr: {
+                                    use libp2p::{multiaddr::Protocol, Multiaddr};
+                                    use std::net::IpAddr;
+
+                                    let mut a = Multiaddr::from(host.parse::<IpAddr>().ok()?);
+                                    a.push(Protocol::Tcp(peer.libp2p_port.0 as u16));
+                                    a.push(Protocol::P2p(peer_id.into()));
+                                    a
+                                },
+                            }
                         };
                         Some((peer_id.into(), opts))
                     }));

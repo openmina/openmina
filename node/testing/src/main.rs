@@ -1,3 +1,5 @@
+use std::ffi::OsString;
+
 use clap::Parser;
 
 use openmina_node_testing::exit_with_error;
@@ -16,6 +18,27 @@ pub enum Command {
     Server(CommandServer),
 
     ScenariosGenerate(CommandScenariosGenerate),
+
+    BasicConnectivityInitialJoining {
+        #[arg(long)]
+        flavour: Option<Flavour>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub enum Flavour {
+    Global,
+    Local,
+}
+
+impl From<OsString> for Flavour {
+    fn from(s: OsString) -> Self {
+        match s.as_os_str().to_str() {
+            Some("global") => Flavour::Global,
+            Some("local") => Flavour::Local,
+            _ => panic!(),
+        }
+    }
 }
 
 #[derive(Debug, clap::Args)]
@@ -61,6 +84,19 @@ impl Command {
                 Err("binary not compiled with `scenario-generators` feature"
                     .to_owned()
                     .into())
+            }
+            Self::BasicConnectivityInitialJoining { flavour } => {
+                match flavour {
+                    Some(Flavour::Global) => {
+                        openmina_node_testing::basic_connectivity::initial_joining::global::run()
+                    }
+                    Some(Flavour::Local) => {
+                        openmina_node_testing::basic_connectivity::initial_joining::local::run()
+                    }
+                    None => openmina_node_testing::basic_connectivity::initial_joining::run(),
+                }
+
+                Ok(())
             }
         }
     }

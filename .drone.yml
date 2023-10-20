@@ -59,6 +59,12 @@ steps:
       - rustup component add rustfmt
       - cargo test --release -p cli
       - cargo build --release -p cli --bin openmina
+      - cargo build --release -p openmina-node-testing
+
+  - name: testing-framework-tests
+    image: rust:1.71-buster
+    commands:
+      - ./target/release/openmina-node-testing basic-connectivity-initial-joining
 
   - name: replayer
     image: vladsimplestakingcom/bootstrap-rr:graphql

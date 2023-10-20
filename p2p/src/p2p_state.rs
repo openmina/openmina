@@ -58,7 +58,11 @@ impl P2pState {
     pub fn initial_unused_peers(&self) -> Vec<P2pConnectionOutgoingInitOpts> {
         self.known_peers
             .values()
-            .filter(|v| !self.peers.contains_key(v.peer_id()))
+            .filter(|v| {
+                self.ready_peers_iter()
+                    .find(|(id, _)| (*id).eq(v.peer_id()))
+                    .is_none()
+            })
             .cloned()
             .collect()
     }
@@ -124,11 +128,15 @@ impl P2pState {
     }
 
     pub fn already_has_min_peers(&self) -> bool {
-        self.connected_or_connecting_peers_count() >= (self.config.max_peers / 2).max(3)
+        self.connected_or_connecting_peers_count() >= self.min_peers()
     }
 
     pub fn already_has_max_peers(&self) -> bool {
         self.connected_or_connecting_peers_count() >= self.config.max_peers
+    }
+
+    pub fn min_peers(&self) -> usize {
+        (self.config.max_peers / 2).max(3)
     }
 }
 
@@ -204,6 +212,8 @@ impl P2pPeerStatus {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pPeerStatusReady {
     pub connected_since: redux::Timestamp,
+    pub last_asked_initial_peers: Option<redux::Timestamp>,
+    pub last_received_initial_peers: Option<redux::Timestamp>,
     pub channels: P2pChannelsState,
     pub best_tip: Option<ArcBlockWithHash>,
 }
@@ -212,6 +222,8 @@ impl P2pPeerStatusReady {
     pub fn new(time: redux::Timestamp, enabled_channels: &BTreeSet<ChannelId>) -> Self {
         Self {
             connected_since: time,
+            last_asked_initial_peers: None,
+            last_received_initial_peers: None,
             channels: P2pChannelsState::new(enabled_channels),
             best_tip: None,
         }
