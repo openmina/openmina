@@ -157,6 +157,7 @@ pub struct SnarkPoolCandidateWorkVerifyErrorAction {
 impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateWorkVerifyErrorAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         // TODO(bineir)
+        let _ = state;
         true
     }
 }
@@ -170,6 +171,7 @@ pub struct SnarkPoolCandidateWorkVerifySuccessAction {
 impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateWorkVerifySuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         // TODO(bineir)
+        let _ = state;
         true
     }
 }

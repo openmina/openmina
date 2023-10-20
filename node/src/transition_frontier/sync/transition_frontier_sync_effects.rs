@@ -175,6 +175,7 @@ impl TransitionFrontierSyncBlocksPeerQuerySuccessAction {
 
 impl TransitionFrontierSyncBlocksFetchSuccessAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
+        let _ = store;
         // TODO(binier): uncomment once ledger communication is async.
         // store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
     }
