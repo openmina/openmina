@@ -44,6 +44,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
     logger_effects(store, meta.clone().with_action(&action));
     match action {
+        // Following action gets dispatched very often, so ideally this
+        // effect execution should be as light as possible.
         Action::CheckTimeouts(_) => {
             // TODO(binier): create init action and dispatch this there.
             store.dispatch(ExternalSnarkWorkerStartAction {});

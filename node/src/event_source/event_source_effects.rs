@@ -49,7 +49,13 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
     let (action, meta) = action.split();
     match action {
         EventSourceAction::ProcessEvents(_) => {
-            // process max 1024 events at a time.
+            // This action gets continously called until there are no more
+            // events available.
+            //
+            // Retrieve and process max 1024 events at a time and dispatch
+            // `CheckTimeoutsAction` in between `EventSourceProcessEventsAction`
+            // calls so that we make sure, that action gets called even
+            // if we are continously flooded with events.
             for _ in 0..1024 {
                 match store.service.next_event() {
                     Some(event) => {
@@ -60,6 +66,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
             }
             store.dispatch(CheckTimeoutsAction {});
         }
+        // "Translate" event into the corresponding action and dispatch it.
         EventSourceAction::NewEvent(content) => match content.event {
             Event::P2p(e) => match e {
                 P2pEvent::Connection(e) => match e {

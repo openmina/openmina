@@ -52,11 +52,16 @@ impl State {
         }
     }
 
+    /// Latest time observed by the state machine.
+    ///
+    /// Only updated when action is dispatched and reducer is executed.
     #[inline(always)]
     pub fn time(&self) -> Timestamp {
         self.last_action.time()
     }
 
+    /// Must be called in the global reducer as the last thing only once
+    /// and only there!
     pub fn action_applied(&mut self, action: &ActionWithMeta) {
         self.last_action = action.meta().clone();
         self.applied_actions_count += 1;

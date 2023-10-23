@@ -1,3 +1,11 @@
+//! Event source state machine.
+//!
+//! Here is the logic for retrieving and processing events. This is the
+//! main driver of state machine.
+//!
+//! From outside the state machine, only dispatched actions should be
+//! either event source actions or special `CheckTimeoutsAction`.
+
 mod event;
 pub use event::*;
 

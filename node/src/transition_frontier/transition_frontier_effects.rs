@@ -147,6 +147,11 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 }
                 a.effects(&meta, store);
             }
+            // Bootstrap/Catchup is practically complete at this point.
+            // This effect is where the finalization part needs to be
+            // executed, which is mostly to grab some data that we need
+            // from previous chain, before it's discarded after dispatching
+            // `TransitionFrontierSyncedAction`.
             TransitionFrontierSyncAction::BlocksSuccess(_) => {
                 let transition_frontier = &store.state.get().transition_frontier;
                 let sync = &transition_frontier.sync;

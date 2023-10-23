@@ -33,6 +33,8 @@ use crate::rpc::RpcService;
 
 pub struct NodeService {
     pub rng: StdRng,
+    /// Events sent on this channel are retrieved and processed in the
+    /// `event_source` state machine defined in the `openmina-node` crate.
     pub event_sender: mpsc::UnboundedSender<Event>,
     // TODO(binier): change so that we only have `event_sender`.
     pub p2p_event_sender: mpsc::UnboundedSender<P2pEvent>,
