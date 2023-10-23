@@ -758,6 +758,15 @@ impl Libp2pService {
                                     Ok(None),
                                 )
                                 .unwrap(),
+                            (
+                                GetSomeInitialPeersV1ForV2::NAME,
+                                GetSomeInitialPeersV1ForV2::VERSION,
+                            ) => match parse_q::<GetSomeInitialPeersV1ForV2>(bytes) {
+                                Ok(()) => {
+                                    send(P2pRpcRequest::InitialPeers);
+                                }
+                                Err(err) => send_error(err),
+                            },
                             _ => (),
                         };
                     }
