@@ -13,8 +13,6 @@ use cluster::{Cluster, ClusterConfig, ClusterNodeId};
 pub mod scenario;
 use scenario::{event_details, Scenario, ScenarioId, ScenarioInfo, ScenarioStep};
 
-pub mod basic_connectivity;
-
 #[cfg(feature = "scenario-generators")]
 pub mod scenarios;
 
