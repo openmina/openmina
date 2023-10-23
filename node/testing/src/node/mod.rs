@@ -18,15 +18,28 @@ impl Node {
         Self { store }
     }
 
-    fn service(&mut self) -> &mut NodeTestingService {
+    fn service(&self) -> &NodeTestingService {
+        &self.store.service
+    }
+
+    fn service_mut(&mut self) -> &mut NodeTestingService {
         &mut self.store.service
     }
 
     pub fn dial_addr(&self) -> P2pConnectionOutgoingInitOpts {
         let peer_id = self.store.state().p2p.config.identity_pub_key.peer_id();
-        let port = self.store.service.http_port();
-        let signaling = SignalingMethod::Http(([127, 0, 0, 1], port).into());
-        P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling }
+        if self.service().rust_to_rust_use_webrtc() {
+            let port = self.store.state().p2p.config.listen_port;
+            let signaling = SignalingMethod::Http(([127, 0, 0, 1], port).into());
+            P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling }
+        } else {
+            let port = self.store.state().p2p.config.libp2p_port.unwrap();
+            let libp2p_peer_id = libp2p::PeerId::from(peer_id);
+            let maddr = format!("/ip4/127.0.0.1/tcp/{port}/p2p/{libp2p_peer_id}")
+                .parse()
+                .unwrap();
+            P2pConnectionOutgoingInitOpts::LibP2P { peer_id, maddr }
+        }
     }
 
     pub fn state(&self) -> &State {
@@ -64,14 +77,14 @@ impl Node {
 
     pub async fn wait_for_event_and_dispatch(&mut self, event_pattern: &str) -> bool {
         let event_id = self
-            .service()
+            .service_mut()
             .pending_events()
             .find(|(_, event)| event.to_string().starts_with(event_pattern))
             .map(|(id, _)| id);
         let event_id = match event_id {
             Some(id) => Some(id),
             None => loop {
-                let (id, event) = match self.service().next_pending_event().await {
+                let (id, event) = match self.service_mut().next_pending_event().await {
                     Some(v) => v,
                     None => break None,
                 };
@@ -82,7 +95,7 @@ impl Node {
         };
 
         if let Some(id) = event_id {
-            let event = self.service().take_pending_event(id).unwrap();
+            let event = self.service_mut().take_pending_event(id).unwrap();
             return self.dispatch_event(event);
         }
         false

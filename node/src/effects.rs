@@ -217,7 +217,7 @@ fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
         .ready_peers_iter()
         .filter_map(|(peer_id, status)| {
             let Some(t) = status.last_received_initial_peers else {
-                return Some(*peer_id)
+                return Some(*peer_id);
             };
             let elapsed = meta
                 .time_as_nanos()

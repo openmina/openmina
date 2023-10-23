@@ -112,6 +112,16 @@ impl Cluster {
                 )
             })
             .unwrap();
+        let libp2p_port = self
+            .available_ports
+            .next()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "couldn't find available port in port range: {:?}",
+                    self.config.port_range()
+                )
+            })
+            .unwrap();
 
         let config = Config {
             ledger: LedgerConfig {},
@@ -127,7 +137,7 @@ impl Cluster {
                 snarker: None,
             },
             p2p: P2pConfig {
-                libp2p_port: None,
+                libp2p_port: Some(libp2p_port),
                 listen_port: http_port,
                 identity_pub_key: pub_key,
                 initial_peers: vec![],
@@ -146,7 +156,7 @@ impl Cluster {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
         } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
-            None,
+            Some(libp2p_port),
             secret_key,
             testing_config.chain_id,
             p2p_event_sender.clone(),
@@ -202,7 +212,7 @@ impl Cluster {
             recorder: Recorder::None,
             replayer: None,
         };
-        let service = NodeTestingService::new(real_service, http_port, shutdown_rx);
+        let service = NodeTestingService::new(real_service, shutdown_rx);
         let state = node::State::new(config);
         fn effects<S: node::Service>(store: &mut node::Store<S>, action: node::ActionWithMeta) {
             let peer_id = store.state().p2p.config.identity_pub_key.peer_id();

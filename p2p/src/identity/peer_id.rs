@@ -40,6 +40,11 @@ impl PeerId {
     pub fn to_public_key(self) -> Result<PublicKey, ed25519_dalek::SignatureError> {
         PublicKey::from_bytes(self.to_bytes())
     }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn to_libp2p_string(self) -> String {
+        libp2p::PeerId::from(self).to_string()
+    }
 }
 
 impl fmt::Display for PeerId {

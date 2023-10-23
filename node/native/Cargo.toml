@@ -9,7 +9,7 @@ rand = "0.8"
 serde = "1.0.158"
 serde_json = "1.0.94"
 rayon = "1.5"
-tokio = { version = "1.26.0" }
+tokio = { version = "1.26.0", features = ["process", "macros"] }
 warp = "0.3"
 libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51.3", default-features = false, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
 juniper = { version = "0.15.11" }

@@ -43,7 +43,8 @@ pub type PendingEventId = RequestId<PendingEventIdType>;
 
 pub struct NodeTestingService {
     real: NodeService,
-    http_port: u16,
+    // Use webrtc p2p between Rust nodes.
+    rust_to_rust_use_webrtc: bool,
     monotonic_time: Instant,
     /// Events sent by the real service not yet received by state machine.
     pending_events: PendingRequests<PendingEventIdType, Event>,
@@ -52,18 +53,22 @@ pub struct NodeTestingService {
 }
 
 impl NodeTestingService {
-    pub fn new(real: NodeService, http_port: u16, _shutdown: mpsc::Receiver<()>) -> Self {
+    pub fn new(real: NodeService, _shutdown: mpsc::Receiver<()>) -> Self {
         Self {
             real,
-            http_port,
+            rust_to_rust_use_webrtc: false,
             monotonic_time: Instant::now(),
             pending_events: PendingRequests::new(),
             _shutdown,
         }
     }
 
-    pub fn http_port(&self) -> u16 {
-        self.http_port
+    pub fn rust_to_rust_use_webrtc(&self) -> bool {
+        self.rust_to_rust_use_webrtc
+    }
+
+    pub fn set_rust_to_rust_use_webrtc(&mut self) {
+        self.rust_to_rust_use_webrtc = true;
     }
 
     pub fn advance_time(&mut self, by_nanos: u64) {
