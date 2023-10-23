@@ -98,12 +98,20 @@ fn transition_frontier_new_best_tip<S: crate::Service>(store: &mut Store<S>) {
     };
 
     if !state.transition_frontier.sync.is_pending() && !state.transition_frontier.sync.is_synced() {
+        println!(
+            "+++ BEST TIP INIT, root snarked ledger: {}",
+            root_block.snarked_ledger_hash().to_string()
+        );
         store.dispatch(TransitionFrontierSyncInitAction {
             best_tip,
             root_block,
             blocks_inbetween,
         });
     } else {
+        println!(
+            "+++ BEST TIP UPDATE, root snarked ledger: {}",
+            root_block.snarked_ledger_hash().to_string()
+        );
         store.dispatch(TransitionFrontierSyncBestTipUpdateAction {
             best_tip,
             root_block,

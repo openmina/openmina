@@ -4,6 +4,7 @@ use mina_p2p_messages::v2::{
     MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2, StateHash,
 };
 use openmina_core::block::ArcBlockWithHash;
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use super::sync::TransitionFrontierSyncState;
@@ -12,10 +13,12 @@ use super::TransitionFrontierConfig;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransitionFrontierState {
     pub config: TransitionFrontierConfig,
+    /// Current best known chain, from root of the transition frontier to best tip
     pub best_chain: Vec<ArcBlockWithHash>,
     /// Needed protocol states for applying transactions in the root
     /// scan state that we don't have in the `best_chain` list.
     pub needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
+    /// Last transition frontier synchronization state
     pub sync: TransitionFrontierSyncState,
 }
 

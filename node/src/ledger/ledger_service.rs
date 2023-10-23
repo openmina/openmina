@@ -9,16 +9,22 @@ use ledger::{
         currency::{Amount, Fee, Slot},
         scan_state::{
             AvailableJobMessage, ConstraintConstants, JobValueBase, JobValueMerge,
-            JobValueWithIndex,
+            JobValueWithIndex, Pass,
         },
-        transaction_logic::{local_state::LocalState, protocol_state::protocol_state_view},
+        transaction_logic::{
+            local_state::LocalState,
+            protocol_state::{protocol_state_view, ProtocolStateView},
+            transaction_partially_applied::TransactionPartiallyApplied,
+            Transaction,
+        },
     },
+    sparse_ledger::SparseLedger,
     staged_ledger::{
         diff::Diff,
         staged_ledger::{SkipVerification, StagedLedger},
     },
     verifier::Verifier,
-    AccountIndex, BaseLedger, Mask, TreeVersion,
+    AccountIndex, BaseLedger, Mask, TreeVersion, UnregisterBehavior,
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
@@ -47,6 +53,7 @@ use crate::{
 
 use super::{ledger_empty_hash_at_depth, LedgerAddress, LEDGER_DEPTH};
 
+// TODO: this should be configurable at compile time
 const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
     sub_windows_per_window: 11,
     ledger_depth: 35,
@@ -117,6 +124,8 @@ impl LedgerCtx {
         }
     }
 
+    // TODO: explain when `is_synced` is `true` and when it is `false`. Also use something else than a boolean.
+    /// Returns a tuple of `(mask, is_synced)` for a [Mask] with the specified `hash` if it exists or `None` otherwise.
     fn mask(&self, hash: &LedgerHash) -> Option<(Mask, bool)> {
         self.snarked_ledgers
             .get(hash)
@@ -126,6 +135,7 @@ impl LedgerCtx {
             .or_else(|| self.sync.mask(hash))
     }
 
+    /// Returns a mutable reference to the [StagedLedger] with the specified `hash` if it exists or `None` otherwise.
     fn staged_ledger_mut(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
         match self.staged_ledgers.get_mut(&hash) {
             Some(v) => Some(v),
@@ -273,6 +283,13 @@ impl<T: LedgerService> TransitionFrontierService for T {
         block: ArcBlockWithHash,
         pred_block: ArcBlockWithHash,
     ) -> Result<(), String> {
+        let snarked_ledger_hahes = self
+            .ctx()
+            .snarked_ledgers
+            .keys()
+            .map(|h| h.to_string())
+            .collect::<Vec<String>>();
+        println!("++ Block apply: SNARKED LEDGER HASHES: {:?}", snarked_ledger_hahes);
         let mut staged_ledger = self
             .ctx_mut()
             .staged_ledger_mut(&pred_block.staged_ledger_hash())
@@ -324,6 +341,121 @@ impl<T: LedgerService> TransitionFrontierService for T {
         Ok(())
     }
 
+    fn push_snarked_ledger(
+        &mut self,
+        protocol_states: &BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
+        old_root: &ArcBlockWithHash,
+        new_root: &ArcBlockWithHash,
+    ) -> Result<(), String> {
+        // Steps 4-7 from https://github.com/openmina/mina/blob/bc812dc9b90e05898c0c36ac76ba51ccf6cac137/src/lib/transition_frontier/full_frontier/full_frontier.ml#L354-L392
+        let ctx = self.ctx_mut();
+        let constraint_constants = &CONSTRAINT_CONSTANTS;
+
+        println!(
+            "snarked ledgers: {:?}",
+            ctx.snarked_ledgers.keys().collect::<Vec<_>>()
+        );
+        println!(
+            "sync snarked ledgers: {:?}",
+            ctx.sync.snarked_ledgers.keys().collect::<Vec<_>>()
+        );
+
+        // Step 4: create a new temporary mask `mt` with `s` as it's parent
+        let root_snarked_ledger = ctx
+            .snarked_ledgers
+            .remove(old_root.snarked_ledger_hash())
+            .expect(&format!(
+                "push_snarked_ledger: could not find old root snarked ledger: {} (in_staged: {}, in_sync_staged: {})",
+                old_root.snarked_ledger_hash().to_string(),
+                ctx.staged_ledgers.keys().any(|h| h == old_root.snarked_ledger_hash()),
+                ctx.sync.staged_ledgers.keys().any(|h| h == old_root.snarked_ledger_hash())
+            ));
+        let mut mt = root_snarked_ledger.make_child();
+
+        // Step 5: apply any transactions to `mt` that appear in the transition between `s` and `s'`
+        let apply_first_pass = |global_slot: Slot,
+                                txn_state_view: &ProtocolStateView,
+                                ledger: &mut Mask,
+                                transaction: &Transaction| {
+            ledger::scan_state::transaction_logic::apply_transaction_first_pass(
+                constraint_constants,
+                global_slot,
+                txn_state_view,
+                ledger,
+                transaction,
+            )
+        };
+
+        let apply_second_pass = |ledger: &mut Mask, tx: TransactionPartiallyApplied<Mask>| {
+            ledger::scan_state::transaction_logic::apply_transaction_second_pass(
+                constraint_constants,
+                ledger,
+                tx,
+            )
+        };
+
+        let apply_first_pass_sparse_ledger =
+            |global_slot: Slot,
+             txn_state_view: &ProtocolStateView,
+             sparse_ledger: &mut SparseLedger,
+             transaction: &Transaction| {
+                ledger::scan_state::transaction_logic::apply_transaction_first_pass(
+                    constraint_constants,
+                    global_slot,
+                    txn_state_view,
+                    sparse_ledger,
+                    transaction,
+                )
+            };
+
+        let get_protocol_state = |state_hash: Fp| {
+            let state_hash = StateHash::from_fp(state_hash);
+            if let Some(s) = protocol_states.get(&state_hash) {
+                Ok(s.clone())
+            } else {
+                Err(format!(
+                    "Failed to find protocol state for state hash: {}",
+                    state_hash.to_string()
+                ))
+            }
+        };
+
+        // FIXME: remove unwrap
+        let scan_state = ctx
+            .staged_ledgers
+            .get(new_root.staged_ledger_hash())
+            .unwrap()
+            .scan_state();
+
+        let Pass::FirstPassLedgerHash(_first_pass_ledger_target) = scan_state
+            .get_snarked_ledger_sync(
+                &mut mt,
+                get_protocol_state,
+                apply_first_pass,
+                apply_second_pass,
+                apply_first_pass_sparse_ledger,
+            )
+            .expect("get_snarked_ledger_sync failed"); // TODO: use '?'
+
+        // Assert that the obtained ledger is the one we expect
+        let expected_hash = new_root.snarked_ledger_hash();
+        let obtained_hash = LedgerHash::from_fp(mt.merkle_root());
+
+        assert_eq!(expected_hash.to_string(), obtained_hash.to_string());
+
+        // Step 6: commit mask and get new root
+        let root_snarked_ledger = mt.commit_and_reparent_to_root().unwrap();
+
+        // Step 7: unregister and discard mask
+        mt.unregister_mask(UnregisterBehavior::Check);
+
+        ctx.sync
+            .snarked_ledgers
+            .insert(new_root.snarked_ledger_hash().clone(), root_snarked_ledger);
+
+        Ok(())
+    }
+
     fn commit(
         &mut self,
         ledgers_to_keep: BTreeSet<LedgerHash>,
@@ -332,12 +464,33 @@ impl<T: LedgerService> TransitionFrontierService for T {
     ) -> CommitResult {
         let ctx = self.ctx_mut();
 
+        println!(
+            "Snarked ledgers before: {:?}",
+            ctx.snarked_ledgers.keys().collect::<Vec<_>>()
+        );
+        println!(
+            "Sync Snarked ledgers: {:?}",
+            ctx.sync.snarked_ledgers.keys().collect::<Vec<_>>()
+        );
+
+        let current: BTreeSet<LedgerHash> = ctx.snarked_ledgers.keys().cloned().collect();
+        let removed: Vec<_> = current.difference(&ledgers_to_keep).collect();
+
+        if !removed.is_empty() {
+            println!("Removed snarked ledgers: {:?}", removed);
+        }
+
         ctx.snarked_ledgers
             .retain(|hash, _| ledgers_to_keep.contains(hash));
         ctx.snarked_ledgers.extend(
             std::mem::take(&mut ctx.sync.snarked_ledgers)
                 .into_iter()
                 .filter(|(hash, _)| ledgers_to_keep.contains(hash)),
+        );
+
+        println!(
+            "Snarked ledgers after: {:?}",
+            ctx.snarked_ledgers.keys().collect::<Vec<_>>()
         );
 
         ctx.staged_ledgers
@@ -348,12 +501,27 @@ impl<T: LedgerService> TransitionFrontierService for T {
                 .filter(|(hash, _)| ledgers_to_keep.contains(hash)),
         );
 
+        // TODO: should this fail silently?
         let Some(new_root_ledger) = ctx.staged_ledgers.get_mut(new_root.staged_ledger_hash())
         else {
+            println!("Early return in commit (no new root ledger found)");
             return Default::default();
         };
         // Make ledger mask new root.
         new_root_ledger.commit_and_reparent_to_root();
+
+        println!(
+            "NEW ROOT BLOCK SNARKED LEDGER: {}",
+            new_root.snarked_ledger_hash()
+        );
+        let hashes: Vec<_> = ledgers_to_keep.iter().collect();
+        println!("LEDGERS TO KEEP: {:?}", hashes);
+        let hashes: Vec<_> = ctx
+            .snarked_ledgers
+            .keys()
+            .map(|hash| hash.to_string())
+            .collect();
+        println!("SNARKED LEDGERS: {:?}", hashes);
 
         let needed_protocol_states = ctx
             .staged_ledger_mut(new_root.staged_ledger_hash())

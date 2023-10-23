@@ -197,6 +197,18 @@ impl TransitionFrontierSyncBlocksNextApplyInitAction {
         let hash = block.hash.clone();
 
         store.dispatch(TransitionFrontierSyncBlocksNextApplyPendingAction { hash: hash.clone() });
+        println!(
+            "+++ APPLYING BLOCK: {} -> {}",
+            pred_block.hash().to_string(),
+            block.hash().to_string()
+        );
+        if pred_block.snarked_ledger_hash().to_string() != block.snarked_ledger_hash().to_string() {
+            println!(
+                "+++ SNARKED LEDGER: {} -> {}",
+                pred_block.snarked_ledger_hash().to_string(),
+                block.snarked_ledger_hash().to_string()
+            );
+        }
         store.service.block_apply(block, pred_block).unwrap();
 
         store.dispatch(TransitionFrontierSyncBlocksNextApplySuccessAction { hash });

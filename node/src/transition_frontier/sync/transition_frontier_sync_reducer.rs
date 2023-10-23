@@ -198,6 +198,10 @@ impl TransitionFrontierSyncState {
                     ..
                 } = self
                 {
+                    println!(
+                        "+++ ROOT LEDGER PENDING: {}",
+                        root_block.snarked_ledger_hash().to_string()
+                    );
                     *self = Self::RootLedgerPending {
                         time: meta.time(),
                         best_tip: best_tip.clone(),
@@ -225,6 +229,10 @@ impl TransitionFrontierSyncState {
                     else {
                         return;
                     };
+                    println!(
+                        "+++ ROOT LEDGER SUCCESS: {}",
+                        block.snarked_ledger_hash().to_string()
+                    );
                     *self = Self::RootLedgerSuccess {
                         time: meta.time(),
                         best_tip: best_tip.clone(),

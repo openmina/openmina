@@ -145,18 +145,25 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         stats.syncing_block_update(state);
                     }
                 }
+                // TODO: push new snarked roots here?
                 a.effects(&meta, store);
             }
             TransitionFrontierSyncAction::BlocksSuccess(_) => {
+                println!("+++ TransitionFrontierSyncAction::BlocksSuccess");
                 let transition_frontier = &store.state.get().transition_frontier;
                 let sync = &transition_frontier.sync;
                 let TransitionFrontierSyncState::BlocksSuccess { chain, .. } = sync else {
+                    println!("@@ skipping (no BlockSuccess sync state)");
                     return;
                 };
                 let Some(root_block) = chain.first() else {
+                    println!("@@ skipping (no first element in chain)");
                     return;
                 };
-                let Some(best_tip) = chain.last() else { return };
+                let Some(best_tip) = chain.last() else {
+                    println!("@@ skipping (no best tip");
+                    return;
+                };
                 let ledgers_to_keep = chain
                     .iter()
                     .flat_map(|b| [b.snarked_ledger_hash(), b.staged_ledger_hash()])
@@ -185,6 +192,45 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         sender: own_peer_id,
                     })
                     .collect();
+
+                match (transition_frontier.best_chain.first(), sync.root_block()) {
+                    (Some(current_root), Some(new_root)) => {
+                        let current_root = current_root.clone();
+                        let new_root = new_root.clone();
+                        if current_root.snarked_ledger_hash() != new_root.snarked_ledger_hash() {
+                            let protocol_states = store
+                                .state()
+                                .transition_frontier
+                                .needed_protocol_states
+                                .clone();
+                            println!(
+                                "Best chain length: {}",
+                                store.state().transition_frontier.best_chain.len()
+                            );
+                            println!(
+                                "Moving transition frontier root, block hashes: {} ({}) -> {} ({})",
+                                current_root.block.hash().to_string(),
+                                current_root.height(),
+                                new_root.height(),
+                                new_root.block.hash().to_string()
+                            );
+                            if let Err(error) = store.service.push_snarked_ledger(
+                                &protocol_states,
+                                &current_root,
+                                &new_root,
+                            ) {
+                                // TODO: don't panic
+                                panic!(
+                                    "Failed to push a new snarked ledger {}  -> {}: {}",
+                                    current_root.snarked_ledger_hash().to_string(),
+                                    new_root.snarked_ledger_hash().to_string(),
+                                    error
+                                );
+                            }
+                        }
+                    }
+                    _ => {}
+                };
 
                 let res = store.service.commit(ledgers_to_keep, root_block, best_tip);
                 let needed_protocol_states = res.needed_protocol_states;

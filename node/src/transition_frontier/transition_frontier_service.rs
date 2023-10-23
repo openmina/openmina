@@ -24,6 +24,12 @@ pub trait TransitionFrontierService: redux::Service {
         block: ArcBlockWithHash,
         pred_block: ArcBlockWithHash,
     ) -> Result<(), String>;
+    fn push_snarked_ledger(
+        &mut self,
+        protocol_states: &BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
+        old_root: &ArcBlockWithHash,
+        new_root: &ArcBlockWithHash,
+    ) -> Result<(), String>;
     fn commit(
         &mut self,
         ledgers_to_keep: BTreeSet<LedgerHash>,
