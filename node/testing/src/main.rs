@@ -1,5 +1,3 @@
-use std::ffi::OsString;
-
 use clap::Parser;
 
 use openmina_node_testing::exit_with_error;
@@ -18,22 +16,6 @@ pub enum Command {
     Server(CommandServer),
 
     ScenariosGenerate(CommandScenariosGenerate),
-}
-
-#[derive(Debug, Clone)]
-pub enum Flavour {
-    Global,
-    Local,
-}
-
-impl From<OsString> for Flavour {
-    fn from(s: OsString) -> Self {
-        match s.as_os_str().to_str() {
-            Some("global") => Flavour::Global,
-            Some("local") => Flavour::Local,
-            _ => panic!(),
-        }
-    }
 }
 
 #[derive(Debug, clap::Args)]

@@ -25,3 +25,6 @@ nix = { version = "0.26.2", features = ["signal"] }
 
 openmina-core = { path = "../../core" }
 node = { path = "../../node", features = ["replay"] }
+
+[features]
+p2p-webrtc = ["node/p2p-webrtc"]
