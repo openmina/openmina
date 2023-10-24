@@ -66,7 +66,7 @@ impl P2pConnectionOutgoingInitOpts {
     /// The OCaml implementation of Mina uses the `get_some_initial_peers` RPC to exchange peer information.
     /// Try to convert this RPC response into our peer address representation.
     /// Recognize a hack for marking the webrtc signaling server. Prefixes "http://" or "https://" are schemas that indicates the host is webrtc signaling.
-    pub fn try_from_mina_rpc(msg: &v2::NetworkPeerPeerStableV1) -> Option<(PeerId, Self)> {
+    pub fn try_from_mina_rpc(msg: v2::NetworkPeerPeerStableV1) -> Option<Self> {
         let peer_id_str = String::try_from(&msg.peer_id.0).ok()?;
         let peer_id = peer_id_str.parse::<libp2p::PeerId>().ok()?;
         if peer_id.as_ref().code() == 0x12 {
@@ -109,7 +109,7 @@ impl P2pConnectionOutgoingInitOpts {
                 },
             }
         };
-        Some((peer_id.into(), opts))
+        Some(opts)
     }
 
     /// Try to convert our peer address representation into mina RPC response.

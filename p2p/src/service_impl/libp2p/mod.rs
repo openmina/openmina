@@ -42,6 +42,7 @@ use crate::channels::rpc::{
     StagedLedgerAuxAndPendingCoinbases,
 };
 use crate::channels::{ChannelId, ChannelMsg};
+use crate::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::identity::SecretKey;
 use crate::{P2pChannelEvent, P2pConnectionEvent, P2pEvent};
 
@@ -434,7 +435,10 @@ impl Libp2pService {
                         Some(P2pRpcResponse::Snark(_)) => {}
                         Some(P2pRpcResponse::InitialPeers(peers)) => {
                             type T = GetSomeInitialPeersV1ForV2;
-                            let r = Ok(peers);
+                            let r = Ok(peers
+                                .iter()
+                                .filter_map(P2pConnectionOutgoingInitOpts::try_into_mina_rpc)
+                                .collect());
                             b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
                         }
                     }
@@ -858,17 +862,20 @@ impl Libp2pService {
                             (
                                 GetSomeInitialPeersV1ForV2::NAME,
                                 GetSomeInitialPeersV1ForV2::VERSION,
-                            ) => match parse_r::<GetSomeInitialPeersV1ForV2>(bytes) {
-                                Ok(response) => {
-                                    let response = response.ok().unwrap_or_default();
-                                    if response.is_empty() {
-                                        send(None)
-                                    } else {
-                                        send(Some(P2pRpcResponse::InitialPeers(response)));
+                            ) => {
+                                match parse_r::<GetSomeInitialPeersV1ForV2>(bytes) {
+                                    Ok(response) => {
+                                        let response = response.ok().unwrap_or_default();
+                                        if response.is_empty() {
+                                            send(None)
+                                        } else {
+                                            let peers = response.into_iter().filter_map(P2pConnectionOutgoingInitOpts::try_from_mina_rpc).collect();
+                                            send(Some(P2pRpcResponse::InitialPeers(peers)));
+                                        }
                                     }
+                                    Err(err) => send_error(err),
                                 }
-                                Err(err) => send_error(err),
-                            },
+                            }
                             _ => send(None),
                         }
                     }

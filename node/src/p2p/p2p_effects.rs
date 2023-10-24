@@ -624,9 +624,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 .p2p
                                 .peers
                                 .iter()
-                                .filter_map(|(_, state)| {
-                                    state.dial_opts.as_ref()?.try_into_mina_rpc()
-                                })
+                                .filter_map(|(_, v)| v.dial_opts.clone())
                                 .collect();
                             let response = Some(P2pRpcResponse::InitialPeers(peers));
 

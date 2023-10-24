@@ -1,7 +1,6 @@
-use mina_p2p_messages::v2;
 use serde::{Deserialize, Serialize};
 
-use crate::{P2pState, PeerId};
+use crate::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pState, PeerId};
 
 // use super::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction};
 
@@ -44,7 +43,7 @@ impl From<P2pDiscoveryInitAction> for crate::P2pAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pDiscoverySuccessAction {
     pub peer_id: PeerId,
-    pub peers: Vec<v2::NetworkPeerPeerStableV1>,
+    pub peers: Vec<P2pConnectionOutgoingInitOpts>,
 }
 
 impl redux::EnablingCondition<P2pState> for P2pDiscoverySuccessAction {

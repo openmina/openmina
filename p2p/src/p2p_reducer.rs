@@ -86,25 +86,22 @@ impl P2pState {
                 };
                 peer.channels.reducer(meta.with_action(action));
             }
-            P2pAction::Discovery(action) => {
-                match action {
-                    P2pDiscoveryAction::Init(P2pDiscoveryInitAction { peer_id }) => {
-                        let Some(peer) = self.get_ready_peer_mut(peer_id) else {
-                            return;
-                        };
-                        peer.last_asked_initial_peers = Some(meta.time());
-                    }
-                    P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peers, peer_id }) => {
-                        if let Some(peer) = self.get_ready_peer_mut(peer_id) {
-                            peer.last_received_initial_peers = Some(meta.time());
-                        };
-                        self.known_peers.extend(peers.iter().filter_map(|msg| {
-                            P2pConnectionOutgoingInitOpts::try_from_mina_rpc(msg)
-                        }));
-                    }
-                    P2pDiscoveryAction::Timeout(_) => {}
+            P2pAction::Discovery(action) => match action {
+                P2pDiscoveryAction::Init(P2pDiscoveryInitAction { peer_id }) => {
+                    let Some(peer) = self.get_ready_peer_mut(peer_id) else {
+                        return;
+                    };
+                    peer.last_asked_initial_peers = Some(meta.time());
                 }
-            }
+                P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peers, peer_id }) => {
+                    if let Some(peer) = self.get_ready_peer_mut(peer_id) {
+                        peer.last_received_initial_peers = Some(meta.time());
+                    };
+                    self.known_peers
+                        .extend(peers.iter().cloned().map(|peer| (*peer.peer_id(), peer)));
+                }
+                P2pDiscoveryAction::Timeout(_) => {}
+            },
         }
     }
 }
