@@ -15,8 +15,8 @@ serde = "1.0.158"
 num_cpus = "1.0"
 rayon = "1.5"
 tokio = { version = "1.26.0" }
-libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51.3", default-features = false, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
-redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
+libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="dan_kad", default-features = false, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
+redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 

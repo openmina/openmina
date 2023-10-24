@@ -1,6 +1,7 @@
 mod behavior;
 pub use behavior::Event as BehaviourEvent;
 pub use behavior::*;
+//use libp2p::kad::store::MemoryStore;
 use mina_p2p_messages::rpc::GetSomeInitialPeersV1ForV2;
 
 mod discovery;
@@ -17,21 +18,20 @@ use openmina_core::snark::Snark;
 
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport;
-use libp2p::core::transport::upgrade;
 use libp2p::futures::{select, FutureExt, StreamExt};
 use libp2p::gossipsub::{
     Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipsubEvent,
     IdentTopic, MessageAcceptance, MessageAuthenticity,
 };
-use libp2p::identify;
 use libp2p::identity::Keypair;
+use libp2p::kad::record::store::MemoryStore;
+use libp2p::kad::Mode;
 use libp2p::noise;
 use libp2p::pnet::{PnetConfig, PreSharedKey};
 use libp2p::swarm::dial_opts::DialOpts;
-use libp2p::swarm::{SwarmBuilder, SwarmEvent};
-use libp2p::yamux::YamuxConfig;
+use libp2p::swarm::SwarmEvent;
+use libp2p::{identify, kad};
 use libp2p::{PeerId, Swarm, Transport};
-
 pub use mina_p2p_messages::gossip::GossipNetMessageV2 as GossipNetMessage;
 
 use libp2p_rpc_behaviour::{BehaviourBuilder, Event as RpcBehaviourEvent, StreamId};
@@ -67,53 +67,6 @@ pub struct Libp2pService {
 
 impl Libp2pService {
     const GOSSIPSUB_TOPIC: &'static str = "coda/consensus-messages/0.0.1";
-
-    async fn build_transport(
-        chain_id: String,
-        identity_keys: Keypair,
-    ) -> Result<(BoxedP2PTransport, PeerId), std::io::Error> {
-        let peer_id = identity_keys.public().to_peer_id();
-
-        let yamux_config = {
-            let mut c = YamuxConfig::default();
-            c.set_protocol_name(b"/coda/yamux/1.0.0");
-            c
-        };
-
-        use libp2p::{
-            dns::TokioDnsConfig as DnsConfig,
-            tcp::{tokio::Transport as TokioTcpTransport, Config as TcpConfig},
-        };
-
-        let tcp = TcpConfig::new().nodelay(true);
-        let transport = DnsConfig::system(TokioTcpTransport::new(tcp))?;
-
-        let pre_shared_key = {
-            let mut hasher = Blake2b256::default();
-            let rendezvous_string = format!("/coda/0.0.1/{}", chain_id);
-            hasher.update(rendezvous_string.as_ref());
-            let hash = hasher.finalize();
-            let mut psk_fixed: [u8; 32] = Default::default();
-            psk_fixed.copy_from_slice(hash.as_ref());
-            PreSharedKey::new(psk_fixed)
-        };
-        let pnet_config = PnetConfig::new(pre_shared_key);
-
-        let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
-            .into_authentic(&identity_keys)
-            .expect("Signing libp2p-noise static DH keypair failed.");
-
-        Ok((
-            transport
-                .and_then(move |socket, _| pnet_config.handshake(socket))
-                .upgrade(upgrade::Version::V1)
-                .authenticate(libp2p::noise::NoiseConfig::xx(noise_keys).into_authenticated())
-                .multiplex(yamux_config)
-                .timeout(Duration::from_secs(60))
-                .boxed(),
-            peer_id,
-        ))
-    }
 
     pub fn mocked() -> (Self, mpsc::UnboundedReceiver<Cmd>) {
         let (cmd_sender, rx) = mpsc::unbounded_channel();
@@ -158,6 +111,9 @@ impl Libp2pService {
             identity_keys.public(),
         ));
 
+        let peer_id = identity_keys.public().to_peer_id();
+        let kademlia = kad::Behaviour::new(peer_id, MemoryStore::new(peer_id));
+
         let behaviour = Behaviour {
             gossipsub,
             rpc: {
@@ -177,19 +133,49 @@ impl Libp2pService {
                     .build()
             },
             identify,
+            kademlia,
             event_source_sender,
             ongoing: BTreeMap::default(),
             ongoing_incoming: BTreeMap::default(),
         };
 
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
+        let psk = {
+            let mut hasher = Blake2b256::default();
+            let rendezvous_string = format!("/coda/0.0.1/{}", chain_id);
+            hasher.update(rendezvous_string.as_ref());
+            let hash = hasher.finalize();
+            let mut psk_fixed: [u8; 32] = Default::default();
+            psk_fixed.copy_from_slice(hash.as_ref());
+            PreSharedKey::new(psk_fixed)
+        };
 
         let fut = async move {
-            let (transport, id) = Self::build_transport(chain_id, identity_keys)
-                .await
-                .unwrap();
+            let mut swarm = libp2p::SwarmBuilder::with_existing_identity(identity_keys)
+                .with_tokio()
+                .with_other_transport(|key| {
+                    let noise_config = noise::Config::new(key).unwrap();
+                    let mut yamux_config = libp2p::yamux::Config::default();
 
-            let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, id).build();
+                    yamux_config.set_protocol_name("/coda/yamux/1.0.0");
+
+                    let base_transport = libp2p::tcp::tokio::Transport::new(
+                        libp2p::tcp::Config::default().nodelay(true),
+                    );
+
+                    base_transport
+                        .and_then(move |socket, _| PnetConfig::new(psk).handshake(socket))
+                        .upgrade(libp2p::core::upgrade::Version::V1)
+                        .authenticate(noise_config)
+                        .multiplex(yamux_config)
+                        .timeout(Duration::from_secs(60))
+                })?
+                .with_dns()?
+                .with_behaviour(|_| behaviour)?
+                .build();
+
+            swarm.behaviour_mut().kademlia.set_mode(Some(Mode::Server));
+
             if let Some(port) = libp2p_port {
                 if let Err(err) =
                     swarm.listen_on(format!("/ip4/0.0.0.0/tcp/{port}").parse().unwrap())
@@ -214,6 +200,9 @@ impl Libp2pService {
                     }
                 }
             }
+
+            // FIXME: keeping the compiler happy but we need proper handling
+            Result::<(), Box<dyn std::error::Error>>::Ok(())
         };
 
         spawner.spawn_main("libp2p", fut);
@@ -516,7 +505,11 @@ impl Libp2pService {
                     cause = format!("{:?}", cause)
                 );
             }
-            SwarmEvent::OutgoingConnectionError { peer_id, error } => {
+            SwarmEvent::OutgoingConnectionError {
+                connection_id: _,
+                peer_id,
+                error,
+            } => {
                 let peer_id = match peer_id {
                     Some(v) => v,
                     None => return,
