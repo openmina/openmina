@@ -11,10 +11,10 @@ serde_json = "1.0.94"
 rayon = "1.5"
 tokio = { version = "1.26.0" }
 warp = "0.3"
-libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51.3", default-features = false, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
+libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="dan_kad", default-features = false, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
 juniper = { version = "0.15.11" }
 juniper_warp = { version = "0.7.0" }
-redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
+redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 bytes = "1.4.0"

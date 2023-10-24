@@ -23,7 +23,7 @@ fn init_opts_from_multiaddr(maddr: libp2p::Multiaddr) -> P2pConnectionOutgoingIn
     let peer_id = maddr
         .iter()
         .find_map(|p| match p {
-            libp2p::multiaddr::Protocol::P2p(v) => Some(libp2p::PeerId::from_multihash(v).unwrap()),
+            libp2p::multiaddr::Protocol::P2p(v) => Some(libp2p::PeerId::from_multihash(v.into()).unwrap()),
             _ => None,
         })
         .unwrap();

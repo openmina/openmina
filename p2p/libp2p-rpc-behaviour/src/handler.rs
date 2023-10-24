@@ -7,11 +7,11 @@ use std::{
 };
 
 use libp2p::{
-    core::{muxing::SubstreamBox, upgrade::ReadyUpgrade, Negotiated},
+    core::upgrade::ReadyUpgrade,
     swarm::{
-        handler::ConnectionEvent, ConnectionHandler, ConnectionHandlerEvent, KeepAlive,
+        handler::{ConnectionEvent, InboundUpgradeSend}, ConnectionHandler, ConnectionHandlerEvent, KeepAlive,
         SubstreamProtocol,
-    },
+    }, StreamProtocol,
 };
 
 use super::{
@@ -37,7 +37,7 @@ pub struct Handler {
 }
 
 impl Handler {
-    const PROTOCOL_NAME: [u8; 15] = *b"coda/rpcs/0.0.1";
+    const PROTOCOL_NAME: &'static str = "coda/rpcs/0.0.1";
 
     pub fn new(menu: Arc<BTreeSet<(&'static str, i32)>>) -> Self {
         Handler {
@@ -50,7 +50,7 @@ impl Handler {
         }
     }
 
-    fn add_stream(&mut self, incoming: bool, io: Negotiated<SubstreamBox>) {
+    fn add_stream(&mut self, incoming: bool, io: <ReadyUpgrade<StreamProtocol> as InboundUpgradeSend>::Output) {
         if incoming {
             let id = self.last_incoming_id;
             self.last_incoming_id += 1;
@@ -68,16 +68,16 @@ impl Handler {
 }
 
 impl ConnectionHandler for Handler {
-    type InEvent = Command;
-    type OutEvent = Event;
+    type FromBehaviour = Command;
+    type ToBehaviour = Event;
     type Error = io::Error;
-    type InboundProtocol = ReadyUpgrade<[u8; 15]>;
-    type OutboundProtocol = ReadyUpgrade<[u8; 15]>;
+    type InboundProtocol = ReadyUpgrade<StreamProtocol>;
+    type OutboundProtocol = ReadyUpgrade<StreamProtocol>;
     type OutboundOpenInfo = ();
     type InboundOpenInfo = ();
 
     fn listen_protocol(&self) -> SubstreamProtocol<Self::InboundProtocol, Self::InboundOpenInfo> {
-        SubstreamProtocol::new(ReadyUpgrade::new(Self::PROTOCOL_NAME), ())
+        SubstreamProtocol::new(ReadyUpgrade::new(StreamProtocol::new(Self::PROTOCOL_NAME)), ())
             .with_timeout(Duration::from_secs(15))
     }
 
@@ -92,7 +92,7 @@ impl ConnectionHandler for Handler {
         ConnectionHandlerEvent<
             Self::OutboundProtocol,
             Self::OutboundOpenInfo,
-            Self::OutEvent,
+            Self::ToBehaviour,
             Self::Error,
         >,
     > {
@@ -102,7 +102,7 @@ impl ConnectionHandler for Handler {
         self.failed.clear();
 
         let outbound_request = ConnectionHandlerEvent::OutboundSubstreamRequest {
-            protocol: SubstreamProtocol::new(ReadyUpgrade::new(Self::PROTOCOL_NAME), ()),
+            protocol: SubstreamProtocol::new(ReadyUpgrade::new(StreamProtocol::new(Self::PROTOCOL_NAME)), ()),
         };
         for (stream_id, stream) in &mut self.streams {
             match stream.poll_stream(*stream_id, cx) {
@@ -112,7 +112,7 @@ impl ConnectionHandler for Handler {
                     return Poll::Ready(outbound_request);
                 }
                 Poll::Ready(Ok(StreamEvent::Event(event))) => {
-                    return Poll::Ready(ConnectionHandlerEvent::Custom(event));
+                    return Poll::Ready(ConnectionHandlerEvent::NotifyBehaviour(event));
                 }
                 Poll::Ready(Err(_err)) => {
                     self.failed.push(*stream_id);
@@ -125,7 +125,7 @@ impl ConnectionHandler for Handler {
         Poll::Pending
     }
 
-    fn on_behaviour_event(&mut self, event: Self::InEvent) {
+    fn on_behaviour_event(&mut self, event: Self::FromBehaviour) {
         match event {
             Command::Open { outgoing_stream_id } => {
                 self.streams.insert(

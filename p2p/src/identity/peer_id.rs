@@ -86,8 +86,8 @@ impl From<libp2p::PeerId> for PeerId {
         if value.as_ref().code() == 0x12 {
             todo!("store such kind of key in our `PeerId`");
         } else {
-            let key = libp2p::identity::PublicKey::from_protobuf_encoding(slice).unwrap();
-            let bytes = key.into_ed25519().unwrap().encode();
+            let key = libp2p::identity::PublicKey::try_decode_protobuf(slice).unwrap();
+            let bytes = key.try_into_ed25519().unwrap().to_bytes();
             PeerId::from_bytes(bytes)
         }
     }
@@ -96,10 +96,10 @@ impl From<libp2p::PeerId> for PeerId {
 #[cfg(not(target_arch = "wasm32"))]
 impl From<PeerId> for libp2p::PeerId {
     fn from(value: PeerId) -> Self {
-        let key = libp2p::identity::ed25519::PublicKey::decode(&value.to_bytes()).unwrap();
+        let key = libp2p::identity::ed25519::PublicKey::try_from_bytes(&value.to_bytes()).unwrap();
         #[allow(deprecated)]
-        let key = libp2p::identity::PublicKey::Ed25519(key);
-        key.into()
+        let key = libp2p::identity::PublicKey::try_from(key).unwrap();
+        key.to_peer_id()
     }
 }
 

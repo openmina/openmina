@@ -208,7 +208,7 @@ impl FromStr for P2pConnectionOutgoingInitOpts {
                 .ok_or(P2pConnectionOutgoingInitOptsParseError::Other(
                     "peer_id not set in multiaddr. Missing `../p2p/<peer_id>`".to_string(),
                 ))?;
-            let peer_id = libp2p::PeerId::from_multihash(hash).map_err(|_| {
+            let peer_id = libp2p::PeerId::from_multihash(hash.into()).map_err(|_| {
                 P2pConnectionOutgoingInitOptsParseError::Other(
                     "invalid peer_id multihash".to_string(),
                 )
