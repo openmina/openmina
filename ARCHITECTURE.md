@@ -210,6 +210,9 @@ There are 2 types of effects:
    in [openmina-node](node/) crate, so we write effects to respond to that
    rpc [in there](https://github.com/openmina/openmina/blob/f6bde2138157dcdacd4baa0cd07c22506dc2a7c0/node/src/p2p/p2p_effects.rs#L517).
 
+Examples of the flow:
+- [Sync staged ledger](node/src/transition_frontier/sync/ledger/staged)
+
 ## Timeouts
 
 To ensure that the node is low in complexity, easy to test, to reason
