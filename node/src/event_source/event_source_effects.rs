@@ -191,6 +191,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                 },
                 P2pEvent::Libp2pIdentify(..) => {}
+                P2pEvent::Discovery(..) => {}
             },
             Event::Snark(event) => match event {
                 SnarkEvent::BlockVerify(req_id, result) => match result {

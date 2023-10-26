@@ -18,6 +18,8 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
     pub identify: identify::Behaviour,
     pub kademlia: kad::Behaviour<MemoryStore>,
     #[behaviour(ignore)]
+    pub should_bootstrap: bool,
+    #[behaviour(ignore)]
     pub event_source_sender: mpsc::UnboundedSender<E>,
     // TODO(vlad9486): move maps inside `RpcBehaviour`
     // map msg_id into (tag, version)
@@ -36,5 +38,5 @@ pub enum Event {
     Gossipsub(gossipsub::Event),
     Rpc((PeerId, RpcEvent)),
     Identify(identify::Event),
-    Kademlia(kad::Event)
+    Kademlia(kad::Event),
 }

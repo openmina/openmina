@@ -26,12 +26,12 @@ use libp2p::gossipsub::{
 use libp2p::identity::Keypair;
 use libp2p::kad::record::store::MemoryStore;
 use libp2p::kad::Mode;
-use libp2p::noise;
 use libp2p::pnet::{PnetConfig, PreSharedKey};
 use libp2p::swarm::dial_opts::DialOpts;
 use libp2p::swarm::SwarmEvent;
 use libp2p::{identify, kad};
-use libp2p::{PeerId, Swarm, Transport};
+use libp2p::{noise, StreamProtocol};
+use libp2p::{Multiaddr, PeerId, Swarm, Transport};
 pub use mina_p2p_messages::gossip::GossipNetMessageV2 as GossipNetMessage;
 
 use libp2p_rpc_behaviour::{BehaviourBuilder, Event as RpcBehaviourEvent, StreamId};
@@ -42,6 +42,7 @@ use crate::channels::rpc::{
     StagedLedgerAuxAndPendingCoinbases,
 };
 use crate::channels::{ChannelId, ChannelMsg};
+use crate::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::identity::SecretKey;
 use crate::{P2pChannelEvent, P2pConnectionEvent, P2pEvent};
 
@@ -54,7 +55,7 @@ pub type BoxedP2PTransport = transport::Boxed<P2PTransport>;
 
 #[derive(Debug)]
 pub enum Cmd {
-    Dial(DialOpts),
+    Dial(PeerId, Vec<Multiaddr>),
     Disconnect(PeerId),
     SendMessage(PeerId, ChannelMsg),
     SnarkBroadcast(Snark, u32),
@@ -111,7 +112,12 @@ impl Libp2pService {
         ));
 
         let peer_id = identity_keys.public().to_peer_id();
-        let kademlia = kad::Behaviour::new(peer_id, MemoryStore::new(peer_id));
+        let kad_config = {
+            let mut c = kad::Config::default();
+            c.set_protocol_names(vec![StreamProtocol::new("/coda/kad/1.0.0")]);
+            c
+        };
+        let kademlia = kad::Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kad_config);
 
         let behaviour = Behaviour {
             gossipsub,
@@ -133,6 +139,7 @@ impl Libp2pService {
             },
             identify,
             kademlia,
+            should_bootstrap: true,
             event_source_sender,
             ongoing: BTreeMap::default(),
             ongoing_incoming: BTreeMap::default(),
@@ -232,8 +239,21 @@ impl Libp2pService {
 
     async fn handle_cmd<E: From<P2pEvent>>(swarm: &mut Swarm<Behaviour<E>>, cmd: Cmd) {
         match cmd {
-            Cmd::Dial(maddr) => {
-                if let Err(e) = swarm.dial(maddr) {
+            Cmd::Dial(peer_id, addrs) => {
+                for addr in &addrs {
+                    swarm
+                        .behaviour_mut()
+                        .kademlia
+                        .add_address(&peer_id, addr.clone());
+                }
+
+                if swarm.behaviour().should_bootstrap {
+                    swarm.behaviour_mut().should_bootstrap = false;
+                    swarm.behaviour_mut().kademlia.bootstrap().unwrap();
+                }
+
+                let opts = DialOpts::peer_id(peer_id.into()).addresses(addrs).build();
+                if let Err(e) = swarm.dial(opts) {
                     openmina_core::log::error!(
                         openmina_core::log::system_time();
                         event = format!("Cmd::Dial(...)"),
@@ -510,6 +530,11 @@ impl Libp2pService {
                     Some(v) => v,
                     None => return,
                 };
+                if peer_id.as_ref().code() == 0x12 {
+                    // cannot report about the failure,
+                    // because our PeerId cannot represent this peer_id
+                    return;
+                }
                 let event = P2pEvent::Connection(P2pConnectionEvent::Finalized(
                     peer_id.into(),
                     Err(error.to_string()),
@@ -517,6 +542,33 @@ impl Libp2pService {
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::Behaviour(event) => match event {
+                BehaviourEvent::Kademlia(event) => match event {
+                    kad::Event::RoutingUpdated {
+                        peer,
+                        is_new_peer: true,
+                        addresses,
+                        ..
+                    } => {
+                        if peer.as_ref().code() == 0x12 {
+                            // ignore such peer
+                            // TODO: add one more kind of peer_id into our PeerId type
+                            return;
+                        }
+
+                        if let Some(maddr) = addresses.iter().next() {
+                            let opts = P2pConnectionOutgoingInitOpts::LibP2P {
+                                peer_id: peer.into(),
+                                maddr: maddr.clone(),
+                            };
+                            swarm
+                                .behaviour_mut()
+                                .event_source_sender
+                                .send(P2pEvent::Discovery(opts).into())
+                                .unwrap_or_default();
+                        }
+                    }
+                    _ => {}
+                },
                 BehaviourEvent::Gossipsub(GossipsubEvent::Message {
                     propagation_source,
                     message_id,

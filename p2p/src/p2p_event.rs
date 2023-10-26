@@ -6,7 +6,7 @@ use libp2p::Multiaddr;
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
-    connection::P2pConnectionResponse,
+    connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionResponse},
     PeerId,
 };
 
@@ -15,6 +15,7 @@ pub enum P2pEvent {
     Connection(P2pConnectionEvent),
     Channel(P2pChannelEvent),
     Libp2pIdentify(PeerId, Multiaddr),
+    Discovery(P2pConnectionOutgoingInitOpts),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -50,6 +51,9 @@ impl std::fmt::Display for P2pEvent {
             Self::Channel(v) => v.fmt(f),
             Self::Libp2pIdentify(peer_id, addr) => {
                 write!(f, "{peer_id} {addr}")
+            }
+            Self::Discovery(opts) => {
+                write!(f, "{}", opts.peer_id())
             }
         }
     }
