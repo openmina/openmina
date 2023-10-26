@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
-    connection::P2pConnectionResponse,
+    connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionResponse},
     PeerId,
 };
 
@@ -14,6 +14,7 @@ pub enum P2pEvent {
     Channel(P2pChannelEvent),
     #[cfg(not(target_arch = "wasm32"))]
     Libp2pIdentify(PeerId, libp2p::Multiaddr),
+    Discovery(P2pConnectionOutgoingInitOpts),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -50,6 +51,9 @@ impl std::fmt::Display for P2pEvent {
             #[cfg(not(target_arch = "wasm32"))]
             Self::Libp2pIdentify(peer_id, addr) => {
                 write!(f, "{peer_id} {addr}")
+            }
+            Self::Discovery(opts) => {
+                write!(f, "{}", opts.peer_id())
             }
         }
     }

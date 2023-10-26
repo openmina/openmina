@@ -1,4 +1,3 @@
-use libp2p::swarm::dial_opts::DialOpts;
 use openmina_core::channels::mpsc;
 use openmina_core::snark::Snark;
 
@@ -54,10 +53,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
                 P2pServiceWebrtc::outgoing_init(self, peer_id);
             }
             P2pConnectionOutgoingInitOpts::LibP2P(opts) => {
-                let opts = DialOpts::peer_id(opts.peer_id.into())
-                    .addresses(vec![opts.to_maddr()])
-                    .build();
-                let cmd = super::libp2p::Cmd::Dial(opts);
+                let cmd = super::libp2p::Cmd::Dial(opts.peer_id.into(), vec![opts.to_maddr()]);
                 let _ = self.libp2p().cmd_sender().send(cmd);
             }
         }

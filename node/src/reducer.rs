@@ -23,6 +23,9 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
                     }
                 }
             }
+            Event::P2p(P2pEvent::Discovery(opts)) => {
+                state.p2p.known_peers.insert(*opts.peer_id(), opts.clone());
+            }
             _ => {}
         },
         Action::EventSource(_) => {}
