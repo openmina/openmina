@@ -1,3 +1,4 @@
+use p2p::discovery::P2pDiscoveryKademliaInitAction;
 use redux::ActionMeta;
 
 use crate::consensus::consensus_effects;
@@ -66,7 +67,11 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             p2p_request_snarks_if_needed(store);
 
-            p2p_discovery_request(store, &meta);
+            if store.state().p2p.enough_time_elapsed(meta.time()) {
+                store.dispatch(P2pDiscoveryKademliaInitAction {});
+            }
+            // turn off in favour of kademlia
+            // p2p_discovery_request(store, &meta);
 
             let state = store.state();
             for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {
@@ -212,6 +217,7 @@ fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
 
 /// Iterate all connected peers and check the time of the last response to the peer discovery request.
 /// If the elapsed time is large enough, send another discovery request.
+#[allow(dead_code)]
 fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
     let peer_ids = store
         .state()

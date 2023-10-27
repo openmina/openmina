@@ -26,6 +26,7 @@ use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{
     P2pDisconnectionFinishAction, P2pDisconnectionInitAction, P2pDisconnectionReason,
 };
+use crate::p2p::discovery::P2pDiscoveryKademliaSuccessAction;
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcHealthCheckAction,
@@ -199,11 +200,10 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 },
                 #[cfg(not(target_arch = "wasm32"))]
                 P2pEvent::Libp2pIdentify(..) => {}
-                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::Ready) => {
-                    // TEMPORARY:
-                    store.service().find_random_peer();
+                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::Ready) => {}
+                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeers(peers)) => {
+                    store.dispatch(P2pDiscoveryKademliaSuccessAction { peers });
                 }
-                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeers(..)) => {}
             },
             Event::Snark(event) => match event {
                 SnarkEvent::BlockVerify(req_id, result) => match result {

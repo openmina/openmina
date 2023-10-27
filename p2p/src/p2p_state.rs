@@ -17,7 +17,25 @@ pub struct P2pState {
     pub config: P2pConfig,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
     pub known_peers: BTreeMap<PeerId, P2pConnectionOutgoingInitOpts>,
-    pub kademlia_ready: bool,
+    pub kademlia: P2pKademliaState,
+}
+
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+pub struct P2pKademliaState {
+    pub is_ready: bool,
+    pub last_used: Option<redux::Timestamp>,
+    pub outgoing_requests: usize,
+}
+
+impl P2pState {
+    pub fn enough_time_elapsed(&self, time: redux::Timestamp) -> bool {
+        let Some(last_used) = self.kademlia.last_used else {
+            return true;
+        };
+        time.checked_sub(last_used)
+            .map(|t| t > self.config.ask_initial_peers_interval)
+            .unwrap_or(false)
+    }
 }
 
 impl P2pState {
@@ -31,7 +49,7 @@ impl P2pState {
             config,
             peers: Default::default(),
             known_peers,
-            kademlia_ready: false,
+            kademlia: P2pKademliaState::default(),
         }
     }
 
