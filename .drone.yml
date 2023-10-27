@@ -54,17 +54,25 @@ steps:
   - name: build
     image: rust:1.71-buster
     commands:
-      - apt-get update && apt-get install -y libssl-dev libjemalloc-dev
+      - apt-get update && apt-get install -y libssl-dev libjemalloc-dev jq
       - rustup update nightly-2023-06-01 && rustup default nightly-2023-06-01
       - rustup component add rustfmt
       - cargo test --release -p cli
       - cargo build --release -p cli --bin openmina
-      - cargo build --release -p openmina-node-testing --features scenario-generators
+      - cargo test --release --features scenario-generators --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_only | xargs -I {} mv {} ./target/release/test_libp2p_only
+      - cargo test --release --features scenario-generators,p2p-webrtc --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_only | xargs -I {} mv {} ./target/release/test_libp2p_only_with_webrtc_compiled
+      - cargo test --release --features scenario-generators,p2p-webrtc --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_with | xargs -I {} mv {} ./target/release/test_libp2p_plus_webrtc
 
-  - name: testing-framework-tests
+  - name: testing-framework-tests-libp2p-plus-webrtc
     image: rust:1.71-buster
     commands:
-      - ./target/release/openmina-node-testing scenarios-generate
+      - ./target/release/test_libp2p_plus_webrtc
+      - ./target/release/test_libp2p_only_with_webrtc_compiled
+
+  - name: testing-framework-tests-libp2p-only
+    image: rust:1.71-buster
+    commands:
+      - ./target/release/test_libp2p_only
 
   - name: replayer
     image: vladsimplestakingcom/bootstrap-rr:graphql

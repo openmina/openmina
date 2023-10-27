@@ -16,7 +16,7 @@ use cluster_runner::ClusterRunner;
 
 use strum_macros::{EnumIter, EnumString, IntoStaticStr};
 
-use crate::cluster::Cluster;
+use crate::cluster::{Cluster, ClusterConfig};
 use crate::scenario::{Scenario, ScenarioId, ScenarioStep};
 
 use self::multi_node::basic_connectivity_initial_joining::MultiNodeBasicConnectivityInitialJoining;
@@ -121,7 +121,7 @@ impl Scenarios {
         self.run(cluster, |_| {}).await
     }
 
-    async fn build_cluster_and_run_parents(self) -> Cluster {
+    async fn build_cluster_and_run_parents(self, config: ClusterConfig) -> Cluster {
         let mut parents = std::iter::repeat(())
             .scan(self.parent(), |parent, _| {
                 let cur_parent = parent.take();
@@ -130,7 +130,7 @@ impl Scenarios {
             })
             .collect::<Vec<_>>();
 
-        let mut cluster = Cluster::new(Default::default());
+        let mut cluster = Cluster::new(config);
         while let Some(scenario) = parents.pop() {
             scenario.run_only(&mut cluster).await;
         }
@@ -138,13 +138,13 @@ impl Scenarios {
         cluster
     }
 
-    pub async fn run_and_save_from_scratch(self) {
-        let mut cluster = self.build_cluster_and_run_parents().await;
+    pub async fn run_and_save_from_scratch(self, config: ClusterConfig) {
+        let mut cluster = self.build_cluster_and_run_parents(config).await;
         self.run_and_save(&mut cluster).await;
     }
 
-    pub async fn run_only_from_scratch(self) {
-        let mut cluster = self.build_cluster_and_run_parents().await;
+    pub async fn run_only_from_scratch(self, config: ClusterConfig) {
+        let mut cluster = self.build_cluster_and_run_parents(config).await;
         self.run_only(&mut cluster).await;
     }
 }

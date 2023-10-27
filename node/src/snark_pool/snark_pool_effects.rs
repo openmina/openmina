@@ -70,7 +70,7 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
                         config.fee.clone(),
                         config.public_key.clone().into(),
                     ),
-                    sender: store.state().p2p.config.identity_pub_key.peer_id(),
+                    sender: store.state().p2p.my_id(),
                 });
             }
         }

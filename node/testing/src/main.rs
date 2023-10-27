@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use openmina_node_testing::exit_with_error;
+use openmina_node_testing::{exit_with_error, server, setup};
 
 pub type CommandError = Box<dyn std::error::Error>;
 
@@ -29,22 +29,12 @@ pub struct CommandScenariosGenerate {}
 
 impl Command {
     pub fn run(self) -> Result<(), crate::CommandError> {
-        // openmina_node_native::tracing::initialize(openmina_node_native::tracing::Level::DEBUG);
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(num_cpus::get().max(2) - 1)
-            .thread_name(|i| format!("openmina_rayon_{i}"))
-            .build_global()
-            .unwrap();
-
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+        let rt = setup();
         let _rt_guard = rt.enter();
 
         match self {
             Self::Server(args) => {
-                openmina_node_testing::server(args.port);
+                server(args.port);
                 Ok(())
             }
             Self::ScenariosGenerate(_) => {
@@ -52,7 +42,7 @@ impl Command {
                 {
                     for scenario in openmina_node_testing::scenarios::Scenarios::iter() {
                         rt.block_on(async {
-                            scenario.run_and_save_from_scratch().await;
+                            scenario.run_and_save_from_scratch(Default::default()).await;
                         });
                     }
                     Ok(())

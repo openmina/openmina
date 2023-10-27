@@ -13,6 +13,7 @@ name = "openmina-node-testing"
 path = "src/main.rs"
 
 [dependencies]
+lazy_static = "1.4.0"
 serde = "1.0.147"
 serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
 anyhow = "1.0.70"
@@ -40,3 +41,4 @@ openmina-node-native = { path = "../../node/native" }
 
 [features]
 scenario-generators = ["documented"]
+p2p-webrtc = ["openmina-node-native/p2p-webrtc"]

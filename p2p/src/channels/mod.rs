@@ -18,6 +18,8 @@ pub use p2p_channels_effects::*;
 mod p2p_channels_service;
 pub use p2p_channels_service::*;
 
+use binprot::{BinProtRead, BinProtWrite};
+use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
@@ -100,7 +102,7 @@ impl MsgId {
     }
 }
 
-#[derive(Serialize, Deserialize, From, Debug, Clone)]
+#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, From, Debug, Clone)]
 pub enum ChannelMsg {
     BestTipPropagation(BestTipPropagationChannelMsg),
     SnarkPropagation(SnarkPropagationChannelMsg),
@@ -115,6 +117,37 @@ impl ChannelMsg {
             Self::SnarkPropagation(_) => ChannelId::SnarkPropagation,
             Self::SnarkJobCommitmentPropagation(_) => ChannelId::SnarkJobCommitmentPropagation,
             Self::Rpc(_) => ChannelId::Rpc,
+        }
+    }
+
+    pub fn encode<W>(&self, w: &mut W) -> std::io::Result<()>
+    where
+        W: std::io::Write,
+    {
+        match self {
+            Self::BestTipPropagation(v) => v.binprot_write(w),
+            Self::SnarkPropagation(v) => v.binprot_write(w),
+            Self::SnarkJobCommitmentPropagation(v) => v.binprot_write(w),
+            Self::Rpc(v) => v.binprot_write(w),
+        }
+    }
+
+    pub fn decode<R>(r: &mut R, id: ChannelId) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+        R: std::io::Read + ?Sized,
+    {
+        match id {
+            ChannelId::BestTipPropagation => {
+                BestTipPropagationChannelMsg::binprot_read(r).map(|v| v.into())
+            }
+            ChannelId::SnarkPropagation => {
+                SnarkPropagationChannelMsg::binprot_read(r).map(|v| v.into())
+            }
+            ChannelId::SnarkJobCommitmentPropagation => {
+                SnarkJobCommitmentPropagationChannelMsg::binprot_read(r).map(|v| v.into())
+            }
+            ChannelId::Rpc => RpcChannelMsg::binprot_read(r).map(|v| v.into()),
         }
     }
 }

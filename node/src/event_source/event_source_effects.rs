@@ -197,6 +197,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(P2pDisconnectionInitAction { peer_id, reason });
                     }
                 },
+                #[cfg(not(target_arch = "wasm32"))]
                 P2pEvent::Libp2pIdentify(..) => {}
             },
             Event::Snark(event) => match event {

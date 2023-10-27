@@ -1,7 +1,5 @@
 use std::time::Duration;
 
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-
 use crate::{
     node::RustNodeTestingConfig,
     scenario::{ListenerNode, ScenarioStep},
@@ -35,7 +33,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
             runner
                 .exec_step(ScenarioStep::ConnectNodes {
                     dialer: node,
-                    listener: ListenerNode::Custom(init_opts_from_multiaddr(seed.parse().unwrap())),
+                    listener: ListenerNode::Custom(seed.parse().unwrap()),
                 })
                 .await
                 .unwrap();
@@ -80,20 +78,5 @@ impl SoloNodeBasicConnectivityInitialJoining {
         }
 
         panic!("timeout");
-    }
-}
-
-fn init_opts_from_multiaddr(maddr: libp2p::Multiaddr) -> P2pConnectionOutgoingInitOpts {
-    let peer_id = maddr
-        .iter()
-        .find_map(|p| match p {
-            libp2p::multiaddr::Protocol::P2p(v) => Some(libp2p::PeerId::from_multihash(v).unwrap()),
-            _ => None,
-        })
-        .unwrap();
-
-    P2pConnectionOutgoingInitOpts::LibP2P {
-        peer_id: peer_id.into(),
-        maddr,
     }
 }

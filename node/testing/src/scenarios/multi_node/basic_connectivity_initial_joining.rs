@@ -88,14 +88,23 @@ impl MultiNodeBasicConnectivityInitialJoining {
             }
         }
 
-        for node_id in nodes {
-            let node = runner.node(node_id).expect("node must exist");
+        for node_id in &nodes {
+            let node = runner.node(*node_id).expect("node must exist");
             let p2p: &node::p2p::P2pState = &node.state().p2p;
             let ready_peers = p2p.ready_peers_iter().count();
             // each node connected to some peers
             println!(
                 "must hold {ready_peers} >= {}",
                 node.state().p2p.min_peers()
+            );
+        }
+
+        for node_id in nodes {
+            let node = runner.node(node_id).expect("node must exist");
+            eprintln!(
+                "{node_id:?} - {} - p2p state: {:#?}",
+                &node.state().p2p.my_id(),
+                &node.state().p2p.peers
             );
         }
 

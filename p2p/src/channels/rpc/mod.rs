@@ -12,6 +12,7 @@ pub use p2p_channels_rpc_effects::*;
 
 use std::{sync::Arc, time::Duration};
 
+use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::{
     LedgerHash, MinaBasePendingCoinbaseStableV2, MinaBaseStateBodyHashStableV1,
     MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
@@ -27,7 +28,7 @@ use crate::connection::outgoing::P2pConnectionOutgoingInitOpts;
 
 pub type P2pRpcId = u32;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub enum RpcChannelMsg {
     Request(P2pRpcId, P2pRpcRequest),
     Response(P2pRpcId, Option<P2pRpcResponse>),
@@ -76,7 +77,7 @@ impl P2pRpcKind {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcRequest {
     BestTipWithProof,
     LedgerQuery(LedgerHash, MinaLedgerSyncLedgerQueryStableV1),
@@ -141,14 +142,14 @@ impl std::fmt::Display for P2pRpcRequest {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub struct BestTipWithProof {
     pub best_tip: ArcBlock,
     pub proof: (Vec<MinaBaseStateBodyHashStableV1>, ArcBlock),
 }
 
 /// Pieces required to reconstruct staged ledger from snarked ledger.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub struct StagedLedgerAuxAndPendingCoinbases {
     pub scan_state: TransactionSnarkScanStateStableV2,
     pub staged_ledger_hash: LedgerHash,
@@ -156,7 +157,7 @@ pub struct StagedLedgerAuxAndPendingCoinbases {
     pub needed_blocks: Vec<MinaStateProtocolStateValueStableV2>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcResponse {
     BestTipWithProof(BestTipWithProof),
     LedgerQuery(MinaLedgerSyncLedgerAnswerStableV2),

@@ -2,8 +2,6 @@ use derive_more::From;
 use openmina_core::snark::Snark;
 use serde::{Deserialize, Serialize};
 
-use libp2p::Multiaddr;
-
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
     connection::P2pConnectionResponse,
@@ -14,7 +12,8 @@ use crate::{
 pub enum P2pEvent {
     Connection(P2pConnectionEvent),
     Channel(P2pChannelEvent),
-    Libp2pIdentify(PeerId, Multiaddr),
+    #[cfg(not(target_arch = "wasm32"))]
+    Libp2pIdentify(PeerId, libp2p::Multiaddr),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -48,6 +47,7 @@ impl std::fmt::Display for P2pEvent {
         match self {
             Self::Connection(v) => v.fmt(f),
             Self::Channel(v) => v.fmt(f),
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Libp2pIdentify(peer_id, addr) => {
                 write!(f, "{peer_id} {addr}")
             }

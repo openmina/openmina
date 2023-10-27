@@ -33,6 +33,10 @@ impl P2pState {
         }
     }
 
+    pub fn my_id(&self) -> PeerId {
+        self.config.identity_pub_key.peer_id()
+    }
+
     pub fn peer_connection_rpc_id(&self, peer_id: &PeerId) -> Option<RpcId> {
         self.peers.get(peer_id)?.connection_rpc_id()
     }
@@ -143,15 +147,14 @@ impl P2pState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pPeerState {
+    pub is_libp2p: bool,
     pub dial_opts: Option<P2pConnectionOutgoingInitOpts>,
     pub status: P2pPeerStatus,
 }
 
 impl P2pPeerState {
     pub fn is_libp2p(&self) -> bool {
-        self.dial_opts
-            .as_ref()
-            .map_or(false, |opts| opts.is_libp2p())
+        self.is_libp2p
     }
 
     pub fn connection_rpc_id(&self) -> Option<RpcId> {
