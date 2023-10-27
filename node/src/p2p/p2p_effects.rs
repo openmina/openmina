@@ -267,8 +267,14 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     request: P2pRpcRequest::InitialPeers,
                 });
             }
-            P2pDiscoveryAction::Timeout(_) => {}
             P2pDiscoveryAction::Success(_) => {}
+            P2pDiscoveryAction::KademliaInit(action) => {
+                // dbg!(action);
+                store.service().find_random_peer();
+            }
+            P2pDiscoveryAction::KademliaSuccess(action) => {
+                // dbg!(action);
+            }
         },
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {

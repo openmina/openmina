@@ -102,7 +102,20 @@ impl P2pState {
                             P2pConnectionOutgoingInitOpts::try_from_mina_rpc(msg)
                         }));
                     }
-                    P2pDiscoveryAction::Timeout(_) => {}
+                    P2pDiscoveryAction::KademliaInit(..) => {
+                        self.kademlia.last_used = Some(meta.time());
+                        self.kademlia.outgoing_requests += 1;
+                    }
+                    P2pDiscoveryAction::KademliaSuccess(action) => {
+                        // TODO(vlad9486): handle failure, decrement the counter
+                        self.kademlia.outgoing_requests -= 1;
+                        self.known_peers.extend(
+                            action
+                                .peers
+                                .iter()
+                                .map(|opts| (opts.peer_id().clone(), opts.clone())),
+                        )
+                    }
                 }
             }
         }
