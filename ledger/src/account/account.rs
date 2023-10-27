@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fmt::Write, io::Cursor, str::FromStr};
+use std::{fmt::Write, io::Cursor, str::FromStr};
 
 use ark_ff::{BigInteger256, Field, One, UniformRand, Zero};
 use mina_hasher::Fp;
@@ -9,12 +9,12 @@ use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 use crate::{
     gen_compressed, gen_keypair,
     hash::{hash_noinputs, hash_with_kimchi, Inputs},
-    proofs::witness::{Boolean, Witness},
+    proofs::witness::{Boolean, FieldWitness, ToBoolean, Witness},
     scan_state::{
         currency::{Balance, Magnitude, Nonce, Slot},
         transaction_logic::account_min_balance_at_slot,
     },
-    MerklePath, ToInputs,
+    MerklePath, MyCow, ToInputs,
 };
 
 use super::common::*;
@@ -61,6 +61,25 @@ impl TokenSymbol {
 
         Self(sym)
     }
+
+    pub fn to_bytes(&self, bytes: &mut [u8]) {
+        if self.is_empty() {
+            return;
+        }
+        let len = self.len();
+        let s = self.as_bytes();
+        bytes[..len].copy_from_slice(&s[..len.min(6)]);
+    }
+
+    pub fn to_field<F: FieldWitness>(&self) -> F {
+        use ark_ff::FromBytes;
+
+        let mut s = <[u8; 32]>::default();
+        self.to_bytes(&mut s);
+
+        let bigint = BigInteger256::read(&s[..]).unwrap();
+        F::from(bigint)
+    }
 }
 
 #[allow(clippy::derivable_impls)]
@@ -92,10 +111,7 @@ impl ToInputs for TokenSymbol {
         //assert!(self.len() <= 6);
 
         let mut s = <[u8; 6]>::default();
-        if !self.is_empty() {
-            let len = self.len();
-            s[..len].copy_from_slice(self.as_bytes());
-        }
+        self.to_bytes(&mut s);
         inputs.append_u48(s);
     }
 }
@@ -118,8 +134,11 @@ pub struct Permissions<Controller> {
     pub set_timing: Controller,
 }
 
-impl ToInputs for Permissions<AuthRequired> {
-    fn to_inputs(&self, inputs: &mut Inputs) {
+impl Permissions<AuthRequired> {
+    pub fn iter_as_bits<F>(&self, mut fun: F)
+    where
+        F: FnMut(bool),
+    {
         let Self {
             edit_state,
             access,
@@ -152,9 +171,17 @@ impl ToInputs for Permissions<AuthRequired> {
             set_timing,
         ] {
             for bit in auth.encode().to_bits() {
-                inputs.append_bool(bit);
+                fun(bit);
             }
         }
+    }
+}
+
+impl ToInputs for Permissions<AuthRequired> {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        self.iter_as_bits(|bit| {
+            inputs.append_bool(bit);
+        });
     }
 }
 
@@ -239,6 +266,12 @@ impl Permissions<AuthRequired> {
 // It seems that a similar type exist in proof-systems: TODO
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct CurveAffine<F: Field>(pub F, pub F);
+
+impl<F: Field> CurveAffine<F> {
+    pub fn new((a, b): (F, F)) -> Self {
+        Self(a, b)
+    }
+}
 
 impl CurveAffine<Fp> {
     pub fn rand() -> Self {
@@ -553,6 +586,42 @@ impl Default for ZkAppAccount {
     }
 }
 
+impl ZkAppAccount {
+    pub fn hash(&self) -> Fp {
+        let Self {
+            app_state,
+            verification_key,
+            zkapp_version,
+            action_state,
+            last_action_slot,
+            proved_state,
+            zkapp_uri,
+        } = self;
+
+        let mut inputs = Inputs::new();
+
+        // Self::zkapp_uri
+        inputs.append(&Some(zkapp_uri));
+
+        inputs.append_bool(*proved_state);
+        inputs.append_u32(last_action_slot.as_u32());
+        for fp in action_state {
+            inputs.append_field(*fp);
+        }
+        inputs.append_u32(*zkapp_version);
+        let vk_hash = match verification_key.as_ref() {
+            Some(vk) => vk.hash(),
+            None => VerificationKey::dummy().hash(),
+        };
+        inputs.append_field(vk_hash);
+        for fp in app_state {
+            inputs.append_field(*fp);
+        }
+
+        hash_with_kimchi("MinaZkappAccount", &inputs.to_fields())
+    }
+}
+
 #[derive(Clone, Eq)]
 pub struct AccountId {
     pub public_key: CompressedPubKey,
@@ -667,12 +736,27 @@ pub fn checked_equal_compressed_key(
     use crate::proofs::witness::field;
 
     let x_eq = field::equal(a.x, b.x, w);
-    let odd_eq = Boolean::equal(
-        &Boolean::from_bool(a.is_odd),
-        &Boolean::from_bool(b.is_odd),
-        w,
-    );
+    let odd_eq = Boolean::equal(&a.is_odd.to_boolean(), &b.is_odd.to_boolean(), w);
     x_eq.and(&odd_eq, w)
+}
+
+// TODO: Dedup with above
+pub fn checked_equal_compressed_key_const_and(
+    a: &CompressedPubKey,
+    b: &CompressedPubKey,
+    w: &mut Witness<Fp>,
+) -> Boolean {
+    use crate::proofs::witness::field;
+
+    if b == &CompressedPubKey::empty() {
+        let x_eq = field::equal(a.x, b.x, w);
+        let odd_eq = Boolean::const_equal(&a.is_odd.to_boolean(), &b.is_odd.to_boolean());
+        x_eq.and(&odd_eq, w)
+    } else {
+        let x_eq = field::equal(a.x, b.x, w);
+        let odd_eq = Boolean::equal(&a.is_odd.to_boolean(), &b.is_odd.to_boolean(), w);
+        x_eq.const_and(&odd_eq)
+    }
 }
 
 impl std::fmt::Debug for AccountId {
@@ -748,6 +832,42 @@ pub fn check_permission(auth: AuthRequired, tag: ControlTag) -> bool {
         (Proof | Signature | Either, Tag::NoneGiven) => false,
         (Both, _) => unimplemented!("check_permission with `Both` Not implemented in OCaml"),
     }
+}
+
+pub fn eval_no_proof<F: FieldWitness>(
+    auth: AuthRequired,
+    signature_verifies: Boolean,
+    is_and_const: bool,
+    is_or_const: bool,
+    w: &mut Witness<F>,
+) -> Boolean {
+    // TODO: Remove this hack with `is_const`
+
+    let AuthRequiredEncoded {
+        constant,
+        signature_necessary: _,
+        signature_sufficient,
+    } = auth.encode();
+
+    let constant = constant.to_boolean();
+    let signature_sufficient = signature_sufficient.to_boolean();
+
+    let a = if is_and_const {
+        constant.neg().const_and(&signature_verifies)
+    } else {
+        constant.neg().and(&signature_verifies, w)
+    };
+    let b = if is_or_const {
+        constant.const_or(&a)
+    } else {
+        constant.or(&a, w)
+    };
+    signature_sufficient.and(&b, w)
+}
+
+pub struct PermsConst {
+    pub and_const: bool,
+    pub or_const: bool,
 }
 
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
@@ -891,6 +1011,43 @@ impl Account {
         }
     }
 
+    pub fn checked_has_permission_to<F: FieldWitness>(
+        &self,
+        consts: PermsConst,
+        signature_verifies: Option<Boolean>,
+        to: PermissionTo,
+        w: &mut Witness<F>,
+    ) -> Boolean {
+        let signature_verifies = match signature_verifies {
+            Some(signature_verifies) => signature_verifies,
+            None => match to {
+                PermissionTo::Send => Boolean::True,
+                PermissionTo::Receive => Boolean::False,
+                PermissionTo::SetDelegate => Boolean::True,
+                PermissionTo::IncrementNonce => Boolean::True,
+                PermissionTo::Access => {
+                    panic!("signature_verifies argument must be given for access permission")
+                }
+            },
+        };
+
+        let auth = match to {
+            PermissionTo::Send => self.permissions.send,
+            PermissionTo::Receive => self.permissions.receive,
+            PermissionTo::SetDelegate => self.permissions.set_delegate,
+            PermissionTo::IncrementNonce => self.permissions.increment_nonce,
+            PermissionTo::Access => self.permissions.access,
+        };
+
+        eval_no_proof(
+            auth,
+            signature_verifies,
+            consts.and_const,
+            consts.or_const,
+            w,
+        )
+    }
+
     /// [true] iff account has permissions set that enable them to transfer Mina (assuming the command is signed)
     pub fn has_permission_to_send(&self) -> bool {
         self.has_permission_to(ControlTag::Signature, PermissionTo::Access)
@@ -916,116 +1073,16 @@ impl Account {
     }
 
     pub fn hash(&self) -> Fp {
-        // elog!("account={:#?}", self);
-
-        let mut inputs = Inputs::new();
-
-        // Self::zkapp
-        let field_zkapp = {
-            let zkapp = match self.zkapp.as_ref() {
-                Some(zkapp) => Cow::Borrowed(zkapp),
-                None => Cow::Owned(ZkAppAccount::default()),
-            };
-            let zkapp = zkapp.as_ref();
-
-            let mut inputs = Inputs::new();
-
-            // Self::zkapp_uri
-            inputs.append(&Some(&zkapp.zkapp_uri));
-
-            inputs.append_bool(zkapp.proved_state);
-            inputs.append_u32(zkapp.last_action_slot.as_u32());
-            for fp in &zkapp.action_state {
-                inputs.append_field(*fp);
-            }
-            inputs.append_u32(zkapp.zkapp_version);
-            let vk_hash = match zkapp.verification_key.as_ref() {
-                Some(vk) => vk.hash(),
-                None => VerificationKey::dummy().hash(),
-            };
-            inputs.append_field(vk_hash);
-            for fp in &zkapp.app_state {
-                inputs.append_field(*fp);
-            }
-
-            hash_with_kimchi("MinaZkappAccount", &inputs.to_fields())
-        };
-
-        inputs.append_field(field_zkapp);
-
-        inputs.append(&self.permissions);
-
-        // Self::timing
-        match &self.timing {
-            Timing::Untimed => {
-                inputs.append_bool(false);
-                inputs.append_u64(0); // initial_minimum_balance
-                inputs.append_u32(0); // cliff_time
-                inputs.append_u64(0); // cliff_amount
-                inputs.append_u32(1); // vesting_period
-                inputs.append_u64(0); // vesting_increment
-            }
-            Timing::Timed {
-                initial_minimum_balance,
-                cliff_time,
-                cliff_amount,
-                vesting_period,
-                vesting_increment,
-            } => {
-                inputs.append_bool(true);
-                inputs.append_u64(initial_minimum_balance.as_u64());
-                inputs.append_u32(cliff_time.as_u32());
-                inputs.append_u64(cliff_amount.as_u64());
-                inputs.append_u32(vesting_period.as_u32());
-                inputs.append_u64(vesting_increment.as_u64());
-            }
-        }
-
-        // Self::voting_for
-        inputs.append_field(self.voting_for.0);
-
-        // Self::delegate
-        match self.delegate.as_ref() {
-            Some(delegate) => {
-                inputs.append_field(delegate.x);
-                inputs.append_bool(delegate.is_odd);
-            }
-            None => {
-                // Public_key.Compressed.empty
-                inputs.append_field(Fp::zero());
-                inputs.append_bool(false);
-            }
-        }
-
-        // Self::receipt_chain_hash
-        inputs.append_field(self.receipt_chain_hash.0);
-
-        // Self::nonce
-        inputs.append_u32(self.nonce.as_u32());
-
-        // Self::balance
-        inputs.append_u64(self.balance.as_u64());
-
-        // Self::token_symbol
-
-        // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
-        assert!(self.token_symbol.len() <= 6);
-
-        let mut s = <[u8; 6]>::default();
-        if !self.token_symbol.is_empty() {
-            let len = self.token_symbol.len();
-            s[..len].copy_from_slice(self.token_symbol.as_bytes());
-        }
-        inputs.append_u48(s);
-
-        // Self::token_id
-        inputs.append_field(self.token_id.0);
-
-        // Self::public_key
-        inputs.append_field(self.public_key.x);
-        inputs.append_bool(self.public_key.is_odd);
-
+        let inputs = self.to_inputs_owned();
         hash_with_kimchi("MinaAccount", &inputs.to_fields())
+    }
+
+    pub fn checked_hash(&self, w: &mut Witness<Fp>) -> Fp {
+        use crate::proofs::witness::transaction_snark::checked_hash;
+
+        let inputs = self.to_inputs_owned();
+
+        checked_hash("MinaAccount", &inputs.to_fields(), w)
     }
 
     pub fn rand() -> Self {
@@ -1130,6 +1187,68 @@ impl Account {
     }
 }
 
+impl ToInputs for Account {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let Self {
+            public_key,
+            token_id,
+            token_symbol,
+            balance,
+            nonce,
+            receipt_chain_hash,
+            delegate,
+            voting_for,
+            timing,
+            permissions,
+            zkapp,
+        } = self;
+
+        // Self::zkapp
+        let field_zkapp = {
+            let zkapp = MyCow::borrow_or_default(zkapp);
+            zkapp.hash()
+        };
+        inputs.append_field(field_zkapp);
+        inputs.append(permissions);
+
+        // Self::timing
+        let TimingAsRecord {
+            is_timed,
+            initial_minimum_balance,
+            cliff_time,
+            cliff_amount,
+            vesting_period,
+            vesting_increment,
+        } = timing.to_record();
+        inputs.append_bool(is_timed);
+        inputs.append_u64(initial_minimum_balance.as_u64());
+        inputs.append_u32(cliff_time.as_u32());
+        inputs.append_u64(cliff_amount.as_u64());
+        inputs.append_u32(vesting_period.as_u32());
+        inputs.append_u64(vesting_increment.as_u64());
+
+        // Self::voting_for
+        inputs.append_field(voting_for.0);
+        // Self::delegate
+        let delegate = MyCow::borrow_or_else(delegate, CompressedPubKey::empty);
+        inputs.append(delegate.as_ref());
+        // Self::receipt_chain_hash
+        inputs.append_field(receipt_chain_hash.0);
+        // Self::nonce
+        inputs.append_u32(nonce.as_u32());
+        // Self::balance
+        inputs.append_u64(balance.as_u64());
+        // Self::token_symbol
+        // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
+        assert!(token_symbol.len() <= 6);
+        inputs.append(token_symbol);
+        // Self::token_id
+        inputs.append_field(token_id.0);
+        // Self::public_key
+        inputs.append(public_key);
+    }
+}
+
 fn verify_merkle_path(account: &Account, merkle_path: &[MerklePath]) -> Fp {
     let account_hash = account.hash();
     let mut param = String::with_capacity(16);
@@ -1147,6 +1266,34 @@ fn verify_merkle_path(account: &Account, merkle_path: &[MerklePath]) -> Fp {
             write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
 
             crate::hash::hash_with_kimchi(param.as_str(), &hashes)
+        })
+}
+
+/// `implied_root` in OCaml
+pub fn checked_verify_merkle_path(
+    account: &Account,
+    merkle_path: &[MerklePath],
+    w: &mut Witness<Fp>,
+) -> Fp {
+    use crate::proofs::witness::transaction_snark::checked_hash;
+
+    let account_hash = account.checked_hash(w);
+    let mut param = String::with_capacity(16);
+
+    merkle_path
+        .iter()
+        .enumerate()
+        .fold(account_hash, |accum, (depth, path)| {
+            let hashes = match path {
+                MerklePath::Left(right) => [accum, *right],
+                MerklePath::Right(left) => [*left, accum],
+            };
+
+            param.clear();
+            write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
+
+            w.exists(hashes);
+            checked_hash(param.as_str(), &hashes, w)
         })
 }
 

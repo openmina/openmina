@@ -3,7 +3,8 @@ use std::cmp::Ordering::{Equal, Greater, Less};
 use ark_ff::{BigInteger256, Field};
 use rand::Rng;
 
-use crate::proofs::witness::{Boolean, Check, FieldWitness, Witness};
+use crate::proofs::to_field_elements::ToFieldElements;
+use crate::proofs::witness::{Check, FieldWitness, Witness};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Sgn {
@@ -12,10 +13,17 @@ pub enum Sgn {
 }
 
 impl Sgn {
-    fn negate(&self) -> Self {
+    pub fn negate(&self) -> Self {
         match self {
             Sgn::Pos => Sgn::Neg,
             Sgn::Neg => Sgn::Pos,
+        }
+    }
+
+    pub fn to_field<F: FieldWitness>(&self) -> F {
+        match self {
+            Sgn::Pos => F::one(),
+            Sgn::Neg => F::one().neg(),
         }
     }
 }
@@ -24,6 +32,8 @@ pub trait Magnitude
 where
     Self: Sized + PartialOrd + Copy,
 {
+    const NBITS: usize;
+
     fn abs_diff(&self, rhs: &Self) -> Self;
     fn wrapping_add(&self, rhs: &Self) -> Self;
     fn wrapping_mul(&self, rhs: &Self) -> Self;
@@ -31,6 +41,8 @@ where
     fn checked_add(&self, rhs: &Self) -> Option<Self>;
     fn checked_mul(&self, rhs: &Self) -> Option<Self>;
     fn checked_sub(&self, rhs: &Self) -> Option<Self>;
+    fn checked_div(&self, rhs: &Self) -> Option<Self>;
+    fn checked_rem(&self, rhs: &Self) -> Option<Self>;
 
     fn is_zero(&self) -> bool;
     fn zero() -> Self;
@@ -43,6 +55,9 @@ where
     fn sub_flagged(&self, rhs: &Self) -> (Self, bool) {
         (self.wrapping_sub(rhs), self < rhs)
     }
+
+    fn to_field<F: FieldWitness>(&self) -> F;
+    fn of_field<F: FieldWitness>(field: F) -> Self;
 }
 
 /// Trait used for default values with `ClosedInterval`
@@ -61,6 +76,8 @@ impl<T> Signed<T>
 where
     T: Magnitude + PartialOrd + Ord + Clone,
 {
+    const NBITS: usize = T::NBITS;
+
     pub fn create(magnitude: T, sgn: Sgn) -> Self {
         Self {
             magnitude,
@@ -126,7 +143,7 @@ where
             (magnitude, sgn)
         };
 
-        Some(Self { magnitude, sgn })
+        Some(Self::create(magnitude, sgn))
     }
 
     pub fn add_flagged(&self, rhs: Self) -> (Self, bool) {
@@ -297,20 +314,6 @@ impl Slot {
     }
 }
 
-fn range_check_impl<F: FieldWitness, const NBITS: usize>(number: F, w: &mut Witness<F>) -> F {
-    use crate::proofs::witness::scalar_challenge::to_field_checked_prime;
-
-    let (_, _, actual_packed) = to_field_checked_prime::<F, NBITS>(number, w);
-    actual_packed
-}
-
-fn range_check_flag<F: FieldWitness, const NBITS: usize>(number: F, w: &mut Witness<F>) -> Boolean {
-    use crate::proofs::witness::field;
-
-    let actual = range_check_impl::<F, NBITS>(number, w);
-    field::equal(actual, number, w)
-}
-
 macro_rules! impl_number {
     (32: { $($name32:ident,)* }, 64: { $($name64:ident,)* },) => {
         $(impl_number!({$name32, u32, as_u32, from_u32, next_u32, append_u32},);)+
@@ -327,6 +330,8 @@ macro_rules! impl_number {
         }
 
         impl Magnitude for $name {
+            const NBITS: usize = Self::NBITS;
+
             fn zero() -> Self {
                 Self(0)
             }
@@ -359,8 +364,27 @@ macro_rules! impl_number {
                 self.0.checked_sub(rhs.0).map(Self)
             }
 
+            fn checked_div(&self, rhs: &Self) -> Option<Self> {
+                self.0.checked_div(rhs.0).map(Self)
+            }
+
+            fn checked_rem(&self, rhs: &Self) -> Option<Self> {
+                self.0.checked_rem(rhs.0).map(Self)
+            }
+
             fn abs_diff(&self, rhs: &Self) -> Self {
                 Self(self.0.abs_diff(rhs.0))
+            }
+
+            fn to_field<F: FieldWitness>(&self) -> F {
+                self.to_field()
+            }
+
+            fn of_field<F: FieldWitness>(field: F) -> Self {
+                let amount: BigInteger256 = field.into();
+                let amount: $inner = amount.0[0].try_into().unwrap();
+
+                Self::$from_name(amount)
             }
         }
 
@@ -370,6 +394,8 @@ macro_rules! impl_number {
         }
 
         impl $name {
+            pub const NBITS: usize = <$inner>::BITS as usize;
+
             pub fn $as_name(&self) -> $inner {
                 self.0
             }
@@ -448,27 +474,6 @@ macro_rules! impl_number {
                 let bigint = ark_ff::BigInteger256(bigint);
                 F::from(bigint)
             }
-
-            /// >=
-            /// greater than or equal
-            pub fn checked_gte<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
-                let (x, y) = (self.to_field::<F>(), other.to_field::<F>());
-
-                let xy = w.exists(x - y);
-                let yx = w.exists(xy.neg());
-
-                let x_gte_y = range_check_flag::<F, { <$inner>::BITS as usize }>(xy, w);
-                let y_gte_x = range_check_flag::<F, { <$inner>::BITS as usize }>(yx, w);
-
-                Boolean::assert_any(&[x_gte_y, y_gte_x], w);
-                x_gte_y
-            }
-
-            /// <=
-            /// less than or equal
-            pub fn checked_lte<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
-                other.checked_gte(self, w)
-            }
         }
 
         impl rand::distributions::Distribution<$name> for rand::distributions::Standard {
@@ -480,6 +485,12 @@ macro_rules! impl_number {
         impl crate::ToInputs for $name {
             fn to_inputs(&self, inputs: &mut crate::Inputs) {
                 inputs.$append_name(self.0);
+            }
+        }
+
+        impl<F: FieldWitness> ToFieldElements<F> for $name {
+            fn to_field_elements(&self, fields: &mut Vec<F>) {
+                fields.push(self.to_field());
             }
         }
 

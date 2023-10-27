@@ -1,15 +1,20 @@
 use std::array;
 
 use ark_ff::{BigInteger256, Field, One};
+use kimchi::proof::ProofEvaluations;
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     bigint::BigInt, pseq::PaddedSeq,
     v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
 };
 
-use crate::CurveAffine;
+use crate::{proofs::witness::field, CurveAffine};
 
-use super::public_input::scalar_challenge::ScalarChallenge;
+use super::{
+    public_input::scalar_challenge::ScalarChallenge,
+    witness::{FieldWitness, Witness},
+};
 
 pub fn extract_polynomial_commitment<F: Field>(curves: &[(BigInt, BigInt)]) -> Vec<CurveAffine<F>> {
     curves
@@ -71,77 +76,257 @@ pub fn challenge_polynomial(chals: &[Fp]) -> Box<dyn Fn(Fp) -> Fp> {
     })
 }
 
-// /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles_types/plonk_types.ml#L588
-// pub fn proof_evaluation_to_list(e: &ProofEvaluations<[Fp; 2]>) -> Vec<[Fp; 2]> {
-//     let ProofEvaluations::<[Fp; 2]> {
-//         w,
-//         z,
-//         s,
-//         coefficients,
-//         // lookup,
-//         generic_selector,
-//         poseidon_selector,
-//     } = e;
+/// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
+pub fn challenge_polynomial_checked(chals: &[Fq]) -> Box<dyn Fn(Fq, &mut Witness<Fq>) -> Fq> {
+    let chals = chals.to_vec();
+    Box::new(move |pt: Fq, w: &mut Witness<Fq>| {
+        let k = chals.len();
+        let pow_two_pows = {
+            let mut res = vec![pt; k];
+            for i in 1..k {
+                let y = res[i - 1];
+                res[i] = field::mul(y, y, w);
+            }
+            res
+        };
+        fn prod(k: usize, fun: impl Fn(usize, &mut Witness<Fq>) -> Fq, w: &mut Witness<Fq>) -> Fq {
+            let mut r = fun(0, w);
+            for i in 1..k {
+                r = field::mul(fun(i, w), r, w);
+            }
+            r
+        }
+        prod(
+            k,
+            |i, w| Fq::one() + field::mul(chals[i], pow_two_pows[k - 1 - i], w),
+            w,
+        )
+    })
+}
 
-//     let mut list = vec![*z, *generic_selector, *poseidon_selector];
+/// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L611
+pub fn proof_evaluation_to_list<F: FieldWitness>(e: &ProofEvaluations<[F; 2]>) -> Vec<[F; 2]> {
+    let ProofEvaluations::<[F; 2]> {
+        w,
+        z,
+        s,
+        coefficients,
+        generic_selector,
+        poseidon_selector,
+        complete_add_selector,
+        mul_selector,
+        emul_selector,
+        endomul_scalar_selector,
+        range_check0_selector,
+        range_check1_selector,
+        foreign_field_add_selector,
+        foreign_field_mul_selector,
+        xor_selector,
+        rot_selector,
+        lookup_aggregation,
+        lookup_table,
+        lookup_sorted,
+        runtime_lookup_table,
+        runtime_lookup_table_selector,
+        xor_lookup_selector,
+        lookup_gate_lookup_selector,
+        range_check_lookup_selector,
+        foreign_field_mul_lookup_selector,
+    } = e;
 
-//     list.extend(w);
-//     list.extend(coefficients);
-//     list.extend(s);
+    let mut list = vec![
+        *z,
+        *generic_selector,
+        *poseidon_selector,
+        *complete_add_selector,
+        *mul_selector,
+        *emul_selector,
+        *endomul_scalar_selector,
+    ];
 
-//     if let Some(lookup) = lookup {
-//         list.extend(lookup.sorted.clone());
-//         list.push(lookup.aggreg);
-//         list.push(lookup.table);
-//         list.extend(lookup.runtime);
-//     }
+    list.extend(w);
+    list.extend(coefficients);
+    list.extend(s);
 
-//     list
-// }
+    let optional_gates = [
+        range_check0_selector,
+        range_check1_selector,
+        foreign_field_add_selector,
+        foreign_field_mul_selector,
+        xor_selector,
+        rot_selector,
+    ];
 
-// /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles_types/plonk_types.ml#L437
-// pub fn to_absorption_sequence(
-//     evals: &mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
-// ) -> Vec<(Vec<Fp>, Vec<Fp>)> {
-//     let mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
-//         w,
-//         coefficients,
-//         z,
-//         s,
-//         generic_selector,
-//         poseidon_selector,
-//         lookup,
-//     } = evals;
+    list.extend(optional_gates.iter().filter_map(|v| **v));
+    list.extend(lookup_sorted.iter().filter_map(|v| *v));
+    list.extend(
+        [
+            lookup_aggregation,
+            lookup_table,
+            runtime_lookup_table,
+            runtime_lookup_table_selector,
+            xor_lookup_selector,
+            lookup_gate_lookup_selector,
+            range_check_lookup_selector,
+            foreign_field_mul_lookup_selector,
+        ]
+        .iter()
+        .filter_map(|v| **v),
+    );
 
-//     let mut list = vec![
-//         z.clone(),
-//         generic_selector.clone(),
-//         poseidon_selector.clone(),
-//     ];
+    list
+}
 
-//     list.extend(w.to_vec());
-//     list.extend(coefficients.to_vec());
-//     list.extend(s.to_vec());
+/// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L459
+pub fn to_absorption_sequence(
+    evals: &mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
+) -> Vec<(Vec<Fp>, Vec<Fp>)> {
+    let mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
+        w,
+        coefficients,
+        z,
+        s,
+        generic_selector,
+        poseidon_selector,
+        complete_add_selector,
+        mul_selector,
+        emul_selector,
+        endomul_scalar_selector,
+        range_check0_selector,
+        range_check1_selector,
+        foreign_field_add_selector,
+        foreign_field_mul_selector,
+        xor_selector,
+        rot_selector,
+        lookup_aggregation,
+        lookup_table,
+        lookup_sorted,
+        runtime_lookup_table,
+        runtime_lookup_table_selector,
+        xor_lookup_selector,
+        lookup_gate_lookup_selector,
+        range_check_lookup_selector,
+        foreign_field_mul_lookup_selector,
+    } = evals;
 
-//     if let Some(lookup) = lookup {
-//         let PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvalsLookupA {
-//             sorted,
-//             aggreg,
-//             table,
-//             runtime,
-//         } = lookup;
+    let mut list = vec![
+        z,
+        generic_selector,
+        poseidon_selector,
+        complete_add_selector,
+        mul_selector,
+        emul_selector,
+        endomul_scalar_selector,
+    ];
 
-//         list.push(aggreg.clone());
-//         list.push(table.clone());
-//         list.extend(sorted.clone());
-//         list.extend(runtime.clone());
-//     };
+    list.extend(w.iter());
+    list.extend(coefficients.iter());
+    list.extend(s.iter());
 
-//     list.iter()
-//         .map(|(a, b)| {
-//             let a: Vec<_> = a.iter().map(Fp::from).collect();
-//             let b: Vec<_> = b.iter().map(Fp::from).collect();
-//             (a, b)
-//         })
-//         .collect()
-// }
+    list.extend(
+        [
+            range_check0_selector,
+            range_check1_selector,
+            foreign_field_add_selector,
+            foreign_field_mul_selector,
+            xor_selector,
+            rot_selector,
+            lookup_aggregation,
+            lookup_table,
+        ]
+        .iter()
+        .filter_map(|v| v.as_ref()),
+    );
+
+    list.extend(lookup_sorted.iter().filter_map(|v| v.as_ref()));
+
+    list.extend(
+        [
+            runtime_lookup_table,
+            runtime_lookup_table_selector,
+            xor_lookup_selector,
+            lookup_gate_lookup_selector,
+            range_check_lookup_selector,
+            foreign_field_mul_lookup_selector,
+        ]
+        .iter()
+        .filter_map(|v| v.as_ref()),
+    );
+
+    list.iter()
+        .map(|(a, b)| {
+            let a: Vec<_> = a.iter().map(Fp::from).collect();
+            let b: Vec<_> = b.iter().map(Fp::from).collect();
+            (a, b)
+        })
+        .collect()
+}
+
+/// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L674
+pub fn to_absorption_sequence_opt(evals: &ProofEvaluations<[Fq; 2]>) -> Vec<Option<[Fq; 2]>> {
+    let ProofEvaluations {
+        w,
+        coefficients,
+        z,
+        s,
+        generic_selector,
+        poseidon_selector,
+        complete_add_selector,
+        mul_selector,
+        emul_selector,
+        endomul_scalar_selector,
+        range_check0_selector,
+        range_check1_selector,
+        foreign_field_add_selector,
+        foreign_field_mul_selector,
+        xor_selector,
+        rot_selector,
+        lookup_aggregation,
+        lookup_table,
+        lookup_sorted,
+        runtime_lookup_table,
+        runtime_lookup_table_selector,
+        xor_lookup_selector,
+        lookup_gate_lookup_selector,
+        range_check_lookup_selector,
+        foreign_field_mul_lookup_selector,
+    } = evals;
+
+    let mut list = vec![
+        Some(z.clone()),
+        Some(generic_selector.clone()),
+        Some(poseidon_selector.clone()),
+        Some(complete_add_selector.clone()),
+        Some(mul_selector.clone()),
+        Some(emul_selector.clone()),
+        Some(endomul_scalar_selector.clone()),
+    ];
+
+    list.extend(w.iter().copied().map(Some));
+    list.extend(coefficients.iter().copied().map(Some));
+    list.extend(s.iter().copied().map(Some));
+
+    list.extend([
+        range_check0_selector.clone(),
+        range_check1_selector.clone(),
+        foreign_field_add_selector.clone(),
+        foreign_field_mul_selector.clone(),
+        xor_selector.clone(),
+        rot_selector.clone(),
+        lookup_aggregation.clone(),
+        lookup_table.clone(),
+    ]);
+
+    list.extend(lookup_sorted.iter().cloned());
+
+    list.extend([
+        runtime_lookup_table,
+        runtime_lookup_table_selector,
+        xor_lookup_selector,
+        lookup_gate_lookup_selector,
+        range_check_lookup_selector,
+        foreign_field_mul_lookup_selector,
+    ]);
+
+    list
+}

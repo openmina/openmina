@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::{
     proofs::{verification, verifier_index::get_verifier_index, VerifierIndex, VerifierSRS},
@@ -24,23 +24,31 @@ use mina_signer::CompressedPubKey;
 use once_cell::sync::Lazy;
 
 // TODO: Move this into `Verifier` struct above
-static VERIFIER_INDEX: Lazy<Arc<VerifierIndex>> = Lazy::new(|| {
+pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex>> = Lazy::new(|| {
     use crate::proofs::verifier_index::VerifierKind;
     Arc::new(get_verifier_index(VerifierKind::Transaction))
 });
 
 // TODO: Move this into `Verifier` struct above
-pub static SRS: Lazy<Arc<VerifierSRS>> =
-    Lazy::new(|| std::sync::Arc::new(crate::proofs::accumulator_check::get_srs()));
+use mina_curves::pasta::Pallas;
+pub static SRS_PALLAS: Lazy<Arc<Mutex<poly_commitment::srs::SRS<Pallas>>>> = Lazy::new(|| {
+    let srs = poly_commitment::srs::SRS::<Pallas>::create(32768);
+    std::sync::Arc::new(Mutex::new(srs))
+});
+
+// TODO: Move this into `Verifier` struct above
+pub static SRS: Lazy<Arc<Mutex<VerifierSRS>>> =
+    Lazy::new(|| std::sync::Arc::new(Mutex::new(crate::proofs::accumulator_check::get_srs())));
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/transaction_snark/transaction_snark.ml#L3492
 fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
+    let srs = SRS.lock().unwrap();
+
     if ts.iter().all(|(proof, msg)| {
         let LedgerProof(TransactionSnark { statement, .. }) = proof;
         statement.sok_digest == msg.digest()
     }) {
         let verifier_index = VERIFIER_INDEX.as_ref();
-        let srs = SRS.as_ref();
 
         // for (proof, msg) in ts {
         //     let LedgerProof(TransactionSnark {
@@ -66,7 +74,7 @@ fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
             (statement, &**proof)
         });
 
-        if !crate::proofs::verification::verify_transaction(proofs, verifier_index, srs) {
+        if !crate::proofs::verification::verify_transaction(proofs, verifier_index, &srs) {
             return Err("Transaction_snark.verify: verification failed".into());
         }
         Ok(())
@@ -152,11 +160,11 @@ impl Verifier {
         let all_verified = if skip_verification.is_some() {
             true
         } else {
-            let srs = SRS.as_ref();
+            let srs = SRS.lock().unwrap();
 
             to_verify.all(|(vk, zkapp_statement, proof)| {
                 let proof: PicklesProofProofsVerified2ReprStableV2 = (&**proof).into();
-                verification::verify_zkapp(vk, zkapp_statement.clone(), &proof, srs)
+                verification::verify_zkapp(vk, zkapp_statement.clone(), &proof, &srs)
             })
         };
 

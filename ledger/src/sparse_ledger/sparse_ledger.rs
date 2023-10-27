@@ -84,8 +84,9 @@ impl SparseLedger {
         self.with(|this| this.add_path(merkle_path, account_id, account))
     }
 
-    pub fn get_exn(&self, addr: &Address) -> Account {
-        self.with(|this| this.get_exn(addr).clone())
+    #[inline(never)]
+    pub fn get_exn(&self, addr: &Address) -> Box<Account> {
+        self.with(|this| Box::new(this.get_exn(addr).clone()))
     }
 
     pub fn set_exn(&mut self, addr: Address, value: Box<Account>) {
@@ -105,11 +106,11 @@ impl SparseLedger {
     }
 
     pub fn get_account(&self, key: &AccountId) -> Box<Account> {
-        // TODO: Return empty account when not found
-        self.with(|this| {
-            let addr = this.find_index_exn(key.clone());
-            this.get(&addr).unwrap()
-        })
+        let account = self.with(|this| {
+            let addr = this.get_index(key)?;
+            this.get(addr)
+        });
+        account.unwrap_or_else(|| Box::new(Account::empty()))
     }
 }
 

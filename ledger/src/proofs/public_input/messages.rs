@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use crate::proofs::to_field_elements::ToFieldElements;
+use crate::proofs::witness::{checked_hash2, Witness};
 use crate::proofs::VerifierIndex;
 use crate::{CurveAffine, PlonkVerificationKeyEvals};
 use ark_ff::{BigInteger256, PrimeField};
@@ -30,6 +31,21 @@ impl<'a> From<&'a VerifierIndex> for PlonkVerificationKeyEvals {
     }
 }
 
+/// Value of `Dummy.Ipa.Step.sg`
+/// TODO: Compute it instead of hardcoded values
+pub fn dummy_ipa_step_sg() -> (Fq, Fq) {
+    let fst = Fq::from_str(
+        "7157847628472818669877981787153253278122158060570991904823379281596325861730",
+    )
+    .unwrap();
+    let snd = Fq::from_str(
+        "9959746677904483136261451107528553963316638248277760417056251351537540061100",
+    )
+    .unwrap();
+
+    (fst, snd)
+}
+
 #[derive(Clone, Debug)]
 pub struct MessagesForNextWrapProof {
     pub challenge_polynomial_commitment: CurveAffine<Fq>,
@@ -47,6 +63,23 @@ impl MessagesForNextWrapProof {
         bigint.0
     }
 
+    pub fn hash_checked(&self, w: &mut Witness<Fq>) -> [u64; 4] {
+        let fields: Vec<Fq> = self.to_fields();
+        let field: Fq = checked_hash2(&fields, w);
+
+        let bigint: BigInteger256 = field.into_repr();
+        bigint.0
+    }
+
+    // TODO: De-duplicate with above
+    pub fn hash_checked3(&self, w: &mut Witness<Fq>) -> [u64; 4] {
+        let fields: Vec<Fq> = self.to_fields();
+        let field: Fq = crate::proofs::witness::checked_hash3(&fields, w);
+
+        let bigint: BigInteger256 = field.into_repr();
+        bigint.0
+    }
+
     /// Implementation of `to_field_elements`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/composition_types/composition_types.ml#L356
     fn to_fields(&self) -> Vec<Fq> {
@@ -58,7 +91,6 @@ impl MessagesForNextWrapProof {
             .checked_sub(self.old_bulletproof_challenges.len())
             .expect("old_bulletproof_challenges must be of length <= 2");
 
-        // TODO: Currently `Self::old_bulletproof_challenges` is always of length 2
         for _ in 0..padding {
             fields.extend_from_slice(&Self::dummy_padding());
         }
@@ -80,7 +112,7 @@ impl MessagesForNextWrapProof {
     ///
     /// Those are constants but they are computed once at runtime in Mina.
     /// TODO: Compute them instead of hardcoded values
-    fn dummy_padding() -> [Fq; 15] {
+    pub fn dummy_padding() -> [Fq; 15] {
         let f = |s| Fq::from_str(s).unwrap();
 
         [

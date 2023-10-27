@@ -27,7 +27,10 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     hash_noinputs, hash_with_kimchi,
-    proofs::witness::{Boolean, Witness},
+    proofs::{
+        numbers::nat::{CheckedNat, CheckedSlot},
+        witness::{Boolean, Witness},
+    },
     staged_ledger::hash::PendingCoinbaseAux,
     Address, Inputs, MerklePath, ToInputs,
 };
@@ -145,14 +148,14 @@ impl CoinbaseStack {
     }
 
     pub fn checked_push(&self, cb: Coinbase, w: &mut Witness<Fp>) -> Self {
-        use crate::proofs::witness::transaction_snark::hash;
+        use crate::proofs::witness::transaction_snark::checked_hash;
 
         let mut inputs = Inputs::new();
 
         inputs.append(&CoinbaseData::of_coinbase(cb));
         inputs.append_field(self.0);
 
-        let hash = hash("CoinbaseStack", inputs, w);
+        let hash = checked_hash("CoinbaseStack", &inputs.to_fields(), w);
         Self(hash)
     }
 
@@ -214,8 +217,13 @@ impl StateStack {
         }
     }
 
-    fn checked_push(&self, state_body_hash: Fp, global_slot: Slot, w: &mut Witness<Fp>) -> Self {
-        use crate::proofs::witness::transaction_snark::hash;
+    fn checked_push(
+        &self,
+        state_body_hash: Fp,
+        global_slot: CheckedSlot<Fp>,
+        w: &mut Witness<Fp>,
+    ) -> Self {
+        use crate::proofs::witness::transaction_snark::checked_hash;
 
         let mut inputs = Inputs::new();
 
@@ -223,7 +231,7 @@ impl StateStack {
         inputs.append_field(state_body_hash);
         inputs.append_field(global_slot.to_field());
 
-        let hash = hash("MinaProtoState", inputs, w);
+        let hash = checked_hash("MinaProtoState", &inputs.to_fields(), w);
 
         Self {
             init: self.init,
@@ -343,7 +351,7 @@ impl Stack {
     pub fn checked_push_state(
         &self,
         state_body_hash: Fp,
-        global_slot: Slot,
+        global_slot: CheckedSlot<Fp>,
         w: &mut Witness<Fp>,
     ) -> Self {
         Self {

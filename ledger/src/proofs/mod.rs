@@ -1,13 +1,15 @@
-#![allow(unused)]
-
 use kimchi::mina_curves::pasta::{Pallas, Vesta};
 
 pub mod accumulator_check;
 pub mod caching;
+pub mod group_map;
+pub mod numbers;
+pub mod opt_sponge;
 mod prover;
 pub mod public_input;
 pub mod to_field_elements;
 pub mod transition_chain;
+pub mod unfinalized;
 mod urs_utils;
 pub mod util;
 pub mod verification;

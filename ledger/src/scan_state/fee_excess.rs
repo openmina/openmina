@@ -31,7 +31,13 @@
 //! Port of the implementation from:
 //! https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_excess.ml#L1
 
-use crate::{ToInputs, TokenId};
+use crate::{
+    proofs::{
+        numbers::currency::{CheckedFee, CheckedSigned},
+        witness::FieldWitness,
+    },
+    ToInputs, TokenId,
+};
 
 use super::{
     currency::{Fee, Magnitude, Signed},
@@ -44,6 +50,14 @@ pub struct FeeExcess {
     pub fee_excess_l: Signed<Fee>,
     pub fee_token_r: TokenId,
     pub fee_excess_r: Signed<Fee>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CheckedFeeExcess<F: FieldWitness> {
+    pub fee_token_l: TokenId,
+    pub fee_excess_l: CheckedSigned<F, CheckedFee<F>>,
+    pub fee_token_r: TokenId,
+    pub fee_excess_r: CheckedSigned<F, CheckedFee<F>>,
 }
 
 impl ToInputs for FeeExcess {

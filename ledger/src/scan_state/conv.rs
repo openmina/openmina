@@ -1934,7 +1934,7 @@ impl From<&TransactionSnarkStableV2> for TransactionSnark<SokDigest> {
     fn from(value: &TransactionSnarkStableV2) -> Self {
         Self {
             statement: (&value.statement).into(),
-            proof: value.proof.clone().into(),
+            proof: Arc::new(value.proof.clone()),
         }
     }
 }

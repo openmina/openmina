@@ -5,7 +5,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     check_permission, hash_with_kimchi,
     scan_state::{
-        currency::{Amount, Balance, Index, Magnitude, Sgn, Signed, Slot},
+        currency::{Amount, Index, Magnitude, Sgn, Signed, Slot},
         scan_state::ConstraintConstants,
         transaction_logic::{
             account_check_timing, cons_zkapp_command_commitment, get_account, is_timed,
@@ -75,42 +75,6 @@ pub fn full_commitment(
         "MinaAcctUpdateCons",
         &[memo_hash, fee_payer_hash, commitment.0],
     ))
-}
-
-pub struct TimingAsRecord {
-    is_timed: bool,
-    initial_minimum_balance: Balance,
-    cliff_time: Slot,
-    cliff_amount: Amount,
-    vesting_period: SlotSpan,
-    vesting_increment: Amount,
-}
-
-pub fn to_record(t: Timing) -> TimingAsRecord {
-    match t {
-        Timing::Untimed => TimingAsRecord {
-            is_timed: false,
-            initial_minimum_balance: Balance::zero(),
-            cliff_time: Slot::zero(),
-            cliff_amount: Amount::zero(),
-            vesting_period: SlotSpan::from_u32(1),
-            vesting_increment: Amount::zero(),
-        },
-        Timing::Timed {
-            initial_minimum_balance,
-            cliff_time,
-            cliff_amount,
-            vesting_period,
-            vesting_increment,
-        } => TimingAsRecord {
-            is_timed: true,
-            initial_minimum_balance,
-            cliff_time,
-            cliff_amount,
-            vesting_period,
-            vesting_increment,
-        },
-    }
 }
 
 pub fn controller_check(
@@ -594,7 +558,7 @@ where
     // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/transaction_logic/mina_transaction_logic.ml#L1197
     let vesting_period = match &timing {
         Some(timing) => timing.vesting_period,
-        None => to_record(Timing::Untimed).vesting_period,
+        None => Timing::Untimed.to_record().vesting_period,
     };
 
     __assert!(vesting_period > SlotSpan::zero())?;
