@@ -1,12 +1,21 @@
 use std::{array::IntoIter, str::FromStr};
 
-use ark_ff::Field;
+use ark_ff::{BigInteger256, Field};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
+
+use crate::proofs::witness::FieldWitness;
 
 #[derive(Clone, Debug)]
 pub struct ScalarChallenge {
     pub inner: [u64; 2],
+}
+
+impl<F: FieldWitness> From<F> for ScalarChallenge {
+    fn from(value: F) -> Self {
+        let bigint: BigInteger256 = value.into();
+        Self::new(bigint.0[0], bigint.0[1])
+    }
 }
 
 impl From<[u64; 2]> for ScalarChallenge {
@@ -35,6 +44,7 @@ impl Iterator for ScalarChallengeBitsIterator {
     }
 }
 
+// TODO: Use `witness::endos`
 pub fn endo_fp() -> Fp {
     // That's a constant but it seems to be computed somewhere.
     // TODO: Find where it's computed
@@ -43,6 +53,7 @@ pub fn endo_fp() -> Fp {
         .unwrap()
 }
 
+// TODO: Use `witness::endos`
 pub fn endo_fq() -> Fq {
     // That's a constant but it seems to be computed somewhere.
     // TODO: Find where it's computed
@@ -54,6 +65,10 @@ pub fn endo_fq() -> Fq {
 impl ScalarChallenge {
     pub fn new(a: u64, b: u64) -> Self {
         Self { inner: [a, b] }
+    }
+
+    pub fn dummy() -> Self {
+        Self::new(1, 1)
     }
 
     fn iter_bits(&self) -> ScalarChallengeBitsIterator {

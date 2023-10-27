@@ -114,7 +114,7 @@ fn blocks_of_data(
             let mut block = Vec::with_capacity(size);
             block.extend((num_links as u16).to_le_bytes());
             for link in links.iter() {
-                let link: &[u8; LINK_SIZE] = &link;
+                let link: &[u8; LINK_SIZE] = link;
                 block.extend(link);
             }
             block.extend(chunk);

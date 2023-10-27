@@ -1,50 +1,120 @@
 use ark_ff::{Field, One};
 use ark_poly::Radix2EvaluationDomain;
 use kimchi::{curve::KimchiCurve, proof::ProofEvaluations};
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
-use o1_utils::FieldHelpers;
 
-use super::scalars::{complete_add, endo_mul, endo_mul_scalar, var_base_mul};
-use crate::{proofs::public_input::scalar_challenge::endo_fp, util::FpExt};
+use crate::proofs::{
+    public_input::plonk_checks::scalars::MinimalForScalar,
+    witness::{field, Boolean, FieldWitness, Witness},
+    wrap::wrap_verifier::PlonkWithField,
+};
 
-pub struct PlonkMinimal {
-    pub alpha: Fp,
-    pub beta: Fp,
-    pub gamma: Fp,
-    pub zeta: Fp,
-    pub joint_combiner: Option<Fp>,
-    pub alpha_bytes: [u64; 2],
-    pub beta_bytes: [u64; 2],
-    pub gamma_bytes: [u64; 2],
-    pub zeta_bytes: [u64; 2],
+#[derive(Clone, Debug)]
+pub struct PlonkMinimal<F: FieldWitness, const NLIMB: usize = 2> {
+    pub alpha: F,
+    pub beta: F,
+    pub gamma: F,
+    pub zeta: F,
+    pub joint_combiner: Option<F>,
+    pub alpha_bytes: [u64; NLIMB],
+    pub beta_bytes: [u64; NLIMB],
+    pub gamma_bytes: [u64; NLIMB],
+    pub zeta_bytes: [u64; NLIMB],
 }
 
 type TwoFields = [Fp; 2];
 
-pub struct ScalarsEnv {
-    pub zk_polynomial: Fp,
-    pub zeta_to_n_minus_1: Fp,
+pub struct ScalarsEnv<F: FieldWitness> {
+    pub zk_polynomial: F,
+    pub zeta_to_n_minus_1: F,
     pub srs_length_log2: u64,
-    pub domain: Radix2EvaluationDomain<Fp>,
-    pub omega_to_minus_3: Fp,
+    pub domain: Radix2EvaluationDomain<F>,
+    pub omega_to_minus_3: F,
 }
 
 // Result of `plonk_derive`
 #[derive(Debug)]
-pub struct InCircuit {
-    pub alpha: Fp,
-    pub beta: Fp,
-    pub gamma: Fp,
-    pub zeta: Fp,
-    pub zeta_to_domain_size: ShiftedValue<Fp>,
-    pub zeta_to_srs_length: ShiftedValue<Fp>,
-    pub vbmul: ShiftedValue<Fp>,
-    pub complete_add: ShiftedValue<Fp>,
-    pub endomul: ShiftedValue<Fp>,
-    pub endomul_scalar: ShiftedValue<Fp>,
-    pub perm: ShiftedValue<Fp>,
+pub struct InCircuit<F: FieldWitness> {
+    pub alpha: F,
+    pub beta: F,
+    pub gamma: F,
+    pub zeta: F,
+    pub zeta_to_domain_size: F::Shifting,
+    pub zeta_to_srs_length: F::Shifting,
+    // pub vbmul: F::Shifting,
+    // pub complete_add: F::Shifting,
+    // pub endomul: F::Shifting,
+    // pub endomul_scalar: F::Shifting,
+    pub perm: F::Shifting,
 }
 
+pub trait ShiftingValue<F: Field> {
+    type MyShift;
+    fn shift() -> Self::MyShift;
+    fn of_field(field: F) -> Self;
+    fn shifted_to_field(&self) -> F;
+}
+
+impl ShiftingValue<Fp> for ShiftedValue<Fp> {
+    type MyShift = Shift<Fp>;
+
+    fn shift() -> Self::MyShift {
+        type MyShift = Shift<Fp>;
+
+        cache_one! {MyShift, {
+            let c = (0..255).fold(Fp::one(), |accum, _| accum + accum) + Fp::one();
+
+            let scale: Fp = 2.into();
+            let scale = scale.inverse().unwrap();
+
+            Shift { c, scale }
+        }}
+    }
+
+    fn of_field(field: Fp) -> Self {
+        let shift = Self::shift();
+        Self {
+            shifted: (field - shift.c) * shift.scale,
+        }
+    }
+
+    fn shifted_to_field(&self) -> Fp {
+        let shift = Self::shift();
+        self.shifted + self.shifted + shift.c
+    }
+}
+
+impl ShiftingValue<Fq> for ShiftedValue<Fq> {
+    type MyShift = ShiftFq;
+
+    fn shift() -> Self::MyShift {
+        cache_one! {ShiftFq, {
+            ShiftFq {
+                shift: (0..255).fold(Fq::one(), |accum, _| accum + accum),
+            }
+        }}
+    }
+
+    fn of_field(field: Fq) -> Self {
+        let shift = Self::shift();
+        Self {
+            shifted: field - shift.shift,
+        }
+    }
+
+    fn shifted_to_field(&self) -> Fq {
+        let shift = Self::shift();
+        self.shifted + shift.shift
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ShiftFq {
+    shift: Fq,
+}
+
+#[derive(Clone, Debug)]
 pub struct Shift<F: Field> {
     c: F,
     scale: F,
@@ -65,21 +135,22 @@ where
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct ShiftedValue<F: Field> {
     pub shifted: F,
 }
 
-impl<F: Field + FpExt> std::fmt::Debug for ShiftedValue<F> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ShiftedValue")
-            .field("shifted", &{
-                let mut bytes = self.shifted.to_bytes();
-                bytes.reverse();
-                hex::encode(bytes)
-            })
-            .finish()
-    }
-}
+// impl<F: Field + FpExt> std::fmt::Debug for ShiftedValue<F> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         f.debug_struct("ShiftedValue")
+//             .field("shifted", &{
+//                 let mut bytes = self.shifted.to_bytes();
+//                 bytes.reverse();
+//                 hex::encode(bytes)
+//             })
+//             .finish()
+//     }
+// }
 
 impl<F> ShiftedValue<F>
 where
@@ -90,18 +161,18 @@ where
         Self { shifted: field }
     }
 
-    /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L127
-    pub fn of_field(field: F, shift: &Shift<F>) -> Self {
-        Self {
-            shifted: (field - shift.c) * shift.scale,
-        }
-    }
+    // /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L127
+    // pub fn of_field(field: F, shift: &Shift<F>) -> Self {
+    //     Self {
+    //         shifted: (field - shift.c) * shift.scale,
+    //     }
+    // }
 
-    /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L131
-    #[allow(unused)]
-    pub fn to_field(&self, shift: &Shift<F>) -> F {
-        self.shifted + self.shifted + shift.c
-    }
+    // /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L131
+    // #[allow(unused)]
+    // pub fn to_field(&self, shift: &Shift<F>) -> F {
+    //     self.shifted + self.shifted + shift.c
+    // }
 }
 
 /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L218
@@ -110,9 +181,9 @@ pub const PERM_ALPHA0: usize = 21;
 pub const NPOWERS_OF_ALPHA: usize = PERM_ALPHA0 + 3;
 
 /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L141
-pub fn powers_of_alpha(alpha: Fp) -> Box<[Fp; NPOWERS_OF_ALPHA]> {
+pub fn powers_of_alpha<F: FieldWitness>(alpha: F) -> Box<[F; NPOWERS_OF_ALPHA]> {
     // The OCaml code computes until alpha^71, but we don't need that much here
-    let mut alphas = Box::new([Fp::one(); NPOWERS_OF_ALPHA]);
+    let mut alphas = Box::new([F::one(); NPOWERS_OF_ALPHA]);
 
     alphas[1] = alpha;
     for i in 2..alphas.len() {
@@ -122,13 +193,11 @@ pub fn powers_of_alpha(alpha: Fp) -> Box<[Fp; NPOWERS_OF_ALPHA]> {
     alphas
 }
 
-pub fn derive_plonk(
-    env: &ScalarsEnv,
-    evals: &ProofEvaluations<TwoFields>,
-    minimal: &PlonkMinimal,
-) -> InCircuit {
-    let shift = Shift::<Fp>::create();
-
+pub fn derive_plonk<F: FieldWitness>(
+    env: &ScalarsEnv<F>,
+    evals: &ProofEvaluations<[F; 2]>,
+    minimal: &PlonkMinimal<F>,
+) -> InCircuit<F> {
     let zkp = env.zk_polynomial;
     let powers_of_alpha = powers_of_alpha(minimal.alpha);
     let alpha_pow = |i: usize| powers_of_alpha[i];
@@ -144,25 +213,17 @@ pub fn derive_plonk(
     );
     let perm = -perm;
 
-    // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L402
-    // let generic = {
-    //     let [l1, r1, o1, l2, r2, o2, ..] = w0;
-    //     let m1 = l1 * r1;
-    //     let m2 = l2 * r2;
-    //     [evals.generic_selector[0], l1, r1, o1, m1, l2, r2, o2, m2]
-    // };
-
-    let zeta_to_domain_size = env.zeta_to_n_minus_1 + Fp::one();
+    let zeta_to_domain_size = env.zeta_to_n_minus_1 + F::one();
     // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L46
     let zeta_to_srs_length = (0..env.srs_length_log2).fold(minimal.zeta, |accum, _| accum * accum);
 
-    let complete_add = complete_add(evals, &powers_of_alpha);
-    let vbmul = var_base_mul(evals, &powers_of_alpha);
-    let endomul = endo_mul(evals, &powers_of_alpha);
-    let endomul_scalar = endo_mul_scalar(evals, &powers_of_alpha);
+    // let complete_add = complete_add(evals, &powers_of_alpha);
+    // let vbmul = var_base_mul(evals, &powers_of_alpha);
+    // let endomul = endo_mul(evals, &powers_of_alpha);
+    // let endomul_scalar = endo_mul_scalar(evals, &powers_of_alpha);
 
     // Shift values
-    let shift = |f| ShiftedValue::of_field(f, &shift);
+    let shift = |f: F| F::Shifting::of_field(f);
 
     InCircuit {
         alpha: minimal.alpha,
@@ -171,77 +232,108 @@ pub fn derive_plonk(
         zeta: minimal.zeta,
         zeta_to_domain_size: shift(zeta_to_domain_size),
         zeta_to_srs_length: shift(zeta_to_srs_length),
-        vbmul: shift(vbmul),
-        complete_add: shift(complete_add),
-        endomul: shift(endomul),
-        endomul_scalar: shift(endomul_scalar),
+        // vbmul: shift(vbmul),
+        // complete_add: shift(complete_add),
+        // endomul: shift(endomul),
+        // endomul_scalar: shift(endomul_scalar),
         perm: shift(perm),
     }
 }
 
-pub fn make_shifts(
-    domain: &Radix2EvaluationDomain<Fp>,
-) -> kimchi::circuits::polynomials::permutation::Shifts<Fp> {
+// TODO: De-duplicate with `derive_plonk`
+pub fn derive_plonk_checked(
+    env: &ScalarsEnv<Fq>,
+    evals: &ProofEvaluations<[Fq; 2]>,
+    minimal: &PlonkWithField<Fq>,
+    w: &mut Witness<Fq>,
+) -> InCircuit<Fq> {
+    // use kimchi::circuits::gate::GateType;
+
+    let zkp = env.zk_polynomial;
+    let powers_of_alpha = powers_of_alpha(minimal.alpha);
+    let alpha_pow = |i: usize| powers_of_alpha[i];
+    let w0 = evals.w.map(|fields| fields[0]);
+
+    let beta = minimal.beta;
+    let gamma = minimal.gamma;
+
+    let perm = evals.s.iter().enumerate().fold(
+        field::muls(&[evals.z[1], beta, alpha_pow(PERM_ALPHA0), zkp], w),
+        |accum, (index, elem)| {
+            // We decompose this way because of OCaml evaluation order
+            let beta_elem = field::mul(beta, elem[0], w);
+            field::mul(accum, gamma + beta_elem + w0[index], w)
+        },
+    );
+    let perm = -perm;
+
+    let zeta_to_domain_size = env.zeta_to_n_minus_1 + Fq::one();
+    // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L46
+
+    // let minimal_for_scalar = MinimalForScalar {
+    //     alpha: minimal.alpha,
+    //     beta: minimal.beta,
+    //     gamma: minimal.gamma,
+    // };
+
+    // We decompose this way because of OCaml evaluation order
+    // use GateType::{CompleteAdd, EndoMul, EndoMulScalar, VarBaseMul};
+    // let endomul_scalar = scalars::compute(Some(EndoMulScalar), &minimal_for_scalar, evals, w);
+    // let endomul = scalars::compute(Some(EndoMul), &minimal_for_scalar, evals, w);
+    // let complete_add = scalars::compute(Some(CompleteAdd), &minimal_for_scalar, evals, w);
+    // let vbmul = scalars::compute(Some(VarBaseMul), &minimal_for_scalar, evals, w);
+
+    let zeta_to_srs_length =
+        (0..env.srs_length_log2).fold(minimal.zeta, |accum, _| field::mul(accum, accum, w));
+
+    // Shift values
+    let shift = |f: Fq| <Fq as FieldWitness>::Shifting::of_field(f);
+
+    InCircuit {
+        alpha: minimal.alpha,
+        beta: minimal.beta,
+        gamma: minimal.gamma,
+        zeta: minimal.zeta,
+        zeta_to_domain_size: shift(zeta_to_domain_size),
+        zeta_to_srs_length: shift(zeta_to_srs_length),
+        // vbmul: shift(vbmul),
+        // complete_add: shift(complete_add),
+        // endomul: shift(endomul),
+        // endomul_scalar: shift(endomul_scalar),
+        perm: shift(perm),
+    }
+}
+
+pub fn checked(
+    env: &ScalarsEnv<Fq>,
+    evals: &ProofEvaluations<[Fq; 2]>,
+    plonk: &PlonkWithField<Fq>,
+    w: &mut Witness<Fq>,
+) -> Boolean {
+    let actual = derive_plonk_checked(env, evals, plonk, w);
+
+    let list = [
+        // field::equal(plonk.vbmul.shifted, actual.vbmul.shifted, w),
+        // field::equal(plonk.complete_add.shifted, actual.complete_add.shifted, w),
+        // field::equal(plonk.endomul.shifted, actual.endomul.shifted, w),
+        field::equal(plonk.perm.shifted, actual.perm.shifted, w),
+    ];
+
+    Boolean::all(&list[..], w)
+}
+
+pub fn make_shifts<F: FieldWitness>(
+    domain: &Radix2EvaluationDomain<F>,
+) -> kimchi::circuits::polynomials::permutation::Shifts<F> {
     // let value = 1 << log2_size;
     // let domain = Domain::<Fq>::new(value).unwrap();
     kimchi::circuits::polynomials::permutation::Shifts::new(domain)
 }
 
-fn constant_term(
-    minimal: &PlonkMinimal,
-    env: &ScalarsEnv,
-    evals: &ProofEvaluations<[Fp; 2]>,
-) -> Fp {
-    let constants = kimchi::circuits::expr::Constants {
-        alpha: minimal.alpha,
-        beta: minimal.beta,
-        gamma: minimal.gamma,
-        joint_combiner: None,
-        endo_coefficient: endo_fp(),
-        mds: &mina_curves::pasta::Vesta::sponge_params().mds,
-    };
-
-    let evals = evals.map_ref(&|[zeta, zeta_omega]| kimchi::proof::PointEvaluations {
-        zeta: *zeta,
-        zeta_omega: *zeta_omega,
-    });
-
-    let feature_flags = kimchi::circuits::constraints::FeatureFlags {
-        range_check0: false,
-        range_check1: false,
-        foreign_field_add: false,
-        foreign_field_mul: false,
-        xor: false,
-        rot: false,
-        lookup_features: kimchi::circuits::lookup::lookups::LookupFeatures {
-            patterns: kimchi::circuits::lookup::lookups::LookupPatterns {
-                xor: false,
-                lookup: false,
-                range_check: false,
-                foreign_field_mul: false,
-            },
-            joint_lookup_used: false,
-            uses_runtime_tables: false,
-        },
-    };
-
-    let (linearization, _powers_of_alpha) =
-        kimchi::linearization::expr_linearization(Some(&feature_flags), true);
-
-    kimchi::circuits::expr::PolishToken::evaluate(
-        &linearization.constant_term,
-        env.domain,
-        minimal.zeta,
-        &evals,
-        &constants,
-    )
-    .unwrap()
-}
-
 pub fn ft_eval0(
-    env: &ScalarsEnv,
+    env: &ScalarsEnv<Fp>,
     evals: &ProofEvaluations<[Fp; 2]>,
-    minimal: &PlonkMinimal,
+    minimal: &PlonkMinimal<Fp>,
     p_eval0: Fp,
 ) -> Fp {
     const PLONK_TYPES_PERMUTS_MINUS_1_N: usize = 6;
@@ -281,14 +373,518 @@ pub fn ft_eval0(
 
     let denominator = (minimal.zeta - env.omega_to_minus_3) * (minimal.zeta - Fp::one());
     let ft_eval0 = ft_eval0 + (nominator / denominator);
-    let constant_term = constant_term(minimal, env, evals);
 
+    let minimal = MinimalForScalar {
+        alpha: minimal.alpha,
+        beta: minimal.beta,
+        gamma: minimal.gamma,
+    };
+    let mut w = Witness::with_capacity(0);
+    let constant_term = scalars::compute_fp(None, &minimal, evals, &mut w);
+
+    ft_eval0 - constant_term
+}
+
+mod scalars {
+    use std::collections::BTreeMap;
+
+    use kimchi::{
+        circuits::{
+            expr::{CacheId, Column, ConstantExpr, Constants, Expr, ExprError, Op2, Variable},
+            gate::{CurrOrNext, GateType},
+        },
+        proof::PointEvaluations,
+    };
+
+    use crate::proofs::witness::endos;
+
+    use super::*;
+
+    // This method `Variable::evaluate` is private in proof-systems :(
+    fn var_evaluate<F: FieldWitness>(
+        v: &Variable,
+        evals: &ProofEvaluations<PointEvaluations<F>>,
+    ) -> Result<F, ExprError> {
+        let point_evaluations = {
+            use kimchi::circuits::lookup::lookups::LookupPattern;
+            use Column::*;
+
+            match v.col {
+                Witness(i) => Ok(evals.w[i]),
+                Z => Ok(evals.z),
+                LookupSorted(i) => {
+                    evals.lookup_sorted[i].ok_or(ExprError::MissingIndexEvaluation(v.col))
+                }
+                LookupAggreg => evals
+                    .lookup_aggregation
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                LookupTable => evals
+                    .lookup_table
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                LookupRuntimeTable => evals
+                    .runtime_lookup_table
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                Index(GateType::Poseidon) => Ok(evals.poseidon_selector),
+                Index(GateType::Generic) => Ok(evals.generic_selector),
+                Index(GateType::CompleteAdd) => Ok(evals.complete_add_selector),
+                Index(GateType::VarBaseMul) => Ok(evals.mul_selector),
+                Index(GateType::EndoMul) => Ok(evals.emul_selector),
+                Index(GateType::EndoMulScalar) => Ok(evals.endomul_scalar_selector),
+                Index(GateType::RangeCheck0) => evals
+                    .range_check0_selector
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                Index(GateType::RangeCheck1) => evals
+                    .range_check1_selector
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                Index(GateType::ForeignFieldAdd) => evals
+                    .foreign_field_add_selector
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                Index(GateType::ForeignFieldMul) => evals
+                    .foreign_field_mul_selector
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                Index(GateType::Xor16) => evals
+                    .xor_selector
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                Index(GateType::Rot64) => evals
+                    .rot_selector
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                Permutation(i) => Ok(evals.s[i]),
+                Coefficient(i) => Ok(evals.coefficients[i]),
+                Column::LookupKindIndex(LookupPattern::Xor) => evals
+                    .xor_lookup_selector
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                Column::LookupKindIndex(LookupPattern::Lookup) => evals
+                    .lookup_gate_lookup_selector
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                Column::LookupKindIndex(LookupPattern::RangeCheck) => evals
+                    .range_check_lookup_selector
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                Column::LookupKindIndex(LookupPattern::ForeignFieldMul) => evals
+                    .foreign_field_mul_lookup_selector
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                Column::LookupRuntimeSelector => evals
+                    .runtime_lookup_table_selector
+                    .ok_or(ExprError::MissingIndexEvaluation(v.col)),
+                Index(_) => Err(ExprError::MissingIndexEvaluation(v.col)),
+            }
+        }?;
+        match v.row {
+            CurrOrNext::Curr => Ok(point_evaluations.zeta),
+            CurrOrNext::Next => Ok(point_evaluations.zeta_omega),
+        }
+    }
+
+    // fn var_evaluate<F: FieldWitness>(
+    //     v: &Variable,
+    //     evals: &ProofEvaluations<PointEvaluations<F>>,
+    // ) -> Result<F, ExprError> {
+    //     let point_evaluations = {
+    //         use Column::*;
+    //         let l = evals
+    //             .lookup
+    //             .as_ref()
+    //             .ok_or(ExprError::LookupShouldNotBeUsed);
+    //         match v.col {
+    //             Witness(i) => Ok(evals.w[i]),
+    //             Z => Ok(evals.z),
+    //             LookupSorted(i) => l.map(|l| l.sorted[i]),
+    //             LookupAggreg => l.map(|l| l.aggreg),
+    //             LookupTable => l.map(|l| l.table),
+    //             LookupRuntimeTable => l.and_then(|l| l.runtime.ok_or(ExprError::MissingRuntime)),
+    //             Index(GateType::Poseidon) => Ok(evals.poseidon_selector),
+    //             Index(GateType::Generic) => Ok(evals.generic_selector),
+    //             Permutation(i) => Ok(evals.s[i]),
+    //             Coefficient(i) => Ok(evals.coefficients[i]),
+    //             LookupKindIndex(_) | LookupRuntimeSelector | Index(_) => {
+    //                 Err(ExprError::MissingIndexEvaluation(v.col))
+    //             }
+    //         }
+    //     }?;
+    //     match v.row {
+    //         CurrOrNext::Curr => Ok(point_evaluations.zeta),
+    //         CurrOrNext::Next => Ok(point_evaluations.zeta_omega),
+    //     }
+    // }
+
+    fn pow<F: FieldWitness>(x: F, n: u64, w: &mut Witness<F>) -> F {
+        if n == 0 {
+            F::one()
+        } else if n == 1 {
+            x
+        } else {
+            let y = pow(field::square(x, w), n / 2, w);
+            if n % 2 == 0 {
+                y
+            } else {
+                field::mul(x, y, w)
+            }
+        }
+    }
+
+    pub struct EvalContext<'a, F: FieldWitness> {
+        pub evals: &'a ProofEvaluations<PointEvaluations<F>>,
+        pub constants: &'a Constants<F>,
+        pub cache: BTreeMap<CacheId, F>,
+        pub w: &'a mut Witness<F>,
+    }
+
+    fn is_const<F: FieldWitness>(e: &Expr<ConstantExpr<F>>) -> bool {
+        use ConstantExpr::*;
+        match e {
+            Expr::Constant(c) => match c {
+                EndoCoefficient | Literal(_) | Mds { .. } => true,
+                _ => false,
+            },
+            Expr::BinOp(_, x, y) => is_const(x) && is_const(y),
+            _ => false,
+        }
+    }
+
+    pub fn eval<F: FieldWitness>(e: &Expr<ConstantExpr<F>>, ctx: &mut EvalContext<F>) -> F {
+        use Expr::*;
+        match e {
+            Double(x) => {
+                let v = eval(x, ctx);
+                v.double()
+            }
+            Constant(x) => x.value(ctx.constants),
+            Pow(x, p) => {
+                let v = eval(x, ctx);
+                pow(v, *p, ctx.w)
+            }
+            BinOp(Op2::Mul, x, y) => {
+                let is_x_const = is_const(&x);
+                let is_y_const = is_const(&y);
+                let y = eval(y, ctx);
+                let x = eval(x, ctx);
+                if is_x_const || is_y_const {
+                    x * y
+                } else {
+                    field::mul(x, y, ctx.w)
+                }
+            }
+            Square(x) => {
+                let is_x_const = is_const(&x);
+                let x = eval(x, ctx);
+                if is_x_const {
+                    x * x
+                } else {
+                    field::mul(x, x, ctx.w)
+                }
+            }
+            BinOp(Op2::Add, x, y) => {
+                let y = eval(y, ctx);
+                let x = eval(x, ctx);
+                x + y
+            }
+            BinOp(Op2::Sub, x, y) => {
+                let y = eval(y, ctx);
+                let x = eval(x, ctx);
+                x - y
+            }
+            VanishesOnLast4Rows => todo!(),
+            UnnormalizedLagrangeBasis(_i) => todo!(),
+            Cell(v) => var_evaluate(v, ctx.evals).unwrap(),
+            Cache(id, _e) => {
+                ctx.cache.get(id).copied().unwrap() // Cached values were already computed
+            }
+            IfFeature(_feature, e1, e2) => {
+                if false {
+                    // if feature.is_enabled() {
+                    eval(e1, ctx)
+                } else {
+                    eval(e2, ctx)
+                }
+            }
+        }
+    }
+
+    #[derive(Default)]
+    pub struct Cached<F: FieldWitness> {
+        /// cache may contains other caches
+        expr: BTreeMap<CacheId, (Box<Cached<F>>, Box<Expr<ConstantExpr<F>>>)>,
+    }
+
+    #[inline(never)]
+    pub fn extract_caches<F: FieldWitness>(e: &Expr<ConstantExpr<F>>, cache: &mut Cached<F>) {
+        use Expr::*;
+        match e {
+            Double(x) => {
+                extract_caches(x, cache);
+            }
+            Constant(_x) => (),
+            Pow(x, _p) => {
+                extract_caches(x, cache);
+            }
+            BinOp(Op2::Mul, x, y) => {
+                extract_caches(y, cache);
+                extract_caches(x, cache);
+            }
+            Square(x) => {
+                extract_caches(x, cache);
+            }
+            BinOp(Op2::Add, x, y) => {
+                extract_caches(y, cache);
+                extract_caches(x, cache);
+            }
+            BinOp(Op2::Sub, x, y) => {
+                extract_caches(y, cache);
+                extract_caches(x, cache);
+            }
+            VanishesOnLast4Rows => (),
+            UnnormalizedLagrangeBasis(_i) => (),
+            Cell(_v) => (),
+            Cache(id, e) => {
+                let mut cached = Cached::default();
+                extract_caches(e, &mut cached);
+                cache.expr.insert(id.clone(), (Box::new(cached), e.clone()));
+            }
+            IfFeature(_feature, e1, e2) => {
+                if false {
+                    extract_caches(e1, cache)
+                } else {
+                    extract_caches(e2, cache)
+                }
+            }
+        }
+    }
+
+    fn eval_cache<F: FieldWitness>(cached_exprs: &Cached<F>, ctx: &mut EvalContext<F>) {
+        // Each cached expression may contain other caches
+        for (id, (cache, expr)) in &cached_exprs.expr {
+            let mut old_cache = std::mem::take(&mut ctx.cache);
+            eval_cache::<F>(cache, ctx);
+            old_cache.insert(*id, eval::<F>(&expr, ctx));
+            ctx.cache = old_cache;
+        }
+    }
+
+    pub struct MinimalForScalar<F> {
+        pub alpha: F,
+        pub beta: F,
+        pub gamma: F,
+    }
+
+    pub fn compute(
+        gate: Option<GateType>,
+        minimal: &MinimalForScalar<Fq>,
+        evals: &ProofEvaluations<[Fq; 2]>,
+        w: &mut Witness<Fq>,
+    ) -> Fq {
+        let (constant_term, index_terms) = &*{
+            use std::rc::Rc;
+            type Terms = BTreeMap<Column, Expr<ConstantExpr<Fq>>>;
+            type Const = Expr<ConstantExpr<Fq>>;
+            type TermsCached = Rc<(Const, Terms)>;
+            cache_one! {
+                TermsCached, {
+                    let lookup_configuration = None;
+                    let fq_evaluated_cols =
+                        kimchi::linearization::linearization_columns::<Fq>(lookup_configuration);
+                    let (fq_linearization, _powers_of_alpha) =
+                        kimchi::linearization::constraints_expr::<Fq>(None, true);
+
+                    let kimchi::circuits::expr::Linearization {
+                        constant_term,
+                        index_terms,
+                    } = fq_linearization.linearize(fq_evaluated_cols).unwrap();
+
+                    let index_terms = index_terms.into_iter().collect::<Terms>();
+                    Rc::new((constant_term, index_terms))
+                }
+            }
+        };
+
+        let constants = kimchi::circuits::expr::Constants {
+            alpha: minimal.alpha,
+            beta: minimal.beta,
+            gamma: minimal.gamma,
+            joint_combiner: None,
+            endo_coefficient: {
+                let (base, _) = endos::<Fq>();
+                base
+            },
+            mds: &mina_curves::pasta::Pallas::sponge_params().mds,
+        };
+
+        let evals = evals.map_ref(&|[zeta, zeta_omega]| kimchi::proof::PointEvaluations {
+            zeta: *zeta,
+            zeta_omega: *zeta_omega,
+        });
+
+        let mut ctx = EvalContext {
+            evals: &evals,
+            constants: &constants,
+            cache: BTreeMap::new(),
+            w,
+        };
+
+        let term = match gate {
+            Some(gate) => index_terms.get(&Column::Index(gate)).unwrap(),
+            None => &constant_term,
+        };
+
+        // We evaluate the cached expressions first
+        let mut cached_exprs = Cached::default();
+        extract_caches(term, &mut cached_exprs);
+        eval_cache(&cached_exprs, &mut ctx);
+
+        // Eval the rest
+        eval(term, &mut ctx)
+    }
+
+    // TODO: Dedup with above
+    pub fn compute_fp(
+        gate: Option<GateType>,
+        minimal: &MinimalForScalar<Fp>,
+        evals: &ProofEvaluations<[Fp; 2]>,
+        w: &mut Witness<Fp>,
+    ) -> Fp {
+        let (constant_term, index_terms) = &*{
+            use std::rc::Rc;
+            type Terms = BTreeMap<Column, Expr<ConstantExpr<Fp>>>;
+            type Const = Expr<ConstantExpr<Fp>>;
+            type TermsCached = Rc<(Const, Terms)>;
+            cache_one! {
+                TermsCached, {
+                    let feature_flags = None;
+                    let fq_evaluated_cols =
+                        kimchi::linearization::linearization_columns::<Fp>(feature_flags);
+                    let (fq_linearization, _powers_of_alpha) =
+                        kimchi::linearization::constraints_expr::<Fp>(feature_flags, true);
+
+                    let kimchi::circuits::expr::Linearization {
+                        constant_term,
+                        index_terms,
+                    } = fq_linearization.linearize(fq_evaluated_cols).unwrap();
+
+                    let index_terms = index_terms.into_iter().collect::<Terms>();
+                    Rc::new((constant_term, index_terms))
+                }
+            }
+        };
+
+        let constants = kimchi::circuits::expr::Constants {
+            alpha: minimal.alpha,
+            beta: minimal.beta,
+            gamma: minimal.gamma,
+            joint_combiner: None,
+            endo_coefficient: {
+                let (base, _) = endos::<Fp>();
+                base
+            },
+            mds: &mina_curves::pasta::Vesta::sponge_params().mds,
+        };
+
+        let evals = evals.map_ref(&|[zeta, zeta_omega]| kimchi::proof::PointEvaluations {
+            zeta: *zeta,
+            zeta_omega: *zeta_omega,
+        });
+
+        let mut ctx = EvalContext {
+            evals: &evals,
+            constants: &constants,
+            cache: BTreeMap::new(),
+            w,
+        };
+
+        let term = match gate {
+            Some(gate) => index_terms.get(&Column::Index(gate)).unwrap(),
+            None => &constant_term,
+        };
+
+        // We evaluate the cached expressions first
+        let mut cached_exprs = Cached::default();
+        extract_caches(term, &mut cached_exprs);
+        eval_cache(&cached_exprs, &mut ctx);
+
+        // Eval the rest
+        eval(term, &mut ctx)
+    }
+}
+
+// TODO: De-duplicate with `ft_eval0`
+pub fn ft_eval0_checked<const NLIMB: usize>(
+    env: &ScalarsEnv<Fq>,
+    evals: &ProofEvaluations<[Fq; 2]>,
+    minimal: &PlonkMinimal<Fq, NLIMB>,
+    p_eval0: Fq,
+    w: &mut Witness<Fq>,
+) -> Fq {
+    const PLONK_TYPES_PERMUTS_MINUS_1_N: usize = 6;
+
+    let e0_s: Vec<_> = evals.s.iter().map(|s| s[0]).collect();
+    let zkp = env.zk_polynomial;
+    let powers_of_alpha = powers_of_alpha(minimal.alpha);
+    let alpha_pow = |i: usize| powers_of_alpha[i];
+
+    let zeta1m1 = env.zeta_to_n_minus_1;
+    let w0: Vec<_> = evals.w.iter().map(|w| w[0]).collect();
+
+    let ft_eval0 = {
+        let a0 = alpha_pow(PERM_ALPHA0);
+        let w_n = w0[PLONK_TYPES_PERMUTS_MINUS_1_N];
+        let init = field::muls(&[(w_n + minimal.gamma), evals.z[1], a0, zkp], w);
+        e0_s.iter().enumerate().fold(init, |acc, (i, s)| {
+            // We decompose this way because of OCaml evaluation order
+            let beta_s = field::mul(minimal.beta, *s, w);
+            field::mul(beta_s + w0[i] + minimal.gamma, acc, w)
+        })
+    };
+
+    let shifts = make_shifts(&env.domain);
+    let shifts = shifts.shifts();
+    let ft_eval0 = ft_eval0 - p_eval0;
+
+    let ft_eval0 = ft_eval0
+        - shifts.iter().enumerate().fold(
+            field::muls(&[alpha_pow(PERM_ALPHA0), zkp, evals.z[0]], w),
+            |acc, (i, s)| {
+                let beta_zeta = field::mul(minimal.beta, minimal.zeta, w);
+                field::mul(acc, minimal.gamma + (beta_zeta * s) + w0[i], w)
+            },
+        );
+
+    // We decompose this way because of OCaml evaluation order
+    let a = field::muls(
+        &[
+            zeta1m1,
+            alpha_pow(PERM_ALPHA0 + 2),
+            (minimal.zeta - Fq::one()),
+        ],
+        w,
+    );
+    let b = field::muls(
+        &[
+            zeta1m1,
+            alpha_pow(PERM_ALPHA0 + 1),
+            (minimal.zeta - env.omega_to_minus_3),
+        ],
+        w,
+    );
+    let nominator = field::mul(a + b, Fq::one() - evals.z[0], w);
+
+    let denominator = field::mul(
+        minimal.zeta - env.omega_to_minus_3,
+        minimal.zeta - Fq::one(),
+        w,
+    );
+    let ft_eval0 = ft_eval0 + field::div_by_inv(nominator, denominator, w);
+
+    let minimal = MinimalForScalar {
+        alpha: minimal.alpha,
+        beta: minimal.beta,
+        gamma: minimal.gamma,
+    };
+    let constant_term = scalars::compute(None, &minimal, evals, w);
     ft_eval0 - constant_term
 }
 
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
+
+    use crate::FpExt;
 
     use super::*;
 

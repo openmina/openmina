@@ -27,9 +27,7 @@ pub mod for_tests;
 /// Core.Printf.eprintf !"dummy proof= %s\n%!" s;
 pub fn dummy_transaction_proof() -> Arc<TransactionSnarkProofStableV2> {
     let mut cursor = std::io::Cursor::new(include_bytes!("dummy_transaction_proof.bin"));
-    TransactionSnarkProofStableV2::binprot_read(&mut cursor)
-        .unwrap()
-        .into()
+    Arc::new(TransactionSnarkProofStableV2::binprot_read(&mut cursor).unwrap())
 }
 
 /// Value of `vk` when we run `dune runtest src/lib/staged_ledger -f`
@@ -73,5 +71,5 @@ pub fn sideloaded_proof() -> Arc<PicklesProofProofsVerifiedMaxStableV2> {
     let mut cursor = std::io::Cursor::new(include_bytes!("sideloaded_proof.bin"));
     let proof = PicklesProofProofsVerifiedMaxStableV2::binprot_read(&mut cursor).unwrap();
 
-    proof.into()
+    Arc::new(proof)
 }

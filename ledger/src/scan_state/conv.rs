@@ -1,5 +1,7 @@
 #![allow(unused_variables, unreachable_code)]
 
+use std::sync::Arc;
+
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     binprot,
@@ -1926,7 +1928,7 @@ impl From<&TransactionSnarkStableV2> for TransactionSnark<SokDigest> {
     fn from(value: &TransactionSnarkStableV2) -> Self {
         Self {
             statement: (&value.statement).into(),
-            proof: value.proof.clone().into(),
+            proof: Arc::new(value.proof.clone()),
         }
     }
 }

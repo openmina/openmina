@@ -2,6 +2,8 @@ use mina_p2p_messages::v2::MerkleAddressBinableArgStableV1;
 
 use crate::base::AccountIndex;
 
+use super::NBITS;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Direction {
     Left,
@@ -500,6 +502,14 @@ impl<const NBYTES: usize> Address<NBYTES> {
         rng.fill_bytes(&mut inner[0..(length / 8) + 1]);
 
         Self { inner, length }
+    }
+
+    pub fn to_bits(&self) -> [bool; NBITS] {
+        use crate::proofs::witness::legacy_input::bits_iter;
+
+        let AccountIndex(index) = self.to_index();
+        let mut bits = bits_iter::<_, NBITS>(index).take(NBITS);
+        std::array::from_fn(|_| bits.next().unwrap())
     }
 }
 

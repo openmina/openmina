@@ -106,6 +106,28 @@ pub enum MyCow<'a, T> {
     Own(T),
 }
 
+impl<'a, T> MyCow<'a, T> {
+    pub fn borrow_or_default(v: &'a Option<T>) -> Self
+    where
+        T: Default,
+    {
+        match v.as_ref() {
+            Some(v) => Self::Borrow(v),
+            None => Self::Own(T::default()),
+        }
+    }
+
+    pub fn borrow_or_else<F>(v: &'a Option<T>, default: F) -> Self
+    where
+        F: FnOnce() -> T,
+    {
+        match v.as_ref() {
+            Some(v) => Self::Borrow(v),
+            None => Self::Own(default()),
+        }
+    }
+}
+
 impl<'a, T> std::ops::Deref for MyCow<'a, T> {
     type Target = T;
 

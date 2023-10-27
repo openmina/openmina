@@ -355,6 +355,28 @@ pub mod transaction_snark {
     }
 
     impl Statement<()> {
+        pub fn with_digest(self, sok_digest: SokDigest) -> Statement<SokDigest> {
+            let Self {
+                source,
+                target,
+                connecting_ledger_left,
+                connecting_ledger_right,
+                supply_increase,
+                fee_excess,
+                sok_digest: _,
+            } = self;
+
+            Statement::<SokDigest> {
+                source,
+                target,
+                connecting_ledger_left,
+                connecting_ledger_right,
+                supply_increase,
+                fee_excess,
+                sok_digest,
+            }
+        }
+
         /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/snarked_ledger_state.ml#L631
         pub fn merge(&self, s2: &Statement<()>) -> Result<Self, String> {
             let or_error_of_bool = |b: bool, error: &str| {
@@ -633,6 +655,22 @@ pub mod transaction_snark {
             match self {
                 OneOrTwo::One(one) => Ok(OneOrTwo::One(fun(one)?)),
                 OneOrTwo::Two((a, b)) => Ok(OneOrTwo::Two((fun(a)?, fun(b)?))),
+            }
+        }
+
+        pub fn into_map_some<F, R>(self, fun: F) -> Option<OneOrTwo<R>>
+        where
+            F: Fn(T) -> Option<R>,
+        {
+            match self {
+                OneOrTwo::One(one) => Some(OneOrTwo::One(fun(one)?)),
+                OneOrTwo::Two((a, b)) => {
+                    let a = fun(a)?;
+                    match fun(b) {
+                        Some(b) => Some(OneOrTwo::Two((a, b))),
+                        None => Some(OneOrTwo::One(a)),
+                    }
+                }
             }
         }
 
@@ -2008,6 +2046,20 @@ impl ScanState {
         })
     }
 
+    pub fn all_job_pairs_iter2(&self) -> impl Iterator<Item = OneOrTwo<AvailableJob>> {
+        self.all_jobs().into_iter().flat_map(|jobs| {
+            let mut iter = jobs.into_iter();
+            std::iter::from_fn(move || {
+                let one = iter.next()?;
+                Some(OneOrTwo::One(one))
+                // Some(match iter.next() {
+                //     None => OneOrTwo::One(one),
+                //     Some(two) => OneOrTwo::Two((one, two)),
+                // })
+            })
+        })
+    }
+
     pub fn all_work_pairs<F>(
         &self,
         get_state: F,
@@ -2062,6 +2114,60 @@ impl ScanState {
 
         self.all_job_pairs_iter()
             .map(|group| group.into_map_err(single_spec))
+            .collect()
+    }
+
+    pub fn all_work_pairs2<F>(&self, get_state: F) -> Vec<OneOrTwo<snark_work::spec::Work>>
+    where
+        F: Fn(&Fp) -> Option<MinaStateProtocolStateValueStableV2>,
+    {
+        let single_spec = |job: AvailableJob| match Self::extract_from_job(job) {
+            Extracted::First {
+                transaction_with_info,
+                statement,
+                state_hash,
+                first_pass_ledger_witness,
+                second_pass_ledger_witness,
+                init_stack,
+                block_global_slot,
+            } => {
+                let witness = {
+                    let WithStatus {
+                        data: transaction,
+                        status,
+                    } = transaction_with_info.transaction();
+
+                    let protocol_state_body = {
+                        let state = get_state(&state_hash.0)?;
+                        state.body.clone()
+                    };
+
+                    let init_stack = match init_stack {
+                        InitStack::Base(x) => x,
+                        InitStack::Merge => return None,
+                    };
+
+                    TransactionWitness {
+                        transaction,
+                        protocol_state_body,
+                        init_stack,
+                        status,
+                        first_pass_ledger: first_pass_ledger_witness,
+                        second_pass_ledger: second_pass_ledger_witness,
+                        block_global_slot,
+                    }
+                };
+
+                Some(snark_work::spec::Work::Transition((statement, witness)))
+            }
+            Extracted::Second(s) => {
+                let merged = s.0.statement().merge(&s.1.statement()).unwrap();
+                Some(snark_work::spec::Work::Merge(Box::new((merged, s))))
+            }
+        };
+
+        self.all_job_pairs_iter2()
+            .filter_map(|group| group.into_map_some(single_spec))
             .collect()
     }
 

@@ -7,6 +7,7 @@ use mina_p2p_messages::binprot;
 use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2};
 use mina_signer::CompressedPubKey;
 
+use crate::proofs::witness::Witness;
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
 use crate::scan_state::zkapp_logic;
 use crate::{hash_with_kimchi, ControlTag, Inputs};
@@ -6413,6 +6414,23 @@ pub fn cons_signed_command_payload(
     ReceiptChainHash(hasher.digest())
 }
 
+/// Returns the new `receipt_chain_hash`
+pub fn checked_cons_signed_command_payload(
+    payload: &TransactionUnionPayload,
+    last_receipt_chain_hash: ReceiptChainHash,
+    w: &mut Witness<Fp>,
+) -> ReceiptChainHash {
+    use crate::proofs::witness::legacy_input::CheckedLegacyInput;
+    use crate::proofs::witness::transaction_snark::checked_legacy_hash;
+
+    let mut inputs = payload.to_checked_legacy_input_owned(w);
+    inputs.append_field(last_receipt_chain_hash.0);
+
+    let receipt_chain_hash = checked_legacy_hash("MinaReceiptUC", inputs, w);
+
+    ReceiptChainHash(receipt_chain_hash)
+}
+
 /// prepend account_update index computed by Zkapp_command_logic.apply
 ///
 /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/receipt.ml#L66
@@ -6552,7 +6570,6 @@ fn validate_timing_with_min_balance_impl(
             vesting_increment,
         } => {
             let account_balance = account.balance;
-            let initial_minimum_balance = initial_minimum_balance;
 
             let (invalid_balance, invalid_timing, curr_min_balance) =
                 match account_balance.sub_amount(txn_amount) {
@@ -6564,11 +6581,6 @@ fn validate_timing_with_min_balance_impl(
                         (true, false, *initial_minimum_balance)
                     }
                     Some(proposed_new_balance) => {
-                        let cliff_time = cliff_time;
-                        let cliff_amount = cliff_amount;
-                        let vesting_period = vesting_period;
-                        let vesting_increment = vesting_increment;
-
                         let curr_min_balance = account_min_balance_at_slot(
                             *txn_global_slot,
                             *cliff_time,

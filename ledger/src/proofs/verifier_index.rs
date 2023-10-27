@@ -26,8 +26,11 @@ use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
 use crate::{proofs::BACKEND_TOCK_ROUNDS_N, CurveAffine, VerificationKey};
 
-use super::public_input::scalars::field_from_hex;
 use super::VerifierIndex;
+use super::{
+    public_input::scalars::field_from_hex,
+    wrap::{Domain, Domains},
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct VerifierIndexOcaml<G: CommitmentCurve + KimchiCurve + AffineCurve> {
@@ -234,20 +237,24 @@ pub fn make_shifts(
     kimchi::circuits::polynomials::permutation::Shifts::new(domain)
 }
 
-/// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/side_loaded_verification_key.ml#L206
-pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex {
-    // https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/common.ml#L27
-    let wrap_domains = |proofs_verified: usize| -> usize {
-        match proofs_verified {
-            0 => 13,
-            1 => 14,
-            2 => 15,
-            _ => unreachable!(),
-        }
+// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/common.ml#L27
+pub fn wrap_domains(proofs_verified: usize) -> Domains {
+    let h = match proofs_verified {
+        0 => 13,
+        1 => 14,
+        2 => 15,
+        _ => unreachable!(),
     };
 
+    Domains {
+        h: Domain::Pow2RootsOfUnity(h),
+    }
+}
+
+/// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/side_loaded_verification_key.ml#L206
+pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex {
     let d = wrap_domains(vk.actual_wrap_domain_size.to_int());
-    let log2_size = d;
+    let log2_size = d.h.log2_size();
 
     let public = 52; // Is that constant ?
 

@@ -49,8 +49,8 @@ impl MerklePath {
 impl std::fmt::Debug for MerklePath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Left(arg0) => f.debug_tuple("Left").field(&arg0.to_string()).finish(),
-            Self::Right(arg0) => f.debug_tuple("Right").field(&arg0.to_string()).finish(),
+            Self::Left(arg0) => f.write_fmt(format_args!("Left({:?})", arg0)),
+            Self::Right(arg0) => f.write_fmt(format_args!("Right({:?})", arg0)),
         }
     }
 }
