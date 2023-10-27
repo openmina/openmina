@@ -46,7 +46,7 @@ use crate::connection::outgoing::{
     P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
 };
 use crate::identity::SecretKey;
-use crate::{P2pChannelEvent, P2pConnectionEvent, P2pEvent};
+use crate::{P2pChannelEvent, P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent};
 
 use super::TaskSpawner;
 
@@ -61,6 +61,7 @@ pub enum Cmd {
     Disconnect(PeerId),
     SendMessage(PeerId, ChannelMsg),
     SnarkBroadcast(Snark, u32),
+    FindNode(PeerId),
 }
 
 pub struct Libp2pService {
@@ -141,7 +142,7 @@ impl Libp2pService {
             },
             identify,
             kademlia,
-            should_bootstrap: true,
+            kademlia_state: Default::default(),
             event_source_sender,
             ongoing: BTreeMap::default(),
             ongoing_incoming: BTreeMap::default(),
@@ -249,9 +250,14 @@ impl Libp2pService {
                         .add_address(&peer_id, addr.clone());
                 }
 
-                if swarm.behaviour().should_bootstrap {
-                    swarm.behaviour_mut().should_bootstrap = false;
-                    swarm.behaviour_mut().kademlia.bootstrap().unwrap();
+                if swarm.behaviour().kademlia_state.bootstrap_id.is_none() {
+                    match swarm.behaviour_mut().kademlia.bootstrap() {
+                        Ok(id) => swarm.behaviour_mut().kademlia_state.bootstrap_id = Some(id),
+                        Err(err) => {
+                            let _ = err;
+                            // TODO: log error
+                        }
+                    }
                 }
 
                 let opts = DialOpts::peer_id(peer_id.into()).addresses(addrs).build();
@@ -303,6 +309,17 @@ impl Libp2pService {
                 let message = NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(message);
                 let nonce = nonce.into();
                 Self::gossipsub_send(swarm, &GossipNetMessage::SnarkPoolDiff { message, nonce });
+            }
+            Cmd::FindNode(peer_id) => {
+                let id = swarm
+                    .behaviour_mut()
+                    .kademlia
+                    .get_closest_peers(*peer_id.as_ref());
+                swarm
+                    .behaviour_mut()
+                    .kademlia_state
+                    .find_node_ids
+                    .insert(id);
             }
         }
     }
@@ -547,34 +564,68 @@ impl Libp2pService {
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::Behaviour(event) => match event {
-                BehaviourEvent::Kademlia(event) => match event {
-                    kad::Event::RoutingUpdated {
-                        peer,
-                        is_new_peer: true,
-                        addresses,
-                        ..
-                    } => {
-                        if peer.as_ref().code() == 0x12 {
-                            // ignore such peer
-                            // TODO: add one more kind of peer_id into our PeerId type
-                            return;
-                        }
-
-                        // TODO(vlad9486): use all addresses
-                        if let Some(opts) = addresses
-                            .iter()
-                            .find_map(|a| P2pConnectionOutgoingInitLibp2pOpts::try_from(a).ok())
-                            .map(P2pConnectionOutgoingInitOpts::LibP2P)
-                        {
+                BehaviourEvent::Kademlia(event) => {
+                    match event {
+                        kad::Event::RoutingUpdated {
+                            peer,
+                            is_new_peer: true,
+                            addresses,
+                            ..
+                        } => {
                             swarm
                                 .behaviour_mut()
-                                .event_source_sender
-                                .send(P2pEvent::Discovery(opts).into())
-                                .unwrap_or_default();
+                                .kademlia_state
+                                .routing
+                                .insert(peer, addresses.into_vec());
                         }
+                        kad::Event::OutboundQueryProgressed {
+                            id, step, result, ..
+                        } => {
+                            let b = swarm.behaviour_mut();
+                            if let Some(ongoing_bootstrap) = &b.kademlia_state.bootstrap_id {
+                                if id.eq(ongoing_bootstrap) && step.last {
+                                    // initial bootstrap is done
+                                    b.event_source_sender
+                                        .send(P2pEvent::Discovery(P2pDiscoveryEvent::Ready).into())
+                                        .unwrap_or_default();
+                                }
+                            }
+                            if b.kademlia_state.find_node_ids.remove(&id) {
+                                if let kad::QueryResult::GetClosestPeers(result) = result {
+                                    match result {
+                                        Ok(v) => {
+                                            let optses =
+                                            v.peers.into_iter().filter_map(|peer_id| {
+                                                if peer_id.as_ref().code() == 0x12 {
+                                                    return None;
+                                                }
+                                                let addresses =
+                                                    b.kademlia_state.routing.get(&peer_id)?;
+
+                                                // TODO(vlad9486): use all addresses
+                                                let first = addresses
+                                                    .iter()
+                                                    .find_map(|a| P2pConnectionOutgoingInitLibp2pOpts::try_from(a).ok())
+                                                    .map(P2pConnectionOutgoingInitOpts::LibP2P)?;
+                                                Some(first)
+                                            });
+                                            let response =
+                                                P2pDiscoveryEvent::DidFindPeers(optses.collect());
+                                            b.event_source_sender
+                                                .send(P2pEvent::Discovery(response).into())
+                                                .unwrap_or_default()
+                                        }
+                                        Err(err) => {
+                                            // TODO: report error
+                                            let _ = err;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
                     }
-                    _ => {}
-                },
+                }
                 BehaviourEvent::Gossipsub(GossipsubEvent::Message {
                     propagation_source,
                     message_id,

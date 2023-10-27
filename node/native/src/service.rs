@@ -133,6 +133,24 @@ impl P2pServiceWebrtcWithLibp2p for NodeService {
     fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.libp2p
     }
+
+    fn find_random_peer(&mut self) {
+        use libp2p::identity::Keypair;
+        use node::p2p::service_impl::libp2p::Cmd;
+
+        // Generate some random peer_id
+        let peer_id = {
+            let mut bytes = self.rng.gen::<[u8; 32]>();
+            // This secret key will not be used
+            let pair = Keypair::ed25519_from_bytes(&mut bytes).expect("32 bytes");
+            pair.public().to_peer_id()
+        };
+
+        self.libp2p()
+            .cmd_sender()
+            .send(Cmd::FindNode(peer_id.into()))
+            .unwrap_or_default();
+    }
 }
 
 impl SnarkBlockVerifyService for NodeService {

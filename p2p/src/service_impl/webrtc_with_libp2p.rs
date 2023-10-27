@@ -37,6 +37,8 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
             ),
         }
     }
+
+    fn find_random_peer(&mut self);
 }
 
 impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
@@ -69,6 +71,10 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
 
     fn http_signaling_request(&mut self, url: String, offer: crate::webrtc::Offer) {
         P2pServiceWebrtc::http_signaling_request(self, url, offer)
+    }
+
+    fn find_random_peer(&mut self) {
+        P2pServiceWebrtcWithLibp2p::find_random_peer(self);
     }
 }
 
