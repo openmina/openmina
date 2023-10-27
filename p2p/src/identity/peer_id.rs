@@ -1,5 +1,6 @@
 use std::{fmt, str::FromStr};
 
+use binprot::{BinProtRead, BinProtWrite, Nat0};
 use serde::{Deserialize, Serialize};
 
 use super::PublicKey;
@@ -132,6 +133,31 @@ impl<'de> serde::Deserialize<'de> for PeerId {
         } else {
             Ok(Self(Deserialize::deserialize(deserializer)?))
         }
+    }
+}
+
+impl BinProtWrite for PeerId {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        for v in self.0 {
+            Nat0(v).binprot_write(w)?;
+        }
+        Ok(())
+    }
+}
+
+impl BinProtRead for PeerId {
+    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+    {
+        let mut iter = std::iter::repeat(()).map(|_| Nat0::binprot_read(r));
+
+        Ok(Self([
+            iter.next().unwrap()?.0,
+            iter.next().unwrap()?.0,
+            iter.next().unwrap()?.0,
+            iter.next().unwrap()?.0,
+        ]))
     }
 }
 

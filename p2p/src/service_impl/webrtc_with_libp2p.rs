@@ -53,9 +53,9 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
             P2pConnectionOutgoingInitOpts::WebRTC { peer_id, .. } => {
                 P2pServiceWebrtc::outgoing_init(self, peer_id);
             }
-            P2pConnectionOutgoingInitOpts::LibP2P { peer_id, maddr } => {
-                let opts = DialOpts::peer_id(peer_id.into())
-                    .addresses(vec![maddr])
+            P2pConnectionOutgoingInitOpts::LibP2P(opts) => {
+                let opts = DialOpts::peer_id(opts.peer_id.into())
+                    .addresses(vec![opts.to_maddr()])
                     .build();
                 let cmd = super::libp2p::Cmd::Dial(opts);
                 let _ = self.libp2p().cmd_sender().send(cmd);

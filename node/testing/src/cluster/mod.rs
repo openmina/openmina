@@ -40,6 +40,12 @@ use crate::{
     service::{NodeTestingService, PendingEventId},
 };
 
+lazy_static::lazy_static! {
+    static ref VERIFIER_SRS: Arc<VerifierSRS> = get_srs().into();
+    static ref BLOCK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Blockchain).into();
+    static ref WORK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Transaction).into();
+}
+
 pub struct Cluster {
     pub config: ClusterConfig,
     scenario: ClusterScenarioRun,
@@ -77,9 +83,9 @@ impl Cluster {
 
             rpc_counter: 0,
 
-            verifier_srs: get_srs().into(),
-            block_verifier_index: get_verifier_index(VerifierKind::Blockchain).into(),
-            work_verifier_index: get_verifier_index(VerifierKind::Transaction).into(),
+            verifier_srs: VERIFIER_SRS.clone(),
+            block_verifier_index: BLOCK_VERIFIER_INDEX.clone(),
+            work_verifier_index: WORK_VERIFIER_INDEX.clone(),
         }
     }
 
@@ -212,10 +218,14 @@ impl Cluster {
             recorder: Recorder::None,
             replayer: None,
         };
-        let service = NodeTestingService::new(real_service, shutdown_rx);
+        let mut service = NodeTestingService::new(real_service, shutdown_rx);
+        if self.config.all_rust_to_rust_use_webrtc() {
+            service.set_rust_to_rust_use_webrtc();
+        }
+
         let state = node::State::new(config);
         fn effects<S: node::Service>(store: &mut node::Store<S>, action: node::ActionWithMeta) {
-            let peer_id = store.state().p2p.config.identity_pub_key.peer_id();
+            let peer_id = store.state().p2p.my_id();
             eprintln!("{peer_id}: {:?}", action.action().kind());
             node::effects(store, action)
         }
@@ -266,6 +276,13 @@ impl Cluster {
 
     pub fn target_scenario(&self) -> Option<&ScenarioId> {
         self.scenario.target_scenario().map(|v| &v.info.id)
+    }
+
+    pub fn nodes_iter(&self) -> impl Iterator<Item = (ClusterNodeId, &Node)> {
+        self.nodes
+            .iter()
+            .enumerate()
+            .map(|(i, node)| (ClusterNodeId::new_unchecked(i), node))
     }
 
     pub fn node(&self, node_id: ClusterNodeId) -> Option<&Node> {

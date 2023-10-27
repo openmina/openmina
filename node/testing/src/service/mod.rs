@@ -68,6 +68,7 @@ impl NodeTestingService {
     }
 
     pub fn set_rust_to_rust_use_webrtc(&mut self) {
+        assert!(cfg!(feature = "p2p-webrtc"));
         self.rust_to_rust_use_webrtc = true;
     }
 

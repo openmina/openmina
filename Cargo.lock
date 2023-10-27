@@ -63,7 +63,7 @@ version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e8b47f52ea9bae42228d07ec09eb676433d7c4ed1ebdf0f1d1c29ed446f1ab8"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "cipher 0.3.0",
  "cpufeatures",
  "opaque-debug",
@@ -75,7 +75,7 @@ version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac1f845298e95f983ff1944b728ae08b8cebab80d684f0a832ed0fc74dfa27e2"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "cipher 0.4.4",
  "cpufeatures",
 ]
@@ -159,7 +159,7 @@ version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c99f64d1e06488f620f932677e24bc6e2897582980441ae90a671415bd7ec2f"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "once_cell",
  "version_check",
 ]
@@ -465,7 +465,7 @@ checksum = "0fc5b45d93ef0529756f812ca52e44c221b35341892d3dcc34132ac02f3dd2af"
 dependencies = [
  "async-lock",
  "autocfg",
- "cfg-if 1.0.0",
+ "cfg-if",
  "concurrent-queue",
  "futures-lite",
  "log",
@@ -579,7 +579,7 @@ checksum = "2089b7e3f35b9dd2d0ed921ead4f6d318c27680d4a5bd167b3ee120edb105837"
 dependencies = [
  "addr2line",
  "cc",
- "cfg-if 1.0.0",
+ "cfg-if",
  "libc",
  "miniz_oxide",
  "object 0.32.1",
@@ -597,6 +597,12 @@ name = "base16ct"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "349a06037c7bf932dd7e7d1f653678b2038b9ad46a74102f1fc7bd7872678cce"
+
+[[package]]
+name = "base16ct"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
 
 [[package]]
 name = "base64"
@@ -724,7 +730,7 @@ dependencies = [
  "arrayref",
  "arrayvec",
  "cc",
- "cfg-if 1.0.0",
+ "cfg-if",
  "constant_time_eq",
 ]
 
@@ -752,7 +758,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57a0e8073e8baa88212fb5823574c02ebccb395136ba9a164ab89379ec6072f0"
 dependencies = [
- "block-padding",
+ "block-padding 0.2.1",
  "cipher 0.2.5",
 ]
 
@@ -761,6 +767,15 @@ name = "block-padding"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
+
+[[package]]
+name = "block-padding"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8894febbff9f758034a5b8e12d87918f56dfc64a8e1fe757d65e29041538d93"
+dependencies = [
+ "generic-array",
+]
 
 [[package]]
 name = "bs58"
@@ -810,6 +825,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cbc"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26b52a9543ae338f279b96b0b9fed9c8093744685043739079ce85cd58f289a6"
+dependencies = [
+ "cipher 0.4.4",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -831,10 +855,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "cfg-if"
-version = "0.1.10"
+name = "ccm"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
+checksum = "9ae3c82e4355234767756212c570e29833699ab63e6ffd161887314cc5b43847"
+dependencies = [
+ "aead 0.5.2",
+ "cipher 0.4.4",
+ "ctr 0.9.2",
+ "subtle",
+]
 
 [[package]]
 name = "cfg-if"
@@ -848,7 +878,7 @@ version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c80e5460aa66fe3b91d40bcbdab953a597b60053e34d684ac6903f863b680a6"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "cipher 0.3.0",
  "cpufeatures",
  "zeroize",
@@ -1023,7 +1053,7 @@ version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "wasm-bindgen",
 ]
 
@@ -1106,7 +1136,7 @@ version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b540bd8bc810d3885c6ea91e2018302f68baba2129ab3e88f32389ee9370880d"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
 ]
 
 [[package]]
@@ -1115,7 +1145,7 @@ version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce6fd6f855243022dcecf8702fef0c297d4338e226845fe067f6341ad9fa0cef"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "crossbeam-epoch",
  "crossbeam-utils",
 ]
@@ -1127,7 +1157,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae211234986c545741a7dc064309f67ee1e5ad243d0e48335adc0484d960bcc7"
 dependencies = [
  "autocfg",
- "cfg-if 1.0.0",
+ "cfg-if",
  "crossbeam-utils",
  "memoffset 0.9.0",
  "scopeguard",
@@ -1139,7 +1169,7 @@ version = "0.8.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a22b2d63d4d1dc0b7f1b6b2747dd0088008a9be28b6ddf0b1e7d335e3037294"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
 ]
 
 [[package]]
@@ -1153,6 +1183,18 @@ name = "crypto-bigint"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef2b4b23cddf68b89b8f8069890e8c270d54e2d5fe1b143820234805e4cb17ef"
+dependencies = [
+ "generic-array",
+ "rand_core 0.6.4",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "crypto-bigint"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "740fe28e594155f10cfc383984cbefd529d7396050557148f79cb0f621204124"
 dependencies = [
  "generic-array",
  "rand_core 0.6.4",
@@ -1243,7 +1285,7 @@ version = "4.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89b8c6a2e4b1f45971ad09761aafb85514a84744b67a95e32c3cc1352d1f65c"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "cpufeatures",
  "curve25519-dalek-derive",
  "digest 0.10.7",
@@ -1368,7 +1410,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1a467a65c5e759bce6e65eaf91cc29f466cdc57cb65777bd646872a8a1fd4de"
 dependencies = [
  "const-oid",
- "pem-rfc7468",
+ "pem-rfc7468 0.6.0",
  "zeroize",
 ]
 
@@ -1379,6 +1421,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fffa369a668c8af7dbf8b5e56c9f744fbd399949ed171606040001947de40b1c"
 dependencies = [
  "const-oid",
+ "pem-rfc7468 0.7.0",
  "zeroize",
 ]
 
@@ -1510,6 +1553,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer 0.10.4",
+ "const-oid",
  "crypto-common",
  "subtle",
 ]
@@ -1584,9 +1628,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "413301934810f597c1d19ca71c8710e99a3f1ba28a0d2ebc01551a2daeea3c5c"
 dependencies = [
  "der 0.6.1",
- "elliptic-curve",
- "rfc6979",
+ "elliptic-curve 0.12.3",
+ "rfc6979 0.3.1",
  "signature 1.6.4",
+]
+
+[[package]]
+name = "ecdsa"
+version = "0.16.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4b1e0c257a9e9f25f90ff76d7a68360ed497ee519c8e428d1825ef0000799d4"
+dependencies = [
+ "der 0.7.8",
+ "digest 0.10.7",
+ "elliptic-curve 0.13.6",
+ "rfc6979 0.4.0",
+ "signature 2.1.0",
+ "spki 0.7.2",
 ]
 
 [[package]]
@@ -1665,18 +1723,39 @@ version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7bb888ab5300a19b8e5bceef25ac745ad065f3c9f7efc6de1b91958110891d3"
 dependencies = [
- "base16ct",
- "crypto-bigint",
+ "base16ct 0.1.1",
+ "crypto-bigint 0.4.9",
  "der 0.6.1",
  "digest 0.10.7",
- "ff",
+ "ff 0.12.1",
  "generic-array",
- "group",
+ "group 0.12.1",
  "hkdf 0.12.3",
- "pem-rfc7468",
+ "pem-rfc7468 0.6.0",
  "pkcs8 0.9.0",
  "rand_core 0.6.4",
- "sec1",
+ "sec1 0.3.0",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "elliptic-curve"
+version = "0.13.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d97ca172ae9dc9f9b779a6e3a65d308f2af74e5b8c921299075bdb4a0370e914"
+dependencies = [
+ "base16ct 0.2.0",
+ "crypto-bigint 0.5.3",
+ "digest 0.10.7",
+ "ff 0.13.0",
+ "generic-array",
+ "group 0.13.0",
+ "hkdf 0.12.3",
+ "pem-rfc7468 0.7.0",
+ "pkcs8 0.10.2",
+ "rand_core 0.6.4",
+ "sec1 0.7.3",
  "subtle",
  "zeroize",
 ]
@@ -1693,7 +1772,7 @@ version = "0.8.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7268b386296a025e474d5140678f75d6de9493ae55a5d709eeb9dd08149945e1"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
 ]
 
 [[package]]
@@ -1773,6 +1852,16 @@ name = "ff"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d013fc25338cc558c5c2cfbad646908fb23591e2404481826742b651c9af7160"
+dependencies = [
+ "rand_core 0.6.4",
+ "subtle",
+]
+
+[[package]]
+name = "ff"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ded41244b729663b1e574f1b4fb731469f69f79c17667b5d776b16cda0479449"
 dependencies = [
  "rand_core 0.6.4",
  "subtle",
@@ -1958,7 +2047,7 @@ dependencies = [
  "ahash 0.7.6",
  "bit-vec",
  "cc",
- "cfg-if 1.0.0",
+ "cfg-if",
  "fastrand 1.9.0",
  "flate2",
  "fuzzcheck_common",
@@ -2001,6 +2090,7 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
+ "zeroize",
 ]
 
 [[package]]
@@ -2018,7 +2108,7 @@ version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fc3cb4d91f53b50155bdcfd23f6a4c39ae1969c2ae85982b135750cccaf5fce"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "libc",
  "wasi 0.9.0+wasi-snapshot-preview1",
 ]
@@ -2029,7 +2119,7 @@ version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be4136b2a15dd319360be1c07d9933517ccf0be8f16bf62a3bee4f0d618df427"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "js-sys",
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
@@ -2114,7 +2204,18 @@ version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5dfbfb3a6cfbd390d5c9564ab283a0349b9b9fcd46a706c1eb10e0db70bfbac7"
 dependencies = [
- "ff",
+ "ff 0.12.1",
+ "rand_core 0.6.4",
+ "subtle",
+]
+
+[[package]]
+name = "group"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0f9ef7462f7c099f518d754361858f86d8a07af53ba9af0fe635bbccb151a63"
+dependencies = [
+ "ff 0.13.0",
  "rand_core 0.6.4",
  "subtle",
 ]
@@ -2455,6 +2556,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0c10553d664a4d0bcff9f4215d0aac67a639cc68ef660840afe309b807bc9f5"
 dependencies = [
+ "block-padding 0.3.3",
  "generic-array",
 ]
 
@@ -2464,7 +2566,7 @@ version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a5bbe824c507c5da5956355e86a746d82e0e1464f65d862cc5e71da70e94b2c"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
 ]
 
 [[package]]
@@ -2483,25 +2585,25 @@ dependencies = [
  "tokio",
  "waitgroup",
  "webrtc-srtp 0.9.1",
- "webrtc-util 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util 0.7.0",
 ]
 
 [[package]]
 name = "interceptor"
-version = "0.9.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.10.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "async-trait",
  "bytes",
  "log",
  "rand 0.8.5",
- "rtcp 0.9.0",
- "rtp 0.8.0",
+ "rtcp 0.10.0",
+ "rtp 0.9.0",
  "thiserror",
  "tokio",
  "waitgroup",
- "webrtc-srtp 0.10.0",
- "webrtc-util 0.7.0 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "webrtc-srtp 0.11.0",
+ "webrtc-util 0.8.0",
 ]
 
 [[package]]
@@ -3025,7 +3127,7 @@ dependencies = [
  "libp2p-core",
  "libp2p-identity",
  "rcgen 0.10.0",
- "ring",
+ "ring 0.16.20",
  "rustls 0.20.9",
  "thiserror",
  "webpki 0.22.2",
@@ -3056,7 +3158,7 @@ dependencies = [
  "rcgen 0.9.3",
  "serde",
  "sha2 0.10.8",
- "stun 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stun 0.4.4",
  "thiserror",
  "tinytemplate",
  "tokio",
@@ -3172,7 +3274,7 @@ version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "digest 0.10.7",
 ]
 
@@ -3576,7 +3678,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa52e972a9a719cecb6864fb88568781eb706bac2cd1d4f04a648542dbf78069"
 dependencies = [
  "bitflags 1.3.2",
- "cfg-if 1.0.0",
+ "cfg-if",
  "libc",
  "memoffset 0.6.5",
 ]
@@ -3588,7 +3690,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "598beaf3cc6fdd9a5dfb1630c2800c7acd31df7aaf0f565796fba2b53ca1af1b"
 dependencies = [
  "bitflags 1.3.2",
- "cfg-if 1.0.0",
+ "cfg-if",
  "libc",
  "memoffset 0.7.1",
  "pin-utils",
@@ -3948,6 +4050,7 @@ dependencies = [
  "clap",
  "console",
  "documented",
+ "lazy_static",
  "libp2p",
  "mina-p2p-messages",
  "mina-tree",
@@ -3984,8 +4087,20 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51f44edd08f51e2ade572f141051021c5af22677e42b7dd28a88155151c33594"
 dependencies = [
- "ecdsa",
- "elliptic-curve",
+ "ecdsa 0.14.8",
+ "elliptic-curve 0.12.3",
+ "sha2 0.10.8",
+]
+
+[[package]]
+name = "p256"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9863ad85fa8f4460f9c48cb909d38a0d689dba1f6f6988a5e3e0d31071bcd4b"
+dependencies = [
+ "ecdsa 0.16.8",
+ "elliptic-curve 0.13.6",
+ "primeorder",
  "sha2 0.10.8",
 ]
 
@@ -3994,9 +4109,11 @@ name = "p2p"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "binprot",
+ "binprot_derive",
  "bs58",
  "bytes",
- "cfg-if 1.0.0",
+ "cfg-if",
  "derive_more",
  "ecies-ed25519",
  "ed25519-dalek 2.0.0",
@@ -4023,8 +4140,9 @@ dependencies = [
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-timer",
  "web-sys",
- "webrtc 0.8.0",
+ "webrtc 0.9.0",
 ]
 
 [[package]]
@@ -4033,8 +4151,20 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfc8c5bf642dde52bb9e87c0ecd8ca5a76faac2eeed98dedb7c717997e1080aa"
 dependencies = [
- "ecdsa",
- "elliptic-curve",
+ "ecdsa 0.14.8",
+ "elliptic-curve 0.12.3",
+ "sha2 0.10.8",
+]
+
+[[package]]
+name = "p384"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70786f51bcc69f6a4c0360e063a4cac5419ef7c5cd5b3c99ad70f3be5ba79209"
+dependencies = [
+ "ecdsa 0.16.8",
+ "elliptic-curve 0.13.6",
+ "primeorder",
  "sha2 0.10.8",
 ]
 
@@ -4044,7 +4174,7 @@ version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f9f08af0c877571712e2e3e686ad79efad9657dbf0f7c3c8ba943ff6c38932d"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "num-traits",
 ]
 
@@ -4081,7 +4211,7 @@ version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60a2cfe6f0ad2bfc16aefa463b497d5c7a5ecd44a23efa72aa342d90177356dc"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "instant",
  "libc",
  "redox_syscall 0.2.16",
@@ -4095,7 +4225,7 @@ version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93f00c865fe7cabf650081affecd3871070f26767e7b2070a3ffae14c654b447"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "libc",
  "redox_syscall 0.3.5",
  "smallvec",
@@ -4118,10 +4248,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "pem"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3163d2912b7c3b52d651a055f2c7eec9ba5cd22d26ef75b8dd3a59980b185923"
+dependencies = [
+ "base64 0.21.4",
+ "serde",
+]
+
+[[package]]
 name = "pem-rfc7468"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24d159833a9105500e0398934e205e0773f0b27529557134ecfc51c27646adac"
+dependencies = [
+ "base64ct",
+]
+
+[[package]]
+name = "pem-rfc7468"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88b39c9bfcfc231068454382784bb460aae594343fb030d46e9f50a645418412"
 dependencies = [
  "base64ct",
 ]
@@ -4215,7 +4364,7 @@ checksum = "4b2d323e8ca7996b3e23126511a523f7e62924d93ecd5ae73b333815b0eb3dce"
 dependencies = [
  "autocfg",
  "bitflags 1.3.2",
- "cfg-if 1.0.0",
+ "cfg-if",
  "concurrent-queue",
  "libc",
  "log",
@@ -4275,7 +4424,7 @@ version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8419d2b623c7c0896ff2d5d96e2cb4ede590fed28fcc34934f4c33c036e620a1"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "cpufeatures",
  "opaque-debug",
  "universal-hash 0.4.1",
@@ -4287,7 +4436,7 @@ version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d52cff9d1d4dee5fe6d03729099f4a310a41179e0a10dbf542039873f2e826fb"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "cpufeatures",
  "opaque-debug",
  "universal-hash 0.5.1",
@@ -4298,6 +4447,15 @@ name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
+
+[[package]]
+name = "primeorder"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c2fcef82c0ec6eefcc179b978446c399b3cdf73c392c35604e399eee6df1ee3"
+dependencies = [
+ "elliptic-curve 0.13.6",
+]
 
 [[package]]
 name = "proc-macro-crate"
@@ -4400,7 +4558,7 @@ checksum = "c956be1b23f4261676aed05a0046e204e8a6836e50203902683a718af0797989"
 dependencies = [
  "bytes",
  "rand 0.8.5",
- "ring",
+ "ring 0.16.20",
  "rustc-hash",
  "rustls 0.20.9",
  "slab",
@@ -4540,8 +4698,8 @@ version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6413f3de1edee53342e6138e75b56d32e7bc6e332b3bd62d497b1929d4cfbcdd"
 dependencies = [
- "pem",
- "ring",
+ "pem 1.1.1",
+ "ring 0.16.20",
  "time",
  "x509-parser 0.13.2",
  "yasna",
@@ -4553,10 +4711,22 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffbe84efe2f38dea12e9bfc1f65377fdf03e53a18cb3b995faedf7934c7e785b"
 dependencies = [
- "pem",
- "ring",
+ "pem 1.1.1",
+ "ring 0.16.20",
  "time",
- "x509-parser 0.14.0",
+ "yasna",
+]
+
+[[package]]
+name = "rcgen"
+version = "0.11.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52c4f3084aa3bc7dfbba4eff4fab2a54db4324965d8872ab933565e6fbd83bc6"
+dependencies = [
+ "pem 3.0.2",
+ "ring 0.16.20",
+ "time",
+ "x509-parser 0.15.1",
  "yasna",
 ]
 
@@ -4668,9 +4838,19 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7743f17af12fa0b03b803ba12cd6a8d9483a587e89c69445e3909655c0b9fabb"
 dependencies = [
- "crypto-bigint",
+ "crypto-bigint 0.4.9",
  "hmac 0.12.1",
  "zeroize",
+]
+
+[[package]]
+name = "rfc6979"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
+dependencies = [
+ "hmac 0.12.1",
+ "subtle",
 ]
 
 [[package]]
@@ -4683,9 +4863,23 @@ dependencies = [
  "libc",
  "once_cell",
  "spin 0.5.2",
- "untrusted",
+ "untrusted 0.7.1",
  "web-sys",
  "winapi",
+]
+
+[[package]]
+name = "ring"
+version = "0.17.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb0205304757e5d899b9c2e448b867ffd03ae7f988002e47cd24954391394d0b"
+dependencies = [
+ "cc",
+ "getrandom 0.2.10",
+ "libc",
+ "spin 0.9.8",
+ "untrusted 0.9.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -4718,17 +4912,17 @@ checksum = "1919efd6d4a6a85d13388f9487549bb8e359f17198cc03ffd72f79b553873691"
 dependencies = [
  "bytes",
  "thiserror",
- "webrtc-util 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util 0.7.0",
 ]
 
 [[package]]
 name = "rtcp"
-version = "0.9.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.10.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "bytes",
  "thiserror",
- "webrtc-util 0.7.0 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "webrtc-util 0.8.0",
 ]
 
 [[package]]
@@ -4757,19 +4951,19 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "thiserror",
- "webrtc-util 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util 0.7.0",
 ]
 
 [[package]]
 name = "rtp"
-version = "0.8.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.9.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "bytes",
  "rand 0.8.5",
  "serde",
  "thiserror",
- "webrtc-util 0.7.0 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "webrtc-util 0.8.0",
 ]
 
 [[package]]
@@ -4852,7 +5046,7 @@ checksum = "35edb675feee39aec9c99fa5ff985081995a06d594114ae14cbe797ad7b7a6d7"
 dependencies = [
  "base64 0.13.1",
  "log",
- "ring",
+ "ring 0.16.20",
  "sct 0.6.1",
  "webpki 0.21.4",
 ]
@@ -4864,9 +5058,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b80e3dec595989ea8510028f30c408a4630db12c9cbb8de34203b89d6577e99"
 dependencies = [
  "log",
- "ring",
+ "ring 0.16.20",
  "sct 0.7.0",
  "webpki 0.22.2",
+]
+
+[[package]]
+name = "rustls"
+version = "0.21.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "446e14c5cda4f3f30fe71863c34ec70f5ac79d6087097ad0bb433e1be5edf04c"
+dependencies = [
+ "log",
+ "ring 0.17.5",
+ "rustls-webpki",
+ "sct 0.7.0",
 ]
 
 [[package]]
@@ -4876,6 +5082,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d3987094b1d07b653b7dfdc3f70ce9a1da9c51ac18c1b06b662e4f9a0e9f4b2"
 dependencies = [
  "base64 0.21.4",
+]
+
+[[package]]
+name = "rustls-webpki"
+version = "0.101.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
+dependencies = [
+ "ring 0.17.5",
+ "untrusted 0.9.0",
 ]
 
 [[package]]
@@ -4927,8 +5143,8 @@ version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b362b83898e0e69f38515b82ee15aa80636befe47c3b6d3d89a911e78fc228ce"
 dependencies = [
- "ring",
- "untrusted",
+ "ring 0.16.20",
+ "untrusted 0.7.1",
 ]
 
 [[package]]
@@ -4937,8 +5153,8 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d53dcdb7c9f8158937a7981b48accfd39a43af418591a5d008c7b22b5e1b7ca4"
 dependencies = [
- "ring",
- "untrusted",
+ "ring 0.16.20",
+ "untrusted 0.7.1",
 ]
 
 [[package]]
@@ -4955,8 +5171,8 @@ dependencies = [
 
 [[package]]
 name = "sdp"
-version = "0.5.3"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.6.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "rand 0.8.5",
  "substring",
@@ -4970,10 +5186,24 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3be24c1842290c45df0a7bf069e0c268a747ad05a192f2fd7dcfdbc1cba40928"
 dependencies = [
- "base16ct",
+ "base16ct 0.1.1",
  "der 0.6.1",
  "generic-array",
  "pkcs8 0.9.0",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "sec1"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3e97a565f76233a6003f9f5c54be1d9c5bdfa3eccfb189469f11ec4901c47dc"
+dependencies = [
+ "base16ct 0.2.0",
+ "der 0.7.8",
+ "generic-array",
+ "pkcs8 0.10.2",
  "subtle",
  "zeroize",
 ]
@@ -5094,7 +5324,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99cd6713db3cf16b6c84e06321e049a9b9f699826e16096d23bbcc44d15d51a6"
 dependencies = [
  "block-buffer 0.9.0",
- "cfg-if 1.0.0",
+ "cfg-if",
  "cpufeatures",
  "digest 0.9.0",
  "opaque-debug",
@@ -5106,7 +5336,7 @@ version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "cpufeatures",
  "digest 0.10.7",
 ]
@@ -5118,7 +5348,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d58a1e1bf39749807d89cf2d98ac2dfa0ff1cb3faa38fbb64dd88ac8013d800"
 dependencies = [
  "block-buffer 0.9.0",
- "cfg-if 1.0.0",
+ "cfg-if",
  "cpufeatures",
  "digest 0.9.0",
  "opaque-debug",
@@ -5130,7 +5360,7 @@ version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "cpufeatures",
  "digest 0.10.7",
 ]
@@ -5193,6 +5423,10 @@ name = "signature"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e1788eed21689f9cf370582dfc467ef36ed9c707f073528ddafa8d83e3b8500"
+dependencies = [
+ "digest 0.10.7",
+ "rand_core 0.6.4",
+]
 
 [[package]]
 name = "slab"
@@ -5272,7 +5506,7 @@ dependencies = [
  "chacha20poly1305",
  "curve25519-dalek 4.1.1",
  "rand_core 0.6.4",
- "ring",
+ "ring 0.16.20",
  "rustc_version 0.4.0",
  "sha2 0.10.8",
  "subtle",
@@ -5372,30 +5606,30 @@ dependencies = [
  "lazy_static",
  "md-5",
  "rand 0.8.5",
- "ring",
+ "ring 0.16.20",
  "subtle",
  "thiserror",
  "tokio",
  "url",
- "webrtc-util 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util 0.7.0",
 ]
 
 [[package]]
 name = "stun"
-version = "0.4.4"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.5.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "base64 0.21.4",
  "crc",
  "lazy_static",
  "md-5",
  "rand 0.8.5",
- "ring",
+ "ring 0.17.5",
  "subtle",
  "thiserror",
  "tokio",
  "url",
- "webrtc-util 0.7.0 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "webrtc-util 0.8.0",
 ]
 
 [[package]]
@@ -5459,7 +5693,7 @@ version = "0.29.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a18d114d420ada3a891e6bc8e96a2023402203296a47cdd65083377dad18ba5"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "core-foundation-sys",
  "libc",
  "ntapi",
@@ -5500,7 +5734,7 @@ version = "3.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb94d2f3cc536af71caac6b6fcebf65860b347e7ce0cc9ebe8f70d3e521054ef"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "fastrand 2.0.1",
  "redox_syscall 0.3.5",
  "rustix 0.38.17",
@@ -5533,7 +5767,7 @@ version = "1.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdd6f064ccff2d6567adcb3873ca630700f00b5ad3f060c25b5dcfd9a4ce152"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "once_cell",
 ]
 
@@ -5721,7 +5955,7 @@ version = "0.1.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ce8c33a8d48bd45d624a6e523445fd21ec13d3653cd51f681abf67418f54eb8"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "log",
  "pin-project-lite",
  "tracing-attributes",
@@ -5798,7 +6032,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f7f83d1e4a0e4358ac54c5c3681e5d7da5efc5a7a632c90bb6d6669ddd9bc26"
 dependencies = [
  "async-trait",
- "cfg-if 1.0.0",
+ "cfg-if",
  "data-encoding",
  "enum-as-inner",
  "futures-channel",
@@ -5823,7 +6057,7 @@ version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aff21aa4dcefb0a1afbfac26deb0adc93888c7d295fb63ab273ef276ba2b7cfe"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "futures-util",
  "ipconfig",
  "lazy_static",
@@ -5880,17 +6114,17 @@ dependencies = [
  "log",
  "md-5",
  "rand 0.8.5",
- "ring",
- "stun 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ring 0.16.20",
+ "stun 0.4.4",
  "thiserror",
  "tokio",
- "webrtc-util 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util 0.7.0",
 ]
 
 [[package]]
 name = "turn"
-version = "0.6.1"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.7.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "async-trait",
  "base64 0.21.4",
@@ -5898,11 +6132,11 @@ dependencies = [
  "log",
  "md-5",
  "rand 0.8.5",
- "ring",
- "stun 0.4.4 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "ring 0.17.5",
+ "stun 0.5.0",
  "thiserror",
  "tokio",
- "webrtc-util 0.7.0 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "webrtc-util 0.8.0",
 ]
 
 [[package]]
@@ -6025,6 +6259,12 @@ name = "untrusted"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a156c684c91ea7d62626509bce3cb4e1d9ed5c4d978f7b4352658f96a4c26b4a"
+
+[[package]]
+name = "untrusted"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 
 [[package]]
 name = "url"
@@ -6174,7 +6414,7 @@ version = "0.2.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7706a72ab36d8cb1f80ffbf0e071533974a60d0a308d01a5d0375bf60499a342"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "wasm-bindgen-macro",
 ]
 
@@ -6199,7 +6439,7 @@ version = "0.4.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c02dbc21516f9f1f04f187958890d7e6026df8d16540b7ad9492bc34a67cea03"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "js-sys",
  "wasm-bindgen",
  "web-sys",
@@ -6301,8 +6541,8 @@ version = "0.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8e38c0608262c46d4a56202ebabdeb094cef7e560ca7a226c6bf055188aa4ea"
 dependencies = [
- "ring",
- "untrusted",
+ "ring 0.16.20",
+ "untrusted 0.7.1",
 ]
 
 [[package]]
@@ -6311,8 +6551,8 @@ version = "0.22.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07ecc0cd7cac091bf682ec5efa18b1cff79d617b84181f38b3951dbe135f607f"
 dependencies = [
- "ring",
- "untrusted",
+ "ring 0.16.20",
+ "untrusted 0.7.1",
 ]
 
 [[package]]
@@ -6331,71 +6571,71 @@ dependencies = [
  "rand 0.8.5",
  "rcgen 0.9.3",
  "regex",
- "ring",
+ "ring 0.16.20",
  "rtcp 0.7.2",
  "rtp 0.6.8",
  "rustls 0.19.1",
- "sdp 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sdp 0.5.3",
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "stun 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stun 0.4.4",
  "thiserror",
  "time",
  "tokio",
- "turn 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "turn 0.6.1",
  "url",
  "waitgroup",
  "webrtc-data 0.6.0",
- "webrtc-dtls 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "webrtc-ice 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "webrtc-mdns 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-dtls 0.7.2",
+ "webrtc-ice 0.9.1",
+ "webrtc-mdns 0.5.2",
  "webrtc-media 0.5.1",
  "webrtc-sctp 0.7.0",
  "webrtc-srtp 0.9.1",
- "webrtc-util 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util 0.7.0",
 ]
 
 [[package]]
 name = "webrtc"
-version = "0.8.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.9.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "arc-swap",
  "async-trait",
  "bytes",
- "cfg-if 0.1.10",
+ "cfg-if",
  "hex",
- "interceptor 0.9.0",
+ "interceptor 0.10.0",
  "lazy_static",
  "log",
  "rand 0.8.5",
- "rcgen 0.10.0",
+ "rcgen 0.11.3",
  "regex",
- "ring",
- "rtcp 0.9.0",
- "rtp 0.8.0",
- "rustls 0.19.1",
- "sdp 0.5.3 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "ring 0.17.5",
+ "rtcp 0.10.0",
+ "rtp 0.9.0",
+ "rustls 0.21.8",
+ "sdp 0.6.0",
  "serde",
  "serde_json",
  "sha2 0.10.8",
  "smol_str",
- "stun 0.4.4 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "stun 0.5.0",
  "thiserror",
  "time",
  "tokio",
- "turn 0.6.1 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "turn 0.7.0",
  "url",
  "waitgroup",
- "webrtc-data 0.7.0",
- "webrtc-dtls 0.7.2 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
- "webrtc-ice 0.9.1 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
- "webrtc-mdns 0.5.2 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
- "webrtc-media 0.6.1",
- "webrtc-sctp 0.8.0",
- "webrtc-srtp 0.10.0",
- "webrtc-util 0.7.0 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "webrtc-data 0.8.0",
+ "webrtc-dtls 0.8.0",
+ "webrtc-ice 0.10.0",
+ "webrtc-mdns 0.6.0",
+ "webrtc-media 0.7.0",
+ "webrtc-sctp 0.9.0",
+ "webrtc-srtp 0.11.0",
+ "webrtc-util 0.8.0",
 ]
 
 [[package]]
@@ -6410,20 +6650,20 @@ dependencies = [
  "thiserror",
  "tokio",
  "webrtc-sctp 0.7.0",
- "webrtc-util 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util 0.7.0",
 ]
 
 [[package]]
 name = "webrtc-data"
-version = "0.7.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.8.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "bytes",
  "log",
  "thiserror",
  "tokio",
- "webrtc-sctp 0.8.0",
- "webrtc-util 0.7.0 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "webrtc-sctp 0.9.0",
+ "webrtc-util 0.8.0",
 ]
 
 [[package]]
@@ -6438,21 +6678,21 @@ dependencies = [
  "bincode",
  "block-modes",
  "byteorder",
- "ccm",
+ "ccm 0.3.0",
  "curve25519-dalek 3.2.0",
  "der-parser 8.2.0",
- "elliptic-curve",
+ "elliptic-curve 0.12.3",
  "hkdf 0.12.3",
  "hmac 0.12.1",
  "log",
- "p256",
- "p384",
+ "p256 0.11.1",
+ "p384 0.11.2",
  "rand 0.8.5",
  "rand_core 0.6.4",
  "rcgen 0.10.0",
- "ring",
+ "ring 0.16.20",
  "rustls 0.19.1",
- "sec1",
+ "sec1 0.3.0",
  "serde",
  "sha1",
  "sha2 0.10.8",
@@ -6461,45 +6701,44 @@ dependencies = [
  "thiserror",
  "tokio",
  "webpki 0.21.4",
- "webrtc-util 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util 0.7.0",
  "x25519-dalek 2.0.0",
  "x509-parser 0.13.2",
 ]
 
 [[package]]
 name = "webrtc-dtls"
-version = "0.7.2"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.8.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
- "aes 0.6.0",
+ "aes 0.8.3",
  "aes-gcm 0.10.3",
  "async-trait",
  "bincode",
- "block-modes",
  "byteorder",
- "ccm",
+ "cbc",
+ "ccm 0.5.0",
  "der-parser 8.2.0",
  "hkdf 0.12.3",
  "hmac 0.12.1",
  "log",
- "p256",
- "p384",
+ "p256 0.13.2",
+ "p384 0.13.0",
  "rand 0.8.5",
  "rand_core 0.6.4",
- "rcgen 0.10.0",
- "ring",
- "rustls 0.19.1",
- "sec1",
+ "rcgen 0.11.3",
+ "ring 0.17.5",
+ "rustls 0.21.8",
+ "sec1 0.7.3",
  "serde",
  "sha1",
  "sha2 0.10.8",
  "subtle",
  "thiserror",
  "tokio",
- "webpki 0.21.4",
- "webrtc-util 0.7.0 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "webrtc-util 0.8.0",
  "x25519-dalek 2.0.0",
- "x509-parser 0.13.2",
+ "x509-parser 0.15.1",
 ]
 
 [[package]]
@@ -6515,21 +6754,21 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
- "stun 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "stun 0.4.4",
  "thiserror",
  "tokio",
- "turn 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "turn 0.6.1",
  "url",
  "uuid 1.4.1",
  "waitgroup",
- "webrtc-mdns 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "webrtc-util 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-mdns 0.5.2",
+ "webrtc-util 0.7.0",
 ]
 
 [[package]]
 name = "webrtc-ice"
-version = "0.9.1"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.10.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -6538,15 +6777,15 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
- "stun 0.4.4 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "stun 0.5.0",
  "thiserror",
  "tokio",
- "turn 0.6.1 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "turn 0.7.0",
  "url",
  "uuid 1.4.1",
  "waitgroup",
- "webrtc-mdns 0.5.2 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
- "webrtc-util 0.7.0 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "webrtc-mdns 0.6.0",
+ "webrtc-util 0.8.0",
 ]
 
 [[package]]
@@ -6559,19 +6798,19 @@ dependencies = [
  "socket2 0.4.9",
  "thiserror",
  "tokio",
- "webrtc-util 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util 0.7.0",
 ]
 
 [[package]]
 name = "webrtc-mdns"
-version = "0.5.2"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.6.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "log",
- "socket2 0.4.9",
+ "socket2 0.5.4",
  "thiserror",
  "tokio",
- "webrtc-util 0.7.0 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "webrtc-util 0.8.0",
 ]
 
 [[package]]
@@ -6589,13 +6828,13 @@ dependencies = [
 
 [[package]]
 name = "webrtc-media"
-version = "0.6.1"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.7.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "byteorder",
  "bytes",
  "rand 0.8.5",
- "rtp 0.8.0",
+ "rtp 0.9.0",
  "thiserror",
 ]
 
@@ -6613,13 +6852,13 @@ dependencies = [
  "rand 0.8.5",
  "thiserror",
  "tokio",
- "webrtc-util 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util 0.7.0",
 ]
 
 [[package]]
 name = "webrtc-sctp"
-version = "0.8.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.9.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -6629,7 +6868,7 @@ dependencies = [
  "rand 0.8.5",
  "thiserror",
  "tokio",
- "webrtc-util 0.7.0 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "webrtc-util 0.8.0",
 ]
 
 [[package]]
@@ -6653,29 +6892,29 @@ dependencies = [
  "subtle",
  "thiserror",
  "tokio",
- "webrtc-util 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "webrtc-util 0.7.0",
 ]
 
 [[package]]
 name = "webrtc-srtp"
-version = "0.10.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.11.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
- "aead 0.4.3",
- "aes 0.7.5",
+ "aead 0.5.2",
+ "aes 0.8.3",
  "aes-gcm 0.10.3",
  "byteorder",
  "bytes",
- "ctr 0.8.0",
+ "ctr 0.9.2",
  "hmac 0.12.1",
  "log",
- "rtcp 0.9.0",
- "rtp 0.8.0",
+ "rtcp 0.10.0",
+ "rtp 0.9.0",
  "sha1",
  "subtle",
  "thiserror",
  "tokio",
- "webrtc-util 0.7.0 (git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd)",
+ "webrtc-util 0.8.0",
 ]
 
 [[package]]
@@ -6701,8 +6940,8 @@ dependencies = [
 
 [[package]]
 name = "webrtc-util"
-version = "0.7.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-dd340dd#a4d86371cd37787911d33d46aebb49961b27704b"
+version = "0.8.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
 dependencies = [
  "async-trait",
  "bitflags 1.3.2",
@@ -6937,7 +7176,7 @@ version = "0.50.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if",
  "windows-sys 0.48.0",
 ]
 
@@ -6986,26 +7225,7 @@ dependencies = [
  "lazy_static",
  "nom",
  "oid-registry 0.4.0",
- "ring",
- "rusticata-macros",
- "thiserror",
- "time",
-]
-
-[[package]]
-name = "x509-parser"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0ecbeb7b67ce215e40e3cc7f2ff902f94a223acf44995934763467e7b1febc8"
-dependencies = [
- "asn1-rs 0.5.2",
- "base64 0.13.1",
- "data-encoding",
- "der-parser 8.2.0",
- "lazy_static",
- "nom",
- "oid-registry 0.6.1",
- "ring",
+ "ring 0.16.20",
  "rusticata-macros",
  "thiserror",
  "time",
@@ -7023,6 +7243,7 @@ dependencies = [
  "lazy_static",
  "nom",
  "oid-registry 0.6.1",
+ "ring 0.16.20",
  "rusticata-macros",
  "thiserror",
  "time",

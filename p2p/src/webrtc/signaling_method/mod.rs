@@ -3,10 +3,11 @@ pub use http::HttpSignalingInfo;
 
 use std::{fmt, str::FromStr};
 
+use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone)]
+#[derive(BinProtWrite, BinProtRead, Eq, PartialEq, Ord, PartialOrd, Debug, Clone)]
 pub enum SignalingMethod {
     Http(HttpSignalingInfo),
     Https(HttpSignalingInfo),

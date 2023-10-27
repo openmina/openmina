@@ -1,5 +1,3 @@
-use url::Host;
-
 use crate::connection::incoming::{IncomingSignalingMethod, P2pConnectionIncomingAction};
 use crate::connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts};
 use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
@@ -20,6 +18,7 @@ impl P2pState {
                 let peer = match action {
                     P2pConnectionAction::Outgoing(P2pConnectionOutgoingAction::Init(v)) => {
                         self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                            is_libp2p: v.opts.is_libp2p(),
                             dial_opts: Some(v.opts.clone()),
                             status: P2pPeerStatus::Connecting(P2pConnectionState::outgoing_init(
                                 &v.opts,
@@ -28,20 +27,19 @@ impl P2pState {
                     }
                     P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Init(v)) => {
                         self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                            is_libp2p: false,
                             dial_opts: {
-                                Host::parse(&v.opts.offer.host).ok().map(|host| {
-                                    let signaling = match v.opts.signaling {
-                                        IncomingSignalingMethod::Http => {
-                                            SignalingMethod::Http(HttpSignalingInfo {
-                                                host,
-                                                port: v.opts.offer.listen_port,
-                                            })
-                                        }
-                                    };
-                                    P2pConnectionOutgoingInitOpts::WebRTC {
-                                        peer_id: *peer_id,
-                                        signaling,
+                                let signaling = match v.opts.signaling {
+                                    IncomingSignalingMethod::Http => {
+                                        SignalingMethod::Http(HttpSignalingInfo {
+                                            host: v.opts.offer.host.clone(),
+                                            port: v.opts.offer.listen_port,
+                                        })
                                     }
+                                };
+                                Some(P2pConnectionOutgoingInitOpts::WebRTC {
+                                    peer_id: *peer_id,
+                                    signaling,
                                 })
                             },
                             status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(
@@ -53,6 +51,7 @@ impl P2pState {
                         _,
                     )) => {
                         self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                            is_libp2p: true,
                             dial_opts: None,
                             // correct status later set in the child reducer.
                             status: P2pPeerStatus::Disconnected { time: meta.time() },

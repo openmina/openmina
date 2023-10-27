@@ -168,7 +168,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
                     .cloned()
                     .collect();
 
-                let own_peer_id = store.state().p2p.config.identity_pub_key.peer_id();
+                let own_peer_id = store.state().p2p.my_id();
                 let orphaned_snarks = transition_frontier
                     .best_chain
                     .iter()

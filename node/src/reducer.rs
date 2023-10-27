@@ -7,12 +7,20 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
     match action.action() {
         Action::CheckTimeouts(_) => {}
         Action::EventSource(EventSourceAction::NewEvent(content)) => match &content.event {
+            #[cfg(not(target_arch = "wasm32"))]
             Event::P2p(P2pEvent::Libp2pIdentify(peer_id, maddr)) => {
                 if let Some(peer) = state.p2p.peers.get_mut(peer_id) {
-                    peer.dial_opts = Some(P2pConnectionOutgoingInitOpts::LibP2P {
-                        peer_id: *peer_id,
-                        maddr: maddr.clone(),
-                    });
+                    match maddr.try_into() {
+                        Ok(opts) => {
+                            peer.dial_opts = Some(P2pConnectionOutgoingInitOpts::LibP2P(opts));
+                        }
+                        Err(err) => {
+                            openmina_core::warn!(meta.time();
+                                kind = "P2pConnectionOutgoingInitOptsParseError",
+                                summary = format!("failed to parse {maddr}"),
+                                error = err.to_string());
+                        }
+                    }
                 }
             }
             _ => {}

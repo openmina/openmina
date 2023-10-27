@@ -38,7 +38,7 @@ impl SoloNodeSyncRootSnarkedLedger {
         const REPLAYER_1: &'static str =
             "/ip4/65.109.110.75/tcp/18302/p2p/12D3KooWD8jSyPFXNdAcMBHyHjRBcK1AW9t3xvnpfCFSRKMweVKi";
         const REPLAYER_2: &'static str =
-            "/ip4/65.109.110.75/tcp/18303/p2p/12D3KooWMxLc3Me4LC2yFUokjhGN8JzbjtwSYVcisWkVtCoUALAK";
+            "/ip4/65.109.110.75/tcp/18303/p2p/12D3KooWBxbfeaxGHxdxP3U5jRKpNK5wQmbjKywGJEqTCNpVPxqk";
 
         // Initiate connection to 2 replayers.
         runner
@@ -58,7 +58,7 @@ impl SoloNodeSyncRootSnarkedLedger {
 
         loop {
             if !runner
-                .wait_for_pending_events_with_timeout(Duration::from_secs(5))
+                .wait_for_pending_events_with_timeout(Duration::from_secs(10))
                 .await
             {
                 panic!("waiting for connection event timed out");

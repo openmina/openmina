@@ -1,12 +1,15 @@
 use std::{fmt, str::FromStr};
 
+use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
+
+use crate::webrtc::Host;
 
 use super::SignalingMethodParseError;
 
-#[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Clone)]
+#[derive(BinProtWrite, BinProtRead, Eq, PartialEq, Ord, PartialOrd, Debug, Clone)]
 pub struct HttpSignalingInfo {
-    pub host: url::Host,
+    pub host: Host,
     pub port: u16,
 }
 
@@ -19,7 +22,7 @@ impl fmt::Display for HttpSignalingInfo {
 impl From<([u8; 4], u16)> for HttpSignalingInfo {
     fn from(value: ([u8; 4], u16)) -> Self {
         Self {
-            host: url::Host::Ipv4(value.0.into()),
+            host: Host::Ipv4(value.0.into()),
             port: value.1,
         }
     }
@@ -33,7 +36,7 @@ impl FromStr for HttpSignalingInfo {
         let host_str = iter
             .next()
             .ok_or(SignalingMethodParseError::NotEnoughArgs)?;
-        let host = url::Host::parse(host_str)
+        let host = Host::from_str(host_str)
             .map_err(|err| SignalingMethodParseError::HostParseError(err.to_string()))?;
 
         let port = iter

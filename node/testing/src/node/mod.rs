@@ -2,7 +2,9 @@ mod config;
 pub use config::{NodeTestingConfig, RustNodeTestingConfig};
 
 use node::event_source::{Event, EventSourceNewEventAction};
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use node::p2p::connection::outgoing::{
+    P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
+};
 use node::p2p::webrtc::SignalingMethod;
 use node::{Action, CheckTimeoutsAction, State, Store};
 use redux::EnablingCondition;
@@ -27,18 +29,18 @@ impl Node {
     }
 
     pub fn dial_addr(&self) -> P2pConnectionOutgoingInitOpts {
-        let peer_id = self.store.state().p2p.config.identity_pub_key.peer_id();
+        let peer_id = self.store.state().p2p.my_id();
         if self.service().rust_to_rust_use_webrtc() {
             let port = self.store.state().p2p.config.listen_port;
             let signaling = SignalingMethod::Http(([127, 0, 0, 1], port).into());
             P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling }
         } else {
-            let port = self.store.state().p2p.config.libp2p_port.unwrap();
-            let libp2p_peer_id = libp2p::PeerId::from(peer_id);
-            let maddr = format!("/ip4/127.0.0.1/tcp/{port}/p2p/{libp2p_peer_id}")
-                .parse()
-                .unwrap();
-            P2pConnectionOutgoingInitOpts::LibP2P { peer_id, maddr }
+            let opts = P2pConnectionOutgoingInitLibp2pOpts {
+                peer_id,
+                host: node::p2p::webrtc::Host::Ipv4([127, 0, 0, 1].into()),
+                port: self.store.state().p2p.config.libp2p_port.unwrap(),
+            };
+            P2pConnectionOutgoingInitOpts::LibP2P(opts)
         }
     }
 
