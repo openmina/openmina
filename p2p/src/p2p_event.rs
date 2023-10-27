@@ -1,3 +1,5 @@
+use std::fmt;
+
 use derive_more::From;
 use openmina_core::snark::Snark;
 use serde::{Deserialize, Serialize};
@@ -15,7 +17,7 @@ pub enum P2pEvent {
     Connection(P2pConnectionEvent),
     Channel(P2pChannelEvent),
     Libp2pIdentify(PeerId, Multiaddr),
-    Discovery(P2pConnectionOutgoingInitOpts),
+    Discovery(P2pDiscoveryEvent),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -36,6 +38,12 @@ pub enum P2pChannelEvent {
     Closed(PeerId, ChannelId),
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pDiscoveryEvent {
+    Ready,
+    DidFindPeers(Vec<P2pConnectionOutgoingInitOpts>),
+}
+
 fn res_kind<T, E>(res: &Result<T, E>) -> &'static str {
     match res {
         Err(_) => "Err",
@@ -43,8 +51,8 @@ fn res_kind<T, E>(res: &Result<T, E>) -> &'static str {
     }
 }
 
-impl std::fmt::Display for P2pEvent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for P2pEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "P2p, ")?;
         match self {
             Self::Connection(v) => v.fmt(f),
@@ -52,15 +60,13 @@ impl std::fmt::Display for P2pEvent {
             Self::Libp2pIdentify(peer_id, addr) => {
                 write!(f, "{peer_id} {addr}")
             }
-            Self::Discovery(opts) => {
-                write!(f, "{}", opts.peer_id())
-            }
+            Self::Discovery(v) => v.fmt(f),
         }
     }
 }
 
-impl std::fmt::Display for P2pConnectionEvent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for P2pConnectionEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Connection, ")?;
         match self {
             Self::OfferSdpReady(peer_id, res) => {
@@ -86,8 +92,8 @@ impl std::fmt::Display for P2pConnectionEvent {
     }
 }
 
-impl std::fmt::Display for P2pChannelEvent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for P2pChannelEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use crate::channels::best_tip::BestTipPropagationChannelMsg;
         use crate::channels::rpc::RpcChannelMsg;
         use crate::channels::snark::SnarkPropagationChannelMsg;
@@ -181,6 +187,22 @@ impl std::fmt::Display for P2pChannelEvent {
                     },
                 }
             }
+        }
+    }
+}
+
+impl fmt::Display for P2pDiscoveryEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Ready => write!(f, "p2p discovery ready"),
+            Self::DidFindPeers(opts) => write!(
+                f,
+                "p2p discovered {}",
+                opts.iter()
+                    .map(|x| x.peer_id().to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
         }
     }
 }

@@ -17,6 +17,7 @@ pub struct P2pState {
     pub config: P2pConfig,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
     pub known_peers: BTreeMap<PeerId, P2pConnectionOutgoingInitOpts>,
+    pub kademlia_ready: bool,
 }
 
 impl P2pState {
@@ -30,6 +31,7 @@ impl P2pState {
             config,
             peers: Default::default(),
             known_peers,
+            kademlia_ready: false,
         }
     }
 

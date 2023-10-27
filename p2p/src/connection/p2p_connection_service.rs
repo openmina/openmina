@@ -19,4 +19,6 @@ pub trait P2pConnectionService: redux::Service {
     fn set_answer(&mut self, peer_id: PeerId, answer: webrtc::Answer);
 
     fn http_signaling_request(&mut self, url: String, offer: webrtc::Offer);
+
+    fn find_random_peer(&mut self);
 }

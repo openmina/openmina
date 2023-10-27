@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 use libp2p::{gossipsub, identify, swarm::NetworkBehaviour, PeerId};
 use openmina_core::channels::mpsc;
@@ -7,8 +7,8 @@ use crate::P2pEvent;
 
 use libp2p_rpc_behaviour::{Behaviour as RpcBehaviour, Event as RpcEvent, StreamId};
 
-use libp2p::kad;
 use libp2p::kad::record::store::MemoryStore;
+use libp2p::{kad, Multiaddr};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(to_swarm = "Event")]
@@ -18,7 +18,7 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
     pub identify: identify::Behaviour,
     pub kademlia: kad::Behaviour<MemoryStore>,
     #[behaviour(ignore)]
-    pub should_bootstrap: bool,
+    pub kademlia_state: KademliaState,
     #[behaviour(ignore)]
     pub event_source_sender: mpsc::UnboundedSender<E>,
     // TODO(vlad9486): move maps inside `RpcBehaviour`
@@ -29,6 +29,13 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
     //
     #[behaviour(ignore)]
     pub ongoing_incoming: BTreeMap<(PeerId, u32), (StreamId, String, i32)>,
+}
+
+#[derive(Default)]
+pub struct KademliaState {
+    pub bootstrap_id: Option<kad::QueryId>,
+    pub find_node_ids: HashSet<kad::QueryId>,
+    pub routing: BTreeMap<PeerId, Vec<Multiaddr>>,
 }
 
 #[allow(clippy::large_enum_variant)]

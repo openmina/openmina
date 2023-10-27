@@ -166,6 +166,10 @@ impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
     fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.real.libp2p
     }
+
+    fn find_random_peer(&mut self) {
+        self.real.find_random_peer()
+    }
 }
 
 impl SnarkBlockVerifyService for NodeTestingService {
