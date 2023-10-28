@@ -4884,6 +4884,7 @@ fn create_proof(
     type EFqSponge = DefaultFqSponge<VestaParameters, PlonkSpongeConstantsKimchi>;
     type EFrSponge = mina_poseidon::sponge::DefaultFrSponge<Fp, PlonkSpongeConstantsKimchi>;
 
+    let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
     let now = std::time::Instant::now();
     let prev = vec![];
     let group_map = kimchi::groupmap::GroupMap::<Fq>::setup();
@@ -4894,6 +4895,7 @@ fn create_proof(
         prover_index,
         prev,
         None,
+        &mut rng,
     )
     .unwrap();
 
@@ -5028,6 +5030,7 @@ fn generate_proof(
         type EFqSponge = DefaultFqSponge<PallasParameters, PlonkSpongeConstantsKimchi>;
         type EFrSponge = mina_poseidon::sponge::DefaultFrSponge<Fq, PlonkSpongeConstantsKimchi>;
 
+        let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
         let group_map = kimchi::groupmap::GroupMap::<Fp>::setup();
         let proof = kimchi::proof::ProverProof::create_recursive::<EFqSponge, EFrSponge>(
             &group_map,
@@ -5036,6 +5039,7 @@ fn generate_proof(
             &wrap_index,
             prev,
             None,
+            &mut rng,
         )
         .unwrap();
 
