@@ -610,8 +610,9 @@ impl Memo {
     }
 
     pub fn empty() -> Self {
-        // TODO
-        Self([0; 34])
+        let mut array = [0; 34];
+        array[0] = 1;
+        Self(array)
     }
 
     /// Example:
