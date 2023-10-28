@@ -3711,7 +3711,7 @@ pub mod transaction_snark {
 
         let can_create_fee_payer_account = {
             let fee_may_be_charged = token_default.or(&is_zero_fee, w);
-            is_coinbase_or_fee_transfer.or(&fee_may_be_charged, w)
+            is_coinbase_or_fee_transfer.and(&fee_may_be_charged, w)
         };
 
         let mut burned_tokens = CheckedAmount::<Fp>::zero();
@@ -3732,12 +3732,12 @@ pub mod transaction_snark {
             let is_empty_and_writeable = {
                 let is_writable = can_create_fee_payer_account;
                 let account_already_there = account.id().checked_equal(&fee_payer, w);
-                let account_not_there = checked_equal_compressed_key(
+                let account_not_there = checked_equal_compressed_key_const_and(
                     &account.public_key,
                     &CompressedPubKey::empty(),
                     w,
                 );
-                let not_there_but_writeable = account_not_there.const_and(&is_writable);
+                let not_there_but_writeable = account_not_there.and(&is_writable, w);
                 Boolean::assert_any(&[account_already_there, not_there_but_writeable], w);
                 not_there_but_writeable
             };
@@ -4140,12 +4140,12 @@ pub mod transaction_snark {
             let is_empty_and_writeable = {
                 let is_writable = user_command_failure.source_not_present.to_boolean();
                 let account_already_there = account.id().checked_equal(&source, w);
-                let account_not_there = checked_equal_compressed_key(
+                let account_not_there = checked_equal_compressed_key_const_and(
                     &account.public_key,
                     &CompressedPubKey::empty(),
                     w,
                 );
-                let not_there_but_writeable = account_not_there.const_and(&is_writable);
+                let not_there_but_writeable = account_not_there.and(&is_writable, w);
                 Boolean::assert_any(&[account_already_there, not_there_but_writeable], w);
                 not_there_but_writeable
             };
