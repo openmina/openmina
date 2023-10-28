@@ -143,10 +143,9 @@ pub fn wrap<F: FieldWitness>(x: F, params: &bw19::Params<F>, w: &mut Witness<F>)
 
     Boolean::assert_any(&[b1, b2, b3], w);
 
-    // We decompose this way because of OCaml evaluation order
-    let x3_is_first = (b1.neg().and(&b2.neg(), w).and(&b3, w)).to_field::<F>();
-    let x2_is_first = (b1.neg().and(&b2, w)).to_field::<F>();
     let x1_is_first = b1.to_field::<F>();
+    let x2_is_first = (b1.neg().and(&b2, w)).to_field::<F>();
+    let x3_is_first = (b1.neg().and(&b2.neg(), w).and(&b3, w)).to_field::<F>();
 
     // We decompose this way because of OCaml evaluation order
     let x3_is_first_y3 = field::mul(x3_is_first, y3, w);
