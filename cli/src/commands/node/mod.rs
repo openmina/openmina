@@ -28,8 +28,8 @@ use node::service::{Recorder, Service};
 use node::snark::{get_srs, get_verifier_index, VerifierKind};
 use node::stats::Stats;
 use node::{
-    BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig, State,
-    TransitionFrontierConfig,
+    BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig, SnarkerStrategy,
+    State, TransitionFrontierConfig,
 };
 
 use openmina_node_native::rpc::RpcService;
@@ -71,6 +71,9 @@ pub struct Node {
     /// Snark fee, in Mina
     #[arg(long, env, default_value_t = 1_000_000)]
     pub snarker_fee: u64,
+
+    #[arg(long, env, default_value = "seq")]
+    pub snarker_strategy: SnarkerStrategy,
 
     /// Mina snark worker path
     #[arg(long, env, default_value = "cli/bin/snark-worker")]
@@ -148,6 +151,7 @@ impl Node {
                     fee: CurrencyFeeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
                         self.snarker_fee.into(),
                     )),
+                    strategy: self.snarker_strategy,
                     auto_commit: true,
                     path: self.snarker_exe_path,
                 }),

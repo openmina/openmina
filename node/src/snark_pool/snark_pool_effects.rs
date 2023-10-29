@@ -7,7 +7,7 @@ use crate::p2p::channels::snark::{
     P2pChannelsSnarkLibp2pBroadcastAction, P2pChannelsSnarkResponseSendAction,
 };
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentResponseSendAction;
-use crate::{Service, State, Store};
+use crate::{Service, SnarkerStrategy, State, Store};
 
 use super::candidate::snark_pool_candidate_effects;
 use super::{
@@ -35,16 +35,28 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
             }
         }
         SnarkPoolAction::AutoCreateCommitment(_) => {
-            let state = store.state();
+            let state = store.state.get();
+            let Some(snarker_config) = &state.config.snarker else {
+                return;
+            };
             let available_workers = state.external_snark_worker.available();
+
             if available_workers > 0 {
-                let job_ids = state
+                let jobs = state
                     .snark_pool
-                    .available_jobs_with_highest_priority(available_workers)
-                    .into_iter()
-                    .map(|job| job.id.clone())
-                    .take(available_workers) // just in case
-                    .collect::<Vec<_>>();
+                    .available_jobs_with_highest_priority(available_workers);
+                let job_ids: Vec<_> = match snarker_config.strategy {
+                    SnarkerStrategy::Sequential => {
+                        jobs.into_iter()
+                            .map(|job| job.id.clone())
+                            .take(available_workers) // just in case
+                            .collect()
+                    }
+                    SnarkerStrategy::Random => {
+                        let jobs = state.snark_pool.available_jobs_iter();
+                        store.service.random_choose(jobs, available_workers)
+                    }
+                };
 
                 for job_id in job_ids {
                     store.dispatch(SnarkPoolCommitmentCreateAction { job_id });
