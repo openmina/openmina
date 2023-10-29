@@ -1876,10 +1876,10 @@ impl<F: FieldWitness> InnerCurve<F> {
     }
 
     fn fake_random() -> Self {
-        static SEED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        // static SEED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
         let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(
-            SEED.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            0, // SEED.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         );
         let proj: GroupProjective<F::Parameters> = ark_ff::UniformRand::rand(&mut rng);
         let proj: F::Projective = proj.into();
@@ -4918,10 +4918,11 @@ fn generate_proof(
     rows_rev: &Vec<Vec<Option<V>>>,
     internal_vars_wrap: &InternalVars<Fq>,
     rows_rev_wrap: &Vec<Vec<Option<V>>>,
-    gates: Vec<CircuitGate<Fp>>,
+    step_prover_index: &ProverIndex<Vesta>,
+    wrap_prover_index: &ProverIndex<Pallas>,
     dlog_plonk_index: &PlonkVerificationKeyEvals<Fp>,
     w: &mut Witness<Fp>,
-) {
+) -> String {
     let statement: Statement<()> = statement.into();
     let sok_digest = message.digest();
     let statement_with_sok = statement.with_digest(sok_digest);
@@ -4935,15 +4936,15 @@ fn generate_proof(
     dbg!(w.primary.len());
     dbg!(w.aux.len());
     dbg!(w.ocaml_aux.len());
-    assert_eq!(w.aux.len(), w.ocaml_aux.len());
-    assert_eq!(&w.aux, &w.ocaml_aux);
+    // assert_eq!(w.aux.len(), w.ocaml_aux.len());
+    // assert_eq!(&w.aux, &w.ocaml_aux);
 
     eprintln!("witness0_elapsed={:?}", now.elapsed());
     let computed_witness = compute_witness(&internal_vars, &rows_rev, w);
     eprintln!("witness_elapsed={:?}", now.elapsed());
 
-    let prover_index = make_prover_index(gates);
-    let proof = create_proof(computed_witness, &prover_index);
+    // let prover_index = make_prover_index(gates);
+    let proof = create_proof(computed_witness, step_prover_index);
 
     // dbg!(&proof);
 
@@ -4951,7 +4952,8 @@ fn generate_proof(
 
     fn read_witnesses_fq() -> std::io::Result<Vec<Fq>> {
         let f = std::fs::read_to_string(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fqs_rampup4.txt"),
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("/tmp/fqs.txt"),
+            // std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fqs_rampup4.txt"),
         )?;
 
         let fqs = f
@@ -4963,17 +4965,9 @@ fn generate_proof(
         Ok(fqs)
     }
 
-    w.ocaml_aux = read_witnesses_fq().unwrap();
+    // w.ocaml_aux = read_witnesses_fq().unwrap();
 
-    let wrap_gates: Vec<CircuitGate<Fq>> = {
-        let gates_path =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("gates_wrap_rampup4.json");
-        let file = std::fs::File::open(gates_path).unwrap();
-        let reader = std::io::BufReader::new(file);
-        serde_json::from_reader(reader).unwrap()
-    };
-
-    let wrap_index = make_prover_index_wrap(wrap_gates);
+    // let wrap_index = make_prover_index_wrap(wrap_gates);
 
     let message = crate::proofs::wrap::wrap(
         &statement_with_sok,
@@ -4981,7 +4975,7 @@ fn generate_proof(
         step_statement,
         &prev_evals,
         dlog_plonk_index,
-        &prover_index,
+        step_prover_index,
         &mut w,
     );
 
@@ -5037,20 +5031,15 @@ fn generate_proof(
             &group_map,
             computed_witness,
             &[],
-            &wrap_index,
+            wrap_prover_index,
             prev,
             None,
             &mut rng,
         )
         .unwrap();
 
-        serde_json::to_writer(
-            &std::fs::File::create("/tmp/PROOF_RUST_WRAP.json").unwrap(),
-            &proof,
-        )
-        .unwrap();
+        let proof_json = serde_json::to_vec(&proof).unwrap();
 
-        let bytes = std::fs::read("/tmp/PROOF_RUST_WRAP.json").unwrap();
         let sum = |s: &[u8]| {
             use sha2::Digest;
             let mut hasher = sha2::Sha256::new();
@@ -5058,13 +5047,12 @@ fn generate_proof(
             hex::encode(hasher.finalize())
         };
 
-        assert_eq!(
-            sum(&bytes),
-            "c209c2f40caf61b29af5162476748ee7865eef0bc92eb1e6a50e52fc1d391c1e"
-        )
-    }
+        std::fs::write("/tmp/PROOF_RUST_WRAP.json", &proof_json).unwrap();
 
-    dbg!(w.aux.len(), w.ocaml_aux.len());
+        dbg!(w.aux.len(), w.ocaml_aux.len());
+
+        sum(&proof_json)
+    }
 }
 
 #[cfg(test)]
@@ -5119,7 +5107,6 @@ mod tests_with_wasm {
 mod tests {
     use std::{collections::HashMap, path::Path, str::FromStr};
 
-    use ark_ff::One;
     use kimchi::circuits::gate::CircuitGate;
     use mina_hasher::Fp;
     use mina_p2p_messages::binprot::{
@@ -5194,8 +5181,9 @@ mod tests {
     // }
 
     fn read_witnesses() -> std::io::Result<Vec<Fp>> {
-        let f =
-            std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("fps_rampup4.txt"))?;
+        let f = std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("/tmp/fps_rampup4.txt"),
+        )?;
         // let f = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("fps.txt"))?;
 
         let fps = f
@@ -5342,33 +5330,24 @@ mod tests {
 12618037090053490692373075134223284507376627173981076741124985743358139654020
 8222146484561733716118161112449096775379854182942647676779063741100365854210";
 
-    // const DLOG_PLONK_INDEX: &str = "2155047919164007445577787480975932773239078956258287032878318183409427234607\n14323136234293490533592107469330144255235773862202374746005786061864892629323\n1581653595056586561027501221052561032420732641852154752878160404928325860986\n8356076482231000838075109232371472451239675293028543061420323395919999319183\n14243147121116788453056192941215111644255356152116615863842694880757795991735\n2039911838115539614812672305551846639224223029295815329514761150835038546560\n510900267208173846556293129736806156527308433764157370963332162007839694821\n13001133397206473729295186781643404555348006171210242097545630522138893502088\n26719475764395746048235063808089785124621281821263422706479078166424441921828\n14514079769772980754083562757257021139023997168100066104591251217392329267826\n19990278249098705418835822109266864019403418641203987326099467438135039646268\n18084405217741542103606084008787267807768345552769026729585475340213894557176\n22273928660425921982558701017423507374723601163026751476742664480856880777031\n25031816013365106583653995163885552704132781226792239230061090779931180362050\n8063577275850767413395894414407640382998358028178914815023772121226146659631\n1837590656546537093202570971325397957238408157306816008407269908834995833031\n11113579376862890052352293246098235062719026377883426658400511031344089405836\n17931500235135047015140905026190037395833059760066749886843369669812815544583\n3206994464825280750768796892670079842270330013953895850497119279251128005150\n27454324108304912921038569812160979439146319883942803886115366925848081388179\n2052961606151651908961972265385154498757779718824223878188466918308018777847\n11967791890025512942407708365542151643697572212812621753833375432767364604840\n23227324516799096200058707194021904835882783567713000857491326650340905907990\n7167574213949574031503854492809719422781743920357187359677734629648717625641\n7961866137266698845826568495669738560508769934755791297409360439221792557219\n27472290572076585663094456041593577888738194980532335038366078412517029342174\n429578617209466916574135454652897957424057521203599832323356042231981449934\n10098703657561510844582962057038669679087823892296759636570402319677260281463\n20651985080665132231201042615612394078897785201696878854288656763543781558175\n22668335080400373552693661971073038714727778453162445125534428254340635572468\n1015483045385898976471706298575956891089576396895419381383915524055587517700\n24937184902863021273732630564432924425172065261650681428403087811517143206158\n27618735828295676840193962737614267423710857379857078746478420284102847028481\n5030834921893602851882962225233435110956469625527904503653802589569332779370\n263829631365020912658032338224448908979966981177351151008805531225007194654\n10436001267004733636276206905634661488980180967815038530055464822346031777900\n7189937785563525399643695175231382366320921429479182386277625460659883549394\n20780580707206710108388429770465300479965370656455244952706244713295660518278\n21270202404852248697047582621968945762215229858747693923526415571378671422560\n16370103422450157416112717528490981885057367584969874572244256504849571102473\n13162568247741475403715847776620288297576279129322765607661919794750856857759\n3374207757392913473637774311612423817583301339849123776534406777684533840697\n11037437605640403327553591419831525583054880547163233131886664864680073913260\n17341298654928449420427759771869867687562567888201109663446108419061434879348\n9057620177324922373487190329503139250936919439276671781870710113718414092274\n12339666283316675440565097008191218941459179400950514888215205948297862186086\n8829825699861482575935580083482851565607316191528697506700160958532051838172\n12215656193856309291829633065513687104855004657752473314620282230863252717412\n3644017417857960248305076836571531294441147589716686920900862525856679571118\n2263804845136946755339196872843299327127877754007856575226193662053367379672\n17901149468315895762492547336612838919872556639174363396941111342517598725685\n16737045371966930107755204839919620526611036214907845472475544358292536618243\n523147438379662727580291255481412438369902055634704770377630852221507525176\n26234260143910713694760539713255597267536219400510158053202652605290708307152\n23046913093564493824330140636536595972824541376179460459341163043062736289046\n12780158096841201336350110837116473837260861577963850377697996035007016351092";
-
-    #[allow(const_item_mutation)]
-    #[test]
-    fn test_protocol_state_body() {
+    fn extract_request(
+        mut bytes: &[u8],
+    ) -> (
+        v2::MinaStateSnarkedLedgerStateStableV2,
+        v2::TransactionWitnessStableV2,
+        SokMessage,
+    ) {
         use mina_p2p_messages::v2::*;
 
-        let Ok(data) =
-            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
-            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_payment_0_rampup4.bin"))
-        else {
-            return;
-        };
-
-        let v: ExternalSnarkWorkerRequest = read_binprot(&mut data.as_slice());
-        // let value: ExternalSnarkWorkerRequest = ExternalSnarkWorkerRequest::binprot_read(&mut r)
-        //     .expect("cannot read work spec");
-
-        println!("OK");
+        let v: ExternalSnarkWorkerRequest = read_binprot(&mut bytes);
 
         let ExternalSnarkWorkerRequest::PerformJob(job) = v else {
             panic!()
         };
-        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((a, prover))) = &job else {
+        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((a, prover))) = job else {
             panic!()
         };
-        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances::One(single) = &a.instances
+        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances::One(single) = a.instances
         else {
             panic!()
         };
@@ -5380,17 +5359,22 @@ mod tests {
             panic!()
         };
 
-        let mut witnesses: Witness<Fp> = Witness::with_capacity(100_000);
+        let prover: CompressedPubKey = (&prover).into();
+        let fee = crate::scan_state::currency::Fee::from_u64(a.fee.as_u64());
 
-        let message = SokMessage {
-            fee: crate::scan_state::currency::Fee::from_u64(a.fee.as_u64()),
-            prover: prover.into(),
-        };
+        let message = SokMessage { fee, prover };
 
-        witnesses.ocaml_aux = read_witnesses().unwrap_or_else(|_| {
-            eprintln!("OCaml witness not found");
-            vec![Fp::one()] // failing value
-        });
+        (statement, tx_witness, message)
+    }
+
+    fn read_gates() -> (
+        Vec<CircuitGate<Fp>>,
+        Vec<CircuitGate<Fq>>,
+        HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
+        Vec<Vec<Option<V>>>,
+        HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
+        Vec<Vec<Option<V>>>,
+    ) {
         let internal_vars_path =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("internal_vars_rampup4.bin");
         let rows_rev_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev_rampup4.bin");
@@ -5398,6 +5382,13 @@ mod tests {
         // let rows_rev_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev.bin");
         let (internal_vars, rows_rev) =
             read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
+
+        // let dlog_plonk_index = PlonkVerificationKeyEvals::from_string(DLOG_PLONK_INDEX);
+        let internal_vars_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("internal_vars_wrap_rampup4.bin");
+        let rows_rev_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev_wrap_rampup4.bin");
+        let (internal_vars_wrap, rows_rev_wrap) =
+            read_constraints_data::<Fq>(&internal_vars_path, &rows_rev_path).unwrap();
 
         let gates: Vec<CircuitGate<Fp>> = {
             let gates_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("gates_step_rampup4.json");
@@ -5407,28 +5398,128 @@ mod tests {
             serde_json::from_reader(reader).unwrap()
         };
 
+        let wrap_gates: Vec<CircuitGate<Fq>> = {
+            let gates_path =
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("gates_wrap_rampup4.json");
+            let file = std::fs::File::open(gates_path).unwrap();
+            let reader = std::io::BufReader::new(file);
+            serde_json::from_reader(reader).unwrap()
+        };
+
+        (
+            gates,
+            wrap_gates,
+            internal_vars,
+            rows_rev,
+            internal_vars_wrap,
+            rows_rev_wrap,
+        )
+    }
+
+    #[test]
+    fn test_protocol_state_body() {
+        let Ok(data) =
+            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
+            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_1_rampup4.bin"))
+            // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
+            // std::fs::read("/tmp/coinbase_1_rampup4.bin")
+            // std::fs::read("/tmp/stake_0_rampup4.bin")
+        else {
+            eprintln!("request not found");
+            return;
+        };
+
         let dlog_plonk_index = PlonkVerificationKeyEvals::from_string(DLOG_PLONK_INDEX);
-        let internal_vars_path =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("internal_vars_wrap_rampup4.bin");
-        let rows_rev_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev_wrap_rampup4.bin");
-        let (internal_vars_wrap, rows_rev_wrap) =
-            read_constraints_data::<Fq>(&internal_vars_path, &rows_rev_path).unwrap();
+        let (statement, tx_witness, message) = extract_request(&data);
+        let (gates, wrap_gates, internal_vars, rows_rev, internal_vars_wrap, rows_rev_wrap) =
+            read_gates();
 
-        // println!("dlog_plonk_index={}", dlog_plonk_index.to_string());
+        let step_prover_index = make_prover_index(gates);
+        let wrap_prover_index = make_prover_index_wrap(wrap_gates);
 
-        // return;
-
+        let mut witnesses: Witness<Fp> = Witness::with_capacity(100_000);
         generate_proof(
-            statement,
-            tx_witness,
+            &statement,
+            &tx_witness,
             &message,
             &internal_vars,
             &rows_rev,
             &internal_vars_wrap,
             &rows_rev_wrap,
-            gates,
+            &step_prover_index,
+            &wrap_prover_index,
             &dlog_plonk_index,
             &mut witnesses,
         );
+    }
+
+    #[test]
+    fn test_proofs() {
+        let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4");
+
+        if !base_dir.exists() {
+            eprintln!("{:?} not found", base_dir);
+            return;
+        }
+
+        let dlog_plonk_index = PlonkVerificationKeyEvals::from_string(DLOG_PLONK_INDEX);
+        let (gates, wrap_gates, internal_vars, rows_rev, internal_vars_wrap, rows_rev_wrap) =
+            read_gates();
+        let step_prover_index = make_prover_index(gates);
+        let wrap_prover_index = make_prover_index_wrap(wrap_gates);
+
+        // Same values than OCaml
+        #[rustfmt::skip]
+        let requests = [
+            ("request_payment_0_rampup4.bin", "c209c2f40caf61b29af5162476748ee7865eef0bc92eb1e6a50e52fc1d391c1e"),
+            ("request_payment_1_rampup4.bin", "a5391b8ac8663a06a0a57ee6b6479e3cf4d95dfbb6d0688e439cb8c36cf187f6"),
+            ("coinbase_0_rampup4.bin", "a2ce1982938687ca3ba3b1994e5100090a80649aefb1f0d10f736a845dab2812"),
+            ("coinbase_1_rampup4.bin", "1120c9fe25078866e0df90fd09a41a2f5870351a01c8a7227d51a19290883efe"),
+            ("coinbase_2_rampup4.bin", "7875781e8ea4a7eb9035a5510cd54cfc33229867f46f97e68fbb9a7a6534ec74"),
+            ("coinbase_3_rampup4.bin", "12875cb8a182d550eb527e3561ad71458e1ca651ea399ee1878244c9b8f04966"),
+            ("coinbase_4_rampup4.bin", "718cdc4b4803afd0f4d6ca38937211b196609f71c393f1195a55ff101d58f843"),
+            ("coinbase_5_rampup4.bin", "a0d03705274ee56908a3fad1c260c56a0e07566d58c19bbba5c95cc8a9d11ee0"),
+            ("coinbase_6_rampup4.bin", "4b213eeea865b9e6253f3c074017553243420b3183860a7f7720648677c02c54"),
+            ("coinbase_7_rampup4.bin", "78fcec79bf2013d4f3d97628b316da7410af3c92a73dc26abc3ea63fbe92372a"),
+            ("coinbase_8_rampup4.bin", "169f1ad4739d0a3fe194a66497bcabbca8dd5584cd83d13a5addede4b5a49e9d"),
+            ("coinbase_9_rampup4.bin", "dfe50b656e0c0520a9678a1d34dd68af4620ea9909461b39c24bdda69504ed4b"),
+            ("fee_transfer_0_rampup4.bin", "58d711bcc6377037e1c6a1334a49d53789b6e9c93aa343bda2f736cfc40d90b3"),
+            ("fee_transfer_1_rampup4.bin", "791644dc9b5f17be24cbacab83e8b1f4b2ba7218e09ec718b37f1cd280b6c467"),
+            ("fee_transfer_2_rampup4.bin", "ea02567ed5f116191ece0e7f6ac78a3b014079509457d03dd8d654e601404722"),
+            ("fee_transfer_3_rampup4.bin", "6048053909b20e57cb104d1838c3aca565462605c69ced184f1a0e31b18c9c05"),
+            ("fee_transfer_4_rampup4.bin", "1d6ab348dde0d008691dbb30ddb1412fabd5fe1adca788779c3674e2af412211"),
+            ("fee_transfer_5_rampup4.bin", "a326eeeea08778795f35da77b43fc01c0c4b6cbf89cb1bb460c80bfab97d339e"),
+            ("fee_transfer_6_rampup4.bin", "6b95aa737e1c8351bbb7a141108a73c808cb92aae9e266ecce13f679d6f6b2df"),
+            ("fee_transfer_7_rampup4.bin", "5d97141c3adf576503381e485f5ab20ed856448880658a0a56fb23567225875c"),
+            ("fee_transfer_8_rampup4.bin", "e1fa6b5a88b184428a0918cd4bd56952b54f05a5dc175b17e154204533167a78"),
+            ("fee_transfer_9_rampup4.bin", "087a07eddedf5de18b2f2bd7ded3cd474d00a0030e9c13d7a5fd2433c72fc7d5"),
+        ];
+
+        for (file, expected_sum) in requests {
+            let data = std::fs::read(base_dir.join(file)).unwrap();
+            let (statement, tx_witness, message) = extract_request(&data);
+
+            let mut witnesses: Witness<Fp> = Witness::with_capacity(100_000);
+            let sum = generate_proof(
+                &statement,
+                &tx_witness,
+                &message,
+                &internal_vars,
+                &rows_rev,
+                &internal_vars_wrap,
+                &rows_rev_wrap,
+                &step_prover_index,
+                &wrap_prover_index,
+                &dlog_plonk_index,
+                &mut witnesses,
+            );
+
+            if sum != expected_sum {
+                eprintln!("Wrong proof: {:?}", file);
+                eprintln!("got sum:  {:?}", sum);
+                eprintln!("expected: {:?}", expected_sum);
+                panic!()
+            }
+        }
     }
 }
