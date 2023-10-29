@@ -1,4 +1,5 @@
 use std::ffi::OsString;
+use std::str::FromStr;
 
 use mina_p2p_messages::v2::CurrencyFeeStableV1;
 use serde::{Deserialize, Serialize};
@@ -32,9 +33,16 @@ pub struct GlobalConfig {
 pub struct SnarkerConfig {
     pub public_key: AccountPublicKey,
     pub fee: CurrencyFeeStableV1,
+    pub strategy: SnarkerStrategy,
     pub auto_commit: bool,
     /// External Mina snark worker executable path
     pub path: OsString,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum SnarkerStrategy {
+    Sequential,
+    Random,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -113,5 +121,21 @@ impl BuildEnv {
                 cpu_frequency: env!("VERGEN_SYSINFO_CPU_FREQUENCY").to_owned(),
             },
         }
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("invalid strategy: {0}! expected one of: seq/sequential/rand/random")]
+pub struct SnarkerStrategyParseError(String);
+
+impl FromStr for SnarkerStrategy {
+    type Err = SnarkerStrategyParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "seq" | "sequential" => SnarkerStrategy::Sequential,
+            "rand" | "random" => SnarkerStrategy::Random,
+            other => return Err(SnarkerStrategyParseError(other.to_owned())),
+        })
     }
 }

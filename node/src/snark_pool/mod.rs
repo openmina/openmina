@@ -14,3 +14,6 @@ pub use snark_pool_reducer::*;
 
 mod snark_pool_effects;
 pub use snark_pool_effects::*;
+
+mod snark_pool_service;
+pub use snark_pool_service::*;

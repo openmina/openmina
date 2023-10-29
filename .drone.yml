@@ -121,18 +121,19 @@ steps:
     commands:
       - mkdir test_ledgers
       - curl https://raw.githubusercontent.com/openmina/openmina-poc/3a81bc7/test_ledgers/jx5k7xf3L2aof821PQWumABQ793rhEis5kRb8YUmJWTHKtEJ5nb -o test_ledgers/jx5k7xf3L2aof821PQWumABQ793rhEis5kRb8YUmJWTHKtEJ5nb
-      - target/release/openmina node -p 10000 --run-snarker $OPENMINA1_SNARKER_KEY -s $OPENMINA1_SK
+      - target/release/openmina node -p 10000  -v Debug -s $OPENMINA1_SK
           --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /dns4/openmina2/tcp/8302/p2p/$OPENMINA2_LIBP2P_ID /dns4/openmina3/tcp/8302/p2p/$OPENMINA3_LIBP2P_ID
                     /dns4/ocaml1/tcp/8302/p2p/12D3KooWKLzGWSdFAQGEAtrHan1TTwu7idagcZ83X6MXWfUJNiTU
-          --snarker-exe-path cli/bin/snark-worker -v Debug --additional-ledgers-path test_ledgers
+          --run-snarker $OPENMINA1_SNARKER_KEY --snarker-strategy seq --snarker-exe-path cli/bin/snark-worker
+          --additional-ledgers-path test_ledgers
 
   - name: openmina2
     image: *snark-worker-image
     detach: true
     commands:
-      - target/release/openmina node -p 10000 --run-snarker $OPENMINA2_SNARKER_KEY -s $OPENMINA2_SK
+      - target/release/openmina node -p 10000 -v Debug -s $OPENMINA2_SK
           --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /dns4/openmina1/tcp/8302/p2p/$OPENMINA1_LIBP2P_ID /dns4/openmina3/tcp/8302/p2p/$OPENMINA3_LIBP2P_ID
-          --snarker-exe-path cli/bin/snark-worker -v Debug
+          --run-snarker $OPENMINA2_SNARKER_KEY --snarker-strategy rand --snarker-exe-path cli/bin/snark-worker
 
   - name: test-bootstrap-replayer-to-openmina
     image: vladsimplestakingcom/bootstrap-rr:graphql
@@ -145,9 +146,9 @@ steps:
     image: *snark-worker-image
     detach: true
     commands:
-      - target/release/openmina node -p 10000 --run-snarker $OPENMINA3_SNARKER_KEY -s $OPENMINA3_SK
+      - target/release/openmina node -p 10000 -v Debug -s $OPENMINA3_SK
           --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /dns4/openmina1/tcp/8302/p2p/$OPENMINA1_LIBP2P_ID /dns4/openmina2/tcp/8302/p2p/$OPENMINA2_LIBP2P_ID
-          --snarker-exe-path cli/bin/snark-worker -v Debug
+          --run-snarker $OPENMINA3_SNARKER_KEY --snarker-strategy rand --snarker-exe-path cli/bin/snark-worker
 
   - name: test-bootstrap-openmina-to-openmina
     image: vladsimplestakingcom/bootstrap-rr:graphql

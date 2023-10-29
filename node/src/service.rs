@@ -7,6 +7,7 @@ pub use crate::recorder::Recorder;
 pub use crate::rpc::RpcService;
 pub use crate::snark::block_verify::SnarkBlockVerifyService;
 pub use crate::snark::work_verify::SnarkWorkVerifyService;
+pub use crate::snark_pool::SnarkPoolService;
 pub use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
 pub use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
 pub use crate::transition_frontier::TransitionFrontierService;
@@ -25,8 +26,9 @@ pub trait Service:
     + TransitionFrontierSyncLedgerSnarkedService
     + TransitionFrontierSyncLedgerStagedService
     + TransitionFrontierService
-    + RpcService
+    + SnarkPoolService
     + ExternalSnarkWorkerService
+    + RpcService
 {
     fn stats(&mut self) -> Option<&mut Stats>;
     fn recorder(&mut self) -> &mut Recorder;

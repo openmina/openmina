@@ -6,13 +6,14 @@ use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
 use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
 use node::core::channels::mpsc;
 use node::core::requests::{PendingRequests, RequestId};
-use node::core::snark::Snark;
+use node::core::snark::{Snark, SnarkJobId};
 use node::recorder::Recorder;
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
 use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{VerifierIndex, VerifierSRS};
+use node::snark_pool::{JobState, SnarkPoolService};
 use node::stats::Stats;
 use node::{
     event_source::Event,
@@ -29,7 +30,6 @@ use node::{
     },
 };
 use openmina_node_native::NodeService;
-use rand::seq::SliceRandom;
 use redux::Instant;
 
 #[derive(Hash, Ord, PartialOrd, Eq, PartialEq)]
@@ -144,7 +144,7 @@ impl P2pServiceWebrtc for NodeTestingService {
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
     ) -> P2pConnectionOutgoingInitOpts {
-        list.choose(&mut self.real.rng).unwrap().clone()
+        self.real.random_pick(list)
     }
 
     fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent> {
@@ -207,6 +207,16 @@ impl SnarkWorkVerifyService for NodeTestingService {
             verifier_srs,
             work,
         )
+    }
+}
+
+impl SnarkPoolService for NodeTestingService {
+    fn random_choose<'a>(
+        &mut self,
+        iter: impl Iterator<Item = &'a JobState>,
+        n: usize,
+    ) -> Vec<SnarkJobId> {
+        self.real.random_choose(iter, n)
     }
 }
 

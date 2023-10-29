@@ -9,7 +9,7 @@ use redux::ActionMeta;
 use serde::Serialize;
 
 use node::core::channels::{mpsc, oneshot};
-use node::core::snark::Snark;
+use node::core::snark::{Snark, SnarkJobId};
 use node::event_source::Event;
 use node::ledger::LedgerCtx;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -25,6 +25,7 @@ use node::snark::block_verify::{
 };
 use node::snark::work_verify::{SnarkWorkVerifyError, SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
+use node::snark_pool::{JobState, SnarkPoolService};
 use node::stats::Stats;
 use node::ActionKind;
 
@@ -208,6 +209,19 @@ impl SnarkWorkVerifyService for NodeService {
 
             let _ = tx.send(SnarkEvent::WorkVerify(req_id, result).into());
         });
+    }
+}
+
+impl SnarkPoolService for NodeService {
+    fn random_choose<'a>(
+        &mut self,
+        iter: impl Iterator<Item = &'a JobState>,
+        n: usize,
+    ) -> Vec<SnarkJobId> {
+        iter.choose_multiple(&mut self.rng, n)
+            .into_iter()
+            .map(|job| job.id.clone())
+            .collect()
     }
 }
 
