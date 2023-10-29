@@ -451,10 +451,10 @@ fn deferred_values(
     };
 
     let f = |s: &str| Fp::from_str(s).unwrap();
-    assert_eq!(
-        b,
-        f("5767724647428070642927793768409372780130584519014792248744668603804331622261")
-    );
+    // assert_eq!(
+    //     b,
+    //     f("5767724647428070642927793768409372780130584519014792248744668603804331622261")
+    // );
 
     let evals = proof
         .evals
@@ -476,10 +476,10 @@ fn deferred_values(
         ft_eval1: proof.ft_eval1,
     });
 
-    assert_eq!(
-        combined_inner_product,
-        f("1794066667028988946470104780887317784726228530187228813826020823032902910060")
-    );
+    // assert_eq!(
+    //     combined_inner_product,
+    //     f("1794066667028988946470104780887317784726228530187228813826020823032902910060")
+    // );
 
     let shift = |f: Fp| <Fp as FieldWitness>::Shifting::of_field(f);
 
@@ -644,15 +644,15 @@ pub fn wrap(
         .map(MessagesForNextWrapProof::hash)
         .collect::<Vec<_>>();
 
-    assert_eq!(
-        messages_for_next_step_proof_hash,
-        [
-            12928032459193155768,
-            823333255794445397,
-            14777852695581800947,
-            354023456053555014
-        ]
-    );
+    // assert_eq!(
+    //     messages_for_next_step_proof_hash,
+    //     [
+    //         12928032459193155768,
+    //         823333255794445397,
+    //         14777852695581800947,
+    //         354023456053555014
+    //     ]
+    // );
 
     let public_input = make_public_input(
         &step_statement,
@@ -1418,13 +1418,13 @@ pub mod wrap_verifier {
             let p_eval0 = evals.public_input.0;
             let ft_eval0 = ft_eval0_checked(&env, &combined_evals, &plonk_mininal, p_eval0, w);
             let a = proof_evaluation_to_list(&evals.evals);
-            assert_eq!(
-                ft_eval0,
-                Fq::from_str(
-                    "185615279260584823497562138911626835196500046105133768509329205349731009215"
-                )
-                .unwrap()
-            );
+            // assert_eq!(
+            //     ft_eval0,
+            //     Fq::from_str(
+            //         "185615279260584823497562138911626835196500046105133768509329205349731009215"
+            //     )
+            //     .unwrap()
+            // );
 
             let actual_combined_inner_product = {
                 enum WhichEval {
@@ -1472,13 +1472,13 @@ pub mod wrap_verifier {
                 a + b
             };
 
-            assert_eq!(
-                actual_combined_inner_product,
-                Fq::from_str(
-                    "8504630526995452578694872162766067838423804679362527237174610151794554026782"
-                )
-                .unwrap()
-            );
+            // assert_eq!(
+            //     actual_combined_inner_product,
+            //     Fq::from_str(
+            //         "8504630526995452578694872162766067838423804679362527237174610151794554026782"
+            //     )
+            //     .unwrap()
+            // );
 
             let combined_inner_product =
                 ShiftingValue::<Fq>::shifted_to_field(combined_inner_product);

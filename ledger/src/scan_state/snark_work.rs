@@ -126,7 +126,9 @@ mod tests {
 
     #[test]
     fn snark_work2() {
-        let Ok(r) = std::fs::read("/tmp/requests.bin") else {
+        let Ok(r) = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("requests_rampup4.bin"),
+        ) else {
             return;
         };
         // const DATA: &[u8] = include_bytes!("/tmp/input.bin");
@@ -179,20 +181,20 @@ mod tests {
                 }
             }
 
-            if !matches!(
-                witness.transaction,
-                MinaTransactionTransactionStableV2::Command(_)
-            ) {
-                continue;
-            }
+            // if !matches!(
+            //     witness.transaction,
+            //     MinaTransactionTransactionStableV2::FeeTransfer(_)
+            // ) {
+            //     continue;
+            // }
 
             let is_good = match &witness.transaction {
                 MinaTransactionTransactionStableV2::Command(cmd) => {
                     match &**cmd {
                         mina_p2p_messages::v2::MinaBaseUserCommandStableV2::SignedCommand(cmd) => {
                             match &cmd.payload.body {
-                                mina_p2p_messages::v2::MinaBaseSignedCommandPayloadBodyStableV2::Payment(_) => true,
-                                mina_p2p_messages::v2::MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(_) => false,
+                                mina_p2p_messages::v2::MinaBaseSignedCommandPayloadBodyStableV2::Payment(_) => false,
+                                mina_p2p_messages::v2::MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(_) => true,
                             }
                         },
                         mina_p2p_messages::v2::MinaBaseUserCommandStableV2::ZkappCommand(_) => false,
@@ -223,8 +225,7 @@ mod tests {
             let value = ExternalSnarkWorkerRequest::PerformJob(value);
 
             let mut file =
-                std::fs::File::create(format!("/tmp/request_payment_{}_rampup4.bin", index))
-                    .unwrap();
+                std::fs::File::create(format!("/tmp/stake_{}_rampup4.bin", index)).unwrap();
             write_binprot(value, &mut file);
             file.sync_all().unwrap();
         }
