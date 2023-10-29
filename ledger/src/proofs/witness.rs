@@ -5,11 +5,11 @@ use ark_ec::{
     AffineCurve, ProjectiveCurve, SWModelParameters,
 };
 use ark_ff::{BigInteger256, FftField, Field, FpParameters, PrimeField, SquareRootField, Zero};
-use kimchi::proof::ProofEvaluations;
 use kimchi::{
     circuits::{gate::CircuitGate, wires::COLUMNS},
     prover_index::ProverIndex,
 };
+use kimchi::{curve::KimchiCurve, proof::ProofEvaluations};
 use mina_curves::pasta::Pallas;
 use mina_curves::pasta::{
     Fq, PallasParameters, ProjectivePallas, ProjectiveVesta, Vesta, VestaParameters,
@@ -1711,6 +1711,7 @@ where
     type Scalar: FieldWitness;
     type Affine: AffineCurve<Projective = Self::Projective, BaseField = Self, ScalarField = Self::Scalar>
         + Into<GroupAffine<Self::Parameters>>
+        + KimchiCurve
         + std::fmt::Debug;
     type Projective: ProjectiveCurve<Affine = Self::Affine, BaseField = Self, ScalarField = Self::Scalar>
         + From<GroupProjective<Self::Parameters>>
