@@ -380,7 +380,7 @@ pub fn ft_eval0(
         gamma: minimal.gamma,
     };
     let mut w = Witness::with_capacity(0);
-    let constant_term = scalars::compute_fp(None, &minimal, evals, &mut w);
+    let constant_term = scalars::compute(None, &minimal, evals, &mut w);
 
     ft_eval0 - constant_term
 }
@@ -390,8 +390,10 @@ mod scalars {
 
     use kimchi::{
         circuits::{
+            constraints::FeatureFlags,
             expr::{CacheId, Column, ConstantExpr, Constants, Expr, ExprError, Op2, Variable},
             gate::{CurrOrNext, GateType},
+            lookup::lookups::{LookupFeatures, LookupPatterns},
         },
         proof::PointEvaluations,
     };
@@ -473,38 +475,6 @@ mod scalars {
             CurrOrNext::Next => Ok(point_evaluations.zeta_omega),
         }
     }
-
-    // fn var_evaluate<F: FieldWitness>(
-    //     v: &Variable,
-    //     evals: &ProofEvaluations<PointEvaluations<F>>,
-    // ) -> Result<F, ExprError> {
-    //     let point_evaluations = {
-    //         use Column::*;
-    //         let l = evals
-    //             .lookup
-    //             .as_ref()
-    //             .ok_or(ExprError::LookupShouldNotBeUsed);
-    //         match v.col {
-    //             Witness(i) => Ok(evals.w[i]),
-    //             Z => Ok(evals.z),
-    //             LookupSorted(i) => l.map(|l| l.sorted[i]),
-    //             LookupAggreg => l.map(|l| l.aggreg),
-    //             LookupTable => l.map(|l| l.table),
-    //             LookupRuntimeTable => l.and_then(|l| l.runtime.ok_or(ExprError::MissingRuntime)),
-    //             Index(GateType::Poseidon) => Ok(evals.poseidon_selector),
-    //             Index(GateType::Generic) => Ok(evals.generic_selector),
-    //             Permutation(i) => Ok(evals.s[i]),
-    //             Coefficient(i) => Ok(evals.coefficients[i]),
-    //             LookupKindIndex(_) | LookupRuntimeSelector | Index(_) => {
-    //                 Err(ExprError::MissingIndexEvaluation(v.col))
-    //             }
-    //         }
-    //     }?;
-    //     match v.row {
-    //         CurrOrNext::Curr => Ok(point_evaluations.zeta),
-    //         CurrOrNext::Next => Ok(point_evaluations.zeta_omega),
-    //     }
-    // }
 
     fn pow<F: FieldWitness>(x: F, n: u64, w: &mut Witness<F>) -> F {
         if n == 0 {
@@ -601,7 +571,7 @@ mod scalars {
 
     #[derive(Default)]
     pub struct Cached<F: FieldWitness> {
-        /// cache may contains other caches
+        /// cache may contain their own caches
         expr: BTreeMap<CacheId, (Box<Cached<F>>, Box<Expr<ConstantExpr<F>>>)>,
     }
 
@@ -650,7 +620,7 @@ mod scalars {
     }
 
     fn eval_cache<F: FieldWitness>(cached_exprs: &Cached<F>, ctx: &mut EvalContext<F>) {
-        // Each cached expression may contain other caches
+        // Each cached expression may contain their own caches
         for (id, (cache, expr)) in &cached_exprs.expr {
             let mut old_cache = std::mem::take(&mut ctx.cache);
             eval_cache::<F>(cache, ctx);
@@ -665,115 +635,72 @@ mod scalars {
         pub gamma: F,
     }
 
-    pub fn compute(
+    pub fn compute<F: FieldWitness>(
         gate: Option<GateType>,
-        minimal: &MinimalForScalar<Fq>,
-        evals: &ProofEvaluations<[Fq; 2]>,
-        w: &mut Witness<Fq>,
-    ) -> Fq {
+        minimal: &MinimalForScalar<F>,
+        evals: &ProofEvaluations<[F; 2]>,
+        w: &mut Witness<F>,
+    ) -> F {
         let (constant_term, index_terms) = &*{
             use std::rc::Rc;
-            type Terms = BTreeMap<Column, Expr<ConstantExpr<Fq>>>;
-            type Const = Expr<ConstantExpr<Fq>>;
-            type TermsCached = Rc<(Const, Terms)>;
-            cache_one! {
-                TermsCached, {
-                    let lookup_configuration = None;
-                    let fq_evaluated_cols =
-                        kimchi::linearization::linearization_columns::<Fq>(lookup_configuration);
-                    let (fq_linearization, _powers_of_alpha) =
-                        kimchi::linearization::constraints_expr::<Fq>(None, true);
+            type TermsMap<F> = BTreeMap<Column, Expr<ConstantExpr<F>>>;
+            type Const<F> = Expr<ConstantExpr<F>>;
+            type Terms<F> = Rc<(Const<F>, TermsMap<F>)>;
+            cache! {
+                Terms::<F>, {
+                    // No features for `Fp`:
+                    // https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/crypto/kimchi_bindings/stubs/src/linearization.rs
+                    let is_fp = std::any::TypeId::of::<F>() == std::any::TypeId::of::<Fp>();
+
+                    let features = if is_fp {
+                        None
+                    } else {
+                        Some(FeatureFlags {
+                            range_check0: false,
+                            range_check1: false,
+                            foreign_field_add: false,
+                            foreign_field_mul: false,
+                            xor: false,
+                            rot: false,
+                            lookup_features: LookupFeatures {
+                                patterns: LookupPatterns {
+                                    xor: false,
+                                    lookup: false,
+                                    range_check: false,
+                                    foreign_field_mul: false,
+                                },
+                                joint_lookup_used: false,
+                                uses_runtime_tables: false,
+                            },
+                        })
+                    };
+
+                    let evaluated_cols =
+                        kimchi::linearization::linearization_columns::<F>(features.as_ref());
+                    let (linearization, _powers_of_alpha) =
+                        kimchi::linearization::constraints_expr::<F>(features.as_ref(), true);
 
                     let kimchi::circuits::expr::Linearization {
                         constant_term,
                         index_terms,
-                    } = fq_linearization.linearize(fq_evaluated_cols).unwrap();
+                    } = linearization.linearize(evaluated_cols).unwrap();
 
-                    let index_terms = index_terms.into_iter().collect::<Terms>();
+                    let index_terms = index_terms.into_iter().collect::<TermsMap<F>>();
                     Rc::new((constant_term, index_terms))
                 }
             }
         };
 
-        let constants = kimchi::circuits::expr::Constants {
+        let constants = kimchi::circuits::expr::Constants::<F> {
             alpha: minimal.alpha,
             beta: minimal.beta,
             gamma: minimal.gamma,
             joint_combiner: None,
             endo_coefficient: {
-                let (base, _) = endos::<Fq>();
+                let (base, _) = endos::<F>();
                 base
             },
-            mds: &mina_curves::pasta::Pallas::sponge_params().mds,
-        };
-
-        let evals = evals.map_ref(&|[zeta, zeta_omega]| kimchi::proof::PointEvaluations {
-            zeta: *zeta,
-            zeta_omega: *zeta_omega,
-        });
-
-        let mut ctx = EvalContext {
-            evals: &evals,
-            constants: &constants,
-            cache: BTreeMap::new(),
-            w,
-        };
-
-        let term = match gate {
-            Some(gate) => index_terms.get(&Column::Index(gate)).unwrap(),
-            None => &constant_term,
-        };
-
-        // We evaluate the cached expressions first
-        let mut cached_exprs = Cached::default();
-        extract_caches(term, &mut cached_exprs);
-        eval_cache(&cached_exprs, &mut ctx);
-
-        // Eval the rest
-        eval(term, &mut ctx)
-    }
-
-    // TODO: Dedup with above
-    pub fn compute_fp(
-        gate: Option<GateType>,
-        minimal: &MinimalForScalar<Fp>,
-        evals: &ProofEvaluations<[Fp; 2]>,
-        w: &mut Witness<Fp>,
-    ) -> Fp {
-        let (constant_term, index_terms) = &*{
-            use std::rc::Rc;
-            type Terms = BTreeMap<Column, Expr<ConstantExpr<Fp>>>;
-            type Const = Expr<ConstantExpr<Fp>>;
-            type TermsCached = Rc<(Const, Terms)>;
-            cache_one! {
-                TermsCached, {
-                    let feature_flags = None;
-                    let fq_evaluated_cols =
-                        kimchi::linearization::linearization_columns::<Fp>(feature_flags);
-                    let (fq_linearization, _powers_of_alpha) =
-                        kimchi::linearization::constraints_expr::<Fp>(feature_flags, true);
-
-                    let kimchi::circuits::expr::Linearization {
-                        constant_term,
-                        index_terms,
-                    } = fq_linearization.linearize(fq_evaluated_cols).unwrap();
-
-                    let index_terms = index_terms.into_iter().collect::<Terms>();
-                    Rc::new((constant_term, index_terms))
-                }
-            }
-        };
-
-        let constants = kimchi::circuits::expr::Constants {
-            alpha: minimal.alpha,
-            beta: minimal.beta,
-            gamma: minimal.gamma,
-            joint_combiner: None,
-            endo_coefficient: {
-                let (base, _) = endos::<Fp>();
-                base
-            },
-            mds: &mina_curves::pasta::Vesta::sponge_params().mds,
+            mds: &<<F::Affine as KimchiCurve>::OtherCurve>::sponge_params().mds,
         };
 
         let evals = evals.map_ref(&|[zeta, zeta_omega]| kimchi::proof::PointEvaluations {

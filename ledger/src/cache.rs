@@ -1,6 +1,6 @@
 /// Cache generic field(s) (or any data actually)
 macro_rules! cache {
-    ($F:tt, $compute:expr) => {{
+    ($F:ty, $compute:expr) => {{
         // We want to support the generic field F, so we use std::any.
         // Initializer is `const`.
         // Note that the macro `thread_local!` uses internally the
@@ -27,10 +27,10 @@ macro_rules! cache {
             let mut cache = cache.borrow_mut();
             let type_id = std::any::TypeId::of::<$F>();
             if let Some(cached) = cache.get(&type_id).and_then(|c| c.downcast_ref::<$F>()) {
-                return *cached;
+                return cached.clone();
             }
             let data = $compute;
-            cache.insert(type_id, Box::new(data));
+            cache.insert(type_id, Box::new(data.clone()));
             data
         })
     }};
