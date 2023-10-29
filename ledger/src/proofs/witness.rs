@@ -1,12 +1,17 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
 
 use ark_ec::{
     short_weierstrass_jacobian::{GroupAffine, GroupProjective},
     AffineCurve, ProjectiveCurve, SWModelParameters,
 };
-use ark_ff::{BigInteger256, FftField, Field, FpParameters, PrimeField, SquareRootField, Zero};
+use ark_ff::{BigInteger256, FftField, Field, FpParameters, PrimeField, SquareRootField};
 use kimchi::{
     circuits::{gate::CircuitGate, wires::COLUMNS},
+    proof::RecursionChallenge,
     prover_index::ProverIndex,
 };
 use kimchi::{curve::KimchiCurve, proof::ProofEvaluations};
@@ -32,11 +37,15 @@ use mina_p2p_messages::{
         UnsignedExtendedUInt32StableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
+use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
 use mina_signer::CompressedPubKey;
 use poly_commitment::PolyComm;
 
 use crate::{
-    proofs::unfinalized::AllEvals,
+    proofs::{
+        constants::{RegularTransactionProof, WrapProof},
+        unfinalized::AllEvals,
+    },
     scan_state::{
         currency::{self, Sgn},
         fee_excess::FeeExcess,
@@ -55,6 +64,7 @@ use crate::{
 };
 
 use super::{
+    constants::ProofConstants,
     numbers::currency::{CheckedCurrency, CheckedSigned},
     public_input::{
         messages::{dummy_ipa_step_sg, MessagesForNextWrapProof},
@@ -74,10 +84,19 @@ pub struct Witness<F: FieldWitness> {
 }
 
 impl<F: FieldWitness> Witness<F> {
-    pub fn with_capacity(capacity: usize) -> Self {
+    pub fn new<C: ProofConstants>() -> Self {
         Self {
-            primary: Vec::with_capacity(67),
-            aux: Vec::with_capacity(capacity),
+            primary: Vec::with_capacity(C::PRIMARY_LEN),
+            aux: Vec::with_capacity(C::AUX_LEN),
+            ocaml_aux: Vec::new(),
+            ocaml_aux_index: 0,
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            primary: Vec::new(),
+            aux: Vec::new(),
             ocaml_aux: Vec::new(),
             ocaml_aux_index: 0,
         }
@@ -1720,9 +1739,18 @@ where
         + Clone
         + std::fmt::Debug;
     type Shifting: plonk_checks::ShiftingValue<Self>;
+    type OtherCurve: KimchiCurve<
+        ScalarField = Self,
+        BaseField = Self::Scalar,
+        OtherCurve = Self::Affine,
+    >;
+    type FqSponge: Clone + mina_poseidon::FqSponge<Self::Scalar, Self::OtherCurve, Self>;
 
     const PARAMS: Params<Self>;
     const SIZE: BigInteger256;
+
+    // TODO: Find another way to get the SRS
+    fn get_srs() -> Arc<Mutex<poly_commitment::srs::SRS<Self::OtherCurve>>>;
 }
 
 pub struct Params<F> {
@@ -1736,6 +1764,9 @@ impl FieldWitness for Fp {
     type Affine = GroupAffine<Self::Parameters>;
     type Projective = ProjectivePallas;
     type Shifting = ShiftedValue<Fp>;
+    type OtherCurve = <Self::Affine as KimchiCurve>::OtherCurve;
+    type FqSponge =
+        mina_poseidon::sponge::DefaultFqSponge<VestaParameters, PlonkSpongeConstantsKimchi>;
 
     /// https://github.com/openmina/mina/blob/46b6403cb7f158b66a60fc472da2db043ace2910/src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml#L107
     const PARAMS: Params<Self> = Params::<Self> {
@@ -1743,6 +1774,10 @@ impl FieldWitness for Fp {
         b: ark_ff::field_new!(Fp, "5"),
     };
     const SIZE: BigInteger256 = mina_curves::pasta::fields::FpParameters::MODULUS;
+    fn get_srs() -> Arc<Mutex<poly_commitment::srs::SRS<Vesta>>> {
+        use crate::verifier::SRS;
+        SRS.clone()
+    }
 }
 
 impl FieldWitness for Fq {
@@ -1751,6 +1786,9 @@ impl FieldWitness for Fq {
     type Affine = GroupAffine<Self::Parameters>;
     type Projective = ProjectiveVesta;
     type Shifting = ShiftedValue<Fq>;
+    type OtherCurve = <Self::Affine as KimchiCurve>::OtherCurve;
+    type FqSponge =
+        mina_poseidon::sponge::DefaultFqSponge<PallasParameters, PlonkSpongeConstantsKimchi>;
 
     /// https://github.com/openmina/mina/blob/46b6403cb7f158b66a60fc472da2db043ace2910/src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml#L95
     const PARAMS: Params<Self> = Params::<Self> {
@@ -1758,6 +1796,9 @@ impl FieldWitness for Fq {
         b: ark_ff::field_new!(Fq, "5"),
     };
     const SIZE: BigInteger256 = mina_curves::pasta::fields::FqParameters::MODULUS;
+    fn get_srs() -> Arc<Mutex<poly_commitment::srs::SRS<Pallas>>> {
+        SRS_PALLAS.clone()
+    }
 }
 
 /// Trait helping converting generics into concrete types
@@ -4696,33 +4737,33 @@ enum V {
 
 type InternalVars<F> = HashMap<usize, (Vec<(F, V)>, Option<F>)>;
 
-fn compute_witness(
-    internal_vars: &InternalVars<Fp>,
+fn compute_witness<C: ProofConstants, F: FieldWitness>(
+    internal_vars: &InternalVars<F>,
     rows_rev: &Vec<Vec<Option<V>>>,
-    w: &Witness<Fp>,
-) -> [Vec<Fp>; COLUMNS] {
+    w: &Witness<F>,
+) -> [Vec<F>; COLUMNS] {
     let external_values = |i: usize| {
-        if i < 67 {
+        if i < C::PRIMARY_LEN {
             w.primary[i]
         } else {
-            w.aux[i - 67]
+            w.aux[i - C::PRIMARY_LEN]
         }
     };
 
-    let mut internal_values = HashMap::<usize, Fp>::with_capacity(13_000);
+    let mut internal_values = HashMap::<usize, F>::with_capacity(13_000);
 
-    let public_input_size = 67;
-    let num_rows = 17794;
+    let public_input_size = C::PRIMARY_LEN;
+    let num_rows = C::ROWS;
 
-    let mut res: [_; COLUMNS] = std::array::from_fn(|_| vec![Fp::zero(); num_rows]);
+    let mut res: [_; COLUMNS] = std::array::from_fn(|_| vec![F::zero(); num_rows]);
 
     // public input
     for i in 0..public_input_size {
         res[0][i] = external_values(i);
     }
 
-    let compute = |(lc, c): &(Vec<(Fp, V)>, Option<Fp>), internal_values: &HashMap<_, _>| {
-        lc.iter().fold(c.unwrap_or_else(Fp::zero), |acc, (s, x)| {
+    let compute = |(lc, c): &(Vec<(F, V)>, Option<F>), internal_values: &HashMap<_, _>| {
+        lc.iter().fold(c.unwrap_or_else(F::zero), |acc, (s, x)| {
             let x = match x {
                 V::External(x) => external_values(*x),
                 V::Internal(x) => internal_values.get(x).copied().unwrap(),
@@ -4755,158 +4796,60 @@ fn compute_witness(
     res
 }
 
-fn compute_witness_wrap(
-    internal_vars: &InternalVars<Fq>,
-    rows_rev: &Vec<Vec<Option<V>>>,
-    w: &Witness<Fq>,
-) -> [Vec<Fq>; COLUMNS] {
-    let external_values = |i: usize| {
-        if i < 40 {
-            w.primary[i]
-        } else {
-            w.aux[i - 40]
-        }
-    };
-
-    let mut internal_values = HashMap::<usize, Fq>::with_capacity(13_000);
-
-    let public_input_size = 40;
-    let num_rows = 15122;
-
-    let mut res: [_; COLUMNS] = std::array::from_fn(|_| vec![Fq::zero(); num_rows]);
-
-    // public input
-    for i in 0..public_input_size {
-        res[0][i] = external_values(i);
-    }
-
-    let compute = |(lc, c): &(Vec<(Fq, V)>, Option<Fq>), internal_values: &HashMap<_, _>| {
-        lc.iter().fold(c.unwrap_or_else(Fq::zero), |acc, (s, x)| {
-            let x = match x {
-                V::External(x) => external_values(*x),
-                V::Internal(x) => internal_values.get(x).copied().unwrap(),
-            };
-            acc + (*s * x)
-        })
-    };
-
-    for (i_after_input, cols) in rows_rev.iter().rev().enumerate() {
-        let row_idx = i_after_input + public_input_size;
-        for (col_idx, var) in cols.iter().enumerate() {
-            // println!("w[{}][{}]", col_idx, row_idx);
-            match var {
-                None => (),
-                Some(V::External(var)) => {
-                    res[col_idx][row_idx] = external_values(*var);
-                }
-                Some(V::Internal(var)) => {
-                    let lc = internal_vars.get(var).unwrap();
-                    let value = compute(lc, &internal_values);
-                    res[col_idx][row_idx] = value;
-                    internal_values.insert(*var, value);
-                }
-            }
-        }
-    }
-
-    dbg!(internal_values.len());
-
-    res
-}
-
-fn make_prover_index(gates: Vec<CircuitGate<Fp>>) -> ProverIndex<Vesta> {
-    use crate::verifier::SRS;
+fn make_prover_index<C: ProofConstants, F: FieldWitness>(
+    gates: Vec<CircuitGate<F>>,
+) -> ProverIndex<F::OtherCurve> {
     use kimchi::circuits::constraints::ConstraintSystem;
-    use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
-    use mina_poseidon::sponge::DefaultFqSponge;
-    use std::sync::Arc;
 
-    let public = 67;
-    let prev_challenges = 0;
-    let cs = ConstraintSystem::<Fp>::create(gates)
+    let public = C::PRIMARY_LEN;
+    let prev_challenges = C::PREVIOUS_CHALLENGES;
+
+    let cs = ConstraintSystem::<F>::create(gates)
         .public(public as usize)
         .prev_challenges(prev_challenges as usize)
         .build()
         .unwrap();
 
-    let (endo_q, _endo_r) = poly_commitment::srs::endos::<Pallas>();
+    let (endo_q, _endo_r) = endos::<F>();
 
-    let mut srs = SRS.lock().unwrap();
-    srs.add_lagrange_basis(cs.domain.d1);
-
-    let new_srs = srs.clone();
-    let mut index = ProverIndex::<Vesta>::create(cs, endo_q, Arc::new(new_srs));
-
-    // Compute and cache the verifier index digest
-    index.compute_verifier_index_digest::<DefaultFqSponge<VestaParameters, PlonkSpongeConstantsKimchi>>();
-    index
-}
-
-// TODO: Dedup
-fn make_prover_index_wrap(gates: Vec<CircuitGate<Fq>>) -> ProverIndex<Pallas> {
-    use kimchi::circuits::constraints::ConstraintSystem;
-    use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
-    use mina_poseidon::sponge::DefaultFqSponge;
-    use std::sync::Arc;
-
-    let public = 40;
-    let prev_challenges = 2;
-    let cs = ConstraintSystem::<Fq>::create(gates)
-        .public(public as usize)
-        .prev_challenges(prev_challenges as usize)
-        .build()
-        .unwrap();
-
-    let (endo_q, _endo_r) = poly_commitment::srs::endos::<Vesta>();
-
-    let new_srs = {
-        let mut srs = SRS_PALLAS.lock().unwrap();
+    // TODO: `proof-systems` needs to change how the SRS is used
+    let srs: poly_commitment::srs::SRS<F::OtherCurve> = {
+        let srs = F::get_srs();
+        let mut srs = srs.lock().unwrap();
         srs.add_lagrange_basis(cs.domain.d1);
         srs.clone()
     };
 
-    let mut index = ProverIndex::<Pallas>::create(cs, endo_q, Arc::new(new_srs));
+    let mut index = ProverIndex::<F::OtherCurve>::create(cs, endo_q, Arc::new(srs));
 
     // Compute and cache the verifier index digest
-    index.compute_verifier_index_digest::<DefaultFqSponge<PallasParameters, PlonkSpongeConstantsKimchi>>();
-
-    // TODO: Assert digest =
-    // 19781337510846198514780003379217262205620522686458524558876969112491106228071
-
+    index.compute_verifier_index_digest::<F::FqSponge>();
     index
 }
 
-fn create_proof(
-    computed_witness: [Vec<Fp>; COLUMNS],
-    prover_index: &ProverIndex<Vesta>,
-) -> kimchi::proof::ProverProof<Vesta> {
-    use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
-    use mina_poseidon::sponge::DefaultFqSponge;
-    type EFqSponge = DefaultFqSponge<VestaParameters, PlonkSpongeConstantsKimchi>;
-    type EFrSponge = mina_poseidon::sponge::DefaultFrSponge<Fp, PlonkSpongeConstantsKimchi>;
+fn create_proof<F: FieldWitness>(
+    computed_witness: [Vec<F>; COLUMNS],
+    prover_index: &ProverIndex<F::OtherCurve>,
+    prev_challenges: Vec<RecursionChallenge<F::OtherCurve>>,
+) -> kimchi::proof::ProverProof<F::OtherCurve> {
+    type EFrSponge<F> = mina_poseidon::sponge::DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
 
     let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
     let now = std::time::Instant::now();
-    let prev = vec![];
-    let group_map = kimchi::groupmap::GroupMap::<Fq>::setup();
-    let proof = kimchi::proof::ProverProof::create_recursive::<EFqSponge, EFrSponge>(
+    let group_map = kimchi::groupmap::GroupMap::<F::Scalar>::setup();
+    let proof = kimchi::proof::ProverProof::create_recursive::<F::FqSponge, EFrSponge<F>>(
         &group_map,
         computed_witness,
         &[],
         prover_index,
-        prev,
+        prev_challenges,
         None,
         &mut rng,
     )
     .unwrap();
 
-    serde_json::to_writer(
-        &std::fs::File::create("/tmp/PROOF_RUST.json").unwrap(),
-        &proof,
-    )
-    .unwrap();
-
     eprintln!("proof_elapsed={:?}", now.elapsed());
+
     proof
 }
 
@@ -4940,15 +4883,17 @@ fn generate_proof(
     // assert_eq!(&w.aux, &w.ocaml_aux);
 
     eprintln!("witness0_elapsed={:?}", now.elapsed());
-    let computed_witness = compute_witness(&internal_vars, &rows_rev, w);
+    let computed_witness =
+        compute_witness::<RegularTransactionProof, _>(&internal_vars, &rows_rev, w);
     eprintln!("witness_elapsed={:?}", now.elapsed());
 
     // let prover_index = make_prover_index(gates);
-    let proof = create_proof(computed_witness, step_prover_index);
+    let prev_challenges = vec![];
+    let proof = create_proof::<Fp>(computed_witness, step_prover_index, prev_challenges);
 
     // dbg!(&proof);
 
-    let mut w = Witness::with_capacity(220_000);
+    let mut w = Witness::new::<WrapProof>();
 
     fn read_witnesses_fq() -> std::io::Result<Vec<Fq>> {
         let f = std::fs::read_to_string(
@@ -4979,7 +4924,7 @@ fn generate_proof(
         &mut w,
     );
 
-    let computed_witness = { compute_witness_wrap(&internal_vars_wrap, &rows_rev_wrap, &w) };
+    let computed_witness = compute_witness::<WrapProof, _>(&internal_vars_wrap, &rows_rev_wrap, &w);
 
     let prev_challenges = message
         .iter()
@@ -4993,8 +4938,6 @@ fn generate_proof(
     let prev = if prev_challenges.is_empty() {
         vec![]
     } else {
-        use kimchi::proof::RecursionChallenge;
-
         let challenges_per_sg = prev_challenges.len() / prev_sgs.len();
         prev_sgs
             .into_iter()
@@ -5019,40 +4962,21 @@ fn generate_proof(
     dbg!(&w.primary);
     dbg!(w.primary.len());
 
-    {
-        use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
-        use mina_poseidon::sponge::DefaultFqSponge;
-        type EFqSponge = DefaultFqSponge<PallasParameters, PlonkSpongeConstantsKimchi>;
-        type EFrSponge = mina_poseidon::sponge::DefaultFrSponge<Fq, PlonkSpongeConstantsKimchi>;
+    let proof = create_proof::<Fq>(computed_witness, wrap_prover_index, prev);
 
-        let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
-        let group_map = kimchi::groupmap::GroupMap::<Fp>::setup();
-        let proof = kimchi::proof::ProverProof::create_recursive::<EFqSponge, EFrSponge>(
-            &group_map,
-            computed_witness,
-            &[],
-            wrap_prover_index,
-            prev,
-            None,
-            &mut rng,
-        )
-        .unwrap();
+    let sum = |s: &[u8]| {
+        use sha2::Digest;
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(s);
+        hex::encode(hasher.finalize())
+    };
 
-        let proof_json = serde_json::to_vec(&proof).unwrap();
+    let proof_json = serde_json::to_vec(&proof).unwrap();
+    std::fs::write("/tmp/PROOF_RUST_WRAP.json", &proof_json).unwrap();
 
-        let sum = |s: &[u8]| {
-            use sha2::Digest;
-            let mut hasher = sha2::Sha256::new();
-            hasher.update(s);
-            hex::encode(hasher.finalize())
-        };
+    dbg!(w.aux.len(), w.ocaml_aux.len());
 
-        std::fs::write("/tmp/PROOF_RUST_WRAP.json", &proof_json).unwrap();
-
-        dbg!(w.aux.len(), w.ocaml_aux.len());
-
-        sum(&proof_json)
-    }
+    sum(&proof_json)
 }
 
 #[cfg(test)]
@@ -5067,7 +4991,7 @@ mod tests_with_wasm {
     use super::*;
     #[test]
     fn test_to_field_checked() {
-        let mut witness = Witness::with_capacity(32);
+        let mut witness = Witness::empty();
         let f = Fp::from_str("1866").unwrap();
 
         let res = scalar_challenge::to_field_checked_prime::<_, 32>(f, &mut witness);
@@ -5434,10 +5358,10 @@ mod tests {
         let (gates, wrap_gates, internal_vars, rows_rev, internal_vars_wrap, rows_rev_wrap) =
             read_gates();
 
-        let step_prover_index = make_prover_index(gates);
-        let wrap_prover_index = make_prover_index_wrap(wrap_gates);
+        let step_prover_index = make_prover_index::<RegularTransactionProof, _>(gates);
+        let wrap_prover_index = make_prover_index::<WrapProof, _>(wrap_gates);
 
-        let mut witnesses: Witness<Fp> = Witness::with_capacity(100_000);
+        let mut witnesses: Witness<Fp> = Witness::new::<RegularTransactionProof>();
         generate_proof(
             &statement,
             &tx_witness,
@@ -5465,8 +5389,8 @@ mod tests {
         let dlog_plonk_index = PlonkVerificationKeyEvals::from_string(DLOG_PLONK_INDEX);
         let (gates, wrap_gates, internal_vars, rows_rev, internal_vars_wrap, rows_rev_wrap) =
             read_gates();
-        let step_prover_index = make_prover_index(gates);
-        let wrap_prover_index = make_prover_index_wrap(wrap_gates);
+        let step_prover_index = make_prover_index::<RegularTransactionProof, _>(gates);
+        let wrap_prover_index = make_prover_index::<WrapProof, _>(wrap_gates);
 
         // Same values than OCaml
         #[rustfmt::skip]
@@ -5499,7 +5423,7 @@ mod tests {
             let data = std::fs::read(base_dir.join(file)).unwrap();
             let (statement, tx_witness, message) = extract_request(&data);
 
-            let mut witnesses: Witness<Fp> = Witness::with_capacity(100_000);
+            let mut witnesses: Witness<Fp> = Witness::new::<RegularTransactionProof>();
             let sum = generate_proof(
                 &statement,
                 &tx_witness,

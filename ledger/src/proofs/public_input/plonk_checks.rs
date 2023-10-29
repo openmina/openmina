@@ -379,7 +379,7 @@ pub fn ft_eval0(
         beta: minimal.beta,
         gamma: minimal.gamma,
     };
-    let mut w = Witness::with_capacity(0);
+    let mut w = Witness::empty();
     let constant_term = scalars::compute(None, &minimal, evals, &mut w);
 
     ft_eval0 - constant_term
