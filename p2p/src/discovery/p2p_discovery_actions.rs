@@ -11,6 +11,7 @@ pub enum P2pDiscoveryAction {
     Init(P2pDiscoveryInitAction),
     Success(P2pDiscoverySuccessAction),
     KademliaInit(P2pDiscoveryKademliaInitAction),
+    KademliaAddRoute(P2pDiscoveryKademliaAddRouteAction),
     KademliaSuccess(P2pDiscoveryKademliaSuccessAction),
 }
 
@@ -19,6 +20,7 @@ impl redux::EnablingCondition<P2pState> for P2pDiscoveryAction {
         match self {
             Self::Init(action) => action.is_enabled(state),
             Self::Success(action) => action.is_enabled(state),
+            Self::KademliaAddRoute(action) => action.is_enabled(state),
             Self::KademliaInit(action) => action.is_enabled(state),
             Self::KademliaSuccess(action) => action.is_enabled(state),
         }
@@ -38,6 +40,24 @@ impl redux::EnablingCondition<P2pState> for P2pDiscoveryInitAction {
 
 impl From<P2pDiscoveryInitAction> for crate::P2pAction {
     fn from(a: P2pDiscoveryInitAction) -> Self {
+        Self::Discovery(a.into())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pDiscoveryKademliaAddRouteAction {
+    pub peer_id: PeerId,
+    pub addresses: Vec<P2pConnectionOutgoingInitOpts>,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pDiscoveryKademliaAddRouteAction {
+    fn is_enabled(&self, _state: &P2pState) -> bool {
+        true
+    }
+}
+
+impl From<P2pDiscoveryKademliaAddRouteAction> for crate::P2pAction {
+    fn from(a: P2pDiscoveryKademliaAddRouteAction) -> Self {
         Self::Discovery(a.into())
     }
 }
@@ -79,7 +99,7 @@ impl From<P2pDiscoveryKademliaInitAction> for crate::P2pAction {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pDiscoveryKademliaSuccessAction {
-    pub peers: Vec<P2pConnectionOutgoingInitOpts>,
+    pub peers: Vec<PeerId>,
 }
 
 impl redux::EnablingCondition<P2pState> for P2pDiscoveryKademliaSuccessAction {

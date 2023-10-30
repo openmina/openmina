@@ -1,3 +1,5 @@
+use p2p::discovery::P2pDiscoveryKademliaAddRouteAction;
+
 use crate::action::CheckTimeoutsAction;
 use crate::external_snark_worker::{
     ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerEvent, ExternalSnarkWorkerKilledAction,
@@ -203,6 +205,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::Ready) => {}
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeers(peers)) => {
                     store.dispatch(P2pDiscoveryKademliaSuccessAction { peers });
+                }
+                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::AddRoute(peer_id, addresses)) => {
+                    store.dispatch(P2pDiscoveryKademliaAddRouteAction { peer_id, addresses });
                 }
             },
             Event::Snark(event) => match event {

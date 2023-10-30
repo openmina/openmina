@@ -2,7 +2,10 @@ use crate::connection::incoming::{IncomingSignalingMethod, P2pConnectionIncoming
 use crate::connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts};
 use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
 use crate::disconnection::P2pDisconnectionAction;
-use crate::discovery::{P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoverySuccessAction};
+use crate::discovery::{
+    P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoveryKademliaAddRouteAction,
+    P2pDiscoverySuccessAction,
+};
 use crate::peer::p2p_peer_reducer;
 use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
 use crate::{P2pAction, P2pActionWithMetaRef, P2pPeerState, P2pPeerStatus, P2pState};
@@ -104,6 +107,12 @@ impl P2pState {
                         self.kademlia.last_used = Some(meta.time());
                         self.kademlia.outgoing_requests += 1;
                     }
+                    P2pDiscoveryAction::KademliaAddRoute(P2pDiscoveryKademliaAddRouteAction {
+                        peer_id,
+                        addresses,
+                    }) => {
+                        self.kademlia.routes.insert(*peer_id, addresses.clone());
+                    }
                     P2pDiscoveryAction::KademliaSuccess(action) => {
                         // TODO(vlad9486): handle failure, decrement the counter
                         self.kademlia.outgoing_requests -= 1;
@@ -111,7 +120,15 @@ impl P2pState {
                             action
                                 .peers
                                 .iter()
-                                .map(|opts| (opts.peer_id().clone(), opts.clone())),
+                                .map(|peer_id| {
+                                    // TODO(vlad9486): use all
+                                    self.kademlia
+                                        .routes
+                                        .get(peer_id)
+                                        .and_then(|r| r.first())
+                                        .map(|opts| (opts.peer_id().clone(), opts.clone()))
+                                })
+                                .flatten(),
                         )
                     }
                 }

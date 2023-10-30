@@ -89,8 +89,8 @@ use crate::p2p::disconnection::{
     P2pDisconnectionAction, P2pDisconnectionFinishAction, P2pDisconnectionInitAction,
 };
 use crate::p2p::discovery::{
-    P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoveryKademliaInitAction,
-    P2pDiscoveryKademliaSuccessAction, P2pDiscoverySuccessAction,
+    P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoveryKademliaAddRouteAction,
+    P2pDiscoveryKademliaInitAction, P2pDiscoveryKademliaSuccessAction, P2pDiscoverySuccessAction,
 };
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
 use crate::p2p::P2pAction;
@@ -290,6 +290,7 @@ pub enum ActionKind {
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
     P2pDiscoveryInit,
+    P2pDiscoveryKademliaAddRoute,
     P2pDiscoveryKademliaInit,
     P2pDiscoveryKademliaSuccess,
     P2pDiscoverySuccess,
@@ -402,7 +403,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 203;
+    pub const COUNT: u16 = 204;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -621,6 +622,7 @@ impl ActionKindGet for P2pDiscoveryAction {
             Self::Init(a) => a.kind(),
             Self::Success(a) => a.kind(),
             Self::KademliaInit(a) => a.kind(),
+            Self::KademliaAddRoute(a) => a.kind(),
             Self::KademliaSuccess(a) => a.kind(),
         }
     }
@@ -1161,6 +1163,12 @@ impl ActionKindGet for P2pDiscoverySuccessAction {
 impl ActionKindGet for P2pDiscoveryKademliaInitAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pDiscoveryKademliaInit
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryKademliaAddRouteAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoveryKademliaAddRoute
     }
 }
 

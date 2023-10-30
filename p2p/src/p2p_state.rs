@@ -25,6 +25,7 @@ pub struct P2pKademliaState {
     pub is_ready: bool,
     pub last_used: Option<redux::Timestamp>,
     pub outgoing_requests: usize,
+    pub routes: BTreeMap<PeerId, Vec<P2pConnectionOutgoingInitOpts>>,
 }
 
 impl P2pState {

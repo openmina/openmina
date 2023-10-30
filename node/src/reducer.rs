@@ -26,11 +26,7 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
             Event::P2p(P2pEvent::Discovery(P2pDiscoveryEvent::Ready)) => {
                 state.p2p.kademlia.is_ready = true;
             }
-            Event::P2p(P2pEvent::Discovery(P2pDiscoveryEvent::DidFindPeers(optses))) => {
-                for opts in optses {
-                    state.p2p.known_peers.insert(*opts.peer_id(), opts.clone());
-                }
-            }
+            Event::P2p(P2pEvent::Discovery(P2pDiscoveryEvent::DidFindPeers(..))) => {}
             _ => {}
         },
         Action::EventSource(_) => {}

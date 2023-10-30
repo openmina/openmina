@@ -40,7 +40,8 @@ pub enum P2pChannelEvent {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pDiscoveryEvent {
     Ready,
-    DidFindPeers(Vec<P2pConnectionOutgoingInitOpts>),
+    DidFindPeers(Vec<PeerId>),
+    AddRoute(PeerId, Vec<P2pConnectionOutgoingInitOpts>),
 }
 
 fn res_kind<T, E>(res: &Result<T, E>) -> &'static str {
@@ -195,9 +196,18 @@ impl fmt::Display for P2pDiscoveryEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Ready => write!(f, "p2p discovery ready"),
-            Self::DidFindPeers(opts) => write!(
+            Self::DidFindPeers(peers) => write!(
                 f,
                 "p2p discovered {}",
+                peers
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
+            Self::AddRoute(peer_id, opts) => write!(
+                f,
+                "p2p add route {peer_id}, {}",
                 opts.iter()
                     .map(|x| x.peer_id().to_string())
                     .collect::<Vec<_>>()

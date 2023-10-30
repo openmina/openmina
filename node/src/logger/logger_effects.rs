@@ -281,6 +281,13 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         summary = format!("find node"),
                     );
                 }
+                P2pDiscoveryAction::KademliaAddRoute(action) => {
+                    openmina_core::log::debug!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("add route {}", action.peer_id),
+                    );
+                }
                 P2pDiscoveryAction::KademliaSuccess(action) => {
                     openmina_core::log::debug!(
                         meta.time();
