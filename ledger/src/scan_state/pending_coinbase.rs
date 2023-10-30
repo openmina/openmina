@@ -29,7 +29,7 @@ use crate::{
     hash_noinputs, hash_with_kimchi,
     proofs::{
         numbers::nat::{CheckedNat, CheckedSlot},
-        witness::{Boolean, Witness},
+        witness::{field, Boolean, Witness},
     },
     staged_ledger::hash::PendingCoinbaseAux,
     Address, Inputs, MerklePath, ToInputs,
@@ -159,6 +159,14 @@ impl CoinbaseStack {
         Self(hash)
     }
 
+    fn check_merge(
+        (_, t1): (&Self, &Self),
+        (s2, _): (&Self, &Self),
+        w: &mut Witness<Fp>,
+    ) -> Boolean {
+        field::equal(t1.0, s2.0, w)
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L188
     pub fn empty() -> Self {
         Self(hash_noinputs("CoinbaseStack"))
@@ -237,6 +245,24 @@ impl StateStack {
             init: self.init,
             curr: hash,
         }
+    }
+
+    fn equal_var(&self, other: &Self, w: &mut Witness<Fp>) -> Boolean {
+        let b1 = field::equal(self.init, other.init, w);
+        let b2 = field::equal(self.curr, other.curr, w);
+        b1.and(&b2, w)
+    }
+
+    fn check_merge(
+        (s1, t1): (&Self, &Self),
+        (s2, t2): (&Self, &Self),
+        w: &mut Witness<Fp>,
+    ) -> Boolean {
+        let eq_src = s1.equal_var(s2, w);
+        let eq_target = t1.equal_var(t2, w);
+        let correct_transition = t1.equal_var(s2, w);
+        let same_update = eq_src.and(&eq_target, w);
+        Boolean::any(&[same_update, correct_transition], w)
     }
 
     fn empty() -> Self {
@@ -361,8 +387,6 @@ impl Stack {
     }
 
     pub fn equal_var(&self, other: &Self, w: &mut Witness<Fp>) -> Boolean {
-        use crate::proofs::witness::field;
-
         let b1 = field::equal(self.data.0, other.data.0, w);
         let b2 = {
             let b1 = field::equal(self.state.init, other.state.init, w);
@@ -370,6 +394,22 @@ impl Stack {
             b1.and(&b2, w)
         };
         b1.and(&b2, w)
+    }
+
+    pub fn check_merge(
+        transition1: (&Self, &Self),
+        transition2: (&Self, &Self),
+        w: &mut Witness<Fp>,
+    ) -> Boolean {
+        let (s, t) = transition1;
+        let (s2, t2) = transition2;
+
+        let valid_coinbase_stacks =
+            CoinbaseStack::check_merge((&s.data, &t.data), (&s2.data, &t2.data), w);
+        let valid_state_stacks =
+            StateStack::check_merge((&s.state, &t.state), (&s2.state, &t2.state), w);
+
+        valid_coinbase_stacks.and(&valid_state_stacks, w)
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/pending_coinbase.ml#L651

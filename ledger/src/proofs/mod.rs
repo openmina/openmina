@@ -4,6 +4,7 @@ pub mod accumulator_check;
 pub mod caching;
 pub mod constants;
 pub mod group_map;
+pub mod merge;
 pub mod numbers;
 pub mod opt_sponge;
 mod prover;
