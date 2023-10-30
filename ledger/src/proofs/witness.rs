@@ -131,7 +131,11 @@ impl<F: FieldWitness> Witness<F> {
         self.assert_ocaml_aux(&fields);
 
         // eprintln!("index={:?} w{:?}", self.aux.len() + 67, &fields);
-        eprintln!("index={:?} w{:?}", self.aux.len() + 40, &fields);
+        eprintln!(
+            "index={:?} w{:?}",
+            self.aux.len() + self.primary.capacity(),
+            &fields
+        );
         self.aux.append(&mut fields);
 
         data.check(self);
@@ -147,7 +151,11 @@ impl<F: FieldWitness> Witness<F> {
         self.assert_ocaml_aux(&fields);
 
         // eprintln!("index={:?} w{:?}", self.aux.len() + 67, &fields);
-        eprintln!("index={:?} w{:?}", self.aux.len() + 40, &fields);
+        eprintln!(
+            "index={:?} w{:?}",
+            self.aux.len() + self.primary.capacity(),
+            &fields
+        );
         self.aux.append(&mut fields);
 
         data
@@ -1133,6 +1141,17 @@ impl<F: FieldWitness> ToFieldElements<F> for Sgn {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let field: F = self.to_field();
         field.to_field_elements(fields)
+    }
+}
+
+impl<F: FieldWitness, T: currency::Magnitude + ToFieldElements<F>> ToFieldElements<F>
+    for currency::Signed<T>
+{
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let Self { magnitude, sgn } = self;
+
+        magnitude.to_field_elements(fields);
+        sgn.to_field_elements(fields);
     }
 }
 
@@ -4397,7 +4416,7 @@ pub mod transaction_snark {
         (final_root, fee_excess, supply_increase)
     }
 
-    fn assert_equal_local_state<F: FieldWitness>(
+    pub fn assert_equal_local_state<F: FieldWitness>(
         t1: &LocalState,
         t2: &LocalState,
         w: &mut Witness<F>,
@@ -4721,12 +4740,12 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum V {
+pub enum V {
     External(usize),
     Internal(usize),
 }
 
-type InternalVars<F> = HashMap<usize, (Vec<(F, V)>, Option<F>)>;
+pub type InternalVars<F> = HashMap<usize, (Vec<(F, V)>, Option<F>)>;
 
 fn compute_witness<C: ProofConstants, F: FieldWitness>(
     prover: &Prover<F>,
@@ -4843,12 +4862,12 @@ fn create_proof<F: FieldWitness>(
     proof
 }
 
-struct Prover<F: FieldWitness> {
+pub struct Prover<F: FieldWitness> {
     /// Constants to each kind of proof
-    internal_vars: InternalVars<F>,
+    pub internal_vars: InternalVars<F>,
     /// Constants to each kind of proof
-    rows_rev: Vec<Vec<Option<V>>>,
-    index: ProverIndex<F::OtherCurve>,
+    pub rows_rev: Vec<Vec<Option<V>>>,
+    pub index: ProverIndex<F::OtherCurve>,
 }
 
 fn generate_proof(
@@ -5038,7 +5057,10 @@ mod tests {
         macros::{BinProtRead, BinProtWrite},
     };
 
-    use crate::scan_state::scan_state::transaction_snark::SokMessage;
+    use crate::{
+        proofs::{constants::MergeProof, merge::generate_merge_proof},
+        scan_state::scan_state::transaction_snark::SokMessage,
+    };
 
     use super::*;
 
@@ -5199,12 +5221,50 @@ mod tests {
         (statement, tx_witness, message)
     }
 
+    fn extract_merge(
+        mut bytes: &[u8],
+    ) -> (
+        v2::MinaStateSnarkedLedgerStateStableV2,
+        (v2::LedgerProofProdStableV2, v2::LedgerProofProdStableV2),
+        SokMessage,
+    ) {
+        use mina_p2p_messages::v2::*;
+
+        let v: ExternalSnarkWorkerRequest = read_binprot(&mut bytes);
+
+        let ExternalSnarkWorkerRequest::PerformJob(job) = v else {
+            panic!()
+        };
+        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((a, prover))) = job else {
+            panic!()
+        };
+        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances::One(single) = a.instances
+        else {
+            panic!()
+        };
+        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Merge(merge) = single else {
+            panic!()
+        };
+
+        let (statement, p1, p2) = *merge;
+
+        let prover: CompressedPubKey = (&prover).into();
+        let fee = crate::scan_state::currency::Fee::from_u64(a.fee.as_u64());
+
+        let message = SokMessage { fee, prover };
+
+        (statement, (p1, p2), message)
+    }
+
     fn read_gates() -> (
         Vec<CircuitGate<Fp>>,
         Vec<CircuitGate<Fq>>,
+        Vec<CircuitGate<Fp>>,
         HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
         Vec<Vec<Option<V>>>,
         HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
+        Vec<Vec<Option<V>>>,
+        HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
         Vec<Vec<Option<V>>>,
     ) {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -5218,6 +5278,11 @@ mod tests {
         let rows_rev_path = base_dir.join("rows_rev_wrap_rampup4.bin");
         let (internal_vars_wrap, rows_rev_wrap) =
             read_constraints_data::<Fq>(&internal_vars_path, &rows_rev_path).unwrap();
+
+        let internal_vars_path = base_dir.join("rampup4").join("merge_internal_vars.bin");
+        let rows_rev_path = base_dir.join("rampup4").join("merge_rows_rev.bin");
+        let (merge_internal_vars, merge_rows_rev) =
+            read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
 
         let gates: Vec<CircuitGate<Fp>> = {
             let gates_path = base_dir.join("gates_step_rampup4.json");
@@ -5233,20 +5298,40 @@ mod tests {
             serde_json::from_reader(reader).unwrap()
         };
 
+        let merge_gates: Vec<CircuitGate<Fp>> = {
+            let gates_path = base_dir.join("gates_merge_rampup4.json");
+            let file = std::fs::File::open(gates_path).unwrap();
+            let reader = std::io::BufReader::new(file);
+            serde_json::from_reader(reader).unwrap()
+        };
+
         (
             gates,
             wrap_gates,
+            merge_gates,
             internal_vars,
             rows_rev,
             internal_vars_wrap,
             rows_rev_wrap,
+            merge_internal_vars,
+            merge_rows_rev,
         )
     }
 
-    fn make_provers() -> (Prover<Fp>, Prover<Fq>) {
-        let (gates, wrap_gates, internal_vars, rows_rev, internal_vars_wrap, rows_rev_wrap) =
-            read_gates();
+    fn make_provers() -> (Prover<Fp>, Prover<Fq>, Prover<Fp>) {
+        let (
+            gates,
+            wrap_gates,
+            merge_gates,
+            internal_vars,
+            rows_rev,
+            internal_vars_wrap,
+            rows_rev_wrap,
+            merge_internal_vars,
+            merge_rows_rev,
+        ) = read_gates();
         let step_prover_index = make_prover_index::<RegularTransactionProof, _>(gates);
+        let merge_prover_index = make_prover_index::<MergeProof, _>(merge_gates);
         let wrap_prover_index = make_prover_index::<WrapProof, _>(wrap_gates);
 
         let step_prover = Prover {
@@ -5255,13 +5340,19 @@ mod tests {
             index: step_prover_index,
         };
 
+        let merge_prover = Prover {
+            internal_vars: merge_internal_vars,
+            rows_rev: merge_rows_rev,
+            index: merge_prover_index,
+        };
+
         let wrap_prover = Prover {
             internal_vars: internal_vars_wrap,
             rows_rev: rows_rev_wrap,
             index: wrap_prover_index,
         };
 
-        (step_prover, wrap_prover)
+        (step_prover, wrap_prover, merge_prover)
     }
 
     #[test]
@@ -5278,7 +5369,7 @@ mod tests {
         };
 
         let (statement, tx_witness, message) = extract_request(&data);
-        let (step_prover, wrap_prover) = make_provers();
+        let (step_prover, wrap_prover, _merge_prover) = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<RegularTransactionProof>();
         generate_proof(
@@ -5286,6 +5377,33 @@ mod tests {
             &tx_witness,
             &message,
             &step_prover,
+            &wrap_prover,
+            &mut witnesses,
+        );
+    }
+
+    #[test]
+    fn test_merge_proof() {
+        let Ok(data) =
+            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
+            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("merge_0_rampup4.bin"))
+            // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
+            // std::fs::read("/tmp/coinbase_1_rampup4.bin")
+            // std::fs::read("/tmp/stake_0_rampup4.bin")
+        else {
+            eprintln!("request not found");
+            return;
+        };
+
+        let (statement, proofs, message) = extract_merge(&data);
+        let (_step_prover, wrap_prover, merge_prover) = make_provers();
+
+        let mut witnesses: Witness<Fp> = Witness::new::<MergeProof>();
+        generate_merge_proof(
+            &statement,
+            &proofs,
+            &message,
+            &merge_prover,
             &wrap_prover,
             &mut witnesses,
         );
@@ -5300,7 +5418,7 @@ mod tests {
             return;
         }
 
-        let (step_prover, wrap_prover) = make_provers();
+        let (step_prover, wrap_prover, _merge_prover) = make_provers();
 
         // Same values than OCaml
         #[rustfmt::skip]

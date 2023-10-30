@@ -31,16 +31,19 @@
 //! Port of the implementation from:
 //! https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_excess.ml#L1
 
+use ark_ff::{BigInteger, BigInteger256, Zero};
+use mina_hasher::Fp;
+
 use crate::{
     proofs::{
         numbers::currency::{CheckedFee, CheckedSigned},
-        witness::FieldWitness,
+        witness::{field, Boolean, Check, FieldWitness, Witness},
     },
     ToInputs, TokenId,
 };
 
 use super::{
-    currency::{Fee, Magnitude, Signed},
+    currency::{Fee, Magnitude, Sgn, Signed},
     scan_state::transaction_snark::OneOrTwo,
 };
 
@@ -184,6 +187,50 @@ impl FeeExcess {
         })
     }
 
+    fn rebalance_checked(
+        fee_token_l: TokenId,
+        fee_excess_l: Fp,
+        fee_token_r: TokenId,
+        fee_excess_r: Fp,
+        w: &mut Witness<Fp>,
+    ) -> (TokenId, Fp, TokenId, Fp) {
+        let fee_token_l = {
+            let excess_is_zero = field::equal(Fp::zero(), fee_excess_l, w);
+            w.exists_no_check(match excess_is_zero {
+                Boolean::True => &fee_token_r,
+                Boolean::False => &fee_token_l,
+            })
+        };
+
+        let (fee_excess_l, fee_excess_r) = {
+            let tokens_equal = field::equal(fee_token_l.0, fee_token_r.0, w);
+            let amount_to_move = w.exists_no_check(match tokens_equal {
+                Boolean::True => fee_excess_r,
+                Boolean::False => Fp::zero(),
+            });
+
+            (fee_excess_l + amount_to_move, fee_excess_r + amount_to_move)
+        };
+
+        let fee_token_l = {
+            let excess_is_zero = field::equal(Fp::zero(), fee_excess_l, w);
+            w.exists_no_check(match excess_is_zero {
+                Boolean::True => TokenId::default(),
+                Boolean::False => fee_token_l.clone(),
+            })
+        };
+
+        let fee_token_r = {
+            let excess_is_zero = field::equal(Fp::zero(), fee_excess_r, w);
+            w.exists_no_check(match excess_is_zero {
+                Boolean::True => TokenId::default(),
+                Boolean::False => fee_token_r.clone(),
+            })
+        };
+
+        (fee_token_l, fee_excess_l, fee_token_r, fee_excess_r)
+    }
+
     /// Combine the fee excesses from two transitions.
     ///
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/fee_excess.ml#L380
@@ -225,6 +272,63 @@ impl FeeExcess {
         }
         .rebalance()
     }
+
+    pub fn combine_checked(
+        Self {
+            fee_token_l: fee_token1_l,
+            fee_excess_l: fee_excess1_l,
+            fee_token_r: fee_token1_r,
+            fee_excess_r: fee_excess1_r,
+        }: &Self,
+        Self {
+            fee_token_l: fee_token2_l,
+            fee_excess_l: fee_excess2_l,
+            fee_token_r: fee_token2_r,
+            fee_excess_r: fee_excess2_r,
+        }: &Self,
+        w: &mut Witness<Fp>,
+    ) -> (TokenId, Signed<Fee>, TokenId, Signed<Fee>) {
+        // Represent amounts as field elements.
+        let fee_excess1_l = w.exists(fee_excess1_l.to_checked::<Fp>().value());
+        let fee_excess1_r = w.exists(fee_excess1_r.to_checked::<Fp>().value());
+        let fee_excess2_l = w.exists(fee_excess2_l.to_checked::<Fp>().value());
+        let fee_excess2_r = w.exists(fee_excess2_r.to_checked::<Fp>().value());
+
+        let ((fee_token1_l, fee_excess1_l), (fee_token2_l, fee_excess2_l)) =
+            eliminate_fee_excess_checked(
+                (fee_token1_l, fee_excess1_l),
+                (fee_token1_r, fee_excess1_r),
+                (fee_token2_l, fee_excess2_l),
+                w,
+            );
+
+        let ((fee_token1_l, fee_excess1_l), (fee_token2_r, fee_excess2_r)) =
+            eliminate_fee_excess_checked(
+                (&fee_token1_l, fee_excess1_l),
+                (&fee_token2_l, fee_excess2_l),
+                (&fee_token2_r, fee_excess2_r),
+                w,
+            );
+
+        let (fee_token_l, fee_excess_l, fee_token_r, fee_excess_r) =
+            Self::rebalance_checked(fee_token1_l, fee_excess1_l, fee_token2_r, fee_excess2_r, w);
+
+        let convert_to_currency = |excess: Fp| {
+            let bigint: BigInteger256 = excess.into();
+            let is_neg = bigint.get_bit(255 - 1);
+            let sgn = if is_neg { Sgn::Neg } else { Sgn::Pos };
+            let magnitude = Fee::from_u64(bigint.0[0]);
+            Signed::create(magnitude, sgn)
+        };
+
+        let fee_excess_l = w.exists(convert_to_currency(fee_excess_l));
+        w.exists_no_check(fee_excess_l.to_checked::<Fp>().value()); // Made by `Fee.Signed.Checked.to_field_var` call
+
+        let fee_excess_r = w.exists(convert_to_currency(fee_excess_r));
+        w.exists_no_check(fee_excess_r.to_checked::<Fp>().value()); // Made by `Fee.Signed.Checked.to_field_var` call
+
+        (fee_token_l, fee_excess_l, fee_token_r, fee_excess_r)
+    }
 }
 
 /// Eliminate a fee excess, either by combining it with one to the left/right,
@@ -257,3 +361,60 @@ fn eliminate_fee_excess<'a>(
         ))
     }
 }
+
+fn eliminate_fee_excess_checked<'a>(
+    (fee_token_l, fee_excess_l): (&'a TokenId, Fp),
+    (fee_token_m, fee_excess_m): (&'a TokenId, Fp),
+    (fee_token_r, fee_excess_r): (&'a TokenId, Fp),
+    w: &mut Witness<Fp>,
+) -> ((TokenId, Fp), (TokenId, Fp)) {
+    let mut combine = |fee_token: &TokenId, fee_excess: Fp, fee_excess_m: Fp| {
+        let fee_token_equal = field::equal(fee_token.0, fee_token_m.0, w);
+        let fee_excess_zero = field::equal(Fp::zero(), fee_excess, w);
+
+        let may_move = fee_token_equal.or(&fee_excess_zero, w);
+
+        let fee_token = w.exists_no_check(match fee_excess_zero {
+            Boolean::True => fee_token_m,
+            Boolean::False => fee_token,
+        });
+
+        let fee_excess_to_move = w.exists_no_check(match may_move {
+            Boolean::True => fee_excess_m,
+            Boolean::False => Fp::zero(),
+        });
+
+        (
+            (fee_token.clone(), fee_excess + fee_excess_to_move),
+            fee_excess_m - fee_excess_to_move,
+        )
+    };
+
+    let ((fee_token_l, fee_excess_l), fee_excess_m) =
+        combine(fee_token_l, fee_excess_l, fee_excess_m);
+    let ((fee_token_r, fee_excess_r), _fee_excess_m) =
+        combine(fee_token_r, fee_excess_r, fee_excess_m);
+
+    ((fee_token_l, fee_excess_l), (fee_token_r, fee_excess_r))
+}
+
+//   (* NOTE: Below, we may update the tokens on both sides, even though we only
+//      promote the excess to one of them. This differs from the unchecked
+//      version, but
+//      * the token may only be changed if it is associated with 0 fee excess
+//      * any intermediate 0 fee excesses can always be either combined or erased
+//        in later eliminations
+//      * a fee excess of 0 on the left or right will have its token erased to the
+//        default
+//   *)
+//   let%bind (fee_token_l, fee_excess_l), fee_excess_m =
+//     combine (fee_token_l, fee_excess_l) fee_excess_m
+//   in
+//   let%bind (fee_token_r, fee_excess_r), fee_excess_m =
+//     combine (fee_token_r, fee_excess_r) fee_excess_m
+//   in
+//   let%map () =
+//     [%with_label_ "Fee excess is eliminated"]
+//       Field.(fun () -> Checked.Assert.equal (Var.constant zero) fee_excess_m)
+//   in
+//   ((fee_token_l, fee_excess_l), (fee_token_r, fee_excess_r))

@@ -100,6 +100,7 @@ pub mod transaction_snark {
     use serde::{Deserialize, Serialize};
 
     use crate::{
+        proofs::witness::{field, Boolean, Witness},
         scan_state::{
             currency::{Amount, Signed, Slot},
             fee_excess::FeeExcess,
@@ -208,7 +209,7 @@ pub mod transaction_snark {
         }
     }
 
-    struct StatementLedgers {
+    pub struct StatementLedgers {
         first_pass_ledger_source: LedgerHash,
         first_pass_ledger_target: LedgerHash,
         second_pass_ledger_source: LedgerHash,
@@ -221,7 +222,7 @@ pub mod transaction_snark {
 
     impl StatementLedgers {
         /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/snarked_ledger_state.ml#L530
-        fn of_statement<T>(s: &Statement<T>) -> Self {
+        pub fn of_statement<T>(s: &Statement<T>) -> Self {
             Self {
                 first_pass_ledger_source: s.source.first_pass_ledger,
                 first_pass_ledger_target: s.target.first_pass_ledger,
@@ -317,6 +318,51 @@ pub mod transaction_snark {
         s2: &StatementLedgers,
     ) -> Result<bool, String> {
         validate_ledgers_at_merge(s1, s2)
+    }
+
+    // TODO: Dedup with `validate_ledgers_at_merge_checked`
+    pub fn validate_ledgers_at_merge_checked(
+        s1: &StatementLedgers,
+        s2: &StatementLedgers,
+        w: &mut Witness<Fp>,
+    ) -> Boolean {
+        let is_same_block_at_shared_boundary =
+            field::equal(s1.connecting_ledger_right, s2.connecting_ledger_left, w);
+        let l1 = w.exists_no_check(match is_same_block_at_shared_boundary {
+            Boolean::True => s2.first_pass_ledger_source,
+            Boolean::False => s1.connecting_ledger_right,
+        });
+        let res1 = field::equal(s1.first_pass_ledger_target, l1, w);
+        let l2 = w.exists_no_check(match is_same_block_at_shared_boundary {
+            Boolean::True => s1.second_pass_ledger_target,
+            Boolean::False => s2.connecting_ledger_left,
+        });
+        let res2 = field::equal(s2.second_pass_ledger_source, l2, w);
+        let l3 = w.exists_no_check(match is_same_block_at_shared_boundary {
+            Boolean::True => s1.second_pass_ledger_target,
+            Boolean::False => s2.first_pass_ledger_source,
+        });
+        let res3 = field::equal(s1.second_pass_ledger_target, l3, w);
+        let res4 = {
+            let local_state_ledger_equal = field::equal(
+                s2.local_state_ledger_source,
+                s1.local_state_ledger_target,
+                w,
+            );
+
+            // We decompose this way because of OCaml evaluation order
+            let b = field::equal(s1.local_state_ledger_target, s1.first_pass_ledger_target, w);
+            let a = field::equal(
+                s2.local_state_ledger_source,
+                s2.second_pass_ledger_source,
+                w,
+            );
+            let local_state_ledger_transitions = Boolean::all(&[a, b], w);
+
+            local_state_ledger_equal.or(&local_state_ledger_transitions, w)
+        };
+        // NOTES: No accumulate_failures here
+        Boolean::all(&[res1, res2, res3, res4], w)
     }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
