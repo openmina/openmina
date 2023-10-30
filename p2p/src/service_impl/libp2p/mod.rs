@@ -311,15 +311,12 @@ impl Libp2pService {
                 Self::gossipsub_send(swarm, &GossipNetMessage::SnarkPoolDiff { message, nonce });
             }
             Cmd::FindNode(peer_id) => {
-                let id = swarm
-                    .behaviour_mut()
-                    .kademlia
-                    .get_closest_peers(*peer_id.as_ref());
+                let id = swarm.behaviour_mut().kademlia.get_closest_peers(peer_id);
                 swarm
                     .behaviour_mut()
                     .kademlia_state
                     .find_node_ids
-                    .insert(id);
+                    .insert(id, peer_id);
             }
         }
     }
@@ -567,16 +564,10 @@ impl Libp2pService {
                 BehaviourEvent::Kademlia(event) => {
                     match event {
                         kad::Event::RoutingUpdated {
-                            peer,
-                            is_new_peer: true,
-                            addresses,
-                            ..
+                            peer, addresses, ..
                         } => {
-                            swarm
-                                .behaviour_mut()
-                                .kademlia_state
-                                .routing
-                                .insert(peer, addresses.into_vec());
+                            let table = &mut swarm.behaviour_mut().kademlia_state.routing;
+                            table.insert(peer, addresses.into_vec());
                         }
                         kad::Event::OutboundQueryProgressed {
                             id, step, result, ..
@@ -590,24 +581,28 @@ impl Libp2pService {
                                         .unwrap_or_default();
                                 }
                             }
-                            if b.kademlia_state.find_node_ids.remove(&id) {
+                            if let Some(key) = b.kademlia_state.find_node_ids.remove(&id) {
                                 if let kad::QueryResult::GetClosestPeers(result) = result {
                                     match result {
                                         Ok(v) => {
+                                            let _ = key;
+                                            // let key = kad::KBucketKey::from(key);
                                             let optses =
                                             v.peers.into_iter().filter_map(|peer_id| {
                                                 if peer_id.as_ref().code() == 0x12 {
                                                     return None;
                                                 }
+                                                // let k_peer = kad::KBucketKey::from(peer_id);
+                                                // dbg!(key.distance(&k_peer).ilog2());
+
                                                 let addresses =
                                                     b.kademlia_state.routing.get(&peer_id)?;
 
                                                 // TODO(vlad9486): use all addresses
-                                                let first = addresses
+                                                addresses
                                                     .iter()
                                                     .find_map(|a| P2pConnectionOutgoingInitLibp2pOpts::try_from(a).ok())
-                                                    .map(P2pConnectionOutgoingInitOpts::LibP2P)?;
-                                                Some(first)
+                                                    .map(P2pConnectionOutgoingInitOpts::LibP2P)
                                             });
                                             let response =
                                                 P2pDiscoveryEvent::DidFindPeers(optses.collect());

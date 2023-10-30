@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 use libp2p::{gossipsub, identify, swarm::NetworkBehaviour, PeerId};
 use openmina_core::channels::mpsc;
@@ -34,7 +34,7 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
 #[derive(Default)]
 pub struct KademliaState {
     pub bootstrap_id: Option<kad::QueryId>,
-    pub find_node_ids: HashSet<kad::QueryId>,
+    pub find_node_ids: HashMap<kad::QueryId, PeerId>,
     pub routing: BTreeMap<PeerId, Vec<Multiaddr>>,
 }
 

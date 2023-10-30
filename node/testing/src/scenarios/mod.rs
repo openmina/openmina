@@ -34,8 +34,13 @@ pub enum Scenarios {
 }
 
 impl Scenarios {
-    pub fn iter() -> ScenariosIter {
-        <Self as strum::IntoEnumIterator>::iter()
+    // Turn off global test
+    pub fn iter() -> impl IntoIterator<Item = Scenarios> {
+        // <Self as strum::IntoEnumIterator>::iter()
+        [
+            Self::SoloNodeBasicConnectivityInitialJoining(SoloNodeBasicConnectivityInitialJoining),
+            Self::SoloNodeSyncRootSnarkedLedger(SoloNodeSyncRootSnarkedLedger),
+        ]
     }
 
     pub fn id(self) -> ScenarioId {

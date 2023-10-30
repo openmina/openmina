@@ -269,12 +269,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             }
             P2pDiscoveryAction::Success(_) => {}
             P2pDiscoveryAction::KademliaInit(_) => {
-                // dbg!(action);
                 store.service().find_random_peer();
             }
-            P2pDiscoveryAction::KademliaSuccess(_) => {
-                // dbg!(action);
-            }
+            P2pDiscoveryAction::KademliaSuccess(_) => {}
         },
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {

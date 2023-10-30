@@ -1,4 +1,3 @@
-use p2p::discovery::P2pDiscoveryKademliaInitAction;
 use redux::ActionMeta;
 
 use crate::consensus::consensus_effects;
@@ -17,7 +16,7 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
     P2pConnectionOutgoingTimeoutAction,
 };
-use crate::p2p::discovery::P2pDiscoveryInitAction;
+use crate::p2p::discovery::P2pDiscoveryKademliaInitAction;
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
@@ -70,8 +69,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             if store.state().p2p.enough_time_elapsed(meta.time()) {
                 store.dispatch(P2pDiscoveryKademliaInitAction {});
             }
-            // turn off in favour of kademlia
-            // p2p_discovery_request(store, &meta);
+            #[cfg(feature = "p2p-webrtc")]
+            p2p_discovery_request(store, &meta);
 
             let state = store.state();
             for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {
@@ -217,8 +216,10 @@ fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
 
 /// Iterate all connected peers and check the time of the last response to the peer discovery request.
 /// If the elapsed time is large enough, send another discovery request.
-#[allow(dead_code)]
+#[cfg(feature = "p2p-webrtc")]
 fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
+    use crate::p2p::discovery::P2pDiscoveryInitAction;
+
     let peer_ids = store
         .state()
         .p2p

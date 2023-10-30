@@ -17,8 +17,9 @@ pub struct SoloNodeBasicConnectivityInitialJoining;
 
 impl SoloNodeBasicConnectivityInitialJoining {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        const MAX_PEERS_PER_NODE: usize = 20;
-        const STEPS: usize = 1000;
+        const MAX_PEERS_PER_NODE: usize = 100;
+        const KNOWN_PEERS: usize = 8; // current berkeley network
+        const STEPS: usize = 4_000;
 
         let mut nodes = vec![];
 
@@ -58,6 +59,14 @@ impl SoloNodeBasicConnectivityInitialJoining {
             }
             for &node_id in &nodes {
                 runner
+                    .exec_step(ScenarioStep::AdvanceNodeTime {
+                        node_id,
+                        by_nanos: 100_000_000,
+                    })
+                    .await
+                    .unwrap();
+
+                runner
                     .exec_step(ScenarioStep::CheckTimeouts { node_id })
                     .await
                     .unwrap();
@@ -71,7 +80,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
                 println!("connected peers: {ready_peers}");
 
                 // TODO: the threshold is too small, node cannot connect to many peer before the timeout
-                if ready_peers >= 3 && known_peers >= MAX_PEERS_PER_NODE {
+                if ready_peers >= 3 && known_peers >= KNOWN_PEERS {
                     return;
                 }
             }
