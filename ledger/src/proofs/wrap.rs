@@ -939,11 +939,10 @@ mod pseudo {
         let which = which_branch.iter().position(Boolean::as_bool).unwrap();
         let domain = &all_possible_domains[which];
         let domain = Radix2EvaluationDomain::new(domain.size() as usize).unwrap();
-        let max_log2 = all_possible_domains
-            .iter()
-            .map(|d| d.log2_size())
-            .max()
-            .unwrap();
+        let max_log2 = {
+            let all = all_possible_domains.iter().map(Domain::log2_size);
+            Iterator::max(all).unwrap() // `rust-analyzer` is confused if we use `all.max()`
+        };
 
         PseudoDomain {
             domain,
