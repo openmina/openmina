@@ -37,7 +37,7 @@ use mina_p2p_messages::{
         UnsignedExtendedUInt32StableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
-use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
+use mina_poseidon::{constants::PlonkSpongeConstantsKimchi, sponge::DefaultFqSponge};
 use mina_signer::CompressedPubKey;
 use poly_commitment::PolyComm;
 
@@ -1765,8 +1765,7 @@ impl FieldWitness for Fp {
     type Projective = ProjectivePallas;
     type Shifting = ShiftedValue<Fp>;
     type OtherCurve = <Self::Affine as KimchiCurve>::OtherCurve;
-    type FqSponge =
-        mina_poseidon::sponge::DefaultFqSponge<VestaParameters, PlonkSpongeConstantsKimchi>;
+    type FqSponge = DefaultFqSponge<VestaParameters, PlonkSpongeConstantsKimchi>;
 
     /// https://github.com/openmina/mina/blob/46b6403cb7f158b66a60fc472da2db043ace2910/src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml#L107
     const PARAMS: Params<Self> = Params::<Self> {
@@ -1787,8 +1786,7 @@ impl FieldWitness for Fq {
     type Projective = ProjectiveVesta;
     type Shifting = ShiftedValue<Fq>;
     type OtherCurve = <Self::Affine as KimchiCurve>::OtherCurve;
-    type FqSponge =
-        mina_poseidon::sponge::DefaultFqSponge<PallasParameters, PlonkSpongeConstantsKimchi>;
+    type FqSponge = DefaultFqSponge<PallasParameters, PlonkSpongeConstantsKimchi>;
 
     /// https://github.com/openmina/mina/blob/46b6403cb7f158b66a60fc472da2db043ace2910/src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml#L95
     const PARAMS: Params<Self> = Params::<Self> {
@@ -4551,13 +4549,6 @@ fn step_main(
 
     transaction_snark::main(statement_with_sok, tx_witness, w);
 
-    // let verifier_index = crate::verifier::VERIFIER_INDEX.as_ref();
-    // let dlog_plonk_index = w.exists({
-    //     let v = crate::PlonkVerificationKeyEvals::from(verifier_index);
-    //     dbg!(&v);
-    //     PlonkVerificationKeyEvals::from(v)
-    // });
-
     let dlog_plonk_index = w.exists(dlog_plonk_index);
 
     let messages_for_next_wrap_proof = w.exists(get_messages_for_next_wrap_proof_padded());
@@ -4738,8 +4729,7 @@ enum V {
 type InternalVars<F> = HashMap<usize, (Vec<(F, V)>, Option<F>)>;
 
 fn compute_witness<C: ProofConstants, F: FieldWitness>(
-    internal_vars: &InternalVars<F>,
-    rows_rev: &Vec<Vec<Option<V>>>,
+    prover: &Prover<F>,
     w: &Witness<F>,
 ) -> [Vec<F>; COLUMNS] {
     let external_values = |i: usize| {
@@ -4772,7 +4762,7 @@ fn compute_witness<C: ProofConstants, F: FieldWitness>(
         })
     };
 
-    for (i_after_input, cols) in rows_rev.iter().rev().enumerate() {
+    for (i_after_input, cols) in prover.rows_rev.iter().rev().enumerate() {
         let row_idx = i_after_input + public_input_size;
         for (col_idx, var) in cols.iter().enumerate() {
             // println!("w[{}][{}]", col_idx, row_idx);
@@ -4782,7 +4772,7 @@ fn compute_witness<C: ProofConstants, F: FieldWitness>(
                     res[col_idx][row_idx] = external_values(*var);
                 }
                 Some(V::Internal(var)) => {
-                    let lc = internal_vars.get(var).unwrap();
+                    let lc = prover.internal_vars.get(var).unwrap();
                     let value = compute(lc, &internal_values);
                     res[col_idx][row_idx] = value;
                     internal_values.insert(*var, value);
@@ -4853,25 +4843,36 @@ fn create_proof<F: FieldWitness>(
     proof
 }
 
+struct Prover<F: FieldWitness> {
+    /// Constants to each kind of proof
+    internal_vars: InternalVars<F>,
+    /// Constants to each kind of proof
+    rows_rev: Vec<Vec<Option<V>>>,
+    index: ProverIndex<F::OtherCurve>,
+}
+
 fn generate_proof(
     statement: &MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     tx_witness: &v2::TransactionWitnessStableV2,
     message: &SokMessage,
-    internal_vars: &InternalVars<Fp>,
-    rows_rev: &Vec<Vec<Option<V>>>,
-    internal_vars_wrap: &InternalVars<Fq>,
-    rows_rev_wrap: &Vec<Vec<Option<V>>>,
-    step_prover_index: &ProverIndex<Vesta>,
-    wrap_prover_index: &ProverIndex<Pallas>,
-    dlog_plonk_index: &PlonkVerificationKeyEvals<Fp>,
+    step_prover: &Prover<Fp>,
+    wrap_prover: &Prover<Fq>,
     w: &mut Witness<Fp>,
 ) -> String {
     let statement: Statement<()> = statement.into();
     let sok_digest = message.digest();
     let statement_with_sok = statement.with_digest(sok_digest);
 
+    let dlog_plonk_index = {
+        // TODO: Dedup `crate::PlonkVerificationKeyEvals` and `PlonkVerificationKeyEvals`
+        let v = crate::PlonkVerificationKeyEvals::from(
+            wrap_prover.index.verifier_index.as_ref().unwrap(),
+        );
+        PlonkVerificationKeyEvals::from(v)
+    };
+
     let now = std::time::Instant::now();
-    let step_statement = step(&statement_with_sok, tx_witness, dlog_plonk_index, w);
+    let step_statement = step(&statement_with_sok, tx_witness, &dlog_plonk_index, w);
 
     // TODO: Not always dummy
     let prev_evals = vec![AllEvals::dummy(); 2];
@@ -4883,13 +4884,12 @@ fn generate_proof(
     // assert_eq!(&w.aux, &w.ocaml_aux);
 
     eprintln!("witness0_elapsed={:?}", now.elapsed());
-    let computed_witness =
-        compute_witness::<RegularTransactionProof, _>(&internal_vars, &rows_rev, w);
+    let computed_witness = compute_witness::<RegularTransactionProof, _>(&step_prover, w);
     eprintln!("witness_elapsed={:?}", now.elapsed());
 
     // let prover_index = make_prover_index(gates);
     let prev_challenges = vec![];
-    let proof = create_proof::<Fp>(computed_witness, step_prover_index, prev_challenges);
+    let proof = create_proof::<Fp>(computed_witness, &step_prover.index, prev_challenges);
 
     // dbg!(&proof);
 
@@ -4919,12 +4919,12 @@ fn generate_proof(
         &proof,
         step_statement,
         &prev_evals,
-        dlog_plonk_index,
-        step_prover_index,
+        &dlog_plonk_index,
+        &step_prover.index,
         &mut w,
     );
 
-    let computed_witness = compute_witness::<WrapProof, _>(&internal_vars_wrap, &rows_rev_wrap, &w);
+    let computed_witness = compute_witness::<WrapProof, _>(wrap_prover, &w);
 
     let prev_challenges = message
         .iter()
@@ -4962,7 +4962,7 @@ fn generate_proof(
     dbg!(&w.primary);
     dbg!(w.primary.len());
 
-    let proof = create_proof::<Fq>(computed_witness, wrap_prover_index, prev);
+    let proof = create_proof::<Fq>(computed_witness, &wrap_prover.index, prev);
 
     let sum = |s: &[u8]| {
         use sha2::Digest;
@@ -5073,37 +5073,6 @@ mod tests {
         T::binprot_read(&mut read).unwrap()
     }
 
-    // #[allow(const_item_mutation)]
-    // #[test]
-    // fn read_witnesses() {
-    //     let f = std::fs::read("/tmp/fp-witness.bin").unwrap();
-
-    //     use std::io::Cursor;
-    //     use byteorder::{LittleEndian, ReadBytesExt};
-
-    //     let fps = f.chunks(32).map(|b| {
-    //         let limb0 = u64::from_le_bytes(b[..8].try_into().unwrap());
-    //         let limb1 = u64::from_le_bytes(b[8..16].try_into().unwrap());
-    //         let limb2 = u64::from_le_bytes(b[16..24].try_into().unwrap());
-    //         let limb3 = u64::from_le_bytes(b[24..32].try_into().unwrap());
-
-    //         Fp::from_repr(BigInteger256([limb0, limb1, limb2, limb3])).unwrap()
-    //     }).collect::<Vec<_>>();
-
-    //     dbg!(&fps);
-    //     // dbg!(&fps[..200]);
-
-    //     let to_find = Fp::from_str("3872718692882651817983620299125138718833408774947121329795234981807992502608").unwrap();
-    //     // let to_find = Fp::from_str("12418654782883325593414442427049395787963493412651469444558597405572177144507").unwrap();
-
-    //     let pos = fps.iter().position(|fp| {
-    //         *fp == to_find
-    //     }).unwrap();
-
-    //     dbg!(pos);
-    //     dbg!(&fps[pos - 1..pos + 10]);
-    // }
-
     fn read_witnesses() -> std::io::Result<Vec<Fp>> {
         let f = std::fs::read_to_string(
             Path::new(env!("CARGO_MANIFEST_DIR")).join("/tmp/fps_rampup4.txt"),
@@ -5190,69 +5159,8 @@ mod tests {
         let internal_vars_path =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("internal_vars_rampup4.bin");
         let rows_rev_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev_rampup4.bin");
-        // let internal_vars_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("internal_vars.bin");
-        // let rows_rev_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev.bin");
         read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path);
     }
-
-    /// Verifier key. It's here temporarily, to avoid loading the whole `VERIFIER_INDEX` (slow)
-    /// while debugging the witness generation
-    const DLOG_PLONK_INDEX: &str = r"26684717076898437061998083482364462181350720269924998681513164201470152709047
-27638968983495795099062335684778755361321186131214784289270570026250170058560
-5916476954971449653707976756901174752558074000004368350277992158966224106940
-8765545075053537434453262180516346785511523459631298513841454867640644928440
-18274196297610260795793541035484536605576698933150397727785056867356539134957
-134273913634467036266717512386630952840448631418971055249031322934447152245
-5445530067959496392667907808322062010487762915120627636448201003811972779186
-4135408145162681253977214179761782058985675693565584602291387981039699699397
-23596235234039543469805252710978660721662571349361086731072560599725670439147
-8880819437402957725414134020581683381967382246096000971832468376984546738604
-649223686612897333937101172746819819966852203607787220632912886234291038968
-23684597592103831027607016986983421335304345378713738346244542848224544331221
-9150554182664025193326331218468072689749308143309866130226045344145102341530
-16927200407695796180766453254792510757159441167153750409814873014745337622890
-18832594072081891058989935709392986894885716530113764000686837670530820625378
-25712897293636125003915867319567892248364481071779713877193904618574693300098
-3717764754689340129112278103895824327042621878163774767716492554538204091633
-25971616991909279768595670479047843898322004216151141935005546372909460173378
-27338709624067288180242480378572810740582563538807041097318897498295588222503
-21143727107994400670155580528665044982703148970663095523313646674410153481300
-1537021921551250044420878864515296795945389600826505578875890712033298182167
-19367064653260113783715063166962653296782277225591191073629653152360683096812
-20149159241710001041727193928825458833497319707477675186848977991116728316813
-13775642556962229614622105587003922115017366324177875119167423433459376167388
-28350374882577306450417597646428983150150136576316262225816919929610436625207
-16515965193166531544680494222500755605592410515392958983860517424703033013205
-9378883205105011492840559387933531064881901820371009618724741253689536234987
-2398009913301159921215169434269716030898547885507351249391210325065596467183
-22286138766763071719094803712598518378127551487472026612279781463339801107715
-28502913837382322870562279528271892194594196638503505162851473976065223305249
-22405682271980758441084150534251835746548140153997120524930755362681889596067
-17323525408734395389181817745485366158553777581081288470567848338067071122959
-8947643529784640944037822293346827734431469518084735359915741258952992606241
-7103961957182559550639295180883977092797796459232496291767647310985271001624
-25246681806353186353300537510635527406922184301306024069555636669886568742751
-26856605783475597375565606144632046787435589770380921728409443683475563111922
-23297052637954733051579818690360409422286749137660728043153156091809513708283
-2840000074382436465339148778200296158984080204133901742136944570957363327021
-23135228817717110049341026769593107795678653024557441764277072948506892441872
-6211616911918964609938970668918666139293038081085008885910866082931239794958
-28597175448272789799069896160392766038783043174713436777072413101319630360932
-20883737762067379868574029069733640392793555448939847323153533135484712042008
-20282576804963124776533491221935236761066321401621561792684392287736454230637
-13494506471312727770311767671955382641160425344506625356089795076286151993259
-8012006179982632094771094896978388519314298487369570388904121826143996199841
-3355175980408567987079261742816235262282752308633150899122569040576989161674
-25392611369435573626099062836895906969296551352998630163696785418733979109860
-16582421493126737884572131434959809010329008345543818913631100029311436531520
-11867934219476576800380065133252265390525056991395692210653066808375366760798
-6491035846238903397187295109166185120535938033585656085329476964834321363214
-21538356831492990201625432077204864042025778418221666496058419749778985732741
-9109830738638630543532648018443945320696994261474116257813434488519105964584
-698483576121222685367683300746760411455087911785957230764204269350352294252
-21843356482196135808765248499248139609753953824348019503122877739751774938189
-12618037090053490692373075134223284507376627173981076741124985743358139654020
-8222146484561733716118161112449096775379854182942647676779063741100365854210";
 
     fn extract_request(
         mut bytes: &[u8],
@@ -5299,32 +5207,27 @@ mod tests {
         HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
         Vec<Vec<Option<V>>>,
     ) {
-        let internal_vars_path =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("internal_vars_rampup4.bin");
-        let rows_rev_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev_rampup4.bin");
-        // let internal_vars_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("internal_vars.bin");
-        // let rows_rev_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev.bin");
+        let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+        let internal_vars_path = base_dir.join("internal_vars_rampup4.bin");
+        let rows_rev_path = base_dir.join("rows_rev_rampup4.bin");
         let (internal_vars, rows_rev) =
             read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
 
-        // let dlog_plonk_index = PlonkVerificationKeyEvals::from_string(DLOG_PLONK_INDEX);
-        let internal_vars_path =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("internal_vars_wrap_rampup4.bin");
-        let rows_rev_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev_wrap_rampup4.bin");
+        let internal_vars_path = base_dir.join("internal_vars_wrap_rampup4.bin");
+        let rows_rev_path = base_dir.join("rows_rev_wrap_rampup4.bin");
         let (internal_vars_wrap, rows_rev_wrap) =
             read_constraints_data::<Fq>(&internal_vars_path, &rows_rev_path).unwrap();
 
         let gates: Vec<CircuitGate<Fp>> = {
-            let gates_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("gates_step_rampup4.json");
-            // let gates_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("gates.json");
+            let gates_path = base_dir.join("gates_step_rampup4.json");
             let file = std::fs::File::open(gates_path).unwrap();
             let reader = std::io::BufReader::new(file);
             serde_json::from_reader(reader).unwrap()
         };
 
         let wrap_gates: Vec<CircuitGate<Fq>> = {
-            let gates_path =
-                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("gates_wrap_rampup4.json");
+            let gates_path = base_dir.join("gates_wrap_rampup4.json");
             let file = std::fs::File::open(gates_path).unwrap();
             let reader = std::io::BufReader::new(file);
             serde_json::from_reader(reader).unwrap()
@@ -5340,6 +5243,27 @@ mod tests {
         )
     }
 
+    fn make_provers() -> (Prover<Fp>, Prover<Fq>) {
+        let (gates, wrap_gates, internal_vars, rows_rev, internal_vars_wrap, rows_rev_wrap) =
+            read_gates();
+        let step_prover_index = make_prover_index::<RegularTransactionProof, _>(gates);
+        let wrap_prover_index = make_prover_index::<WrapProof, _>(wrap_gates);
+
+        let step_prover = Prover {
+            internal_vars,
+            rows_rev,
+            index: step_prover_index,
+        };
+
+        let wrap_prover = Prover {
+            internal_vars: internal_vars_wrap,
+            rows_rev: rows_rev_wrap,
+            index: wrap_prover_index,
+        };
+
+        (step_prover, wrap_prover)
+    }
+
     #[test]
     fn test_protocol_state_body() {
         let Ok(data) =
@@ -5353,26 +5277,16 @@ mod tests {
             return;
         };
 
-        let dlog_plonk_index = PlonkVerificationKeyEvals::from_string(DLOG_PLONK_INDEX);
         let (statement, tx_witness, message) = extract_request(&data);
-        let (gates, wrap_gates, internal_vars, rows_rev, internal_vars_wrap, rows_rev_wrap) =
-            read_gates();
-
-        let step_prover_index = make_prover_index::<RegularTransactionProof, _>(gates);
-        let wrap_prover_index = make_prover_index::<WrapProof, _>(wrap_gates);
+        let (step_prover, wrap_prover) = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<RegularTransactionProof>();
         generate_proof(
             &statement,
             &tx_witness,
             &message,
-            &internal_vars,
-            &rows_rev,
-            &internal_vars_wrap,
-            &rows_rev_wrap,
-            &step_prover_index,
-            &wrap_prover_index,
-            &dlog_plonk_index,
+            &step_prover,
+            &wrap_prover,
             &mut witnesses,
         );
     }
@@ -5386,11 +5300,7 @@ mod tests {
             return;
         }
 
-        let dlog_plonk_index = PlonkVerificationKeyEvals::from_string(DLOG_PLONK_INDEX);
-        let (gates, wrap_gates, internal_vars, rows_rev, internal_vars_wrap, rows_rev_wrap) =
-            read_gates();
-        let step_prover_index = make_prover_index::<RegularTransactionProof, _>(gates);
-        let wrap_prover_index = make_prover_index::<WrapProof, _>(wrap_gates);
+        let (step_prover, wrap_prover) = make_provers();
 
         // Same values than OCaml
         #[rustfmt::skip]
@@ -5428,13 +5338,8 @@ mod tests {
                 &statement,
                 &tx_witness,
                 &message,
-                &internal_vars,
-                &rows_rev,
-                &internal_vars_wrap,
-                &rows_rev_wrap,
-                &step_prover_index,
-                &wrap_prover_index,
-                &dlog_plonk_index,
+                &step_prover,
+                &wrap_prover,
                 &mut witnesses,
             );
 

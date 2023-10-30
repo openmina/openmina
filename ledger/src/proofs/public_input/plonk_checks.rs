@@ -700,7 +700,7 @@ mod scalars {
                 let (base, _) = endos::<F>();
                 base
             },
-            mds: &<<F::Affine as KimchiCurve>::OtherCurve>::sponge_params().mds,
+            mds: &<F::OtherCurve>::sponge_params().mds,
         };
 
         let evals = evals.map_ref(&|[zeta, zeta_omega]| kimchi::proof::PointEvaluations {
