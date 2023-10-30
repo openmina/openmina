@@ -1,13 +1,13 @@
 # Bootstrapping Openmina
 
-## Bootstrap using Berkeleynet
+## Bootstrapping on the Berkeleynet
 
 This test is focused on ensuring that the latest Openmina build is able to
 bootstrap against Berkeleynet. It is executed on a daily basis.
 
 The node's HTTP port is accessible at http://1.k8.openmina.com:31001.
 
-These are the main steps and checks.
+These are the main steps and checks:
 
 First, it performs some checks on the instance deployed previously:
 - Node is in sync state
