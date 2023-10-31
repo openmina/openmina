@@ -31,7 +31,7 @@ pub struct DeferredValues<F: FieldWitness> {
     pub combined_inner_product: ShiftedValue<F>,
     pub b: ShiftedValue<F>,
     pub xi: [u64; 2],
-    pub bulletproof_challenges: Vec<[u64; 2]>,
+    pub bulletproof_challenges: Vec<F>,
     pub branch_data: CompositionTypesBranchDataStableV1,
 }
 
@@ -129,7 +129,7 @@ impl PreparedStatement {
             fields.push(u64_to_field(messages_for_next_step_proof));
         }
 
-        fields.extend(bulletproof_challenges.iter().map(u64_to_field::<Fq, 2>));
+        fields.extend(bulletproof_challenges.iter().copied().map(to_fq));
 
         // Index
         {

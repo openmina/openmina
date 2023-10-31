@@ -556,11 +556,11 @@ where
     let xi = todo!();
 
     let bulletproof_challenges = &deferred_values.bulletproof_challenges;
-    let bulletproof_challenges: Vec<[u64; 2]> = bulletproof_challenges
+    let bulletproof_challenges: Vec<Fp> = bulletproof_challenges
         .iter()
         .map(|chal| {
             let inner = &chal.prechallenge.inner;
-            [inner[0].as_u64(), inner[1].as_u64()]
+            u64_to_field(&[inner[0].as_u64(), inner[1].as_u64()])
         })
         .collect();
 
