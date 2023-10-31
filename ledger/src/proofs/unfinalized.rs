@@ -1,5 +1,6 @@
-use kimchi::proof::ProofEvaluations;
+use kimchi::proof::{PointEvaluations, ProofEvaluations};
 use mina_curves::pasta::Fq;
+use mina_p2p_messages::v2;
 
 use crate::proofs::{
     public_input::plonk_checks::derive_plonk, verification::make_scalars_env, witness::FieldWitness,
@@ -13,6 +14,7 @@ use super::{
     },
     to_field_elements::ToFieldElements,
     util::u64_to_field,
+    verification::evals_from_p2p,
     BACKEND_TOCK_ROUNDS_N,
 };
 
@@ -110,18 +112,18 @@ pub struct Unfinalized {
 }
 
 #[derive(Clone, Debug)]
-pub struct EvalsWithPublicInput {
-    pub evals: ProofEvaluations<[Fq; 2]>,
-    pub public_input: (Fq, Fq),
+pub struct EvalsWithPublicInput<F: FieldWitness> {
+    pub evals: ProofEvaluations<[F; 2]>,
+    pub public_input: (F, F),
 }
 
 #[derive(Clone, Debug)]
-pub struct AllEvals {
-    pub ft_eval1: Fq,
-    pub evals: EvalsWithPublicInput,
+pub struct AllEvals<F: FieldWitness> {
+    pub ft_eval1: F,
+    pub evals: EvalsWithPublicInput<F>,
 }
 
-impl AllEvals {
+impl AllEvals<Fq> {
     /// Dummy.evals
     fn dummy_impl() -> Self {
         Self {
@@ -135,7 +137,32 @@ impl AllEvals {
 
     /// Dummy.evals
     pub fn dummy() -> Self {
-        cache_one! { AllEvals, Self::dummy_impl() }
+        cache_one! { AllEvals<Fq>, Self::dummy_impl() }
+    }
+}
+
+impl<F: FieldWitness> From<&v2::PicklesProofProofsVerified2ReprStableV2PrevEvals> for AllEvals<F> {
+    fn from(value: &v2::PicklesProofProofsVerified2ReprStableV2PrevEvals) -> Self {
+        let v2::PicklesProofProofsVerified2ReprStableV2PrevEvals {
+            evals:
+                v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals {
+                    public_input: (p0, p1),
+                    evals,
+                },
+            ft_eval1,
+        } = value;
+
+        Self {
+            ft_eval1: ft_eval1.to_field(),
+            evals: EvalsWithPublicInput {
+                evals: evals_from_p2p(evals).map(&|PointEvaluations { zeta, zeta_omega }| {
+                    assert_eq!(zeta.len(), 1);
+                    assert_eq!(zeta_omega.len(), 1);
+                    [zeta[0], zeta_omega[0]]
+                }),
+                public_input: (p0.to_field(), p1.to_field()),
+            },
+        }
     }
 }
 

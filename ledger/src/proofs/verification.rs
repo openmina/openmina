@@ -233,9 +233,9 @@ fn validate_feature_flags(
     .all(|b| *b == true)
 }
 
-pub fn evals_from_p2p(
+pub fn evals_from_p2p<F: FieldWitness>(
     evals: &PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
-) -> ProofEvaluations<PointEvaluations<Vec<Fp>>> {
+) -> ProofEvaluations<PointEvaluations<Vec<F>>> {
     let PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
         w,
         coefficients,
@@ -264,10 +264,10 @@ pub fn evals_from_p2p(
         foreign_field_mul_lookup_selector,
     } = evals;
 
-    let of = |(zeta, zeta_omega): &(Vec<BigInt>, Vec<BigInt>)| -> PointEvaluations<Vec<Fp>> {
+    let of = |(zeta, zeta_omega): &(Vec<BigInt>, Vec<BigInt>)| -> PointEvaluations<Vec<F>> {
         PointEvaluations {
-            zeta: zeta.iter().map(Into::into).collect(),
-            zeta_omega: zeta_omega.iter().map(Into::into).collect(),
+            zeta: zeta.iter().map(BigInt::to_field).collect(),
+            zeta_omega: zeta_omega.iter().map(BigInt::to_field).collect(),
         }
     };
 
@@ -435,8 +435,8 @@ fn expand_deferred(
 //   }
 
 // TODO: `domain_log2` and `srs_length_log2` might be the same here ? Remove one or the other
-pub fn make_scalars_env<F: FieldWitness>(
-    minimal: &PlonkMinimal<F>,
+pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
+    minimal: &PlonkMinimal<F, NLIMB>,
     domain_log2: u8,
     srs_length_log2: u64,
 ) -> ScalarsEnv<F> {

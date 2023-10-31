@@ -38,7 +38,7 @@ macro_rules! cache {
 
 /// Cache one field (or any data actually)
 macro_rules! cache_one {
-    ($F:tt, $compute:expr) => {{
+    ($F:ty, $compute:expr) => {{
         // See comments in `cache` above
         // Here we don't support generic
 
