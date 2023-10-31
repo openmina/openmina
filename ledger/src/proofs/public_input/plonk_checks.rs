@@ -193,10 +193,10 @@ pub fn powers_of_alpha<F: FieldWitness>(alpha: F) -> Box<[F; NPOWERS_OF_ALPHA]> 
     alphas
 }
 
-pub fn derive_plonk<F: FieldWitness>(
+pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
     env: &ScalarsEnv<F>,
     evals: &ProofEvaluations<[F; 2]>,
-    minimal: &PlonkMinimal<F>,
+    minimal: &PlonkMinimal<F, NLIMB>,
 ) -> InCircuit<F> {
     let zkp = env.zk_polynomial;
     let powers_of_alpha = powers_of_alpha(minimal.alpha);
@@ -330,10 +330,10 @@ pub fn make_shifts<F: FieldWitness>(
     kimchi::circuits::polynomials::permutation::Shifts::new(domain)
 }
 
-pub fn ft_eval0(
+pub fn ft_eval0<const NLIMB: usize>(
     env: &ScalarsEnv<Fp>,
     evals: &ProofEvaluations<[Fp; 2]>,
-    minimal: &PlonkMinimal<Fp>,
+    minimal: &PlonkMinimal<Fp, NLIMB>,
     p_eval0: Fp,
 ) -> Fp {
     const PLONK_TYPES_PERMUTS_MINUS_1_N: usize = 6;

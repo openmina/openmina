@@ -262,6 +262,85 @@ pub fn to_absorption_sequence(
         .collect()
 }
 
+// TODO: Dedup with above
+pub fn to_absorption_sequence2<F: FieldWitness>(
+    evals: &ProofEvaluations<[F; 2]>,
+) -> Vec<(Vec<F>, Vec<F>)> {
+    let ProofEvaluations {
+        w,
+        coefficients,
+        z,
+        s,
+        generic_selector,
+        poseidon_selector,
+        complete_add_selector,
+        mul_selector,
+        emul_selector,
+        endomul_scalar_selector,
+        range_check0_selector,
+        range_check1_selector,
+        foreign_field_add_selector,
+        foreign_field_mul_selector,
+        xor_selector,
+        rot_selector,
+        lookup_aggregation,
+        lookup_table,
+        lookup_sorted,
+        runtime_lookup_table,
+        runtime_lookup_table_selector,
+        xor_lookup_selector,
+        lookup_gate_lookup_selector,
+        range_check_lookup_selector,
+        foreign_field_mul_lookup_selector,
+    } = evals;
+
+    let mut list = vec![
+        z,
+        generic_selector,
+        poseidon_selector,
+        complete_add_selector,
+        mul_selector,
+        emul_selector,
+        endomul_scalar_selector,
+    ];
+
+    list.extend(w.iter());
+    list.extend(coefficients.iter());
+    list.extend(s.iter());
+
+    list.extend(
+        [
+            range_check0_selector,
+            range_check1_selector,
+            foreign_field_add_selector,
+            foreign_field_mul_selector,
+            xor_selector,
+            rot_selector,
+            lookup_aggregation,
+            lookup_table,
+        ]
+        .iter()
+        .filter_map(|v| v.as_ref()),
+    );
+
+    list.extend(lookup_sorted.iter().filter_map(|v| v.as_ref()));
+
+    list.extend(
+        [
+            runtime_lookup_table,
+            runtime_lookup_table_selector,
+            xor_lookup_selector,
+            lookup_gate_lookup_selector,
+            range_check_lookup_selector,
+            foreign_field_mul_lookup_selector,
+        ]
+        .iter()
+        .filter_map(|v| v.as_ref()),
+    );
+
+    list.iter().map(|[a, b]| (vec![*a], vec![*b])).collect()
+}
+
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L674
 pub fn to_absorption_sequence_opt(evals: &ProofEvaluations<[Fq; 2]>) -> Vec<Option<[Fq; 2]>> {
     let ProofEvaluations {

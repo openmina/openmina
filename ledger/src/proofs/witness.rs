@@ -704,7 +704,7 @@ impl<F: FieldWitness, const NBITS: usize> ToFieldElements<F> for [Boolean; NBITS
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for ProofEvaluations<[Fq; 2]> {
+impl<F: FieldWitness> ToFieldElements<F> for ProofEvaluations<[F; 2]> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let Self {
             w,
@@ -734,7 +734,7 @@ impl<F: FieldWitness> ToFieldElements<F> for ProofEvaluations<[Fq; 2]> {
             foreign_field_mul_lookup_selector,
         } = self;
 
-        let mut push = |[a, b]: &[Fq; 2]| {
+        let mut push = |[a, b]: &[F; 2]| {
             a.to_field_elements(fields);
             b.to_field_elements(fields);
         };
@@ -769,7 +769,7 @@ impl<F: FieldWitness> ToFieldElements<F> for ProofEvaluations<[Fq; 2]> {
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for AllEvals {
+impl<F: FieldWitness> ToFieldElements<F> for AllEvals<F> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let Self {
             ft_eval1,
@@ -786,7 +786,7 @@ impl<F: FieldWitness> ToFieldElements<F> for AllEvals {
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for &[AllEvals] {
+impl<F: FieldWitness> ToFieldElements<F> for &[AllEvals<F>] {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         self.iter().for_each(|e| e.to_field_elements(fields))
     }
@@ -2131,7 +2131,7 @@ impl<F: FieldWitness> Check<F> for v2::MinaBasePendingCoinbaseStackVersionedStab
     }
 }
 
-impl<F: FieldWitness> Check<F> for &[AllEvals] {
+impl<F: FieldWitness> Check<F> for &[AllEvals<F>] {
     fn check(&self, _w: &mut Witness<F>) {
         // Does not modify the witness
     }
@@ -4691,13 +4691,10 @@ where
 
         let push_curve = |fields: &mut Vec<Fp>, curve: &InnerCurve<Fp>| {
             let GroupAffine { x, y, .. } = curve.to_affine();
-            println!("push {:?}", x);
-            println!("push {:?}", y);
             fields.push(x);
             fields.push(y);
         };
 
-        println!("index");
         // Self::dlog_plonk_index
         // Refactor with `src/account/account.rs`, this is the same code
         {
@@ -4716,24 +4713,15 @@ where
             push_curve(&mut fields, &index.emul);
             push_curve(&mut fields, &index.endomul_scalar);
         }
-        println!("index done");
-
-        // let app_state = self.app_state.to_field_elements_owned();
-        // println!("app_state={:#?}", app_state);
 
         self.app_state.to_field_elements(&mut fields);
 
-        println!("other");
-        // Self::challenge_polynomial_commitments and Self::old_bulletproof_challenges
         let commitments = &self.challenge_polynomial_commitments;
         let old_challenges = &self.old_bulletproof_challenges;
         for (commitments, old) in commitments.iter().zip(old_challenges) {
             push_curve(&mut fields, commitments);
             fields.extend_from_slice(old);
         }
-        println!("other done");
-
-        dbg!(fields.len());
 
         fields
     }

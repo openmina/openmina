@@ -133,11 +133,11 @@ pub fn combined_inner_product(params: CombinedInnerProductParams) -> Fp {
 }
 
 // TODO: De-duplicate with CombinedInnerProductParams
-pub struct CombinedInnerProductParams2<'a> {
+pub struct CombinedInnerProductParams2<'a, const NLIMB: usize = 2> {
     pub env: &'a ScalarsEnv<Fp>,
     pub evals: &'a ProofEvaluations<[Fp; 2]>,
     pub public: [Fp; 2],
-    pub minimal: &'a PlonkMinimal<Fp>,
+    pub minimal: &'a PlonkMinimal<Fp, NLIMB>,
     pub ft_eval1: Fp,
     pub r: Fp,
     pub old_bulletproof_challenges: &'a [[Fp; 16]],
@@ -147,7 +147,9 @@ pub struct CombinedInnerProductParams2<'a> {
 
 // TODO: De-duplicate with combined_inner_product
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap.ml#L37
-pub fn combined_inner_product2(params: CombinedInnerProductParams2) -> Fp {
+pub fn combined_inner_product2<const NLIMB: usize>(
+    params: CombinedInnerProductParams2<NLIMB>,
+) -> Fp {
     let CombinedInnerProductParams2 {
         env,
         old_bulletproof_challenges,
@@ -355,6 +357,9 @@ pub fn evals_of_split_evals(
     })
 }
 
+/// Value of `Common.Max_degree.step_log2`
+pub const COMMON_MAX_DEGREE_STEP_LOG2: u64 = 16;
+
 fn deferred_values(
     _sgs: Vec<crate::CurveAffine<Fp>>,
     _prev_challenges: Vec<Fp>,
@@ -419,10 +424,12 @@ fn deferred_values(
     let tick_combined_evals =
         evals_of_split_evals(zeta, zetaw, &proof.evals, BACKEND_TICK_ROUNDS_N);
 
-    /// Value of `Common.Max_degree.step_log2`
-    const STEP_LOG2: u64 = 16;
     let domain_log2: u8 = log_size_of_group.try_into().unwrap();
-    let tick_env = make_scalars_env(&tick_plonk_minimal, domain_log2, STEP_LOG2);
+    let tick_env = make_scalars_env(
+        &tick_plonk_minimal,
+        domain_log2,
+        COMMON_MAX_DEGREE_STEP_LOG2,
+    );
     let plonk = derive_plonk(&tick_env, &tick_combined_evals, &tick_plonk_minimal);
 
     let (new_bulletproof_challenges, b) = {
@@ -566,10 +573,10 @@ fn make_public_input(
 }
 
 #[derive(Clone, Debug)]
-struct WrapProofState {
-    deferred_values: DeferredValues<Fp>,
-    sponge_digest_before_evaluations: Fp,
-    messages_for_next_wrap_proof: MessagesForNextWrapProof,
+pub struct WrapProofState {
+    pub deferred_values: DeferredValues<Fp>,
+    pub sponge_digest_before_evaluations: Fp,
+    pub messages_for_next_wrap_proof: MessagesForNextWrapProof,
 }
 
 #[derive(Clone, Debug)]
@@ -623,7 +630,7 @@ pub fn wrap(
     statement_with_sok: &Statement<SokDigest>,
     proof: &kimchi::proof::ProverProof<Vesta>,
     step_statement: StepStatement,
-    prev_evals: &[AllEvals],
+    prev_evals: &[AllEvals<Fq>],
     dlog_plonk_index: &PlonkVerificationKeyEvals<Fp>,
     prover_index: &kimchi::prover_index::ProverIndex<Vesta>,
     w: &mut Witness<Fq>,
@@ -1312,7 +1319,7 @@ pub mod wrap_verifier {
         mut sponge: Sponge<Fq, Constants>,
         old_bulletproof_challenges: &[[Fq; 15]],
         deferred_values: &unfinalized::DeferredValues,
-        evals: &AllEvals,
+        evals: &AllEvals<Fq>,
         w: &mut Witness<Fq>,
     ) -> (Boolean, Vec<Fq>) {
         let unfinalized::DeferredValues {
@@ -2742,7 +2749,7 @@ pub struct WrapMainParams<'a> {
     pub step_widths: [u64; 5],
     pub step_domains: [Domains; 5],
     pub messages_for_next_step_proof_hash: [u64; 4],
-    pub prev_evals: &'a [AllEvals],
+    pub prev_evals: &'a [AllEvals<Fq>],
     pub proof: &'a ProverProof<Vesta>,
     pub prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
 }
