@@ -450,7 +450,7 @@ fn deferred_values(
             .opening_prechallenges
             .iter()
             .copied()
-            .map(to_bytes)
+            // .map(to_bytes)
             .collect::<Vec<_>>();
         (prechals, b)
     };

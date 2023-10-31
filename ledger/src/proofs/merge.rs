@@ -1,9 +1,18 @@
 use std::{path::Path, str::FromStr};
 
-use crate::proofs::public_input::plonk_checks::ShiftingValue;
+use crate::proofs::{
+    prover::make_prover,
+    public_input::{
+        plonk_checks::ShiftingValue,
+        prepared_statement::{DeferredValues, PreparedStatement, ProofState},
+    },
+};
 use ark_ff::BigInteger256;
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
-use kimchi::{proof::PointEvaluations, verifier_index::VerifierIndex};
+use kimchi::{
+    proof::{PointEvaluations, ProverProof},
+    verifier_index::VerifierIndex,
+};
 use mina_curves::pasta::{Fq, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{self, CompositionTypesBranchDataStableV1};
@@ -329,16 +338,6 @@ pub fn expand_deferred(
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct DeferredValues<F: FieldWitness> {
-    pub plonk: Plonk<F>,
-    pub combined_inner_product: F::Shifting,
-    pub b: F::Shifting,
-    pub xi: [u64; 2],
-    pub bulletproof_challenges: Vec<Fp>,
-    pub branch_data: CompositionTypesBranchDataStableV1,
-}
-
 fn expand_proof(
     dlog_vk: &VerifierIndex<Vesta>,
     dlog_plonk_index: &PlonkVerificationKeyEvals<Fp>,
@@ -429,7 +428,7 @@ fn expand_proof(
         .map(|v| std::array::from_fn(|i| ScalarChallenge::from(v[i]).to_field(&endo)))
         .collect();
 
-    let hash = MessagesForNextStepProof {
+    let messages_for_next_step_proof = MessagesForNextStepProof {
         app_state,
         dlog_plonk_index,
         challenge_polynomial_commitments: statement
@@ -441,6 +440,69 @@ fn expand_proof(
         old_bulletproof_challenges,
     }
     .hash();
+
+    let deferred_values = deferred_values_computed;
+    let prev_statement_with_hashes = PreparedStatement {
+        proof_state: ProofState {
+            deferred_values: DeferredValues {
+                plonk: Plonk {
+                    alpha: plonk0.alpha_bytes,
+                    beta: plonk0.beta_bytes,
+                    gamma: plonk0.gamma_bytes,
+                    zeta: plonk0.zeta_bytes,
+                    zeta_to_srs_length: plonk.zeta_to_srs_length,
+                    zeta_to_domain_size: plonk.zeta_to_domain_size,
+                    perm: plonk.perm,
+                    lookup: (),
+                },
+                combined_inner_product: deferred_values.combined_inner_product,
+                b: deferred_values.b,
+                xi: deferred_values.xi,
+                bulletproof_challenges: statement
+                    .proof_state
+                    .deferred_values
+                    .bulletproof_challenges
+                    .iter()
+                    .map(|v| {
+                        u64_to_field::<_, 2>(&std::array::from_fn(|i| {
+                            v.prechallenge.inner[i].as_u64()
+                        }))
+                    })
+                    .collect(),
+                branch_data: deferred_values.branch_data,
+            },
+            sponge_digest_before_evaluations: std::array::from_fn(|i| {
+                statement.proof_state.sponge_digest_before_evaluations[i].as_u64()
+            }),
+            messages_for_next_wrap_proof: MessagesForNextWrapProof {
+                old_bulletproof_challenges: prev_challenges,
+                challenge_polynomial_commitment: {
+                    let (x, y) = &statement
+                        .proof_state
+                        .messages_for_next_wrap_proof
+                        .challenge_polynomial_commitment;
+                    crate::CurveAffine(x.to_field(), y.to_field())
+                },
+            }
+            .hash(),
+        },
+        messages_for_next_step_proof,
+    };
+
+    let proof = make_prover(t);
+
+    // let to_kimchi_proof ({ commitments; bulletproof; evaluations; ft_eval1 } : t) :
+    //     Backend.Tock.Proof.t =
+    //   { messages = Commitments.to_kimchi commitments
+    //   ; openings =
+    //       { proof = bulletproof
+    //       ; evals = Evaluations.to_kimchi evaluations
+    //       ; ft_eval1
+    //       }
+    //   }
+
+    // dbg!(t.statement.)
+    // create_or
 }
 
 pub struct StatementDeferredValues {
