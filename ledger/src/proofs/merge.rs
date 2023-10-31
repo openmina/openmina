@@ -1,7 +1,8 @@
 use std::{path::Path, str::FromStr};
 
 use ark_ff::One;
-use mina_curves::pasta::Fq;
+use kimchi::verifier_index::VerifierIndex;
+use mina_curves::pasta::{Fq, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 
@@ -14,9 +15,12 @@ use crate::{
             validate_ledgers_at_merge_checked, SokDigest, SokMessage, Statement, StatementLedgers,
         },
     },
+    VerificationKey,
 };
 
-use super::witness::{Prover, Witness};
+use super::witness::{
+    Boolean, MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover, Witness,
+};
 
 fn read_witnesses() -> std::io::Result<Vec<Fp>> {
     let f = std::fs::read_to_string(
@@ -102,6 +106,57 @@ fn merge_main(
     (s1, s2)
 }
 
+struct PreviousProofStatement<'a> {
+    public_input: &'a Statement<SokDigest>,
+    proof: &'a v2::LedgerProofProdStableV2,
+    proof_must_verify: Boolean,
+}
+
+struct InductiveRule<'a> {
+    previous_proof_statements: [PreviousProofStatement<'a>; 2],
+    public_output: (),
+    auxiliary_output: (),
+}
+
+fn dlog_plonk_index(wrap_prover: &Prover<Fq>) -> PlonkVerificationKeyEvals<Fp> {
+    // TODO: Dedup `crate::PlonkVerificationKeyEvals` and `PlonkVerificationKeyEvals`
+    let v =
+        crate::PlonkVerificationKeyEvals::from(wrap_prover.index.verifier_index.as_ref().unwrap());
+    PlonkVerificationKeyEvals::from(v)
+}
+
+fn expand_proof(
+    dlog_vk: &VerifierIndex<Vesta>,
+    app_state: &Statement<SokDigest>,
+    t: &v2::LedgerProofProdStableV2,
+    tag: (),
+    must_verify: Boolean,
+) {
+    MessagesForNextStepProof {
+        app_state,
+        dlog_plonk_index: todo!(),
+        challenge_polynomial_commitments: todo!(),
+        old_bulletproof_challenges: todo!(),
+    };
+    // t.proof.statement.messages_for_next_step_proof;
+
+    // t.proof.statement.proof_state.deferred_values.plonk;
+
+    // let t =
+    //   { t with
+    //     statement =
+    //       { t.statement with
+    //         messages_for_next_step_proof =
+    //           { t.statement.messages_for_next_step_proof with app_state }
+    //       }
+    //   }
+    // in
+    // let proof = Wrap_wire_proof.to_kimchi_proof t.proof in
+    // let data = Types_map.lookup_basic tag in
+    // let plonk0 = t.statement.proof_state.deferred_values.plonk in
+    // let plonk =
+}
+
 pub fn generate_merge_proof(
     statement: &v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     proofs: &(v2::LedgerProofProdStableV2, v2::LedgerProofProdStableV2),
@@ -118,7 +173,27 @@ pub fn generate_merge_proof(
 
     w.exists(&statement_with_sok);
 
-    merge_main(statement_with_sok, proofs, w);
+    let (s1, s2) = merge_main(statement_with_sok, proofs, w);
+    let (p1, p2) = proofs;
+
+    let rule = InductiveRule {
+        previous_proof_statements: [
+            PreviousProofStatement {
+                public_input: &s1,
+                proof: p1,
+                proof_must_verify: Boolean::True,
+            },
+            PreviousProofStatement {
+                public_input: &s2,
+                proof: p2,
+                proof_must_verify: Boolean::True,
+            },
+        ],
+        public_output: (),
+        auxiliary_output: (),
+    };
+
+    let dlog_plonk_index = w.exists(dlog_plonk_index(wrap_prover));
 
     dbg!(w.aux.len() + w.primary.capacity());
     dbg!(w.ocaml_aux.len());
