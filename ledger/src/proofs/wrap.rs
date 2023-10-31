@@ -194,53 +194,53 @@ pub fn combined_inner_product2(params: CombinedInnerProductParams2) -> Fp {
         + (r * combine(WhichEval::Second, ft_eval1, zetaw))
 }
 
-struct Oracles {
-    o: RandomOracles<Fp>,
-    p_eval: (Fp, Fp),
-    opening_prechallenges: Vec<Fp>,
-    digest_before_evaluations: Fp,
+struct Oracles<F: FieldWitness> {
+    o: RandomOracles<F>,
+    p_eval: (F, F),
+    opening_prechallenges: Vec<F>,
+    digest_before_evaluations: F,
 }
 
-impl Oracles {
-    fn alpha(&self) -> Fp {
+impl<F: FieldWitness> Oracles<F> {
+    fn alpha(&self) -> F {
         self.o.alpha_chal.0
     }
 
-    fn beta(&self) -> Fp {
+    fn beta(&self) -> F {
         self.o.beta
     }
 
-    fn gamma(&self) -> Fp {
+    fn gamma(&self) -> F {
         self.o.gamma
     }
 
-    fn zeta(&self) -> Fp {
+    fn zeta(&self) -> F {
         self.o.zeta_chal.0
     }
 
-    fn v(&self) -> ScalarChallenge<Fp> {
+    fn v(&self) -> ScalarChallenge<F> {
         self.o.v_chal.clone()
     }
 
-    fn u(&self) -> ScalarChallenge<Fp> {
+    fn u(&self) -> ScalarChallenge<F> {
         self.o.u_chal.clone()
     }
 
-    fn p_eval_1(&self) -> Fp {
+    fn p_eval_1(&self) -> F {
         self.p_eval.0
     }
 
-    fn p_eval_2(&self) -> Fp {
+    fn p_eval_2(&self) -> F {
         self.p_eval.1
     }
 }
 
-fn create_oracle(
-    lgr_comm: Vec<PolyComm<Vesta>>,
-    prover_index: &kimchi::prover_index::ProverIndex<Vesta>,
-    proof: &kimchi::proof::ProverProof<Vesta>,
-    public: &[Fp],
-) -> Oracles {
+fn create_oracle<F: FieldWitness>(
+    lgr_comm: Vec<PolyComm<F::OtherCurve>>,
+    prover_index: &kimchi::prover_index::ProverIndex<F::OtherCurve>,
+    proof: &kimchi::proof::ProverProof<F::OtherCurve>,
+    public: &[F],
+) -> Oracles<F> {
     use mina_curves::pasta::VestaParameters;
     use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
     use mina_poseidon::sponge::DefaultFqSponge;
@@ -249,14 +249,12 @@ fn create_oracle(
 
     let verifier_index = prover_index.verifier_index();
 
-    type EFqSponge = DefaultFqSponge<VestaParameters, PlonkSpongeConstantsKimchi>;
+    dbg!(public.len(), verifier_index.digest::<F::FqSponge>());
 
-    dbg!(public.len(), verifier_index.digest::<EFqSponge>());
-
-    let lgr_comm: Vec<PolyComm<Vesta>> = lgr_comm.into_iter().take(public.len()).collect();
+    let lgr_comm: Vec<PolyComm<F::OtherCurve>> = lgr_comm.into_iter().take(public.len()).collect();
     let lgr_comm_refs: Vec<_> = lgr_comm.iter().collect();
 
-    let p_comm = PolyComm::<Vesta>::multi_scalar_mul(
+    let p_comm = PolyComm::<F::OtherCurve>::multi_scalar_mul(
         &lgr_comm_refs,
         &public.iter().map(|s| -*s).collect::<Vec<_>>(),
     );
@@ -266,7 +264,7 @@ fn create_oracle(
     let p_comm = {
         verifier_index
             .srs()
-            .mask_custom(p_comm.clone(), &p_comm.map(|_| Fp::one()))
+            .mask_custom(p_comm.clone(), &p_comm.map(|_| F::one()))
             .unwrap()
             .commitment
     };
@@ -274,9 +272,9 @@ fn create_oracle(
     dbg!(&p_comm);
 
     // type EFqSponge = DefaultFqSponge<VestaParameters, PlonkSpongeConstantsKimchi>;
-    type EFrSponge = DefaultFrSponge<Fp, PlonkSpongeConstantsKimchi>;
+    type EFrSponge<F> = DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
     let oracles_result = proof
-        .oracles::<EFqSponge, EFrSponge>(&verifier_index, &p_comm, public)
+        .oracles::<F::FqSponge, EFrSponge<F>>(&verifier_index, &p_comm, public)
         .unwrap();
 
     let OraclesResult {
@@ -292,7 +290,7 @@ fn create_oracle(
         ft_eval0: _,
     } = oracles_result;
 
-    sponge.absorb_fr(&[shift_scalar::<Vesta>(combined_inner_product)]);
+    sponge.absorb_fr(&[shift_scalar::<F::OtherCurve>(combined_inner_product)]);
 
     let opening_prechallenges: Vec<_> = proof
         .proof
