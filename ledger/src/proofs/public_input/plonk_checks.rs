@@ -6,6 +6,7 @@ use mina_hasher::Fp;
 
 use crate::proofs::{
     public_input::plonk_checks::scalars::MinimalForScalar,
+    to_field_elements::ToFieldElements,
     witness::{field, Boolean, FieldWitness, Witness},
     wrap::wrap_verifier::PlonkWithField,
 };
@@ -152,6 +153,15 @@ pub struct ShiftedValue<F: Field> {
 //     }
 // }
 
+impl<F: FieldWitness, F2: FieldWitness + ToFieldElements<F>> ToFieldElements<F>
+    for ShiftedValue<F2>
+{
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let Self { shifted } = self;
+        shifted.to_field_elements(fields);
+    }
+}
+
 impl<F> ShiftedValue<F>
 where
     F: Field,
@@ -217,11 +227,6 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
     // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L46
     let zeta_to_srs_length = (0..env.srs_length_log2).fold(minimal.zeta, |accum, _| accum * accum);
 
-    // let complete_add = complete_add(evals, &powers_of_alpha);
-    // let vbmul = var_base_mul(evals, &powers_of_alpha);
-    // let endomul = endo_mul(evals, &powers_of_alpha);
-    // let endomul_scalar = endo_mul_scalar(evals, &powers_of_alpha);
-
     // Shift values
     let shift = |f: F| F::Shifting::of_field(f);
 
@@ -232,10 +237,6 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
         zeta: minimal.zeta,
         zeta_to_domain_size: shift(zeta_to_domain_size),
         zeta_to_srs_length: shift(zeta_to_srs_length),
-        // vbmul: shift(vbmul),
-        // complete_add: shift(complete_add),
-        // endomul: shift(endomul),
-        // endomul_scalar: shift(endomul_scalar),
         perm: shift(perm),
     }
 }
@@ -330,12 +331,12 @@ pub fn make_shifts<F: FieldWitness>(
     kimchi::circuits::polynomials::permutation::Shifts::new(domain)
 }
 
-pub fn ft_eval0<const NLIMB: usize>(
-    env: &ScalarsEnv<Fp>,
-    evals: &ProofEvaluations<[Fp; 2]>,
-    minimal: &PlonkMinimal<Fp, NLIMB>,
-    p_eval0: Fp,
-) -> Fp {
+pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
+    env: &ScalarsEnv<F>,
+    evals: &ProofEvaluations<[F; 2]>,
+    minimal: &PlonkMinimal<F, NLIMB>,
+    p_eval0: F,
+) -> F {
     const PLONK_TYPES_PERMUTS_MINUS_1_N: usize = 6;
 
     let e0_s: Vec<_> = evals.s.iter().map(|s| s[0]).collect();
@@ -368,10 +369,10 @@ pub fn ft_eval0<const NLIMB: usize>(
             });
 
     let nominator = (zeta1m1 * alpha_pow(PERM_ALPHA0 + 1) * (minimal.zeta - env.omega_to_minus_3)
-        + (zeta1m1 * alpha_pow(PERM_ALPHA0 + 2) * (minimal.zeta - Fp::one())))
-        * (Fp::one() - evals.z[0]);
+        + (zeta1m1 * alpha_pow(PERM_ALPHA0 + 2) * (minimal.zeta - F::one())))
+        * (F::one() - evals.z[0]);
 
-    let denominator = (minimal.zeta - env.omega_to_minus_3) * (minimal.zeta - Fp::one());
+    let denominator = (minimal.zeta - env.omega_to_minus_3) * (minimal.zeta - F::one());
     let ft_eval0 = ft_eval0 + (nominator / denominator);
 
     let minimal = MinimalForScalar {

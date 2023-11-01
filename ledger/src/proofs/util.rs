@@ -53,9 +53,9 @@ where
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
-pub fn challenge_polynomial(chals: &[Fp]) -> Box<dyn Fn(Fp) -> Fp> {
+pub fn challenge_polynomial<F: FieldWitness>(chals: &[F]) -> Box<dyn Fn(F) -> F> {
     let chals = chals.to_vec();
-    Box::new(move |pt: Fp| {
+    Box::new(move |pt: F| {
         let k = chals.len();
         let pow_two_pows = {
             let mut res = vec![pt; k];
@@ -65,14 +65,14 @@ pub fn challenge_polynomial(chals: &[Fp]) -> Box<dyn Fn(Fp) -> Fp> {
             }
             res
         };
-        fn prod(k: usize, fun: impl Fn(usize) -> Fp) -> Fp {
+        fn prod<F: FieldWitness>(k: usize, fun: impl Fn(usize) -> F) -> F {
             let mut r = fun(0);
             for i in 1..k {
                 r = fun(i) * r;
             }
             r
         }
-        prod(k, |i| Fp::one() + (chals[i] * pow_two_pows[k - 1 - i]))
+        prod::<F>(k, |i| F::one() + (chals[i] * pow_two_pows[k - 1 - i]))
     })
 }
 
