@@ -1,0 +1,6 @@
+git log --author="$1" --pretty=tformat: --numstat | grep -v '^-' | grep "node/" | awk '{ add+=$1; remove+=$2 } END { print add, remove }'
+git log --author="$1" --pretty=tformat: --numstat | grep -v '^-' | grep "p2p/" | awk '{ add+=$1; remove+=$2 } END { print add, remove }'
+git log --author="$1" --pretty=tformat: --numstat | grep -v '^-' | grep "snark/" | awk '{ add+=$1; remove+=$2 } END { print add, remove }'
+git log --author="$1" --pretty=tformat: --numstat | grep -v '^-' | grep "core/" | awk '{ add+=$1; remove+=$2 } END { print add, remove }'
+git log --author="$1" --pretty=tformat: --numstat | grep -v '^-' | grep "cli/" | awk '{ add+=$1; remove+=$2 } END { print add, remove }'
+git log --author="$1" --pretty=tformat: --numstat | grep -v '^-' | grep "tests/" | awk '{ add+=$1; remove+=$2 } END { print add, remove }'

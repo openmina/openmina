@@ -36,11 +36,15 @@ pub enum Scenarios {
 impl Scenarios {
     // Turn off global test
     pub fn iter() -> impl IntoIterator<Item = Scenarios> {
-        // <Self as strum::IntoEnumIterator>::iter()
-        [
-            Self::SoloNodeBasicConnectivityInitialJoining(SoloNodeBasicConnectivityInitialJoining),
-            Self::SoloNodeSyncRootSnarkedLedger(SoloNodeSyncRootSnarkedLedger),
-        ]
+        <Self as strum::IntoEnumIterator>::iter().filter(|s| !s.skip())
+    }
+
+    fn skip(&self) -> bool {
+        match self {
+            Self::SoloNodeSyncRootSnarkedLedger(_) => true,
+            Self::SoloNodeBasicConnectivityInitialJoining(_) => false,
+            Self::MultiNodeBasicConnectivityInitialJoining(_) => true,
+        }
     }
 
     pub fn id(self) -> ScenarioId {

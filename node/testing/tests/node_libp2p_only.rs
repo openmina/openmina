@@ -1,3 +1,5 @@
+#![cfg(feature = "scenario-generators")]
+
 use openmina_node_testing::{cluster::ClusterConfig, scenarios::Scenarios, setup};
 
 #[test]

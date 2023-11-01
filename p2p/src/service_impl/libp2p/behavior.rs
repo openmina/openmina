@@ -19,6 +19,8 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
     #[behaviour(ignore)]
     pub bootstrap_id: Option<kad::QueryId>,
     #[behaviour(ignore)]
+    pub rendezvous_string: String,
+    #[behaviour(ignore)]
     pub event_source_sender: mpsc::UnboundedSender<E>,
     // TODO(vlad9486): move maps inside `RpcBehaviour`
     // map msg_id into (tag, version)

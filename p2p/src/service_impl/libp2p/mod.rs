@@ -143,6 +143,7 @@ impl Libp2pService {
             identify,
             kademlia,
             bootstrap_id: None,
+            rendezvous_string: format!("/coda/0.0.1/{}", chain_id),
             event_source_sender,
             ongoing: BTreeMap::default(),
             ongoing_incoming: BTreeMap::default(),
@@ -151,8 +152,7 @@ impl Libp2pService {
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
         let psk = {
             let mut hasher = Blake2b256::default();
-            let rendezvous_string = format!("/coda/0.0.1/{}", chain_id);
-            hasher.update(rendezvous_string.as_ref());
+            hasher.update(behaviour.rendezvous_string.as_ref());
             let hash = hasher.finalize();
             let mut psk_fixed: [u8; 32] = Default::default();
             psk_fixed.copy_from_slice(hash.as_ref());
@@ -517,9 +517,9 @@ impl Libp2pService {
                     summary = format!("peer_id: {}", peer_id),
                     peer_id = peer_id.to_string()
                 );
+                swarm.behaviour_mut().identify.push(Some(peer_id));
                 let event =
                     P2pEvent::Connection(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())));
-                swarm.behaviour_mut().identify.push(Some(peer_id));
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
@@ -582,6 +582,11 @@ impl Libp2pService {
                             let b = swarm.behaviour_mut();
                             if let Some(ongoing_bootstrap) = &b.bootstrap_id {
                                 if id.eq(ongoing_bootstrap) && step.last {
+                                    let key = b.rendezvous_string.clone();
+                                    let key = kad::record::Key::new(&key);
+                                    if let Err(_err) = b.kademlia.start_providing(key) {
+                                        // memory storage should not return error
+                                    }
                                     // initial bootstrap is done
                                     b.event_source_sender
                                         .send(P2pEvent::Discovery(P2pDiscoveryEvent::Ready).into())
