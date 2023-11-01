@@ -37,7 +37,7 @@ use mina_hasher::Fp;
 use crate::{
     proofs::{
         numbers::currency::{CheckedFee, CheckedSigned},
-        witness::{field, Boolean, Check, FieldWitness, Witness},
+        witness::{field, Boolean, FieldWitness, Witness},
     },
     ToInputs, TokenId,
 };

@@ -7,40 +7,36 @@ use mina_p2p_messages::v2::{
 
 use crate::proofs::{util::u64_to_field, witness::FieldWitness};
 
-use super::plonk_checks::ShiftedValue;
-
 #[derive(Clone, Debug)]
 pub struct Plonk<F: FieldWitness> {
     pub alpha: [u64; 2],
     pub beta: [u64; 2],
     pub gamma: [u64; 2],
     pub zeta: [u64; 2],
-    pub zeta_to_srs_length: ShiftedValue<F>,
-    pub zeta_to_domain_size: ShiftedValue<F>,
-    // pub vbmul: ShiftedValue<F>,
-    // pub complete_add: ShiftedValue<F>,
-    // pub endomul: ShiftedValue<F>,
-    // pub endomul_scalar: ShiftedValue<F>,
-    pub perm: ShiftedValue<F>,
+    pub zeta_to_srs_length: F::Shifting,
+    pub zeta_to_domain_size: F::Shifting,
+    pub perm: F::Shifting,
     pub lookup: (),
 }
 
 #[derive(Clone, Debug)]
 pub struct DeferredValues<F: FieldWitness> {
     pub plonk: Plonk<F>,
-    pub combined_inner_product: ShiftedValue<F>,
-    pub b: ShiftedValue<F>,
+    pub combined_inner_product: F::Shifting,
+    pub b: F::Shifting,
     pub xi: [u64; 2],
     pub bulletproof_challenges: Vec<F>,
     pub branch_data: CompositionTypesBranchDataStableV1,
 }
 
+#[derive(Clone, Debug)]
 pub struct ProofState {
     pub deferred_values: DeferredValues<Fp>,
     pub sponge_digest_before_evaluations: [u64; 4],
     pub messages_for_next_wrap_proof: [u64; 4],
 }
 
+#[derive(Debug)]
 pub struct PreparedStatement {
     pub proof_state: ProofState,
     pub messages_for_next_step_proof: [u64; 4],
@@ -63,10 +59,6 @@ impl PreparedStatement {
                                     zeta,
                                     zeta_to_srs_length,
                                     zeta_to_domain_size,
-                                    // vbmul,
-                                    // complete_add,
-                                    // endomul,
-                                    // endomul_scalar,
                                     perm,
                                     lookup: _, // `lookup` is of type `()`
                                 },
@@ -102,10 +94,6 @@ impl PreparedStatement {
             fields.push(to_fq(b.shifted));
             fields.push(to_fq(zeta_to_srs_length.shifted));
             fields.push(to_fq(zeta_to_domain_size.shifted));
-            // fields.push(to_fq(vbmul.shifted));
-            // fields.push(to_fq(complete_add.shifted));
-            // fields.push(to_fq(endomul.shifted));
-            // fields.push(to_fq(endomul_scalar.shifted));
             fields.push(to_fq(perm.shifted));
         }
 

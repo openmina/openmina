@@ -6,16 +6,20 @@ use crate::proofs::{
         plonk_checks::ShiftingValue,
         prepared_statement::{DeferredValues, PreparedStatement, ProofState},
     },
+    wrap::{create_oracle, COMMON_MAX_DEGREE_WRAP_LOG2},
 };
-use ark_ff::BigInteger256;
+use ark_ec::short_weierstrass_jacobian::GroupAffine;
+use ark_ff::{BigInteger256, One, Zero};
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use kimchi::{
-    proof::{PointEvaluations, ProverProof},
+    proof::{PointEvaluations, ProverCommitments, ProverProof},
     verifier_index::VerifierIndex,
 };
-use mina_curves::pasta::{Fq, Vesta};
+use mina_curves::pasta::Pallas;
+use mina_curves::pasta::{Fq, PallasParameters};
 use mina_hasher::Fp;
-use mina_p2p_messages::v2::{self, CompositionTypesBranchDataStableV1};
+use mina_p2p_messages::v2;
+use poly_commitment::evaluation_proof::OpeningProof;
 
 use crate::{
     proofs::{
@@ -43,11 +47,12 @@ use crate::{
 
 use super::{
     public_input::{messages::MessagesForNextWrapProof, plonk_checks::PlonkMinimal},
-    unfinalized::AllEvals,
+    to_field_elements::ToFieldElements,
+    unfinalized::{AllEvals, EvalsWithPublicInput, Unfinalized},
     util::extract_bulletproof,
     witness::{
-        make_group, Boolean, FieldWitness, InnerCurve, MessagesForNextStepProof,
-        PlonkVerificationKeyEvals, Prover, Witness,
+        make_group, scalar_challenge::to_field_checked, Boolean, Check, FieldWitness, InnerCurve,
+        MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover, Witness,
     },
 };
 
@@ -302,17 +307,18 @@ pub fn expand_deferred(
     let r = ScalarChallenge::from(r_chal).to_field(&endo);
 
     let public_input = &evals.evals.public_input;
-    let combined_inner_product_actual = combined_inner_product2(CombinedInnerProductParams2::<4> {
-        env: &env,
-        evals: &evals.evals.evals,
-        public: [public_input.0, public_input.1],
-        minimal: &plonk_minimal,
-        ft_eval1: evals.ft_eval1,
-        r,
-        old_bulletproof_challenges: &old_bulletproof_challenges,
-        xi,
-        zetaw,
-    });
+    let combined_inner_product_actual =
+        combined_inner_product2(CombinedInnerProductParams2::<_, { Fp::NROUNDS }, 4> {
+            env: &env,
+            evals: &evals.evals.evals,
+            public: [public_input.0, public_input.1],
+            minimal: &plonk_minimal,
+            ft_eval1: evals.ft_eval1,
+            r,
+            old_bulletproof_challenges: &old_bulletproof_challenges,
+            xi,
+            zetaw,
+        });
 
     let bulletproof_challenges: Vec<_> = proof_state
         .deferred_values
@@ -339,13 +345,13 @@ pub fn expand_deferred(
 }
 
 fn expand_proof(
-    dlog_vk: &VerifierIndex<Vesta>,
+    dlog_vk: &VerifierIndex<Pallas>,
     dlog_plonk_index: &PlonkVerificationKeyEvals<Fp>,
     app_state: &Statement<SokDigest>,
     t: &v2::LedgerProofProdStableV2,
-    tag: (),
+    _tag: (),
     must_verify: Boolean,
-) {
+) -> ExpandedProof {
     use super::public_input::scalar_challenge::ScalarChallenge;
 
     let t = &t.0.proof.0;
@@ -364,7 +370,10 @@ fn expand_proof(
         let (_, endo) = endos::<Fq>();
         let alpha = ScalarChallenge::from(plonk0.alpha_bytes).to_field(&endo);
         let zeta = ScalarChallenge::from(plonk0.zeta_bytes).to_field(&endo);
-        let zetaw = zeta * dlog_vk.domain.group_gen;
+        let w: Fp = Radix2EvaluationDomain::new(1 << dlog_vk.domain.log_size_of_group)
+            .unwrap()
+            .group_gen;
+        let zetaw = zeta * w;
 
         let es = evals_from_p2p(&t.prev_evals.evals.evals);
         let combined_evals = evals_of_split_evals(zeta, zetaw, &es, BACKEND_TICK_ROUNDS_N);
@@ -437,7 +446,7 @@ fn expand_proof(
             .iter()
             .map(|(x, y)| InnerCurve::of_affine(make_group(x.to_field::<Fp>(), y.to_field())))
             .collect(),
-        old_bulletproof_challenges,
+        old_bulletproof_challenges: old_bulletproof_challenges.clone(),
     }
     .hash();
 
@@ -475,7 +484,7 @@ fn expand_proof(
                 statement.proof_state.sponge_digest_before_evaluations[i].as_u64()
             }),
             messages_for_next_wrap_proof: MessagesForNextWrapProof {
-                old_bulletproof_challenges: prev_challenges,
+                old_bulletproof_challenges: prev_challenges.clone(),
                 challenge_polynomial_commitment: {
                     let (x, y) = &statement
                         .proof_state
@@ -489,20 +498,446 @@ fn expand_proof(
         messages_for_next_step_proof,
     };
 
-    let proof = make_prover(t);
+    let mut proof = make_prover(t);
+    let oracle = {
+        let public_input = prev_statement_with_hashes.to_public_input(0);
+        create_oracle(dlog_vk, &proof, &public_input)
+    };
 
-    // let to_kimchi_proof ({ commitments; bulletproof; evaluations; ft_eval1 } : t) :
-    //     Backend.Tock.Proof.t =
-    //   { messages = Commitments.to_kimchi commitments
-    //   ; openings =
-    //       { proof = bulletproof
-    //       ; evals = Evaluations.to_kimchi evaluations
-    //       ; ft_eval1
-    //       }
-    //   }
+    let x_hat = (oracle.p_eval_1(), oracle.p_eval_2());
 
-    // dbg!(t.statement.)
-    // create_or
+    let alpha = oracle.alpha();
+    let beta = oracle.beta();
+    let gamma = oracle.gamma();
+    let zeta = oracle.zeta();
+
+    let to_bytes = |f: Fq| {
+        let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
+        assert_eq!([c, d], [0, 0]);
+        [a, b]
+    };
+
+    let plonk0 = PlonkMinimal {
+        alpha,
+        beta,
+        gamma,
+        zeta,
+        joint_combiner: None,
+        alpha_bytes: to_bytes(alpha),
+        beta_bytes: to_bytes(beta),
+        gamma_bytes: to_bytes(gamma),
+        zeta_bytes: to_bytes(zeta),
+    };
+
+    let xi = oracle.v();
+    let r = oracle.u();
+    let sponge_digest_before_evaluations = oracle.digest_before_evaluations;
+
+    let (_, endo) = endos::<Fp>();
+    let to_field = |bytes: [u64; 2]| -> Fq { ScalarChallenge::from(bytes).to_field(&endo) };
+
+    let w = dlog_vk.domain.group_gen;
+
+    let zetaw = {
+        let zeta = to_field(plonk0.zeta_bytes);
+        zeta * w
+    };
+
+    let (new_bulletproof_challenges, b) = {
+        let chals = oracle
+            .opening_prechallenges
+            .iter()
+            .map(|v| to_field(to_bytes(*v)))
+            .collect::<Vec<_>>();
+
+        let r = to_field(to_bytes(r.0));
+        let zeta = to_field(plonk0.zeta_bytes);
+        // TODO: Pass by value here
+        let challenge_poly = challenge_polynomial(&chals);
+        let b = challenge_poly(zeta) + (r * challenge_poly(zetaw));
+
+        let prechals = oracle
+            .opening_prechallenges
+            .iter()
+            .copied()
+            .map(to_bytes)
+            .collect::<Vec<_>>();
+
+        (prechals, b)
+    };
+
+    let challenge_polynomial_commitment = match must_verify {
+        Boolean::False => todo!(),
+        Boolean::True => proof.proof.sg.clone(),
+    };
+
+    let witness = PerProofWitness {
+        app_state: (),
+        proof_state: prev_statement_with_hashes.proof_state.clone(),
+        prev_proof_evals: (&t.prev_evals).into(),
+        prev_challenge_polynomial_commitments: {
+            // Or padding
+            assert_eq!(
+                t.statement
+                    .messages_for_next_step_proof
+                    .challenge_polynomial_commitments
+                    .len(),
+                2
+            );
+            t.statement
+                .messages_for_next_step_proof
+                .challenge_polynomial_commitments
+                .iter()
+                .map(|(x, y)| make_group::<Fp>(x.to_field(), y.to_field()))
+                .collect()
+        },
+        prev_challenges: {
+            // Or padding
+            assert_eq!(old_bulletproof_challenges.len(), 2);
+            old_bulletproof_challenges
+        },
+        wrap_proof: {
+            proof.proof.sg = challenge_polynomial_commitment;
+            proof.clone()
+        },
+    };
+
+    let tock_combined_evals = {
+        let zeta = to_field(plonk0.zeta_bytes);
+        evals_of_split_evals(zeta, zetaw, &proof.evals, BACKEND_TOCK_ROUNDS_N)
+    };
+
+    let tock_plonk_minimal = {
+        let alpha = to_field(plonk0.alpha_bytes);
+        let zeta = to_field(plonk0.zeta_bytes);
+
+        let to_bytes = |f: Fq| {
+            let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
+            [a, b, c, d]
+        };
+
+        PlonkMinimal {
+            alpha,
+            beta,
+            gamma,
+            zeta,
+            joint_combiner: None,
+            alpha_bytes: to_bytes(alpha),
+            beta_bytes: to_4limbs(plonk0.beta_bytes),
+            gamma_bytes: to_4limbs(plonk0.gamma_bytes),
+            zeta_bytes: to_bytes(alpha),
+        }
+    };
+
+    let domain_log2 = dlog_vk.domain.log_size_of_group;
+    let srs_length_log2 = COMMON_MAX_DEGREE_WRAP_LOG2;
+    let tock_env = make_scalars_env(
+        &tock_plonk_minimal,
+        domain_log2 as u8,
+        srs_length_log2 as u64,
+    );
+
+    let combined_inner_product = combined_inner_product2(CombinedInnerProductParams2 {
+        env: &tock_env,
+        evals: &tock_combined_evals,
+        public: [x_hat.0, x_hat.1],
+        minimal: &tock_plonk_minimal,
+        ft_eval1: proof.ft_eval1,
+        r: to_field(to_bytes(r.0)),
+        old_bulletproof_challenges: &prev_challenges,
+        xi: to_field(to_bytes(xi.0)),
+        zetaw,
+    });
+
+    let plonk = derive_plonk(&tock_env, &tock_combined_evals, &tock_plonk_minimal);
+
+    let shift = |f: Fq| <Fq as FieldWitness>::Shifting::of_field(f);
+
+    let unfinalized = Unfinalized {
+        deferred_values: crate::proofs::unfinalized::DeferredValues {
+            plonk: Plonk {
+                alpha: to_bytes(plonk0.alpha),
+                beta: to_bytes(plonk0.beta),
+                gamma: to_bytes(plonk0.gamma),
+                zeta: to_bytes(plonk0.zeta),
+                zeta_to_srs_length: plonk.zeta_to_srs_length,
+                zeta_to_domain_size: plonk.zeta_to_domain_size,
+                perm: plonk.perm,
+                lookup: (),
+            },
+            combined_inner_product: shift(combined_inner_product),
+            b: shift(b),
+            xi: to_bytes(xi.0),
+            bulletproof_challenges: new_bulletproof_challenges,
+        },
+        should_finalize: must_verify.as_bool(),
+        sponge_digest_before_evaluations: {
+            let BigInteger256([a, b, c, d]): BigInteger256 =
+                sponge_digest_before_evaluations.into();
+            [a, b, c, d]
+        },
+    };
+
+    ExpandedProof {
+        sg: challenge_polynomial_commitment,
+        unfinalized,
+        prev_statement_with_hashes,
+        x_hat,
+        witness,
+        actual_wrap_domain: dlog_vk.domain.log_size_of_group,
+    }
+}
+
+#[derive(Debug)]
+struct ExpandedProof {
+    sg: GroupAffine<PallasParameters>,
+    unfinalized: Unfinalized,
+    prev_statement_with_hashes: PreparedStatement,
+    x_hat: (Fq, Fq),
+    witness: PerProofWitness,
+    actual_wrap_domain: u32,
+}
+
+#[derive(Debug)]
+struct PerProofWitness {
+    app_state: (),
+    wrap_proof: ProverProof<GroupAffine<PallasParameters>>,
+    proof_state: ProofState,
+    prev_proof_evals: AllEvals<Fp>,
+    prev_challenges: Vec<[Fp; 16]>,
+    prev_challenge_polynomial_commitments: Vec<GroupAffine<PallasParameters>>,
+}
+
+impl ToFieldElements<Fp> for PerProofWitness {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
+            app_state: _,
+            wrap_proof,
+            proof_state,
+            prev_proof_evals,
+            prev_challenges,
+            prev_challenge_polynomial_commitments,
+        } = self;
+
+        let push_affine = |g: GroupAffine<PallasParameters>, fields: &mut Vec<Fp>| {
+            let GroupAffine { x, y, .. } = g;
+            x.to_field_elements(fields);
+            y.to_field_elements(fields);
+        };
+
+        let push_affines = |slice: &[GroupAffine<PallasParameters>], fields: &mut Vec<Fp>| {
+            slice.iter().copied().for_each(|g| push_affine(g, fields))
+        };
+
+        let ProverProof {
+            commitments:
+                ProverCommitments {
+                    w_comm,
+                    z_comm,
+                    t_comm,
+                    lookup: _,
+                },
+            proof:
+                OpeningProof {
+                    lr,
+                    delta,
+                    z1,
+                    z2,
+                    sg,
+                },
+            evals: _,
+            ft_eval1: _,
+            prev_challenges: _,
+        } = wrap_proof;
+
+        for w in w_comm {
+            push_affines(&w.unshifted, fields);
+        }
+
+        push_affines(&z_comm.unshifted, fields);
+        push_affines(&t_comm.unshifted, fields);
+
+        for (a, b) in lr {
+            push_affine(*a, fields);
+            push_affine(*b, fields);
+        }
+
+        let shift = |f: Fq| <Fq as FieldWitness>::Shifting::of_field(f);
+
+        shift(*z1).to_field_elements(fields);
+        shift(*z2).to_field_elements(fields);
+
+        push_affines(&[*delta, *sg], fields);
+
+        let ProofState {
+            deferred_values:
+                DeferredValues {
+                    plonk:
+                        Plonk {
+                            alpha,
+                            beta,
+                            gamma,
+                            zeta,
+                            zeta_to_srs_length,
+                            zeta_to_domain_size,
+                            perm,
+                            lookup: _,
+                        },
+                    combined_inner_product,
+                    b,
+                    xi,
+                    bulletproof_challenges,
+                    branch_data,
+                },
+            sponge_digest_before_evaluations,
+            messages_for_next_wrap_proof: _,
+        } = proof_state;
+
+        u64_to_field::<Fp, 2>(alpha).to_field_elements(fields);
+        u64_to_field::<Fp, 2>(beta).to_field_elements(fields);
+        u64_to_field::<Fp, 2>(gamma).to_field_elements(fields);
+        u64_to_field::<Fp, 2>(zeta).to_field_elements(fields);
+
+        zeta_to_srs_length.to_field_elements(fields);
+        zeta_to_domain_size.to_field_elements(fields);
+        perm.to_field_elements(fields);
+        combined_inner_product.to_field_elements(fields);
+        b.to_field_elements(fields);
+        u64_to_field::<Fp, 2>(xi).to_field_elements(fields);
+        bulletproof_challenges.to_field_elements(fields);
+
+        // Index
+        {
+            let v2::CompositionTypesBranchDataStableV1 {
+                proofs_verified,
+                domain_log2,
+            } = branch_data;
+            // https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles_base/proofs_verified.ml#L58
+            let proofs_verified = match proofs_verified {
+                v2::PicklesBaseProofsVerifiedStableV1::N0 => [Fp::zero(), Fp::zero()],
+                v2::PicklesBaseProofsVerifiedStableV1::N1 => [Fp::zero(), Fp::one()],
+                v2::PicklesBaseProofsVerifiedStableV1::N2 => [Fp::one(), Fp::one()],
+            };
+            let domain_log2: u64 = domain_log2.0.as_u8() as u64;
+
+            proofs_verified.to_field_elements(fields);
+            Fp::from(domain_log2).to_field_elements(fields);
+        }
+
+        u64_to_field::<Fp, 4>(sponge_digest_before_evaluations).to_field_elements(fields);
+
+        let AllEvals {
+            ft_eval1,
+            evals:
+                EvalsWithPublicInput {
+                    evals,
+                    public_input,
+                },
+        } = prev_proof_evals;
+
+        public_input.to_field_elements(fields);
+        evals.to_field_elements(fields);
+        ft_eval1.to_field_elements(fields);
+
+        prev_challenges.to_field_elements(fields);
+        push_affines(prev_challenge_polynomial_commitments, fields);
+    }
+}
+
+impl Check<Fp> for PerProofWitness {
+    fn check(&self, w: &mut Witness<Fp>) {
+        let Self {
+            app_state: _,
+            wrap_proof,
+            proof_state,
+            prev_proof_evals: _,
+            prev_challenges: _,
+            prev_challenge_polynomial_commitments,
+        } = self;
+
+        let ProverProof {
+            commitments:
+                ProverCommitments {
+                    w_comm,
+                    z_comm,
+                    t_comm,
+                    lookup: _,
+                },
+            proof:
+                OpeningProof {
+                    lr,
+                    delta,
+                    z1,
+                    z2,
+                    sg,
+                },
+            evals: _,
+            ft_eval1: _,
+            prev_challenges: _,
+        } = wrap_proof;
+
+        for poly in w_comm {
+            (&poly.unshifted).check(w);
+        }
+        (&z_comm.unshifted).check(w);
+        (&t_comm.unshifted).check(w);
+        lr.check(w);
+
+        let shift = |f: Fq| <Fq as FieldWitness>::Shifting::of_field(f);
+
+        shift(*z1).check(w);
+        shift(*z2).check(w);
+
+        delta.check(w);
+        sg.check(w);
+
+        let ProofState {
+            deferred_values:
+                DeferredValues {
+                    plonk:
+                        Plonk {
+                            alpha: _,
+                            beta: _,
+                            gamma: _,
+                            zeta: _,
+                            zeta_to_srs_length,
+                            zeta_to_domain_size,
+                            perm,
+                            lookup: _,
+                        },
+                    combined_inner_product,
+                    b,
+                    xi,
+                    bulletproof_challenges,
+                    branch_data,
+                },
+            sponge_digest_before_evaluations: _,
+            messages_for_next_wrap_proof: _,
+        } = proof_state;
+
+        zeta_to_srs_length.check(w);
+        zeta_to_domain_size.check(w);
+        perm.check(w);
+        combined_inner_product.check(w);
+        b.check(w);
+        u64_to_field::<Fp, 2>(xi).check(w);
+        bulletproof_challenges.check(w);
+
+        {
+            let v2::CompositionTypesBranchDataStableV1 {
+                proofs_verified: _,
+                domain_log2,
+            } = branch_data;
+            let domain_log2: u64 = domain_log2.0.as_u8() as u64;
+
+            // Assert 16 bits
+            const NBITS: usize = 16;
+            let (_, endo) = endos::<Fq>();
+            to_field_checked::<Fp, NBITS>(Fp::from(domain_log2), endo, w);
+        }
+
+        prev_challenge_polynomial_commitments.check(w);
+    }
 }
 
 pub struct StatementDeferredValues {
@@ -568,7 +1003,7 @@ pub fn generate_merge_proof(
     statement: &v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     proofs: &(v2::LedgerProofProdStableV2, v2::LedgerProofProdStableV2),
     message: &SokMessage,
-    step_prover: &Prover<Fp>,
+    _step_prover: &Prover<Fp>,
     wrap_prover: &Prover<Fq>,
     w: &mut Witness<Fp>,
 ) {
@@ -601,28 +1036,33 @@ pub fn generate_merge_proof(
     };
 
     let dlog_plonk_index = w.exists(dlog_plonk_index(wrap_prover));
-    let verifier_index = step_prover.index.verifier_index.as_ref().unwrap();
+    let verifier_index = wrap_prover.index.verifier_index.as_ref().unwrap();
 
-    let res = rule
+    let expanded_proofs: [ExpandedProof; 2] = rule
         .previous_proof_statements
         .iter()
-        .map(
-            |PreviousProofStatement {
-                 public_input,
-                 proof,
-                 proof_must_verify,
-             }| {
-                expand_proof(
-                    verifier_index,
-                    &dlog_plonk_index,
-                    public_input,
-                    proof,
-                    (),
-                    *proof_must_verify,
-                )
-            },
-        )
-        .collect::<Vec<_>>();
+        .map(|statement| {
+            let PreviousProofStatement {
+                public_input,
+                proof,
+                proof_must_verify,
+            } = statement;
+            expand_proof(
+                verifier_index,
+                &dlog_plonk_index,
+                public_input,
+                proof,
+                (),
+                *proof_must_verify,
+            )
+        })
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap();
+
+    eprintln!("AAA");
+
+    let _witnesses = w.exists((&expanded_proofs[0].witness, &expanded_proofs[1].witness));
 
     dbg!(w.aux.len() + w.primary.capacity());
     dbg!(w.ocaml_aux.len());

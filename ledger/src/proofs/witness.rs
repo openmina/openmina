@@ -72,6 +72,7 @@ use super::{
     },
     to_field_elements::ToFieldElements,
     unfinalized::{EvalsWithPublicInput, Unfinalized},
+    BACKEND_TICK_ROUNDS_N, BACKEND_TOCK_ROUNDS_N,
 };
 
 #[derive(Debug)]
@@ -1767,6 +1768,7 @@ where
 
     const PARAMS: Params<Self>;
     const SIZE: BigInteger256;
+    const NROUNDS: usize;
 
     // TODO: Find another way to get the SRS
     fn get_srs() -> Arc<Mutex<poly_commitment::srs::SRS<Self::OtherCurve>>>;
@@ -1792,6 +1794,7 @@ impl FieldWitness for Fp {
         b: ark_ff::field_new!(Fp, "5"),
     };
     const SIZE: BigInteger256 = mina_curves::pasta::fields::FpParameters::MODULUS;
+    const NROUNDS: usize = BACKEND_TICK_ROUNDS_N;
     fn get_srs() -> Arc<Mutex<poly_commitment::srs::SRS<Vesta>>> {
         use crate::verifier::SRS;
         SRS.clone()
@@ -1813,6 +1816,7 @@ impl FieldWitness for Fq {
         b: ark_ff::field_new!(Fq, "5"),
     };
     const SIZE: BigInteger256 = mina_curves::pasta::fields::FqParameters::MODULUS;
+    const NROUNDS: usize = BACKEND_TOCK_ROUNDS_N;
     fn get_srs() -> Arc<Mutex<poly_commitment::srs::SRS<Pallas>>> {
         SRS_PALLAS.clone()
     }
@@ -1974,9 +1978,16 @@ impl<F: FieldWitness> ToFieldElements<F> for InnerCurve<F> {
 impl<F: FieldWitness> Check<F> for InnerCurve<F> {
     // https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/snarky_curves/snarky_curves.ml#L167
     fn check(&self, w: &mut Witness<F>) {
-        let GroupAffine { x, y: _, .. } = self.to_affine();
-        let x2 = field::square(x, w);
-        let _x3 = field::mul(x2, x, w);
+        self.to_affine().check(w);
+    }
+}
+
+impl<F: FieldWitness> Check<F> for GroupAffine<F::Parameters> {
+    // https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/snarky_curves/snarky_curves.ml#L167
+    fn check(&self, w: &mut Witness<F>) {
+        let GroupAffine { x, y: _, .. } = self;
+        let x2 = field::square(*x, w);
+        let _x3 = field::mul(x2, *x, w);
         // TODO: Rest of the function doesn't modify witness
     }
 }

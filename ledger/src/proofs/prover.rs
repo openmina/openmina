@@ -152,6 +152,9 @@ pub fn make_prover(
         .map(make_poly)
         .collect();
 
+    // Or pad with `Wrap_hack.pad_accumulator`
+    assert_eq!(old_bulletproof_challenges.len(), 2);
+    assert_eq!(challenge_polynomial_commitments.len(), 2);
     let prev_challenges: Vec<RecursionChallenge<Pallas>> = old_bulletproof_challenges
         .iter()
         .zip(challenge_polynomial_commitments)

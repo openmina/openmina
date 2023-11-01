@@ -21,7 +21,10 @@ use mina_p2p_messages::v2::{
 };
 use mina_poseidon::{sponge::ScalarChallenge, FqSponge};
 use mina_signer::CurvePoint;
-use poly_commitment::{commitment::b_poly_coefficients, PolyComm};
+use poly_commitment::{
+    commitment::{b_poly_coefficients, CommitmentCurve},
+    PolyComm,
+};
 
 use crate::{
     proofs::{
@@ -61,7 +64,7 @@ use super::{
 };
 
 /// Common.Max_degree.wrap_log2
-const COMMON_MAX_DEGREE_WRAP_LOG2: usize = 15;
+pub const COMMON_MAX_DEGREE_WRAP_LOG2: usize = 15;
 
 pub struct CombinedInnerProductParams<'a> {
     pub env: &'a ScalarsEnv<Fp>,
@@ -133,23 +136,28 @@ pub fn combined_inner_product(params: CombinedInnerProductParams) -> Fp {
 }
 
 // TODO: De-duplicate with CombinedInnerProductParams
-pub struct CombinedInnerProductParams2<'a, const NLIMB: usize = 2> {
-    pub env: &'a ScalarsEnv<Fp>,
-    pub evals: &'a ProofEvaluations<[Fp; 2]>,
-    pub public: [Fp; 2],
-    pub minimal: &'a PlonkMinimal<Fp, NLIMB>,
-    pub ft_eval1: Fp,
-    pub r: Fp,
-    pub old_bulletproof_challenges: &'a [[Fp; 16]],
-    pub xi: Fp,
-    pub zetaw: Fp,
+pub struct CombinedInnerProductParams2<
+    'a,
+    F: FieldWitness,
+    const NROUNDS: usize,
+    const NLIMB: usize = 2,
+> {
+    pub env: &'a ScalarsEnv<F>,
+    pub evals: &'a ProofEvaluations<[F; 2]>,
+    pub public: [F; 2],
+    pub minimal: &'a PlonkMinimal<F, NLIMB>,
+    pub ft_eval1: F,
+    pub r: F,
+    pub old_bulletproof_challenges: &'a [[F; NROUNDS]],
+    pub xi: F,
+    pub zetaw: F,
 }
 
 // TODO: De-duplicate with combined_inner_product
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap.ml#L37
-pub fn combined_inner_product2<const NLIMB: usize>(
-    params: CombinedInnerProductParams2<NLIMB>,
-) -> Fp {
+pub fn combined_inner_product2<F: FieldWitness, const NROUNDS: usize, const NLIMB: usize>(
+    params: CombinedInnerProductParams2<F, NROUNDS, NLIMB>,
+) -> F {
     let CombinedInnerProductParams2 {
         env,
         old_bulletproof_challenges,
@@ -162,7 +170,7 @@ pub fn combined_inner_product2<const NLIMB: usize>(
         ft_eval1,
     } = params;
 
-    let ft_eval0 = ft_eval0(env, evals, minimal, public[0]);
+    let ft_eval0 = ft_eval0::<F, NLIMB>(env, evals, minimal, public[0]);
 
     let challenge_polys: Vec<_> = old_bulletproof_challenges
         .iter()
@@ -176,8 +184,8 @@ pub fn combined_inner_product2<const NLIMB: usize>(
         Second,
     }
 
-    let combine = |which_eval: WhichEval, ft: Fp, pt: Fp| {
-        let f = |[x, y]: &[Fp; 2]| match which_eval {
+    let combine = |which_eval: WhichEval, ft: F, pt: F| {
+        let f = |[x, y]: &[F; 2]| match which_eval {
             WhichEval::First => *x,
             WhichEval::Second => *y,
         };
@@ -196,50 +204,49 @@ pub fn combined_inner_product2<const NLIMB: usize>(
         + (r * combine(WhichEval::Second, ft_eval1, zetaw))
 }
 
-struct Oracles<F: FieldWitness> {
-    o: RandomOracles<F>,
-    p_eval: (F, F),
-    opening_prechallenges: Vec<F>,
-    digest_before_evaluations: F,
+pub struct Oracles<F: FieldWitness> {
+    pub o: RandomOracles<F>,
+    pub p_eval: (F, F),
+    pub opening_prechallenges: Vec<F>,
+    pub digest_before_evaluations: F,
 }
 
 impl<F: FieldWitness> Oracles<F> {
-    fn alpha(&self) -> F {
+    pub fn alpha(&self) -> F {
         self.o.alpha_chal.0
     }
 
-    fn beta(&self) -> F {
+    pub fn beta(&self) -> F {
         self.o.beta
     }
 
-    fn gamma(&self) -> F {
+    pub fn gamma(&self) -> F {
         self.o.gamma
     }
 
-    fn zeta(&self) -> F {
+    pub fn zeta(&self) -> F {
         self.o.zeta_chal.0
     }
 
-    fn v(&self) -> ScalarChallenge<F> {
+    pub fn v(&self) -> ScalarChallenge<F> {
         self.o.v_chal.clone()
     }
 
-    fn u(&self) -> ScalarChallenge<F> {
+    pub fn u(&self) -> ScalarChallenge<F> {
         self.o.u_chal.clone()
     }
 
-    fn p_eval_1(&self) -> F {
+    pub fn p_eval_1(&self) -> F {
         self.p_eval.0
     }
 
-    fn p_eval_2(&self) -> F {
+    pub fn p_eval_2(&self) -> F {
         self.p_eval.1
     }
 }
 
-fn create_oracle<F: FieldWitness>(
-    lgr_comm: Vec<PolyComm<F::OtherCurve>>,
-    prover_index: &kimchi::prover_index::ProverIndex<F::OtherCurve>,
+pub fn create_oracle<F: FieldWitness>(
+    verifier_index: &kimchi::verifier_index::VerifierIndex<F::OtherCurve>,
     proof: &kimchi::proof::ProverProof<F::OtherCurve>,
     public: &[F],
 ) -> Oracles<F> {
@@ -249,9 +256,10 @@ fn create_oracle<F: FieldWitness>(
     use mina_poseidon::sponge::DefaultFrSponge;
     use poly_commitment::commitment::shift_scalar;
 
-    let verifier_index = prover_index.verifier_index();
-
-    dbg!(public.len(), verifier_index.digest::<F::FqSponge>());
+    // TODO: Don't clone the SRS here
+    let mut srs = (**verifier_index.srs.get().unwrap()).clone();
+    let log_size_of_group = verifier_index.domain.log_size_of_group;
+    let lgr_comm = make_lagrange::<F>(&mut srs, log_size_of_group);
 
     let lgr_comm: Vec<PolyComm<F::OtherCurve>> = lgr_comm.into_iter().take(public.len()).collect();
     let lgr_comm_refs: Vec<_> = lgr_comm.iter().collect();
@@ -261,8 +269,6 @@ fn create_oracle<F: FieldWitness>(
         &public.iter().map(|s| -*s).collect::<Vec<_>>(),
     );
 
-    dbg!(&p_comm);
-
     let p_comm = {
         verifier_index
             .srs()
@@ -271,9 +277,6 @@ fn create_oracle<F: FieldWitness>(
             .commitment
     };
 
-    dbg!(&p_comm);
-
-    // type EFqSponge = DefaultFqSponge<VestaParameters, PlonkSpongeConstantsKimchi>;
     type EFrSponge<F> = DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
     let oracles_result = proof
         .oracles::<F::FqSponge, EFrSponge<F>>(&verifier_index, &p_comm, public)
@@ -301,8 +304,6 @@ fn create_oracle<F: FieldWitness>(
         .map(|f| f.0)
         .collect();
 
-    dbg!(&p_eval, &opening_prechallenges, digest);
-
     Oracles {
         o: oracles,
         p_eval: (p_eval[0][0], p_eval[1][0]),
@@ -311,15 +312,15 @@ fn create_oracle<F: FieldWitness>(
     }
 }
 
-fn make_lagrange(
-    srs: &mut poly_commitment::srs::SRS<Vesta>,
+pub fn make_lagrange<F: FieldWitness>(
+    srs: &mut poly_commitment::srs::SRS<F::OtherCurve>,
     domain_log2: u32,
-) -> Vec<PolyComm<Vesta>> {
+) -> Vec<PolyComm<F::OtherCurve>> {
     let domain_size = 2u64.pow(domain_log2) as usize;
 
     dbg!(domain_log2, domain_size);
 
-    let x_domain = EvaluationDomain::<Fp>::new(domain_size).expect("invalid argument");
+    let x_domain = EvaluationDomain::<F>::new(domain_size).expect("invalid argument");
 
     srs.add_lagrange_basis(x_domain);
 
@@ -328,21 +329,21 @@ fn make_lagrange(
 }
 
 /// Defined in `plonk_checks.ml`
-fn actual_evaluation(pt: Fp, e: &[Fp], rounds: usize) -> Fp {
+fn actual_evaluation<F: FieldWitness>(pt: F, e: &[F], rounds: usize) -> F {
     let [e, es @ ..] = e else {
-        return Fp::zero();
+        return F::zero();
     };
 
     let pt_n = (0..rounds).fold(pt, |acc, _| acc * acc);
     es.iter().fold(*e, |acc, fx| *fx + (pt_n * acc))
 }
 
-pub fn evals_of_split_evals(
-    zeta: Fp,
-    zetaw: Fp,
-    es: &ProofEvaluations<PointEvaluations<Vec<Fp>>>,
+pub fn evals_of_split_evals<F: FieldWitness>(
+    zeta: F,
+    zetaw: F,
+    es: &ProofEvaluations<PointEvaluations<Vec<F>>>,
     rounds: usize,
-) -> ProofEvaluations<[Fp; 2]> {
+) -> ProofEvaluations<[F; 2]> {
     es.map_ref(&|PointEvaluations {
                      zeta: x1,
                      zeta_omega: x2,
@@ -369,13 +370,10 @@ fn deferred_values(
     actual_proofs_verified: usize,
     prover_index: &kimchi::prover_index::ProverIndex<Vesta>,
 ) -> DeferredValuesAndHints {
-    // TODO: Don't clone the SRS here
-    let mut srs = (*prover_index.srs).clone();
     let step_vk = prover_index.verifier_index();
-
     let log_size_of_group = step_vk.domain.log_size_of_group;
-    let lagrange = make_lagrange(&mut srs, log_size_of_group);
-    let oracle = create_oracle(lagrange, prover_index, &proof, public_input);
+
+    let oracle = create_oracle(&step_vk, &proof, public_input);
     let x_hat = [oracle.p_eval.0, oracle.p_eval.1];
 
     let alpha = oracle.alpha();
@@ -469,17 +467,18 @@ fn deferred_values(
             [zeta[0], zeta_omega[0]]
         });
 
-    let combined_inner_product = combined_inner_product2(CombinedInnerProductParams2 {
-        env: &tick_env,
-        evals: &evals,
-        minimal: &tick_plonk_minimal,
-        r: scalar_to_field(to_bytes(r.0)),
-        old_bulletproof_challenges: &[],
-        xi: scalar_to_field(to_bytes(xi.0)),
-        zetaw,
-        public: x_hat,
-        ft_eval1: proof.ft_eval1,
-    });
+    let combined_inner_product =
+        combined_inner_product2(CombinedInnerProductParams2::<_, { Fp::NROUNDS }, 2> {
+            env: &tick_env,
+            evals: &evals,
+            minimal: &tick_plonk_minimal,
+            r: scalar_to_field(to_bytes(r.0)),
+            old_bulletproof_challenges: &[],
+            xi: scalar_to_field(to_bytes(xi.0)),
+            zetaw,
+            public: x_hat,
+            ft_eval1: proof.ft_eval1,
+        });
 
     // assert_eq!(
     //     combined_inner_product,
@@ -830,6 +829,55 @@ impl Check<Fq> for ShiftedValue<Fp> {
             field::equal(shifted, forbidden, w)
         });
         Boolean::any(&bools, w);
+    }
+}
+
+impl Check<Fp> for ShiftedValue<Fq> {
+    fn check(&self, w: &mut Witness<Fp>) {
+        // TODO: Compute those values instead of hardcoded
+        #[rustfmt::skip]
+        const FORBIDDEN_SHIFTED_VALUES: &[(Fp, Boolean); 4] = &[
+            (ark_ff::field_new!(Fp, "45560315531506369815346746415080538112"), Boolean::False),
+            (ark_ff::field_new!(Fp, "45560315531506369815346746415080538113"), Boolean::False),
+            (ark_ff::field_new!(Fp, "14474011154664524427946373126085988481727088556502330059655218120611762012161"), Boolean::True),
+            (ark_ff::field_new!(Fp, "14474011154664524427946373126085988481727088556502330059655218120611762012161"), Boolean::True),
+        ];
+
+        fn of_bits<F: FieldWitness>(bs: &[bool; 254]) -> F {
+            bs.iter().rev().fold(F::zero(), |acc, b| {
+                let acc = acc + acc;
+                if *b {
+                    acc + F::one()
+                } else {
+                    acc
+                }
+            })
+        }
+        // `Fq` is larger than `Fp` so we have to split the field (low & high bits)
+        // See:
+        // https://github.com/MinaProtocol/mina/blob/e85cf6969e42060f69d305fb63df9b8d7215d3d7/src/lib/pickles/impls.ml#L94C1-L105C45
+
+        let to_high_low = |fq: Fq| {
+            let [low, high @ ..] = crate::proofs::witness::field_to_bits::<Fq, 255>(fq);
+            (of_bits::<Fp>(&high), low.to_boolean())
+        };
+
+        let bools = FORBIDDEN_SHIFTED_VALUES.map(|(x2, b2)| {
+            let (x1, b1) = to_high_low(self.shifted);
+            let x_eq = field::equal(x1, x2, w);
+            let b_eq = match b2 {
+                Boolean::True => b1,
+                Boolean::False => b1.neg(),
+            };
+            x_eq.and(&b_eq, w)
+        });
+        Boolean::any(&bools, w);
+    }
+}
+
+impl<F: FieldWitness> Check<F> for ShiftedValue<F> {
+    fn check(&self, w: &mut Witness<F>) {
+        // Same field, no check
     }
 }
 
