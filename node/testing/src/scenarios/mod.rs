@@ -41,9 +41,9 @@ impl Scenarios {
 
     fn skip(&self) -> bool {
         match self {
-            Self::SoloNodeSyncRootSnarkedLedger(_) => true,
+            Self::SoloNodeSyncRootSnarkedLedger(_) => false,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => false,
-            Self::MultiNodeBasicConnectivityInitialJoining(_) => true,
+            Self::MultiNodeBasicConnectivityInitialJoining(_) => !cfg!(feature = "p2p-webrtc"),
         }
     }
 

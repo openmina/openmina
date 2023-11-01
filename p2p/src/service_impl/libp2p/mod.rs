@@ -510,6 +510,19 @@ impl Libp2pService {
                     listener_id = listener_id,
                 );
             }
+            SwarmEvent::IncomingConnection {
+                connection_id,
+                local_addr,
+                send_back_addr,
+            } => {
+                let connection_id = format!("{connection_id:?}");
+                openmina_core::log::info!(
+                    openmina_core::log::system_time();
+                    kind = "Libp2pIncomingConnection",
+                    summary = format!("libp2p incoming {connection_id} {local_addr} {send_back_addr}"),
+                    connection_id = connection_id,
+                );
+            }
             SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                 openmina_core::log::info!(
                     openmina_core::log::system_time();

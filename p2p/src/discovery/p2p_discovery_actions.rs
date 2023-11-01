@@ -86,8 +86,9 @@ pub struct P2pDiscoveryKademliaInitAction {}
 impl redux::EnablingCondition<P2pState> for P2pDiscoveryKademliaInitAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
         state.kademlia.is_ready
-            && state.kademlia.outgoing_requests < 5
-            && state.known_peers.len() < 200
+            && state.kademlia.outgoing_requests < 1
+            && state.kademlia.saturated.is_none()
+            && !state.already_knows_max_peers()
     }
 }
 

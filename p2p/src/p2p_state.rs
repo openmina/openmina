@@ -16,41 +16,35 @@ use super::P2pConfig;
 pub struct P2pState {
     pub config: P2pConfig,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
-    pub known_peers: BTreeMap<PeerId, P2pConnectionOutgoingInitOpts>,
     pub kademlia: P2pKademliaState,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pKademliaState {
     pub is_ready: bool,
-    pub last_used: Option<redux::Timestamp>,
     pub outgoing_requests: usize,
     pub routes: BTreeMap<PeerId, Vec<P2pConnectionOutgoingInitOpts>>,
-}
-
-impl P2pState {
-    pub fn enough_time_elapsed(&self, time: redux::Timestamp) -> bool {
-        let Some(last_used) = self.kademlia.last_used else {
-            return true;
-        };
-        time.checked_sub(last_used)
-            .map(|t| t > self.config.ask_initial_peers_interval)
-            .unwrap_or(false)
-    }
+    pub known_peers: BTreeMap<PeerId, P2pConnectionOutgoingInitOpts>,
+    pub saturated: Option<redux::Timestamp>,
+    pub peer_timestamp: BTreeMap<PeerId, redux::Timestamp>,
 }
 
 impl P2pState {
     pub fn new(config: P2pConfig) -> Self {
-        let known_peers = config
-            .initial_peers
-            .iter()
-            .map(|p| (p.peer_id().clone(), p.clone()))
-            .collect();
+        let mut kademlia = P2pKademliaState::default();
+        if cfg!(feature = "p2p-webrtc") {
+            kademlia.known_peers.extend(
+                config
+                    .initial_peers
+                    .iter()
+                    .map(|opts| (*opts.peer_id(), opts.clone())),
+            );
+        }
+
         Self {
             config,
             peers: Default::default(),
-            known_peers,
-            kademlia: P2pKademliaState::default(),
+            kademlia,
         }
     }
 
@@ -81,7 +75,8 @@ impl P2pState {
     }
 
     pub fn initial_unused_peers(&self) -> Vec<P2pConnectionOutgoingInitOpts> {
-        self.known_peers
+        self.kademlia
+            .known_peers
             .values()
             .filter(|v| {
                 self.ready_peers_iter()
@@ -158,6 +153,19 @@ impl P2pState {
 
     pub fn already_has_max_peers(&self) -> bool {
         self.connected_or_connecting_peers_count() >= self.config.max_peers
+    }
+
+    pub fn already_knows_max_peers(&self) -> bool {
+        self.kademlia.known_peers.len() >= self.config.max_peers * 2
+    }
+
+    pub fn enough_time_elapsed(&self, time: redux::Timestamp) -> bool {
+        let Some(last_used) = self.kademlia.saturated else {
+            return true;
+        };
+        time.checked_sub(last_used)
+            .map(|t| t > self.config.ask_initial_peers_interval)
+            .unwrap_or(false)
     }
 
     /// Minimal number of peers that the node should connect
@@ -237,8 +245,6 @@ impl P2pPeerStatus {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pPeerStatusReady {
     pub connected_since: redux::Timestamp,
-    pub last_asked_initial_peers: Option<redux::Timestamp>,
-    pub last_received_initial_peers: Option<redux::Timestamp>,
     pub channels: P2pChannelsState,
     pub best_tip: Option<ArcBlockWithHash>,
 }
@@ -247,8 +253,6 @@ impl P2pPeerStatusReady {
     pub fn new(time: redux::Timestamp, enabled_channels: &BTreeSet<ChannelId>) -> Self {
         Self {
             connected_since: time,
-            last_asked_initial_peers: None,
-            last_received_initial_peers: None,
             channels: P2pChannelsState::new(enabled_channels),
             best_tip: None,
         }

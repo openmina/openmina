@@ -224,8 +224,8 @@ fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
         .state()
         .p2p
         .ready_peers_iter()
-        .filter_map(|(peer_id, status)| {
-            let Some(t) = status.last_received_initial_peers else {
+        .filter_map(|(peer_id, _)| {
+            let Some(t) = store.state().p2p.kademlia.peer_timestamp.get(peer_id).cloned() else {
                 return Some(*peer_id);
             };
             let elapsed = meta

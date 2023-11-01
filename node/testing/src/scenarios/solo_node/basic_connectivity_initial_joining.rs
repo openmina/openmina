@@ -18,7 +18,7 @@ pub struct SoloNodeBasicConnectivityInitialJoining;
 impl SoloNodeBasicConnectivityInitialJoining {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         const MAX_PEERS_PER_NODE: usize = 100;
-        const KNOWN_PEERS: usize = 8; // current berkeley network
+        const KNOWN_PEERS: usize = 7; // current berkeley network
         const STEPS: usize = 4_000;
 
         let mut nodes = vec![];
@@ -27,8 +27,9 @@ impl SoloNodeBasicConnectivityInitialJoining {
             .add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(MAX_PEERS_PER_NODE));
 
         let seeds = [
-            "/dns4/seed-1.berkeley.o1test.net/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
+            // "/dns4/seed-1.berkeley.o1test.net/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
             "/dns4/seed-2.berkeley.o1test.net/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
+            // "/dns4/seed-3.berkeley.o1test.net/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
         ];
         for seed in seeds {
             runner
@@ -73,7 +74,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
 
                 let node = runner.node(node_id).expect("must exist");
                 let ready_peers = node.state().p2p.ready_peers_iter().count();
-                let known_peers = node.state().p2p.known_peers.len();
+                let known_peers = node.state().p2p.kademlia.known_peers.len();
 
                 println!("step: {step}");
                 println!("known peers: {known_peers}");
