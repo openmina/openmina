@@ -580,8 +580,8 @@ pub struct WrapProofState {
 
 #[derive(Clone, Debug)]
 pub struct WrapStatement {
-    proof_state: WrapProofState,
-    messages_for_next_step_proof: ReducedMessagesForNextStepProof<Statement<SokDigest>>,
+    pub proof_state: WrapProofState,
+    pub messages_for_next_step_proof: ReducedMessagesForNextStepProof<Statement<SokDigest>>,
 }
 
 fn exists_prev_statement(
@@ -1880,7 +1880,7 @@ pub mod wrap_verifier {
         pcs_batch: PcsBatch,
         sponge: Sponge<Fq, mina_poseidon::constants::PlonkSpongeConstantsKimchi>,
         xi: [u64; 2],
-        advice: &'a Advice,
+        advice: &'a Advice<Fq>,
         openings_proof: &'a OpeningProof<Vesta>,
         srs: &'a SRS<GroupAffine<VestaParameters>>,
         polynomials: (
@@ -1968,9 +1968,9 @@ pub mod wrap_verifier {
     }
 
     #[derive(Debug)]
-    pub struct Advice {
-        pub b: ShiftedValue<Fp>,
-        pub combined_inner_product: ShiftedValue<Fp>,
+    pub struct Advice<F: FieldWitness> {
+        pub b: ShiftedValue<F::Scalar>,
+        pub combined_inner_product: ShiftedValue<F::Scalar>,
     }
 
     pub struct IncrementallyVerifyProofParams<'a> {
@@ -1982,7 +1982,7 @@ pub mod wrap_verifier {
         pub sponge: OptSponge<Fq>,
         pub public_input: Vec<Packed<Boolean>>,
         pub sg_old: Vec<InnerCurve<Fq>>,
-        pub advice: Advice,
+        pub advice: Advice<Fq>,
         pub messages: &'a kimchi::proof::ProverCommitments<Vesta>,
         pub which_branch: Vec<Boolean>,
         pub openings_proof: &'a OpeningProof<Vesta>,

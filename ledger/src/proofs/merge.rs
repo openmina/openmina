@@ -1,13 +1,17 @@
 use std::{path::Path, str::FromStr};
 
-use crate::proofs::{
-    prover::make_prover,
-    public_input::{
-        plonk_checks::ShiftingValue,
-        prepared_statement::{DeferredValues, PreparedStatement, ProofState},
+use crate::{
+    proofs::{
+        prover::make_prover,
+        public_input::{
+            plonk_checks::ShiftingValue,
+            prepared_statement::{DeferredValues, PreparedStatement, ProofState},
+        },
+        verifier_index::wrap_domains,
+        witness::poseidon::Sponge,
+        wrap::{create_oracle, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2},
     },
-    verifier_index::wrap_domains,
-    wrap::{create_oracle, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2},
+    CurveAffine,
 };
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, One, Zero};
@@ -20,6 +24,7 @@ use mina_curves::pasta::Pallas;
 use mina_curves::pasta::{Fq, PallasParameters};
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
+use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
 use poly_commitment::evaluation_proof::OpeningProof;
 
 use crate::{
@@ -46,6 +51,8 @@ use crate::{
     },
 };
 
+use self::step_verifier::{proof_verified_to_prefix, VerifyParams};
+
 use super::{
     public_input::{messages::MessagesForNextWrapProof, plonk_checks::PlonkMinimal},
     to_field_elements::ToFieldElements,
@@ -53,9 +60,10 @@ use super::{
     util::extract_bulletproof,
     witness::{
         make_group, scalar_challenge::to_field_checked, Boolean, Check, FieldWitness, InnerCurve,
-        MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover, Witness,
+        MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
+        ReducedMessagesForNextStepProof, Witness,
     },
-    wrap::Domains,
+    wrap::{CircuitVar, Domains},
 };
 
 fn read_witnesses() -> std::io::Result<Vec<Fp>> {
@@ -1029,6 +1037,7 @@ mod step_verifier {
     use crate::proofs::{
         opt_sponge::OptSponge,
         public_input::plonk_checks::{self, ft_eval0_checked},
+        unfinalized,
         util::{
             challenge_polynomial_checked, proof_evaluation_to_list_opt, to_absorption_sequence_opt,
         },
@@ -1036,7 +1045,7 @@ mod step_verifier {
         wrap::{
             make_scalars_env_checked,
             pseudo::{self, PseudoDomain},
-            wrap_verifier::{actual_evaluation, lowest_128_bits},
+            wrap_verifier::{actual_evaluation, lowest_128_bits, Advice},
             CircuitVar,
         },
     };
@@ -1069,7 +1078,7 @@ mod step_verifier {
         pseudo::to_domain::<Fp>(&which_log2, &unique_domains)
     }
 
-    fn proof_verified_to_prefix(p: &v2::PicklesBaseProofsVerifiedStableV1) -> [Boolean; 2] {
+    pub fn proof_verified_to_prefix(p: &v2::PicklesBaseProofsVerifiedStableV1) -> [Boolean; 2] {
         use v2::PicklesBaseProofsVerifiedStableV1::*;
 
         match p {
@@ -1374,20 +1383,186 @@ mod step_verifier {
         sponge
     }
 
-    fn hash_messages_for_next_step_proof_opt(
+    pub fn hash_messages_for_next_step_proof_opt(
+        msg: ReducedMessagesForNextStepProof<&Statement<SokDigest>>,
         sponge: Sponge<Fp, Constants>,
-        widths: ForStepKind<Vec<Fp>>,
-        max_width: usize,
-        proofs_verified_mask: Vec<Fp>,
-    ) {
-        // ReducedMessagesForNextStepProof;
-        // MessagesForNextStepProof;
+        _widths: &ForStepKind<Vec<Fp>>,
+        _max_width: usize,
+        proofs_verified_mask: &[Boolean],
+        w: &mut Witness<Fp>,
+    ) -> Fp {
+        enum MaybeOpt<T, T2> {
+            Opt(Boolean, T),
+            NotOpt(T2),
+        }
+
+        // TODO: Refactor/clean this, it's a mess
+
+        let ReducedMessagesForNextStepProof {
+            app_state,
+            challenge_polynomial_commitments,
+            old_bulletproof_challenges,
+        } = msg;
+
+        let old_bulletproof_challenges = proofs_verified_mask
+            .iter()
+            .zip(old_bulletproof_challenges)
+            .map(|(b, v)| {
+                let b = *b;
+                v.map(|v| MaybeOpt::Opt(b, v))
+            });
+
+        let challenge_polynomial_commitments = proofs_verified_mask
+            .iter()
+            .zip(challenge_polynomial_commitments)
+            .map(|(b, v)| {
+                let b = *b;
+                let CurveAffine(x, y) = v;
+                [MaybeOpt::Opt(b, x), MaybeOpt::Opt(b, y)]
+            });
+
+        let app_state = app_state
+            .to_field_elements_owned()
+            .into_iter()
+            .map(|v| MaybeOpt::NotOpt(v));
+
+        let both = challenge_polynomial_commitments
+            .zip(old_bulletproof_challenges)
+            .map(|(c, o)| c.into_iter().chain(o.into_iter()));
+
+        let res = app_state
+            .chain(both.flatten())
+            .fold(MaybeOpt::NotOpt(sponge), |acc, v| match (acc, v) {
+                (MaybeOpt::NotOpt(mut sponge), MaybeOpt::NotOpt(v)) => {
+                    sponge.absorb(&[v], w);
+                    MaybeOpt::NotOpt(sponge)
+                }
+                (MaybeOpt::NotOpt(sponge), MaybeOpt::Opt(b, v)) => {
+                    let mut sponge = OptSponge::of_sponge(sponge, w);
+                    sponge.absorb((CircuitVar::Var(b), v));
+                    MaybeOpt::Opt(Boolean::True, sponge)
+                }
+                (MaybeOpt::Opt(_, mut sponge), MaybeOpt::Opt(b, v)) => {
+                    sponge.absorb((CircuitVar::Var(b), v));
+                    MaybeOpt::Opt(Boolean::True, sponge)
+                }
+                (MaybeOpt::Opt(_, _), MaybeOpt::NotOpt(_)) => panic!(),
+            });
+
+        match res {
+            MaybeOpt::NotOpt(mut sponge) => sponge.squeeze(w),
+            MaybeOpt::Opt(_, mut sponge) => sponge.squeeze(w),
+        }
+    }
+
+    struct IncrementallyVerifyProofParams<'a> {
+        pub proofs_verified: usize,
+        pub srs: &'a poly_commitment::srs::SRS<Pallas>,
+        pub wrap_domain: &'a ForStepKind<Domain>,
+        pub sponge: Sponge<Fp, Constants>,
+        pub sponge_after_index: Sponge<Fp, Constants>,
+        pub wrap_verification_key: &'a PlonkVerificationKeyEvals<Fp>,
+        pub xi: [u64; 2],
+        pub public_input: Vec<Packed>,
+        pub sg_old: &'a Vec<GroupAffine<PallasParameters>>,
+        pub advice: Advice<Fp>,
+        pub proof: &'a ProverProof<GroupAffine<PallasParameters>>,
+        pub plonk: &'a Plonk<Fq>,
+    }
+
+    fn incrementally_verify_proof(params: IncrementallyVerifyProofParams, w: &mut Witness<Fp>) {
+        let IncrementallyVerifyProofParams {
+            proofs_verified,
+            srs,
+            wrap_domain,
+            sponge,
+            sponge_after_index,
+            wrap_verification_key,
+            xi,
+            public_input,
+            sg_old,
+            advice,
+            proof,
+            plonk,
+        } = params;
+    }
+
+    pub struct VerifyParams<'a> {
+        pub srs: &'a poly_commitment::srs::SRS<Pallas>,
+        pub feature_flags: &'a FeatureFlags<OptFlag>,
+        pub lookup_parameters: (),
+        pub proofs_verified: usize,
+        pub wrap_domain: &'a ForStepKind<Domain>,
+        pub is_base_case: Boolean,
+        pub sponge_after_index: Sponge<Fp, Constants>,
+        pub sg_old: &'a Vec<GroupAffine<PallasParameters>>,
+        pub proof: &'a ProverProof<GroupAffine<PallasParameters>>,
+        pub wrap_verification_key: &'a PlonkVerificationKeyEvals<Fp>,
+        pub statement: &'a PreparedStatement,
+        pub unfinalized: &'a Unfinalized,
+    }
+
+    pub fn verify(params: VerifyParams, w: &mut Witness<Fp>) {
+        let VerifyParams {
+            srs,
+            feature_flags,
+            lookup_parameters,
+            proofs_verified,
+            wrap_domain,
+            is_base_case,
+            sponge_after_index,
+            sg_old,
+            proof,
+            wrap_verification_key,
+            statement,
+            unfinalized,
+        } = params;
+
+        let public_input = {
+            let mut public_input = statement.to_public_input_cvar(39);
+            // TODO: See how padding works
+            public_input.push(Packed::PackedBits(CircuitVar::Constant(Fq::zero()), 128));
+            public_input
+        };
+
+        let unfinalized::DeferredValues {
+            plonk,
+            combined_inner_product,
+            b,
+            xi,
+            bulletproof_challenges: _,
+        } = &unfinalized.deferred_values;
+
+        let b = b.clone();
+        let combined_inner_product = combined_inner_product.clone();
+        let sponge = Sponge::create();
+
+        incrementally_verify_proof(
+            IncrementallyVerifyProofParams {
+                proofs_verified,
+                srs,
+                wrap_domain,
+                sponge,
+                sponge_after_index,
+                wrap_verification_key,
+                xi: *xi,
+                public_input,
+                sg_old,
+                advice: Advice {
+                    b,
+                    combined_inner_product,
+                },
+                proof,
+                plonk,
+            },
+            w,
+        );
     }
 }
 
 fn verify_one(
     srs: &poly_commitment::srs::SRS<Pallas>,
-    proof: &PerProofWitness<PreviousProofStatement<'_>>,
+    proof: &PerProofWitness<Statement<SokDigest>>,
     data: &ForStep,
     messages_for_next_wrap_proof: Fp,
     unfinalized: &Unfinalized,
@@ -1409,7 +1584,6 @@ fn verify_one(
         let sponge_digest = proof_state.sponge_digest_before_evaluations;
 
         let sponge = {
-            use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
             use mina_poseidon::pasta::fp_kimchi::static_params;
 
             let mut sponge =
@@ -1434,39 +1608,76 @@ fn verify_one(
 
     let sponge_after_index = step_verifier::sponge_after_index(&data.wrap_key, w);
 
-    &data.proof_verifieds;
+    let statement = {
+        let msg = ReducedMessagesForNextStepProof {
+            app_state,
+            challenge_polynomial_commitments: prev_challenge_polynomial_commitments
+                .iter()
+                .map(|g| {
+                    let GroupAffine { x, y, .. } = g;
+                    CurveAffine(*x, *y)
+                })
+                .collect(),
+            old_bulletproof_challenges: prev_challenges.clone(),
+        };
 
-    &app_state;
+        let ntrim_front = 2 - prev_challenge_polynomial_commitments.len();
+        let proofs_verified_mask = {
+            let proofs_verified_mask = &branch_data.proofs_verified;
+            proof_verified_to_prefix(proofs_verified_mask)
+        };
+        let proofs_verified_mask = &proofs_verified_mask[ntrim_front..];
 
-    // let prev_messages_for_next_step_proof =
-    //   with_label __LOC__ (fun () ->
-    //       hash_messages_for_next_step_proof ~widths:d.proofs_verifieds
-    //         ~max_width:(Nat.Add.n d.max_proofs_verified)
-    //         ~proofs_verified_mask:
-    //           (Vector.trim_front branch_data.proofs_verified_mask
-    //              (Nat.lte_exn
-    //                 (Vector.length prev_challenge_polynomial_commitments)
-    //                 Nat.N2.n ) )
-    //         (* Use opt sponge for cutting off the bulletproof challenges early *)
-    //         { app_state
-    //         ; dlog_plonk_index = d.wrap_key
-    //         ; challenge_polynomial_commitments =
-    //             prev_challenge_polynomial_commitments
-    //         ; old_bulletproof_challenges = prev_challenges
-    //         } )
-    // in
+        let prev_messages_for_next_step_proof =
+            step_verifier::hash_messages_for_next_step_proof_opt(
+                msg,
+                sponge_after_index.clone(),
+                &data.proof_verifieds,
+                data.max_proofs_verified,
+                proofs_verified_mask,
+                w,
+            );
 
-    // let sponge_after_index, hash_messages_for_next_step_proof =
-    //   let to_field_elements =
-    //     let (Typ typ) = d.public_input in
-    //     fun x -> fst (typ.var_to_fields x)
-    //   in
-    //   let sponge_after_index, hash_messages_for_next_step_proof =
-    //     (* TODO: Don't rehash when it's not necessary *)
-    //     hash_messages_for_next_step_proof_opt ~index:d.wrap_key to_field_elements
-    //   in
-    //   (sponge_after_index, unstage hash_messages_for_next_step_proof)
-    // in
+        PreparedStatement {
+            proof_state: ProofState {
+                messages_for_next_wrap_proof: { to_bytes(messages_for_next_wrap_proof) },
+                ..proof_state.clone()
+            },
+            messages_for_next_step_proof: { to_bytes(prev_messages_for_next_step_proof) },
+        }
+    };
+
+    let verified = step_verifier::verify(
+        VerifyParams {
+            srs,
+            feature_flags: &data.feature_flags,
+            lookup_parameters: (),
+            proofs_verified: data.max_proofs_verified,
+            wrap_domain: &data.wrap_domain,
+            is_base_case: should_verify.neg(),
+            sponge_after_index,
+            sg_old: prev_challenge_polynomial_commitments,
+            proof: wrap_proof,
+            wrap_verification_key: &data.wrap_key,
+            statement: &statement,
+            unfinalized,
+        },
+        w,
+    );
+}
+
+pub enum Packed {
+    Field(CircuitVar<Fq>),
+    PackedBits(CircuitVar<Fq>, usize),
+}
+
+impl std::fmt::Debug for Packed {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Field(x) => f.write_fmt(format_args!("Field({:?})", x)),
+            Self::PackedBits(a, b) => f.write_fmt(format_args!("PackedBits({:?}, {:?})", a, b)),
+        }
+    }
 }
 
 pub fn generate_merge_proof(
@@ -1569,7 +1780,7 @@ pub fn generate_merge_proof(
         .previous_proof_statements
         .iter()
         .zip(prevs)
-        .map(|(stmt, proof)| proof.clone().with_app_state(stmt.clone()))
+        .map(|(stmt, proof)| proof.clone().with_app_state(stmt.public_input.clone()))
         .collect::<Vec<_>>()
         .try_into()
         .unwrap();

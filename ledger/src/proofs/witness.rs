@@ -2406,7 +2406,7 @@ pub mod poseidon {
 
     #[derive(Clone)]
     pub struct Sponge<F: FieldWitness, C: SpongeConstants> {
-        state: [F; 3],
+        pub state: [F; 3],
         pub sponge_state: SpongeState,
         params: &'static ArithmeticSpongeParams<F>,
         nabsorb: usize,
@@ -2430,6 +2430,10 @@ pub mod poseidon {
 
         pub fn new(params: &'static ArithmeticSpongeParams<F>) -> Self {
             Self::new_with_state([F::zero(); 3], params)
+        }
+
+        pub fn create() -> Self {
+            Self::new_with_state([F::zero(); 3], F::get_params2())
         }
 
         pub fn absorb(&mut self, x: &[F], w: &mut Witness<F>) {
