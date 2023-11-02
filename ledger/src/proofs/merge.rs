@@ -6,7 +6,8 @@ use crate::proofs::{
         plonk_checks::ShiftingValue,
         prepared_statement::{DeferredValues, PreparedStatement, ProofState},
     },
-    wrap::{create_oracle, COMMON_MAX_DEGREE_WRAP_LOG2},
+    verifier_index::wrap_domains,
+    wrap::{create_oracle, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2},
 };
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, One, Zero};
@@ -54,6 +55,7 @@ use super::{
         make_group, scalar_challenge::to_field_checked, Boolean, Check, FieldWitness, InnerCurve,
         MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover, Witness,
     },
+    wrap::Domains,
 };
 
 fn read_witnesses() -> std::io::Result<Vec<Fp>> {
@@ -140,6 +142,7 @@ fn merge_main(
     (s1, s2)
 }
 
+#[derive(Clone, Debug)]
 struct PreviousProofStatement<'a> {
     public_input: &'a Statement<SokDigest>,
     proof: &'a v2::LedgerProofProdStableV2,
@@ -694,13 +697,13 @@ struct ExpandedProof {
     unfinalized: Unfinalized,
     prev_statement_with_hashes: PreparedStatement,
     x_hat: (Fq, Fq),
-    witness: PerProofWitness,
+    witness: PerProofWitness<()>,
     actual_wrap_domain: u32,
 }
 
-#[derive(Debug)]
-struct PerProofWitness {
-    app_state: (),
+#[derive(Clone, Debug)]
+struct PerProofWitness<AppState> {
+    app_state: AppState,
     wrap_proof: ProverProof<GroupAffine<PallasParameters>>,
     proof_state: ProofState,
     prev_proof_evals: AllEvals<Fp>,
@@ -708,7 +711,29 @@ struct PerProofWitness {
     prev_challenge_polynomial_commitments: Vec<GroupAffine<PallasParameters>>,
 }
 
-impl ToFieldElements<Fp> for PerProofWitness {
+impl<T> PerProofWitness<T> {
+    fn with_app_state<T2>(self, app_state: T2) -> PerProofWitness<T2> {
+        let Self {
+            app_state: _,
+            wrap_proof,
+            proof_state,
+            prev_proof_evals,
+            prev_challenges,
+            prev_challenge_polynomial_commitments,
+        } = self;
+
+        PerProofWitness::<T2> {
+            app_state,
+            wrap_proof,
+            proof_state,
+            prev_proof_evals,
+            prev_challenges,
+            prev_challenge_polynomial_commitments,
+        }
+    }
+}
+
+impl ToFieldElements<Fp> for PerProofWitness<()> {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
             app_state: _,
@@ -844,7 +869,7 @@ impl ToFieldElements<Fp> for PerProofWitness {
     }
 }
 
-impl Check<Fp> for PerProofWitness {
+impl Check<Fp> for PerProofWitness<()> {
     fn check(&self, w: &mut Witness<Fp>) {
         let Self {
             app_state: _,
@@ -999,6 +1024,451 @@ impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofState> for S
     }
 }
 
+mod step_verifier {
+    use super::*;
+    use crate::proofs::{
+        opt_sponge::OptSponge,
+        public_input::plonk_checks::{self, ft_eval0_checked},
+        util::{
+            challenge_polynomial_checked, proof_evaluation_to_list_opt, to_absorption_sequence_opt,
+        },
+        witness::{field, poseidon::Sponge, ReducedMessagesForNextStepProof},
+        wrap::{
+            make_scalars_env_checked,
+            pseudo::{self, PseudoDomain},
+            wrap_verifier::{actual_evaluation, lowest_128_bits},
+            CircuitVar,
+        },
+    };
+    use itertools::Itertools;
+    use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
+
+    fn domain_for_compiled(
+        domains: &[Domains],
+        branch_data: &v2::CompositionTypesBranchDataStableV1,
+        w: &mut Witness<Fp>,
+    ) -> PseudoDomain<Fp> {
+        let unique_domains = domains
+            .iter()
+            .map(|d| d.h)
+            .sorted()
+            .dedup()
+            .collect::<Vec<_>>();
+        let mut which_log2 = unique_domains
+            .iter()
+            .rev()
+            .map(|Domain::Pow2RootsOfUnity(d)| {
+                let d = Fp::from(*d);
+                let domain_log2 = Fp::from(branch_data.domain_log2.as_u8() as u64);
+                field::equal(d, domain_log2, w)
+            })
+            .collect::<Vec<_>>();
+
+        which_log2.reverse();
+
+        pseudo::to_domain::<Fp>(&which_log2, &unique_domains)
+    }
+
+    fn proof_verified_to_prefix(p: &v2::PicklesBaseProofsVerifiedStableV1) -> [Boolean; 2] {
+        use v2::PicklesBaseProofsVerifiedStableV1::*;
+
+        match p {
+            N0 => [Boolean::False, Boolean::False],
+            N1 => [Boolean::False, Boolean::True],
+            N2 => [Boolean::True, Boolean::True],
+        }
+    }
+
+    pub fn finalize_other_proof(
+        max_proof_verified: usize,
+        _feature_flags: &FeatureFlags<OptFlag>,
+        step_domains: &ForStepKind<Vec<Domains>>,
+        mut sponge: Sponge<Fp, Constants>,
+        prev_challenges: &[[Fp; Fp::NROUNDS]],
+        deferred_values: &DeferredValues<Fp>,
+        evals: &AllEvals<Fp>,
+        w: &mut Witness<Fp>,
+    ) -> (Boolean, Vec<Fp>) {
+        let DeferredValues {
+            plonk,
+            combined_inner_product,
+            b,
+            xi,
+            bulletproof_challenges,
+            branch_data,
+        } = deferred_values;
+
+        let AllEvals { ft_eval1, evals } = evals;
+
+        let actual_width_mask = &branch_data.proofs_verified;
+        let actual_width_mask = proof_verified_to_prefix(actual_width_mask);
+
+        let (_, endo) = endos::<Fq>();
+        let scalar = |b: &[u64; 2], w: &mut Witness<Fp>| {
+            let scalar = u64_to_field(b);
+            to_field_checked::<Fp, 128>(scalar, endo, w)
+        };
+
+        let plonk = {
+            let Plonk {
+                alpha,
+                beta,
+                gamma,
+                zeta,
+                zeta_to_srs_length,
+                zeta_to_domain_size,
+                perm,
+                lookup: (),
+            } = plonk;
+
+            // We decompose this way because of OCaml evaluation order
+            let zeta = scalar(zeta, w);
+            let alpha = scalar(alpha, w);
+
+            InCircuit {
+                alpha,
+                beta: u64_to_field(beta),
+                gamma: u64_to_field(gamma),
+                zeta,
+                zeta_to_domain_size: zeta_to_domain_size.clone(),
+                zeta_to_srs_length: zeta_to_srs_length.clone(),
+                perm: perm.clone(),
+            }
+        };
+
+        let domain = match step_domains {
+            ForStepKind::Known(ds) => domain_for_compiled(ds, branch_data, w),
+            ForStepKind::SideLoaded => todo!(),
+        };
+
+        let zetaw = field::mul(plonk.zeta, domain.domain.group_gen, w);
+
+        let sg_olds = prev_challenges
+            .iter()
+            .map(|chals| challenge_polynomial_checked(chals))
+            .collect::<Vec<_>>();
+
+        let (sg_evals1, sg_evals2) = {
+            let sg_evals = |pt: Fp, w: &mut Witness<Fp>| {
+                let ntrim_front = 2 - max_proof_verified;
+
+                let mut sg = sg_olds
+                    .iter()
+                    .zip(&actual_width_mask[ntrim_front..])
+                    .rev()
+                    .map(|(f, keep)| (*keep, f(pt, w)))
+                    .collect::<Vec<_>>();
+                sg.reverse();
+                sg
+            };
+
+            // We decompose this way because of OCaml evaluation order
+            let sg_evals2 = sg_evals(zetaw, w);
+            let sg_evals1 = sg_evals(plonk.zeta, w);
+            (sg_evals1, sg_evals2)
+        };
+
+        let _sponge_state = {
+            let challenge_digest = {
+                let ntrim_front = 2 - max_proof_verified;
+
+                let mut sponge = OptSponge::create();
+                prev_challenges
+                    .iter()
+                    .zip(&actual_width_mask[ntrim_front..])
+                    .for_each(|(chals, keep)| {
+                        let keep = CircuitVar::Var(*keep);
+                        for chal in chals {
+                            sponge.absorb((keep, *chal));
+                        }
+                    });
+                sponge.squeeze(w)
+            };
+
+            sponge.absorb2(&[challenge_digest], w);
+            sponge.absorb(&[*ft_eval1], w);
+            sponge.absorb(&[evals.public_input.0], w);
+            sponge.absorb(&[evals.public_input.1], w);
+
+            for eval in &to_absorption_sequence_opt(&evals.evals) {
+                // TODO: Support sequences with Maybe
+                if let Some([x1, x2]) = eval.as_ref().copied() {
+                    sponge.absorb(&[x1, x2], w);
+                }
+            }
+        };
+
+        let xi_actual = lowest_128_bits(sponge.squeeze(w), true, w);
+        let r_actual = lowest_128_bits(sponge.squeeze(w), true, w);
+
+        let xi_correct = field::equal(xi_actual, u64_to_field(xi), w);
+
+        let xi = scalar(xi, w);
+        let r = to_field_checked::<Fp, 128>(r_actual, endo, w);
+
+        let to_bytes = |f: Fp| {
+            let BigInteger256([a, b, c, d]) = f.into();
+            [a, b, c, d]
+        };
+
+        let plonk_mininal = PlonkMinimal::<Fp, 4> {
+            alpha: plonk.alpha,
+            beta: plonk.beta,
+            gamma: plonk.gamma,
+            zeta: plonk.zeta,
+            joint_combiner: None,
+            alpha_bytes: to_bytes(plonk.alpha),
+            beta_bytes: to_bytes(plonk.beta),
+            gamma_bytes: to_bytes(plonk.gamma),
+            zeta_bytes: to_bytes(plonk.zeta),
+        };
+
+        let combined_evals = {
+            let mut pow2pow =
+                |f: Fp| (0..COMMON_MAX_DEGREE_STEP_LOG2).fold(f, |acc, _| field::square(acc, w));
+
+            let zeta_n = pow2pow(plonk.zeta);
+            let zetaw_n = pow2pow(zetaw);
+
+            evals.evals.map_ref(&|[x0, x1]| {
+                let a = actual_evaluation(&[*x0], zeta_n);
+                let b = actual_evaluation(&[*x1], zetaw_n);
+                [a, b]
+            })
+        };
+
+        let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2 as u64;
+        let env = make_scalars_env_checked(&plonk_mininal, &domain, srs_length_log2, w);
+
+        let combined_inner_product_correct = {
+            let p_eval0 = evals.public_input.0;
+            let ft_eval0 = ft_eval0_checked(&env, &combined_evals, &plonk_mininal, p_eval0, w);
+            let a = proof_evaluation_to_list_opt(&evals.evals)
+                .into_iter()
+                .filter_map(|v| match v {
+                    Some(v) => Some(Opt::Some(v)),
+                    None => None,
+                })
+                .collect::<Vec<_>>();
+
+            let actual_combined_inner_product = {
+                enum WhichEval {
+                    First,
+                    Second,
+                }
+
+                let combine = |which_eval: WhichEval,
+                               sg_evals: &[(Boolean, Fp)],
+                               ft_eval: Fp,
+                               x_hat: Fp,
+                               w: &mut Witness<Fp>| {
+                    let f = |v: &Opt<[Fp; 2]>| match which_eval {
+                        WhichEval::First => v.map(|v| v[0]),
+                        WhichEval::Second => v.map(|v| v[1]),
+                    };
+                    let v = sg_evals
+                        .iter()
+                        .copied()
+                        .map(|(b, v)| Opt::Maybe(b, v))
+                        .chain([Opt::Some(x_hat)])
+                        .chain([Opt::Some(ft_eval)])
+                        .chain(a.iter().map(f))
+                        .rev()
+                        .collect::<Vec<_>>();
+
+                    let (init, rest) = v.split_at(1);
+
+                    let init = match init[0] {
+                        Opt::Some(x) => x,
+                        Opt::No => Fp::zero(),
+                        Opt::Maybe(b, x) => field::mul(b.to_field(), x, w),
+                    };
+                    rest.iter().fold(init, |acc: Fp, fx: &Opt<Fp>| match fx {
+                        Opt::No => acc,
+                        Opt::Some(fx) => *fx + field::mul(xi, acc, w),
+                        Opt::Maybe(b, fx) => {
+                            let v = match b {
+                                Boolean::True => *fx + field::mul(xi, acc, w),
+                                Boolean::False => acc,
+                            };
+                            w.exists_no_check(v)
+                        }
+                    })
+                };
+
+                // We decompose this way because of OCaml evaluation order
+                let b = combine(
+                    WhichEval::Second,
+                    &sg_evals2,
+                    *ft_eval1,
+                    evals.public_input.1,
+                    w,
+                );
+                let b = field::mul(b, r, w);
+                let a = combine(
+                    WhichEval::First,
+                    &sg_evals1,
+                    ft_eval0,
+                    evals.public_input.0,
+                    w,
+                );
+                a + b
+            };
+
+            let combined_inner_product =
+                ShiftingValue::<Fp>::shifted_to_field(combined_inner_product);
+            field::equal(combined_inner_product, actual_combined_inner_product, w)
+        };
+
+        let mut bulletproof_challenges = bulletproof_challenges
+            .iter()
+            .rev()
+            .map(|f| to_field_checked::<Fp, 128>(*f, endo, w))
+            .collect::<Vec<_>>();
+        bulletproof_challenges.reverse();
+
+        let b_correct = {
+            let challenge_poly = challenge_polynomial_checked(&bulletproof_challenges);
+
+            // We decompose this way because of OCaml evaluation order
+            let r_zetaw = field::mul(r, challenge_poly(zetaw, w), w);
+            let b_actual = challenge_poly(plonk.zeta, w) + r_zetaw;
+
+            field::equal(b.shifted_to_field(), b_actual, w)
+        };
+
+        let plonk = wrap_verifier::PlonkWithField {
+            alpha: plonk.alpha,
+            beta: plonk.beta,
+            gamma: plonk.gamma,
+            zeta: plonk.zeta,
+            zeta_to_srs_length: plonk.zeta_to_srs_length,
+            zeta_to_domain_size: plonk.zeta_to_domain_size,
+            perm: plonk.perm,
+            lookup: (),
+        };
+        let plonk_checks_passed = plonk_checks::checked(&env, &combined_evals, &plonk, w);
+
+        let finalized = Boolean::all(
+            &[
+                xi_correct,
+                b_correct,
+                combined_inner_product_correct,
+                plonk_checks_passed,
+            ],
+            w,
+        );
+
+        (finalized, bulletproof_challenges)
+    }
+
+    pub fn sponge_after_index(
+        index: &PlonkVerificationKeyEvals<Fp>,
+        w: &mut Witness<Fp>,
+    ) -> Sponge<Fp, Constants> {
+        use mina_poseidon::pasta::fp_kimchi::static_params;
+
+        let mut sponge = Sponge::<Fp, Constants>::new(static_params());
+        let fields = index.to_field_elements_owned();
+        sponge.absorb2(&fields, w);
+        sponge
+    }
+
+    fn hash_messages_for_next_step_proof_opt(
+        sponge: Sponge<Fp, Constants>,
+        widths: ForStepKind<Vec<Fp>>,
+        max_width: usize,
+        proofs_verified_mask: Vec<Fp>,
+    ) {
+        // ReducedMessagesForNextStepProof;
+        // MessagesForNextStepProof;
+    }
+}
+
+fn verify_one(
+    srs: &poly_commitment::srs::SRS<Pallas>,
+    proof: &PerProofWitness<PreviousProofStatement<'_>>,
+    data: &ForStep,
+    messages_for_next_wrap_proof: Fp,
+    unfinalized: &Unfinalized,
+    should_verify: Boolean,
+    w: &mut Witness<Fp>,
+) {
+    let PerProofWitness {
+        app_state,
+        wrap_proof,
+        proof_state,
+        prev_proof_evals,
+        prev_challenges,
+        prev_challenge_polynomial_commitments,
+    } = proof;
+
+    let deferred_values = &proof_state.deferred_values;
+
+    let (finalized, chals) = {
+        let sponge_digest = proof_state.sponge_digest_before_evaluations;
+
+        let sponge = {
+            use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
+            use mina_poseidon::pasta::fp_kimchi::static_params;
+
+            let mut sponge =
+                crate::proofs::witness::poseidon::Sponge::<Fp, Constants>::new(static_params());
+            sponge.absorb2(&[u64_to_field(&sponge_digest)], w);
+            sponge
+        };
+
+        step_verifier::finalize_other_proof(
+            data.max_proofs_verified,
+            &data.feature_flags,
+            &data.step_domains,
+            sponge,
+            prev_challenges,
+            deferred_values,
+            prev_proof_evals,
+            w,
+        )
+    };
+
+    let branch_data = &deferred_values.branch_data;
+
+    let sponge_after_index = step_verifier::sponge_after_index(&data.wrap_key, w);
+
+    &data.proof_verifieds;
+
+    &app_state;
+
+    // let prev_messages_for_next_step_proof =
+    //   with_label __LOC__ (fun () ->
+    //       hash_messages_for_next_step_proof ~widths:d.proofs_verifieds
+    //         ~max_width:(Nat.Add.n d.max_proofs_verified)
+    //         ~proofs_verified_mask:
+    //           (Vector.trim_front branch_data.proofs_verified_mask
+    //              (Nat.lte_exn
+    //                 (Vector.length prev_challenge_polynomial_commitments)
+    //                 Nat.N2.n ) )
+    //         (* Use opt sponge for cutting off the bulletproof challenges early *)
+    //         { app_state
+    //         ; dlog_plonk_index = d.wrap_key
+    //         ; challenge_polynomial_commitments =
+    //             prev_challenge_polynomial_commitments
+    //         ; old_bulletproof_challenges = prev_challenges
+    //         } )
+    // in
+
+    // let sponge_after_index, hash_messages_for_next_step_proof =
+    //   let to_field_elements =
+    //     let (Typ typ) = d.public_input in
+    //     fun x -> fst (typ.var_to_fields x)
+    //   in
+    //   let sponge_after_index, hash_messages_for_next_step_proof =
+    //     (* TODO: Don't rehash when it's not necessary *)
+    //     hash_messages_for_next_step_proof_opt ~index:d.wrap_key to_field_elements
+    //   in
+    //   (sponge_after_index, unstage hash_messages_for_next_step_proof)
+    // in
+}
+
 pub fn generate_merge_proof(
     statement: &v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     proofs: &(v2::LedgerProofProdStableV2, v2::LedgerProofProdStableV2),
@@ -1062,8 +1532,212 @@ pub fn generate_merge_proof(
 
     eprintln!("AAA");
 
-    let _witnesses = w.exists((&expanded_proofs[0].witness, &expanded_proofs[1].witness));
+    let fst = &expanded_proofs[0];
+    let snd = &expanded_proofs[1];
+
+    let prevs = w.exists([&fst.witness, &snd.witness]);
+    let unfinalized_proofs_unextended = w.exists([&fst.unfinalized, &snd.unfinalized]);
+
+    let f = u64_to_field::<Fp, 4>;
+    let messages_for_next_wrap_proof = w.exists([
+        f(&fst
+            .prev_statement_with_hashes
+            .proof_state
+            .messages_for_next_wrap_proof),
+        f(&snd
+            .prev_statement_with_hashes
+            .proof_state
+            .messages_for_next_wrap_proof),
+    ]);
+
+    let actual_wrap_domains = {
+        let all_possible_domains = wrap_verifier::all_possible_domains();
+
+        [fst.actual_wrap_domain, snd.actual_wrap_domain].map(|domain_size| {
+            let domain_size = domain_size as u64;
+            all_possible_domains
+                .iter()
+                .position(|Domain::Pow2RootsOfUnity(d)| *d == domain_size)
+                .unwrap_or(0)
+        })
+    };
+
+    dbg!(fst.actual_wrap_domain);
+    dbg!(snd.actual_wrap_domain);
+
+    let prevs: [PerProofWitness<_>; 2] = rule
+        .previous_proof_statements
+        .iter()
+        .zip(prevs)
+        .map(|(stmt, proof)| proof.clone().with_app_state(stmt.clone()))
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap();
+
+    let basic = Basic {
+        proof_verifieds: vec![0, 2, 0, 0, 1],
+        wrap_domain: Domains {
+            h: Domain::Pow2RootsOfUnity(14),
+        },
+        step_domains: vec![
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(14),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+        ],
+        feature_flags: FeatureFlags {
+            range_check0: OptFlag::No,
+            range_check1: OptFlag::No,
+            foreign_field_add: OptFlag::No,
+            foreign_field_mul: OptFlag::No,
+            xor: OptFlag::No,
+            rot: OptFlag::No,
+            lookup: OptFlag::No,
+            runtime_tables: OptFlag::No,
+        },
+    };
+
+    let self_branches = 5;
+    let max_proofs_verified = 2;
+    let self_data = ForStep {
+        branches: self_branches,
+        max_proofs_verified,
+        proof_verifieds: ForStepKind::Known(
+            basic
+                .proof_verifieds
+                .iter()
+                .copied()
+                .map(Fp::from)
+                .collect(),
+        ),
+        public_input: (),
+        wrap_key: dlog_plonk_index,
+        wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
+        step_domains: ForStepKind::Known(basic.step_domains),
+        feature_flags: basic.feature_flags,
+    };
+
+    let srs = <Fq as FieldWitness>::get_srs();
+    let srs = srs.lock().unwrap();
+
+    for ((((proof, msg_for_next_wrap_proof), unfinalized), stmt), actual_wrap_domain) in prevs
+        .iter()
+        .zip(messages_for_next_wrap_proof)
+        .zip(unfinalized_proofs_unextended)
+        .zip(&rule.previous_proof_statements)
+        .zip(actual_wrap_domains)
+        .take(1)
+    {
+        let PreviousProofStatement {
+            proof_must_verify: should_verify,
+            ..
+        } = stmt;
+
+        match self_data.wrap_domain {
+            ForStepKind::SideLoaded => (),
+            ForStepKind::Known(wrap_domain) => {
+                let actual_wrap_domain = wrap_domains(actual_wrap_domain);
+                assert_eq!(actual_wrap_domain.h, wrap_domain);
+            }
+        }
+
+        verify_one(
+            &srs,
+            proof,
+            &self_data,
+            msg_for_next_wrap_proof,
+            unfinalized,
+            *should_verify,
+            w,
+        );
+
+        // let chals, v =
+        //   verify_one ~srs p d messages_for_next_wrap_proof
+        //     unfinalized should_verify
+        // in
+        // let chalss, vs =
+        //   go proofs datas messages_for_next_wrap_proofs unfinalizeds
+        //     stmts pi ~actual_wrap_domains
+        // in
+        // (chals :: chalss, v :: vs)
+    }
+    // go prevs datas messages_for_next_wrap_proofs unfinalized_proofs
+    //   previous_proof_statements proofs_verified ~actual_wrap_domains
 
     dbg!(w.aux.len() + w.primary.capacity());
     dbg!(w.ocaml_aux.len());
+}
+
+#[derive(Debug)]
+enum OptFlag {
+    Yes,
+    No,
+    Maybe,
+}
+
+#[derive(Debug)]
+enum Opt<T> {
+    Some(T),
+    No,
+    Maybe(Boolean, T),
+}
+
+impl<T> Opt<T> {
+    fn map<V>(&self, fun: impl Fn(&T) -> V) -> Opt<V> {
+        match self {
+            Opt::Some(v) => Opt::Some(fun(v)),
+            Opt::No => Opt::No,
+            Opt::Maybe(b, v) => Opt::Maybe(*b, fun(v)),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct FeatureFlags<Bool> {
+    range_check0: Bool,
+    range_check1: Bool,
+    foreign_field_add: Bool,
+    foreign_field_mul: Bool,
+    xor: Bool,
+    rot: Bool,
+    lookup: Bool,
+    runtime_tables: Bool,
+}
+
+#[derive(Debug)]
+struct Basic {
+    proof_verifieds: Vec<u64>,
+    // branches: u64,
+    wrap_domain: Domains,
+    step_domains: Vec<Domains>,
+    feature_flags: FeatureFlags<OptFlag>,
+}
+
+#[derive(Debug)]
+enum ForStepKind<T> {
+    Known(T),
+    SideLoaded,
+}
+
+#[derive(Debug)]
+struct ForStep {
+    branches: usize,
+    max_proofs_verified: usize,
+    proof_verifieds: ForStepKind<Vec<Fp>>,
+    public_input: (), // Typ
+    wrap_key: PlonkVerificationKeyEvals<Fp>,
+    wrap_domain: ForStepKind<Domain>,
+    step_domains: ForStepKind<Vec<Domains>>,
+    feature_flags: FeatureFlags<OptFlag>,
 }

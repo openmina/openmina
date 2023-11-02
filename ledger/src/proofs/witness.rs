@@ -631,7 +631,7 @@ impl<F: FieldWitness> ToFieldElements<F> for Fq {
     }
 }
 
-impl<F: FieldWitness, const N: usize> ToFieldElements<F> for [F; N] {
+impl<F: FieldWitness, T: ToFieldElements<F>, const N: usize> ToFieldElements<F> for [T; N] {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         self.iter().for_each(|v| v.to_field_elements(fields));
     }
@@ -691,17 +691,9 @@ impl<F: FieldWitness> ToFieldElements<F> for &'_ [bool] {
     }
 }
 
-impl<F: FieldWitness, const NBITS: usize> ToFieldElements<F> for [bool; NBITS] {
+impl<F: FieldWitness> ToFieldElements<F> for bool {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        fields.reserve(self.len());
-        fields.extend(self.iter().copied().map(F::from))
-    }
-}
-
-impl<F: FieldWitness, const NBITS: usize> ToFieldElements<F> for [Boolean; NBITS] {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        fields.reserve(self.len());
-        fields.extend(self.iter().copied().map(Boolean::to_field::<F>))
+        F::from(*self).to_field_elements(fields)
     }
 }
 
@@ -1385,7 +1377,7 @@ impl<F: FieldWitness> Check<F> for Fq {
     }
 }
 
-impl<F: FieldWitness, const N: usize> Check<F> for [F; N] {
+impl<F: FieldWitness, T: Check<F>, const N: usize> Check<F> for [T; N] {
     fn check(&self, w: &mut Witness<F>) {
         self.iter().for_each(|v| v.check(w));
     }
@@ -1747,7 +1739,7 @@ where
         + std::fmt::Debug
         + 'static,
 {
-    type Scalar: FieldWitness;
+    type Scalar: FieldWitness<Scalar = Self>;
     type Affine: AffineCurve<Projective = Self::Projective, BaseField = Self, ScalarField = Self::Scalar>
         + Into<GroupAffine<Self::Parameters>>
         + KimchiCurve
@@ -2143,12 +2135,6 @@ impl<F: FieldWitness> Check<F> for v2::MinaBasePendingCoinbaseStackVersionedStab
 }
 
 impl<F: FieldWitness> Check<F> for &[AllEvals<F>] {
-    fn check(&self, _w: &mut Witness<F>) {
-        // Does not modify the witness
-    }
-}
-
-impl<F: FieldWitness, const NBITS: usize> Check<F> for [bool; NBITS] {
     fn check(&self, _w: &mut Witness<F>) {
         // Does not modify the witness
     }

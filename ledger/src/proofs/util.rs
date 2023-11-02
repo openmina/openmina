@@ -77,9 +77,11 @@ pub fn challenge_polynomial<F: FieldWitness>(chals: &[F]) -> Box<dyn Fn(F) -> F>
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
-pub fn challenge_polynomial_checked(chals: &[Fq]) -> Box<dyn Fn(Fq, &mut Witness<Fq>) -> Fq> {
+pub fn challenge_polynomial_checked<F: FieldWitness>(
+    chals: &[F],
+) -> Box<dyn Fn(F, &mut Witness<F>) -> F> {
     let chals = chals.to_vec();
-    Box::new(move |pt: Fq, w: &mut Witness<Fq>| {
+    Box::new(move |pt: F, w: &mut Witness<F>| {
         let k = chals.len();
         let pow_two_pows = {
             let mut res = vec![pt; k];
@@ -89,7 +91,11 @@ pub fn challenge_polynomial_checked(chals: &[Fq]) -> Box<dyn Fn(Fq, &mut Witness
             }
             res
         };
-        fn prod(k: usize, fun: impl Fn(usize, &mut Witness<Fq>) -> Fq, w: &mut Witness<Fq>) -> Fq {
+        fn prod<F: FieldWitness>(
+            k: usize,
+            fun: impl Fn(usize, &mut Witness<F>) -> F,
+            w: &mut Witness<F>,
+        ) -> F {
             let mut r = fun(0, w);
             for i in 1..k {
                 r = field::mul(fun(i, w), r, w);
@@ -98,7 +104,7 @@ pub fn challenge_polynomial_checked(chals: &[Fq]) -> Box<dyn Fn(Fq, &mut Witness
         }
         prod(
             k,
-            |i, w| Fq::one() + field::mul(chals[i], pow_two_pows[k - 1 - i], w),
+            |i, w| F::one() + field::mul(chals[i], pow_two_pows[k - 1 - i], w),
             w,
         )
     })
@@ -173,6 +179,78 @@ pub fn proof_evaluation_to_list<F: FieldWitness>(e: &ProofEvaluations<[F; 2]>) -
         .iter()
         .filter_map(|v| **v),
     );
+
+    list
+}
+
+/// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L611
+pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
+    e: &ProofEvaluations<[F; 2]>,
+) -> Vec<Option<[F; 2]>> {
+    let ProofEvaluations::<[F; 2]> {
+        w,
+        z,
+        s,
+        coefficients,
+        generic_selector,
+        poseidon_selector,
+        complete_add_selector,
+        mul_selector,
+        emul_selector,
+        endomul_scalar_selector,
+        range_check0_selector,
+        range_check1_selector,
+        foreign_field_add_selector,
+        foreign_field_mul_selector,
+        xor_selector,
+        rot_selector,
+        lookup_aggregation,
+        lookup_table,
+        lookup_sorted,
+        runtime_lookup_table,
+        runtime_lookup_table_selector,
+        xor_lookup_selector,
+        lookup_gate_lookup_selector,
+        range_check_lookup_selector,
+        foreign_field_mul_lookup_selector,
+    } = e;
+
+    let mut list = vec![
+        Some(*z),
+        Some(*generic_selector),
+        Some(*poseidon_selector),
+        Some(*complete_add_selector),
+        Some(*mul_selector),
+        Some(*emul_selector),
+        Some(*endomul_scalar_selector),
+    ];
+
+    list.extend(w.iter().copied().map(Some));
+    list.extend(coefficients.iter().copied().map(Some));
+    list.extend(s.iter().copied().map(Some));
+
+    let optional_gates = [
+        range_check0_selector,
+        range_check1_selector,
+        foreign_field_add_selector,
+        foreign_field_mul_selector,
+        xor_selector,
+        rot_selector,
+    ];
+
+    list.extend(optional_gates);
+    list.extend(lookup_sorted);
+
+    list.extend([
+        lookup_aggregation,
+        lookup_table,
+        runtime_lookup_table,
+        runtime_lookup_table_selector,
+        xor_lookup_selector,
+        lookup_gate_lookup_selector,
+        range_check_lookup_selector,
+        foreign_field_mul_lookup_selector,
+    ]);
 
     list
 }
@@ -342,7 +420,9 @@ pub fn to_absorption_sequence2<F: FieldWitness>(
 }
 
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L674
-pub fn to_absorption_sequence_opt(evals: &ProofEvaluations<[Fq; 2]>) -> Vec<Option<[Fq; 2]>> {
+pub fn to_absorption_sequence_opt<F: FieldWitness>(
+    evals: &ProofEvaluations<[F; 2]>,
+) -> Vec<Option<[F; 2]>> {
     let ProofEvaluations {
         w,
         coefficients,
