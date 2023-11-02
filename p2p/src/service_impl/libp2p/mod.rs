@@ -1,10 +1,8 @@
 mod behavior;
 pub use behavior::Event as BehaviourEvent;
 pub use behavior::*;
-//use libp2p::kad::store::MemoryStore;
-use mina_p2p_messages::rpc::GetSomeInitialPeersV1ForV2;
 
-mod discovery;
+use mina_p2p_messages::rpc::GetSomeInitialPeersV1ForV2;
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -61,6 +59,7 @@ pub enum Cmd {
     Disconnect(PeerId),
     SendMessage(PeerId, ChannelMsg),
     SnarkBroadcast(Snark, u32),
+    RunDiscovery(Vec<(PeerId, Multiaddr)>),
     FindNode(PeerId),
 }
 
@@ -243,23 +242,6 @@ impl Libp2pService {
     async fn handle_cmd<E: From<P2pEvent>>(swarm: &mut Swarm<Behaviour<E>>, cmd: Cmd) {
         match cmd {
             Cmd::Dial(peer_id, addrs) => {
-                for addr in &addrs {
-                    swarm
-                        .behaviour_mut()
-                        .kademlia
-                        .add_address(&peer_id, addr.clone());
-                }
-
-                if swarm.behaviour().bootstrap_id.is_none() {
-                    match swarm.behaviour_mut().kademlia.bootstrap() {
-                        Ok(id) => swarm.behaviour_mut().bootstrap_id = Some(id),
-                        Err(err) => {
-                            let _ = err;
-                            // TODO: log error
-                        }
-                    }
-                }
-
                 let opts = DialOpts::peer_id(peer_id.into()).addresses(addrs).build();
                 if let Err(e) = swarm.dial(opts) {
                     openmina_core::log::error!(
@@ -309,6 +291,21 @@ impl Libp2pService {
                 let message = NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(message);
                 let nonce = nonce.into();
                 Self::gossipsub_send(swarm, &GossipNetMessage::SnarkPoolDiff { message, nonce });
+            }
+            Cmd::RunDiscovery(peers) => {
+                for (peer_id, addr) in peers {
+                    swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
+                }
+
+                if swarm.behaviour().bootstrap_id.is_none() {
+                    match swarm.behaviour_mut().kademlia.bootstrap() {
+                        Ok(id) => swarm.behaviour_mut().bootstrap_id = Some(id),
+                        Err(err) => {
+                            let _ = err;
+                            // TODO: log error
+                        }
+                    }
+                }
             }
             Cmd::FindNode(peer_id) => {
                 let _id = swarm.behaviour_mut().kademlia.get_closest_peers(peer_id);

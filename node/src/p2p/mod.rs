@@ -83,6 +83,7 @@ impl_into_global_action!(disconnection::P2pDisconnectionFinishAction);
 
 impl_into_global_action!(discovery::P2pDiscoveryInitAction);
 impl_into_global_action!(discovery::P2pDiscoverySuccessAction);
+impl_into_global_action!(discovery::P2pDiscoveryKademliaBootstrapAction);
 impl_into_global_action!(discovery::P2pDiscoveryKademliaInitAction);
 impl_into_global_action!(discovery::P2pDiscoveryKademliaSuccessAction);
 impl_into_global_action!(discovery::P2pDiscoveryKademliaFailureAction);

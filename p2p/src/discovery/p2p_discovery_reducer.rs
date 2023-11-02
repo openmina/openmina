@@ -10,6 +10,9 @@ impl P2pKademliaState {
         let (action, meta) = action.split();
 
         match action {
+            P2pDiscoveryAction::KademliaBootstrap(_) => {
+                self.is_bootstrapping = true;
+            }
             P2pDiscoveryAction::Init(P2pDiscoveryInitAction { .. }) => {}
             P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peers, peer_id }) => {
                 self.peer_timestamp.insert(*peer_id, meta.time());

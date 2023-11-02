@@ -16,7 +16,7 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
     P2pConnectionOutgoingTimeoutAction,
 };
-use crate::p2p::discovery::P2pDiscoveryKademliaInitAction;
+use crate::p2p::discovery::{P2pDiscoveryKademliaBootstrapAction, P2pDiscoveryKademliaInitAction};
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
@@ -66,6 +66,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             p2p_request_snarks_if_needed(store);
 
+            store.dispatch(P2pDiscoveryKademliaBootstrapAction {});
             if store.state().p2p.enough_time_elapsed(meta.time()) {
                 store.dispatch(P2pDiscoveryKademliaInitAction {});
             }

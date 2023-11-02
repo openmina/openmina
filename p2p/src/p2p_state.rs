@@ -22,6 +22,7 @@ pub struct P2pState {
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pKademliaState {
     pub is_ready: bool,
+    pub is_bootstrapping: bool,
     pub outgoing_requests: usize,
     pub routes: BTreeMap<PeerId, Vec<P2pConnectionOutgoingInitOpts>>,
     pub known_peers: BTreeMap<PeerId, P2pConnectionOutgoingInitOpts>,

@@ -274,6 +274,13 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         peer_id = action.peer_id.to_string()
                     );
                 }
+                P2pDiscoveryAction::KademliaBootstrap(..) => {
+                    openmina_core::log::debug!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("bootstrap kademlia"),
+                    );
+                }
                 P2pDiscoveryAction::KademliaInit(..) => {
                     openmina_core::log::info!(
                         meta.time();

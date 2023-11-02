@@ -10,6 +10,7 @@ pub type P2pDiscoveryActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pDiscov
 pub enum P2pDiscoveryAction {
     Init(P2pDiscoveryInitAction),
     Success(P2pDiscoverySuccessAction),
+    KademliaBootstrap(P2pDiscoveryKademliaBootstrapAction),
     KademliaInit(P2pDiscoveryKademliaInitAction),
     KademliaAddRoute(P2pDiscoveryKademliaAddRouteAction),
     KademliaSuccess(P2pDiscoveryKademliaSuccessAction),
@@ -21,6 +22,7 @@ impl redux::EnablingCondition<P2pState> for P2pDiscoveryAction {
         match self {
             Self::Init(action) => action.is_enabled(state),
             Self::Success(action) => action.is_enabled(state),
+            Self::KademliaBootstrap(action) => action.is_enabled(state),
             Self::KademliaAddRoute(action) => action.is_enabled(state),
             Self::KademliaInit(action) => action.is_enabled(state),
             Self::KademliaSuccess(action) => action.is_enabled(state),
@@ -78,6 +80,21 @@ impl redux::EnablingCondition<P2pState> for P2pDiscoverySuccessAction {
 
 impl From<P2pDiscoverySuccessAction> for crate::P2pAction {
     fn from(a: P2pDiscoverySuccessAction) -> Self {
+        Self::Discovery(a.into())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pDiscoveryKademliaBootstrapAction {}
+
+impl redux::EnablingCondition<P2pState> for P2pDiscoveryKademliaBootstrapAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        !state.kademlia.is_ready && !state.kademlia.is_bootstrapping
+    }
+}
+
+impl From<P2pDiscoveryKademliaBootstrapAction> for crate::P2pAction {
+    fn from(a: P2pDiscoveryKademliaBootstrapAction) -> Self {
         Self::Discovery(a.into())
     }
 }

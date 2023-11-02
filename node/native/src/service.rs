@@ -151,6 +151,28 @@ impl P2pServiceWebrtcWithLibp2p for NodeService {
             .send(Cmd::FindNode(peer_id.into()))
             .unwrap_or_default();
     }
+
+    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
+        use node::p2p::service_impl::libp2p::Cmd;
+
+        let peers = peers
+            .into_iter()
+            .filter_map(|opts| {
+                Some((
+                    opts.peer_id().clone().into(),
+                    match opts {
+                        P2pConnectionOutgoingInitOpts::LibP2P(opts) => opts.to_maddr(),
+                        _ => return None,
+                    },
+                ))
+            })
+            .collect();
+
+        self.libp2p()
+            .cmd_sender()
+            .send(Cmd::RunDiscovery(peers))
+            .unwrap_or_default()
+    }
 }
 
 impl SnarkBlockVerifyService for NodeService {

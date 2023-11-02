@@ -12,6 +12,12 @@ impl redux::EnablingCondition<crate::State> for P2pDiscoverySuccessAction {
     }
 }
 
+impl redux::EnablingCondition<crate::State> for P2pDiscoveryKademliaBootstrapAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
+
 impl redux::EnablingCondition<crate::State> for P2pDiscoveryKademliaInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)
