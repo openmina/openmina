@@ -1,5 +1,6 @@
 use kimchi::proof::{PointEvaluations, ProofEvaluations};
 use mina_curves::pasta::Fq;
+use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 
 use crate::proofs::{
@@ -15,6 +16,7 @@ use super::{
     to_field_elements::ToFieldElements,
     util::u64_to_field,
     verification::evals_from_p2p,
+    witness::{Check, Witness},
     BACKEND_TOCK_ROUNDS_N,
 };
 
@@ -294,10 +296,6 @@ impl<F: FieldWitness> ToFieldElements<F> for Unfinalized {
                             zeta,
                             zeta_to_srs_length,
                             zeta_to_domain_size,
-                            // vbmul,
-                            // complete_add,
-                            // endomul,
-                            // endomul_scalar,
                             perm,
                             lookup: (),
                         },
@@ -316,10 +314,6 @@ impl<F: FieldWitness> ToFieldElements<F> for Unfinalized {
             b.shifted.to_field_elements(fields);
             zeta_to_srs_length.shifted.to_field_elements(fields);
             zeta_to_domain_size.shifted.to_field_elements(fields);
-            // vbmul.shifted.to_field_elements(fields);
-            // complete_add.shifted.to_field_elements(fields);
-            // endomul.shifted.to_field_elements(fields);
-            // endomul_scalar.shifted.to_field_elements(fields);
             perm.shifted.to_field_elements(fields);
         }
 
@@ -347,6 +341,39 @@ impl<F: FieldWitness> ToFieldElements<F> for Unfinalized {
         {
             fields.push(F::from(*should_finalize));
         }
+    }
+}
+
+impl Check<Fp> for Unfinalized {
+    fn check(&self, w: &mut Witness<Fp>) {
+        let Self {
+            deferred_values:
+                DeferredValues {
+                    plonk:
+                        Plonk {
+                            alpha: _,
+                            beta: _,
+                            gamma: _,
+                            zeta: _,
+                            zeta_to_srs_length,
+                            zeta_to_domain_size,
+                            perm,
+                            lookup: (),
+                        },
+                    combined_inner_product,
+                    b,
+                    xi: _,
+                    bulletproof_challenges: _,
+                },
+            should_finalize: _,
+            sponge_digest_before_evaluations: _,
+        } = self;
+
+        combined_inner_product.check(w);
+        b.check(w);
+        zeta_to_srs_length.check(w);
+        zeta_to_domain_size.check(w);
+        perm.check(w);
     }
 }
 

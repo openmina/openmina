@@ -55,6 +55,7 @@ pub trait ShiftingValue<F: Field> {
     fn shift() -> Self::MyShift;
     fn of_field(field: F) -> Self;
     fn shifted_to_field(&self) -> F;
+    fn shifted_raw(&self) -> F;
 }
 
 impl ShiftingValue<Fp> for ShiftedValue<Fp> {
@@ -84,6 +85,10 @@ impl ShiftingValue<Fp> for ShiftedValue<Fp> {
         let shift = Self::shift();
         self.shifted + self.shifted + shift.c
     }
+
+    fn shifted_raw(&self) -> Fp {
+        self.shifted
+    }
 }
 
 impl ShiftingValue<Fq> for ShiftedValue<Fq> {
@@ -107,6 +112,10 @@ impl ShiftingValue<Fq> for ShiftedValue<Fq> {
     fn shifted_to_field(&self) -> Fq {
         let shift = Self::shift();
         self.shifted + shift.shift
+    }
+
+    fn shifted_raw(&self) -> Fq {
+        self.shifted
     }
 }
 
@@ -242,12 +251,12 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
 }
 
 // TODO: De-duplicate with `derive_plonk`
-pub fn derive_plonk_checked(
-    env: &ScalarsEnv<Fq>,
-    evals: &ProofEvaluations<[Fq; 2]>,
-    minimal: &PlonkWithField<Fq>,
-    w: &mut Witness<Fq>,
-) -> InCircuit<Fq> {
+pub fn derive_plonk_checked<F: FieldWitness>(
+    env: &ScalarsEnv<F>,
+    evals: &ProofEvaluations<[F; 2]>,
+    minimal: &PlonkWithField<F>,
+    w: &mut Witness<F>,
+) -> InCircuit<F> {
     // use kimchi::circuits::gate::GateType;
 
     let zkp = env.zk_polynomial;
@@ -268,7 +277,7 @@ pub fn derive_plonk_checked(
     );
     let perm = -perm;
 
-    let zeta_to_domain_size = env.zeta_to_n_minus_1 + Fq::one();
+    let zeta_to_domain_size = env.zeta_to_n_minus_1 + F::one();
     // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L46
 
     // let minimal_for_scalar = MinimalForScalar {
@@ -288,7 +297,7 @@ pub fn derive_plonk_checked(
         (0..env.srs_length_log2).fold(minimal.zeta, |accum, _| field::mul(accum, accum, w));
 
     // Shift values
-    let shift = |f: Fq| <Fq as FieldWitness>::Shifting::of_field(f);
+    let shift = |f: F| F::Shifting::of_field(f);
 
     InCircuit {
         alpha: minimal.alpha,
@@ -305,11 +314,11 @@ pub fn derive_plonk_checked(
     }
 }
 
-pub fn checked(
-    env: &ScalarsEnv<Fq>,
-    evals: &ProofEvaluations<[Fq; 2]>,
-    plonk: &PlonkWithField<Fq>,
-    w: &mut Witness<Fq>,
+pub fn checked<F: FieldWitness>(
+    env: &ScalarsEnv<F>,
+    evals: &ProofEvaluations<[F; 2]>,
+    plonk: &PlonkWithField<F>,
+    w: &mut Witness<F>,
 ) -> Boolean {
     let actual = derive_plonk_checked(env, evals, plonk, w);
 
@@ -317,7 +326,7 @@ pub fn checked(
         // field::equal(plonk.vbmul.shifted, actual.vbmul.shifted, w),
         // field::equal(plonk.complete_add.shifted, actual.complete_add.shifted, w),
         // field::equal(plonk.endomul.shifted, actual.endomul.shifted, w),
-        field::equal(plonk.perm.shifted, actual.perm.shifted, w),
+        field::equal(plonk.perm.shifted, actual.perm.shifted_raw(), w),
     ];
 
     Boolean::all(&list[..], w)
@@ -732,13 +741,13 @@ mod scalars {
 }
 
 // TODO: De-duplicate with `ft_eval0`
-pub fn ft_eval0_checked<const NLIMB: usize>(
-    env: &ScalarsEnv<Fq>,
-    evals: &ProofEvaluations<[Fq; 2]>,
-    minimal: &PlonkMinimal<Fq, NLIMB>,
-    p_eval0: Fq,
-    w: &mut Witness<Fq>,
-) -> Fq {
+pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
+    env: &ScalarsEnv<F>,
+    evals: &ProofEvaluations<[F; 2]>,
+    minimal: &PlonkMinimal<F, NLIMB>,
+    p_eval0: F,
+    w: &mut Witness<F>,
+) -> F {
     const PLONK_TYPES_PERMUTS_MINUS_1_N: usize = 6;
 
     let e0_s: Vec<_> = evals.s.iter().map(|s| s[0]).collect();
@@ -778,7 +787,7 @@ pub fn ft_eval0_checked<const NLIMB: usize>(
         &[
             zeta1m1,
             alpha_pow(PERM_ALPHA0 + 2),
-            (minimal.zeta - Fq::one()),
+            (minimal.zeta - F::one()),
         ],
         w,
     );
@@ -790,11 +799,11 @@ pub fn ft_eval0_checked<const NLIMB: usize>(
         ],
         w,
     );
-    let nominator = field::mul(a + b, Fq::one() - evals.z[0], w);
+    let nominator = field::mul(a + b, F::one() - evals.z[0], w);
 
     let denominator = field::mul(
         minimal.zeta - env.omega_to_minus_3,
-        minimal.zeta - Fq::one(),
+        minimal.zeta - F::one(),
         w,
     );
     let ft_eval0 = ft_eval0 + field::div_by_inv(nominator, denominator, w);

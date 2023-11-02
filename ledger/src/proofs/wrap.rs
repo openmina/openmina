@@ -916,10 +916,6 @@ impl Check<Fq> for WrapStatement {
         } = self;
 
         perm.check(w);
-        // endomul_scalar.check(w);
-        // endomul.check(w);
-        // complete_add.check(w);
-        // vbmul.check(w);
         zeta_to_domain_size.check(w);
         zeta_to_srs_length.check(w);
         b.check(w);
@@ -927,7 +923,7 @@ impl Check<Fq> for WrapStatement {
     }
 }
 
-mod pseudo {
+pub mod pseudo {
     use ark_poly::Radix2EvaluationDomain;
 
     use super::*;
@@ -935,8 +931,8 @@ mod pseudo {
     pub struct PseudoDomain<F: FieldWitness> {
         pub domain: Radix2EvaluationDomain<F>,
         pub max_log2: u64,
-        pub which_branch: Box<[Boolean; 3]>,
-        pub all_possible_domain: Box<[Domain; 3]>,
+        pub which_branch: Box<[Boolean]>,
+        pub all_possible_domain: Box<[Domain]>,
     }
 
     impl<F: FieldWitness> PseudoDomain<F> {
@@ -951,7 +947,7 @@ mod pseudo {
                 res
             };
 
-            let which = self.which_branch.as_slice();
+            let which = &self.which_branch;
             let ws = self
                 .all_possible_domain
                 .iter()
@@ -977,7 +973,7 @@ mod pseudo {
     fn mask_checked<F: FieldWitness>(bits: &[Boolean], xs: &[F], w: &mut Witness<F>) -> F {
         let bits = bits.iter().copied().map(Boolean::to_field::<F>);
 
-        bits.zip(xs).map(|(b, x)| field::mul(b, *x, w)).sum()
+        bits.zip(xs).rev().map(|(b, x)| field::mul(b, *x, w)).sum()
     }
 
     pub fn choose_checked<F: FieldWitness>(bits: &[Boolean], xs: &[F], w: &mut Witness<F>) -> F {
@@ -986,8 +982,10 @@ mod pseudo {
 
     pub fn to_domain<F: FieldWitness>(
         which_branch: &[Boolean],
-        all_possible_domains: &[Domain; 3],
+        all_possible_domains: &[Domain],
     ) -> PseudoDomain<F> {
+        assert_eq!(which_branch.len(), all_possible_domains.len());
+
         // TODO: Not sure if that implementation is correct, OCaml does some weird stuff
         let which = which_branch.iter().position(Boolean::as_bool).unwrap();
         let domain = &all_possible_domains[which];
@@ -1000,11 +998,8 @@ mod pseudo {
         PseudoDomain {
             domain,
             max_log2,
-            which_branch: {
-                let which_branch: [Boolean; 3] = which_branch.try_into().unwrap();
-                Box::from(which_branch)
-            },
-            all_possible_domain: Box::from(all_possible_domains.clone()),
+            which_branch: Box::from(which_branch),
+            all_possible_domain: Box::from(all_possible_domains),
         }
     }
 }
@@ -1030,7 +1025,7 @@ fn ones_vector(first_zero: Fq, n: u64, w: &mut Witness<Fq>) -> Vec<Boolean> {
 /// Max_proofs_verified.n
 pub const MAX_PROOFS_VERIFIED_N: u64 = 2;
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Domain {
     Pow2RootsOfUnity(u64),
 }
@@ -1046,6 +1041,7 @@ impl Domain {
     }
 }
 
+#[derive(Debug)]
 pub struct Domains {
     pub h: Domain,
 }
@@ -1096,6 +1092,7 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
         field::mul(res, c, w)
     };
 
+    dbg!(zeta);
     let zeta_to_n_minus_1 = domain.vanishing_polynomial(zeta, w);
 
     ScalarsEnv {
@@ -1338,10 +1335,10 @@ pub mod wrap_verifier {
         }
     }
 
-    fn lowest_128_bits(f: Fq, assert_low_bits: bool, w: &mut Witness<Fq>) -> Fq {
-        let (_, endo) = endos::<Fp>();
+    pub fn lowest_128_bits<F: FieldWitness>(f: F, assert_low_bits: bool, w: &mut Witness<F>) -> F {
+        let (_, endo) = endos::<F::Scalar>();
 
-        let (lo, hi): (Fq, Fq) = w.exists({
+        let (lo, hi): (F, F) = w.exists({
             let BigInteger256([a, b, c, d]) = f.into();
             (u64_to_field(&[a, b]), u64_to_field(&[c, d]))
         });
@@ -1353,7 +1350,7 @@ pub mod wrap_verifier {
         lo
     }
 
-    fn actual_evaluation(e: &[Fq], pt_to_n: Fq) -> Fq {
+    pub fn actual_evaluation<F: FieldWitness>(e: &[F], pt_to_n: F) -> F {
         let (last, rest) = e.split_last().expect("empty list");
 
         rest.iter().rev().fold(*last, |acc, y| {
