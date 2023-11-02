@@ -49,6 +49,9 @@ impl P2pKademliaState {
                     self.saturated = None;
                 }
             }
+            P2pDiscoveryAction::KademliaFailure(_) => {
+                self.outgoing_requests -= 1;
+            }
         }
     }
 }

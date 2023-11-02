@@ -85,6 +85,7 @@ impl_into_global_action!(discovery::P2pDiscoveryInitAction);
 impl_into_global_action!(discovery::P2pDiscoverySuccessAction);
 impl_into_global_action!(discovery::P2pDiscoveryKademliaInitAction);
 impl_into_global_action!(discovery::P2pDiscoveryKademliaSuccessAction);
+impl_into_global_action!(discovery::P2pDiscoveryKademliaFailureAction);
 impl_into_global_action!(discovery::P2pDiscoveryKademliaAddRouteAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);

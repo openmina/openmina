@@ -295,6 +295,13 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         summary = format!("peers: {:?}", action.peers),
                     );
                 }
+                P2pDiscoveryAction::KademliaFailure(action) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("{:?}", action.description),
+                    );
+                }
             },
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(_) => {}

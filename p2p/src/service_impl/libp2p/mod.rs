@@ -622,8 +622,11 @@ impl Libp2pService {
                                             .unwrap_or_default()
                                     }
                                     Err(err) => {
-                                        // TODO: report error
-                                        let _ = err;
+                                        let response =
+                                            P2pDiscoveryEvent::DidFindPeersError(err.to_string());
+                                        b.event_source_sender
+                                            .send(P2pEvent::Discovery(response).into())
+                                            .unwrap_or_default()
                                     }
                                 }
                             }

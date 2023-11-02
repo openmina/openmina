@@ -41,6 +41,7 @@ pub enum P2pChannelEvent {
 pub enum P2pDiscoveryEvent {
     Ready,
     DidFindPeers(Vec<PeerId>),
+    DidFindPeersError(String),
     AddRoute(PeerId, Vec<P2pConnectionOutgoingInitOpts>),
 }
 
@@ -205,6 +206,9 @@ impl fmt::Display for P2pDiscoveryEvent {
                     .collect::<Vec<_>>()
                     .join(",")
             ),
+            Self::DidFindPeersError(description) => {
+                write!(f, "p2p discover failure {description}",)
+            }
             Self::AddRoute(peer_id, opts) => write!(
                 f,
                 "p2p add route {peer_id}, {}",

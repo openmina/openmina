@@ -90,7 +90,8 @@ use crate::p2p::disconnection::{
 };
 use crate::p2p::discovery::{
     P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoveryKademliaAddRouteAction,
-    P2pDiscoveryKademliaInitAction, P2pDiscoveryKademliaSuccessAction, P2pDiscoverySuccessAction,
+    P2pDiscoveryKademliaFailureAction, P2pDiscoveryKademliaInitAction,
+    P2pDiscoveryKademliaSuccessAction, P2pDiscoverySuccessAction,
 };
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
 use crate::p2p::P2pAction;
@@ -293,6 +294,7 @@ pub enum ActionKind {
     P2pDiscoveryKademliaAddRoute,
     P2pDiscoveryKademliaInit,
     P2pDiscoveryKademliaSuccess,
+    P2pDiscoveryKademliaFailure,
     P2pDiscoverySuccess,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
@@ -624,6 +626,7 @@ impl ActionKindGet for P2pDiscoveryAction {
             Self::KademliaInit(a) => a.kind(),
             Self::KademliaAddRoute(a) => a.kind(),
             Self::KademliaSuccess(a) => a.kind(),
+            Self::KademliaFailure(a) => a.kind(),
         }
     }
 }
@@ -1175,6 +1178,12 @@ impl ActionKindGet for P2pDiscoveryKademliaAddRouteAction {
 impl ActionKindGet for P2pDiscoveryKademliaSuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pDiscoveryKademliaSuccess
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryKademliaFailureAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoveryKademliaFailure
     }
 }
 
