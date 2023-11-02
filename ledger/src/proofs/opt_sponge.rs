@@ -38,6 +38,57 @@ impl<F: FieldWitness> OptSponge<F> {
         }
     }
 
+    pub fn of_sponge(
+        sponge: super::witness::poseidon::Sponge<
+            F,
+            mina_poseidon::constants::PlonkSpongeConstantsKimchi,
+        >,
+        w: &mut Witness<F>,
+    ) -> Self {
+        use super::witness::poseidon::Sponge;
+
+        let Sponge {
+            sponge_state,
+            state,
+            ..
+        } = sponge;
+
+        match sponge_state {
+            mina_poseidon::poseidon::SpongeState::Squeezed(n) => Self {
+                state,
+                params: F::get_params(),
+                needs_final_permute_if_empty: true,
+                sponge_state: SpongeState::Squeezed(n),
+            },
+            mina_poseidon::poseidon::SpongeState::Absorbed(n) => {
+                let abs = |i: Boolean| Self {
+                    state,
+                    params: F::get_params(),
+                    needs_final_permute_if_empty: true,
+                    sponge_state: SpongeState::Absorbing {
+                        next_index: i,
+                        xs: vec![],
+                    },
+                };
+
+                match n {
+                    0 => abs(Boolean::False),
+                    1 => abs(Boolean::True),
+                    2 => Self {
+                        state: { block_cipher(state, F::get_params(), w) },
+                        params: F::get_params(),
+                        needs_final_permute_if_empty: false,
+                        sponge_state: SpongeState::Absorbing {
+                            next_index: Boolean::False,
+                            xs: vec![],
+                        },
+                    },
+                    _ => panic!(),
+                }
+            }
+        }
+    }
+
     pub fn absorb(&mut self, x: (CircuitVar<Boolean>, F)) {
         match &mut self.sponge_state {
             SpongeState::Absorbing { next_index: _, xs } => {
