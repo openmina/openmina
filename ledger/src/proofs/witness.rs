@@ -4537,13 +4537,13 @@ pub fn checked_hash3<F: FieldWitness>(inputs: &[F], w: &mut Witness<F>) -> F {
 }
 
 pub struct StepMainProofState {
-    unfinalized_proofs: Vec<Unfinalized>,
-    messages_for_next_step_proof: Fp,
+    pub unfinalized_proofs: Vec<Unfinalized>,
+    pub messages_for_next_step_proof: Fp,
 }
 
 pub struct StepMainStatement {
-    proof_state: StepMainProofState,
-    messages_for_next_wrap_proof: Vec<Fp>,
+    pub proof_state: StepMainProofState,
+    pub messages_for_next_wrap_proof: Vec<Fp>,
 }
 
 impl ToFieldElements<Fp> for StepMainStatement {
@@ -4689,7 +4689,7 @@ where
 
     /// Implementation of `to_field_elements`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/composition_types/composition_types.ml#L493
-    fn to_fields(&self) -> Vec<Fp> {
+    pub fn to_fields(&self) -> Vec<Fp> {
         const NFIELDS: usize = 93; // TODO: This is bigger with transactions
 
         let mut fields = Vec::with_capacity(NFIELDS);
@@ -4740,7 +4740,7 @@ pub enum V {
 
 pub type InternalVars<F> = HashMap<usize, (Vec<(F, V)>, Option<F>)>;
 
-fn compute_witness<C: ProofConstants, F: FieldWitness>(
+pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
     prover: &Prover<F>,
     w: &Witness<F>,
 ) -> [Vec<F>; COLUMNS] {
@@ -4829,7 +4829,7 @@ fn make_prover_index<C: ProofConstants, F: FieldWitness>(
     index
 }
 
-fn create_proof<F: FieldWitness>(
+pub fn create_proof<F: FieldWitness>(
     computed_witness: [Vec<F>; COLUMNS],
     prover_index: &ProverIndex<F::OtherCurve>,
     prev_challenges: Vec<RecursionChallenge<F::OtherCurve>>,
