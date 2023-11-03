@@ -1033,6 +1033,8 @@ impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofState> for S
 }
 
 mod step_verifier {
+    use std::{convert::identity, ops::Neg};
+
     use super::*;
     use crate::proofs::{
         opt_sponge::OptSponge,
@@ -1041,16 +1043,17 @@ mod step_verifier {
         util::{
             challenge_polynomial_checked, proof_evaluation_to_list_opt, to_absorption_sequence_opt,
         },
-        witness::{field, poseidon::Sponge, ReducedMessagesForNextStepProof},
+        witness::{field, poseidon::Sponge, ReducedMessagesForNextStepProof, ToBoolean},
         wrap::{
-            make_scalars_env_checked,
+            ft_comm, make_scalars_env_checked,
             pseudo::{self, PseudoDomain},
             wrap_verifier::{actual_evaluation, lowest_128_bits, Advice},
-            CircuitVar,
+            CircuitVar, PERMUTS_MINUS_1_ADD_N1,
         },
     };
     use itertools::Itertools;
     use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
+    use poly_commitment::srs::SRS;
 
     fn domain_for_compiled(
         domains: &[Domains],
@@ -1455,9 +1458,139 @@ mod step_verifier {
         }
     }
 
+    // TODO: Dedup with the one in `wrap_verifier`
+    fn scale_fast2<F: FieldWitness>(
+        g: GroupAffine<F::Parameters>,
+        (s_div_2, s_odd): (F, Boolean),
+        num_bits: usize,
+        w: &mut Witness<F>,
+    ) -> GroupAffine<F::Parameters> {
+        use crate::proofs::witness::plonk_curve_ops::scale_fast_unpack;
+        use wrap_verifier::*;
+
+        let s_div_2_bits = num_bits - 1;
+        let chunks_needed = chunks_needed(s_div_2_bits);
+        let actual_bits_used = chunks_needed * OPS_BITS_PER_CHUNK;
+
+        let shifted = F::Shifting::of_raw(s_div_2);
+        let h = match actual_bits_used {
+            255 => scale_fast_unpack::<F, F, 255>(g, shifted, w).0,
+            130 => scale_fast_unpack::<F, F, 130>(g, shifted, w).0,
+            10 => scale_fast_unpack::<F, F, 10>(g, shifted, w).0,
+            n => todo!("{:?} param_num_bits={:?}", n, num_bits),
+        };
+
+        let on_false = {
+            let g_neg = g.neg();
+            // w.exists(g_neg.y); // Diff with `wrap_verifier`
+            w.add_fast(h, g_neg)
+        };
+
+        w.exists_no_check(match s_odd {
+            Boolean::True => h,
+            Boolean::False => on_false,
+        })
+    }
+
+    // TODO: Dedup with the one in `wrap_verifier`
+    pub fn scale_fast2_prime<F: FieldWitness, F2: FieldWitness>(
+        g: GroupAffine<F::Parameters>,
+        s: F2,
+        num_bits: usize,
+        w: &mut Witness<F>,
+    ) -> GroupAffine<F::Parameters> {
+        let s_parts = w.exists({
+            // TODO: Here `s` is a `F` but needs to be read as a `F::Scalar`
+            let bigint: BigInteger256 = s.into();
+            let s_odd = bigint.0[0] & 1 != 0;
+            let v = if s_odd { s - F2::one() } else { s };
+            // TODO: Remove this ugly hack
+            let v: BigInteger256 = (v / F2::from(2u64)).into();
+            (F::from(v), s_odd.to_boolean())
+        });
+
+        scale_fast2(g, s_parts, num_bits, w)
+    }
+
+    fn multiscale_known(
+        ts: &[(&Packed, InnerCurve<Fp>)],
+        w: &mut Witness<Fp>,
+    ) -> GroupAffine<PallasParameters> {
+        let pow2pow = |x: InnerCurve<Fp>, n: usize| (0..n).fold(x, |acc, _| acc.clone() + acc);
+
+        let (constant_part, non_constant_part): (Vec<_>, Vec<_>) =
+            ts.into_iter().partition_map(|(t, g)| {
+                use itertools::Either::{Left, Right};
+                use CircuitVar::Constant;
+                use Packed::{Field, PackedBits};
+
+                match t {
+                    Field(Constant(c)) | PackedBits(Constant(c), _) => Left(if c.is_zero() {
+                        None
+                    } else if c.is_one() {
+                        Some(g)
+                    } else {
+                        todo!()
+                    }),
+                    Field(x) => Right((Field(*x), g)),
+                    PackedBits(x, n) => Right((PackedBits(*x, *n), g)),
+                }
+            });
+
+        let add_opt = |xo: Option<InnerCurve<Fp>>, y: &InnerCurve<Fp>| match xo {
+            Some(x) => x + y.clone(),
+            None => y.clone(),
+        };
+
+        let constant_part = constant_part
+            .iter()
+            .filter_map(|c| c.as_ref())
+            .fold(None, |acc, x| Some(add_opt(acc, x)));
+
+        let (correction, acc) = {
+            non_constant_part
+                .iter()
+                .map(|(s, x)| {
+                    let (rr, n) = match s {
+                        Packed::PackedBits(s, n) => {
+                            let c = scale_fast2_prime(x.to_affine(), s.as_field(), *n, w);
+                            (c, *n)
+                        }
+                        Packed::Field(s) => {
+                            let c = scale_fast2_prime(x.to_affine(), s.as_field(), 255, w);
+                            (c, 255)
+                        }
+                    };
+
+                    let n = wrap_verifier::OPS_BITS_PER_CHUNK * wrap_verifier::chunks_needed(n - 1);
+                    let cc = pow2pow((*x).clone(), n);
+                    (cc, rr)
+                })
+                .collect::<Vec<_>>() // We need to collect because `w` is borrowed :(
+                .into_iter()
+                .reduce(|(a1, b1), (a2, b2)| ((a1 + a2), w.add_fast(b1, b2)))
+                .unwrap()
+        };
+
+        let correction = InnerCurve::of_affine(correction.to_affine().neg());
+        w.add_fast(acc, add_opt(constant_part, &correction).to_affine())
+    }
+
+    pub fn lagrange_commitment<F: FieldWitness>(
+        srs: &mut SRS<GroupAffine<F::Parameters>>,
+        domain: &Domain,
+        i: usize,
+    ) -> InnerCurve<F> {
+        let d = domain.size();
+        let unshifted = wrap_verifier::lagrange_commitment::<F>(srs, d, i).unshifted;
+
+        assert_eq!(unshifted.len(), 1);
+        InnerCurve::of_affine(unshifted[0])
+    }
+
     struct IncrementallyVerifyProofParams<'a> {
         pub proofs_verified: usize,
-        pub srs: &'a poly_commitment::srs::SRS<Pallas>,
+        pub srs: &'a mut poly_commitment::srs::SRS<Pallas>,
         pub wrap_domain: &'a ForStepKind<Domain>,
         pub sponge: Sponge<Fp, Constants>,
         pub sponge_after_index: Sponge<Fp, Constants>,
@@ -1475,7 +1608,7 @@ mod step_verifier {
             proofs_verified,
             srs,
             wrap_domain,
-            sponge,
+            mut sponge,
             sponge_after_index,
             wrap_verification_key,
             xi,
@@ -1485,10 +1618,117 @@ mod step_verifier {
             proof,
             plonk,
         } = params;
+
+        let ProverProof {
+            commitments: messages,
+            ..
+            // proof,
+            // evals,
+            // ft_eval1,
+            // prev_challenges
+        } = proof;
+
+        let squeeze_challenge = |s: &mut Sponge<Fp, Constants>, w: &mut Witness<Fp>| {
+            lowest_128_bits(s.squeeze(w), true, w)
+        };
+        let squeeze_scalar = |s: &mut Sponge<Fp, Constants>, w: &mut Witness<Fp>| {
+            lowest_128_bits(s.squeeze(w), false, w)
+        };
+
+        let sample = squeeze_challenge;
+        let sample_scalar = squeeze_scalar;
+
+        // sponge.nabsorb = 100;
+
+        let absorb_curve = |c: &Pallas, sponge: &mut Sponge<Fp, Constants>, w: &mut Witness<Fp>| {
+            let GroupAffine { x, y, .. } = c;
+            // sponge.absorb(&[*y, *x], w);
+            sponge.absorb2(&[*x, *y], w);
+        };
+
+        let index_digest = {
+            let mut index_sponge = sponge_after_index.clone();
+            index_sponge.squeeze(w)
+        };
+
+        sponge.absorb2(&[index_digest], w);
+
+        // Or padding
+        assert_eq!(sg_old.len(), 2);
+        for v in sg_old {
+            absorb_curve(v, &mut sponge, w);
+        }
+
+        let x_hat = match wrap_domain {
+            ForStepKind::Known(domain) => {
+                let ts = public_input
+                    .iter()
+                    .enumerate()
+                    .map(|(i, x)| (x, lagrange_commitment::<Fp>(srs, domain, i)))
+                    .collect::<Vec<_>>();
+                multiscale_known(&ts, w).neg()
+            }
+            ForStepKind::SideLoaded => todo!(),
+        };
+
+        let x_hat = {
+            w.exists(x_hat.y); // Because of `.neg()` above
+            w.add_fast(x_hat, srs.h)
+        };
+
+        absorb_curve(&x_hat, &mut sponge, w);
+
+        let w_comm = &messages.w_comm;
+        for g in w_comm.iter().flat_map(|w| &w.unshifted) {
+            absorb_curve(g, &mut sponge, w);
+        }
+
+        let beta = sample(&mut sponge, w);
+        let gamma = sample(&mut sponge, w);
+
+        let z_comm = &messages.z_comm;
+        for z in z_comm.unshifted.iter() {
+            absorb_curve(z, &mut sponge, w);
+        }
+
+        let alpha = sample_scalar(&mut sponge, w);
+
+        let t_comm = &messages.t_comm;
+        for t in t_comm.unshifted.iter() {
+            absorb_curve(t, &mut sponge, w);
+        }
+
+        let zeta = sample_scalar(&mut sponge, w);
+
+        let sponge_before_evaluations = sponge.clone();
+        let sponge_digest_before_evaluations = sponge.squeeze(w);
+
+        let sigma_comm_init = &wrap_verification_key.sigma[..PERMUTS_MINUS_1_ADD_N1];
+
+        eprintln!("AAAAA");
+        let ft_comm = ft_comm(alpha, plonk, t_comm, wrap_verification_key, w);
+
+        // (* xi, r are sampled here using the other sponge. *)
+        // (* No need to expose the polynomial evaluations as deferred values as they're
+        //    not needed here for the incremental verification. All we need is a_hat and
+        //    "combined_inner_product".
+
+        //    Then, in the other proof, we can witness the evaluations and check their correctness
+        //    against "combined_inner_product" *)
+        // let sigma_comm_init, [ _ ] =
+        //   Vector.split m.sigma_comm
+        //     (snd (Plonk_types.Permuts_minus_1.add Nat.N1.n))
+        // in
+        // let ft_comm =
+        //   with_label __LOC__ (fun () ->
+        //       Common.ft_comm ~add:Ops.add_fast ~scale:scale_fast2
+        //         ~negate:Inner_curve.negate ~endoscale:Scalar_challenge.endo
+        //         ~verification_key:m ~plonk ~alpha ~t_comm )
+        // in
     }
 
     pub struct VerifyParams<'a> {
-        pub srs: &'a poly_commitment::srs::SRS<Pallas>,
+        pub srs: &'a mut poly_commitment::srs::SRS<Pallas>,
         pub feature_flags: &'a FeatureFlags<OptFlag>,
         pub lookup_parameters: (),
         pub proofs_verified: usize,
@@ -1561,7 +1801,7 @@ mod step_verifier {
 }
 
 fn verify_one(
-    srs: &poly_commitment::srs::SRS<Pallas>,
+    srs: &mut poly_commitment::srs::SRS<Pallas>,
     proof: &PerProofWitness<Statement<SokDigest>>,
     data: &ForStep,
     messages_for_next_wrap_proof: Fp,
@@ -1749,6 +1989,8 @@ pub fn generate_merge_proof(
     let prevs = w.exists([&fst.witness, &snd.witness]);
     let unfinalized_proofs_unextended = w.exists([&fst.unfinalized, &snd.unfinalized]);
 
+    // panic!("unfinalized={:#?}", unfinalized_proofs_unextended);
+
     let f = u64_to_field::<Fp, 4>;
     let messages_for_next_wrap_proof = w.exists([
         f(&fst
@@ -1840,7 +2082,7 @@ pub fn generate_merge_proof(
     };
 
     let srs = <Fq as FieldWitness>::get_srs();
-    let srs = srs.lock().unwrap();
+    let mut srs = srs.lock().unwrap();
 
     for ((((proof, msg_for_next_wrap_proof), unfinalized), stmt), actual_wrap_domain) in prevs
         .iter()
@@ -1864,7 +2106,7 @@ pub fn generate_merge_proof(
         }
 
         verify_one(
-            &srs,
+            &mut srs,
             proof,
             &self_data,
             msg_for_next_wrap_proof,
