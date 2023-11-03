@@ -56,6 +56,7 @@ pub trait ShiftingValue<F: Field> {
     fn of_field(field: F) -> Self;
     fn shifted_to_field(&self) -> F;
     fn shifted_raw(&self) -> F;
+    fn of_raw(shifted: F) -> Self;
 }
 
 impl ShiftingValue<Fp> for ShiftedValue<Fp> {
@@ -89,6 +90,10 @@ impl ShiftingValue<Fp> for ShiftedValue<Fp> {
     fn shifted_raw(&self) -> Fp {
         self.shifted
     }
+
+    fn of_raw(shifted: Fp) -> Self {
+        Self { shifted }
+    }
 }
 
 impl ShiftingValue<Fq> for ShiftedValue<Fq> {
@@ -116,6 +121,10 @@ impl ShiftingValue<Fq> for ShiftedValue<Fq> {
 
     fn shifted_raw(&self) -> Fq {
         self.shifted
+    }
+
+    fn of_raw(shifted: Fq) -> Self {
+        Self { shifted }
     }
 }
 

@@ -1105,24 +1105,26 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
 }
 
 /// Permuts_minus_1.add Nat.N1.n
-const PERMUTS_MINUS_1_ADD_N1: usize = 6;
+pub const PERMUTS_MINUS_1_ADD_N1: usize = 6;
 
 /// Other_field.Packed.Constant.size_in_bits
 const OTHER_FIELD_PACKED_CONSTANT_SIZE_IN_BITS: usize = 255;
 
-fn ft_comm(
-    alpha: Fq,
-    plonk: &Plonk<Fp>,
-    t_comm: &PolyComm<Vesta>,
-    verification_key: &PlonkVerificationKeyEvals<Fq>,
-    w: &mut Witness<Fq>,
-) -> Vesta {
+pub fn ft_comm<F: FieldWitness>(
+    alpha: F,
+    plonk: &Plonk<F::Scalar>,
+    t_comm: &PolyComm<GroupAffine<F::Parameters>>,
+    verification_key: &PlonkVerificationKeyEvals<F>,
+    w: &mut Witness<F>,
+) -> GroupAffine<F::Parameters> {
     let m = verification_key;
     let [sigma_comm_last] = &m.sigma[PERMUTS_MINUS_1_ADD_N1..] else {
         panic!()
     };
 
-    let scale = scale_fast::<Fq, Fp, OTHER_FIELD_PACKED_CONSTANT_SIZE_IN_BITS>;
+    let scale = scale_fast::<F, F::Scalar, OTHER_FIELD_PACKED_CONSTANT_SIZE_IN_BITS>;
+
+    dbg!(plonk);
 
     // We decompose this way because of OCaml evaluation order (reversed)
     let f_comm = [scale(sigma_comm_last.to_affine(), plonk.perm.clone(), w)]
@@ -1565,13 +1567,13 @@ pub mod wrap_verifier {
         (finalized, bulletproof_challenges)
     }
 
-    fn lagrange_commitment(
-        srs: &mut SRS<Vesta>,
+    pub fn lagrange_commitment<F: FieldWitness>(
+        srs: &mut SRS<GroupAffine<F::Parameters>>,
         d: u64,
         i: usize,
-    ) -> PolyComm<GroupAffine<VestaParameters>> {
+    ) -> PolyComm<GroupAffine<F::Parameters>> {
         let d = d as usize;
-        let x_domain = EvaluationDomain::<Fp>::new(d).expect("invalid argument");
+        let x_domain = EvaluationDomain::<F::Scalar>::new(d).expect("invalid argument");
 
         srs.add_lagrange_basis(x_domain);
 
@@ -1586,7 +1588,7 @@ pub mod wrap_verifier {
             .iter()
             .map(|d| {
                 let d = 2u64.pow(d.h.log2_size() as u32);
-                match lagrange_commitment(srs, d, i).unshifted.as_slice() {
+                match lagrange_commitment::<Fq>(srs, d, i).unshifted.as_slice() {
                     &[GroupAffine { x, y, .. }] => (x, y),
                     _ => unreachable!(),
                 }
@@ -1604,9 +1606,9 @@ pub mod wrap_verifier {
             .unwrap()
     }
 
-    const OPS_BITS_PER_CHUNK: usize = 5;
+    pub const OPS_BITS_PER_CHUNK: usize = 5;
 
-    fn chunks_needed(num_bits: usize) -> usize {
+    pub fn chunks_needed(num_bits: usize) -> usize {
         (num_bits + (OPS_BITS_PER_CHUNK - 1)) / OPS_BITS_PER_CHUNK
     }
 
@@ -1624,7 +1626,7 @@ pub mod wrap_verifier {
 
         let mut base_and_correction = |h: Domain| {
             let d = 2u64.pow(h.log2_size() as u32);
-            match lagrange_commitment(srs, d, i).unshifted.as_slice() {
+            match lagrange_commitment::<Fq>(srs, d, i).unshifted.as_slice() {
                 &[g] => {
                     let g = InnerCurve::of_affine(g);
                     let b = pow2pow(g.clone(), actual_shift).neg();
@@ -1682,9 +1684,10 @@ pub mod wrap_verifier {
         let chunks_needed = chunks_needed(s_div_2_bits);
         let actual_bits_used = chunks_needed * OPS_BITS_PER_CHUNK;
 
+        let shifted = F::Shifting::of_raw(s_div_2);
         let h = match actual_bits_used {
-            255 => scale_fast_unpack::<_, _, 255>(g, ShiftedValue { shifted: s_div_2 }, w).0,
-            130 => scale_fast_unpack::<_, _, 130>(g, ShiftedValue { shifted: s_div_2 }, w).0,
+            255 => scale_fast_unpack::<F, F, 255>(g, shifted, w).0,
+            130 => scale_fast_unpack::<F, F, 130>(g, shifted, w).0,
             n => todo!("{:?}", n),
         };
 

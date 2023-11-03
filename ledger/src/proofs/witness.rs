@@ -501,6 +501,8 @@ fn fold_map<T, Acc, U>(
 }
 
 pub mod plonk_curve_ops {
+    use crate::proofs::public_input::plonk_checks::ShiftingValue;
+
     use super::*;
 
     const BITS_PER_CHUNK: usize = 5;
@@ -508,7 +510,7 @@ pub mod plonk_curve_ops {
     // TODO: `scalar` is a `F::Scalar` here
     pub fn scale_fast<F, F2, const NBITS: usize>(
         base: GroupAffine<F::Parameters>,
-        shifted_value: ShiftedValue<F2>,
+        shifted_value: F2::Shifting,
         w: &mut Witness<F>,
     ) -> GroupAffine<F::Parameters>
     where
@@ -523,13 +525,14 @@ pub mod plonk_curve_ops {
     // https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/pickles/plonk_curve_ops.ml#L140
     pub fn scale_fast_unpack<F, F2, const NBITS: usize>(
         base: GroupAffine<F::Parameters>,
-        ShiftedValue { shifted: scalar }: ShiftedValue<F2>,
+        shifted: F2::Shifting,
         w: &mut Witness<F>,
     ) -> (GroupAffine<F::Parameters>, [bool; NBITS])
     where
         F: FieldWitness,
         F2: FieldWitness,
     {
+        let scalar = shifted.shifted_raw();
         let GroupAffine {
             x: x_base,
             y: y_base,
@@ -1750,7 +1753,7 @@ where
     type Parameters: SWModelParameters<BaseField = Self, ScalarField = Self::Scalar>
         + Clone
         + std::fmt::Debug;
-    type Shifting: plonk_checks::ShiftingValue<Self>;
+    type Shifting: plonk_checks::ShiftingValue<Self> + Clone + std::fmt::Debug;
     type OtherCurve: KimchiCurve<
         ScalarField = Self,
         BaseField = Self::Scalar,
@@ -2225,14 +2228,16 @@ fn dummy_constraints<F>(w: &mut Witness<F>)
 where
     F: FieldWitness,
 {
+    use crate::proofs::public_input::plonk_checks::ShiftingValue;
+
     let x: F = w.exists(F::from(3u64));
     let g: InnerCurve<F> = w.exists(InnerCurve::<F>::one());
 
     let _ = w.to_field_checked_prime::<16>(x);
 
     // TODO: Fix `F, F` below
-    plonk_curve_ops::scale_fast::<F, F, 5>(g.to_affine(), ShiftedValue { shifted: x }, w);
-    plonk_curve_ops::scale_fast::<F, F, 5>(g.to_affine(), ShiftedValue { shifted: x }, w);
+    plonk_curve_ops::scale_fast::<F, F, 5>(g.to_affine(), F::Shifting::of_raw(x), w);
+    plonk_curve_ops::scale_fast::<F, F, 5>(g.to_affine(), F::Shifting::of_raw(x), w);
     scalar_challenge::endo::<F, F, 4>(g.to_affine(), x, w);
 }
 
