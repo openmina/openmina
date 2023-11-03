@@ -8,6 +8,7 @@ use crate::{
             plonk_checks::ShiftingValue,
             prepared_statement::{DeferredValues, PreparedStatement, ProofState},
         },
+        unfinalized::evals_from_p2p,
         verifier_index::wrap_domains,
         witness::{compute_witness, create_proof},
         wrap::{create_oracle, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2},
@@ -35,7 +36,7 @@ use crate::{
             prepared_statement::Plonk,
         },
         util::{challenge_polynomial, to_absorption_sequence2, u64_to_field},
-        verification::{evals_from_p2p, make_scalars_env},
+        verification::{make_scalars_env, prev_evals_from_p2p},
         witness::{endos, transaction_snark::assert_equal_local_state},
         wrap::{
             combined_inner_product2, evals_of_split_evals, CombinedInnerProductParams2,
@@ -88,11 +89,11 @@ fn read_witnesses() -> std::io::Result<Vec<Fp>> {
 
 fn merge_main(
     statement: Statement<SokDigest>,
-    proofs: &(v2::LedgerProofProdStableV2, v2::LedgerProofProdStableV2),
+    proofs: &[v2::LedgerProofProdStableV2; 2],
     w: &mut Witness<Fp>,
 ) -> (Statement<SokDigest>, Statement<SokDigest>) {
     let (s1, s2) = w.exists({
-        let (p1, p2) = proofs;
+        let [p1, p2] = proofs;
         let (s1, s2) = (&p1.0.statement, &p2.0.statement);
         let s1: Statement<SokDigest> = s1.into();
         let s2: Statement<SokDigest> = s2.into();
@@ -387,7 +388,7 @@ fn expand_proof(
             .group_gen;
         let zetaw = zeta * w;
 
-        let es = evals_from_p2p(&t.prev_evals.evals.evals);
+        let es = prev_evals_from_p2p(&t.prev_evals.evals.evals);
         let combined_evals = evals_of_split_evals(zeta, zetaw, &es, BACKEND_TICK_ROUNDS_N);
 
         let plonk_minimal = PlonkMinimal::<Fp, 4> {
@@ -1984,8 +1985,6 @@ mod step_verifier {
 
         let sigma_comm_init = &wrap_verification_key.sigma[..PERMUTS_MINUS_1_ADD_N1];
 
-        eprintln!("AAAAA");
-
         let ft_comm = ft_comm(plonk, t_comm, wrap_verification_key, scale_for_ft_comm, w);
 
         let bulletproof_challenges = {
@@ -2240,12 +2239,12 @@ impl std::fmt::Debug for Packed {
 }
 
 fn extract_recursion_challenges(
-    proofs: &(v2::LedgerProofProdStableV2, v2::LedgerProofProdStableV2),
+    proofs: &[v2::LedgerProofProdStableV2; 2],
 ) -> Vec<RecursionChallenge<GroupAffine<VestaParameters>>> {
     use poly_commitment::PolyComm;
 
     let (_, endo) = endos::<Fq>();
-    let (p1, p2) = proofs;
+    let [p1, p2] = proofs;
 
     let comms_0 = {
         let (a, b) = &p1
@@ -2308,7 +2307,7 @@ fn extract_recursion_challenges(
 
 pub fn generate_merge_proof(
     statement: &v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement,
-    proofs: &(v2::LedgerProofProdStableV2, v2::LedgerProofProdStableV2),
+    proofs: &[v2::LedgerProofProdStableV2; 2],
     message: &SokMessage,
     step_prover: &Prover<Fp>,
     wrap_prover: &Prover<Fq>,
@@ -2323,7 +2322,7 @@ pub fn generate_merge_proof(
     w.exists(&statement_with_sok);
 
     let (s1, s2) = merge_main(statement_with_sok.clone(), proofs, w);
-    let (p1, p2) = proofs;
+    let [p1, p2] = proofs;
 
     let prev_challenge_polynomial_commitments = extract_recursion_challenges(proofs);
 
@@ -2557,6 +2556,148 @@ pub fn generate_merge_proof(
 
     dbg!(w.aux.len() + w.primary.capacity());
     dbg!(w.ocaml_aux.len());
+
+    let prev_evals = proofs
+        .iter()
+        .zip(&expanded_proofs)
+        .map(|(p, expanded)| {
+            let evals = evals_from_p2p(&p.proof.proof.evaluations);
+            let ft_eval1 = p.proof.proof.ft_eval1.to_field();
+
+            AllEvals {
+                ft_eval1,
+                evals: EvalsWithPublicInput {
+                    evals,
+                    public_input: expanded.x_hat,
+                },
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let challenge_polynomial_commitments = expanded_proofs
+        .iter()
+        .map(|v| {
+            let GroupAffine { x, y, .. } = v.sg.clone();
+            CurveAffine(x, y)
+        })
+        .collect();
+
+    let (old_bulletproof_challenges, messages_for_next_wrap_proof): (Vec<_>, Vec<_>) = proofs
+        .iter()
+        .map(|v| {
+            let state: StatementProofState = (&v.proof.statement.proof_state).into();
+            (
+                state.deferred_values.bulletproof_challenges,
+                state.messages_for_next_wrap_proof,
+            )
+        })
+        .unzip();
+
+    let old_bulletproof_challenges = old_bulletproof_challenges
+        .into_iter()
+        .map(|v: [[u64; 2]; 16]| std::array::from_fn(|i| u64_to_field::<Fp, 2>(&v[i])))
+        .collect();
+
+    let step_statement = crate::proofs::witness::StepStatement {
+        proof_state: crate::proofs::witness::StepProofState {
+            unfinalized_proofs: statement.proof_state.unfinalized_proofs,
+            messages_for_next_step_proof: ReducedMessagesForNextStepProof {
+                app_state: statement_with_sok.clone(),
+                challenge_polynomial_commitments,
+                old_bulletproof_challenges,
+            },
+        },
+        messages_for_next_wrap_proof,
+    };
+
+    let mut w = Witness::new::<crate::proofs::constants::WrapProof>();
+
+    fn read_witnesses_fq() -> std::io::Result<Vec<Fq>> {
+        let f = std::fs::read_to_string(
+            // std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("/tmp/fqs.txt"),
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("rampup4")
+                .join("fqs_merge.txt"),
+        )?;
+
+        let fqs = f
+            .lines()
+            .filter(|s| !s.is_empty())
+            .map(|s| Fq::from_str(s).unwrap())
+            .collect::<Vec<_>>();
+
+        Ok(fqs)
+    }
+
+    w.ocaml_aux = read_witnesses_fq().unwrap();
+
+    const WHICH_INDEX: u64 = 1;
+    let message = crate::proofs::wrap::wrap(
+        &statement_with_sok,
+        &proof,
+        step_statement,
+        &prev_evals,
+        &dlog_plonk_index,
+        &step_prover.index,
+        WHICH_INDEX,
+        &mut w,
+    );
+
+    let computed_witness =
+        compute_witness::<crate::proofs::constants::WrapProof, _>(wrap_prover, &w);
+
+    let prev_challenges = message
+        .iter()
+        .flat_map(|m| m.challenges.clone())
+        .collect::<Vec<_>>();
+    let prev_sgs = message
+        .into_iter()
+        .map(|m| m.commitment)
+        .collect::<Vec<_>>();
+
+    let prev = if prev_challenges.is_empty() {
+        vec![]
+    } else {
+        let challenges_per_sg = prev_challenges.len() / prev_sgs.len();
+        prev_sgs
+            .into_iter()
+            .enumerate()
+            .map(|(i, sg)| {
+                let sg = make_group(sg.0, sg.1);
+                let chals: Vec<_> = prev_challenges
+                    [(i * challenges_per_sg)..(i + 1) * challenges_per_sg]
+                    .iter()
+                    .copied()
+                    .collect();
+                let comm = poly_commitment::PolyComm::<Pallas> {
+                    unshifted: vec![sg],
+                    shifted: None,
+                };
+                RecursionChallenge { chals, comm }
+            })
+            .collect()
+    };
+
+    dbg!(&prev);
+    dbg!(&w.primary);
+    dbg!(w.primary.len());
+
+    let proof = create_proof::<Fq>(computed_witness, &wrap_prover.index, prev);
+
+    let sum = |s: &[u8]| {
+        use sha2::Digest;
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(s);
+        hex::encode(hasher.finalize())
+    };
+
+    let proof_json = serde_json::to_vec(&proof).unwrap();
+    std::fs::write("/tmp/PROOF_RUST_WRAP.json", &proof_json).unwrap();
+    assert_eq!(sum(&proof_json), "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8");
+
+    dbg!(w.aux.len(), w.ocaml_aux.len());
+
+    sum(&proof_json);
 }
 
 #[derive(Debug)]

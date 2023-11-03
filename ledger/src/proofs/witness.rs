@@ -4926,6 +4926,7 @@ fn generate_proof(
 
     // let wrap_index = make_prover_index_wrap(wrap_gates);
 
+    const WHICH_INDEX: u64 = 0;
     let message = crate::proofs::wrap::wrap(
         &statement_with_sok,
         &proof,
@@ -4933,6 +4934,7 @@ fn generate_proof(
         &prev_evals,
         &dlog_plonk_index,
         &step_prover.index,
+        WHICH_INDEX,
         &mut w,
     );
 
@@ -5218,7 +5220,7 @@ mod tests {
         mut bytes: &[u8],
     ) -> (
         v2::MinaStateSnarkedLedgerStateStableV2,
-        (v2::LedgerProofProdStableV2, v2::LedgerProofProdStableV2),
+        [v2::LedgerProofProdStableV2; 2],
         SokMessage,
     ) {
         use mina_p2p_messages::v2::*;
@@ -5246,7 +5248,7 @@ mod tests {
 
         let message = SokMessage { fee, prover };
 
-        (statement, (p1, p2), message)
+        (statement, [p1, p2], message)
     }
 
     fn read_gates() -> (

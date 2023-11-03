@@ -233,7 +233,7 @@ fn validate_feature_flags(
     .all(|b| *b == true)
 }
 
-pub fn evals_from_p2p<F: FieldWitness>(
+pub fn prev_evals_from_p2p<F: FieldWitness>(
     evals: &PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
 ) -> ProofEvaluations<PointEvaluations<Vec<F>>> {
     let PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
@@ -345,7 +345,7 @@ fn expand_deferred(
         zeta_bytes,
     };
 
-    let evals = evals_from_p2p(evals);
+    let evals = prev_evals_from_p2p(evals);
     evals_of_split_evals(zeta, zetaw, &evals, BACKEND_TICK_ROUNDS_N);
 
     let plonk = {

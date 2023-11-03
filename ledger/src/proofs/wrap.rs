@@ -363,13 +363,15 @@ pub const COMMON_MAX_DEGREE_STEP_LOG2: u64 = 16;
 
 fn deferred_values(
     _sgs: Vec<crate::CurveAffine<Fp>>,
-    _prev_challenges: Vec<Fp>,
+    prev_challenges: Vec<[Fp; 16]>,
     // step_vk: &VerifierIndex,
     public_input: &[Fp],
     proof: &kimchi::proof::ProverProof<Vesta>,
     actual_proofs_verified: usize,
     prover_index: &kimchi::prover_index::ProverIndex<Vesta>,
 ) -> DeferredValuesAndHints {
+    dbg!(public_input);
+
     let step_vk = prover_index.verifier_index();
     let log_size_of_group = step_vk.domain.log_size_of_group;
 
@@ -380,6 +382,8 @@ fn deferred_values(
     let beta = oracle.beta();
     let gamma = oracle.gamma();
     let zeta = oracle.zeta();
+
+    dbg!(x_hat, alpha, beta, gamma, zeta);
 
     let to_bytes = |f: Fp| {
         let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
@@ -473,7 +477,7 @@ fn deferred_values(
             evals: &evals,
             minimal: &tick_plonk_minimal,
             r: scalar_to_field(to_bytes(r.0)),
-            old_bulletproof_challenges: &[],
+            old_bulletproof_challenges: &prev_challenges,
             xi: scalar_to_field(to_bytes(xi.0)),
             zetaw,
             public: x_hat,
@@ -632,17 +636,58 @@ pub fn wrap(
     prev_evals: &[AllEvals<Fq>],
     dlog_plonk_index: &PlonkVerificationKeyEvals<Fp>,
     prover_index: &kimchi::prover_index::ProverIndex<Vesta>,
+    which_index: u64,
     w: &mut Witness<Fq>,
 ) -> Vec<ChallengePolynomial> {
+    let (_, endo) = endos::<Fq>();
+
     let messages_for_next_step_proof_hash = crate::proofs::witness::MessagesForNextStepProof {
         app_state: &statement_with_sok,
-        challenge_polynomial_commitments: vec![],
-        old_bulletproof_challenges: vec![],
+        challenge_polynomial_commitments: step_statement
+            .proof_state
+            .messages_for_next_step_proof
+            .challenge_polynomial_commitments
+            .iter()
+            .map(|CurveAffine(x, y)| InnerCurve::of_affine(make_group(*x, *y)))
+            .collect(),
+        old_bulletproof_challenges: step_statement
+            .proof_state
+            .messages_for_next_step_proof
+            .old_bulletproof_challenges
+            .iter()
+            .map(|v| {
+                use crate::proofs::public_input::scalar_challenge::ScalarChallenge;
+                std::array::from_fn(|i| ScalarChallenge::from(v[i]).to_field(&endo))
+            })
+            .collect(),
         dlog_plonk_index,
     }
     .hash();
+
+    dbg!(step_statement.messages_for_next_wrap_proof.len());
+
+    let messages_for_next_wrap_proof = step_statement
+        .messages_for_next_wrap_proof
+        .iter()
+        .cloned()
+        .map(|mut v| {
+            let (_, endo) = endos::<Fp>();
+
+            let old_bulletproof_challenges = v
+                .old_bulletproof_challenges
+                .iter()
+                .map(|v| {
+                    use crate::proofs::public_input::scalar_challenge::ScalarChallenge;
+                    std::array::from_fn(|i| ScalarChallenge::from(v[i]).to_field(&endo))
+                })
+                .collect();
+            v.old_bulletproof_challenges = old_bulletproof_challenges;
+            v
+        })
+        .collect();
+
     let messages_for_next_wrap_proof_padded =
-        pad_messages_for_next_wrap_proof(step_statement.messages_for_next_wrap_proof.clone());
+        pad_messages_for_next_wrap_proof(messages_for_next_wrap_proof);
     let messages_for_next_wrap_proof_hash = messages_for_next_wrap_proof_padded
         .iter()
         .map(MessagesForNextWrapProof::hash)
@@ -664,7 +709,18 @@ pub fn wrap(
         &messages_for_next_wrap_proof_hash,
     );
 
-    let actual_proofs_verified = 0; // TODO
+    let prev_challenges: Vec<[Fp; 16]> = step_statement
+        .proof_state
+        .messages_for_next_step_proof
+        .old_bulletproof_challenges
+        .iter()
+        .map(|v| {
+            use crate::proofs::public_input::scalar_challenge::ScalarChallenge;
+            std::array::from_fn(|i| ScalarChallenge::from(v[i]).to_field(&endo))
+        })
+        .collect();
+
+    let actual_proofs_verified = prev_challenges.len();
 
     let DeferredValuesAndHints {
         deferred_values,
@@ -672,7 +728,7 @@ pub fn wrap(
         x_hat_evals: _,
     } = deferred_values(
         vec![],
-        vec![],
+        prev_challenges,
         &public_input,
         proof,
         actual_proofs_verified,
@@ -772,7 +828,7 @@ pub fn wrap(
     .to_public_input(40);
 
     // TODO: Those are variables
-    let which_index = 0;
+    // let which_index = 0;
     let pi_branches = 5;
     let step_widths = [0, 2, 0, 0, 1];
     let step_domains = [
@@ -1386,7 +1442,11 @@ pub mod wrap_verifier {
                 .map(|chals| challenge_polynomial_checked(chals))
                 .collect::<Vec<_>>();
 
-            let mut sg_evals = |pt: Fq| sg_olds.iter().map(|f| f(pt, w)).collect::<Vec<_>>();
+            let mut sg_evals = |pt: Fq| {
+                let mut e = sg_olds.iter().rev().map(|f| f(pt, w)).collect::<Vec<_>>();
+                e.reverse();
+                e
+            };
 
             // We decompose this way because of OCaml evaluation order
             let sg_evals2 = sg_evals(zetaw);
@@ -1581,6 +1641,8 @@ pub mod wrap_verifier {
 
     fn lagrange(domain: (&[Boolean], &[Domains; 5]), srs: &mut SRS<Vesta>, i: usize) -> (Fq, Fq) {
         let (which_branch, domains) = domain;
+
+        dbg!(which_branch);
 
         domains
             .iter()
@@ -2053,6 +2115,9 @@ pub mod wrap_verifier {
 
         let x_hat = {
             let domain = (which_branch.as_slice(), step_domains);
+
+            dbg!(&public_input);
+
             let public_input = public_input.iter().flat_map(|v| {
                 // TODO: Do not use `vec!` here
                 match v {
@@ -2947,10 +3012,10 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
     };
 
     let prev_statement = {
-        // Note: We might have to use `Iterator::rev` here
-        let prev_messages_for_next_wrap_proof = prev_step_accs
+        let mut prev_messages_for_next_wrap_proof = prev_step_accs
             .iter()
             .zip(old_bp_chals)
+            .rev()
             .map(|(sacc, chals)| {
                 MessagesForNextWrapProof {
                     challenge_polynomial_commitment: {
@@ -2962,6 +3027,7 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
                 .hash_checked(w)
             })
             .collect::<Vec<_>>();
+        prev_messages_for_next_wrap_proof.reverse();
 
         StepStatementWithHash {
             proof_state: step_statement.proof_state.clone(),
