@@ -1110,21 +1110,24 @@ pub const PERMUTS_MINUS_1_ADD_N1: usize = 6;
 /// Other_field.Packed.Constant.size_in_bits
 const OTHER_FIELD_PACKED_CONSTANT_SIZE_IN_BITS: usize = 255;
 
-pub fn ft_comm<F: FieldWitness>(
-    alpha: F,
+pub fn ft_comm<F: FieldWitness, Scale>(
     plonk: &Plonk<F::Scalar>,
     t_comm: &PolyComm<GroupAffine<F::Parameters>>,
     verification_key: &PlonkVerificationKeyEvals<F>,
+    scale: Scale,
     w: &mut Witness<F>,
-) -> GroupAffine<F::Parameters> {
+) -> GroupAffine<F::Parameters>
+where
+    Scale: Fn(
+        GroupAffine<F::Parameters>,
+        <F::Scalar as FieldWitness>::Shifting,
+        &mut Witness<F>,
+    ) -> GroupAffine<F::Parameters>,
+{
     let m = verification_key;
     let [sigma_comm_last] = &m.sigma[PERMUTS_MINUS_1_ADD_N1..] else {
         panic!()
     };
-
-    let scale = scale_fast::<F, F::Scalar, OTHER_FIELD_PACKED_CONSTANT_SIZE_IN_BITS>;
-
-    dbg!(plonk);
 
     // We decompose this way because of OCaml evaluation order (reversed)
     let f_comm = [scale(sigma_comm_last.to_affine(), plonk.perm.clone(), w)]
@@ -1154,7 +1157,7 @@ pub fn ft_comm<F: FieldWitness>(
     w.add_fast(v, scaled)
 }
 
-mod pcs_batch {
+pub mod pcs_batch {
     use super::{
         wrap_verifier::split_commitments::{CurveOpt, Point},
         *,
@@ -1173,23 +1176,18 @@ mod pcs_batch {
             }
         }
 
-        pub fn combine_split_commitments<F, Init, Scale>(
+        pub fn combine_split_commitments<F, Init, Scale, P, GAcc>(
             mut init: Init,
             mut scale_and_add: Scale,
             xi: [u64; 2],
-            without_degree_bound: &[(CircuitVar<Boolean>, Point<F>)],
+            without_degree_bound: &[P],
             with_degree_bound: &[()],
             w: &mut Witness<F>,
-        ) -> CurveOpt<F>
+        ) -> GAcc
         where
             F: FieldWitness,
-            Init: FnMut(&(CircuitVar<Boolean>, Point<F>), &mut Witness<F>) -> CurveOpt<F>,
-            Scale: FnMut(
-                CurveOpt<F>,
-                [u64; 2],
-                &(CircuitVar<Boolean>, Point<F>),
-                &mut Witness<F>,
-            ) -> CurveOpt<F>,
+            Init: FnMut(&P, &mut Witness<F>) -> GAcc,
+            Scale: FnMut(GAcc, [u64; 2], &P, &mut Witness<F>) -> GAcc,
         {
             // TODO: Handle non-empty
             assert!(with_degree_bound.is_empty());
@@ -1721,7 +1719,7 @@ pub mod wrap_verifier {
         scale_fast2(g, s_parts, num_bits, w)
     }
 
-    fn group_map<F: FieldWitness>(x: F, w: &mut Witness<F>) -> GroupAffine<F::Parameters> {
+    pub fn group_map<F: FieldWitness>(x: F, w: &mut Witness<F>) -> GroupAffine<F::Parameters> {
         use crate::proofs::group_map;
 
         let params = group_map::bw19::Params::<F>::create();
@@ -1734,21 +1732,21 @@ pub mod wrap_verifier {
 
         use super::*;
 
-        #[derive(Debug)]
+        #[derive(Clone, Debug)]
         pub enum Point<F: FieldWitness> {
             Finite(GroupAffine<F::Parameters>),
             MaybeFinite(CircuitVar<Boolean>, GroupAffine<F::Parameters>),
         }
 
         impl<F: FieldWitness> Point<F> {
-            fn finite(&self) -> CircuitVar<Boolean> {
+            pub fn finite(&self) -> CircuitVar<Boolean> {
                 match self {
                     Point::Finite(_) => CircuitVar::Constant(Boolean::True),
                     Point::MaybeFinite(b, _) => b.clone(),
                 }
             }
 
-            fn add(
+            pub fn add(
                 &self,
                 q: GroupAffine<F::Parameters>,
                 w: &mut Witness<F>,
@@ -1759,7 +1757,7 @@ pub mod wrap_verifier {
                 }
             }
 
-            fn underlying(&self) -> GroupAffine<F::Parameters> {
+            pub fn underlying(&self) -> GroupAffine<F::Parameters> {
                 match self {
                     Point::Finite(p) => p.clone(),
                     Point::MaybeFinite(_, p) => p.clone(),
@@ -1780,54 +1778,55 @@ pub mod wrap_verifier {
             with_bound: &[()],
             w: &mut Witness<F>,
         ) -> GroupAffine<F::Parameters> {
-            let CurveOpt { point, non_zero } = PcsBatch::combine_split_commitments::<F, _, _>(
-                |(keep, p), w| CurveOpt {
-                    non_zero: keep.and(&p.finite(), w),
-                    point: p.underlying(),
-                },
-                |acc, xi, (keep, p), w| {
-                    let on_acc_non_zero = {
-                        let xi: F = u64_to_field(&xi);
-                        p.add(scalar_challenge::endo::<F, F, 128>(acc.point, xi, w), w)
-                    };
+            let CurveOpt { point, non_zero } =
+                PcsBatch::combine_split_commitments::<F, _, _, _, CurveOpt<F>>(
+                    |(keep, p), w| CurveOpt {
+                        non_zero: keep.and(&p.finite(), w),
+                        point: p.underlying(),
+                    },
+                    |acc, xi, (keep, p), w| {
+                        let on_acc_non_zero = {
+                            let xi: F = u64_to_field(&xi);
+                            p.add(scalar_challenge::endo::<F, F, 128>(acc.point, xi, w), w)
+                        };
 
-                    let point = match keep.as_boolean() {
-                        Boolean::True => match acc.non_zero.as_boolean() {
-                            Boolean::True => on_acc_non_zero,
-                            Boolean::False => p.underlying(),
-                        },
-                        Boolean::False => acc.point,
-                    };
+                        let point = match keep.as_boolean() {
+                            Boolean::True => match acc.non_zero.as_boolean() {
+                                Boolean::True => on_acc_non_zero,
+                                Boolean::False => p.underlying(),
+                            },
+                            Boolean::False => acc.point,
+                        };
 
-                    if let CircuitVar::Var(_) = keep {
-                        w.exists_no_check(point);
-                    }
+                        if let CircuitVar::Var(_) = keep {
+                            w.exists_no_check(point);
+                        }
 
-                    let non_zero = {
-                        let v = p.finite().or(&acc.non_zero, w);
-                        keep.and(&v, w)
-                    };
+                        let non_zero = {
+                            let v = p.finite().or(&acc.non_zero, w);
+                            keep.and(&v, w)
+                        };
 
-                    CurveOpt { point, non_zero }
-                },
-                xi,
-                without_bound,
-                with_bound,
-                w,
-            );
+                        CurveOpt { point, non_zero }
+                    },
+                    xi,
+                    without_bound,
+                    with_bound,
+                    w,
+                );
             point
         }
     }
 
-    fn bullet_reduce(
-        sponge: &mut Sponge<Fq, mina_poseidon::constants::PlonkSpongeConstantsKimchi>,
-        gammas: &[(GroupAffine<VestaParameters>, GroupAffine<VestaParameters>)],
-        w: &mut Witness<Fq>,
-    ) -> (GroupAffine<VestaParameters>, Vec<Fq>) {
-        type S = Sponge<Fq, mina_poseidon::constants::PlonkSpongeConstantsKimchi>;
+    pub fn bullet_reduce<F: FieldWitness>(
+        sponge: &mut Sponge<F, mina_poseidon::constants::PlonkSpongeConstantsKimchi>,
+        gammas: &[(GroupAffine<F::Parameters>, GroupAffine<F::Parameters>)],
+        w: &mut Witness<F>,
+    ) -> (GroupAffine<F::Parameters>, Vec<F>) {
+        type S<F> = Sponge<F, mina_poseidon::constants::PlonkSpongeConstantsKimchi>;
 
         let absorb_curve =
-            |c: &GroupAffine<VestaParameters>, sponge: &mut S, w: &mut Witness<Fq>| {
+            |c: &GroupAffine<F::Parameters>, sponge: &mut S<F>, w: &mut Witness<F>| {
                 let GroupAffine { x, y, .. } = c;
                 sponge.absorb(&[*x, *y], w);
             };
@@ -1842,9 +1841,9 @@ pub mod wrap_verifier {
             .collect::<Vec<_>>();
 
         let mut term_and_challenge =
-            |(l, r): &(GroupAffine<VestaParameters>, GroupAffine<VestaParameters>), pre: Fq| {
-                let left_term = scalar_challenge::endo_inv::<Fq, Fq, 128>(*l, pre, w);
-                let right_term = scalar_challenge::endo::<Fq, Fq, 128>(*r, pre, w);
+            |(l, r): &(GroupAffine<F::Parameters>, GroupAffine<F::Parameters>), pre: F| {
+                let left_term = scalar_challenge::endo_inv::<F, F, 128>(*l, pre, w);
+                let right_term = scalar_challenge::endo::<F, F, 128>(*r, pre, w);
                 (w.add_fast(left_term, right_term), pre)
             };
 
@@ -1863,7 +1862,7 @@ pub mod wrap_verifier {
         )
     }
 
-    fn equal_g<F: FieldWitness>(
+    pub fn equal_g<F: FieldWitness>(
         g1: GroupAffine<F::Parameters>,
         g2: GroupAffine<F::Parameters>,
         w: &mut Witness<F>,
@@ -2210,7 +2209,8 @@ pub mod wrap_verifier {
         dbg!(sponge_digest_before_evaluations);
 
         let sigma_comm_init = &verification_key.sigma[..PERMUTS_MINUS_1_ADD_N1];
-        let ft_comm = ft_comm(alpha, plonk, t_comm, verification_key, w);
+        let scale = scale_fast::<Fq, Fp, OTHER_FIELD_PACKED_CONSTANT_SIZE_IN_BITS>;
+        let ft_comm = ft_comm(plonk, t_comm, verification_key, scale, w);
 
         let bulletproof_challenges = {
             const NUM_COMMITMENTS_WITHOUT_DEGREE_BOUND: usize = 45;
@@ -2489,6 +2489,13 @@ impl<T> CircuitVar<T> {
         match self {
             CircuitVar::Var(_) => false,
             CircuitVar::Constant(_) => true,
+        }
+    }
+
+    pub fn value(&self) -> &T {
+        match self {
+            CircuitVar::Var(v) => v,
+            CircuitVar::Constant(v) => v,
         }
     }
 

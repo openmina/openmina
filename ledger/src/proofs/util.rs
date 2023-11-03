@@ -1,8 +1,7 @@
 use std::array;
 
-use ark_ff::{BigInteger256, Field, One};
+use ark_ff::{BigInteger256, Field};
 use kimchi::proof::ProofEvaluations;
-use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     bigint::BigInt, pseq::PaddedSeq,

@@ -415,12 +415,11 @@ pub mod scalar_challenge {
         use crate::proofs::public_input::scalar_challenge::ScalarChallenge;
         use ark_ff::One;
 
-        // TODO: Fix those hardcoded `Fq`/`Fp`
-        let (_, e) = endos::<Fq>();
+        let (_, e) = endos::<F>();
 
         let res = w.exists({
             let chal = ScalarChallenge::from(chal).to_field(&e);
-            InnerCurve::<F>::of_affine(t).scale(Fp::one() / chal)
+            InnerCurve::<F>::of_affine(t).scale(<F::Scalar>::one() / chal)
         });
         let _ = endo::<F, F2, NBITS>(res.to_affine(), chal, w);
         res.to_affine()

@@ -204,8 +204,6 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
             // state.(i) <- Field.if_ permute ~then_:permuted.(i) ~else_:state.(i)
         };
 
-    let mut i = 0;
-
     // TODO: That's a mess, we need to implement cvars here
     let mut by_pairs = input.chunks_exact(2);
     while let Some(pairs) = by_pairs.next() {
@@ -267,8 +265,6 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
             // field::mul(y, add_in_y_after_perm.as_boolean().to_field(), w),
             w,
         );
-
-        i += 1;
     }
 
     let fst = |(f, _): &(CircuitVar<Boolean>, F)| *f;
