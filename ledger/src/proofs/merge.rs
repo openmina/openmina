@@ -2,12 +2,14 @@ use std::{path::Path, str::FromStr};
 
 use crate::{
     proofs::{
+        constants::MergeProof,
         prover::make_prover,
         public_input::{
             plonk_checks::ShiftingValue,
             prepared_statement::{DeferredValues, PreparedStatement, ProofState},
         },
         verifier_index::wrap_domains,
+        witness::{compute_witness, create_proof},
         wrap::{create_oracle, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2},
     },
     CurveAffine,
@@ -16,11 +18,11 @@ use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, One, Zero};
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use kimchi::{
-    proof::{PointEvaluations, ProverCommitments, ProverProof},
+    proof::{PointEvaluations, ProverCommitments, ProverProof, RecursionChallenge},
     verifier_index::VerifierIndex,
 };
-use mina_curves::pasta::Pallas;
 use mina_curves::pasta::{Fq, PallasParameters};
+use mina_curves::pasta::{Pallas, VestaParameters};
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
@@ -2237,11 +2239,78 @@ impl std::fmt::Debug for Packed {
     }
 }
 
+fn extract_recursion_challenges(
+    proofs: &(v2::LedgerProofProdStableV2, v2::LedgerProofProdStableV2),
+) -> Vec<RecursionChallenge<GroupAffine<VestaParameters>>> {
+    use poly_commitment::PolyComm;
+
+    let (_, endo) = endos::<Fq>();
+    let (p1, p2) = proofs;
+
+    let comms_0 = {
+        let (a, b) = &p1
+            .0
+            .proof
+            .0
+            .statement
+            .proof_state
+            .messages_for_next_wrap_proof
+            .challenge_polynomial_commitment;
+        dbg!(a.to_field::<Fq>(), b.to_field::<Fq>())
+    };
+    let comms_1 = {
+        let (a, b) = &p2
+            .0
+            .proof
+            .0
+            .statement
+            .proof_state
+            .messages_for_next_wrap_proof
+            .challenge_polynomial_commitment;
+        dbg!(a.to_field::<Fq>(), b.to_field::<Fq>())
+    };
+
+    let challs = {
+        let a = &p1
+            .0
+            .proof
+            .0
+            .statement
+            .proof_state
+            .deferred_values
+            .bulletproof_challenges;
+        let b = &p2
+            .0
+            .proof
+            .0
+            .statement
+            .proof_state
+            .deferred_values
+            .bulletproof_challenges;
+        extract_bulletproof(&[a.clone(), b.clone()], &endo)
+    };
+
+    challs
+        .into_iter()
+        .zip([comms_0, comms_1])
+        .map(|(chals, (x, y))| {
+            let comm = PolyComm::<mina_curves::pasta::Vesta> {
+                unshifted: vec![make_group(x, y)],
+                shifted: None,
+            };
+            RecursionChallenge {
+                chals: chals.to_vec(),
+                comm,
+            }
+        })
+        .collect()
+}
+
 pub fn generate_merge_proof(
     statement: &v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     proofs: &(v2::LedgerProofProdStableV2, v2::LedgerProofProdStableV2),
     message: &SokMessage,
-    _step_prover: &Prover<Fp>,
+    step_prover: &Prover<Fp>,
     wrap_prover: &Prover<Fq>,
     w: &mut Witness<Fp>,
 ) {
@@ -2253,8 +2322,10 @@ pub fn generate_merge_proof(
 
     w.exists(&statement_with_sok);
 
-    let (s1, s2) = merge_main(statement_with_sok, proofs, w);
+    let (s1, s2) = merge_main(statement_with_sok.clone(), proofs, w);
     let (p1, p2) = proofs;
+
+    let prev_challenge_polynomial_commitments = extract_recursion_challenges(proofs);
 
     let rule = InductiveRule {
         previous_proof_statements: [
@@ -2392,7 +2463,7 @@ pub fn generate_merge_proof(
                 .collect(),
         ),
         public_input: (),
-        wrap_key: dlog_plonk_index,
+        wrap_key: dlog_plonk_index.clone(), // TODO: Use ref
         wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
         step_domains: ForStepKind::Known(basic.step_domains),
         feature_flags: basic.feature_flags,
@@ -2400,6 +2471,8 @@ pub fn generate_merge_proof(
 
     let srs = <Fq as FieldWitness>::get_srs();
     let mut srs = srs.lock().unwrap();
+
+    let mut bulletproof_challenges = Vec::with_capacity(2);
 
     for ((((proof, msg_for_next_wrap_proof), unfinalized), stmt), actual_wrap_domain) in prevs
         .iter()
@@ -2422,7 +2495,7 @@ pub fn generate_merge_proof(
             }
         }
 
-        verify_one(
+        let (chals, _verified) = verify_one(
             &mut srs,
             proof,
             &self_data,
@@ -2431,7 +2504,56 @@ pub fn generate_merge_proof(
             *should_verify,
             w,
         );
+
+        bulletproof_challenges.push(chals.try_into().unwrap())
     }
+
+    let inputs = MessagesForNextStepProof {
+        app_state: &statement_with_sok,
+        dlog_plonk_index: &dlog_plonk_index,
+        challenge_polynomial_commitments: prevs
+            .iter()
+            .map(|v| InnerCurve::of_affine(v.wrap_proof.proof.sg.clone()))
+            .collect(),
+        old_bulletproof_challenges: bulletproof_challenges,
+    }
+    .to_fields();
+
+    let messages_for_next_step_proof = crate::proofs::witness::checked_hash2(&inputs, w);
+
+    // Or padding
+    assert_eq!(unfinalized_proofs_unextended.len(), 2);
+
+    let statement = crate::proofs::witness::StepMainStatement {
+        proof_state: crate::proofs::witness::StepMainProofState {
+            unfinalized_proofs: unfinalized_proofs_unextended.into_iter().cloned().collect(),
+            messages_for_next_step_proof,
+        },
+        messages_for_next_wrap_proof: messages_for_next_wrap_proof.to_vec(),
+    };
+
+    w.primary = statement.to_field_elements_owned();
+
+    let computed_witness = compute_witness::<MergeProof, _>(&step_prover, w);
+    let proof = create_proof(
+        computed_witness,
+        &step_prover.index,
+        prev_challenge_polynomial_commitments,
+    );
+
+    let sum = |s: &[u8]| {
+        use sha2::Digest;
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(s);
+        hex::encode(hasher.finalize())
+    };
+
+    let proof_json = serde_json::to_vec(&proof).unwrap();
+    std::fs::write("/tmp/PROOF_RUST_STEP.json", &proof_json).unwrap();
+    assert_eq!(
+        sum(&proof_json),
+        "fb89b6d51ce5ed6fe7815b86ca37a7dcdc34d9891b4967692d3751dad32842f8"
+    );
 
     dbg!(w.aux.len() + w.primary.capacity());
     dbg!(w.ocaml_aux.len());
