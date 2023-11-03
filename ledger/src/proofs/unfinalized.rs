@@ -15,7 +15,7 @@ use super::{
     },
     to_field_elements::ToFieldElements,
     util::u64_to_field,
-    verification::evals_from_p2p,
+    verification::prev_evals_from_p2p,
     witness::{Check, Witness},
     BACKEND_TOCK_ROUNDS_N,
 };
@@ -157,7 +157,7 @@ impl<F: FieldWitness> From<&v2::PicklesProofProofsVerified2ReprStableV2PrevEvals
         Self {
             ft_eval1: ft_eval1.to_field(),
             evals: EvalsWithPublicInput {
-                evals: evals_from_p2p(evals).map(&|PointEvaluations { zeta, zeta_omega }| {
+                evals: prev_evals_from_p2p(evals).map(&|PointEvaluations { zeta, zeta_omega }| {
                     assert_eq!(zeta.len(), 1);
                     assert_eq!(zeta_omega.len(), 1);
                     [zeta[0], zeta_omega[0]]
@@ -165,6 +165,59 @@ impl<F: FieldWitness> From<&v2::PicklesProofProofsVerified2ReprStableV2PrevEvals
                 public_input: (p0.to_field(), p1.to_field()),
             },
         }
+    }
+}
+
+/// Equivalent of `to_kimchi` in OCaml
+pub fn evals_from_p2p<F: FieldWitness>(
+    e: &v2::PicklesWrapWireProofEvaluationsStableV1,
+) -> ProofEvaluations<[F; 2]> {
+    let v2::PicklesWrapWireProofEvaluationsStableV1 {
+        w,
+        coefficients,
+        z,
+        s,
+        generic_selector,
+        poseidon_selector,
+        complete_add_selector,
+        mul_selector,
+        emul_selector,
+        endomul_scalar_selector,
+    } = e;
+
+    use mina_p2p_messages::bigint::BigInt;
+
+    let of = |(zeta, zeta_omega): &(BigInt, BigInt)| -> [F; 2] {
+        [zeta.to_field(), zeta_omega.to_field()]
+    };
+
+    use std::array;
+    ProofEvaluations {
+        w: array::from_fn(|i| of(&w[i])),
+        z: of(z),
+        s: array::from_fn(|i| of(&s[i])),
+        coefficients: array::from_fn(|i| of(&coefficients[i])),
+        generic_selector: of(generic_selector),
+        poseidon_selector: of(poseidon_selector),
+        complete_add_selector: of(complete_add_selector),
+        mul_selector: of(mul_selector),
+        emul_selector: of(emul_selector),
+        endomul_scalar_selector: of(endomul_scalar_selector),
+        range_check0_selector: None,
+        range_check1_selector: None,
+        foreign_field_add_selector: None,
+        foreign_field_mul_selector: None,
+        xor_selector: None,
+        rot_selector: None,
+        lookup_aggregation: None,
+        lookup_table: None,
+        lookup_sorted: array::from_fn(|_| None),
+        runtime_lookup_table: None,
+        runtime_lookup_table_selector: None,
+        xor_lookup_selector: None,
+        lookup_gate_lookup_selector: None,
+        range_check_lookup_selector: None,
+        foreign_field_mul_lookup_selector: None,
     }
 }
 
