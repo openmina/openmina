@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{ops::Neg, str::FromStr};
+use std::{borrow::Cow, ops::Neg, str::FromStr};
 
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, One, Zero};
@@ -443,7 +443,6 @@ fn deferred_values(
 
         let r = scalar_to_field(to_bytes(r.0));
         let zeta = scalar_to_field(plonk0.zeta_bytes);
-        // TODO: Pass by value here
         let challenge_poly = challenge_polynomial(&chals);
         let b = challenge_poly(zeta) + (r * challenge_poly(zetaw));
 
