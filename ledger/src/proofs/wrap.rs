@@ -1642,21 +1642,16 @@ pub mod wrap_verifier {
     fn lagrange(domain: (&[Boolean], &[Domains; 5]), srs: &mut SRS<Vesta>, i: usize) -> (Fq, Fq) {
         let (which_branch, domains) = domain;
 
-        dbg!(which_branch);
-
         domains
             .iter()
-            .map(|d| {
+            .zip(which_branch)
+            .filter(|(_, b)| b.as_bool())
+            .map(|(d, _)| {
                 let d = 2u64.pow(d.h.log2_size() as u32);
                 match lagrange_commitment::<Fq>(srs, d, i).unshifted.as_slice() {
                     &[GroupAffine { x, y, .. }] => (x, y),
                     _ => unreachable!(),
                 }
-            })
-            .zip(which_branch)
-            .map(|((x, y), b)| {
-                let b = b.to_field::<Fq>();
-                (b * x, b * y)
             })
             .reduce(|mut acc, v| {
                 acc.0 += v.0;
@@ -2085,8 +2080,6 @@ pub mod wrap_verifier {
                 sponge.absorb((*b, y));
             };
 
-        dbg!(&actual_proofs_verified_mask);
-
         let mut srs = (*srs).clone();
         let sg_old = actual_proofs_verified_mask
             .iter()
@@ -2115,8 +2108,6 @@ pub mod wrap_verifier {
 
         let x_hat = {
             let domain = (which_branch.as_slice(), step_domains);
-
-            dbg!(&public_input);
 
             let public_input = public_input.iter().flat_map(|v| {
                 // TODO: Do not use `vec!` here
