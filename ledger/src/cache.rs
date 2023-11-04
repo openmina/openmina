@@ -14,24 +14,29 @@ macro_rules! cache {
 
         use std::mem::ManuallyDrop;
         use std::cell::RefCell;
-        use std::collections::BTreeMap;
         use std::any::{Any, TypeId};
 
-        // Note: Another container than `BTreeMap` could be used here
+        // Generics are always based on Fp or Fq
+        const NUM_MAX_GENERIC: usize = 2;
+
         thread_local! {
-            static CACHE: ManuallyDrop<RefCell<BTreeMap<TypeId, Box<dyn Any>>>> =
-                const { ManuallyDrop::new(RefCell::new(BTreeMap::new())) };
+            static CACHE: ManuallyDrop<RefCell<[Option<Box<dyn Any>>; NUM_MAX_GENERIC]>> =
+                const { ManuallyDrop::new(RefCell::new([None, None])) };
         }
 
         CACHE.with(|cache| {
             let mut cache = cache.borrow_mut();
-            let type_id = std::any::TypeId::of::<$F>();
-            if let Some(cached) = cache.get(&type_id).and_then(|c| c.downcast_ref::<$F>()) {
-                return cached.clone();
-            }
-            let data = $compute;
-            cache.insert(type_id, Box::new(data.clone()));
-            data
+            let type_id = TypeId::of::<$F>();
+
+            cache.iter_mut().find(|c| match c {
+                None => true,
+                Some(any) => (&**any).type_id() == type_id,
+            })
+            .unwrap()
+            .get_or_insert_with(|| Box::new($compute))
+            .downcast_ref::<$F>()
+            .cloned()
+            .unwrap()
         })
     }};
 }
