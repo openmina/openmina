@@ -54,9 +54,8 @@ where
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
-pub fn challenge_polynomial<F: FieldWitness>(chals: &[F]) -> Box<dyn Fn(F) -> F> {
-    let chals = chals.to_vec();
-    Box::new(move |pt: F| {
+pub fn challenge_polynomial<'a, F: FieldWitness>(chals: &'a [F]) -> impl Fn(F) -> F + 'a {
+    |pt: F| {
         let k = chals.len();
         let pow_two_pows = {
             let mut res = vec![pt; k];
@@ -74,15 +73,14 @@ pub fn challenge_polynomial<F: FieldWitness>(chals: &[F]) -> Box<dyn Fn(F) -> F>
             r
         }
         prod::<F>(k, |i| F::one() + (chals[i] * pow_two_pows[k - 1 - i]))
-    })
+    }
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
-pub fn challenge_polynomial_checked<F: FieldWitness>(
-    chals: &[F],
-) -> Box<dyn Fn(F, &mut Witness<F>) -> F> {
-    let chals = chals.to_vec();
-    Box::new(move |pt: F, w: &mut Witness<F>| {
+pub fn challenge_polynomial_checked<'a, F: FieldWitness>(
+    chals: &'a [F],
+) -> impl Fn(F, &mut Witness<F>) -> F + 'a {
+    |pt: F, w: &mut Witness<F>| {
         let k = chals.len();
         let pow_two_pows = {
             let mut res = vec![pt; k];
@@ -108,7 +106,7 @@ pub fn challenge_polynomial_checked<F: FieldWitness>(
             |i, w| F::one() + field::mul(chals[i], pow_two_pows[k - 1 - i], w),
             w,
         )
-    })
+    }
 }
 
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L611

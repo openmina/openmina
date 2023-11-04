@@ -166,7 +166,6 @@ struct InductiveRule<'a> {
 }
 
 fn dlog_plonk_index(wrap_prover: &Prover<Fq>) -> PlonkVerificationKeyEvals<Fp> {
-    // TODO: Dedup `crate::PlonkVerificationKeyEvals` and `PlonkVerificationKeyEvals`
     PlonkVerificationKeyEvals::from(wrap_prover.index.verifier_index.as_ref().unwrap())
 }
 
@@ -563,7 +562,6 @@ fn expand_proof(
 
         let r = to_field(to_bytes(r.0));
         let zeta = to_field(plonk0.zeta_bytes);
-        // TODO: Pass by value here
         let challenge_poly = challenge_polynomial(&chals);
         let b = challenge_poly(zeta) + (r * challenge_poly(zetaw));
 
