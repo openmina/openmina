@@ -42,6 +42,7 @@ use mina_signer::CompressedPubKey;
 use poly_commitment::PolyComm;
 
 use crate::{
+    gen_keypair,
     proofs::{
         constants::{RegularTransactionProof, WrapProof},
         unfinalized::AllEvals,
@@ -1150,7 +1151,7 @@ impl<F: FieldWitness, T: currency::Magnitude + ToFieldElements<F>> ToFieldElemen
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlonkVerificationKeyEvals<F: FieldWitness> {
     pub sigma: [InnerCurve<F>; 7],
     pub coefficients: [InnerCurve<F>; 15],
@@ -1223,6 +1224,43 @@ impl PlonkVerificationKeyEvals<Fp> {
             endomul_scalar: to_inner(),
         }
     }
+
+    pub fn rand() -> Self {
+        Self {
+            sigma: [
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+            ],
+            coefficients: [
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+                InnerCurve::rand(),
+            ],
+            generic: InnerCurve::rand(),
+            psm: InnerCurve::rand(),
+            complete_add: InnerCurve::rand(),
+            mul: InnerCurve::rand(),
+            emul: InnerCurve::rand(),
+            endomul_scalar: InnerCurve::rand(),
+        }
+    }
 }
 
 impl crate::ToInputs for PlonkVerificationKeyEvals<Fp> {
@@ -1252,35 +1290,6 @@ impl crate::ToInputs for PlonkVerificationKeyEvals<Fp> {
         to_input(mul);
         to_input(emul);
         to_input(endomul_scalar);
-    }
-}
-
-impl From<crate::PlonkVerificationKeyEvals> for PlonkVerificationKeyEvals<Fp> {
-    fn from(value: crate::PlonkVerificationKeyEvals) -> Self {
-        let crate::PlonkVerificationKeyEvals {
-            sigma,
-            coefficients,
-            generic,
-            psm,
-            complete_add,
-            mul,
-            emul,
-            endomul_scalar,
-        } = value;
-
-        let to_inner =
-            |v: crate::CurveAffine<Fp>| InnerCurve::<Fp>::of_affine(make_group(v.0, v.1));
-
-        Self {
-            sigma: std::array::from_fn(|i| to_inner(sigma[i])),
-            coefficients: std::array::from_fn(|i| to_inner(coefficients[i])),
-            generic: to_inner(generic),
-            psm: to_inner(psm),
-            complete_add: to_inner(complete_add),
-            mul: to_inner(mul),
-            emul: to_inner(emul),
-            endomul_scalar: to_inner(endomul_scalar),
-        }
     }
 }
 
@@ -1867,7 +1876,14 @@ impl<F: FieldWitness> IntoGeneric<F> for Fq {
 /// https://github.com/o1-labs/snarky/blob/7edf13628872081fd7cad154de257dad8b9ba621/snarky_curve/snarky_curve.ml#L219-L229
 ///
 #[derive(
-    Clone, derive_more::Add, derive_more::Sub, derive_more::Neg, derive_more::Mul, derive_more::Div,
+    Clone,
+    derive_more::Add,
+    derive_more::Sub,
+    derive_more::Neg,
+    derive_more::Mul,
+    derive_more::Div,
+    PartialEq,
+    Eq,
 )]
 pub struct InnerCurve<F: FieldWitness> {
     // ProjectivePallas
@@ -1884,6 +1900,20 @@ impl<F: FieldWitness> std::fmt::Debug for InnerCurve<F> {
             .field("x", &x)
             .field("y", &y)
             .finish()
+    }
+}
+
+impl crate::ToInputs for InnerCurve<Fp> {
+    fn to_inputs(&self, inputs: &mut crate::Inputs) {
+        let GroupAffine { x, y, .. } = self.to_affine();
+        inputs.append_field(x);
+        inputs.append_field(y);
+    }
+}
+
+impl<F: FieldWitness> From<(F, F)> for InnerCurve<F> {
+    fn from((x, y): (F, F)) -> Self {
+        Self::of_affine(make_group(x, y))
     }
 }
 
@@ -1950,6 +1980,16 @@ impl<F: FieldWitness> InnerCurve<F> {
         // let proj: F::Projective = proj.into();
 
         // Self { inner: proj }
+    }
+}
+
+impl InnerCurve<Fp> {
+    // TODO: Remove this
+    pub fn rand() -> Self {
+        let kp = gen_keypair();
+        let point = kp.public.into_point();
+        assert!(point.is_on_curve());
+        Self::of_affine(point)
     }
 }
 
@@ -4510,7 +4550,7 @@ pub mod transaction_snark {
 
 fn get_messages_for_next_wrap_proof_padded() -> Vec<Fp> {
     let msg = MessagesForNextWrapProof {
-        challenge_polynomial_commitment: crate::CurveAffine::new(dummy_ipa_step_sg()),
+        challenge_polynomial_commitment: InnerCurve::from(dummy_ipa_step_sg()),
         old_bulletproof_challenges: vec![], // Filled with padding
     };
 
@@ -4661,7 +4701,7 @@ fn step(
 #[derive(Clone, Debug)]
 pub struct ReducedMessagesForNextStepProof<AppState: ToFieldElements<Fp>> {
     pub app_state: AppState,
-    pub challenge_polynomial_commitments: Vec<crate::CurveAffine<Fp>>,
+    pub challenge_polynomial_commitments: Vec<InnerCurve<Fp>>,
     pub old_bulletproof_challenges: Vec<[Fp; 16]>,
 }
 
@@ -4875,13 +4915,8 @@ fn generate_proof(
     let sok_digest = message.digest();
     let statement_with_sok = statement.with_digest(sok_digest);
 
-    let dlog_plonk_index = {
-        // TODO: Dedup `crate::PlonkVerificationKeyEvals` and `PlonkVerificationKeyEvals`
-        let v = crate::PlonkVerificationKeyEvals::from(
-            wrap_prover.index.verifier_index.as_ref().unwrap(),
-        );
-        PlonkVerificationKeyEvals::from(v)
-    };
+    let dlog_plonk_index =
+        { PlonkVerificationKeyEvals::from(wrap_prover.index.verifier_index.as_ref().unwrap()) };
 
     let now = std::time::Instant::now();
     let step_statement = step(&statement_with_sok, tx_witness, &dlog_plonk_index, w);
@@ -4957,7 +4992,7 @@ fn generate_proof(
             .into_iter()
             .enumerate()
             .map(|(i, sg)| {
-                let sg = make_group(sg.0, sg.1);
+                let sg = sg.to_affine();
                 let chals: Vec<_> = prev_challenges
                     [(i * challenges_per_sg)..(i + 1) * challenges_per_sg]
                     .iter()

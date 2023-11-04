@@ -24,13 +24,13 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
-use crate::{proofs::BACKEND_TOCK_ROUNDS_N, CurveAffine, VerificationKey};
+use crate::{proofs::BACKEND_TOCK_ROUNDS_N, VerificationKey};
 
-use super::VerifierIndex;
 use super::{
     public_input::scalars::field_from_hex,
     wrap::{Domain, Domains},
 };
+use super::{witness::InnerCurve, VerifierIndex};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct VerifierIndexOcaml<G: CommitmentCurve + KimchiCurve + AffineCurve> {
@@ -269,12 +269,9 @@ pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex {
         srs
     };
 
-    let make_poly = |poly: &CurveAffine<Fp>| {
-        let CurveAffine(x, y) = poly;
-        poly_commitment::PolyComm {
-            unshifted: vec![Pallas::of_coordinates(*x, *y)],
-            shifted: None,
-        }
+    let make_poly = |poly: &InnerCurve<Fp>| poly_commitment::PolyComm {
+        unshifted: vec![poly.to_affine()],
+        shifted: None,
     };
 
     let feature_flags = FeatureFlags {

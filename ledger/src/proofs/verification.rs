@@ -18,13 +18,13 @@ use crate::{
         scan_state::transaction_snark::{SokDigest, Statement},
         transaction_logic::zkapp_statement::ZkappStatement,
     },
-    static_params, CurveAffine, PlonkVerificationKeyEvals, Sponge, VerificationKey,
+    static_params, Sponge, VerificationKey,
 };
 
 use super::{
     to_field_elements::ToFieldElements,
     util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
-    witness::FieldWitness,
+    witness::{FieldWitness, InnerCurve, PlonkVerificationKeyEvals},
     wrap::evals_of_split_evals,
     VerifierSRS,
 };
@@ -468,7 +468,7 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
 
 fn get_message_for_next_step_proof<'a, AppState>(
     messages_for_next_step_proof: &PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof,
-    commitments: &'a PlonkVerificationKeyEvals,
+    commitments: &'a PlonkVerificationKeyEvals<Fp>,
     app_state: &'a AppState,
 ) -> MessagesForNextStepProof<'a, AppState>
 where
@@ -480,7 +480,7 @@ where
         old_bulletproof_challenges,
     } = messages_for_next_step_proof;
 
-    let challenge_polynomial_commitments: Vec<CurveAffine<Fp>> =
+    let challenge_polynomial_commitments: Vec<InnerCurve<Fp>> =
         extract_polynomial_commitment(challenge_polynomial_commitments);
     let old_bulletproof_challenges: Vec<[Fp; 16]> =
         extract_bulletproof(old_bulletproof_challenges, &endo_fp());
@@ -500,7 +500,7 @@ fn get_message_for_next_wrap_proof(
         old_bulletproof_challenges,
     }: &PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
 ) -> MessagesForNextWrapProof {
-    let challenge_polynomial_commitments: Vec<CurveAffine<Fq>> =
+    let challenge_polynomial_commitments: Vec<InnerCurve<Fq>> =
         extract_polynomial_commitment(&[challenge_polynomial_commitment.clone()]);
 
     let old_bulletproof_challenges: Vec<[Fq; 15]> = extract_bulletproof(
@@ -512,7 +512,7 @@ fn get_message_for_next_wrap_proof(
     );
 
     MessagesForNextWrapProof {
-        challenge_polynomial_commitment: challenge_polynomial_commitments[0],
+        challenge_polynomial_commitment: challenge_polynomial_commitments[0].clone(),
         old_bulletproof_challenges,
     }
 }
@@ -821,7 +821,7 @@ fn run_checks(
 
 /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/verification_key.mli#L30
 pub struct VK<'a> {
-    pub commitments: PlonkVerificationKeyEvals,
+    pub commitments: PlonkVerificationKeyEvals<Fp>,
     pub index: &'a VerifierIndex,
     pub data: (), // Unused in proof verification
 }

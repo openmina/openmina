@@ -8,17 +8,19 @@ use mina_p2p_messages::{
     v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
 };
 
-use crate::{proofs::witness::field, CurveAffine};
+use crate::proofs::witness::field;
 
 use super::{
     public_input::scalar_challenge::ScalarChallenge,
-    witness::{FieldWitness, Witness},
+    witness::{FieldWitness, InnerCurve, Witness},
 };
 
-pub fn extract_polynomial_commitment<F: Field>(curves: &[(BigInt, BigInt)]) -> Vec<CurveAffine<F>> {
+pub fn extract_polynomial_commitment<F: FieldWitness>(
+    curves: &[(BigInt, BigInt)],
+) -> Vec<InnerCurve<F>> {
     curves
         .iter()
-        .map(|curve| CurveAffine(curve.0.to_field(), curve.1.to_field()))
+        .map(|curve| InnerCurve::from((curve.0.to_field::<F>(), curve.1.to_field())))
         .collect()
 }
 

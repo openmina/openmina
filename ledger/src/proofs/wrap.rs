@@ -44,7 +44,6 @@ use crate::{
     },
     scan_state::scan_state::transaction_snark::{SokDigest, Statement},
     verifier::SRS_PALLAS,
-    CurveAffine,
 };
 
 use self::pseudo::PseudoDomain;
@@ -362,7 +361,7 @@ pub fn evals_of_split_evals<F: FieldWitness>(
 pub const COMMON_MAX_DEGREE_STEP_LOG2: u64 = 16;
 
 fn deferred_values(
-    _sgs: Vec<crate::CurveAffine<Fp>>,
+    _sgs: Vec<InnerCurve<Fp>>,
     prev_challenges: Vec<[Fp; 16]>,
     // step_vk: &VerifierIndex,
     public_input: &[Fp],
@@ -545,7 +544,7 @@ fn pad_messages_for_next_wrap_proof(
 
     while msgs.len() < N_MSGS {
         let msg = MessagesForNextWrapProof {
-            challenge_polynomial_commitment: crate::CurveAffine::new(dummy_ipa_step_sg()),
+            challenge_polynomial_commitment: InnerCurve::from(dummy_ipa_step_sg()),
             old_bulletproof_challenges: vec![MessagesForNextWrapProof::dummy_padding(); N_CHALS],
         };
         // TODO: Not sure if it prepend or append
@@ -625,7 +624,7 @@ fn dummy_ipa_wrap_sg() -> GroupAffine<PallasParameters> {
 }
 
 pub struct ChallengePolynomial {
-    pub commitment: CurveAffine<Fp>,
+    pub commitment: InnerCurve<Fp>,
     pub challenges: [Fq; 15],
 }
 
@@ -647,9 +646,7 @@ pub fn wrap(
             .proof_state
             .messages_for_next_step_proof
             .challenge_polynomial_commitments
-            .iter()
-            .map(|CurveAffine(x, y)| InnerCurve::of_affine(make_group(*x, *y)))
-            .collect(),
+            .clone(),
         old_bulletproof_challenges: step_statement
             .proof_state
             .messages_for_next_step_proof
@@ -739,10 +736,7 @@ pub fn wrap(
     let to_fqs = |v: &[[u64; 2]]| v.iter().copied().map(to_fq).collect::<Vec<_>>();
 
     let messages_for_next_wrap_proof = MessagesForNextWrapProof {
-        challenge_polynomial_commitment: {
-            let GroupAffine { x, y, .. } = proof.proof.sg;
-            CurveAffine(x, y)
-        },
+        challenge_polynomial_commitment: { InnerCurve::of_affine(proof.proof.sg) },
         old_bulletproof_challenges: step_statement
             .proof_state
             .unfinalized_proofs
@@ -795,8 +789,7 @@ pub fn wrap(
             .challenge_polynomial_commitments
             .clone();
         while vec.len() < MAX_PROOFS_VERIFIED_N as usize {
-            let GroupAffine { x, y, .. } = dummy_ipa_wrap_sg();
-            vec.insert(0, CurveAffine(x, y));
+            vec.insert(0, InnerCurve::of_affine(dummy_ipa_wrap_sg()));
         }
 
         let old = &messages_for_next_wrap_proof_prepared.old_bulletproof_challenges;
@@ -2917,10 +2910,8 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
     let step_plonk_index = wrap_verifier::choose_key(prover_index, w);
 
     let prev_step_accs = w.exists({
-        let to_inner_curve = |m: &MessagesForNextWrapProof| {
-            let CurveAffine(x, y) = m.challenge_polynomial_commitment.clone();
-            InnerCurve::<Fq>::of_affine(make_group(x, y))
-        };
+        let to_inner_curve =
+            |m: &MessagesForNextWrapProof| m.challenge_polynomial_commitment.clone();
         messages_for_next_wrap_proof_padded
             .iter()
             .map(to_inner_curve)
@@ -3009,10 +3000,7 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
             .rev()
             .map(|(sacc, chals)| {
                 MessagesForNextWrapProof {
-                    challenge_polynomial_commitment: {
-                        let GroupAffine { x, y, .. } = sacc.to_affine();
-                        CurveAffine(x, y)
-                    },
+                    challenge_polynomial_commitment: sacc.clone(),
                     old_bulletproof_challenges: chals,
                 }
                 .hash_checked(w)
@@ -3062,10 +3050,7 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
     wrap_verifier::incrementally_verify_proof(params, w);
 
     MessagesForNextWrapProof {
-        challenge_polynomial_commitment: {
-            let GroupAffine { x, y, .. } = &openings_proof.sg;
-            CurveAffine(*x, *y)
-        },
+        challenge_polynomial_commitment: { InnerCurve::of_affine(openings_proof.sg) },
         old_bulletproof_challenges: new_bulletproof_challenges
             .into_iter()
             .map(|v| v.try_into().unwrap())

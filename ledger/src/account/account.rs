@@ -1,15 +1,18 @@
 use std::{fmt::Write, io::Cursor, str::FromStr};
 
-use ark_ff::{BigInteger256, Field, One, UniformRand, Zero};
+use ark_ff::{BigInteger256, One, UniformRand, Zero};
 use mina_hasher::Fp;
 use mina_p2p_messages::binprot::{BinProtRead, BinProtWrite};
 use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 
 use crate::{
-    gen_compressed, gen_keypair,
+    gen_compressed,
     hash::{hash_noinputs, hash_with_kimchi, Inputs},
-    proofs::witness::{Boolean, FieldWitness, ToBoolean, Witness},
+    proofs::witness::{
+        make_group, Boolean, FieldWitness, InnerCurve, PlonkVerificationKeyEvals, ToBoolean,
+        Witness,
+    },
     scan_state::{
         currency::{Balance, Magnitude, Nonce, Slot},
         transaction_logic::account_min_balance_at_slot,
@@ -262,85 +265,6 @@ impl Permissions<AuthRequired> {
     }
 }
 
-// TODO: Not sure if the name is correct
-// It seems that a similar type exist in proof-systems: TODO
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct CurveAffine<F: Field>(pub F, pub F);
-
-impl<F: Field> CurveAffine<F> {
-    pub fn new((a, b): (F, F)) -> Self {
-        Self(a, b)
-    }
-}
-
-impl CurveAffine<Fp> {
-    pub fn rand() -> Self {
-        let kp = gen_keypair();
-        let point = kp.public.into_point();
-        assert!(point.is_on_curve());
-        Self(point.x, point.y)
-    }
-}
-
-impl ToInputs for CurveAffine<Fp> {
-    fn to_inputs(&self, inputs: &mut Inputs) {
-        inputs.append_field(self.0);
-        inputs.append_field(self.1);
-    }
-}
-
-// https://github.com/MinaProtocol/mina/blob/a6e5f182855b3f4b4afb0ea8636760e618e2f7a0/src/lib/pickles_types/plonk_verification_key_evals.ml#L9-L18
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PlonkVerificationKeyEvals {
-    pub sigma: [CurveAffine<Fp>; 7],
-    pub coefficients: [CurveAffine<Fp>; 15],
-    pub generic: CurveAffine<Fp>,
-    pub psm: CurveAffine<Fp>,
-    pub complete_add: CurveAffine<Fp>,
-    pub mul: CurveAffine<Fp>,
-    pub emul: CurveAffine<Fp>,
-    pub endomul_scalar: CurveAffine<Fp>,
-} // 28 CurveAffine, 56 Fp
-
-impl PlonkVerificationKeyEvals {
-    pub fn rand() -> Self {
-        Self {
-            sigma: [
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-            ],
-            coefficients: [
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-            ],
-            generic: CurveAffine::rand(),
-            psm: CurveAffine::rand(),
-            complete_add: CurveAffine::rand(),
-            mul: CurveAffine::rand(),
-            emul: CurveAffine::rand(),
-            endomul_scalar: CurveAffine::rand(),
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ProofVerified {
     N0,
@@ -378,7 +302,7 @@ impl ToInputs for ProofVerified {
 pub struct VerificationKey {
     pub max_proofs_verified: ProofVerified,
     pub actual_wrap_domain_size: ProofVerified,
-    pub wrap_index: PlonkVerificationKeyEvals,
+    pub wrap_index: PlonkVerificationKeyEvals<Fp>,
     // `wrap_vk` is not used for hash inputs
     pub wrap_vk: Option<()>,
 }
@@ -423,24 +347,24 @@ impl ToInputs for VerificationKey {
 impl VerificationKey {
     /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/pickles/side_loaded_verification_key.ml#L310
     pub fn dummy() -> Self {
-        let g = CurveAffine(
+        let g = InnerCurve::of_affine(make_group(
             Fp::one(),
             Fp::from_str(
                 "12418654782883325593414442427049395787963493412651469444558597405572177144507",
             )
             .unwrap(),
-        );
+        ));
         Self {
             max_proofs_verified: ProofVerified::N2,
             actual_wrap_domain_size: ProofVerified::N2,
             wrap_index: PlonkVerificationKeyEvals {
-                sigma: [g; 7],
-                coefficients: [g; 15],
-                generic: g,
-                psm: g,
-                complete_add: g,
-                mul: g,
-                emul: g,
+                sigma: std::array::from_fn(|_| g.clone()),
+                coefficients: std::array::from_fn(|_| g.clone()),
+                generic: g.clone(),
+                psm: g.clone(),
+                complete_add: g.clone(),
+                mul: g.clone(),
+                emul: g.clone(),
                 endomul_scalar: g,
             },
             wrap_vk: None,
