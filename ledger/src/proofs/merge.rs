@@ -1,16 +1,19 @@
 use std::{path::Path, str::FromStr};
 
-use crate::proofs::{
-    constants::MergeProof,
-    prover::make_prover,
-    public_input::{
-        plonk_checks::ShiftingValue,
-        prepared_statement::{DeferredValues, PreparedStatement, ProofState},
+use crate::{
+    proofs::{
+        constants::MergeProof,
+        prover::make_prover,
+        public_input::{
+            plonk_checks::ShiftingValue,
+            prepared_statement::{DeferredValues, PreparedStatement, ProofState},
+        },
+        unfinalized::evals_from_p2p,
+        verifier_index::wrap_domains,
+        witness::{compute_witness, create_proof},
+        wrap::{create_oracle, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2},
     },
-    unfinalized::evals_from_p2p,
-    verifier_index::wrap_domains,
-    witness::{compute_witness, create_proof},
-    wrap::{create_oracle, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2},
+    verifier::get_srs,
 };
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, One, Zero};
@@ -2463,44 +2466,42 @@ pub fn generate_merge_proof(
         feature_flags: basic.feature_flags,
     };
 
-    let srs = <Fq as FieldWitness>::get_srs();
+    let srs = get_srs::<Fq>();
     let mut srs = srs.lock().unwrap();
 
-    let mut bulletproof_challenges = Vec::with_capacity(2);
-
-    for ((((proof, msg_for_next_wrap_proof), unfinalized), stmt), actual_wrap_domain) in prevs
+    let bulletproof_challenges = prevs
         .iter()
         .zip(messages_for_next_wrap_proof)
         .zip(unfinalized_proofs_unextended)
         .zip(&rule.previous_proof_statements)
         .zip(actual_wrap_domains)
-    // .take(1)
-    {
-        let PreviousProofStatement {
-            proof_must_verify: should_verify,
-            ..
-        } = stmt;
+        .map(
+            |((((proof, msg_for_next_wrap_proof), unfinalized), stmt), actual_wrap_domain)| {
+                let PreviousProofStatement {
+                    proof_must_verify: should_verify,
+                    ..
+                } = stmt;
 
-        match self_data.wrap_domain {
-            ForStepKind::SideLoaded => (),
-            ForStepKind::Known(wrap_domain) => {
-                let actual_wrap_domain = wrap_domains(actual_wrap_domain);
-                assert_eq!(actual_wrap_domain.h, wrap_domain);
-            }
-        }
-
-        let (chals, _verified) = verify_one(
-            &mut srs,
-            proof,
-            &self_data,
-            msg_for_next_wrap_proof,
-            unfinalized,
-            *should_verify,
-            w,
-        );
-
-        bulletproof_challenges.push(chals.try_into().unwrap())
-    }
+                match self_data.wrap_domain {
+                    ForStepKind::SideLoaded => todo!(),
+                    ForStepKind::Known(wrap_domain) => {
+                        let actual_wrap_domain = wrap_domains(actual_wrap_domain);
+                        assert_eq!(actual_wrap_domain.h, wrap_domain);
+                    }
+                }
+                let (chals, _verified) = verify_one(
+                    &mut srs,
+                    proof,
+                    &self_data,
+                    msg_for_next_wrap_proof,
+                    unfinalized,
+                    *should_verify,
+                    w,
+                );
+                chals.try_into().unwrap()
+            },
+        )
+        .collect::<Vec<_>>();
 
     let inputs = MessagesForNextStepProof {
         app_state: &statement_with_sok,
@@ -2577,10 +2578,14 @@ pub fn generate_merge_proof(
     let (old_bulletproof_challenges, messages_for_next_wrap_proof): (Vec<_>, Vec<_>) = proofs
         .iter()
         .map(|v| {
-            let state: StatementProofState = (&v.proof.statement.proof_state).into();
+            let StatementProofState {
+                deferred_values,
+                messages_for_next_wrap_proof,
+                ..
+            } = (&v.proof.statement.proof_state).into();
             (
-                state.deferred_values.bulletproof_challenges,
-                state.messages_for_next_wrap_proof,
+                deferred_values.bulletproof_challenges,
+                messages_for_next_wrap_proof,
             )
         })
         .unzip();
@@ -2638,37 +2643,16 @@ pub fn generate_merge_proof(
     let computed_witness =
         compute_witness::<crate::proofs::constants::WrapProof, _>(wrap_prover, &w);
 
-    let prev_challenges = message
+    let prev = message
         .iter()
-        .flat_map(|m| m.challenges.clone())
-        .collect::<Vec<_>>();
-    let prev_sgs = message
-        .into_iter()
-        .map(|m| m.commitment)
-        .collect::<Vec<_>>();
-
-    let prev = if prev_challenges.is_empty() {
-        vec![]
-    } else {
-        let challenges_per_sg = prev_challenges.len() / prev_sgs.len();
-        prev_sgs
-            .into_iter()
-            .enumerate()
-            .map(|(i, sg)| {
-                let sg = sg.to_affine();
-                let chals: Vec<_> = prev_challenges
-                    [(i * challenges_per_sg)..(i + 1) * challenges_per_sg]
-                    .iter()
-                    .copied()
-                    .collect();
-                let comm = poly_commitment::PolyComm::<Pallas> {
-                    unshifted: vec![sg],
-                    shifted: None,
-                };
-                RecursionChallenge { chals, comm }
-            })
-            .collect()
-    };
+        .map(|m| RecursionChallenge {
+            comm: poly_commitment::PolyComm::<Pallas> {
+                unshifted: vec![m.commitment.to_affine()],
+                shifted: None,
+            },
+            chals: m.challenges.to_vec(),
+        })
+        .collect();
 
     dbg!(&prev);
     dbg!(&w.primary);

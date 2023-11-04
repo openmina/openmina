@@ -43,7 +43,7 @@ use crate::{
         BACKEND_TICK_ROUNDS_N,
     },
     scan_state::scan_state::transaction_snark::{SokDigest, Statement},
-    verifier::SRS_PALLAS,
+    verifier::get_srs,
 };
 
 use self::pseudo::PseudoDomain;
@@ -616,7 +616,8 @@ fn dummy_ipa_wrap_sg() -> GroupAffine<PallasParameters> {
         let p = DensePolynomial::from_coefficients_vec(coeffs);
 
         let comm = {
-            let srs = SRS_PALLAS.lock().unwrap();
+            let srs = get_srs::<Fq>();
+            let srs = srs.lock().unwrap();
             srs.commit_non_hiding(&p, None)
         };
         comm.unshifted[0]

@@ -1,7 +1,9 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    proofs::{verification, verifier_index::get_verifier_index, VerifierIndex, VerifierSRS},
+    proofs::{
+        verification, verifier_index::get_verifier_index, witness::FieldWitness, VerifierIndex,
+    },
     scan_state::{
         scan_state::transaction_snark::{
             LedgerProof, LedgerProofWithSokMessage, SokMessage, TransactionSnark,
@@ -17,11 +19,13 @@ use self::common::CheckResult;
 #[derive(Debug, Clone)]
 pub struct Verifier;
 
+use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
     PicklesProofProofsVerified2ReprStableV2, PicklesProofProofsVerifiedMaxStableV2,
 };
 use mina_signer::CompressedPubKey;
 use once_cell::sync::Lazy;
+use poly_commitment::srs::SRS;
 
 // TODO: Move this into `Verifier` struct above
 pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex>> = Lazy::new(|| {
@@ -29,20 +33,21 @@ pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex>> = Lazy::new(|| {
     Arc::new(get_verifier_index(VerifierKind::Transaction))
 });
 
-// TODO: Move this into `Verifier` struct above
-use mina_curves::pasta::Pallas;
-pub static SRS_PALLAS: Lazy<Arc<Mutex<poly_commitment::srs::SRS<Pallas>>>> = Lazy::new(|| {
-    let srs = poly_commitment::srs::SRS::<Pallas>::create(32768);
-    std::sync::Arc::new(Mutex::new(srs))
-});
-
-// TODO: Move this into `Verifier` struct above
-pub static SRS: Lazy<Arc<Mutex<VerifierSRS>>> =
-    Lazy::new(|| std::sync::Arc::new(Mutex::new(crate::proofs::accumulator_check::get_srs())));
+/// Returns the SRS on the other curve
+pub fn get_srs<F: FieldWitness>() -> Arc<Mutex<SRS<F::OtherCurve>>> {
+    cache! {
+        Arc<Mutex<SRS<F::OtherCurve>>>,
+        {
+            let srs = SRS::<F::OtherCurve>::create(F::Scalar::SRS_DEPTH);
+            Arc::new(Mutex::new(srs))
+        }
+    }
+}
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/transaction_snark/transaction_snark.ml#L3492
 fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
-    let srs = SRS.lock().unwrap();
+    let srs = get_srs::<Fp>();
+    let srs = srs.lock().unwrap();
 
     if ts.iter().all(|(proof, msg)| {
         let LedgerProof(TransactionSnark { statement, .. }) = proof;
@@ -157,7 +162,8 @@ impl Verifier {
         let all_verified = if skip_verification.is_some() {
             true
         } else {
-            let srs = SRS.lock().unwrap();
+            let srs = get_srs::<Fp>();
+            let srs = srs.lock().unwrap();
 
             to_verify.all(|(vk, zkapp_statement, proof)| {
                 let proof: PicklesProofProofsVerified2ReprStableV2 = (&**proof).into();
