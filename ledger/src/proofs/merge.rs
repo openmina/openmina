@@ -1,19 +1,16 @@
 use std::{path::Path, str::FromStr};
 
-use crate::{
-    proofs::{
-        constants::MergeProof,
-        prover::make_prover,
-        public_input::{
-            plonk_checks::ShiftingValue,
-            prepared_statement::{DeferredValues, PreparedStatement, ProofState},
-        },
-        unfinalized::evals_from_p2p,
-        verifier_index::wrap_domains,
-        witness::{compute_witness, create_proof},
-        wrap::{create_oracle, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2},
+use crate::proofs::{
+    constants::MergeProof,
+    prover::make_prover,
+    public_input::{
+        plonk_checks::ShiftingValue,
+        prepared_statement::{DeferredValues, PreparedStatement, ProofState},
     },
-    CurveAffine,
+    unfinalized::evals_from_p2p,
+    verifier_index::wrap_domains,
+    witness::{compute_witness, create_proof},
+    wrap::{create_oracle, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2},
 };
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, One, Zero};
@@ -167,9 +164,7 @@ struct InductiveRule<'a> {
 
 fn dlog_plonk_index(wrap_prover: &Prover<Fq>) -> PlonkVerificationKeyEvals<Fp> {
     // TODO: Dedup `crate::PlonkVerificationKeyEvals` and `PlonkVerificationKeyEvals`
-    let v =
-        crate::PlonkVerificationKeyEvals::from(wrap_prover.index.verifier_index.as_ref().unwrap());
-    PlonkVerificationKeyEvals::from(v)
+    PlonkVerificationKeyEvals::from(wrap_prover.index.verifier_index.as_ref().unwrap())
 }
 
 impl<F: FieldWitness>
@@ -503,7 +498,7 @@ fn expand_proof(
                         .proof_state
                         .messages_for_next_wrap_proof
                         .challenge_polynomial_commitment;
-                    crate::CurveAffine(x.to_field(), y.to_field())
+                    InnerCurve::from((x.to_field::<Fq>(), y.to_field()))
                 },
             }
             .hash(),
@@ -1018,7 +1013,10 @@ impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofState> for S
                 sponge_digest_before_evaluations[i].as_u64()
             }),
             messages_for_next_wrap_proof: MessagesForNextWrapProof {
-                challenge_polynomial_commitment: crate::CurveAffine(c0.to_field(), c1.to_field()),
+                challenge_polynomial_commitment: InnerCurve::from((
+                    c0.to_field::<Fq>(),
+                    c1.to_field(),
+                )),
                 old_bulletproof_challenges: old_bulletproof_challenges
                     .iter()
                     .map(|v| {
@@ -1439,7 +1437,7 @@ mod step_verifier {
             .zip(challenge_polynomial_commitments)
             .map(|(b, v)| {
                 let b = *b;
-                let CurveAffine(x, y) = v;
+                let GroupAffine { x, y, .. } = v.to_affine();
                 [MaybeOpt::Opt(b, x), MaybeOpt::Opt(b, y)]
             });
 
@@ -2166,10 +2164,7 @@ fn verify_one(
             app_state,
             challenge_polynomial_commitments: prev_challenge_polynomial_commitments
                 .iter()
-                .map(|g| {
-                    let GroupAffine { x, y, .. } = g;
-                    CurveAffine(*x, *y)
-                })
+                .map(|g| InnerCurve::of_affine(*g))
                 .collect(),
             old_bulletproof_challenges: prev_challenges.clone(),
         };
@@ -2576,10 +2571,7 @@ pub fn generate_merge_proof(
 
     let challenge_polynomial_commitments = expanded_proofs
         .iter()
-        .map(|v| {
-            let GroupAffine { x, y, .. } = v.sg.clone();
-            CurveAffine(x, y)
-        })
+        .map(|v| InnerCurve::of_affine(v.sg.clone()))
         .collect();
 
     let (old_bulletproof_challenges, messages_for_next_wrap_proof): (Vec<_>, Vec<_>) = proofs
@@ -2663,7 +2655,7 @@ pub fn generate_merge_proof(
             .into_iter()
             .enumerate()
             .map(|(i, sg)| {
-                let sg = make_group(sg.0, sg.1);
+                let sg = sg.to_affine();
                 let chals: Vec<_> = prev_challenges
                     [(i * challenges_per_sg)..(i + 1) * challenges_per_sg]
                     .iter()

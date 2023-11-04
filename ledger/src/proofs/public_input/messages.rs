@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
 use crate::proofs::to_field_elements::ToFieldElements;
-use crate::proofs::witness::{checked_hash2, Witness};
+use crate::proofs::witness::{checked_hash2, InnerCurve, PlonkVerificationKeyEvals, Witness};
 use crate::proofs::VerifierIndex;
-use crate::{CurveAffine, PlonkVerificationKeyEvals};
+use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, PrimeField};
 use mina_curves::{pasta::Fq, pasta::Pallas};
 use mina_hasher::Fp;
@@ -11,12 +11,9 @@ use poly_commitment::PolyComm;
 
 use crate::hash::hash_fields;
 
-impl<'a> From<&'a VerifierIndex> for PlonkVerificationKeyEvals {
+impl<'a> From<&'a VerifierIndex> for PlonkVerificationKeyEvals<Fp> {
     fn from(verifier_index: &'a VerifierIndex) -> Self {
-        let to_curve = |v: &PolyComm<Pallas>| {
-            let v = v.unshifted[0];
-            CurveAffine(v.x, v.y)
-        };
+        let to_curve = |v: &PolyComm<Pallas>| InnerCurve::of_affine(v.unshifted[0]);
 
         Self {
             sigma: std::array::from_fn(|i| to_curve(&verifier_index.sigma_comm[i])),
@@ -48,7 +45,7 @@ pub fn dummy_ipa_step_sg() -> (Fq, Fq) {
 
 #[derive(Clone, Debug)]
 pub struct MessagesForNextWrapProof {
-    pub challenge_polynomial_commitment: CurveAffine<Fq>,
+    pub challenge_polynomial_commitment: InnerCurve<Fq>,
     pub old_bulletproof_challenges: Vec<[Fq; 15]>,
 }
 
@@ -99,8 +96,8 @@ impl MessagesForNextWrapProof {
             fields.extend_from_slice(challenges);
         }
 
-        fields.push(self.challenge_polynomial_commitment.0);
-        fields.push(self.challenge_polynomial_commitment.1);
+        let GroupAffine { x, y, .. } = self.challenge_polynomial_commitment.to_affine();
+        fields.extend([x, y]);
 
         assert_eq!(fields.len(), NFIELDS);
 
@@ -138,8 +135,8 @@ impl MessagesForNextWrapProof {
 #[derive(Clone, Debug)]
 pub struct MessagesForNextStepProof<'a, AppState: ToFieldElements<Fp>> {
     pub app_state: &'a AppState,
-    pub dlog_plonk_index: &'a PlonkVerificationKeyEvals,
-    pub challenge_polynomial_commitments: Vec<CurveAffine<Fp>>,
+    pub dlog_plonk_index: &'a PlonkVerificationKeyEvals<Fp>,
+    pub challenge_polynomial_commitments: Vec<InnerCurve<Fp>>,
     pub old_bulletproof_challenges: Vec<[Fp; 16]>,
 }
 
@@ -167,35 +164,42 @@ where
         // Self::dlog_plonk_index
         // Refactor with `src/account/account.rs`, this is the same code
         {
-            let index = &self.dlog_plonk_index;
+            let PlonkVerificationKeyEvals {
+                sigma,
+                coefficients,
+                generic,
+                psm,
+                complete_add,
+                mul,
+                emul,
+                endomul_scalar,
+            } = &self.dlog_plonk_index;
 
-            for field in index.sigma {
-                fields.push(field.0);
-                fields.push(field.1);
+            for GroupAffine { x, y, .. } in sigma.iter().map(InnerCurve::to_affine) {
+                fields.extend([x, y]);
             }
 
-            for field in index.coefficients {
-                fields.push(field.0);
-                fields.push(field.1);
+            for GroupAffine { x, y, .. } in coefficients.iter().map(InnerCurve::to_affine) {
+                fields.extend([x, y]);
             }
 
-            fields.push(index.generic.0);
-            fields.push(index.generic.1);
+            let GroupAffine { x, y, .. } = generic.to_affine();
+            fields.extend([x, y]);
 
-            fields.push(index.psm.0);
-            fields.push(index.psm.1);
+            let GroupAffine { x, y, .. } = psm.to_affine();
+            fields.extend([x, y]);
 
-            fields.push(index.complete_add.0);
-            fields.push(index.complete_add.1);
+            let GroupAffine { x, y, .. } = complete_add.to_affine();
+            fields.extend([x, y]);
 
-            fields.push(index.mul.0);
-            fields.push(index.mul.1);
+            let GroupAffine { x, y, .. } = mul.to_affine();
+            fields.extend([x, y]);
 
-            fields.push(index.emul.0);
-            fields.push(index.emul.1);
+            let GroupAffine { x, y, .. } = emul.to_affine();
+            fields.extend([x, y]);
 
-            fields.push(index.endomul_scalar.0);
-            fields.push(index.endomul_scalar.1);
+            let GroupAffine { x, y, .. } = endomul_scalar.to_affine();
+            fields.extend([x, y]);
         }
 
         self.app_state.to_field_elements(&mut fields);
@@ -204,8 +208,8 @@ where
         let commitments = &self.challenge_polynomial_commitments;
         let old_challenges = &self.old_bulletproof_challenges;
         for (commitments, old) in commitments.iter().zip(old_challenges) {
-            fields.push(commitments.0);
-            fields.push(commitments.1);
+            let GroupAffine { x, y, .. } = commitments.to_affine();
+            fields.extend([x, y]);
             fields.extend_from_slice(old);
         }
 
