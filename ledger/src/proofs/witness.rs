@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    str::FromStr,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use ark_ec::{
     short_weierstrass_jacobian::{GroupAffine, GroupProjective},
@@ -17,7 +13,7 @@ use kimchi::{
 use kimchi::{curve::KimchiCurve, proof::ProofEvaluations};
 use mina_curves::pasta::Pallas;
 use mina_curves::pasta::{
-    Fq, PallasParameters, ProjectivePallas, ProjectiveVesta, Vesta, VestaParameters,
+    Fq, PallasParameters, ProjectivePallas, ProjectiveVesta, VestaParameters,
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::{
@@ -39,7 +35,6 @@ use mina_p2p_messages::{
 };
 use mina_poseidon::{constants::PlonkSpongeConstantsKimchi, sponge::DefaultFqSponge};
 use mina_signer::CompressedPubKey;
-use poly_commitment::PolyComm;
 
 use crate::{
     gen_keypair,
@@ -59,7 +54,7 @@ use crate::{
         },
     },
     staged_ledger::hash::StagedLedgerHash,
-    verifier::SRS_PALLAS,
+    verifier::get_srs,
     Account, MyCow, ReceiptChainHash, SpongeParamsForField, TimingAsRecord, TokenId, TokenSymbol,
     VotingFor,
 };
@@ -1772,9 +1767,7 @@ where
     const PARAMS: Params<Self>;
     const SIZE: BigInteger256;
     const NROUNDS: usize;
-
-    // TODO: Find another way to get the SRS
-    fn get_srs() -> Arc<Mutex<poly_commitment::srs::SRS<Self::OtherCurve>>>;
+    const SRS_DEPTH: usize;
 }
 
 pub struct Params<F> {
@@ -1798,10 +1791,7 @@ impl FieldWitness for Fp {
     };
     const SIZE: BigInteger256 = mina_curves::pasta::fields::FpParameters::MODULUS;
     const NROUNDS: usize = BACKEND_TICK_ROUNDS_N;
-    fn get_srs() -> Arc<Mutex<poly_commitment::srs::SRS<Vesta>>> {
-        use crate::verifier::SRS;
-        SRS.clone()
-    }
+    const SRS_DEPTH: usize = 32768;
 }
 
 impl FieldWitness for Fq {
@@ -1820,9 +1810,7 @@ impl FieldWitness for Fq {
     };
     const SIZE: BigInteger256 = mina_curves::pasta::fields::FqParameters::MODULUS;
     const NROUNDS: usize = BACKEND_TOCK_ROUNDS_N;
-    fn get_srs() -> Arc<Mutex<poly_commitment::srs::SRS<Pallas>>> {
-        SRS_PALLAS.clone()
-    }
+    const SRS_DEPTH: usize = 65536;
 }
 
 /// Trait helping converting generics into concrete types
@@ -4856,7 +4844,7 @@ fn make_prover_index<C: ProofConstants, F: FieldWitness>(
 
     // TODO: `proof-systems` needs to change how the SRS is used
     let srs: poly_commitment::srs::SRS<F::OtherCurve> = {
-        let srs = F::get_srs();
+        let srs = get_srs::<F>();
         let mut srs = srs.lock().unwrap();
         srs.add_lagrange_basis(cs.domain.d1);
         srs.clone()
@@ -4975,37 +4963,16 @@ fn generate_proof(
 
     let computed_witness = compute_witness::<WrapProof, _>(wrap_prover, &w);
 
-    let prev_challenges = message
+    let prev = message
         .iter()
-        .flat_map(|m| m.challenges.clone())
-        .collect::<Vec<_>>();
-    let prev_sgs = message
-        .into_iter()
-        .map(|m| m.commitment)
-        .collect::<Vec<_>>();
-
-    let prev = if prev_challenges.is_empty() {
-        vec![]
-    } else {
-        let challenges_per_sg = prev_challenges.len() / prev_sgs.len();
-        prev_sgs
-            .into_iter()
-            .enumerate()
-            .map(|(i, sg)| {
-                let sg = sg.to_affine();
-                let chals: Vec<_> = prev_challenges
-                    [(i * challenges_per_sg)..(i + 1) * challenges_per_sg]
-                    .iter()
-                    .copied()
-                    .collect();
-                let comm = PolyComm::<Pallas> {
-                    unshifted: vec![sg],
-                    shifted: None,
-                };
-                RecursionChallenge { chals, comm }
-            })
-            .collect()
-    };
+        .map(|m| RecursionChallenge {
+            comm: poly_commitment::PolyComm::<Pallas> {
+                unshifted: vec![m.commitment.to_affine()],
+                shifted: None,
+            },
+            chals: m.challenges.to_vec(),
+        })
+        .collect();
 
     dbg!(&prev);
     dbg!(&w.primary);

@@ -5863,6 +5863,7 @@ mod tests_ocaml {
 mod tests {
     use std::{collections::BTreeMap, fs::File};
 
+    use mina_hasher::Fp;
     use mina_p2p_messages::binprot;
 
     use crate::{
@@ -5878,7 +5879,7 @@ mod tests {
             staged_ledger::{tests_ocaml::CONSTRAINT_CONSTANTS, StagedLedger},
             validate_block::validate_block,
         },
-        verifier::{Verifier, SRS},
+        verifier::{get_srs, Verifier},
         Account, BaseLedger, Database, Mask,
     };
     use binprot::BinProtRead;
@@ -6027,7 +6028,8 @@ mod tests {
 
         dbg!(staged_ledger.ledger.nmasks_to_root());
 
-        let srs = SRS.lock().unwrap();
+        let srs = get_srs::<Fp>();
+        let srs = srs.lock().unwrap();
 
         for (index, block) in blocks.into_iter().enumerate() {
             validate_block(&block).unwrap();
