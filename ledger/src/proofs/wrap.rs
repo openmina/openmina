@@ -1325,7 +1325,6 @@ pub mod wrap_verifier {
     }
 
     use crate::proofs::witness::poseidon::Sponge;
-    use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
 
     #[derive(Clone, Debug)]
     pub struct PlonkWithField<F: FieldWitness> {
@@ -1410,7 +1409,7 @@ pub mod wrap_verifier {
 
     pub fn finalize_other_proof(
         domain: &PseudoDomain<Fq>,
-        mut sponge: Sponge<Fq, Constants>,
+        mut sponge: Sponge<Fq>,
         old_bulletproof_challenges: &[[Fq; 15]],
         deferred_values: &unfinalized::DeferredValues,
         evals: &AllEvals<Fq>,
@@ -1449,10 +1448,9 @@ pub mod wrap_verifier {
 
         let sponge_state = {
             use crate::proofs::witness::poseidon::Sponge;
-            use mina_poseidon::pasta::fq_kimchi::static_params;
 
             let challenge_digest = {
-                let mut sponge = Sponge::<Fq, Constants>::new(static_params());
+                let mut sponge = Sponge::<Fq>::new();
                 old_bulletproof_challenges.iter().for_each(|v| {
                     sponge.absorb2(v, w);
                 });
@@ -1869,14 +1867,12 @@ pub mod wrap_verifier {
     }
 
     pub fn bullet_reduce<F: FieldWitness>(
-        sponge: &mut Sponge<F, mina_poseidon::constants::PlonkSpongeConstantsKimchi>,
+        sponge: &mut Sponge<F>,
         gammas: &[(GroupAffine<F::Parameters>, GroupAffine<F::Parameters>)],
         w: &mut Witness<F>,
     ) -> (GroupAffine<F::Parameters>, Vec<F>) {
-        type S<F> = Sponge<F, mina_poseidon::constants::PlonkSpongeConstantsKimchi>;
-
         let absorb_curve =
-            |c: &GroupAffine<F::Parameters>, sponge: &mut S<F>, w: &mut Witness<F>| {
+            |c: &GroupAffine<F::Parameters>, sponge: &mut Sponge<F>, w: &mut Witness<F>| {
                 let GroupAffine { x, y, .. } = c;
                 sponge.absorb(&[*x, *y], w);
             };
@@ -1930,7 +1926,7 @@ pub mod wrap_verifier {
 
     struct CheckBulletProofParams<'a> {
         pcs_batch: PcsBatch,
-        sponge: Sponge<Fq, mina_poseidon::constants::PlonkSpongeConstantsKimchi>,
+        sponge: Sponge<Fq>,
         xi: [u64; 2],
         advice: &'a Advice<Fq>,
         openings_proof: &'a OpeningProof<Vesta>,
@@ -1989,9 +1985,8 @@ pub mod wrap_verifier {
             w.add_fast(combined_polynomial, uc)
         };
 
-        type S = Sponge<Fq, mina_poseidon::constants::PlonkSpongeConstantsKimchi>;
         let absorb_curve =
-            |c: &GroupAffine<VestaParameters>, sponge: &mut S, w: &mut Witness<Fq>| {
+            |c: &GroupAffine<VestaParameters>, sponge: &mut Sponge<Fq>, w: &mut Witness<Fq>| {
                 let GroupAffine { x, y, .. } = c;
                 sponge.absorb(&[*x, *y], w);
             };
@@ -2085,9 +2080,8 @@ pub mod wrap_verifier {
 
         let index_digest = {
             use crate::proofs::witness::poseidon::Sponge;
-            use mina_poseidon::pasta::fq_kimchi::static_params;
 
-            let mut sponge = Sponge::<Fq, Constants>::new(static_params());
+            let mut sponge = Sponge::<Fq>::new();
             let fields = verification_key.to_field_elements_owned();
             sponge.absorb2(&fields, w);
             sponge.squeeze(w)
@@ -2247,7 +2241,7 @@ pub mod wrap_verifier {
                 // We just called `sample_scalar`
                 panic!("OCaml panics too")
             };
-            let mut sponge = Sponge::<Fq, Constants>::new_with_state(sponge.state, static_params());
+            let mut sponge = Sponge::<Fq>::new_with_state(sponge.state, static_params());
             sponge.sponge_state = SpongeState::Squeezed(n_squeezed);
             sponge
         };
@@ -2963,13 +2957,7 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
                             sponge_digest_before_evaluations,
                         } = unfinalized;
 
-                        use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
-                        use mina_poseidon::pasta::fq_kimchi::static_params;
-
-                        let mut sponge =
-                            crate::proofs::witness::poseidon::Sponge::<Fq, Constants>::new(
-                                static_params(),
-                            );
+                        let mut sponge = crate::proofs::witness::poseidon::Sponge::<Fq>::new();
                         sponge.absorb2(&[u64_to_field(sponge_digest_before_evaluations)], w);
 
                         // sponge

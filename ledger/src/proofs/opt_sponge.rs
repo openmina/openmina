@@ -38,13 +38,7 @@ impl<F: FieldWitness> OptSponge<F> {
         }
     }
 
-    pub fn of_sponge(
-        sponge: super::witness::poseidon::Sponge<
-            F,
-            mina_poseidon::constants::PlonkSpongeConstantsKimchi,
-        >,
-        w: &mut Witness<F>,
-    ) -> Self {
+    pub fn of_sponge(sponge: super::witness::poseidon::Sponge<F>, w: &mut Witness<F>) -> Self {
         use super::witness::poseidon::Sponge;
 
         let Sponge {

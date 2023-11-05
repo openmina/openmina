@@ -2431,13 +2431,14 @@ pub mod legacy_input {
 pub mod poseidon {
     use std::marker::PhantomData;
 
+    use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
     use mina_poseidon::constants::SpongeConstants;
     use mina_poseidon::poseidon::{ArithmeticSpongeParams, SpongeState};
 
     use super::*;
 
     #[derive(Clone)]
-    pub struct Sponge<F: FieldWitness, C: SpongeConstants> {
+    pub struct Sponge<F: FieldWitness, C: SpongeConstants = PlonkSpongeConstantsKimchi> {
         pub state: [F; 3],
         pub sponge_state: SpongeState,
         params: &'static ArithmeticSpongeParams<F>,
@@ -2460,11 +2461,7 @@ pub mod poseidon {
             }
         }
 
-        pub fn new(params: &'static ArithmeticSpongeParams<F>) -> Self {
-            Self::new_with_state([F::zero(); 3], params)
-        }
-
-        pub fn create() -> Self {
+        pub fn new() -> Self {
             Self::new_with_state([F::zero(); 3], F::get_params2())
         }
 
@@ -3468,17 +3465,12 @@ pub mod transaction_snark {
     }
 
     pub fn checked_hash(param: &str, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
-        use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
-        use mina_poseidon::pasta::fp_kimchi::static_params;
-
         // We hash the parameter first, without introducing values to the witness
         let initial_state: [Fp; 3] = {
-            use crate::{
-                param_to_field, static_params, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge,
-            };
+            use crate::{param_to_field, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge};
 
             let mut sponge =
-                ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
+                ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(Fp::get_params());
             sponge.absorb(&[param_to_field(param)]);
             sponge.squeeze();
             sponge.state
@@ -3486,8 +3478,7 @@ pub mod transaction_snark {
 
         // dbg!(inputs);
 
-        let mut sponge =
-            poseidon::Sponge::<Fp, Constants>::new_with_state(initial_state, static_params());
+        let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state, Fp::get_params2());
         sponge.absorb(inputs, w);
         sponge.squeeze(w)
     }
@@ -4549,17 +4540,13 @@ fn get_messages_for_next_wrap_proof_padded() -> Vec<Fp> {
 }
 
 pub fn checked_hash2<F: FieldWitness>(inputs: &[F], w: &mut Witness<F>) -> F {
-    use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
-
-    let mut sponge = poseidon::Sponge::<F, Constants>::new(F::get_params2());
+    let mut sponge = poseidon::Sponge::<F>::new();
     sponge.absorb2(inputs, w);
     sponge.squeeze(w)
 }
 
 pub fn checked_hash3<F: FieldWitness>(inputs: &[F], w: &mut Witness<F>) -> F {
-    use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
-
-    let mut sponge = poseidon::Sponge::<F, Constants>::new(F::get_params2());
+    let mut sponge = poseidon::Sponge::<F>::new();
     sponge.absorb(inputs, w);
     sponge.squeeze(w)
 }

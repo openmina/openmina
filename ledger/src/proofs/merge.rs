@@ -14,6 +14,7 @@ use crate::{
         wrap::{create_oracle, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2},
     },
     verifier::get_srs,
+    SpongeParamsForField,
 };
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, One, Zero};
@@ -26,7 +27,6 @@ use mina_curves::pasta::{Fq, PallasParameters};
 use mina_curves::pasta::{Pallas, VestaParameters};
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
-use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
 use poly_commitment::evaluation_proof::OpeningProof;
 
 use crate::{
@@ -296,12 +296,9 @@ pub fn expand_deferred(
         sponge.squeeze()
     };
 
-    type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
-    type EFqSponge =
-        mina_poseidon::sponge::DefaultFqSponge<mina_curves::pasta::PallasParameters, SpongeParams>;
     use mina_poseidon::FqSponge;
 
-    let mut sponge = EFqSponge::new(mina_poseidon::pasta::fp_kimchi::static_params());
+    let mut sponge = <Fq as FieldWitness>::FqSponge::new(Fp::get_params2());
     sponge.absorb_fq(&[u64_to_field(&proof_state.sponge_digest_before_evaluations)]);
     sponge.absorb_fq(&[challenges_digest]);
     sponge.absorb_fq(&[evals.ft_eval1]);
@@ -1056,18 +1053,17 @@ mod step_verifier {
         },
     };
     use itertools::Itertools;
-    use mina_poseidon::constants::PlonkSpongeConstantsKimchi as Constants;
     use poly_commitment::{srs::SRS, PolyComm};
 
-    fn squeeze_challenge(s: &mut Sponge<Fp, Constants>, w: &mut Witness<Fp>) -> Fp {
+    fn squeeze_challenge(s: &mut Sponge<Fp>, w: &mut Witness<Fp>) -> Fp {
         lowest_128_bits(s.squeeze(w), true, w)
     }
 
-    fn squeeze_scalar(s: &mut Sponge<Fp, Constants>, w: &mut Witness<Fp>) -> Fp {
+    fn squeeze_scalar(s: &mut Sponge<Fp>, w: &mut Witness<Fp>) -> Fp {
         lowest_128_bits(s.squeeze(w), false, w)
     }
 
-    fn absorb_curve(c: &Pallas, sponge: &mut Sponge<Fp, Constants>, w: &mut Witness<Fp>) {
+    fn absorb_curve(c: &Pallas, sponge: &mut Sponge<Fp>, w: &mut Witness<Fp>) {
         let GroupAffine { x, y, .. } = c;
         sponge.absorb2(&[*x, *y], w);
     }
@@ -1112,7 +1108,7 @@ mod step_verifier {
         max_proof_verified: usize,
         _feature_flags: &FeatureFlags<OptFlag>,
         step_domains: &ForStepKind<Vec<Domains>>,
-        mut sponge: Sponge<Fp, Constants>,
+        mut sponge: Sponge<Fp>,
         prev_challenges: &[[Fp; Fp::NROUNDS]],
         deferred_values: &DeferredValues<Fp>,
         evals: &AllEvals<Fp>,
@@ -1395,10 +1391,8 @@ mod step_verifier {
     pub fn sponge_after_index(
         index: &PlonkVerificationKeyEvals<Fp>,
         w: &mut Witness<Fp>,
-    ) -> Sponge<Fp, Constants> {
-        use mina_poseidon::pasta::fp_kimchi::static_params;
-
-        let mut sponge = Sponge::<Fp, Constants>::new(static_params());
+    ) -> Sponge<Fp> {
+        let mut sponge = Sponge::<Fp>::new();
         let fields = index.to_field_elements_owned();
         sponge.absorb2(&fields, w);
         sponge
@@ -1406,7 +1400,7 @@ mod step_verifier {
 
     pub fn hash_messages_for_next_step_proof_opt(
         msg: ReducedMessagesForNextStepProof<&Statement<SokDigest>>,
-        sponge: Sponge<Fp, Constants>,
+        sponge: Sponge<Fp>,
         _widths: &ForStepKind<Vec<Fp>>,
         _max_width: usize,
         proofs_verified_mask: &[Boolean],
@@ -1722,7 +1716,7 @@ mod step_verifier {
 
     struct CheckBulletProofParams<'a> {
         pcs_batch: PcsBatch,
-        sponge: Sponge<Fp, mina_poseidon::constants::PlonkSpongeConstantsKimchi>,
+        sponge: Sponge<Fp>,
         xi: [u64; 2],
         advice: &'a Advice<Fp>,
         openings_proof: &'a OpeningProof<GroupAffine<PallasParameters>>,
@@ -1883,8 +1877,8 @@ mod step_verifier {
         pub proofs_verified: usize,
         pub srs: &'a mut poly_commitment::srs::SRS<Pallas>,
         pub wrap_domain: &'a ForStepKind<Domain>,
-        pub sponge: Sponge<Fp, Constants>,
-        pub sponge_after_index: Sponge<Fp, Constants>,
+        pub sponge: Sponge<Fp>,
+        pub sponge_after_index: Sponge<Fp>,
         pub wrap_verification_key: &'a PlonkVerificationKeyEvals<Fp>,
         pub xi: [u64; 2],
         pub public_input: Vec<Packed>,
@@ -2041,7 +2035,7 @@ mod step_verifier {
         pub proofs_verified: usize,
         pub wrap_domain: &'a ForStepKind<Domain>,
         pub is_base_case: Boolean,
-        pub sponge_after_index: Sponge<Fp, Constants>,
+        pub sponge_after_index: Sponge<Fp>,
         pub sg_old: &'a Vec<GroupAffine<PallasParameters>>,
         pub proof: &'a ProverProof<GroupAffine<PallasParameters>>,
         pub wrap_verification_key: &'a PlonkVerificationKeyEvals<Fp>,
@@ -2082,7 +2076,7 @@ mod step_verifier {
 
         let b = b.clone();
         let combined_inner_product = combined_inner_product.clone();
-        let sponge = Sponge::create();
+        let sponge = Sponge::new();
 
         let (
             _sponge_digest_before_evaluations_actual,
@@ -2136,10 +2130,7 @@ fn verify_one(
         let sponge_digest = proof_state.sponge_digest_before_evaluations;
 
         let sponge = {
-            use mina_poseidon::pasta::fp_kimchi::static_params;
-
-            let mut sponge =
-                crate::proofs::witness::poseidon::Sponge::<Fp, Constants>::new(static_params());
+            let mut sponge = crate::proofs::witness::poseidon::Sponge::<Fp>::new();
             sponge.absorb2(&[u64_to_field(&sponge_digest)], w);
             sponge
         };
