@@ -1,8 +1,7 @@
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use ark_ec::{
-    short_weierstrass_jacobian::{GroupAffine, GroupProjective},
-    AffineCurve, ProjectiveCurve, SWModelParameters,
+    short_weierstrass_jacobian::GroupProjective, AffineCurve, ProjectiveCurve, SWModelParameters,
 };
 use ark_ff::{BigInteger256, FftField, Field, FpParameters, PrimeField, SquareRootField};
 use kimchi::{
@@ -70,6 +69,9 @@ use super::{
     unfinalized::{EvalsWithPublicInput, Unfinalized},
     BACKEND_TICK_ROUNDS_N, BACKEND_TOCK_ROUNDS_N,
 };
+
+pub type GroupAffine<F> =
+    ark_ec::short_weierstrass_jacobian::GroupAffine<<F as FieldWitness>::Parameters>;
 
 #[derive(Debug)]
 pub struct Witness<F: FieldWitness> {
@@ -183,11 +185,7 @@ impl<F: FieldWitness> Witness<F> {
     }
 
     /// Helper
-    pub fn add_fast(
-        &mut self,
-        p1: GroupAffine<F::Parameters>,
-        p2: GroupAffine<F::Parameters>,
-    ) -> GroupAffine<F::Parameters> {
+    pub fn add_fast(&mut self, p1: GroupAffine<F>, p2: GroupAffine<F>) -> GroupAffine<F> {
         add_fast::<F>(p1, p2, None, self)
     }
 }
@@ -245,14 +243,14 @@ where
     use poly_commitment::srs::endos;
 
     // Let's keep them in cache since they're used everywhere
-    cache!((F, F::Scalar), endos::<GroupAffine<F::Parameters>>())
+    cache!((F, F::Scalar), endos::<GroupAffine<F>>())
 }
 
-pub fn make_group<F>(x: F, y: F) -> GroupAffine<F::Parameters>
+pub fn make_group<F>(x: F, y: F) -> GroupAffine<F>
 where
     F: FieldWitness,
 {
-    GroupAffine::<F::Parameters>::new(x, y, false)
+    GroupAffine::<F>::new(x, y, false)
 }
 
 pub mod scalar_challenge {
@@ -343,10 +341,10 @@ pub mod scalar_challenge {
 
     // TODO: Use `F::Scalar` instead of `F2`
     pub fn endo<F, F2, const NBITS: usize>(
-        t: GroupAffine<F::Parameters>,
+        t: GroupAffine<F>,
         scalar: F2,
         w: &mut Witness<F>,
-    ) -> GroupAffine<F::Parameters>
+    ) -> GroupAffine<F>
     where
         F: FieldWitness,
         F2: FieldWitness,
@@ -356,7 +354,7 @@ pub mod scalar_challenge {
         let bits_per_row = 4;
         let rows = NBITS / bits_per_row;
 
-        let GroupAffine { x: xt, y: yt, .. } = t;
+        let GroupAffine::<F> { x: xt, y: yt, .. } = t;
         let (endo_base, _) = endos::<F>();
 
         let mut acc = {
@@ -374,7 +372,7 @@ pub mod scalar_challenge {
             let b3 = w.exists(F::from(bits[(i * bits_per_row) + 2]));
             let b4 = w.exists(F::from(bits[(i * bits_per_row) + 3]));
 
-            let GroupAffine { x: xp, y: yp, .. } = acc;
+            let GroupAffine::<F> { x: xp, y: yp, .. } = acc;
             let xq1 = w.exists((F::one() + ((endo_base - F::one()) * b1)) * xt);
             let yq1 = w.exists((b2.double() - F::one()) * yt);
             let s1 = w.exists((yq1 - yp) / (xq1 - xp));
@@ -400,10 +398,10 @@ pub mod scalar_challenge {
 
     // TODO: Use `F::Scalar` for `chal`
     pub fn endo_inv<F, F2, const NBITS: usize>(
-        t: GroupAffine<F::Parameters>,
+        t: GroupAffine<F>,
         chal: F2,
         w: &mut Witness<F>,
-    ) -> GroupAffine<F::Parameters>
+    ) -> GroupAffine<F>
     where
         F: FieldWitness,
         F2: FieldWitness,
@@ -423,16 +421,16 @@ pub mod scalar_challenge {
 }
 
 pub fn add_fast<F>(
-    p1: GroupAffine<F::Parameters>,
-    p2: GroupAffine<F::Parameters>,
+    p1: GroupAffine<F>,
+    p2: GroupAffine<F>,
     check_finite: Option<bool>,
     w: &mut Witness<F>,
-) -> GroupAffine<F::Parameters>
+) -> GroupAffine<F>
 where
     F: FieldWitness,
 {
-    let GroupAffine { x: x1, y: y1, .. } = p1;
-    let GroupAffine { x: x2, y: y2, .. } = p2;
+    let GroupAffine::<F> { x: x1, y: y1, .. } = p1;
+    let GroupAffine::<F> { x: x2, y: y2, .. } = p2;
     let check_finite = check_finite.unwrap_or(true);
 
     let bool_to_field = |b: bool| if b { F::one() } else { F::zero() };
@@ -504,10 +502,10 @@ pub mod plonk_curve_ops {
 
     // TODO: `scalar` is a `F::Scalar` here
     pub fn scale_fast<F, F2, const NBITS: usize>(
-        base: GroupAffine<F::Parameters>,
+        base: GroupAffine<F>,
         shifted_value: F2::Shifting,
         w: &mut Witness<F>,
-    ) -> GroupAffine<F::Parameters>
+    ) -> GroupAffine<F>
     where
         F: FieldWitness,
         F2: FieldWitness,
@@ -519,16 +517,16 @@ pub mod plonk_curve_ops {
     // TODO: `scalar` is a `F::Scalar` here
     // https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/pickles/plonk_curve_ops.ml#L140
     pub fn scale_fast_unpack<F, F2, const NBITS: usize>(
-        base: GroupAffine<F::Parameters>,
+        base: GroupAffine<F>,
         shifted: F2::Shifting,
         w: &mut Witness<F>,
-    ) -> (GroupAffine<F::Parameters>, [bool; NBITS])
+    ) -> (GroupAffine<F>, [bool; NBITS])
     where
         F: FieldWitness,
         F2: FieldWitness,
     {
         let scalar = shifted.shifted_raw();
-        let GroupAffine {
+        let GroupAffine::<F> {
             x: x_base,
             y: y_base,
             ..
@@ -553,7 +551,7 @@ pub mod plonk_curve_ops {
             );
 
             let (_, v) = fold_map(bs.iter(), acc, |acc, b| {
-                let GroupAffine {
+                let GroupAffine::<F> {
                     x: x_acc, y: y_acc, ..
                 } = acc;
                 let b: F = F::from(*b);
@@ -662,7 +660,7 @@ impl<F: FieldWitness> ToFieldElements<F> for ByteString {
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for GroupAffine<F::Parameters> {
+impl<F: FieldWitness> ToFieldElements<F> for GroupAffine<F> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let Self {
             x, y, infinity: _, ..
@@ -952,7 +950,7 @@ impl<F: FieldWitness> ToFieldElements<F> for mina_signer::Signature {
 
 impl<F: FieldWitness> ToFieldElements<F> for mina_signer::PubKey {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        let GroupAffine { x, y, .. } = self.point();
+        let GroupAffine::<Fp> { x, y, .. } = self.point();
         fields.push(x.into_gen());
         fields.push(y.into_gen());
     }
@@ -1177,7 +1175,7 @@ impl PlonkVerificationKeyEvals<Fp> {
         use crate::util::FpExt;
 
         let mut inner_to_s = |c: &InnerCurve<Fp>| {
-            let GroupAffine { x, y, .. } = c.to_affine();
+            let GroupAffine::<Fp> { x, y, .. } = c.to_affine();
             string.push_str(&format!("{}\n", x.to_decimal()));
             string.push_str(&format!("{}\n", y.to_decimal()));
         };
@@ -1272,7 +1270,7 @@ impl crate::ToInputs for PlonkVerificationKeyEvals<Fp> {
         } = self;
 
         let mut to_input = |v: &InnerCurve<Fp>| {
-            let GroupAffine { x, y, .. } = v.to_affine();
+            let GroupAffine::<Fp> { x, y, .. } = v.to_affine();
             inputs.append(&x);
             inputs.append(&y);
         };
@@ -1747,7 +1745,7 @@ where
 {
     type Scalar: FieldWitness<Scalar = Self>;
     type Affine: AffineCurve<Projective = Self::Projective, BaseField = Self, ScalarField = Self::Scalar>
-        + Into<GroupAffine<Self::Parameters>>
+        + Into<GroupAffine<Self>>
         + KimchiCurve
         + std::fmt::Debug;
     type Projective: ProjectiveCurve<Affine = Self::Affine, BaseField = Self, ScalarField = Self::Scalar>
@@ -1778,7 +1776,7 @@ pub struct Params<F> {
 impl FieldWitness for Fp {
     type Scalar = Fq;
     type Parameters = PallasParameters;
-    type Affine = GroupAffine<Self::Parameters>;
+    type Affine = GroupAffine<Self>;
     type Projective = ProjectivePallas;
     type Shifting = ShiftedValue<Fp>;
     type OtherCurve = <Self::Affine as KimchiCurve>::OtherCurve;
@@ -1797,7 +1795,7 @@ impl FieldWitness for Fp {
 impl FieldWitness for Fq {
     type Scalar = Fp;
     type Parameters = VestaParameters;
-    type Affine = GroupAffine<Self::Parameters>;
+    type Affine = GroupAffine<Self>;
     type Projective = ProjectiveVesta;
     type Shifting = ShiftedValue<Fq>;
     type OtherCurve = <Self::Affine as KimchiCurve>::OtherCurve;
@@ -1883,7 +1881,7 @@ impl<F: FieldWitness> std::fmt::Debug for InnerCurve<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // OCaml uses `to_affine_exn` when those are printed using `sexp`
         // https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/snark_params/snark_params.ml#L149
-        let GroupAffine { x, y, .. } = self.to_affine();
+        let GroupAffine::<F> { x, y, .. } = self.to_affine();
         f.debug_struct("InnerCurve")
             .field("x", &x)
             .field("y", &y)
@@ -1893,7 +1891,7 @@ impl<F: FieldWitness> std::fmt::Debug for InnerCurve<F> {
 
 impl crate::ToInputs for InnerCurve<Fp> {
     fn to_inputs(&self, inputs: &mut crate::Inputs) {
-        let GroupAffine { x, y, .. } = self.to_affine();
+        let GroupAffine::<Fp> { x, y, .. } = self.to_affine();
         inputs.append_field(x);
         inputs.append_field(y);
     }
@@ -1932,17 +1930,17 @@ impl<F: FieldWitness> InnerCurve<F> {
         Self::of_affine(result)
     }
 
-    pub fn to_affine(&self) -> GroupAffine<F::Parameters> {
+    pub fn to_affine(&self) -> GroupAffine<F> {
         // Both `affine` below are the same type, but we use `into()` to make it non-generic
         let affine: F::Affine = self.inner.into_affine();
-        let affine: GroupAffine<F::Parameters> = affine.into();
+        let affine: GroupAffine<F> = affine.into();
         // OCaml panics on infinity
         // https://github.com/MinaProtocol/mina/blob/3e58e92ea9aeddb41ad3b6e494279891c5f9aa09/src/lib/crypto/kimchi_backend/common/curve.ml#L180
         assert!(!affine.infinity);
         affine
     }
 
-    pub fn of_affine(affine: GroupAffine<F::Parameters>) -> Self {
+    pub fn of_affine(affine: GroupAffine<F>) -> Self {
         // Both `inner` below are the same type, but we use `into()` to make it generic
         let inner: GroupProjective<F::Parameters> = affine.into_projective();
         let inner: F::Projective = inner.into();
@@ -1991,7 +1989,7 @@ where
 
 impl<F: FieldWitness> ToFieldElements<F> for InnerCurve<F> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        let GroupAffine { x, y, .. } = self.to_affine();
+        let GroupAffine::<F> { x, y, .. } = self.to_affine();
         fields.push(x);
         fields.push(y);
     }
@@ -2004,10 +2002,10 @@ impl<F: FieldWitness> Check<F> for InnerCurve<F> {
     }
 }
 
-impl<F: FieldWitness> Check<F> for GroupAffine<F::Parameters> {
+impl<F: FieldWitness> Check<F> for GroupAffine<F> {
     // https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/snarky_curves/snarky_curves.ml#L167
     fn check(&self, w: &mut Witness<F>) {
-        let GroupAffine { x, y: _, .. } = self;
+        let GroupAffine::<F> { x, y: _, .. } = self;
         let x2 = field::square(*x, w);
         let _x3 = field::mul(x2, *x, w);
         // TODO: Rest of the function doesn't modify witness
@@ -2655,11 +2653,8 @@ pub mod poseidon {
     }
 }
 
-fn double_group<F: FieldWitness>(
-    group: GroupAffine<F::Parameters>,
-    w: &mut Witness<F>,
-) -> GroupAffine<F::Parameters> {
-    let GroupAffine { x: ax, y: ay, .. } = group;
+fn double_group<F: FieldWitness>(group: GroupAffine<F>, w: &mut Witness<F>) -> GroupAffine<F> {
+    let GroupAffine::<F> { x: ax, y: ay, .. } = group;
     let ax: F = ax;
     let ay: F = ay;
 
@@ -2674,23 +2669,20 @@ fn double_group<F: FieldWitness>(
 }
 
 // Used as the _if method
-fn group_to_witness<F: FieldWitness>(
-    group: GroupAffine<F::Parameters>,
-    w: &mut Witness<F>,
-) -> GroupAffine<F::Parameters> {
+fn group_to_witness<F: FieldWitness>(group: GroupAffine<F>, w: &mut Witness<F>) -> GroupAffine<F> {
     // We don't want to call `GroupAffine::check` here
-    let GroupAffine { x, y, .. } = &group;
+    let GroupAffine::<F> { x, y, .. } = &group;
     w.exists(*x);
     w.exists(*y);
     group
 }
 
 fn scale_non_constant<F: FieldWitness, const N: usize>(
-    mut g: GroupAffine<F::Parameters>,
+    mut g: GroupAffine<F>,
     bits: &[bool; N],
     init: &InnerCurve<F>,
     w: &mut Witness<F>,
-) -> GroupAffine<F::Parameters> {
+) -> GroupAffine<F> {
     let mut acc = init.to_affine();
 
     for b in bits {
@@ -2722,10 +2714,10 @@ fn lookup_point<F: FieldWitness>(
     let lookup_one = |a1: F, a2: F, a3: F, a4: F| -> F {
         a1 + ((a2 - a1) * b0) + ((a3 - a1) * b1) + ((a4 + a1 - a2 - a3) * b0_and_b1)
     };
-    let GroupAffine { x: x1, y: y1, .. } = t1.to_affine();
-    let GroupAffine { x: x2, y: y2, .. } = t2.to_affine();
-    let GroupAffine { x: x3, y: y3, .. } = t3.to_affine();
-    let GroupAffine { x: x4, y: y4, .. } = t4.to_affine();
+    let GroupAffine::<F> { x: x1, y: y1, .. } = t1.to_affine();
+    let GroupAffine::<F> { x: x2, y: y2, .. } = t2.to_affine();
+    let GroupAffine::<F> { x: x3, y: y3, .. } = t3.to_affine();
+    let GroupAffine::<F> { x: x4, y: y4, .. } = t4.to_affine();
 
     (lookup_one(x1, x2, x3, x4), lookup_one(y1, y2, y3, y4))
 }
@@ -2733,18 +2725,18 @@ fn lookup_point<F: FieldWitness>(
 fn lookup_single_bit<F: FieldWitness>(b: bool, (t1, t2): (InnerCurve<F>, InnerCurve<F>)) -> (F, F) {
     let lookup_one = |a1: F, a2: F| a1 + (F::from(b) * (a2 - a1));
 
-    let GroupAffine { x: x1, y: y1, .. } = t1.to_affine();
-    let GroupAffine { x: x2, y: y2, .. } = t2.to_affine();
+    let GroupAffine::<F> { x: x1, y: y1, .. } = t1.to_affine();
+    let GroupAffine::<F> { x: x2, y: y2, .. } = t2.to_affine();
 
     (lookup_one(x1, x2), lookup_one(y1, y2))
 }
 
 fn scale_known<F: FieldWitness, const N: usize>(
-    t: GroupAffine<F::Parameters>,
+    t: GroupAffine<F>,
     bits: &[bool; N],
     init: &InnerCurve<F>,
     w: &mut Witness<F>,
-) -> GroupAffine<F::Parameters> {
+) -> GroupAffine<F> {
     let sigma = InnerCurve::of_affine(t);
     let n = bits.len();
     let sigma_count = (n + 1) / 2;
@@ -3118,11 +3110,8 @@ pub struct CompressedPubKeyVar<F: FieldWitness> {
     pub is_odd: bool,
 }
 
-fn compress_var<F: FieldWitness>(
-    v: &GroupAffine<F::Parameters>,
-    w: &mut Witness<F>,
-) -> CompressedPubKeyVar<F> {
-    let GroupAffine { x, y, .. } = v;
+fn compress_var<F: FieldWitness>(v: &GroupAffine<F>, w: &mut Witness<F>) -> CompressedPubKeyVar<F> {
+    let GroupAffine::<F> { x, y, .. } = v;
 
     let is_odd = {
         let bits = unpack_full(*y, w);
@@ -3489,7 +3478,7 @@ pub mod transaction_snark {
         signature: &Signature,
         w: &mut Witness<Fp>,
     ) -> [bool; 255] {
-        let GroupAffine { x: px, y: py, .. } = signer.point();
+        let GroupAffine::<Fp> { x: px, y: py, .. } = signer.point();
         let Signature { rx, s: _ } = signature;
 
         inputs.append_field(*px);
@@ -3513,7 +3502,7 @@ pub mod transaction_snark {
 
         // negate
         let public_key = {
-            let GroupAffine { x, y, .. } = signer.point();
+            let GroupAffine::<Fp> { x, y, .. } = signer.point();
             let y = w.exists(y.neg()); // This is actually made in the `scale` call below in OCaml
             make_group::<Fp>(*x, y)
         };
@@ -3522,10 +3511,10 @@ pub mod transaction_snark {
 
         let Signature { rx: _, s } = signature;
         let bits: [bool; 255] = field_to_bits::<_, 255>(*s);
-        let one: GroupAffine<_> = InnerCurve::<Fp>::one().to_affine();
+        let one: GroupAffine<Fp> = InnerCurve::<Fp>::one().to_affine();
         let s_g_e_pk = scale_known(one, &bits, &InnerCurve::of_affine(e_pk), w);
 
-        let GroupAffine { x: rx, y: ry, .. } = {
+        let GroupAffine::<Fp> { x: rx, y: ry, .. } = {
             let neg_shifted = shifted.to_affine().neg();
             w.exists(neg_shifted.y);
             w.add_fast(neg_shifted, s_g_e_pk)
@@ -4710,7 +4699,7 @@ where
         let mut fields = Vec::with_capacity(NFIELDS);
 
         let push_curve = |fields: &mut Vec<Fp>, curve: &InnerCurve<Fp>| {
-            let GroupAffine { x, y, .. } = curve.to_affine();
+            let GroupAffine::<Fp> { x, y, .. } = curve.to_affine();
             fields.push(x);
             fields.push(y);
         };
