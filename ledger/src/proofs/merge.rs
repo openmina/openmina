@@ -16,15 +16,14 @@ use crate::{
     verifier::get_srs,
     SpongeParamsForField,
 };
-use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, One, Zero};
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use kimchi::{
     proof::{PointEvaluations, ProverCommitments, ProverProof, RecursionChallenge},
     verifier_index::VerifierIndex,
 };
-use mina_curves::pasta::{Fq, PallasParameters};
-use mina_curves::pasta::{Pallas, VestaParameters};
+use mina_curves::pasta::Fq;
+use mina_curves::pasta::Pallas;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 use poly_commitment::evaluation_proof::OpeningProof;
@@ -61,8 +60,8 @@ use super::{
     unfinalized::{AllEvals, EvalsWithPublicInput, Unfinalized},
     util::extract_bulletproof,
     witness::{
-        make_group, scalar_challenge::to_field_checked, Boolean, Check, FieldWitness, InnerCurve,
-        MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
+        make_group, scalar_challenge::to_field_checked, Boolean, Check, FieldWitness, GroupAffine,
+        InnerCurve, MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
         ReducedMessagesForNextStepProof, Witness,
     },
     wrap::{CircuitVar, Domains},
@@ -696,7 +695,7 @@ fn expand_proof(
 
 #[derive(Debug)]
 struct ExpandedProof {
-    sg: GroupAffine<PallasParameters>,
+    sg: GroupAffine<Fp>,
     unfinalized: Unfinalized,
     prev_statement_with_hashes: PreparedStatement,
     x_hat: (Fq, Fq),
@@ -707,11 +706,11 @@ struct ExpandedProof {
 #[derive(Clone, Debug)]
 struct PerProofWitness<AppState> {
     app_state: AppState,
-    wrap_proof: ProverProof<GroupAffine<PallasParameters>>,
+    wrap_proof: ProverProof<GroupAffine<Fp>>,
     proof_state: ProofState,
     prev_proof_evals: AllEvals<Fp>,
     prev_challenges: Vec<[Fp; 16]>,
-    prev_challenge_polynomial_commitments: Vec<GroupAffine<PallasParameters>>,
+    prev_challenge_polynomial_commitments: Vec<GroupAffine<Fp>>,
 }
 
 impl<T> PerProofWitness<T> {
@@ -747,13 +746,13 @@ impl ToFieldElements<Fp> for PerProofWitness<()> {
             prev_challenge_polynomial_commitments,
         } = self;
 
-        let push_affine = |g: GroupAffine<PallasParameters>, fields: &mut Vec<Fp>| {
-            let GroupAffine { x, y, .. } = g;
+        let push_affine = |g: GroupAffine<Fp>, fields: &mut Vec<Fp>| {
+            let GroupAffine::<Fp> { x, y, .. } = g;
             x.to_field_elements(fields);
             y.to_field_elements(fields);
         };
 
-        let push_affines = |slice: &[GroupAffine<PallasParameters>], fields: &mut Vec<Fp>| {
+        let push_affines = |slice: &[GroupAffine<Fp>], fields: &mut Vec<Fp>| {
             slice.iter().copied().for_each(|g| push_affine(g, fields))
         };
 
@@ -1064,7 +1063,7 @@ mod step_verifier {
     }
 
     fn absorb_curve(c: &Pallas, sponge: &mut Sponge<Fp>, w: &mut Witness<Fp>) {
-        let GroupAffine { x, y, .. } = c;
+        let GroupAffine::<Fp> { x, y, .. } = c;
         sponge.absorb2(&[*x, *y], w);
     }
 
@@ -1432,7 +1431,7 @@ mod step_verifier {
             .zip(challenge_polynomial_commitments)
             .map(|(b, v)| {
                 let b = *b;
-                let GroupAffine { x, y, .. } = v.to_affine();
+                let GroupAffine::<Fp> { x, y, .. } = v.to_affine();
                 [MaybeOpt::Opt(b, x), MaybeOpt::Opt(b, y)]
             });
 
@@ -1472,11 +1471,11 @@ mod step_verifier {
 
     // TODO: Dedup with the one in `wrap_verifier`
     fn scale_fast2<F: FieldWitness>(
-        g: CircuitVar<GroupAffine<F::Parameters>>,
+        g: CircuitVar<GroupAffine<F>>,
         (s_div_2, s_odd): (F, Boolean),
         num_bits: usize,
         w: &mut Witness<F>,
-    ) -> GroupAffine<F::Parameters> {
+    ) -> GroupAffine<F> {
         use crate::proofs::witness::plonk_curve_ops::scale_fast_unpack;
         use wrap_verifier::*;
 
@@ -1509,11 +1508,11 @@ mod step_verifier {
 
     // TODO: Dedup with the one above and in `wrap_verifier`
     fn scale_fast22<F: FieldWitness>(
-        g: CircuitVar<GroupAffine<F::Parameters>>,
+        g: CircuitVar<GroupAffine<F>>,
         (s_div_2, s_odd): (F, Boolean),
         num_bits: usize,
         w: &mut Witness<F>,
-    ) -> GroupAffine<F::Parameters> {
+    ) -> GroupAffine<F> {
         use crate::proofs::witness::plonk_curve_ops::scale_fast_unpack;
         use wrap_verifier::*;
 
@@ -1543,11 +1542,11 @@ mod step_verifier {
 
     // TODO: Dedup with the one in `wrap_verifier`
     pub fn scale_fast2_prime<F: FieldWitness, F2: FieldWitness>(
-        g: CircuitVar<GroupAffine<F::Parameters>>,
+        g: CircuitVar<GroupAffine<F>>,
         s: F2,
         num_bits: usize,
         w: &mut Witness<F>,
-    ) -> GroupAffine<F::Parameters> {
+    ) -> GroupAffine<F> {
         let s_parts = w.exists({
             // TODO: Here `s` is a `F` but needs to be read as a `F::Scalar`
             let bigint: BigInteger256 = s.into();
@@ -1564,17 +1563,17 @@ mod step_verifier {
     // TODO: Dedup with the one in `wrap_verifier`
     pub fn ft_comm<F: FieldWitness, Scale>(
         plonk: &Plonk<F::Scalar>,
-        t_comm: &PolyComm<GroupAffine<F::Parameters>>,
+        t_comm: &PolyComm<GroupAffine<F>>,
         verification_key: &PlonkVerificationKeyEvals<F>,
         scale: Scale,
         w: &mut Witness<F>,
-    ) -> GroupAffine<F::Parameters>
+    ) -> GroupAffine<F>
     where
         Scale: Fn(
-            GroupAffine<F::Parameters>,
+            GroupAffine<F>,
             <F::Scalar as FieldWitness>::Shifting,
             &mut Witness<F>,
-        ) -> GroupAffine<F::Parameters>,
+        ) -> GroupAffine<F>,
     {
         let m = verification_key;
         let [sigma_comm_last] = &m.sigma[PERMUTS_MINUS_1_ADD_N1..] else {
@@ -1609,10 +1608,7 @@ mod step_verifier {
         w.add_fast(v, scaled)
     }
 
-    fn multiscale_known(
-        ts: &[(&Packed, InnerCurve<Fp>)],
-        w: &mut Witness<Fp>,
-    ) -> GroupAffine<PallasParameters> {
+    fn multiscale_known(ts: &[(&Packed, InnerCurve<Fp>)], w: &mut Witness<Fp>) -> GroupAffine<Fp> {
         let pow2pow = |x: InnerCurve<Fp>, n: usize| (0..n).fold(x, |acc, _| acc.clone() + acc);
 
         let (constant_part, non_constant_part): (Vec<_>, Vec<_>) =
@@ -1676,7 +1672,7 @@ mod step_verifier {
     }
 
     pub fn lagrange_commitment<F: FieldWitness>(
-        srs: &mut SRS<GroupAffine<F::Parameters>>,
+        srs: &mut SRS<GroupAffine<F>>,
         domain: &Domain,
         i: usize,
     ) -> InnerCurve<F> {
@@ -1706,10 +1702,10 @@ mod step_verifier {
     }
 
     fn scale_for_ft_comm(
-        g: GroupAffine<PallasParameters>,
+        g: GroupAffine<Fp>,
         f: <Fq as FieldWitness>::Shifting,
         w: &mut Witness<Fp>,
-    ) -> GroupAffine<PallasParameters> {
+    ) -> GroupAffine<Fp> {
         let scalar = to_high_low(f.shifted_raw());
         scale_fast2(CircuitVar::Var(g), scalar, 255, w)
     }
@@ -1719,9 +1715,9 @@ mod step_verifier {
         sponge: Sponge<Fp>,
         xi: [u64; 2],
         advice: &'a Advice<Fp>,
-        openings_proof: &'a OpeningProof<GroupAffine<PallasParameters>>,
-        srs: &'a SRS<GroupAffine<PallasParameters>>,
-        polynomials: (Vec<GroupAffine<PallasParameters>>, Vec<()>),
+        openings_proof: &'a OpeningProof<GroupAffine<Fp>>,
+        srs: &'a SRS<GroupAffine<Fp>>,
+        polynomials: (Vec<GroupAffine<Fp>>, Vec<()>),
     }
 
     fn check_bulletproof(
@@ -1882,9 +1878,9 @@ mod step_verifier {
         pub wrap_verification_key: &'a PlonkVerificationKeyEvals<Fp>,
         pub xi: [u64; 2],
         pub public_input: Vec<Packed>,
-        pub sg_old: &'a Vec<GroupAffine<PallasParameters>>,
+        pub sg_old: &'a Vec<GroupAffine<Fp>>,
         pub advice: &'a Advice<Fp>,
-        pub proof: &'a ProverProof<GroupAffine<PallasParameters>>,
+        pub proof: &'a ProverProof<GroupAffine<Fp>>,
         pub plonk: &'a Plonk<Fq>,
     }
 
@@ -2036,8 +2032,8 @@ mod step_verifier {
         pub wrap_domain: &'a ForStepKind<Domain>,
         pub is_base_case: Boolean,
         pub sponge_after_index: Sponge<Fp>,
-        pub sg_old: &'a Vec<GroupAffine<PallasParameters>>,
-        pub proof: &'a ProverProof<GroupAffine<PallasParameters>>,
+        pub sg_old: &'a Vec<GroupAffine<Fp>>,
+        pub proof: &'a ProverProof<GroupAffine<Fp>>,
         pub wrap_verification_key: &'a PlonkVerificationKeyEvals<Fp>,
         pub statement: &'a PreparedStatement,
         pub unfinalized: &'a Unfinalized,
@@ -2227,7 +2223,7 @@ impl std::fmt::Debug for Packed {
 
 fn extract_recursion_challenges(
     proofs: &[v2::LedgerProofProdStableV2; 2],
-) -> Vec<RecursionChallenge<GroupAffine<VestaParameters>>> {
+) -> Vec<RecursionChallenge<GroupAffine<Fq>>> {
     use poly_commitment::PolyComm;
 
     let (_, endo) = endos::<Fq>();

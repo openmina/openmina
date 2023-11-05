@@ -2,7 +2,6 @@
 
 use std::{borrow::Cow, ops::Neg, str::FromStr};
 
-use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, One, Zero};
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Radix2EvaluationDomain, UVPolynomial,
@@ -57,7 +56,7 @@ use super::{
     unfinalized::AllEvals,
     util::u64_to_field,
     witness::{
-        plonk_curve_ops::scale_fast, Check, PlonkVerificationKeyEvals,
+        plonk_curve_ops::scale_fast, Check, GroupAffine, PlonkVerificationKeyEvals,
         ReducedMessagesForNextStepProof, StepProofState, StepStatement, Witness,
     },
 };
@@ -598,8 +597,8 @@ fn exists_prev_statement(
 }
 
 /// Dummy.Ipa.Wrap.sg
-fn dummy_ipa_wrap_sg() -> GroupAffine<PallasParameters> {
-    type G = GroupAffine<PallasParameters>;
+fn dummy_ipa_wrap_sg() -> GroupAffine<Fp> {
+    type G = GroupAffine<Fp>;
 
     cache_one!(G, {
         use crate::proofs::public_input::scalar_challenge::ScalarChallenge;
@@ -1161,17 +1160,17 @@ const OTHER_FIELD_PACKED_CONSTANT_SIZE_IN_BITS: usize = 255;
 
 pub fn ft_comm<F: FieldWitness, Scale>(
     plonk: &Plonk<F::Scalar>,
-    t_comm: &PolyComm<GroupAffine<F::Parameters>>,
+    t_comm: &PolyComm<GroupAffine<F>>,
     verification_key: &PlonkVerificationKeyEvals<F>,
     scale: Scale,
     w: &mut Witness<F>,
-) -> GroupAffine<F::Parameters>
+) -> GroupAffine<F>
 where
     Scale: Fn(
-        GroupAffine<F::Parameters>,
+        GroupAffine<F>,
         <F::Scalar as FieldWitness>::Shifting,
         &mut Witness<F>,
-    ) -> GroupAffine<F::Parameters>,
+    ) -> GroupAffine<F>,
 {
     let m = verification_key;
     let [sigma_comm_last] = &m.sigma[PERMUTS_MINUS_1_ADD_N1..] else {
@@ -1302,7 +1301,7 @@ pub mod wrap_verifier {
         };
 
         let mut exists = |c: &InnerCurve<Fq>| {
-            let GroupAffine { x, y, .. } = c.to_affine();
+            let GroupAffine::<Fq> { x, y, .. } = c.to_affine();
             w.exists_no_check([y, x]); // Note: `y` first
         };
 
@@ -1617,10 +1616,10 @@ pub mod wrap_verifier {
     }
 
     pub fn lagrange_commitment<F: FieldWitness>(
-        srs: &mut SRS<GroupAffine<F::Parameters>>,
+        srs: &mut SRS<GroupAffine<F>>,
         d: u64,
         i: usize,
-    ) -> PolyComm<GroupAffine<F::Parameters>> {
+    ) -> PolyComm<GroupAffine<F>> {
         let d = d as usize;
         let x_domain = EvaluationDomain::<F::Scalar>::new(d).expect("invalid argument");
 
@@ -1640,7 +1639,7 @@ pub mod wrap_verifier {
             .map(|(d, _)| {
                 let d = 2u64.pow(d.h.log2_size() as u32);
                 match lagrange_commitment::<Fq>(srs, d, i).unshifted.as_slice() {
-                    &[GroupAffine { x, y, .. }] => (x, y),
+                    &[GroupAffine::<Fq> { x, y, .. }] => (x, y),
                     _ => unreachable!(),
                 }
             })
@@ -1694,11 +1693,11 @@ pub mod wrap_verifier {
                 .map(|((x, y), b)| {
                     let b = b.to_field::<Fq>();
                     let x = {
-                        let GroupAffine { x, y, .. } = x.to_affine();
+                        let GroupAffine::<Fq> { x, y, .. } = x.to_affine();
                         make_group(b * x, b * y)
                     };
                     let y = {
-                        let GroupAffine { x, y, .. } = y.to_affine();
+                        let GroupAffine::<Fq> { x, y, .. } = y.to_affine();
                         make_group(b * x, b * y)
                     };
                     (x, y)
@@ -1719,11 +1718,11 @@ pub mod wrap_verifier {
 
     // TODO: We might have to use F::Scalar here
     fn scale_fast2<F: FieldWitness>(
-        g: GroupAffine<F::Parameters>,
+        g: GroupAffine<F>,
         (s_div_2, s_odd): (F, Boolean),
         num_bits: usize,
         w: &mut Witness<F>,
-    ) -> GroupAffine<F::Parameters> {
+    ) -> GroupAffine<F> {
         use crate::proofs::witness::plonk_curve_ops::scale_fast_unpack;
 
         let s_div_2_bits = num_bits - 1;
@@ -1751,11 +1750,11 @@ pub mod wrap_verifier {
 
     // TODO: We might have to use F::Scalar here
     fn scale_fast2_prime<F: FieldWitness>(
-        g: GroupAffine<F::Parameters>,
+        g: GroupAffine<F>,
         s: F,
         num_bits: usize,
         w: &mut Witness<F>,
-    ) -> GroupAffine<F::Parameters> {
+    ) -> GroupAffine<F> {
         let s_parts = w.exists({
             // TODO: Here `s` is a `F` but needs to be read as a `F::Scalar`
             let bigint: BigInteger256 = s.into();
@@ -1767,7 +1766,7 @@ pub mod wrap_verifier {
         scale_fast2(g, s_parts, num_bits, w)
     }
 
-    pub fn group_map<F: FieldWitness>(x: F, w: &mut Witness<F>) -> GroupAffine<F::Parameters> {
+    pub fn group_map<F: FieldWitness>(x: F, w: &mut Witness<F>) -> GroupAffine<F> {
         use crate::proofs::group_map;
 
         let params = group_map::bw19::Params::<F>::create();
@@ -1782,8 +1781,8 @@ pub mod wrap_verifier {
 
         #[derive(Clone, Debug)]
         pub enum Point<F: FieldWitness> {
-            Finite(GroupAffine<F::Parameters>),
-            MaybeFinite(CircuitVar<Boolean>, GroupAffine<F::Parameters>),
+            Finite(GroupAffine<F>),
+            MaybeFinite(CircuitVar<Boolean>, GroupAffine<F>),
         }
 
         impl<F: FieldWitness> Point<F> {
@@ -1794,18 +1793,14 @@ pub mod wrap_verifier {
                 }
             }
 
-            pub fn add(
-                &self,
-                q: GroupAffine<F::Parameters>,
-                w: &mut Witness<F>,
-            ) -> GroupAffine<F::Parameters> {
+            pub fn add(&self, q: GroupAffine<F>, w: &mut Witness<F>) -> GroupAffine<F> {
                 match self {
                     Point::Finite(p) => w.add_fast(*p, q),
                     Point::MaybeFinite(_, _) => todo!(),
                 }
             }
 
-            pub fn underlying(&self) -> GroupAffine<F::Parameters> {
+            pub fn underlying(&self) -> GroupAffine<F> {
                 match self {
                     Point::Finite(p) => p.clone(),
                     Point::MaybeFinite(_, p) => p.clone(),
@@ -1815,7 +1810,7 @@ pub mod wrap_verifier {
 
         #[derive(Debug)]
         pub struct CurveOpt<F: FieldWitness> {
-            pub point: GroupAffine<F::Parameters>,
+            pub point: GroupAffine<F>,
             pub non_zero: CircuitVar<Boolean>,
         }
 
@@ -1825,7 +1820,7 @@ pub mod wrap_verifier {
             without_bound: &[(CircuitVar<Boolean>, Point<F>)],
             with_bound: &[()],
             w: &mut Witness<F>,
-        ) -> GroupAffine<F::Parameters> {
+        ) -> GroupAffine<F> {
             let CurveOpt { point, non_zero } =
                 PcsBatch::combine_split_commitments::<F, _, _, _, CurveOpt<F>>(
                     |(keep, p), w| CurveOpt {
@@ -1868,14 +1863,13 @@ pub mod wrap_verifier {
 
     pub fn bullet_reduce<F: FieldWitness>(
         sponge: &mut Sponge<F>,
-        gammas: &[(GroupAffine<F::Parameters>, GroupAffine<F::Parameters>)],
+        gammas: &[(GroupAffine<F>, GroupAffine<F>)],
         w: &mut Witness<F>,
-    ) -> (GroupAffine<F::Parameters>, Vec<F>) {
-        let absorb_curve =
-            |c: &GroupAffine<F::Parameters>, sponge: &mut Sponge<F>, w: &mut Witness<F>| {
-                let GroupAffine { x, y, .. } = c;
-                sponge.absorb(&[*x, *y], w);
-            };
+    ) -> (GroupAffine<F>, Vec<F>) {
+        let absorb_curve = |c: &GroupAffine<F>, sponge: &mut Sponge<F>, w: &mut Witness<F>| {
+            let GroupAffine::<F> { x, y, .. } = c;
+            sponge.absorb(&[*x, *y], w);
+        };
 
         let prechallenges = gammas
             .iter()
@@ -1886,12 +1880,11 @@ pub mod wrap_verifier {
             })
             .collect::<Vec<_>>();
 
-        let mut term_and_challenge =
-            |(l, r): &(GroupAffine<F::Parameters>, GroupAffine<F::Parameters>), pre: F| {
-                let left_term = scalar_challenge::endo_inv::<F, F, 128>(*l, pre, w);
-                let right_term = scalar_challenge::endo::<F, F, 128>(*r, pre, w);
-                (w.add_fast(left_term, right_term), pre)
-            };
+        let mut term_and_challenge = |(l, r): &(GroupAffine<F>, GroupAffine<F>), pre: F| {
+            let left_term = scalar_challenge::endo_inv::<F, F, 128>(*l, pre, w);
+            let right_term = scalar_challenge::endo::<F, F, 128>(*r, pre, w);
+            (w.add_fast(left_term, right_term), pre)
+        };
 
         let (terms, challenges): (Vec<_>, Vec<_>) = gammas
             .iter()
@@ -1909,8 +1902,8 @@ pub mod wrap_verifier {
     }
 
     pub fn equal_g<F: FieldWitness>(
-        g1: GroupAffine<F::Parameters>,
-        g2: GroupAffine<F::Parameters>,
+        g1: GroupAffine<F>,
+        g2: GroupAffine<F>,
         w: &mut Witness<F>,
     ) -> Boolean {
         let g1: Vec<F> = g1.to_field_elements_owned();
@@ -1930,7 +1923,7 @@ pub mod wrap_verifier {
         xi: [u64; 2],
         advice: &'a Advice<Fq>,
         openings_proof: &'a OpeningProof<Vesta>,
-        srs: &'a SRS<GroupAffine<VestaParameters>>,
+        srs: &'a SRS<GroupAffine<Fq>>,
         polynomials: (
             Vec<(CircuitVar<Boolean>, split_commitments::Point<Fq>)>,
             Vec<()>,
@@ -1985,11 +1978,10 @@ pub mod wrap_verifier {
             w.add_fast(combined_polynomial, uc)
         };
 
-        let absorb_curve =
-            |c: &GroupAffine<VestaParameters>, sponge: &mut Sponge<Fq>, w: &mut Witness<Fq>| {
-                let GroupAffine { x, y, .. } = c;
-                sponge.absorb(&[*x, *y], w);
-            };
+        let absorb_curve = |c: &GroupAffine<Fq>, sponge: &mut Sponge<Fq>, w: &mut Witness<Fq>| {
+            let GroupAffine::<Fq> { x, y, .. } = c;
+            sponge.absorb(&[*x, *y], w);
+        };
 
         let q = w.add_fast(p_prime, lr_prod);
 
@@ -2063,7 +2055,7 @@ pub mod wrap_verifier {
 
         let mut absorb_curve =
             |b: &CircuitVar<Boolean>, c: &InnerCurve<Fq>, sponge: &mut OptSponge<Fq>| {
-                let GroupAffine { x, y, .. } = c.to_affine();
+                let GroupAffine::<Fq> { x, y, .. } = c.to_affine();
                 sponge.absorb((*b, x));
                 sponge.absorb((*b, y));
             };
@@ -2363,7 +2355,7 @@ impl ToFieldElements<Fq> for poly_commitment::evaluation_proof::OpeningProof<Ves
         } = self;
 
         let push = |c: &Vesta, fields: &mut Vec<Fq>| {
-            let GroupAffine { x, y, .. } = c;
+            let GroupAffine::<Fq> { x, y, .. } = c;
             x.to_field_elements(fields);
             y.to_field_elements(fields);
         };
@@ -2407,7 +2399,7 @@ impl ToFieldElements<Fq> for kimchi::proof::ProverCommitments<Vesta> {
 
         let mut push_poly = |poly: &PolyComm<Vesta>| {
             let PolyComm { unshifted, shifted } = poly;
-            for GroupAffine { x, y, .. } in unshifted {
+            for GroupAffine::<Fq> { x, y, .. } in unshifted {
                 x.to_field_elements(fields);
                 y.to_field_elements(fields);
             }
