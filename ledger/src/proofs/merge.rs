@@ -1410,8 +1410,6 @@ mod step_verifier {
             NotOpt(T2),
         }
 
-        // TODO: Refactor/clean this, it's a mess
-
         let ReducedMessagesForNextStepProof {
             app_state,
             challenge_polynomial_commitments,
@@ -1442,17 +1440,19 @@ mod step_verifier {
 
         let both = challenge_polynomial_commitments
             .zip(old_bulletproof_challenges)
-            .map(|(c, o)| c.into_iter().chain(o.into_iter()));
+            .map(|(c, o)| c.into_iter().chain(o.into_iter()))
+            .flatten();
 
+        let sponge = Box::new(sponge);
         let res = app_state
-            .chain(both.flatten())
+            .chain(both)
             .fold(MaybeOpt::NotOpt(sponge), |acc, v| match (acc, v) {
                 (MaybeOpt::NotOpt(mut sponge), MaybeOpt::NotOpt(v)) => {
                     sponge.absorb(&[v], w);
                     MaybeOpt::NotOpt(sponge)
                 }
                 (MaybeOpt::NotOpt(sponge), MaybeOpt::Opt(b, v)) => {
-                    let mut sponge = OptSponge::of_sponge(sponge, w);
+                    let mut sponge = Box::new(OptSponge::of_sponge(*sponge, w));
                     sponge.absorb((CircuitVar::Var(b), v));
                     MaybeOpt::Opt(Boolean::True, sponge)
                 }
@@ -2654,7 +2654,10 @@ pub fn generate_merge_proof(
 
     let proof_json = serde_json::to_vec(&proof).unwrap();
     std::fs::write("/tmp/PROOF_RUST_WRAP.json", &proof_json).unwrap();
-    assert_eq!(sum(&proof_json), "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8");
+    assert_eq!(
+        sum(&proof_json),
+        "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8"
+    );
 
     dbg!(w.aux.len(), w.ocaml_aux.len());
 
