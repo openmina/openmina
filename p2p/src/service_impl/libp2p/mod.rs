@@ -2,6 +2,7 @@ mod behavior;
 pub use behavior::Event as BehaviourEvent;
 pub use behavior::*;
 use mina_p2p_messages::rpc::GetSomeInitialPeersV1ForV2;
+use openmina_core::rate_limiter::RateLimiter;
 
 mod discovery;
 
@@ -34,7 +35,9 @@ use libp2p::{PeerId, Swarm, Transport};
 
 pub use mina_p2p_messages::gossip::GossipNetMessageV2 as GossipNetMessage;
 
-use libp2p_rpc_behaviour::{BehaviourBuilder, Event as RpcBehaviourEvent, StreamId};
+use libp2p_rpc_behaviour::{
+    BehaviourBuilder, Event as RpcBehaviourEvent, Handler as CodaRpcsHandler, StreamId,
+};
 
 use crate::channels::best_tip::BestTipPropagationChannelMsg;
 use crate::channels::rpc::{
@@ -124,6 +127,7 @@ impl Libp2pService {
         libp2p_port: Option<u16>,
         secret_key: SecretKey,
         chain_id: String,
+        requests_per_duration: u64,
         event_source_sender: mpsc::UnboundedSender<E>,
         spawner: S,
     ) -> Self
@@ -183,6 +187,7 @@ impl Libp2pService {
         };
 
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
+        let mut rate_limiter = RateLimiter::new(requests_per_duration);
 
         let fut = async move {
             let (transport, id) = Self::build_transport(chain_id, identity_keys)
@@ -205,7 +210,7 @@ impl Libp2pService {
             loop {
                 select! {
                     event = swarm.next() => match event {
-                        Some(event) => Self::handle_event(&mut swarm, event).await,
+                        Some(event) => Self::handle_event(&mut swarm, event, &mut rate_limiter).await,
                         None => break,
                     },
                     cmd = cmd_receiver.recv().fuse() => match cmd {
@@ -452,6 +457,7 @@ impl Libp2pService {
     async fn handle_event<E: From<P2pEvent>, Err: std::error::Error>(
         swarm: &mut Swarm<Behaviour<E>>,
         event: SwarmEvent<BehaviourEvent, Err>,
+        rate_limiter: &mut RateLimiter,
     ) {
         match event {
             SwarmEvent::NewListenAddr {
@@ -586,7 +592,7 @@ impl Libp2pService {
                     let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
                 }
                 BehaviourEvent::Rpc((peer_id, event)) => {
-                    Self::handle_event_rpc(swarm, peer_id, event);
+                    Self::handle_event_rpc(swarm, peer_id, event, rate_limiter);
                 }
                 BehaviourEvent::Identify(identify::Event::Received { peer_id, info }) => {
                     if let Some(maddr) = info.listen_addrs.first() {
@@ -620,6 +626,7 @@ impl Libp2pService {
         swarm: &mut Swarm<Behaviour<E>>,
         peer_id: PeerId,
         event: RpcBehaviourEvent,
+        rate_limiter: &mut RateLimiter,
     ) {
         let sender = swarm.behaviour_mut().event_source_sender.clone();
         let send = |event: P2pEvent| {
@@ -690,6 +697,13 @@ impl Libp2pService {
                         bytes,
                     } => {
                         let tag = tag.to_string_lossy();
+
+                        if CodaRpcsHandler::PROTOCOL_FUNCTIONS.contains(&tag.as_str()) {
+                            if !rate_limiter.check() {
+                                send_error("Too many requests".to_owned());
+                                return;
+                            }
+                        }
 
                         swarm
                             .behaviour_mut()

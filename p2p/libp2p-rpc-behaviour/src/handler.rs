@@ -13,6 +13,15 @@ use libp2p::{
         SubstreamProtocol,
     },
 };
+use mina_p2p_messages::{
+    rpc::{
+        AnswerSyncLedgerQueryV1, BanNotifyV1, GetAncestryV1, GetBestTipV1, GetEpochLedgerV1,
+        GetNodeStatusV1, GetSomeInitialPeersV1, GetStagedLedgerAuxAndPendingCoinbasesAtHashV1,
+        GetTransitionChainProofV1, GetTransitionChainV1, GetTransitionKnowledgeV1,
+        VersionedRpcMenuV1,
+    },
+    rpc_kernel::RpcMethod,
+};
 
 use super::{
     behaviour::{Event, StreamId},
@@ -38,6 +47,22 @@ pub struct Handler {
 
 impl Handler {
     const PROTOCOL_NAME: [u8; 15] = *b"coda/rpcs/0.0.1";
+
+    /// These are functions `coda/rpcs/0.0.1` here are selected v1 but v2 have same name
+    pub const PROTOCOL_FUNCTIONS: [&'static str; 12] = [
+        GetSomeInitialPeersV1::NAME,
+        GetStagedLedgerAuxAndPendingCoinbasesAtHashV1::NAME,
+        AnswerSyncLedgerQueryV1::NAME,
+        GetAncestryV1::NAME,
+        GetBestTipV1::NAME,
+        GetNodeStatusV1::NAME,
+        GetTransitionChainProofV1::NAME,
+        GetTransitionChainV1::NAME,
+        GetTransitionKnowledgeV1::NAME,
+        GetEpochLedgerV1::NAME,
+        VersionedRpcMenuV1::NAME,
+        BanNotifyV1::NAME,
+    ];
 
     pub fn new(menu: Arc<BTreeSet<(&'static str, i32)>>) -> Self {
         Handler {

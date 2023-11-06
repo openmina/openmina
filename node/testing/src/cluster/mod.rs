@@ -165,6 +165,7 @@ impl Cluster {
             Some(libp2p_port),
             secret_key,
             testing_config.chain_id,
+            testing_config.requests_per_duration,
             p2p_event_sender.clone(),
             P2pTaskSpawner::new(shutdown_tx.clone()),
         );

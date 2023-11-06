@@ -84,6 +84,9 @@ pub struct Node {
 
     #[arg(long, default_value = "none")]
     pub additional_ledgers_path: Option<PathBuf>,
+
+    #[arg(long, default_value = "10")]
+    pub requests_per_duration: u64,
 }
 
 fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
@@ -178,6 +181,7 @@ impl Node {
             Some(self.libp2p_port),
             secret_key,
             CHAIN_ID.to_owned(),
+            self.requests_per_duration,
             p2p_event_sender.clone(),
             P2pTaskSpawner {},
         );
