@@ -53,7 +53,9 @@ impl P2pKademliaState {
                 }
             }
             P2pDiscoveryAction::KademliaFailure(_) => {
-                self.saturated = Some(meta.time());
+                if !self.known_peers.is_empty() {
+                    self.saturated = Some(meta.time());
+                }
                 self.outgoing_requests -= 1;
             }
         }

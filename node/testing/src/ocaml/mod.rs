@@ -6,14 +6,17 @@ use std::{
     process::{Child, Command},
 };
 
+use libp2p::Multiaddr;
+
 pub struct Node {
     child: Child,
-    port: u16,
-    peer_id: libp2p::PeerId,
+    pub port: u16,
+    pub peer_id: libp2p::PeerId,
 }
 
 impl Node {
-    pub fn spawn_berkeley(port: u16, rest_port: u16) -> Self {
+    pub fn spawn_berkeley(port: u16, rest_port: u16, peers: Option<&[&Multiaddr]>) -> Self {
+        fs::remove_dir_all("/root/.mina-config").unwrap_or_default();
         let id = rand::random::<u64>();
         let temp_dir = env::temp_dir().join(format!("mina-test-key-{id:016x}"));
         fs::create_dir_all(&temp_dir).expect("create test dir");
@@ -32,13 +35,12 @@ impl Node {
             .trim_end_matches('\n')
             .parse()
             .expect("peer id is invalid");
-        let child = Command::new("mina")
-            .env("MINA_LIBP2P_PASS", "")
+        let mut cmd = Command::new("mina");
+
+        cmd.env("MINA_LIBP2P_PASS", "")
             .env("DUNE_PROFILE", "devnet")
             .args(&[
                 "daemon",
-                "--peer-list-url",
-                "https://storage.googleapis.com/seed-lists/berkeley_seeds.txt",
                 "--libp2p-keypair",
                 temp_key.display().to_string().as_str(),
                 "--insecure-rest-server",
@@ -46,9 +48,23 @@ impl Node {
                 port.to_string().as_str(),
                 "--rest-port",
                 rest_port.to_string().as_str(),
-            ])
-            .spawn()
-            .expect("ocaml node");
+            ]);
+        if let Some(peers) = peers {
+            cmd.args(
+                peers
+                    .into_iter()
+                    .map(|p| ["--peer".to_string(), p.to_string()])
+                    .flatten(),
+            );
+        } else {
+            cmd.args(&[
+                "--peer-list-url",
+                "https://storage.googleapis.com/seed-lists/berkeley_seeds.txt",
+            ]);
+        }
+
+        let child = cmd.spawn().expect("ocaml node");
+
         Self {
             child,
             port,
@@ -72,7 +88,7 @@ impl Node {
 fn run_ocaml() {
     use std::io::{BufRead, BufReader};
 
-    let mut node = Node::spawn_berkeley(8302, 3086);
+    let mut node = Node::spawn_berkeley(8302, 3086, None);
     let stdout = node.child.stdout.take().unwrap();
     std::thread::spawn(move || {
         for line in BufRead::lines(BufReader::new(stdout)) {
