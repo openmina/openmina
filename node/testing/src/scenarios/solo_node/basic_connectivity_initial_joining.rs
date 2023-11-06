@@ -1,9 +1,11 @@
 use std::time::Duration;
 
+use libp2p::Multiaddr;
+
+use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+
 use crate::{
-    node::RustNodeTestingConfig,
-    scenario::{ListenerNode, ScenarioStep},
-    scenarios::cluster_runner::ClusterRunner,
+    node::RustNodeTestingConfig, scenario::ScenarioStep, scenarios::cluster_runner::ClusterRunner,
 };
 
 /// Local test to ensure that the Openmina node can connect to an existing OCaml testnet.
@@ -21,26 +23,34 @@ impl SoloNodeBasicConnectivityInitialJoining {
         const KNOWN_PEERS: usize = 7; // current berkeley network
         const STEPS: usize = 4_000;
 
-        let mut nodes = vec![];
-
-        let node = runner
-            .add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(MAX_PEERS_PER_NODE));
-
         let seeds = [
             "/dns4/seed-1.berkeley.o1test.net/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
             "/dns4/seed-2.berkeley.o1test.net/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
             "/dns4/seed-3.berkeley.o1test.net/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
         ];
-        for seed in seeds {
-            runner
-                .exec_step(ScenarioStep::ConnectNodes {
-                    dialer: node,
-                    listener: ListenerNode::Custom(seed.parse().unwrap()),
-                })
-                .await
-                .unwrap();
-        }
-        nodes.push(node);
+
+        let initial_peers = seeds
+            .into_iter()
+            .map(|s| s.parse::<Multiaddr>().unwrap())
+            .map(|maddr| P2pConnectionOutgoingInitOpts::try_from(&maddr).unwrap())
+            .collect::<Vec<_>>();
+        let config = RustNodeTestingConfig::berkeley_default()
+            .ask_initial_peers_interval(Duration::from_secs(3600))
+            .max_peers(MAX_PEERS_PER_NODE)
+            .initial_peers(initial_peers);
+
+        let node_id = runner.add_rust_node(config);
+
+        // dbg!(libp2p::PeerId::from(
+        //     runner
+        //         .node(node_id)
+        //         .expect("must exist")
+        //         .state()
+        //         .p2p
+        //         .config
+        //         .identity_pub_key
+        //         .peer_id()
+        // ));
 
         for step in 0..STEPS {
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -55,35 +65,35 @@ impl SoloNodeBasicConnectivityInitialJoining {
                 })
                 .flatten()
                 .collect::<Vec<_>>();
+
             for step in steps {
                 runner.exec_step(step).await.unwrap();
             }
-            for &node_id in &nodes {
-                runner
-                    .exec_step(ScenarioStep::AdvanceNodeTime {
-                        node_id,
-                        by_nanos: 100_000_000,
-                    })
-                    .await
-                    .unwrap();
 
-                runner
-                    .exec_step(ScenarioStep::CheckTimeouts { node_id })
-                    .await
-                    .unwrap();
+            runner
+                .exec_step(ScenarioStep::AdvanceNodeTime {
+                    node_id,
+                    by_nanos: 100_000_000,
+                })
+                .await
+                .unwrap();
 
-                let node = runner.node(node_id).expect("must exist");
-                let ready_peers = node.state().p2p.ready_peers_iter().count();
-                let known_peers = node.state().p2p.kademlia.known_peers.len();
+            runner
+                .exec_step(ScenarioStep::CheckTimeouts { node_id })
+                .await
+                .unwrap();
 
-                println!("step: {step}");
-                println!("known peers: {known_peers}");
-                println!("connected peers: {ready_peers}");
+            let node = runner.node(node_id).expect("must exist");
+            let ready_peers = node.state().p2p.ready_peers_iter().count();
+            let known_peers = node.state().p2p.kademlia.known_peers.len();
 
-                // TODO: the threshold is too small, node cannot connect to many peer before the timeout
-                if ready_peers >= 3 && known_peers >= KNOWN_PEERS {
-                    return;
-                }
+            println!("step: {step}");
+            println!("known peers: {known_peers}");
+            println!("connected peers: {ready_peers}");
+
+            // TODO: the threshold is too small, node cannot connect to many peer before the timeout
+            if ready_peers >= KNOWN_PEERS && known_peers >= KNOWN_PEERS {
+                return;
             }
         }
 

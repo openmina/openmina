@@ -36,15 +36,7 @@ pub enum Scenarios {
 impl Scenarios {
     // Turn off global test
     pub fn iter() -> impl IntoIterator<Item = Scenarios> {
-        <Self as strum::IntoEnumIterator>::iter().filter(|s| !s.skip())
-    }
-
-    fn skip(&self) -> bool {
-        match self {
-            Self::SoloNodeSyncRootSnarkedLedger(_) => false,
-            Self::SoloNodeBasicConnectivityInitialJoining(_) => false,
-            Self::MultiNodeBasicConnectivityInitialJoining(_) => !cfg!(feature = "p2p-webrtc"),
-        }
+        <Self as strum::IntoEnumIterator>::iter()
     }
 
     pub fn id(self) -> ScenarioId {

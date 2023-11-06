@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -14,6 +15,7 @@ pub struct RustNodeTestingConfig {
     pub initial_time: redux::Timestamp,
     pub max_peers: usize,
     pub ask_initial_peers_interval: Duration,
+    pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
 }
 
 impl RustNodeTestingConfig {
@@ -23,6 +25,7 @@ impl RustNodeTestingConfig {
             initial_time: redux::Timestamp::ZERO,
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),
+            initial_peers: vec![],
         }
     }
 
@@ -38,6 +41,11 @@ impl RustNodeTestingConfig {
 
     pub fn ask_initial_peers_interval(mut self, d: Duration) -> Self {
         self.ask_initial_peers_interval = d;
+        self
+    }
+
+    pub fn initial_peers(mut self, v: Vec<P2pConnectionOutgoingInitOpts>) -> Self {
+        self.initial_peers = v;
         self
     }
 }

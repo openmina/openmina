@@ -53,6 +53,7 @@ impl P2pKademliaState {
                 }
             }
             P2pDiscoveryAction::KademliaFailure(_) => {
+                self.saturated = Some(meta.time());
                 self.outgoing_requests -= 1;
             }
         }

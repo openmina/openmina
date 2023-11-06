@@ -8,6 +8,8 @@ pub mod scenario;
 pub mod scenarios;
 pub mod service;
 
+pub mod ocaml;
+
 mod server;
 pub use server::server;
 
