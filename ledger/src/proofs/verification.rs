@@ -15,6 +15,7 @@ use crate::{
         BACKEND_TICK_ROUNDS_N,
     },
     scan_state::{
+        protocol_state::MinaHash,
         scan_state::transaction_snark::{SokDigest, Statement},
         transaction_logic::zkapp_statement::ZkappStatement,
     },
@@ -844,7 +845,7 @@ pub fn verify_block(
     };
 
     let accum_check = accumulator_check::accumulator_check(srs, protocol_state_proof);
-    let verified = verify_impl(protocol_state, protocol_state_proof, &vk);
+    let verified = verify_impl(&MinaHash::hash(protocol_state), protocol_state_proof, &vk);
     accum_check && verified
 }
 

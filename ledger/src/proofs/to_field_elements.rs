@@ -23,12 +23,6 @@ pub trait ToFieldElements<F: Field> {
     }
 }
 
-impl ToFieldElements<Fp> for MinaStateProtocolStateValueStableV2 {
-    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
-        fields.push(MinaHash::hash(self))
-    }
-}
-
 impl ToFieldElements<Fp> for ZkappStatement {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         fields.extend(self.to_field_elements())
