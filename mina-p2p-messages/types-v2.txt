@@ -15,5 +15,6 @@ Sync_status.T.Stable.V1.t
 Trust_system__Peer_status.Stable.V1.t
 Blockchain_snark__Blockchain.Stable.V2.t
 Transaction_witness.Stable.V2.t
+Prover.Extend_blockchain_input.Stable.V2.t
 Snark_worker.Worker.Rpcs_versioned.Get_work.V2.T.response
 Snark_worker.Worker.Rpcs_versioned.Submit_work.V2.T.query

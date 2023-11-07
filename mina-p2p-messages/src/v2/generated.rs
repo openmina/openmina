@@ -260,6 +260,20 @@ pub struct TransactionWitnessStableV2 {
     pub block_global_slot: MinaNumbersGlobalSlotSinceGenesisMStableV1,
 }
 
+/// **OCaml name**: `Prover.Extend_blockchain_input.Stable.V2`
+///
+/// Gid: `1263`
+/// Location: [src/lib/prover/prover.ml:16:6](https://github.com/MinaProtocol/mina/blob/14047c5551/src/lib/prover/prover.ml#L16)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct ProverExtendBlockchainInputStableV2 {
+    pub chain: BlockchainSnarkBlockchainStableV2,
+    pub next_state: MinaStateProtocolStateValueStableV2,
+    pub block: MinaStateSnarkTransitionValueStableV2,
+    pub ledger_proof: Option<LedgerProofProdStableV2>,
+    pub prover_state: ConsensusStakeProofStableV2,
+    pub pending_coinbase: MinaBasePendingCoinbaseWitnessStableV2,
+}
+
 /// **OCaml name**: `Snark_worker.Worker.Rpcs_versioned.Get_work.V2.T.response`
 ///
 /// Gid: `1119`
@@ -782,6 +796,13 @@ pub struct NonZeroCurvePointUncompressedStableV1 {
     pub x: crate::bigint::BigInt,
     pub is_odd: bool,
 }
+
+/// **OCaml name**: `Signature_lib__Private_key.Stable.V1`
+///
+/// Gid: `567`
+/// Location: [src/lib/signature_lib/private_key.ml:11:4](https://github.com/MinaProtocol/mina/blob/14047c5551/src/lib/signature_lib/private_key.ml#L11)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+pub struct SignatureLibPrivateKeyStableV1(pub crate::bigint::BigInt);
 
 /// **OCaml name**: `Unsigned_extended.UInt64.Int64_for_version_tags.Stable.V1`
 ///
@@ -1442,6 +1463,21 @@ pub struct MinaBaseZkappAccountStableV2 {
     pub zkapp_uri: MinaBaseZkappAccountZkappUriStableV1,
 }
 
+/// **OCaml name**: `Mina_base__Account.Index.Stable.V1`
+///
+/// Gid: `764`
+/// Location: [src/lib/mina_base/account.ml:18:6](https://github.com/MinaProtocol/mina/blob/14047c5551/src/lib/mina_base/account.ml#L18)
+///
+///
+/// Gid: `163`
+/// Location: [src/std_internal.ml:119:2](https://github.com/MinaProtocol/mina/blob/14047c5551/src/std_internal.ml#L119)
+///
+///
+/// Gid: `113`
+/// Location: [src/int.ml:19:6](https://github.com/MinaProtocol/mina/blob/14047c5551/src/int.ml#L19)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+pub struct MinaBaseAccountIndexStableV1(pub crate::number::Int64);
+
 /// Derived name: `Mina_base__Zkapp_precondition.Protocol_state.Epoch_data.Stable.V1.epoch_ledger`
 ///
 /// Gid: `772`
@@ -2003,6 +2039,33 @@ pub struct MinaBasePendingCoinbaseStateStackStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
 pub struct MinaBasePendingCoinbaseHashBuilderStableV1(pub crate::bigint::BigInt);
 
+/// **OCaml name**: `Mina_base__Pending_coinbase.Make_str.Update.Action.Stable.V1`
+///
+/// Gid: `857`
+/// Location: [src/lib/mina_base/pending_coinbase.ml:407:10](https://github.com/MinaProtocol/mina/blob/14047c5551/src/lib/mina_base/pending_coinbase.ml#L407)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaBasePendingCoinbaseUpdateActionStableV1 {
+    UpdateNone,
+    UpdateOne,
+    UpdateTwoCoinbaseInFirst,
+    UpdateTwoCoinbaseInSecond,
+}
+
+/// **OCaml name**: `Mina_base__Pending_coinbase.Make_str.Update.Stable.V1`
+///
+/// Gid: `859`
+/// Location: [src/lib/mina_base/pending_coinbase.ml:473:8](https://github.com/MinaProtocol/mina/blob/14047c5551/src/lib/mina_base/pending_coinbase.ml#L473)
+///
+///
+/// Gid: `858`
+/// Location: [src/lib/mina_base/pending_coinbase.ml:463:10](https://github.com/MinaProtocol/mina/blob/14047c5551/src/lib/mina_base/pending_coinbase.ml#L463)
+/// Args: MinaBasePendingCoinbaseUpdateActionStableV1 , CurrencyAmountStableV1
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBasePendingCoinbaseUpdateStableV1 {
+    pub action: MinaBasePendingCoinbaseUpdateActionStableV1,
+    pub coinbase_amount: CurrencyAmountStableV1,
+}
+
 /// **OCaml name**: `Mina_base__Pending_coinbase.Make_str.Stack_versioned.Stable.V1`
 ///
 /// Gid: `861`
@@ -2140,6 +2203,16 @@ pub struct MinaBaseProtocolConstantsCheckedValueStableV1 {
 /// Location: [src/lib/mina_base/proof.ml:12:4](https://github.com/MinaProtocol/mina/blob/14047c5551/src/lib/mina_base/proof.ml#L12)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
 pub struct MinaBaseProofStableV2(pub PicklesProofProofsVerified2ReprStableV2);
+
+/// **OCaml name**: `Mina_base__Pending_coinbase_witness.Stable.V2`
+///
+/// Gid: `877`
+/// Location: [src/lib/mina_base/pending_coinbase_witness.ml:6:4](https://github.com/MinaProtocol/mina/blob/14047c5551/src/lib/mina_base/pending_coinbase_witness.ml#L6)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBasePendingCoinbaseWitnessStableV2 {
+    pub pending_coinbases: MinaBasePendingCoinbaseStableV2,
+    pub is_new_stack: bool,
+}
 
 /// **OCaml name**: `Mina_base__Call_stack_digest.Make_str.Stable.V1`
 ///
@@ -2347,6 +2420,20 @@ pub enum TrustSystemBannedStatusStableV1 {
 #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
 pub struct ConsensusVrfOutputTruncatedStableV1(pub crate::string::ByteString);
 
+/// **OCaml name**: `Consensus__Stake_proof.Stable.V2`
+///
+/// Gid: `937`
+/// Location: [src/lib/consensus/stake_proof.ml:10:4](https://github.com/MinaProtocol/mina/blob/14047c5551/src/lib/consensus/stake_proof.ml#L10)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct ConsensusStakeProofStableV2 {
+    pub delegator: MinaBaseAccountIndexStableV1,
+    pub delegator_pk: NonZeroCurvePoint,
+    pub coinbase_receiver_pk: NonZeroCurvePoint,
+    pub ledger: MinaBaseSparseLedgerBaseStableV2,
+    pub producer_private_key: SignatureLibPrivateKeyStableV1,
+    pub producer_public_key: NonZeroCurvePoint,
+}
+
 /// **OCaml name**: `Consensus__Body_reference.Stable.V1`
 ///
 /// Gid: `945`
@@ -2489,6 +2576,22 @@ pub struct MinaStateBlockchainStateValueStableV2 {
     pub ledger_proof_statement: MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     pub timestamp: BlockTimeTimeStableV1,
     pub body_reference: ConsensusBodyReferenceStableV1,
+}
+
+/// **OCaml name**: `Mina_state__Snark_transition.Value.Stable.V2`
+///
+/// Gid: `985`
+/// Location: [src/lib/mina_state/snark_transition.ml:25:6](https://github.com/MinaProtocol/mina/blob/14047c5551/src/lib/mina_state/snark_transition.ml#L25)
+///
+///
+/// Gid: `984`
+/// Location: [src/lib/mina_state/snark_transition.ml:8:6](https://github.com/MinaProtocol/mina/blob/14047c5551/src/lib/mina_state/snark_transition.ml#L8)
+/// Args: MinaStateBlockchainStateValueStableV2 , MinaNumbersGlobalSlotSinceHardForkMStableV1 , MinaBasePendingCoinbaseUpdateStableV1
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaStateSnarkTransitionValueStableV2 {
+    pub blockchain_state: MinaStateBlockchainStateValueStableV2,
+    pub consensus_transition: MinaNumbersGlobalSlotSinceHardForkMStableV1,
+    pub pending_coinbase_update: MinaBasePendingCoinbaseUpdateStableV1,
 }
 
 /// **OCaml name**: `Mina_state__Protocol_state.Make_str.Body.Value.Stable.V2`
