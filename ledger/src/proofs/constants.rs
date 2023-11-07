@@ -10,6 +10,7 @@ pub trait ProofConstants {
 pub struct RegularTransactionProof {}
 pub struct WrapProof {}
 pub struct MergeProof {}
+pub struct BlockProof {}
 
 impl ProofConstants for RegularTransactionProof {
     const PRIMARY_LEN: usize = 67;
@@ -30,4 +31,11 @@ impl ProofConstants for MergeProof {
     const AUX_LEN: usize = 352536;
     const PREVIOUS_CHALLENGES: usize = 2;
     const ROWS: usize = 29010;
+}
+
+impl ProofConstants for BlockProof {
+    const PRIMARY_LEN: usize = 67;
+    const AUX_LEN: usize = 339034;
+    const PREVIOUS_CHALLENGES: usize = 2;
+    const ROWS: usize = 34811;
 }

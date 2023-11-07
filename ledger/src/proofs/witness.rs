@@ -5031,7 +5031,7 @@ mod tests {
     };
 
     use crate::{
-        proofs::{constants::MergeProof, merge::generate_merge_proof},
+        proofs::{constants::{MergeProof, BlockProof}, merge::generate_merge_proof},
         scan_state::scan_state::transaction_snark::SokMessage,
     };
 
@@ -5229,17 +5229,22 @@ mod tests {
         (statement, [p1, p2], message)
     }
 
-    fn read_gates() -> (
-        Vec<CircuitGate<Fp>>,
-        Vec<CircuitGate<Fq>>,
-        Vec<CircuitGate<Fp>>,
-        HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-        Vec<Vec<Option<V>>>,
-        HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
-        Vec<Vec<Option<V>>>,
-        HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-        Vec<Vec<Option<V>>>,
-    ) {
+    struct Gates {
+        gates: Vec<CircuitGate<Fp>>,
+        wrap_gates: Vec<CircuitGate<Fq>>,
+        merge_gates: Vec<CircuitGate<Fp>>,
+        block_gates: Vec<CircuitGate<Fp>>,
+        internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
+        rows_rev: Vec<Vec<Option<V>>>,
+        internal_vars_wrap: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
+        rows_rev_wrap: Vec<Vec<Option<V>>>,
+        merge_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
+        merge_rows_rev: Vec<Vec<Option<V>>>,
+        block_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
+        block_rows_rev: Vec<Vec<Option<V>>>,
+    }
+
+    fn read_gates() -> Gates {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
 
         let internal_vars_path = base_dir.join("internal_vars_rampup4.bin");
@@ -5255,6 +5260,11 @@ mod tests {
         let internal_vars_path = base_dir.join("rampup4").join("merge_internal_vars.bin");
         let rows_rev_path = base_dir.join("rampup4").join("merge_rows_rev.bin");
         let (merge_internal_vars, merge_rows_rev) =
+            read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
+
+        let internal_vars_path = base_dir.join("rampup4").join("block_internal_vars.bin");
+        let rows_rev_path = base_dir.join("rampup4").join("block_rows_rev.bin");
+        let (block_internal_vars, block_rows_rev) =
             read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
 
         let gates: Vec<CircuitGate<Fp>> = {
@@ -5278,39 +5288,60 @@ mod tests {
             serde_json::from_reader(reader).unwrap()
         };
 
-        (
+        let block_gates: Vec<CircuitGate<Fp>> = {
+            let gates_path = base_dir.join("rampup4").join("block_gates.json");
+            let file = std::fs::File::open(gates_path).unwrap();
+            let reader = std::io::BufReader::new(file);
+            serde_json::from_reader(reader).unwrap()
+        };
+
+        Gates {
             gates,
             wrap_gates,
             merge_gates,
+            block_gates,
             internal_vars,
             rows_rev,
             internal_vars_wrap,
             rows_rev_wrap,
             merge_internal_vars,
             merge_rows_rev,
-        )
+            block_internal_vars,
+            block_rows_rev,
+        }
     }
 
-    fn make_provers() -> (Prover<Fp>, Prover<Fq>, Prover<Fp>) {
-        let (
+    struct Provers {
+        tx_prover: Prover<Fp>,
+        wrap_prover: Prover<Fq>,
+        merge_prover: Prover<Fp>,
+        block_prover: Prover<Fp>,
+    }
+
+    fn make_provers() -> Provers {
+        let Gates {
             gates,
             wrap_gates,
             merge_gates,
+            block_gates,
             internal_vars,
             rows_rev,
             internal_vars_wrap,
             rows_rev_wrap,
             merge_internal_vars,
             merge_rows_rev,
-        ) = read_gates();
-        let step_prover_index = make_prover_index::<RegularTransactionProof, _>(gates);
+            block_internal_vars,
+            block_rows_rev,
+        } = read_gates();
+        let tx_prover_index = make_prover_index::<RegularTransactionProof, _>(gates);
         let merge_prover_index = make_prover_index::<MergeProof, _>(merge_gates);
         let wrap_prover_index = make_prover_index::<WrapProof, _>(wrap_gates);
+        let block_prover_index = make_prover_index::<BlockProof, _>(block_gates);
 
-        let step_prover = Prover {
+        let tx_prover = Prover {
             internal_vars,
             rows_rev,
-            index: step_prover_index,
+            index: tx_prover_index,
         };
 
         let merge_prover = Prover {
@@ -5325,7 +5356,18 @@ mod tests {
             index: wrap_prover_index,
         };
 
-        (step_prover, wrap_prover, merge_prover)
+        let block_prover = Prover {
+            internal_vars: block_internal_vars,
+            rows_rev: block_rows_rev,
+            index: block_prover_index,
+        };
+
+        Provers {
+            tx_prover,
+            wrap_prover,
+            merge_prover,
+            block_prover,
+        }
     }
 
     #[test]
@@ -5342,14 +5384,14 @@ mod tests {
         };
 
         let (statement, tx_witness, message) = extract_request(&data);
-        let (step_prover, wrap_prover, _merge_prover) = make_provers();
+        let Provers { tx_prover, wrap_prover, merge_prover: _, block_prover: _ } = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<RegularTransactionProof>();
         generate_proof(
             &statement,
             &tx_witness,
             &message,
-            &step_prover,
+            &tx_prover,
             &wrap_prover,
             &mut witnesses,
         );
@@ -5369,7 +5411,7 @@ mod tests {
         };
 
         let (statement, proofs, message) = extract_merge(&data);
-        let (_step_prover, wrap_prover, merge_prover) = make_provers();
+        let Provers { tx_prover: _, wrap_prover, merge_prover, block_prover: _ } = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<MergeProof>();
         generate_merge_proof(
@@ -5383,15 +5425,64 @@ mod tests {
     }
 
     #[test]
+    fn test_block_proof() {
+        let Ok(data) =
+            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("block_input2.bin"))
+        else {
+            eprintln!("request not found");
+            return;
+        };
+
+        let blockchain_input: v2::ProverExtendBlockchainInputStableV2 = read_binprot(&mut data.as_slice());
+
+        dbg!(blockchain_input);
+
+        // let blockchain_input = v2::ProverExtendBlockchainInputStableV2::binprot_read(&mut data.as_slice()).unwrap();
+
+
+        // let (statement, proofs, message) = extract_merge(&data);
+        // let (_step_prover, wrap_prover, merge_prover) = make_provers();
+
+        // let mut witnesses: Witness<Fp> = Witness::new::<MergeProof>();
+        // generate_merge_proof(
+        //     &statement,
+        //     &proofs,
+        //     &message,
+        //     &merge_prover,
+        //     &wrap_prover,
+        //     &mut witnesses,
+        // );
+    }
+
+    #[test]
     fn test_proofs() {
+        let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4");
+
+        let Provers { tx_prover, wrap_prover, merge_prover, block_prover: _ } = make_provers();
+
+        // Merge proof
+        {
+            let data = std::fs::read(base_dir.join("merge_0_rampup4.bin")).unwrap();
+
+            let (statement, proofs, message) = extract_merge(&data);
+
+            let mut witnesses: Witness<Fp> = Witness::new::<MergeProof>();
+            generate_merge_proof(
+                &statement,
+                &proofs,
+                &message,
+                &merge_prover,
+                &wrap_prover,
+                &mut witnesses,
+            );
+        }
+
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4");
 
         if !base_dir.exists() {
             eprintln!("{:?} not found", base_dir);
             return;
         }
-
-        let (step_prover, wrap_prover, _merge_prover) = make_provers();
 
         // Same values than OCaml
         #[rustfmt::skip]
@@ -5429,7 +5520,7 @@ mod tests {
                 &statement,
                 &tx_witness,
                 &message,
-                &step_prover,
+                &tx_prover,
                 &wrap_prover,
                 &mut witnesses,
             );
