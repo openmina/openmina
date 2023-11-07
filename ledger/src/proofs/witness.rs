@@ -1645,27 +1645,38 @@ impl<F: FieldWitness> Check<F> for ConsensusGlobalSlotStableV1 {
     }
 }
 
+impl<F: FieldWitness> Check<F> for MinaStateBlockchainStateValueStableV2 {
+    fn check(&self, w: &mut Witness<F>) {
+        let Self {
+            staged_ledger_hash: _,
+            genesis_ledger_hash: _,
+            ledger_proof_statement:
+                MinaStateBlockchainStateValueStableV2LedgerProofStatement {
+                    source,
+                    target,
+                    connecting_ledger_left: _,
+                    connecting_ledger_right: _,
+                    supply_increase,
+                    fee_excess,
+                    sok_digest: _,
+                },
+            timestamp,
+            body_reference: _,
+        } = self;
+
+        source.check(w);
+        target.check(w);
+        supply_increase.check(w);
+        fee_excess.check(w);
+        timestamp.check(w);
+    }
+}
+
 impl<F: FieldWitness> Check<F> for MinaStateProtocolStateBodyValueStableV2 {
     fn check(&self, w: &mut Witness<F>) {
         let MinaStateProtocolStateBodyValueStableV2 {
             genesis_state_hash: _,
-            blockchain_state:
-                MinaStateBlockchainStateValueStableV2 {
-                    staged_ledger_hash: _,
-                    genesis_ledger_hash: _,
-                    ledger_proof_statement:
-                        MinaStateBlockchainStateValueStableV2LedgerProofStatement {
-                            source,
-                            target,
-                            connecting_ledger_left: _,
-                            connecting_ledger_right: _,
-                            supply_increase,
-                            fee_excess,
-                            sok_digest: _,
-                        },
-                    timestamp,
-                    body_reference: _,
-                },
+            blockchain_state,
             consensus_state:
                 ConsensusProofOfStakeDataConsensusStateValueStableV2 {
                     blockchain_length,
@@ -1694,11 +1705,8 @@ impl<F: FieldWitness> Check<F> for MinaStateProtocolStateBodyValueStableV2 {
                 },
         } = self;
 
-        source.check(w);
-        target.check(w);
-        supply_increase.check(w);
-        fee_excess.check(w);
-        timestamp.check(w);
+        blockchain_state.check(w);
+
         blockchain_length.check(w);
         epoch_count.check(w);
         min_window_density.check(w);
@@ -5031,7 +5039,11 @@ mod tests {
     };
 
     use crate::{
-        proofs::{constants::{MergeProof, BlockProof}, merge::generate_merge_proof},
+        proofs::{
+            block::generate_block_proof,
+            constants::{BlockProof, MergeProof},
+            merge::generate_merge_proof,
+        },
         scan_state::scan_state::transaction_snark::SokMessage,
     };
 
@@ -5384,7 +5396,12 @@ mod tests {
         };
 
         let (statement, tx_witness, message) = extract_request(&data);
-        let Provers { tx_prover, wrap_prover, merge_prover: _, block_prover: _ } = make_provers();
+        let Provers {
+            tx_prover,
+            wrap_prover,
+            merge_prover: _,
+            block_prover: _,
+        } = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<RegularTransactionProof>();
         generate_proof(
@@ -5411,7 +5428,12 @@ mod tests {
         };
 
         let (statement, proofs, message) = extract_merge(&data);
-        let Provers { tx_prover: _, wrap_prover, merge_prover, block_prover: _ } = make_provers();
+        let Provers {
+            tx_prover: _,
+            wrap_prover,
+            merge_prover,
+            block_prover: _,
+        } = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<MergeProof>();
         generate_merge_proof(
@@ -5426,19 +5448,36 @@ mod tests {
 
     #[test]
     fn test_block_proof() {
-        let Ok(data) =
-            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("block_input2.bin"))
-        else {
+        let Ok(data) = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("rampup4")
+                .join("block_input_working.bin"),
+        ) else {
             eprintln!("request not found");
             return;
         };
 
-        let blockchain_input: v2::ProverExtendBlockchainInputStableV2 = read_binprot(&mut data.as_slice());
+        let blockchain_input: v2::ProverExtendBlockchainInputStableV2 =
+            read_binprot(&mut data.as_slice());
 
-        dbg!(blockchain_input);
+        // dbg!(blockchain_input);
+
+        let Provers {
+            tx_prover: _,
+            wrap_prover,
+            merge_prover: _,
+            block_prover,
+        } = make_provers();
+        let mut witnesses: Witness<Fp> = Witness::new::<BlockProof>();
+
+        generate_block_proof(
+            &blockchain_input,
+            &block_prover,
+            &wrap_prover,
+            &mut witnesses,
+        );
 
         // let blockchain_input = v2::ProverExtendBlockchainInputStableV2::binprot_read(&mut data.as_slice()).unwrap();
-
 
         // let (statement, proofs, message) = extract_merge(&data);
         // let (_step_prover, wrap_prover, merge_prover) = make_provers();
@@ -5458,7 +5497,12 @@ mod tests {
     fn test_proofs() {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4");
 
-        let Provers { tx_prover, wrap_prover, merge_prover, block_prover: _ } = make_provers();
+        let Provers {
+            tx_prover,
+            wrap_prover,
+            merge_prover,
+            block_prover: _,
+        } = make_provers();
 
         // Merge proof
         {
