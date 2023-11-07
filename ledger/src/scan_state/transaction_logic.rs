@@ -4000,6 +4000,10 @@ pub mod local_state {
 
     use crate::{
         hash_with_kimchi,
+        proofs::{
+            numbers::nat::CheckedNat,
+            witness::{field, Boolean, ToBoolean},
+        },
         scan_state::currency::{Index, Signed},
         Inputs, ToInputs,
     };
@@ -4234,8 +4238,80 @@ pub mod local_state {
                 && failure_status_tbl == &other.failure_status_tbl
                 && will_succeed == &other.will_succeed
         }
+
+        pub fn checked_equal_prime(&self, other: &Self, w: &mut Witness<Fp>) -> [Boolean; 11] {
+            let Self {
+                stack_frame,
+                call_stack,
+                transaction_commitment,
+                full_transaction_commitment,
+                excess,
+                supply_increase,
+                ledger,
+                success,
+                account_update_index,
+                failure_status_tbl: _,
+                will_succeed,
+            } = self;
+
+            // { stack_frame : 'stack_frame
+            // ; call_stack : 'call_stack
+            // ; transaction_commitment : 'comm
+            // ; full_transaction_commitment : 'comm
+            // ; excess : 'signed_amount
+            // ; supply_increase : 'signed_amount
+            // ; ledger : 'ledger
+            // ; success : 'bool
+            // ; account_update_index : 'length
+            // ; failure_status_tbl : 'failure_status_tbl
+            // ; will_succeed : 'bool
+            // }
+
+            let mut alls = [
+                field::equal(*stack_frame, other.stack_frame, w),
+                field::equal(*call_stack, other.call_stack, w),
+                field::equal(*transaction_commitment, other.transaction_commitment, w),
+                field::equal(
+                    *full_transaction_commitment,
+                    other.full_transaction_commitment,
+                    w,
+                ),
+                excess
+                    .to_checked::<Fp>()
+                    .equal(&other.excess.to_checked(), w),
+                supply_increase
+                    .to_checked::<Fp>()
+                    .equal(&other.supply_increase.to_checked(), w),
+                field::equal(*ledger, other.ledger, w),
+                success.to_boolean().equal(&other.success.to_boolean(), w),
+                account_update_index
+                    .to_checked::<Fp>()
+                    .equal(&other.account_update_index.to_checked(), w),
+                Boolean::True,
+                will_succeed
+                    .to_boolean()
+                    .equal(&other.will_succeed.to_boolean(), w),
+            ];
+            alls.reverse();
+            alls
+        }
     }
 }
+
+// let equal' (t1 : t) (t2 : t) =
+//   let ( ! ) f x y = Impl.run_checked (f x y) in
+//   let f eq acc f = Core_kernel.Field.(eq (get f t1) (get f t2)) :: acc in
+//   Mina_transaction_logic.Zkapp_command_logic.Local_state.Fields.fold ~init:[]
+//     ~stack_frame:(f Stack_frame.Digest.Checked.equal)
+//     ~call_stack:(f Call_stack_digest.Checked.equal)
+//     ~transaction_commitment:(f Field.equal)
+//     ~full_transaction_commitment:(f Field.equal)
+//     ~excess:(f !Currency.Amount.Signed.Checked.equal)
+//     ~supply_increase:(f !Currency.Amount.Signed.Checked.equal)
+//     ~ledger:(f !Ledger_hash.equal_var) ~success:(f Impl.Boolean.equal)
+//     ~account_update_index:(f !Mina_numbers.Index.Checked.equal)
+//     ~failure_status_tbl:(f (fun () () -> Impl.Boolean.true_))
+//     ~will_succeed:(f Impl.Boolean.equal)
 
 pub enum Eff<L: LedgerIntf + Clone> {
     CheckValidWhilePrecondition(Numeric<Slot>, GlobalState<L>),

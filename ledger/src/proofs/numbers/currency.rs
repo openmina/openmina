@@ -166,6 +166,13 @@ where
 
         Self::create(T::from_field(magnitude), sgn)
     }
+
+    pub fn equal(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
+        // We decompose this way because of OCaml evaluation order
+        let t2 = w.exists(other.value());
+        let t1 = w.exists(self.value());
+        field::equal(t1, t2, w)
+    }
 }
 
 const CURRENCY_NBITS: usize = 64;

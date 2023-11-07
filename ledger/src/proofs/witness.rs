@@ -3179,6 +3179,24 @@ pub mod transaction_snark {
         fork: None,
     };
 
+    // let res : (a, b, c) Poly.t =
+    //   { Poly.k = to_length k
+    //   ; delta = to_length delta
+    //   ; block_window_duration_ms = to_timespan block_window_duration_ms
+    //   ; slots_per_sub_window = to_length slots_per_sub_window
+    //   ; slots_per_window = to_length slots_per_window
+    //   ; sub_windows_per_window = to_length sub_windows_per_window
+    //   ; slots_per_epoch = to_length slots_per_epoch
+    //   ; grace_period_end = to_length grace_period_end
+    //   ; slot_duration_ms = to_timespan Slot.duration_ms
+    //   ; epoch_duration = to_timespan Epoch.duration
+    //   ; checkpoint_window_slots_per_year = to_length zero
+    //   ; checkpoint_window_size_in_slots = to_length zero
+    //   ; delta_duration = to_timespan delta_duration
+    //   ; genesis_state_timestamp = protocol_constants.genesis_state_timestamp
+    //   }
+    // in
+
     mod user_command_failure {
         use crate::scan_state::{
             currency::Magnitude,

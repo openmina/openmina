@@ -400,6 +400,30 @@ pub mod transaction_snark {
         }
     }
 
+    impl Statement<SokDigest> {
+        pub fn without_digest(self) -> Statement<()> {
+            let Self {
+                source,
+                target,
+                connecting_ledger_left,
+                connecting_ledger_right,
+                supply_increase,
+                fee_excess,
+                sok_digest: _,
+            } = self;
+
+            Statement::<()> {
+                source,
+                target,
+                connecting_ledger_left,
+                connecting_ledger_right,
+                supply_increase,
+                fee_excess,
+                sok_digest: (),
+            }
+        }
+    }
+
     impl Statement<()> {
         pub fn with_digest(self, sok_digest: SokDigest) -> Statement<SokDigest> {
             let Self {

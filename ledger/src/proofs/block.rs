@@ -6,17 +6,19 @@ use mina_p2p_messages::v2;
 
 use crate::{
     dummy,
-    proofs::witness::Boolean,
+    proofs::{numbers::currency::CheckedSigned, witness::Boolean},
     scan_state::{
+        currency::Sgn,
         protocol_state::MinaHash,
-        scan_state::transaction_snark::{SokDigest, Statement},
+        scan_state::transaction_snark::{Registers, SokDigest, Statement},
     },
     Inputs, ToInputs,
 };
 
 use super::{
+    numbers::currency::{CheckedAmount, CheckedFee},
     to_field_elements::ToFieldElements,
-    witness::{checked_hash2, transaction_snark::checked_hash, Check, Prover, Witness},
+    witness::{checked_hash2, field, transaction_snark::checked_hash, Check, Prover, Witness},
 };
 
 fn read_witnesses() -> Vec<Fp> {
@@ -149,6 +151,55 @@ fn checked_hash_protocol_state(
     (hash, body_hash)
 }
 
+fn non_pc_registers_equal_var(t1: &Registers, t2: &Registers, w: &mut Witness<Fp>) -> Boolean {
+    let alls = [
+        // t1.pending_coinbase_stack.equal_var(&t2.pending_coinbase_stack, w),
+        field::equal(t1.first_pass_ledger, t2.first_pass_ledger, w),
+        field::equal(t1.second_pass_ledger, t2.second_pass_ledger, w),
+    ]
+    .into_iter()
+    .chain(t1.local_state.checked_equal_prime(&t2.local_state, w))
+    .collect::<Vec<_>>();
+
+    Boolean::all(&alls, w)
+}
+
+fn txn_statement_ledger_hashes_equal(
+    s1: &Statement<()>,
+    s2: &Statement<()>,
+    w: &mut Witness<Fp>,
+) -> Boolean {
+    let source_eq = non_pc_registers_equal_var(&s1.source, &s2.source, w);
+    let target_eq = non_pc_registers_equal_var(&s1.target, &s2.target, w);
+    let left_ledger_eq = field::equal(s1.connecting_ledger_left, s2.connecting_ledger_left, w);
+    let right_ledger_eq = field::equal(s1.connecting_ledger_right, s2.connecting_ledger_right, w);
+    let supply_increase_eq = s1
+        .supply_increase
+        .to_checked()
+        .equal(&s2.supply_increase.to_checked(), w);
+
+    Boolean::all(
+        &[
+            source_eq,
+            target_eq,
+            left_ledger_eq,
+            right_ledger_eq,
+            supply_increase_eq,
+        ],
+        w,
+    )
+}
+
+fn consensus_state_next_state_checked(
+    prev_state: &v2::MinaStateProtocolStateValueStableV2,
+    prev_state_hash: Fp,
+    transition: &v2::MinaStateSnarkTransitionValueStableV2,
+    supply_increase: CheckedSigned<Fp, CheckedAmount<Fp>>,
+    w: &mut Witness<Fp>,
+) {
+    let protocol_constants = &prev_state.body.constants;
+}
+
 pub struct ProverExtendBlockchainInputStableV22 {
     pub chain: v2::BlockchainSnarkBlockchainStableV2,
     pub next_state: v2::MinaStateProtocolStateValueStableV2,
@@ -219,9 +270,50 @@ pub fn generate_block_proof(
         (prev_state, previous_state_hash, (), body)
     };
 
-    // let statement: Statement<()> = statement.into();
-    // let sok_digest = message.digest();
-    // let statement_with_sok = statement.with_digest(sok_digest);
+    let txn_stmt_ledger_hashes_didn_t_change = {
+        let s1: Statement<()> =
+            (&previous_state.body.blockchain_state.ledger_proof_statement).into();
+        let s2: Statement<()> = txn_snark.clone().without_digest();
+        txn_statement_ledger_hashes_equal(&s1, &s2, w)
+    };
 
-    // w.exists(&statement_with_sok);
+    eprintln!("AAA");
+
+    let supply_increase = w.exists_no_check(match txn_stmt_ledger_hashes_didn_t_change {
+        Boolean::True => CheckedSigned::zero(),
+        Boolean::False => txn_snark.supply_increase.to_checked(),
+    });
+
+    consensus_state_next_state_checked(
+        previous_state,
+        previous_state_hash,
+        transition,
+        supply_increase,
+    );
+
+    // let%bind supply_increase =
+    //   (* only increase the supply if the txn statement represents a new ledger transition *)
+    //   Currency.Amount.(
+    //     Signed.Checked.if_ txn_stmt_ledger_hashes_didn't_change
+    //       ~then_:
+    //         (Signed.create_var ~magnitude:(var_of_t zero) ~sgn:Sgn.Checked.pos)
+    //       ~else_:txn_snark.supply_increase)
+    // in
+    // let%bind `Success updated_consensus_state, consensus_state =
+    //   with_label __LOC__ (fun () ->
+    //       Consensus_state_hooks.next_state_checked ~constraint_constants
+    //         ~prev_state:previous_state ~prev_state_hash:previous_state_hash
+    //         transition supply_increase )
+    // in
+    // let global_slot =
+    //   Consensus.Data.Consensus_state.global_slot_since_genesis_var consensus_state
+    // in
+    // let supercharge_coinbase =
+    //   Consensus.Data.Consensus_state.supercharge_coinbase_var consensus_state
+    // in
+    // let prev_pending_coinbase_root =
+    //   previous_state |> Protocol_state.blockchain_state
+    //   |> Blockchain_state.staged_ledger_hash
+    //   |> Staged_ledger_hash.pending_coinbase_hash_var
+    // in
 }
