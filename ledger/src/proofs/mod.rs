@@ -1,6 +1,7 @@
 use kimchi::mina_curves::pasta::{Pallas, Vesta};
 
 pub mod accumulator_check;
+pub mod block;
 pub mod caching;
 pub mod constants;
 pub mod group_map;
