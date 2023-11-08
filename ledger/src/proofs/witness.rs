@@ -33,10 +33,10 @@ use mina_p2p_messages::{
     },
 };
 use mina_poseidon::{constants::PlonkSpongeConstantsKimchi, sponge::DefaultFqSponge};
-use mina_signer::CompressedPubKey;
+use mina_signer::{CompressedPubKey, PubKey};
 
 use crate::{
-    gen_keypair,
+    decompress_pk, gen_keypair,
     proofs::{
         constants::{RegularTransactionProof, WrapProof},
         unfinalized::AllEvals,
@@ -1912,7 +1912,7 @@ impl<F: FieldWitness> From<(F, F)> for InnerCurve<F> {
 }
 
 impl<F: FieldWitness> InnerCurve<F> {
-    fn one() -> Self {
+    pub fn one() -> Self {
         let inner = F::Projective::prime_subgroup_generator();
         Self { inner }
     }
@@ -1966,7 +1966,7 @@ impl<F: FieldWitness> InnerCurve<F> {
         Self { inner: proj }
     }
 
-    fn random() -> Self {
+    pub fn random() -> Self {
         Self::fake_random()
         // // Both `proj` below are the same type, but we use `into()` to make it generic
         // let rng = &mut rand::rngs::OsRng;
@@ -1988,7 +1988,7 @@ impl InnerCurve<Fp> {
 }
 
 /// https://github.com/openmina/mina/blob/45c195d72aa8308fcd9fc1c7bc5da36a0c3c3741/src/lib/snarky_curves/snarky_curves.ml#L267
-fn create_shifted_inner_curve<F>(w: &mut Witness<F>) -> InnerCurve<F>
+pub fn create_shifted_inner_curve<F>(w: &mut Witness<F>) -> InnerCurve<F>
 where
     F: FieldWitness,
 {
@@ -2226,6 +2226,13 @@ pub mod field {
     {
         let y_inv = w.exists(y.inverse().unwrap_or_else(F::zero));
         mul(x, y_inv, w)
+    }
+
+    pub fn sub<F>(x: F, y: F, w: &mut Witness<F>) -> F
+    where
+        F: FieldWitness,
+    {
+        w.exists(x - y)
     }
 
     pub fn add<F>(x: F, y: F, w: &mut Witness<F>) -> F
@@ -2685,7 +2692,7 @@ fn group_to_witness<F: FieldWitness>(group: GroupAffine<F>, w: &mut Witness<F>) 
     group
 }
 
-fn scale_non_constant<F: FieldWitness, const N: usize>(
+pub fn scale_non_constant<F: FieldWitness, const N: usize>(
     mut g: GroupAffine<F>,
     bits: &[bool; N],
     init: &InnerCurve<F>,
@@ -2739,7 +2746,7 @@ fn lookup_single_bit<F: FieldWitness>(b: bool, (t1, t2): (InnerCurve<F>, InnerCu
     (lookup_one(x1, x2), lookup_one(y1, y2))
 }
 
-fn scale_known<F: FieldWitness, const N: usize>(
+pub fn scale_known<F: FieldWitness, const N: usize>(
     t: GroupAffine<F>,
     bits: &[bool; N],
     init: &InnerCurve<F>,
@@ -3118,7 +3125,10 @@ pub struct CompressedPubKeyVar<F: FieldWitness> {
     pub is_odd: bool,
 }
 
-fn compress_var<F: FieldWitness>(v: &GroupAffine<F>, w: &mut Witness<F>) -> CompressedPubKeyVar<F> {
+pub fn compress_var<F: FieldWitness>(
+    v: &GroupAffine<F>,
+    w: &mut Witness<F>,
+) -> CompressedPubKeyVar<F> {
     let GroupAffine::<F> { x, y, .. } = v;
 
     let is_odd = {
@@ -3127,6 +3137,22 @@ fn compress_var<F: FieldWitness>(v: &GroupAffine<F>, w: &mut Witness<F>) -> Comp
     };
 
     CompressedPubKeyVar { x: *x, is_odd }
+}
+
+pub fn decompress_var(pk: &CompressedPubKey, w: &mut Witness<Fp>) -> PubKey {
+    let CompressedPubKey { x, is_odd: _ } = pk;
+    let GroupAffine::<Fp> { y, .. } = decompress_pk(pk).unwrap().into_point();
+
+    w.exists(y);
+
+    let point = make_group(*x, y);
+    point.check(w);
+
+    let _is_odd2 = {
+        let bits = unpack_full(y, w);
+        bits[0]
+    };
+    PubKey::from_point_unsafe(point)
 }
 
 pub mod transaction_snark {

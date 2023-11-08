@@ -1,3 +1,5 @@
+use std::ops::Neg;
+
 use crate::proofs::witness::{field, FieldWitness, Witness};
 
 pub mod bw19 {
@@ -93,9 +95,12 @@ pub mod bw19 {
     }
 }
 
-use ark_ff::FpParameters;
+use ark_ff::{FpParameters, One};
+use mina_hasher::Fp;
 
-use super::witness::{Boolean, ToBoolean};
+use self::tock::Conic;
+
+use super::witness::{make_group, Boolean, GroupAffine, ToBoolean};
 
 fn sqrt_exn<F: FieldWitness>(x: F, w: &mut Witness<F>) -> F {
     let y = w.exists(x.sqrt().unwrap());
@@ -131,11 +136,20 @@ fn non_residue<F: FieldWitness>() -> F {
     })
 }
 
-pub fn wrap<F: FieldWitness>(x: F, params: &bw19::Params<F>, w: &mut Witness<F>) -> (F, F) {
+pub fn bw19_wrap<F: FieldWitness>(
+    x: F,
+    params: &bw19::Params<F>,
+    w: &mut Witness<F>,
+) -> GroupAffine<F> {
+    let potential_xs = bw19::potential_xs(x, params, w);
+    wrap(potential_xs, w)
+}
+
+pub fn wrap<F: FieldWitness>(potential_xs: (F, F, F), w: &mut Witness<F>) -> GroupAffine<F> {
     let y_squared =
         |x: F, w: &mut Witness<F>| field::muls(&[x, x, x], w) + (F::PARAMS.a * x) + F::PARAMS.b;
 
-    let (x1, x2, x3) = bw19::potential_xs(x, params, w);
+    let (x1, x2, x3) = potential_xs;
 
     let (y1, b1) = sqrt_flagged(y_squared(x1, w), w);
     let (y2, b2) = sqrt_flagged(y_squared(x2, w), w);
@@ -155,8 +169,150 @@ pub fn wrap<F: FieldWitness>(x: F, params: &bw19::Params<F>, w: &mut Witness<F>)
     let x2_is_first_x2 = field::mul(x2_is_first, x2, w);
     let x1_is_first_x1 = field::mul(x1_is_first, x1, w);
 
-    (
+    let (x, y) = (
         (x1_is_first_x1 + x2_is_first_x2 + x3_is_first_x3),
         (x1_is_first_y1 + x2_is_first_y2 + x3_is_first_y3),
-    )
+    );
+    make_group(x, y)
+}
+
+mod tock {
+    use super::*;
+    use std::ops::Neg;
+
+    use ark_ff::{SquareRootField, Zero};
+    use mina_hasher::Fp;
+
+    /// A good name from OCaml
+    #[derive(Clone, Debug)]
+    pub struct S<F: FieldWitness> {
+        pub u: F,
+        pub v: F,
+        pub y: F,
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct Conic<F: FieldWitness> {
+        pub z: F,
+        pub y: F,
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct Spec<F> {
+        pub a: F,
+        pub b: F,
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct Params<F: FieldWitness> {
+        pub u: F,
+        pub u_over_2: F,
+        pub projection_point: Conic<F>,
+        pub conic_c: F,
+        pub spec: Spec<F>,
+    }
+
+    fn tock_params_impl() -> Params<Fp> {
+        let a = Fp::PARAMS.a;
+        let b = Fp::PARAMS.b;
+
+        fn first_map<F: FieldWitness, T>(f: impl Fn(F) -> Option<T>) -> T {
+            let mut v = F::zero();
+            let one = F::one();
+            loop {
+                match f(v) {
+                    Some(x) => return x,
+                    None => v = v + one,
+                }
+            }
+        }
+
+        fn first<F: FieldWitness>(f: impl Fn(F) -> bool) -> F {
+            first_map(|x| match f(x) {
+                true => Some(x),
+                false => None,
+            })
+        }
+
+        let three_fourths = Fp::from(3) / Fp::from(4);
+        let curve_eqn = |u: Fp| (u * u * u) + (a * u) + b;
+
+        let u = first(|u: Fp| {
+            let check = (three_fourths * u * u) + a;
+            let fu = curve_eqn(u);
+
+            !(check.is_zero()) && !(fu.is_zero()) && !(is_square(fu.neg()))
+        });
+
+        let conic_c = (three_fourths * u * u) + a;
+        let conic_d = curve_eqn(u).neg();
+
+        let projection_point = first_map(|y: Fp| {
+            let z2 = conic_d - (conic_c * y * y);
+
+            if is_square(z2) {
+                Some(Conic {
+                    z: z2.sqrt().unwrap(),
+                    y,
+                })
+            } else {
+                None
+            }
+        });
+
+        Params {
+            u,
+            u_over_2: u / Fp::from(2),
+            projection_point,
+            conic_c,
+            spec: Spec { a, b },
+        }
+    }
+
+    pub fn params() -> Params<Fp> {
+        cache_one!(Params<Fp>, { tock_params_impl() })
+    }
+}
+
+fn field_to_conic(t: Fp, params: &tock::Params<Fp>, w: &mut Witness<Fp>) -> tock::Conic<Fp> {
+    let tock::Conic { z: z0, y: y0 } = params.projection_point;
+
+    let one = Fp::one();
+
+    let ct = params.conic_c * t;
+    let s = field::div_by_inv(
+        Fp::from(2) * ((ct * y0) + z0),
+        field::mul(ct, t, w) + one,
+        w,
+    );
+
+    tock::Conic {
+        z: z0 - s,
+        y: y0 - field::mul(s, t, w),
+    }
+}
+
+fn conic_to_s(p: Conic<Fp>, params: &tock::Params<Fp>, w: &mut Witness<Fp>) -> tock::S<Fp> {
+    let Conic { z, y } = p;
+    let u = params.u;
+    let v = field::div_by_inv(z, y, w) - params.u_over_2;
+    tock::S { u, v, y }
+}
+
+fn s_to_v_truncated(s: tock::S<Fp>, w: &mut Witness<Fp>) -> (Fp, Fp, Fp) {
+    let tock::S { u, v, y } = s;
+
+    (v, (u + v).neg(), u + field::mul(y, y, w))
+}
+
+pub fn to_group(t: Fp, w: &mut Witness<Fp>) -> GroupAffine<Fp> {
+    let params = tock::params();
+
+    let potential_xs = {
+        let conic = field_to_conic(t, &params, w);
+        let s = conic_to_s(conic, &params, w);
+        s_to_v_truncated(s, w)
+    };
+
+    wrap(potential_xs, w)
 }

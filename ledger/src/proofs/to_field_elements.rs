@@ -1,9 +1,8 @@
 use ark_ff::Field;
 use mina_hasher::Fp;
-use mina_p2p_messages::v2::{self, MinaStateProtocolStateValueStableV2};
+use mina_p2p_messages::v2;
 
 use crate::{
-    proofs::public_input::protocol_state::MinaHash,
     scan_state::{
         fee_excess::FeeExcess,
         scan_state::transaction_snark::{Registers, SokDigest, Statement},

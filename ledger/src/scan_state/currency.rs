@@ -513,5 +513,5 @@ macro_rules! impl_number {
 
 impl_number!(
     32: { Length, Slot, Nonce, Index, SlotSpan, },
-    64: { Amount, Balance, Fee, BlockTime, BlockTimeSpan, },
+    64: { Amount, Balance, Fee, BlockTime, BlockTimeSpan, N, },
 );
