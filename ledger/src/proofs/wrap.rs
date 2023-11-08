@@ -1770,8 +1770,7 @@ pub mod wrap_verifier {
         use crate::proofs::group_map;
 
         let params = group_map::bw19::Params::<F>::create();
-        let (x, y) = group_map::wrap(x, &params, w);
-        make_group(x, y)
+        group_map::bw19_wrap(x, &params, w)
     }
 
     pub mod split_commitments {

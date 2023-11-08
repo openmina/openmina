@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::{path::Path, str::FromStr, sync::Arc};
 
 use mina_curves::pasta::Fq;
@@ -8,7 +10,6 @@ use crate::{
     dummy,
     proofs::{numbers::currency::CheckedSigned, witness::Boolean},
     scan_state::{
-        currency::Sgn,
         protocol_state::MinaHash,
         scan_state::transaction_snark::{Registers, SokDigest, Statement},
     },
@@ -16,9 +17,16 @@ use crate::{
 };
 
 use super::{
-    numbers::currency::{CheckedAmount, CheckedFee},
+    numbers::{
+        currency::CheckedAmount,
+        nat::{CheckedBlockTime, CheckedBlockTimeSpan, CheckedLength},
+    },
     to_field_elements::ToFieldElements,
-    witness::{checked_hash2, field, transaction_snark::checked_hash, Check, Prover, Witness},
+    witness::{
+        field,
+        transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
+        Check, Prover, Witness,
+    },
 };
 
 fn read_witnesses() -> Vec<Fp> {
@@ -190,14 +198,492 @@ fn txn_statement_ledger_hashes_equal(
     )
 }
 
-fn consensus_state_next_state_checked(
-    prev_state: &v2::MinaStateProtocolStateValueStableV2,
-    prev_state_hash: Fp,
-    transition: &v2::MinaStateSnarkTransitionValueStableV2,
-    supply_increase: CheckedSigned<Fp, CheckedAmount<Fp>>,
-    w: &mut Witness<Fp>,
-) {
-    let protocol_constants = &prev_state.body.constants;
+mod vrf {
+    use std::ops::Neg;
+
+    use mina_signer::{CompressedPubKey, PubKey};
+
+    use crate::{
+        checked_verify_merkle_path,
+        proofs::{
+            numbers::nat::{CheckedNat, CheckedSlot},
+            witness::{
+                decompress_var, field_to_bits, legacy_input::to_bits, scale_known,
+                scale_non_constant, GroupAffine, InnerCurve,
+            },
+        },
+        scan_state::transaction_logic::protocol_state::EpochLedger,
+        sparse_ledger::SparseLedger,
+        AccountIndex, Address,
+    };
+
+    use super::*;
+
+    struct Message<'a> {
+        global_slot: &'a CheckedSlot<Fp>,
+        seed: Fp,
+        delegator: AccountIndex,
+        delegator_bits: [bool; 35],
+    }
+
+    impl<'a> ToInputs for Message<'a> {
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            let Self {
+                global_slot,
+                seed,
+                delegator: _,
+                delegator_bits,
+            } = self;
+
+            inputs.append(seed);
+            inputs.append_u32(global_slot.to_inner().as_u32());
+            for b in delegator_bits {
+                inputs.append_bool(*b)
+            }
+        }
+    }
+
+    fn hash_to_group(m: &Message, w: &mut Witness<Fp>) -> GroupAffine<Fp> {
+        let inputs = m.to_inputs_owned().to_fields();
+        let hash = checked_hash("MinaVrfMessage", &inputs, w);
+        crate::proofs::group_map::to_group(hash, w)
+    }
+
+    fn scale_generator(
+        s: &[bool; 255],
+        init: &InnerCurve<Fp>,
+        w: &mut Witness<Fp>,
+    ) -> GroupAffine<Fp> {
+        scale_known(InnerCurve::<Fp>::one().to_affine(), s, init, w)
+    }
+
+    fn eval(
+        m: &InnerCurve<Fp>,
+        private_key: &[bool; 255],
+        message: &Message,
+        w: &mut Witness<Fp>,
+    ) -> Fp {
+        let h = hash_to_group(message, w);
+
+        let u = {
+            let _ = w.exists_no_check(h);
+            let u = scale_non_constant(h, private_key, m, w);
+
+            // unshift_nonzero
+            let neg = m.to_affine().neg();
+            w.exists(neg.y);
+            w.add_fast(neg, u)
+        };
+
+        let GroupAffine::<Fp> { x, y, .. } = u;
+
+        let mut inputs = message.to_inputs_owned();
+        inputs.append_field(x);
+        inputs.append_field(y);
+
+        checked_hash("MinaVrfOutput", &inputs.to_fields(), w)
+    }
+
+    fn eval_and_check_public_key(
+        m: &InnerCurve<Fp>,
+        private_key: &[bool; 255],
+        public_key: &PubKey,
+        message: Message,
+        w: &mut Witness<Fp>,
+    ) -> Fp {
+        let _ = {
+            let _public_key_shifted = w.add_fast(m.to_affine(), *public_key.point());
+            scale_generator(private_key, m, w)
+        };
+
+        eval(m, private_key, &message, w)
+    }
+
+    fn get_vrf_evaluation(
+        m: &InnerCurve<Fp>,
+        message: Message,
+        prover_state: &v2::ConsensusStakeProofStableV2,
+        w: &mut Witness<Fp>,
+    ) -> (Fp, Box<crate::Account>) {
+        let private_key = prover_state.producer_private_key.to_field::<Fq>();
+        let private_key = w.exists(field_to_bits::<Fq, 255>(private_key));
+
+        let account = {
+            let mut ledger: SparseLedger = (&prover_state.ledger).into();
+
+            let staker_addr = message.delegator.clone();
+            let staker_addr =
+                Address::from_index(staker_addr, CONSTRAINT_CONSTANTS.ledger_depth as usize);
+
+            let account = ledger.get_exn(&staker_addr);
+            let path = ledger.path_exn(staker_addr.clone());
+
+            let (account, path) = w.exists((account, path));
+            checked_verify_merkle_path(&account, &path, w);
+
+            account
+        };
+
+        let delegate = {
+            let delegate = account.delegate.as_ref().unwrap();
+            decompress_var(delegate, w)
+        };
+
+        let evaluation = eval_and_check_public_key(m, &private_key, &delegate, message, w);
+
+        (evaluation, account)
+    }
+
+    const VRF_OUTPUT_NBITS: usize = 253;
+
+    fn truncate_vrf_output(output: Fp, w: &mut Witness<Fp>) -> [bool; VRF_OUTPUT_NBITS] {
+        let output = w.exists(field_to_bits::<_, 255>(output));
+        std::array::from_fn(|i| output[i])
+    }
+
+    pub fn check(
+        m: &InnerCurve<Fp>,
+        epoch_ledger: &EpochLedger<Fp>,
+        global_slot: &CheckedSlot<Fp>,
+        block_stake_winner: &CompressedPubKey,
+        block_creator: &CompressedPubKey,
+        seed: Fp,
+        prover_state: &v2::ConsensusStakeProofStableV2,
+        w: &mut Witness<Fp>,
+    ) {
+        let (winner_addr, winner_addr_bits) = {
+            const LEDGER_DEPTH: usize = 35;
+            assert_eq!(CONSTRAINT_CONSTANTS.ledger_depth, LEDGER_DEPTH as u64);
+
+            let account_index = prover_state.delegator.as_u64();
+            let bits = w.exists(to_bits::<_, LEDGER_DEPTH>(account_index));
+            (AccountIndex(account_index), bits)
+        };
+
+        let (result, winner_account) = get_vrf_evaluation(
+            m,
+            Message {
+                global_slot,
+                seed,
+                delegator: winner_addr,
+                delegator_bits: winner_addr_bits,
+            },
+            prover_state,
+            w,
+        );
+
+        let my_stake = winner_account.balance;
+        let truncated_result = truncate_vrf_output(result, w);
+
+        // let my_stake = winner_account.balance in
+        // let%bind truncated_result = Output.Checked.truncate result in
+        // let%map satisifed =
+        //   Threshold.Checked.is_satisfied ~my_stake
+        //     ~total_stake:epoch_ledger.total_currency truncated_result
+        // in
+        // (satisifed, result, truncated_result, winner_account)
+    }
+}
+
+mod consensus {
+    use mina_signer::CompressedPubKey;
+
+    use super::*;
+    use crate::{
+        decompress_pk,
+        proofs::{
+            numbers::nat::{CheckedN, CheckedNat, CheckedSlot, CheckedSlotSpan},
+            witness::{compress_var, create_shifted_inner_curve, CompressedPubKeyVar, InnerCurve},
+        },
+        scan_state::transaction_logic::protocol_state::EpochData,
+    };
+
+    pub struct ConsensusConstantsChecked {
+        pub k: CheckedLength<Fp>,
+        pub delta: CheckedLength<Fp>,
+        pub block_window_duration_ms: CheckedBlockTimeSpan<Fp>,
+        pub slots_per_sub_window: CheckedLength<Fp>,
+        pub slots_per_window: CheckedLength<Fp>,
+        pub sub_windows_per_window: CheckedLength<Fp>,
+        pub slots_per_epoch: CheckedLength<Fp>,
+        pub grace_period_end: CheckedLength<Fp>,
+        pub slot_duration_ms: CheckedBlockTimeSpan<Fp>,
+        pub epoch_duration: CheckedBlockTimeSpan<Fp>,
+        pub checkpoint_window_slots_per_year: CheckedLength<Fp>,
+        pub checkpoint_window_size_in_slots: CheckedLength<Fp>,
+        pub delta_duration: CheckedBlockTimeSpan<Fp>,
+        pub genesis_state_timestamp: CheckedBlockTime<Fp>,
+    }
+
+    /// Number of millisecond per day
+    const N_MILLIS_PER_DAY: u64 = 86400000;
+
+    fn create_constant_prime(
+        prev_state: &v2::MinaStateProtocolStateValueStableV2,
+        w: &mut Witness<Fp>,
+    ) -> ConsensusConstantsChecked {
+        let protocol_constants = &prev_state.body.constants;
+        let constraint_constants = &CONSTRAINT_CONSTANTS;
+
+        let of_u64 = |n: u64| CheckedN::<Fp>::from_field(n.into());
+        let of_u32 = |n: u32| CheckedN::<Fp>::from_field(n.into());
+
+        let block_window_duration_ms = of_u64(constraint_constants.block_window_duration_ms);
+
+        let k = of_u32(protocol_constants.k.as_u32());
+        let delta = of_u32(protocol_constants.delta.as_u32());
+        let slots_per_sub_window = of_u32(protocol_constants.slots_per_sub_window.as_u32());
+        let sub_windows_per_window = of_u64(constraint_constants.sub_windows_per_window);
+
+        let slots_per_window = slots_per_sub_window.const_mul(&sub_windows_per_window, w);
+
+        let slots_per_epoch = of_u32(protocol_constants.slots_per_epoch.as_u32());
+
+        let slot_duration_ms = block_window_duration_ms.clone();
+
+        let epoch_duration = {
+            let size = &slots_per_epoch;
+            slot_duration_ms.const_mul(size, w)
+        };
+
+        let delta_duration = {
+            let delta_plus_one = delta.add(&CheckedN::one(), w);
+            slot_duration_ms.const_mul(&delta_plus_one, w)
+        };
+
+        let num_days: u64 = 3;
+        assert!(num_days < 14);
+
+        let grace_period_end = {
+            let slots = {
+                let n_days = {
+                    let n_days_ms = of_u64(num_days * N_MILLIS_PER_DAY);
+                    dbg!(&n_days_ms);
+                    n_days_ms.div_mod(&block_window_duration_ms, w).0
+                };
+                n_days.min(&slots_per_epoch, w)
+            };
+            match constraint_constants.fork.as_ref() {
+                None => slots,
+                Some(f) => {
+                    let previous_global_slot = of_u32(f.previous_global_slot.as_u32());
+                    previous_global_slot.add(&slots, w)
+                }
+            }
+        };
+
+        let to_length = |v: CheckedN<Fp>| CheckedLength::from_field(v.to_field());
+        let to_timespan = |v: CheckedN<Fp>| CheckedBlockTimeSpan::from_field(v.to_field());
+
+        ConsensusConstantsChecked {
+            k: to_length(k),
+            delta: to_length(delta),
+            block_window_duration_ms: to_timespan(block_window_duration_ms),
+            slots_per_sub_window: to_length(slots_per_sub_window),
+            slots_per_window: to_length(slots_per_window),
+            sub_windows_per_window: to_length(sub_windows_per_window),
+            slots_per_epoch: to_length(slots_per_epoch),
+            grace_period_end: to_length(grace_period_end),
+            slot_duration_ms: to_timespan(slot_duration_ms),
+            epoch_duration: to_timespan(epoch_duration),
+            checkpoint_window_slots_per_year: CheckedLength::zero(),
+            checkpoint_window_size_in_slots: CheckedLength::zero(),
+            delta_duration: to_timespan(delta_duration),
+            genesis_state_timestamp: {
+                let v = of_u64(protocol_constants.genesis_state_timestamp.as_u64());
+                CheckedBlockTime::from_field(v.to_field())
+            },
+        }
+    }
+
+    fn create_constant(
+        prev_state: &v2::MinaStateProtocolStateValueStableV2,
+        w: &mut Witness<Fp>,
+    ) -> ConsensusConstantsChecked {
+        let mut constants = create_constant_prime(prev_state, w);
+
+        let (checkpoint_window_slots_per_year, checkpoint_window_size_in_slots) = {
+            let of_u64 = |n: u64| CheckedN::<Fp>::from_field(n.into());
+            let of_field = |f: Fp| CheckedN::<Fp>::from_field(f);
+
+            let per_year = of_u64(12);
+            let slot_duration_ms = of_field(constants.slot_duration_ms.to_field());
+
+            let (slots_per_year, _) = {
+                let one_year_ms = of_u64(365 * N_MILLIS_PER_DAY);
+                one_year_ms.div_mod(&slot_duration_ms, w)
+            };
+
+            let size_in_slots = {
+                let (size_in_slots, _rem) = slots_per_year.div_mod(&per_year, w);
+                size_in_slots
+            };
+
+            let to_length = |v: CheckedN<Fp>| CheckedLength::from_field(v.to_field());
+            (to_length(slots_per_year), to_length(size_in_slots))
+        };
+
+        constants.checkpoint_window_slots_per_year = checkpoint_window_slots_per_year;
+        constants.checkpoint_window_size_in_slots = checkpoint_window_size_in_slots;
+
+        constants
+    }
+
+    type CheckedEpoch = CheckedBlockTime<Fp>;
+
+    #[derive(Debug)]
+    pub struct GlobalSlot {
+        slot_number: CheckedSlot<Fp>,
+        slots_per_epoch: CheckedLength<Fp>,
+    }
+
+    impl From<&v2::ConsensusGlobalSlotStableV1> for GlobalSlot {
+        fn from(value: &v2::ConsensusGlobalSlotStableV1) -> Self {
+            let v2::ConsensusGlobalSlotStableV1 {
+                slot_number,
+                slots_per_epoch,
+            } = value;
+
+            Self {
+                slot_number: CheckedSlot::from_field(slot_number.as_u32().into()),
+                slots_per_epoch: CheckedLength::from_field(slots_per_epoch.as_u32().into()),
+            }
+        }
+    }
+
+    impl GlobalSlot {
+        fn of_slot_number(
+            constants: &ConsensusConstantsChecked,
+            slot_number: CheckedSlot<Fp>,
+        ) -> Self {
+            Self {
+                slot_number,
+                slots_per_epoch: constants.slots_per_epoch.clone(),
+            }
+        }
+
+        fn diff_slots(&self, other: &Self, w: &mut Witness<Fp>) -> CheckedSlotSpan<Fp> {
+            self.slot_number.diff(&other.slot_number, w)
+        }
+
+        fn less_than(&self, other: &Self, w: &mut Witness<Fp>) -> Boolean {
+            self.slot_number.less_than(&other.slot_number, w)
+        }
+
+        fn to_epoch_and_slot(&self, w: &mut Witness<Fp>) -> (CheckedEpoch, CheckedSlot<Fp>) {
+            let (epoch, slot) = self
+                .slot_number
+                .div_mod(&CheckedSlot::from_field(self.slots_per_epoch.to_field()), w);
+
+            (CheckedEpoch::from_field(epoch.to_field()), slot)
+        }
+    }
+
+    pub fn next_state_checked(
+        prev_state: &v2::MinaStateProtocolStateValueStableV2,
+        prev_state_hash: Fp,
+        transition: &v2::MinaStateSnarkTransitionValueStableV2,
+        supply_increase: CheckedSigned<Fp, CheckedAmount<Fp>>,
+        prover_state: &v2::ConsensusStakeProofStableV2,
+        w: &mut Witness<Fp>,
+    ) {
+        let _previous_blockchain_state_ledger_hash = prev_state
+            .body
+            .blockchain_state
+            .ledger_proof_statement
+            .target
+            .first_pass_ledger
+            .to_field::<Fp>();
+        let _genesis_ledger_hash = prev_state
+            .body
+            .blockchain_state
+            .genesis_ledger_hash
+            .to_field::<Fp>();
+        let consensus_transition =
+            CheckedSlot::<Fp>::from_field(transition.consensus_transition.as_u32().into());
+        let previous_state = &prev_state.body.consensus_state;
+        // transiti
+
+        let constants = create_constant(prev_state, w);
+
+        let v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
+            curr_global_slot: prev_global_slot,
+            ..
+        } = &prev_state.body.consensus_state;
+        let prev_global_slot: GlobalSlot = prev_global_slot.into();
+
+        let next_global_slot = GlobalSlot::of_slot_number(&constants, consensus_transition);
+
+        let slot_diff = next_global_slot.diff_slots(&prev_global_slot, w);
+
+        let _ = {
+            let global_slot_increased = prev_global_slot.less_than(&next_global_slot, w);
+            let is_genesis = field::equal(
+                CheckedSlot::zero().to_field(),
+                next_global_slot.slot_number.to_field(),
+                w,
+            );
+
+            Boolean::assert_any(&[global_slot_increased, is_genesis], w)
+        };
+
+        let (next_epoch, next_slot) = next_global_slot.to_epoch_and_slot(w);
+        let (prev_epoch, prev_slot) = prev_global_slot.to_epoch_and_slot(w);
+
+        let global_slot_since_genesis =
+            CheckedSlot::<Fp>::from_field(previous_state.global_slot_since_genesis.as_u32().into())
+                .add(&CheckedSlot::<Fp>::from_field(slot_diff.to_field()), w);
+
+        let epoch_increased = prev_epoch.less_than(&next_epoch, w);
+
+        let staking_epoch_data = {
+            let next_epoch_data: EpochData<Fp> = (&previous_state.next_epoch_data).into();
+            let staking_epoch_data: EpochData<Fp> = (&previous_state.staking_epoch_data).into();
+
+            w.exists_no_check(match epoch_increased {
+                Boolean::True => next_epoch_data,
+                Boolean::False => staking_epoch_data,
+            })
+        };
+
+        let next_slot_number = next_global_slot.slot_number.clone();
+
+        let block_stake_winner = {
+            let delegator_pk: CompressedPubKey = (&prover_state.delegator_pk).into();
+            w.exists(delegator_pk)
+        };
+
+        let block_creator = {
+            // TODO: See why `prover_state.producer_public_key` is compressed
+            //       In OCaml it's uncompressed
+            let producer_public_key: CompressedPubKey = (&prover_state.producer_public_key).into();
+            let pk = decompress_pk(&producer_public_key).unwrap();
+            w.exists_no_check(&pk);
+            // TODO: Remove this
+            let CompressedPubKeyVar { x, is_odd } = compress_var(pk.point(), w);
+            CompressedPubKey { x, is_odd }
+        };
+
+        let coinbase_receiver = {
+            let pk: CompressedPubKey = (&prover_state.coinbase_receiver_pk).into();
+            w.exists(pk)
+        };
+
+        {
+            let m = create_shifted_inner_curve::<Fp>(w);
+
+            vrf::check(
+                &m,
+                &staking_epoch_data.ledger,
+                &next_slot_number,
+                &block_stake_winner,
+                &block_creator,
+                staking_epoch_data.seed,
+                prover_state,
+                w,
+            );
+        }
+    }
 }
 
 pub struct ProverExtendBlockchainInputStableV22 {
@@ -284,11 +770,13 @@ pub fn generate_block_proof(
         Boolean::False => txn_snark.supply_increase.to_checked(),
     });
 
-    consensus_state_next_state_checked(
+    consensus::next_state_checked(
         previous_state,
         previous_state_hash,
         transition,
         supply_increase,
+        prover_state,
+        w,
     );
 
     // let%bind supply_increase =
