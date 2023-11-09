@@ -1042,16 +1042,20 @@ impl<F: FieldWitness> ToFieldElements<F> for v2::MinaBasePendingCoinbaseStackVer
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for pending_coinbase::Stack {
+impl<F: FieldWitness> ToFieldElements<F> for pending_coinbase::StateStack {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        let Self {
-            data,
-            state: pending_coinbase::StateStack { init, curr },
-        } = self;
-
-        fields.push(data.0.into_gen());
+        let Self { init, curr } = self;
         fields.push(init.into_gen());
         fields.push(curr.into_gen());
+    }
+}
+
+impl<F: FieldWitness> ToFieldElements<F> for pending_coinbase::Stack {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let Self { data, state } = self;
+
+        fields.push(data.0.into_gen());
+        state.to_field_elements(fields);
     }
 }
 
@@ -1334,6 +1338,22 @@ impl<F: FieldWitness> ToFieldElements<F> for PlonkVerificationKeyEvals<F> {
     }
 }
 
+impl<F: FieldWitness, const N: usize> ToFieldElements<F> for crate::address::raw::Address<N> {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let zero = F::zero();
+        let one = F::one();
+
+        fields.extend(
+            self.iter()
+                .map(|b| match b {
+                    crate::Direction::Left => zero,
+                    crate::Direction::Right => one,
+                })
+                .rev(),
+        );
+    }
+}
+
 // Implementation for references
 impl<F: FieldWitness, T: ToFieldElements<F>> ToFieldElements<F> for &T {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
@@ -1398,6 +1418,12 @@ impl<F: FieldWitness> Check<F> for Fp {
 }
 
 impl<F: FieldWitness> Check<F> for Fq {
+    fn check(&self, _w: &mut Witness<F>) {
+        // Does not modify the witness
+    }
+}
+
+impl<F: FieldWitness, const N: usize> Check<F> for crate::address::raw::Address<N> {
     fn check(&self, _w: &mut Witness<F>) {
         // Does not modify the witness
     }
@@ -2087,6 +2113,12 @@ impl<F: FieldWitness> Check<F> for transaction_union_payload::TransactionUnion {
     }
 }
 
+impl<F: FieldWitness> Check<F> for pending_coinbase::StateStack {
+    fn check(&self, _w: &mut Witness<F>) {
+        // Does not modify the witness
+    }
+}
+
 impl<F: FieldWitness> Check<F> for pending_coinbase::Stack {
     fn check(&self, _w: &mut Witness<F>) {
         // Does not modify the witness
@@ -2290,15 +2322,16 @@ pub mod field {
         boolean
     }
 
-    pub fn compare<F: FieldWitness>(bit_length: u64, a: F, b: F, w: &mut Witness<F>) -> (Boolean, Boolean) {
-        let two_to_the = |n: usize| {
-            (0..n).fold(F::one(), |acc, _| acc.double())
-        };
+    pub fn compare<F: FieldWitness>(
+        bit_length: u64,
+        a: F,
+        b: F,
+        w: &mut Witness<F>,
+    ) -> (Boolean, Boolean) {
+        let two_to_the = |n: usize| (0..n).fold(F::one(), |acc, _| acc.double());
 
         let bit_length = bit_length as usize;
-        let alpha_packed = {
-            two_to_the(bit_length) + b - a
-        };
+        let alpha_packed = { two_to_the(bit_length) + b - a };
         let alpha = w.exists(field_to_bits2(alpha_packed, bit_length + 1));
         let (less_or_equal, prefix) = alpha.split_last().unwrap();
 
@@ -3253,7 +3286,7 @@ pub mod transaction_snark {
         transaction_capacity_log_2: 7,
         pending_coinbase_depth: 5,
         coinbase_amount: currency::Amount::from_u64(720000000000),
-        supercharged_coinbase_factor: 2,
+        supercharged_coinbase_factor: 1,
         account_creation_fee: currency::Fee::from_u64(1000000000),
         fork: None,
     };
@@ -3658,7 +3691,7 @@ pub mod transaction_snark {
         })
     }
 
-    fn checked_min_balance_at_slot<F: FieldWitness>(
+    pub fn checked_min_balance_at_slot<F: FieldWitness>(
         global_slot: &CheckedSlot<F>,
         cliff_time: &CheckedSlot<F>,
         cliff_amount: &CheckedAmount<F>,

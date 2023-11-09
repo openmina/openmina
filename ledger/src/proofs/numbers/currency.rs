@@ -5,6 +5,7 @@ use crate::proofs::{
     to_field_elements::ToFieldElements,
     witness::{field, Boolean, Check, FieldWitness, Witness},
 };
+use crate::ToInputs;
 
 use super::common::range_check;
 
@@ -309,6 +310,14 @@ pub trait CheckedCurrency<F: FieldWitness>:
         Self::from_field(res)
     }
 
+    fn add_signed_flagged(&self, d: CheckedSigned<F, Self>, w: &mut Witness<F>) -> (Self, Boolean) {
+        let t = self.to_field();
+        let d = d.value();
+        let res = w.exists(t + d);
+        let (res, overflow) = Self::range_check_flagged(RangeCheckFlaggedKind::AddOrSub, res, w);
+        (res, overflow)
+    }
+
     /// Returns (F, is_overflow)
     fn const_add_flagged(&self, y: &Self, w: &mut Witness<F>) -> (Self, Boolean) {
         let x = self;
@@ -404,6 +413,12 @@ macro_rules! impl_currency {
         impl<F: FieldWitness> Check<F> for $name::<F> {
             fn check(&self, w: &mut Witness<F>) {
                 range_check::<F, { CURRENCY_NBITS }>(self.0, w);
+            }
+        }
+
+        impl<F: FieldWitness> ToInputs for $name<F> {
+            fn to_inputs(&self, inputs: &mut crate::Inputs) {
+                self.to_inner().to_inputs(inputs)
             }
         }
 

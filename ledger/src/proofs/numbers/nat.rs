@@ -1,11 +1,15 @@
+use mina_hasher::Fp;
+
 use crate::{
     proofs::{
+        block::consensus::ConsensusConstantsChecked,
         to_field_elements::ToFieldElements,
-        witness::{field, Boolean, Check, FieldWitness, Witness},
+        witness::{field, Boolean, Check, FieldWitness, ToBoolean, Witness},
     },
     scan_state::currency::{
         BlockTime, BlockTimeSpan, Index, Length, Magnitude, MinMax, Nonce, Slot, SlotSpan,
     },
+    ToInputs,
 };
 
 use super::common::{range_check, range_check_flag};
@@ -62,6 +66,31 @@ pub trait CheckedNat<F: FieldWitness, const NBITS: usize>:
         other.gte(self, w).and(&is_equal.neg(), w)
     }
 
+    /// TODO: Remove this
+    fn const_gte(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
+        let (x, y) = (self.to_field(), other.to_field());
+
+        let xy = x - y;
+        let yx = w.exists(xy.neg());
+
+        let x_gte_y = range_check_flag::<F, NBITS>(xy, w);
+        let y_gte_x = range_check_flag::<F, NBITS>(yx, w);
+
+        Boolean::assert_any(&[x_gte_y, y_gte_x], w);
+        x_gte_y
+    }
+
+    fn const_less_than(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
+        let is_equal = field::equal(other.to_field(), self.to_field(), w);
+        other.const_gte(self, w).and(&is_equal.neg(), w)
+    }
+
+    /// >
+    /// greater than
+    fn greater_than(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
+        other.less_than(self, w)
+    }
+
     fn equal(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
         field::equal(self.to_field(), other.to_field(), w)
     }
@@ -111,6 +140,12 @@ pub trait CheckedNat<F: FieldWitness, const NBITS: usize>:
         Self::from_field(res)
     }
 
+    fn const_add(&self, y: &Self, w: &mut Witness<F>) -> Self {
+        let res = self.to_field() + y.to_field();
+        range_check::<F, NBITS>(res, w);
+        Self::from_field(res)
+    }
+
     fn mul(&self, y: &Self, w: &mut Witness<F>) -> Self {
         let res = field::mul(self.to_field(), y.to_field(), w);
         range_check::<F, NBITS>(res, w);
@@ -143,6 +178,38 @@ impl<F: FieldWitness> CheckedSlot<F> {
         let diff = field::sub(self.to_field(), t2.to_field(), w);
         range_check::<F, 32>(diff, w);
         CheckedSlotSpan::from_field(diff)
+    }
+
+    pub fn to_length(&self) -> CheckedLength<F> {
+        CheckedLength::from_field(self.to_field())
+    }
+}
+
+impl CheckedSlot<Fp> {
+    pub fn in_seed_update_range(
+        &self,
+        constants: &ConsensusConstantsChecked,
+        w: &mut Witness<Fp>,
+    ) -> Boolean {
+        // constant
+        let c = |n: u32| Length::from_u32(n).to_checked();
+        let third_epoch = {
+            let (q, _r) = constants.slots_per_epoch.div_mod(&c(3), w);
+            q
+        };
+        let ck_times_2 = third_epoch.const_mul(&c(2), w);
+        // let ck_times_2 = third_epoch.mul(&c(2), w);
+        self.to_length().less_than(&ck_times_2, w)
+    }
+}
+
+impl<F: FieldWitness> CheckedLength<F> {
+    pub fn to_slot(&self) -> CheckedSlot<F> {
+        CheckedSlot::from_field(self.to_field())
+    }
+
+    pub fn const_succ(&self) -> Self {
+        Self(self.0 + F::one())
     }
 }
 
@@ -183,6 +250,12 @@ macro_rules! impl_nat {
         impl<F: FieldWitness> Check<F> for $name::<F> {
             fn check(&self, w: &mut Witness<F>) {
                 range_check::<F, { 32 }>(self.0, w);
+            }
+        }
+
+        impl<F: FieldWitness> ToInputs for $name<F> {
+            fn to_inputs(&self, inputs: &mut crate::Inputs) {
+                self.to_inner().to_inputs(inputs)
             }
         }
 
@@ -228,5 +301,39 @@ impl<F: FieldWitness> ToFieldElements<F> for CheckedN<F> {
 impl<F: FieldWitness> Check<F> for CheckedN<F> {
     fn check(&self, w: &mut Witness<F>) {
         range_check::<F, 64>(self.0, w);
+    }
+}
+
+/// A generic 32 bits checked number
+#[derive(Clone, Debug)]
+pub struct CheckedN32<F: FieldWitness>(F);
+
+impl<F: FieldWitness> CheckedNat<F, 32> for CheckedN32<F> {
+    type Inner = crate::scan_state::currency::N;
+    fn to_field(&self) -> F {
+        self.0
+    }
+    fn from_field(field: F) -> Self {
+        Self(field)
+    }
+}
+
+impl<F: FieldWitness> ToFieldElements<F> for CheckedN32<F> {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let Self(this) = self;
+        this.to_field_elements(fields)
+    }
+}
+
+impl<F: FieldWitness> Check<F> for CheckedN32<F> {
+    fn check(&self, w: &mut Witness<F>) {
+        range_check::<F, 32>(self.0, w);
+    }
+}
+
+impl<F: FieldWitness> CheckedN32<F> {
+    pub fn constant(n: usize) -> Self {
+        let n: u32 = n.try_into().unwrap();
+        Self::from_field(n.into())
     }
 }

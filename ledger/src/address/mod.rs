@@ -1,4 +1,4 @@
-mod raw;
+pub mod raw;
 
 const fn compute_nbytes(nbits: usize) -> usize {
     if nbits % 8 == 0 {

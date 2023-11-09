@@ -9,9 +9,15 @@ use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 use crate::{
     gen_compressed,
     hash::{hash_noinputs, hash_with_kimchi, Inputs},
-    proofs::witness::{
-        make_group, Boolean, FieldWitness, InnerCurve, PlonkVerificationKeyEvals, ToBoolean,
-        Witness,
+    proofs::{
+        numbers::{
+            currency::{CheckedBalance, CheckedCurrency},
+            nat::CheckedSlot,
+        },
+        witness::{
+            make_group, transaction_snark::checked_min_balance_at_slot, Boolean, FieldWitness,
+            InnerCurve, PlonkVerificationKeyEvals, ToBoolean, Witness,
+        },
     },
     scan_state::{
         currency::{Balance, Magnitude, Nonce, Slot},
@@ -920,6 +926,34 @@ impl Account {
                 !curr_min_balance.is_zero()
             }
         }
+    }
+
+    pub fn has_locked_tokens_checked(
+        &self,
+        global_slot: &CheckedSlot<Fp>,
+        w: &mut Witness<Fp>,
+    ) -> Boolean {
+        let TimingAsRecordChecked {
+            is_timed: _,
+            initial_minimum_balance,
+            cliff_time,
+            cliff_amount,
+            vesting_period,
+            vesting_increment,
+        } = self.timing.to_record_checked::<Fp>();
+
+        let cur_min_balance = checked_min_balance_at_slot(
+            global_slot,
+            &cliff_time,
+            &cliff_amount,
+            &vesting_period,
+            &vesting_increment,
+            &initial_minimum_balance,
+            w,
+        );
+
+        let zero_min_balance = CheckedBalance::zero().equal(&cur_min_balance, w);
+        zero_min_balance.neg()
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account.ml#L794
