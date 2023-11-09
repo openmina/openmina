@@ -198,9 +198,161 @@ fn txn_statement_ledger_hashes_equal(
     )
 }
 
+mod floating_point {
+    use ark_ff::{BigInteger, BigInteger256, One, Zero};
+    use num_bigint::BigUint;
+
+    use crate::{
+        proofs::witness::{field_to_bits, field_to_bits2, FieldWitness},
+        scan_state::currency::{Amount, Balance, Sgn},
+    };
+
+    use super::*;
+
+    pub enum CoeffIntegerPart {
+        Zero,
+        One,
+    }
+
+    const COEFFICIENTS: [(Sgn, BigInteger256); 11] = [
+        (Sgn::Pos, BigInteger256::new([405058, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::new([1007582, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::new([465602, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::new([161365, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::new([44739, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::new([10337, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::new([2047, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::new([354, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::new([54, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::new([7, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::new([0, 0, 0, 0])),
+    ];
+
+    pub struct Params {
+        pub total_precision: usize,
+        pub per_term_precision: usize,
+        pub terms_needed: usize,
+        pub coefficients: [(Sgn, BigInteger256); 11],
+        pub linear_term_integer_part: CoeffIntegerPart,
+    }
+
+    pub const PARAMS: Params = Params {
+        total_precision: 16,
+        per_term_precision: 20,
+        terms_needed: 11,
+        coefficients: COEFFICIENTS,
+        linear_term_integer_part: CoeffIntegerPart::One,
+    };
+
+    pub enum Interval {
+        Constant(BigUint),
+        LessThan(BigUint),
+    }
+
+    fn bits_needed(v: BigUint) -> u64 {
+        v.bits().checked_sub(1).unwrap()
+    }
+
+    impl Interval {
+        fn scale(&self, x: BigUint) -> Self {
+            match self {
+                Interval::Constant(v) => Self::Constant(v * x),
+                Interval::LessThan(v) => Self::LessThan(v * x),
+            }
+        }
+
+        fn bits_needed(&self) -> u64 {
+            match self {
+                Interval::Constant(x) => bits_needed(x + BigUint::from(1u64)),
+                Interval::LessThan(x) => bits_needed(x.clone()),
+            }
+        }
+    }
+
+    pub struct SnarkyInteger<F: FieldWitness> {
+        pub value: F,
+        pub interval: Interval,
+        pub bits: Option<Vec<Boolean>>,
+    }
+
+    impl<F: FieldWitness> SnarkyInteger<F> {
+        pub fn create(value: F, upper_bound: BigUint) -> Self {
+            Self {
+                value,
+                interval: Interval::LessThan(upper_bound),
+                bits: None,
+            }
+        }
+
+        fn shift_left(&self, k: usize) -> Self {
+            let Self {
+                value,
+                interval,
+                bits,
+            } = self;
+
+            let two_to_k = BigUint::new(vec![1, 0, 0, 0]) << k;
+
+            Self {
+                value: *value * F::from(two_to_k.clone()),
+                interval: interval.scale(two_to_k),
+                bits: bits.as_ref().map(|_| todo!()),
+            }
+        }
+
+        fn div_mod(&self, b: &Self, w: &mut Witness<F>) {
+            let (q, r) = w.exists({
+                let a: BigUint = self.value.into();
+                let b: BigUint = b.value.into();
+                (F::from(&a / &b), F::from(&a % &b))
+            });
+
+            let q_bit_length = self.interval.bits_needed();
+            let b_bit_length = b.interval.bits_needed();
+
+            let q_bits = w.exists(field_to_bits2(q, q_bit_length as usize));
+            let b_bits = w.exists(field_to_bits2(r, b_bit_length as usize));
+
+            dbg!(q_bit_length, b_bit_length);
+        }
+    }
+
+    //   Field.Assert.lt ~bit_length:b_bit_length r b.value ;
+    //   (* This assertion checkes that the multiplication q * b is safe. *)
+    //   assert (q_bit_length + b_bit_length + 1 < Field.Constant.size_in_bits) ;
+    //   assert_r1cs q b.value Field.(a.value - r) ;
+    //   ( { value = q
+    //     ; interval = Interval.quotient a.interval b.interval
+    //     ; bits = Some q_bits
+    //     }
+    //   , { value = r; interval = b.interval; bits = Some r_bits } )
+
+    pub fn balance_upper_bound() -> BigUint {
+        BigUint::new(vec![1, 0, 0, 0]) << Balance::NBITS as u32
+    }
+
+    pub fn amount_upper_bound() -> BigUint {
+        BigUint::new(vec![1, 0, 0, 0]) << Amount::NBITS as u32
+    }
+
+    pub fn of_quotient(
+        precision: usize,
+        top: SnarkyInteger<Fp>,
+        bottom: SnarkyInteger<Fp>,
+        w: &mut Witness<Fp>,
+    ) {
+        top.shift_left(precision).div_mod(&bottom, w);
+
+        // let of_quotient ~m ~precision ~top ~bottom ~top_is_less_than_bottom:() =
+        //   let q, _r = Integer.(div_mod ~m (shift_left ~m top precision) bottom) in
+        //   { value = Integer.to_field q; precision }
+    }
+}
+
 mod vrf {
     use std::ops::Neg;
 
+    use ark_ff::{BigInteger, BigInteger256};
     use mina_signer::{CompressedPubKey, PubKey};
 
     use crate::{
@@ -209,10 +361,13 @@ mod vrf {
             numbers::nat::{CheckedNat, CheckedSlot},
             witness::{
                 decompress_var, field_to_bits, legacy_input::to_bits, scale_known,
-                scale_non_constant, GroupAffine, InnerCurve,
+                scale_non_constant, FieldWitness, GroupAffine, InnerCurve,
             },
         },
-        scan_state::transaction_logic::protocol_state::EpochLedger,
+        scan_state::{
+            currency::{Amount, Balance, Sgn},
+            transaction_logic::protocol_state::EpochLedger,
+        },
         sparse_ledger::SparseLedger,
         AccountIndex, Address,
     };
@@ -334,6 +489,21 @@ mod vrf {
         (evaluation, account)
     }
 
+    fn is_satisfied(
+        my_stake: Balance,
+        total_stake: Amount,
+        truncated_result: &[bool; VRF_OUTPUT_NBITS],
+        w: &mut Witness<Fp>,
+    ) {
+        use floating_point::*;
+
+        let top = SnarkyInteger::create(my_stake.to_field::<Fp>(), balance_upper_bound());
+        let bottom = SnarkyInteger::create(total_stake.to_field::<Fp>(), amount_upper_bound());
+        let precision = PARAMS.per_term_precision;
+
+        floating_point::of_quotient(precision, top, bottom, w);
+    }
+
     const VRF_OUTPUT_NBITS: usize = 253;
 
     fn truncate_vrf_output(output: Fp, w: &mut Witness<Fp>) -> [bool; VRF_OUTPUT_NBITS] {
@@ -374,6 +544,10 @@ mod vrf {
 
         let my_stake = winner_account.balance;
         let truncated_result = truncate_vrf_output(result, w);
+
+        epoch_ledger.total_currency;
+
+        is_satisfied(my_stake, epoch_ledger.total_currency, &truncated_result, w);
 
         // let my_stake = winner_account.balance in
         // let%bind truncated_result = Output.Checked.truncate result in
