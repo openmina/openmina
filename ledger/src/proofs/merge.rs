@@ -152,16 +152,16 @@ fn merge_main(
 }
 
 #[derive(Clone, Debug)]
-struct PreviousProofStatement<'a> {
-    public_input: &'a Statement<SokDigest>,
-    proof: &'a v2::LedgerProofProdStableV2,
-    proof_must_verify: Boolean,
+pub struct PreviousProofStatement<'a> {
+    pub public_input: &'a Statement<SokDigest>,
+    pub proof: &'a v2::LedgerProofProdStableV2,
+    pub proof_must_verify: Boolean,
 }
 
-struct InductiveRule<'a> {
-    previous_proof_statements: [PreviousProofStatement<'a>; 2],
-    public_output: (),
-    auxiliary_output: (),
+pub struct InductiveRule<'a> {
+    pub previous_proof_statements: [PreviousProofStatement<'a>; 2],
+    pub public_output: (),
+    pub auxiliary_output: (),
 }
 
 fn dlog_plonk_index(wrap_prover: &Prover<Fq>) -> PlonkVerificationKeyEvals<Fp> {

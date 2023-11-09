@@ -17,10 +17,14 @@ use crate::{
         witness::Boolean,
     },
     scan_state::{
-        pending_coinbase::{PendingCoinbase, PendingCoinbaseWitness},
+        fee_excess::{self, FeeExcess},
+        pending_coinbase::{PendingCoinbase, PendingCoinbaseWitness, Stack},
         protocol_state::MinaHash,
         scan_state::{
-            transaction_snark::{Registers, SokDigest, Statement},
+            transaction_snark::{
+                validate_ledgers_at_merge_checked, Registers, SokDigest, Statement,
+                StatementLedgers,
+            },
             ForkConstants,
         },
         transaction_logic::protocol_state::EpochLedger,
@@ -1644,7 +1648,7 @@ pub fn generate_block_proof(
         (t, is_base_case)
     };
 
-    let a = {
+    let (txn_snark_should_verify, success) = {
         let mut pending_coinbase = PendingCoinbaseWitness {
             is_new_stack: pending_coinbase.is_new_stack,
             pending_coinbase: (&pending_coinbase.pending_coinbases).into(),
@@ -1652,7 +1656,7 @@ pub fn generate_block_proof(
 
         let global_slot = global_slot_since_genesis;
 
-        let a = {
+        let (new_pending_coinbase_hash, deleted_stack, no_coinbases_popped) = {
             let (root_after_delete, deleted_stack) = PendingCoinbase::pop_coinbases(
                 txn_stmt_ledger_hashes_didn_t_change.neg(),
                 &mut pending_coinbase,
@@ -1662,7 +1666,7 @@ pub fn generate_block_proof(
             let no_coinbases_popped =
                 field::equal(root_after_delete, prev_pending_coinbase_root, w);
 
-            PendingCoinbase::add_coinbase_checked(
+            let new_root = PendingCoinbase::add_coinbase_checked(
                 &transition.pending_coinbase_update,
                 coinbase_receiver,
                 *supercharge_coinbase,
@@ -1671,29 +1675,80 @@ pub fn generate_block_proof(
                 &mut pending_coinbase,
                 w,
             );
+
+            (new_root, deleted_stack, no_coinbases_popped)
         };
+
+        let current_ledger_statement = &new_state.body.blockchain_state.ledger_proof_statement;
+        let pending_coinbase_source_stack = Stack::var_create_with(&deleted_stack);
+
+        let txn_snark_input_correct = {
+            fee_excess::assert_equal_checked(&FeeExcess::empty(), &txn_snark.fee_excess, w);
+
+            let previous_ledger_statement =
+                &previous_state.body.blockchain_state.ledger_proof_statement;
+
+            let s1 = previous_ledger_statement.into();
+            let s2 = current_ledger_statement.into();
+
+            let ledger_statement_valid = validate_ledgers_at_merge_checked(
+                &StatementLedgers::of_statement(&s1),
+                &StatementLedgers::of_statement(&s2),
+                w,
+            );
+
+            let a = txn_snark
+                .source
+                .pending_coinbase_stack
+                .equal_var(&pending_coinbase_source_stack, w);
+            let b = txn_snark
+                .target
+                .pending_coinbase_stack
+                .equal_var(&deleted_stack, w);
+
+            Boolean::all(&[ledger_statement_valid, a, b], w)
+        };
+
+        let nothing_changed = Boolean::all(
+            &[txn_stmt_ledger_hashes_didn_t_change, no_coinbases_popped],
+            w,
+        );
+
+        let correct_coinbase_status = {
+            let new_root = transition
+                .blockchain_state
+                .staged_ledger_hash
+                .pending_coinbase_hash
+                .to_field::<Fp>();
+            field::equal(new_pending_coinbase_hash, new_root, w)
+        };
+
+        Boolean::assert_any(&[txn_snark_input_correct, nothing_changed], w);
+
+        let transaction_snark_should_verifiy = nothing_changed.neg();
+
+        let result = Boolean::all(&[updated_consensus_state, correct_coinbase_status], w);
+
+        (transaction_snark_should_verifiy, result)
     };
 
-    //     Printf.eprintf "[block] AFTER EQUAL_VAR\n%!" ;
-    //     (*new stack or update one*)
-    //     let%map new_root =
-    //       with_label __LOC__ (fun () ->
-    //           Pending_coinbase.Checked.add_coinbase ~constraint_constants
-    //             root_after_delete
-    //             (Snark_transition.pending_coinbase_update transition)
-    //             ~coinbase_receiver ~supercharge_coinbase previous_state_body_hash
-    //             global_slot )
-    //     in
-    //     Printf.eprintf "[block] AFTER NEW_ROOT\n%!" ;
-    //     (new_root, deleted_stack, no_coinbases_popped)
-    //   in
-    //   Printf.eprintf "[block] AFTER SHOULD_VERIFY\n%!" ;
-    //   let current_ledger_statement =
-    //     (Protocol_state.blockchain_state new_state).ledger_proof_statement
-    //   in
-    //   Printf.eprintf "[block] AFTER CURRENT\n%!" ;
-    //   let pending_coinbase_source_stack =
-    //     Pending_coinbase.Stack.Checked.create_with deleted_stack
-    //   in
-    //   Printf.eprintf "[block] AFTER SRC_STACK\n%!" ;
+    let prev_should_verify = is_base_case.neg();
+
+    Boolean::assert_any(&[is_base_case, success], w);
+
+    // InductiveRule {
+
+    // }
+
+    // Induc
+
+    // ( { Pickles.Inductive_rule.Previous_proof_statement.public_input =
+    //       previous_blockchain_proof_input
+    //   ; proof = previous_blockchain_proof
+    //   ; proof_must_verify = prev_should_verify
+    //   }
+    // , { Pickles.Inductive_rule.Previous_proof_statement.public_input = txn_snark
+    //   ; proof = txn_snark_proof
+    //   ; proof_must_verify = txn_snark_should_verify
+    //   } )
 }

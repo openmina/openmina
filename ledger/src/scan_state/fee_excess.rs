@@ -362,6 +362,11 @@ fn eliminate_fee_excess<'a>(
     }
 }
 
+pub fn assert_equal_checked(_t1: &FeeExcess, t2: &FeeExcess, w: &mut Witness<Fp>) {
+    w.exists(t2.fee_excess_l.to_checked::<Fp>().value());
+    w.exists(t2.fee_excess_r.to_checked::<Fp>().value());
+}
+
 fn eliminate_fee_excess_checked<'a>(
     (fee_token_l, fee_excess_l): (&'a TokenId, Fp),
     (fee_token_m, fee_excess_m): (&'a TokenId, Fp),
@@ -397,24 +402,3 @@ fn eliminate_fee_excess_checked<'a>(
 
     ((fee_token_l, fee_excess_l), (fee_token_r, fee_excess_r))
 }
-
-//   (* NOTE: Below, we may update the tokens on both sides, even though we only
-//      promote the excess to one of them. This differs from the unchecked
-//      version, but
-//      * the token may only be changed if it is associated with 0 fee excess
-//      * any intermediate 0 fee excesses can always be either combined or erased
-//        in later eliminations
-//      * a fee excess of 0 on the left or right will have its token erased to the
-//        default
-//   *)
-//   let%bind (fee_token_l, fee_excess_l), fee_excess_m =
-//     combine (fee_token_l, fee_excess_l) fee_excess_m
-//   in
-//   let%bind (fee_token_r, fee_excess_r), fee_excess_m =
-//     combine (fee_token_r, fee_excess_r) fee_excess_m
-//   in
-//   let%map () =
-//     [%with_label_ "Fee excess is eliminated"]
-//       Field.(fun () -> Checked.Assert.equal (Var.constant zero) fee_excess_m)
-//   in
-//   ((fee_token_l, fee_excess_l), (fee_token_r, fee_excess_r))
