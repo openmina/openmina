@@ -8,10 +8,22 @@ use mina_p2p_messages::v2;
 
 use crate::{
     dummy,
-    proofs::{numbers::currency::CheckedSigned, witness::Boolean},
+    proofs::{
+        block::consensus::ConsensusState,
+        numbers::{
+            currency::CheckedSigned,
+            nat::{CheckedNat, CheckedSlot},
+        },
+        witness::Boolean,
+    },
     scan_state::{
+        pending_coinbase::{PendingCoinbase, PendingCoinbaseWitness},
         protocol_state::MinaHash,
-        scan_state::transaction_snark::{Registers, SokDigest, Statement},
+        scan_state::{
+            transaction_snark::{Registers, SokDigest, Statement},
+            ForkConstants,
+        },
+        transaction_logic::protocol_state::EpochLedger,
     },
     Inputs, ToInputs,
 };
@@ -92,6 +104,17 @@ impl Check<Fp> for v2::MinaStateSnarkTransitionValueStableV2 {
     }
 }
 
+impl ToFieldElements<Fp> for EpochLedger<Fp> {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
+            hash,
+            total_currency,
+        } = self;
+        hash.to_field_elements(fields);
+        total_currency.to_field_elements(fields);
+    }
+}
+
 impl ToFieldElements<Fp> for v2::MinaStateProtocolStateValueStableV2 {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
@@ -159,6 +182,25 @@ fn checked_hash_protocol_state(
     (hash, body_hash)
 }
 
+// Checked version
+fn checked_hash_protocol_state2(state: &ProtocolState, w: &mut Witness<Fp>) -> (Fp, Fp) {
+    let ProtocolState {
+        previous_state_hash,
+        body,
+    } = state;
+
+    let mut inputs = Inputs::new();
+    body.to_inputs(&mut inputs);
+    let body_hash = checked_hash("MinaProtoStateBody", &inputs.to_fields(), w);
+
+    let mut inputs = Inputs::new();
+    inputs.append_field(*previous_state_hash);
+    inputs.append_field(body_hash);
+    let hash = checked_hash("MinaProtoState", &inputs.to_fields(), w);
+
+    (hash, body_hash)
+}
+
 fn non_pc_registers_equal_var(t1: &Registers, t2: &Registers, w: &mut Witness<Fp>) -> Boolean {
     let alls = [
         // t1.pending_coinbase_stack.equal_var(&t2.pending_coinbase_stack, w),
@@ -203,7 +245,7 @@ mod floating_point {
     use num_bigint::BigUint;
 
     use crate::{
-        proofs::witness::{field_to_bits, field_to_bits2, FieldWitness, field_of_bits},
+        proofs::witness::{field_of_bits, field_to_bits, field_to_bits2, FieldWitness},
         scan_state::currency::{Amount, Balance, Sgn},
     };
 
@@ -331,15 +373,18 @@ mod floating_point {
 
             field::assert_lt(b_bit_length, r, b.value, w);
 
-            (Self {
-                value: q,
-                interval: self.interval.quotient(&b.interval),
-                bits: Some(q_bits),
-            }, Self {
-                value: r,
-                interval: b.interval.clone(),
-                bits: Some(r_bits),
-            })
+            (
+                Self {
+                    value: q,
+                    interval: self.interval.quotient(&b.interval),
+                    bits: Some(q_bits),
+                },
+                Self {
+                    value: r,
+                    interval: b.interval.clone(),
+                    bits: Some(r_bits),
+                },
+            )
         }
     }
 
@@ -354,7 +399,7 @@ mod floating_point {
     #[derive(Clone, Debug)]
     pub struct Point<F: FieldWitness> {
         pub value: F,
-        pub precision: usize
+        pub precision: usize,
     }
 
     pub fn of_quotient<F: FieldWitness>(
@@ -410,19 +455,14 @@ mod floating_point {
                 (t2, self)
             };
 
-            let powed2 = (0..(t2.precision - t1.precision)).fold(F::one(), |acc, _| {
-                acc.double()
-            });
+            let powed2 = (0..(t2.precision - t1.precision)).fold(F::one(), |acc, _| acc.double());
 
             let value = match sgn {
                 Sgn::Pos => (powed2 * t1.value) + t2.value,
                 Sgn::Neg => (powed2 * t1.value) - t2.value,
             };
 
-            Self {
-                value,
-                precision,
-            }
+            Self { value, precision }
         }
 
         pub fn add(&self, t2: &Self) -> Self {
@@ -472,15 +512,16 @@ mod snarky_taylor {
         linear_term_integer_part: &CoeffIntegerPart,
         w: &mut Witness<F>,
     ) -> Point<F> {
-        let acc = coefficients.zip(&x_powers).fold(None, |sum, ((sgn, ci), xi)| {
-            let term = ci.const_mul(xi);
-            match sum {
-                None => Some(term),
-                Some(s) => {
-                    Some(s.add_signed((sgn, &term)))
-                },
-            }
-        }).unwrap();
+        let acc = coefficients
+            .zip(&x_powers)
+            .fold(None, |sum, ((sgn, ci), xi)| {
+                let term = ci.const_mul(xi);
+                match sum {
+                    None => Some(term),
+                    Some(s) => Some(s.add_signed((sgn, &term))),
+                }
+            })
+            .unwrap();
 
         match linear_term_integer_part {
             CoeffIntegerPart::Zero => acc,
@@ -491,7 +532,7 @@ mod snarky_taylor {
     pub fn one_minus_exp<F: FieldWitness>(
         params: &Params,
         x: Point<F>,
-        w: &mut Witness<F>
+        w: &mut Witness<F>,
     ) -> Point<F> {
         let floating_point::Params {
             total_precision,
@@ -502,12 +543,11 @@ mod snarky_taylor {
         } = params;
 
         let powers = x.powers(*terms_needed, w);
-        let coefficients = coefficients.iter().map(|(sgn, c)| {
-            (*sgn, Point::<F>::constant(c, *per_term_precision))
-        });
+        let coefficients = coefficients
+            .iter()
+            .map(|(sgn, c)| (*sgn, Point::<F>::constant(c, *per_term_precision)));
         taylor_sum(powers, coefficients, linear_term_integer_part, w)
     }
-
 }
 
 mod vrf {
@@ -671,9 +711,9 @@ mod vrf {
 
     pub const VRF_OUTPUT_NBITS: usize = 253;
 
-    fn truncate_vrf_output(output: Fp, w: &mut Witness<Fp>) -> [bool; VRF_OUTPUT_NBITS] {
+    fn truncate_vrf_output(output: Fp, w: &mut Witness<Fp>) -> Box<[bool; VRF_OUTPUT_NBITS]> {
         let output = w.exists(field_to_bits::<_, 255>(output));
-        std::array::from_fn(|i| output[i])
+        Box::new(std::array::from_fn(|i| output[i]))
     }
 
     pub fn check(
@@ -685,7 +725,12 @@ mod vrf {
         seed: Fp,
         prover_state: &v2::ConsensusStakeProofStableV2,
         w: &mut Witness<Fp>,
-    ) -> (Boolean, Fp, [bool; VRF_OUTPUT_NBITS], Box<crate::Account>) {
+    ) -> (
+        Boolean,
+        Fp,
+        Box<[bool; VRF_OUTPUT_NBITS]>,
+        Box<crate::Account>,
+    ) {
         let (winner_addr, winner_addr_bits) = {
             const LEDGER_DEPTH: usize = 35;
             assert_eq!(CONSTRAINT_CONSTANTS.ledger_depth, LEDGER_DEPTH as u64);
@@ -709,26 +754,31 @@ mod vrf {
 
         let my_stake = winner_account.balance;
         let truncated_result = truncate_vrf_output(result, w);
-
-        epoch_ledger.total_currency;
-
         let satisifed = is_satisfied(my_stake, epoch_ledger.total_currency, &truncated_result, w);
 
         (satisifed, result, truncated_result, winner_account)
     }
 }
 
-mod consensus {
+pub mod consensus {
+    use ark_ff::Zero;
     use mina_signer::CompressedPubKey;
 
-    use super::*;
+    use super::{vrf::VRF_OUTPUT_NBITS, *};
     use crate::{
         decompress_pk,
         proofs::{
-            numbers::nat::{CheckedN, CheckedNat, CheckedSlot, CheckedSlotSpan},
+            numbers::{
+                currency::CheckedCurrency,
+                nat::{CheckedN, CheckedN32, CheckedNat, CheckedSlot, CheckedSlotSpan},
+            },
             witness::{compress_var, create_shifted_inner_curve, CompressedPubKeyVar, InnerCurve},
         },
-        scan_state::transaction_logic::protocol_state::EpochData,
+        scan_state::{
+            currency::{Amount, Length},
+            transaction_logic::protocol_state::{EpochData, EpochLedger},
+        },
+        Account,
     };
 
     pub struct ConsensusConstantsChecked {
@@ -864,10 +914,10 @@ mod consensus {
 
     type CheckedEpoch = CheckedBlockTime<Fp>;
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct GlobalSlot {
-        slot_number: CheckedSlot<Fp>,
-        slots_per_epoch: CheckedLength<Fp>,
+        pub slot_number: CheckedSlot<Fp>,
+        pub slots_per_epoch: CheckedLength<Fp>,
     }
 
     impl From<&v2::ConsensusGlobalSlotStableV1> for GlobalSlot {
@@ -912,6 +962,237 @@ mod consensus {
         }
     }
 
+    fn compute_supercharge_coinbase(
+        winner_account: &Account,
+        global_slot: &CheckedSlot<Fp>,
+        w: &mut Witness<Fp>,
+    ) -> Boolean {
+        let winner_locked = winner_account.has_locked_tokens_checked(global_slot, w);
+        winner_locked.neg()
+    }
+
+    fn same_checkpoint_window(
+        constants: &ConsensusConstantsChecked,
+        prev: &GlobalSlot,
+        next: &GlobalSlot,
+        w: &mut Witness<Fp>,
+    ) -> Boolean {
+        let slot1 = prev;
+        let slot2 = next;
+
+        let slot1 = &slot1.slot_number;
+        let checkpoint_window_size_in_slots = &constants.checkpoint_window_size_in_slots;
+
+        let (_q1, r1) = slot1.div_mod(&checkpoint_window_size_in_slots.to_slot(), w);
+
+        let next_window_start =
+            { slot1.to_field() - r1.to_field() + checkpoint_window_size_in_slots.to_field() };
+
+        slot2
+            .slot_number
+            .less_than(&CheckedSlot::from_field(next_window_start), w)
+    }
+
+    struct GlobalSubWindow {
+        inner: CheckedN32<Fp>,
+    }
+
+    impl std::ops::Deref for GlobalSubWindow {
+        type Target = CheckedN32<Fp>;
+
+        fn deref(&self) -> &Self::Target {
+            &self.inner
+        }
+    }
+
+    impl GlobalSubWindow {
+        fn of_global_slot(
+            constants: &ConsensusConstantsChecked,
+            s: &GlobalSlot,
+            w: &mut Witness<Fp>,
+        ) -> Self {
+            let slot_as_field = s.slot_number.to_field();
+            let slot_as_field = CheckedN32::from_field(slot_as_field);
+
+            let (q, _) = slot_as_field.div_mod(
+                &CheckedN32::from_field(constants.slots_per_window.to_field()),
+                w,
+            );
+            Self { inner: q }
+        }
+
+        fn sub_window(&self, constants: &ConsensusConstantsChecked, w: &mut Witness<Fp>) -> Self {
+            let (_, shift) = self.inner.div_mod(
+                &CheckedN32::from_field(constants.sub_windows_per_window.to_field()),
+                w,
+            );
+            Self { inner: shift }
+        }
+
+        fn equal(&self, other: &Self, w: &mut Witness<Fp>) -> Boolean {
+            self.inner.equal(&other.inner, w)
+        }
+
+        fn add(&self, b: &CheckedLength<Fp>, w: &mut Witness<Fp>) -> Self {
+            let inner = self.inner.add(&CheckedN32::from_field(b.to_field()), w);
+            Self { inner }
+        }
+
+        fn gte(&self, other: &Self, w: &mut Witness<Fp>) -> Boolean {
+            self.inner.gte(&other.inner, w)
+        }
+    }
+
+    type SubWindow = CheckedN32<Fp>;
+
+    struct UpdateMinWindowDensityParams<'a> {
+        constants: &'a ConsensusConstantsChecked,
+        prev_global_slot: &'a GlobalSlot,
+        next_global_slot: &'a GlobalSlot,
+        prev_sub_window_densities: Vec<u32>,
+        prev_min_window_density: u32,
+    }
+
+    fn update_min_window_density(
+        params: UpdateMinWindowDensityParams,
+        w: &mut Witness<Fp>,
+    ) -> (CheckedLength<Fp>, Vec<CheckedLength<Fp>>) {
+        let UpdateMinWindowDensityParams {
+            constants: c,
+            prev_global_slot,
+            next_global_slot,
+            prev_sub_window_densities,
+            prev_min_window_density,
+        } = params;
+
+        let prev_global_sub_window = GlobalSubWindow::of_global_slot(c, prev_global_slot, w);
+        let next_global_sub_window = GlobalSubWindow::of_global_slot(c, next_global_slot, w);
+
+        let prev_relative_sub_window = prev_global_sub_window.sub_window(c, w);
+        let next_relative_sub_window = next_global_sub_window.sub_window(c, w);
+
+        let same_sub_window = prev_global_sub_window.equal(&next_global_sub_window, w);
+        let overlapping_window = {
+            let x = prev_global_sub_window.add(&c.sub_windows_per_window, w);
+            x.gte(&next_global_sub_window, w)
+        };
+
+        let current_sub_window_densities = prev_sub_window_densities
+            .iter()
+            .enumerate()
+            .map(|(i, density)| {
+                let gt_prev_sub_window =
+                    SubWindow::constant(i).greater_than(&prev_relative_sub_window, w);
+
+                // :(
+                // This will be removed once we have cvar
+                let lt_next_sub_window = if i == 0 {
+                    SubWindow::constant(i).const_less_than(&next_relative_sub_window, w)
+                } else {
+                    SubWindow::constant(i).less_than(&next_relative_sub_window, w)
+                };
+
+                let within_range = {
+                    let cond = prev_relative_sub_window.less_than(&next_relative_sub_window, w);
+                    let on_true = gt_prev_sub_window.and(&lt_next_sub_window, w);
+                    let on_false = gt_prev_sub_window.or(&lt_next_sub_window, w);
+
+                    w.exists_no_check(match cond {
+                        Boolean::True => on_true,
+                        Boolean::False => on_false,
+                    })
+                };
+
+                let density = Length::from_u32(*density).to_checked::<Fp>();
+
+                let on_true = density.clone();
+                let on_false = {
+                    let cond = overlapping_window.and(&within_range.neg(), w);
+                    w.exists_no_check(match cond {
+                        Boolean::True => density,
+                        Boolean::False => CheckedLength::zero(),
+                    })
+                };
+
+                w.exists_no_check(match same_sub_window {
+                    Boolean::True => on_true,
+                    Boolean::False => on_false,
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let current_window_density = current_sub_window_densities.iter().enumerate().fold(
+            CheckedLength::zero(),
+            |acc, (i, v)| {
+                // :(
+                // This will be removed once we have cvar
+                if i == 0 {
+                    acc.const_add(v, w)
+                } else {
+                    acc.add(v, w)
+                }
+            },
+        );
+
+        let min_window_density = {
+            let in_grace_period = next_global_slot.less_than(
+                &GlobalSlot::of_slot_number(c, c.grace_period_end.to_slot()),
+                w,
+            );
+            let prev_min_window_density = Length::from_u32(prev_min_window_density).to_checked();
+
+            let cond = same_sub_window.or(&in_grace_period, w);
+            let on_true = prev_min_window_density.clone();
+            let on_false = current_window_density.min(&prev_min_window_density, w);
+
+            w.exists_no_check(match cond {
+                Boolean::True => on_true,
+                Boolean::False => on_false,
+            })
+        };
+
+        let next_sub_window_densities = current_sub_window_densities
+            .iter()
+            .enumerate()
+            .map(|(i, density)| {
+                let is_next_sub_window = SubWindow::constant(i).equal(&next_relative_sub_window, w);
+
+                let on_true = {
+                    w.exists_no_check(match same_sub_window {
+                        Boolean::True => density.const_succ(),
+                        Boolean::False => CheckedLength::zero().const_succ(),
+                    })
+                };
+
+                w.exists_no_check(match is_next_sub_window {
+                    Boolean::True => on_true,
+                    Boolean::False => density.clone(),
+                })
+            })
+            .collect::<Vec<_>>();
+
+        (min_window_density, next_sub_window_densities)
+    }
+
+    #[derive(Clone)]
+    pub struct ConsensusState {
+        pub blockchain_length: CheckedLength<Fp>,
+        pub epoch_count: CheckedLength<Fp>,
+        pub min_window_density: CheckedLength<Fp>,
+        pub sub_window_densities: Vec<CheckedLength<Fp>>,
+        pub last_vrf_output: Box<[bool; VRF_OUTPUT_NBITS]>,
+        pub curr_global_slot: GlobalSlot,
+        pub global_slot_since_genesis: CheckedSlot<Fp>,
+        pub total_currency: CheckedAmount<Fp>,
+        pub staking_epoch_data: EpochData<Fp>,
+        pub next_epoch_data: EpochData<Fp>,
+        pub has_ancestor_in_same_checkpoint_window: Boolean,
+        pub block_stake_winner: CompressedPubKey,
+        pub block_creator: CompressedPubKey,
+        pub coinbase_receiver: CompressedPubKey,
+        pub supercharge_coinbase: Boolean,
+    }
+
     pub fn next_state_checked(
         prev_state: &v2::MinaStateProtocolStateValueStableV2,
         prev_state_hash: Fp,
@@ -919,15 +1200,15 @@ mod consensus {
         supply_increase: CheckedSigned<Fp, CheckedAmount<Fp>>,
         prover_state: &v2::ConsensusStakeProofStableV2,
         w: &mut Witness<Fp>,
-    ) {
-        let _previous_blockchain_state_ledger_hash = prev_state
+    ) -> (Boolean, ConsensusState) {
+        let previous_blockchain_state_ledger_hash = prev_state
             .body
             .blockchain_state
             .ledger_proof_statement
             .target
             .first_pass_ledger
             .to_field::<Fp>();
-        let _genesis_ledger_hash = prev_state
+        let genesis_ledger_hash = prev_state
             .body
             .blockchain_state
             .genesis_ledger_hash
@@ -1002,7 +1283,7 @@ mod consensus {
             w.exists(pk)
         };
 
-        let (threshold_satisfied, vrf_result, truncated_vrf_result, winner_account ) = {
+        let (threshold_satisfied, vrf_result, truncated_vrf_result, winner_account) = {
             let m = create_shifted_inner_curve::<Fp>(w);
 
             vrf::check(
@@ -1017,6 +1298,206 @@ mod consensus {
             )
         };
 
+        let supercharge_coinbase =
+            compute_supercharge_coinbase(&winner_account, &global_slot_since_genesis, w);
+
+        let (new_total_currency, overflow) = {
+            let total_currency: Amount = previous_state.total_currency.clone().into();
+            w.exists(supply_increase.value());
+            total_currency
+                .to_checked()
+                .add_signed_flagged(supply_increase, w)
+        };
+
+        let has_ancestor_in_same_checkpoint_window =
+            same_checkpoint_window(&constants, &prev_global_slot, &next_global_slot, w);
+
+        let in_seed_update_range = next_slot.in_seed_update_range(&constants, w);
+
+        let update_next_epoch_ledger = {
+            let snarked_ledger_is_still_genesis = field::equal(
+                genesis_ledger_hash,
+                previous_blockchain_state_ledger_hash,
+                w,
+            );
+            epoch_increased.and(&snarked_ledger_is_still_genesis.neg(), w)
+        };
+
+        fn epoch_seed_update_var(seed: Fp, vrf_result: Fp, w: &mut Witness<Fp>) -> Fp {
+            checked_hash("MinaEpochSeed", &[seed, vrf_result], w)
+        }
+
+        let next_epoch_data = {
+            let seed = {
+                let base: Fp = previous_state.next_epoch_data.seed.to_field::<Fp>();
+                let updated = epoch_seed_update_var(base, vrf_result, w);
+                w.exists_no_check(match in_seed_update_range {
+                    Boolean::True => updated,
+                    Boolean::False => base,
+                })
+            };
+
+            let epoch_length = {
+                let base = w.exists_no_check(match epoch_increased {
+                    Boolean::True => CheckedLength::zero(),
+                    Boolean::False => {
+                        let length: Length = (&previous_state.next_epoch_data.epoch_length).into();
+                        length.to_checked()
+                    }
+                });
+                base.const_succ()
+            };
+
+            let ledger = w.exists_no_check(match update_next_epoch_ledger {
+                Boolean::True => EpochLedger {
+                    hash: previous_blockchain_state_ledger_hash,
+                    total_currency: new_total_currency.to_inner(), // TODO: Might overflow ?
+                },
+                Boolean::False => {
+                    let ledger = &previous_state.next_epoch_data.ledger;
+                    EpochLedger {
+                        hash: ledger.hash.to_field(),
+                        total_currency: ledger.total_currency.clone().into(),
+                    }
+                }
+            });
+
+            let start_checkpoint = w.exists_no_check(match epoch_increased {
+                Boolean::True => prev_state_hash,
+                Boolean::False => previous_state.next_epoch_data.start_checkpoint.to_field(),
+            });
+
+            let lock_checkpoint = {
+                let base = w.exists_no_check(match epoch_increased {
+                    Boolean::True => Fp::zero(),
+                    Boolean::False => previous_state.next_epoch_data.lock_checkpoint.to_field(),
+                });
+                w.exists_no_check(match in_seed_update_range {
+                    Boolean::True => prev_state_hash,
+                    Boolean::False => base,
+                })
+            };
+
+            EpochData {
+                ledger,
+                seed,
+                start_checkpoint,
+                lock_checkpoint,
+                epoch_length: epoch_length.to_inner(), // TODO: Overflow ?
+            }
+        };
+
+        let blockchain_length = {
+            let blockchain_length: Length = (&previous_state.blockchain_length).into();
+            blockchain_length.to_checked::<Fp>().const_succ()
+        };
+
+        let epoch_count = {
+            let epoch_count: Length = (&previous_state.epoch_count).into();
+            match epoch_increased {
+                Boolean::True => epoch_count.to_checked::<Fp>().const_succ(),
+                Boolean::False => epoch_count.to_checked(),
+            }
+        };
+
+        let (min_window_density, sub_window_densities) = update_min_window_density(
+            UpdateMinWindowDensityParams {
+                constants: &constants,
+                prev_global_slot: &prev_global_slot,
+                next_global_slot: &next_global_slot,
+                prev_sub_window_densities: previous_state
+                    .sub_window_densities
+                    .iter()
+                    .map(|v| v.as_u32())
+                    .collect(),
+                prev_min_window_density: previous_state.min_window_density.as_u32(),
+            },
+            w,
+        );
+
+        let state = ConsensusState {
+            blockchain_length,
+            epoch_count,
+            min_window_density,
+            sub_window_densities,
+            last_vrf_output: truncated_vrf_result,
+            curr_global_slot: next_global_slot,
+            global_slot_since_genesis,
+            total_currency: new_total_currency,
+            staking_epoch_data,
+            next_epoch_data,
+            has_ancestor_in_same_checkpoint_window,
+            block_stake_winner,
+            block_creator,
+            coinbase_receiver,
+            supercharge_coinbase,
+        };
+
+        (threshold_satisfied, state)
+    }
+}
+
+fn is_genesis_state_var(
+    cs: &v2::ConsensusProofOfStakeDataConsensusStateValueStableV2,
+    w: &mut Witness<Fp>,
+) -> Boolean {
+    use crate::scan_state::currency::Slot;
+
+    let curr_global_slot = &cs.curr_global_slot;
+    let slot_number = Slot::from_u32(curr_global_slot.slot_number.as_u32()).to_checked::<Fp>();
+
+    CheckedSlot::zero().equal(&slot_number, w)
+}
+
+fn is_genesis_state_var2(cs: &ConsensusState, w: &mut Witness<Fp>) -> Boolean {
+    use crate::scan_state::currency::Slot;
+
+    let curr_global_slot = &cs.curr_global_slot;
+    let slot_number = &curr_global_slot.slot_number;
+
+    CheckedSlot::zero().equal(slot_number, w)
+}
+
+fn genesis_state_hash_checked(
+    state_hash: Fp,
+    state: &v2::MinaStateProtocolStateValueStableV2,
+    w: &mut Witness<Fp>,
+) -> Fp {
+    let is_genesis = is_genesis_state_var(&state.body.consensus_state, w);
+
+    w.exists_no_check(match is_genesis {
+        Boolean::True => state_hash,
+        Boolean::False => state.body.genesis_state_hash.to_field(),
+    })
+}
+
+pub struct ProtocolStateBody {
+    pub genesis_state_hash: Fp,
+    pub blockchain_state: v2::MinaStateBlockchainStateValueStableV2,
+    pub consensus_state: ConsensusState,
+    pub constants: v2::MinaBaseProtocolConstantsCheckedValueStableV1,
+}
+
+pub struct ProtocolState {
+    pub previous_state_hash: Fp,
+    pub body: ProtocolStateBody,
+}
+
+fn protocol_create_var(
+    previous_state_hash: Fp,
+    genesis_state_hash: Fp,
+    blockchain_state: &v2::MinaStateBlockchainStateValueStableV2,
+    consensus_state: &ConsensusState,
+    constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1,
+) -> ProtocolState {
+    ProtocolState {
+        previous_state_hash,
+        body: ProtocolStateBody {
+            genesis_state_hash,
+            blockchain_state: blockchain_state.clone(),
+            consensus_state: consensus_state.clone(),
+            constants: constants.clone(),
+        },
     }
 }
 
@@ -1097,14 +1578,12 @@ pub fn generate_block_proof(
         txn_statement_ledger_hashes_equal(&s1, &s2, w)
     };
 
-    eprintln!("AAA");
-
     let supply_increase = w.exists_no_check(match txn_stmt_ledger_hashes_didn_t_change {
         Boolean::True => CheckedSigned::zero(),
         Boolean::False => txn_snark.supply_increase.to_checked(),
     });
 
-    consensus::next_state_checked(
+    let (updated_consensus_state, consensus_state) = consensus::next_state_checked(
         previous_state,
         previous_state_hash,
         transition,
@@ -1113,29 +1592,108 @@ pub fn generate_block_proof(
         w,
     );
 
-    // let%bind supply_increase =
-    //   (* only increase the supply if the txn statement represents a new ledger transition *)
-    //   Currency.Amount.(
-    //     Signed.Checked.if_ txn_stmt_ledger_hashes_didn't_change
-    //       ~then_:
-    //         (Signed.create_var ~magnitude:(var_of_t zero) ~sgn:Sgn.Checked.pos)
-    //       ~else_:txn_snark.supply_increase)
-    // in
-    // let%bind `Success updated_consensus_state, consensus_state =
-    //   with_label __LOC__ (fun () ->
-    //       Consensus_state_hooks.next_state_checked ~constraint_constants
-    //         ~prev_state:previous_state ~prev_state_hash:previous_state_hash
-    //         transition supply_increase )
-    // in
-    // let global_slot =
-    //   Consensus.Data.Consensus_state.global_slot_since_genesis_var consensus_state
-    // in
-    // let supercharge_coinbase =
-    //   Consensus.Data.Consensus_state.supercharge_coinbase_var consensus_state
-    // in
-    // let prev_pending_coinbase_root =
-    //   previous_state |> Protocol_state.blockchain_state
-    //   |> Blockchain_state.staged_ledger_hash
-    //   |> Staged_ledger_hash.pending_coinbase_hash_var
-    // in
+    let ConsensusState {
+        blockchain_length,
+        epoch_count,
+        min_window_density,
+        sub_window_densities,
+        last_vrf_output,
+        curr_global_slot,
+        global_slot_since_genesis,
+        total_currency,
+        staking_epoch_data,
+        next_epoch_data,
+        has_ancestor_in_same_checkpoint_window,
+        block_stake_winner,
+        block_creator,
+        coinbase_receiver,
+        supercharge_coinbase,
+    } = &consensus_state;
+
+    let prev_pending_coinbase_root = previous_state
+        .body
+        .blockchain_state
+        .staged_ledger_hash
+        .pending_coinbase_hash
+        .to_field::<Fp>();
+
+    let genesis_state_hash = { genesis_state_hash_checked(previous_state_hash, previous_state, w) };
+
+    let (new_state, is_base_case) = {
+        let mut t = protocol_create_var(
+            previous_state_hash,
+            genesis_state_hash,
+            &transition.blockchain_state,
+            &consensus_state,
+            &previous_state.body.constants,
+        );
+        let is_base_case = is_genesis_state_var2(&t.body.consensus_state, w);
+
+        let previous_state_hash = match CONSTRAINT_CONSTANTS.fork.as_ref() {
+            Some(ForkConstants {
+                previous_state_hash: fork_prev,
+                ..
+            }) => w.exists_no_check(match is_base_case {
+                Boolean::True => *fork_prev,
+                Boolean::False => t.previous_state_hash,
+            }),
+            None => t.previous_state_hash,
+        };
+        t.previous_state_hash = previous_state_hash;
+        checked_hash_protocol_state2(&t, w);
+        (t, is_base_case)
+    };
+
+    let a = {
+        let mut pending_coinbase = PendingCoinbaseWitness {
+            is_new_stack: pending_coinbase.is_new_stack,
+            pending_coinbase: (&pending_coinbase.pending_coinbases).into(),
+        };
+
+        let global_slot = global_slot_since_genesis;
+
+        let a = {
+            let (root_after_delete, deleted_stack) = PendingCoinbase::pop_coinbases(
+                txn_stmt_ledger_hashes_didn_t_change.neg(),
+                &mut pending_coinbase,
+                w,
+            );
+
+            let no_coinbases_popped =
+                field::equal(root_after_delete, prev_pending_coinbase_root, w);
+
+            PendingCoinbase::add_coinbase_checked(
+                &transition.pending_coinbase_update,
+                coinbase_receiver,
+                *supercharge_coinbase,
+                previous_state_body_hash,
+                global_slot,
+                &mut pending_coinbase,
+                w,
+            );
+        };
+    };
+
+    //     Printf.eprintf "[block] AFTER EQUAL_VAR\n%!" ;
+    //     (*new stack or update one*)
+    //     let%map new_root =
+    //       with_label __LOC__ (fun () ->
+    //           Pending_coinbase.Checked.add_coinbase ~constraint_constants
+    //             root_after_delete
+    //             (Snark_transition.pending_coinbase_update transition)
+    //             ~coinbase_receiver ~supercharge_coinbase previous_state_body_hash
+    //             global_slot )
+    //     in
+    //     Printf.eprintf "[block] AFTER NEW_ROOT\n%!" ;
+    //     (new_root, deleted_stack, no_coinbases_popped)
+    //   in
+    //   Printf.eprintf "[block] AFTER SHOULD_VERIFY\n%!" ;
+    //   let current_ledger_statement =
+    //     (Protocol_state.blockchain_state new_state).ledger_proof_statement
+    //   in
+    //   Printf.eprintf "[block] AFTER CURRENT\n%!" ;
+    //   let pending_coinbase_source_stack =
+    //     Pending_coinbase.Stack.Checked.create_with deleted_stack
+    //   in
+    //   Printf.eprintf "[block] AFTER SRC_STACK\n%!" ;
 }

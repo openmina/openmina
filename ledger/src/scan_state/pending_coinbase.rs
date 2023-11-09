@@ -22,14 +22,22 @@ use std::{collections::HashMap, fmt::Write, marker::PhantomData};
 
 use ark_ff::Zero;
 use mina_hasher::Fp;
+use mina_p2p_messages::v2;
 use mina_signer::CompressedPubKey;
 use sha2::{Digest, Sha256};
 
 use crate::{
     hash_noinputs, hash_with_kimchi,
     proofs::{
-        numbers::nat::{CheckedNat, CheckedSlot},
-        witness::{field, Boolean, Witness},
+        numbers::{
+            currency::{CheckedAmount, CheckedCurrency},
+            nat::{CheckedNat, CheckedSlot},
+        },
+        witness::{
+            field,
+            transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
+            Boolean, Witness,
+        },
     },
     staged_ledger::hash::PendingCoinbaseAux,
     Address, Inputs, MerklePath, ToInputs,
@@ -440,6 +448,10 @@ impl Stack {
 
         coinbase_stack_connected && state_stack_connected
     }
+
+    fn hash_var(&self, w: &mut Witness<Fp>) -> Fp {
+        checked_hash("CoinbaseStack", &self.to_inputs_owned().to_fields(), w)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -650,6 +662,301 @@ impl PendingCoinbase {
 
         let digest = sha.finalize();
         PendingCoinbaseAux(digest.into())
+    }
+
+    pub fn pop_coinbases(
+        proof_emitted: Boolean,
+        pending_coinbase_witness: &mut PendingCoinbaseWitness,
+        w: &mut Witness<Fp>,
+    ) -> (Fp, Stack) {
+        let addr = w.exists(pending_coinbase_witness.find_index_of_oldest_stack());
+        let (prev, prev_path) = w.exists(pending_coinbase_witness.get_coinbase_stack(addr.clone()));
+
+        checked_verify_merkle_path(&prev, &prev_path, w);
+
+        let next = w.exists_no_check(match proof_emitted {
+            Boolean::True => Stack::empty(),
+            Boolean::False => prev.clone(),
+        });
+
+        pending_coinbase_witness.set_oldest_coinbase_stack(addr, next.clone());
+
+        // Note: in OCaml hashing of `next` is made before `set_oldest_coinbase_stack`
+        let new_root = checked_verify_merkle_path(&next, &prev_path, w);
+
+        (new_root, prev)
+    }
+
+    pub fn add_coinbase_checked(
+        update: &v2::MinaBasePendingCoinbaseUpdateStableV1,
+        coinbase_receiver: &CompressedPubKey,
+        supercharge_coinbase: Boolean,
+        state_body_hash: Fp,
+        global_slot: &CheckedSlot<Fp>,
+        pending_coinbase_witness: &mut PendingCoinbaseWitness,
+        w: &mut Witness<Fp>,
+    ) -> Fp {
+        let no_update = |[b0, b1]: &[Boolean; 2], w: &mut Witness<Fp>| b0.neg().and(&b1.neg(), w);
+        let update_two_stacks_coinbase_in_first =
+            |[b0, b1]: &[Boolean; 2], w: &mut Witness<Fp>| b0.neg().and(b1, w);
+        let update_two_stacks_coinbase_in_second =
+            |[b0, b1]: &[Boolean; 2], w: &mut Witness<Fp>| b0.and(b1, w);
+
+        let v2::MinaBasePendingCoinbaseUpdateStableV1 {
+            action,
+            coinbase_amount: amount,
+        } = update;
+
+        let amount = Amount::from_u64(amount.as_u64()).to_checked();
+        let (addr1, addr2) = w.exists(pending_coinbase_witness.find_index_of_newest_stacks());
+
+        let action = {
+            use v2::MinaBasePendingCoinbaseUpdateActionStableV1::*;
+            match action {
+                UpdateNone => [Boolean::False, Boolean::False],
+                UpdateOne => [Boolean::True, Boolean::False],
+                UpdateTwoCoinbaseInFirst => [Boolean::False, Boolean::True],
+                UpdateTwoCoinbaseInSecond => [Boolean::True, Boolean::True],
+            }
+        };
+
+        let no_update = no_update(&action, w);
+
+        let update_state_stack = |stack: Stack,
+                                  pending_coinbase_witness: &mut PendingCoinbaseWitness,
+                                  w: &mut Witness<Fp>| {
+            let previous_state_stack = w.exists(pending_coinbase_witness.get_previous_stack());
+            let stack_initialized = Stack {
+                state: previous_state_stack,
+                ..stack.clone()
+            };
+            let stack_with_state_hash =
+                stack_initialized.checked_push_state(state_body_hash, global_slot.clone(), w);
+            w.exists_no_check(match no_update {
+                Boolean::True => stack,
+                Boolean::False => stack_with_state_hash,
+            })
+        };
+
+        let update_stack1 = |stack: Stack,
+                             pending_coinbase_witness: &mut PendingCoinbaseWitness,
+                             w: &mut Witness<Fp>| {
+            let stack = update_state_stack(stack, pending_coinbase_witness, w);
+            let total_coinbase_amount = {
+                let coinbase_amount = CONSTRAINT_CONSTANTS.coinbase_amount.to_checked::<Fp>();
+                let superchaged_coinbase = CONSTRAINT_CONSTANTS
+                    .coinbase_amount
+                    .scale(CONSTRAINT_CONSTANTS.supercharged_coinbase_factor)
+                    .unwrap()
+                    .to_checked::<Fp>();
+
+                match supercharge_coinbase {
+                    Boolean::True => superchaged_coinbase,
+                    Boolean::False => coinbase_amount,
+                }
+            };
+
+            let rem_amount = total_coinbase_amount.sub(&amount, w);
+            let no_coinbase_in_this_stack = update_two_stacks_coinbase_in_second(&action, w);
+
+            let amount1_equal_to_zero = amount.equal(&CheckedAmount::zero(), w);
+            let amount2_equal_to_zero = rem_amount.equal(&CheckedAmount::zero(), w);
+
+            no_update.equal(&amount1_equal_to_zero, w);
+
+            let no_coinbase = no_update.or(&no_coinbase_in_this_stack, w);
+
+            let stack_with_amount1 = stack.checked_push_coinbase(
+                Coinbase {
+                    receiver: coinbase_receiver.clone(),
+                    amount: amount.to_inner(), // TODO: Overflow ?
+                    fee_transfer: None,
+                },
+                w,
+            );
+
+            let stack_with_amount2 = stack_with_amount1.checked_push_coinbase(
+                Coinbase {
+                    receiver: coinbase_receiver.clone(),
+                    amount: rem_amount.to_inner(), // TODO: Overflow ?
+                    fee_transfer: None,
+                },
+                w,
+            );
+
+            let on_false = {
+                w.exists_no_check(match amount2_equal_to_zero {
+                    Boolean::True => stack_with_amount1,
+                    Boolean::False => stack_with_amount2,
+                })
+            };
+
+            w.exists_no_check(match no_coinbase {
+                Boolean::True => stack,
+                Boolean::False => on_false,
+            })
+        };
+
+        let update_stack2 = |init_stack: Stack, stack0: Stack, w: &mut Witness<Fp>| {
+            let add_coinbase = update_two_stacks_coinbase_in_second(&action, w);
+            let update_state = {
+                let update_second_stack = update_two_stacks_coinbase_in_first(&action, w);
+                update_second_stack.or(&add_coinbase, w)
+            };
+
+            let stack = {
+                let stack_with_state = Stack {
+                    state: StateStack::create(init_stack.state.curr),
+                    ..stack0.clone()
+                }
+                .checked_push_state(state_body_hash, global_slot.clone(), w);
+                w.exists_no_check(match update_state {
+                    Boolean::True => stack_with_state,
+                    Boolean::False => stack0,
+                })
+            };
+
+            let stack_with_coinbase = stack.checked_push_coinbase(
+                Coinbase {
+                    receiver: coinbase_receiver.clone(),
+                    amount: amount.to_inner(), // TODO: Overflow ?
+                    fee_transfer: None,
+                },
+                w,
+            );
+
+            w.exists_no_check(match add_coinbase {
+                Boolean::True => stack_with_coinbase,
+                Boolean::False => stack,
+            })
+        };
+
+        let (_new_root, prev, _updated_stack1) = {
+            let (stack, path) = w.exists_no_check({
+                let pc = &mut pending_coinbase_witness.pending_coinbase;
+                let stack = pc.get_stack(addr1.clone()).clone();
+                let path = pc.path(addr1.clone());
+                (stack, path)
+            });
+            checked_verify_merkle_path(&stack, &path, w);
+
+            let next = update_stack1(stack.clone(), pending_coinbase_witness, w);
+
+            pending_coinbase_witness.set_coinbase_stack(addr1, next.clone());
+            let new_root = checked_verify_merkle_path(&next, &path, w);
+            (new_root, stack, next)
+        };
+
+        let (root, _, _) = {
+            let (stack, path) = w.exists_no_check({
+                let pc = &mut pending_coinbase_witness.pending_coinbase;
+                let stack = pc.get_stack(addr2.clone()).clone();
+                let path = pc.path(addr2.clone());
+                (stack, path)
+            });
+            checked_verify_merkle_path(&stack, &path, w);
+
+            let next = update_stack2(prev, stack.clone(), w);
+
+            pending_coinbase_witness.set_coinbase_stack(addr2, next.clone());
+            let new_root = checked_verify_merkle_path(&next, &path, w);
+            (new_root, stack, next)
+        };
+
+        root
+    }
+}
+
+/// `implied_root` in OCaml
+pub fn checked_verify_merkle_path(
+    account: &Stack,
+    merkle_path: &[MerklePath],
+    w: &mut Witness<Fp>,
+) -> Fp {
+    let account_hash = account.hash_var(w);
+    let mut param = String::with_capacity(16);
+
+    merkle_path
+        .iter()
+        .enumerate()
+        .fold(account_hash, |accum, (depth, path)| {
+            let hashes = match path {
+                MerklePath::Left(right) => [accum, *right],
+                MerklePath::Right(left) => [*left, accum],
+            };
+
+            param.clear();
+            write!(&mut param, "MinaCbMklTree{:03}", depth).unwrap();
+
+            w.exists(hashes);
+            checked_hash(param.as_str(), &hashes, w)
+        })
+}
+
+pub struct PendingCoinbaseWitness {
+    pub pending_coinbase: PendingCoinbase,
+    pub is_new_stack: bool,
+}
+
+impl PendingCoinbaseWitness {
+    fn coinbase_stack_path_exn(&mut self, idx: Address) -> Vec<MerklePath> {
+        self.pending_coinbase.path(idx)
+    }
+
+    fn find_index_of_oldest_stack(&self) -> Address {
+        let stack_id = self
+            .pending_coinbase
+            .oldest_stack_id()
+            .unwrap_or_else(StackId::zero);
+        self.pending_coinbase.find_index(stack_id)
+    }
+
+    fn get_coinbase_stack(&mut self, idx: Address) -> (Stack, Vec<MerklePath>) {
+        let elt = self.pending_coinbase.get_stack(idx.clone()).clone();
+        let path = self.coinbase_stack_path_exn(idx);
+        (elt, path)
+    }
+
+    fn set_oldest_coinbase_stack(&mut self, idx: Address, stack: Stack) {
+        let depth = CONSTRAINT_CONSTANTS.pending_coinbase_depth as usize;
+        self.pending_coinbase.set_stack(depth, idx, stack, false);
+    }
+
+    fn find_index_of_newest_stacks(&self) -> (Address, Address) {
+        let depth = CONSTRAINT_CONSTANTS.pending_coinbase_depth as usize;
+
+        let index1 = {
+            let stack_id = self.pending_coinbase.latest_stack_id(self.is_new_stack);
+            self.pending_coinbase.find_index(stack_id)
+        };
+
+        let index2 = {
+            let stack_id = self
+                .pending_coinbase
+                .next_stack_id(depth, self.is_new_stack);
+            self.pending_coinbase.find_index(stack_id)
+        };
+
+        (index1, index2)
+    }
+
+    fn get_previous_stack(&self) -> StateStack {
+        if self.is_new_stack {
+            let stack = self.pending_coinbase.current_stack();
+            StateStack {
+                init: stack.state.curr,
+                curr: stack.state.curr,
+            }
+        } else {
+            let stack = self.pending_coinbase.latest_stack(self.is_new_stack);
+            stack.state
+        }
+    }
+
+    fn set_coinbase_stack(&mut self, idx: Address, stack: Stack) {
+        let depth = CONSTRAINT_CONSTANTS.pending_coinbase_depth as usize;
+        self.pending_coinbase
+            .set_stack(depth, idx, stack, self.is_new_stack);
     }
 }
 
