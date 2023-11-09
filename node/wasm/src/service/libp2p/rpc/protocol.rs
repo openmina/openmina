@@ -3,7 +3,6 @@
 //! receives a request and sends a response, whereas the
 //! outbound upgrade send a request and receives a response.
 
-use binprot::BinProtWrite;
 use lib::p2p::rpc::{P2pRpcId, P2pRpcIncomingId, P2pRpcRequest, P2pRpcResponse};
 use libp2p::core::upgrade::{InboundUpgrade, OutboundUpgrade, UpgradeInfo};
 use libp2p::futures::{channel::oneshot, future::BoxFuture, prelude::*};

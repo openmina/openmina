@@ -121,7 +121,9 @@ impl P2pRpcRequest {
         }
         match self {
             Self::LedgerQuery((expected_ledger_hash, _)) => {
-                let P2pRpcResponse::LedgerQuery(resp) = resp else { unreachable!() };
+                let P2pRpcResponse::LedgerQuery(resp) = resp else {
+                    unreachable!()
+                };
                 match &resp.0 {
                     Ok(answer) => match answer {
                         MinaLedgerSyncLedgerAnswerStableV2::AccountWithPath(Some((

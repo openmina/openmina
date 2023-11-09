@@ -13,13 +13,15 @@ pub use rpc_effects::*;
 mod rpc_service;
 pub use rpc_service::*;
 
-use mina_p2p_messages::v2::{MinaBaseAccountBinableArgStableV2, NonZeroCurvePoint};
+use mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2;
 use serde::{Deserialize, Serialize};
 pub use shared::requests::{RpcId, RpcIdType};
 
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::pubsub::{GossipNetMessageV2, PubsubTopic};
-use crate::watched_accounts::{WatchedAccountBlockState, WatchedAccountLedgerInitialState};
+use crate::watched_accounts::{
+    WatchedAccountBlockState, WatchedAccountId, WatchedAccountLedgerInitialState,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RpcRequest {
@@ -27,8 +29,8 @@ pub enum RpcRequest {
     ActionStatsGet(ActionStatsQuery),
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
     P2pPubsubPublish(PubsubTopic, GossipNetMessageV2),
-    WatchedAccountsAdd(NonZeroCurvePoint),
-    WatchedAccountsGet(NonZeroCurvePoint),
+    WatchedAccountsAdd(WatchedAccountId),
+    WatchedAccountsGet(WatchedAccountId),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

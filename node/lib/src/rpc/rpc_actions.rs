@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 
-use mina_p2p_messages::v2::NonZeroCurvePoint;
 use serde::{Deserialize, Serialize};
 
 use p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use p2p::pubsub::{GossipNetMessageV2, PubsubTopic};
 
 use crate::service::ActionStatsForRanges;
+use crate::watched_accounts::WatchedAccountId;
 use crate::ActionKind;
 
 use super::RpcId;
@@ -133,7 +133,7 @@ impl redux::EnablingCondition<crate::State> for RpcP2pPubsubMessagePublishAction
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcWatchedAccountsAddAction {
     pub rpc_id: RpcId,
-    pub pub_key: NonZeroCurvePoint,
+    pub account_id: WatchedAccountId,
 }
 
 impl redux::EnablingCondition<crate::State> for RpcWatchedAccountsAddAction {
@@ -145,7 +145,7 @@ impl redux::EnablingCondition<crate::State> for RpcWatchedAccountsAddAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcWatchedAccountsGetAction {
     pub rpc_id: RpcId,
-    pub pub_key: NonZeroCurvePoint,
+    pub account_id: WatchedAccountId,
 }
 
 impl redux::EnablingCondition<crate::State> for RpcWatchedAccountsGetAction {

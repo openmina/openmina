@@ -107,11 +107,11 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         message,
                     });
                 }
-                RpcRequest::WatchedAccountsAdd(pub_key) => {
-                    store.dispatch(RpcWatchedAccountsAddAction { rpc_id, pub_key });
+                RpcRequest::WatchedAccountsAdd(account_id) => {
+                    store.dispatch(RpcWatchedAccountsAddAction { rpc_id, account_id });
                 }
-                RpcRequest::WatchedAccountsGet(pub_key) => {
-                    store.dispatch(RpcWatchedAccountsGetAction { rpc_id, pub_key });
+                RpcRequest::WatchedAccountsGet(account_id) => {
+                    store.dispatch(RpcWatchedAccountsGetAction { rpc_id, account_id });
                 }
             },
         },

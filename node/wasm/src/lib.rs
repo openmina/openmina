@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,14 +6,15 @@ use futures::channel::{mpsc, oneshot};
 use futures::{select_biased, FutureExt, SinkExt, StreamExt};
 use gloo_utils::format::JsValueSerdeExt;
 use js_sys::{Promise, Uint8Array};
-use lib::snark::{srs_from_bytes, verifier_index_from_bytes};
 use libp2p::futures;
 use libp2p::multiaddr::{Multiaddr, Protocol as MultiaddrProtocol};
 use libp2p::wasm_ext::ffi::ManualConnector as JsManualConnector;
+use mina_p2p_messages::bigint::BigInt;
 use mina_p2p_messages::v2::{
-    NetworkPoolTransactionPoolDiffVersionedStableV2, NonZeroCurvePoint, StateHash, MinaBaseUserCommandStableV2,
+    MinaBaseAccountIdDigestStableV1, MinaBaseUserCommandStableV2,
+    NetworkPoolTransactionPoolDiffVersionedStableV2, NonZeroCurvePoint, StateHash, TokenIdKeyHash,
 };
-use mina_signer::{NetworkId, PubKey, Signer};
+use mina_signer::PubKey;
 use serde::Serialize;
 use serde_with::{serde_as, DisplayFromStr};
 use sha2::{Digest, Sha256};
@@ -25,12 +25,12 @@ use lib::event_source::{
     Event, EventSourceProcessEventsAction, EventSourceWaitForEventsAction,
     EventSourceWaitTimeoutAction,
 };
-use lib::p2p::connection::outgoing::{
-    P2pConnectionOutgoingInitAction, P2pConnectionOutgoingInitOpts,
-};
+use lib::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use lib::p2p::pubsub::{GossipNetMessageV2, PubsubTopic};
 use lib::p2p::PeerId;
 use lib::rpc::{ActionStatsQuery, RpcRequest, WatchedAccountsGetError};
+use lib::snark::{srs_from_bytes, verifier_index_from_bytes};
+use lib::watched_accounts::WatchedAccountId;
 
 mod service;
 use service::libp2p::Libp2pService;
@@ -277,11 +277,9 @@ pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
                 match opt {
                     Some(v) => v,
                     None => {
-                        cached_value(
-                            storage.as_ref(),
-                            "block_verifier_index",
-                            || lib::snark::get_verifier_index(lib::snark::VerifierKind::Blockchain),
-                        )
+                        cached_value(storage.as_ref(), "block_verifier_index", || {
+                            lib::snark::get_verifier_index(lib::snark::VerifierKind::Blockchain)
+                        })
                         .await
                     }
                 }
@@ -591,7 +589,7 @@ impl JsHandle {
         let to =
             PubKey::from_address(&data.to).map_err(|err| format!("Bad `to` address: {}", err))?;
 
-        let mut tx = new_signed_payment(
+        let tx = new_signed_payment(
             &keypair,
             ledger::scan_state::currency::Fee::from_u64(data.fee),
             ledger::scan_state::currency::Nonce::from_u32(data.nonce),
@@ -603,15 +601,16 @@ impl JsHandle {
                     memo.0[0] = 0x01;
                     memo.0[1] = std::cmp::min(memo_str.len(), MEMO_LEN - 2) as u8;
                     let memo_str = format!("{:\0<32}", memo_str); // Pad user-supplied memo with zeros
-                    memo.0[2..]
-                        .copy_from_slice(&memo_str.as_bytes()[..std::cmp::min(memo_str.len(), MEMO_LEN - 2)]);
+                    memo.0[2..].copy_from_slice(
+                        &memo_str.as_bytes()[..std::cmp::min(memo_str.len(), MEMO_LEN - 2)],
+                    );
                     memo
                 } else {
                     ledger::scan_state::transaction_logic::Memo::empty()
                 }
             },
             to.into_compressed(),
-            ledger::scan_state::currency::Amount::from_u64(data.amount)
+            ledger::scan_state::currency::Amount::from_u64(data.amount),
         );
 
         let tx = MinaBaseUserCommandStableV2::from(&tx);
@@ -619,9 +618,7 @@ impl JsHandle {
         let msg = {
             let nonce = 0.into();
             let message = NetworkPoolTransactionPoolDiffVersionedStableV2(vec![tx]);
-            GossipNetMessageV2::TransactionPoolDiff {
-                nonce, message
-            }
+            GossipNetMessageV2::TransactionPoolDiff { nonce, message }
         };
 
         shared::log::info!(
@@ -643,6 +640,10 @@ impl JsHandle {
     }
 }
 
+fn default_token_id() -> TokenIdKeyHash {
+    MinaBaseAccountIdDigestStableV1(BigInt::one()).into()
+}
+
 #[wasm_bindgen]
 pub struct WatchedAccounts {
     rpc: RpcSender,
@@ -650,9 +651,13 @@ pub struct WatchedAccounts {
 
 #[wasm_bindgen]
 impl WatchedAccounts {
-    pub async fn add(&self, pub_key: String) -> Result<bool, String> {
+    pub async fn add(&self, pub_key: String, token_id: Option<String>) -> Result<bool, String> {
         let pub_key = NonZeroCurvePoint::from_str(&pub_key).map_err(|err| err.to_string())?;
-        let req = RpcRequest::WatchedAccountsAdd(pub_key);
+        let token_id = token_id
+            .map(|id| TokenIdKeyHash::from_str(&id).map_err(|err| err.to_string()))
+            .unwrap_or_else(|| Ok(default_token_id()))?;
+        let account_id = WatchedAccountId(pub_key, token_id);
+        let req = RpcRequest::WatchedAccountsAdd(account_id);
         let resp = self
             .rpc
             .oneshot_request::<RpcWatchedAccountsAddResponse>(req)
@@ -660,10 +665,14 @@ impl WatchedAccounts {
         resp.ok_or("rpc request dropped".into())
     }
 
-    pub async fn get(&self, pub_key: String) -> Result<JsValue, String> {
+    pub async fn get(&self, pub_key: String, token_id: Option<String>) -> Result<JsValue, String> {
         let pub_key = NonZeroCurvePoint::from_str(&pub_key).map_err(|err| err.to_string())?;
+        let token_id = token_id
+            .map(|id| TokenIdKeyHash::from_str(&id).map_err(|err| err.to_string()))
+            .unwrap_or_else(|| Ok(default_token_id()))?;
+        let account_id = WatchedAccountId(pub_key, token_id);
         loop {
-            let req = RpcRequest::WatchedAccountsGet(pub_key.clone());
+            let req = RpcRequest::WatchedAccountsGet(account_id.clone());
             let resp = self
                 .rpc
                 .oneshot_request::<RpcWatchedAccountsGetResponse>(req)

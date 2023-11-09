@@ -43,10 +43,7 @@ impl redux::EnablingCondition<crate::P2pState> for P2pDisconnectionFinishAction 
 }
 
 // --- From<LeafAction> for Action impls.
-use crate::{
-    connection::{P2pConnectionAction, P2pConnectionState},
-    P2pPeerStatus,
-};
+use crate::P2pPeerStatus;
 
 impl From<P2pDisconnectionInitAction> for crate::P2pAction {
     fn from(a: P2pDisconnectionInitAction) -> Self {

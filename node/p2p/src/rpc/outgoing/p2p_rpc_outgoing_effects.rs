@@ -33,8 +33,12 @@ impl P2pRpcOutgoingReceivedAction {
         let peer_id = self.peer_id;
         let rpc_id = self.rpc_id;
 
-        let Some(peer) = store.state().peers.get(&peer_id) else { return };
-        let Some(peer) = peer.status.as_ready() else { return };
+        let Some(peer) = store.state().peers.get(&peer_id) else {
+            return;
+        };
+        let Some(peer) = peer.status.as_ready() else {
+            return;
+        };
 
         match peer.rpc.outgoing.get(rpc_id) {
             Some(P2pRpcOutgoingStatus::Received {

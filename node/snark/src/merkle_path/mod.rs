@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use mina_p2p_messages::{bigint::BigInt, hash::MinaHash, v2::MerkleTreeNode};
+use mina_p2p_messages::{bigint::BigInt, v2::MerkleTreeNode};
 
 /// Computes the root hash of the merkle tree with an account and its merkle path
 ///

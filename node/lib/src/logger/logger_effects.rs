@@ -1,7 +1,6 @@
 use crate::action::ConsensusAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
-use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::pubsub::{GossipNetMessageV2, P2pPubsubAction};
 use crate::p2p::rpc::outgoing::P2pRpcOutgoingAction;
 use crate::p2p::rpc::P2pRpcAction;
@@ -241,14 +240,14 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 shared::log::info!(
                     meta.time();
                     kind = "WatchedAccountInitialLedgerGetInit",
-                    summary = format!("pub_key: {}", a.pub_key),
+                    summary = format!("pub_key: {}", a.account_id),
                 );
             }
             WatchedAccountsAction::LedgerInitialStateGetError(a) => {
                 shared::log::info!(
                     meta.time();
                     kind = "WatchedAccountInitialLedgerGetError",
-                    summary = format!("pub_key: {}", a.pub_key),
+                    summary = format!("pub_key: {}", a.account_id),
                     error = format!("{:?}", a.error)
                 );
             }
@@ -256,14 +255,14 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 shared::log::info!(
                     meta.time();
                     kind = "WatchedAccountInitialLedgerGetRetry",
-                    summary = format!("pub_key: {}", a.pub_key),
+                    summary = format!("pub_key: {}", a.account_id),
                 );
             }
             WatchedAccountsAction::LedgerInitialStateGetSuccess(a) => {
                 shared::log::info!(
                     meta.time();
                     kind = "WatchedAccountInitialLedgerGetSuccess",
-                    summary = format!("pub_key: {}", a.pub_key),
+                    summary = format!("pub_key: {}", a.account_id),
                     data = serde_json::to_string(&a.data).ok(),
                 );
             }

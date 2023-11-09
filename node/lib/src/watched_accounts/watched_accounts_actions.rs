@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use mina_p2p_messages::v2::{
-    MinaBaseAccountBinableArgStableV2, MinaBlockBlockStableV2, NonZeroCurvePoint, StateHash,
-};
+use mina_p2p_messages::v2::{MinaBaseAccountBinableArgStableV2, MinaBlockBlockStableV2, StateHash};
 use serde::{Deserialize, Serialize};
 use shared::block::BlockWithHash;
 
@@ -10,8 +8,8 @@ use crate::p2p::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 
 use super::{
-    WatchedAccountBlockInfo, WatchedAccountBlockState, WatchedAccountLedgerInitialState,
-    WatchedAccountsLedgerInitialStateGetError,
+    WatchedAccountBlockInfo, WatchedAccountBlockState, WatchedAccountId,
+    WatchedAccountLedgerInitialState, WatchedAccountsLedgerInitialStateGetError,
 };
 
 pub type WatchedAccountsActionWithMeta = redux::ActionWithMeta<WatchedAccountsAction>;
@@ -35,19 +33,22 @@ pub enum WatchedAccountsAction {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountsAddAction {
-    pub pub_key: NonZeroCurvePoint,
+    pub account_id: WatchedAccountId,
 }
 
 impl redux::EnablingCondition<crate::State> for WatchedAccountsAddAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        state.watched_accounts.get(&self.pub_key).is_none()
+        state.watched_accounts.get(&self.account_id).is_none()
     }
 }
 
-fn should_request_ledger_initial_state(state: &crate::State, pub_key: &NonZeroCurvePoint) -> bool {
+fn should_request_ledger_initial_state(
+    state: &crate::State,
+    account_id: &WatchedAccountId,
+) -> bool {
     state
         .watched_accounts
-        .get(pub_key)
+        .get(account_id)
         .filter(|_| state.consensus.best_tip.is_some())
         .map_or(false, |a| match &a.initial_state {
             WatchedAccountLedgerInitialState::Idle { .. } => true,
@@ -67,18 +68,18 @@ fn should_request_ledger_initial_state(state: &crate::State, pub_key: &NonZeroCu
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountsLedgerInitialStateGetInitAction {
-    pub pub_key: NonZeroCurvePoint,
+    pub account_id: WatchedAccountId,
 }
 
 impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStateGetInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        should_request_ledger_initial_state(state, &self.pub_key)
+        should_request_ledger_initial_state(state, &self.account_id)
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountsLedgerInitialStateGetPendingAction {
-    pub pub_key: NonZeroCurvePoint,
+    pub account_id: WatchedAccountId,
     pub block: WatchedAccountBlockInfo,
     pub peer_id: PeerId,
     pub p2p_rpc_id: P2pRpcId,
@@ -86,13 +87,13 @@ pub struct WatchedAccountsLedgerInitialStateGetPendingAction {
 
 impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStateGetPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        should_request_ledger_initial_state(state, &self.pub_key)
+        should_request_ledger_initial_state(state, &self.account_id)
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountsLedgerInitialStateGetErrorAction {
-    pub pub_key: NonZeroCurvePoint,
+    pub account_id: WatchedAccountId,
     pub error: WatchedAccountsLedgerInitialStateGetError,
 }
 
@@ -100,7 +101,7 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStat
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .watched_accounts
-            .get(&self.pub_key)
+            .get(&self.account_id)
             .map_or(false, |a| {
                 matches!(
                     &a.initial_state,
@@ -112,14 +113,14 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStat
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountsLedgerInitialStateGetRetryAction {
-    pub pub_key: NonZeroCurvePoint,
+    pub account_id: WatchedAccountId,
 }
 
 impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStateGetRetryAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .watched_accounts
-            .get(&self.pub_key)
+            .get(&self.account_id)
             .map_or(false, |a| match &a.initial_state {
                 WatchedAccountLedgerInitialState::Error { time, .. } => state
                     .time()
@@ -132,7 +133,7 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStat
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountsLedgerInitialStateGetSuccessAction {
-    pub pub_key: NonZeroCurvePoint,
+    pub account_id: WatchedAccountId,
     pub data: Option<MinaBaseAccountBinableArgStableV2>,
 }
 
@@ -140,7 +141,7 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStat
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .watched_accounts
-            .get(&self.pub_key)
+            .get(&self.account_id)
             .map_or(false, |a| {
                 matches!(
                     &a.initial_state,
@@ -152,7 +153,7 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsLedgerInitialStat
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountsBlockTransactionsIncludedAction {
-    pub pub_key: NonZeroCurvePoint,
+    pub account_id: WatchedAccountId,
     pub block: BlockWithHash<Arc<MinaBlockBlockStableV2>>,
 }
 
@@ -161,21 +162,22 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsBlockTransactions
         let diff = &self.block.block.body.staged_ledger_diff.diff;
         state
             .watched_accounts
-            .get(&self.pub_key)
+            .get(&self.account_id)
             .map_or(false, |v| v.initial_state.is_success())
-            && super::account_relevant_transactions_in_diff_iter(&self.pub_key, diff).any(|_| true)
+            && super::account_relevant_transactions_in_diff_iter(&self.account_id, diff)
+                .any(|_| true)
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountsBlockLedgerQueryInitAction {
-    pub pub_key: NonZeroCurvePoint,
+    pub account_id: WatchedAccountId,
     pub block_hash: StateHash,
 }
 
 impl redux::EnablingCondition<crate::State> for WatchedAccountsBlockLedgerQueryInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let Some(acc) = state.watched_accounts.get(&self.pub_key) else {
+        let Some(acc) = state.watched_accounts.get(&self.account_id) else {
             return false;
         };
         acc.blocks
@@ -189,7 +191,7 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsBlockLedgerQueryI
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountsBlockLedgerQueryPendingAction {
-    pub pub_key: NonZeroCurvePoint,
+    pub account_id: WatchedAccountId,
     pub block_hash: StateHash,
     pub peer_id: PeerId,
     pub p2p_rpc_id: P2pRpcId,
@@ -197,7 +199,7 @@ pub struct WatchedAccountsBlockLedgerQueryPendingAction {
 
 impl redux::EnablingCondition<crate::State> for WatchedAccountsBlockLedgerQueryPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let Some(acc) = state.watched_accounts.get(&self.pub_key) else {
+        let Some(acc) = state.watched_accounts.get(&self.account_id) else {
             return false;
         };
 
@@ -219,14 +221,14 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsBlockLedgerQueryP
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct WatchedAccountsBlockLedgerQuerySuccessAction {
-    pub pub_key: NonZeroCurvePoint,
+    pub account_id: WatchedAccountId,
     pub block_hash: StateHash,
     pub ledger_account: MinaBaseAccountBinableArgStableV2,
 }
 
 impl redux::EnablingCondition<crate::State> for WatchedAccountsBlockLedgerQuerySuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let Some(acc) = state.watched_accounts.get(&self.pub_key) else {
+        let Some(acc) = state.watched_accounts.get(&self.account_id) else {
             return false;
         };
 

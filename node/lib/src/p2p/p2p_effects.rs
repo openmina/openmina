@@ -12,8 +12,9 @@ use crate::p2p::rpc::outgoing::{
 use crate::p2p::rpc::P2pRpcResponse;
 use crate::rpc::{RpcP2pConnectionOutgoingErrorAction, RpcP2pConnectionOutgoingSuccessAction};
 use crate::watched_accounts::{
-    WatchedAccountLedgerInitialState, WatchedAccountsBlockLedgerQuerySuccessAction,
-    WatchedAccountsLedgerInitialStateGetError, WatchedAccountsLedgerInitialStateGetErrorAction,
+    WatchedAccountId, WatchedAccountLedgerInitialState,
+    WatchedAccountsBlockLedgerQuerySuccessAction, WatchedAccountsLedgerInitialStateGetError,
+    WatchedAccountsLedgerInitialStateGetErrorAction,
     WatchedAccountsLedgerInitialStateGetSuccessAction,
 };
 use crate::{Service, Store};
@@ -72,7 +73,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                         WatchedAccountLedgerInitialState::Pending { peer_id, .. } => {
                             if peer_id == &action.peer_id {
                                 Some(WatchedAccountsLedgerInitialStateGetErrorAction {
-                                    pub_key: pub_key.clone(),
+                                    account_id: pub_key.clone(),
                                     error: WatchedAccountsLedgerInitialStateGetError::PeerDisconnected,
                                 })
                             } else {
@@ -133,7 +134,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             WatchedAccountLedgerInitialState::Pending { peer_id, p2p_rpc_id, .. } => {
                                 if peer_id == &action.peer_id && p2p_rpc_id == &action.rpc_id {
                                     Some(WatchedAccountsLedgerInitialStateGetErrorAction {
-                                        pub_key: pub_key.clone(),
+                                        account_id: pub_key.clone(),
                                         error: WatchedAccountsLedgerInitialStateGetError::TransportError(action.error.clone()),
                                     })
                                 } else {
@@ -234,7 +235,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                         WatchedAccountLedgerInitialState::Pending { peer_id, p2p_rpc_id, .. } => {
                                             if peer_id == &action.peer_id && p2p_rpc_id == &action.rpc_id {
                                                 Some(WatchedAccountsLedgerInitialStateGetErrorAction {
-                                                    pub_key: pub_key.clone(),
+                                                    account_id: pub_key.clone(),
                                                     error: WatchedAccountsLedgerInitialStateGetError::P2pRpcError(err.clone()),
                                                 })
                                             } else {
@@ -252,13 +253,14 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                     P2pRpcRequestor::WatchedAccount(
                                         P2pRpcRequestorWatchedAccount::BlockLedgerGet(
                                             pub_key,
+                                            token_id,
                                             block_hash,
                                         ),
                                     ) => {
                                         if let Some((account, _)) = result {
                                             store.dispatch(
                                                 WatchedAccountsBlockLedgerQuerySuccessAction {
-                                                    pub_key,
+                                                    account_id: WatchedAccountId(pub_key, token_id),
                                                     block_hash,
                                                     ledger_account: account.clone(),
                                                 },
@@ -266,11 +268,14 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                         }
                                     }
                                     P2pRpcRequestor::WatchedAccount(
-                                        P2pRpcRequestorWatchedAccount::LedgerInitialGet(pub_key),
+                                        P2pRpcRequestorWatchedAccount::LedgerInitialGet(
+                                            pub_key,
+                                            token_id,
+                                        ),
                                     ) => {
                                         store.dispatch(
                                             WatchedAccountsLedgerInitialStateGetSuccessAction {
-                                                pub_key: pub_key.clone(),
+                                                account_id: WatchedAccountId(pub_key, token_id),
                                                 data: result.as_ref().map(|v| v.0.clone()),
                                             },
                                         );

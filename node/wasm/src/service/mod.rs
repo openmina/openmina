@@ -102,11 +102,7 @@ impl lib::service::SnarkBlockVerifyService for NodeWasmService {
         rayon::spawn_fifo(move || {
             let header = block.header_ref();
             let result = {
-                if !lib::snark::verify_block(
-                    header,
-                    &verifier_index,
-                    &verifier_srs,
-                ) {
+                if !lib::snark::verify_block(header, &verifier_index, &verifier_srs) {
                     Err(SnarkBlockVerifyError::VerificationFailed)
                 } else {
                     Ok(())

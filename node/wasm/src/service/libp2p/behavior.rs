@@ -2,7 +2,6 @@ use lib::p2p::rpc::P2pRpcEvent;
 use libp2p::{
     futures::channel::mpsc,
     gossipsub::{Gossipsub, GossipsubEvent},
-    identify::{Identify, IdentifyEvent},
     NetworkBehaviour,
 };
 

@@ -1,6 +1,5 @@
-use mina_p2p_messages::v2::NonZeroCurvePoint;
-
 use crate::p2p::pubsub::P2pPubsubMessagePublishAction;
+use crate::watched_accounts::WatchedAccountId;
 use crate::{
     p2p::connection::outgoing::P2pConnectionOutgoingInitAction,
     watched_accounts::WatchedAccountsAddAction,
@@ -58,14 +57,14 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::WatchedAccountsAdd(action) => {
             let enabled = store.dispatch(WatchedAccountsAddAction {
-                pub_key: action.pub_key.clone(),
+                account_id: action.account_id.clone(),
             });
             let _ = store
                 .service
                 .respond_watched_accounts_add(action.rpc_id, enabled);
         }
         RpcAction::WatchedAccountsGet(action) => {
-            let result = get_account_info(store.state(), &action.pub_key);
+            let result = get_account_info(store.state(), &action.account_id);
 
             let _ = store
                 .service
@@ -84,7 +83,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
 
 fn get_account_info(
     state: &crate::State,
-    pub_key: &NonZeroCurvePoint,
+    account_id: &WatchedAccountId,
 ) -> Result<WatchedAccountInfo, WatchedAccountsGetError> {
     if !state.consensus.is_best_tip_and_history_linked() {
         return Err(WatchedAccountsGetError::NotReady);
@@ -92,7 +91,7 @@ fn get_account_info(
 
     let account = state
         .watched_accounts
-        .get(pub_key)
+        .get(account_id)
         .ok_or(WatchedAccountsGetError::NotWatching)?;
 
     if !account.initial_state.is_success() {

@@ -12,8 +12,7 @@ use crate::p2p::rpc::P2pRpcRequest;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
 use crate::watched_accounts::{
-    watched_accounts_effects, WatchedAccountLedgerInitialState,
-    WatchedAccountsLedgerInitialStateGetRetryAction,
+    watched_accounts_effects, WatchedAccountsLedgerInitialStateGetRetryAction,
 };
 use crate::{Action, ActionWithMeta, Service, Store};
 
@@ -65,7 +64,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                 .filter(|(_, a)| !a.initial_state.is_success())
                 .map(
                     |(pub_key, _)| WatchedAccountsLedgerInitialStateGetRetryAction {
-                        pub_key: pub_key.clone(),
+                        account_id: pub_key.clone(),
                     },
                 )
                 .collect::<Vec<_>>();

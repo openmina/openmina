@@ -9,7 +9,9 @@ impl P2pState {
         let (action, meta) = action.split();
         match action {
             P2pAction::Connection(action) => {
-                let Some(peer_id) = action.peer_id() else { return };
+                let Some(peer_id) = action.peer_id() else {
+                    return;
+                };
                 let peer = if action.should_create_peer() {
                     self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
                         dial_addrs: action.dial_addrs().to_vec(),

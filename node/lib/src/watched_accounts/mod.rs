@@ -11,13 +11,12 @@ mod watched_accounts_effects;
 pub use watched_accounts_effects::*;
 
 use mina_p2p_messages::v2::{
-    MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseUserCommandStableV2, NonZeroCurvePoint,
-    NonZeroCurvePointUncompressedStableV1, StagedLedgerDiffDiffDiffStableV2,
+    NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1, StagedLedgerDiffDiffDiffStableV2,
     StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,
 };
 
 pub fn is_transaction_affecting_account(
-    pub_key: &NonZeroCurvePoint,
+    account_id: &WatchedAccountId,
     tx: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,
 ) -> bool {
     use ledger::scan_state::transaction_logic::UserCommand;
@@ -25,16 +24,17 @@ pub fn is_transaction_affecting_account(
         .accounts_referenced()
         .iter()
         .map(|v| {
-            NonZeroCurvePoint::from(NonZeroCurvePointUncompressedStableV1 {
+            let pub_key = NonZeroCurvePoint::from(NonZeroCurvePointUncompressedStableV1 {
                 x: v.public_key.x.into(),
                 is_odd: v.public_key.is_odd,
-            })
+            });
+            WatchedAccountId(pub_key, (&v.token_id).into())
         })
-        .any(|referenced_pub_key| &referenced_pub_key == pub_key)
+        .any(|referenced| &referenced == account_id)
 }
 
 pub fn account_relevant_transactions_in_diff_iter<'a>(
-    pub_key: &'a NonZeroCurvePoint,
+    account_id: &'a WatchedAccountId,
     diff: &'a StagedLedgerDiffDiffDiffStableV2,
 ) -> impl 'a + Iterator<Item = Transaction> {
     let iter_0 = diff.0.commands.iter();
@@ -46,7 +46,7 @@ pub fn account_relevant_transactions_in_diff_iter<'a>(
     };
     iter_0
         .chain(iter_1)
-        .filter(|tx| is_transaction_affecting_account(pub_key, tx))
+        .filter(|tx| is_transaction_affecting_account(account_id, tx))
         .map(|tx| Transaction {
             hash: tx.data.hash().ok(),
             data: tx.data.clone(),

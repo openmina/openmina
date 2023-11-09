@@ -10,7 +10,7 @@ pub use p2p_rpc_outgoing_reducer::*;
 mod p2p_rpc_outgoing_effects;
 pub use p2p_rpc_outgoing_effects::*;
 
-use mina_p2p_messages::v2::{NonZeroCurvePoint, StateHash};
+use mina_p2p_messages::v2::{NonZeroCurvePoint, StateHash, TokenIdKeyHash};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -22,8 +22,8 @@ pub enum P2pRpcRequestor {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pRpcRequestorWatchedAccount {
-    BlockLedgerGet(NonZeroCurvePoint, StateHash),
-    LedgerInitialGet(NonZeroCurvePoint),
+    BlockLedgerGet(NonZeroCurvePoint, TokenIdKeyHash, StateHash),
+    LedgerInitialGet(NonZeroCurvePoint, TokenIdKeyHash),
 }
 
 impl Default for P2pRpcRequestor {

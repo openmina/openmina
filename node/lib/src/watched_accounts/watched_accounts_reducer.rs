@@ -10,7 +10,7 @@ impl WatchedAccountsState {
         match action {
             WatchedAccountsAction::Add(action) => {
                 self.insert(
-                    action.pub_key.clone(),
+                    action.account_id.clone(),
                     WatchedAccountState {
                         initial_state: WatchedAccountLedgerInitialState::Idle { time: meta.time() },
                         blocks: Default::default(),
@@ -19,7 +19,7 @@ impl WatchedAccountsState {
             }
             WatchedAccountsAction::LedgerInitialStateGetInit(_) => {}
             WatchedAccountsAction::LedgerInitialStateGetPending(action) => {
-                let Some(account) = self.get_mut(&action.pub_key) else {
+                let Some(account) = self.get_mut(&action.account_id) else {
                     return;
                 };
                 account.blocks.clear();
@@ -32,7 +32,7 @@ impl WatchedAccountsState {
                 };
             }
             WatchedAccountsAction::LedgerInitialStateGetError(action) => {
-                let Some(account) = self.get_mut(&action.pub_key) else {
+                let Some(account) = self.get_mut(&action.account_id) else {
                     return;
                 };
                 let (peer_id, p2p_rpc_id) = match &account.initial_state {
@@ -52,7 +52,7 @@ impl WatchedAccountsState {
             }
             WatchedAccountsAction::LedgerInitialStateGetRetry(_) => {}
             WatchedAccountsAction::LedgerInitialStateGetSuccess(action) => {
-                let Some(account) = self.get_mut(&action.pub_key) else {
+                let Some(account) = self.get_mut(&action.account_id) else {
                     return;
                 };
                 let Some(block) = account.initial_state.block() else {
@@ -70,9 +70,9 @@ impl WatchedAccountsState {
                 let diff = &block.block.body.staged_ledger_diff.diff;
 
                 let transactions =
-                    account_relevant_transactions_in_diff_iter(&action.pub_key, diff).collect();
+                    account_relevant_transactions_in_diff_iter(&action.account_id, diff).collect();
 
-                let Some(account) = self.get_mut(&action.pub_key) else {
+                let Some(account) = self.get_mut(&action.account_id) else {
                     return;
                 };
                 account
@@ -102,7 +102,7 @@ impl WatchedAccountsState {
             }
             WatchedAccountsAction::BlockLedgerQueryInit(_) => {}
             WatchedAccountsAction::BlockLedgerQueryPending(action) => {
-                let Some(account) = self.get_mut(&action.pub_key) else {
+                let Some(account) = self.get_mut(&action.account_id) else {
                     return;
                 };
                 let Some(block_state) = account.block_find_by_hash_mut(&action.block_hash) else {
@@ -121,7 +121,7 @@ impl WatchedAccountsState {
                 };
             }
             WatchedAccountsAction::BlockLedgerQuerySuccess(action) => {
-                let Some(account) = self.get_mut(&action.pub_key) else {
+                let Some(account) = self.get_mut(&action.account_id) else {
                     return;
                 };
                 let Some(block_state) = account.block_find_by_hash_mut(&action.block_hash) else {
