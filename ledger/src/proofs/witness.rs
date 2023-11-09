@@ -227,6 +227,18 @@ where
     bigint_to_bits(bigint)
 }
 
+fn bigint_to_bits2(bigint: BigInteger256, nbits: usize) -> Vec<bool> {
+    FieldBitsIterator { index: 0, bigint }.take(nbits).collect()
+}
+
+pub fn field_to_bits2<F>(field: F, nbits: usize) -> Vec<bool>
+where
+    F: Field + Into<BigInteger256>,
+{
+    let bigint: BigInteger256 = field.into();
+    bigint_to_bits2(bigint, nbits)
+}
+
 fn bits_msb<F, const NBITS: usize>(field: F) -> [bool; NBITS]
 where
     F: Field + Into<BigInteger256>,
@@ -2261,6 +2273,8 @@ pub mod field {
 
         boolean
     }
+
+    pub fn assert_lt<F: FieldWitness>(bit_length: u64, x: F, y: F) {}
 }
 
 #[allow(unused)]

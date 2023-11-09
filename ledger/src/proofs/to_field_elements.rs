@@ -2,12 +2,10 @@ use ark_ff::Field;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 
-use crate::{
-    scan_state::{
-        fee_excess::FeeExcess,
-        scan_state::transaction_snark::{Registers, SokDigest, Statement},
-        transaction_logic::zkapp_statement::ZkappStatement,
-    },
+use crate::scan_state::{
+    fee_excess::FeeExcess,
+    scan_state::transaction_snark::{Registers, SokDigest, Statement},
+    transaction_logic::zkapp_statement::ZkappStatement,
 };
 
 use super::witness::FieldWitness;
