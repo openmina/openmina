@@ -203,7 +203,7 @@ mod floating_point {
     use num_bigint::BigUint;
 
     use crate::{
-        proofs::witness::{field_to_bits, field_to_bits2, FieldWitness},
+        proofs::witness::{field_to_bits, field_to_bits2, FieldWitness, field_of_bits},
         scan_state::currency::{Amount, Balance, Sgn},
     };
 
@@ -244,6 +244,7 @@ mod floating_point {
         linear_term_integer_part: CoeffIntegerPart::One,
     };
 
+    #[derive(Clone)]
     pub enum Interval {
         Constant(BigUint),
         LessThan(BigUint),
@@ -267,12 +268,23 @@ mod floating_point {
                 Interval::LessThan(x) => bits_needed(x.clone()),
             }
         }
+
+        fn quotient(&self, b: &Self) -> Self {
+            use Interval::*;
+
+            match (self, b) {
+                (Constant(a), Constant(b)) => Constant(a / b),
+                (LessThan(a), Constant(b)) => LessThan((a / b) + 1u64),
+                (Constant(a), LessThan(_)) => LessThan(a + 1u64),
+                (LessThan(a), LessThan(_)) => LessThan(a.clone()),
+            }
+        }
     }
 
     pub struct SnarkyInteger<F: FieldWitness> {
         pub value: F,
         pub interval: Interval,
-        pub bits: Option<Vec<Boolean>>,
+        pub bits: Option<Box<[bool]>>,
     }
 
     impl<F: FieldWitness> SnarkyInteger<F> {
@@ -282,6 +294,10 @@ mod floating_point {
                 interval: Interval::LessThan(upper_bound),
                 bits: None,
             }
+        }
+
+        fn to_field(&self) -> F {
+            self.value
         }
 
         fn shift_left(&self, k: usize) -> Self {
@@ -300,7 +316,7 @@ mod floating_point {
             }
         }
 
-        fn div_mod(&self, b: &Self, w: &mut Witness<F>) {
+        fn div_mod(&self, b: &Self, w: &mut Witness<F>) -> (Self, Self) {
             let (q, r) = w.exists({
                 let a: BigUint = self.value.into();
                 let b: BigUint = b.value.into();
@@ -311,21 +327,21 @@ mod floating_point {
             let b_bit_length = b.interval.bits_needed();
 
             let q_bits = w.exists(field_to_bits2(q, q_bit_length as usize));
-            let b_bits = w.exists(field_to_bits2(r, b_bit_length as usize));
+            let r_bits = w.exists(field_to_bits2(r, b_bit_length as usize));
 
-            dbg!(q_bit_length, b_bit_length);
+            field::assert_lt(b_bit_length, r, b.value, w);
+
+            (Self {
+                value: q,
+                interval: self.interval.quotient(&b.interval),
+                bits: Some(q_bits),
+            }, Self {
+                value: r,
+                interval: b.interval.clone(),
+                bits: Some(r_bits),
+            })
         }
     }
-
-    //   Field.Assert.lt ~bit_length:b_bit_length r b.value ;
-    //   (* This assertion checkes that the multiplication q * b is safe. *)
-    //   assert (q_bit_length + b_bit_length + 1 < Field.Constant.size_in_bits) ;
-    //   assert_r1cs q b.value Field.(a.value - r) ;
-    //   ( { value = q
-    //     ; interval = Interval.quotient a.interval b.interval
-    //     ; bits = Some q_bits
-    //     }
-    //   , { value = r; interval = b.interval; bits = Some r_bits } )
 
     pub fn balance_upper_bound() -> BigUint {
         BigUint::new(vec![1, 0, 0, 0]) << Balance::NBITS as u32
@@ -335,18 +351,163 @@ mod floating_point {
         BigUint::new(vec![1, 0, 0, 0]) << Amount::NBITS as u32
     }
 
-    pub fn of_quotient(
-        precision: usize,
-        top: SnarkyInteger<Fp>,
-        bottom: SnarkyInteger<Fp>,
-        w: &mut Witness<Fp>,
-    ) {
-        top.shift_left(precision).div_mod(&bottom, w);
-
-        // let of_quotient ~m ~precision ~top ~bottom ~top_is_less_than_bottom:() =
-        //   let q, _r = Integer.(div_mod ~m (shift_left ~m top precision) bottom) in
-        //   { value = Integer.to_field q; precision }
+    #[derive(Clone, Debug)]
+    pub struct Point<F: FieldWitness> {
+        pub value: F,
+        pub precision: usize
     }
+
+    pub fn of_quotient<F: FieldWitness>(
+        precision: usize,
+        top: SnarkyInteger<F>,
+        bottom: SnarkyInteger<F>,
+        w: &mut Witness<F>,
+    ) -> Point<F> {
+        let (q, _r) = top.shift_left(precision).div_mod(&bottom, w);
+        Point {
+            value: q.to_field(),
+            precision,
+        }
+    }
+
+    impl<F: FieldWitness> Point<F> {
+        pub fn mul(&self, y: &Self, w: &mut Witness<F>) -> Self {
+            let new_precision = self.precision + y.precision;
+            Self {
+                value: field::mul(self.value, y.value, w),
+                precision: new_precision,
+            }
+        }
+
+        pub fn const_mul(&self, y: &Self) -> Self {
+            let new_precision = self.precision + y.precision;
+            Self {
+                value: self.value * y.value,
+                precision: new_precision,
+            }
+        }
+
+        pub fn powers(&self, n: usize, w: &mut Witness<F>) -> Vec<Self> {
+            let mut res = vec![self.clone(); n];
+            for i in 1..n {
+                res[i] = self.mul(&res[i - 1], w);
+            }
+            res
+        }
+
+        pub fn constant(value: &BigInteger256, precision: usize) -> Self {
+            Self {
+                value: (*value).into(),
+                precision,
+            }
+        }
+
+        pub fn add_signed(&self, (sgn, t2): (Sgn, &Self)) -> Self {
+            let precision = self.precision.max(t2.precision);
+            let (t1, t2) = if self.precision < t2.precision {
+                (self, t2)
+            } else {
+                (t2, self)
+            };
+
+            let powed2 = (0..(t2.precision - t1.precision)).fold(F::one(), |acc, _| {
+                acc.double()
+            });
+
+            let value = match sgn {
+                Sgn::Pos => (powed2 * t1.value) + t2.value,
+                Sgn::Neg => (powed2 * t1.value) - t2.value,
+            };
+
+            Self {
+                value,
+                precision,
+            }
+        }
+
+        pub fn add(&self, t2: &Self) -> Self {
+            self.add_signed((Sgn::Pos, t2))
+        }
+
+        pub fn of_bits<const N: usize>(bits: &[bool; N], precision: usize) -> Self {
+            Self {
+                value: field_of_bits(bits),
+                precision,
+            }
+        }
+
+        pub fn le(&self, t2: &Self, w: &mut Witness<F>) -> Boolean {
+            let precision = self.precision.max(t2.precision);
+
+            let padding = {
+                let k = precision - self.precision.min(t2.precision);
+                (0..k).fold(F::one(), |acc, _| acc.double())
+            };
+
+            let (x1, x2) = {
+                let (x1, x2) = (self.value, t2.value);
+                if self.precision < t2.precision {
+                    (padding * x1, x2)
+                } else if t2.precision < self.precision {
+                    (x1, padding * x2)
+                } else {
+                    (x1, x2)
+                }
+            };
+
+            field::compare(precision as u64, x1, x2, w).1
+        }
+    }
+}
+
+mod snarky_taylor {
+    use crate::{proofs::witness::FieldWitness, scan_state::currency::Sgn};
+
+    use super::*;
+    use floating_point::*;
+
+    fn taylor_sum<F: FieldWitness>(
+        x_powers: Vec<Point<F>>,
+        coefficients: impl Iterator<Item = (Sgn, floating_point::Point<F>)>,
+        linear_term_integer_part: &CoeffIntegerPart,
+        w: &mut Witness<F>,
+    ) -> Point<F> {
+        let acc = coefficients.zip(&x_powers).fold(None, |sum, ((sgn, ci), xi)| {
+            let term = ci.const_mul(xi);
+            match sum {
+                None => Some(term),
+                Some(s) => {
+                    Some(s.add_signed((sgn, &term)))
+                },
+            }
+        }).unwrap();
+
+        match linear_term_integer_part {
+            CoeffIntegerPart::Zero => acc,
+            CoeffIntegerPart::One => acc.add(&x_powers[0]),
+        }
+    }
+
+    pub fn one_minus_exp<F: FieldWitness>(
+        params: &Params,
+        x: Point<F>,
+        w: &mut Witness<F>
+    ) -> Point<F> {
+        let floating_point::Params {
+            total_precision,
+            per_term_precision,
+            terms_needed,
+            coefficients,
+            linear_term_integer_part,
+        } = params;
+
+        let powers = x.powers(*terms_needed, w);
+        let coefficients = coefficients.iter().map(|(sgn, c)| {
+            (*sgn, Point::<F>::constant(c, *per_term_precision))
+        });
+        taylor_sum(powers, coefficients, linear_term_integer_part, w)
+    }
+
 }
 
 mod vrf {
@@ -492,19 +653,23 @@ mod vrf {
     fn is_satisfied(
         my_stake: Balance,
         total_stake: Amount,
-        truncated_result: &[bool; VRF_OUTPUT_NBITS],
+        vrf_output: &[bool; VRF_OUTPUT_NBITS],
         w: &mut Witness<Fp>,
-    ) {
+    ) -> Boolean {
         use floating_point::*;
 
         let top = SnarkyInteger::create(my_stake.to_field::<Fp>(), balance_upper_bound());
         let bottom = SnarkyInteger::create(total_stake.to_field::<Fp>(), amount_upper_bound());
         let precision = PARAMS.per_term_precision;
 
-        floating_point::of_quotient(precision, top, bottom, w);
+        let point = floating_point::of_quotient(precision, top, bottom, w);
+        let rhs = snarky_taylor::one_minus_exp(&PARAMS, point, w);
+
+        let lhs = vrf_output;
+        Point::of_bits(lhs, VRF_OUTPUT_NBITS).le(&rhs, w)
     }
 
-    const VRF_OUTPUT_NBITS: usize = 253;
+    pub const VRF_OUTPUT_NBITS: usize = 253;
 
     fn truncate_vrf_output(output: Fp, w: &mut Witness<Fp>) -> [bool; VRF_OUTPUT_NBITS] {
         let output = w.exists(field_to_bits::<_, 255>(output));
@@ -520,7 +685,7 @@ mod vrf {
         seed: Fp,
         prover_state: &v2::ConsensusStakeProofStableV2,
         w: &mut Witness<Fp>,
-    ) {
+    ) -> (Boolean, Fp, [bool; VRF_OUTPUT_NBITS], Box<crate::Account>) {
         let (winner_addr, winner_addr_bits) = {
             const LEDGER_DEPTH: usize = 35;
             assert_eq!(CONSTRAINT_CONSTANTS.ledger_depth, LEDGER_DEPTH as u64);
@@ -547,15 +712,9 @@ mod vrf {
 
         epoch_ledger.total_currency;
 
-        is_satisfied(my_stake, epoch_ledger.total_currency, &truncated_result, w);
+        let satisifed = is_satisfied(my_stake, epoch_ledger.total_currency, &truncated_result, w);
 
-        // let my_stake = winner_account.balance in
-        // let%bind truncated_result = Output.Checked.truncate result in
-        // let%map satisifed =
-        //   Threshold.Checked.is_satisfied ~my_stake
-        //     ~total_stake:epoch_ledger.total_currency truncated_result
-        // in
-        // (satisifed, result, truncated_result, winner_account)
+        (satisifed, result, truncated_result, winner_account)
     }
 }
 
@@ -843,7 +1002,7 @@ mod consensus {
             w.exists(pk)
         };
 
-        {
+        let (threshold_satisfied, vrf_result, truncated_vrf_result, winner_account ) = {
             let m = create_shifted_inner_curve::<Fp>(w);
 
             vrf::check(
@@ -855,8 +1014,9 @@ mod consensus {
                 staking_epoch_data.seed,
                 prover_state,
                 w,
-            );
-        }
+            )
+        };
+
     }
 }
 

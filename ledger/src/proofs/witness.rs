@@ -227,11 +227,13 @@ where
     bigint_to_bits(bigint)
 }
 
-fn bigint_to_bits2(bigint: BigInteger256, nbits: usize) -> Vec<bool> {
+/// Difference with `bigint_to_bits`: the number of bits isn't a constant
+fn bigint_to_bits2(bigint: BigInteger256, nbits: usize) -> Box<[bool]> {
     FieldBitsIterator { index: 0, bigint }.take(nbits).collect()
 }
 
-pub fn field_to_bits2<F>(field: F, nbits: usize) -> Vec<bool>
+/// Difference with `field_to_bits`: the number of bits isn't a constant
+pub fn field_to_bits2<F>(field: F, nbits: usize) -> Box<[bool]>
 where
     F: Field + Into<BigInteger256>,
 {
@@ -602,10 +604,28 @@ impl<F: FieldWitness, T: ToFieldElements<F>> ToFieldElements<F> for Vec<T> {
     }
 }
 
+impl<F: FieldWitness, T: ToFieldElements<F>> ToFieldElements<F> for Box<[T]> {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        self.iter().for_each(|v| v.to_field_elements(fields));
+    }
+}
+
 impl<F: FieldWitness> ToFieldElements<F> for Fp {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         fields.push(self.into_gen());
     }
+}
+
+// pack
+pub fn field_of_bits<F: FieldWitness, const N: usize>(bs: &[bool; N]) -> F {
+    bs.iter().rev().fold(F::zero(), |acc, b| {
+        let acc = acc + acc;
+        if *b {
+            acc + F::one()
+        } else {
+            acc
+        }
+    })
 }
 
 impl<F: FieldWitness> ToFieldElements<F> for Fq {
@@ -616,23 +636,13 @@ impl<F: FieldWitness> ToFieldElements<F> for Fq {
         if TypeId::of::<F>() == TypeId::of::<Fq>() {
             fields.push(self.into_gen());
         } else {
-            fn of_bits<F: FieldWitness>(bs: &[bool; 254]) -> F {
-                bs.iter().rev().fold(F::zero(), |acc, b| {
-                    let acc = acc + acc;
-                    if *b {
-                        acc + F::one()
-                    } else {
-                        acc
-                    }
-                })
-            }
             // `Fq` is larger than `Fp` so we have to split the field (low & high bits)
             // See:
             // https://github.com/MinaProtocol/mina/blob/e85cf6969e42060f69d305fb63df9b8d7215d3d7/src/lib/pickles/impls.ml#L94C1-L105C45
 
             let to_high_low = |fq: Fq| {
                 let [low, high @ ..] = field_to_bits::<Fq, 255>(fq);
-                [of_bits(&high), F::from(low)]
+                [field_of_bits(&high), F::from(low)]
             };
             fields.extend(to_high_low(*self));
         }
@@ -2144,6 +2154,12 @@ impl<F: FieldWitness, T: Check<F>> Check<F> for Vec<T> {
     }
 }
 
+impl<F: FieldWitness, T: Check<F>> Check<F> for Box<[T]> {
+    fn check(&self, w: &mut Witness<F>) {
+        self.iter().for_each(|v| v.check(w))
+    }
+}
+
 impl<F: FieldWitness, A: Check<F>, B: Check<F>> Check<F> for (A, B) {
     fn check(&self, w: &mut Witness<F>) {
         let (a, b) = self;
@@ -2274,7 +2290,30 @@ pub mod field {
         boolean
     }
 
-    pub fn assert_lt<F: FieldWitness>(bit_length: u64, x: F, y: F) {}
+    pub fn compare<F: FieldWitness>(bit_length: u64, a: F, b: F, w: &mut Witness<F>) -> (Boolean, Boolean) {
+        let two_to_the = |n: usize| {
+            (0..n).fold(F::one(), |acc, _| acc.double())
+        };
+
+        let bit_length = bit_length as usize;
+        let alpha_packed = {
+            two_to_the(bit_length) + b - a
+        };
+        let alpha = w.exists(field_to_bits2(alpha_packed, bit_length + 1));
+        let (less_or_equal, prefix) = alpha.split_last().unwrap();
+
+        let less_or_equal = less_or_equal.to_boolean();
+        let prefix = prefix.iter().map(|b| b.to_boolean()).collect::<Vec<_>>();
+
+        let not_all_zeros = Boolean::any(&prefix, w);
+        let less = less_or_equal.and(&not_all_zeros, w);
+
+        (less, less_or_equal)
+    }
+
+    pub fn assert_lt<F: FieldWitness>(bit_length: u64, x: F, y: F, w: &mut Witness<F>) {
+        compare(bit_length, x, y, w);
+    }
 }
 
 #[allow(unused)]
