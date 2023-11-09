@@ -428,6 +428,15 @@ impl Stack {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/f5b013880dede0e2ef04cebf4b0213b850a85548/src/lib/mina_base/pending_coinbase.ml#L738
+    pub fn var_create_with(other: &Self) -> Self {
+        // Note: Here we use `init`
+        Self {
+            state: StateStack::create(other.state.init),
+            ..Self::empty()
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L658
     pub fn connected(first: &Self, second: &Self, prev: Option<&Self>) -> bool {
         // same as old stack or second could be a new stack with empty data
