@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{path::Path, str::FromStr, sync::Arc, rc::Rc};
+use std::{path::Path, rc::Rc, str::FromStr, sync::Arc};
 
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -10,11 +10,15 @@ use crate::{
     dummy,
     proofs::{
         block::consensus::ConsensusState,
+        merge::{verify_one, Basic, FeatureFlags, ForStep, ForStepKind, OptFlag, PerProofWitness},
         numbers::{
             currency::CheckedSigned,
             nat::{CheckedNat, CheckedSlot},
         },
-        witness::Boolean,
+        util::u64_to_field,
+        verifier_index::wrap_domains,
+        witness::{Boolean, MessagesForNextStepProof},
+        wrap::{wrap_verifier, Domain, Domains},
     },
     scan_state::{
         fee_excess::{self, FeeExcess},
@@ -29,10 +33,12 @@ use crate::{
         },
         transaction_logic::protocol_state::EpochLedger,
     },
+    verifier::get_srs,
     Inputs, ToInputs,
 };
 
 use super::{
+    merge::{InductiveRule, PreviousProofStatement},
     numbers::{
         currency::CheckedAmount,
         nat::{CheckedBlockTime, CheckedBlockTimeSpan, CheckedLength},
@@ -42,7 +48,7 @@ use super::{
         field,
         transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
         Check, Prover, Witness,
-    }, merge::{InductiveRule, PreviousProofStatement},
+    },
 };
 
 fn read_witnesses() -> Vec<Fp> {
@@ -1736,18 +1742,195 @@ pub fn generate_block_proof(
 
     Boolean::assert_any(&[is_base_case, success], w);
 
-    [
-        PreviousProofStatement {
-            public_input: Rc::new(previous_blockchain_proof_input.clone()),
-            proof: &prev_state_proof,
-            proof_must_verify: prev_should_verify,
+    let rule = InductiveRule {
+        previous_proof_statements: [
+            PreviousProofStatement {
+                public_input: Rc::new(previous_blockchain_proof_input.clone()),
+                proof: &prev_state_proof,
+                proof_must_verify: prev_should_verify,
+            },
+            PreviousProofStatement {
+                public_input: Rc::new(txn_snark.clone()),
+                proof: &txn_snark_proof,
+                proof_must_verify: txn_snark_should_verify,
+            },
+        ],
+        public_output: (),
+        auxiliary_output: (),
+    };
+
+    dbg!(&wrap_prover.index.verifier_index_digest);
+
+    let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(wrap_prover));
+    let verifier_index = wrap_prover.index.verifier_index.as_ref().unwrap();
+
+    let expanded_proofs: [super::merge::ExpandedProof; 2] = rule
+        .previous_proof_statements
+        .iter()
+        .map(|statement| {
+            let PreviousProofStatement {
+                public_input,
+                proof,
+                proof_must_verify,
+            } = statement;
+            super::merge::expand_proof(
+                verifier_index,
+                &dlog_plonk_index,
+                public_input,
+                proof,
+                (),
+                *proof_must_verify,
+            )
+        })
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap();
+
+    let fst = &expanded_proofs[0];
+    let snd = &expanded_proofs[1];
+
+    let prevs = w.exists([&fst.witness, &snd.witness]);
+    let unfinalized_proofs_unextended = w.exists([&fst.unfinalized, &snd.unfinalized]);
+
+    // panic!("unfinalized={:#?}", unfinalized_proofs_unextended);
+
+    let f = u64_to_field::<Fp, 4>;
+    let messages_for_next_wrap_proof = w.exists([
+        f(&fst
+            .prev_statement_with_hashes
+            .proof_state
+            .messages_for_next_wrap_proof),
+        f(&snd
+            .prev_statement_with_hashes
+            .proof_state
+            .messages_for_next_wrap_proof),
+    ]);
+
+    let actual_wrap_domains = {
+        let all_possible_domains = wrap_verifier::all_possible_domains();
+
+        [fst.actual_wrap_domain, snd.actual_wrap_domain].map(|domain_size| {
+            let domain_size = domain_size as u64;
+            all_possible_domains
+                .iter()
+                .position(|Domain::Pow2RootsOfUnity(d)| *d == domain_size)
+                .unwrap_or(0)
+        })
+    };
+
+    dbg!(fst.actual_wrap_domain);
+    dbg!(snd.actual_wrap_domain);
+
+    let prevs: [PerProofWitness; 2] = rule
+        .previous_proof_statements
+        .iter()
+        .zip(prevs)
+        .map(|(stmt, proof)| proof.clone().with_app_state(stmt.public_input.clone()))
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap();
+
+    let basic = Basic {
+        proof_verifieds: vec![0, 2, 0, 0, 1],
+        wrap_domain: Domains {
+            h: Domain::Pow2RootsOfUnity(14),
         },
-        PreviousProofStatement {
-            public_input: Rc::new(txn_snark.clone()),
-            proof: &txn_snark_proof,
-            proof_must_verify: txn_snark_should_verify,
+        step_domains: vec![
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(14),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+        ],
+        feature_flags: FeatureFlags {
+            range_check0: OptFlag::No,
+            range_check1: OptFlag::No,
+            foreign_field_add: OptFlag::No,
+            foreign_field_mul: OptFlag::No,
+            xor: OptFlag::No,
+            rot: OptFlag::No,
+            lookup: OptFlag::No,
+            runtime_tables: OptFlag::No,
         },
-    ];
+    };
+
+    let self_branches = 5;
+    let max_proofs_verified = 2;
+    let self_data = ForStep {
+        branches: self_branches,
+        max_proofs_verified,
+        proof_verifieds: ForStepKind::Known(
+            basic
+                .proof_verifieds
+                .iter()
+                .copied()
+                .map(Fp::from)
+                .collect(),
+        ),
+        public_input: (),
+        wrap_key: dlog_plonk_index.clone(), // TODO: Use ref
+        wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
+        step_domains: ForStepKind::Known(basic.step_domains),
+        feature_flags: basic.feature_flags,
+    };
+
+    let srs = get_srs::<Fq>();
+    let mut srs = srs.lock().unwrap();
+
+    let bulletproof_challenges = prevs
+        .iter()
+        .zip(messages_for_next_wrap_proof)
+        .zip(unfinalized_proofs_unextended)
+        .zip(&rule.previous_proof_statements)
+        .zip(actual_wrap_domains)
+        .map(
+            |((((proof, msg_for_next_wrap_proof), unfinalized), stmt), actual_wrap_domain)| {
+                let PreviousProofStatement {
+                    proof_must_verify: should_verify,
+                    ..
+                } = stmt;
+
+                match self_data.wrap_domain {
+                    ForStepKind::SideLoaded => todo!(),
+                    ForStepKind::Known(wrap_domain) => {
+                        let actual_wrap_domain = wrap_domains(actual_wrap_domain);
+                        assert_eq!(actual_wrap_domain.h, wrap_domain);
+                    }
+                }
+                let (chals, _verified) = verify_one(
+                    &mut srs,
+                    proof,
+                    &self_data,
+                    msg_for_next_wrap_proof,
+                    unfinalized,
+                    *should_verify,
+                    w,
+                );
+                chals.try_into().unwrap()
+            },
+        )
+        .collect::<Vec<[Fp; 16]>>();
+
+    // let inputs = MessagesForNextStepProof {
+    //     app_state: Rc::new(statement_with_sok.clone()),
+    //     dlog_plonk_index: &dlog_plonk_index,
+    //     challenge_polynomial_commitments: prevs
+    //         .iter()
+    //         .map(|v| InnerCurve::of_affine(v.wrap_proof.proof.sg.clone()))
+    //         .collect(),
+    //     old_bulletproof_challenges: bulletproof_challenges,
+    // }
+    // .to_fields();
 
     // InductiveRule {
     //     previous_proof_statements: todo!(),

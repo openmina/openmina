@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::FromStr, sync::Arc, rc::Rc};
+use std::{collections::HashMap, rc::Rc, str::FromStr, sync::Arc};
 
 use ark_ec::{
     short_weierstrass_jacobian::GroupProjective, AffineCurve, ProjectiveCurve, SWModelParameters,
@@ -4819,8 +4819,7 @@ pub struct MessagesForNextStepProof<'a> {
     pub old_bulletproof_challenges: Vec<[Fp; 16]>,
 }
 
-impl MessagesForNextStepProof<'_>
-{
+impl MessagesForNextStepProof<'_> {
     /// Implementation of `hash_messages_for_next_step_proof`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L33
     pub fn hash(&self) -> [u64; 4] {
@@ -5173,7 +5172,7 @@ mod tests {
     use crate::{
         proofs::{
             block::generate_block_proof,
-            constants::{BlockProof, MergeProof},
+            constants::{BlockProof, MergeProof, WrapBlockProof},
             merge::generate_merge_proof,
         },
         scan_state::scan_state::transaction_snark::SokMessage,
@@ -5378,6 +5377,7 @@ mod tests {
         wrap_gates: Vec<CircuitGate<Fq>>,
         merge_gates: Vec<CircuitGate<Fp>>,
         block_gates: Vec<CircuitGate<Fp>>,
+        block_wrap_gates: Vec<CircuitGate<Fq>>,
         internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
         rows_rev: Vec<Vec<Option<V>>>,
         internal_vars_wrap: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
@@ -5386,6 +5386,8 @@ mod tests {
         merge_rows_rev: Vec<Vec<Option<V>>>,
         block_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
         block_rows_rev: Vec<Vec<Option<V>>>,
+        block_wrap_internal_vars: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
+        block_wrap_rows_rev: Vec<Vec<Option<V>>>,
     }
 
     fn read_gates() -> Gates {
@@ -5410,6 +5412,13 @@ mod tests {
         let rows_rev_path = base_dir.join("rampup4").join("block_rows_rev.bin");
         let (block_internal_vars, block_rows_rev) =
             read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
+
+        let internal_vars_path = base_dir
+            .join("rampup4")
+            .join("block_wrap_internal_vars.bin");
+        let rows_rev_path = base_dir.join("rampup4").join("block_wrap_rows_rev.bin");
+        let (block_wrap_internal_vars, block_wrap_rows_rev) =
+            read_constraints_data::<Fq>(&internal_vars_path, &rows_rev_path).unwrap();
 
         let gates: Vec<CircuitGate<Fp>> = {
             let gates_path = base_dir.join("gates_step_rampup4.json");
@@ -5439,6 +5448,13 @@ mod tests {
             serde_json::from_reader(reader).unwrap()
         };
 
+        let block_wrap_gates: Vec<CircuitGate<Fq>> = {
+            let gates_path = base_dir.join("rampup4").join("block_wrap_gates.json");
+            let file = std::fs::File::open(gates_path).unwrap();
+            let reader = std::io::BufReader::new(file);
+            serde_json::from_reader(reader).unwrap()
+        };
+
         Gates {
             gates,
             wrap_gates,
@@ -5452,6 +5468,9 @@ mod tests {
             merge_rows_rev,
             block_internal_vars,
             block_rows_rev,
+            block_wrap_gates,
+            block_wrap_internal_vars,
+            block_wrap_rows_rev,
         }
     }
 
@@ -5459,6 +5478,7 @@ mod tests {
         tx_prover: Prover<Fp>,
         wrap_prover: Prover<Fq>,
         merge_prover: Prover<Fp>,
+        block_wrap_prover: Prover<Fq>,
         block_prover: Prover<Fp>,
     }
 
@@ -5476,10 +5496,14 @@ mod tests {
             merge_rows_rev,
             block_internal_vars,
             block_rows_rev,
+            block_wrap_gates,
+            block_wrap_internal_vars,
+            block_wrap_rows_rev,
         } = read_gates();
         let tx_prover_index = make_prover_index::<RegularTransactionProof, _>(gates);
         let merge_prover_index = make_prover_index::<MergeProof, _>(merge_gates);
         let wrap_prover_index = make_prover_index::<WrapProof, _>(wrap_gates);
+        let wrap_block_prover_index = make_prover_index::<WrapBlockProof, _>(block_wrap_gates);
         let block_prover_index = make_prover_index::<BlockProof, _>(block_gates);
 
         let tx_prover = Prover {
@@ -5506,11 +5530,18 @@ mod tests {
             index: block_prover_index,
         };
 
+        let block_wrap_prover = Prover {
+            internal_vars: block_wrap_internal_vars,
+            rows_rev: block_wrap_rows_rev,
+            index: wrap_block_prover_index,
+        };
+
         Provers {
             tx_prover,
             wrap_prover,
             merge_prover,
             block_prover,
+            block_wrap_prover,
         }
     }
 
@@ -5533,6 +5564,7 @@ mod tests {
             wrap_prover,
             merge_prover: _,
             block_prover: _,
+            block_wrap_prover: _,
         } = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<RegularTransactionProof>();
@@ -5565,6 +5597,7 @@ mod tests {
             wrap_prover,
             merge_prover,
             block_prover: _,
+            block_wrap_prover: _,
         } = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<MergeProof>();
@@ -5596,16 +5629,17 @@ mod tests {
 
         let Provers {
             tx_prover: _,
-            wrap_prover,
+            wrap_prover: _,
             merge_prover: _,
             block_prover,
+            block_wrap_prover,
         } = make_provers();
         let mut witnesses: Witness<Fp> = Witness::new::<BlockProof>();
 
         generate_block_proof(
             &blockchain_input,
             &block_prover,
-            &wrap_prover,
+            &block_wrap_prover,
             &mut witnesses,
         );
 
@@ -5634,6 +5668,7 @@ mod tests {
             wrap_prover,
             merge_prover,
             block_prover: _,
+            block_wrap_prover: _,
         } = make_provers();
 
         // Merge proof

@@ -1,4 +1,4 @@
-use std::{path::Path, str::FromStr, rc::Rc};
+use std::{path::Path, rc::Rc, str::FromStr};
 
 use crate::{
     proofs::{
@@ -62,7 +62,7 @@ use super::{
     witness::{
         make_group, scalar_challenge::to_field_checked, Boolean, Check, FieldWitness, GroupAffine,
         InnerCurve, MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
-        ReducedMessagesForNextStepProof, Witness, ToFieldElementsDebug,
+        ReducedMessagesForNextStepProof, ToFieldElementsDebug, Witness,
     },
     wrap::{CircuitVar, Domains},
 };
@@ -164,7 +164,7 @@ pub struct InductiveRule<'a> {
     pub auxiliary_output: (),
 }
 
-fn dlog_plonk_index(wrap_prover: &Prover<Fq>) -> PlonkVerificationKeyEvals<Fp> {
+pub fn dlog_plonk_index(wrap_prover: &Prover<Fq>) -> PlonkVerificationKeyEvals<Fp> {
     PlonkVerificationKeyEvals::from(wrap_prover.index.verifier_index.as_ref().unwrap())
 }
 
@@ -350,7 +350,7 @@ pub fn expand_deferred(
     }
 }
 
-fn expand_proof(
+pub fn expand_proof(
     dlog_vk: &VerifierIndex<Pallas>,
     dlog_plonk_index: &PlonkVerificationKeyEvals<Fp>,
     app_state: &Rc<dyn ToFieldElementsDebug>,
@@ -694,40 +694,40 @@ fn expand_proof(
 }
 
 #[derive(Debug)]
-struct ExpandedProof {
-    sg: GroupAffine<Fp>,
-    unfinalized: Unfinalized,
-    prev_statement_with_hashes: PreparedStatement,
-    x_hat: (Fq, Fq),
-    witness: PerProofWitness,
-    actual_wrap_domain: u32,
+pub struct ExpandedProof {
+    pub sg: GroupAffine<Fp>,
+    pub unfinalized: Unfinalized,
+    pub prev_statement_with_hashes: PreparedStatement,
+    pub x_hat: (Fq, Fq),
+    pub witness: PerProofWitness,
+    pub actual_wrap_domain: u32,
 }
 
 #[derive(Clone, Debug)]
-struct PerProofWitness {
-    app_state: Option<Rc<dyn ToFieldElementsDebug>>,
+pub struct PerProofWitness {
+    pub app_state: Option<Rc<dyn ToFieldElementsDebug>>,
     // app_state: AppState,
-    wrap_proof: ProverProof<GroupAffine<Fp>>,
-    proof_state: ProofState,
-    prev_proof_evals: AllEvals<Fp>,
-    prev_challenges: Vec<[Fp; 16]>,
-    prev_challenge_polynomial_commitments: Vec<GroupAffine<Fp>>,
+    pub wrap_proof: ProverProof<GroupAffine<Fp>>,
+    pub proof_state: ProofState,
+    pub prev_proof_evals: AllEvals<Fp>,
+    pub prev_challenges: Vec<[Fp; 16]>,
+    pub prev_challenge_polynomial_commitments: Vec<GroupAffine<Fp>>,
 }
 
 impl PerProofWitness {
-    fn with_app_state(self, app_state: Rc<dyn ToFieldElementsDebug>) -> PerProofWitness {
+    pub fn with_app_state(self, app_state: Rc<dyn ToFieldElementsDebug>) -> PerProofWitness {
         let Self {
-            app_state,
+            app_state: old,
             wrap_proof,
             proof_state,
             prev_proof_evals,
             prev_challenges,
             prev_challenge_polynomial_commitments,
         } = self;
-        assert!(app_state.is_none());
+        assert!(old.is_none());
 
         PerProofWitness {
-            app_state,
+            app_state: Some(app_state),
             wrap_proof,
             proof_state,
             prev_proof_evals,
@@ -2108,7 +2108,7 @@ mod step_verifier {
     }
 }
 
-fn verify_one(
+pub fn verify_one(
     srs: &mut poly_commitment::srs::SRS<Pallas>,
     proof: &PerProofWitness,
     data: &ForStep,
@@ -2356,8 +2356,6 @@ pub fn generate_merge_proof(
         .collect::<Vec<_>>()
         .try_into()
         .unwrap();
-
-    eprintln!("AAA");
 
     let fst = &expanded_proofs[0];
     let snd = &expanded_proofs[1];
@@ -2671,14 +2669,14 @@ pub fn generate_merge_proof(
 }
 
 #[derive(Debug)]
-enum OptFlag {
+pub enum OptFlag {
     Yes,
     No,
     Maybe,
 }
 
 #[derive(Debug)]
-enum Opt<T> {
+pub enum Opt<T> {
     Some(T),
     No,
     Maybe(Boolean, T),
@@ -2695,40 +2693,40 @@ impl<T> Opt<T> {
 }
 
 #[derive(Debug)]
-struct FeatureFlags<Bool> {
-    range_check0: Bool,
-    range_check1: Bool,
-    foreign_field_add: Bool,
-    foreign_field_mul: Bool,
-    xor: Bool,
-    rot: Bool,
-    lookup: Bool,
-    runtime_tables: Bool,
+pub struct FeatureFlags<Bool> {
+    pub range_check0: Bool,
+    pub range_check1: Bool,
+    pub foreign_field_add: Bool,
+    pub foreign_field_mul: Bool,
+    pub xor: Bool,
+    pub rot: Bool,
+    pub lookup: Bool,
+    pub runtime_tables: Bool,
 }
 
 #[derive(Debug)]
-struct Basic {
-    proof_verifieds: Vec<u64>,
+pub struct Basic {
+    pub proof_verifieds: Vec<u64>,
     // branches: u64,
-    wrap_domain: Domains,
-    step_domains: Vec<Domains>,
-    feature_flags: FeatureFlags<OptFlag>,
+    pub wrap_domain: Domains,
+    pub step_domains: Vec<Domains>,
+    pub feature_flags: FeatureFlags<OptFlag>,
 }
 
 #[derive(Debug)]
-enum ForStepKind<T> {
+pub enum ForStepKind<T> {
     Known(T),
     SideLoaded,
 }
 
 #[derive(Debug)]
-struct ForStep {
-    branches: usize,
-    max_proofs_verified: usize,
-    proof_verifieds: ForStepKind<Vec<Fp>>,
-    public_input: (), // Typ
-    wrap_key: PlonkVerificationKeyEvals<Fp>,
-    wrap_domain: ForStepKind<Domain>,
-    step_domains: ForStepKind<Vec<Domains>>,
-    feature_flags: FeatureFlags<OptFlag>,
+pub struct ForStep {
+    pub branches: usize,
+    pub max_proofs_verified: usize,
+    pub proof_verifieds: ForStepKind<Vec<Fp>>,
+    pub public_input: (), // Typ
+    pub wrap_key: PlonkVerificationKeyEvals<Fp>,
+    pub wrap_domain: ForStepKind<Domain>,
+    pub step_domains: ForStepKind<Vec<Domains>>,
+    pub feature_flags: FeatureFlags<OptFlag>,
 }
