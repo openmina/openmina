@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{borrow::Cow, ops::Neg, str::FromStr, rc::Rc};
+use std::{borrow::Cow, ops::Neg, rc::Rc, str::FromStr};
 
 use ark_ff::{BigInteger256, One, Zero};
 use ark_poly::{
@@ -57,7 +57,8 @@ use super::{
     util::u64_to_field,
     witness::{
         plonk_curve_ops::scale_fast, Check, GroupAffine, PlonkVerificationKeyEvals,
-        ReducedMessagesForNextStepProof, StepProofState, StepStatement, Witness, ToFieldElementsDebug,
+        ReducedMessagesForNextStepProof, StepProofState, StepStatement, ToFieldElementsDebug,
+        Witness,
     },
 };
 
