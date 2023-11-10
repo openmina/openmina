@@ -10,15 +10,19 @@ use crate::{
     dummy,
     proofs::{
         block::consensus::ConsensusState,
-        merge::{verify_one, Basic, FeatureFlags, ForStep, ForStepKind, OptFlag, PerProofWitness},
+        constants::BlockProof,
+        merge::{
+            extract_recursion_challenges, verify_one, Basic, FeatureFlags, ForStep, ForStepKind,
+            OptFlag, PerProofWitness,
+        },
         numbers::{
             currency::CheckedSigned,
             nat::{CheckedNat, CheckedSlot},
         },
         util::u64_to_field,
         verifier_index::wrap_domains,
-        witness::{Boolean, MessagesForNextStepProof},
-        wrap::{wrap_verifier, Domain, Domains},
+        witness::{compute_witness, create_proof, Boolean, InnerCurve, MessagesForNextStepProof},
+        wrap::{wrap_verifier, CircuitVar, Domain, Domains, PERMUTS_MINUS_1_ADD_N1},
     },
     scan_state::{
         fee_excess::{self, FeeExcess},
@@ -1531,7 +1535,8 @@ struct BlockProofParams<'a> {
 pub fn generate_block_proof(
     input: &v2::ProverExtendBlockchainInputStableV2,
     block_prover: &Prover<Fp>,
-    wrap_prover: &Prover<Fq>,
+    block_wrap_prover: &Prover<Fq>,
+    tx_wrap_prover: &Prover<Fq>,
     w: &mut Witness<Fp>,
 ) {
     w.ocaml_aux = read_witnesses();
@@ -1571,7 +1576,7 @@ pub fn generate_block_proof(
     let (
         previous_state,
         previous_state_hash,
-        previous_blockchain_proof_input,
+        previous_blockchain_proof_input, // TODO: Use hash here
         previous_state_body_hash,
     ) = {
         w.exists(prev_state);
@@ -1637,13 +1642,13 @@ pub fn generate_block_proof(
             &consensus_state,
             &previous_state.body.constants,
         );
-        let is_base_case = is_genesis_state_var2(&t.body.consensus_state, w);
+        let is_base_case = CircuitVar::Var(is_genesis_state_var2(&t.body.consensus_state, w));
 
         let previous_state_hash = match CONSTRAINT_CONSTANTS.fork.as_ref() {
             Some(ForkConstants {
                 previous_state_hash: fork_prev,
                 ..
-            }) => w.exists_no_check(match is_base_case {
+            }) => w.exists_no_check(match is_base_case.value() {
                 Boolean::True => *fork_prev,
                 Boolean::False => t.previous_state_hash,
             }),
@@ -1731,7 +1736,7 @@ pub fn generate_block_proof(
 
         Boolean::assert_any(&[txn_snark_input_correct, nothing_changed], w);
 
-        let transaction_snark_should_verifiy = nothing_changed.neg();
+        let transaction_snark_should_verifiy = CircuitVar::Var(nothing_changed.neg());
 
         let result = Boolean::all(&[updated_consensus_state, correct_coinbase_status], w);
 
@@ -1740,12 +1745,15 @@ pub fn generate_block_proof(
 
     let prev_should_verify = is_base_case.neg();
 
-    Boolean::assert_any(&[is_base_case, success], w);
+    Boolean::assert_any(&[*is_base_case.value(), success], w);
+
+    let prev_challenge_polynomial_commitments =
+        extract_recursion_challenges(&[&prev_state_proof, &txn_snark_proof]);
 
     let rule = InductiveRule {
         previous_proof_statements: [
             PreviousProofStatement {
-                public_input: Rc::new(previous_blockchain_proof_input.clone()),
+                public_input: Rc::new(MinaHash::hash(previous_blockchain_proof_input)),
                 proof: &prev_state_proof,
                 proof_must_verify: prev_should_verify,
             },
@@ -1759,25 +1767,39 @@ pub fn generate_block_proof(
         auxiliary_output: (),
     };
 
-    dbg!(&wrap_prover.index.verifier_index_digest);
+    dbg!(&block_wrap_prover.index.verifier_index_digest);
 
-    let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(wrap_prover));
-    let verifier_index = wrap_prover.index.verifier_index.as_ref().unwrap();
+    let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(block_wrap_prover));
+    let verifier_index = block_wrap_prover.index.verifier_index.as_ref().unwrap();
+
+    let tx_dlog_plonk_index = super::merge::dlog_plonk_index(tx_wrap_prover);
+    let tx_verifier_index = tx_wrap_prover.index.verifier_index.as_ref().unwrap();
+
+    let dlog_plonk_index = dlog_plonk_index.to_cvar(CircuitVar::Var);
+    let tx_dlog_plonk_index = tx_dlog_plonk_index.to_cvar(CircuitVar::Constant);
+
+    let indexes = [
+        (verifier_index, &dlog_plonk_index),
+        (tx_verifier_index, &tx_dlog_plonk_index),
+    ];
 
     let expanded_proofs: [super::merge::ExpandedProof; 2] = rule
         .previous_proof_statements
         .iter()
-        .map(|statement| {
+        .zip(indexes)
+        .map(|(statement, (verifier_index, dlog_plonk_index))| {
             let PreviousProofStatement {
                 public_input,
                 proof,
                 proof_must_verify,
             } = statement;
+
             super::merge::expand_proof(
                 verifier_index,
-                &dlog_plonk_index,
+                dlog_plonk_index,
                 public_input,
                 proof,
+                40,
                 (),
                 *proof_must_verify,
             )
@@ -1830,59 +1852,107 @@ pub fn generate_block_proof(
         .try_into()
         .unwrap();
 
-    let basic = Basic {
-        proof_verifieds: vec![0, 2, 0, 0, 1],
-        wrap_domain: Domains {
-            h: Domain::Pow2RootsOfUnity(14),
-        },
-        step_domains: vec![
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
+    let block_data = {
+        let basic = Basic {
+            proof_verifieds: vec![2],
+            wrap_domain: Domains {
                 h: Domain::Pow2RootsOfUnity(14),
             },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
+            step_domains: vec![Domains {
+                h: Domain::Pow2RootsOfUnity(16),
+            }],
+            feature_flags: FeatureFlags {
+                range_check0: OptFlag::No,
+                range_check1: OptFlag::No,
+                foreign_field_add: OptFlag::No,
+                foreign_field_mul: OptFlag::No,
+                xor: OptFlag::No,
+                rot: OptFlag::No,
+                lookup: OptFlag::No,
+                runtime_tables: OptFlag::No,
             },
-        ],
-        feature_flags: FeatureFlags {
-            range_check0: OptFlag::No,
-            range_check1: OptFlag::No,
-            foreign_field_add: OptFlag::No,
-            foreign_field_mul: OptFlag::No,
-            xor: OptFlag::No,
-            rot: OptFlag::No,
-            lookup: OptFlag::No,
-            runtime_tables: OptFlag::No,
-        },
+        };
+
+        let self_branches = 1;
+        let max_proofs_verified = 2;
+        let self_data = ForStep {
+            branches: self_branches,
+            max_proofs_verified,
+            proof_verifieds: ForStepKind::Known(
+                basic
+                    .proof_verifieds
+                    .iter()
+                    .copied()
+                    .map(Fp::from)
+                    .collect(),
+            ),
+            public_input: (),
+            wrap_key: dlog_plonk_index.clone(), // TODO: Use ref
+            wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
+            step_domains: ForStepKind::Known(basic.step_domains),
+            feature_flags: basic.feature_flags,
+        };
+        self_data
     };
 
-    let self_branches = 5;
-    let max_proofs_verified = 2;
-    let self_data = ForStep {
-        branches: self_branches,
-        max_proofs_verified,
-        proof_verifieds: ForStepKind::Known(
-            basic
-                .proof_verifieds
-                .iter()
-                .copied()
-                .map(Fp::from)
-                .collect(),
-        ),
-        public_input: (),
-        wrap_key: dlog_plonk_index.clone(), // TODO: Use ref
-        wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
-        step_domains: ForStepKind::Known(basic.step_domains),
-        feature_flags: basic.feature_flags,
+    let tx_data = {
+        let basic = Basic {
+            proof_verifieds: vec![0, 2, 0, 0, 1],
+            wrap_domain: Domains {
+                h: Domain::Pow2RootsOfUnity(14),
+            },
+            step_domains: vec![
+                Domains {
+                    h: Domain::Pow2RootsOfUnity(15),
+                },
+                Domains {
+                    h: Domain::Pow2RootsOfUnity(15),
+                },
+                Domains {
+                    h: Domain::Pow2RootsOfUnity(15),
+                },
+                Domains {
+                    h: Domain::Pow2RootsOfUnity(14),
+                },
+                Domains {
+                    h: Domain::Pow2RootsOfUnity(15),
+                },
+            ],
+            feature_flags: FeatureFlags {
+                range_check0: OptFlag::No,
+                range_check1: OptFlag::No,
+                foreign_field_add: OptFlag::No,
+                foreign_field_mul: OptFlag::No,
+                xor: OptFlag::No,
+                rot: OptFlag::No,
+                lookup: OptFlag::No,
+                runtime_tables: OptFlag::No,
+            },
+        };
+
+        let self_branches = 5;
+        let max_proofs_verified = 2;
+        let self_data = ForStep {
+            branches: self_branches,
+            max_proofs_verified,
+            proof_verifieds: ForStepKind::Known(
+                basic
+                    .proof_verifieds
+                    .iter()
+                    .copied()
+                    .map(Fp::from)
+                    .collect(),
+            ),
+            public_input: (),
+            wrap_key: tx_dlog_plonk_index.clone(), // TODO: Use ref
+            wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
+            step_domains: ForStepKind::Known(basic.step_domains),
+            feature_flags: basic.feature_flags,
+        };
+        self_data
     };
+
+    let datas = [&block_data, &tx_data];
 
     let srs = get_srs::<Fq>();
     let mut srs = srs.lock().unwrap();
@@ -1893,14 +1963,18 @@ pub fn generate_block_proof(
         .zip(unfinalized_proofs_unextended)
         .zip(&rule.previous_proof_statements)
         .zip(actual_wrap_domains)
+        .zip(datas)
         .map(
-            |((((proof, msg_for_next_wrap_proof), unfinalized), stmt), actual_wrap_domain)| {
+            |(
+                ((((proof, msg_for_next_wrap_proof), unfinalized), stmt), actual_wrap_domain),
+                data,
+            )| {
                 let PreviousProofStatement {
                     proof_must_verify: should_verify,
                     ..
                 } = stmt;
 
-                match self_data.wrap_domain {
+                match data.wrap_domain {
                     ForStepKind::SideLoaded => todo!(),
                     ForStepKind::Known(wrap_domain) => {
                         let actual_wrap_domain = wrap_domains(actual_wrap_domain);
@@ -1910,7 +1984,7 @@ pub fn generate_block_proof(
                 let (chals, _verified) = verify_one(
                     &mut srs,
                     proof,
-                    &self_data,
+                    data,
                     msg_for_next_wrap_proof,
                     unfinalized,
                     *should_verify,
@@ -1921,32 +1995,52 @@ pub fn generate_block_proof(
         )
         .collect::<Vec<[Fp; 16]>>();
 
-    // let inputs = MessagesForNextStepProof {
-    //     app_state: Rc::new(statement_with_sok.clone()),
-    //     dlog_plonk_index: &dlog_plonk_index,
-    //     challenge_polynomial_commitments: prevs
-    //         .iter()
-    //         .map(|v| InnerCurve::of_affine(v.wrap_proof.proof.sg.clone()))
-    //         .collect(),
-    //     old_bulletproof_challenges: bulletproof_challenges,
-    // }
-    // .to_fields();
+    let inputs = MessagesForNextStepProof {
+        app_state: Rc::new(new_state_hash),
+        dlog_plonk_index: &dlog_plonk_index.to_non_cvar(),
+        challenge_polynomial_commitments: prevs
+            .iter()
+            .map(|v| InnerCurve::of_affine(v.wrap_proof.proof.sg.clone()))
+            .collect(),
+        old_bulletproof_challenges: bulletproof_challenges,
+    }
+    .to_fields();
 
-    // InductiveRule {
-    //     previous_proof_statements: todo!(),
-    //     public_output: todo!(),
-    //     auxiliary_output: todo!(),
-    // }
+    let messages_for_next_step_proof = crate::proofs::witness::checked_hash2(&inputs, w);
 
-    // Induc
+    // Or padding
+    assert_eq!(unfinalized_proofs_unextended.len(), 2);
 
-    // ( { Pickles.Inductive_rule.Previous_proof_statement.public_input =
-    //       previous_blockchain_proof_input
-    //   ; proof = previous_blockchain_proof
-    //   ; proof_must_verify = prev_should_verify
-    //   }
-    // , { Pickles.Inductive_rule.Previous_proof_statement.public_input = txn_snark
-    //   ; proof = txn_snark_proof
-    //   ; proof_must_verify = txn_snark_should_verify
-    //   } )
+    let statement = crate::proofs::witness::StepMainStatement {
+        proof_state: crate::proofs::witness::StepMainProofState {
+            unfinalized_proofs: unfinalized_proofs_unextended.into_iter().cloned().collect(),
+            messages_for_next_step_proof,
+        },
+        messages_for_next_wrap_proof: messages_for_next_wrap_proof.to_vec(),
+    };
+
+    w.primary = statement.to_field_elements_owned();
+
+    let computed_witness = compute_witness::<BlockProof, _>(&block_prover, w);
+
+    let proof = create_proof(
+        computed_witness,
+        &block_prover.index,
+        prev_challenge_polynomial_commitments,
+    );
+
+    let sum = |s: &[u8]| {
+        use sha2::Digest;
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(s);
+        hex::encode(hasher.finalize())
+    };
+
+    let proof_json = serde_json::to_vec(&proof).unwrap();
+    std::fs::write("/tmp/PROOF_RUST_STEP.json", &proof_json).unwrap();
+
+    assert_eq!(
+        sum(&proof_json),
+        "a82a10e5c276dd6dc251241dcbad005201034ffff5752516a179f317dfe385f5"
+    );
 }

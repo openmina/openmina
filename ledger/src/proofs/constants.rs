@@ -1,3 +1,5 @@
+use super::{witness::FieldWitness, wrap::CircuitVar};
+
 pub trait ProofConstants {
     /// Number of public inputs
     const PRIMARY_LEN: usize;

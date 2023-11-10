@@ -598,7 +598,7 @@ fn exists_prev_statement(
 }
 
 /// Dummy.Ipa.Wrap.sg
-fn dummy_ipa_wrap_sg() -> GroupAffine<Fp> {
+pub fn dummy_ipa_wrap_sg() -> GroupAffine<Fp> {
     type G = GroupAffine<Fp>;
 
     cache_one!(G, {
@@ -1781,8 +1781,8 @@ pub mod wrap_verifier {
 
         #[derive(Clone, Debug)]
         pub enum Point<F: FieldWitness> {
-            Finite(GroupAffine<F>),
-            MaybeFinite(CircuitVar<Boolean>, GroupAffine<F>),
+            Finite(CircuitVar<GroupAffine<F>>),
+            MaybeFinite(CircuitVar<Boolean>, CircuitVar<GroupAffine<F>>),
         }
 
         impl<F: FieldWitness> Point<F> {
@@ -1793,14 +1793,14 @@ pub mod wrap_verifier {
                 }
             }
 
-            pub fn add(&self, q: GroupAffine<F>, w: &mut Witness<F>) -> GroupAffine<F> {
+            pub fn add(&self, q: GroupAffine<F>, w: &mut Witness<F>) -> CircuitVar<GroupAffine<F>> {
                 match self {
-                    Point::Finite(p) => w.add_fast(*p, q),
+                    Point::Finite(p) => CircuitVar::Var(w.add_fast(*p.value(), q)),
                     Point::MaybeFinite(_, _) => todo!(),
                 }
             }
 
-            pub fn underlying(&self) -> GroupAffine<F> {
+            pub fn underlying(&self) -> CircuitVar<GroupAffine<F>> {
                 match self {
                     Point::Finite(p) => p.clone(),
                     Point::MaybeFinite(_, p) => p.clone(),
@@ -1810,7 +1810,7 @@ pub mod wrap_verifier {
 
         #[derive(Debug)]
         pub struct CurveOpt<F: FieldWitness> {
-            pub point: GroupAffine<F>,
+            pub point: CircuitVar<GroupAffine<F>>,
             pub non_zero: CircuitVar<Boolean>,
         }
 
@@ -1820,7 +1820,7 @@ pub mod wrap_verifier {
             without_bound: &[(CircuitVar<Boolean>, Point<F>)],
             with_bound: &[()],
             w: &mut Witness<F>,
-        ) -> GroupAffine<F> {
+        ) -> CircuitVar<GroupAffine<F>> {
             let CurveOpt { point, non_zero } =
                 PcsBatch::combine_split_commitments::<F, _, _, _, CurveOpt<F>>(
                     |(keep, p), w| CurveOpt {
@@ -1830,7 +1830,10 @@ pub mod wrap_verifier {
                     |acc, xi, (keep, p), w| {
                         let on_acc_non_zero = {
                             let xi: F = u64_to_field(&xi);
-                            p.add(scalar_challenge::endo::<F, F, 128>(acc.point, xi, w), w)
+                            p.add(
+                                scalar_challenge::endo_cvar::<F, F, 128>(acc.point, xi, w),
+                                w,
+                            )
                         };
 
                         let point = match keep.as_boolean() {
@@ -1842,7 +1845,7 @@ pub mod wrap_verifier {
                         };
 
                         if let CircuitVar::Var(_) = keep {
-                            w.exists_no_check(point);
+                            w.exists_no_check(*point.value());
                         }
 
                         let non_zero = {
@@ -1906,12 +1909,13 @@ pub mod wrap_verifier {
         g2: GroupAffine<F>,
         w: &mut Witness<F>,
     ) -> Boolean {
-        let g1: Vec<F> = g1.to_field_elements_owned();
-        let g2: Vec<F> = g2.to_field_elements_owned();
+        let mut g1: Vec<F> = g1.to_field_elements_owned();
+        let mut g2: Vec<F> = g2.to_field_elements_owned();
 
         let equals = g1
             .into_iter()
             .zip(g2)
+            .rev()
             .map(|(f1, f2)| field::equal(f1, f2, w))
             .collect::<Vec<_>>();
         Boolean::all(&equals, w)
@@ -1969,6 +1973,7 @@ pub mod wrap_verifier {
             let (without_degree_bound, with_degree_bound) = &polynomials;
             split_commitments::combine(pcs_batch, xi, without_degree_bound, with_degree_bound, w)
         };
+        let combined_polynomial = *combined_polynomial.value();
 
         let (lr_prod, challenges) = bullet_reduce(&mut sponge, lr, w);
 
@@ -2273,7 +2278,7 @@ pub mod wrap_verifier {
             use split_commitments::Point;
 
             let polynomials = without_degree_bound
-                .map(|(keep, x)| (keep, Point::Finite(x)))
+                .map(|(keep, x)| (keep, Point::Finite(CircuitVar::Var(x))))
                 .collect::<Vec<_>>();
 
             let pcs_batch = PcsBatch::create(

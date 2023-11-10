@@ -67,6 +67,7 @@ use super::{
     },
     to_field_elements::ToFieldElements,
     unfinalized::{EvalsWithPublicInput, Unfinalized},
+    wrap::CircuitVar,
     BACKEND_TICK_ROUNDS_N, BACKEND_TOCK_ROUNDS_N,
 };
 
@@ -130,11 +131,13 @@ impl<F: FieldWitness> Witness<F> {
         self.assert_ocaml_aux(&fields);
 
         // eprintln!("index={:?} w{:?}", self.aux.len() + 67, &fields);
-        eprintln!(
-            "index={:?} w{:?}",
-            self.aux.len() + self.primary.capacity(),
-            &fields
-        );
+        if self.ocaml_aux.len() > 0 {
+            eprintln!(
+                "index={:?} w{:?}",
+                self.aux.len() + self.primary.capacity(),
+                &fields
+            );
+        }
         self.aux.append(&mut fields);
 
         data.check(self);
@@ -150,11 +153,13 @@ impl<F: FieldWitness> Witness<F> {
         self.assert_ocaml_aux(&fields);
 
         // eprintln!("index={:?} w{:?}", self.aux.len() + 67, &fields);
-        eprintln!(
-            "index={:?} w{:?}",
-            self.aux.len() + self.primary.capacity(),
-            &fields
-        );
+        if self.ocaml_aux.len() > 0 {
+            eprintln!(
+                "index={:?} w{:?}",
+                self.aux.len() + self.primary.capacity(),
+                &fields
+            );
+        }
         self.aux.append(&mut fields);
 
         data
@@ -363,18 +368,35 @@ pub mod scalar_challenge {
         F: FieldWitness,
         F2: FieldWitness,
     {
+        endo_cvar::<F, F2, NBITS>(CircuitVar::Var(t), scalar, w)
+    }
+
+    // TODO: Remove
+    pub fn endo_cvar<F, F2, const NBITS: usize>(
+        t: CircuitVar<GroupAffine<F>>,
+        scalar: F2,
+        w: &mut Witness<F>,
+    ) -> GroupAffine<F>
+    where
+        F: FieldWitness,
+        F2: FieldWitness,
+    {
         let bits: [bool; NBITS] = bits_msb::<F2, NBITS>(scalar);
 
         let bits_per_row = 4;
         let rows = NBITS / bits_per_row;
 
-        let GroupAffine::<F> { x: xt, y: yt, .. } = t;
+        let GroupAffine::<F> { x: xt, y: yt, .. } = *t.value();
         let (endo_base, _) = endos::<F>();
 
         let mut acc = {
             // The `exists` call is made by the `seal` call in OCaml
-            let tmp = w.exists(xt * endo_base);
-            let p = w.add_fast(t, make_group::<F>(tmp, yt));
+            // Note: it's actually `Cvar.scale`
+            let tmp = match t {
+                CircuitVar::Var(_) => w.exists(xt * endo_base),
+                CircuitVar::Constant(_) => xt * endo_base,
+            };
+            let p = w.add_fast(*t.value(), make_group::<F>(tmp, yt));
             w.add_fast(p, p)
         };
 
@@ -1182,7 +1204,79 @@ pub struct PlonkVerificationKeyEvals<F: FieldWitness> {
     pub endomul_scalar: InnerCurve<F>,
 }
 
+// Here cvars are not used correctly, but it's just temporary
+#[derive(Clone, Debug)]
+pub struct CircuitPlonkVerificationKeyEvals<F: FieldWitness> {
+    pub sigma: [CircuitVar<GroupAffine<F>>; 7],
+    pub coefficients: [CircuitVar<GroupAffine<F>>; 15],
+    pub generic: CircuitVar<GroupAffine<F>>,
+    pub psm: CircuitVar<GroupAffine<F>>,
+    pub complete_add: CircuitVar<GroupAffine<F>>,
+    pub mul: CircuitVar<GroupAffine<F>>,
+    pub emul: CircuitVar<GroupAffine<F>>,
+    pub endomul_scalar: CircuitVar<GroupAffine<F>>,
+}
+
+impl CircuitPlonkVerificationKeyEvals<Fp> {
+    pub fn to_non_cvar(&self) -> PlonkVerificationKeyEvals<Fp> {
+        let Self {
+            sigma,
+            coefficients,
+            generic,
+            psm,
+            complete_add,
+            mul,
+            emul,
+            endomul_scalar,
+        } = self;
+
+        use std::array;
+        let c = |c: &GroupAffine<Fp>| InnerCurve::<Fp>::of_affine(*c);
+
+        PlonkVerificationKeyEvals::<Fp> {
+            sigma: array::from_fn(|i| c(sigma[i].value())),
+            coefficients: array::from_fn(|i| c(coefficients[i].value())),
+            generic: c(generic.value()),
+            psm: c(psm.value()),
+            complete_add: c(&complete_add.value()),
+            mul: c(&mul.value()),
+            emul: c(&emul.value()),
+            endomul_scalar: c(&endomul_scalar.value()),
+        }
+    }
+}
+
 impl PlonkVerificationKeyEvals<Fp> {
+    pub fn to_cvar(
+        &self,
+        cvar: impl Fn(GroupAffine<Fp>) -> CircuitVar<GroupAffine<Fp>>,
+    ) -> CircuitPlonkVerificationKeyEvals<Fp> {
+        let Self {
+            sigma,
+            coefficients,
+            generic,
+            psm,
+            complete_add,
+            mul,
+            emul,
+            endomul_scalar,
+        } = self;
+
+        use std::array;
+        let cvar = |c: &InnerCurve<Fp>| cvar(c.to_affine());
+
+        CircuitPlonkVerificationKeyEvals::<Fp> {
+            sigma: array::from_fn(|i| cvar(&sigma[i])),
+            coefficients: array::from_fn(|i| cvar(&coefficients[i])),
+            generic: cvar(&generic),
+            psm: cvar(&psm),
+            complete_add: cvar(&complete_add),
+            mul: cvar(&mul),
+            emul: cvar(&emul),
+            endomul_scalar: cvar(&endomul_scalar),
+        }
+    }
+
     /// For debugging
     fn to_string(&self) -> String {
         let Self {
@@ -5625,11 +5719,9 @@ mod tests {
         let blockchain_input: v2::ProverExtendBlockchainInputStableV2 =
             read_binprot(&mut data.as_slice());
 
-        // dbg!(blockchain_input);
-
         let Provers {
             tx_prover: _,
-            wrap_prover: _,
+            wrap_prover: tx_wrap_prover,
             merge_prover: _,
             block_prover,
             block_wrap_prover,
@@ -5640,23 +5732,9 @@ mod tests {
             &blockchain_input,
             &block_prover,
             &block_wrap_prover,
+            &tx_wrap_prover,
             &mut witnesses,
         );
-
-        // let blockchain_input = v2::ProverExtendBlockchainInputStableV2::binprot_read(&mut data.as_slice()).unwrap();
-
-        // let (statement, proofs, message) = extract_merge(&data);
-        // let (_step_prover, wrap_prover, merge_prover) = make_provers();
-
-        // let mut witnesses: Witness<Fp> = Witness::new::<MergeProof>();
-        // generate_merge_proof(
-        //     &statement,
-        //     &proofs,
-        //     &message,
-        //     &merge_prover,
-        //     &wrap_prover,
-        //     &mut witnesses,
-        // );
     }
 
     #[test]

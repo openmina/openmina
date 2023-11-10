@@ -8,16 +8,21 @@ use crate::{
             plonk_checks::ShiftingValue,
             prepared_statement::{DeferredValues, PreparedStatement, ProofState},
         },
-        unfinalized::evals_from_p2p,
+        unfinalized::{dummy_ipa_step_challenges_computed, evals_from_p2p},
         verifier_index::wrap_domains,
         witness::{compute_witness, create_proof},
-        wrap::{create_oracle, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2},
+        wrap::{
+            create_oracle, dummy_ipa_wrap_sg, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2,
+            PERMUTS_MINUS_1_ADD_N1,
+        },
     },
     verifier::get_srs,
     SpongeParamsForField,
 };
 use ark_ff::{BigInteger256, One, Zero};
-use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
+use ark_poly::{
+    univariate::DensePolynomial, EvaluationDomain, Radix2EvaluationDomain, UVPolynomial,
+};
 use kimchi::{
     proof::{PointEvaluations, ProverCommitments, ProverProof, RecursionChallenge},
     verifier_index::VerifierIndex,
@@ -26,7 +31,7 @@ use mina_curves::pasta::Fq;
 use mina_curves::pasta::Pallas;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
-use poly_commitment::evaluation_proof::OpeningProof;
+use poly_commitment::{commitment::b_poly_coefficients, evaluation_proof::OpeningProof};
 
 use crate::{
     proofs::{
@@ -60,8 +65,9 @@ use super::{
     unfinalized::{AllEvals, EvalsWithPublicInput, Unfinalized},
     util::extract_bulletproof,
     witness::{
-        make_group, scalar_challenge::to_field_checked, Boolean, Check, FieldWitness, GroupAffine,
-        InnerCurve, MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
+        make_group, scalar_challenge::to_field_checked, Boolean, Check,
+        CircuitPlonkVerificationKeyEvals, FieldWitness, GroupAffine, InnerCurve,
+        MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
         ReducedMessagesForNextStepProof, ToFieldElementsDebug, Witness,
     },
     wrap::{CircuitVar, Domains},
@@ -155,7 +161,7 @@ fn merge_main(
 pub struct PreviousProofStatement<'a> {
     pub public_input: Rc<dyn ToFieldElementsDebug>,
     pub proof: &'a v2::PicklesProofProofsVerified2ReprStableV2,
-    pub proof_must_verify: Boolean,
+    pub proof_must_verify: CircuitVar<Boolean>,
 }
 
 pub struct InductiveRule<'a> {
@@ -350,17 +356,38 @@ pub fn expand_deferred(
     }
 }
 
-pub fn expand_proof(
-    dlog_vk: &VerifierIndex<Pallas>,
-    dlog_plonk_index: &PlonkVerificationKeyEvals<Fp>,
-    app_state: &Rc<dyn ToFieldElementsDebug>,
-    t: &v2::PicklesProofProofsVerified2ReprStableV2,
-    _tag: (),
-    must_verify: Boolean,
-) -> ExpandedProof {
+/// Ipa.Wrap.compute_sg
+fn wrap_compute_sg(challenges: &[[u64; 2]]) -> GroupAffine<Fp> {
     use super::public_input::scalar_challenge::ScalarChallenge;
 
-    // let t = &t.0.proof.0;
+    let (_, endo) = endos::<Fp>();
+
+    let challenges = challenges
+        .iter()
+        .map(|c| ScalarChallenge::from(*c).to_field(&endo))
+        .collect::<Vec<_>>();
+
+    let coeffs = b_poly_coefficients(&challenges);
+    let p = DensePolynomial::from_coefficients_vec(coeffs);
+
+    let comm = {
+        let srs = get_srs::<Fq>();
+        let srs = srs.lock().unwrap();
+        srs.commit_non_hiding(&p, None)
+    };
+    comm.unshifted[0]
+}
+
+pub fn expand_proof(
+    dlog_vk: &VerifierIndex<Pallas>,
+    dlog_plonk_index: &CircuitPlonkVerificationKeyEvals<Fp>,
+    app_state: &Rc<dyn ToFieldElementsDebug>,
+    t: &v2::PicklesProofProofsVerified2ReprStableV2,
+    public_input_length: usize,
+    _tag: (),
+    must_verify: CircuitVar<Boolean>,
+) -> ExpandedProof {
+    use super::public_input::scalar_challenge::ScalarChallenge;
 
     let plonk0: PlonkMinimal<Fp> = (&t.statement.proof_state.deferred_values.plonk).into();
 
@@ -376,10 +403,11 @@ pub fn expand_proof(
         let (_, endo) = endos::<Fq>();
         let alpha = ScalarChallenge::from(plonk0.alpha_bytes).to_field(&endo);
         let zeta = ScalarChallenge::from(plonk0.zeta_bytes).to_field(&endo);
-        let w: Fp = Radix2EvaluationDomain::new(1 << dlog_vk.domain.log_size_of_group)
-            .unwrap()
-            .group_gen;
+        // let w: Fp = Radix2EvaluationDomain::new(1 << dlog_vk.domain.log_size_of_group)
+        let w: Fp = Radix2EvaluationDomain::new(1 << domain).unwrap().group_gen;
         let zetaw = zeta * w;
+
+        dbg!(alpha, zeta, zetaw, dlog_vk.domain.log_size_of_group, domain);
 
         let es = prev_evals_from_p2p(&t.prev_evals.evals.evals);
         let combined_evals = evals_of_split_evals(zeta, zetaw, &es, BACKEND_TICK_ROUNDS_N);
@@ -420,6 +448,8 @@ pub fn expand_proof(
         )
     };
 
+    dbg!(prev_challenges.len());
+
     let old_bulletproof_challenges: Vec<[Fp; 16]> = statement
         .messages_for_next_step_proof
         .old_bulletproof_challenges
@@ -429,6 +459,8 @@ pub fn expand_proof(
                 .map(|v| u64_to_field(&v.prechallenge.inner.0.map(|v| v.as_u64())))
         })
         .collect();
+
+    dbg!(old_bulletproof_challenges.len());
 
     let deferred_values_computed = {
         let evals: AllEvals<Fp> = (&t.prev_evals).into();
@@ -445,7 +477,7 @@ pub fn expand_proof(
 
     let messages_for_next_step_proof = MessagesForNextStepProof {
         app_state: Rc::clone(app_state),
-        dlog_plonk_index,
+        dlog_plonk_index: &dlog_plonk_index.to_non_cvar(),
         challenge_polynomial_commitments: statement
             .messages_for_next_step_proof
             .challenge_polynomial_commitments
@@ -455,6 +487,11 @@ pub fn expand_proof(
         old_bulletproof_challenges: old_bulletproof_challenges.clone(),
     }
     .hash();
+
+    dbg!(messages_for_next_step_proof
+        .iter()
+        .map(|v| *v as i64)
+        .collect::<Vec<_>>());
 
     let deferred_values = deferred_values_computed;
     let prev_statement_with_hashes = PreparedStatement {
@@ -506,7 +543,9 @@ pub fn expand_proof(
 
     let mut proof = make_prover(t);
     let oracle = {
-        let public_input = prev_statement_with_hashes.to_public_input(0);
+        let public_input = prev_statement_with_hashes.to_public_input(public_input_length);
+        dbg!(&public_input);
+        dbg!(public_input.len());
         create_oracle(dlog_vk, &proof, &public_input)
     };
 
@@ -571,8 +610,8 @@ pub fn expand_proof(
         (prechals, b)
     };
 
-    let challenge_polynomial_commitment = match must_verify {
-        Boolean::False => todo!(),
+    let challenge_polynomial_commitment = match must_verify.value() {
+        Boolean::False => wrap_compute_sg(&new_bulletproof_challenges),
         Boolean::True => proof.proof.sg.clone(),
     };
 
@@ -581,25 +620,27 @@ pub fn expand_proof(
         proof_state: prev_statement_with_hashes.proof_state.clone(),
         prev_proof_evals: (&t.prev_evals).into(),
         prev_challenge_polynomial_commitments: {
-            // Or padding
-            assert_eq!(
-                t.statement
-                    .messages_for_next_step_proof
-                    .challenge_polynomial_commitments
-                    .len(),
-                2
-            );
-            t.statement
+            let mut challenge_polynomial_commitments = t
+                .statement
                 .messages_for_next_step_proof
                 .challenge_polynomial_commitments
                 .iter()
                 .map(|(x, y)| make_group::<Fp>(x.to_field(), y.to_field()))
-                .collect()
+                .collect::<Vec<_>>();
+
+            while challenge_polynomial_commitments.len() < 2 {
+                challenge_polynomial_commitments.insert(0, dummy_ipa_wrap_sg());
+            }
+
+            challenge_polynomial_commitments
         },
         prev_challenges: {
-            // Or padding
-            assert_eq!(old_bulletproof_challenges.len(), 2);
-            old_bulletproof_challenges
+            let mut prev_challenges = old_bulletproof_challenges.clone();
+            while prev_challenges.len() < 2 {
+                prev_challenges.insert(0, dummy_ipa_step_challenges_computed())
+            }
+
+            prev_challenges
         },
         wrap_proof: {
             proof.proof.sg = challenge_polynomial_commitment;
@@ -654,6 +695,8 @@ pub fn expand_proof(
         zetaw,
     });
 
+    dbg!(combined_inner_product);
+
     let plonk = derive_plonk(&tock_env, &tock_combined_evals, &tock_plonk_minimal);
 
     let shift = |f: Fq| <Fq as FieldWitness>::Shifting::of_field(f);
@@ -675,7 +718,7 @@ pub fn expand_proof(
             xi: to_bytes(xi.0),
             bulletproof_challenges: new_bulletproof_challenges,
         },
-        should_finalize: must_verify.as_bool(),
+        should_finalize: must_verify.value().as_bool(),
         sponge_digest_before_evaluations: {
             let BigInteger256([a, b, c, d]): BigInteger256 =
                 sponge_digest_before_evaluations.into();
@@ -1318,11 +1361,11 @@ mod step_verifier {
                         Opt::No => acc,
                         Opt::Some(fx) => *fx + field::mul(xi, acc, w),
                         Opt::Maybe(b, fx) => {
-                            let v = match b {
-                                Boolean::True => *fx + field::mul(xi, acc, w),
+                            let on_true = *fx + field::mul(xi, acc, w);
+                            w.exists_no_check(match b {
+                                Boolean::True => on_true,
                                 Boolean::False => acc,
-                            };
-                            w.exists_no_check(v)
+                            })
                         }
                     })
                 };
@@ -1502,7 +1545,9 @@ mod step_verifier {
             let g_neg = g.value().neg();
             if let CircuitVar::Var(_) = g {
                 w.exists(g_neg.y);
-            };
+            } else {
+                eprintln!("ignoring {:?}", g_neg.y);
+            }
             w.add_fast(h, g_neg)
         };
 
@@ -1570,13 +1615,13 @@ mod step_verifier {
     pub fn ft_comm<F: FieldWitness, Scale>(
         plonk: &Plonk<F::Scalar>,
         t_comm: &PolyComm<GroupAffine<F>>,
-        verification_key: &PlonkVerificationKeyEvals<F>,
+        verification_key: &CircuitPlonkVerificationKeyEvals<F>,
         scale: Scale,
         w: &mut Witness<F>,
     ) -> GroupAffine<F>
     where
         Scale: Fn(
-            GroupAffine<F>,
+            CircuitVar<GroupAffine<F>>,
             <F::Scalar as FieldWitness>::Shifting,
             &mut Witness<F>,
         ) -> GroupAffine<F>,
@@ -1587,7 +1632,7 @@ mod step_verifier {
         };
 
         // We decompose this way because of OCaml evaluation order (reversed)
-        let f_comm = [scale(sigma_comm_last.to_affine(), plonk.perm.clone(), w)]
+        let f_comm = [scale(*sigma_comm_last, plonk.perm.clone(), w)]
             .into_iter()
             .rev()
             .reduce(|acc, v| w.add_fast(acc, v))
@@ -1599,13 +1644,18 @@ mod step_verifier {
             .rev()
             .copied()
             .reduce(|acc, v| {
-                let scaled = scale(acc, plonk.zeta_to_srs_length.clone(), w);
+                let scaled = scale(CircuitVar::Var(acc), plonk.zeta_to_srs_length.clone(), w);
                 w.add_fast(v, scaled)
             })
             .unwrap();
 
         // We decompose this way because of OCaml evaluation order
-        let scaled = scale(chunked_t_comm, plonk.zeta_to_domain_size.clone(), w).neg();
+        let scaled = scale(
+            CircuitVar::Var(chunked_t_comm),
+            plonk.zeta_to_domain_size.clone(),
+            w,
+        )
+        .neg();
         let v = w.add_fast(f_comm, chunked_t_comm);
 
         // Because of `neg()` above
@@ -1708,12 +1758,12 @@ mod step_verifier {
     }
 
     fn scale_for_ft_comm(
-        g: GroupAffine<Fp>,
+        g: CircuitVar<GroupAffine<Fp>>,
         f: <Fq as FieldWitness>::Shifting,
         w: &mut Witness<Fp>,
     ) -> GroupAffine<Fp> {
         let scalar = to_high_low(f.shifted_raw());
-        scale_fast2(CircuitVar::Var(g), scalar, 255, w)
+        scale_fast2(g, scalar, 255, w)
     }
 
     struct CheckBulletProofParams<'a> {
@@ -1723,7 +1773,7 @@ mod step_verifier {
         advice: &'a Advice<Fp>,
         openings_proof: &'a OpeningProof<GroupAffine<Fp>>,
         srs: &'a SRS<GroupAffine<Fp>>,
-        polynomials: (Vec<GroupAffine<Fp>>, Vec<()>),
+        polynomials: (Vec<CircuitVar<GroupAffine<Fp>>>, Vec<()>),
     }
 
     fn check_bulletproof(
@@ -1765,50 +1815,48 @@ mod step_verifier {
                 Point::MaybeFinite(acc_is_finite, acc) => match p {
                     Point::MaybeFinite(p_is_finite, p) => {
                         let is_finite = p_is_finite.or(&acc_is_finite, w);
-                        let xi_acc = scalar_challenge::endo::<Fp, _, 128>(acc, xi_field, w);
+                        let xi_acc = scalar_challenge::endo_cvar::<Fp, _, 128>(acc, xi_field, w);
 
-                        let p = *p;
-                        let on_true = w.add_fast(p, xi_acc);
+                        let on_true = CircuitVar::Var(w.add_fast(*p.value(), xi_acc));
 
                         let v = match acc_is_finite.as_boolean() {
                             Boolean::True => on_true,
-                            Boolean::False => p,
+                            Boolean::False => *p,
                         };
                         if let CircuitVar::Var(_) = acc_is_finite {
-                            w.exists_no_check(&v);
+                            w.exists_no_check(v.value());
                         };
                         Point::<Fp>::MaybeFinite(is_finite, v)
                     }
                     Point::Finite(p) => {
-                        let xi_acc = scalar_challenge::endo::<Fp, _, 128>(acc, xi_field, w);
-                        let p = *p;
-                        let on_true = w.add_fast(p, xi_acc);
+                        let xi_acc = scalar_challenge::endo_cvar::<Fp, _, 128>(acc, xi_field, w);
+                        let on_true = CircuitVar::Var(w.add_fast(*p.value(), xi_acc));
 
                         let v = match acc_is_finite.as_boolean() {
                             Boolean::True => on_true,
-                            Boolean::False => p,
+                            Boolean::False => *p,
                         };
                         if let CircuitVar::Var(_) = acc_is_finite {
-                            w.exists_no_check(&v);
+                            w.exists_no_check(v.value());
                         };
                         Point::<Fp>::Finite(v)
                     }
                 },
                 Point::Finite(acc) => {
-                    let xi_acc = scalar_challenge::endo::<Fp, _, 128>(acc, xi_field, w);
+                    let xi_acc = scalar_challenge::endo_cvar::<Fp, _, 128>(acc, xi_field, w);
 
                     let v = match p {
-                        Point::Finite(p) => w.add_fast(*p, xi_acc),
+                        Point::Finite(p) => CircuitVar::Var(w.add_fast(*p.value(), xi_acc)),
                         Point::MaybeFinite(p_is_finite, p) => {
                             let p = *p;
-                            let on_true = w.add_fast(p, xi_acc);
+                            let on_true = CircuitVar::Var(w.add_fast(*p.value(), xi_acc));
 
                             let v = match p_is_finite.as_boolean() {
                                 Boolean::True => on_true,
-                                Boolean::False => xi_acc,
+                                Boolean::False => CircuitVar::Var(xi_acc),
                             };
                             if let CircuitVar::Var(_) = p_is_finite {
-                                w.exists_no_check(&v);
+                                w.exists_no_check(v.value());
                             };
                             v
                         }
@@ -1829,6 +1877,7 @@ mod step_verifier {
         let Point::Finite(combined_polynomial) = point else {
             panic!("invalid state");
         };
+        let combined_polynomial = *combined_polynomial.value();
 
         let (lr_prod, challenges) = wrap_verifier::bullet_reduce(&mut sponge, lr, w);
 
@@ -1881,7 +1930,7 @@ mod step_verifier {
         pub wrap_domain: &'a ForStepKind<Domain>,
         pub sponge: Sponge<Fp>,
         pub sponge_after_index: Sponge<Fp>,
-        pub wrap_verification_key: &'a PlonkVerificationKeyEvals<Fp>,
+        pub wrap_verification_key: &'a CircuitPlonkVerificationKeyEvals<Fp>,
         pub xi: [u64; 2],
         pub public_input: Vec<Packed>,
         pub sg_old: &'a Vec<GroupAffine<Fp>>,
@@ -1987,27 +2036,28 @@ mod step_verifier {
             const WRAP_HACK_PADDED_LENGTH: usize = 2;
             const NUM_COMMITMENTS_WITHOUT_DEGREE_BOUND: usize = 45;
 
+            let cvar = |v| CircuitVar::Var(v);
+
             let without_degree_bound = {
-                let sg_old = sg_old.iter().copied();
-                let rest = [x_hat, ft_comm]
+                let sg_old = sg_old.iter().copied().map(cvar);
+                let rest = [cvar(x_hat), cvar(ft_comm)]
                     .into_iter()
-                    .chain(z_comm.unshifted.iter().cloned())
+                    .chain(z_comm.unshifted.iter().cloned().map(cvar))
                     .chain([
-                        wrap_verification_key.generic.to_affine(),
-                        wrap_verification_key.psm.to_affine(),
-                        wrap_verification_key.complete_add.to_affine(),
-                        wrap_verification_key.mul.to_affine(),
-                        wrap_verification_key.emul.to_affine(),
-                        wrap_verification_key.endomul_scalar.to_affine(),
+                        wrap_verification_key.generic,
+                        wrap_verification_key.psm,
+                        wrap_verification_key.complete_add,
+                        wrap_verification_key.mul,
+                        wrap_verification_key.emul,
+                        wrap_verification_key.endomul_scalar,
                     ])
-                    .chain(w_comm.iter().flat_map(|w| w.unshifted.iter().cloned()))
                     .chain(
-                        wrap_verification_key
-                            .coefficients
+                        w_comm
                             .iter()
-                            .map(|v| v.to_affine()),
+                            .flat_map(|w| w.unshifted.iter().cloned().map(cvar)),
                     )
-                    .chain(sigma_comm_init.iter().map(|v| v.to_affine()));
+                    .chain(wrap_verification_key.coefficients)
+                    .chain(sigma_comm_init.iter().map(|v| v).cloned());
                 sg_old.chain(rest).collect::<Vec<_>>()
             };
 
@@ -2036,11 +2086,11 @@ mod step_verifier {
         pub lookup_parameters: (),
         pub proofs_verified: usize,
         pub wrap_domain: &'a ForStepKind<Domain>,
-        pub is_base_case: Boolean,
+        pub is_base_case: CircuitVar<Boolean>,
         pub sponge_after_index: Sponge<Fp>,
         pub sg_old: &'a Vec<GroupAffine<Fp>>,
         pub proof: &'a ProverProof<GroupAffine<Fp>>,
-        pub wrap_verification_key: &'a PlonkVerificationKeyEvals<Fp>,
+        pub wrap_verification_key: &'a CircuitPlonkVerificationKeyEvals<Fp>,
         pub statement: &'a PreparedStatement,
         pub unfinalized: &'a Unfinalized,
     }
@@ -2052,7 +2102,7 @@ mod step_verifier {
             lookup_parameters: _,
             proofs_verified,
             wrap_domain,
-            is_base_case: _,
+            is_base_case,
             sponge_after_index,
             sg_old,
             proof,
@@ -2082,7 +2132,7 @@ mod step_verifier {
 
         let (
             _sponge_digest_before_evaluations_actual,
-            (bulletproof_success, _bulletproof_challenges_actual),
+            (bulletproof_success, bulletproof_challenges_actual),
         ) = incrementally_verify_proof(
             IncrementallyVerifyProofParams {
                 proofs_verified,
@@ -2104,6 +2154,21 @@ mod step_verifier {
             w,
         );
 
+        unfinalized
+            .deferred_values
+            .bulletproof_challenges
+            .iter()
+            .zip(&bulletproof_challenges_actual)
+            .for_each(|(c1, c2)| {
+                let v = match is_base_case.value() {
+                    Boolean::True => u64_to_field(c1),
+                    Boolean::False => *c2,
+                };
+                if let CircuitVar::Var(_) = is_base_case {
+                    w.exists_no_check(v);
+                };
+            });
+
         bulletproof_success
     }
 }
@@ -2114,7 +2179,7 @@ pub fn verify_one(
     data: &ForStep,
     messages_for_next_wrap_proof: Fp,
     unfinalized: &Unfinalized,
-    should_verify: Boolean,
+    should_verify: CircuitVar<Boolean>,
     w: &mut Witness<Fp>,
 ) -> (Vec<Fp>, Boolean) {
     let PerProofWitness {
@@ -2151,7 +2216,7 @@ pub fn verify_one(
 
     let branch_data = &deferred_values.branch_data;
 
-    let sponge_after_index = step_verifier::sponge_after_index(&data.wrap_key, w);
+    let sponge_after_index = step_verifier::sponge_after_index(&data.wrap_key.to_non_cvar(), w);
 
     let statement = {
         let msg = ReducedMessagesForNextStepProof {
@@ -2208,9 +2273,9 @@ pub fn verify_one(
     );
 
     let a = verified.and(&finalized, w);
-    let b = a.const_or(&should_verify);
+    let b = CircuitVar::Var(a).or(&should_verify.neg(), w);
 
-    (chals, b)
+    (chals, b.as_boolean())
 }
 
 pub enum Packed {
@@ -2227,8 +2292,8 @@ impl std::fmt::Debug for Packed {
     }
 }
 
-fn extract_recursion_challenges(
-    proofs: &[v2::LedgerProofProdStableV2; 2],
+pub fn extract_recursion_challenges(
+    proofs: &[&v2::PicklesProofProofsVerified2ReprStableV2; 2],
 ) -> Vec<RecursionChallenge<GroupAffine<Fq>>> {
     use poly_commitment::PolyComm;
 
@@ -2237,9 +2302,6 @@ fn extract_recursion_challenges(
 
     let comms_0 = {
         let (a, b) = &p1
-            .0
-            .proof
-            .0
             .statement
             .proof_state
             .messages_for_next_wrap_proof
@@ -2248,9 +2310,6 @@ fn extract_recursion_challenges(
     };
     let comms_1 = {
         let (a, b) = &p2
-            .0
-            .proof
-            .0
             .statement
             .proof_state
             .messages_for_next_wrap_proof
@@ -2260,17 +2319,11 @@ fn extract_recursion_challenges(
 
     let challs = {
         let a = &p1
-            .0
-            .proof
-            .0
             .statement
             .proof_state
             .deferred_values
             .bulletproof_challenges;
         let b = &p2
-            .0
-            .proof
-            .0
             .statement
             .proof_state
             .deferred_values
@@ -2313,19 +2366,22 @@ pub fn generate_merge_proof(
     let (s1, s2) = merge_main(statement_with_sok.clone(), proofs, w);
     let [p1, p2] = proofs;
 
-    let prev_challenge_polynomial_commitments = extract_recursion_challenges(proofs);
+    let prev_challenge_polynomial_commitments = {
+        let [p1, p2] = proofs;
+        extract_recursion_challenges(&[&p1.proof, &p2.proof])
+    };
 
     let rule = InductiveRule {
         previous_proof_statements: [
             PreviousProofStatement {
                 public_input: Rc::new(s1),
                 proof: &p1.proof,
-                proof_must_verify: Boolean::True,
+                proof_must_verify: CircuitVar::Constant(Boolean::True),
             },
             PreviousProofStatement {
                 public_input: Rc::new(s2),
                 proof: &p2.proof,
-                proof_must_verify: Boolean::True,
+                proof_must_verify: CircuitVar::Constant(Boolean::True),
             },
         ],
         public_output: (),
@@ -2346,9 +2402,10 @@ pub fn generate_merge_proof(
             } = statement;
             expand_proof(
                 verifier_index,
-                &dlog_plonk_index,
+                &dlog_plonk_index.to_cvar(CircuitVar::Var),
                 public_input,
                 proof,
+                30,
                 (),
                 *proof_must_verify,
             )
@@ -2362,8 +2419,6 @@ pub fn generate_merge_proof(
 
     let prevs = w.exists([&fst.witness, &snd.witness]);
     let unfinalized_proofs_unextended = w.exists([&fst.unfinalized, &snd.unfinalized]);
-
-    // panic!("unfinalized={:#?}", unfinalized_proofs_unextended);
 
     let f = u64_to_field::<Fp, 4>;
     let messages_for_next_wrap_proof = w.exists([
@@ -2388,9 +2443,6 @@ pub fn generate_merge_proof(
                 .unwrap_or(0)
         })
     };
-
-    dbg!(fst.actual_wrap_domain);
-    dbg!(snd.actual_wrap_domain);
 
     let prevs: [PerProofWitness; 2] = rule
         .previous_proof_statements
@@ -2449,7 +2501,7 @@ pub fn generate_merge_proof(
                 .collect(),
         ),
         public_input: (),
-        wrap_key: dlog_plonk_index.clone(), // TODO: Use ref
+        wrap_key: dlog_plonk_index.to_cvar(CircuitVar::Var), // TODO: Use ref
         wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
         step_domains: ForStepKind::Known(basic.step_domains),
         feature_flags: basic.feature_flags,
@@ -2725,7 +2777,7 @@ pub struct ForStep {
     pub max_proofs_verified: usize,
     pub proof_verifieds: ForStepKind<Vec<Fp>>,
     pub public_input: (), // Typ
-    pub wrap_key: PlonkVerificationKeyEvals<Fp>,
+    pub wrap_key: CircuitPlonkVerificationKeyEvals<Fp>,
     pub wrap_domain: ForStepKind<Domain>,
     pub step_domains: ForStepKind<Vec<Domains>>,
     pub feature_flags: FeatureFlags<OptFlag>,

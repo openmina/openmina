@@ -4,7 +4,10 @@ use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 
 use crate::proofs::{
-    public_input::plonk_checks::derive_plonk, verification::make_scalars_env, witness::FieldWitness,
+    public_input::plonk_checks::derive_plonk,
+    verification::make_scalars_env,
+    witness::{endos, FieldWitness},
+    BACKEND_TICK_ROUNDS_N,
 };
 
 use super::{
@@ -272,6 +275,23 @@ fn dummy_evals() -> ProofEvaluations<[Fq; 2]> {
 pub fn dummy_ipa_wrap_challenges() -> [[u64; 2]; BACKEND_TOCK_ROUNDS_N] {
     cache_one!([[u64; 2]; BACKEND_TOCK_ROUNDS_N], {
         std::array::from_fn(|i| ro::chal(15 - i).inner)
+    })
+}
+
+/// Value of `Dummy.Ipa.Step.challenges`
+pub fn dummy_ipa_step_challenges() -> [[u64; 2]; BACKEND_TICK_ROUNDS_N] {
+    cache_one!([[u64; 2]; BACKEND_TICK_ROUNDS_N], {
+        std::array::from_fn(|i| ro::chal(31 - i).inner)
+    })
+}
+
+/// Dummy.Ipa.Step.challenges_computed
+pub fn dummy_ipa_step_challenges_computed() -> [Fp; BACKEND_TICK_ROUNDS_N] {
+    cache_one!([Fp; BACKEND_TICK_ROUNDS_N], {
+        let challenges = dummy_ipa_step_challenges();
+        let (_, endo) = endos::<Fq>();
+
+        std::array::from_fn(|i| ScalarChallenge::from(challenges[i]).to_field(&endo))
     })
 }
 
