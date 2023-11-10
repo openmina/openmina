@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::FromStr, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc, rc::Rc};
 
 use ark_ec::{
     short_weierstrass_jacobian::GroupProjective, AffineCurve, ProjectiveCurve, SWModelParameters,
@@ -4736,7 +4736,7 @@ fn step_main(
 #[derive(Clone, Debug)]
 pub struct StepProofState {
     pub unfinalized_proofs: Vec<Unfinalized>,
-    pub messages_for_next_step_proof: ReducedMessagesForNextStepProof<Statement<SokDigest>>,
+    pub messages_for_next_step_proof: ReducedMessagesForNextStepProof,
 }
 
 #[derive(Debug)]
@@ -4763,7 +4763,7 @@ fn step(
     dbg!(&w.primary);
 
     let msg = ReducedMessagesForNextStepProof {
-        app_state: statement_with_sok.clone(),
+        app_state: Rc::new(statement_with_sok.clone()),
         challenge_polynomial_commitments: vec![],
         old_bulletproof_challenges: vec![],
     };
@@ -4801,23 +4801,25 @@ fn step(
 }
 
 #[derive(Clone, Debug)]
-pub struct ReducedMessagesForNextStepProof<AppState: ToFieldElements<Fp>> {
-    pub app_state: AppState,
+pub struct ReducedMessagesForNextStepProof {
+    pub app_state: Rc<dyn ToFieldElementsDebug>,
     pub challenge_polynomial_commitments: Vec<InnerCurve<Fp>>,
     pub old_bulletproof_challenges: Vec<[Fp; 16]>,
 }
 
+pub trait ToFieldElementsDebug: ToFieldElements<Fp> + std::fmt::Debug {}
+
+impl<T: ToFieldElements<Fp> + std::fmt::Debug> ToFieldElementsDebug for T {}
+
 #[derive(Clone, Debug)]
-pub struct MessagesForNextStepProof<'a, AppState: ToFieldElements<Fp>> {
-    pub app_state: &'a AppState,
+pub struct MessagesForNextStepProof<'a> {
+    pub app_state: Rc<dyn ToFieldElementsDebug>,
     pub dlog_plonk_index: &'a PlonkVerificationKeyEvals<Fp>,
     pub challenge_polynomial_commitments: Vec<InnerCurve<Fp>>,
     pub old_bulletproof_challenges: Vec<[Fp; 16]>,
 }
 
-impl<AppState> MessagesForNextStepProof<'_, AppState>
-where
-    AppState: ToFieldElements<Fp>,
+impl MessagesForNextStepProof<'_>
 {
     /// Implementation of `hash_messages_for_next_step_proof`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L33
@@ -5065,7 +5067,7 @@ fn generate_proof(
 
     const WHICH_INDEX: u64 = 0;
     let message = crate::proofs::wrap::wrap(
-        &statement_with_sok,
+        Rc::new(statement_with_sok.clone()),
         &proof,
         step_statement,
         &prev_evals,

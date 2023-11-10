@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{borrow::Cow, ops::Neg, str::FromStr};
+use std::{borrow::Cow, ops::Neg, str::FromStr, rc::Rc};
 
 use ark_ff::{BigInteger256, One, Zero};
 use ark_poly::{
@@ -57,7 +57,7 @@ use super::{
     util::u64_to_field,
     witness::{
         plonk_curve_ops::scale_fast, Check, GroupAffine, PlonkVerificationKeyEvals,
-        ReducedMessagesForNextStepProof, StepProofState, StepStatement, Witness,
+        ReducedMessagesForNextStepProof, StepProofState, StepStatement, Witness, ToFieldElementsDebug,
     },
 };
 
@@ -582,7 +582,7 @@ pub struct WrapProofState {
 #[derive(Clone, Debug)]
 pub struct WrapStatement {
     pub proof_state: WrapProofState,
-    pub messages_for_next_step_proof: ReducedMessagesForNextStepProof<Statement<SokDigest>>,
+    pub messages_for_next_step_proof: ReducedMessagesForNextStepProof,
 }
 
 fn exists_prev_statement(
@@ -628,7 +628,7 @@ pub struct ChallengePolynomial {
 }
 
 pub fn wrap(
-    statement_with_sok: &Statement<SokDigest>,
+    app_state: Rc<dyn ToFieldElementsDebug>,
     proof: &kimchi::proof::ProverProof<Vesta>,
     step_statement: StepStatement,
     prev_evals: &[AllEvals<Fq>],
@@ -640,7 +640,7 @@ pub fn wrap(
     let (_, endo) = endos::<Fq>();
 
     let messages_for_next_step_proof_hash = crate::proofs::witness::MessagesForNextStepProof {
-        app_state: &statement_with_sok,
+        app_state,
         challenge_polynomial_commitments: step_statement
             .proof_state
             .messages_for_next_step_proof
