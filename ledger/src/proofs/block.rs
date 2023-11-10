@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{path::Path, str::FromStr, sync::Arc};
+use std::{path::Path, str::FromStr, sync::Arc, rc::Rc};
 
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -42,7 +42,7 @@ use super::{
         field,
         transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
         Check, Prover, Witness,
-    },
+    }, merge::{InductiveRule, PreviousProofStatement},
 };
 
 fn read_witnesses() -> Vec<Fp> {
@@ -1572,7 +1572,7 @@ pub fn generate_block_proof(
 
         let (previous_state_hash, body) = checked_hash_protocol_state(prev_state, w);
 
-        (prev_state, previous_state_hash, (), body)
+        (prev_state, previous_state_hash, prev_state, body)
     };
 
     let txn_stmt_ledger_hashes_didn_t_change = {
@@ -1736,8 +1736,23 @@ pub fn generate_block_proof(
 
     Boolean::assert_any(&[is_base_case, success], w);
 
-    // InductiveRule {
+    [
+        PreviousProofStatement {
+            public_input: Rc::new(previous_blockchain_proof_input.clone()),
+            proof: &prev_state_proof,
+            proof_must_verify: prev_should_verify,
+        },
+        PreviousProofStatement {
+            public_input: Rc::new(txn_snark.clone()),
+            proof: &txn_snark_proof,
+            proof_must_verify: txn_snark_should_verify,
+        },
+    ];
 
+    // InductiveRule {
+    //     previous_proof_statements: todo!(),
+    //     public_output: todo!(),
+    //     auxiliary_output: todo!(),
     // }
 
     // Induc

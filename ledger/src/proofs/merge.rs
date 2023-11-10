@@ -1,4 +1,4 @@
-use std::{path::Path, str::FromStr};
+use std::{path::Path, str::FromStr, rc::Rc};
 
 use crate::{
     proofs::{
@@ -62,7 +62,7 @@ use super::{
     witness::{
         make_group, scalar_challenge::to_field_checked, Boolean, Check, FieldWitness, GroupAffine,
         InnerCurve, MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
-        ReducedMessagesForNextStepProof, Witness,
+        ReducedMessagesForNextStepProof, Witness, ToFieldElementsDebug,
     },
     wrap::{CircuitVar, Domains},
 };
@@ -151,10 +151,10 @@ fn merge_main(
     (s1, s2)
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct PreviousProofStatement<'a> {
-    pub public_input: &'a Statement<SokDigest>,
-    pub proof: &'a v2::LedgerProofProdStableV2,
+    pub public_input: Rc<dyn ToFieldElementsDebug>,
+    pub proof: &'a v2::PicklesProofProofsVerified2ReprStableV2,
     pub proof_must_verify: Boolean,
 }
 
@@ -353,14 +353,14 @@ pub fn expand_deferred(
 fn expand_proof(
     dlog_vk: &VerifierIndex<Pallas>,
     dlog_plonk_index: &PlonkVerificationKeyEvals<Fp>,
-    app_state: &Statement<SokDigest>,
-    t: &v2::LedgerProofProdStableV2,
+    app_state: &Rc<dyn ToFieldElementsDebug>,
+    t: &v2::PicklesProofProofsVerified2ReprStableV2,
     _tag: (),
     must_verify: Boolean,
 ) -> ExpandedProof {
     use super::public_input::scalar_challenge::ScalarChallenge;
 
-    let t = &t.0.proof.0;
+    // let t = &t.0.proof.0;
 
     let plonk0: PlonkMinimal<Fp> = (&t.statement.proof_state.deferred_values.plonk).into();
 
@@ -444,7 +444,7 @@ fn expand_proof(
         .collect();
 
     let messages_for_next_step_proof = MessagesForNextStepProof {
-        app_state,
+        app_state: Rc::clone(app_state),
         dlog_plonk_index,
         challenge_polynomial_commitments: statement
             .messages_for_next_step_proof
@@ -577,7 +577,7 @@ fn expand_proof(
     };
 
     let witness = PerProofWitness {
-        app_state: (),
+        app_state: None,
         proof_state: prev_statement_with_hashes.proof_state.clone(),
         prev_proof_evals: (&t.prev_evals).into(),
         prev_challenge_polynomial_commitments: {
@@ -699,13 +699,14 @@ struct ExpandedProof {
     unfinalized: Unfinalized,
     prev_statement_with_hashes: PreparedStatement,
     x_hat: (Fq, Fq),
-    witness: PerProofWitness<()>,
+    witness: PerProofWitness,
     actual_wrap_domain: u32,
 }
 
 #[derive(Clone, Debug)]
-struct PerProofWitness<AppState> {
-    app_state: AppState,
+struct PerProofWitness {
+    app_state: Option<Rc<dyn ToFieldElementsDebug>>,
+    // app_state: AppState,
     wrap_proof: ProverProof<GroupAffine<Fp>>,
     proof_state: ProofState,
     prev_proof_evals: AllEvals<Fp>,
@@ -713,18 +714,19 @@ struct PerProofWitness<AppState> {
     prev_challenge_polynomial_commitments: Vec<GroupAffine<Fp>>,
 }
 
-impl<T> PerProofWitness<T> {
-    fn with_app_state<T2>(self, app_state: T2) -> PerProofWitness<T2> {
+impl PerProofWitness {
+    fn with_app_state(self, app_state: Rc<dyn ToFieldElementsDebug>) -> PerProofWitness {
         let Self {
-            app_state: _,
+            app_state,
             wrap_proof,
             proof_state,
             prev_proof_evals,
             prev_challenges,
             prev_challenge_polynomial_commitments,
         } = self;
+        assert!(app_state.is_none());
 
-        PerProofWitness::<T2> {
+        PerProofWitness {
             app_state,
             wrap_proof,
             proof_state,
@@ -735,16 +737,18 @@ impl<T> PerProofWitness<T> {
     }
 }
 
-impl ToFieldElements<Fp> for PerProofWitness<()> {
+impl ToFieldElements<Fp> for PerProofWitness {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
-            app_state: _,
+            app_state,
             wrap_proof,
             proof_state,
             prev_proof_evals,
             prev_challenges,
             prev_challenge_polynomial_commitments,
         } = self;
+
+        assert!(app_state.is_none());
 
         let push_affine = |g: GroupAffine<Fp>, fields: &mut Vec<Fp>| {
             let GroupAffine::<Fp> { x, y, .. } = g;
@@ -871,16 +875,18 @@ impl ToFieldElements<Fp> for PerProofWitness<()> {
     }
 }
 
-impl Check<Fp> for PerProofWitness<()> {
+impl Check<Fp> for PerProofWitness {
     fn check(&self, w: &mut Witness<Fp>) {
         let Self {
-            app_state: _,
+            app_state,
             wrap_proof,
             proof_state,
             prev_proof_evals: _,
             prev_challenges: _,
             prev_challenge_polynomial_commitments,
         } = self;
+
+        assert!(app_state.is_none());
 
         let ProverProof {
             commitments:
@@ -1398,7 +1404,7 @@ mod step_verifier {
     }
 
     pub fn hash_messages_for_next_step_proof_opt(
-        msg: ReducedMessagesForNextStepProof<&Statement<SokDigest>>,
+        msg: ReducedMessagesForNextStepProof,
         sponge: Sponge<Fp>,
         _widths: &ForStepKind<Vec<Fp>>,
         _max_width: usize,
@@ -2104,7 +2110,7 @@ mod step_verifier {
 
 fn verify_one(
     srs: &mut poly_commitment::srs::SRS<Pallas>,
-    proof: &PerProofWitness<Statement<SokDigest>>,
+    proof: &PerProofWitness,
     data: &ForStep,
     messages_for_next_wrap_proof: Fp,
     unfinalized: &Unfinalized,
@@ -2149,7 +2155,7 @@ fn verify_one(
 
     let statement = {
         let msg = ReducedMessagesForNextStepProof {
-            app_state,
+            app_state: app_state.clone().unwrap(),
             challenge_polynomial_commitments: prev_challenge_polynomial_commitments
                 .iter()
                 .map(|g| InnerCurve::of_affine(*g))
@@ -2312,13 +2318,13 @@ pub fn generate_merge_proof(
     let rule = InductiveRule {
         previous_proof_statements: [
             PreviousProofStatement {
-                public_input: &s1,
-                proof: p1,
+                public_input: Rc::new(s1),
+                proof: &p1.proof,
                 proof_must_verify: Boolean::True,
             },
             PreviousProofStatement {
-                public_input: &s2,
-                proof: p2,
+                public_input: Rc::new(s2),
+                proof: &p2.proof,
                 proof_must_verify: Boolean::True,
             },
         ],
@@ -2388,7 +2394,7 @@ pub fn generate_merge_proof(
     dbg!(fst.actual_wrap_domain);
     dbg!(snd.actual_wrap_domain);
 
-    let prevs: [PerProofWitness<_>; 2] = rule
+    let prevs: [PerProofWitness; 2] = rule
         .previous_proof_statements
         .iter()
         .zip(prevs)
@@ -2489,7 +2495,7 @@ pub fn generate_merge_proof(
         .collect::<Vec<_>>();
 
     let inputs = MessagesForNextStepProof {
-        app_state: &statement_with_sok,
+        app_state: Rc::new(statement_with_sok.clone()),
         dlog_plonk_index: &dlog_plonk_index,
         challenge_polynomial_commitments: prevs
             .iter()
@@ -2584,7 +2590,7 @@ pub fn generate_merge_proof(
         proof_state: crate::proofs::witness::StepProofState {
             unfinalized_proofs: statement.proof_state.unfinalized_proofs,
             messages_for_next_step_proof: ReducedMessagesForNextStepProof {
-                app_state: statement_with_sok.clone(),
+                app_state: Rc::new(statement_with_sok.clone()),
                 challenge_polynomial_commitments,
                 old_bulletproof_challenges,
             },
@@ -2615,7 +2621,7 @@ pub fn generate_merge_proof(
 
     const WHICH_INDEX: u64 = 1;
     let message = crate::proofs::wrap::wrap(
-        &statement_with_sok,
+        Rc::new(statement_with_sok),
         &proof,
         step_statement,
         &prev_evals,
