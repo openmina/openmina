@@ -130,11 +130,13 @@ impl<F: FieldWitness> Witness<F> {
         self.assert_ocaml_aux(&fields);
 
         // eprintln!("index={:?} w{:?}", self.aux.len() + 67, &fields);
-        eprintln!(
-            "index={:?} w{:?}",
-            self.aux.len() + self.primary.capacity(),
-            &fields
-        );
+        if self.ocaml_aux.len() > 0 {
+            eprintln!(
+                "index={:?} w{:?}",
+                self.aux.len() + self.primary.capacity(),
+                &fields
+            );
+        }
         self.aux.append(&mut fields);
 
         data.check(self);
@@ -150,11 +152,13 @@ impl<F: FieldWitness> Witness<F> {
         self.assert_ocaml_aux(&fields);
 
         // eprintln!("index={:?} w{:?}", self.aux.len() + 67, &fields);
-        eprintln!(
-            "index={:?} w{:?}",
-            self.aux.len() + self.primary.capacity(),
-            &fields
-        );
+        if self.ocaml_aux.len() > 0 {
+            eprintln!(
+                "index={:?} w{:?}",
+                self.aux.len() + self.primary.capacity(),
+                &fields
+            );
+        }
         self.aux.append(&mut fields);
 
         data
@@ -5629,7 +5633,7 @@ mod tests {
 
         let Provers {
             tx_prover: _,
-            wrap_prover: _,
+            wrap_prover: tx_wrap_prover,
             merge_prover: _,
             block_prover,
             block_wrap_prover,
@@ -5640,6 +5644,7 @@ mod tests {
             &blockchain_input,
             &block_prover,
             &block_wrap_prover,
+            &tx_wrap_prover,
             &mut witnesses,
         );
 

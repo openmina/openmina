@@ -598,7 +598,7 @@ fn exists_prev_statement(
 }
 
 /// Dummy.Ipa.Wrap.sg
-fn dummy_ipa_wrap_sg() -> GroupAffine<Fp> {
+pub fn dummy_ipa_wrap_sg() -> GroupAffine<Fp> {
     type G = GroupAffine<Fp>;
 
     cache_one!(G, {

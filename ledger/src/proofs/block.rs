@@ -18,7 +18,7 @@ use crate::{
         util::u64_to_field,
         verifier_index::wrap_domains,
         witness::{Boolean, MessagesForNextStepProof},
-        wrap::{wrap_verifier, Domain, Domains},
+        wrap::{wrap_verifier, CircuitVar, Domain, Domains, PERMUTS_MINUS_1_ADD_N1},
     },
     scan_state::{
         fee_excess::{self, FeeExcess},
@@ -1531,7 +1531,8 @@ struct BlockProofParams<'a> {
 pub fn generate_block_proof(
     input: &v2::ProverExtendBlockchainInputStableV2,
     block_prover: &Prover<Fp>,
-    wrap_prover: &Prover<Fq>,
+    block_wrap_prover: &Prover<Fq>,
+    tx_wrap_prover: &Prover<Fq>,
     w: &mut Witness<Fp>,
 ) {
     w.ocaml_aux = read_witnesses();
@@ -1571,7 +1572,7 @@ pub fn generate_block_proof(
     let (
         previous_state,
         previous_state_hash,
-        previous_blockchain_proof_input,
+        previous_blockchain_proof_input, // TODO: Use hash here
         previous_state_body_hash,
     ) = {
         w.exists(prev_state);
@@ -1745,7 +1746,7 @@ pub fn generate_block_proof(
     let rule = InductiveRule {
         previous_proof_statements: [
             PreviousProofStatement {
-                public_input: Rc::new(previous_blockchain_proof_input.clone()),
+                public_input: Rc::new(MinaHash::hash(previous_blockchain_proof_input)),
                 proof: &prev_state_proof,
                 proof_must_verify: prev_should_verify,
             },
@@ -1759,25 +1760,36 @@ pub fn generate_block_proof(
         auxiliary_output: (),
     };
 
-    dbg!(&wrap_prover.index.verifier_index_digest);
+    dbg!(&block_wrap_prover.index.verifier_index_digest);
 
-    let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(wrap_prover));
-    let verifier_index = wrap_prover.index.verifier_index.as_ref().unwrap();
+    let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(block_wrap_prover));
+    let verifier_index = block_wrap_prover.index.verifier_index.as_ref().unwrap();
+
+    let tx_dlog_plonk_index = super::merge::dlog_plonk_index(tx_wrap_prover);
+    let tx_verifier_index = tx_wrap_prover.index.verifier_index.as_ref().unwrap();
+
+    let indexes = [
+        (verifier_index, &dlog_plonk_index),
+        (tx_verifier_index, &tx_dlog_plonk_index),
+    ];
 
     let expanded_proofs: [super::merge::ExpandedProof; 2] = rule
         .previous_proof_statements
         .iter()
-        .map(|statement| {
+        .zip(indexes)
+        .map(|(statement, (verifier_index, dlog_plonk_index))| {
             let PreviousProofStatement {
                 public_input,
                 proof,
                 proof_must_verify,
             } = statement;
+
             super::merge::expand_proof(
                 verifier_index,
-                &dlog_plonk_index,
+                dlog_plonk_index,
                 public_input,
                 proof,
+                40,
                 (),
                 *proof_must_verify,
             )
@@ -1830,59 +1842,119 @@ pub fn generate_block_proof(
         .try_into()
         .unwrap();
 
-    let basic = Basic {
-        proof_verifieds: vec![0, 2, 0, 0, 1],
-        wrap_domain: Domains {
-            h: Domain::Pow2RootsOfUnity(14),
-        },
-        step_domains: vec![
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
+    let block_data = {
+        let basic = Basic {
+            proof_verifieds: vec![2],
+            wrap_domain: Domains {
                 h: Domain::Pow2RootsOfUnity(14),
             },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
+            step_domains: vec![Domains {
+                h: Domain::Pow2RootsOfUnity(16),
+            }],
+            feature_flags: FeatureFlags {
+                range_check0: OptFlag::No,
+                range_check1: OptFlag::No,
+                foreign_field_add: OptFlag::No,
+                foreign_field_mul: OptFlag::No,
+                xor: OptFlag::No,
+                rot: OptFlag::No,
+                lookup: OptFlag::No,
+                runtime_tables: OptFlag::No,
             },
-        ],
-        feature_flags: FeatureFlags {
-            range_check0: OptFlag::No,
-            range_check1: OptFlag::No,
-            foreign_field_add: OptFlag::No,
-            foreign_field_mul: OptFlag::No,
-            xor: OptFlag::No,
-            rot: OptFlag::No,
-            lookup: OptFlag::No,
-            runtime_tables: OptFlag::No,
-        },
+        };
+
+        // Hack until we have cvar
+        let [sigma_comm_last] = &dlog_plonk_index.sigma[PERMUTS_MINUS_1_ADD_N1..] else {
+            panic!()
+        };
+
+        let self_branches = 1;
+        let max_proofs_verified = 2;
+        let self_data = ForStep {
+            branches: self_branches,
+            max_proofs_verified,
+            proof_verifieds: ForStepKind::Known(
+                basic
+                    .proof_verifieds
+                    .iter()
+                    .copied()
+                    .map(Fp::from)
+                    .collect(),
+            ),
+            public_input: (),
+            wrap_key: dlog_plonk_index.clone(), // TODO: Use ref
+            wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
+            step_domains: ForStepKind::Known(basic.step_domains),
+            feature_flags: basic.feature_flags,
+            last_sigma_comm: CircuitVar::Var(sigma_comm_last.to_affine()),
+        };
+        self_data
     };
 
-    let self_branches = 5;
-    let max_proofs_verified = 2;
-    let self_data = ForStep {
-        branches: self_branches,
-        max_proofs_verified,
-        proof_verifieds: ForStepKind::Known(
-            basic
-                .proof_verifieds
-                .iter()
-                .copied()
-                .map(Fp::from)
-                .collect(),
-        ),
-        public_input: (),
-        wrap_key: dlog_plonk_index.clone(), // TODO: Use ref
-        wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
-        step_domains: ForStepKind::Known(basic.step_domains),
-        feature_flags: basic.feature_flags,
+    let tx_data = {
+        let basic = Basic {
+            proof_verifieds: vec![0, 2, 0, 0, 1],
+            wrap_domain: Domains {
+                h: Domain::Pow2RootsOfUnity(14),
+            },
+            step_domains: vec![
+                Domains {
+                    h: Domain::Pow2RootsOfUnity(15),
+                },
+                Domains {
+                    h: Domain::Pow2RootsOfUnity(15),
+                },
+                Domains {
+                    h: Domain::Pow2RootsOfUnity(15),
+                },
+                Domains {
+                    h: Domain::Pow2RootsOfUnity(14),
+                },
+                Domains {
+                    h: Domain::Pow2RootsOfUnity(15),
+                },
+            ],
+            feature_flags: FeatureFlags {
+                range_check0: OptFlag::No,
+                range_check1: OptFlag::No,
+                foreign_field_add: OptFlag::No,
+                foreign_field_mul: OptFlag::No,
+                xor: OptFlag::No,
+                rot: OptFlag::No,
+                lookup: OptFlag::No,
+                runtime_tables: OptFlag::No,
+            },
+        };
+
+        // Hack until we have cvar
+        let [sigma_comm_last] = &tx_dlog_plonk_index.sigma[PERMUTS_MINUS_1_ADD_N1..] else {
+            panic!()
+        };
+
+        let self_branches = 5;
+        let max_proofs_verified = 2;
+        let self_data = ForStep {
+            branches: self_branches,
+            max_proofs_verified,
+            proof_verifieds: ForStepKind::Known(
+                basic
+                    .proof_verifieds
+                    .iter()
+                    .copied()
+                    .map(Fp::from)
+                    .collect(),
+            ),
+            public_input: (),
+            wrap_key: tx_dlog_plonk_index.clone(), // TODO: Use ref
+            wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
+            step_domains: ForStepKind::Known(basic.step_domains),
+            feature_flags: basic.feature_flags,
+            last_sigma_comm: CircuitVar::Constant(sigma_comm_last.to_affine()),
+        };
+        self_data
     };
+
+    let datas = [&block_data, &tx_data];
 
     let srs = get_srs::<Fq>();
     let mut srs = srs.lock().unwrap();
@@ -1893,24 +1965,29 @@ pub fn generate_block_proof(
         .zip(unfinalized_proofs_unextended)
         .zip(&rule.previous_proof_statements)
         .zip(actual_wrap_domains)
+        .zip(datas)
         .map(
-            |((((proof, msg_for_next_wrap_proof), unfinalized), stmt), actual_wrap_domain)| {
+            |(
+                ((((proof, msg_for_next_wrap_proof), unfinalized), stmt), actual_wrap_domain),
+                data,
+            )| {
                 let PreviousProofStatement {
                     proof_must_verify: should_verify,
                     ..
                 } = stmt;
 
-                match self_data.wrap_domain {
+                match data.wrap_domain {
                     ForStepKind::SideLoaded => todo!(),
                     ForStepKind::Known(wrap_domain) => {
                         let actual_wrap_domain = wrap_domains(actual_wrap_domain);
                         assert_eq!(actual_wrap_domain.h, wrap_domain);
                     }
                 }
+                dbg!(msg_for_next_wrap_proof);
                 let (chals, _verified) = verify_one(
                     &mut srs,
                     proof,
-                    &self_data,
+                    data,
                     msg_for_next_wrap_proof,
                     unfinalized,
                     *should_verify,
