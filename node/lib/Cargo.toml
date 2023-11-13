@@ -6,6 +6,7 @@ license = "Apache-2.0"
 
 [dependencies]
 serde = "1.0.147"
+serde_with = "3.4.0"
 serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
 strum = "0.24.1"
 strum_macros = "0.24.3"

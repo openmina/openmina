@@ -11,6 +11,7 @@ pub use ledger::proofs::{ProverProof, VerifierIndex, VerifierSRS};
 pub use merkle_path::calc_merkle_root_hash;
 
 pub mod block_verify;
+pub mod utils;
 
 mod snark_actions;
 pub use snark_actions::*;

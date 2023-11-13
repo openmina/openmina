@@ -42,7 +42,11 @@ pub use service::NodeWasmService;
 
 pub mod logging;
 use logging::LogLevel;
+
 pub mod rayon;
+
+mod graphql;
+use graphql::GraphqlConvJs;
 
 mod transaction;
 pub use transaction::new_signed_payment;
@@ -683,6 +687,38 @@ impl WatchedAccounts {
                     wasm_timer::Delay::new(Duration::from_millis(500)).await;
                 }
                 Ok(v) => return Ok(JsValue::from_serde(&v).map_err(|err| err.to_string())?),
+                Err(err) => return Err(err.to_string()),
+            }
+        }
+    }
+
+    pub async fn get_latest_state(
+        &self,
+        pub_key: String,
+        token_id: Option<String>,
+    ) -> Result<JsValue, String> {
+        let pub_key = NonZeroCurvePoint::from_str(&pub_key).map_err(|err| err.to_string())?;
+        let token_id = token_id
+            .map(|id| TokenIdKeyHash::from_str(&id).map_err(|err| err.to_string()))
+            .unwrap_or_else(|| Ok(default_token_id()))?;
+        let account_id = WatchedAccountId(pub_key, token_id);
+        loop {
+            let req = RpcRequest::WatchedAccountsGet(account_id.clone());
+            let resp = self
+                .rpc
+                .oneshot_request::<RpcWatchedAccountsGetResponse>(req)
+                .await;
+            let resp = resp.ok_or("rpc request dropped".to_string())?;
+            match resp {
+                Err(WatchedAccountsGetError::NotReady) => {
+                    wasm_timer::Delay::new(Duration::from_millis(500)).await;
+                }
+                Ok(v) => {
+                    return v
+                        .latest_state
+                        .map(|a| a.to_js_value())
+                        .unwrap_or_else(|| Ok(JsValue::NULL));
+                }
                 Err(err) => return Err(err.to_string()),
             }
         }

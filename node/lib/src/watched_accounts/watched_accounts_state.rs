@@ -155,7 +155,9 @@ impl WatchedAccountState {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde_with::serde_as]
 pub struct WatchedAccountsState {
+    #[serde_as(as = "Vec<(_, _)>")]
     list: BTreeMap<WatchedAccountId, WatchedAccountState>,
 }
 
