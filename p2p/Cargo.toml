@@ -36,7 +36,7 @@ snark = { path = "../snark" }
 tokio = { version = "1.26", features = ["rt"] }
 webrtc = { git = "https://github.com/openmina/webrtc.git", branch = "openmina-13c490c3", optional = true }
 hyper = { version = "0.14.25", features = ["client", "http1", "tcp"] }
-libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="dan_kad", default-features = false, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub", "identify", "kad"] }
+libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub", "identify", "kad"] }
 libp2p-rpc-behaviour = { path = "libp2p-rpc-behaviour" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

@@ -22,6 +22,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
         const MAX_PEERS_PER_NODE: usize = 100;
         const KNOWN_PEERS: usize = 7; // current berkeley network
         const STEPS: usize = 4_000;
+        const STEP_DELAY: Duration = Duration::from_millis(200);
 
         let seeds = [
             "/dns4/seed-1.berkeley.o1test.net/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
@@ -41,19 +42,19 @@ impl SoloNodeBasicConnectivityInitialJoining {
 
         let node_id = runner.add_rust_node(config);
 
-        // dbg!(libp2p::PeerId::from(
-        //     runner
-        //         .node(node_id)
-        //         .expect("must exist")
-        //         .state()
-        //         .p2p
-        //         .config
-        //         .identity_pub_key
-        //         .peer_id()
-        // ));
+        dbg!(libp2p::PeerId::from(
+            runner
+                .node(node_id)
+                .expect("must exist")
+                .state()
+                .p2p
+                .config
+                .identity_pub_key
+                .peer_id()
+        ));
 
         for step in 0..STEPS {
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            tokio::time::sleep(STEP_DELAY).await;
 
             let steps = runner
                 .pending_events()
@@ -73,7 +74,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
             runner
                 .exec_step(ScenarioStep::AdvanceNodeTime {
                     node_id,
-                    by_nanos: 100_000_000,
+                    by_nanos: STEP_DELAY.as_nanos() as _,
                 })
                 .await
                 .unwrap();
