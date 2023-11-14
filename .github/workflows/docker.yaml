@@ -9,14 +9,6 @@ on:
       - "helm/**"
       - "*.md"
       - "docs/**"
-  pull_request:
-    branches: [ main, develop ]
-    paths-ignore:
-      # - ".github/**"
-      - ".drone.yml"
-      - "helm/**"
-      - "*.md"
-      - "docs/**"
 
 
 
