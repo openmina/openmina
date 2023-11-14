@@ -141,7 +141,6 @@ impl Libp2pService {
             },
             identify,
             kademlia,
-            bootstrap_id: None,
             rendezvous_string: format!("/coda/0.0.1/{}", chain_id),
             event_source_sender,
             ongoing: BTreeMap::default(),
@@ -168,7 +167,9 @@ impl Libp2pService {
                     yamux_config.set_protocol_name("/coda/yamux/1.0.0");
 
                     let base_transport = libp2p::tcp::tokio::Transport::new(
-                        libp2p::tcp::Config::default().nodelay(true),
+                        libp2p::tcp::Config::default()
+                            .nodelay(true)
+                            .port_reuse(true),
                     );
 
                     base_transport
@@ -185,13 +186,20 @@ impl Libp2pService {
             swarm.behaviour_mut().kademlia.set_mode(Some(Mode::Server));
 
             if let Some(port) = libp2p_port {
+                if let Err(err) = swarm.listen_on(format!("/ip6/::/tcp/{port}").parse().unwrap()) {
+                    openmina_core::log::error!(
+                        openmina_core::log::system_time();
+                        kind = "Libp2pListenError",
+                        summary = format!("libp2p failed to start listener on ipv6 at port: {port}. error: {err:?}"),
+                    );
+                }
                 if let Err(err) =
                     swarm.listen_on(format!("/ip4/0.0.0.0/tcp/{port}").parse().unwrap())
                 {
                     openmina_core::log::error!(
                         openmina_core::log::system_time();
                         kind = "Libp2pListenError",
-                        summary = format!("libp2p failed to start listener at port: {port}. error: {err:?}"),
+                        summary = format!("libp2p failed to start listener on ipv4 at port: {port}. error: {err:?}"),
                     );
                 }
             }
@@ -297,13 +305,11 @@ impl Libp2pService {
                     swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
                 }
 
-                if swarm.behaviour().bootstrap_id.is_none() {
-                    match swarm.behaviour_mut().kademlia.bootstrap() {
-                        Ok(id) => swarm.behaviour_mut().bootstrap_id = Some(id),
-                        Err(err) => {
-                            let _ = err;
-                            // TODO: log error
-                        }
+                match swarm.behaviour_mut().kademlia.bootstrap() {
+                    Ok(_id) => {}
+                    Err(err) => {
+                        let _ = err;
+                        // TODO: log error
                     }
                 }
             }
@@ -586,46 +592,53 @@ impl Libp2pService {
                                     swarm.behaviour_mut().event_source_sender.send(event.into());
                             }
                         }
-                        kad::Event::OutboundQueryProgressed {
-                            id, step, result, ..
-                        } => {
+                        kad::Event::OutboundQueryProgressed { step, result, .. } => {
                             let b = swarm.behaviour_mut();
-                            if let Some(ongoing_bootstrap) = &b.bootstrap_id {
-                                if id.eq(ongoing_bootstrap) && step.last {
-                                    let key = b.rendezvous_string.clone();
-                                    let key = kad::record::Key::new(&key);
-                                    if let Err(_err) = b.kademlia.start_providing(key) {
-                                        // memory storage should not return error
+                            match result {
+                                kad::QueryResult::Bootstrap(Ok(_v)) => {
+                                    use sha2::digest::{FixedOutput, Update};
+
+                                    if step.last {
+                                        let key = b.rendezvous_string.clone();
+                                        let r =
+                                            sha2::Sha256::default().chain(&key).finalize_fixed();
+                                        // TODO(vlad9486): use multihash, remove hardcode
+                                        let mut key = vec![18, 32];
+                                        key.extend_from_slice(&r);
+                                        let key = kad::record::Key::new(&key);
+
+                                        if let Err(_err) = b.kademlia.start_providing(key) {
+                                            // memory storage should not return error
+                                        }
+                                        // initial bootstrap is done
+                                        b.event_source_sender
+                                            .send(
+                                                P2pEvent::Discovery(P2pDiscoveryEvent::Ready)
+                                                    .into(),
+                                            )
+                                            .unwrap_or_default();
                                     }
-                                    // initial bootstrap is done
+                                }
+                                kad::QueryResult::GetClosestPeers(Ok(v)) => {
+                                    let peers = v.peers.into_iter().filter_map(|peer_id| {
+                                        if peer_id.as_ref().code() == 0x12 {
+                                            return None;
+                                        }
+                                        Some(peer_id.into())
+                                    });
+                                    let response = P2pDiscoveryEvent::DidFindPeers(peers.collect());
                                     b.event_source_sender
-                                        .send(P2pEvent::Discovery(P2pDiscoveryEvent::Ready).into())
-                                        .unwrap_or_default();
+                                        .send(P2pEvent::Discovery(response).into())
+                                        .unwrap_or_default()
                                 }
-                            }
-                            if let kad::QueryResult::GetClosestPeers(result) = result {
-                                match result {
-                                    Ok(v) => {
-                                        let peers = v.peers.into_iter().filter_map(|peer_id| {
-                                            if peer_id.as_ref().code() == 0x12 {
-                                                return None;
-                                            }
-                                            Some(peer_id.into())
-                                        });
-                                        let response =
-                                            P2pDiscoveryEvent::DidFindPeers(peers.collect());
-                                        b.event_source_sender
-                                            .send(P2pEvent::Discovery(response).into())
-                                            .unwrap_or_default()
-                                    }
-                                    Err(err) => {
-                                        let response =
-                                            P2pDiscoveryEvent::DidFindPeersError(err.to_string());
-                                        b.event_source_sender
-                                            .send(P2pEvent::Discovery(response).into())
-                                            .unwrap_or_default()
-                                    }
+                                kad::QueryResult::GetClosestPeers(Err(err)) => {
+                                    let response =
+                                        P2pDiscoveryEvent::DidFindPeersError(err.to_string());
+                                    b.event_source_sender
+                                        .send(P2pEvent::Discovery(response).into())
+                                        .unwrap_or_default()
                                 }
+                                _ => {}
                             }
                         }
                         _ => {}

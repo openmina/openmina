@@ -17,8 +17,6 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
     pub identify: identify::Behaviour,
     pub kademlia: kad::Behaviour<MemoryStore>,
     #[behaviour(ignore)]
-    pub bootstrap_id: Option<kad::QueryId>,
-    #[behaviour(ignore)]
     pub rendezvous_string: String,
     #[behaviour(ignore)]
     pub event_source_sender: mpsc::UnboundedSender<E>,
