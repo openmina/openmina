@@ -2,6 +2,7 @@ pub mod misc;
 pub mod node;
 pub mod replay;
 pub mod snark;
+pub mod build_info;
 
 pub type CommandError = Box<dyn std::error::Error>;
 
@@ -20,6 +21,7 @@ pub enum Command {
     /// Miscilaneous utilities.
     Misc(misc::Misc),
     Replay(replay::Replay),
+    BuildInfo(build_info::Command),
 }
 
 impl Command {
@@ -29,6 +31,7 @@ impl Command {
             Self::Node(v) => v.run(),
             Self::Misc(v) => v.run(),
             Self::Replay(v) => v.run(),
+            Self::BuildInfo(v) => v.run(),
         }
     }
 }
