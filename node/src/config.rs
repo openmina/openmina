@@ -51,7 +51,6 @@ pub struct BuildEnv {
     pub git: GitBuildEnv,
     pub cargo: CargoBuildEnv,
     pub rustc: RustCBuildEnv,
-    pub sys: SysBuildEnv,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
@@ -79,16 +78,6 @@ pub struct RustCBuildEnv {
     pub llvm_version: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SysBuildEnv {
-    pub os_version: String,
-    pub total_memory: String,
-    pub cpu_vendor: String,
-    pub cpu_brand: String,
-    pub cpu_core_count: String,
-    pub cpu_frequency: String,
-}
-
 impl BuildEnv {
     pub fn get() -> Self {
         Self {
@@ -111,14 +100,6 @@ impl BuildEnv {
                 host: env!("VERGEN_RUSTC_HOST_TRIPLE").to_owned(),
                 version: env!("VERGEN_RUSTC_SEMVER").to_owned(),
                 llvm_version: env!("VERGEN_RUSTC_LLVM_VERSION").to_owned(),
-            },
-            sys: SysBuildEnv {
-                os_version: env!("VERGEN_SYSINFO_OS_VERSION").to_owned(),
-                total_memory: env!("VERGEN_SYSINFO_TOTAL_MEMORY").to_owned(),
-                cpu_vendor: env!("VERGEN_SYSINFO_CPU_VENDOR").to_owned(),
-                cpu_brand: env!("VERGEN_SYSINFO_CPU_BRAND").to_owned(),
-                cpu_core_count: env!("VERGEN_SYSINFO_CPU_CORE_COUNT").to_owned(),
-                cpu_frequency: env!("VERGEN_SYSINFO_CPU_FREQUENCY").to_owned(),
             },
         }
     }

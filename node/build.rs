@@ -66,7 +66,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .all_cargo()
         .all_git()
         .all_rustc()
-        .all_sysinfo()
         .emit_and_set()?;
 
     let crate_dir_name = std::env::var("CARGO_MANIFEST_DIR")?;

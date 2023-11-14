@@ -31,7 +31,7 @@ p2p = { path = "../p2p" }
 [build-dependencies]
 regex = "1"
 rust-format = "0.3"
-vergen = { version = "8.2.4", features = ["build", "cargo", "git", "gitcl", "rustc", "si"] }
+vergen = { version = "8.2.4", features = ["build", "cargo", "git", "gitcl", "rustc"] }
 
 [features]
 replay = []
