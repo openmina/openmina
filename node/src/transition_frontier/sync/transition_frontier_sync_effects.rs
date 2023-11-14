@@ -59,7 +59,9 @@ impl TransitionFrontierSyncLedgerRootSuccessAction {
 
 impl TransitionFrontierSyncBlocksPendingAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
+        if !store.dispatch(TransitionFrontierSyncBlocksSuccessAction {}) {
+            store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
+        }
     }
 }
 

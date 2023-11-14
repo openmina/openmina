@@ -247,6 +247,7 @@ impl TransitionFrontierSyncState {
                 };
                 let (best_tip, root_block) = (best_tip.clone(), root_block.clone());
                 let blocks_inbetween = std::mem::take(blocks_inbetween);
+                let root_block_height = root_block.height();
 
                 let mut applied_blocks: BTreeMap<_, _> =
                     best_chain.iter().map(|b| (&b.hash, b)).collect();
@@ -278,10 +279,15 @@ impl TransitionFrontierSyncState {
                     }
                 }));
 
-                chain.push(TransitionFrontierSyncBlockState::FetchSuccess {
-                    time: meta.time(),
-                    block: best_tip,
-                });
+                // TODO(binier): can only happen if best_tip is genesis.
+                // TMP until we don't have genesis reconstruction logic
+                // without relying on peers for it.
+                if root_block_height != best_tip.height() {
+                    chain.push(TransitionFrontierSyncBlockState::FetchSuccess {
+                        time: meta.time(),
+                        block: best_tip,
+                    });
+                }
 
                 *self = Self::BlocksPending {
                     time: meta.time(),
