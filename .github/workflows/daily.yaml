@@ -9,6 +9,7 @@ on:
 jobs:
   bootstrap-berkeley:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' }}
 
     env:
       CLUSTER_ADDR: 1.k8.openmina.com
@@ -109,3 +110,32 @@ jobs:
             sleep 1
           done
           echo "::error::Openmina is at $OPENMINA_HEIGHT that is behind main network $NET_HEIGHT"
+
+  peers-discovery:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE: test-${{ github.run_id }}
+
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+
+      - name: Set up k8s context
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.K8S_CONFIG }}
+
+      - name: Deploy network
+        run: |
+          helm install $RELEASE --repo https://openmina.github.io/helm-charts/ openmina-discovery --wait --wait-for-jobs --timeout=10m --set=serviceAccount=github-tester
+
+      - name: Log failed job
+        if: ${{ failure() }}
+        run: |
+          kubectl logs job/$RELEASE-test
+
+      - name: Clean up
+        if: ${{ always() }}
+        run: |
+          helm uninstall $RELEASE
