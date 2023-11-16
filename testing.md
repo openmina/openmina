@@ -1,6 +1,17 @@
 # Testing Scenarios for Openmina Node
 
+## Peer discovery
+
+We should test that OCamn and Rust nodes can discover each other in the network.
+
+- [x] Simplest scenario, with 1 seed and two non-seed nodes, one OCaml and another one Rust
+- [ ] Bigger network, where we can check that we have some number of peers, and also receive incoming connections
+
+See [discovery.md](docs/testing/discovery.md).
+
 ## Bootstrapping
+
+See [bootstrap.md](docs/testing/bootstrap.md).
 
 ### Bootstrapping with recorded data
 
