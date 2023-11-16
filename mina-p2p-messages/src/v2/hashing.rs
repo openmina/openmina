@@ -27,14 +27,14 @@ use super::{
     ConsensusProofOfStakeDataConsensusStateValueStableV2,
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-    ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1,
+    ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1, LedgerHash,
     MinaBaseAccountBinableArgStableV2, MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1,
-    MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
-    MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashNonSnarkStableV1,
-    MinaBaseStagedLedgerHashStableV1, MinaBaseStateBodyHashStableV1,
-    MinaBaseVerificationKeyWireStableV1, MinaNumbersGlobalSlotSinceGenesisMStableV1,
-    MinaNumbersGlobalSlotSinceHardForkMStableV1, MinaNumbersGlobalSlotSpanStableV1,
-    MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+    MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseStackVersionedStableV1,
+    MinaBasePendingCoinbaseStateStackStableV1, MinaBaseProtocolConstantsCheckedValueStableV1,
+    MinaBaseStagedLedgerHashNonSnarkStableV1, MinaBaseStagedLedgerHashStableV1,
+    MinaBaseStateBodyHashStableV1, MinaBaseVerificationKeyWireStableV1,
+    MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSinceHardForkMStableV1,
+    MinaNumbersGlobalSlotSpanStableV1, MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateProtocolStateBodyValueStableV2,
     MinaStateProtocolStateValueStableV2,
@@ -303,7 +303,7 @@ fn fp_state_hash_from_fp_hashes(previous_state_hash: Fp, body_hash: Fp) -> Fp {
 }
 
 impl StateHash {
-    fn from_fp(fp: Fp) -> Self {
+    pub fn from_fp(fp: Fp) -> Self {
         DataHashLibStateHashStableV1(fp.into()).into()
     }
 
@@ -315,6 +315,12 @@ impl StateHash {
             pred_state_hash.to_field(),
             body_hash.to_field(),
         ))
+    }
+}
+
+impl LedgerHash {
+    pub fn from_fp(fp: Fp) -> Self {
+        MinaBaseLedgerHash0StableV1(fp.into()).into()
     }
 }
 
