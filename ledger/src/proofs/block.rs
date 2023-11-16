@@ -2141,7 +2141,7 @@ pub fn generate_block_proof(
             step_statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index.to_non_cvar(),
-            prover_index: &block_prover.index,
+            step_prover_index: &block_prover.index,
             which_index: WHICH_INDEX,
             pi_branches,
             step_widths,

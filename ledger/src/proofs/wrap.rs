@@ -634,7 +634,7 @@ pub struct WrapParams<'a> {
     pub step_statement: StepStatement,
     pub prev_evals: &'a [AllEvals<Fq>],
     pub dlog_plonk_index: &'a PlonkVerificationKeyEvals<Fp>,
-    pub prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
+    pub step_prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
     pub which_index: u64,
     pub pi_branches: u64,
     pub step_widths: Box<[u64]>, // TODO: Use array with size=pi_branches
@@ -648,7 +648,7 @@ pub fn wrap(params: WrapParams, w: &mut Witness<Fq>) -> Vec<ChallengePolynomial>
         step_statement,
         prev_evals,
         dlog_plonk_index,
-        prover_index,
+        step_prover_index,
         which_index,
         pi_branches,
         step_widths,
@@ -746,7 +746,7 @@ pub fn wrap(params: WrapParams, w: &mut Witness<Fq>) -> Vec<ChallengePolynomial>
         &public_input,
         proof,
         actual_proofs_verified,
-        prover_index,
+        step_prover_index,
     );
 
     let to_fq = |[a, b]: [u64; 2]| Fq::from(BigInteger256([a, b, 0, 0]));
@@ -848,7 +848,7 @@ pub fn wrap(params: WrapParams, w: &mut Witness<Fq>) -> Vec<ChallengePolynomial>
         messages_for_next_step_proof_hash,
         prev_evals,
         proof,
-        prover_index,
+        step_prover_index,
     };
 
     wrap_main(&main_params, w);
@@ -2859,7 +2859,7 @@ pub struct WrapMainParams<'a> {
     pub messages_for_next_step_proof_hash: [u64; 4],
     pub prev_evals: &'a [AllEvals<Fq>],
     pub proof: &'a ProverProof<Vesta>,
-    pub prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
+    pub step_prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
 }
 
 fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
@@ -2874,7 +2874,7 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
         messages_for_next_step_proof_hash,
         prev_evals,
         proof,
-        prover_index,
+        step_prover_index,
     } = params;
 
     let which_branch = w.exists(Fq::from(*which_index));
@@ -2911,7 +2911,7 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
 
     exists_prev_statement(step_statement, *messages_for_next_step_proof_hash, w);
 
-    let step_plonk_index = wrap_verifier::choose_key(prover_index, w);
+    let step_plonk_index = wrap_verifier::choose_key(step_prover_index, w);
 
     let prev_step_accs = w.exists({
         let to_inner_curve =
@@ -3031,7 +3031,7 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
         actual_proofs_verified_mask,
         step_domains,
         verification_key: &step_plonk_index,
-        srs: prover_index.srs.clone(),
+        srs: step_prover_index.srs.clone(),
         xi,
         sponge,
         public_input,

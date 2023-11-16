@@ -156,8 +156,6 @@ impl CoinbaseStack {
     }
 
     pub fn checked_push(&self, cb: Coinbase, w: &mut Witness<Fp>) -> Self {
-        use crate::proofs::witness::transaction_snark::checked_hash;
-
         let mut inputs = Inputs::new();
 
         inputs.append(&CoinbaseData::of_coinbase(cb));
@@ -239,8 +237,6 @@ impl StateStack {
         global_slot: CheckedSlot<Fp>,
         w: &mut Witness<Fp>,
     ) -> Self {
-        use crate::proofs::witness::transaction_snark::checked_hash;
-
         let mut inputs = Inputs::new();
 
         inputs.append_field(self.curr);

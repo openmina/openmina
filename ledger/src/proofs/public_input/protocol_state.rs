@@ -15,10 +15,7 @@ use mina_p2p_messages::v2::{
 
 use crate::{
     hash::{hash_with_kimchi, Inputs},
-    proofs::{
-        block::{consensus::ConsensusState, ProtocolStateBody},
-        numbers::{currency::CheckedCurrency, nat::CheckedNat},
-    },
+    proofs::block::{consensus::ConsensusState, ProtocolStateBody},
     scan_state::transaction_logic::protocol_state::{EpochData, EpochLedger},
     ToInputs,
 };

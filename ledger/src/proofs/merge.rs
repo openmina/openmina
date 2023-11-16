@@ -13,7 +13,6 @@ use crate::{
         witness::{compute_witness, create_proof},
         wrap::{
             create_oracle, dummy_ipa_wrap_sg, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2,
-            PERMUTS_MINUS_1_ADD_N1,
         },
     },
     verifier::get_srs,
@@ -2698,7 +2697,7 @@ pub fn generate_merge_proof(
             step_statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,
-            prover_index: &step_prover.index,
+            step_prover_index: &step_prover.index,
             which_index: WHICH_INDEX,
             pi_branches,
             step_widths,

@@ -5101,12 +5101,12 @@ pub struct Prover<F: FieldWitness> {
     pub index: ProverIndex<F::OtherCurve>,
 }
 
-fn generate_proof(
+fn generate_tx_proof(
     statement: &MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     tx_witness: &v2::TransactionWitnessStableV2,
     message: &SokMessage,
-    step_prover: &Prover<Fp>,
-    wrap_prover: &Prover<Fq>,
+    tx_step_prover: &Prover<Fp>,
+    tx_wrap_prover: &Prover<Fq>,
     w: &mut Witness<Fp>,
 ) -> String {
     let statement: Statement<()> = statement.into();
@@ -5114,7 +5114,7 @@ fn generate_proof(
     let statement_with_sok = statement.with_digest(sok_digest);
 
     let dlog_plonk_index =
-        { PlonkVerificationKeyEvals::from(wrap_prover.index.verifier_index.as_ref().unwrap()) };
+        { PlonkVerificationKeyEvals::from(tx_wrap_prover.index.verifier_index.as_ref().unwrap()) };
 
     let now = std::time::Instant::now();
     let step_statement = step(&statement_with_sok, tx_witness, &dlog_plonk_index, w);
@@ -5129,12 +5129,12 @@ fn generate_proof(
     // assert_eq!(&w.aux, &w.ocaml_aux);
 
     eprintln!("witness0_elapsed={:?}", now.elapsed());
-    let computed_witness = compute_witness::<RegularTransactionProof, _>(&step_prover, w);
+    let computed_witness = compute_witness::<RegularTransactionProof, _>(&tx_step_prover, w);
     eprintln!("witness_elapsed={:?}", now.elapsed());
 
     // let prover_index = make_prover_index(gates);
     let prev_challenges = vec![];
-    let proof = create_proof::<Fp>(computed_witness, &step_prover.index, prev_challenges);
+    let proof = create_proof::<Fp>(computed_witness, &tx_step_prover.index, prev_challenges);
 
     // dbg!(&proof);
 
@@ -5188,7 +5188,7 @@ fn generate_proof(
             step_statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,
-            prover_index: &step_prover.index,
+            step_prover_index: &tx_step_prover.index,
             which_index: WHICH_INDEX,
             pi_branches,
             step_widths,
@@ -5197,7 +5197,7 @@ fn generate_proof(
         &mut w,
     );
 
-    let computed_witness = compute_witness::<WrapProof, _>(wrap_prover, &w);
+    let computed_witness = compute_witness::<WrapProof, _>(tx_wrap_prover, &w);
 
     let prev = message
         .iter()
@@ -5214,7 +5214,7 @@ fn generate_proof(
     dbg!(&w.primary);
     dbg!(w.primary.len());
 
-    let proof = create_proof::<Fq>(computed_witness, &wrap_prover.index, prev);
+    let proof = create_proof::<Fq>(computed_witness, &tx_wrap_prover.index, prev);
 
     let sum = |s: &[u8]| {
         use sha2::Digest;
@@ -5596,11 +5596,11 @@ mod tests {
     }
 
     struct Provers {
-        tx_prover: Prover<Fp>,
-        wrap_prover: Prover<Fq>,
-        merge_prover: Prover<Fp>,
+        tx_step_prover: Prover<Fp>,
+        tx_wrap_prover: Prover<Fq>,
+        merge_step_prover: Prover<Fp>,
+        block_step_prover: Prover<Fp>,
         block_wrap_prover: Prover<Fq>,
-        block_prover: Prover<Fp>,
     }
 
     fn make_provers() -> Provers {
@@ -5627,25 +5627,25 @@ mod tests {
         let wrap_block_prover_index = make_prover_index::<WrapBlockProof, _>(block_wrap_gates);
         let block_prover_index = make_prover_index::<BlockProof, _>(block_gates);
 
-        let tx_prover = Prover {
+        let tx_step_prover = Prover {
             internal_vars,
             rows_rev,
             index: tx_prover_index,
         };
 
-        let merge_prover = Prover {
+        let merge_step_prover = Prover {
             internal_vars: merge_internal_vars,
             rows_rev: merge_rows_rev,
             index: merge_prover_index,
         };
 
-        let wrap_prover = Prover {
+        let tx_wrap_prover = Prover {
             internal_vars: internal_vars_wrap,
             rows_rev: rows_rev_wrap,
             index: wrap_prover_index,
         };
 
-        let block_prover = Prover {
+        let block_step_prover = Prover {
             internal_vars: block_internal_vars,
             rows_rev: block_rows_rev,
             index: block_prover_index,
@@ -5658,10 +5658,10 @@ mod tests {
         };
 
         Provers {
-            tx_prover,
-            wrap_prover,
-            merge_prover,
-            block_prover,
+            tx_step_prover,
+            tx_wrap_prover,
+            merge_step_prover,
+            block_step_prover,
             block_wrap_prover,
         }
     }
@@ -5681,20 +5681,20 @@ mod tests {
 
         let (statement, tx_witness, message) = extract_request(&data);
         let Provers {
-            tx_prover,
-            wrap_prover,
-            merge_prover: _,
-            block_prover: _,
+            tx_step_prover,
+            tx_wrap_prover,
+            merge_step_prover: _,
+            block_step_prover: _,
             block_wrap_prover: _,
         } = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<RegularTransactionProof>();
-        generate_proof(
+        generate_tx_proof(
             &statement,
             &tx_witness,
             &message,
-            &tx_prover,
-            &wrap_prover,
+            &tx_step_prover,
+            &tx_wrap_prover,
             &mut witnesses,
         );
     }
@@ -5714,10 +5714,10 @@ mod tests {
 
         let (statement, proofs, message) = extract_merge(&data);
         let Provers {
-            tx_prover: _,
-            wrap_prover,
-            merge_prover,
-            block_prover: _,
+            tx_step_prover: _,
+            tx_wrap_prover,
+            merge_step_prover,
+            block_step_prover: _,
             block_wrap_prover: _,
         } = make_provers();
 
@@ -5726,8 +5726,8 @@ mod tests {
             &statement,
             &proofs,
             &message,
-            &merge_prover,
-            &wrap_prover,
+            &merge_step_prover,
+            &tx_wrap_prover,
             &mut witnesses,
         );
     }
@@ -5747,17 +5747,17 @@ mod tests {
             read_binprot(&mut data.as_slice());
 
         let Provers {
-            tx_prover: _,
-            wrap_prover: tx_wrap_prover,
-            merge_prover: _,
-            block_prover,
+            tx_step_prover: _,
+            tx_wrap_prover,
+            merge_step_prover: _,
+            block_step_prover,
             block_wrap_prover,
         } = make_provers();
         let mut witnesses: Witness<Fp> = Witness::new::<BlockProof>();
 
         generate_block_proof(
             &blockchain_input,
-            &block_prover,
+            &block_step_prover,
             &block_wrap_prover,
             &tx_wrap_prover,
             &mut witnesses,
@@ -5769,10 +5769,10 @@ mod tests {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4");
 
         let Provers {
-            tx_prover,
-            wrap_prover: tx_wrap_prover,
-            merge_prover,
-            block_prover,
+            tx_step_prover,
+            tx_wrap_prover,
+            merge_step_prover,
+            block_step_prover,
             block_wrap_prover,
         } = make_provers();
 
@@ -5792,7 +5792,7 @@ mod tests {
 
             generate_block_proof(
                 &blockchain_input,
-                &block_prover,
+                &block_step_prover,
                 &block_wrap_prover,
                 &tx_wrap_prover,
                 &mut witnesses,
@@ -5810,7 +5810,7 @@ mod tests {
                 &statement,
                 &proofs,
                 &message,
-                &merge_prover,
+                &merge_step_prover,
                 &tx_wrap_prover,
                 &mut witnesses,
             );
@@ -5855,11 +5855,11 @@ mod tests {
             let (statement, tx_witness, message) = extract_request(&data);
 
             let mut witnesses: Witness<Fp> = Witness::new::<RegularTransactionProof>();
-            let sum = generate_proof(
+            let sum = generate_tx_proof(
                 &statement,
                 &tx_witness,
                 &message,
-                &tx_prover,
+                &tx_step_prover,
                 &tx_wrap_prover,
                 &mut witnesses,
             );

@@ -4,7 +4,7 @@ use crate::{
     proofs::{
         block::consensus::ConsensusConstantsChecked,
         to_field_elements::ToFieldElements,
-        witness::{field, Boolean, Check, FieldWitness, ToBoolean, Witness},
+        witness::{field, Boolean, Check, FieldWitness, Witness},
     },
     scan_state::currency::{
         BlockTime, BlockTimeSpan, Index, Length, Magnitude, MinMax, Nonce, Slot, SlotSpan,
