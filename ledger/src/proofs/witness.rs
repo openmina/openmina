@@ -40,6 +40,7 @@ use crate::{
     proofs::{
         constants::{RegularTransactionProof, WrapProof},
         unfinalized::AllEvals,
+        wrap::{Domain, Domains},
     },
     scan_state::{
         currency::{self, Sgn},
@@ -5159,14 +5160,40 @@ fn generate_proof(
     // let wrap_index = make_prover_index_wrap(wrap_gates);
 
     const WHICH_INDEX: u64 = 0;
+
+    let pi_branches = 5;
+    let step_widths = Box::new([0, 2, 0, 0, 1]);
+    let step_domains = Box::new([
+        Domains {
+            h: Domain::Pow2RootsOfUnity(15),
+        },
+        Domains {
+            h: Domain::Pow2RootsOfUnity(15),
+        },
+        Domains {
+            h: Domain::Pow2RootsOfUnity(15),
+        },
+        Domains {
+            h: Domain::Pow2RootsOfUnity(14),
+        },
+        Domains {
+            h: Domain::Pow2RootsOfUnity(15),
+        },
+    ]);
+
     let message = crate::proofs::wrap::wrap(
-        Rc::new(statement_with_sok.clone()),
-        &proof,
-        step_statement,
-        &prev_evals,
-        &dlog_plonk_index,
-        &step_prover.index,
-        WHICH_INDEX,
+        crate::proofs::wrap::WrapParams {
+            app_state: Rc::new(statement_with_sok),
+            proof: &proof,
+            step_statement,
+            prev_evals: &prev_evals,
+            dlog_plonk_index: &dlog_plonk_index,
+            prover_index: &step_prover.index,
+            which_index: WHICH_INDEX,
+            pi_branches,
+            step_widths,
+            step_domains,
+        },
         &mut w,
     );
 
@@ -5743,11 +5770,34 @@ mod tests {
 
         let Provers {
             tx_prover,
-            wrap_prover,
+            wrap_prover: tx_wrap_prover,
             merge_prover,
-            block_prover: _,
-            block_wrap_prover: _,
+            block_prover,
+            block_wrap_prover,
         } = make_provers();
+
+        // Block proof
+        {
+            let data = std::fs::read(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("rampup4")
+                    .join("block_input_working.bin"),
+            )
+            .unwrap();
+
+            let blockchain_input: v2::ProverExtendBlockchainInputStableV2 =
+                read_binprot(&mut data.as_slice());
+
+            let mut witnesses: Witness<Fp> = Witness::new::<BlockProof>();
+
+            generate_block_proof(
+                &blockchain_input,
+                &block_prover,
+                &block_wrap_prover,
+                &tx_wrap_prover,
+                &mut witnesses,
+            );
+        }
 
         // Merge proof
         {
@@ -5761,7 +5811,7 @@ mod tests {
                 &proofs,
                 &message,
                 &merge_prover,
-                &wrap_prover,
+                &tx_wrap_prover,
                 &mut witnesses,
             );
         }
@@ -5810,7 +5860,7 @@ mod tests {
                 &tx_witness,
                 &message,
                 &tx_prover,
-                &wrap_prover,
+                &tx_wrap_prover,
                 &mut witnesses,
             );
 

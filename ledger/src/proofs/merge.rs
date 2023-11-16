@@ -2670,14 +2670,40 @@ pub fn generate_merge_proof(
     w.ocaml_aux = read_witnesses_fq().unwrap();
 
     const WHICH_INDEX: u64 = 1;
+
+    let pi_branches = 5;
+    let step_widths = Box::new([0, 2, 0, 0, 1]);
+    let step_domains = Box::new([
+        Domains {
+            h: Domain::Pow2RootsOfUnity(15),
+        },
+        Domains {
+            h: Domain::Pow2RootsOfUnity(15),
+        },
+        Domains {
+            h: Domain::Pow2RootsOfUnity(15),
+        },
+        Domains {
+            h: Domain::Pow2RootsOfUnity(14),
+        },
+        Domains {
+            h: Domain::Pow2RootsOfUnity(15),
+        },
+    ]);
+
     let message = crate::proofs::wrap::wrap(
-        Rc::new(statement_with_sok),
-        &proof,
-        step_statement,
-        &prev_evals,
-        &dlog_plonk_index,
-        &step_prover.index,
-        WHICH_INDEX,
+        crate::proofs::wrap::WrapParams {
+            app_state: Rc::new(statement_with_sok),
+            proof: &proof,
+            step_statement,
+            prev_evals: &prev_evals,
+            dlog_plonk_index: &dlog_plonk_index,
+            prover_index: &step_prover.index,
+            which_index: WHICH_INDEX,
+            pi_branches,
+            step_widths,
+            step_domains,
+        },
         &mut w,
     );
 

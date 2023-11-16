@@ -628,16 +628,33 @@ pub struct ChallengePolynomial {
     pub challenges: [Fq; 15],
 }
 
-pub fn wrap(
-    app_state: Rc<dyn ToFieldElementsDebug>,
-    proof: &kimchi::proof::ProverProof<Vesta>,
-    step_statement: StepStatement,
-    prev_evals: &[AllEvals<Fq>],
-    dlog_plonk_index: &PlonkVerificationKeyEvals<Fp>,
-    prover_index: &kimchi::prover_index::ProverIndex<Vesta>,
-    which_index: u64,
-    w: &mut Witness<Fq>,
-) -> Vec<ChallengePolynomial> {
+pub struct WrapParams<'a> {
+    pub app_state: Rc<dyn ToFieldElementsDebug>,
+    pub proof: &'a kimchi::proof::ProverProof<Vesta>,
+    pub step_statement: StepStatement,
+    pub prev_evals: &'a [AllEvals<Fq>],
+    pub dlog_plonk_index: &'a PlonkVerificationKeyEvals<Fp>,
+    pub prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
+    pub which_index: u64,
+    pub pi_branches: u64,
+    pub step_widths: Box<[u64]>, // TODO: Use array with size=pi_branches
+    pub step_domains: Box<[Domains]>, // TODO: Here too
+}
+
+pub fn wrap(params: WrapParams, w: &mut Witness<Fq>) -> Vec<ChallengePolynomial> {
+    let WrapParams {
+        app_state,
+        proof,
+        step_statement,
+        prev_evals,
+        dlog_plonk_index,
+        prover_index,
+        which_index,
+        pi_branches,
+        step_widths,
+        step_domains,
+    } = params;
+
     let (_, endo) = endos::<Fq>();
 
     let messages_for_next_step_proof_hash = crate::proofs::witness::MessagesForNextStepProof {
@@ -819,28 +836,6 @@ pub fn wrap(
         messages_for_next_step_proof: messages_for_next_step_proof_hash,
     }
     .to_public_input(40);
-
-    // TODO: Those are variables
-    // let which_index = 0;
-    let pi_branches = 5;
-    let step_widths = [0, 2, 0, 0, 1];
-    let step_domains = [
-        Domains {
-            h: Domain::Pow2RootsOfUnity(15),
-        },
-        Domains {
-            h: Domain::Pow2RootsOfUnity(15),
-        },
-        Domains {
-            h: Domain::Pow2RootsOfUnity(15),
-        },
-        Domains {
-            h: Domain::Pow2RootsOfUnity(14),
-        },
-        Domains {
-            h: Domain::Pow2RootsOfUnity(15),
-        },
-    ];
 
     let main_params = WrapMainParams {
         step_statement,
@@ -1630,8 +1625,9 @@ pub mod wrap_verifier {
         lagrange_bases[i].clone()
     }
 
-    fn lagrange(domain: (&[Boolean], &[Domains; 5]), srs: &mut SRS<Vesta>, i: usize) -> (Fq, Fq) {
+    fn lagrange(domain: (&[Boolean], &[Domains]), srs: &mut SRS<Vesta>, i: usize) -> (Fq, Fq) {
         let (which_branch, domains) = domain;
+        assert_eq!(which_branch.len(), domains.len());
 
         domains
             .iter()
@@ -1660,12 +1656,13 @@ pub mod wrap_verifier {
 
     fn lagrange_with_correction(
         input_length: usize,
-        domain: (&[Boolean], &[Domains; 5]),
+        domain: (&[Boolean], &[Domains]),
         srs: &mut SRS<Vesta>,
         i: usize,
         w: &mut Witness<Fq>,
-    ) -> (InnerCurve<Fq>, InnerCurve<Fq>) {
+    ) -> (CircuitVar<InnerCurve<Fq>>, InnerCurve<Fq>) {
         let (which_branch, domains) = domain;
+        assert_eq!(which_branch.len(), domains.len());
 
         let actual_shift = { OPS_BITS_PER_CHUNK * chunks_needed(input_length) };
         let pow2pow = |x: InnerCurve<Fq>, n: usize| (0..n).fold(x, |acc, _| acc.clone() + acc);
@@ -1682,9 +1679,11 @@ pub mod wrap_verifier {
             }
         };
 
-        let [d, ds @ ..] = domains;
+        let [d, ds @ ..] = domains else {
+            panic!("invalid state");
+        };
 
-        if ds.iter().all(|d2| d.h == d2.h) {
+        let (a, b) = if ds.iter().all(|d2| d.h == d2.h) {
             base_and_correction(d.h)
         } else {
             let (x, y) = domains
@@ -1714,12 +1713,20 @@ pub mod wrap_verifier {
             w.exists([x.y, x.x]);
 
             (InnerCurve::of_affine(x), InnerCurve::of_affine(y))
+        };
+
+        // TODO: Hack until we have proper cvar :(
+        // `base_and_correction` returns `Constant`
+        if domains.len() == 1 {
+            (CircuitVar::Constant(a), b)
+        } else {
+            (CircuitVar::Var(a), b)
         }
     }
 
     // TODO: We might have to use F::Scalar here
     fn scale_fast2<F: FieldWitness>(
-        g: GroupAffine<F>,
+        g: CircuitVar<GroupAffine<F>>,
         (s_div_2, s_odd): (F, Boolean),
         num_bits: usize,
         w: &mut Witness<F>,
@@ -1731,15 +1738,18 @@ pub mod wrap_verifier {
         let actual_bits_used = chunks_needed * OPS_BITS_PER_CHUNK;
 
         let shifted = F::Shifting::of_raw(s_div_2);
+        let g2 = *g.value();
         let h = match actual_bits_used {
-            255 => scale_fast_unpack::<F, F, 255>(g, shifted, w).0,
-            130 => scale_fast_unpack::<F, F, 130>(g, shifted, w).0,
+            255 => scale_fast_unpack::<F, F, 255>(g2, shifted, w).0,
+            130 => scale_fast_unpack::<F, F, 130>(g2, shifted, w).0,
             n => todo!("{:?}", n),
         };
 
         let on_false = {
-            let g_neg = g.neg();
-            w.exists(g_neg.y);
+            let g_neg = g2.neg();
+            if let CircuitVar::Var(_) = g {
+                w.exists(g_neg.y);
+            };
             w.add_fast(h, g_neg)
         };
 
@@ -1751,7 +1761,7 @@ pub mod wrap_verifier {
 
     // TODO: We might have to use F::Scalar here
     fn scale_fast2_prime<F: FieldWitness>(
-        g: GroupAffine<F>,
+        g: CircuitVar<InnerCurve<F>>,
         s: F,
         num_bits: usize,
         w: &mut Witness<F>,
@@ -1764,7 +1774,7 @@ pub mod wrap_verifier {
             (v / F::from(2u64), s_odd.to_boolean())
         });
 
-        scale_fast2(g, s_parts, num_bits, w)
+        scale_fast2(g.map(|g| g.to_affine()), s_parts, num_bits, w)
     }
 
     pub fn group_map<F: FieldWitness>(x: F, w: &mut Witness<F>) -> GroupAffine<F> {
@@ -2019,7 +2029,7 @@ pub mod wrap_verifier {
 
     pub struct IncrementallyVerifyProofParams<'a> {
         pub actual_proofs_verified_mask: Vec<Boolean>,
-        pub step_domains: &'a [Domains; 5],
+        pub step_domains: &'a [Domains],
         pub verification_key: &'a PlonkVerificationKeyEvals<Fq>,
         pub srs: Arc<SRS<Vesta>>,
         pub xi: &'a [u64; 2],
@@ -2123,7 +2133,10 @@ pub mod wrap_verifier {
             #[derive(Debug)]
             enum CondOrAdd {
                 CondAdd(Boolean, (Fq, Fq)),
-                AddWithCorrection((CircuitVar<Fq>, usize), (InnerCurve<Fq>, InnerCurve<Fq>)),
+                AddWithCorrection(
+                    (CircuitVar<Fq>, usize),
+                    (CircuitVar<InnerCurve<Fq>>, InnerCurve<Fq>),
+                ),
             }
 
             let terms = non_constant_part
@@ -2168,7 +2181,7 @@ pub mod wrap_verifier {
                         })
                     }
                     CondOrAdd::AddWithCorrection((x, num_bits), (g, _)) => {
-                        let v = scale_fast2_prime(g.to_affine(), x.as_field(), num_bits, w);
+                        let v = scale_fast2_prime(g, x.as_field(), num_bits, w);
                         w.add_fast(acc, v)
                     }
                 })
@@ -2841,8 +2854,8 @@ pub struct WrapMainParams<'a> {
     pub messages_for_next_wrap_proof_padded: Vec<MessagesForNextWrapProof>,
     pub which_index: u64,
     pub pi_branches: u64,
-    pub step_widths: [u64; 5],
-    pub step_domains: [Domains; 5],
+    pub step_widths: Box<[u64]>,
+    pub step_domains: Box<[Domains]>,
     pub messages_for_next_step_proof_hash: [u64; 4],
     pub prev_evals: &'a [AllEvals<Fq>],
     pub proof: &'a ProverProof<Vesta>,
