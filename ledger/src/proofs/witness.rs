@@ -40,7 +40,7 @@ use crate::{
     proofs::{
         constants::{RegularTransactionProof, WrapProof},
         unfinalized::AllEvals,
-        wrap::{Domain, Domains},
+        wrap::{Domain, Domains, WrapParams},
     },
     scan_state::{
         currency::{self, Sgn},
@@ -5108,7 +5108,7 @@ fn generate_tx_proof(
     tx_step_prover: &Prover<Fp>,
     tx_wrap_prover: &Prover<Fq>,
     w: &mut Witness<Fp>,
-) -> String {
+) -> kimchi::proof::ProverProof<GroupAffine<Fp>> {
     let statement: Statement<()> = statement.into();
     let sok_digest = message.digest();
     let statement_with_sok = statement.with_digest(sok_digest);
@@ -5122,28 +5122,16 @@ fn generate_tx_proof(
     // TODO: Not always dummy
     let prev_evals = vec![AllEvals::dummy(); 2];
 
-    dbg!(w.primary.len());
-    dbg!(w.aux.len());
-    dbg!(w.ocaml_aux.len());
-    // assert_eq!(w.aux.len(), w.ocaml_aux.len());
-    // assert_eq!(&w.aux, &w.ocaml_aux);
-
-    eprintln!("witness0_elapsed={:?}", now.elapsed());
     let computed_witness = compute_witness::<RegularTransactionProof, _>(&tx_step_prover, w);
-    eprintln!("witness_elapsed={:?}", now.elapsed());
 
-    // let prover_index = make_prover_index(gates);
     let prev_challenges = vec![];
     let proof = create_proof::<Fp>(computed_witness, &tx_step_prover.index, prev_challenges);
-
-    // dbg!(&proof);
 
     let mut w = Witness::new::<WrapProof>();
 
     fn read_witnesses_fq() -> std::io::Result<Vec<Fq>> {
         let f = std::fs::read_to_string(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("/tmp/fqs.txt"),
-            // std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fqs_rampup4.txt"),
         )?;
 
         let fqs = f
@@ -5154,10 +5142,7 @@ fn generate_tx_proof(
 
         Ok(fqs)
     }
-
     // w.ocaml_aux = read_witnesses_fq().unwrap();
-
-    // let wrap_index = make_prover_index_wrap(wrap_gates);
 
     const WHICH_INDEX: u64 = 0;
 
@@ -5182,7 +5167,7 @@ fn generate_tx_proof(
     ]);
 
     let message = crate::proofs::wrap::wrap(
-        crate::proofs::wrap::WrapParams {
+        WrapParams {
             app_state: Rc::new(statement_with_sok),
             proof: &proof,
             step_statement,
@@ -5210,25 +5195,7 @@ fn generate_tx_proof(
         })
         .collect();
 
-    dbg!(&prev);
-    dbg!(&w.primary);
-    dbg!(w.primary.len());
-
-    let proof = create_proof::<Fq>(computed_witness, &tx_wrap_prover.index, prev);
-
-    let sum = |s: &[u8]| {
-        use sha2::Digest;
-        let mut hasher = sha2::Sha256::new();
-        hasher.update(s);
-        hex::encode(hasher.finalize())
-    };
-
-    let proof_json = serde_json::to_vec(&proof).unwrap();
-    std::fs::write("/tmp/PROOF_RUST_WRAP.json", &proof_json).unwrap();
-
-    dbg!(w.aux.len(), w.ocaml_aux.len());
-
-    sum(&proof_json)
+    create_proof::<Fq>(computed_witness, &tx_wrap_prover.index, prev)
 }
 
 #[cfg(test)]
@@ -5768,6 +5735,13 @@ mod tests {
     fn test_proofs() {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4");
 
+        let sum = |s: &[u8]| {
+            use sha2::Digest;
+            let mut hasher = sha2::Sha256::new();
+            hasher.update(s);
+            hex::encode(hasher.finalize())
+        };
+
         let Provers {
             tx_step_prover,
             tx_wrap_prover,
@@ -5790,13 +5764,17 @@ mod tests {
 
             let mut witnesses: Witness<Fp> = Witness::new::<BlockProof>();
 
-            generate_block_proof(
+            let proof = generate_block_proof(
                 &blockchain_input,
                 &block_step_prover,
                 &block_wrap_prover,
                 &tx_wrap_prover,
                 &mut witnesses,
             );
+            let proof_json = serde_json::to_vec(&proof).unwrap();
+
+            let sum = sum(&proof_json);
+            assert_eq!(sum, "cc55eb645197fc0246c96f2d2090633af54137adc93226e1aac102098337c46e");
         }
 
         // Merge proof
@@ -5806,7 +5784,7 @@ mod tests {
             let (statement, proofs, message) = extract_merge(&data);
 
             let mut witnesses: Witness<Fp> = Witness::new::<MergeProof>();
-            generate_merge_proof(
+            let proof = generate_merge_proof(
                 &statement,
                 &proofs,
                 &message,
@@ -5814,6 +5792,11 @@ mod tests {
                 &tx_wrap_prover,
                 &mut witnesses,
             );
+
+            let proof_json = serde_json::to_vec(&proof).unwrap();
+
+            let sum = sum(&proof_json);
+            assert_eq!(sum, "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8");
         }
 
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4");
@@ -5855,7 +5838,7 @@ mod tests {
             let (statement, tx_witness, message) = extract_request(&data);
 
             let mut witnesses: Witness<Fp> = Witness::new::<RegularTransactionProof>();
-            let sum = generate_tx_proof(
+            let proof = generate_tx_proof(
                 &statement,
                 &tx_witness,
                 &message,
@@ -5863,6 +5846,9 @@ mod tests {
                 &tx_wrap_prover,
                 &mut witnesses,
             );
+
+            let proof_json = serde_json::to_vec(&proof).unwrap();
+            let sum = sum(&proof_json);
 
             if sum != expected_sum {
                 eprintln!("Wrong proof: {:?}", file);

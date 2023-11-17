@@ -27,7 +27,7 @@ use crate::{
             compute_witness, create_proof, Boolean, InnerCurve, MessagesForNextStepProof,
             ReducedMessagesForNextStepProof, ToFieldElementsDebug,
         },
-        wrap::{wrap, wrap_verifier, CircuitVar, Domain, Domains, PERMUTS_MINUS_1_ADD_N1},
+        wrap::{wrap, wrap_verifier, CircuitVar, Domain, Domains, PERMUTS_MINUS_1_ADD_N1, WrapParams},
     },
     scan_state::{
         fee_excess::{self, FeeExcess},
@@ -56,7 +56,7 @@ use super::{
     witness::{
         field,
         transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
-        Check, Prover, Witness,
+        Check, Prover, Witness, GroupAffine,
     },
 };
 
@@ -1543,7 +1543,7 @@ pub fn generate_block_proof(
     block_wrap_prover: &Prover<Fq>,
     tx_wrap_prover: &Prover<Fq>,
     w: &mut Witness<Fp>,
-) {
+) -> kimchi::proof::ProverProof<GroupAffine<Fp>> {
     w.ocaml_aux = read_witnesses();
 
     let v2::ProverExtendBlockchainInputStableV2 {
@@ -2135,7 +2135,7 @@ pub fn generate_block_proof(
     }]);
 
     let message = wrap(
-        crate::proofs::wrap::WrapParams {
+        WrapParams {
             app_state,
             proof: &proof,
             step_statement,
@@ -2164,21 +2164,5 @@ pub fn generate_block_proof(
         })
         .collect();
 
-    let proof = create_proof::<Fq>(computed_witness, &block_wrap_prover.index, prev);
-
-    let sum = |s: &[u8]| {
-        use sha2::Digest;
-        let mut hasher = sha2::Sha256::new();
-        hasher.update(s);
-        hex::encode(hasher.finalize())
-    };
-
-    let proof_json = serde_json::to_vec(&proof).unwrap();
-    std::fs::write("/tmp/PROOF_RUST_WRAP.json", &proof_json).unwrap();
-    assert_eq!(
-        sum(&proof_json),
-        "cc55eb645197fc0246c96f2d2090633af54137adc93226e1aac102098337c46e"
-    );
-
-    sum(&proof_json);
+    create_proof::<Fq>(computed_witness, &block_wrap_prover.index, prev)
 }

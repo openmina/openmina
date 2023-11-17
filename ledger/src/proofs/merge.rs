@@ -2353,7 +2353,7 @@ pub fn generate_merge_proof(
     step_prover: &Prover<Fp>,
     wrap_prover: &Prover<Fq>,
     w: &mut Witness<Fp>,
-) {
+) -> ProverProof<GroupAffine<Fp>> {
     w.ocaml_aux = read_witnesses().unwrap();
 
     let statement: Statement<()> = statement.into();
@@ -2720,29 +2720,7 @@ pub fn generate_merge_proof(
         })
         .collect();
 
-    dbg!(&prev);
-    dbg!(&w.primary);
-    dbg!(w.primary.len());
-
-    let proof = create_proof::<Fq>(computed_witness, &wrap_prover.index, prev);
-
-    let sum = |s: &[u8]| {
-        use sha2::Digest;
-        let mut hasher = sha2::Sha256::new();
-        hasher.update(s);
-        hex::encode(hasher.finalize())
-    };
-
-    let proof_json = serde_json::to_vec(&proof).unwrap();
-    std::fs::write("/tmp/PROOF_RUST_WRAP.json", &proof_json).unwrap();
-    assert_eq!(
-        sum(&proof_json),
-        "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8"
-    );
-
-    dbg!(w.aux.len(), w.ocaml_aux.len());
-
-    sum(&proof_json);
+    create_proof::<Fq>(computed_witness, &wrap_prover.index, prev)
 }
 
 #[derive(Debug)]
