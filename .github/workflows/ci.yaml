@@ -1,0 +1,62 @@
+name: Openmina CI
+on: [ push, pull_request, workflow_dispatch ]
+
+jobs:
+  build:
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
+
+      # - name: Check
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: check
+
+      # - name: Clippy
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: clippy
+
+      - name: Release build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      MINA_DAEMON_REPO: minaprotocol/mina-daemon
+      MINA_DAEMON_TAG: 2.0.0rampup4-14047c5-bullseye-berkeley
+
+    services:
+      ocaml-seed:
+        image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-bullseye-berkeley
+        ports:
+          - 8302:8302
+        env:
+          MINA_LIBP2P_PASS: ""
+        options: |
+          --entrypoint="" mina daemon --seed
+    steps:
+      - name: Wait for OCaml seed
+        uses: smurfpandey/wait-for-it@v1.0
+        with:
+          host: ocaml-seed
+          port: 8302
+          timeout: 4m
+
+      - name: Test
+        run: |
+          echo hello
