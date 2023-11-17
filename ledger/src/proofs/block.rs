@@ -1,9 +1,7 @@
-#![allow(unused)]
-
 use std::{path::Path, rc::Rc, str::FromStr, sync::Arc};
 
 use kimchi::{proof::RecursionChallenge, verifier_index::VerifierIndex};
-use mina_curves::pasta::{Fq, Pallas};
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 
@@ -11,25 +9,26 @@ use crate::{
     dummy,
     proofs::{
         block::consensus::ConsensusState,
-        constants::{BlockProof, WrapBlockProof},
+        constants::{
+            make_step_block_data, make_step_transaction_data, make_wrap_block_data, StepBlockProof,
+            WrapBlockProof,
+        },
         merge::{
-            extract_recursion_challenges, verify_one, Basic, FeatureFlags, ForStep, ForStepKind,
-            OptFlag, PerProofWitness, StatementProofState,
+            extract_recursion_challenges, verify_one, ForStep, ForStepKind, PerProofWitness,
+            StatementProofState,
         },
         numbers::{
             currency::CheckedSigned,
             nat::{CheckedNat, CheckedSlot},
         },
         unfinalized::{evals_from_p2p, AllEvals, EvalsWithPublicInput},
-        util::u64_to_field,
+        util::{sha256_sum, u64_to_field},
         verifier_index::wrap_domains,
         witness::{
-            compute_witness, create_proof, Boolean, InnerCurve, MessagesForNextStepProof,
+            create_proof, Boolean, InnerCurve, MessagesForNextStepProof,
             ReducedMessagesForNextStepProof, ToFieldElementsDebug,
         },
-        wrap::{
-            wrap, wrap_verifier, CircuitVar, Domain, Domains, WrapParams, PERMUTS_MINUS_1_ADD_N1,
-        },
+        wrap::{wrap, wrap_verifier, CircuitVar, Domain, WrapParams},
     },
     scan_state::{
         fee_excess::{self, FeeExcess},
@@ -59,8 +58,7 @@ use super::{
     witness::{
         field,
         transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
-        Check, CircuitPlonkVerificationKeyEvals, GroupAffine, Prover, StepMainStatement,
-        StepStatement, Witness,
+        Check, CircuitPlonkVerificationKeyEvals, GroupAffine, Prover, StepStatement, Witness,
     },
 };
 
@@ -264,11 +262,11 @@ fn txn_statement_ledger_hashes_equal(
 }
 
 mod floating_point {
-    use ark_ff::{BigInteger, BigInteger256, One, Zero};
+    use ark_ff::BigInteger256;
     use num_bigint::BigUint;
 
     use crate::{
-        proofs::witness::{field_of_bits, field_to_bits, field_to_bits2, FieldWitness},
+        proofs::witness::{field_of_bits, field_to_bits2, FieldWitness},
         scan_state::currency::{Amount, Balance, Sgn},
     };
 
@@ -533,7 +531,6 @@ mod snarky_taylor {
         x_powers: Vec<Point<F>>,
         coefficients: impl Iterator<Item = (Sgn, floating_point::Point<F>)>,
         linear_term_integer_part: &CoeffIntegerPart,
-        w: &mut Witness<F>,
     ) -> Point<F> {
         let acc = coefficients
             .zip(&x_powers)
@@ -558,7 +555,7 @@ mod snarky_taylor {
         w: &mut Witness<F>,
     ) -> Point<F> {
         let floating_point::Params {
-            total_precision,
+            total_precision: _,
             per_term_precision,
             terms_needed,
             coefficients,
@@ -569,14 +566,13 @@ mod snarky_taylor {
         let coefficients = coefficients
             .iter()
             .map(|(sgn, c)| (*sgn, Point::<F>::constant(c, *per_term_precision)));
-        taylor_sum(powers, coefficients, linear_term_integer_part, w)
+        taylor_sum(powers, coefficients, linear_term_integer_part)
     }
 }
 
 mod vrf {
     use std::ops::Neg;
 
-    use ark_ff::{BigInteger, BigInteger256};
     use mina_signer::{CompressedPubKey, PubKey};
 
     use crate::{
@@ -585,11 +581,11 @@ mod vrf {
             numbers::nat::{CheckedNat, CheckedSlot},
             witness::{
                 decompress_var, field_to_bits, legacy_input::to_bits, scale_known,
-                scale_non_constant, FieldWitness, GroupAffine, InnerCurve,
+                scale_non_constant, GroupAffine, InnerCurve,
             },
         },
         scan_state::{
-            currency::{Amount, Balance, Sgn},
+            currency::{Amount, Balance},
             transaction_logic::protocol_state::EpochLedger,
         },
         sparse_ledger::SparseLedger,
@@ -743,8 +739,8 @@ mod vrf {
         m: &InnerCurve<Fp>,
         epoch_ledger: &EpochLedger<Fp>,
         global_slot: &CheckedSlot<Fp>,
-        block_stake_winner: &CompressedPubKey,
-        block_creator: &CompressedPubKey,
+        _block_stake_winner: &CompressedPubKey,
+        _block_creator: &CompressedPubKey,
         seed: Fp,
         prover_state: &v2::ConsensusStakeProofStableV2,
         w: &mut Witness<Fp>,
@@ -795,7 +791,7 @@ pub mod consensus {
                 currency::CheckedCurrency,
                 nat::{CheckedN, CheckedN32, CheckedNat, CheckedSlot, CheckedSlotSpan},
             },
-            witness::{compress_var, create_shifted_inner_curve, CompressedPubKeyVar, InnerCurve},
+            witness::{compress_var, create_shifted_inner_curve, CompressedPubKeyVar},
         },
         scan_state::{
             currency::{Amount, Length},
@@ -1265,7 +1261,7 @@ pub mod consensus {
         };
 
         let (next_epoch, next_slot) = next_global_slot.to_epoch_and_slot(w);
-        let (prev_epoch, prev_slot) = prev_global_slot.to_epoch_and_slot(w);
+        let (prev_epoch, _prev_slot) = prev_global_slot.to_epoch_and_slot(w);
 
         let global_slot_since_genesis =
             CheckedSlot::<Fp>::from_field(previous_state.global_slot_since_genesis.as_u32().into())
@@ -1324,7 +1320,7 @@ pub mod consensus {
         let supercharge_coinbase =
             compute_supercharge_coinbase(&winner_account, &global_slot_since_genesis, w);
 
-        let (new_total_currency, overflow) = {
+        let (new_total_currency, _overflow) = {
             let total_currency: Amount = previous_state.total_currency.clone().into();
             w.exists(supply_increase.value());
             total_currency
@@ -1473,8 +1469,6 @@ fn is_genesis_state_var(
 }
 
 fn is_genesis_state_var2(cs: &ConsensusState, w: &mut Witness<Fp>) -> Boolean {
-    use crate::scan_state::currency::Slot;
-
     let curr_global_slot = &cs.curr_global_slot;
     let slot_number = &curr_global_slot.slot_number;
 
@@ -1749,62 +1743,22 @@ pub fn step<C: ProofConstants>(
         messages_for_next_wrap_proof,
     };
 
-    // (expanded_proofs, statement)
     (step_statement, prev_evals, proof)
 }
 
-pub struct ProverExtendBlockchainInputStableV22 {
-    pub chain: v2::BlockchainSnarkBlockchainStableV2,
-    pub next_state: v2::MinaStateProtocolStateValueStableV2,
-    pub block: v2::MinaStateSnarkTransitionValueStableV2,
-    pub ledger_proof: Option<v2::LedgerProofProdStableV2>,
-    pub prover_state: v2::ConsensusStakeProofStableV2,
-    pub pending_coinbase: v2::MinaBasePendingCoinbaseWitnessStableV2,
-}
-
-struct BlockProofParams<'a> {
-    transition: &'a v2::MinaStateSnarkTransitionValueStableV2,
-    prev_state: &'a v2::MinaStateProtocolStateValueStableV2,
-    prev_state_proof: &'a v2::MinaBaseProofStableV2,
-    txn_snark: &'a Statement<SokDigest>,
-    txn_snark_proof: &'a v2::TransactionSnarkProofStableV2,
-}
-
-pub fn generate_block_proof(
-    input: &v2::ProverExtendBlockchainInputStableV2,
-    block_prover: &Prover<Fp>,
-    block_wrap_prover: &Prover<Fq>,
-    tx_wrap_prover: &Prover<Fq>,
+fn block_main<'a>(
+    params: BlockMainParams<'a>,
     w: &mut Witness<Fp>,
-) -> kimchi::proof::ProverProof<GroupAffine<Fp>> {
-    w.ocaml_aux = read_witnesses();
-
-    let v2::ProverExtendBlockchainInputStableV2 {
-        chain,
-        next_state,
-        block,
-        ledger_proof,
-        prover_state,
-        pending_coinbase,
-    } = input;
-
-    let (txn_snark_statement, txn_snark_proof) =
-        ledger_proof_opt(ledger_proof.as_ref(), next_state);
-
-    let params = BlockProofParams {
-        transition: block,
-        prev_state: &chain.state,
-        prev_state_proof: &chain.proof,
-        txn_snark: &txn_snark_statement,
-        txn_snark_proof: &txn_snark_proof,
-    };
-
-    let BlockProofParams {
+) -> (Fp, [PreviousProofStatement<'a>; 2]) {
+    let BlockMainParams {
         transition,
         prev_state,
         prev_state_proof,
         txn_snark,
         txn_snark_proof,
+        next_state,
+        prover_state,
+        pending_coinbase,
     } = params;
 
     let new_state_hash = w.exists(MinaHash::hash(next_state));
@@ -1846,21 +1800,10 @@ pub fn generate_block_proof(
     );
 
     let ConsensusState {
-        blockchain_length,
-        epoch_count,
-        min_window_density,
-        sub_window_densities,
-        last_vrf_output,
-        curr_global_slot,
         global_slot_since_genesis,
-        total_currency,
-        staking_epoch_data,
-        next_epoch_data,
-        has_ancestor_in_same_checkpoint_window,
-        block_stake_winner,
-        block_creator,
         coinbase_receiver,
         supercharge_coinbase,
+        ..
     } = &consensus_state;
 
     let prev_pending_coinbase_root = previous_state
@@ -1985,148 +1928,124 @@ pub fn generate_block_proof(
 
     Boolean::assert_any(&[*is_base_case.value(), success], w);
 
+    let previous_proof_statements = [
+        PreviousProofStatement {
+            public_input: Rc::new(MinaHash::hash(previous_blockchain_proof_input)),
+            proof: prev_state_proof,
+            proof_must_verify: prev_should_verify,
+        },
+        PreviousProofStatement {
+            public_input: Rc::new(txn_snark.clone()),
+            proof: txn_snark_proof,
+            proof_must_verify: txn_snark_should_verify,
+        },
+    ];
+
+    (new_state_hash, previous_proof_statements)
+}
+
+pub struct ProverExtendBlockchainInputStableV22 {
+    pub chain: v2::BlockchainSnarkBlockchainStableV2,
+    pub next_state: v2::MinaStateProtocolStateValueStableV2,
+    pub block: v2::MinaStateSnarkTransitionValueStableV2,
+    pub ledger_proof: Option<v2::LedgerProofProdStableV2>,
+    pub prover_state: v2::ConsensusStakeProofStableV2,
+    pub pending_coinbase: v2::MinaBasePendingCoinbaseWitnessStableV2,
+}
+
+struct BlockMainParams<'a> {
+    transition: &'a v2::MinaStateSnarkTransitionValueStableV2,
+    prev_state: &'a v2::MinaStateProtocolStateValueStableV2,
+    prev_state_proof: &'a v2::MinaBaseProofStableV2,
+    txn_snark: &'a Statement<SokDigest>,
+    txn_snark_proof: &'a v2::TransactionSnarkProofStableV2,
+    next_state: &'a v2::MinaStateProtocolStateValueStableV2,
+    prover_state: &'a v2::ConsensusStakeProofStableV2,
+    pending_coinbase: &'a v2::MinaBasePendingCoinbaseWitnessStableV2,
+}
+
+pub struct BlockParams<'a> {
+    pub input: &'a v2::ProverExtendBlockchainInputStableV2,
+    pub block_prover: &'a Prover<Fp>,
+    pub block_wrap_prover: &'a Prover<Fq>,
+    pub tx_wrap_prover: &'a Prover<Fq>,
+    /// For debugging only
+    pub expected_step_proof: Option<&'static str>,
+    /// For debugging only
+    pub ocaml_wrap_witness: Option<Vec<Fq>>,
+}
+
+pub fn generate_block_proof(
+    params: BlockParams,
+    w: &mut Witness<Fp>,
+) -> kimchi::proof::ProverProof<GroupAffine<Fp>> {
+    w.ocaml_aux = read_witnesses();
+
+    let BlockParams {
+        input:
+            v2::ProverExtendBlockchainInputStableV2 {
+                chain,
+                next_state,
+                block,
+                ledger_proof,
+                prover_state,
+                pending_coinbase,
+            },
+        block_prover,
+        block_wrap_prover,
+        tx_wrap_prover,
+        expected_step_proof,
+        ocaml_wrap_witness,
+    } = params;
+
+    let (txn_snark_statement, txn_snark_proof) =
+        ledger_proof_opt(ledger_proof.as_ref(), next_state);
+    let prev_state_proof = &chain.proof;
+
+    let (new_state_hash, previous_proof_statements) = block_main(
+        BlockMainParams {
+            transition: block,
+            prev_state: &chain.state,
+            prev_state_proof,
+            txn_snark: &txn_snark_statement,
+            txn_snark_proof: &txn_snark_proof,
+            next_state,
+            prover_state,
+            pending_coinbase,
+        },
+        w,
+    );
+
     let prev_challenge_polynomial_commitments =
         extract_recursion_challenges(&[&prev_state_proof, &txn_snark_proof]);
 
-    let proofs: [&v2::PicklesProofProofsVerified2ReprStableV2; 2] =
-        [&prev_state_proof, &txn_snark_proof];
     let rule = InductiveRule {
-        previous_proof_statements: [
-            PreviousProofStatement {
-                public_input: Rc::new(MinaHash::hash(previous_blockchain_proof_input)),
-                proof: &prev_state_proof,
-                proof_must_verify: prev_should_verify,
-            },
-            PreviousProofStatement {
-                public_input: Rc::new(txn_snark.clone()),
-                proof: &txn_snark_proof,
-                proof_must_verify: txn_snark_should_verify,
-            },
-        ],
+        previous_proof_statements,
         public_output: (),
         auxiliary_output: (),
     };
 
-    // let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(block_wrap_prover));
     let dlog_plonk_index = super::merge::dlog_plonk_index(block_wrap_prover);
     let verifier_index = block_wrap_prover.index.verifier_index.as_ref().unwrap();
 
     let tx_dlog_plonk_index = super::merge::dlog_plonk_index(tx_wrap_prover);
     let tx_verifier_index = tx_wrap_prover.index.verifier_index.as_ref().unwrap();
 
-    let dlog_plonk_index = dlog_plonk_index.to_cvar(CircuitVar::Var);
-    let tx_dlog_plonk_index = tx_dlog_plonk_index.to_cvar(CircuitVar::Constant);
+    let dlog_plonk_index_cvar = dlog_plonk_index.to_cvar(CircuitVar::Var);
+    let tx_dlog_plonk_index_cvar = tx_dlog_plonk_index.to_cvar(CircuitVar::Constant);
 
     let indexes = [
-        (verifier_index, &dlog_plonk_index),
-        (tx_verifier_index, &tx_dlog_plonk_index),
+        (verifier_index, &dlog_plonk_index_cvar),
+        (tx_verifier_index, &tx_dlog_plonk_index_cvar),
     ];
 
-    let block_data = {
-        let basic = Basic {
-            proof_verifieds: vec![2],
-            wrap_domain: Domains {
-                h: Domain::Pow2RootsOfUnity(14),
-            },
-            step_domains: vec![Domains {
-                h: Domain::Pow2RootsOfUnity(16),
-            }],
-            feature_flags: FeatureFlags {
-                range_check0: OptFlag::No,
-                range_check1: OptFlag::No,
-                foreign_field_add: OptFlag::No,
-                foreign_field_mul: OptFlag::No,
-                xor: OptFlag::No,
-                rot: OptFlag::No,
-                lookup: OptFlag::No,
-                runtime_tables: OptFlag::No,
-            },
-        };
-
-        let self_branches = 1;
-        let max_proofs_verified = 2;
-        let self_data = ForStep {
-            branches: self_branches,
-            max_proofs_verified,
-            proof_verifieds: ForStepKind::Known(
-                basic
-                    .proof_verifieds
-                    .iter()
-                    .copied()
-                    .map(Fp::from)
-                    .collect(),
-            ),
-            public_input: (),
-            wrap_key: dlog_plonk_index.clone(), // TODO: Use ref
-            wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
-            step_domains: ForStepKind::Known(basic.step_domains),
-            feature_flags: basic.feature_flags,
-        };
-        self_data
-    };
-
-    let tx_data = {
-        let basic = Basic {
-            proof_verifieds: vec![0, 2, 0, 0, 1],
-            wrap_domain: Domains {
-                h: Domain::Pow2RootsOfUnity(14),
-            },
-            step_domains: vec![
-                Domains {
-                    h: Domain::Pow2RootsOfUnity(15),
-                },
-                Domains {
-                    h: Domain::Pow2RootsOfUnity(15),
-                },
-                Domains {
-                    h: Domain::Pow2RootsOfUnity(15),
-                },
-                Domains {
-                    h: Domain::Pow2RootsOfUnity(14),
-                },
-                Domains {
-                    h: Domain::Pow2RootsOfUnity(15),
-                },
-            ],
-            feature_flags: FeatureFlags {
-                range_check0: OptFlag::No,
-                range_check1: OptFlag::No,
-                foreign_field_add: OptFlag::No,
-                foreign_field_mul: OptFlag::No,
-                xor: OptFlag::No,
-                rot: OptFlag::No,
-                lookup: OptFlag::No,
-                runtime_tables: OptFlag::No,
-            },
-        };
-
-        let self_branches = 5;
-        let max_proofs_verified = 2;
-        let self_data = ForStep {
-            branches: self_branches,
-            max_proofs_verified,
-            proof_verifieds: ForStepKind::Known(
-                basic
-                    .proof_verifieds
-                    .iter()
-                    .copied()
-                    .map(Fp::from)
-                    .collect(),
-            ),
-            public_input: (),
-            wrap_key: tx_dlog_plonk_index.clone(), // TODO: Use ref
-            wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
-            step_domains: ForStepKind::Known(basic.step_domains),
-            feature_flags: basic.feature_flags,
-        };
-        self_data
-    };
-
+    let block_data = make_step_block_data(&dlog_plonk_index_cvar);
+    let tx_data = make_step_transaction_data(&tx_dlog_plonk_index_cvar);
     let for_step_datas = [&block_data, &tx_data];
 
     let app_state: Rc<dyn ToFieldElementsDebug> = Rc::new(new_state_hash);
 
-    let (step_statement, prev_evals, proof) = step::<BlockProof>(
+    let (step_statement, prev_evals, proof) = step::<StepBlockProof>(
         StepParams {
             app_state: Rc::clone(&app_state),
             rule,
@@ -2139,75 +2058,29 @@ pub fn generate_block_proof(
         w,
     );
 
-    let sum = |s: &[u8]| {
-        use sha2::Digest;
-        let mut hasher = sha2::Sha256::new();
-        hasher.update(s);
-        hex::encode(hasher.finalize())
+    if let Some(expected) = expected_step_proof {
+        let proof_json = serde_json::to_vec(&proof).unwrap();
+        assert_eq!(sha256_sum(&proof_json), expected);
     };
 
-    let proof_json = serde_json::to_vec(&proof).unwrap();
-    std::fs::write("/tmp/PROOF_RUST_STEP.json", &proof_json).unwrap();
+    let mut w = Witness::new::<WrapBlockProof>();
 
-    assert_eq!(
-        sum(&proof_json),
-        "a82a10e5c276dd6dc251241dcbad005201034ffff5752516a179f317dfe385f5"
-    );
+    if let Some(ocaml_aux) = ocaml_wrap_witness {
+        w.ocaml_aux = ocaml_aux;
+    };
 
-    let mut w = Witness::new::<crate::proofs::constants::WrapBlockProof>();
-
-    fn read_witnesses_fq() -> std::io::Result<Vec<Fq>> {
-        let f = std::fs::read_to_string(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("rampup4")
-                .join("block_fqs.txt"),
-        )?;
-
-        let fqs = f
-            .lines()
-            .filter(|s| !s.is_empty())
-            .map(|s| Fq::from_str(s).unwrap())
-            .collect::<Vec<_>>();
-
-        Ok(fqs)
-    }
-
-    w.ocaml_aux = read_witnesses_fq().unwrap();
-
-    const WHICH_INDEX: u64 = 0;
-
-    let pi_branches = 1;
-    let step_widths = Box::new([2]);
-    let step_domains = Box::new([Domains {
-        h: Domain::Pow2RootsOfUnity(16),
-    }]);
-
-    let message = wrap(
+    let wrap_data = make_wrap_block_data();
+    wrap::<WrapBlockProof>(
         WrapParams {
             app_state,
             proof: &proof,
             step_statement,
             prev_evals: &prev_evals,
-            dlog_plonk_index: &dlog_plonk_index.to_non_cvar(),
+            dlog_plonk_index: &dlog_plonk_index,
             step_prover_index: &block_prover.index,
-            which_index: WHICH_INDEX,
-            pi_branches,
-            step_widths,
-            step_domains,
+            wrap_prover: block_wrap_prover,
+            wrap_data,
         },
         &mut w,
-    );
-
-    let prev = message
-        .iter()
-        .map(|m| RecursionChallenge {
-            comm: poly_commitment::PolyComm::<Pallas> {
-                unshifted: vec![m.commitment.to_affine()],
-                shifted: None,
-            },
-            chals: m.challenges.to_vec(),
-        })
-        .collect();
-
-    create_proof::<WrapBlockProof, Fq>(block_wrap_prover, prev, &w)
+    )
 }

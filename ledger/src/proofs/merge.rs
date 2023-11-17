@@ -3,16 +3,19 @@ use std::{path::Path, rc::Rc, str::FromStr};
 use crate::{
     proofs::{
         block::{step, StepParams},
-        constants::{MergeProof, WrapProof},
+        constants::{
+            make_step_transaction_data, make_wrap_merge_data, StepMergeProof, WrapTransactionProof,
+        },
         prover::make_prover,
         public_input::{
             plonk_checks::ShiftingValue,
             prepared_statement::{DeferredValues, PreparedStatement, ProofState},
         },
         unfinalized::dummy_ipa_step_challenges_computed,
-        witness::create_proof,
+        util::sha256_sum,
         wrap::{
-            create_oracle, dummy_ipa_wrap_sg, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2,
+            create_oracle, dummy_ipa_wrap_sg, wrap, wrap_verifier, Domain, WrapParams,
+            COMMON_MAX_DEGREE_WRAP_LOG2,
         },
     },
     verifier::get_srs,
@@ -2346,14 +2349,32 @@ pub fn extract_recursion_challenges(
         .collect()
 }
 
+pub struct MergeParams<'a> {
+    pub statement: &'a v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+    pub proofs: &'a [v2::LedgerProofProdStableV2; 2],
+    pub message: &'a SokMessage,
+    pub step_prover: &'a Prover<Fp>,
+    pub wrap_prover: &'a Prover<Fq>,
+    /// For debugging only
+    pub expected_step_proof: Option<&'static str>,
+    /// For debugging only
+    pub ocaml_wrap_witness: Option<Vec<Fq>>,
+}
+
 pub fn generate_merge_proof(
-    statement: &v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement,
-    proofs: &[v2::LedgerProofProdStableV2; 2],
-    message: &SokMessage,
-    step_prover: &Prover<Fp>,
-    wrap_prover: &Prover<Fq>,
+    params: MergeParams,
     w: &mut Witness<Fp>,
 ) -> ProverProof<GroupAffine<Fp>> {
+    let MergeParams {
+        statement,
+        proofs,
+        message,
+        step_prover,
+        wrap_prover,
+        expected_step_proof,
+        ocaml_wrap_witness,
+    } = params;
+
     w.ocaml_aux = read_witnesses().unwrap();
 
     let statement: Statement<()> = statement.into();
@@ -2393,68 +2414,15 @@ pub fn generate_merge_proof(
     let dlog_plonk_index_cvar = dlog_plonk_index.to_cvar(CircuitVar::Var);
     let verifier_index = wrap_prover.index.verifier_index.as_ref().unwrap();
 
-    let basic = Basic {
-        proof_verifieds: vec![0, 2, 0, 0, 1],
-        wrap_domain: Domains {
-            h: Domain::Pow2RootsOfUnity(14),
-        },
-        step_domains: vec![
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(14),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-        ],
-        feature_flags: FeatureFlags {
-            range_check0: OptFlag::No,
-            range_check1: OptFlag::No,
-            foreign_field_add: OptFlag::No,
-            foreign_field_mul: OptFlag::No,
-            xor: OptFlag::No,
-            rot: OptFlag::No,
-            lookup: OptFlag::No,
-            runtime_tables: OptFlag::No,
-        },
-    };
-
-    let self_branches = 5;
-    let max_proofs_verified = 2;
-    let self_data = ForStep {
-        branches: self_branches,
-        max_proofs_verified,
-        proof_verifieds: ForStepKind::Known(
-            basic
-                .proof_verifieds
-                .iter()
-                .copied()
-                .map(Fp::from)
-                .collect(),
-        ),
-        public_input: (),
-        wrap_key: dlog_plonk_index_cvar.clone(), // TODO: Use ref
-        wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
-        step_domains: ForStepKind::Known(basic.step_domains),
-        feature_flags: basic.feature_flags,
-    };
-
-    let for_step_datas = [&self_data, &self_data];
+    let tx_data = make_step_transaction_data(&dlog_plonk_index_cvar);
+    let for_step_datas = [&tx_data, &tx_data];
 
     let indexes = [
         (verifier_index, &dlog_plonk_index_cvar),
         (verifier_index, &dlog_plonk_index_cvar),
     ];
 
-    let (step_statement, prev_evals, proof) = step::<MergeProof>(
+    let (step_statement, prev_evals, proof) = step::<StepMergeProof>(
         StepParams {
             app_state: Rc::new(statement_with_sok.clone()),
             rule,
@@ -2467,91 +2435,31 @@ pub fn generate_merge_proof(
         w,
     );
 
-    let sum = |s: &[u8]| {
-        use sha2::Digest;
-        let mut hasher = sha2::Sha256::new();
-        hasher.update(s);
-        hex::encode(hasher.finalize())
+    if let Some(expected) = expected_step_proof {
+        let proof_json = serde_json::to_vec(&proof).unwrap();
+        assert_eq!(sha256_sum(&proof_json), expected);
     };
 
-    let proof_json = serde_json::to_vec(&proof).unwrap();
-    std::fs::write("/tmp/PROOF_RUST_STEP.json", &proof_json).unwrap();
-    assert_eq!(
-        sum(&proof_json),
-        "fb89b6d51ce5ed6fe7815b86ca37a7dcdc34d9891b4967692d3751dad32842f8"
-    );
+    let mut w = Witness::new::<WrapTransactionProof>();
 
-    let mut w = Witness::new::<crate::proofs::constants::WrapProof>();
+    if let Some(ocaml_aux) = ocaml_wrap_witness {
+        w.ocaml_aux = ocaml_aux;
+    };
 
-    fn read_witnesses_fq() -> std::io::Result<Vec<Fq>> {
-        let f = std::fs::read_to_string(
-            // std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("/tmp/fqs.txt"),
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("rampup4")
-                .join("fqs_merge.txt"),
-        )?;
-
-        let fqs = f
-            .lines()
-            .filter(|s| !s.is_empty())
-            .map(|s| Fq::from_str(s).unwrap())
-            .collect::<Vec<_>>();
-
-        Ok(fqs)
-    }
-
-    w.ocaml_aux = read_witnesses_fq().unwrap();
-
-    const WHICH_INDEX: u64 = 1;
-
-    let pi_branches = 5;
-    let step_widths = Box::new([0, 2, 0, 0, 1]);
-    let step_domains = Box::new([
-        Domains {
-            h: Domain::Pow2RootsOfUnity(15),
-        },
-        Domains {
-            h: Domain::Pow2RootsOfUnity(15),
-        },
-        Domains {
-            h: Domain::Pow2RootsOfUnity(15),
-        },
-        Domains {
-            h: Domain::Pow2RootsOfUnity(14),
-        },
-        Domains {
-            h: Domain::Pow2RootsOfUnity(15),
-        },
-    ]);
-
-    let message = crate::proofs::wrap::wrap(
-        crate::proofs::wrap::WrapParams {
+    let wrap_data = make_wrap_merge_data();
+    wrap::<WrapTransactionProof>(
+        WrapParams {
             app_state: Rc::new(statement_with_sok),
             proof: &proof,
             step_statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,
             step_prover_index: &step_prover.index,
-            which_index: WHICH_INDEX,
-            pi_branches,
-            step_widths,
-            step_domains,
+            wrap_prover,
+            wrap_data,
         },
         &mut w,
-    );
-
-    let prev = message
-        .iter()
-        .map(|m| RecursionChallenge {
-            comm: poly_commitment::PolyComm::<Pallas> {
-                unshifted: vec![m.commitment.to_affine()],
-                shifted: None,
-            },
-            chals: m.challenges.to_vec(),
-        })
-        .collect();
-
-    create_proof::<WrapProof, Fq>(wrap_prover, prev, &w)
+    )
 }
 
 #[derive(Debug)]

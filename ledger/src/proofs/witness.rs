@@ -10,7 +10,6 @@ use kimchi::{
     prover_index::ProverIndex,
 };
 use kimchi::{curve::KimchiCurve, proof::ProofEvaluations};
-use mina_curves::pasta::Pallas;
 use mina_curves::pasta::{
     Fq, PallasParameters, ProjectivePallas, ProjectiveVesta, VestaParameters,
 };
@@ -38,9 +37,10 @@ use mina_signer::{CompressedPubKey, PubKey};
 use crate::{
     decompress_pk, gen_keypair,
     proofs::{
-        constants::{RegularTransactionProof, WrapProof},
+        constants::{make_wrap_transaction_data, StepTransactionProof, WrapTransactionProof},
         unfinalized::AllEvals,
-        wrap::{Domain, Domains, WrapParams},
+        util::sha256_sum,
+        wrap::WrapParams,
     },
     scan_state::{
         currency::{self, Sgn},
@@ -3386,24 +3386,6 @@ pub mod transaction_snark {
         fork: None,
     };
 
-    // let res : (a, b, c) Poly.t =
-    //   { Poly.k = to_length k
-    //   ; delta = to_length delta
-    //   ; block_window_duration_ms = to_timespan block_window_duration_ms
-    //   ; slots_per_sub_window = to_length slots_per_sub_window
-    //   ; slots_per_window = to_length slots_per_window
-    //   ; sub_windows_per_window = to_length sub_windows_per_window
-    //   ; slots_per_epoch = to_length slots_per_epoch
-    //   ; grace_period_end = to_length grace_period_end
-    //   ; slot_duration_ms = to_timespan Slot.duration_ms
-    //   ; epoch_duration = to_timespan Epoch.duration
-    //   ; checkpoint_window_slots_per_year = to_length zero
-    //   ; checkpoint_window_size_in_slots = to_length zero
-    //   ; delta_duration = to_timespan delta_duration
-    //   ; genesis_state_timestamp = protocol_constants.genesis_state_timestamp
-    //   }
-    // in
-
     mod user_command_failure {
         use crate::scan_state::{
             currency::Magnitude,
@@ -5104,14 +5086,32 @@ pub struct Prover<F: FieldWitness> {
     pub index: ProverIndex<F::OtherCurve>,
 }
 
+pub struct TransactionParams<'a> {
+    pub statement: &'a MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+    pub tx_witness: &'a v2::TransactionWitnessStableV2,
+    pub message: &'a SokMessage,
+    pub tx_step_prover: &'a Prover<Fp>,
+    pub tx_wrap_prover: &'a Prover<Fq>,
+    /// For debugging only
+    pub expected_step_proof: Option<&'static str>,
+    /// For debugging only
+    pub ocaml_wrap_witness: Option<Vec<Fq>>,
+}
+
 fn generate_tx_proof(
-    statement: &MinaStateBlockchainStateValueStableV2LedgerProofStatement,
-    tx_witness: &v2::TransactionWitnessStableV2,
-    message: &SokMessage,
-    tx_step_prover: &Prover<Fp>,
-    tx_wrap_prover: &Prover<Fq>,
+    params: TransactionParams,
     w: &mut Witness<Fp>,
 ) -> kimchi::proof::ProverProof<GroupAffine<Fp>> {
+    let TransactionParams {
+        statement,
+        tx_witness,
+        message,
+        tx_step_prover,
+        tx_wrap_prover,
+        expected_step_proof,
+        ocaml_wrap_witness,
+    } = params;
+
     let statement: Statement<()> = statement.into();
     let sok_digest = message.digest();
     let statement_with_sok = statement.with_digest(sok_digest);
@@ -5125,48 +5125,21 @@ fn generate_tx_proof(
     let prev_evals = vec![AllEvals::dummy(); 2];
 
     let prev_challenges = vec![];
-    let proof = create_proof::<RegularTransactionProof, Fp>(tx_step_prover, prev_challenges, w);
+    let proof = create_proof::<StepTransactionProof, Fp>(tx_step_prover, prev_challenges, w);
 
-    let mut w = Witness::new::<WrapProof>();
+    if let Some(expected) = expected_step_proof {
+        let proof_json = serde_json::to_vec(&proof).unwrap();
+        assert_eq!(sha256_sum(&proof_json), expected);
+    };
 
-    fn read_witnesses_fq() -> std::io::Result<Vec<Fq>> {
-        let f = std::fs::read_to_string(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("/tmp/fqs.txt"),
-        )?;
+    let mut w = Witness::new::<WrapTransactionProof>();
 
-        let fqs = f
-            .lines()
-            .filter(|s| !s.is_empty())
-            .map(|s| Fq::from_str(s).unwrap())
-            .collect::<Vec<_>>();
+    if let Some(ocaml_aux) = ocaml_wrap_witness {
+        w.ocaml_aux = ocaml_aux;
+    };
 
-        Ok(fqs)
-    }
-    // w.ocaml_aux = read_witnesses_fq().unwrap();
-
-    const WHICH_INDEX: u64 = 0;
-
-    let pi_branches = 5;
-    let step_widths = Box::new([0, 2, 0, 0, 1]);
-    let step_domains = Box::new([
-        Domains {
-            h: Domain::Pow2RootsOfUnity(15),
-        },
-        Domains {
-            h: Domain::Pow2RootsOfUnity(15),
-        },
-        Domains {
-            h: Domain::Pow2RootsOfUnity(15),
-        },
-        Domains {
-            h: Domain::Pow2RootsOfUnity(14),
-        },
-        Domains {
-            h: Domain::Pow2RootsOfUnity(15),
-        },
-    ]);
-
-    let message = crate::proofs::wrap::wrap(
+    let wrap_data = make_wrap_transaction_data();
+    crate::proofs::wrap::wrap::<WrapTransactionProof>(
         WrapParams {
             app_state: Rc::new(statement_with_sok),
             proof: &proof,
@@ -5174,28 +5147,11 @@ fn generate_tx_proof(
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,
             step_prover_index: &tx_step_prover.index,
-            which_index: WHICH_INDEX,
-            pi_branches,
-            step_widths,
-            step_domains,
+            wrap_prover: tx_wrap_prover,
+            wrap_data,
         },
         &mut w,
-    );
-
-    // let computed_witness = compute_witness::<WrapProof, _>(tx_wrap_prover, &w);
-
-    let prev = message
-        .iter()
-        .map(|m| RecursionChallenge {
-            comm: poly_commitment::PolyComm::<Pallas> {
-                unshifted: vec![m.commitment.to_affine()],
-                shifted: None,
-            },
-            chals: m.challenges.to_vec(),
-        })
-        .collect();
-
-    create_proof::<WrapProof, Fq>(tx_wrap_prover, prev, &w)
+    )
 }
 
 #[cfg(test)]
@@ -5259,9 +5215,10 @@ mod tests {
 
     use crate::{
         proofs::{
-            block::generate_block_proof,
-            constants::{BlockProof, MergeProof, WrapBlockProof},
-            merge::generate_merge_proof,
+            block::{generate_block_proof, BlockParams},
+            constants::{StepBlockProof, StepMergeProof, WrapBlockProof},
+            merge::{generate_merge_proof, MergeParams},
+            util::sha256_sum,
         },
         scan_state::scan_state::transaction_snark::SokMessage,
     };
@@ -5588,11 +5545,11 @@ mod tests {
             block_wrap_internal_vars,
             block_wrap_rows_rev,
         } = read_gates();
-        let tx_prover_index = make_prover_index::<RegularTransactionProof, _>(gates);
-        let merge_prover_index = make_prover_index::<MergeProof, _>(merge_gates);
-        let wrap_prover_index = make_prover_index::<WrapProof, _>(wrap_gates);
+        let tx_prover_index = make_prover_index::<StepTransactionProof, _>(gates);
+        let merge_prover_index = make_prover_index::<StepMergeProof, _>(merge_gates);
+        let wrap_prover_index = make_prover_index::<WrapTransactionProof, _>(wrap_gates);
         let wrap_block_prover_index = make_prover_index::<WrapBlockProof, _>(block_wrap_gates);
-        let block_prover_index = make_prover_index::<BlockProof, _>(block_gates);
+        let block_prover_index = make_prover_index::<StepBlockProof, _>(block_gates);
 
         let tx_step_prover = Prover {
             internal_vars,
@@ -5633,13 +5590,6 @@ mod tests {
         }
     }
 
-    fn sum(s: &[u8]) -> String {
-        use sha2::Digest;
-        let mut hasher = sha2::Sha256::new();
-        hasher.update(s);
-        hex::encode(hasher.finalize())
-    }
-
     #[test]
     fn test_protocol_state_body() {
         let Ok(data) =
@@ -5662,13 +5612,17 @@ mod tests {
             block_wrap_prover: _,
         } = make_provers();
 
-        let mut witnesses: Witness<Fp> = Witness::new::<RegularTransactionProof>();
+        let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
         generate_tx_proof(
-            &statement,
-            &tx_witness,
-            &message,
-            &tx_step_prover,
-            &tx_wrap_prover,
+            TransactionParams {
+                statement: &statement,
+                tx_witness: &tx_witness,
+                message: &message,
+                tx_step_prover: &tx_step_prover,
+                tx_wrap_prover: &tx_wrap_prover,
+                expected_step_proof: None,
+                ocaml_wrap_witness: None,
+            },
             &mut witnesses,
         );
     }
@@ -5695,22 +5649,43 @@ mod tests {
             block_wrap_prover: _,
         } = make_provers();
 
-        let mut witnesses: Witness<Fp> = Witness::new::<MergeProof>();
+        let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
         let proof = generate_merge_proof(
-            &statement,
-            &proofs,
-            &message,
-            &merge_step_prover,
-            &tx_wrap_prover,
+            MergeParams {
+                statement: &statement,
+                proofs: &proofs,
+                message: &message,
+                step_prover: &merge_step_prover,
+                wrap_prover: &tx_wrap_prover,
+                expected_step_proof: Some(
+                    "fb89b6d51ce5ed6fe7815b86ca37a7dcdc34d9891b4967692d3751dad32842f8",
+                ),
+                ocaml_wrap_witness: Some(read_witnesses_fq("fqs_merge.txt")),
+            },
             &mut witnesses,
         );
         let proof_json = serde_json::to_vec(&proof).unwrap();
 
-        let sum = sum(&proof_json);
+        let sum = sha256_sum(&proof_json);
         assert_eq!(
             sum,
             "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8"
         );
+    }
+
+    fn read_witnesses_fq(filename: &str) -> Vec<Fq> {
+        let f = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("rampup4")
+                .join(filename),
+        )
+        .unwrap();
+        let fqs = f
+            .lines()
+            .filter(|s| !s.is_empty())
+            .map(|s| Fq::from_str(s).unwrap())
+            .collect::<Vec<_>>();
+        fqs
     }
 
     #[test]
@@ -5734,19 +5709,25 @@ mod tests {
             block_step_prover,
             block_wrap_prover,
         } = make_provers();
-        let mut witnesses: Witness<Fp> = Witness::new::<BlockProof>();
+        let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
 
         let proof = generate_block_proof(
-            &blockchain_input,
-            &block_step_prover,
-            &block_wrap_prover,
-            &tx_wrap_prover,
+            BlockParams {
+                input: &blockchain_input,
+                block_prover: &block_step_prover,
+                block_wrap_prover: &block_wrap_prover,
+                tx_wrap_prover: &tx_wrap_prover,
+                expected_step_proof: Some(
+                    "a82a10e5c276dd6dc251241dcbad005201034ffff5752516a179f317dfe385f5",
+                ),
+                ocaml_wrap_witness: Some(read_witnesses_fq("block_fqs.txt")),
+            },
             &mut witnesses,
         );
 
         let proof_json = serde_json::to_vec(&proof).unwrap();
 
-        let sum = sum(&proof_json);
+        let sum = sha256_sum(&proof_json);
         assert_eq!(
             sum,
             "cc55eb645197fc0246c96f2d2090633af54137adc93226e1aac102098337c46e"
@@ -5777,18 +5758,24 @@ mod tests {
             let blockchain_input: v2::ProverExtendBlockchainInputStableV2 =
                 read_binprot(&mut data.as_slice());
 
-            let mut witnesses: Witness<Fp> = Witness::new::<BlockProof>();
+            let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
 
             let proof = generate_block_proof(
-                &blockchain_input,
-                &block_step_prover,
-                &block_wrap_prover,
-                &tx_wrap_prover,
+                BlockParams {
+                    input: &blockchain_input,
+                    block_prover: &block_step_prover,
+                    block_wrap_prover: &block_wrap_prover,
+                    tx_wrap_prover: &tx_wrap_prover,
+                    expected_step_proof: Some(
+                        "a82a10e5c276dd6dc251241dcbad005201034ffff5752516a179f317dfe385f5",
+                    ),
+                    ocaml_wrap_witness: Some(read_witnesses_fq("block_fqs.txt")),
+                },
                 &mut witnesses,
             );
             let proof_json = serde_json::to_vec(&proof).unwrap();
 
-            let sum = sum(&proof_json);
+            let sum = sha256_sum(&proof_json);
             assert_eq!(
                 sum,
                 "cc55eb645197fc0246c96f2d2090633af54137adc93226e1aac102098337c46e"
@@ -5801,19 +5788,25 @@ mod tests {
 
             let (statement, proofs, message) = extract_merge(&data);
 
-            let mut witnesses: Witness<Fp> = Witness::new::<MergeProof>();
+            let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
             let proof = generate_merge_proof(
-                &statement,
-                &proofs,
-                &message,
-                &merge_step_prover,
-                &tx_wrap_prover,
+                MergeParams {
+                    statement: &statement,
+                    proofs: &proofs,
+                    message: &message,
+                    step_prover: &merge_step_prover,
+                    wrap_prover: &tx_wrap_prover,
+                    expected_step_proof: Some(
+                        "fb89b6d51ce5ed6fe7815b86ca37a7dcdc34d9891b4967692d3751dad32842f8",
+                    ),
+                    ocaml_wrap_witness: Some(read_witnesses_fq("fqs_merge.txt")),
+                },
                 &mut witnesses,
             );
 
             let proof_json = serde_json::to_vec(&proof).unwrap();
 
-            let sum = sum(&proof_json);
+            let sum = sha256_sum(&proof_json);
             assert_eq!(
                 sum,
                 "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8"
@@ -5858,18 +5851,22 @@ mod tests {
             let data = std::fs::read(base_dir.join(file)).unwrap();
             let (statement, tx_witness, message) = extract_request(&data);
 
-            let mut witnesses: Witness<Fp> = Witness::new::<RegularTransactionProof>();
+            let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
             let proof = generate_tx_proof(
-                &statement,
-                &tx_witness,
-                &message,
-                &tx_step_prover,
-                &tx_wrap_prover,
+                TransactionParams {
+                    statement: &statement,
+                    tx_witness: &tx_witness,
+                    message: &message,
+                    tx_step_prover: &tx_step_prover,
+                    tx_wrap_prover: &tx_wrap_prover,
+                    expected_step_proof: None,
+                    ocaml_wrap_witness: None,
+                },
                 &mut witnesses,
             );
 
             let proof_json = serde_json::to_vec(&proof).unwrap();
-            let sum = sum(&proof_json);
+            let sum = sha256_sum(&proof_json);
 
             if sum != expected_sum {
                 eprintln!("Wrong proof: {:?}", file);

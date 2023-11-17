@@ -488,3 +488,10 @@ pub fn to_absorption_sequence_opt<F: FieldWitness>(
 
     list
 }
+
+pub fn sha256_sum(s: &[u8]) -> String {
+    use sha2::Digest;
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(s);
+    hex::encode(hasher.finalize())
+}

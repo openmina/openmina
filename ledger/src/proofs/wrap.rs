@@ -10,9 +10,9 @@ use itertools::Itertools;
 use kimchi::{
     circuits::{scalars::RandomOracles, wires::COLUMNS},
     oracles::OraclesResult,
-    proof::{PointEvaluations, ProofEvaluations, ProverProof},
+    proof::{PointEvaluations, ProofEvaluations, ProverProof, RecursionChallenge},
 };
-use mina_curves::pasta::{Fq, PallasParameters, Vesta};
+use mina_curves::pasta::{Fq, Pallas, PallasParameters, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
     CompositionTypesBranchDataDomainLog2StableV1, CompositionTypesBranchDataStableV1,
@@ -36,8 +36,8 @@ use crate::{
         util::{challenge_polynomial, proof_evaluation_to_list},
         verification::make_scalars_env,
         witness::{
-            endos, field, make_group, Boolean, FieldWitness, InnerCurve, StepStatementWithHash,
-            ToBoolean,
+            create_proof, endos, field, make_group, Boolean, FieldWitness, InnerCurve,
+            StepStatementWithHash, ToBoolean,
         },
         BACKEND_TICK_ROUNDS_N,
     },
@@ -48,6 +48,7 @@ use crate::{
 use self::pseudo::PseudoDomain;
 
 use super::{
+    constants::{ProofConstants, WrapData},
     public_input::{
         messages::{dummy_ipa_step_sg, MessagesForNextWrapProof},
         plonk_checks::{PlonkMinimal, ScalarsEnv, ShiftedValue},
@@ -56,7 +57,7 @@ use super::{
     unfinalized::AllEvals,
     util::u64_to_field,
     witness::{
-        plonk_curve_ops::scale_fast, Check, GroupAffine, PlonkVerificationKeyEvals,
+        plonk_curve_ops::scale_fast, Check, GroupAffine, PlonkVerificationKeyEvals, Prover,
         ReducedMessagesForNextStepProof, StepProofState, StepStatement, ToFieldElementsDebug,
         Witness,
     },
@@ -635,13 +636,14 @@ pub struct WrapParams<'a> {
     pub prev_evals: &'a [AllEvals<Fq>],
     pub dlog_plonk_index: &'a PlonkVerificationKeyEvals<Fp>,
     pub step_prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
-    pub which_index: u64,
-    pub pi_branches: u64,
-    pub step_widths: Box<[u64]>, // TODO: Use array with size=pi_branches
-    pub step_domains: Box<[Domains]>, // TODO: Here too
+    pub wrap_prover: &'a Prover<Fq>,
+    pub wrap_data: WrapData,
 }
 
-pub fn wrap(params: WrapParams, w: &mut Witness<Fq>) -> Vec<ChallengePolynomial> {
+pub fn wrap<C: ProofConstants>(
+    params: WrapParams,
+    w: &mut Witness<Fq>,
+) -> kimchi::proof::ProverProof<GroupAffine<Fp>> {
     let WrapParams {
         app_state,
         proof,
@@ -649,10 +651,14 @@ pub fn wrap(params: WrapParams, w: &mut Witness<Fq>) -> Vec<ChallengePolynomial>
         prev_evals,
         dlog_plonk_index,
         step_prover_index,
-        which_index,
-        pi_branches,
-        step_widths,
-        step_domains,
+        wrap_prover,
+        wrap_data:
+            WrapData {
+                which_index,
+                pi_branches,
+                step_widths,
+                step_domains,
+            },
     } = params;
 
     let (_, endo) = endos::<Fq>();
@@ -677,8 +683,6 @@ pub fn wrap(params: WrapParams, w: &mut Witness<Fq>) -> Vec<ChallengePolynomial>
         dlog_plonk_index,
     }
     .hash();
-
-    dbg!(step_statement.messages_for_next_wrap_proof.len());
 
     let messages_for_next_wrap_proof = step_statement
         .messages_for_next_wrap_proof
@@ -706,16 +710,6 @@ pub fn wrap(params: WrapParams, w: &mut Witness<Fq>) -> Vec<ChallengePolynomial>
         .iter()
         .map(MessagesForNextWrapProof::hash)
         .collect::<Vec<_>>();
-
-    // assert_eq!(
-    //     messages_for_next_step_proof_hash,
-    //     [
-    //         12928032459193155768,
-    //         823333255794445397,
-    //         14777852695581800947,
-    //         354023456053555014
-    //     ]
-    // );
 
     let public_input = make_public_input(
         &step_statement,
@@ -853,7 +847,19 @@ pub fn wrap(params: WrapParams, w: &mut Witness<Fq>) -> Vec<ChallengePolynomial>
 
     wrap_main(&main_params, w);
 
-    next_accumulator
+    let message = next_accumulator;
+    let prev = message
+        .iter()
+        .map(|m| RecursionChallenge {
+            comm: poly_commitment::PolyComm::<Pallas> {
+                unshifted: vec![m.commitment.to_affine()],
+                shifted: None,
+            },
+            chals: m.challenges.to_vec(),
+        })
+        .collect();
+
+    create_proof::<C, Fq>(wrap_prover, prev, &w)
 }
 
 // TODO: Compute those values instead of hardcoded
@@ -1919,8 +1925,8 @@ pub mod wrap_verifier {
         g2: GroupAffine<F>,
         w: &mut Witness<F>,
     ) -> Boolean {
-        let mut g1: Vec<F> = g1.to_field_elements_owned();
-        let mut g2: Vec<F> = g2.to_field_elements_owned();
+        let g1: Vec<F> = g1.to_field_elements_owned();
+        let g2: Vec<F> = g2.to_field_elements_owned();
 
         let equals = g1
             .into_iter()
