@@ -20,6 +20,7 @@ pub struct WrapTransactionProof {}
 pub struct StepBlockProof {}
 pub struct WrapBlockProof {}
 pub struct StepMergeProof {}
+pub struct WrapMergeProof {}
 
 impl ProofConstants for StepTransactionProof {
     const PRIMARY_LEN: usize = 67;
@@ -33,6 +34,14 @@ impl ProofConstants for WrapTransactionProof {
     const AUX_LEN: usize = 179491;
     const PREVIOUS_CHALLENGES: usize = 2;
     const ROWS: usize = 15122;
+}
+
+// Same values than `WrapTransactionProof`
+impl ProofConstants for WrapMergeProof {
+    const PRIMARY_LEN: usize = WrapTransactionProof::PRIMARY_LEN;
+    const AUX_LEN: usize = WrapTransactionProof::AUX_LEN;
+    const PREVIOUS_CHALLENGES: usize = WrapTransactionProof::PREVIOUS_CHALLENGES;
+    const ROWS: usize = WrapTransactionProof::ROWS;
 }
 
 impl ProofConstants for WrapBlockProof {
@@ -54,6 +63,28 @@ impl ProofConstants for StepBlockProof {
     const AUX_LEN: usize = 339034;
     const PREVIOUS_CHALLENGES: usize = 2;
     const ROWS: usize = 34811;
+}
+
+pub trait ForWrapData {
+    fn wrap_data() -> WrapData;
+}
+
+impl ForWrapData for WrapTransactionProof {
+    fn wrap_data() -> WrapData {
+        make_wrap_transaction_data()
+    }
+}
+
+impl ForWrapData for WrapBlockProof {
+    fn wrap_data() -> WrapData {
+        make_wrap_block_data()
+    }
+}
+
+impl ForWrapData for WrapMergeProof {
+    fn wrap_data() -> WrapData {
+        make_wrap_merge_data()
+    }
 }
 
 pub fn make_step_block_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp>) -> ForStep {
@@ -165,7 +196,7 @@ pub struct WrapData {
     pub step_domains: Box<[Domains]>, // Here too
 }
 
-pub fn make_wrap_block_data() -> WrapData {
+fn make_wrap_block_data() -> WrapData {
     WrapData {
         which_index: 0,
         pi_branches: 1,
@@ -176,7 +207,7 @@ pub fn make_wrap_block_data() -> WrapData {
     }
 }
 
-pub fn make_wrap_merge_data() -> WrapData {
+fn make_wrap_merge_data() -> WrapData {
     WrapData {
         which_index: 1,
         pi_branches: 5,
@@ -201,7 +232,7 @@ pub fn make_wrap_merge_data() -> WrapData {
     }
 }
 
-pub fn make_wrap_transaction_data() -> WrapData {
+fn make_wrap_transaction_data() -> WrapData {
     WrapData {
         which_index: 0,
         pi_branches: 5,

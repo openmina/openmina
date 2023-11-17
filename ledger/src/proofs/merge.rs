@@ -3,9 +3,7 @@ use std::{path::Path, rc::Rc, str::FromStr};
 use crate::{
     proofs::{
         block::{step, StepParams},
-        constants::{
-            make_step_transaction_data, make_wrap_merge_data, StepMergeProof, WrapTransactionProof,
-        },
+        constants::{make_step_transaction_data, StepMergeProof},
         prover::make_prover,
         public_input::{
             plonk_checks::ShiftingValue,
@@ -72,7 +70,7 @@ use super::{
         MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
         ReducedMessagesForNextStepProof, ToFieldElementsDebug, Witness,
     },
-    wrap::{CircuitVar, Domains},
+    wrap::{CircuitVar, Domains}, constants::WrapMergeProof,
 };
 
 fn read_witnesses() -> std::io::Result<Vec<Fp>> {
@@ -2440,14 +2438,13 @@ pub fn generate_merge_proof(
         assert_eq!(sha256_sum(&proof_json), expected);
     };
 
-    let mut w = Witness::new::<WrapTransactionProof>();
+    let mut w = Witness::new::<WrapMergeProof>();
 
     if let Some(ocaml_aux) = ocaml_wrap_witness {
         w.ocaml_aux = ocaml_aux;
     };
 
-    let wrap_data = make_wrap_merge_data();
-    wrap::<WrapTransactionProof>(
+    wrap::<WrapMergeProof>(
         WrapParams {
             app_state: Rc::new(statement_with_sok),
             proof: &proof,
@@ -2456,7 +2453,6 @@ pub fn generate_merge_proof(
             dlog_plonk_index: &dlog_plonk_index,
             step_prover_index: &step_prover.index,
             wrap_prover,
-            wrap_data,
         },
         &mut w,
     )

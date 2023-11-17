@@ -37,7 +37,7 @@ use mina_signer::{CompressedPubKey, PubKey};
 use crate::{
     decompress_pk, gen_keypair,
     proofs::{
-        constants::{make_wrap_transaction_data, StepTransactionProof, WrapTransactionProof},
+        constants::{StepTransactionProof, WrapTransactionProof},
         unfinalized::AllEvals,
         util::sha256_sum,
         wrap::WrapParams,
@@ -2444,7 +2444,6 @@ pub mod field {
     }
 }
 
-#[allow(unused)]
 fn dummy_constraints<F>(w: &mut Witness<F>)
 where
     F: FieldWitness,
@@ -3861,7 +3860,6 @@ pub mod transaction_snark {
         (curr_min_balance, timing)
     }
 
-    #[allow(unused)] // TODO: Remove
     fn apply_tagged_transaction(
         shifted: &InnerCurve<Fp>,
         _fee_payment_root: Fp,
@@ -5138,7 +5136,6 @@ fn generate_tx_proof(
         w.ocaml_aux = ocaml_aux;
     };
 
-    let wrap_data = make_wrap_transaction_data();
     crate::proofs::wrap::wrap::<WrapTransactionProof>(
         WrapParams {
             app_state: Rc::new(statement_with_sok),
@@ -5148,7 +5145,6 @@ fn generate_tx_proof(
             dlog_plonk_index: &dlog_plonk_index,
             step_prover_index: &tx_step_prover.index,
             wrap_prover: tx_wrap_prover,
-            wrap_data,
         },
         &mut w,
     )
@@ -5336,7 +5332,6 @@ mod tests {
         Some((internal_vars, rows_rev))
     }
 
-    #[allow(const_item_mutation)]
     #[test]
     fn test_read_constraints() {
         let internal_vars_path =

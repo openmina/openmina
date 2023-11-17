@@ -10,8 +10,7 @@ use crate::{
     proofs::{
         block::consensus::ConsensusState,
         constants::{
-            make_step_block_data, make_step_transaction_data, make_wrap_block_data, StepBlockProof,
-            WrapBlockProof,
+            make_step_block_data, make_step_transaction_data, StepBlockProof, WrapBlockProof,
         },
         merge::{
             extract_recursion_challenges, verify_one, ForStep, ForStepKind, PerProofWitness,
@@ -2069,7 +2068,6 @@ pub fn generate_block_proof(
         w.ocaml_aux = ocaml_aux;
     };
 
-    let wrap_data = make_wrap_block_data();
     wrap::<WrapBlockProof>(
         WrapParams {
             app_state,
@@ -2079,7 +2077,6 @@ pub fn generate_block_proof(
             dlog_plonk_index: &dlog_plonk_index,
             step_prover_index: &block_prover.index,
             wrap_prover: block_wrap_prover,
-            wrap_data,
         },
         &mut w,
     )

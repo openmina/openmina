@@ -1,27 +1,23 @@
-#![allow(unused)]
-
-use std::{borrow::Cow, ops::Neg, rc::Rc, str::FromStr};
+use std::{ops::Neg, rc::Rc};
 
 use ark_ff::{BigInteger256, One, Zero};
 use ark_poly::{
-    univariate::DensePolynomial, EvaluationDomain, Radix2EvaluationDomain, UVPolynomial,
+    univariate::DensePolynomial, EvaluationDomain, UVPolynomial,
 };
-use itertools::Itertools;
 use kimchi::{
     circuits::{scalars::RandomOracles, wires::COLUMNS},
     oracles::OraclesResult,
     proof::{PointEvaluations, ProofEvaluations, ProverProof, RecursionChallenge},
 };
-use mina_curves::pasta::{Fq, Pallas, PallasParameters, Vesta};
+use mina_curves::pasta::{Fq, Pallas, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
     CompositionTypesBranchDataDomainLog2StableV1, CompositionTypesBranchDataStableV1,
     PicklesBaseProofsVerifiedStableV1, PicklesProofProofsVerified2ReprStableV2,
 };
 use mina_poseidon::{sponge::ScalarChallenge, FqSponge};
-use mina_signer::CurvePoint;
 use poly_commitment::{
-    commitment::{b_poly_coefficients, CommitmentCurve},
+    commitment::b_poly_coefficients,
     PolyComm,
 };
 
@@ -41,14 +37,13 @@ use crate::{
         },
         BACKEND_TICK_ROUNDS_N,
     },
-    scan_state::scan_state::transaction_snark::{SokDigest, Statement},
     verifier::get_srs,
 };
 
 use self::pseudo::PseudoDomain;
 
 use super::{
-    constants::{ProofConstants, WrapData},
+    constants::{ForWrapData, ProofConstants, WrapData},
     public_input::{
         messages::{dummy_ipa_step_sg, MessagesForNextWrapProof},
         plonk_checks::{PlonkMinimal, ScalarsEnv, ShiftedValue},
@@ -250,9 +245,7 @@ pub fn create_oracle<F: FieldWitness>(
     proof: &kimchi::proof::ProverProof<F::OtherCurve>,
     public: &[F],
 ) -> Oracles<F> {
-    use mina_curves::pasta::VestaParameters;
     use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
-    use mina_poseidon::sponge::DefaultFqSponge;
     use mina_poseidon::sponge::DefaultFrSponge;
     use poly_commitment::commitment::shift_scalar;
 
@@ -318,8 +311,6 @@ pub fn make_lagrange<F: FieldWitness>(
 ) -> Vec<PolyComm<F::OtherCurve>> {
     let domain_size = 2u64.pow(domain_log2) as usize;
 
-    dbg!(domain_log2, domain_size);
-
     let x_domain = EvaluationDomain::<F>::new(domain_size).expect("invalid argument");
 
     srs.add_lagrange_basis(x_domain);
@@ -351,10 +342,6 @@ pub fn evals_of_split_evals<F: FieldWitness>(
         let zeta = actual_evaluation(zeta, x1, rounds);
         let zeta_omega = actual_evaluation(zetaw, x2, rounds);
         [zeta, zeta_omega]
-        // PointEvaluations {
-        //     zeta: actual_evaluation(zeta, x1, rounds),
-        //     zeta_omega: actual_evaluation(zetaw, x2, rounds),
-        // }
     })
 }
 
@@ -364,14 +351,11 @@ pub const COMMON_MAX_DEGREE_STEP_LOG2: u64 = 16;
 fn deferred_values(
     _sgs: Vec<InnerCurve<Fp>>,
     prev_challenges: Vec<[Fp; 16]>,
-    // step_vk: &VerifierIndex,
     public_input: &[Fp],
     proof: &kimchi::proof::ProverProof<Vesta>,
     actual_proofs_verified: usize,
     prover_index: &kimchi::prover_index::ProverIndex<Vesta>,
 ) -> DeferredValuesAndHints {
-    dbg!(public_input);
-
     let step_vk = prover_index.verifier_index();
     let log_size_of_group = step_vk.domain.log_size_of_group;
 
@@ -382,8 +366,6 @@ fn deferred_values(
     let beta = oracle.beta();
     let gamma = oracle.gamma();
     let zeta = oracle.zeta();
-
-    dbg!(x_hat, alpha, beta, gamma, zeta);
 
     let to_bytes = |f: Fp| {
         let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
@@ -451,16 +433,9 @@ fn deferred_values(
             .opening_prechallenges
             .iter()
             .copied()
-            // .map(to_bytes)
             .collect::<Vec<_>>();
         (prechals, b)
     };
-
-    let f = |s: &str| Fp::from_str(s).unwrap();
-    // assert_eq!(
-    //     b,
-    //     f("5767724647428070642927793768409372780130584519014792248744668603804331622261")
-    // );
 
     let evals = proof
         .evals
@@ -483,11 +458,6 @@ fn deferred_values(
             ft_eval1: proof.ft_eval1,
         });
 
-    // assert_eq!(
-    //     combined_inner_product,
-    //     f("1794066667028988946470104780887317784726228530187228813826020823032902910060")
-    // );
-
     let shift = |f: Fp| <Fp as FieldWitness>::Shifting::of_field(f);
 
     DeferredValuesAndHints {
@@ -499,10 +469,6 @@ fn deferred_values(
                 zeta: plonk0.zeta_bytes,
                 zeta_to_srs_length: plonk.zeta_to_srs_length,
                 zeta_to_domain_size: plonk.zeta_to_domain_size,
-                // vbmul: plonk.vbmul,
-                // complete_add: plonk.complete_add,
-                // endomul: plonk.endomul,
-                // endomul_scalar: plonk.endomul_scalar,
                 perm: plonk.perm,
                 lookup: (),
             },
@@ -637,10 +603,9 @@ pub struct WrapParams<'a> {
     pub dlog_plonk_index: &'a PlonkVerificationKeyEvals<Fp>,
     pub step_prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
     pub wrap_prover: &'a Prover<Fq>,
-    pub wrap_data: WrapData,
 }
 
-pub fn wrap<C: ProofConstants>(
+pub fn wrap<C: ProofConstants + ForWrapData>(
     params: WrapParams,
     w: &mut Witness<Fq>,
 ) -> kimchi::proof::ProverProof<GroupAffine<Fp>> {
@@ -652,14 +617,14 @@ pub fn wrap<C: ProofConstants>(
         dlog_plonk_index,
         step_prover_index,
         wrap_prover,
-        wrap_data:
-            WrapData {
-                which_index,
-                pi_branches,
-                step_widths,
-                step_domains,
-            },
     } = params;
+
+    let WrapData {
+        which_index,
+        pi_branches,
+        step_widths,
+        step_domains,
+    } = C::wrap_data();
 
     let (_, endo) = endos::<Fq>();
 
@@ -926,7 +891,7 @@ impl Check<Fp> for ShiftedValue<Fq> {
 }
 
 impl<F: FieldWitness> Check<F> for ShiftedValue<F> {
-    fn check(&self, w: &mut Witness<F>) {
+    fn check(&self, _w: &mut Witness<F>) {
         // Same field, no check
     }
 }
@@ -946,10 +911,6 @@ impl Check<Fq> for WrapStatement {
                                     zeta: _,
                                     zeta_to_srs_length,
                                     zeta_to_domain_size,
-                                    // vbmul,
-                                    // complete_add,
-                                    // endomul,
-                                    // endomul_scalar,
                                     perm,
                                     lookup: _,
                                 },
@@ -1104,14 +1065,14 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
 ) -> ScalarsEnv<F> {
     let PlonkMinimal {
         alpha,
-        beta,
-        gamma,
+        beta: _,
+        gamma: _,
         zeta,
-        joint_combiner,
+        joint_combiner: _,
         ..
     } = minimal;
 
-    let alpha_pows = {
+    let _alpha_pows = {
         let alpha = *alpha;
         let mut alphas = Box::new([F::one(); 71]);
         alphas[1] = alpha;
@@ -1142,7 +1103,6 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
         field::mul(res, c, w)
     };
 
-    dbg!(zeta);
     let zeta_to_n_minus_1 = domain.vanishing_polynomial(zeta, w);
 
     ScalarsEnv {
@@ -1208,10 +1168,7 @@ where
 }
 
 pub mod pcs_batch {
-    use super::{
-        wrap_verifier::split_commitments::{CurveOpt, Point},
-        *,
-    };
+    use super::*;
 
     pub struct PcsBatch {
         without_degree_bound: usize,
@@ -1257,19 +1214,16 @@ pub mod pcs_batch {
 pub mod wrap_verifier {
     use std::{convert::identity, ops::Neg, sync::Arc};
 
-    use ark_poly::Radix2EvaluationDomain;
     use itertools::Itertools;
     use kimchi::prover_index::ProverIndex;
-    use mina_curves::pasta::VestaParameters;
     use poly_commitment::{evaluation_proof::OpeningProof, srs::SRS};
 
     use crate::proofs::{
-        public_input::plonk_checks::{self, ft_eval0_checked, ShiftFq},
+        public_input::plonk_checks::{self, ft_eval0_checked},
         unfinalized,
         util::{challenge_polynomial_checked, to_absorption_sequence_opt},
         verifier_index::wrap_domains,
         witness::{
-            add_fast,
             scalar_challenge::{self, to_field_checked},
             InnerCurve,
         },
@@ -1335,10 +1289,6 @@ pub mod wrap_verifier {
         pub zeta: F,
         pub zeta_to_srs_length: ShiftedValue<F>,
         pub zeta_to_domain_size: ShiftedValue<F>,
-        // pub vbmul: ShiftedValue<F>,
-        // pub complete_add: ShiftedValue<F>,
-        // pub endomul: ShiftedValue<F>,
-        // pub endomul_scalar: ShiftedValue<F>,
         pub perm: ShiftedValue<F>,
         pub lookup: (),
     }
@@ -1351,12 +1301,8 @@ pub mod wrap_verifier {
             zeta,
             zeta_to_srs_length,
             zeta_to_domain_size,
-            // vbmul,
-            // complete_add,
-            // endomul,
-            // endomul_scalar,
             perm,
-            lookup,
+            lookup: (),
         } = plonk;
 
         let (_, endo) = endos::<Fp>();
@@ -1375,10 +1321,6 @@ pub mod wrap_verifier {
             zeta,
             zeta_to_srs_length: zeta_to_srs_length.clone(),
             zeta_to_domain_size: zeta_to_domain_size.clone(),
-            // vbmul: vbmul.clone(),
-            // complete_add: complete_add.clone(),
-            // endomul: endomul.clone(),
-            // endomul_scalar: endomul_scalar.clone(),
             perm: perm.clone(),
             lookup: (),
         }
@@ -1399,10 +1341,10 @@ pub mod wrap_verifier {
         lo
     }
 
-    pub fn actual_evaluation<F: FieldWitness>(e: &[F], pt_to_n: F) -> F {
+    pub fn actual_evaluation<F: FieldWitness>(e: &[F], _pt_to_n: F) -> F {
         let (last, rest) = e.split_last().expect("empty list");
 
-        rest.iter().rev().fold(*last, |acc, y| {
+        rest.iter().rev().fold(*last, |_acc, _y| {
             // TODO: So far only 1 item
             todo!()
         })
@@ -1447,9 +1389,7 @@ pub mod wrap_verifier {
             (sg_evals1, sg_evals2)
         };
 
-        let sponge_state = {
-            use crate::proofs::witness::poseidon::Sponge;
-
+        let _sponge_state = {
             let challenge_digest = {
                 let mut sponge = Sponge::<Fq>::new();
                 old_bulletproof_challenges.iter().for_each(|v| {
@@ -1519,13 +1459,6 @@ pub mod wrap_verifier {
             let p_eval0 = evals.public_input.0;
             let ft_eval0 = ft_eval0_checked(&env, &combined_evals, &plonk_mininal, p_eval0, w);
             let a = proof_evaluation_to_list(&evals.evals);
-            // assert_eq!(
-            //     ft_eval0,
-            //     Fq::from_str(
-            //         "185615279260584823497562138911626835196500046105133768509329205349731009215"
-            //     )
-            //     .unwrap()
-            // );
 
             let actual_combined_inner_product = {
                 enum WhichEval {
@@ -1572,14 +1505,6 @@ pub mod wrap_verifier {
                 );
                 a + b
             };
-
-            // assert_eq!(
-            //     actual_combined_inner_product,
-            //     Fq::from_str(
-            //         "8504630526995452578694872162766067838423804679362527237174610151794554026782"
-            //     )
-            //     .unwrap()
-            // );
 
             let combined_inner_product =
                 ShiftingValue::<Fq>::shifted_to_field(combined_inner_product);
@@ -1831,13 +1756,13 @@ pub mod wrap_verifier {
         }
 
         pub fn combine<F: FieldWitness>(
-            batch: PcsBatch,
+            _batch: PcsBatch,
             xi: [u64; 2],
             without_bound: &[(CircuitVar<Boolean>, Point<F>)],
             with_bound: &[()],
             w: &mut Witness<F>,
         ) -> CircuitVar<GroupAffine<F>> {
-            let CurveOpt { point, non_zero } =
+            let CurveOpt { point, non_zero: _ } =
                 PcsBatch::combine_split_commitments::<F, _, _, _, CurveOpt<F>>(
                     |(keep, p), w| CurveOpt {
                         non_zero: keep.and(&p.finite(), w),
@@ -1861,7 +1786,7 @@ pub mod wrap_verifier {
                         };
 
                         if let CircuitVar::Var(_) = keep {
-                            w.exists_no_check(*point.value());
+                            let _ = w.exists_no_check(*point.value());
                         }
 
                         let non_zero = {
@@ -1994,7 +1919,7 @@ pub mod wrap_verifier {
         let (lr_prod, challenges) = bullet_reduce(&mut sponge, lr, w);
 
         let p_prime = {
-            w.exists_no_check(u); // Made by `plonk_curve_ops.seal` in `scale_fast`
+            let _ = w.exists_no_check(u); // Made by `plonk_curve_ops.seal` in `scale_fast`
             let uc = scale(u, advice.combined_inner_product.clone(), w);
             w.add_fast(combined_polynomial, uc)
         };
@@ -2016,7 +1941,7 @@ pub mod wrap_verifier {
 
         let rhs = {
             let b_u = {
-                w.exists_no_check(u); // Made by `plonk_curve_ops.seal` in `scale_fast`
+                let _ = w.exists_no_check(u); // Made by `plonk_curve_ops.seal` in `scale_fast`
                 scale(u, advice.b.clone(), w)
             };
             let z_1_g_plus_b_u = scale(w.add_fast(*sg, b_u), ShiftedValue::of_field(*z1), w);
@@ -2074,7 +1999,7 @@ pub mod wrap_verifier {
         let scalar_challenge =
             |s: &mut OptSponge<Fq>, w: &mut Witness<Fq>| lowest_128_bits(s.squeeze(w), false, w);
 
-        let mut absorb_curve =
+        let absorb_curve =
             |b: &CircuitVar<Boolean>, c: &InnerCurve<Fq>, sponge: &mut OptSponge<Fq>| {
                 let GroupAffine::<Fq> { x, y, .. } = c.to_affine();
                 sponge.absorb((*b, x));
@@ -2092,8 +2017,6 @@ pub mod wrap_verifier {
         let sample_scalar = scalar_challenge;
 
         let index_digest = {
-            use crate::proofs::witness::poseidon::Sponge;
-
             let mut sponge = Sponge::<Fq>::new();
             let fields = verification_key.to_field_elements_owned();
             sponge.absorb2(&fields, w);
@@ -2154,7 +2077,7 @@ pub mod wrap_verifier {
                     ),
                     (x, n) => CondOrAdd::AddWithCorrection(
                         (x, n),
-                        (lagrange_with_correction(n, domain, &mut srs, i, w)),
+                        lagrange_with_correction(n, domain, &mut srs, i, w),
                     ),
                 })
                 .collect::<Vec<_>>();
@@ -2176,7 +2099,7 @@ pub mod wrap_verifier {
             terms
                 .into_iter()
                 .enumerate()
-                .fold(init, |acc, (i, term)| match term {
+                .fold(init, |acc, (_i, term)| match term {
                     CondOrAdd::CondAdd(b, (x, y)) => {
                         let g = w.exists_no_check(make_group(x, y));
                         let on_true = w.add_fast(g, acc);
@@ -2215,11 +2138,8 @@ pub mod wrap_verifier {
             );
         }
 
-        println!("START SAMPLES\n");
-        let beta = sample(&mut sponge, w);
-        let gamma = sample(&mut sponge, w);
-
-        dbg!(beta, gamma);
+        let _beta = sample(&mut sponge, w);
+        let _gamma = sample(&mut sponge, w);
 
         let z_comm = &messages.z_comm;
         for z in z_comm.unshifted.iter() {
@@ -2230,9 +2150,7 @@ pub mod wrap_verifier {
             );
         }
 
-        eprintln!("BEFORE ALPHA");
-        let alpha = sample_scalar(&mut sponge, w);
-        dbg!(alpha);
+        let _alpha = sample_scalar(&mut sponge, w);
 
         let t_comm = &messages.t_comm;
         for t in t_comm.unshifted.iter() {
@@ -2243,13 +2161,10 @@ pub mod wrap_verifier {
             );
         }
 
-        eprintln!("BEFORE ZETA");
-        let zeta = sample_scalar(&mut sponge, w);
-        dbg!(zeta);
+        let _zeta = sample_scalar(&mut sponge, w);
 
         let mut sponge = {
             use crate::proofs::opt_sponge::SpongeState as OptSpongeState;
-            use crate::proofs::witness::poseidon::Sponge;
             use mina_poseidon::pasta::fq_kimchi::static_params;
             use mina_poseidon::poseidon::SpongeState;
 
@@ -2262,10 +2177,8 @@ pub mod wrap_verifier {
             sponge
         };
 
-        let sponge_before_evaluations = sponge.clone();
+        let _sponge_before_evaluations = sponge.clone();
         let sponge_digest_before_evaluations = sponge.squeeze(w);
-
-        dbg!(sponge_digest_before_evaluations);
 
         let sigma_comm_init = &verification_key.sigma[..PERMUTS_MINUS_1_ADD_N1];
         let scale = scale_fast::<Fq, Fp, OTHER_FIELD_PACKED_CONSTANT_SIZE_IN_BITS>;
@@ -2444,9 +2357,10 @@ impl Check<Fq> for kimchi::proof::ProverCommitments<Vesta> {
             t_comm,
             lookup,
         } = self;
+        assert!(lookup.is_none());
 
         let mut check_poly = |poly: &PolyComm<Vesta>| {
-            let PolyComm { unshifted, shifted } = poly;
+            let PolyComm { unshifted, shifted: _ } = poly;
             for affine in unshifted {
                 InnerCurve::of_affine(affine.clone()).check(w);
             }
@@ -2512,17 +2426,6 @@ impl<F: FieldWitness> CircuitVar<F> {
             (Var(x), Var(y)) => Var(w.exists(x * y)),
         }
     }
-
-    // pub fn mul(&self, other: &Self, w: &mut Witness<F>) -> Self {
-    //     use CircuitVar::*;
-
-    //     match (self, other) {
-    //         (Constant(x), Constant(y)) => Constant(*x * *y),
-    //         (Var(x), Var(y)) => Var(field::mul(*x, *y, w)),
-    //         (Var(x), Constant(y)) => Var(*x * *y),
-    //         (Constant(x), Var(y)) => Var(*x * *y),
-    //     }
-    // }
 
     fn equal(x: &Self, y: &Self, w: &mut Witness<F>) -> CircuitVar<Boolean> {
         match (x, y) {
@@ -2627,12 +2530,6 @@ impl CircuitVar<Boolean> {
             [b1, b2] => b1.or(b2, w),
             bs => {
                 let sum = Self::boolean_sum(bs);
-                // let sum = bs.iter().fold(0u64, |acc, b| {
-                //     acc + match b.as_boolean() {
-                //         Boolean::True => 1,
-                //         Boolean::False => 0,
-                //     }
-                // });
                 CircuitVar::equal(&sum, &CircuitVar::Constant(F::zero()), w).map(Boolean::neg)
             }
         }
@@ -2646,14 +2543,7 @@ impl CircuitVar<Boolean> {
             [b1, b2] => b1.and(b2, w),
             bs => {
                 let sum = Self::boolean_sum(bs);
-                // eprintln!("all bs={:?}", bs);
                 let len = F::from(bs.len() as u64);
-                // let sum = bs.iter().fold(0u64, |acc, b| {
-                //     acc + match b.as_boolean() {
-                //         Boolean::True => 1,
-                //         Boolean::False => 0,
-                //     }
-                // });
                 CircuitVar::equal(&CircuitVar::Constant(len), &sum, w)
             }
         }
@@ -2664,53 +2554,9 @@ impl CircuitVar<Boolean> {
     }
 
     pub fn or<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
-        use CircuitVar::{Constant, Var};
-
-        eprintln!("or self={:?} other={:?}", self, other);
-
         let both_false = self.neg().and(&other.neg(), w);
         both_false.neg()
-
-        // self.neg().and(&other.neg(), w).neg()
-
-        // todo!()
-
-        // match (self, other) {
-        //     (Constant(a), Constant(b)) => {
-        //         Constant(a.const_or(b))
-        //     }
-        //     (Var(a), Var(b)) => Var(a.or(b, w)),
-        //     (Constant(a), b) => Constant(a.const_or(&b.as_boolean())),
-        //     (Constant(a), Var(b)) => Constant(a.const_or(&b)),
-        //     (Var(a), Constant(b)) => Var(a.const_or(&b)),
-        //     // (a, b) => CircuitVar::Constant(a.as_boolean().const_or(&b.as_boolean())),
-        // }
     }
-
-    // let ( && ) (x : var) (y : var) : var Checked.t =
-    //   Printf.eprintf "[snarky.utils] this &&\n%!" ;
-    //   let res = Checked.map ~f:create (mul (x :> Cvar.t) (y :> Cvar.t)) in
-    //   Printf.eprintf "[snarky.utils] this && DONE\n%!" ;
-    //   res
-    //   [@@inline never]
-
-    // let ( &&& ) = ( && )
-
-    // let ( || ) x y =
-    //   let open Let_syntax in
-    //   let%map both_false = (not x) && not y in
-    //   let res = not both_false in
-    //   Printf.eprintf
-    //     !"[snarky.utils] or x=%{sexp: string option} y=%{sexp: string option} \
-    //       both_false=%{sexp: string option} res=%{sexp: string option}\n\
-    //       %!"
-    //     (my_eval_cvar Obj.(magic @@ repr x))
-    //     (my_eval_cvar Obj.(magic @@ repr y))
-    //     (my_eval_cvar Obj.(magic @@ repr both_false))
-    //     (my_eval_cvar Obj.(magic @@ repr res)) ;
-    //   res
-
-    // or x=("Add(0)") y=("Constant(1)") both_false=("Constant(0)") res=("Constant(1)")
 
     pub fn lxor<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
         match (self, other) {
@@ -2732,7 +2578,7 @@ fn pack_statement(
         proof_state:
             StepProofState {
                 unfinalized_proofs,
-                messages_for_next_step_proof,
+                messages_for_next_step_proof: _,
             },
         messages_for_next_wrap_proof,
     } = statement;
@@ -2740,7 +2586,6 @@ fn pack_statement(
     let mut packed = Vec::<Packed<_>>::with_capacity(300);
 
     let var = CircuitVar::Var;
-    // let cons = CircuitVar::Constant;
 
     let mut split = |f: Fq| {
         let (f, b) = split_field(f, w);
@@ -2759,12 +2604,8 @@ fn pack_statement(
                             zeta,
                             zeta_to_srs_length,
                             zeta_to_domain_size,
-                            // vbmul,
-                            // complete_add,
-                            // endomul,
-                            // endomul_scalar,
                             perm,
-                            lookup,
+                            lookup: (),
                         },
                     combined_inner_product,
                     b,
@@ -2781,10 +2622,6 @@ fn pack_statement(
             packed.push(Packed::Field(split(b.shifted)));
             packed.push(Packed::Field(split(zeta_to_srs_length.shifted)));
             packed.push(Packed::Field(split(zeta_to_domain_size.shifted)));
-            // packed.push(Packed::Field(split(vbmul.shifted)));
-            // packed.push(Packed::Field(split(complete_add.shifted)));
-            // packed.push(Packed::Field(split(endomul.shifted)));
-            // packed.push(Packed::Field(split(endomul_scalar.shifted)));
             packed.push(Packed::Field(split(perm.shifted)));
         }
 
@@ -2889,16 +2726,6 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
 
     let which_branch = one_hot_vector::of_index(which_branch, *branches, w);
 
-    // let which_branch = {
-    //     let mut v = (0..branches)
-    //         .rev()
-    //         .map(|j| field::equal(Fq::from(j), which_branch, w))
-    //         .collect::<Vec<_>>();
-    //     Boolean::assert_any(&v, w);
-    //     v.reverse();
-    //     v
-    // };
-
     let first_zero = pseudo::choose(&which_branch, &step_widths[..]);
 
     let actual_proofs_verified_mask = {
@@ -2907,7 +2734,7 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
         vector
     };
 
-    let domain_log2 = pseudo::choose(
+    let _domain_log2 = pseudo::choose(
         &which_branch,
         &step_domains
             .iter()
@@ -2954,11 +2781,6 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
             };
 
             let unfinalized_proofs = &step_statement.proof_state.unfinalized_proofs;
-
-            dbg!(unfinalized_proofs.len());
-            dbg!(old_bp_chals.len());
-            dbg!(evals.len());
-            dbg!(wrap_domains.len());
 
             unfinalized_proofs
                 .iter()
@@ -3028,8 +2850,8 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
         combined_inner_product,
         b,
         xi,
-        bulletproof_challenges,
-        branch_data,
+        bulletproof_challenges: _,
+        branch_data: _,
     } = &next_statement.proof_state.deferred_values;
 
     let sponge = OptSponge::create();
