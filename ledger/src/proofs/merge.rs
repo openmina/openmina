@@ -2,15 +2,15 @@ use std::{path::Path, rc::Rc, str::FromStr};
 
 use crate::{
     proofs::{
-        constants::MergeProof,
+        block::{step, StepParams},
+        constants::{MergeProof, WrapProof},
         prover::make_prover,
         public_input::{
             plonk_checks::ShiftingValue,
             prepared_statement::{DeferredValues, PreparedStatement, ProofState},
         },
-        unfinalized::{dummy_ipa_step_challenges_computed, evals_from_p2p},
-        verifier_index::wrap_domains,
-        witness::{compute_witness, create_proof},
+        unfinalized::dummy_ipa_step_challenges_computed,
+        witness::create_proof,
         wrap::{
             create_oracle, dummy_ipa_wrap_sg, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2,
         },
@@ -2363,23 +2363,25 @@ pub fn generate_merge_proof(
     w.exists(&statement_with_sok);
 
     let (s1, s2) = merge_main(statement_with_sok.clone(), proofs, w);
+
+    let proofs: [&v2::PicklesProofProofsVerified2ReprStableV2; 2] = {
+        let [p1, p2] = proofs;
+        [&p1.0.proof, &p2.0.proof]
+    };
     let [p1, p2] = proofs;
 
-    let prev_challenge_polynomial_commitments = {
-        let [p1, p2] = proofs;
-        extract_recursion_challenges(&[&p1.proof, &p2.proof])
-    };
+    let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[p1, p2]);
 
     let rule = InductiveRule {
         previous_proof_statements: [
             PreviousProofStatement {
                 public_input: Rc::new(s1),
-                proof: &p1.proof,
+                proof: p1,
                 proof_must_verify: CircuitVar::Constant(Boolean::True),
             },
             PreviousProofStatement {
                 public_input: Rc::new(s2),
-                proof: &p2.proof,
+                proof: p2,
                 proof_must_verify: CircuitVar::Constant(Boolean::True),
             },
         ],
@@ -2387,70 +2389,9 @@ pub fn generate_merge_proof(
         auxiliary_output: (),
     };
 
-    let dlog_plonk_index = w.exists(dlog_plonk_index(wrap_prover));
+    let dlog_plonk_index = dlog_plonk_index(wrap_prover);
+    let dlog_plonk_index_cvar = dlog_plonk_index.to_cvar(CircuitVar::Var);
     let verifier_index = wrap_prover.index.verifier_index.as_ref().unwrap();
-
-    let expanded_proofs: [ExpandedProof; 2] = rule
-        .previous_proof_statements
-        .iter()
-        .map(|statement| {
-            let PreviousProofStatement {
-                public_input,
-                proof,
-                proof_must_verify,
-            } = statement;
-            expand_proof(
-                verifier_index,
-                &dlog_plonk_index.to_cvar(CircuitVar::Var),
-                public_input,
-                proof,
-                30,
-                (),
-                *proof_must_verify,
-            )
-        })
-        .collect::<Vec<_>>()
-        .try_into()
-        .unwrap();
-
-    let fst = &expanded_proofs[0];
-    let snd = &expanded_proofs[1];
-
-    let prevs = w.exists([&fst.witness, &snd.witness]);
-    let unfinalized_proofs_unextended = w.exists([&fst.unfinalized, &snd.unfinalized]);
-
-    let f = u64_to_field::<Fp, 4>;
-    let messages_for_next_wrap_proof = w.exists([
-        f(&fst
-            .prev_statement_with_hashes
-            .proof_state
-            .messages_for_next_wrap_proof),
-        f(&snd
-            .prev_statement_with_hashes
-            .proof_state
-            .messages_for_next_wrap_proof),
-    ]);
-
-    let actual_wrap_domains = {
-        let all_possible_domains = wrap_verifier::all_possible_domains();
-
-        [fst.actual_wrap_domain, snd.actual_wrap_domain].map(|domain_size| {
-            let domain_size = domain_size as u64;
-            all_possible_domains
-                .iter()
-                .position(|Domain::Pow2RootsOfUnity(d)| *d == domain_size)
-                .unwrap_or(0)
-        })
-    };
-
-    let prevs: [PerProofWitness; 2] = rule
-        .previous_proof_statements
-        .iter()
-        .zip(prevs)
-        .map(|(stmt, proof)| proof.clone().with_app_state(stmt.public_input.clone()))
-        .collect::<Vec<_>>()
-        .try_into()
-        .unwrap();
 
     let basic = Basic {
         proof_verifieds: vec![0, 2, 0, 0, 1],
@@ -2500,80 +2441,30 @@ pub fn generate_merge_proof(
                 .collect(),
         ),
         public_input: (),
-        wrap_key: dlog_plonk_index.to_cvar(CircuitVar::Var), // TODO: Use ref
+        wrap_key: dlog_plonk_index_cvar.clone(), // TODO: Use ref
         wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
         step_domains: ForStepKind::Known(basic.step_domains),
         feature_flags: basic.feature_flags,
     };
 
-    let srs = get_srs::<Fq>();
-    let mut srs = srs.lock().unwrap();
+    let for_step_datas = [&self_data, &self_data];
 
-    let bulletproof_challenges = prevs
-        .iter()
-        .zip(messages_for_next_wrap_proof)
-        .zip(unfinalized_proofs_unextended)
-        .zip(&rule.previous_proof_statements)
-        .zip(actual_wrap_domains)
-        .map(
-            |((((proof, msg_for_next_wrap_proof), unfinalized), stmt), actual_wrap_domain)| {
-                let PreviousProofStatement {
-                    proof_must_verify: should_verify,
-                    ..
-                } = stmt;
+    let indexes = [
+        (verifier_index, &dlog_plonk_index_cvar),
+        (verifier_index, &dlog_plonk_index_cvar),
+    ];
 
-                match self_data.wrap_domain {
-                    ForStepKind::SideLoaded => todo!(),
-                    ForStepKind::Known(wrap_domain) => {
-                        let actual_wrap_domain = wrap_domains(actual_wrap_domain);
-                        assert_eq!(actual_wrap_domain.h, wrap_domain);
-                    }
-                }
-                let (chals, _verified) = verify_one(
-                    &mut srs,
-                    proof,
-                    &self_data,
-                    msg_for_next_wrap_proof,
-                    unfinalized,
-                    *should_verify,
-                    w,
-                );
-                chals.try_into().unwrap()
-            },
-        )
-        .collect::<Vec<_>>();
-
-    let inputs = MessagesForNextStepProof {
-        app_state: Rc::new(statement_with_sok.clone()),
-        dlog_plonk_index: &dlog_plonk_index,
-        challenge_polynomial_commitments: prevs
-            .iter()
-            .map(|v| InnerCurve::of_affine(v.wrap_proof.proof.sg.clone()))
-            .collect(),
-        old_bulletproof_challenges: bulletproof_challenges,
-    }
-    .to_fields();
-
-    let messages_for_next_step_proof = crate::proofs::witness::checked_hash2(&inputs, w);
-
-    // Or padding
-    assert_eq!(unfinalized_proofs_unextended.len(), 2);
-
-    let statement = crate::proofs::witness::StepMainStatement {
-        proof_state: crate::proofs::witness::StepMainProofState {
-            unfinalized_proofs: unfinalized_proofs_unextended.into_iter().cloned().collect(),
-            messages_for_next_step_proof,
+    let (step_statement, prev_evals, proof) = step::<MergeProof>(
+        StepParams {
+            app_state: Rc::new(statement_with_sok.clone()),
+            rule,
+            for_step_datas,
+            indexes,
+            wrap_prover,
+            prev_challenge_polynomial_commitments,
+            step_prover,
         },
-        messages_for_next_wrap_proof: messages_for_next_wrap_proof.to_vec(),
-    };
-
-    w.primary = statement.to_field_elements_owned();
-
-    let computed_witness = compute_witness::<MergeProof, _>(&step_prover, w);
-    let proof = create_proof(
-        computed_witness,
-        &step_prover.index,
-        prev_challenge_polynomial_commitments,
+        w,
     );
 
     let sum = |s: &[u8]| {
@@ -2589,63 +2480,6 @@ pub fn generate_merge_proof(
         sum(&proof_json),
         "fb89b6d51ce5ed6fe7815b86ca37a7dcdc34d9891b4967692d3751dad32842f8"
     );
-
-    dbg!(w.aux.len() + w.primary.capacity());
-    dbg!(w.ocaml_aux.len());
-
-    let prev_evals = proofs
-        .iter()
-        .zip(&expanded_proofs)
-        .map(|(p, expanded)| {
-            let evals = evals_from_p2p(&p.proof.proof.evaluations);
-            let ft_eval1 = p.proof.proof.ft_eval1.to_field();
-
-            AllEvals {
-                ft_eval1,
-                evals: EvalsWithPublicInput {
-                    evals,
-                    public_input: expanded.x_hat,
-                },
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let challenge_polynomial_commitments = expanded_proofs
-        .iter()
-        .map(|v| InnerCurve::of_affine(v.sg.clone()))
-        .collect();
-
-    let (old_bulletproof_challenges, messages_for_next_wrap_proof): (Vec<_>, Vec<_>) = proofs
-        .iter()
-        .map(|v| {
-            let StatementProofState {
-                deferred_values,
-                messages_for_next_wrap_proof,
-                ..
-            } = (&v.proof.statement.proof_state).into();
-            (
-                deferred_values.bulletproof_challenges,
-                messages_for_next_wrap_proof,
-            )
-        })
-        .unzip();
-
-    let old_bulletproof_challenges = old_bulletproof_challenges
-        .into_iter()
-        .map(|v: [[u64; 2]; 16]| std::array::from_fn(|i| u64_to_field::<Fp, 2>(&v[i])))
-        .collect();
-
-    let step_statement = crate::proofs::witness::StepStatement {
-        proof_state: crate::proofs::witness::StepProofState {
-            unfinalized_proofs: statement.proof_state.unfinalized_proofs,
-            messages_for_next_step_proof: ReducedMessagesForNextStepProof {
-                app_state: Rc::new(statement_with_sok.clone()),
-                challenge_polynomial_commitments,
-                old_bulletproof_challenges,
-            },
-        },
-        messages_for_next_wrap_proof,
-    };
 
     let mut w = Witness::new::<crate::proofs::constants::WrapProof>();
 
@@ -2706,9 +2540,6 @@ pub fn generate_merge_proof(
         &mut w,
     );
 
-    let computed_witness =
-        compute_witness::<crate::proofs::constants::WrapProof, _>(wrap_prover, &w);
-
     let prev = message
         .iter()
         .map(|m| RecursionChallenge {
@@ -2720,7 +2551,7 @@ pub fn generate_merge_proof(
         })
         .collect();
 
-    create_proof::<Fq>(computed_witness, &wrap_prover.index, prev)
+    create_proof::<WrapProof, Fq>(wrap_prover, prev, &w)
 }
 
 #[derive(Debug)]

@@ -5067,12 +5067,15 @@ fn make_prover_index<C: ProofConstants, F: FieldWitness>(
     index
 }
 
-pub fn create_proof<F: FieldWitness>(
-    computed_witness: [Vec<F>; COLUMNS],
-    prover_index: &ProverIndex<F::OtherCurve>,
+pub fn create_proof<C: ProofConstants, F: FieldWitness>(
+    prover: &Prover<F>,
     prev_challenges: Vec<RecursionChallenge<F::OtherCurve>>,
+    w: &Witness<F>,
 ) -> kimchi::proof::ProverProof<F::OtherCurve> {
     type EFrSponge<F> = mina_poseidon::sponge::DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
+
+    let computed_witness: [Vec<F>; COLUMNS] = compute_witness::<C, _>(prover, w);
+    let prover_index: &ProverIndex<F::OtherCurve> = &prover.index;
 
     let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
     let now = std::time::Instant::now();
@@ -5081,7 +5084,7 @@ pub fn create_proof<F: FieldWitness>(
         &group_map,
         computed_witness,
         &[],
-        prover_index,
+        &prover_index,
         prev_challenges,
         None,
         &mut rng,
@@ -5116,16 +5119,13 @@ fn generate_tx_proof(
     let dlog_plonk_index =
         { PlonkVerificationKeyEvals::from(tx_wrap_prover.index.verifier_index.as_ref().unwrap()) };
 
-    let now = std::time::Instant::now();
     let step_statement = step(&statement_with_sok, tx_witness, &dlog_plonk_index, w);
 
     // TODO: Not always dummy
     let prev_evals = vec![AllEvals::dummy(); 2];
 
-    let computed_witness = compute_witness::<RegularTransactionProof, _>(&tx_step_prover, w);
-
     let prev_challenges = vec![];
-    let proof = create_proof::<Fp>(computed_witness, &tx_step_prover.index, prev_challenges);
+    let proof = create_proof::<RegularTransactionProof, Fp>(tx_step_prover, prev_challenges, w);
 
     let mut w = Witness::new::<WrapProof>();
 
@@ -5182,7 +5182,7 @@ fn generate_tx_proof(
         &mut w,
     );
 
-    let computed_witness = compute_witness::<WrapProof, _>(tx_wrap_prover, &w);
+    // let computed_witness = compute_witness::<WrapProof, _>(tx_wrap_prover, &w);
 
     let prev = message
         .iter()
@@ -5195,7 +5195,7 @@ fn generate_tx_proof(
         })
         .collect();
 
-    create_proof::<Fq>(computed_witness, &tx_wrap_prover.index, prev)
+    create_proof::<WrapProof, Fq>(tx_wrap_prover, prev, &w)
 }
 
 #[cfg(test)]
@@ -5633,6 +5633,13 @@ mod tests {
         }
     }
 
+    fn sum(s: &[u8]) -> String {
+        use sha2::Digest;
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(s);
+        hex::encode(hasher.finalize())
+    }
+
     #[test]
     fn test_protocol_state_body() {
         let Ok(data) =
@@ -5689,13 +5696,20 @@ mod tests {
         } = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<MergeProof>();
-        generate_merge_proof(
+        let proof = generate_merge_proof(
             &statement,
             &proofs,
             &message,
             &merge_step_prover,
             &tx_wrap_prover,
             &mut witnesses,
+        );
+        let proof_json = serde_json::to_vec(&proof).unwrap();
+
+        let sum = sum(&proof_json);
+        assert_eq!(
+            sum,
+            "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8"
         );
     }
 
@@ -5722,25 +5736,26 @@ mod tests {
         } = make_provers();
         let mut witnesses: Witness<Fp> = Witness::new::<BlockProof>();
 
-        generate_block_proof(
+        let proof = generate_block_proof(
             &blockchain_input,
             &block_step_prover,
             &block_wrap_prover,
             &tx_wrap_prover,
             &mut witnesses,
         );
+
+        let proof_json = serde_json::to_vec(&proof).unwrap();
+
+        let sum = sum(&proof_json);
+        assert_eq!(
+            sum,
+            "cc55eb645197fc0246c96f2d2090633af54137adc93226e1aac102098337c46e"
+        );
     }
 
     #[test]
     fn test_proofs() {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4");
-
-        let sum = |s: &[u8]| {
-            use sha2::Digest;
-            let mut hasher = sha2::Sha256::new();
-            hasher.update(s);
-            hex::encode(hasher.finalize())
-        };
 
         let Provers {
             tx_step_prover,
@@ -5774,7 +5789,10 @@ mod tests {
             let proof_json = serde_json::to_vec(&proof).unwrap();
 
             let sum = sum(&proof_json);
-            assert_eq!(sum, "cc55eb645197fc0246c96f2d2090633af54137adc93226e1aac102098337c46e");
+            assert_eq!(
+                sum,
+                "cc55eb645197fc0246c96f2d2090633af54137adc93226e1aac102098337c46e"
+            );
         }
 
         // Merge proof
@@ -5796,7 +5814,10 @@ mod tests {
             let proof_json = serde_json::to_vec(&proof).unwrap();
 
             let sum = sum(&proof_json);
-            assert_eq!(sum, "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8");
+            assert_eq!(
+                sum,
+                "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8"
+            );
         }
 
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4");
