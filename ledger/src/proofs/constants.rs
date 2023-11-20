@@ -17,10 +17,21 @@ pub trait ProofConstants {
 
 pub struct StepTransactionProof {}
 pub struct WrapTransactionProof {}
+
 pub struct StepBlockProof {}
 pub struct WrapBlockProof {}
+
 pub struct StepMergeProof {}
 pub struct WrapMergeProof {}
+
+pub struct StepZkappProof {}
+
+impl ProofConstants for StepZkappProof {
+    const PRIMARY_LEN: usize = 67;
+    const AUX_LEN: usize = 104744;
+    const PREVIOUS_CHALLENGES: usize = 0;
+    const ROWS: usize = 18590;
+}
 
 impl ProofConstants for StepTransactionProof {
     const PRIMARY_LEN: usize = 67;
