@@ -8,10 +8,13 @@ use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use crate::{
     proofs::{
         accumulator_check,
+        merge::{expand_deferred, StatementProofState},
         public_input::plonk_checks::ShiftingValue,
+        unfinalized::AllEvals,
         util::{challenge_polynomial, to_absorption_sequence},
         verifier_index::make_zkapp_verifier_index,
-        wrap::{combined_inner_product, CombinedInnerProductParams},
+        witness::endos,
+        wrap::{combined_inner_product, CombinedInnerProductParams, Domain},
         BACKEND_TICK_ROUNDS_N,
     },
     scan_state::{
@@ -55,7 +58,7 @@ use mina_p2p_messages::{
     },
 };
 
-use super::{prover::make_prover, ProverProof, VerifierIndex};
+use super::{prover::make_padded_proof_from_p2p, ProverProof, VerifierIndex};
 
 use super::public_input::{
     messages::{MessagesForNextStepProof, MessagesForNextWrapProof},
@@ -389,10 +392,8 @@ fn get_message_for_next_wrap_proof(
 fn get_prepared_statement<AppState>(
     message_for_next_step_proof: &MessagesForNextStepProof<AppState>,
     message_for_next_wrap_proof: &MessagesForNextWrapProof,
-    plonk: InCircuit<Fp>,
-    deferred_values: &PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues,
+    deferred_values: DeferredValues<Fp>,
     sponge_digest_before_evaluations: &CompositionTypesDigestConstantStableV1,
-    minimal: &PlonkMinimal<Fp>,
 ) -> PreparedStatement
 where
     AppState: ToFieldElements<Fp>,
@@ -400,42 +401,9 @@ where
     let digest = sponge_digest_before_evaluations;
     let sponge_digest_before_evaluations: [u64; 4] = array::from_fn(|i| digest[i].as_u64());
 
-    let plonk = Plonk {
-        alpha: minimal.alpha_bytes,
-        beta: minimal.beta_bytes,
-        gamma: minimal.gamma_bytes,
-        zeta: minimal.zeta_bytes,
-        zeta_to_srs_length: plonk.zeta_to_srs_length,
-        zeta_to_domain_size: plonk.zeta_to_domain_size,
-        perm: plonk.perm,
-        lookup: (),
-    };
-
-    let combined_inner_product = todo!();
-    let b = todo!();
-    let xi = todo!();
-
-    let bulletproof_challenges = &deferred_values.bulletproof_challenges;
-    let bulletproof_challenges: Vec<Fp> = bulletproof_challenges
-        .iter()
-        .map(|chal| {
-            let inner = &chal.prechallenge.inner;
-            u64_to_field(&[inner[0].as_u64(), inner[1].as_u64()])
-        })
-        .collect();
-
-    let branch_data = deferred_values.branch_data.clone();
-
     PreparedStatement {
         proof_state: ProofState {
-            deferred_values: DeferredValues {
-                plonk,
-                combined_inner_product,
-                b,
-                xi,
-                bulletproof_challenges,
-                branch_data,
-            },
+            deferred_values,
             sponge_digest_before_evaluations,
             messages_for_next_wrap_proof: message_for_next_wrap_proof.hash(),
         },
@@ -445,7 +413,7 @@ where
 
 fn verify_with(
     verifier_index: &VerifierIndex,
-    prover: &ProverProof,
+    proof: &ProverProof,
     public_input: &[Fq],
 ) -> Result<(), VerifyError> {
     use kimchi::groupmap::GroupMap;
@@ -461,15 +429,12 @@ fn verify_with(
     kimchi::verifier::verify::<Pallas, EFqSponge, EFrSponge>(
         &group_map,
         verifier_index,
-        prover,
+        proof,
         public_input,
     )
 }
 
 fn run_checks(
-    env: &ScalarsEnv<Fp>,
-    evals: &ProofEvaluations<[Fp; 2]>,
-    minimal: &PlonkMinimal<Fp>,
     proof: &PicklesProofProofsVerified2ReprStableV2,
     verifier_index: &VerifierIndex,
 ) -> bool {
@@ -560,94 +525,14 @@ fn run_checks(
         "feature flags are consistent with evaluations",
     );
 
+    let branch_data = &proof.statement.proof_state.deferred_values.branch_data;
+    let step_domain: u8 = branch_data.domain_log2.as_u8();
+    let step_domain = Domain::Pow2RootsOfUnity(step_domain as u64);
+
     checks(
-        env.domain.log_size_of_group as usize <= BACKEND_TICK_ROUNDS_N,
+        step_domain.log2_size() as usize <= BACKEND_TICK_ROUNDS_N,
         "domain size is small enough",
     );
-
-    let digest = &proof.statement.proof_state.sponge_digest_before_evaluations;
-    let sponge_digest_before_evaluations: [u64; 4] = array::from_fn(|i| digest[i].as_u64());
-    let sponge_digest_before_evaluations = BigInteger256(sponge_digest_before_evaluations);
-    let sponge_digest_before_evaluations = Fp::from(sponge_digest_before_evaluations);
-
-    let old_bulletproof_challenges = &proof
-        .statement
-        .messages_for_next_step_proof
-        .old_bulletproof_challenges;
-    let old_bulletproof_challenges: Vec<[Fp; 16]> =
-        extract_bulletproof(old_bulletproof_challenges, &endo_fp());
-
-    let challenges_digest = {
-        let mut sponge =
-            crate::ArithmeticSponge::<Fp, crate::PlonkSpongeConstantsKimchi>::new(static_params());
-        for old_bulletproof_challenges in &old_bulletproof_challenges {
-            sponge.absorb(old_bulletproof_challenges);
-        }
-        sponge.squeeze()
-    };
-    let endo_fp = endo_fp();
-    let deferred_values = &proof.statement.proof_state.deferred_values;
-
-    let xs = to_absorption_sequence(&proof.prev_evals.evals.evals);
-    let (x1, x2) = &proof.prev_evals.evals.public_input;
-
-    let mut sponge = EFqSponge::new(mina_poseidon::pasta::fp_kimchi::static_params());
-    sponge.absorb_fq(&[sponge_digest_before_evaluations]);
-    sponge.absorb_fq(&[challenges_digest]);
-    sponge.absorb_fq(&[proof.prev_evals.ft_eval1.to_field()]);
-    sponge.absorb_fq(&[x1.to_field(), x2.to_field()]);
-    xs.iter().for_each(|(x1, x2)| {
-        sponge.absorb_fq(x1);
-        sponge.absorb_fq(x2);
-    });
-    let xi_actual = sponge.squeeze_limbs(2);
-    let r_actual = sponge.squeeze_limbs(2);
-
-    let xi_actual = ScalarChallenge::from(xi_actual).to_field(&endo_fp);
-    let r_actual = ScalarChallenge::from(r_actual).to_field(&endo_fp);
-    let zetaw = minimal.zeta * env.domain.group_gen;
-    // let b: ShiftedValue<Fp> = to_shifted_value(&deferred_values.b);
-
-    // let xi: [u64; 2] = array::from_fn(|i| deferred_values.xi.inner[i].as_u64());
-    // let xi = ScalarChallenge::new(xi[0], xi[1]).to_field(&endo_fp);
-
-    let old_bulletproof_challenges = &old_bulletproof_challenges;
-    // let combined_inner_product_actual = combined_inner_product(CombinedInnerProductParams {
-    //     env,
-    //     evals,
-    //     minimal,
-    //     proof,
-    //     r: r_actual,
-    //     old_bulletproof_challenges,
-    //     xi,
-    //     zetaw,
-    // });
-
-    // let combined_inner_product: ShiftedValue<Fp> = to_shifted_value(
-    //     &proof
-    //         .statement
-    //         .proof_state
-    //         .deferred_values
-    //         .combined_inner_product,
-    // );
-
-    let combined_inner_product_actual: Fp = todo!();
-    let combined_inner_product: ShiftedValue<Fp> = todo!();
-
-    let bulletproof_challenges = &deferred_values.bulletproof_challenges;
-    let bulletproof_challenges: Vec<Fp> = bulletproof_challenges
-        .iter()
-        .map(|chal| {
-            let prechallenge = &chal.prechallenge.inner;
-            let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].as_u64());
-            ScalarChallenge::from(prechallenge).to_field(&endo_fp)
-        })
-        .collect();
-
-    let b_actual = {
-        let challenge_polys = challenge_polynomial(&bulletproof_challenges);
-        challenge_polys(minimal.zeta) + (r_actual * challenge_polys(zetaw))
-    };
 
     {
         // TODO: Don't use hardcoded values
@@ -665,18 +550,48 @@ fn run_checks(
         );
     }
 
-    checks(
-        combined_inner_product.shifted_to_field() == combined_inner_product_actual,
-        "different combined inner product",
-    );
-    // checks(b.shifted_to_field() == b_actual, "different b");
-    // checks(xi == xi_actual, "different xi");
-
     for e in &errors {
         eprintln!("{:?}", e);
     }
 
     errors.is_empty()
+}
+
+fn compute_deferred_values(proof: &PicklesProofProofsVerified2ReprStableV2) -> DeferredValues<Fp> {
+    let (_, endo) = endos::<Fq>();
+
+    let bulletproof_challenges: Vec<Fp> = proof
+        .statement
+        .proof_state
+        .deferred_values
+        .bulletproof_challenges
+        .iter()
+        .map(|chal| {
+            let prechallenge = &chal.prechallenge.inner;
+            let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].as_u64());
+            ScalarChallenge::from(prechallenge).to_field(&endo)
+        })
+        .collect();
+
+    let mut deferred_values = {
+        let old_bulletproof_challenges: Vec<[Fp; 16]> = proof
+            .statement
+            .messages_for_next_step_proof
+            .old_bulletproof_challenges
+            .iter()
+            .map(|v| {
+                v.0.clone()
+                    .map(|v| u64_to_field(&v.prechallenge.inner.0.map(|v| v.as_u64())))
+            })
+            .collect();
+        let proof_state: StatementProofState = (&proof.statement.proof_state).into();
+        let evals: AllEvals<Fp> = (&proof.prev_evals).into();
+
+        expand_deferred(&evals, &old_bulletproof_challenges, &proof_state)
+    };
+
+    deferred_values.bulletproof_challenges = bulletproof_challenges;
+    deferred_values
 }
 
 /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/verification_key.mli#L30
@@ -759,16 +674,8 @@ fn verify_impl<AppState>(
 where
     AppState: ToFieldElements<Fp>,
 {
-    let DataForPublicInput {
-        evals,
-        minimal,
-        domain_log2,
-    } = extract_data_for_public_input(proof);
-
-    let env = make_scalars_env(&minimal, domain_log2, 16);
-    let plonk = derive_plonk(&env, &evals, &minimal);
-
-    let checks = run_checks(&env, &evals, &minimal, proof, vk.index);
+    let deferred_values = compute_deferred_values(proof);
+    let checks = run_checks(proof, vk.index);
 
     let message_for_next_step_proof = get_message_for_next_step_proof(
         &proof.statement.messages_for_next_step_proof,
@@ -782,17 +689,15 @@ where
     let prepared_statement = get_prepared_statement(
         &message_for_next_step_proof,
         &message_for_next_wrap_proof,
-        plonk,
-        &proof.statement.proof_state.deferred_values,
+        deferred_values,
         &proof.statement.proof_state.sponge_digest_before_evaluations,
-        &minimal,
     );
 
     let npublic_input = vk.index.public;
     let public_inputs = prepared_statement.to_public_input(npublic_input);
-    let prover = make_prover(proof);
+    let proof = make_padded_proof_from_p2p(proof);
 
-    let result = verify_with(vk.index, &prover, &public_inputs);
+    let result = verify_with(vk.index, &proof, &public_inputs);
 
     if let Err(e) = result {
         eprintln!("verify error={:?}", e);

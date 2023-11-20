@@ -33,7 +33,7 @@ fn get_challenge_polynomial_commitments_padding() -> (BigInt, BigInt) {
     PADDING.clone()
 }
 
-pub fn make_prover(
+pub fn make_padded_proof_from_p2p(
     PicklesProofProofsVerified2ReprStableV2 {
         statement,
         prev_evals: _, // unused

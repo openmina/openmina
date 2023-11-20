@@ -4,7 +4,7 @@ use crate::{
     proofs::{
         block::{step, StepParams},
         constants::{make_step_transaction_data, StepMergeProof},
-        prover::make_prover,
+        prover::make_padded_proof_from_p2p,
         public_input::{
             plonk_checks::ShiftingValue,
             prepared_statement::{DeferredValues, PreparedStatement, ProofState},
@@ -542,7 +542,7 @@ pub fn expand_proof(
         messages_for_next_step_proof,
     };
 
-    let mut proof = make_prover(t);
+    let mut proof = make_padded_proof_from_p2p(t);
     let oracle = {
         let public_input = prev_statement_with_hashes.to_public_input(public_input_length);
         dbg!(&public_input);
