@@ -60,6 +60,7 @@ use crate::{
 use self::step_verifier::{proof_verified_to_prefix, VerifyParams};
 
 use super::{
+    constants::WrapMergeProof,
     public_input::{messages::MessagesForNextWrapProof, plonk_checks::PlonkMinimal},
     to_field_elements::ToFieldElements,
     unfinalized::{AllEvals, EvalsWithPublicInput, Unfinalized},
@@ -70,7 +71,7 @@ use super::{
         MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
         ReducedMessagesForNextStepProof, ToFieldElementsDebug, Witness,
     },
-    wrap::{CircuitVar, Domains}, constants::WrapMergeProof,
+    wrap::{CircuitVar, Domains},
 };
 
 fn read_witnesses() -> std::io::Result<Vec<Fp>> {

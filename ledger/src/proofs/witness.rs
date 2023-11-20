@@ -2456,9 +2456,9 @@ where
     let _ = w.to_field_checked_prime::<16>(x);
 
     // TODO: Fix `F, F` below
-    plonk_curve_ops::scale_fast::<F, F, 5>(g.to_affine(), F::Shifting::of_raw(x), w);
-    plonk_curve_ops::scale_fast::<F, F, 5>(g.to_affine(), F::Shifting::of_raw(x), w);
-    scalar_challenge::endo::<F, F, 4>(g.to_affine(), x, w);
+    let _ = plonk_curve_ops::scale_fast::<F, F, 5>(g.to_affine(), F::Shifting::of_raw(x), w);
+    let _ = plonk_curve_ops::scale_fast::<F, F, 5>(g.to_affine(), F::Shifting::of_raw(x), w);
+    let _ = scalar_challenge::endo::<F, F, 4>(g.to_affine(), x, w);
 }
 
 pub mod legacy_input {
@@ -3860,6 +3860,7 @@ pub mod transaction_snark {
         (curr_min_balance, timing)
     }
 
+    #[allow(unused_assignments)]
     fn apply_tagged_transaction(
         shifted: &InnerCurve<Fp>,
         _fee_payment_root: Fp,
@@ -4000,7 +4001,7 @@ pub mod transaction_snark {
         };
 
         let mut burned_tokens = CheckedAmount::<Fp>::zero();
-        let mut zero_fee = CheckedSigned::zero();
+        let zero_fee = CheckedSigned::zero();
         let mut new_account_fees = zero_fee.clone();
 
         let root_after_fee_payer_update = {
@@ -4223,7 +4224,7 @@ pub mod transaction_snark {
         let mut receiver_overflow = Boolean::False;
         let mut receiver_balance_update_permitted = Boolean::True;
 
-        let root_after_receiver_update = {
+        let _root_after_receiver_update = {
             let index = ledger.find_index_exn(receiver.clone());
             w.exists(index.to_bits());
 
@@ -4316,7 +4317,7 @@ pub mod transaction_snark {
                                 .add(&new_account_fees, w);
                         new_account_fees = new_account_fees_total;
 
-                        let (amount_for_new_account, underflow) =
+                        let (amount_for_new_account, _underflow) =
                             receiver_increase.sub_flagged(&account_creation_fee, w);
 
                         w.exists_no_check(match user_command_fails {
@@ -4330,6 +4331,8 @@ pub mod transaction_snark {
                         account_balance.add_amount_flagged(&receiver_amount, w);
 
                     Boolean::assert_any(&[is_user_command, overflow.neg()], w);
+
+                    receiver_overflow = overflow;
 
                     w.exists_no_check(match overflow {
                         Boolean::True => account_balance,
@@ -4422,7 +4425,7 @@ pub mod transaction_snark {
             checked_verify_merkle_path(&account, &path, w);
 
             // filter
-            let is_empty_and_writeable = {
+            let _is_empty_and_writeable = {
                 let is_writable = user_command_failure.source_not_present.to_boolean();
                 let account_already_there = account.id().checked_equal(&source, w);
                 let account_not_there = checked_equal_compressed_key_const_and(
@@ -4438,11 +4441,11 @@ pub mod transaction_snark {
             // f
             let next = {
                 let bool_to_field = |b: bool| b.to_boolean().to_field::<Fp>();
-                let num_failures = field::const_add(
+                let _num_failures = field::const_add(
                     bool_to_field(user_command_failure.source_insufficient_balance),
                     bool_to_field(user_command_failure.source_bad_timing),
                 );
-                let not_fee_payer_is_source = fee_payer_is_source.neg();
+                let _not_fee_payer_is_source = fee_payer_is_source.neg();
 
                 let permitted_to_access = account.checked_has_permission_to(
                     PermsConst {
@@ -4620,7 +4623,7 @@ pub mod transaction_snark {
             w.exists_no_check(expected_supply_increase.magnitude.clone());
             w.exists_no_check(expected_supply_increase.magnitude.clone());
 
-            let (amt0, overflow0) = expected_supply_increase
+            let (amt0, _overflow0) = expected_supply_increase
                 .add_flagged(&CheckedSigned::of_unsigned(burned_tokens).negate(), w);
 
             let new_account_fees_total = w.exists_no_check(match user_command_fails {
@@ -4629,7 +4632,7 @@ pub mod transaction_snark {
             });
 
             w.exists(new_account_fees_total.value()); // Made in the `add_flagged` call
-            let (amt, overflow) = amt0.add_flagged(&new_account_fees_total, w);
+            let (amt, _overflow) = amt0.add_flagged(&new_account_fees_total, w);
 
             amt
         };
@@ -5709,7 +5712,7 @@ mod tests {
         let proof = generate_block_proof(
             BlockParams {
                 input: &blockchain_input,
-                block_prover: &block_step_prover,
+                block_step_prover: &block_step_prover,
                 block_wrap_prover: &block_wrap_prover,
                 tx_wrap_prover: &tx_wrap_prover,
                 expected_step_proof: Some(
@@ -5758,7 +5761,7 @@ mod tests {
             let proof = generate_block_proof(
                 BlockParams {
                     input: &blockchain_input,
-                    block_prover: &block_step_prover,
+                    block_step_prover: &block_step_prover,
                     block_wrap_prover: &block_wrap_prover,
                     tx_wrap_prover: &tx_wrap_prover,
                     expected_step_proof: Some(

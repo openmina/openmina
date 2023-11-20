@@ -1,9 +1,7 @@
 use std::{ops::Neg, rc::Rc};
 
 use ark_ff::{BigInteger256, One, Zero};
-use ark_poly::{
-    univariate::DensePolynomial, EvaluationDomain, UVPolynomial,
-};
+use ark_poly::{univariate::DensePolynomial, EvaluationDomain, UVPolynomial};
 use kimchi::{
     circuits::{scalars::RandomOracles, wires::COLUMNS},
     oracles::OraclesResult,
@@ -16,10 +14,7 @@ use mina_p2p_messages::v2::{
     PicklesBaseProofsVerifiedStableV1, PicklesProofProofsVerified2ReprStableV2,
 };
 use mina_poseidon::{sponge::ScalarChallenge, FqSponge};
-use poly_commitment::{
-    commitment::b_poly_coefficients,
-    PolyComm,
-};
+use poly_commitment::{commitment::b_poly_coefficients, PolyComm};
 
 use crate::{
     proofs::{
@@ -2360,7 +2355,10 @@ impl Check<Fq> for kimchi::proof::ProverCommitments<Vesta> {
         assert!(lookup.is_none());
 
         let mut check_poly = |poly: &PolyComm<Vesta>| {
-            let PolyComm { unshifted, shifted: _ } = poly;
+            let PolyComm {
+                unshifted,
+                shifted: _,
+            } = poly;
             for affine in unshifted {
                 InnerCurve::of_affine(affine.clone()).check(w);
             }

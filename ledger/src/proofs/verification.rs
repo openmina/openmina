@@ -303,138 +303,6 @@ pub fn prev_evals_from_p2p<F: FieldWitness>(
     }
 }
 
-fn expand_deferred(
-    env: &ScalarsEnv<Fp>,
-    evals: &PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
-    old_bulletproof_challenges: &[PaddedSeq<
-        PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
-        16,
-    >],
-    proof_state: &PicklesProofProofsVerified2ReprStableV2StatementProofState,
-) {
-    let old_bulletproof_challenges: Vec<[Fp; 16]> =
-        extract_bulletproof(old_bulletproof_challenges, &endo_fp());
-
-    // let
-    let plonk0 = &proof_state.deferred_values.plonk;
-
-    let zeta_bytes: [u64; 2] = array::from_fn(|i| plonk0.zeta.inner[i].as_u64());
-    let alpha_bytes: [u64; 2] = array::from_fn(|i| plonk0.alpha.inner[i].as_u64());
-    let beta_bytes: [u64; 2] = array::from_fn(|i| plonk0.beta[i].as_u64());
-    let gamma_bytes: [u64; 2] = array::from_fn(|i| plonk0.gamma[i].as_u64());
-
-    let zeta: Fp = ScalarChallenge::from(zeta_bytes).to_field(&endo_fp());
-    let alpha: Fp = ScalarChallenge::from(alpha_bytes).to_field(&endo_fp());
-    let beta: Fp = u64_to_field(&beta_bytes);
-    let gamma: Fp = u64_to_field(&gamma_bytes);
-
-    let branch_data = &proof_state.deferred_values.branch_data;
-    let domain_log2: u8 = branch_data.domain_log2.as_u8();
-
-    let w = env.domain.group_gen;
-    let zetaw = zeta * w;
-
-    let tick_plonk_minimal = PlonkMinimal {
-        alpha,
-        beta,
-        gamma,
-        zeta,
-        joint_combiner: None,
-        alpha_bytes,
-        beta_bytes,
-        gamma_bytes,
-        zeta_bytes,
-    };
-
-    let evals = prev_evals_from_p2p(evals);
-    evals_of_split_evals(zeta, zetaw, &evals, BACKEND_TICK_ROUNDS_N);
-
-    let plonk = {
-        // TODO: Dedup this
-        let evals =
-            evals.map_ref(&|PointEvaluations { zeta, zeta_omega }| [zeta[0], zeta_omega[0]]);
-        let mut p = derive_plonk(env, &evals, &tick_plonk_minimal);
-        p.zeta = u64_to_field(&zeta_bytes);
-        p.alpha = u64_to_field(&alpha_bytes);
-        p.beta = u64_to_field(&beta_bytes);
-        p.gamma = u64_to_field(&gamma_bytes);
-        p
-    };
-}
-
-//   let absorb, squeeze =
-//     let open Tick_field_sponge.Bits in
-//     let sponge =
-//       let s = create Tick_field_sponge.params in
-//       absorb s
-//         (Digest.Constant.to_tick_field
-//            proof_state.sponge_digest_before_evaluations ) ;
-//       s
-//     in
-//     let squeeze () =
-//       let underlying =
-//         Challenge.Constant.of_bits
-//           (squeeze sponge ~length:Challenge.Constant.length)
-//       in
-//       Scalar_challenge.create underlying
-//     in
-//     (absorb sponge, squeeze)
-//   in
-//   let old_bulletproof_challenges =
-//     Vector.map ~f:Ipa.Step.compute_challenges old_bulletproof_challenges
-//   in
-//   (let challenges_digest =
-//      let open Tick_field_sponge.Field in
-//      let sponge = create Tick_field_sponge.params in
-//      Vector.iter old_bulletproof_challenges ~f:(Vector.iter ~f:(absorb sponge)) ;
-//      squeeze sponge
-//    in
-//    absorb challenges_digest ;
-//    absorb evals.ft_eval1 ;
-//    let xs = Plonk_types.Evals.to_absorption_sequence evals.evals.evals in
-//    let x1, x2 = evals.evals.public_input in
-//    absorb x1 ;
-//    absorb x2 ;
-//    List.iter xs ~f:(fun (x1, x2) ->
-//        Array.iter ~f:absorb x1 ; Array.iter ~f:absorb x2 ) ) ;
-//   let xi_chal = squeeze () in
-//   let xi = sc xi_chal in
-//   let r_chal = squeeze () in
-//   let r = sc r_chal in
-//   Timer.clock __LOC__ ;
-//   (* TODO: The deferred values "bulletproof_challenges" should get routed
-//      into a "batch dlog Tick acc verifier" *)
-//   let actual_proofs_verified = Vector.length old_bulletproof_challenges in
-//   Timer.clock __LOC__ ;
-//   let combined_inner_product_actual =
-//     Wrap.combined_inner_product ~env:tick_env ~plonk:tick_plonk_minimal
-//       ~domain:tick_domain ~ft_eval1:evals.ft_eval1
-//       ~actual_proofs_verified:(Nat.Add.create actual_proofs_verified)
-//       evals.evals ~old_bulletproof_challenges ~r ~xi ~zeta ~zetaw
-//   in
-//   Timer.clock __LOC__ ;
-//   let bulletproof_challenges =
-//     Ipa.Step.compute_challenges bulletproof_challenges
-//   in
-//   Timer.clock __LOC__ ;
-//   let b_actual =
-//     let challenge_poly =
-//       unstage
-//         (Wrap.challenge_polynomial (Vector.to_array bulletproof_challenges))
-//     in
-//     Tick.Field.(challenge_poly zeta + (r * challenge_poly zetaw))
-//   in
-//   let to_shifted =
-//     Shifted_value.Type1.of_field (module Tick.Field) ~shift:Shifts.tick1
-//   in
-//   { xi = xi_chal
-//   ; plonk
-//   ; combined_inner_product = to_shifted combined_inner_product_actual
-//   ; branch_data
-//   ; bulletproof_challenges
-//   ; b = to_shifted b_actual
-//   }
-
 // TODO: `domain_log2` and `srs_length_log2` might be the same here ? Remove one or the other
 pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
     minimal: &PlonkMinimal<F, NLIMB>,
@@ -539,18 +407,9 @@ where
         zeta: minimal.zeta_bytes,
         zeta_to_srs_length: plonk.zeta_to_srs_length,
         zeta_to_domain_size: plonk.zeta_to_domain_size,
-        // vbmul: plonk.vbmul,
-        // complete_add: plonk.complete_add,
-        // endomul: plonk.endomul,
-        // endomul_scalar: plonk.endomul_scalar,
         perm: plonk.perm,
         lookup: (),
     };
-
-    // let xi: [u64; 2] = array::from_fn(|i| deferred_values.plonk.xi.inner[i].as_u64());
-    // let b: ShiftedValue<Fp> = to_shifted_value(&deferred_values.b);
-    // let combined_inner_product: ShiftedValue<Fp> =
-    //     to_shifted_value(&deferred_values.combined_inner_product);
 
     let combined_inner_product = todo!();
     let b = todo!();
@@ -683,7 +542,7 @@ fn run_checks(
             .chain(range_check_lookup_selector.iter())
             .chain(foreign_field_mul_lookup_selector.iter());
 
-        iter.all(|(a, b)| a.len() == 1 && b.len() == 1)
+        iter.all(|(a, b)| a.len() <= 1 && b.len() <= 1)
     };
 
     checks(non_chunking, "only uses single chunks");

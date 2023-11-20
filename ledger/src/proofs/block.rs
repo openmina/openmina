@@ -1965,7 +1965,7 @@ struct BlockMainParams<'a> {
 
 pub struct BlockParams<'a> {
     pub input: &'a v2::ProverExtendBlockchainInputStableV2,
-    pub block_prover: &'a Prover<Fp>,
+    pub block_step_prover: &'a Prover<Fp>,
     pub block_wrap_prover: &'a Prover<Fq>,
     pub tx_wrap_prover: &'a Prover<Fq>,
     /// For debugging only
@@ -1990,7 +1990,7 @@ pub fn generate_block_proof(
                 prover_state,
                 pending_coinbase,
             },
-        block_prover,
+        block_step_prover,
         block_wrap_prover,
         tx_wrap_prover,
         expected_step_proof,
@@ -2052,7 +2052,7 @@ pub fn generate_block_proof(
             indexes,
             prev_challenge_polynomial_commitments,
             wrap_prover: block_wrap_prover,
-            step_prover: block_prover,
+            step_prover: block_step_prover,
         },
         w,
     );
@@ -2075,7 +2075,7 @@ pub fn generate_block_proof(
             step_statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,
-            step_prover_index: &block_prover.index,
+            step_prover_index: &block_step_prover.index,
             wrap_prover: block_wrap_prover,
         },
         &mut w,
