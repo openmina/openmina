@@ -1,20 +1,15 @@
-#![allow(unused)]
+use std::array;
 
-use std::{array, borrow::Cow};
-
-use ark_ff::{BigInteger256, Field};
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
 use crate::{
     proofs::{
         accumulator_check,
         merge::{expand_deferred, StatementProofState},
-        public_input::plonk_checks::ShiftingValue,
         unfinalized::AllEvals,
-        util::{challenge_polynomial, to_absorption_sequence},
         verifier_index::make_zkapp_verifier_index,
         witness::endos,
-        wrap::{combined_inner_product, CombinedInnerProductParams, Domain},
+        wrap::Domain,
         BACKEND_TICK_ROUNDS_N,
     },
     scan_state::{
@@ -22,14 +17,13 @@ use crate::{
         scan_state::transaction_snark::{SokDigest, Statement},
         transaction_logic::zkapp_statement::ZkappStatement,
     },
-    static_params, Sponge, VerificationKey,
+    VerificationKey,
 };
 
 use super::{
     to_field_elements::ToFieldElements,
     util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
     witness::{FieldWitness, InnerCurve, PlonkVerificationKeyEvals},
-    wrap::evals_of_split_evals,
     VerifierSRS,
 };
 use kimchi::{
@@ -42,18 +36,13 @@ use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     bigint::BigInt,
-    pseq::PaddedSeq,
     v2::{
         CompositionTypesDigestConstantStableV1, MinaBlockHeaderStableV2,
         PicklesProofProofsVerified2ReprStableV2,
         PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof,
         PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
         PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
-        PicklesProofProofsVerified2ReprStableV2StatementFp,
-        PicklesProofProofsVerified2ReprStableV2StatementProofState,
-        PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues,
         PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags,
-        PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
         TransactionSnarkProofStableV2,
     },
 };
@@ -62,108 +51,16 @@ use super::{prover::make_padded_proof_from_p2p, ProverProof, VerifierIndex};
 
 use super::public_input::{
     messages::{MessagesForNextStepProof, MessagesForNextWrapProof},
-    plonk_checks::{derive_plonk, PlonkMinimal, ScalarsEnv, ShiftedValue},
-    prepared_statement::{DeferredValues, Plonk, PreparedStatement, ProofState},
+    plonk_checks::{PlonkMinimal, ScalarsEnv},
+    prepared_statement::{DeferredValues, PreparedStatement, ProofState},
     scalar_challenge::{endo_fp, endo_fq, ScalarChallenge},
 };
-
-use super::public_input::plonk_checks::InCircuit;
 
 #[cfg(target_family = "wasm")]
 #[cfg(test)]
 mod wasm {
     use wasm_bindgen_test::*;
     wasm_bindgen_test_configure!(run_in_browser);
-}
-
-fn to_shifted_value<F>(
-    value: &PicklesProofProofsVerified2ReprStableV2StatementFp,
-) -> ShiftedValue<F>
-where
-    F: Field,
-{
-    let PicklesProofProofsVerified2ReprStableV2StatementFp::ShiftedValue(ref value) = value;
-
-    let shifted: F = value.to_field();
-    ShiftedValue { shifted }
-}
-
-struct DataForPublicInput {
-    evals: ProofEvaluations<[Fp; 2]>,
-    minimal: PlonkMinimal<Fp>,
-    domain_log2: u8,
-}
-
-fn extract_data_for_public_input(
-    proof: &PicklesProofProofsVerified2ReprStableV2,
-) -> DataForPublicInput {
-    let evals = &proof.prev_evals.evals.evals;
-
-    let to_fp = |(a, b): &(Vec<BigInt>, Vec<BigInt>)| [a[0].to_field(), b[0].to_field()];
-
-    let evals = ProofEvaluations::<[Fp; 2]> {
-        w: array::from_fn(|i| to_fp(&evals.w[i])),
-        z: to_fp(&evals.z),
-        s: array::from_fn(|i| to_fp(&evals.s[i])),
-        generic_selector: to_fp(&evals.generic_selector),
-        poseidon_selector: to_fp(&evals.poseidon_selector),
-        coefficients: array::from_fn(|i| to_fp(&evals.coefficients[i])),
-        complete_add_selector: to_fp(&evals.complete_add_selector),
-        mul_selector: to_fp(&evals.mul_selector),
-        emul_selector: to_fp(&evals.emul_selector),
-        endomul_scalar_selector: to_fp(&evals.endomul_scalar_selector),
-        range_check0_selector: evals.range_check0_selector.as_ref().map(to_fp),
-        range_check1_selector: evals.range_check1_selector.as_ref().map(to_fp),
-        foreign_field_add_selector: evals.foreign_field_add_selector.as_ref().map(to_fp),
-        foreign_field_mul_selector: evals.foreign_field_mul_selector.as_ref().map(to_fp),
-        xor_selector: evals.xor_selector.as_ref().map(to_fp),
-        rot_selector: evals.rot_selector.as_ref().map(to_fp),
-        lookup_aggregation: evals.lookup_aggregation.as_ref().map(to_fp),
-        lookup_table: evals.lookup_table.as_ref().map(to_fp),
-        lookup_sorted: array::from_fn(|i| evals.lookup_sorted[i].as_ref().map(to_fp)),
-        runtime_lookup_table: evals.runtime_lookup_table.as_ref().map(to_fp),
-        runtime_lookup_table_selector: evals.runtime_lookup_table_selector.as_ref().map(to_fp),
-        xor_lookup_selector: evals.xor_lookup_selector.as_ref().map(to_fp),
-        lookup_gate_lookup_selector: evals.lookup_gate_lookup_selector.as_ref().map(to_fp),
-        range_check_lookup_selector: evals.range_check_lookup_selector.as_ref().map(to_fp),
-        foreign_field_mul_lookup_selector: evals
-            .foreign_field_mul_lookup_selector
-            .as_ref()
-            .map(to_fp),
-    };
-
-    let plonk = &proof.statement.proof_state.deferred_values.plonk;
-
-    let zeta_bytes: [u64; 2] = array::from_fn(|i| plonk.zeta.inner[i].as_u64());
-    let alpha_bytes: [u64; 2] = array::from_fn(|i| plonk.alpha.inner[i].as_u64());
-    let beta_bytes: [u64; 2] = array::from_fn(|i| plonk.beta[i].as_u64());
-    let gamma_bytes: [u64; 2] = array::from_fn(|i| plonk.gamma[i].as_u64());
-
-    let zeta: Fp = ScalarChallenge::from(zeta_bytes).to_field(&endo_fp());
-    let alpha: Fp = ScalarChallenge::from(alpha_bytes).to_field(&endo_fp());
-    let beta: Fp = u64_to_field(&beta_bytes);
-    let gamma: Fp = u64_to_field(&gamma_bytes);
-
-    let branch_data = &proof.statement.proof_state.deferred_values.branch_data;
-    let domain_log2: u8 = branch_data.domain_log2.as_u8();
-
-    let minimal = PlonkMinimal {
-        alpha,
-        beta,
-        gamma,
-        zeta,
-        joint_combiner: None,
-        alpha_bytes,
-        beta_bytes,
-        gamma_bytes,
-        zeta_bytes,
-    };
-
-    DataForPublicInput {
-        evals,
-        minimal,
-        domain_log2,
-    }
 }
 
 fn validate_feature_flags(
@@ -438,11 +335,6 @@ fn run_checks(
     proof: &PicklesProofProofsVerified2ReprStableV2,
     verifier_index: &VerifierIndex,
 ) -> bool {
-    type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
-    type EFqSponge =
-        mina_poseidon::sponge::DefaultFqSponge<mina_curves::pasta::PallasParameters, SpongeParams>;
-    use mina_poseidon::FqSponge;
-
     let mut errors: Vec<String> = vec![];
     let mut checks = |condition: bool, s: &str| {
         if !condition {
@@ -490,6 +382,7 @@ fn run_checks(
                 complete_add_selector,
                 mul_selector,
                 emul_selector,
+                endomul_scalar_selector,
             ])
             .chain(range_check0_selector.iter())
             .chain(range_check1_selector.iter())
