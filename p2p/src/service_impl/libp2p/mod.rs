@@ -5,6 +5,8 @@ pub use behavior::*;
 use mina_p2p_messages::rpc::GetSomeInitialPeersV1ForV2;
 
 use std::collections::BTreeMap;
+use std::io;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -65,6 +67,34 @@ pub enum Cmd {
 
 pub struct Libp2pService {
     cmd_sender: mpsc::UnboundedSender<Cmd>,
+}
+
+async fn determine_own_ip(stun_addr: SocketAddr) -> io::Result<IpAddr> {
+    use faster_stun::{attribute, Decoder, Kind, Method, Payload};
+    use tokio::net::UdpSocket;
+
+    let socket = UdpSocket::bind(SocketAddr::from(([0; 4], 0))).await?;
+    tokio::time::timeout(Duration::from_secs(10), async move {
+        loop {
+            let mut request =
+                *b"\x00\x01\x00\x00\x21\x12\xa4\x42\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+            request[8..].clone_from_slice(&rand::random::<[u8; 12]>());
+            socket.send_to(&request, stun_addr).await?;
+            let mut buf = [0; 0x10000];
+            let (_, remote_addr) = socket.recv_from(&mut buf).await?;
+            let mut decoder = Decoder::new();
+            if let Ok(Payload::Message(msg)) = decoder.decode(&buf) {
+                if msg.method == Method::Binding(Kind::Response)
+                    && remote_addr == stun_addr
+                    && msg.token == &request[8..]
+                {
+                    if let Some(addr) = msg.get::<attribute::XorMappedAddress>() {
+                        return Ok(addr.ip());
+                    }
+                }
+            }
+        }
+    }).await.map_err(|_| io::Error::from(io::ErrorKind::TimedOut)).and_then(|x| x)
 }
 
 impl Libp2pService {
@@ -186,6 +216,24 @@ impl Libp2pService {
             swarm.behaviour_mut().kademlia.set_mode(Some(Mode::Server));
 
             if let Some(port) = libp2p_port {
+                // TODO: configure address, get from command line
+                let stun_addr = SocketAddr::from(([142, 251, 2, 127], 19302));
+
+                match determine_own_ip(stun_addr).await {
+                    Ok(ip) => {
+                        let mut addr = Multiaddr::from(ip);
+                        addr.push(libp2p::multiaddr::Protocol::Tcp(port));
+                        swarm.add_external_address(addr);
+                    }
+                    Err(err) => {
+                        openmina_core::log::error!(
+                            openmina_core::log::system_time();
+                            kind = "NetworkError",
+                            summary = format!("failed to determine our own IP address, error: {err:?}"),
+                        );
+                    }
+                }
+
                 if let Err(err) = swarm.listen_on(format!("/ip6/::/tcp/{port}").parse().unwrap()) {
                     openmina_core::log::error!(
                         openmina_core::log::system_time();

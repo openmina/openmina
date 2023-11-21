@@ -24,6 +24,7 @@ multihash = "0.18.1"
 sha2 = "0.10.6"
 ecies-ed25519 = "0.5.1"
 ed25519-dalek = { version = "2.0.0-rc.2", features = ["serde"] }
+faster-stun = { version = "1.0.1" }
 
 redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
 mina-p2p-messages = { workspace = true }

@@ -1,0 +1,71 @@
+FROM golang:1.18.10-buster as builder
+
+RUN apt-get update && \
+  apt-get -y install \
+    apt-transport-https \
+    ca-certificates \
+    pkg-config \
+    build-essential \
+    curl \
+    git \
+    dnsutils \
+    dumb-init \
+    gettext \
+    gnupg2 \
+    unzip \
+    bubblewrap \
+    jq \
+    libgmp10 \
+    libgomp1 \
+    libssl1.1 \
+    libpq-dev \
+    libffi-dev \
+    libgmp-dev \
+    libssl-dev \
+    libbz2-dev \
+    zlib1g-dev \
+    m4 \
+    libsodium-dev \
+    libjemalloc-dev \
+    procps \
+    python3 \
+    tzdata \
+    capnproto \
+    liblmdb-dev \
+    rsync \
+    liblmdb-dev
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+WORKDIR /go
+RUN git clone https://github.com/MinaProtocol/mina.git
+
+ENV DUNE_PROFILE=devnet
+
+WORKDIR /go/mina
+RUN git checkout -b 2.0.0rampup4 2.0.0rampup4 && \
+    git submodule update --init --recursive && \
+    git config --local --add submodule.recurse true
+
+RUN make libp2p_helper
+
+RUN curl -s -L https://github.com/ocaml/opam/releases/download/2.1.2/opam-2.1.2-x86_64-linux -o /usr/local/bin/opam && chmod +x /usr/local/bin/opam
+
+RUN opam init --disable-sandboxing \
+  && opam switch create . \
+  && eval $(opam config env) \
+  && opam switch import -y opam.export \
+  && ./scripts/pin-external-packages.sh
+
+COPY patch patch
+
+RUN git apply patch
+
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh 
+
+RUN source ~/.cargo/env && eval $(opam config env) && make build_all_sigs
+
+FROM minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+
+COPY --from=builder /go/mina/src/app/libp2p_helper/result/bin/libp2p_helper /usr/local/bin/coda-libp2p_helper
+COPY --from=builder /go/mina/_build/default/src/app/cli/src/mina_testnet_signatures.exe /usr/local/bin/mina

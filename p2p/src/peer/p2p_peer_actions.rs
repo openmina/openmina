@@ -24,6 +24,7 @@ impl P2pPeerAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pPeerReadyAction {
     pub peer_id: PeerId,
+    pub incoming: bool,
 }
 
 impl redux::EnablingCondition<P2pState> for P2pPeerReadyAction {

@@ -95,7 +95,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             // TODO: the threshold is too small, node cannot connect to many peer before the timeout
             if ready_peers >= KNOWN_PEERS && known_peers >= KNOWN_PEERS {
                 let ocaml_node = ocaml_node.get_or_insert_with(|| {
-                    ocaml::Node::spawn_berkeley(8302, 3085, Some(&[&this_maddr]))
+                    ocaml::Node::spawn(8302, 3085, 8301, Some(&[&this_maddr]))
                 });
                 if node
                     .state()
