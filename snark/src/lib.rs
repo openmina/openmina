@@ -1,3 +1,6 @@
+/// This module implements the actions/state/reducers/events related to the
+/// verification of block proofs (produced by block producers), and transaction
+/// snark proofs (produced by snark workers).
 mod merkle_path;
 
 pub use ledger::proofs::accumulator_check::get_srs;

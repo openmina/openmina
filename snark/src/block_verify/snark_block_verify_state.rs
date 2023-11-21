@@ -10,6 +10,18 @@ use super::{
     SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyIdType, VerifiableBlockWithHash,
 };
 
+/// This structure contains the state of snark block verification.
+/// 
+/// The `verifier_index` and `verifier_srs` are set from the
+/// `block_verifier_index` and `block_verifier_srs` fields of `SnarkConfig`.
+/// 
+/// The `jobs` is list of block verification work that can be in any of the
+/// following states: Init / Pending / Error / Success. Inside every of these
+/// states we can find a `Timestamp` and a `VerifiableBlockWithHash` which
+/// wraps either a full block or just the block header. The verifier can later
+/// extract the protocol state and protocol state proof from the block header
+/// to perform the proof verification.
+/// 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SnarkBlockVerifyState {
     pub verifier_index: Arc<VerifierIndex>,

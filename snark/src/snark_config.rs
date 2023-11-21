@@ -2,6 +2,28 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+/// This structure contains the information needed to verify snark work.
+/// This is basically: the verifier index of the circuits, and the SRS.
+/// 
+/// Blocks are verified by `ledger::proofs::verification::verify_block`
+/// which requires:
+/// - The block header in wire form: the verifier extracts the protocol state,
+///   and the protocol state proof.
+/// - The verifier index: this is taken from `block_verifier_index` to derive
+///   the verification key.
+/// - The SRS: this is taken from `block_verifier_srs`.
+///
+/// Snark work is verified by `ledger::proofs::verification::verify_transaction`
+/// which required:
+/// - A list of of statements and transaction snark proofs (in wire form) where
+///   each statement contains information such as: first/second pass ledgers,
+///   local state, and the `SokDigest` derived from the Snarker key and fee.
+/// - The verifier index: this is taken from `work_verifier_index` to derive
+///   the verification key.
+/// - The SRS: this is taken from `work_verifier_srs`
+/// 
+/// Note: both `block_verifier_srs` and `work_verifier_srs` contain the same
+/// SRS. Is there any reason to keep them twice?
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SnarkConfig {
     pub block_verifier_index: Arc<crate::VerifierIndex>,
