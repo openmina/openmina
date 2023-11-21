@@ -2,7 +2,7 @@
 # Network Connectivity and Peer Management
 
 
-### Network Connectivity
+## Network Connectivity
 
 Nodes that get disconnected should eventually be able to reconnect and synchronize with the network.
 
@@ -15,7 +15,7 @@ This is crucial for ensuring that no node is permanently isolated and can always
 We are testing two versions of the node:
 
 
-#### Solo node
+### Solo node
 
 We want to be able to test whether the Rust node is compatible with the OCaml node. We achieve this by attempting to connect the Openmina node to the existing OCaml testnet.
 
@@ -60,7 +60,7 @@ We run these tests until:
 * The test is failed if the specified number of steps occur but the conditions are not met.
 
 
-##### Kademlia peer discovery
+#### Kademlia peer discovery
 
 We want the Open Mina node to be able to connect to peers, both other Open Mina nodes (that are written in Rust) as well as native Mina nodes (written in OCaml). 
 
@@ -71,7 +71,7 @@ In Mina nodes, KAD specifies the structure of the network and the exchange of in
 Since we initially focused on other parts of the node, we used the RPC get_initial_peers as a sort-of workaround to connect our nodes between themselves. Now, to ensure compatibility with the native Mina node, we’ve implemented KAD for peer discovery for the Open Mina node. 
 
 
-##### How does Mina utilize Kademlia?
+#### How does Mina utilize Kademlia?
 
 Kademlia has two main parts - the routing table and the peer store. 
 
@@ -87,7 +87,7 @@ A provider in Kademlia announces possession of specific data (identified by a un
 If there are no peers, KAD will automatically search for new ones. KAD will also search for new peers whenever the node is restarted. If a connection is already made, it will search for more peers every hour. 
 
 
-##### Message types
+#### Message types
 
 
 
@@ -96,7 +96,7 @@ If there are no peers, KAD will automatically search for new ones. KAD will also
 * FindNode - is used for different purposes. It can find a place in the network where your node should be. Or it may find a node that you need to send an AddProvider (or GetProviders) message to.
 
 
-##### Potential issues identified
+#### Potential issues identified
 * An earlier issue in the Open Mina (Rust node) with incorrect provider key advertising is now fixed.
 * The protocol's use in OCaml nodes might be a potential security risk; an adversary could exploit this to DoS the network. One possible solution is to treat all Kademlia peers as providers.
 * The peer can choose its peer_id (not arbitrarily, the peer chooses a secret key, and then the peer_id is derived from the secret key). The peer can repeat this process until its peer_id is close to a key that identifies some desired information. Thus, the peer will be responsible for storing providers of this information.
