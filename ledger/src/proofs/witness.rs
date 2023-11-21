@@ -5599,6 +5599,35 @@ mod tests {
         }
     }
 
+    #[allow(unused)]
+    #[test]
+    fn test_make_verifier_index() {
+        let Provers {
+            tx_step_prover,
+            tx_wrap_prover,
+            merge_step_prover,
+            block_step_prover,
+            block_wrap_prover,
+            zkapp_step_prover,
+        } = make_provers();
+        let v = &tx_wrap_prover.index.verifier_index.as_ref().unwrap();
+        let v_json = serde_json::to_string(&v).unwrap();
+        // std::fs::write("/tmp/tx.json", &v_json).unwrap();
+
+        // let linear = &v.linearization;
+
+        // let new_v = get_verifier_index(crate::proofs::verifier_index::VerifierKind::Transaction);
+        // let linear2 = &new_v.linearization;
+
+        // assert_eq!(linear.constant_term, linear2.constant_term);
+        // assert_eq!(linear.index_terms, linear2.index_terms);
+        // assert_eq!(v.shift, new_v.shift);
+        // assert_eq!(v.zkpm, new_v.zkpm);
+        // assert_eq!(v.w, new_v.w);
+        // assert_eq!(v.endo, new_v.endo);
+        // assert_eq!(format!("{:?}", v.lookup_index), format!("{:?}", new_v.lookup_index));
+    }
+
     #[test]
     fn test_protocol_state_body() {
         let Ok(data) =

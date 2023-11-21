@@ -466,7 +466,7 @@ fn compute_deferred_values(proof: &PicklesProofProofsVerified2ReprStableV2) -> D
         })
         .collect();
 
-    let mut deferred_values = {
+    let deferred_values = {
         let old_bulletproof_challenges: Vec<[Fp; 16]> = proof
             .statement
             .messages_for_next_step_proof
@@ -483,8 +483,10 @@ fn compute_deferred_values(proof: &PicklesProofProofsVerified2ReprStableV2) -> D
         expand_deferred(&evals, &old_bulletproof_challenges, &proof_state)
     };
 
-    deferred_values.bulletproof_challenges = bulletproof_challenges;
-    deferred_values
+    DeferredValues {
+        bulletproof_challenges,
+        ..deferred_values
+    }
 }
 
 /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/verification_key.mli#L30
