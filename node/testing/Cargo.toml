@@ -42,3 +42,7 @@ openmina-node-native = { path = "../../node/native" }
 [features]
 scenario-generators = ["documented"]
 p2p-webrtc = ["openmina-node-native/p2p-webrtc"]
+
+[[test]]
+name = "node_libp2p_only"
+required-features = ["scenario-generators"]

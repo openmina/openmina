@@ -2,6 +2,7 @@ mod behaviour;
 pub use self::behaviour::{Behaviour, BehaviourBuilder, Event, StreamId};
 
 mod handler;
+pub use handler::Handler;
 
 mod stream;
 

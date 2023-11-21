@@ -14,6 +14,7 @@ pub struct RustNodeTestingConfig {
     pub initial_time: redux::Timestamp,
     pub max_peers: usize,
     pub ask_initial_peers_interval: Duration,
+    pub requests_per_duration: u64
 }
 
 impl RustNodeTestingConfig {
@@ -23,6 +24,7 @@ impl RustNodeTestingConfig {
             initial_time: redux::Timestamp::ZERO,
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),
+            requests_per_duration: 10
         }
     }
 

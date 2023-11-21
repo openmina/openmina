@@ -24,6 +24,7 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
         libp2p_port: Option<u16>,
         secret_key: SecretKey,
         chain_id: String,
+        requests_per_duration: u64,
         event_source_sender: mpsc::UnboundedSender<P2pEvent>,
         spawner: S,
     ) -> P2pServiceCtx {
@@ -33,6 +34,7 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
                 libp2p_port,
                 secret_key,
                 chain_id,
+                requests_per_duration,
                 event_source_sender,
                 spawner,
             ),
