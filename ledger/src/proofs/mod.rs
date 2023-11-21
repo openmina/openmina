@@ -19,6 +19,7 @@ pub mod verification;
 pub mod verifier_index;
 pub mod witness;
 pub mod wrap;
+pub mod zkapp;
 
 pub type VerifierIndex = kimchi::verifier_index::VerifierIndex<Pallas>;
 pub type ProverProof = kimchi::proof::ProverProof<Pallas>;

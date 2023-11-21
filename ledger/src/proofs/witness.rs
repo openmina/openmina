@@ -5218,6 +5218,7 @@ mod tests {
             constants::{StepBlockProof, StepMergeProof, StepZkappProof, WrapBlockProof},
             merge::{generate_merge_proof, MergeParams},
             util::sha256_sum,
+            zkapp::{generate_zkapp_proof, ZkappParams},
         },
         scan_state::scan_state::transaction_snark::SokMessage,
     };
@@ -5680,6 +5681,42 @@ mod tests {
         assert_eq!(
             sum,
             "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8"
+        );
+    }
+
+    #[test]
+    fn test_zkapp_proof() {
+        let Ok(data) = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("rampup4")
+                .join("zkapp_0_rampup4.bin"),
+        ) else {
+            eprintln!("request not found");
+            return;
+        };
+
+        let (statement, tx_witness, message) = extract_request(&data);
+
+        let Provers {
+            tx_step_prover: _,
+            tx_wrap_prover: _,
+            merge_step_prover: _,
+            block_step_prover: _,
+            block_wrap_prover: _,
+            zkapp_step_prover,
+        } = make_provers();
+
+        let mut witnesses: Witness<Fp> = Witness::new::<StepZkappProof>();
+        generate_zkapp_proof(
+            ZkappParams {
+                statement: &statement,
+                tx_witness: &tx_witness,
+                message: &message,
+                step_prover: &zkapp_step_prover,
+                expected_step_proof: None,
+                ocaml_wrap_witness: None,
+            },
+            &mut witnesses,
         );
     }
 
