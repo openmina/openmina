@@ -13,6 +13,144 @@ pub struct P2pServiceCtx {
 }
 ```
 
+## WebRTC service
+The WebRTC service main-loop task which receives *state machine* commands (`Cmd` type) from an MPSC channel.
+
+```
+pub enum Cmd {
+    PeerAdd(PeerAddArgs),
+}
+
+pub struct PeerAddArgs {
+    peer_id: PeerId,
+    kind: PeerConnectionKind,
+    event_sender: mpsc::UnboundedSender<P2pEvent>,
+    cmd_receiver: mpsc::UnboundedReceiver<PeerCmd>,
+}
+
+pub enum PeerConnectionKind {
+    Outgoing,
+    Incoming(webrtc::Offer),
+}
+```
+
+The only kind of command handled by the service's main-loop is `Cmd::PeerAdd`. For each received command, the main-loop spawns a new task to handle the command (`peer_start` async function).
+
+There are two cases that are handled: [outgoing connections](#outgoing-connections) and [incoming connections](#incoming-connections).
+
+### Outgoing connections
+The steps for handling an outgoing connection are the following:
+
+- Create a RTC connection using the default `RTCConfigIceServers` (one belonging to openmina, and google ones).
+- Create the main channel for the new RTC connection.
+- Create an `offer` and pass it to the `set_local_description` API of the WebRTC implementation.
+- Wait for for the Ice gathering state to be `RTCIceGatheringState::Complete`.
+- Get SDP and send a `P2pConnectionEvent::OfferSdpReady(peer_id, Ok(sdp))` message to the *state machine*.
+    - If an error occurs in any of the previous state an `P2pConnectionEvent::OfferSdpReady(peer_id, Err(..))` is sent instead.
+- Receive a `PeerCmd` from the *state machine*:
+    ```
+    pub enum PeerCmd {
+        PeerHttpOfferSend(String, webrtc::Offer),
+        AnswerSet(webrtc::Answer),
+        ChannelOpen(ChannelId),
+        ChannelSend(MsgId, ChannelMsg),
+    }
+    ```
+    If the received command is `PeerCmd::PeerHttpOfferSend(url, offer)`, the service will signal an RTC `offer` (of `Offer` type) by sending a HTTP request to the specified `url`. 
+
+    ```
+    pub struct Offer {
+        pub sdp: String,
+        /// Offerer's identity public key.
+        pub identity_pub_key: PublicKey,
+        /// Peer id that the offerer wants to connect to.
+        pub target_peer_id: PeerId,
+        // TODO(binier): remove host and get ip from ice candidates instead
+        /// Host name or IP of the signaling server of the offerer.
+        pub host: Host,
+        /// Port of the signaling server of the offerer.
+        pub listen_port: u16,
+    }
+    ```
+    Then the service receives the HTTP response and turns it into a `P2pConnectionEvent::AnswerReceived(peer_id, answer)` and delivers it to the *state machine*.
+
+    Finally, the service should receive a `PeerCmd::AnswerSet` message from the *state machine*.
+
+- Call the `set_remote_description` API of the WebRTC implementation with the `answer` received during the signaling process, and sends a `P2pConnectionEvent::Finalized` message to the *state machine*.
+
+- Check the WebRTC connection state:
+    - If the state is `RTCConnectionState::Connected` a `P2pConnectionEvent::Finalized(peer_id, Ok(()))` is sent to the *state machine*.
+    - Otherwise an error/disconnection happened. If the connection was closed a `P2pConnectionEvent::Closed` message is sent to the *state machine*. If an error occurred a `P2pConnectionEvent::Finalized(pper_id, Err(err))` is sent.
+
+- Enter the [peer loop](#peer-loop)
+
+### Incoming connections
+The steps for handling an incoming connection are the following:
+
+- Create a RTC connection using the default `RTCConfigIceServers` (one belonging to openmina, and google ones).
+- Create the main channel for the new RTC connection.
+- Call `set_remote_description` API of the WebRTC implementation passing it the `offer` received from the *state machine* message (`PeerConnectionKind::Incoming(offer)`).
+- Create an `answer` and pass it to the `set_local_description` API of the WebRTC implementation.
+- Wait for for the Ice gathering state to be `RTCIceGatheringState::Complete`.
+- Get SDP and send a `P2pConnectionEvent::AnswerSdpReady(peer_id, Ok(sdp))` message to the *state machine*.
+    - If an error occurs in any of the previous state an `P2pConnectionEvent::AnswerSdpReady(peer_id, Err(..))` is sent instead.
+- Check the WebRTC connection state:
+    - If the state is `RTCConnectionState::Connected` a `P2pConnectionEvent::Finalized(peer_id, Ok(()))` is sent to the *state machine*.
+    - Otherwise an error/disconnection happened. If the connection was closed a `P2pConnectionEvent::Closed` message is sent to the *state machine*. If an error occurred a `P2pConnectionEvent::Finalized(pper_id, Err(err))` is sent.
+
+- Enter the [peer loop](#peer-loop)
+
+### Peer loop
+First a MPSC channel is created for "internal" messages, the channel will be used by the function itself and also by callbacks. Then we enter the main loop of the function that receives two kinds of messages:
+
+- "External" commands: coming from the *state machine*. These are of the `PeerCmd` type described earlier.
+- "Internal" commands: sent by the peer-loop itself. These are of the following `PeerCmdInternal` type.
+    ```
+    enum PeerCmdInternal {
+        ChannelOpened(ChannelId, Result<RTCChannel, Error>),
+        ChannelClosed(ChannelId),
+    }
+
+    enum PeerCmdAll {
+        External(PeerCmd),
+        Internal(PeerCmdInternal),
+    }
+    ```
+
+The following commands (internal and external) are handled by the loop:
+- `PeerCmdAll::External(PeerCmd::ChannelOpen(id))`
+
+    Spawns a new task that
+        - Creates an RTC channel using the `id` provided by the command.
+        - Registers callbacks for error and disconnection events on the channel, if called these will send a `PeerCmdInternal::ChannelClosed(id)`.
+        - Sends a `PeerCmdInternal::ChannelOpened` message containing the `id` and the newly created channel (or an error if any of the previous steps failed).
+
+- `PeerCmdAll::External(PeerCmd::ChannelSend(msg_id, msg))`
+
+    Sends a `msg` of `ChannelMsg` type to the peer over an RTC channel.
+    ```
+    pub enum ChannelMsg {
+        BestTipPropagation(BestTipPropagationChannelMsg),
+        SnarkPropagation(SnarkPropagationChannelMsg),
+        SnarkJobCommitmentPropagation(SnarkJobCommitmentPropagationChannelMsg),
+        Rpc(RpcChannelMsg),
+    }
+    ```
+    These variants represent the messages supported by the MINA P2P protocol. These messages are sent to a task that is associated to the channel, which binprot serializes the messages and send over the WebRTC transport taking care of handling chunking.
+    On any error a `P2pChannelEvent::Sent` message with the error code is sent to the *state machine*.
+
+- `PeerCmdAll::Internal(PeerCmdInternal::ChannelOpened(chan_id, result))`
+
+    - Includes the new channel into the channels list.
+    - Spawns the task associated to the channel that takes care of receiving the `ChannelMsg`s, encode them and send them over the WebRTC transport. Every time a message is sent the task reports it to the *state machine* by sending a `P2pChannelEvent::Sent` message.
+    - Sets a callback on the channel for when messages are received over the WebRTC transport. This callback deserializes the messages (taking care of chunking) and sends them to the *state machine* with a `P2pChannelEvent::Received` message.
+    - Reports back the result of the operation to the *state machine* with a `P2pChannelEvent::Opened` message.
+
+- `PeerCmdAll::Internal(PeerCmdInternal::ChannelClosed(id))`
+
+    Removes the channel from the channels list and sends a `P2pChannelEvent::Closed` to the *state machine*.
+
+
 ## Libp2pService
 Uses the *libp2p* crate to implement P2P communication over a transport stack composed of: **TCP -> PNet -> Noise -> Yamux**.
 
@@ -183,3 +321,6 @@ The way the RPC response is constructed and delivered over libp2p is almost iden
 | `Response<GetSomeInitialPeersV1ForV2>` | none | none |
 | `Response<GetSomeInitialPeersV1ForV2>` | `P2pRpcResponse::InitialPeers(peers)` | `vec![NetworkPeerPeerStableV1{..}]` |
 |  | `P2pRpcResponse::Snark(..)` | none |
+
+
+
