@@ -14,13 +14,14 @@ In this test, three nodes are started:
 
 Initially, the OCaml seed node has the other two nodes in its peer list, while the OCaml node and the Rust node only have the seed node.
 
-![nodedisco1b](https://github.com/openmina/openmina/assets/60480123/5886fa69-330a-4b40-9b9f-e6a804d868e1)
+![nodedisco1b](https://github.com/openmina/openmina/assets/60480123/9165203e-c262-4cc7-add7-bd1b2f1be88b)
+
 
 
 The two (OCaml and Rust) non-seed nodes connect to the OCaml seed node
 
 
-![nodedisco2b](https://github.com/openmina/openmina/assets/60480123/e2ca62bb-60da-44e7-9637-a3b03cfc974e)
+![nodedisco2b](https://github.com/openmina/openmina/assets/60480123/a8f29fb4-57f7-404c-b062-b3872616277b)
 
 
 
@@ -31,7 +32,7 @@ They then make a connection between themselves. If the test is successful, then 
 
 
 
-![nodedisco3b](https://github.com/openmina/openmina/assets/60480123/c1cfe862-5422-471b-83af-44b60b4e755e)
+![nodedisco3b](https://github.com/openmina/openmina/assets/60480123/e36fa389-63c0-453e-a062-9b00570747cf)
 
 
 
