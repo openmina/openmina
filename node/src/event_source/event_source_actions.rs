@@ -12,6 +12,7 @@ pub enum EventSourceAction {
 
 /// Notify state machine that the new events might be received/available,
 /// so trigger processing of those events.
+/// These are processed in batches of up to 1024 events.
 ///
 /// This action will be continously triggered, until there are no more
 /// events in the queue, in which case `EventSourceWaitForEventsAction`
@@ -26,6 +27,8 @@ impl redux::EnablingCondition<crate::State> for EventSourceProcessEventsAction {
 }
 
 /// Process newly retrieved event.
+/// Events can come from: P2P connections, snark work, RPCs,
+/// and communication with the snark worker process. 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EventSourceNewEventAction {
     pub event: super::Event,

@@ -21,6 +21,8 @@ pub struct P2pConfig {
     /// The node periodically polls peers for their connections to keep our list up to date.
     pub ask_initial_peers_interval: Duration,
 
+    /// Channels supported by the protocol: `BestTipPropagation`,
+    /// `SnarkPropagation`, `SnarkJobCommitmentPropagation`, `Rpc`.
     pub enabled_channels: BTreeSet<ChannelId>,
 
     /// Maximal allowed number of connections.
