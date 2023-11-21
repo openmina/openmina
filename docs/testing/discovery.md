@@ -12,7 +12,7 @@ In this test, three nodes are started:
 2. OCaml node with the seed node set as the initial peer
 3. Rust node with the seed node set as the initial peer
 
-Initially, the OCaml seed node has the other two nodes in its peer list, while the OCaml node and the Rust node only have the seed node.
+Initially, the OCaml node and the Rust node only have the seed node in their peer list, while the seed node does not know about these peers.
 
 ![nodedisco1b](https://github.com/openmina/openmina/assets/60480123/9165203e-c262-4cc7-add7-bd1b2f1be88b)
 
