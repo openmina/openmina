@@ -64,22 +64,14 @@ jobs:
         with:
           name: tests
 
-      - name: Run discovery test
+      - name: Unpack tests
         run: |
           tar xf tests.tar ./discovery
-          ./discovery --ignored --nocapture
 
+      - name: Test that OCaml node can discover Rust node connected to a seed
+        run: |
+          ./discovery --ignored --nocapture seed_rust_ocaml
 
-  cleanup-cache:
-    needs: [ discovery-tests ]
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Delete node cache
-        uses: actions/delete-artifact@v3
-        with:
-          name: bin
-
-      - name: Delete tests cache
-        uses: actions/delete-artifact@v3
-        with:
-          name: tests
+      - name: Test that OCaml node can discover Rust node that is started earlier
+        run: |
+          ./discovery --ignored --nocapture rust_seed_ocaml
