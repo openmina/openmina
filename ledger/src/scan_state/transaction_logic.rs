@@ -2936,6 +2936,16 @@ pub mod zkapp_command {
 
             self.account_updates.cons(None, fee_payer)
         }
+
+        pub fn all_account_updates_list(&self) -> Vec<AccountUpdate> {
+            let mut account_updates = Vec::with_capacity(16);
+            account_updates.push(AccountUpdate::of_fee_payer(self.fee_payer.clone()));
+
+            self.account_updates.fold(account_updates, |mut acc, u| {
+                acc.push(u.clone());
+                acc
+            })
+        }
     }
 
     pub mod verifiable {

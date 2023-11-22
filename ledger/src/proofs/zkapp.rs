@@ -10,7 +10,9 @@ use crate::{
         pending_coinbase,
         scan_state::transaction_snark::SokMessage,
         transaction_logic::{
-            protocol_state::protocol_state_body_view, zkapp_command::ZkAppCommand,
+            local_state::{LocalState, LocalStateEnv},
+            protocol_state::{protocol_state_body_view, GlobalState},
+            zkapp_command::ZkAppCommand,
         },
     },
     sparse_ledger::SparseLedger,
@@ -30,19 +32,143 @@ pub struct ZkappParams<'a> {
     pub ocaml_wrap_witness: Option<Vec<Fq>>,
 }
 
-struct ZkappCommandWitnessesParams<'a> {
-    global_slot: Slot,
-    state_body: &'a v2::MinaStateProtocolStateBodyValueStableV2,
-    fee_excess: Signed<Amount>,
-    pending_coinbase_init_stack: pending_coinbase::Stack,
-    pending_coinbase_of_statement: pending_coinbase::StackState,
-    first_pass_ledger: SparseLedger,
-    second_pass_ledger: SparseLedger,
-    connecting_ledger_hash: Fp,
-    zkapp_command: &'a ZkAppCommand,
+mod group {
+    use super::*;
+    use crate::scan_state::transaction_logic::zkapp_command::{AccountUpdate, Control};
+
+    enum SegmentBasic {
+        OptSignedOptSigned,
+        OptSigned,
+        Proved,
+    }
+
+    impl SegmentBasic {
+        pub fn of_controls(controls: &[&Control]) -> Self {
+            use Control::{NoneGiven, Proof, Signature};
+
+            match controls {
+                [Proof(_)] => Self::Proved,
+                [Signature(_) | NoneGiven] => Self::OptSigned,
+                [Signature(_) | NoneGiven, Signature(_) | NoneGiven] => Self::OptSignedOptSigned,
+                _ => panic!("Unsupported combination"),
+            }
+        }
+    }
+
+    enum Kind {
+        New,
+        Same,
+        TwoNew,
+    }
+
+    struct State {
+        global: GlobalState<SparseLedger>,
+        local: LocalStateEnv<SparseLedger>,
+    }
+
+    struct ZkappCommandIntermediateState {
+        kind: Kind,
+        spec: SegmentBasic,
+        state_before: State,
+        state_after: State,
+        connecting_ledger: Fp,
+    }
+
+    pub fn group_by_zkapp_command_rev(
+        zkapp_command: &ZkAppCommand,
+        stmtss: Vec<Vec<(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>, Fp)>>,
+    ) {
+        let intermediate_state =
+            |kind: Kind,
+             spec: SegmentBasic,
+             before: &(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>, Fp),
+             after: &(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>, Fp)| {
+                let (global_before, local_before, _) = before;
+                let (global_after, local_after, connecting_ledger) = after;
+                ZkappCommandIntermediateState {
+                    kind,
+                    spec,
+                    state_before: State {
+                        global: global_before.clone(),
+                        local: local_before.clone(),
+                    },
+                    state_after: State {
+                        global: global_after.clone(),
+                        local: local_after.clone(),
+                    },
+                    connecting_ledger: connecting_ledger.clone(),
+                }
+            };
+
+        let zkapp_account_updatess = vec![vec![], zkapp_command.all_account_updates_list()];
+
+        dbg!(zkapp_account_updatess
+            .iter()
+            .map(|v| v.len())
+            .collect::<Vec<_>>());
+        dbg!(stmtss.iter().map(|v| v.len()).collect::<Vec<_>>());
+
+        let mut acc = Vec::<ZkappCommandIntermediateState>::with_capacity(32);
+
+        let zkapp_account_updatess = zkapp_account_updatess
+            .iter()
+            .map(|v| v.as_slice())
+            .collect::<Vec<_>>();
+        let stmtss = stmtss.iter().map(|v| v.as_slice()).collect::<Vec<_>>();
+
+        let mut zkapp_commands = zkapp_account_updatess.as_slice();
+        let mut stmtss = stmtss.as_slice();
+
+        #[rustfmt::skip]
+        let res = loop {
+            match (zkapp_commands, stmtss) {
+                (([] | [[]]), [ _ ]) => {
+                    break acc;
+                },
+                ([[ AccountUpdate { authorization: a1, .. } ]], [[ before, after]]) => {
+                    let s = intermediate_state(Kind::Same, SegmentBasic::of_controls(&[a1]), before, after);
+                    acc.push(s);
+                }
+                _ => todo!()
+            }
+        };
+
+        // match (zkapp_commands, stmtss) with
+        // | ([] | [ [] ]), [ _ ] ->
+        //     (* We've associated statements with all given zkapp_command. *)
+        //     acc
+        // | [ [ { authorization = a1; _ } ] ], [ [ before; after ] ] ->
+        //     (* There are no later zkapp_command to pair this one with. Prove it on its
+        //        own.
+        //     *)
+        //     intermediate_state ~kind:`Same
+        //       ~spec:(zkapp_segment_of_controls [ a1 ])
+        //       ~before ~after
+        //     :: acc
+        // | [ []; [ { authorization = a1; _ } ] ], [ [ _ ]; [ before; after ] ] ->
+        //     (* This account_update is part of a new transaction, and there are no later
+        //        zkapp_command to pair it with. Prove it on its own.
+        //     *)
+        //     intermediate_state ~kind:`New
+        //       ~spec:(zkapp_segment_of_controls [ a1 ])
+        //       ~before ~after
+        //     :: acc
+    }
 }
 
-fn zkapp_command_witnesses_exn(params: ZkappCommandWitnessesParams) {
+pub struct ZkappCommandWitnessesParams<'a> {
+    pub global_slot: Slot,
+    pub state_body: &'a v2::MinaStateProtocolStateBodyValueStableV2,
+    pub fee_excess: Signed<Amount>,
+    pub pending_coinbase_init_stack: pending_coinbase::Stack,
+    pub pending_coinbase_of_statement: pending_coinbase::StackState,
+    pub first_pass_ledger: SparseLedger,
+    pub second_pass_ledger: SparseLedger,
+    pub connecting_ledger_hash: Fp,
+    pub zkapp_command: &'a ZkAppCommand,
+}
+
+pub fn zkapp_command_witnesses_exn(params: ZkappCommandWitnessesParams) {
     let ZkappCommandWitnessesParams {
         global_slot,
         state_body,
@@ -88,6 +214,10 @@ fn zkapp_command_witnesses_exn(params: ZkappCommandWitnessesParams) {
     };
 
     dbg!(states.len());
+
+    let states = vec![vec![states[0].clone()], states];
+
+    group::group_by_zkapp_command_rev(zkapp_command, states);
 
     // let will_succeeds = List.rev will_succeeds_rev in
     // let states = List.rev states_rev in
@@ -152,10 +282,9 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
         }
         _ => unreachable!(),
     };
-
     let zkapp_command: ZkAppCommand = zkapp.into();
 
-    let params = ZkappCommandWitnessesParams {
+    zkapp_command_witnesses_exn(ZkappCommandWitnessesParams {
         global_slot: Slot::from_u32(tx_witness.block_global_slot.as_u32()),
         state_body: &tx_witness.protocol_state_body,
         fee_excess: Signed::zero(),
@@ -168,7 +297,5 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
         second_pass_ledger: (&tx_witness.second_pass_ledger).into(),
         connecting_ledger_hash: statement.connecting_ledger_left.to_field(),
         zkapp_command: &zkapp_command,
-    };
-
-    zkapp_command_witnesses_exn(params);
+    });
 }
