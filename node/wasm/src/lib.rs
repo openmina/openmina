@@ -12,10 +12,11 @@ use libp2p::wasm_ext::ffi::ManualConnector as JsManualConnector;
 use mina_p2p_messages::bigint::BigInt;
 use mina_p2p_messages::v2::{
     MinaBaseAccountIdDigestStableV1, MinaBaseUserCommandStableV2,
-    NetworkPoolTransactionPoolDiffVersionedStableV2, NonZeroCurvePoint, StateHash, TokenIdKeyHash,
+    MinaBaseZkappCommandTStableV1WireStableV1, NetworkPoolTransactionPoolDiffVersionedStableV2,
+    NonZeroCurvePoint, StateHash, TokenIdKeyHash, TransactionHash,
 };
 use mina_signer::PubKey;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use sha2::{Digest, Sha256};
 use wasm_bindgen::prelude::*;
@@ -212,7 +213,7 @@ pub async fn wasm_start(config: WasmConfig) -> Result<JsHandle, JsValue> {
     // TODO(binier): LocalStorage is too small. Use IndexDB instead.
     async fn cached_value<T, F>(storage: Option<&web_sys::Storage>, key: &'static str, calc: F) -> T
     where
-        T: Send + 'static + serde::Serialize + for<'a> serde::Deserialize<'a>,
+        T: Send + 'static + Serialize + for<'a> Deserialize<'a>,
         F: Send + 'static + FnOnce() -> T,
     {
         let cached = storage
@@ -634,6 +635,45 @@ impl JsHandle {
         self.pubsub_publish(PubsubTopic::CodaConsensusMessage, msg)
             .await;
         Ok(tx_hash.to_string())
+    }
+
+    pub async fn zkapp_inject(&self, zkapp_js: JsValue) -> Result<JsValue, JsValue> {
+        let zkapp = MinaBaseZkappCommandTStableV1WireStableV1::from_js_value(zkapp_js.clone())?;
+
+        let tx = MinaBaseUserCommandStableV2::from(zkapp);
+        let tx_hash = tx.hash().unwrap();
+        let msg = {
+            let nonce = 0.into();
+            let message = NetworkPoolTransactionPoolDiffVersionedStableV2(vec![tx.clone()]);
+            GossipNetMessageV2::TransactionPoolDiff { nonce, message }
+        };
+
+        shared::log::info!(
+            shared::log::system_time();
+            kind = "SendZkapp",
+            summary = tx_hash.to_string(),
+            message = serde_json::to_string(&msg).ok()
+        );
+        #[serde_with::serde_as]
+        #[derive(Serialize, Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct Res {
+            #[serde_as(as = "graphql::TransactionAsBase64")]
+            id: MinaBaseUserCommandStableV2,
+            hash: TransactionHash,
+            failure_reason: Option<()>,
+        }
+        self.pubsub_publish(PubsubTopic::CodaConsensusMessage, msg)
+            .await;
+        let res = Res {
+            id: tx,
+            hash: tx_hash,
+            failure_reason: None,
+        };
+        let obj = JsValue::from_serde(&res).unwrap();
+        js_sys::Reflect::set(&obj, &"zkappCommand".into(), &zkapp_js);
+
+        Ok(obj)
     }
 
     #[wasm_bindgen]

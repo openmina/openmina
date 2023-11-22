@@ -14,8 +14,8 @@ derive_more = "0.99.17"
 thiserror = "1.0.37"
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc", features = ["wasm-bindgen", "wasm-ext-webrtc", "serde"] }
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "e767b4def96d66c70da6f67504105aca2c45fae5" }
-ledger = { package = "mina-tree", git = "https://github.com/openmina/ledger", rev = "72ed461722390117921492bc27cb923dfea1e2b7" }
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "dd6f46daa4d1ee48044d965a8e955588f23b3f39" }
+ledger = { package = "mina-tree", git = "https://github.com/openmina/ledger", rev = "f70ea4a12100c8acd680ab9a49a990f590261fcd" }
 
 shared = { path = "../shared" }
 p2p = { path = "../p2p" }

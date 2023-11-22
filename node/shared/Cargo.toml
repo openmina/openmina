@@ -11,4 +11,4 @@ tracing = { version = "0.1", features = ["std"] }
 redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
 
 mina-hasher = { git = "https://github.com/o1-labs/proof-systems" }
-mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "e767b4def96d66c70da6f67504105aca2c45fae5" }
+mina-p2p-messages = { git = "https://github.com/openmina/mina-p2p-messages-rs", features = ["hashing"], rev = "dd6f46daa4d1ee48044d965a8e955588f23b3f39" }
