@@ -1,18 +1,22 @@
 #![allow(unused)]
 
+use ark_ff::Zero;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 
 use crate::{
+    hash_with_kimchi,
+    proofs::zkapp::group::{State, ZkappCommandIntermediateState},
     scan_state::{
         currency::{Amount, Signed, Slot},
-        pending_coinbase,
+        pending_coinbase::{self, Stack, StackState},
         scan_state::transaction_snark::SokMessage,
         transaction_logic::{
             local_state::{LocalState, LocalStateEnv},
             protocol_state::{protocol_state_body_view, GlobalState},
-            zkapp_command::ZkAppCommand,
+            zkapp_command::{AccountUpdate, ZkAppCommand},
+            zkapp_statement::TransactionCommitment,
         },
     },
     sparse_ledger::SparseLedger,
@@ -295,6 +299,46 @@ mod group {
     }
 }
 
+pub struct StartData {
+    pub account_updates: ZkAppCommand,
+    pub memo_hash: Fp,
+    pub will_succeed: bool,
+}
+
+// TODO: De-duplicate with the one in `transaction_logic.rs`
+#[derive(Debug, Clone, PartialEq)]
+pub struct WithStackHash<T> {
+    pub elt: T,
+    pub stack_hash: Fp,
+}
+
+fn accumulate_call_stack_hashes<Frame>(
+    hash_frame: impl Fn(&Frame) -> Fp,
+    frames: &[Frame],
+) -> Vec<WithStackHash<&Frame>> {
+    match frames {
+        [] => vec![],
+        [f, fs @ ..] => {
+            let h_f = hash_frame(f);
+            let mut tl = accumulate_call_stack_hashes(hash_frame, fs);
+            let h_tl = match tl.as_slice() {
+                [] => Fp::zero(),
+                [t, ..] => t.stack_hash,
+            };
+
+            tl.insert(
+                0,
+                WithStackHash {
+                    elt: f,
+                    stack_hash: hash_with_kimchi("MinaAcctUpdateCons", &[h_f, h_tl]),
+                },
+            );
+
+            tl
+        }
+    }
+}
+
 pub struct ZkappCommandsWithContext<'a> {
     pub pending_coinbase_init_stack: pending_coinbase::Stack,
     pub pending_coinbase_of_statement: pending_coinbase::StackState,
@@ -383,8 +427,7 @@ pub fn zkapp_command_witnesses_exn(params: ZkappCommandWitnessesParams) {
         states.iter().map(|v| v.len()).collect::<Vec<_>>()
     );
 
-    // let states = vec![states[0].clone(), states];
-    states.insert(0, states[0].clone());
+    states.insert(0, vec![states[0][0].clone()]);
     let states = group::group_by_zkapp_command_rev(
         zkapp_commands_with_context
             .iter()
@@ -393,50 +436,225 @@ pub fn zkapp_command_witnesses_exn(params: ZkappCommandWitnessesParams) {
         states,
     );
 
-    dbg!(states);
-
     let (mut commitment, mut full_commitment) = {
         let LocalState {
             transaction_commitment,
             full_transaction_commitment,
             ..
         } = LocalState::dummy();
-        (transaction_commitment, full_transaction_commitment)
+        (
+            TransactionCommitment(transaction_commitment),
+            TransactionCommitment(full_transaction_commitment),
+        )
     };
 
     let remaining_zkapp_command = {
-        // let zkapp_commands = z
+        let zkapp_commands = zkapp_commands_with_context
+            .iter()
+            .zip(will_succeeds)
+            .map(|(v, will_succeed)| {
+                let ZkappCommandsWithContext {
+                    pending_coinbase_init_stack,
+                    pending_coinbase_of_statement,
+                    first_pass_ledger: _,
+                    second_pass_ledger: _,
+                    connecting_ledger_hash: _,
+                    zkapp_command,
+                } = v;
+
+                (
+                    pending_coinbase_init_stack,
+                    pending_coinbase_of_statement,
+                    StartData {
+                        account_updates: (*zkapp_command).clone(),
+                        memo_hash: zkapp_command.memo.hash(),
+                        will_succeed,
+                    },
+                )
+            })
+            .collect::<Vec<_>>();
+
+        zkapp_commands
+    };
+    let mut remaining_zkapp_command = remaining_zkapp_command.as_slice();
+
+    let mut pending_coinbase_init_stack = Stack::empty();
+    let mut pending_coinbase_stack_state = StackState {
+        source: Stack::empty(),
+        target: Stack::empty(),
     };
 
-    // let remaining_zkapp_command =
-    //   let zkapp_commands =
-    //     List.map2_exn zkapp_commands_with_context will_succeeds
-    //       ~f:(fun
-    //            ( pending_coinbase_init_stack
-    //            , pending_coinbase_stack_state
-    //            , _
-    //            , _
-    //            , _
-    //            , account_updates )
-    //            will_succeed
-    //          ->
-    //         ( pending_coinbase_init_stack
-    //         , pending_coinbase_stack_state
-    //         , { Mina_transaction_logic.Zkapp_command_logic.Start_data
-    //             .account_updates
-    //           ; memo_hash = Signed_command_memo.hash account_updates.memo
-    //           ; will_succeed
-    //           } ) )
-    //   in
-    //   ref zkapp_commands
-    // in
-    // let pending_coinbase_init_stack = ref Pending_coinbase.Stack.empty in
-    // let pending_coinbase_stack_state =
-    //   ref
-    //     { Pending_coinbase_stack_state.source = Pending_coinbase.Stack.empty
-    //     ; target = Pending_coinbase.Stack.empty
-    //     }
-    // in
+    states.into_iter().fold(vec![], |witnesses, s| {
+        let ZkappCommandIntermediateState {
+            kind,
+            spec,
+            state_before:
+                State {
+                    global: source_global,
+                    local: mut source_local,
+                },
+            state_after:
+                State {
+                    global: target_global,
+                    local: mut target_local,
+                },
+            connecting_ledger,
+        } = s;
+
+        source_local.failure_status_tbl = vec![];
+        target_local.failure_status_tbl = vec![];
+
+        let current_commitment = commitment;
+        let current_full_commitment = full_commitment;
+
+        let (
+            start_zkapp_command,
+            next_commitment,
+            next_full_commitment,
+            pending_coinbase_init_stack,
+            pending_coinbase_stack_state,
+        ) = {
+            type TC = TransactionCommitment;
+
+            let empty_if_last = |mk: Box<dyn Fn() -> (TC, TC) + '_>| -> (TC, TC) {
+                let calls = target_local.stack_frame.calls.0.as_slice();
+                let call_stack = target_local.call_stack.0.as_slice();
+
+                match (calls, call_stack) {
+                    ([], []) => (TC::empty(), TC::empty()),
+                    _ => mk(),
+                }
+            };
+
+            let mk_next_commitment = |zkapp_command: &ZkAppCommand| {
+                empty_if_last(Box::new(|| {
+                    let next_commitment = zkapp_command.commitment();
+                    let memo_hash = zkapp_command.memo.hash();
+                    let fee_payer_hash =
+                        AccountUpdate::of_fee_payer(zkapp_command.fee_payer.clone()).digest();
+                    let next_full_commitment =
+                        next_commitment.create_complete(memo_hash, fee_payer_hash);
+
+                    (next_commitment, next_full_commitment)
+                }))
+            };
+
+            match kind {
+                group::Kind::Same => {
+                    let (next_commitment, next_full_commitment) =
+                        empty_if_last(Box::new(|| (current_commitment, current_full_commitment)));
+                    (
+                        Vec::new(),
+                        next_commitment,
+                        next_full_commitment,
+                        pending_coinbase_init_stack.clone(),
+                        pending_coinbase_stack_state.clone(),
+                    )
+                }
+                group::Kind::New => match remaining_zkapp_command {
+                    [v, rest @ ..] => {
+                        let (
+                            pending_coinbase_init_stack1,
+                            pending_coinbase_stack_state1,
+                            zkapp_command,
+                        ) = v;
+
+                        let (commitment2, full_commitment2) =
+                            mk_next_commitment(&zkapp_command.account_updates);
+
+                        remaining_zkapp_command = rest;
+                        commitment = commitment2;
+                        full_commitment = full_commitment2;
+                        pending_coinbase_init_stack = (*pending_coinbase_init_stack1).clone();
+                        pending_coinbase_stack_state = (*pending_coinbase_stack_state1).clone();
+
+                        (
+                            vec![zkapp_command],
+                            commitment2,
+                            full_commitment2,
+                            pending_coinbase_init_stack.clone(),
+                            pending_coinbase_stack_state.clone(),
+                        )
+                    }
+                    _ => panic!("Not enough remaining zkapp_command"),
+                },
+                group::Kind::TwoNew => match remaining_zkapp_command {
+                    [v1, v2, rest @ ..] => {
+                        let (
+                            pending_coinbase_init_stack1,
+                            pending_coinbase_stack_state1,
+                            zkapp_command1,
+                        ) = v1;
+                        let (
+                            pending_coinbase_init_stack2,
+                            pending_coinbase_stack_state2,
+                            zkapp_command2,
+                        ) = v2;
+
+                        let (commitment2, full_commitment2) =
+                            mk_next_commitment(&zkapp_command2.account_updates);
+
+                        remaining_zkapp_command = rest;
+                        commitment = commitment2;
+                        full_commitment = full_commitment2;
+                        pending_coinbase_init_stack = (*pending_coinbase_init_stack1).clone();
+                        pending_coinbase_stack_state = StackState {
+                            target: pending_coinbase_stack_state2.target.clone(),
+                            ..(*pending_coinbase_stack_state1).clone()
+                        };
+
+                        (
+                            vec![zkapp_command1, zkapp_command2],
+                            commitment2,
+                            full_commitment2,
+                            pending_coinbase_init_stack.clone(),
+                            pending_coinbase_stack_state.clone(),
+                        )
+                    }
+                    _ => panic!("Not enough remaining zkapp_command"),
+                },
+            }
+        };
+
+        let hash_local_state = |local: &LocalStateEnv<SparseLedger>| {
+            local.call_stack.iter().map(|v| v.digest());
+        };
+
+        // let hash_local_state
+        //         (local :
+        //           ( Stack_frame.value
+        //           , Stack_frame.value list
+        //           , _
+        //           , _
+        //           , _
+        //           , _
+        //           , _
+        //           , _ )
+        //           Mina_transaction_logic.Zkapp_command_logic.Local_state.t ) =
+        //       { local with
+        //         stack_frame = local.stack_frame
+        //       ; call_stack =
+        //           List.map local.call_stack
+        //             ~f:(With_hash.of_data ~hash_data:Stack_frame.Digest.create)
+        //           |> accumulate_call_stack_hashes ~hash_frame:(fun x ->
+        //                  x.With_hash.hash )
+        //       }
+        //     in
+        //     let source_local =
+        //       { (hash_local_state source_local) with
+        //         transaction_commitment = current_commitment
+        //       ; full_transaction_commitment = current_full_commitment
+        //       }
+        //     in
+        //     let target_local =
+        //       { (hash_local_state target_local) with
+        //         transaction_commitment = next_commitment
+        //       ; full_transaction_commitment = next_full_commitment
+        //       }
+        //     in
+
+        Vec::<usize>::new()
+    });
 }
 
 pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {

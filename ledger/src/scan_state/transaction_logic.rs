@@ -849,7 +849,7 @@ pub mod zkapp_command {
         VerificationKey, VotingFor, ZkAppUri,
     };
 
-    use super::*;
+    use super::{zkapp_statement::TransactionCommitment, *};
 
     #[derive(Debug, Clone, PartialEq)]
     pub struct Event(pub Vec<Fp>);
@@ -2946,6 +2946,11 @@ pub mod zkapp_command {
                 acc
             })
         }
+
+        pub fn commitment(&self) -> TransactionCommitment {
+            let account_updates_hash = self.account_updates_hash();
+            TransactionCommitment::create(account_updates_hash)
+        }
     }
 
     pub mod verifiable {
@@ -3269,6 +3274,10 @@ pub mod zkapp_statement {
                 "MinaAcctUpdateCons",
                 &[memo_hash, fee_payer_hash, self.0],
             ))
+        }
+
+        pub fn empty() -> Self {
+            Self(Fp::zero())
         }
     }
 
@@ -4073,10 +4082,14 @@ pub mod local_state {
 
             hash_with_kimchi("MinaAcctUpdStckFrm", &inputs.to_fields())
         }
+
+        pub fn digest(&self) -> Fp {
+            self.hash()
+        }
     }
 
     #[derive(Debug, Clone)]
-    pub struct CallStack(Vec<StackFrame>);
+    pub struct CallStack(pub Vec<StackFrame>);
 
     impl Default for CallStack {
         fn default() -> Self {
