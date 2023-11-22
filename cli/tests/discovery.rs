@@ -1,5 +1,6 @@
 use std::{
     ffi::OsStr,
+    io::Write,
     net::{SocketAddr, TcpStream},
     path::Path,
     process::{Child, Command},
@@ -8,7 +9,9 @@ use std::{
 };
 
 use ledger::Instant;
-use node::p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pPeerStatus};
+use node::p2p::{
+    connection::outgoing::P2pConnectionOutgoingInitOpts, identity::SecretKey, P2pPeerStatus,
+};
 
 #[test]
 #[ignore = "should be run manually"]
@@ -17,87 +20,57 @@ fn dicovery() {
     let seed = run_seed(&d.path().join("seed"));
     assert_p2p_ready(&seed, Duration::from_secs(5 * 60));
 
-    let rust = run_rust_node();
+    let rust = run_rust_node(seed.peer_id());
     assert_p2p_ready(&rust, Duration::from_secs(1 * 60));
 
-    assert_has_peer(
-        &rust,
-        &SEED_ADDRESS.parse().unwrap(),
-        SEED_PEERID.trim(),
-        Duration::from_secs(20),
-    );
+    assert_peers(&rust, &seed, Duration::from_secs(60));
 
-    assert_has_peer(
-        &seed,
-        &RUST_ADDRESS.parse().unwrap(),
-        RUST_PEERID.trim(),
-        Duration::from_secs(20),
-    );
-
-    let ocaml = run_ocaml_node(&d.path().join("ocaml"));
+    let ocaml = run_ocaml_node(&d.path().join("ocaml"), seed.peer_id());
     assert_p2p_ready(&ocaml, Duration::from_secs(5 * 60));
 
-    assert_has_peer(
-        &ocaml,
-        &RUST_ADDRESS.parse().unwrap(),
-        RUST_PEERID,
-        Duration::from_secs(60 * 5),
-    );
+    assert_peers(&ocaml, &rust, Duration::from_secs(60));
 }
 
 const SEED_ADDRESS: &str = "127.0.0.1:8302";
 const OCAML_ADDRESS: &str = "127.0.0.1:18302";
 const RUST_ADDRESS: &str = "127.0.0.1:28302";
 
-const SEED_KEYPAIR_FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/discovery/seed");
-const OCAML_KEYPAIR_FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/discovery/peer");
-
-const SEED_PEERID: &str = include_str!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/tests/discovery/seed.peerid"
-));
-
-const RUST_SECRET_KEY: &str = "5JJStLet4wfwdeWeK3UWHPbrQpF1r9xWk2oUPzjV3d1rjieTbGT";
-const RUST_PEERID: &str = "12D3KooWFSGhnEp4itEq5YypEc868LxjyjubHJsEHdFLJMBncqhU";
-
 fn run_seed(dir: &Path) -> OCamlNode {
-    OCamlNode::run::<_, String>(
-        SEED_ADDRESS.parse().unwrap(),
-        SEED_KEYPAIR_FILE,
-        dir,
-        true,
-        [],
-    )
+    OCamlNode::run::<_, String>(SEED_ADDRESS.parse().unwrap(), dir, true, []).unwrap()
 }
 
-fn seed_multiaddr() -> String {
+fn seed_multiaddr(peer_id: &str) -> String {
     let socket_addr = SEED_ADDRESS.parse::<SocketAddr>().unwrap();
     format!(
         "/ip4/{}/tcp/{}/p2p/{}",
         socket_addr.ip(),
         socket_addr.port(),
-        SEED_PEERID.trim()
+        peer_id,
     )
 }
 
-fn run_ocaml_node(dir: &Path) -> OCamlNode {
+fn run_ocaml_node(dir: &Path, seed_peer_id: &str) -> OCamlNode {
     OCamlNode::run(
         OCAML_ADDRESS.parse().unwrap(),
-        OCAML_KEYPAIR_FILE,
         dir,
         false,
-        [seed_multiaddr()],
+        [seed_multiaddr(seed_peer_id)],
     )
+    .unwrap()
 }
 
-fn run_rust_node() -> RustNode {
-    RustNode::run(RUST_ADDRESS.parse().unwrap(), vec![seed_multiaddr()])
+fn run_rust_node(seed_peer_id: &str) -> RustNode {
+    RustNode::run(
+        RUST_ADDRESS.parse().unwrap(),
+        vec![seed_multiaddr(seed_peer_id)],
+    )
 }
 
 struct OCamlNode {
     process: Child,
     address: SocketAddr,
     graphql_port: u16,
+    peer_id: String,
 }
 
 const PEERS_QUERY: &str = r#"query {
@@ -115,19 +88,38 @@ fn query_body(query: &str) -> serde_json::Value {
 }
 
 impl OCamlNode {
+    fn generate_libp2p_keypair(privkey_path: &Path) -> anyhow::Result<()> {
+        let mut child = Command::new("mina")
+            .args(["libp2p", "generate-keypair", "--privkey-path"])
+            .arg(privkey_path)
+            .env("MINA_LIBP2P_PASS", "")
+            .env("UMASK", "0700")
+            .spawn()?;
+        if child.wait()?.success() {
+            Ok(())
+        } else {
+            anyhow::bail!("error generating keypair");
+        }
+    }
+
     fn run<I: IntoIterator<Item = S>, S: AsRef<str>>(
         address: SocketAddr,
-        libp2p_key: &str,
         dir: &Path,
         is_seed: bool,
         peers: I,
-    ) -> OCamlNode {
+    ) -> anyhow::Result<OCamlNode> {
+        let privkey_path = dir.join("libp2p");
+        OCamlNode::generate_libp2p_keypair(&privkey_path)?;
+
+        let peer_id = std::fs::read_to_string(privkey_path.with_extension("peerid"))?.trim().to_string();
+        eprintln!(">>> generated peer_id {peer_id}");
+
         let mut command = Command::new("mina");
         let client_port = address.port() - 1;
         let graphql_port = address.port() + 1;
         command
             .arg("daemon")
-            .args(["--libp2p-keypair", &libp2p_key])
+            .args([OsStr::new("--libp2p-keypair"), privkey_path.as_os_str()])
             .args(["--external-ip", &address.ip().to_string()])
             .args(["--external-port", &address.port().to_string()])
             .args(["--client-port", &client_port.to_string()])
@@ -142,12 +134,13 @@ impl OCamlNode {
         for peer in peers {
             command.args(["--peer", peer.as_ref()]);
         }
-        let child = command.spawn().unwrap();
-        OCamlNode {
+        let child = command.spawn()?;
+        Ok(OCamlNode {
             process: child,
             address,
             graphql_port,
-        }
+            peer_id,
+        })
     }
 
     fn graphql_addr(&self) -> String {
@@ -166,7 +159,7 @@ impl OCamlNode {
         Ok(response.json()?)
     }
 
-    fn has_peer_json(address: &SocketAddr, peerid: &str, data: serde_json::Value) -> Option<bool> {
+    fn has_peer_json(peerid: &str, data: serde_json::Value) -> Option<bool> {
         for elt in data.as_object()?.get("data")?.get("getPeers")?.as_array()? {
             let elt = elt.as_object()?;
             let host = elt.get("host")?.as_str()?;
@@ -187,9 +180,13 @@ impl MinaNode for OCamlNode {
         &self.address
     }
 
-    fn has_peer(&self, address: &SocketAddr, peerid: &str) -> anyhow::Result<bool> {
+    fn peer_id(&self) -> &str {
+        &self.peer_id
+    }
+
+    fn has_peer(&self, peerid: &str) -> anyhow::Result<bool> {
         let json = self.grapql_query(PEERS_QUERY)?;
-        let has_peer = Self::has_peer_json(address, peerid, json).expect("invalid json");
+        let has_peer = Self::has_peer_json(peerid, json).expect("invalid json");
         Ok(has_peer)
     }
 }
@@ -205,14 +202,17 @@ struct RustNode {
     handle: JoinHandle<Result<(), String>>,
     address: SocketAddr,
     http_port: u16,
+    peer_id: String,
 }
 
 impl RustNode {
     fn run<I: IntoIterator<Item = S>, S: AsRef<str>>(address: SocketAddr, peers: I) -> RustNode {
         let http_port = address.port() + 1;
+        let secret_key = SecretKey::rand();
+        let peer_id = secret_key.public_key().peer_id().to_libp2p_string();
         let command = cli::commands::node::Node {
             work_dir: "~/.openmina".into(),
-            p2p_secret_key: Some(RUST_SECRET_KEY.parse().unwrap()),
+            p2p_secret_key: Some(secret_key),
             port: http_port,
             libp2p_port: address.port(),
             verbosity: "debug".parse().unwrap(),
@@ -232,6 +232,7 @@ impl RustNode {
             handle,
             address,
             http_port,
+            peer_id,
         }
     }
 
@@ -250,7 +251,7 @@ impl Drop for RustNode {
 }
 
 impl MinaNode for RustNode {
-    fn has_peer(&self, address: &SocketAddr, peerid: &str) -> anyhow::Result<bool> {
+    fn has_peer(&self, peerid: &str) -> anyhow::Result<bool> {
         let state = self.state()?;
         for (_, peer_data) in state.p2p.peers {
             if let P2pPeerStatus::Ready(_) = peer_data.status {
@@ -272,11 +273,16 @@ impl MinaNode for RustNode {
     fn address(&self) -> &SocketAddr {
         &self.address
     }
+
+    fn peer_id(&self) -> &str {
+        &self.peer_id
+    }
 }
 
 trait MinaNode {
+    fn peer_id(&self) -> &str;
     fn address(&self) -> &SocketAddr;
-    fn has_peer(&self, address: &SocketAddr, peer_id: &str) -> anyhow::Result<bool>;
+    fn has_peer(&self, peer_id: &str) -> anyhow::Result<bool>;
 }
 
 fn assert_p2p_ready(node: &impl MinaNode, duration: Duration) {
@@ -293,20 +299,52 @@ fn assert_p2p_ready(node: &impl MinaNode, duration: Duration) {
     panic!("{}: p2p not ready", node.address());
 }
 
-fn assert_has_peer(node: &impl MinaNode, address: &SocketAddr, peer_id: &str, duration: Duration) {
+fn assert_peers(node: &impl MinaNode, peer: &impl MinaNode, duration: Duration) {
+    let peer_id = peer.peer_id();
     let finish = Instant::now() + duration;
     while Instant::now() < finish {
-        match node.has_peer(address, peer_id) {
-            Ok(true) => return,
+        match node.has_peer(peer_id) {
+            Ok(true) => {
+                eprintln!(">>> {}: has peer {peer_id}", node.address());
+            }
             Ok(false) => {
-                eprintln!(">>> {}: no peer {address}", node.address());
-                std::thread::sleep(Duration::from_secs(10));
+                eprintln!(">>> {}: no peer {peer_id}", node.address());
             }
             Err(e) => {
                 eprintln!(">>> {}: peers not ready: {e}", node.address());
-                std::thread::sleep(Duration::from_secs(10));
             }
         }
+        match node.has_peer(peer_id) {
+            Ok(true) => {
+                eprintln!(">>> {}: has peer {peer_id}", node.address());
+                return;
+            }
+            Ok(false) => {
+                eprintln!(">>> {}: no peer {peer_id}", node.address());
+            }
+            Err(e) => {
+                eprintln!(">>> {}: peers not ready: {e}", node.address());
+            }
+        }
+        std::thread::sleep(Duration::from_secs(10));
     }
-    panic!("{}: no peer {address}", node.address());
+    panic!("{}: no peer {peer_id}", node.address());
+}
+
+fn assert_has_peer(node: &impl MinaNode, peer: &impl MinaNode, duration: Duration) {
+    let peer_id = peer.peer_id();
+    let finish = Instant::now() + duration;
+    while Instant::now() < finish {
+        match node.has_peer(peer_id) {
+            Ok(true) => return,
+            Ok(false) => {
+                eprintln!(">>> {}: no peer {peer_id}", node.address());
+            }
+            Err(e) => {
+                eprintln!(">>> {}: peers not ready: {e}", node.address());
+            }
+        }
+        std::thread::sleep(Duration::from_secs(10));
+    }
+    panic!("{}: no peer {peer_id}", node.address());
 }
