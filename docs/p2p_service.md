@@ -2,7 +2,7 @@
 
 The native Mina node, written in OCaml, supports P2P communication over the LibP2P protocol. We’ve developed LibP2P support for the Rust node to be compatible with OCaml nodes. 
 
-The Web Node is written in Rust code that is compiled into WebAssembly (wasm). The Web Node cannot make direct use of TCP sockets, and for that reason, it is impossible to use LibP2P. However, since WebRTC sockets are exposed, we can instead use those for P2P communication.
+The Web Node is written in Rust code that is compiled into WebAssembly (wasm). The Web Node cannot make direct use of TCP sockets, and for that reason, it is impossible to use LibP2P. However, since a WebRTC protocol API is exposed, we can instead use those for P2P communication.
 
 
 ## webrtc_with_libp2p 
