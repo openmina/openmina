@@ -37,7 +37,6 @@ fn dicovery_rust_seed_ocaml() {
     let seed_dir = d.path().join("seed");
     let seed_peer_id = OCamlNode::generate_libp2p_keypair(&seed_dir).unwrap();
 
-
     let rust = run_rust_node(&seed_peer_id);
     assert_p2p_ready(&rust, Duration::from_secs(2 * 60));
 
@@ -116,7 +115,11 @@ impl OCamlNode {
     }
 
     fn read_peer_id(dir: &Path) -> anyhow::Result<String> {
-        Ok(std::fs::read_to_string(Self::privkey_path(dir).with_extension("peerid"))?.trim().into())
+        Ok(
+            std::fs::read_to_string(Self::privkey_path(dir).with_extension("peerid"))?
+                .trim()
+                .into(),
+        )
     }
 
     fn generate_libp2p_keypair(dir: &Path) -> anyhow::Result<String> {
@@ -142,9 +145,7 @@ impl OCamlNode {
     ) -> anyhow::Result<OCamlNode> {
         let peer_id = match Self::read_peer_id(dir) {
             Ok(v) => v,
-            Err(_) => {
-                OCamlNode::generate_libp2p_keypair(dir)?
-            }
+            Err(_) => OCamlNode::generate_libp2p_keypair(dir)?,
         };
         eprintln!(">>> using peer_id {peer_id}");
 
@@ -153,7 +154,10 @@ impl OCamlNode {
         let graphql_port = address.port() + 1;
         command
             .arg("daemon")
-            .args([OsStr::new("--libp2p-keypair"), Self::privkey_path(dir).as_os_str()])
+            .args([
+                OsStr::new("--libp2p-keypair"),
+                Self::privkey_path(dir).as_os_str(),
+            ])
             .args(["--external-ip", &address.ip().to_string()])
             .args(["--external-port", &address.port().to_string()])
             .args(["--client-port", &client_port.to_string()])
@@ -168,13 +172,50 @@ impl OCamlNode {
         for peer in peers {
             command.args(["--peer", peer.as_ref()]);
         }
-        let child = command.spawn()?;
+        command
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+
+        let mut child = command.spawn()?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("no stdout"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("no stderr"))?;
+
+        let prefix = format!("[{address}] ");
+        let prefix2 = prefix.clone();
+        std::thread::spawn(move || {
+            if let Err(_) = Self::read_stream(stdout, std::io::stdout(), &prefix) {}
+        });
+        std::thread::spawn(move || {
+            if let Err(_) = Self::read_stream(stderr, std::io::stderr(), &prefix2) {}
+        });
+
         Ok(OCamlNode {
             process: child,
             address,
             graphql_port,
             peer_id,
         })
+    }
+
+    fn read_stream<R: std::io::Read, W: std::io::Write>(
+        from: R,
+        mut to: W,
+        prefix: &str,
+    ) -> std::io::Result<()> {
+        let mut buf = std::io::BufReader::new(from);
+        let mut line = String::with_capacity(256);
+        while std::io::BufRead::read_line(&mut buf, &mut line)? > 0 {
+            to.write_all(prefix.as_bytes())?;
+            to.write_all(line.as_bytes())?;
+            line.clear();
+        }
+        Ok(())
     }
 
     fn graphql_addr(&self) -> String {
@@ -233,7 +274,7 @@ impl Drop for OCamlNode {
 }
 
 struct RustNode {
-    handle: JoinHandle<Result<(), String>>,
+    _handle: JoinHandle<Result<(), String>>,
     address: SocketAddr,
     http_port: u16,
     peer_id: String,
@@ -263,7 +304,7 @@ impl RustNode {
         };
         let handle = std::thread::spawn(move || command.run().map_err(|e| e.to_string()));
         RustNode {
-            handle,
+            _handle: handle,
             address,
             http_port,
             peer_id,
@@ -366,20 +407,3 @@ fn assert_peers(node1: &impl MinaNode, node2: &impl MinaNode, duration: Duration
     panic!("{} and {} are not peers", node1.address(), node2.address());
 }
 
-fn assert_has_peer(node: &impl MinaNode, peer: &impl MinaNode, duration: Duration) {
-    let peer_id = peer.peer_id();
-    let finish = Instant::now() + duration;
-    while Instant::now() < finish {
-        match node.has_peer(peer_id) {
-            Ok(true) => return,
-            Ok(false) => {
-                eprintln!(">>> {}: no peer {peer_id}", node.address());
-            }
-            Err(e) => {
-                eprintln!(">>> {}: peers not ready: {e}", node.address());
-            }
-        }
-        std::thread::sleep(Duration::from_secs(10));
-    }
-    panic!("{}: no peer {peer_id}", node.address());
-}
