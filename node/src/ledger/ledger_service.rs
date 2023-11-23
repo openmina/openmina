@@ -6,7 +6,7 @@ use std::{
 
 use ledger::{
     scan_state::{
-        currency::{Amount, Fee, Slot},
+        currency::{Amount, Fee, Slot, Balance},
         scan_state::{
             AvailableJobMessage, ConstraintConstants, JobValueBase, JobValueMerge,
             JobValueWithIndex, Pass,
@@ -35,10 +35,12 @@ use mina_p2p_messages::v2::{
     MinaStateBlockchainStateValueStableV2LedgerProofStatement, MinaStateProtocolStateValueStableV2,
     MinaTransactionTransactionStableV2, NonZeroCurvePoint, StateHash,
 };
-use mina_signer::CompressedPubKey;
-use openmina_core::block::ArcBlockWithHash;
 use openmina_core::snark::{Snark, SnarkJobId};
 
+use mina_signer::{CompressedPubKey, Keypair, PubKey};
+use openmina_core::{block::ArcBlockWithHash, snark::SnarkJobId};
+
+use crate::{transition_frontier::sync::ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid, block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService};
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
 use crate::transition_frontier::TransitionFrontierService;
 use crate::{
@@ -794,6 +796,36 @@ impl<T: LedgerService> RpcLedgerService for T {
                 res
             })
             .collect()
+    }
+}
+
+impl<T: LedgerService> BlockProducerVrfEvaluatorLedgerService for T {
+    fn get_producer_and_delegates(&mut self, ledger_hash: LedgerHash, producer: String) -> BTreeMap<ledger::AccountIndex, (String, u64)> {
+        // TODO(adonagy): use StagedLedger? + unwraps
+        // let (mask, _) = self.ctx().mask(&ledger_hash).unwrap();
+        // TODO(adonagy): using an arbitrary ledger here for now, use the ledger hash when the epoch ledgers are available
+        let mask = self.ctx().snarked_ledgers.values().next().unwrap().clone();
+        let account_list = mask.to_list();
+        let producer_pub_key = PubKey::from_address(&producer).unwrap().into_compressed();
+
+        account_list.iter().filter_map(|account| {
+            // if it is the producer
+            if account.public_key == producer_pub_key {
+                let index = mask.index_of_account(account.id()).unwrap();
+                Some((index, (account.public_key.into_address(), account.balance.as_u64())))
+            // if it has the producer set as delegate
+            } else if let Some(delegate) = &account.delegate {
+                if delegate == &producer_pub_key {
+                    let index = mask.index_of_account(account.id()).unwrap();
+                    Some((index, (account.public_key.into_address(), account.balance.as_u64())))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }).collect()
+
     }
 }
 

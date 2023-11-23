@@ -1,6 +1,61 @@
+use std::collections::BTreeMap;
+
+use ledger::{AccountIndex, scan_state::scan_state::transaction_snark::LedgerHash};
+use mina_signer::CompressedPubKey;
 use serde::{Deserialize, Serialize};
+use vrf::VrfWonSlot;
+
+// TODO(adonagy): consodilate types, make more clear
+// pub type AccountAddressAndBalance = (String, u64);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum BlockProducerVrfEvaluatorState {
+pub struct BlockProducerVrfEvaluatorState {
+    pub evaluator_status: BlockProducerVrfEvaluatorStatus,
+    pub won_slots: BTreeMap<u32, VrfWonSlot>,
+    pub current_epoch_data: EpochData,
+    pub next_epoch_data: EpochData,
+    pub producer_pub_key: Option<String>,
+    // TODO(adonagy): move to block producer state probably
+    pub current_epoch: Option<u32>,
+    pub current_best_tip_slot: u32,
+    pub latest_evaluated_slot: u32,
+    pub last_possible_evaluation_slot: u32,
+}
+
+impl BlockProducerVrfEvaluatorState {
+    pub fn new(now: redux::Timestamp, producer_pub_key: Option<String>) -> Self {
+        Self {
+            evaluator_status: BlockProducerVrfEvaluatorStatus::Idle { time: now },
+            won_slots: Default::default(),
+            current_epoch_data: Default::default(),
+            next_epoch_data: Default::default(),
+            producer_pub_key,
+            current_epoch: None,
+            current_best_tip_slot: Default::default(),
+            latest_evaluated_slot: Default::default(),
+            last_possible_evaluation_slot: Default::default(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct EpochData {
+    pub seed: String,
+    pub ledger: String,
+    pub delegator_table: BTreeMap<AccountIndex, (String, u64)>,
+    pub total_currency: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum BlockProducerVrfEvaluatorStatus {
     Idle { time: redux::Timestamp },
+    Pending(u32),
+    Success(u32),
+    Failure(u32),
+    EpochChanged { time: redux::Timestamp },
+    DataPending { time: redux::Timestamp },
+    DataSuccess { time: redux::Timestamp },
+    DataFail { time: redux::Timestamp },
+    SlotsRequested { time: redux::Timestamp },
+    SlotsReceived { time: redux::Timestamp },
 }

@@ -31,6 +31,7 @@ use node::{
     BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig, SnarkerStrategy,
     State, TransitionFrontierConfig,
 };
+use vrf::keypair_from_bs58_string;
 
 use openmina_node_native::rpc::RpcService;
 use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, RpcSender};
@@ -67,6 +68,10 @@ pub struct Node {
     /// Pass snarker public key as an argument.
     #[arg(long, env)]
     pub run_snarker: Option<AccountPublicKey>,
+
+    /// Enable block producer with this key
+    #[arg(long, env)]
+    pub producer_key: Option<String>,
 
     /// Snark fee, in Mina
     #[arg(long, env, default_value_t = 1_000_000)]
@@ -155,6 +160,7 @@ impl Node {
                     auto_commit: true,
                     path: self.snarker_exe_path,
                 }),
+                producer: self.producer_key,
             },
             p2p: P2pConfig {
                 libp2p_port: Some(self.libp2p_port),
@@ -250,8 +256,8 @@ impl Node {
                         },
                         replayer: None,
                     };
-                    // TODO(adonagy): if block producer is enabled
-                    service.block_producer_start(());
+                    // TODO(adonagy): if block producer is enabled, move secret key inclusion to cli arg
+                    service.block_producer_start(keypair_from_bs58_string("EKEEpMELfQkMbJDt2fB4cFXKwSf1x4t7YD4twREy5yuJ84HBZtF9"));
 
                     let state = State::new(config);
                     let mut node = ::node::Node::new(state, service, None);

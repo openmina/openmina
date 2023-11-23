@@ -19,6 +19,7 @@ libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio
 redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
+vrf = { workspace = true }
 
 console = "0.15.5"
 clap = { version = "4.3", features = [ "derive", "env" ] }

@@ -1,4 +1,5 @@
 use crate::action::CheckTimeoutsAction;
+use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorEvaluationSuccessAction;
 use crate::external_snark_worker::{
     ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerEvent, ExternalSnarkWorkerKilledAction,
     ExternalSnarkWorkerStartedAction, ExternalSnarkWorkerWorkCancelledAction,
@@ -42,7 +43,7 @@ use crate::rpc::{
 use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
 use crate::snark::work_verify::{SnarkWorkVerifyErrorAction, SnarkWorkVerifySuccessAction};
 use crate::snark::SnarkEvent;
-use crate::{Service, Store};
+use crate::{Service, Store, BlockProducerAction};
 
 use super::{
     Event, EventSourceAction, EventSourceActionWithMeta, EventSourceNewEventAction,
@@ -301,6 +302,13 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         permanent: false,
                     });
                 }
+            },
+            Event::BlockProducerEvent(e) => match e {
+                crate::block_producer::BlockProducerEvent::VrfEvaluator(vrf_e) => match vrf_e {
+                    crate::block_producer::BlockProducerVrfEvaluatorEvent::Evaluated(vrf_output) => {
+                        store.dispatch(BlockProducerVrfEvaluatorEvaluationSuccessAction { vrf_output });
+                    }
+                },
             },
         },
         EventSourceAction::WaitTimeout(_) => {
