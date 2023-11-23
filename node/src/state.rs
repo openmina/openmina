@@ -1,6 +1,7 @@
 use redux::{ActionMeta, Timestamp};
 use serde::{Deserialize, Serialize};
 
+pub use crate::block_producer::BlockProducerState;
 use crate::config::GlobalConfig;
 pub use crate::consensus::ConsensusState;
 use crate::external_snark_worker::ExternalSnarkWorkers;
@@ -22,8 +23,9 @@ pub struct State {
     pub consensus: ConsensusState,
     pub transition_frontier: TransitionFrontierState,
     pub snark_pool: SnarkPoolState,
-    pub rpc: RpcState,
     pub external_snark_worker: ExternalSnarkWorkers,
+    pub block_producer: BlockProducerState,
+    pub rpc: RpcState,
 
     pub watched_accounts: WatchedAccountsState,
 
@@ -41,8 +43,9 @@ impl State {
             snark: SnarkState::new(config.snark),
             consensus: ConsensusState::new(),
             transition_frontier: TransitionFrontierState::new(config.transition_frontier),
-            rpc: RpcState::new(),
             external_snark_worker: ExternalSnarkWorkers::new(now),
+            block_producer: BlockProducerState::new(now),
+            rpc: RpcState::new(),
 
             watched_accounts: WatchedAccountsState::new(),
 

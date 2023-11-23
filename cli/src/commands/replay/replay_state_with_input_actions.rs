@@ -60,8 +60,9 @@ impl ReplayStateWithInputActions {
             ledger: Default::default(),
             peers: Default::default(),
             libp2p: Libp2pService::mocked().0,
-            rpc: RpcService::new(),
+            block_producer: None,
             snark_worker_sender: None,
+            rpc: RpcService::new(),
             stats: Default::default(),
             recorder: Recorder::None,
             replayer: Some(ReplayerState {
