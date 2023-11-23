@@ -29,6 +29,7 @@ use node::snark_pool::{JobState, SnarkPoolService};
 use node::stats::Stats;
 use node::ActionKind;
 
+use crate::block_producer::BlockProducerService;
 use crate::ext_snark_worker;
 use crate::rpc::RpcService;
 
@@ -44,8 +45,9 @@ pub struct NodeService {
     pub ledger: LedgerCtx,
     pub peers: BTreeMap<PeerId, PeerState>,
     pub libp2p: Libp2pService,
-    pub rpc: RpcService,
+    pub block_producer: Option<BlockProducerService>,
     pub snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerFacade>,
+    pub rpc: RpcService,
     pub stats: Stats,
     pub recorder: Recorder,
     pub replayer: Option<ReplayerState>,
