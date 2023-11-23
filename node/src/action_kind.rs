@@ -16,6 +16,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::block_producer::vrf_evaluator::{
     BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorEpochDataUpdateAction,
+    BlockProducerVrfEvaluatorEvaluateVrfAction, BlockProducerVrfEvaluatorEvaluationSuccessAction,
+    BlockProducerVrfEvaluatorNewEpochAction,
+    BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction,
+    BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction,
 };
 use crate::block_producer::{
     BlockProducerAction, BlockProducerBestTipUpdateAction, BlockProducerBlockInjectAction,
@@ -228,6 +232,11 @@ pub enum ActionKind {
     BlockProducerStagedLedgerDiffCreatePending,
     BlockProducerStagedLedgerDiffCreateSuccess,
     BlockProducerVrfEvaluatorEpochDataUpdate,
+    BlockProducerVrfEvaluatorEvaluateVrf,
+    BlockProducerVrfEvaluatorEvaluationSuccess,
+    BlockProducerVrfEvaluatorNewEpoch,
+    BlockProducerVrfEvaluatorUpdateProducerAndDelegates,
+    BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess,
     BlockProducerWonSlot,
     BlockProducerWonSlotDiscard,
     BlockProducerWonSlotProduceInit,
@@ -451,7 +460,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 230;
+    pub const COUNT: u16 = 235;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1000,6 +1009,11 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::EpochDataUpdate(a) => a.kind(),
+            Self::EvaluateVrf(a) => a.kind(),
+            Self::EvaluationSuccess(a) => a.kind(),
+            Self::UpdateProducerAndDelegates(a) => a.kind(),
+            Self::UpdateProducerAndDelegatesSuccess(a) => a.kind(),
+            Self::NewEpoch(a) => a.kind(),
         }
     }
 }
@@ -1735,6 +1749,36 @@ impl ActionKindGet for SnarkPoolCandidatePeerPruneAction {
 impl ActionKindGet for BlockProducerVrfEvaluatorEpochDataUpdateAction {
     fn kind(&self) -> ActionKind {
         ActionKind::BlockProducerVrfEvaluatorEpochDataUpdate
+    }
+}
+
+impl ActionKindGet for BlockProducerVrfEvaluatorEvaluateVrfAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerVrfEvaluatorEvaluateVrf
+    }
+}
+
+impl ActionKindGet for BlockProducerVrfEvaluatorEvaluationSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerVrfEvaluatorEvaluationSuccess
+    }
+}
+
+impl ActionKindGet for BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegates
+    }
+}
+
+impl ActionKindGet for BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess
+    }
+}
+
+impl ActionKindGet for BlockProducerVrfEvaluatorNewEpochAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerVrfEvaluatorNewEpoch
     }
 }
 

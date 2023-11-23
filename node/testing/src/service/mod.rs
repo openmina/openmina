@@ -32,6 +32,7 @@ use node::{
 };
 use openmina_node_native::NodeService;
 use redux::Instant;
+use vrf::VrfEvaluatorInput;
 
 #[derive(Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PendingEventIdType;
@@ -230,7 +231,7 @@ impl SnarkPoolService for NodeTestingService {
 }
 
 impl BlockProducerVrfEvaluatorService for NodeTestingService {
-    fn evaluate(&mut self, data: ()) {
+    fn evaluate(&mut self, data: VrfEvaluatorInput) {
         BlockProducerVrfEvaluatorService::evaluate(&mut self.real, data)
     }
 }
