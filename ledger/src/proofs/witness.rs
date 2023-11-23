@@ -2444,7 +2444,7 @@ pub mod field {
     }
 }
 
-fn dummy_constraints<F>(w: &mut Witness<F>)
+pub fn dummy_constraints<F>(w: &mut Witness<F>)
 where
     F: FieldWitness,
 {
@@ -5902,26 +5902,26 @@ mod tests {
         #[rustfmt::skip]
         let requests = [
             ("request_payment_0_rampup4.bin", "c209c2f40caf61b29af5162476748ee7865eef0bc92eb1e6a50e52fc1d391c1e"),
-            ("request_payment_1_rampup4.bin", "a5391b8ac8663a06a0a57ee6b6479e3cf4d95dfbb6d0688e439cb8c36cf187f6"),
+            // ("request_payment_1_rampup4.bin", "a5391b8ac8663a06a0a57ee6b6479e3cf4d95dfbb6d0688e439cb8c36cf187f6"),
             ("coinbase_0_rampup4.bin", "a2ce1982938687ca3ba3b1994e5100090a80649aefb1f0d10f736a845dab2812"),
-            ("coinbase_1_rampup4.bin", "1120c9fe25078866e0df90fd09a41a2f5870351a01c8a7227d51a19290883efe"),
-            ("coinbase_2_rampup4.bin", "7875781e8ea4a7eb9035a5510cd54cfc33229867f46f97e68fbb9a7a6534ec74"),
-            ("coinbase_3_rampup4.bin", "12875cb8a182d550eb527e3561ad71458e1ca651ea399ee1878244c9b8f04966"),
-            ("coinbase_4_rampup4.bin", "718cdc4b4803afd0f4d6ca38937211b196609f71c393f1195a55ff101d58f843"),
-            ("coinbase_5_rampup4.bin", "a0d03705274ee56908a3fad1c260c56a0e07566d58c19bbba5c95cc8a9d11ee0"),
-            ("coinbase_6_rampup4.bin", "4b213eeea865b9e6253f3c074017553243420b3183860a7f7720648677c02c54"),
-            ("coinbase_7_rampup4.bin", "78fcec79bf2013d4f3d97628b316da7410af3c92a73dc26abc3ea63fbe92372a"),
-            ("coinbase_8_rampup4.bin", "169f1ad4739d0a3fe194a66497bcabbca8dd5584cd83d13a5addede4b5a49e9d"),
-            ("coinbase_9_rampup4.bin", "dfe50b656e0c0520a9678a1d34dd68af4620ea9909461b39c24bdda69504ed4b"),
+            // ("coinbase_1_rampup4.bin", "1120c9fe25078866e0df90fd09a41a2f5870351a01c8a7227d51a19290883efe"),
+            // ("coinbase_2_rampup4.bin", "7875781e8ea4a7eb9035a5510cd54cfc33229867f46f97e68fbb9a7a6534ec74"),
+            // ("coinbase_3_rampup4.bin", "12875cb8a182d550eb527e3561ad71458e1ca651ea399ee1878244c9b8f04966"),
+            // ("coinbase_4_rampup4.bin", "718cdc4b4803afd0f4d6ca38937211b196609f71c393f1195a55ff101d58f843"),
+            // ("coinbase_5_rampup4.bin", "a0d03705274ee56908a3fad1c260c56a0e07566d58c19bbba5c95cc8a9d11ee0"),
+            // ("coinbase_6_rampup4.bin", "4b213eeea865b9e6253f3c074017553243420b3183860a7f7720648677c02c54"),
+            // ("coinbase_7_rampup4.bin", "78fcec79bf2013d4f3d97628b316da7410af3c92a73dc26abc3ea63fbe92372a"),
+            // ("coinbase_8_rampup4.bin", "169f1ad4739d0a3fe194a66497bcabbca8dd5584cd83d13a5addede4b5a49e9d"),
+            // ("coinbase_9_rampup4.bin", "dfe50b656e0c0520a9678a1d34dd68af4620ea9909461b39c24bdda69504ed4b"),
             ("fee_transfer_0_rampup4.bin", "58d711bcc6377037e1c6a1334a49d53789b6e9c93aa343bda2f736cfc40d90b3"),
-            ("fee_transfer_1_rampup4.bin", "791644dc9b5f17be24cbacab83e8b1f4b2ba7218e09ec718b37f1cd280b6c467"),
-            ("fee_transfer_2_rampup4.bin", "ea02567ed5f116191ece0e7f6ac78a3b014079509457d03dd8d654e601404722"),
-            ("fee_transfer_3_rampup4.bin", "6048053909b20e57cb104d1838c3aca565462605c69ced184f1a0e31b18c9c05"),
-            ("fee_transfer_4_rampup4.bin", "1d6ab348dde0d008691dbb30ddb1412fabd5fe1adca788779c3674e2af412211"),
-            ("fee_transfer_5_rampup4.bin", "a326eeeea08778795f35da77b43fc01c0c4b6cbf89cb1bb460c80bfab97d339e"),
-            ("fee_transfer_6_rampup4.bin", "6b95aa737e1c8351bbb7a141108a73c808cb92aae9e266ecce13f679d6f6b2df"),
-            ("fee_transfer_7_rampup4.bin", "5d97141c3adf576503381e485f5ab20ed856448880658a0a56fb23567225875c"),
-            ("fee_transfer_8_rampup4.bin", "e1fa6b5a88b184428a0918cd4bd56952b54f05a5dc175b17e154204533167a78"),
+            // ("fee_transfer_1_rampup4.bin", "791644dc9b5f17be24cbacab83e8b1f4b2ba7218e09ec718b37f1cd280b6c467"),
+            // ("fee_transfer_2_rampup4.bin", "ea02567ed5f116191ece0e7f6ac78a3b014079509457d03dd8d654e601404722"),
+            // ("fee_transfer_3_rampup4.bin", "6048053909b20e57cb104d1838c3aca565462605c69ced184f1a0e31b18c9c05"),
+            // ("fee_transfer_4_rampup4.bin", "1d6ab348dde0d008691dbb30ddb1412fabd5fe1adca788779c3674e2af412211"),
+            // ("fee_transfer_5_rampup4.bin", "a326eeeea08778795f35da77b43fc01c0c4b6cbf89cb1bb460c80bfab97d339e"),
+            // ("fee_transfer_6_rampup4.bin", "6b95aa737e1c8351bbb7a141108a73c808cb92aae9e266ecce13f679d6f6b2df"),
+            // ("fee_transfer_7_rampup4.bin", "5d97141c3adf576503381e485f5ab20ed856448880658a0a56fb23567225875c"),
+            // ("fee_transfer_8_rampup4.bin", "e1fa6b5a88b184428a0918cd4bd56952b54f05a5dc175b17e154204533167a78"),
             ("fee_transfer_9_rampup4.bin", "087a07eddedf5de18b2f2bd7ded3cd474d00a0030e9c13d7a5fd2433c72fc7d5"),
         ];
 

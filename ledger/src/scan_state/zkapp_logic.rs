@@ -4,6 +4,7 @@ use mina_signer::CompressedPubKey;
 
 use crate::{
     check_permission, hash_with_kimchi,
+    proofs::witness::ToBoolean,
     scan_state::{
         currency::{Amount, Index, Magnitude, Sgn, Signed, Slot},
         scan_state::ConstraintConstants,

@@ -1161,6 +1161,14 @@ pub mod zkapp_command {
         pub hash: Fp,
     }
 
+    impl<T> std::ops::Deref for WithHash<T> {
+        type Target = T;
+
+        fn deref(&self) -> &Self::Target {
+            &self.data
+        }
+    }
+
     impl<T> WithHash<T> {
         pub fn of_data(data: T, hash_data: impl Fn(&T) -> Fp) -> Self {
             let hash = hash_data(&data);
@@ -2532,6 +2540,10 @@ pub mod zkapp_command {
     impl<AccUpdate: Clone> CallForest<AccUpdate> {
         pub fn new() -> Self {
             Self(Vec::new())
+        }
+
+        pub fn empty() -> Self {
+            Self::new()
         }
 
         pub fn is_empty(&self) -> bool {
@@ -3963,12 +3975,14 @@ pub mod protocol_state {
         }
     }
 
+    pub type GlobalState<L> = GlobalStateSkeleton<L, Signed<Amount>, Slot>;
+
     #[derive(Debug, Clone)]
-    pub struct GlobalState<L: LedgerIntf + Clone> {
+    pub struct GlobalStateSkeleton<L, SignedAmount, Slot> {
         pub first_pass_ledger: L,
         pub second_pass_ledger: L,
-        pub fee_excess: Signed<Amount>,
-        pub supply_increase: Signed<Amount>,
+        pub fee_excess: SignedAmount,
+        pub supply_increase: SignedAmount,
         pub protocol_state: ProtocolStateView,
         /// Slot of block when the transaction is applied.
         /// NOTE: This is at least 1 slot after the protocol_state's view,
@@ -4053,6 +4067,17 @@ pub mod local_state {
         pub calls: CallForest<AccountUpdate>, // TODO
     }
 
+    // https://github.com/MinaProtocol/mina/blob/78535ae3a73e0e90c5f66155365a934a15535779/src/lib/transaction_snark/transaction_snark.ml#L1081
+    #[derive(Debug, Clone)]
+    pub struct StackFrameCheckedFrame {
+        pub caller: TokenId,
+        pub caller_caller: TokenId,
+        pub calls: WithHash<CallForest<AccountUpdate>>,
+    }
+
+    // https://github.com/MinaProtocol/mina/blob/78535ae3a73e0e90c5f66155365a934a15535779/src/lib/transaction_snark/transaction_snark.ml#L1083
+    pub type StackFrameChecked = WithHash<StackFrameCheckedFrame>;
+
     impl Default for StackFrame {
         fn default() -> Self {
             StackFrame {
@@ -4092,6 +4117,44 @@ pub mod local_state {
 
         pub fn digest(&self) -> Fp {
             self.hash()
+        }
+
+        pub fn unhash(&self, _h: Fp, w: &mut Witness<Fp>) -> StackFrameChecked {
+            // We decompose this way because of OCaml evaluation order
+            let calls = WithHash {
+                data: self.calls.clone(),
+                hash: w.exists(self.calls.hash()),
+            };
+            let caller_caller = w.exists(self.caller_caller.clone());
+            let caller = w.exists(self.caller.clone());
+
+            let frame = StackFrameCheckedFrame {
+                caller,
+                caller_caller,
+                calls,
+            };
+
+            StackFrameChecked::of_frame(frame, w)
+        }
+    }
+
+    impl StackFrameCheckedFrame {
+        pub fn hash(&self, w: &mut Witness<Fp>) -> Fp {
+            let mut inputs = Inputs::new();
+
+            inputs.append(&self.caller);
+            inputs.append(&self.caller_caller.0);
+            inputs.append(&self.calls.hash);
+
+            use crate::proofs::witness::transaction_snark::checked_hash;
+            checked_hash("MinaAcctUpdStckFrm", &inputs.to_fields(), w)
+        }
+    }
+
+    impl StackFrameChecked {
+        fn of_frame(frame: StackFrameCheckedFrame, w: &mut Witness<Fp>) -> Self {
+            let hash = frame.hash(w);
+            Self { data: frame, hash }
         }
     }
 
@@ -4142,22 +4205,40 @@ pub mod local_state {
     /// One with concrete types for the stack frame, call stack, and ledger. Created from the Env
     /// And the other with their hashes. To differentiate them I renamed the first LocalStateEnv
     /// Maybe a better solution is to keep the LocalState name and put it under a different module
-    pub type LocalStateEnv<L> = LocalStateEnvImpl<L, CallStack, ReceiptChainHash>;
+    pub type LocalStateEnv<L> = LocalStateSkeleton<
+        L,                            // ledger
+        StackFrame,                   // stack_frame
+        CallStack,                    // call_stack
+        ReceiptChainHash,             // commitments
+        Signed<Amount>,               // excess & supply_increase
+        Vec<Vec<TransactionFailure>>, // failure_status_tbl
+        bool,                         // success & will_succeed
+        Index,                        // account_update_index
+    >;
 
     #[derive(Debug, Clone)]
-    pub struct LocalStateEnvImpl<L: LedgerIntf + Clone, CallStack, TC> {
+    pub struct LocalStateSkeleton<
+        L,
+        StackFrame,
+        CallStack,
+        TC,
+        SignedAmount,
+        FailuresTable,
+        Bool,
+        Index,
+    > {
         pub stack_frame: StackFrame,
         pub call_stack: CallStack,
         pub transaction_commitment: TC,
         pub full_transaction_commitment: TC,
-        pub excess: Signed<Amount>,
-        pub supply_increase: Signed<Amount>,
+        pub excess: SignedAmount,
+        pub supply_increase: SignedAmount,
         pub ledger: L,
-        pub success: bool,
+        pub success: Bool,
         pub account_update_index: Index,
         // TODO: optimize by reversing the insertion order
-        pub failure_status_tbl: Vec<Vec<TransactionFailure>>,
-        pub will_succeed: bool,
+        pub failure_status_tbl: FailuresTable,
+        pub will_succeed: Bool,
     }
 
     impl<L: LedgerIntf + Clone> LocalStateEnv<L> {

@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+use std::str::FromStr;
+
 use ark_ff::Zero;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -7,24 +9,42 @@ use mina_p2p_messages::v2;
 
 use crate::{
     hash_with_kimchi,
-    proofs::zkapp::group::{State, ZkappCommandIntermediateState},
+    proofs::{
+        constants::StepZkappProof,
+        witness::{transaction_snark::CONSTRAINT_CONSTANTS, ToBoolean},
+        zkapp::group::{State, ZkappCommandIntermediateState},
+        zkapp_logic,
+    },
     scan_state::{
-        currency::{Amount, Signed, Slot},
+        currency::{Amount, Index, Signed, Slot},
         fee_excess::FeeExcess,
         pending_coinbase::{self, Stack, StackState},
         scan_state::transaction_snark::{Registers, SokDigest, SokMessage, Statement},
         transaction_logic::{
-            local_state::{LocalState, LocalStateEnv, LocalStateEnvImpl, StackFrame},
-            protocol_state::{protocol_state_body_view, GlobalState},
-            zkapp_command::{AccountUpdate, WithHash, ZkAppCommand},
+            local_state::{
+                LocalState, LocalStateEnv, LocalStateSkeleton, StackFrame, StackFrameChecked,
+            },
+            protocol_state::{
+                protocol_state_body_view, protocol_state_view, GlobalState, GlobalStateSkeleton,
+            },
+            zkapp_command::{AccountUpdate, CallForest, Control, WithHash, ZkAppCommand},
             zkapp_statement::TransactionCommitment,
+            TransactionFailure,
         },
     },
     sparse_ledger::SparseLedger,
-    TokenId,
+    ControlTag, ToInputs, TokenId,
 };
 
-use super::witness::{Prover, Witness};
+use self::group::SegmentBasic;
+
+use super::{
+    numbers::{
+        currency::{CheckedAmount, CheckedSigned},
+        nat::{CheckedIndex, CheckedNat, CheckedSlot},
+    },
+    witness::{dummy_constraints, Boolean, Prover, Witness},
+};
 
 pub struct ZkappParams<'a> {
     pub statement: &'a v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement,
@@ -301,11 +321,16 @@ mod group {
     }
 }
 
+pub type StartData = StartDataSkeleton<
+    ZkAppCommand, // account_updates
+    bool,         // will_succeed
+>;
+
 #[derive(Clone, Debug)]
-pub struct StartData {
-    pub account_updates: ZkAppCommand,
+pub struct StartDataSkeleton<AccountUpdates, WillSucceed> {
+    pub account_updates: AccountUpdates,
     pub memo_hash: Fp,
-    pub will_succeed: bool,
+    pub will_succeed: WillSucceed,
 }
 
 // TODO: De-duplicate with the one in `transaction_logic.rs`
@@ -342,10 +367,15 @@ fn accumulate_call_stack_hashes(
     }
 }
 
-pub type LocalStateForWitness = LocalStateEnvImpl<
-    SparseLedger,
-    Vec<WithStackHash<WithHash<StackFrame>>>,
-    TransactionCommitment,
+pub type LocalStateForWitness = LocalStateSkeleton<
+    SparseLedger,                             // ledger
+    StackFrame,                               // stack_frame
+    Vec<WithStackHash<WithHash<StackFrame>>>, // call_stack
+    TransactionCommitment,                    // commitments
+    Signed<Amount>,                           // excess & supply_increase
+    Vec<Vec<TransactionFailure>>,             // failure_status_tbl
+    bool,                                     // success & will_succeed
+    Index,                                    // account_update_index
 >;
 
 #[derive(Debug)]
@@ -355,40 +385,9 @@ pub struct ZkappCommandSegmentWitness<'a> {
     pub local_state_init: LocalStateForWitness,
     pub start_zkapp_command: Vec<StartData>,
     pub state_body: &'a v2::MinaStateProtocolStateBodyValueStableV2,
+    pub init_stack: Stack,
     pub block_global_slot: Slot,
 }
-
-// { global_first_pass_ledger : Sparse_ledger.Stable.V2.t
-// ; global_second_pass_ledger : Sparse_ledger.Stable.V2.t
-// ; local_state_init :
-//     ( ( Token_id.Stable.V2.t
-//       , Zkapp_command.Call_forest.With_hashes.Stable.V1.t )
-//       Stack_frame.Stable.V1.t
-//     , ( ( ( Token_id.Stable.V2.t
-//           , Zkapp_command.Call_forest.With_hashes.Stable.V1.t )
-//           Stack_frame.Stable.V1.t
-//         , Stack_frame.Digest.Stable.V1.t )
-//         With_hash.t
-//       , Call_stack_digest.Stable.V1.t )
-//       With_stack_hash.Stable.V1.t
-//       list
-//     , (Amount.Stable.V1.t, Sgn.Stable.V1.t) Signed_poly.Stable.V1.t
-//     , Sparse_ledger.Stable.V2.t
-//     , bool
-//     , Kimchi_backend.Pasta.Basic.Fp.Stable.V1.t
-//     , Mina_numbers.Index.Stable.V1.t
-//     , Transaction_status.Failure.Collection.Stable.V1.t )
-//     Mina_transaction_logic.Zkapp_command_logic.Local_state.Stable.V1.t
-// ; start_zkapp_command :
-//     ( Zkapp_command.Stable.V1.t
-//     , Kimchi_backend.Pasta.Basic.Fp.Stable.V1.t
-//     , bool )
-//     Mina_transaction_logic.Zkapp_command_logic.Start_data.Stable.V1.t
-//     list
-// ; state_body : Mina_state.Protocol_state.Body.Value.Stable.V2.t
-// ; init_stack : Pending_coinbase.Stack_versioned.Stable.V1.t
-// ; block_global_slot : Mina_numbers.Global_slot_since_genesis.Stable.V1.t
-// }
 
 pub struct ZkappCommandsWithContext<'a> {
     pub pending_coinbase_init_stack: pending_coinbase::Stack,
@@ -724,6 +723,7 @@ pub fn zkapp_command_witnesses_exn(
             local_state_init: source_local.clone(),
             start_zkapp_command,
             state_body,
+            init_stack: pending_coinbase_init_stack,
             block_global_slot: global_slot,
         };
 
@@ -840,6 +840,321 @@ pub fn zkapp_command_witnesses_exn(
     })
 }
 
+enum IsStart {
+    Yes,
+    No,
+    ComputeInCircuit,
+}
+
+struct Spec {
+    auth_type: ControlTag,
+    is_start: IsStart,
+}
+
+fn basic_spec(s: &SegmentBasic) -> Box<[Spec]> {
+    let opt_signed = || Spec {
+        auth_type: ControlTag::Signature,
+        is_start: IsStart::ComputeInCircuit,
+    };
+
+    match s {
+        SegmentBasic::OptSignedOptSigned => Box::new([opt_signed(), opt_signed()]),
+        SegmentBasic::OptSigned => Box::new([opt_signed()]),
+        SegmentBasic::Proved => Box::new([Spec {
+            auth_type: ControlTag::Proof,
+            is_start: IsStart::No,
+        }]),
+    }
+}
+
+fn read_witnesses() -> Vec<Fp> {
+    let f = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("rampup4")
+            .join("zkapp_fps.txt"),
+    )
+    .unwrap();
+
+    let fps = f
+        .lines()
+        .filter(|s| !s.is_empty())
+        .map(|s| Fp::from_str(s).unwrap())
+        .collect::<Vec<_>>();
+
+    fps
+}
+
+struct CheckProtocolStateParams<'a> {
+    pending_coinbase_stack_init: Stack,
+    pending_coinbase_stack_before: Stack,
+    pending_coinbase_stack_after: Stack,
+    block_global_slot: CheckedSlot<Fp>,
+    state_body: &'a v2::MinaStateProtocolStateBodyValueStableV2,
+}
+
+fn check_protocol_state(params: CheckProtocolStateParams, w: &mut Witness<Fp>) {
+    let CheckProtocolStateParams {
+        pending_coinbase_stack_init,
+        pending_coinbase_stack_before,
+        pending_coinbase_stack_after,
+        block_global_slot,
+        state_body,
+    } = params;
+
+    let state_body_hash = state_body.checked_hash_with_param("MinaProtoStateBody", w);
+    let global_slot = block_global_slot;
+    let computed_pending_coinbase_stack_after =
+        pending_coinbase_stack_init.checked_push_state(state_body_hash, global_slot, w);
+
+    let _correct_coinbase_target_stack =
+        computed_pending_coinbase_stack_after.equal_var(&pending_coinbase_stack_after, w);
+
+    let _valid_init_state = {
+        let equal_source = pending_coinbase_stack_init.equal_var(&pending_coinbase_stack_before, w);
+
+        let equal_source_with_state =
+            computed_pending_coinbase_stack_after.equal_var(&pending_coinbase_stack_before, w);
+
+        equal_source.or(&equal_source_with_state, w)
+    };
+}
+
+/// With root hash
+#[derive(Clone)]
+pub struct LedgerWithHash {
+    ledger: SparseLedger,
+    hash: Fp,
+}
+
+pub type LocalStateForProof = LocalStateSkeleton<
+    LedgerWithHash,                                     // ledger
+    StackFrameChecked,                                  // stack_frame
+    WithHash<Vec<WithStackHash<WithHash<StackFrame>>>>, // call_stack
+    Fp,                                                 // commitments
+    CheckedSigned<Fp, CheckedAmount<Fp>>,               // fee_excess & supply_increase
+    (),                                                 // failure_status_tbl
+    Boolean,                                            // success & will_succeed
+    CheckedIndex<Fp>,                                   // account_update_index
+>;
+
+pub type GlobalStateForProof = GlobalStateSkeleton<
+    (Fp, SparseLedger),                   // ledger
+    CheckedSigned<Fp, CheckedAmount<Fp>>, // fee_excess & supply_increase
+    CheckedSlot<Fp>,                      // block_global_slot
+>;
+
+pub type StartDataForProof = StartDataSkeleton<
+    WithHash<CallForest<AccountUpdate>>, // account_updates
+    Boolean,                             // will_succeed
+>;
+
+fn zkapp_main(
+    statement: Statement<SokDigest>,
+    witness: &ZkappCommandSegmentWitness,
+    spec: &[Spec],
+    w: &mut Witness<Fp>,
+) {
+    w.exists(&statement);
+
+    dummy_constraints(w);
+    let state_body = w.exists(witness.state_body);
+    let block_global_slot = w.exists(witness.block_global_slot).to_checked();
+    let pending_coinbase_stack_init = w.exists(witness.init_stack.clone());
+
+    check_protocol_state(
+        CheckProtocolStateParams {
+            pending_coinbase_stack_init,
+            pending_coinbase_stack_before: statement.source.pending_coinbase_stack.clone(),
+            pending_coinbase_stack_after: statement.target.pending_coinbase_stack.clone(),
+            block_global_slot: block_global_slot.clone(),
+            state_body,
+        },
+        w,
+    );
+
+    let init = {
+        let g = GlobalStateForProof {
+            first_pass_ledger: (
+                statement.source.first_pass_ledger,
+                witness.global_first_pass_ledger.clone(),
+            ),
+            second_pass_ledger: (
+                statement.source.second_pass_ledger,
+                witness.global_second_pass_ledger.clone(),
+            ),
+            fee_excess: CheckedSigned::zero(),
+            supply_increase: CheckedSigned::zero(),
+            protocol_state: protocol_state_body_view(state_body),
+            block_global_slot: block_global_slot.clone(),
+        };
+
+        let l = LocalStateForProof {
+            stack_frame: witness
+                .local_state_init
+                .stack_frame
+                .unhash(statement.source.local_state.stack_frame, w),
+            call_stack: WithHash {
+                hash: statement.source.local_state.call_stack,
+                data: witness.local_state_init.call_stack.clone(),
+            },
+            transaction_commitment: statement.source.local_state.transaction_commitment,
+            full_transaction_commitment: statement.source.local_state.full_transaction_commitment,
+            excess: statement.source.local_state.excess.to_checked(),
+            supply_increase: statement.source.local_state.supply_increase.to_checked(),
+            ledger: LedgerWithHash {
+                ledger: witness.local_state_init.ledger.copy_content(),
+                hash: statement.source.local_state.ledger,
+            },
+            success: statement.source.local_state.success.to_boolean(),
+            account_update_index: statement
+                .source
+                .local_state
+                .account_update_index
+                .to_checked(),
+            failure_status_tbl: (),
+            will_succeed: statement.source.local_state.will_succeed.to_boolean(),
+        };
+
+        (g, l)
+    };
+
+    let mut start_zkapp_command = witness.start_zkapp_command.as_slice();
+    // let mut zkapp_input = None;
+    let mut must_verify = Boolean::True;
+
+    spec.iter().rev().fold(init, |acc, account_update_spec| {
+        let (_, local) = &acc;
+
+        enum StartOrSkip<T> {
+            Start(T),
+            Skip,
+        }
+
+        let mut finish = |v: StartOrSkip<&StartData>| {
+            let ps = match v {
+                StartOrSkip::Skip => CallForest::empty(),
+                StartOrSkip::Start(p) => p.account_updates.all_account_updates(),
+            };
+
+            let h = w.exists(ps.hash());
+
+            // We decompose this way because of OCaml evaluation order
+            let will_succeed = w.exists(match v {
+                StartOrSkip::Start(p) => p.will_succeed.to_boolean(),
+                StartOrSkip::Skip => Boolean::False,
+            });
+            let memo_hash = w.exists(match v {
+                StartOrSkip::Skip => Fp::zero(),
+                StartOrSkip::Start(p) => p.memo_hash,
+            });
+
+            let start_data = StartDataForProof {
+                account_updates: WithHash { data: ps, hash: h },
+                memo_hash,
+                will_succeed,
+            };
+
+            {
+                let constraint_constants = &CONSTRAINT_CONSTANTS;
+                let is_start = match account_update_spec.is_start {
+                    IsStart::Yes => zkapp_logic::IsStart::Yes(start_data),
+                    IsStart::No => zkapp_logic::IsStart::No,
+                    IsStart::ComputeInCircuit => zkapp_logic::IsStart::Compute(start_data),
+                };
+
+                fn perform(_eff: &zkapp_logic::Eff) -> zkapp_logic::PerformResult {
+                    todo!()
+                }
+
+                let handler = zkapp_logic::Handler { perform };
+
+                zkapp_logic::apply(constraint_constants, is_start, &handler, acc.clone(), w);
+            }
+        };
+
+        //         let global_state, local_state =
+        //           with_label "apply" (fun () ->
+        //               S.apply ~constraint_constants
+        //                 ~is_start:
+        //                   ( match account_update_spec.is_start with
+        //                   | `No ->
+        //                       `No
+        //                   | `Yes ->
+        //                       `Yes start_data
+        //                   | `Compute_in_circuit ->
+        //                       `Compute start_data )
+        //                 S.{ perform }
+        //                 acc )
+        //         in
+        //         (global_state, local_state)
+        //       in
+
+        let new_acc = match account_update_spec.is_start {
+            IsStart::No => todo!(),
+            IsStart::ComputeInCircuit => {
+                let v = match start_zkapp_command {
+                    [] => StartOrSkip::Skip,
+                    [p, ps @ ..] => {
+                        let should_pop = local.stack_frame.data.calls.data.is_empty();
+
+                        if should_pop {
+                            StartOrSkip::Start(p)
+                        } else {
+                            StartOrSkip::Skip
+                        }
+                    }
+                };
+                finish(v);
+            }
+            IsStart::Yes => todo!(),
+        };
+
+        todo!()
+    });
+}
+
+fn of_zkapp_command_segment_exn(
+    statement: Statement<SokDigest>,
+    witness: &ZkappCommandSegmentWitness,
+    spec: &SegmentBasic,
+) {
+    use SegmentBasic::*;
+
+    let s = basic_spec(spec);
+    let mut w = Witness::new::<StepZkappProof>();
+    w.ocaml_aux = read_witnesses();
+
+    match spec {
+        OptSigned => todo!(),
+        OptSignedOptSigned => zkapp_main(statement, witness, &s, &mut w),
+        Proved => todo!(),
+    }
+}
+
+// let of_zkapp_command_segment_exn ~(statement : Proof.statement) ~witness
+//     ~(spec : Zkapp_command_segment.Basic.t) : t Async.Deferred.t =
+//   Base.Zkapp_command_snark.witness := Some witness ;
+//   let res =
+//     match spec with
+//     | Opt_signed ->
+//         opt_signed statement
+//     | Opt_signed_opt_signed ->
+//         opt_signed_opt_signed statement
+//     | Proved -> (
+//         match snapp_proof_data ~witness with
+//         | None ->
+//             failwith "of_zkapp_command_segment: Expected exactly one proof"
+//         | Some (p, v) ->
+//             Pickles.Side_loaded.in_prover (Base.side_loaded 0) v.data ;
+//             proved
+//               ~handler:(Base.Zkapp_command_snark.handle_zkapp_proof p)
+//               statement )
+//   in
+//   let open Async in
+//   let%map (), (), proof = res in
+//   Base.Zkapp_command_snark.witness := None ;
+//   { proof; statement }
+
 pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
     let ZkappParams {
         statement,
@@ -878,7 +1193,18 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
         }],
     });
 
-    dbg!(&witnesses_specs_stmts);
+    let sok_digest = message.digest();
 
-    dbg!(witnesses_specs_stmts.len());
+    let (last, rest) = witnesses_specs_stmts.split_last().unwrap();
+
+    let (witness, spec, statement) = last;
+
+    of_zkapp_command_segment_exn(
+        Statement {
+            sok_digest: sok_digest.clone(),
+            ..statement.clone()
+        },
+        witness,
+        spec,
+    );
 }
