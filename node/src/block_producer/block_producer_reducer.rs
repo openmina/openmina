@@ -444,6 +444,9 @@ impl BlockProducerEnabled {
                     };
                 }
             }
+            BlockProducerAction::BestTipUpdate(action) => {
+                self.vrf_evaluator.current_best_tip_slot = action.best_tip.block.header.protocol_state.body.consensus_state.curr_global_slot.slot_number.as_u32();
+            }
         }
     }
 }

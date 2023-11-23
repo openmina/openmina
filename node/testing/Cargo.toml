@@ -31,6 +31,7 @@ redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
+vrf = { workspace = true }
 
 console = "0.15.5"
 clap = { version = "4.3", features = [ "derive", "env" ] }

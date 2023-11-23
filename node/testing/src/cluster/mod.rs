@@ -160,6 +160,7 @@ impl Cluster {
             global: GlobalConfig {
                 build: BuildEnv::get().into(),
                 snarker: None,
+                producer: None,
             },
             p2p: P2pConfig {
                 libp2p_port: Some(libp2p_port),

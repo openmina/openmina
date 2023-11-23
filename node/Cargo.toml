@@ -23,6 +23,7 @@ mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
+vrf = { workspace = true }
 
 openmina-core = { path = "../core" }
 snark = { path = "../snark" }

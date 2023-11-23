@@ -1,0 +1,25 @@
+[package]
+name = "vrf"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+serde = "1.0.147"
+serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
+thiserror = "1.0.37"
+anyhow = "1.0.70"
+hex = "0.4.3"
+mina-hasher = { workspace = true }
+mina-signer = { workspace = true }
+mina-p2p-messages = { workspace = true }
+mina-curves = { workspace = true }
+o1-utils = { workspace = true }
+ledger = { workspace = true }
+ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
+ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm" ] }
+num = "0.4"
+itertools = "0.12"
+sha2 = "0.10"
+bs58 = "0.4.0"
+rand = "0.8"

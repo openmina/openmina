@@ -12,6 +12,7 @@ members = [
     "node/testing",
     "cli",
     "cli/replay_dynamic_effects",
+    "vrf",
 
     "mina-p2p-messages",
     "ledger",
@@ -22,14 +23,15 @@ resolver = "2"
 [workspace.dependencies]
 mina-p2p-messages = { path = "mina-p2p-messages", features = ["hashing"] }
 ledger = { path = "ledger", package = "mina-tree" }
-mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
-mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
-poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
+mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
+o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
+kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
+mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf"}
+poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf"}
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "cd5425a759d959d7fde58a42f71ab059449760c5", default-features = false }
+vrf = { path = "vrf" }
 
 [profile.fuzz]
 inherits = "release"
