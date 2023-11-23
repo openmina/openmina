@@ -1161,6 +1161,13 @@ pub mod zkapp_command {
         pub hash: Fp,
     }
 
+    impl<T> WithHash<T> {
+        pub fn of_data(data: T, hash_data: impl Fn(&T) -> Fp) -> Self {
+            let hash = hash_data(&data);
+            Self { data, hash }
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L319
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct Update {
@@ -4135,12 +4142,14 @@ pub mod local_state {
     /// One with concrete types for the stack frame, call stack, and ledger. Created from the Env
     /// And the other with their hashes. To differentiate them I renamed the first LocalStateEnv
     /// Maybe a better solution is to keep the LocalState name and put it under a different module
+    pub type LocalStateEnv<L> = LocalStateEnvImpl<L, CallStack, ReceiptChainHash>;
+
     #[derive(Debug, Clone)]
-    pub struct LocalStateEnv<L: LedgerIntf + Clone> {
+    pub struct LocalStateEnvImpl<L: LedgerIntf + Clone, CallStack, TC> {
         pub stack_frame: StackFrame,
         pub call_stack: CallStack,
-        pub transaction_commitment: ReceiptChainHash,
-        pub full_transaction_commitment: ReceiptChainHash,
+        pub transaction_commitment: TC,
+        pub full_transaction_commitment: TC,
         pub excess: Signed<Amount>,
         pub supply_increase: Signed<Amount>,
         pub ledger: L,

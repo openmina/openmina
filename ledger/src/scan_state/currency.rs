@@ -165,6 +165,17 @@ where
     }
 }
 
+impl Signed<Amount> {
+    pub fn to_fee(self) -> Signed<Fee> {
+        let Self { magnitude, sgn } = self;
+
+        Signed {
+            magnitude: Fee(magnitude.0),
+            sgn,
+        }
+    }
+}
+
 impl<T> Signed<T>
 where
     T: Magnitude + PartialOrd + Ord + Clone,

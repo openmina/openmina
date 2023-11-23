@@ -10,16 +10,18 @@ use crate::{
     proofs::zkapp::group::{State, ZkappCommandIntermediateState},
     scan_state::{
         currency::{Amount, Signed, Slot},
+        fee_excess::FeeExcess,
         pending_coinbase::{self, Stack, StackState},
-        scan_state::transaction_snark::SokMessage,
+        scan_state::transaction_snark::{Registers, SokDigest, SokMessage, Statement},
         transaction_logic::{
-            local_state::{LocalState, LocalStateEnv},
+            local_state::{LocalState, LocalStateEnv, LocalStateEnvImpl, StackFrame},
             protocol_state::{protocol_state_body_view, GlobalState},
-            zkapp_command::{AccountUpdate, ZkAppCommand},
+            zkapp_command::{AccountUpdate, WithHash, ZkAppCommand},
             zkapp_statement::TransactionCommitment,
         },
     },
     sparse_ledger::SparseLedger,
+    TokenId,
 };
 
 use super::witness::{Prover, Witness};
@@ -299,6 +301,7 @@ mod group {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct StartData {
     pub account_updates: ZkAppCommand,
     pub memo_hash: Fp,
@@ -312,10 +315,10 @@ pub struct WithStackHash<T> {
     pub stack_hash: Fp,
 }
 
-fn accumulate_call_stack_hashes<Frame>(
-    hash_frame: impl Fn(&Frame) -> Fp,
-    frames: &[Frame],
-) -> Vec<WithStackHash<&Frame>> {
+fn accumulate_call_stack_hashes(
+    hash_frame: impl Fn(&WithHash<StackFrame>) -> Fp,
+    frames: &[WithHash<StackFrame>],
+) -> Vec<WithStackHash<WithHash<StackFrame>>> {
     match frames {
         [] => vec![],
         [f, fs @ ..] => {
@@ -329,7 +332,7 @@ fn accumulate_call_stack_hashes<Frame>(
             tl.insert(
                 0,
                 WithStackHash {
-                    elt: f,
+                    elt: f.clone(),
                     stack_hash: hash_with_kimchi("MinaAcctUpdateCons", &[h_f, h_tl]),
                 },
             );
@@ -338,6 +341,54 @@ fn accumulate_call_stack_hashes<Frame>(
         }
     }
 }
+
+pub type LocalStateForWitness = LocalStateEnvImpl<
+    SparseLedger,
+    Vec<WithStackHash<WithHash<StackFrame>>>,
+    TransactionCommitment,
+>;
+
+#[derive(Debug)]
+pub struct ZkappCommandSegmentWitness<'a> {
+    pub global_first_pass_ledger: SparseLedger,
+    pub global_second_pass_ledger: SparseLedger,
+    pub local_state_init: LocalStateForWitness,
+    pub start_zkapp_command: Vec<StartData>,
+    pub state_body: &'a v2::MinaStateProtocolStateBodyValueStableV2,
+    pub block_global_slot: Slot,
+}
+
+// { global_first_pass_ledger : Sparse_ledger.Stable.V2.t
+// ; global_second_pass_ledger : Sparse_ledger.Stable.V2.t
+// ; local_state_init :
+//     ( ( Token_id.Stable.V2.t
+//       , Zkapp_command.Call_forest.With_hashes.Stable.V1.t )
+//       Stack_frame.Stable.V1.t
+//     , ( ( ( Token_id.Stable.V2.t
+//           , Zkapp_command.Call_forest.With_hashes.Stable.V1.t )
+//           Stack_frame.Stable.V1.t
+//         , Stack_frame.Digest.Stable.V1.t )
+//         With_hash.t
+//       , Call_stack_digest.Stable.V1.t )
+//       With_stack_hash.Stable.V1.t
+//       list
+//     , (Amount.Stable.V1.t, Sgn.Stable.V1.t) Signed_poly.Stable.V1.t
+//     , Sparse_ledger.Stable.V2.t
+//     , bool
+//     , Kimchi_backend.Pasta.Basic.Fp.Stable.V1.t
+//     , Mina_numbers.Index.Stable.V1.t
+//     , Transaction_status.Failure.Collection.Stable.V1.t )
+//     Mina_transaction_logic.Zkapp_command_logic.Local_state.Stable.V1.t
+// ; start_zkapp_command :
+//     ( Zkapp_command.Stable.V1.t
+//     , Kimchi_backend.Pasta.Basic.Fp.Stable.V1.t
+//     , bool )
+//     Mina_transaction_logic.Zkapp_command_logic.Start_data.Stable.V1.t
+//     list
+// ; state_body : Mina_state.Protocol_state.Body.Value.Stable.V2.t
+// ; init_stack : Pending_coinbase.Stack_versioned.Stable.V1.t
+// ; block_global_slot : Mina_numbers.Global_slot_since_genesis.Stable.V1.t
+// }
 
 pub struct ZkappCommandsWithContext<'a> {
     pub pending_coinbase_init_stack: pending_coinbase::Stack,
@@ -355,7 +406,13 @@ pub struct ZkappCommandWitnessesParams<'a> {
     pub zkapp_commands_with_context: Vec<ZkappCommandsWithContext<'a>>,
 }
 
-pub fn zkapp_command_witnesses_exn(params: ZkappCommandWitnessesParams) {
+pub fn zkapp_command_witnesses_exn(
+    params: ZkappCommandWitnessesParams,
+) -> Vec<(
+    ZkappCommandSegmentWitness<'_>,
+    group::SegmentBasic,
+    Statement<SokDigest>,
+)> {
     let ZkappCommandWitnessesParams {
         global_slot,
         state_body,
@@ -422,11 +479,6 @@ pub fn zkapp_command_witnesses_exn(params: ZkappCommandWitnessesParams) {
         },
     );
 
-    dbg!(
-        states.len(),
-        states.iter().map(|v| v.len()).collect::<Vec<_>>()
-    );
-
     states.insert(0, vec![states[0][0].clone()]);
     let states = group::group_by_zkapp_command_rev(
         zkapp_commands_with_context
@@ -484,7 +536,8 @@ pub fn zkapp_command_witnesses_exn(params: ZkappCommandWitnessesParams) {
         target: Stack::empty(),
     };
 
-    states.into_iter().fold(vec![], |witnesses, s| {
+    let mut w = Vec::with_capacity(32);
+    states.into_iter().fold(w, |mut witnesses, s| {
         let ZkappCommandIntermediateState {
             kind,
             spec,
@@ -569,7 +622,7 @@ pub fn zkapp_command_witnesses_exn(params: ZkappCommandWitnessesParams) {
                         pending_coinbase_stack_state = (*pending_coinbase_stack_state1).clone();
 
                         (
-                            vec![zkapp_command],
+                            vec![zkapp_command.clone()],
                             commitment2,
                             full_commitment2,
                             pending_coinbase_init_stack.clone(),
@@ -604,7 +657,7 @@ pub fn zkapp_command_witnesses_exn(params: ZkappCommandWitnessesParams) {
                         };
 
                         (
-                            vec![zkapp_command1, zkapp_command2],
+                            vec![zkapp_command1.clone(), zkapp_command2.clone()],
                             commitment2,
                             full_commitment2,
                             pending_coinbase_init_stack.clone(),
@@ -617,44 +670,174 @@ pub fn zkapp_command_witnesses_exn(params: ZkappCommandWitnessesParams) {
         };
 
         let hash_local_state = |local: &LocalStateEnv<SparseLedger>| {
-            local.call_stack.iter().map(|v| v.digest());
+            let call_stack = local
+                .call_stack
+                .iter()
+                .map(|v| WithHash::of_data(v.clone(), |v| v.digest()))
+                .collect::<Vec<_>>();
+            let call_stack = accumulate_call_stack_hashes(|x| x.hash, &call_stack);
+
+            let LocalStateEnv {
+                stack_frame,
+                call_stack: _,
+                transaction_commitment,
+                full_transaction_commitment,
+                excess,
+                supply_increase,
+                ledger,
+                success,
+                account_update_index,
+                failure_status_tbl,
+                will_succeed,
+            } = local.clone();
+
+            LocalStateForWitness {
+                stack_frame,
+                call_stack,
+                transaction_commitment: TransactionCommitment(transaction_commitment.0),
+                full_transaction_commitment: TransactionCommitment(full_transaction_commitment.0),
+                excess,
+                supply_increase,
+                ledger,
+                success,
+                account_update_index,
+                failure_status_tbl,
+                will_succeed,
+            }
         };
 
-        // let hash_local_state
-        //         (local :
-        //           ( Stack_frame.value
-        //           , Stack_frame.value list
-        //           , _
-        //           , _
-        //           , _
-        //           , _
-        //           , _
-        //           , _ )
-        //           Mina_transaction_logic.Zkapp_command_logic.Local_state.t ) =
-        //       { local with
-        //         stack_frame = local.stack_frame
-        //       ; call_stack =
-        //           List.map local.call_stack
-        //             ~f:(With_hash.of_data ~hash_data:Stack_frame.Digest.create)
-        //           |> accumulate_call_stack_hashes ~hash_frame:(fun x ->
-        //                  x.With_hash.hash )
-        //       }
-        //     in
-        //     let source_local =
-        //       { (hash_local_state source_local) with
-        //         transaction_commitment = current_commitment
-        //       ; full_transaction_commitment = current_full_commitment
-        //       }
-        //     in
-        //     let target_local =
-        //       { (hash_local_state target_local) with
-        //         transaction_commitment = next_commitment
-        //       ; full_transaction_commitment = next_full_commitment
-        //       }
-        //     in
+        let source_local = LocalStateForWitness {
+            transaction_commitment: current_commitment,
+            full_transaction_commitment: current_full_commitment,
+            ..hash_local_state(&source_local)
+        };
 
-        Vec::<usize>::new()
-    });
+        let target_local = LocalStateForWitness {
+            transaction_commitment: next_commitment,
+            full_transaction_commitment: next_full_commitment,
+            ..hash_local_state(&target_local)
+        };
+
+        let w = ZkappCommandSegmentWitness {
+            global_first_pass_ledger: source_global.first_pass_ledger.clone(),
+            global_second_pass_ledger: source_global.second_pass_ledger.clone(),
+            local_state_init: source_local.clone(),
+            start_zkapp_command,
+            state_body,
+            block_global_slot: global_slot,
+        };
+
+        let fee_excess = {
+            let fee_excess = target_global
+                .fee_excess
+                .add(&source_global.fee_excess.negate())
+                .expect("unexpected fee excess");
+            FeeExcess {
+                fee_token_l: TokenId::default(),
+                fee_excess_l: fee_excess.to_fee(),
+                fee_token_r: TokenId::default(),
+                fee_excess_r: Signed::zero(),
+            }
+        };
+
+        let supply_increase = target_global
+            .supply_increase
+            .add(&source_global.supply_increase.negate())
+            .expect("unexpected supply increase");
+
+        let call_stack_hash = |s: &Vec<WithStackHash<WithHash<StackFrame>>>| {
+            s.first().map(|v| v.stack_hash).unwrap_or_else(Fp::zero)
+        };
+
+        let statement = {
+            let target_first_pass_ledger_root =
+                target_global.first_pass_ledger.clone().merkle_root();
+
+            let (source_local_ledger, target_local_ledger) = (
+                source_local.ledger.clone().merkle_root(),
+                target_local.ledger.clone().merkle_root(),
+            );
+
+            Statement::<SokDigest> {
+                source: Registers {
+                    first_pass_ledger: source_global.first_pass_ledger.clone().merkle_root(),
+                    second_pass_ledger: source_global.second_pass_ledger.clone().merkle_root(),
+                    pending_coinbase_stack: pending_coinbase_stack_state.source.clone(),
+                    local_state: {
+                        let LocalStateForWitness {
+                            stack_frame,
+                            call_stack,
+                            transaction_commitment,
+                            full_transaction_commitment,
+                            excess,
+                            supply_increase,
+                            ledger,
+                            success,
+                            account_update_index,
+                            failure_status_tbl,
+                            will_succeed,
+                        } = source_local;
+
+                        LocalState {
+                            stack_frame: stack_frame.digest(),
+                            call_stack: call_stack_hash(&call_stack),
+                            transaction_commitment: transaction_commitment.0,
+                            full_transaction_commitment: full_transaction_commitment.0,
+                            ledger: source_local_ledger,
+                            excess,
+                            supply_increase,
+                            success,
+                            account_update_index,
+                            failure_status_tbl,
+                            will_succeed,
+                        }
+                    },
+                },
+                target: Registers {
+                    first_pass_ledger: target_first_pass_ledger_root,
+                    second_pass_ledger: target_global.second_pass_ledger.clone().merkle_root(),
+                    pending_coinbase_stack: pending_coinbase_stack_state.target.clone(),
+                    local_state: {
+                        let LocalStateForWitness {
+                            stack_frame,
+                            call_stack,
+                            transaction_commitment,
+                            full_transaction_commitment,
+                            excess,
+                            supply_increase,
+                            ledger,
+                            success,
+                            account_update_index,
+                            failure_status_tbl,
+                            will_succeed,
+                        } = target_local;
+
+                        LocalState {
+                            stack_frame: stack_frame.digest(),
+                            call_stack: call_stack_hash(&call_stack),
+                            transaction_commitment: transaction_commitment.0,
+                            full_transaction_commitment: full_transaction_commitment.0,
+                            ledger: target_local_ledger,
+                            excess,
+                            supply_increase,
+                            success,
+                            account_update_index,
+                            failure_status_tbl,
+                            will_succeed,
+                        }
+                    },
+                },
+                connecting_ledger_left: connecting_ledger,
+                connecting_ledger_right: connecting_ledger,
+                supply_increase,
+                fee_excess,
+                sok_digest: SokDigest::default(),
+            }
+        };
+
+        witnesses.insert(0, (w, spec, statement));
+        witnesses
+    })
 }
 
 pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
@@ -678,7 +861,7 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
     };
     let zkapp_command: ZkAppCommand = zkapp.into();
 
-    zkapp_command_witnesses_exn(ZkappCommandWitnessesParams {
+    let witnesses_specs_stmts = zkapp_command_witnesses_exn(ZkappCommandWitnessesParams {
         global_slot: Slot::from_u32(tx_witness.block_global_slot.as_u32()),
         state_body: &tx_witness.protocol_state_body,
         fee_excess: Signed::zero(),
@@ -694,4 +877,8 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
             zkapp_command: &zkapp_command,
         }],
     });
+
+    dbg!(&witnesses_specs_stmts);
+
+    dbg!(witnesses_specs_stmts.len());
 }
