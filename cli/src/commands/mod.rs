@@ -1,8 +1,8 @@
+pub mod build_info;
 pub mod misc;
 pub mod node;
 pub mod replay;
 pub mod snark;
-pub mod build_info;
 
 pub type CommandError = Box<dyn std::error::Error>;
 

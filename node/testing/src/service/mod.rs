@@ -8,6 +8,7 @@ use node::core::channels::mpsc;
 use node::core::requests::{PendingRequests, RequestId};
 use node::core::snark::{Snark, SnarkJobId};
 use node::recorder::Recorder;
+use node::service::BlockProducerVrfEvaluatorService;
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
@@ -225,6 +226,12 @@ impl SnarkPoolService for NodeTestingService {
         n: usize,
     ) -> Vec<SnarkJobId> {
         self.real.random_choose(iter, n)
+    }
+}
+
+impl BlockProducerVrfEvaluatorService for NodeTestingService {
+    fn evaluate(&mut self, data: ()) {
+        BlockProducerVrfEvaluatorService::evaluate(&mut self.real, data)
     }
 }
 

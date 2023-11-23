@@ -1,5 +1,6 @@
 use redux::ActionMeta;
 
+use crate::block_producer::block_producer_effects;
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::external_snark_worker::{
@@ -100,11 +101,14 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::SnarkPool(action) => {
             snark_pool_effects(store, meta.with_action(action));
         }
-        Action::Rpc(action) => {
-            rpc_effects(store, meta.with_action(action));
+        Action::BlockProducer(action) => {
+            block_producer_effects(store, meta.with_action(action));
         }
         Action::ExternalSnarkWorker(action) => {
             external_snark_worker_effects(store, meta.with_action(action));
+        }
+        Action::Rpc(action) => {
+            rpc_effects(store, meta.with_action(action));
         }
         Action::WatchedAccounts(action) => {
             watched_accounts_effects(store, meta.with_action(action));

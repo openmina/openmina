@@ -26,6 +26,7 @@ pub mod recorder;
 pub mod stats;
 
 pub mod account;
+pub mod block_producer;
 pub mod consensus;
 pub mod event_source;
 pub mod external_snark_worker;

@@ -1,5 +1,6 @@
 use redux::Timestamp;
 
+use crate::block_producer::BlockProducerBestTipUpdateAction;
 use crate::ledger::LEDGER_DEPTH;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipResponseSendAction;
 use crate::snark_pool::{SnarkPoolJobsUpdateAction, SnarkWork};
@@ -372,6 +373,8 @@ pub fn transition_frontier_effects<S: crate::Service>(
                     best_tip: best_tip.clone(),
                 });
             }
+
+            store.dispatch(BlockProducerBestTipUpdateAction { best_tip });
         }
     }
 }

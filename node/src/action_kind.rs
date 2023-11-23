@@ -14,6 +14,10 @@
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
+use crate::block_producer::vrf_evaluator::{
+    BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorEpochDataUpdateAction,
+};
+use crate::block_producer::{BlockProducerAction, BlockProducerBestTipUpdateAction};
 use crate::consensus::{
     ConsensusAction, ConsensusBestTipUpdateAction, ConsensusBlockChainProofUpdateAction,
     ConsensusBlockReceivedAction, ConsensusBlockSnarkVerifyPendingAction,
@@ -198,6 +202,8 @@ use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 #[repr(u16)]
 pub enum ActionKind {
     None,
+    BlockProducerBestTipUpdate,
+    BlockProducerVrfEvaluatorEpochDataUpdate,
     CheckTimeouts,
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
@@ -406,7 +412,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 206;
+    pub const COUNT: u16 = 208;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -425,8 +431,9 @@ impl ActionKindGet for Action {
             Self::Consensus(a) => a.kind(),
             Self::TransitionFrontier(a) => a.kind(),
             Self::SnarkPool(a) => a.kind(),
-            Self::Rpc(a) => a.kind(),
             Self::ExternalSnarkWorker(a) => a.kind(),
+            Self::BlockProducer(a) => a.kind(),
+            Self::Rpc(a) => a.kind(),
             Self::WatchedAccounts(a) => a.kind(),
         }
     }
@@ -511,6 +518,35 @@ impl ActionKindGet for SnarkPoolAction {
     }
 }
 
+impl ActionKindGet for ExternalSnarkWorkerAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Start(a) => a.kind(),
+            Self::Started(a) => a.kind(),
+            Self::StartTimeout(a) => a.kind(),
+            Self::Kill(a) => a.kind(),
+            Self::Killed(a) => a.kind(),
+            Self::SubmitWork(a) => a.kind(),
+            Self::WorkResult(a) => a.kind(),
+            Self::WorkError(a) => a.kind(),
+            Self::WorkTimeout(a) => a.kind(),
+            Self::CancelWork(a) => a.kind(),
+            Self::WorkCancelled(a) => a.kind(),
+            Self::PruneWork(a) => a.kind(),
+            Self::Error(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for BlockProducerAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::VrfEvaluator(a) => a.kind(),
+            Self::BestTipUpdate(a) => a.kind(),
+        }
+    }
+}
+
 impl ActionKindGet for RpcAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -536,26 +572,6 @@ impl ActionKindGet for RpcAction {
             Self::HealthCheck(a) => a.kind(),
             Self::ReadinessCheck(a) => a.kind(),
             Self::Finish(a) => a.kind(),
-        }
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerAction {
-    fn kind(&self) -> ActionKind {
-        match self {
-            Self::Start(a) => a.kind(),
-            Self::Started(a) => a.kind(),
-            Self::StartTimeout(a) => a.kind(),
-            Self::Kill(a) => a.kind(),
-            Self::Killed(a) => a.kind(),
-            Self::SubmitWork(a) => a.kind(),
-            Self::WorkResult(a) => a.kind(),
-            Self::WorkError(a) => a.kind(),
-            Self::WorkTimeout(a) => a.kind(),
-            Self::CancelWork(a) => a.kind(),
-            Self::WorkCancelled(a) => a.kind(),
-            Self::PruneWork(a) => a.kind(),
-            Self::Error(a) => a.kind(),
         }
     }
 }
@@ -827,6 +843,98 @@ impl ActionKindGet for SnarkPoolJobCommitmentTimeoutAction {
     }
 }
 
+impl ActionKindGet for ExternalSnarkWorkerStartAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerStart
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerStartedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerStarted
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerStartTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerStartTimeout
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerKillAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerKill
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerKilledAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerKilled
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerSubmitWorkAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerSubmitWork
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerWorkResultAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerWorkResult
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerWorkErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerWorkError
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerWorkTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerWorkTimeout
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerCancelWorkAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerCancelWork
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerWorkCancelledAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerWorkCancelled
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerPruneWorkAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerPruneWork
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ExternalSnarkWorkerError
+    }
+}
+
+impl ActionKindGet for BlockProducerVrfEvaluatorAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::EpochDataUpdate(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for BlockProducerBestTipUpdateAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerBestTipUpdate
+    }
+}
+
 impl ActionKindGet for RpcGlobalStateGetAction {
     fn kind(&self) -> ActionKind {
         ActionKind::RpcGlobalStateGet
@@ -956,84 +1064,6 @@ impl ActionKindGet for RpcReadinessCheckAction {
 impl ActionKindGet for RpcFinishAction {
     fn kind(&self) -> ActionKind {
         ActionKind::RpcFinish
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerStartAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerStart
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerStartedAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerStarted
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerStartTimeoutAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerStartTimeout
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerKillAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerKill
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerKilledAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerKilled
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerSubmitWorkAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerSubmitWork
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerWorkResultAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerWorkResult
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerWorkErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerWorkError
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerWorkTimeoutAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerWorkTimeout
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerCancelWorkAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerCancelWork
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerWorkCancelledAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerWorkCancelled
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerPruneWorkAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerPruneWork
-    }
-}
-
-impl ActionKindGet for ExternalSnarkWorkerErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::ExternalSnarkWorkerError
     }
 }
 
@@ -1498,6 +1528,12 @@ impl ActionKindGet for SnarkPoolCandidateWorkVerifySuccessAction {
 impl ActionKindGet for SnarkPoolCandidatePeerPruneAction {
     fn kind(&self) -> ActionKind {
         ActionKind::SnarkPoolCandidatePeerPrune
+    }
+}
+
+impl ActionKindGet for BlockProducerVrfEvaluatorEpochDataUpdateAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerVrfEvaluatorEpochDataUpdate
     }
 }
 
