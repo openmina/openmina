@@ -625,6 +625,44 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 summary = "Transition frontier synced".to_string(),
             ),
         },
+        Action::BlockProducer(a) => match a {
+            crate::BlockProducerAction::VrfEvaluator(a) => match a {
+                crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction::EpochDataUpdate(a) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("seed: {}, ledger: {}", a.epoch_data.seed.to_string(), a.epoch_data.ledger.hash.to_string()),
+                    );
+                },
+                crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates(_) => {},
+                crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegatesSuccess(a) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Current epoch accounts: {:?}, Next epoch accounts: {:?}",
+                            a.current_epoch_producer_and_delegators.values().map(| a | a.0.clone()).collect::<Vec<_>>(),
+                            a.next_epoch_producer_and_delegators.values().map(| a | a.0.clone()).collect::<Vec<_>>()
+                        ),
+                    );
+                },
+                crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction::EvaluationSuccess(a) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Slot evaluation result: {:?}", a.vrf_output),
+                    )
+                },
+                crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction::EvaluateVrf(a) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Vrf Evaluation requested: {:?}", a.vrf_input),
+                    )
+                },
+                _ => {}
+            },
+            crate::BlockProducerAction::BestTipUpdate(_) => {},
+        }
         _ => {}
     }
 }

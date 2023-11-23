@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::block_producer::BlockProducerEvent;
 use crate::external_snark_worker::ExternalSnarkWorkerEvent;
 pub use crate::p2p::{P2pConnectionEvent, P2pEvent};
 pub use crate::rpc::{RpcId, RpcRequest};
@@ -11,6 +12,7 @@ pub enum Event {
     Snark(SnarkEvent),
     Rpc(RpcId, RpcRequest),
     ExternalSnarkWorker(ExternalSnarkWorkerEvent),
+    BlockProducerEvent(BlockProducerEvent),
 }
 
 impl std::fmt::Display for Event {
@@ -59,7 +61,8 @@ impl std::fmt::Display for Event {
                     ExternalSnarkWorkerEvent::WorkCancelled => write!(f, "WorkCancelled"),
                     ExternalSnarkWorkerEvent::Error(_) => write!(f, "Error"),
                 }
-            }
+            },
+            Self::BlockProducerEvent(event) => event.fmt(f),
         }
     }
 }
