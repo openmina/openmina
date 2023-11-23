@@ -1,3 +1,4 @@
+use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService;
 pub use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorService;
 pub use crate::block_producer::BlockProducerService;
 pub use crate::event_source::EventSourceService;
@@ -31,6 +32,7 @@ pub trait Service:
     + SnarkPoolService
     + BlockProducerVrfEvaluatorService
     + BlockProducerService
+    + BlockProducerVrfEvaluatorLedgerService
     + ExternalSnarkWorkerService
     + RpcService
 {

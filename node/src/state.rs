@@ -1,5 +1,6 @@
 use redux::{ActionMeta, Timestamp};
 use serde::{Deserialize, Serialize};
+use vrf::keypair_from_bs58_string;
 
 pub use crate::block_producer::BlockProducerState;
 use crate::config::GlobalConfig;
@@ -37,6 +38,7 @@ pub struct State {
 impl State {
     pub fn new(config: Config) -> Self {
         let now = Timestamp::global_now();
+        let producer_address = config.global.producer.as_ref().map(|s| keypair_from_bs58_string(s).public.into_address());
         Self {
             p2p: P2pState::new(config.p2p),
             snark_pool: SnarkPoolState::new(),
