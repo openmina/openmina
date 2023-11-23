@@ -1,3 +1,4 @@
+pub mod block_producer;
 pub mod ext_snark_worker;
 pub mod graphql;
 pub mod http_server;

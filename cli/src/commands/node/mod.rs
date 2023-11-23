@@ -228,7 +228,7 @@ impl Node {
 
                 let local_set = tokio::task::LocalSet::new();
                 local_set.block_on(&runtime, async move {
-                    let service = NodeService {
+                    let mut service = NodeService {
                         rng: StdRng::seed_from_u64(rng_seed),
                         event_sender,
                         p2p_event_sender,
@@ -237,8 +237,9 @@ impl Node {
                         ledger,
                         peers,
                         libp2p,
-                        rpc: rpc_service,
+                        block_producer: None,
                         snark_worker_sender: None,
+                        rpc: rpc_service,
                         stats: Stats::new(),
                         recorder: match record.trim() {
                             "none" => Recorder::None,
@@ -248,6 +249,9 @@ impl Node {
                         replayer: None,
                         invariants_state: Default::default(),
                     };
+                    // TODO(adonagy): if block producer is enabled
+                    service.block_producer_start(());
+
                     let state = State::new(config);
                     let mut node = ::node::Node::new(state, service, None);
 

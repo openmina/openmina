@@ -1,3 +1,4 @@
+pub use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorService;
 pub use crate::event_source::EventSourceService;
 use crate::external_snark_worker::ExternalSnarkWorkerService;
 pub use crate::p2p::channels::P2pChannelsService;
@@ -27,6 +28,7 @@ pub trait Service:
     + TransitionFrontierSyncLedgerStagedService
     + TransitionFrontierService
     + SnarkPoolService
+    + BlockProducerVrfEvaluatorService
     + ExternalSnarkWorkerService
     + RpcService
 {
