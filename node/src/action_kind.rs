@@ -89,8 +89,9 @@ use crate::p2p::disconnection::{
     P2pDisconnectionAction, P2pDisconnectionFinishAction, P2pDisconnectionInitAction,
 };
 use crate::p2p::discovery::{
-    P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoverySuccessAction,
-    P2pDiscoveryTimeoutAction,
+    P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoveryKademliaAddRouteAction,
+    P2pDiscoveryKademliaBootstrapAction, P2pDiscoveryKademliaFailureAction,
+    P2pDiscoveryKademliaInitAction, P2pDiscoveryKademliaSuccessAction, P2pDiscoverySuccessAction,
 };
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
 use crate::p2p::P2pAction;
@@ -290,8 +291,12 @@ pub enum ActionKind {
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
     P2pDiscoveryInit,
+    P2pDiscoveryKademliaAddRoute,
+    P2pDiscoveryKademliaBootstrap,
+    P2pDiscoveryKademliaFailure,
+    P2pDiscoveryKademliaInit,
+    P2pDiscoveryKademliaSuccess,
     P2pDiscoverySuccess,
-    P2pDiscoveryTimeout,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
@@ -401,7 +406,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 202;
+    pub const COUNT: u16 = 206;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -619,7 +624,11 @@ impl ActionKindGet for P2pDiscoveryAction {
         match self {
             Self::Init(a) => a.kind(),
             Self::Success(a) => a.kind(),
-            Self::Timeout(a) => a.kind(),
+            Self::KademliaBootstrap(a) => a.kind(),
+            Self::KademliaInit(a) => a.kind(),
+            Self::KademliaAddRoute(a) => a.kind(),
+            Self::KademliaSuccess(a) => a.kind(),
+            Self::KademliaFailure(a) => a.kind(),
         }
     }
 }
@@ -1156,9 +1165,33 @@ impl ActionKindGet for P2pDiscoverySuccessAction {
     }
 }
 
-impl ActionKindGet for P2pDiscoveryTimeoutAction {
+impl ActionKindGet for P2pDiscoveryKademliaBootstrapAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pDiscoveryTimeout
+        ActionKind::P2pDiscoveryKademliaBootstrap
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryKademliaInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoveryKademliaInit
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryKademliaAddRouteAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoveryKademliaAddRoute
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryKademliaSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoveryKademliaSuccess
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryKademliaFailureAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoveryKademliaFailure
     }
 }
 

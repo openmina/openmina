@@ -61,20 +61,26 @@ steps:
       - rustup component add rustfmt
       - cargo test --release -p cli
       - cargo build --release -p cli --bin openmina
+      - cargo build --release -p openmina-node-testing
       - cargo test --release --features scenario-generators --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_only | xargs -I {} mv {} ./target/release/test_libp2p_only
       - cargo test --release --features scenario-generators,p2p-webrtc --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_only | xargs -I {} mv {} ./target/release/test_libp2p_only_with_webrtc_compiled
       - cargo test --release --features scenario-generators,p2p-webrtc --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_with | xargs -I {} mv {} ./target/release/test_libp2p_plus_webrtc
 
   - name: testing-framework-tests-libp2p-plus-webrtc
-    image: rust:1.71-buster
+    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
     commands:
       - ./target/release/test_libp2p_plus_webrtc
       - ./target/release/test_libp2p_only_with_webrtc_compiled
 
   - name: testing-framework-tests-libp2p-only
-    image: rust:1.71-buster
+    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
     commands:
       - ./target/release/test_libp2p_only
+
+  - name: discoverable-by-ocaml-node
+    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    commands:
+      - ./target/release/openmina-node-testing peer-discovery-with-ocaml-nodes
 
   - name: replayer
     image: vladsimplestakingcom/bootstrap-rr:graphql

@@ -240,6 +240,9 @@ impl P2pConnectionOutgoingSuccessAction {
         P2pPeerReadyAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
-        store.dispatch(P2pPeerReadyAction { peer_id });
+        store.dispatch(P2pPeerReadyAction {
+            peer_id,
+            incoming: false,
+        });
     }
 }

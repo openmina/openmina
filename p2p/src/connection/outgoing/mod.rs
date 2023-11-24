@@ -197,6 +197,7 @@ impl FromStr for P2pConnectionOutgoingInitOpts {
         if is_libp2p_maddr {
             let maddr = libp2p::Multiaddr::from_str(s)
                 .map_err(|e| P2pConnectionOutgoingInitOptsParseError::Other(e.to_string()))?;
+
             let opts = (&maddr).try_into()?;
 
             return Ok(Self::LibP2P(opts));
@@ -311,7 +312,7 @@ impl TryFrom<&libp2p::Multiaddr> for P2pConnectionOutgoingInitLibp2pOpts {
                 }
             },
             peer_id: match iter.next() {
-                Some(Protocol::P2p(hash)) => libp2p::PeerId::from_multihash(hash)
+                Some(Protocol::P2p(hash)) => libp2p::PeerId::from_multihash(hash.into())
                     .map_err(|_| {
                         P2pConnectionOutgoingInitOptsParseError::Other(
                             "invalid peer_id multihash".to_string(),

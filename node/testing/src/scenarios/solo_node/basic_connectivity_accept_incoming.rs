@@ -1,28 +1,28 @@
 use std::time::Duration;
 
 use libp2p::Multiaddr;
-
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 
 use crate::{
-    node::RustNodeTestingConfig, scenario::ScenarioStep, scenarios::cluster_runner::ClusterRunner,
+    node::RustNodeTestingConfig, ocaml, scenario::ScenarioStep,
+    scenarios::cluster_runner::ClusterRunner,
 };
 
-/// Local test to ensure that the Openmina node can connect to an existing OCaml testnet.
+/// Local test to ensure that the Openmina node can accept a connection from an existing OCaml node.
 /// Launch an Openmina node and connect it to seed nodes of the public (or private) OCaml testnet.
-/// Run the simulation until:
-/// * Number of known peers is greater than or equal to the maximum number of peers.
-/// * Number of connected peers is greater than or equal to some threshold.
+/// Wait for the Openmina node to complete peer discovery.
+/// Run a new OCaml node, specifying the Openmina node under testing as the initial peer.
+/// Run the simulation until: OCaml node connects to Openmina node and Openmina node accepts the incoming connection.
 /// Fail the test if the specified number of steps occur but the condition is not met.
 #[derive(documented::Documented, Default, Clone, Copy)]
-pub struct SoloNodeBasicConnectivityInitialJoining;
+pub struct SoloNodeBasicConnectivityAcceptIncoming;
 
-impl SoloNodeBasicConnectivityInitialJoining {
+impl SoloNodeBasicConnectivityAcceptIncoming {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         const MAX_PEERS_PER_NODE: usize = 100;
         const KNOWN_PEERS: usize = 7; // current berkeley network
-        const STEPS: usize = 4_000;
-        const STEP_DELAY: Duration = Duration::from_millis(200);
+        const STEPS: usize = 1_000;
+        const STEP_DELAY: Duration = Duration::from_millis(400);
 
         let seeds = [
             "/dns4/seed-1.berkeley.o1test.net/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
@@ -42,16 +42,16 @@ impl SoloNodeBasicConnectivityInitialJoining {
 
         let node_id = runner.add_rust_node(config);
 
-        dbg!(libp2p::PeerId::from(
-            runner
-                .node(node_id)
-                .expect("must exist")
-                .state()
-                .p2p
-                .config
-                .identity_pub_key
-                .peer_id()
-        ));
+        let mut ocaml_node = None::<ocaml::Node>;
+
+        let full_config = &runner.node(node_id).expect("must exist").state().p2p.config;
+        let this = format!(
+            "/ip4/127.0.0.1/tcp/{}/p2p/{}",
+            full_config.libp2p_port.unwrap(),
+            libp2p::PeerId::from(full_config.identity_pub_key.peer_id())
+        );
+        dbg!(&this);
+        let this_maddr = this.parse::<Multiaddr>().unwrap();
 
         for step in 0..STEPS {
             tokio::time::sleep(STEP_DELAY).await;
@@ -94,8 +94,23 @@ impl SoloNodeBasicConnectivityInitialJoining {
 
             // TODO: the threshold is too small, node cannot connect to many peer before the timeout
             if ready_peers >= KNOWN_PEERS && known_peers >= KNOWN_PEERS {
-                return;
+                let ocaml_node = ocaml_node.get_or_insert_with(|| {
+                    ocaml::Node::spawn(8302, 3085, 8301, Some(&[&this_maddr]))
+                });
+                if node
+                    .state()
+                    .p2p
+                    .ready_peers_iter()
+                    .find(|(peer_id, _)| **peer_id == ocaml_node.peer_id.into())
+                    .is_some()
+                {
+                    return;
+                }
             }
+        }
+
+        if let Some(mut ocaml_node) = ocaml_node.take() {
+            ocaml_node.kill();
         }
 
         panic!("timeout");

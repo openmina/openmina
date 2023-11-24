@@ -7,12 +7,17 @@ use crate::P2pEvent;
 
 use libp2p_rpc_behaviour::{Behaviour as RpcBehaviour, Event as RpcEvent, StreamId};
 
+use libp2p::kad::{self, record::store::MemoryStore};
+
 #[derive(NetworkBehaviour)]
-#[behaviour(out_event = "Event")]
+#[behaviour(to_swarm = "Event")]
 pub struct Behaviour<E: 'static + From<P2pEvent>> {
     pub gossipsub: gossipsub::Behaviour,
     pub rpc: RpcBehaviour,
     pub identify: identify::Behaviour,
+    pub kademlia: kad::Behaviour<MemoryStore>,
+    #[behaviour(ignore)]
+    pub rendezvous_string: String,
     #[behaviour(ignore)]
     pub event_source_sender: mpsc::UnboundedSender<E>,
     // TODO(vlad9486): move maps inside `RpcBehaviour`
@@ -32,4 +37,5 @@ pub enum Event {
     Gossipsub(gossipsub::Event),
     Rpc((PeerId, RpcEvent)),
     Identify(identify::Event),
+    Kademlia(kad::Event),
 }
