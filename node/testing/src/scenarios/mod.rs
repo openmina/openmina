@@ -44,7 +44,7 @@ impl Scenarios {
     fn skip(&self) -> bool {
         match self {
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => cfg!(feature = "p2p-webrtc"),
-            _ => true,
+            _ => false,
         }
     }
 
