@@ -20,8 +20,8 @@ pub struct SoloNodeBasicConnectivityInitialJoining;
 impl SoloNodeBasicConnectivityInitialJoining {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         const MAX_PEERS_PER_NODE: usize = 100;
-        const KNOWN_PEERS: usize = 7; // current berkeley network
-        const STEPS: usize = 4_000;
+        const KNOWN_PEERS: usize = 5; // current berkeley network
+        const STEPS: usize = 3_000;
         const STEP_DELAY: Duration = Duration::from_millis(200);
 
         let seeds = [

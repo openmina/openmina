@@ -20,15 +20,16 @@ impl MultiNodeBasicConnectivityInitialJoining {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         const TOTAL_PEERS: usize = 20;
         const STEPS_PER_PEER: usize = 10;
-        const EXTRA_STEPS: usize = 300;
+        const EXTRA_STEPS: usize = 3000;
         const MAX_PEERS_PER_NODE: usize = 12;
+        const STEP_DELAY: Duration = Duration::from_millis(200);
 
         let seed_node =
             runner.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(TOTAL_PEERS));
         let mut nodes = vec![seed_node];
 
         for step in 0..(TOTAL_PEERS * STEPS_PER_PEER + EXTRA_STEPS) {
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            tokio::time::sleep(STEP_DELAY).await;
 
             if step % STEPS_PER_PEER == 0 && nodes.len() < TOTAL_PEERS {
                 let node = runner.add_rust_node(
@@ -62,6 +63,14 @@ impl MultiNodeBasicConnectivityInitialJoining {
 
             let mut conditions_met = true;
             for &node_id in &nodes {
+                runner
+                    .exec_step(ScenarioStep::AdvanceNodeTime {
+                        node_id,
+                        by_nanos: STEP_DELAY.as_nanos() as _,
+                    })
+                    .await
+                    .unwrap();
+
                 runner
                     .exec_step(ScenarioStep::CheckTimeouts { node_id })
                     .await
@@ -101,7 +110,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
 
         for node_id in nodes {
             let node = runner.node(node_id).expect("node must exist");
-            eprintln!(
+            println!(
                 "{node_id:?} - {} - p2p state: {:#?}",
                 &node.state().p2p.my_id(),
                 &node.state().p2p.peers

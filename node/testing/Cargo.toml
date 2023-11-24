@@ -40,5 +40,6 @@ node = { path = "../../node" }
 openmina-node-native = { path = "../../node/native" }
 
 [features]
+default = ["scenario-generators"]
 scenario-generators = ["documented"]
 p2p-webrtc = ["openmina-node-native/p2p-webrtc"]

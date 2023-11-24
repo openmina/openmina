@@ -1,8 +1,7 @@
 use clap::Parser;
 
+use openmina_node_testing::scenarios::Scenarios;
 use openmina_node_testing::{exit_with_error, server, setup};
-
-use openmina_node_testing::ocaml::tests as with_ocaml;
 
 pub type CommandError = Box<dyn std::error::Error>;
 
@@ -17,8 +16,8 @@ pub struct OpenminaTestingCli {
 pub enum Command {
     Server(CommandServer),
 
+    #[cfg(feature = "scenario-generators")]
     ScenariosGenerate(CommandScenariosGenerate),
-    PeerDiscoveryWithOcamlNodes,
 }
 
 #[derive(Debug, clap::Args)]
@@ -28,7 +27,10 @@ pub struct CommandServer {
 }
 
 #[derive(Debug, clap::Args)]
-pub struct CommandScenariosGenerate {}
+pub struct CommandScenariosGenerate {
+    #[arg(long, short)]
+    pub name: Option<String>,
+}
 
 impl Command {
     pub fn run(self) -> Result<(), crate::CommandError> {
@@ -40,22 +42,24 @@ impl Command {
                 server(args.port);
                 Ok(())
             }
-            Self::ScenariosGenerate(_) => {
-                #[cfg(feature = "scenario-generators")]
-                {
-                    for scenario in openmina_node_testing::scenarios::Scenarios::iter() {
-                        rt.block_on(async {
-                            scenario.run_and_save_from_scratch(Default::default()).await;
-                        });
+            #[cfg(feature = "scenario-generators")]
+            Self::ScenariosGenerate(cmd) => {
+                if let Some(name) = cmd.name {
+                    if let Some(scenario) = Scenarios::iter()
+                        .into_iter()
+                        .find(|s| <&'static str>::from(s) == name)
+                    {
+                        rt.block_on(scenario.run_and_save_from_scratch(Default::default()));
+                    } else {
+                        panic!("no such scenario: \"{name}\"");
                     }
-                    Ok(())
+                } else {
+                    for scenario in Scenarios::iter() {
+                        rt.block_on(scenario.run_and_save_from_scratch(Default::default()));
+                    }
                 }
-                #[cfg(not(feature = "scenario-generators"))]
-                Err("binary not compiled with `scenario-generators` feature"
-                    .to_owned()
-                    .into())
+                Ok(())
             }
-            Self::PeerDiscoveryWithOcamlNodes => rt.block_on(with_ocaml::peer_discovery::run()),
         }
     }
 }

@@ -95,13 +95,13 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             // TODO: the threshold is too small, node cannot connect to many peer before the timeout
             if ready_peers >= KNOWN_PEERS && known_peers >= KNOWN_PEERS {
                 let ocaml_node = ocaml_node.get_or_insert_with(|| {
-                    ocaml::Node::spawn(8302, 3085, 8301, Some(&[&this_maddr]))
+                    ocaml::Node::spawn(18302, 13085, 18301, Some(&[&this_maddr]))
                 });
                 if node
                     .state()
                     .p2p
                     .ready_peers_iter()
-                    .find(|(peer_id, _)| **peer_id == ocaml_node.peer_id.into())
+                    .find(|(peer_id, _)| **peer_id == ocaml_node.peer_id().into())
                     .is_some()
                 {
                     return;

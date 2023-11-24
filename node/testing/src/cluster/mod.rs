@@ -227,7 +227,7 @@ impl Cluster {
         let state = node::State::new(config);
         fn effects<S: node::Service>(store: &mut node::Store<S>, action: node::ActionWithMeta) {
             let peer_id = store.state().p2p.my_id();
-            eprintln!("{peer_id}: {:?}", action.action().kind());
+            println!("{peer_id}: {:?}", action.action().kind());
             node::effects(store, action)
         }
         let store = node::Store::new(
