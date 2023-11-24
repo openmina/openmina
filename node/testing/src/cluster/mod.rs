@@ -98,17 +98,14 @@ impl Cluster {
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
         let node_i = self.nodes.len();
         let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-        let secret_key = std::env::var("OPENMINA_P2P_SEC_KEY")
-            .ok()
-            .and_then(|s| s.parse::<P2pSecretKey>().ok())
-            .unwrap_or_else(|| {
-                let mut bytes = [0; 32];
-                let bytes_len = bytes.len();
-                let i_bytes = node_i.to_be_bytes();
-                let i = bytes_len - i_bytes.len();
-                bytes[i..bytes_len].copy_from_slice(&i_bytes);
-                P2pSecretKey::from_bytes(bytes)
-            });
+        let secret_key = {
+            let mut bytes = [0; 32];
+            let bytes_len = bytes.len();
+            let i_bytes = node_i.to_be_bytes();
+            let i = bytes_len - i_bytes.len();
+            bytes[i..bytes_len].copy_from_slice(&i_bytes);
+            P2pSecretKey::from_bytes(bytes)
+        };
         let pub_key = secret_key.public_key();
 
         let http_port = self

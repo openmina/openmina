@@ -20,7 +20,7 @@ impl redux::EnablingCondition<crate::State> for P2pDiscoveryKademliaBootstrapAct
 
 impl redux::EnablingCondition<crate::State> for P2pDiscoveryKademliaInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        self.is_enabled(&state.p2p)
+        state.p2p.enough_time_elapsed(state.time()) && self.is_enabled(&state.p2p)
     }
 }
 

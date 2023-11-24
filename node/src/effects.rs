@@ -67,9 +67,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             p2p_request_snarks_if_needed(store);
 
             store.dispatch(P2pDiscoveryKademliaBootstrapAction {});
-            if store.state().p2p.enough_time_elapsed(meta.time()) {
-                store.dispatch(P2pDiscoveryKademliaInitAction {});
-            }
+            store.dispatch(P2pDiscoveryKademliaInitAction {});
             #[cfg(feature = "p2p-webrtc")]
             p2p_discovery_request(store, &meta);
 

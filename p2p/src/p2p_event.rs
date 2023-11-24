@@ -196,10 +196,10 @@ impl fmt::Display for P2pChannelEvent {
 impl fmt::Display for P2pDiscoveryEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Ready => write!(f, "p2p discovery ready"),
+            Self::Ready => write!(f, "DiscoveryReady"),
             Self::DidFindPeers(peers) => write!(
                 f,
-                "p2p discovered {}",
+                "DidFindPeers: {}",
                 peers
                     .iter()
                     .map(|x| x.to_string())
@@ -207,11 +207,11 @@ impl fmt::Display for P2pDiscoveryEvent {
                     .join(",")
             ),
             Self::DidFindPeersError(description) => {
-                write!(f, "p2p discover failure {description}",)
+                write!(f, "DidFindPeersError: {description}",)
             }
             Self::AddRoute(peer_id, opts) => write!(
                 f,
-                "p2p add route {peer_id}, {}",
+                "AddRoute, peer_id: {peer_id}, {}",
                 opts.iter()
                     .map(|x| x.peer_id().to_string())
                     .collect::<Vec<_>>()

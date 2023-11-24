@@ -135,16 +135,11 @@ impl P2pServiceWebrtcWithLibp2p for NodeService {
     }
 
     fn find_random_peer(&mut self) {
-        use libp2p::identity::Keypair;
+        use libp2p::identity::PeerId;
         use node::p2p::service_impl::libp2p::Cmd;
 
         // Generate some random peer_id
-        let peer_id = {
-            let mut bytes = self.rng.gen::<[u8; 32]>();
-            // This secret key will not be used
-            let pair = Keypair::ed25519_from_bytes(&mut bytes).expect("32 bytes");
-            pair.public().to_peer_id()
-        };
+        let peer_id = PeerId::random();
 
         self.libp2p()
             .cmd_sender()
