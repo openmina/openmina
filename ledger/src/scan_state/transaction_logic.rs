@@ -844,6 +844,7 @@ pub mod zkapp_command {
 
     use crate::{
         account, dummy, gen_compressed, gen_keypair, hash_noinputs, hash_with_kimchi,
+        proofs::to_field_elements::ToFieldElements,
         scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
         AuthRequired, ControlTag, Inputs, MyCow, Permissions, ToInputs, TokenSymbol,
         VerificationKey, VotingFor, ZkAppUri,
@@ -1159,6 +1160,13 @@ pub mod zkapp_command {
     pub struct WithHash<T> {
         pub data: T,
         pub hash: Fp,
+    }
+
+    impl<T> ToFieldElements<Fp> for WithHash<T> {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self { data: _, hash } = self;
+            hash.to_field_elements(fields);
+        }
     }
 
     impl<T> std::ops::Deref for WithHash<T> {
@@ -4046,6 +4054,8 @@ pub mod protocol_state {
 }
 
 pub mod local_state {
+    use std::cell::RefCell;
+
     use ark_ff::Zero;
 
     use crate::{
@@ -4055,6 +4065,10 @@ pub mod local_state {
             witness::{field, Boolean, ToBoolean},
         },
         scan_state::currency::{Index, Signed},
+        zkapps::intefaces::{
+            CallStackInterface, IndexInterface, SignedAmountInterface, StackFrameInterface,
+            WitnessGenerator,
+        },
         Inputs, ToInputs,
     };
 
@@ -4073,6 +4087,33 @@ pub mod local_state {
         pub caller: TokenId,
         pub caller_caller: TokenId,
         pub calls: WithHash<CallForest<AccountUpdate>>,
+    }
+
+    struct LazyValue<T> {
+        inner: RefCell<Option<T>>,
+        fun: RefCell<Option<Box<dyn FnOnce() -> T>>>,
+    }
+
+    impl<T> LazyValue<T> {
+        pub fn make<F>(fun: F) -> Self
+        where
+            F: FnOnce() -> T + 'static,
+        {
+            Self {
+                inner: Default::default(),
+                fun: RefCell::new(Some(Box::new(fun))),
+            }
+        }
+
+        pub fn get(&self) -> std::cell::Ref<'_, T> {
+            use std::cell::Ref;
+
+            if self.inner.borrow().is_none() {
+                self.inner
+                    .replace_with(|_| Some((self.fun.take().unwrap())()));
+            }
+            Ref::map(self.inner.borrow(), |v| v.as_ref().unwrap())
+        }
     }
 
     // https://github.com/MinaProtocol/mina/blob/78535ae3a73e0e90c5f66155365a934a15535779/src/lib/transaction_snark/transaction_snark.ml#L1083
@@ -4152,7 +4193,7 @@ pub mod local_state {
     }
 
     impl StackFrameChecked {
-        fn of_frame(frame: StackFrameCheckedFrame, w: &mut Witness<Fp>) -> Self {
+        pub fn of_frame(frame: StackFrameCheckedFrame, w: &mut Witness<Fp>) -> Self {
             let hash = frame.hash(w);
             Self { data: frame, hash }
         }
@@ -4218,14 +4259,14 @@ pub mod local_state {
 
     #[derive(Debug, Clone)]
     pub struct LocalStateSkeleton<
-        L,
-        StackFrame,
-        CallStack,
+        L: LedgerIntf + Clone,
+        StackFrame: StackFrameInterface,
+        CallStack: CallStackInterface,
         TC,
-        SignedAmount,
+        SignedAmount: SignedAmountInterface,
         FailuresTable,
         Bool,
-        Index,
+        Index: IndexInterface,
     > {
         pub stack_frame: StackFrame,
         pub call_stack: CallStack,
@@ -4325,7 +4366,7 @@ pub mod local_state {
                 supply_increase: Signed::<Amount>::zero(),
                 ledger: Fp::zero(),
                 success: true,
-                account_update_index: Index::zero(),
+                account_update_index: <Index as Magnitude>::zero(),
                 failure_status_tbl: Vec::new(),
                 will_succeed: true,
             }

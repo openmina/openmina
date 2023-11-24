@@ -62,6 +62,7 @@ mod tree;
 mod tree_version;
 mod util;
 pub mod verifier;
+pub mod zkapps;
 
 pub use account::*;
 pub use address::*;

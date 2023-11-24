@@ -20,7 +20,6 @@ pub mod verifier_index;
 pub mod witness;
 pub mod wrap;
 pub mod zkapp;
-pub mod zkapp_interfaces;
 pub mod zkapp_logic;
 
 pub type VerifierIndex = kimchi::verifier_index::VerifierIndex<Pallas>;

@@ -33,6 +33,7 @@ use crate::{
         },
     },
     sparse_ledger::SparseLedger,
+    zkapps::intefaces::ZkappSnark,
     ControlTag, ToInputs, TokenId,
 };
 
@@ -43,7 +44,8 @@ use super::{
         currency::{CheckedAmount, CheckedSigned},
         nat::{CheckedIndex, CheckedNat, CheckedSlot},
     },
-    witness::{dummy_constraints, Boolean, Prover, Witness},
+    to_field_elements::ToFieldElements,
+    witness::{dummy_constraints, Boolean, Check, Prover, Witness},
 };
 
 pub struct ZkappParams<'a> {
@@ -368,14 +370,14 @@ fn accumulate_call_stack_hashes(
 }
 
 pub type LocalStateForWitness = LocalStateSkeleton<
-    SparseLedger,                             // ledger
-    StackFrame,                               // stack_frame
-    Vec<WithStackHash<WithHash<StackFrame>>>, // call_stack
-    TransactionCommitment,                    // commitments
-    Signed<Amount>,                           // excess & supply_increase
-    Vec<Vec<TransactionFailure>>,             // failure_status_tbl
-    bool,                                     // success & will_succeed
-    Index,                                    // account_update_index
+    SparseLedger,                                       // ledger
+    StackFrame,                                         // stack_frame
+    WithHash<Vec<WithStackHash<WithHash<StackFrame>>>>, // call_stack
+    TransactionCommitment,                              // commitments
+    Signed<Amount>,                                     // excess & supply_increase
+    Vec<Vec<TransactionFailure>>,                       // failure_status_tbl
+    bool,                                               // success & will_succeed
+    Index,                                              // account_update_index
 >;
 
 #[derive(Debug)]
@@ -692,7 +694,10 @@ pub fn zkapp_command_witnesses_exn(
 
             LocalStateForWitness {
                 stack_frame,
-                call_stack,
+                call_stack: WithHash {
+                    data: call_stack,
+                    hash: Fp::zero(), // TODO
+                },
                 transaction_commitment: TransactionCommitment(transaction_commitment.0),
                 full_transaction_commitment: TransactionCommitment(full_transaction_commitment.0),
                 excess,
@@ -926,6 +931,19 @@ pub struct LedgerWithHash {
     hash: Fp,
 }
 
+impl ToFieldElements<Fp> for LedgerWithHash {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self { ledger: _, hash } = self;
+        hash.to_field_elements(fields);
+    }
+}
+
+impl Check<Fp> for LedgerWithHash {
+    fn check(&self, _w: &mut Witness<Fp>) {
+        // Nothing
+    }
+}
+
 pub type LocalStateForProof = LocalStateSkeleton<
     LedgerWithHash,                                     // ledger
     StackFrameChecked,                                  // stack_frame
@@ -938,7 +956,7 @@ pub type LocalStateForProof = LocalStateSkeleton<
 >;
 
 pub type GlobalStateForProof = GlobalStateSkeleton<
-    (Fp, SparseLedger),                   // ledger
+    LedgerWithHash,                       // ledger
     CheckedSigned<Fp, CheckedAmount<Fp>>, // fee_excess & supply_increase
     CheckedSlot<Fp>,                      // block_global_slot
 >;
@@ -974,14 +992,14 @@ fn zkapp_main(
 
     let init = {
         let g = GlobalStateForProof {
-            first_pass_ledger: (
-                statement.source.first_pass_ledger,
-                witness.global_first_pass_ledger.clone(),
-            ),
-            second_pass_ledger: (
-                statement.source.second_pass_ledger,
-                witness.global_second_pass_ledger.clone(),
-            ),
+            first_pass_ledger: LedgerWithHash {
+                ledger: witness.global_first_pass_ledger.clone(),
+                hash: statement.source.first_pass_ledger,
+            },
+            second_pass_ledger: LedgerWithHash {
+                ledger: witness.global_second_pass_ledger.clone(),
+                hash: statement.source.second_pass_ledger,
+            },
             fee_excess: CheckedSigned::zero(),
             supply_increase: CheckedSigned::zero(),
             protocol_state: protocol_state_body_view(state_body),
@@ -995,7 +1013,7 @@ fn zkapp_main(
                 .unhash(statement.source.local_state.stack_frame, w),
             call_stack: WithHash {
                 hash: statement.source.local_state.call_stack,
-                data: witness.local_state_init.call_stack.clone(),
+                data: witness.local_state_init.call_stack.data.clone(),
             },
             transaction_commitment: statement.source.local_state.transaction_commitment,
             full_transaction_commitment: statement.source.local_state.full_transaction_commitment,
@@ -1068,7 +1086,13 @@ fn zkapp_main(
 
                 let handler = zkapp_logic::Handler { perform };
 
-                zkapp_logic::apply(constraint_constants, is_start, &handler, acc.clone(), w);
+                zkapp_logic::apply::<ZkappSnark>(
+                    constraint_constants,
+                    is_start,
+                    &handler,
+                    acc.clone(),
+                    w,
+                );
             }
         };
 

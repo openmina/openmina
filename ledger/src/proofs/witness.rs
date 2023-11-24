@@ -2332,6 +2332,8 @@ impl<F: FieldWitness> Check<F> for &[AllEvals<F>] {
 }
 
 pub mod field {
+    use crate::zkapps::intefaces::WitnessGenerator;
+
     use super::*;
 
     // https://github.com/o1-labs/snarky/blob/7edf13628872081fd7cad154de257dad8b9ba621/src/base/utils.ml#L99
@@ -2404,7 +2406,7 @@ pub mod field {
         x + y
     }
 
-    pub fn equal<F: FieldWitness>(x: F, y: F, w: &mut Witness<F>) -> Boolean {
+    pub fn equal<F: FieldWitness>(x: F, y: F, w: &mut impl WitnessGenerator<F>) -> Boolean {
         let z = x - y;
 
         let (boolean, r, inv) = if x == y {
