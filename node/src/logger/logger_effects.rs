@@ -274,12 +274,39 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         peer_id = action.peer_id.to_string()
                     );
                 }
-                P2pDiscoveryAction::Timeout(action) => {
+                P2pDiscoveryAction::KademliaBootstrap(..) => {
                     openmina_core::log::debug!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("peer_id: {}", action.peer_id),
-                        peer_id = action.peer_id.to_string()
+                        summary = format!("bootstrap kademlia"),
+                    );
+                }
+                P2pDiscoveryAction::KademliaInit(..) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("find node"),
+                    );
+                }
+                P2pDiscoveryAction::KademliaAddRoute(action) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("add route {} {:?}", action.peer_id, action.addresses.first()),
+                    );
+                }
+                P2pDiscoveryAction::KademliaSuccess(action) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("peers: {:?}", action.peers),
+                    );
+                }
+                P2pDiscoveryAction::KademliaFailure(action) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("{:?}", action.description),
                     );
                 }
             },

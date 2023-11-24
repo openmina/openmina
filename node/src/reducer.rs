@@ -1,4 +1,4 @@
-use p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent};
+use p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pDiscoveryEvent, P2pEvent};
 
 use crate::{event_source::Event, Action, ActionWithMeta, EventSourceAction, State};
 
@@ -23,6 +23,10 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
                     }
                 }
             }
+            Event::P2p(P2pEvent::Discovery(P2pDiscoveryEvent::Ready)) => {
+                state.p2p.kademlia.is_ready = true;
+            }
+            Event::P2p(P2pEvent::Discovery(P2pDiscoveryEvent::DidFindPeers(..))) => {}
             _ => {}
         },
         Action::EventSource(_) => {}

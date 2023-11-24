@@ -10,7 +10,11 @@ pub type P2pDiscoveryActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pDiscov
 pub enum P2pDiscoveryAction {
     Init(P2pDiscoveryInitAction),
     Success(P2pDiscoverySuccessAction),
-    Timeout(P2pDiscoveryTimeoutAction),
+    KademliaBootstrap(P2pDiscoveryKademliaBootstrapAction),
+    KademliaInit(P2pDiscoveryKademliaInitAction),
+    KademliaAddRoute(P2pDiscoveryKademliaAddRouteAction),
+    KademliaSuccess(P2pDiscoveryKademliaSuccessAction),
+    KademliaFailure(P2pDiscoveryKademliaFailureAction),
 }
 
 impl redux::EnablingCondition<P2pState> for P2pDiscoveryAction {
@@ -18,7 +22,11 @@ impl redux::EnablingCondition<P2pState> for P2pDiscoveryAction {
         match self {
             Self::Init(action) => action.is_enabled(state),
             Self::Success(action) => action.is_enabled(state),
-            Self::Timeout(action) => action.is_enabled(state),
+            Self::KademliaBootstrap(action) => action.is_enabled(state),
+            Self::KademliaAddRoute(action) => action.is_enabled(state),
+            Self::KademliaInit(action) => action.is_enabled(state),
+            Self::KademliaSuccess(action) => action.is_enabled(state),
+            Self::KademliaFailure(action) => action.is_enabled(state),
         }
     }
 }
@@ -36,6 +44,24 @@ impl redux::EnablingCondition<P2pState> for P2pDiscoveryInitAction {
 
 impl From<P2pDiscoveryInitAction> for crate::P2pAction {
     fn from(a: P2pDiscoveryInitAction) -> Self {
+        Self::Discovery(a.into())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pDiscoveryKademliaAddRouteAction {
+    pub peer_id: PeerId,
+    pub addresses: Vec<P2pConnectionOutgoingInitOpts>,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pDiscoveryKademliaAddRouteAction {
+    fn is_enabled(&self, _state: &P2pState) -> bool {
+        true
+    }
+}
+
+impl From<P2pDiscoveryKademliaAddRouteAction> for crate::P2pAction {
+    fn from(a: P2pDiscoveryKademliaAddRouteAction) -> Self {
         Self::Discovery(a.into())
     }
 }
@@ -59,18 +85,68 @@ impl From<P2pDiscoverySuccessAction> for crate::P2pAction {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pDiscoveryTimeoutAction {
-    pub peer_id: PeerId,
+pub struct P2pDiscoveryKademliaBootstrapAction {}
+
+impl redux::EnablingCondition<P2pState> for P2pDiscoveryKademliaBootstrapAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        !state.kademlia.is_ready && !state.kademlia.is_bootstrapping
+    }
 }
 
-impl redux::EnablingCondition<P2pState> for P2pDiscoveryTimeoutAction {
+impl From<P2pDiscoveryKademliaBootstrapAction> for crate::P2pAction {
+    fn from(a: P2pDiscoveryKademliaBootstrapAction) -> Self {
+        Self::Discovery(a.into())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pDiscoveryKademliaInitAction {}
+
+impl redux::EnablingCondition<P2pState> for P2pDiscoveryKademliaInitAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state.kademlia.is_ready
+            && state.kademlia.outgoing_requests < 1
+            && state.kademlia.saturated.is_none()
+            && !state.already_knows_max_peers()
+    }
+}
+
+impl From<P2pDiscoveryKademliaInitAction> for crate::P2pAction {
+    fn from(a: P2pDiscoveryKademliaInitAction) -> Self {
+        Self::Discovery(a.into())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pDiscoveryKademliaSuccessAction {
+    pub peers: Vec<PeerId>,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pDiscoveryKademliaSuccessAction {
     fn is_enabled(&self, _state: &P2pState) -> bool {
         true
     }
 }
 
-impl From<P2pDiscoveryTimeoutAction> for crate::P2pAction {
-    fn from(a: P2pDiscoveryTimeoutAction) -> Self {
+impl From<P2pDiscoveryKademliaSuccessAction> for crate::P2pAction {
+    fn from(a: P2pDiscoveryKademliaSuccessAction) -> Self {
+        Self::Discovery(a.into())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pDiscoveryKademliaFailureAction {
+    pub description: String,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pDiscoveryKademliaFailureAction {
+    fn is_enabled(&self, _state: &P2pState) -> bool {
+        true
+    }
+}
+
+impl From<P2pDiscoveryKademliaFailureAction> for crate::P2pAction {
+    fn from(a: P2pDiscoveryKademliaFailureAction) -> Self {
         Self::Discovery(a.into())
     }
 }

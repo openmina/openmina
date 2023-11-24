@@ -133,7 +133,10 @@ impl P2pConnectionIncomingSuccessAction {
         P2pPeerReadyAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
-        store.dispatch(P2pPeerReadyAction { peer_id });
+        store.dispatch(P2pPeerReadyAction {
+            peer_id,
+            incoming: true,
+        });
     }
 }
 
@@ -152,7 +155,10 @@ impl P2pConnectionIncomingLibp2pReceivedAction {
                 reason: P2pDisconnectionReason::Libp2pIncomingRejected(err),
             });
         } else {
-            store.dispatch(P2pPeerReadyAction { peer_id });
+            store.dispatch(P2pPeerReadyAction {
+                peer_id,
+                incoming: true,
+            });
         }
     }
 }

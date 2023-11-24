@@ -27,10 +27,10 @@ tower-http = { version = "0.4.4", features = ["cors"] }
 strum = "0.24.1"
 strum_macros = "0.24.3"
 documented = { version = "0.1", optional = true }
-redux = { git = "https://github.com/openmina/redux-rs.git", features = ["serde"] }
+redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
-libp2p = { git = "https://github.com/openmina/rust-libp2p", branch="webrtc-v0.51.3", default-features = false, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
+libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
 
 console = "0.15.5"
 clap = { version = "4.3", features = [ "derive", "env" ] }

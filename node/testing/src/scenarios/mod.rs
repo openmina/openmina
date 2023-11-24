@@ -21,6 +21,7 @@ use crate::scenario::{Scenario, ScenarioId, ScenarioStep};
 
 use self::multi_node::basic_connectivity_initial_joining::MultiNodeBasicConnectivityInitialJoining;
 use self::solo_node::{
+    basic_connectivity_accept_incoming::SoloNodeBasicConnectivityAcceptIncoming,
     basic_connectivity_initial_joining::SoloNodeBasicConnectivityInitialJoining,
     sync_root_snarked_ledger::SoloNodeSyncRootSnarkedLedger,
 };
@@ -30,12 +31,21 @@ use self::solo_node::{
 pub enum Scenarios {
     SoloNodeSyncRootSnarkedLedger(SoloNodeSyncRootSnarkedLedger),
     SoloNodeBasicConnectivityInitialJoining(SoloNodeBasicConnectivityInitialJoining),
+    SoloNodeBasicConnectivityAcceptIncoming(SoloNodeBasicConnectivityAcceptIncoming),
     MultiNodeBasicConnectivityInitialJoining(MultiNodeBasicConnectivityInitialJoining),
 }
 
 impl Scenarios {
-    pub fn iter() -> ScenariosIter {
-        <Self as strum::IntoEnumIterator>::iter()
+    // Turn off global test
+    pub fn iter() -> impl IntoIterator<Item = Scenarios> {
+        <Self as strum::IntoEnumIterator>::iter().filter(|s| !s.skip())
+    }
+
+    fn skip(&self) -> bool {
+        match self {
+            Self::SoloNodeBasicConnectivityAcceptIncoming(_) => cfg!(feature = "p2p-webrtc"),
+            _ => false,
+        }
     }
 
     pub fn id(self) -> ScenarioId {
@@ -50,6 +60,7 @@ impl Scenarios {
         match self {
             Self::SoloNodeSyncRootSnarkedLedger(_) => None,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => None,
+            Self::SoloNodeBasicConnectivityAcceptIncoming(_) => None,
             Self::MultiNodeBasicConnectivityInitialJoining(_) => None,
         }
     }
@@ -64,6 +75,9 @@ impl Scenarios {
             Self::SoloNodeSyncRootSnarkedLedger(_) => SoloNodeSyncRootSnarkedLedger::DOCS,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => {
                 SoloNodeBasicConnectivityInitialJoining::DOCS
+            }
+            Self::SoloNodeBasicConnectivityAcceptIncoming(_) => {
+                SoloNodeBasicConnectivityAcceptIncoming::DOCS
             }
             Self::MultiNodeBasicConnectivityInitialJoining(_) => {
                 MultiNodeBasicConnectivityInitialJoining::DOCS
@@ -87,8 +101,8 @@ impl Scenarios {
                                                                            "#,
             )
             .unwrap()],
-            // TODO(vlad9486):
             Self::SoloNodeBasicConnectivityInitialJoining(_) => vec![],
+            Self::SoloNodeBasicConnectivityAcceptIncoming(_) => vec![],
             Self::MultiNodeBasicConnectivityInitialJoining(_) => vec![],
         };
 
@@ -103,6 +117,7 @@ impl Scenarios {
         match self {
             Self::SoloNodeSyncRootSnarkedLedger(v) => v.run(runner).await,
             Self::SoloNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
+            Self::SoloNodeBasicConnectivityAcceptIncoming(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
         }
     }

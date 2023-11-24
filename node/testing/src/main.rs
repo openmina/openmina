@@ -2,6 +2,8 @@ use clap::Parser;
 
 use openmina_node_testing::{exit_with_error, server, setup};
 
+use openmina_node_testing::ocaml::tests as with_ocaml;
+
 pub type CommandError = Box<dyn std::error::Error>;
 
 #[derive(Debug, clap::Parser)]
@@ -16,6 +18,7 @@ pub enum Command {
     Server(CommandServer),
 
     ScenariosGenerate(CommandScenariosGenerate),
+    PeerDiscoveryWithOcamlNodes,
 }
 
 #[derive(Debug, clap::Args)]
@@ -52,6 +55,7 @@ impl Command {
                     .to_owned()
                     .into())
             }
+            Self::PeerDiscoveryWithOcamlNodes => rt.block_on(with_ocaml::peer_discovery::run()),
         }
     }
 }

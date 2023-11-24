@@ -1,0 +1,9 @@
+FROM mina-openmina-builder:latest as builder
+
+RUN git fetch && git checkout feat/kademlia
+
+RUN source ~/.cargo/env && cargo +nightly-2023-10-01 build --release -p openmina-node-testing
+
+FROM vladsimplestakingcom/mina-light:2.0.0rampup4
+
+COPY --from=builder /openmina/target/release/openmina-node-testing /usr/local/bin/openmina-node-testing
