@@ -4,7 +4,7 @@ pub use behavior::*;
 
 use mina_p2p_messages::rpc::GetSomeInitialPeersV1ForV2;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
@@ -69,7 +69,64 @@ pub struct Libp2pService {
     cmd_sender: mpsc::UnboundedSender<Cmd>,
 }
 
-async fn determine_own_ip(stun_addr: SocketAddr) -> io::Result<IpAddr> {
+async fn determine_own_ip() -> BTreeSet<IpAddr> {
+    use std::net::{Ipv4Addr, Ipv6Addr};
+
+    let local_addresses = [
+        IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+        IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+    ];
+    let services = [
+        "https://ifconfig.co/ip",
+        "https://bot.whatismyipaddress.com",
+        "https://api.ipify.org",
+    ];
+
+    let clients = local_addresses.into_iter().filter_map(|addr| {
+        reqwest::ClientBuilder::new()
+            .local_address(addr)
+            .timeout(Duration::from_secs(20))
+            .build()
+            .ok()
+    });
+
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    for client in clients {
+        for service in services {
+            let tx = tx.clone();
+            let client = client.clone();
+            tokio::spawn(async move {
+                let addr = {
+                    client
+                        .get(service)
+                        .send()
+                        .await
+                        .ok()?
+                        .text()
+                        .await
+                        .ok()?
+                        .trim_end_matches('\n')
+                        .parse::<IpAddr>()
+                        .ok()?
+                };
+                tx.send(addr).unwrap_or_default();
+
+                Some(())
+            });
+        }
+    }
+    drop(tx);
+
+    let mut addresses = BTreeSet::new();
+    while let Some(addr) = rx.recv().await {
+        addresses.insert(addr);
+    }
+
+    addresses
+}
+
+#[allow(dead_code)]
+async fn determine_own_ip_stun(stun_addr: SocketAddr) -> io::Result<IpAddr> {
     use faster_stun::{attribute, Decoder, Kind, Method, Payload};
     use tokio::net::UdpSocket;
 
@@ -216,22 +273,10 @@ impl Libp2pService {
             swarm.behaviour_mut().kademlia.set_mode(Some(Mode::Server));
 
             if let Some(port) = libp2p_port {
-                // TODO: configure address, get from command line
-                let stun_addr = SocketAddr::from(([142, 251, 2, 127], 19302));
-
-                match determine_own_ip(stun_addr).await {
-                    Ok(ip) => {
-                        let mut addr = Multiaddr::from(ip);
-                        addr.push(libp2p::multiaddr::Protocol::Tcp(port));
-                        swarm.add_external_address(addr);
-                    }
-                    Err(err) => {
-                        openmina_core::log::error!(
-                            openmina_core::log::system_time();
-                            kind = "NetworkError",
-                            summary = format!("failed to determine our own IP address, error: {err:?}"),
-                        );
-                    }
+                for ip in determine_own_ip().await {
+                    let mut addr = Multiaddr::from(ip);
+                    addr.push(libp2p::multiaddr::Protocol::Tcp(port));
+                    swarm.add_external_address(addr);
                 }
 
                 if let Err(err) = swarm.listen_on(format!("/ip6/::/tcp/{port}").parse().unwrap()) {
