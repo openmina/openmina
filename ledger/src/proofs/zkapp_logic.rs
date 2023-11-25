@@ -45,6 +45,137 @@ fn assert_(_b: Boolean) -> Result<(), String> {
     Ok(())
 }
 
+fn stack_frame_default<Z: ZkappApplication>(w: &mut Z::WitnessGenerator) -> Z::StackFrame {
+    Z::StackFrame::make(
+        TokenId::default(),
+        TokenId::default(),
+        &Z::CallForest::empty(),
+        w,
+    )
+}
+
+fn pop_call_stack<Z: ZkappApplication>(
+    s: &Z::CallStack,
+    w: &mut Z::WitnessGenerator,
+) -> (Z::StackFrame, Z::CallStack) {
+    let res = s.pop(w);
+    let (next_frame, next_call_stack) = res.unzip();
+
+    let right = w.exists_no_check(match next_call_stack.is_some {
+        Boolean::True => next_call_stack.data,
+        Boolean::False => Z::CallStack::empty(),
+    });
+
+    let on_none = stack_frame_default::<Z>(w);
+    let left = match next_frame.is_some {
+        Boolean::True => next_frame.data,
+        Boolean::False => on_none,
+    }
+    .on_if(w);
+
+    (left, right)
+}
+
+fn get_next_account_update<Z: ZkappApplication>(
+    current_forest: Z::StackFrame,
+    call_stack: Z::CallStack,
+    w: &mut Z::WitnessGenerator,
+) {
+    let (current_forest, call_stack) = {
+        let (next_forest, next_call_stack) = pop_call_stack::<Z>(&call_stack, w);
+        let current_is_empty = current_forest.calls().is_empty(w);
+
+        let right = w.exists_no_check(match current_is_empty {
+            Boolean::True => next_call_stack,
+            Boolean::False => call_stack,
+        });
+
+        let left = match current_is_empty {
+            Boolean::True => next_forest,
+            Boolean::False => current_forest,
+        }
+        .on_if(w);
+
+        (left, right)
+    };
+
+    let a = current_forest.calls().pop_exn(w);
+}
+
+//   let (account_update, account_update_forest), remainder_of_current_forest =
+//     Call_forest.pop_exn (Stack_frame.calls current_forest)
+//   in
+//   let may_use_parents_own_token =
+//     Account_update.may_use_parents_own_token account_update
+//   in
+//   let may_use_token_inherited_from_parent =
+//     Account_update.may_use_token_inherited_from_parent account_update
+//   in
+//   let caller_id =
+//     Token_id.if_ may_use_token_inherited_from_parent
+//       ~then_:(Stack_frame.caller_caller current_forest)
+//       ~else_:
+//         (Token_id.if_ may_use_parents_own_token
+//            ~then_:(Stack_frame.caller current_forest)
+//            ~else_:Token_id.default )
+//   in
+//   (* Cases:
+//      - [account_update_forest] is empty, [remainder_of_current_forest] is empty.
+//      Pop from the call stack to get another forest, which is guaranteed to be non-empty.
+//      The result of popping becomes the "current forest".
+//      - [account_update_forest] is empty, [remainder_of_current_forest] is non-empty.
+//      Push nothing to the stack. [remainder_of_current_forest] becomes new "current forest"
+//      - [account_update_forest] is non-empty, [remainder_of_current_forest] is empty.
+//      Push nothing to the stack. [account_update_forest] becomes new "current forest"
+//      - [account_update_forest] is non-empty, [remainder_of_current_forest] is non-empty:
+//      Push [remainder_of_current_forest] to the stack. [account_update_forest] becomes new "current forest".
+//   *)
+//   let account_update_forest_empty =
+//     Call_forest.is_empty account_update_forest
+//   in
+//   let remainder_of_current_forest_empty =
+//     Call_forest.is_empty remainder_of_current_forest
+//   in
+//   let newly_popped_frame, popped_call_stack = pop_call_stack call_stack in
+//   let remainder_of_current_forest_frame : Stack_frame.t =
+//     Stack_frame.make
+//       ~caller:(Stack_frame.caller current_forest)
+//       ~caller_caller:(Stack_frame.caller_caller current_forest)
+//       ~calls:remainder_of_current_forest
+//   in
+//   let new_call_stack =
+//     Call_stack.if_ account_update_forest_empty
+//       ~then_:
+//         (Call_stack.if_ remainder_of_current_forest_empty
+//            ~then_:
+//              (* Don't actually need the or_default used in this case. *)
+//              popped_call_stack ~else_:call_stack )
+//       ~else_:
+//         (Call_stack.if_ remainder_of_current_forest_empty ~then_:call_stack
+//            ~else_:
+//              (Call_stack.push remainder_of_current_forest_frame
+//                 ~onto:call_stack ) )
+//   in
+//   let new_frame =
+//     Stack_frame.if_ account_update_forest_empty
+//       ~then_:
+//         (Stack_frame.if_ remainder_of_current_forest_empty
+//            ~then_:newly_popped_frame ~else_:remainder_of_current_forest_frame )
+//       ~else_:
+//         (let caller =
+//            Account_id.derive_token_id
+//              ~owner:(Account_update.account_id account_update)
+//          and caller_caller = caller_id in
+//          Stack_frame.make ~calls:account_update_forest ~caller ~caller_caller
+//         )
+//   in
+//   { account_update
+//   ; caller_id
+//   ; account_update_forest
+//   ; new_frame
+//   ; new_call_stack
+//   }
+
 type LocalState<Z> = LocalStateSkeleton<
     <Z as ZkappApplication>::Ledger,       // ledger
     <Z as ZkappApplication>::StackFrame,   // stack_frame
@@ -63,8 +194,8 @@ pub type GlobalState<Z> = GlobalStateSkeleton<
 >;
 
 pub type StartData<Z> = StartDataSkeleton<
-    <<Z as ZkappApplication>::StackFrame as StackFrameInterface>::Calls, // account_updates
-    Boolean,                                                             // will_succeed
+    <Z as ZkappApplication>::CallForest, // account_updates
+    Boolean,                             // will_succeed
 >;
 
 pub fn apply<Z>(
@@ -109,9 +240,10 @@ where
     local_state.will_succeed = will_succeed;
 
     let _ = {
-        let _ = {
+        let (to_pop, call_stack) = {
             match &is_start {
                 IsStart::Compute(start_data) => {
+                    // We decompose this way because of OCaml evaluation order
                     let right = w.exists_no_check(match is_start2 {
                         Boolean::True => Z::CallStack::empty(),
                         Boolean::False => local_state.call_stack,
@@ -124,40 +256,33 @@ where
                             &start_data.account_updates,
                             w,
                         );
-
-                        w.exists_no_check(match is_start2 {
+                        match is_start2 {
                             Boolean::True => on_true,
                             Boolean::False => local_state.stack_frame,
-                        })
+                        }
+                        .on_if(w)
                     };
+
+                    (left, right)
                 }
-                IsStart::Yes(_) => todo!(),
-                IsStart::No => todo!(),
+                IsStart::Yes(start_data) => {
+                    // We decompose this way because of OCaml evaluation order
+                    let right = Z::CallStack::empty();
+                    let left = Z::StackFrame::make(
+                        TokenId::default(),
+                        TokenId::default(),
+                        &start_data.account_updates,
+                        w,
+                    );
+                    (left, right)
+                }
+                IsStart::No => (local_state.stack_frame, local_state.call_stack),
             }
         };
+
+        get_next_account_update::<Z>(to_pop, call_stack, w);
     };
 
-    // let ( (account_update, remaining, call_stack)
-    //     , account_update_forest
-    //     , local_state
-    //     , (a, inclusion_proof) ) =
-    //   let to_pop, call_stack =
-    //     match is_start with
-    //     | `Compute start_data ->
-    //         ( Stack_frame.if_ is_start'
-    //             ~then_:
-    //               (Stack_frame.make ~calls:start_data.account_updates
-    //                  ~caller:default_caller ~caller_caller:default_caller )
-    //             ~else_:local_state.stack_frame
-    //         , Call_stack.if_ is_start' ~then_:(Call_stack.empty ())
-    //             ~else_:local_state.call_stack )
-    //     | `Yes start_data ->
-    //         ( Stack_frame.make ~calls:start_data.account_updates
-    //             ~caller:default_caller ~caller_caller:default_caller
-    //         , Call_stack.empty () )
-    //     | `No ->
-    //         (local_state.stack_frame, local_state.call_stack)
-    //   in
     //   let { account_update
     //       ; caller_id
     //       ; account_update_forest
@@ -184,5 +309,6 @@ where
     //           default_token_or_token_owner_was_caller )
     //   in
 
-    todo!()
+    eprintln!("DONE");
+    std::process::exit(0);
 }

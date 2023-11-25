@@ -23,6 +23,23 @@ pub trait WitnessGenerator<F: FieldWitness> {
 
 use WitnessGenerator as W;
 
+pub struct Opt<T> {
+    pub is_some: Boolean,
+    pub data: T,
+}
+
+impl<A, B> Opt<(A, B)> {
+    pub fn unzip(self) -> (Opt<A>, Opt<B>) {
+        let Self {
+            is_some,
+            data: (a, b),
+        } = self;
+        let a = Opt { is_some, data: a };
+        let b = Opt { is_some, data: b };
+        (a, b)
+    }
+}
+
 pub trait AmountInterface
 where
     Self: Sized,
@@ -101,7 +118,7 @@ where
 
     fn empty() -> Self;
     fn is_empty(&self, w: &mut Self::W) -> Boolean;
-    fn pop_exn(&self) -> ((AccountUpdate, Self), Self);
+    fn pop_exn(&self, w: &mut Self::W) -> ((AccountUpdate, Self), Self);
 }
 
 pub trait StackFrameInterface {
@@ -112,6 +129,7 @@ pub trait StackFrameInterface {
     fn caller_caller(&self) -> TokenId;
     fn calls(&self) -> &Self::Calls;
     fn make(caller: TokenId, caller_caller: TokenId, calls: &Self::Calls, w: &mut Self::W) -> Self;
+    fn on_if(self, w: &mut Self::W) -> Self;
 }
 
 pub trait StackInterface
@@ -119,17 +137,18 @@ where
     Self: Sized,
 {
     type Elt;
+    type W: WitnessGenerator<Fp>;
 
     fn empty() -> Self;
-    fn is_empty(&self) -> Boolean;
+    fn is_empty(&self, w: &mut Self::W) -> Boolean;
     fn pop_exn(&self) -> (Self::Elt, Self);
-    fn pop(&self) -> Option<(Self::Elt, Self)>;
+    fn pop(&self, w: &mut Self::W) -> Opt<(Self::Elt, Self)>;
     fn push(&self, elt: Self::Elt) -> Self;
 }
 
 pub trait CallStackInterface
 where
-    Self: Sized + StackInterface<Elt = Self::StackFrame>,
+    Self: Sized + StackInterface,
 {
     type StackFrame: StackFrameInterface;
 }
@@ -156,8 +175,11 @@ pub trait ZkappApplication {
     type Amount: AmountInterface;
     type Index: IndexInterface;
     type GlobalSlotSinceGenesis: GlobalSlotSinceGenesisInterface;
-    type StackFrame: StackFrameInterface<W = Self::WitnessGenerator> + ToFieldElements<Fp>;
-    type CallStack: CallStackInterface + ToFieldElements<Fp>;
+    type StackFrame: StackFrameInterface<W = Self::WitnessGenerator, Calls = Self::CallForest>
+        + ToFieldElements<Fp>;
+    type CallForest: CallForestInterface<W = Self::WitnessGenerator>;
+    type CallStack: CallStackInterface<W = Self::WitnessGenerator, Elt = Self::StackFrame>
+        + ToFieldElements<Fp>;
     type GlobalState: GlobalStateInterface<Ledger = Self::Ledger, SignedAmount = Self::SignedAmount>;
     type WitnessGenerator: WitnessGenerator<Fp>;
 }
@@ -171,7 +193,9 @@ impl ZkappApplication for ZkappSnark {
     type Index = CheckedIndex<Fp>;
     type GlobalSlotSinceGenesis = CheckedSlot<Fp>;
     type StackFrame = StackFrameChecked;
+    type CallForest = WithHash<CallForest<AccountUpdate>>;
     type CallStack = WithHash<Vec<WithStackHash<WithHash<StackFrame>>>>;
     type GlobalState = GlobalStateForProof;
     type WitnessGenerator = Witness<Fp>;
 }
+// WithHash<CallForest<AccountUpdate>>

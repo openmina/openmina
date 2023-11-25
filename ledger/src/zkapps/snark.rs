@@ -8,19 +8,22 @@ use crate::{
             nat::{CheckedIndex, CheckedSlot},
         },
         to_field_elements::ToFieldElements,
-        witness::{field, Boolean, Check, FieldWitness, ToBoolean, Witness},
+        witness::{
+            field, transaction_snark::checked_hash, Boolean, Check, FieldWitness, ToBoolean,
+            Witness,
+        },
         zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash},
     },
     scan_state::transaction_logic::{
         local_state::{StackFrame, StackFrameChecked, StackFrameCheckedFrame},
         zkapp_command::{AccountUpdate, CallForest, WithHash},
     },
-    TokenId,
+    MyCow, TokenId,
 };
 
 use super::intefaces::{
     AmountInterface, CallForestInterface, CallStackInterface, GlobalSlotSinceGenesisInterface,
-    GlobalStateInterface, IndexInterface, SignedAmountInterface, StackFrameInterface,
+    GlobalStateInterface, IndexInterface, Opt, SignedAmountInterface, StackFrameInterface,
     StackInterface, WitnessGenerator,
 };
 
@@ -88,14 +91,68 @@ impl CallForestInterface for WithHash<CallForest<AccountUpdate>> {
     type W = Witness<Fp>;
 
     fn empty() -> Self {
-        todo!()
+        WithHash {
+            data: CallForest::empty(),
+            hash: Fp::zero(),
+        }
     }
     fn is_empty(&self, w: &mut Self::W) -> Boolean {
         let Self { hash, data: _ } = self;
         let empty = Fp::zero();
         field::equal(empty, *hash, w)
     }
-    fn pop_exn(&self) -> ((AccountUpdate, Self), Self) {
+    fn pop_exn(&self, w: &mut Self::W) -> ((AccountUpdate, Self), Self) {
+        let Self { data, hash } = self;
+
+        let hd_r = &data.first().unwrap().elt;
+        let account_update = &hd_r.account_update;
+        let auth = &account_update.authorization;
+
+        w.exists(&account_update.body);
+
+        // let pop_exn ({ hash = h; data = r } : t) : (account_update * t) * t =
+        //   with_label "Zkapp_call_forest.pop_exn" (fun () ->
+        //       let hd_r =
+        //         V.create (fun () -> V.get r |> List.hd_exn |> With_stack_hash.elt)
+        //       in
+        //       let account_update = V.create (fun () -> (V.get hd_r).account_update) in
+        //       let auth =
+        //         V.(create (fun () -> (V.get account_update).authorization))
+        //       in
+        //       let account_update =
+        //         exists (Account_update.Body.typ ()) ~compute:(fun () ->
+        //             (V.get account_update).body )
+        //       in
+        //       let account_update =
+        //         With_hash.of_data account_update
+        //           ~hash_data:Zkapp_command.Digest.Account_update.Checked.create
+        //       in
+        //       let subforest : t =
+        //         let subforest = V.create (fun () -> (V.get hd_r).calls) in
+        //         let subforest_hash =
+        //           exists Zkapp_command.Digest.Forest.typ ~compute:(fun () ->
+        //               Zkapp_command.Call_forest.hash (V.get subforest) )
+        //         in
+        //         { hash = subforest_hash; data = subforest }
+        //       in
+        //       let tl_hash =
+        //         exists Zkapp_command.Digest.Forest.typ ~compute:(fun () ->
+        //             V.get r |> List.tl_exn |> Zkapp_command.Call_forest.hash )
+        //       in
+        //       let tree_hash =
+        //         Zkapp_command.Digest.Tree.Checked.create
+        //           ~account_update:account_update.hash ~calls:subforest.hash
+        //       in
+        //       let hash_cons =
+        //         Zkapp_command.Digest.Forest.Checked.cons tree_hash tl_hash
+        //       in
+        //       F.Assert.equal hash_cons h ;
+        //       ( ( ({ account_update; control = auth }, subforest)
+        //         , { hash = tl_hash
+        //           ; data = V.(create (fun () -> List.tl_exn (get r)))
+        //           } )
+        //         : (account_update * t) * t ) )
+
         todo!()
     }
 }
@@ -119,12 +176,22 @@ impl StackFrameInterface for StackFrameChecked {
             caller_caller,
             calls: calls.clone(),
         };
-        Self::of_frame(frame, w)
+        Self::of_frame(frame)
     }
+    fn on_if(self, w: &mut Self::W) -> Self {
+        let frame: &StackFrameCheckedFrame = &*self;
+        w.exists_no_check(frame);
+        self
+    }
+}
+
+fn call_stack_digest_checked_cons(h: Fp, t: Fp, w: &mut Witness<Fp>) -> Fp {
+    checked_hash("MinaActUpStckFrmCons", &[h, t], w)
 }
 
 impl StackInterface for WithHash<Vec<WithStackHash<WithHash<StackFrame>>>> {
     type Elt = StackFrameChecked;
+    type W = Witness<Fp>;
 
     fn empty() -> Self {
         WithHash {
@@ -132,14 +199,45 @@ impl StackInterface for WithHash<Vec<WithStackHash<WithHash<StackFrame>>>> {
             hash: Fp::zero(),
         }
     }
-    fn is_empty(&self) -> Boolean {
-        todo!()
+    fn is_empty(&self, w: &mut Self::W) -> Boolean {
+        let Self { hash, data: _ } = self;
+        let empty = Fp::zero();
+        field::equal(empty, *hash, w)
     }
     fn pop_exn(&self) -> (Self::Elt, Self) {
         todo!()
     }
-    fn pop(&self) -> Option<(Self::Elt, Self)> {
-        todo!()
+    fn pop(&self, w: &mut Self::W) -> Opt<(Self::Elt, Self)> {
+        let Self { data, hash } = self;
+        let input_is_empty = self.is_empty(w);
+        let hd_r = match data.first() {
+            None => {
+                let data = StackFrame::default();
+                let hash = data.hash();
+                MyCow::Own(WithHash { data, hash })
+            }
+            Some(x) => MyCow::Borrow(&x.elt),
+        };
+        let tl_r = data.get(1..).unwrap_or(&[]);
+        let elt = hd_r.exists_elt(w);
+        let stack = w.exists(match tl_r {
+            [] => Fp::zero(),
+            [x, ..] => x.stack_hash,
+        });
+        let stack_frame_hash = elt.hash(w);
+        let h2 = call_stack_digest_checked_cons(stack_frame_hash, stack, w);
+        let is_equal = field::equal(*hash, h2, w);
+        Boolean::assert_any(&[input_is_empty, is_equal], w);
+        Opt {
+            is_some: input_is_empty.neg(),
+            data: (
+                elt,
+                Self {
+                    data: tl_r.to_vec(),
+                    hash: stack,
+                },
+            ),
+        }
     }
     fn push(&self, elt: Self::Elt) -> Self {
         todo!()

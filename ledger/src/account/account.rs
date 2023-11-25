@@ -14,6 +14,7 @@ use crate::{
             currency::{CheckedBalance, CheckedCurrency},
             nat::CheckedSlot,
         },
+        to_field_elements::ToFieldElements,
         witness::{
             make_group, transaction_snark::checked_min_balance_at_slot, Boolean, FieldWitness,
             InnerCurve, PlonkVerificationKeyEvals, ToBoolean, Witness,
@@ -434,33 +435,41 @@ impl ZkAppUri {
 
         Self(zkapp_uri)
     }
+
+    fn opt_to_field(opt: Option<&ZkAppUri>) -> Fp {
+        let mut inputs = Inputs::new();
+
+        match opt {
+            Some(zkapp_uri) => {
+                for c in zkapp_uri.0.as_bytes() {
+                    for j in 0..8 {
+                        inputs.append_bool((c & (1 << j)) != 0);
+                    }
+                }
+                inputs.append_bool(true);
+            }
+            None => {
+                inputs.append_field(Fp::zero());
+                inputs.append_field(Fp::zero());
+            }
+        }
+
+        hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
+    }
+}
+
+impl ToFieldElements<Fp> for Option<&ZkAppUri> {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let field_zkapp_uri = ZkAppUri::opt_to_field(*self);
+        field_zkapp_uri.to_field_elements(fields);
+    }
 }
 
 impl ToInputs for Option<&ZkAppUri> {
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L313
     fn to_inputs(&self, inputs: &mut Inputs) {
-        let field_zkapp_uri = {
-            let mut inputs = Inputs::new();
-
-            match self {
-                Some(zkapp_uri) => {
-                    for c in zkapp_uri.0.as_bytes() {
-                        for j in 0..8 {
-                            inputs.append_bool((c & (1 << j)) != 0);
-                        }
-                    }
-                    inputs.append_bool(true);
-                }
-                None => {
-                    inputs.append_field(Fp::zero());
-                    inputs.append_field(Fp::zero());
-                }
-            }
-
-            hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
-        };
-
-        inputs.append_field(field_zkapp_uri);
+        let field_zkapp_uri = ZkAppUri::opt_to_field(*self);
+        inputs.append(&field_zkapp_uri);
     }
 }
 

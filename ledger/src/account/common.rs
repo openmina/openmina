@@ -9,6 +9,7 @@ use crate::{
             currency::{CheckedAmount, CheckedBalance},
             nat::{CheckedSlot, CheckedSlotSpan},
         },
+        to_field_elements::ToFieldElements,
         witness::{Boolean, FieldWitness, ToBoolean},
     },
     scan_state::currency::{Amount, Balance, Magnitude, Slot, SlotSpan},
@@ -21,6 +22,13 @@ pub struct VotingFor(pub Fp);
 impl VotingFor {
     pub fn dummy() -> Self {
         Self(Fp::zero())
+    }
+}
+
+impl ToFieldElements<Fp> for VotingFor {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self(f) = self;
+        f.to_field_elements(fields)
     }
 }
 

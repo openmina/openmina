@@ -844,7 +844,7 @@ pub mod zkapp_command {
 
     use crate::{
         account, dummy, gen_compressed, gen_keypair, hash_noinputs, hash_with_kimchi,
-        proofs::to_field_elements::ToFieldElements,
+        proofs::{to_field_elements::ToFieldElements, witness::Boolean},
         scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
         AuthRequired, ControlTag, Inputs, MyCow, Permissions, ToInputs, TokenSymbol,
         VerificationKey, VotingFor, ZkAppUri,
@@ -913,28 +913,38 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L52
-    fn events_to_inputs<E>(e: &E, inputs: &mut Inputs)
+    fn events_to_field<E>(e: &E) -> Fp
     where
         E: MakeEvents,
     {
         let init = hash_noinputs(E::SALT_PHRASE);
 
-        let field = e.events().iter().rfold(init, |accum, elem| {
+        e.events().iter().rfold(init, |accum, elem| {
             hash_with_kimchi(E::HASH_PREFIX, &[accum, elem.hash()])
-        });
-
-        inputs.append_field(field);
+        })
     }
 
     impl ToInputs for Events {
         fn to_inputs(&self, inputs: &mut Inputs) {
-            events_to_inputs(self, inputs);
+            inputs.append(&events_to_field(self));
         }
     }
 
     impl ToInputs for Actions {
         fn to_inputs(&self, inputs: &mut Inputs) {
-            events_to_inputs(self, inputs);
+            inputs.append(&events_to_field(self));
+        }
+    }
+
+    impl ToFieldElements<Fp> for Events {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            events_to_field(self).to_field_elements(fields);
+        }
+    }
+
+    impl ToFieldElements<Fp> for Actions {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            events_to_field(self).to_field_elements(fields);
         }
     }
 
@@ -1000,6 +1010,44 @@ pub mod zkapp_command {
                 vesting_period,
                 vesting_increment,
             }
+        }
+    }
+
+    impl ToFieldElements<Fp> for Timing {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } = self;
+
+            initial_minimum_balance.to_field_elements(fields);
+            cliff_time.to_field_elements(fields);
+            cliff_amount.to_field_elements(fields);
+            vesting_period.to_field_elements(fields);
+            vesting_increment.to_field_elements(fields);
+        }
+    }
+
+    impl crate::proofs::witness::Check<Fp> for Timing {
+        fn check(&self, w: &mut Witness<Fp>) {
+            let Self {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } = self;
+
+            use crate::proofs::witness::Check;
+
+            Check::check(&initial_minimum_balance, w);
+            Check::check(&cliff_time, w);
+            Check::check(&cliff_amount, w);
+            Check::check(&vesting_period, w);
+            Check::check(&vesting_increment, w);
         }
     }
 
@@ -1156,6 +1204,45 @@ pub mod zkapp_command {
         }
     }
 
+    impl<T, F> ToFieldElements<Fp> for (&SetOrKeep<T>, F)
+    where
+        T: ToFieldElements<Fp>,
+        T: Clone,
+        F: Fn() -> T,
+    {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let (set_or_keep, default_fn) = self;
+
+            match set_or_keep {
+                SetOrKeep::Set(this) => {
+                    Boolean::True.to_field_elements(fields);
+                    this.to_field_elements(fields);
+                }
+                SetOrKeep::Keep => {
+                    Boolean::False.to_field_elements(fields);
+                    let default = default_fn();
+                    default.to_field_elements(fields);
+                }
+            }
+        }
+    }
+
+    impl<T, F> crate::proofs::witness::Check<Fp> for (&SetOrKeep<T>, F)
+    where
+        T: crate::proofs::witness::Check<Fp>,
+        T: Clone,
+        F: Fn() -> T,
+    {
+        fn check(&self, w: &mut Witness<Fp>) {
+            let (set_or_keep, default_fn) = self;
+            let value = match set_or_keep {
+                SetOrKeep::Set(this) => MyCow::Borrow(this),
+                SetOrKeep::Keep => MyCow::Own(default_fn()),
+            };
+            value.check(w);
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct WithHash<T> {
         pub data: T,
@@ -1195,6 +1282,32 @@ pub mod zkapp_command {
         pub token_symbol: SetOrKeep<TokenSymbol>,
         pub timing: SetOrKeep<Timing>,
         pub voting_for: SetOrKeep<VotingFor>,
+    }
+
+    impl ToFieldElements<Fp> for Update {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self {
+                app_state,
+                delegate,
+                verification_key,
+                permissions,
+                zkapp_uri,
+                token_symbol,
+                timing,
+                voting_for,
+            } = self;
+
+            for s in app_state {
+                (s, Fp::zero).to_field_elements(fields);
+            }
+            (delegate, CompressedPubKey::empty).to_field_elements(fields);
+            (&verification_key.map(|w| w.hash), Fp::zero).to_field_elements(fields);
+            (permissions, Permissions::empty).to_field_elements(fields);
+            (&zkapp_uri.map(Some), || Option::<&ZkAppUri>::None).to_field_elements(fields);
+            (token_symbol, TokenSymbol::default).to_field_elements(fields);
+            (timing, Timing::dummy).to_field_elements(fields);
+            (voting_for, VotingFor::dummy).to_field_elements(fields);
+        }
     }
 
     impl Update {
@@ -1351,6 +1464,18 @@ pub mod zkapp_command {
         }
     }
 
+    impl<T> ToFieldElements<Fp> for ClosedInterval<T>
+    where
+        T: ToFieldElements<Fp>,
+    {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let ClosedInterval { lower, upper } = self;
+
+            lower.to_field_elements(fields);
+            upper.to_field_elements(fields);
+        }
+    }
+
     impl<T> Check for ClosedInterval<T>
     where
         T: PartialOrd + std::fmt::Debug,
@@ -1426,6 +1551,28 @@ pub mod zkapp_command {
                     inputs.append_bool(false);
                     let default = default_fn();
                     default.to_inputs(inputs);
+                }
+            };
+        }
+    }
+
+    impl<T, F> ToFieldElements<Fp> for (&OrIgnore<T>, F)
+    where
+        T: ToFieldElements<Fp>,
+        F: Fn() -> T,
+    {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let (or_ignore, default_fn) = self;
+
+            match or_ignore {
+                OrIgnore::Check(this) => {
+                    Boolean::True.to_field_elements(fields);
+                    this.to_field_elements(fields);
+                }
+                OrIgnore::Ignore => {
+                    Boolean::False.to_field_elements(fields);
+                    let default = default_fn();
+                    default.to_field_elements(fields);
                 }
             };
         }
@@ -1545,6 +1692,33 @@ pub mod zkapp_command {
         }
     }
 
+    impl ToFieldElements<Fp> for EpochData {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let EpochData {
+                ledger,
+                seed,
+                start_checkpoint,
+                lock_checkpoint,
+                epoch_length,
+            } = self;
+
+            {
+                let EpochLedger {
+                    hash,
+                    total_currency,
+                } = ledger;
+
+                (hash, Fp::zero).to_field_elements(fields);
+                (total_currency, ClosedInterval::min_max).to_field_elements(fields);
+            }
+
+            (seed, Fp::zero).to_field_elements(fields);
+            (start_checkpoint, Fp::zero).to_field_elements(fields);
+            (lock_checkpoint, Fp::zero).to_field_elements(fields);
+            (epoch_length, ClosedInterval::min_max).to_field_elements(fields);
+        }
+    }
+
     impl EpochData {
         pub fn epoch_data(
             &self,
@@ -1652,14 +1826,34 @@ pub mod zkapp_command {
             } = &self;
 
             inputs.append(&(snarked_ledger_hash, Fp::zero));
-
             inputs.append(&(blockchain_length, ClosedInterval::min_max));
             inputs.append(&(min_window_density, ClosedInterval::min_max));
             inputs.append(&(total_currency, ClosedInterval::min_max));
             inputs.append(&(global_slot_since_genesis, ClosedInterval::min_max));
-
             inputs.append(staking_epoch_data);
             inputs.append(next_epoch_data);
+        }
+    }
+
+    impl ToFieldElements<Fp> for ZkAppPreconditions {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self {
+                snarked_ledger_hash,
+                blockchain_length,
+                min_window_density,
+                total_currency,
+                global_slot_since_genesis,
+                staking_epoch_data,
+                next_epoch_data,
+            } = self;
+
+            (snarked_ledger_hash, Fp::zero).to_field_elements(fields);
+            (blockchain_length, ClosedInterval::min_max).to_field_elements(fields);
+            (min_window_density, ClosedInterval::min_max).to_field_elements(fields);
+            (total_currency, ClosedInterval::min_max).to_field_elements(fields);
+            (global_slot_since_genesis, ClosedInterval::min_max).to_field_elements(fields);
+            staking_epoch_data.to_field_elements(fields);
+            next_epoch_data.to_field_elements(fields);
         }
     }
 
@@ -1829,6 +2023,51 @@ pub mod zkapp_command {
         }
     }
 
+    impl ToFieldElements<Fp> for AccountPreconditions {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let account = match self {
+                AccountPreconditions::Full(account) => MyCow::Borrow(&**account),
+                AccountPreconditions::Nonce(nonce) => {
+                    let mut account = Account::accept();
+                    account.nonce = Numeric::Check(ClosedInterval {
+                        lower: *nonce,
+                        upper: *nonce,
+                    });
+                    MyCow::Own(account)
+                }
+                AccountPreconditions::Accept => MyCow::Own(Account::accept()),
+            };
+
+            let Account {
+                balance,
+                nonce,
+                receipt_chain_hash,
+                delegate,
+                state,
+                action_state,
+                proved_state,
+                is_new,
+            } = account.as_ref();
+
+            (balance, ClosedInterval::min_max).to_field_elements(fields);
+            (nonce, ClosedInterval::min_max).to_field_elements(fields);
+            (receipt_chain_hash, Fp::zero).to_field_elements(fields);
+            (delegate, CompressedPubKey::empty).to_field_elements(fields);
+
+            state.iter().for_each(|s| {
+                (s, Fp::zero).to_field_elements(fields);
+            });
+
+            (action_state, || {
+                hash_noinputs("MinaZkappActionStateEmptyElt")
+            })
+                .to_field_elements(fields);
+
+            (proved_state, || false).to_field_elements(fields);
+            (is_new, || false).to_field_elements(fields);
+        }
+    }
+
     impl AccountPreconditions {
         pub fn nonce(&self) -> Numeric<Nonce> {
             match self {
@@ -1865,6 +2104,20 @@ pub mod zkapp_command {
         pub valid_while: Numeric<Slot>,
     }
 
+    impl ToFieldElements<Fp> for Preconditions {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self {
+                network,
+                account,
+                valid_while,
+            } = self;
+
+            network.to_field_elements(fields);
+            account.to_field_elements(fields);
+            (valid_while, ClosedInterval::min_max).to_field_elements(fields);
+        }
+    }
+
     impl ToInputs for Preconditions {
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_update.ml#L1148
         fn to_inputs(&self, inputs: &mut Inputs) {
@@ -1888,28 +2141,39 @@ pub mod zkapp_command {
         Proof(Fp), // hash
     }
 
-    impl ToInputs for AuthorizationKind {
-        /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_update.ml#L142
-        fn to_inputs(&self, inputs: &mut Inputs) {
+    impl AuthorizationKind {
+        fn to_structured(&self) -> ([bool; 2], Fp) {
             // bits: [is_signed, is_proved]
             let bits = match self {
                 AuthorizationKind::NoneGiven => [false, false],
                 AuthorizationKind::Signature => [true, false],
                 AuthorizationKind::Proof(_) => [false, true],
             };
-
-            for bit in bits {
-                inputs.append_bool(bit);
-            }
-
             let field = match self {
                 AuthorizationKind::NoneGiven | AuthorizationKind::Signature => {
                     VerificationKey::dummy().hash()
                 }
                 AuthorizationKind::Proof(hash) => *hash,
             };
+            (bits, field)
+        }
+    }
 
+    impl ToInputs for AuthorizationKind {
+        /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_update.ml#L142
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            let (bits, field) = self.to_structured();
+
+            for bit in bits {
+                inputs.append_bool(bit);
+            }
             inputs.append_field(field);
+        }
+    }
+
+    impl ToFieldElements<Fp> for AuthorizationKind {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            self.to_structured().to_field_elements(fields);
         }
     }
 
@@ -1929,6 +2193,74 @@ pub mod zkapp_command {
         pub implicit_account_creation_fee: bool,
         pub may_use_token: MayUseToken,
         pub authorization_kind: AuthorizationKind,
+    }
+
+    impl ToFieldElements<Fp> for Body {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self {
+                public_key,
+                token_id,
+                update,
+                balance_change,
+                increment_nonce,
+                events,
+                actions,
+                call_data,
+                preconditions,
+                use_full_commitment,
+                implicit_account_creation_fee,
+                may_use_token,
+                authorization_kind,
+            } = self;
+
+            public_key.to_field_elements(fields);
+            token_id.to_field_elements(fields);
+            update.to_field_elements(fields);
+            balance_change.to_field_elements(fields);
+            increment_nonce.to_field_elements(fields);
+            events.to_field_elements(fields);
+            actions.to_field_elements(fields);
+            call_data.to_field_elements(fields);
+            preconditions.to_field_elements(fields);
+            use_full_commitment.to_field_elements(fields);
+            implicit_account_creation_fee.to_field_elements(fields);
+            may_use_token.to_field_elements(fields);
+            authorization_kind.to_field_elements(fields);
+        }
+    }
+
+    impl crate::proofs::witness::Check<Fp> for Body {
+        fn check(&self, w: &mut Witness<Fp>) {
+            let Self {
+                public_key,
+                token_id,
+                update:
+                    Update {
+                        app_state,
+                        delegate,
+                        verification_key,
+                        permissions,
+                        zkapp_uri,
+                        token_symbol,
+                        timing,
+                        voting_for,
+                    },
+                balance_change,
+                increment_nonce,
+                events,
+                actions,
+                call_data,
+                preconditions,
+                use_full_commitment,
+                implicit_account_creation_fee,
+                may_use_token,
+                authorization_kind,
+            } = self;
+
+            (token_symbol, TokenSymbol::default).check(w);
+            (timing, Timing::dummy).check(w);
+            crate::proofs::witness::Check::check(balance_change, w);
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_update.ml#L1284
@@ -2019,19 +2351,29 @@ pub mod zkapp_command {
         pub fn inherit_from_parent(&self) -> bool {
             matches!(self, Self::InheritFromParent)
         }
+
+        fn to_bits(&self) -> [bool; 2] {
+            // [ parents_own_token; inherit_from_parent ]
+            match self {
+                MayUseToken::No => [false, false],
+                MayUseToken::ParentsOwnToken => [true, false],
+                MayUseToken::InheritFromParent => [false, true],
+            }
+        }
     }
 
     impl ToInputs for MayUseToken {
         fn to_inputs(&self, inputs: &mut Inputs) {
-            // [ parents_own_token; inherit_from_parent ]
-            let bits = match self {
-                MayUseToken::No => [false, false],
-                MayUseToken::ParentsOwnToken => [true, false],
-                MayUseToken::InheritFromParent => [false, true],
-            };
-
-            for bit in bits {
+            for bit in self.to_bits() {
                 inputs.append_bool(bit);
+            }
+        }
+    }
+
+    impl ToFieldElements<Fp> for MayUseToken {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            for bit in self.to_bits() {
+                bit.to_field_elements(fields);
             }
         }
     }
@@ -2563,6 +2905,10 @@ pub mod zkapp_command {
         // To work with the elements as if they were in the original order we need to iterate backwards
         pub fn iter(&self) -> impl Iterator<Item = &WithStackHash<AccUpdate>> {
             self.0.iter() //.rev()
+        }
+        // Warning: Update this if we ever change the order
+        pub fn first(&self) -> Option<&WithStackHash<AccUpdate>> {
+            self.0.first()
         }
 
         pub fn hash(&self) -> Fp {
@@ -4054,7 +4400,7 @@ pub mod protocol_state {
 }
 
 pub mod local_state {
-    use std::cell::RefCell;
+    use std::{cell::RefCell, rc::Rc};
 
     use ark_ff::Zero;
 
@@ -4062,6 +4408,7 @@ pub mod local_state {
         hash_with_kimchi,
         proofs::{
             numbers::nat::CheckedNat,
+            to_field_elements::ToFieldElements,
             witness::{field, Boolean, ToBoolean},
         },
         scan_state::currency::{Index, Signed},
@@ -4089,35 +4436,134 @@ pub mod local_state {
         pub calls: WithHash<CallForest<AccountUpdate>>,
     }
 
-    struct LazyValue<T> {
-        inner: RefCell<Option<T>>,
-        fun: RefCell<Option<Box<dyn FnOnce() -> T>>>,
+    impl ToFieldElements<Fp> for StackFrameCheckedFrame {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self {
+                caller,
+                caller_caller,
+                calls,
+            } = self;
+
+            // calls.hash().to_field_elements(fields);
+            calls.hash.to_field_elements(fields);
+            caller_caller.to_field_elements(fields);
+            caller.to_field_elements(fields);
+        }
     }
 
-    impl<T> LazyValue<T> {
+    enum LazyValueInner<T, D> {
+        Value(T),
+        Fun(Box<dyn FnOnce(&mut D) -> T>),
+        None,
+    }
+
+    impl<T, D> Default for LazyValueInner<T, D> {
+        fn default() -> Self {
+            Self::None
+        }
+    }
+
+    struct LazyValue<T, D> {
+        value: Rc<RefCell<LazyValueInner<T, D>>>,
+    }
+
+    impl<T, D> Clone for LazyValue<T, D> {
+        fn clone(&self) -> Self {
+            Self {
+                value: Rc::clone(&self.value),
+            }
+        }
+    }
+
+    impl<T: std::fmt::Debug, D> std::fmt::Debug for LazyValue<T, D> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let v = self.try_get();
+            f.debug_struct("LazyValue").field("value", &v).finish()
+        }
+    }
+
+    impl<T, D> LazyValue<T, D> {
         pub fn make<F>(fun: F) -> Self
         where
-            F: FnOnce() -> T + 'static,
+            F: FnOnce(&mut D) -> T + 'static,
         {
             Self {
-                inner: Default::default(),
-                fun: RefCell::new(Some(Box::new(fun))),
+                value: Rc::new(RefCell::new(LazyValueInner::Fun(Box::new(fun)))),
             }
         }
 
-        pub fn get(&self) -> std::cell::Ref<'_, T> {
+        fn get_impl(&self) -> std::cell::Ref<'_, T> {
             use std::cell::Ref;
 
-            if self.inner.borrow().is_none() {
-                self.inner
-                    .replace_with(|_| Some((self.fun.take().unwrap())()));
+            let inner = self.value.borrow();
+            Ref::map(inner, |inner| {
+                let LazyValueInner::Value(value) = inner else {
+                    panic!("invalid state");
+                };
+                value
+            })
+        }
+
+        /// Returns the value when it already has been "computed"
+        pub fn try_get(&self) -> Option<std::cell::Ref<'_, T>> {
+            let inner = self.value.borrow();
+
+            match &*inner {
+                LazyValueInner::Value(_) => {}
+                LazyValueInner::Fun(_) => return None,
+                LazyValueInner::None => panic!("invalid state"),
             }
-            Ref::map(self.inner.borrow(), |v| v.as_ref().unwrap())
+
+            Some(self.get_impl())
+        }
+
+        pub fn get(&self, data: &mut D) -> std::cell::Ref<'_, T> {
+            let v = self.value.borrow();
+
+            if let LazyValueInner::Fun(_) = &*v {
+                std::mem::drop(v);
+
+                let LazyValueInner::Fun(fun) = self.value.take() else {
+                    panic!("invalid state");
+                };
+
+                let data = fun(data);
+                self.value.replace(LazyValueInner::Value(data));
+            };
+
+            self.get_impl()
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct WithLazyHash<T> {
+        pub data: T,
+        hash: LazyValue<Fp, Witness<Fp>>,
+    }
+
+    impl<T> WithLazyHash<T> {
+        pub fn hash(&self, w: &mut Witness<Fp>) -> Fp {
+            *self.hash.get(w)
+        }
+    }
+
+    impl<T> std::ops::Deref for WithLazyHash<T> {
+        type Target = T;
+
+        fn deref(&self) -> &Self::Target {
+            &self.data
+        }
+    }
+
+    impl<T> ToFieldElements<Fp> for WithLazyHash<T> {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let hash = self.hash.try_get().expect("hash hasn't been computed yet");
+            hash.to_field_elements(fields)
         }
     }
 
     // https://github.com/MinaProtocol/mina/blob/78535ae3a73e0e90c5f66155365a934a15535779/src/lib/transaction_snark/transaction_snark.ml#L1083
-    pub type StackFrameChecked = WithHash<StackFrameCheckedFrame>;
+    pub type StackFrameChecked = WithLazyHash<StackFrameCheckedFrame>;
 
     impl Default for StackFrame {
         fn default() -> Self {
@@ -4161,6 +4607,12 @@ pub mod local_state {
         }
 
         pub fn unhash(&self, _h: Fp, w: &mut Witness<Fp>) -> StackFrameChecked {
+            let v = self.exists_elt(w);
+            v.hash(w);
+            v
+        }
+
+        pub fn exists_elt(&self, w: &mut Witness<Fp>) -> StackFrameChecked {
             // We decompose this way because of OCaml evaluation order
             let calls = WithHash {
                 data: self.calls.clone(),
@@ -4175,7 +4627,7 @@ pub mod local_state {
                 calls,
             };
 
-            StackFrameChecked::of_frame(frame, w)
+            StackFrameChecked::of_frame(frame)
         }
     }
 
@@ -4193,8 +4645,11 @@ pub mod local_state {
     }
 
     impl StackFrameChecked {
-        pub fn of_frame(frame: StackFrameCheckedFrame, w: &mut Witness<Fp>) -> Self {
-            let hash = frame.hash(w);
+        pub fn of_frame(frame: StackFrameCheckedFrame) -> Self {
+            // TODO: Don't clone here
+            let frame2 = frame.clone();
+            let hash = LazyValue::make(move |w: &mut Witness<Fp>| frame2.hash(w));
+
             Self { data: frame, hash }
         }
     }

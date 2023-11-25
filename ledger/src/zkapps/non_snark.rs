@@ -16,7 +16,7 @@ use crate::{
 };
 
 use super::intefaces::{
-    AmountInterface, CallForestInterface, CallStackInterface, IndexInterface,
+    AmountInterface, CallForestInterface, CallStackInterface, IndexInterface, Opt,
     SignedAmountInterface, StackFrameInterface, StackInterface, WitnessGenerator,
 };
 
@@ -76,20 +76,24 @@ impl StackFrameInterface for StackFrame {
     fn make(caller: TokenId, caller_caller: TokenId, calls: &Self::Calls, w: &mut Self::W) -> Self {
         todo!()
     }
+    fn on_if(self, w: &mut Self::W) -> Self {
+        self
+    }
 }
 
 impl StackInterface for CallStack {
     type Elt = StackFrame;
+    type W = ();
     fn empty() -> Self {
         todo!()
     }
-    fn is_empty(&self) -> Boolean {
+    fn is_empty(&self, w: &mut Self::W) -> Boolean {
         todo!()
     }
     fn pop_exn(&self) -> (Self::Elt, Self) {
         todo!()
     }
-    fn pop(&self) -> Option<(Self::Elt, Self)> {
+    fn pop(&self, w: &mut Self::W) -> Opt<(Self::Elt, Self)> {
         todo!()
     }
     fn push(&self, elt: Self::Elt) -> Self {
@@ -119,7 +123,7 @@ impl CallForestInterface for CallForest<AccountUpdate> {
     fn is_empty(&self, w: &mut Self::W) -> Boolean {
         todo!()
     }
-    fn pop_exn(&self) -> ((AccountUpdate, Self), Self) {
+    fn pop_exn(&self, w: &mut Self::W) -> ((AccountUpdate, Self), Self) {
         todo!()
     }
 }

@@ -169,8 +169,9 @@ mod tests {
                     mina_p2p_messages::v2::MinaBaseUserCommandStableV2::SignedCommand(_) => {
                         eprintln!("[{}] signed", index)
                     }
-                    mina_p2p_messages::v2::MinaBaseUserCommandStableV2::ZkappCommand(_) => {
-                        eprintln!("[{}] zkapp", index)
+                    mina_p2p_messages::v2::MinaBaseUserCommandStableV2::ZkappCommand(z) => {
+                        eprintln!("[{}] zkapp", index);
+                        eprintln!("zkapp {:#?}", z);
                     }
                 },
                 MinaTransactionTransactionStableV2::FeeTransfer(_) => {
@@ -194,10 +195,10 @@ mod tests {
                         mina_p2p_messages::v2::MinaBaseUserCommandStableV2::SignedCommand(cmd) => {
                             match &cmd.payload.body {
                                 mina_p2p_messages::v2::MinaBaseSignedCommandPayloadBodyStableV2::Payment(_) => false,
-                                mina_p2p_messages::v2::MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(_) => true,
+                                mina_p2p_messages::v2::MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(_) => false,
                             }
                         },
-                        mina_p2p_messages::v2::MinaBaseUserCommandStableV2::ZkappCommand(_) => false,
+                        mina_p2p_messages::v2::MinaBaseUserCommandStableV2::ZkappCommand(_) => true,
                     }
                 },
                 MinaTransactionTransactionStableV2::FeeTransfer(_) => false,
@@ -225,7 +226,7 @@ mod tests {
             let value = ExternalSnarkWorkerRequest::PerformJob(value);
 
             let mut file =
-                std::fs::File::create(format!("/tmp/stake_{}_rampup4.bin", index)).unwrap();
+                std::fs::File::create(format!("/tmp/zkapp_{}_rampup4.bin", index)).unwrap();
             write_binprot(value, &mut file);
             file.sync_all().unwrap();
         }
