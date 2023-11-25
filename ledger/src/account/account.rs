@@ -314,6 +314,42 @@ pub struct VerificationKey {
     pub wrap_vk: Option<()>,
 }
 
+impl ToFieldElements<Fp> for VerificationKey {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
+            max_proofs_verified,
+            actual_wrap_domain_size,
+            wrap_index:
+                PlonkVerificationKeyEvals {
+                    sigma,
+                    coefficients,
+                    generic,
+                    psm,
+                    complete_add,
+                    mul,
+                    emul,
+                    endomul_scalar,
+                },
+            wrap_vk: _,
+        } = self;
+
+        let max_proofs_verified = max_proofs_verified.to_int() as u64;
+        Fp::from(max_proofs_verified).to_field_elements(fields);
+
+        let actual_wrap_domain_size = actual_wrap_domain_size.to_int() as u64;
+        Fp::from(actual_wrap_domain_size).to_field_elements(fields);
+
+        sigma.to_field_elements(fields);
+        coefficients.to_field_elements(fields);
+        generic.to_field_elements(fields);
+        psm.to_field_elements(fields);
+        complete_add.to_field_elements(fields);
+        mul.to_field_elements(fields);
+        emul.to_field_elements(fields);
+        endomul_scalar.to_field_elements(fields);
+    }
+}
+
 impl ToInputs for VerificationKey {
     fn to_inputs(&self, inputs: &mut Inputs) {
         let Self {
@@ -594,7 +630,20 @@ impl PartialOrd for AccountId {
     }
 }
 
+impl ToInputs for AccountId {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let Self {
+            public_key,
+            token_id,
+        } = self;
+        inputs.append(public_key);
+        inputs.append(token_id);
+    }
+}
+
 impl AccountId {
+    pub const DERIVE_TOKEN_ID_HASH_PARAM: &'static str = "MinaDeriveTokenId";
+
     pub fn empty() -> Self {
         Self {
             public_key: CompressedPubKey::empty(),
@@ -607,13 +656,14 @@ impl AccountId {
     }
 
     pub fn derive_token_id(&self) -> TokenId {
+        // TODO: Use `ToInputs`
         let is_odd_field = match self.public_key.is_odd {
             true => Fp::one(),
             false => Fp::zero(),
         };
 
         TokenId(hash_with_kimchi(
-            "MinaDeriveTokenId",
+            Self::DERIVE_TOKEN_ID_HASH_PARAM,
             &[self.public_key.x, self.token_id.0, is_odd_field],
         ))
     }

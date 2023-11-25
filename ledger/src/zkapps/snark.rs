@@ -1,5 +1,6 @@
 use ark_ff::Zero;
 use mina_hasher::Fp;
+use mina_signer::CompressedPubKey;
 
 use crate::{
     proofs::{
@@ -13,18 +14,25 @@ use crate::{
             Witness,
         },
         zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash},
+        zkapp_logic,
     },
     scan_state::transaction_logic::{
         local_state::{StackFrame, StackFrameChecked, StackFrameCheckedFrame},
-        zkapp_command::{AccountUpdate, CallForest, WithHash},
+        zkapp_command::{
+            AccountUpdate, AccountUpdateSkeleton, CallForest, Tree, WithHash,
+            ACCOUNT_UPDATE_CONS_HASH_PARAM,
+        },
+        TransactionFailure,
     },
-    MyCow, TokenId,
+    Account, AccountId, MyCow, ToInputs, TokenId, VerificationKey,
 };
 
 use super::intefaces::{
-    AmountInterface, CallForestInterface, CallStackInterface, GlobalSlotSinceGenesisInterface,
-    GlobalStateInterface, IndexInterface, Opt, SignedAmountInterface, StackFrameInterface,
-    StackInterface, WitnessGenerator,
+    AccountIdInterface, AccountUpdateInterface, AmountInterface, BoolInterface,
+    CallForestInterface, CallStackInterface, GlobalSlotSinceGenesisInterface, GlobalStateInterface,
+    IndexInterface, LedgerInterface, LocalStateInterface, Opt, SignedAmountInterface,
+    StackFrameInterface, StackFrameMakeParams, StackInterface, TokenIdInterface,
+    TransactionCommitmentInterface, WitnessGenerator, ZkappSnark,
 };
 
 use super::intefaces::WitnessGenerator as W;
@@ -87,8 +95,13 @@ impl AmountInterface for CheckedAmount<Fp> {
     }
 }
 
-impl CallForestInterface for WithHash<CallForest<AccountUpdate>> {
+type SnarkAccountUpdate =
+    AccountUpdateSkeleton<WithHash<crate::scan_state::transaction_logic::zkapp_command::Body>>;
+type SnarkCallForest = WithHash<CallForest<AccountUpdate>>;
+
+impl CallForestInterface for SnarkCallForest {
     type W = Witness<Fp>;
+    type AccountUpdate = SnarkAccountUpdate;
 
     fn empty() -> Self {
         WithHash {
@@ -101,76 +114,88 @@ impl CallForestInterface for WithHash<CallForest<AccountUpdate>> {
         let empty = Fp::zero();
         field::equal(empty, *hash, w)
     }
-    fn pop_exn(&self, w: &mut Self::W) -> ((AccountUpdate, Self), Self) {
+    fn pop_exn(&self, w: &mut Self::W) -> ((Self::AccountUpdate, Self), Self) {
         let Self { data, hash } = self;
-
         let hd_r = &data.first().unwrap().elt;
         let account_update = &hd_r.account_update;
         let auth = &account_update.authorization;
+        let account_update = w.exists(&account_update.body);
+        let account_update = {
+            let hash = account_update.checked_hash_with_param(AccountUpdate::HASH_PARAM, w);
+            WithHash {
+                data: account_update.clone(),
+                hash,
+            }
+        };
+        let subforest = {
+            let subforest = &hd_r.calls;
+            let subforest_hash = w.exists(subforest.hash());
+            WithHash {
+                data: subforest.clone(),
+                hash: subforest_hash,
+            }
+        };
+        let tl_hash = w.exists(match data.tail().unwrap() {
+            [] => Fp::zero(),
+            [x, ..] => x.stack_hash,
+        });
+        let tree_hash = [account_update.hash, subforest.hash]
+            .checked_hash_with_param(Tree::<AccountUpdate>::HASH_PARAM, w);
+        let hash_cons =
+            [tree_hash, tl_hash].checked_hash_with_param(ACCOUNT_UPDATE_CONS_HASH_PARAM, w);
+        let account = Self::AccountUpdate {
+            body: account_update,
+            authorization: auth.clone(),
+        };
 
-        w.exists(&account_update.body);
+        let popped: (Self::AccountUpdate, Self) = (account, subforest);
+        let tail: Self = WithHash {
+            data: CallForest(data.tail().unwrap().to_vec()),
+            hash: tl_hash,
+        };
 
-        // let pop_exn ({ hash = h; data = r } : t) : (account_update * t) * t =
-        //   with_label "Zkapp_call_forest.pop_exn" (fun () ->
-        //       let hd_r =
-        //         V.create (fun () -> V.get r |> List.hd_exn |> With_stack_hash.elt)
-        //       in
-        //       let account_update = V.create (fun () -> (V.get hd_r).account_update) in
-        //       let auth =
-        //         V.(create (fun () -> (V.get account_update).authorization))
-        //       in
-        //       let account_update =
-        //         exists (Account_update.Body.typ ()) ~compute:(fun () ->
-        //             (V.get account_update).body )
-        //       in
-        //       let account_update =
-        //         With_hash.of_data account_update
-        //           ~hash_data:Zkapp_command.Digest.Account_update.Checked.create
-        //       in
-        //       let subforest : t =
-        //         let subforest = V.create (fun () -> (V.get hd_r).calls) in
-        //         let subforest_hash =
-        //           exists Zkapp_command.Digest.Forest.typ ~compute:(fun () ->
-        //               Zkapp_command.Call_forest.hash (V.get subforest) )
-        //         in
-        //         { hash = subforest_hash; data = subforest }
-        //       in
-        //       let tl_hash =
-        //         exists Zkapp_command.Digest.Forest.typ ~compute:(fun () ->
-        //             V.get r |> List.tl_exn |> Zkapp_command.Call_forest.hash )
-        //       in
-        //       let tree_hash =
-        //         Zkapp_command.Digest.Tree.Checked.create
-        //           ~account_update:account_update.hash ~calls:subforest.hash
-        //       in
-        //       let hash_cons =
-        //         Zkapp_command.Digest.Forest.Checked.cons tree_hash tl_hash
-        //       in
-        //       F.Assert.equal hash_cons h ;
-        //       ( ( ({ account_update; control = auth }, subforest)
-        //         , { hash = tl_hash
-        //           ; data = V.(create (fun () -> List.tl_exn (get r)))
-        //           } )
-        //         : (account_update * t) * t ) )
-
-        todo!()
+        (popped, tail)
     }
 }
 
 impl StackFrameInterface for StackFrameChecked {
-    type Calls = WithHash<CallForest<AccountUpdate>>;
+    type Calls = SnarkCallForest;
     type W = Witness<Fp>;
 
     fn caller(&self) -> crate::TokenId {
-        todo!()
+        let Self {
+            data:
+                StackFrameCheckedFrame {
+                    caller,
+                    caller_caller: _,
+                    calls: _,
+                },
+            ..
+        } = self;
+        caller.clone()
     }
     fn caller_caller(&self) -> crate::TokenId {
-        todo!()
+        let Self {
+            data:
+                StackFrameCheckedFrame {
+                    caller: _,
+                    caller_caller,
+                    calls: _,
+                },
+            ..
+        } = self;
+        caller_caller.clone()
     }
     fn calls(&self) -> &Self::Calls {
         &self.calls
     }
-    fn make(caller: TokenId, caller_caller: TokenId, calls: &Self::Calls, w: &mut Self::W) -> Self {
+    fn make(params: StackFrameMakeParams<'_, Self::Calls>, w: &mut Self::W) -> Self {
+        let StackFrameMakeParams {
+            caller,
+            caller_caller,
+            calls,
+        } = params;
+
         let frame = StackFrameCheckedFrame {
             caller,
             caller_caller,
@@ -185,6 +210,7 @@ impl StackFrameInterface for StackFrameChecked {
     }
 }
 
+/// Call_stack_digest.Checked.cons
 fn call_stack_digest_checked_cons(h: Fp, t: Fp, w: &mut Witness<Fp>) -> Fp {
     checked_hash("MinaActUpStckFrmCons", &[h, t], w)
 }
@@ -239,8 +265,37 @@ impl StackInterface for WithHash<Vec<WithStackHash<WithHash<StackFrame>>>> {
             ),
         }
     }
-    fn push(&self, elt: Self::Elt) -> Self {
-        todo!()
+    fn push(elt: Self::Elt, onto: Self, w: &mut Self::W) -> Self {
+        let Self {
+            data: r_tl,
+            hash: h_tl,
+        } = onto;
+
+        let h = call_stack_digest_checked_cons(elt.hash(w), h_tl, w);
+
+        let r = {
+            let hd = {
+                let frame = elt;
+                let hash = frame.hash(w);
+                let data = StackFrame {
+                    caller: frame.data.caller,
+                    caller_caller: frame.data.caller_caller,
+                    calls: frame.data.calls.data,
+                };
+                WithHash { data, hash }
+            };
+            let tl = r_tl;
+
+            [WithStackHash {
+                elt: hd,
+                stack_hash: h,
+            }]
+            .into_iter()
+            .chain(tl)
+            .collect::<Vec<_>>()
+        };
+
+        Self { data: r, hash: h }
     }
 }
 impl CallStackInterface for WithHash<Vec<WithStackHash<WithHash<StackFrame>>>> {
@@ -289,6 +344,262 @@ impl GlobalSlotSinceGenesisInterface for CheckedSlot<Fp> {
         todo!()
     }
     fn equal(&self, other: &Self) -> Boolean {
+        todo!()
+    }
+}
+
+impl AccountUpdateInterface for SnarkAccountUpdate {
+    fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body {
+        let Self {
+            body,
+            authorization: _,
+        } = self;
+        let WithHash { data, hash: _ } = body;
+        data
+    }
+
+    fn set(&mut self, new: Self) {
+        *self = new;
+    }
+}
+
+impl LocalStateInterface for zkapp_logic::LocalState<ZkappSnark> {
+    type Z = ZkappSnark;
+    type W = Witness<Fp>;
+
+    fn add_check(
+        local: &mut zkapp_logic::LocalState<Self::Z>,
+        failure: TransactionFailure,
+        b: Boolean,
+        w: &mut Self::W,
+    ) {
+        local.success = local.success.and(&b, w);
+    }
+
+    fn add_new_failure_status_bucket(self) -> Self {
+        todo!()
+    }
+}
+
+pub enum FlaggedOption<T> {
+    Some(T),
+    None,
+}
+
+impl<T> From<Option<T>> for FlaggedOption<T> {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(v) => Self::Some(v),
+            None => Self::None,
+        }
+    }
+}
+
+impl<T, F> ToFieldElements<Fp> for (FlaggedOption<&T>, F)
+where
+    T: ToFieldElements<Fp>,
+    F: Fn() -> T,
+{
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let (or_ignore, default_fn) = self;
+
+        match or_ignore {
+            FlaggedOption::Some(this) => {
+                Boolean::True.to_field_elements(fields);
+                this.to_field_elements(fields);
+            }
+            FlaggedOption::None => {
+                Boolean::False.to_field_elements(fields);
+                let default = default_fn();
+                default.to_field_elements(fields);
+            }
+        };
+    }
+}
+
+impl<T, F> Check<Fp> for (FlaggedOption<T>, F)
+where
+    T: Check<Fp>,
+    F: Fn() -> T,
+{
+    fn check(&self, w: &mut Witness<Fp>) {
+        let (or_ignore, default_fn) = self;
+        let value = match or_ignore {
+            FlaggedOption::Some(this) => MyCow::Borrow(this),
+            FlaggedOption::None => MyCow::Own(default_fn()),
+        };
+        crate::proofs::witness::Check::check(&*value, w);
+    }
+}
+
+// dummy_vk_hash
+
+pub struct AccountUnhashed(Box<Account>);
+
+impl ToFieldElements<Fp> for AccountUnhashed {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        use crate::{ReceiptChainHash, VotingFor};
+
+        let Account {
+            public_key,
+            token_id: TokenId(token_id),
+            token_symbol,
+            balance,
+            nonce,
+            receipt_chain_hash: ReceiptChainHash(receipt_chain_hash),
+            delegate,
+            voting_for: VotingFor(voting_for),
+            timing,
+            permissions,
+            zkapp,
+        } = &*self.0;
+
+        // Important: Any changes here probably needs the same changes in `Account`
+        public_key.to_field_elements(fields);
+        token_id.to_field_elements(fields);
+        token_symbol.to_field_elements(fields);
+        balance.to_field_elements(fields);
+        nonce.to_field_elements(fields);
+        receipt_chain_hash.to_field_elements(fields);
+        let delegate = MyCow::borrow_or_else(delegate, CompressedPubKey::empty);
+        delegate.to_field_elements(fields);
+        voting_for.to_field_elements(fields);
+        timing.to_field_elements(fields);
+        permissions.to_field_elements(fields);
+
+        let zkapp = MyCow::borrow_or_default(zkapp);
+        let crate::ZkAppAccount {
+            app_state,
+            verification_key,
+            zkapp_version,
+            action_state,
+            last_action_slot,
+            proved_state,
+            zkapp_uri,
+        } = &*zkapp;
+
+        // app_state.to_field_elements(fields);
+
+        // (FlaggedOption::from(verification_key.as_ref()), VerificationKey::dummy).to_field_elements(fields);
+
+        // verification_key.to_field_elements(fields);
+    }
+}
+
+impl LedgerInterface for LedgerWithHash {
+    type W = Witness<Fp>;
+    type AccountUpdate = SnarkAccountUpdate;
+    type InclusionProof = Vec<(Boolean, Fp)>;
+
+    fn empty() -> Self {
+        todo!()
+    }
+
+    fn get_account(
+        &self,
+        account_update: &Self::AccountUpdate,
+        w: &mut Self::W,
+    ) -> (Account, Self::InclusionProof) {
+        let Self { ledger, hash: root } = self;
+
+        let idx = ledger.find_index_exn(account_update.body.account_id());
+        let account = w.exists_no_check(AccountUnhashed(ledger.get_exn(&idx)));
+
+        // let get_account { account_update; _ } ((_root, ledger) : t) =
+        //   let idx =
+        //     V.map ledger ~f:(fun l -> idx l (body_id account_update.data))
+        //   in
+        //   let account =
+        //     exists Mina_base.Account.Checked.Unhashed.typ
+        //       ~compute:(fun () ->
+        //         Sparse_ledger.get_exn (V.get ledger) (V.get idx) )
+        //   in
+        //   let account = Account.account_with_hash account in
+        //   let incl =
+        //     exists
+        //       Typ.(
+        //         list ~length:constraint_constants.ledger_depth
+        //           (Boolean.typ * field))
+        //       ~compute:(fun () ->
+        //         List.map
+        //           (Sparse_ledger.path_exn (V.get ledger) (V.get idx))
+        //           ~f:(fun x ->
+        //             match x with
+        //             | `Left h ->
+        //                 (false, h)
+        //             | `Right h ->
+        //                 (true, h) ) )
+        //   in
+        //   (account, incl)
+
+        todo!()
+    }
+
+    fn set_account(&mut self, account: (crate::Account, Self::InclusionProof), w: &mut Self::W) {
+        todo!()
+    }
+
+    fn check_inclusion(&self, account: &(crate::Account, Self::InclusionProof), w: &mut Self::W) {
+        todo!()
+    }
+
+    fn check_account(
+        public_key: &mina_signer::CompressedPubKey,
+        token_id: &TokenId,
+        account: &(crate::Account, Self::InclusionProof),
+        w: &mut Self::W,
+    ) -> Boolean {
+        todo!()
+    }
+}
+
+pub struct SnarkAccountId;
+pub struct SnarkTokenId;
+pub struct SnarkBool;
+pub struct SnarkTransactionCommitment;
+
+impl AccountIdInterface for SnarkAccountId {
+    type W = Witness<Fp>;
+
+    fn derive_token_id(account_id: &AccountId, w: &mut Self::W) -> TokenId {
+        TokenId(account_id.checked_hash_with_param(AccountId::DERIVE_TOKEN_ID_HASH_PARAM, w))
+    }
+}
+
+impl TokenIdInterface for SnarkTokenId {
+    type W = Witness<Fp>;
+
+    fn equal(a: &TokenId, b: &TokenId, w: &mut Self::W) -> Boolean {
+        field::equal(a.0, b.0, w)
+    }
+}
+
+impl BoolInterface for SnarkBool {
+    type W = Witness<Fp>;
+
+    fn or(a: Boolean, b: Boolean, w: &mut Self::W) -> Boolean {
+        a.or(&b, w)
+    }
+
+    fn and(a: Boolean, b: Boolean, w: &mut Self::W) -> Boolean {
+        a.and(&b, w)
+    }
+}
+
+impl TransactionCommitmentInterface for SnarkTransactionCommitment {
+    type AccountUpdate = SnarkAccountUpdate;
+    type CallForest = SnarkCallForest;
+    type W = Witness<Fp>;
+
+    fn commitment(account_updates: &Self::CallForest, w: &mut Self::W) -> Fp {
+        todo!()
+    }
+
+    fn full_commitment(
+        account_updates: &Self::AccountUpdate,
+        memo_hash: Fp,
+        w: &mut Self::W,
+    ) -> Fp {
         todo!()
     }
 }

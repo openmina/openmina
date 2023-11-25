@@ -8,6 +8,7 @@ use mina_signer::{CompressedPubKey, CurvePoint, Keypair, PubKey};
 mod backtrace;
 mod time;
 
+use crate::proofs::{to_field_elements::ToFieldElements, witness::FieldWitness};
 pub use crate::util::backtrace::*;
 pub use time::*;
 
@@ -128,6 +129,18 @@ impl<'a, T> MyCow<'a, T> {
     }
 }
 
+impl<'a, T> MyCow<'a, T>
+where
+    T: ToOwned<Owned = T>,
+{
+    pub fn to_owned(self) -> T {
+        match self {
+            MyCow::Borrow(v) => v.to_owned(),
+            MyCow::Own(v) => v,
+        }
+    }
+}
+
 impl<'a, T> std::ops::Deref for MyCow<'a, T> {
     type Target = T;
 
@@ -142,6 +155,17 @@ impl<'a, T> AsRef<T> for MyCow<'a, T> {
             MyCow::Borrow(v) => v,
             MyCow::Own(v) => v,
         }
+    }
+}
+
+impl<'a, F, T> ToFieldElements<F> for MyCow<'a, T>
+where
+    F: FieldWitness,
+    T: ToFieldElements<F>,
+{
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let this: &T = &*self;
+        this.to_field_elements(fields);
     }
 }
 

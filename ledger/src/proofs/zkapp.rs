@@ -927,8 +927,8 @@ fn check_protocol_state(params: CheckProtocolStateParams, w: &mut Witness<Fp>) {
 /// With root hash
 #[derive(Clone)]
 pub struct LedgerWithHash {
-    ledger: SparseLedger,
-    hash: Fp,
+    pub ledger: SparseLedger,
+    pub hash: Fp,
 }
 
 impl ToFieldElements<Fp> for LedgerWithHash {
@@ -1006,7 +1006,7 @@ fn zkapp_main(
             block_global_slot: block_global_slot.clone(),
         };
 
-        let l = LocalStateForProof {
+        let l = zkapp_logic::LocalState::<ZkappSnark> {
             stack_frame: witness
                 .local_state_init
                 .stack_frame
@@ -1048,7 +1048,7 @@ fn zkapp_main(
             Skip,
         }
 
-        let mut finish = |v: StartOrSkip<&StartData>| {
+        let mut finish = |v: StartOrSkip<&StartData>, acc| {
             let ps = match v {
                 StartOrSkip::Skip => CallForest::empty(),
                 StartOrSkip::Start(p) => p.account_updates.all_account_updates(),
@@ -1086,13 +1086,7 @@ fn zkapp_main(
 
                 let handler = zkapp_logic::Handler { perform };
 
-                zkapp_logic::apply::<ZkappSnark>(
-                    constraint_constants,
-                    is_start,
-                    &handler,
-                    acc.clone(),
-                    w,
-                );
+                zkapp_logic::apply::<ZkappSnark>(constraint_constants, is_start, &handler, acc, w);
             }
         };
 
@@ -1128,7 +1122,7 @@ fn zkapp_main(
                         }
                     }
                 };
-                finish(v);
+                finish(v, acc);
             }
             IsStart::Yes => todo!(),
         };

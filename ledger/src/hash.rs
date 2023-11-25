@@ -269,6 +269,14 @@ impl ToInputs for Fp {
     }
 }
 
+impl ToInputs for [Fp; 2] {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let [a, b] = self;
+        inputs.append(a);
+        inputs.append(b);
+    }
+}
+
 impl ToInputs for CompressedPubKey {
     fn to_inputs(&self, inputs: &mut Inputs) {
         inputs.append_field(self.x);

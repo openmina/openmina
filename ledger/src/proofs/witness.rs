@@ -1134,6 +1134,7 @@ impl<F: FieldWitness> ToFieldElements<F> for Box<Account> {
             zkapp,
         } = &**self;
 
+        // Important: Any changes here probably needs the same changes in `AccountUnhashed`
         public_key.to_field_elements(fields);
         token_id.to_field_elements(fields);
         token_symbol.to_field_elements(fields);

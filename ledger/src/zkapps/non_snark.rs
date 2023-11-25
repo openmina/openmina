@@ -16,8 +16,9 @@ use crate::{
 };
 
 use super::intefaces::{
-    AmountInterface, CallForestInterface, CallStackInterface, IndexInterface, Opt,
-    SignedAmountInterface, StackFrameInterface, StackInterface, WitnessGenerator,
+    AccountUpdateInterface, AmountInterface, CallForestInterface, CallStackInterface,
+    IndexInterface, Opt, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
+    StackInterface, WitnessGenerator,
 };
 
 impl<F: FieldWitness> WitnessGenerator<F> for () {
@@ -73,7 +74,7 @@ impl StackFrameInterface for StackFrame {
     fn calls(&self) -> &CallForest<AccountUpdate> {
         todo!()
     }
-    fn make(caller: TokenId, caller_caller: TokenId, calls: &Self::Calls, w: &mut Self::W) -> Self {
+    fn make(params: StackFrameMakeParams<'_, Self::Calls>, w: &mut Self::W) -> Self {
         todo!()
     }
     fn on_if(self, w: &mut Self::W) -> Self {
@@ -96,7 +97,7 @@ impl StackInterface for CallStack {
     fn pop(&self, w: &mut Self::W) -> Opt<(Self::Elt, Self)> {
         todo!()
     }
-    fn push(&self, elt: Self::Elt) -> Self {
+    fn push(elt: Self::Elt, onto: Self, w: &mut Self::W) -> Self {
         todo!()
     }
 }
@@ -116,6 +117,7 @@ impl IndexInterface for Index {
 
 impl CallForestInterface for CallForest<AccountUpdate> {
     type W = ();
+    type AccountUpdate = AccountUpdate;
 
     fn empty() -> Self {
         todo!()
@@ -124,6 +126,20 @@ impl CallForestInterface for CallForest<AccountUpdate> {
         todo!()
     }
     fn pop_exn(&self, w: &mut Self::W) -> ((AccountUpdate, Self), Self) {
+        todo!()
+    }
+}
+
+impl AccountUpdateInterface for AccountUpdate {
+    fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body {
+        let Self {
+            body,
+            authorization: _,
+        } = self;
+        body
+    }
+
+    fn set(&mut self, new: Self) {
         todo!()
     }
 }

@@ -1,15 +1,20 @@
 use mina_hasher::Fp;
+use mina_signer::CompressedPubKey;
 
 use crate::proofs::numbers::currency::{CheckedAmount, CheckedSigned};
 use crate::proofs::numbers::nat::{CheckedIndex, CheckedSlot};
 use crate::proofs::to_field_elements::ToFieldElements;
 use crate::proofs::witness::{Boolean, Check, FieldWitness, Witness};
 use crate::proofs::zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash};
+use crate::proofs::zkapp_logic;
 use crate::scan_state::currency;
 use crate::scan_state::transaction_logic::local_state::{StackFrame, StackFrameChecked};
-use crate::scan_state::transaction_logic::zkapp_command::{AccountUpdate, CallForest, WithHash};
+use crate::scan_state::transaction_logic::zkapp_command::{
+    AccountUpdate, AccountUpdateSkeleton, CallForest, WithHash,
+};
+use crate::scan_state::transaction_logic::TransactionFailure;
 use crate::sparse_ledger::LedgerIntf;
-use crate::TokenId;
+use crate::{Account, AccountId, TokenId};
 
 pub trait WitnessGenerator<F: FieldWitness> {
     fn exists<T>(&mut self, data: T) -> T
@@ -22,6 +27,8 @@ pub trait WitnessGenerator<F: FieldWitness> {
 }
 
 use WitnessGenerator as W;
+
+use super::snark::{SnarkAccountId, SnarkBool, SnarkTokenId, SnarkTransactionCommitment};
 
 pub struct Opt<T> {
     pub is_some: Boolean,
@@ -115,10 +122,17 @@ where
     Self: Sized,
 {
     type W: WitnessGenerator<Fp>;
+    type AccountUpdate: AccountUpdateInterface;
 
     fn empty() -> Self;
     fn is_empty(&self, w: &mut Self::W) -> Boolean;
-    fn pop_exn(&self, w: &mut Self::W) -> ((AccountUpdate, Self), Self);
+    fn pop_exn(&self, w: &mut Self::W) -> ((Self::AccountUpdate, Self), Self);
+}
+
+pub struct StackFrameMakeParams<'a, Calls> {
+    pub caller: TokenId,
+    pub caller_caller: TokenId,
+    pub calls: &'a Calls,
 }
 
 pub trait StackFrameInterface {
@@ -128,7 +142,7 @@ pub trait StackFrameInterface {
     fn caller(&self) -> TokenId;
     fn caller_caller(&self) -> TokenId;
     fn calls(&self) -> &Self::Calls;
-    fn make(caller: TokenId, caller_caller: TokenId, calls: &Self::Calls, w: &mut Self::W) -> Self;
+    fn make(params: StackFrameMakeParams<'_, Self::Calls>, w: &mut Self::W) -> Self;
     fn on_if(self, w: &mut Self::W) -> Self;
 }
 
@@ -143,7 +157,7 @@ where
     fn is_empty(&self, w: &mut Self::W) -> Boolean;
     fn pop_exn(&self) -> (Self::Elt, Self);
     fn pop(&self, w: &mut Self::W) -> Opt<(Self::Elt, Self)>;
-    fn push(&self, elt: Self::Elt) -> Self;
+    fn push(elt: Self::Elt, onto: Self, w: &mut Self::W) -> Self;
 }
 
 pub trait CallStackInterface
@@ -169,18 +183,115 @@ pub trait GlobalStateInterface {
     fn supply_increase(&self) -> Self::SignedAmount;
 }
 
+pub trait LocalStateInterface {
+    type Z: ZkappApplication;
+    type W: WitnessGenerator<Fp>;
+
+    fn add_check(
+        local: &mut zkapp_logic::LocalState<Self::Z>,
+        failure: TransactionFailure,
+        b: Boolean,
+        w: &mut Self::W,
+    );
+    fn add_new_failure_status_bucket(self) -> Self;
+}
+
+pub trait AccountUpdateInterface
+where
+    Self: Sized,
+{
+    // Only difference in our Rust code is the `WithHash`
+    fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body;
+    fn set(&mut self, new: Self);
+}
+
+pub trait AccountIdInterface
+where
+    Self: Sized,
+{
+    type W: WitnessGenerator<Fp>;
+
+    fn derive_token_id(account_id: &AccountId, w: &mut Self::W) -> TokenId;
+}
+
+pub trait TokenIdInterface
+where
+    Self: Sized,
+{
+    type W: WitnessGenerator<Fp>;
+
+    fn equal(a: &TokenId, b: &TokenId, w: &mut Self::W) -> Boolean;
+}
+
+pub trait BoolInterface {
+    type W: WitnessGenerator<Fp>;
+
+    fn or(a: Boolean, b: Boolean, w: &mut Self::W) -> Boolean;
+    fn and(a: Boolean, b: Boolean, w: &mut Self::W) -> Boolean;
+}
+
+pub trait TransactionCommitmentInterface {
+    type AccountUpdate: AccountUpdateInterface;
+    type CallForest: CallForestInterface;
+    type W: WitnessGenerator<Fp>;
+
+    fn commitment(account_updates: &Self::CallForest, w: &mut Self::W) -> Fp;
+    fn full_commitment(account_updates: &Self::AccountUpdate, memo_hash: Fp, w: &mut Self::W)
+        -> Fp;
+}
+
+pub trait LedgerInterface {
+    type W: WitnessGenerator<Fp>;
+    type AccountUpdate: AccountUpdateInterface;
+    type InclusionProof;
+
+    fn empty() -> Self;
+    fn get_account(
+        &self,
+        account_update: &Self::AccountUpdate,
+        w: &mut Self::W,
+    ) -> (Account, Self::InclusionProof);
+    fn set_account(&mut self, account: (Account, Self::InclusionProof), w: &mut Self::W);
+    fn check_inclusion(&self, account: &(Account, Self::InclusionProof), w: &mut Self::W);
+    fn check_account(
+        public_key: &CompressedPubKey,
+        token_id: &TokenId,
+        account: &(Account, Self::InclusionProof),
+        w: &mut Self::W,
+    ) -> Boolean;
+}
+
 pub trait ZkappApplication {
-    type Ledger: LedgerIntf + Clone + ToFieldElements<Fp>;
+    type Ledger: LedgerIntf
+        + Clone
+        + ToFieldElements<Fp>
+        + LedgerInterface<W = Self::WitnessGenerator, AccountUpdate = Self::AccountUpdate>;
     type SignedAmount: SignedAmountInterface;
     type Amount: AmountInterface;
     type Index: IndexInterface;
     type GlobalSlotSinceGenesis: GlobalSlotSinceGenesisInterface;
     type StackFrame: StackFrameInterface<W = Self::WitnessGenerator, Calls = Self::CallForest>
-        + ToFieldElements<Fp>;
-    type CallForest: CallForestInterface<W = Self::WitnessGenerator>;
+        + ToFieldElements<Fp>
+        + Clone;
+    type CallForest: CallForestInterface<
+        W = Self::WitnessGenerator,
+        AccountUpdate = Self::AccountUpdate,
+    >;
     type CallStack: CallStackInterface<W = Self::WitnessGenerator, Elt = Self::StackFrame>
-        + ToFieldElements<Fp>;
+        + ToFieldElements<Fp>
+        + Clone;
     type GlobalState: GlobalStateInterface<Ledger = Self::Ledger, SignedAmount = Self::SignedAmount>;
+    type AccountUpdate: AccountUpdateInterface;
+    type AccountId: AccountIdInterface<W = Self::WitnessGenerator>;
+    type TokenId: TokenIdInterface<W = Self::WitnessGenerator>;
+    type Bool: BoolInterface<W = Self::WitnessGenerator>;
+    type TransactionCommitment: TransactionCommitmentInterface<
+        W = Self::WitnessGenerator,
+        AccountUpdate = Self::AccountUpdate,
+        CallForest = Self::CallForest,
+    >;
+    type FailureStatusTable;
+    type LocalState: LocalStateInterface<W = Self::WitnessGenerator, Z = Self>;
     type WitnessGenerator: WitnessGenerator<Fp>;
 }
 
@@ -196,6 +307,13 @@ impl ZkappApplication for ZkappSnark {
     type CallForest = WithHash<CallForest<AccountUpdate>>;
     type CallStack = WithHash<Vec<WithStackHash<WithHash<StackFrame>>>>;
     type GlobalState = GlobalStateForProof;
+    type AccountUpdate =
+        AccountUpdateSkeleton<WithHash<crate::scan_state::transaction_logic::zkapp_command::Body>>;
+    type AccountId = SnarkAccountId;
+    type TokenId = SnarkTokenId;
+    type Bool = SnarkBool;
+    type TransactionCommitment = SnarkTransactionCommitment;
+    type FailureStatusTable = ();
+    type LocalState = zkapp_logic::LocalState<Self>;
     type WitnessGenerator = Witness<Fp>;
 }
-// WithHash<CallForest<AccountUpdate>>
