@@ -846,7 +846,7 @@ pub mod zkapp_command {
         account, dummy, gen_compressed, gen_keypair, hash_noinputs, hash_with_kimchi,
         proofs::{
             to_field_elements::ToFieldElements,
-            witness::{Boolean, ToBoolean},
+            witness::{Boolean, Check, ToBoolean},
         },
         scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
         AuthRequired, ControlTag, Inputs, MyCow, Permissions, ToInputs, TokenSymbol,
@@ -1034,7 +1034,7 @@ pub mod zkapp_command {
         }
     }
 
-    impl crate::proofs::witness::Check<Fp> for Timing {
+    impl Check<Fp> for Timing {
         fn check(&self, w: &mut Witness<Fp>) {
             let Self {
                 initial_minimum_balance,
@@ -1044,13 +1044,11 @@ pub mod zkapp_command {
                 vesting_increment,
             } = self;
 
-            use crate::proofs::witness::Check;
-
-            Check::check(&initial_minimum_balance, w);
-            Check::check(&cliff_time, w);
-            Check::check(&cliff_amount, w);
-            Check::check(&vesting_period, w);
-            Check::check(&vesting_increment, w);
+            initial_minimum_balance.check(w);
+            cliff_time.check(w);
+            cliff_amount.check(w);
+            vesting_period.check(w);
+            vesting_increment.check(w);
         }
     }
 
@@ -1230,9 +1228,9 @@ pub mod zkapp_command {
         }
     }
 
-    impl<T, F> crate::proofs::witness::Check<Fp> for (&SetOrKeep<T>, F)
+    impl<T, F> Check<Fp> for (&SetOrKeep<T>, F)
     where
-        T: crate::proofs::witness::Check<Fp>,
+        T: Check<Fp>,
         T: Clone,
         F: Fn() -> T,
     {
@@ -1242,7 +1240,7 @@ pub mod zkapp_command {
                 SetOrKeep::Set(this) => MyCow::Borrow(this),
                 SetOrKeep::Keep => MyCow::Own(default_fn()),
             };
-            crate::proofs::witness::Check::check(&*value, w);
+            value.check(w);
         }
     }
 
@@ -1411,21 +1409,23 @@ pub mod zkapp_command {
         }
     }
 
-    pub trait Check {
+    pub trait OutSnarkCheck {
         type A;
         type B;
 
-        fn check(&self, label: String, x: Self::B) -> Result<(), String>;
+        /// zkapp check
+        fn zcheck(&self, label: String, x: Self::B) -> Result<(), String>;
     }
 
-    impl<T> Check for T
+    impl<T> OutSnarkCheck for T
     where
         T: Eq,
     {
         type A = T;
         type B = T;
 
-        fn check(&self, label: String, rhs: Self::B) -> Result<(), String> {
+        /// zkapp check
+        fn zcheck(&self, label: String, rhs: Self::B) -> Result<(), String> {
             if *self == rhs {
                 Ok(())
             } else {
@@ -1479,9 +1479,9 @@ pub mod zkapp_command {
         }
     }
 
-    impl<T> crate::proofs::witness::Check<Fp> for ClosedInterval<T>
+    impl<T> Check<Fp> for ClosedInterval<T>
     where
-        T: crate::proofs::witness::Check<Fp>,
+        T: Check<Fp>,
     {
         fn check(&self, w: &mut Witness<Fp>) {
             let ClosedInterval { lower, upper } = self;
@@ -1490,14 +1490,15 @@ pub mod zkapp_command {
         }
     }
 
-    impl<T> Check for ClosedInterval<T>
+    impl<T> OutSnarkCheck for ClosedInterval<T>
     where
         T: PartialOrd + std::fmt::Debug,
     {
         type A = ClosedInterval<T>;
         type B = T;
 
-        fn check(&self, label: String, rhs: Self::B) -> Result<(), String> {
+        /// zkapp check
+        fn zcheck(&self, label: String, rhs: Self::B) -> Result<(), String> {
             /*println!(
                 "bounds check lower {:?} rhs {:?} upper {:?}",
                 self.lower, rhs, self.upper
@@ -1592,9 +1593,9 @@ pub mod zkapp_command {
         }
     }
 
-    impl<T, F> crate::proofs::witness::Check<Fp> for (&OrIgnore<T>, F)
+    impl<T, F> Check<Fp> for (&OrIgnore<T>, F)
     where
-        T: crate::proofs::witness::Check<Fp>,
+        T: Check<Fp>,
         F: Fn() -> T,
     {
         fn check(&self, w: &mut Witness<Fp>) {
@@ -1603,19 +1604,20 @@ pub mod zkapp_command {
                 OrIgnore::Check(this) => MyCow::Borrow(this),
                 OrIgnore::Ignore => MyCow::Own(default_fn()),
             };
-            crate::proofs::witness::Check::check(&*value, w);
+            value.check(w);
         }
     }
 
     impl<T> OrIgnore<T>
     where
-        T: Check<A = T>,
+        T: OutSnarkCheck<A = T>,
     {
-        pub fn check(&self, label: String, rhs: T::B) -> Result<(), String> {
+        /// zkapp check
+        pub fn zcheck(&self, label: String, rhs: T::B) -> Result<(), String> {
             // println!("[rust] check {}, {:?}", label, ret);
             match self {
                 Self::Ignore => Ok(()),
-                Self::Check(t) => t.check(label, rhs),
+                Self::Check(t) => t.zcheck(label, rhs),
             }
         }
     }
@@ -1677,9 +1679,9 @@ pub mod zkapp_command {
 
     impl EpochLedger {
         pub fn epoch_ledger(&self, t: protocol_state::EpochLedger<Fp>) -> Result<(), String> {
-            self.hash.check("epoch_ledger_hash".to_string(), t.hash)?;
+            self.hash.zcheck("epoch_ledger_hash".to_string(), t.hash)?;
             self.total_currency
-                .check("epoch_ledger_total_currency".to_string(), t.total_currency)
+                .zcheck("epoch_ledger_total_currency".to_string(), t.total_currency)
         }
     }
 
@@ -1748,7 +1750,7 @@ pub mod zkapp_command {
         }
     }
 
-    impl crate::proofs::witness::Check<Fp> for EpochData {
+    impl Check<Fp> for EpochData {
         fn check(&self, w: &mut Witness<Fp>) {
             let EpochData {
                 ledger,
@@ -1783,16 +1785,16 @@ pub mod zkapp_command {
         ) -> Result<(), String> {
             self.ledger.epoch_ledger(t.ledger)?;
             // ignore seed
-            self.start_checkpoint.check(
+            self.start_checkpoint.zcheck(
                 format!("{}_{}", label, "start_checkpoint"),
                 t.start_checkpoint,
             )?;
-            self.lock_checkpoint.check(
+            self.lock_checkpoint.zcheck(
                 format!("{}_{}", label, "lock_checkpoint"),
                 t.lock_checkpoint,
             )?;
             self.epoch_length
-                .check(format!("{}_{}", label, "epoch_length"), t.epoch_length)
+                .zcheck(format!("{}_{}", label, "epoch_length"), t.epoch_length)
         }
 
         pub fn gen() -> Self {
@@ -1824,16 +1826,17 @@ pub mod zkapp_command {
     }
 
     impl ZkAppPreconditions {
-        pub fn check(&self, s: ProtocolStateView) -> Result<(), String> {
+        /// zkapp check
+        pub fn zcheck(&self, s: ProtocolStateView) -> Result<(), String> {
             self.snarked_ledger_hash
-                .check("snarker_ledger_hash".to_string(), s.snarked_ledger_hash)?;
+                .zcheck("snarker_ledger_hash".to_string(), s.snarked_ledger_hash)?;
             self.blockchain_length
-                .check("blockchain_length".to_string(), s.blockchain_length)?;
+                .zcheck("blockchain_length".to_string(), s.blockchain_length)?;
             self.min_window_density
-                .check("min_window_density".to_string(), s.min_window_density)?;
+                .zcheck("min_window_density".to_string(), s.min_window_density)?;
             self.total_currency
-                .check("total_currency".to_string(), s.total_currency)?;
-            self.global_slot_since_genesis.check(
+                .zcheck("total_currency".to_string(), s.total_currency)?;
+            self.global_slot_since_genesis.zcheck(
                 "global_slot_since_genesis".to_string(),
                 s.global_slot_since_genesis,
             )?;
@@ -1913,7 +1916,7 @@ pub mod zkapp_command {
         }
     }
 
-    impl crate::proofs::witness::Check<Fp> for ZkAppPreconditions {
+    impl Check<Fp> for ZkAppPreconditions {
         fn check(&self, w: &mut Witness<Fp>) {
             let Self {
                 snarked_ledger_hash,
@@ -1973,16 +1976,17 @@ pub mod zkapp_command {
     }
 
     impl Account {
-        pub fn check<F>(&self, new_account: bool, mut check: F, a: account::Account)
+        /// zkapp check
+        pub fn zcheck<F>(&self, new_account: bool, mut check: F, a: account::Account)
         where
             F: FnMut(TransactionFailure, bool),
         {
-            self.checks(new_account, a)
+            self.zchecks(new_account, a)
                 .iter()
                 .for_each(|(failure, res)| check(failure.clone(), res.is_ok()))
         }
 
-        fn checks(
+        fn zchecks(
             &self,
             new_account: bool,
             a: account::Account,
@@ -1991,20 +1995,20 @@ pub mod zkapp_command {
             let mut ret = vec![
                 (
                     TransactionFailure::AccountBalancePreconditionUnsatisfied,
-                    self.balance.check("balance".to_string(), a.balance),
+                    self.balance.zcheck("balance".to_string(), a.balance),
                 ),
                 (
                     TransactionFailure::AccountNoncePreconditionUnsatisfied,
-                    self.nonce.check("nonce".to_string(), a.nonce),
+                    self.nonce.zcheck("nonce".to_string(), a.nonce),
                 ),
                 (
                     TransactionFailure::AccountReceiptChainHashPreconditionUnsatisfied,
                     self.receipt_chain_hash
-                        .check("receipt_chain_hash".to_string(), a.receipt_chain_hash.0),
+                        .zcheck("receipt_chain_hash".to_string(), a.receipt_chain_hash.0),
                 ),
                 (
                     TransactionFailure::AccountDelegatePreconditionUnsatisfied,
-                    self.delegate.check(
+                    self.delegate.zcheck(
                         "delegate".to_string(),
                         a.delegate.unwrap_or_else(invalid_public_key),
                     ),
@@ -2014,7 +2018,7 @@ pub mod zkapp_command {
                     match zkapp
                         .action_state
                         .iter()
-                        .find(|state| self.action_state.check("".to_string(), **state).is_ok())
+                        .find(|state| self.action_state.zcheck("".to_string(), **state).is_ok())
                     {
                         None => Err("Action state mismatch".to_string()),
                         Some(_) => Ok(()),
@@ -2025,7 +2029,7 @@ pub mod zkapp_command {
             for (i, (c, v)) in self.state.iter().zip(zkapp.app_state.iter()).enumerate() {
                 ret.push((
                     TransactionFailure::AccountAppStatePreconditionUnsatisfied(i as i64),
-                    c.check(format!("state[{}]", i), *v),
+                    c.zcheck(format!("state[{}]", i), *v),
                 ));
             }
 
@@ -2033,11 +2037,11 @@ pub mod zkapp_command {
                 (
                     TransactionFailure::AccountProvedStatePreconditionUnsatisfied,
                     self.proved_state
-                        .check("proved_state".to_string(), zkapp.proved_state),
+                        .zcheck("proved_state".to_string(), zkapp.proved_state),
                 ),
                 (
                     TransactionFailure::AccountIsNewPreconditionUnsatisfied,
-                    self.is_new.check("is_new".to_string(), new_account),
+                    self.is_new.zcheck("is_new".to_string(), new_account),
                 ),
             ];
 
@@ -2124,7 +2128,7 @@ pub mod zkapp_command {
         }
     }
 
-    impl crate::proofs::witness::Check<Fp> for AccountPreconditions {
+    impl Check<Fp> for AccountPreconditions {
         fn check(&self, w: &mut Witness<Fp>) {
             let account = self.to_full();
 
@@ -2209,7 +2213,7 @@ pub mod zkapp_command {
         }
     }
 
-    impl crate::proofs::witness::Check<Fp> for Preconditions {
+    impl Check<Fp> for Preconditions {
         fn check(&self, w: &mut Witness<Fp>) {
             let Self {
                 network,
@@ -2217,8 +2221,8 @@ pub mod zkapp_command {
                 valid_while,
             } = self;
 
-            crate::proofs::witness::Check::check(network, w);
-            crate::proofs::witness::Check::check(account, w);
+            network.check(w);
+            account.check(w);
             (valid_while, ClosedInterval::min_max).check(w);
         }
     }
@@ -2415,7 +2419,7 @@ pub mod zkapp_command {
         }
     }
 
-    impl crate::proofs::witness::Check<Fp> for Body {
+    impl Check<Fp> for Body {
         fn check(&self, w: &mut Witness<Fp>) {
             let Self {
                 public_key: _,
@@ -2445,7 +2449,7 @@ pub mod zkapp_command {
 
             (token_symbol, TokenSymbol::default).check(w);
             (timing, Timing::dummy).check(w);
-            crate::proofs::witness::Check::check(balance_change, w);
+            balance_change.check(w);
 
             preconditions.check(w);
             may_use_token.check(w);
@@ -2578,7 +2582,7 @@ pub mod zkapp_command {
         }
     }
 
-    impl crate::proofs::witness::Check<Fp> for MayUseToken {
+    impl Check<Fp> for MayUseToken {
         fn check(&self, w: &mut Witness<Fp>) {
             use crate::proofs::witness::field;
 
@@ -5161,14 +5165,14 @@ where
         match eff {
             Eff::CheckValidWhilePrecondition(valid_while, global_state) => PerformResult::Bool(
                 valid_while
-                    .check(
+                    .zcheck(
                         "valid_while_precondition".to_string(),
                         global_state.block_global_slot,
                     )
                     .is_ok(),
             ),
             Eff::CheckProtocolStatePrecondition(pred, global_state) => {
-                PerformResult::Bool(pred.check(global_state.protocol_state).is_ok())
+                PerformResult::Bool(pred.zcheck(global_state.protocol_state).is_ok())
             }
             Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
                 let local_state = match account_update.body.preconditions.account {
@@ -5182,7 +5186,7 @@ where
                         let check = |failure, b| {
                             _local_state = _local_state.add_check(failure, b);
                         };
-                        precondition_account.check(new_account, check, account);
+                        precondition_account.zcheck(new_account, check, account);
                         _local_state
                     }
                 };
