@@ -24,7 +24,10 @@ use crate::{
 
 use super::{
     currency::SlotSpan,
-    transaction_logic::{zkapp_command::Actions, Eff, ExistingOrNew, PerformResult},
+    transaction_logic::{
+        zkapp_command::{Actions, ACCOUNT_UPDATE_CONS_HASH_PARAM},
+        Eff, ExistingOrNew, PerformResult,
+    },
 };
 
 /*
@@ -72,7 +75,7 @@ pub fn full_commitment(
 ) -> ReceiptChainHash {
     let fee_payer_hash = account_update.digest();
     ReceiptChainHash(hash_with_kimchi(
-        "MinaAcctUpdateCons",
+        ACCOUNT_UPDATE_CONS_HASH_PARAM,
         &[memo_hash, fee_payer_hash, commitment.0],
     ))
 }

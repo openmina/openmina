@@ -1,21 +1,20 @@
+#![allow(unused)]
+
 use mina_hasher::Fp;
+use mina_signer::CompressedPubKey;
 
 use crate::{
-    proofs::witness::field,
     scan_state::{
         scan_state::ConstraintConstants,
-        transaction_logic::{
-            local_state::LocalStateSkeleton, protocol_state::GlobalStateSkeleton,
-            TransactionFailure,
-        },
+        transaction_logic::{protocol_state::GlobalStateSkeleton, TransactionFailure},
     },
     zkapps::intefaces::*,
     MyCow, TokenId,
 };
 
 use super::{
-    witness::{Boolean, ToBoolean, Witness},
-    zkapp::{StartDataForProof, StartDataSkeleton},
+    witness::{Boolean, ToBoolean},
+    zkapp::{Eff, StartDataSkeleton},
 };
 
 pub enum IsStart<T> {
@@ -30,15 +29,8 @@ pub enum PerformResult {
     // Account(Box<Account>),
 }
 
-pub enum Eff {
-    // CheckValidWhilePrecondition(Numeric<Slot>, GlobalStateForProof),
-    // CheckAccountPrecondition(AccountUpdate, Account, bool, LocalStateForProof),
-    // CheckProtocolStatePrecondition(ZkAppPreconditions, GlobalStateForProof),
-    // InitAccount(AccountUpdate, Account),
-}
-
-pub struct Handler {
-    pub perform: fn(&Eff) -> PerformResult,
+pub struct Handler<Z: ZkappApplication> {
+    pub perform: fn(Eff<Z>) -> PerformResult,
 }
 
 pub struct GetNextAccountUpdateResult<Z: ZkappApplication> {
@@ -223,8 +215,9 @@ pub type StartData<Z> = StartDataSkeleton<
 pub fn apply<Z>(
     _constraint_constants: &ConstraintConstants,
     is_start: IsStart<StartData<Z>>,
-    _h: &Handler,
+    h: &Handler<Z>,
     (global_state, mut local_state): (Z::GlobalState, LocalState<Z>),
+    data: Z::SingleData,
     w: &mut Z::WitnessGenerator,
 ) -> Result<(Z::GlobalState, LocalState<Z>), String>
 where
@@ -232,13 +225,11 @@ where
 {
     let is_start2 = {
         let is_empty_call_forest = local_state.stack_frame.calls().is_empty(w);
-
         match is_start {
             IsStart::Compute(_) => (),
             IsStart::Yes(_) => assert_(is_empty_call_forest)?,
             IsStart::No => assert_(is_empty_call_forest.neg())?,
         };
-
         match is_start {
             IsStart::Yes(_) => Boolean::True,
             IsStart::No => Boolean::False,
@@ -254,14 +245,13 @@ where
         IsStart::Yes(start_data) => start_data.will_succeed,
         IsStart::No => local_state.will_succeed,
     };
-
     local_state.ledger = w.exists_no_check(match is_start2 {
         Boolean::True => global_state.first_pass_ledger(),
         Boolean::False => local_state.ledger.clone(),
     });
     local_state.will_succeed = will_succeed;
 
-    let _ = {
+    let ((account_update, remaining, call_stack), account_update_forest, (mut a, inclusion_proof)) = {
         let (to_pop, call_stack) = {
             match &is_start {
                 IsStart::Compute(start_data) => {
@@ -270,7 +260,6 @@ where
                         Boolean::True => Z::CallStack::empty(),
                         Boolean::False => local_state.call_stack.clone(),
                     });
-
                     let left = {
                         let on_true = Z::StackFrame::make(
                             StackFrameMakeParams {
@@ -286,7 +275,6 @@ where
                         }
                         .on_if(w)
                     };
-
                     (left, right)
                 }
                 IsStart::Yes(start_data) => {
@@ -320,13 +308,10 @@ where
         let _local_state = {
             let default_token_or_token_owner_was_caller = {
                 let account_update_token_id = &account_update.body().token_id;
-
                 let snd = Z::TokenId::equal(account_update_token_id, &caller_id, w);
                 let fst = Z::TokenId::equal(account_update_token_id, &TokenId::default(), w);
-
                 Z::Bool::or(fst, snd, w)
             };
-
             Z::LocalState::add_check(
                 &mut local_state,
                 TransactionFailure::TokenOwnerNotCaller,
@@ -335,47 +320,137 @@ where
             );
         };
 
-        let account = local_state.ledger.get_account(&account_update, w);
+        let acct = local_state.ledger.get_account(&account_update, w);
+        local_state.ledger.check_inclusion(&acct, w);
 
-        // let ((a, inclusion_proof) as acct) =
-        //   with_label ~label:"get account" (fun () ->
-        //       Inputs.Ledger.get_account account_update local_state.ledger )
-        // in
-        // Inputs.Ledger.check_inclusion local_state.ledger (a, inclusion_proof) ;
-        // let transaction_commitment, full_transaction_commitment =
-        //   match is_start with
-        //   | `No ->
-        //       ( local_state.transaction_commitment
-        //       , local_state.full_transaction_commitment )
-        //   | `Yes start_data | `Compute start_data ->
-        //       let tx_commitment_on_start =
-        //         Transaction_commitment.commitment
-        //           ~account_updates:(Stack_frame.calls remaining)
-        //       in
-        //       let full_tx_commitment_on_start =
-        //         Transaction_commitment.full_commitment ~account_update
-        //           ~memo_hash:start_data.memo_hash
-        //           ~commitment:tx_commitment_on_start
-        //       in
-        //       let tx_commitment =
-        //         Transaction_commitment.if_ is_start' ~then_:tx_commitment_on_start
-        //           ~else_:local_state.transaction_commitment
-        //       in
-        //       let full_tx_commitment =
-        //         Transaction_commitment.if_ is_start'
-        //           ~then_:full_tx_commitment_on_start
-        //           ~else_:local_state.full_transaction_commitment
-        //       in
-        //       (tx_commitment, full_tx_commitment)
-        // in
-        // let local_state =
-        //   { local_state with transaction_commitment; full_transaction_commitment }
-        // in
-        // ( (account_update, remaining, call_stack)
-        // , account_update_forest
-        // , local_state
-        // , acct )
+        let (transaction_commitment, full_transaction_commitment) = match is_start {
+            IsStart::No => (
+                local_state.transaction_commitment,
+                local_state.full_transaction_commitment,
+            ),
+            IsStart::Yes(start_data) | IsStart::Compute(start_data) => {
+                let tx_commitment_on_start =
+                    Z::TransactionCommitment::commitment(remaining.calls(), w);
+                let full_tx_commitment_on_start = Z::TransactionCommitment::full_commitment(
+                    &account_update,
+                    start_data.memo_hash,
+                    tx_commitment_on_start,
+                    w,
+                );
+                let tx_commitment = w.exists_no_check(match is_start2 {
+                    Boolean::True => tx_commitment_on_start,
+                    Boolean::False => local_state.transaction_commitment,
+                });
+                let full_tx_commitment = w.exists_no_check(match is_start2 {
+                    Boolean::True => full_tx_commitment_on_start,
+                    Boolean::False => local_state.full_transaction_commitment,
+                });
+                (tx_commitment, full_tx_commitment)
+            }
+        };
+
+        local_state.transaction_commitment = transaction_commitment;
+        local_state.full_transaction_commitment = full_transaction_commitment;
+
+        (
+            (account_update, remaining, call_stack),
+            account_update_forest,
+            acct,
+        )
     };
+
+    local_state.stack_frame = remaining;
+    local_state.call_stack = call_stack;
+    Z::LocalState::add_new_failure_status_bucket(&mut local_state);
+
+    a.register_verification_key(&data, w);
+
+    let account_is_new = Z::Ledger::check_account(
+        &account_update.body().public_key,
+        &account_update.body().token_id,
+        (&a, &inclusion_proof),
+        w,
+    );
+
+    let _a = {
+        let self_delegate = {
+            let account_update_token_id = &account_update.body().token_id;
+            let is_default_token =
+                Z::TokenId::equal(account_update_token_id, &TokenId::default(), w);
+            Z::Bool::and(account_is_new, is_default_token, w)
+        };
+
+        a.set_delegate(
+            w.exists_no_check(match self_delegate {
+                Boolean::True => account_update.body().public_key.clone(),
+                Boolean::False => a
+                    .get()
+                    .delegate
+                    .clone()
+                    .unwrap_or_else(CompressedPubKey::empty),
+            }),
+        )
+    };
+
+    let matching_verification_key_hashes = {
+        let is_not_proved = account_update.is_proved().neg();
+        let is_same_vk = Z::VerificationKeyHash::equal(
+            a.verification_key_hash(),
+            account_update.verification_key_hash(),
+            w,
+        );
+        Z::Bool::or(is_not_proved, is_same_vk, w)
+    };
+    Z::LocalState::add_check(
+        &mut local_state,
+        TransactionFailure::UnexpectedVerificationKeyHash,
+        matching_verification_key_hashes,
+        w,
+    );
+
+    (h.perform)(Eff::CheckAccountPrecondition(
+        &account_update,
+        &a,
+        account_is_new,
+        &mut local_state,
+    ));
+
+    // let local_state =
+    //   h.perform
+    //     (Check_account_precondition
+    //        (account_update, a, account_is_new, local_state) )
+    // in
+    // let protocol_state_predicate_satisfied =
+    //   h.perform
+    //     (Check_protocol_state_precondition
+    //        ( Account_update.protocol_state_precondition account_update
+    //        , global_state ) )
+    // in
+    // let local_state =
+    //   Local_state.add_check local_state Protocol_state_precondition_unsatisfied
+    //     protocol_state_predicate_satisfied
+    // in
+    // let local_state =
+    //   let valid_while_satisfied =
+    //     h.perform
+    //       (Check_valid_while_precondition
+    //          ( Account_update.valid_while_precondition account_update
+    //          , global_state ) )
+    //   in
+    //   Local_state.add_check local_state Valid_while_precondition_unsatisfied
+    //     valid_while_satisfied
+    // in
+    // let `Proof_verifies proof_verifies, `Signature_verifies signature_verifies =
+    //   let commitment =
+    //     Inputs.Transaction_commitment.if_
+    //       (Inputs.Account_update.use_full_commitment account_update)
+    //       ~then_:local_state.full_transaction_commitment
+    //       ~else_:local_state.transaction_commitment
+    //   in
+    //   Inputs.Account_update.check_authorization
+    //     ~will_succeed:local_state.will_succeed ~commitment
+    //     ~calls:account_update_forest account_update
+    // in
 
     eprintln!("DONE");
     std::process::exit(0);

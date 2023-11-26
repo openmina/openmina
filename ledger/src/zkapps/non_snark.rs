@@ -138,8 +138,16 @@ impl AccountUpdateInterface for AccountUpdate {
         } = self;
         body
     }
-
     fn set(&mut self, new: Self) {
+        todo!()
+    }
+    fn verification_key_hash(&self) -> Fp {
+        todo!()
+    }
+    fn is_proved(&self) -> Boolean {
+        todo!()
+    }
+    fn is_signed(&self) -> Boolean {
         todo!()
     }
 }

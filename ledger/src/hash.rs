@@ -269,11 +269,11 @@ impl ToInputs for Fp {
     }
 }
 
-impl ToInputs for [Fp; 2] {
+impl<const N: usize> ToInputs for [Fp; N] {
     fn to_inputs(&self, inputs: &mut Inputs) {
-        let [a, b] = self;
-        inputs.append(a);
-        inputs.append(b);
+        for field in self {
+            inputs.append(field);
+        }
     }
 }
 

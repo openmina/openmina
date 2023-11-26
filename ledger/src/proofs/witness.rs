@@ -1569,9 +1569,16 @@ impl<F: FieldWitness> Check<F> for MinaStateBlockchainStateValueStableV2SignedAm
 
 impl<F: FieldWitness> Check<F> for UnsignedExtendedUInt32StableV1 {
     fn check(&self, w: &mut Witness<F>) {
+        let number: u32 = self.as_u32();
+        number.check(w);
+    }
+}
+
+impl<F: FieldWitness> Check<F> for u32 {
+    fn check(&self, w: &mut Witness<F>) {
         const NBITS: usize = u32::BITS as usize;
 
-        let number: u32 = self.as_u32();
+        let number: u32 = *self;
         assert_eq!(NBITS, std::mem::size_of_val(&number) * 8);
 
         let number: F = number.into();

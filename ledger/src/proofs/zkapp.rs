@@ -1,6 +1,10 @@
 #![allow(unused)]
 
-use std::str::FromStr;
+use std::{
+    cell::{Ref, RefCell},
+    rc::Rc,
+    str::FromStr,
+};
 
 use ark_ff::Zero;
 use mina_curves::pasta::Fq;
@@ -27,13 +31,16 @@ use crate::{
             protocol_state::{
                 protocol_state_body_view, protocol_state_view, GlobalState, GlobalStateSkeleton,
             },
-            zkapp_command::{AccountUpdate, CallForest, Control, WithHash, ZkAppCommand},
+            zkapp_command::{
+                AccountUpdate, CallForest, Control, WithHash, ZkAppCommand, ZkAppPreconditions,
+                ACCOUNT_UPDATE_CONS_HASH_PARAM,
+            },
             zkapp_statement::TransactionCommitment,
             TransactionFailure,
         },
     },
     sparse_ledger::SparseLedger,
-    zkapps::intefaces::ZkappSnark,
+    zkapps::intefaces::{ZkappApplication, ZkappSnark},
     ControlTag, ToInputs, TokenId,
 };
 
@@ -360,7 +367,7 @@ fn accumulate_call_stack_hashes(
                 0,
                 WithStackHash {
                     elt: f.clone(),
-                    stack_hash: hash_with_kimchi("MinaAcctUpdateCons", &[h_f, h_tl]),
+                    stack_hash: hash_with_kimchi(ACCOUNT_UPDATE_CONS_HASH_PARAM, &[h_f, h_tl]),
                 },
             );
 
@@ -845,15 +852,17 @@ pub fn zkapp_command_witnesses_exn(
     })
 }
 
-enum IsStart {
+#[derive(Clone, Debug)]
+pub enum IsStart {
     Yes,
     No,
     ComputeInCircuit,
 }
 
-struct Spec {
-    auth_type: ControlTag,
-    is_start: IsStart,
+#[derive(Clone, Debug)]
+pub struct Spec {
+    pub auth_type: ControlTag,
+    pub is_start: IsStart,
 }
 
 fn basic_spec(s: &SegmentBasic) -> Box<[Spec]> {
@@ -941,6 +950,56 @@ impl ToFieldElements<Fp> for LedgerWithHash {
 impl Check<Fp> for LedgerWithHash {
     fn check(&self, _w: &mut Witness<Fp>) {
         // Nothing
+    }
+}
+
+pub struct ZkappSingleData {
+    spec: Spec,
+    zkapp_input: Rc<RefCell<Option<()>>>,
+    must_verify: Rc<RefCell<Boolean>>,
+}
+
+impl ZkappSingleData {
+    pub fn spec(&self) -> &Spec {
+        &self.spec
+    }
+    pub fn set_zkapp_input(&mut self, x: ()) {
+        let mut zkapp_input = self.zkapp_input.borrow_mut();
+        zkapp_input.replace(x);
+    }
+    pub fn set_must_verify(&mut self, x: Boolean) {
+        let mut must_verify = self.must_verify.borrow_mut();
+        *must_verify = x;
+    }
+}
+
+pub enum Eff<'a, Z: ZkappApplication> {
+    CheckAccountPrecondition(
+        &'a Z::AccountUpdate,
+        &'a Z::Account,
+        Boolean,
+        &'a mut zkapp_logic::LocalState<Z>,
+    ),
+    CheckProtocolStatePrecondition(&'a ZkAppPreconditions),
+}
+
+fn perform(eff: Eff<ZkappSnark>) -> zkapp_logic::PerformResult {
+    match eff {
+        Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
+            // | Check_account_precondition
+            //     ({ account_update; _ }, account, new_account, local_state) ->
+            //     let local_state = ref local_state in
+            //     let check failure b =
+            //       local_state :=
+            //         Inputs.Local_state.add_check !local_state failure b
+            //     in
+            //     Zkapp_precondition.Account.Checked.check ~new_account ~check
+            //       account_update.data.preconditions.account account.data ;
+            //     !local_state
+
+            todo!()
+        }
+        Eff::CheckProtocolStatePrecondition(_) => todo!(),
     }
 }
 
@@ -1037,8 +1096,8 @@ fn zkapp_main(
     };
 
     let mut start_zkapp_command = witness.start_zkapp_command.as_slice();
-    // let mut zkapp_input = None;
-    let mut must_verify = Boolean::True;
+    let zkapp_input = Rc::new(RefCell::new(None));
+    let must_verify = Rc::new(RefCell::new(Boolean::True));
 
     spec.iter().rev().fold(init, |acc, account_update_spec| {
         let (_, local) = &acc;
@@ -1080,32 +1139,24 @@ fn zkapp_main(
                     IsStart::ComputeInCircuit => zkapp_logic::IsStart::Compute(start_data),
                 };
 
-                fn perform(_eff: &zkapp_logic::Eff) -> zkapp_logic::PerformResult {
-                    todo!()
-                }
-
                 let handler = zkapp_logic::Handler { perform };
 
-                zkapp_logic::apply::<ZkappSnark>(constraint_constants, is_start, &handler, acc, w);
+                let data = ZkappSingleData {
+                    spec: account_update_spec.clone(),
+                    zkapp_input: Rc::clone(&zkapp_input),
+                    must_verify: Rc::clone(&must_verify),
+                };
+
+                zkapp_logic::apply::<ZkappSnark>(
+                    constraint_constants,
+                    is_start,
+                    &handler,
+                    acc,
+                    data,
+                    w,
+                );
             }
         };
-
-        //         let global_state, local_state =
-        //           with_label "apply" (fun () ->
-        //               S.apply ~constraint_constants
-        //                 ~is_start:
-        //                   ( match account_update_spec.is_start with
-        //                   | `No ->
-        //                       `No
-        //                   | `Yes ->
-        //                       `Yes start_data
-        //                   | `Compute_in_circuit ->
-        //                       `Compute start_data )
-        //                 S.{ perform }
-        //                 acc )
-        //         in
-        //         (global_state, local_state)
-        //       in
 
         let new_acc = match account_update_spec.is_start {
             IsStart::No => todo!(),

@@ -1,8 +1,11 @@
+use std::fmt::Write;
+
 use ark_ff::Zero;
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
 use crate::{
+    checked_equal_compressed_key, checked_equal_compressed_key_const_and,
     proofs::{
         numbers::{
             currency::{CheckedAmount, CheckedSigned},
@@ -13,26 +16,26 @@ use crate::{
             field, transaction_snark::checked_hash, Boolean, Check, FieldWitness, ToBoolean,
             Witness,
         },
-        zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash},
+        zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash, ZkappSingleData},
         zkapp_logic,
     },
     scan_state::transaction_logic::{
-        local_state::{StackFrame, StackFrameChecked, StackFrameCheckedFrame},
+        local_state::{StackFrame, StackFrameChecked, StackFrameCheckedFrame, WithLazyHash},
         zkapp_command::{
-            AccountUpdate, AccountUpdateSkeleton, CallForest, Tree, WithHash,
+            AccountUpdate, AccountUpdateSkeleton, AuthorizationKind, CallForest, Tree, WithHash,
             ACCOUNT_UPDATE_CONS_HASH_PARAM,
         },
         TransactionFailure,
     },
-    Account, AccountId, MyCow, ToInputs, TokenId, VerificationKey,
+    Account, AccountId, MyCow, ToInputs, TokenId, VerificationKey, ZkAppAccount,
 };
 
 use super::intefaces::{
-    AccountIdInterface, AccountUpdateInterface, AmountInterface, BoolInterface,
+    AccountIdInterface, AccountInterface, AccountUpdateInterface, AmountInterface, BoolInterface,
     CallForestInterface, CallStackInterface, GlobalSlotSinceGenesisInterface, GlobalStateInterface,
     IndexInterface, LedgerInterface, LocalStateInterface, Opt, SignedAmountInterface,
     StackFrameInterface, StackFrameMakeParams, StackInterface, TokenIdInterface,
-    TransactionCommitmentInterface, WitnessGenerator, ZkappSnark,
+    TransactionCommitmentInterface, VerificationKeyHashInterface, WitnessGenerator, ZkappSnark,
 };
 
 use super::intefaces::WitnessGenerator as W;
@@ -357,9 +360,17 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
         let WithHash { data, hash: _ } = body;
         data
     }
-
     fn set(&mut self, new: Self) {
         *self = new;
+    }
+    fn verification_key_hash(&self) -> Fp {
+        self.body().authorization_kind.vk_hash()
+    }
+    fn is_proved(&self) -> Boolean {
+        self.body().authorization_kind.is_proved().to_boolean()
+    }
+    fn is_signed(&self) -> Boolean {
+        self.body().authorization_kind.is_signed().to_boolean()
     }
 }
 
@@ -376,8 +387,8 @@ impl LocalStateInterface for zkapp_logic::LocalState<ZkappSnark> {
         local.success = local.success.and(&b, w);
     }
 
-    fn add_new_failure_status_bucket(self) -> Self {
-        todo!()
+    fn add_new_failure_status_bucket(_local: &mut zkapp_logic::LocalState<Self::Z>) {
+        // nothing
     }
 }
 
@@ -392,6 +403,21 @@ impl<T> From<Option<T>> for FlaggedOption<T> {
             Some(v) => Self::Some(v),
             None => Self::None,
         }
+    }
+}
+
+impl<T, F> Check<Fp> for (FlaggedOption<&T>, F)
+where
+    T: Check<Fp>,
+    F: Fn() -> T,
+{
+    fn check(&self, w: &mut Witness<Fp>) {
+        let (or_ignore, default_fn) = self;
+        let value = match or_ignore {
+            FlaggedOption::Some(this) => MyCow::Borrow(*this),
+            FlaggedOption::None => MyCow::Own(default_fn()),
+        };
+        value.check(w);
     }
 }
 
@@ -414,21 +440,6 @@ where
                 default.to_field_elements(fields);
             }
         };
-    }
-}
-
-impl<T, F> Check<Fp> for (FlaggedOption<T>, F)
-where
-    T: Check<Fp>,
-    F: Fn() -> T,
-{
-    fn check(&self, w: &mut Witness<Fp>) {
-        let (or_ignore, default_fn) = self;
-        let value = match or_ignore {
-            FlaggedOption::Some(this) => MyCow::Borrow(this),
-            FlaggedOption::None => MyCow::Own(default_fn()),
-        };
-        crate::proofs::witness::Check::check(&*value, w);
     }
 }
 
@@ -466,29 +477,116 @@ impl ToFieldElements<Fp> for AccountUnhashed {
         voting_for.to_field_elements(fields);
         timing.to_field_elements(fields);
         permissions.to_field_elements(fields);
-
-        let zkapp = MyCow::borrow_or_default(zkapp);
-        let crate::ZkAppAccount {
-            app_state,
-            verification_key,
-            zkapp_version,
-            action_state,
-            last_action_slot,
-            proved_state,
-            zkapp_uri,
-        } = &*zkapp;
-
-        // app_state.to_field_elements(fields);
-
-        // (FlaggedOption::from(verification_key.as_ref()), VerificationKey::dummy).to_field_elements(fields);
-
-        // verification_key.to_field_elements(fields);
+        (
+            FlaggedOption::from(zkapp.as_ref()),
+            crate::ZkAppAccount::default,
+        )
+            .to_field_elements(fields);
     }
+}
+
+impl Check<Fp> for AccountUnhashed {
+    fn check(&self, w: &mut Witness<Fp>) {
+        let Account {
+            public_key: _,
+            token_id: _,
+            token_symbol,
+            balance,
+            nonce,
+            receipt_chain_hash: _,
+            delegate: _,
+            voting_for: _,
+            timing,
+            permissions: _,
+            zkapp,
+        } = &*self.0;
+
+        token_symbol.check(w);
+        balance.check(w);
+        nonce.check(w);
+        timing.check(w);
+        (
+            FlaggedOption::from(zkapp.as_ref()),
+            crate::ZkAppAccount::default,
+        )
+            .check(w);
+    }
+}
+
+pub type SnarkAccount = WithLazyHash<Box<Account>>;
+
+impl AccountInterface for SnarkAccount {
+    type W = Witness<Fp>;
+    type D = ZkappSingleData;
+
+    fn register_verification_key(&self, data: &Self::D, w: &mut Self::W) {
+        use crate::ControlTag::*;
+
+        match data.spec().auth_type {
+            Proof => {
+                let vk = self
+                    .zkapp
+                    .as_ref()
+                    .unwrap()
+                    .verification_key
+                    .as_ref()
+                    .unwrap();
+                let vk = w.exists(vk);
+                vk.checked_hash_with_param(VerificationKey::HASH_PARAM, w);
+                todo!()
+            }
+            Signature | NoneGiven => {}
+        }
+    }
+    fn get(&self) -> &crate::Account {
+        let Self { data, .. } = self;
+        &*data
+    }
+    fn get_mut(&mut self) -> &mut crate::Account {
+        let Self { data, .. } = self;
+        &mut *data
+    }
+    fn set_delegate(&mut self, new: CompressedPubKey) {
+        let Self { data: account, .. } = self;
+        account.delegate = if new == CompressedPubKey::empty() {
+            None
+        } else {
+            Some(new)
+        };
+    }
+    fn zkapp(&self) -> MyCow<ZkAppAccount> {
+        match &self.zkapp {
+            Some(zkapp) => MyCow::Borrow(zkapp),
+            None => MyCow::Own(ZkAppAccount::default()),
+        }
+    }
+    fn verification_key_hash(&self) -> Fp {
+        // TODO: We shouldn't compute the hash here
+        let zkapp = self.zkapp();
+        MyCow::borrow_or_else(&zkapp.verification_key, VerificationKey::dummy).hash()
+    }
+}
+
+fn implied_root(account: &SnarkAccount, incl: &[(Boolean, Fp)], w: &mut Witness<Fp>) -> Fp {
+    let mut param = String::with_capacity(16);
+    incl.iter()
+        .enumerate()
+        .fold(account.hash(w), |accum: Fp, (depth, (is_right, h))| {
+            let hashes = match is_right {
+                Boolean::False => [accum, *h],
+                Boolean::True => [*h, accum],
+            };
+            param.clear();
+            write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
+            w.exists(hashes);
+            checked_hash(param.as_str(), &hashes, w)
+        })
 }
 
 impl LedgerInterface for LedgerWithHash {
     type W = Witness<Fp>;
     type AccountUpdate = SnarkAccountUpdate;
+    type Account = SnarkAccount;
     type InclusionProof = Vec<(Boolean, Fp)>;
 
     fn empty() -> Self {
@@ -499,57 +597,65 @@ impl LedgerInterface for LedgerWithHash {
         &self,
         account_update: &Self::AccountUpdate,
         w: &mut Self::W,
-    ) -> (Account, Self::InclusionProof) {
+    ) -> (Self::Account, Self::InclusionProof) {
         let Self { ledger, hash: root } = self;
 
         let idx = ledger.find_index_exn(account_update.body.account_id());
-        let account = w.exists_no_check(AccountUnhashed(ledger.get_exn(&idx)));
+        let account = w.exists(AccountUnhashed(ledger.get_exn(&idx)));
 
-        // let get_account { account_update; _ } ((_root, ledger) : t) =
-        //   let idx =
-        //     V.map ledger ~f:(fun l -> idx l (body_id account_update.data))
-        //   in
-        //   let account =
-        //     exists Mina_base.Account.Checked.Unhashed.typ
-        //       ~compute:(fun () ->
-        //         Sparse_ledger.get_exn (V.get ledger) (V.get idx) )
-        //   in
-        //   let account = Account.account_with_hash account in
-        //   let incl =
-        //     exists
-        //       Typ.(
-        //         list ~length:constraint_constants.ledger_depth
-        //           (Boolean.typ * field))
-        //       ~compute:(fun () ->
-        //         List.map
-        //           (Sparse_ledger.path_exn (V.get ledger) (V.get idx))
-        //           ~f:(fun x ->
-        //             match x with
-        //             | `Left h ->
-        //                 (false, h)
-        //             | `Right h ->
-        //                 (true, h) ) )
-        //   in
-        //   (account, incl)
+        // TODO: Don't clone here
+        let account2 = account.0.clone();
+        let account = WithLazyHash::new(account.0, move |w: &mut Witness<Fp>| {
+            let zkapp = MyCow::borrow_or_default(&account2.zkapp);
+            zkapp.checked_hash_with_param(ZkAppAccount::HASH_PARAM, w);
+            account2.checked_hash(w)
+        });
 
+        let inclusion = w.exists(
+            ledger
+                .clone()
+                .path_exn(idx)
+                .into_iter()
+                .map(|path| match path {
+                    crate::MerklePath::Left(h) => (Boolean::False, h),
+                    crate::MerklePath::Right(h) => (Boolean::True, h),
+                })
+                .collect::<Vec<_>>(),
+        );
+
+        (account, inclusion)
+    }
+
+    fn set_account(&mut self, account: (Self::Account, Self::InclusionProof), w: &mut Self::W) {
         todo!()
     }
 
-    fn set_account(&mut self, account: (crate::Account, Self::InclusionProof), w: &mut Self::W) {
-        todo!()
-    }
-
-    fn check_inclusion(&self, account: &(crate::Account, Self::InclusionProof), w: &mut Self::W) {
-        todo!()
+    fn check_inclusion(
+        &self,
+        (account, incl): &(Self::Account, Self::InclusionProof),
+        w: &mut Self::W,
+    ) {
+        let Self { ledger, hash: root } = self;
+        implied_root(account, incl, w);
     }
 
     fn check_account(
         public_key: &mina_signer::CompressedPubKey,
         token_id: &TokenId,
-        account: &(crate::Account, Self::InclusionProof),
+        account: (&Self::Account, &Self::InclusionProof),
         w: &mut Self::W,
     ) -> Boolean {
-        todo!()
+        let (WithLazyHash { data: account, .. }, _) = account;
+        let is_new = checked_equal_compressed_key_const_and(
+            &account.public_key,
+            &CompressedPubKey::empty(),
+            w,
+        );
+        let is_same = checked_equal_compressed_key(public_key, &account.public_key, w);
+        Boolean::assert_any(&[is_new, is_same], w);
+        let is_same_token = field::equal(token_id.0, account.token_id.0, w);
+        Boolean::assert_any(&[is_new, is_same_token], w);
+        is_new
     }
 }
 
@@ -557,6 +663,7 @@ pub struct SnarkAccountId;
 pub struct SnarkTokenId;
 pub struct SnarkBool;
 pub struct SnarkTransactionCommitment;
+pub struct SnarkVerificationKeyHash;
 
 impl AccountIdInterface for SnarkAccountId {
     type W = Witness<Fp>;
@@ -571,6 +678,14 @@ impl TokenIdInterface for SnarkTokenId {
 
     fn equal(a: &TokenId, b: &TokenId, w: &mut Self::W) -> Boolean {
         field::equal(a.0, b.0, w)
+    }
+}
+
+impl VerificationKeyHashInterface for SnarkVerificationKeyHash {
+    type W = Witness<Fp>;
+
+    fn equal(a: Fp, b: Fp, w: &mut Self::W) -> Boolean {
+        field::equal(a, b, w)
     }
 }
 
@@ -592,14 +707,22 @@ impl TransactionCommitmentInterface for SnarkTransactionCommitment {
     type W = Witness<Fp>;
 
     fn commitment(account_updates: &Self::CallForest, w: &mut Self::W) -> Fp {
-        todo!()
+        let Self::CallForest {
+            data: _,
+            hash: account_updates_hash,
+        } = account_updates;
+        *account_updates_hash
     }
 
     fn full_commitment(
         account_updates: &Self::AccountUpdate,
         memo_hash: Fp,
+        commitment: Fp,
         w: &mut Self::W,
     ) -> Fp {
-        todo!()
+        let fee_payer_hash = account_updates.body.hash;
+
+        [memo_hash, fee_payer_hash, commitment]
+            .checked_hash_with_param(ACCOUNT_UPDATE_CONS_HASH_PARAM, w)
     }
 }

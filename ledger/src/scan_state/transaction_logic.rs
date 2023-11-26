@@ -2247,6 +2247,31 @@ pub mod zkapp_command {
     }
 
     impl AuthorizationKind {
+        pub fn vk_hash(&self) -> Fp {
+            match self {
+                AuthorizationKind::NoneGiven | AuthorizationKind::Signature => {
+                    VerificationKey::dummy().hash()
+                }
+                AuthorizationKind::Proof(hash) => *hash,
+            }
+        }
+
+        pub fn is_proved(&self) -> bool {
+            match self {
+                AuthorizationKind::Proof(_) => true,
+                AuthorizationKind::NoneGiven => false,
+                AuthorizationKind::Signature => false,
+            }
+        }
+
+        pub fn is_signed(&self) -> bool {
+            match self {
+                AuthorizationKind::Proof(_) => false,
+                AuthorizationKind::NoneGiven => false,
+                AuthorizationKind::Signature => true,
+            }
+        }
+
         fn to_structured(&self) -> ([bool; 2], Fp) {
             // bits: [is_signed, is_proved]
             let bits = match self {
@@ -2254,12 +2279,7 @@ pub mod zkapp_command {
                 AuthorizationKind::Signature => [true, false],
                 AuthorizationKind::Proof(_) => [false, true],
             };
-            let field = match self {
-                AuthorizationKind::NoneGiven | AuthorizationKind::Signature => {
-                    VerificationKey::dummy().hash()
-                }
-                AuthorizationKind::Proof(hash) => *hash,
-            };
+            let field = self.vk_hash();
             (bits, field)
         }
     }
@@ -4565,7 +4585,6 @@ pub mod local_state {
         scan_state::currency::{Index, Signed},
         zkapps::intefaces::{
             CallStackInterface, IndexInterface, SignedAmountInterface, StackFrameInterface,
-            WitnessGenerator,
         },
         Inputs, ToInputs,
     };
@@ -4693,6 +4712,16 @@ pub mod local_state {
     }
 
     impl<T> WithLazyHash<T> {
+        pub fn new<F>(data: T, fun: F) -> Self
+        where
+            F: FnOnce(&mut Witness<Fp>) -> Fp + 'static,
+        {
+            Self {
+                data,
+                hash: LazyValue::make(fun),
+            }
+        }
+
         pub fn hash(&self, w: &mut Witness<Fp>) -> Fp {
             *self.hash.get(w)
         }

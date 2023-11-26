@@ -16,8 +16,8 @@ use crate::{
         },
         to_field_elements::ToFieldElements,
         witness::{
-            make_group, transaction_snark::checked_min_balance_at_slot, Boolean, FieldWitness,
-            InnerCurve, PlonkVerificationKeyEvals, ToBoolean, Witness,
+            make_group, transaction_snark::checked_min_balance_at_slot, Boolean, Check,
+            FieldWitness, InnerCurve, PlonkVerificationKeyEvals, ToBoolean, Witness,
         },
     },
     scan_state::{
@@ -314,6 +314,19 @@ pub struct VerificationKey {
     pub wrap_vk: Option<()>,
 }
 
+impl Check<Fp> for VerificationKey {
+    fn check(&self, w: &mut Witness<Fp>) {
+        let Self {
+            max_proofs_verified: _,
+            actual_wrap_domain_size: _,
+            wrap_index,
+            wrap_vk: _,
+        } = self;
+
+        wrap_index.check(w);
+    }
+}
+
 impl ToFieldElements<Fp> for VerificationKey {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
@@ -388,6 +401,8 @@ impl ToInputs for VerificationKey {
 }
 
 impl VerificationKey {
+    pub const HASH_PARAM: &'static str = "MinaSideLoadedVk";
+
     /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/pickles/side_loaded_verification_key.ml#L310
     pub fn dummy() -> Self {
         let g = InnerCurve::of_affine(make_group(
@@ -419,7 +434,7 @@ impl VerificationKey {
     }
 
     pub fn hash(&self) -> Fp {
-        self.hash_with_param("MinaSideLoadedVk")
+        self.hash_with_param(Self::HASH_PARAM)
     }
 
     pub fn gen() -> Self {
@@ -544,6 +559,78 @@ pub struct ZkAppAccount {
     pub zkapp_uri: ZkAppUri,
 }
 
+impl ToInputs for ZkAppAccount {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let Self {
+            app_state,
+            verification_key,
+            zkapp_version,
+            action_state,
+            last_action_slot,
+            proved_state,
+            zkapp_uri,
+        } = self;
+
+        // Self::zkapp_uri
+        inputs.append(&Some(zkapp_uri));
+
+        inputs.append_bool(*proved_state);
+        inputs.append_u32(last_action_slot.as_u32());
+        for fp in action_state {
+            inputs.append_field(*fp);
+        }
+        inputs.append_u32(*zkapp_version);
+        let vk_hash = MyCow::borrow_or_else(verification_key, VerificationKey::dummy).hash();
+        inputs.append_field(vk_hash);
+        for fp in app_state {
+            inputs.append_field(*fp);
+        }
+    }
+}
+
+impl ToFieldElements<Fp> for ZkAppAccount {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
+            app_state,
+            verification_key,
+            zkapp_version,
+            action_state,
+            last_action_slot,
+            proved_state,
+            zkapp_uri,
+        } = self;
+
+        app_state.to_field_elements(fields);
+        match verification_key {
+            Some(vk) => vk.hash(),
+            None => VerificationKey::dummy().hash(),
+        }
+        .to_field_elements(fields);
+        Fp::from(*zkapp_version).to_field_elements(fields);
+        action_state.to_field_elements(fields);
+        last_action_slot.to_field_elements(fields);
+        proved_state.to_field_elements(fields);
+        Some(zkapp_uri).to_field_elements(fields);
+    }
+}
+
+impl Check<Fp> for ZkAppAccount {
+    fn check(&self, w: &mut Witness<Fp>) {
+        let Self {
+            app_state: _,
+            verification_key: _,
+            zkapp_version,
+            action_state: _,
+            last_action_slot,
+            proved_state: _,
+            zkapp_uri: _,
+        } = self;
+
+        zkapp_version.check(w);
+        last_action_slot.check(w);
+    }
+}
+
 impl Default for ZkAppAccount {
     fn default() -> Self {
         Self {
@@ -562,38 +649,10 @@ impl Default for ZkAppAccount {
 }
 
 impl ZkAppAccount {
+    pub const HASH_PARAM: &'static str = "MinaZkappAccount";
+
     pub fn hash(&self) -> Fp {
-        let Self {
-            app_state,
-            verification_key,
-            zkapp_version,
-            action_state,
-            last_action_slot,
-            proved_state,
-            zkapp_uri,
-        } = self;
-
-        let mut inputs = Inputs::new();
-
-        // Self::zkapp_uri
-        inputs.append(&Some(zkapp_uri));
-
-        inputs.append_bool(*proved_state);
-        inputs.append_u32(last_action_slot.as_u32());
-        for fp in action_state {
-            inputs.append_field(*fp);
-        }
-        inputs.append_u32(*zkapp_version);
-        let vk_hash = match verification_key.as_ref() {
-            Some(vk) => vk.hash(),
-            None => VerificationKey::dummy().hash(),
-        };
-        inputs.append_field(vk_hash);
-        for fp in app_state {
-            inputs.append_field(*fp);
-        }
-
-        hash_with_kimchi("MinaZkappAccount", &inputs.to_fields())
+        self.hash_with_param(Self::HASH_PARAM)
     }
 }
 
