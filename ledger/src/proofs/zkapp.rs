@@ -983,9 +983,21 @@ pub enum Eff<'a, Z: ZkappApplication> {
     CheckProtocolStatePrecondition(&'a ZkAppPreconditions),
 }
 
-fn perform(eff: Eff<ZkappSnark>) -> zkapp_logic::PerformResult {
+fn perform(eff: Eff<ZkappSnark>, w: &mut Witness<Fp>) -> zkapp_logic::PerformResult {
+    use crate::zkapps::intefaces::LocalStateInterface;
+
     match eff {
         Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
+            let check = |failure: TransactionFailure, b: Boolean, w: &mut Witness<Fp>| {
+                <ZkappSnark as ZkappApplication>::LocalState::add_check(local_state, failure, b, w);
+            };
+            account_update.body.preconditions.account.checked_zcheck(
+                new_account,
+                &*account.data,
+                check,
+                w,
+            );
+
             // | Check_account_precondition
             //     ({ account_update; _ }, account, new_account, local_state) ->
             //     let local_state = ref local_state in

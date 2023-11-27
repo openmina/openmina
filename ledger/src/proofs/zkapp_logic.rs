@@ -30,7 +30,7 @@ pub enum PerformResult {
 }
 
 pub struct Handler<Z: ZkappApplication> {
-    pub perform: fn(Eff<Z>) -> PerformResult,
+    pub perform: fn(Eff<Z>, &mut Z::WitnessGenerator) -> PerformResult,
 }
 
 pub struct GetNextAccountUpdateResult<Z: ZkappApplication> {
@@ -408,12 +408,10 @@ where
         w,
     );
 
-    (h.perform)(Eff::CheckAccountPrecondition(
-        &account_update,
-        &a,
-        account_is_new,
-        &mut local_state,
-    ));
+    (h.perform)(
+        Eff::CheckAccountPrecondition(&account_update, &a, account_is_new, &mut local_state),
+        w,
+    );
 
     // let local_state =
     //   h.perform
