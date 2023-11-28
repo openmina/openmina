@@ -2,7 +2,10 @@ use std::time::Duration;
 
 use libp2p::Multiaddr;
 
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use node::{
+    event_source::Event,
+    p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent},
+};
 
 use crate::{
     node::RustNodeTestingConfig, scenario::ScenarioStep, scenarios::cluster_runner::ClusterRunner,
@@ -35,14 +38,17 @@ impl SoloNodeBasicConnectivityInitialJoining {
             .map(|s| s.parse::<Multiaddr>().unwrap())
             .map(|maddr| P2pConnectionOutgoingInitOpts::try_from(&maddr).unwrap())
             .collect::<Vec<_>>();
+        eprintln!("set max peers per node: {MAX_PEERS_PER_NODE}");
+        for seed in seeds {
+            eprintln!("add initial peer: {seed}");
+        }
         let config = RustNodeTestingConfig::berkeley_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(MAX_PEERS_PER_NODE)
             .initial_peers(initial_peers);
 
         let node_id = runner.add_rust_node(config);
-
-        dbg!(libp2p::PeerId::from(
+        let peer_id = libp2p::PeerId::from(
             runner
                 .node(node_id)
                 .expect("must exist")
@@ -50,8 +56,9 @@ impl SoloNodeBasicConnectivityInitialJoining {
                 .p2p
                 .config
                 .identity_pub_key
-                .peer_id()
-        ));
+                .peer_id(),
+        );
+        eprintln!("launch Openmina node, id: {node_id}, peer_id: {peer_id}");
 
         for step in 0..STEPS {
             tokio::time::sleep(STEP_DELAY).await;
@@ -59,9 +66,17 @@ impl SoloNodeBasicConnectivityInitialJoining {
             let steps = runner
                 .pending_events()
                 .map(|(node_id, _, events)| {
-                    events.map(move |(_, event)| ScenarioStep::Event {
-                        node_id,
-                        event: event.to_string(),
+                    events.map(move |(_, event)| {
+                        match event {
+                            Event::P2p(P2pEvent::Discovery(event)) => {
+                                eprintln!("event: {event}");
+                            }
+                            _ => {}
+                        }
+                        ScenarioStep::Event {
+                            node_id,
+                            event: event.to_string(),
+                        }
                     })
                 })
                 .flatten()
@@ -94,6 +109,11 @@ impl SoloNodeBasicConnectivityInitialJoining {
 
             // TODO: the threshold is too small, node cannot connect to many peer before the timeout
             if ready_peers >= KNOWN_PEERS && known_peers >= KNOWN_PEERS {
+                eprintln!("step: {step}");
+                eprintln!("known peers: {known_peers}");
+                eprintln!("connected peers: {ready_peers}");
+                eprintln!("success");
+
                 return;
             }
         }

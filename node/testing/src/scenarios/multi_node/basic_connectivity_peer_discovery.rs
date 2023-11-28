@@ -1,6 +1,8 @@
 use std::time::Duration;
 
+use node::event_source::Event;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use node::p2p::P2pEvent;
 
 use crate::scenarios::cluster_runner::ClusterRunner;
 use crate::{node::RustNodeTestingConfig, scenario::ScenarioStep};
@@ -31,19 +33,26 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
         let seed_a_key = NodeKey::generate();
         let mut seed_a = Node::spawn_with_key(seed_a_key, 8302, 3085, 8301, true, Some(&[]));
 
+        eprintln!("launching OCaml seed node: {}", seed_a.local_addr());
+
         tokio::time::sleep(Duration::from_secs(60)).await;
+        eprintln!("OCaml seed node is ready");
+
         let nodes = (1..TOTAL_OCAML_NODES)
             .map(|i| {
-                Node::spawn(
+                let n = Node::spawn(
                     8302 + i * 10,
                     3085 + i * 10,
                     8301 + i * 10,
                     Some(&[&seed_a.local_addr()]),
-                )
+                );
+                eprintln!("launching OCaml node {}", n.local_addr());
+                n
             })
             .collect::<Vec<_>>();
 
         tokio::time::sleep(PAUSE_UNTIL_OCAML_NODES_READY).await;
+        eprintln!("OCaml nodes should be ready now");
 
         let config = RustNodeTestingConfig::berkeley_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
@@ -57,6 +66,7 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                     .collect(),
             );
         let node_id = runner.add_rust_node(config);
+        eprintln!("launching Openmina node {node_id}");
 
         let mut additional_ocaml_node = None::<Node>;
 
@@ -72,9 +82,17 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
             let steps = runner
                 .pending_events()
                 .map(|(node_id, _, events)| {
-                    events.map(move |(_, event)| ScenarioStep::Event {
-                        node_id,
-                        event: event.to_string(),
+                    events.map(move |(_, event)| {
+                        match event {
+                            Event::P2p(P2pEvent::Discovery(event)) => {
+                                eprintln!("event: {event}");
+                            }
+                            _ => {}
+                        }
+                        ScenarioStep::Event {
+                            node_id,
+                            event: event.to_string(),
+                        }
                     })
                 })
                 .flatten()
@@ -103,7 +121,14 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                 // the node must find all already running OCaml nodes
                 // assert_eq!(this.state().p2p.peers.len(), TOTAL_OCAML_NODES as usize);
                 additional_ocaml_node.get_or_insert_with(|| {
-                    Node::spawn(9000, 4000, 9001, Some(&[&seed_a.local_addr()]))
+                    let n = Node::spawn(9000, 4000, 9001, Some(&[&seed_a.local_addr()]));
+                    eprintln!("the Openmina node finished peer discovery",);
+                    eprintln!(
+                        "connected peers: {:?}",
+                        this.state().p2p.peers.keys().collect::<Vec<_>>()
+                    );
+                    eprintln!("launching additional OCaml node {}", n.local_addr());
+                    n
                 });
             }
 
@@ -122,6 +147,9 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                     .find(|n| n.is_incoming)
                     .is_some()
                 {
+                    eprintln!("the additional OCaml node connected to Openmina node");
+                    eprintln!("success");
+
                     break;
                 }
             }

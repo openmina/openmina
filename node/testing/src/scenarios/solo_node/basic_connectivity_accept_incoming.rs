@@ -1,7 +1,10 @@
 use std::time::Duration;
 
 use libp2p::Multiaddr;
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use node::{
+    event_source::Event,
+    p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent},
+};
 
 use crate::{
     node::RustNodeTestingConfig, ocaml, scenario::ScenarioStep,
@@ -35,6 +38,10 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             .map(|s| s.parse::<Multiaddr>().unwrap())
             .map(|maddr| P2pConnectionOutgoingInitOpts::try_from(&maddr).unwrap())
             .collect::<Vec<_>>();
+        eprintln!("set max peers per node: {MAX_PEERS_PER_NODE}");
+        for seed in seeds {
+            eprintln!("add initial peer: {seed}");
+        }
         let config = RustNodeTestingConfig::berkeley_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(MAX_PEERS_PER_NODE)
@@ -42,16 +49,16 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
 
         let node_id = runner.add_rust_node(config);
 
-        let mut ocaml_node = None::<ocaml::Node>;
-
         let full_config = &runner.node(node_id).expect("must exist").state().p2p.config;
         let this = format!(
             "/ip4/127.0.0.1/tcp/{}/p2p/{}",
             full_config.libp2p_port.unwrap(),
             libp2p::PeerId::from(full_config.identity_pub_key.peer_id())
         );
-        dbg!(&this);
         let this_maddr = this.parse::<Multiaddr>().unwrap();
+        eprintln!("launch Openmina node, id: {node_id}, addr: {this}");
+
+        let mut ocaml_node = None::<ocaml::Node>;
 
         for step in 0..STEPS {
             tokio::time::sleep(STEP_DELAY).await;
@@ -59,9 +66,17 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             let steps = runner
                 .pending_events()
                 .map(|(node_id, _, events)| {
-                    events.map(move |(_, event)| ScenarioStep::Event {
-                        node_id,
-                        event: event.to_string(),
+                    events.map(move |(_, event)| {
+                        match event {
+                            Event::P2p(P2pEvent::Discovery(event)) => {
+                                eprintln!("event: {event}");
+                            }
+                            _ => {}
+                        }
+                        ScenarioStep::Event {
+                            node_id,
+                            event: event.to_string(),
+                        }
                     })
                 })
                 .flatten()
@@ -94,16 +109,23 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
 
             // TODO: the threshold is too small, node cannot connect to many peer before the timeout
             if ready_peers >= KNOWN_PEERS && known_peers >= KNOWN_PEERS {
+                eprintln!("step: {step}");
+                eprintln!("known peers: {known_peers}");
+                eprintln!("connected peers: {ready_peers}");
+
                 let ocaml_node = ocaml_node.get_or_insert_with(|| {
-                    ocaml::Node::spawn(18302, 13085, 18301, Some(&[&this_maddr]))
+                    let n = ocaml::Node::spawn(18302, 13085, 18301, Some(&[&this_maddr]));
+                    eprintln!("launching OCaml node: {}", n.peer_id());
+                    n
                 });
-                if node
+                if let Some((peer_id, s)) = node
                     .state()
                     .p2p
                     .ready_peers_iter()
                     .find(|(peer_id, _)| **peer_id == ocaml_node.peer_id().into())
-                    .is_some()
                 {
+                    eprintln!("accept incoming connection from OCaml node: {peer_id}");
+                    assert!(s.is_incoming);
                     return;
                 }
             }

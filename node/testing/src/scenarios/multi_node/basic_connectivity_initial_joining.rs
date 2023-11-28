@@ -26,6 +26,8 @@ impl MultiNodeBasicConnectivityInitialJoining {
 
         let seed_node =
             runner.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(TOTAL_PEERS));
+        eprintln!("launch Openmina seed node, id: {seed_node}");
+
         let mut nodes = vec![seed_node];
 
         for step in 0..(TOTAL_PEERS * STEPS_PER_PEER + EXTRA_STEPS) {
@@ -37,6 +39,8 @@ impl MultiNodeBasicConnectivityInitialJoining {
                         .max_peers(MAX_PEERS_PER_NODE)
                         .ask_initial_peers_interval(Duration::ZERO),
                 );
+                eprintln!("launch Openmina node, id: {node}, connects to {seed_node}");
+
                 runner
                     .exec_step(ScenarioStep::ConnectNodes {
                         dialer: node,
@@ -77,7 +81,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                     .unwrap();
 
                 let node = runner.node(node_id).expect("node must exist");
-                let p2p: &node::p2p::P2pState = &node.state().p2p;
+                let p2p = &node.state().p2p;
                 let ready_peers = p2p.ready_peers_iter().count();
 
                 // each node connected to some peers
@@ -93,6 +97,16 @@ impl MultiNodeBasicConnectivityInitialJoining {
             }
 
             if conditions_met {
+                for &node_id in &nodes {
+                    let node = runner.node(node_id).expect("node must exist");
+                    let p2p = &node.state().p2p;
+                    let ready_peers = p2p.ready_peers_iter().count();
+                    eprintln!(
+                        "node {} has {ready_peers} peers",
+                        p2p.config.identity_pub_key.peer_id(),
+                    );
+                }
+                eprintln!("success");
                 return;
             }
         }
