@@ -3382,7 +3382,7 @@ pub mod transaction_snark {
             transaction_logic::{checked_cons_signed_command_payload, Coinbase},
         },
         sparse_ledger::SparseLedger,
-        AccountId, PermissionTo, PermsConst, Timing, TimingAsRecordChecked, ToInputs,
+        AccountId, Inputs, PermissionTo, PermsConst, Timing, TimingAsRecordChecked, ToInputs,
     };
     use ark_ff::Zero;
     use mina_signer::PubKey;
@@ -3711,7 +3711,7 @@ pub mod transaction_snark {
         sponge.squeeze(w)
     }
 
-    fn checked_signature_hash(
+    fn checked_legacy_signature_hash(
         mut inputs: LegacyInput<Fp>,
         signer: &PubKey,
         signature: &Signature,
@@ -3723,20 +3723,30 @@ pub mod transaction_snark {
         inputs.append_field(*px);
         inputs.append_field(*py);
         inputs.append_field(*rx);
+        // TODO: Change this to `MinaSignatureMainnet` on mainnet
         let hash = checked_legacy_hash("CodaSignature", inputs, w);
 
         w.exists(field_to_bits::<_, 255>(hash))
     }
 
-    pub fn checked_signature_verify(
+    pub fn checked_legacy_signature_verify(
         shifted: &InnerCurve<Fp>,
         signer: &PubKey,
         signature: &Signature,
         inputs: LegacyInput<Fp>,
         w: &mut Witness<Fp>,
     ) -> Boolean {
-        let hash = checked_signature_hash(inputs, signer, signature, w);
+        let hash = checked_legacy_signature_hash(inputs, signer, signature, w);
+        checked_signature_verify_impl(shifted, signer, signature, &hash, w)
+    }
 
+    pub fn checked_signature_verify_impl(
+        shifted: &InnerCurve<Fp>,
+        signer: &PubKey,
+        signature: &Signature,
+        hash: &[bool; 255],
+        w: &mut Witness<Fp>,
+    ) -> Boolean {
         // negate
         let public_key = {
             let GroupAffine::<Fp> { x, y, .. } = signer.point();
@@ -3744,7 +3754,7 @@ pub mod transaction_snark {
             make_group::<Fp>(*x, y)
         };
 
-        let e_pk = scale_non_constant::<Fp, 255>(public_key, &hash, shifted, w);
+        let e_pk = scale_non_constant::<Fp, 255>(public_key, hash, shifted, w);
 
         let Signature { rx: _, s } = signature;
         let bits: [bool; 255] = field_to_bits::<_, 255>(*s);
@@ -3763,6 +3773,35 @@ pub mod transaction_snark {
         y_even.and(&r_correct, w)
     }
 
+    fn checked_chunked_signature_hash(
+        mut inputs: Inputs,
+        signer: &PubKey,
+        signature: &Signature,
+        w: &mut Witness<Fp>,
+    ) -> [bool; 255] {
+        let GroupAffine::<Fp> { x: px, y: py, .. } = signer.point();
+        let Signature { rx, s: _ } = signature;
+
+        inputs.append_field(*px);
+        inputs.append_field(*py);
+        inputs.append_field(*rx);
+        // TODO: Change this to `MinaSignatureMainnet` on mainnet
+        let hash = checked_hash("CodaSignature", &inputs.to_fields(), w);
+
+        w.exists(field_to_bits::<_, 255>(hash))
+    }
+
+    pub fn checked_chunked_signature_verify(
+        shifted: &InnerCurve<Fp>,
+        signer: &PubKey,
+        signature: &Signature,
+        inputs: Inputs,
+        w: &mut Witness<Fp>,
+    ) -> Boolean {
+        let hash = checked_chunked_signature_hash(inputs, signer, signature, w);
+        checked_signature_verify_impl(shifted, signer, signature, &hash, w)
+    }
+
     fn check_signature(
         shifted: &InnerCurve<Fp>,
         payload: &TransactionUnionPayload,
@@ -3772,7 +3811,7 @@ pub mod transaction_snark {
         w: &mut Witness<Fp>,
     ) {
         let inputs = payload.to_checked_legacy_input_owned(w);
-        let verifies = checked_signature_verify(shifted, signer, signature, inputs, w);
+        let verifies = checked_legacy_signature_verify(shifted, signer, signature, inputs, w);
         Boolean::assert_any(&[is_user_command.neg(), verifies][..], w);
     }
 

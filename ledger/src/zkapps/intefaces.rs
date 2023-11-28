@@ -10,7 +10,7 @@ use crate::proofs::zkapp_logic;
 use crate::scan_state::currency;
 use crate::scan_state::transaction_logic::local_state::{StackFrame, StackFrameChecked};
 use crate::scan_state::transaction_logic::zkapp_command::{
-    AccountUpdate, AccountUpdateSkeleton, CallForest, WithHash,
+    AccountUpdate, AccountUpdateSkeleton, CallForest, CheckAuthorizationResult, WithHash,
 };
 use crate::scan_state::transaction_logic::TransactionFailure;
 use crate::sparse_ledger::LedgerIntf;
@@ -220,7 +220,7 @@ where
         calls: &Self::CallForest,
         data: &Self::SingleData,
         w: &mut Self::W,
-    );
+    ) -> CheckAuthorizationResult<Boolean>;
 }
 
 pub trait AccountIdInterface
@@ -246,6 +246,8 @@ pub trait BoolInterface {
 
     fn or(a: Boolean, b: Boolean, w: &mut Self::W) -> Boolean;
     fn and(a: Boolean, b: Boolean, w: &mut Self::W) -> Boolean;
+    fn const_equal(a: Boolean, b: Boolean) -> Boolean;
+    fn equal(a: Boolean, b: Boolean, w: &mut Self::W) -> Boolean;
 }
 
 pub trait TransactionCommitmentInterface {

@@ -2753,9 +2753,9 @@ pub mod zkapp_command {
         }
     }
 
-    pub struct CheckAuthorizationResult {
-        pub proof_verifies: bool,
-        pub signature_verifies: bool,
+    pub struct CheckAuthorizationResult<Bool> {
+        pub proof_verifies: Bool,
+        pub signature_verifies: Bool,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1437
@@ -2887,7 +2887,7 @@ pub mod zkapp_command {
             _will_succeed: bool,
             _commitment: Fp,
             _calls: CallForest<AccountUpdate>,
-        ) -> CheckAuthorizationResult {
+        ) -> CheckAuthorizationResult<bool> {
             match self.authorization {
                 Control::Signature(_) => CheckAuthorizationResult {
                     proof_verifies: false,

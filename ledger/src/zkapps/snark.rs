@@ -15,7 +15,7 @@ use crate::{
         to_field_elements::ToFieldElements,
         witness::{
             create_shifted_inner_curve, decompress_var, field,
-            transaction_snark::{checked_hash, checked_signature_verify},
+            transaction_snark::{checked_chunked_signature_verify, checked_hash},
             Boolean, Check, FieldWitness, InnerCurve, ToBoolean, Witness,
         },
         zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash, ZkappSingleData},
@@ -27,13 +27,14 @@ use crate::{
             local_state::{StackFrame, StackFrameChecked, StackFrameCheckedFrame, WithLazyHash},
             zkapp_command::{
                 AccountUpdate, AccountUpdateSkeleton, AuthorizationKind, CallForest,
-                ClosedInterval, OrIgnore, Tree, WithHash, ACCOUNT_UPDATE_CONS_HASH_PARAM,
+                CheckAuthorizationResult, ClosedInterval, OrIgnore, Tree, WithHash,
+                ACCOUNT_UPDATE_CONS_HASH_PARAM,
             },
             zkapp_statement::ZkappStatement,
             TransactionFailure,
         },
     },
-    Account, AccountId, MyCow, ToInputs, TokenId, VerificationKey, ZkAppAccount,
+    Account, AccountId, Inputs, MyCow, ToInputs, TokenId, VerificationKey, ZkAppAccount,
 };
 
 use super::intefaces::{
@@ -456,10 +457,10 @@ fn signature_verifies(
 ) -> Boolean {
     let pk = decompress_var(pk, w);
 
-    let mut inputs = crate::proofs::witness::legacy_input::LegacyInput::new();
+    let mut inputs = Inputs::new();
     inputs.append_field(payload_digest);
 
-    checked_signature_verify(shifted, &pk, signature, inputs, w)
+    checked_chunked_signature_verify(shifted, &pk, signature, inputs, w)
 }
 
 impl AccountUpdateInterface for SnarkAccountUpdate {
@@ -494,19 +495,18 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
         calls: &Self::CallForest,
         data: &Self::SingleData,
         w: &mut Self::W,
-    ) {
+    ) -> CheckAuthorizationResult<Boolean> {
+        use crate::scan_state::transaction_logic::zkapp_statement::TransactionCommitment;
+        use crate::ControlTag::{NoneGiven, Proof, Signature};
+
         let Self::CallForest {
             data: _,
             hash: calls,
         } = calls;
-
         let Self {
             body: account_update,
             authorization: control,
         } = self;
-
-        use crate::scan_state::transaction_logic::zkapp_statement::TransactionCommitment;
-        use crate::ControlTag::{NoneGiven, Proof, Signature};
 
         let auth_type = data.spec().auth_type;
         let proof_verifies = match auth_type {
@@ -521,9 +521,6 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
             }
             Signature | NoneGiven => Boolean::False,
         };
-
-        dbg!(auth_type);
-
         let signature_verifies = match auth_type {
             NoneGiven | Proof => Boolean::False,
             Signature => {
@@ -535,7 +532,6 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
                         Control::Proof(_) => unreachable!(),
                     }
                 });
-
                 let payload_digest = commitment;
                 let shifted = create_shifted_inner_curve(w);
                 signature_verifies(
@@ -547,34 +543,13 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
                 )
             }
         };
+        CheckAuthorizationResult {
+            proof_verifies,
+            signature_verifies,
+        }
     }
 }
 
-//   let signature_verifies =
-//     match auth_type with
-//     | None_given | Proof ->
-//         Boolean.false_
-//     | Signature ->
-//         let signature =
-//           exists Signature_lib.Schnorr.Chunked.Signature.typ
-//             ~compute:(fun () ->
-//               match V.get control with
-//               | Signature s ->
-//                   s
-//               | None_given ->
-//                   Signature.dummy
-//               | Proof _ ->
-//                   assert false )
-//         in
-//         run_checked
-//           (let%bind (module S) =
-//              Tick.Inner_curve.Checked.Shifted.create ()
-//            in
-//            signature_verifies
-//              ~shifted:(module S)
-//              ~payload_digest:commitment signature
-//              account_update.data.public_key )
-//   in
 //   ( `Proof_verifies proof_verifies
 //   , `Signature_verifies signature_verifies )
 
@@ -902,6 +877,14 @@ impl BoolInterface for SnarkBool {
 
     fn and(a: Boolean, b: Boolean, w: &mut Self::W) -> Boolean {
         a.and(&b, w)
+    }
+
+    fn const_equal(a: Boolean, b: Boolean) -> Boolean {
+        a.const_equal(&b)
+    }
+
+    fn equal(a: Boolean, b: Boolean, w: &mut Self::W) -> Boolean {
+        a.equal(&b, w)
     }
 }
 

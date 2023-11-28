@@ -6,7 +6,10 @@ use mina_signer::CompressedPubKey;
 use crate::{
     scan_state::{
         scan_state::ConstraintConstants,
-        transaction_logic::{protocol_state::GlobalStateSkeleton, TransactionFailure},
+        transaction_logic::{
+            protocol_state::GlobalStateSkeleton, zkapp_command::CheckAuthorizationResult,
+            TransactionFailure,
+        },
     },
     zkapps::intefaces::*,
     MyCow, TokenId,
@@ -445,33 +448,47 @@ where
         );
     };
 
-    let _ = {
+    let CheckAuthorizationResult {
+        proof_verifies,
+        signature_verifies,
+    } = {
         let use_full_commitment = account_update.body().use_full_commitment.to_boolean();
         let commitment = w.exists_no_check(match use_full_commitment {
             Boolean::True => local_state.full_transaction_commitment,
             Boolean::False => local_state.transaction_commitment,
         });
-
         account_update.check_authorization(
             local_state.will_succeed,
             commitment,
             &account_update_forest,
             &data,
             w,
-        );
+        )
     };
+    assert_(Z::Bool::const_equal(
+        proof_verifies,
+        account_update.is_proved(),
+    ));
+    // TODO: Use cvar here
+    assert_(Z::Bool::equal(
+        signature_verifies,
+        account_update.is_signed(),
+        w,
+    ));
 
-    // let `Proof_verifies proof_verifies, `Signature_verifies signature_verifies =
-    //   let commitment =
-    //     Inputs.Transaction_commitment.if_
-    //       (Inputs.Account_update.use_full_commitment account_update)
-    //       ~then_:local_state.full_transaction_commitment
-    //       ~else_:local_state.transaction_commitment
-    //   in
-    //   Inputs.Account_update.check_authorization
-    //     ~will_succeed:local_state.will_succeed ~commitment
-    //     ~calls:account_update_forest account_update
-    // in
+    let increment_nonce = account_update.body().increment_nonce.to_boolean();
+    Z::LocalState::add_check(
+        &mut local_state,
+        TransactionFailure::FeePayerNonceMustIncrease,
+        Z::Bool::or(increment_nonce, is_start2.neg(), w),
+        w,
+    );
+    Z::LocalState::add_check(
+        &mut local_state,
+        TransactionFailure::FeePayerMustBeSigned,
+        Z::Bool::or(signature_verifies, is_start2.neg(), w),
+        w,
+    );
 
     eprintln!("DONE");
     std::process::exit(0);

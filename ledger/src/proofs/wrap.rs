@@ -2565,6 +2565,10 @@ impl CircuitVar<Boolean> {
             (a, b) => CircuitVar::Var(a.as_boolean().const_lxor(&b.as_boolean())),
         }
     }
+
+    pub fn equal_bool<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
+        self.lxor(other, w).neg()
+    }
 }
 
 fn pack_statement(

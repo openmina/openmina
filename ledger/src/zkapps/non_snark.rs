@@ -9,7 +9,7 @@ use crate::{
         currency::{Amount, Index, Signed},
         transaction_logic::{
             local_state::{CallStack, StackFrame},
-            zkapp_command::{AccountUpdate, CallForest},
+            zkapp_command::{AccountUpdate, CallForest, CheckAuthorizationResult},
         },
     },
     TokenId,
@@ -154,7 +154,6 @@ impl AccountUpdateInterface for AccountUpdate {
     fn is_signed(&self) -> Boolean {
         todo!()
     }
-
     fn check_authorization(
         &self,
         will_succeed: Boolean,
@@ -162,7 +161,7 @@ impl AccountUpdateInterface for AccountUpdate {
         calls: &Self::CallForest,
         data: &Self::SingleData,
         w: &mut Self::W,
-    ) {
+    ) -> CheckAuthorizationResult<Boolean> {
         todo!()
     }
 }
