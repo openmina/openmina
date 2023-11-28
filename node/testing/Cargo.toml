@@ -38,6 +38,8 @@ clap = { version = "4.3", features = [ "derive", "env" ] }
 openmina-core = { path = "../../core" }
 node = { path = "../../node" }
 openmina-node-native = { path = "../../node/native" }
+reqwest = { version = "0.11.22", features = ["blocking", "json"] }
+temp-dir = "0.1.11"
 
 [features]
 default = ["scenario-generators"]

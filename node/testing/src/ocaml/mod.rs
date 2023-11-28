@@ -1,141 +1,198 @@
 use std::{
-    env,
-    fs::{self, File},
-    io,
-    os::unix::prelude::PermissionsExt,
-    path::PathBuf,
+    net::TcpStream,
+    path::{Path, PathBuf},
     process::{Child, Command},
+    time::Duration,
 };
-
-use libp2p::{Multiaddr, PeerId};
-
-pub struct NodeKey {
-    temp_key: PathBuf,
-    peer_id: PeerId,
-}
-
-impl NodeKey {
-    pub fn generate() -> Self {
-        let id = rand::random::<u64>();
-        let temp_dir = env::temp_dir().join(format!("mina-test-key-{id:016x}"));
-        fs::create_dir_all(&temp_dir).expect("create test dir");
-        fs::set_permissions(&temp_dir, PermissionsExt::from_mode(0o700)).expect("access metadata");
-        let temp_key = temp_dir.join("key");
-        Command::new("mina")
-            .env("MINA_LIBP2P_PASS", "")
-            .args(&["libp2p", "generate-keypair", "--privkey-path"])
-            .arg(&temp_key)
-            .output()
-            .expect("generate key");
-        let peer_id = temp_dir.join("key.peerid");
-        let peer_id =
-            io::read_to_string(File::open(peer_id).expect("peed id file")).expect("peer_id");
-        let peer_id = peer_id
-            .trim_end_matches('\n')
-            .parse()
-            .expect("peer id is invalid");
-
-        NodeKey { temp_key, peer_id }
-    }
-
-    pub fn peer_id(&self) -> PeerId {
-        self.peer_id.clone()
-    }
-}
 
 pub struct Node {
     child: Child,
     pub port: u16,
-    peer_id: libp2p::PeerId,
+    pub peer_id: libp2p::PeerId,
+    temp_dir: Option<temp_dir::TempDir>,
 }
 
 impl Node {
-    pub fn spawn(
-        port: u16,
-        rest_port: u16,
-        client_port: u16,
-        peers: Option<&[&Multiaddr]>,
-    ) -> Self {
-        Self::spawn_with_key(
-            NodeKey::generate(),
-            port,
-            rest_port,
-            client_port,
-            false,
-            peers,
-        )
-    }
-
-    pub fn spawn_with_key(
-        NodeKey { temp_key, peer_id }: NodeKey,
-        port: u16,
-        rest_port: u16,
-        client_port: u16,
-        seed: bool,
-        peers: Option<&[&Multiaddr]>,
-    ) -> Self {
-        fs::remove_dir_all(format!("/root/.mina-config/{port}")).unwrap_or_default();
-
-        let mut cmd = Command::new("mina");
-        cmd.env("MINA_LIBP2P_PASS", "")
-            .env("DUNE_PROFILE", "devnet")
-            .env("BPF_ALIAS", "auto-0.0.0.0")
-            .args(&[
-                "daemon",
-                "--libp2p-keypair",
-                temp_key.display().to_string().as_str(),
-                "--config-directory",
-                &format!("/root/.mina-config/{port}"),
-                "--external-port",
-                port.to_string().as_str(),
-                "--client-port",
-                client_port.to_string().as_str(),
-            ]);
-        if rest_port != 0 {
-            cmd.args(&[
-                "--rest-port",
-                rest_port.to_string().as_str(),
-                "--insecure-rest-server",
-            ]);
-        }
-        if seed {
-            cmd.arg("--seed");
-        }
-        if let Some(peers) = peers {
-            cmd.args(
-                peers
-                    .into_iter()
-                    .map(|p| ["--peer".to_string(), p.to_string()])
-                    .flatten(),
-            );
-        } else {
-            cmd.args(&[
-                "--peer-list-url",
-                "https://storage.googleapis.com/seed-lists/berkeley_seeds.txt",
-            ]);
-        }
-
-        let child = cmd.spawn().expect("ocaml node");
-
-        Self {
-            child,
-            port,
-            peer_id,
-        }
-    }
-
-    pub fn peer_id(&self) -> PeerId {
-        self.peer_id.clone()
-    }
-
     pub fn local_addr(&self) -> libp2p::Multiaddr {
         format!("/ip4/127.0.0.1/tcp/{}/p2p/{}", self.port, self.peer_id)
             .parse()
             .expect("must be valid")
     }
 
+    pub fn peer_id(&self) -> libp2p::PeerId {
+        self.peer_id.clone()
+    }
+
     pub fn kill(&mut self) {
         self.child.kill().expect("kill");
+    }
+
+    const PRIVKEY_PATH: &str = ".libp2p/key";
+
+    fn privkey_path(dir: &Path) -> PathBuf {
+        dir.join(Self::PRIVKEY_PATH)
+    }
+
+    fn read_peer_id(dir: &Path) -> anyhow::Result<String> {
+        Ok(
+            std::fs::read_to_string(Self::privkey_path(dir).with_extension("peerid"))?
+                .trim()
+                .into(),
+        )
+    }
+
+    pub fn generate_libp2p_keypair(dir: &Path) -> anyhow::Result<String> {
+        let mut child = Command::new("mina")
+            .args(["libp2p", "generate-keypair", "--privkey-path"])
+            .arg(Self::privkey_path(dir))
+            .env("MINA_LIBP2P_PASS", "")
+            .env("UMASK", "0700")
+            .spawn()?;
+        if child.wait()?.success() {
+            let peer_id = Self::read_peer_id(dir)?;
+            Ok(peer_id)
+        } else {
+            anyhow::bail!("error generating keypair");
+        }
+    }
+
+    pub fn spawn_with_temp_dir<I: IntoIterator<Item = S>, S: AsRef<str>>(
+        p2p_port: u16,
+        graphql_port: u16,
+        client_port: u16,
+        peers: I,
+    ) -> anyhow::Result<Self> {
+        let temp_dir = temp_dir::TempDir::new()?;
+        let mut node = Node::spawn(p2p_port, client_port, graphql_port, &temp_dir.path(), peers)?;
+        node.temp_dir = Some(temp_dir);
+        Ok(node)
+    }
+
+    pub fn spawn<I: IntoIterator<Item = S>, S: AsRef<str>>(
+        p2p_port: u16,
+        graphql_port: u16,
+        client_port: u16,
+        dir: &Path,
+        peers: I,
+    ) -> anyhow::Result<Self> {
+        let peer_id = match Self::read_peer_id(dir) {
+            Ok(v) => v,
+            Err(_) => Node::generate_libp2p_keypair(dir)?,
+        };
+        let peer_id = peer_id.parse()?;
+        let mut cmd = Command::new("mina");
+
+        cmd.env("MINA_LIBP2P_PASS", "");
+
+        cmd.arg("daemon");
+        cmd.arg("--config-dir").arg(&dir.join(".config"));
+        cmd.arg("--config-file").arg("/var/lib/coda/berkeley.json");
+        cmd.arg("--libp2p-keypair").arg(&Self::privkey_path(dir));
+        cmd.args(["--external-ip", "127.0.0.1"])
+            .args(["--external-port", &p2p_port.to_string()])
+            .args(["--client-port", &client_port.to_string()])
+            .args(["--rest-port", &graphql_port.to_string()]);
+        let mut is_seed = true;
+        for peer in peers {
+            is_seed = false;
+            cmd.args(["--peer", peer.as_ref()]);
+        }
+        if is_seed {
+            cmd.arg("--seed");
+        }
+
+        cmd.stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+
+        let mut child = cmd.spawn()?;
+
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("no stdout"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow::anyhow!("no stderr"))?;
+
+        let prefix = format!("[localhost:{p2p_port}] ");
+        let prefix2 = prefix.clone();
+        std::thread::spawn(move || {
+            if let Err(_) = Self::read_stream(stdout, std::io::stdout(), &prefix) {}
+        });
+        std::thread::spawn(move || {
+            if let Err(_) = Self::read_stream(stderr, std::io::stderr(), &prefix2) {}
+        });
+
+        Ok(Self {
+            child,
+            port: p2p_port,
+            peer_id,
+            temp_dir: None,
+        })
+    }
+
+    fn read_stream<R: std::io::Read, W: std::io::Write>(
+        from: R,
+        mut to: W,
+        prefix: &str,
+    ) -> std::io::Result<()> {
+        let mut buf = std::io::BufReader::new(from);
+        let mut line = String::with_capacity(256);
+        while std::io::BufRead::read_line(&mut buf, &mut line)? > 0 {
+            to.write_all(prefix.as_bytes())?;
+            to.write_all(line.as_bytes())?;
+            line.clear();
+        }
+        Ok(())
+    }
+
+    pub fn graphql_addr(&self) -> String {
+        format!("http://127.0.0.1:{}/graphql", self.port + 1)
+    }
+
+    pub fn grapql_query(&self, query: &str) -> anyhow::Result<serde_json::Value> {
+        let client = reqwest::blocking::Client::new();
+        let response = client
+            .post(self.graphql_addr())
+            .json(&{
+                serde_json::json!({
+                    "query": query
+                })
+            })
+            .send()?;
+
+        Ok(response.json()?)
+    }
+
+    pub fn wait_for_p2p(&self, duration: Duration) -> anyhow::Result<bool> {
+        let timeout = std::time::Instant::now() + duration;
+        while std::time::Instant::now() < timeout {
+            match TcpStream::connect(("127.0.0.1", self.port)) {
+                Ok(_) => return Ok(true),
+                Err(_) => {}
+            }
+            std::thread::sleep(Duration::from_secs(10));
+        }
+        return Ok(false);
+    }
+}
+
+impl Drop for Node {
+    fn drop(&mut self) {
+        match self.child.try_wait() {
+            Err(err) => {
+                eprintln!("error getting status from OCaml node: {err}");
+            }
+            Ok(None) => {
+                if let Err(err) = self.child.kill() {
+                    eprintln!("error killing OCaml node: {err}");
+                } else if let Err(err) = self.child.wait() {
+                    eprintln!("error getting status from OCaml node: {err}");
+                }
+            }
+            _ => {}
+        }
     }
 }
 
@@ -144,7 +201,8 @@ impl Node {
 fn run_ocaml() {
     use std::io::{BufRead, BufReader};
 
-    let mut node = Node::spawn(8302, 3086, 8301, None);
+    let mut node =
+        Node::spawn_with_temp_dir::<_, &str>(8302, 3086, 8301, []).expect("node is spawned");
     let stdout = node.child.stdout.take().unwrap();
     std::thread::spawn(move || {
         for line in BufRead::lines(BufReader::new(stdout)) {
