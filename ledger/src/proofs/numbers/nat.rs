@@ -12,7 +12,7 @@ use crate::{
     ToInputs,
 };
 
-use super::common::{range_check, range_check_flag};
+use super::common::{range_check, range_check_flag, ForZkappCheck};
 
 pub trait CheckedNat<F: FieldWitness, const NBITS: usize>:
     Sized + ToFieldElements<F> + Check<F> + Clone
@@ -262,6 +262,16 @@ macro_rules! impl_nat {
         impl $unchecked {
             pub fn to_checked<F: FieldWitness>(&self) -> $name<F> {
                 $name::from_inner(*self)
+            }
+        }
+
+        impl<F: FieldWitness> ForZkappCheck<F> for $unchecked {
+            type CheckedType = $name<F>;
+            fn checked_from_field(field: F) -> Self::CheckedType {
+                Self::CheckedType::from_field(field)
+            }
+            fn lte(this: &Self::CheckedType, other: &Self::CheckedType, w: &mut Witness<F>) -> Boolean {
+                Self::CheckedType::lte(this, other, w)
             }
         }
     )*)

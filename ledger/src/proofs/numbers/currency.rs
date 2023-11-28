@@ -7,7 +7,7 @@ use crate::proofs::{
 };
 use crate::ToInputs;
 
-use super::common::range_check;
+use super::common::{range_check, ForZkappCheck};
 
 pub enum RangeCheckFlaggedKind {
     Add,
@@ -435,6 +435,16 @@ macro_rules! impl_currency {
                     sgn: self.sgn,
                     _field: PhantomData,
                 }
+            }
+        }
+
+        impl<F: FieldWitness> ForZkappCheck<F> for $unchecked {
+            type CheckedType = $name<F>;
+            fn checked_from_field(field: F) -> Self::CheckedType {
+                Self::CheckedType::from_field(field)
+            }
+            fn lte(this: &Self::CheckedType, other: &Self::CheckedType, w: &mut Witness<F>) -> Boolean {
+                Self::CheckedType::lte(this, other, w)
             }
         }
     )*)

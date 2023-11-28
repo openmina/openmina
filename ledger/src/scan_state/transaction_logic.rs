@@ -840,21 +840,17 @@ pub mod zkapp_command {
     use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
     use mina_signer::Signature;
     use rand::{seq::SliceRandom, Rng};
-    //use rand::{seq::SliceRandom, Rng};
 
     use crate::{
         account, dummy, gen_compressed, gen_keypair, hash_noinputs, hash_with_kimchi,
         proofs::{
-            numbers::{
-                currency::{CheckedBalance, CheckedCurrency},
-                nat::{CheckedNat, CheckedNonce},
-            },
             to_field_elements::ToFieldElements,
             witness::{Boolean, Check, ToBoolean},
         },
         scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
+        zkapps::snark::zkapp_check::InSnarkCheck,
         AuthRequired, ControlTag, Inputs, MyCow, Permissions, ToInputs, TokenSymbol,
-        VerificationKey, VotingFor, ZkAppUri,
+        VerificationKey, VotingFor, ZkAppAccount, ZkAppUri,
     };
 
     use super::{zkapp_statement::TransactionCommitment, *};
@@ -1450,7 +1446,7 @@ pub mod zkapp_command {
     where
         T: MinMax,
     {
-        fn min_max() -> Self {
+        pub fn min_max() -> Self {
             Self {
                 lower: T::min(),
                 upper: T::max(),
@@ -1623,69 +1619,6 @@ pub mod zkapp_command {
                 Self::Ignore => Ok(()),
                 Self::Check(t) => t.zcheck(label, rhs),
             }
-        }
-    }
-
-    pub trait InSnarkCheck {
-        fn checked_zcheck() {}
-    }
-
-    impl OrIgnore<Fp> {
-        pub fn checked_zcheck<V>(&self, x: Fp, w: &mut Witness<Fp>) -> Boolean {
-            let (is_some, value) = match self {
-                OrIgnore::Check(v) => (Boolean::True, *v),
-                OrIgnore::Ignore => (Boolean::False, Fp::zero()),
-            };
-
-            todo!()
-        }
-    }
-
-    impl<T> OrIgnore<ClosedInterval<T>>
-    where
-        T: Magnitude + MinMax + Clone,
-    {
-        pub fn checked_zcheck<V>(&self, x: T, w: &mut Witness<Fp>) -> Boolean
-        where
-            V: CheckedCurrency<Fp>,
-        {
-            let to_checked = |v: T| V::from_field(v.to_field::<Fp>());
-            let (is_some, value) = match self {
-                OrIgnore::Check(v) => (Boolean::True, v.clone()),
-                OrIgnore::Ignore => (Boolean::False, ClosedInterval::min_max()),
-            };
-            let is_good = {
-                let ClosedInterval { lower, upper } = value;
-                let lower = to_checked(lower);
-                let upper = to_checked(upper);
-                let x = to_checked(x);
-                let lower_than_upper = x.lte(&upper, w);
-                let greater_than_lower = lower.lte(&x, w);
-                Boolean::all(&[greater_than_lower, lower_than_upper], w)
-            };
-            Boolean::any(&[is_some.neg(), is_good], w)
-        }
-
-        // TODO: Dedup with `Self::checked_zcheck`
-        pub fn checked_zcheck_nat<V>(&self, x: T, w: &mut Witness<Fp>) -> Boolean
-        where
-            V: CheckedNat<Fp, 32>,
-        {
-            let to_checked = |v: T| V::from_field(v.to_field::<Fp>());
-            let (is_some, value) = match self {
-                OrIgnore::Check(v) => (Boolean::True, v.clone()),
-                OrIgnore::Ignore => (Boolean::False, ClosedInterval::min_max()),
-            };
-            let is_good = {
-                let ClosedInterval { lower, upper } = value;
-                let lower = to_checked(lower);
-                let upper = to_checked(upper);
-                let x = to_checked(x);
-                let lower_than_upper = x.lte(&upper, w);
-                let greater_than_lower = lower.lte(&x, w);
-                Boolean::all(&[greater_than_lower, lower_than_upper], w)
-            };
-            Boolean::any(&[is_some.neg(), is_good], w)
         }
     }
 
@@ -1913,6 +1846,69 @@ pub mod zkapp_command {
                 .epoch_data("next_epoch_data", s.next_epoch_data)
         }
 
+        pub fn checked_zcheck(&self, s: &ProtocolStateView, w: &mut Witness<Fp>) -> Boolean {
+            let Self {
+                snarked_ledger_hash,
+                blockchain_length,
+                min_window_density,
+                total_currency,
+                global_slot_since_genesis,
+                staking_epoch_data,
+                next_epoch_data,
+            } = self;
+
+            // NOTE: Here the 2nd element in the tuples is the default value of `OrIgnore`
+
+            let epoch_data = |epoch_data: &EpochData,
+                              view: &protocol_state::EpochData<Fp>,
+                              w: &mut Witness<Fp>| {
+                let EpochData {
+                    ledger:
+                        EpochLedger {
+                            hash,
+                            total_currency,
+                        },
+                    seed: _,
+                    start_checkpoint,
+                    lock_checkpoint,
+                    epoch_length,
+                } = epoch_data;
+                // Reverse to match OCaml order of the list, while still executing `checked_zcheck`
+                // in correct order
+                [
+                    (epoch_length, ClosedInterval::min_max).checked_zcheck(&view.epoch_length, w),
+                    (lock_checkpoint, Fp::zero).checked_zcheck(&view.lock_checkpoint, w),
+                    (start_checkpoint, Fp::zero).checked_zcheck(&view.start_checkpoint, w),
+                    (total_currency, ClosedInterval::min_max)
+                        .checked_zcheck(&view.ledger.total_currency, w),
+                    (hash, Fp::zero).checked_zcheck(&view.ledger.hash, w),
+                ]
+            };
+
+            let next_epoch_data = epoch_data(next_epoch_data, &s.next_epoch_data, w);
+            let staking_epoch_data = epoch_data(staking_epoch_data, &s.staking_epoch_data, w);
+
+            // Reverse to match OCaml order of the list, while still executing `checked_zcheck`
+            // in correct order
+            let bools = [
+                (global_slot_since_genesis, ClosedInterval::min_max)
+                    .checked_zcheck(&s.global_slot_since_genesis, w),
+                (total_currency, ClosedInterval::min_max).checked_zcheck(&s.total_currency, w),
+                (min_window_density, ClosedInterval::min_max)
+                    .checked_zcheck(&s.min_window_density, w),
+                (blockchain_length, ClosedInterval::min_max)
+                    .checked_zcheck(&s.blockchain_length, w),
+                (snarked_ledger_hash, Fp::zero).checked_zcheck(&s.snarked_ledger_hash, w),
+            ]
+            .into_iter()
+            .rev()
+            .chain(staking_epoch_data.into_iter().rev())
+            .chain(next_epoch_data.into_iter().rev())
+            .collect::<Vec<_>>();
+
+            Boolean::all(&bools, w)
+        }
+
         /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_precondition.ml#L1303
         pub fn accept() -> Self {
             let epoch_data = || EpochData {
@@ -2116,7 +2112,12 @@ pub mod zkapp_command {
             ret
         }
 
-        fn checked_zchecks(&self, account: &crate::Account, w: &mut Witness<Fp>) {
+        fn checked_zchecks(
+            &self,
+            account: &crate::Account,
+            new_account: Boolean,
+            w: &mut Witness<Fp>,
+        ) -> Vec<(TransactionFailure, Boolean)> {
             use TransactionFailure::*;
 
             let Self {
@@ -2130,67 +2131,81 @@ pub mod zkapp_command {
                 is_new,
             } = self;
 
-            [(
-                AccountBalancePreconditionUnsatisfied,
-                balance.checked_zcheck::<CheckedBalance<Fp>>(account.balance, w),
-            )];
+            let zkapp_account = account.zkapp_or_empty();
+            let is_new = is_new.map(ToBoolean::to_boolean);
+            let proved_state = proved_state.map(ToBoolean::to_boolean);
 
-            nonce.checked_zcheck_nat::<CheckedNonce<Fp>>(account.nonce, w);
+            // NOTE: Here we need to execute all `checked_zcheck` in the exact same order than OCaml
+            // so we execute them in reverse order (compared to OCaml): OCaml evaluates from right
+            // to left.
+            // We then have to reverse the resulting vector, to match OCaml resulting list.
 
-            // delegate;
+            // NOTE 2: Here the 2nd element in the tuples is the default value of `OrIgnore`
+            let mut checks: Vec<(TransactionFailure, _)> = [
+                (
+                    AccountIsNewPreconditionUnsatisfied,
+                    (&is_new, || Boolean::False).checked_zcheck(&new_account, w),
+                ),
+                (
+                    AccountProvedStatePreconditionUnsatisfied,
+                    (&proved_state, || Boolean::False)
+                        .checked_zcheck(&zkapp_account.proved_state.to_boolean(), w),
+                ),
+            ]
+            .into_iter()
+            .chain({
+                let bools = state
+                    .iter()
+                    .zip(&zkapp_account.app_state)
+                    .enumerate()
+                    .map(|(i, (s, account_s))| {
+                        let b = (s, Fp::zero).checked_zcheck(account_s, w);
+                        (AccountAppStatePreconditionUnsatisfied(i as i64), b)
+                    })
+                    .collect::<Vec<_>>();
+                // We need to call rev here, in order to match OCaml order
+                // We don't use `rev` in the iterator above, because it would
+                // execute the `checked_zcheck` in incorrect order
+                bools.into_iter().rev()
+            })
+            .chain([
+                {
+                    let bools: Vec<_> = zkapp_account
+                        .action_state
+                        .iter()
+                        .map(|account_s| {
+                            (action_state, ZkAppAccount::empty_action_state)
+                                .checked_zcheck(account_s, w)
+                        })
+                        .collect();
+                    (
+                        AccountActionStatePreconditionUnsatisfied,
+                        Boolean::any(&bools, w),
+                    )
+                },
+                (
+                    AccountDelegatePreconditionUnsatisfied,
+                    (delegate, CompressedPubKey::empty)
+                        .checked_zcheck(&*account.delegate_or_empty(), w),
+                ),
+                (
+                    AccountReceiptChainHashPreconditionUnsatisfied,
+                    (receipt_chain_hash, Fp::zero).checked_zcheck(&account.receipt_chain_hash.0, w),
+                ),
+                (
+                    AccountNoncePreconditionUnsatisfied,
+                    (nonce, ClosedInterval::min_max).checked_zcheck(&account.nonce, w),
+                ),
+                (
+                    AccountBalancePreconditionUnsatisfied,
+                    (balance, ClosedInterval::min_max).checked_zcheck(&account.balance, w),
+                ),
+            ])
+            .collect::<Vec<_>>();
+
+            checks.reverse();
+            checks
         }
-
-        // let checks ~new_account
-        //     { balance
-        //     ; nonce
-        //     ; receipt_chain_hash
-        //     ; delegate
-        //     ; state
-        //     ; action_state
-        //     ; proved_state
-        //     ; is_new
-        //     } (a : Account.Checked.Unhashed.t) =
-        //   [ ( Transaction_status.Failure.Account_balance_precondition_unsatisfied
-        //     , Numeric.(Checked.check Tc.balance balance a.balance) )
-        //   ; ( Transaction_status.Failure.Account_nonce_precondition_unsatisfied
-        //     , Numeric.(Checked.check Tc.nonce nonce a.nonce) )
-        //   ; ( Transaction_status.Failure
-        //       .Account_receipt_chain_hash_precondition_unsatisfied
-        //     , Eq_data.(
-        //         check_checked Tc.receipt_chain_hash receipt_chain_hash
-        //           a.receipt_chain_hash) )
-        //   ; ( Transaction_status.Failure.Account_delegate_precondition_unsatisfied
-        //     , Eq_data.(check_checked (Tc.public_key ()) delegate a.delegate) )
-        //   ]
-        //   @ [ ( Transaction_status.Failure
-        //         .Account_action_state_precondition_unsatisfied
-        //       , Boolean.any
-        //           Vector.(
-        //             to_list
-        //               (map a.zkapp.action_state
-        //                  ~f:
-        //                    Eq_data.(
-        //                      check_checked (Lazy.force Tc.action_state) action_state) ))
-        //       )
-        //     ]
-        //   @ ( Vector.(
-        //         to_list
-        //           (map2 state a.zkapp.app_state ~f:Eq_data.(check_checked Tc.field)))
-        //     |> List.mapi ~f:(fun i check ->
-        //            let failure =
-        //              Transaction_status.Failure
-        //              .Account_app_state_precondition_unsatisfied
-        //                i
-        //            in
-        //            (failure, check) ) )
-        //   @ [ ( Transaction_status.Failure
-        //         .Account_proved_state_precondition_unsatisfied
-        //       , Eq_data.(check_checked Tc.boolean proved_state a.zkapp.proved_state)
-        //       )
-        //     ]
-        //   @ [ ( Transaction_status.Failure.Account_is_new_precondition_unsatisfied
-        //       , Eq_data.(check_checked Tc.boolean is_new new_account) )
-        //     ]
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L613
@@ -2222,16 +2237,11 @@ pub mod zkapp_command {
             inputs.append(&(nonce, ClosedInterval::min_max));
             inputs.append(&(receipt_chain_hash, Fp::zero));
             inputs.append(&(delegate, CompressedPubKey::empty));
-
             state.iter().for_each(|s| {
                 inputs.append(&(s, Fp::zero));
             });
-
             // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L168
-            inputs.append(&(action_state, || {
-                hash_noinputs("MinaZkappActionStateEmptyElt")
-            }));
-
+            inputs.append(&(action_state, ZkAppAccount::empty_action_state));
             inputs.append(&(proved_state, || false));
             inputs.append(&(is_new, || false));
         }
@@ -2256,16 +2266,10 @@ pub mod zkapp_command {
             (nonce, ClosedInterval::min_max).to_field_elements(fields);
             (receipt_chain_hash, Fp::zero).to_field_elements(fields);
             (delegate, CompressedPubKey::empty).to_field_elements(fields);
-
             state.iter().for_each(|s| {
                 (s, Fp::zero).to_field_elements(fields);
             });
-
-            (action_state, || {
-                hash_noinputs("MinaZkappActionStateEmptyElt")
-            })
-                .to_field_elements(fields);
-
+            (action_state, ZkAppAccount::empty_action_state).to_field_elements(fields);
             (proved_state, || false).to_field_elements(fields);
             (is_new, || false).to_field_elements(fields);
         }
@@ -2290,16 +2294,10 @@ pub mod zkapp_command {
             (nonce, ClosedInterval::min_max).check(w);
             (receipt_chain_hash, Fp::zero).check(w);
             (delegate, CompressedPubKey::empty).check(w);
-
             state.iter().for_each(|s| {
                 (s, Fp::zero).check(w);
             });
-
-            (action_state, || {
-                hash_noinputs("MinaZkappActionStateEmptyElt")
-            })
-                .check(w);
-
+            (action_state, ZkAppAccount::empty_action_state).check(w);
             (proved_state, || false).check(w);
             (is_new, || false).check(w);
         }
@@ -2337,18 +2335,15 @@ pub mod zkapp_command {
             &self,
             new_account: Boolean,
             account: &crate::Account,
-            check: Fun,
+            mut check: Fun,
             w: &mut Witness<Fp>,
         ) where
             Fun: FnMut(TransactionFailure, Boolean, &mut Witness<Fp>),
         {
             let this = self.to_full();
-            this.checked_zchecks(account, w);
-
-            // let check ~new_account ~check t a =
-            //   List.iter
-            //     ~f:(fun (failure, passed) -> check failure passed)
-            //     (checks ~new_account t a)
+            for (failure, passed) in this.checked_zchecks(account, new_account, w) {
+                check(failure, passed, w);
+            }
         }
     }
 
@@ -4627,7 +4622,7 @@ pub mod protocol_state {
     ) -> ProtocolStateView {
         let cs = &body.consensus_state;
         let sed = &cs.staking_epoch_data;
-        let ned = &cs.staking_epoch_data;
+        let ned = &cs.next_epoch_data;
 
         ProtocolStateView {
             // https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/blockchain_state.ml#L58

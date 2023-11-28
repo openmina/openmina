@@ -24,6 +24,8 @@ pub enum IsStart<T> {
 }
 
 pub enum PerformResult {
+    None,
+    Bool(Boolean),
     // Bool(bool),
     // LocalState(LocalStateEnv<L>),
     // Account(Box<Account>),
@@ -410,6 +412,12 @@ where
 
     (h.perform)(
         Eff::CheckAccountPrecondition(&account_update, &a, account_is_new, &mut local_state),
+        w,
+    );
+
+    let protocol_state_precondition = &account_update.body().preconditions.network;
+    (h.perform)(
+        Eff::CheckProtocolStatePrecondition(&protocol_state_precondition, &global_state),
         w,
     );
 

@@ -980,7 +980,7 @@ pub enum Eff<'a, Z: ZkappApplication> {
         Boolean,
         &'a mut zkapp_logic::LocalState<Z>,
     ),
-    CheckProtocolStatePrecondition(&'a ZkAppPreconditions),
+    CheckProtocolStatePrecondition(&'a ZkAppPreconditions, &'a Z::GlobalState),
 }
 
 fn perform(eff: Eff<ZkappSnark>, w: &mut Witness<Fp>) -> zkapp_logic::PerformResult {
@@ -997,21 +997,12 @@ fn perform(eff: Eff<ZkappSnark>, w: &mut Witness<Fp>) -> zkapp_logic::PerformRes
                 check,
                 w,
             );
-
-            // | Check_account_precondition
-            //     ({ account_update; _ }, account, new_account, local_state) ->
-            //     let local_state = ref local_state in
-            //     let check failure b =
-            //       local_state :=
-            //         Inputs.Local_state.add_check !local_state failure b
-            //     in
-            //     Zkapp_precondition.Account.Checked.check ~new_account ~check
-            //       account_update.data.preconditions.account account.data ;
-            //     !local_state
-
-            todo!()
+            zkapp_logic::PerformResult::None
         }
-        Eff::CheckProtocolStatePrecondition(_) => todo!(),
+        Eff::CheckProtocolStatePrecondition(protocol_state_predicate, global_state) => {
+            let checked = protocol_state_predicate.checked_zcheck(&global_state.protocol_state, w);
+            zkapp_logic::PerformResult::Bool(checked)
+        }
     }
 }
 

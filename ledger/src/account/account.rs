@@ -638,7 +638,7 @@ impl Default for ZkAppAccount {
             verification_key: None,
             zkapp_version: 0,
             action_state: {
-                let empty = hash_noinputs("MinaZkappActionStateEmptyElt");
+                let empty = Self::empty_action_state();
                 [empty, empty, empty, empty, empty]
             },
             last_action_slot: Slot::zero(),
@@ -653,6 +653,11 @@ impl ZkAppAccount {
 
     pub fn hash(&self) -> Fp {
         self.hash_with_param(Self::HASH_PARAM)
+    }
+
+    /// empty_state_element
+    pub fn empty_action_state() -> Fp {
+        cache_one!(Fp, { hash_noinputs("MinaZkappActionStateEmptyElt") })
     }
 }
 
@@ -979,6 +984,14 @@ impl Account {
             permissions: Permissions::user_default(),
             zkapp: None,
         }
+    }
+
+    pub fn delegate_or_empty(&self) -> MyCow<CompressedPubKey> {
+        MyCow::borrow_or_else(&self.delegate, CompressedPubKey::empty)
+    }
+
+    pub fn zkapp_or_empty(&self) -> MyCow<ZkAppAccount> {
+        MyCow::borrow_or_else(&self.zkapp, ZkAppAccount::default)
     }
 
     pub fn initialize(account_id: &AccountId) -> Self {

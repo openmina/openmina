@@ -8,8 +8,9 @@ use crate::{
     checked_equal_compressed_key, checked_equal_compressed_key_const_and,
     proofs::{
         numbers::{
-            currency::{CheckedAmount, CheckedSigned},
-            nat::{CheckedIndex, CheckedSlot},
+            common::ForZkappCheck,
+            currency::{CheckedAmount, CheckedCurrency, CheckedSigned},
+            nat::{CheckedIndex, CheckedNat, CheckedSlot},
         },
         to_field_elements::ToFieldElements,
         witness::{
@@ -19,13 +20,16 @@ use crate::{
         zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash, ZkappSingleData},
         zkapp_logic,
     },
-    scan_state::transaction_logic::{
-        local_state::{StackFrame, StackFrameChecked, StackFrameCheckedFrame, WithLazyHash},
-        zkapp_command::{
-            AccountUpdate, AccountUpdateSkeleton, AuthorizationKind, CallForest, Tree, WithHash,
-            ACCOUNT_UPDATE_CONS_HASH_PARAM,
+    scan_state::{
+        currency::{Magnitude, MinMax},
+        transaction_logic::{
+            local_state::{StackFrame, StackFrameChecked, StackFrameCheckedFrame, WithLazyHash},
+            zkapp_command::{
+                AccountUpdate, AccountUpdateSkeleton, AuthorizationKind, CallForest,
+                ClosedInterval, OrIgnore, Tree, WithHash, ACCOUNT_UPDATE_CONS_HASH_PARAM,
+            },
+            TransactionFailure,
         },
-        TransactionFailure,
     },
     Account, AccountId, MyCow, ToInputs, TokenId, VerificationKey, ZkAppAccount,
 };
@@ -39,6 +43,96 @@ use super::intefaces::{
 };
 
 use super::intefaces::WitnessGenerator as W;
+
+pub mod zkapp_check {
+    use super::*;
+
+    pub trait InSnarkCheck {
+        type T;
+
+        fn checked_zcheck(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean;
+    }
+
+    impl<T> OrIgnore<T> {
+        fn make_zcheck<F, F2>(&self, default_fn: F, compare_fun: F2, w: &mut Witness<Fp>) -> Boolean
+        where
+            F: Fn() -> T,
+            F2: Fn(&T, &mut Witness<Fp>) -> Boolean,
+        {
+            let (is_some, value) = match self {
+                OrIgnore::Check(v) => (Boolean::True, MyCow::Borrow(v)),
+                OrIgnore::Ignore => (Boolean::False, MyCow::Own(default_fn())),
+            };
+            let is_good = compare_fun(&*value, w);
+            Boolean::any(&[is_some.neg(), is_good], w)
+        }
+    }
+
+    impl<Fun> InSnarkCheck for (&OrIgnore<Boolean>, Fun)
+    where
+        Fun: Fn() -> Boolean,
+    {
+        type T = Boolean;
+
+        fn checked_zcheck(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean {
+            let (this, default_fn) = self;
+            let compare = |value: &Self::T, w: &mut Witness<Fp>| Boolean::equal(x, value, w);
+            this.make_zcheck(default_fn, compare, w)
+        }
+    }
+
+    impl<Fun> InSnarkCheck for (&OrIgnore<Fp>, Fun)
+    where
+        Fun: Fn() -> Fp,
+    {
+        type T = Fp;
+
+        fn checked_zcheck(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean {
+            let (this, default_fn) = self;
+            let compare = |value: &Self::T, w: &mut Witness<Fp>| field::equal(*x, *value, w);
+            this.make_zcheck(default_fn, compare, w)
+        }
+    }
+
+    impl<Fun> InSnarkCheck for (&OrIgnore<CompressedPubKey>, Fun)
+    where
+        Fun: Fn() -> CompressedPubKey,
+    {
+        type T = CompressedPubKey;
+
+        fn checked_zcheck(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean {
+            let (this, default_fn) = self;
+            let compare = |value: &Self::T, w: &mut Witness<Fp>| {
+                checked_equal_compressed_key(x, value, w)
+                // checked_equal_compressed_key_const_and(x, value, w)
+            };
+            this.make_zcheck(default_fn, compare, w)
+        }
+    }
+
+    impl<T, Fun> InSnarkCheck for (&OrIgnore<ClosedInterval<T>>, Fun)
+    where
+        Fun: Fn() -> ClosedInterval<T>,
+        T: ForZkappCheck<Fp>,
+    {
+        type T = T;
+
+        fn checked_zcheck(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean {
+            let (this, default_fn) = self;
+            let compare = |value: &ClosedInterval<T>, w: &mut Witness<Fp>| {
+                let ClosedInterval { lower, upper } = value;
+                let lower = lower.to_checked();
+                let upper = upper.to_checked();
+                let x = x.to_checked();
+                // We decompose this way because of OCaml evaluation order
+                let lower_than_upper = <T as ForZkappCheck<Fp>>::lte(&x, &upper, w);
+                let greater_than_lower = <T as ForZkappCheck<Fp>>::lte(&lower, &x, w);
+                Boolean::all(&[greater_than_lower, lower_than_upper], w)
+            };
+            this.make_zcheck(default_fn, compare, w)
+        }
+    }
+}
 
 impl<F: FieldWitness> WitnessGenerator<F> for Witness<F> {
     fn exists<T>(&mut self, data: T) -> T
