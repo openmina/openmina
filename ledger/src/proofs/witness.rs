@@ -1507,6 +1507,19 @@ impl<F: FieldWitness> Check<F> for bool {
     }
 }
 
+impl<F: FieldWitness> Check<F> for mina_signer::Signature {
+    fn check(&self, _w: &mut Witness<F>) {
+        // Does not modify the witness
+    }
+}
+
+impl<F: FieldWitness, T: Check<F>> Check<F> for MyCow<'_, T> {
+    fn check(&self, w: &mut Witness<F>) {
+        let this: &T = &*self;
+        this.check(w);
+    }
+}
+
 impl<F: FieldWitness> Check<F> for Fp {
     fn check(&self, _w: &mut Witness<F>) {
         // Does not modify the witness
@@ -2108,9 +2121,11 @@ impl<F: FieldWitness> InnerCurve<F> {
 
     fn fake_random() -> Self {
         // static SEED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        // dbg!(SEED.load(std::sync::atomic::Ordering::Relaxed));
 
         let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(
-            0, // SEED.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            0,
+            // SEED.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         );
         let proj: GroupProjective<F::Parameters> = ark_ff::UniformRand::rand(&mut rng);
         let proj: F::Projective = proj.into();
@@ -3713,15 +3728,13 @@ pub mod transaction_snark {
         w.exists(field_to_bits::<_, 255>(hash))
     }
 
-    fn check_signature(
+    pub fn checked_signature_verify(
         shifted: &InnerCurve<Fp>,
-        payload: &TransactionUnionPayload,
-        is_user_command: Boolean,
         signer: &PubKey,
         signature: &Signature,
+        inputs: LegacyInput<Fp>,
         w: &mut Witness<Fp>,
-    ) {
-        let inputs = payload.to_checked_legacy_input_owned(w);
+    ) -> Boolean {
         let hash = checked_signature_hash(inputs, signer, signature, w);
 
         // negate
@@ -3747,8 +3760,19 @@ pub mod transaction_snark {
         let y_even = is_even(ry, w);
         let r_correct = field::equal(signature.rx, rx, w);
 
-        let verifies = y_even.and(&r_correct, w);
+        y_even.and(&r_correct, w)
+    }
 
+    fn check_signature(
+        shifted: &InnerCurve<Fp>,
+        payload: &TransactionUnionPayload,
+        is_user_command: Boolean,
+        signer: &PubKey,
+        signature: &Signature,
+        w: &mut Witness<Fp>,
+    ) {
+        let inputs = payload.to_checked_legacy_input_owned(w);
+        let verifies = checked_signature_verify(shifted, signer, signature, inputs, w);
         Boolean::assert_any(&[is_user_command.neg(), verifies][..], w);
     }
 

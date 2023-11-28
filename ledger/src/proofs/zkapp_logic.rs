@@ -416,36 +416,51 @@ where
     );
 
     let protocol_state_precondition = &account_update.body().preconditions.network;
-    (h.perform)(
-        Eff::CheckProtocolStatePrecondition(&protocol_state_precondition, &global_state),
+    let PerformResult::Bool(protocol_state_predicate_satisfied) = (h.perform)(
+        Eff::CheckProtocolStatePrecondition(protocol_state_precondition, &global_state),
+        w,
+    ) else {
+        panic!("invalid state");
+    };
+    Z::LocalState::add_check(
+        &mut local_state,
+        TransactionFailure::ProtocolStatePreconditionUnsatisfied,
+        protocol_state_predicate_satisfied,
         w,
     );
 
-    // let local_state =
-    //   h.perform
-    //     (Check_account_precondition
-    //        (account_update, a, account_is_new, local_state) )
-    // in
-    // let protocol_state_predicate_satisfied =
-    //   h.perform
-    //     (Check_protocol_state_precondition
-    //        ( Account_update.protocol_state_precondition account_update
-    //        , global_state ) )
-    // in
-    // let local_state =
-    //   Local_state.add_check local_state Protocol_state_precondition_unsatisfied
-    //     protocol_state_predicate_satisfied
-    // in
-    // let local_state =
-    //   let valid_while_satisfied =
-    //     h.perform
-    //       (Check_valid_while_precondition
-    //          ( Account_update.valid_while_precondition account_update
-    //          , global_state ) )
-    //   in
-    //   Local_state.add_check local_state Valid_while_precondition_unsatisfied
-    //     valid_while_satisfied
-    // in
+    let _local_state = {
+        let valid_while = &account_update.body().preconditions.valid_while;
+        let PerformResult::Bool(valid_while_satisfied) = (h.perform)(
+            Eff::CheckValidWhilePrecondition(valid_while, &global_state),
+            w,
+        ) else {
+            panic!("invalid state");
+        };
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::ValidWhilePreconditionUnsatisfied,
+            valid_while_satisfied,
+            w,
+        );
+    };
+
+    let _ = {
+        let use_full_commitment = account_update.body().use_full_commitment.to_boolean();
+        let commitment = w.exists_no_check(match use_full_commitment {
+            Boolean::True => local_state.full_transaction_commitment,
+            Boolean::False => local_state.transaction_commitment,
+        });
+
+        account_update.check_authorization(
+            local_state.will_succeed,
+            commitment,
+            &account_update_forest,
+            &data,
+            w,
+        );
+    };
+
     // let `Proof_verifies proof_verifies, `Signature_verifies signature_verifies =
     //   let commitment =
     //     Inputs.Transaction_commitment.if_

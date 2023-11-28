@@ -203,12 +203,24 @@ pub trait AccountUpdateInterface
 where
     Self: Sized,
 {
+    type W: WitnessGenerator<Fp>;
+    type SingleData;
+    type CallForest: CallForestInterface;
+
     // Only difference in our Rust code is the `WithHash`
     fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body;
     fn set(&mut self, new: Self);
     fn verification_key_hash(&self) -> Fp;
     fn is_proved(&self) -> Boolean;
     fn is_signed(&self) -> Boolean;
+    fn check_authorization(
+        &self,
+        will_succeed: Boolean,
+        commitment: Fp,
+        calls: &Self::CallForest,
+        data: &Self::SingleData,
+        w: &mut Self::W,
+    );
 }
 
 pub trait AccountIdInterface
@@ -317,7 +329,11 @@ pub trait ZkappApplication {
         + ToFieldElements<Fp>
         + Clone;
     type GlobalState: GlobalStateInterface<Ledger = Self::Ledger, SignedAmount = Self::SignedAmount>;
-    type AccountUpdate: AccountUpdateInterface;
+    type AccountUpdate: AccountUpdateInterface<
+        W = Self::WitnessGenerator,
+        CallForest = Self::CallForest,
+        SingleData = Self::SingleData,
+    >;
     type AccountId: AccountIdInterface<W = Self::WitnessGenerator>;
     type TokenId: TokenIdInterface<W = Self::WitnessGenerator>;
     type Bool: BoolInterface<W = Self::WitnessGenerator>;

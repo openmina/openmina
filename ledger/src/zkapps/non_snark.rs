@@ -131,6 +131,10 @@ impl CallForestInterface for CallForest<AccountUpdate> {
 }
 
 impl AccountUpdateInterface for AccountUpdate {
+    type W = ();
+    type SingleData = ();
+    type CallForest = CallForest<AccountUpdate>;
+
     fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body {
         let Self {
             body,
@@ -148,6 +152,17 @@ impl AccountUpdateInterface for AccountUpdate {
         todo!()
     }
     fn is_signed(&self) -> Boolean {
+        todo!()
+    }
+
+    fn check_authorization(
+        &self,
+        will_succeed: Boolean,
+        commitment: Fp,
+        calls: &Self::CallForest,
+        data: &Self::SingleData,
+        w: &mut Self::W,
+    ) {
         todo!()
     }
 }

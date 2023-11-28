@@ -14,8 +14,9 @@ use crate::{
         },
         to_field_elements::ToFieldElements,
         witness::{
-            field, transaction_snark::checked_hash, Boolean, Check, FieldWitness, ToBoolean,
-            Witness,
+            create_shifted_inner_curve, decompress_var, field,
+            transaction_snark::{checked_hash, checked_signature_verify},
+            Boolean, Check, FieldWitness, InnerCurve, ToBoolean, Witness,
         },
         zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash, ZkappSingleData},
         zkapp_logic,
@@ -28,6 +29,7 @@ use crate::{
                 AccountUpdate, AccountUpdateSkeleton, AuthorizationKind, CallForest,
                 ClosedInterval, OrIgnore, Tree, WithHash, ACCOUNT_UPDATE_CONS_HASH_PARAM,
             },
+            zkapp_statement::ZkappStatement,
             TransactionFailure,
         },
     },
@@ -445,7 +447,26 @@ impl GlobalSlotSinceGenesisInterface for CheckedSlot<Fp> {
     }
 }
 
+fn signature_verifies(
+    shifted: &InnerCurve<Fp>,
+    payload_digest: Fp,
+    signature: &mina_signer::Signature,
+    pk: &CompressedPubKey,
+    w: &mut Witness<Fp>,
+) -> Boolean {
+    let pk = decompress_var(pk, w);
+
+    let mut inputs = crate::proofs::witness::legacy_input::LegacyInput::new();
+    inputs.append_field(payload_digest);
+
+    checked_signature_verify(shifted, &pk, signature, inputs, w)
+}
+
 impl AccountUpdateInterface for SnarkAccountUpdate {
+    type W = Witness<Fp>;
+    type CallForest = SnarkCallForest;
+    type SingleData = ZkappSingleData;
+
     fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body {
         let Self {
             body,
@@ -466,7 +487,96 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
     fn is_signed(&self) -> Boolean {
         self.body().authorization_kind.is_signed().to_boolean()
     }
+    fn check_authorization(
+        &self,
+        will_succeed: Boolean,
+        commitment: Fp,
+        calls: &Self::CallForest,
+        data: &Self::SingleData,
+        w: &mut Self::W,
+    ) {
+        let Self::CallForest {
+            data: _,
+            hash: calls,
+        } = calls;
+
+        let Self {
+            body: account_update,
+            authorization: control,
+        } = self;
+
+        use crate::scan_state::transaction_logic::zkapp_statement::TransactionCommitment;
+        use crate::ControlTag::{NoneGiven, Proof, Signature};
+
+        let auth_type = data.spec().auth_type;
+        let proof_verifies = match auth_type {
+            Proof => {
+                let stmt = ZkappStatement {
+                    account_update: TransactionCommitment(account_update.hash),
+                    calls: TransactionCommitment(*calls),
+                };
+                data.set_zkapp_input(stmt);
+                data.set_must_verify(will_succeed);
+                Boolean::True
+            }
+            Signature | NoneGiven => Boolean::False,
+        };
+
+        dbg!(auth_type);
+
+        let signature_verifies = match auth_type {
+            NoneGiven | Proof => Boolean::False,
+            Signature => {
+                use crate::scan_state::transaction_logic::zkapp_command::Control;
+                let signature = w.exists({
+                    match control {
+                        Control::Signature(s) => MyCow::Borrow(s),
+                        Control::NoneGiven => MyCow::Own(mina_signer::Signature::dummy()),
+                        Control::Proof(_) => unreachable!(),
+                    }
+                });
+
+                let payload_digest = commitment;
+                let shifted = create_shifted_inner_curve(w);
+                signature_verifies(
+                    &shifted,
+                    payload_digest,
+                    &signature,
+                    &account_update.public_key,
+                    w,
+                )
+            }
+        };
+    }
 }
+
+//   let signature_verifies =
+//     match auth_type with
+//     | None_given | Proof ->
+//         Boolean.false_
+//     | Signature ->
+//         let signature =
+//           exists Signature_lib.Schnorr.Chunked.Signature.typ
+//             ~compute:(fun () ->
+//               match V.get control with
+//               | Signature s ->
+//                   s
+//               | None_given ->
+//                   Signature.dummy
+//               | Proof _ ->
+//                   assert false )
+//         in
+//         run_checked
+//           (let%bind (module S) =
+//              Tick.Inner_curve.Checked.Shifted.create ()
+//            in
+//            signature_verifies
+//              ~shifted:(module S)
+//              ~payload_digest:commitment signature
+//              account_update.data.public_key )
+//   in
+//   ( `Proof_verifies proof_verifies
+//   , `Signature_verifies signature_verifies )
 
 impl LocalStateInterface for zkapp_logic::LocalState<ZkappSnark> {
     type Z = ZkappSnark;

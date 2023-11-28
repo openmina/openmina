@@ -32,15 +32,18 @@ use crate::{
                 protocol_state_body_view, protocol_state_view, GlobalState, GlobalStateSkeleton,
             },
             zkapp_command::{
-                AccountUpdate, CallForest, Control, WithHash, ZkAppCommand, ZkAppPreconditions,
-                ACCOUNT_UPDATE_CONS_HASH_PARAM,
+                self, AccountUpdate, CallForest, ClosedInterval, Control, WithHash, ZkAppCommand,
+                ZkAppPreconditions, ACCOUNT_UPDATE_CONS_HASH_PARAM,
             },
-            zkapp_statement::TransactionCommitment,
+            zkapp_statement::{TransactionCommitment, ZkappStatement},
             TransactionFailure,
         },
     },
     sparse_ledger::SparseLedger,
-    zkapps::intefaces::{ZkappApplication, ZkappSnark},
+    zkapps::{
+        intefaces::{ZkappApplication, ZkappSnark},
+        snark::zkapp_check::InSnarkCheck,
+    },
     ControlTag, ToInputs, TokenId,
 };
 
@@ -955,7 +958,7 @@ impl Check<Fp> for LedgerWithHash {
 
 pub struct ZkappSingleData {
     spec: Spec,
-    zkapp_input: Rc<RefCell<Option<()>>>,
+    zkapp_input: Rc<RefCell<Option<ZkappStatement>>>,
     must_verify: Rc<RefCell<Boolean>>,
 }
 
@@ -963,11 +966,11 @@ impl ZkappSingleData {
     pub fn spec(&self) -> &Spec {
         &self.spec
     }
-    pub fn set_zkapp_input(&mut self, x: ()) {
+    pub fn set_zkapp_input(&self, x: ZkappStatement) {
         let mut zkapp_input = self.zkapp_input.borrow_mut();
         zkapp_input.replace(x);
     }
-    pub fn set_must_verify(&mut self, x: Boolean) {
+    pub fn set_must_verify(&self, x: Boolean) {
         let mut must_verify = self.must_verify.borrow_mut();
         *must_verify = x;
     }
@@ -981,6 +984,7 @@ pub enum Eff<'a, Z: ZkappApplication> {
         &'a mut zkapp_logic::LocalState<Z>,
     ),
     CheckProtocolStatePrecondition(&'a ZkAppPreconditions, &'a Z::GlobalState),
+    CheckValidWhilePrecondition(&'a zkapp_command::Numeric<Slot>, &'a Z::GlobalState),
 }
 
 fn perform(eff: Eff<ZkappSnark>, w: &mut Witness<Fp>) -> zkapp_logic::PerformResult {
@@ -1001,6 +1005,11 @@ fn perform(eff: Eff<ZkappSnark>, w: &mut Witness<Fp>) -> zkapp_logic::PerformRes
         }
         Eff::CheckProtocolStatePrecondition(protocol_state_predicate, global_state) => {
             let checked = protocol_state_predicate.checked_zcheck(&global_state.protocol_state, w);
+            zkapp_logic::PerformResult::Bool(checked)
+        }
+        Eff::CheckValidWhilePrecondition(valid_while, global_state) => {
+            let checked = (valid_while, ClosedInterval::min_max)
+                .checked_zcheck(&global_state.block_global_slot.to_inner(), w);
             zkapp_logic::PerformResult::Bool(checked)
         }
     }

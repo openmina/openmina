@@ -4005,8 +4005,8 @@ pub mod zkapp_statement {
 
     #[derive(Clone, Debug)]
     pub struct ZkappStatement {
-        account_update: TransactionCommitment,
-        calls: TransactionCommitment,
+        pub account_update: TransactionCommitment,
+        pub calls: TransactionCommitment,
     }
 
     impl ZkappStatement {
