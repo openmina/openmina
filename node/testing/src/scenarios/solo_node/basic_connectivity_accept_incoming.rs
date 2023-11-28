@@ -115,7 +115,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
                 eprintln!("connected peers: {ready_peers}");
 
                 let ocaml_node = ocaml_node.get_or_insert_with(|| {
-                    let n = ocaml::Node::spawn(18302, 13085, 18301, Some(&[&this_maddr]));
+                    let n = ocaml::Node::spawn_with_temp_dir(8302, 3085, 8301, [this_maddr.to_string()]).expect("ocaml node");
                     eprintln!("launching OCaml node: {}", n.peer_id());
                     n
                 });
@@ -123,7 +123,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
                     .state()
                     .p2p
                     .ready_peers_iter()
-                    .find(|(peer_id, _)| **peer_id == ocaml_node.peer_id().into())
+                    .find(|(peer_id, _)| *peer_id == &ocaml_node.peer_id)
                 {
                     eprintln!("accept incoming connection from OCaml node: {peer_id}");
                     assert!(s.is_incoming);

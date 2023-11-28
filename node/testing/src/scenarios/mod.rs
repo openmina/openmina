@@ -12,7 +12,7 @@ pub mod multi_node;
 pub mod solo_node;
 
 mod cluster_runner;
-use cluster_runner::ClusterRunner;
+pub use cluster_runner::ClusterRunner;
 
 use strum_macros::{EnumIter, EnumString, IntoStaticStr};
 
