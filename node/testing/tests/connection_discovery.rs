@@ -17,6 +17,8 @@ use openmina_node_testing::{
     scenarios::{multi_node::connection_discovery::RustNodeAsSeed, ClusterRunner},
 };
 
+mod common;
+
 struct Driver<'cluster> {
     runner: ClusterRunner<'cluster>,
 }
@@ -111,6 +113,8 @@ impl<'cluster> Driver<'cluster> {
 
 #[tokio::test]
 async fn ocaml_to_rust() {
+    scenario_doc!("Tests Rust node peer discovery when OCaml node connects to it");
+
     let temp_dir = temp_dir::TempDir::new().unwrap();
     let dir = temp_dir.path();
 
@@ -200,6 +204,8 @@ fn identify_event(peer_id: PeerId) -> impl Fn(ClusterNodeId, &Event, &State) -> 
 
 #[tokio::test]
 async fn rust_to_ocaml() {
+    scenario_doc!("Tests Rust node peer discovery when it connects to OCaml node");
+
     let temp_dir = temp_dir::TempDir::new().unwrap();
     let dir = temp_dir.path();
 
@@ -277,6 +283,8 @@ fn match_addr_with_port_and_peer_id(
 
 #[tokio::test]
 async fn ocaml_to_rust_via_seed() {
+    scenario_doc!("Tests Rust node peer discovery when OCaml node is connected to it via an OCaml seed node");
+
     let temp_dir = temp_dir::TempDir::new().unwrap();
     let dir = temp_dir.path();
 
@@ -380,6 +388,7 @@ async fn ocaml_to_rust_via_seed() {
 
 #[tokio::test]
 async fn rust_to_ocaml_via_seed() {
+    scenario_doc!("Tests Rust node peer discovery when it connects to OCaml node via an OCaml seed node");
     let temp_dir = temp_dir::TempDir::new().unwrap();
     let dir = temp_dir.path();
 
@@ -509,33 +518,6 @@ async fn rust_to_ocaml_via_seed() {
         .wait_for(Duration::from_secs(60), |_, _, _| false)
         .await
         .unwrap();
-}
-
-// #[tokio::test]
-// async fn rust_node_as_seed() {
-//     openmina_node_testing::setup_without_rt();
-//     let config = ClusterConfig::default();
-//     let mut cluster = Cluster::new(config);
-//     let runner = openmina_node_testing::scenarios::ClusterRunner::new(&mut cluster, |_| {});
-//     RustNodeAsSeed.run(runner).await
-// }
-
-macro_rules! scenario_test {
-    ($name:ident, $scenario:ty, $scenario_instance:expr) => {
-        #[tokio::test]
-        async fn $name() {
-            if std::env::var("SCENARIO_INFO").map_or(false, |s| !s.is_empty()) {
-                println!("{}", <$scenario as Documented>::DOCS);
-                return;
-            }
-            openmina_node_testing::setup_without_rt();
-            let config = ClusterConfig::default();
-            let mut cluster = Cluster::new(config);
-            let runner = openmina_node_testing::scenarios::ClusterRunner::new(&mut cluster, |_| {});
-            let scenario = $scenario_instance;
-            scenario.run(runner).await
-        }
-    };
 }
 
 scenario_test!(rust_as_seed, RustNodeAsSeed, RustNodeAsSeed);
