@@ -98,7 +98,9 @@ impl Cluster {
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
         let node_i = self.nodes.len();
         let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-        let secret_key = {
+        let secret_key = if testing_config.randomize_peer_id {
+            P2pSecretKey::from_bytes(rand::random())
+        } else {
             let mut bytes = [0; 32];
             let bytes_len = bytes.len();
             let i_bytes = node_i.to_be_bytes();
