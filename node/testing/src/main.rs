@@ -16,7 +16,6 @@ pub struct OpenminaTestingCli {
 pub enum Command {
     Server(CommandServer),
 
-    #[cfg(feature = "scenario-generators")]
     ScenariosGenerate(CommandScenariosGenerate),
 }
 
@@ -42,23 +41,30 @@ impl Command {
                 server(args.port);
                 Ok(())
             }
-            #[cfg(feature = "scenario-generators")]
             Self::ScenariosGenerate(cmd) => {
-                if let Some(name) = cmd.name {
-                    if let Some(scenario) = Scenarios::iter()
-                        .into_iter()
-                        .find(|s| <&'static str>::from(s) == name)
-                    {
-                        rt.block_on(scenario.run_and_save_from_scratch(Default::default()));
+                #[cfg(feature = "scenario-generators")]
+                {
+                    if let Some(name) = cmd.name {
+                        if let Some(scenario) = Scenarios::iter()
+                            .into_iter()
+                            .find(|s| <&'static str>::from(s) == name)
+                        {
+                            rt.block_on(scenario.run_and_save_from_scratch(Default::default()));
+                        } else {
+                            panic!("no such scenario: \"{name}\"");
+                        }
                     } else {
-                        panic!("no such scenario: \"{name}\"");
+                        for scenario in Scenarios::iter() {
+                            rt.block_on(scenario.run_and_save_from_scratch(Default::default()));
+                        }
                     }
-                } else {
-                    for scenario in Scenarios::iter() {
-                        rt.block_on(scenario.run_and_save_from_scratch(Default::default()));
-                    }
+
+                    Ok(())
                 }
-                Ok(())
+                #[cfg(not(feature = "scenario-generators"))]
+                Err("binary not compiled with `scenario-generators` feature"
+                    .to_owned()
+                    .into())
             }
         }
     }
