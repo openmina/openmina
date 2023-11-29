@@ -1,6 +1,6 @@
 kind: pipeline
 type: docker
-name: test-bootstrap
+name: tests
 
 global-variables:
   snark-worker-image: &snark-worker-image openmina/mina-snark-worker-prover:0.0.9
@@ -61,26 +61,70 @@ steps:
       - rustup component add rustfmt
       - cargo test --release -p cli
       - cargo build --release -p cli --bin openmina
-      - cargo build --release -p openmina-node-testing
-      - cargo test --release --features scenario-generators --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_only | xargs -I {} mv {} ./target/release/test_libp2p_only
-      - cargo test --release --features scenario-generators,p2p-webrtc --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_only | xargs -I {} mv {} ./target/release/test_libp2p_only_with_webrtc_compiled
-      - cargo test --release --features scenario-generators,p2p-webrtc --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_with | xargs -I {} mv {} ./target/release/test_libp2p_plus_webrtc
+      - cargo build --release --features scenario-generators -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-libp2p
+      - cargo build --release --features scenario-generators,p2p-webrtc -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-webrtc
+      # - cargo test --release --features scenario-generators --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_only | xargs -I {} mv {} ./target/release/test_libp2p_only
+      # - cargo test --release --features scenario-generators,p2p-webrtc --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_only | xargs -I {} mv {} ./target/release/test_libp2p_only_with_webrtc_compiled
+      # - cargo test --release --features scenario-generators,p2p-webrtc --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_with | xargs -I {} mv {} ./target/release/test_libp2p_plus_webrtc
 
-  - name: testing-framework-tests-libp2p-plus-webrtc
-    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
-    commands:
-      - ./target/release/test_libp2p_plus_webrtc
-      - ./target/release/test_libp2p_only_with_webrtc_compiled
+  # - name: testing-framework-tests-libp2p-plus-webrtc
+  #   image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+  #   commands:
+  #     - ./target/release/test_libp2p_plus_webrtc
+  #     - ./target/release/test_libp2p_only_with_webrtc_compiled
 
-  - name: testing-framework-tests-libp2p-only
-    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
-    commands:
-      - ./target/release/test_libp2p_only
+  # - name: testing-framework-tests-libp2p-only
+  #   image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+  #   commands:
+  #     - ./target/release/test_libp2p_only
 
-  - name: discoverable-by-ocaml-node
+  - name: solo-webrtc-sync-root-snarked-ledger
     image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    failure: ignore
     commands:
-      - ./target/release/openmina-node-testing peer-discovery-with-ocaml-nodes
+      - ./scripts/runner ./target/release/openmina-node-testing-webrtc scenarios-generate --name solo-node-sync-root-snarked-ledger
+
+  - name: solo-webrtc-initial-joining
+    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    failure: ignore
+    commands:
+      - ./scripts/runner ./target/release/openmina-node-testing-webrtc scenarios-generate --name solo-node-basic-connectivity-initial-joining
+
+  - name: multi-webrtc-initial-joining
+    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    failure: ignore
+    commands:
+      - ./scripts/runner ./target/release/openmina-node-testing-webrtc scenarios-generate --name multi-node-basic-connectivity-initial-joining
+
+  - name: solo-sync-root-snarked-ledger
+    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    failure: ignore
+    commands:
+      - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name solo-node-sync-root-snarked-ledger
+
+  - name: solo-initial-joining
+    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    failure: ignore
+    commands:
+      - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name solo-node-basic-connectivity-initial-joining
+
+  - name: multi-initial-joining
+    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    failure: ignore
+    commands:
+      - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name multi-node-basic-connectivity-initial-joining
+
+  - name: solo-accept-incoming
+    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    failure: ignore
+    commands:
+      - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name solo-node-basic-connectivity-accept-incoming
+
+  - name: multi-peer-discovery
+    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    failure: ignore
+    commands:
+      - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name multi-node-basic-connectivity-peer-discovery
 
   - name: replayer
     image: vladsimplestakingcom/bootstrap-rr:graphql

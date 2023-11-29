@@ -1,5 +1,3 @@
-pub mod tests;
-
 use std::{
     env,
     fs::{self, File},
@@ -40,17 +38,15 @@ impl NodeKey {
         NodeKey { temp_key, peer_id }
     }
 
-    pub fn local_addr(&self, port: u16) -> libp2p::Multiaddr {
-        format!("/ip4/127.0.0.1/tcp/{}/p2p/{}", port, self.peer_id)
-            .parse()
-            .expect("must be valid")
+    pub fn peer_id(&self) -> PeerId {
+        self.peer_id.clone()
     }
 }
 
 pub struct Node {
     child: Child,
     pub port: u16,
-    pub peer_id: libp2p::PeerId,
+    peer_id: libp2p::PeerId,
 }
 
 impl Node {
@@ -126,6 +122,10 @@ impl Node {
             port,
             peer_id,
         }
+    }
+
+    pub fn peer_id(&self) -> PeerId {
+        self.peer_id.clone()
     }
 
     pub fn local_addr(&self) -> libp2p::Multiaddr {

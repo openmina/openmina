@@ -98,7 +98,9 @@ impl Cluster {
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
         let node_i = self.nodes.len();
         let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-        let secret_key = {
+        let secret_key = if testing_config.randomize_peer_id {
+            P2pSecretKey::from_bytes(rand::random())
+        } else {
             let mut bytes = [0; 32];
             let bytes_len = bytes.len();
             let i_bytes = node_i.to_be_bytes();
@@ -227,7 +229,7 @@ impl Cluster {
         let state = node::State::new(config);
         fn effects<S: node::Service>(store: &mut node::Store<S>, action: node::ActionWithMeta) {
             let peer_id = store.state().p2p.my_id();
-            eprintln!("{peer_id}: {:?}", action.action().kind());
+            println!("{peer_id}: {:?}", action.action().kind());
             node::effects(store, action)
         }
         let store = node::Store::new(

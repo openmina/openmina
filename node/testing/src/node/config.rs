@@ -17,6 +17,7 @@ pub struct RustNodeTestingConfig {
     pub ask_initial_peers_interval: Duration,
     pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
     pub libp2p_port: Option<u16>,
+    pub randomize_peer_id: bool,
 }
 
 impl RustNodeTestingConfig {
@@ -28,6 +29,7 @@ impl RustNodeTestingConfig {
             ask_initial_peers_interval: Duration::from_secs(10),
             initial_peers: vec![],
             libp2p_port: None,
+            randomize_peer_id: false,
         }
     }
 
@@ -53,6 +55,11 @@ impl RustNodeTestingConfig {
 
     pub fn libp2p_port(mut self, v: u16) -> Self {
         self.libp2p_port = Some(v);
+        self
+    }
+
+    pub fn randomize_peer_id(mut self) -> Self {
+        self.randomize_peer_id = true;
         self
     }
 }
