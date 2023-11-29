@@ -1,0 +1,79 @@
+name: Openmina CI
+on: [ push, pull_request, workflow_dispatch ]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          components: rustfmt, clippy
+
+      # - name: Check
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: check
+
+      # - name: Clippy
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: clippy
+      #   # don't fail the job until clippy is fixed
+      #   continue-on-error: true
+
+      - name: Release build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --bin openmina
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: bin
+          path: target/release/openmina
+
+      - name: Build tests
+        run: |
+          cargo build --release --features=scenario-generators --package=openmina-node-testing --tests
+          cargo build --release --features=scenario-generators --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
+          jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
+          mkdir target/release/tests
+          while read NAME FILE; do cp -a $FILE target/release/tests/$NAME; done < tests.tsv
+          tar cf tests.tar -C target/release/tests .
+
+      - name: Upload tests
+        uses: actions/upload-artifact@v3
+        with:
+          name: tests
+          path: tests.tar
+
+  discovery-tests:
+    needs: [ build ]
+    runs-on: ubuntu-20.04
+    container:
+      image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-focal-berkeley
+    strategy:
+      matrix:
+        test: [rust_to_ocaml, ocaml_to_rust, rust_to_ocaml_via_seed, ocaml_to_rust_via_seed, ]
+      fail-fast: false
+
+    steps:
+      - name: Download tests
+        uses: actions/download-artifact@v3
+        with:
+          name: tests
+
+      - name: Unpack tests
+        run: |
+          tar xf tests.tar ./connection-discovery
+
+      - name: Run the test
+        run: |
+          ./connection-discovery --nocapture --exact ${{ matrix.test }}
