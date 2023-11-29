@@ -3197,6 +3197,14 @@ impl Boolean {
         });
         Self::assert_non_zero::<F>(F::from(num_true), w)
     }
+
+    pub fn var(&self) -> CircuitVar<Boolean> {
+        CircuitVar::Var(*self)
+    }
+
+    pub fn constant(&self) -> CircuitVar<Boolean> {
+        CircuitVar::Constant(*self)
+    }
 }
 
 impl<F: FieldWitness> ToFieldElements<F> for Boolean {
@@ -3205,7 +3213,19 @@ impl<F: FieldWitness> ToFieldElements<F> for Boolean {
     }
 }
 
+impl<F: FieldWitness> ToFieldElements<F> for CircuitVar<Boolean> {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        fields.push(self.as_boolean().to_field::<F>());
+    }
+}
+
 impl<F: FieldWitness> Check<F> for Boolean {
+    fn check(&self, _w: &mut Witness<F>) {
+        // Does not modify the witness
+    }
+}
+
+impl<F: FieldWitness> Check<F> for CircuitVar<Boolean> {
     fn check(&self, _w: &mut Witness<F>) {
         // Does not modify the witness
     }

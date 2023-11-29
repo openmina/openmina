@@ -56,6 +56,7 @@ use super::{
     },
     to_field_elements::ToFieldElements,
     witness::{dummy_constraints, Boolean, Check, Prover, Witness},
+    wrap::CircuitVar,
 };
 
 pub struct ZkappParams<'a> {
@@ -980,23 +981,28 @@ pub enum Eff<'a, Z: ZkappApplication> {
     CheckAccountPrecondition(
         &'a Z::AccountUpdate,
         &'a Z::Account,
-        Boolean,
+        Z::Bool,
         &'a mut zkapp_logic::LocalState<Z>,
     ),
     CheckProtocolStatePrecondition(&'a ZkAppPreconditions, &'a Z::GlobalState),
     CheckValidWhilePrecondition(&'a zkapp_command::Numeric<Slot>, &'a Z::GlobalState),
 }
 
-fn perform(eff: Eff<ZkappSnark>, w: &mut Witness<Fp>) -> zkapp_logic::PerformResult {
+fn perform(eff: Eff<ZkappSnark>, w: &mut Witness<Fp>) -> zkapp_logic::PerformResult<ZkappSnark> {
     use crate::zkapps::intefaces::LocalStateInterface;
 
     match eff {
         Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
             let check = |failure: TransactionFailure, b: Boolean, w: &mut Witness<Fp>| {
-                <ZkappSnark as ZkappApplication>::LocalState::add_check(local_state, failure, b, w);
+                <ZkappSnark as ZkappApplication>::LocalState::add_check(
+                    local_state,
+                    failure,
+                    b.var(),
+                    w,
+                );
             };
             account_update.body.preconditions.account.checked_zcheck(
-                new_account,
+                new_account.as_boolean(),
                 &*account.data,
                 check,
                 w,
@@ -1005,12 +1011,12 @@ fn perform(eff: Eff<ZkappSnark>, w: &mut Witness<Fp>) -> zkapp_logic::PerformRes
         }
         Eff::CheckProtocolStatePrecondition(protocol_state_predicate, global_state) => {
             let checked = protocol_state_predicate.checked_zcheck(&global_state.protocol_state, w);
-            zkapp_logic::PerformResult::Bool(checked)
+            zkapp_logic::PerformResult::Bool(checked.var())
         }
         Eff::CheckValidWhilePrecondition(valid_while, global_state) => {
             let checked = (valid_while, ClosedInterval::min_max)
                 .checked_zcheck(&global_state.block_global_slot.to_inner(), w);
-            zkapp_logic::PerformResult::Bool(checked)
+            zkapp_logic::PerformResult::Bool(checked.var())
         }
     }
 }
@@ -1034,7 +1040,7 @@ pub type GlobalStateForProof = GlobalStateSkeleton<
 
 pub type StartDataForProof = StartDataSkeleton<
     WithHash<CallForest<AccountUpdate>>, // account_updates
-    Boolean,                             // will_succeed
+    CircuitVar<Boolean>,                 // will_succeed
 >;
 
 fn zkapp_main(
@@ -1094,14 +1100,14 @@ fn zkapp_main(
                 ledger: witness.local_state_init.ledger.copy_content(),
                 hash: statement.source.local_state.ledger,
             },
-            success: statement.source.local_state.success.to_boolean(),
+            success: statement.source.local_state.success.to_boolean().var(),
             account_update_index: statement
                 .source
                 .local_state
                 .account_update_index
                 .to_checked(),
             failure_status_tbl: (),
-            will_succeed: statement.source.local_state.will_succeed.to_boolean(),
+            will_succeed: statement.source.local_state.will_succeed.to_boolean().var(),
         };
 
         (g, l)
@@ -1129,8 +1135,8 @@ fn zkapp_main(
 
             // We decompose this way because of OCaml evaluation order
             let will_succeed = w.exists(match v {
-                StartOrSkip::Start(p) => p.will_succeed.to_boolean(),
-                StartOrSkip::Skip => Boolean::False,
+                StartOrSkip::Start(p) => p.will_succeed.to_boolean().constant(),
+                StartOrSkip::Skip => Boolean::False.constant(),
             });
             let memo_hash = w.exists(match v {
                 StartOrSkip::Skip => Fp::zero(),

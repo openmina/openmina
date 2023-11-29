@@ -26,16 +26,16 @@ pub enum IsStart<T> {
     Compute(T),
 }
 
-pub enum PerformResult {
+pub enum PerformResult<Z: ZkappApplication> {
     None,
-    Bool(Boolean),
+    Bool(Z::Bool),
     // Bool(bool),
     // LocalState(LocalStateEnv<L>),
     // Account(Box<Account>),
 }
 
 pub struct Handler<Z: ZkappApplication> {
-    pub perform: fn(Eff<Z>, &mut Z::WitnessGenerator) -> PerformResult,
+    pub perform: fn(Eff<Z>, &mut Z::WitnessGenerator) -> PerformResult<Z>,
 }
 
 pub struct GetNextAccountUpdateResult<Z: ZkappApplication> {
@@ -46,7 +46,7 @@ pub struct GetNextAccountUpdateResult<Z: ZkappApplication> {
     pub new_frame: Z::StackFrame,
 }
 
-fn assert_(_b: Boolean) -> Result<(), String> {
+fn assert_<Z: ZkappApplication>(_b: Z::Bool) -> Result<(), String> {
     // Used only for circuit generation (add constraints)
     // https://github.com/MinaProtocol/mina/blob/e44ddfe1ca54b3855e1ed336d89f6230d35aeb8c/src/lib/transaction_logic/zkapp_command_logic.ml#L929
 
@@ -95,11 +95,11 @@ fn get_next_account_update<Z: ZkappApplication>(
     let (current_forest, call_stack) = {
         let (next_forest, next_call_stack) = pop_call_stack::<Z>(&call_stack, w);
         let current_is_empty = current_forest.calls().is_empty(w);
-        let right = w.exists_no_check(match current_is_empty {
+        let right = w.exists_no_check(match current_is_empty.as_boolean() {
             Boolean::True => next_call_stack,
             Boolean::False => call_stack,
         });
-        let left = match current_is_empty {
+        let left = match current_is_empty.as_boolean() {
             Boolean::True => next_forest,
             Boolean::False => current_forest,
         }
@@ -142,16 +142,16 @@ fn get_next_account_update<Z: ZkappApplication>(
                 call_stack.clone(),
                 w,
             );
-            w.exists_no_check(match remainder_of_current_forest_empty {
+            w.exists_no_check(match remainder_of_current_forest_empty.as_boolean() {
                 Boolean::True => MyCow::Borrow(&call_stack),
                 Boolean::False => MyCow::Own(on_false),
             })
         };
-        let on_true = w.exists_no_check(match remainder_of_current_forest_empty {
+        let on_true = w.exists_no_check(match remainder_of_current_forest_empty.as_boolean() {
             Boolean::True => MyCow::Borrow(&popped_call_stack),
             Boolean::False => MyCow::Borrow(&call_stack),
         });
-        w.exists_no_check(match account_update_forest_empty {
+        w.exists_no_check(match account_update_forest_empty.as_boolean() {
             Boolean::True => on_true,
             Boolean::False => on_false,
         })
@@ -170,13 +170,13 @@ fn get_next_account_update<Z: ZkappApplication>(
             )
         };
         let on_true = {
-            match remainder_of_current_forest_empty {
+            match remainder_of_current_forest_empty.as_boolean() {
                 Boolean::True => newly_popped_frame,
                 Boolean::False => remainder_of_current_forest_frame,
             }
             .on_if(w)
         };
-        match account_update_forest_empty {
+        match account_update_forest_empty.as_boolean() {
             Boolean::True => on_true,
             Boolean::False => on_false,
         }
@@ -200,10 +200,10 @@ pub struct LocalState<Z: ZkappApplication> {
     pub excess: Z::SignedAmount,
     pub supply_increase: Z::SignedAmount,
     pub ledger: Z::Ledger,
-    pub success: Boolean,
+    pub success: Z::Bool,
     pub account_update_index: Z::Index,
     pub failure_status_tbl: Z::FailureStatusTable,
-    pub will_succeed: Boolean,
+    pub will_succeed: Z::Bool,
 }
 
 pub type GlobalState<Z> = GlobalStateSkeleton<
@@ -214,7 +214,7 @@ pub type GlobalState<Z> = GlobalStateSkeleton<
 
 pub type StartData<Z> = StartDataSkeleton<
     <Z as ZkappApplication>::CallForest, // account_updates
-    Boolean,                             // will_succeed
+    <Z as ZkappApplication>::Bool,       // will_succeed
 >;
 
 pub fn apply<Z>(
@@ -232,25 +232,25 @@ where
         let is_empty_call_forest = local_state.stack_frame.calls().is_empty(w);
         match is_start {
             IsStart::Compute(_) => (),
-            IsStart::Yes(_) => assert_(is_empty_call_forest)?,
-            IsStart::No => assert_(is_empty_call_forest.neg())?,
+            IsStart::Yes(_) => assert_::<Z>(is_empty_call_forest)?,
+            IsStart::No => assert_::<Z>(is_empty_call_forest.neg())?,
         };
         match is_start {
-            IsStart::Yes(_) => Boolean::True,
-            IsStart::No => Boolean::False,
+            IsStart::Yes(_) => Z::Bool::true_(),
+            IsStart::No => Z::Bool::false_(),
             IsStart::Compute(_) => is_empty_call_forest,
         }
     };
 
     let will_succeed = match &is_start {
-        IsStart::Compute(start_data) => w.exists_no_check(match is_start2 {
+        IsStart::Compute(start_data) => w.exists_no_check(match is_start2.as_boolean() {
             Boolean::True => start_data.will_succeed,
             Boolean::False => local_state.will_succeed,
         }),
         IsStart::Yes(start_data) => start_data.will_succeed,
         IsStart::No => local_state.will_succeed,
     };
-    local_state.ledger = w.exists_no_check(match is_start2 {
+    local_state.ledger = w.exists_no_check(match is_start2.as_boolean() {
         Boolean::True => global_state.first_pass_ledger(),
         Boolean::False => local_state.ledger.clone(),
     });
@@ -261,7 +261,7 @@ where
             match &is_start {
                 IsStart::Compute(start_data) => {
                     // We decompose this way because of OCaml evaluation order
-                    let right = w.exists_no_check(match is_start2 {
+                    let right = w.exists_no_check(match is_start2.as_boolean() {
                         Boolean::True => Z::CallStack::empty(),
                         Boolean::False => local_state.call_stack.clone(),
                     });
@@ -274,7 +274,7 @@ where
                             },
                             w,
                         );
-                        match is_start2 {
+                        match is_start2.as_boolean() {
                             Boolean::True => on_true,
                             Boolean::False => local_state.stack_frame.clone(),
                         }
@@ -342,11 +342,11 @@ where
                     tx_commitment_on_start,
                     w,
                 );
-                let tx_commitment = w.exists_no_check(match is_start2 {
+                let tx_commitment = w.exists_no_check(match is_start2.as_boolean() {
                     Boolean::True => tx_commitment_on_start,
                     Boolean::False => local_state.transaction_commitment,
                 });
-                let full_tx_commitment = w.exists_no_check(match is_start2 {
+                let full_tx_commitment = w.exists_no_check(match is_start2.as_boolean() {
                     Boolean::True => full_tx_commitment_on_start,
                     Boolean::False => local_state.full_transaction_commitment,
                 });
@@ -386,7 +386,7 @@ where
         };
 
         a.set_delegate(
-            w.exists_no_check(match self_delegate {
+            w.exists_no_check(match self_delegate.as_boolean() {
                 Boolean::True => account_update.body().public_key.clone(),
                 Boolean::False => a
                     .get()
@@ -465,22 +465,21 @@ where
             w,
         )
     };
-    assert_(Z::Bool::const_equal(
+    assert_::<Z>(Z::Bool::equal(
         proof_verifies,
         account_update.is_proved(),
+        w,
     ));
-    // TODO: Use cvar here
-    assert_(Z::Bool::equal(
+    assert_::<Z>(Z::Bool::equal(
         signature_verifies,
         account_update.is_signed(),
         w,
     ));
 
-    let increment_nonce = account_update.body().increment_nonce.to_boolean();
     Z::LocalState::add_check(
         &mut local_state,
         TransactionFailure::FeePayerNonceMustIncrease,
-        Z::Bool::or(increment_nonce, is_start2.neg(), w),
+        Z::Bool::or(account_update.increment_nonce(), is_start2.neg(), w),
         w,
     );
     Z::LocalState::add_check(

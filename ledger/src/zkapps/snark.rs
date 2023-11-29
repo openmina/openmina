@@ -18,6 +18,7 @@ use crate::{
             transaction_snark::{checked_chunked_signature_verify, checked_hash},
             Boolean, Check, FieldWitness, InnerCurve, ToBoolean, Witness,
         },
+        wrap::CircuitVar,
         zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash, ZkappSingleData},
         zkapp_logic,
     },
@@ -154,22 +155,24 @@ impl<F: FieldWitness> WitnessGenerator<F> for Witness<F> {
 }
 
 impl SignedAmountInterface for CheckedSigned<Fp, CheckedAmount<Fp>> {
+    type Bool = SnarkBool;
+
     fn zero() -> Self {
         todo!()
     }
-    fn is_neg(&self) -> Boolean {
+    fn is_neg(&self) -> Self::Bool {
         todo!()
     }
-    fn equal(&self, other: &Self) -> Boolean {
+    fn equal(&self, other: &Self) -> Self::Bool {
         todo!()
     }
-    fn is_non_neg(&self) -> Boolean {
+    fn is_non_neg(&self) -> Self::Bool {
         todo!()
     }
     fn negate(&self) -> Self {
         todo!()
     }
-    fn add_flagged(&self, other: &Self) -> (Self, Boolean) {
+    fn add_flagged(&self, other: &Self) -> (Self, Self::Bool) {
         todo!()
     }
     fn of_unsigned(fee: impl AmountInterface) -> Self {
@@ -178,16 +181,18 @@ impl SignedAmountInterface for CheckedSigned<Fp, CheckedAmount<Fp>> {
 }
 
 impl AmountInterface for CheckedAmount<Fp> {
+    type Bool = SnarkBool;
+
     fn zero() -> Self {
         todo!()
     }
-    fn equal(&self, other: &Self) -> Boolean {
+    fn equal(&self, other: &Self) -> Self::Bool {
         todo!()
     }
-    fn add_flagged(&self, other: &Self) -> (Self, Boolean) {
+    fn add_flagged(&self, other: &Self) -> (Self, Self::Bool) {
         todo!()
     }
-    fn add_signed_flagged(&self, signed: &impl SignedAmountInterface) -> (Self, Boolean) {
+    fn add_signed_flagged(&self, signed: &impl SignedAmountInterface) -> (Self, Self::Bool) {
         todo!()
     }
     fn of_constant_fee(fee: crate::scan_state::currency::Fee) -> Self {
@@ -202,6 +207,7 @@ type SnarkCallForest = WithHash<CallForest<AccountUpdate>>;
 impl CallForestInterface for SnarkCallForest {
     type W = Witness<Fp>;
     type AccountUpdate = SnarkAccountUpdate;
+    type Bool = SnarkBool;
 
     fn empty() -> Self {
         WithHash {
@@ -209,10 +215,10 @@ impl CallForestInterface for SnarkCallForest {
             hash: Fp::zero(),
         }
     }
-    fn is_empty(&self, w: &mut Self::W) -> Boolean {
+    fn is_empty(&self, w: &mut Self::W) -> Self::Bool {
         let Self { hash, data: _ } = self;
         let empty = Fp::zero();
-        field::equal(empty, *hash, w)
+        field::equal(empty, *hash, w).var()
     }
     fn pop_exn(&self, w: &mut Self::W) -> ((Self::AccountUpdate, Self), Self) {
         let Self { data, hash } = self;
@@ -318,6 +324,7 @@ fn call_stack_digest_checked_cons(h: Fp, t: Fp, w: &mut Witness<Fp>) -> Fp {
 impl StackInterface for WithHash<Vec<WithStackHash<WithHash<StackFrame>>>> {
     type Elt = StackFrameChecked;
     type W = Witness<Fp>;
+    type Bool = SnarkBool;
 
     fn empty() -> Self {
         WithHash {
@@ -325,10 +332,10 @@ impl StackInterface for WithHash<Vec<WithStackHash<WithHash<StackFrame>>>> {
             hash: Fp::zero(),
         }
     }
-    fn is_empty(&self, w: &mut Self::W) -> Boolean {
+    fn is_empty(&self, w: &mut Self::W) -> Self::Bool {
         let Self { hash, data: _ } = self;
         let empty = Fp::zero();
-        field::equal(empty, *hash, w)
+        field::equal(empty, *hash, w).var()
     }
     fn pop_exn(&self) -> (Self::Elt, Self) {
         todo!()
@@ -353,9 +360,9 @@ impl StackInterface for WithHash<Vec<WithStackHash<WithHash<StackFrame>>>> {
         let stack_frame_hash = elt.hash(w);
         let h2 = call_stack_digest_checked_cons(stack_frame_hash, stack, w);
         let is_equal = field::equal(*hash, h2, w);
-        Boolean::assert_any(&[input_is_empty, is_equal], w);
+        Boolean::assert_any(&[input_is_empty.as_boolean(), is_equal], w);
         Opt {
-            is_some: input_is_empty.neg(),
+            is_some: input_is_empty.neg().as_boolean(),
             data: (
                 elt,
                 Self {
@@ -437,13 +444,15 @@ impl IndexInterface for CheckedIndex<Fp> {
 }
 
 impl GlobalSlotSinceGenesisInterface for CheckedSlot<Fp> {
+    type Bool = SnarkBool;
+
     fn zero() -> Self {
         todo!()
     }
-    fn greater_than(&self, other: &Self) -> Boolean {
+    fn greater_than(&self, other: &Self) -> Self::Bool {
         todo!()
     }
-    fn equal(&self, other: &Self) -> Boolean {
+    fn equal(&self, other: &Self) -> Self::Bool {
         todo!()
     }
 }
@@ -467,6 +476,7 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
     type W = Witness<Fp>;
     type CallForest = SnarkCallForest;
     type SingleData = ZkappSingleData;
+    type Bool = SnarkBool;
 
     fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body {
         let Self {
@@ -482,20 +492,28 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
     fn verification_key_hash(&self) -> Fp {
         self.body().authorization_kind.vk_hash()
     }
-    fn is_proved(&self) -> Boolean {
-        self.body().authorization_kind.is_proved().to_boolean()
+    fn is_proved(&self) -> Self::Bool {
+        self.body()
+            .authorization_kind
+            .is_proved()
+            .to_boolean()
+            .var()
     }
-    fn is_signed(&self) -> Boolean {
-        self.body().authorization_kind.is_signed().to_boolean()
+    fn is_signed(&self) -> Self::Bool {
+        self.body()
+            .authorization_kind
+            .is_signed()
+            .to_boolean()
+            .var()
     }
     fn check_authorization(
         &self,
-        will_succeed: Boolean,
+        will_succeed: Self::Bool,
         commitment: Fp,
         calls: &Self::CallForest,
         data: &Self::SingleData,
         w: &mut Self::W,
-    ) -> CheckAuthorizationResult<Boolean> {
+    ) -> CheckAuthorizationResult<Self::Bool> {
         use crate::scan_state::transaction_logic::zkapp_statement::TransactionCommitment;
         use crate::ControlTag::{NoneGiven, Proof, Signature};
 
@@ -516,13 +534,13 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
                     calls: TransactionCommitment(*calls),
                 };
                 data.set_zkapp_input(stmt);
-                data.set_must_verify(will_succeed);
-                Boolean::True
+                data.set_must_verify(will_succeed.as_boolean());
+                Boolean::True.constant()
             }
-            Signature | NoneGiven => Boolean::False,
+            Signature | NoneGiven => Boolean::False.constant(),
         };
         let signature_verifies = match auth_type {
-            NoneGiven | Proof => Boolean::False,
+            NoneGiven | Proof => Boolean::False.constant(),
             Signature => {
                 use crate::scan_state::transaction_logic::zkapp_command::Control;
                 let signature = w.exists({
@@ -541,12 +559,16 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
                     &account_update.public_key,
                     w,
                 )
+                .var()
             }
         };
         CheckAuthorizationResult {
             proof_verifies,
             signature_verifies,
         }
+    }
+    fn increment_nonce(&self) -> Self::Bool {
+        self.body().increment_nonce.to_boolean().var()
     }
 }
 
@@ -555,12 +577,13 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
 
 impl LocalStateInterface for zkapp_logic::LocalState<ZkappSnark> {
     type Z = ZkappSnark;
+    type Bool = SnarkBool;
     type W = Witness<Fp>;
 
     fn add_check(
         local: &mut zkapp_logic::LocalState<Self::Z>,
         failure: TransactionFailure,
-        b: Boolean,
+        b: Self::Bool,
         w: &mut Self::W,
     ) {
         local.success = local.success.and(&b, w);
@@ -766,6 +789,7 @@ impl LedgerInterface for LedgerWithHash {
     type W = Witness<Fp>;
     type AccountUpdate = SnarkAccountUpdate;
     type Account = SnarkAccount;
+    type Bool = SnarkBool;
     type InclusionProof = Vec<(Boolean, Fp)>;
 
     fn empty() -> Self {
@@ -823,7 +847,7 @@ impl LedgerInterface for LedgerWithHash {
         token_id: &TokenId,
         account: (&Self::Account, &Self::InclusionProof),
         w: &mut Self::W,
-    ) -> Boolean {
+    ) -> Self::Bool {
         let (WithLazyHash { data: account, .. }, _) = account;
         let is_new = checked_equal_compressed_key_const_and(
             &account.public_key,
@@ -834,13 +858,13 @@ impl LedgerInterface for LedgerWithHash {
         Boolean::assert_any(&[is_new, is_same], w);
         let is_same_token = field::equal(token_id.0, account.token_id.0, w);
         Boolean::assert_any(&[is_new, is_same_token], w);
-        is_new
+        is_new.var()
     }
 }
 
 pub struct SnarkAccountId;
 pub struct SnarkTokenId;
-pub struct SnarkBool;
+pub type SnarkBool = CircuitVar<Boolean>;
 pub struct SnarkTransactionCommitment;
 pub struct SnarkVerificationKeyHash;
 
@@ -854,37 +878,51 @@ impl AccountIdInterface for SnarkAccountId {
 
 impl TokenIdInterface for SnarkTokenId {
     type W = Witness<Fp>;
+    type Bool = SnarkBool;
 
-    fn equal(a: &TokenId, b: &TokenId, w: &mut Self::W) -> Boolean {
-        field::equal(a.0, b.0, w)
+    fn equal(a: &TokenId, b: &TokenId, w: &mut Self::W) -> Self::Bool {
+        field::equal(a.0, b.0, w).var()
     }
 }
 
 impl VerificationKeyHashInterface for SnarkVerificationKeyHash {
     type W = Witness<Fp>;
+    type Bool = SnarkBool;
 
-    fn equal(a: Fp, b: Fp, w: &mut Self::W) -> Boolean {
-        field::equal(a, b, w)
+    fn equal(a: Fp, b: Fp, w: &mut Self::W) -> Self::Bool {
+        field::equal(a, b, w).var()
     }
 }
 
 impl BoolInterface for SnarkBool {
     type W = Witness<Fp>;
 
-    fn or(a: Boolean, b: Boolean, w: &mut Self::W) -> Boolean {
+    fn as_boolean(&self) -> Boolean {
+        self.as_boolean()
+    }
+
+    fn true_() -> Self {
+        CircuitVar::Constant(Boolean::True)
+    }
+
+    fn false_() -> Self {
+        CircuitVar::Constant(Boolean::False)
+    }
+
+    fn neg(&self) -> Self {
+        self.neg()
+    }
+
+    fn or(a: Self, b: Self, w: &mut Self::W) -> Self {
         a.or(&b, w)
     }
 
-    fn and(a: Boolean, b: Boolean, w: &mut Self::W) -> Boolean {
+    fn and(a: Self, b: Self, w: &mut Self::W) -> Self {
         a.and(&b, w)
     }
 
-    fn const_equal(a: Boolean, b: Boolean) -> Boolean {
-        a.const_equal(&b)
-    }
-
-    fn equal(a: Boolean, b: Boolean, w: &mut Self::W) -> Boolean {
-        a.equal(&b, w)
+    fn equal(a: Self, b: Self, w: &mut Self::W) -> Self {
+        a.equal_bool(&b, w)
     }
 }
 

@@ -16,9 +16,9 @@ use crate::{
 };
 
 use super::intefaces::{
-    AccountUpdateInterface, AmountInterface, CallForestInterface, CallStackInterface,
-    IndexInterface, Opt, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
-    StackInterface, WitnessGenerator,
+    AccountUpdateInterface, AmountInterface, BoolInterface, CallForestInterface,
+    CallStackInterface, IndexInterface, Opt, SignedAmountInterface, StackFrameInterface,
+    StackFrameMakeParams, StackInterface, WitnessGenerator,
 };
 
 impl<F: FieldWitness> WitnessGenerator<F> for () {
@@ -38,22 +38,24 @@ impl<F: FieldWitness> WitnessGenerator<F> for () {
 }
 
 impl SignedAmountInterface for Signed<Amount> {
+    type Bool = Boolean;
+
     fn zero() -> Self {
         todo!()
     }
-    fn is_neg(&self) -> Boolean {
+    fn is_neg(&self) -> Self::Bool {
         todo!()
     }
-    fn equal(&self, other: &Self) -> Boolean {
+    fn equal(&self, other: &Self) -> Self::Bool {
         todo!()
     }
-    fn is_non_neg(&self) -> Boolean {
+    fn is_non_neg(&self) -> Self::Bool {
         todo!()
     }
     fn negate(&self) -> Self {
         todo!()
     }
-    fn add_flagged(&self, other: &Self) -> (Self, Boolean) {
+    fn add_flagged(&self, other: &Self) -> (Self, Self::Bool) {
         todo!()
     }
     fn of_unsigned(fee: impl AmountInterface) -> Self {
@@ -85,6 +87,8 @@ impl StackFrameInterface for StackFrame {
 impl StackInterface for CallStack {
     type Elt = StackFrame;
     type W = ();
+    type Bool = Boolean;
+
     fn empty() -> Self {
         todo!()
     }
@@ -118,6 +122,7 @@ impl IndexInterface for Index {
 impl CallForestInterface for CallForest<AccountUpdate> {
     type W = ();
     type AccountUpdate = AccountUpdate;
+    type Bool = Boolean;
 
     fn empty() -> Self {
         todo!()
@@ -130,10 +135,43 @@ impl CallForestInterface for CallForest<AccountUpdate> {
     }
 }
 
+impl BoolInterface for Boolean {
+    type W = ();
+
+    fn as_boolean(&self) -> Boolean {
+        *self
+    }
+
+    fn true_() -> Self {
+        Boolean::True
+    }
+
+    fn false_() -> Self {
+        Boolean::False
+    }
+
+    fn neg(&self) -> Self {
+        self.neg()
+    }
+
+    fn or(a: Self, b: Self, w: &mut Self::W) -> Self {
+        todo!()
+    }
+
+    fn and(a: Self, b: Self, w: &mut Self::W) -> Self {
+        todo!()
+    }
+
+    fn equal(a: Self, b: Self, w: &mut Self::W) -> Self {
+        todo!()
+    }
+}
+
 impl AccountUpdateInterface for AccountUpdate {
     type W = ();
     type SingleData = ();
     type CallForest = CallForest<AccountUpdate>;
+    type Bool = Boolean;
 
     fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body {
         let Self {
@@ -162,6 +200,9 @@ impl AccountUpdateInterface for AccountUpdate {
         data: &Self::SingleData,
         w: &mut Self::W,
     ) -> CheckAuthorizationResult<Boolean> {
+        todo!()
+    }
+    fn increment_nonce(&self) -> Self::Bool {
         todo!()
     }
 }
