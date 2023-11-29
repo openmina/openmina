@@ -107,7 +107,7 @@ impl Scenarios {
                 "max_peers": 100,
                 "ask_initial_peers_interval": { "secs": 10, "nanos": 0 },
                 "initial_peers": [],
-                "randomize_peer_id: false
+                "randomize_peer_id": false
             }
                                                                            "#,
             )
