@@ -229,7 +229,7 @@ impl Cluster {
         let state = node::State::new(config);
         fn effects<S: node::Service>(store: &mut node::Store<S>, action: node::ActionWithMeta) {
             let peer_id = store.state().p2p.my_id();
-            println!("{peer_id}: {:?}", action.action().kind());
+            openmina_core::log::trace!(action.time(); "{peer_id}: {:?}", action.action().kind());
             node::effects(store, action)
         }
         let store = node::Store::new(
