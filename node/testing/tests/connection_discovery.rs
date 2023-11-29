@@ -538,4 +538,4 @@ macro_rules! scenario_test {
     };
 }
 
-scenario_test!(rust_node_as_seed, RustNodeAsSeed, RustNodeAsSeed);
+scenario_test!(rust_as_seed, RustNodeAsSeed, RustNodeAsSeed);
