@@ -1,6 +1,7 @@
+#![cfg(not(feature = "p2p-webrtc"))]
+
 use std::time::Duration;
 
-use documented::Documented;
 use node::{
     event_source::Event,
     p2p::{
