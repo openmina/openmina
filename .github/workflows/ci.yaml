@@ -61,43 +61,6 @@ jobs:
           name: tests
           path: tests.tar
 
-  discovery-tests:
-    needs: [ build ]
-    runs-on: ubuntu-20.04
-    container:
-      image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-focal-berkeley
-    strategy:
-      matrix:
-        test: [rust_to_ocaml, ocaml_to_rust, rust_to_ocaml_via_seed, ocaml_to_rust_via_seed, rust_as_seed]
-      fail-fast: false
-
-    steps:
-      - name: Download tests
-        uses: actions/download-artifact@v3
-        with:
-          name: tests
-
-      - name: Unpack tests
-        run: |
-          tar xf tests.tar ./connection_discovery
-
-      - name: Set test summary
-        run: |
-          SCENARIO_INFO=1 ./connection_discovery --quiet --nocapture --exact ${{ matrix.test }} 2>/dev/null | tail -n +3 | head -n -3 >> $GITHUB_STEP_SUMMARY
-
-      - name: Run the test
-        run: |
-          ./connection_discovery --nocapture --exact ${{ matrix.test }}
-
-      - name: Passed
-        run: |
-          echo "**PASSES** :white_check_mark:" >> $GITHUB_STEP_SUMMARY
-
-      - name: Failed
-        if: ${{ failure() }}
-        run: |
-          echo "**FAILED** :red_circle:" >> $GITHUB_STEP_SUMMARY
-
   scenario-tests:
     needs: [ build ]
     runs-on: ubuntu-20.04
@@ -105,7 +68,7 @@ jobs:
       image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-focal-berkeley
     strategy:
       matrix:
-        test: [single_node, multi_node, webrtc_single_node, webrtc_multi_node]
+        test: [single_node, multi_node, connection_discovery, webrtc_single_node, webrtc_multi_node]
       fail-fast: false
 
     steps:
