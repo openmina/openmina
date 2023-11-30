@@ -41,11 +41,18 @@ jobs:
 
       - name: Build tests
         run: |
+          mkdir target/release/tests
+
           cargo build --release --features=scenario-generators --package=openmina-node-testing --tests
           cargo build --release --features=scenario-generators --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
           jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
-          mkdir target/release/tests
           while read NAME FILE; do cp -a $FILE target/release/tests/$NAME; done < tests.tsv
+
+          cargo build --release --features=scenario-generators,p2p-webrtc --package=openmina-node-testing --tests
+          cargo build --release --features=scenario-generators,p2p-webrtc --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
+          jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
+          while read NAME FILE; do cp -a $FILE target/release/tests/webrtc_$NAME; done < tests.tsv
+
           tar cf tests.tar -C target/release/tests .
 
       - name: Upload tests
@@ -90,3 +97,27 @@ jobs:
         if: ${{ failure() }}
         run: |
           echo "**FAILED** :red_circle:" >> $GITHUB_STEP_SUMMARY
+
+  scenario-tests:
+    needs: [ build ]
+    runs-on: ubuntu-20.04
+    container:
+      image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-focal-berkeley
+    strategy:
+      matrix:
+        test: [single_node, multi_node, webrtc_single_node, webrtc_multi_node]
+      fail-fast: false
+
+    steps:
+      - name: Download tests
+        uses: actions/download-artifact@v3
+        with:
+          name: tests
+
+      - name: Unpack tests
+        run: |
+          tar xf tests.tar ./${{ matrix.test }}
+
+      - name: Run the test
+        run: |
+          ./${{ matrix.test }} --nocapture --test-threads=1
