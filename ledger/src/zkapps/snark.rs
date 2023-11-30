@@ -9,7 +9,7 @@ use crate::{
     proofs::{
         numbers::{
             common::ForZkappCheck,
-            currency::{CheckedAmount, CheckedCurrency, CheckedSigned},
+            currency::{CheckedAmount, CheckedBalance, CheckedCurrency, CheckedSigned},
             nat::{CheckedIndex, CheckedNat, CheckedSlot},
         },
         to_field_elements::ToFieldElements,
@@ -23,25 +23,27 @@ use crate::{
         zkapp_logic,
     },
     scan_state::{
-        currency::{Magnitude, MinMax},
+        currency::{Amount, Magnitude, MinMax, Slot, SlotSpan},
         transaction_logic::{
             local_state::{StackFrame, StackFrameChecked, StackFrameCheckedFrame, WithLazyHash},
             zkapp_command::{
                 AccountUpdate, AccountUpdateSkeleton, AuthorizationKind, CallForest,
-                CheckAuthorizationResult, ClosedInterval, OrIgnore, Tree, WithHash,
+                CheckAuthorizationResult, ClosedInterval, OrIgnore, SetOrKeep, Tree, WithHash,
                 ACCOUNT_UPDATE_CONS_HASH_PARAM,
             },
             zkapp_statement::ZkappStatement,
             TransactionFailure,
         },
     },
-    Account, AccountId, Inputs, MyCow, ToInputs, TokenId, VerificationKey, ZkAppAccount,
+    Account, AccountId, AuthRequired, AuthRequiredEncoded, Inputs, MyCow, ToInputs, TokenId,
+    VerificationKey, ZkAppAccount,
 };
 
 use super::intefaces::{
-    AccountIdInterface, AccountInterface, AccountUpdateInterface, AmountInterface, BoolInterface,
-    CallForestInterface, CallStackInterface, GlobalSlotSinceGenesisInterface, GlobalStateInterface,
-    IndexInterface, LedgerInterface, LocalStateInterface, Opt, SignedAmountInterface,
+    AccountIdInterface, AccountInterface, AccountUpdateInterface, AmountInterface,
+    BalanceInterface, BoolInterface, CallForestInterface, CallStackInterface, ControllerInterface,
+    GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface, GlobalStateInterface, IndexInterface,
+    LedgerInterface, LocalStateInterface, Opt, SetOrKeepInterface, SignedAmountInterface,
     StackFrameInterface, StackFrameMakeParams, StackInterface, TokenIdInterface,
     TransactionCommitmentInterface, VerificationKeyHashInterface, WitnessGenerator, ZkappSnark,
 };
@@ -155,32 +157,39 @@ impl<F: FieldWitness> WitnessGenerator<F> for Witness<F> {
 }
 
 impl SignedAmountInterface for CheckedSigned<Fp, CheckedAmount<Fp>> {
+    type W = Witness<Fp>;
     type Bool = SnarkBool;
+    type Amount = SnarkAmount;
 
     fn zero() -> Self {
-        todo!()
+        CheckedSigned::zero()
     }
     fn is_neg(&self) -> Self::Bool {
-        todo!()
+        CheckedSigned::is_neg(self).var()
     }
-    fn equal(&self, other: &Self) -> Self::Bool {
-        todo!()
+    fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool {
+        CheckedSigned::const_equal(self, other, w).var()
     }
     fn is_non_neg(&self) -> Self::Bool {
-        todo!()
+        CheckedSigned::is_pos(self).var()
     }
     fn negate(&self) -> Self {
-        todo!()
+        CheckedSigned::negate(self.clone())
     }
-    fn add_flagged(&self, other: &Self) -> (Self, Self::Bool) {
-        todo!()
+    fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool) {
+        let (value, is_overflow) = CheckedSigned::add_flagged(self, other, w);
+        (value, is_overflow.var())
     }
-    fn of_unsigned(fee: impl AmountInterface) -> Self {
-        todo!()
+    fn of_unsigned(unsigned: Self::Amount) -> Self {
+        Self::of_unsigned(unsigned)
+    }
+    fn value(&self) -> Fp {
+        CheckedSigned::value(&self)
     }
 }
 
-impl AmountInterface for CheckedAmount<Fp> {
+impl AmountInterface for SnarkAmount {
+    type W = Witness<Fp>;
     type Bool = SnarkBool;
 
     fn zero() -> Self {
@@ -189,14 +198,14 @@ impl AmountInterface for CheckedAmount<Fp> {
     fn equal(&self, other: &Self) -> Self::Bool {
         todo!()
     }
-    fn add_flagged(&self, other: &Self) -> (Self, Self::Bool) {
+    fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool) {
         todo!()
     }
     fn add_signed_flagged(&self, signed: &impl SignedAmountInterface) -> (Self, Self::Bool) {
         todo!()
     }
     fn of_constant_fee(fee: crate::scan_state::currency::Fee) -> Self {
-        todo!()
+        Amount::of_fee(&fee).to_checked()
     }
 }
 
@@ -477,6 +486,7 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
     type CallForest = SnarkCallForest;
     type SingleData = ZkappSingleData;
     type Bool = SnarkBool;
+    type SignedAmount = SnarkSignedAmount;
 
     fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body {
         let Self {
@@ -570,10 +580,25 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
     fn increment_nonce(&self) -> Self::Bool {
         self.body().increment_nonce.to_boolean().var()
     }
+    fn use_full_commitment(&self) -> Self::Bool {
+        self.body().use_full_commitment.to_boolean().var()
+    }
+    fn account_precondition_nonce_is_constant(&self, w: &mut Self::W) -> Self::Bool {
+        let nonce = self.body().preconditions.account.nonce();
+        let (is_check, ClosedInterval { lower, upper }) = match nonce {
+            OrIgnore::Check(interval) => (Boolean::True, interval.clone()),
+            OrIgnore::Ignore => (Boolean::False, ClosedInterval::min_max()),
+        };
+        let is_constant = lower.to_checked().equal(&upper.to_checked(), w);
+        is_check.and(&is_constant, w).var()
+    }
+    fn implicit_account_creation_fee(&self) -> Self::Bool {
+        self.body().implicit_account_creation_fee.to_boolean().var()
+    }
+    fn balance_change(&self) -> Self::SignedAmount {
+        self.body().balance_change.to_checked()
+    }
 }
-
-//   ( `Proof_verifies proof_verifies
-//   , `Signature_verifies signature_verifies )
 
 impl LocalStateInterface for zkapp_logic::LocalState<ZkappSnark> {
     type Z = ZkappSnark;
@@ -720,6 +745,8 @@ pub type SnarkAccount = WithLazyHash<Box<Account>>;
 impl AccountInterface for SnarkAccount {
     type W = Witness<Fp>;
     type D = ZkappSingleData;
+    type Bool = SnarkBool;
+    type Balance = SnarkBalance;
 
     fn register_verification_key(&self, data: &Self::D, w: &mut Self::W) {
         use crate::ControlTag::*;
@@ -766,6 +793,21 @@ impl AccountInterface for SnarkAccount {
         // TODO: We shouldn't compute the hash here
         let zkapp = self.zkapp();
         MyCow::borrow_or_else(&zkapp.verification_key, VerificationKey::dummy).hash()
+    }
+    fn set_token_id(&mut self, token_id: TokenId) {
+        let Self { data: account, .. } = self;
+        account.token_id = token_id;
+    }
+    fn is_timed(&self) -> Self::Bool {
+        let Self { data: account, .. } = self;
+        account.timing.is_timed().to_boolean().var()
+    }
+    fn balance(&self) -> Self::Balance {
+        let Self { data: account, .. } = self;
+        account.balance.to_checked()
+    }
+    fn set_balance(&mut self, balance: Self::Balance) {
+        self.data.balance = balance.to_inner(); // TODO: Overflow ?
     }
 }
 
@@ -865,8 +907,14 @@ impl LedgerInterface for LedgerWithHash {
 pub struct SnarkAccountId;
 pub struct SnarkTokenId;
 pub type SnarkBool = CircuitVar<Boolean>;
+pub type SnarkAmount = CheckedAmount<Fp>;
+pub type SnarkSignedAmount = CheckedSigned<Fp, CheckedAmount<Fp>>;
+pub type SnarkBalance = CheckedBalance<Fp>;
 pub struct SnarkTransactionCommitment;
 pub struct SnarkVerificationKeyHash;
+pub struct SnarkController;
+pub struct SnarkSetOrKeep;
+pub struct SnarkGlobalSlotSpan;
 
 impl AccountIdInterface for SnarkAccountId {
     type W = Witness<Fp>;
@@ -926,6 +974,25 @@ impl BoolInterface for SnarkBool {
     }
 }
 
+impl BalanceInterface for SnarkBalance {
+    type W = Witness<Fp>;
+    type Bool = SnarkBool;
+    type Amount = SnarkAmount;
+    type SignedAmount = SnarkSignedAmount;
+
+    fn sub_amount_flagged(&self, amount: Self::Amount) -> (Self, Self::Bool) {
+        todo!()
+    }
+    fn add_signed_amount_flagged(
+        &self,
+        signed_amount: Self::SignedAmount,
+        w: &mut Self::W,
+    ) -> (Self, Self::Bool) {
+        let (balance, failed) = SnarkBalance::add_signed_amount_flagged(self, signed_amount, w);
+        (balance, failed.var())
+    }
+}
+
 impl TransactionCommitmentInterface for SnarkTransactionCommitment {
     type AccountUpdate = SnarkAccountUpdate;
     type CallForest = SnarkCallForest;
@@ -949,5 +1016,96 @@ impl TransactionCommitmentInterface for SnarkTransactionCommitment {
 
         [memo_hash, fee_payer_hash, commitment]
             .checked_hash_with_param(ACCOUNT_UPDATE_CONS_HASH_PARAM, w)
+    }
+}
+
+fn encode_auth(auth: &AuthRequired) -> AuthRequiredEncoded<CircuitVar<Boolean>> {
+    let AuthRequiredEncoded {
+        constant,
+        signature_necessary,
+        signature_sufficient,
+    } = auth.encode();
+
+    AuthRequiredEncoded {
+        constant: constant.to_boolean().var(),
+        signature_necessary: signature_necessary.to_boolean().var(),
+        signature_sufficient: signature_sufficient.to_boolean().var(),
+    }
+}
+
+// TODO: Dedup with the one in `account.rs`
+fn eval_no_proof(
+    auth: &AuthRequired,
+    signature_verifies: SnarkBool,
+    w: &mut Witness<Fp>,
+) -> SnarkBool {
+    let AuthRequiredEncoded {
+        constant,
+        signature_necessary: _,
+        signature_sufficient,
+    } = encode_auth(auth);
+
+    let a = constant.neg().and(&signature_verifies, w);
+    let b = constant.or(&a, w);
+    signature_sufficient.and(&b, w)
+}
+
+fn eval_proof(auth: &AuthRequired, w: &mut Witness<Fp>) -> SnarkBool {
+    let AuthRequiredEncoded {
+        constant,
+        signature_necessary,
+        signature_sufficient,
+    } = encode_auth(auth);
+
+    let impossible = constant.and(&signature_sufficient.neg(), w);
+    signature_necessary.neg().and(&impossible.neg(), w)
+}
+
+impl ControllerInterface for SnarkController {
+    type W = Witness<Fp>;
+    type Bool = SnarkBool;
+    type SingleData = ZkappSingleData;
+
+    fn check(
+        proof_verifies: Self::Bool,
+        signature_verifies: Self::Bool,
+        auth: &AuthRequired,
+        data: &Self::SingleData,
+        w: &mut Self::W,
+    ) -> Self::Bool {
+        use crate::ControlTag::{NoneGiven, Proof, Signature};
+
+        match data.spec().auth_type {
+            Proof => eval_proof(auth, w),
+            Signature | NoneGiven => eval_no_proof(auth, signature_verifies, w),
+        }
+    }
+}
+
+impl SetOrKeepInterface for SnarkSetOrKeep {
+    type Bool = SnarkBool;
+
+    fn is_keep<T: Clone>(set_or_keep: &SetOrKeep<T>) -> Self::Bool {
+        match set_or_keep {
+            SetOrKeep::Set(_) => CircuitVar::Var(Boolean::False),
+            SetOrKeep::Keep => CircuitVar::Var(Boolean::True),
+        }
+    }
+}
+
+impl GlobalSlotSpanInterface for SnarkGlobalSlotSpan {
+    type W = Witness<Fp>;
+    type Bool = SnarkBool;
+    type SlotSpan = SlotSpan;
+
+    fn zero() -> Self {
+        todo!()
+    }
+
+    fn greater_than(this: &Self::SlotSpan, other: &Self::SlotSpan, w: &mut Self::W) -> Self::Bool {
+        let this = this.to_checked::<Fp>();
+        let other = other.to_checked::<Fp>();
+
+        this.const_greater_than(&other, w).var()
     }
 }

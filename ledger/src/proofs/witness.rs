@@ -1113,8 +1113,16 @@ impl<F: FieldWitness> ToFieldElements<F> for crate::Timing {
 impl<F: FieldWitness> ToFieldElements<F> for crate::Permissions<crate::AuthRequired> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         self.iter_as_bits(|bit| {
-            fields.push(F::from(bit));
+            bit.to_field_elements(fields);
         });
+    }
+}
+
+impl<F: FieldWitness> ToFieldElements<F> for crate::AuthRequired {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        for bit in self.encode().to_bits() {
+            bit.to_field_elements(fields);
+        }
     }
 }
 

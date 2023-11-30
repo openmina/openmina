@@ -37,8 +37,30 @@ impl<F: FieldWitness> WitnessGenerator<F> for () {
     }
 }
 
-impl SignedAmountInterface for Signed<Amount> {
+impl AmountInterface for Amount {
+    type W = ();
     type Bool = Boolean;
+    fn zero() -> Self {
+        todo!()
+    }
+    fn equal(&self, other: &Self) -> Self::Bool {
+        todo!()
+    }
+    fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool) {
+        todo!()
+    }
+    fn add_signed_flagged(&self, signed: &impl SignedAmountInterface) -> (Self, Self::Bool) {
+        todo!()
+    }
+    fn of_constant_fee(fee: crate::scan_state::currency::Fee) -> Self {
+        todo!()
+    }
+}
+
+impl SignedAmountInterface for Signed<Amount> {
+    type W = ();
+    type Bool = Boolean;
+    type Amount = Amount;
 
     fn zero() -> Self {
         todo!()
@@ -46,7 +68,7 @@ impl SignedAmountInterface for Signed<Amount> {
     fn is_neg(&self) -> Self::Bool {
         todo!()
     }
-    fn equal(&self, other: &Self) -> Self::Bool {
+    fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool {
         todo!()
     }
     fn is_non_neg(&self) -> Self::Bool {
@@ -55,10 +77,13 @@ impl SignedAmountInterface for Signed<Amount> {
     fn negate(&self) -> Self {
         todo!()
     }
-    fn add_flagged(&self, other: &Self) -> (Self, Self::Bool) {
+    fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool) {
         todo!()
     }
-    fn of_unsigned(fee: impl AmountInterface) -> Self {
+    fn of_unsigned(unsigned: Self::Amount) -> Self {
+        todo!()
+    }
+    fn value(&self) -> Fp {
         todo!()
     }
 }
@@ -172,6 +197,7 @@ impl AccountUpdateInterface for AccountUpdate {
     type SingleData = ();
     type CallForest = CallForest<AccountUpdate>;
     type Bool = Boolean;
+    type SignedAmount = Signed<Amount>;
 
     fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body {
         let Self {
@@ -203,6 +229,18 @@ impl AccountUpdateInterface for AccountUpdate {
         todo!()
     }
     fn increment_nonce(&self) -> Self::Bool {
+        todo!()
+    }
+    fn use_full_commitment(&self) -> Self::Bool {
+        todo!()
+    }
+    fn account_precondition_nonce_is_constant(&self, w: &mut Self::W) -> Self::Bool {
+        todo!()
+    }
+    fn implicit_account_creation_fee(&self) -> Self::Bool {
+        todo!()
+    }
+    fn balance_change(&self) -> Self::SignedAmount {
         todo!()
     }
 }

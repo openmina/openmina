@@ -91,6 +91,10 @@ pub trait CheckedNat<F: FieldWitness, const NBITS: usize>:
         other.less_than(self, w)
     }
 
+    fn const_greater_than(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
+        other.const_less_than(self, w)
+    }
+
     fn equal(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
         field::equal(self.to_field(), other.to_field(), w)
     }

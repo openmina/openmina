@@ -4,7 +4,9 @@ use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
 use crate::{
+    proofs::{numbers::nat::CheckedNat, witness::transaction_snark::CONSTRAINT_CONSTANTS},
     scan_state::{
+        currency::{Amount, Magnitude, SlotSpan},
         scan_state::ConstraintConstants,
         transaction_logic::{
             protocol_state::GlobalStateSkeleton, zkapp_command::CheckAuthorizationResult,
@@ -12,12 +14,12 @@ use crate::{
         },
     },
     zkapps::intefaces::*,
-    MyCow, TokenId,
+    AuthRequired, AuthRequiredEncoded, MyCow, TokenId,
 };
 
 use super::{
     witness::{Boolean, ToBoolean},
-    zkapp::{Eff, StartDataSkeleton},
+    zkapp::{Eff, StartDataSkeleton, ZkappSingleData},
 };
 
 pub enum IsStart<T> {
@@ -85,6 +87,23 @@ fn pop_call_stack<Z: ZkappApplication>(
     .on_if(w);
 
     (left, right)
+}
+
+// We don't use `AuthRequired::to_field_elements`, because in OCaml `Controller.if_`
+// push values in reverse order (because of OCaml evaluation order)
+// https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/mina_base/permissions.ml#L174
+fn controller_exists<Z: ZkappApplication>(
+    auth: AuthRequired,
+    w: &mut Z::WitnessGenerator,
+) -> AuthRequired {
+    let AuthRequiredEncoded {
+        constant,
+        signature_necessary,
+        signature_sufficient,
+    } = auth.encode();
+
+    w.exists_no_check([signature_sufficient, signature_necessary, constant]);
+    auth
 }
 
 fn get_next_account_update<Z: ZkappApplication>(
@@ -488,6 +507,204 @@ where
         Z::Bool::or(signature_verifies, is_start2.neg(), w),
         w,
     );
+
+    let _local_state = {
+        let precondition_has_constant_nonce =
+            account_update.account_precondition_nonce_is_constant(w);
+        let increments_nonce_and_constrains_its_old_value = Z::Bool::and(
+            account_update.increment_nonce(),
+            precondition_has_constant_nonce,
+            w,
+        );
+        let depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer =
+            Z::Bool::and(account_update.use_full_commitment(), is_start2.neg(), w);
+        let does_not_use_a_signature = signature_verifies.neg();
+        let first = Z::Bool::or(
+            increments_nonce_and_constrains_its_old_value,
+            depends_on_the_fee_payers_nonce_and_isnt_the_fee_payer,
+            w,
+        );
+        let second = Z::Bool::or(first, does_not_use_a_signature, w);
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::ZkappCommandReplayCheckFailed,
+            second,
+            w,
+        );
+    };
+
+    a.set_token_id(account_update.body().token_id.clone());
+
+    let account_update_token = &account_update.body().token_id;
+    let account_update_token_is_default =
+        Z::TokenId::equal(&TokenId::default(), account_update_token, w);
+    let account_is_untimed = a.is_timed().neg();
+
+    // Set account timing.
+    let (_a, _local_state) = {
+        let timing = &account_update.body().update.timing;
+        let has_permission = {
+            let set_timing = &a.get().permissions.set_timing;
+            Z::Controller::check(proof_verifies, signature_verifies, set_timing, &data, w)
+        };
+        let is_keep = Z::SetOrKeep::is_keep(timing);
+        let v_and = Z::Bool::and(account_is_untimed, has_permission, w);
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::UpdateNotPermittedTiming,
+            Z::Bool::or(is_keep, v_and, w),
+            w,
+        );
+        let timing = w.exists_no_check({
+            use crate::scan_state::transaction_logic::zkapp_command::SetOrKeep;
+            match timing {
+                SetOrKeep::Set(timing) => timing.clone().to_account_timing(),
+                SetOrKeep::Keep => a.get().timing.clone(),
+            }
+        });
+        assert_::<Z>(Z::GlobalSlotSpan::greater_than(
+            &timing.to_record().vesting_period,
+            &SlotSpan::zero(),
+            w,
+        ));
+        a.get_mut().timing = timing;
+        ((), ())
+    };
+    let account_creation_fee =
+        Z::Amount::of_constant_fee(CONSTRAINT_CONSTANTS.account_creation_fee);
+    let implicit_account_creation_fee = account_update.implicit_account_creation_fee();
+    Z::LocalState::add_check(
+        &mut local_state,
+        TransactionFailure::CannotPayCreationFeeInToken,
+        Z::Bool::or(
+            implicit_account_creation_fee.neg(),
+            account_update_token_is_default,
+            w,
+        ),
+        w,
+    );
+
+    // Compute the change to the account balance.
+    let (_local_state, actual_balance_change) = {
+        let balance_change = account_update.balance_change();
+        let neg_creation_fee = { Z::SignedAmount::of_unsigned(account_creation_fee).negate() };
+        // This `exists_no_check` exists because of this, we don't do it in `add_flagged`
+        // because it can be executed or not, depending on the caller:
+        // https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/currency/currency.ml#L591
+        w.exists_no_check(balance_change.value());
+        let (balance_change_for_creation, creation_overflow) =
+            Z::SignedAmount::add_flagged(&balance_change, &neg_creation_fee, w);
+        let pay_creation_fee = Z::Bool::and(account_is_new, implicit_account_creation_fee, w);
+        let creation_overflow = Z::Bool::and(pay_creation_fee, creation_overflow, w);
+        let balance_change = w.exists_no_check(match pay_creation_fee.as_boolean() {
+            Boolean::True => balance_change_for_creation,
+            Boolean::False => balance_change,
+        });
+        // This 2nd `exists_no_check` is because of this:
+        // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
+        w.exists_no_check(balance_change.value());
+        let first = Z::Bool::or(
+            creation_overflow,
+            Z::SignedAmount::is_neg(&balance_change),
+            w,
+        );
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::AmountInsufficientToCreateAccount,
+            Z::Bool::and(pay_creation_fee, first, w).neg(),
+            w,
+        );
+        ((), balance_change)
+    };
+
+    // Apply balance change.
+    let (_a, _local_state) = {
+        let pay_creation_fee_from_excess =
+            Z::Bool::and(account_is_new, implicit_account_creation_fee.neg(), w);
+        let (balance, failed1) =
+            Z::Balance::add_signed_amount_flagged(&a.balance(), actual_balance_change.clone(), w);
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::Overflow,
+            failed1.neg(),
+            w,
+        );
+        let account_creation_fee =
+            Z::Amount::of_constant_fee(CONSTRAINT_CONSTANTS.account_creation_fee);
+        let _local_state = {
+            // This `exists_no_check` exists because of this, we don't do it in `add_flagged`
+            // because it can be executed or not, depending on the caller:
+            // https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/currency/currency.ml#L591
+            w.exists_no_check(local_state.excess.value());
+            let (excess_minus_creation_fee, excess_update_failed) = Z::SignedAmount::add_flagged(
+                &local_state.excess,
+                &Z::SignedAmount::of_unsigned(account_creation_fee.clone()).negate(),
+                w,
+            );
+            Z::LocalState::add_check(
+                &mut local_state,
+                TransactionFailure::LocalExcessOverflow,
+                Z::Bool::and(pay_creation_fee_from_excess, excess_update_failed, w).neg(),
+                w,
+            );
+            local_state.excess =
+                w.exists_no_check(match pay_creation_fee_from_excess.as_boolean() {
+                    Boolean::True => excess_minus_creation_fee,
+                    Boolean::False => local_state.excess,
+                });
+            // This 2nd `exists_no_check` is because of this:
+            // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
+            w.exists_no_check(local_state.excess.value());
+        };
+
+        let _local_state = {
+            // This `exists_no_check` exists because of this, we don't do it in `add_flagged`
+            // because it can be executed or not, depending on the caller:
+            // https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/currency/currency.ml#L591
+            w.exists_no_check(local_state.supply_increase.value());
+            let (supply_increase_minus_creation_fee, supply_increase_update_failed) =
+                Z::SignedAmount::add_flagged(
+                    &local_state.supply_increase,
+                    &Z::SignedAmount::of_unsigned(account_creation_fee).negate(),
+                    w,
+                );
+            Z::LocalState::add_check(
+                &mut local_state,
+                TransactionFailure::LocalSupplyIncreaseOverflow,
+                Z::Bool::and(account_is_new, supply_increase_update_failed, w).neg(),
+                w,
+            );
+            local_state.supply_increase = w.exists_no_check(match account_is_new.as_boolean() {
+                Boolean::True => supply_increase_minus_creation_fee,
+                Boolean::False => local_state.supply_increase,
+            });
+            // This 2nd `exists_no_check` is because of this:
+            // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
+            w.exists_no_check(local_state.supply_increase.value());
+        };
+
+        let is_receiver = actual_balance_change.is_non_neg();
+        let _local_state = {
+            let controller = controller_exists::<Z>(
+                match is_receiver.as_boolean() {
+                    Boolean::True => a.get().permissions.receive,
+                    Boolean::False => a.get().permissions.send,
+                },
+                w,
+            );
+            let has_permission =
+                Z::Controller::check(proof_verifies, signature_verifies, &controller, &data, w);
+            let first = Z::SignedAmount::equal(&Z::SignedAmount::zero(), &actual_balance_change, w);
+            Z::LocalState::add_check(
+                &mut local_state,
+                TransactionFailure::UpdateNotPermittedBalance,
+                Z::Bool::or(has_permission, first, w),
+                w,
+            );
+        };
+        Z::Account::set_balance(&mut a, balance);
+        ((), ())
+    };
 
     eprintln!("DONE");
     std::process::exit(0);

@@ -887,6 +887,7 @@ pub fn check_permission(auth: AuthRequired, tag: ControlTag) -> bool {
     }
 }
 
+// TODO: Dedup with the one in `snark.rs`
 pub fn eval_no_proof<F: FieldWitness>(
     auth: AuthRequired,
     signature_verifies: Boolean,

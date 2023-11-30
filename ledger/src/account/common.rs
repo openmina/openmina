@@ -98,6 +98,13 @@ pub enum Timing {
 }
 
 impl Timing {
+    pub fn is_timed(&self) -> bool {
+        match self {
+            Timing::Untimed => false,
+            Timing::Timed { .. } => true,
+        }
+    }
+
     pub fn to_record(&self) -> TimingAsRecord {
         match self.clone() {
             Timing::Untimed => TimingAsRecord {
@@ -211,14 +218,14 @@ impl From<ControlTag> for AuthRequired {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct AuthRequiredEncoded {
-    pub constant: bool,
-    pub signature_necessary: bool,
-    pub signature_sufficient: bool,
+pub struct AuthRequiredEncoded<Bool> {
+    pub constant: Bool,
+    pub signature_necessary: Bool,
+    pub signature_sufficient: Bool,
 }
 
 impl AuthRequired {
-    pub fn encode(self) -> AuthRequiredEncoded {
+    pub fn encode(self) -> AuthRequiredEncoded<bool> {
         let (constant, signature_necessary, signature_sufficient) = match self {
             AuthRequired::None => (true, false, true),
             AuthRequired::Either => (false, false, true),
@@ -267,7 +274,7 @@ impl AuthRequired {
     }
 }
 
-impl AuthRequiredEncoded {
+impl AuthRequiredEncoded<bool> {
     pub fn decode(self) -> AuthRequired {
         match (
             self.constant,

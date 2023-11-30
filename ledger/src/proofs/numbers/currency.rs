@@ -95,6 +95,20 @@ where
         }
     }
 
+    pub fn is_neg(&self) -> Boolean {
+        match self.sgn {
+            Sgn::Pos => Boolean::False,
+            Sgn::Neg => Boolean::True,
+        }
+    }
+
+    pub fn is_pos(&self) -> Boolean {
+        match self.sgn {
+            Sgn::Pos => Boolean::True,
+            Sgn::Neg => Boolean::False,
+        }
+    }
+
     pub fn value(&self) -> F {
         let sgn: F = self.sgn.to_field();
         let magnitude: F = self.magnitude.to_field();
@@ -172,6 +186,12 @@ where
         // We decompose this way because of OCaml evaluation order
         let t2 = w.exists(other.value());
         let t1 = w.exists(self.value());
+        field::equal(t1, t2, w)
+    }
+
+    pub fn const_equal(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
+        let t2 = other.value();
+        let t1 = self.value();
         field::equal(t1, t2, w)
     }
 }
@@ -373,6 +393,15 @@ impl<F: FieldWitness> CheckedBalance<F> {
     pub fn sub_amount_flagged(&self, y: &CheckedAmount<F>, w: &mut Witness<F>) -> (Self, Boolean) {
         let y = Self(y.0);
         self.sub_flagged(&y, w)
+    }
+
+    pub fn add_signed_amount_flagged(
+        &self,
+        amount: CheckedSigned<F, CheckedAmount<F>>,
+        w: &mut Witness<F>,
+    ) -> (Self, Boolean) {
+        let amount = CheckedSigned::<F, Self>::create(Self(amount.magnitude.0), amount.sgn);
+        self.add_signed_flagged(amount, w)
     }
 }
 
