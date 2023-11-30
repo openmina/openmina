@@ -799,6 +799,11 @@ impl Libp2pService {
                 }
                 BehaviourEvent::Identify(identify::Event::Received { peer_id, info }) => {
                     if let Some(maddr) = info.listen_addrs.first() {
+                        swarm
+                            .behaviour_mut()
+                            .kademlia
+                            .add_address(&peer_id, maddr.clone());
+
                         let mut maddr = maddr.clone();
                         maddr.push(libp2p::multiaddr::Protocol::P2p(peer_id.into()));
                         let _ = swarm

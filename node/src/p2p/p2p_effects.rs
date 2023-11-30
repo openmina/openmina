@@ -269,8 +269,27 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             }
             P2pDiscoveryAction::Success(_) => {}
             P2pDiscoveryAction::KademliaBootstrap(_) => {
-                let initial_peers = store.state().p2p.config.initial_peers.clone();
-                store.service().start_discovery(initial_peers);
+                // seed node doesn't have initial peers
+                // it will rely on incoming peers
+                let initial_peers = if !store.state().p2p.config.initial_peers.is_empty() {
+                    store.state().p2p.config.initial_peers.clone()
+                } else if !store.state().p2p.kademlia.routes.is_empty() {
+                    store
+                        .state()
+                        .p2p
+                        .kademlia
+                        .routes
+                        .values()
+                        .flatten()
+                        .cloned()
+                        .collect()
+                } else {
+                    vec![]
+                };
+
+                if !initial_peers.is_empty() {
+                    store.service().start_discovery(initial_peers);
+                }
             }
             P2pDiscoveryAction::KademliaInit(_) => {
                 store.service().find_random_peer();

@@ -28,9 +28,9 @@ pub struct MultiNodeBasicConnectivityInitialJoining;
 
 impl MultiNodeBasicConnectivityInitialJoining {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        const TOTAL_PEERS: usize = 10;
+        const TOTAL_PEERS: usize = 20;
         const STEPS_PER_PEER: usize = 10;
-        const EXTRA_STEPS: usize = 1000;
+        const EXTRA_STEPS: usize = 2000;
         const MAX_PEERS_PER_NODE: usize = 12;
         const STEP_DELAY: Duration = Duration::from_millis(200);
 
