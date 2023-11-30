@@ -39,15 +39,14 @@ macro_rules! scenario_test {
                     if let Some((file, line)) = panic_info.location().map(|l| (l.file(), l.line()))
                     {
                         if let Some(message) = panic_info.payload().downcast_ref::<&str>() {
-                            println!("::error file={file},line={line}::{message}");
+                            eprintln!("\n::error file={file},line={line}::{message}");
                         } else {
-                            println!("::error file={file},line={line}::panic without a message");
+                            eprintln!("\n::error file={file},line={line}::panic without a message");
                         }
                     }
                 }));
             }
 
-            openmina_node_testing::setup_without_rt();
             let config = ClusterConfig::default();
             let mut cluster = Cluster::new(config);
             let runner = ClusterRunner::new(&mut cluster, |_| {});

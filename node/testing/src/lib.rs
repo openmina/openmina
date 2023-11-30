@@ -28,10 +28,15 @@ pub fn setup() -> tokio::runtime::Runtime {
 }
 
 pub fn setup_without_rt() {
-    openmina_node_native::tracing::initialize(openmina_node_native::tracing::Level::WARN);
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(num_cpus::get().max(2) - 1)
-        .thread_name(|i| format!("openmina_rayon_{i}"))
-        .build_global()
-        .unwrap();
+    lazy_static::lazy_static! {
+        static ref INIT: () = {
+            openmina_node_native::tracing::initialize(openmina_node_native::tracing::Level::WARN);
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(num_cpus::get().max(2) - 1)
+                .thread_name(|i| format!("openmina_rayon_{i}"))
+                .build_global()
+                .unwrap();
+        };
+    };
+    *INIT;
 }
