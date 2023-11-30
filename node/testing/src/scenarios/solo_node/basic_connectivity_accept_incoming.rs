@@ -24,7 +24,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         const MAX_PEERS_PER_NODE: usize = 100;
         const KNOWN_PEERS: usize = 7; // current berkeley network
-        const STEPS: usize = 1_000;
+        const STEPS: usize = 4_000;
         const STEP_DELAY: Duration = Duration::from_millis(400);
 
         let seeds = [
