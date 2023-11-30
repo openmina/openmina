@@ -5,7 +5,7 @@ macro_rules! scenario_doc {
             println!("{}", $doc);
             return;
         }
-    }
+    };
 }
 
 #[macro_export]
@@ -17,11 +17,33 @@ macro_rules! scenario_test {
                 cluster::{Cluster, ClusterConfig},
                 scenarios::ClusterRunner,
             };
+            use std::io::Write;
 
             if let Some(summary) = std::env::var_os("GITHUB_STEP_SUMMARY") {
-                let _ = std::fs::write(&summary, format!("### `{}`\n\n{}\n\n", stringify!($name), <$scenario as documented::Documented>::DOCS));
-                std::panic::set_hook(Box::new(move |_panic_info| {
-                    let _ = std::fs::write(&summary, "**FAILED** :red_circle:");
+                let _ = std::fs::File::options()
+                    .append(true)
+                    .open(&summary)
+                    .and_then(|mut f| {
+                        writeln!(
+                            f,
+                            "### `{}`\n\n{}\n",
+                            stringify!($name),
+                            <$scenario as documented::Documented>::DOCS
+                        )
+                    });
+                std::panic::set_hook(Box::new(move |panic_info| {
+                    let _ = std::fs::File::options()
+                        .append(true)
+                        .open(&summary)
+                        .and_then(|mut f| writeln!(f, "**FAILED** :red_circle:"));
+                    if let Some((file, line)) = panic_info.location().map(|l| (l.file(), l.line()))
+                    {
+                        if let Some(message) = panic_info.payload().downcast_ref::<&str>() {
+                            println!("::error file={file},line={line}::{message}");
+                        } else {
+                            println!("::error file={file},line={line}::panic without a message");
+                        }
+                    }
                 }));
             }
 
@@ -33,7 +55,10 @@ macro_rules! scenario_test {
             scenario.run(runner).await;
 
             if let Some(summary) = std::env::var_os("GITHUB_STEP_SUMMARY") {
-                let _ = std::fs::write(summary, "**PASSED** :white_check_mark:");
+                let _ = std::fs::File::options()
+                    .append(true)
+                    .open(&summary)
+                    .and_then(|mut f| writeln!(f, "**PASSED** :white_check_mark:"));
             }
         }
     };
