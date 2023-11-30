@@ -178,6 +178,25 @@ impl Node {
     }
 }
 
+pub async fn wait_for_port_ready(port: u16, duration: Duration) -> anyhow::Result<bool> {
+    let timeout = tokio::time::sleep(duration);
+    let mut interval = tokio::time::interval(Duration::from_secs(10));
+    let probe = tokio::task::spawn(async move {
+        loop {
+            interval.tick().await;
+            match tokio::net::TcpStream::connect(("127.0.0.1", port)).await {
+                Ok(_) => return,
+                Err(_) => {}
+            }
+        }
+    });
+    let res = tokio::select! {
+        _ = timeout => false,
+        _ = probe => true,
+    };
+    Ok(res)
+}
+
 impl Drop for Node {
     fn drop(&mut self) {
         match self.child.try_wait() {

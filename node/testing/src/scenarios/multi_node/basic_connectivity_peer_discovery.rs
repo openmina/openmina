@@ -3,11 +3,12 @@ use std::time::Duration;
 use node::event_source::Event;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::P2pEvent;
+use tokio::task::JoinSet;
 
 use crate::scenarios::cluster_runner::ClusterRunner;
 use crate::{node::RustNodeTestingConfig, scenario::ScenarioStep};
 
-use crate::ocaml::Node;
+use crate::ocaml::{Node, self};
 
 /// Global test with OCaml nodes.
 /// Run an OCaml node as a seed node. Run three normal OCaml nodes connecting only to the seed node.
@@ -28,16 +29,14 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
         const STEPS: usize = 4_000;
         const STEP_DELAY: Duration = Duration::from_millis(200);
         const TOTAL_OCAML_NODES: u16 = 4;
-        const PAUSE_UNTIL_OCAML_NODES_READY: Duration = Duration::from_secs(180);
+        const PAUSE_UNTIL_OCAML_NODES_READY: Duration = Duration::from_secs(30 * 60);
 
         let temp_dir = temp_dir::TempDir::new().unwrap();
 
         let mut seed_a = Node::spawn::<_, &str>(8302, 3085, 8301, &temp_dir.path().join("seed"), []).expect("seed ocaml node");
-
         eprintln!("launching OCaml seed node: {}", seed_a.local_addr());
 
         tokio::time::sleep(Duration::from_secs(60)).await;
-        eprintln!("OCaml seed node is ready");
 
         let nodes = (1..TOTAL_OCAML_NODES)
             .map(|i| {
@@ -53,7 +52,16 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
             })
             .collect::<Vec<_>>();
 
-        tokio::time::sleep(PAUSE_UNTIL_OCAML_NODES_READY).await;
+
+        // wait for ocaml nodes to be ready
+        let mut join_set = JoinSet::new();
+        for n in &nodes {
+            let w = ocaml::wait_for_port_ready(n.port, PAUSE_UNTIL_OCAML_NODES_READY);
+            join_set.spawn(w);
+        }
+        while let Some(res) = join_set.join_next().await {
+            assert!(res.unwrap().unwrap(), "OCaml node should be ready");
+        }
         eprintln!("OCaml nodes should be ready now");
 
         let config = RustNodeTestingConfig::berkeley_default()
