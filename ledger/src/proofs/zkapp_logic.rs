@@ -3,6 +3,7 @@
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
+use crate::scan_state::transaction_logic::zkapp_command::{Actions, SetOrKeep};
 use crate::{
     proofs::{numbers::nat::CheckedNat, witness::transaction_snark::CONSTRAINT_CONSTANTS},
     scan_state::{
@@ -14,8 +15,9 @@ use crate::{
         },
     },
     zkapps::intefaces::*,
-    AuthRequired, AuthRequiredEncoded, MyCow, TokenId,
+    AuthRequired, AuthRequiredEncoded, MyCow, TokenId, VerificationKey,
 };
+use ark_ff::{One, Zero};
 
 use super::{
     witness::{Boolean, ToBoolean},
@@ -208,6 +210,46 @@ fn get_next_account_update<Z: ZkappApplication>(
         new_call_stack: new_call_stack.to_owned(),
         new_frame,
     }
+}
+
+fn update_action_state<Z: ZkappApplication>(
+    action_state: &[Fp; 5],
+    actions: &Actions,
+    txn_global_slot: Z::GlobalSlotSinceGenesis,
+    last_action_slot: Z::GlobalSlotSinceGenesis,
+    w: &mut Z::WitnessGenerator,
+) -> ([Fp; 5], <Z as ZkappApplication>::GlobalSlotSinceGenesis) {
+    let [s1, s2, s3, s4, s5] = action_state.clone();
+    let is_empty = Z::Actions::is_empty(actions, w);
+    let s1_updated = Z::Actions::push_events(s1, actions, w);
+    let s1_new = w.exists_no_check(match is_empty.as_boolean() {
+        Boolean::True => s1,
+        Boolean::False => s1_updated,
+    });
+    let is_this_slot = Z::GlobalSlotSinceGenesis::equal(&txn_global_slot, &last_action_slot, w);
+    let is_empty_or_this_slot = Z::Bool::or(is_empty, is_this_slot, w);
+
+    let s5 = w.exists_no_check(match is_empty_or_this_slot.as_boolean() {
+        Boolean::True => s5,
+        Boolean::False => s4,
+    });
+    let s4 = w.exists_no_check(match is_empty_or_this_slot.as_boolean() {
+        Boolean::True => s4,
+        Boolean::False => s3,
+    });
+    let s3 = w.exists_no_check(match is_empty_or_this_slot.as_boolean() {
+        Boolean::True => s3,
+        Boolean::False => s2,
+    });
+    let s2 = w.exists_no_check(match is_empty_or_this_slot.as_boolean() {
+        Boolean::True => s2,
+        Boolean::False => s1,
+    });
+    let last_action_slot = w.exists_no_check(match is_empty.as_boolean() {
+        Boolean::True => last_action_slot,
+        Boolean::False => txn_global_slot,
+    });
+    ([s1_new, s2, s3, s4, s5], last_action_slot)
 }
 
 #[derive(Debug, Clone)]
@@ -403,7 +445,6 @@ where
                 Z::TokenId::equal(account_update_token_id, &TokenId::default(), w);
             Z::Bool::and(account_is_new, is_default_token, w)
         };
-
         a.set_delegate(
             w.exists_no_check(match self_delegate.as_boolean() {
                 Boolean::True => account_update.body().public_key.clone(),
@@ -703,6 +744,218 @@ where
             );
         };
         Z::Account::set_balance(&mut a, balance);
+        ((), ())
+    };
+
+    let txn_global_slot = global_state.block_global_slot();
+    // Check timing with current balance
+    let (_a, _local_state) = {
+        let (invalid_timing, timing) = Z::Account::check_timing(&a, &txn_global_slot, w);
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::SourceMinimumBalanceViolation,
+            invalid_timing.neg(),
+            w,
+        );
+        a.get_mut().timing = timing;
+        ((), ())
+    };
+    Z::Account::make_zkapp(&mut a);
+    // Check that the account can be accessed with the given authorization.
+    let _local_state = {
+        let has_permission = {
+            let access = &a.get().permissions.access;
+            Z::Controller::check(proof_verifies, signature_verifies, access, &data, w)
+        };
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::UpdateNotPermittedAccess,
+            has_permission,
+            w,
+        );
+    };
+
+    // Update app state.
+    let (_a, _local_state) = {
+        let app_state = &account_update.body().update.app_state;
+        let keeping_app_state = {
+            let is_all_keep: [_; 8] = std::array::from_fn(|i| Z::SetOrKeep::is_keep(&app_state[i]));
+            assert_eq!(is_all_keep.len(), app_state.len()); // TODO: Use `array::each_ref` when stable
+            Z::Bool::all(&is_all_keep, w)
+        };
+        let changing_entire_app_state = {
+            let is_all_set: [_; 8] = std::array::from_fn(|i| Z::SetOrKeep::is_set(&app_state[i]));
+            assert_eq!(is_all_set.len(), app_state.len()); // TODO: Use `array::each_ref` when stable
+            Z::Bool::all(&is_all_set, w)
+        };
+        let proved_state = {
+            let on_false = {
+                let on_true = {
+                    w.exists_no_check(match changing_entire_app_state.as_boolean() {
+                        Boolean::True => Z::Bool::true_(),
+                        Boolean::False => a.proved_state(),
+                    })
+                };
+                w.exists_no_check_on_bool(
+                    proof_verifies,
+                    match proof_verifies.as_boolean() {
+                        Boolean::True => on_true,
+                        Boolean::False => Z::Bool::false_(),
+                    },
+                )
+            };
+            w.exists_no_check(match keeping_app_state.as_boolean() {
+                Boolean::True => a.proved_state(),
+                Boolean::False => on_false,
+            })
+        };
+        a.set_proved_state(proved_state);
+        let has_permission = {
+            let edit_state = &a.get().permissions.edit_state;
+            Z::Controller::check(proof_verifies, signature_verifies, edit_state, &data, w)
+        };
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::UpdateNotPermittedAppState,
+            Z::Bool::or(keeping_app_state, has_permission, w),
+            w,
+        );
+        let app_state: [Fp; 8] = app_state
+            .iter()
+            .zip(a.app_state())
+            .map(|(set_or_keep, state)| {
+                w.exists_no_check(match set_or_keep {
+                    SetOrKeep::Set(s) => *s,
+                    SetOrKeep::Keep => state,
+                })
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap();
+        // `unwrap`: We called `make_zkapp` before
+        a.get_mut().zkapp.as_mut().unwrap().app_state = app_state;
+        ((), ())
+    };
+
+    // Set verification key.
+    let (_a, _local_state) = {
+        let verification_key = &account_update.body().update.verification_key;
+        let has_permission = {
+            let set_verification_key = &a.get().permissions.set_verification_key;
+            Z::Controller::check(
+                proof_verifies,
+                signature_verifies,
+                set_verification_key,
+                &data,
+                w,
+            )
+        };
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::UpdateNotPermittedVerificationKey,
+            Z::Bool::or(Z::SetOrKeep::is_keep(verification_key), has_permission, w),
+            w,
+        );
+        // `unwrap`: We called `make_zkapp` before
+        let zkapp = a.get().zkapp.as_ref().unwrap();
+        w.exists_no_check(match verification_key {
+            SetOrKeep::Set(key) => key.hash,
+            SetOrKeep::Keep => {
+                MyCow::borrow_or_else(&zkapp.verification_key, VerificationKey::dummy).hash()
+            }
+        });
+        // Made here https://github.com/MinaProtocol/mina/blob/5c92fbdbf083a74a8b9530d3d727cc7b03dcce8a/src/lib/mina_base/zkapp_basic.ml#L82
+        w.exists_no_check(verification_key.is_set());
+        let verification_key = match verification_key {
+            SetOrKeep::Set(vk) => Some(vk.data.clone()),
+            SetOrKeep::Keep => zkapp.verification_key.clone(),
+        };
+        // `unwrap`: We called `make_zkapp` before
+        a.get_mut().zkapp.as_mut().unwrap().verification_key = verification_key;
+        ((), ())
+    };
+
+    // Update action state.
+    let (_a, _local_state) = {
+        let actions = &account_update.body().actions;
+        let last_action_slot = a.last_action_slot();
+        let action_state = &a.get().zkapp.as_ref().unwrap().action_state;
+        let (action_state, last_action_slot) =
+            update_action_state::<Z>(action_state, actions, txn_global_slot, last_action_slot, w);
+        let is_empty = Z::Actions::is_empty(actions, w);
+        let has_permission = {
+            let edit_action_state = &a.get().permissions.edit_action_state;
+            Z::Controller::check(
+                proof_verifies,
+                signature_verifies,
+                edit_action_state,
+                &data,
+                w,
+            )
+        };
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::UpdateNotPermittedActionState,
+            Z::Bool::or(is_empty, has_permission, w),
+            w,
+        );
+        // `unwrap`: We called `make_zkapp` before
+        a.get_mut().zkapp.as_mut().unwrap().action_state = action_state;
+        Z::Account::set_last_action_slot(&mut a, last_action_slot);
+        ((), ())
+    };
+
+    // Update zkApp URI.
+    let (_a, _local_state) = {
+        let zkapp_uri = &account_update.body().update.zkapp_uri;
+        let has_permission = {
+            let set_zkapp_uri = &a.get().permissions.set_zkapp_uri;
+            Z::Controller::check(proof_verifies, signature_verifies, set_zkapp_uri, &data, w)
+        };
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::UpdateNotPermittedZkappUri,
+            Z::Bool::or(Z::SetOrKeep::is_keep(zkapp_uri), has_permission, w),
+            w,
+        );
+        let zkapp = a.zkapp();
+        let zkapp_uri = w.exists_no_check(match zkapp_uri {
+            SetOrKeep::Set(zkapp_uri) => Some(zkapp_uri),
+            SetOrKeep::Keep => Some(&zkapp.zkapp_uri),
+        });
+        // `unwrap`: We called `make_zkapp` before
+        a.get_mut().zkapp.as_mut().unwrap().zkapp_uri = zkapp_uri.cloned().unwrap();
+        ((), ())
+    };
+
+    Z::Account::unmake_zkapp(&mut a);
+
+    // Update token symbol.
+    let (_a, _local_state) = {
+        let token_symbol = &account_update.body().update.token_symbol;
+        let has_permission = {
+            let set_token_symbol = &a.get().permissions.set_token_symbol;
+            Z::Controller::check(
+                proof_verifies,
+                signature_verifies,
+                set_token_symbol,
+                &data,
+                w,
+            )
+        };
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::UpdateNotPermittedTokenSymbol,
+            Z::Bool::or(Z::SetOrKeep::is_keep(token_symbol), has_permission, w),
+            w,
+        );
+        let token_symbol = w.exists_no_check({
+            match token_symbol {
+                SetOrKeep::Set(token_symbol) => token_symbol.clone(),
+                SetOrKeep::Keep => a.get().token_symbol.clone(),
+            }
+        });
+        a.get_mut().token_symbol = token_symbol;
         ((), ())
     };
 

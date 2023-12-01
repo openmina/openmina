@@ -11,13 +11,16 @@ use crate::proofs::zkapp_logic;
 use crate::scan_state::currency::{self, SlotSpan};
 use crate::scan_state::transaction_logic::local_state::{StackFrame, StackFrameChecked};
 use crate::scan_state::transaction_logic::zkapp_command::{
-    AccountUpdate, AccountUpdateSkeleton, CallForest, CheckAuthorizationResult, SetOrKeep, WithHash,
+    self, AccountUpdate, AccountUpdateSkeleton, CallForest, CheckAuthorizationResult, SetOrKeep,
+    WithHash,
 };
 use crate::scan_state::transaction_logic::TransactionFailure;
 use crate::sparse_ledger::LedgerIntf;
 use crate::{Account, AccountId, AuthRequired, MyCow, TokenId, ZkAppAccount};
 
 pub trait WitnessGenerator<F: FieldWitness> {
+    type Bool: BoolInterface;
+
     fn exists<T>(&mut self, data: T) -> T
     where
         T: ToFieldElements<F> + Check<F>;
@@ -25,13 +28,23 @@ pub trait WitnessGenerator<F: FieldWitness> {
     fn exists_no_check<T>(&mut self, data: T) -> T
     where
         T: ToFieldElements<F>;
+
+    /// Here `b` might be a `CircuitVar::Constant`, in that case we don't call
+    /// `Witness::exists_no_check` for the value.
+    /// https://github.com/openmina/snarky/blob/ff2631f47bb644f7a31fd30be16ee0e5ff5279fa/src/base/utils.ml#L155
+    ///
+    /// TODO: Ideally we should replace `exists_no_check` above with this `exists_no_check_on_bool`,
+    /// but it's more parameters to type, and most of the time `b` is not a constant
+    fn exists_no_check_on_bool<T>(&mut self, b: Self::Bool, data: T) -> T
+    where
+        T: ToFieldElements<F>;
 }
 
 use WitnessGenerator as W;
 
 use super::snark::{
-    SnarkAccount, SnarkAccountId, SnarkAmount, SnarkBalance, SnarkBool, SnarkController,
-    SnarkGlobalSlotSpan, SnarkSetOrKeep, SnarkTokenId, SnarkTransactionCommitment,
+    SnarkAccount, SnarkAccountId, SnarkActions, SnarkAmount, SnarkBalance, SnarkBool,
+    SnarkController, SnarkGlobalSlotSpan, SnarkSetOrKeep, SnarkTokenId, SnarkTransactionCommitment,
     SnarkVerificationKeyHash,
 };
 
@@ -127,11 +140,12 @@ pub trait ReceiptChainHashInterface {
 }
 
 pub trait GlobalSlotSinceGenesisInterface {
+    type W: WitnessGenerator<Fp>;
     type Bool: BoolInterface;
 
     fn zero() -> Self;
     fn greater_than(&self, other: &Self) -> Self::Bool;
-    fn equal(&self, other: &Self) -> Self::Bool;
+    fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool;
 }
 
 pub trait GlobalSlotSpanInterface {
@@ -198,6 +212,7 @@ where
 pub trait GlobalStateInterface {
     type Ledger;
     type SignedAmount: SignedAmountInterface;
+    type GlobalSlotSinceGenesis: GlobalSlotSinceGenesisInterface;
 
     fn first_pass_ledger(&self) -> Self::Ledger;
     #[must_use]
@@ -208,7 +223,12 @@ pub trait GlobalStateInterface {
     fn set_second_pass_ledger(&self) -> Self::Ledger;
 
     fn fee_excess(&self) -> Self::SignedAmount;
+    fn set_fee_excess(&mut self, fee_excess: Self::SignedAmount);
+
     fn supply_increase(&self) -> Self::SignedAmount;
+    fn set_supply_increase(&mut self, supply_increase: Self::SignedAmount);
+
+    fn block_global_slot(&self) -> Self::GlobalSlotSinceGenesis;
 }
 
 pub trait LocalStateInterface {
@@ -289,7 +309,10 @@ pub trait ControllerInterface {
     ) -> Self::Bool;
 }
 
-pub trait BoolInterface {
+pub trait BoolInterface
+where
+    Self: Sized,
+{
     type W: WitnessGenerator<Fp>;
 
     fn as_boolean(&self) -> Boolean;
@@ -299,6 +322,7 @@ pub trait BoolInterface {
     fn or(a: Self, b: Self, w: &mut Self::W) -> Self;
     fn and(a: Self, b: Self, w: &mut Self::W) -> Self;
     fn equal(a: Self, b: Self, w: &mut Self::W) -> Self;
+    fn all(bs: &[Self], w: &mut Self::W) -> Self;
 }
 
 pub trait TransactionCommitmentInterface {
@@ -322,6 +346,7 @@ where
     type W: WitnessGenerator<Fp>;
     type Bool: BoolInterface;
     type Balance: BalanceInterface;
+    type GlobalSlot: GlobalSlotSinceGenesisInterface;
     type D;
 
     fn register_verification_key(&self, data: &Self::D, w: &mut Self::W);
@@ -334,6 +359,18 @@ where
     fn is_timed(&self) -> Self::Bool;
     fn balance(&self) -> Self::Balance;
     fn set_balance(&mut self, balance: Self::Balance);
+    fn check_timing(
+        &self,
+        txn_global_slot: &Self::GlobalSlot,
+        w: &mut Self::W,
+    ) -> (Self::Bool, crate::Timing);
+    fn make_zkapp(&mut self);
+    fn unmake_zkapp(&mut self);
+    fn proved_state(&self) -> Self::Bool;
+    fn set_proved_state(&mut self, proved_state: Self::Bool);
+    fn app_state(&self) -> [Fp; 8];
+    fn last_action_slot(&self) -> Self::GlobalSlot;
+    fn set_last_action_slot(&mut self, slot: Self::GlobalSlot);
 }
 
 pub trait LedgerInterface {
@@ -369,6 +406,15 @@ pub trait VerificationKeyHashInterface {
 pub trait SetOrKeepInterface {
     type Bool: BoolInterface;
     fn is_keep<T: Clone>(set_or_keep: &SetOrKeep<T>) -> Self::Bool;
+    fn is_set<T: Clone>(set_or_keep: &SetOrKeep<T>) -> Self::Bool;
+}
+
+pub trait ActionsInterface {
+    type W: WitnessGenerator<Fp>;
+    type Bool: BoolInterface;
+
+    fn is_empty(actions: &zkapp_command::Actions, w: &mut Self::W) -> Self::Bool;
+    fn push_events(event: Fp, actions: &zkapp_command::Actions, w: &mut Self::W) -> Fp;
 }
 
 pub trait ZkappApplication {
@@ -393,7 +439,8 @@ pub trait ZkappApplication {
         SignedAmount = Self::SignedAmount,
     >;
     type Index: IndexInterface;
-    type GlobalSlotSinceGenesis: GlobalSlotSinceGenesisInterface<Bool = Self::Bool>;
+    type GlobalSlotSinceGenesis: GlobalSlotSinceGenesisInterface<W = Self::WitnessGenerator, Bool = Self::Bool>
+        + ToFieldElements<Fp>;
     type StackFrame: StackFrameInterface<W = Self::WitnessGenerator, Calls = Self::CallForest>
         + ToFieldElements<Fp>
         + Clone;
@@ -405,7 +452,11 @@ pub trait ZkappApplication {
     type CallStack: CallStackInterface<W = Self::WitnessGenerator, Elt = Self::StackFrame, Bool = Self::Bool>
         + ToFieldElements<Fp>
         + Clone;
-    type GlobalState: GlobalStateInterface<Ledger = Self::Ledger, SignedAmount = Self::SignedAmount>;
+    type GlobalState: GlobalStateInterface<
+        Ledger = Self::Ledger,
+        SignedAmount = Self::SignedAmount,
+        GlobalSlotSinceGenesis = Self::GlobalSlotSinceGenesis,
+    >;
     type AccountUpdate: AccountUpdateInterface<
         W = Self::WitnessGenerator,
         CallForest = Self::CallForest,
@@ -432,6 +483,7 @@ pub trait ZkappApplication {
         D = Self::SingleData,
         Bool = Self::Bool,
         Balance = Self::Balance,
+        GlobalSlot = Self::GlobalSlotSinceGenesis,
     >;
     type VerificationKeyHash: VerificationKeyHashInterface<
         W = Self::WitnessGenerator,
@@ -448,8 +500,9 @@ pub trait ZkappApplication {
         Bool = Self::Bool,
         SlotSpan = SlotSpan,
     >;
+    type Actions: ActionsInterface<W = Self::WitnessGenerator, Bool = Self::Bool>;
     type SingleData;
-    type WitnessGenerator: WitnessGenerator<Fp>;
+    type WitnessGenerator: WitnessGenerator<Fp, Bool = Self::Bool>;
 }
 
 pub struct ZkappSnark;
@@ -479,5 +532,6 @@ impl ZkappApplication for ZkappSnark {
     type Controller = SnarkController;
     type SetOrKeep = SnarkSetOrKeep;
     type GlobalSlotSpan = SnarkGlobalSlotSpan;
+    type Actions = SnarkActions;
     type WitnessGenerator = Witness<Fp>;
 }

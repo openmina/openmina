@@ -2534,7 +2534,6 @@ impl CircuitVar<Boolean> {
     }
 
     pub fn all<F: FieldWitness>(x: &[Self], w: &mut Witness<F>) -> CircuitVar<Boolean> {
-        eprintln!("all={:?}", x);
         match x {
             [] => CircuitVar::Constant(Boolean::True),
             [b1] => *b1,

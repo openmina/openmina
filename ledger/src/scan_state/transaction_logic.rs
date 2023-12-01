@@ -887,12 +887,13 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L23
-    trait MakeEvents {
+    pub trait MakeEvents {
         const SALT_PHRASE: &'static str;
         const HASH_PREFIX: &'static str;
         const DERIVER_NAME: (); // Unused here for now
 
         fn events(&self) -> &[Event];
+        fn empty_hash() -> Fp;
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L100
@@ -902,6 +903,9 @@ pub mod zkapp_command {
         const DERIVER_NAME: () = ();
         fn events(&self) -> &[Event] {
             self.0.as_slice()
+        }
+        fn empty_hash() -> Fp {
+            cache_one!(Fp, events_to_field(&Events::empty()))
         }
     }
 
@@ -913,10 +917,13 @@ pub mod zkapp_command {
         fn events(&self) -> &[Event] {
             self.0.as_slice()
         }
+        fn empty_hash() -> Fp {
+            cache_one!(Fp, events_to_field(&Actions::empty()))
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L52
-    fn events_to_field<E>(e: &E) -> Fp
+    pub fn events_to_field<E>(e: &E) -> Fp
     where
         E: MakeEvents,
     {

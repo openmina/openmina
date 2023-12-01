@@ -3903,15 +3903,15 @@ pub mod transaction_snark {
         })
     }
 
-    fn check_timing<F: FieldWitness, Fun>(
+    pub fn check_timing<F: FieldWitness, Fun>(
         account: &Account,
         txn_amount: Option<&CheckedAmount<F>>,
         txn_global_slot: CheckedSlot<F>,
-        timed_balance_check: Fun,
+        mut timed_balance_check: Fun,
         w: &mut Witness<F>,
     ) -> (CheckedBalance<F>, Timing)
     where
-        Fun: Fn(Boolean, &mut Witness<F>),
+        Fun: FnMut(Boolean, &mut Witness<F>),
     {
         let TimingAsRecordChecked {
             is_timed,

@@ -22,6 +22,8 @@ use super::intefaces::{
 };
 
 impl<F: FieldWitness> WitnessGenerator<F> for () {
+    type Bool = Boolean;
+
     fn exists<T>(&mut self, data: T) -> T
     where
         T: ToFieldElements<F> + Check<F>,
@@ -30,6 +32,13 @@ impl<F: FieldWitness> WitnessGenerator<F> for () {
     }
 
     fn exists_no_check<T>(&mut self, data: T) -> T
+    where
+        T: ToFieldElements<F>,
+    {
+        data
+    }
+
+    fn exists_no_check_on_bool<T>(&mut self, _b: Self::Bool, data: T) -> T
     where
         T: ToFieldElements<F>,
     {
@@ -166,28 +175,25 @@ impl BoolInterface for Boolean {
     fn as_boolean(&self) -> Boolean {
         *self
     }
-
     fn true_() -> Self {
         Boolean::True
     }
-
     fn false_() -> Self {
         Boolean::False
     }
-
     fn neg(&self) -> Self {
         self.neg()
     }
-
     fn or(a: Self, b: Self, w: &mut Self::W) -> Self {
         todo!()
     }
-
     fn and(a: Self, b: Self, w: &mut Self::W) -> Self {
         todo!()
     }
-
     fn equal(a: Self, b: Self, w: &mut Self::W) -> Self {
+        todo!()
+    }
+    fn all(bs: &[Self], w: &mut Self::W) -> Self {
         todo!()
     }
 }

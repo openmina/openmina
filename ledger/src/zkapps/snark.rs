@@ -15,7 +15,7 @@ use crate::{
         to_field_elements::ToFieldElements,
         witness::{
             create_shifted_inner_curve, decompress_var, field,
-            transaction_snark::{checked_chunked_signature_verify, checked_hash},
+            transaction_snark::{check_timing, checked_chunked_signature_verify, checked_hash},
             Boolean, Check, FieldWitness, InnerCurve, ToBoolean, Witness,
         },
         wrap::CircuitVar,
@@ -27,7 +27,7 @@ use crate::{
         transaction_logic::{
             local_state::{StackFrame, StackFrameChecked, StackFrameCheckedFrame, WithLazyHash},
             zkapp_command::{
-                AccountUpdate, AccountUpdateSkeleton, AuthorizationKind, CallForest,
+                self, AccountUpdate, AccountUpdateSkeleton, AuthorizationKind, CallForest,
                 CheckAuthorizationResult, ClosedInterval, OrIgnore, SetOrKeep, Tree, WithHash,
                 ACCOUNT_UPDATE_CONS_HASH_PARAM,
             },
@@ -40,12 +40,13 @@ use crate::{
 };
 
 use super::intefaces::{
-    AccountIdInterface, AccountInterface, AccountUpdateInterface, AmountInterface,
-    BalanceInterface, BoolInterface, CallForestInterface, CallStackInterface, ControllerInterface,
-    GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface, GlobalStateInterface, IndexInterface,
-    LedgerInterface, LocalStateInterface, Opt, SetOrKeepInterface, SignedAmountInterface,
-    StackFrameInterface, StackFrameMakeParams, StackInterface, TokenIdInterface,
-    TransactionCommitmentInterface, VerificationKeyHashInterface, WitnessGenerator, ZkappSnark,
+    AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
+    AmountInterface, BalanceInterface, BoolInterface, CallForestInterface, CallStackInterface,
+    ControllerInterface, GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface,
+    GlobalStateInterface, IndexInterface, LedgerInterface, LocalStateInterface, Opt,
+    SetOrKeepInterface, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
+    StackInterface, TokenIdInterface, TransactionCommitmentInterface, VerificationKeyHashInterface,
+    WitnessGenerator, ZkappSnark,
 };
 
 use super::intefaces::WitnessGenerator as W;
@@ -141,6 +142,8 @@ pub mod zkapp_check {
 }
 
 impl<F: FieldWitness> WitnessGenerator<F> for Witness<F> {
+    type Bool = SnarkBool;
+
     fn exists<T>(&mut self, data: T) -> T
     where
         T: ToFieldElements<F> + Check<F>,
@@ -153,6 +156,16 @@ impl<F: FieldWitness> WitnessGenerator<F> for Witness<F> {
         T: ToFieldElements<F>,
     {
         self.exists_no_check(data)
+    }
+
+    fn exists_no_check_on_bool<T>(&mut self, b: Self::Bool, data: T) -> T
+    where
+        T: ToFieldElements<F>,
+    {
+        match b {
+            CircuitVar::Var(_) => self.exists_no_check(data),
+            CircuitVar::Constant(_) => data,
+        }
     }
 }
 
@@ -420,8 +433,8 @@ impl CallStackInterface for WithHash<Vec<WithStackHash<WithHash<StackFrame>>>> {
 
 impl GlobalStateInterface for GlobalStateForProof {
     type Ledger = LedgerWithHash;
-
     type SignedAmount = CheckedSigned<Fp, CheckedAmount<Fp>>;
+    type GlobalSlotSinceGenesis = SnarkGlobalSlot;
 
     fn first_pass_ledger(&self) -> Self::Ledger {
         self.first_pass_ledger.clone()
@@ -441,6 +454,15 @@ impl GlobalStateInterface for GlobalStateForProof {
     fn supply_increase(&self) -> Self::SignedAmount {
         todo!()
     }
+    fn set_fee_excess(&mut self, fee_excess: Self::SignedAmount) {
+        todo!()
+    }
+    fn set_supply_increase(&mut self, supply_increase: Self::SignedAmount) {
+        todo!()
+    }
+    fn block_global_slot(&self) -> Self::GlobalSlotSinceGenesis {
+        self.block_global_slot.clone()
+    }
 }
 
 impl IndexInterface for CheckedIndex<Fp> {
@@ -452,7 +474,8 @@ impl IndexInterface for CheckedIndex<Fp> {
     }
 }
 
-impl GlobalSlotSinceGenesisInterface for CheckedSlot<Fp> {
+impl GlobalSlotSinceGenesisInterface for SnarkGlobalSlot {
+    type W = Witness<Fp>;
     type Bool = SnarkBool;
 
     fn zero() -> Self {
@@ -461,8 +484,8 @@ impl GlobalSlotSinceGenesisInterface for CheckedSlot<Fp> {
     fn greater_than(&self, other: &Self) -> Self::Bool {
         todo!()
     }
-    fn equal(&self, other: &Self) -> Self::Bool {
-        todo!()
+    fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool {
+        <Self as CheckedNat<_, 32>>::equal(&self, other, w).var()
     }
 }
 
@@ -747,6 +770,7 @@ impl AccountInterface for SnarkAccount {
     type D = ZkappSingleData;
     type Bool = SnarkBool;
     type Balance = SnarkBalance;
+    type GlobalSlot = SnarkGlobalSlot;
 
     fn register_verification_key(&self, data: &Self::D, w: &mut Self::W) {
         use crate::ControlTag::*;
@@ -808,6 +832,58 @@ impl AccountInterface for SnarkAccount {
     }
     fn set_balance(&mut self, balance: Self::Balance) {
         self.data.balance = balance.to_inner(); // TODO: Overflow ?
+    }
+    fn check_timing(
+        &self,
+        txn_global_slot: &Self::GlobalSlot,
+        w: &mut Self::W,
+    ) -> (Self::Bool, crate::Timing) {
+        let mut invalid_timing = Option::<Boolean>::None;
+        let mut timed_balance_check = |b: Boolean, w: &mut Witness<Fp>| {
+            invalid_timing = Some(b.neg());
+        };
+        let account = self.get();
+        let (_min_balance, timing) = check_timing(
+            account,
+            None,
+            txn_global_slot.clone(),
+            timed_balance_check,
+            w,
+        );
+        (invalid_timing.unwrap().var(), timing)
+    }
+    fn make_zkapp(&mut self) {
+        if self.data.zkapp.is_none() {
+            self.data.zkapp = Some(ZkAppAccount::default());
+        }
+    }
+    fn unmake_zkapp(&mut self) {
+        let Some(zkapp) = self.data.zkapp.as_mut() else {
+            panic!("invalid state"); // `unmake_zkapp` must be called after `make_zkapp`
+        };
+        if zkapp == &ZkAppAccount::default() {
+            self.data.zkapp = None;
+        }
+    }
+    fn proved_state(&self) -> Self::Bool {
+        let zkapp = self.zkapp.as_ref().unwrap(); // `make_zkapp` was already call
+        zkapp.proved_state.to_boolean().var()
+    }
+    fn set_proved_state(&mut self, proved_state: Self::Bool) {
+        let zkapp = self.data.zkapp.as_mut().unwrap(); // `make_zkapp` was already call
+        zkapp.proved_state = proved_state.as_boolean().as_bool();
+    }
+    fn app_state(&self) -> [Fp; 8] {
+        let zkapp = self.zkapp.as_ref().unwrap(); // `make_zkapp` was already call
+        zkapp.app_state
+    }
+    fn last_action_slot(&self) -> Self::GlobalSlot {
+        let zkapp = self.zkapp.as_ref().unwrap(); // `make_zkapp` was already call
+        zkapp.last_action_slot.to_checked()
+    }
+    fn set_last_action_slot(&mut self, slot: Self::GlobalSlot) {
+        let zkapp = self.data.zkapp.as_mut().unwrap(); // `make_zkapp` was already call
+        zkapp.last_action_slot = slot.to_inner();
     }
 }
 
@@ -915,6 +991,8 @@ pub struct SnarkVerificationKeyHash;
 pub struct SnarkController;
 pub struct SnarkSetOrKeep;
 pub struct SnarkGlobalSlotSpan;
+pub struct SnarkActions;
+pub type SnarkGlobalSlot = CheckedSlot<Fp>;
 
 impl AccountIdInterface for SnarkAccountId {
     type W = Witness<Fp>;
@@ -948,29 +1026,26 @@ impl BoolInterface for SnarkBool {
     fn as_boolean(&self) -> Boolean {
         self.as_boolean()
     }
-
     fn true_() -> Self {
         CircuitVar::Constant(Boolean::True)
     }
-
     fn false_() -> Self {
         CircuitVar::Constant(Boolean::False)
     }
-
     fn neg(&self) -> Self {
         self.neg()
     }
-
     fn or(a: Self, b: Self, w: &mut Self::W) -> Self {
         a.or(&b, w)
     }
-
     fn and(a: Self, b: Self, w: &mut Self::W) -> Self {
         a.and(&b, w)
     }
-
     fn equal(a: Self, b: Self, w: &mut Self::W) -> Self {
         a.equal_bool(&b, w)
+    }
+    fn all(bs: &[Self], w: &mut Self::W) -> Self {
+        SnarkBool::all(bs, w)
     }
 }
 
@@ -1091,6 +1166,12 @@ impl SetOrKeepInterface for SnarkSetOrKeep {
             SetOrKeep::Keep => CircuitVar::Var(Boolean::True),
         }
     }
+    fn is_set<T: Clone>(set_or_keep: &SetOrKeep<T>) -> Self::Bool {
+        match set_or_keep {
+            SetOrKeep::Set(_) => CircuitVar::Var(Boolean::True),
+            SetOrKeep::Keep => CircuitVar::Var(Boolean::False),
+        }
+    }
 }
 
 impl GlobalSlotSpanInterface for SnarkGlobalSlotSpan {
@@ -1107,5 +1188,24 @@ impl GlobalSlotSpanInterface for SnarkGlobalSlotSpan {
         let other = other.to_checked::<Fp>();
 
         this.const_greater_than(&other, w).var()
+    }
+}
+
+impl ActionsInterface for SnarkActions {
+    type W = Witness<Fp>;
+    type Bool = SnarkBool;
+
+    fn is_empty(actions: &zkapp_command::Actions, w: &mut Self::W) -> Self::Bool {
+        use zkapp_command::MakeEvents;
+
+        let hash = zkapp_command::events_to_field(actions);
+        field::equal(hash, zkapp_command::Actions::empty_hash(), w).var()
+    }
+
+    fn push_events(event: Fp, actions: &zkapp_command::Actions, w: &mut Self::W) -> Fp {
+        use zkapp_command::MakeEvents;
+
+        let hash = zkapp_command::events_to_field(actions);
+        checked_hash(zkapp_command::Actions::HASH_PREFIX, &[event, hash], w)
     }
 }
