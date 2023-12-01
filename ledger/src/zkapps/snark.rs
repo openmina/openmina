@@ -35,8 +35,9 @@ use crate::{
             TransactionFailure,
         },
     },
-    Account, AccountId, AuthRequired, AuthRequiredEncoded, Inputs, MyCow, ToInputs, TokenId,
-    VerificationKey, ZkAppAccount,
+    sparse_ledger::SparseLedger,
+    Account, AccountId, AuthRequired, AuthRequiredEncoded, Inputs, MyCow, ReceiptChainHash,
+    ToInputs, TokenId, VerificationKey, ZkAppAccount,
 };
 
 use super::intefaces::{
@@ -44,9 +45,9 @@ use super::intefaces::{
     AmountInterface, BalanceInterface, BoolInterface, CallForestInterface, CallStackInterface,
     ControllerInterface, GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface,
     GlobalStateInterface, IndexInterface, LedgerInterface, LocalStateInterface, Opt,
-    SetOrKeepInterface, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
-    StackInterface, TokenIdInterface, TransactionCommitmentInterface, VerificationKeyHashInterface,
-    WitnessGenerator, ZkappSnark,
+    ReceiptChainHashInterface, SetOrKeepInterface, SignedAmountInterface, StackFrameInterface,
+    StackFrameMakeParams, StackInterface, TokenIdInterface, TransactionCommitmentInterface,
+    VerificationKeyHashInterface, WitnessGenerator, ZkappSnark,
 };
 
 use super::intefaces::WitnessGenerator as W;
@@ -206,7 +207,7 @@ impl AmountInterface for SnarkAmount {
     type Bool = SnarkBool;
 
     fn zero() -> Self {
-        todo!()
+        <CheckedAmount<_> as CheckedCurrency<Fp>>::zero()
     }
     fn equal(&self, other: &Self) -> Self::Bool {
         todo!()
@@ -433,44 +434,68 @@ impl CallStackInterface for WithHash<Vec<WithStackHash<WithHash<StackFrame>>>> {
 
 impl GlobalStateInterface for GlobalStateForProof {
     type Ledger = LedgerWithHash;
+    type W = Witness<Fp>;
+    type Bool = SnarkBool;
     type SignedAmount = CheckedSigned<Fp, CheckedAmount<Fp>>;
     type GlobalSlotSinceGenesis = SnarkGlobalSlot;
 
     fn first_pass_ledger(&self) -> Self::Ledger {
         self.first_pass_ledger.clone()
     }
-    fn set_first_pass_ledger(&self) -> Self::Ledger {
-        todo!()
+    fn set_first_pass_ledger(
+        &mut self,
+        should_update: Self::Bool,
+        ledger: &Self::Ledger,
+        w: &mut Self::W,
+    ) {
+        let ledger = match should_update.as_boolean() {
+            Boolean::True => ledger.clone(),
+            Boolean::False => self.first_pass_ledger.clone(),
+        };
+        w.exists_no_check(ledger.hash);
+        self.first_pass_ledger = ledger;
     }
     fn second_pass_ledger(&self) -> Self::Ledger {
-        todo!()
+        self.second_pass_ledger.clone()
     }
-    fn set_second_pass_ledger(&self) -> Self::Ledger {
-        todo!()
+    fn set_second_pass_ledger(
+        &mut self,
+        should_update: Self::Bool,
+        ledger: &Self::Ledger,
+        w: &mut Self::W,
+    ) {
+        let ledger = match should_update.as_boolean() {
+            Boolean::True => ledger.clone(),
+            Boolean::False => self.second_pass_ledger.clone(),
+        };
+        w.exists_no_check(ledger.hash);
+        self.second_pass_ledger = ledger;
     }
     fn fee_excess(&self) -> Self::SignedAmount {
-        todo!()
+        self.fee_excess.clone()
     }
     fn supply_increase(&self) -> Self::SignedAmount {
-        todo!()
+        self.supply_increase.clone()
     }
     fn set_fee_excess(&mut self, fee_excess: Self::SignedAmount) {
-        todo!()
+        self.fee_excess = fee_excess;
     }
     fn set_supply_increase(&mut self, supply_increase: Self::SignedAmount) {
-        todo!()
+        self.supply_increase = supply_increase;
     }
     fn block_global_slot(&self) -> Self::GlobalSlotSinceGenesis {
         self.block_global_slot.clone()
     }
 }
 
-impl IndexInterface for CheckedIndex<Fp> {
+pub type SnarkIndex = CheckedIndex<Fp>;
+
+impl IndexInterface for SnarkIndex {
     fn zero() -> Self {
-        todo!()
+        <CheckedIndex<Fp> as crate::proofs::numbers::nat::CheckedNat<_, 32>>::zero()
     }
     fn succ(&self) -> Self {
-        todo!()
+        <CheckedIndex<Fp> as crate::proofs::numbers::nat::CheckedNat<_, 32>>::succ(self)
     }
 }
 
@@ -695,7 +720,7 @@ where
 
 // dummy_vk_hash
 
-pub struct AccountUnhashed(Box<Account>);
+pub struct AccountUnhashed(pub Box<Account>);
 
 impl ToFieldElements<Fp> for AccountUnhashed {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
@@ -911,19 +936,18 @@ impl LedgerInterface for LedgerWithHash {
     type InclusionProof = Vec<(Boolean, Fp)>;
 
     fn empty() -> Self {
-        todo!()
+        let mut ledger = <SparseLedger as crate::sparse_ledger::LedgerIntf>::empty(0);
+        let hash = ledger.merkle_root();
+        Self { ledger, hash }
     }
-
     fn get_account(
         &self,
         account_update: &Self::AccountUpdate,
         w: &mut Self::W,
     ) -> (Self::Account, Self::InclusionProof) {
         let Self { ledger, hash: root } = self;
-
         let idx = ledger.find_index_exn(account_update.body.account_id());
         let account = w.exists(AccountUnhashed(ledger.get_exn(&idx)));
-
         // TODO: Don't clone here
         let account2 = account.0.clone();
         let account = WithLazyHash::new(account.0, move |w: &mut Witness<Fp>| {
@@ -931,7 +955,6 @@ impl LedgerInterface for LedgerWithHash {
             zkapp.checked_hash_with_param(ZkAppAccount::HASH_PARAM, w);
             account2.checked_hash(w)
         });
-
         let inclusion = w.exists(
             ledger
                 .clone()
@@ -943,14 +966,15 @@ impl LedgerInterface for LedgerWithHash {
                 })
                 .collect::<Vec<_>>(),
         );
-
         (account, inclusion)
     }
-
-    fn set_account(&mut self, account: (Self::Account, Self::InclusionProof), w: &mut Self::W) {
-        todo!()
+    fn set_account(&mut self, (a, incl): (Self::Account, Self::InclusionProof), w: &mut Self::W) {
+        let Self { ledger, hash } = self;
+        let new_hash = implied_root(&a, &incl, w);
+        let idx = ledger.find_index_exn(a.id());
+        ledger.set_exn(idx, a.data);
+        *hash = new_hash;
     }
-
     fn check_inclusion(
         &self,
         (account, incl): &(Self::Account, Self::InclusionProof),
@@ -959,7 +983,6 @@ impl LedgerInterface for LedgerWithHash {
         let Self { ledger, hash: root } = self;
         implied_root(account, incl, w);
     }
-
     fn check_account(
         public_key: &mina_signer::CompressedPubKey,
         token_id: &TokenId,
@@ -978,6 +1001,10 @@ impl LedgerInterface for LedgerWithHash {
         Boolean::assert_any(&[is_new, is_same_token], w);
         is_new.var()
     }
+    fn exists_no_check(self, w: &mut Self::W) -> Self {
+        w.exists_no_check(self.hash);
+        self
+    }
 }
 
 pub struct SnarkAccountId;
@@ -993,6 +1020,7 @@ pub struct SnarkSetOrKeep;
 pub struct SnarkGlobalSlotSpan;
 pub struct SnarkActions;
 pub type SnarkGlobalSlot = CheckedSlot<Fp>;
+pub struct SnarkReceiptChainHash;
 
 impl AccountIdInterface for SnarkAccountId {
     type W = Witness<Fp>;
@@ -1022,6 +1050,7 @@ impl VerificationKeyHashInterface for SnarkVerificationKeyHash {
 
 impl BoolInterface for SnarkBool {
     type W = Witness<Fp>;
+    type FailureStatusTable = ();
 
     fn as_boolean(&self) -> Boolean {
         self.as_boolean()
@@ -1046,6 +1075,15 @@ impl BoolInterface for SnarkBool {
     }
     fn all(bs: &[Self], w: &mut Self::W) -> Self {
         SnarkBool::all(bs, w)
+    }
+    fn assert_any(bs: &[Self], w: &mut Self::W) {
+        SnarkBool::assert_any::<Fp>(bs, w);
+    }
+    fn assert_with_failure_status_tbl(
+        _b: Self,
+        _table: &Self::FailureStatusTable,
+    ) -> Result<(), String> {
+        Ok(())
     }
 }
 
@@ -1072,6 +1110,10 @@ impl TransactionCommitmentInterface for SnarkTransactionCommitment {
     type AccountUpdate = SnarkAccountUpdate;
     type CallForest = SnarkCallForest;
     type W = Witness<Fp>;
+
+    fn empty() -> Fp {
+        Fp::zero()
+    }
 
     fn commitment(account_updates: &Self::CallForest, w: &mut Self::W) -> Fp {
         let Self::CallForest {
@@ -1207,5 +1249,25 @@ impl ActionsInterface for SnarkActions {
 
         let hash = zkapp_command::events_to_field(actions);
         checked_hash(zkapp_command::Actions::HASH_PREFIX, &[event, hash], w)
+    }
+}
+
+impl ReceiptChainHashInterface for SnarkReceiptChainHash {
+    type W = Witness<Fp>;
+    type Index = SnarkIndex;
+
+    fn cons_zkapp_command_commitment(
+        index: Self::Index,
+        element: Fp,
+        other: ReceiptChainHash,
+        w: &mut Self::W,
+    ) -> ReceiptChainHash {
+        let mut inputs = Inputs::new();
+
+        inputs.append(&index);
+        inputs.append_field(element);
+        inputs.append(&other);
+
+        ReceiptChainHash(checked_hash("MinaReceiptUC", &inputs.to_fields(), w))
     }
 }

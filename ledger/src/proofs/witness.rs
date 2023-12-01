@@ -2128,12 +2128,12 @@ impl<F: FieldWitness> InnerCurve<F> {
     }
 
     fn fake_random() -> Self {
-        // static SEED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        static SEED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         // dbg!(SEED.load(std::sync::atomic::Ordering::Relaxed));
 
         let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(
-            0,
-            // SEED.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            // 0,
+            SEED.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         );
         let proj: GroupProjective<F::Parameters> = ark_ff::UniformRand::rand(&mut rng);
         let proj: F::Projective = proj.into();
@@ -3188,7 +3188,7 @@ impl Boolean {
     }
 
     // Part of utils.inv
-    fn assert_non_zero<F: FieldWitness>(v: F, w: &mut Witness<F>) {
+    pub fn assert_non_zero<F: FieldWitness>(v: F, w: &mut Witness<F>) {
         if v.is_zero() {
             w.exists(v);
         } else {

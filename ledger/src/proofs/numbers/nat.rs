@@ -169,6 +169,11 @@ pub trait CheckedNat<F: FieldWitness, const NBITS: usize>:
             Boolean::False => b.clone(),
         })
     }
+
+    fn succ(&self) -> Self {
+        let this = self.to_field();
+        Self::from_field(this + F::one())
+    }
 }
 
 impl<F: FieldWitness> CheckedSlot<F> {

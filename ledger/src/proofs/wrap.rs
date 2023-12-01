@@ -2568,6 +2568,16 @@ impl CircuitVar<Boolean> {
     pub fn equal_bool<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
         self.lxor(other, w).neg()
     }
+
+    pub fn assert_any<F: FieldWitness>(bs: &[Self], w: &mut Witness<F>) {
+        let num_true = bs.iter().fold(0u64, |acc, b| {
+            acc + match b.as_boolean() {
+                Boolean::True => 1,
+                Boolean::False => 0,
+            }
+        });
+        Boolean::assert_non_zero::<F>(F::from(num_true), w)
+    }
 }
 
 fn pack_statement(

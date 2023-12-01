@@ -4,6 +4,7 @@ use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
 use crate::scan_state::transaction_logic::zkapp_command::{Actions, SetOrKeep};
+use crate::Permissions;
 use crate::{
     proofs::{numbers::nat::CheckedNat, witness::transaction_snark::CONSTRAINT_CONSTANTS},
     scan_state::{
@@ -33,9 +34,7 @@ pub enum IsStart<T> {
 pub enum PerformResult<Z: ZkappApplication> {
     None,
     Bool(Z::Bool),
-    // Bool(bool),
-    // LocalState(LocalStateEnv<L>),
-    // Account(Box<Account>),
+    Account(Z::Account),
 }
 
 pub struct Handler<Z: ZkappApplication> {
@@ -106,6 +105,51 @@ fn controller_exists<Z: ZkappApplication>(
 
     w.exists_no_check([signature_sufficient, signature_necessary, constant]);
     auth
+}
+
+// Different order than in `Permissions::iter_as_bits`
+// Here we use `Iterator::rev()`
+fn permissions_exists<Z: ZkappApplication>(
+    perms: Permissions<AuthRequired>,
+    w: &mut Z::WitnessGenerator,
+) -> Permissions<AuthRequired> {
+    let Permissions {
+        edit_state,
+        access,
+        send,
+        receive,
+        set_delegate,
+        set_permissions,
+        set_verification_key,
+        set_zkapp_uri,
+        edit_action_state,
+        set_token_symbol,
+        increment_nonce,
+        set_voting_for,
+        set_timing,
+    } = &perms;
+
+    for auth in [
+        edit_state,
+        access,
+        send,
+        receive,
+        set_delegate,
+        set_permissions,
+        set_verification_key,
+        set_zkapp_uri,
+        edit_action_state,
+        set_token_symbol,
+        increment_nonce,
+        set_voting_for,
+        set_timing,
+    ]
+    .into_iter()
+    .rev()
+    {
+        controller_exists::<Z>(*auth, w);
+    }
+    perms
 }
 
 fn get_next_account_update<Z: ZkappApplication>(
@@ -282,7 +326,7 @@ pub fn apply<Z>(
     _constraint_constants: &ConstraintConstants,
     is_start: IsStart<StartData<Z>>,
     h: &Handler<Z>,
-    (global_state, mut local_state): (Z::GlobalState, LocalState<Z>),
+    (mut global_state, mut local_state): (Z::GlobalState, LocalState<Z>),
     data: Z::SingleData,
     w: &mut Z::WitnessGenerator,
 ) -> Result<(Z::GlobalState, LocalState<Z>), String>
@@ -425,7 +469,7 @@ where
         )
     };
 
-    local_state.stack_frame = remaining;
+    local_state.stack_frame = remaining.clone();
     local_state.call_stack = call_stack;
     Z::LocalState::add_new_failure_status_bucket(&mut local_state);
 
@@ -959,6 +1003,317 @@ where
         ((), ())
     };
 
-    eprintln!("DONE");
-    std::process::exit(0);
+    // Update delegate.
+    let (_a, _local_state) = {
+        let delegate = &account_update.body().update.delegate;
+        let has_permission = {
+            let set_delegate = &a.get().permissions.set_delegate;
+            Z::Controller::check(proof_verifies, signature_verifies, set_delegate, &data, w)
+        };
+        let first = Z::Bool::and(has_permission, account_update_token_is_default, w);
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::UpdateNotPermittedDelegate,
+            Z::Bool::or(Z::SetOrKeep::is_keep(delegate), first, w),
+            w,
+        );
+        let base_delegate = a
+            .get()
+            .delegate
+            .clone()
+            .unwrap_or_else(CompressedPubKey::empty);
+        let delegate = w.exists_no_check(match delegate {
+            SetOrKeep::Set(delegate) => delegate.clone(),
+            SetOrKeep::Keep => base_delegate,
+        });
+        a.get_mut().delegate = if delegate == CompressedPubKey::empty() {
+            None
+        } else {
+            Some(delegate)
+        };
+        ((), ())
+    };
+
+    // Update nonce.
+    let (_a, _local_state) = {
+        let nonce = a.get().nonce;
+        let increment_nonce = account_update.increment_nonce();
+        let nonce = w.exists_no_check(match increment_nonce.as_boolean() {
+            Boolean::True => nonce.succ(),
+            Boolean::False => nonce,
+        });
+        let has_permission = {
+            let increment_nonce = &a.get().permissions.increment_nonce;
+            Z::Controller::check(
+                proof_verifies,
+                signature_verifies,
+                increment_nonce,
+                &data,
+                w,
+            )
+        };
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::UpdateNotPermittedNonce,
+            Z::Bool::or(increment_nonce.neg(), has_permission, w),
+            w,
+        );
+        a.get_mut().nonce = nonce;
+        ((), ())
+    };
+
+    // Update voting-for.
+    let (_a, _local_state) = {
+        let voting_for = &account_update.body().update.voting_for;
+        let has_permission = {
+            let set_voting_for = &a.get().permissions.set_voting_for;
+            Z::Controller::check(proof_verifies, signature_verifies, set_voting_for, &data, w)
+        };
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::UpdateNotPermittedVotingFor,
+            Z::Bool::or(Z::SetOrKeep::is_keep(voting_for), has_permission, w),
+            w,
+        );
+        let voting_for = w.exists_no_check(match voting_for {
+            SetOrKeep::Set(voting_for) => voting_for.clone(),
+            SetOrKeep::Keep => a.get().voting_for.clone(),
+        });
+        a.get_mut().voting_for = voting_for;
+        ((), ())
+    };
+
+    // Update receipt chain hash
+    let _ = {
+        let new_hash = {
+            let old_hash = a.get().receipt_chain_hash.clone();
+            let cond = Z::Bool::or(signature_verifies, proof_verifies, w);
+            let on_true = {
+                let elt = local_state.full_transaction_commitment;
+                Z::ReceiptChainHash::cons_zkapp_command_commitment(
+                    local_state.account_update_index.clone(),
+                    elt,
+                    old_hash.clone(),
+                    w,
+                )
+            };
+            w.exists_no_check(match cond.as_boolean() {
+                Boolean::True => on_true,
+                Boolean::False => old_hash,
+            })
+        };
+        a.get_mut().receipt_chain_hash = new_hash;
+    };
+
+    // update permissions.
+    let (_a, _local_state) = {
+        let permissions = &account_update.body().update.permissions;
+        let has_permission = {
+            let set_permissions = &a.get().permissions.set_permissions;
+            Z::Controller::check(
+                proof_verifies,
+                signature_verifies,
+                set_permissions,
+                &data,
+                w,
+            )
+        };
+        Z::LocalState::add_check(
+            &mut local_state,
+            TransactionFailure::UpdateNotPermittedPermissions,
+            Z::Bool::or(Z::SetOrKeep::is_keep(permissions), has_permission, w),
+            w,
+        );
+        let permissions = permissions_exists::<Z>(
+            match permissions {
+                SetOrKeep::Set(permissions) => permissions.clone(),
+                SetOrKeep::Keep => a.get().permissions.clone(),
+            },
+            w,
+        );
+        a.get_mut().permissions = permissions;
+        ((), ())
+    };
+
+    let PerformResult::Account(a) = (h.perform)(Eff::InitAccount(&account_update, &a), w) else {
+        panic!("invalid state");
+    };
+
+    let local_delta = account_update.balance_change().negate();
+
+    let (new_local_fee_excess, overflowed) = {
+        let first = Z::Bool::and(
+            account_update_token_is_default,
+            Z::SignedAmount::is_non_neg(&local_delta),
+            w,
+        );
+        assert_::<Z>(Z::Bool::or(is_start2.neg(), first, w));
+        let (new_local_fee_excess, overflow) =
+            Z::SignedAmount::add_flagged(&local_state.excess, &local_delta, w);
+        // We decompose this way because of OCaml evaluation order
+        let second = Z::Bool::and(account_update_token_is_default, overflow, w);
+        let excess = w.exists_no_check(match account_update_token_is_default.as_boolean() {
+            Boolean::True => new_local_fee_excess,
+            Boolean::False => local_state.excess.clone(),
+        });
+        // This 2nd `exists_no_check` is because of this:
+        // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
+        w.exists_no_check(excess.value());
+        (excess, second)
+    };
+    local_state.excess = new_local_fee_excess;
+    Z::LocalState::add_check(
+        &mut local_state,
+        TransactionFailure::LocalExcessOverflow,
+        overflowed.neg(),
+        w,
+    );
+    local_state.ledger.set_account((a, inclusion_proof), w);
+
+    let is_last_account_update = Z::CallForest::is_empty(Z::StackFrame::calls(&remaining), w);
+    // We decompose this way because of OCaml evaluation order
+    local_state.full_transaction_commitment =
+        w.exists_no_check(match is_last_account_update.as_boolean() {
+            Boolean::True => Z::TransactionCommitment::empty(),
+            Boolean::False => local_state.full_transaction_commitment,
+        });
+    local_state.transaction_commitment =
+        w.exists_no_check(match is_last_account_update.as_boolean() {
+            Boolean::True => Z::TransactionCommitment::empty(),
+            Boolean::False => local_state.transaction_commitment,
+        });
+
+    let valid_fee_excess = {
+        let delta_settled = Z::SignedAmount::equal(
+            &local_state.excess,
+            &Z::SignedAmount::of_unsigned(Z::Amount::zero()),
+            w,
+        );
+        let first = Z::Bool::or(is_start2, is_last_account_update.neg(), w);
+        Z::Bool::or(first, delta_settled, w)
+    };
+    Z::LocalState::add_check(
+        &mut local_state,
+        TransactionFailure::InvalidFeeExcess,
+        valid_fee_excess,
+        w,
+    );
+    let is_start_or_last = Z::Bool::or(is_start2, is_last_account_update, w);
+    let update_global_state_fee_excess = Z::Bool::and(is_start_or_last, local_state.success, w);
+
+    let (_global_state, global_excess_update_failed) = {
+        let amt = global_state.fee_excess();
+        let (res, overflow) = Z::SignedAmount::add_flagged(&amt, &local_state.excess, w);
+        let global_excess_update_failed = Z::Bool::and(update_global_state_fee_excess, overflow, w);
+        let new_amt = w.exists_no_check(match update_global_state_fee_excess.as_boolean() {
+            Boolean::True => res,
+            Boolean::False => amt,
+        });
+        // This 2nd `exists_no_check` is because of this:
+        // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
+        w.exists_no_check(new_amt.value());
+        global_state.set_fee_excess(new_amt);
+        (1, global_excess_update_failed)
+    };
+
+    local_state.excess = w.exists_no_check(match is_start_or_last.as_boolean() {
+        Boolean::True => Z::SignedAmount::of_unsigned(Z::Amount::zero()),
+        Boolean::False => local_state.excess.clone(),
+    });
+    // This 2nd `exists_no_check` is because of this:
+    // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
+    w.exists_no_check(local_state.excess.value());
+    Z::LocalState::add_check(
+        &mut local_state,
+        TransactionFailure::GlobalExcessOverflow,
+        global_excess_update_failed.neg(),
+        w,
+    );
+
+    // add local supply increase in global state
+    let (new_global_supply_increase, global_supply_increase_update_failed) = {
+        Z::SignedAmount::add_flagged(
+            &global_state.supply_increase(),
+            &local_state.supply_increase,
+            w,
+        )
+    };
+    Z::LocalState::add_check(
+        &mut local_state,
+        TransactionFailure::GlobalSupplyIncreaseOverflow,
+        global_supply_increase_update_failed.neg(),
+        w,
+    );
+
+    // The first account_update must succeed.
+    let b = Z::Bool::or(is_start2.neg(), local_state.success, w);
+    Z::Bool::assert_with_failure_status_tbl(b, &local_state.failure_status_tbl)?;
+
+    let (_local_state, _global_state) = {
+        let is_fee_payer = is_start2;
+        global_state.set_first_pass_ledger(is_fee_payer, &local_state.ledger, w);
+        local_state.ledger = match is_fee_payer.as_boolean() {
+            Boolean::True => global_state.second_pass_ledger(),
+            Boolean::False => local_state.ledger.clone(),
+        }
+        .exists_no_check(w);
+        ((), ())
+    };
+
+    Z::Bool::assert_any(
+        &[
+            is_last_account_update.neg(),
+            local_state.will_succeed,
+            local_state.success.neg(),
+        ],
+        w,
+    );
+
+    let _global_state = {
+        let is_successful_last_party = Z::Bool::and(is_last_account_update, local_state.success, w);
+        let supply_increase = w.exists_no_check(match is_successful_last_party.as_boolean() {
+            Boolean::True => new_global_supply_increase,
+            Boolean::False => global_state.supply_increase(),
+        });
+        // This 2nd `exists_no_check` is because of this:
+        // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
+        w.exists_no_check(supply_increase.value());
+        global_state.set_supply_increase(supply_increase);
+        global_state.set_second_pass_ledger(is_successful_last_party, &local_state.ledger, w);
+    };
+
+    let _local_state = {
+        let will_succeed = w.exists_no_check(match is_last_account_update.as_boolean() {
+            Boolean::True => Z::Bool::true_(),
+            Boolean::False => local_state.will_succeed,
+        });
+        let account_update_index = w.exists_no_check(match is_last_account_update.as_boolean() {
+            Boolean::True => Z::Index::zero(),
+            Boolean::False => local_state.account_update_index.succ(),
+        });
+        let success = w.exists_no_check(match is_last_account_update.as_boolean() {
+            Boolean::True => Z::Bool::true_(),
+            Boolean::False => local_state.success,
+        });
+        let ledger = match is_last_account_update.as_boolean() {
+            Boolean::True => Z::Ledger::empty(),
+            Boolean::False => local_state.ledger.clone(),
+        }
+        .exists_no_check(w);
+        let supply_increase = w.exists_no_check(match is_last_account_update.as_boolean() {
+            Boolean::True => Z::SignedAmount::of_unsigned(Z::Amount::zero()),
+            Boolean::False => local_state.supply_increase.clone(),
+        });
+        // This 2nd `exists_no_check` is because of this:
+        // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
+        w.exists_no_check(supply_increase.value());
+
+        local_state.ledger = ledger;
+        local_state.success = success;
+        local_state.account_update_index = account_update_index;
+        local_state.supply_increase = supply_increase;
+        local_state.will_succeed = will_succeed;
+    };
+
+    Ok((global_state, local_state))
 }

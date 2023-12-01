@@ -27,13 +27,14 @@ use crate::{
         transaction_logic::{
             local_state::{
                 LocalState, LocalStateEnv, LocalStateSkeleton, StackFrame, StackFrameChecked,
+                WithLazyHash,
             },
             protocol_state::{
                 protocol_state_body_view, protocol_state_view, GlobalState, GlobalStateSkeleton,
             },
             zkapp_command::{
-                self, AccountUpdate, CallForest, ClosedInterval, Control, WithHash, ZkAppCommand,
-                ZkAppPreconditions, ACCOUNT_UPDATE_CONS_HASH_PARAM,
+                self, AccountUpdate, AccountUpdateSkeleton, CallForest, ClosedInterval, Control,
+                WithHash, ZkAppCommand, ZkAppPreconditions, ACCOUNT_UPDATE_CONS_HASH_PARAM,
             },
             zkapp_statement::{TransactionCommitment, ZkappStatement},
             TransactionFailure,
@@ -42,9 +43,9 @@ use crate::{
     sparse_ledger::SparseLedger,
     zkapps::{
         intefaces::{ZkappApplication, ZkappSnark},
-        snark::zkapp_check::InSnarkCheck,
+        snark::{zkapp_check::InSnarkCheck, AccountUnhashed},
     },
-    ControlTag, ToInputs, TokenId,
+    ControlTag, MyCow, ToInputs, TokenId, ZkAppAccount,
 };
 
 use self::group::SegmentBasic;
@@ -986,6 +987,7 @@ pub enum Eff<'a, Z: ZkappApplication> {
     ),
     CheckProtocolStatePrecondition(&'a ZkAppPreconditions, &'a Z::GlobalState),
     CheckValidWhilePrecondition(&'a zkapp_command::Numeric<Slot>, &'a Z::GlobalState),
+    InitAccount(&'a Z::AccountUpdate, &'a Z::Account),
 }
 
 fn perform(eff: Eff<ZkappSnark>, w: &mut Witness<Fp>) -> zkapp_logic::PerformResult<ZkappSnark> {
@@ -1017,6 +1019,24 @@ fn perform(eff: Eff<ZkappSnark>, w: &mut Witness<Fp>) -> zkapp_logic::PerformRes
             let checked = (valid_while, ClosedInterval::min_max)
                 .checked_zcheck(&global_state.block_global_slot.to_inner(), w);
             zkapp_logic::PerformResult::Bool(checked.var())
+        }
+        Eff::InitAccount(account_update, account) => {
+            let AccountUpdateSkeleton {
+                body: account_update,
+                authorization: _,
+            } = account_update;
+            let account = Box::new(crate::Account {
+                public_key: account_update.data.public_key.clone(),
+                token_id: account_update.data.token_id.clone(),
+                ..(*account.data).clone()
+            });
+            let account2 = account.clone();
+            let account = WithLazyHash::new(account, move |w: &mut Witness<Fp>| {
+                let zkapp = MyCow::borrow_or_default(&account2.zkapp);
+                zkapp.checked_hash_with_param(ZkAppAccount::HASH_PARAM, w);
+                account2.checked_hash(w)
+            });
+            zkapp_logic::PerformResult::Account(account)
         }
     }
 }
@@ -1172,7 +1192,7 @@ fn zkapp_main(
                     acc,
                     data,
                     w,
-                );
+                )
             }
         };
 
@@ -1191,12 +1211,12 @@ fn zkapp_main(
                         }
                     }
                 };
-                finish(v, acc);
+                finish(v, acc)
             }
             IsStart::Yes => todo!(),
         };
 
-        todo!()
+        new_acc.unwrap() // TODO: Remove unwrap
     });
 }
 

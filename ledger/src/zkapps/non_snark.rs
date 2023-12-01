@@ -171,6 +171,7 @@ impl CallForestInterface for CallForest<AccountUpdate> {
 
 impl BoolInterface for Boolean {
     type W = ();
+    type FailureStatusTable = ();
 
     fn as_boolean(&self) -> Boolean {
         *self
@@ -194,6 +195,15 @@ impl BoolInterface for Boolean {
         todo!()
     }
     fn all(bs: &[Self], w: &mut Self::W) -> Self {
+        todo!()
+    }
+    fn assert_any(bs: &[Self], w: &mut Self::W) {
+        todo!()
+    }
+    fn assert_with_failure_status_tbl(
+        b: Self,
+        table: &Self::FailureStatusTable,
+    ) -> Result<(), String> {
         todo!()
     }
 }
