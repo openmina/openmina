@@ -436,7 +436,7 @@ impl BaseLedger for Mask {
         self.with(|this| this.merkle_path_at_addr(addr))
     }
 
-    fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, ()> {
+    fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, String> {
         self.with(|this| this.get_inner_hash_at_addr(addr))
     }
 

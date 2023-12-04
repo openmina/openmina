@@ -97,17 +97,29 @@ fn transition_frontier_new_best_tip<S: crate::Service>(store: &mut Store<S>) {
         return;
     };
 
+    // TODO(tizoc): don't fail silently here, if it happens it is because of an issue
+    let Some(staking_ledger_hash) = state.consensus.staking_ledger_hash().cloned() else {
+        return;
+    };
+    let Some(next_epoch_ledger_hash) = state.consensus.next_epoch_ledger_hash().cloned() else {
+        return;
+    };
+
     if !state.transition_frontier.sync.is_pending() && !state.transition_frontier.sync.is_synced() {
         store.dispatch(TransitionFrontierSyncInitAction {
             best_tip,
             root_block,
             blocks_inbetween,
+            staking_ledger_hash,
+            next_epoch_ledger_hash,
         });
     } else {
         store.dispatch(TransitionFrontierSyncBestTipUpdateAction {
             best_tip,
             root_block,
             blocks_inbetween,
+            staking_ledger_hash,
+            next_epoch_ledger_hash,
         });
     }
 }

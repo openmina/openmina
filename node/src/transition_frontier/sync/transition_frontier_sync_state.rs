@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
+use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash, LedgerHash};
 use openmina_core::block::ArcBlockWithHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -19,12 +19,40 @@ pub enum TransitionFrontierSyncState {
         best_tip: ArcBlockWithHash,
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
+        staking_ledger_hash: LedgerHash,
+        next_epoch_ledger_hash: LedgerHash,
+    },
+    StakingLedgerPending {
+        time: Timestamp,
+        best_tip: ArcBlockWithHash,
+        blocks_inbetween: Vec<StateHash>,
+        ledger: TransitionFrontierSyncLedgerState,
+    },
+    StakingLedgerSuccess {
+        time: Timestamp,
+        best_tip: ArcBlockWithHash,
+        root_block: ArcBlockWithHash,
+        blocks_inbetween: Vec<StateHash>,
+        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
+    },
+    NextEpochLedgerPending {
+        time: Timestamp,
+        best_tip: ArcBlockWithHash,
+        blocks_inbetween: Vec<StateHash>,
+        ledger: TransitionFrontierSyncLedgerState,
+    },
+    NextEpochLedgerSuccess {
+        time: Timestamp,
+        best_tip: ArcBlockWithHash,
+        root_block: ArcBlockWithHash,
+        blocks_inbetween: Vec<StateHash>,
+        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
     RootLedgerPending {
         time: Timestamp,
         best_tip: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
-        root_ledger: TransitionFrontierSyncLedgerState,
+        ledger: TransitionFrontierSyncLedgerState,
     },
     RootLedgerSuccess {
         time: Timestamp,
@@ -90,10 +118,12 @@ pub enum PeerRpcState {
 }
 
 impl TransitionFrontierSyncState {
+    /// If the synchronization process has started but is not yet complete
     pub fn is_pending(&self) -> bool {
         !matches!(self, Self::Idle | Self::Synced { .. })
     }
 
+    /// If the synchronization process is complete
     pub fn is_synced(&self) -> bool {
         matches!(self, Self::Synced { .. })
     }
@@ -102,7 +132,11 @@ impl TransitionFrontierSyncState {
         match self {
             Self::Idle => None,
             Self::Init { root_block, .. } => Some(root_block),
-            Self::RootLedgerPending { root_ledger, .. } => Some(root_ledger.block()),
+            Self::StakingLedgerPending { ledger, .. } => Some(ledger.block()),
+            Self::StakingLedgerSuccess { root_block, .. } => Some(root_block),
+            Self::NextEpochLedgerPending { ledger, .. } => Some(ledger.block()),
+            Self::NextEpochLedgerSuccess { root_block, .. } => Some(root_block),
+            Self::RootLedgerPending { ledger, .. } => Some(ledger.block()),
             Self::RootLedgerSuccess { root_block, .. } => Some(root_block),
             Self::BlocksPending { chain, .. } => chain.first().and_then(|b| b.block()),
             Self::BlocksSuccess { chain, .. } => chain.first(),
@@ -114,6 +148,10 @@ impl TransitionFrontierSyncState {
         match self {
             Self::Idle => None,
             Self::Init { best_tip, .. } => Some(best_tip),
+            Self::StakingLedgerPending { best_tip, .. } => Some(best_tip),
+            Self::StakingLedgerSuccess { best_tip, .. } => Some(best_tip),
+            Self::NextEpochLedgerPending { best_tip, .. } => Some(best_tip),
+            Self::NextEpochLedgerSuccess { best_tip, .. } => Some(best_tip),
             Self::RootLedgerPending { best_tip, .. } => Some(best_tip),
             Self::RootLedgerSuccess { best_tip, .. } => Some(best_tip),
             Self::BlocksPending { chain, .. } => chain.last().and_then(|b| b.block()),
@@ -122,10 +160,28 @@ impl TransitionFrontierSyncState {
         }
     }
 
-    pub fn root_ledger(&self) -> Option<&TransitionFrontierSyncLedgerState> {
+    pub fn ledger(&self) -> Option<&TransitionFrontierSyncLedgerState> {
         match self {
-            Self::RootLedgerPending { root_ledger, .. } => Some(root_ledger),
+            Self::StakingLedgerPending { ledger, .. } => Some(ledger),
+            Self::NextEpochLedgerPending { ledger, .. } => Some(ledger),
+            Self::RootLedgerPending { ledger, .. } => Some(ledger),
             _ => None,
+        }
+    }
+
+    /// True if the synchronization of the target ledger is complete.
+    ///
+    /// Epoch ledgers only require the snarked ledger to be synchronized,
+    /// but the ledger at the root of the transition frontier also requires
+    /// the staging ledger to be synchronized.
+    pub fn is_ledger_sync_complete(&self) -> bool {
+        match self {
+            Self::StakingLedgerPending { ledger, .. } => ledger.is_snarked_ledger_synced(),
+            Self::NextEpochLedgerPending { ledger, .. } => ledger.is_snarked_ledger_synced(),
+            Self::RootLedgerPending { ledger, .. } => {
+                ledger.staged().map_or(false, |s| s.is_success())
+            }
+            _ => false,
         }
     }
 
