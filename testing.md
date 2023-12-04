@@ -14,14 +14,14 @@ Secondly, a robust testing framework is equally crucial for evaluating the block
 Additionally, stability testing assesses the blockchain's ability to operate consistently under various conditions, even amid a protocol upgrade. We want to identify potential issues or crashes that could disrupt operations before they have a chance of occurring on the mainnet. 
 
 
-### What we are testing
+#### What we are testing
 
 Here is a limited overview of test categories. Tests are mostly focused on the network and P2P layer,  the next steps will be consensus, ledger, and other parts.  
 
 We need to work with the assumption that more than one-third of the nodes can be Byzantine for the system to function correctly.
 
 
-# 1. Network Connectivity and Peer Management
+## 1. Network Connectivity and Peer Management
 
 
 ### Network Connectivity
@@ -171,22 +171,21 @@ In this test, three nodes are started:
 Initially, the OCaml seed node has the other two nodes in its peer list, while the OCaml node and the Rust node only have the seed node.
 
 
-<image 1>
+![peer1](https://github.com/openmina/openmina/assets/60480123/bb2c8428-7e89-4748-949a-4b8aa5954205)
+
 
 
 The two (OCaml and Rust) non-seed nodes connect to the OCaml seed node
 
 
-<image 2>
+![peer2](https://github.com/openmina/openmina/assets/60480123/480ffeb0-e7c7-4f16-bed3-76281a19e2bf)
 
 
 Once connected, they gain information about each other from the seed node.
 
 They then make a connection between themselves. If the test is successful, then at the end of this process, each each node has each other in its peer list.
 
-
-
-<image 3>
+![peer3](https://github.com/openmina/openmina/assets/60480123/3ee75cd4-68cf-453c-aa7d-40c09b11d83b)
 
 
 **Implementation Details**
@@ -292,7 +291,7 @@ Nodes should be able to discover and connect to new peers if their current peers
 _This test evaluates the blockchain node's capacity to adapt to changing network conditions. It examines whether a node can autonomously identify unresponsive or malicious peers and replace them with trustworthy counterparts. Adaptive peer management enhances the network's resilience against potential attacks or unreliable participants._
 
 
-# 2. Network Resistance
+## 2. Network Resistance
 
 
 ### Resistance to DDoS Attacks
@@ -323,7 +322,7 @@ The network should resist attempts by any subset of nodes to consistently censor
 _This test assesses the node's ability to resist censorship attempts by a subset of nodes. It verifies that the network's design prevents any small group from censoring specific transactions or blocks, upholding the blockchain's openness and decentralization._
 
 
-# 3. Node Bootstrapping and Data Availability
+## 3. Node Bootstrapping and Data Availability
 
 
 ### Node Bootstrapping 
@@ -362,7 +361,7 @@ Any piece of data (like a block or transaction) that is part of the blockchain s
 _This test confirms that the blockchain node can consistently provide requested data to other nodes in the network. It guarantees that data availability is maintained, promoting transparency and trust in the blockchain's history._
 
 
-# 4. Ledger Consistency and Propagation
+## 4. Ledger Consistency and Propagation
 
 
 ### Consistent View of the Ledger
@@ -386,7 +385,7 @@ Every transaction/snark broadcasted by a user should eventually be received and 
 _This test examines the node's ability to promptly disseminate user-generated transactions and Snarks to the network. It ensures that these transactions are reliably processed by miners or validators, facilitating efficient transaction processing._
 
 
-# 5. Blockchain Progress and Fairness
+## 5. Blockchain Progress and Fairness
 
 
 ### Chain Progress
@@ -403,7 +402,7 @@ Transactions should not be perpetually ignored or deprioritized by the network. 
 _This test evaluates the node's fairness in processing transactions. We want to ensure that no valid transactions are unjustly ignored or delayed, maintaining a fair and efficient transaction processing system._
 
 
-# 6. Scalability and upgradibility
+## 6. Scalability and upgradibility
 
 
 ### Network Scalability
@@ -422,20 +421,20 @@ _This test ensures that the blockchain network can seamlessly undergo protocol u
 These expanded descriptions provide a comprehensive understanding of the key tests for assessing the functionality and security of a blockchain node. Each test contributes to the overall robustness and reliability of the blockchain network.
 
 
-# 7. How to run tests
+### 7. How to run tests
 
 cargo test --release --features scenario-generators
 
 
-# 8. The Front End
+## 8. The Front End
 
 
-## Daily run
+### Daily run
 
 Multiple Scenarios executed on a Cluster of Nodes
 
 
-## Scenario
+### Scenario
 
 Scenarios are designed to satisfy checks for Network Connectivity and Peer Management, Network Resistance
 
@@ -446,7 +445,7 @@ First of all, we need to load a scenario - a specific situation or condition cre
 We develop only one screen for only one scenario, we load that scenario, then we need to add steps.
 
 
-### Run Steps
+#### Run Steps
 
 We see the finished steps and the steps to do.
 
@@ -455,32 +454,32 @@ We start running the scenario, then even traces appear we can add even traces di
 There is a simple input for adding new steps as we have enough steps, we can start a run scenario.
 
 
-### Event Traces
+#### Event Traces
 
 
-<screenshot 1>
+![eventtraces](https://github.com/openmina/openmina/assets/60480123/10bc2cba-21d6-4cae-bb28-30b59f3423d2)
 
 
-## Bootstrapping
+### Bootstrapping
 
-### Bootstrapping with recorded data
+#### Bootstrapping with recorded data
 
 - [ ] Genesis block
 - [ ] First epoch, < 290 blocks
 - [ ] First epoch, > 290 blocks
 - [ ] Third epoch and further
 
-### Bootstrapping with real peers
+#### Bootstrapping with real peers
 
 - [ ] Network split
 - [ ] Long-running network (cluster)
 - [x] Berkeley testnet: [![Openmina Daily](https://github.com/openmina/openmina/actions/workflows/daily.yaml/badge.svg)](https://github.com/openmina/openmina/actions/workflows/daily.yaml)
 
-### Various bootstrap scenarios
+#### Various bootstrap scenarios
 
 _TODO_
 
-## General Network Behaviour
+### General Network Behaviour
 
 This might be a set of short and very long-running task, during that we make sure that our node
 - can run in a (real) network for a long time, without being disconected too much
@@ -489,18 +488,18 @@ This might be a set of short and very long-running task, during that we make sur
 - can handle forks
 - ...
 
-## Snark Work
+### Snark Work
 
-### Network
+#### Network
 
 - [ ] Check that snark pool is proadcasted properly
 - [ ] Check that commitments are broadcasted properly
 
-### Correctness
+#### Correctness
 
 - [ ] Check proof generated for several transactions
 
-### Coordination
+#### Coordination
 
 Here we can test snark work is parallelized well, i.e.
 
@@ -508,7 +507,7 @@ $t_{total} < \frac {\sum {t_i} + C} {n}$
 
 - [ ] Test that snark work is parallelized well
 
-### Throughput
+#### Throughput
 
 - [ ] Run a tx load against network and make sure tx pool doesn't grow
 
