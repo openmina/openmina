@@ -11,14 +11,15 @@ use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::P2pAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
-use crate::{Action, ActionWithMetaRef, Service, Store};
+use crate::transition_frontier::sync::TransitionFrontierSyncAction;
+use crate::{Action, ActionWithMetaRef, Service, Store, TransitionFrontierAction};
 
 pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
     let kind = action.kind();
 
     match action {
-        Action::P2p(action) => match action {
+        Action::P2p(action) if false => match action {
             P2pAction::Connection(action) => match action {
                 P2pConnectionAction::Outgoing(action) => match action {
                     P2pConnectionOutgoingAction::RandomInit(_) => {}
@@ -514,6 +515,67 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 _ => {}
             },
             _ => {}
+        },
+        Action::TransitionFrontier(a) => match a {
+            TransitionFrontierAction::Sync(action) => match action {
+                TransitionFrontierSyncAction::Init(action) => openmina_core::log::info!(
+                    meta.time();
+                    kind = kind.to_string(),
+                    summary = "Transition frontier sync init".to_string(),
+                    block_hash = action.best_tip.hash.to_string(),
+                    root_block_hash = action.root_block.hash.to_string(),
+                ),
+                TransitionFrontierSyncAction::BestTipUpdate(action) => openmina_core::log::info!(
+                    meta.time();
+                    kind = kind.to_string(),
+                    summary = "New best tip received".to_string(),
+                    block_hash = action.best_tip.hash.to_string(),
+                    root_block_hash = action.root_block.hash.to_string(),
+                ),
+                TransitionFrontierSyncAction::LedgerStakingPending(_) => openmina_core::log::info!(
+                    meta.time();
+                    kind = kind.to_string(),
+                    summary = "Staking ledger sync pending".to_string(),
+                ),
+                TransitionFrontierSyncAction::LedgerStakingSuccess(_) => openmina_core::log::info!(
+                    meta.time();
+                    kind = kind.to_string(),
+                    summary = "Staking ledger sync success".to_string(),
+                ),
+                TransitionFrontierSyncAction::LedgerNextEpochPending(_) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = "Next epoch ledger sync pending".to_string(),
+                    )
+                }
+                TransitionFrontierSyncAction::LedgerNextEpochSuccess(_) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = "Next epoch ledger sync pending".to_string(),
+                    )
+                }
+                TransitionFrontierSyncAction::LedgerRootPending(_) => openmina_core::log::info!(
+                    meta.time();
+                    kind = kind.to_string(),
+                    summary = "Transition frontier root ledger sync pending".to_string(),
+                ),
+                TransitionFrontierSyncAction::LedgerRootSuccess(_) => openmina_core::log::info!(
+                    meta.time();
+                    kind = kind.to_string(),
+                    summary = "Transition frontier root ledger sync success".to_string(),
+                ),
+                _other => openmina_core::log::info!(
+                    meta.time();
+                    kind = kind.to_string(),
+                ),
+            },
+            TransitionFrontierAction::Synced(_) => openmina_core::log::info!(
+                meta.time();
+                kind = kind.to_string(),
+                summary = "Transition frontier synced".to_string(),
+            ),
         },
         _ => {}
     }

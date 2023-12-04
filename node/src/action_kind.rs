@@ -176,7 +176,11 @@ use crate::transition_frontier::sync::{
     TransitionFrontierSyncBlocksPeerQuerySuccessAction,
     TransitionFrontierSyncBlocksPeersQueryAction, TransitionFrontierSyncBlocksPendingAction,
     TransitionFrontierSyncBlocksSuccessAction, TransitionFrontierSyncInitAction,
+    TransitionFrontierSyncLedgerNextEpochPendingAction,
+    TransitionFrontierSyncLedgerNextEpochSuccessAction,
     TransitionFrontierSyncLedgerRootPendingAction, TransitionFrontierSyncLedgerRootSuccessAction,
+    TransitionFrontierSyncLedgerStakingPendingAction,
+    TransitionFrontierSyncLedgerStakingSuccessAction,
 };
 use crate::transition_frontier::{TransitionFrontierAction, TransitionFrontierSyncedAction};
 use crate::watched_accounts::{
@@ -365,6 +369,8 @@ pub enum ActionKind {
     TransitionFrontierSyncBlocksSuccess,
     TransitionFrontierSyncInit,
     TransitionFrontierSyncLedgerInit,
+    TransitionFrontierSyncLedgerNextEpochPending,
+    TransitionFrontierSyncLedgerNextEpochSuccess,
     TransitionFrontierSyncLedgerRootPending,
     TransitionFrontierSyncLedgerRootSuccess,
     TransitionFrontierSyncLedgerSnarkedChildAccountsReceived,
@@ -391,6 +397,8 @@ pub enum ActionKind {
     TransitionFrontierSyncLedgerStagedReconstructPending,
     TransitionFrontierSyncLedgerStagedReconstructSuccess,
     TransitionFrontierSyncLedgerStagedSuccess,
+    TransitionFrontierSyncLedgerStakingPending,
+    TransitionFrontierSyncLedgerStakingSuccess,
     TransitionFrontierSyncLedgerSuccess,
     TransitionFrontierSynced,
     WatchedAccountsAdd,
@@ -406,7 +414,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 206;
+    pub const COUNT: u16 = 210;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -731,6 +739,10 @@ impl ActionKindGet for TransitionFrontierSyncAction {
         match self {
             Self::Init(a) => a.kind(),
             Self::BestTipUpdate(a) => a.kind(),
+            Self::LedgerStakingPending(a) => a.kind(),
+            Self::LedgerStakingSuccess(a) => a.kind(),
+            Self::LedgerNextEpochPending(a) => a.kind(),
+            Self::LedgerNextEpochSuccess(a) => a.kind(),
             Self::LedgerRootPending(a) => a.kind(),
             Self::LedgerRootSuccess(a) => a.kind(),
             Self::BlocksPending(a) => a.kind(),
@@ -1343,6 +1355,30 @@ impl ActionKindGet for TransitionFrontierSyncInitAction {
 impl ActionKindGet for TransitionFrontierSyncBestTipUpdateAction {
     fn kind(&self) -> ActionKind {
         ActionKind::TransitionFrontierSyncBestTipUpdate
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerStakingPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStakingPending
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerStakingSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStakingSuccess
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerNextEpochPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerNextEpochPending
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerNextEpochSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerNextEpochSuccess
     }
 }
 

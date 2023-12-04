@@ -858,7 +858,7 @@ impl BaseLedger for DatabaseImpl<V2> {
         self.merkle_path(addr)
     }
 
-    fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, ()> {
+    fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, String> {
         let res = self.emulate_tree_to_get_hash_at(addr.clone());
 
         elog!("get_inner_hash_at_addr addr={:?} hash={}", addr, res);

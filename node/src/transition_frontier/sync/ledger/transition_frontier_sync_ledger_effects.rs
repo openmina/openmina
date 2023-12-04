@@ -22,7 +22,17 @@ impl TransitionFrontierSyncLedgerInitAction {
 impl TransitionFrontierSyncLedgerSnarkedSuccessAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         if !store.dispatch(TransitionFrontierSyncLedgerStagedReconstructEmptyAction {}) {
-            store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {});
+            if store
+                .state()
+                .transition_frontier
+                .sync
+                .is_ledger_sync_complete()
+            {
+                println!("++++ SYNC LEDGER SUCCESS");
+                store.dispatch(TransitionFrontierSyncLedgerSuccessAction {});
+            } else {
+                store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {});
+            }
         }
     }
 }

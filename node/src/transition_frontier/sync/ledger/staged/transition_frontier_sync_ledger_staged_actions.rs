@@ -44,7 +44,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.snarked())
             .map_or(false, |s| {
                 matches!(s, TransitionFrontierSyncLedgerSnarkedState::Success { .. })
@@ -62,7 +62,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.staged())
             .map_or(false, |staged| {
                 let iter = state.p2p.ready_rpc_peers_iter();
@@ -84,7 +84,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.staged())
             .map_or(false, |s| {
                 matches!(
@@ -109,7 +109,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.staged()?.fetch_attempts()?.get(&self.peer_id))
             .and_then(|s| s.fetch_pending_rpc_id())
             .map_or(false, |rpc_id| rpc_id == self.rpc_id)
@@ -130,7 +130,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.staged()?.fetch_attempts()?.get(&self.peer_id))
             .and_then(|s| s.fetch_pending_rpc_id())
             .map_or(false, |rpc_id| rpc_id == self.rpc_id)
@@ -150,7 +150,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.staged()?.fetch_attempts()?.get(&self.sender))
             .map_or(false, |s| match s {
                 PeerStagedLedgerPartsFetchState::Success { parts, .. } => !parts.is_valid(),
@@ -171,7 +171,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.staged()?.fetch_attempts()?.get(&self.sender))
             .map_or(false, |s| match s {
                 PeerStagedLedgerPartsFetchState::Success { parts, .. } => parts.is_valid(),
@@ -192,7 +192,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.staged()?.fetch_attempts()?.get(&self.sender))
             .map_or(false, |s| s.is_valid())
     }
@@ -205,10 +205,10 @@ impl redux::EnablingCondition<crate::State>
     for TransitionFrontierSyncLedgerStagedReconstructEmptyAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        state
+        let result = state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.snarked())
             .map_or(false, |s| match s {
                 TransitionFrontierSyncLedgerSnarkedState::Success { block, .. } => {
@@ -221,7 +221,9 @@ impl redux::EnablingCondition<crate::State>
                     // Do we need to check it?
                 }
                 _ => false,
-            })
+            });
+            println!("+++ TransitionFrontierSyncLedgerStagedReconstructEmptyAction.is_enabled={result}");
+            result
     }
 }
 
@@ -235,7 +237,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.staged())
             .map_or(false, |s| {
                 matches!(
@@ -257,7 +259,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.staged())
             .map_or(false, |s| {
                 matches!(
@@ -281,7 +283,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.staged())
             .map_or(false, |s| {
                 matches!(
@@ -302,7 +304,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.staged())
             .map_or(false, |s| {
                 matches!(
@@ -321,7 +323,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.staged())
             .map_or(false, |s| {
                 matches!(

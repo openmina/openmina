@@ -75,6 +75,7 @@ fn ledger_hash(depth: usize, left: Fp, right: Fp) -> Fp {
 #[derive(Default)]
 pub struct LedgerCtx {
     snarked_ledgers: BTreeMap<LedgerHash, Mask>,
+    /// Additional snarked ledgers specified at startup (loaded from disk)
     additional_snarked_ledgers: BTreeMap<LedgerHash, Mask>,
     staged_ledgers: BTreeMap<LedgerHash, StagedLedger>,
     sync: LedgerSyncState,
@@ -153,6 +154,8 @@ impl LedgerSyncState {
             .or_else(|| Some((self.staged_ledgers.get(hash)?.ledger(), true)))
     }
 
+    /// Returns a [Mask] instance for the snarked ledger with [hash]. If it doesn't
+    /// exist a new instance is created.
     fn snarked_ledger_mut(&mut self, hash: LedgerHash) -> &mut Mask {
         self.snarked_ledgers.entry(hash.clone()).or_insert_with(|| {
             let mut ledger = Mask::create(LEDGER_DEPTH);
@@ -183,14 +186,14 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
         snarked_ledger_hash: LedgerHash,
         parent: &LedgerAddress,
         (left, right): (LedgerHash, LedgerHash),
-    ) -> Result<(), ()> {
+    ) -> Result<(), String> {
         let (left, right) = (left.0.to_field(), right.0.to_field());
         let hash = ledger_hash(parent.length(), left, right);
 
         let mask = self.ctx_mut().sync.snarked_ledger_mut(snarked_ledger_hash);
 
         if hash != mask.get_inner_hash_at_addr(parent.clone())? {
-            return Err(());
+            return Err("Inner hash found at address but doesn't match the expected hash".into());
         }
 
         mask.set_cached_hash_unchecked(&parent.child_left(), left);
