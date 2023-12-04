@@ -16,7 +16,6 @@ use crate::P2pEvent;
 #[behaviour(to_swarm = "Event")]
 pub struct Behaviour<E: 'static + From<P2pEvent>> {
     pub gossipsub: gossipsub::Behaviour,
-    pub rpc: rpc::Behaviour,
     pub identify: identify::Behaviour,
     pub kademlia: kad::Behaviour<MemoryStore>,
     pub trivial: trivial::Behaviour<1>,
@@ -37,9 +36,7 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, derive_more::From)]
 pub enum Event {
-    // Identify(IdentifyEvent),
     Gossipsub(gossipsub::Event),
-    Rpc((PeerId, rpc::Event)),
     Identify(identify::Event),
     Kademlia(kad::Event),
     Trivial((PeerId, trivial::Event)),
