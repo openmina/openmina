@@ -92,7 +92,10 @@ impl SignedAmountInterface for Signed<Amount> {
     fn of_unsigned(unsigned: Self::Amount) -> Self {
         todo!()
     }
-    fn value(&self) -> Fp {
+    fn try_get_value(&self) -> Option<Fp> {
+        todo!()
+    }
+    fn force_value(&self) -> Fp {
         todo!()
     }
 }

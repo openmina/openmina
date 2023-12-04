@@ -1321,7 +1321,7 @@ pub mod consensus {
 
         let (new_total_currency, _overflow) = {
             let total_currency: Amount = previous_state.total_currency.clone().into();
-            w.exists(supply_increase.value());
+            w.exists(supply_increase.force_value());
             total_currency
                 .to_checked()
                 .add_signed_flagged(supply_increase, w)

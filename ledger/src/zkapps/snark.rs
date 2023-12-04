@@ -197,8 +197,11 @@ impl SignedAmountInterface for CheckedSigned<Fp, CheckedAmount<Fp>> {
     fn of_unsigned(unsigned: Self::Amount) -> Self {
         Self::of_unsigned(unsigned)
     }
-    fn value(&self) -> Fp {
-        CheckedSigned::value(&self)
+    fn try_get_value(&self) -> Option<Fp> {
+        CheckedSigned::try_get_value(&self)
+    }
+    fn force_value(&self) -> Fp {
+        CheckedSigned::force_value(&self)
     }
 }
 

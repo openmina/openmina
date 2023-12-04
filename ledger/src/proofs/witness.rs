@@ -2128,12 +2128,12 @@ impl<F: FieldWitness> InnerCurve<F> {
     }
 
     fn fake_random() -> Self {
-        static SEED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        // static SEED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         // dbg!(SEED.load(std::sync::atomic::Ordering::Relaxed));
 
         let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(
-            // 0,
-            SEED.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            0,
+            // SEED.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         );
         let proj: GroupProjective<F::Parameters> = ark_ff::UniformRand::rand(&mut rng);
         let proj: F::Projective = proj.into();
@@ -4205,21 +4205,22 @@ pub mod transaction_snark {
                             Boolean::True => Sgn::Neg,
                             Boolean::False => Sgn::Pos,
                         };
-                        CheckedSigned::create(CheckedAmount::of_fee(&fee), sgn)
+                        CheckedSigned::create(CheckedAmount::of_fee(&fee), sgn, None)
                     };
 
                     let account_creation_fee = {
+                        // We don't use `exists_no_check` here because both are constants
                         let magnitude = if should_pay_to_create.as_bool() {
                             account_creation_amount.clone()
                         } else {
                             CheckedAmount::zero()
                         };
-                        CheckedSigned::create(magnitude, Sgn::Neg)
+                        CheckedSigned::create(magnitude, Sgn::Neg, None)
                     };
 
                     new_account_fees = account_creation_fee.clone();
 
-                    w.exists(fee_payer_amount.value());
+                    account_creation_fee.set_value(); // We set it because it's a Constant
                     fee_payer_amount.add(&account_creation_fee, w)
                 };
 
@@ -4412,10 +4413,13 @@ pub mod transaction_snark {
                             Boolean::False => CheckedAmount::zero(),
                         };
 
+                        let account_creation_fee_neg =
+                            CheckedSigned::of_unsigned(account_creation_fee.clone()).negate();
+
+                        account_creation_fee_neg.set_value(); // We set it because it's a Constant
+                        new_account_fees.set_value(); // We set it because it's a Constant
                         let new_account_fees_total =
-                            CheckedSigned::of_unsigned(account_creation_fee.clone())
-                                .negate()
-                                .add(&new_account_fees, w);
+                            account_creation_fee_neg.add(&new_account_fees, w);
                         new_account_fees = new_account_fees_total;
 
                         let (amount_for_new_account, _underflow) =
@@ -4693,7 +4697,7 @@ pub mod transaction_snark {
                 let (fee_transfer_excess, fee_transfer_excess_overflowed) = {
                     let (magnitude, overflow) =
                         payload.body.amount.to_checked().add_flagged(&amount_fee, w);
-                    (CheckedSigned::create(magnitude, Sgn::Neg), overflow)
+                    (CheckedSigned::create(magnitude, Sgn::Neg, None), overflow)
                 };
 
                 Boolean::assert_any(
@@ -4732,7 +4736,7 @@ pub mod transaction_snark {
                 Boolean::False => new_account_fees,
             });
 
-            w.exists(new_account_fees_total.value()); // Made in the `add_flagged` call
+            w.exists(new_account_fees_total.force_value()); // Made in the `add_flagged` call
             let (amt, _overflow) = amt0.add_flagged(&new_account_fees_total, w);
 
             amt
@@ -4751,11 +4755,11 @@ pub mod transaction_snark {
         t2: &LocalState,
         w: &mut Witness<F>,
     ) {
-        w.exists_no_check(t1.excess.to_checked::<Fp>().value());
-        w.exists_no_check(t2.excess.to_checked::<Fp>().value());
+        t1.excess.to_checked::<F>().value(w);
+        t2.excess.to_checked::<F>().value(w);
 
-        w.exists_no_check(t1.supply_increase.to_checked::<Fp>().value());
-        w.exists_no_check(t2.supply_increase.to_checked::<Fp>().value());
+        t1.supply_increase.to_checked::<F>().value(w);
+        t2.supply_increase.to_checked::<F>().value(w);
     }
 
     pub fn main(
@@ -4792,7 +4796,7 @@ pub mod transaction_snark {
 
         let _fee_excess = {
             let fee_excess_zero = {
-                let fee_excess = w.exists(fee_excess.value());
+                let fee_excess = w.exists(fee_excess.force_value());
                 field::equal(fee_excess, Fp::zero(), w)
             };
 
@@ -4818,7 +4822,7 @@ pub mod transaction_snark {
         // Checked.all_unit
         {
             let supply_increase = statement_with_sok.supply_increase;
-            w.exists_no_check(supply_increase.to_checked::<Fp>().value());
+            w.exists_no_check(supply_increase.to_checked::<Fp>().force_value());
 
             let FeeExcess {
                 fee_token_l: _,
@@ -4827,8 +4831,8 @@ pub mod transaction_snark {
                 fee_excess_r,
             } = statement_with_sok.fee_excess;
 
-            w.exists_no_check(fee_excess_l.to_checked::<Fp>().value());
-            w.exists_no_check(fee_excess_r.to_checked::<Fp>().value());
+            w.exists_no_check(fee_excess_l.to_checked::<Fp>().force_value());
+            w.exists_no_check(fee_excess_r.to_checked::<Fp>().force_value());
         }
     }
 }
@@ -5733,7 +5737,8 @@ mod tests {
     fn test_protocol_state_body() {
         let Ok(data) =
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
-            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_1_rampup4.bin"))
+            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_0_rampup4.bin"))
+            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_1_rampup4.bin"))
             // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
             // std::fs::read("/tmp/coinbase_1_rampup4.bin")
             // std::fs::read("/tmp/stake_0_rampup4.bin")
@@ -5753,7 +5758,25 @@ mod tests {
         } = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
-        generate_tx_proof(
+
+        fn read_witnesses(filename: &str) -> Vec<Fp> {
+            let f = std::fs::read_to_string(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    // .join("rampup4")
+                    .join(filename),
+            )
+            .unwrap();
+            let fqs = f
+                .lines()
+                .filter(|s| !s.is_empty())
+                .map(|s| Fp::from_str(s).unwrap())
+                .collect::<Vec<_>>();
+            fqs
+        }
+
+        witnesses.ocaml_aux = read_witnesses("fps_rampup4.txt");
+
+        let proof = generate_tx_proof(
             TransactionParams {
                 statement: &statement,
                 tx_witness: &tx_witness,
@@ -5765,6 +5788,10 @@ mod tests {
             },
             &mut witnesses,
         );
+
+        let proof_json = serde_json::to_vec(&proof).unwrap();
+        let sum = sha256_sum(&proof_json);
+        dbg!(sum);
     }
 
     #[test]

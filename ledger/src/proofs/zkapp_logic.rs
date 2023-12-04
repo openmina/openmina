@@ -107,6 +107,29 @@ fn controller_exists<Z: ZkappApplication>(
     auth
 }
 
+#[allow(non_snake_case)]
+struct SignedAmountExistsParam<'a, Z: ZkappApplication> {
+    True: &'a Z::SignedAmount,
+    False: &'a Z::SignedAmount,
+}
+
+fn signed_amount_exists<'a, Z: ZkappApplication>(
+    b: Z::Bool,
+    param: SignedAmountExistsParam<'a, Z>,
+    w: &mut Z::WitnessGenerator,
+) -> &'a Z::SignedAmount {
+    let SignedAmountExistsParam { True, False } = param;
+
+    let amount = w.exists_no_check(match b.as_boolean() {
+        Boolean::True => True,
+        Boolean::False => False,
+    });
+    if True.try_get_value().is_some() && False.try_get_value().is_some() {
+        w.exists_no_check(amount.force_value());
+    }
+    amount
+}
+
 // Different order than in `Permissions::iter_as_bits`
 // Here we use `Iterator::rev()`
 fn permissions_exists<Z: ZkappApplication>(
@@ -669,25 +692,24 @@ where
         w,
     );
 
+    let account_update_balance_change = account_update.balance_change();
+
     // Compute the change to the account balance.
     let (_local_state, actual_balance_change) = {
-        let balance_change = account_update.balance_change();
+        let balance_change = &account_update_balance_change;
         let neg_creation_fee = { Z::SignedAmount::of_unsigned(account_creation_fee).negate() };
-        // This `exists_no_check` exists because of this, we don't do it in `add_flagged`
-        // because it can be executed or not, depending on the caller:
-        // https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/currency/currency.ml#L591
-        w.exists_no_check(balance_change.value());
         let (balance_change_for_creation, creation_overflow) =
             Z::SignedAmount::add_flagged(&balance_change, &neg_creation_fee, w);
         let pay_creation_fee = Z::Bool::and(account_is_new, implicit_account_creation_fee, w);
         let creation_overflow = Z::Bool::and(pay_creation_fee, creation_overflow, w);
-        let balance_change = w.exists_no_check(match pay_creation_fee.as_boolean() {
-            Boolean::True => balance_change_for_creation,
-            Boolean::False => balance_change,
-        });
-        // This 2nd `exists_no_check` is because of this:
-        // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
-        w.exists_no_check(balance_change.value());
+        let balance_change = signed_amount_exists::<Z>(
+            pay_creation_fee,
+            SignedAmountExistsParam {
+                True: &balance_change_for_creation,
+                False: &balance_change,
+            },
+            w,
+        );
         let first = Z::Bool::or(
             creation_overflow,
             Z::SignedAmount::is_neg(&balance_change),
@@ -699,7 +721,7 @@ where
             Z::Bool::and(pay_creation_fee, first, w).neg(),
             w,
         );
-        ((), balance_change)
+        ((), balance_change.clone())
     };
 
     // Apply balance change.
@@ -717,10 +739,6 @@ where
         let account_creation_fee =
             Z::Amount::of_constant_fee(CONSTRAINT_CONSTANTS.account_creation_fee);
         let _local_state = {
-            // This `exists_no_check` exists because of this, we don't do it in `add_flagged`
-            // because it can be executed or not, depending on the caller:
-            // https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/currency/currency.ml#L591
-            w.exists_no_check(local_state.excess.value());
             let (excess_minus_creation_fee, excess_update_failed) = Z::SignedAmount::add_flagged(
                 &local_state.excess,
                 &Z::SignedAmount::of_unsigned(account_creation_fee.clone()).negate(),
@@ -732,21 +750,18 @@ where
                 Z::Bool::and(pay_creation_fee_from_excess, excess_update_failed, w).neg(),
                 w,
             );
-            local_state.excess =
-                w.exists_no_check(match pay_creation_fee_from_excess.as_boolean() {
-                    Boolean::True => excess_minus_creation_fee,
-                    Boolean::False => local_state.excess,
-                });
-            // This 2nd `exists_no_check` is because of this:
-            // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
-            w.exists_no_check(local_state.excess.value());
+            local_state.excess = signed_amount_exists::<Z>(
+                pay_creation_fee_from_excess,
+                SignedAmountExistsParam {
+                    True: &excess_minus_creation_fee,
+                    False: &local_state.excess,
+                },
+                w,
+            )
+            .clone();
         };
 
         let _local_state = {
-            // This `exists_no_check` exists because of this, we don't do it in `add_flagged`
-            // because it can be executed or not, depending on the caller:
-            // https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/currency/currency.ml#L591
-            w.exists_no_check(local_state.supply_increase.value());
             let (supply_increase_minus_creation_fee, supply_increase_update_failed) =
                 Z::SignedAmount::add_flagged(
                     &local_state.supply_increase,
@@ -759,13 +774,15 @@ where
                 Z::Bool::and(account_is_new, supply_increase_update_failed, w).neg(),
                 w,
             );
-            local_state.supply_increase = w.exists_no_check(match account_is_new.as_boolean() {
-                Boolean::True => supply_increase_minus_creation_fee,
-                Boolean::False => local_state.supply_increase,
-            });
-            // This 2nd `exists_no_check` is because of this:
-            // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
-            w.exists_no_check(local_state.supply_increase.value());
+            local_state.supply_increase = signed_amount_exists::<Z>(
+                account_is_new,
+                SignedAmountExistsParam {
+                    True: &supply_increase_minus_creation_fee,
+                    False: &local_state.supply_increase,
+                },
+                w,
+            )
+            .clone();
         };
 
         let is_receiver = actual_balance_change.is_non_neg();
@@ -1139,7 +1156,7 @@ where
         panic!("invalid state");
     };
 
-    let local_delta = account_update.balance_change().negate();
+    let local_delta = account_update_balance_change.negate();
 
     let (new_local_fee_excess, overflowed) = {
         let first = Z::Bool::and(
@@ -1152,13 +1169,16 @@ where
             Z::SignedAmount::add_flagged(&local_state.excess, &local_delta, w);
         // We decompose this way because of OCaml evaluation order
         let second = Z::Bool::and(account_update_token_is_default, overflow, w);
-        let excess = w.exists_no_check(match account_update_token_is_default.as_boolean() {
-            Boolean::True => new_local_fee_excess,
-            Boolean::False => local_state.excess.clone(),
-        });
-        // This 2nd `exists_no_check` is because of this:
-        // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
-        w.exists_no_check(excess.value());
+
+        let excess = signed_amount_exists::<Z>(
+            account_update_token_is_default,
+            SignedAmountExistsParam {
+                True: &new_local_fee_excess,
+                False: &local_state.excess,
+            },
+            w,
+        )
+        .clone();
         (excess, second)
     };
     local_state.excess = new_local_fee_excess;
@@ -1205,24 +1225,28 @@ where
         let amt = global_state.fee_excess();
         let (res, overflow) = Z::SignedAmount::add_flagged(&amt, &local_state.excess, w);
         let global_excess_update_failed = Z::Bool::and(update_global_state_fee_excess, overflow, w);
-        let new_amt = w.exists_no_check(match update_global_state_fee_excess.as_boolean() {
-            Boolean::True => res,
-            Boolean::False => amt,
-        });
-        // This 2nd `exists_no_check` is because of this:
-        // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
-        w.exists_no_check(new_amt.value());
-        global_state.set_fee_excess(new_amt);
+        let new_amt = signed_amount_exists::<Z>(
+            update_global_state_fee_excess,
+            SignedAmountExistsParam {
+                True: &res,
+                False: &amt,
+            },
+            w,
+        );
+        global_state.set_fee_excess(new_amt.clone());
         (1, global_excess_update_failed)
     };
 
-    local_state.excess = w.exists_no_check(match is_start_or_last.as_boolean() {
-        Boolean::True => Z::SignedAmount::of_unsigned(Z::Amount::zero()),
-        Boolean::False => local_state.excess.clone(),
-    });
-    // This 2nd `exists_no_check` is because of this:
-    // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
-    w.exists_no_check(local_state.excess.value());
+    let signed_zero = Z::SignedAmount::of_unsigned(Z::Amount::zero());
+    local_state.excess = signed_amount_exists::<Z>(
+        is_start_or_last,
+        SignedAmountExistsParam {
+            True: &signed_zero,
+            False: &local_state.excess,
+        },
+        w,
+    )
+    .clone();
     Z::LocalState::add_check(
         &mut local_state,
         TransactionFailure::GlobalExcessOverflow,
@@ -1271,14 +1295,16 @@ where
 
     let _global_state = {
         let is_successful_last_party = Z::Bool::and(is_last_account_update, local_state.success, w);
-        let supply_increase = w.exists_no_check(match is_successful_last_party.as_boolean() {
-            Boolean::True => new_global_supply_increase,
-            Boolean::False => global_state.supply_increase(),
-        });
-        // This 2nd `exists_no_check` is because of this:
-        // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
-        w.exists_no_check(supply_increase.value());
-        global_state.set_supply_increase(supply_increase);
+        let global_state_supply_increase = global_state.supply_increase();
+        let supply_increase = signed_amount_exists::<Z>(
+            is_successful_last_party,
+            SignedAmountExistsParam {
+                True: &new_global_supply_increase,
+                False: &global_state_supply_increase,
+            },
+            w,
+        );
+        global_state.set_supply_increase(supply_increase.clone());
         global_state.set_second_pass_ledger(is_successful_last_party, &local_state.ledger, w);
     };
 
@@ -1300,18 +1326,20 @@ where
             Boolean::False => local_state.ledger.clone(),
         }
         .exists_no_check(w);
-        let supply_increase = w.exists_no_check(match is_last_account_update.as_boolean() {
-            Boolean::True => Z::SignedAmount::of_unsigned(Z::Amount::zero()),
-            Boolean::False => local_state.supply_increase.clone(),
-        });
-        // This 2nd `exists_no_check` is because of this:
-        // https://github.com/MinaProtocol/mina/blob/03644c5748f76254c52a30c44f665bf19d1eb35b/src/lib/currency/currency.ml#L636
-        w.exists_no_check(supply_increase.value());
+        let signed_zero = Z::SignedAmount::of_unsigned(Z::Amount::zero());
+        let supply_increase = signed_amount_exists::<Z>(
+            is_last_account_update,
+            SignedAmountExistsParam {
+                True: &signed_zero,
+                False: &local_state.supply_increase,
+            },
+            w,
+        );
 
         local_state.ledger = ledger;
         local_state.success = success;
         local_state.account_update_index = account_update_index;
-        local_state.supply_increase = supply_increase;
+        local_state.supply_increase = supply_increase.clone();
         local_state.will_succeed = will_succeed;
     };
 

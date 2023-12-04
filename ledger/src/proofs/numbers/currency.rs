@@ -1,5 +1,5 @@
 use crate::scan_state::currency::{self, Amount, Balance, Fee, Magnitude, MinMax, Sgn, Signed};
-use std::{cmp::Ordering::Less, marker::PhantomData};
+use std::{cell::Cell, cmp::Ordering::Less, marker::PhantomData};
 
 use crate::proofs::{
     to_field_elements::ToFieldElements,
@@ -41,7 +41,7 @@ where
 {
     pub magnitude: T,
     pub sgn: Sgn,
-    _field: PhantomData<F>,
+    pub value: Cell<Option<F>>,
 }
 
 impl<F: std::fmt::Debug, T: std::fmt::Debug> std::fmt::Debug for CheckedSigned<F, T>
@@ -53,7 +53,7 @@ where
         f.debug_struct("CheckedSigned")
             .field("magnitude", &self.magnitude)
             .field("sgn", &self.sgn)
-            // .field("_field", &self._field)
+            .field("value", &self.value)
             .finish()
     }
 }
@@ -63,35 +63,32 @@ where
     F: FieldWitness + std::fmt::Debug,
     T: CheckedCurrency<F> + std::fmt::Debug,
 {
-    pub fn create(magnitude: T, sgn: Sgn) -> Self {
+    pub fn create(magnitude: T, sgn: Sgn, value: Option<F>) -> Self {
         Self {
             magnitude,
             sgn,
-            _field: PhantomData,
+            value: Cell::new(value),
         }
     }
 
     pub fn of_unsigned(magnitude: T) -> Self {
+        let value = magnitude.to_field();
         Self {
             magnitude,
             sgn: Sgn::Pos,
-            _field: PhantomData,
+            value: Cell::new(Some(value)),
         }
     }
 
     pub fn zero() -> Self {
-        Self {
-            magnitude: T::zero(),
-            sgn: Sgn::Pos,
-            _field: PhantomData,
-        }
+        Self::of_unsigned(T::zero())
     }
 
     pub fn negate(self) -> Self {
         Self {
             magnitude: self.magnitude,
             sgn: self.sgn.negate(),
-            _field: PhantomData,
+            value: Cell::new(self.value.get().map(|f| f.neg())),
         }
     }
 
@@ -109,10 +106,43 @@ where
         }
     }
 
-    pub fn value(&self) -> F {
-        let sgn: F = self.sgn.to_field();
-        let magnitude: F = self.magnitude.to_field();
-        magnitude * sgn
+    pub fn value(&self, w: &mut Witness<F>) -> F {
+        match self.value.get() {
+            Some(x) => x,
+            None => {
+                let sgn: F = self.sgn.to_field();
+                let magnitude: F = self.magnitude.to_field();
+                let value = w.exists_no_check(magnitude * sgn);
+                self.value.replace(Some(value));
+                value
+            }
+        }
+    }
+
+    pub fn force_value(&self) -> F {
+        match self.value.get() {
+            Some(x) => x,
+            None => {
+                let sgn: F = self.sgn.to_field();
+                let magnitude: F = self.magnitude.to_field();
+                magnitude * sgn
+            }
+        }
+    }
+
+    pub fn set_value(&self) {
+        match self.value.get() {
+            Some(_) => {}
+            None => {
+                let sgn: F = self.sgn.to_field();
+                let magnitude: F = self.magnitude.to_field();
+                self.value.replace(Some(magnitude * sgn));
+            }
+        }
+    }
+
+    pub fn try_get_value(&self) -> Option<F> {
+        self.value.get()
     }
 
     fn unchecked(&self) -> currency::Signed<T::Inner> {
@@ -128,8 +158,8 @@ where
     {
         let x = self;
 
-        let xv = x.value();
-        let yv = y.value();
+        let xv = x.value(w);
+        let yv = y.value(w);
 
         let sgn = w.exists({
             let x = x.unchecked();
@@ -149,12 +179,12 @@ where
         let (res_magnitude, overflow) =
             T::range_check_flagged(RangeCheckFlaggedKind::AddOrSub, magnitude, w);
 
-        let _res_value = field::mul(sgn.to_field(), magnitude, w);
+        let res_value = field::mul(sgn.to_field(), magnitude, w);
 
         let res = Self {
             magnitude: res_magnitude,
             sgn,
-            _field: PhantomData,
+            value: Cell::new(Some(res_value)),
         };
         (res, overflow)
     }
@@ -165,8 +195,8 @@ where
     {
         let x = self;
 
-        let xv: F = x.value();
-        let yv: F = y.value();
+        let xv: F = x.value(w);
+        let yv: F = y.value(w);
 
         let sgn = w.exists({
             let x = x.unchecked();
@@ -179,19 +209,19 @@ where
 
         range_check::<F, CURRENCY_NBITS>(magnitude, w);
 
-        Self::create(T::from_field(magnitude), sgn)
+        Self::create(T::from_field(magnitude), sgn, Some(res_value))
     }
 
     pub fn equal(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
         // We decompose this way because of OCaml evaluation order
-        let t2 = w.exists(other.value());
-        let t1 = w.exists(self.value());
+        let t2 = other.value(w);
+        let t1 = self.value(w);
         field::equal(t1, t2, w)
     }
 
     pub fn const_equal(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
-        let t2 = other.value();
-        let t1 = self.value();
+        let t2 = other.value(w);
+        let t1 = self.value(w);
         field::equal(t1, t2, w)
     }
 }
@@ -324,7 +354,7 @@ pub trait CheckedCurrency<F: FieldWitness>:
 
     fn add_signed(&self, d: CheckedSigned<F, Self>, w: &mut Witness<F>) -> Self {
         let t = self.to_field();
-        let d = d.value();
+        let d = d.value(w);
         let res = w.exists(t + d);
         range_check::<F, CURRENCY_NBITS>(res, w);
         Self::from_field(res)
@@ -332,7 +362,7 @@ pub trait CheckedCurrency<F: FieldWitness>:
 
     fn add_signed_flagged(&self, d: CheckedSigned<F, Self>, w: &mut Witness<F>) -> (Self, Boolean) {
         let t = self.to_field();
-        let d = d.value();
+        let d = d.value(w);
         let res = w.exists(t + d);
         let (res, overflow) = Self::range_check_flagged(RangeCheckFlaggedKind::AddOrSub, res, w);
         (res, overflow)
@@ -376,7 +406,7 @@ impl<F: FieldWitness> CheckedBalance<F> {
         d: CheckedSigned<F, CheckedAmount<F>>,
         w: &mut Witness<F>,
     ) -> Self {
-        let d = CheckedSigned::<F, Self>::create(Self(d.magnitude.0), d.sgn);
+        let d = CheckedSigned::<F, Self>::create(Self(d.magnitude.0), d.sgn, d.value.get().clone());
         self.add_signed(d, w)
     }
 
@@ -400,7 +430,11 @@ impl<F: FieldWitness> CheckedBalance<F> {
         amount: CheckedSigned<F, CheckedAmount<F>>,
         w: &mut Witness<F>,
     ) -> (Self, Boolean) {
-        let amount = CheckedSigned::<F, Self>::create(Self(amount.magnitude.0), amount.sgn);
+        let amount = CheckedSigned::<F, Self>::create(
+            Self(amount.magnitude.0),
+            amount.sgn,
+            amount.value.get().clone(),
+        );
         self.add_signed_flagged(amount, w)
     }
 }
@@ -416,7 +450,7 @@ impl<F: FieldWitness> CheckedSigned<F, CheckedAmount<F>> {
         CheckedSigned {
             magnitude: CheckedFee(self.magnitude.0),
             sgn: self.sgn,
-            _field: PhantomData,
+            value: self.value.clone(),
         }
     }
 }
@@ -462,7 +496,7 @@ macro_rules! impl_currency {
                 CheckedSigned {
                     magnitude: self.magnitude.to_checked(),
                     sgn: self.sgn,
-                    _field: PhantomData,
+                    value: Cell::new(None),
                 }
             }
         }

@@ -123,11 +123,6 @@ fn merge_main(
     let _supply_increase = {
         let s1 = s1.supply_increase.to_checked::<Fp>();
         let s2 = s2.supply_increase.to_checked::<Fp>();
-
-        // Made by `value` call in `add`
-        w.exists_no_check(s1.value());
-        w.exists_no_check(s2.value());
-
         s1.add(&s2, w)
     };
 
@@ -147,12 +142,12 @@ fn merge_main(
             fee_excess_r,
             ..
         } = statement.fee_excess;
-        w.exists_no_check(fee_excess_l.to_checked::<Fp>().value());
-        w.exists_no_check(fee_excess_r.to_checked::<Fp>().value());
+        fee_excess_l.to_checked::<Fp>().value(w);
+        fee_excess_r.to_checked::<Fp>().value(w);
 
         // Only `Statement.supply_increase`, not `supply_increase`
         let supply_increase = statement.supply_increase;
-        w.exists_no_check(supply_increase.to_checked::<Fp>().value());
+        supply_increase.to_checked::<Fp>().value(w);
     }
 
     (s1, s2)

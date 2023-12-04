@@ -94,7 +94,8 @@ where
     fn negate(&self) -> Self;
     fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool);
     fn of_unsigned(unsigned: Self::Amount) -> Self;
-    fn value(&self) -> Fp;
+    fn try_get_value(&self) -> Option<Fp>;
+    fn force_value(&self) -> Fp;
 }
 
 pub trait BalanceInterface

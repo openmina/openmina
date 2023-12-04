@@ -289,10 +289,10 @@ impl FeeExcess {
         w: &mut Witness<Fp>,
     ) -> (TokenId, Signed<Fee>, TokenId, Signed<Fee>) {
         // Represent amounts as field elements.
-        let fee_excess1_l = w.exists(fee_excess1_l.to_checked::<Fp>().value());
-        let fee_excess1_r = w.exists(fee_excess1_r.to_checked::<Fp>().value());
-        let fee_excess2_l = w.exists(fee_excess2_l.to_checked::<Fp>().value());
-        let fee_excess2_r = w.exists(fee_excess2_r.to_checked::<Fp>().value());
+        let fee_excess1_l = fee_excess1_l.to_checked::<Fp>().value(w);
+        let fee_excess1_r = fee_excess1_r.to_checked::<Fp>().value(w);
+        let fee_excess2_l = fee_excess2_l.to_checked::<Fp>().value(w);
+        let fee_excess2_r = fee_excess2_r.to_checked::<Fp>().value(w);
 
         let ((fee_token1_l, fee_excess1_l), (fee_token2_l, fee_excess2_l)) =
             eliminate_fee_excess_checked(
@@ -322,10 +322,10 @@ impl FeeExcess {
         };
 
         let fee_excess_l = w.exists(convert_to_currency(fee_excess_l));
-        w.exists_no_check(fee_excess_l.to_checked::<Fp>().value()); // Made by `Fee.Signed.Checked.to_field_var` call
+        fee_excess_l.to_checked::<Fp>().value(w); // Made by `Fee.Signed.Checked.to_field_var` call
 
         let fee_excess_r = w.exists(convert_to_currency(fee_excess_r));
-        w.exists_no_check(fee_excess_r.to_checked::<Fp>().value()); // Made by `Fee.Signed.Checked.to_field_var` call
+        fee_excess_r.to_checked::<Fp>().value(w); // Made by `Fee.Signed.Checked.to_field_var` call
 
         (fee_token_l, fee_excess_l, fee_token_r, fee_excess_r)
     }
@@ -363,8 +363,8 @@ fn eliminate_fee_excess<'a>(
 }
 
 pub fn assert_equal_checked(_t1: &FeeExcess, t2: &FeeExcess, w: &mut Witness<Fp>) {
-    w.exists(t2.fee_excess_l.to_checked::<Fp>().value());
-    w.exists(t2.fee_excess_r.to_checked::<Fp>().value());
+    t2.fee_excess_l.to_checked::<Fp>().value(w);
+    t2.fee_excess_r.to_checked::<Fp>().value(w);
 }
 
 fn eliminate_fee_excess_checked<'a>(
