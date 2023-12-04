@@ -8,11 +8,13 @@ Peer discovery between the two node implementations is a good starting point. We
 We have developed a global test to ensure that any OCaml node can discover and connect to the Openmina node.
 
 
-### Steps:
+### Steps
 
 In these diagrams, we describe three different types of connections between peers:
 
 <img width="814" alt="legend" src="https://github.com/openmina/openmina/assets/60480123/c2bb452d-2104-4acf-bf69-ee3025c6d6da">
+
+
 
 
 1. We launch an OCaml node as a seed node. We run three additional non-seed OCaml nodes, connecting only to the seed node.
