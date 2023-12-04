@@ -421,7 +421,7 @@ _This test ensures that the blockchain network can seamlessly undergo protocol u
 These expanded descriptions provide a comprehensive understanding of the key tests for assessing the functionality and security of a blockchain node. Each test contributes to the overall robustness and reliability of the blockchain network.
 
 
-### 7. How to run tests
+## 7. How to run tests
 
 cargo test --release --features scenario-generators
 
