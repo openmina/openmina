@@ -13,11 +13,10 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-          components: rustfmt, clippy
+        run: |
+          rustup install nightly
+          rustup override set nightly
+          rustup component add clippy rustfmt
 
       # - name: Check
       #   uses: actions-rs/cargo@v1
@@ -31,11 +30,14 @@ jobs:
       #   # don't fail the job until clippy is fixed
       #   continue-on-error: true
 
-      - name: Release build
-        uses: actions-rs/cargo@v1
+      - name: Setup Rust Cache
+        uses: Swatinem/rust-cache@v2
         with:
-          command: build
-          args: --release --bin openmina
+          prefix-key: "ver-0"
+
+      - name: Release build
+        run: |
+          cargo build --release --bin openmina
 
       - name: Upload binaries
         uses: actions/upload-artifact@v3
