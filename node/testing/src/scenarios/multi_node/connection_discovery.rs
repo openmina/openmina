@@ -3,8 +3,8 @@ use std::time::Duration;
 use node::{
     event_source::Event,
     p2p::{
-        connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionState}, P2pConnectionEvent, P2pDiscoveryEvent,
-        P2pEvent, P2pPeerStatus, PeerId,
+        connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionState},
+        P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent, P2pPeerStatus, PeerId,
     },
     State,
 };
@@ -267,7 +267,8 @@ impl OCamlToRustViaSeed {
 
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
-        let seed_node = ocaml::Node::spawn::<_, &str>(8302, 8303, 8301, &dir.join("seed"), []).unwrap();
+        let seed_node =
+            ocaml::Node::spawn::<_, &str>(8302, 8303, 8301, &dir.join("seed"), []).unwrap();
         let seed_peer_id = seed_node.peer_id();
         let seed_ma = format!("/ip4/127.0.0.1/tcp/8302/p2p/{}", seed_peer_id);
         let seed_peer_id: PeerId = seed_peer_id.into();
@@ -286,7 +287,10 @@ impl OCamlToRustViaSeed {
             .unwrap();
 
         let connected = driver
-            .wait_for(Duration::from_secs(5), connection_finalized_event(|peer| peer == &seed_peer_id))
+            .wait_for(
+                Duration::from_secs(5),
+                connection_finalized_event(|peer| peer == &seed_peer_id),
+            )
             .await
             .unwrap()
             .expect("expected connected event");
@@ -358,15 +362,17 @@ impl RustToOCamlViaSeed {
 
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
-        let seed_node = ocaml::Node::spawn::<_, &str>(8302, 8303, 8301, &dir.join("seed"), []).unwrap();
-        let seed_peer_id = &seed_node.peer_id;
+        let seed_node =
+            ocaml::Node::spawn::<_, &str>(8302, 8303, 8301, &dir.join("seed"), []).unwrap();
+        let seed_peer_id = seed_node.peer_id();
         let seed_ma = format!("/ip4/127.0.0.1/tcp/8302/p2p/{}", seed_peer_id);
+        let seed_peer_id: PeerId = seed_peer_id.into();
 
         tokio::time::sleep(Duration::from_secs(60)).await;
 
         let ocaml_node =
             ocaml::Node::spawn(18302, 18303, 18301, &dir.join("ocaml"), [&seed_ma]).unwrap();
-        let ocaml_peer_id = &ocaml_node.peer_id;
+        let ocaml_peer_id = &ocaml_node.peer_id().into();
 
         seed_node.wait_for_p2p(Duration::from_secs(5 * 60)).unwrap();
         ocaml_node
@@ -385,7 +391,10 @@ impl RustToOCamlViaSeed {
             .unwrap();
 
         let connected = driver
-            .wait_for(Duration::from_secs(5), connection_finalized_event(|peer| &peer == &seed_peer_id))
+            .wait_for(
+                Duration::from_secs(5),
+                connection_finalized_event(|peer| peer == &seed_peer_id),
+            )
             .await
             .unwrap()
             .expect("expected connected event");
@@ -447,25 +456,20 @@ impl RustToOCamlViaSeed {
         let p2p = &driver.runner.node(rust_node_id).unwrap().state().p2p;
 
         assert!(
-            p2p.kademlia
-               .known_peers
-               .contains_key(&seed_peer_id.clone().into()),
+            p2p.kademlia.known_peers.contains_key(&seed_peer_id),
             "should know seed node"
         );
         assert!(
-            p2p.kademlia
-               .known_peers
-               .contains_key(&ocaml_peer_id.clone().into()),
+            p2p.kademlia.known_peers.contains_key(&ocaml_peer_id),
             "should know ocaml node"
         );
 
         assert!(matches!(
-            &p2p.peers.get(&ocaml_peer_id.clone().into()).expect("ocaml node should be connected").status,
+            &p2p.peers.get(&ocaml_peer_id).expect("ocaml node should be connected").status,
             P2pPeerStatus::Ready(ready) if !ready.is_incoming
         ));
     }
 }
-
 
 fn match_addr_with_port_and_peer_id(
     port: u16,
