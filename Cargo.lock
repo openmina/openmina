@@ -4051,6 +4051,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "url",
+ "void",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-timer",

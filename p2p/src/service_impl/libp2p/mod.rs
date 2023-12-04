@@ -2,6 +2,8 @@ mod behavior;
 pub use behavior::Event as BehaviourEvent;
 pub use behavior::*;
 
+mod trivial;
+
 use mina_p2p_messages::rpc::GetSomeInitialPeersV1ForV2;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -228,6 +230,7 @@ impl Libp2pService {
             },
             identify,
             kademlia,
+            trivial: trivial::Behaviour::new([StreamProtocol::new("coda/rpcs/0.0.1")]),
             rendezvous_string: format!("/coda/0.0.1/{}", chain_id),
             event_source_sender,
             ongoing: BTreeMap::default(),

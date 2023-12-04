@@ -1,21 +1,25 @@
 use std::collections::BTreeMap;
 
-use libp2p::{gossipsub, identify, swarm::NetworkBehaviour, PeerId};
+use libp2p::{
+    gossipsub, identify,
+    kad::{self, record::store::MemoryStore},
+    swarm::NetworkBehaviour,
+    PeerId,
+};
+use libp2p_rpc_behaviour as rpc;
 use openmina_core::channels::mpsc;
 
+use super::trivial;
 use crate::P2pEvent;
-
-use libp2p_rpc_behaviour::{Behaviour as RpcBehaviour, Event as RpcEvent, StreamId};
-
-use libp2p::kad::{self, record::store::MemoryStore};
 
 #[derive(NetworkBehaviour)]
 #[behaviour(to_swarm = "Event")]
 pub struct Behaviour<E: 'static + From<P2pEvent>> {
     pub gossipsub: gossipsub::Behaviour,
-    pub rpc: RpcBehaviour,
+    pub rpc: rpc::Behaviour,
     pub identify: identify::Behaviour,
     pub kademlia: kad::Behaviour<MemoryStore>,
+    pub trivial: trivial::Behaviour<1>,
     #[behaviour(ignore)]
     pub rendezvous_string: String,
     #[behaviour(ignore)]
@@ -27,7 +31,7 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
     // map from (peer, msg_id) into (stream_id, tag, version)
     //
     #[behaviour(ignore)]
-    pub ongoing_incoming: BTreeMap<(PeerId, u32), (StreamId, String, i32)>,
+    pub ongoing_incoming: BTreeMap<(PeerId, u32), (rpc::StreamId, String, i32)>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -35,7 +39,8 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
 pub enum Event {
     // Identify(IdentifyEvent),
     Gossipsub(gossipsub::Event),
-    Rpc((PeerId, RpcEvent)),
+    Rpc((PeerId, rpc::Event)),
     Identify(identify::Event),
     Kademlia(kad::Event),
+    Trivial((PeerId, trivial::Event)),
 }
