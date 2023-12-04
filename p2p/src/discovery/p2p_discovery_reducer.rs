@@ -27,6 +27,9 @@ impl P2pKademliaState {
                 addresses,
             }) => {
                 self.routes.insert(*peer_id, addresses.clone());
+                if let Some(addr) = addresses.first() {
+                    self.known_peers.entry(*peer_id).or_insert(addr.clone());
+                }
             }
             P2pDiscoveryAction::KademliaSuccess(action) => {
                 // TODO(vlad9486): handle failure, decrement the counter

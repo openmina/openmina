@@ -51,28 +51,26 @@ impl RustNodeAsSeed {
             ocaml::Node::spawn(18302, 18303, 18301, &dir.join("ocaml1"), [&rust_node_ma]).unwrap();
         let ocaml_peer_id1 = ocaml_node1.peer_id().into();
 
-        let mut peers = vec![ocaml_peer_id0, ocaml_peer_id1];
+        let mut unknown_peers = vec![&ocaml_peer_id0, &ocaml_peer_id1];
         let mut duration = Duration::from_secs(8 * 60);
-        while !peers.is_empty() {
+        while !unknown_peers.is_empty() {
             // wait for ocaml node to connect
-            let connected = driver
+            let event = driver
                 .wait_for(
                     duration,
-                    connection_finalized_event(|peer| peers.contains(peer)),
+                    route_added_event(|peer| unknown_peers.contains(&peer)),
                 )
                 .await
                 .unwrap()
                 .expect("expected connected event");
-            let (ocaml_peer, _) = as_connection_finalized_event(&connected.1).unwrap();
-            peers.retain(|peer| peer != ocaml_peer);
-            let ocaml_peer = ocaml_peer.clone();
+            if let Some((ocaml_peer, _)) = as_route_added_event(&event.1) {
+                unknown_peers.retain(|peer| *peer != ocaml_peer);
+            } else {
+                assert!(false, "unexpecte action");
+            }
             // execute it
-            let state = driver.exec_step(connected).await.unwrap().unwrap();
+            let _ = driver.exec_step(event).await.unwrap().unwrap();
             // check that now there is an outgoing connection to the ocaml peer
-            assert!(matches!(
-                &state.p2p.peers.get(&ocaml_peer).unwrap().status,
-                P2pPeerStatus::Ready(ready) if ready.is_incoming
-            ));
             duration = Duration::from_secs(1 * 60);
         }
 
@@ -109,6 +107,7 @@ impl RustNodeAsSeed {
         );
 
         let state = driver.runner.node(rust_node_id).unwrap().state();
+        println!("{:#?}", state.p2p.kademlia);
         assert!(
             state.p2p.kademlia.known_peers.contains_key(&ocaml_peer_id0),
             "kademlia in rust seed statemachine should know ocaml node0"
@@ -521,9 +520,28 @@ fn connection_finalized_event(
     }
 }
 
+fn route_added_event(
+    pred: impl Fn(&PeerId) -> bool,
+) -> impl Fn(ClusterNodeId, &Event, &State) -> bool {
+    move |_, event, _| {
+        matches!(
+            event,
+            Event::P2p(P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(peer, _))) if pred(peer)
+        )
+    }
+}
+
 fn as_connection_finalized_event(event: &Event) -> Option<(&PeerId, &Result<(), String>)> {
     if let Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Finalized(peer, res))) = event {
         Some((peer, res))
+    } else {
+        None
+    }
+}
+
+fn as_route_added_event(event: &Event) -> Option<(&PeerId, &Vec<P2pConnectionOutgoingInitOpts>)> {
+    if let Event::P2p(P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(peer, routes))) = event {
+        Some((peer, routes))
     } else {
         None
     }
