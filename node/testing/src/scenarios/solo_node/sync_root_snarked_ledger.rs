@@ -122,7 +122,7 @@ impl SoloNodeSyncRootSnarkedLedger {
             let snarked_state = state
                 .transition_frontier
                 .sync
-                .root_ledger()
+                .ledger()
                 .unwrap()
                 .snarked()
                 .unwrap();
@@ -179,7 +179,7 @@ impl SoloNodeSyncRootSnarkedLedger {
             let snarked_state = state
                 .transition_frontier
                 .sync
-                .root_ledger()
+                .ledger()
                 .unwrap()
                 .snarked()
                 .unwrap();
@@ -235,7 +235,7 @@ impl SoloNodeSyncRootSnarkedLedger {
             let snarked_state = state
                 .transition_frontier
                 .sync
-                .root_ledger()
+                .ledger()
                 .unwrap()
                 .snarked()
                 .unwrap();

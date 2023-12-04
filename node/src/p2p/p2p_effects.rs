@@ -181,7 +181,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
         P2pAction::Disconnection(action) => match action {
             P2pDisconnectionAction::Init(action) => action.effects(&meta, store),
             P2pDisconnectionAction::Finish(action) => {
-                if let Some(s) = store.state().transition_frontier.sync.root_ledger() {
+                if let Some(s) = store.state().transition_frontier.sync.ledger() {
                     let rpc_ids = s
                         .snarked()
                         .map(|s| s.peer_query_pending_rpc_ids(&action.peer_id).collect())

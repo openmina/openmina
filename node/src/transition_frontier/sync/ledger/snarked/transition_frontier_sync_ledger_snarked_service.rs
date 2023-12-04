@@ -8,7 +8,7 @@ pub trait TransitionFrontierSyncLedgerSnarkedService: redux::Service {
         snarked_ledger_hash: LedgerHash,
         parent: &LedgerAddress,
         hashes: (LedgerHash, LedgerHash),
-    ) -> Result<(), ()>;
+    ) -> Result<(), String>;
 
     fn accounts_set(
         &mut self,

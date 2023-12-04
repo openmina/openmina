@@ -29,13 +29,13 @@ impl TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {
 impl TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         let state = store.state();
-        let Some(root_ledger) = state.transition_frontier.sync.root_ledger() else {
+        let Some(ledger) = state.transition_frontier.sync.ledger() else {
             return;
         };
-        let Some(staged_ledger) = root_ledger.staged() else {
+        let Some(staged_ledger) = ledger.staged() else {
             return;
         };
-        let root_block_hash = root_ledger.block().hash.clone();
+        let root_block_hash = ledger.block().hash.clone();
 
         let ready_peers = staged_ledger
             .filter_available_peers(state.p2p.ready_rpc_peers_iter())
@@ -112,7 +112,7 @@ impl TransitionFrontierSyncLedgerStagedReconstructInitAction {
     where
         S: TransitionFrontierSyncLedgerStagedService,
     {
-        let ledger_state = store.state().transition_frontier.sync.root_ledger();
+        let ledger_state = store.state().transition_frontier.sync.ledger();
         let Some((block, parts)) = ledger_state.and_then(|s| s.staged()?.block_with_parts()) else {
             return;
         };

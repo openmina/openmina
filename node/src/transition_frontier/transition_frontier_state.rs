@@ -17,7 +17,7 @@ pub struct TransitionFrontierState {
     /// Needed protocol states for applying transactions in the root
     /// scan state that we don't have in the `best_chain` list.
     pub needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
-    /// Last transition frontier synchronization state
+    /// Transition frontier synchronization state
     pub sync: TransitionFrontierSyncState,
 }
 

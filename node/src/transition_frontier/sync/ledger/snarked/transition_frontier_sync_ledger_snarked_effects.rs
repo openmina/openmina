@@ -4,6 +4,7 @@ use p2p::PeerId;
 use redux::ActionMeta;
 
 use crate::ledger::{LedgerAddress, LEDGER_DEPTH};
+use crate::transition_frontier::sync::TransitionFrontierSyncState;
 use crate::Store;
 
 use super::{
@@ -26,8 +27,37 @@ fn query_peer_init<S: redux::Service>(
 ) {
     let Some((ledger_hash, rpc_id)) = None.or_else(|| {
         let state = store.state();
-        let root_ledger = state.transition_frontier.sync.root_ledger()?;
-        let ledger_hash = root_ledger.snarked_ledger_hash();
+        let ledger = state.transition_frontier.sync.ledger()?;
+        // TODO(tizoc): depending on state the hash is different
+        let ledger_hash = match store.state().transition_frontier.sync {
+            TransitionFrontierSyncState::StakingLedgerPending { .. } => {
+                &ledger
+                    .block()
+                    .header()
+                    .protocol_state
+                    .body
+                    .consensus_state
+                    .staking_epoch_data
+                    .ledger
+                    .hash
+            }
+            TransitionFrontierSyncState::NextEpochLedgerPending { .. } => {
+                &ledger
+                    .block()
+                    .header()
+                    .protocol_state
+                    .body
+                    .consensus_state
+                    .next_epoch_data
+                    .ledger
+                    .hash
+            }
+            TransitionFrontierSyncState::RootLedgerPending { .. } => ledger.snarked_ledger_hash(),
+            _ => {
+                println!("@@@@@ unexpected state when handling query_peer_init");
+                return None;
+            }
+        };
 
         let p = store.state().p2p.get_ready_peer(&peer_id)?;
         let rpc_id = p.channels.rpc.next_local_rpc_id();
@@ -78,11 +108,12 @@ impl TransitionFrontierSyncLedgerSnarkedPeersQueryAction {
             .state()
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.snarked())
             .map_or(vec![], |s| s.sync_retry_iter().collect());
         retry_addresses.reverse();
 
+        // TODO(tizoc): revise and document this logic
         for (peer_id, _) in peer_ids {
             if let Some(address) = retry_addresses.last() {
                 if store.dispatch(TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction {
@@ -94,11 +125,12 @@ impl TransitionFrontierSyncLedgerSnarkedPeersQueryAction {
                 }
             }
 
+            // TODO(tizoc): address should change depending on synchronization target
             let address = store
                 .state()
                 .transition_frontier
                 .sync
-                .root_ledger()
+                .ledger()
                 .and_then(|s| s.snarked())
                 .and_then(|s| s.sync_next());
             match address {
@@ -135,8 +167,8 @@ impl TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction {
 
 impl TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        let root_ledger = store.state().transition_frontier.sync.root_ledger();
-        let Some(address) = root_ledger
+        let ledger = store.state().transition_frontier.sync.ledger();
+        let Some(address) = ledger
             .and_then(|s| s.snarked()?.peer_query_get(&self.peer_id, self.rpc_id))
             .map(|(addr, _)| addr.clone())
         else {
@@ -171,13 +203,45 @@ impl TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction {
     where
         S: TransitionFrontierSyncLedgerSnarkedService,
     {
-        let Some(block) = store.state().transition_frontier.sync.root_ledger() else {
+        let Some(block) = store.state().transition_frontier.sync.ledger() else {
             return;
         };
-        let snarked_ledger_hash = block.snarked_ledger_hash().clone();
+        let ledger_hash = match store.state().transition_frontier.sync {
+            TransitionFrontierSyncState::StakingLedgerPending { .. } => block
+                .block()
+                .header()
+                .protocol_state
+                .body
+                .consensus_state
+                .staking_epoch_data
+                .ledger
+                .hash
+                .clone(),
+            TransitionFrontierSyncState::NextEpochLedgerPending { .. } => block
+                .block()
+                .header()
+                .protocol_state
+                .body
+                .consensus_state
+                .next_epoch_data
+                .ledger
+                .hash
+                .clone(),
+            TransitionFrontierSyncState::RootLedgerPending { .. } => {
+                block.snarked_ledger_hash().clone()
+            }
+            _ => {
+                println!("@@@@@ unexpected state when handling TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction");
+                return;
+            }
+        };
+        //// TODO(tizoc): either this block must match the end of the epochs or depending on the state
+        //// we have to use a different block
+        //// Also, what happens if the ledger changes during the request? this will not be correct
+        //let snarked_ledger_hash = block.snarked_ledger_hash().clone();
         store
             .service
-            .hashes_set(snarked_ledger_hash, &self.address, self.hashes)
+            .hashes_set(ledger_hash, &self.address, self.hashes)
             .unwrap();
 
         if !store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {}) {
@@ -191,7 +255,7 @@ impl TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction {
     where
         S: TransitionFrontierSyncLedgerSnarkedService,
     {
-        let Some(block) = store.state().transition_frontier.sync.root_ledger() else {
+        let Some(block) = store.state().transition_frontier.sync.ledger() else {
             return;
         };
         let snarked_ledger_hash = block.snarked_ledger_hash().clone();

@@ -96,6 +96,8 @@ impl TransitionFrontierSyncLedgerSnarkedState {
     }
 
     pub fn ledger_hash(&self) -> &LedgerHash {
+        //block.header().protocol_state.body.consensus_state.staking_epoch_data.ledger.hash;
+        // TODO: this should change depending on the target kind (staking/next_epoch/root)
         self.block().snarked_ledger_hash()
     }
 
