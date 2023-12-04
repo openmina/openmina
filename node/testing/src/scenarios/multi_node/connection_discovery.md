@@ -12,7 +12,7 @@ This test ensures that after an OCaml node connects to the Rust node, its addres
 becomes available in the Rust node’s Kademlia state. It also checks whether the OCaml \
 node has a peer with the correct peer_id and a port corresponding to the Rust node.
 
-Steps:
+**Steps:**
 
 
 
@@ -29,7 +29,7 @@ This test ensures that after the Rust node connects to an OCaml node with a know
 address, it adds its address to its Kademlia state. It also checks that the OCaml \
 node has a peer with the correct peer_id and port corresponding to the Rust node.
 
-Steps:
+**Steps:**
 
 
 
@@ -44,7 +44,7 @@ Steps:
 
 This test ensures that an OCaml node can connect to the Rust node, the address of which can only be discovered from an OCaml seed node, and its address becomes available in the Rust node’s Kademlia state. It also checks whether the OCaml node has a peer with the correct peer_id and a port corresponding to the Rust node.
 
-Steps:
+**Steps:**
 
 
 
@@ -60,7 +60,7 @@ Steps:
 
 This test ensures that the Rust node can connect to an OCaml peer, the address of whom can only be discovered from an OCaml seed node, and that the Rust node adds its address to its Kademlia state. It also checks whether the OCaml node has a peer with the correct peer_id and port corresponding to the Rust node.
 
-Steps:
+**Steps:**
 
 
 
@@ -79,7 +79,7 @@ OCaml nodes that only know about the Rust node’s address. After these nodes co
 to the Rust node, the test makes sure that they also have each other’s addresses \
 as their peers.
 
-Steps:
+**Steps:**
 
 
 
