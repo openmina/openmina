@@ -680,7 +680,13 @@ impl Libp2pService {
                                             // `a` misses the p2p part
                                             let mut addr = a.clone();
                                             addr.push(Protocol::P2p(peer.clone()));
-                                            P2pConnectionOutgoingInitLibp2pOpts::try_from(&addr).ok()
+                                            match P2pConnectionOutgoingInitLibp2pOpts::try_from(&addr) {
+                                                Ok(addr) => Some(addr),
+                                                Err(err) => {
+                                                    openmina_core::warn!(openmina_core::log::system_time(); "Error converting Kad route address {a}: {err}");
+                                                    None
+                                                }
+                                            }
                                         })
                                         .map(P2pConnectionOutgoingInitOpts::LibP2P)
                                         .collect(),
