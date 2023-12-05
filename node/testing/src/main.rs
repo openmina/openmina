@@ -44,6 +44,11 @@ impl Command {
             Self::ScenariosGenerate(cmd) => {
                 #[cfg(feature = "scenario-generators")]
                 {
+                    use openmina_node_testing::network_debugger::Debugger;
+
+                    // TODO: find free port
+                    let mut debugger = Debugger::spawn(8000);
+
                     if let Some(name) = cmd.name {
                         if let Some(scenario) = Scenarios::iter()
                             .into_iter()
@@ -58,6 +63,12 @@ impl Command {
                             rt.block_on(scenario.run_and_save_from_scratch(Default::default()));
                         }
                     }
+
+                    for (id, msg) in debugger.messages() {
+                        eprintln!("{id} {}", serde_json::to_string(&msg).unwrap());
+                    }
+
+                    debugger.kill();
 
                     Ok(())
                 }

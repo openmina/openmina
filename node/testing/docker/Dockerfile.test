@@ -1,9 +1,14 @@
 FROM mina-openmina-builder:latest as builder
 
-RUN git fetch && git checkout feat/kademlia
+RUN apt-get -y install libssl-dev pkg-config
+
+RUN git fetch && git checkout feat/tests-with-debugger
 
 RUN source ~/.cargo/env && cargo +nightly-2023-10-01 build --release -p openmina-node-testing
 
-FROM vladsimplestakingcom/mina-light:2.0.0rampup4
+# FROM vladsimplestakingcom/mina-light:2.0.0rampup4
+FROM vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
 
 COPY --from=builder /openmina/target/release/openmina-node-testing /usr/local/bin/openmina-node-testing
+
+ENV BPF_ALIAS="auto-0.0.0.0"

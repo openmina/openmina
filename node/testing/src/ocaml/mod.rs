@@ -27,7 +27,7 @@ impl Node {
         self.child.kill().expect("kill");
     }
 
-    const PRIVKEY_PATH: &str = ".libp2p/key";
+    const PRIVKEY_PATH: &'static str = ".libp2p/key";
 
     fn privkey_path(dir: &Path) -> PathBuf {
         dir.join(Self::PRIVKEY_PATH)
@@ -83,6 +83,7 @@ impl Node {
         let mut cmd = Command::new("mina");
 
         cmd.env("MINA_LIBP2P_PASS", "");
+        cmd.env("BPF_ALIAS", "auto-0.0.0.0");
 
         cmd.arg("daemon");
         cmd.arg("--config-dir").arg(&dir.join(".config"));
