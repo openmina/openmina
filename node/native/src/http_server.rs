@@ -10,8 +10,9 @@ use warp::{
 };
 
 use node::rpc::{
-    ActionStatsQuery, RpcRequest, RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse,
-    RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse, SyncStatsQuery,
+    ActionStatsQuery, RpcPeerInfo, RpcRequest, RpcScanStateSummaryGetQuery,
+    RpcScanStateSummaryGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse,
+    SyncStatsQuery,
 };
 use openmina_core::snark::SnarkJobId;
 
@@ -85,6 +86,19 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             with_json_reply(&result, StatusCode::OK)
         }
     });
+
+    let rpc_sender_clone = rpc_sender.clone();
+    let peers_get = warp::path!("state" / "peers")
+        .and(warp::get())
+        .then(move || {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+            async move {
+                let result: Option<Vec<RpcPeerInfo>> =
+                    rpc_sender_clone.oneshot_request(RpcRequest::PeersGet).await;
+
+                with_json_reply(&result, StatusCode::OK)
+            }
+        });
 
     // TODO(binier): make endpoint only accessible locally.
     let stats = {
@@ -352,6 +366,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     #[cfg(feature = "p2p-webrtc")]
     let routes = signaling.or(state_get);
     let routes = routes
+        .or(peers_get)
         .or(stats)
         .or(scan_state_summary_get)
         .or(snark_pool_jobs_get)

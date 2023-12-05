@@ -101,10 +101,10 @@ use crate::rpc::{
     RpcP2pConnectionIncomingPendingAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
-    RpcP2pConnectionOutgoingSuccessAction, RpcReadinessCheckAction, RpcScanStateSummaryGetAction,
-    RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction, RpcSnarkerConfigGetAction,
-    RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction,
-    RpcSyncStatsGetAction,
+    RpcP2pConnectionOutgoingSuccessAction, RpcPeersGetAction, RpcReadinessCheckAction,
+    RpcScanStateSummaryGetAction, RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction,
+    RpcSnarkerConfigGetAction, RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction,
+    RpcSnarkersWorkersGetAction, RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{
     SnarkBlockVerifyAction, SnarkBlockVerifyErrorAction, SnarkBlockVerifyFinishAction,
@@ -312,6 +312,7 @@ pub enum ActionKind {
     RpcP2pConnectionOutgoingInit,
     RpcP2pConnectionOutgoingPending,
     RpcP2pConnectionOutgoingSuccess,
+    RpcPeersGet,
     RpcReadinessCheck,
     RpcScanStateSummaryGet,
     RpcSnarkPoolAvailableJobsGet,
@@ -406,7 +407,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 206;
+    pub const COUNT: u16 = 207;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -517,6 +518,7 @@ impl ActionKindGet for RpcAction {
             Self::GlobalStateGet(a) => a.kind(),
             Self::ActionStatsGet(a) => a.kind(),
             Self::SyncStatsGet(a) => a.kind(),
+            Self::PeersGet(a) => a.kind(),
             Self::P2pConnectionOutgoingInit(a) => a.kind(),
             Self::P2pConnectionOutgoingPending(a) => a.kind(),
             Self::P2pConnectionOutgoingError(a) => a.kind(),
@@ -842,6 +844,12 @@ impl ActionKindGet for RpcActionStatsGetAction {
 impl ActionKindGet for RpcSyncStatsGetAction {
     fn kind(&self) -> ActionKind {
         ActionKind::RpcSyncStatsGet
+    }
+}
+
+impl ActionKindGet for RpcPeersGetAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::RpcPeersGet
     }
 }
 

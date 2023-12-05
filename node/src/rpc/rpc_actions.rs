@@ -19,6 +19,8 @@ pub enum RpcAction {
     ActionStatsGet(RpcActionStatsGetAction),
     SyncStatsGet(RpcSyncStatsGetAction),
 
+    PeersGet(RpcPeersGetAction),
+
     P2pConnectionOutgoingInit(RpcP2pConnectionOutgoingInitAction),
     P2pConnectionOutgoingPending(RpcP2pConnectionOutgoingPendingAction),
     P2pConnectionOutgoingError(RpcP2pConnectionOutgoingErrorAction),
@@ -69,6 +71,13 @@ pub struct RpcSyncStatsGetAction {
 }
 
 impl redux::EnablingCondition<crate::State> for RpcSyncStatsGetAction {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcPeersGetAction {
+    pub rpc_id: RpcId,
+}
+
+impl redux::EnablingCondition<crate::State> for RpcPeersGetAction {}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcP2pConnectionOutgoingInitAction {
@@ -290,6 +299,8 @@ impl_into_global_action!(
     RpcGlobalStateGetAction,
     RpcActionStatsGetAction,
     RpcSyncStatsGetAction,
+
+    RpcPeersGetAction,
 
     RpcP2pConnectionOutgoingInitAction,
     RpcP2pConnectionOutgoingPendingAction,
