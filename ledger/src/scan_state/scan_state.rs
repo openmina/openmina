@@ -1818,7 +1818,7 @@ impl ScanState {
         )
     }
 
-    fn get_snarked_ledger_sync<L, F, ApplyFirst, ApplySecond, ApplyFirstSparse>(
+    pub fn get_snarked_ledger_sync<L, F, ApplyFirst, ApplySecond, ApplyFirstSparse>(
         &self,
         ledger: &mut L,
         get_protocol_state: F,

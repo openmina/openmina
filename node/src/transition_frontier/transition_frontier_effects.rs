@@ -145,6 +145,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         stats.syncing_block_update(state);
                     }
                 }
+                // TODO(tizoc): push new snarked roots here?
                 a.effects(&meta, store);
             }
             // Bootstrap/Catchup is practically complete at this point.
@@ -161,7 +162,9 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 let Some(root_block) = chain.first() else {
                     return;
                 };
-                let Some(best_tip) = chain.last() else { return };
+                let Some(best_tip) = chain.last() else {
+                    return;
+                };
                 let ledgers_to_keep = chain
                     .iter()
                     .flat_map(|b| [b.snarked_ledger_hash(), b.staged_ledger_hash()])
@@ -190,6 +193,34 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         sender: own_peer_id,
                     })
                     .collect();
+
+                match (transition_frontier.best_chain.first(), sync.root_block()) {
+                    (Some(current_root), Some(new_root)) => {
+                        let current_root = current_root.clone();
+                        let new_root = new_root.clone();
+                        if current_root.snarked_ledger_hash() != new_root.snarked_ledger_hash() {
+                            let protocol_states = store
+                                .state()
+                                .transition_frontier
+                                .needed_protocol_states
+                                .clone();
+                            if let Err(error) = store.service.push_snarked_ledger(
+                                &protocol_states,
+                                &current_root,
+                                &new_root,
+                            ) {
+                                // TODO(tizoc): don't panic here
+                                panic!(
+                                    "Failed to push a new snarked ledger {}  -> {}: {}",
+                                    current_root.snarked_ledger_hash().to_string(),
+                                    new_root.snarked_ledger_hash().to_string(),
+                                    error
+                                );
+                            }
+                        }
+                    }
+                    _ => {}
+                };
 
                 let res = store.service.commit(ledgers_to_keep, root_block, best_tip);
                 let needed_protocol_states = res.needed_protocol_states;
