@@ -109,12 +109,12 @@ impl RustNodeAsSeed {
         let state = driver.runner.node(rust_node_id).unwrap().state();
         println!("{:#?}", state.p2p.kademlia);
         assert!(
-            state.p2p.kademlia.known_peers.contains_key(&ocaml_peer_id0),
-            "kademlia in rust seed statemachine should know ocaml node0"
+            state.p2p.kademlia.routes.contains_key(&ocaml_peer_id0),
+            "kademlia in rust seed statemachine should know ocaml node0's address"
         );
         assert!(
-            state.p2p.kademlia.known_peers.contains_key(&ocaml_peer_id1),
-            "kademlia in rust seed statemachine should know ocaml node1"
+            state.p2p.kademlia.routes.contains_key(&ocaml_peer_id1),
+            "kademlia in rust seed statemachine should know ocaml node1's address"
         );
     }
 }
