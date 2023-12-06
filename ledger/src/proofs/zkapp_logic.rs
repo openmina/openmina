@@ -58,7 +58,7 @@ fn assert_<Z: ZkappApplication>(_b: Z::Bool) -> Result<(), String> {
 }
 
 fn stack_frame_default<Z: ZkappApplication>(w: &mut Z::WitnessGenerator) -> Z::StackFrame {
-    Z::StackFrame::make(
+    Z::StackFrame::make_default(
         StackFrameMakeParams {
             caller: TokenId::default(),
             caller_caller: TokenId::default(),
@@ -81,11 +81,15 @@ fn pop_call_stack<Z: ZkappApplication>(
     });
 
     let on_none = stack_frame_default::<Z>(w);
-    let left = match next_frame.is_some {
-        Boolean::True => next_frame.data,
-        Boolean::False => on_none,
-    }
-    .on_if(w);
+
+    let left = Z::StackFrame::exists_on_if(
+        Z::Bool::of_boolean(next_frame.is_some),
+        ExistsParam {
+            True: next_frame.data,
+            False: on_none,
+        },
+        w,
+    );
 
     (left, right)
 }
@@ -187,11 +191,15 @@ fn get_next_account_update<Z: ZkappApplication>(
             Boolean::True => next_call_stack,
             Boolean::False => call_stack,
         });
-        let left = match current_is_empty.as_boolean() {
-            Boolean::True => next_forest,
-            Boolean::False => current_forest,
-        }
-        .on_if(w);
+
+        let left = Z::StackFrame::exists_on_if(
+            current_is_empty,
+            ExistsParam {
+                True: next_forest,
+                False: current_forest,
+            },
+            w,
+        );
         (left, right)
     };
 
@@ -258,17 +266,24 @@ fn get_next_account_update<Z: ZkappApplication>(
             )
         };
         let on_true = {
-            match remainder_of_current_forest_empty.as_boolean() {
-                Boolean::True => newly_popped_frame,
-                Boolean::False => remainder_of_current_forest_frame,
-            }
-            .on_if(w)
+            Z::StackFrame::exists_on_if(
+                remainder_of_current_forest_empty,
+                ExistsParam {
+                    True: newly_popped_frame,
+                    False: remainder_of_current_forest_frame,
+                },
+                w,
+            )
         };
-        match account_update_forest_empty.as_boolean() {
-            Boolean::True => on_true,
-            Boolean::False => on_false,
-        }
-        .on_if(w)
+
+        Z::StackFrame::exists_on_if(
+            account_update_forest_empty,
+            ExistsParam {
+                True: on_true,
+                False: on_false,
+            },
+            w,
+        )
     };
     GetNextAccountUpdateResult {
         account_update,
@@ -402,11 +417,14 @@ where
                             },
                             w,
                         );
-                        match is_start2.as_boolean() {
-                            Boolean::True => on_true,
-                            Boolean::False => local_state.stack_frame.clone(),
-                        }
-                        .on_if(w)
+                        Z::StackFrame::exists_on_if(
+                            is_start2,
+                            ExistsParam {
+                                True: on_true,
+                                False: local_state.stack_frame.clone(),
+                            },
+                            w,
+                        )
                     };
                     (left, right)
                 }

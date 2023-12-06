@@ -17,8 +17,8 @@ use crate::{
 
 use super::intefaces::{
     AccountUpdateInterface, AmountInterface, BoolInterface, CallForestInterface,
-    CallStackInterface, IndexInterface, Opt, SignedAmountInterface, StackFrameInterface,
-    StackFrameMakeParams, StackInterface, WitnessGenerator,
+    CallStackInterface, ExistsParam, IndexInterface, Opt, SignedAmountInterface,
+    StackFrameInterface, StackFrameMakeParams, StackInterface, WitnessGenerator,
 };
 
 impl<F: FieldWitness> WitnessGenerator<F> for () {
@@ -103,6 +103,7 @@ impl SignedAmountInterface for Signed<Amount> {
 impl StackFrameInterface for StackFrame {
     type Calls = CallForest<AccountUpdate>;
     type W = ();
+    type Bool = Boolean;
 
     fn caller(&self) -> crate::TokenId {
         todo!()
@@ -116,8 +117,14 @@ impl StackFrameInterface for StackFrame {
     fn make(params: StackFrameMakeParams<'_, Self::Calls>, w: &mut Self::W) -> Self {
         todo!()
     }
+    fn make_default(params: StackFrameMakeParams<'_, Self::Calls>, w: &mut Self::W) -> Self {
+        todo!()
+    }
     fn on_if(self, w: &mut Self::W) -> Self {
         self
+    }
+    fn exists_on_if(b: Self::Bool, param: ExistsParam<Self>, w: &mut Self::W) -> Self {
+        todo!()
     }
 }
 
@@ -178,6 +185,9 @@ impl BoolInterface for Boolean {
 
     fn as_boolean(&self) -> Boolean {
         *self
+    }
+    fn of_boolean(b: Boolean) -> Self {
+        b
     }
     fn true_() -> Self {
         Boolean::True

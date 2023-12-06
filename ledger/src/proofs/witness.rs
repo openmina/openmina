@@ -2747,6 +2747,44 @@ pub mod poseidon {
                         }
                     }
                     SpongeState::Squeezed(_n) => {
+                        eprintln!("Sponge::Squeezed({})", _n);
+                        self.state[0].add_assign(x);
+                        w.exists(self.state[0]); // Unknown
+                        self.sponge_state = SpongeState::Absorbed(1);
+                    }
+                }
+                self.nabsorb += 1;
+            }
+        }
+
+        pub fn absorb3(&mut self, x: &[F], w: &mut Witness<F>) {
+            // Hack to know when to ignore witness
+            // That should be removed once we use `cvar`
+            let mut first = true;
+
+            for x in x.iter() {
+                match self.sponge_state {
+                    SpongeState::Absorbed(n) => {
+                        if n == C::SPONGE_RATE {
+                            eprintln!("Sponge::Absorbed2_A({})", n);
+                            self.poseidon_block_cipher(first, w);
+                            self.sponge_state = SpongeState::Absorbed(1);
+                            self.state[0].add_assign(x);
+                            if self.nabsorb > 2 {
+                                w.exists(self.state[0]); // Good
+                            }
+                            first = false;
+                        } else {
+                            eprintln!("Sponge::Absorbed2_B({})", n);
+                            self.sponge_state = SpongeState::Absorbed(n + 1);
+                            self.state[n].add_assign(x);
+                            if self.nabsorb > 2 {
+                                w.exists(self.state[n]); // Good
+                            }
+                        }
+                    }
+                    SpongeState::Squeezed(_n) => {
+                        eprintln!("Sponge::Squeezed({})", _n);
                         self.state[0].add_assign(x);
                         w.exists(self.state[0]); // Unknown
                         self.sponge_state = SpongeState::Absorbed(1);
@@ -3736,6 +3774,23 @@ pub mod transaction_snark {
 
         let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state, Fp::get_params2());
         sponge.absorb(inputs, w);
+        sponge.squeeze(w)
+    }
+
+    pub fn checked_hash3(param: &str, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
+        // We hash the parameter first, without introducing values to the witness
+        let initial_state: [Fp; 3] = {
+            use crate::{param_to_field, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge};
+
+            let mut sponge =
+                ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(Fp::get_params());
+            sponge.absorb(&[param_to_field(param)]);
+            sponge.squeeze();
+            sponge.state
+        };
+
+        let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state, Fp::get_params2());
+        sponge.absorb3(inputs, w);
         sponge.squeeze(w)
     }
 

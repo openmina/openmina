@@ -43,7 +43,7 @@ use crate::{
 use super::intefaces::{
     AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
     AmountInterface, BalanceInterface, BoolInterface, CallForestInterface, CallStackInterface,
-    ControllerInterface, GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface,
+    ControllerInterface, ExistsParam, GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface,
     GlobalStateInterface, IndexInterface, LedgerInterface, LocalStateInterface, Opt,
     ReceiptChainHashInterface, SetOrKeepInterface, SignedAmountInterface, StackFrameInterface,
     StackFrameMakeParams, StackInterface, TokenIdInterface, TransactionCommitmentInterface,
@@ -293,6 +293,7 @@ impl CallForestInterface for SnarkCallForest {
 impl StackFrameInterface for StackFrameChecked {
     type Calls = SnarkCallForest;
     type W = Witness<Fp>;
+    type Bool = SnarkBool;
 
     fn caller(&self) -> crate::TokenId {
         let Self {
@@ -301,6 +302,7 @@ impl StackFrameInterface for StackFrameChecked {
                     caller,
                     caller_caller: _,
                     calls: _,
+                    is_default: _,
                 },
             ..
         } = self;
@@ -313,6 +315,7 @@ impl StackFrameInterface for StackFrameChecked {
                     caller: _,
                     caller_caller,
                     calls: _,
+                    is_default: _,
                 },
             ..
         } = self;
@@ -332,6 +335,22 @@ impl StackFrameInterface for StackFrameChecked {
             caller,
             caller_caller,
             calls: calls.clone(),
+            is_default: false,
+        };
+        Self::of_frame(frame)
+    }
+    fn make_default(params: StackFrameMakeParams<'_, Self::Calls>, w: &mut Self::W) -> Self {
+        let StackFrameMakeParams {
+            caller,
+            caller_caller,
+            calls,
+        } = params;
+
+        let frame = StackFrameCheckedFrame {
+            caller,
+            caller_caller,
+            calls: calls.clone(),
+            is_default: true,
         };
         Self::of_frame(frame)
     }
@@ -339,6 +358,25 @@ impl StackFrameInterface for StackFrameChecked {
         let frame: &StackFrameCheckedFrame = &*self;
         w.exists_no_check(frame);
         self
+    }
+    fn exists_on_if(b: Self::Bool, param: ExistsParam<Self>, w: &mut Self::W) -> Self {
+        let ExistsParam { True, False } = param;
+        let data = match b.as_boolean() {
+            Boolean::True => True.data.clone(),
+            Boolean::False => False.data.clone(),
+        };
+        {
+            let frame: &StackFrameCheckedFrame = &data;
+            w.exists_no_check(frame);
+        }
+        WithLazyHash::new(data, move |w: &mut Witness<Fp>| {
+            let on_false = False.hash(w);
+            let on_true = True.hash(w);
+            w.exists_no_check(match b.as_boolean() {
+                Boolean::True => on_true,
+                Boolean::False => on_false,
+            })
+        })
     }
 }
 
@@ -1057,6 +1095,9 @@ impl BoolInterface for SnarkBool {
 
     fn as_boolean(&self) -> Boolean {
         self.as_boolean()
+    }
+    fn of_boolean(b: Boolean) -> Self {
+        CircuitVar::Var(b)
     }
     fn true_() -> Self {
         CircuitVar::Constant(Boolean::True)

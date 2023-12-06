@@ -1137,7 +1137,7 @@ fn zkapp_main(
     let zkapp_input = Rc::new(RefCell::new(None));
     let must_verify = Rc::new(RefCell::new(Boolean::True));
 
-    spec.iter().rev().fold(init, |acc, account_update_spec| {
+    let (global, local) = spec.iter().rev().fold(init, |acc, account_update_spec| {
         let (_, local) = &acc;
 
         enum StartOrSkip<T> {
@@ -1205,6 +1205,7 @@ fn zkapp_main(
                         let should_pop = local.stack_frame.data.calls.data.is_empty();
 
                         if should_pop {
+                            start_zkapp_command = ps;
                             StartOrSkip::Start(p)
                         } else {
                             StartOrSkip::Skip
@@ -1217,6 +1218,12 @@ fn zkapp_main(
         };
 
         new_acc.unwrap() // TODO: Remove unwrap
+    });
+
+    let on_true = local.stack_frame.hash(w);
+    let local_state_ledger = w.exists_no_check(match local.success.as_boolean() {
+        Boolean::True => on_true,
+        Boolean::False => statement.target.local_state.stack_frame,
     });
 }
 

@@ -178,15 +178,27 @@ pub struct StackFrameMakeParams<'a, Calls> {
     pub calls: &'a Calls,
 }
 
-pub trait StackFrameInterface {
+#[allow(non_snake_case)]
+pub struct ExistsParam<T> {
+    pub True: T,
+    pub False: T,
+}
+
+pub trait StackFrameInterface
+where
+    Self: Sized,
+{
     type Calls: CallForestInterface<W = Self::W>;
     type W: WitnessGenerator<Fp>;
+    type Bool: BoolInterface;
 
     fn caller(&self) -> TokenId;
     fn caller_caller(&self) -> TokenId;
     fn calls(&self) -> &Self::Calls;
     fn make(params: StackFrameMakeParams<'_, Self::Calls>, w: &mut Self::W) -> Self;
+    fn make_default(params: StackFrameMakeParams<'_, Self::Calls>, w: &mut Self::W) -> Self;
     fn on_if(self, w: &mut Self::W) -> Self;
+    fn exists_on_if(b: Self::Bool, param: ExistsParam<Self>, w: &mut Self::W) -> Self;
 }
 
 pub trait StackInterface
@@ -329,6 +341,7 @@ where
     type FailureStatusTable;
 
     fn as_boolean(&self) -> Boolean;
+    fn of_boolean(b: Boolean) -> Self;
     fn true_() -> Self;
     fn false_() -> Self;
     fn neg(&self) -> Self;
@@ -461,8 +474,9 @@ pub trait ZkappApplication {
     type Index: IndexInterface + Clone + ToFieldElements<Fp>;
     type GlobalSlotSinceGenesis: GlobalSlotSinceGenesisInterface<W = Self::WitnessGenerator, Bool = Self::Bool>
         + ToFieldElements<Fp>;
-    type StackFrame: StackFrameInterface<W = Self::WitnessGenerator, Calls = Self::CallForest>
+    type StackFrame: StackFrameInterface<W = Self::WitnessGenerator, Calls = Self::CallForest, Bool = Self::Bool>
         + ToFieldElements<Fp>
+        + std::fmt::Debug
         + Clone;
     type CallForest: CallForestInterface<
         W = Self::WitnessGenerator,

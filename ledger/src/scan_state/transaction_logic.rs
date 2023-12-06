@@ -4771,6 +4771,8 @@ pub mod local_state {
         pub caller: TokenId,
         pub caller_caller: TokenId,
         pub calls: WithHash<CallForest<AccountUpdate>>,
+        /// Hack until we have proper cvar
+        pub is_default: bool,
     }
 
     impl ToFieldElements<Fp> for StackFrameCheckedFrame {
@@ -4779,6 +4781,7 @@ pub mod local_state {
                 caller,
                 caller_caller,
                 calls,
+                is_default: _,
             } = self;
 
             // calls.hash().to_field_elements(fields);
@@ -4972,6 +4975,7 @@ pub mod local_state {
                 caller,
                 caller_caller,
                 calls,
+                is_default: false,
             };
 
             StackFrameChecked::of_frame(frame)
@@ -4986,8 +4990,15 @@ pub mod local_state {
             inputs.append(&self.caller_caller.0);
             inputs.append(&self.calls.hash);
 
-            use crate::proofs::witness::transaction_snark::checked_hash;
-            checked_hash("MinaAcctUpdStckFrm", &inputs.to_fields(), w)
+            let fields = inputs.to_fields();
+
+            if self.is_default {
+                use crate::proofs::witness::transaction_snark::checked_hash3;
+                checked_hash3("MinaAcctUpdStckFrm", &fields, w)
+            } else {
+                use crate::proofs::witness::transaction_snark::checked_hash;
+                checked_hash("MinaAcctUpdStckFrm", &fields, w)
+            }
         }
     }
 
