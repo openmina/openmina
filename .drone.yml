@@ -79,49 +79,97 @@ steps:
   #     - ./target/release/test_libp2p_only
 
   - name: solo-webrtc-sync-root-snarked-ledger
-    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-webrtc scenarios-generate --name solo-node-sync-root-snarked-ledger
 
   - name: solo-webrtc-initial-joining
-    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-webrtc scenarios-generate --name solo-node-basic-connectivity-initial-joining
 
   - name: multi-webrtc-initial-joining
-    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-webrtc scenarios-generate --name multi-node-basic-connectivity-initial-joining
 
   - name: solo-sync-root-snarked-ledger
-    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name solo-node-sync-root-snarked-ledger
 
   - name: solo-initial-joining
-    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name solo-node-basic-connectivity-initial-joining
 
   - name: multi-initial-joining
-    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name multi-node-basic-connectivity-initial-joining
 
   - name: solo-accept-incoming
-    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name solo-node-basic-connectivity-accept-incoming
 
   - name: multi-peer-discovery
-    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name multi-node-basic-connectivity-peer-discovery
@@ -327,3 +375,10 @@ volumes:
   - name: docker_sock
     host:
       path: /var/run/docker.sock
+volumes:
+- name: debugfs
+  host:
+    path: /sys/kernel/debug
+- name: procfs
+  host:
+    path: /proc

@@ -11,4 +11,4 @@ FROM vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
 
 COPY --from=builder /openmina/target/release/openmina-node-testing /usr/local/bin/openmina-node-testing
 
-ENV BPF_ALIAS="auto-0.0.0.0"
+ENV BPF_ALIAS="3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-0.0.0.0"

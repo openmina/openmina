@@ -1,5 +1,7 @@
-FROM openmina/mina-network-debugger:f49c83ba as debugger
+FROM openmina/mina-network-debugger:31f2ca11 as debugger
 
 FROM minaprotocol/mina-daemon:2.0.0rampup4-14047c5-focal-berkeley
 
 COPY --from=debugger /usr/bin/bpf-recorder /usr/bin/bpf-recorder
+
+RUN apt-get update && apt-get -y install libelf-dev
