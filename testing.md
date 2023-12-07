@@ -28,7 +28,7 @@ We need to work with the assumption that more than one-third of the nodes can be
 
 Nodes that get disconnected should eventually be able to reconnect and synchronize with the network.
 
-_This test assesses the blockchain node's ability to maintain consistent network connectivity. It evaluates whether a node can gracefully handle temporary disconnections from the network and subsequently reestablish connections. _
+_This test assesses the blockchain node's ability to maintain consistent network connectivity. It evaluates whether a node can gracefully handle temporary disconnections from the network and subsequently reestablish connections._
 
 We want to ensure that new nodes can join the network and handle being overwhelmed with connections or data requests, including various resilience and stability conditions (e.g., handling reconnections, latency, intermittent connections, and dynamic IP handling).
 
