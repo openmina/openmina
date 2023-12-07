@@ -46,8 +46,8 @@ impl Command {
                 {
                     use openmina_node_testing::network_debugger::Debugger;
 
-                    // TODO: find free port
-                    let mut debugger = Debugger::spawn(8000);
+                    let mut debugger = Debugger::drone_ci();
+                    let cursor = debugger.current_cursor();
 
                     if let Some(name) = cmd.name {
                         if let Some(scenario) = Scenarios::iter()
@@ -64,7 +64,8 @@ impl Command {
                         }
                     }
 
-                    for (id, msg) in debugger.messages() {
+                    // TODO: filter only messages from this run
+                    for (id, msg) in debugger.messages(cursor) {
                         eprintln!("{id} {}", serde_json::to_string(&msg).unwrap());
                     }
 

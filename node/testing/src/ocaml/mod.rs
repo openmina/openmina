@@ -83,7 +83,6 @@ impl Node {
         let mut cmd = Command::new("mina");
 
         cmd.env("MINA_LIBP2P_PASS", "");
-        cmd.env("BPF_ALIAS", "auto-0.0.0.0");
 
         cmd.arg("daemon");
         cmd.arg("--config-dir").arg(&dir.join(".config"));

@@ -78,77 +78,67 @@ steps:
   #   commands:
   #     - ./target/release/test_libp2p_only
 
-  - name: solo-webrtc-sync-root-snarked-ledger
-    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+  - name: debugger
+    image: openmina/mina-network-debugger:31f2ca11
     privileged: true
     volumes:
     - name: debugfs
       path: /sys/kernel/debug
     - name: procfs
       path: /proc
+    detach: true
+    environment:
+      SERVER_PORT: "8000"
+      RUST_LOG: "debug"
+      DB_PATH: "/tmp/db"
+
+  - name: solo-webrtc-sync-root-snarked-ledger
+    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-webrtc scenarios-generate --name solo-node-sync-root-snarked-ledger
+    environment:
+      BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.0"
 
   - name: solo-webrtc-initial-joining
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
-    privileged: true
-    volumes:
-    - name: debugfs
-      path: /sys/kernel/debug
-    - name: procfs
-      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-webrtc scenarios-generate --name solo-node-basic-connectivity-initial-joining
+    environment:
+      BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.1"
 
   - name: multi-webrtc-initial-joining
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
-    privileged: true
-    volumes:
-    - name: debugfs
-      path: /sys/kernel/debug
-    - name: procfs
-      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-webrtc scenarios-generate --name multi-node-basic-connectivity-initial-joining
+    environment:
+      BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.2"
 
   - name: solo-sync-root-snarked-ledger
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
-    privileged: true
-    volumes:
-    - name: debugfs
-      path: /sys/kernel/debug
-    - name: procfs
-      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name solo-node-sync-root-snarked-ledger
+    environment:
+      BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.3"
 
   - name: solo-initial-joining
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
-    privileged: true
-    volumes:
-    - name: debugfs
-      path: /sys/kernel/debug
-    - name: procfs
-      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name solo-node-basic-connectivity-initial-joining
+    environment:
+      BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.4"
 
   - name: multi-initial-joining
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
-    privileged: true
-    volumes:
-    - name: debugfs
-      path: /sys/kernel/debug
-    - name: procfs
-      path: /proc
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name multi-node-basic-connectivity-initial-joining
+    environment:
+      BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.5"
 
   - name: solo-accept-incoming
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
@@ -161,6 +151,8 @@ steps:
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name solo-node-basic-connectivity-accept-incoming
+    environment:
+      BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.6"
 
   - name: multi-peer-discovery
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
@@ -173,6 +165,8 @@ steps:
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name multi-node-basic-connectivity-peer-discovery
+    environment:
+      BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.7"
 
   - name: replayer
     image: vladsimplestakingcom/bootstrap-rr:graphql
