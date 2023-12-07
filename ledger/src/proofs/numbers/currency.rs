@@ -1,5 +1,5 @@
 use crate::scan_state::currency::{self, Amount, Balance, Fee, Magnitude, MinMax, Sgn, Signed};
-use std::{cell::Cell, cmp::Ordering::Less, marker::PhantomData};
+use std::{cell::Cell, cmp::Ordering::Less};
 
 use crate::proofs::{
     to_field_elements::ToFieldElements,

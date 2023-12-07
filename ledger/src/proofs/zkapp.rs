@@ -14,8 +14,10 @@ use mina_p2p_messages::v2;
 use crate::{
     hash_with_kimchi,
     proofs::{
-        constants::StepZkappProof,
+        constants::{StepZkappProof, WrapTransactionProof},
+        util::sha256_sum,
         witness::{transaction_snark::CONSTRAINT_CONSTANTS, ToBoolean},
+        wrap::WrapParams,
         zkapp::group::{State, ZkappCommandIntermediateState},
         zkapp_logic,
     },
@@ -65,6 +67,7 @@ pub struct ZkappParams<'a> {
     pub tx_witness: &'a v2::TransactionWitnessStableV2,
     pub message: &'a SokMessage,
     pub step_prover: &'a Prover<Fp>,
+    pub tx_wrap_prover: &'a Prover<Fq>,
     // pub tx_wrap_prover: &'a Prover<Fq>,
     /// For debugging only
     pub expected_step_proof: Option<&'static str>,
@@ -1068,7 +1071,7 @@ fn zkapp_main(
     witness: &ZkappCommandSegmentWitness,
     spec: &[Spec],
     w: &mut Witness<Fp>,
-) {
+) -> (Option<ZkappStatement>, Boolean) {
     w.exists(&statement);
 
     dummy_constraints(w);
@@ -1132,6 +1135,8 @@ fn zkapp_main(
 
         (g, l)
     };
+
+    let init_fee_excess = init.0.fee_excess.clone();
 
     let mut start_zkapp_command = witness.start_zkapp_command.as_slice();
     let zkapp_input = Rc::new(RefCell::new(None));
@@ -1225,12 +1230,31 @@ fn zkapp_main(
         Boolean::True => on_true,
         Boolean::False => statement.target.local_state.stack_frame,
     });
+
+    // Call to `Local_state.Checked.assert_equal` only pushes those
+    // 2 values
+    w.exists_no_check(local.excess.force_value());
+    w.exists_no_check(local.supply_increase.force_value());
+
+    // Call to `Amount.Signed.Checked.assert_equal` only pushes this value
+    w.exists_no_check(global.supply_increase.force_value());
+
+    // Call to `Fee_excess.assert_equal_checked` only pushes those 2 values
+    w.exists_no_check(global.fee_excess.force_value());
+    w.exists_no_check(init_fee_excess.force_value());
+
+    let zkapp_input = Rc::into_inner(zkapp_input).unwrap().into_inner();
+    let must_verify = Rc::into_inner(must_verify).unwrap().into_inner();
+
+    (zkapp_input, must_verify)
 }
 
 fn of_zkapp_command_segment_exn(
     statement: Statement<SokDigest>,
     witness: &ZkappCommandSegmentWitness,
     spec: &SegmentBasic,
+    step_prover: &Prover<Fp>,
+    tx_wrap_prover: &Prover<Fq>,
 ) {
     use SegmentBasic::*;
 
@@ -1238,11 +1262,79 @@ fn of_zkapp_command_segment_exn(
     let mut w = Witness::new::<StepZkappProof>();
     w.ocaml_aux = read_witnesses();
 
-    match spec {
+    let (zkapp_input, must_verify) = match spec {
         OptSigned => todo!(),
-        OptSignedOptSigned => zkapp_main(statement, witness, &s, &mut w),
+        OptSignedOptSigned => zkapp_main(statement.clone(), witness, &s, &mut w),
         Proved => todo!(),
-    }
+    };
+
+    let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(tx_wrap_prover));
+    let messages_for_next_wrap_proof =
+        w.exists(crate::proofs::witness::get_messages_for_next_wrap_proof_padded());
+    let mut inputs = dlog_plonk_index.to_field_elements_owned();
+    statement.to_field_elements(&mut inputs);
+    let messages_for_next_step_proof = crate::proofs::witness::checked_hash2(&inputs, &mut w);
+
+    let step_main_statement = crate::proofs::witness::StepMainStatement {
+        proof_state: crate::proofs::witness::StepMainProofState {
+            unfinalized_proofs: vec![crate::proofs::unfinalized::Unfinalized::dummy(); 2],
+            messages_for_next_step_proof,
+        },
+        messages_for_next_wrap_proof,
+    };
+    w.primary = step_main_statement.to_field_elements_owned();
+
+    let msg = crate::proofs::witness::ReducedMessagesForNextStepProof {
+        app_state: Rc::new(statement.clone()),
+        challenge_polynomial_commitments: vec![],
+        old_bulletproof_challenges: vec![],
+    };
+
+    let step_statement = crate::proofs::witness::StepStatement {
+        proof_state: crate::proofs::witness::StepProofState {
+            unfinalized_proofs: step_main_statement.proof_state.unfinalized_proofs,
+            messages_for_next_step_proof: msg,
+        },
+        messages_for_next_wrap_proof: vec![],
+    };
+
+    // TODO: Not always dummy
+    let prev_evals = vec![crate::proofs::unfinalized::AllEvals::dummy(); 2];
+
+    dbg!(&w.primary);
+
+    dbg!(step_prover.index.verifier_index_digest);
+
+    let prev_challenges = vec![];
+    let proof = crate::proofs::witness::create_proof::<StepZkappProof, Fp>(
+        step_prover,
+        prev_challenges,
+        &mut w,
+    );
+
+    let proof_json = serde_json::to_vec(&proof).unwrap();
+    dbg!(crate::proofs::util::sha256_sum(&proof_json));
+    assert_eq!(
+        sha256_sum(&proof_json),
+        "be5393f0366a52ff694200702496f6c30e1d79de48dc06953b9b85baf4701ac0"
+    );
+
+    // !(sha256_sum(&proof_json), expected);
+
+    // let mut w = Witness::new::<WrapTransactionProof>();
+
+    // crate::proofs::wrap::wrap::<WrapTransactionProof>(
+    //     WrapParams {
+    //         app_state: Rc::new(statement),
+    //         proof: &proof,
+    //         step_statement,
+    //         prev_evals: &prev_evals,
+    //         dlog_plonk_index: &dlog_plonk_index,
+    //         step_prover_index: &step_prover.index,
+    //         wrap_prover: tx_wrap_prover,
+    //     },
+    //     &mut w,
+    // );
 }
 
 // let of_zkapp_command_segment_exn ~(statement : Proof.statement) ~witness
@@ -1277,6 +1369,7 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
         step_prover,
         expected_step_proof,
         ocaml_wrap_witness,
+        tx_wrap_prover,
     } = params;
 
     let zkapp = match &tx_witness.transaction {
@@ -1320,5 +1413,7 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
         },
         witness,
         spec,
+        step_prover,
+        tx_wrap_prover,
     );
 }

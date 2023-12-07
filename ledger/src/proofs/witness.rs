@@ -4892,7 +4892,7 @@ pub mod transaction_snark {
     }
 }
 
-fn get_messages_for_next_wrap_proof_padded() -> Vec<Fp> {
+pub fn get_messages_for_next_wrap_proof_padded() -> Vec<Fp> {
     let msg = MessagesForNextWrapProof {
         challenge_polynomial_commitment: InnerCurve::from(dummy_ipa_step_sg()),
         old_bulletproof_challenges: vec![], // Filled with padding
@@ -5911,7 +5911,7 @@ mod tests {
 
         let Provers {
             tx_step_prover: _,
-            tx_wrap_prover: _,
+            tx_wrap_prover,
             merge_step_prover: _,
             block_step_prover: _,
             block_wrap_prover: _,
@@ -5925,6 +5925,7 @@ mod tests {
                 tx_witness: &tx_witness,
                 message: &message,
                 step_prover: &zkapp_step_prover,
+                tx_wrap_prover: &tx_wrap_prover,
                 expected_step_proof: None,
                 ocaml_wrap_witness: None,
             },
