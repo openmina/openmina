@@ -88,6 +88,7 @@ impl Debugger {
 
     pub fn current_cursor(&self) -> u64 {
         self.get_messages("direction=reverse&limit=1")
+            .map_err(|err| eprintln!("determine cursor error: {err}"))
             .ok()
             .and_then(|msgs| msgs.first().map(|(id, _)| *id))
             .unwrap_or_default()
@@ -114,8 +115,11 @@ impl<'a> Iterator for Messages<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.buffer.is_empty() {
             let params = format!("limit=100&id={}", self.cursor);
-            // TODO: log error?
-            let msgs = self.inner.get_messages(&params).ok()?;
+            let msgs = self
+                .inner
+                .get_messages(&params)
+                .map_err(|err| eprintln!("{err}"))
+                .ok()?;
             let (last_id, _) = msgs.last()?;
             self.cursor = *last_id + 1;
             self.buffer.extend(msgs);
