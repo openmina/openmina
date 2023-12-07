@@ -137,6 +137,11 @@ impl MultiNodeBasicConnectivityInitialJoining {
                         p2p.config.identity_pub_key.peer_id(),
                     );
                 }
+                if let Some(debugger) = runner.cluster().debugger() {
+                    for (id, message) in debugger.messages(0) {
+                        eprintln!("{id}, {}", serde_json::to_string(&message).unwrap());
+                    }
+                }
                 eprintln!("success");
                 return;
             }

@@ -46,8 +46,7 @@ impl Debugger {
 
     pub fn spawn(port: u16) -> Self {
         let mut cmd = Command::new("bpf-recorder");
-        cmd.env("SERVER_PORT", port.to_string())
-            .env("DB_PATH", "/tmp/db");
+        cmd.env("SERVER_PORT", port.to_string());
         Debugger {
             child: Some(cmd.spawn().expect("cannot spawn debugger")),
             host: "localhost",
@@ -58,8 +57,24 @@ impl Debugger {
 
     pub fn kill(&mut self) {
         if let Some(mut child) = self.child.take() {
-            if let Err(err) = child.kill() {
-                eprintln!("error send signal to the debugger: {err}");
+            use nix::{
+                sys::signal::{self, Signal},
+                unistd::Pid,
+            };
+
+            if let Err(err) = signal::kill(Pid::from_raw(child.id() as i32), Signal::SIGINT) {
+                eprintln!("error sending ctrl+c to Network debugger: {err}");
+            }
+            match child.try_wait() {
+                Err(err) => {
+                    eprintln!("error getting status from Network debugger: {err}");
+                }
+                Ok(None) => {
+                    eprintln!("error getting status from Network debugger");
+                }
+                Ok(Some(status)) => {
+                    eprintln!("network debugger {status}");
+                }
             }
         }
     }
@@ -114,7 +129,7 @@ impl<'a> Iterator for Messages<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.buffer.is_empty() {
-            let params = format!("limit=100&id={}", self.cursor);
+            let params = format!("direction=forward&limit=100&id={}", self.cursor);
             let msgs = self
                 .inner
                 .get_messages(&params)
@@ -130,20 +145,6 @@ impl<'a> Iterator for Messages<'a> {
 
 impl Drop for Debugger {
     fn drop(&mut self) {
-        if let Some(mut child) = self.child.take() {
-            match child.try_wait() {
-                Err(err) => {
-                    eprintln!("error getting status from Network debugger: {err}");
-                }
-                Ok(None) => {
-                    if let Err(err) = child.kill() {
-                        eprintln!("error killing Network debugger: {err}");
-                    } else if let Err(err) = child.wait() {
-                        eprintln!("error getting status from Network debugger: {err}");
-                    }
-                }
-                _ => {}
-            }
-        }
+        self.kill();
     }
 }

@@ -1,5 +1,6 @@
 use clap::Parser;
 
+use openmina_node_testing::cluster::ClusterConfig;
 use openmina_node_testing::scenarios::Scenarios;
 use openmina_node_testing::{exit_with_error, server, setup};
 
@@ -29,6 +30,8 @@ pub struct CommandServer {
 pub struct CommandScenariosGenerate {
     #[arg(long, short)]
     pub name: Option<String>,
+    #[arg(long, short)]
+    pub use_debugger: bool,
 }
 
 impl Command {
@@ -46,27 +49,22 @@ impl Command {
                 {
                     use openmina_node_testing::network_debugger::Debugger;
 
-                    let mut debugger = Debugger::drone_ci();
-                    let cursor = debugger.current_cursor();
+                    let mut debugger = Debugger::spawn(8000);
+                    let config = ClusterConfig::new(cmd.use_debugger);
 
                     if let Some(name) = cmd.name {
                         if let Some(scenario) = Scenarios::iter()
                             .into_iter()
                             .find(|s| <&'static str>::from(s) == name)
                         {
-                            rt.block_on(scenario.run_and_save_from_scratch(Default::default()));
+                            rt.block_on(scenario.run_and_save_from_scratch(config));
                         } else {
                             panic!("no such scenario: \"{name}\"");
                         }
                     } else {
                         for scenario in Scenarios::iter() {
-                            rt.block_on(scenario.run_and_save_from_scratch(Default::default()));
+                            rt.block_on(scenario.run_and_save_from_scratch(config.clone()));
                         }
-                    }
-
-                    // TODO: filter only messages from this run
-                    for (id, msg) in debugger.messages(cursor) {
-                        eprintln!("{id} {}", serde_json::to_string(&msg).unwrap());
                     }
 
                     debugger.kill();

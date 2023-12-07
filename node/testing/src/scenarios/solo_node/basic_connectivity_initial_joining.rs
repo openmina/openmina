@@ -114,6 +114,12 @@ impl SoloNodeBasicConnectivityInitialJoining {
                 eprintln!("connected peers: {ready_peers}");
                 eprintln!("success");
 
+                if let Some(debugger) = runner.cluster().debugger() {
+                    for (id, message) in debugger.messages(0) {
+                        eprintln!("{id}, {}", serde_json::to_string(&message).unwrap());
+                    }
+                }
+
                 return;
             }
         }

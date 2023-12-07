@@ -53,20 +53,6 @@ steps:
     commands:
       - cp /usr/local/bin/mina cli/bin/
 
-  - name: debugger
-    image: openmina/mina-network-debugger:31f2ca11
-    privileged: true
-    volumes:
-    - name: debugfs
-      path: /sys/kernel/debug
-    - name: procfs
-      path: /proc
-    detach: true
-    environment:
-      SERVER_PORT: "8000"
-      RUST_LOG: "info"
-      DB_PATH: "/tmp/db"
-
   - name: build
     image: rust:1.71-buster
     commands:
@@ -79,25 +65,43 @@ steps:
       - cargo build --release --features scenario-generators,p2p-webrtc -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-webrtc
 
   - name: solo-webrtc-sync-root-snarked-ledger
-    image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
-      - ./scripts/runner openmina-node-testing-webrtc scenarios-generate --name solo-node-sync-root-snarked-ledger
+      - ./scripts/runner openmina-node-testing-webrtc scenarios-generate --use-debugger --name solo-node-sync-root-snarked-ledger
     environment:
       BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.0"
 
   - name: solo-webrtc-initial-joining
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
-      - ./scripts/runner openmina-node-testing-webrtc scenarios-generate --name solo-node-basic-connectivity-initial-joining
+      - ./scripts/runner openmina-node-testing-webrtc scenarios-generate --use-debugger --name solo-node-basic-connectivity-initial-joining
     environment:
       BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.1"
 
   - name: multi-webrtc-initial-joining
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
@@ -107,46 +111,76 @@ steps:
 
   - name: solo-sync-root-snarked-ledger
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --name solo-node-sync-root-snarked-ledger
+      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name solo-node-sync-root-snarked-ledger
     environment:
       BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.3"
 
   - name: solo-initial-joining
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --name solo-node-basic-connectivity-initial-joining
+      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name solo-node-basic-connectivity-initial-joining
     environment:
       BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.4"
 
   - name: multi-initial-joining
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --name multi-node-basic-connectivity-initial-joining
+      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name multi-node-basic-connectivity-initial-joining
     environment:
       BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.5"
 
   - name: solo-accept-incoming
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --name solo-node-basic-connectivity-accept-incoming
+      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name solo-node-basic-connectivity-accept-incoming
     environment:
       BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.6"
 
   - name: multi-peer-discovery
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    volumes:
+    - name: debugfs
+      path: /sys/kernel/debug
+    - name: procfs
+      path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --name multi-node-basic-connectivity-peer-discovery
+      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name multi-node-basic-connectivity-peer-discovery
     environment:
       BPF_ALIAS: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.7"
 
@@ -202,60 +236,60 @@ steps:
       - sleep 180
       - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' --chain-id=$CHAIN_ID test-graphql 234 http://openmina3:10000/graphql
 
-  # - name: test-snark-work
-  #   image: alpine
-  #   commands:
-  #     - apk add curl jq
-  #     - |
-  #       c() {
-  #          n=$$1
-  #          path=$$2
-  #          shift 2
-  #          curl -s http://openmina$$n:10000/$$path "$$@"
-  #       }
-  #     - |
-  #       assert() {
-  #         eval $2 || {
-  #           echo "[failed] $1: '$2'"
-  #           exit 1
-  #         }
-  #       }
-  #     - |
-  #       TOTAL_WORK_TODO=$$(c 1 snark-pool/jobs | jq 'length')
-  #       echo "TOTAL_WORK_TODO=$TOTAL_WORK_TODO"
-  #       LOCAL_WORK=0
-  #       for t in $(seq 10); do
-  #         WORKERS=$$(c 1 snarker/workers | jq '[.[] | select(.status.kind != "None")] | length')
-  #         assert 'active workers > 0' '[ $$WORKERS -gt 0 ]'
+  - name: test-snark-work
+    image: alpine
+    commands:
+      - apk add curl jq
+      - |
+        c() {
+           n=$$1
+           path=$$2
+           shift 2
+           curl -s http://openmina$$n:10000/$$path "$$@"
+        }
+      - |
+        assert() {
+          eval $2 || {
+            echo "[failed] $1: '$2'"
+            exit 1
+          }
+        }
+      - |
+        TOTAL_WORK_TODO=$$(c 1 snark-pool/jobs | jq 'length')
+        echo "TOTAL_WORK_TODO=$TOTAL_WORK_TODO"
+        LOCAL_WORK=0
+        for t in $(seq 10); do
+          WORKERS=$$(c 1 snarker/workers | jq '[.[] | select(.status.kind != "None")] | length')
+          assert 'active workers > 0' '[ $$WORKERS -gt 0 ]'
 
-  #         COMMITMENTS_IN_PROGRESS=$$(c 1 snark-pool/jobs | jq "[.[] | select(.snark == null and .commitment.snarker == \"$OPENMINA1_SNARKER_KEY\")] | length")
-  #         assert 'local commitments in progress fewer than local workers' '[ $$COMMITMENTS_IN_PROGRESS -le $$WORKERS ]'
+          COMMITMENTS_IN_PROGRESS=$$(c 1 snark-pool/jobs | jq "[.[] | select(.snark == null and .commitment.snarker == \"$OPENMINA1_SNARKER_KEY\")] | length")
+          assert 'local commitments in progress fewer than local workers' '[ $$COMMITMENTS_IN_PROGRESS -le $$WORKERS ]'
 
-  #         LW=$$(c 1 snark-pool/jobs | jq "[.[] | select(.snark.snarker == \"$OPENMINA1_SNARKER_KEY\")] | length")
-  #         assert 'local snarks number do not decrease' '[ $$LOCAL_WORK -le $$LW ]'
-  #         LOCAL_WORK=$$LW
+          LW=$$(c 1 snark-pool/jobs | jq "[.[] | select(.snark.snarker == \"$OPENMINA1_SNARKER_KEY\")] | length")
+          assert 'local snarks number do not decrease' '[ $$LOCAL_WORK -le $$LW ]'
+          LOCAL_WORK=$$LW
 
 
-  #         sleep 30
-  #       done
+          sleep 30
+        done
 
-  #       c 1 snark-pool/jobs > jobs.json
+        c 1 snark-pool/jobs > jobs.json
 
-  #       assert 'local work exists' '[ $$LOCAL_WORK -gt 0 ]'
+        assert 'local work exists' '[ $$LOCAL_WORK -gt 0 ]'
 
-  #       TOTAL_WORK=$$(jq '[.[] | select(.snark != null)] | length' jobs.json)
-  #       LOCAL_WORK=$$(jq "[.[] | select(.snark != null and .snark.snarker == \"$OPENMINA1_SNARKER_KEY\")] | length" jobs.json)
-  #       NON_LOCAL_WORK=$$(jq "[.[] | select(.snark != null and .snark.snarker != \"$OPENMINA1_SNARKER_KEY\")] | length" jobs.json)
-  #       echo "TOTAL_WORK=$$TOTAL_WORK"
-  #       echo "LOCAL_WORK=$$LOCAL_WORK"
-  #       echo "NON_LOCAL_WORK=$$NON_LOCAL_WORK"
-  #       assert 'non-local work exists' '[ $$NON_LOCAL_WORK -gt 0 ]'
+        TOTAL_WORK=$$(jq '[.[] | select(.snark != null)] | length' jobs.json)
+        LOCAL_WORK=$$(jq "[.[] | select(.snark != null and .snark.snarker == \"$OPENMINA1_SNARKER_KEY\")] | length" jobs.json)
+        NON_LOCAL_WORK=$$(jq "[.[] | select(.snark != null and .snark.snarker != \"$OPENMINA1_SNARKER_KEY\")] | length" jobs.json)
+        echo "TOTAL_WORK=$$TOTAL_WORK"
+        echo "LOCAL_WORK=$$LOCAL_WORK"
+        echo "NON_LOCAL_WORK=$$NON_LOCAL_WORK"
+        assert 'non-local work exists' '[ $$NON_LOCAL_WORK -gt 0 ]'
 
-  #       # TOTAL_COMMITMENTS=$$(jq "[.[] | select(.commitment != null)] | length" jobs.json)
-  #       # NON_LOCAL_COMMITMENTS=$$(jq "[.[] | select(.commitment != null and .commitment.commitment.snarker != \"$OPENMINA1_SNARKER_KEY\")] | length" jobs.json)
-  #       # echo "TOTAL_COMMITMENTS=$$TOTAL_COMMITMENTS"
-  #       # echo "NON_LOCAL_COMMITMENTS=$$NON_LOCAL_COMMITMENTS"
-  #       # assert 'non-local commintment exists' '[ $$NON_LOCAL_COMMITMENTS -gt 0 ]'
+        # TOTAL_COMMITMENTS=$$(jq "[.[] | select(.commitment != null)] | length" jobs.json)
+        # NON_LOCAL_COMMITMENTS=$$(jq "[.[] | select(.commitment != null and .commitment.commitment.snarker != \"$OPENMINA1_SNARKER_KEY\")] | length" jobs.json)
+        # echo "TOTAL_COMMITMENTS=$$TOTAL_COMMITMENTS"
+        # echo "NON_LOCAL_COMMITMENTS=$$NON_LOCAL_COMMITMENTS"
+        # assert 'non-local commintment exists' '[ $$NON_LOCAL_COMMITMENTS -gt 0 ]'
 
 ---
 kind: pipeline
