@@ -38,7 +38,7 @@ impl Debugger {
     pub fn drone_ci() -> Self {
         Debugger {
             child: None,
-            host: "debugger",
+            host: "localhost",
             port: 8000,
             client: ClientBuilder::new().build().unwrap(),
         }

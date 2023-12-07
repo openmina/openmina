@@ -71,11 +71,11 @@ pub struct ClusterScenarioRun {
 
 impl Cluster {
     pub fn new(config: ClusterConfig) -> Self {
-        let mut available_ports = config
+        let available_ports = config
             .port_range()
             .filter(|port| std::net::TcpListener::bind(("0.0.0.0", *port)).is_ok());
         let debugger = if config.is_use_debugger() {
-            available_ports.next().map(Debugger::spawn)
+            Some(Debugger::drone_ci())
         } else {
             None
         };

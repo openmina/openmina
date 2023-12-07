@@ -47,9 +47,6 @@ impl Command {
             Self::ScenariosGenerate(cmd) => {
                 #[cfg(feature = "scenario-generators")]
                 {
-                    use openmina_node_testing::network_debugger::Debugger;
-
-                    let mut debugger = Debugger::spawn(8000);
                     let config = ClusterConfig::new(cmd.use_debugger);
 
                     if let Some(name) = cmd.name {
@@ -66,8 +63,6 @@ impl Command {
                             rt.block_on(scenario.run_and_save_from_scratch(config.clone()));
                         }
                     }
-
-                    debugger.kill();
 
                     Ok(())
                 }

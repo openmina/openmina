@@ -1,3 +1,7 @@
 #!/usr/bin/env bash 
 
+RUST_LOG=info,bpf_recorder::connection::multistream_select=debug SERVER_PORT=8000 bpf-recorder & sleep 1
+DEBUGGER_PID=$!
 $@ > test.log || (cat test.log; false)
+kill -s SIGINT $DEBUGGER_PID
+rm -Rf target/db || true
