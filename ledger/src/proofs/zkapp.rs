@@ -14,7 +14,7 @@ use mina_p2p_messages::v2;
 use crate::{
     hash_with_kimchi,
     proofs::{
-        constants::{StepZkappProof, WrapTransactionProof},
+        constants::{StepZkappProof, WrapTransactionProof, WrapZkappProof},
         util::sha256_sum,
         witness::{transaction_snark::CONSTRAINT_CONSTANTS, ToBoolean},
         wrap::WrapParams,
@@ -1319,22 +1319,36 @@ fn of_zkapp_command_segment_exn(
         "be5393f0366a52ff694200702496f6c30e1d79de48dc06953b9b85baf4701ac0"
     );
 
-    // !(sha256_sum(&proof_json), expected);
+    let mut w: Witness<Fq> = Witness::new::<WrapZkappProof>();
 
-    // let mut w = Witness::new::<WrapTransactionProof>();
+    fn read_witnesses2() -> Vec<Fq> {
+        let f = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("rampup4")
+                .join("zkapp_fqs.txt"),
+        )
+        .unwrap();
+        let fps = f
+            .lines()
+            .filter(|s| !s.is_empty())
+            .map(|s| Fq::from_str(s).unwrap())
+            .collect::<Vec<_>>();
+        fps
+    }
+    w.ocaml_aux = read_witnesses2();
 
-    // crate::proofs::wrap::wrap::<WrapTransactionProof>(
-    //     WrapParams {
-    //         app_state: Rc::new(statement),
-    //         proof: &proof,
-    //         step_statement,
-    //         prev_evals: &prev_evals,
-    //         dlog_plonk_index: &dlog_plonk_index,
-    //         step_prover_index: &step_prover.index,
-    //         wrap_prover: tx_wrap_prover,
-    //     },
-    //     &mut w,
-    // );
+    crate::proofs::wrap::wrap::<WrapZkappProof>(
+        WrapParams {
+            app_state: Rc::new(statement),
+            proof: &proof,
+            step_statement,
+            prev_evals: &prev_evals,
+            dlog_plonk_index: &dlog_plonk_index,
+            step_prover_index: &step_prover.index,
+            wrap_prover: tx_wrap_prover,
+        },
+        &mut w,
+    );
 }
 
 // let of_zkapp_command_segment_exn ~(statement : Proof.statement) ~witness

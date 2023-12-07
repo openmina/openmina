@@ -25,12 +25,20 @@ pub struct StepMergeProof {}
 pub struct WrapMergeProof {}
 
 pub struct StepZkappProof {}
+pub struct WrapZkappProof {}
 
 impl ProofConstants for StepZkappProof {
     const PRIMARY_LEN: usize = 67;
     const AUX_LEN: usize = 104744;
     const PREVIOUS_CHALLENGES: usize = 0;
     const ROWS: usize = 18590;
+}
+
+impl ProofConstants for WrapZkappProof {
+    const PRIMARY_LEN: usize = 40;
+    const AUX_LEN: usize = 179491;
+    const PREVIOUS_CHALLENGES: usize = 2;
+    const ROWS: usize = 15122;
 }
 
 impl ProofConstants for StepTransactionProof {
@@ -83,6 +91,12 @@ pub trait ForWrapData {
 impl ForWrapData for WrapTransactionProof {
     fn wrap_data() -> WrapData {
         make_wrap_transaction_data()
+    }
+}
+
+impl ForWrapData for WrapZkappProof {
+    fn wrap_data() -> WrapData {
+        make_wrap_zkapp_data()
     }
 }
 
@@ -246,6 +260,31 @@ fn make_wrap_merge_data() -> WrapData {
 fn make_wrap_transaction_data() -> WrapData {
     WrapData {
         which_index: 0,
+        pi_branches: 5,
+        step_widths: Box::new([0, 2, 0, 0, 1]),
+        step_domains: Box::new([
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(14),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+        ]),
+    }
+}
+
+fn make_wrap_zkapp_data() -> WrapData {
+    WrapData {
+        which_index: 2,
         pi_branches: 5,
         step_widths: Box::new([0, 2, 0, 0, 1]),
         step_domains: Box::new([
