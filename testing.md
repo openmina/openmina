@@ -3,7 +3,7 @@
 
 
 
-Complex systems that handle important information such as blockchain networks must be thoroughly and continuously tested to ensure the highest degree of security, stability and performance. 
+Complex systems that handle important information such as blockchain networks must be thoroughly and continuously tested to ensure the highest degree of security, stability, and performance. 
 
 To achieve that, we need to develop a comprehensive testing framework capable of deploying a variety of tests. We’ve also created a front end for the testing framework so that other developers can run their own tests to fine-tune the solutions and products they create for the Mina ecosystem. 
 
@@ -14,7 +14,7 @@ Secondly, a robust testing framework is equally crucial for evaluating the block
 Additionally, stability testing assesses the blockchain's ability to operate consistently under various conditions, even amid a protocol upgrade. We want to identify potential issues or crashes that could disrupt operations before they have a chance of occurring on the mainnet. 
 
 
-#### What we are testing
+### What we are testing
 
 Here is a limited overview of test categories. Tests are mostly focused on the network and P2P layer,  the next steps will be consensus, ledger, and other parts.  
 
