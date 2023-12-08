@@ -164,7 +164,6 @@ impl<'a> Iterator for Connections<'a> {
     type Item = (u64, Connection);
 
     fn next(&mut self) -> Option<Self::Item> {
-        dbg!(self.buffer.len());
         if self.buffer.is_empty() {
             let params = format!("direction=forward&limit=100&id={}", self.cursor);
             let msgs = self
@@ -175,7 +174,6 @@ impl<'a> Iterator for Connections<'a> {
             let (last_id, _) = msgs.last()?;
             self.cursor = *last_id + 1;
             self.buffer.extend(msgs);
-            dbg!(self.buffer.len());
         }
         self.buffer.pop_front()
     }

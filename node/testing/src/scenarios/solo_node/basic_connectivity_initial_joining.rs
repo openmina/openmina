@@ -115,9 +115,19 @@ impl SoloNodeBasicConnectivityInitialJoining {
                 eprintln!("success");
 
                 if let Some(debugger) = runner.cluster().debugger() {
-                    for (id, x) in debugger.connections(0) {
-                        eprintln!("{id}, {}", serde_json::to_string(&x).unwrap());
-                    }
+                    let connections = debugger.connections(0).collect::<Vec<_>>();
+                    let incoming = connections.iter().filter(|(_, c)| c.incoming).count();
+                    let outgoing = connections.len() - incoming;
+                    eprintln!(
+                        "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
+                    );
+                    assert_eq!(
+                        incoming + outgoing,
+                        ready_peers,
+                        "debugger must see the same number of connections as the state machine"
+                    );
+                } else {
+                    eprintln!("no debugger, run test with --use-debugger for additional check");
                 }
 
                 return;

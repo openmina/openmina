@@ -128,21 +128,38 @@ impl MultiNodeBasicConnectivityInitialJoining {
             }
 
             if conditions_met {
+                let mut total_connections = 0;
                 for &node_id in &nodes {
                     let node = runner.node(node_id).expect("node must exist");
                     let p2p = &node.state().p2p;
                     let ready_peers = p2p.ready_peers_iter().count();
+                    total_connections += ready_peers;
                     eprintln!(
                         "node {} has {ready_peers} peers",
                         p2p.config.identity_pub_key.peer_id(),
                     );
                 }
+
+                // TODO: calculate per peer
                 if let Some(debugger) = runner.cluster().debugger() {
-                    for (id, x) in debugger.connections(0) {
-                        eprintln!("{id}, {}", serde_json::to_string(&x).unwrap());
-                    }
+                    let connections = debugger.connections(0).collect::<Vec<_>>();
+                    let incoming = connections.iter().filter(|(_, c)| c.incoming).count();
+                    let outgoing = connections.len() - incoming;
+                    eprintln!(
+                        "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
+                    );
+                    assert_eq!(incoming, outgoing);
+                    assert_eq!(
+                        incoming + outgoing,
+                        total_connections,
+                        "debugger must see the same number of connections as the state machine"
+                    );
+                } else {
+                    eprintln!("no debugger, run test with --use-debugger for additional check");
                 }
+
                 eprintln!("success");
+
                 return;
             }
         }
