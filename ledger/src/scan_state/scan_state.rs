@@ -762,9 +762,9 @@ impl ScanState {
 
 #[derive(Clone, Debug)]
 pub struct ForkConstants {
-    previous_state_hash: Fp,    // Pickles.Backend.Tick.Field.Stable.Latest.t,
-    previous_length: Length,    // Mina_numbers.Length.Stable.Latest.t,
-    previous_global_slot: Slot, // Mina_numbers.Global_slot.Stable.Latest.t,
+    pub previous_state_hash: Fp, // Pickles.Backend.Tick.Field.Stable.Latest.t,
+    pub previous_length: Length, // Mina_numbers.Length.Stable.Latest.t,
+    pub previous_global_slot: Slot, // Mina_numbers.Global_slot.Stable.Latest.t,
 }
 
 #[derive(Clone, Debug)]

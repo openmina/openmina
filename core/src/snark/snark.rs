@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ledger::scan_state::scan_state::transaction_snark::work::Work;
 use mina_p2p_messages::binprot::{
     self,
     macros::{BinProtRead, BinProtWrite},
@@ -97,6 +98,16 @@ impl From<&Snark> for NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1 {
                 fee: value.fee.clone(),
                 prover: value.snarker.clone(),
             },
+        }
+    }
+}
+
+impl From<&Snark> for Work {
+    fn from(value: &Snark) -> Self {
+        Self {
+            prover: (&value.snarker).into(),
+            fee: (&value.fee).into(),
+            proofs: (&*value.proofs).into(),
         }
     }
 }
