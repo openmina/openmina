@@ -621,7 +621,7 @@ where
                     sgn: Sgn::Neg,
                 });
             let local_state = local_state.add_check(
-                TransactionFailure::AmountInsufficientToCreateAccount,
+                TransactionFailure::LocalExcessOverflow,
                 !(pay_creation_fee_from_excess && excess_update_failed),
             );
             LocalStateEnv {
@@ -629,6 +629,24 @@ where
                     excess_minus_creation_fee
                 } else {
                     local_state.excess
+                },
+                ..local_state
+            }
+        };
+        let local_state = {
+            // Conditionally subtract account creation fee from supply increase
+            let (supply_increase_minus_creation_fee, supply_increase_update_failed) = local_state
+                .supply_increase
+                .add_flagged(Signed::of_unsigned(account_creation_fee).negate());
+            let local_state = local_state.add_check(
+                TransactionFailure::LocalSupplyIncreaseOverflow,
+                !(account_is_new && supply_increase_update_failed),
+            );
+            LocalStateEnv {
+                supply_increase: if account_is_new {
+                    supply_increase_minus_creation_fee
+                } else {
+                    local_state.supply_increase
                 },
                 ..local_state
             }
@@ -1112,6 +1130,11 @@ where
             Index::zero()
         } else {
             local_state.account_update_index.incr()
+        },
+        supply_increase: if is_last_account_update {
+            Signed::zero()
+        } else {
+            local_state.supply_increase
         },
         will_succeed: if is_last_account_update {
             true
