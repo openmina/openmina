@@ -119,11 +119,11 @@ pub struct PreStatement<L: sparse_ledger::LedgerIntf + Clone> {
 #[derive(Debug)]
 pub struct DiffResult {
     pub hash_after_applying: StagedLedgerHash<Fp>,
-    ledger_proof: Option<(
+    pub ledger_proof: Option<(
         LedgerProof,
         Vec<TransactionsOrdered<(WithStatus<Transaction>, Fp, Slot)>>,
     )>,
-    pending_coinbase_update: (bool, Update),
+    pub pending_coinbase_update: (bool, Update),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -1301,7 +1301,7 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1095
-    fn apply_diff_unchecked(
+    pub fn apply_diff_unchecked(
         &mut self,
         constraint_constants: &ConstraintConstants,
         global_slot: Slot,

@@ -44,7 +44,7 @@ impl State {
             consensus: ConsensusState::new(),
             transition_frontier: TransitionFrontierState::new(config.transition_frontier),
             external_snark_worker: ExternalSnarkWorkers::new(now),
-            block_producer: BlockProducerState::new(now),
+            block_producer: BlockProducerState::new(now, config.block_producer),
             rpc: RpcState::new(),
 
             watched_accounts: WatchedAccountsState::new(),

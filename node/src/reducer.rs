@@ -47,7 +47,9 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
             state.snark_pool.reducer(meta.with_action(a));
         }
         Action::BlockProducer(a) => {
-            state.block_producer.reducer(meta.with_action(a));
+            state
+                .block_producer
+                .reducer(meta.with_action(a), &state.transition_frontier.best_chain);
         }
         Action::ExternalSnarkWorker(a) => {
             state.external_snark_worker.reducer(meta.with_action(a));

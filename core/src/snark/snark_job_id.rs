@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
+use ledger::scan_state::scan_state::{
+    transaction_snark::{OneOrTwo, Statement},
+    AvailableJobMessage,
+};
 use mina_p2p_messages::binprot::{
     self,
     macros::{BinProtRead, BinProtWrite},
@@ -124,6 +127,19 @@ impl From<&OneOrTwo<AvailableJobMessage>> for SnarkJobId {
         };
 
         (source, target).into()
+    }
+}
+
+impl From<&OneOrTwo<Statement<()>>> for SnarkJobId {
+    fn from(value: &OneOrTwo<Statement<()>>) -> Self {
+        let (source, target): (
+            MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
+            MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
+        ) = match value {
+            OneOrTwo::One(stmt) => ((&stmt.source).into(), (&stmt.target).into()),
+            OneOrTwo::Two((stmt1, stmt2)) => ((&stmt1.source).into(), (&stmt2.target).into()),
+        };
+        (&source, &target).into()
     }
 }
 
