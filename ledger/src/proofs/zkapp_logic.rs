@@ -899,9 +899,11 @@ where
             Z::Bool::or(keeping_app_state, has_permission, w),
             w,
         );
-        let app_state: [Fp; 8] = app_state
+        // We use `rev()` and `reverse()` here to match OCaml `Pickles_types.Vector.map2`
+        let mut app_state: [Fp; 8] = app_state
             .iter()
-            .zip(a.app_state())
+            .rev()
+            .zip(a.app_state().into_iter().rev())
             .map(|(set_or_keep, state)| {
                 w.exists_no_check(match set_or_keep {
                     SetOrKeep::Set(s) => *s,
@@ -911,6 +913,8 @@ where
             .collect::<Vec<_>>()
             .try_into()
             .unwrap();
+        app_state.reverse();
+
         // `unwrap`: We called `make_zkapp` before
         a.get_mut().zkapp.as_mut().unwrap().app_state = app_state;
         ((), ())
