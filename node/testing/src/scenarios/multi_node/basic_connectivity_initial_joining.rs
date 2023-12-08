@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, UNIX_EPOCH};
 
 use libp2p::Multiaddr;
 use node::{
@@ -142,12 +142,23 @@ impl MultiNodeBasicConnectivityInitialJoining {
 
                 // TODO: calculate per peer
                 if let Some(debugger) = runner.cluster().debugger() {
-                    let connections = debugger.connections(0).collect::<Vec<_>>();
+                    let connections = debugger
+                        .connections(0)
+                        // keep only opened connections
+                        .filter(|(_, c)| c.timestamp_close == UNIX_EPOCH)
+                        .collect::<Vec<_>>();
                     let incoming = connections.iter().filter(|(_, c)| c.incoming).count();
                     let outgoing = connections.len() - incoming;
                     eprintln!(
                         "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
                     );
+
+                    if incoming != outgoing {
+                        for (id, cn) in connections {
+                            eprintln!("{id}, {}", serde_json::to_string(&cn).unwrap());
+                        }
+                    }
+
                     assert_eq!(incoming, outgoing);
                     assert_eq!(
                         incoming + outgoing,

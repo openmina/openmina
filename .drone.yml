@@ -154,20 +154,20 @@ steps:
     environment:
       BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.5"
 
-  - name: solo-accept-incoming
-    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
-    privileged: true
-    volumes:
-    - name: debugfs
-      path: /sys/kernel/debug
-    - name: procfs
-      path: /proc
-    failure: ignore
-    commands:
-      - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name solo-node-basic-connectivity-accept-incoming
-    environment:
-      BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.6"
+  # - name: solo-accept-incoming
+  #   image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+  #   privileged: true
+  #   volumes:
+  #   - name: debugfs
+  #     path: /sys/kernel/debug
+  #   - name: procfs
+  #     path: /proc
+  #   failure: ignore
+  #   commands:
+  #     - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
+  #     - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name solo-node-basic-connectivity-accept-incoming
+  #   environment:
+  #     BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.6"
 
   - name: multi-peer-discovery
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal

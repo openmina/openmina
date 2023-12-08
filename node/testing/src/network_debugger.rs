@@ -20,6 +20,7 @@ pub struct Connection {
     pub info: ConnectionInfo,
     pub incoming: bool,
     pub timestamp: SystemTime,
+    pub timestamp_close: SystemTime,
 
     pub alias: String,
 }
