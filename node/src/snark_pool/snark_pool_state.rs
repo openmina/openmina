@@ -196,6 +196,13 @@ impl SnarkPoolState {
             })
     }
 
+    pub fn completed_snarks_iter<'a>(&'a self) -> impl 'a + Iterator<Item = &'a Snark> {
+        self.list
+            .iter()
+            .filter_map(|(_, job)| job.snark.as_ref())
+            .map(|snark| &snark.work)
+    }
+
     pub(super) fn job_summary(&self, id: &SnarkJobId) -> Option<JobSummary> {
         self.get(id).map(|job| job.summary())
     }

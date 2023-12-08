@@ -325,6 +325,7 @@ impl LedgerHash {
 }
 
 impl generated::MinaStateProtocolStateBodyValueStableV2 {
+    // TODO(binier): change return type to `StateBodyHash`
     pub fn hash(&self) -> MinaBaseStateBodyHashStableV1 {
         let fp = MinaHash::hash(self);
         MinaBaseStateBodyHashStableV1(fp.into())
