@@ -2,6 +2,7 @@ mod config;
 pub use config::{NodeTestingConfig, RustNodeTestingConfig};
 
 use node::event_source::{Event, EventSourceNewEventAction};
+use node::p2p::PeerId;
 use node::p2p::connection::outgoing::{
     P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
 };
@@ -46,6 +47,10 @@ impl Node {
 
     pub fn state(&self) -> &State {
         self.store.state()
+    }
+
+    pub fn peer_id(&self) -> PeerId {
+        self.state().p2p.config.identity_pub_key.peer_id()
     }
 
     pub fn pending_events(&mut self) -> impl Iterator<Item = (PendingEventId, &Event)> {
