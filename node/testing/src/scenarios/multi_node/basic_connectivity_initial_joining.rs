@@ -1,4 +1,4 @@
-use std::time::{Duration, UNIX_EPOCH};
+use std::{collections::HashSet, time::Duration};
 
 use libp2p::Multiaddr;
 use node::{
@@ -133,7 +133,8 @@ impl MultiNodeBasicConnectivityInitialJoining {
                     let node = runner.node(node_id).expect("node must exist");
                     let p2p = &node.state().p2p;
                     let ready_peers = p2p.ready_peers_iter().count();
-                    total_connections += ready_peers;
+                    let known_peers = p2p.kademlia.known_peers.len();
+                    total_connections += ready_peers.max(known_peers);
                     eprintln!(
                         "node {} has {ready_peers} peers",
                         p2p.config.identity_pub_key.peer_id(),
@@ -144,18 +145,17 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 if let Some(debugger) = runner.cluster().debugger() {
                     let connections = debugger
                         .connections(0)
-                        // keep only opened connections
-                        .filter(|(_, c)| c.timestamp_close == UNIX_EPOCH)
-                        .collect::<Vec<_>>();
-                    let incoming = connections.iter().filter(|(_, c)| c.incoming).count();
+                        .map(|(_, c)| (c.info.addr, c.info.pid, c.incoming))
+                        .collect::<HashSet<_>>();
+                    let incoming = connections.iter().filter(|(_, _, i)| *i).count();
                     let outgoing = connections.len() - incoming;
                     eprintln!(
                         "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
                     );
 
                     if incoming != outgoing {
-                        for (id, cn) in connections {
-                            eprintln!("{id}, {}", serde_json::to_string(&cn).unwrap());
+                        for (addr, pid, incoming) in connections {
+                            eprintln!("pid: {pid}, addr: {addr}, incoming: {incoming}");
                         }
                     }
 

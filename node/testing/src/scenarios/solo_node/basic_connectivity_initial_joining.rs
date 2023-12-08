@@ -1,4 +1,4 @@
-use std::time::{Duration, UNIX_EPOCH};
+use std::{collections::HashSet, time::Duration};
 
 use libp2p::Multiaddr;
 
@@ -117,17 +117,16 @@ impl SoloNodeBasicConnectivityInitialJoining {
                 if let Some(debugger) = runner.cluster().debugger() {
                     let connections = debugger
                         .connections(0)
-                        // keep only opened connections
-                        .filter(|(_, c)| c.timestamp_close != UNIX_EPOCH)
-                        .collect::<Vec<_>>();
-                    let incoming = connections.iter().filter(|(_, c)| c.incoming).count();
+                        .map(|(_, c)| (c.info.addr, c.info.pid, c.incoming))
+                        .collect::<HashSet<_>>();
+                    let incoming = connections.iter().filter(|(_, _, i)| *i).count();
                     let outgoing = connections.len() - incoming;
                     eprintln!(
                         "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
                     );
                     assert_eq!(
                         incoming + outgoing,
-                        ready_peers,
+                        ready_peers.max(known_peers),
                         "debugger must see the same number of connections as the state machine"
                     );
                 } else {
