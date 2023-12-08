@@ -93,6 +93,10 @@ use crate::p2p::discovery::{
     P2pDiscoveryKademliaBootstrapAction, P2pDiscoveryKademliaFailureAction,
     P2pDiscoveryKademliaInitAction, P2pDiscoveryKademliaSuccessAction, P2pDiscoverySuccessAction,
 };
+use crate::p2p::listen::{
+    P2pListenAction, P2pListenClosedAction, P2pListenErrorAction, P2pListenExpiredAction,
+    P2pListenNewAction,
+};
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
 use crate::p2p::P2pAction;
 use crate::rpc::{
@@ -301,6 +305,10 @@ pub enum ActionKind {
     P2pDiscoveryKademliaInit,
     P2pDiscoveryKademliaSuccess,
     P2pDiscoverySuccess,
+    P2pListenClosed,
+    P2pListenError,
+    P2pListenExpired,
+    P2pListenNew,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
@@ -415,7 +423,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 211;
+    pub const COUNT: u16 = 215;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -461,6 +469,7 @@ impl ActionKindGet for EventSourceAction {
 impl ActionKindGet for P2pAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::Listen(a) => a.kind(),
             Self::Connection(a) => a.kind(),
             Self::Disconnection(a) => a.kind(),
             Self::Discovery(a) => a.kind(),
@@ -608,6 +617,17 @@ impl ActionKindGet for EventSourceWaitForEventsAction {
 impl ActionKindGet for EventSourceWaitTimeoutAction {
     fn kind(&self) -> ActionKind {
         ActionKind::EventSourceWaitTimeout
+    }
+}
+
+impl ActionKindGet for P2pListenAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::New(a) => a.kind(),
+            Self::Expired(a) => a.kind(),
+            Self::Error(a) => a.kind(),
+            Self::Closed(a) => a.kind(),
+        }
     }
 }
 
@@ -1114,6 +1134,30 @@ impl ActionKindGet for WatchedAccountsBlockLedgerQueryPendingAction {
 impl ActionKindGet for WatchedAccountsBlockLedgerQuerySuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::WatchedAccountsBlockLedgerQuerySuccess
+    }
+}
+
+impl ActionKindGet for P2pListenNewAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pListenNew
+    }
+}
+
+impl ActionKindGet for P2pListenExpiredAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pListenExpired
+    }
+}
+
+impl ActionKindGet for P2pListenErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pListenError
+    }
+}
+
+impl ActionKindGet for P2pListenClosedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pListenClosed
     }
 }
 

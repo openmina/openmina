@@ -7,12 +7,13 @@ use serde::{Deserialize, Serialize};
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionResponse},
-    PeerId,
+    PeerId, P2pListenerId,
 };
 
 #[derive(Serialize, Deserialize, From, Debug, Clone)]
 pub enum P2pEvent {
     Connection(P2pConnectionEvent),
+    Listen(P2pListenEvent),
     Channel(P2pChannelEvent),
     #[cfg(not(target_arch = "wasm32"))]
     Libp2pIdentify(PeerId, libp2p::Multiaddr),
@@ -27,6 +28,15 @@ pub enum P2pConnectionEvent {
     Finalized(PeerId, Result<(), String>),
     Closed(PeerId),
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pListenEvent {
+    NewListenAddr     { listener_id: P2pListenerId, addr: libp2p::Multiaddr, },
+    ExpiredListenAddr { listener_id: P2pListenerId, addr: libp2p::Multiaddr, },
+    ListenerError     { listener_id: P2pListenerId, error: String, },
+    ListenerClosed    { listener_id: P2pListenerId, error: Option<String>, },
+}
+
 
 #[derive(Serialize, Deserialize, From, Debug, Clone)]
 pub enum P2pChannelEvent {
@@ -57,12 +67,26 @@ impl fmt::Display for P2pEvent {
         write!(f, "P2p, ")?;
         match self {
             Self::Connection(v) => v.fmt(f),
+            Self::Listen(v) => v.fmt(f),
             Self::Channel(v) => v.fmt(f),
             #[cfg(not(target_arch = "wasm32"))]
             Self::Libp2pIdentify(peer_id, addr) => {
                 write!(f, "{peer_id} {addr}")
             }
             Self::Discovery(v) => v.fmt(f),
+        }
+    }
+}
+
+impl fmt::Display for P2pListenEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Listen, ")?;
+        match self {
+            P2pListenEvent::NewListenAddr { listener_id, addr } => write!(f, "NewListenAddr, {listener_id}, {addr}"),
+            P2pListenEvent::ExpiredListenAddr { listener_id, addr } => write!(f, "ExpiredListenAddr, {listener_id}, {addr}"),
+            P2pListenEvent::ListenerError { listener_id, error } => write!(f, "ListenerError, {listener_id}, {error}"),
+            P2pListenEvent::ListenerClosed { listener_id, error: Some(error) } => write!(f, "ListenerClosed, {listener_id}, {error}"),
+            P2pListenEvent::ListenerClosed { listener_id, error: None } => write!(f, "ListenerClosed, {listener_id}"),
         }
     }
 }

@@ -17,6 +17,7 @@ pub struct P2pState {
     pub config: P2pConfig,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
     pub kademlia: P2pKademliaState,
+    pub listeners: P2pListenersState,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
@@ -29,6 +30,39 @@ pub struct P2pKademliaState {
     pub saturated: Option<redux::Timestamp>,
     pub peer_timestamp: BTreeMap<PeerId, redux::Timestamp>,
 }
+
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+pub struct P2pListenersState(pub BTreeMap<P2pListenerId, P2pListenerState>);
+
+#[derive(Default, Serialize, Deserialize, derive_more::From, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, derive_more::Display)]
+pub struct P2pListenerId(String);
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pListenerState {
+    Open {
+        addrs: BTreeSet<libp2p::Multiaddr>,
+        errors: Vec<String>,
+    },
+    Closed,
+    ClosedWithError(String),
+}
+
+impl Default for P2pListenerState {
+    fn default() -> Self {
+        P2pListenerState::Open { addrs: BTreeSet::default(), errors: Vec::new() }
+    }
+}
+
+// pub enum P2pKademliaState {
+//     /// Kademlia is not running
+//     None,
+//     /// Kademlia is bootstrapping by
+//     FindingNearestPeers,
+//     ///
+//     FindRandomPeers,
+//     ///
+//     Ready,
+// }
 
 impl P2pState {
     pub fn new(config: P2pConfig) -> Self {
@@ -44,6 +78,7 @@ impl P2pState {
 
         Self {
             config,
+            listeners: Default::default(),
             peers: Default::default(),
             kademlia,
         }

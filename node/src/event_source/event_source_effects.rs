@@ -1,3 +1,8 @@
+use p2p::listen::{
+    P2pListenClosedAction, P2pListenErrorAction, P2pListenExpiredAction, P2pListenNewAction,
+};
+use p2p::P2pListenEvent;
+
 use crate::action::CheckTimeoutsAction;
 use crate::external_snark_worker::{
     ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerEvent, ExternalSnarkWorkerKilledAction,
@@ -73,6 +78,20 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
         // "Translate" event into the corresponding action and dispatch it.
         EventSourceAction::NewEvent(content) => match content.event {
             Event::P2p(e) => match e {
+                P2pEvent::Listen(e) => match e {
+                    P2pListenEvent::NewListenAddr { listener_id, addr } => {
+                        store.dispatch(P2pListenNewAction { listener_id, addr });
+                    }
+                    P2pListenEvent::ExpiredListenAddr { listener_id, addr } => {
+                        store.dispatch(P2pListenExpiredAction { listener_id, addr });
+                    }
+                    P2pListenEvent::ListenerError { listener_id, error } => {
+                        store.dispatch(P2pListenErrorAction { listener_id, error });
+                    }
+                    P2pListenEvent::ListenerClosed { listener_id, error } => {
+                        store.dispatch(P2pListenClosedAction { listener_id, error });
+                    }
+                },
                 P2pEvent::Connection(e) => match e {
                     P2pConnectionEvent::OfferSdpReady(peer_id, res) => match res {
                         Err(error) => {

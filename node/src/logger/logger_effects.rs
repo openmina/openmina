@@ -21,6 +21,53 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
 
     match action {
         Action::P2p(action) => match action {
+            P2pAction::Listen(action) => match action {
+                p2p::listen::P2pListenAction::New(action) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("addr: {}", action.addr),
+                        addr = action.addr.to_string(),
+                        listener_id = action.listener_id.to_string(),
+                    );
+                }
+                p2p::listen::P2pListenAction::Expired(action) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("addr: {}", action.addr),
+                        addr = action.addr.to_string(),
+                        listener_id = action.listener_id.to_string(),
+                    );
+                }
+                p2p::listen::P2pListenAction::Error(action) => {
+                    openmina_core::log::warn!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("id: {}, error: {}", action.listener_id, action.error),
+                        error = action.error,
+                        listener_id = action.listener_id.to_string(),
+                    );
+                }
+                p2p::listen::P2pListenAction::Closed(action) => {
+                    if let Some(error) = &action.error {
+                        openmina_core::log::warn!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("id: {}, error: {error}", action.listener_id),
+                            error = error,
+                            listener_id = action.listener_id.to_string(),
+                        );
+                    } else {
+                        openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("id: {},", action.listener_id),
+                            listener_id = action.listener_id.to_string(),
+                        );
+                    }
+                }
+            },
             P2pAction::Connection(action) => match action {
                 P2pConnectionAction::Outgoing(action) => match action {
                     P2pConnectionOutgoingAction::RandomInit(_) => {}
