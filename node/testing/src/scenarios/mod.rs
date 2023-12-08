@@ -11,8 +11,12 @@
 pub mod multi_node;
 pub mod solo_node;
 
+pub mod p2p;
+
 mod cluster_runner;
 pub use cluster_runner::ClusterRunner;
+mod driver;
+pub use driver::*;
 
 use strum_macros::{EnumIter, EnumString, IntoStaticStr};
 
