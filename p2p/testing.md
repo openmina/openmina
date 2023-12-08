@@ -29,12 +29,6 @@ peer ID already.
 
 **Tests:** TODO
 
-### Node shouldn't try to connect to itself
-
-The node can obtain its address from other peers. It shouldn't be used when connecting to new peers.
-
-**Tests:** TODO
-
 ### Node shouldn't accept connection from itself
 
 The node shouldn't accept a connection from a peer that uses the same peer id as
@@ -49,6 +43,12 @@ malicious node that uses the same peer ID.
 
 - [`p2p_basic_outgoing(make_connection)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L19)
 - [`p2p_basic_outgoing(make_multiple_connections)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L74)
+
+### Node shouldn't try to connect to itself
+
+The node can obtain its address from other peers. It shouldn't use it when connecting to new peers.
+
+**Tests:** TODO
 
 ### Node should connect to all available initial peers
 
