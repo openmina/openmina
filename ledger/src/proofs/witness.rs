@@ -5375,7 +5375,10 @@ mod tests {
     use crate::{
         proofs::{
             block::{generate_block_proof, BlockParams},
-            constants::{StepBlockProof, StepMergeProof, StepZkappProof, WrapBlockProof},
+            constants::{
+                StepBlockProof, StepMergeProof, StepZkappOptSignedOptSignedProof,
+                StepZkappOptSignedProof, WrapBlockProof,
+            },
             merge::{generate_merge_proof, MergeParams},
             util::sha256_sum,
             zkapp::{generate_zkapp_proof, ZkappParams},
@@ -5582,7 +5585,8 @@ mod tests {
         merge_gates: Vec<CircuitGate<Fp>>,
         block_gates: Vec<CircuitGate<Fp>>,
         block_wrap_gates: Vec<CircuitGate<Fq>>,
-        zkapp_step_gates: Vec<CircuitGate<Fp>>,
+        zkapp_step_opt_signed_opt_signed_gates: Vec<CircuitGate<Fp>>,
+        zkapp_step_opt_signed_gates: Vec<CircuitGate<Fp>>,
         internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
         rows_rev: Vec<Vec<Option<V>>>,
         internal_vars_wrap: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
@@ -5593,8 +5597,10 @@ mod tests {
         block_rows_rev: Vec<Vec<Option<V>>>,
         block_wrap_internal_vars: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
         block_wrap_rows_rev: Vec<Vec<Option<V>>>,
-        zkapp_step_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-        zkapp_step_rows_rev: Vec<Vec<Option<V>>>,
+        zkapp_step_opt_signed_opt_signed_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
+        zkapp_step_opt_signed_opt_signed_rows_rev: Vec<Vec<Option<V>>>,
+        zkapp_step_opt_signed_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
+        zkapp_step_opt_signed_rows_rev: Vec<Vec<Option<V>>>,
     }
 
     fn read_gates() -> Gates {
@@ -5637,7 +5643,18 @@ mod tests {
             .join("rampup4")
             .join("zkapp_step_internal_vars.bin");
         let rows_rev_path = base_dir.join("rampup4").join("zkapp_step_rows_rev.bin");
-        let (zkapp_step_internal_vars, zkapp_step_rows_rev) =
+        let (
+            zkapp_step_opt_signed_opt_signed_internal_vars,
+            zkapp_step_opt_signed_opt_signed_rows_rev,
+        ) = read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
+
+        let internal_vars_path = base_dir
+            .join("rampup4")
+            .join("zkapp_step_opt_signed_internal_vars.bin");
+        let rows_rev_path = base_dir
+            .join("rampup4")
+            .join("zkapp_step_opt_signed_rows_rev.bin");
+        let (zkapp_step_opt_signed_internal_vars, zkapp_step_opt_signed_rows_rev) =
             read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
 
         let gates: Vec<CircuitGate<Fp>> =
@@ -5651,8 +5668,10 @@ mod tests {
         let block_gates: Vec<CircuitGate<Fp>> = read_gates_file(&base_dir.join("block_gates.json"));
         let block_wrap_gates: Vec<CircuitGate<Fq>> =
             read_gates_file(&base_dir.join("block_wrap_gates.json"));
-        let zkapp_step_gates: Vec<CircuitGate<Fp>> =
+        let zkapp_step_opt_signed_opt_signed_gates: Vec<CircuitGate<Fp>> =
             read_gates_file(&base_dir.join("zkapp_step_gates.json"));
+        let zkapp_step_opt_signed_gates: Vec<CircuitGate<Fp>> =
+            read_gates_file(&base_dir.join("zkapp_step_opt_signed_gates.json"));
 
         Gates {
             gates,
@@ -5670,9 +5689,12 @@ mod tests {
             block_wrap_gates,
             block_wrap_internal_vars,
             block_wrap_rows_rev,
-            zkapp_step_gates,
-            zkapp_step_internal_vars,
-            zkapp_step_rows_rev,
+            zkapp_step_opt_signed_opt_signed_gates,
+            zkapp_step_opt_signed_opt_signed_internal_vars,
+            zkapp_step_opt_signed_opt_signed_rows_rev,
+            zkapp_step_opt_signed_gates,
+            zkapp_step_opt_signed_internal_vars,
+            zkapp_step_opt_signed_rows_rev,
         }
     }
 
@@ -5682,7 +5704,8 @@ mod tests {
         merge_step_prover: Prover<Fp>,
         block_step_prover: Prover<Fp>,
         block_wrap_prover: Prover<Fq>,
-        zkapp_step_prover: Prover<Fp>,
+        zkapp_step_opt_signed_opt_signed_prover: Prover<Fp>,
+        zkapp_step_opt_signed_prover: Prover<Fp>,
     }
 
     fn make_provers() -> Provers {
@@ -5702,16 +5725,24 @@ mod tests {
             block_wrap_gates,
             block_wrap_internal_vars,
             block_wrap_rows_rev,
-            zkapp_step_gates,
-            zkapp_step_internal_vars,
-            zkapp_step_rows_rev,
+            zkapp_step_opt_signed_opt_signed_gates,
+            zkapp_step_opt_signed_opt_signed_internal_vars,
+            zkapp_step_opt_signed_opt_signed_rows_rev,
+            zkapp_step_opt_signed_gates,
+            zkapp_step_opt_signed_internal_vars,
+            zkapp_step_opt_signed_rows_rev,
         } = read_gates();
         let tx_prover_index = make_prover_index::<StepTransactionProof, _>(gates);
         let merge_prover_index = make_prover_index::<StepMergeProof, _>(merge_gates);
         let wrap_prover_index = make_prover_index::<WrapTransactionProof, _>(wrap_gates);
         let wrap_block_prover_index = make_prover_index::<WrapBlockProof, _>(block_wrap_gates);
         let block_prover_index = make_prover_index::<StepBlockProof, _>(block_gates);
-        let zkapp_step_prover_index = make_prover_index::<StepZkappProof, _>(zkapp_step_gates);
+        let zkapp_step_opt_signed_opt_signed_prover_index =
+            make_prover_index::<StepZkappOptSignedOptSignedProof, _>(
+                zkapp_step_opt_signed_opt_signed_gates,
+            );
+        let zkapp_step_opt_signed_prover_index =
+            make_prover_index::<StepZkappOptSignedProof, _>(zkapp_step_opt_signed_gates);
 
         let tx_step_prover = Prover {
             internal_vars,
@@ -5743,10 +5774,16 @@ mod tests {
             index: wrap_block_prover_index,
         };
 
-        let zkapp_step_prover = Prover {
-            internal_vars: zkapp_step_internal_vars,
-            rows_rev: zkapp_step_rows_rev,
-            index: zkapp_step_prover_index,
+        let zkapp_step_opt_signed_opt_signed_prover = Prover {
+            internal_vars: zkapp_step_opt_signed_opt_signed_internal_vars,
+            rows_rev: zkapp_step_opt_signed_opt_signed_rows_rev,
+            index: zkapp_step_opt_signed_opt_signed_prover_index,
+        };
+
+        let zkapp_step_opt_signed_prover = Prover {
+            internal_vars: zkapp_step_opt_signed_internal_vars,
+            rows_rev: zkapp_step_opt_signed_rows_rev,
+            index: zkapp_step_opt_signed_prover_index,
         };
 
         Provers {
@@ -5755,7 +5792,8 @@ mod tests {
             merge_step_prover,
             block_step_prover,
             block_wrap_prover,
-            zkapp_step_prover,
+            zkapp_step_opt_signed_opt_signed_prover,
+            zkapp_step_opt_signed_prover,
         }
     }
 
@@ -5768,7 +5806,8 @@ mod tests {
             merge_step_prover,
             block_step_prover,
             block_wrap_prover,
-            zkapp_step_prover,
+            zkapp_step_opt_signed_opt_signed_prover,
+            zkapp_step_opt_signed_prover,
         } = make_provers();
         let v = &tx_wrap_prover.index.verifier_index.as_ref().unwrap();
         let v_json = serde_json::to_string(&v).unwrap();
@@ -5809,7 +5848,8 @@ mod tests {
             merge_step_prover: _,
             block_step_prover: _,
             block_wrap_prover: _,
-            zkapp_step_prover: _,
+            zkapp_step_opt_signed_opt_signed_prover: _,
+            zkapp_step_opt_signed_prover: _,
         } = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
@@ -5869,7 +5909,8 @@ mod tests {
             merge_step_prover,
             block_step_prover: _,
             block_wrap_prover: _,
-            zkapp_step_prover: _,
+            zkapp_step_opt_signed_opt_signed_prover: _,
+            zkapp_step_opt_signed_prover: _,
         } = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
@@ -5915,16 +5956,18 @@ mod tests {
             merge_step_prover: _,
             block_step_prover: _,
             block_wrap_prover: _,
-            zkapp_step_prover,
+            zkapp_step_opt_signed_opt_signed_prover,
+            zkapp_step_opt_signed_prover,
         } = make_provers();
 
-        let mut witnesses: Witness<Fp> = Witness::new::<StepZkappProof>();
+        let mut witnesses: Witness<Fp> = Witness::new::<StepZkappOptSignedOptSignedProof>();
         generate_zkapp_proof(
             ZkappParams {
                 statement: &statement,
                 tx_witness: &tx_witness,
                 message: &message,
-                step_prover: &zkapp_step_prover,
+                step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
+                step_opt_signed_prover: &zkapp_step_opt_signed_prover,
                 tx_wrap_prover: &tx_wrap_prover,
                 expected_step_proof: None,
                 ocaml_wrap_witness: None,
@@ -5968,7 +6011,8 @@ mod tests {
             merge_step_prover: _,
             block_step_prover,
             block_wrap_prover,
-            zkapp_step_prover: _,
+            zkapp_step_opt_signed_opt_signed_prover: _,
+            zkapp_step_opt_signed_prover: _,
         } = make_provers();
         let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
 
@@ -6005,7 +6049,8 @@ mod tests {
             merge_step_prover,
             block_step_prover,
             block_wrap_prover,
-            zkapp_step_prover: _,
+            zkapp_step_opt_signed_opt_signed_prover: _,
+            zkapp_step_opt_signed_prover: _,
         } = make_provers();
 
         // Block proof

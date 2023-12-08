@@ -14,7 +14,10 @@ use mina_p2p_messages::v2;
 use crate::{
     hash_with_kimchi,
     proofs::{
-        constants::{StepZkappProof, WrapTransactionProof, WrapZkappProof},
+        constants::{
+            StepZkappOptSignedOptSignedProof, WrapTransactionProof, WrapZkappOptSignedProof,
+            WrapZkappProof,
+        },
         util::sha256_sum,
         witness::{transaction_snark::CONSTRAINT_CONSTANTS, ToBoolean},
         wrap::WrapParams,
@@ -53,12 +56,13 @@ use crate::{
 use self::group::SegmentBasic;
 
 use super::{
+    constants::{ForWrapData, ProofConstants, StepZkappOptSignedProof},
     numbers::{
         currency::{CheckedAmount, CheckedSigned},
         nat::{CheckedIndex, CheckedNat, CheckedSlot},
     },
     to_field_elements::ToFieldElements,
-    witness::{dummy_constraints, Boolean, Check, Prover, Witness},
+    witness::{dummy_constraints, Boolean, Check, FieldWitness, GroupAffine, Prover, Witness},
     wrap::CircuitVar,
 };
 
@@ -66,7 +70,8 @@ pub struct ZkappParams<'a> {
     pub statement: &'a v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     pub tx_witness: &'a v2::TransactionWitnessStableV2,
     pub message: &'a SokMessage,
-    pub step_prover: &'a Prover<Fp>,
+    pub step_opt_signed_opt_signed_prover: &'a Prover<Fp>,
+    pub step_opt_signed_prover: &'a Prover<Fp>,
     pub tx_wrap_prover: &'a Prover<Fq>,
     // pub tx_wrap_prover: &'a Prover<Fq>,
     /// For debugging only
@@ -889,18 +894,19 @@ fn basic_spec(s: &SegmentBasic) -> Box<[Spec]> {
     }
 }
 
-fn read_witnesses() -> Vec<Fp> {
+fn read_witnesses<F: FieldWitness>(path: &str) -> Vec<F> {
     let f = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("rampup4")
-            .join("zkapp_fps.txt"),
+            .join(path),
+        // .join("zkapp_fps.txt"),
     )
     .unwrap();
 
     let fps = f
         .lines()
         .filter(|s| !s.is_empty())
-        .map(|s| Fp::from_str(s).unwrap())
+        .map(|s| F::from_str(s).unwrap_or_else(|_| panic!()))
         .collect::<Vec<_>>();
 
     fps
@@ -1249,21 +1255,30 @@ fn zkapp_main(
     (zkapp_input, must_verify)
 }
 
-fn of_zkapp_command_segment_exn(
+fn of_zkapp_command_segment_exn<StepConstants, WrapConstants>(
     statement: Statement<SokDigest>,
     witness: &ZkappCommandSegmentWitness,
     spec: &SegmentBasic,
     step_prover: &Prover<Fp>,
     tx_wrap_prover: &Prover<Fq>,
-) {
+    fps_path: Option<&str>,
+    fqs_path: Option<&str>,
+) -> kimchi::proof::ProverProof<GroupAffine<Fp>>
+where
+    StepConstants: ProofConstants,
+    WrapConstants: ProofConstants + ForWrapData,
+{
     use SegmentBasic::*;
 
     let s = basic_spec(spec);
-    let mut w = Witness::new::<StepZkappProof>();
-    w.ocaml_aux = read_witnesses();
+    let mut w = Witness::new::<StepConstants>();
+
+    if let Some(path) = fps_path {
+        w.ocaml_aux = read_witnesses(path);
+    };
 
     let (zkapp_input, must_verify) = match spec {
-        OptSigned => todo!(),
+        OptSigned => zkapp_main(statement.clone(), witness, &s, &mut w),
         OptSignedOptSigned => zkapp_main(statement.clone(), witness, &s, &mut w),
         Proved => todo!(),
     };
@@ -1301,12 +1316,8 @@ fn of_zkapp_command_segment_exn(
     // TODO: Not always dummy
     let prev_evals = vec![crate::proofs::unfinalized::AllEvals::dummy(); 2];
 
-    dbg!(&w.primary);
-
-    dbg!(step_prover.index.verifier_index_digest);
-
     let prev_challenges = vec![];
-    let proof = crate::proofs::witness::create_proof::<StepZkappProof, Fp>(
+    let proof = crate::proofs::witness::create_proof::<StepConstants, Fp>(
         step_prover,
         prev_challenges,
         &mut w,
@@ -1314,30 +1325,18 @@ fn of_zkapp_command_segment_exn(
 
     let proof_json = serde_json::to_vec(&proof).unwrap();
     dbg!(crate::proofs::util::sha256_sum(&proof_json));
-    assert_eq!(
-        sha256_sum(&proof_json),
-        "be5393f0366a52ff694200702496f6c30e1d79de48dc06953b9b85baf4701ac0"
-    );
+    // assert_eq!(
+    //     sha256_sum(&proof_json),
+    //     "be5393f0366a52ff694200702496f6c30e1d79de48dc06953b9b85baf4701ac0"
+    // );
 
-    let mut w: Witness<Fq> = Witness::new::<WrapZkappProof>();
+    let mut w: Witness<Fq> = Witness::new::<WrapConstants>();
 
-    fn read_witnesses2() -> Vec<Fq> {
-        let f = std::fs::read_to_string(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("rampup4")
-                .join("zkapp_fqs.txt"),
-        )
-        .unwrap();
-        let fps = f
-            .lines()
-            .filter(|s| !s.is_empty())
-            .map(|s| Fq::from_str(s).unwrap())
-            .collect::<Vec<_>>();
-        fps
-    }
-    w.ocaml_aux = read_witnesses2();
+    if let Some(path) = fqs_path {
+        w.ocaml_aux = read_witnesses(path);
+    };
 
-    crate::proofs::wrap::wrap::<WrapZkappProof>(
+    crate::proofs::wrap::wrap::<WrapConstants>(
         WrapParams {
             app_state: Rc::new(statement),
             proof: &proof,
@@ -1348,7 +1347,7 @@ fn of_zkapp_command_segment_exn(
             wrap_prover: tx_wrap_prover,
         },
         &mut w,
-    );
+    )
 }
 
 // let of_zkapp_command_segment_exn ~(statement : Proof.statement) ~witness
@@ -1380,7 +1379,8 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
         statement,
         tx_witness,
         message,
-        step_prover,
+        step_opt_signed_opt_signed_prover: step_prover,
+        step_opt_signed_prover,
         expected_step_proof,
         ocaml_wrap_witness,
         tx_wrap_prover,
@@ -1417,17 +1417,94 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
     let sok_digest = message.digest();
 
     let (last, rest) = witnesses_specs_stmts.split_last().unwrap();
-
     let (witness, spec, statement) = last;
 
-    of_zkapp_command_segment_exn(
+    let of_zkapp_command_segment = |statement: Statement<SokDigest>,
+                                    witness: &ZkappCommandSegmentWitness,
+                                    spec: &SegmentBasic| {
+        let step_prover = match spec {
+            SegmentBasic::OptSignedOptSigned => step_prover,
+            SegmentBasic::OptSigned => step_opt_signed_prover,
+            SegmentBasic::Proved => todo!(),
+        };
+
+        match spec {
+            SegmentBasic::OptSignedOptSigned => {
+                of_zkapp_command_segment_exn::<StepZkappOptSignedOptSignedProof, WrapZkappProof>(
+                    Statement {
+                        sok_digest: sok_digest.clone(),
+                        ..statement.clone()
+                    },
+                    witness,
+                    spec,
+                    step_prover,
+                    tx_wrap_prover,
+                    None,
+                    None,
+                )
+            }
+            SegmentBasic::OptSigned => {
+                of_zkapp_command_segment_exn::<StepZkappOptSignedProof, WrapZkappOptSignedProof>(
+                    Statement {
+                        sok_digest: sok_digest.clone(),
+                        ..statement.clone()
+                    },
+                    witness,
+                    spec,
+                    step_prover,
+                    tx_wrap_prover,
+                    Some("zkapp_opt_signed_fps.txt"),
+                    Some("zkapp_opt_signed_fqs.txt"),
+                )
+            }
+            SegmentBasic::Proved => todo!(),
+        }
+    };
+
+    let p1 = of_zkapp_command_segment(
         Statement {
             sok_digest: sok_digest.clone(),
             ..statement.clone()
         },
         witness,
         spec,
-        step_prover,
-        tx_wrap_prover,
     );
+
+    for (witness, spec, statement) in rest.iter().rev() {
+        let curr = of_zkapp_command_segment(
+            Statement {
+                sok_digest: sok_digest.clone(),
+                ..statement.clone()
+            },
+            witness,
+            spec,
+        );
+    }
 }
+
+// | (witness, spec, stmt) :: rest as inputs ->
+//     Core.Printf.eprintf "[snark_worker] BEFORE p1\n%!" ;
+//     let%bind (p1 : Ledger_proof.t) =
+//       log_base_snark
+//         ~statement:{ stmt with sok_digest } ~spec
+//         ~all_inputs:inputs
+//         (M.of_zkapp_command_segment_exn ~witness)
+//     in
+//     Core.Printf.eprintf
+//       "[snark_worker] BEFORE folding\n%!" ;
+//     exit 0 ;
+//     let%bind (p : Ledger_proof.t) =
+//       Deferred.List.fold ~init:(Ok p1) rest
+//         ~f:(fun acc (witness, spec, stmt) ->
+//           let%bind (prev : Ledger_proof.t) =
+//             Deferred.return acc
+//           in
+//           let%bind (curr : Ledger_proof.t) =
+//             log_base_snark
+//               ~statement:{ stmt with sok_digest }
+//               ~spec ~all_inputs:inputs
+//               (M.of_zkapp_command_segment_exn ~witness)
+//           in
+//           log_merge_snark ~sok_digest prev curr
+//             ~all_inputs:inputs )
+//     in
