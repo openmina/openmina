@@ -16,6 +16,8 @@ should be present in the state machine.
 We should accept an incoming connection from an arbitrary node.
 
 **Tests:**
+- [p2p_basic_incoming(accept_connection)](../node/testing/src/scenarios/p2p/basic_incoming_connections.rs#L16)
+- [p2p_basic_incoming(accept_multiple_connections)](../node/testing/src/scenarios/p2p/basic_incoming_connections.rs#L62)
 - [solo_node_accept_incoming](../node/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
 - [multi_node_connection_discovery/OCamlToRust](../node/testing/src/scenarios/multi_node/connection_discovery.rs#L127) (should be replaced with one with non-OCaml peer)
 - TODO: fast-running short test
@@ -42,6 +44,11 @@ malicious node that uses the same peer ID.
 **Tests:** TODO
 
 ## Outgoing connections
+
+### Node should connect to other nodes
+
+- [`p2p_basic_outgoing(make_connection)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L19)
+- [`p2p_basic_outgoing(make_multiple_connections)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L74)
 
 ### Node should connect to all available initial peers
 

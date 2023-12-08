@@ -67,6 +67,30 @@ jobs:
           name: tests
           path: tests.tar
 
+  p2p-tests:
+    needs: [ build ]
+    runs-on: ubuntu-20.04
+    container:
+      image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-focal-berkeley
+    strategy:
+      matrix:
+        test: [p2p_basic_incoming, p2p_basic_outgoing]
+      fail-fast: false
+
+    steps:
+      - name: Download tests
+        uses: actions/download-artifact@v3
+        with:
+          name: tests
+
+      - name: Unpack tests
+        run: |
+          tar xf tests.tar ./${{ matrix.test }}
+
+      - name: Run the test
+        run: |
+          ./${{ matrix.test }} --nocapture --test-threads=1
+
   scenario-tests:
     needs: [ build ]
     runs-on: ubuntu-20.04
