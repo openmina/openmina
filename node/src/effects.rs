@@ -1,6 +1,6 @@
 use redux::ActionMeta;
 
-use crate::block_producer::block_producer_effects;
+use crate::block_producer::{block_producer_effects, BlockProducerWonSlotProduceInitAction};
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::external_snark_worker::{
@@ -82,6 +82,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             store.dispatch(ExternalSnarkWorkerStartTimeoutAction { now: meta.time() });
             store.dispatch(ExternalSnarkWorkerWorkTimeoutAction { now: meta.time() });
+
+            store.dispatch(BlockProducerWonSlotProduceInitAction {});
         }
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));

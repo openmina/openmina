@@ -172,6 +172,7 @@ impl Cluster {
                 enabled_channels: ChannelId::iter_all().collect(),
             },
             transition_frontier: TransitionFrontierConfig::default(),
+            block_producer: None,
         };
 
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
