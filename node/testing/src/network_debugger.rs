@@ -1,5 +1,6 @@
 use std::{
     collections::VecDeque,
+    net::SocketAddr,
     process::{Child, Command},
     time::SystemTime,
 };
@@ -12,6 +13,22 @@ pub struct Debugger {
     host: &'static str,
     port: u16,
     client: Client,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct Connection {
+    pub info: ConnectionInfo,
+    pub incoming: bool,
+    pub timestamp: SystemTime,
+
+    pub alias: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct ConnectionInfo {
+    pub addr: SocketAddr,
+    pub pid: u32,
+    pub fd: u32,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -90,6 +107,17 @@ impl Debugger {
             .map_err(Into::into)
     }
 
+    pub fn get_connections(&self, params: &str) -> anyhow::Result<Vec<(u64, Connection)>> {
+        let port = self.port;
+        let host = self.host;
+        let res = self
+            .client
+            .get(&format!("http://{host}:{port}/connections?{params}"))
+            .send()?
+            .text()?;
+        serde_json::from_str::<Vec<_>>(&res).map_err(From::from)
+    }
+
     pub fn get_messages(&self, params: &str) -> anyhow::Result<Vec<(u64, FullMessage)>> {
         let port = self.port;
         let host = self.host;
@@ -109,12 +137,47 @@ impl Debugger {
             .unwrap_or_default()
     }
 
+    pub fn connections(&self, cursor: u64) -> Connections<'_> {
+        Connections {
+            inner: self,
+            cursor,
+            buffer: VecDeque::default(),
+        }
+    }
+
     pub fn messages(&self, cursor: u64) -> Messages<'_> {
         Messages {
             inner: self,
             cursor,
             buffer: VecDeque::default(),
         }
+    }
+}
+
+pub struct Connections<'a> {
+    inner: &'a Debugger,
+    cursor: u64,
+    buffer: VecDeque<(u64, Connection)>,
+}
+
+impl<'a> Iterator for Connections<'a> {
+    type Item = (u64, Connection);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        dbg!(self.buffer.len());
+        if self.buffer.is_empty() {
+            let params = format!("direction=forward&limit=100&id={}", self.cursor);
+            let msgs = self
+                .inner
+                .get_connections(&params)
+                .map_err(|err| eprintln!("{err}"))
+                .ok()?;
+            let (last_id, _) = msgs.last()?;
+            self.cursor = *last_id + 1;
+            self.buffer.extend(msgs);
+            dbg!(self.buffer.len());
+        }
+        self.buffer.pop_front()
     }
 }
 
@@ -139,7 +202,7 @@ impl<'a> Iterator for Messages<'a> {
             self.cursor = *last_id + 1;
             self.buffer.extend(msgs);
         }
-        self.buffer.pop_back()
+        self.buffer.pop_front()
     }
 }
 
