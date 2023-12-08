@@ -46,7 +46,7 @@ use crate::connection::outgoing::{
     P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
 };
 use crate::identity::SecretKey;
-use crate::{P2pChannelEvent, P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent};
+use crate::{P2pChannelEvent, P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent, P2pListenEvent};
 
 use super::TaskSpawner;
 
@@ -583,6 +583,31 @@ impl Libp2pService {
                     listener_id = listener_id,
                     maddr = maddr,
                 );
+                let event = P2pEvent::Listen(P2pListenEvent::NewListenAddr {
+                    listener_id: listener_id.into(),
+                    addr: address,
+                });
+                let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
+            }
+            SwarmEvent::ExpiredListenAddr {
+                listener_id,
+                address,
+                ..
+            } => {
+                let maddr = format!("{address}/p2p/{}", swarm.local_peer_id());
+                let listener_id = format!("{listener_id:?}");
+                openmina_core::log::info!(
+                    openmina_core::log::system_time();
+                    kind = "Libp2pListenStart",
+                    summary = format!("libp2p.{listener_id} stopped listening on: {maddr}"),
+                    listener_id = listener_id,
+                    maddr = maddr,
+                );
+                let event = P2pEvent::Listen(P2pListenEvent::ExpiredListenAddr {
+                    listener_id: listener_id.into(),
+                    addr: address,
+                });
+                let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::ListenerError { listener_id, error } => {
                 let listener_id = format!("{listener_id:?}");
@@ -592,6 +617,11 @@ impl Libp2pService {
                     summary = format!("libp2p.{listener_id:?} listener error: {error:?}"),
                     listener_id = listener_id,
                 );
+                let event = P2pEvent::Listen(P2pListenEvent::ListenerError {
+                    listener_id: listener_id.into(),
+                    error: error.to_string(),
+                });
+                let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::ListenerClosed {
                 listener_id,
@@ -605,6 +635,11 @@ impl Libp2pService {
                     summary = format!("libp2p.{listener_id} closed. Reason: {reason:?}"),
                     listener_id = listener_id,
                 );
+                let event = P2pEvent::Listen(P2pListenEvent::ListenerClosed {
+                    listener_id: listener_id.into(),
+                    error: reason.err().map(|err| err.to_string()),
+                });
+                let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::IncomingConnection {
                 connection_id,

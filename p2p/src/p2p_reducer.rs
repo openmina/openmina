@@ -10,6 +10,9 @@ impl P2pState {
     pub fn reducer(&mut self, action: P2pActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
+            P2pAction::Listen(action) => {
+                self.listeners.reducer(meta.with_action(action));
+            }
             P2pAction::Connection(action) => {
                 let Some(peer_id) = action.peer_id() else {
                     return;
