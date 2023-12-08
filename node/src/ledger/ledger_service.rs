@@ -22,6 +22,7 @@ use ledger::{
     staged_ledger::{
         diff::Diff,
         staged_ledger::{SkipVerification, StagedLedger},
+        validate_block::block_body_hash,
     },
     verifier::Verifier,
     AccountIndex, BaseLedger, Mask, TreeVersion, UnregisterBehavior,
@@ -32,14 +33,18 @@ use mina_p2p_messages::v2::{
     MinaBaseLedgerHash0StableV1, MinaBaseSokMessageStableV1, MinaBaseStagedLedgerHashStableV1,
     MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
     MinaStateBlockchainStateValueStableV2LedgerProofStatement, MinaStateProtocolStateValueStableV2,
-    MinaTransactionTransactionStableV2, StateHash,
+    MinaTransactionTransactionStableV2, NonZeroCurvePoint, StateHash,
 };
 use mina_signer::CompressedPubKey;
-use openmina_core::{block::ArcBlockWithHash, snark::SnarkJobId};
+use openmina_core::block::ArcBlockWithHash;
+use openmina_core::snark::{Snark, SnarkJobId};
 
-use crate::transition_frontier::sync::ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
 use crate::transition_frontier::TransitionFrontierService;
+use crate::{
+    block_producer::{BlockProducerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput},
+    transition_frontier::sync::ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,
+};
 use crate::{
     p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
 };
@@ -586,6 +591,73 @@ impl<T: LedgerService> TransitionFrontierService for T {
             }
             .into(),
         )
+    }
+}
+
+impl<T: LedgerService> BlockProducerService for T {
+    fn staged_ledger_diff_create(
+        &mut self,
+        pred_block: &ArcBlockWithHash,
+        won_slot: &BlockProducerWonSlot,
+        coinbase_receiver: &NonZeroCurvePoint,
+        completed_snarks: BTreeMap<SnarkJobId, Snark>,
+        supercharge_coinbase: bool,
+    ) -> Result<StagedLedgerDiffCreateOutput, String> {
+        let mut staged_ledger = self
+            .ctx_mut()
+            .staged_ledger_mut(&pred_block.staged_ledger_hash())
+            .ok_or_else(|| "parent staged ledger missing")?
+            .clone();
+
+        let protocol_state_view = protocol_state_view(&pred_block.header().protocol_state);
+
+        // TODO(binier): include `invalid_txns` in output.
+        let (pre_diff, invalid_txns) = staged_ledger
+            .create_diff(
+                &CONSTRAINT_CONSTANTS,
+                (&won_slot.global_slot_since_genesis).into(),
+                Some(true),
+                coinbase_receiver.into(),
+                (),
+                &protocol_state_view,
+                // TODO(binier): once we have transaction pool, pass
+                // transactions here.
+                Vec::new(),
+                |stmt| {
+                    let job_id = SnarkJobId::from(stmt);
+                    completed_snarks.get(&job_id).map(Into::into)
+                },
+                supercharge_coinbase,
+            )
+            .map_err(|err| format!("{err:?}"))?;
+
+        // TODO(binier): maybe here, check if block reward is above threshold.
+        // https://github.com/minaprotocol/mina/blob/b3d418a8c0ae4370738886c2b26f0ec7bdb49303/src/lib/block_producer/block_producer.ml#L222
+
+        let pred_body_hash = pred_block.header().protocol_state.body.hash();
+        let diff = (&pre_diff).into();
+
+        let res = staged_ledger
+            .apply_diff_unchecked(
+                &CONSTRAINT_CONSTANTS,
+                (&won_slot.global_slot_since_genesis).into(),
+                pre_diff,
+                (),
+                &protocol_state_view,
+                (pred_block.hash().0.to_field(), pred_body_hash.0.to_field()),
+                coinbase_receiver.into(),
+                supercharge_coinbase,
+            )
+            .map_err(|err| format!("{err:?}"))?;
+
+        let diff_hash = block_body_hash(&diff).map_err(|err| format!("{err:?}"))?;
+
+        Ok(StagedLedgerDiffCreateOutput {
+            staged_ledger_hash: (&res.hash_after_applying).into(),
+            emitted_ledger_proof: res.ledger_proof.map(|(proof, ..)| (&proof).into()),
+            diff,
+            diff_hash,
+        })
     }
 }
 

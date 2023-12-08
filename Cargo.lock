@@ -3262,6 +3262,7 @@ dependencies = [
  "hex",
  "itertools",
  "kimchi",
+ "lazy_static",
  "libc",
  "mina-curves",
  "mina-hasher",

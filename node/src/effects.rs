@@ -1,6 +1,6 @@
 use redux::ActionMeta;
 
-use crate::block_producer::block_producer_effects;
+use crate::block_producer::{block_producer_effects, BlockProducerWonSlotProduceInitAction};
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::external_snark_worker::{
@@ -82,6 +82,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             store.dispatch(ExternalSnarkWorkerStartTimeoutAction { now: meta.time() });
             store.dispatch(ExternalSnarkWorkerWorkTimeoutAction { now: meta.time() });
+
+            store.dispatch(BlockProducerWonSlotProduceInitAction {});
         }
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));
@@ -228,7 +230,14 @@ fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
         .p2p
         .ready_peers_iter()
         .filter_map(|(peer_id, _)| {
-            let Some(t) = store.state().p2p.kademlia.peer_timestamp.get(peer_id).cloned() else {
+            let Some(t) = store
+                .state()
+                .p2p
+                .kademlia
+                .peer_timestamp
+                .get(peer_id)
+                .cloned()
+            else {
                 return Some(*peer_id);
             };
             let elapsed = meta

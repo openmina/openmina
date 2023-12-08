@@ -17,7 +17,15 @@ use serde::{Deserialize, Serialize};
 use crate::block_producer::vrf_evaluator::{
     BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorEpochDataUpdateAction,
 };
-use crate::block_producer::{BlockProducerAction, BlockProducerBestTipUpdateAction};
+use crate::block_producer::{
+    BlockProducerAction, BlockProducerBestTipUpdateAction, BlockProducerBlockInjectAction,
+    BlockProducerBlockInjectedAction, BlockProducerBlockProducedAction,
+    BlockProducerBlockUnprovenBuildAction, BlockProducerStagedLedgerDiffCreateInitAction,
+    BlockProducerStagedLedgerDiffCreatePendingAction,
+    BlockProducerStagedLedgerDiffCreateSuccessAction, BlockProducerWonSlotAction,
+    BlockProducerWonSlotDiscardAction, BlockProducerWonSlotProduceInitAction,
+    BlockProducerWonSlotSearchAction, BlockProducerWonSlotWaitAction,
+};
 use crate::consensus::{
     ConsensusAction, ConsensusBestTipUpdateAction, ConsensusBlockChainProofUpdateAction,
     ConsensusBlockReceivedAction, ConsensusBlockSnarkVerifyPendingAction,
@@ -203,7 +211,19 @@ use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 pub enum ActionKind {
     None,
     BlockProducerBestTipUpdate,
+    BlockProducerBlockInject,
+    BlockProducerBlockInjected,
+    BlockProducerBlockProduced,
+    BlockProducerBlockUnprovenBuild,
+    BlockProducerStagedLedgerDiffCreateInit,
+    BlockProducerStagedLedgerDiffCreatePending,
+    BlockProducerStagedLedgerDiffCreateSuccess,
     BlockProducerVrfEvaluatorEpochDataUpdate,
+    BlockProducerWonSlot,
+    BlockProducerWonSlotDiscard,
+    BlockProducerWonSlotProduceInit,
+    BlockProducerWonSlotSearch,
+    BlockProducerWonSlotWait,
     CheckTimeouts,
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
@@ -412,7 +432,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 208;
+    pub const COUNT: u16 = 220;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -543,6 +563,18 @@ impl ActionKindGet for BlockProducerAction {
         match self {
             Self::VrfEvaluator(a) => a.kind(),
             Self::BestTipUpdate(a) => a.kind(),
+            Self::WonSlotSearch(a) => a.kind(),
+            Self::WonSlot(a) => a.kind(),
+            Self::WonSlotDiscard(a) => a.kind(),
+            Self::WonSlotWait(a) => a.kind(),
+            Self::WonSlotProduceInit(a) => a.kind(),
+            Self::StagedLedgerDiffCreateInit(a) => a.kind(),
+            Self::StagedLedgerDiffCreatePending(a) => a.kind(),
+            Self::StagedLedgerDiffCreateSuccess(a) => a.kind(),
+            Self::BlockUnprovenBuild(a) => a.kind(),
+            Self::BlockProduced(a) => a.kind(),
+            Self::BlockInject(a) => a.kind(),
+            Self::BlockInjected(a) => a.kind(),
         }
     }
 }
@@ -932,6 +964,78 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
 impl ActionKindGet for BlockProducerBestTipUpdateAction {
     fn kind(&self) -> ActionKind {
         ActionKind::BlockProducerBestTipUpdate
+    }
+}
+
+impl ActionKindGet for BlockProducerWonSlotSearchAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerWonSlotSearch
+    }
+}
+
+impl ActionKindGet for BlockProducerWonSlotAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerWonSlot
+    }
+}
+
+impl ActionKindGet for BlockProducerWonSlotDiscardAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerWonSlotDiscard
+    }
+}
+
+impl ActionKindGet for BlockProducerWonSlotWaitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerWonSlotWait
+    }
+}
+
+impl ActionKindGet for BlockProducerWonSlotProduceInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerWonSlotProduceInit
+    }
+}
+
+impl ActionKindGet for BlockProducerStagedLedgerDiffCreateInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerStagedLedgerDiffCreateInit
+    }
+}
+
+impl ActionKindGet for BlockProducerStagedLedgerDiffCreatePendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerStagedLedgerDiffCreatePending
+    }
+}
+
+impl ActionKindGet for BlockProducerStagedLedgerDiffCreateSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerStagedLedgerDiffCreateSuccess
+    }
+}
+
+impl ActionKindGet for BlockProducerBlockUnprovenBuildAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerBlockUnprovenBuild
+    }
+}
+
+impl ActionKindGet for BlockProducerBlockProducedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerBlockProduced
+    }
+}
+
+impl ActionKindGet for BlockProducerBlockInjectAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerBlockInject
+    }
+}
+
+impl ActionKindGet for BlockProducerBlockInjectedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::BlockProducerBlockInjected
     }
 }
 
