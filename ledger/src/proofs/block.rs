@@ -59,6 +59,7 @@ use super::{
         transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
         Check, CircuitPlonkVerificationKeyEvals, GroupAffine, Prover, StepStatement, Witness,
     },
+    wrap::WrapProof,
 };
 
 fn read_witnesses() -> Vec<Fp> {
@@ -1974,10 +1975,7 @@ pub struct BlockParams<'a> {
     pub ocaml_wrap_witness: Option<Vec<Fq>>,
 }
 
-pub fn generate_block_proof(
-    params: BlockParams,
-    w: &mut Witness<Fp>,
-) -> kimchi::proof::ProverProof<GroupAffine<Fp>> {
+pub fn generate_block_proof(params: BlockParams, w: &mut Witness<Fp>) -> WrapProof {
     w.ocaml_aux = read_witnesses();
 
     let BlockParams {

@@ -44,7 +44,7 @@ use super::{
         plonk_checks::{PlonkMinimal, ScalarsEnv, ShiftedValue},
     },
     to_field_elements::ToFieldElements,
-    unfinalized::AllEvals,
+    unfinalized::{AllEvals, EvalsWithPublicInput},
     util::u64_to_field,
     witness::{
         plonk_curve_ops::scale_fast, Check, GroupAffine, PlonkVerificationKeyEvals, Prover,
@@ -600,10 +600,7 @@ pub struct WrapParams<'a> {
     pub wrap_prover: &'a Prover<Fq>,
 }
 
-pub fn wrap<C: ProofConstants + ForWrapData>(
-    params: WrapParams,
-    w: &mut Witness<Fq>,
-) -> kimchi::proof::ProverProof<GroupAffine<Fp>> {
+pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness<Fq>) -> WrapProof {
     let WrapParams {
         app_state,
         proof,
@@ -693,7 +690,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
     let DeferredValuesAndHints {
         deferred_values,
         sponge_digest_before_evaluations,
-        x_hat_evals: _,
+        x_hat_evals,
     } = deferred_values(
         vec![],
         prev_challenges,
@@ -793,7 +790,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
 
     let main_params = WrapMainParams {
         step_statement,
-        next_statement,
+        next_statement: &next_statement,
         messages_for_next_wrap_proof_padded,
         which_index,
         pi_branches,
@@ -819,7 +816,27 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
         })
         .collect();
 
-    create_proof::<C, Fq>(wrap_prover, prev, &w)
+    let next_proof = create_proof::<C, Fq>(wrap_prover, prev, &w);
+
+    WrapProof {
+        proof: next_proof,
+        statement: next_statement,
+        prev_evals: AllEvals {
+            ft_eval1: proof.ft_eval1,
+            evals: EvalsWithPublicInput {
+                public_input: (x_hat_evals[0], x_hat_evals[1]),
+                evals: proof
+                    .evals
+                    .map_ref(&|PointEvaluations { zeta, zeta_omega }| [zeta[0], zeta_omega[0]]),
+            },
+        },
+    }
+}
+
+pub struct WrapProof {
+    pub proof: kimchi::proof::ProverProof<GroupAffine<Fp>>,
+    pub statement: WrapStatement,
+    pub prev_evals: AllEvals<Fp>,
 }
 
 // TODO: Compute those values instead of hardcoded
@@ -2704,7 +2721,7 @@ fn split_field(x: Fq, w: &mut Witness<Fq>) -> (Fq, Boolean) {
 
 pub struct WrapMainParams<'a> {
     pub step_statement: StepStatement,
-    pub next_statement: WrapStatement,
+    pub next_statement: &'a WrapStatement,
     pub messages_for_next_wrap_proof_padded: Vec<MessagesForNextWrapProof>,
     pub which_index: u64,
     pub pi_branches: u64,

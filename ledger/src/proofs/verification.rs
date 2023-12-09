@@ -203,6 +203,74 @@ pub fn prev_evals_from_p2p<F: FieldWitness>(
     }
 }
 
+pub fn prev_evals_to_p2p(
+    evals: &ProofEvaluations<[Fp; 2]>,
+) -> PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
+    let ProofEvaluations {
+        w,
+        coefficients,
+        z,
+        s,
+        generic_selector,
+        poseidon_selector,
+        complete_add_selector,
+        mul_selector,
+        emul_selector,
+        endomul_scalar_selector,
+        range_check0_selector,
+        range_check1_selector,
+        foreign_field_add_selector,
+        foreign_field_mul_selector,
+        xor_selector,
+        rot_selector,
+        lookup_aggregation,
+        lookup_table,
+        lookup_sorted,
+        runtime_lookup_table,
+        runtime_lookup_table_selector,
+        xor_lookup_selector,
+        lookup_gate_lookup_selector,
+        range_check_lookup_selector,
+        foreign_field_mul_lookup_selector,
+    } = evals;
+
+    use mina_p2p_messages::pseq::PaddedSeq;
+
+    let of = |[zeta, zeta_omega]: &[Fp; 2]| -> (Vec<BigInt>, Vec<BigInt>) {
+        (vec![zeta.into()], vec![zeta_omega.into()])
+    };
+
+    let of_opt = |v: &Option<[Fp; 2]>| v.as_ref().map(of);
+
+    PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
+        w: PaddedSeq(array::from_fn(|i| of(&w[i]))),
+        z: of(z),
+        s: PaddedSeq(array::from_fn(|i| of(&s[i]))),
+        coefficients: PaddedSeq(array::from_fn(|i| of(&coefficients[i]))),
+        generic_selector: of(generic_selector),
+        poseidon_selector: of(poseidon_selector),
+        complete_add_selector: of(complete_add_selector),
+        mul_selector: of(mul_selector),
+        emul_selector: of(emul_selector),
+        endomul_scalar_selector: of(endomul_scalar_selector),
+        range_check0_selector: of_opt(range_check0_selector),
+        range_check1_selector: of_opt(range_check1_selector),
+        foreign_field_add_selector: of_opt(foreign_field_add_selector),
+        foreign_field_mul_selector: of_opt(foreign_field_mul_selector),
+        xor_selector: of_opt(xor_selector),
+        rot_selector: of_opt(rot_selector),
+        lookup_aggregation: of_opt(lookup_aggregation),
+        lookup_table: of_opt(lookup_table),
+        lookup_sorted: PaddedSeq(array::from_fn(|i| of_opt(&lookup_sorted[i]))),
+        runtime_lookup_table: of_opt(runtime_lookup_table),
+        runtime_lookup_table_selector: of_opt(runtime_lookup_table_selector),
+        xor_lookup_selector: of_opt(xor_lookup_selector),
+        lookup_gate_lookup_selector: of_opt(lookup_gate_lookup_selector),
+        range_check_lookup_selector: of_opt(range_check_lookup_selector),
+        foreign_field_mul_lookup_selector: of_opt(foreign_field_mul_lookup_selector),
+    }
+}
+
 // TODO: `domain_log2` and `srs_length_log2` might be the same here ? Remove one or the other
 pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
     minimal: &PlonkMinimal<F, NLIMB>,

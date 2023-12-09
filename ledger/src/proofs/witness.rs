@@ -68,7 +68,7 @@ use super::{
     },
     to_field_elements::ToFieldElements,
     unfinalized::{EvalsWithPublicInput, Unfinalized},
-    wrap::CircuitVar,
+    wrap::{CircuitVar, WrapProof},
     BACKEND_TICK_ROUNDS_N, BACKEND_TOCK_ROUNDS_N,
 };
 
@@ -2700,14 +2700,14 @@ pub mod poseidon {
                 match self.sponge_state {
                     SpongeState::Absorbed(n) => {
                         if n == C::SPONGE_RATE {
-                            eprintln!("Sponge::Absorbed_A({})", n);
+                            // eprintln!("Sponge::Absorbed_A({})", n);
                             self.poseidon_block_cipher(first, w);
                             self.sponge_state = SpongeState::Absorbed(1);
                             self.state[0].add_assign(x);
                             w.exists(self.state[0]); // Good
                             first = false;
                         } else {
-                            eprintln!("Sponge::Absorbed_B({})", n);
+                            // eprintln!("Sponge::Absorbed_B({})", n);
                             self.sponge_state = SpongeState::Absorbed(n + 1);
                             self.state[n].add_assign(x);
                             w.exists(self.state[n]); // Good
@@ -2731,14 +2731,14 @@ pub mod poseidon {
                 match self.sponge_state {
                     SpongeState::Absorbed(n) => {
                         if n == C::SPONGE_RATE {
-                            eprintln!("Sponge::Absorbed2_A({})", n);
+                            // eprintln!("Sponge::Absorbed2_A({})", n);
                             self.poseidon_block_cipher(first, w);
                             self.sponge_state = SpongeState::Absorbed(1);
                             self.state[0].add_assign(x);
                             w.exists(self.state[0]); // Good
                             first = false;
                         } else {
-                            eprintln!("Sponge::Absorbed2_B({})", n);
+                            // eprintln!("Sponge::Absorbed2_B({})", n);
                             self.sponge_state = SpongeState::Absorbed(n + 1);
                             self.state[n].add_assign(x);
                             if self.nabsorb > 2 {
@@ -2747,7 +2747,7 @@ pub mod poseidon {
                         }
                     }
                     SpongeState::Squeezed(_n) => {
-                        eprintln!("Sponge::Squeezed({})", _n);
+                        // eprintln!("Sponge::Squeezed({})", _n);
                         self.state[0].add_assign(x);
                         w.exists(self.state[0]); // Unknown
                         self.sponge_state = SpongeState::Absorbed(1);
@@ -2766,7 +2766,7 @@ pub mod poseidon {
                 match self.sponge_state {
                     SpongeState::Absorbed(n) => {
                         if n == C::SPONGE_RATE {
-                            eprintln!("Sponge::Absorbed2_A({})", n);
+                            // eprintln!("Sponge::Absorbed2_A({})", n);
                             self.poseidon_block_cipher(first, w);
                             self.sponge_state = SpongeState::Absorbed(1);
                             self.state[0].add_assign(x);
@@ -2775,7 +2775,7 @@ pub mod poseidon {
                             }
                             first = false;
                         } else {
-                            eprintln!("Sponge::Absorbed2_B({})", n);
+                            // eprintln!("Sponge::Absorbed2_B({})", n);
                             self.sponge_state = SpongeState::Absorbed(n + 1);
                             self.state[n].add_assign(x);
                             if self.nabsorb > 2 {
@@ -2784,7 +2784,7 @@ pub mod poseidon {
                         }
                     }
                     SpongeState::Squeezed(_n) => {
-                        eprintln!("Sponge::Squeezed({})", _n);
+                        // eprintln!("Sponge::Squeezed({})", _n);
                         self.state[0].add_assign(x);
                         w.exists(self.state[0]); // Unknown
                         self.sponge_state = SpongeState::Absorbed(1);
@@ -5259,10 +5259,7 @@ pub struct TransactionParams<'a> {
     pub ocaml_wrap_witness: Option<Vec<Fq>>,
 }
 
-fn generate_tx_proof(
-    params: TransactionParams,
-    w: &mut Witness<Fp>,
-) -> kimchi::proof::ProverProof<GroupAffine<Fp>> {
+fn generate_tx_proof(params: TransactionParams, w: &mut Witness<Fp>) -> WrapProof {
     let TransactionParams {
         statement,
         tx_witness,
@@ -5871,7 +5868,7 @@ mod tests {
 
         witnesses.ocaml_aux = read_witnesses("fps_rampup4.txt");
 
-        let proof = generate_tx_proof(
+        let WrapProof { proof, .. } = generate_tx_proof(
             TransactionParams {
                 statement: &statement,
                 tx_witness: &tx_witness,
@@ -5914,9 +5911,11 @@ mod tests {
         } = make_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
-        let proof = generate_merge_proof(
+        witnesses.ocaml_aux = crate::proofs::merge::read_witnesses().unwrap();
+
+        let WrapProof { proof, .. } = generate_merge_proof(
             MergeParams {
-                statement: &statement,
+                statement: (&*statement).into(),
                 proofs: &proofs,
                 message: &message,
                 step_prover: &merge_step_prover,
@@ -5953,7 +5952,7 @@ mod tests {
         let Provers {
             tx_step_prover: _,
             tx_wrap_prover,
-            merge_step_prover: _,
+            merge_step_prover,
             block_step_prover: _,
             block_wrap_prover: _,
             zkapp_step_opt_signed_opt_signed_prover,
@@ -5968,6 +5967,7 @@ mod tests {
                 message: &message,
                 step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
                 step_opt_signed_prover: &zkapp_step_opt_signed_prover,
+                merge_step_prover: &merge_step_prover,
                 tx_wrap_prover: &tx_wrap_prover,
                 expected_step_proof: None,
                 ocaml_wrap_witness: None,
@@ -6016,7 +6016,7 @@ mod tests {
         } = make_provers();
         let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
 
-        let proof = generate_block_proof(
+        let WrapProof { proof, .. } = generate_block_proof(
             BlockParams {
                 input: &blockchain_input,
                 block_step_prover: &block_step_prover,
@@ -6067,7 +6067,7 @@ mod tests {
 
             let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
 
-            let proof = generate_block_proof(
+            let WrapProof { proof, .. } = generate_block_proof(
                 BlockParams {
                     input: &blockchain_input,
                     block_step_prover: &block_step_prover,
@@ -6096,9 +6096,11 @@ mod tests {
             let (statement, proofs, message) = extract_merge(&data);
 
             let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
-            let proof = generate_merge_proof(
+            witnesses.ocaml_aux = crate::proofs::merge::read_witnesses().unwrap();
+
+            let WrapProof { proof, .. } = generate_merge_proof(
                 MergeParams {
-                    statement: &statement,
+                    statement: (&*statement).into(),
                     proofs: &proofs,
                     message: &message,
                     step_prover: &merge_step_prover,
@@ -6159,7 +6161,7 @@ mod tests {
             let (statement, tx_witness, message) = extract_request(&data);
 
             let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
-            let proof = generate_tx_proof(
+            let WrapProof { proof, .. } = generate_tx_proof(
                 TransactionParams {
                     statement: &statement,
                     tx_witness: &tx_witness,

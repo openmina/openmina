@@ -6,7 +6,8 @@ use std::{
     str::FromStr,
 };
 
-use ark_ff::Zero;
+use ark_ff::{BigInteger256, Zero};
+use kimchi::proof::PointEvaluations;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
@@ -18,9 +19,15 @@ use crate::{
             StepZkappOptSignedOptSignedProof, WrapTransactionProof, WrapZkappOptSignedProof,
             WrapZkappProof,
         },
+        merge::{generate_merge_proof, MergeParams},
+        public_input::{messages::MessagesForNextWrapProof, prepared_statement::DeferredValues},
+        unfinalized::{AllEvals, EvalsWithPublicInput},
         util::sha256_sum,
-        witness::{transaction_snark::CONSTRAINT_CONSTANTS, ToBoolean},
-        wrap::WrapParams,
+        verification::prev_evals_to_p2p,
+        witness::{
+            transaction_snark::CONSTRAINT_CONSTANTS, ReducedMessagesForNextStepProof, ToBoolean,
+        },
+        wrap::{WrapParams, WrapProofState, WrapStatement},
         zkapp::group::{State, ZkappCommandIntermediateState},
         zkapp_logic,
     },
@@ -63,7 +70,7 @@ use super::{
     },
     to_field_elements::ToFieldElements,
     witness::{dummy_constraints, Boolean, Check, FieldWitness, GroupAffine, Prover, Witness},
-    wrap::CircuitVar,
+    wrap::{CircuitVar, WrapProof},
 };
 
 pub struct ZkappParams<'a> {
@@ -72,6 +79,7 @@ pub struct ZkappParams<'a> {
     pub message: &'a SokMessage,
     pub step_opt_signed_opt_signed_prover: &'a Prover<Fp>,
     pub step_opt_signed_prover: &'a Prover<Fp>,
+    pub merge_step_prover: &'a Prover<Fp>,
     pub tx_wrap_prover: &'a Prover<Fq>,
     // pub tx_wrap_prover: &'a Prover<Fq>,
     /// For debugging only
@@ -1255,6 +1263,21 @@ fn zkapp_main(
     (zkapp_input, must_verify)
 }
 
+pub struct LedgerProof {
+    pub statement: Statement<SokDigest>,
+    pub proof: WrapProof,
+}
+
+impl From<&LedgerProof> for v2::LedgerProofProdStableV2 {
+    fn from(value: &LedgerProof) -> Self {
+        let LedgerProof { statement, proof } = value;
+        Self(v2::TransactionSnarkStableV2 {
+            statement: statement.into(),
+            proof: v2::TransactionSnarkProofStableV2(proof.into()),
+        })
+    }
+}
+
 fn of_zkapp_command_segment_exn<StepConstants, WrapConstants>(
     statement: Statement<SokDigest>,
     witness: &ZkappCommandSegmentWitness,
@@ -1263,7 +1286,7 @@ fn of_zkapp_command_segment_exn<StepConstants, WrapConstants>(
     tx_wrap_prover: &Prover<Fq>,
     fps_path: Option<&str>,
     fqs_path: Option<&str>,
-) -> kimchi::proof::ProverProof<GroupAffine<Fp>>
+) -> LedgerProof
 where
     StepConstants: ProofConstants,
     WrapConstants: ProofConstants + ForWrapData,
@@ -1336,9 +1359,9 @@ where
         w.ocaml_aux = read_witnesses(path);
     };
 
-    crate::proofs::wrap::wrap::<WrapConstants>(
+    let proof = crate::proofs::wrap::wrap::<WrapConstants>(
         WrapParams {
-            app_state: Rc::new(statement),
+            app_state: Rc::new(statement.clone()),
             proof: &proof,
             step_statement,
             prev_evals: &prev_evals,
@@ -1347,43 +1370,290 @@ where
             wrap_prover: tx_wrap_prover,
         },
         &mut w,
+    );
+
+    LedgerProof { statement, proof }
+}
+
+impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
+    fn from(value: &WrapProof) -> Self {
+        let WrapProof {
+            proof:
+                kimchi::proof::ProverProof {
+                    commitments:
+                        kimchi::proof::ProverCommitments {
+                            w_comm,
+                            z_comm,
+                            t_comm,
+                            lookup,
+                        },
+                    proof:
+                        poly_commitment::evaluation_proof::OpeningProof {
+                            lr,
+                            delta,
+                            z1,
+                            z2,
+                            sg,
+                        },
+                    evals,
+                    ft_eval1,
+                    prev_challenges,
+                },
+            statement:
+                WrapStatement {
+                    proof_state,
+                    messages_for_next_step_proof,
+                },
+            prev_evals,
+        } = value;
+
+        use mina_p2p_messages::bigint::BigInt;
+        use mina_p2p_messages::pseq::PaddedSeq;
+        use std::array;
+
+        let to_tuple = |g: &GroupAffine<Fp>| -> (BigInt, BigInt) { (g.x.into(), g.y.into()) };
+
+        v2::PicklesProofProofsVerified2ReprStableV2 {
+            statement: v2::PicklesProofProofsVerified2ReprStableV2Statement {
+                proof_state: {
+                    let WrapProofState {
+                        deferred_values:
+                            DeferredValues {
+                                plonk,
+                                combined_inner_product,
+                                b,
+                                xi,
+                                bulletproof_challenges,
+                                branch_data,
+                            },
+                        sponge_digest_before_evaluations,
+                        messages_for_next_wrap_proof:
+                            MessagesForNextWrapProof {
+                                challenge_polynomial_commitment,
+                                old_bulletproof_challenges,
+                            },
+                    } = proof_state;
+
+                    v2::PicklesProofProofsVerified2ReprStableV2StatementProofState {
+                        deferred_values: {
+                            let to_padded = |v: [u64; 2]| -> PaddedSeq<
+                                v2::LimbVectorConstantHex64StableV1,
+                                2,
+                            > {
+                                use v2::LimbVectorConstantHex64StableV1 as V;
+                                PaddedSeq([V(v[0].into()), V(v[1].into())])
+                            };
+
+                            v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues {
+                                plonk: v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonk {
+                                    alpha: v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
+                                        inner: to_padded(plonk.alpha),
+                                    },
+                                    beta: to_padded(plonk.beta),
+                                    gamma: to_padded(plonk.gamma),
+                                    zeta: v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
+                                        inner: to_padded(plonk.zeta),
+                                    },
+                                    joint_combiner: None,
+                                    feature_flags: v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags {
+                                        range_check0: false,
+                                        range_check1: false,
+                                        foreign_field_add: false,
+                                        foreign_field_mul: false,
+                                        xor: false,
+                                        rot: false,
+                                        lookup: false,
+                                        runtime_tables: false,
+                                    },
+                                },
+                                bulletproof_challenges: PaddedSeq(array::from_fn(|i| {
+                                    v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A {
+                                        prechallenge: v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
+                                            inner: {
+                                                let BigInteger256(bigint) = bulletproof_challenges[i].into();
+                                                PaddedSeq([v2::LimbVectorConstantHex64StableV1(bigint[0].into()), v2::LimbVectorConstantHex64StableV1(bigint[1].into())])
+                                            },
+                                        },
+                                    }
+                                })),
+                                branch_data: branch_data.clone(),
+                            }
+                        },
+                        sponge_digest_before_evaluations:
+                            v2::CompositionTypesDigestConstantStableV1({
+                                let BigInteger256(bigint) =
+                                    (*sponge_digest_before_evaluations).into();
+                                PaddedSeq(array::from_fn(|i| {
+                                    v2::LimbVectorConstantHex64StableV1(bigint[i].into())
+                                }))
+                            }),
+                        messages_for_next_wrap_proof:
+                            v2::PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof {
+                                challenge_polynomial_commitment: {
+                                    let GroupAffine::<Fq> { x, y, .. } =
+                                        challenge_polynomial_commitment.to_affine();
+                                    (x.into(), y.into())
+                                },
+                                old_bulletproof_challenges: PaddedSeq(array::from_fn(|i| {
+                                    v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2(
+                                    PaddedSeq(array::from_fn(|j| v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A {
+                                        prechallenge: v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
+                                            inner: {
+                                                let BigInteger256(bigint) = old_bulletproof_challenges[i][j].into();
+                                                PaddedSeq([v2::LimbVectorConstantHex64StableV1(bigint[0].into()), v2::LimbVectorConstantHex64StableV1(bigint[1].into())])
+                                            },
+                                        },
+                                    }))
+                                )
+                                })),
+                            },
+                    }
+                },
+                messages_for_next_step_proof: {
+                    let ReducedMessagesForNextStepProof {
+                        app_state,
+                        challenge_polynomial_commitments,
+                        old_bulletproof_challenges,
+                    } = messages_for_next_step_proof;
+
+                    v2::PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
+                        app_state: (),
+                        challenge_polynomial_commitments: challenge_polynomial_commitments.iter().map(|curve| {
+                            let GroupAffine::<Fp> { x, y, .. } = curve.to_affine();
+                            (x.into(), y.into())
+                        }).collect(),
+                        old_bulletproof_challenges: old_bulletproof_challenges.iter().map(|v| {
+                            PaddedSeq(array::from_fn(|i| v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A {
+                                prechallenge: v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
+                                    inner: {
+                                        let BigInteger256(bigint) = v[i].into();
+                                        PaddedSeq([v2::LimbVectorConstantHex64StableV1(bigint[0].into()), v2::LimbVectorConstantHex64StableV1(bigint[1].into())])
+                                    },
+                                },
+                            }))
+                        }).collect(),
+                    }
+                },
+            },
+            prev_evals: {
+                let AllEvals {
+                    ft_eval1,
+                    evals:
+                        EvalsWithPublicInput {
+                            evals,
+                            public_input,
+                        },
+                } = prev_evals;
+
+                v2::PicklesProofProofsVerified2ReprStableV2PrevEvals {
+                    evals: v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals {
+                        public_input: (public_input.0.into(), public_input.1.into()),
+                        evals: prev_evals_to_p2p(evals),
+                    },
+                    ft_eval1: ft_eval1.into(),
+                }
+            },
+            proof: v2::PicklesWrapWireProofStableV1 {
+                commitments: v2::PicklesWrapWireProofCommitmentsStableV1 {
+                    w_comm: PaddedSeq(array::from_fn(|i| to_tuple(&w_comm[i].unshifted[0]))),
+                    z_comm: to_tuple(&z_comm.unshifted[0]),
+                    t_comm: PaddedSeq(array::from_fn(|i| to_tuple(&t_comm.unshifted[i]))),
+                },
+                evaluations: {
+                    let kimchi::proof::ProofEvaluations {
+                        w,
+                        z,
+                        s,
+                        coefficients,
+                        generic_selector,
+                        poseidon_selector,
+                        complete_add_selector,
+                        mul_selector,
+                        emul_selector,
+                        endomul_scalar_selector,
+                        ..
+                    } = evals;
+
+                    let to_tuple = |point: &PointEvaluations<Vec<Fq>>| -> (BigInt, BigInt) {
+                        (point.zeta[0].into(), point.zeta_omega[0].into())
+                    };
+
+                    v2::PicklesWrapWireProofEvaluationsStableV1 {
+                        w: PaddedSeq(array::from_fn(|i| to_tuple(&w[i]))),
+                        coefficients: PaddedSeq(array::from_fn(|i| to_tuple(&coefficients[i]))),
+                        z: to_tuple(z),
+                        s: PaddedSeq(array::from_fn(|i| to_tuple(&s[i]))),
+                        generic_selector: to_tuple(generic_selector),
+                        poseidon_selector: to_tuple(poseidon_selector),
+                        complete_add_selector: to_tuple(complete_add_selector),
+                        mul_selector: to_tuple(mul_selector),
+                        emul_selector: to_tuple(emul_selector),
+                        endomul_scalar_selector: to_tuple(endomul_scalar_selector),
+                    }
+                },
+                ft_eval1: ft_eval1.into(),
+                bulletproof: v2::PicklesWrapWireProofStableV1Bulletproof {
+                    lr: lr.iter().map(|(a, b)| (to_tuple(a), to_tuple(b))).collect(),
+                    z_1: z1.into(),
+                    z_2: z2.into(),
+                    delta: to_tuple(delta),
+                    challenge_polynomial_commitment: to_tuple(sg),
+                },
+            },
+        }
+    }
+}
+
+fn of_zkapp_command_segment(
+    statement: Statement<SokDigest>,
+    witness: &ZkappCommandSegmentWitness,
+    spec: &SegmentBasic,
+    step_opt_signed_opt_signed_prover: &Prover<Fp>,
+    step_opt_signed_prover: &Prover<Fp>,
+    tx_wrap_prover: &Prover<Fq>,
+) -> LedgerProof {
+    let (step_prover, step_path, wrap_path) = match spec {
+        SegmentBasic::OptSignedOptSigned => (step_opt_signed_opt_signed_prover, None, None),
+        SegmentBasic::OptSigned => (
+            step_opt_signed_prover,
+            Some("zkapp_opt_signed_fps.txt"),
+            Some("zkapp_opt_signed_fqs.txt"),
+        ),
+        SegmentBasic::Proved => todo!(),
+    };
+
+    let of_zkapp_command_segment_exn = match spec {
+        SegmentBasic::OptSignedOptSigned => {
+            of_zkapp_command_segment_exn::<StepZkappOptSignedOptSignedProof, WrapZkappProof>
+        }
+        SegmentBasic::OptSigned => {
+            of_zkapp_command_segment_exn::<StepZkappOptSignedProof, WrapZkappOptSignedProof>
+        }
+        SegmentBasic::Proved => todo!(),
+    };
+
+    of_zkapp_command_segment_exn(
+        statement,
+        witness,
+        spec,
+        step_prover,
+        tx_wrap_prover,
+        step_path,
+        wrap_path,
     )
 }
 
-// let of_zkapp_command_segment_exn ~(statement : Proof.statement) ~witness
-//     ~(spec : Zkapp_command_segment.Basic.t) : t Async.Deferred.t =
-//   Base.Zkapp_command_snark.witness := Some witness ;
-//   let res =
-//     match spec with
-//     | Opt_signed ->
-//         opt_signed statement
-//     | Opt_signed_opt_signed ->
-//         opt_signed_opt_signed statement
-//     | Proved -> (
-//         match snapp_proof_data ~witness with
-//         | None ->
-//             failwith "of_zkapp_command_segment: Expected exactly one proof"
-//         | Some (p, v) ->
-//             Pickles.Side_loaded.in_prover (Base.side_loaded 0) v.data ;
-//             proved
-//               ~handler:(Base.Zkapp_command_snark.handle_zkapp_proof p)
-//               statement )
-//   in
-//   let open Async in
-//   let%map (), (), proof = res in
-//   Base.Zkapp_command_snark.witness := None ;
-//   { proof; statement }
-
-pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
+pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) -> LedgerProof {
     let ZkappParams {
         statement,
         tx_witness,
         message,
-        step_opt_signed_opt_signed_prover: step_prover,
+        step_opt_signed_opt_signed_prover,
         step_opt_signed_prover,
         expected_step_proof,
         ocaml_wrap_witness,
         tx_wrap_prover,
+        merge_step_prover,
     } = params;
 
     let zkapp = match &tx_witness.transaction {
@@ -1420,48 +1690,19 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
     let (witness, spec, statement) = last;
 
     let of_zkapp_command_segment = |statement: Statement<SokDigest>,
-                                    witness: &ZkappCommandSegmentWitness,
+                                    witness: &ZkappCommandSegmentWitness<'_>,
                                     spec: &SegmentBasic| {
-        let step_prover = match spec {
-            SegmentBasic::OptSignedOptSigned => step_prover,
-            SegmentBasic::OptSigned => step_opt_signed_prover,
-            SegmentBasic::Proved => todo!(),
-        };
-
-        match spec {
-            SegmentBasic::OptSignedOptSigned => {
-                of_zkapp_command_segment_exn::<StepZkappOptSignedOptSignedProof, WrapZkappProof>(
-                    Statement {
-                        sok_digest: sok_digest.clone(),
-                        ..statement.clone()
-                    },
-                    witness,
-                    spec,
-                    step_prover,
-                    tx_wrap_prover,
-                    None,
-                    None,
-                )
-            }
-            SegmentBasic::OptSigned => {
-                of_zkapp_command_segment_exn::<StepZkappOptSignedProof, WrapZkappOptSignedProof>(
-                    Statement {
-                        sok_digest: sok_digest.clone(),
-                        ..statement.clone()
-                    },
-                    witness,
-                    spec,
-                    step_prover,
-                    tx_wrap_prover,
-                    Some("zkapp_opt_signed_fps.txt"),
-                    Some("zkapp_opt_signed_fqs.txt"),
-                )
-            }
-            SegmentBasic::Proved => todo!(),
-        }
+        of_zkapp_command_segment(
+            statement,
+            witness,
+            spec,
+            step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover,
+            tx_wrap_prover,
+        )
     };
 
-    let p1 = of_zkapp_command_segment(
+    let mut first_proof = of_zkapp_command_segment(
         Statement {
             sok_digest: sok_digest.clone(),
             ..statement.clone()
@@ -1470,41 +1711,74 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) {
         spec,
     );
 
-    for (witness, spec, statement) in rest.iter().rev() {
-        let curr = of_zkapp_command_segment(
-            Statement {
-                sok_digest: sok_digest.clone(),
-                ..statement.clone()
-            },
-            witness,
-            spec,
-        );
-    }
+    rest.iter()
+        .rev()
+        .fold(first_proof, |prev_proof, (witness, spec, statement)| {
+            let curr_proof = of_zkapp_command_segment(
+                Statement {
+                    sok_digest: sok_digest.clone(),
+                    ..statement.clone()
+                },
+                witness,
+                spec,
+            );
+
+            merge_zkapp_proofs(
+                prev_proof,
+                curr_proof,
+                message,
+                merge_step_prover,
+                tx_wrap_prover,
+            )
+        })
 }
 
-// | (witness, spec, stmt) :: rest as inputs ->
-//     Core.Printf.eprintf "[snark_worker] BEFORE p1\n%!" ;
-//     let%bind (p1 : Ledger_proof.t) =
-//       log_base_snark
-//         ~statement:{ stmt with sok_digest } ~spec
-//         ~all_inputs:inputs
-//         (M.of_zkapp_command_segment_exn ~witness)
-//     in
-//     Core.Printf.eprintf
-//       "[snark_worker] BEFORE folding\n%!" ;
-//     exit 0 ;
-//     let%bind (p : Ledger_proof.t) =
-//       Deferred.List.fold ~init:(Ok p1) rest
-//         ~f:(fun acc (witness, spec, stmt) ->
-//           let%bind (prev : Ledger_proof.t) =
-//             Deferred.return acc
-//           in
-//           let%bind (curr : Ledger_proof.t) =
-//             log_base_snark
-//               ~statement:{ stmt with sok_digest }
-//               ~spec ~all_inputs:inputs
-//               (M.of_zkapp_command_segment_exn ~witness)
-//           in
-//           log_merge_snark ~sok_digest prev curr
-//             ~all_inputs:inputs )
-//     in
+fn merge_zkapp_proofs(
+    prev: LedgerProof,
+    curr: LedgerProof,
+    message: &SokMessage,
+    merge_step_prover: &Prover<Fp>,
+    tx_wrap_prover: &Prover<Fq>,
+) -> LedgerProof {
+    let merged_statement = prev
+        .statement
+        .clone()
+        .without_digest()
+        .merge(&curr.statement.clone().without_digest())
+        .unwrap();
+
+    let prev: v2::LedgerProofProdStableV2 = (&prev).into();
+    let curr: v2::LedgerProofProdStableV2 = (&curr).into();
+
+    let mut w: Witness<Fp> = Witness::new::<crate::proofs::constants::StepMergeProof>();
+
+    let sok_digest = message.digest();
+    let statement_with_sok = merged_statement.clone().with_digest(sok_digest);
+
+    let wrap_proof = generate_merge_proof(
+        MergeParams {
+            statement: merged_statement,
+            proofs: &[prev, curr],
+            message,
+            step_prover: merge_step_prover,
+            wrap_prover: tx_wrap_prover,
+            expected_step_proof: None,
+            ocaml_wrap_witness: None,
+        },
+        &mut w,
+    );
+
+    let proof_json = serde_json::to_vec(&wrap_proof.proof).unwrap();
+    let sum = sha256_sum(&proof_json);
+
+    assert_eq!(
+        sum,
+        "6e9bb6ed613cf0aa737188e0e8ddde7438211ca54c02e89aff32816c181caca9"
+    );
+    eprintln!("OK");
+
+    LedgerProof {
+        statement: statement_with_sok,
+        proof: wrap_proof,
+    }
+}

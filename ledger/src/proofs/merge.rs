@@ -71,10 +71,10 @@ use super::{
         MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
         ReducedMessagesForNextStepProof, ToFieldElementsDebug, Witness,
     },
-    wrap::{CircuitVar, Domains},
+    wrap::{CircuitVar, Domains, WrapProof},
 };
 
-fn read_witnesses() -> std::io::Result<Vec<Fp>> {
+pub fn read_witnesses() -> std::io::Result<Vec<Fp>> {
     let f = std::fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("rampup4")
@@ -1542,7 +1542,7 @@ mod step_verifier {
             if let CircuitVar::Var(_) = g {
                 w.exists(g_neg.y);
             } else {
-                eprintln!("ignoring {:?}", g_neg.y);
+                // eprintln!("ignoring {:?}", g_neg.y);
             }
             w.add_fast(h, g_neg)
         };
@@ -2344,7 +2344,7 @@ pub fn extract_recursion_challenges(
 }
 
 pub struct MergeParams<'a> {
-    pub statement: &'a v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+    pub statement: Statement<()>,
     pub proofs: &'a [v2::LedgerProofProdStableV2; 2],
     pub message: &'a SokMessage,
     pub step_prover: &'a Prover<Fp>,
@@ -2355,10 +2355,7 @@ pub struct MergeParams<'a> {
     pub ocaml_wrap_witness: Option<Vec<Fq>>,
 }
 
-pub fn generate_merge_proof(
-    params: MergeParams,
-    w: &mut Witness<Fp>,
-) -> ProverProof<GroupAffine<Fp>> {
+pub fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapProof {
     let MergeParams {
         statement,
         proofs,
@@ -2369,9 +2366,6 @@ pub fn generate_merge_proof(
         ocaml_wrap_witness,
     } = params;
 
-    w.ocaml_aux = read_witnesses().unwrap();
-
-    let statement: Statement<()> = statement.into();
     let sok_digest = message.digest();
     let statement_with_sok = statement.with_digest(sok_digest);
 
