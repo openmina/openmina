@@ -4,9 +4,8 @@
 
 
 # Table of Contents
-- [A Testing Framework for Mina](#a-testing-framework-for-mina)
--   [Introduction](#introduction)
-  - [What we are testing](#what-we-are-testing)
+    - [Introduction](#introduction)
+    - [What we are testing](#what-we-are-testing)
 - [1. Network Connectivity and Peer Management](#1-network-connectivity-and-peer-management)
   - [Network Connectivity](#network-connectivity)
     - [Solo node](#solo-node)
