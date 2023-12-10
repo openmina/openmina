@@ -5,6 +5,7 @@
 
 # Table of Contents
 - [A Testing Framework for Mina](#a-testing-framework-for-mina)
+-   [Introduction](#introduction)
   - [What we are testing](#what-we-are-testing)
 - [1. Network Connectivity and Peer Management](#1-network-connectivity-and-peer-management)
   - [Network Connectivity](#network-connectivity)
@@ -56,7 +57,9 @@
     - [Coordination](#coordination)
     - [Throughput](#throughput)
 
-   
+
+
+### Introduction
 
 Complex systems that handle important information such as blockchain networks must be thoroughly and continuously tested to ensure the highest degree of security, stability, and performance. 
 
