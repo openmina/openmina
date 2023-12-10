@@ -3,7 +3,7 @@
 
 
 
-# Table of Contents
+### Table of Contents
 - [Introduction](#introduction)
 - [What we are testing](#what-we-are-testing)
 - [1. Network Connectivity and Peer Management](#1-network-connectivity-and-peer-management)
