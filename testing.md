@@ -1,6 +1,63 @@
 
 # A Testing Framework for Mina
 
+
+
+# Table of Contents
+- [A Testing Framework for Mina](#a-testing-framework-for-mina)
+  - [What we are testing](#what-we-are-testing)
+- [1. Network Connectivity and Peer Management](#1-network-connectivity-and-peer-management)
+  - [Network Connectivity](#network-connectivity)
+    - [Solo node](#solo-node)
+    - [Node Discovery Tests](#node-discovery-tests)
+      - [Rust accepts incoming OCaml connection](#rust-accepts-incoming-ocaml-connection)
+      - [OCaml connection to advertised Rust node](#ocaml-connection-to-advertised-rust-node)
+      - [Rust and OCaml node discovery via OCaml seed node](#rust-and-ocaml-node-discovery-via-ocaml-seed-node)
+    - [OCaml Peer Discovery Tests](#ocaml-peer-discovery-tests)
+      - [OCaml to Rust](#ocaml-to-rust)
+      - [Rust to OCaml](#rust-to-ocaml)
+      - [Rust to OCaml via seed Node](#rust-to-ocaml-via-seed-node)
+      - [Rust as a Seed Node](#rust-as-a-seed-node)
+      - [Test Conditions](#test-conditions)
+    - [Multi node](#multi-node)
+  - [Adaptive Peer Management](#adaptive-peer-management)
+- [2. Network Resistance](#2-network-resistance)
+  - [Resistance to DDoS Attacks](#resistance-to-ddos-attacks)
+  - [Resistance to Eclipse Attacks](#resistance-to-eclipse-attacks)
+  - [Resistance to Sybil Attacks](#resistance-to-sybil-attacks)
+  - [Resistance to Censorship](#resistance-to-censorship)
+- [3. Node Bootstrapping and Data Availability](#3-node-bootstrapping-and-data-availability)
+  - [Node Bootstrapping](#node-bootstrapping)
+  - [Data Availability](#data-availability)
+- [4. Ledger Consistency and Propagation](#4-ledger-consistency-and-propagation)
+  - [Consistent View of the Ledger](#consistent-view-of-the-ledger)
+  - [Block Propagation](#block-propagation)
+  - [Transaction/Snark Propagation](#transactionsnark-propagation)
+- [5. Blockchain Progress and Fairness](#5-blockchain-progress-and-fairness)
+  - [Chain Progress](#chain-progress)
+  - [Fairness in Transaction Processing](#fairness-in-transaction-processing)
+- [6. Scalability and Upgradability](#6-scalability-and-upgradability)
+  - [Network Scalability](#network-scalability)
+  - [Upgradability](#upgradability)
+- [7. How to run tests](#7-how-to-run-tests)
+- [8. The Front End](#8-the-front-end)
+  - [Daily run](#daily-run)
+  - [Scenario](#scenario)
+    - [Run Steps](#run-steps)
+    - [Event Traces](#event-traces)
+  - [Bootstrapping](#bootstrapping)
+    - [Bootstrapping with recorded data](#bootstrapping-with-recorded-data)
+    - [Bootstrapping with real peers](#bootstrapping-with-real-peers)
+    - [Various bootstrap scenarios](#various-bootstrap-scenarios)
+  - [General Network Behaviour](#general-network-behaviour)
+  - [Snark Work](#snark-work)
+    - [Network](#network)
+    - [Correctness](#correctness)
+    - [Coordination](#coordination)
+    - [Throughput](#throughput)
+
+   
+
 Complex systems that handle important information such as blockchain networks must be thoroughly and continuously tested to ensure the highest degree of security, stability, and performance. 
 
 To achieve that, we need to develop a comprehensive testing framework capable of deploying a variety of tests. 
