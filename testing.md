@@ -113,12 +113,17 @@ _The source code for this test can be found in this repo:_
 
 #### Node Discovery Tests
 
-#### Rust accepts incoming OCaml connection
+#### Rust node accepts incoming OCaml connection
 
 Whether the Openmina (Rust) node can accept an incoming connection from the native Mina (OCaml) node. This test will prove our Rust node is listening to incoming connections and can accept them.
 
 
-**Steps:**
+**Steps**
+
+**Tests**
+- [p2p_basic_incoming(accept_connection)](../node/testing/src/scenarios/p2p/basic_incoming_connections.rs#L16)
+- [p2p_basic_incoming(accept_multiple_connections)](../node/testing/src/scenarios/p2p/basic_incoming_connections.rs#L62)
+- [solo_node_accept_incoming](../node/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
 
 
 #### OCaml connection to advertised Rust node
@@ -128,9 +133,14 @@ Whether the OCaml node can discover and connect to a Rust node that is advertisi
 In this test, we do not inform the OCaml node to connect to it explicitly, it should find it automatically and connect using peer discovery (performed through Kademlia). This test will ensure the Rust node uses Kademlia in a way that is compatible with the OCaml node.
 
 
-**Steps:**
+**Steps**
+
+**Test**
 
 
+- [solo_node_accept_incoming](../node/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
+
+  
 #### Rust and OCaml node discovery via OCaml seed node
 
 The main goal of this test is to ensure that the Rust node can discover peers in the network, and is discoverable by other peers as well.
@@ -179,7 +189,7 @@ This test ensures that after an OCaml node connects to the Rust node, its addres
 becomes available in the Rust node’s Kademlia state. It also checks whether the OCaml \
 node has a peer with the correct `peer_id` and a port corresponding to the Rust node.
 
-**Steps:**
+**Steps**
 
 
 
@@ -211,7 +221,7 @@ Steps:
 
 This test ensures that an OCaml node can connect to the Rust node, the address of which can only be discovered from an OCaml seed node, and its address becomes available in the Rust node’s Kademlia state. It also checks whether the OCaml node has a peer with the correct `peer_id` and a port corresponding to the Rust node.
 
-**Steps:**
+**Steps**
 
 
 
@@ -246,7 +256,7 @@ OCaml nodes that only know about the Rust node’s address. After these nodes co
 to the Rust node, the test makes sure that they also have each other’s addresses \
 as their peers.
 
-**Steps:**
+**Steps**
 
 
 1. Start a Rust node
@@ -270,6 +280,29 @@ We run these tests until:
 We also want to test a scenario in which the network consists only of Openmina nodes. If the Openmina node is using a functionality that is implemented only in the OCaml node, and it does not perform it correctly, then we will not be able to see it with solo node test. 
 
 For that purpose, we utilize a Multi node test, which involves a network of our nodes, without any third party, so that the testing is completely local and under our control.
+
+#### Rust connection to all initially available nodes
+
+This test checks whether the Rust node connects to all peers from its initial peer list
+
+**Steps**
+
+
+**Test**
+
+
+- [multi_node_initial_joining](../node/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs) (partially?)
+
+#### Rust node connects to advertised Rust node
+
+This test checks whether Rust nodes connect to a Rust node that is advertised. In this test, we do not inform the OCaml node to connect to it explicitly, it should find it automatically and connect using peer discovery (performed through Kademlia).
+
+**Steps**
+
+
+**Test**
+- [multi_node_connection_discovery/OCamlToRustViaSeed](../node/testing/src/scenarios/multi_node/connection_discovery.rs#L267)
+
 
 _The source code for this test can be found in this repo:_
 
