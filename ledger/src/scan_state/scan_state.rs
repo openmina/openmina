@@ -422,6 +422,10 @@ pub mod transaction_snark {
                 sok_digest: (),
             }
         }
+
+        pub fn with_digest(self, sok_digest: SokDigest) -> Self {
+            Self { sok_digest, ..self }
+        }
     }
 
     impl Statement<()> {

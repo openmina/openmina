@@ -3,7 +3,9 @@
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
-use crate::scan_state::transaction_logic::zkapp_command::{Actions, SetOrKeep};
+use crate::scan_state::transaction_logic::zkapp_command::{
+    Actions, Numeric, SetOrKeep, ZkAppPreconditions,
+};
 use crate::Permissions;
 use crate::{
     proofs::{numbers::nat::CheckedNat, witness::transaction_snark::CONSTRAINT_CONSTANTS},
@@ -22,7 +24,7 @@ use ark_ff::{One, Zero};
 
 use super::{
     witness::{Boolean, ToBoolean},
-    zkapp::{Eff, StartDataSkeleton, ZkappSingleData},
+    zkapp::{StartDataSkeleton, ZkappSingleData},
 };
 
 pub enum IsStart<T> {
@@ -35,10 +37,6 @@ pub enum PerformResult<Z: ZkappApplication> {
     None,
     Bool(Z::Bool),
     Account(Z::Account),
-}
-
-pub struct Handler<Z: ZkappApplication> {
-    pub perform: fn(Eff<Z>, &mut Z::WitnessGenerator) -> PerformResult<Z>,
 }
 
 pub struct GetNextAccountUpdateResult<Z: ZkappApplication> {
@@ -85,8 +83,8 @@ fn pop_call_stack<Z: ZkappApplication>(
     let left = Z::StackFrame::exists_on_if(
         Z::Bool::of_boolean(next_frame.is_some),
         ExistsParam {
-            True: next_frame.data,
-            False: on_none,
+            on_true: next_frame.data,
+            on_false: on_none,
         },
         w,
     );
@@ -109,29 +107,6 @@ fn controller_exists<Z: ZkappApplication>(
 
     w.exists_no_check([signature_sufficient, signature_necessary, constant]);
     auth
-}
-
-#[allow(non_snake_case)]
-struct SignedAmountExistsParam<'a, Z: ZkappApplication> {
-    True: &'a Z::SignedAmount,
-    False: &'a Z::SignedAmount,
-}
-
-fn signed_amount_exists<'a, Z: ZkappApplication>(
-    b: Z::Bool,
-    param: SignedAmountExistsParam<'a, Z>,
-    w: &mut Z::WitnessGenerator,
-) -> &'a Z::SignedAmount {
-    let SignedAmountExistsParam { True, False } = param;
-
-    let amount = w.exists_no_check(match b.as_boolean() {
-        Boolean::True => True,
-        Boolean::False => False,
-    });
-    if True.try_get_value().is_some() && False.try_get_value().is_some() {
-        w.exists_no_check(amount.force_value());
-    }
-    amount
 }
 
 // Different order than in `Permissions::iter_as_bits`
@@ -195,8 +170,8 @@ fn get_next_account_update<Z: ZkappApplication>(
         let left = Z::StackFrame::exists_on_if(
             current_is_empty,
             ExistsParam {
-                True: next_forest,
-                False: current_forest,
+                on_true: next_forest,
+                on_false: current_forest,
             },
             w,
         );
@@ -269,8 +244,8 @@ fn get_next_account_update<Z: ZkappApplication>(
             Z::StackFrame::exists_on_if(
                 remainder_of_current_forest_empty,
                 ExistsParam {
-                    True: newly_popped_frame,
-                    False: remainder_of_current_forest_frame,
+                    on_true: newly_popped_frame,
+                    on_false: remainder_of_current_forest_frame,
                 },
                 w,
             )
@@ -278,10 +253,7 @@ fn get_next_account_update<Z: ZkappApplication>(
 
         Z::StackFrame::exists_on_if(
             account_update_forest_empty,
-            ExistsParam {
-                True: on_true,
-                False: on_false,
-            },
+            ExistsParam { on_true, on_false },
             w,
         )
     };
@@ -361,13 +333,11 @@ pub type StartData<Z> = StartDataSkeleton<
 >;
 
 pub fn apply<Z>(
-    _constraint_constants: &ConstraintConstants,
     is_start: IsStart<StartData<Z>>,
-    h: &Handler<Z>,
-    (mut global_state, mut local_state): (Z::GlobalState, LocalState<Z>),
-    data: Z::SingleData,
+    (global_state, local_state): (&mut Z::GlobalState, &mut LocalState<Z>),
+    single_data: Z::SingleData,
     w: &mut Z::WitnessGenerator,
-) -> Result<(Z::GlobalState, LocalState<Z>), String>
+) -> Result<(), String>
 where
     Z: ZkappApplication,
 {
@@ -420,8 +390,8 @@ where
                         Z::StackFrame::exists_on_if(
                             is_start2,
                             ExistsParam {
-                                True: on_true,
-                                False: local_state.stack_frame.clone(),
+                                on_true,
+                                on_false: local_state.stack_frame.clone(),
                             },
                             w,
                         )
@@ -464,7 +434,7 @@ where
                 Z::Bool::or(fst, snd, w)
             };
             Z::LocalState::add_check(
-                &mut local_state,
+                local_state,
                 TransactionFailure::TokenOwnerNotCaller,
                 default_token_or_token_owner_was_caller,
                 w,
@@ -512,9 +482,9 @@ where
 
     local_state.stack_frame = remaining.clone();
     local_state.call_stack = call_stack;
-    Z::LocalState::add_new_failure_status_bucket(&mut local_state);
+    Z::LocalState::add_new_failure_status_bucket(local_state);
 
-    a.register_verification_key(&data, w);
+    a.register_verification_key(&single_data, w);
 
     let account_is_new = Z::Ledger::check_account(
         &account_update.body().public_key,
@@ -552,26 +522,19 @@ where
         Z::Bool::or(is_not_proved, is_same_vk, w)
     };
     Z::LocalState::add_check(
-        &mut local_state,
+        local_state,
         TransactionFailure::UnexpectedVerificationKeyHash,
         matching_verification_key_hashes,
         w,
     );
 
-    (h.perform)(
-        Eff::CheckAccountPrecondition(&account_update, &a, account_is_new, &mut local_state),
-        w,
-    );
+    Z::Handler::check_account_precondition(&account_update, &a, account_is_new, local_state, w);
 
     let protocol_state_precondition = &account_update.body().preconditions.network;
-    let PerformResult::Bool(protocol_state_predicate_satisfied) = (h.perform)(
-        Eff::CheckProtocolStatePrecondition(protocol_state_precondition, &global_state),
-        w,
-    ) else {
-        panic!("invalid state");
-    };
+    let protocol_state_predicate_satisfied =
+        Z::Handler::check_protocol_state_precondition(protocol_state_precondition, global_state, w);
     Z::LocalState::add_check(
-        &mut local_state,
+        local_state,
         TransactionFailure::ProtocolStatePreconditionUnsatisfied,
         protocol_state_predicate_satisfied,
         w,
@@ -579,14 +542,10 @@ where
 
     let _local_state = {
         let valid_while = &account_update.body().preconditions.valid_while;
-        let PerformResult::Bool(valid_while_satisfied) = (h.perform)(
-            Eff::CheckValidWhilePrecondition(valid_while, &global_state),
-            w,
-        ) else {
-            panic!("invalid state");
-        };
+        let valid_while_satisfied =
+            Z::Handler::check_valid_while_precondition(valid_while, global_state, w);
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::ValidWhilePreconditionUnsatisfied,
             valid_while_satisfied,
             w,
@@ -606,7 +565,7 @@ where
             local_state.will_succeed,
             commitment,
             &account_update_forest,
-            &data,
+            &single_data,
             w,
         )
     };
@@ -622,13 +581,13 @@ where
     ));
 
     Z::LocalState::add_check(
-        &mut local_state,
+        local_state,
         TransactionFailure::FeePayerNonceMustIncrease,
         Z::Bool::or(account_update.increment_nonce(), is_start2.neg(), w),
         w,
     );
     Z::LocalState::add_check(
-        &mut local_state,
+        local_state,
         TransactionFailure::FeePayerMustBeSigned,
         Z::Bool::or(signature_verifies, is_start2.neg(), w),
         w,
@@ -652,7 +611,7 @@ where
         );
         let second = Z::Bool::or(first, does_not_use_a_signature, w);
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::ZkappCommandReplayCheckFailed,
             second,
             w,
@@ -671,12 +630,18 @@ where
         let timing = &account_update.body().update.timing;
         let has_permission = {
             let set_timing = &a.get().permissions.set_timing;
-            Z::Controller::check(proof_verifies, signature_verifies, set_timing, &data, w)
+            Z::Controller::check(
+                proof_verifies,
+                signature_verifies,
+                set_timing,
+                &single_data,
+                w,
+            )
         };
         let is_keep = Z::SetOrKeep::is_keep(timing);
         let v_and = Z::Bool::and(account_is_untimed, has_permission, w);
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::UpdateNotPermittedTiming,
             Z::Bool::or(is_keep, v_and, w),
             w,
@@ -700,7 +665,7 @@ where
         Z::Amount::of_constant_fee(CONSTRAINT_CONSTANTS.account_creation_fee);
     let implicit_account_creation_fee = account_update.implicit_account_creation_fee();
     Z::LocalState::add_check(
-        &mut local_state,
+        local_state,
         TransactionFailure::CannotPayCreationFeeInToken,
         Z::Bool::or(
             implicit_account_creation_fee.neg(),
@@ -720,21 +685,21 @@ where
             Z::SignedAmount::add_flagged(&balance_change, &neg_creation_fee, w);
         let pay_creation_fee = Z::Bool::and(account_is_new, implicit_account_creation_fee, w);
         let creation_overflow = Z::Bool::and(pay_creation_fee, creation_overflow, w);
-        let balance_change = signed_amount_exists::<Z>(
+        let balance_change = Z::SignedAmount::exists_on_if(
             pay_creation_fee,
-            SignedAmountExistsParam {
-                True: &balance_change_for_creation,
-                False: &balance_change,
+            ExistsParam {
+                on_true: &balance_change_for_creation,
+                on_false: &balance_change,
             },
             w,
         );
         let first = Z::Bool::or(
             creation_overflow,
-            Z::SignedAmount::is_neg(&balance_change),
+            Z::SignedAmount::is_neg(balance_change),
             w,
         );
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::AmountInsufficientToCreateAccount,
             Z::Bool::and(pay_creation_fee, first, w).neg(),
             w,
@@ -748,12 +713,7 @@ where
             Z::Bool::and(account_is_new, implicit_account_creation_fee.neg(), w);
         let (balance, failed1) =
             Z::Balance::add_signed_amount_flagged(&a.balance(), actual_balance_change.clone(), w);
-        Z::LocalState::add_check(
-            &mut local_state,
-            TransactionFailure::Overflow,
-            failed1.neg(),
-            w,
-        );
+        Z::LocalState::add_check(local_state, TransactionFailure::Overflow, failed1.neg(), w);
         let account_creation_fee =
             Z::Amount::of_constant_fee(CONSTRAINT_CONSTANTS.account_creation_fee);
         let _local_state = {
@@ -763,16 +723,16 @@ where
                 w,
             );
             Z::LocalState::add_check(
-                &mut local_state,
+                local_state,
                 TransactionFailure::LocalExcessOverflow,
                 Z::Bool::and(pay_creation_fee_from_excess, excess_update_failed, w).neg(),
                 w,
             );
-            local_state.excess = signed_amount_exists::<Z>(
+            local_state.excess = Z::SignedAmount::exists_on_if(
                 pay_creation_fee_from_excess,
-                SignedAmountExistsParam {
-                    True: &excess_minus_creation_fee,
-                    False: &local_state.excess,
+                ExistsParam {
+                    on_true: &excess_minus_creation_fee,
+                    on_false: &local_state.excess,
                 },
                 w,
             )
@@ -787,16 +747,16 @@ where
                     w,
                 );
             Z::LocalState::add_check(
-                &mut local_state,
+                local_state,
                 TransactionFailure::LocalSupplyIncreaseOverflow,
                 Z::Bool::and(account_is_new, supply_increase_update_failed, w).neg(),
                 w,
             );
-            local_state.supply_increase = signed_amount_exists::<Z>(
+            local_state.supply_increase = Z::SignedAmount::exists_on_if(
                 account_is_new,
-                SignedAmountExistsParam {
-                    True: &supply_increase_minus_creation_fee,
-                    False: &local_state.supply_increase,
+                ExistsParam {
+                    on_true: &supply_increase_minus_creation_fee,
+                    on_false: &local_state.supply_increase,
                 },
                 w,
             )
@@ -812,11 +772,16 @@ where
                 },
                 w,
             );
-            let has_permission =
-                Z::Controller::check(proof_verifies, signature_verifies, &controller, &data, w);
+            let has_permission = Z::Controller::check(
+                proof_verifies,
+                signature_verifies,
+                &controller,
+                &single_data,
+                w,
+            );
             let first = Z::SignedAmount::equal(&Z::SignedAmount::zero(), &actual_balance_change, w);
             Z::LocalState::add_check(
-                &mut local_state,
+                local_state,
                 TransactionFailure::UpdateNotPermittedBalance,
                 Z::Bool::or(has_permission, first, w),
                 w,
@@ -831,7 +796,7 @@ where
     let (_a, _local_state) = {
         let (invalid_timing, timing) = Z::Account::check_timing(&a, &txn_global_slot, w);
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::SourceMinimumBalanceViolation,
             invalid_timing.neg(),
             w,
@@ -844,10 +809,10 @@ where
     let _local_state = {
         let has_permission = {
             let access = &a.get().permissions.access;
-            Z::Controller::check(proof_verifies, signature_verifies, access, &data, w)
+            Z::Controller::check(proof_verifies, signature_verifies, access, &single_data, w)
         };
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::UpdateNotPermittedAccess,
             has_permission,
             w,
@@ -891,10 +856,16 @@ where
         a.set_proved_state(proved_state);
         let has_permission = {
             let edit_state = &a.get().permissions.edit_state;
-            Z::Controller::check(proof_verifies, signature_verifies, edit_state, &data, w)
+            Z::Controller::check(
+                proof_verifies,
+                signature_verifies,
+                edit_state,
+                &single_data,
+                w,
+            )
         };
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::UpdateNotPermittedAppState,
             Z::Bool::or(keeping_app_state, has_permission, w),
             w,
@@ -929,12 +900,12 @@ where
                 proof_verifies,
                 signature_verifies,
                 set_verification_key,
-                &data,
+                &single_data,
                 w,
             )
         };
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::UpdateNotPermittedVerificationKey,
             Z::Bool::or(Z::SetOrKeep::is_keep(verification_key), has_permission, w),
             w,
@@ -972,12 +943,12 @@ where
                 proof_verifies,
                 signature_verifies,
                 edit_action_state,
-                &data,
+                &single_data,
                 w,
             )
         };
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::UpdateNotPermittedActionState,
             Z::Bool::or(is_empty, has_permission, w),
             w,
@@ -993,10 +964,16 @@ where
         let zkapp_uri = &account_update.body().update.zkapp_uri;
         let has_permission = {
             let set_zkapp_uri = &a.get().permissions.set_zkapp_uri;
-            Z::Controller::check(proof_verifies, signature_verifies, set_zkapp_uri, &data, w)
+            Z::Controller::check(
+                proof_verifies,
+                signature_verifies,
+                set_zkapp_uri,
+                &single_data,
+                w,
+            )
         };
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::UpdateNotPermittedZkappUri,
             Z::Bool::or(Z::SetOrKeep::is_keep(zkapp_uri), has_permission, w),
             w,
@@ -1022,12 +999,12 @@ where
                 proof_verifies,
                 signature_verifies,
                 set_token_symbol,
-                &data,
+                &single_data,
                 w,
             )
         };
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::UpdateNotPermittedTokenSymbol,
             Z::Bool::or(Z::SetOrKeep::is_keep(token_symbol), has_permission, w),
             w,
@@ -1047,11 +1024,17 @@ where
         let delegate = &account_update.body().update.delegate;
         let has_permission = {
             let set_delegate = &a.get().permissions.set_delegate;
-            Z::Controller::check(proof_verifies, signature_verifies, set_delegate, &data, w)
+            Z::Controller::check(
+                proof_verifies,
+                signature_verifies,
+                set_delegate,
+                &single_data,
+                w,
+            )
         };
         let first = Z::Bool::and(has_permission, account_update_token_is_default, w);
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::UpdateNotPermittedDelegate,
             Z::Bool::or(Z::SetOrKeep::is_keep(delegate), first, w),
             w,
@@ -1087,12 +1070,12 @@ where
                 proof_verifies,
                 signature_verifies,
                 increment_nonce,
-                &data,
+                &single_data,
                 w,
             )
         };
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::UpdateNotPermittedNonce,
             Z::Bool::or(increment_nonce.neg(), has_permission, w),
             w,
@@ -1106,10 +1089,16 @@ where
         let voting_for = &account_update.body().update.voting_for;
         let has_permission = {
             let set_voting_for = &a.get().permissions.set_voting_for;
-            Z::Controller::check(proof_verifies, signature_verifies, set_voting_for, &data, w)
+            Z::Controller::check(
+                proof_verifies,
+                signature_verifies,
+                set_voting_for,
+                &single_data,
+                w,
+            )
         };
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::UpdateNotPermittedVotingFor,
             Z::Bool::or(Z::SetOrKeep::is_keep(voting_for), has_permission, w),
             w,
@@ -1153,12 +1142,12 @@ where
                 proof_verifies,
                 signature_verifies,
                 set_permissions,
-                &data,
+                &single_data,
                 w,
             )
         };
         Z::LocalState::add_check(
-            &mut local_state,
+            local_state,
             TransactionFailure::UpdateNotPermittedPermissions,
             Z::Bool::or(Z::SetOrKeep::is_keep(permissions), has_permission, w),
             w,
@@ -1174,9 +1163,7 @@ where
         ((), ())
     };
 
-    let PerformResult::Account(a) = (h.perform)(Eff::InitAccount(&account_update, &a), w) else {
-        panic!("invalid state");
-    };
+    let a = Z::Handler::init_account(&account_update, &a, w);
 
     let local_delta = account_update_balance_change.negate();
 
@@ -1192,11 +1179,11 @@ where
         // We decompose this way because of OCaml evaluation order
         let second = Z::Bool::and(account_update_token_is_default, overflow, w);
 
-        let excess = signed_amount_exists::<Z>(
+        let excess = Z::SignedAmount::exists_on_if(
             account_update_token_is_default,
-            SignedAmountExistsParam {
-                True: &new_local_fee_excess,
-                False: &local_state.excess,
+            ExistsParam {
+                on_true: &new_local_fee_excess,
+                on_false: &local_state.excess,
             },
             w,
         )
@@ -1205,7 +1192,7 @@ where
     };
     local_state.excess = new_local_fee_excess;
     Z::LocalState::add_check(
-        &mut local_state,
+        local_state,
         TransactionFailure::LocalExcessOverflow,
         overflowed.neg(),
         w,
@@ -1235,7 +1222,7 @@ where
         Z::Bool::or(first, delta_settled, w)
     };
     Z::LocalState::add_check(
-        &mut local_state,
+        local_state,
         TransactionFailure::InvalidFeeExcess,
         valid_fee_excess,
         w,
@@ -1247,11 +1234,11 @@ where
         let amt = global_state.fee_excess();
         let (res, overflow) = Z::SignedAmount::add_flagged(&amt, &local_state.excess, w);
         let global_excess_update_failed = Z::Bool::and(update_global_state_fee_excess, overflow, w);
-        let new_amt = signed_amount_exists::<Z>(
+        let new_amt = Z::SignedAmount::exists_on_if(
             update_global_state_fee_excess,
-            SignedAmountExistsParam {
-                True: &res,
-                False: &amt,
+            ExistsParam {
+                on_true: &res,
+                on_false: &amt,
             },
             w,
         );
@@ -1260,17 +1247,17 @@ where
     };
 
     let signed_zero = Z::SignedAmount::of_unsigned(Z::Amount::zero());
-    local_state.excess = signed_amount_exists::<Z>(
+    local_state.excess = Z::SignedAmount::exists_on_if(
         is_start_or_last,
-        SignedAmountExistsParam {
-            True: &signed_zero,
-            False: &local_state.excess,
+        ExistsParam {
+            on_true: &signed_zero,
+            on_false: &local_state.excess,
         },
         w,
     )
     .clone();
     Z::LocalState::add_check(
-        &mut local_state,
+        local_state,
         TransactionFailure::GlobalExcessOverflow,
         global_excess_update_failed.neg(),
         w,
@@ -1285,7 +1272,7 @@ where
         )
     };
     Z::LocalState::add_check(
-        &mut local_state,
+        local_state,
         TransactionFailure::GlobalSupplyIncreaseOverflow,
         global_supply_increase_update_failed.neg(),
         w,
@@ -1318,11 +1305,11 @@ where
     let _global_state = {
         let is_successful_last_party = Z::Bool::and(is_last_account_update, local_state.success, w);
         let global_state_supply_increase = global_state.supply_increase();
-        let supply_increase = signed_amount_exists::<Z>(
+        let supply_increase = Z::SignedAmount::exists_on_if(
             is_successful_last_party,
-            SignedAmountExistsParam {
-                True: &new_global_supply_increase,
-                False: &global_state_supply_increase,
+            ExistsParam {
+                on_true: &new_global_supply_increase,
+                on_false: &global_state_supply_increase,
             },
             w,
         );
@@ -1349,11 +1336,11 @@ where
         }
         .exists_no_check(w);
         let signed_zero = Z::SignedAmount::of_unsigned(Z::Amount::zero());
-        let supply_increase = signed_amount_exists::<Z>(
+        let supply_increase = Z::SignedAmount::exists_on_if(
             is_last_account_update,
-            SignedAmountExistsParam {
-                True: &signed_zero,
-                False: &local_state.supply_increase,
+            ExistsParam {
+                on_true: &signed_zero,
+                on_false: &local_state.supply_increase,
             },
             w,
         );
@@ -1365,5 +1352,5 @@ where
         local_state.will_succeed = will_succeed;
     };
 
-    Ok((global_state, local_state))
+    Ok(())
 }

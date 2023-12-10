@@ -92,10 +92,7 @@ impl SignedAmountInterface for Signed<Amount> {
     fn of_unsigned(unsigned: Self::Amount) -> Self {
         todo!()
     }
-    fn try_get_value(&self) -> Option<Fp> {
-        todo!()
-    }
-    fn force_value(&self) -> Fp {
+    fn exists_on_if<'a>(b: Self::Bool, param: ExistsParam<&'a Self>, w: &mut Self::W) -> &'a Self {
         todo!()
     }
 }
@@ -252,7 +249,7 @@ impl AccountUpdateInterface for AccountUpdate {
         will_succeed: Boolean,
         commitment: Fp,
         calls: &Self::CallForest,
-        data: &Self::SingleData,
+        single_data: &Self::SingleData,
         w: &mut Self::W,
     ) -> CheckAuthorizationResult<Boolean> {
         todo!()

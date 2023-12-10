@@ -47,7 +47,7 @@ use super::intefaces::{
     GlobalStateInterface, IndexInterface, LedgerInterface, LocalStateInterface, Opt,
     ReceiptChainHashInterface, SetOrKeepInterface, SignedAmountInterface, StackFrameInterface,
     StackFrameMakeParams, StackInterface, TokenIdInterface, TransactionCommitmentInterface,
-    VerificationKeyHashInterface, WitnessGenerator, ZkappSnark,
+    VerificationKeyHashInterface, WitnessGenerator, ZkappApplication, ZkappHandler, ZkappSnark,
 };
 
 use super::intefaces::WitnessGenerator as W;
@@ -170,6 +170,80 @@ impl<F: FieldWitness> WitnessGenerator<F> for Witness<F> {
     }
 }
 
+pub struct SnarkHandler;
+
+impl ZkappHandler<ZkappSnark> for SnarkHandler {
+    fn check_account_precondition(
+        account_update: &<ZkappSnark as ZkappApplication>::AccountUpdate,
+        account: &<ZkappSnark as ZkappApplication>::Account,
+        new_account: <ZkappSnark as ZkappApplication>::Bool,
+        local_state: &mut zkapp_logic::LocalState<ZkappSnark>,
+        w: &mut <ZkappSnark as ZkappApplication>::WitnessGenerator,
+    ) {
+        use crate::zkapps::intefaces::LocalStateInterface;
+
+        let check = |failure: TransactionFailure, b: Boolean, w: &mut Witness<Fp>| {
+            <ZkappSnark as ZkappApplication>::LocalState::add_check(
+                local_state,
+                failure,
+                b.var(),
+                w,
+            );
+        };
+        account_update.body.preconditions.account.checked_zcheck(
+            new_account.as_boolean(),
+            &*account.data,
+            check,
+            w,
+        );
+    }
+
+    fn check_protocol_state_precondition(
+        protocol_state_predicate: &zkapp_command::ZkAppPreconditions,
+        global_state: &mut <ZkappSnark as ZkappApplication>::GlobalState,
+        w: &mut <ZkappSnark as ZkappApplication>::WitnessGenerator,
+    ) -> <ZkappSnark as ZkappApplication>::Bool {
+        protocol_state_predicate
+            .checked_zcheck(&global_state.protocol_state, w)
+            .var()
+    }
+
+    fn check_valid_while_precondition(
+        valid_while: &zkapp_command::Numeric<crate::scan_state::currency::Slot>,
+        global_state: &mut <ZkappSnark as ZkappApplication>::GlobalState,
+        w: &mut <ZkappSnark as ZkappApplication>::WitnessGenerator,
+    ) -> <ZkappSnark as ZkappApplication>::Bool {
+        use zkapp_check::InSnarkCheck;
+
+        (valid_while, ClosedInterval::min_max)
+            .checked_zcheck(&global_state.block_global_slot.to_inner(), w)
+            .var()
+    }
+
+    fn init_account(
+        account_update: &<ZkappSnark as ZkappApplication>::AccountUpdate,
+        account: &<ZkappSnark as ZkappApplication>::Account,
+        w: &mut <ZkappSnark as ZkappApplication>::WitnessGenerator,
+    ) -> <ZkappSnark as ZkappApplication>::Account {
+        let AccountUpdateSkeleton {
+            body: account_update,
+            authorization: _,
+        } = account_update;
+        let account = Box::new(crate::Account {
+            public_key: account_update.data.public_key.clone(),
+            token_id: account_update.data.token_id.clone(),
+            ..(*account.data).clone()
+        });
+        let account2 = account.clone();
+        let account = WithLazyHash::new(account, move |w: &mut Witness<Fp>| {
+            let zkapp = MyCow::borrow_or_default(&account2.zkapp);
+            zkapp.checked_hash_with_param(ZkAppAccount::HASH_PARAM, w);
+            account2.checked_hash(w)
+        });
+        account
+    }
+}
+
 impl SignedAmountInterface for CheckedSigned<Fp, CheckedAmount<Fp>> {
     type W = Witness<Fp>;
     type Bool = SnarkBool;
@@ -197,11 +271,17 @@ impl SignedAmountInterface for CheckedSigned<Fp, CheckedAmount<Fp>> {
     fn of_unsigned(unsigned: Self::Amount) -> Self {
         Self::of_unsigned(unsigned)
     }
-    fn try_get_value(&self) -> Option<Fp> {
-        CheckedSigned::try_get_value(&self)
-    }
-    fn force_value(&self) -> Fp {
-        CheckedSigned::force_value(&self)
+    fn exists_on_if<'a>(b: Self::Bool, param: ExistsParam<&'a Self>, w: &mut Self::W) -> &'a Self {
+        let ExistsParam { on_true, on_false } = param;
+
+        let amount = w.exists_no_check(match b.as_boolean() {
+            Boolean::True => on_true,
+            Boolean::False => on_false,
+        });
+        if on_true.try_get_value().is_some() && on_false.try_get_value().is_some() {
+            w.exists_no_check(amount.force_value());
+        }
+        amount
     }
 }
 
@@ -360,18 +440,18 @@ impl StackFrameInterface for StackFrameChecked {
         self
     }
     fn exists_on_if(b: Self::Bool, param: ExistsParam<Self>, w: &mut Self::W) -> Self {
-        let ExistsParam { True, False } = param;
+        let ExistsParam { on_true, on_false } = param;
         let data = match b.as_boolean() {
-            Boolean::True => True.data.clone(),
-            Boolean::False => False.data.clone(),
+            Boolean::True => on_true.data.clone(),
+            Boolean::False => on_false.data.clone(),
         };
         {
             let frame: &StackFrameCheckedFrame = &data;
             w.exists_no_check(frame);
         }
         WithLazyHash::new(data, move |w: &mut Witness<Fp>| {
-            let on_false = False.hash(w);
-            let on_true = True.hash(w);
+            let on_false = on_false.hash(w);
+            let on_true = on_true.hash(w);
             w.exists_no_check(match b.as_boolean() {
                 Boolean::True => on_true,
                 Boolean::False => on_false,
@@ -610,7 +690,7 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
         will_succeed: Self::Bool,
         commitment: Fp,
         calls: &Self::CallForest,
-        data: &Self::SingleData,
+        single_data: &Self::SingleData,
         w: &mut Self::W,
     ) -> CheckAuthorizationResult<Self::Bool> {
         use crate::scan_state::transaction_logic::zkapp_statement::TransactionCommitment;
@@ -625,15 +705,15 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
             authorization: control,
         } = self;
 
-        let auth_type = data.spec().auth_type;
+        let auth_type = single_data.spec().auth_type;
         let proof_verifies = match auth_type {
             Proof => {
                 let stmt = ZkappStatement {
                     account_update: TransactionCommitment(account_update.hash),
                     calls: TransactionCommitment(*calls),
                 };
-                data.set_zkapp_input(stmt);
-                data.set_must_verify(will_succeed.as_boolean());
+                single_data.set_zkapp_input(stmt);
+                single_data.set_must_verify(will_succeed.as_boolean());
                 Boolean::True.constant()
             }
             Signature | NoneGiven => Boolean::False.constant(),
@@ -1231,12 +1311,12 @@ impl ControllerInterface for SnarkController {
         proof_verifies: Self::Bool,
         signature_verifies: Self::Bool,
         auth: &AuthRequired,
-        data: &Self::SingleData,
+        single_data: &Self::SingleData,
         w: &mut Self::W,
     ) -> Self::Bool {
         use crate::ControlTag::{NoneGiven, Proof, Signature};
 
-        match data.spec().auth_type {
+        match single_data.spec().auth_type {
             Proof => eval_proof(auth, w),
             Signature | NoneGiven => eval_no_proof(auth, signature_verifies, w),
         }

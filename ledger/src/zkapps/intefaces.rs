@@ -42,6 +42,31 @@ pub trait WitnessGenerator<F: FieldWitness> {
 
 use WitnessGenerator as W;
 
+pub trait ZkappHandler<Z: ZkappApplication + Sized> {
+    fn check_account_precondition(
+        account_update: &Z::AccountUpdate,
+        account: &Z::Account,
+        new_account: Z::Bool,
+        local_state: &mut zkapp_logic::LocalState<Z>,
+        w: &mut Z::WitnessGenerator,
+    );
+    fn check_protocol_state_precondition(
+        protocol_state_predicate: &zkapp_command::ZkAppPreconditions,
+        global_state: &mut Z::GlobalState,
+        w: &mut Z::WitnessGenerator,
+    ) -> Z::Bool;
+    fn check_valid_while_precondition(
+        valid_while: &zkapp_command::Numeric<crate::scan_state::currency::Slot>,
+        global_state: &mut Z::GlobalState,
+        w: &mut Z::WitnessGenerator,
+    ) -> Z::Bool;
+    fn init_account(
+        account_update: &Z::AccountUpdate,
+        account: &Z::Account,
+        w: &mut Z::WitnessGenerator,
+    ) -> Z::Account;
+}
+
 use super::snark::{
     SnarkAccount, SnarkAccountId, SnarkActions, SnarkAmount, SnarkBalance, SnarkBool,
     SnarkController, SnarkGlobalSlotSpan, SnarkReceiptChainHash, SnarkSetOrKeep, SnarkTokenId,
@@ -94,8 +119,7 @@ where
     fn negate(&self) -> Self;
     fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool);
     fn of_unsigned(unsigned: Self::Amount) -> Self;
-    fn try_get_value(&self) -> Option<Fp>;
-    fn force_value(&self) -> Fp;
+    fn exists_on_if<'a>(b: Self::Bool, param: ExistsParam<&'a Self>, w: &mut Self::W) -> &'a Self;
 }
 
 pub trait BalanceInterface
@@ -178,10 +202,9 @@ pub struct StackFrameMakeParams<'a, Calls> {
     pub calls: &'a Calls,
 }
 
-#[allow(non_snake_case)]
 pub struct ExistsParam<T> {
-    pub True: T,
-    pub False: T,
+    pub on_true: T,
+    pub on_false: T,
 }
 
 pub trait StackFrameInterface
@@ -290,7 +313,7 @@ where
         will_succeed: Self::Bool,
         commitment: Fp,
         calls: &Self::CallForest,
-        data: &Self::SingleData,
+        single_data: &Self::SingleData,
         w: &mut Self::W,
     ) -> CheckAuthorizationResult<Self::Bool>;
     fn increment_nonce(&self) -> Self::Bool;
@@ -328,7 +351,7 @@ pub trait ControllerInterface {
         proof_verifies: Self::Bool,
         signature_verifies: Self::Bool,
         auth: &AuthRequired,
-        data: &Self::SingleData,
+        single_data: &Self::SingleData,
         w: &mut Self::W,
     ) -> Self::Bool;
 }
@@ -450,7 +473,10 @@ pub trait ActionsInterface {
     fn push_events(event: Fp, actions: &zkapp_command::Actions, w: &mut Self::W) -> Fp;
 }
 
-pub trait ZkappApplication {
+pub trait ZkappApplication
+where
+    Self: Sized,
+{
     type Ledger: LedgerIntf
         + Clone
         + ToFieldElements<Fp>
@@ -542,6 +568,7 @@ pub trait ZkappApplication {
         Index = Self::Index,
     >;
     type SingleData;
+    type Handler: ZkappHandler<Self>;
     type WitnessGenerator: WitnessGenerator<Fp, Bool = Self::Bool>;
 }
 
@@ -574,5 +601,6 @@ impl ZkappApplication for ZkappSnark {
     type GlobalSlotSpan = SnarkGlobalSlotSpan;
     type Actions = SnarkActions;
     type ReceiptChainHash = SnarkReceiptChainHash;
+    type Handler = super::snark::SnarkHandler;
     type WitnessGenerator = Witness<Fp>;
 }

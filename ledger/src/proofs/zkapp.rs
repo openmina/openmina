@@ -16,8 +16,8 @@ use crate::{
     hash_with_kimchi,
     proofs::{
         constants::{
-            StepZkappOptSignedOptSignedProof, WrapTransactionProof, WrapZkappOptSignedProof,
-            WrapZkappProof,
+            StepMergeProof, StepZkappOptSignedOptSignedProof, WrapTransactionProof,
+            WrapZkappOptSignedProof, WrapZkappProof,
         },
         merge::{generate_merge_proof, MergeParams},
         public_input::{messages::MessagesForNextWrapProof, prepared_statement::DeferredValues},
@@ -995,69 +995,6 @@ impl ZkappSingleData {
     }
 }
 
-pub enum Eff<'a, Z: ZkappApplication> {
-    CheckAccountPrecondition(
-        &'a Z::AccountUpdate,
-        &'a Z::Account,
-        Z::Bool,
-        &'a mut zkapp_logic::LocalState<Z>,
-    ),
-    CheckProtocolStatePrecondition(&'a ZkAppPreconditions, &'a Z::GlobalState),
-    CheckValidWhilePrecondition(&'a zkapp_command::Numeric<Slot>, &'a Z::GlobalState),
-    InitAccount(&'a Z::AccountUpdate, &'a Z::Account),
-}
-
-fn perform(eff: Eff<ZkappSnark>, w: &mut Witness<Fp>) -> zkapp_logic::PerformResult<ZkappSnark> {
-    use crate::zkapps::intefaces::LocalStateInterface;
-
-    match eff {
-        Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
-            let check = |failure: TransactionFailure, b: Boolean, w: &mut Witness<Fp>| {
-                <ZkappSnark as ZkappApplication>::LocalState::add_check(
-                    local_state,
-                    failure,
-                    b.var(),
-                    w,
-                );
-            };
-            account_update.body.preconditions.account.checked_zcheck(
-                new_account.as_boolean(),
-                &*account.data,
-                check,
-                w,
-            );
-            zkapp_logic::PerformResult::None
-        }
-        Eff::CheckProtocolStatePrecondition(protocol_state_predicate, global_state) => {
-            let checked = protocol_state_predicate.checked_zcheck(&global_state.protocol_state, w);
-            zkapp_logic::PerformResult::Bool(checked.var())
-        }
-        Eff::CheckValidWhilePrecondition(valid_while, global_state) => {
-            let checked = (valid_while, ClosedInterval::min_max)
-                .checked_zcheck(&global_state.block_global_slot.to_inner(), w);
-            zkapp_logic::PerformResult::Bool(checked.var())
-        }
-        Eff::InitAccount(account_update, account) => {
-            let AccountUpdateSkeleton {
-                body: account_update,
-                authorization: _,
-            } = account_update;
-            let account = Box::new(crate::Account {
-                public_key: account_update.data.public_key.clone(),
-                token_id: account_update.data.token_id.clone(),
-                ..(*account.data).clone()
-            });
-            let account2 = account.clone();
-            let account = WithLazyHash::new(account, move |w: &mut Witness<Fp>| {
-                let zkapp = MyCow::borrow_or_default(&account2.zkapp);
-                zkapp.checked_hash_with_param(ZkAppAccount::HASH_PARAM, w);
-                account2.checked_hash(w)
-            });
-            zkapp_logic::PerformResult::Account(account)
-        }
-    }
-}
-
 pub type LocalStateForProof = LocalStateSkeleton<
     LedgerWithHash,                                     // ledger
     StackFrameChecked,                                  // stack_frame
@@ -1104,7 +1041,7 @@ fn zkapp_main(
         w,
     );
 
-    let init = {
+    let (mut global, mut local) = {
         let g = GlobalStateForProof {
             first_pass_ledger: LedgerWithHash {
                 ledger: witness.global_first_pass_ledger.clone(),
@@ -1150,21 +1087,19 @@ fn zkapp_main(
         (g, l)
     };
 
-    let init_fee_excess = init.0.fee_excess.clone();
+    let init_fee_excess = global.fee_excess.clone();
 
     let mut start_zkapp_command = witness.start_zkapp_command.as_slice();
     let zkapp_input = Rc::new(RefCell::new(None));
     let must_verify = Rc::new(RefCell::new(Boolean::True));
 
-    let (global, local) = spec.iter().rev().fold(init, |acc, account_update_spec| {
-        let (_, local) = &acc;
-
+    spec.iter().rev().for_each(|account_update_spec| {
         enum StartOrSkip<T> {
             Start(T),
             Skip,
         }
 
-        let mut finish = |v: StartOrSkip<&StartData>, acc| {
+        let mut finish = |v: StartOrSkip<&StartData>, states| {
             let ps = match v {
                 StartOrSkip::Skip => CallForest::empty(),
                 StartOrSkip::Start(p) => p.account_updates.all_account_updates(),
@@ -1189,14 +1124,11 @@ fn zkapp_main(
             };
 
             {
-                let constraint_constants = &CONSTRAINT_CONSTANTS;
                 let is_start = match account_update_spec.is_start {
                     IsStart::Yes => zkapp_logic::IsStart::Yes(start_data),
                     IsStart::No => zkapp_logic::IsStart::No,
                     IsStart::ComputeInCircuit => zkapp_logic::IsStart::Compute(start_data),
                 };
-
-                let handler = zkapp_logic::Handler { perform };
 
                 let data = ZkappSingleData {
                     spec: account_update_spec.clone(),
@@ -1204,14 +1136,7 @@ fn zkapp_main(
                     must_verify: Rc::clone(&must_verify),
                 };
 
-                zkapp_logic::apply::<ZkappSnark>(
-                    constraint_constants,
-                    is_start,
-                    &handler,
-                    acc,
-                    data,
-                    w,
-                )
+                zkapp_logic::apply::<ZkappSnark>(is_start, states, data, w)
             }
         };
 
@@ -1231,7 +1156,7 @@ fn zkapp_main(
                         }
                     }
                 };
-                finish(v, acc)
+                finish(v, (&mut global, &mut local))
             }
             IsStart::Yes => todo!(),
         };
@@ -1684,11 +1609,6 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) -> LedgerP
         }],
     });
 
-    let sok_digest = message.digest();
-
-    let (last, rest) = witnesses_specs_stmts.split_last().unwrap();
-    let (witness, spec, statement) = last;
-
     let of_zkapp_command_segment = |statement: Statement<SokDigest>,
                                     witness: &ZkappCommandSegmentWitness<'_>,
                                     spec: &SegmentBasic| {
@@ -1702,35 +1622,25 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) -> LedgerP
         )
     };
 
-    let mut first_proof = of_zkapp_command_segment(
-        Statement {
-            sok_digest: sok_digest.clone(),
-            ..statement.clone()
-        },
-        witness,
-        spec,
-    );
+    let sok_digest = message.digest();
+    let mut witnesses_specs_stmts = witnesses_specs_stmts.into_iter().rev();
+    let (witness, spec, statement) = witnesses_specs_stmts.next().unwrap(); // last one
 
-    rest.iter()
-        .rev()
-        .fold(first_proof, |prev_proof, (witness, spec, statement)| {
-            let curr_proof = of_zkapp_command_segment(
-                Statement {
-                    sok_digest: sok_digest.clone(),
-                    ..statement.clone()
-                },
-                witness,
-                spec,
-            );
+    let mut first_proof =
+        of_zkapp_command_segment(statement.with_digest(sok_digest.clone()), &witness, &spec);
 
-            merge_zkapp_proofs(
-                prev_proof,
-                curr_proof,
-                message,
-                merge_step_prover,
-                tx_wrap_prover,
-            )
-        })
+    witnesses_specs_stmts.fold(first_proof, |prev_proof, (witness, spec, statement)| {
+        let curr_proof =
+            of_zkapp_command_segment(statement.with_digest(sok_digest.clone()), &witness, &spec);
+
+        merge_zkapp_proofs(
+            prev_proof,
+            curr_proof,
+            message,
+            merge_step_prover,
+            tx_wrap_prover,
+        )
+    })
 }
 
 fn merge_zkapp_proofs(
@@ -1750,7 +1660,7 @@ fn merge_zkapp_proofs(
     let prev: v2::LedgerProofProdStableV2 = (&prev).into();
     let curr: v2::LedgerProofProdStableV2 = (&curr).into();
 
-    let mut w: Witness<Fp> = Witness::new::<crate::proofs::constants::StepMergeProof>();
+    let mut w: Witness<Fp> = Witness::new::<StepMergeProof>();
 
     let sok_digest = message.digest();
     let statement_with_sok = merged_statement.clone().with_digest(sok_digest);
