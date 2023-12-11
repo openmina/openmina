@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash, LedgerHash};
+use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
 use openmina_core::block::ArcBlockWithHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -19,8 +19,6 @@ pub enum TransitionFrontierSyncState {
         best_tip: ArcBlockWithHash,
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
-        staking_ledger_hash: LedgerHash,
-        next_epoch_ledger_hash: LedgerHash,
     },
     StakingLedgerPending {
         time: Timestamp,

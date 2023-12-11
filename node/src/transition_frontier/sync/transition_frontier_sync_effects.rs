@@ -40,14 +40,12 @@ impl TransitionFrontierSyncBestTipUpdateAction {
         // if root snarked ledger stayed same but root block changed
         // while reconstructing staged ledger.
         store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {});
-        // TODO(tizoc): add check here and dispatch conditionally
         store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
         // if we don't need to sync root staged ledger.
         store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
         // if we already have a block ready to be applied.
         store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
 
-        // TODO(tizoc): may need to update epoch ledgers here, but maybe consensus should handle it
         // TODO(binier): cleanup ledgers
     }
 }

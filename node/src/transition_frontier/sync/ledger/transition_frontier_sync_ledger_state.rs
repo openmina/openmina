@@ -28,10 +28,6 @@ pub enum TransitionFrontierSyncLedgerState {
 impl TransitionFrontierSyncLedgerState {
     pub fn snarked(&self) -> Option<&TransitionFrontierSyncLedgerSnarkedState> {
         match self {
-            Self::Init { .. } => {
-                println!("+++++ tried to obtain snarked ledger from Init state");
-                None
-            }
             Self::Snarked(v) => Some(v),
             _ => None,
         }
@@ -62,9 +58,6 @@ impl TransitionFrontierSyncLedgerState {
     }
 
     pub fn snarked_ledger_hash(&self) -> &LedgerHash {
-        // TODO: here, depending on the state, a different hash must be returned
-        // it could be that when setting the state a target ledger is returned
-        // because
         self.block().snarked_ledger_hash()
     }
 

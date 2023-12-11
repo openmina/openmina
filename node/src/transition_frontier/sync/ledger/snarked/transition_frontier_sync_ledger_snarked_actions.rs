@@ -35,11 +35,9 @@ pub struct TransitionFrontierSyncLedgerSnarkedPendingAction {}
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnarkedPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let result = state.transition_frontier.sync.ledger().map_or(false, |s| {
+        state.transition_frontier.sync.ledger().map_or(false, |s| {
             matches!(s, TransitionFrontierSyncLedgerState::Init { .. })
-        });
-        println!("+++ TransitionFrontierSyncLedgerSnarkedPendingAction.is_enabled={result}");
-        result
+        })
     }
 }
 
@@ -54,29 +52,15 @@ impl redux::EnablingCondition<crate::State>
             .p2p
             .ready_peers_iter()
             .any(|(_, p)| p.channels.rpc.can_send_request());
-        let mut has_ledger = false;
-        let mut has_snarked_ledger = false;
-        let mut has_sync_next = false;
-        let mut has_retry_iter_next = false;
-        let result = peers_available
+        peers_available
             && state
                 .transition_frontier
                 .sync
                 .ledger()
-                .and_then(|s| {
-                    has_ledger = true;
-                    s.snarked()
-                })
+                .and_then(|s| s.snarked())
                 .map_or(false, |s| {
-                    has_snarked_ledger = true;
-                    has_sync_next = s.sync_next().is_some();
-                    if !has_sync_next {
-                        has_retry_iter_next = s.sync_retry_iter().next().is_some();
-                    }
-                    has_sync_next || has_retry_iter_next
-                });
-        println!("+++ TransitionFrontierSyncLedgerSnarkedPeersQueryAction.is_enabled={result} peers_available={peers_available} has_ledger={has_ledger} has_snarked_ledger={has_snarked_ledger} has_sync_next={has_sync_next} has_retry_iter_next={has_retry_iter_next}");
-        result
+                    s.sync_next().is_some() || s.sync_retry_iter().next().is_some()
+                })
     }
 }
 
@@ -115,10 +99,9 @@ impl redux::EnablingCondition<crate::State>
             .and_then(|p| {
                 let sync_best_tip = state.transition_frontier.sync.best_tip()?;
                 let peer_best_tip = p.best_tip.as_ref()?;
-                Some(p).filter(|_| true ||  sync_best_tip.hash == peer_best_tip.hash)
+                Some(p).filter(|_| true || sync_best_tip.hash == peer_best_tip.hash)
             })
             .map_or(false, |p| p.channels.rpc.can_send_request());
-        println!("+++ TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction.is_enabled={} check_next_addr={} check_peer_available={}", check_next_addr && check_peer_available, check_next_addr , check_peer_available);
         check_next_addr && check_peer_available
     }
 }
@@ -153,7 +136,6 @@ impl redux::EnablingCondition<crate::State>
                 Some(p).filter(|_| true || sync_best_tip.hash == peer_best_tip.hash)
             })
             .map_or(false, |p| p.channels.rpc.can_send_request());
-        println!("+++ TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction.is_enabled={} check_next_addr={} check_peer_available={}", check_next_addr && check_peer_available, check_next_addr , check_peer_available);
         check_next_addr && check_peer_available
     }
 }

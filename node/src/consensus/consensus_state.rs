@@ -2,8 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{
-    LedgerHash, MinaBlockBlockStableV2, MinaBlockHeaderStableV2, StagedLedgerDiffDiffStableV2,
-    StateHash,
+    MinaBlockBlockStableV2, MinaBlockHeaderStableV2, StagedLedgerDiffDiffStableV2, StateHash,
 };
 use serde::{Deserialize, Serialize};
 
@@ -197,30 +196,6 @@ impl ConsensusState {
                 ..
             } => decision.use_as_best_tip() && self.best_tip.as_ref() == Some(compared_with),
         }
-    }
-
-    pub fn staking_ledger_hash(&self) -> Option<&LedgerHash> {
-        self.best_tip().map(|b| {
-            &b.header
-                .protocol_state
-                .body
-                .consensus_state
-                .staking_epoch_data
-                .ledger
-                .hash
-        })
-    }
-
-    pub fn next_epoch_ledger_hash(&self) -> Option<&LedgerHash> {
-        self.best_tip().map(|b| {
-            &b.header
-                .protocol_state
-                .body
-                .consensus_state
-                .next_epoch_data
-                .ledger
-                .hash
-        })
     }
 }
 
