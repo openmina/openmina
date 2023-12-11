@@ -59,6 +59,7 @@ The node can obtain its address from other peers. It shouldn't use it when conne
 
 TODO: what if the number of initial peers exceeds the max number of peers?
 
+- [`p2p_basic_outgoing(connect_to_all_initial_peers)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L293)
 - [multi_node_initial_joining](../node/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs) (partially?)
 
 ### Node should be able to connect to initial peers eventually, even if initially they are not available.
@@ -69,7 +70,8 @@ below).
 
 TODO: Use cases where this is important.
 
-**Tests:** TODO
+**Tests:**
+- [`p2p_basic_outgoing(connect_to_all_initial_peers_become_ready)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L362)
 
 ### Node should have a reasonable retry rate for reconnection
 

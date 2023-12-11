@@ -6,8 +6,9 @@ use crate::{
     cluster::ClusterNodeId,
     node::RustNodeTestingConfig,
     scenarios::{
-        add_rust_nodes, as_connection_finalized_event, connection_finalized_event,
-        wait_for_nodes_listening_on_localhost, ClusterRunner, Driver, connection_finalized_with_res_event,
+        add_rust_nodes, add_rust_nodes_with, as_connection_finalized_event,
+        connection_finalized_event, connection_finalized_with_res_event,
+        wait_for_nodes_listening_on_localhost, ClusterRunner, Driver,
     },
 };
 
@@ -142,7 +143,7 @@ impl DontConnectToNodeWithSameId {
         let (node, _) = driver.add_rust_node(
             RustNodeTestingConfig::berkeley_default()
                 .libp2p_port(port)
-                .with_peer_id(bytes)
+                .with_peer_id(bytes),
         );
         // wait for it to be ready
         assert!(
@@ -156,7 +157,7 @@ impl DontConnectToNodeWithSameId {
         let (node_ut, _) = driver.add_rust_node(
             RustNodeTestingConfig::berkeley_default()
                 .libp2p_port(node_ut_port)
-                .with_peer_id(bytes)
+                .with_peer_id(bytes),
         );
 
         driver
@@ -175,7 +176,10 @@ impl DontConnectToNodeWithSameId {
             .await
             .unwrap();
 
-        assert!(connected.is_none(), "the node sholdn't try to connect to itself");
+        assert!(
+            connected.is_none(),
+            "the node sholdn't try to connect to itself"
+        );
     }
 }
 
@@ -189,7 +193,10 @@ impl DontConnectToSelfInitialPeer {
 
         let port = 11109;
         let bytes: [u8; 32] = rand::random();
-        let peer_id = SecretKey::from_bytes(bytes.clone()).public_key().peer_id().to_libp2p_string();
+        let peer_id = SecretKey::from_bytes(bytes.clone())
+            .public_key()
+            .peer_id()
+            .to_libp2p_string();
         let self_maddr = format!("/ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}")
             .parse()
             .unwrap();
@@ -214,7 +221,10 @@ impl DontConnectToSelfInitialPeer {
             .await
             .unwrap();
 
-        assert!(connected.is_none(), "the node sholdn't try to connect to itself");
+        assert!(
+            connected.is_none(),
+            "the node sholdn't try to connect to itself"
+        );
     }
 }
 
@@ -229,8 +239,10 @@ impl DontConnectToInitialPeerWithSameId {
         let port = 11108;
         let node_ut_port = 11109;
         let bytes: [u8; 32] = rand::random();
-        let peer_id = SecretKey::from_bytes(bytes.clone()).public_key().peer_id().to_libp2p_string();
-
+        let peer_id = SecretKey::from_bytes(bytes.clone())
+            .public_key()
+            .peer_id()
+            .to_libp2p_string();
 
         let self_maddr = format!("/ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}")
             .parse()
@@ -240,7 +252,7 @@ impl DontConnectToInitialPeerWithSameId {
         let (node, _) = driver.add_rust_node(
             RustNodeTestingConfig::berkeley_default()
                 .libp2p_port(port)
-                .with_peer_id(bytes)
+                .with_peer_id(bytes),
         );
         // wait for it to be ready
         assert!(
@@ -266,6 +278,143 @@ impl DontConnectToInitialPeerWithSameId {
             .await
             .unwrap();
 
-        assert!(connected.is_none(), "the node sholdn't try to connect to itself");
+        assert!(
+            connected.is_none(),
+            "the node sholdn't try to connect to itself"
+        );
+    }
+}
+
+/// Node should be able to connect to all initial peers.
+#[derive(documented::Documented, Default, Clone, Copy)]
+pub struct ConnectToInitialPeers;
+
+impl ConnectToInitialPeers {
+    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+        const MAX: u8 = 32;
+
+        let mut driver = Driver::new(runner);
+
+        let (peers, port_peer_ids): (Vec<ClusterNodeId>, Vec<_>) = add_rust_nodes_with(
+            &mut driver,
+            MAX,
+            RustNodeTestingConfig::berkeley_default(),
+            |state| {
+                let config = &state.p2p.config;
+                let port = config.libp2p_port.unwrap();
+                let peer_id = config.identity_pub_key.peer_id();
+                (port, peer_id)
+            },
+        );
+
+        // wait for all peers to listen
+        let satisfied = wait_for_nodes_listening_on_localhost(
+            &mut driver,
+            Duration::from_secs(3 * 60),
+            peers.clone(),
+        )
+        .await
+        .unwrap();
+        assert!(satisfied, "all peers should be listening");
+
+        let initial_peers = port_peer_ids
+            .iter()
+            .map(|(port, peer_id)| {
+                format!(
+                    "/ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}",
+                    peer_id = peer_id.clone().to_libp2p_string()
+                )
+                .parse()
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
+        let (node_ut, _) = driver
+            .add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(initial_peers));
+
+        // matches event "the node established connection with peer"
+        let mut peer_ids =
+            BTreeSet::from_iter(port_peer_ids.into_iter().map(|(_, peer_id)| peer_id));
+        let pred = |node_id, event: &_, _state: &_| {
+            if node_id != node_ut {
+                false
+            } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
+                assert!(res.is_ok(), "connection to {peer_id} should succeed");
+                peer_ids.remove(&peer_id);
+                peer_ids.is_empty()
+            } else {
+                false
+            }
+        };
+
+        let satisfied = driver
+            .run_until(Duration::from_secs(3 * 60), pred)
+            .await
+            .unwrap();
+        assert!(satisfied, "did not connect to peers: {:?}", peer_ids);
+    }
+}
+
+/// Node should be able to connect to all initial peers after they become ready.
+#[derive(documented::Documented, Default, Clone, Copy)]
+pub struct ConnectToInitialPeersBecomeReady;
+
+impl ConnectToInitialPeersBecomeReady {
+    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+        const MAX: u16 = 32;
+
+        let mut driver = Driver::new(runner);
+
+        let port_bytes: Vec<_> = (0..MAX)
+            .into_iter()
+            .map(|p| (12000 + p, rand::random::<[u8; 32]>()))
+            .collect();
+
+        let initial_peers = port_bytes
+            .iter()
+            .map(|(port, bytes)| {
+                let secret_key = SecretKey::from_bytes(bytes.clone());
+                format!(
+                    "/ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}",
+                    peer_id = secret_key.public_key().peer_id().to_libp2p_string()
+                )
+                .parse()
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
+        let (node_ut, _) = driver
+            .add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(initial_peers));
+
+        driver.wait_for(Duration::from_secs(10), |_, _, _| false).await.unwrap();
+
+        let (_peers, mut peer_ids): (Vec<ClusterNodeId>, BTreeSet<PeerId>) = port_bytes
+            .into_iter()
+            .map(|(port, bytes)| {
+                driver.add_rust_node(
+                    RustNodeTestingConfig::berkeley_default()
+                        .libp2p_port(port)
+                        .with_peer_id(bytes),
+                )
+            })
+            .unzip();
+
+        // matches event "the node established connection with peer"
+        let pred = |node_id, event: &_, _state: &_| {
+            if node_id != node_ut {
+                false
+            } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
+                if res.is_ok() {
+                    peer_ids.remove(&peer_id);
+                }
+                peer_ids.is_empty()
+            } else {
+                false
+            }
+        };
+
+        let satisfied = driver
+            .run_until(Duration::from_secs(3 * 60), pred)
+            .await
+            .unwrap();
+        assert!(satisfied, "did not connect to peers: {:?}", peer_ids);
     }
 }

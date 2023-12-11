@@ -258,6 +258,20 @@ impl<'cluster> Driver<'cluster> {
         (node_id, peer_id)
     }
 
+    pub fn add_rust_node_with<Item, F>(
+        &mut self,
+        testing_config: RustNodeTestingConfig,
+        mut f: F,
+    ) -> (ClusterNodeId, Item)
+    where
+        F: FnMut(&State) -> Item,
+    {
+        let node_id = self.runner.add_rust_node(testing_config);
+        let state = self.runner.node(node_id).unwrap().state();
+        let item = f(state);
+        (node_id, item)
+    }
+
     pub fn inner(&self) -> &ClusterRunner {
         &self.runner
     }
@@ -293,7 +307,6 @@ pub async fn wait_for_nodes_listening_on_localhost<'cluster>(
     driver.run_until(duration, pred).await
 }
 
-
 /// Creates `num` Rust nodes in the cluster
 pub fn add_rust_nodes<'cluster, N, NodeIds, PeerIds>(
     driver: &mut Driver,
@@ -308,5 +321,24 @@ where
     (0..num.into())
         .into_iter()
         .map(|_| driver.add_rust_node(config.clone()))
+        .unzip()
+}
+
+/// Creates `num` Rust nodes in the cluster
+pub fn add_rust_nodes_with<'cluster, N, NodeIds, Items, Item, F>(
+    driver: &mut Driver,
+    num: N,
+    config: RustNodeTestingConfig,
+    mut f: F,
+) -> (NodeIds, Items)
+where
+    N: Into<u16>,
+    NodeIds: Default + Extend<ClusterNodeId>,
+    Items: Default + Extend<Item>,
+    F: FnMut(&State) -> Item,
+{
+    (0..num.into())
+        .into_iter()
+        .map(|_| driver.add_rust_node_with(config.clone(), &mut f))
         .unzip()
 }
