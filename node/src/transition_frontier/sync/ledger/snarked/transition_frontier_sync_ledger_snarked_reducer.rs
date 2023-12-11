@@ -138,12 +138,12 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 pending.remove(&action.address);
             }
             TransitionFrontierSyncLedgerSnarkedAction::Success(_) => {
-                let Self::Pending { block, .. } = self else {
+                let Self::Pending { target, .. } = self else {
                     return;
                 };
                 *self = Self::Success {
                     time: meta.time(),
-                    block: block.clone(),
+                    target: target.clone(),
                 };
             }
         }

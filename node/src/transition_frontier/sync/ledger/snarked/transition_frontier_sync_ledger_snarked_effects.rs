@@ -27,7 +27,7 @@ fn query_peer_init<S: redux::Service>(
     let Some((ledger_hash, rpc_id)) = None.or_else(|| {
         let state = store.state();
         let ledger = state.transition_frontier.sync.ledger()?;
-        let ledger_hash = ledger.snarked_ledger_hash();
+        let ledger_hash = ledger.snarked()?.ledger_hash();
 
         let p = store.state().p2p.get_ready_peer(&peer_id)?;
         let rpc_id = p.channels.rpc.next_local_rpc_id();
@@ -173,7 +173,7 @@ impl TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction {
     {
         let Some(snarked_ledger_hash) = None.or_else(|| {
             let ledger = store.state().transition_frontier.sync.ledger()?;
-            Some(ledger.snarked_ledger_hash().clone())
+            Some(ledger.snarked()?.ledger_hash().clone())
         }) else {
             return;
         };
@@ -195,7 +195,7 @@ impl TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction {
     {
         let Some(snarked_ledger_hash) = None.or_else(|| {
             let ledger = store.state().transition_frontier.sync.ledger()?;
-            Some(ledger.snarked_ledger_hash().clone())
+            Some(ledger.snarked()?.ledger_hash().clone())
         }) else {
             return;
         };

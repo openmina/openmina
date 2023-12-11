@@ -180,7 +180,14 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 };
                 let ledgers_to_keep = chain
                     .iter()
-                    .flat_map(|b| [b.snarked_ledger_hash(), b.staged_ledger_hash()])
+                    .flat_map(|b| {
+                        [
+                            b.snarked_ledger_hash(),
+                            b.staged_ledger_hash(),
+                            b.staking_epoch_ledger_hash(),
+                            b.next_epoch_ledger_hash(),
+                        ]
+                    })
                     .cloned()
                     .collect();
 

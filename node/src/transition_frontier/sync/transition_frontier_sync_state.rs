@@ -23,6 +23,7 @@ pub enum TransitionFrontierSyncState {
     StakingLedgerPending {
         time: Timestamp,
         best_tip: ArcBlockWithHash,
+        root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
         ledger: TransitionFrontierSyncLedgerState,
     },
@@ -36,6 +37,7 @@ pub enum TransitionFrontierSyncState {
     NextEpochLedgerPending {
         time: Timestamp,
         best_tip: ArcBlockWithHash,
+        root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
         ledger: TransitionFrontierSyncLedgerState,
     },
@@ -49,6 +51,7 @@ pub enum TransitionFrontierSyncState {
     RootLedgerPending {
         time: Timestamp,
         best_tip: ArcBlockWithHash,
+        root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
         ledger: TransitionFrontierSyncLedgerState,
     },
@@ -130,11 +133,11 @@ impl TransitionFrontierSyncState {
         match self {
             Self::Idle => None,
             Self::Init { root_block, .. } => Some(root_block),
-            Self::StakingLedgerPending { ledger, .. } => Some(ledger.block()),
+            Self::StakingLedgerPending { root_block, .. } => Some(root_block),
             Self::StakingLedgerSuccess { root_block, .. } => Some(root_block),
-            Self::NextEpochLedgerPending { ledger, .. } => Some(ledger.block()),
+            Self::NextEpochLedgerPending { root_block, .. } => Some(root_block),
             Self::NextEpochLedgerSuccess { root_block, .. } => Some(root_block),
-            Self::RootLedgerPending { ledger, .. } => Some(ledger.block()),
+            Self::RootLedgerPending { root_block, .. } => Some(root_block),
             Self::RootLedgerSuccess { root_block, .. } => Some(root_block),
             Self::BlocksPending { chain, .. } => chain.first().and_then(|b| b.block()),
             Self::BlocksSuccess { chain, .. } => chain.first(),
@@ -159,6 +162,15 @@ impl TransitionFrontierSyncState {
     }
 
     pub fn ledger(&self) -> Option<&TransitionFrontierSyncLedgerState> {
+        match self {
+            Self::StakingLedgerPending { ledger, .. } => Some(ledger),
+            Self::NextEpochLedgerPending { ledger, .. } => Some(ledger),
+            Self::RootLedgerPending { ledger, .. } => Some(ledger),
+            _ => None,
+        }
+    }
+
+    pub fn ledger_mut(&mut self) -> Option<&mut TransitionFrontierSyncLedgerState> {
         match self {
             Self::StakingLedgerPending { ledger, .. } => Some(ledger),
             Self::NextEpochLedgerPending { ledger, .. } => Some(ledger),
