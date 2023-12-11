@@ -1,6 +1,7 @@
 use openmina_node_testing::scenarios::p2p::basic_outgoing_connections::{
-    DontConnectToInitialPeerWithSameId, DontConnectToNodeWithSameId, DontConnectToSelfInitialPeer,
-    MakeMultipleOutgoingConnections, MakeOutgoingConnection,
+    ConnectToInitialPeers, ConnectToInitialPeersBecomeReady, DontConnectToInitialPeerWithSameId,
+    DontConnectToNodeWithSameId, DontConnectToSelfInitialPeer, MakeMultipleOutgoingConnections,
+    MakeOutgoingConnection,
 };
 
 mod common;
@@ -15,6 +16,7 @@ scenario_test!(
     MakeMultipleOutgoingConnections,
     MakeMultipleOutgoingConnections
 );
+
 scenario_test!(
     dont_connect_to_node_same_id,
     DontConnectToNodeWithSameId,
@@ -29,4 +31,15 @@ scenario_test!(
     dont_connect_to_self_initial_peer,
     DontConnectToSelfInitialPeer,
     DontConnectToSelfInitialPeer
+);
+
+scenario_test!(
+    connect_to_all_initial_peers,
+    ConnectToInitialPeers,
+    ConnectToInitialPeers
+);
+scenario_test!(
+    connect_to_all_initial_peers_become_ready,
+    ConnectToInitialPeersBecomeReady,
+    ConnectToInitialPeersBecomeReady
 );
