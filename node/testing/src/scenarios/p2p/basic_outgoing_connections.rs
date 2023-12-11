@@ -1,13 +1,13 @@
 use std::{collections::BTreeSet, time::Duration};
 
-use node::p2p::{P2pPeerState, P2pPeerStatus, PeerId};
+use node::p2p::{identity::SecretKey, P2pPeerState, P2pPeerStatus, PeerId};
 
 use crate::{
     cluster::ClusterNodeId,
     node::RustNodeTestingConfig,
     scenarios::{
         add_rust_nodes, as_connection_finalized_event, connection_finalized_event,
-        wait_for_nodes_listening_on_localhost, ClusterRunner, Driver,
+        wait_for_nodes_listening_on_localhost, ClusterRunner, Driver, connection_finalized_with_res_event,
     },
 };
 
@@ -123,5 +123,149 @@ impl MakeMultipleOutgoingConnections {
             .await
             .unwrap();
         assert!(satisfied, "did not connect to peers: {:?}", peer_ids);
+    }
+}
+
+/// Node shouldn't establish connection with a node with the same peer_id.
+#[derive(documented::Documented, Default, Clone, Copy)]
+pub struct DontConnectToNodeWithSameId;
+
+impl DontConnectToNodeWithSameId {
+    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+        let mut driver = Driver::new(runner);
+
+        let port = 11108;
+        let node_ut_port = 11109;
+        let bytes: [u8; 32] = rand::random();
+
+        // start a node with the same peer_id on different port
+        let (node, _) = driver.add_rust_node(
+            RustNodeTestingConfig::berkeley_default()
+                .libp2p_port(port)
+                .with_peer_id(bytes)
+        );
+        // wait for it to be ready
+        assert!(
+            wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node])
+                .await
+                .unwrap(),
+            "node should be listening"
+        );
+
+        // start node under test with the other node as its initial peer
+        let (node_ut, _) = driver.add_rust_node(
+            RustNodeTestingConfig::berkeley_default()
+                .libp2p_port(node_ut_port)
+                .with_peer_id(bytes)
+        );
+
+        driver
+            .exec_step(crate::scenario::ScenarioStep::ConnectNodes {
+                dialer: node_ut,
+                listener: crate::scenario::ListenerNode::Rust(node),
+            })
+            .await
+            .expect("connect event should be dispatched");
+
+        let connected = driver
+            .wait_for(
+                Duration::from_secs(60),
+                connection_finalized_event(|node_id, _peer| node_id == node_ut),
+            )
+            .await
+            .unwrap();
+
+        assert!(connected.is_none(), "the node sholdn't try to connect to itself");
+    }
+}
+
+/// Node shouldn't connect to itself even if its address specified in initial peers.
+#[derive(documented::Documented, Default, Clone, Copy)]
+pub struct DontConnectToSelfInitialPeer;
+
+impl DontConnectToSelfInitialPeer {
+    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+        let mut driver = Driver::new(runner);
+
+        let port = 11109;
+        let bytes: [u8; 32] = rand::random();
+        let peer_id = SecretKey::from_bytes(bytes.clone()).public_key().peer_id().to_libp2p_string();
+        let self_maddr = format!("/ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}")
+            .parse()
+            .unwrap();
+        let (node_ut, _) = driver.add_rust_node(
+            RustNodeTestingConfig::berkeley_default()
+                .libp2p_port(port)
+                .with_peer_id(bytes)
+                .initial_peers(vec![self_maddr]),
+        );
+        assert!(
+            wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node_ut])
+                .await
+                .unwrap(),
+            "node should be listening"
+        );
+
+        let connected = driver
+            .wait_for(
+                Duration::from_secs(60),
+                connection_finalized_with_res_event(|node_id, _peer, _res| node_id == node_ut),
+            )
+            .await
+            .unwrap();
+
+        assert!(connected.is_none(), "the node sholdn't try to connect to itself");
+    }
+}
+
+/// Node shouldn't connect to a node with the same peer id even if its address specified in initial peers.
+#[derive(documented::Documented, Default, Clone, Copy)]
+pub struct DontConnectToInitialPeerWithSameId;
+
+impl DontConnectToInitialPeerWithSameId {
+    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+        let mut driver = Driver::new(runner);
+
+        let port = 11108;
+        let node_ut_port = 11109;
+        let bytes: [u8; 32] = rand::random();
+        let peer_id = SecretKey::from_bytes(bytes.clone()).public_key().peer_id().to_libp2p_string();
+
+
+        let self_maddr = format!("/ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}")
+            .parse()
+            .unwrap();
+
+        // start a node with the same peer_id on different port
+        let (node, _) = driver.add_rust_node(
+            RustNodeTestingConfig::berkeley_default()
+                .libp2p_port(port)
+                .with_peer_id(bytes)
+        );
+        // wait for it to be ready
+        assert!(
+            wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node])
+                .await
+                .unwrap(),
+            "node should be listening"
+        );
+
+        // start node under test with the other node as its initial peer
+        let (node_ut, _) = driver.add_rust_node(
+            RustNodeTestingConfig::berkeley_default()
+                .libp2p_port(node_ut_port)
+                .with_peer_id(bytes)
+                .initial_peers(vec![self_maddr]),
+        );
+
+        let connected = driver
+            .wait_for(
+                Duration::from_secs(60),
+                connection_finalized_with_res_event(|node_id, _peer, _res| node_id == node_ut),
+            )
+            .await
+            .unwrap();
+
+        assert!(connected.is_none(), "the node sholdn't try to connect to itself");
     }
 }

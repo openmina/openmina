@@ -46,7 +46,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(MAX_PEERS_PER_NODE)
             .initial_peers(initial_peers)
-            .randomize_peer_id();
+            .with_random_peer_id();
 
         let node_id = runner.add_rust_node(config);
 

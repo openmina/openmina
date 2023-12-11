@@ -34,6 +34,7 @@ use openmina_node_native::{http_server, rpc::RpcService, NodeService, RpcSender}
 use rand::{rngs::StdRng, SeedableRng};
 use serde::Serialize;
 
+use crate::node::TestPeerId;
 use crate::{
     network_debugger::Debugger,
     node::{Node, NodeTestingConfig, RustNodeTestingConfig},
@@ -112,16 +113,18 @@ impl Cluster {
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
         let node_i = self.nodes.len();
         let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-        let secret_key = if testing_config.randomize_peer_id {
-            P2pSecretKey::from_bytes(rand::random())
-        } else {
-            let mut bytes = [0; 32];
-            let bytes_len = bytes.len();
-            let i_bytes = node_i.to_be_bytes();
-            let i = bytes_len - i_bytes.len();
-            bytes[i..bytes_len].copy_from_slice(&i_bytes);
-            P2pSecretKey::from_bytes(bytes)
-        };
+        let secret_key = P2pSecretKey::from_bytes(match testing_config.peer_id {
+            TestPeerId::Derived => {
+                let mut bytes = [0; 32];
+                let bytes_len = bytes.len();
+                let i_bytes = node_i.to_be_bytes();
+                let i = bytes_len - i_bytes.len();
+                bytes[i..bytes_len].copy_from_slice(&i_bytes);
+                bytes
+            }
+            TestPeerId::Random => rand::random(),
+            TestPeerId::Bytes(bytes) => bytes,
+        });
         let pub_key = secret_key.public_key();
 
         let http_port = self

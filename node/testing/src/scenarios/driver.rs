@@ -64,6 +64,17 @@ pub fn connection_finalized_event(
     }
 }
 
+pub fn connection_finalized_with_res_event(
+    pred: impl Fn(ClusterNodeId, &PeerId, &Result<(), String>) -> bool,
+) -> impl Fn(ClusterNodeId, &Event, &State) -> bool {
+    move |node_id, event, _| {
+        matches!(
+            event,
+            Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Finalized(peer, res))) if pred(node_id, peer, res)
+        )
+    }
+}
+
 pub fn as_listen_new_addr_event(event: &Event) -> Option<(&Multiaddr, &P2pListenerId)> {
     if let Event::P2p(P2pEvent::Listen(P2pListenEvent::NewListenAddr { listener_id, addr })) = event
     {
@@ -281,6 +292,7 @@ pub async fn wait_for_nodes_listening_on_localhost<'cluster>(
     // wait for all peers to listen
     driver.run_until(duration, pred).await
 }
+
 
 /// Creates `num` Rust nodes in the cluster
 pub fn add_rust_nodes<'cluster, N, NodeIds, PeerIds>(
