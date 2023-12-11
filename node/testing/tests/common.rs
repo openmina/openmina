@@ -31,6 +31,7 @@ macro_rules! scenario_test {
                             <$scenario as documented::Documented>::DOCS
                         )
                     });
+                let prev_panic_hook = std::panic::take_hook();
                 std::panic::set_hook(Box::new(move |panic_info| {
                     let _ = std::fs::File::options()
                         .append(true)
@@ -44,6 +45,7 @@ macro_rules! scenario_test {
                             eprintln!("\n::error file={file},line={line}::panic without a message");
                         }
                     }
+                    prev_panic_hook(panic_info);
                 }));
             }
 
