@@ -99,6 +99,10 @@ impl Cluster {
         }
     }
 
+    pub fn available_port(&mut self) -> Option<u16> {
+        self.available_ports.next()
+    }
+
     pub fn add_node(&mut self, testing_config: NodeTestingConfig) -> ClusterNodeId {
         match testing_config {
             NodeTestingConfig::Rust(testing_config) => self.add_rust_node(testing_config),

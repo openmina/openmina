@@ -61,6 +61,7 @@ steps:
       - rustup component add rustfmt
       - cargo test --release -p cli
       - cargo build --release -p cli --bin openmina
+      - cargo build --release --bin runner
       - cargo build --release --features scenario-generators -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-libp2p
       - cargo build --release --features scenario-generators,p2p-webrtc -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-webrtc
 
@@ -75,7 +76,7 @@ steps:
   #   failure: ignore
   #   commands:
   #     - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
-  #     - ./scripts/runner openmina-node-testing-webrtc scenarios-generate --name solo-node-sync-root-snarked-ledger
+  #     - ./target/release/runner openmina-node-testing-webrtc scenarios-generate --name solo-node-sync-root-snarked-ledger
   #   environment:
   #     BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.0"
 
@@ -90,7 +91,7 @@ steps:
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
-      - ./scripts/runner openmina-node-testing-webrtc scenarios-generate --use-debugger --name solo-node-basic-connectivity-initial-joining
+      - ./target/release/runner openmina-node-testing-webrtc scenarios-generate --use-debugger --name solo-node-basic-connectivity-initial-joining
     environment:
       BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.1"
 
@@ -105,7 +106,7 @@ steps:
   #   failure: ignore
   #   commands:
   #     - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
-  #     - ./scripts/runner openmina-node-testing-webrtc scenarios-generate --name multi-node-basic-connectivity-initial-joining
+  #     - ./target/release/runner openmina-node-testing-webrtc scenarios-generate --name multi-node-basic-connectivity-initial-joining
   #   environment:
   #     BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.2"
 
@@ -120,7 +121,7 @@ steps:
   #   failure: ignore
   #   commands:
   #     - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-  #     - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --name solo-node-sync-root-snarked-ledger
+  #     - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --name solo-node-sync-root-snarked-ledger
   #   environment:
   #     BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.3"
 
@@ -135,7 +136,7 @@ steps:
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name solo-node-basic-connectivity-initial-joining
+      - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name solo-node-basic-connectivity-initial-joining
     environment:
       BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.4"
 
@@ -150,7 +151,7 @@ steps:
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name multi-node-basic-connectivity-initial-joining
+      - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name multi-node-basic-connectivity-initial-joining
     environment:
       BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.5"
 
@@ -165,7 +166,7 @@ steps:
   #   failure: ignore
   #   commands:
   #     - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-  #     - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name solo-node-basic-connectivity-accept-incoming
+  #     - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name solo-node-basic-connectivity-accept-incoming
   #   environment:
   #     BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.6"
 
@@ -180,7 +181,7 @@ steps:
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-      - ./scripts/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name multi-node-basic-connectivity-peer-discovery
+      - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name multi-node-basic-connectivity-peer-discovery
     environment:
       BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.7"
 
