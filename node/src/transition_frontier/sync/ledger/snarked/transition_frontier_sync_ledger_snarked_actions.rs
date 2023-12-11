@@ -75,6 +75,7 @@ impl redux::EnablingCondition<crate::State>
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         None.or_else(|| {
+            let target_best_tip = state.transition_frontier.sync.best_tip()?;
             let ledger = state.transition_frontier.sync.ledger()?.snarked()?;
             let target = ledger.target();
 
@@ -95,13 +96,13 @@ impl redux::EnablingCondition<crate::State>
                 let peer_best_tip = peer.best_tip.as_ref()?;
                 if !peer.channels.rpc.can_send_request() {
                     false
-                } else if &target.snarked_ledger_hash == peer_best_tip.snarked_ledger_hash() {
-                    target
-                        .staged
-                        .as_ref()
-                        .map_or(true, |staged| &staged.block_hash == peer_best_tip.hash())
+                } else if target.staged.is_some() {
+                    // if peer has same best tip, then he has same root
+                    // so we can sync root snarked+staged ledger from that peer.
+                    target_best_tip.hash() == peer_best_tip.hash()
                 } else {
-                    &target.snarked_ledger_hash == peer_best_tip.staking_epoch_ledger_hash()
+                    &target.snarked_ledger_hash == peer_best_tip.snarked_ledger_hash()
+                        || &target.snarked_ledger_hash == peer_best_tip.staking_epoch_ledger_hash()
                         || &target.snarked_ledger_hash == peer_best_tip.next_epoch_ledger_hash()
                 }
             };
@@ -123,6 +124,7 @@ impl redux::EnablingCondition<crate::State>
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
         None.or_else(|| {
+            let target_best_tip = state.transition_frontier.sync.best_tip()?;
             let ledger = state.transition_frontier.sync.ledger()?.snarked()?;
             let target = ledger.target();
 
@@ -140,13 +142,13 @@ impl redux::EnablingCondition<crate::State>
                 let peer_best_tip = peer.best_tip.as_ref()?;
                 if !peer.channels.rpc.can_send_request() {
                     false
-                } else if &target.snarked_ledger_hash == peer_best_tip.snarked_ledger_hash() {
-                    target
-                        .staged
-                        .as_ref()
-                        .map_or(true, |staged| &staged.block_hash == peer_best_tip.hash())
+                } else if target.staged.is_some() {
+                    // if peer has same best tip, then he has same root
+                    // so we can sync root snarked+staged ledger from that peer.
+                    target_best_tip.hash() == peer_best_tip.hash()
                 } else {
-                    &target.snarked_ledger_hash == peer_best_tip.staking_epoch_ledger_hash()
+                    &target.snarked_ledger_hash == peer_best_tip.snarked_ledger_hash()
+                        || &target.snarked_ledger_hash == peer_best_tip.staking_epoch_ledger_hash()
                         || &target.snarked_ledger_hash == peer_best_tip.next_epoch_ledger_hash()
                 }
             };
