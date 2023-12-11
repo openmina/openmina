@@ -1,9 +1,10 @@
 use std::{
-    env::args,
+    env,
     fs::{self, File},
     io,
     process::{self, Child, Command, Stdio},
     thread,
+    time::Duration,
 };
 
 fn main() {
@@ -11,8 +12,10 @@ fn main() {
         .envs([("RUST_LOG", "none"), ("SERVER_PORT", "8000")])
         .spawn()
         .expect("cannot run debugger");
-    let mut test = Command::new(args().next().unwrap())
-        .args(args().skip(1))
+    thread::sleep(Duration::from_secs(2));
+    let mut test = Command::new(env::args().skip(1).next().unwrap())
+        .args(env::args().skip(2))
+        .envs(env::vars())
         .stderr(Stdio::inherit())
         .stdout(Stdio::piped())
         .spawn()
@@ -26,6 +29,9 @@ fn main() {
     kill(debugger);
     fs::remove_dir_all("target/db").unwrap_or_default();
     if !test_status.success() {
+        println!("test failed, log:");
+        let mut test_log = File::open("test.log").expect("failed to open test log file");
+        io::copy(&mut test_log, &mut io::stdout()).expect("failed to print test log");
         process::exit(test_status.code().unwrap_or(-1));
     }
 }
