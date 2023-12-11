@@ -96,6 +96,8 @@ pub struct RpcPeerInfo {
     pub peer_id: PeerId,
     pub best_tip: Option<StateHash>,
     pub best_tip_height: Option<u32>,
+    pub best_tip_global_slot: Option<u32>,
+    pub best_tip_timestamp: Option<u64>,
     pub connection_status: PeerConnectionStatus,
     pub address: Option<String>,
     pub time: u64,

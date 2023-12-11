@@ -206,6 +206,8 @@ fn timestamp(header: &BlockHeader) -> Timestamp {
         .0
         .as_u64();
     let slot = global_slot(header) as u64;
+    // FIXME: this calculation must use values from the protocol constants,
+    // now it assumes 3 minutes blocks.
     let time_ms = genesis_timestamp + slot * 3 * 60 * 1000;
     Timestamp::new(time_ms * 1_000_000)
 }
