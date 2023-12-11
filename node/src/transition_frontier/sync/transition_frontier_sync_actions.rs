@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
+use crate::transition_frontier::sync::TransitionFrontierSyncLedgerPending;
 
 use super::ledger::{
     SyncLedgerTarget, TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerState,
@@ -116,10 +117,12 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStak
     fn is_enabled(&self, state: &crate::State) -> bool {
         matches!(
             state.transition_frontier.sync,
-            TransitionFrontierSyncState::StakingLedgerPending {
-                ledger: TransitionFrontierSyncLedgerState::Success { .. },
-                ..
-            }
+            TransitionFrontierSyncState::StakingLedgerPending(
+                TransitionFrontierSyncLedgerPending {
+                    ledger: TransitionFrontierSyncLedgerState::Success { .. },
+                    ..
+                }
+            )
         )
     }
 }
@@ -147,10 +150,12 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerNext
     fn is_enabled(&self, state: &crate::State) -> bool {
         matches!(
             state.transition_frontier.sync,
-            TransitionFrontierSyncState::NextEpochLedgerPending {
-                ledger: TransitionFrontierSyncLedgerState::Success { .. },
-                ..
-            }
+            TransitionFrontierSyncState::NextEpochLedgerPending(
+                TransitionFrontierSyncLedgerPending {
+                    ledger: TransitionFrontierSyncLedgerState::Success { .. },
+                    ..
+                }
+            )
         )
     }
 }
@@ -179,10 +184,10 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerRoot
     fn is_enabled(&self, state: &crate::State) -> bool {
         matches!(
             state.transition_frontier.sync,
-            TransitionFrontierSyncState::RootLedgerPending {
+            TransitionFrontierSyncState::RootLedgerPending(TransitionFrontierSyncLedgerPending {
                 ledger: TransitionFrontierSyncLedgerState::Success { .. },
                 ..
-            }
+            })
         )
     }
 }

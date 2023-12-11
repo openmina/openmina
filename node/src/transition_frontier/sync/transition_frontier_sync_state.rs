@@ -20,13 +20,7 @@ pub enum TransitionFrontierSyncState {
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
     },
-    StakingLedgerPending {
-        time: Timestamp,
-        best_tip: ArcBlockWithHash,
-        root_block: ArcBlockWithHash,
-        blocks_inbetween: Vec<StateHash>,
-        ledger: TransitionFrontierSyncLedgerState,
-    },
+    StakingLedgerPending(TransitionFrontierSyncLedgerPending),
     StakingLedgerSuccess {
         time: Timestamp,
         best_tip: ArcBlockWithHash,
@@ -34,13 +28,7 @@ pub enum TransitionFrontierSyncState {
         blocks_inbetween: Vec<StateHash>,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
-    NextEpochLedgerPending {
-        time: Timestamp,
-        best_tip: ArcBlockWithHash,
-        root_block: ArcBlockWithHash,
-        blocks_inbetween: Vec<StateHash>,
-        ledger: TransitionFrontierSyncLedgerState,
-    },
+    NextEpochLedgerPending(TransitionFrontierSyncLedgerPending),
     NextEpochLedgerSuccess {
         time: Timestamp,
         best_tip: ArcBlockWithHash,
@@ -48,13 +36,7 @@ pub enum TransitionFrontierSyncState {
         blocks_inbetween: Vec<StateHash>,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
-    RootLedgerPending {
-        time: Timestamp,
-        best_tip: ArcBlockWithHash,
-        root_block: ArcBlockWithHash,
-        blocks_inbetween: Vec<StateHash>,
-        ledger: TransitionFrontierSyncLedgerState,
-    },
+    RootLedgerPending(TransitionFrontierSyncLedgerPending),
     RootLedgerSuccess {
         time: Timestamp,
         best_tip: ArcBlockWithHash,
@@ -75,6 +57,15 @@ pub enum TransitionFrontierSyncState {
     Synced {
         time: Timestamp,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierSyncLedgerPending {
+    pub time: Timestamp,
+    pub best_tip: ArcBlockWithHash,
+    pub root_block: ArcBlockWithHash,
+    pub blocks_inbetween: Vec<StateHash>,
+    pub ledger: TransitionFrontierSyncLedgerState,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -133,11 +124,11 @@ impl TransitionFrontierSyncState {
         match self {
             Self::Idle => None,
             Self::Init { root_block, .. } => Some(root_block),
-            Self::StakingLedgerPending { root_block, .. } => Some(root_block),
+            Self::StakingLedgerPending(s) => Some(&s.root_block),
             Self::StakingLedgerSuccess { root_block, .. } => Some(root_block),
-            Self::NextEpochLedgerPending { root_block, .. } => Some(root_block),
+            Self::NextEpochLedgerPending(s) => Some(&s.root_block),
             Self::NextEpochLedgerSuccess { root_block, .. } => Some(root_block),
-            Self::RootLedgerPending { root_block, .. } => Some(root_block),
+            Self::RootLedgerPending(s) => Some(&s.root_block),
             Self::RootLedgerSuccess { root_block, .. } => Some(root_block),
             Self::BlocksPending { chain, .. } => chain.first().and_then(|b| b.block()),
             Self::BlocksSuccess { chain, .. } => chain.first(),
@@ -149,11 +140,11 @@ impl TransitionFrontierSyncState {
         match self {
             Self::Idle => None,
             Self::Init { best_tip, .. } => Some(best_tip),
-            Self::StakingLedgerPending { best_tip, .. } => Some(best_tip),
+            Self::StakingLedgerPending(s) => Some(&s.best_tip),
             Self::StakingLedgerSuccess { best_tip, .. } => Some(best_tip),
-            Self::NextEpochLedgerPending { best_tip, .. } => Some(best_tip),
+            Self::NextEpochLedgerPending(s) => Some(&s.best_tip),
             Self::NextEpochLedgerSuccess { best_tip, .. } => Some(best_tip),
-            Self::RootLedgerPending { best_tip, .. } => Some(best_tip),
+            Self::RootLedgerPending(s) => Some(&s.best_tip),
             Self::RootLedgerSuccess { best_tip, .. } => Some(best_tip),
             Self::BlocksPending { chain, .. } => chain.last().and_then(|b| b.block()),
             Self::BlocksSuccess { chain, .. } => chain.last(),
@@ -163,18 +154,18 @@ impl TransitionFrontierSyncState {
 
     pub fn ledger(&self) -> Option<&TransitionFrontierSyncLedgerState> {
         match self {
-            Self::StakingLedgerPending { ledger, .. } => Some(ledger),
-            Self::NextEpochLedgerPending { ledger, .. } => Some(ledger),
-            Self::RootLedgerPending { ledger, .. } => Some(ledger),
+            Self::StakingLedgerPending(s) => Some(&s.ledger),
+            Self::NextEpochLedgerPending(s) => Some(&s.ledger),
+            Self::RootLedgerPending(s) => Some(&s.ledger),
             _ => None,
         }
     }
 
     pub fn ledger_mut(&mut self) -> Option<&mut TransitionFrontierSyncLedgerState> {
         match self {
-            Self::StakingLedgerPending { ledger, .. } => Some(ledger),
-            Self::NextEpochLedgerPending { ledger, .. } => Some(ledger),
-            Self::RootLedgerPending { ledger, .. } => Some(ledger),
+            Self::StakingLedgerPending(s) => Some(&mut s.ledger),
+            Self::NextEpochLedgerPending(s) => Some(&mut s.ledger),
+            Self::RootLedgerPending(s) => Some(&mut s.ledger),
             _ => None,
         }
     }
@@ -194,11 +185,9 @@ impl TransitionFrontierSyncState {
     /// the staging ledger to be synchronized.
     pub fn is_ledger_sync_complete(&self) -> bool {
         match self {
-            Self::StakingLedgerPending { ledger, .. } => ledger.is_snarked_ledger_synced(),
-            Self::NextEpochLedgerPending { ledger, .. } => ledger.is_snarked_ledger_synced(),
-            Self::RootLedgerPending { ledger, .. } => {
-                ledger.staged().map_or(false, |s| s.is_success())
-            }
+            Self::StakingLedgerPending(s) => s.ledger.is_snarked_ledger_synced(),
+            Self::NextEpochLedgerPending(s) => s.ledger.is_snarked_ledger_synced(),
+            Self::RootLedgerPending(s) => s.ledger.staged().map_or(false, |s| s.is_success()),
             _ => false,
         }
     }
