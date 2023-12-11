@@ -29,13 +29,15 @@ peer ID already.
 
 **Tests:** TODO
 
-### Node shouldn't accept connection from itself
+### Node shouldn't accept connection with its own peer_id
 
 The node shouldn't accept a connection from a peer that uses the same peer id as
 this one. This is either a program error (see above), network setup error, or a
 malicious node that uses the same peer ID.
 
-**Tests:** TODO
+**Tests:**
+- [`p2p_basic_incoming(does_not_accept_self_connection)`](../node/testing/src/scenarios/p2p/basic_incoming_connections.rs#L120)
+
 
 ## Outgoing connections
 
@@ -44,11 +46,14 @@ malicious node that uses the same peer ID.
 - [`p2p_basic_outgoing(make_connection)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L19)
 - [`p2p_basic_outgoing(make_multiple_connections)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L74)
 
-### Node shouldn't try to connect to itself
+### Node shouldn't try to make outgoing connection using its own peer_id
 
 The node can obtain its address from other peers. It shouldn't use it when connecting to new peers.
 
-**Tests:** TODO
+**Tests:**
+- [`p2p_basic_outgoing(dont_connect_to_node_same_id)`](node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L134)
+- [`p2p_basic_outgoing(dont_connect_to_initial_peer_same_id)`](node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L187)
+- [`p2p_basic_outgoing(dont_connect_to_self_initial_peer)`](node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L226)
 
 ### Node should connect to all available initial peers
 

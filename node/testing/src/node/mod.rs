@@ -1,5 +1,5 @@
 mod config;
-pub use config::{NodeTestingConfig, RustNodeTestingConfig};
+pub use config::{NodeTestingConfig, RustNodeTestingConfig, TestPeerId};
 
 use node::event_source::{Event, EventSourceNewEventAction};
 use node::p2p::PeerId;

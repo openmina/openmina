@@ -1,10 +1,11 @@
-use std::{time::Duration, collections::BTreeSet};
+use std::{collections::BTreeSet, time::Duration};
 
 use crate::{
     node::RustNodeTestingConfig,
     scenarios::{
-        add_rust_nodes, connection_finalized_event, wait_for_nodes_listening_on_localhost,
-        ClusterRunner, Driver, as_connection_finalized_event,
+        add_rust_nodes, as_connection_finalized_event, connection_finalized_event,
+        connection_finalized_with_res_event, wait_for_nodes_listening_on_localhost, ClusterRunner,
+        Driver,
     },
 };
 
@@ -64,8 +65,7 @@ impl AcceptMultipleIncomingConnections {
 
         let mut driver = Driver::new(runner);
 
-        let (node_ut, _) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let (node_ut, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
         assert!(
             wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node_ut])
                 .await
@@ -104,6 +104,59 @@ impl AcceptMultipleIncomingConnections {
             .run_until(Duration::from_secs(3 * 60), pred)
             .await
             .unwrap();
-        assert!(satisfied, "did not accept connection from peers: {:?}", peer_ids);
+        assert!(
+            satisfied,
+            "did not accept connection from peers: {:?}",
+            peer_ids
+        );
+    }
+}
+
+/// Node should not accept connection from itself.
+#[derive(documented::Documented, Default, Clone, Copy)]
+pub struct DoesNotAcceptConnectionFromSelf;
+
+impl DoesNotAcceptConnectionFromSelf {
+    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+        let mut driver = Driver::new(runner);
+        let (node_ut, node_ut_peer_id) =
+            driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
+
+        assert!(
+            wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(60), [node_ut])
+                .await
+                .unwrap(),
+            "node should be listening"
+        );
+
+        driver
+            .exec_step(crate::scenario::ScenarioStep::ConnectNodes {
+                dialer: node_ut,
+                listener: crate::scenario::ListenerNode::Rust(node_ut),
+            })
+            .await
+            .expect("connect event should be dispatched"); // should it?
+
+        // wait for node under test receives connection event
+        let connected = driver
+            .wait_for(
+                Duration::from_secs(10),
+                connection_finalized_with_res_event(|node_id, peer, res| {
+                    node_id == node_ut && peer == &node_ut_peer_id && res.is_err()
+                }),
+            )
+            .await
+            .unwrap()
+            .expect("connected event");
+
+        let state = driver
+            .exec_even_step(connected)
+            .await
+            .unwrap()
+            .expect("connected event sholuld be executed");
+        assert!(
+            state.p2p.get_ready_peer(&node_ut_peer_id).is_none(),
+            "self-peer should not be ready"
+        );
     }
 }
