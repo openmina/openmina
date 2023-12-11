@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 
-use super::ledger::{TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerState};
+use super::ledger::{
+    SyncLedgerTarget, TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerState,
+};
 use super::{PeerBlockFetchError, TransitionFrontierSyncState};
 
 pub type TransitionFrontierSyncActionWithMeta = redux::ActionWithMeta<TransitionFrontierSyncAction>;
@@ -112,7 +114,6 @@ pub struct TransitionFrontierSyncLedgerStakingSuccessAction {}
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStakingSuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        // TODO(tizoc): revise
         matches!(
             state.transition_frontier.sync,
             TransitionFrontierSyncState::StakingLedgerPending {
@@ -128,10 +129,14 @@ pub struct TransitionFrontierSyncLedgerNextEpochPendingAction {}
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerNextEpochPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        matches!(
-            state.transition_frontier.sync,
-            TransitionFrontierSyncState::StakingLedgerSuccess { .. }
-        )
+        match &state.transition_frontier.sync {
+            TransitionFrontierSyncState::StakingLedgerSuccess {
+                best_tip,
+                root_block,
+                ..
+            } => SyncLedgerTarget::next_epoch(best_tip, root_block).is_some(),
+            _ => false,
+        }
     }
 }
 
@@ -155,10 +160,15 @@ pub struct TransitionFrontierSyncLedgerRootPendingAction {}
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerRootPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        matches!(
-            state.transition_frontier.sync,
-            TransitionFrontierSyncState::Init { .. }
-        )
+        match &state.transition_frontier.sync {
+            TransitionFrontierSyncState::StakingLedgerSuccess {
+                best_tip,
+                root_block,
+                ..
+            } => SyncLedgerTarget::next_epoch(best_tip, root_block).is_none(),
+            TransitionFrontierSyncState::NextEpochLedgerSuccess { .. } => true,
+            _ => false,
+        }
     }
 }
 

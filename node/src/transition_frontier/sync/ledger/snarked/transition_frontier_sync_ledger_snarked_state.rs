@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 
 use mina_p2p_messages::v2::LedgerHash;
-use openmina_core::block::ArcBlockWithHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use crate::ledger::LedgerAddress;
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
+use crate::transition_frontier::sync::ledger::SyncLedgerTarget;
 
 use super::PeerLedgerQueryError;
 
@@ -18,7 +18,7 @@ pub enum TransitionFrontierSyncLedgerSnarkedState {
     /// Doing BFS to sync snarked ledger tree.
     Pending {
         time: Timestamp,
-        block: ArcBlockWithHash,
+        target: SyncLedgerTarget,
         pending: BTreeMap<LedgerAddress, LedgerQueryPending>,
         /// `None` means we are done.
         next_addr: Option<LedgerAddress>,
@@ -26,7 +26,7 @@ pub enum TransitionFrontierSyncLedgerSnarkedState {
     },
     Success {
         time: Timestamp,
-        block: ArcBlockWithHash,
+        target: SyncLedgerTarget,
     },
 }
 
@@ -78,25 +78,25 @@ impl PeerRpcState {
 }
 
 impl TransitionFrontierSyncLedgerSnarkedState {
-    pub fn pending(time: Timestamp, block: ArcBlockWithHash) -> Self {
+    pub fn pending(time: Timestamp, target: SyncLedgerTarget) -> Self {
         Self::Pending {
             time,
-            block,
+            target,
             pending: Default::default(),
             next_addr: Some(LedgerAddress::root()),
             end_addr: LedgerAddress::root(),
         }
     }
 
-    pub fn block(&self) -> &ArcBlockWithHash {
+    pub fn target(&self) -> &SyncLedgerTarget {
         match self {
-            Self::Pending { block, .. } => block,
-            Self::Success { block, .. } => block,
+            Self::Pending { target, .. } => target,
+            Self::Success { target, .. } => target,
         }
     }
 
     pub fn ledger_hash(&self) -> &LedgerHash {
-        self.block().snarked_ledger_hash()
+        &self.target().snarked_ledger_hash
     }
 
     pub fn fetch_pending(&self) -> Option<&BTreeMap<LedgerAddress, LedgerQueryPending>> {

@@ -58,7 +58,9 @@ impl TransitionFrontierSyncLedgerStakingPendingAction {
 
 impl TransitionFrontierSyncLedgerStakingSuccessAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerNextEpochPendingAction {});
+        if store.dispatch(TransitionFrontierSyncLedgerNextEpochPendingAction {}) {
+        } else if store.dispatch(TransitionFrontierSyncLedgerRootPendingAction {}) {
+        }
     }
 }
 

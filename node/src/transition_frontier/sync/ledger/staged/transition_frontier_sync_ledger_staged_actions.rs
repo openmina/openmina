@@ -46,8 +46,11 @@ impl redux::EnablingCondition<crate::State>
             .sync
             .ledger()
             .and_then(|s| s.snarked())
-            .map_or(false, |s| {
-                matches!(s, TransitionFrontierSyncLedgerSnarkedState::Success { .. })
+            .map_or(false, |s| match s {
+                TransitionFrontierSyncLedgerSnarkedState::Success { target, .. } => {
+                    target.staged.is_some()
+                }
+                _ => false,
             })
     }
 }
@@ -210,17 +213,20 @@ impl redux::EnablingCondition<crate::State>
             .sync
             .ledger()
             .and_then(|s| s.snarked())
-            .map_or(false, |s| match s {
-                TransitionFrontierSyncLedgerSnarkedState::Success { block, .. } => {
-                    let hashes = block.staged_ledger_hashes();
-                    let empty_hash = &[0; 32];
-                    block.snarked_ledger_hash() == &hashes.non_snark.ledger_hash
-                        && hashes.non_snark.aux_hash.as_ref() == empty_hash
-                        && hashes.non_snark.pending_coinbase_aux.as_ref() == empty_hash
-                    // TODO(binier): `pending_coinbase_hash` isn't empty hash.
-                    // Do we need to check it?
+            .and_then(|s| match s {
+                TransitionFrontierSyncLedgerSnarkedState::Success { target, .. } => {
+                    target.clone().with_staged()
                 }
-                _ => false,
+                _ => None,
+            })
+            .map_or(false, |target| {
+                let hashes = &target.staged.hashes;
+                let empty_hash = &[0; 32];
+                target.snarked_ledger_hash == hashes.non_snark.ledger_hash
+                    && hashes.non_snark.aux_hash.as_ref() == empty_hash
+                    && hashes.non_snark.pending_coinbase_aux.as_ref() == empty_hash
+                // TODO(binier): `pending_coinbase_hash` isn't empty hash.
+                // Do we need to check it?
             })
     }
 }
