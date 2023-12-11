@@ -27,8 +27,6 @@ impl TransitionFrontierSyncState {
                     best_tip: a.best_tip.clone(),
                     root_block: a.root_block.clone(),
                     blocks_inbetween: a.blocks_inbetween.clone(),
-                    staking_ledger_hash: a.staking_ledger_hash.clone(),
-                    next_epoch_ledger_hash: a.next_epoch_ledger_hash.clone(),
                 };
             }
             // TODO(binier): refactor

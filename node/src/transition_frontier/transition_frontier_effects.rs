@@ -394,7 +394,6 @@ fn handle_transition_frontier_sync_ledger_action<S: crate::Service>(
             }
         },
         TransitionFrontierSyncLedgerAction::Success(_) => {
-            // TODO(tizoc): should check that ledger is success?
             match &store.state().transition_frontier.sync {
                 TransitionFrontierSyncState::StakingLedgerPending { .. } => {
                     store.dispatch(TransitionFrontierSyncLedgerStakingSuccessAction {});
@@ -405,10 +404,7 @@ fn handle_transition_frontier_sync_ledger_action<S: crate::Service>(
                 TransitionFrontierSyncState::RootLedgerPending { .. } => {
                     store.dispatch(TransitionFrontierSyncLedgerRootSuccessAction {});
                 }
-                other => println!(
-                    "@@@@@@ sync ledger success, but should not for this state {:?}",
-                    other
-                ),
+                _ => {}
             }
         }
     }

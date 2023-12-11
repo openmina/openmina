@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use super::snarked::{
     TransitionFrontierSyncLedgerSnarkedAction, TransitionFrontierSyncLedgerSnarkedState,
 };
@@ -15,26 +13,19 @@ impl TransitionFrontierSyncLedgerState {
     pub fn reducer(&mut self, action: TransitionFrontierSyncLedgerActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            TransitionFrontierSyncLedgerAction::Init(_) => {
-                println!("++++++ TransitionFrontierSyncLedgerAction::Init")
-            }
+            TransitionFrontierSyncLedgerAction::Init(_) => {}
             TransitionFrontierSyncLedgerAction::Snarked(action) => {
                 if let TransitionFrontierSyncLedgerSnarkedAction::Pending(_) = action {
                     let Self::Init { block, .. } = self else {
-                        println!("+++++ STATE IS NOT INIT");
                         return;
                     };
                     let s = TransitionFrontierSyncLedgerSnarkedState::pending(
                         meta.time(),
                         block.clone(),
                     );
-                    println!("+++++ STATE SET TO SNARKED");
                     *self = Self::Snarked(s);
                 } else {
-                    let Self::Snarked(state) = self else {
-                        println!("+++++ TransitionFrontierSyncLedgerSnarkedAction that is not Pending or Snarked {:?}", self);
-                        return;
-                    };
+                    let Self::Snarked(state) = self else { return };
                     state.reducer(meta.with_action(action));
                 }
             }
@@ -74,8 +65,6 @@ impl TransitionFrontierSyncLedgerState {
                 }
             }
             TransitionFrontierSyncLedgerAction::Success(_) => {
-                // TODO(tizoc): target may be snarked instead of staged depending
-                // on which ledger we are syncing, this check doesn't account for that
                 match self {
                     Self::Staged(TransitionFrontierSyncLedgerStagedState::Success {
                         block,
@@ -92,18 +81,14 @@ impl TransitionFrontierSyncLedgerState {
                         block,
                         ..
                     }) => {
-                        // TODO(tizoc): is this success good enough? it is meant for staged,
-                        // so needed_protocol_states doesn't make sense
-                        // Block may not be right for staking ledgers
                         *self = Self::Success {
                             time: meta.time(),
                             block: block.clone(),
-                            needed_protocol_states: BTreeMap::new(),
+                            // No additional protocol states needed for snarked ledger.
+                            needed_protocol_states: Default::default(),
                         };
                     }
-                    _ => {
-                        println!("++++ Dispatched TransitionFrontierSyncLedgerSuccessAction without state being Staged or Snarked");
-                    }
+                    _ => {}
                 }
             }
         }

@@ -1,4 +1,4 @@
-use mina_p2p_messages::v2::{StateHash, LedgerHash};
+use mina_p2p_messages::v2::StateHash;
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
 
@@ -52,13 +52,11 @@ pub struct TransitionFrontierSyncInitAction {
     pub best_tip: ArcBlockWithHash,
     pub root_block: ArcBlockWithHash,
     pub blocks_inbetween: Vec<StateHash>,
-    pub staking_ledger_hash: LedgerHash,
-    pub next_epoch_ledger_hash: LedgerHash,
 }
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let result = !state.transition_frontier.sync.is_pending()
+        !state.transition_frontier.sync.is_pending()
             && !state.transition_frontier.sync.is_synced()
             && state
                 .transition_frontier
@@ -67,9 +65,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncInitAction
             && state
                 .consensus
                 .best_tip()
-                .map_or(false, |tip| &self.best_tip.hash == tip.hash);
-        println!("+++ TransitionFrontierSyncInitAction.is_enabled={result}");
-        result
+                .map_or(false, |tip| &self.best_tip.hash == tip.hash)
     }
 }
 
@@ -78,14 +74,11 @@ pub struct TransitionFrontierSyncBestTipUpdateAction {
     pub best_tip: ArcBlockWithHash,
     pub root_block: ArcBlockWithHash,
     pub blocks_inbetween: Vec<StateHash>,
-    pub staking_ledger_hash: LedgerHash,
-    pub next_epoch_ledger_hash: LedgerHash,
 }
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBestTipUpdateAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let result = (state.transition_frontier.sync.is_pending()
-            || state.transition_frontier.sync.is_synced())
+        (state.transition_frontier.sync.is_pending() || state.transition_frontier.sync.is_synced())
             && state
                 .transition_frontier
                 .best_tip()
@@ -98,9 +91,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBestTipUpd
             && state
                 .consensus
                 .best_tip()
-                .map_or(true, |tip| &self.best_tip.hash == tip.hash);
-        println!("+++ TransitionFrontierSyncBestTipUpdateAction.is_enabled={result}");
-        result
+                .map_or(true, |tip| &self.best_tip.hash == tip.hash)
     }
 }
 
@@ -109,12 +100,10 @@ pub struct TransitionFrontierSyncLedgerStakingPendingAction {}
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStakingPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let result = matches!(
+        matches!(
             state.transition_frontier.sync,
             TransitionFrontierSyncState::Init { .. }
-        );
-        println!("+++ TransitionFrontierSyncLedgerStakingPendingAction.is_enabled={result}");
-        result
+        )
     }
 }
 
@@ -124,15 +113,13 @@ pub struct TransitionFrontierSyncLedgerStakingSuccessAction {}
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStakingSuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         // TODO(tizoc): revise
-        let result = matches!(
+        matches!(
             state.transition_frontier.sync,
             TransitionFrontierSyncState::StakingLedgerPending {
                 ledger: TransitionFrontierSyncLedgerState::Success { .. },
                 ..
             }
-        );
-        println!("+++ TransitionFrontierSyncLedgerStakingSuccessAction.is_enabled={result}");
-        result
+        )
     }
 }
 
@@ -141,12 +128,10 @@ pub struct TransitionFrontierSyncLedgerNextEpochPendingAction {}
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerNextEpochPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let result = matches!(
+        matches!(
             state.transition_frontier.sync,
             TransitionFrontierSyncState::StakingLedgerSuccess { .. }
-        );
-        println!("+++ TransitionFrontierSyncLedgerNextEpochPendingAction.is_enabled={result}");
-        result
+        )
     }
 }
 

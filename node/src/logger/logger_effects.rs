@@ -12,14 +12,15 @@ use crate::p2p::P2pAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
-use crate::{Action, ActionWithMetaRef, Service, Store, TransitionFrontierAction};
+use crate::transition_frontier::TransitionFrontierAction;
+use crate::{Action, ActionWithMetaRef, Service, Store};
 
 pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
     let kind = action.kind();
 
     match action {
-        Action::P2p(action) if false => match action {
+        Action::P2p(action) => match action {
             P2pAction::Connection(action) => match action {
                 P2pConnectionAction::Outgoing(action) => match action {
                     P2pConnectionOutgoingAction::RandomInit(_) => {}

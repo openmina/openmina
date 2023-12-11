@@ -12,11 +12,8 @@ pub type TransitionFrontierSyncLedgerActionWithMetaRef<'a> =
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum TransitionFrontierSyncLedgerAction {
     Init(TransitionFrontierSyncLedgerInitAction),
-    /// Set snarked ledger synchronization target
     Snarked(TransitionFrontierSyncLedgerSnarkedAction),
-    /// Set staged ledger synchronization target
     Staged(TransitionFrontierSyncLedgerStagedAction),
-    /// Target ledger was sucessfully synchronized
     Success(TransitionFrontierSyncLedgerSuccessAction),
 }
 
@@ -25,11 +22,9 @@ pub struct TransitionFrontierSyncLedgerInitAction {}
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let result = state.transition_frontier.sync.ledger().map_or(false, |s| {
+        state.transition_frontier.sync.ledger().map_or(false, |s| {
             matches!(s, TransitionFrontierSyncLedgerState::Init { .. })
-        });
-        println!("+++ TransitionFrontierSyncLedgerInitAction.is_enabled={result}");
-        result
+        })
     }
 }
 

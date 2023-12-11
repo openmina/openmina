@@ -205,7 +205,7 @@ impl redux::EnablingCondition<crate::State>
     for TransitionFrontierSyncLedgerStagedReconstructEmptyAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let result = state
+        state
             .transition_frontier
             .sync
             .ledger()
@@ -221,9 +221,7 @@ impl redux::EnablingCondition<crate::State>
                     // Do we need to check it?
                 }
                 _ => false,
-            });
-            println!("+++ TransitionFrontierSyncLedgerStagedReconstructEmptyAction.is_enabled={result}");
-            result
+            })
     }
 }
 
