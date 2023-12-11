@@ -68,6 +68,7 @@ steps:
   # - name: solo-webrtc-sync-root-snarked-ledger
   #   image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
   #   privileged: true
+  #   pull: always
   #   volumes:
   #   - name: debugfs
   #     path: /sys/kernel/debug
@@ -83,6 +84,7 @@ steps:
   - name: solo-webrtc-initial-joining
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
     privileged: true
+    pull: always
     volumes:
     - name: debugfs
       path: /sys/kernel/debug
@@ -97,6 +99,7 @@ steps:
 
   # - name: multi-webrtc-initial-joining
   #   image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+  #   pull: always
   #   privileged: true
   #   volumes:
   #   - name: debugfs
@@ -112,6 +115,7 @@ steps:
 
   # - name: solo-sync-root-snarked-ledger
   #   image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+  #   pull: always
   #   privileged: true
   #   volumes:
   #   - name: debugfs
@@ -127,6 +131,7 @@ steps:
 
   - name: solo-initial-joining
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    pull: always
     privileged: true
     volumes:
     - name: debugfs
@@ -142,6 +147,7 @@ steps:
 
   - name: multi-initial-joining
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    pull: always
     privileged: true
     volumes:
     - name: debugfs
@@ -157,6 +163,7 @@ steps:
 
   # - name: solo-accept-incoming
   #   image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+  #   pull: always
   #   privileged: true
   #   volumes:
   #   - name: debugfs
@@ -172,6 +179,7 @@ steps:
 
   - name: multi-peer-discovery
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    pull: always
     privileged: true
     volumes:
     - name: debugfs

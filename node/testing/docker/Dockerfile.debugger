@@ -1,6 +1,6 @@
 FROM openmina/mina-network-debugger:31f2ca11 as debugger
 
-FROM minaprotocol/mina-daemon:2.0.0rampup4-14047c5-focal-berkeley
+FROM vladsimplestakingcom/mina-light:2.0.0rampup4-focal
 
 COPY --from=debugger /usr/bin/bpf-recorder /usr/bin/bpf-recorder
 
