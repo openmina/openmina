@@ -15,6 +15,7 @@ use std::collections::VecDeque;
 use openmina_core::block::{ArcBlockWithHash, Block, BlockWithHash};
 use redux::{ActionMeta, ActionWithMeta, Timestamp};
 
+use crate::transition_frontier::sync::ledger::SyncLedgerTargetKind;
 use crate::transition_frontier::sync::TransitionFrontierSyncBlockState;
 use crate::ActionKind;
 
@@ -56,8 +57,12 @@ impl Stats {
         self
     }
 
-    pub fn syncing_ledger(&mut self, update: SyncingLedger) -> &mut Self {
-        self.sync_stats.ledger(update);
+    pub fn syncing_ledger(
+        &mut self,
+        kind: SyncLedgerTargetKind,
+        update: SyncingLedger,
+    ) -> &mut Self {
+        self.sync_stats.ledger(kind, update);
         self
     }
 

@@ -17,7 +17,7 @@ use mina_p2p_messages::v2::{LedgerHash, MinaBaseStagedLedgerHashStableV1, StateH
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum SyncLedgerTargetKind {
     StakingEpoch,
     NextEpoch,

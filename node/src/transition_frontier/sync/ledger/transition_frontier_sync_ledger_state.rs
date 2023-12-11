@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use super::snarked::TransitionFrontierSyncLedgerSnarkedState;
 use super::staged::TransitionFrontierSyncLedgerStagedState;
-use super::SyncLedgerTarget;
+use super::{SyncLedgerTarget, SyncLedgerTargetKind};
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum TransitionFrontierSyncLedgerState {
@@ -45,6 +45,23 @@ impl TransitionFrontierSyncLedgerState {
             Self::Init { .. } => false,
             Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Pending { .. }) => false,
             _ => true,
+        }
+    }
+
+    // TODO(binier): maybe avoid extra cloning.
+    pub fn target(&self) -> SyncLedgerTarget {
+        match self {
+            Self::Init { target, .. } | Self::Success { target, .. } => target.clone(),
+            Self::Snarked(s) => s.target().clone(),
+            Self::Staged(s) => s.target().clone().into(),
+        }
+    }
+
+    pub fn target_kind(&self) -> SyncLedgerTargetKind {
+        match self {
+            Self::Init { target, .. } | Self::Success { target, .. } => target.kind,
+            Self::Snarked(s) => s.target().kind,
+            Self::Staged(s) => s.target().kind,
         }
     }
 
