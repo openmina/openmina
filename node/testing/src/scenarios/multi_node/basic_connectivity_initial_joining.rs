@@ -134,7 +134,12 @@ impl MultiNodeBasicConnectivityInitialJoining {
                     let p2p = &node.state().p2p;
                     let ready_peers = p2p.ready_peers_iter().count();
                     let known_peers = p2p.kademlia.known_peers.len();
-                    total_connections += ready_peers.max(known_peers);
+                    let state_machine_peers = if cfg!(feature = "p2p-webrtc") {
+                        ready_peers
+                    } else {
+                        ready_peers.max(known_peers)
+                    };
+                    total_connections += state_machine_peers;
                     eprintln!(
                         "node {} has {ready_peers} peers",
                         p2p.config.identity_pub_key.peer_id(),

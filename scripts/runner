@@ -2,7 +2,7 @@
 
 RUST_LOG=none SERVER_PORT=8000 bpf-recorder & sleep 1
 DEBUGGER_PID=$!
-STATUS=$($@ > test.log || (cat test.log; false))
+$@; EXIT_STATUS=$? > test.log || (cat test.log; false)
 kill -s SIGINT $DEBUGGER_PID
 rm -Rf target/db || true
 if [ "$STATUS" ]; then exit 1; else exit 0; fi

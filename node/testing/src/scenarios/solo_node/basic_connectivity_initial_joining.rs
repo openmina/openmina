@@ -124,9 +124,14 @@ impl SoloNodeBasicConnectivityInitialJoining {
                     eprintln!(
                         "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
                     );
+                    let state_machine_peers = if cfg!(feature = "p2p-webrtc") {
+                        ready_peers
+                    } else {
+                        ready_peers.max(known_peers)
+                    };
                     assert_eq!(
                         incoming + outgoing,
-                        ready_peers.max(known_peers),
+                        state_machine_peers,
                         "debugger must see the same number of connections as the state machine"
                     );
                 } else {
