@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 
-use super::ledger::TransitionFrontierSyncLedgerState;
+use super::ledger::{SyncLedgerTarget, SyncLedgerTargetKind, TransitionFrontierSyncLedgerState};
 use super::PeerBlockFetchError;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -177,6 +177,14 @@ impl TransitionFrontierSyncState {
             Self::RootLedgerPending { ledger, .. } => Some(ledger),
             _ => None,
         }
+    }
+
+    pub fn ledger_target(&self) -> Option<SyncLedgerTarget> {
+        self.ledger().map(|s| s.target())
+    }
+
+    pub fn ledger_target_kind(&self) -> Option<SyncLedgerTargetKind> {
+        self.ledger().map(|s| s.target_kind())
     }
 
     /// True if the synchronization of the target ledger is complete.
