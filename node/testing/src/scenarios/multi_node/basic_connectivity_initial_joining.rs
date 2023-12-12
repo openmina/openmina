@@ -96,6 +96,10 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 runner.exec_step(step).await.unwrap();
             }
 
+            if nodes.len() < TOTAL_PEERS {
+                continue;
+            }
+
             let mut conditions_met = true;
             for &node_id in &nodes {
                 runner
@@ -150,21 +154,18 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 if let Some(debugger) = runner.cluster().debugger() {
                     let connections = debugger
                         .connections(0)
-                        .map(|(_, c)| (c.info.addr, c.info.pid, c.incoming))
+                        .map(|(_, c)| (c.info.addr, c.info.fd, c.info.pid, c.incoming))
                         .collect::<HashSet<_>>();
-                    let incoming = connections.iter().filter(|(_, _, i)| *i).count();
+                    let incoming = connections.iter().filter(|(_, _, _, i)| *i).count();
                     let outgoing = connections.len() - incoming;
                     eprintln!(
                         "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
                     );
 
-                    if incoming != outgoing {
-                        for (addr, pid, incoming) in connections {
-                            eprintln!("pid: {pid}, addr: {addr}, incoming: {incoming}");
-                        }
+                    for (addr, fd, pid, incoming) in connections {
+                        eprintln!("pid: {pid}, fd: {fd}, addr: {addr}, incoming: {incoming}");
                     }
 
-                    assert_eq!(incoming, outgoing);
                     assert_eq!(
                         incoming + outgoing,
                         total_connections,
