@@ -1,0 +1,38 @@
+<span class="f-600 ml-10">Best Tips</span>
+<button class="btn-secondary h-sm w-sm ml-10 mr-5 fx-row-full-cent"
+        [class.disabled]="node.index === 0"
+        [tooltip]="'First Best Tip'"
+        [showDelay]="500"
+        (click)="selectFirstTip()">
+  <span class="mina-icon f-18">first_page</span>
+</button>
+
+<div class="pagination-group fx-row-vert-cent bg-selected-container border-rad-4">
+  <button class="h-sm w-sm fx-row-full-cent"
+          [class.disabled]="node.index === 0"
+          [tooltip]="'Prev Best Tip'"
+          [showDelay]="500"
+          (click)="selectPreviousNode()">
+    <span class="mina-icon f-18">navigate_before</span>
+  </button>
+  <span class="f-600 selected-primary pl-5 pr-5">{{ node.index + 1 || 0 }} / {{ nodes.length }}</span>
+  <button class="h-sm w-sm fx-row-full-cent"
+          [class.disabled]="node.index === nodes.length - 1"
+          [tooltip]="'Next Best Tip'"
+          [showDelay]="500"
+          (click)="selectNextNode()">
+    <span class="mina-icon f-18">navigate_next</span>
+  </button>
+</div>
+
+<button class="btn-secondary h-sm w-sm mr-10 ml-5 fx-row-full-cent"
+        [class.disabled]="node.index === nodes.length - 1"
+        [tooltip]="'Last Best Tip'"
+        [showDelay]="500"
+        (click)="selectLastTip()">
+  <span class="mina-icon f-18">last_page</span>
+</button>
+
+<span class="secondary pl-8 pr-5 f-600 flex-row flex-center">
+  {{ node?.height }} - {{ node?.bestTip | truncateMid }}
+</span>

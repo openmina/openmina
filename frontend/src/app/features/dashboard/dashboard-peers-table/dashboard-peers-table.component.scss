@@ -1,0 +1,13 @@
+@import 'openmina';
+
+.mina-icon {
+  font-variation-settings: 'FILL' 1, 'wght' 400 !important;
+}
+
+.Connected {
+  color: $success-primary;
+}
+
+.Connecting {
+  color: $base-primary;
+}

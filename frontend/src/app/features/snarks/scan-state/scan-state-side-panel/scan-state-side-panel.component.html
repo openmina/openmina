@@ -1,0 +1,102 @@
+<mina-side-panel-stepper [activeStep]="activeStep"
+												 [steps]="[step1, step2]"></mina-side-panel-stepper>
+
+<ng-template #step1>
+	<div class="fx-row-vert-cent flex-between h-xl lh-xl pl-10 pr-10">
+		<div class="f-600 secondary">Height {{ block.height }}</div>
+		<ng-container *ngTemplateOutlet="toggle"></ng-container>
+	</div>
+	<div class="h-minus-xl flex-column pr-10 pl-10 border-bottom"
+			 *ngIf="block.height">
+		<div class="fx-row-vert-cent flex-between secondary h-lg">
+			<span class="tertiary">Block Hash</span>
+			<mina-copy [value]="block.hash" [display]="block.hash | truncateMid" [hidden]="false"></mina-copy>
+		</div>
+		<div class="fx-row-vert-cent flex-between primary h-lg">
+			<span class="tertiary">Transactions</span>
+			<span>{{ block.transactions.length }}</span>
+		</div>
+		<div class="fx-row-vert-cent flex-between primary h-lg">
+			<span class="tertiary">Completed works</span>
+			<span>{{ block.completedWorks.length }}</span>
+		</div>
+		<div class="h-lg pl-12 pr-12 mb-5 mt-5 fx-row-vert-cent flex-between border-rad-6"
+				 [ngClass]="hasError ? ['bg-warn-container', 'warn-primary'] : ['bg-success-container', 'success-primary']">
+			<div class="fx-row-vert-cent">
+				<span class="mina-icon icon-200 mr-10">{{ hasError ? 'error' : 'task_alt' }}</span>
+				<span class="f-600 mr-5">{{ workingSnarkersLength }} of {{ nodes }}</span>
+				Snarkers
+			</div>
+			<span [ngClass]="(hasError ? 'warn' : 'success') + '-secondary'">working</span>
+		</div>
+		<div *ngFor="let snarker of block.workingSnarkers; let i=index"
+				 class="flex-row align-start flex-between">
+			<span class="success-primary fx-row-vert-cent shrink-0 h-lg"
+						[class.warn-primary]="snarker.leafs.length > 2 || snarker.error">
+				{{ snarker.name }}
+				<span class="mina-icon icon-300 tertiary f-20 ml-5"
+							*ngIf="snarker.local"
+							tooltip="Local Snarker">info</span>
+			</span>
+			<div class="fx-row-vert-cent flex-end flex-wrap"
+					 [style.width.px]="230">
+				<div *ngIf="snarker.leafs.length === 0"
+						 class="w-50 h-lg lh-lg text-right mr-10 tertiary"
+						 [class.warn-primary]="snarker.error">
+					{{ snarker.error ? 'Error' : 'No jobs' }}
+				</div>
+				<span class="mina-icon icon-300 tertiary f-20 ml--5 mr-10"
+							*ngIf="snarker.error"
+							[tooltip]="snarker.error"
+							tooltip="Local Snarker">info</span>
+				<div *ngIf="snarker.leafs.length > 2"
+						 class="warn-primary w-50 h-lg lh-lg text-right mr-10">Too many jobs
+				</div>
+				<button *ngFor="let leaf of snarker.leafs; let even=even"
+								class="job mt-5"
+								[class.mr-5]="even"
+								[ngClass]="snarker.leafs.length > 2 ? 'error-job' : 'btn-primary'"
+								(click)="openSnarkerDetails(leaf)">Tree {{ leaf.treeIndex + 1 }} Job {{ leaf.jobIndex }}</button>
+			</div>
+		</div>
+	</div>
+</ng-template>
+<ng-template #step2>
+	<div class="fx-row-vert-cent flex-between h-xl lh-xl pl-10 pr-10">
+		<div class="fx-row-vert-cent">
+				<span class="mina-icon icon-200 mr-10 tertiary primary-hover pointer"
+							(click)="removeActiveJobId()">arrow_back
+				</span>
+			<div class="f-600 secondary"
+					 *ngIf="activeLeaf">Tree {{ activeLeaf.treeIndex + 1 }}, Job {{ activeLeaf.jobIndex }}</div>
+		</div>
+		<div class="fx-row-vert-cent">
+			<button class="btn-primary mr-10"
+							(clickOutside)="detach()"
+							(click)="openNavDropdown($event)">
+        <span class="fx-row-vert-cent">
+          Open in
+          <span class="mina-icon icon-200 f-18 ml-5">arrow_drop_down</span>
+        </span>
+			</button>
+			<ng-container *ngTemplateOutlet="toggle"></ng-container>
+		</div>
+	</div>
+	<mina-scan-state-job-details class="h-minus-xl flex-column"></mina-scan-state-job-details>
+</ng-template>
+
+
+<ng-template #toggle>
+	<button class="h-sm w-sm fx-row-full-cent btn-selected p-0"
+					(click)="toggleSidePanel()">
+		<span class="mina-icon f-20">view_sidebar</span>
+	</button>
+</ng-template>
+
+<ng-template #navDropdown>
+	<div class="flex-column w-100 popup-box-shadow-weak border-rad-6 bg-surface-top border">
+		<div class="h-lg lh-lg pl-12 pr-12 pointer primary bg-container-hover"
+				 (click)="goToWorkPool()">Work pool
+		</div>
+	</div>
+</ng-template>

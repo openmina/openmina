@@ -1,0 +1,46 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #thGroupsTemplate>
+  <div class="th-group h-lg lh-lg border-top tertiary f-600">
+    <span class="pl-12">Jobs</span>
+    <span class="pl-12">Commitments</span>
+    <span class="pl-12 p-relative">
+      SNARKs
+      <span class="fx-row-vert-cent h-100 p-absolute" style="top:0;right:0">
+        <button *ngIf="!openSidePanel"
+                class="h-sm w-sm fx-row-full-cent btn-selected p-0 mr-10"
+                (click)="toggleSidePanel()">
+          <span class="mina-icon f-20">view_sidebar</span>
+        </button>
+      </span>
+    </span>
+  </div>
+</ng-template>
+<ng-template #rowTemplate let-row="row">
+  <span>{{ row.datetime }}</span>
+  <span>
+    <mina-copy [display]="row.id | truncateMid" [value]="row.id"></mina-copy>
+  </span>
+  <span
+    [tooltip]="'Created at ' + (row.commitment?.commitment.timestamp | readableDate) + ', Received at: ' + (row.commitment?.received_t | readableDate)"
+    [showDelay]="200">
+    <span *ngIf="row.commitment; else dash" class="committed">Committed</span>
+  </span>
+  <span class="secondary" [innerHTML]="row.commitmentCreatedLatency | secDuration: secConfig"></span>
+  <span class="secondary" [innerHTML]="row.commitmentRecLatency | secDuration: secConfig"></span>
+  <span>{{ row.commitmentOrigin || '-' }}</span>
+  <span class="fx-row-vert-cent">
+    <span *ngIf="row.snark; else dash" class="snarked"
+          [tooltip]="'Received at ' + (row.snark?.received_t | readableDate)" [showDelay]="200">Snarked</span>
+    <span *ngIf="row.notSameCommitter"
+          class="ml-5 aware-chip w-sm h-sm border-rad-4 fx-row-full-cent"
+          [tooltip]="'Different committer and SNARK creator'"
+          [showDelay]="200">
+      <span class="mina-icon f-20">info</span>
+    </span>
+  </span>
+  <span class="secondary" [innerHTML]="row.snarkRecLatency | secDuration: secConfig"></span>
+  <span>{{ row.snarkOrigin || '-' }}</span>
+</ng-template>
+
+<ng-template #dash>-</ng-template>

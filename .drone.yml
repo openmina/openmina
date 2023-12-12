@@ -206,7 +206,6 @@ steps:
     commands:
       - sleep 180
       - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' --chain-id=$CHAIN_ID test-graphql 234 http://openmina3:10000/graphql
-
   # - name: test-bootstrap-openmina-to-mina
   #   image: vladsimplestakingcom/bootstrap-rr:graphql
   #   pull: always
@@ -273,3 +272,58 @@ steps:
         # echo "NON_LOCAL_COMMITMENTS=$$NON_LOCAL_COMMITMENTS"
         # assert 'non-local commintment exists' '[ $$NON_LOCAL_COMMITMENTS -gt 0 ]'
 
+---
+kind: pipeline
+name: Build & Test Openmina Frontend
+type: docker
+
+trigger:
+  branch:
+    - develop
+    - frontend
+
+steps:
+  - name: set-docker-buildkit
+    image: alpine
+    environment:
+      DOCKER_BUILDKIT: "0"
+    commands:
+      - echo "export DOCKER_BUILDKIT=0" >> $HOME/.bashrc
+      - source $HOME/.bashrc
+
+  - name: build
+    image: docker:latest
+    environment:
+      DOCKER_BUILDKIT: "0"
+    commands:
+      - COMMIT_SHORT_SHA=$(echo $DRONE_COMMIT_SHA | cut -c 1-7)
+      - docker build --no-cache -t directcuteo/rust-fe:$COMMIT_SHORT_SHA -f Dockerfile_FE .
+    volumes:
+      - name: docker_sock
+        path: /var/run/docker.sock
+    depends_on:
+      - set-docker-buildkit
+
+  - name: push
+    image: docker:latest
+    commands:
+      - echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+      - docker push directcuteo/rust-fe:${DRONE_COMMIT_SHA:0:7}
+    volumes:
+      - name: docker_sock
+        path: /var/run/docker.sock
+    environment:
+      DOCKER_USERNAME:
+        from_secret: teo_secret_username
+      DOCKER_PASSWORD:
+        from_secret: teo_secret_password
+    depends_on:
+      - build
+
+image_pull_secrets:
+  - docker_pull_secret
+
+volumes:
+  - name: docker_sock
+    host:
+      path: /var/run/docker.sock

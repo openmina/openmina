@@ -1,0 +1,33 @@
+@import 'openmina';
+
+@media (min-width: 701px) {
+	:host ::ng-deep {
+		.row {
+			&.head {
+				overflow-x: hidden;
+				overflow-y: scroll;
+				padding-right: 0 !important;
+
+				span:last-child {
+					padding-right: 12px;
+				}
+			}
+
+			&:not(.head).row-even:not(:hover) {
+				background-color: initial !important;
+			}
+
+			span:nth-child(1) {
+				min-width: 89px;
+			}
+
+			span:not(:nth-child(1)) {
+				text-align: right;
+			}
+		}
+
+		.cdk-virtual-scrollable {
+			overflow-y: scroll;
+		}
+	}
+}

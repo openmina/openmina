@@ -1,0 +1,16 @@
+<div class="flex-column h-100 pr-12">
+  <div class="fx-row-vert-cent flex-between tertiary h-xl secondary pl-12">
+    <div class="f-600">Commitments received latency</div>
+    <div>{{ totalCommitments }}</div>
+  </div>
+  <div [style.height.%]="25" class="mb-16">
+    <ng-container #minaBarGraph1></ng-container>
+  </div>
+  <div class="fx-row-vert-cent flex-between tertiary h-xl mt-16 secondary pl-12">
+    <div class="f-600">SNARKs received latency</div>
+    <div>{{ totalSnarks }}</div>
+  </div>
+  <div [style.height.%]="25">
+    <ng-container #minaBarGraph2></ng-container>
+  </div>
+</div>

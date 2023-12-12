@@ -1,0 +1,47 @@
+<div *ngIf="menu"
+		 class="menu flex-column" [class.collapsed]="menu.collapsed && !menu.isMobile">
+	<button class="menu-toggle f-big h-xl primary pointer flex-row align-center f-400"
+					[class.flex-between]="menu.isMobile"
+					(click)="toggleMenu()">
+    <span class="fx-row-vert-cent">
+      <svg viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path fill-rule="evenodd" clip-rule="evenodd" fill="var(--base-primary)"
+              d="M114 34H34V114H46V126H126V46H114V34ZM114 46H46V114H114V46Z"/>
+      </svg>
+      OpenMina
+    </span>
+		<span [class.flipped]="menu.isMobile ? false : menu.collapsed"
+					class="mina-icon f-20">{{ !menu.isMobile ? 'first_page' : 'close' }}</span>
+	</button>
+	<a *ngFor="let item of menuItems"
+		 [routerLink]="'/' + item.name.toLowerCase().split(' ').join('-')"
+		 [queryParams]="activeNode ? { node: activeNode.name } : null"
+		 [tooltip]="item.tooltip || item.name"
+		 [globalTooltip]="false"
+		 [tooltipDisabled]="!menu.collapsed || menu.isMobile"
+		 [position]="TooltipPosition.RIGHT"
+		 [class.active]="activeRoute === item.name.toLowerCase().split(' ').join('-')"
+		 [class.border-bottom]="menu.isMobile"
+		 (click)="showHideMenu()"
+		 class="item h-lg">
+    <span class="item-content h-sm">
+      <span class="mina-icon">{{ item.icon }}</span>
+      <span class="text-nowrap">{{ item.name }}</span>
+    </span>
+	</a>
+</div>
+
+<div class="flex-row align-center p-relative">
+	<button class="switcher fx-row-full-cent w-md h-md p-0 ml-5"
+					(click)="changeTheme()">
+		<span class="mina-icon f-18">{{ currentTheme === 'light' ? 'dark_mode' : 'wb_sunny' }}</span>
+	</button>
+	<div *ngIf="appIdentifier"
+			 [class.collapsed]="menu.collapsed && !menu.isMobile"
+			 [style.width.px]="menu.isMobile ? 170 : 110"
+			 class="identifier tertiary p-absolute flex-row align-stretch h-md">
+    <span class="border border-rad-4 pl-5 pr-5 fx-row-vert-cent">
+      <span class="truncate">{{ appIdentifier }}</span>
+    </span>
+	</div>
+</div>

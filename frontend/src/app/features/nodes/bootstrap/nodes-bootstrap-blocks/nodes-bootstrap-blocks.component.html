@@ -1,0 +1,32 @@
+<div class="h-lg tab-group pl-12 pb-10 pr-10">
+  <button class="tab mr-10" [class.selected]="activeTab === 0"
+          (click)="selectTab(0)">Fetched
+  </button>
+  <button class="tab mr-10" [class.selected]="activeTab === 1"
+          (click)="selectTab(1)">Applied
+  </button>
+</div>
+
+<div class="flex-column p-relative flex-grow">
+  <div class="p-absolute-cover">
+    <ng-container
+      *ngTemplateOutlet="blocks; context: activeTab === 0 ? { blocks: fetchedBlocks, type: 'fetch' } : { blocks: appliedBlocks, type: 'applied'}"></ng-container>
+  </div>
+</div>
+
+<ng-template #blocks let-blockList="blocks" let-type="type">
+  <div class="row h-xl f-600 pl-12 pr-12">
+    <span>Hash</span>
+    <span>Height</span>
+    <span class="pr-12">Time&nbsp;</span>
+  </div>
+  <div class="overflow-y-scroll flex-column pl-12 pr-12 pr-5 h-minus-xl">
+    <div class="row" *ngFor="let block of blockList">
+      <span>
+        <mina-copy [display]="block.hash | truncateMid" [value]="block.hash"></mina-copy>
+      </span>
+      <span>{{ block.height }}</span>
+      <span class="tertiary" [innerHTML]="block[type === 'fetch' ? 'fetchDuration' : 'applyDuration'] | secDuration: secConfig"></span>
+    </div>
+  </div>
+</ng-template>

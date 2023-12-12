@@ -1,0 +1,21 @@
+<mina-horizontal-resizable-container [leftTemplate]="left"
+                                     [rightTemplate]="right"
+                                     [show]="openSidePanel"
+                                     [minWidth]="610"
+                                     [maxWidthElement]="el.nativeElement"
+                                     [maxWidth]="el.nativeElement.offsetWidth - 650"
+                                     localStorageKey="nl-live-spw">
+</mina-horizontal-resizable-container>
+
+<ng-template #left>
+  <mina-nodes-live-toolbar></mina-nodes-live-toolbar>
+  <mina-nodes-live-blocks-map></mina-nodes-live-blocks-map>
+</ng-template>
+
+<ng-template #right>
+  <mina-nodes-live-status-counts></mina-nodes-live-status-counts>
+  <div class="flex-column h-minus-lg">
+    <mina-nodes-live-filters></mina-nodes-live-filters>
+    <mina-nodes-live-events-table></mina-nodes-live-events-table>
+  </div>
+</ng-template>

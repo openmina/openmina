@@ -1,0 +1,11 @@
+<button class="notification p-relative fx-row-vert-cent flex-between mr-8 ml-8 h-sm"
+        [class.opacity-0]="!errors.length"
+        [class.pointer-none]="!errors.length"
+        [class.unread-errors]="unreadErrors && !openedOverlay"
+        (click)="openErrorList(anchor, $event)">
+  <span class="message truncate text-left f-400"
+        [class.expanded]="newMessages.length > 0">{{ newError?.message }}</span>
+  <span #anchor
+        class="mina-icon f-20 icon-200"
+        [class.selected-primary]="openedOverlay">notifications{{ unreadErrors && !openedOverlay ? '_active' : '' }}</span>
+</button>

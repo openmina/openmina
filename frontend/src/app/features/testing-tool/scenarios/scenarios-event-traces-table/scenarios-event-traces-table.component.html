@@ -1,0 +1,26 @@
+<div class="fx-row-vert-cent flex-between h-xl lh-xl pl-12 pr-12">
+  <div class="f-600 secondary">Event traces</div>
+</div>
+<div class="h-minus-xl flex-column pl-12 pr-12 overflow-y-auto">
+  <ng-container *ngIf="events.length; else noEvents">
+    <div class="flex-row border border-rad-6 p-10 mb-10" *ngFor="let ev of events; trackBy: eventsTrackBy">
+      <span class="node tertiary">Node {{ ev.node_id }}</span>
+      <span>
+        <span class="bg-container border-rad-4 p-5 mr-10">{{ ev.id }}</span>
+      </span>
+      <div class="event flex-column">
+        <span class="truncate secondary">{{ ev.event }}</span>
+        <span class="tertiary">{{ ev.details || '-' }}</span>
+      </div>
+      <span class="add fx-row-vert-cent flex-end">
+        <button class="icon-button" (click)="addEventToSteps(ev)"
+                [tooltip]="'Add to steps and run the scenario'">
+          <span class="mina-icon">add</span>
+        </button>
+      </span>
+    </div>
+  </ng-container>
+  <ng-template #noEvents>
+    <div class="tertiary">{{ scenarioIsRunning ? 'Pending events...' : 'No events' }}</div>
+  </ng-template>
+</div>

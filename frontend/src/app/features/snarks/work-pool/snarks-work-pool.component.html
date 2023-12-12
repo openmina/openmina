@@ -1,0 +1,18 @@
+<mina-snarks-work-pool-toolbar></mina-snarks-work-pool-toolbar>
+<div class="flex-column h-minus-lg">
+  <mina-horizontal-resizable-container [leftTemplate]="left"
+                                       [rightTemplate]="right"
+                                       [show]="openSidePanel"
+                                       [minWidth]="360"
+                                       [maxWidthElement]="el.nativeElement"
+                                       localStorageKey="sn-work-pool-spw">
+  </mina-horizontal-resizable-container>
+
+  <ng-template #left>
+    <mina-snarks-work-pool-table></mina-snarks-work-pool-table>
+  </ng-template>
+
+  <ng-template #right>
+    <mina-snarks-work-pool-side-panel></mina-snarks-work-pool-side-panel>
+  </ng-template>
+</div>

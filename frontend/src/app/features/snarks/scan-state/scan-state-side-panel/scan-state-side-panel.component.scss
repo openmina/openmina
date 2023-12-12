@@ -1,0 +1,18 @@
+@import 'openmina';
+
+.job {
+  min-width: 110px;
+
+  &.error-job {
+    background-color: $warn-container;
+    color: $warn-secondary;
+
+    &:hover {
+      color: $warn-primary;
+    }
+  }
+
+  &:last-child {
+    margin-right: 0 !important;
+  }
+}

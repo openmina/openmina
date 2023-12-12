@@ -1,0 +1,64 @@
+@import 'openmina';
+
+.th-group {
+	display: grid;
+	grid-template-columns: 305px 510px 360px 1fr;
+
+	> span:nth-child(1) {
+		border-bottom: 1px solid $base-tertiary;
+	}
+
+	> span:nth-child(2) {
+		color: $special-selected-alt-3-primary;
+		border-bottom: 1px solid $special-selected-alt-3-primary;
+	}
+
+	> span:nth-child(3) {
+		color: $special-selected-alt-1-primary;
+		border-bottom: 1px solid $special-selected-alt-1-primary;
+	}
+
+	@media (max-width: 768px) {
+		grid-template-columns: 80px 1fr 1fr 50px;
+	}
+}
+
+:host ::ng-deep .mina-table .row .th {
+	@for $i from 3 through 6 {
+		span:nth-child(#{$i}) {
+			color: $special-selected-alt-3-primary !important;
+		}
+	}
+
+	@for $i from 7 through 9 {
+		span:nth-child(#{$i}) {
+			color: $special-selected-alt-1-primary !important;
+		}
+	}
+}
+
+
+span {
+
+	&.snarked {
+		background-color: $special-selected-alt-1-container;
+		color: $special-selected-alt-1-primary;
+	}
+
+	&.committed {
+		background-color: $special-selected-alt-3-container;
+		color: $special-selected-alt-3-primary;
+	}
+
+	&.aware-chip {
+		background-color: $aware-container;
+		color: $aware-primary !important;
+	}
+
+	&.committed,
+	&.snarked {
+		line-height: initial;
+		padding: 2px 5px;
+		border-radius: 4px;
+	}
+}

@@ -1,0 +1,83 @@
+<mina-horizontal-menu [clz]="'pl-12 pr-12'"
+											[template]="tmp"></mina-horizontal-menu>
+<ng-template #tmp>
+	<div class="fx-row-vert-cent flex-between w-100">
+		<div class="fx-row-vert-cent shrink-0">
+			<button (click)="goLive()"
+							class="live-button shrink-0"
+							[class.active]="stream">Live
+			</button>
+			<button (click)="pause()"
+							class="ml-5 pause-button shrink-0"
+							[class.active]="!stream">Pause{{ !stream ? 'd' : '' }}
+			</button>
+			<div class="pagination-group shrink-0 fx-row-vert-cent border-rad-4 ml-10"
+					 [class.selected]="!stream">
+				<button class="h-sm w-sm fx-row-full-cent"
+								[class.disabled]="block?.height === 0"
+								[tooltip]="'Prev block'"
+								[showDelay]="500"
+								(click)="clearForm();getHeight(block?.height - 1)">
+					<span class="mina-icon f-18">navigate_before</span>
+				</button>
+				<span class="shrink-0 pl-5 pr-5 f-600 text-center">
+					Height {{ block?.height ?? '-' }}
+				</span>
+				<button class="h-sm w-sm fx-row-full-cent"
+								[tooltip]="'Next block'"
+								[showDelay]="500"
+								(click)="clearForm();getHeight(block?.height + 1)">
+					<span class="mina-icon f-18">navigate_next</span>
+				</button>
+			</div>
+			<button class="btn-secondary h-sm w-sm mr-10 ml-5 fx-row-full-cent"
+							[tooltip]="'Last block'"
+							[showDelay]="500"
+							(click)="clearForm();getHeight(null)">
+				<span class="mina-icon f-18">last_page</span>
+			</button>
+			<span class="tertiary mr-10 f-600 ml-16">Search</span>
+			<div>
+				<form [formGroup]="formGroup"
+							[class.active]="formGroup.get('search').value"
+							class="h-sm p-relative border-rad-4 mr-10">
+					<span class="mina-icon icon-200 p-absolute f-20">search</span>
+					<input type="text"
+                 #input
+								 formControlName="search"
+								 placeholder="Height or hash"
+								 class="border-remove f-600 h-100 w-100 truncate">
+					<span class="mina-icon icon-200 p-absolute pointer"
+								(click)="formGroup.get('search').setValue('')">close</span>
+				</form>
+			</div>
+		</div>
+		<div class="fx-row-vert-cent shrink-0">
+			<button [ngClass]="highlightSnarkPool ? 'btn-selected' : 'btn-primary'"
+							(click)="toggleHighlightSnarkPool()">
+				<span class="fx-row-vert-cent">
+					Pending snarks
+					<span class="mina-icon ml-5 f-18">task_alt</span>
+				</span>
+			</button>
+			<button class="condensed icon-btn border-rad-4 mr-8 ml-10"
+							[class.active]="!treeView"
+							[tooltip]="'Grid view'"
+							(click)="toggleTreeView(false)">
+				<span class="mina-icon">view_headline</span>
+			</button>
+			<button class="condensed icon-btn border-rad-4"
+							[class.active]="treeView"
+							[tooltip]="'Tree view'"
+							(click)="toggleTreeView(true)">
+				<span class="mina-icon f-20">lan</span>
+			</button>
+
+			<button *ngIf="!openSidePanel"
+							(click)="toggleSidePanel()"
+							class="h-sm w-sm fx-row-full-cent btn-selected p-0 d-none-sm ml-10">
+				<span class="mina-icon f-20">view_sidebar</span>
+			</button>
+		</div>
+	</div>
+</ng-template>

@@ -1,0 +1,33 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #thGroupsTemplate>
+  <div class="th-group h-lg lh-lg border-top tertiary f-600">
+    <span class="pl-12">Chain</span>
+    <span class="pl-12">Fetched Blocks</span>
+    <span class="pl-12">Applied Blocks</span>
+    <span class="fx-row-vert-cent flex-end">
+      <button *ngIf="!openSidePanel"
+              class="h-sm w-sm fx-row-full-cent btn-selected p-0 mr-10"
+              (click)="toggleSidePanel()">
+        <span class="mina-icon f-20">view_sidebar</span>
+      </button>
+    </span>
+  </div>
+</ng-template>
+
+<ng-template #rowTemplate let-row="row">
+  <span class="tertiary">{{ row.index + 1 }}</span>
+  <span class="secondary">{{ row.globalSlot }}</span>
+  <span class="secondary">{{ row.height }}</span>
+  <span>
+    <mina-copy [display]="row.bestTip | truncateMid" [value]="row.bestTip"></mina-copy>
+  </span>
+  <span class="secondary">{{ row.fetchedBlocks }}</span>
+  <span [innerHTML]="row.fetchedBlocksMin | secDuration: secConfig"></span>
+  <span [innerHTML]="row.fetchedBlocksMax | secDuration: secConfig"></span>
+  <span [innerHTML]="row.fetchedBlocksAvg | secDuration: secConfig"></span>
+  <span class="secondary">{{ row.appliedBlocks }}</span>
+  <span [innerHTML]="row.appliedBlocksMin | secDuration: secConfig"></span>
+  <span [innerHTML]="row.appliedBlocksMax | secDuration: secConfig"></span>
+  <span [innerHTML]="row.appliedBlocksAvg | secDuration: secConfig"></span>
+</ng-template>

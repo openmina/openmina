@@ -1,0 +1,32 @@
+<div class="flex-column h-100 pr-12">
+  <div class="fx-row-vert-cent flex-between lh-xl h-xl secondary pl-12">
+    <div class="f-600">Fetched Blocks</div>
+    <div>{{ fetchedBlocksTotal }}</div>
+  </div>
+  <div class="stats lh-xl h-xl mb-5 pl-12">
+    <span>Min</span>
+    <span>{{ fetchedBlocksMin | secDuration }}</span>
+    <span>Max</span>
+    <span>{{ fetchedBlocksMax | secDuration }}</span>
+    <span>Avg</span>
+    <span>{{ fetchedBlocksAvg | secDuration }}</span>
+  </div>
+  <div [style.height.%]="25" class="mb-16">
+    <ng-container #minaBarGraph1></ng-container>
+  </div>
+  <div class="fx-row-vert-cent flex-between lh-xl h-xl mt-16 secondary pl-12">
+    <div class="f-600">Applied Blocks</div>
+    <div>{{ appliedBlocksTotal }}</div>
+  </div>
+  <div class="stats lh-xl h-xl mb-5 pl-12">
+    <span>Min</span>
+    <span>{{ appliedBlocksMin | secDuration }}</span>
+    <span>Max</span>
+    <span>{{ appliedBlocksMax | secDuration }}</span>
+    <span>Avg</span>
+    <span>{{ appliedBlocksAvg | secDuration }}</span>
+  </div>
+  <div [style.height.%]="25">
+    <ng-container #minaBarGraph2></ng-container>
+  </div>
+</div>

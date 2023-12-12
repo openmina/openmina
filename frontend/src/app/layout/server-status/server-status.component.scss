@@ -1,0 +1,33 @@
+@import 'openmina';
+
+.node-status {
+	.bg-surface {
+		margin: 1px;
+
+		.background-wrap {
+			background-color: $base-container;
+			color: $base-secondary;
+
+			.strong-text {
+				color: $base-primary;
+				max-width: 125px;
+			}
+
+			.node-switcher {
+				&:not(.border-rad-4) {
+					border-left: 2px solid $base-surface;
+					cursor: pointer;
+					padding-left: 5px !important;
+
+					.mina-icon {
+						width: 16px;
+					}
+
+					&:hover {
+						background-color: $base-container;
+					}
+				}
+			}
+		}
+	}
+}

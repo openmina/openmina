@@ -1,0 +1,63 @@
+@use '@angular/material' as mat;
+
+@import 'openmina';
+
+$custom-typography: mat.define-legacy-typography-config($font-family: '"Inter", sans-serif');
+// TODO(v15): As of v15 mat.legacy-core no longer includes default typography styles.
+//  The following line adds:
+//    1. Default typography styles for all components
+//    2. Styles for typography hierarchy classes (e.g. .mat-headline-1)
+//  If you specify typography styles for the components you use elsewhere, you should delete this line.
+//  If you don't need the default component typographies but still want the hierarchy styles,
+//  you can delete this line and instead use:
+//    `@include mat.legacy-typography-hierarchy($custom-typography);`
+@include mat.all-legacy-component-typographies($custom-typography);
+@include mat.legacy-core();
+
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: $inter-font;
+  font-weight: 400;
+  color: $base-primary;
+  background-color: $base-background;
+}
+
+.theme-transition {
+  * {
+    transition: background-color 200ms;
+  }
+}
+
+a {
+  text-decoration: none;
+}
+
+span {
+  color: inherit;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+p {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* User Select */
+body {
+  ::-moz-selection {
+    color: $base-primary;
+    background: $selected-secondary;
+  }
+
+  ::selection {
+    color: $base-primary;
+    background: $selected-secondary;
+  }
+}

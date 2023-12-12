@@ -1,0 +1,18 @@
+<mina-horizontal-resizable-container [leftTemplate]="left"
+																		 [rightTemplate]="right"
+																		 [show]="openSidePanel"
+																		 [minWidth]="330"
+																		 [maxWidthElement]="el.nativeElement"
+																		 (endResizing)="sideBarResized()"
+																		 localStorageKey="ss-spw">
+</mina-horizontal-resizable-container>
+
+<ng-template #left>
+	<mina-scan-state-toolbar></mina-scan-state-toolbar>
+	<mina-scan-state-tree-list></mina-scan-state-tree-list>
+<!--	<mina-scan-state-binary-tree-chart></mina-scan-state-binary-tree-chart>-->
+</ng-template>
+
+<ng-template #right>
+	<mina-scan-state-side-panel></mina-scan-state-side-panel>
+</ng-template>

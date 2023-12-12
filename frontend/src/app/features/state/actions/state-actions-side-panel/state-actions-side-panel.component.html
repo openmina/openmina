@@ -1,0 +1,48 @@
+<div class="fx-row-vert-cent flex-between pl-12 pr-12 h-xl border-bottom">
+  <span class="secondary f-600">ID {{ activeSlot }}</span>
+  <span class="mina-icon pointer tertiary primary-hover f-18"
+        (click)="closeSidePanel()">close
+  </span>
+</div>
+<div class="h-minus-xl flex-column">
+  <div class="pl-12 pr-12">
+    <div class="h-lg f-600 lh-lg">Block</div>
+    <div class="h-lg fx-row-vert-cent flex-between">
+      <span class="tertiary">Time</span>
+      {{ stats.time }}
+    </div>
+    <div class="h-lg fx-row-vert-cent flex-between">
+      <span class="tertiary">Level</span>
+      {{ stats.level }}
+    </div>
+    <div class="h-lg fx-row-vert-cent flex-between">
+      <span class="tertiary">Hash</span>
+      <mina-copy [display]="stats.hash | truncateMid" [value]="stats.hash" [hidden]="false"></mina-copy>
+    </div>
+    <div class="h-lg f-600 lh-lg">CPU</div>
+    <div class="h-lg fx-row-vert-cent flex-between">
+      <span class="tertiary">Busy</span>
+      {{ stats.cpuBusy / 1e9 | secDuration: secConfig }}
+    </div>
+    <div class="h-lg fx-row-vert-cent flex-between">
+      <span class="tertiary">Idle</span>
+      {{ stats.cpuIdle / 1e9 | secDuration: secConfig }}
+    </div>
+  </div>
+  <div class="flex-column p-relative flex-grow">
+    <div class="p-absolute-cover border-top">
+      <ng-container #minaTable></ng-container>
+    </div>
+  </div>
+</div>
+
+<ng-template #rowTemplate let-row="row">
+  <span class="truncate"
+        [tooltip]="row.groupName">{{ row.groupName }}</span>
+  <span>{{ row.count | thousand }}</span>
+  <span
+      [ngClass]="row.meanTime >= 1 ? 'primary' : (row.meanTime >= 0.001 ? 'secondary' : '')">{{ row.meanTime | secDuration }}</span>
+  <span [ngClass]="row.totalTime >= 1 ? 'primary' : (row.totalTime >= 0.001 ? 'secondary' : '')"
+        class="pr-8">{{ row.totalTime | secDuration }}&nbsp;
+  </span>
+</ng-template>
