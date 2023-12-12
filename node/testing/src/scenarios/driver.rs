@@ -130,7 +130,7 @@ impl<'cluster> Driver<'cluster> {
     pub async fn wait_for(
         &mut self,
         duration: Duration,
-        f: impl Fn(ClusterNodeId, &Event, &State) -> bool,
+        mut f: impl FnMut(ClusterNodeId, &Event, &State) -> bool,
     ) -> anyhow::Result<Option<(ClusterNodeId, Event)>> {
         let timeout = std::time::Instant::now() + duration;
         while std::time::Instant::now() < timeout {
@@ -139,11 +139,11 @@ impl<'cluster> Driver<'cluster> {
             for (node_id, state, events) in self.runner.pending_events() {
                 for (_, event) in events {
                     if f(node_id, event, state) {
-                        eprintln!("!!! {event:?}");
+                        eprintln!("!!! {node_id}: {event:?}");
                         found = Some((node_id, event.clone()));
                         break;
                     } else {
-                        eprintln!(">>> {event:?}");
+                        eprintln!(">>> {node_id}: {event:?}");
                         let event = event.to_string();
                         steps.push(ScenarioStep::Event { node_id, event });
                     }
@@ -169,16 +169,18 @@ impl<'cluster> Driver<'cluster> {
         while std::time::Instant::now() < timeout {
             let mut steps = Vec::new();
             let mut found = false;
-            for (node_id, state, events) in self.runner.pending_events() {
+            'pending_events: for (node_id, state, events) in self.runner.pending_events() {
                 for (_, event) in events {
-                    if f(node_id, event, state) {
-                        eprintln!("!!! {event:?}");
-                        found = true;
-                        break;
+                    found = f(node_id, event, state);
+                    steps.push(ScenarioStep::Event {
+                        node_id,
+                        event: event.to_string(),
+                    });
+                    if found {
+                        eprintln!("!!! {node_id}: {event:?}");
+                        break 'pending_events;
                     } else {
-                        eprintln!(">>> {event:?}");
-                        let event = event.to_string();
-                        steps.push(ScenarioStep::Event { node_id, event });
+                        eprintln!(">>> {node_id}: {event:?}");
                     }
                 }
             }

@@ -74,7 +74,7 @@ jobs:
       image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-focal-berkeley
     strategy:
       matrix:
-        test: [p2p_basic_incoming, p2p_basic_outgoing]
+        test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing]
       fail-fast: false
 
     steps:

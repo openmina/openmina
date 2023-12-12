@@ -2,12 +2,28 @@
 
 ## Connection Handling
 
+### Two nodes connecting to each other should succeed
+
+If two nodes are connecting to each other at the same time, they should be
+connected, so each one has exactly one connection.
+
+- - [`p2p_basic_connections(simultaneous_connections)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L25)
+
+
 ### All connections should be tracked by the state machine
 
 Connections that are initiated outside of the state machine (e.g. by Kademlia)
 should be present in the state machine.
 
-**Tests:** TODO
+**Tests:**
+- [`p2p_basic_connections(all_nodes_connections_are_symmetric)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L98)
+- [`p2p_basic_connections(seed_connections_are_symmetric)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L165)
+
+### Number of active peers should not exceed configured maximum number
+
+**Tests:**
+- [`p2p_basic_connections(max_number_of_peers)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L242)
+
 
 ## Incoming Connections
 
