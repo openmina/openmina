@@ -11,6 +11,7 @@ import {
   AppToggleMenuOpening,
   AppToggleMobile
 } from '@app/app.actions';
+import { Observable } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -21,7 +22,7 @@ import {
 })
 export class AppComponent extends ManualDetection implements OnInit {
 
-  menu: AppMenu = {} as AppMenu;
+  menu$: Observable<AppMenu> = this.store.select(selectAppMenu);
 
   constructor(private store: Store<MinaState>,
               private breakpointObserver: BreakpointObserver) {
@@ -32,16 +33,7 @@ export class AppComponent extends ManualDetection implements OnInit {
   }
 
   ngOnInit(): void {
-    this.listenToCollapsingMenu();
     this.listenToWindowResizing();
-  }
-
-  private listenToCollapsingMenu(): void {
-    this.store.select(selectAppMenu)
-      .subscribe((menu: AppMenu) => {
-        this.menu = menu;
-        this.detect();
-      });
   }
 
   private listenToWindowResizing(): void {
