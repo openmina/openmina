@@ -10,7 +10,6 @@ trigger:
   - master
   - develop
   - feat/graphql
-  - frontend
 
 environment:
   REPLAYER_ID: 12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw
@@ -368,6 +367,10 @@ kind: pipeline
 name: Build & Test Openmina Frontend
 type: docker
 
+trigger:
+  branch:
+    - frontend
+
 steps:
   - name: set-docker-buildkit
     image: alpine
@@ -376,9 +379,6 @@ steps:
     commands:
       - echo "export DOCKER_BUILDKIT=0" >> $HOME/.bashrc
       - source $HOME/.bashrc
-    when:
-      branch:
-        - frontend
 
   - name: build
     image: docker:latest
@@ -392,9 +392,6 @@ steps:
         path: /var/run/docker.sock
     depends_on:
       - set-docker-buildkit
-    when:
-      branch:
-        - frontend
 
   - name: push
     image: docker:latest
@@ -411,9 +408,6 @@ steps:
         from_secret: teo_secret_password
     depends_on:
       - build
-    when:
-      branch:
-        - frontend
 
 image_pull_secrets:
   - docker_pull_secret
