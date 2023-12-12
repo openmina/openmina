@@ -32,6 +32,8 @@ interface MenuItem {
 const MENU_ITEMS: MenuItem[] = [
   { name: 'Dashboard', icon: 'dashboard' },
   { name: 'Nodes', icon: 'margin' },
+  { name: 'Resources', icon: 'analytics' },
+  { name: 'Network', icon: 'account_tree' },
   { name: 'State', icon: 'code_blocks' },
   { name: 'SNARKs', icon: 'assignment_turned_in' },
   { name: 'Testing Tool', icon: 'build' },
@@ -46,6 +48,8 @@ const MENU_ITEMS: MenuItem[] = [
   host: { class: 'flex-column flex-between h-100 pb-5' },
 })
 export class MenuComponent extends ManualDetection implements OnInit {
+
+  protected readonly TooltipPosition = TooltipPosition;
 
   menuItems: MenuItem[] = this.allowedMenuItems;
   menu: AppMenu;
@@ -126,6 +130,4 @@ export class MenuComponent extends ManualDetection implements OnInit {
   collapseMenu(): void {
     this.store.dispatch<AppChangeMenuCollapsing>({ type: APP_CHANGE_MENU_COLLAPSING, payload: !this.menu.collapsed });
   }
-
-  protected readonly TooltipPosition = TooltipPosition;
 }

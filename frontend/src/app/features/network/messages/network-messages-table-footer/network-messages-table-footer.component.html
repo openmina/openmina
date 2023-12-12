@@ -1,0 +1,45 @@
+<ng-container *ngIf="state">
+  <button (click)="goLive()"
+          class="ml-8 live-button"
+          [class.active]="state.stream">Live
+  </button>
+  <button (click)="pause()"
+          class="ml-8 pause-button"
+          [class.active]="!state.stream">Pause
+  </button>
+  <span class="ml-10 tertiary d-none-sm">Active page: {{ state.messages.length }} records</span>
+  <button class="icon-button ml-5"
+          tooltip="Go to top"
+          (click)="scrollToTop()">
+    <span class="mina-icon f-16">vertical_align_top</span>
+  </button>
+  <button class="icon-button ml-8"
+          [disabled]="isFirstPage"
+          (click)="firstPage()">
+    <span class="mina-icon f-18">first_page</span>
+  </button>
+  <button class="icon-button ml-5"
+          [disabled]="isFirstPage"
+          (click)="previousPage()">
+    <span class="mina-icon f-18">navigate_before</span>
+  </button>
+  <button class="icon-button ml-5"
+          [disabled]="isLastPage"
+          (click)="nextPage()">
+    <span class="mina-icon f-18">navigate_next</span>
+  </button>
+  <button class="icon-button ml-5"
+          [disabled]="isLastPage"
+          (click)="lastPage()">
+    <span class="mina-icon f-18">last_page</span>
+  </button>
+  <button class="pl-10 pr-10 ml-10 mr-10 overflow-hidden flex-row align-center "
+          [ngClass]="activeInterval ? 'btn-selected' : 'btn-secondary'"
+          (click)="openIntervalPicker($event)"><span class="truncate">{{ activeInterval ?? 'Time filter' }}</span>
+    <div *ngIf="activeInterval"
+         (click)="clearTimestampInterval($event)"
+         class="icon-wrap ml-10 flex-row align-center flex-center">
+      <span class="mina-icon f-20">close</span>
+    </div>
+  </button>
+</ng-container>

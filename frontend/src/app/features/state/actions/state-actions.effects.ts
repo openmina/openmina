@@ -47,7 +47,7 @@ export class StateActionsEffects extends MinaRustBaseEffect<StateActionsActions>
           : this.actionsService.getEarliestSlot().pipe(
             switchMap((payload: number) => {
               const actions: StateActionsActions[] = [{ type: STATE_ACTIONS_GET_EARLIEST_SLOT_SUCCESS, payload }];
-              if (state.state.actions.activeSlot === undefined || state.state.actions.activeSlot > payload) {
+              if (state.state.actions.activeSlot === undefined || state.state.actions.activeSlot > payload || action.payload.force) {
                 this.router.navigate([Routes.STATE, Routes.ACTIONS, payload ?? ''], { queryParamsHandling: 'merge' });
                 actions.push({ type: STATE_ACTIONS_GET_ACTIONS, payload: { slot: payload } });
               }

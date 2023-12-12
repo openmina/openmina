@@ -5,6 +5,8 @@ import { getFirstFeature } from '@shared/constants/config';
 const APP_TITLE: string = 'Open Mina';
 
 export const DASHBOARD_TITLE: string = APP_TITLE + ' - Dashboard';
+export const RESOURCES_TITLE: string = APP_TITLE + ' - Resources';
+export const NETWORK_TITLE: string = APP_TITLE + ' - Network';
 export const NODES_TITLE: string = APP_TITLE + ' - Nodes';
 export const STATE_TITLE: string = APP_TITLE + ' - State';
 export const SNARKS_TITLE: string = APP_TITLE + ' - Snarks';
@@ -22,6 +24,16 @@ const routes: Routes = [
     loadChildren: () => import('@nodes/nodes.module').then(m => m.NodesModule),
     title: NODES_TITLE,
     // canActivate: [FeatureGuard],
+  },
+  {
+    path: 'resources',
+    loadChildren: () => import('@resources/resources.module').then(m => m.ResourcesModule),
+    title: RESOURCES_TITLE,
+  },
+  {
+    path: 'network',
+    loadChildren: () => import('@network/network.module').then(m => m.NetworkModule),
+    title: NETWORK_TITLE,
   },
   {
     path: 'state',

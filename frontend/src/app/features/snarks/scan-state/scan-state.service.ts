@@ -22,7 +22,6 @@ export class ScanStateService {
   getScanState(heightOrHash?: string | number): Observable<ScanStateBlock> {
     const url = this.rust.URL + '/scan-state/summary/' + (heightOrHash ?? '');
 
-    // return of(scanStateRust).pipe(
     return this.http.get<any>(url).pipe(
       switchMap((response: any[]) => {
         if (this.snarkers.length) {
@@ -66,6 +65,9 @@ export class ScanStateService {
   }
 
   private mapScanState(response: any): ScanStateBlock {
+    if (!response) {
+      throw Error('Scan state not ready!');
+    }
     const trees: ScanStateTree[] = response.scan_state.reverse().map((tree: any[], treeIndex: number) => {
       return {
         availableJobs: tree.filter(leaf => leaf.status === ScanStateLeafStatus.Todo).length,

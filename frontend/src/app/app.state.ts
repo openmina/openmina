@@ -4,7 +4,6 @@ import { createSelector, MemoizedSelector } from '@ngrx/store';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 
 export interface AppState {
-  subMenus: string[];
   menu: AppMenu;
   nodes: MinaNode[];
   activeNode: MinaNode;

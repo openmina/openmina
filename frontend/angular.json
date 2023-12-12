@@ -72,6 +72,15 @@
               "extractLicenses": false,
               "sourceMap": true,
               "namedChunks": true
+            },
+            "local": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.local.ts"
+                }
+              ],
+              "outputHashing": "all"
             }
           },
           "defaultConfiguration": "production"
@@ -84,6 +93,9 @@
             },
             "development": {
               "browserTarget": "frontend:build:development"
+            },
+            "local": {
+              "browserTarget": "frontend:build:local"
             }
           },
           "defaultConfiguration": "development"

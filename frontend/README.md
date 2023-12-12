@@ -1,27 +1,64 @@
-# Frontend
+# Angular Application
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 16.2.4.
+This is a simple Angular application that will help you to see the behaviour of your local rust based mina node.
 
-## Development server
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+## Prerequisites
 
-## Code scaffolding
+Before you begin, ensure you have the following tools installed:
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+- [Node.js](https://nodejs.org/)
+- [npm](https://www.npmjs.com/)
+- [Angular CLI](https://cli.angular.io/)
 
-## Build
+Here are the steps to install the prerequisites listed above:
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+### 1. Node.js
 
-## Running unit tests
+Download and install [Node.js](https://nodejs.org/) for your OS, which includes Node Package Manager (npm).
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+- Verify your Node.js installation:
 
-## Running end-to-end tests
+  ```bash
+  node -v
+  ```
+  This command should print the version number of your Node.js installation.
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
+### 2. npm
+- Verify that you are running a version of npm that is at least 6.x.x or higher:
 
-## Further help
+  ```bash
+  npm -v
+  ```
+  This command should print the version number of your npm installation.
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.
+### 3. Angular CLI
+- Install the Angular CLI globally:
+
+  ```bash
+  npm install -g @angular/cli
+  ```
+  This command installs the Angular CLI globally on your system.
+- Verify your Angular CLI installation:
+
+  ```bash
+  ng --version
+  ```
+  This command should print the version number of your Angular CLI installation.
+
+## Installation
+
+1. Open a terminal and navigate to this project's root directory.
+2. Install project dependencies:
+
+   ```bash
+   npm install
+   ```
+3. Run the application:
+
+   ```bash
+    npm start
+    ```
+4. Open your browser and navigate to [http://localhost:4200](http://localhost:4200).
+
+Next time you want to run the application, just run `npm start` again.

@@ -6,16 +6,36 @@ export const environment: Readonly<MinaEnv> = {
   globalConfig: {
     features: {
       dashboard: [],
-      // nodes: ['overview', 'live', 'bootstrap'],
-      // state: ['actions'],
-      // snarks: ['work-pool', 'scan-state'],
+      nodes: ['overview', 'live', 'bootstrap'],
+      state: ['actions'],
+      network: ['messages', 'connections', 'blocks'],
+      snarks: ['scan-state', /*'work-pool'*/],
       // 'testing-tool': ['scenarios'],
     },
   },
   configs: [
     {
-      name: 'http://176.9.147.28:3000',
-      url: 'http://176.9.147.28:3000'
+      name: 'feat/frontend-api-peers',
+      url: 'http://176.9.147.28:3000',
+      features: {
+        dashboard: [],
+        nodes: ['overview', 'live', 'bootstrap'],
+        state: ['actions'],
+        snarks: ['scan-state', /*'work-pool'*/],
+        resources: ['memory'],
+      },
+    },
+    {
+      name: 'Node with debugger',
+      url: 'http://1.k8.openmina.com:31688',
+      debugger: 'http://1.k8.openmina.com:31072',
+      features: {
+        nodes: ['overview', 'live', 'bootstrap'],
+        state: ['actions'],
+        network: ['messages', 'connections', 'blocks'],
+        snarks: ['scan-state'],
+        resources: ['memory'],
+      },
     },
     // {
     //   name: 'Snarker 1',

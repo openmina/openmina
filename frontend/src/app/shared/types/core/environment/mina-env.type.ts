@@ -10,6 +10,7 @@ export interface MinaEnv {
 export interface MinaNode {
   name: string;
   url: string;
+  debugger?: string;
   features?: FeaturesConfig;
 }
 
@@ -20,6 +21,8 @@ export type FeaturesConfig = {
 export type FeatureType =
   | 'dashboard'
   | 'nodes'
+  | 'network'
+  | 'resources'
   | 'state'
   | 'snarks'
   | 'testing-tool'

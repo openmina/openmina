@@ -33,7 +33,6 @@ In the future, we plan to implement:
 * SNARK proof generation for transactions
 * SnarkyJS support for Rust node, thanks to which you will be able to directly inject simple transactions, such as transferring Mina funds from one account to another.
 * The ability to record/replay all blocks
-* A user interface (UI) for the node. Through the UI, users will be able to control the node and get information about its status.
 
 
 ## How to launch:
@@ -63,6 +62,63 @@ cd openmina/
 cargo run --release -p cli node
 ```
 
+## How to launch the UI:
+
+### Prerequisites
+
+Before you begin, ensure you have the following tools installed:
+
+- [Node.js](https://nodejs.org/)
+- [npm](https://www.npmjs.com/)
+- [Angular CLI](https://cli.angular.io/)
+
+Here are the steps to install the prerequisites listed above:
+
+#### 1. Node.js
+
+Download and install [Node.js](https://nodejs.org/) for your OS, which includes Node Package Manager (npm).
+
+- After installing Node.js, verify your installation:
+
+  ```bash
+  node -v
+  ```
+  This command should print the version number of your Node.js installation.
+
+#### 2. npm
+- Verify that you are running a version of npm that is at least 6.x.x or higher:
+
+  ```bash
+  npm -v
+  ```
+  This command should print the version number of your npm installation.
+
+#### 3. Angular CLI
+- Install the Angular CLI globally:
+
+  ```bash
+  npm install -g @angular/cli
+  ```
+  This command installs the Angular CLI globally on your system.
+- Verify your Angular CLI installation:
+
+  ```bash
+  ng --version
+  ```
+  This command should print the version number of your Angular CLI installation.
+
+### Steps (for any OS)
+
+Open up the command line and enter the following:
+
+``` sh
+   cd frontend
+   npm install
+   npm start
+```
+
+Open your browser and navigate to [http://localhost:4200](http://localhost:4200).
+
 ## Repository Structure
 
 - [core/](core) - Provides basic types needed to be shared across different
@@ -75,6 +131,7 @@ cargo run --release -p cli node
     used to run the node natively (Linux/Mac/Windows).
   - [testing/](node/testing) - Testing framework for OpenMina node.
 - [cli/](cli) - OpenMina cli.
+- [frontend/](frontend) - OpenMina frontend.
 
 ---
 

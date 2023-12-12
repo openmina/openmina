@@ -302,7 +302,7 @@ trigger:
     - frontend
 
 steps:
-  - name: set-docker-buildkit
+  - name: set-docker
     image: alpine
     environment:
       DOCKER_BUILDKIT: "0"
@@ -316,28 +316,106 @@ steps:
       DOCKER_BUILDKIT: "0"
     commands:
       - COMMIT_SHORT_SHA=$(echo $DRONE_COMMIT_SHA | cut -c 1-7)
-      - docker build --no-cache -t directcuteo/rust-fe:$COMMIT_SHORT_SHA -f Dockerfile_FE .
+      - docker build --no-cache -t openmina/rust-fe:$COMMIT_SHORT_SHA -f Dockerfile_FE .
     volumes:
       - name: docker_sock
         path: /var/run/docker.sock
     depends_on:
-      - set-docker-buildkit
+      - set-docker
+
+  - name: prepare
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && npm install
+    depends_on:
+      - build
+
+  - name: frontend-server
+    image: openmina/rust-fe:${DRONE_COMMIT_SHA:0:7}
+    pull: if-not-exists
+    detach: true
+    privileged: true
+    depends_on:
+      - build
+
+  - name: dashboard-peers
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/dashboard/dashboard-peers.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: nodes-overview-table
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/nodes/overview/nodes-overview-table.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: nodes-overview-side-panel
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/nodes/overview/nodes-overview-side-panel.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: nodes-live-blocks-map
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/nodes/live/nodes-live-blocks-map.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: nodes-live-blocks-table
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/nodes/live/nodes-live-blocks-table.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: network-messages-filters
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/messages/network-messages-filters.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: network-messages-footer
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/messages/network-messages-footer.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: network-messages-table
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/messages/network-messages-table.cy.ts"
+    depends_on:
+      - prepare
 
   - name: push
     image: docker:latest
     commands:
       - echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
-      - docker push directcuteo/rust-fe:${DRONE_COMMIT_SHA:0:7}
+      - docker push openmina/rust-fe:${DRONE_COMMIT_SHA:0:7}
     volumes:
       - name: docker_sock
         path: /var/run/docker.sock
     environment:
       DOCKER_USERNAME:
-        from_secret: teo_secret_username
+        from_secret: docker_hub_username
       DOCKER_PASSWORD:
-        from_secret: teo_secret_password
+        from_secret: docker_hub_password
     depends_on:
-      - build
+      - dashboard-peers
+      - nodes-overview-table
+      - nodes-overview-side-panel
+      - nodes-live-blocks-map
+      - nodes-live-blocks-table
+      - network-messages-filters
+      - network-messages-footer
+      - network-messages-table
 
 image_pull_secrets:
   - docker_pull_secret

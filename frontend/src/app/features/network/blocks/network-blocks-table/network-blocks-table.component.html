@@ -1,0 +1,33 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span>
+    <span class="underline"
+          tooltip="See message details"
+          [showDelay]="1000"
+          (click)="seeMessageInMessages(row.messageId)">{{ row.messageId }}</span>
+  </span>
+  <span class="secondary">{{ row.date }}</span>
+  <span [tooltip]="'Producer ID: ' + row.producerId | truncateMid: 19"
+        [showDelay]="500">
+    <mina-copy [value]="row.hash" [display]="row.hash | truncateMid"></mina-copy>
+  </span>
+  <span
+        [tooltip]="'Global slot: ' + row.globalSlot"
+        [showDelay]="500">{{ row.height }}</span>
+  <span>
+    <span (click)="seeMessagesForAddress(row.sender)"
+          class="underline"
+          [tooltip]="'See messages for this address'"
+          [showDelay]="1000">{{ row.sender }}</span>
+  </span>
+  <span>
+    <span (click)="seeMessagesForAddress(row.receiver)"
+          class="underline"
+          [tooltip]="'See messages for this address'"
+          [showDelay]="1000">{{ row.receiver }}</span>
+  </span>
+  <span [innerHTML]="row.receivedLatency | secDuration: secConfig"></span>
+  <span [innerHTML]="row.sentLatency | secDuration: secConfig"></span>
+  <span class="secondary">{{ row.messageKind }}</span>
+</ng-template>

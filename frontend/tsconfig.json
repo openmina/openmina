@@ -62,6 +62,12 @@
       "@testing-tool/*": [
         "src/app/features/testing-tool/*"
       ],
+      "@network/*": [
+        "src/app/features/network/*"
+      ],
+      "@resources/*": [
+        "src/app/features/resources/*"
+      ]
     }
   },
   "angularCompilerOptions": {

@@ -13,7 +13,7 @@
     <span class="status f-600"
           [ngClass]="row.kind">{{ row.kind }}</span>
   </span>
-  <span class="secondary">{{ row.name }}</span>
+  <span class="secondary">{{ row.name | truncateMid: 18: 0 }}</span>
   <span class="secondary">{{ row.height || '-' }}</span>
   <span>
     <mina-copy [display]="row.bestTip | truncateMid" [value]="row.bestTip"></mina-copy>

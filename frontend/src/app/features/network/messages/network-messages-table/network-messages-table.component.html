@@ -1,0 +1,33 @@
+<div class="flex-column h-100 w-100"
+     [class.opacity-0]="!messages.length">
+  <ng-container #minaTable></ng-container>
+</div>
+
+<ng-template #rowTemplate let-row="row">
+  <span>{{ row.id }}</span>
+  <span>{{ row.timestamp }}</span>
+  <span class="flex-row align-center secondary">
+    <span *ngIf="row.failedToDecryptPercentage"
+          [tooltip]="row.failedToDecryptPercentage + '% messages failed to decrypt'"
+          class="border-rad-6 bg-aware-container fx-row-full-cent p-5 h-sm w-sm mr-5">
+      <span class="mina-icon icon-200 aware-primary f-20">error</span>
+    </span>
+    <span class="underline" (click)="filterByAddress(row)">{{ row.address }}</span>
+  </span>
+  <span>{{ row.incoming }}</span>
+  <span [innerHTML]="row.size | size"></span>
+  <span class="secondary">{{ row.streamKind }}</span>
+  <span class="truncate secondary">{{ row.messageKind }}</span>
+</ng-template>
+
+<div class="no-results p-absolute w-100 h-100 z-1 fx-row-full-cent"
+     *ngIf="attemptToGetMessagesFromRoute && !messages.length && activeFilters.length">
+  <h5 class="f-big f-600 mt-0 mb-8">No Results Found</h5>
+  <p class="secondary m-0">Try adjusting your search or filter options to find what</p>
+  <p class="secondary m-0 pb-8">you're looking for</p>
+
+  <button class="fx-row-vert-cent border-rad-4 mt-8" (click)="clearFilters()">
+    <span class="mina-icon tertiary f-18 mr-5">filter_list_off</span>
+    <span class="primary">Clear filters</span>
+  </button>
+</div>

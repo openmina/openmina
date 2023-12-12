@@ -1,0 +1,10 @@
+<div class="p-12 h-xl secondary f-600">Distributions</div>
+<div class="flex-column flex-1 overflow-auto">
+  <mina-network-blocks-graph [style.height.%]="30" class="pr-12"></mina-network-blocks-graph>
+  <div class="flex-column mt-16 p-12 border-top">
+    <div class="fx-row-vert-cent flex-between mt-8">
+      <span class="tertiary">First sent time</span>
+      <span class="f-600" [innerHTML]="firstSentTime | secDuration: secConfig"></span>
+    </div>
+  </div>
+</div>
