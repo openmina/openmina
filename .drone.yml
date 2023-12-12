@@ -279,6 +279,7 @@ type: docker
 
 trigger:
   branch:
+    - develop
     - frontend
 
 steps:
