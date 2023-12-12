@@ -1,0 +1,38 @@
+@import 'openmina';
+
+.th-group {
+	display: grid;
+	grid-template-columns: 370px 290px 290px 1fr;
+
+	> span:nth-child(1) {
+		border-bottom: 1px solid $base-tertiary;
+	}
+
+	> span:nth-child(2) {
+		color: $base-primary;
+		border-bottom: 1px solid $base-primary;
+	}
+
+	> span:nth-child(3) {
+		color: $success-primary;
+		border-bottom: 1px solid $success-primary;
+	}
+
+	@media (max-width: 768px) {
+		grid-template-columns: 80px 1fr 1fr 50px;
+	}
+}
+
+:host ::ng-deep .mina-table .row .th {
+	@for $i from 5 through 8 {
+		span:nth-child(#{$i}) {
+			color: $base-primary !important;
+		}
+	}
+
+	@for $i from 9 through 12 {
+		span:nth-child(#{$i}) {
+			color: $success-primary !important;
+		}
+	}
+}

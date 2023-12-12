@@ -1,0 +1,19 @@
+<mina-horizontal-resizable-container [leftTemplate]="left"
+                                     [rightTemplate]="right"
+                                     [show]="true"
+                                     [minWidth]="600"
+                                     [maxWidthElement]="el.nativeElement"
+                                     localStorageKey="tt-scenarios-spw">
+</mina-horizontal-resizable-container>
+
+<ng-template #left>
+  <div class="h-100 flex-column">
+    <mina-scenarios-steps-toolbar></mina-scenarios-steps-toolbar>
+    <mina-scenarios-steps-table class="flex-grow"></mina-scenarios-steps-table>
+    <mina-scenarios-steps-footer></mina-scenarios-steps-footer>
+  </div>
+</ng-template>
+
+<ng-template #right>
+  <mina-scenarios-event-traces-table></mina-scenarios-event-traces-table>
+</ng-template>

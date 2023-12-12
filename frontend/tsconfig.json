@@ -1,0 +1,73 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "baseUrl": "./",
+    "outDir": "./dist/out-tsc",
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "allowJs": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "resolveJsonModule": true,
+    "strictNullChecks": false,
+    "strictPropertyInitialization": false,
+    "noFallthroughCasesInSwitch": true,
+    "allowSyntheticDefaultImports": true,
+    "sourceMap": false,
+    "declaration": false,
+    "downlevelIteration": true,
+    "experimentalDecorators": true,
+    "moduleResolution": "node",
+    "target": "es2020",
+    "module": "es2022",
+    "useDefineForClassFields": false,
+    "types": [
+      "node",
+      "cypress",
+      "cypress-real-events"
+    ],
+    "lib": [
+      "es2020",
+      "dom"
+    ],
+    "paths": {
+      "@app/*": [
+        "src/app/*"
+      ],
+      "@core/*": [
+        "src/app/core/*"
+      ],
+      "@shared/*": [
+        "src/app/shared/*"
+      ],
+      "@environment/*": [
+        "src/environments/*"
+      ],
+      "@error-preview/*": [
+        "src/app/layout/error-preview/*"
+      ],
+      "@dashboard/*": [
+        "src/app/features/dashboard/*"
+      ],
+      "@state/*": [
+        "src/app/features/state/*"
+      ],
+      "@nodes/*": [
+        "src/app/features/nodes/*"
+      ],
+      "@snarks/*": [
+        "src/app/features/snarks/*"
+      ],
+      "@testing-tool/*": [
+        "src/app/features/testing-tool/*"
+      ],
+    }
+  },
+  "angularCompilerOptions": {
+    "enableI18nLegacyMessageIdFormat": false,
+    "strictInjectionParameters": true,
+    "strictInputAccessModifiers": true,
+    "strictTemplates": true
+  }
+}

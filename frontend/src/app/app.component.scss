@@ -1,0 +1,74 @@
+@import 'openmina';
+
+mat-sidenav {
+  width: 160px;
+  border-right: 1px solid $base-divider;
+  background-color: $base-background;
+  transition: 200ms ease-out !important;
+  visibility: visible !important;
+  display: block !important;
+  transform: translateX(-100%) !important;
+
+  &.collapsed {
+    width: 44px;
+  }
+
+  ::ng-deep .mat-drawer-inner-container {
+    overflow: hidden;
+  }
+
+  &.mobile {
+    width: 75vw;
+    overflow: visible;
+
+    .backdrop {
+      position: absolute;
+      content: '';
+      top: 0;
+      left: 100%;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.5);
+      visibility: hidden;
+      transition: 200ms ease-out;
+    }
+  }
+
+  &.opened {
+    transform: translateX(0) !important;
+
+    &.mobile .backdrop {
+      visibility: visible;
+    }
+  }
+}
+
+mat-sidenav-content {
+  transition: 200ms ease-out !important;
+  overflow: hidden;
+}
+
+mat-sidenav-container,
+mat-sidenav-content {
+  color: inherit;
+  background-color: $base-surface;
+
+  @media (max-width: 768px) {
+    background-color: $base-background;
+  }
+}
+
+.mina-content {
+  $toolbar: 40px;
+  height: calc(100% - #{$toolbar});
+
+  &.mobile {
+    $toolbar: 56px;
+    $subMenus: 56px;
+    height: calc(100% - #{$toolbar} - #{$subMenus});
+  }
+}
+
+.mobile-menu {
+  height: 56px;
+}

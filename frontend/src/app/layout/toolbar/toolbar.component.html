@@ -1,0 +1,17 @@
+<div class="toolbar h-100 flex-row flex-stretch align-stretch w-100 p-relative"
+     [class.pl-12]="!isMobile">
+  <div class="flex-row align-center flex-grow overflow-hidden">
+    <button *ngIf="isMobile" (click)="toggleMenu()"
+            class="mobile-toggle btn-transparent h-xl flex-row align-center flex-center">
+      <span class="mina-icon f-22 icon-200 primary">menu</span>
+    </button>
+    <span class="f-600 f-big shrink-0" [class.pr-12]="!isMobile">{{ title }}</span>
+    <mina-submenu-tabs *ngIf="!isMobile" class="pl-12 h-xl overflow-hidden"></mina-submenu-tabs>
+  </div>
+  <div class="flex-row flex-end align-center">
+    <mina-error-preview></mina-error-preview>
+    <mina-server-status *ngIf="!hideSwitcher"
+                        [switchForbidden]="switchForbidden"></mina-server-status>
+  </div>
+  <div #loadingRef id="loadingRef" class="loading p-absolute"></div>
+</div>

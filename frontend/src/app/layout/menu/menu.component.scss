@@ -1,0 +1,176 @@
+@import 'openmina';
+
+.menu {
+	.menu-toggle {
+		padding: 8px 12px;
+		border: none;
+		border-radius: 0;
+		border-bottom: 1px solid $base-divider;
+		background-color: unset;
+		transition: width 200ms ease-out, background-color 80ms;
+
+		.mina-icon {
+			font-size: 20px;
+			color: $base-tertiary;
+			font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+			transition: transform 200ms ease-out, color 80ms;
+
+			&.flipped {
+				transform: rotateY(180deg);
+			}
+		}
+
+		span:nth-child(1) {
+			overflow: hidden;
+			max-width: 100px;
+			opacity: 1;
+			transition: 200ms ease-out;
+
+			svg {
+				margin-right: 4px;
+				margin-left: -4px;
+				min-width: 25px;
+				min-height: 25px;
+			}
+		}
+
+		&:hover {
+			background-color: $base-container;
+
+			.mina-icon {
+				color: $base-primary;
+			}
+		}
+	}
+
+	.item {
+		color: $base-secondary;
+		cursor: pointer;
+		padding-left: 4px;
+		display: flex;
+		align-items: center;
+
+		.item-content {
+			width: 80%;
+			border-radius: 6px;
+			padding: 5px 7px;
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			font-weight: 600;
+
+			.mina-icon {
+				font-size: 20px;
+				padding-right: 7px;
+				color: $base-tertiary;
+				font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+			}
+
+			span:nth-child(2) {
+				opacity: 1;
+				transition: opacity 200ms ease-out;
+			}
+		}
+
+		&:hover:not(.active) {
+			background-color: $base-container;
+			color: $base-secondary;
+		}
+
+		&.active {
+			color: $selected-primary;
+
+			.item-content .mina-icon {
+				color: $selected-primary;
+				font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+			}
+		}
+	}
+
+	&.collapsed {
+		.menu-toggle {
+			width: 44px;
+
+			span:nth-child(1) {
+				max-width: 0;
+				opacity: 0;
+			}
+		}
+
+		.item .item-content span:nth-child(2) {
+			opacity: 0;
+		}
+	}
+}
+
+@media (max-width: 768px) {
+	.menu {
+		.menu-toggle {
+			height: 56px !important;
+			font-size: 20px !important;
+		}
+
+		.mina-icon {
+			font-size: 24px !important;
+		}
+
+		.item {
+			height: 54px !important;
+
+			.item-content {
+				font-size: 18px;
+			}
+		}
+	}
+}
+
+.switcher {
+	background-color: $base-container;
+
+	.mina-icon {
+		color: $base-secondary;
+		font-variation-settings: 'FILL' 1, 'wght' 200;
+	}
+
+	&:hover {
+		background-color: $base-divider;
+
+		.mina-icon {
+			color: $base-primary;
+		}
+	}
+}
+
+.identifier {
+	left: 47px;
+	top: 0;
+	transition: 0.3s ease-in-out;
+	transform: translate(0) rotate(0);
+	animation: rottWithOpc 0.3s linear;
+
+	@media (min-width: 769px) {
+		left: 42px;
+		&.collapsed {
+			transform: translate(-75px, -76px) rotate(-90deg);
+			animation-name: rottWithOpc2;
+		}
+	}
+}
+
+@keyframes rottWithOpc {
+	0%, 100% {
+		opacity: 1;
+	}
+	20%, 80% {
+		opacity: 0;
+	}
+}
+
+@keyframes rottWithOpc2 {
+	0%, 100% {
+		opacity: 1;
+	}
+	20%, 80% {
+		opacity: 0;
+	}
+}

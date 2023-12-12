@@ -1,0 +1,37 @@
+<div class="node-picker flex-column h-100 border border-rad-4 bg-surface-top overflow-x-hidden"
+     [style.min-width.px]="parentInitialWidth"
+     (clickOutside)="closeEmitter.emit()">
+  <div class="flex-row p-relative">
+    <input #searchNode type="text" placeholder="Search"
+           class="flex-row border-rad-4 h-md m-5 mina-input pl-8 secondary w-100">
+    <div *ngIf="searchInput?.nativeElement.value"
+         class="add-node border-rad-4 secondary primary-hover pointer p-absolute flex-row align-center flex-center"
+         (click)="addNode($event)">
+      <span class="mina-icon icon-200 f-22">add</span>
+    </div>
+  </div>
+  <div class="p-5 flex-column border-top overflow-auto">
+    <div class="node h-xl pl-12 pr-12 flex-row flex-between border-rad-4 pointer"
+         *ngFor="let node of filteredNodes; let i=index"
+         (click)="selectNode(node)"
+         [ngClass]="{
+            'selected-primary bg-selected-container': activeNode === node,
+            'secondary bg-container-hover primary-hover': activeNode !== node,
+            'mb-5': i < filteredNodes.length - 1
+            }"
+         [tabindex]="0"
+         [tooltip]="node.url"
+         [showDelay]="500"
+         (keydown.space)="selectNode(node)"
+         (keydown.enter)="selectNode(node)">
+      <span class="mina-icon icon-200 f-20 divider"
+            [class.selected-primary]="activeNode === node">check
+      </span>
+      <div class="names flex-column h-xl pl-8">
+        <span class="flex-row align-end">{{ node.name }}</span>
+        <span class="truncate w-100"
+              [ngClass]="activeNode === node ? 'selected-secondary' : 'tertiary'">{{ node.url }}</span>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,37 @@
+@import 'openmina';
+
+.overflow-y-auto {
+  padding-bottom: 120px;
+}
+
+:host {
+  .title {
+    border: 1px solid $base-divider;
+    border-bottom: none;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    min-height: 36px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+
+    .mina-icon {
+      font-variation-settings: 'FILL' 1, 'wght' 200;
+    }
+  }
+  div.selected {
+    background-color: $selected-container;
+
+    .tree {
+      color: $selected-primary;
+    }
+
+    ::ng-deep mina-horizontal-menu .control div{
+      background-color: $selected-container !important;
+      color: $selected-primary !important;
+    }
+  }
+}
+
+.p-absolute {
+  right: 0;
+}

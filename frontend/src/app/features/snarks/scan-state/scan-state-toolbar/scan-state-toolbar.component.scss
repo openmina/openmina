@@ -1,0 +1,92 @@
+@import 'openmina';
+
+.pagination-group {
+  background-color: $base-container;
+  color: $base-tertiary;
+
+  button {
+    background-color: transparent;
+    color: $base-tertiary;
+
+    &:hover {
+      background-color: $base-container;
+    }
+  }
+
+  &.selected {
+    background-color: $selected-container;
+    color: $selected-primary;
+
+    button {
+      color: $selected-primary;
+
+      &:hover {
+        background-color: $selected-container;
+      }
+    }
+  }
+}
+
+form {
+  width: 150px;
+  background-color: $base-container;
+  color: $base-tertiary;
+
+  &:hover {
+    background-color: $base-divider;
+  }
+
+  input {
+    outline: none;
+    color: inherit;
+    background-color: unset;
+    padding-left: 35px;
+    padding-right: 25px;
+
+    &::placeholder {
+      font-weight: 400;
+    }
+  }
+
+  .p-absolute:first-child {
+    left: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .p-absolute:last-child {
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+  }
+
+  &.active {
+    background-color: $selected-container;
+    color: $selected-primary;
+
+    .p-absolute:last-child {
+      display: block;
+    }
+  }
+}
+
+.condensed {
+  background-color: $base-container;
+
+  .mina-icon {
+    color: $base-tertiary;
+  }
+
+  &:hover:not(.active) .mina-icon {
+    color: $base-primary;
+  }
+
+  &.active {
+    background-color: $selected-container;
+
+    .mina-icon {
+      color: $selected-primary;
+    }
+  }
+}

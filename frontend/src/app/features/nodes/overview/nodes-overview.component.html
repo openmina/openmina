@@ -1,0 +1,15 @@
+<mina-horizontal-resizable-container [leftTemplate]="left"
+                                     [rightTemplate]="right"
+                                     [show]="isActiveRow"
+                                     [minWidth]="360"
+                                     [maxWidthElement]="el.nativeElement"
+                                     localStorageKey="no-dashboard-spw">
+</mina-horizontal-resizable-container>
+
+<ng-template #left>
+  <mina-nodes-overview-table></mina-nodes-overview-table>
+</ng-template>
+
+<ng-template #right>
+  <mina-nodes-overview-side-panel></mina-nodes-overview-side-panel>
+</ng-template>

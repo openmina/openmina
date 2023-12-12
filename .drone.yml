@@ -10,6 +10,7 @@ trigger:
   - master
   - develop
   - feat/graphql
+  - frontend
 
 environment:
   REPLAYER_ID: 12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw
@@ -47,11 +48,21 @@ steps:
       - git config --global --add safe.directory /drone/src/deps/redux-rs
       - git submodule update --init --recursive
       - rm ~/.gitconfig
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: prepare-snark-worker
     image: *snark-worker-image
     commands:
       - cp /usr/local/bin/mina cli/bin/
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: build
     image: rust:1.71-buster
@@ -63,6 +74,11 @@ steps:
       - cargo build --release -p cli --bin openmina
       - cargo build --release --features scenario-generators -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-libp2p
       - cargo build --release --features scenario-generators,p2p-webrtc -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-webrtc
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
       # - cargo test --release --features scenario-generators --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_only | xargs -I {} mv {} ./target/release/test_libp2p_only
       # - cargo test --release --features scenario-generators,p2p-webrtc --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_only | xargs -I {} mv {} ./target/release/test_libp2p_only_with_webrtc_compiled
       # - cargo test --release --features scenario-generators,p2p-webrtc --no-run --message-format=json -v | jq '.executable' | grep node_libp2p_with | xargs -I {} mv {} ./target/release/test_libp2p_plus_webrtc
@@ -83,48 +99,88 @@ steps:
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-webrtc scenarios-generate --name solo-node-sync-root-snarked-ledger
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: solo-webrtc-initial-joining
     image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-webrtc scenarios-generate --name solo-node-basic-connectivity-initial-joining
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: multi-webrtc-initial-joining
     image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-webrtc scenarios-generate --name multi-node-basic-connectivity-initial-joining
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: solo-sync-root-snarked-ledger
     image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name solo-node-sync-root-snarked-ledger
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: solo-initial-joining
     image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name solo-node-basic-connectivity-initial-joining
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: multi-initial-joining
     image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name multi-node-basic-connectivity-initial-joining
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: solo-accept-incoming
     image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name solo-node-basic-connectivity-accept-incoming
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: multi-peer-discovery
     image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-buster-berkeley
     failure: ignore
     commands:
       - ./scripts/runner ./target/release/openmina-node-testing-libp2p scenarios-generate --name multi-node-basic-connectivity-peer-discovery
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: replayer
     image: vladsimplestakingcom/bootstrap-rr:graphql
@@ -135,6 +191,11 @@ steps:
       OPENMINA_P2P_SEC_KEY: 5JDRBqXfHm4Xne1QKUJyg9FKRfwN6gtduZb7nVYHg2F1BmwPynT
     commands:
       - RUST_LOG=info openmina-bootstrap-sandbox --path='/tmp/mina-record' --listen='/ip4/0.0.0.0/tcp/8302' --chain-id=$CHAIN_ID replay 234
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   # - name: empty
   #   image: vladsimplestakingcom/bootstrap-rr:graphql
@@ -176,6 +237,11 @@ steps:
                     /dns4/ocaml1/tcp/8302/p2p/12D3KooWKLzGWSdFAQGEAtrHan1TTwu7idagcZ83X6MXWfUJNiTU
           --run-snarker $OPENMINA1_SNARKER_KEY --snarker-strategy seq --snarker-exe-path cli/bin/snark-worker
           --additional-ledgers-path test_ledgers
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: openmina2
     image: *snark-worker-image
@@ -184,6 +250,11 @@ steps:
       - target/release/openmina node -p 10000 -v Debug -s $OPENMINA2_SK
           --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /dns4/openmina1/tcp/8302/p2p/$OPENMINA1_LIBP2P_ID /dns4/openmina3/tcp/8302/p2p/$OPENMINA3_LIBP2P_ID
           --run-snarker $OPENMINA2_SNARKER_KEY --snarker-strategy rand --snarker-exe-path cli/bin/snark-worker
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: test-bootstrap-replayer-to-openmina
     image: vladsimplestakingcom/bootstrap-rr:graphql
@@ -191,6 +262,11 @@ steps:
     commands:
       - sleep 180
       - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' --chain-id=$CHAIN_ID test-graphql 234 http://openmina1:10000/graphql
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: openmina3
     image: *snark-worker-image
@@ -199,6 +275,11 @@ steps:
       - target/release/openmina node -p 10000 -v Debug -s $OPENMINA3_SK
           --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /dns4/openmina1/tcp/8302/p2p/$OPENMINA1_LIBP2P_ID /dns4/openmina2/tcp/8302/p2p/$OPENMINA2_LIBP2P_ID
           --run-snarker $OPENMINA3_SNARKER_KEY --snarker-strategy rand --snarker-exe-path cli/bin/snark-worker
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
   - name: test-bootstrap-openmina-to-openmina
     image: vladsimplestakingcom/bootstrap-rr:graphql
@@ -206,7 +287,11 @@ steps:
     commands:
       - sleep 180
       - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' --chain-id=$CHAIN_ID test-graphql 234 http://openmina3:10000/graphql
-
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
   # - name: test-bootstrap-openmina-to-mina
   #   image: vladsimplestakingcom/bootstrap-rr:graphql
   #   pull: always
@@ -272,4 +357,68 @@ steps:
         # echo "TOTAL_COMMITMENTS=$$TOTAL_COMMITMENTS"
         # echo "NON_LOCAL_COMMITMENTS=$$NON_LOCAL_COMMITMENTS"
         # assert 'non-local commintment exists' '[ $$NON_LOCAL_COMMITMENTS -gt 0 ]'
+    when:
+      branch:
+        - master
+        - develop
+        - feat/graphql
 
+---
+kind: pipeline
+name: Build & Test Openmina Frontend
+type: docker
+
+steps:
+  - name: set-docker-buildkit
+    image: alpine
+    environment:
+      DOCKER_BUILDKIT: "0"
+    commands:
+      - echo "export DOCKER_BUILDKIT=0" >> $HOME/.bashrc
+      - source $HOME/.bashrc
+    when:
+      branch:
+        - frontend
+
+  - name: build
+    image: docker:latest
+    environment:
+      DOCKER_BUILDKIT: "0"
+    commands:
+      - COMMIT_SHORT_SHA=$(echo $DRONE_COMMIT_SHA | cut -c 1-7)
+      - docker build --no-cache -t directcuteo/rust-fe:$COMMIT_SHORT_SHA -f Dockerfile_FE .
+    volumes:
+      - name: docker_sock
+        path: /var/run/docker.sock
+    depends_on:
+      - set-docker-buildkit
+    when:
+      branch:
+        - frontend
+
+  - name: push
+    image: docker:latest
+    commands:
+      - echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+      - docker push directcuteo/rust-fe:${DRONE_COMMIT_SHA:0:7}
+    volumes:
+      - name: docker_sock
+        path: /var/run/docker.sock
+    environment:
+      DOCKER_USERNAME:
+        from_secret: teo_secret_username
+      DOCKER_PASSWORD:
+        from_secret: teo_secret_password
+    depends_on:
+      - build
+    when:
+      branch:
+        - frontend
+
+image_pull_secrets:
+  - docker_pull_secret
+
+volumes:
+  - name: docker_sock
+    host:
+      path: /var/run/docker.sock

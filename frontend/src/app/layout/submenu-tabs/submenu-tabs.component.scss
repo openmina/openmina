@@ -1,0 +1,35 @@
+@import 'openmina';
+
+.submenus {
+	.a-wrap {
+		min-width: 116px;
+	}
+
+	a {
+		background-color: transparent;
+		color: $base-secondary;
+		border-radius: 6px;
+		position: relative;
+		height: 24px;
+		line-height: 24px;
+
+		&:hover {
+			background-color: $base-container;
+		}
+
+		&.active {
+			color: $selected-primary;
+			background-color: $selected-container;
+		}
+
+		@media (max-width: 700px) {
+			height: 40px;
+			line-height: 40px;
+		}
+	}
+
+	.bar {
+		width: 8px;
+		height: 20px;
+	}
+}

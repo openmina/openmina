@@ -1,0 +1,8 @@
+<div class="bg-container border-rad-6 p-10">
+  <div class="mb-10 f-600">Add Step {{ currentStep + 1 }}</div>
+  <input type="text" class="w-100 border-rad-6 mina-input mb-10" [(ngModel)]="pastedText">
+  <div class="flex-row flex-between align-center">
+    <button class="btn-primary" (click)="cancel.emit()">Cancel</button>
+    <button class="btn-cta" (click)="confirm.emit(pastedText)">Confirm Step</button>
+  </div>
+</div>

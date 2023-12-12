@@ -1,0 +1,70 @@
+<button *ngIf="!openSidePanel && isMobile"
+				(click)="toggleSidePanel()"
+				class="p-absolute h-sm w-sm fx-row-full-cent btn-selected z-1 p-0 mt-10 mr-16">
+	<span class="mina-icon f-20">view_sidebar</span>
+</button>
+<ng-container *ngIf="!error">
+	<div class="flex-column h-100 overflow-y-auto">
+		<div class="flex-column p-5 m-5 border-rad-6" [class.selected]="activeLeaf?.treeIndex === i"
+				 *ngFor="let tree of trees; let i=index; trackBy: trackTree">
+			<div class="title">
+				<mina-horizontal-menu [template]="template"></mina-horizontal-menu>
+				<ng-template #template>
+					<div class="fx-row-vert-cent w-100 flex-between flex-column-md tertiary">
+						<div class="fx-row-vert-cent flex-center-md pl-8 flex-wrap shrink-0 mr-16">
+							<span class="f-600 mr-16 tree">Tree {{ i + 1 }}</span>
+							<span [class.base-secondary]="tree.availableJobs > 0">Available Jobs</span>
+							<span class="primary ml-5 mr-10"
+										[class.base-primary]="tree.availableJobs > 0">{{ tree.availableJobs }}</span>
+							<span [class.aware-secondary]="tree.ongoing > 0 && highlightSnarks">Ongoing</span>
+							<span [ngClass]="tree.ongoing > 0 && highlightSnarks ? 'aware-primary' : (tree.ongoing > 0 ? 'base-primary' : '')"
+										class="primary ml-5 mr-10">{{ tree.ongoing }}</span>
+							<span [class.aware-secondary]="tree.notIncludedSnarks > 0 && highlightSnarks">Snarks not incl.</span>
+							<span [ngClass]="tree.notIncludedSnarks > 0 && highlightSnarks ? 'aware-primary' : (tree.notIncludedSnarks > 0 ? 'base-primary' : '')"
+										class="primary ml-5 mr-10">{{ tree.notIncludedSnarks }}</span>
+							<span [class.special-alt-2-secondary]="tree.completedSnarks > 0">Snarks incl.</span>
+							<span class="primary ml-5"
+										[class.special-alt-2-primary]="tree.completedSnarks > 0">{{ tree.completedSnarks }}</span>
+						</div>
+						<div class="fx-row-vert-cent flex-center-md pr-8 shrink-0 flex-wrap ml-16">
+							<span class="primary fx-row-vert-cent">
+								<span class="mina-icon mr-5 f-16">circle</span>
+								{{ tree.payment }} Payment{{ tree.payment | plural }}
+							</span>
+							<span class="ml-10 code-magenta fx-row-vert-cent">
+								<span class="mina-icon mr-5 f-20" [style.margin-bottom.px]="2">star</span>
+								{{ tree.zkApp }} Zk App{{ tree.zkApp | plural }}
+							</span>
+							<span class="ml-10 code-teal fx-row-vert-cent">
+								<span class="mina-icon mr-5 f-16">square</span>
+								{{ tree.coinbase }} Coinbase{{ tree.coinbase | plural }}
+							</span>
+							<span class="ml-10 code-purple fx-row-vert-cent">
+		     				<span class="mina-icon mr-5 f-16">change_history</span>
+								{{ tree.feeTransfer }} Fee Tr.
+							</span>
+							<span class="ml-10">{{ tree.merge }} Merge{{ tree.merge | plural }}</span>
+							<span class="ml-10">{{ tree.empty }} Empty</span>
+						</div>
+					</div>
+				</ng-template>
+			</div>
+			<mina-scan-state-tree-chart [activeLeaf]="activeLeaf?.treeIndex === i ? activeLeaf : undefined"
+																	[blockHeight]="height"
+																	[tree]="tree"></mina-scan-state-tree-chart>
+		</div>
+	</div>
+</ng-container>
+<div *ngIf="error"
+		 class="p-absolute w-100 h-100 fx-col-full-cent">
+	<span class="mina-icon mb-16 icon-100 f-40">error</span>
+	<span class="f-600 f-big">No results</span>
+	<span class="tertiary mt-8 text-center">
+      The current selected height/hash couldn't be found.
+    </span>
+	<button class="btn-selected fx-row-vert-cent pl-12 pr-12 mt-16 h-lg"
+					(click)="checkLatestHeight()">
+		<span class="mr-5 mina-icon icon-200 f-20">arrow_right_alt</span>
+		See latest height
+	</button>
+</div>

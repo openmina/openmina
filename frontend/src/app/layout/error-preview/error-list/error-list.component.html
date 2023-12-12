@@ -1,0 +1,19 @@
+<div (clickOutside)="close()" class="flex-column">
+  <div class="err p-12 flex-row align-start" *ngFor="let error of errors">
+    <div class="flex-row align-center flex-center h-sm w-sm border-rad-6"
+         [ngClass]="error.seen ? 'bg-container' : 'bg-warn-container'">
+      <span class="mina-icon icon-200 f-20"
+            [class.warn-primary]="!error.seen">{{ errorIconMap[error.type] }}</span>
+    </div>
+    <div class="flex-1 h-100 ml-10 overflow-auto">
+      <div class="flex-row flex-between align-center h-sm mb-8">
+        <div class="f-600" [class.warn-primary]="!error.seen">{{ error.type }} Error</div>
+        <div class="tertiary f-300">{{ error.timestamp }}</div>
+      </div>
+      <div class="message secondary">
+        <div class="tertiary mb-5" *ngIf="error.status">{{ error.status }}</div>
+        {{ error.message }}
+      </div>
+    </div>
+  </div>
+</div>

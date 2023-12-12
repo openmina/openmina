@@ -1,0 +1,35 @@
+@import 'openmina';
+
+.th-group {
+  display: grid;
+  grid-template-columns: 300px 295px 1fr;
+
+  > span {
+    border-bottom: 1px solid $base-tertiary;
+
+    &:last-child {
+      min-width: 600px;
+    }
+  }
+}
+
+.status {
+  padding: 2px 5px;
+  border-radius: 4px;
+
+  &.Synced {
+    background-color: $success-container;
+    color: $success-primary;
+  }
+
+  &.Bootstrap,
+  &.Catchup {
+    background-color: $aware-container;
+    color: $aware-primary;
+  }
+
+  &.Offline {
+    background-color: $warn-container;
+    color: $warn-primary;
+  }
+}
