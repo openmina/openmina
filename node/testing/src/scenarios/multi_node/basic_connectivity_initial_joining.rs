@@ -153,7 +153,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 // TODO: calculate per peer
                 if let Some(debugger) = runner.cluster().debugger() {
                     let connections = debugger
-                        .connections(0)
+                        .connections()
                         .map(|(_, c)| (c.info.addr, c.info.fd, c.info.pid, c.incoming))
                         .collect::<HashSet<_>>();
                     let incoming = connections.iter().filter(|(_, _, _, i)| *i).count();

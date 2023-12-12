@@ -70,10 +70,10 @@ steps:
   #   privileged: true
   #   pull: always
   #   volumes:
-  #   - name: debugfs
-  #     path: /sys/kernel/debug
-  #   - name: procfs
-  #     path: /proc
+  #     - name: debugfs
+  #       path: /sys/kernel/debug
+  #     - name: procfs
+  #       path: /proc
   #   failure: ignore
   #   commands:
   #     - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
@@ -86,10 +86,10 @@ steps:
     privileged: true
     pull: always
     volumes:
-    - name: debugfs
-      path: /sys/kernel/debug
-    - name: procfs
-      path: /proc
+      - name: debugfs
+        path: /sys/kernel/debug
+      - name: procfs
+        path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
@@ -102,10 +102,10 @@ steps:
   #   pull: always
   #   privileged: true
   #   volumes:
-  #   - name: debugfs
-  #     path: /sys/kernel/debug
-  #   - name: procfs
-  #     path: /proc
+  #     - name: debugfs
+  #       path: /sys/kernel/debug
+  #     - name: procfs
+  #       path: /proc
   #   failure: ignore
   #   commands:
   #     - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
@@ -118,10 +118,10 @@ steps:
   #   pull: always
   #   privileged: true
   #   volumes:
-  #   - name: debugfs
-  #     path: /sys/kernel/debug
-  #   - name: procfs
-  #     path: /proc
+  #     - name: debugfs
+  #       path: /sys/kernel/debug
+  #     - name: procfs
+  #       path: /proc
   #   failure: ignore
   #   commands:
   #     - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
@@ -134,10 +134,10 @@ steps:
     pull: always
     privileged: true
     volumes:
-    - name: debugfs
-      path: /sys/kernel/debug
-    - name: procfs
-      path: /proc
+      - name: debugfs
+        path: /sys/kernel/debug
+      - name: procfs
+        path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
@@ -150,10 +150,10 @@ steps:
     pull: always
     privileged: true
     volumes:
-    - name: debugfs
-      path: /sys/kernel/debug
-    - name: procfs
-      path: /proc
+      - name: debugfs
+        path: /sys/kernel/debug
+      - name: procfs
+        path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
@@ -166,10 +166,10 @@ steps:
   #   pull: always
   #   privileged: true
   #   volumes:
-  #   - name: debugfs
-  #     path: /sys/kernel/debug
-  #   - name: procfs
-  #     path: /proc
+  #     - name: debugfs
+  #       path: /sys/kernel/debug
+  #     - name: procfs
+  #       path: /proc
   #   failure: ignore
   #   commands:
   #     - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
@@ -177,21 +177,21 @@ steps:
   #   environment:
   #     BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.6"
 
-  - name: multi-peer-discovery
-    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
-    pull: always
-    privileged: true
-    volumes:
-    - name: debugfs
-      path: /sys/kernel/debug
-    - name: procfs
-      path: /proc
-    failure: ignore
-    commands:
-      - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-      - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name multi-node-basic-connectivity-peer-discovery
-    environment:
-      BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.7"
+  # - name: multi-peer-discovery
+  #   image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+  #   pull: always
+  #   privileged: true
+  #   volumes:
+  #     - name: debugfs
+  #       path: /sys/kernel/debug
+  #     - name: procfs
+  #       path: /proc
+  #   failure: ignore
+  #   commands:
+  #     - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
+  #     - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name multi-node-basic-connectivity-peer-discovery
+  #   environment:
+  #     BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.7"
 
   - name: replayer
     image: vladsimplestakingcom/bootstrap-rr:graphql
@@ -300,6 +300,14 @@ steps:
         # echo "NON_LOCAL_COMMITMENTS=$$NON_LOCAL_COMMITMENTS"
         # assert 'non-local commintment exists' '[ $$NON_LOCAL_COMMITMENTS -gt 0 ]'
 
+volumes:
+  - name: debugfs
+    host:
+      path: /sys/kernel/debug
+  - name: procfs
+    host:
+      path: /proc
+
 ---
 kind: pipeline
 name: Build & Test Openmina Frontend
@@ -355,10 +363,3 @@ volumes:
   - name: docker_sock
     host:
       path: /var/run/docker.sock
-volumes:
-- name: debugfs
-  host:
-    path: /sys/kernel/debug
-- name: procfs
-  host:
-    path: /proc

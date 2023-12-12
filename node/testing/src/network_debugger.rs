@@ -138,7 +138,7 @@ impl Debugger {
             .unwrap_or_default()
     }
 
-    pub fn connections(&self, cursor: u64) -> Connections<'_> {
+    pub fn connections_raw(&self, cursor: u64) -> Connections<'_> {
         Connections {
             inner: self,
             cursor,
@@ -146,12 +146,47 @@ impl Debugger {
         }
     }
 
-    pub fn messages(&self, cursor: u64) -> Messages<'_> {
+    pub fn connections(&self) -> ConnectionsHandshaked<'_> {
+        ConnectionsHandshaked {
+            messages: self.messages(0, "stream_kind=/noise"),
+        }
+    }
+
+    pub fn messages(&self, cursor: u64, additional: &'static str) -> Messages<'_> {
         Messages {
             inner: self,
             cursor,
+            additional,
             buffer: VecDeque::default(),
         }
+    }
+}
+
+pub struct ConnectionsHandshaked<'a> {
+    messages: Messages<'a>,
+}
+
+impl<'a> Iterator for ConnectionsHandshaked<'a> {
+    type Item = (u64, Connection);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (_, msg) = self.messages.next()?;
+        let id = msg.connection_id;
+
+        let port = self.messages.inner.port;
+        let host = self.messages.inner.host;
+        let res = self
+            .messages
+            .inner
+            .client
+            .get(&format!("http://{host}:{port}/connection/{id}"))
+            .send()
+            .ok()?
+            .text()
+            .ok()?;
+        serde_json::from_str::<Connection>(&res)
+            .ok()
+            .map(|cn| (id, cn))
     }
 }
 
@@ -183,6 +218,7 @@ impl<'a> Iterator for Connections<'a> {
 pub struct Messages<'a> {
     inner: &'a Debugger,
     cursor: u64,
+    additional: &'static str,
     buffer: VecDeque<(u64, FullMessage)>,
 }
 
@@ -191,7 +227,15 @@ impl<'a> Iterator for Messages<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.buffer.is_empty() {
-            let params = format!("direction=forward&limit=100&id={}", self.cursor);
+            let params = if self.additional.is_empty() {
+                format!("direction=forward&limit=100&id={}", self.cursor)
+            } else {
+                format!(
+                    "direction=forward&limit=100&id={}&{}",
+                    self.cursor, self.additional
+                )
+            };
+
             let msgs = self
                 .inner
                 .get_messages(&params)
