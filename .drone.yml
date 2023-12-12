@@ -175,7 +175,6 @@ steps:
           --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /dns4/openmina2/tcp/8302/p2p/$OPENMINA2_LIBP2P_ID /dns4/openmina3/tcp/8302/p2p/$OPENMINA3_LIBP2P_ID
                     /dns4/ocaml1/tcp/8302/p2p/12D3KooWKLzGWSdFAQGEAtrHan1TTwu7idagcZ83X6MXWfUJNiTU
           --run-snarker $OPENMINA1_SNARKER_KEY --snarker-strategy seq --snarker-exe-path cli/bin/snark-worker
-          --additional-ledgers-path test_ledgers
 
   - name: openmina2
     image: *snark-worker-image
