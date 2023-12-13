@@ -11,11 +11,24 @@ use super::{BlockProducerVrfEvaluatorEpochDataUpdateAction, BlockProducerVrfEval
 
 impl BlockProducerVrfEvaluatorEpochDataUpdateAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        let producer = &store.state().block_producer.vrf_evaluator.producer_pub_key;
+        // TODO(adonagy): once block producer is enabled
+        // if let Some(config) = store.state().block_producer.config() {
+        //     store.dispatch(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
+        //         current_epoch_ledger_hash: self.epoch_data.ledger.hash,
+        //         next_epoch_ledger_hash: self.next_epoch_data.ledger.hash,
+        //         producer: config.pub_key.to_string(),
+        //     });
+        // }
 
-        // TODO(adonagy): move to enabling condition
-        if let Some(producer) = producer {
-            store.dispatch(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction { current_epoch_ledger_hash: self.epoch_data.ledger.hash, next_epoch_ledger_hash: self.next_epoch_data.ledger.hash, producer: producer.to_string()});
+        // let vrf_evaluator_state = store.state().block_producer.vrf_evaluator();
+        println!("BlockProducerVrfEvaluatorEpochDataUpdateAction effects called");
+        if let Some(vrf_evaluator_state) = store.state().block_producer.vrf_evaluator() {
+            println!("Vrf evaluator state OK");
+            store.dispatch(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
+                current_epoch_ledger_hash: self.epoch_data.ledger.hash,
+                next_epoch_ledger_hash: self.next_epoch_data.ledger.hash,
+                producer: vrf_evaluator_state.producer_pub_key.to_string(),
+            });
         }
     }
 }
@@ -32,35 +45,38 @@ impl BlockProducerVrfEvaluatorEvaluateVrfAction {
 
 impl BlockProducerVrfEvaluatorEvaluationSuccessAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        let next_slot = store.state().block_producer.vrf_evaluator.latest_evaluated_slot + 1;
+        let vrf_evaluator_state = store.state().block_producer.vrf_evaluator();
 
-        const SLOTS_PER_EPOCH: u32 = 7140;
-        // determine the epoch of the slot
-        if let Some(current_epoch) = store.state().block_producer.vrf_evaluator.current_epoch {
-            let current_epoch_end = current_epoch * SLOTS_PER_EPOCH + SLOTS_PER_EPOCH - 1;
-            let next_epoch_end = (current_epoch + 1) * SLOTS_PER_EPOCH + SLOTS_PER_EPOCH - 1;
+        if let Some(vrf_evaluator_state) = vrf_evaluator_state {
+            let next_slot = vrf_evaluator_state.latest_evaluated_slot + 1;
+            // TODO(adonagy): Can we get this from somewhere?
+            const SLOTS_PER_EPOCH: u32 = 7140;
+            // determine the epoch of the slot
+            if let Some(current_epoch) = vrf_evaluator_state.current_epoch {
+                let current_epoch_end = current_epoch * SLOTS_PER_EPOCH + SLOTS_PER_EPOCH - 1;
+                let next_epoch_end = (current_epoch + 1) * SLOTS_PER_EPOCH + SLOTS_PER_EPOCH - 1;
 
-            // slot is in the current epoch
-            if next_slot <= current_epoch_end {
-                let vrf_input: VrfEvaluatorInput = VrfEvaluatorInput::new(
-                    store.state().block_producer.vrf_evaluator.current_epoch_data.seed.clone(),
-                    store.state().block_producer.vrf_evaluator.current_epoch_data.delegator_table.clone(),
-                    next_slot,
-                    store.state().block_producer.vrf_evaluator.current_epoch_data.total_currency,
-                );
-                store.dispatch(BlockProducerVrfEvaluatorEvaluateVrfAction { vrf_input });
-            // slot is in the next epoch
-            } else if next_slot > current_epoch_end && next_slot <= next_epoch_end {
-                let vrf_input = VrfEvaluatorInput::new(
-                    store.state().block_producer.vrf_evaluator.next_epoch_data.seed.clone(),
-                    store.state().block_producer.vrf_evaluator.next_epoch_data.delegator_table.clone(),
-                    next_slot,
-                    store.state().block_producer.vrf_evaluator.next_epoch_data.total_currency,
-                );
-                store.dispatch(BlockProducerVrfEvaluatorEvaluateVrfAction { vrf_input });
+                // slot is in the current epoch
+                if next_slot <= current_epoch_end {
+                    let vrf_input: VrfEvaluatorInput = VrfEvaluatorInput::new(
+                        vrf_evaluator_state.current_epoch_data.seed.clone(),
+                        vrf_evaluator_state.current_epoch_data.delegator_table.clone(),
+                        next_slot,
+                        vrf_evaluator_state.current_epoch_data.total_currency,
+                    );
+                    store.dispatch(BlockProducerVrfEvaluatorEvaluateVrfAction { vrf_input });
+                // slot is in the next epoch
+                } else if next_slot > current_epoch_end && next_slot <= next_epoch_end {
+                    let vrf_input = VrfEvaluatorInput::new(
+                        vrf_evaluator_state.next_epoch_data.seed.clone(),
+                        vrf_evaluator_state.next_epoch_data.delegator_table.clone(),
+                        next_slot,
+                        vrf_evaluator_state.next_epoch_data.total_currency,
+                    );
+                    store.dispatch(BlockProducerVrfEvaluatorEvaluateVrfAction { vrf_input });
+                }
             }
         }
-
     }
 }
 
@@ -84,12 +100,16 @@ impl BlockProducerVrfEvaluatorNewEpochAction {
 
 impl BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        let vrf_input: VrfEvaluatorInput = VrfEvaluatorInput::new(
-            store.state().block_producer.vrf_evaluator.current_epoch_data.seed.clone(),
-            store.state().block_producer.vrf_evaluator.current_epoch_data.delegator_table.clone(),
-            store.state().block_producer.vrf_evaluator.current_best_tip_slot + 1,
-            store.state().block_producer.vrf_evaluator.current_epoch_data.total_currency,
-        );
-        store.dispatch(BlockProducerVrfEvaluatorEvaluateVrfAction { vrf_input });
+        let vrf_evaluator_state = store.state().block_producer.vrf_evaluator();
+
+        if let Some(vrf_evaluator_state) = vrf_evaluator_state {
+            let vrf_input: VrfEvaluatorInput = VrfEvaluatorInput::new(
+                vrf_evaluator_state.current_epoch_data.seed.clone(),
+                vrf_evaluator_state.current_epoch_data.delegator_table.clone(),
+                vrf_evaluator_state.current_best_tip_slot + 1,
+                vrf_evaluator_state.current_epoch_data.total_currency,
+            );
+            store.dispatch(BlockProducerVrfEvaluatorEvaluateVrfAction { vrf_input });
+        }
     }
 }
