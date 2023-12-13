@@ -15,9 +15,10 @@ use crate::{
 };
 
 use super::intefaces::{
-    AccountUpdateInterface, AmountInterface, BoolInterface, CallForestInterface,
-    CallStackInterface, IndexInterface, OnIfParam, Opt, SignedAmountInterface, StackFrameInterface,
-    StackFrameMakeParams, StackInterface, WitnessGenerator,
+    AccountUpdateInterface, AmountInterface, BoolInterface, BranchInterface, BranchParam,
+    BranchResult, CallForestInterface, CallStackInterface, IndexInterface, Opt,
+    SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
+    StackInterface, WitnessGenerator,
 };
 
 impl<F: FieldWitness> WitnessGenerator<F> for () {
@@ -29,14 +30,12 @@ impl<F: FieldWitness> WitnessGenerator<F> for () {
     {
         data
     }
-
     fn exists_no_check<T>(&mut self, data: T) -> T
     where
         T: ToFieldElements<F>,
     {
         data
     }
-
     fn exists_no_check_on_bool<T>(&mut self, _b: Self::Bool, data: T) -> T
     where
         T: ToFieldElements<F>,
@@ -91,7 +90,11 @@ impl SignedAmountInterface for Signed<Amount> {
     fn of_unsigned(unsigned: Self::Amount) -> Self {
         todo!()
     }
-    fn exists_on_if<'a>(b: Self::Bool, param: OnIfParam<&'a Self>, w: &mut Self::W) -> &'a Self {
+    fn exists_on_if<'a>(
+        b: Self::Bool,
+        param: SignedAmountBranchParam<&'a Self>,
+        w: &mut Self::W,
+    ) -> &'a Self {
         todo!()
     }
 }
@@ -116,11 +119,17 @@ impl StackFrameInterface for StackFrame {
     fn make_default(params: StackFrameMakeParams<'_, Self::Calls>) -> Self {
         todo!()
     }
-    fn on_if(self, w: &mut Self::W) -> Self {
-        self
-    }
-    fn exists_on_if(b: Self::Bool, param: OnIfParam<Self>, w: &mut Self::W) -> Self {
-        todo!()
+    fn on_if<F: FnOnce(&mut Self::W) -> Self, F2: FnOnce(&mut Self::W) -> Self>(
+        b: Self::Bool,
+        param: BranchParam<Self, Self::W, F, F2>,
+        w: &mut Self::W,
+    ) -> Self {
+        let BranchParam { on_true, on_false } = param;
+
+        match b {
+            Boolean::True => on_true.get(w),
+            Boolean::False => on_false.get(w),
+        }
     }
 }
 
@@ -267,5 +276,18 @@ impl AccountUpdateInterface for AccountUpdate {
     }
     fn balance_change(&self) -> Self::SignedAmount {
         todo!()
+    }
+}
+
+struct NonSnarkBranch;
+
+impl BranchInterface for NonSnarkBranch {
+    type W = ();
+
+    fn make<T, F>(_w: &mut Self::W, run: F) -> BranchResult<T, Self::W, F>
+    where
+        F: FnOnce(&mut Self::W) -> T,
+    {
+        BranchResult::Pending(run)
     }
 }

@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
@@ -14,7 +16,10 @@ use crate::scan_state::transaction_logic::TransactionFailure;
 use crate::sparse_ledger::LedgerIntf;
 use crate::{AccountId, AuthRequired, MyCow, ReceiptChainHash, TokenId, ZkAppAccount};
 
-pub trait WitnessGenerator<F: FieldWitness> {
+pub trait WitnessGenerator<F: FieldWitness>
+where
+    Self: Sized,
+{
     type Bool: BoolInterface;
 
     fn exists<T>(&mut self, data: T) -> T
@@ -34,6 +39,20 @@ pub trait WitnessGenerator<F: FieldWitness> {
     fn exists_no_check_on_bool<T>(&mut self, b: Self::Bool, data: T) -> T
     where
         T: ToFieldElements<F>;
+
+    fn on_if<T, Fun, Fun2>(&mut self, b: Self::Bool, param: BranchParam<T, Self, Fun, Fun2>) -> T
+    where
+        T: ToFieldElements<F>,
+        Fun: FnOnce(&mut Self) -> T,
+        Fun2: FnOnce(&mut Self) -> T,
+    {
+        let BranchParam { on_true, on_false } = param;
+        let value = match b.as_boolean() {
+            Boolean::True => on_true.get(self),
+            Boolean::False => on_false.get(self),
+        };
+        self.exists_no_check(value)
+    }
 }
 
 pub trait ZkappHandler {
@@ -111,7 +130,11 @@ where
     fn negate(&self) -> Self;
     fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool);
     fn of_unsigned(unsigned: Self::Amount) -> Self;
-    fn exists_on_if<'a>(b: Self::Bool, param: OnIfParam<&'a Self>, w: &mut Self::W) -> &'a Self;
+    fn exists_on_if<'a>(
+        b: Self::Bool,
+        param: SignedAmountBranchParam<&'a Self>,
+        w: &mut Self::W,
+    ) -> &'a Self;
 }
 
 pub trait BalanceInterface
@@ -194,9 +217,14 @@ pub struct StackFrameMakeParams<'a, Calls> {
     pub calls: &'a Calls,
 }
 
-pub struct OnIfParam<T> {
+pub struct SignedAmountBranchParam<T> {
     pub on_true: T,
     pub on_false: T,
+}
+
+pub struct BranchParam<T, W, F: FnOnce(&mut W) -> T, F2: FnOnce(&mut W) -> T> {
+    pub on_true: BranchResult<T, W, F>,
+    pub on_false: BranchResult<T, W, F2>,
 }
 
 pub trait StackFrameInterface
@@ -212,8 +240,14 @@ where
     fn calls(&self) -> &Self::Calls;
     fn make(params: StackFrameMakeParams<'_, Self::Calls>) -> Self;
     fn make_default(params: StackFrameMakeParams<'_, Self::Calls>) -> Self;
-    fn on_if(self, w: &mut Self::W) -> Self;
-    fn exists_on_if(b: Self::Bool, param: OnIfParam<Self>, w: &mut Self::W) -> Self;
+    fn on_if<F, F2>(
+        b: Self::Bool,
+        param: BranchParam<Self, Self::W, F, F2>,
+        w: &mut Self::W,
+    ) -> Self
+    where
+        F: FnOnce(&mut Self::W) -> Self,
+        F2: FnOnce(&mut Self::W) -> Self;
 }
 
 pub trait StackInterface
@@ -465,6 +499,40 @@ pub trait ActionsInterface {
     fn push_events(event: Fp, actions: &zkapp_command::Actions, w: &mut Self::W) -> Fp;
 }
 
+// TODO: This could be made into a Trait
+pub enum BranchResult<T, W, F: FnOnce(&mut W) -> T> {
+    Evaluated(T, PhantomData<W>),
+    Pending(F),
+}
+
+impl<T, W, F> BranchResult<T, W, F>
+where
+    F: FnOnce(&mut W) -> T,
+{
+    pub fn get(self, w: &mut W) -> T {
+        match self {
+            BranchResult::Evaluated(v, _) => v,
+            BranchResult::Pending(fun) => fun(w),
+        }
+    }
+}
+
+/// - During witness generation (in-snark), we want to evaluate both branches
+///   when there is a condition (`on_if`)
+/// - But during tx application (non-snark), we just want to evaluate 1 branch.
+///   Evaluating both branches in that case would be a waste of cpu/ressource
+///   and would result in a slower application
+///
+/// Note that in `zkapp_logic::apply`, we don't always use that interface, we
+/// use it mostly when 1 of the branch is expensive
+pub trait BranchInterface {
+    type W: WitnessGenerator<Fp>;
+
+    fn make<T, F>(w: &mut Self::W, run: F) -> BranchResult<T, Self::W, F>
+    where
+        F: FnOnce(&mut Self::W) -> T;
+}
+
 pub trait ZkappApplication
 where
     Self: Sized,
@@ -568,5 +636,6 @@ where
         W = Self::WitnessGenerator,
         GlobalState = Self::GlobalState,
     >;
+    type Branch: BranchInterface<W = Self::WitnessGenerator>;
     type WitnessGenerator: WitnessGenerator<Fp, Bool = Self::Bool>;
 }

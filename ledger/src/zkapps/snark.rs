@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::{fmt::Write, marker::PhantomData};
 
 use ark_ff::Zero;
 use mina_hasher::Fp;
@@ -42,12 +42,13 @@ use crate::{
 
 use super::intefaces::{
     AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
-    AmountInterface, BalanceInterface, BoolInterface, CallForestInterface, CallStackInterface,
-    ControllerInterface, GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface,
-    GlobalStateInterface, IndexInterface, LedgerInterface, LocalStateInterface, OnIfParam, Opt,
-    ReceiptChainHashInterface, SetOrKeepInterface, SignedAmountInterface, StackFrameInterface,
-    StackFrameMakeParams, StackInterface, TokenIdInterface, TransactionCommitmentInterface,
-    VerificationKeyHashInterface, WitnessGenerator, ZkappApplication, ZkappHandler,
+    AmountInterface, BalanceInterface, BoolInterface, BranchInterface, BranchParam, BranchResult,
+    CallForestInterface, CallStackInterface, ControllerInterface, GlobalSlotSinceGenesisInterface,
+    GlobalSlotSpanInterface, GlobalStateInterface, IndexInterface, LedgerInterface,
+    LocalStateInterface, Opt, ReceiptChainHashInterface, SetOrKeepInterface,
+    SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
+    StackInterface, TokenIdInterface, TransactionCommitmentInterface, VerificationKeyHashInterface,
+    WitnessGenerator, ZkappApplication, ZkappHandler,
 };
 
 pub struct ZkappSnark;
@@ -80,6 +81,7 @@ impl ZkappApplication for ZkappSnark {
     type Actions = SnarkActions;
     type ReceiptChainHash = SnarkReceiptChainHash;
     type Handler = super::snark::SnarkHandler;
+    type Branch = SnarkBranch;
     type WitnessGenerator = Witness<Fp>;
 }
 
@@ -182,14 +184,12 @@ impl<F: FieldWitness> WitnessGenerator<F> for Witness<F> {
     {
         self.exists(data)
     }
-
     fn exists_no_check<T>(&mut self, data: T) -> T
     where
         T: ToFieldElements<F>,
     {
         self.exists_no_check(data)
     }
-
     fn exists_no_check_on_bool<T>(&mut self, b: Self::Bool, data: T) -> T
     where
         T: ToFieldElements<F>,
@@ -301,8 +301,12 @@ impl SignedAmountInterface for CheckedSigned<Fp, CheckedAmount<Fp>> {
     fn of_unsigned(unsigned: Self::Amount) -> Self {
         Self::of_unsigned(unsigned)
     }
-    fn exists_on_if<'a>(b: Self::Bool, param: OnIfParam<&'a Self>, w: &mut Self::W) -> &'a Self {
-        let OnIfParam { on_true, on_false } = param;
+    fn exists_on_if<'a>(
+        b: Self::Bool,
+        param: SignedAmountBranchParam<&'a Self>,
+        w: &mut Self::W,
+    ) -> &'a Self {
+        let SignedAmountBranchParam { on_true, on_false } = param;
 
         let amount = w.exists_no_check(match b.as_boolean() {
             Boolean::True => on_true,
@@ -464,13 +468,15 @@ impl StackFrameInterface for StackFrameChecked {
         };
         Self::of_frame(frame)
     }
-    fn on_if(self, w: &mut Self::W) -> Self {
-        let frame: &StackFrameCheckedFrame = &*self;
-        w.exists_no_check(frame);
-        self
-    }
-    fn exists_on_if(b: Self::Bool, param: OnIfParam<Self>, w: &mut Self::W) -> Self {
-        let OnIfParam { on_true, on_false } = param;
+    fn on_if<F: FnOnce(&mut Self::W) -> Self, F2: FnOnce(&mut Self::W) -> Self>(
+        b: Self::Bool,
+        param: BranchParam<Self, Self::W, F, F2>,
+        w: &mut Self::W,
+    ) -> Self {
+        let BranchParam { on_true, on_false } = param;
+        let on_true = on_true.get(w);
+        let on_false = on_false.get(w);
+
         let data = match b.as_boolean() {
             Boolean::True => on_true.data.clone(),
             Boolean::False => on_false.data.clone(),
@@ -1423,5 +1429,18 @@ impl ReceiptChainHashInterface for SnarkReceiptChainHash {
         inputs.append(&other);
 
         ReceiptChainHash(checked_hash("MinaReceiptUC", &inputs.to_fields(), w))
+    }
+}
+
+pub struct SnarkBranch;
+
+impl BranchInterface for SnarkBranch {
+    type W = Witness<Fp>;
+
+    fn make<T, F>(w: &mut Self::W, run: F) -> BranchResult<T, Self::W, F>
+    where
+        F: FnOnce(&mut Self::W) -> T,
+    {
+        BranchResult::Evaluated(run(w), PhantomData)
     }
 }

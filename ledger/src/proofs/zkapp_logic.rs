@@ -77,11 +77,11 @@ fn pop_call_stack<Z: ZkappApplication>(
 
     let on_none = stack_frame_default::<Z>(w);
 
-    let left = Z::StackFrame::exists_on_if(
+    let left = Z::StackFrame::on_if(
         Z::Bool::of_boolean(next_frame.is_some),
-        OnIfParam {
-            on_true: next_frame.data,
-            on_false: on_none,
+        BranchParam {
+            on_true: Z::Branch::make(w, |_| next_frame.data),
+            on_false: Z::Branch::make(w, |_| on_none),
         },
         w,
     );
@@ -164,11 +164,11 @@ fn get_next_account_update<Z: ZkappApplication>(
             Boolean::False => call_stack,
         });
 
-        let left = Z::StackFrame::exists_on_if(
+        let left = Z::StackFrame::on_if(
             current_is_empty,
-            OnIfParam {
-                on_true: next_forest,
-                on_false: current_forest,
+            BranchParam {
+                on_true: Z::Branch::make(w, |_| next_forest),
+                on_false: Z::Branch::make(w, |_| current_forest),
             },
             w,
         );
@@ -180,16 +180,20 @@ fn get_next_account_update<Z: ZkappApplication>(
 
     let may_use_token = &account_update.body().may_use_token;
     let may_use_parents_own_token = may_use_token.parents_own_token().to_boolean();
-    let may_use_token_inherited_from_parent = may_use_token.inherit_from_parent().to_boolean();
+    let may_use_token_inherited_from_parent =
+        { Z::Bool::of_boolean(may_use_token.inherit_from_parent().to_boolean()) };
 
-    let on_false = w.exists_no_check(match may_use_parents_own_token {
-        Boolean::True => current_forest.caller(),
-        Boolean::False => TokenId::default(),
+    let on_false = Z::Branch::make(w, |w| {
+        w.exists_no_check(match may_use_parents_own_token {
+            Boolean::True => current_forest.caller(),
+            Boolean::False => TokenId::default(),
+        })
     });
-    let caller_id = w.exists_no_check(match may_use_token_inherited_from_parent {
-        Boolean::True => current_forest.caller_caller(),
-        Boolean::False => on_false,
-    });
+    let on_true = Z::Branch::make(w, |_| current_forest.caller_caller());
+    let caller_id = w.on_if(
+        may_use_token_inherited_from_parent,
+        BranchParam { on_true, on_false },
+    );
 
     let account_update_forest_empty = account_update_forest.is_empty(w);
     let remainder_of_current_forest_empty = remainder_of_current_forest.is_empty(w);
@@ -201,28 +205,34 @@ fn get_next_account_update<Z: ZkappApplication>(
         calls: &remainder_of_current_forest,
     });
     let new_call_stack = {
-        let on_false = {
-            let on_false = Z::CallStack::push(
-                remainder_of_current_forest_frame.clone(),
-                call_stack.clone(),
-                w,
-            );
-            w.exists_no_check(match remainder_of_current_forest_empty.as_boolean() {
-                Boolean::True => MyCow::Borrow(&call_stack),
-                Boolean::False => MyCow::Own(on_false),
-            })
-        };
-        let on_true = w.exists_no_check(match remainder_of_current_forest_empty.as_boolean() {
-            Boolean::True => MyCow::Borrow(&popped_call_stack),
-            Boolean::False => MyCow::Borrow(&call_stack),
+        let on_false = Z::Branch::make(w, |w| {
+            let on_false = Z::Branch::make(w, |w| {
+                MyCow::Own(Z::CallStack::push(
+                    remainder_of_current_forest_frame.clone(),
+                    call_stack.clone(),
+                    w,
+                ))
+            });
+            let on_true = Z::Branch::make(w, |_| MyCow::Borrow(&call_stack));
+            w.on_if(
+                remainder_of_current_forest_empty,
+                BranchParam { on_true, on_false },
+            )
         });
-        w.exists_no_check(match account_update_forest_empty.as_boolean() {
-            Boolean::True => on_true,
-            Boolean::False => on_false,
-        })
+        let on_true = Z::Branch::make(w, |w| {
+            w.exists_no_check(match remainder_of_current_forest_empty.as_boolean() {
+                Boolean::True => MyCow::Borrow(&popped_call_stack),
+                Boolean::False => MyCow::Borrow(&call_stack),
+            })
+        });
+        w.on_if(
+            account_update_forest_empty,
+            BranchParam { on_true, on_false },
+        )
     };
     let new_frame = {
-        let on_false = {
+        // We decompose this way because of OCaml evaluation order
+        let on_false = Z::Branch::make(w, |w| {
             let caller = Z::AccountId::derive_token_id(&account_update.body().account_id(), w);
             let caller_caller = caller_id.clone();
             Z::StackFrame::make(StackFrameMakeParams {
@@ -230,21 +240,20 @@ fn get_next_account_update<Z: ZkappApplication>(
                 caller_caller,
                 calls: &account_update_forest,
             })
-        };
-        let on_true = {
-            Z::StackFrame::exists_on_if(
+        });
+        let on_true = Z::Branch::make(w, |w| {
+            Z::StackFrame::on_if(
                 remainder_of_current_forest_empty,
-                OnIfParam {
-                    on_true: newly_popped_frame,
-                    on_false: remainder_of_current_forest_frame,
+                BranchParam {
+                    on_true: Z::Branch::make(w, |_| newly_popped_frame),
+                    on_false: Z::Branch::make(w, |_| remainder_of_current_forest_frame),
                 },
                 w,
             )
-        };
-
-        Z::StackFrame::exists_on_if(
+        });
+        Z::StackFrame::on_if(
             account_update_forest_empty,
-            OnIfParam { on_true, on_false },
+            BranchParam { on_true, on_false },
             w,
         )
     };
@@ -370,19 +379,15 @@ where
                         Boolean::False => local_state.call_stack.clone(),
                     });
                     let left = {
-                        let on_true = Z::StackFrame::make(StackFrameMakeParams {
-                            caller: TokenId::default(),
-                            caller_caller: TokenId::default(),
-                            calls: &start_data.account_updates,
+                        let on_true = Z::Branch::make(w, |_| {
+                            Z::StackFrame::make(StackFrameMakeParams {
+                                caller: TokenId::default(),
+                                caller_caller: TokenId::default(),
+                                calls: &start_data.account_updates,
+                            })
                         });
-                        Z::StackFrame::exists_on_if(
-                            is_start2,
-                            OnIfParam {
-                                on_true,
-                                on_false: local_state.stack_frame.clone(),
-                            },
-                            w,
-                        )
+                        let on_false = Z::Branch::make(w, |_| local_state.stack_frame.clone());
+                        Z::StackFrame::on_if(is_start2, BranchParam { on_true, on_false }, w)
                     };
                     (left, right)
                 }
@@ -672,7 +677,7 @@ where
         let creation_overflow = Z::Bool::and(pay_creation_fee, creation_overflow, w);
         let balance_change = Z::SignedAmount::exists_on_if(
             pay_creation_fee,
-            OnIfParam {
+            SignedAmountBranchParam {
                 on_true: &balance_change_for_creation,
                 on_false: &balance_change,
             },
@@ -715,7 +720,7 @@ where
             );
             local_state.excess = Z::SignedAmount::exists_on_if(
                 pay_creation_fee_from_excess,
-                OnIfParam {
+                SignedAmountBranchParam {
                     on_true: &excess_minus_creation_fee,
                     on_false: &local_state.excess,
                 },
@@ -739,7 +744,7 @@ where
             );
             local_state.supply_increase = Z::SignedAmount::exists_on_if(
                 account_is_new,
-                OnIfParam {
+                SignedAmountBranchParam {
                     on_true: &supply_increase_minus_creation_fee,
                     on_false: &local_state.supply_increase,
                 },
@@ -1166,7 +1171,7 @@ where
 
         let excess = Z::SignedAmount::exists_on_if(
             account_update_token_is_default,
-            OnIfParam {
+            SignedAmountBranchParam {
                 on_true: &new_local_fee_excess,
                 on_false: &local_state.excess,
             },
@@ -1221,7 +1226,7 @@ where
         let global_excess_update_failed = Z::Bool::and(update_global_state_fee_excess, overflow, w);
         let new_amt = Z::SignedAmount::exists_on_if(
             update_global_state_fee_excess,
-            OnIfParam {
+            SignedAmountBranchParam {
                 on_true: &res,
                 on_false: &amt,
             },
@@ -1234,7 +1239,7 @@ where
     let signed_zero = Z::SignedAmount::of_unsigned(Z::Amount::zero());
     local_state.excess = Z::SignedAmount::exists_on_if(
         is_start_or_last,
-        OnIfParam {
+        SignedAmountBranchParam {
             on_true: &signed_zero,
             on_false: &local_state.excess,
         },
@@ -1292,7 +1297,7 @@ where
         let global_state_supply_increase = global_state.supply_increase();
         let supply_increase = Z::SignedAmount::exists_on_if(
             is_successful_last_party,
-            OnIfParam {
+            SignedAmountBranchParam {
                 on_true: &new_global_supply_increase,
                 on_false: &global_state_supply_increase,
             },
@@ -1323,7 +1328,7 @@ where
         let signed_zero = Z::SignedAmount::of_unsigned(Z::Amount::zero());
         let supply_increase = Z::SignedAmount::exists_on_if(
             is_last_account_update,
-            OnIfParam {
+            SignedAmountBranchParam {
                 on_true: &signed_zero,
                 on_false: &local_state.supply_increase,
             },
