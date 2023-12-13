@@ -1,22 +1,18 @@
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
-use crate::proofs::numbers::currency::{CheckedAmount, CheckedSigned};
-use crate::proofs::numbers::nat::{CheckedIndex, CheckedSlot};
 use crate::proofs::to_field_elements::ToFieldElements;
-use crate::proofs::witness::{Boolean, Check, FieldWitness, Witness};
-use crate::proofs::wrap::CircuitVar;
-use crate::proofs::zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash, ZkappSingleData};
+use crate::proofs::witness::{Boolean, Check, FieldWitness};
+
 use crate::proofs::zkapp_logic;
 use crate::scan_state::currency::{self, SlotSpan};
-use crate::scan_state::transaction_logic::local_state::{StackFrame, StackFrameChecked};
+
 use crate::scan_state::transaction_logic::zkapp_command::{
-    self, AccountUpdate, AccountUpdateSkeleton, CallForest, CheckAuthorizationResult, SetOrKeep,
-    WithHash,
+    self, CheckAuthorizationResult, SetOrKeep,
 };
 use crate::scan_state::transaction_logic::TransactionFailure;
 use crate::sparse_ledger::LedgerIntf;
-use crate::{Account, AccountId, AuthRequired, MyCow, ReceiptChainHash, TokenId, ZkAppAccount};
+use crate::{AccountId, AuthRequired, MyCow, ReceiptChainHash, TokenId, ZkAppAccount};
 
 pub trait WitnessGenerator<F: FieldWitness> {
     type Bool: BoolInterface;
@@ -40,38 +36,34 @@ pub trait WitnessGenerator<F: FieldWitness> {
         T: ToFieldElements<F>;
 }
 
-use WitnessGenerator as W;
+pub trait ZkappHandler {
+    type Z: ZkappApplication;
+    type AccountUpdate: AccountUpdateInterface;
+    type Account: AccountInterface;
+    type Bool: BoolInterface;
+    type W: WitnessGenerator<Fp>;
+    type GlobalState: GlobalStateInterface;
 
-pub trait ZkappHandler<Z: ZkappApplication + Sized> {
     fn check_account_precondition(
-        account_update: &Z::AccountUpdate,
-        account: &Z::Account,
-        new_account: Z::Bool,
-        local_state: &mut zkapp_logic::LocalState<Z>,
-        w: &mut Z::WitnessGenerator,
+        account_update: &Self::AccountUpdate,
+        account: &Self::Account,
+        new_account: Self::Bool,
+        local_state: &mut zkapp_logic::LocalState<Self::Z>,
+        w: &mut Self::W,
     );
     fn check_protocol_state_precondition(
         protocol_state_predicate: &zkapp_command::ZkAppPreconditions,
-        global_state: &mut Z::GlobalState,
-        w: &mut Z::WitnessGenerator,
-    ) -> Z::Bool;
+        global_state: &mut Self::GlobalState,
+        w: &mut Self::W,
+    ) -> Self::Bool;
     fn check_valid_while_precondition(
         valid_while: &zkapp_command::Numeric<crate::scan_state::currency::Slot>,
-        global_state: &mut Z::GlobalState,
-        w: &mut Z::WitnessGenerator,
-    ) -> Z::Bool;
-    fn init_account(
-        account_update: &Z::AccountUpdate,
-        account: &Z::Account,
-        w: &mut Z::WitnessGenerator,
-    ) -> Z::Account;
+        global_state: &mut Self::GlobalState,
+        w: &mut Self::W,
+    ) -> Self::Bool;
+    fn init_account(account_update: &Self::AccountUpdate, account: &Self::Account)
+        -> Self::Account;
 }
-
-use super::snark::{
-    SnarkAccount, SnarkAccountId, SnarkActions, SnarkAmount, SnarkBalance, SnarkBool,
-    SnarkController, SnarkGlobalSlotSpan, SnarkReceiptChainHash, SnarkSetOrKeep, SnarkTokenId,
-    SnarkTransactionCommitment, SnarkVerificationKeyHash,
-};
 
 pub struct Opt<T> {
     pub is_some: Boolean,
@@ -119,7 +111,7 @@ where
     fn negate(&self) -> Self;
     fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool);
     fn of_unsigned(unsigned: Self::Amount) -> Self;
-    fn exists_on_if<'a>(b: Self::Bool, param: ExistsParam<&'a Self>, w: &mut Self::W) -> &'a Self;
+    fn exists_on_if<'a>(b: Self::Bool, param: OnIfParam<&'a Self>, w: &mut Self::W) -> &'a Self;
 }
 
 pub trait BalanceInterface
@@ -202,7 +194,7 @@ pub struct StackFrameMakeParams<'a, Calls> {
     pub calls: &'a Calls,
 }
 
-pub struct ExistsParam<T> {
+pub struct OnIfParam<T> {
     pub on_true: T,
     pub on_false: T,
 }
@@ -218,10 +210,10 @@ where
     fn caller(&self) -> TokenId;
     fn caller_caller(&self) -> TokenId;
     fn calls(&self) -> &Self::Calls;
-    fn make(params: StackFrameMakeParams<'_, Self::Calls>, w: &mut Self::W) -> Self;
-    fn make_default(params: StackFrameMakeParams<'_, Self::Calls>, w: &mut Self::W) -> Self;
+    fn make(params: StackFrameMakeParams<'_, Self::Calls>) -> Self;
+    fn make_default(params: StackFrameMakeParams<'_, Self::Calls>) -> Self;
     fn on_if(self, w: &mut Self::W) -> Self;
-    fn exists_on_if(b: Self::Bool, param: ExistsParam<Self>, w: &mut Self::W) -> Self;
+    fn exists_on_if(b: Self::Bool, param: OnIfParam<Self>, w: &mut Self::W) -> Self;
 }
 
 pub trait StackInterface
@@ -568,39 +560,13 @@ where
         Index = Self::Index,
     >;
     type SingleData;
-    type Handler: ZkappHandler<Self>;
+    type Handler: ZkappHandler<
+        Z = Self,
+        AccountUpdate = Self::AccountUpdate,
+        Account = Self::Account,
+        Bool = Self::Bool,
+        W = Self::WitnessGenerator,
+        GlobalState = Self::GlobalState,
+    >;
     type WitnessGenerator: WitnessGenerator<Fp, Bool = Self::Bool>;
-}
-
-pub struct ZkappSnark;
-
-impl ZkappApplication for ZkappSnark {
-    type Ledger = LedgerWithHash;
-    type SignedAmount = CheckedSigned<Fp, CheckedAmount<Fp>>;
-    type Amount = SnarkAmount;
-    type Balance = SnarkBalance;
-    type Index = CheckedIndex<Fp>;
-    type GlobalSlotSinceGenesis = CheckedSlot<Fp>;
-    type StackFrame = StackFrameChecked;
-    type CallForest = WithHash<CallForest<AccountUpdate>>;
-    type CallStack = WithHash<Vec<WithStackHash<WithHash<StackFrame>>>>;
-    type GlobalState = GlobalStateForProof;
-    type AccountUpdate =
-        AccountUpdateSkeleton<WithHash<crate::scan_state::transaction_logic::zkapp_command::Body>>;
-    type AccountId = SnarkAccountId;
-    type TokenId = SnarkTokenId;
-    type Bool = CircuitVar<Boolean>;
-    type TransactionCommitment = SnarkTransactionCommitment;
-    type FailureStatusTable = ();
-    type LocalState = zkapp_logic::LocalState<Self>;
-    type Account = SnarkAccount;
-    type VerificationKeyHash = SnarkVerificationKeyHash;
-    type SingleData = ZkappSingleData;
-    type Controller = SnarkController;
-    type SetOrKeep = SnarkSetOrKeep;
-    type GlobalSlotSpan = SnarkGlobalSlotSpan;
-    type Actions = SnarkActions;
-    type ReceiptChainHash = SnarkReceiptChainHash;
-    type Handler = super::snark::SnarkHandler;
-    type WitnessGenerator = Witness<Fp>;
 }

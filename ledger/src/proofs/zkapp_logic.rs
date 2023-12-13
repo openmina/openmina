@@ -56,14 +56,11 @@ fn assert_<Z: ZkappApplication>(_b: Z::Bool) -> Result<(), String> {
 }
 
 fn stack_frame_default<Z: ZkappApplication>(w: &mut Z::WitnessGenerator) -> Z::StackFrame {
-    Z::StackFrame::make_default(
-        StackFrameMakeParams {
-            caller: TokenId::default(),
-            caller_caller: TokenId::default(),
-            calls: &Z::CallForest::empty(),
-        },
-        w,
-    )
+    Z::StackFrame::make_default(StackFrameMakeParams {
+        caller: TokenId::default(),
+        caller_caller: TokenId::default(),
+        calls: &Z::CallForest::empty(),
+    })
 }
 
 fn pop_call_stack<Z: ZkappApplication>(
@@ -82,7 +79,7 @@ fn pop_call_stack<Z: ZkappApplication>(
 
     let left = Z::StackFrame::exists_on_if(
         Z::Bool::of_boolean(next_frame.is_some),
-        ExistsParam {
+        OnIfParam {
             on_true: next_frame.data,
             on_false: on_none,
         },
@@ -169,7 +166,7 @@ fn get_next_account_update<Z: ZkappApplication>(
 
         let left = Z::StackFrame::exists_on_if(
             current_is_empty,
-            ExistsParam {
+            OnIfParam {
                 on_true: next_forest,
                 on_false: current_forest,
             },
@@ -198,14 +195,11 @@ fn get_next_account_update<Z: ZkappApplication>(
     let remainder_of_current_forest_empty = remainder_of_current_forest.is_empty(w);
     let (newly_popped_frame, popped_call_stack) = pop_call_stack::<Z>(&call_stack, w);
 
-    let remainder_of_current_forest_frame = Z::StackFrame::make(
-        StackFrameMakeParams {
-            caller: current_forest.caller(),
-            caller_caller: current_forest.caller_caller(),
-            calls: &remainder_of_current_forest,
-        },
-        w,
-    );
+    let remainder_of_current_forest_frame = Z::StackFrame::make(StackFrameMakeParams {
+        caller: current_forest.caller(),
+        caller_caller: current_forest.caller_caller(),
+        calls: &remainder_of_current_forest,
+    });
     let new_call_stack = {
         let on_false = {
             let on_false = Z::CallStack::push(
@@ -231,19 +225,16 @@ fn get_next_account_update<Z: ZkappApplication>(
         let on_false = {
             let caller = Z::AccountId::derive_token_id(&account_update.body().account_id(), w);
             let caller_caller = caller_id.clone();
-            Z::StackFrame::make(
-                StackFrameMakeParams {
-                    caller,
-                    caller_caller,
-                    calls: &account_update_forest,
-                },
-                w,
-            )
+            Z::StackFrame::make(StackFrameMakeParams {
+                caller,
+                caller_caller,
+                calls: &account_update_forest,
+            })
         };
         let on_true = {
             Z::StackFrame::exists_on_if(
                 remainder_of_current_forest_empty,
-                ExistsParam {
+                OnIfParam {
                     on_true: newly_popped_frame,
                     on_false: remainder_of_current_forest_frame,
                 },
@@ -253,7 +244,7 @@ fn get_next_account_update<Z: ZkappApplication>(
 
         Z::StackFrame::exists_on_if(
             account_update_forest_empty,
-            ExistsParam { on_true, on_false },
+            OnIfParam { on_true, on_false },
             w,
         )
     };
@@ -379,17 +370,14 @@ where
                         Boolean::False => local_state.call_stack.clone(),
                     });
                     let left = {
-                        let on_true = Z::StackFrame::make(
-                            StackFrameMakeParams {
-                                caller: TokenId::default(),
-                                caller_caller: TokenId::default(),
-                                calls: &start_data.account_updates,
-                            },
-                            w,
-                        );
+                        let on_true = Z::StackFrame::make(StackFrameMakeParams {
+                            caller: TokenId::default(),
+                            caller_caller: TokenId::default(),
+                            calls: &start_data.account_updates,
+                        });
                         Z::StackFrame::exists_on_if(
                             is_start2,
-                            ExistsParam {
+                            OnIfParam {
                                 on_true,
                                 on_false: local_state.stack_frame.clone(),
                             },
@@ -401,14 +389,11 @@ where
                 IsStart::Yes(start_data) => {
                     // We decompose this way because of OCaml evaluation order
                     let right = Z::CallStack::empty();
-                    let left = Z::StackFrame::make(
-                        StackFrameMakeParams {
-                            caller: TokenId::default(),
-                            caller_caller: TokenId::default(),
-                            calls: &start_data.account_updates,
-                        },
-                        w,
-                    );
+                    let left = Z::StackFrame::make(StackFrameMakeParams {
+                        caller: TokenId::default(),
+                        caller_caller: TokenId::default(),
+                        calls: &start_data.account_updates,
+                    });
                     (left, right)
                 }
                 IsStart::No => (
@@ -687,7 +672,7 @@ where
         let creation_overflow = Z::Bool::and(pay_creation_fee, creation_overflow, w);
         let balance_change = Z::SignedAmount::exists_on_if(
             pay_creation_fee,
-            ExistsParam {
+            OnIfParam {
                 on_true: &balance_change_for_creation,
                 on_false: &balance_change,
             },
@@ -730,7 +715,7 @@ where
             );
             local_state.excess = Z::SignedAmount::exists_on_if(
                 pay_creation_fee_from_excess,
-                ExistsParam {
+                OnIfParam {
                     on_true: &excess_minus_creation_fee,
                     on_false: &local_state.excess,
                 },
@@ -754,7 +739,7 @@ where
             );
             local_state.supply_increase = Z::SignedAmount::exists_on_if(
                 account_is_new,
-                ExistsParam {
+                OnIfParam {
                     on_true: &supply_increase_minus_creation_fee,
                     on_false: &local_state.supply_increase,
                 },
@@ -1163,7 +1148,7 @@ where
         ((), ())
     };
 
-    let a = Z::Handler::init_account(&account_update, &a, w);
+    let a = Z::Handler::init_account(&account_update, &a);
 
     let local_delta = account_update_balance_change.negate();
 
@@ -1181,7 +1166,7 @@ where
 
         let excess = Z::SignedAmount::exists_on_if(
             account_update_token_is_default,
-            ExistsParam {
+            OnIfParam {
                 on_true: &new_local_fee_excess,
                 on_false: &local_state.excess,
             },
@@ -1236,7 +1221,7 @@ where
         let global_excess_update_failed = Z::Bool::and(update_global_state_fee_excess, overflow, w);
         let new_amt = Z::SignedAmount::exists_on_if(
             update_global_state_fee_excess,
-            ExistsParam {
+            OnIfParam {
                 on_true: &res,
                 on_false: &amt,
             },
@@ -1249,7 +1234,7 @@ where
     let signed_zero = Z::SignedAmount::of_unsigned(Z::Amount::zero());
     local_state.excess = Z::SignedAmount::exists_on_if(
         is_start_or_last,
-        ExistsParam {
+        OnIfParam {
             on_true: &signed_zero,
             on_false: &local_state.excess,
         },
@@ -1307,7 +1292,7 @@ where
         let global_state_supply_increase = global_state.supply_increase();
         let supply_increase = Z::SignedAmount::exists_on_if(
             is_successful_last_party,
-            ExistsParam {
+            OnIfParam {
                 on_true: &new_global_supply_increase,
                 on_false: &global_state_supply_increase,
             },
@@ -1338,7 +1323,7 @@ where
         let signed_zero = Z::SignedAmount::of_unsigned(Z::Amount::zero());
         let supply_increase = Z::SignedAmount::exists_on_if(
             is_last_account_update,
-            ExistsParam {
+            OnIfParam {
                 on_true: &signed_zero,
                 on_false: &local_state.supply_increase,
             },

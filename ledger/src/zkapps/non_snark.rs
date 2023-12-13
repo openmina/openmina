@@ -12,13 +12,12 @@ use crate::{
             zkapp_command::{AccountUpdate, CallForest, CheckAuthorizationResult},
         },
     },
-    TokenId,
 };
 
 use super::intefaces::{
     AccountUpdateInterface, AmountInterface, BoolInterface, CallForestInterface,
-    CallStackInterface, ExistsParam, IndexInterface, Opt, SignedAmountInterface,
-    StackFrameInterface, StackFrameMakeParams, StackInterface, WitnessGenerator,
+    CallStackInterface, IndexInterface, OnIfParam, Opt, SignedAmountInterface, StackFrameInterface,
+    StackFrameMakeParams, StackInterface, WitnessGenerator,
 };
 
 impl<F: FieldWitness> WitnessGenerator<F> for () {
@@ -92,7 +91,7 @@ impl SignedAmountInterface for Signed<Amount> {
     fn of_unsigned(unsigned: Self::Amount) -> Self {
         todo!()
     }
-    fn exists_on_if<'a>(b: Self::Bool, param: ExistsParam<&'a Self>, w: &mut Self::W) -> &'a Self {
+    fn exists_on_if<'a>(b: Self::Bool, param: OnIfParam<&'a Self>, w: &mut Self::W) -> &'a Self {
         todo!()
     }
 }
@@ -111,16 +110,16 @@ impl StackFrameInterface for StackFrame {
     fn calls(&self) -> &CallForest<AccountUpdate> {
         todo!()
     }
-    fn make(params: StackFrameMakeParams<'_, Self::Calls>, w: &mut Self::W) -> Self {
+    fn make(params: StackFrameMakeParams<'_, Self::Calls>) -> Self {
         todo!()
     }
-    fn make_default(params: StackFrameMakeParams<'_, Self::Calls>, w: &mut Self::W) -> Self {
+    fn make_default(params: StackFrameMakeParams<'_, Self::Calls>) -> Self {
         todo!()
     }
     fn on_if(self, w: &mut Self::W) -> Self {
         self
     }
-    fn exists_on_if(b: Self::Bool, param: ExistsParam<Self>, w: &mut Self::W) -> Self {
+    fn exists_on_if(b: Self::Bool, param: OnIfParam<Self>, w: &mut Self::W) -> Self {
         todo!()
     }
 }

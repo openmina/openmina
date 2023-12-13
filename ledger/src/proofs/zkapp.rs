@@ -54,8 +54,8 @@ use crate::{
     },
     sparse_ledger::SparseLedger,
     zkapps::{
-        intefaces::{ZkappApplication, ZkappSnark},
-        snark::{zkapp_check::InSnarkCheck, AccountUnhashed},
+        intefaces::ZkappApplication,
+        snark::{zkapp_check::InSnarkCheck, AccountUnhashed, ZkappSnark},
     },
     ControlTag, MyCow, ToInputs, TokenId, ZkAppAccount,
 };
