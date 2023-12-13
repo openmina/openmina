@@ -29,7 +29,6 @@ pub struct Config {
 pub struct GlobalConfig {
     pub build: Box<BuildEnv>,
     pub snarker: Option<SnarkerConfig>,
-    pub producer: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
