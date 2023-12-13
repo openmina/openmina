@@ -89,8 +89,12 @@ impl BlockProducerBestTipUpdateAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         let protocol_state = &self.best_tip.block.header.protocol_state.body;
 
+        let current_epoch = store.state().block_producer.with(None, |this| {
+            this.vrf_evaluator.current_epoch
+        });
+
         // on new run when no current_epoch is set
-        if store.state().block_producer.vrf_evaluator.current_epoch.is_none() {
+        if current_epoch.is_none() {
             store.dispatch(BlockProducerVrfEvaluatorNewEpochAction {
                 new_epoch_number: protocol_state.consensus_state.epoch_count.as_u32(),
                 epoch_data: protocol_state.consensus_state.staking_epoch_data.clone(),
@@ -99,7 +103,7 @@ impl BlockProducerBestTipUpdateAction {
         }
 
         // on epoch change
-        if let Some(current_epoch) = store.state().block_producer.vrf_evaluator.current_epoch {
+        if let Some(current_epoch) = current_epoch {
             if current_epoch != protocol_state.consensus_state.epoch_count.as_u32() {
                 store.dispatch(BlockProducerVrfEvaluatorNewEpochAction {
                     new_epoch_number: protocol_state.consensus_state.epoch_count.as_u32(),

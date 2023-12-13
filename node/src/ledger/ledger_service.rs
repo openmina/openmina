@@ -38,15 +38,12 @@ use mina_p2p_messages::v2::{
 use openmina_core::snark::{Snark, SnarkJobId};
 
 use mina_signer::{CompressedPubKey, Keypair, PubKey};
-use openmina_core::{block::ArcBlockWithHash, snark::SnarkJobId};
+use openmina_core::block::ArcBlockWithHash;
 
 use crate::{transition_frontier::sync::ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid, block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService};
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
 use crate::transition_frontier::TransitionFrontierService;
-use crate::{
-    block_producer::{BlockProducerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput},
-    transition_frontier::sync::ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,
-};
+use crate::block_producer::{BlockProducerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput};
 use crate::{
     p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
 };
