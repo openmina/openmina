@@ -534,7 +534,7 @@ impl MaskImpl {
         }
     }
 
-    fn get_cached_hash(&self, addr: &Address) -> Option<Fp> {
+    pub fn get_cached_hash(&self, addr: &Address) -> Option<Fp> {
         let matrix = match self {
             Root { database, .. } => return database.get_cached_hash(addr),
             Attached { hashes, .. } => hashes,
