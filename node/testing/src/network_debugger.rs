@@ -1,5 +1,5 @@
 use std::{
-    collections::VecDeque,
+    collections::{HashSet, VecDeque},
     net::SocketAddr,
     process::{Child, Command},
     time::SystemTime,
@@ -97,6 +97,28 @@ impl Debugger {
         }
     }
 
+    pub fn get_connection(&self, id: u64) -> anyhow::Result<Connection> {
+        let port = self.port;
+        let host = self.host;
+        let res = self
+            .client
+            .get(&format!("http://{host}:{port}/connection/{id}"))
+            .send()?
+            .text()?;
+        serde_json::from_str(&res).map_err(From::from)
+    }
+
+    pub fn get_connections(&self, params: &str) -> anyhow::Result<Vec<(u64, Connection)>> {
+        let port = self.port;
+        let host = self.host;
+        let res = self
+            .client
+            .get(&format!("http://{host}:{port}/connections?{params}"))
+            .send()?
+            .text()?;
+        serde_json::from_str(&res).map_err(From::from)
+    }
+
     pub fn get_message(&self, id: u64) -> anyhow::Result<Vec<u8>> {
         let port = self.port;
         let host = self.host;
@@ -108,17 +130,6 @@ impl Debugger {
             .map_err(Into::into)
     }
 
-    pub fn get_connections(&self, params: &str) -> anyhow::Result<Vec<(u64, Connection)>> {
-        let port = self.port;
-        let host = self.host;
-        let res = self
-            .client
-            .get(&format!("http://{host}:{port}/connections?{params}"))
-            .send()?
-            .text()?;
-        serde_json::from_str::<Vec<_>>(&res).map_err(From::from)
-    }
-
     pub fn get_messages(&self, params: &str) -> anyhow::Result<Vec<(u64, FullMessage)>> {
         let port = self.port;
         let host = self.host;
@@ -127,7 +138,7 @@ impl Debugger {
             .get(&format!("http://{host}:{port}/messages?{params}"))
             .send()?
             .text()?;
-        serde_json::from_str::<Vec<(u64, FullMessage)>>(&res).map_err(From::from)
+        serde_json::from_str(&res).map_err(From::from)
     }
 
     pub fn current_cursor(&self) -> u64 {
@@ -149,6 +160,7 @@ impl Debugger {
     pub fn connections(&self) -> ConnectionsHandshaked<'_> {
         ConnectionsHandshaked {
             messages: self.messages(0, "stream_kind=/noise"),
+            ids_cache: HashSet::new(),
         }
     }
 
@@ -164,29 +176,20 @@ impl Debugger {
 
 pub struct ConnectionsHandshaked<'a> {
     messages: Messages<'a>,
+    ids_cache: HashSet<u64>,
 }
 
 impl<'a> Iterator for ConnectionsHandshaked<'a> {
-    type Item = (u64, Connection);
+    type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let (_, msg) = self.messages.next()?;
-        let id = msg.connection_id;
-
-        let port = self.messages.inner.port;
-        let host = self.messages.inner.host;
-        let res = self
-            .messages
-            .inner
-            .client
-            .get(&format!("http://{host}:{port}/connection/{id}"))
-            .send()
-            .ok()?
-            .text()
-            .ok()?;
-        serde_json::from_str::<Connection>(&res)
-            .ok()
-            .map(|cn| (id, cn))
+        loop {
+            let (_, msg) = self.messages.next()?;
+            let id = msg.connection_id;
+            if self.ids_cache.insert(id) {
+                break Some(id);
+            }
+        }
     }
 }
 

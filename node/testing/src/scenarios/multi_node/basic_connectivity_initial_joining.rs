@@ -1,4 +1,4 @@
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashMap, time::Duration};
 
 use libp2p::Multiaddr;
 use node::{
@@ -132,7 +132,8 @@ impl MultiNodeBasicConnectivityInitialJoining {
             }
 
             if conditions_met {
-                let mut total_connections = 0;
+                let mut total_connections_known = 0;
+                let mut total_connections_ready = 0;
                 for &node_id in &nodes {
                     let node = runner.node(node_id).expect("node must exist");
                     let p2p = &node.state().p2p;
@@ -143,7 +144,8 @@ impl MultiNodeBasicConnectivityInitialJoining {
                     } else {
                         ready_peers.max(known_peers)
                     };
-                    total_connections += state_machine_peers;
+                    total_connections_ready += ready_peers;
+                    total_connections_known += state_machine_peers;
                     eprintln!(
                         "node {} has {ready_peers} peers",
                         p2p.config.identity_pub_key.peer_id(),
@@ -153,22 +155,40 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 // TODO: calculate per peer
                 if let Some(debugger) = runner.cluster().debugger() {
                     let connections = debugger
-                        .connections()
-                        .map(|(_, c)| (c.info.addr, c.info.fd, c.info.pid, c.incoming))
-                        .collect::<HashSet<_>>();
-                    let incoming = connections.iter().filter(|(_, _, _, i)| *i).count();
+                        .connections_raw(0)
+                        .map(|(id, c)| (id, (c.info.addr, c.info.fd, c.info.pid, c.incoming)))
+                        .collect::<HashMap<_, _>>();
+
+                    // dbg
+                    for (id, cn) in &connections {
+                        eprintln!("{id}: {}", serde_json::to_string(cn).unwrap());
+                    }
+                    // dbg
+                    for (id, msg) in debugger.messages(0, "stream_kind=/noise") {
+                        eprintln!("{id}: {}", serde_json::to_string(&msg).unwrap());
+                    }
+
+                    // TODO: fix debugger returns timeout
+                    // let connections = debugger
+                    //     .connections()
+                    //     .map(|id| (id, connections.get(&id).unwrap()))
+                    //     .collect::<HashMap<_, _>>();
+                    let incoming = connections.iter().filter(|(_, (_, _, _, i))| *i).count();
                     let outgoing = connections.len() - incoming;
                     eprintln!(
                         "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
                     );
 
-                    for (addr, fd, pid, incoming) in connections {
-                        eprintln!("pid: {pid}, fd: {fd}, addr: {addr}, incoming: {incoming}");
+                    for (id, (addr, fd, pid, incoming)) in connections {
+                        eprintln!(
+                            "id: {id}, pid: {pid}, fd: {fd}, addr: {addr}, incoming: {incoming}"
+                        );
                     }
 
+                    eprintln!("total_connections_known: {total_connections_known}");
                     assert_eq!(
                         incoming + outgoing,
-                        total_connections,
+                        total_connections_ready,
                         "debugger must see the same number of connections as the state machine"
                     );
                 } else {

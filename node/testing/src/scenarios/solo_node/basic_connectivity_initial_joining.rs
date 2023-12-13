@@ -1,4 +1,4 @@
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashMap, time::Duration};
 
 use libp2p::Multiaddr;
 
@@ -116,10 +116,24 @@ impl SoloNodeBasicConnectivityInitialJoining {
 
                 if let Some(debugger) = runner.cluster().debugger() {
                     let connections = debugger
-                        .connections()
-                        .map(|(_, c)| (c.info.addr, c.info.pid, c.incoming))
-                        .collect::<HashSet<_>>();
-                    let incoming = connections.iter().filter(|(_, _, i)| *i).count();
+                        .connections_raw(0)
+                        .map(|(id, c)| (id, (c.info.addr, c.info.fd, c.info.pid, c.incoming)))
+                        .collect::<HashMap<_, _>>();
+
+                    // dbg
+                    for (id, cn) in &connections {
+                        eprintln!("{id}: {}", serde_json::to_string(cn).unwrap());
+                    }
+                    // dbg
+                    for (id, msg) in debugger.messages(0, "") {
+                        eprintln!("{id}: {}", serde_json::to_string(&msg).unwrap());
+                    }
+                    // TODO: fix debugger returns timeout
+                    // let connections = debugger
+                    //     .connections()
+                    //     .map(|id| (id, connections.get(&id).unwrap()))
+                    //     .collect::<HashMap<_, _>>();
+                    let incoming = connections.iter().filter(|(_, (_, _, _, i))| *i).count();
                     let outgoing = connections.len() - incoming;
                     eprintln!(
                         "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
