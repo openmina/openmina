@@ -196,8 +196,19 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
             return Err("Inner hash found at address but doesn't match the expected hash".into());
         }
 
-        mask.set_cached_hash_unchecked(&parent.child_left(), left);
-        mask.set_cached_hash_unchecked(&parent.child_right(), right);
+        // TODO(binier): the `if` condition is temporary until we make
+        // sure we don't call `hashes_set` for the same key for the
+        // same ledger. This can happen E.g. if root snarked ledger
+        // is the same as staking or next epoch ledger, in which case
+        // we will sync same ledger twice. That causes assertion to fail
+        // in `set_cached_hash_unchecked`.
+        //
+        // remove once we have an optimization to not sync same ledgers/addrs
+        // multiple times.
+        if mask.get_cached_hash(&parent.child_left()).is_none() {
+            mask.set_cached_hash_unchecked(&parent.child_left(), left);
+            mask.set_cached_hash_unchecked(&parent.child_right(), right);
+        }
 
         Ok(())
     }
