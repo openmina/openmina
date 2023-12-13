@@ -44,6 +44,7 @@ pub enum RpcRequest {
     StateGet,
     ActionStatsGet(ActionStatsQuery),
     SyncStatsGet(SyncStatsQuery),
+    PeersGet,
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
     P2pConnectionIncoming(P2pConnectionIncomingInitOpts),
     ScanStateSummaryGet(RpcScanStateSummaryGetQuery),
@@ -81,6 +82,25 @@ pub enum RpcScanStateSummaryGetQuery {
 pub enum ActionStatsResponse {
     SinceStart { stats: ActionStatsSnapshot },
     ForBlock(ActionStatsForBlock),
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub enum PeerConnectionStatus {
+    Disconnected,
+    Connecting,
+    Connected
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcPeerInfo {
+    pub peer_id: PeerId,
+    pub best_tip: Option<StateHash>,
+    pub best_tip_height: Option<u32>,
+    pub best_tip_global_slot: Option<u32>,
+    pub best_tip_timestamp: Option<u64>,
+    pub connection_status: PeerConnectionStatus,
+    pub address: Option<String>,
+    pub time: u64,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -206,6 +226,7 @@ pub enum RpcSnarkerJobSpecResponse {
 pub type RpcStateGetResponse = Box<State>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
+pub type RpcPeersGetResponse = Vec<RpcPeerInfo>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcScanStateSummaryGetResponse = Option<RpcScanStateSummary>;
 pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;

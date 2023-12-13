@@ -6,6 +6,7 @@ use crate::external_snark_worker::available_job_to_snark_worker_spec;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
 use crate::p2p::connection::P2pConnectionResponse;
+use crate::rpc::{PeerConnectionStatus, RpcPeerInfo};
 use crate::snark_pool::SnarkPoolCommitmentCreateAction;
 use crate::{Service, Store};
 
@@ -68,6 +69,57 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .stats()
                 .map(|s| s.collect_sync_stats(action.query.limit));
             let _ = store.service.respond_sync_stats_get(action.rpc_id, resp);
+        }
+        RpcAction::PeersGet(action) => {
+            let peers = store
+                .state()
+                .p2p
+                .peers
+                .iter()
+                .map(|(peer_id, state)| {
+                    let best_tip = state.status.as_ready().and_then(|r| r.best_tip.as_ref());
+                    let (connection_status, time) = match &state.status {
+                        p2p::P2pPeerStatus::Connecting(c) => match c {
+                            p2p::connection::P2pConnectionState::Outgoing(o) => {
+                                (PeerConnectionStatus::Connecting, o.time().into())
+                            }
+                            p2p::connection::P2pConnectionState::Incoming(i) => {
+                                (PeerConnectionStatus::Connecting, i.time().into())
+                            }
+                        },
+                        p2p::P2pPeerStatus::Disconnected { time } => {
+                            (PeerConnectionStatus::Disconnected, (*time).into())
+                        }
+                        p2p::P2pPeerStatus::Ready(r) => {
+                            (PeerConnectionStatus::Connected, r.connected_since.into())
+                        }
+                    };
+                    RpcPeerInfo {
+                        peer_id: peer_id.clone(),
+                        connection_status,
+                        address: state
+                            .dial_opts
+                            .as_ref()
+                            .and_then(|opts| opts.try_into_mina_rpc())
+                            .map(|p| {
+                                format!(
+                                    "{}:{}",
+                                    String::try_from(p.host).unwrap_or("0.0.0.0".to_string()),
+                                    p.libp2p_port.to_string()
+                                )
+                            }),
+                        best_tip: best_tip.map(|bt| bt.hash.clone()),
+                        best_tip_height: best_tip.map(|bt| bt.height()),
+                        best_tip_global_slot: best_tip.map(|bt| bt.global_slot()),
+                        best_tip_timestamp: best_tip.map(|bt| bt.timestamp().into()),
+                        time,
+                    }
+                })
+                .collect();
+            respond_or_log!(
+                store.service().respond_peers_get(action.rpc_id, peers),
+                meta.time()
+            );
         }
         RpcAction::P2pConnectionOutgoingInit(action) => {
             let (rpc_id, opts) = (action.rpc_id, action.opts);
