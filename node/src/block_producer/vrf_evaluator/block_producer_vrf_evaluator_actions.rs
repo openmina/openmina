@@ -19,22 +19,7 @@ pub enum BlockProducerVrfEvaluatorAction {
     EvaluationSuccess(BlockProducerVrfEvaluatorEvaluationSuccessAction),
     UpdateProducerAndDelegates(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction),
     UpdateProducerAndDelegatesSuccess(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction),
-    NewEpoch(BlockProducerVrfEvaluatorNewEpochAction),
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BlockProducerVrfEvaluatorNewEpochAction {
-    pub new_epoch_number: u32,
-    pub epoch_data: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-    pub next_epoch_data: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
-}
-
-impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorNewEpochAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        true
-    }
-}
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
@@ -45,7 +30,12 @@ pub struct BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
 
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        true
+        state.block_producer.with(false, |this| {
+            matches!(
+                this.vrf_evaluator.status,
+                BlockProducerVrfEvaluatorStatus::EpochChanged { .. }
+            )
+        })
     }
 }
 
@@ -57,7 +47,12 @@ pub struct BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
 
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        true
+        state.block_producer.with(false, |this| {
+            matches!(
+                this.vrf_evaluator.status,
+                BlockProducerVrfEvaluatorStatus::DataPending { .. }
+            )
+        })
     }
 }
 
@@ -68,21 +63,15 @@ pub struct BlockProducerVrfEvaluatorEvaluateVrfAction {
 
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorEvaluateVrfAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        // TODO(adonagy): global_slot in the input should be greater that the current global_slot in the state
-        true
+        state.block_producer.with(false, |this| {
+            matches!(
+                this.vrf_evaluator.status,
+                BlockProducerVrfEvaluatorStatus::SlotsReceived { .. }
+                | BlockProducerVrfEvaluatorStatus::DataSuccess { .. }
+            )
+        })
     }
 }
-
-// #[derive(Serialize, Deserialize, Debug, Clone)]
-// pub struct BlockProducerVrfEvaluatorEvaluationPendingAction {
-//     pub global_slot: u32,
-// }
-
-// impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorEvaluationPendingAction {
-//     fn is_enabled(&self, state: &crate::State) -> bool {
-//         !matches!(state.block_producer.vrf_evaluator, BlockProducerVrfEvaluatorState::Pending(_))
-//     }
-// }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerVrfEvaluatorEvaluationSuccessAction {
@@ -91,18 +80,18 @@ pub struct BlockProducerVrfEvaluatorEvaluationSuccessAction {
 
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorEvaluationSuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        // TODO(adonagy)
-        // let global_slot = match &self.vrf_output {
-        //     VrfEvaluationOutput::SlotWon(output) => output.global_slot,
-        //     VrfEvaluationOutput::SlotLost(global_slot) => *global_slot,
-        // };
-        // matches!(state.block_producer.vrf_evaluator.evaluator_status, BlockProducerVrfEvaluatorStatus::Pending(global_slot))
-        true
+        state.block_producer.with(false, |this| {
+            matches!(
+                this.vrf_evaluator.status,
+                BlockProducerVrfEvaluatorStatus::SlotsRequested { .. }
+            )
+        })
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerVrfEvaluatorEpochDataUpdateAction {
+    pub new_epoch_number: u32,
     pub epoch_data: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
     pub next_epoch_data: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
 }
@@ -128,4 +117,3 @@ impl_into_global_action!(BlockProducerVrfEvaluatorEvaluateVrfAction);
 impl_into_global_action!(BlockProducerVrfEvaluatorEvaluationSuccessAction);
 impl_into_global_action!(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction);
 impl_into_global_action!(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction);
-impl_into_global_action!(BlockProducerVrfEvaluatorNewEpochAction);

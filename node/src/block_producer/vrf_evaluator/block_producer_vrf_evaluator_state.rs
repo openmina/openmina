@@ -12,7 +12,7 @@ use crate::BlockProducerConfig;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerVrfEvaluatorState {
-    pub evaluator_status: BlockProducerVrfEvaluatorStatus,
+    pub status: BlockProducerVrfEvaluatorStatus,
     pub won_slots: BTreeMap<u32, VrfWonSlot>,
     pub current_epoch_data: EpochData,
     pub next_epoch_data: EpochData,
@@ -28,7 +28,7 @@ impl BlockProducerVrfEvaluatorState {
     pub fn new(now: redux::Timestamp, config: BlockProducerConfig) -> Self {
         let producer_pub_key = config.pub_key.to_string();
         Self {
-            evaluator_status: BlockProducerVrfEvaluatorStatus::Idle { time: now },
+            status: BlockProducerVrfEvaluatorStatus::Idle { time: now },
             won_slots: Default::default(),
             current_epoch_data: Default::default(),
             next_epoch_data: Default::default(),
@@ -52,9 +52,6 @@ pub struct EpochData {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockProducerVrfEvaluatorStatus {
     Idle { time: redux::Timestamp },
-    Pending(u32),
-    Success(u32),
-    Failure(u32),
     EpochChanged { time: redux::Timestamp },
     DataPending { time: redux::Timestamp },
     DataSuccess { time: redux::Timestamp },
