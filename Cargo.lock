@@ -927,6 +927,7 @@ dependencies = [
  "shellexpand",
  "tokio",
  "tracing",
+ "vrf",
 ]
 
 [[package]]
@@ -2061,7 +2062,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#f32c800c1161ad9896cb13d8bfca5128a40507e2"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2469,6 +2470,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25db6b064527c5d482d0423354fcd07a89a2dfe07b67892e62411946db7f07b0"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2554,7 +2564,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#f32c800c1161ad9896cb13d8bfca5128a40507e2"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2564,7 +2574,7 @@ dependencies = [
  "disjoint-set",
  "groupmap",
  "hex",
- "itertools",
+ "itertools 0.10.5",
  "mina-curves",
  "mina-poseidon",
  "num-bigint",
@@ -3153,7 +3163,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#f32c800c1161ad9896cb13d8bfca5128a40507e2"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3162,7 +3172,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#f32c800c1161ad9896cb13d8bfca5128a40507e2"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -3208,7 +3218,7 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#f32c800c1161ad9896cb13d8bfca5128a40507e2"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3225,7 +3235,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#f32c800c1161ad9896cb13d8bfca5128a40507e2"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3260,7 +3270,7 @@ dependencies = [
  "derive_more",
  "getrandom 0.2.11",
  "hex",
- "itertools",
+ "itertools 0.10.5",
  "kimchi",
  "lazy_static",
  "libc",
@@ -3557,6 +3567,7 @@ dependencies = [
  "strum_macros",
  "thiserror",
  "vergen",
+ "vrf",
 ]
 
 [[package]]
@@ -3749,7 +3760,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#f32c800c1161ad9896cb13d8bfca5128a40507e2"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3860,6 +3871,7 @@ dependencies = [
  "juniper_warp",
  "libp2p",
  "mina-p2p-messages",
+ "mina-signer",
  "mina-tree",
  "nix 0.26.4",
  "node",
@@ -3873,6 +3885,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "vrf",
  "warp",
 ]
 
@@ -3905,6 +3918,7 @@ dependencies = [
  "temp-dir",
  "tokio",
  "tower-http",
+ "vrf",
 ]
 
 [[package]]
@@ -4216,7 +4230,7 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#f32c800c1161ad9896cb13d8bfca5128a40507e2"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4224,7 +4238,7 @@ dependencies = [
  "ark-serialize",
  "blake2",
  "groupmap",
- "itertools",
+ "itertools 0.10.5",
  "mina-curves",
  "mina-poseidon",
  "o1-utils",
@@ -5887,7 +5901,7 @@ dependencies = [
 [[package]]
 name = "turshi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4#f32c800c1161ad9896cb13d8bfca5128a40507e2"
+source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
 dependencies = [
  "ark-ff",
  "hex",
@@ -6084,6 +6098,30 @@ name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
+
+[[package]]
+name = "vrf"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ark-ec",
+ "ark-ff",
+ "bs58 0.4.0",
+ "hex",
+ "itertools 0.12.0",
+ "mina-curves",
+ "mina-hasher",
+ "mina-p2p-messages",
+ "mina-signer",
+ "mina-tree",
+ "num",
+ "o1-utils",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "sha2 0.10.8",
+ "thiserror",
+]
 
 [[package]]
 name = "waitgroup"
