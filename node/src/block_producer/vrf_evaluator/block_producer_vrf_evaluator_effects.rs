@@ -4,7 +4,6 @@ use vrf::VrfEvaluatorInput;
 use crate::Store;
 use crate::Service;
 
-use super::BlockProducerVrfEvaluatorNewEpochAction;
 use super::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction;
 use super::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction;
 use super::{BlockProducerVrfEvaluatorEpochDataUpdateAction, BlockProducerVrfEvaluatorEvaluateVrfAction, BlockProducerVrfEvaluatorEvaluationSuccessAction};
@@ -21,9 +20,7 @@ impl BlockProducerVrfEvaluatorEpochDataUpdateAction {
         // }
 
         // let vrf_evaluator_state = store.state().block_producer.vrf_evaluator();
-        println!("BlockProducerVrfEvaluatorEpochDataUpdateAction effects called");
         if let Some(vrf_evaluator_state) = store.state().block_producer.vrf_evaluator() {
-            println!("Vrf evaluator state OK");
             store.dispatch(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
                 current_epoch_ledger_hash: self.epoch_data.ledger.hash,
                 next_epoch_ledger_hash: self.next_epoch_data.ledger.hash,
@@ -86,15 +83,6 @@ impl BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
         let next_epoch_producer_and_delegators: std::collections::BTreeMap<ledger::AccountIndex, (String, u64)> = store.service.get_producer_and_delegates(self.next_epoch_ledger_hash, self.producer.clone());
 
         store.dispatch(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction { current_epoch_producer_and_delegators, next_epoch_producer_and_delegators });
-    }
-}
-
-impl BlockProducerVrfEvaluatorNewEpochAction {
-    pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(BlockProducerVrfEvaluatorEpochDataUpdateAction {
-            epoch_data: self.epoch_data.clone(),
-            next_epoch_data: self.next_epoch_data.clone(),
-        });
     }
 }
 

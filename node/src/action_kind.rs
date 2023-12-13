@@ -17,7 +17,6 @@ use serde::{Deserialize, Serialize};
 use crate::block_producer::vrf_evaluator::{
     BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorEpochDataUpdateAction,
     BlockProducerVrfEvaluatorEvaluateVrfAction, BlockProducerVrfEvaluatorEvaluationSuccessAction,
-    BlockProducerVrfEvaluatorNewEpochAction,
     BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction,
     BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction,
 };
@@ -225,7 +224,6 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorEpochDataUpdate,
     BlockProducerVrfEvaluatorEvaluateVrf,
     BlockProducerVrfEvaluatorEvaluationSuccess,
-    BlockProducerVrfEvaluatorNewEpoch,
     BlockProducerVrfEvaluatorUpdateProducerAndDelegates,
     BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess,
     BlockProducerWonSlot,
@@ -441,7 +439,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 225;
+    pub const COUNT: u16 = 224;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -970,7 +968,6 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
             Self::EvaluationSuccess(a) => a.kind(),
             Self::UpdateProducerAndDelegates(a) => a.kind(),
             Self::UpdateProducerAndDelegatesSuccess(a) => a.kind(),
-            Self::NewEpoch(a) => a.kind(),
         }
     }
 }
@@ -1676,12 +1673,6 @@ impl ActionKindGet for BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction
 impl ActionKindGet for BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess
-    }
-}
-
-impl ActionKindGet for BlockProducerVrfEvaluatorNewEpochAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerVrfEvaluatorNewEpoch
     }
 }
 
