@@ -1,3 +1,4 @@
+use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark::P2pChannelsSnarkAction;
@@ -13,7 +14,7 @@ use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::transition_frontier::TransitionFrontierAction;
-use crate::{Action, ActionWithMetaRef, Service, Store};
+use crate::{Action, ActionWithMetaRef, Service, Store, BlockProducerAction};
 
 pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
@@ -626,16 +627,16 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             ),
         },
         Action::BlockProducer(a) => match a {
-            crate::BlockProducerAction::VrfEvaluator(a) => match a {
-                crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction::EpochDataUpdate(a) => {
+            BlockProducerAction::VrfEvaluator(a) => match a {
+                BlockProducerVrfEvaluatorAction::EpochDataUpdate(a) => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("seed: {}, ledger: {}", a.epoch_data.seed.to_string(), a.epoch_data.ledger.hash.to_string()),
                     );
                 },
-                crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates(_) => {},
-                crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegatesSuccess(a) => {
+                BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates(_) => {},
+                BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegatesSuccess(a) => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
@@ -645,15 +646,26 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         ),
                     );
                 },
-                crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction::EvaluationSuccess(a) => {
-                    openmina_core::log::info!(
-                        meta.time();
-                        kind = kind.to_string(),
-                        summary = format!("Slot evaluation result: {:?}", a.vrf_output),
-                    )
+                BlockProducerVrfEvaluatorAction::EvaluationSuccess(a) => {
+                    match a.vrf_output {
+                        vrf::VrfEvaluationOutput::SlotWon(_) => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("Slot evaluation result - won slot: {:?}", a.vrf_output),
+                            )
+                        },
+                        vrf::VrfEvaluationOutput::SlotLost(_) => {
+                            openmina_core::log::debug!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("Slot evaluation result - lost slot: {:?}", a.vrf_output),
+                            )
+                        },
+                    }
                 },
-                crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction::EvaluateVrf(a) => {
-                    openmina_core::log::info!(
+                BlockProducerVrfEvaluatorAction::EvaluateVrf(a) => {
+                    openmina_core::log::debug!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Vrf Evaluation requested: {:?}", a.vrf_input),
@@ -661,7 +673,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 },
                 _ => {}
             },
-            crate::BlockProducerAction::BestTipUpdate(_) => {},
+            BlockProducerAction::BestTipUpdate(_) => {},
             _ => {}
         }
         _ => {}
