@@ -5,6 +5,8 @@ use mina_signer::CompressedPubKey;
 use serde::{Deserialize, Serialize};
 use vrf::VrfWonSlot;
 
+use crate::BlockProducerConfig;
+
 // TODO(adonagy): consodilate types, make more clear
 // pub type AccountAddressAndBalance = (String, u64);
 
@@ -14,7 +16,7 @@ pub struct BlockProducerVrfEvaluatorState {
     pub won_slots: BTreeMap<u32, VrfWonSlot>,
     pub current_epoch_data: EpochData,
     pub next_epoch_data: EpochData,
-    pub producer_pub_key: Option<String>,
+    pub producer_pub_key: String,
     // TODO(adonagy): move to block producer state probably
     pub current_epoch: Option<u32>,
     pub current_best_tip_slot: u32,
@@ -23,7 +25,8 @@ pub struct BlockProducerVrfEvaluatorState {
 }
 
 impl BlockProducerVrfEvaluatorState {
-    pub fn new(now: redux::Timestamp, producer_pub_key: Option<String>) -> Self {
+    pub fn new(now: redux::Timestamp, config: BlockProducerConfig) -> Self {
+        let producer_pub_key = config.pub_key.to_string();
         Self {
             evaluator_status: BlockProducerVrfEvaluatorStatus::Idle { time: now },
             won_slots: Default::default(),

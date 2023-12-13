@@ -92,8 +92,8 @@ pub enum BlockProducerWonSlotDiscardReason {}
 impl BlockProducerState {
     pub fn new(now: redux::Timestamp, config: Option<BlockProducerConfig>) -> Self {
         Self(config.map(|config| BlockProducerEnabled {
-            config,
-            vrf_evaluator: BlockProducerVrfEvaluatorState::Idle { time: now },
+            config: config.clone(),
+            vrf_evaluator: BlockProducerVrfEvaluatorState::new(now, config),
             current: BlockProducerCurrentState::Idle { time: now },
         }))
     }
@@ -145,6 +145,10 @@ impl BlockProducerState {
 
     pub fn produced_block_with_chain(&self) -> Option<(&ArcBlockWithHash, &[ArcBlockWithHash])> {
         self.with(None, |this| this.current.produced_block_with_chain())
+    }
+
+    pub fn vrf_evaluator(&self) -> Option<&BlockProducerVrfEvaluatorState> {
+        self.with(None, |this| Some(&this.vrf_evaluator))
     }
 }
 

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+    CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1,
 };
 use rand::prelude::*;
 
@@ -29,7 +29,7 @@ use node::snark::{get_srs, get_verifier_index, VerifierKind};
 use node::stats::Stats;
 use node::{
     BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig, SnarkerStrategy,
-    State, TransitionFrontierConfig,
+    State, TransitionFrontierConfig, BlockProducerConfig,
 };
 use vrf::keypair_from_bs58_string;
 
@@ -137,6 +137,18 @@ impl Node {
         });
         let pub_key = secret_key.public_key();
 
+        let block_producer: Option<BlockProducerConfig> = self.producer_key.clone().map(|producer_key| {
+            let compressed_pub_key = keypair_from_bs58_string(&producer_key).public.into_compressed();
+            BlockProducerConfig {
+                pub_key: NonZeroCurvePoint::from(NonZeroCurvePointUncompressedStableV1 {
+                    x: compressed_pub_key.x.into(),
+                    is_odd: compressed_pub_key.is_odd,
+                }),
+                custom_coinbase_receiver: None,
+                proposed_protocol_version: None,
+            }
+        });
+
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
         let rng_seed = rng.next_u64();
         let srs: Arc<_> = get_srs().into();
@@ -160,7 +172,6 @@ impl Node {
                     auto_commit: true,
                     path: self.snarker_exe_path,
                 }),
-                producer: self.producer_key,
             },
             p2p: P2pConfig {
                 libp2p_port: Some(self.libp2p_port),
@@ -173,7 +184,7 @@ impl Node {
             },
             transition_frontier: TransitionFrontierConfig::default(),
             // TODO(binier)
-            block_producer: None,
+            block_producer,
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
@@ -257,8 +268,9 @@ impl Node {
                         replayer: None,
                         invariants_state: Default::default(),
                     };
-                    // TODO(adonagy): if block producer is enabled, move secret key inclusion to cli arg
-                    service.block_producer_start(keypair_from_bs58_string("EKEEpMELfQkMbJDt2fB4cFXKwSf1x4t7YD4twREy5yuJ84HBZtF9"));
+                    if let Some(producer_key) = self.producer_key {
+                        service.block_producer_start(keypair_from_bs58_string(&producer_key));
+                    }
 
                     let state = State::new(config);
                     let mut node = ::node::Node::new(state, service, None);
