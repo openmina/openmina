@@ -662,6 +662,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 _ => {}
             },
             crate::BlockProducerAction::BestTipUpdate(_) => {},
+            _ => {}
         }
         _ => {}
     }
